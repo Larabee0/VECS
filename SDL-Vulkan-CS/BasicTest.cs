@@ -44,6 +44,11 @@ namespace SDL_Vulkan_CS
 
             Console.WriteLine(string.Format("{0} Extensions supported",extensionCount));
 
+            Matrix4x4 matrix = default;
+            Vector4 vec = default;
+
+            
+            var test = Vector4.Transform(vec, matrix);
 
             bool run = true;
 
