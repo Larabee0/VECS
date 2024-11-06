@@ -5,9 +5,19 @@ namespace SDL_Vulkan_CS
 {
     internal class Program
     {
-        static void Main(string[] args)
+        static int Main(string[] args)
         {
-            Console.WriteLine("Hello, world!");
+            try
+            {
+                Application app = new();
+                app.Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+                return 1;
+            }
+            return 0;
         }
     }
 }
