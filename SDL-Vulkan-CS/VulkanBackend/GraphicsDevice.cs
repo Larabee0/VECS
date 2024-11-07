@@ -20,15 +20,20 @@ namespace SDL_Vulkan_CS
 #endif
         private readonly static string[] _validationLayers = ["VK_LAYER_KHRONOS_validation"];
         private readonly static VkUtf8String[] deviceExtensions = [Vulkan.VK_KHR_SWAPCHAIN_EXTENSION_NAME];
-        private Window _window;
+        
+        
+        private readonly Window _window;
+        private readonly VkSurfaceKHR _surface;
+        private readonly VkDebugUtilsMessengerEXT _debugMessenger;
 
         private VkInstance _instance;
-        private VkDebugUtilsMessengerEXT _debugMessenger;
-        private VkSurfaceKHR _surface;
+        
         private VkPhysicalDevice _physicalDevice;
         private VkDevice _device;
+
         private VkQueue _graphicsQueue;
         private VkQueue _presentQueue;
+
         private VkCommandPool _commandPool;
 
 
@@ -341,7 +346,7 @@ namespace SDL_Vulkan_CS
             public int presentFamily;
             public bool graphicsFamilyHasValue;
             public bool presentFamilyHasValue;
-            public bool IsComplete => graphicsFamilyHasValue && presentFamilyHasValue;
+            public readonly bool IsComplete => graphicsFamilyHasValue && presentFamilyHasValue;
         }
 
         private SwapChainSupportDetails QuerySwapChainSupport(VkPhysicalDevice device)
@@ -414,7 +419,7 @@ namespace SDL_Vulkan_CS
 
             fixed (VkDeviceQueueCreateInfo* createInfos = &queueCreateInfos.ToArray()[0])
             {
-                using VkStringArray deviceExtensionNames = new VkStringArray(deviceExtensions);
+                using VkStringArray deviceExtensionNames = new(deviceExtensions);
                 VkDeviceCreateInfo createInfo = new()
                 {
                     queueCreateInfoCount = (uint)queueCreateInfos.Count,

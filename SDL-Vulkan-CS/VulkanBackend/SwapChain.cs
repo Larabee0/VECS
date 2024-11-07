@@ -11,9 +11,9 @@ namespace SDL_Vulkan_CS
     {
         public const int MAX_FRAMES_IN_FLIGHT = 3;
 
-        private GraphicsDevice _device;
+        private readonly GraphicsDevice _device;
         private VkExtent2D _windowExtent;
-        private SwapChain _oldSwapChain;
+        private readonly SwapChain _oldSwapChain;
 
         private VkSwapchainKHR _swapChain;
         private VkImage[] _swapChainImages;
@@ -36,7 +36,7 @@ namespace SDL_Vulkan_CS
         private VkSemaphore[] _renderFinishedSemaphores;
         private VkFence[] _inFlightFences;
         private VkFence[] _imagesInFlight;
-        private int _currentFrame = 0;
+        private readonly int _currentFrame = 0;
 
         public int ImageCount =>_swapChainImages.Length;
 
@@ -98,7 +98,7 @@ namespace SDL_Vulkan_CS
             var indices = _device.PhysicalQueueFamilies;
 
 
-            uint[] queueFamilyIndices = {(uint)indices.graphicsFamily, (uint)indices.presentFamily};
+            uint[] queueFamilyIndices = [(uint)indices.graphicsFamily, (uint)indices.presentFamily];
             
 
             if(indices.graphicsFamily != indices.presentFamily)
@@ -454,7 +454,33 @@ namespace SDL_Vulkan_CS
 
         public void Dispose()
         {
-            throw new NotImplementedException();
+            foreach (var item in _swapChainImageViews)
+            {
+                Vulkan.vkDestroyImageView(_device.Device, item);
+            }
+            _swapChainImageViews = null;
+
+            if(_swapChain != VkSwapchainKHR.Null)
+            {
+                Vulkan.vkDestroySwapchainKHR(_device.Device, _swapChain);
+                _swapChain = VkSwapchainKHR.Null;
+            }
+
+            for (int i = 0; i < _depthImages.Length; i++)
+            {
+                Vulkan.vkDestroyImageView(_device.Device, _depthImageViews[i]);
+                Vulkan.vkDestroyImage(_device.Device, _depthImages[i]);
+                Vulkan.vkFreeMemory(_device.Device, _depthImageMemorys[i]);
+            }
+
+            Vulkan.vkDestroyRenderPass(_device.Device, _renderPass);
+
+            for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+            {
+                Vulkan.vkDestroySemaphore(_device.Device, _renderFinishedSemaphores[i]);
+                Vulkan.vkDestroySemaphore(_device.Device, _imageAvailableSemaphores[i]);
+                Vulkan.vkDestroyFence(_device.Device, _inFlightFences[i]);
+            }
         }
     }
 }
