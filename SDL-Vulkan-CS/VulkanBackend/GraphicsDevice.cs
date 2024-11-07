@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -14,12 +15,12 @@ namespace SDL_Vulkan_CS
     {
 #if DEBUG
         private const bool ENABLE_VALIDATION_LAYERS = true;
-        private readonly static string[] _validationLayers = ["VK_LAYER_KHRONOS_validation"];
-        private readonly static VkUtf8String[] deviceExtensions = [Vulkan.VK_KHR_SWAPCHAIN_EXTENSION_NAME];
 #else
         const bool ENABLE_VALIDATION_LAYERS = false;
 #endif
-    private Window _window;
+        private readonly static string[] _validationLayers = ["VK_LAYER_KHRONOS_validation"];
+        private readonly static VkUtf8String[] deviceExtensions = [Vulkan.VK_KHR_SWAPCHAIN_EXTENSION_NAME];
+        private Window _window;
 
         private VkInstance _instance;
         private VkDebugUtilsMessengerEXT _debugMessenger;
@@ -30,7 +31,12 @@ namespace SDL_Vulkan_CS
         private VkQueue _presentQueue;
         private VkCommandPool _commandPool;
 
+
+        public VkDevice Device => _device;
         public VkPhysicalDeviceProperties Properties;
+        public VkSurfaceKHR Surface => _surface;
+        public SwapChainSupportDetails SwapChainSupport => QuerySwapChainSupport(_physicalDevice);
+        public QueueFamilyIndices PhysicalQueueFamilies => FindPhysicalQueueFamilies();
 
         public GraphicsDevice(Window window)
         {
@@ -42,6 +48,8 @@ namespace SDL_Vulkan_CS
             PickPhysicalDevice();
             CreateLogicalDevice();
             CreateCommandPool();
+
+            
         }
 
 
@@ -290,7 +298,7 @@ namespace SDL_Vulkan_CS
             if (extensionsSupported)
             {
                 SwapChainSupportDetails  swapChainSupport = QuerySwapChainSupport(device);
-                swapChainAdequate = swapChainSupport.formats.Length > 0 && swapChainSupport.presentMode.Length > 0;
+                swapChainAdequate = swapChainSupport.formats.Length > 0 && swapChainSupport.presentModes.Length > 0;
             }
 
             Vulkan.vkGetPhysicalDeviceFeatures(device, out VkPhysicalDeviceFeatures supportedFeatures);
@@ -327,7 +335,7 @@ namespace SDL_Vulkan_CS
             return indices;
         }
 
-        private struct QueueFamilyIndices
+        public struct QueueFamilyIndices
         {
             public int graphicsFamily;
             public int presentFamily;
@@ -346,18 +354,18 @@ namespace SDL_Vulkan_CS
             formats.CopyTo(details.formats);
 
             var presentModes = Vulkan.vkGetPhysicalDeviceSurfacePresentModesKHR(device, _surface);
-            details.presentMode = new VkPresentModeKHR[presentModes.Length];
-            presentModes.CopyTo(details.presentMode);
+            details.presentModes = new VkPresentModeKHR[presentModes.Length];
+            presentModes.CopyTo(details.presentModes);
 
 
             return details;
         }
 
-        private struct SwapChainSupportDetails
+        public struct SwapChainSupportDetails
         {
             public VkSurfaceCapabilitiesKHR capabilities;
             public VkSurfaceFormatKHR[] formats;
-            public VkPresentModeKHR[] presentMode;
+            public VkPresentModeKHR[] presentModes;
         }
 
         private static bool CheckDeviceExtensionSupport(VkPhysicalDevice device)
@@ -483,6 +491,70 @@ namespace SDL_Vulkan_CS
             {
                 func(instance,debugMessenger, pAllocator);
             }
+        }
+
+        public VkFormat FindSupportFormat(
+            VkFormat[] candidates, VkImageTiling tiling, VkFormatFeatureFlags features)
+        {
+            for (int i = 0; i < candidates.Length; i++)
+            {
+                VkFormat format = candidates[i];
+                Vulkan.vkGetPhysicalDeviceFormatProperties(_physicalDevice, format, out VkFormatProperties props);
+                if(tiling == VkImageTiling.Linear && (props.linearTilingFeatures & features) == features)
+                {
+                    return format;
+                }
+                else if(tiling == VkImageTiling.Optimal && (props.optimalTilingFeatures & features) == features)
+                {
+                    return format;
+                }
+            }
+
+            throw new Exception("Failed to find support image format");
+        }
+
+        public void CreateImageWithInfo(VkImageCreateInfo imageInfo, VkMemoryPropertyFlags properties, out VkImage image, out VkDeviceMemory imageMemory)
+        {
+            if(Vulkan.vkCreateImage(_device,imageInfo,null,out image) != VkResult.Success)
+            {
+                throw new Exception("Failed to create image with info");
+            }
+
+
+            Vulkan.vkGetImageMemoryRequirements(_device, image, out VkMemoryRequirements memoryRequirements);
+
+            VkMemoryAllocateInfo allocInfo = new()
+            {
+                allocationSize = memoryRequirements.size,
+                memoryTypeIndex = FindMemoryType(memoryRequirements.memoryTypeBits, properties),
+            };
+
+            if (Vulkan.vkAllocateMemory(_device, &allocInfo,null,out imageMemory) != VkResult.Success)
+            {
+                throw new Exception("failed to allocate image memory!");
+            }
+
+            if(Vulkan.vkBindImageMemory(_device,image,imageMemory,0) != VkResult.Success)
+            {
+                throw new Exception("failed to bind image memory!");
+            }
+        }
+
+        private uint FindMemoryType(uint typeFilter, VkMemoryPropertyFlags properties)
+        {
+            Vulkan.vkGetPhysicalDeviceMemoryProperties(_physicalDevice, out VkPhysicalDeviceMemoryProperties memoryProperties);
+            var memoryTypes = MemoryMarshal.CreateReadOnlySpan(in memoryProperties.memoryTypes.e0, (int)memoryProperties.memoryTypeCount);
+
+            for (uint i = 0; i < memoryProperties.memoryTypeCount; i++)
+            {
+                if ((typeFilter & (1u << (int)i)) == 1
+                    && ((memoryTypes[(int)i].propertyFlags & properties) == properties))
+                {
+                    return i;
+                }
+            }
+
+            throw new Exception("Failed to find suitable memory type!");
         }
     }
 }
