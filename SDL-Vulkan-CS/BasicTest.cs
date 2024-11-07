@@ -17,6 +17,21 @@ namespace SDL_Vulkan_CS
     /// https://vulkan-tutorial.com/Development_environment
     /// 
     /// </summary>
+    /// 
+
+    public class TestDisposal : IDisposable
+    {
+        public ulong frames = 0;
+        public void Dispose()
+        {
+            Console.WriteLine("Auto dispose");
+        }
+
+        ~TestDisposal() { Dispose(); }
+
+    }
+
+
     internal unsafe class BasicTest
     {
         internal unsafe static void Main(string[] args)
@@ -51,9 +66,10 @@ namespace SDL_Vulkan_CS
             Vector4 test = Vector4.Transform(vec, matrix);
 
             bool run = true;
-
             while (run)
             {
+                TestDisposal testDisposal = new TestDisposal();
+                testDisposal.frames++;
                 while (SDL.SDL_PollEvent(out SDL_Event @event))
                 {
                     if (@event.type == SDL_EventType.Quit)
@@ -63,7 +79,6 @@ namespace SDL_Vulkan_CS
                     }
                 }
             }
-
             SDL.SDL_DestroyWindow(window);
 
         }

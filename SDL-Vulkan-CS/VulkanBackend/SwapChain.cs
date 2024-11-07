@@ -7,23 +7,25 @@ using Vortice.Vulkan;
 
 namespace SDL_Vulkan_CS
 {
-    public unsafe sealed class SwapChain : IDisposable
+    public sealed class SwapChain : IDisposable
     {
         public const int MAX_FRAMES_IN_FLIGHT = 3;
 
         private readonly GraphicsDevice _device;
-        private VkExtent2D _windowExtent;
         private readonly SwapChain _oldSwapChain;
 
-        private VkSwapchainKHR _swapChain;
-        private VkImage[] _swapChainImages;
+        private int _currentFrame = 0;
 
-        private VkFormat _swapChainImageFormat;
-        private VkExtent2D _swapChainExtent;
-
-        private VkImageView[] _swapChainImageViews;
+        private VkExtent2D _windowExtent;
 
         private VkRenderPass _renderPass;
+
+        private VkExtent2D _swapChainExtent;
+        private VkSwapchainKHR _swapChain;
+        private VkFormat _swapChainImageFormat;
+        private VkImage[] _swapChainImages;
+        private VkImageView[] _swapChainImageViews;
+
 
         private VkFormat _swapChainDepthFormat;
         private VkImage[] _depthImages;
@@ -36,9 +38,10 @@ namespace SDL_Vulkan_CS
         private VkSemaphore[] _renderFinishedSemaphores;
         private VkFence[] _inFlightFences;
         private VkFence[] _imagesInFlight;
-        private readonly int _currentFrame = 0;
 
         public int ImageCount =>_swapChainImages.Length;
+        public VkRenderPass RenderPass =>_renderPass;
+        public VkExtent2D SwapChainExtent =>_swapChainExtent;
 
         public SwapChain(GraphicsDevice device, VkExtent2D extent)
         {
@@ -69,7 +72,7 @@ namespace SDL_Vulkan_CS
 
         #region Create Swap Chain
 
-        private void CreateSwapChain()
+        private unsafe void CreateSwapChain()
         {
             var swapChainSupport = _device.SwapChainSupport;
 
@@ -139,49 +142,6 @@ namespace SDL_Vulkan_CS
 
         }
 
-        private static VkSurfaceFormatKHR ChooseSwapSurfaceFormat(VkSurfaceFormatKHR[] formats)
-        {
-            for (int i = 0; i < formats.Length; i++)
-            {
-                var availableFormat = formats[i];
-                if(availableFormat.format == VkFormat.B8G8R8A8Srgb && availableFormat.colorSpace == VkColorSpaceKHR.SrgbNonLinear)
-                {
-                    return availableFormat;
-                }
-            }
-
-            return formats[0];
-        }
-
-        private static VkPresentModeKHR ChooseSwapPresentMode(VkPresentModeKHR[] presentModes)
-        {
-
-
-            // for (int i = 0; i < presentModes.Length; i++)
-            // {
-            //     var availablePresentMode = presentModes[i];
-            //     if (availablePresentMode == VkPresentModeKHR.Mailbox)
-            //     {
-            //         Console.WriteLine("Present mode: Mailbox");
-            //         return availablePresentMode;
-            //     }
-            // }
-
-            for (int i = 0; i < presentModes.Length; i++)
-            {
-                var availablePresentMode = presentModes[i];
-                if(availablePresentMode == VkPresentModeKHR.Immediate)
-                {
-                    Console.WriteLine("Present mode: Immediate");
-                    return availablePresentMode;
-                }
-            }
-
-            Console.WriteLine("Present mode: V-Sync");
-
-            return VkPresentModeKHR.Fifo;
-        }
-
         private VkExtent2D ChooseSwapExtent(VkSurfaceCapabilitiesKHR capabilities)
         {
             if(capabilities.currentExtent.width != uint.MaxValue)
@@ -193,11 +153,11 @@ namespace SDL_Vulkan_CS
                 VkExtent2D actualExtent = _windowExtent;
                 actualExtent.width = Math.Max(
                     capabilities.minImageExtent.width,
-                    Math.Min(capabilities.minImageExtent.width,
+                    Math.Min(capabilities.maxImageExtent.width,
                     actualExtent.width));
                 actualExtent.height = Math.Max(
                     capabilities.minImageExtent.height,
-                    Math.Min(capabilities.minImageExtent.height, actualExtent.height));
+                    Math.Min(capabilities.maxImageExtent.height, actualExtent.height));
                 
                 return actualExtent;
             }
@@ -206,7 +166,7 @@ namespace SDL_Vulkan_CS
         #endregion
 
         #region Create Image Views
-        private void CreateImageViews()
+        private unsafe void CreateImageViews()
         {
             _swapChainImageViews = new VkImageView[_swapChainImages.Length];
 
@@ -239,7 +199,7 @@ namespace SDL_Vulkan_CS
         #endregion
 
         #region Create Render Pass
-        private void CreateRenderPass()
+        private unsafe void CreateRenderPass()
         {
             VkAttachmentDescription depthAttachment = new()
             {
@@ -250,13 +210,13 @@ namespace SDL_Vulkan_CS
                 stencilLoadOp = VkAttachmentLoadOp.DontCare,
                 stencilStoreOp = VkAttachmentStoreOp.DontCare,
                 initialLayout = VkImageLayout.Undefined,
-                finalLayout = VkImageLayout.DepthAttachmentOptimal
+                finalLayout = VkImageLayout.DepthStencilAttachmentOptimal
             };
 
             VkAttachmentReference depthAttachmentRef = new()
             {
                 attachment = 1,
-                layout = VkImageLayout.DepthAttachmentOptimal
+                layout = VkImageLayout.DepthStencilAttachmentOptimal
             };
 
             VkAttachmentDescription colourAttachment = new()
@@ -282,7 +242,7 @@ namespace SDL_Vulkan_CS
                 pipelineBindPoint = VkPipelineBindPoint.Graphics,
                 colorAttachmentCount = 1,
                 pColorAttachments = &colourAttachmentRef,
-                pDepthStencilAttachment = &colourAttachmentRef
+                pDepthStencilAttachment = &depthAttachmentRef
             };
 
             VkSubpassDependency dependency = new()
@@ -327,7 +287,7 @@ namespace SDL_Vulkan_CS
 
         #region Create Depth Resources
 
-        private void CreateDepthResources()
+        private unsafe void CreateDepthResources()
         {
             VkFormat depthFormat = FindDepthFormat();
             _swapChainDepthFormat = depthFormat;
@@ -391,7 +351,7 @@ namespace SDL_Vulkan_CS
         #endregion
         
         #region Create Frame Buffers
-        private void CreateFramebuffers()
+        private unsafe void CreateFramebuffers()
         {
             _swapChainFrameBuffer = new VkFramebuffer[ImageCount];
             
@@ -423,7 +383,7 @@ namespace SDL_Vulkan_CS
         #endregion
 
         #region Create Sync Objects
-        private void CreateSyncObjects()
+        private unsafe void CreateSyncObjects()
         {
             _imageAvailableSemaphores = new VkSemaphore[ImageCount];
             _renderFinishedSemaphores = new VkSemaphore[ImageCount];
@@ -452,7 +412,107 @@ namespace SDL_Vulkan_CS
         }
         #endregion
 
-        public void Dispose()
+        #region For External Use
+        public bool CompareSwapFormats(SwapChain swapChain)
+        {
+            return swapChain._swapChainDepthFormat == _swapChainDepthFormat
+                && swapChain._swapChainImageFormat == _swapChainImageFormat;
+        }
+
+        public VkFramebuffer GetFrameBuffer(uint currentImageIndex)
+        {
+            return _swapChainFrameBuffer[currentImageIndex];
+        }
+
+        public unsafe VkResult AcquireNextImage(out uint imageIndex)
+        {
+            VkFence fence = _inFlightFences[_currentFrame];
+            Vulkan.vkWaitForFences(_device.Device, 1, &fence, true, ulong.MaxValue);
+            return Vulkan.vkAcquireNextImageKHR(
+                _device.Device,
+                _swapChain,
+                ulong.MaxValue,
+                _imageAvailableSemaphores[_currentFrame],
+                VkFence.Null,
+                out imageIndex);
+        }
+
+        public unsafe VkResult SubmitCommandBuffers(VkCommandBuffer* commandBuffer, uint* imageIndex)
+        {
+            if (_imagesInFlight[*imageIndex] != VkFence.Null)
+            {
+                VkFence fence = _imagesInFlight[*imageIndex];
+                Vulkan.vkWaitForFences(_device.Device, fence, true, ulong.MaxValue);
+            }
+
+            _imagesInFlight[*imageIndex] = _inFlightFences[_currentFrame];
+
+            VkSemaphore[] waitSemaphores = [_imageAvailableSemaphores[_currentFrame]];
+            VkSemaphore* pWaitSemaphores = stackalloc VkSemaphore[waitSemaphores.Length];
+            fixed (VkSemaphore* waitTemp = &waitSemaphores[0])
+            {
+                Buffer.MemoryCopy(waitTemp, pWaitSemaphores, sizeof(VkSemaphore) * waitSemaphores.Length, sizeof(VkSemaphore) * waitSemaphores.Length);
+            }
+
+            VkPipelineStageFlags[] waitStages = [VkPipelineStageFlags.ColorAttachmentOutput];
+            VkPipelineStageFlags* pWaitStages = stackalloc VkPipelineStageFlags[waitStages.Length];
+            fixed (VkPipelineStageFlags* stageTemp = &waitStages[0])
+            {
+                Buffer.MemoryCopy(stageTemp, pWaitStages, sizeof(VkPipelineStageFlags) * waitStages.Length, sizeof(VkPipelineStageFlags) * waitStages.Length);
+            }
+
+            VkSemaphore[] signalSemaphores = [_renderFinishedSemaphores[_currentFrame]];
+            VkSemaphore* pSignalSemaphores = stackalloc VkSemaphore[signalSemaphores.Length];
+            fixed (VkSemaphore* signalTemp = &signalSemaphores[0])
+            {
+                Buffer.MemoryCopy(signalTemp, pSignalSemaphores, sizeof(VkSemaphore) * signalSemaphores.Length, sizeof(VkSemaphore) * signalSemaphores.Length);
+            }
+
+            VkSubmitInfo submitInfo = new()
+            {
+                waitSemaphoreCount = 1,
+                pWaitSemaphores = pWaitSemaphores,
+                pWaitDstStageMask = pWaitStages,
+
+                commandBufferCount = 1,
+                pCommandBuffers = commandBuffer,
+
+                signalSemaphoreCount = 1,
+                pSignalSemaphores = pSignalSemaphores
+            };
+
+            Vulkan.vkResetFences(_device.Device, _inFlightFences[_currentFrame]);
+
+            if (Vulkan.vkQueueSubmit(_device.GraphicsQueue, submitInfo, _inFlightFences[_currentFrame]) != VkResult.Success)
+            {
+                throw new Exception("Failed to submit draw command buffer!");
+            }
+
+            VkSwapchainKHR[] swapChains = [_swapChain];
+            VkSwapchainKHR* pSwapChains = stackalloc VkSwapchainKHR[signalSemaphores.Length];
+            fixed (VkSwapchainKHR* swapTemp = &swapChains[0])
+            {
+                Buffer.MemoryCopy(swapTemp, pSwapChains, sizeof(VkSwapchainKHR) * swapChains.Length, sizeof(VkSwapchainKHR) * swapChains.Length);
+            }
+
+            VkPresentInfoKHR presentInfo = new()
+            {
+                waitSemaphoreCount = 1,
+                pWaitSemaphores = pSignalSemaphores,
+                swapchainCount = 1,
+                pSwapchains = pSwapChains,
+                pImageIndices = imageIndex
+            };
+
+            VkResult result = Vulkan.vkQueuePresentKHR(_device.PresentQueue, &presentInfo);
+
+            _currentFrame = (_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+
+            return result;
+        }
+        #endregion
+
+        public unsafe void Dispose()
         {
             foreach (var item in _swapChainImageViews)
             {
@@ -460,7 +520,7 @@ namespace SDL_Vulkan_CS
             }
             _swapChainImageViews = null;
 
-            if(_swapChain != VkSwapchainKHR.Null)
+            if (_swapChain != VkSwapchainKHR.Null)
             {
                 Vulkan.vkDestroySwapchainKHR(_device.Device, _swapChain);
                 _swapChain = VkSwapchainKHR.Null;
@@ -473,6 +533,11 @@ namespace SDL_Vulkan_CS
                 Vulkan.vkFreeMemory(_device.Device, _depthImageMemorys[i]);
             }
 
+            for (int i = 0; i < _swapChainFrameBuffer.Length; i++)
+            {
+                Vulkan.vkDestroyFramebuffer(_device.Device, _swapChainFrameBuffer[i]);
+            }
+
             Vulkan.vkDestroyRenderPass(_device.Device, _renderPass);
 
             for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
@@ -482,5 +547,50 @@ namespace SDL_Vulkan_CS
                 Vulkan.vkDestroyFence(_device.Device, _inFlightFences[i]);
             }
         }
+
+        #region Choose Swapchain format & Present mode statics
+        private static VkSurfaceFormatKHR ChooseSwapSurfaceFormat(VkSurfaceFormatKHR[] formats)
+        {
+            for (int i = 0; i < formats.Length; i++)
+            {
+                var availableFormat = formats[i];
+                if (availableFormat.format == VkFormat.B8G8R8A8Srgb && availableFormat.colorSpace == VkColorSpaceKHR.SrgbNonLinear)
+                {
+                    return availableFormat;
+                }
+            }
+
+            return formats[0];
+        }
+
+        private static VkPresentModeKHR ChooseSwapPresentMode(VkPresentModeKHR[] presentModes)
+        {
+
+
+            // for (int i = 0; i < presentModes.Length; i++)
+            // {
+            //     var availablePresentMode = presentModes[i];
+            //     if (availablePresentMode == VkPresentModeKHR.Mailbox)
+            //     {
+            //         Console.WriteLine("Present mode: Mailbox");
+            //         return availablePresentMode;
+            //     }
+            // }
+
+            for (int i = 0; i < presentModes.Length; i++)
+            {
+                var availablePresentMode = presentModes[i];
+                if (availablePresentMode == VkPresentModeKHR.Immediate)
+                {
+                    Console.WriteLine("Present mode: Immediate");
+                    return availablePresentMode;
+                }
+            }
+
+            Console.WriteLine("Present mode: V-Sync");
+
+            return VkPresentModeKHR.Fifo;
+        }
+        #endregion
     }
 }

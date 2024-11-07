@@ -1,17 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using System.Text;
-using System.Threading.Tasks;
 using Vortice.Vulkan;
 
 namespace SDL_Vulkan_CS
 {
-
-    public unsafe sealed class GraphicsDevice : IDisposable
+    public sealed class GraphicsDevice : IDisposable
     {
 #if DEBUG
         private const bool ENABLE_VALIDATION_LAYERS = true;
@@ -21,29 +14,35 @@ namespace SDL_Vulkan_CS
         private readonly static string[] _validationLayers = ["VK_LAYER_KHRONOS_validation"];
         private readonly static VkUtf8String[] deviceExtensions = [Vulkan.VK_KHR_SWAPCHAIN_EXTENSION_NAME];
         
+        private readonly IWindow _window;
         
-        private readonly Window _window;
-        private readonly VkSurfaceKHR _surface;
         private readonly VkDebugUtilsMessengerEXT _debugMessenger;
 
         private VkInstance _instance;
-        
+
+        public VkPhysicalDeviceProperties Properties;
         private VkPhysicalDevice _physicalDevice;
+
         private VkDevice _device;
+        private VkSurfaceKHR _surface;
+
+        private VkCommandPool _commandPool;
 
         private VkQueue _graphicsQueue;
         private VkQueue _presentQueue;
 
-        private VkCommandPool _commandPool;
-
-
         public VkDevice Device => _device;
-        public VkPhysicalDeviceProperties Properties;
         public VkSurfaceKHR Surface => _surface;
+
+        public VkCommandPool CommandBufferPool => _commandPool;
+
+        public VkQueue GraphicsQueue => _graphicsQueue;
+        public VkQueue PresentQueue => _presentQueue;
+
         public SwapChainSupportDetails SwapChainSupport => QuerySwapChainSupport(_physicalDevice);
         public QueueFamilyIndices PhysicalQueueFamilies => FindPhysicalQueueFamilies();
 
-        public GraphicsDevice(Window window)
+        public GraphicsDevice(IWindow window)
         {
             _window = window;
 
@@ -52,11 +51,8 @@ namespace SDL_Vulkan_CS
             CreateSurface();
             PickPhysicalDevice();
             CreateLogicalDevice();
-            CreateCommandPool();
-
-            
+            CreateCommandPool();   
         }
-
 
         #region Create Instance
 
@@ -68,7 +64,7 @@ namespace SDL_Vulkan_CS
         /// 
         /// </summary>
         /// <exception cref="Exception">Exceptions are thrown when validation layers are requesed but not avalible or when the vulkan instance fails to be created.</exception>
-        private void CreateInstance()
+        private unsafe void CreateInstance()
         {
             if (ENABLE_VALIDATION_LAYERS && !CheckValidationLayerSupport())
             {
@@ -78,6 +74,7 @@ namespace SDL_Vulkan_CS
             VkApplicationInfo appInfo = GenerateAppInfo();
 
             using VkStringArray vkInstanceExtensions = new(GetRequiredExtensions());
+            using VkStringArray validationlayers = new(_validationLayers);
 
             VkInstanceCreateInfo createInfo = new()
             {
@@ -89,7 +86,6 @@ namespace SDL_Vulkan_CS
 
             if (ENABLE_VALIDATION_LAYERS)
             {
-                using VkStringArray validationlayers = new(_validationLayers);
                 createInfo.enabledLayerCount = (uint)_validationLayers.Length;
                 createInfo.ppEnabledLayerNames = validationlayers;
                 VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo = PopulateDebugMessengerCreateInfo();
@@ -102,12 +98,14 @@ namespace SDL_Vulkan_CS
             }
 
 
-            if (Vulkan.vkCreateInstance(in createInfo, null, out VkInstance instance) != VkResult.Success)
+            if (Vulkan.vkCreateInstance(&createInfo, null, out _instance) != VkResult.Success)
             {
                 throw new Exception("Failed to create vulkan instance!");
             }
 
-            _instance = instance;
+            Vulkan.vkLoadInstanceOnly(_instance);
+
+            HasRquiredInstanceExtensions();
         }
 
         /// <summary>
@@ -129,96 +127,46 @@ namespace SDL_Vulkan_CS
             return appInfo;
         }
 
-        /// <summary>
-        /// Gets the required extensions needed by SDL3, move to window file?
-        /// 
-        /// Also appends the debug utils extension if validation layers are enabled.
-        /// </summary>
-        /// <returns>List of Device extensions to configure the vulkan instance with</returns>
-        private static List<VkUtf8String> GetRequiredExtensions()
+        private unsafe void HasRquiredInstanceExtensions()
         {
-            string[] sdlRequiredExtensions = SDL3.SDL3.SDL_Vulkan_GetInstanceExtensions();
+            Vulkan.vkEnumerateInstanceExtensionProperties(out uint propertyCount);
 
-            List<VkUtf8String> requiredExtensions = new(sdlRequiredExtensions.Length);
+            VkExtensionProperties* extensions = stackalloc VkExtensionProperties[(int)propertyCount];
 
-            for (int i = 0; i < sdlRequiredExtensions.Length; i++)
+
+            Vulkan.vkEnumerateInstanceExtensionProperties(&propertyCount, extensions);
+
+            Console.WriteLine("Available extensions:");
+            HashSet<string> available = new();
+            for (int i = 0; i < propertyCount; i++)
             {
-                requiredExtensions.Add(new ReadOnlySpan<byte>(Encoding.UTF8.GetBytes(sdlRequiredExtensions[i])));
+                string extension = Encoding.UTF8.GetString(extensions[i].extensionName, 256);
+                int terminator = extension.IndexOf('\0');
+                extension = extension[..terminator];
+                available.Add(extension);
+                Console.WriteLine("\t"+extension);
             }
+            Console.WriteLine("Required extensions:");
+            var required = GetRequiredExtensions();
 
-            if (ENABLE_VALIDATION_LAYERS)
+            for (int i = 0; i < required.Count; i++)
             {
-                requiredExtensions.Add(Vulkan.VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-            }
-
-            return requiredExtensions;
-        }
-
-        /// <summary>
-        /// Checks if our hardware can support validation layers requrested in <see cref="_validationLayers"/>
-        /// </summary>
-        /// <returns></returns>
-        private static bool CheckValidationLayerSupport()
-        {
-            ReadOnlySpan<VkLayerProperties> availableLayers = Vulkan.vkEnumerateInstanceLayerProperties();
-
-            for (int i = 0; i < _validationLayers.Length; i++)
-            {
-                bool supportsLayer = false;
-                for (int j = 0; j < availableLayers.Length; j++)
+                string extension = Encoding.UTF8.GetString(required[i].Buffer, 256);
+                int terminator = extension.IndexOf('\0');
+                extension = extension[..terminator];
+                Console.WriteLine("\t" + extension);
+                if (!available.Contains(extension))
                 {
-                    if (_validationLayers[i] == _validationLayers[j])
-                    {
-                        supportsLayer = true;
-                        break;
-                    }
-                }
-
-                if (!supportsLayer)
-                {
-                    return false;
+                    throw new Exception("Missing required extension");
                 }
             }
 
-            return true;
-        }
-
-        /// <summary>
-        /// Configures the debug messenger callback for validation layer errors.
-        /// </summary>
-        /// <returns></returns>
-        private static VkDebugUtilsMessengerCreateInfoEXT PopulateDebugMessengerCreateInfo() => new()
-        {
-            messageSeverity = VkDebugUtilsMessageSeverityFlagsEXT.Warning | VkDebugUtilsMessageSeverityFlagsEXT.Error,
-            messageType = VkDebugUtilsMessageTypeFlagsEXT.General | VkDebugUtilsMessageTypeFlagsEXT.Validation | VkDebugUtilsMessageTypeFlagsEXT.Performance,
-            pfnUserCallback = &ValidationDebugCallback,
-            pUserData = null,
-        };
-
-        // VkDebugUtilsMessageSeverityFlagsEXT, VkDebugUtilsMessageTypeFlagsEXT, VkDebugUtilsMessengerCallbackDataEXT*, void*, uint
-
-        /// <summary>
-        /// Validation layer callback for logging validation servirty and message to the console.
-        /// </summary>
-        /// <param name="messageSeverity"></param>
-        /// <param name="messageType"></param>
-        /// <param name="pCallbackData"></param>
-        /// <param name="pUserData"></param>
-        /// <returns></returns>
-        [UnmanagedCallersOnly]
-        private unsafe static uint ValidationDebugCallback(VkDebugUtilsMessageSeverityFlagsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,void* pUserData)
-        {
-            var message = new VkUtf8String(pCallbackData->pMessage);
-
-            Console.WriteLine(string.Format("[{0}] Vulkan: Validation Layer: {1}", messageSeverity, Encoding.UTF8.GetString(message.Span)));
-
-            return 0;
         }
 
         #endregion
 
         #region DebugMessenger
-        private void SetUpDebugMessenger()
+        private unsafe void SetUpDebugMessenger()
         {
             if (!ENABLE_VALIDATION_LAYERS) return;
             VkDebugUtilsMessengerCreateInfoEXT createInfoEXT = PopulateDebugMessengerCreateInfo();
@@ -231,32 +179,16 @@ namespace SDL_Vulkan_CS
             
         }
 
-        private static VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger)
-        {
-            var func = (delegate* unmanaged<VkInstance, VkDebugUtilsMessengerCreateInfoEXT*, VkAllocationCallbacks*, VkDebugUtilsMessengerEXT*, VkResult>)Vulkan.vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
-
-            if (func != null)
-            {
-                
-                return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
-            }
-            else
-            {
-                return VkResult.ErrorExtensionNotPresent;
-            }
-        }
-
         #endregion
-
 
         private void CreateSurface()
         {
-            _window.CreateWindowSurface(_instance);
+            _surface = _window.CreateWindowSurface(_instance);
         }
 
         #region Pick Physical Device
 
-        private void PickPhysicalDevice()
+        private unsafe void PickPhysicalDevice()
         {
 
             var devices = Vulkan.vkEnumeratePhysicalDevices(_instance);
@@ -289,8 +221,6 @@ namespace SDL_Vulkan_CS
                 var str = new VkUtf8String(devName);
                 Console.WriteLine(string.Format("Physical device: {0}", str));
             }
-            
-
         }
 
         private bool IsDeviceSuitable(VkPhysicalDevice device)
@@ -340,15 +270,6 @@ namespace SDL_Vulkan_CS
             return indices;
         }
 
-        public struct QueueFamilyIndices
-        {
-            public int graphicsFamily;
-            public int presentFamily;
-            public bool graphicsFamilyHasValue;
-            public bool presentFamilyHasValue;
-            public readonly bool IsComplete => graphicsFamilyHasValue && presentFamilyHasValue;
-        }
-
         private SwapChainSupportDetails QuerySwapChainSupport(VkPhysicalDevice device)
         {
             SwapChainSupportDetails details = default;
@@ -366,33 +287,10 @@ namespace SDL_Vulkan_CS
             return details;
         }
 
-        public struct SwapChainSupportDetails
-        {
-            public VkSurfaceCapabilitiesKHR capabilities;
-            public VkSurfaceFormatKHR[] formats;
-            public VkPresentModeKHR[] presentModes;
-        }
-
-        private static bool CheckDeviceExtensionSupport(VkPhysicalDevice device)
-        {
-            var availableExtensions = Vulkan.vkEnumerateDeviceExtensionProperties(device);
-
-            HashSet<VkUtf8String> avaliableHashSet = new(availableExtensions.Length);
-
-            for (int i = 0; i < availableExtensions.Length; i++)
-            {
-                var ext = availableExtensions[i];
-                avaliableHashSet.Add(new VkUtf8String(ext.extensionName));
-            }
-
-
-            return avaliableHashSet.IsSupersetOf(deviceExtensions);
-        }
-
         #endregion
 
         #region Create Logical Device
-        private void CreateLogicalDevice()
+        private unsafe void CreateLogicalDevice()
         {
             QueueFamilyIndices indices = FindQueueFamilies(_physicalDevice);
 
@@ -430,7 +328,7 @@ namespace SDL_Vulkan_CS
                 };
 
                 if (ENABLE_VALIDATION_LAYERS)
-                {   
+                {
                     using VkStringArray enabledValidationlayers = new(_validationLayers);
                     createInfo.enabledLayerCount = (uint)_validationLayers.Length;
                     createInfo.ppEnabledLayerNames = enabledValidationlayers;
@@ -446,6 +344,8 @@ namespace SDL_Vulkan_CS
                 }
             }
 
+            Vulkan.vkLoadDevice(_device);
+
             Vulkan.vkGetDeviceQueue(_device, (uint)indices.graphicsFamily, 0, out _graphicsQueue);
             Vulkan.vkGetDeviceQueue(_device, (uint)indices.presentFamily,0, out _presentQueue);
         }
@@ -453,7 +353,7 @@ namespace SDL_Vulkan_CS
         #endregion
 
         #region Create Command Pool
-        private void CreateCommandPool()
+        private unsafe void CreateCommandPool()
         {
             QueueFamilyIndices queueFamilyIndices = FindPhysicalQueueFamilies();
 
@@ -470,36 +370,11 @@ namespace SDL_Vulkan_CS
         }
 
         private QueueFamilyIndices FindPhysicalQueueFamilies() => FindQueueFamilies(_physicalDevice);
-        
+
         #endregion
 
-        public void Dispose()
-        {
-            Vulkan.vkDestroyCommandPool(_device, _commandPool);
-            Vulkan.vkDestroyDevice(_device);
-
-            if (ENABLE_VALIDATION_LAYERS)
-            {
-                DestroyDebugUtilsMessengerEXT(_instance, _debugMessenger, null);
-            }
-
-            Vulkan.vkDestroySurfaceKHR(_instance, _surface);
-            Vulkan.vkDestroyInstance(_instance);
-        }
-
-        // VkInstance instance, VkDebugUtilsMessengerEXT messenger, const VkAllocationCallbacks* pAllocator
-        // (delegate* unmanaged<VkInstance, VkDebugUtilsMessengerEXT, VkAllocationCallbacks*, void>)
-        private static void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, VkAllocationCallbacks* pAllocator)
-        {
-            var func = (delegate* unmanaged<VkInstance, VkDebugUtilsMessengerEXT, VkAllocationCallbacks*, void>)Vulkan.vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
-            if (func != null)
-            {
-                func(instance,debugMessenger, pAllocator);
-            }
-        }
-
-        public VkFormat FindSupportFormat(
-            VkFormat[] candidates, VkImageTiling tiling, VkFormatFeatureFlags features)
+        #region For Extneral use
+        public VkFormat FindSupportFormat(VkFormat[] candidates, VkImageTiling tiling, VkFormatFeatureFlags features)
         {
             for (int i = 0; i < candidates.Length; i++)
             {
@@ -518,7 +393,7 @@ namespace SDL_Vulkan_CS
             throw new Exception("Failed to find support image format");
         }
 
-        public void CreateImageWithInfo(VkImageCreateInfo imageInfo, VkMemoryPropertyFlags properties, out VkImage image, out VkDeviceMemory imageMemory)
+        public unsafe void CreateImageWithInfo(VkImageCreateInfo imageInfo, VkMemoryPropertyFlags properties, out VkImage image, out VkDeviceMemory imageMemory)
         {
             if(Vulkan.vkCreateImage(_device,imageInfo,null,out image) != VkResult.Success)
             {
@@ -548,18 +423,190 @@ namespace SDL_Vulkan_CS
         private uint FindMemoryType(uint typeFilter, VkMemoryPropertyFlags properties)
         {
             Vulkan.vkGetPhysicalDeviceMemoryProperties(_physicalDevice, out VkPhysicalDeviceMemoryProperties memoryProperties);
-            var memoryTypes = MemoryMarshal.CreateReadOnlySpan(in memoryProperties.memoryTypes.e0, (int)memoryProperties.memoryTypeCount);
 
-            for (uint i = 0; i < memoryProperties.memoryTypeCount; i++)
+            for (int i = 0; i < memoryProperties.memoryTypeCount; i++)
             {
-                if ((typeFilter & (1u << (int)i)) == 1
-                    && ((memoryTypes[(int)i].propertyFlags & properties) == properties))
+                if ((typeFilter & 1) == 1)
                 {
-                    return i;
+                    if ((memoryProperties.memoryTypes[i].propertyFlags & properties) == properties)
+                    {
+                        return (uint)i;
+                    }
                 }
+                typeFilter >>= 1;
             }
 
             throw new Exception("Failed to find suitable memory type!");
+        }
+        #endregion
+
+        public unsafe void Dispose()
+        {
+            Vulkan.vkDestroyCommandPool(_device, _commandPool);
+            Vulkan.vkDestroyDevice(_device);
+
+            if (ENABLE_VALIDATION_LAYERS)
+            {
+                DestroyDebugUtilsMessengerEXT(_instance, _debugMessenger, null);
+            }
+
+            Vulkan.vkDestroySurfaceKHR(_instance, _surface);
+            Vulkan.vkDestroyInstance(_instance);
+        }
+
+        #region Validation and Debugging statics
+        /// <summary>
+        /// Checks if our hardware can support validation layers requrested in <see cref="_validationLayers"/>
+        /// </summary>
+        /// <returns></returns>
+        private static bool CheckValidationLayerSupport()
+        {
+            ReadOnlySpan<VkLayerProperties> availableLayers = Vulkan.vkEnumerateInstanceLayerProperties();
+
+            for (int i = 0; i < _validationLayers.Length; i++)
+            {
+                bool supportsLayer = false;
+                for (int j = 0; j < availableLayers.Length; j++)
+                {
+                    if (_validationLayers[i] == _validationLayers[j])
+                    {
+                        supportsLayer = true;
+                        break;
+                    }
+                }
+
+                if (!supportsLayer)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Configures the debug messenger callback for validation layer errors.
+        /// </summary>
+        /// <returns></returns>
+        private unsafe static VkDebugUtilsMessengerCreateInfoEXT PopulateDebugMessengerCreateInfo() => new()
+        {
+            messageSeverity = VkDebugUtilsMessageSeverityFlagsEXT.Warning | VkDebugUtilsMessageSeverityFlagsEXT.Error,
+            messageType = VkDebugUtilsMessageTypeFlagsEXT.General | VkDebugUtilsMessageTypeFlagsEXT.Validation | VkDebugUtilsMessageTypeFlagsEXT.Performance,
+            pfnUserCallback = &ValidationDebugCallback,
+            pUserData = null,
+        };
+
+
+        /// <summary>
+        /// Validation layer callback for logging validation servirty and message to the console.
+        /// </summary>
+        /// <param name="messageSeverity"></param>
+        /// <param name="messageType"></param>
+        /// <param name="pCallbackData"></param>
+        /// <param name="pUserData"></param>
+        /// <returns></returns>
+        [UnmanagedCallersOnly]
+        private unsafe static uint ValidationDebugCallback(VkDebugUtilsMessageSeverityFlagsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData)
+        {
+            var message = new VkUtf8String(pCallbackData->pMessage);
+
+            Console.WriteLine(string.Format("[{0}] Vulkan: Validation Layer: {1}", messageSeverity, Encoding.UTF8.GetString(message.Span)));
+
+            return 0;
+        }
+
+
+        private unsafe static VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger)
+        {
+            var func = (delegate* unmanaged<VkInstance, VkDebugUtilsMessengerCreateInfoEXT*, VkAllocationCallbacks*, VkDebugUtilsMessengerEXT*, VkResult>)Vulkan.vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
+
+            if (func != null)
+            {
+
+                return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
+            }
+            else
+            {
+                return VkResult.ErrorExtensionNotPresent;
+            }
+        }
+
+        private unsafe static void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, VkAllocationCallbacks* pAllocator)
+        {
+            var func = (delegate* unmanaged<VkInstance, VkDebugUtilsMessengerEXT, VkAllocationCallbacks*, void>)Vulkan.vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
+            if (func != null)
+            {
+                func(instance, debugMessenger, pAllocator);
+            }
+        }
+
+
+        #endregion
+
+        #region Extensions Statics
+        /// <summary>
+        /// Gets the required extensions needed by SDL3, move to window file?
+        /// 
+        /// Also appends the debug utils extension if validation layers are enabled.
+        /// </summary>
+        /// <returns>List of Device extensions to configure the vulkan instance with</returns>
+        private static List<VkUtf8String> GetRequiredExtensions()
+        {
+            string[] sdlRequiredExtensions = SDL3.SDL3.SDL_Vulkan_GetInstanceExtensions();
+
+            List<VkUtf8String> requiredExtensions = new(sdlRequiredExtensions.Length);
+
+            for (int i = 0; i < sdlRequiredExtensions.Length; i++)
+            {
+                requiredExtensions.Add(new ReadOnlySpan<byte>(Encoding.UTF8.GetBytes(sdlRequiredExtensions[i])));
+            }
+
+            if (ENABLE_VALIDATION_LAYERS)
+            {
+                requiredExtensions.Add(Vulkan.VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+            }
+
+            return requiredExtensions;
+        }
+        private unsafe static bool CheckDeviceExtensionSupport(VkPhysicalDevice device)
+        {
+            var availableExtensions = Vulkan.vkEnumerateDeviceExtensionProperties(device);
+
+            HashSet<VkUtf8String> requiredSet = new(deviceExtensions);
+
+            for (int i = 0; i < availableExtensions.Length; i++)
+            {
+                var ext = availableExtensions[i];
+                string extension = Encoding.UTF8.GetString(ext.extensionName, 256);
+                int terminator = extension.IndexOf('\0');
+                extension = extension[..terminator];
+                byte[] bytes = Encoding.UTF8.GetBytes(extension);
+                fixed (byte* pByes = &bytes[0])
+                {
+                    VkUtf8String vkUtf8 = new(pByes, bytes.Length);
+                    requiredSet.Remove(vkUtf8);
+                }
+            }
+
+
+            return requiredSet.Count == 0;
+        }
+        #endregion
+
+        public struct QueueFamilyIndices
+        {
+            public int graphicsFamily;
+            public int presentFamily;
+            public bool graphicsFamilyHasValue;
+            public bool presentFamilyHasValue;
+            public readonly bool IsComplete => graphicsFamilyHasValue && presentFamilyHasValue;
+        }
+
+        public struct SwapChainSupportDetails
+        {
+            public VkSurfaceCapabilitiesKHR capabilities;
+            public VkSurfaceFormatKHR[] formats;
+            public VkPresentModeKHR[] presentModes;
         }
     }
 }

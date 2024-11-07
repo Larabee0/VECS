@@ -11,6 +11,7 @@ namespace SDL_Vulkan_CS
             {
                 Application app = new();
                 app.Run();
+                app.Dispose();
             }
             catch (Exception ex)
             {
