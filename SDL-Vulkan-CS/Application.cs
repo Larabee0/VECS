@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Vortice.Vulkan;
+﻿using Vortice.Vulkan;
 
 namespace SDL_Vulkan_CS
 {
@@ -12,7 +7,7 @@ namespace SDL_Vulkan_CS
         public readonly static int Width = 800;
         public readonly static int Height = 600;
 
-        private readonly Window _appWindow;
+        private readonly SDL3Window _appWindow;
         private readonly GraphicsDevice _device;
         private readonly Renderer _renderer;
 

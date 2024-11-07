@@ -1,7 +1,4 @@
-﻿using SDL3;
-using Vortice.Vulkan;
-
-namespace SDL_Vulkan_CS
+﻿namespace SDL_Vulkan_CS
 {
     internal class Program
     {

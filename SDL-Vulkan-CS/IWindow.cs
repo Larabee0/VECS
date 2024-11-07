@@ -8,8 +8,9 @@ namespace SDL_Vulkan_CS
         public VkExtent2D WindowExtend { get; }
         public bool WasWindowResized { get; }
         public VkSurfaceKHR CreateWindowSurface(VkInstance instance);
-        bool EventUpdate();
         void ResetWindowResizedFlag();
         void WaitForEvent();
+        string[] GetWindowExtensionRequirements();
+        bool EventUpdate();
     }
 }

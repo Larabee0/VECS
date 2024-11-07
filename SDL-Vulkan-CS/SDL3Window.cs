@@ -1,18 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Runtime.InteropServices;
-using SDL3;
+﻿using SDL3;
 using Vortice.Vulkan;
 using SDL = SDL3.SDL3;
-using System.Runtime.CompilerServices;
 
 namespace SDL_Vulkan_CS
 {
-
-    public sealed class Window : IWindow, IDisposable
+    public sealed class SDL3Window : IWindow, IDisposable
     {
         private readonly static SDL_InitFlags _sdl_Init_Flags = SDL_InitFlags.Video;
         private readonly static SDL_WindowFlags _sdl_Window_Flags = SDL_WindowFlags.Vulkan;
@@ -31,7 +23,7 @@ namespace SDL_Vulkan_CS
 
         public bool WasWindowResized => _framebufferResized;
 
-        public Window(int width, int height, string name)
+        public SDL3Window(int width, int height, string name)
         {
             _width = width;
             _height = height;
@@ -66,11 +58,26 @@ namespace SDL_Vulkan_CS
         public unsafe VkSurfaceKHR CreateWindowSurface(VkInstance instance)
         {
             VkSurfaceKHR surface;
-            if(!SDL.SDL_Vulkan_CreateSurface(_window, instance, 0, (ulong**)&surface))
+            if (!SDL.SDL_Vulkan_CreateSurface(_window, instance, 0, (ulong**)&surface))
             {
                 throw new Exception("SDL failed to create vulkan surface!");
             }
             return surface;
+        }
+
+        public void ResetWindowResizedFlag()
+        {
+            _framebufferResized = false;
+        }
+
+        public unsafe void WaitForEvent()
+        {
+            SDL.SDL_WaitEvent(null);
+        }
+
+        public string[] GetWindowExtensionRequirements()
+        {
+            return SDL.SDL_Vulkan_GetInstanceExtensions();
         }
 
         public bool EventUpdate()
@@ -92,7 +99,6 @@ namespace SDL_Vulkan_CS
                         }
                         break;
                 }
-
             }
 
             return false;
@@ -108,7 +114,6 @@ namespace SDL_Vulkan_CS
                 _height = newHeight;
                 _framebufferResized = true;
             }
-            
         }
 
         public void Dispose()
@@ -135,16 +140,6 @@ namespace SDL_Vulkan_CS
         //    return SDLBool.False;
         //}
 
-        public void ResetWindowResizedFlag()
-        {
-            _framebufferResized = false;
-        }
-
-        public unsafe void WaitForEvent()
-        {
-            SDL.SDL_WaitEvent(null);
-        }
-
         private static void SDL3Log(SDL_LogCategory category, SDL_LogPriority priority, string message)
         {
             if (priority >= SDL_LogPriority.Error)
@@ -156,6 +151,5 @@ namespace SDL_Vulkan_CS
                 Console.WriteLine(string.Format("[{0}] SDL: {1}", priority, message));
             }
         }
-
     }
 }

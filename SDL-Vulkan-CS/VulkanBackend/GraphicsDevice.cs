@@ -163,6 +163,30 @@ namespace SDL_Vulkan_CS
 
         }
 
+        /// <summary>
+        /// Gets the required extensions needed by SDL3, move to window file?
+        /// 
+        /// Also appends the debug utils extension if validation layers are enabled.
+        /// </summary>
+        /// <returns>List of Device extensions to configure the vulkan instance with</returns>
+        private List<VkUtf8String> GetRequiredExtensions()
+        {
+            string[] sdlRequiredExtensions = _window.GetWindowExtensionRequirements();
+
+            List<VkUtf8String> requiredExtensions = new(sdlRequiredExtensions.Length);
+
+            for (int i = 0; i < sdlRequiredExtensions.Length; i++)
+            {
+                requiredExtensions.Add(new ReadOnlySpan<byte>(Encoding.UTF8.GetBytes(sdlRequiredExtensions[i])));
+            }
+
+            if (ENABLE_VALIDATION_LAYERS)
+            {
+                requiredExtensions.Add(Vulkan.VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+            }
+
+            return requiredExtensions;
+        }
         #endregion
 
         #region DebugMessenger
@@ -544,30 +568,6 @@ namespace SDL_Vulkan_CS
         #endregion
 
         #region Extensions Statics
-        /// <summary>
-        /// Gets the required extensions needed by SDL3, move to window file?
-        /// 
-        /// Also appends the debug utils extension if validation layers are enabled.
-        /// </summary>
-        /// <returns>List of Device extensions to configure the vulkan instance with</returns>
-        private static List<VkUtf8String> GetRequiredExtensions()
-        {
-            string[] sdlRequiredExtensions = SDL3.SDL3.SDL_Vulkan_GetInstanceExtensions();
-
-            List<VkUtf8String> requiredExtensions = new(sdlRequiredExtensions.Length);
-
-            for (int i = 0; i < sdlRequiredExtensions.Length; i++)
-            {
-                requiredExtensions.Add(new ReadOnlySpan<byte>(Encoding.UTF8.GetBytes(sdlRequiredExtensions[i])));
-            }
-
-            if (ENABLE_VALIDATION_LAYERS)
-            {
-                requiredExtensions.Add(Vulkan.VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-            }
-
-            return requiredExtensions;
-        }
         private unsafe static bool CheckDeviceExtensionSupport(VkPhysicalDevice device)
         {
             var availableExtensions = Vulkan.vkEnumerateDeviceExtensionProperties(device);
