@@ -23,13 +23,17 @@ namespace SDL_Vulkan_CS
             _renderer = new(_appWindow,_device);
         }
 
+        /// <summary>
+        /// Main application loop
+        /// </summary>
         public void Run()
         {
             Start();
             bool running = true;
             while (running)
             {
-                running = !_appWindow.EventUpdate();
+                running = !_appWindow.UpdateWindowEvents();
+                FrameTime();
                 if (!running)
                 {
                     break;
@@ -46,11 +50,16 @@ namespace SDL_Vulkan_CS
             currentTime = DateTime.Now;
         }
 
+        /// <summary>
+        /// Game logic loop
+        /// </summary>
         private void Update()
         {
-            FrameTime();
         }
 
+        /// <summary>
+        /// Frame presentation/render loop
+        /// </summary>
         private void Presentation()
         {
             VkCommandBuffer commandBuffer = _renderer.BeginFrame();
@@ -66,6 +75,9 @@ namespace SDL_Vulkan_CS
             }
         }
 
+        /// <summary>
+        /// Updates the frame time value
+        /// </summary>
         private void FrameTime()
         {
             var newTime = DateTime.Now;

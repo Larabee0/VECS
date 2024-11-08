@@ -53,10 +53,11 @@ namespace SDL_Vulkan_CS
             while (extent.width == 0 || extent.height == 0)
             {
                 extent = _window.WindowExtend;
-                _window.WaitForEvent();
+                _window.WaitForNextWindowEvent();
             }
 
             Vulkan.vkDeviceWaitIdle(_device.Device);
+
             if (_swapChain == null)
             {
                 _swapChain = new(_device, extent);
@@ -134,7 +135,6 @@ namespace SDL_Vulkan_CS
             }
 
             return commandBuffer;
-
         }
 
         public unsafe void BeginSwapChainRenderPass(VkCommandBuffer commandBuffer)
@@ -215,25 +215,29 @@ namespace SDL_Vulkan_CS
 
             var commandBuffer = CurrentCommandBuffer;
 
-            if(Vulkan.vkEndCommandBuffer(commandBuffer) != VkResult.Success)
+            if (Vulkan.vkEndCommandBuffer(commandBuffer) != VkResult.Success)
             {
                 throw new Exception("Failed to record command buffer");
             }
 
-            fixed(uint* pCurrentImageIndex = &currentImageIndex)
+            uint* pCurrentImageIndex = stackalloc uint[1];
+            fixed (uint* waitTemp = &currentImageIndex)
             {
-                VkResult result = _swapChain.SubmitCommandBuffers(&commandBuffer, pCurrentImageIndex);
+                int byteSize = sizeof(uint) * 1;
+                Buffer.MemoryCopy(waitTemp, pCurrentImageIndex, byteSize, byteSize);
+            }
 
-                if (result == VkResult.ErrorOutOfDateKHR || result == VkResult.SuboptimalKHR || _window.WasWindowResized)
-                {
-                    _window.ResetWindowResizedFlag();
-                    RecreateSwapChain();
+            VkResult result = _swapChain.SubmitCommandBuffers(&commandBuffer, pCurrentImageIndex);
 
-                }
-                else if (result != VkResult.Success)
-                {
-                    throw new Exception("Failed to acquire next swap chain image!");
-                }
+            if (result == VkResult.ErrorOutOfDateKHR || result == VkResult.SuboptimalKHR || _window.WasWindowResized)
+            {
+                _window.ResetWindowResizedFlag();
+                RecreateSwapChain();
+
+            }
+            else if (result != VkResult.Success)
+            {
+                throw new Exception("Failed to acquire next swap chain image!");
             }
 
             isFrameStarted = false;

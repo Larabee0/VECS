@@ -1,6 +1,10 @@
 ﻿namespace SDL_Vulkan_CS
 {
-    internal class Program
+    /// <summary>
+    /// Main entry point for the program.
+    /// Only initalises and catches excpetions.
+    /// </summary>
+    public class Program
     {
         static int Main(string[] args)
         {

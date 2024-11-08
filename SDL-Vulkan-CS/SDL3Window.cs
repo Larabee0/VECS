@@ -4,7 +4,11 @@ using SDL = SDL3.SDL3;
 
 namespace SDL_Vulkan_CS
 {
-    public sealed class SDL3Window : IWindow, IDisposable
+    /// <summary>
+    /// Handles the SDL3 window instance and inputs.
+    /// This is also responsible for loading and initalising vulkan library
+    /// </summary>
+    public sealed class SDL3Window : IWindow
     {
         private readonly static SDL_InitFlags _sdl_Init_Flags = SDL_InitFlags.Video;
         private readonly static SDL_WindowFlags _sdl_Window_Flags = SDL_WindowFlags.Vulkan;
@@ -70,7 +74,7 @@ namespace SDL_Vulkan_CS
             _framebufferResized = false;
         }
 
-        public unsafe void WaitForEvent()
+        public unsafe void WaitForNextWindowEvent()
         {
             SDL.SDL_WaitEvent(null);
         }
@@ -80,7 +84,7 @@ namespace SDL_Vulkan_CS
             return SDL.SDL_Vulkan_GetInstanceExtensions();
         }
 
-        public bool EventUpdate()
+        public bool UpdateWindowEvents()
         {
             while(SDL.SDL_PollEvent(out SDL_Event sdlEvent))
             {
@@ -90,18 +94,23 @@ namespace SDL_Vulkan_CS
                         return true;
                     case SDL_EventType.WindowCloseRequested when (sdlEvent.window.windowID == Id):
                         return true;
-                    case >= SDL_EventType.WindowFirst when(sdlEvent.type <= SDL_EventType.WindowLast):
-                        switch (sdlEvent.window.type)
-                        {
-                            case SDL_EventType.WindowResized:
-                                FrameBufferResizeCallback(sdlEvent.window);
-                                break;
-                        }
+                    case >= SDL_EventType.WindowFirst when (sdlEvent.type <= SDL_EventType.WindowLast):
+                        HandleWindowEvents(sdlEvent);
                         break;
                 }
             }
 
             return false;
+        }
+
+        private void HandleWindowEvents(SDL_Event sdlEvent)
+        {
+            switch (sdlEvent.window.type)
+            {
+                case SDL_EventType.WindowResized:
+                    FrameBufferResizeCallback(sdlEvent.window);
+                    break;
+            }
         }
 
         private void FrameBufferResizeCallback(SDL_WindowEvent window)

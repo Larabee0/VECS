@@ -11,8 +11,8 @@ namespace SDL_Vulkan_CS
 #else
         const bool ENABLE_VALIDATION_LAYERS = false;
 #endif
-        private readonly static string[] _validationLayers = ["VK_LAYER_KHRONOS_validation"];
-        private readonly static VkUtf8String[] deviceExtensions = [Vulkan.VK_KHR_SWAPCHAIN_EXTENSION_NAME];
+        private readonly static string[] _requiredValidationLayers = ["VK_LAYER_KHRONOS_validation"];
+        private readonly static VkUtf8String[] _requiredDeviceExtensions = [Vulkan.VK_KHR_SWAPCHAIN_EXTENSION_NAME];
         
         private readonly IWindow _window;
         
@@ -40,7 +40,7 @@ namespace SDL_Vulkan_CS
         public VkQueue PresentQueue => _presentQueue;
 
         public SwapChainSupportDetails SwapChainSupport => QuerySwapChainSupport(_physicalDevice);
-        public QueueFamilyIndices PhysicalQueueFamilies => FindPhysicalQueueFamilies();
+        public QueueFamilyIndices PhysicalQueueFamilies => FindQueueFamilies(_physicalDevice);
 
         public GraphicsDevice(IWindow window)
         {
@@ -74,7 +74,7 @@ namespace SDL_Vulkan_CS
             VkApplicationInfo appInfo = GenerateAppInfo();
 
             using VkStringArray vkInstanceExtensions = new(GetRequiredExtensions());
-            using VkStringArray validationlayers = new(_validationLayers);
+            using VkStringArray validationlayers = new(_requiredValidationLayers);
 
             VkInstanceCreateInfo createInfo = new()
             {
@@ -86,7 +86,7 @@ namespace SDL_Vulkan_CS
 
             if (ENABLE_VALIDATION_LAYERS)
             {
-                createInfo.enabledLayerCount = (uint)_validationLayers.Length;
+                createInfo.enabledLayerCount = (uint)_requiredValidationLayers.Length;
                 createInfo.ppEnabledLayerNames = validationlayers;
                 VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo = PopulateDebugMessengerCreateInfo();
                 createInfo.pNext = &debugCreateInfo;
@@ -196,11 +196,12 @@ namespace SDL_Vulkan_CS
             VkDebugUtilsMessengerCreateInfoEXT createInfoEXT = PopulateDebugMessengerCreateInfo();
 
             fixed (VkDebugUtilsMessengerEXT* toPtr = &_debugMessenger)
-            if (CreateDebugUtilsMessengerEXT(_instance, &createInfoEXT, null, toPtr) != VkResult.Success)
             {
-                throw new Exception("failed to set up debug messenger!");
+                if (CreateDebugUtilsMessengerEXT(_instance, &createInfoEXT, null, toPtr) != VkResult.Success)
+                {
+                    throw new Exception("failed to set up debug messenger!");
+                }
             }
-            
         }
 
         #endregion
@@ -214,7 +215,6 @@ namespace SDL_Vulkan_CS
 
         private unsafe void PickPhysicalDevice()
         {
-
             var devices = Vulkan.vkEnumeratePhysicalDevices(_instance);
 
             if(devices.Length == 0)
@@ -240,6 +240,7 @@ namespace SDL_Vulkan_CS
             }
 
             Vulkan.vkGetPhysicalDeviceProperties(_physicalDevice, out Properties);
+
             fixed(byte* devName = Properties.deviceName)
             {
                 var str = new VkUtf8String(devName);
@@ -247,6 +248,11 @@ namespace SDL_Vulkan_CS
             }
         }
 
+        /// <summary>
+        /// Determines if a given physical device is suitable for the app
+        /// </summary>
+        /// <param name="device"></param>
+        /// <returns></returns>
         private bool IsDeviceSuitable(VkPhysicalDevice device)
         {
             QueueFamilyIndices indices = FindQueueFamilies(device);
@@ -254,6 +260,7 @@ namespace SDL_Vulkan_CS
             bool extensionsSupported = CheckDeviceExtensionSupport(device);
 
             bool swapChainAdequate = false;
+
             if (extensionsSupported)
             {
                 SwapChainSupportDetails  swapChainSupport = QuerySwapChainSupport(device);
@@ -265,6 +272,11 @@ namespace SDL_Vulkan_CS
             return indices.IsComplete && extensionsSupported && swapChainAdequate && supportedFeatures.samplerAnisotropy;
         }
 
+        /// <summary>
+        /// Gets the queue families for the physical device
+        /// </summary>
+        /// <param name="device"></param>
+        /// <returns></returns>
         private QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device)
         {
             QueueFamilyIndices indices = default;
@@ -273,18 +285,21 @@ namespace SDL_Vulkan_CS
             for (int i = 0; i < queueFamilies.Length; i++)
             {
                 var family = queueFamilies[i];
-                if(family.queueCount > 0 && family.queueFlags .HasFlag(VkQueueFlags.Graphics))
+
+                if (family.queueCount > 0 && family.queueFlags.HasFlag(VkQueueFlags.Graphics))
                 {
                     indices.graphicsFamily = i;
                     indices.graphicsFamilyHasValue = true;
                 }
+
                 Vulkan.vkGetPhysicalDeviceSurfaceSupportKHR(device, (uint)i, _surface, out VkBool32 presentSupport);
 
-                if(family.queueCount > 0 && presentSupport)
+                if (family.queueCount > 0 && presentSupport)
                 {
                     indices.presentFamily = i;
                     indices.presentFamilyHasValue = true;
                 }
+
                 if (indices.IsComplete)
                 {
                     break;
@@ -294,6 +309,11 @@ namespace SDL_Vulkan_CS
             return indices;
         }
 
+        /// <summary>
+        /// Gets the swapchain support details for a given physical device.
+        /// </summary>
+        /// <param name="device"></param>
+        /// <returns></returns>
         private SwapChainSupportDetails QuerySwapChainSupport(VkPhysicalDevice device)
         {
             SwapChainSupportDetails details = default;
@@ -319,10 +339,10 @@ namespace SDL_Vulkan_CS
             QueueFamilyIndices indices = FindQueueFamilies(_physicalDevice);
 
             HashSet<int> uniqueQueueFamilies = [indices.graphicsFamily, indices.presentFamily];
-            List<VkDeviceQueueCreateInfo> queueCreateInfos = [];
+            VkDeviceQueueCreateInfo[] queueCreateInfos = new VkDeviceQueueCreateInfo[uniqueQueueFamilies.Count];
 
             float queuePriority = 1f;
-
+            int index = 0;
             foreach (var queueFamily in uniqueQueueFamilies)
             {
                 VkDeviceQueueCreateInfo queueCreateInfo = new()
@@ -331,55 +351,61 @@ namespace SDL_Vulkan_CS
                     queueCount = 1,
                     pQueuePriorities = &queuePriority
                 };
-                queueCreateInfos.Add(queueCreateInfo);
+                queueCreateInfos[index] = queueCreateInfo;
             }
 
-            VkPhysicalDeviceFeatures deviceFeature = new()
+
+            VkDeviceQueueCreateInfo* pQueueCreateInfos = stackalloc VkDeviceQueueCreateInfo[queueCreateInfos.Length];
+
+            fixed (VkDeviceQueueCreateInfo* pTempQueueCreateInfos = &queueCreateInfos[0])
             {
-                samplerAnisotropy = true,
+                int byteSize = sizeof(VkDeviceQueueCreateInfo) * queueCreateInfos.Length;
+                Buffer.MemoryCopy(pTempQueueCreateInfos, pQueueCreateInfos, byteSize, byteSize);
+            }
+
+            VkPhysicalDeviceFeatures deviceFeature = new() { samplerAnisotropy = true };
+
+            using VkStringArray deviceExtensionNames = new(_requiredDeviceExtensions);
+
+            VkDeviceCreateInfo createInfo = new()
+            {
+                queueCreateInfoCount = (uint)queueCreateInfos.Length,
+                pQueueCreateInfos = pQueueCreateInfos,
+                pEnabledFeatures = &deviceFeature,
+                enabledExtensionCount = (uint)_requiredDeviceExtensions.Length,
+                ppEnabledExtensionNames = deviceExtensionNames
             };
 
-            fixed (VkDeviceQueueCreateInfo* createInfos = &queueCreateInfos.ToArray()[0])
+            if (ENABLE_VALIDATION_LAYERS)
             {
-                using VkStringArray deviceExtensionNames = new(deviceExtensions);
-                VkDeviceCreateInfo createInfo = new()
-                {
-                    queueCreateInfoCount = (uint)queueCreateInfos.Count,
-                    pQueueCreateInfos = createInfos,
-                    pEnabledFeatures = &deviceFeature,
-                    enabledExtensionCount = (uint)deviceExtensions.Length,
-                    ppEnabledExtensionNames = deviceExtensionNames
-                };
-
-                if (ENABLE_VALIDATION_LAYERS)
-                {
-                    using VkStringArray enabledValidationlayers = new(_validationLayers);
-                    createInfo.enabledLayerCount = (uint)_validationLayers.Length;
-                    createInfo.ppEnabledLayerNames = enabledValidationlayers;
-                }
-                else
-                {
-                    createInfo.enabledLayerCount = 0;
-                }
-
-                if(Vulkan.vkCreateDevice(_physicalDevice,in createInfo,null,out _device) != VkResult.Success)
-                {
-                    throw new Exception("Failed to create logical device");
-                }
+                using VkStringArray enabledValidationlayers = new(_requiredValidationLayers);
+                createInfo.enabledLayerCount = (uint)_requiredValidationLayers.Length;
+                createInfo.ppEnabledLayerNames = enabledValidationlayers;
             }
+            else
+            {
+                createInfo.enabledLayerCount = 0;
+            }
+
+            if (Vulkan.vkCreateDevice(_physicalDevice, in createInfo, null, out _device) != VkResult.Success)
+            {
+                throw new Exception("Failed to create logical device");
+            }
+
 
             Vulkan.vkLoadDevice(_device);
 
             Vulkan.vkGetDeviceQueue(_device, (uint)indices.graphicsFamily, 0, out _graphicsQueue);
-            Vulkan.vkGetDeviceQueue(_device, (uint)indices.presentFamily,0, out _presentQueue);
+            Vulkan.vkGetDeviceQueue(_device, (uint)indices.presentFamily, 0, out _presentQueue);
         }
 
         #endregion
 
         #region Create Command Pool
+        
         private unsafe void CreateCommandPool()
         {
-            QueueFamilyIndices queueFamilyIndices = FindPhysicalQueueFamilies();
+            QueueFamilyIndices queueFamilyIndices = PhysicalQueueFamilies;
 
             VkCommandPoolCreateInfo poolInfo = new()
             {
@@ -393,11 +419,18 @@ namespace SDL_Vulkan_CS
             }
         }
 
-        private QueueFamilyIndices FindPhysicalQueueFamilies() => FindQueueFamilies(_physicalDevice);
-
         #endregion
 
         #region For Extneral use
+        /// <summary>
+        /// Used by the swapchain class to work out what which VkFormat from the given candidates is supported
+        /// by the currently selected physical device <see cref="_physicalDevice"/>
+        /// </summary>
+        /// <param name="candidates">VkFormats to pick from</param>
+        /// <param name="tiling">tiling mode</param>
+        /// <param name="features">required format feature flags</param>
+        /// <returns></returns>
+        /// <exception cref="Exception"></exception>
         public VkFormat FindSupportFormat(VkFormat[] candidates, VkImageTiling tiling, VkFormatFeatureFlags features)
         {
             for (int i = 0; i < candidates.Length; i++)
@@ -417,7 +450,19 @@ namespace SDL_Vulkan_CS
             throw new Exception("Failed to find support image format");
         }
 
-        public unsafe void CreateImageWithInfo(VkImageCreateInfo imageInfo, VkMemoryPropertyFlags properties, out VkImage image, out VkDeviceMemory imageMemory)
+        /// <summary>
+        /// Creates a Vk Image and assocsiated device memory with the given settings from imageInfo and properties
+        /// </summary>
+        /// <param name="imageInfo"></param>
+        /// <param name="properties"></param>
+        /// <param name="image"></param>
+        /// <param name="imageMemory"></param>
+        /// <exception cref="Exception"></exception>
+        public unsafe void CreateImageWithInfo(
+            VkImageCreateInfo imageInfo,
+            VkMemoryPropertyFlags properties,
+            out VkImage image,
+            out VkDeviceMemory imageMemory)
         {
             if(Vulkan.vkCreateImage(_device,imageInfo,null,out image) != VkResult.Success)
             {
@@ -444,6 +489,13 @@ namespace SDL_Vulkan_CS
             }
         }
 
+        /// <summary>
+        /// Funky method for determing the memory type index for a vkMemoryAllocation
+        /// </summary>
+        /// <param name="typeFilter"></param>
+        /// <param name="properties"></param>
+        /// <returns></returns>
+        /// <exception cref="Exception"></exception>
         private uint FindMemoryType(uint typeFilter, VkMemoryPropertyFlags properties)
         {
             Vulkan.vkGetPhysicalDeviceMemoryProperties(_physicalDevice, out VkPhysicalDeviceMemoryProperties memoryProperties);
@@ -480,19 +532,19 @@ namespace SDL_Vulkan_CS
 
         #region Validation and Debugging statics
         /// <summary>
-        /// Checks if our hardware can support validation layers requrested in <see cref="_validationLayers"/>
+        /// Checks if our hardware can support validation layers requrested in <see cref="_requiredValidationLayers"/>
         /// </summary>
         /// <returns></returns>
         private static bool CheckValidationLayerSupport()
         {
             ReadOnlySpan<VkLayerProperties> availableLayers = Vulkan.vkEnumerateInstanceLayerProperties();
 
-            for (int i = 0; i < _validationLayers.Length; i++)
+            for (int i = 0; i < _requiredValidationLayers.Length; i++)
             {
                 bool supportsLayer = false;
                 for (int j = 0; j < availableLayers.Length; j++)
                 {
-                    if (_validationLayers[i] == _validationLayers[j])
+                    if (_requiredValidationLayers[i] == _requiredValidationLayers[j])
                     {
                         supportsLayer = true;
                         break;
@@ -514,15 +566,20 @@ namespace SDL_Vulkan_CS
         /// <returns></returns>
         private unsafe static VkDebugUtilsMessengerCreateInfoEXT PopulateDebugMessengerCreateInfo() => new()
         {
-            messageSeverity = VkDebugUtilsMessageSeverityFlagsEXT.Warning | VkDebugUtilsMessageSeverityFlagsEXT.Error,
-            messageType = VkDebugUtilsMessageTypeFlagsEXT.General | VkDebugUtilsMessageTypeFlagsEXT.Validation | VkDebugUtilsMessageTypeFlagsEXT.Performance,
+            messageSeverity = VkDebugUtilsMessageSeverityFlagsEXT.Warning
+            | VkDebugUtilsMessageSeverityFlagsEXT.Error,
+            
+            messageType = VkDebugUtilsMessageTypeFlagsEXT.General
+            | VkDebugUtilsMessageTypeFlagsEXT.Validation
+            | VkDebugUtilsMessageTypeFlagsEXT.Performance,
+
             pfnUserCallback = &ValidationDebugCallback,
             pUserData = null,
         };
 
 
         /// <summary>
-        /// Validation layer callback for logging validation servirty and message to the console.
+        /// Validation layer callback for logging validation servirty and messages to the console.
         /// </summary>
         /// <param name="messageSeverity"></param>
         /// <param name="messageType"></param>
@@ -530,7 +587,11 @@ namespace SDL_Vulkan_CS
         /// <param name="pUserData"></param>
         /// <returns></returns>
         [UnmanagedCallersOnly]
-        private unsafe static uint ValidationDebugCallback(VkDebugUtilsMessageSeverityFlagsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData)
+        private unsafe static uint ValidationDebugCallback(
+            VkDebugUtilsMessageSeverityFlagsEXT messageSeverity,
+            VkDebugUtilsMessageTypeFlagsEXT messageType,
+            VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+            void* pUserData)
         {
             var message = new VkUtf8String(pCallbackData->pMessage);
 
@@ -539,10 +600,28 @@ namespace SDL_Vulkan_CS
             return 0;
         }
 
-
-        private unsafe static VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger)
+        /// <summary>
+        /// Creates the validation layer debug messenger
+        /// </summary>
+        /// <param name="instance"></param>
+        /// <param name="pCreateInfo"></param>
+        /// <param name="pAllocator"></param>
+        /// <param name="pDebugMessenger"></param>
+        /// <returns></returns>
+        private unsafe static VkResult CreateDebugUtilsMessengerEXT(
+            VkInstance instance,
+            VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
+            VkAllocationCallbacks* pAllocator,
+            VkDebugUtilsMessengerEXT* pDebugMessenger)
         {
-            var func = (delegate* unmanaged<VkInstance, VkDebugUtilsMessengerCreateInfoEXT*, VkAllocationCallbacks*, VkDebugUtilsMessengerEXT*, VkResult>)Vulkan.vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
+            // Horrific function pointer cast.
+            var func = (delegate*
+                unmanaged<VkInstance,
+                VkDebugUtilsMessengerCreateInfoEXT*,
+                VkAllocationCallbacks*,
+                VkDebugUtilsMessengerEXT*,
+                VkResult>
+                )Vulkan.vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
 
             if (func != null)
             {
@@ -555,9 +634,24 @@ namespace SDL_Vulkan_CS
             }
         }
 
-        private unsafe static void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, VkAllocationCallbacks* pAllocator)
+        /// <summary>
+        /// Destroys the validation layer debug messenger
+        /// </summary>
+        /// <param name="instance">active vulkan instance</param>
+        /// <param name="debugMessenger">target debug messenger</param>
+        /// <param name="pAllocator"></param>
+        private unsafe static void DestroyDebugUtilsMessengerEXT(
+            VkInstance instance,
+            VkDebugUtilsMessengerEXT debugMessenger,
+            VkAllocationCallbacks* pAllocator)
         {
-            var func = (delegate* unmanaged<VkInstance, VkDebugUtilsMessengerEXT, VkAllocationCallbacks*, void>)Vulkan.vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
+            // Slightly less horrific function pointer cast.
+            var func = (delegate*
+                unmanaged<VkInstance,
+                VkDebugUtilsMessengerEXT,
+                VkAllocationCallbacks*,
+                void>
+                )Vulkan.vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
             if (func != null)
             {
                 func(instance, debugMessenger, pAllocator);
@@ -568,11 +662,17 @@ namespace SDL_Vulkan_CS
         #endregion
 
         #region Extensions Statics
+        /// <summary>
+        /// Checks if the given physical device supports the required
+        /// device extentions in <see cref="_requiredDeviceExtensions"/>
+        /// </summary>
+        /// <param name="device"></param>
+        /// <returns>true if the physical devices supports the extensions requested </returns>
         private unsafe static bool CheckDeviceExtensionSupport(VkPhysicalDevice device)
         {
             var availableExtensions = Vulkan.vkEnumerateDeviceExtensionProperties(device);
 
-            HashSet<VkUtf8String> requiredSet = new(deviceExtensions);
+            HashSet<VkUtf8String> requiredSet = new(_requiredDeviceExtensions);
 
             for (int i = 0; i < availableExtensions.Length; i++)
             {

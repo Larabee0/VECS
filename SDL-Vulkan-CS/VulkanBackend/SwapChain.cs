@@ -45,11 +45,18 @@ namespace SDL_Vulkan_CS
             Init();
         }
 
-        public SwapChain(GraphicsDevice device, VkExtent2D extent,SwapChain previous)
+        /// <summary>
+        /// When the window is resized the swapchain needs to be replaced. This constructor provides this functionality.
+        /// </summary>
+        /// <param name="device"></param>
+        /// <param name="extent"></param>
+        /// <param name="previous"></param>
+        public SwapChain(GraphicsDevice device, VkExtent2D extent, SwapChain previous)
         {
             _device = device;
             _windowExtent = extent;
             _oldSwapChain = previous;
+
             Init();
 
             _oldSwapChain = null;
@@ -76,6 +83,7 @@ namespace SDL_Vulkan_CS
             VkExtent2D extent = ChooseSwapExtent(swapChainSupport.capabilities);
 
             uint imageCount = swapChainSupport.capabilities.minImageCount + 1;
+
             if (swapChainSupport.capabilities.maxImageCount > 0
                 && imageCount > swapChainSupport.capabilities.maxImageCount)
             {
@@ -95,11 +103,9 @@ namespace SDL_Vulkan_CS
 
             var indices = _device.PhysicalQueueFamilies;
 
-
             uint[] queueFamilyIndices = [(uint)indices.graphicsFamily, (uint)indices.presentFamily];
-            
 
-            if(indices.graphicsFamily != indices.presentFamily)
+            if (indices.graphicsFamily != indices.presentFamily)
             {
                 createInfo.imageSharingMode = VkSharingMode.Concurrent;
                 createInfo.queueFamilyIndexCount = 2;
@@ -120,9 +126,9 @@ namespace SDL_Vulkan_CS
             createInfo.compositeAlpha = VkCompositeAlphaFlagsKHR.Opaque;
             createInfo.presentMode = presentMode;
             createInfo.clipped = true;
-            createInfo.oldSwapchain = _oldSwapChain ==null ? VkSwapchainKHR.Null : _oldSwapChain._swapChain;
+            createInfo.oldSwapchain = _oldSwapChain == null ? VkSwapchainKHR.Null : _oldSwapChain._swapChain;
 
-            if(Vulkan.vkCreateSwapchainKHR(_device.Device,createInfo,null,out _swapChain)!= VkResult.Success)
+            if (Vulkan.vkCreateSwapchainKHR(_device.Device, createInfo, null, out _swapChain) != VkResult.Success)
             {
                 throw new Exception("Failed to create swap chain!");
             }
@@ -134,7 +140,6 @@ namespace SDL_Vulkan_CS
 
             _swapChainImageFormat = surfaceFormat.format;
             _swapChainExtent = extent;
-
         }
 
         private VkExtent2D ChooseSwapExtent(VkSurfaceCapabilitiesKHR capabilities)
@@ -146,12 +151,9 @@ namespace SDL_Vulkan_CS
             else
             {
                 VkExtent2D actualExtent = _windowExtent;
-                actualExtent.width = Math.Max(
-                    capabilities.minImageExtent.width,
-                    Math.Min(capabilities.maxImageExtent.width,
-                    actualExtent.width));
-                actualExtent.height = Math.Max(
-                    capabilities.minImageExtent.height,
+                actualExtent.width = Math.Max(capabilities.minImageExtent.width,
+                    Math.Min(capabilities.maxImageExtent.width, actualExtent.width));
+                actualExtent.height = Math.Max(capabilities.minImageExtent.height,
                     Math.Min(capabilities.maxImageExtent.height, actualExtent.height));
                 
                 return actualExtent;
@@ -387,23 +389,18 @@ namespace SDL_Vulkan_CS
 
             VkSemaphoreCreateInfo semaphoreInfo = new();
 
-            VkFenceCreateInfo fenceInfo = new()
-            {
-                flags = VkFenceCreateFlags.Signaled
-            };
-
+            VkFenceCreateInfo fenceInfo = new() { flags = VkFenceCreateFlags.Signaled };
 
             for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
             {
-                if(Vulkan.vkCreateSemaphore(_device.Device,semaphoreInfo,null,out _imageAvailableSemaphores[i]) != VkResult.Success
-                    || Vulkan.vkCreateSemaphore(_device.Device, semaphoreInfo,null,out _renderFinishedSemaphores[i])!= VkResult.Success
-                    || Vulkan.vkCreateFence(_device.Device,fenceInfo,null,out _inFlightFences[i])!= VkResult.Success)
-                
+                if (Vulkan.vkCreateSemaphore(_device.Device, semaphoreInfo, null, out _imageAvailableSemaphores[i]) != VkResult.Success
+                    || Vulkan.vkCreateSemaphore(_device.Device, semaphoreInfo, null, out _renderFinishedSemaphores[i]) != VkResult.Success
+                    || Vulkan.vkCreateFence(_device.Device, fenceInfo, null, out _inFlightFences[i]) != VkResult.Success)
+
                 {
                     throw new Exception("failed to create synchronization objects for a frame!");
                 }
             }
-
         }
         #endregion
 
@@ -446,21 +443,24 @@ namespace SDL_Vulkan_CS
             VkSemaphore* pWaitSemaphores = stackalloc VkSemaphore[waitSemaphores.Length];
             fixed (VkSemaphore* waitTemp = &waitSemaphores[0])
             {
-                Buffer.MemoryCopy(waitTemp, pWaitSemaphores, sizeof(VkSemaphore) * waitSemaphores.Length, sizeof(VkSemaphore) * waitSemaphores.Length);
+                int byteSize = sizeof(VkSemaphore)*waitSemaphores.Length;
+                Buffer.MemoryCopy(waitTemp, pWaitSemaphores, byteSize, byteSize);
             }
 
             VkPipelineStageFlags[] waitStages = [VkPipelineStageFlags.ColorAttachmentOutput];
             VkPipelineStageFlags* pWaitStages = stackalloc VkPipelineStageFlags[waitStages.Length];
             fixed (VkPipelineStageFlags* stageTemp = &waitStages[0])
             {
-                Buffer.MemoryCopy(stageTemp, pWaitStages, sizeof(VkPipelineStageFlags) * waitStages.Length, sizeof(VkPipelineStageFlags) * waitStages.Length);
+                int byteSize = sizeof(VkPipelineStageFlags) * waitStages.Length;
+                Buffer.MemoryCopy(stageTemp, pWaitStages, byteSize, byteSize);
             }
 
             VkSemaphore[] signalSemaphores = [_renderFinishedSemaphores[_currentFrame]];
             VkSemaphore* pSignalSemaphores = stackalloc VkSemaphore[signalSemaphores.Length];
             fixed (VkSemaphore* signalTemp = &signalSemaphores[0])
             {
-                Buffer.MemoryCopy(signalTemp, pSignalSemaphores, sizeof(VkSemaphore) * signalSemaphores.Length, sizeof(VkSemaphore) * signalSemaphores.Length);
+                int byteSize = sizeof(VkSemaphore) * signalSemaphores.Length;
+                Buffer.MemoryCopy(signalTemp, pSignalSemaphores, byteSize, byteSize);
             }
 
             VkSubmitInfo submitInfo = new()
@@ -487,7 +487,8 @@ namespace SDL_Vulkan_CS
             VkSwapchainKHR* pSwapChains = stackalloc VkSwapchainKHR[signalSemaphores.Length];
             fixed (VkSwapchainKHR* swapTemp = &swapChains[0])
             {
-                Buffer.MemoryCopy(swapTemp, pSwapChains, sizeof(VkSwapchainKHR) * swapChains.Length, sizeof(VkSwapchainKHR) * swapChains.Length);
+                int byteSize = sizeof(VkSwapchainKHR) * swapChains.Length;
+                Buffer.MemoryCopy(swapTemp, pSwapChains, byteSize, byteSize);
             }
 
             VkPresentInfoKHR presentInfo = new()
@@ -560,8 +561,6 @@ namespace SDL_Vulkan_CS
 
         private static VkPresentModeKHR ChooseSwapPresentMode(VkPresentModeKHR[] presentModes)
         {
-
-
             // for (int i = 0; i < presentModes.Length; i++)
             // {
             //     var availablePresentMode = presentModes[i];
