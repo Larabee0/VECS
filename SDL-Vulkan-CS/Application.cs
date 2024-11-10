@@ -1,4 +1,5 @@
-﻿using Vortice.Vulkan;
+﻿using SDL_Vulkan_CS.ECS;
+using Vortice.Vulkan;
 
 namespace SDL_Vulkan_CS
 {
@@ -48,6 +49,7 @@ namespace SDL_Vulkan_CS
         private void Start()
         {
             currentTime = DateTime.Now;
+            new EntityManager();
         }
 
         /// <summary>
