@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Reflection;
 using System.Text;
@@ -14,18 +15,18 @@ namespace SDL_Vulkan_CS.ECS
         private readonly Queue<Entity> _idsToRecyle = [];
         private readonly HashSet<uint> _entityIds = [];
 
-        private readonly Dictionary<uint, Entity> _entities = [];
-        
-        private readonly Dictionary<uint, HashSet<int>> _entityToComponents = [];
+        private readonly Dictionary<uint, Entity> _entityIdToEntity = [];
+        private readonly Dictionary<int, IComponent> _compSignatureToCompReference = [];
 
-        private readonly Dictionary<int, HashSet<Entity>> _componentToEntities = [];
+        private readonly Dictionary<int, HashSet<Entity>> _archetypeIdsToEntities = [];
+        public readonly Dictionary<int, HashSet<int>> _archetypeIdsToComponentIds = [];
+        private readonly Dictionary<uint, int> _entityIdToArchetypeIdLookup = [];
 
-        private readonly Dictionary<int, IComponent> _componentReference = [];
+        private readonly Dictionary<uint, HashSet<int>> _entityToComponentIds = [];
+        private readonly Dictionary<int, HashSet<Entity>> _componentIdToEntities = [];
 
-        private readonly Dictionary<Guid, int> _componentTypeLookup = [];
-
-        private readonly List<HashSet<int>> _entityArchetypes = [];
-        private readonly List<int> _entityArchetypesSums = [];
+        private readonly Dictionary<Guid, int> _componentTypeToIdLookup = [];
+        private readonly Dictionary<int, Type> _componentIdToTypeLookup = [];
 
 
         public EntityManager()
@@ -44,10 +45,16 @@ namespace SDL_Vulkan_CS.ECS
             for (int i = 0; i < components.Count; i++)
             {
                 components[i].GetField(nameof(IComponent.ComponentId)).SetValue(null, i);
-                _componentTypeLookup[components[i].GUID] = i;
+                _componentTypeToIdLookup[components[i].GUID] = i;
+                _componentIdToTypeLookup.Add(i, components[i]);
             }
             _totalComponentTypes = components.Count;
+        }
 
+        public void AddComponent<T>(Entity entity, T component) where T : IComponent
+        {
+            AddComponent<T>(entity);
+            SetComponent(entity, component);
         }
 
         public T AddComponent<T>(Entity entity) where T : IComponent
@@ -60,18 +67,19 @@ namespace SDL_Vulkan_CS.ECS
             {
                 comp = default;
                 int compId = GetComponentId<T>();
-                if(_componentToEntities.TryGetValue(compId,out var entities))
+                if (_componentIdToEntities.TryGetValue(compId, out var entities))
                 {
                     entities.Add(entity);
                 }
                 else
                 {
-                    _componentToEntities.Add(compId, [entity]);
+                    _componentIdToEntities.Add(compId, [entity]);
                 }
 
-                _entityToComponents[entity.Id].Add(compId);
+                _entityToComponentIds[entity.Id].Add(compId);
 
-                _componentReference.Add(GetEntityComponentSigature<T>(entity), comp);
+                _compSignatureToCompReference.Add(GetEntityComponentSigature<T>(entity), comp);
+                UpdateEntityArchetype(entity);
 
                 return comp;
             }
@@ -81,28 +89,58 @@ namespace SDL_Vulkan_CS.ECS
         {
             if (HasComponent<T>(entity, out int signature))
             {
-                _entityToComponents[entity.Id].Remove(GetComponentId<T>());
-                _componentToEntities.Remove(signature);
-                _componentReference.Remove(signature);
+                _entityToComponentIds[entity.Id].Remove(GetComponentId<T>());
+                _componentIdToEntities.Remove(signature);
+                _compSignatureToCompReference.Remove(signature);
+
+                UpdateEntityArchetype(entity);
             }
         }
 
         public bool GetComponent<T>(Entity entity, out T component) where T : IComponent
         {
             int signature = GetEntityComponentSigature<T>(entity);
-            bool hasComponent = _componentReference.TryGetValue(signature, out IComponent comp);
+            bool hasComponent = _compSignatureToCompReference.TryGetValue(signature, out IComponent comp);
             component = hasComponent ? (T)comp : default;
             return hasComponent;
+        }
+
+        public T GetComponent<T>(Entity entity) where T : IComponent
+        {
+            int signature = GetEntityComponentSigature<T>(entity);
+            return (T)_compSignatureToCompReference[signature];
         }
 
         public bool SetComponent<T>(Entity entity, T component) where T : IComponent
         {
             if (HasComponent<T>(entity, out int signature))
             {
-                _componentReference[signature] = component;
+                _compSignatureToCompReference[signature] = component;
                 return true;
             }
             return false;
+        }
+
+        private void UpdateEntityArchetype(Entity entity)
+        {
+            if (_entityIdToArchetypeIdLookup.TryGetValue(entity.Id, out int oldArcetype))
+            {
+                _archetypeIdsToEntities[oldArcetype].Remove(entity);
+
+                _archetypeIdsToComponentIds.Remove(oldArcetype);
+            }
+
+            int archetype = ComputeArchetypeHash(entity);
+            _entityIdToArchetypeIdLookup[entity.Id] = archetype;
+            if (_archetypeIdsToEntities.TryGetValue(archetype, out HashSet<Entity> entities))
+            {
+                entities.Add(entity);
+            }
+            else
+            {
+                _archetypeIdsToEntities[archetype] = [entity];
+                _archetypeIdsToComponentIds.Add(archetype, _entityToComponentIds[entity.Id]);
+            }
         }
 
         public bool HasComponent<T>(Entity entity) where T : IComponent
@@ -113,7 +151,12 @@ namespace SDL_Vulkan_CS.ECS
         public bool HasComponent<T>(Entity entity, out int signature) where T : IComponent
         {
             signature = GetEntityComponentSigature<T>(entity);
-            return _componentReference.ContainsKey(signature);
+            return _compSignatureToCompReference.ContainsKey(signature);
+        }
+
+        public bool HasComponent(Entity entity, int compId)
+        {
+            return _compSignatureToCompReference.ContainsKey(GetEntityComponentSigature(entity, compId));
         }
 
         public int GetEntityComponentSigature<T>(Entity entity) where T : IComponent
@@ -121,16 +164,25 @@ namespace SDL_Vulkan_CS.ECS
             return HashCode.Combine(entity.GetHashCode(), GetComponentId<T>());
         }
 
+        public int GetEntityComponentSigature(Entity entity, int compId)
+        {
+            return HashCode.Combine(entity.GetHashCode(), compId);
+        }
+
         public int GetComponentId<T>() where T : IComponent
         {
-            return _componentTypeLookup[typeof(T).GUID];
+            return _componentTypeToIdLookup[typeof(T).GUID];
         }
 
         public List<Entity> GetAllEntitiesWithComponent<T>() where T : IComponent
         {
             int compId = GetComponentId<T>();
+            return GetAllEntitiesWithComponent(compId);
+        }
 
-            if(_componentToEntities.TryGetValue(compId, out var entitiesSet))
+        public List<Entity> GetAllEntitiesWithComponent(int compId)
+        {
+            if (_componentIdToEntities.TryGetValue(compId, out var entitiesSet))
             {
                 return new(entitiesSet);
             }
@@ -144,17 +196,39 @@ namespace SDL_Vulkan_CS.ECS
 
             for (int i = 0; i < components.Length; i++)
             {
-                if (_componentTypeLookup.TryGetValue(components[i].GUID, out int compId))
+                if (_componentTypeToIdLookup.TryGetValue(components[i].GUID, out int compId))
                 {
                     componentIds.Add(compId);
                 }
             }
 
-            HashSet<Entity> allEntities = new(_entities.Values);
+            HashSet<Entity> allEntities = new(_entityIdToEntity.Values);
 
-            componentIds.ForEach(comp => allEntities.IntersectWith(_componentToEntities[comp]));
+            componentIds.ForEach(comp => allEntities.IntersectWith(_componentIdToEntities[comp]));
 
             return new(allEntities);
+        }
+
+        public int GetArchetypeSigature(params Type[] componentsTypes)
+        {
+
+            return GetArchetypeHash(GetComponentIds(componentsTypes));
+        }
+
+        public HashSet<int> GetComponentIds(params Type[] componentsTypes)
+        {
+            HashSet<int> componentIds = new(componentsTypes.Length);
+
+            for (int i = 0; i < componentsTypes.Length; i++)
+            {
+                if (_componentTypeToIdLookup.TryGetValue(componentsTypes[i].GUID, out int compId))
+                {
+                    componentIds.Add(compId);
+                }
+            }
+            componentIds.TrimExcess();
+            return componentIds;
+            
         }
 
         public Entity CreateEntity()
@@ -163,9 +237,10 @@ namespace SDL_Vulkan_CS.ECS
             uint id = GetNextId(out int version);
             var newEntity = new Entity(id, version);
 
-            _entities.Add(id, newEntity);
+            _entityIdToEntity.Add(id, newEntity);
             _entityIds.Add(id);
-            _entityToComponents.Add(id, []);
+            _entityToComponentIds.Add(id, []);
+            _entityIdToArchetypeIdLookup.Add(id,0);
             return newEntity;
         }
 
@@ -173,8 +248,17 @@ namespace SDL_Vulkan_CS.ECS
         {
             if (_entityIds.Remove(entity.Id))
             {
+                int archetype = ComputeArchetypeHash(entity);
+
+                if(_archetypeIdsToEntities.TryGetValue(archetype,out var entities))
+                {
+                    entities.Remove(entity);
+                }
+
+                _entityIdToArchetypeIdLookup.Remove(entity.Id);
+
                 _idsToRecyle.Enqueue(entity);
-                _entities.Remove(entity.Id);
+                _entityIdToEntity.Remove(entity.Id);
                 return true;
             }
             return false;
@@ -182,7 +266,7 @@ namespace SDL_Vulkan_CS.ECS
 
         public bool DestroyEntity(uint id)
         {
-            return DestroyEntity(_entities[id]);
+            return DestroyEntity(_entityIdToEntity[id]);
         }
 
         private uint GetNextId(out int version)
@@ -224,6 +308,54 @@ namespace SDL_Vulkan_CS.ECS
             }
 
             return id;
+        }
+
+        public int ComputeArchetypeHash(Entity entity)
+        {
+            return GetArchetypeHash(_entityToComponentIds[entity.Id]);
+        }
+
+        private static int GetArchetypeHash(HashSet<int> componentIds)
+        {
+            int[] unsorted = [.. componentIds];
+            if (unsorted.Length > 0)
+            {
+                Array.Sort(unsorted);
+                int hash = unsorted[0];
+                for (int i = 1; i < unsorted.Length; i++)
+                {
+                    hash = HashCode.Combine(hash, unsorted[i]);
+                }
+                return hash;
+            }
+            return 0;
+        }
+
+        public bool AnyEntitiesWith(int compId)
+        {
+            return _componentIdToEntities.TryGetValue(compId, out var value) && value.Count > 0;
+        }
+
+        public bool AnyEntitiesWithout(int compId)
+        {
+            return !_componentIdToEntities.TryGetValue(compId, out var value) || value.Count < _entityIdToEntity.Count;
+        }
+
+        public string GetComponentName(int compId)
+        {
+            if(_componentIdToTypeLookup.TryGetValue(compId, out var value))
+            {
+                return value.Name;
+            }
+            return null;
+        }
+
+        public bool Singleton<T>(out T component) where T : IComponent
+        {
+            int id = GetComponentId<T>();
+            component = default;
+            return _componentIdToEntities.TryGetValue(id, out HashSet<Entity> entities) && entities.Count == 1 && GetComponent(new List<Entity>(entities)[0], out component);
+
         }
     }
 }

@@ -1,4 +1,5 @@
-﻿using SDL_Vulkan_CS.ECS;
+﻿using SDL_Vulkan_CS.Artifact;
+using SDL_Vulkan_CS.ECS;
 using Vortice.Vulkan;
 
 namespace SDL_Vulkan_CS
@@ -10,8 +11,10 @@ namespace SDL_Vulkan_CS
 
         private readonly SDL3Window _appWindow;
         private readonly GraphicsDevice _device;
-        private readonly Renderer _renderer;
-
+        //private readonly Renderer _renderer;
+        private readonly Presenter _presenter;
+        private World _mainWorld;
+        private ArtifactAuthoring _artifact;
         private DateTime currentTime;
         private double deltaTime;
         public double DeltaTimeDouble => deltaTime;
@@ -21,7 +24,8 @@ namespace SDL_Vulkan_CS
         {
             _appWindow = new(Width, Height, "Vulkan CS");
             _device = new(_appWindow);
-            _renderer = new(_appWindow,_device);
+            _presenter = new(_appWindow, _device);
+            //_renderer = new(_appWindow,_device);
         }
 
         /// <summary>
@@ -49,7 +53,14 @@ namespace SDL_Vulkan_CS
         private void Start()
         {
             currentTime = DateTime.Now;
-            new EntityManager();
+
+            _presenter.Start();
+
+            _mainWorld =new World();
+
+            _artifact= new ArtifactAuthoring();
+
+            _mainWorld.OnCreate();
         }
 
         /// <summary>
@@ -57,6 +68,8 @@ namespace SDL_Vulkan_CS
         /// </summary>
         private void Update()
         {
+            _mainWorld.OnUpdate();
+            _mainWorld.OnPostUpdate();
         }
 
         /// <summary>
@@ -64,16 +77,12 @@ namespace SDL_Vulkan_CS
         /// </summary>
         private void Presentation()
         {
-            VkCommandBuffer commandBuffer = _renderer.BeginFrame();
-            if(commandBuffer!=VkCommandBuffer.Null)
+            RendererFrameInfo frameInfo = _presenter.BeginPresent(DeltaTime);
+            if(frameInfo != RendererFrameInfo.Null)
             {
-                int frameIndex = _renderer.FrameIndex;
-
-                _renderer.BeginSwapChainRenderPass(commandBuffer);
-                // render systems
-
-                _renderer.EndSwapChainRenderPass(commandBuffer);
-                _renderer.EndFrame();
+                _mainWorld.PresentationSystemUpdate(frameInfo);
+                _presenter.EndPresent(frameInfo);
+                _mainWorld.PostPresentationSystemUpdate();
             }
         }
 
@@ -89,7 +98,8 @@ namespace SDL_Vulkan_CS
 
         public void Dispose()
         {
-            _renderer.Dispose();
+            //_renderer.Dispose();
+            _presenter.Dispose();
             _device.Dispose();
             _appWindow.Dispose();
         }

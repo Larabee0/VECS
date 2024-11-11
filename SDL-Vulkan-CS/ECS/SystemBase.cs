@@ -8,7 +8,30 @@ namespace SDL_Vulkan_CS.ECS
 {
     public class SystemBase
     {
+        public bool AlwaysUpdate;
 
+        public List<EntityQuery> Queries = [];
+
+
+        public virtual void OnCreate(EntityManager entityManager)
+        {
+
+        }
+
+        public virtual void OnDestroy(EntityManager entityManager)
+        {
+
+        }
+
+        public virtual void OnUpdate(EntityManager entityManager)
+        {
+
+        }
+
+        public virtual void OnPostUpdate(EntityManager entityManager)
+        {
+
+        }
 
     }
 }
