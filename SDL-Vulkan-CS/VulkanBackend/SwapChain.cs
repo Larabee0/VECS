@@ -38,6 +38,8 @@ namespace SDL_Vulkan_CS
         public VkRenderPass RenderPass =>_renderPass;
         public VkExtent2D SwapChainExtent =>_swapChainExtent;
 
+        public float ExtentAspectRatio => (float)SwapChainExtent.width / (float)SwapChainExtent.height;
+
         public SwapChain(GraphicsDevice device, VkExtent2D extent)
         {
             _device = device;

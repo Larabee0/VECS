@@ -44,11 +44,13 @@ namespace SDL_Vulkan_CS.ECS
             }
             for (int i = 0; i < components.Count; i++)
             {
-                components[i].GetField(nameof(IComponent.ComponentId)).SetValue(null, i);
+                components[i].GetProperty(nameof(IComponent.ComponentId)).SetValue(null, i);
                 _componentTypeToIdLookup[components[i].GUID] = i;
                 _componentIdToTypeLookup.Add(i, components[i]);
             }
             _totalComponentTypes = components.Count;
+            _archetypeIdsToEntities.Add(0, []);
+            _archetypeIdsToComponentIds.Add(0, []);
         }
 
         public void AddComponent<T>(Entity entity, T component) where T : IComponent
@@ -273,7 +275,7 @@ namespace SDL_Vulkan_CS.ECS
         {
             bool idIsAvaliable;
             uint id = _nextMaxEntityId;
-            version = 0;
+            version = 1;
             if (_nextMaxEntityId == 0)
             {
                 _nextMaxEntityId++;
@@ -350,12 +352,22 @@ namespace SDL_Vulkan_CS.ECS
             return null;
         }
 
+        public bool SingletonEntity<T>(out Entity entity) where T : IComponent
+        {
+            int id = GetComponentId<T>();
+            entity = Entity.Null;
+            if( _componentIdToEntities.TryGetValue(id, out HashSet<Entity> entities) && entities.Count == 1)
+            {
+                entity = new List<Entity>(entities)[0];
+                return true;
+            }
+            return false;
+        }
         public bool Singleton<T>(out T component) where T : IComponent
         {
             int id = GetComponentId<T>();
             component = default;
             return _componentIdToEntities.TryGetValue(id, out HashSet<Entity> entities) && entities.Count == 1 && GetComponent(new List<Entity>(entities)[0], out component);
-
         }
     }
 }

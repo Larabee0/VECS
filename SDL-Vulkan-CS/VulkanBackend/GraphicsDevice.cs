@@ -31,6 +31,7 @@ namespace SDL_Vulkan_CS
         private VkQueue _graphicsQueue;
         private VkQueue _presentQueue;
 
+        public VkPhysicalDevice PhysucalDevice => _physicalDevice;
         public VkDevice Device => _device;
         public VkSurfaceKHR Surface => _surface;
 
@@ -39,6 +40,7 @@ namespace SDL_Vulkan_CS
         public VkQueue GraphicsQueue => _graphicsQueue;
         public VkQueue PresentQueue => _presentQueue;
 
+        public VkInstance VkInstance => _instance;
         public SwapChainSupportDetails SwapChainSupport => QuerySwapChainSupport(_physicalDevice);
         public QueueFamilyIndices PhysicalQueueFamilies => FindQueueFamilies(_physicalDevice);
 
@@ -514,6 +516,42 @@ namespace SDL_Vulkan_CS
 
             throw new Exception("Failed to find suitable memory type!");
         }
+
+
+        public unsafe void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, uint size)
+        {
+            VkCommandBuffer commandBuffer = BeginSingleTimeCommands();
+            VkBufferCopy copyRegion = new()
+            {
+                srcOffset = 0,
+                dstOffset = 0,
+                size = size
+            };
+            Vulkan.vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+
+
+            EndSingleTimeCommands(commandBuffer);
+        }
+
+        public VkCommandBuffer BeginSingleTimeCommands()
+        {
+            Vulkan.vkAllocateCommandBuffer(Device, _commandPool, VkCommandBufferLevel.Primary, out VkCommandBuffer commandBuffer);
+            Vulkan.vkBeginCommandBuffer(commandBuffer, VkCommandBufferUsageFlags.OneTimeSubmit);
+            return commandBuffer;
+        }
+
+        public unsafe void EndSingleTimeCommands(VkCommandBuffer commandBuffer)
+        {
+            Vulkan.vkEndCommandBuffer(commandBuffer);
+            VkSubmitInfo submitInfo = new()
+            {
+                commandBufferCount = 1,
+                pCommandBuffers = &commandBuffer
+            };
+            Vulkan.vkQueueSubmit(_graphicsQueue, submitInfo,VkFence.Null);
+            Vulkan.vkQueueWaitIdle(_graphicsQueue);
+            Vulkan.vkFreeCommandBuffers(Device, _commandPool, commandBuffer);
+        }
         #endregion
 
         public unsafe void Dispose()
@@ -691,6 +729,7 @@ namespace SDL_Vulkan_CS
 
             return requiredSet.Count == 0;
         }
+
         #endregion
 
         public struct QueueFamilyIndices

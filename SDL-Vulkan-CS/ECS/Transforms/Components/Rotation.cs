@@ -9,6 +9,8 @@ namespace SDL_Vulkan_CS.ECS
 {
     public  struct Rotation : IComponent
     {
+        public static int ComponentId { get; set; }
+
         public Quaternion Value;
     }
 }

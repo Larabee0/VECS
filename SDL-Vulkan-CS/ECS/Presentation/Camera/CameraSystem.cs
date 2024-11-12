@@ -6,7 +6,7 @@ using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace SDL_Vulkan_CS.Artifact
+namespace SDL_Vulkan_CS
 {
     public class CameraSystem : SystemBase
     {

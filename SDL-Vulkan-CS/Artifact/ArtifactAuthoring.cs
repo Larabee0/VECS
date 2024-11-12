@@ -30,6 +30,7 @@ namespace SDL_Vulkan_CS.Artifact
             entityManager.AddComponent(MainCamera, new Translation() { Value = initalCameraPos });
             entityManager.AddComponent(MainCamera, new Rotation() {Value = initalCameraRot });
             entityManager.AddComponent(MainCamera, cameraPerspective);
+            entityManager.AddComponent<MainCamera>(MainCamera);
         }
     }
 }

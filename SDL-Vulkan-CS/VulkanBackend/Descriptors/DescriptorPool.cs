@@ -37,7 +37,7 @@ namespace SDL_Vulkan_CS
             }
         }
 
-        public unsafe bool AllocateDescriptorSet(VkDescriptorSetLayout descriptorSetLayout,VkDescriptorSet descriptor)
+        public unsafe bool AllocateDescriptorSet(VkDescriptorSetLayout descriptorSetLayout,VkDescriptorSet* descriptor)
         {
             VkDescriptorSetAllocateInfo allocInfo = new()
             {
@@ -46,7 +46,7 @@ namespace SDL_Vulkan_CS
                 descriptorSetCount = 1
             };
 
-            return Vulkan.vkAllocateDescriptorSets(GraphicsDevice.Device, &allocInfo, &descriptor) == VkResult.Success;
+            return Vulkan.vkAllocateDescriptorSets(GraphicsDevice.Device, &allocInfo, descriptor) == VkResult.Success;
         }
 
         public void FreeDescriptors(VkDescriptorSet[] descriptors)
@@ -67,7 +67,7 @@ namespace SDL_Vulkan_CS
         public class Builder
         {
             private readonly GraphicsDevice _graphicsDevice;
-            private VkDescriptorPoolSize[] _poolSizes;
+            private VkDescriptorPoolSize[] _poolSizes=[];
             private uint _maxSets = 1000;
             private VkDescriptorPoolCreateFlags _poolFlags = 0;
             public Builder(GraphicsDevice graphicsDevice)

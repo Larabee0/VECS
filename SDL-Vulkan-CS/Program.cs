@@ -16,7 +16,7 @@
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.Message);
+                Console.WriteLine(string.Format("{0},\n{1}", ex.Message,ex.StackTrace));
                 return 1;
             }
             return 0;

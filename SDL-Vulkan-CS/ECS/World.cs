@@ -16,9 +16,11 @@ namespace SDL_Vulkan_CS.ECS
 
         public World()
         {
+            EntityManager = new();
+            Systems = [];
+            PresentationSystems = [];
             CreateSystem<LocalToWorldSystem>();
             CreateSystem<CameraSystem>();
-            PresentationSystems = [new PresentationSystemBase()];
             DefaultWorld = this;
         }
 

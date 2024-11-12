@@ -54,9 +54,10 @@ namespace SDL_Vulkan_CS
         {
             currentTime = DateTime.Now;
 
+            _mainWorld = new World();
+            
             _presenter.Start();
 
-            _mainWorld =new World();
 
             _artifact= new ArtifactAuthoring();
 

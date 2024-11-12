@@ -8,6 +8,6 @@ namespace SDL_Vulkan_CS.ECS
 {
     public interface IComponent
     {
-        public static int ComponentId {  get; }
+        public static int ComponentId { get; }
     }
 }

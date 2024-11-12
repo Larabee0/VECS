@@ -13,6 +13,11 @@
   <ItemGroup>
     <PackageReference Include="Alimer.Bindings.SDL" Version="3.9.4" />
     <PackageReference Include="Vortice.Vulkan" Version="1.9.9" />
+    <PackageReference Include="Vortice.VulkanMemoryAllocator" Version="1.5.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Assets\" />
   </ItemGroup>
 
 </Project>

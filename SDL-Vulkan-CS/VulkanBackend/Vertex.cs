@@ -21,7 +21,11 @@ namespace SDL_Vulkan_CS
         public Vector3 Normal; // offset 24
         public Vector2 UV; // offset 36
 
-
+        public Vertex(Vector3 position, Vector3 colour)
+        {
+            Position = position;
+            Colour = colour;
+        }
 
 
         public static bool operator ==(Vertex left, Vertex right)

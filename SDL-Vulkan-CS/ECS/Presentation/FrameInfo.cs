@@ -8,6 +8,8 @@ namespace SDL_Vulkan_CS.ECS
 {
     public struct FrameInfo : IComponent
     {
+        public static int ComponentId { get; set; }
+
         public float screenAspect;
     }
 }

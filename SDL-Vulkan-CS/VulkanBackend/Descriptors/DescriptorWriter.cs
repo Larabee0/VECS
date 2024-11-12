@@ -11,7 +11,7 @@ namespace SDL_Vulkan_CS
     {
         private DescriptorSetLayout _setLayout;
         private DescriptorPool _pool;
-        private VkWriteDescriptorSet[] _writes;
+        private VkWriteDescriptorSet[] _writes=[];
 
         public DescriptorWriter(DescriptorSetLayout setLayout,DescriptorPool pool)
         {
@@ -21,14 +21,14 @@ namespace SDL_Vulkan_CS
 
         public unsafe DescriptorWriter WriteBuffer(uint binding, VkDescriptorBufferInfo bufferInfo)
         {
-            if (_setLayout.Bindings.ContainsKey(binding))
+            if (!_setLayout.Bindings.ContainsKey(binding))
             {
                 throw new Exception("Layout does not contain specified binding");
             }
 
             var bindingDescription = _setLayout.Bindings[binding];
 
-            if (bindingDescription.descriptorCount == 1)
+            if (bindingDescription.descriptorCount != 1)
             {
                 throw new Exception("Binding single descriptor info, but binding expects multiple");
             }
@@ -71,7 +71,7 @@ namespace SDL_Vulkan_CS
             return this;
         }
 
-        public bool Build(VkDescriptorSet set)
+        public unsafe bool Build(VkDescriptorSet* set)
         {
             bool success = _pool.AllocateDescriptorSet(_setLayout.SetLayout, set);
             if (!success)
@@ -82,11 +82,11 @@ namespace SDL_Vulkan_CS
             return true;
         }
 
-        public void Overwrite(VkDescriptorSet set)
+        public unsafe void Overwrite(VkDescriptorSet* set)
         {
             for (int i = 0; i < _writes.Length; i++)
             {
-                _writes[i].dstSet = set;
+                _writes[i].dstSet = *set;
             }
             Vulkan.vkUpdateDescriptorSets(_pool.GraphicsDevice.Device, _writes);
         }

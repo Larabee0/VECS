@@ -56,6 +56,7 @@ namespace SDL_Vulkan_CS
                 pVertexBindingDescriptions = pBindingDescriptions
             };
 
+            var vkDynamicInfo = configInfo.dynamicInfo;
 
             VkGraphicsPipelineCreateInfo pipelineInfo = new()
             {
@@ -68,7 +69,7 @@ namespace SDL_Vulkan_CS
                 pMultisampleState = &configInfo.multisampleInfo,
                 pColorBlendState = &configInfo.colourBlendInfo,
                 pDepthStencilState = &configInfo.depthStencilInfo,
-                pDynamicState = &configInfo.dynamicInfo,
+                pDynamicState = &vkDynamicInfo,
 
                 layout = configInfo.pipelineLayout,
                 renderPass = configInfo.renderPass,
@@ -94,6 +95,7 @@ namespace SDL_Vulkan_CS
 
             shaderStages[0] = new()
             {
+                sType = VkStructureType.PipelineShaderStageCreateInfo,
                 stage = VkShaderStageFlags.Vertex,
                 module = _vertShaderModule,
                 pName = main,
@@ -104,6 +106,7 @@ namespace SDL_Vulkan_CS
 
             shaderStages[1] = new()
             {
+                sType = VkStructureType.PipelineShaderStageCreateInfo,
                 stage = VkShaderStageFlags.Fragment,
                 module = _fragShaderModule,
                 pName = main,
@@ -126,7 +129,7 @@ namespace SDL_Vulkan_CS
             Vulkan.vkDestroyPipeline(_device.Device,_graphicsPipeline);
         }
 
-        public static unsafe void DefaultPipelineConfigInfo (ref RenderPipelineConfigInfo configInfo)
+        public static unsafe RenderPipelineConfigInfo DefaultPipelineConfigInfo (RenderPipelineConfigInfo configInfo)
         {
             // input assembly info
             var inputAssemblyInfo = configInfo.inputAssemblyInfo;
@@ -200,8 +203,8 @@ namespace SDL_Vulkan_CS
             colourBlendInfo.logicOp = VkLogicOp.Copy;
             colourBlendInfo.attachmentCount = 1;
 
-            fixed(VkPipelineColorBlendAttachmentState* pAttachments = &configInfo.colourBlendAttachment)
-            colourBlendInfo.pAttachments = pAttachments;
+            
+            colourBlendInfo.pAttachments = &colourBlendAttachment;
 
             colourBlendInfo.blendConstants[0] = 0;
             colourBlendInfo.blendConstants[1] = 0;
@@ -230,26 +233,28 @@ namespace SDL_Vulkan_CS
 
             configInfo.dynamicStateEnables = [VkDynamicState.Viewport, VkDynamicState.Scissor];
 
-            var dynamicInfo = configInfo.dynamicInfo;
 
-            dynamicInfo.sType = VkStructureType.PipelineDynamicStateCreateInfo;
+            configInfo.dynamicInfo.sType = VkStructureType.PipelineDynamicStateCreateInfo;
 
-            VkDynamicState* pDynamicStats = stackalloc VkDynamicState[configInfo.dynamicStateEnables.Length];
-            
-            for (var i = 0; i < configInfo.dynamicStateEnables.Length; i++)
+            VkDynamicState* pDynamicStats = stackalloc VkDynamicState[2]
             {
-                pDynamicStats[i] = configInfo.dynamicStateEnables[i];
-            }
+                VkDynamicState.Viewport, VkDynamicState.Scissor
+            };
+            
+            //for (int i = 0; i < configInfo.dynamicStateEnables.Length; i++)
+            //{
+            //    pDynamicStats[i] = configInfo.dynamicStateEnables[i];
+            //}
 
-            dynamicInfo.pDynamicStates = pDynamicStats;
-            dynamicInfo.dynamicStateCount = (uint)configInfo.dynamicStateEnables.Length;
-            dynamicInfo.flags = 0;
+            configInfo.dynamicInfo.pDynamicStates = pDynamicStats;
+            configInfo.dynamicInfo.dynamicStateCount = (uint)configInfo.dynamicStateEnables.Length;
+            configInfo.dynamicInfo.flags = 0;
 
-            configInfo.dynamicInfo = dynamicInfo;
 
             // vertex descriptors
             configInfo.BindingDescriptions = Vertex.GetBindingDescriptions();
             configInfo.AttributeDescriptions = Vertex.GetAttributeDescriptions();
+            return configInfo;
         }
 
         public static void EnableAlphaBlending(ref RenderPipelineConfigInfo configInfo)

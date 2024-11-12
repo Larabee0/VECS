@@ -38,6 +38,10 @@ namespace SDL_Vulkan_CS
             }
         }
 
+        public float AspectRatio => _swapChain.ExtentAspectRatio;
+
+        public VkRenderPass SwapChainRenderPass => _swapChain.RenderPass;
+
         public Renderer(IWindow window,GraphicsDevice device)
         {
             _window = window;

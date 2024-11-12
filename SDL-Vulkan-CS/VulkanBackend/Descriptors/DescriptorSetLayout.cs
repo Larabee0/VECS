@@ -50,7 +50,7 @@ namespace SDL_Vulkan_CS
         public class Builder
         {
             private readonly GraphicsDevice _graphicsDevice;
-            private readonly Dictionary<uint, VkDescriptorSetLayoutBinding> _bindings;
+            private readonly Dictionary<uint, VkDescriptorSetLayoutBinding> _bindings=[];
             public Builder(GraphicsDevice device)
             {
                 _graphicsDevice = device;
