@@ -60,10 +60,13 @@ namespace SDL_Vulkan_CS
             var vkDynamicInfo = configInfo.dynamicInfo;
             var depthStencilInfo = configInfo.depthStencilInfo;
             var colourBlendInfo = configInfo.colourBlendInfo;
+            var colourBlendAttachment = configInfo.colourBlendAttachment;
+            colourBlendInfo.pAttachments = &colourBlendAttachment;
             var inputAssemblyInfo = configInfo.inputAssemblyInfo;
             var viewportInfo = configInfo.viewportInfo;
             var multisampleInfo = configInfo.multisampleInfo;
             var rasterizationInfo = configInfo.rasterizationInfo;
+            //var rasterizationInfo = VkPipelineRasterizationStateCreateInfo.CullCounterClockwise;
 
             VkDynamicState* pDynamicStats = stackalloc VkDynamicState[2]
             {
@@ -171,7 +174,7 @@ namespace SDL_Vulkan_CS
             rasterizationInfo.rasterizerDiscardEnable = false;
             rasterizationInfo.polygonMode = VkPolygonMode.Fill;
             rasterizationInfo.lineWidth = 1;
-            rasterizationInfo.cullMode = VkCullModeFlags.Front;
+            rasterizationInfo.cullMode = VkCullModeFlags.None;
             rasterizationInfo.frontFace = VkFrontFace.Clockwise;
             rasterizationInfo.depthBiasEnable = false;
             rasterizationInfo.depthBiasConstantFactor = 0;

@@ -6,8 +6,8 @@ namespace SDL_Vulkan_CS
 {
     public sealed class Application : IDisposable
     {
-        public readonly static int Width = 800;
-        public readonly static int Height = 600;
+        public readonly static int Width = 1280;
+        public readonly static int Height = 720;
 
         private readonly SDL3Window _appWindow;
         private readonly GraphicsDevice _device;

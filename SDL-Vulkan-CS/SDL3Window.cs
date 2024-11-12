@@ -11,7 +11,7 @@ namespace SDL_Vulkan_CS
     public sealed class SDL3Window : IWindow
     {
         private readonly static SDL_InitFlags _sdl_Init_Flags = SDL_InitFlags.Video;
-        private readonly static SDL_WindowFlags _sdl_Window_Flags = SDL_WindowFlags.Vulkan;
+        private readonly static SDL_WindowFlags _sdl_Window_Flags = SDL_WindowFlags.HighPixelDensity | SDL_WindowFlags.Vulkan;
 
         private readonly string _windowName;
         private int _width;

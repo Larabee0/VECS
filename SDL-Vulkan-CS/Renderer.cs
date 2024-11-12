@@ -178,9 +178,9 @@ namespace SDL_Vulkan_CS
             VkViewport viewport = new()
             {
                 x = 0,
-                y = 0,
+                y = _swapChain.SwapChainExtent.height,
                 width = _swapChain.SwapChainExtent.width,
-                height = _swapChain.SwapChainExtent.height,
+                height = -_swapChain.SwapChainExtent.height,
                 minDepth = 0,
                 maxDepth = 1
             };
