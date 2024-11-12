@@ -46,8 +46,8 @@ namespace SDL_Vulkan_CS
                 Update();
                 Presentation();
             }
-
             Vulkan.vkDeviceWaitIdle(_device.Device);
+            Destroy();
         }
 
         private void Start()
@@ -95,6 +95,11 @@ namespace SDL_Vulkan_CS
             var newTime = DateTime.Now;
             deltaTime = (newTime - currentTime).TotalSeconds;
             currentTime = newTime;
+        }
+
+        private void Destroy()
+        {
+            World.DefaultWorld.OnDestroy();
         }
 
         public void Dispose()

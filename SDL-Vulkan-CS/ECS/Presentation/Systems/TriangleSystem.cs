@@ -17,6 +17,8 @@ namespace SDL_Vulkan_CS.ECS
 
         private CsharpVulkanBuffer _vertexBuffer;
 
+        private VmaAllocator _vmaAllocator;
+
         private readonly VkDescriptorSetLayout _globalSetLayout;
         private readonly VkRenderPass _renderPass;
 
@@ -45,6 +47,7 @@ namespace SDL_Vulkan_CS.ECS
 
         public unsafe override void OnDestroy(EntityManager entityManager)
         {
+            _vertexBuffer.Dispose(_vmaAllocator);
             _renderPipeline.Dispose();
             Vulkan.vkDestroyPipelineLayout(_graphicsDevice.Device, _pipelineLayout);
             _renderSystemLayout.Dispose();
@@ -83,17 +86,19 @@ namespace SDL_Vulkan_CS.ECS
                 throw new InvalidOperationException("Cannot create pipeline before pipeline layout!");
             }
 
-            RenderPipelineConfigInfo pipelineConfigInfo = RenderPipeline.DefaultPipelineConfigInfo( new());
+            RenderPipelineConfigInfo pipelineConfigInfo = new();
+            RenderPipeline.DefaultPipelineConfigInfo(ref pipelineConfigInfo);
             
 
             pipelineConfigInfo.renderPass = renderPass;
             pipelineConfigInfo.pipelineLayout = _pipelineLayout;
 
-            _renderPipeline = new(_graphicsDevice, "Assets/triangle.vert.spv", "Assets/triangle.frag.spv", pipelineConfigInfo);
+            _renderPipeline = new(_graphicsDevice, "Assets/triangle.vert.spv", "Assets/triangle.frag.spv", ref pipelineConfigInfo);
         }
 
-        private unsafe void CreateTriangle(VmaAllocator allocator)
+        public unsafe void CreateTriangle(VmaAllocator allocator)
         {
+            _vmaAllocator = allocator;
             ReadOnlySpan<Vertex> sourceData = [
 
                     new Vertex(new Vector3(0f, 0.5f, 0.0f), new Vector3(1.0f, 0.0f, 0.0f)),

@@ -185,9 +185,21 @@ namespace SDL_Vulkan_CS.ECS
         {
             HashSet<Entity> entitiesSet = [];
 
-            _withAll.ForEach(compId => entitiesSet.UnionWith(_entityManager.GetAllEntitiesWithComponent(compId)));
+            _withAll.ForEach(compId =>
+            {
+                if(_entityManager.GetAllEntitiesWithComponent(compId,out var entities))
+                {
+                    entitiesSet.UnionWith(entities);
+                }
+            });
 
-            _withNone.ForEach(compId => entitiesSet.ExceptWith(_entityManager.GetAllEntitiesWithComponent(compId)));
+            _withNone.ForEach(compId =>
+            {
+                if(_entityManager.GetAllEntitiesWithComponent(compId,out var entities))
+                {
+                    entitiesSet.ExceptWith(entities);
+                }
+            });
             
             List<Entity> entities = new(entitiesSet);
             if (_withAny.Count > 0 && entities.Count > 0)

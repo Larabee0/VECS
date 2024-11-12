@@ -14,13 +14,13 @@ namespace SDL_Vulkan_CS
         private VkShaderModule _vertShaderModule;
         private VkShaderModule _fragShaderModule;
 
-        public RenderPipeline(GraphicsDevice device, string vertFilePath, string fragFilePath, RenderPipelineConfigInfo configInfo)
+        public RenderPipeline(GraphicsDevice device, string vertFilePath, string fragFilePath, ref RenderPipelineConfigInfo configInfo)
         {
             _device = device;
-            CreateGraphicsPipeline(vertFilePath, fragFilePath, configInfo);
+            CreateGraphicsPipeline(vertFilePath, fragFilePath, ref configInfo);
         }
 
-        private unsafe void CreateGraphicsPipeline(string vertFilePath, string fragFilePath, RenderPipelineConfigInfo configInfo)
+        private unsafe void CreateGraphicsPipeline(string vertFilePath, string fragFilePath, ref RenderPipelineConfigInfo configInfo)
         {
             if (configInfo.pipelineLayout == VkPipelineLayout.Null)
             {
@@ -32,7 +32,8 @@ namespace SDL_Vulkan_CS
                 throw new ArgumentException("Cannot create graphics pipeline:: no renderPass layout provided in configInfo");
             }
 
-            VkPipelineShaderStageCreateInfo* shaderStages = GetShaderStageCreateInfo(vertFilePath, fragFilePath);
+            VkPipelineShaderStageCreateInfo* shaderStages = stackalloc VkPipelineShaderStageCreateInfo[2];
+            GetShaderStageCreateInfo(vertFilePath, fragFilePath,shaderStages);
 
             var bindingDescriptions = configInfo.BindingDescriptions;
             var attributeDescriptions = configInfo.AttributeDescriptions;
@@ -57,18 +58,30 @@ namespace SDL_Vulkan_CS
             };
 
             var vkDynamicInfo = configInfo.dynamicInfo;
+            var depthStencilInfo = configInfo.depthStencilInfo;
+            var colourBlendInfo = configInfo.colourBlendInfo;
+            var inputAssemblyInfo = configInfo.inputAssemblyInfo;
+            var viewportInfo = configInfo.viewportInfo;
+            var multisampleInfo = configInfo.multisampleInfo;
+            var rasterizationInfo = configInfo.rasterizationInfo;
+
+            VkDynamicState* pDynamicStats = stackalloc VkDynamicState[2]
+            {
+                VkDynamicState.Viewport, VkDynamicState.Scissor
+            };
+            vkDynamicInfo.pDynamicStates = pDynamicStats;
 
             VkGraphicsPipelineCreateInfo pipelineInfo = new()
             {
                 stageCount = 2,
                 pStages = shaderStages,
                 pVertexInputState = &vertexInputInfo,
-                pInputAssemblyState = &configInfo.inputAssemblyInfo,
-                pViewportState = &configInfo.viewportInfo,
-                pRasterizationState = &configInfo.rasterizationInfo,
-                pMultisampleState = &configInfo.multisampleInfo,
-                pColorBlendState = &configInfo.colourBlendInfo,
-                pDepthStencilState = &configInfo.depthStencilInfo,
+                pInputAssemblyState = &inputAssemblyInfo,
+                pViewportState = &viewportInfo,
+                pRasterizationState = &rasterizationInfo,
+                pMultisampleState = &multisampleInfo,
+                pColorBlendState = &colourBlendInfo,
+                pDepthStencilState = &depthStencilInfo,
                 pDynamicState = &vkDynamicInfo,
 
                 layout = configInfo.pipelineLayout,
@@ -85,11 +98,10 @@ namespace SDL_Vulkan_CS
             }
         }
 
-        private unsafe VkPipelineShaderStageCreateInfo* GetShaderStageCreateInfo(string vertFilePath, string fragFilePath)
+        private unsafe void GetShaderStageCreateInfo(string vertFilePath, string fragFilePath, VkPipelineShaderStageCreateInfo* shaderStages)
         {
             Vulkan.vkCreateShaderModule(_device.Device, File.ReadAllBytes(vertFilePath), null, out _vertShaderModule);
             Vulkan.vkCreateShaderModule(_device.Device, File.ReadAllBytes(fragFilePath), null, out _fragShaderModule);
-            VkPipelineShaderStageCreateInfo* shaderStages = stackalloc VkPipelineShaderStageCreateInfo[2];
 
             VkUtf8ReadOnlyString main = "main"u8;
 
@@ -114,7 +126,7 @@ namespace SDL_Vulkan_CS
                 pNext = null,
                 pSpecializationInfo = null
             };
-            return shaderStages;
+            //return shaderStages;
         }
 
         public void Bind(VkCommandBuffer commandBuffer)
@@ -129,7 +141,7 @@ namespace SDL_Vulkan_CS
             Vulkan.vkDestroyPipeline(_device.Device,_graphicsPipeline);
         }
 
-        public static unsafe RenderPipelineConfigInfo DefaultPipelineConfigInfo (RenderPipelineConfigInfo configInfo)
+        public static unsafe void DefaultPipelineConfigInfo(ref RenderPipelineConfigInfo configInfo)
         {
             // input assembly info
             var inputAssemblyInfo = configInfo.inputAssemblyInfo;
@@ -236,17 +248,12 @@ namespace SDL_Vulkan_CS
 
             configInfo.dynamicInfo.sType = VkStructureType.PipelineDynamicStateCreateInfo;
 
-            VkDynamicState* pDynamicStats = stackalloc VkDynamicState[2]
-            {
-                VkDynamicState.Viewport, VkDynamicState.Scissor
-            };
-            
+
             //for (int i = 0; i < configInfo.dynamicStateEnables.Length; i++)
             //{
             //    pDynamicStats[i] = configInfo.dynamicStateEnables[i];
             //}
 
-            configInfo.dynamicInfo.pDynamicStates = pDynamicStats;
             configInfo.dynamicInfo.dynamicStateCount = (uint)configInfo.dynamicStateEnables.Length;
             configInfo.dynamicInfo.flags = 0;
 
@@ -254,7 +261,7 @@ namespace SDL_Vulkan_CS
             // vertex descriptors
             configInfo.BindingDescriptions = Vertex.GetBindingDescriptions();
             configInfo.AttributeDescriptions = Vertex.GetAttributeDescriptions();
-            return configInfo;
+            //return configInfo;
         }
 
         public static void EnableAlphaBlending(ref RenderPipelineConfigInfo configInfo)

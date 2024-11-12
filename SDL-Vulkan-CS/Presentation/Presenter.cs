@@ -74,12 +74,14 @@ namespace SDL_Vulkan_CS
         {
             _globalDescriptorSetLayout = ConfigureUboBuffers(_uboBuffers, _globalDescriptorSets);
 
-
-            World.DefaultWorld.PresentationSystems.Add(new TriangleSystem(_device, _renderer.SwapChainRenderPass, _globalDescriptorSetLayout.SetLayout));
-
+            var triangleSystem = new TriangleSystem(_device, _renderer.SwapChainRenderPass, _globalDescriptorSetLayout.SetLayout);
+            World.DefaultWorld.PresentationSystems.Add(triangleSystem);
+            triangleSystem.CreateTriangle(_allocator);
             frameInfoEntity = World.DefaultWorld.EntityManager.CreateEntity();
 
             World.DefaultWorld.EntityManager.AddComponent<FrameInfo>(frameInfoEntity);
+
+
 
         }
 
@@ -144,9 +146,10 @@ namespace SDL_Vulkan_CS
 
                 Camera camera = Camera.Identity;
 
-                if(World.DefaultWorld.EntityManager.SingletonEntity<MainCamera>(out Entity mainCamera))
+                if(World.DefaultWorld.EntityManager.SingletonEntity<MainCamera>(out Entity mainCamera)
+                    && World.DefaultWorld.EntityManager.HasComponent<Camera>(mainCamera,out int signature))
                 {
-                    camera = World.DefaultWorld.EntityManager.GetComponent<Camera>(mainCamera);
+                    camera = World.DefaultWorld.EntityManager.GetComponent<Camera>(signature);
                 }
 
                 GlobalUbo ubo = new()
@@ -176,8 +179,23 @@ namespace SDL_Vulkan_CS
 
         public void Dispose()
         {
+
+            for (int i = 0; i < _uboBuffers.Length; i++)
+            {
+                _uboBuffers[i].Dispose(_allocator);
+            }
+
+            _globalDescriptorSetLayout.Dispose();
+
+            for (int i = 0; i < framePools.Length; i++)
+            {
+                framePools[i] .Dispose();
+            }
+            _globalPool.Dispose();
+            
             Vma.vmaDestroyAllocator(_allocator);
             _renderer.Dispose();
+
         }
 
     }

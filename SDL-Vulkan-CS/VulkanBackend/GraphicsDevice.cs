@@ -226,7 +226,7 @@ namespace SDL_Vulkan_CS
 
             Console.WriteLine(string.Format("Device count: {0}",devices.Length));
 
-            for (int i = 0; i < devices.Length; i++)
+            for (int i = 1; i < devices.Length; i++)
             {
                 var device = devices[i];
                 if (IsDeviceSuitable(device))
@@ -528,7 +528,6 @@ namespace SDL_Vulkan_CS
                 size = size
             };
             Vulkan.vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
-
 
             EndSingleTimeCommands(commandBuffer);
         }

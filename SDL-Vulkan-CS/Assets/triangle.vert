@@ -27,8 +27,8 @@ layout(set = 0,binding = 0) uniform GlobalUbo{
 void main() 
 {
 	vec4 positionWorld =  vec4(position, 1.0);
-	gl_Position = ubo.projectionMatrix * ubo.viewMatrix * positionWorld;
-	
+	//gl_Position = ubo.projectionMatrix * ubo.viewMatrix * positionWorld;
+	gl_Position=  positionWorld;
 	fragNormalWorld = normalize(normal);
 	fragPosWorld = positionWorld.xyz;
 	fragColour = colour;

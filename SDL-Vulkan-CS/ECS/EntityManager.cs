@@ -113,6 +113,11 @@ namespace SDL_Vulkan_CS.ECS
             return (T)_compSignatureToCompReference[signature];
         }
 
+        public T GetComponent<T>(int signature) where T : IComponent
+        {
+            return (T)_compSignatureToCompReference[signature];
+        }
+
         public bool SetComponent<T>(Entity entity, T component) where T : IComponent
         {
             if (HasComponent<T>(entity, out int signature))
@@ -190,6 +195,11 @@ namespace SDL_Vulkan_CS.ECS
             }
 
             return null;
+        }
+
+        public bool GetAllEntitiesWithComponent(int compId, out HashSet<Entity> entities)
+        {
+            return _componentIdToEntities.TryGetValue(compId, out entities);
         }
 
         public List<Entity> GetAllEntitiesWithComponents(params Type[] components)
