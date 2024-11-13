@@ -7,11 +7,14 @@ using Vortice.Vulkan;
 
 namespace SDL_Vulkan_CS
 {
+    /// <summary>
+    /// Abstraction for defining a Descriptor Set Layout through the use of a builder class <see cref="Builder"/>
+    /// </summary>
     public sealed class DescriptorSetLayout : IDisposable
     {
         private readonly GraphicsDevice _graphicsDevice;
-        private readonly VkDescriptorSetLayout _descriptorSetLayout;
         public readonly Dictionary<uint, VkDescriptorSetLayoutBinding> Bindings;
+        private readonly VkDescriptorSetLayout _descriptorSetLayout;
 
         public VkDescriptorSetLayout SetLayout =>_descriptorSetLayout;
 
@@ -47,6 +50,9 @@ namespace SDL_Vulkan_CS
             Vulkan.vkDestroyDescriptorSetLayout(_graphicsDevice.Device, _descriptorSetLayout, null);
         }
 
+        /// <summary>
+        /// Abstract way of building a <see cref="DescriptorSetLayout"/>
+        /// </summary>
         public class Builder
         {
             private readonly GraphicsDevice _graphicsDevice;
@@ -56,6 +62,15 @@ namespace SDL_Vulkan_CS
                 _graphicsDevice = device;
             }
 
+            /// <summary>
+            /// adds a binding to the descriptor set.
+            /// </summary>
+            /// <param name="binding">binding point</param>
+            /// <param name="descriptorType">Descriptor type (texture, uniform buffer, etc)</param>
+            /// <param name="stageFlags">where this set is avaliable in the shader pipeline</param>
+            /// <param name="count">descriptor count</param>
+            /// <returns></returns>
+            /// <exception cref="ArgumentException"></exception>
             public Builder AddBinding(uint binding,VkDescriptorType descriptorType, VkShaderStageFlags stageFlags,uint count = 1)
             {
                 if (_bindings.ContainsKey(binding))

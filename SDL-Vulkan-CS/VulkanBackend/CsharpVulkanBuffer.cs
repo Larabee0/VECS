@@ -7,11 +7,17 @@ using Vortice.Vulkan;
 
 namespace SDL_Vulkan_CS
 {
+    /// <summary>
+    /// Abstracted buffer class for managing a Vk buffer and device memory using the Vulkan Memory Allocator (VMA)
+    /// 
+    /// These buffers are used for things like a vertex buffer, index buffer and later a texture.
+    /// 
+    /// </summary>
     public sealed class CsharpVulkanBuffer
     {
         public readonly ulong BufferSize;
 
-        public readonly VkBuffer VkBuffer;        
+        public readonly VkBuffer VkBuffer;
         private readonly VmaAllocation _allocation;
 
         private readonly uint _instanceCount;
@@ -24,7 +30,23 @@ namespace SDL_Vulkan_CS
             BufferSize = 0;
         }
 
-        public unsafe CsharpVulkanBuffer(VmaAllocator allocator, uint instanceSize,uint instanceCount,VkBufferUsageFlags usageFlags,bool cpuAccessible, uint minOffsetAlignment = 1)
+        /// <summary>
+        /// Main way to create a buffer
+        /// </summary>
+        /// <param name="allocator">Vma allocator instance</param>
+        /// <param name="instanceSize">how big a single element of this buffer will be</param>
+        /// <param name="instanceCount">how many elements will be in this buffer</param>
+        /// <param name="usageFlags">how this buffer will be used (Vertex, Index etc)</param>
+        /// <param name="cpuAccessible">If this buffer is CPU accessible or just local to the GPU</param>
+        /// <param name="minOffsetAlignment"></param>
+        /// <exception cref="Exception"></exception>
+        public unsafe CsharpVulkanBuffer(
+            VmaAllocator allocator,
+            uint instanceSize,
+            uint instanceCount,
+            VkBufferUsageFlags usageFlags,
+            bool cpuAccessible,
+            uint minOffsetAlignment = 1)
         {
             _instanceSize = instanceSize;
             _instanceCount = instanceCount;
@@ -52,29 +74,46 @@ namespace SDL_Vulkan_CS
                 allocationInfo.flags = VmaAllocationCreateFlags.HostAccessSequentialWrite | VmaAllocationCreateFlags.Mapped;
             }
 
-            if(Vma.vmaCreateBuffer(allocator,bufferInfo,allocationInfo,out VkBuffer,out _allocation) != VkResult.Success)
+            if (Vma.vmaCreateBuffer(allocator, bufferInfo, allocationInfo, out VkBuffer, out _allocation) != VkResult.Success)
             {
                 throw new Exception("Failed to create vma buffer!");
             }
         }
 
+        /// <summary>
+        /// Maps the buffer to a given pointer
+        /// </summary>
+        /// <param name="allocator">Vma allocator instance</param>
+        /// <param name="data"></param>
         public unsafe void Map(VmaAllocator allocator, void** data)
         {
-            if(BufferSize == 0) return;
+            if (BufferSize == 0) return;
             Vma.vmaMapMemory(allocator, _allocation, data);
         }
 
+        /// <summary>
+        /// Unmaps the buffer
+        /// </summary>
+        /// <param name="allocator">Vma allocator instance</param>
         public unsafe void Unmap(VmaAllocator allocator)
         {
             if (BufferSize == 0) return;
             Vma.vmaUnmapMemory(allocator, _allocation);
         }
 
-        public unsafe void WriteToBuffer(VmaAllocator allocator,void * data, ulong size = Vulkan.VK_WHOLE_SIZE, ulong offset=0)
+        /// <summary>
+        /// Abstracted way to write to a buffer given just a data poinmter, size and offset properties.
+        /// By default offset and size mean the whole data pointer is written to the whole buffer.
+        /// </summary>
+        /// <param name="allocator">Vma allocator instance</param>
+        /// <param name="data">data to write to the buffer</param>
+        /// <param name="size">how big the input data is</param>
+        /// <param name="offset">what point in the buffer should we start writing to</param>
+        public unsafe void WriteToBuffer(VmaAllocator allocator, void* data, ulong size = Vulkan.VK_WHOLE_SIZE, ulong offset = 0)
         {
             void* pMappedData;
             Map(allocator, &pMappedData);
-            if(size == Vulkan.VK_WHOLE_SIZE)
+            if (size == Vulkan.VK_WHOLE_SIZE)
             {
                 Buffer.MemoryCopy(data, pMappedData, BufferSize, BufferSize);
             }
@@ -86,26 +125,23 @@ namespace SDL_Vulkan_CS
             }
         }
 
-        public VkResult Flush(VmaAllocator allocator, ulong size = Vulkan.VK_WHOLE_SIZE, ulong offset=0)
+        /// <summary>
+        /// Flush CPU changes to the GPU
+        /// </summary>
+        /// <param name="allocator">Vma allocator instance</param>
+        /// <param name="size">how much of the buffer should be flushed</param>
+        /// <param name="offset">where in the buffer the flush should start</param>
+        /// <returns></returns>
+        public VkResult Flush(VmaAllocator allocator, ulong size = Vulkan.VK_WHOLE_SIZE, ulong offset = 0)
         {
-            return Vma.vmaFlushAllocation(allocator, _allocation,offset,size);
+            return Vma.vmaFlushAllocation(allocator, _allocation, offset, size);
         }
-
-        public void Dispose(VmaAllocator allocator)
-        {
-            if(BufferSize == 0) return;
-            Vma.vmaDestroyBuffer(allocator, VkBuffer, _allocation);
-        }
-
-        private static uint GetAlignment(uint instanceSize, uint minOffsetAlignment)
-        {
-            if (minOffsetAlignment > 0)
-            {
-                return (instanceSize + minOffsetAlignment - 1) & ~(minOffsetAlignment - 1);
-            }
-            return instanceSize;
-        }
-
+        /// <summary>
+        /// Get buffer information for a descriptor set
+        /// </summary>
+        /// <param name="size"></param>
+        /// <param name="offset"></param>
+        /// <returns></returns>
         public VkDescriptorBufferInfo DescriptorInfo(ulong size = Vulkan.VK_WHOLE_SIZE, ulong offset = 0)
         {
             return new()
@@ -114,6 +150,31 @@ namespace SDL_Vulkan_CS
                 offset = offset,
                 range = size
             };
+        }
+
+        /// <summary>
+        /// decallocates the buffer
+        /// </summary>
+        /// <param name="allocator"></param>
+        public void Dispose(VmaAllocator allocator)
+        {
+            if (BufferSize == 0) return;
+            Vma.vmaDestroyBuffer(allocator, VkBuffer, _allocation);
+        }
+
+        /// <summary>
+        /// Cacluates buffer alignment size
+        /// </summary>
+        /// <param name="instanceSize"></param>
+        /// <param name="minOffsetAlignment"></param>
+        /// <returns></returns>
+        private static uint GetAlignment(uint instanceSize, uint minOffsetAlignment)
+        {
+            if (minOffsetAlignment > 0)
+            {
+                return (instanceSize + minOffsetAlignment - 1) & ~(minOffsetAlignment - 1);
+            }
+            return instanceSize;
         }
     }
 }

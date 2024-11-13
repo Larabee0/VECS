@@ -7,6 +7,9 @@ using Vortice.Vulkan;
 
 namespace SDL_Vulkan_CS
 {
+    /// <summary>
+    /// Abstraction for writing to a descriptor set
+    /// </summary>
     public class DescriptorWriter
     {
         private DescriptorSetLayout _setLayout;
@@ -19,6 +22,13 @@ namespace SDL_Vulkan_CS
             _pool = pool;
         }
 
+        /// <summary>
+        /// Writes a buffer to the given binding in the descriptor set
+        /// </summary>
+        /// <param name="binding"></param>
+        /// <param name="bufferInfo"></param>
+        /// <returns></returns>
+        /// <exception cref="Exception"></exception>
         public unsafe DescriptorWriter WriteBuffer(uint binding, VkDescriptorBufferInfo bufferInfo)
         {
             if (!_setLayout.Bindings.ContainsKey(binding))
@@ -45,6 +55,13 @@ namespace SDL_Vulkan_CS
             return this;
         }
 
+        /// <summary>
+        /// writes an image to the given binding in the descriptor set
+        /// </summary>
+        /// <param name="binding"></param>
+        /// <param name="imageInfo"></param>
+        /// <returns></returns>
+        /// <exception cref="Exception"></exception>
         public unsafe DescriptorWriter WriteImage(uint binding, VkDescriptorImageInfo imageInfo)
         {
             if (_setLayout.Bindings.ContainsKey(binding))
@@ -71,6 +88,11 @@ namespace SDL_Vulkan_CS
             return this;
         }
 
+        /// <summary>
+        /// builds the descriptor set through getting an allocation from the pool then overrwriting it
+        /// </summary>
+        /// <param name="set"></param>
+        /// <returns></returns>
         public unsafe bool Build(VkDescriptorSet* set)
         {
             bool success = _pool.AllocateDescriptorSet(_setLayout.SetLayout, set);
@@ -82,6 +104,10 @@ namespace SDL_Vulkan_CS
             return true;
         }
 
+        /// <summary>
+        /// overwrites a given descriptor set with the current writes queued.
+        /// </summary>
+        /// <param name="set"></param>
         public unsafe void Overwrite(VkDescriptorSet* set)
         {
             for (int i = 0; i < _writes.Length; i++)

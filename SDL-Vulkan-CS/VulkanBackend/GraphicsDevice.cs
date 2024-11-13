@@ -4,6 +4,11 @@ using Vortice.Vulkan;
 
 namespace SDL_Vulkan_CS
 {
+    /// <summary>
+    /// Manages the vulkan device
+    /// Picks the physical device
+    /// Responsible for the vulkan instance.
+    /// </summary>
     public sealed class GraphicsDevice : IDisposable
     {
 #if DEBUG
@@ -107,7 +112,7 @@ namespace SDL_Vulkan_CS
 
             Vulkan.vkLoadInstanceOnly(_instance);
 
-            HasRquiredInstanceExtensions();
+            HasRequiredInstanceExtensions();
         }
 
         /// <summary>
@@ -129,7 +134,11 @@ namespace SDL_Vulkan_CS
             return appInfo;
         }
 
-        private unsafe void HasRquiredInstanceExtensions()
+        /// <summary>
+        /// Determines if the hardware meets the requirements for the application
+        /// </summary>
+        /// <exception cref="Exception"></exception>
+        private unsafe void HasRequiredInstanceExtensions()
         {
             Vulkan.vkEnumerateInstanceExtensionProperties(out uint propertyCount);
 
@@ -192,6 +201,10 @@ namespace SDL_Vulkan_CS
         #endregion
 
         #region DebugMessenger
+        /// <summary>
+        /// Validation messenger setup
+        /// </summary>
+        /// <exception cref="Exception"></exception>
         private unsafe void SetUpDebugMessenger()
         {
             if (!ENABLE_VALIDATION_LAYERS) return;
@@ -208,13 +221,21 @@ namespace SDL_Vulkan_CS
 
         #endregion
 
+        /// <summary>
+        /// creates the VK surface to output to
+        /// </summary>
         private void CreateSurface()
         {
             _surface = _window.CreateWindowSurface(_instance);
         }
 
         #region Pick Physical Device
-
+        /// <summary>
+        /// pick the phyiscal device to use from the avaliable graphics devices.
+        /// This picks the first device compatible with the app
+        /// (if this code is running on my laptop I force it to use the nvidia card (i = 1)
+        /// </summary>
+        /// <exception cref="Exception"></exception>
         private unsafe void PickPhysicalDevice()
         {
             var devices = Vulkan.vkEnumeratePhysicalDevices(_instance);
@@ -336,6 +357,10 @@ namespace SDL_Vulkan_CS
         #endregion
 
         #region Create Logical Device
+        /// <summary>
+        /// creates a logical vulkan device from the selected physical device <see cref="_physicalDevice"/>
+        /// </summary>
+        /// <exception cref="Exception"></exception>
         private unsafe void CreateLogicalDevice()
         {
             QueueFamilyIndices indices = FindQueueFamilies(_physicalDevice);
@@ -404,7 +429,10 @@ namespace SDL_Vulkan_CS
         #endregion
 
         #region Create Command Pool
-        
+        /// <summary>
+        /// Creates teh command buffer pool for submitting commands to the logical device
+        /// </summary>
+        /// <exception cref="Exception"></exception>
         private unsafe void CreateCommandPool()
         {
             QueueFamilyIndices queueFamilyIndices = PhysicalQueueFamilies;
@@ -517,7 +545,12 @@ namespace SDL_Vulkan_CS
             throw new Exception("Failed to find suitable memory type!");
         }
 
-
+        /// <summary>
+        /// Copies the src buffer to the dst buffer from 0 point in both buffers to size
+        /// </summary>
+        /// <param name="srcBuffer"></param>
+        /// <param name="dstBuffer"></param>
+        /// <param name="size"></param>
         public unsafe void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, uint size)
         {
             VkCommandBuffer commandBuffer = BeginSingleTimeCommands();
@@ -553,6 +586,9 @@ namespace SDL_Vulkan_CS
         }
         #endregion
 
+        /// <summary>
+        /// Cleans up teh vulkan device and vulkan instance
+        /// </summary>
         public unsafe void Dispose()
         {
             Vulkan.vkDestroyCommandPool(_device, _commandPool);
@@ -731,6 +767,9 @@ namespace SDL_Vulkan_CS
 
         #endregion
 
+        /// <summary>
+        /// graphics queue famil indices.
+        /// </summary>
         public struct QueueFamilyIndices
         {
             public int graphicsFamily;
@@ -740,6 +779,9 @@ namespace SDL_Vulkan_CS
             public readonly bool IsComplete => graphicsFamilyHasValue && presentFamilyHasValue;
         }
 
+        /// <summary>
+        /// Swap chain information about the graphics card
+        /// </summary>
         public struct SwapChainSupportDetails
         {
             public VkSurfaceCapabilitiesKHR capabilities;

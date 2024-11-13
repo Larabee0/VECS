@@ -7,6 +7,10 @@ using Vortice.Vulkan;
 
 namespace SDL_Vulkan_CS
 {
+    /// <summary>
+    /// Class for managing a render pipeline.
+    /// Effectively a material in unity.
+    /// </summary>
     public sealed class RenderPipeline : IDisposable
     {
         private GraphicsDevice _device;
