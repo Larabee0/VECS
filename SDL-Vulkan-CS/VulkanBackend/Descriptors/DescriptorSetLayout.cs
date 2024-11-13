@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Vortice.Vulkan;
+﻿using Vortice.Vulkan;
 
 namespace SDL_Vulkan_CS
 {

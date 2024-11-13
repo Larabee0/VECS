@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Vortice.Vulkan;
+﻿using Vortice.Vulkan;
 
 namespace SDL_Vulkan_CS
 {
@@ -23,7 +18,7 @@ namespace SDL_Vulkan_CS
         /// <param name="poolFlags">Behaviour flags</param>
         /// <param name="poolSizes">indivdual descriptor sizes for descriptor types</param>
         /// <exception cref="Exception"></exception>
-        unsafe DescriptorPool(GraphicsDevice device,uint maxSets,VkDescriptorPoolCreateFlags poolFlags,VkDescriptorPoolSize[] poolSizes)
+        unsafe DescriptorPool(GraphicsDevice device, uint maxSets, VkDescriptorPoolCreateFlags poolFlags, VkDescriptorPoolSize[] poolSizes)
         {
             GraphicsDevice = device;
 
@@ -53,7 +48,7 @@ namespace SDL_Vulkan_CS
         /// <param name="descriptorSetLayout"></param>
         /// <param name="descriptor"></param>
         /// <returns></returns>
-        public unsafe bool AllocateDescriptorSet(VkDescriptorSetLayout descriptorSetLayout,VkDescriptorSet* descriptor)
+        public unsafe bool AllocateDescriptorSet(VkDescriptorSetLayout descriptorSetLayout, VkDescriptorSet* descriptor)
         {
             VkDescriptorSetAllocateInfo allocInfo = new()
             {
@@ -96,7 +91,7 @@ namespace SDL_Vulkan_CS
         public class Builder
         {
             private readonly GraphicsDevice _graphicsDevice;
-            private VkDescriptorPoolSize[] _poolSizes=[];
+            private VkDescriptorPoolSize[] _poolSizes = [];
             private uint _maxSets = 1000;
             private VkDescriptorPoolCreateFlags _poolFlags = 0;
             public Builder(GraphicsDevice graphicsDevice)
@@ -113,7 +108,7 @@ namespace SDL_Vulkan_CS
             public Builder AddPoolSize(VkDescriptorType descriptorType, uint count)
             {
                 var temp = _poolSizes;
-                _poolSizes =[..temp, new(descriptorType, count)];
+                _poolSizes = [.. temp, new(descriptorType, count)];
 
                 return this;
             }

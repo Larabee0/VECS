@@ -1,12 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using SDL3;
+﻿using SDL3;
 using Vortice.Vulkan;
 using System.Numerics;
-using System.Runtime.Intrinsics;
 
 using SDL = SDL3.SDL3;
 
