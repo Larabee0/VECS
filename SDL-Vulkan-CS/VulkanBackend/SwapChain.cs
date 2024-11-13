@@ -2,6 +2,10 @@
 
 namespace SDL_Vulkan_CS
 {
+    /// <summary>
+    /// class to manage the vulkan swap chain, switching between the swap chain image being rendered to
+    /// and swap chain recreation when the window is resized.
+    /// </summary>
     public sealed class SwapChain : IDisposable
     {
         public const int MAX_FRAMES_IN_FLIGHT = 3;
@@ -17,6 +21,7 @@ namespace SDL_Vulkan_CS
 
         private VkExtent2D _swapChainExtent;
         private VkSwapchainKHR _swapChain;
+
         private VkFormat _swapChainImageFormat;
         private VkImage[] _swapChainImages;
         private VkImageView[] _swapChainImageViews;
@@ -38,6 +43,9 @@ namespace SDL_Vulkan_CS
         public VkRenderPass RenderPass =>_renderPass;
         public VkExtent2D SwapChainExtent =>_swapChainExtent;
 
+        /// <summary>
+        /// Swap chain image aspect ratio
+        /// </summary>
         public float ExtentAspectRatio => (float)SwapChainExtent.width / (float)SwapChainExtent.height;
 
         public SwapChain(GraphicsDevice device, VkExtent2D extent)
@@ -76,6 +84,10 @@ namespace SDL_Vulkan_CS
 
         #region Create Swap Chain
 
+        /// <summary>
+        /// creates the swap chain struct and VkImages associated with it (swap chain images)
+        /// </summary>
+        /// <exception cref="Exception"></exception>
         private unsafe void CreateSwapChain()
         {
             var swapChainSupport = _device.SwapChainSupport;
@@ -144,6 +156,11 @@ namespace SDL_Vulkan_CS
             _swapChainExtent = extent;
         }
 
+        /// <summary>
+        /// Calcualtes the usable swap chain image extent
+        /// </summary>
+        /// <param name="capabilities"></param>
+        /// <returns></returns>
         private VkExtent2D ChooseSwapExtent(VkSurfaceCapabilitiesKHR capabilities)
         {
             if(capabilities.currentExtent.width != uint.MaxValue)
@@ -165,6 +182,10 @@ namespace SDL_Vulkan_CS
         #endregion
 
         #region Create Image Views
+        /// <summary>
+        /// VkImages need VkImage views to actually be usable on the Vk surface displayed by the applications windowing module.
+        /// </summary>
+        /// <exception cref="Exception"></exception>
         private unsafe void CreateImageViews()
         {
             _swapChainImageViews = new VkImageView[_swapChainImages.Length];
@@ -198,6 +219,10 @@ namespace SDL_Vulkan_CS
         #endregion
 
         #region Create Render Pass
+        /// <summary>
+        /// Creates the Vk render pass for the swap chain defining waht colour and depth formats are being used to render to the Image view.
+        /// </summary>
+        /// <exception cref="Exception"></exception>
         private unsafe void CreateRenderPass()
         {
             VkAttachmentDescription depthAttachment = new()
@@ -254,27 +279,32 @@ namespace SDL_Vulkan_CS
                 dstAccessMask = VkAccessFlags.ColorAttachmentWrite | VkAccessFlags.DepthStencilAttachmentWrite
             };
 
-            VkAttachmentDescription[] attachments = [colourAttachment, depthAttachment];
-
-            fixed (VkAttachmentDescription* pAttachments = &attachments[0])
+            VkAttachmentDescription* pAttachments = stackalloc VkAttachmentDescription[2]
             {
-                VkRenderPassCreateInfo renderPassInfo = new()
-                {
-                    attachmentCount = (uint)attachments.Length,
-                    pAttachments = pAttachments,
-                    subpassCount = 1,
-                    pSubpasses = &subPass,
-                    dependencyCount = 1,
-                    pDependencies = &dependency
-                };
+                colourAttachment,
+                depthAttachment
+            };
 
-                if (Vulkan.vkCreateRenderPass(_device.Device, renderPassInfo, null, out _renderPass) != VkResult.Success)
-                {
-                    throw new Exception("Failed to create render pass!");
-                }
+            VkRenderPassCreateInfo renderPassInfo = new()
+            {
+                attachmentCount = 2,
+                pAttachments = pAttachments,
+                subpassCount = 1,
+                pSubpasses = &subPass,
+                dependencyCount = 1,
+                pDependencies = &dependency
+            };
+
+            if (Vulkan.vkCreateRenderPass(_device.Device, renderPassInfo, null, out _renderPass) != VkResult.Success)
+            {
+                throw new Exception("Failed to create render pass!");
             }
         }
 
+        /// <summary>
+        /// Gets the supported depth buffer format by the gpu
+        /// </summary>
+        /// <returns></returns>
         private VkFormat FindDepthFormat() => _device.FindSupportFormat(
                 [VkFormat.D32Sfloat,
                 VkFormat.D32SfloatS8Uint,
@@ -285,7 +315,11 @@ namespace SDL_Vulkan_CS
         #endregion
 
         #region Create Depth Resources
-
+        /// <summary>
+        /// The swap chain image views are only for the final colour output to the surface.
+        /// To have depth information in the frame as seperate depth images are needed for each swap chain frame.
+        /// </summary>
+        /// <exception cref="Exception"></exception>
         private unsafe void CreateDepthResources()
         {
             VkFormat depthFormat = FindDepthFormat();
@@ -350,6 +384,10 @@ namespace SDL_Vulkan_CS
         #endregion
         
         #region Create Frame Buffers
+        /// <summary>
+        /// Creates a frame buffer for each swap chain frame
+        /// </summary>
+        /// <exception cref="Exception"></exception>
         private unsafe void CreateFramebuffers()
         {
             _swapChainFrameBuffer = new VkFramebuffer[ImageCount];
@@ -382,6 +420,10 @@ namespace SDL_Vulkan_CS
         #endregion
 
         #region Create Sync Objects
+        /// <summary>
+        /// Sets up the semaphones and fences for the swap chain frames
+        /// </summary>
+        /// <exception cref="Exception"></exception>
         private unsafe void CreateSyncObjects()
         {
             _imageAvailableSemaphores = new VkSemaphore[ImageCount];
@@ -407,17 +449,32 @@ namespace SDL_Vulkan_CS
         #endregion
 
         #region For External Use
+        /// <summary>
+        /// Used to ensure the format hasn't unexpectedly changed, which would cause a big error.
+        /// </summary>
+        /// <param name="swapChain"></param>
+        /// <returns></returns>
         public bool CompareSwapFormats(SwapChain swapChain)
         {
             return swapChain._swapChainDepthFormat == _swapChainDepthFormat
                 && swapChain._swapChainImageFormat == _swapChainImageFormat;
         }
 
+        /// <summary>
+        /// Gets the current frame buffer for the current swap chain image being rendered.
+        /// </summary>
+        /// <param name="currentImageIndex"></param>
+        /// <returns></returns>
         public VkFramebuffer GetFrameBuffer(uint currentImageIndex)
         {
             return _swapChainFrameBuffer[currentImageIndex];
         }
 
+        /// <summary>
+        /// Get the next swapchain image index
+        /// </summary>
+        /// <param name="imageIndex"></param>
+        /// <returns></returns>
         public unsafe VkResult AcquireNextImage(out uint imageIndex)
         {
             VkFence fence = _inFlightFences[_currentFrame];
@@ -431,6 +488,16 @@ namespace SDL_Vulkan_CS
                 out imageIndex);
         }
 
+        /// <summary>
+        /// Submits the command buffer for the given swapchain image.
+        /// This updates the frames fences and Semaphore and then submits the command buffer,
+        /// then calls for the gpu to present the frame, before finally updating the _currentFrame index ready for the next frame
+        /// 
+        /// </summary>
+        /// <param name="commandBuffer"></param>
+        /// <param name="imageIndex"></param>
+        /// <returns></returns>
+        /// <exception cref="Exception"></exception>
         public unsafe VkResult SubmitCommandBuffers(VkCommandBuffer* commandBuffer, uint* imageIndex)
         {
             if (_imagesInFlight[*imageIndex] != VkFence.Null)
@@ -510,6 +577,9 @@ namespace SDL_Vulkan_CS
         }
         #endregion
 
+        /// <summary>
+        /// Cleans up the image views, swap chain, depth images, frame buffers, the render pass and Semaphores & fences
+        /// </summary>
         public unsafe void Dispose()
         {
             foreach (var item in _swapChainImageViews)
@@ -547,6 +617,11 @@ namespace SDL_Vulkan_CS
         }
 
         #region Choose Swapchain format & Present mode statics
+        /// <summary>
+        /// determines which format from the provide formats is compatible
+        /// </summary>
+        /// <param name="formats"></param>
+        /// <returns></returns>
         private static VkSurfaceFormatKHR ChooseSwapSurfaceFormat(VkSurfaceFormatKHR[] formats)
         {
             for (int i = 0; i < formats.Length; i++)
@@ -561,6 +636,20 @@ namespace SDL_Vulkan_CS
             return formats[0];
         }
 
+        /// <summary>
+        /// Sets the present mode, the behaviour of frame pacing out to the screen.
+        /// 
+        /// Immidate mode = no waiting for vsync as display the image to the screen as soon as its ready.
+        /// 
+        /// MailBox waits for v-sync but allows rendering to continue on a different frame as if in immidate mode, this can replace the 
+        /// frame waiting to go out if its ready before the next refresh.
+        /// Theortically this is a lower latency and screen tearing free version of v-sync
+        /// 
+        /// Fifo = wait for v-sync
+        /// 
+        /// </summary>
+        /// <param name="presentModes"></param>
+        /// <returns></returns>
         private static VkPresentModeKHR ChooseSwapPresentMode(VkPresentModeKHR[] presentModes)
         {
             // for (int i = 0; i < presentModes.Length; i++)

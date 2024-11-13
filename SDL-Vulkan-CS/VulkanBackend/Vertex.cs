@@ -1,13 +1,14 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Numerics;
 using Vortice.Vulkan;
 
 namespace SDL_Vulkan_CS
 {
+    /// <summary>
+    /// Vertex struct defines serveral vertex parameters
+    /// Position, Colour, Normal and UV
+    /// 
+    /// A vertex is 44 bytes atomically. but likely has an extra 4 bytes of padding
+    /// </summary>
     public struct Vertex
     {
         public static unsafe int SizeInBytes => sizeof(Vertex);
@@ -53,6 +54,10 @@ namespace SDL_Vulkan_CS
             return HashCode.Combine(Position, Colour, Normal, UV);
         }
 
+        /// <summary>
+        /// Binding descriptors are needed for a graphics pipeline if it wants to use this vertex struct
+        /// </summary>
+        /// <returns></returns>
         public static VkVertexInputBindingDescription[] GetBindingDescriptions()
         {
             VkVertexInputBindingDescription[] bindingDescriptions =
@@ -67,6 +72,10 @@ namespace SDL_Vulkan_CS
             return bindingDescriptions;
         }
 
+        /// <summary>
+        /// Attribute descriptors are needed for a graphics pipeline if it wants to use this vertex struct
+        /// </summary>
+        /// <returns></returns>
         public static VkVertexInputAttributeDescription[] GetAttributeDescriptions()
         {
             VkVertexInputAttributeDescription[] attributeDescriptions =
