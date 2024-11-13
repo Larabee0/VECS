@@ -1,12 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Numerics;
 
 namespace SDL_Vulkan_CS
 {
+    /// <summary>
+    /// Globally accessible uniform buffer
+    /// This holds things like the camera data and lights
+    /// Point lights are defined up to a max lights value
+    /// </summary>
     public unsafe struct GlobalUbo
     {
         public unsafe static int SizeInBytes => (sizeof(Matrix4x4) * 3) + sizeof(Vector4) + (sizeof(PointLight) * PointLight.MAX_LIGHTS) + sizeof(int);

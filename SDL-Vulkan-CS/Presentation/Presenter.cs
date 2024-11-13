@@ -185,7 +185,7 @@ namespace SDL_Vulkan_CS
                 {
                     FrameIndex = frameIndex,
                     DeltaTime = deltaTime,
-                    commandBuffer = commandBuffer,
+                    CommandBuffer = commandBuffer,
                     GlobalDescriptorSet = _globalDescriptorSets[frameIndex]
                 };
 
@@ -236,7 +236,7 @@ namespace SDL_Vulkan_CS
         /// <param name="frameInfo"></param>
         public void EndPresent(RendererFrameInfo frameInfo)
         {
-            _renderer.EndSwapChainRenderPass(frameInfo.commandBuffer);
+            _renderer.EndSwapChainRenderPass(frameInfo.CommandBuffer);
             _renderer.EndFrame();
         }
 

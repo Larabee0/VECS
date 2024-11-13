@@ -44,12 +44,12 @@ namespace SDL_Vulkan_CS.ECS
         /// <param name="frameInfo">current frame info</param>
         public override void OnPresent(EntityManager entityManager, RendererFrameInfo frameInfo)
         {
-            _renderPipeline.Bind(frameInfo.commandBuffer);
+            _renderPipeline.Bind(frameInfo.CommandBuffer);
 
-            Vulkan.vkCmdBindDescriptorSets(frameInfo.commandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, 0, frameInfo.GlobalDescriptorSet);
+            Vulkan.vkCmdBindDescriptorSets(frameInfo.CommandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, 0, frameInfo.GlobalDescriptorSet);
 
-            Vulkan.vkCmdBindVertexBuffer(frameInfo.commandBuffer, 0, _vertexBuffer.VkBuffer);
-            Vulkan.vkCmdDraw(frameInfo.commandBuffer, 3, 1, 0, 0);
+            Vulkan.vkCmdBindVertexBuffer(frameInfo.CommandBuffer, 0, _vertexBuffer.VkBuffer);
+            Vulkan.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
         }
 
         public unsafe override void OnDestroy(EntityManager entityManager)

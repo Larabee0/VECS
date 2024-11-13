@@ -1,12 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Numerics;
 
 namespace SDL_Vulkan_CS
 {
+    /// <summary>
+    /// Defines a single point light for shaders to access to apply point light
+    /// to their objects
+    /// </summary>
     public struct PointLight
     {
         public const int MAX_LIGHTS = 10;
