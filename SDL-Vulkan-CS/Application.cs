@@ -10,11 +10,13 @@ namespace SDL_Vulkan_CS
         public readonly static int Height = 720;
 
         private readonly SDL3Window _appWindow;
-        private readonly GraphicsDevice _device;
-        //private readonly Renderer _renderer;
+        private readonly GraphicsDevice _device;        
         private readonly Presenter _presenter;
+
         private World _mainWorld;
         private ArtifactAuthoring _artifact;
+
+
         private DateTime currentTime;
         private double deltaTime;
         public double DeltaTimeDouble => deltaTime;
@@ -25,7 +27,6 @@ namespace SDL_Vulkan_CS
             _appWindow = new(Width, Height, "Vulkan CS");
             _device = new(_appWindow);
             _presenter = new(_appWindow, _device);
-            //_renderer = new(_appWindow,_device);
         }
 
         /// <summary>
@@ -50,18 +51,23 @@ namespace SDL_Vulkan_CS
             Destroy();
         }
 
+        /// <summary>
+        /// called before the first frame
+        /// Sets up the entity world, presenter and artifact.
+        /// </summary>
         private void Start()
         {
             currentTime = DateTime.Now;
 
             _mainWorld = new World();
             
-            _presenter.Start();
+            _presenter.Start(); // presenter depends on the main entity world existing right now
 
 
-            _artifact= new ArtifactAuthoring();
-
+            _artifact = new ArtifactAuthoring();
+            
             _mainWorld.OnCreate();
+            
         }
 
         /// <summary>
@@ -75,6 +81,16 @@ namespace SDL_Vulkan_CS
 
         /// <summary>
         /// Frame presentation/render loop
+        /// Render management is handled by the <see cref="Presenter"/> class this just calls begin & end.
+        /// 
+        /// The order here is begin present, which creates a command buffer nad generates the frame info for the current frame.
+        /// 
+        /// The main entity world will then update all the presentation systems, parsing this frame info, so render commands can be recorded.
+        /// 
+        /// Then EndPresent is called, which submits the render commands and starts the graphics queue.
+        /// 
+        /// Finally PostPresentationSystemUpdate is called on all presentation systems in the main world
+        /// 
         /// </summary>
         private void Presentation()
         {
@@ -97,14 +113,21 @@ namespace SDL_Vulkan_CS
             currentTime = newTime;
         }
 
+        /// <summary>
+        /// Called after a quit command is registered
+        /// Called after the graphics device is idle
+        /// Called before <see cref="Dispose"/>
+        /// </summary>
         private void Destroy()
         {
             World.DefaultWorld.OnDestroy();
         }
 
+        /// <summary>
+        /// Order of dispoal matters here.
+        /// </summary>
         public void Dispose()
         {
-            //_renderer.Dispose();
             _presenter.Dispose();
             _device.Dispose();
             _appWindow.Dispose();

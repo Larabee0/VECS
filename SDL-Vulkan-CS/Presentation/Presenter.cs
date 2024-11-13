@@ -1,14 +1,29 @@
 ﻿using SDL_Vulkan_CS.ECS;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
 using Vortice.Vulkan;
 
 namespace SDL_Vulkan_CS
 {
+    /// <summary>
+    /// The presenter class handles the frame render cycle
+    /// 
+    /// It generates the frame info struct containing global descriptor sets, and command buffer as well as other frame wide data.
+    /// 
+    /// It handles the setup and configuration of the global descriptor sets and the swap chain frame descriptor pools, which offer a way to
+    /// to send abitary data per object to the shader programs, such as textures, colours, matrices etc.
+    /// 
+    /// It also handles Vk buffer allocations via the Vulkan memory allocator (Vma),
+    /// storing the refrence to the application VmaAllocator. <see cref="_allocator"/>
+    /// 
+    /// As part of its frame render cycle managment this class creates and stores the <see cref="_renderer"/> class,
+    ///  which is responsible for managing the swapchain and swapchain recreation,
+    ///  and gettting the correct command buffer for the current swap chain image.
+    ///  
+    /// ##### IMPORTANT! #####
+    /// The presenter class is depedant on a singleton Main Camera Entity existing and containing a Camera component.
+    /// It will handle this entity or the world not existing but may lead to unexpected render results.
+    /// 
+    /// </summary>
     public sealed class Presenter : IDisposable
     {
         private readonly GraphicsDevice _device;
@@ -16,13 +31,12 @@ namespace SDL_Vulkan_CS
 
         private VmaAllocator _allocator;
 
-        private readonly VkDescriptorSet[] _globalDescriptorSets = new VkDescriptorSet[SwapChain.MAX_FRAMES_IN_FLIGHT];
-        private readonly CsharpVulkanBuffer[] _uboBuffers = new CsharpVulkanBuffer[SwapChain.MAX_FRAMES_IN_FLIGHT];
+        private DescriptorPool _globalDescriptorPool;
         private DescriptorSetLayout _globalDescriptorSetLayout;
+        private readonly VkDescriptorSet[] _globalDescriptorSets = new VkDescriptorSet[SwapChain.MAX_FRAMES_IN_FLIGHT];
+        private readonly CsharpVulkanBuffer[] _globalUboBuffers = new CsharpVulkanBuffer[SwapChain.MAX_FRAMES_IN_FLIGHT];
 
-        private DescriptorPool _globalPool;
-
-        private readonly DescriptorPool[] framePools = new DescriptorPool[SwapChain.MAX_FRAMES_IN_FLIGHT];
+        private readonly DescriptorPool[] swapChainFrameDescriptorPools = new DescriptorPool[SwapChain.MAX_FRAMES_IN_FLIGHT];
         
         private Entity frameInfoEntity;
 
@@ -30,13 +44,18 @@ namespace SDL_Vulkan_CS
         {
             _device = device;
             _renderer = new(window, device);
-            InitaliseVmaAllocator();
 
-            InitGloalPool();
-            InitFramePools();
+            CreateVmaAllocator();
+
+            InitGloalDescriptorPool();
+            InitSwapChainFrameDescriptorPools();
         }
 
-        private void InitaliseVmaAllocator()
+        /// <summary>
+        /// the vma allocator is used as an abstract way to allocator graphics deivce memory
+        /// for textures, vertex buffers and index buffers.
+        /// </summary>
+        private void CreateVmaAllocator()
         {
             VmaAllocatorCreateInfo allocatorCreateInfo = new()
             {
@@ -49,40 +68,51 @@ namespace SDL_Vulkan_CS
             Vma.vmaCreateAllocator(in allocatorCreateInfo, out _allocator);
         }
 
-        private void InitGloalPool()
+        /// <summary>
+        /// Globally accessible uniform buffer avaliable to all shaders containing things like the camera view matrix and lights.
+        /// </summary>
+        private void InitGloalDescriptorPool()
         {
-            _globalPool = new DescriptorPool.Builder(_device)
+            _globalDescriptorPool = new DescriptorPool.Builder(_device)
                 .SetMaxSets(SwapChain.MAX_FRAMES_IN_FLIGHT)
                 .AddPoolSize(VkDescriptorType.UniformBuffer, SwapChain.MAX_FRAMES_IN_FLIGHT)
                 .Build();
         }
 
-        private void InitFramePools()
+        /// <summary>
+        /// Swap chain frame descriptor pools allow render systems to send arbitary data to their shader programs.
+        /// </summary>
+        private void InitSwapChainFrameDescriptorPools()
         {
             DescriptorPool.Builder framePoolBuilder = new DescriptorPool.Builder(_device)
                             .SetMaxSets(1000)
                             .AddPoolSize(VkDescriptorType.CombinedImageSampler, 1000)
                             .AddPoolSize(VkDescriptorType.UniformBuffer, 1000)
                             .SetPoolFlags(VkDescriptorPoolCreateFlags.FreeDescriptorSet);
-            for (int i = 0; i < framePools.Length; i++)
+            for (int i = 0; i < swapChainFrameDescriptorPools.Length; i++)
             {
-                framePools[i] = framePoolBuilder.Build();
+                swapChainFrameDescriptorPools[i] = framePoolBuilder.Build();
             }
         }
 
+        /// <summary>
+        /// Callled before the first frame by <see cref="Application.Start"/>
+        /// 
+        /// Configures the global descriptors.
+        /// 
+        /// Sets the FrameInfo entity, which contains the screen aspect ratio
+        /// This is required by <see cref="CameraSystem"/> for a persective camera.
+        /// That data is only accessible from the swapchain class, so that entity is owned and updated by this class.
+        /// </summary>
         public void Start()
         {
-            _globalDescriptorSetLayout = ConfigureUboBuffers(_uboBuffers, _globalDescriptorSets);
+            _globalDescriptorSetLayout = ConfigureUboBuffers(_globalUboBuffers, _globalDescriptorSets);
 
-            var triangleSystem = new TriangleSystem(_device, _renderer.SwapChainRenderPass, _globalDescriptorSetLayout.SetLayout);
-            World.DefaultWorld.PresentationSystems.Add(triangleSystem);
-            triangleSystem.CreateTriangle(_allocator);
             frameInfoEntity = World.DefaultWorld.EntityManager.CreateEntity();
 
             World.DefaultWorld.EntityManager.AddComponent<FrameInfo>(frameInfoEntity);
-
-
-
+            
+            CreateTestTriangle();
         }
 
         private unsafe DescriptorSetLayout ConfigureUboBuffers(CsharpVulkanBuffer[] uboBuffers, VkDescriptorSet[] globalDescriptorSets)
@@ -98,6 +128,8 @@ namespace SDL_Vulkan_CS
                 //uboBuffers[i].Map(); // map the GPU device memory to the System memory.
             }
 
+            Console.WriteLine("[Warning] ubos are not mapped to device memory!\n\t if a ubo depdant thing is not working properly this may be why!");
+
             // add the binding for this buffer and set where it is avaliable in the shader pipeline
             // in this case its avaliable to all graphis stages.
             var globalSetLayout = new DescriptorSetLayout.Builder(_device)
@@ -110,7 +142,7 @@ namespace SDL_Vulkan_CS
                 var bufferInfo = uboBuffers[i].DescriptorInfo();
                 fixed(VkDescriptorSet* pSet = &globalDescriptorSets[i])
                 {
-                    new DescriptorWriter(globalSetLayout, _globalPool)
+                    new DescriptorWriter(globalSetLayout, _globalDescriptorPool)
                         .WriteBuffer(0, bufferInfo)
                         .Build(pSet);
                 }
@@ -120,14 +152,27 @@ namespace SDL_Vulkan_CS
         }
 
 
-        public void UpdateEntityFrameInfo(EntityManager entityManager)
+        /// <summary>
+        /// Creates a triangle system for testing the renderer.
+        /// This creates zero entities. The Triangle is local to the system.
+        /// </summary>
+        private void CreateTestTriangle()
         {
-            entityManager.SetComponent(frameInfoEntity, new FrameInfo()
-            {
-                screenAspect = _renderer.AspectRatio
-            });
+            var triangleSystem = new TriangleSystem(_device, _renderer.SwapChainRenderPass, _globalDescriptorSetLayout.SetLayout);
+            World.DefaultWorld.AddSystem(triangleSystem);
+            triangleSystem.CreateTriangle(_allocator);
         }
 
+        /// <summary>
+        /// Beings the frame render pass, this gets the command buffer, sets up the renderer frame info,
+        /// and updates the global uniform buffer.
+        /// 
+        /// If the command buffer is null, return a null renderer frame info,
+        /// indicating this frame has failed to start.
+        /// 
+        /// </summary>
+        /// <param name="deltaTime">delta time is included with the renderer frame info</param>
+        /// <returns></returns>
         public unsafe RendererFrameInfo BeginPresent(float deltaTime)
         {
             UpdateEntityFrameInfo(World.DefaultWorld.EntityManager);
@@ -146,7 +191,9 @@ namespace SDL_Vulkan_CS
 
                 Camera camera = Camera.Identity;
 
-                if(World.DefaultWorld.EntityManager.SingletonEntity<MainCamera>(out Entity mainCamera)
+                if(World.DefaultWorld != null
+                    && World.DefaultWorld.EntityManager != null
+                    && World.DefaultWorld.EntityManager.SingletonEntity<MainCamera>(out Entity mainCamera)
                     && World.DefaultWorld.EntityManager.HasComponent<Camera>(mainCamera,out int signature))
                 {
                     camera = World.DefaultWorld.EntityManager.GetComponent<Camera>(signature);
@@ -161,8 +208,8 @@ namespace SDL_Vulkan_CS
                     AmbientLightColour = Vector4.One
                 };
 
-                _uboBuffers[frameIndex].WriteToBuffer(_allocator, &ubo);
-                _uboBuffers[frameIndex].Flush(_allocator);
+                _globalUboBuffers[frameIndex].WriteToBuffer(_allocator, &ubo);
+                _globalUboBuffers[frameIndex].Flush(_allocator);
 
                 _renderer.BeginSwapChainRenderPass(commandBuffer);
                 return frameInfo;
@@ -171,6 +218,22 @@ namespace SDL_Vulkan_CS
             return RendererFrameInfo.Null;
         }
 
+        /// <summary>
+        /// Update the screen aspect ratio entity with the current aspect ratio.
+        /// </summary>
+        /// <param name="entityManager"></param>
+        public void UpdateEntityFrameInfo(EntityManager entityManager)
+        {
+            entityManager.SetComponent(frameInfoEntity, new FrameInfo()
+            {
+                screenAspect = _renderer.AspectRatio
+            });
+        }
+
+        /// <summary>
+        /// End the render pass to submit graphics queue and present the frame.
+        /// </summary>
+        /// <param name="frameInfo"></param>
         public void EndPresent(RendererFrameInfo frameInfo)
         {
             _renderer.EndSwapChainRenderPass(frameInfo.commandBuffer);
@@ -179,24 +242,29 @@ namespace SDL_Vulkan_CS
 
         public void Dispose()
         {
-
-            for (int i = 0; i < _uboBuffers.Length; i++)
+            // deallocation order matters.
+            // first deallocat the buffers
+            for (int i = 0; i < _globalUboBuffers.Length; i++)
             {
-                _uboBuffers[i].Dispose(_allocator);
+                _globalUboBuffers[i].Dispose(_allocator);
             }
 
+            // next deallocat their set layout
             _globalDescriptorSetLayout.Dispose();
+            // finally deallocate their pool
+            _globalDescriptorPool.Dispose();
 
-            for (int i = 0; i < framePools.Length; i++)
+            // deallocate frame pools
+            for (int i = 0; i < swapChainFrameDescriptorPools.Length; i++)
             {
-                framePools[i] .Dispose();
+                swapChainFrameDescriptorPools[i] .Dispose();
             }
-            _globalPool.Dispose();
-            
+
+            // finally we can deallocate the allocator
             Vma.vmaDestroyAllocator(_allocator);
+
+            // then destroy the renderer, which will destroy the swapchain.
             _renderer.Dispose();
-
         }
-
     }
 }

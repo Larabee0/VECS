@@ -24,7 +24,7 @@ namespace SDL_Vulkan_CS.ECS
 
         private readonly VkDescriptorSetLayout _globalSetLayout;
         private readonly VkRenderPass _renderPass;
-
+        
         public TriangleSystem(GraphicsDevice device, VkRenderPass renderPass, VkDescriptorSetLayout globalSetLayout)
         {
             _graphicsDevice = device;
