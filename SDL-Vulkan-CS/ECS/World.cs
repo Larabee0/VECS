@@ -58,7 +58,7 @@ namespace SDL_Vulkan_CS.ECS
 
         public void PresentationSystemUpdate(RendererFrameInfo rendererFrameInfo)
         {
-            PresentationSystems.ForEach(s => s.OnPresentation(EntityManager, rendererFrameInfo));
+            PresentationSystems.ForEach(s => s.OnPresent(EntityManager, rendererFrameInfo));
         }
 
         public void PostPresentationSystemUpdate()

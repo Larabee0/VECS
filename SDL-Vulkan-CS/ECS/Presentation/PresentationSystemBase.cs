@@ -8,7 +8,7 @@ namespace SDL_Vulkan_CS.ECS
 {
     public abstract class PresentationSystemBase : SystemBase
     {
-        public abstract void OnPresentation(EntityManager entityManager, RendererFrameInfo rendererFrameInfo);
+        public abstract void OnPresent(EntityManager entityManager, RendererFrameInfo rendererFrameInfo);
 
         public virtual void OnPostPresentation(EntityManager entityManager)
         {

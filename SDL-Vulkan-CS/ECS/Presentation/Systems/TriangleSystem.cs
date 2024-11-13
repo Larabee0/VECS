@@ -8,6 +8,9 @@ using Vortice.Vulkan;
 
 namespace SDL_Vulkan_CS.ECS
 {
+    /// <summary>
+    /// Basic presentation system to test out the application and figure out what to put in the base class/or on entites as components.
+    /// </summary>
     public class TriangleSystem : PresentationSystemBase
     {
         private DescriptorSetLayout _renderSystemLayout;
@@ -35,14 +38,23 @@ namespace SDL_Vulkan_CS.ECS
             CreatePipeline(_renderPass);
         }
 
-        public override void OnPresentation(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
+        /// <summary>
+        /// Called by the entity world <see cref="World"/> via from the <see cref="Presenter"/> 
+        /// for the purpose of recording render commands to the current command buffer found in frameInfo
+        /// 
+        /// This system forcefully draws a triangle so does not use any entities.
+        /// 
+        /// </summary>
+        /// <param name="entityManager"></param>
+        /// <param name="frameInfo">current frame info</param>
+        public override void OnPresent(EntityManager entityManager, RendererFrameInfo frameInfo)
         {
-            _renderPipeline.Bind(rendererFrameInfo.commandBuffer);
+            _renderPipeline.Bind(frameInfo.commandBuffer);
 
-            Vulkan.vkCmdBindDescriptorSets(rendererFrameInfo.commandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, 0, rendererFrameInfo.GlobalDescriptorSet);
+            Vulkan.vkCmdBindDescriptorSets(frameInfo.commandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, 0, frameInfo.GlobalDescriptorSet);
 
-            Vulkan.vkCmdBindVertexBuffer(rendererFrameInfo.commandBuffer, 0, _vertexBuffer.VkBuffer);
-            Vulkan.vkCmdDraw(rendererFrameInfo.commandBuffer, 3, 1, 0, 0);
+            Vulkan.vkCmdBindVertexBuffer(frameInfo.commandBuffer, 0, _vertexBuffer.VkBuffer);
+            Vulkan.vkCmdDraw(frameInfo.commandBuffer, 3, 1, 0, 0);
         }
 
         public unsafe override void OnDestroy(EntityManager entityManager)
@@ -53,6 +65,11 @@ namespace SDL_Vulkan_CS.ECS
             _renderSystemLayout.Dispose();
         }
 
+        /// <summary>
+        /// Creates the render pipeline layout defining things like uniform buffers, push constants or texture samplers
+        /// </summary>
+        /// <param name="globalSetLayout">globally avalible uniform buffer layout description</param>
+        /// <exception cref="Exception">Raised when the vulkan is unable to create the pipeline layout</exception>
         private unsafe void CreatePipelineLayout(VkDescriptorSetLayout globalSetLayout)
         {
             _renderSystemLayout = new DescriptorSetLayout.Builder(_graphicsDevice)
@@ -81,21 +98,20 @@ namespace SDL_Vulkan_CS.ECS
 
         private void CreatePipeline(VkRenderPass renderPass)
         {
-            if(_pipelineLayout == VkPipelineLayout.Null)
+            if (_pipelineLayout == VkPipelineLayout.Null)
             {
                 throw new InvalidOperationException("Cannot create pipeline before pipeline layout!");
             }
 
-            RenderPipelineConfigInfo pipelineConfigInfo = new();
-            RenderPipeline.DefaultPipelineConfigInfo(ref pipelineConfigInfo);
-            
+            RenderPipelineConfigInfo pipelineConfigInfo = RenderPipelineConfigInfo.DefaultPipelineConfigInfo(renderPass, _pipelineLayout);
 
-            pipelineConfigInfo.renderPass = renderPass;
-            pipelineConfigInfo.pipelineLayout = _pipelineLayout;
-
-            _renderPipeline = new(_graphicsDevice, "Assets/triangle.vert.spv", "Assets/triangle.frag.spv", ref pipelineConfigInfo);
+            _renderPipeline = new(_graphicsDevice, "Assets/triangle.vert.spv", "Assets/triangle.frag.spv", pipelineConfigInfo);
         }
 
+        /// <summary>
+        /// Allocates a vertex buffer with data for a coloured triangle.
+        /// </summary>
+        /// <param name="allocator">Graphics memory allocator</param>
         public unsafe void CreateTriangle(VmaAllocator allocator)
         {
             _vmaAllocator = allocator;
