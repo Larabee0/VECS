@@ -1,4 +1,5 @@
-﻿using Vortice.Vulkan;
+﻿using System.Runtime.InteropServices;
+using Vortice.Vulkan;
 
 namespace SDL_Vulkan_CS
 {
@@ -110,13 +111,13 @@ namespace SDL_Vulkan_CS
             Map(allocator, &pMappedData);
             if (size == Vulkan.VK_WHOLE_SIZE)
             {
-                Buffer.MemoryCopy(data, pMappedData, BufferSize, BufferSize);
+                NativeMemory.Copy(data, pMappedData, (uint)BufferSize);
             }
             else
             {
                 char* memOffset = (char*)pMappedData;
                 memOffset += offset;
-                Buffer.MemoryCopy(memOffset, data, BufferSize, BufferSize);
+                NativeMemory.Copy(memOffset, data, (uint)BufferSize);
             }
         }
 

@@ -1,4 +1,5 @@
-﻿using Vortice.Vulkan;
+﻿using System.Runtime.InteropServices;
+using Vortice.Vulkan;
 
 namespace SDL_Vulkan_CS
 {
@@ -228,7 +229,7 @@ namespace SDL_Vulkan_CS
             fixed (uint* waitTemp = &currentImageIndex)
             {
                 int byteSize = sizeof(uint) * 1;
-                Buffer.MemoryCopy(waitTemp, pCurrentImageIndex, byteSize, byteSize);
+                NativeMemory.Copy(waitTemp, pCurrentImageIndex, (uint)byteSize);
             }
 
             VkResult result = _swapChain.SubmitCommandBuffers(&commandBuffer, pCurrentImageIndex);

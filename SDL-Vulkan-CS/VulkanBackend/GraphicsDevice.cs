@@ -387,7 +387,7 @@ namespace SDL_Vulkan_CS
             fixed (VkDeviceQueueCreateInfo* pTempQueueCreateInfos = &queueCreateInfos[0])
             {
                 int byteSize = sizeof(VkDeviceQueueCreateInfo) * queueCreateInfos.Length;
-                Buffer.MemoryCopy(pTempQueueCreateInfos, pQueueCreateInfos, byteSize, byteSize);
+                NativeMemory.Copy(pTempQueueCreateInfos, pQueueCreateInfos, (uint)byteSize);
             }
 
             VkPhysicalDeviceFeatures deviceFeature = new() { samplerAnisotropy = true };

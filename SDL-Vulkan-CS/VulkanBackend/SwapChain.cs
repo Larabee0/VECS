@@ -1,4 +1,5 @@
-﻿using Vortice.Vulkan;
+﻿using System.Runtime.InteropServices;
+using Vortice.Vulkan;
 
 namespace SDL_Vulkan_CS
 {
@@ -513,7 +514,7 @@ namespace SDL_Vulkan_CS
             fixed (VkSemaphore* waitTemp = &waitSemaphores[0])
             {
                 int byteSize = sizeof(VkSemaphore)*waitSemaphores.Length;
-                Buffer.MemoryCopy(waitTemp, pWaitSemaphores, byteSize, byteSize);
+                NativeMemory.Copy(waitTemp, pWaitSemaphores, (uint)byteSize);
             }
 
             VkPipelineStageFlags[] waitStages = [VkPipelineStageFlags.ColorAttachmentOutput];
@@ -521,7 +522,7 @@ namespace SDL_Vulkan_CS
             fixed (VkPipelineStageFlags* stageTemp = &waitStages[0])
             {
                 int byteSize = sizeof(VkPipelineStageFlags) * waitStages.Length;
-                Buffer.MemoryCopy(stageTemp, pWaitStages, byteSize, byteSize);
+                NativeMemory.Copy(stageTemp, pWaitStages, (uint)byteSize);
             }
 
             VkSemaphore[] signalSemaphores = [_renderFinishedSemaphores[_currentFrame]];
@@ -529,7 +530,7 @@ namespace SDL_Vulkan_CS
             fixed (VkSemaphore* signalTemp = &signalSemaphores[0])
             {
                 int byteSize = sizeof(VkSemaphore) * signalSemaphores.Length;
-                Buffer.MemoryCopy(signalTemp, pSignalSemaphores, byteSize, byteSize);
+                NativeMemory.Copy(signalTemp, pSignalSemaphores, (uint)byteSize);
             }
 
             VkSubmitInfo submitInfo = new()
@@ -557,7 +558,7 @@ namespace SDL_Vulkan_CS
             fixed (VkSwapchainKHR* swapTemp = &swapChains[0])
             {
                 int byteSize = sizeof(VkSwapchainKHR) * swapChains.Length;
-                Buffer.MemoryCopy(swapTemp, pSwapChains, byteSize, byteSize);
+                NativeMemory.Copy(swapTemp, pSwapChains, (uint)byteSize);
             }
 
             VkPresentInfoKHR presentInfo = new()
