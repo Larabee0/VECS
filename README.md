@@ -6,9 +6,8 @@ If you aren't using VS or NuGet the bindings are avaliable at the source links b
 - Alimer.Bindings.SDL - SDL3 C# Bindings, LICENSE: MIT, SOURCE: https://github.com/amerkoleci/Alimer.Bindings.SDL
 - Vortice.Vulkan - Vulkan C# Bindings, LICENSE: MIT, SOURCE: https://github.com/amerkoleci/Vortice.Vulkan
 - Vortice.Vma - Vulkan Memory Allocator C# Bindings, LICENSE: MIT, Source: https://github.com/amerkoleci/Vortice.Vulkan
-- 
 I did not write my own C# bindings for Vulkan or SDL3 or Vulkan Memory Allocator
 
-Vulkan: https://www.vulkan.org/
-SDL3: 
-Vulkan Memory Allocator, Source repo (MIT): https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
+Vulkan: https://www.vulkan.org/  
+SDL3: https://www.libsdl.org/  
+Vulkan Memory Allocator: https://gpuopen.com/vulkan-memory-allocator/
