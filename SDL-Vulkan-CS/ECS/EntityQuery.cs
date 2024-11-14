@@ -6,24 +6,31 @@ using System.Threading.Tasks;
 
 namespace SDL_Vulkan_CS.ECS
 {
+    /// <summary>
+    /// Defines an entity query to get entities from the entity world with certain components
+    /// With all rqeuires an entity to have all teh given compoennts
+    /// With none requires an entity to not have the given the components
+    /// With any requires the entity to have at least one of the given components
+    /// </summary>
     public class EntityQuery
     {
         private List<int> _withAll = []; // must have all of these
         private List<int> _withNone = []; // cannot have any of these
         private List<int> _withAny = []; // must have one of these
 
+        // hashsets of the above lists for O(n) comparison hashset to hashset instead of O(n+m)
         private readonly HashSet<int> _withAllSet = [];
         private readonly HashSet<int> _withNoneSet = [];
         private readonly HashSet<int> _withAnySet = [];
 
-        private readonly EntityManager _entityManager;
+        private readonly EntityManager _entityManager; // probably want to eliminate this reference.
 
-        private bool _built = false;
-        private bool _stale = true;
+        private bool _built = false; // indicate the query has been built so can be used
+        private bool _stale = true; // indicates the query should be updated, _hasEnitities will be invalid
         private bool _hasEnitities = false;
         public bool Built => _built;
 
-        public bool HasEntities { 
+        public bool HasEntities {  // if the query is stale, this updates the query
             get
             {
                 if (!_built)
@@ -48,6 +55,14 @@ namespace SDL_Vulkan_CS.ECS
             _entityManager = entityManager;
         }
 
+        /// <summary>
+        /// Adds the given component types to the query's WithAll list.
+        /// If a given component type exists in WithNone an exception is raised.
+        /// Removes any overlaps with WithAny from the With Any list
+        /// </summary>
+        /// <param name="componentTypes"></param>
+        /// <returns></returns>
+        /// <exception cref="InvalidOperationException"></exception>
         public EntityQuery WithAll(params Type[] componentTypes)
         {
             if (_built)
@@ -80,6 +95,13 @@ namespace SDL_Vulkan_CS.ECS
             return this;
         }
 
+        /// <summary>
+        /// Adds the given compoennt types to teh qury's WithNone list.
+        /// If a given component type exists WithAny or WithAll, an exception is raised.
+        /// </summary>
+        /// <param name="componentTypes"></param>
+        /// <returns></returns>
+        /// <exception cref="InvalidOperationException"></exception>
         public EntityQuery WithNone(params Type[] componentTypes)
         {
             if (_built)
@@ -116,6 +138,14 @@ namespace SDL_Vulkan_CS.ECS
             return this;
         }
 
+        /// <summary>
+        /// Adds the given component types to the query's WithAny list.
+        /// If a given component type exists in WithNone an exception is raised.
+        /// Does not add components to WithAny that are present in WithAll
+        /// </summary>
+        /// <param name="componentTypes"></param>
+        /// <returns></returns>
+        /// <exception cref="InvalidOperationException"></exception>
         public EntityQuery WithAny(params Type[] componentTypes)
         {
             if (_built)
@@ -142,11 +172,22 @@ namespace SDL_Vulkan_CS.ECS
                 throw new InvalidOperationException(string.Format("WithAny query may not contain component types present in _withNone!\nComponent Type mistmatch {0}", invalidTypes));
             }
 
+            if (_withAll.Count > 0)
+            {
+                HashSet<int> all = new(_withAll);
+                any.ExceptWith(all);
+                _withAny = new(any);
+            }
 
 
             return this;
         }
 
+        /// <summary>
+        /// Marks the query as built (no longer editable)
+        /// This initalises the hashsets
+        /// </summary>
+        /// <returns></returns>
         public EntityQuery Build()
         {
             if (!_built)
@@ -159,11 +200,22 @@ namespace SDL_Vulkan_CS.ECS
             return this;
         }
 
+        /// <summary>
+        /// Marks the query as stale
+        /// </summary>
         public void MarkStale()
         {
             _stale = true;
         }
 
+        /// <summary>
+        /// Should be a very fast way of checking if the query has any entities right now.
+        /// Hashset to hashset overlap/supersetof as this is hashset to hashset comparison all should be O(n) where n = elements in each query set.
+        /// This will be parallel with high number of archetypes
+        /// 
+        /// This does not allocate any memory
+        /// </summary>
+        /// <returns></returns>
         public bool AnyEntities()
         {   
             bool any = false;
@@ -181,6 +233,11 @@ namespace SDL_Vulkan_CS.ECS
             return any;
         }
 
+        /// <summary>
+        /// Getting the entities from the query has memory allocation overhead
+        /// The WithAny alogirthim seems quite bad to me
+        /// </summary>
+        /// <returns></returns>
         public List<Entity> GetEntities()
         {
             HashSet<Entity> entitiesSet = [];

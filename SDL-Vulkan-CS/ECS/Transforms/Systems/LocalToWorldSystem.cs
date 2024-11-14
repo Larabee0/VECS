@@ -7,14 +7,19 @@ using System.Threading.Tasks;
 
 namespace SDL_Vulkan_CS.ECS
 {
+    /// <summary>
+    /// Operates on transform components to compute a local to world matrix
+    /// </summary>
     public class LocalToWorldSystem : SystemBase
     {
         private EntityQuery _addLTWQuery;
         private EntityQuery _ltwQuery;
         public override void OnCreate(EntityManager entityManager)
         {
+            // any entity with a translation, rotation or scale component should get a LTW component added to it automatically.
             EntityQuery addLtw = new EntityQuery(entityManager).WithAny(typeof(Translation), typeof(Rotation), typeof(Scale)).WithNone(typeof(LocalToWorld)).Build();
 
+            // local to world update query
             EntityQuery ltw = new EntityQuery(entityManager).WithAll(typeof(LocalToWorld)).WithAny(typeof(Translation),typeof(Rotation),typeof(Scale)).Build();
             _ltwQuery = ltw;
             _addLTWQuery = addLtw;
@@ -22,7 +27,7 @@ namespace SDL_Vulkan_CS.ECS
 
         public override void OnUpdate(EntityManager entityManager)
         {
-            if (_ltwQuery.HasEntities)
+            if (_ltwQuery.HasEntities) // updates and checks if the query has entities. NoAlloc check
             {
                 _addLTWQuery.GetEntities().ForEach(e =>
                 {
@@ -30,8 +35,10 @@ namespace SDL_Vulkan_CS.ECS
                 });
             }
 
-            if(_addLTWQuery.HasEntities)
+            if(_addLTWQuery.HasEntities) // updates and checks if the query has entities. NoAlloc check
             {
+                // compute a ltw matrisx for each entity matching the query.
+                // defaults are assume for entities missing t r s components
                 _ltwQuery.GetEntities().ForEach(e =>
                 {
                     Vector3 translation = entityManager.GetComponent(e, out Translation t) ? t.Value : Vector3.Zero;
@@ -47,6 +54,7 @@ namespace SDL_Vulkan_CS.ECS
 
         public override void OnPostUpdate(EntityManager entityManager)
         {
+            // mark the qurues as stale for next frame
             _ltwQuery.MarkStale();
             _addLTWQuery.MarkStale();
         }

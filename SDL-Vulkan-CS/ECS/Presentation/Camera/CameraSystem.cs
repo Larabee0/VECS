@@ -8,11 +8,14 @@ using System.Threading.Tasks;
 
 namespace SDL_Vulkan_CS
 {
+    /// <summary>
+    /// Camera system updates all cameras
+    /// </summary>
     public class CameraSystem : SystemBase
     {
-        EntityQuery _cameraQueryPerspective;
-        EntityQuery _cameraQueryOrthographic;
-        EntityQuery _cameraInitQuery;
+        EntityQuery _cameraQueryPerspective; // query for persepctive cameras
+        EntityQuery _cameraQueryOrthographic; // query for orthographic cameras
+        EntityQuery _cameraInitQuery; // initalises camera entities that lack the camera component type.
 
         public override void OnCreate(EntityManager entityManager)
         {
@@ -41,16 +44,21 @@ namespace SDL_Vulkan_CS
 
         public override void OnPostUpdate(EntityManager entityManager)
         {
+            // mark queries stale for next frame
             _cameraQueryPerspective.MarkStale();
             _cameraQueryOrthographic.MarkStale();
             _cameraInitQuery.MarkStale();
         }
 
+        /// <summary>
+        /// computes the camera view and projection matrices for each Persective Camera
+        /// </summary>
+        /// <param name="entityManager"></param>
         private void UpdatePersectiveCameras(EntityManager entityManager)
         {
             float aspect = 1;
 
-            if (entityManager.Singleton(out FrameInfo frameInfo))
+            if (entityManager.SingletonComponent(out FrameInfo frameInfo))
             {
                 aspect = frameInfo.screenAspect;
             }
@@ -70,6 +78,10 @@ namespace SDL_Vulkan_CS
             });
         }
 
+        /// <summary>
+        /// computes the camera view and orthographic matrices for each Persective Camera
+        /// </summary>
+        /// <param name="entityManager"></param>
         private void UpdateOrthographicCameras(EntityManager entityManager)
         {
             _cameraQueryOrthographic.GetEntities().ForEach(entity =>
@@ -87,6 +99,12 @@ namespace SDL_Vulkan_CS
             });
         }
 
+        /// <summary>
+        /// computes a perspective projection matrix
+        /// </summary>
+        /// <param name="perspective"></param>
+        /// <param name="aspect"></param>
+        /// <returns></returns>
         public static Matrix4x4 GetPerspectiveProject(CameraPerspective perspective, float aspect)
         {
             return Matrix4x4.CreatePerspectiveFieldOfView(
@@ -96,6 +114,9 @@ namespace SDL_Vulkan_CS
                 perspective.ClipFar);
         }
 
+        /// <summary>
+        /// computes a Orthographic projection matrix
+        /// </summary>
         public static Matrix4x4 GetOrthographicProject(CameraOrthographic orthographic)
         {
             return Matrix4x4.CreateOrthographic(
@@ -105,6 +126,11 @@ namespace SDL_Vulkan_CS
                 orthographic.ClipFar);
         }
 
+        /// <summary>
+        /// Computes a view matrix from the given transform
+        /// </summary>
+        /// <param name="transform"></param>
+        /// <returns></returns>
         public static Matrix4x4 GetViewMatrix(Matrix4x4 transform)
         {
             if(Matrix4x4.Decompose(transform,out _,out Quaternion rotation,out  Vector3 translation))

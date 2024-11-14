@@ -2,6 +2,10 @@
 
 namespace SDL_Vulkan_CS
 {
+    /// <summary>
+    /// Indicates the entity is an Perspective camera
+    /// Stores Perspective camera settings
+    /// </summary>
     public struct CameraPerspective : IComponent
     {
         public static int ComponentId { get; set; }

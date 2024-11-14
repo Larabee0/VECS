@@ -8,27 +8,48 @@ using System.Threading.Tasks;
 
 namespace SDL_Vulkan_CS.ECS
 {
+    /// <summary>
+    /// Managers the entities in a world.
+    /// 
+    /// Components have a static id in their type. this id is an int and increments from 0 to n component types.
+    /// 
+    /// Entities have a uint id and an int representing their version.
+    /// When an entity is destroy it is added to a queue to be recycled.
+    /// When an entity is recycled, its version number is incremented by one.
+    /// 
+    /// A component instance can have an instance ID associated by hashing its id with the entity hashcode. This is referred to as the component signature.
+    /// component signature =  HashCode.Combine(entity.GetHashCode(), componentId);
+    /// This signature can be used to quickly look up if the entity has a component as well just given the component id.
+    /// 
+    /// Archetypes are entities with a set of components. An Archetype may consist of one or many entities.
+    /// Archetypes can be uniquely identified by hashing all their component ids in order (lowest to highest id)
+    /// Archetype id = 0 contains entities that have no components.
+    /// 
+    /// </summary>
     public class EntityManager
     {
-        private int _totalComponentTypes = 0;
+        private readonly int _totalComponentTypes = 0;
         private uint _nextMaxEntityId = 0;
         private readonly Queue<Entity> _idsToRecyle = [];
         private readonly HashSet<uint> _entityIds = [];
 
-        private readonly Dictionary<uint, Entity> _entityIdToEntity = [];
-        private readonly Dictionary<int, IComponent> _compSignatureToCompReference = [];
+        private readonly Dictionary<uint, Entity> _entityIdToEntity = []; // quick entity look up just given an entity id.
+        private readonly Dictionary<int, IComponent> _compSignatureToCompReference = []; // component storage, keys are component sigantures.
 
-        private readonly Dictionary<int, HashSet<Entity>> _archetypeIdsToEntities = [];
-        public readonly Dictionary<int, HashSet<int>> _archetypeIdsToComponentIds = [];
-        private readonly Dictionary<uint, int> _entityIdToArchetypeIdLookup = [];
+        private readonly Dictionary<int, HashSet<Entity>> _archetypeIdsToEntities = []; // archetype ids to a hashset of entities that are members of archetype.
+        public readonly Dictionary<int, HashSet<int>> _archetypeIdsToComponentIds = []; // archetype ids to a hashset of component ids that comprises the archetype.
+        private readonly Dictionary<uint, int> _entityIdToArchetypeIdLookup = []; // entity id to the archetype id that the entity belongs to.
 
-        private readonly Dictionary<uint, HashSet<int>> _entityToComponentIds = [];
-        private readonly Dictionary<int, HashSet<Entity>> _componentIdToEntities = [];
+        private readonly Dictionary<uint, HashSet<int>> _entityToComponentIds = []; // entity id to the unique set of component ids it has attached to the entity.
+        private readonly Dictionary<int, HashSet<Entity>> _componentIdToEntities = []; // component id to the unique set of entities that have that component attached.
 
-        private readonly Dictionary<Guid, int> _componentTypeToIdLookup = [];
-        private readonly Dictionary<int, Type> _componentIdToTypeLookup = [];
+        private readonly Dictionary<Guid, int> _componentTypeToIdLookup = []; // look up for the component type guid to the smaller component id
+        private readonly Dictionary<int, Type> _componentIdToTypeLookup = []; // look up for a component id to the component type
 
-
+        /// <summary>
+        /// Generates ids for all the components present in the executing assembly,
+        /// then tracks them in <see cref="_componentIdToTypeLookup"/> and <see cref="_componentTypeToIdLookup"/>
+        /// </summary>
         public EntityManager()
         {
             var executingAssembly = Assembly.GetExecutingAssembly();
@@ -53,12 +74,26 @@ namespace SDL_Vulkan_CS.ECS
             _archetypeIdsToComponentIds.Add(0, []);
         }
 
+        /// <summary>
+        /// Add component overload that adds then sets a component on an entity.
+        /// If the entity already has the component, will still work to set it.
+        /// </summary>
+        /// <typeparam name="T">Component type</typeparam>
+        /// <param name="entity"></param>
+        /// <param name="component">Component copy</param>
         public void AddComponent<T>(Entity entity, T component) where T : IComponent
         {
             AddComponent<T>(entity);
             SetComponent(entity, component);
         }
 
+        /// <summary>
+        /// Adds a component of type T to the entity, then returns it.
+        /// If the entity already has the component, it will return the current value of it.
+        /// </summary>
+        /// <typeparam name="T">Component type</typeparam>
+        /// <param name="entity"></param>
+        /// <returns></returns>
         public T AddComponent<T>(Entity entity) where T : IComponent
         {
             if(GetComponent(entity, out T comp))
@@ -87,7 +122,13 @@ namespace SDL_Vulkan_CS.ECS
             }
         }
 
-        public void RemoveComponent<T>(Entity entity) where T : IComponent
+        /// <summary>
+        /// Removes a component from an entity only if the netity has the component.
+        /// </summary>
+        /// <typeparam name="T">Component type</typeparam>
+        /// <param name="entity"></param>
+        /// <param name="archetypeRefresh">Auto update the archetypes or not</param>
+        public void RemoveComponent<T>(Entity entity, bool archetypeRefresh = true) where T : IComponent
         {
             if (HasComponent<T>(entity, out int signature))
             {
@@ -95,39 +136,39 @@ namespace SDL_Vulkan_CS.ECS
                 _componentIdToEntities.Remove(signature);
                 _compSignatureToCompReference.Remove(signature);
 
-                UpdateEntityArchetype(entity);
+                if (archetypeRefresh)
+                {
+                    UpdateEntityArchetype(entity);
+                }
             }
         }
 
-        public bool GetComponent<T>(Entity entity, out T component) where T : IComponent
+        /// <summary>
+        /// Remove the component id from the entity if the entity has the component
+        /// </summary>
+        /// <param name="entity"></param>
+        /// <param name="compId">component id</param>
+        /// <param name="archetypeRefresh">Auto update the archetypes or not</param>
+        public void RemoveComponent(Entity entity, int compId, bool archetypeRefresh = true) 
         {
-            int signature = GetEntityComponentSigature<T>(entity);
-            bool hasComponent = _compSignatureToCompReference.TryGetValue(signature, out IComponent comp);
-            component = hasComponent ? (T)comp : default;
-            return hasComponent;
-        }
-
-        public T GetComponent<T>(Entity entity) where T : IComponent
-        {
-            int signature = GetEntityComponentSigature<T>(entity);
-            return (T)_compSignatureToCompReference[signature];
-        }
-
-        public T GetComponent<T>(int signature) where T : IComponent
-        {
-            return (T)_compSignatureToCompReference[signature];
-        }
-
-        public bool SetComponent<T>(Entity entity, T component) where T : IComponent
-        {
-            if (HasComponent<T>(entity, out int signature))
+            if (HasComponent(entity,compId, out int signature))
             {
-                _compSignatureToCompReference[signature] = component;
-                return true;
+                _entityToComponentIds[entity.Id].Remove(compId);
+                _componentIdToEntities.Remove(signature);
+                _compSignatureToCompReference.Remove(signature);
+
+                if (archetypeRefresh)
+                {
+                    UpdateEntityArchetype(entity);
+                }
             }
-            return false;
         }
 
+
+        /// <summary>
+        /// Updates the arcehtype dictionaries after an entity has had a component added or removed.
+        /// </summary>
+        /// <param name="entity">entity that has changed</param>
         private void UpdateEntityArchetype(Entity entity)
         {
             if (_entityIdToArchetypeIdLookup.TryGetValue(entity.Id, out int oldArcetype))
@@ -150,43 +191,163 @@ namespace SDL_Vulkan_CS.ECS
             }
         }
 
+        /// <summary>
+        /// Simple overload to get just a bool of if a component is attached to the entity.
+        /// </summary>
+        /// <typeparam name="T">Component type</typeparam>
+        /// <param name="entity"></param>
+        /// <returns></returns>
         public bool HasComponent<T>(Entity entity) where T : IComponent
         {
             return HasComponent<T>(entity, out _);
         }
 
+        /// <summary>
+        /// Given a component id and entity checks if the component is attched to the entity.
+        /// </summary>
+        /// <param name="entity"></param>
+        /// <param name="compId">Component id</param>
+        /// <returns></returns>
+        public bool HasComponent(Entity entity, int compId)
+        {
+            int signature = GetEntityComponentSigature(entity, compId);
+            return _compSignatureToCompReference.ContainsKey(signature);
+        }
+
+        /// <summary>
+        /// Has compoennt overload to return the component instance signature as well
+        /// </summary>
+        /// <param name="entity"></param>
+        /// <param name="compId">Component id</param>
+        /// <param name="signature">component instance signature</param>
+        /// <returns></returns>
+        public bool HasComponent(Entity entity, int compId,out int signature)
+        {
+            signature = GetEntityComponentSigature(entity, compId);
+            return _compSignatureToCompReference.ContainsKey(signature);
+        }
+
+
+        /// <summary>
+        /// Given a component type and entity checks if the component is attched to the entity and set the component instance sigature as an out parameter
+        /// </summary>
+        /// <typeparam name="T">Component type</typeparam>
+        /// <param name="entity"></param>
+        /// <param name="signature">Component instance signature</param>
+        /// <returns></returns>
         public bool HasComponent<T>(Entity entity, out int signature) where T : IComponent
         {
             signature = GetEntityComponentSigature<T>(entity);
             return _compSignatureToCompReference.ContainsKey(signature);
         }
 
-        public bool HasComponent(Entity entity, int compId)
+        /// <summary>
+        /// Safe get component overload that looks up a component on an entity.
+        /// </summary>
+        /// <typeparam name="T">Component type</typeparam>
+        /// <param name="entity"></param>
+        /// <param name="component">Component copy</param>
+        /// <returns></returns>
+        public bool GetComponent<T>(Entity entity, out T component) where T : IComponent
         {
-            return _compSignatureToCompReference.ContainsKey(GetEntityComponentSigature(entity, compId));
+            int signature = GetEntityComponentSigature<T>(entity);
+            bool hasComponent = _compSignatureToCompReference.TryGetValue(signature, out IComponent comp);
+            component = hasComponent ? (T)comp : default;
+            return hasComponent;
         }
 
+        /// <summary>
+        /// Slightly unsafe get component overload that directly looks up a component sigature.
+        /// If the signature is not present in <see cref="_compSignatureToCompReference"/>, an exception will be raised
+        /// so this should probably be guarded by <see cref="HasComponent"/>
+        /// </summary>
+        /// <typeparam name="T">Component type</typeparam>
+        /// <param name="entity"></param>
+        /// <returns></returns>
+        public T GetComponent<T>(Entity entity) where T : IComponent
+        {
+            int signature = GetEntityComponentSigature<T>(entity);
+            return GetComponent<T>(signature);
+        }
+
+        /// <summary>
+        /// Slightly unsafe get component overload that directly looks up a component sigature.
+        /// If the signature is not present in <see cref="_compSignatureToCompReference"/>, an exception will be raised
+        /// so this should probably be guarded by <see cref="HasComponent"/>
+        /// </summary>
+        /// <typeparam name="T">Component type</typeparam>
+        /// <param name="signature"></param>
+        /// <returns></returns>
+        public T GetComponent<T>(int signature) where T : IComponent
+        {
+            return (T)_compSignatureToCompReference[signature];
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <typeparam name="T">Component type</typeparam>
+        /// <param name="entity"></param>
+        /// <param name="component"></param>
+        /// <returns></returns>
+        public bool SetComponent<T>(Entity entity, T component) where T : IComponent
+        {
+            if (HasComponent<T>(entity, out int signature))
+            {
+                _compSignatureToCompReference[signature] = component;
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Returns the siganture of a component instance if the given entity had the component.
+        /// </summary>
+        /// <typeparam name="T">Component type</typeparam>
+        /// <param name="entity"></param>
+        /// <returns></returns>
         public int GetEntityComponentSigature<T>(Entity entity) where T : IComponent
         {
             return HashCode.Combine(entity.GetHashCode(), GetComponentId<T>());
         }
 
-        public int GetEntityComponentSigature(Entity entity, int compId)
+        /// <summary>
+        /// Returns the siganture of a component instance if the given entity had the component.
+        /// </summary>
+        /// <param name="entity"></param>
+        /// <param name="compId">Component id</param>
+        /// <returns></returns>
+        public static int GetEntityComponentSigature(Entity entity, int compId)
         {
             return HashCode.Combine(entity.GetHashCode(), compId);
         }
 
+        /// <summary>
+        /// Looks up a component id from the type guid
+        /// </summary>
+        /// <typeparam name="T">Component type</typeparam>
+        /// <returns></returns>
         public int GetComponentId<T>() where T : IComponent
         {
             return _componentTypeToIdLookup[typeof(T).GUID];
         }
 
+        /// <summary>
+        /// Looks up an component id from the type guid then gets all entities with the component attached.
+        /// </summary>
+        /// <typeparam name="T">Component type</typeparam>
+        /// <returns>list of entities with the attached component</returns>
         public List<Entity> GetAllEntitiesWithComponent<T>() where T : IComponent
         {
             int compId = GetComponentId<T>();
             return GetAllEntitiesWithComponent(compId);
         }
 
+        /// <summary>
+        /// Looks up an component id from the type guid then gets all entities with the component attached.
+        /// </summary>
+        /// <param name="compId">Component id</param>
+        /// <returns>list of entities with the attached component</returns>
         public List<Entity> GetAllEntitiesWithComponent(int compId)
         {
             if (_componentIdToEntities.TryGetValue(compId, out var entitiesSet))
@@ -197,11 +358,27 @@ namespace SDL_Vulkan_CS.ECS
             return null;
         }
 
+        /// <summary>
+        /// gets all entities with the component attached.
+        /// This returns a true false for if the compoennt has any entities
+        /// and will output a hashset of entities if true
+        /// </summary>
+        /// <param name="compId">component id</param>
+        /// <param name="entities">hashset of all entities that have the component</param>
+        /// <returns>true if the component has entities</returns>
         public bool GetAllEntitiesWithComponent(int compId, out HashSet<Entity> entities)
         {
             return _componentIdToEntities.TryGetValue(compId, out entities);
         }
 
+        /// <summary>
+        /// Get all entities with the given component types
+        /// Converts component types to a list of component ids then
+        /// creates a hashset of all the entities
+        /// Iterates the list to remove all entities that don't match the required components
+        /// </summary>
+        /// <param name="components">component types we want he entities to have</param>
+        /// <returns>list of entities with all the given components attached</returns>
         public List<Entity> GetAllEntitiesWithComponents(params Type[] components)
         {
             List<int> componentIds = new (components.Length);
@@ -221,12 +398,55 @@ namespace SDL_Vulkan_CS.ECS
             return new(allEntities);
         }
 
+        /// <summary>
+        /// Computes the archetype signature of the given set of components.
+        /// </summary>
+        /// <param name="componentsTypes">component types</param>
+        /// <returns>archetype signature</returns>
         public int GetArchetypeSigature(params Type[] componentsTypes)
         {
 
             return GetArchetypeHash(GetComponentIds(componentsTypes));
         }
 
+        /// <summary>
+        /// Computes the arcetype sigature of a given entity's component set.
+        /// </summary>
+        /// <param name="entity"></param>
+        /// <returns>archetype signature</returns>
+        public int ComputeArchetypeHash(Entity entity)
+        {
+            return GetArchetypeHash(_entityToComponentIds[entity.Id]);
+        }
+
+        /// <summary>
+        /// Computes the archetype signature of a given set of component ids
+        /// This is allocated to an array, sorted then combined.
+        /// If there are no component ids, 0 is returned.
+        /// </summary>
+        /// <param name="componentIds"></param>
+        /// <returns></returns>
+        private static int GetArchetypeHash(HashSet<int> componentIds)
+        {
+            if (componentIds.Count > 0)
+            {
+                int[] unsorted = [.. componentIds];
+                Array.Sort(unsorted);
+                int hash = unsorted[0];
+                for (int i = 1; i < unsorted.Length; i++)
+                {
+                    hash = HashCode.Combine(hash, unsorted[i]);
+                }
+                return hash;
+            }
+            return 0;
+        }
+
+        /// <summary>
+        /// Gets the component ids from the set of component types
+        /// </summary>
+        /// <param name="componentsTypes">component types</param>
+        /// <returns>hashset of component ids</returns>
         public HashSet<int> GetComponentIds(params Type[] componentsTypes)
         {
             HashSet<int> componentIds = new(componentsTypes.Length);
@@ -240,9 +460,12 @@ namespace SDL_Vulkan_CS.ECS
             }
             componentIds.TrimExcess();
             return componentIds;
-            
         }
 
+        /// <summary>
+        /// Creates a new entity
+        /// </summary>
+        /// <returns>copy of the entity</returns>
         public Entity CreateEntity()
         {
 
@@ -256,10 +479,22 @@ namespace SDL_Vulkan_CS.ECS
             return newEntity;
         }
 
+        /// <summary>
+        /// Destroys an entity and removes all its components.
+        /// Removes the entity from the archetype tables
+        /// </summary>
+        /// <param name="entity"></param>
+        /// <returns></returns>
         public bool DestroyEntity(Entity entity)
         {
             if (_entityIds.Remove(entity.Id))
             {
+                List<int> componentsToRemove = new(_entityToComponentIds[entity.Id]);
+
+                componentsToRemove.ForEach(comp => RemoveComponent(entity, comp, false));
+
+                UpdateEntityArchetype(entity);
+
                 int archetype = ComputeArchetypeHash(entity);
 
                 if(_archetypeIdsToEntities.TryGetValue(archetype,out var entities))
@@ -276,11 +511,22 @@ namespace SDL_Vulkan_CS.ECS
             return false;
         }
 
+        /// <summary>
+        /// Destroy an entity given just an id.
+        /// </summary>
+        /// <param name="id"></param>
+        /// <returns></returns>
         public bool DestroyEntity(uint id)
         {
             return DestroyEntity(_entityIdToEntity[id]);
         }
 
+        /// <summary>
+        /// Gets the next entity id and version number.
+        /// If there are elements in the recycle queue we reuse those ids
+        /// </summary>
+        /// <param name="version"></param>
+        /// <returns></returns>
         private uint GetNextId(out int version)
         {
             bool idIsAvaliable;
@@ -322,37 +568,31 @@ namespace SDL_Vulkan_CS.ECS
             return id;
         }
 
-        public int ComputeArchetypeHash(Entity entity)
-        {
-            return GetArchetypeHash(_entityToComponentIds[entity.Id]);
-        }
-
-        private static int GetArchetypeHash(HashSet<int> componentIds)
-        {
-            int[] unsorted = [.. componentIds];
-            if (unsorted.Length > 0)
-            {
-                Array.Sort(unsorted);
-                int hash = unsorted[0];
-                for (int i = 1; i < unsorted.Length; i++)
-                {
-                    hash = HashCode.Combine(hash, unsorted[i]);
-                }
-                return hash;
-            }
-            return 0;
-        }
-
+        /// <summary>
+        /// Checks if any entities of teh given id exist
+        /// </summary>
+        /// <param name="compId"></param>
+        /// <returns></returns>
         public bool AnyEntitiesWith(int compId)
         {
             return _componentIdToEntities.TryGetValue(compId, out var value) && value.Count > 0;
         }
 
+        /// <summary>
+        /// Checks if the given component id has no entities
+        /// </summary>
+        /// <param name="compId"></param>
+        /// <returns></returns>
         public bool AnyEntitiesWithout(int compId)
         {
             return !_componentIdToEntities.TryGetValue(compId, out var value) || value.Count < _entityIdToEntity.Count;
         }
 
+        /// <summary>
+        /// gets the type name of a component id
+        /// </summary>
+        /// <param name="compId"></param>
+        /// <returns></returns>
         public string GetComponentName(int compId)
         {
             if(_componentIdToTypeLookup.TryGetValue(compId, out var value))
@@ -362,6 +602,13 @@ namespace SDL_Vulkan_CS.ECS
             return null;
         }
 
+        /// <summary>
+        /// looks up a singleton entity instance assuming a singleton component instance.
+        /// If there is no singleton instance, this method will return false. (either no instance or more thna one instance)
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="entity"></param>
+        /// <returns></returns>
         public bool SingletonEntity<T>(out Entity entity) where T : IComponent
         {
             int id = GetComponentId<T>();
@@ -373,7 +620,15 @@ namespace SDL_Vulkan_CS.ECS
             }
             return false;
         }
-        public bool Singleton<T>(out T component) where T : IComponent
+
+        /// <summary>
+        /// Gets a singleton component instance
+        /// If there is no singleton instance, this method will return false. (either no instance or more thna one instance)
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="component"></param>
+        /// <returns></returns>
+        public bool SingletonComponent<T>(out T component) where T : IComponent
         {
             int id = GetComponentId<T>();
             component = default;

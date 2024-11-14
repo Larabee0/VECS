@@ -6,6 +6,11 @@ using System.Threading.Tasks;
 
 namespace SDL_Vulkan_CS.ECS
 {
+    /// <summary>
+    /// an entity composed of a uint id and int version.
+    /// the first version number is 1
+    /// An null entity can be defined as an entity with a version number of zero
+    /// </summary>
     public struct Entity
     {
         public static Entity Null => new(0, 0);
@@ -19,7 +24,7 @@ namespace SDL_Vulkan_CS.ECS
             Version = version;
         }
 
-        public override int GetHashCode()
+        public override readonly int GetHashCode()
         {
             return HashCode.Combine(Id, Version);
         }

@@ -8,6 +8,9 @@ using System.Threading.Tasks;
 
 namespace SDL_Vulkan_CS
 {
+    /// <summary>
+    /// Camera data used by the <see cref="Presenter"/> class to set camera properties in the global uniform buffer.
+    /// </summary>
     public struct Camera : IComponent
     {
         public static Camera Identity => new()
@@ -24,6 +27,9 @@ namespace SDL_Vulkan_CS
         public Matrix4x4 InverseViewMatrix;
     }
 
+    /// <summary>
+    /// main camera tag
+    /// </summary>
     public struct MainCamera : IComponent
     {
         public static int ComponentId { get; set; }
