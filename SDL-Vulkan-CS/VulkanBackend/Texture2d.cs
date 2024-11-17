@@ -14,6 +14,8 @@ namespace SDL_Vulkan_CS.VulkanBackend
     /// </summary>
     public class Texture2d
     {
+        public static readonly List<Texture2d> Textures = [];
+
         private VkDescriptorImageInfo _imageDescriptor;
 
         private readonly VkImageLayout _imageLayout;
@@ -25,6 +27,19 @@ namespace SDL_Vulkan_CS.VulkanBackend
         private VkImageView _textureImageView;
         private VkSampler _textureSampler;
 
+        public VkDescriptorImageInfo GetImageInfo
+        {
+            get
+            {
+                return new()
+                {
+                    imageLayout = VkImageLayout.ShaderReadOnlyOptimal,
+                    imageView = _textureImageView,
+                    sampler = _textureSampler
+                };
+            }
+        }
+
         public Texture2d(GraphicsDevice device, string filepath)
         {
             _device = device;
@@ -33,6 +48,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
             CreateImageView();
             CreateTextureSampler();
             UpdateDescriptor();
+            Textures.Add(this);
         }
 
         public unsafe Texture2d(GraphicsDevice deivce, VkFormat format, VkExtent3D extent,VkImageUsageFlags usage)
@@ -109,6 +125,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
                 _imageDescriptor.imageView = _textureImageView;
                 _imageDescriptor.imageLayout = samplerImageLayout;
             }
+            Textures.Add(this);
         }
 
         public unsafe void Dispose()
