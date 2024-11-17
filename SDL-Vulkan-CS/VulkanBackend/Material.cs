@@ -4,6 +4,13 @@ using Vortice.Vulkan;
 
 namespace SDL_Vulkan_CS.VulkanBackend
 {
+    /// <summary>
+    /// Lays the foundation to support multiple materials per render system.
+    /// Shared material instance for models using the same material.
+    /// Render system sorts models by material
+    /// Draw all models using that material, then move to the next.
+    /// 
+    /// </summary>
     public sealed class Material : IDisposable
     {
         private readonly DescriptorSetLayout _materialDescriptorLayout;
@@ -11,6 +18,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
         private RenderPipeline _materialPipeline;
 
         public VkPipelineLayout PipeLineLayout => _pipelineLayout;
+        public DescriptorSetLayout MaterialDescriptorLayout => _materialDescriptorLayout;
 
         public Material(string vertexShader, string fragmentShader)
         {

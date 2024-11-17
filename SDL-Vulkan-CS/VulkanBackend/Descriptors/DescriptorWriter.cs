@@ -60,14 +60,14 @@ namespace SDL_Vulkan_CS
         /// <exception cref="Exception"></exception>
         public unsafe DescriptorWriter WriteImage(uint binding, VkDescriptorImageInfo imageInfo)
         {
-            if (_setLayout.Bindings.ContainsKey(binding))
+            if (!_setLayout.Bindings.ContainsKey(binding))
             {
                 throw new Exception("Layout does not contain specified binding");
             }
 
             var bindingDescription = _setLayout.Bindings[binding];
 
-            if (bindingDescription.descriptorCount == 1)
+            if (bindingDescription.descriptorCount != 1)
             {
                 throw new Exception("Binding single descriptor info, but binding expects multiple");
             }
@@ -99,6 +99,7 @@ namespace SDL_Vulkan_CS
             Overwrite(set);
             return true;
         }
+
 
         /// <summary>
         /// overwrites a given descriptor set with the current writes queued.
