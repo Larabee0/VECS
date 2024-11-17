@@ -1,4 +1,6 @@
 ﻿using SDL_Vulkan_CS.ECS;
+using SDL_Vulkan_CS.ECS.Presentation.Systems;
+using System;
 using System.Numerics;
 using Vortice.Vulkan;
 
@@ -26,6 +28,10 @@ namespace SDL_Vulkan_CS
     /// </summary>
     public sealed class Presenter : IDisposable
     {
+        public const int MAX_LIGHTS = 1;
+
+        public static Presenter Instance { get; private set; }
+
         private readonly GraphicsDevice _device;
         private readonly Renderer _renderer;
 
@@ -38,6 +44,9 @@ namespace SDL_Vulkan_CS
         
         private Entity frameInfoEntity;
 
+        public VkRenderPass RenderPass => _renderer.SwapChainRenderPass;
+        public VkDescriptorSetLayout GlobalSetLayout => _globalDescriptorSetLayout.SetLayout;
+
         public Presenter(IWindow window, GraphicsDevice  device)
         {
             _device = device;
@@ -45,6 +54,7 @@ namespace SDL_Vulkan_CS
 
             InitGloalDescriptorPool();
             InitSwapChainFrameDescriptorPools();
+            Instance = this;
         }
 
         /// <summary>
@@ -90,8 +100,9 @@ namespace SDL_Vulkan_CS
             frameInfoEntity = World.DefaultWorld.EntityManager.CreateEntity();
 
             World.DefaultWorld.EntityManager.AddComponent<FrameInfo>(frameInfoEntity);
-            
-            CreateTestTriangle();
+
+            // CreateTestTriangle();
+            // CreateSimpleRenderSystem();
         }
 
         private unsafe DescriptorSetLayout ConfigureUboBuffers(CsharpVulkanBuffer[] uboBuffers, VkDescriptorSet[] globalDescriptorSets)
@@ -142,6 +153,12 @@ namespace SDL_Vulkan_CS
             triangleSystem.CreateTriangle();
         }
 
+        private void CreateSimpleRenderSystem()
+        {
+            var srs = new SimpleRenderSystem(_device, _renderer.SwapChainRenderPass, _globalDescriptorSetLayout.SetLayout);
+            World.DefaultWorld.AddSystem(srs);
+        }
+
         /// <summary>
         /// Beings the frame render pass, this gets the command buffer, sets up the renderer frame info,
         /// and updates the global uniform buffer.
@@ -183,9 +200,21 @@ namespace SDL_Vulkan_CS
                     Projection = camera.ProjectionMatrix,
                     View = camera.ViewMatrix,
                     InverseView = camera.InverseViewMatrix,
-                    NumLights = 0,
-                    AmbientLightColour = Vector4.One
+                    AmbientLightColour = new(1.0f, 1.0f, 1.0f, 0.02f),
+
                 };
+
+
+                //PointLight* PointLights = stackalloc PointLight[MAX_LIGHTS];
+
+                ubo.PointLights = new PointLight()
+                {
+                    Position = new Vector4(0, 1, 0, 0),
+                    Colour = new Vector4(1, 1, 1, 1f)
+                };
+                ubo.NumLights = 1;
+                //ubo.PointLights = PointLights;
+
 
                 _globalUboBuffers[frameIndex].WriteToBuffer(&ubo);
                 _globalUboBuffers[frameIndex].Flush();
@@ -221,6 +250,7 @@ namespace SDL_Vulkan_CS
 
         public void Dispose()
         {
+            Instance = null;
             // deallocation order matters.
             // first deallocat the buffers
             for (int i = 0; i < _globalUboBuffers.Length; i++)

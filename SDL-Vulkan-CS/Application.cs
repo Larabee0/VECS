@@ -1,5 +1,6 @@
 ﻿using SDL_Vulkan_CS.Artifact;
 using SDL_Vulkan_CS.ECS;
+using System;
 using Vortice.Vulkan;
 
 namespace SDL_Vulkan_CS
@@ -122,6 +123,7 @@ namespace SDL_Vulkan_CS
         private void Destroy()
         {
             World.DefaultWorld.OnDestroy();
+            _artifact.Destroy();
         }
 
         /// <summary>

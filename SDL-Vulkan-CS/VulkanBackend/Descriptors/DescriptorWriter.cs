@@ -1,4 +1,5 @@
-﻿using Vortice.Vulkan;
+﻿using System;
+using Vortice.Vulkan;
 
 namespace SDL_Vulkan_CS
 {

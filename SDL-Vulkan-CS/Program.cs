@@ -1,4 +1,6 @@
-﻿namespace SDL_Vulkan_CS
+﻿using System;
+
+namespace SDL_Vulkan_CS
 {
     /// <summary>
     /// Main entry point for the program.

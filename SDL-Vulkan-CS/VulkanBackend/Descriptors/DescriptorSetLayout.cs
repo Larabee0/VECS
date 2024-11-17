@@ -1,4 +1,6 @@
-﻿using Vortice.Vulkan;
+﻿using System;
+using System.Collections.Generic;
+using Vortice.Vulkan;
 
 namespace SDL_Vulkan_CS
 {
@@ -11,6 +13,7 @@ namespace SDL_Vulkan_CS
         public readonly Dictionary<uint, VkDescriptorSetLayoutBinding> Bindings;
         private readonly VkDescriptorSetLayout _descriptorSetLayout;
 
+        public uint BindingCount => (uint)Bindings.Count;
         public VkDescriptorSetLayout SetLayout =>_descriptorSetLayout;
 
         public unsafe DescriptorSetLayout(GraphicsDevice graphicsDevice, Dictionary<uint, VkDescriptorSetLayoutBinding> bindings)

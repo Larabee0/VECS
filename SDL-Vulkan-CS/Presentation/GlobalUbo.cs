@@ -1,4 +1,5 @@
 ﻿using System.Numerics;
+using System.Runtime.InteropServices;
 
 namespace SDL_Vulkan_CS
 {
@@ -7,22 +8,18 @@ namespace SDL_Vulkan_CS
     /// This holds things like the camera data and lights
     /// Point lights are defined up to a max lights value
     /// </summary>
+    [StructLayout(LayoutKind.Sequential, Size = 244)]
     public unsafe struct GlobalUbo
     {
-        public unsafe static int SizeInBytes => (sizeof(Matrix4x4) * 3) + sizeof(Vector4) + (sizeof(PointLight) * PointLight.MAX_LIGHTS) + sizeof(int);
+        public unsafe static int SizeInBytes => (sizeof(Matrix4x4) * 3) + sizeof(Vector4) + (sizeof(PointLight) * Presenter.MAX_LIGHTS) + sizeof(int);
 
         public Matrix4x4 Projection;
         public Matrix4x4 View;
         public Matrix4x4 InverseView;
         public Vector4 AmbientLightColour;
 
-        public unsafe PointLight* PointLights;
+        public PointLight PointLights;
         public int NumLights;
 
-        public unsafe GlobalUbo()
-        {
-            PointLight* PointLights = stackalloc PointLight[PointLight.MAX_LIGHTS];
-            this.PointLights = PointLights;
-        }
     }
 }

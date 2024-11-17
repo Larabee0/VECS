@@ -6,6 +6,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using SDL_Vulkan_CS.VulkanBackend;
+using SDL_Vulkan_CS.ECS.Presentation;
+using SDL_Vulkan_CS.ECS.Presentation.Systems;
+using System.IO;
 
 namespace SDL_Vulkan_CS.Artifact
 {
@@ -13,8 +16,8 @@ namespace SDL_Vulkan_CS.Artifact
     {
         public Entity MainCamera;
 
-        private Vector3 initalCameraPos = new(0, 0, -2.5f);
-        private Quaternion initalCameraRot = Quaternion.Identity;
+        private Vector3 initalCameraPos = new(0, 0, -2f);
+        private Quaternion initalCameraRot = Quaternion.CreateFromYawPitchRoll(0,0,0);
 
         private CameraPerspective cameraPerspective = new()
         {
@@ -25,6 +28,9 @@ namespace SDL_Vulkan_CS.Artifact
 
         public ArtifactAuthoring()
         {
+            World.DefaultWorld.CreateSystem<SimpleRenderSystem>();
+
+
             EntityManager entityManager = World.DefaultWorld.EntityManager;
 
             MainCamera = entityManager.CreateEntity();
@@ -33,19 +39,27 @@ namespace SDL_Vulkan_CS.Artifact
             entityManager.AddComponent(MainCamera, cameraPerspective);
             entityManager.AddComponent<MainCamera>(MainCamera);
             
-            Mesh[] meshes = Mesh.LoadModelFromFile(GraphicsDevice.Instance, Path.Combine(Application.ExecutingDirectory, "Assets/Models/Comp305-Shape-Split.obj"));
+            Mesh[] meshes = Mesh.LoadModelFromFile(GraphicsDevice.Instance, Path.Combine(Application.ExecutingDirectory, "Assets/Models/flat_vase.obj"));
             for (int i = 0; i < meshes.Length; i++)
             {
                 meshes[i].FlushMesh();
             }
 
-            for (int i = 0; i < meshes.Length; i++)
-            {
-                meshes[i].Dispose();
-            }
 
-            Texture2d texture = new(GraphicsDevice.Instance, Path.Combine(Application.ExecutingDirectory, "Assets/Textures/paving 5.png"));
-            texture.Dispose();
+            var cube = entityManager.CreateEntity();
+            entityManager.AddComponent(cube, new Translation() { Value = new(0,0.25f,0) });
+            entityManager.AddComponent(cube,new Scale() { Value = new(1,-1,1)});
+            entityManager.AddComponent(cube,new MeshIndex() { Value = 0});
+            
+
+
+            // Texture2d texture = new(GraphicsDevice.Instance, Path.Combine(Application.ExecutingDirectory, "Assets/Textures/paving 5.png"));
+            // texture.Dispose();
+        }
+
+        public void Destroy()
+        {
+            Mesh.Meshes.ForEach(m => m.Dispose());
         }
     }
 }

@@ -1,4 +1,7 @@
-﻿
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+
 namespace SDL_Vulkan_CS.ECS
 {
     /// <summary>
@@ -46,10 +49,10 @@ namespace SDL_Vulkan_CS.ECS
         /// <returns> System instance </returns>
         public T CreateSystem<T>() where T : SystemBase, new()
         {
-            if(typeof(T).IsAssignableFrom(typeof(PresentationSystemBase)))
-            {
-                throw new ArgumentException("CraeteSystem<T> type T cannot inherit from PresentationSystemBase\nPresentationSystems cannot use the default constructor");
-            }
+            // if(typeof(T).IsAssignableFrom(typeof(PresentationSystemBase)))
+            // {
+            //     throw new ArgumentException("CraeteSystem<T> type T cannot inherit from PresentationSystemBase\nPresentationSystems cannot use the default constructor");
+            // }
             return AddSystem((T)Activator.CreateInstance(typeof(T)));
         }
 
@@ -94,8 +97,6 @@ namespace SDL_Vulkan_CS.ECS
         /// </summary>
         public void OnCreate()
         {
-            // _systems.ForEach(s => s.OnCreate(_entityManager));
-            // _presentationSystems.ForEach(s => s.OnCreate(_entityManager));
         }
 
         /// <summary>

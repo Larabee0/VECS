@@ -3,6 +3,7 @@ using Vortice.Vulkan;
 using System.Numerics;
 
 using SDL = SDL3.SDL3;
+using System;
 
 namespace SDL_Vulkan_CS
 {

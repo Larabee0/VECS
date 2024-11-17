@@ -1,6 +1,7 @@
 ﻿using Assimp;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -15,6 +16,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
     /// </summary>
     public class Mesh
     {
+        public static List<Mesh> Meshes = [];
         private readonly ulong _offset;
         private readonly bool _hasIndexBuffer;
         private bool _stagedMesh;
@@ -244,6 +246,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
             }
             var meshes = CreateMeshes(device,scene);
             importer.Dispose();
+            Meshes.AddRange(meshes);
             return meshes;
         }
 

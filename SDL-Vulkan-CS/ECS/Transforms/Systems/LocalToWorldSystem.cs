@@ -27,7 +27,7 @@ namespace SDL_Vulkan_CS.ECS
 
         public override void OnUpdate(EntityManager entityManager)
         {
-            if (_ltwQuery.HasEntities) // updates and checks if the query has entities. NoAlloc check
+            if (_addLTWQuery.HasEntities) // updates and checks if the query has entities. NoAlloc check
             {
                 _addLTWQuery.GetEntities().ForEach(e =>
                 {
@@ -35,7 +35,7 @@ namespace SDL_Vulkan_CS.ECS
                 });
             }
 
-            if(_addLTWQuery.HasEntities) // updates and checks if the query has entities. NoAlloc check
+            if(_ltwQuery.HasEntities) // updates and checks if the query has entities. NoAlloc check
             {
                 // compute a ltw matrisx for each entity matching the query.
                 // defaults are assume for entities missing t r s components

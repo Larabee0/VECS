@@ -1,4 +1,5 @@
-﻿using System.Runtime.InteropServices;
+﻿using System;
+using System.Runtime.InteropServices;
 using Vortice.Vulkan;
 
 namespace SDL_Vulkan_CS

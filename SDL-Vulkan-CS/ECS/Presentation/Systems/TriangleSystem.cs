@@ -1,4 +1,7 @@
-﻿using System.Numerics;
+﻿using SDL_Vulkan_CS.VulkanBackend;
+using System;
+using System.IO;
+using System.Numerics;
 using Vortice.Vulkan;
 
 namespace SDL_Vulkan_CS.ECS
@@ -8,27 +11,20 @@ namespace SDL_Vulkan_CS.ECS
     /// </summary>
     public class TriangleSystem : PresentationSystemBase
     {
-        private DescriptorSetLayout _renderSystemLayout;
-        private VkPipelineLayout _pipelineLayout;
-        private RenderPipeline _renderPipeline;
-        private readonly GraphicsDevice _graphicsDevice;
+
+        private Material _triangleMaterial;
 
         private CsharpVulkanBuffer _vertexBuffer;
 
-        private readonly VkDescriptorSetLayout _globalSetLayout;
-        private readonly VkRenderPass _renderPass;
-        
-        public TriangleSystem(GraphicsDevice device, VkRenderPass renderPass, VkDescriptorSetLayout globalSetLayout)
-        {
-            _graphicsDevice = device;
-            _renderPass = renderPass;
-            _globalSetLayout = globalSetLayout;
-        }
 
+        public TriangleSystem() : base() { }
+        public TriangleSystem(GraphicsDevice device, VkRenderPass renderPass, VkDescriptorSetLayout globalSetLayout) : base(device, renderPass, globalSetLayout) { }
         public override void OnCreate(EntityManager entityManager)
         {
-            CreatePipelineLayout(_globalSetLayout);
-            CreatePipeline(_renderPass);
+            var renderSystemLayout = new DescriptorSetLayout.Builder(_graphicsDevice)
+                .AddBinding(0, VkDescriptorType.UniformBuffer, VkShaderStageFlags.Vertex | VkShaderStageFlags.Fragment)
+                .Build();
+            _triangleMaterial = new("triangle.vert", "triangle.frag", renderSystemLayout);
         }
 
         /// <summary>
@@ -42,9 +38,7 @@ namespace SDL_Vulkan_CS.ECS
         /// <param name="frameInfo">current frame info</param>
         public override void OnPresent(EntityManager entityManager, RendererFrameInfo frameInfo)
         {
-            _renderPipeline.Bind(frameInfo.CommandBuffer);
-
-            Vulkan.vkCmdBindDescriptorSets(frameInfo.CommandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, 0, frameInfo.GlobalDescriptorSet);
+            _triangleMaterial.Bind(frameInfo);
 
             Vulkan.vkCmdBindVertexBuffer(frameInfo.CommandBuffer, 0, _vertexBuffer.VkBuffer);
             Vulkan.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
@@ -53,52 +47,7 @@ namespace SDL_Vulkan_CS.ECS
         public unsafe override void OnDestroy(EntityManager entityManager)
         {
             _vertexBuffer.Dispose();
-            _renderPipeline.Dispose();
-            Vulkan.vkDestroyPipelineLayout(_graphicsDevice.Device, _pipelineLayout);
-            _renderSystemLayout.Dispose();
-        }
-
-        /// <summary>
-        /// Creates the render pipeline layout defining things like uniform buffers, push constants or texture samplers
-        /// </summary>
-        /// <param name="globalSetLayout">globally avalible uniform buffer layout description</param>
-        /// <exception cref="Exception">Raised when the vulkan is unable to create the pipeline layout</exception>
-        private unsafe void CreatePipelineLayout(VkDescriptorSetLayout globalSetLayout)
-        {
-            _renderSystemLayout = new DescriptorSetLayout.Builder(_graphicsDevice)
-                .AddBinding(0, VkDescriptorType.UniformBuffer, VkShaderStageFlags.Vertex | VkShaderStageFlags.Fragment)
-                .Build();
-            
-            uint setLayoutCount = 2;
-
-            VkDescriptorSetLayout* pDescriptorSetLayouts = stackalloc VkDescriptorSetLayout[(int)setLayoutCount];
-            pDescriptorSetLayouts[0] = globalSetLayout;
-            pDescriptorSetLayouts[1] = _renderSystemLayout.SetLayout;
-
-            VkPipelineLayoutCreateInfo vkPipelineLayoutInfo = new()
-            {
-                setLayoutCount = setLayoutCount,
-                pSetLayouts = pDescriptorSetLayouts,
-                pushConstantRangeCount = 0,
-                pPushConstantRanges =null
-            };
-
-            if(Vulkan.vkCreatePipelineLayout(_graphicsDevice.Device,vkPipelineLayoutInfo,null,out _pipelineLayout) != VkResult.Success)
-            {
-                throw new Exception("Failed to create pipeline layout!");
-            }
-        }
-
-        private void CreatePipeline(VkRenderPass renderPass)
-        {
-            if (_pipelineLayout == VkPipelineLayout.Null)
-            {
-                throw new InvalidOperationException("Cannot create pipeline before pipeline layout!");
-            }
-
-            RenderPipelineConfigInfo pipelineConfigInfo = RenderPipelineConfigInfo.DefaultPipelineConfigInfo(renderPass, _pipelineLayout);
-            
-            _renderPipeline = new(_graphicsDevice, Path.Combine(Application.ExecutingDirectory, "Assets/Shaders/triangle.vert.spv"), Path.Combine(Application.ExecutingDirectory, "Assets/Shaders/triangle.frag.spv"), pipelineConfigInfo);
+            _triangleMaterial.Dispose();
         }
 
         /// <summary>

@@ -1,4 +1,5 @@
-﻿using System.Numerics;
+﻿using System;
+using System.Numerics;
 using Vortice.Vulkan;
 
 namespace SDL_Vulkan_CS
@@ -49,7 +50,7 @@ namespace SDL_Vulkan_CS
             return this == other;
         }
 
-        public override int GetHashCode()
+        public override readonly int GetHashCode()
         {
             return HashCode.Combine(Position, Colour, Normal, UV);
         }
