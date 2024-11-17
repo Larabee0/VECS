@@ -5,6 +5,8 @@ using System.Numerics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using SDL_Vulkan_CS.ModelImporting;
+using SDL_Vulkan_CS.VulkanBackend;
 
 namespace SDL_Vulkan_CS.Artifact
 {
@@ -31,6 +33,10 @@ namespace SDL_Vulkan_CS.Artifact
             entityManager.AddComponent(MainCamera, new Rotation() {Value = initalCameraRot });
             entityManager.AddComponent(MainCamera, cameraPerspective);
             entityManager.AddComponent<MainCamera>(MainCamera);
+            
+            Mesh[] meshes = Mesh.LoadModelFromFile(Path.Combine(Application.ExecutingDirectory, "Assets/Models/Comp305-Shape-Split.obj"));
+
+            
         }
     }
 }

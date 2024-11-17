@@ -21,6 +21,8 @@ namespace SDL_Vulkan_CS
         private readonly uint _alignmentSize;
         private readonly VkBufferUsageFlags _usageFlags;
 
+        public uint InstanceCount => _instanceCount;
+
         public CsharpVulkanBuffer()
         {
             BufferSize = 0;
