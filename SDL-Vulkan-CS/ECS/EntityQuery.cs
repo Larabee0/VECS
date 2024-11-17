@@ -219,14 +219,29 @@ namespace SDL_Vulkan_CS.ECS
         public bool AnyEntities()
         {   
             bool any = false;
-            Parallel.ForEach(_entityManager._archetypeIdsToComponentIds.Values, (HashSet<int> entitySet, ParallelLoopState state) =>
+
+
+            foreach (var entitySet in _entityManager._archetypeIdsToComponentIds.Values)
             {
-                if (entitySet.Overlaps(_withAnySet) && entitySet.IsSupersetOf(_withAllSet) && !entitySet.Overlaps(_withNoneSet))
+                if ((entitySet.Overlaps(_withAnySet) || _withAnySet.Count == 0)
+                && (entitySet.IsSupersetOf(_withAllSet) || _withAllSet.Count == 0)
+                && (!entitySet.Overlaps(_withNoneSet) || _withNoneSet.Count == 0))
                 {
                     any = true;
-                    state.Break();
+                    break;
                 }
-            });
+            }
+
+            // Parallel.ForEach(_entityManager._archetypeIdsToComponentIds.Values, (HashSet<int> entitySet, ParallelLoopState state) =>
+            // {
+            //     if ((entitySet.Overlaps(_withAnySet)||_withAnySet.Count == 0)
+            //     && (entitySet.IsSupersetOf(_withAllSet) || _withAllSet.Count == 0)
+            //     && (!entitySet.Overlaps(_withNoneSet)||_withNoneSet.Count == 0))
+            //     {
+            //         any = true;
+            //         state.Break();
+            //     }
+            // });
             _stale = false;
             _hasEnitities = any;
 
@@ -250,14 +265,30 @@ namespace SDL_Vulkan_CS.ECS
                 }
             });
 
-            _withNone.ForEach(compId =>
+            _withAll.ForEach(compId =>
             {
-                if(_entityManager.GetAllEntitiesWithComponent(compId,out var entities))
+                if (_entityManager.GetAllEntitiesWithoutComponent(compId, out var entities))
                 {
                     entitiesSet.ExceptWith(entities);
                 }
             });
-            
+
+
+            _withNone.ForEach(compId =>
+            {
+                if (_entityManager.GetAllEntitiesWithoutComponent(compId,out var entities))
+                {
+                    entitiesSet.UnionWith(entities);
+                }
+            });
+            _withNone.ForEach(compId =>
+            {
+                if (_entityManager.GetAllEntitiesWithComponent(compId, out var entities))
+                {
+                    entitiesSet.ExceptWith(entities);
+                }
+            });
+
             List<Entity> entities = new(entitiesSet);
             if (_withAny.Count > 0 && entities.Count > 0)
             {

@@ -371,6 +371,20 @@ namespace SDL_Vulkan_CS.ECS
             return _componentIdToEntities.TryGetValue(compId, out entities);
         }
 
+        public bool GetAllEntitiesWithoutComponent(int compId,out HashSet<Entity> entities)
+        {
+            entities = [];
+            foreach (var pair in _entityToComponentIds)
+            {
+                if (!pair.Value.Contains(compId))
+                {
+                    entities.Add(_entityIdToEntity[pair.Key]);
+                }
+            }
+
+            return entities.Count > 0;
+        }
+
         /// <summary>
         /// Get all entities with the given component types
         /// Converts component types to a list of component ids then
@@ -550,18 +564,21 @@ namespace SDL_Vulkan_CS.ECS
                 }
                 version = toRecycle.Version++;
             }
+            else
+            {
+                _nextMaxEntityId++;
+            }
 
             idIsAvaliable = !_entityIds.Contains(id);
 
             if (!idIsAvaliable)
             {
-                id = _nextMaxEntityId;
-                _nextMaxEntityId++;
                 idIsAvaliable = !_entityIds.Contains(id);
                 while (!idIsAvaliable)
                 {
-                    _nextMaxEntityId++;
+                    id = _nextMaxEntityId;
                     idIsAvaliable = !_entityIds.Contains(id);
+                    _nextMaxEntityId++;
                 }
             }
 
