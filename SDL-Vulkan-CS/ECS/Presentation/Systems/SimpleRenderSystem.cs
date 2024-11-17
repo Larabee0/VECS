@@ -19,7 +19,8 @@ namespace SDL_Vulkan_CS.ECS.Presentation.Systems
             _renderQuery = new EntityQuery(entityManager).WithAll(typeof(MeshIndex),typeof(LocalToWorld)).Build();
             
             var renderSystemLayout = new DescriptorSetLayout.Builder(_graphicsDevice)
-                .AddBinding(0, VkDescriptorType.UniformBuffer, VkShaderStageFlags.Vertex | VkShaderStageFlags.Fragment)
+                //.AddBinding(0, VkDescriptorType.UniformBuffer, VkShaderStageFlags.Vertex | VkShaderStageFlags.Fragment)
+                .AddBinding(0, VkDescriptorType.CombinedImageSampler, VkShaderStageFlags.Fragment)
                 .Build();
 
             _simpleMaterial = new("simple_shader.vert", "simple_shader.frag", renderSystemLayout, typeof(SimplePushConstantData));
@@ -36,13 +37,30 @@ namespace SDL_Vulkan_CS.ECS.Presentation.Systems
                 _renderQuery.GetEntities().ForEach(e =>
                 {
                     int meshIndex = entityManager.GetComponent<MeshIndex>(e).Value;
-                    if(meshIndex < meshCount)
+                    if (meshIndex < meshCount)
                     {
                         Mesh mesh = Mesh.Meshes[meshIndex];
                         if (!mesh.AnyBuffersAllocated)
                         {
                             mesh.FlushMesh();
                         }
+
+                        VkDescriptorSet textureDescriptorSet = new();
+
+                        if(!new DescriptorWriter(_simpleMaterial.MaterialDescriptorLayout, frameInfo.FrameDescriptorPool)
+                        .WriteImage(0, Texture2d.Textures[0].GetImageInfo)
+                        .Build(&textureDescriptorSet))
+                        {
+                            throw new Exception("Failed to bind texture descriptor set");
+                        }
+
+
+                        Vulkan.vkCmdBindDescriptorSets(
+                            frameInfo.CommandBuffer,
+                            VkPipelineBindPoint.Graphics,
+                            _simpleMaterial.PipeLineLayout,
+                            1,  // starting set (0 is the globalDescriptorSet, 1 is the set specific to this system)
+                            textureDescriptorSet);
 
                         SimplePushConstantData push = new(entityManager.GetComponent<LocalToWorld>(e).Value);
 
