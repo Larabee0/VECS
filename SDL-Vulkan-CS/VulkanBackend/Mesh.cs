@@ -273,7 +273,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
             for (int i = 0; i < positions.Count; i++)
             {
                 Vector3D position = positions[i];
-                Color4D colour = (colours != null) ? colours[i] : new Color4D(0, 0, 0);
+                Color4D colour = (colours != null) ? colours[i] : new Color4D(0, 0, 0, 0);
                 Vector3D normal = (normals != null) ? normals[i] : new Vector3D(0, 0, 0);
                 Vector3D uv = (uvs != null) ? uvs[i] : new Vector3D(0, 0, 0);
                 vertices[i] = new()
@@ -281,35 +281,16 @@ namespace SDL_Vulkan_CS.VulkanBackend
                     Position = new(position.X, position.Y, position.Z),
                     Colour = new(colour.R, colour.G, colour.B),
                     Normal = new(normal.X, normal.Y, normal.Z),
-                    UV = new(uv.X, 1 - uv.Y)
+                    UV = new(uv.X, uv.Y)
                 };
             }
 
             return vertices;
         }
 
-        private static uint[] CreateIndexArray(Assimp.Mesh mesh)
+        private static unsafe uint[] CreateIndexArray(Assimp.Mesh mesh)
         {
-            uint[] indices = new uint[mesh.FaceCount * 3];
-
-            int indexIndex = 0;
-            for (int i = 0; i < mesh.Faces.Count; i++)
-            {
-                Face face = mesh.Faces[i];
-
-                if (face.IndexCount != 3)
-                {
-                    indices[indexIndex++] = 0;
-                    indices[indexIndex++] = 0;
-                    indices[indexIndex++] = 0;
-                    continue;
-                }
-
-                indices[indexIndex++] = (uint)face.Indices[0];
-                indices[indexIndex++] = (uint)face.Indices[1];
-                indices[indexIndex++] = (uint)face.Indices[2];
-            }
-            return indices;
+            return mesh.GetUnsignedIndices();
         }
     }
 }
