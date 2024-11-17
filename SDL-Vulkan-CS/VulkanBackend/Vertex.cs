@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Numerics;
+using System.Runtime.InteropServices;
 using Vortice.Vulkan;
 
 namespace SDL_Vulkan_CS
@@ -10,13 +11,10 @@ namespace SDL_Vulkan_CS
     /// 
     /// A vertex is 44 bytes atomically. but likely has an extra 4 bytes of padding
     /// </summary>
+    [StructLayout(LayoutKind.Sequential, Size = 44)]
     public struct Vertex
     {
         public static unsafe int SizeInBytes => sizeof(Vertex);
-        public static unsafe uint PositionOffset => 0;
-        public static unsafe uint ColourOffset => PositionOffset + (uint)sizeof(Vector3);
-        public static unsafe uint NormalOffset => ColourOffset + (uint)sizeof(Vector3);
-        public static unsafe uint UVOffset => NormalOffset + (uint)sizeof(Vector2);
 
         public Vector3 Position; // offset 0
         public Vector3 Colour; // offset 12
@@ -25,6 +23,7 @@ namespace SDL_Vulkan_CS
 
         public Vertex(Vector3 position, Vector3 colour)
         {
+
             Position = position;
             Colour = colour;
         }
@@ -81,13 +80,13 @@ namespace SDL_Vulkan_CS
         {
             VkVertexInputAttributeDescription[] attributeDescriptions =
             [
-                new VkVertexInputAttributeDescription(0, VkFormat.R32G32B32Sfloat, PositionOffset), // position
+                new VkVertexInputAttributeDescription(0, VkFormat.R32G32B32Sfloat, (uint)Marshal.OffsetOf<Vertex>(nameof(Position))), // position
 
-                new VkVertexInputAttributeDescription(1, VkFormat.R32G32B32Sfloat, ColourOffset), // colour
+                new VkVertexInputAttributeDescription(1, VkFormat.R32G32B32Sfloat, (uint)Marshal.OffsetOf<Vertex>(nameof(Colour))), // colour
 
-                new VkVertexInputAttributeDescription(2, VkFormat.R32G32B32Sfloat, NormalOffset), // normal
+                new VkVertexInputAttributeDescription(2, VkFormat.R32G32B32Sfloat, (uint)Marshal.OffsetOf<Vertex>(nameof(Normal))), // normal
 
-                new VkVertexInputAttributeDescription(3, VkFormat.R32G32Sfloat, UVOffset) // uv
+                new VkVertexInputAttributeDescription(3, VkFormat.R32G32Sfloat, (uint)Marshal.OffsetOf<Vertex>(nameof(UV))) // uv
             ];
 
             return attributeDescriptions;
