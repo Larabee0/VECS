@@ -34,5 +34,14 @@ namespace SDL_Vulkan_CS
 
             return Matrix4x4.CreateFromQuaternion(rotation) * Matrix4x4.CreateTranslation(translation) * Matrix4x4.CreateScale(scale);
         }
+
+        public static Quaternion Euler(Vector3 eulerAngles)
+        {
+            return Euler(eulerAngles.Y, eulerAngles.Z, eulerAngles.X);
+        }
+        public static Quaternion Euler(float x, float y, float z)
+        {
+            return Quaternion.CreateFromYawPitchRoll(DegreesToRadians(y), DegreesToRadians(z), DegreesToRadians(x));
+        }
     }
 }

@@ -17,7 +17,7 @@ namespace SDL_Vulkan_CS.Artifact
         public Entity MainCamera;
 
         private Vector3 initalCameraPos = new(0, 0, -20f);
-        private Quaternion initalCameraRot = Quaternion.CreateFromYawPitchRoll(0,0,0);
+        private Quaternion initalCameraRot = TransformExtensions.Euler(0, 0, 0);
 
         private CameraPerspective cameraPerspective = new()
         {
@@ -51,7 +51,7 @@ namespace SDL_Vulkan_CS.Artifact
             var cube = entityManager.CreateEntity();
             entityManager.AddComponent(cube, new Translation() { Value = new(0,0,0) });
             //entityManager.AddComponent(cube,new Scale() { Value = new(1,1,1) });
-            entityManager.AddComponent(cube,new Rotation() { Value = Quaternion.CreateFromYawPitchRoll(TransformExtensions.DegreesToRadians(45), TransformExtensions.DegreesToRadians(45), TransformExtensions.DegreesToRadians(45)) });
+            entityManager.AddComponent(cube, new Rotation() { Value = TransformExtensions.Euler(45, 45, 45) });
             entityManager.AddComponent(cube,new MeshIndex() { Value = 0});
             
 
