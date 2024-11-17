@@ -29,8 +29,6 @@ namespace SDL_Vulkan_CS
         private readonly GraphicsDevice _device;
         private readonly Renderer _renderer;
 
-        private VmaAllocator _allocator;
-
         private DescriptorPool _globalDescriptorPool;
         private DescriptorSetLayout _globalDescriptorSetLayout;
         private readonly VkDescriptorSet[] _globalDescriptorSets = new VkDescriptorSet[SwapChain.MAX_FRAMES_IN_FLIGHT];
@@ -45,27 +43,8 @@ namespace SDL_Vulkan_CS
             _device = device;
             _renderer = new(window, device);
 
-            CreateVmaAllocator();
-
             InitGloalDescriptorPool();
             InitSwapChainFrameDescriptorPools();
-        }
-
-        /// <summary>
-        /// the vma allocator is used as an abstract way to allocator graphics deivce memory
-        /// for textures, vertex buffers and index buffers.
-        /// </summary>
-        private void CreateVmaAllocator()
-        {
-            VmaAllocatorCreateInfo allocatorCreateInfo = new()
-            {
-                flags = VmaAllocatorCreateFlags.KHRDedicatedAllocation | VmaAllocatorCreateFlags.KHRBindMemory2,
-                instance = _device.VkInstance,
-                vulkanApiVersion = VkVersion.Version_1_3,
-                physicalDevice = _device.PhysucalDevice,
-                device = _device.Device,
-            };
-            Vma.vmaCreateAllocator(in allocatorCreateInfo, out _allocator);
         }
 
         /// <summary>
@@ -120,7 +99,7 @@ namespace SDL_Vulkan_CS
             for (int i = 0; i < uboBuffers.Length; i++)
             {
                 uboBuffers[i] = new(
-                    _allocator,
+                    _device,
                     (uint)GlobalUbo.SizeInBytes,
                     1,
                     VkBufferUsageFlags.UniformBuffer,
@@ -160,7 +139,7 @@ namespace SDL_Vulkan_CS
         {
             var triangleSystem = new TriangleSystem(_device, _renderer.SwapChainRenderPass, _globalDescriptorSetLayout.SetLayout);
             World.DefaultWorld.AddSystem(triangleSystem);
-            triangleSystem.CreateTriangle(_allocator);
+            triangleSystem.CreateTriangle();
         }
 
         /// <summary>
@@ -208,8 +187,8 @@ namespace SDL_Vulkan_CS
                     AmbientLightColour = Vector4.One
                 };
 
-                _globalUboBuffers[frameIndex].WriteToBuffer(_allocator, &ubo);
-                _globalUboBuffers[frameIndex].Flush(_allocator);
+                _globalUboBuffers[frameIndex].WriteToBuffer(&ubo);
+                _globalUboBuffers[frameIndex].Flush();
 
                 _renderer.BeginSwapChainRenderPass(commandBuffer);
                 return frameInfo;
@@ -246,7 +225,7 @@ namespace SDL_Vulkan_CS
             // first deallocat the buffers
             for (int i = 0; i < _globalUboBuffers.Length; i++)
             {
-                _globalUboBuffers[i].Dispose(_allocator);
+                _globalUboBuffers[i].Dispose();
             }
 
             // next deallocat their set layout
@@ -259,9 +238,6 @@ namespace SDL_Vulkan_CS
             {
                 swapChainFrameDescriptorPools[i] .Dispose();
             }
-
-            // finally we can deallocate the allocator
-            Vma.vmaDestroyAllocator(_allocator);
 
             // then destroy the renderer, which will destroy the swapchain.
             _renderer.Dispose();

@@ -7,37 +7,40 @@ using Vortice.Vulkan;
 
 namespace SDL_Vulkan_CS.VulkanBackend
 {
-    public class CsharpVulkanImage
+    public sealed class CsharpVulkanImage : IDisposable
     {
         public readonly ulong ImageSize;
+        
+        private readonly GraphicsDevice _device;
 
         public readonly VkImage VkImage;
 
         private readonly VmaAllocation _allocation;
 
-        public unsafe CsharpVulkanImage(VmaAllocator allocator, VkImageCreateInfo imgCreateInfo)
+        public unsafe CsharpVulkanImage(GraphicsDevice graphicsDevice, VkImageCreateInfo imgCreateInfo)
         {
+            _device = graphicsDevice;
             VmaAllocationCreateInfo allocationInfo = new()
             {
                 usage = VmaMemoryUsage.Auto
             };
 
-            if(Vma.vmaCreateImage(allocator,imgCreateInfo,allocationInfo,out VkImage,out _allocation) != VkResult.Success)
+            if(Vma.vmaCreateImage(_device.VmaAllocator, imgCreateInfo,allocationInfo,out VkImage,out _allocation) != VkResult.Success)
             {
                 throw new Exception("Failed to create vma image!");
             }
         }
 
 
-        public void Dispose(VmaAllocator allocator)
+        public void Dispose()
         {
             if (VkImage == VkImage.Null || _allocation == VmaAllocation.Null) return;
-            Vma.vmaDestroyImage(allocator, VkImage, _allocation);
+            Vma.vmaDestroyImage(_device.VmaAllocator, VkImage, _allocation);
         }
 
-        public unsafe void CopyFromBuffer(CsharpVulkanBuffer buffer,GraphicsDevice device, uint width, uint height)
+        public unsafe void CopyFromBuffer(CsharpVulkanBuffer buffer, uint width, uint height)
         {
-            VkCommandBuffer commandBuffer = device.BeginSingleTimeCommands();
+            VkCommandBuffer commandBuffer = _device.BeginSingleTimeCommands();
             VkBufferImageCopy region = new()
             {
                 bufferOffset = 0,
@@ -56,7 +59,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
 
             Vulkan.vkCmdCopyBufferToImage(commandBuffer, buffer.VkBuffer, VkImage, VkImageLayout.TransferDstOptimal, 1, &region);
 
-            device.EndSingleTimeCommands(commandBuffer);
+            _device.EndSingleTimeCommands(commandBuffer);
         }
 
 

@@ -18,6 +18,8 @@ namespace SDL_Vulkan_CS
 #endif
         private readonly static string[] _requiredValidationLayers = ["VK_LAYER_KHRONOS_validation"];
         private readonly static VkUtf8String[] _requiredDeviceExtensions = [Vulkan.VK_KHR_SWAPCHAIN_EXTENSION_NAME];
+
+        public static GraphicsDevice Instance { get; private set; }
         
         private readonly IWindow _window;
         
@@ -36,6 +38,8 @@ namespace SDL_Vulkan_CS
         private VkQueue _graphicsQueue;
         private VkQueue _presentQueue;
 
+        private VmaAllocator _allocator;
+
         public VkPhysicalDevice PhysucalDevice => _physicalDevice;
         public VkDevice Device => _device;
         public VkSurfaceKHR Surface => _surface;
@@ -44,6 +48,8 @@ namespace SDL_Vulkan_CS
 
         public VkQueue GraphicsQueue => _graphicsQueue;
         public VkQueue PresentQueue => _presentQueue;
+
+        public VmaAllocator VmaAllocator => _allocator;
 
         public VkInstance VkInstance => _instance;
         public SwapChainSupportDetails SwapChainSupport => QuerySwapChainSupport(_physicalDevice);
@@ -58,7 +64,9 @@ namespace SDL_Vulkan_CS
             CreateSurface();
             PickPhysicalDevice();
             CreateLogicalDevice();
-            CreateCommandPool();   
+            CreateCommandPool();
+            CreateVmaAllocator();
+            Instance = this;
         }
 
         #region Create Instance
@@ -148,7 +156,7 @@ namespace SDL_Vulkan_CS
             Vulkan.vkEnumerateInstanceExtensionProperties(&propertyCount, extensions);
 
             Console.WriteLine("Available extensions:");
-            HashSet<string> available = new();
+            HashSet<string> available = [];
             for (int i = 0; i < propertyCount; i++)
             {
                 string extension = Encoding.UTF8.GetString(extensions[i].extensionName, 256);
@@ -451,6 +459,21 @@ namespace SDL_Vulkan_CS
 
         #endregion
 
+        #region Create VmaAllocator
+        private void CreateVmaAllocator()
+        {
+            VmaAllocatorCreateInfo allocatorCreateInfo = new()
+            {
+                flags = VmaAllocatorCreateFlags.KHRDedicatedAllocation | VmaAllocatorCreateFlags.KHRBindMemory2,
+                instance = VkInstance,
+                vulkanApiVersion = VkVersion.Version_1_3,
+                physicalDevice = PhysucalDevice,
+                device = Device,
+            };
+            Vma.vmaCreateAllocator(in allocatorCreateInfo, out _allocator);
+        }
+        #endregion
+
         #region For Extneral use
         /// <summary>
         /// Used by the swapchain class to work out what which VkFormat from the given candidates is supported
@@ -591,6 +614,9 @@ namespace SDL_Vulkan_CS
         /// </summary>
         public unsafe void Dispose()
         {
+            Instance = null;
+            Vma.vmaDestroyAllocator(_allocator);
+
             Vulkan.vkDestroyCommandPool(_device, _commandPool);
             Vulkan.vkDestroyDevice(_device);
 

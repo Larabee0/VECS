@@ -24,17 +24,17 @@ namespace SDL_Vulkan_CS.VulkanBackend
         private VkImageView _textureImageView;
         private VkSampler _textureSampler;
 
-        public Texture2d(GraphicsDevice device, VmaAllocator allocator, string filepath)
+        public Texture2d(GraphicsDevice device, string filepath)
         {
             _device = device;
             var surface = LoadImage(filepath);
-            CreateTextureImage(surface, device, allocator);
+            CreateTextureImage(surface);
             CreateImageView();
             CreateTextureSampler();
             UpdateDescriptor();
         }
 
-        public unsafe Texture2d(GraphicsDevice deivce, VmaAllocator allocator, VkFormat format, VkExtent3D extent,VkImageUsageFlags usage)
+        public unsafe Texture2d(GraphicsDevice deivce, VkFormat format, VkExtent3D extent,VkImageUsageFlags usage)
         {
             _device = deivce;
             VkImageAspectFlags aspectMask = 0;
@@ -57,7 +57,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
 
             VkImageCreateInfo imageInfo = CsharpVulkanImage.DefaultImageCreateInfo(_imageExtents);
 
-            CsharpVulkanImage image = new(allocator, imageInfo);
+            CsharpVulkanImage image = new(deivce, imageInfo);
 
             VkImageViewCreateInfo viewInfo = new()
             {
@@ -110,11 +110,11 @@ namespace SDL_Vulkan_CS.VulkanBackend
             }
         }
 
-        public unsafe void Dispose(VmaAllocator allocator)
+        public unsafe void Dispose()
         {
             Vulkan.vkDestroySampler(_device.Device, _textureSampler);
             Vulkan.vkDestroyImageView(_device.Device, _textureImageView);
-            _textureImage.Dispose(allocator);
+            _textureImage.Dispose();
         }
 
         public void UpdateDescriptor()
@@ -259,9 +259,9 @@ namespace SDL_Vulkan_CS.VulkanBackend
             return image;
         }
 
-        private unsafe void CreateTextureImage(Surface image, GraphicsDevice device, VmaAllocator allocator)
+        private unsafe void CreateTextureImage(Surface image)
         {
-            if (image.ImageType != ImageType.Bitmap || image.BitsPerPixel != 32 || device == null || allocator == VmaAllocator.Null)
+            if (image.ImageType != ImageType.Bitmap || image.BitsPerPixel != 32 || _device == null)
             {
                 throw new Exception("Provided image surfae is not in the right format, or device/memory allocator are null");
             }
@@ -272,23 +272,23 @@ namespace SDL_Vulkan_CS.VulkanBackend
 
             uint imageSize = (uint)(width * height * sizeof(Color));
 
-            var stagingBuffer = new CsharpVulkanBuffer(allocator, imageSize, 1, VkBufferUsageFlags.TransferSrc, true);
+            var stagingBuffer = new CsharpVulkanBuffer(_device, imageSize, 1, VkBufferUsageFlags.TransferSrc, true);
 
             void* pMappedData;
-            stagingBuffer.Map(allocator, &pMappedData);
+            stagingBuffer.Map(&pMappedData);
             CopyColor(new IntPtr(pMappedData), image);
-            stagingBuffer.Unmap(allocator);
+            stagingBuffer.Unmap();
 
             _imageExtents = new(width, height, 1);
 
             VkImageCreateInfo imageInfo = CsharpVulkanImage.DefaultImageCreateInfo(_imageExtents);
 
-            _textureImage = new(allocator, imageInfo);
+            _textureImage = new(_device, imageInfo);
 
             TransitionImageLayout(_textureImage.VkImage, VkImageLayout.Undefined, VkImageLayout.TransferDstOptimal);
-            _textureImage.CopyFromBuffer(stagingBuffer, device, width, height);
+            _textureImage.CopyFromBuffer(stagingBuffer, width, height);
             TransitionImageLayout(_textureImage.VkImage, VkImageLayout.TransferDstOptimal, VkImageLayout.ShaderReadOnlyOptimal);
-            stagingBuffer.Dispose(allocator);
+            stagingBuffer.Dispose();
             image.Dispose();
         }
 
@@ -339,10 +339,6 @@ namespace SDL_Vulkan_CS.VulkanBackend
             }
         }
 
-        public static Texture2d CreateTextureFromFile(GraphicsDevice device, VmaAllocator allocator, string filePath)
-        {
-            return new(device, allocator, filePath);
-        }
     }
 
 

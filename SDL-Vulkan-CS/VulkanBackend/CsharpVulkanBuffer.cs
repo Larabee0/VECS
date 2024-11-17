@@ -9,9 +9,11 @@ namespace SDL_Vulkan_CS
     /// These buffers are used for things like a vertex buffer, index buffer and later a texture.
     /// 
     /// </summary>
-    public sealed class CsharpVulkanBuffer
+    public sealed class CsharpVulkanBuffer : IDisposable
     {
         public readonly ulong BufferSize;
+
+        private readonly GraphicsDevice _device;
 
         public readonly VkBuffer VkBuffer;
         private readonly VmaAllocation _allocation;
@@ -39,13 +41,14 @@ namespace SDL_Vulkan_CS
         /// <param name="minOffsetAlignment"></param>
         /// <exception cref="Exception"></exception>
         public unsafe CsharpVulkanBuffer(
-            VmaAllocator allocator,
+            GraphicsDevice graphicsDevice,
             uint instanceSize,
             uint instanceCount,
             VkBufferUsageFlags usageFlags,
             bool cpuAccessible,
             uint minOffsetAlignment = 1)
         {
+            _device = graphicsDevice;
             _instanceSize = instanceSize;
             _instanceCount = instanceCount;
             _usageFlags = usageFlags;
@@ -72,7 +75,7 @@ namespace SDL_Vulkan_CS
                 allocationInfo.flags = VmaAllocationCreateFlags.HostAccessSequentialWrite | VmaAllocationCreateFlags.Mapped;
             }
 
-            if (Vma.vmaCreateBuffer(allocator, bufferInfo, allocationInfo, out VkBuffer, out _allocation) != VkResult.Success)
+            if (Vma.vmaCreateBuffer(_device.VmaAllocator, bufferInfo, allocationInfo, out VkBuffer, out _allocation) != VkResult.Success)
             {
                 throw new Exception("Failed to create vma buffer!");
             }
@@ -83,20 +86,20 @@ namespace SDL_Vulkan_CS
         /// </summary>
         /// <param name="allocator">Vma allocator instance</param>
         /// <param name="data"></param>
-        public unsafe void Map(VmaAllocator allocator, void** data)
+        public unsafe void Map(void** data)
         {
             if (BufferSize == 0) return;
-            Vma.vmaMapMemory(allocator, _allocation, data);
+            Vma.vmaMapMemory(_device.VmaAllocator, _allocation, data);
         }
 
         /// <summary>
         /// Unmaps the buffer
         /// </summary>
         /// <param name="allocator">Vma allocator instance</param>
-        public unsafe void Unmap(VmaAllocator allocator)
+        public unsafe void Unmap()
         {
             if (BufferSize == 0) return;
-            Vma.vmaUnmapMemory(allocator, _allocation);
+            Vma.vmaUnmapMemory(_device.VmaAllocator, _allocation);
         }
 
         /// <summary>
@@ -107,10 +110,10 @@ namespace SDL_Vulkan_CS
         /// <param name="data">data to write to the buffer</param>
         /// <param name="size">how big the input data is</param>
         /// <param name="offset">what point in the buffer should we start writing to</param>
-        public unsafe void WriteToBuffer(VmaAllocator allocator, void* data, ulong size = Vulkan.VK_WHOLE_SIZE, ulong offset = 0)
+        public unsafe void WriteToBuffer(void* data, ulong size = Vulkan.VK_WHOLE_SIZE, ulong offset = 0)
         {
             void* pMappedData;
-            Map(allocator, &pMappedData);
+            Map(&pMappedData);
             if (size == Vulkan.VK_WHOLE_SIZE)
             {
                 NativeMemory.Copy(data, pMappedData, (uint)BufferSize);
@@ -130,9 +133,9 @@ namespace SDL_Vulkan_CS
         /// <param name="size">how much of the buffer should be flushed</param>
         /// <param name="offset">where in the buffer the flush should start</param>
         /// <returns></returns>
-        public VkResult Flush(VmaAllocator allocator, ulong size = Vulkan.VK_WHOLE_SIZE, ulong offset = 0)
+        public VkResult Flush( ulong size = Vulkan.VK_WHOLE_SIZE, ulong offset = 0)
         {
-            return Vma.vmaFlushAllocation(allocator, _allocation, offset, size);
+            return Vma.vmaFlushAllocation(_device.VmaAllocator, _allocation, offset, size);
         }
         /// <summary>
         /// Get buffer information for a descriptor set
@@ -154,10 +157,10 @@ namespace SDL_Vulkan_CS
         /// decallocates the buffer
         /// </summary>
         /// <param name="allocator"></param>
-        public void Dispose(VmaAllocator allocator)
+        public void Dispose()
         {
             if (BufferSize == 0) return;
-            Vma.vmaDestroyBuffer(allocator, VkBuffer, _allocation);
+            Vma.vmaDestroyBuffer(_device.VmaAllocator, VkBuffer, _allocation);
         }
 
         /// <summary>

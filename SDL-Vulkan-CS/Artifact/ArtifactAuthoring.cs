@@ -33,9 +33,8 @@ namespace SDL_Vulkan_CS.Artifact
             entityManager.AddComponent(MainCamera, cameraPerspective);
             entityManager.AddComponent<MainCamera>(MainCamera);
             
-            Mesh[] meshes = Mesh.LoadModelFromFile(Path.Combine(Application.ExecutingDirectory, "Assets/Models/Comp305-Shape-Split.obj"));
+            Mesh[] meshes = Mesh.LoadModelFromFile(GraphicsDevice.Instance, Path.Combine(Application.ExecutingDirectory, "Assets/Models/Comp305-Shape-Split.obj"));            
 
-            
         }
     }
 }

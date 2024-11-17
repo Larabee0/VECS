@@ -1,5 +1,4 @@
-﻿using SDL_Vulkan_CS.VulkanBackend;
-using System.Numerics;
+﻿using System.Numerics;
 using Vortice.Vulkan;
 
 namespace SDL_Vulkan_CS.ECS
@@ -15,8 +14,6 @@ namespace SDL_Vulkan_CS.ECS
         private readonly GraphicsDevice _graphicsDevice;
 
         private CsharpVulkanBuffer _vertexBuffer;
-
-        private VmaAllocator _vmaAllocator;
 
         private readonly VkDescriptorSetLayout _globalSetLayout;
         private readonly VkRenderPass _renderPass;
@@ -55,7 +52,7 @@ namespace SDL_Vulkan_CS.ECS
 
         public unsafe override void OnDestroy(EntityManager entityManager)
         {
-            _vertexBuffer.Dispose(_vmaAllocator);
+            _vertexBuffer.Dispose();
             _renderPipeline.Dispose();
             Vulkan.vkDestroyPipelineLayout(_graphicsDevice.Device, _pipelineLayout);
             _renderSystemLayout.Dispose();
@@ -108,9 +105,8 @@ namespace SDL_Vulkan_CS.ECS
         /// Allocates a vertex buffer with data for a coloured triangle.
         /// </summary>
         /// <param name="allocator">Graphics memory allocator</param>
-        public unsafe void CreateTriangle(VmaAllocator allocator)
+        public unsafe void CreateTriangle()
         {
-            _vmaAllocator = allocator;
             ReadOnlySpan<Vertex> sourceData = [
 
                     new Vertex(new Vector3(0f, 0.5f, 0.0f), new Vector3(1.0f, 0.0f, 0.0f)),
@@ -120,17 +116,17 @@ namespace SDL_Vulkan_CS.ECS
 
             uint vertexBufferSize = (uint)(sourceData.Length * Vertex.SizeInBytes);
 
-            var stagingBuffer = new CsharpVulkanBuffer(allocator, (uint)Vertex.SizeInBytes, (uint)sourceData.Length, VkBufferUsageFlags.TransferSrc, true);
+            var stagingBuffer = new CsharpVulkanBuffer(_graphicsDevice, (uint)Vertex.SizeInBytes, (uint)sourceData.Length, VkBufferUsageFlags.TransferSrc, true);
             fixed(void* data = &sourceData[0])
             {
-                stagingBuffer.WriteToBuffer(allocator, data);
+                stagingBuffer.WriteToBuffer(data);
             }
 
-            _vertexBuffer = new CsharpVulkanBuffer(allocator, (uint)Vertex.SizeInBytes, (uint)sourceData.Length, VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.VertexBuffer, true);
+            _vertexBuffer = new CsharpVulkanBuffer(_graphicsDevice, (uint)Vertex.SizeInBytes, (uint)sourceData.Length, VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.VertexBuffer, true);
 
             _graphicsDevice.CopyBuffer(stagingBuffer.VkBuffer, _vertexBuffer.VkBuffer, vertexBufferSize);
 
-            stagingBuffer.Dispose(allocator);
+            stagingBuffer.Dispose();
         }
     }
 }

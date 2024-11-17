@@ -22,6 +22,8 @@ namespace SDL_Vulkan_CS.VulkanBackend
         public Vertex[] vertices;
         public uint[] indices;
 
+        private GraphicsDevice _device;
+
         private CsharpVulkanBuffer _vertexBuffer;
         private CsharpVulkanBuffer _indexBuffer;
 
@@ -39,8 +41,9 @@ namespace SDL_Vulkan_CS.VulkanBackend
         /// </summary>
         /// <param name="vertices"></param>
         /// <param name="useStagingBuffers"></param>
-        public Mesh(Vertex[] vertices,bool useStagingBuffers = true)
+        public Mesh(GraphicsDevice device, Vertex[] vertices,bool useStagingBuffers = true)
         {
+            _device = device;
             this.vertices = vertices;
             indices = [];
             _hasIndexBuffer = false;
@@ -54,8 +57,9 @@ namespace SDL_Vulkan_CS.VulkanBackend
         /// <param name="vertices"></param>
         /// <param name="indices"></param>
         /// <param name="useStagingBuffers"></param>
-        public Mesh(Vertex[] vertices, uint[] indices, bool useStagingBuffers = true)
+        public Mesh(GraphicsDevice device, Vertex[] vertices, uint[] indices, bool useStagingBuffers = true)
         {
+            _device = device;
             this.vertices = vertices;
             this.indices = indices;
             _hasIndexBuffer = true;
@@ -98,22 +102,22 @@ namespace SDL_Vulkan_CS.VulkanBackend
         /// <param name="staged"></param>
         /// <param name="allocator"></param>
         /// <param name="graphicsDevice"></param>
-        public void SetStagedMode(bool staged, VmaAllocator allocator, GraphicsDevice graphicsDevice)
+        public void SetStagedMode(bool staged)
         {
             if (_stagedMesh == staged) return;
 
             if(_vertexBuffer != null)
             {
-                _vertexBuffer.Dispose(allocator);
+                _vertexBuffer.Dispose();
                 _vertexBuffer = null;
             }
             if (_hasIndexBuffer && _indexBuffer != null)
             {
-                _indexBuffer.Dispose(allocator);
+                _indexBuffer.Dispose();
                 _indexBuffer = null;
             }
             _stagedMesh = staged;
-            FlushMesh(allocator, graphicsDevice);
+            FlushMesh();
         }
 
         /// <summary>
@@ -121,12 +125,12 @@ namespace SDL_Vulkan_CS.VulkanBackend
         /// </summary>
         /// <param name="allocator"></param>
         /// <param name="graphicsDevice"></param>
-        public void FlushMesh(VmaAllocator allocator, GraphicsDevice graphicsDevice)
+        public void FlushMesh()
         {
-            FlushVertexBuffer(allocator, graphicsDevice);
+            FlushVertexBuffer();
             if (_hasIndexBuffer)
             {
-                FlushIndexBuffer(allocator, graphicsDevice);
+                FlushIndexBuffer();
             }
         }
 
@@ -135,39 +139,33 @@ namespace SDL_Vulkan_CS.VulkanBackend
         /// </summary>
         /// <param name="allocator"></param>
         /// <param name="graphicsDevice"></param>
-        public unsafe void FlushVertexBuffer(VmaAllocator allocator,GraphicsDevice graphicsDevice)
+        public unsafe void FlushVertexBuffer()
         {
             uint vertexBufferSize = (uint)(vertices.Length * Vertex.SizeInBytes);
             if (_vertexBuffer != null && _vertexBuffer.InstanceCount != (uint)vertices.Length)
             {
-                _vertexBuffer.Dispose(allocator);
+                _vertexBuffer.Dispose();
                 _vertexBuffer = null;
             }
             if (_stagedMesh)
             {
-                var stagingBuffer = new CsharpVulkanBuffer(allocator, (uint)Vertex.SizeInBytes, (uint)vertices.Length, VkBufferUsageFlags.TransferSrc, true);
+                var stagingBuffer = new CsharpVulkanBuffer(_device, (uint)Vertex.SizeInBytes, (uint)vertices.Length, VkBufferUsageFlags.TransferSrc, true);
                 fixed (void* data = &vertices[0])
                 {
-                    stagingBuffer.WriteToBuffer(allocator, data);
+                    stagingBuffer.WriteToBuffer(data);
                 }
 
-                if (_vertexBuffer == null)
-                {
-                    _vertexBuffer = new CsharpVulkanBuffer(allocator, (uint)Vertex.SizeInBytes, (uint)vertices.Length, VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.VertexBuffer, false);
-                }
-                graphicsDevice.CopyBuffer(stagingBuffer.VkBuffer, _vertexBuffer.VkBuffer, vertexBufferSize);
-                stagingBuffer.Dispose(allocator);
+                _vertexBuffer ??= new CsharpVulkanBuffer(_device, (uint)Vertex.SizeInBytes, (uint)vertices.Length, VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.VertexBuffer, false);
+                _device.CopyBuffer(stagingBuffer.VkBuffer, _vertexBuffer.VkBuffer, vertexBufferSize);
+                stagingBuffer.Dispose();
             }
             else
             {
 
-                if (_vertexBuffer == null)
-                {
-                    _vertexBuffer = new CsharpVulkanBuffer(allocator, (uint)Vertex.SizeInBytes, (uint)vertices.Length, VkBufferUsageFlags.VertexBuffer, true);
-                }
+                _vertexBuffer ??= new CsharpVulkanBuffer(_device, (uint)Vertex.SizeInBytes, (uint)vertices.Length, VkBufferUsageFlags.VertexBuffer, true);
                 fixed (void* data = &vertices[0])
                 {
-                    _vertexBuffer.WriteToBuffer(allocator, data);
+                    _vertexBuffer.WriteToBuffer(data);
                 }
             }
         }
@@ -178,40 +176,34 @@ namespace SDL_Vulkan_CS.VulkanBackend
         /// </summary>
         /// <param name="allocator"></param>
         /// <param name="graphicsDevice"></param>
-        public unsafe void FlushIndexBuffer(VmaAllocator allocator, GraphicsDevice graphicsDevice)
+        public unsafe void FlushIndexBuffer()
         {
             uint indexBufferSize = (uint)(indices.Length * sizeof(uint));
             if (_indexBuffer != null && _indexBuffer.InstanceCount != (uint)indices.Length)
             {
-                _indexBuffer.Dispose(allocator);
+                _indexBuffer.Dispose();
                 _indexBuffer = null;
             }
 
             if (_stagedMesh)
             {
-                var stagingBuffer = new CsharpVulkanBuffer(allocator, sizeof(uint), (uint)indices.Length, VkBufferUsageFlags.TransferSrc, true);
+                var stagingBuffer = new CsharpVulkanBuffer(_device, sizeof(uint), (uint)indices.Length, VkBufferUsageFlags.TransferSrc, true);
                 fixed (void* data = &indices[0])
                 {
-                    stagingBuffer.WriteToBuffer(allocator, data);
+                    stagingBuffer.WriteToBuffer( data);
                 }
 
-                if (_indexBuffer == null)
-                {
-                    _indexBuffer = new CsharpVulkanBuffer(allocator, sizeof(uint), (uint)indices.Length, VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.IndexBuffer, false);
-                }
-                graphicsDevice.CopyBuffer(stagingBuffer.VkBuffer, _indexBuffer.VkBuffer, indexBufferSize);
-                stagingBuffer.Dispose(allocator);
+                _indexBuffer ??= new CsharpVulkanBuffer(_device, sizeof(uint), (uint)indices.Length, VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.IndexBuffer, false);
+                _device.CopyBuffer(stagingBuffer.VkBuffer, _indexBuffer.VkBuffer, indexBufferSize);
+                stagingBuffer.Dispose();
             }
             else
             {
 
-                if (_indexBuffer == null)
-                {
-                    _indexBuffer = new CsharpVulkanBuffer(allocator, sizeof(uint), (uint)indices.Length, VkBufferUsageFlags.IndexBuffer, true);
-                }
+                _indexBuffer ??= new CsharpVulkanBuffer(_device, sizeof(uint), (uint)indices.Length, VkBufferUsageFlags.IndexBuffer, true);
                 fixed (void* data = &indices[0])
                 {
-                    _indexBuffer.WriteToBuffer(allocator, data);
+                    _indexBuffer.WriteToBuffer(data);
                 }
             }
         }
@@ -222,21 +214,21 @@ namespace SDL_Vulkan_CS.VulkanBackend
         /// This does not clear the vertices indices c# arrays.
         /// </summary>
         /// <param name="allocator"></param>
-        public void Dispose(VmaAllocator allocator)
+        public void Dispose()
         {
             if (_vertexBuffer != null)
             {
-                _vertexBuffer.Dispose(allocator);
+                _vertexBuffer.Dispose();
                 _vertexBuffer = null;
             }
             if (_indexBuffer != null)
             {
-                _indexBuffer.Dispose(allocator);
+                _indexBuffer.Dispose();
                 _indexBuffer = null;
             }
         }
 
-        public static Mesh[] LoadModelFromFile(string filePath)
+        public static Mesh[] LoadModelFromFile(GraphicsDevice device, string filePath)
         {
             if (!File.Exists(filePath))
             {
@@ -250,18 +242,18 @@ namespace SDL_Vulkan_CS.VulkanBackend
             {
                 return null;
             }
-            var meshes = CreateMeshes(scene);
+            var meshes = CreateMeshes(device,scene);
             importer.Dispose();
             return meshes;
         }
 
-        public static Mesh[] CreateMeshes(Scene scene)
+        public static Mesh[] CreateMeshes(GraphicsDevice device,Scene scene)
         {
             Mesh[] sceneMeshs = new Mesh[scene.MeshCount];
 
             for (int i = 0; i < scene.Meshes.Count; i++)
             {
-                sceneMeshs[i] = new(CreateVertexArray(scene.Meshes[i]), CreateIndexArray(scene.Meshes[i]));
+                sceneMeshs[i] = new(device,CreateVertexArray(scene.Meshes[i]), CreateIndexArray(scene.Meshes[i]));
             }
 
             return sceneMeshs;
