@@ -5,7 +5,6 @@ using System.Numerics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using SDL_Vulkan_CS.ModelImporting;
 using SDL_Vulkan_CS.VulkanBackend;
 
 namespace SDL_Vulkan_CS.Artifact
