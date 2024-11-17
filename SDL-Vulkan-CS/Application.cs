@@ -16,6 +16,7 @@ namespace SDL_Vulkan_CS
         private World _mainWorld;
         private ArtifactAuthoring _artifact;
 
+        public static string ExecutingDirectory => AppDomain.CurrentDomain.BaseDirectory;
 
         private DateTime currentTime;
         private double deltaTime;

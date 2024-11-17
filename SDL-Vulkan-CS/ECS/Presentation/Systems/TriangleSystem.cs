@@ -1,4 +1,5 @@
-﻿using System.Numerics;
+﻿using SDL_Vulkan_CS.VulkanBackend;
+using System.Numerics;
 using Vortice.Vulkan;
 
 namespace SDL_Vulkan_CS.ECS
@@ -11,7 +12,7 @@ namespace SDL_Vulkan_CS.ECS
         private DescriptorSetLayout _renderSystemLayout;
         private VkPipelineLayout _pipelineLayout;
         private RenderPipeline _renderPipeline;
-        private GraphicsDevice _graphicsDevice;
+        private readonly GraphicsDevice _graphicsDevice;
 
         private CsharpVulkanBuffer _vertexBuffer;
 
@@ -99,8 +100,8 @@ namespace SDL_Vulkan_CS.ECS
             }
 
             RenderPipelineConfigInfo pipelineConfigInfo = RenderPipelineConfigInfo.DefaultPipelineConfigInfo(renderPass, _pipelineLayout);
-
-            _renderPipeline = new(_graphicsDevice, "Assets/triangle.vert.spv", "Assets/triangle.frag.spv", pipelineConfigInfo);
+            
+            _renderPipeline = new(_graphicsDevice, Path.Combine(Application.ExecutingDirectory, "Assets/Shaders/triangle.vert.spv"), Path.Combine(Application.ExecutingDirectory, "Assets/Shaders/triangle.frag.spv"), pipelineConfigInfo);
         }
 
         /// <summary>
@@ -118,12 +119,6 @@ namespace SDL_Vulkan_CS.ECS
             ];
 
             uint vertexBufferSize = (uint)(sourceData.Length * Vertex.SizeInBytes);
-
-            VkBufferCreateInfo vertexBufferInfo = new()
-            {
-                size = vertexBufferSize,
-                usage = VkBufferUsageFlags.TransferSrc
-            };
 
             var stagingBuffer = new CsharpVulkanBuffer(allocator, (uint)Vertex.SizeInBytes, (uint)sourceData.Length, VkBufferUsageFlags.TransferSrc, true);
             fixed(void* data = &sourceData[0])

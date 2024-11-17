@@ -32,7 +32,6 @@ namespace SDL_Vulkan_CS
             _width = width;
             _height = height;
             _windowName = name;
-
             InitWindow();
         }
 
