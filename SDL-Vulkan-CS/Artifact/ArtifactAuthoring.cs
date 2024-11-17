@@ -16,7 +16,7 @@ namespace SDL_Vulkan_CS.Artifact
     {
         public Entity MainCamera;
 
-        private Vector3 initalCameraPos = new(0, 0, -2f);
+        private Vector3 initalCameraPos = new(0, 0, -20f);
         private Quaternion initalCameraRot = Quaternion.CreateFromYawPitchRoll(0,0,0);
 
         private CameraPerspective cameraPerspective = new()
@@ -38,28 +38,87 @@ namespace SDL_Vulkan_CS.Artifact
             entityManager.AddComponent(MainCamera, new Rotation() {Value = initalCameraRot });
             entityManager.AddComponent(MainCamera, cameraPerspective);
             entityManager.AddComponent<MainCamera>(MainCamera);
+
+            Mesh[] meshes = Mesh.LoadModelFromFile(GraphicsDevice.Instance, Path.Combine(Application.ExecutingDirectory, "Assets/Models/cube-uv.obj"));
             
-            Mesh[] meshes = Mesh.LoadModelFromFile(GraphicsDevice.Instance, Path.Combine(Application.ExecutingDirectory, "Assets/Models/flat_vase.obj"));
-            for (int i = 0; i < meshes.Length; i++)
-            {
-                meshes[i].FlushMesh();
-            }
+
+            // var m = Cube();
+            // 
+            // m.FlushMesh();
+            // Mesh.Meshes.Add(m);
 
 
             var cube = entityManager.CreateEntity();
-            entityManager.AddComponent(cube, new Translation() { Value = new(0,0.25f,0) });
-            entityManager.AddComponent(cube,new Scale() { Value = new(1,-1,1)});
+            entityManager.AddComponent(cube, new Translation() { Value = new(0,0,0) });
+            //entityManager.AddComponent(cube,new Scale() { Value = new(1,1,1) });
+            entityManager.AddComponent(cube,new Rotation() { Value = Quaternion.CreateFromYawPitchRoll(TransformExtensions.DegreesToRadians(45), TransformExtensions.DegreesToRadians(45), TransformExtensions.DegreesToRadians(45)) });
             entityManager.AddComponent(cube,new MeshIndex() { Value = 0});
             
 
 
-            // Texture2d texture = new(GraphicsDevice.Instance, Path.Combine(Application.ExecutingDirectory, "Assets/Textures/paving 5.png"));
-            // texture.Dispose();
-        }
+            Texture2d texture = new(GraphicsDevice.Instance, Path.Combine(Application.ExecutingDirectory, "Assets/Textures/paving 5.png"));
+                    }
 
         public void Destroy()
         {
             Mesh.Meshes.ForEach(m => m.Dispose());
+            Texture2d.Textures.ForEach(m => m.Dispose());
+        }
+
+        private Mesh Cube()
+        {
+            Vertex[] vertices = new Vertex[]{
+
+                // left face (white)
+                new(new Vector3( -.5f, -.5f, -.5f),new Vector3 ( .9f, .9f, .9f) ),
+                new(new Vector3( -.5f, .5f, .5f),new Vector3 ( .9f, .9f, .9f) ),
+                new(new Vector3( -.5f, -.5f, .5f),new Vector3 ( .9f, .9f, .9f) ),
+                new(new Vector3( -.5f, -.5f, -.5f),new Vector3 ( .9f, .9f, .9f) ),
+                new(new Vector3( -.5f, .5f, -.5f),new Vector3 ( .9f, .9f, .9f) ),
+                new(new Vector3( -.5f, .5f, .5f),new Vector3 ( .9f, .9f, .9f) ),
+                
+                // right face (yellow)
+                new(new Vector3( .5f, -.5f, -.5f),new Vector3( .8f, .8f, .1f) ),
+                new(new Vector3( .5f, .5f, .5f),new Vector3( .8f, .8f, .1f) ),
+                new(new Vector3( .5f, -.5f, .5f),new Vector3( .8f, .8f, .1f) ),
+                new(new Vector3( .5f, -.5f, -.5f),new Vector3( .8f, .8f, .1f) ),
+                new(new Vector3( .5f, .5f, -.5f),new Vector3( .8f, .8f, .1f) ),
+                new(new Vector3(.5f, .5f, .5f),new Vector3( .8f, .8f, .1f) ),
+                
+                // top face (orange, remember y axis points down)
+                new(new Vector3( -.5f, -.5f, -.5f), new Vector3( .9f, .6f, .1f) ),
+                new(new Vector3( .5f, -.5f, .5f), new Vector3( .9f, .6f, .1f) ),
+                new(new Vector3( -.5f, -.5f, .5f), new Vector3( .9f, .6f, .1f) ),
+                new(new Vector3( -.5f, -.5f, -.5f), new Vector3( .9f, .6f, .1f) ),
+                new(new Vector3( .5f, -.5f, -.5f), new Vector3( .9f, .6f, .1f) ),
+                new(new Vector3(.5f, -.5f, .5f), new Vector3( .9f, .6f, .1f) ),
+                
+                // bottom face (red)
+                new(new Vector3( -.5f, .5f, -.5f),new Vector3 ( .8f, .1f, .1f) ),
+                new(new Vector3( .5f, .5f, .5f),new Vector3 ( .8f, .1f, .1f) ),
+                new(new Vector3( -.5f, .5f, .5f),new Vector3 ( .8f, .1f, .1f) ),
+                new(new Vector3( -.5f, .5f, -.5f),new Vector3 ( .8f, .1f, .1f) ),
+                new(new Vector3( .5f, .5f, -.5f),new Vector3 ( .8f, .1f, .1f) ),
+                new(new Vector3(.5f, .5f, .5f),new Vector3 ( .8f, .1f, .1f) ),
+                
+                // nose face (blue)
+                new(new Vector3( -.5f, -.5f, 0.5f), new Vector3( .1f, .1f, .8f)),
+                new(new Vector3( .5f, .5f, 0.5f), new Vector3( .1f, .1f, .8f)),
+                new(new Vector3( -.5f, .5f, 0.5f), new Vector3( .1f, .1f, .8f)),
+                new(new Vector3( -.5f, -.5f, 0.5f), new Vector3( .1f, .1f, .8f)),
+                new(new Vector3( .5f, -.5f, 0.5f), new Vector3( .1f, .1f, .8f)),
+                new(new Vector3(.5f, .5f, 0.5f), new Vector3( .1f, .1f, .8f)),
+                
+                // tail face (green)
+                 new(new Vector3(  -.5f, -.5f, -0.5f), new Vector3( .1f, .8f, .1f)),
+                 new(new Vector3(  .5f, .5f, -0.5f), new Vector3( .1f, .8f, .1f)),
+                 new(new Vector3(  -.5f, .5f, -0.5f), new Vector3( .1f, .8f, .1f)),
+                 new(new Vector3(  -.5f, -.5f, -0.5f), new Vector3( .1f, .8f, .1f)),
+                 new(new Vector3(  .5f, -.5f, -0.5f), new Vector3( .1f, .8f, .1f)),
+                 new(new Vector3(.5f, .5f, -0.5f), new Vector3( .1f, .8f, .1f)),
+
+            };
+            return new Mesh(GraphicsDevice.Instance, vertices);
         }
     }
 }
