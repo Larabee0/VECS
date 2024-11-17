@@ -177,12 +177,14 @@ namespace SDL_Vulkan_CS
             if (commandBuffer != VkCommandBuffer.Null)
             {
                 int frameIndex = _renderer.FrameIndex;
+                swapChainFrameDescriptorPools[frameIndex].ResetPool();
                 RendererFrameInfo frameInfo = new()
                 {
                     FrameIndex = frameIndex,
                     DeltaTime = deltaTime,
                     CommandBuffer = commandBuffer,
-                    GlobalDescriptorSet = _globalDescriptorSets[frameIndex]
+                    GlobalDescriptorSet = _globalDescriptorSets[frameIndex],
+                    FrameDescriptorPool= swapChainFrameDescriptorPools[frameIndex]
                 };
 
                 Camera camera = Camera.Identity;
