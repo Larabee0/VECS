@@ -33,8 +33,19 @@ namespace SDL_Vulkan_CS.Artifact
             entityManager.AddComponent(MainCamera, cameraPerspective);
             entityManager.AddComponent<MainCamera>(MainCamera);
             
-            Mesh[] meshes = Mesh.LoadModelFromFile(GraphicsDevice.Instance, Path.Combine(Application.ExecutingDirectory, "Assets/Models/Comp305-Shape-Split.obj"));            
+            Mesh[] meshes = Mesh.LoadModelFromFile(GraphicsDevice.Instance, Path.Combine(Application.ExecutingDirectory, "Assets/Models/Comp305-Shape-Split.obj"));
+            for (int i = 0; i < meshes.Length; i++)
+            {
+                meshes[i].FlushMesh();
+            }
 
+            for (int i = 0; i < meshes.Length; i++)
+            {
+                meshes[i].Dispose();
+            }
+
+            Texture2d texture = new(GraphicsDevice.Instance, Path.Combine(Application.ExecutingDirectory, "Assets/Textures/paving 5.png"));
+            texture.Dispose();
         }
     }
 }
