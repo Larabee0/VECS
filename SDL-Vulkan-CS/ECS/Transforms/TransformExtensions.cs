@@ -31,7 +31,8 @@ namespace SDL_Vulkan_CS
         /// <returns></returns>
         public static Matrix4x4 TRS(Vector3 translation, Quaternion rotation, Vector3 scale)
         {
-            return Matrix4x4.CreateTranslation(translation) * Matrix4x4.CreateFromQuaternion(rotation) * Matrix4x4.CreateScale(scale);
+
+            return Matrix4x4.CreateFromQuaternion(rotation) * Matrix4x4.CreateTranslation(translation) * Matrix4x4.CreateScale(scale);
         }
     }
 }
