@@ -428,10 +428,10 @@ namespace SDL_Vulkan_CS
         /// <exception cref="Exception"></exception>
         private unsafe void CreateSyncObjects()
         {
-            _imageAvailableSemaphores = new VkSemaphore[ImageCount];
-            _renderFinishedSemaphores = new VkSemaphore[ImageCount];
-            _inFlightFences = new VkFence[ImageCount];
-            _imagesInFlight = new VkFence[ImageCount];
+            _imageAvailableSemaphores = new VkSemaphore[MAX_FRAMES_IN_FLIGHT];
+            _renderFinishedSemaphores = new VkSemaphore[MAX_FRAMES_IN_FLIGHT];
+            _inFlightFences = new VkFence[MAX_FRAMES_IN_FLIGHT];
+            _imagesInFlight = new VkFence[MAX_FRAMES_IN_FLIGHT];
 
             VkSemaphoreCreateInfo semaphoreInfo = new();
 
