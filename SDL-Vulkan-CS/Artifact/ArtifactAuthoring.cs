@@ -40,7 +40,8 @@ namespace SDL_Vulkan_CS.Artifact
             entityManager.AddComponent<MainCamera>(MainCamera);
 
             Mesh[] meshes = Mesh.LoadModelFromFile(GraphicsDevice.Instance, Path.Combine(Application.ExecutingDirectory, "Assets/Models/cube-uv.obj"));
-            
+            Texture2d texture = new(GraphicsDevice.Instance, Path.Combine(Application.ExecutingDirectory, "Assets/Textures/paving 5.png"));
+
 
             // var m = Cube();
             // 
@@ -53,10 +54,10 @@ namespace SDL_Vulkan_CS.Artifact
             //entityManager.AddComponent(cube,new Scale() { Value = new(1,1,1) });
             entityManager.AddComponent(cube, new Rotation() { Value = TransformExtensions.Euler(45, 45, 45) });
             entityManager.AddComponent(cube,new MeshIndex() { Value = 0});
+            entityManager.AddComponent(cube,new TextureIndex() { Value = 0});
             
 
 
-            Texture2d texture = new(GraphicsDevice.Instance, Path.Combine(Application.ExecutingDirectory, "Assets/Textures/paving 5.png"));
                     }
 
         public void Destroy()

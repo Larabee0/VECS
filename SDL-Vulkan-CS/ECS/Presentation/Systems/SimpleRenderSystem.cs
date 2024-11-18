@@ -16,7 +16,7 @@ namespace SDL_Vulkan_CS.ECS.Presentation.Systems
 
         public override void OnCreate(EntityManager entityManager)
         {
-            _renderQuery = new EntityQuery(entityManager).WithAll(typeof(MeshIndex),typeof(LocalToWorld)).Build();
+            _renderQuery = new EntityQuery(entityManager).WithAll(typeof(MeshIndex),typeof(TextureIndex),typeof(LocalToWorld)).Build();
             
             var renderSystemLayout = new DescriptorSetLayout.Builder(_graphicsDevice)
                 //.AddBinding(0, VkDescriptorType.UniformBuffer, VkShaderStageFlags.Vertex | VkShaderStageFlags.Fragment)
@@ -37,6 +37,7 @@ namespace SDL_Vulkan_CS.ECS.Presentation.Systems
                 _renderQuery.GetEntities().ForEach(e =>
                 {
                     int meshIndex = entityManager.GetComponent<MeshIndex>(e).Value;
+                    int textureIndex = entityManager.GetComponent<TextureIndex>(e).Value;
                     if (meshIndex < meshCount)
                     {
                         Mesh mesh = Mesh.Meshes[meshIndex];
@@ -48,7 +49,7 @@ namespace SDL_Vulkan_CS.ECS.Presentation.Systems
                         VkDescriptorSet textureDescriptorSet = new();
 
                         if(!new DescriptorWriter(_simpleMaterial.MaterialDescriptorLayout, frameInfo.FrameDescriptorPool)
-                        .WriteImage(0, Texture2d.Textures[0].GetImageInfo)
+                        .WriteImage(0, Texture2d.Textures[textureIndex].GetImageInfo)
                         .Build(&textureDescriptorSet))
                         {
                             throw new Exception("Failed to bind texture descriptor set");
