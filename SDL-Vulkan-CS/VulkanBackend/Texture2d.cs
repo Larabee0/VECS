@@ -18,7 +18,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
 
         private VkDescriptorImageInfo _imageDescriptor;
 
-        private readonly VkImageLayout _imageLayout;
+        private VkImageLayout _imageLayout = VkImageLayout.Undefined;
         private readonly VkFormat _imageFormat;
         private VkExtent3D _imageExtents;
 
@@ -55,7 +55,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
         {
             _device = deivce;
             VkImageAspectFlags aspectMask = 0;
-            VkImageLayout imageLayout = VkImageLayout.Undefined;
+            _imageLayout = VkImageLayout.Undefined;
 
             _imageFormat = format;
             _imageExtents = extent;
@@ -64,12 +64,12 @@ namespace SDL_Vulkan_CS.VulkanBackend
             if (usage.HasFlag( VkImageUsageFlags.ColorAttachment))
             {
                 aspectMask = VkImageAspectFlags.Color;
-                imageLayout = VkImageLayout.ColorAttachmentOptimal;
+                _imageLayout = VkImageLayout.ColorAttachmentOptimal;
             }
             if (usage.HasFlag(VkImageUsageFlags.DepthStencilAttachment))
             {
                 aspectMask = VkImageAspectFlags.Depth;
-                imageLayout = VkImageLayout.DepthAttachmentOptimal;
+                _imageLayout = VkImageLayout.DepthAttachmentOptimal;
             }
 
             VkImageCreateInfo imageInfo = CsharpVulkanImage.DefaultImageCreateInfo(_imageExtents);
@@ -118,7 +118,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
                     throw new Exception("Failed to create sampler!");
                 }
 
-                VkImageLayout samplerImageLayout = imageLayout == VkImageLayout.ColorAttachmentOptimal
+                VkImageLayout samplerImageLayout = _imageLayout == VkImageLayout.ColorAttachmentOptimal
                 ? VkImageLayout.ShaderReadOnlyOptimal
                 : VkImageLayout.DepthStencilReadOnlyOptimal;
                 _imageDescriptor.sampler = _textureSampler;
@@ -167,7 +167,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
                 maxLod = 0.0f
             };
 
-            if(Vulkan.vkCreateSampler(_device.Device,samplierInfo,null,out _textureSampler) != VkResult.Success)
+            if (Vulkan.vkCreateSampler(_device.Device,samplierInfo,null,out _textureSampler) != VkResult.Success)
             {
                 throw new Exception("Failed to create texture sampler!");
             }
@@ -255,6 +255,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
             &barrier);
 
             _device.EndSingleTimeCommands(commandBuffer);
+            _imageLayout = newLayout;
         }
 
         public static Surface LoadImage(string fileName)
@@ -303,9 +304,9 @@ namespace SDL_Vulkan_CS.VulkanBackend
 
             _textureImage = new(_device, imageInfo);
 
-            TransitionImageLayout(_textureImage.VkImage, VkImageLayout.Undefined, VkImageLayout.TransferDstOptimal);
+            TransitionImageLayout(_textureImage.VkImage, _imageLayout, VkImageLayout.TransferDstOptimal);
             _textureImage.CopyFromBuffer(stagingBuffer, width, height);
-            TransitionImageLayout(_textureImage.VkImage, VkImageLayout.TransferDstOptimal, VkImageLayout.ShaderReadOnlyOptimal);
+            TransitionImageLayout(_textureImage.VkImage, _imageLayout, VkImageLayout.ShaderReadOnlyOptimal);
             stagingBuffer.Dispose();
             image.Dispose();
         }
