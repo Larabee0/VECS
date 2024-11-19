@@ -58,7 +58,7 @@ namespace SDL_Vulkan_CS.Artifact
             
 
 
-                    }
+        }
 
         public void Destroy()
         {
