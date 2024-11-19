@@ -1,5 +1,7 @@
 ﻿using SDL3;
 using System;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Vortice.Vulkan;
 using SDL = SDL3.SDL3;
 
@@ -20,6 +22,7 @@ namespace SDL_Vulkan_CS
         private bool _framebufferResized = false;
 
         private SDL_Window _window;
+        private InputManager _nputManager;
 
         private SDL_WindowID Id { get; set; }
 
@@ -34,9 +37,11 @@ namespace SDL_Vulkan_CS
             _height = height;
             _windowName = name;
             InitWindow();
+
+            _nputManager =new InputManager();
         }
 
-        private void InitWindow()
+        private unsafe void InitWindow()
         {
             if (!SDL.SDL_Init(_sdl_Init_Flags))
             {
@@ -57,6 +62,22 @@ namespace SDL_Vulkan_CS
 
             _window = SDL.SDL_CreateWindow(_windowName, _width, _height, _sdl_Window_Flags);
             Id = SDL.SDL_GetWindowID(_window);
+
+
+            SDL.SDL_AddEventWatch(&Watcher, IntPtr.Zero);
+        }
+
+        [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+        private static unsafe SDLBool Watcher(nint n, SDL_Event* eventPtr)
+        {
+            if (eventPtr->type == SDL_EventType.KeyDown && !eventPtr->key.repeat)
+            {
+                if (eventPtr->key.key == SDL_Keycode.A)
+                {
+                    Console.WriteLine("A Key Down");
+                }
+            }
+            return SDLBool.False;
         }
 
         public unsafe VkSurfaceKHR CreateWindowSurface(VkInstance instance)
@@ -92,6 +113,8 @@ namespace SDL_Vulkan_CS
                 {
                     case SDL_EventType.Quit:
                         return true;
+                    case SDL_EventType.KeyDown when sdlEvent.key.key == SDL_Keycode.Escape:
+                        return true;
                     case SDL_EventType.WindowCloseRequested when (sdlEvent.window.windowID == Id):
                         return true;
                     case >= SDL_EventType.WindowFirst when (sdlEvent.type <= SDL_EventType.WindowLast):
@@ -99,6 +122,8 @@ namespace SDL_Vulkan_CS
                         break;
                 }
             }
+
+            _nputManager.Update();
 
             return false;
         }
@@ -135,19 +160,9 @@ namespace SDL_Vulkan_CS
             {
                 Console.WriteLine("Cleaned up SDL with errors:\n{0}",sdlErrors);
             }
+
         }
 
-        //SDL.SDL_AddEventWatch(&Watcher, nint.Zero);
-
-        //[UnmanagedCallersOnly(CallConvs =[typeof(CallConvCdecl)])]
-        //private static SDLBool Watcher(nint n, SDL_Event* eventPtr)
-        //{
-        //    if (eventPtr->type == SDL_EventType.WindowResized)
-        //    {
-        //
-        //    }
-        //    return SDLBool.False;
-        //}
 
         private static void SDL3Log(SDL_LogCategory category, SDL_LogPriority priority, string message)
         {

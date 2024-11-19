@@ -13,12 +13,19 @@ namespace SDL_Vulkan_CS
     /// </summary>
     public class CameraSystem : SystemBase
     {
+        const float lookSpeed = 0.5f;
+        const float moveSpeed = 0.5f;
+
         EntityQuery _cameraQueryPerspective; // query for persepctive cameras
         EntityQuery _cameraQueryOrthographic; // query for orthographic cameras
         EntityQuery _cameraInitQuery; // initalises camera entities that lack the camera component type.
 
+        EntityQuery _cameraMotion; // initalises camera entities that lack the camera component type.
+
         public override void OnCreate(EntityManager entityManager)
         {
+            _cameraMotion = new EntityQuery(entityManager).WithAll(typeof(Translation),typeof(Rotation),typeof(Camera)).Build();
+
             _cameraQueryPerspective = new EntityQuery(entityManager).WithAll(typeof(CameraPerspective), typeof(Camera), typeof(LocalToWorld)).Build();
             _cameraQueryOrthographic = new EntityQuery(entityManager).WithAll(typeof(CameraOrthographic), typeof(Camera), typeof(LocalToWorld)).Build();
             _cameraInitQuery = new EntityQuery(entityManager).WithAll(typeof(LocalToWorld)).WithAny(typeof(CameraOrthographic),typeof(CameraPerspective)).WithNone(typeof(Camera)).Build();
@@ -39,6 +46,37 @@ namespace SDL_Vulkan_CS
             if (_cameraQueryOrthographic.HasEntities)
             {
                 UpdateOrthographicCameras(entityManager);
+            }
+
+            if (_cameraMotion.HasEntities)
+            {
+                _cameraMotion.GetEntities().ForEach(entity =>
+                {
+                    Translation t = entityManager.GetComponent<Translation>(entity);
+                    Rotation q = entityManager.GetComponent<Rotation>(entity);
+
+                    var keyboard = InputManager.Instance.moveInput;
+                    var mouse = InputManager.Instance.Delta;
+
+                    Vector3 translation = t.Value;
+                    Vector3 euler = q.Value.ToEuler();
+
+                    var quat = TransformExtensions.Euler(new(45, 90f, 3));
+                    euler = quat.ToEuler();
+
+                    translation.X += keyboard.X * moveSpeed * Application.DeltaTime;
+                    translation.Z += keyboard.Y * moveSpeed * Application.DeltaTime;
+
+                    euler.Y += mouse.X * lookSpeed * Application.DeltaTime;
+                    euler.X += mouse.Y * lookSpeed * Application.DeltaTime;
+
+                    t.Value = translation;
+                    q.Value = TransformExtensions.Euler(euler);
+
+                    entityManager.SetComponent(entity, t);
+                    //entityManager.SetComponent(entity, q);
+
+                });
             }
         }
 

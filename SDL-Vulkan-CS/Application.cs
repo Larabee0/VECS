@@ -20,9 +20,9 @@ namespace SDL_Vulkan_CS
         public static string ExecutingDirectory => AppDomain.CurrentDomain.BaseDirectory;
 
         private DateTime currentTime;
-        private double deltaTime;
-        public double DeltaTimeDouble => deltaTime;
-        public float DeltaTime => (float)deltaTime;
+        private static double deltaTime;
+        public static double DeltaTimeDouble => deltaTime;
+        public static float DeltaTime => (float)deltaTime;
 
         public Application()
         {
@@ -48,6 +48,7 @@ namespace SDL_Vulkan_CS
                 }
                 Update();
                 Presentation();
+                InputManager.Instance.LateUpdate();
             }
             Vulkan.vkDeviceWaitIdle(_device.Device);
             Destroy();

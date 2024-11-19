@@ -43,5 +43,22 @@ namespace SDL_Vulkan_CS
         {
             return Quaternion.CreateFromYawPitchRoll(DegreesToRadians(y), DegreesToRadians(z), DegreesToRadians(x));
         }
+
+        public static Vector3 ToEuler(this Quaternion q)
+        {
+            float sinr_cosp = 2 * (q.W * q.X + q.Y * q.Z);
+            float cosr_cosp = 1 - 2 * (q.X * q.X + q.Y * q.Y);
+            float z = RadiansToDegrees(MathF.Atan2(sinr_cosp,cosr_cosp));
+
+            float sinp = MathF.Sqrt(1 + 2 * (q.W * q.Y - q.X * q.Z));
+            float cosp = MathF.Sqrt(1 - 2 * (q.W * q.Y - q.X * q.Z));
+            float x = RadiansToDegrees(2 * MathF.Atan2(sinp, cosp) - (MathF.PI * 0.5f));
+
+            float siny_cosp = 2 * (q.W * q.Z + q.X * q.Y);
+            float cosy_cosp = 1 - 2 * (q.Y * q.Y + q.Z * q.Z);
+            float y = RadiansToDegrees(MathF.Atan2(siny_cosp, cosy_cosp));
+
+            return new Vector3(x, y, z);
+        }
     }
 }
