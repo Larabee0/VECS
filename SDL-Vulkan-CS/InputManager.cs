@@ -12,28 +12,39 @@ namespace SDL_Vulkan_CS
 {
     public class InputManager
     {
-        public Vector2 moveInput = Vector2.Zero;
+        public Vector3 moveInput = Vector3.Zero;
         public Vector2 mousePos = Vector2.Zero;
         public Vector2 mousePosOld = Vector2.Zero;
-        public Vector2 Delta => mousePos - mousePosOld;
+        public Vector2 mouseDelta = Vector2.Zero;
+        public bool mouseMotion = false;
+        public bool firstMouse = true;
+
+        public bool rightMouseDown = false;
+        public bool shiftDown = false;
+
         public static InputManager Instance { get; private set; }
 
         public unsafe InputManager()
         {
             Instance = this;
             SDL3.SDL3.SDL_AddEventWatch(&KeyboardMove, IntPtr.Zero);
-            SDL3.SDL3.SDL_AddEventWatch(&MouseDelta, IntPtr.Zero);
+            SDL3.SDL3.SDL_AddEventWatch(&RightClick, IntPtr.Zero);
         }
 
         [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-        private static unsafe SDLBool MouseDelta(nint n, SDL_Event* eventPtr)
+        private static unsafe SDLBool RightClick(nint n, SDL_Event* eventPtr)
         {
-            if (eventPtr->type == SDL_EventType.MouseMotion)
+            if (eventPtr->button.Button == SDL_Button.Right)
             {
-                var cur = Instance.mousePos;
-                cur.X = eventPtr->motion.x;
-                cur.Y = eventPtr->motion.y;
-                Instance.mousePos = cur;
+                if(eventPtr->type == SDL_EventType.MouseButtonDown)
+                {
+                    Instance.rightMouseDown = true;
+                }
+                else if(eventPtr->type == SDL_EventType.MouseButtonUp)
+                {
+                    Instance.rightMouseDown = false;
+                    Instance.firstMouse = true;
+                }
             }
             return false;
         }
@@ -55,10 +66,19 @@ namespace SDL_Vulkan_CS
                                 cur.X = -1;
                                 break;
                             case SDL_Keycode.W:
-                                cur.Y = 1;
+                                cur.Z = 1;
                                 break;
                             case SDL_Keycode.S:
+                                cur.Z = -1;
+                                break;
+                            case SDL_Keycode.Q:
                                 cur.Y = -1;
+                                break;
+                            case SDL_Keycode.E:
+                                cur.Y = 1;
+                                break;
+                            case SDL_Keycode.LeftShift:
+                                Instance.shiftDown = true;
                                 break;
                         }
                         Instance.moveInput = cur;
@@ -76,11 +96,20 @@ namespace SDL_Vulkan_CS
                             case SDL_Keycode.D when cur.X < 0:
                                 cur.X = 0;
                                 break;
-                            case SDL_Keycode.W when cur.Y > 0:
+                            case SDL_Keycode.W when cur.Z > 0:
+                                cur.Z = 0;
+                                break;
+                            case SDL_Keycode.S when cur.Z < 0:
+                                cur.Z = 0;
+                                break;
+                            case SDL_Keycode.Q when cur.Y < 0:
                                 cur.Y = 0;
                                 break;
-                            case SDL_Keycode.S when cur.Y < 0:
+                            case SDL_Keycode.E when cur.Y > 0:
                                 cur.Y = 0;
+                                break;
+                            case SDL_Keycode.LeftShift:
+                                Instance.shiftDown = false;
                                 break;
                         }
                         Instance.moveInput = cur;
@@ -97,7 +126,9 @@ namespace SDL_Vulkan_CS
 
         public void LateUpdate()
         {
-            mousePosOld = mousePos;
+            mouseDelta = Vector2.Zero;
+            //mousePosOld = mousePos;
+            mouseMotion = false;
         }
     }
 }

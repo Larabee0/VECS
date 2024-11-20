@@ -11,6 +11,7 @@ namespace SDL_Vulkan_CS.ECS
     {
         public static int ComponentId { get; set; }
 
-        public Quaternion Value;
+        //public Quaternion Value;
+        public Vector3 Value;
     }
 }

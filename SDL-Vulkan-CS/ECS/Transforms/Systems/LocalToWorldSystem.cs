@@ -42,7 +42,8 @@ namespace SDL_Vulkan_CS.ECS
                 _ltwQuery.GetEntities().ForEach(e =>
                 {
                     Vector3 translation = entityManager.GetComponent(e, out Translation t) ? t.Value : Vector3.Zero;
-                    Quaternion rotation = entityManager.GetComponent(e, out Rotation r) ? r.Value : Quaternion.Identity;
+                    //Quaternion rotation = entityManager.GetComponent(e, out Rotation r) ? r.Value : Quaternion.Identity;
+                    Vector3 rotation = entityManager.GetComponent(e, out Rotation r) ? r.Value : Vector3.Zero;
                     Vector3 scale = entityManager.GetComponent(e, out Scale s) ? s.Value : Vector3.One;
 
                     entityManager.SetComponent<LocalToWorld>(e, new() { Value = TransformExtensions.TRS(translation, rotation, scale) });

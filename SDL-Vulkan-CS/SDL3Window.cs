@@ -22,7 +22,7 @@ namespace SDL_Vulkan_CS
         private bool _framebufferResized = false;
 
         private SDL_Window _window;
-        private InputManager _nputManager;
+        private InputManager _inputManager;
 
         private SDL_WindowID Id { get; set; }
 
@@ -38,7 +38,7 @@ namespace SDL_Vulkan_CS
             _windowName = name;
             InitWindow();
 
-            _nputManager =new InputManager();
+            _inputManager =new InputManager();
         }
 
         private unsafe void InitWindow()
@@ -62,9 +62,7 @@ namespace SDL_Vulkan_CS
 
             _window = SDL.SDL_CreateWindow(_windowName, _width, _height, _sdl_Window_Flags);
             Id = SDL.SDL_GetWindowID(_window);
-
-
-            SDL.SDL_AddEventWatch(&Watcher, IntPtr.Zero);
+            //SDL.SDL_AddEventWatch(&Watcher, IntPtr.Zero);
         }
 
         [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
@@ -107,7 +105,7 @@ namespace SDL_Vulkan_CS
 
         public bool UpdateWindowEvents()
         {
-            while(SDL.SDL_PollEvent(out SDL_Event sdlEvent))
+            while (SDL.SDL_PollEvent(out SDL_Event sdlEvent))
             {
                 switch (sdlEvent.type)
                 {
@@ -120,11 +118,41 @@ namespace SDL_Vulkan_CS
                     case >= SDL_EventType.WindowFirst when (sdlEvent.type <= SDL_EventType.WindowLast):
                         HandleWindowEvents(sdlEvent);
                         break;
+
+                    case SDL_EventType.MouseMotion:
+
+                        _inputManager.mouseMotion = true;
+
+                        if (!_inputManager.firstMouse)
+                        {
+
+                            var pos = _inputManager.mousePos;
+                            var delta = _inputManager.mouseDelta;
+                            pos.X = sdlEvent.motion.x;
+                            pos.Y = sdlEvent.motion.y;
+                            delta.X = sdlEvent.motion.xrel;
+                            delta.Y = sdlEvent.motion.yrel;
+                            _inputManager.mousePos = pos;
+                            _inputManager.mouseDelta = delta;
+                        }
+                        else
+                        {
+                            _inputManager.firstMouse = false;
+
+                            var delta = _inputManager.mouseDelta;
+                            delta.X = 0;
+                            delta.Y = 0;
+                            _inputManager.mouseDelta = delta;
+                        }
+
+                        break;
                 }
             }
 
-            _nputManager.Update();
+            _inputManager.Update();
 
+            SDL.SDL_SetWindowRelativeMouseMode(_window, _inputManager.rightMouseDown);
+            //SDL.SDL_WarpMouseInWindow(_window, _width / 2, _height / 2);
             return false;
         }
 

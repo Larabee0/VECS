@@ -31,8 +31,8 @@ namespace SDL_Vulkan_CS.ECS
             _presentationSystems = [];
 
             // default systems
-            CreateSystem<LocalToWorldSystem>();
             CreateSystem<CameraSystem>();
+            CreateSystem<LocalToWorldSystem>();
             DefaultWorld = this;
         }
 

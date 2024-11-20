@@ -13,8 +13,8 @@ namespace SDL_Vulkan_CS
     /// </summary>
     public class CameraSystem : SystemBase
     {
-        const float lookSpeed = 0.5f;
-        const float moveSpeed = 0.5f;
+        const float lookSpeed = 4.5f;
+        const float moveSpeed = 1.5f;
 
         EntityQuery _cameraQueryPerspective; // query for persepctive cameras
         EntityQuery _cameraQueryOrthographic; // query for orthographic cameras
@@ -52,30 +52,7 @@ namespace SDL_Vulkan_CS
             {
                 _cameraMotion.GetEntities().ForEach(entity =>
                 {
-                    Translation t = entityManager.GetComponent<Translation>(entity);
-                    Rotation q = entityManager.GetComponent<Rotation>(entity);
-
-                    var keyboard = InputManager.Instance.moveInput;
-                    var mouse = InputManager.Instance.Delta;
-
-                    Vector3 translation = t.Value;
-                    Vector3 euler = q.Value.ToEuler();
-
-                    var quat = TransformExtensions.Euler(new(45, 90f, 3));
-                    euler = quat.ToEuler();
-
-                    translation.X += keyboard.X * moveSpeed * Application.DeltaTime;
-                    translation.Z += keyboard.Y * moveSpeed * Application.DeltaTime;
-
-                    euler.Y += mouse.X * lookSpeed * Application.DeltaTime;
-                    euler.X += mouse.Y * lookSpeed * Application.DeltaTime;
-
-                    t.Value = translation;
-                    q.Value = TransformExtensions.Euler(euler);
-
-                    entityManager.SetComponent(entity, t);
-                    //entityManager.SetComponent(entity, q);
-
+                    TransformCamera(entityManager, entity);
                 });
             }
         }
@@ -86,6 +63,7 @@ namespace SDL_Vulkan_CS
             _cameraQueryPerspective.MarkStale();
             _cameraQueryOrthographic.MarkStale();
             _cameraInitQuery.MarkStale();
+            _cameraMotion.MarkStale();
         }
 
         /// <summary>
@@ -146,7 +124,7 @@ namespace SDL_Vulkan_CS
         public static Matrix4x4 GetPerspectiveProject(CameraPerspective perspective, float aspect)
         {
             return Matrix4x4.CreatePerspectiveFieldOfView(
-                TransformExtensions.DegreesToRadians(perspective.FOV),
+                float.DegreesToRadians(perspective.FOV),
                 aspect,
                 perspective.ClipNear,
                 perspective.ClipFar);
@@ -179,6 +157,59 @@ namespace SDL_Vulkan_CS
                     Vector3.Transform(new(0, 1, 0), rotation));
             }
             return Matrix4x4.Identity;
+        }
+
+        private static void TransformCamera(EntityManager entityManager, Entity entity)
+        {
+            if (!InputManager.Instance.rightMouseDown)
+            {
+                return;
+            }
+            Translation translation = entityManager.GetComponent<Translation>(entity);
+            Rotation rotation = entityManager.GetComponent<Rotation>(entity);
+            
+
+            var mouse = InputManager.Instance.mouseDelta;
+            var keyboard = InputManager.Instance.moveInput;
+
+            if (mouse.LengthSquared() > float.Epsilon)
+            {
+                Vector3 rotate = default;
+                rotate.X = Math.Clamp(mouse.Y, -1, 1);
+                rotate.Y = Math.Clamp(-mouse.X, -1, 1);
+
+                if (Vector3.Dot(rotate, rotate) > float.Epsilon)
+                {
+                    rotation.Value += lookSpeed * Application.DeltaTime * Vector3.Normalize(rotate);
+
+                    rotation.Value.X = Math.Clamp(rotation.Value.X, -1.5f, 1.5f);
+                    rotation.Value.Y %= MathF.Tau;
+
+                    entityManager.SetComponent(entity, rotation);
+                }
+            }
+
+
+
+            if(keyboard.LengthSquared() > float.Epsilon)
+            {
+                Vector3 foward = new(MathF.Sin(rotation.Value.Y), 0f, MathF.Cos(rotation.Value.Y));
+                Vector3 right = new(foward.Z, 0f, -foward.X);
+                Vector3 up = new(0, 1, 0);
+                Vector3 moveDir = default;
+
+                moveDir += keyboard.Z * foward;
+                moveDir += keyboard.X * right;
+                moveDir += keyboard.Y * up;
+
+                if (Vector3.Dot(moveDir, moveDir) > float.Epsilon)
+                {
+                    float speed = InputManager.Instance.shiftDown ? moveSpeed * 2 : moveSpeed;
+                    translation.Value += speed * Application.DeltaTime * Vector3.Normalize(moveDir);
+                    entityManager.SetComponent(entity, translation);
+                }
+            }
+
         }
     }
 }

@@ -17,11 +17,11 @@ namespace SDL_Vulkan_CS.Artifact
         public Entity MainCamera;
 
         private Vector3 initalCameraPos = new(0, 0, -20f);
-        private Quaternion initalCameraRot = TransformExtensions.Euler(0, 0, 0);
+        private Vector3 initalCameraRot = TransformExtensions.DegreesToRadians(new(0, 0, 0));
 
         private CameraPerspective cameraPerspective = new()
         {
-            FOV = 25,
+            FOV = 50,
             ClipNear = 0.1f,
             ClipFar = 100f
         };
@@ -35,7 +35,7 @@ namespace SDL_Vulkan_CS.Artifact
 
             MainCamera = entityManager.CreateEntity();
             entityManager.AddComponent(MainCamera, new Translation() { Value = initalCameraPos });
-            entityManager.AddComponent(MainCamera, new Rotation() {Value = initalCameraRot });
+            entityManager.AddComponent(MainCamera, new Rotation() { Value = initalCameraRot });
             entityManager.AddComponent(MainCamera, cameraPerspective);
             entityManager.AddComponent<MainCamera>(MainCamera);
 
@@ -52,7 +52,7 @@ namespace SDL_Vulkan_CS.Artifact
             var cube = entityManager.CreateEntity();
             entityManager.AddComponent(cube, new Translation() { Value = new(0,0,0) });
             //entityManager.AddComponent(cube,new Scale() { Value = new(1,1,1) });
-            entityManager.AddComponent(cube, new Rotation() { Value = TransformExtensions.Euler(45, 45, 45) });
+            //entityManager.AddComponent(cube, new Rotation() { Value = TransformExtensions.Euler(45, 45, 45) });
             entityManager.AddComponent(cube,new MeshIndex() { Value = 0});
             entityManager.AddComponent(cube,new TextureIndex() { Value = 0});
             
