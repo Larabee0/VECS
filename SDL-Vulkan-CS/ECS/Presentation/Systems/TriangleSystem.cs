@@ -38,7 +38,7 @@ namespace SDL_Vulkan_CS.ECS
         /// <param name="frameInfo">current frame info</param>
         public override void OnPresent(EntityManager entityManager, RendererFrameInfo frameInfo)
         {
-            _triangleMaterial.Bind(frameInfo);
+            _triangleMaterial.BindDescriptorSets(frameInfo);
 
             Vulkan.vkCmdBindVertexBuffer(frameInfo.CommandBuffer, 0, _vertexBuffer.VkBuffer);
             Vulkan.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
@@ -47,7 +47,6 @@ namespace SDL_Vulkan_CS.ECS
         public unsafe override void OnDestroy(EntityManager entityManager)
         {
             _vertexBuffer.Dispose();
-            _triangleMaterial.Dispose();
         }
 
         /// <summary>

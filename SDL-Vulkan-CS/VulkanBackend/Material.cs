@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using Vortice.Vulkan;
 
@@ -13,6 +14,8 @@ namespace SDL_Vulkan_CS.VulkanBackend
     /// </summary>
     public sealed class Material : IDisposable
     {
+        public static List<Material> Materials = [];
+
         private readonly DescriptorSetLayout _materialDescriptorLayout;
         private VkPipelineLayout _pipelineLayout;
         private RenderPipeline _materialPipeline;
@@ -26,6 +29,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
             string fragmentFilePath = GetShaderFilePath(fragmentShader);
             CreatePipelineLayout(Presenter.Instance.GlobalSetLayout);
             CreatePipeline(vertexFilePath, fragmentFilePath);
+            Materials.Add(this);
         }
 
         public Material(string vertexShader, string fragmentShader, DescriptorSetLayout materialLayout)
@@ -35,6 +39,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
             _materialDescriptorLayout = materialLayout;
             CreatePipelineLayout(Presenter.Instance.GlobalSetLayout);
             CreatePipeline(vertexFilePath, fragmentFilePath);
+            Materials.Add(this);
         }
 
         public Material(string vertexShader, string fragmentShader, Type pushConstantType)
@@ -43,6 +48,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
             string fragmentFilePath = GetShaderFilePath(fragmentShader);
             CreatePipelineLayoutWithPushConstant(Presenter.Instance.GlobalSetLayout, pushConstantType);
             CreatePipeline(vertexFilePath, fragmentFilePath);
+            Materials.Add(this);
         }
 
         public Material(string vertexShader, string fragmentShader, DescriptorSetLayout materialLayout, Type pushConstantType)
@@ -52,6 +58,25 @@ namespace SDL_Vulkan_CS.VulkanBackend
             _materialDescriptorLayout = materialLayout;
             CreatePipelineLayoutWithPushConstant(Presenter.Instance.GlobalSetLayout, pushConstantType);
             CreatePipeline(vertexFilePath, fragmentFilePath);
+            Materials.Add(this);
+        }
+        
+        public Material(string vertexShader, string fragmentShader,Type pushConstantType, params DescriptorSetBinding[] reqs)
+        {
+            string vertexFilePath = GetShaderFilePath(vertexShader);
+            string fragmentFilePath = GetShaderFilePath(fragmentShader);
+
+            var builder = new DescriptorSetLayout.Builder(GraphicsDevice.Instance);
+            for (uint i = 0; i < reqs.Length; i++)
+            {
+                builder.AddBinding(i,reqs[i]);
+            }
+
+            _materialDescriptorLayout = builder.Build();
+
+            CreatePipelineLayoutWithPushConstant(Presenter.Instance.GlobalSetLayout, pushConstantType);
+            CreatePipeline(vertexFilePath, fragmentFilePath);
+            Materials.Add(this);
         }
 
         private unsafe void CreatePipelineLayout(VkDescriptorSetLayout globalSetLayout)
@@ -138,10 +163,87 @@ namespace SDL_Vulkan_CS.VulkanBackend
             _materialPipeline = new(GraphicsDevice.Instance, vertexShader, fragmentShader, pipelineConfigInfo);
         }
 
-        public void Bind(RendererFrameInfo rendererFrameInfo)
+        public void BindMaterial(RendererFrameInfo rendererFrameInfo, int meshIndex, params int[] textures)
+        {
+            Mesh mesh = Mesh.GetMeshAtIndex(meshIndex);
+            if (mesh == null) return;
+            BindTextures(rendererFrameInfo, textures);
+
+            mesh.BindAndDraw(rendererFrameInfo.CommandBuffer);
+        }
+
+        public void BindMaterial<T>(RendererFrameInfo rendererFrameInfo, int meshIndex, T pushConstants, params int[] textures) where T : unmanaged
+        {
+            Mesh mesh = Mesh.GetMeshAtIndex(meshIndex);
+            if (mesh == null) return;
+            BindTextures(rendererFrameInfo, textures);
+            PushConstants(rendererFrameInfo.CommandBuffer, pushConstants);
+            mesh.BindAndDraw(rendererFrameInfo.CommandBuffer);
+        }
+
+        public void BindDescriptorSets(RendererFrameInfo rendererFrameInfo)
         {
             _materialPipeline.Bind(rendererFrameInfo.CommandBuffer);
             Vulkan.vkCmdBindDescriptorSets(rendererFrameInfo.CommandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, 0, rendererFrameInfo.GlobalDescriptorSet);
+        }
+
+        public unsafe void BindBuffer(RendererFrameInfo rendererFrameInfo, params VkDescriptorBufferInfo[] bufferInfos)
+        {
+            VkDescriptorSet textureDescriptorSet = new();
+
+            var builder = new DescriptorWriter(MaterialDescriptorLayout, rendererFrameInfo.FrameDescriptorPool);
+
+            for (uint i = 0; i < bufferInfos.Length; i++)
+            {
+                builder.WriteBuffer(i, bufferInfos[i]);
+            }
+
+            if (!builder.Build(&textureDescriptorSet))
+            {
+                throw new Exception("Failed to bind texture descriptor set");
+            }
+
+            Vulkan.vkCmdBindDescriptorSets(
+                            rendererFrameInfo.CommandBuffer,
+                            VkPipelineBindPoint.Graphics,
+                            PipeLineLayout,
+                            1,  // starting set (0 is the globalDescriptorSet, 1 is the set specific to this system)
+                            textureDescriptorSet);
+        }
+
+        public unsafe void BindTextures(RendererFrameInfo rendererFrameInfo, params int[] textures)
+        {
+            VkDescriptorSet textureDescriptorSet = new();
+
+            var builder = new DescriptorWriter(MaterialDescriptorLayout, rendererFrameInfo.FrameDescriptorPool);
+
+            for (uint i = 0; i < textures.Length; i++)
+            {
+                builder.WriteImage(i, Texture2d.GetTextureImageInfoAtIndex(textures[i]));
+            }
+
+            if (!builder.Build(&textureDescriptorSet))
+            {
+                throw new Exception("Failed to bind texture descriptor set");
+            }
+
+            Vulkan.vkCmdBindDescriptorSets(
+                            rendererFrameInfo.CommandBuffer,
+                            VkPipelineBindPoint.Graphics,
+                            PipeLineLayout,
+                            1,  // starting set (0 is the globalDescriptorSet, 1 is the set specific to this system)
+                            textureDescriptorSet);
+        }
+
+        public unsafe void PushConstants<T>(VkCommandBuffer commandBuffer, T pushConstants) where T : unmanaged
+        {
+            Vulkan.vkCmdPushConstants(
+                commandBuffer,
+                PipeLineLayout,
+                VkShaderStageFlags.Vertex | VkShaderStageFlags.Fragment,
+                0,
+                (uint)sizeof(T),
+                &pushConstants);
         }
 
         public unsafe void Dispose()
@@ -161,6 +263,12 @@ namespace SDL_Vulkan_CS.VulkanBackend
             }
 
             return shaderFilePath;
+        }
+
+        public static Material GetMaterialAtIndex(int index)
+        {
+            index = Math.Max(0, index);
+            return index < Materials.Count ? Materials[index] : null;
         }
     }
 }

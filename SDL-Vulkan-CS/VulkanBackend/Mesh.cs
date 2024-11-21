@@ -16,6 +16,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
     /// </summary>
     public class Mesh
     {
+        public static string DefaultMeshPath => Path.Combine(Application.ExecutingDirectory, "Assets/Models");
         public static List<Mesh> Meshes = [];
         private readonly ulong _offset;
         private readonly bool _hasIndexBuffer;
@@ -66,6 +67,12 @@ namespace SDL_Vulkan_CS.VulkanBackend
             this.indices = indices;
             _hasIndexBuffer = true;
             _stagedMesh = useStagingBuffers;
+        }
+
+        public void BindAndDraw(VkCommandBuffer commandBuffer)
+        {
+            Bind(commandBuffer);
+            Draw(commandBuffer);
         }
 
         public void Bind(VkCommandBuffer commandBuffer)
@@ -291,6 +298,25 @@ namespace SDL_Vulkan_CS.VulkanBackend
         private static unsafe uint[] CreateIndexArray(Assimp.Mesh mesh)
         {
             return mesh.GetUnsignedIndices();
+        }
+
+        public static string GetMeshInDefaultPath(string file)
+        {
+            return Path.Combine(DefaultMeshPath, file);
+        }
+
+
+        public static Mesh GetMeshAtIndex(int index, bool autoFlush = true)
+        {
+            index = Math.Max(0, index);
+            Mesh mesh = index < Meshes.Count ? Meshes[index] : null;
+
+            if (mesh != null && autoFlush && !mesh.AnyBuffersAllocated)
+            {
+                mesh.FlushMesh();
+            }
+
+            return mesh;
         }
     }
 }

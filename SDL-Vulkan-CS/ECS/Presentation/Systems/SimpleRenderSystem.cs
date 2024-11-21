@@ -1,14 +1,15 @@
 ﻿using SDL_Vulkan_CS.VulkanBackend;
+using SDL3;
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Numerics;
 using Vortice.Vulkan;
 
 namespace SDL_Vulkan_CS.ECS.Presentation.Systems
 {
     public class SimpleRenderSystem : PresentationSystemBase
     {
-        private Material _simpleMaterial;
-
         private EntityQuery _renderQuery;
 
         public SimpleRenderSystem() : base() { }
@@ -16,14 +17,7 @@ namespace SDL_Vulkan_CS.ECS.Presentation.Systems
 
         public override void OnCreate(EntityManager entityManager)
         {
-            _renderQuery = new EntityQuery(entityManager).WithAll(typeof(MeshIndex),typeof(TextureIndex),typeof(LocalToWorld)).Build();
-            
-            var renderSystemLayout = new DescriptorSetLayout.Builder(_graphicsDevice)
-                //.AddBinding(0, VkDescriptorType.UniformBuffer, VkShaderStageFlags.Vertex | VkShaderStageFlags.Fragment)
-                .AddBinding(0, VkDescriptorType.CombinedImageSampler, VkShaderStageFlags.Fragment)
-                .Build();
-
-            _simpleMaterial = new("simple_shader.vert", "simple_shader.frag", renderSystemLayout, typeof(SimplePushConstantData));
+            _renderQuery = new EntityQuery(entityManager).WithAll(typeof(MeshIndex), typeof(TextureIndex), typeof(MaterialIndex), typeof(LocalToWorld)).Build();   
         }
 
 
@@ -31,53 +25,34 @@ namespace SDL_Vulkan_CS.ECS.Presentation.Systems
         {
             if (_renderQuery.HasEntities)
             {
-                _simpleMaterial.Bind(frameInfo);
-
-                int meshCount = Mesh.Meshes.Count;
-                _renderQuery.GetEntities().ForEach(e =>
+                List<Entity> entities = _renderQuery.GetEntities();
+                List<DrawCall> drawCalls = new(entities.Count);
+                entities.ForEach(e =>
                 {
-                    int meshIndex = entityManager.GetComponent<MeshIndex>(e).Value;
-                    int textureIndex = entityManager.GetComponent<TextureIndex>(e).Value;
-                    if (meshIndex < meshCount)
+                    drawCalls.Add(new()
                     {
-                        Mesh mesh = Mesh.Meshes[meshIndex];
-                        if (!mesh.AnyBuffersAllocated)
-                        {
-                            mesh.FlushMesh();
-                        }
-
-                        VkDescriptorSet textureDescriptorSet = new();
-
-                        if(!new DescriptorWriter(_simpleMaterial.MaterialDescriptorLayout, frameInfo.FrameDescriptorPool)
-                        .WriteImage(0, Texture2d.Textures[textureIndex].GetImageInfo)
-                        .Build(&textureDescriptorSet))
-                        {
-                            throw new Exception("Failed to bind texture descriptor set");
-                        }
-
-
-                        Vulkan.vkCmdBindDescriptorSets(
-                            frameInfo.CommandBuffer,
-                            VkPipelineBindPoint.Graphics,
-                            _simpleMaterial.PipeLineLayout,
-                            1,  // starting set (0 is the globalDescriptorSet, 1 is the set specific to this system)
-                            textureDescriptorSet);
-
-                        SimplePushConstantData push = new(entityManager.GetComponent<LocalToWorld>(e).Value);
-
-                        Vulkan.vkCmdPushConstants(
-                            frameInfo.CommandBuffer,
-                            _simpleMaterial.PipeLineLayout,
-                            VkShaderStageFlags.Vertex | VkShaderStageFlags.Fragment,
-                            0,
-                            (uint)sizeof(SimplePushConstantData),
-                            &push);
-
-                        mesh.Bind(frameInfo.CommandBuffer);
-                        mesh.Draw(frameInfo.CommandBuffer);
-                    }
-
+                        MeshIndex = entityManager.GetComponent<MeshIndex>(e).Value,
+                        TextureIndex = entityManager.GetComponent<TextureIndex>(e).Value,
+                        MaterialIndex = entityManager.GetComponent<MaterialIndex>(e).Value,
+                        Ltw = entityManager.GetComponent<LocalToWorld>(e).Value
+                    });
                 });
+
+
+                drawCalls.Sort(new DrawCall());
+
+                Material mat = null;
+                for (int i = 0; i < drawCalls.Count; i++)
+                {
+                    var drawCall = drawCalls[i];
+                    var curMat = Material.GetMaterialAtIndex (drawCall.MaterialIndex);
+                    if(mat == null || mat != curMat)
+                    {
+                        mat = curMat;
+                        mat?.BindDescriptorSets(frameInfo);
+                    }
+                    mat?.BindMaterial(frameInfo, drawCall.MeshIndex, new SimplePushConstantData(drawCall.Ltw), drawCall.TextureIndex);
+                }
             }
         }
 
@@ -86,9 +61,24 @@ namespace SDL_Vulkan_CS.ECS.Presentation.Systems
             _renderQuery.MarkStale();
         }
 
-        public unsafe override void OnDestroy(EntityManager entityManager)
+        public struct DrawCall : IComparer<DrawCall>
         {
-            _simpleMaterial.Dispose();
+            public int MeshIndex;
+            public int TextureIndex;
+            public int MaterialIndex;
+            public Matrix4x4 Ltw;
+
+            public int Compare(DrawCall x, DrawCall y)
+            {
+                if(x.MaterialIndex.CompareTo(y.MaterialIndex) != 0)
+                {
+                    return x.MaterialIndex.CompareTo(y.MaterialIndex);
+                }
+                else
+                {
+                    return 0;
+                }
+            }
         }
 
     }

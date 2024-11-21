@@ -14,7 +14,11 @@ namespace SDL_Vulkan_CS.VulkanBackend
     /// </summary>
     public class Texture2d
     {
+        public static string DefaultTexturePath => Path.Combine(Application.ExecutingDirectory, "Assets/Textures");
+
         public static readonly List<Texture2d> Textures = [];
+
+        public static Texture2d Fallback => Textures[0];
 
         private VkDescriptorImageInfo _imageDescriptor;
 
@@ -44,6 +48,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
         {
             _device = device;
             var surface = LoadImage(filepath);
+            if (surface == null) return;
             CreateTextureImage(surface);
             CreateImageView();
             CreateTextureSampler();
@@ -258,7 +263,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
             _imageLayout = newLayout;
         }
 
-        public static Surface LoadImage(string fileName)
+        private static Surface LoadImage(string fileName)
         {
             if (!File.Exists(fileName))
             {
@@ -358,7 +363,21 @@ namespace SDL_Vulkan_CS.VulkanBackend
             }
         }
 
+        public static string GetTextureInDefaultPath(string file)
+        {
+            return Path.Combine(DefaultTexturePath, file);
+        }
+
+        public static Texture2d GetTextureAtIndex(int index)
+        {
+            index = Math.Max(0, index);
+            return index <Textures.Count ? Textures[index] : Fallback;
+        }
+
+        public static VkDescriptorImageInfo GetTextureImageInfoAtIndex(int index)
+        {
+            index = Math.Max(0, index);
+            return index < Textures.Count ? Textures[index].GetImageInfo : Fallback.GetImageInfo;
+        }
     }
-
-
 }

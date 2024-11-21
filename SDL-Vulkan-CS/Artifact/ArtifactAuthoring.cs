@@ -9,6 +9,7 @@ using SDL_Vulkan_CS.VulkanBackend;
 using SDL_Vulkan_CS.ECS.Presentation;
 using SDL_Vulkan_CS.ECS.Presentation.Systems;
 using System.IO;
+using Vortice.Vulkan;
 
 namespace SDL_Vulkan_CS.Artifact
 {
@@ -30,6 +31,7 @@ namespace SDL_Vulkan_CS.Artifact
         {
             World.DefaultWorld.CreateSystem<SimpleRenderSystem>();
 
+            
 
             EntityManager entityManager = World.DefaultWorld.EntityManager;
 
@@ -39,31 +41,48 @@ namespace SDL_Vulkan_CS.Artifact
             entityManager.AddComponent(MainCamera, cameraPerspective);
             entityManager.AddComponent<MainCamera>(MainCamera);
 
-            Mesh[] meshes = Mesh.LoadModelFromFile(GraphicsDevice.Instance, Path.Combine(Application.ExecutingDirectory, "Assets/Models/cube-uv.obj"));
-            Texture2d texture = new(GraphicsDevice.Instance, Path.Combine(Application.ExecutingDirectory, "Assets/Textures/paving 5.png"));
+            _ = Mesh.LoadModelFromFile(GraphicsDevice.Instance, Mesh.GetMeshInDefaultPath("cube-uv.obj"));
+            _ = Mesh.LoadModelFromFile(GraphicsDevice.Instance, Mesh.GetMeshInDefaultPath("flat_vase.obj"));
+            _ = Mesh.LoadModelFromFile(GraphicsDevice.Instance, Mesh.GetMeshInDefaultPath("smooth_vase.obj"));
 
+            _ = new Texture2d(GraphicsDevice.Instance, Texture2d.GetTextureInDefaultPath("paving 5.png"));
+            _ = new Texture2d(GraphicsDevice.Instance, Texture2d.GetTextureInDefaultPath("orange.jpg"));
 
-            // var m = Cube();
-            // 
-            // m.FlushMesh();
-            // Mesh.Meshes.Add(m);
+            _ = new Material("simple_shader.vert", "simple_shader.frag", typeof(SimplePushConstantData), new DescriptorSetBinding(VkDescriptorType.CombinedImageSampler, VkShaderStageFlags.Fragment));
+            _ = new Material("unlit_shader.vert", "unlit_shader.frag", typeof(SimplePushConstantData), new DescriptorSetBinding(VkDescriptorType.CombinedImageSampler, VkShaderStageFlags.Fragment));
 
 
             var cube = entityManager.CreateEntity();
-            entityManager.AddComponent(cube, new Translation() { Value = new(0,0,0) });
-            //entityManager.AddComponent(cube,new Scale() { Value = new(1,1,1) });
-            //entityManager.AddComponent(cube, new Rotation() { Value = TransformExtensions.Euler(45, 45, 45) });
+            entityManager.AddComponent(cube, new Translation() { Value = new(1.5f, -1.5f, 0) });
             entityManager.AddComponent(cube,new MeshIndex() { Value = 0});
-            entityManager.AddComponent(cube,new TextureIndex() { Value = 0});
+            entityManager.AddComponent(cube,new TextureIndex() { Value = 1});
+            entityManager.AddComponent(cube,new MaterialIndex() { Value = 0});
             
+            var cube2 = entityManager.CreateEntity();
+            entityManager.AddComponent(cube2, new Translation() { Value = new(-1.5f, 1.5f, 0) });
+            entityManager.AddComponent(cube2, new Rotation() { Value = new(float.DegreesToRadians(180), 0, 0) });
+            entityManager.AddComponent(cube2, new Scale() { Value = new(6, 6, 6) });
+            entityManager.AddComponent(cube2, new MeshIndex() { Value = 2 });
+            entityManager.AddComponent(cube2, new TextureIndex() { Value = 1 });
+            entityManager.AddComponent(cube2, new MaterialIndex() { Value = 1 });
 
+            var cube3 = entityManager.CreateEntity();
+            entityManager.AddComponent(cube3, new Translation() { Value = new(1.5f, 1.5f, 0) });
+            entityManager.AddComponent(cube3, new Rotation() { Value = new(float.DegreesToRadians(180), 0, 0) });
+            entityManager.AddComponent(cube3, new Scale() { Value = new(6,6,6) });
+            entityManager.AddComponent(cube3, new MeshIndex() { Value = 1 });
+            entityManager.AddComponent(cube3, new TextureIndex() { Value = 2 });
+            entityManager.AddComponent(cube3, new MaterialIndex() { Value = 0 });
 
+            var cube4 = entityManager.CreateEntity();
+            entityManager.AddComponent(cube4, new Translation() { Value = new(-1.5f, -1.5f, 0) });
+            entityManager.AddComponent(cube4, new MeshIndex() { Value = 0 });
+            entityManager.AddComponent(cube4, new TextureIndex() { Value = 2 });
+            entityManager.AddComponent(cube4, new MaterialIndex() { Value = 1 });
         }
 
         public void Destroy()
         {
-            Mesh.Meshes.ForEach(m => m.Dispose());
-            Texture2d.Textures.ForEach(m => m.Dispose());
         }
 
         private Mesh Cube()

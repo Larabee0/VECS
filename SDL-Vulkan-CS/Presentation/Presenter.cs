@@ -1,5 +1,6 @@
 ﻿using SDL_Vulkan_CS.ECS;
 using SDL_Vulkan_CS.ECS.Presentation.Systems;
+using SDL_Vulkan_CS.VulkanBackend;
 using System;
 using System.Numerics;
 using Vortice.Vulkan;
@@ -54,6 +55,7 @@ namespace SDL_Vulkan_CS
 
             InitGloalDescriptorPool();
             InitSwapChainFrameDescriptorPools();
+            LoadMissingTexture();
             Instance = this;
         }
 
@@ -105,6 +107,11 @@ namespace SDL_Vulkan_CS
             // CreateSimpleRenderSystem();
         }
 
+        public void LoadMissingTexture()
+        {
+            _ = new Texture2d(_device, Texture2d.GetTextureInDefaultPath("missing.png"));
+        }
+
         private unsafe DescriptorSetLayout ConfigureUboBuffers(CsharpVulkanBuffer[] uboBuffers, VkDescriptorSet[] globalDescriptorSets)
         {
             for (int i = 0; i < uboBuffers.Length; i++)
@@ -115,10 +122,7 @@ namespace SDL_Vulkan_CS
                     1,
                     VkBufferUsageFlags.UniformBuffer,
                     true);
-                //uboBuffers[i].Map(); // map the GPU device memory to the System memory.
             }
-
-            Console.WriteLine("[Warning] ubos are not mapped to device memory!\n\t if a ubo depdant thing is not working properly this may be why!");
 
             // add the binding for this buffer and set where it is avaliable in the shader pipeline
             // in this case its avaliable to all graphis stages.
@@ -211,7 +215,7 @@ namespace SDL_Vulkan_CS
 
                 ubo.PointLights = new PointLight()
                 {
-                    Position = new Vector4(0, 1, 0, 0),
+                    Position = new Vector4(0, 0, 0, 0),
                     Colour = new Vector4(1, 1, 1, 1f)
                 };
                 ubo.NumLights = 1;
@@ -252,6 +256,10 @@ namespace SDL_Vulkan_CS
 
         public void Dispose()
         {
+            Material.Materials.ForEach(m => m.Dispose());
+            Texture2d.Textures.ForEach(t => t.Dispose());
+            Mesh.Meshes.ForEach(m => m.Dispose());
+
             Instance = null;
             // deallocation order matters.
             // first deallocat the buffers

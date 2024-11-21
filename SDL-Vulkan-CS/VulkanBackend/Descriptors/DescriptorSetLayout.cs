@@ -89,10 +89,38 @@ namespace SDL_Vulkan_CS
                 return this;
             }
 
+            public Builder AddBinding(uint binding,DescriptorSetBinding req)
+            {
+                return AddBinding(binding, req.DescriptorType, req.StageFlags, req.Count);
+            }
+
+            public Builder AddBindings(params DescriptorSetBinding[] reqs)
+            {
+                for (uint i = 0; i < reqs.Length; i++)
+                {
+                    AddBinding(i, reqs[i]);
+                }
+                return this;
+            }
+
             public DescriptorSetLayout Build()
             {
                 return new DescriptorSetLayout(_graphicsDevice, _bindings);
             }
+        }
+    }
+
+    public struct DescriptorSetBinding
+    {
+        public VkDescriptorType DescriptorType;
+        public VkShaderStageFlags StageFlags;
+        public uint Count;
+
+        public DescriptorSetBinding(VkDescriptorType descriptorType, VkShaderStageFlags stageFlags, uint count = 1)
+        {
+            DescriptorType = descriptorType;
+            StageFlags = stageFlags;
+            Count = count;
         }
     }
 }
