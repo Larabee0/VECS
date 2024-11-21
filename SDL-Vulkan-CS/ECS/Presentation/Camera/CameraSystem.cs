@@ -13,8 +13,8 @@ namespace SDL_Vulkan_CS
     /// </summary>
     public class CameraSystem : SystemBase
     {
-        const float lookSpeed = 4.5f;
-        const float moveSpeed = 2f;
+        const float lookSpeed = 3.5f;
+        const float moveSpeed = 3f;
 
         EntityQuery _cameraQueryPerspective; // query for persepctive cameras
         EntityQuery _cameraQueryOrthographic; // query for orthographic cameras
@@ -175,12 +175,12 @@ namespace SDL_Vulkan_CS
             if (mouse.LengthSquared() > float.Epsilon)
             {
                 Vector3 rotate = default;
-                rotate.X = Math.Clamp(mouse.Y, -1, 1);
-                rotate.Y = Math.Clamp(-mouse.X, -1, 1);
+                rotate.X = mouse.Y; 
+                rotate.Y = -mouse.X;
 
-                if (Vector3.Dot(rotate, rotate) > float.Epsilon)
+                if (rotate.LengthSquared() > float.Epsilon)
                 {
-                    rotation.Value += lookSpeed * Application.DeltaTime * Vector3.Normalize(rotate);
+                    rotation.Value += lookSpeed * Application.DeltaTime * (rotate);
 
                     rotation.Value.X = Math.Clamp(rotation.Value.X, -1.5f, 1.5f);
                     rotation.Value.Y %= MathF.Tau;
