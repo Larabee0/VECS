@@ -14,7 +14,7 @@ namespace SDL_Vulkan_CS
     public class CameraSystem : SystemBase
     {
         const float lookSpeed = 4.5f;
-        const float moveSpeed = 1.5f;
+        const float moveSpeed = 2f;
 
         EntityQuery _cameraQueryPerspective; // query for persepctive cameras
         EntityQuery _cameraQueryOrthographic; // query for orthographic cameras

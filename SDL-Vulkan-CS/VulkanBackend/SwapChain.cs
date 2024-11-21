@@ -70,7 +70,7 @@ namespace SDL_Vulkan_CS
             _oldSwapChain = previous;
 
             Init();
-
+            _oldSwapChain.Dispose();
             _oldSwapChain = null;
         }
 

@@ -13,8 +13,8 @@ namespace SDL_Vulkan_CS
     /// </summary>
     public sealed class SDL3Window : IWindow
     {
-        private readonly static SDL_InitFlags _sdl_Init_Flags = SDL_InitFlags.Video;
-        private readonly static SDL_WindowFlags _sdl_Window_Flags = SDL_WindowFlags.HighPixelDensity | SDL_WindowFlags.Vulkan;
+        private readonly static SDL_InitFlags _sdl_Init_Flags = SDL_InitFlags.Video | SDL_InitFlags.Events;
+        private readonly static SDL_WindowFlags _sdl_Window_Flags = SDL_WindowFlags.HighPixelDensity | SDL_WindowFlags.Vulkan | SDL_WindowFlags.Resizable;
 
         private readonly string _windowName;
         private int _width;
@@ -22,7 +22,7 @@ namespace SDL_Vulkan_CS
         private bool _framebufferResized = false;
 
         private SDL_Window _window;
-        private InputManager _inputManager;
+        private readonly InputManager _inputManager;
 
         private SDL_WindowID Id { get; set; }
 
