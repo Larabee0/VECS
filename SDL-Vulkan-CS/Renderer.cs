@@ -4,6 +4,18 @@ using Vortice.Vulkan;
 
 namespace SDL_Vulkan_CS
 {
+    /// <summary>
+    /// servers as an partial abstraction for managing the swapchain and getting the current command buffer from the gpu.
+    /// 
+    /// This is responsible for creating the swapchain instance
+    /// this is responsible for recreating the swapchain if hte window is resized
+    /// this is responsible for switching between swapchain images each frame render cycle.
+    /// This determines the current image index
+    /// This determines the current frame index
+    /// This determines if a frame has started being rendered
+    /// This handles the command buffer for each frame
+    /// 
+    /// </summary>
     public sealed class Renderer : IDisposable
     {
         private readonly IWindow _window;
@@ -44,7 +56,7 @@ namespace SDL_Vulkan_CS
 
         public VkRenderPass SwapChainRenderPass => _swapChain.RenderPass;
 
-        public Renderer(IWindow window,GraphicsDevice device)
+        public Renderer(IWindow window, GraphicsDevice device)
         {
             _window = window;
             _device = device;
@@ -53,6 +65,11 @@ namespace SDL_Vulkan_CS
             CreateCommandBuffers();
         }
 
+        /// <summary>
+        /// Every time the window is resized the swapchain must be recreated with the new dimentions.
+        /// This also pulls double duty for the inital swapchain creation.
+        /// </summary>
+        /// <exception cref="Exception"></exception>
         private void RecreateSwapChain()
         {
             var extent = _window.WindowExtend;
@@ -71,7 +88,7 @@ namespace SDL_Vulkan_CS
             else
             {
                 var oldSwapChain = _swapChain;
-                 _swapChain = new(_device,extent, oldSwapChain);
+                _swapChain = new(_device, extent, oldSwapChain);
 
                 if (!oldSwapChain.CompareSwapFormats(_swapChain))
                 {
@@ -80,6 +97,11 @@ namespace SDL_Vulkan_CS
             }
         }
 
+        /// <summary>
+        /// This creates a command buffer for each swapchain frame for rendering that swapchain frame.
+        /// unlike the swapchain itself, the command buffers can be recycled when the image size changes.
+        /// </summary>
+        /// <exception cref="Exception"></exception>
         private unsafe void CreateCommandBuffers()
         {
             commandBuffers = new VkCommandBuffer[SwapChain.MAX_FRAMES_IN_FLIGHT];
@@ -100,16 +122,26 @@ namespace SDL_Vulkan_CS
             }
         }
 
+        /// <summary>
+        /// releases the command buffers for disposal
+        /// </summary>
         private unsafe void FreeCommandBuffers()
         {
-            fixed(VkCommandBuffer* pCommandBuffers = &commandBuffers[0])
+            fixed (VkCommandBuffer* pCommandBuffers = &commandBuffers[0])
             {
                 Vulkan.vkFreeCommandBuffers(_device.Device, _device.CommandBufferPool, (uint)commandBuffers.Length, pCommandBuffers);
             }
         }
 
         #region Render Cycle
-
+        /// <summary>
+        /// This begins a new frame render cycle by getting the next swapchain frame and command buffer
+        /// If the window has been resized, its at this point the swapchain is recreated.
+        /// In such a case the requested new frame begin will be skipped.
+        /// </summary>
+        /// <returns></returns>
+        /// <exception cref="InvalidOperationException"></exception>
+        /// <exception cref="Exception"></exception>
         public unsafe VkCommandBuffer BeginFrame()
         {
             if (isFrameStarted)
@@ -119,13 +151,13 @@ namespace SDL_Vulkan_CS
 
             var result = _swapChain.AcquireNextImage(out currentImageIndex);
 
-            if(result == VkResult.ErrorOutOfDateKHR)
+            if (result == VkResult.ErrorOutOfDateKHR)
             {
                 RecreateSwapChain();
                 return VkCommandBuffer.Null;
             }
 
-            if(result != VkResult.Success && result != VkResult.SuboptimalKHR)
+            if (result != VkResult.Success && result != VkResult.SuboptimalKHR)
             {
                 throw new Exception("Failed to acquire next swap chain image");
             }
@@ -143,6 +175,11 @@ namespace SDL_Vulkan_CS
             return commandBuffer;
         }
 
+        /// <summary>
+        /// once the command buffer and frame have been determined the render pass for the swapchain frame can begin.
+        /// </summary>
+        /// <param name="commandBuffer"></param>
+        /// <exception cref="InvalidOperationException"></exception>
         public unsafe void BeginSwapChainRenderPass(VkCommandBuffer commandBuffer)
         {
             if (!isFrameStarted)
@@ -150,20 +187,20 @@ namespace SDL_Vulkan_CS
                 throw new InvalidOperationException("Can't call BeginSwapChainRenderPass while frame is not in progress!");
             }
 
-            if(commandBuffer != CurrentCommandBuffer)
+            if (commandBuffer != CurrentCommandBuffer)
             {
                 throw new InvalidOperationException("Can't begin render pass on command buffer from a different frame!");
             }
 
             VkRect2D renderArea = new()
-            { 
-                offset = new(0,0),
+            {
+                offset = new(0, 0),
                 extent = _swapChain.SwapChainExtent
             };
 
             VkClearValue[] clearValues = [new VkClearValue(0.1f, 0.1f, 0.1f), new VkClearValue(1.0f, 0)];
 
-            fixed(VkClearValue* pClearValues = &clearValues[0])
+            fixed (VkClearValue* pClearValues = &clearValues[0])
             {
                 VkRenderPassBeginInfo renderPassInfo = new()
                 {
@@ -189,7 +226,7 @@ namespace SDL_Vulkan_CS
 
             VkRect2D scissor = new()
             {
-                offset = new VkOffset2D(0,0),
+                offset = new VkOffset2D(0, 0),
                 extent = _swapChain.SwapChainExtent
             };
 
@@ -197,6 +234,11 @@ namespace SDL_Vulkan_CS
             Vulkan.vkCmdSetScissor(commandBuffer, scissor);
         }
 
+        /// <summary>
+        /// completes the swapchain frame render pass
+        /// </summary>
+        /// <param name="commandBuffer"></param>
+        /// <exception cref="InvalidOperationException"></exception>
         public void EndSwapChainRenderPass(VkCommandBuffer commandBuffer)
         {
             if (!isFrameStarted)
@@ -212,6 +254,12 @@ namespace SDL_Vulkan_CS
             Vulkan.vkCmdEndRenderPass(commandBuffer);
         }
 
+        /// <summary>
+        /// ends the rendering of the current frame and submits the render commands to the gpu.
+        /// if the window was resized during our frame render, swapchain is recreated after the render commands have been submitted.
+        /// </summary>
+        /// <exception cref="InvalidOperationException"></exception>
+        /// <exception cref="Exception"></exception>
         public unsafe void EndFrame()
         {
             if (!isFrameStarted)

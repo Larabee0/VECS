@@ -10,9 +10,9 @@ namespace SDL_Vulkan_CS
     {
         private DescriptorSetLayout _setLayout;
         private DescriptorPool _pool;
-        private VkWriteDescriptorSet[] _writes=[];
+        private VkWriteDescriptorSet[] _writes = [];
 
-        public DescriptorWriter(DescriptorSetLayout setLayout,DescriptorPool pool)
+        public DescriptorWriter(DescriptorSetLayout setLayout, DescriptorPool pool)
         {
             _setLayout = setLayout;
             _pool = pool;
@@ -47,7 +47,7 @@ namespace SDL_Vulkan_CS
                 descriptorCount = 1
             };
 
-            _writes = [.._writes, write];
+            _writes = [.. _writes, write];
             return this;
         }
 

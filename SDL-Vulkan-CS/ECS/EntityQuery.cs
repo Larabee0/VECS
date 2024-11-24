@@ -1,14 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace SDL_Vulkan_CS.ECS
 {
     /// <summary>
     /// Defines an entity query to get entities from the entity world with certain components
-    /// With all rqeuires an entity to have all teh given compoennts
+    /// With all rqeuires an entity to have all the given components
     /// With none requires an entity to not have the given the components
     /// With any requires the entity to have at least one of the given components
     /// </summary>
@@ -30,14 +28,16 @@ namespace SDL_Vulkan_CS.ECS
         private bool _hasEnitities = false;
         public bool Built => _built;
 
-        public bool HasEntities {  // if the query is stale, this updates the query
+        public bool HasEntities
+        {  
+            // if the query is stale, this updates the query
             get
             {
-                if (!_built)
+                if (!Built)
                 {
                     throw new InvalidOperationException("Cannot check enities in unbuilt EntityQuery");
                 }
-                if (_stale)
+                if (Stale)
                 {
                     AnyEntities();
                 }
@@ -96,7 +96,7 @@ namespace SDL_Vulkan_CS.ECS
         }
 
         /// <summary>
-        /// Adds the given compoennt types to teh qury's WithNone list.
+        /// Adds the given component types to the query's WithNone list.
         /// If a given component type exists WithAny or WithAll, an exception is raised.
         /// </summary>
         /// <param name="componentTypes"></param>
@@ -159,7 +159,6 @@ namespace SDL_Vulkan_CS.ECS
 
             _withAny = new(any);
 
-
             if (any.Overlaps(_withNone))
             {
                 any.IntersectWith(_withNone);
@@ -178,7 +177,6 @@ namespace SDL_Vulkan_CS.ECS
                 any.ExceptWith(all);
                 _withAny = new(any);
             }
-
 
             return this;
         }
@@ -232,6 +230,7 @@ namespace SDL_Vulkan_CS.ECS
                 }
             }
 
+            // this was MUCH slower than serial for some reason
             // Parallel.ForEach(_entityManager._archetypeIdsToComponentIds.Values, (HashSet<int> entitySet, ParallelLoopState state) =>
             // {
             //     if ((entitySet.Overlaps(_withAnySet)||_withAnySet.Count == 0)
@@ -242,6 +241,7 @@ namespace SDL_Vulkan_CS.ECS
             //         state.Break();
             //     }
             // });
+
             _stale = false;
             _hasEnitities = any;
 
@@ -273,7 +273,6 @@ namespace SDL_Vulkan_CS.ECS
                 }
             });
 
-
             _withNone.ForEach(compId =>
             {
                 if (_entityManager.GetAllEntitiesWithoutComponent(compId,out var entities))
@@ -281,6 +280,7 @@ namespace SDL_Vulkan_CS.ECS
                     entitiesSet.UnionWith(entities);
                 }
             });
+
             _withNone.ForEach(compId =>
             {
                 if (_entityManager.GetAllEntitiesWithComponent(compId, out var entities))
@@ -315,7 +315,5 @@ namespace SDL_Vulkan_CS.ECS
 
             return entities;
         }
-
-
     }
 }

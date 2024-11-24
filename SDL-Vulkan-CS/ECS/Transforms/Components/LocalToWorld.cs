@@ -1,12 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Numerics;
 
 namespace SDL_Vulkan_CS.ECS
 {
+    /// <summary>
+    /// stores the local to world matrix for an entity.
+    /// </summary>
     public struct LocalToWorld : IComponent
     {
         public static int ComponentId { get; set; }

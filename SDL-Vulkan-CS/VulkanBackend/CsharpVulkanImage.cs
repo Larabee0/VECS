@@ -1,20 +1,16 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Vortice.Vulkan;
 
 namespace SDL_Vulkan_CS.VulkanBackend
 {
+    /// <summary>
+    /// Abstracted buffer class for managing a Vk Image and device memory using the Vulkan Memory Allocator (VMA)
+    /// </summary>
     public sealed class CsharpVulkanImage : IDisposable
     {
-        public readonly ulong ImageSize;
-        
         private readonly GraphicsDevice _device;
 
         public readonly VkImage VkImage;
-
         private readonly VmaAllocation _allocation;
 
         public unsafe CsharpVulkanImage(GraphicsDevice graphicsDevice, VkImageCreateInfo imgCreateInfo)
@@ -25,17 +21,10 @@ namespace SDL_Vulkan_CS.VulkanBackend
                 usage = VmaMemoryUsage.Auto
             };
 
-            if(Vma.vmaCreateImage(_device.VmaAllocator, imgCreateInfo,allocationInfo,out VkImage,out _allocation) != VkResult.Success)
+            if (Vma.vmaCreateImage(_device.VmaAllocator, imgCreateInfo, allocationInfo, out VkImage, out _allocation) != VkResult.Success)
             {
                 throw new Exception("Failed to create vma image!");
             }
-        }
-
-
-        public void Dispose()
-        {
-            if (VkImage == VkImage.Null || _allocation == VmaAllocation.Null) return;
-            Vma.vmaDestroyImage(_device.VmaAllocator, VkImage, _allocation);
         }
 
         public unsafe void CopyFromBuffer(CsharpVulkanBuffer buffer, uint width, uint height)
@@ -53,8 +42,8 @@ namespace SDL_Vulkan_CS.VulkanBackend
                     baseArrayLayer = 0,
                     layerCount = 1
                 },
-                imageOffset = new(0,0,0),
-                imageExtent = new(width,height,1)
+                imageOffset = new(0, 0, 0),
+                imageExtent = new(width, height, 1)
             };
 
             Vulkan.vkCmdCopyBufferToImage(commandBuffer, buffer.VkBuffer, VkImage, VkImageLayout.TransferDstOptimal, 1, &region);
@@ -79,6 +68,12 @@ namespace SDL_Vulkan_CS.VulkanBackend
                 samples = VkSampleCountFlags.Count1,
                 flags = 0
             };
+        }
+
+        public void Dispose()
+        {
+            if (VkImage == VkImage.Null || _allocation == VmaAllocation.Null) return;
+            Vma.vmaDestroyImage(_device.VmaAllocator, VkImage, _allocation);
         }
     }
 }

@@ -10,14 +10,20 @@ using Vortice.Vulkan;
 namespace SDL_Vulkan_CS.VulkanBackend
 {
     /// <summary>
+    /// Based on these and also on Unity's Mesh
     /// https://bitbucket.org/Starnick/assimpnet/src/master/AssimpNet.Sample/SimpleModel.cs
     /// https://bitbucket.org/Starnick/assimpnet/src/master/AssimpNet.Sample/Helper.cs
     /// https://assimp-docs.readthedocs.io/en/latest/about/quickstart.html
+    /// 
+    /// Abstration of vk buffers that define a mesh.
+    /// This allows you to write to two arrays <see cref="vertices"/> & <see cref="indices"/>
+    /// then flush them to the gpu via a staging buffer or directly, depending on how the mesh was configured on construction.
     /// </summary>
     public class Mesh
     {
         public static string DefaultMeshPath => Path.Combine(Application.ExecutingDirectory, "Assets/Models");
         public static List<Mesh> Meshes = [];
+
         private readonly ulong _offset;
         private readonly bool _hasIndexBuffer;
         private bool _stagedMesh;
@@ -44,7 +50,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
         /// </summary>
         /// <param name="vertices"></param>
         /// <param name="useStagingBuffers"></param>
-        public Mesh(GraphicsDevice device, Vertex[] vertices,bool useStagingBuffers = true)
+        public Mesh(GraphicsDevice device, Vertex[] vertices, bool useStagingBuffers = true)
         {
             _device = device;
             this.vertices = vertices;
@@ -69,12 +75,20 @@ namespace SDL_Vulkan_CS.VulkanBackend
             _stagedMesh = useStagingBuffers;
         }
 
+        /// <summary>
+        /// Calls bind then draw
+        /// </summary>
+        /// <param name="commandBuffer"></param>
         public void BindAndDraw(VkCommandBuffer commandBuffer)
         {
             Bind(commandBuffer);
             Draw(commandBuffer);
         }
 
+        /// <summary>
+        /// bind the mesh to the command buffer
+        /// </summary>
+        /// <param name="commandBuffer"></param>
         public void Bind(VkCommandBuffer commandBuffer)
         {
             if (_vertexBuffer == null) return;
@@ -89,6 +103,10 @@ namespace SDL_Vulkan_CS.VulkanBackend
             }
         }
 
+        /// <summary>
+        /// execute a draw command for the mesh
+        /// </summary>
+        /// <param name="commandBuffer"></param>
         public void Draw(VkCommandBuffer commandBuffer)
         {
             if (_vertexBuffer == null) return;
@@ -115,7 +133,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
         {
             if (_stagedMesh == staged) return;
 
-            if(_vertexBuffer != null)
+            if (_vertexBuffer != null)
             {
                 _vertexBuffer.Dispose();
                 _vertexBuffer = null;
@@ -199,7 +217,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
                 var stagingBuffer = new CsharpVulkanBuffer(_device, sizeof(uint), (uint)indices.Length, VkBufferUsageFlags.TransferSrc, true);
                 fixed (void* data = &indices[0])
                 {
-                    stagingBuffer.WriteToBuffer( data);
+                    stagingBuffer.WriteToBuffer(data);
                 }
 
                 _indexBuffer ??= new CsharpVulkanBuffer(_device, sizeof(uint), (uint)indices.Length, VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.IndexBuffer, false);
@@ -237,6 +255,12 @@ namespace SDL_Vulkan_CS.VulkanBackend
             }
         }
 
+        /// <summary>
+        /// Load a mesh at the given file path
+        /// </summary>
+        /// <param name="device"></param>
+        /// <param name="filePath"></param>
+        /// <returns></returns>
         public static Mesh[] LoadModelFromFile(GraphicsDevice device, string filePath)
         {
             if (!File.Exists(filePath))
@@ -251,24 +275,35 @@ namespace SDL_Vulkan_CS.VulkanBackend
             {
                 return null;
             }
-            var meshes = CreateMeshes(device,scene);
+            var meshes = CreateMeshes(device, scene);
             importer.Dispose();
             Meshes.AddRange(meshes);
             return meshes;
         }
 
-        public static Mesh[] CreateMeshes(GraphicsDevice device,Scene scene)
+        /// <summary>
+        /// create mesh intances from the given scene. these will have staged buffers
+        /// </summary>
+        /// <param name="device"></param>
+        /// <param name="scene"></param>
+        /// <returns></returns>
+        public static Mesh[] CreateMeshes(GraphicsDevice device, Scene scene)
         {
             Mesh[] sceneMeshs = new Mesh[scene.MeshCount];
 
             for (int i = 0; i < scene.Meshes.Count; i++)
             {
-                sceneMeshs[i] = new(device,CreateVertexArray(scene.Meshes[i]), CreateIndexArray(scene.Meshes[i]));
+                sceneMeshs[i] = new(device, CreateVertexArray(scene.Meshes[i]), CreateIndexArray(scene.Meshes[i]));
             }
 
             return sceneMeshs;
         }
 
+        /// <summary>
+        /// Creates a vertex array for a mesh given an assimp mesh
+        /// </summary>
+        /// <param name="m"></param>
+        /// <returns></returns>
         private static Vertex[] CreateVertexArray(Assimp.Mesh m)
         {
             Vertex[] vertices = new Vertex[m.Vertices.Count];
@@ -295,17 +330,32 @@ namespace SDL_Vulkan_CS.VulkanBackend
             return vertices;
         }
 
+        /// <summary>
+        /// returns the unsighed indices array from the assimp mesh
+        /// </summary>
+        /// <param name="mesh"></param>
+        /// <returns></returns>
         private static unsafe uint[] CreateIndexArray(Assimp.Mesh mesh)
         {
             return mesh.GetUnsignedIndices();
         }
 
+        /// <summary>
+        /// Gets the file path of a mesh in the default mesh directory.
+        /// </summary>
+        /// <param name="file"></param>
+        /// <returns></returns>
         public static string GetMeshInDefaultPath(string file)
         {
             return Path.Combine(DefaultMeshPath, file);
         }
 
-
+        /// <summary>
+        /// Gets the mesh intance at the given index, by default this will call <see cref="FlushMesh"/>
+        /// </summary>
+        /// <param name="index"></param>
+        /// <param name="autoFlush"></param>
+        /// <returns></returns>
         public static Mesh GetMeshAtIndex(int index, bool autoFlush = true)
         {
             index = Math.Max(0, index);
@@ -317,6 +367,16 @@ namespace SDL_Vulkan_CS.VulkanBackend
             }
 
             return mesh;
+        }
+
+        /// <summary>
+        /// get the index of the given mesh instance
+        /// </summary>
+        /// <param name="mesh"></param>
+        /// <returns></returns>
+        public static int GetIndexOfMesh(Mesh mesh)
+        {
+            return Meshes.IndexOf(mesh);
         }
     }
 }

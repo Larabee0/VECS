@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Numerics;
 
 namespace SDL_Vulkan_CS.ECS
 {
@@ -17,12 +12,16 @@ namespace SDL_Vulkan_CS.ECS
         public override void OnCreate(EntityManager entityManager)
         {
             // any entity with a translation, rotation or scale component should get a LTW component added to it automatically.
-            EntityQuery addLtw = new EntityQuery(entityManager).WithAny(typeof(Translation), typeof(Rotation), typeof(Scale)).WithNone(typeof(LocalToWorld)).Build();
+            _addLTWQuery = new EntityQuery(entityManager)
+                .WithAny(typeof(Translation), typeof(Rotation), typeof(Scale))
+                .WithNone(typeof(LocalToWorld))
+                .Build();
 
             // local to world update query
-            EntityQuery ltw = new EntityQuery(entityManager).WithAll(typeof(LocalToWorld)).WithAny(typeof(Translation),typeof(Rotation),typeof(Scale)).Build();
-            _ltwQuery = ltw;
-            _addLTWQuery = addLtw;
+            _ltwQuery = new EntityQuery(entityManager)
+                .WithAll(typeof(LocalToWorld))
+                .WithAny(typeof(Translation), typeof(Rotation), typeof(Scale))
+                .Build();
         }
 
         public override void OnUpdate(EntityManager entityManager)
@@ -35,14 +34,13 @@ namespace SDL_Vulkan_CS.ECS
                 });
             }
 
-            if(_ltwQuery.HasEntities) // updates and checks if the query has entities. NoAlloc check
+            if (_ltwQuery.HasEntities) // updates and checks if the query has entities. NoAlloc check
             {
                 // compute a ltw matrisx for each entity matching the query.
                 // defaults are assume for entities missing t r s components
                 _ltwQuery.GetEntities().ForEach(e =>
                 {
                     Vector3 translation = entityManager.GetComponent(e, out Translation t) ? t.Value : Vector3.Zero;
-                    //Quaternion rotation = entityManager.GetComponent(e, out Rotation r) ? r.Value : Quaternion.Identity;
                     Vector3 rotation = entityManager.GetComponent(e, out Rotation r) ? r.Value : Vector3.Zero;
                     Vector3 scale = entityManager.GetComponent(e, out Scale s) ? s.Value : Vector3.One;
 
@@ -62,7 +60,7 @@ namespace SDL_Vulkan_CS.ECS
 
         public override void OnDestroy(EntityManager entityManager)
         {
-            
+
         }
     }
 }

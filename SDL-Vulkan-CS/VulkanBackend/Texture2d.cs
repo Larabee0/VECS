@@ -1,15 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using TeximpNet;
 using Vortice.Vulkan;
 
 namespace SDL_Vulkan_CS.VulkanBackend
 {
     /// <summary>
+    /// based on
     /// https://bitbucket.org/Starnick/assimpnet/src/master/AssimpNet.Sample/Helper.cs
     /// </summary>
     public class Texture2d
@@ -27,23 +25,22 @@ namespace SDL_Vulkan_CS.VulkanBackend
         private VkExtent3D _imageExtents;
 
         private readonly GraphicsDevice _device;
-		private CsharpVulkanImage _textureImage;
+        private CsharpVulkanImage _textureImage;
         private VkImageView _textureImageView;
         private VkSampler _textureSampler;
 
-        public VkDescriptorImageInfo GetImageInfo
+        public VkDescriptorImageInfo GetImageInfo => new()
         {
-            get
-            {
-                return new()
-                {
-                    imageLayout = VkImageLayout.ShaderReadOnlyOptimal,
-                    imageView = _textureImageView,
-                    sampler = _textureSampler
-                };
-            }
-        }
+            imageLayout = VkImageLayout.ShaderReadOnlyOptimal,
+            imageView = _textureImageView,
+            sampler = _textureSampler
+        };
 
+        /// <summary>
+        /// create an image that loaded from the given file path
+        /// </summary>
+        /// <param name="device"></param>
+        /// <param name="filepath"></param>
         public Texture2d(GraphicsDevice device, string filepath)
         {
             _device = device;
@@ -56,7 +53,15 @@ namespace SDL_Vulkan_CS.VulkanBackend
             Textures.Add(this);
         }
 
-        public unsafe Texture2d(GraphicsDevice deivce, VkFormat format, VkExtent3D extent,VkImageUsageFlags usage)
+        /// <summary>
+        /// directly creates a blank image
+        /// </summary>
+        /// <param name="deivce"></param>
+        /// <param name="format"></param>
+        /// <param name="extent"></param>
+        /// <param name="usage"></param>
+        /// <exception cref="Exception"></exception>
+        public unsafe Texture2d(GraphicsDevice deivce, VkFormat format, VkExtent3D extent, VkImageUsageFlags usage)
         {
             _device = deivce;
             VkImageAspectFlags aspectMask = 0;
@@ -66,7 +71,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
             _imageExtents = extent;
 
 
-            if (usage.HasFlag( VkImageUsageFlags.ColorAttachment))
+            if (usage.HasFlag(VkImageUsageFlags.ColorAttachment))
             {
                 aspectMask = VkImageAspectFlags.Color;
                 _imageLayout = VkImageLayout.ColorAttachmentOptimal;
@@ -111,14 +116,14 @@ namespace SDL_Vulkan_CS.VulkanBackend
                     addressModeU = VkSamplerAddressMode.ClampToBorder,
                     addressModeV = VkSamplerAddressMode.ClampToBorder,
                     addressModeW = VkSamplerAddressMode.ClampToBorder,
-                    mipLodBias =0.0f,
+                    mipLodBias = 0.0f,
                     minLod = 0.0f,
                     maxLod = 0.0f,
                     borderColor = VkBorderColor.FloatOpaqueBlack,
 
                 };
 
-                if(Vulkan.vkCreateSampler(_device.Device,samplerInfo, null, out _textureSampler) != VkResult.Success)
+                if (Vulkan.vkCreateSampler(_device.Device, samplerInfo, null, out _textureSampler) != VkResult.Success)
                 {
                     throw new Exception("Failed to create sampler!");
                 }
@@ -147,6 +152,10 @@ namespace SDL_Vulkan_CS.VulkanBackend
             _imageDescriptor.imageLayout = _imageLayout;
         }
 
+        /// <summary>
+        /// creates a texture sampler for this image intance
+        /// </summary>
+        /// <exception cref="Exception"></exception>
         private unsafe void CreateTextureSampler()
         {
             VkSamplerCreateInfo samplierInfo = new()
@@ -172,12 +181,16 @@ namespace SDL_Vulkan_CS.VulkanBackend
                 maxLod = 0.0f
             };
 
-            if (Vulkan.vkCreateSampler(_device.Device,samplierInfo,null,out _textureSampler) != VkResult.Success)
+            if (Vulkan.vkCreateSampler(_device.Device, samplierInfo, null, out _textureSampler) != VkResult.Success)
             {
                 throw new Exception("Failed to create texture sampler!");
             }
         }
 
+        /// <summary>
+        /// Creates a vk image view for this image.
+        /// </summary>
+        /// <exception cref="Exception"></exception>
         private unsafe void CreateImageView()
         {
             VkImageViewCreateInfo viewInfo = new()
@@ -201,6 +214,13 @@ namespace SDL_Vulkan_CS.VulkanBackend
             }
         }
 
+        /// <summary>
+        /// Changes the image layout from oldLayout to newLayout using a single time command buffer
+        /// </summary>
+        /// <param name="image"></param>
+        /// <param name="oldLayout"></param>
+        /// <param name="newLayout"></param>
+        /// <exception cref="Exception"></exception>
         public unsafe void TransitionImageLayout(VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout)
         {
             VkCommandBuffer commandBuffer = _device.BeginSingleTimeCommands();
@@ -263,14 +283,19 @@ namespace SDL_Vulkan_CS.VulkanBackend
             _imageLayout = newLayout;
         }
 
-        private static Surface LoadImage(string fileName)
+        /// <summary>
+        /// loads an image surface from the given file path
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <returns></returns>
+        private static Surface LoadImage(string filePath)
         {
-            if (!File.Exists(fileName))
+            if (!File.Exists(filePath))
             {
                 return null;
             }
 
-            Surface image = Surface.LoadFromFile(fileName);
+            Surface image = Surface.LoadFromFile(filePath);
 
             if (image == null)
             {
@@ -283,13 +308,18 @@ namespace SDL_Vulkan_CS.VulkanBackend
             return image;
         }
 
+        /// <summary>
+        /// creates a vkimage the same size as the given surface, then copies the pixels from the surface to teh vkimage.
+        /// </summary>
+        /// <param name="image"></param>
+        /// <exception cref="Exception"></exception>
         private unsafe void CreateTextureImage(Surface image)
         {
             if (image.ImageType != ImageType.Bitmap || image.BitsPerPixel != 32 || _device == null)
             {
                 throw new Exception("Provided image surfae is not in the right format, or device/memory allocator are null");
             }
-                
+
 
             uint width = (uint)image.Width;
             uint height = (uint)image.Height;
@@ -316,6 +346,11 @@ namespace SDL_Vulkan_CS.VulkanBackend
             image.Dispose();
         }
 
+        /// <summary>
+        /// copies colours between the surface and the given destiantion pointer
+        /// </summary>
+        /// <param name="dstPtr"></param>
+        /// <param name="src"></param>
         private static unsafe void CopyColor(IntPtr dstPtr, Surface src)
         {
             int texelSize = Color.SizeInBytes;
@@ -363,17 +398,42 @@ namespace SDL_Vulkan_CS.VulkanBackend
             }
         }
 
+        /// <summary>
+        /// get the file path to a texture given its file name (only in default texture file path)
+        /// </summary>
+        /// <param name="file"></param>
+        /// <returns></returns>
         public static string GetTextureInDefaultPath(string file)
         {
             return Path.Combine(DefaultTexturePath, file);
         }
 
+        /// <summary>
+        /// returns a texture2d instance at the given index.
+        /// </summary>
+        /// <param name="index"></param>
+        /// <returns></returns>
         public static Texture2d GetTextureAtIndex(int index)
         {
             index = Math.Max(0, index);
-            return index <Textures.Count ? Textures[index] : Fallback;
+            return index < Textures.Count ? Textures[index] : Fallback;
         }
 
+        /// <summary>
+        /// gets the index of a given texture2d instance
+        /// </summary>
+        /// <param name="texture"></param>
+        /// <returns></returns>
+        public static int GetIndexOfTexture(Texture2d texture)
+        {
+            return Textures.IndexOf(texture);
+        }
+
+        /// <summary>
+        /// gets the image descriptor for the render pipeline.
+        /// </summary>
+        /// <param name="index"></param>
+        /// <returns></returns>
         public static VkDescriptorImageInfo GetTextureImageInfoAtIndex(int index)
         {
             index = Math.Max(0, index);

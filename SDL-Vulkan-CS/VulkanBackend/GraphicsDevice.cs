@@ -10,6 +10,7 @@ namespace SDL_Vulkan_CS
     /// Manages the vulkan device
     /// Picks the physical device
     /// Responsible for the vulkan instance.
+    /// Responsible for the Vulkan Memory Allocator (VMA)
     /// </summary>
     public sealed class GraphicsDevice : IDisposable
     {
@@ -22,9 +23,9 @@ namespace SDL_Vulkan_CS
         private readonly static VkUtf8String[] _requiredDeviceExtensions = [Vulkan.VK_KHR_SWAPCHAIN_EXTENSION_NAME];
 
         public static GraphicsDevice Instance { get; private set; }
-        
+
         private readonly IWindow _window;
-        
+
         private readonly VkDebugUtilsMessengerEXT _debugMessenger;
 
         private VkInstance _instance;
@@ -165,7 +166,7 @@ namespace SDL_Vulkan_CS
                 int terminator = extension.IndexOf('\0');
                 extension = extension[..terminator];
                 available.Add(extension);
-                Console.WriteLine("\t"+extension);
+                Console.WriteLine("\t" + extension);
             }
             Console.WriteLine("Required extensions:");
             var required = GetRequiredExtensions();
@@ -250,12 +251,12 @@ namespace SDL_Vulkan_CS
         {
             var devices = Vulkan.vkEnumeratePhysicalDevices(_instance);
 
-            if(devices.Length == 0)
+            if (devices.Length == 0)
             {
                 throw new Exception("Failed to find GPUs with Vulkan support!");
             }
 
-            Console.WriteLine(string.Format("Device count: {0}",devices.Length));
+            Console.WriteLine(string.Format("Device count: {0}", devices.Length));
 
             for (int i = 0; i < devices.Length; i++)
             {
@@ -267,14 +268,14 @@ namespace SDL_Vulkan_CS
                 }
             }
 
-            if(_physicalDevice == VkPhysicalDevice.Null)
+            if (_physicalDevice == VkPhysicalDevice.Null)
             {
                 throw new Exception("Failed to find a sutiable GPU!");
             }
 
             Vulkan.vkGetPhysicalDeviceProperties(_physicalDevice, out Properties);
 
-            fixed(byte* devName = Properties.deviceName)
+            fixed (byte* devName = Properties.deviceName)
             {
                 var str = new VkUtf8String(devName);
                 Console.WriteLine(string.Format("Physical device: {0}", str));
@@ -296,7 +297,7 @@ namespace SDL_Vulkan_CS
 
             if (extensionsSupported)
             {
-                SwapChainSupportDetails  swapChainSupport = QuerySwapChainSupport(device);
+                SwapChainSupportDetails swapChainSupport = QuerySwapChainSupport(device);
                 swapChainAdequate = swapChainSupport.formats.Length > 0 && swapChainSupport.presentModes.Length > 0;
             }
 
@@ -440,7 +441,7 @@ namespace SDL_Vulkan_CS
 
         #region Create Command Pool
         /// <summary>
-        /// Creates teh command buffer pool for submitting commands to the logical device
+        /// Creates the command buffer pool for submitting commands to the logical device
         /// </summary>
         /// <exception cref="Exception"></exception>
         private unsafe void CreateCommandPool()
@@ -453,7 +454,7 @@ namespace SDL_Vulkan_CS
                 flags = VkCommandPoolCreateFlags.Transient | VkCommandPoolCreateFlags.ResetCommandBuffer
             };
 
-            if (Vulkan.vkCreateCommandPool(_device, poolInfo, null,out _commandPool) != VkResult.Success)
+            if (Vulkan.vkCreateCommandPool(_device, poolInfo, null, out _commandPool) != VkResult.Success)
             {
                 throw new Exception("failed to create command pool!");
             }
@@ -462,6 +463,9 @@ namespace SDL_Vulkan_CS
         #endregion
 
         #region Create VmaAllocator
+        /// <summary>
+        /// Create a Vma allocator for the allocation of VkBuffers and VKImages constructed during the application lifetime.
+        /// </summary>
         private void CreateVmaAllocator()
         {
             VmaAllocatorCreateInfo allocatorCreateInfo = new()
@@ -492,11 +496,11 @@ namespace SDL_Vulkan_CS
             {
                 VkFormat format = candidates[i];
                 Vulkan.vkGetPhysicalDeviceFormatProperties(_physicalDevice, format, out VkFormatProperties props);
-                if(tiling == VkImageTiling.Linear && (props.linearTilingFeatures & features) == features)
+                if (tiling == VkImageTiling.Linear && (props.linearTilingFeatures & features) == features)
                 {
                     return format;
                 }
-                else if(tiling == VkImageTiling.Optimal && (props.optimalTilingFeatures & features) == features)
+                else if (tiling == VkImageTiling.Optimal && (props.optimalTilingFeatures & features) == features)
                 {
                     return format;
                 }
@@ -519,7 +523,7 @@ namespace SDL_Vulkan_CS
             out VkImage image,
             out VkDeviceMemory imageMemory)
         {
-            if(Vulkan.vkCreateImage(_device,imageInfo,null,out image) != VkResult.Success)
+            if (Vulkan.vkCreateImage(_device, imageInfo, null, out image) != VkResult.Success)
             {
                 throw new Exception("Failed to create image with info");
             }
@@ -533,12 +537,12 @@ namespace SDL_Vulkan_CS
                 memoryTypeIndex = FindMemoryType(memoryRequirements.memoryTypeBits, properties),
             };
 
-            if (Vulkan.vkAllocateMemory(_device, &allocInfo,null,out imageMemory) != VkResult.Success)
+            if (Vulkan.vkAllocateMemory(_device, &allocInfo, null, out imageMemory) != VkResult.Success)
             {
                 throw new Exception("failed to allocate image memory!");
             }
 
-            if(Vulkan.vkBindImageMemory(_device,image,imageMemory,0) != VkResult.Success)
+            if (Vulkan.vkBindImageMemory(_device, image, imageMemory, 0) != VkResult.Success)
             {
                 throw new Exception("failed to bind image memory!");
             }
@@ -590,6 +594,10 @@ namespace SDL_Vulkan_CS
             EndSingleTimeCommands(commandBuffer);
         }
 
+        /// <summary>
+        /// Gets a command buffer to a single command.
+        /// </summary>
+        /// <returns></returns>
         public VkCommandBuffer BeginSingleTimeCommands()
         {
             Vulkan.vkAllocateCommandBuffer(Device, _commandPool, VkCommandBufferLevel.Primary, out VkCommandBuffer commandBuffer);
@@ -597,6 +605,10 @@ namespace SDL_Vulkan_CS
             return commandBuffer;
         }
 
+        /// <summary>
+        /// Submit the given single time command buffer to the gpu
+        /// </summary>
+        /// <param name="commandBuffer"></param>
         public unsafe void EndSingleTimeCommands(VkCommandBuffer commandBuffer)
         {
             Vulkan.vkEndCommandBuffer(commandBuffer);
@@ -605,14 +617,14 @@ namespace SDL_Vulkan_CS
                 commandBufferCount = 1,
                 pCommandBuffers = &commandBuffer
             };
-            Vulkan.vkQueueSubmit(_graphicsQueue, submitInfo,VkFence.Null);
+            Vulkan.vkQueueSubmit(_graphicsQueue, submitInfo, VkFence.Null);
             Vulkan.vkQueueWaitIdle(_graphicsQueue);
             Vulkan.vkFreeCommandBuffers(Device, _commandPool, commandBuffer);
         }
         #endregion
 
         /// <summary>
-        /// Cleans up teh vulkan device and vulkan instance
+        /// Cleans up the vulkan device and vulkan instance and Vma Allocator.
         /// </summary>
         public unsafe void Dispose()
         {
@@ -669,7 +681,7 @@ namespace SDL_Vulkan_CS
         {
             messageSeverity = VkDebugUtilsMessageSeverityFlagsEXT.Warning
             | VkDebugUtilsMessageSeverityFlagsEXT.Error,
-            
+
             messageType = VkDebugUtilsMessageTypeFlagsEXT.General
             | VkDebugUtilsMessageTypeFlagsEXT.Validation
             | VkDebugUtilsMessageTypeFlagsEXT.Performance,

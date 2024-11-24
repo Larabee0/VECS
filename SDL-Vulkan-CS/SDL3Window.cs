@@ -41,6 +41,10 @@ namespace SDL_Vulkan_CS
             _inputManager =new InputManager();
         }
 
+        /// <summary>
+        /// initalise sdl3 and then load the vulkan library & initalise the vulkan library
+        /// </summary>
+        /// <exception cref="Exception"></exception>
         private unsafe void InitWindow()
         {
             if (!SDL.SDL_Init(_sdl_Init_Flags))
@@ -62,20 +66,6 @@ namespace SDL_Vulkan_CS
 
             _window = SDL.SDL_CreateWindow(_windowName, _width, _height, _sdl_Window_Flags);
             Id = SDL.SDL_GetWindowID(_window);
-            //SDL.SDL_AddEventWatch(&Watcher, IntPtr.Zero);
-        }
-
-        [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-        private static unsafe SDLBool Watcher(nint n, SDL_Event* eventPtr)
-        {
-            if (eventPtr->type == SDL_EventType.KeyDown && !eventPtr->key.repeat)
-            {
-                if (eventPtr->key.key == SDL_Keycode.A)
-                {
-                    Console.WriteLine("A Key Down");
-                }
-            }
-            return SDLBool.False;
         }
 
         public unsafe VkSurfaceKHR CreateWindowSurface(VkInstance instance)
@@ -88,21 +78,36 @@ namespace SDL_Vulkan_CS
             return surface;
         }
 
+        /// <summary>
+        /// called after the swapchain has been successfully recreated
+        /// </summary>
         public void ResetWindowResizedFlag()
         {
             _framebufferResized = false;
         }
 
+        /// <summary>
+        /// holds up the main thread until the next sdl event
+        /// </summary>
         public unsafe void WaitForNextWindowEvent()
         {
             SDL.SDL_WaitEvent(null);
         }
 
+        /// <summary>
+        /// get the required extensions from sdl for vulkan
+        /// </summary>
+        /// <returns></returns>
         public string[] GetWindowExtensionRequirements()
         {
             return SDL.SDL_Vulkan_GetInstanceExtensions();
         }
 
+        /// <summary>
+        /// handles window resizing, quitting and mouse input
+        /// This will update the input manager as well and lock the mouse to the window when right click is held
+        /// </summary>
+        /// <returns></returns>
         public bool UpdateWindowEvents()
         {
             while (SDL.SDL_PollEvent(out SDL_Event sdlEvent))
@@ -120,31 +125,7 @@ namespace SDL_Vulkan_CS
                         break;
 
                     case SDL_EventType.MouseMotion:
-
-                        _inputManager.mouseMotion = true;
-
-                        if (!_inputManager.firstMouse)
-                        {
-
-                            var pos = _inputManager.mousePos;
-                            var delta = _inputManager.mouseDelta;
-                            pos.X = sdlEvent.motion.x;
-                            pos.Y = sdlEvent.motion.y;
-                            delta.X = sdlEvent.motion.xrel;
-                            delta.Y = sdlEvent.motion.yrel;
-                            _inputManager.mousePos = pos;
-                            _inputManager.mouseDelta = delta;
-                        }
-                        else
-                        {
-                            _inputManager.firstMouse = false;
-
-                            var delta = _inputManager.mouseDelta;
-                            delta.X = 0;
-                            delta.Y = 0;
-                            _inputManager.mouseDelta = delta;
-                        }
-
+                        _inputManager.MouseMotion(sdlEvent);
                         break;
                 }
             }
@@ -152,7 +133,6 @@ namespace SDL_Vulkan_CS
             _inputManager.Update();
 
             SDL.SDL_SetWindowRelativeMouseMode(_window, _inputManager.rightMouseDown);
-            //SDL.SDL_WarpMouseInWindow(_window, _width / 2, _height / 2);
             return false;
         }
 
@@ -166,6 +146,10 @@ namespace SDL_Vulkan_CS
             }
         }
 
+        /// <summary>
+        /// checks to see if the window has been resized and taht the resize requires a swapchain recreation due to frame buffer resize
+        /// </summary>
+        /// <param name="window"></param>
         private void FrameBufferResizeCallback(SDL_WindowEvent window)
         {
             int newWidth = window.data1;
@@ -188,9 +172,7 @@ namespace SDL_Vulkan_CS
             {
                 Console.WriteLine("Cleaned up SDL with errors:\n{0}",sdlErrors);
             }
-
         }
-
 
         private static void SDL3Log(SDL_LogCategory category, SDL_LogPriority priority, string message)
         {

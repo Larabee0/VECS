@@ -1,5 +1,4 @@
 ﻿using SDL_Vulkan_CS.ECS;
-using SDL_Vulkan_CS.ECS.Presentation.Systems;
 using SDL_Vulkan_CS.VulkanBackend;
 using System;
 using System.Numerics;
@@ -14,9 +13,6 @@ namespace SDL_Vulkan_CS
     /// 
     /// It handles the setup and configuration of the global descriptor sets and the swap chain frame descriptor pools, which offer a way to
     /// to send abitary data per object to the shader programs, such as textures, colours, matrices etc.
-    /// 
-    /// It also handles Vk buffer allocations via the Vulkan memory allocator (Vma),
-    /// storing the refrence to the application VmaAllocator. <see cref="_allocator"/>
     /// 
     /// As part of its frame render cycle managment this class creates and stores the <see cref="_renderer"/> class,
     ///  which is responsible for managing the swapchain and swapchain recreation,
@@ -42,13 +38,13 @@ namespace SDL_Vulkan_CS
         private readonly CsharpVulkanBuffer[] _globalUboBuffers = new CsharpVulkanBuffer[SwapChain.MAX_FRAMES_IN_FLIGHT];
 
         private readonly DescriptorPool[] swapChainFrameDescriptorPools = new DescriptorPool[SwapChain.MAX_FRAMES_IN_FLIGHT];
-        
+
         private Entity frameInfoEntity;
 
         public VkRenderPass RenderPass => _renderer.SwapChainRenderPass;
         public VkDescriptorSetLayout GlobalSetLayout => _globalDescriptorSetLayout.SetLayout;
 
-        public Presenter(IWindow window, GraphicsDevice  device)
+        public Presenter(IWindow window, GraphicsDevice device)
         {
             _device = device;
             _renderer = new(window, device);
@@ -129,12 +125,12 @@ namespace SDL_Vulkan_CS
             var globalSetLayout = new DescriptorSetLayout.Builder(_device)
                 .AddBinding(0, VkDescriptorType.UniformBuffer, VkShaderStageFlags.AllGraphics)
                 .Build();
-            
+
             // write the buffer to the descriptor set linking all the data up
             for (int i = 0; i < globalDescriptorSets.Length; i++)
             {
                 var bufferInfo = uboBuffers[i].DescriptorInfo();
-                fixed(VkDescriptorSet* pSet = &globalDescriptorSets[i])
+                fixed (VkDescriptorSet* pSet = &globalDescriptorSets[i])
                 {
                     new DescriptorWriter(globalSetLayout, _globalDescriptorPool)
                         .WriteBuffer(0, bufferInfo)
@@ -155,12 +151,6 @@ namespace SDL_Vulkan_CS
             var triangleSystem = new TriangleSystem(_device, _renderer.SwapChainRenderPass, _globalDescriptorSetLayout.SetLayout);
             World.DefaultWorld.AddSystem(triangleSystem);
             triangleSystem.CreateTriangle();
-        }
-
-        private void CreateSimpleRenderSystem()
-        {
-            var srs = new SimpleRenderSystem(_device, _renderer.SwapChainRenderPass, _globalDescriptorSetLayout.SetLayout);
-            World.DefaultWorld.AddSystem(srs);
         }
 
         /// <summary>
@@ -188,15 +178,15 @@ namespace SDL_Vulkan_CS
                     DeltaTime = deltaTime,
                     CommandBuffer = commandBuffer,
                     GlobalDescriptorSet = _globalDescriptorSets[frameIndex],
-                    FrameDescriptorPool= swapChainFrameDescriptorPools[frameIndex]
+                    FrameDescriptorPool = swapChainFrameDescriptorPools[frameIndex]
                 };
 
                 Camera camera = Camera.Identity;
 
-                if(World.DefaultWorld != null
+                if (World.DefaultWorld != null
                     && World.DefaultWorld.EntityManager != null
                     && World.DefaultWorld.EntityManager.SingletonEntity<MainCamera>(out Entity mainCamera)
-                    && World.DefaultWorld.EntityManager.HasComponent<Camera>(mainCamera,out int signature))
+                    && World.DefaultWorld.EntityManager.HasComponent<Camera>(mainCamera, out int signature))
                 {
                     camera = World.DefaultWorld.EntityManager.GetComponent<Camera>(signature);
                 }
@@ -208,19 +198,13 @@ namespace SDL_Vulkan_CS
                     InverseView = camera.InverseViewMatrix,
                     AmbientLightColour = new(1.0f, 1.0f, 1.0f, 0.02f),
 
+                    PointLights = new PointLight()
+                    {
+                        Position = new Vector4(0, 0, 0, 0),
+                        Colour = new Vector4(1, 1, 1, 1f)
+                    },
+                    NumLights = 1
                 };
-
-
-                //PointLight* PointLights = stackalloc PointLight[MAX_LIGHTS];
-
-                ubo.PointLights = new PointLight()
-                {
-                    Position = new Vector4(0, 0, 0, 0),
-                    Colour = new Vector4(1, 1, 1, 1f)
-                };
-                ubo.NumLights = 1;
-                //ubo.PointLights = PointLights;
-
 
                 _globalUboBuffers[frameIndex].WriteToBuffer(&ubo);
                 _globalUboBuffers[frameIndex].Flush();
@@ -254,6 +238,12 @@ namespace SDL_Vulkan_CS
             _renderer.EndFrame();
         }
 
+        /// <summary>
+        /// The presenter will automatically clean up all materials, textures and meshes
+        /// 
+        /// The presenter is also responsible for cleaning up the global descriptor set,
+        /// the swapChainFrameDescriptorPools & the renderer
+        /// </summary>
         public void Dispose()
         {
             Material.Materials.ForEach(m => m.Dispose());
@@ -276,7 +266,7 @@ namespace SDL_Vulkan_CS
             // deallocate frame pools
             for (int i = 0; i < swapChainFrameDescriptorPools.Length; i++)
             {
-                swapChainFrameDescriptorPools[i] .Dispose();
+                swapChainFrameDescriptorPools[i].Dispose();
             }
 
             // then destroy the renderer, which will destroy the swapchain.

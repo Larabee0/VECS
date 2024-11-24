@@ -1,18 +1,14 @@
-﻿using SDL_Vulkan_CS.ECS;
-using System;
-using System.Collections.Generic;
-using System.Numerics;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Numerics;
+using SDL_Vulkan_CS.ECS;
 using SDL_Vulkan_CS.VulkanBackend;
 using SDL_Vulkan_CS.ECS.Presentation;
-using SDL_Vulkan_CS.ECS.Presentation.Systems;
-using System.IO;
 using Vortice.Vulkan;
 
 namespace SDL_Vulkan_CS.Artifact
 {
+    /// <summary>
+    /// Main class used to set up the things in environment such as a camera, rendering system, objects in the environment.
+    /// </summary>
     public class ArtifactAuthoring
     {
         public Entity MainCamera;
@@ -31,60 +27,79 @@ namespace SDL_Vulkan_CS.Artifact
         {
             World.DefaultWorld.CreateSystem<SimpleRenderSystem>();
 
-            
-
             EntityManager entityManager = World.DefaultWorld.EntityManager;
 
+            CreateDefaultCamera(entityManager);
+            LoadScene(entityManager);
+        }
+
+        /// <summary>
+        /// Loads all the models, shaders and textures for a scene
+        /// then creates the entities that make up the scene.
+        /// </summary>
+        /// <param name="entityManager"></param>
+        private static void LoadScene(EntityManager entityManager)
+        {
+            var cubeUvMesh = Mesh.LoadModelFromFile(GraphicsDevice.Instance, Mesh.GetMeshInDefaultPath("cube-uv.obj"));
+            var flatVaseMesh = Mesh.LoadModelFromFile(GraphicsDevice.Instance, Mesh.GetMeshInDefaultPath("flat_vase.obj"));
+            var smoothVaseMesh = Mesh.LoadModelFromFile(GraphicsDevice.Instance, Mesh.GetMeshInDefaultPath("smooth_vase.obj"));
+
+            var paving = new Texture2d(GraphicsDevice.Instance, Texture2d.GetTextureInDefaultPath("paving 5.png"));
+            var orangeStone = new Texture2d(GraphicsDevice.Instance, Texture2d.GetTextureInDefaultPath("orange.jpg"));
+
+            var lit = new Material("simple_shader.vert", "simple_shader.frag", typeof(SimplePushConstantData), new DescriptorSetBinding(VkDescriptorType.CombinedImageSampler, VkShaderStageFlags.Fragment));
+            var unlit = new Material("unlit_shader.vert", "unlit_shader.frag", typeof(SimplePushConstantData), new DescriptorSetBinding(VkDescriptorType.CombinedImageSampler, VkShaderStageFlags.Fragment));
+
+
+            var cubeUV = entityManager.CreateEntity();
+            entityManager.AddComponent(cubeUV, new Translation() { Value = new(1.5f, -1.5f, 0) });
+            entityManager.AddComponent(cubeUV, new MeshIndex() { Value = Mesh.GetIndexOfMesh(cubeUvMesh[0]) });
+            entityManager.AddComponent(cubeUV, new TextureIndex() { Value = Texture2d.GetIndexOfTexture(paving) });
+            entityManager.AddComponent(cubeUV, new MaterialIndex() { Value = Material.GetIndexOfMaterial(lit) });
+
+            var flatVase = entityManager.CreateEntity();
+            entityManager.AddComponent(flatVase, new Translation() { Value = new(-1.5f, 1.5f, 0) });
+            entityManager.AddComponent(flatVase, new Rotation() { Value = new(float.DegreesToRadians(180), 0, 0) });
+            entityManager.AddComponent(flatVase, new Scale() { Value = new(6, 6, 6) });
+            entityManager.AddComponent(flatVase, new MeshIndex() { Value = Mesh.GetIndexOfMesh(flatVaseMesh[0]) });
+            entityManager.AddComponent(flatVase, new TextureIndex() { Value = Texture2d.GetIndexOfTexture(paving) });
+            entityManager.AddComponent(flatVase, new MaterialIndex() { Value = Material.GetIndexOfMaterial(unlit) });
+
+            var smoothVase = entityManager.CreateEntity();
+            entityManager.AddComponent(smoothVase, new Translation() { Value = new(1.5f, 1.5f, 0) });
+            entityManager.AddComponent(smoothVase, new Rotation() { Value = new(float.DegreesToRadians(180), 0, 0) });
+            entityManager.AddComponent(smoothVase, new Scale() { Value = new(6, 6, 6) });
+            entityManager.AddComponent(smoothVase, new MeshIndex() { Value = Mesh.GetIndexOfMesh(smoothVaseMesh[0]) });
+            entityManager.AddComponent(smoothVase, new TextureIndex() { Value = Texture2d.GetIndexOfTexture(orangeStone) });
+            entityManager.AddComponent(smoothVase, new MaterialIndex() { Value = Material.GetIndexOfMaterial(lit) });
+
+            var cube4 = entityManager.CreateEntity();
+            entityManager.AddComponent(cube4, new Translation() { Value = new(-1.5f, -1.5f, 0) });
+            entityManager.AddComponent(cube4, new MeshIndex() { Value = Mesh.GetIndexOfMesh(cubeUvMesh[0]) });
+            entityManager.AddComponent(cube4, new TextureIndex() { Value = Texture2d.GetIndexOfTexture(orangeStone) });
+            entityManager.AddComponent(cube4, new MaterialIndex() { Value = Material.GetIndexOfMaterial(unlit) });
+        }
+
+        /// <summary>
+        /// Creates a perspective camera using the member settings
+        /// </summary>
+        /// <param name="entityManager"></param>
+        private void CreateDefaultCamera(EntityManager entityManager)
+        {
             MainCamera = entityManager.CreateEntity();
             entityManager.AddComponent(MainCamera, new Translation() { Value = initalCameraPos });
             entityManager.AddComponent(MainCamera, new Rotation() { Value = initalCameraRot });
             entityManager.AddComponent(MainCamera, cameraPerspective);
             entityManager.AddComponent<MainCamera>(MainCamera);
-
-            _ = Mesh.LoadModelFromFile(GraphicsDevice.Instance, Mesh.GetMeshInDefaultPath("cube-uv.obj"));
-            _ = Mesh.LoadModelFromFile(GraphicsDevice.Instance, Mesh.GetMeshInDefaultPath("flat_vase.obj"));
-            _ = Mesh.LoadModelFromFile(GraphicsDevice.Instance, Mesh.GetMeshInDefaultPath("smooth_vase.obj"));
-
-            _ = new Texture2d(GraphicsDevice.Instance, Texture2d.GetTextureInDefaultPath("paving 5.png"));
-            _ = new Texture2d(GraphicsDevice.Instance, Texture2d.GetTextureInDefaultPath("orange.jpg"));
-
-            _ = new Material("simple_shader.vert", "simple_shader.frag", typeof(SimplePushConstantData), new DescriptorSetBinding(VkDescriptorType.CombinedImageSampler, VkShaderStageFlags.Fragment));
-            _ = new Material("unlit_shader.vert", "unlit_shader.frag", typeof(SimplePushConstantData), new DescriptorSetBinding(VkDescriptorType.CombinedImageSampler, VkShaderStageFlags.Fragment));
-
-
-            var cube = entityManager.CreateEntity();
-            entityManager.AddComponent(cube, new Translation() { Value = new(1.5f, -1.5f, 0) });
-            entityManager.AddComponent(cube,new MeshIndex() { Value = 0});
-            entityManager.AddComponent(cube,new TextureIndex() { Value = 1});
-            entityManager.AddComponent(cube,new MaterialIndex() { Value = 0});
-            
-            var cube2 = entityManager.CreateEntity();
-            entityManager.AddComponent(cube2, new Translation() { Value = new(-1.5f, 1.5f, 0) });
-            entityManager.AddComponent(cube2, new Rotation() { Value = new(float.DegreesToRadians(180), 0, 0) });
-            entityManager.AddComponent(cube2, new Scale() { Value = new(6, 6, 6) });
-            entityManager.AddComponent(cube2, new MeshIndex() { Value = 2 });
-            entityManager.AddComponent(cube2, new TextureIndex() { Value = 1 });
-            entityManager.AddComponent(cube2, new MaterialIndex() { Value = 1 });
-
-            var cube3 = entityManager.CreateEntity();
-            entityManager.AddComponent(cube3, new Translation() { Value = new(1.5f, 1.5f, 0) });
-            entityManager.AddComponent(cube3, new Rotation() { Value = new(float.DegreesToRadians(180), 0, 0) });
-            entityManager.AddComponent(cube3, new Scale() { Value = new(6,6,6) });
-            entityManager.AddComponent(cube3, new MeshIndex() { Value = 1 });
-            entityManager.AddComponent(cube3, new TextureIndex() { Value = 2 });
-            entityManager.AddComponent(cube3, new MaterialIndex() { Value = 0 });
-
-            var cube4 = entityManager.CreateEntity();
-            entityManager.AddComponent(cube4, new Translation() { Value = new(-1.5f, -1.5f, 0) });
-            entityManager.AddComponent(cube4, new MeshIndex() { Value = 0 });
-            entityManager.AddComponent(cube4, new TextureIndex() { Value = 2 });
-            entityManager.AddComponent(cube4, new MaterialIndex() { Value = 1 });
         }
 
-        public void Destroy()
-        {
-        }
+        public void Destroy() { }
 
+        /// <summary>
+        /// Creates a cube directly for a mesh instead of loading it manually
+        /// Cube will have colours and vertices and nothing else.
+        /// </summary>
+        /// <returns></returns>
         private Mesh Cube()
         {
             Vertex[] vertices = new Vertex[]{

@@ -96,7 +96,7 @@ namespace SDL_Vulkan_CS.ECS
         /// <returns></returns>
         public T AddComponent<T>(Entity entity) where T : IComponent
         {
-            if(GetComponent(entity, out T comp))
+            if (GetComponent(entity, out T comp))
             {
                 return comp;
             }
@@ -149,9 +149,9 @@ namespace SDL_Vulkan_CS.ECS
         /// <param name="entity"></param>
         /// <param name="compId">component id</param>
         /// <param name="archetypeRefresh">Auto update the archetypes or not</param>
-        public void RemoveComponent(Entity entity, int compId, bool archetypeRefresh = true) 
+        public void RemoveComponent(Entity entity, int compId, bool archetypeRefresh = true)
         {
-            if (HasComponent(entity,compId, out int signature))
+            if (HasComponent(entity, compId, out int signature))
             {
                 _entityToComponentIds[entity.Id].Remove(compId);
                 _componentIdToEntities.Remove(signature);
@@ -221,7 +221,7 @@ namespace SDL_Vulkan_CS.ECS
         /// <param name="compId">Component id</param>
         /// <param name="signature">component instance signature</param>
         /// <returns></returns>
-        public bool HasComponent(Entity entity, int compId,out int signature)
+        public bool HasComponent(Entity entity, int compId, out int signature)
         {
             signature = GetEntityComponentSigature(entity, compId);
             return _compSignatureToCompReference.ContainsKey(signature);
@@ -284,12 +284,12 @@ namespace SDL_Vulkan_CS.ECS
         }
 
         /// <summary>
-        /// 
+        /// Safe way to set a component of an entity.
         /// </summary>
         /// <typeparam name="T">Component type</typeparam>
         /// <param name="entity"></param>
         /// <param name="component"></param>
-        /// <returns></returns>
+        /// <returns>True if the component was set</returns>
         public bool SetComponent<T>(Entity entity, T component) where T : IComponent
         {
             if (HasComponent<T>(entity, out int signature))
@@ -371,7 +371,13 @@ namespace SDL_Vulkan_CS.ECS
             return _componentIdToEntities.TryGetValue(compId, out entities);
         }
 
-        public bool GetAllEntitiesWithoutComponent(int compId,out HashSet<Entity> entities)
+        /// <summary>
+        /// Gets a hashset of entities which do not have the given componentId
+        /// </summary>
+        /// <param name="compId"></param>
+        /// <param name="entities"></param>
+        /// <returns></returns>
+        public bool GetAllEntitiesWithoutComponent(int compId, out HashSet<Entity> entities)
         {
             entities = [];
             foreach (var pair in _entityToComponentIds)
@@ -395,7 +401,7 @@ namespace SDL_Vulkan_CS.ECS
         /// <returns>list of entities with all the given components attached</returns>
         public List<Entity> GetAllEntitiesWithComponents(params Type[] components)
         {
-            List<int> componentIds = new (components.Length);
+            List<int> componentIds = new(components.Length);
 
             for (int i = 0; i < components.Length; i++)
             {
@@ -489,7 +495,7 @@ namespace SDL_Vulkan_CS.ECS
             _entityIdToEntity.Add(id, newEntity);
             _entityIds.Add(id);
             _entityToComponentIds.Add(id, []);
-            _entityIdToArchetypeIdLookup.Add(id,0);
+            _entityIdToArchetypeIdLookup.Add(id, 0);
             return newEntity;
         }
 
@@ -511,7 +517,7 @@ namespace SDL_Vulkan_CS.ECS
 
                 int archetype = ComputeArchetypeHash(entity);
 
-                if(_archetypeIdsToEntities.TryGetValue(archetype,out var entities))
+                if (_archetypeIdsToEntities.TryGetValue(archetype, out var entities))
                 {
                     entities.Remove(entity);
                 }
@@ -586,7 +592,7 @@ namespace SDL_Vulkan_CS.ECS
         }
 
         /// <summary>
-        /// Checks if any entities of teh given id exist
+        /// Checks if any entities of the given id exist
         /// </summary>
         /// <param name="compId"></param>
         /// <returns></returns>
@@ -612,7 +618,7 @@ namespace SDL_Vulkan_CS.ECS
         /// <returns></returns>
         public string GetComponentName(int compId)
         {
-            if(_componentIdToTypeLookup.TryGetValue(compId, out var value))
+            if (_componentIdToTypeLookup.TryGetValue(compId, out var value))
             {
                 return value.Name;
             }
@@ -630,7 +636,7 @@ namespace SDL_Vulkan_CS.ECS
         {
             int id = GetComponentId<T>();
             entity = Entity.Null;
-            if( _componentIdToEntities.TryGetValue(id, out HashSet<Entity> entities) && entities.Count == 1)
+            if (_componentIdToEntities.TryGetValue(id, out HashSet<Entity> entities) && entities.Count == 1)
             {
                 entity = new List<Entity>(entities)[0];
                 return true;

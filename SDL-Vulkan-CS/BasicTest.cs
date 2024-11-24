@@ -12,7 +12,6 @@ namespace SDL_Vulkan_CS
     /// https://vulkan-tutorial.com/Development_environment
     /// 
     /// </summary>
-    /// 
 
     public class TestDisposal : IDisposable
     {
