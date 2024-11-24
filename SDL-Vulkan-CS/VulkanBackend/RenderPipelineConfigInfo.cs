@@ -5,7 +5,7 @@ namespace SDL_Vulkan_CS
     /// <summary>
     /// Managed none-pointer struct used in the creation and configuration of a <see cref="VkGraphicsPipelineCreateInfo"/>
     /// 
-    /// A whole load of configuration data for a a Vk Graphics Pipeline.
+    /// A whole load of configuration data for a Vk Graphics Pipeline.
     /// </summary>
     public struct RenderPipelineConfigInfo
     {
@@ -156,6 +156,5 @@ namespace SDL_Vulkan_CS
 
             configInfo.colourBlendAttachment = colourBlendAttachment;
         }
-
     }
 }

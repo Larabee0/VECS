@@ -17,7 +17,7 @@ namespace SDL_Vulkan_CS
     /// 
     /// </summary>
     public struct RendererFrameInfo
-    { 
+    {
         public static readonly RendererFrameInfo Null = new() { FrameIndex = -1, DeltaTime = -1 };
 
         public int FrameIndex;

@@ -18,7 +18,7 @@ namespace SDL_Vulkan_CS.ECS
         public uint Id;
         public int Version;
 
-        public Entity(uint id,int version)
+        public Entity(uint id, int version)
         {
             Id = id;
             Version = version;

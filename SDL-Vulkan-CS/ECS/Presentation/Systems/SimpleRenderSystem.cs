@@ -1,32 +1,40 @@
 ﻿using SDL_Vulkan_CS.VulkanBackend;
-using SDL3;
-using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Numerics;
-using Vortice.Vulkan;
 
-namespace SDL_Vulkan_CS.ECS.Presentation.Systems
+namespace SDL_Vulkan_CS.ECS.Presentation
 {
+    /// <summary>
+    /// Relatively generic render system that will operate on all materials
+    /// 
+    /// This expects all materials will have one texture and accept a push constant of <see cref="SimplePushConstantData"/>
+    /// for the model local to world matrix.
+    /// </summary>
     public class SimpleRenderSystem : PresentationSystemBase
     {
         private EntityQuery _renderQuery;
 
         public SimpleRenderSystem() : base() { }
-        public SimpleRenderSystem(GraphicsDevice device, VkRenderPass renderPass, VkDescriptorSetLayout globalSetLayout) : base(device, renderPass, globalSetLayout) { }
 
         public override void OnCreate(EntityManager entityManager)
         {
-            _renderQuery = new EntityQuery(entityManager).WithAll(typeof(MeshIndex), typeof(TextureIndex), typeof(MaterialIndex), typeof(LocalToWorld)).Build();   
+            _renderQuery = new EntityQuery(entityManager)
+                .WithAll(typeof(MeshIndex), typeof(TextureIndex), typeof(MaterialIndex), typeof(LocalToWorld))
+                .Build();
         }
 
-
+        /// <summary>
+        /// Called by <see cref="Presenter"/> to draw all the entities
+        /// </summary>
+        /// <param name="entityManager"></param>
+        /// <param name="frameInfo"></param>
         public unsafe override void OnPresent(EntityManager entityManager, RendererFrameInfo frameInfo)
         {
             if (_renderQuery.HasEntities)
             {
+                // get all data from the entities
                 List<Entity> entities = _renderQuery.GetEntities();
-                List<DrawCall> drawCalls = new(entities.Count);
+                List<SimpleDrawCall> drawCalls = new(entities.Count);
                 entities.ForEach(e =>
                 {
                     drawCalls.Add(new()
@@ -39,19 +47,24 @@ namespace SDL_Vulkan_CS.ECS.Presentation.Systems
                 });
 
 
-                drawCalls.Sort(new DrawCall());
+                // to mimise material binding, the entities are sorted by material
+                // this allows all entities of the same material to share a BindDescriptorSets operation
+                drawCalls.Sort(new SimpleDrawCall());
 
+                // draw each entity in material order.
                 Material mat = null;
                 for (int i = 0; i < drawCalls.Count; i++)
                 {
                     var drawCall = drawCalls[i];
-                    var curMat = Material.GetMaterialAtIndex (drawCall.MaterialIndex);
-                    if(mat == null || mat != curMat)
+                    var curMat = Material.GetMaterialAtIndex(drawCall.MaterialIndex);
+
+                    // if mat is null or different from the last mat, it needs its descriptor sets bound
+                    if (mat == null || mat != curMat)
                     {
                         mat = curMat;
                         mat?.BindDescriptorSets(frameInfo);
                     }
-                    mat?.BindMaterial(frameInfo, drawCall.MeshIndex, new SimplePushConstantData(drawCall.Ltw), drawCall.TextureIndex);
+                    mat?.BindAndDraw(frameInfo, drawCall.MeshIndex, new SimplePushConstantData(drawCall.Ltw), drawCall.TextureIndex);
                 }
             }
         }
@@ -61,16 +74,19 @@ namespace SDL_Vulkan_CS.ECS.Presentation.Systems
             _renderQuery.MarkStale();
         }
 
-        public struct DrawCall : IComparer<DrawCall>
+        /// <summary>
+        /// contains the information needed to draw a mesh with a given texture, material and matrix
+        /// </summary>
+        public struct SimpleDrawCall : IComparer<SimpleDrawCall>
         {
             public int MeshIndex;
             public int TextureIndex;
             public int MaterialIndex;
             public Matrix4x4 Ltw;
 
-            public int Compare(DrawCall x, DrawCall y)
+            public readonly int Compare(SimpleDrawCall x, SimpleDrawCall y)
             {
-                if(x.MaterialIndex.CompareTo(y.MaterialIndex) != 0)
+                if (x.MaterialIndex.CompareTo(y.MaterialIndex) != 0)
                 {
                     return x.MaterialIndex.CompareTo(y.MaterialIndex);
                 }
@@ -80,6 +96,5 @@ namespace SDL_Vulkan_CS.ECS.Presentation.Systems
                 }
             }
         }
-
     }
 }

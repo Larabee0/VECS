@@ -11,7 +11,7 @@ namespace SDL_Vulkan_CS
         public readonly static int Height = 720;
 
         private readonly SDL3Window _appWindow;
-        private readonly GraphicsDevice _device;        
+        private readonly GraphicsDevice _device;
         private readonly Presenter _presenter;
 
         private World _mainWorld;
@@ -63,14 +63,14 @@ namespace SDL_Vulkan_CS
             currentTime = DateTime.Now;
 
             _mainWorld = new World();
-            
-            _presenter.Start(); // presenter depends on the main entity world existing right now
+
+            _presenter.Start(); // presenter depends on the main entity world existing right away
 
 
             _artifact = new ArtifactAuthoring();
-            
+
             _mainWorld.OnCreate();
-            
+
         }
 
         /// <summary>
@@ -98,7 +98,7 @@ namespace SDL_Vulkan_CS
         private void Presentation()
         {
             RendererFrameInfo frameInfo = _presenter.BeginPresent(DeltaTime);
-            if(frameInfo != RendererFrameInfo.Null)
+            if (frameInfo != RendererFrameInfo.Null)
             {
                 _mainWorld.PresentationSystemUpdate(frameInfo);
                 _presenter.EndPresent(frameInfo);

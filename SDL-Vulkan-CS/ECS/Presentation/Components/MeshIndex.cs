@@ -1,11 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using SDL_Vulkan_CS.VulkanBackend;
 
 namespace SDL_Vulkan_CS.ECS.Presentation
 {
+    /// <summary>
+    /// Stores an index of a mesh in <see cref="Mesh.Meshes"/>
+    /// </summary>
     public struct MeshIndex : IComponent
     {
         public static int ComponentId { get; set; }

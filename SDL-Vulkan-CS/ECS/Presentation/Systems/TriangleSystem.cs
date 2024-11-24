@@ -1,6 +1,5 @@
 ﻿using SDL_Vulkan_CS.VulkanBackend;
 using System;
-using System.IO;
 using System.Numerics;
 using Vortice.Vulkan;
 
@@ -11,14 +10,21 @@ namespace SDL_Vulkan_CS.ECS
     /// </summary>
     public class TriangleSystem : PresentationSystemBase
     {
+        protected GraphicsDevice _graphicsDevice;
+        protected VkDescriptorSetLayout _globalSetLayout;
+        protected VkRenderPass _renderPass;
 
         private Material _triangleMaterial;
 
         private CsharpVulkanBuffer _vertexBuffer;
 
+        public TriangleSystem(GraphicsDevice device, VkRenderPass renderPass, VkDescriptorSetLayout globalSetLayout) : base()
+        {
+            _graphicsDevice = device;
+            _globalSetLayout = globalSetLayout;
+            _renderPass = renderPass;
+        }
 
-        public TriangleSystem() : base() { }
-        public TriangleSystem(GraphicsDevice device, VkRenderPass renderPass, VkDescriptorSetLayout globalSetLayout) : base(device, renderPass, globalSetLayout) { }
         public override void OnCreate(EntityManager entityManager)
         {
             var renderSystemLayout = new DescriptorSetLayout.Builder(_graphicsDevice)
@@ -65,7 +71,7 @@ namespace SDL_Vulkan_CS.ECS
             uint vertexBufferSize = (uint)(sourceData.Length * Vertex.SizeInBytes);
 
             var stagingBuffer = new CsharpVulkanBuffer(_graphicsDevice, (uint)Vertex.SizeInBytes, (uint)sourceData.Length, VkBufferUsageFlags.TransferSrc, true);
-            fixed(void* data = &sourceData[0])
+            fixed (void* data = &sourceData[0])
             {
                 stagingBuffer.WriteToBuffer(data);
             }

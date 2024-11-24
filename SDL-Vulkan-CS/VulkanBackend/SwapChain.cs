@@ -35,15 +35,15 @@ namespace SDL_Vulkan_CS
         private VkImageView[] _depthImageViews;
 
         private VkFramebuffer[] _swapChainFrameBuffer;
-        
+
         private VkSemaphore[] _imageAvailableSemaphores;
         private VkSemaphore[] _renderFinishedSemaphores;
         private VkFence[] _inFlightFences;
         private VkFence[] _imagesInFlight;
 
-        public int ImageCount =>_swapChainImages.Length;
-        public VkRenderPass RenderPass =>_renderPass;
-        public VkExtent2D SwapChainExtent =>_swapChainExtent;
+        public int ImageCount => _swapChainImages.Length;
+        public VkRenderPass RenderPass => _renderPass;
+        public VkExtent2D SwapChainExtent => _swapChainExtent;
 
         /// <summary>
         /// Swap chain image aspect ratio
@@ -165,7 +165,7 @@ namespace SDL_Vulkan_CS
         /// <returns></returns>
         private VkExtent2D ChooseSwapExtent(VkSurfaceCapabilitiesKHR capabilities)
         {
-            if(capabilities.currentExtent.width != uint.MaxValue)
+            if (capabilities.currentExtent.width != uint.MaxValue)
             {
                 return capabilities.currentExtent;
             }
@@ -176,7 +176,7 @@ namespace SDL_Vulkan_CS
                     Math.Min(capabilities.maxImageExtent.width, actualExtent.width));
                 actualExtent.height = Math.Max(capabilities.minImageExtent.height,
                     Math.Min(capabilities.maxImageExtent.height, actualExtent.height));
-                
+
                 return actualExtent;
             }
         }
@@ -376,7 +376,7 @@ namespace SDL_Vulkan_CS
                     subresourceRange = subresourceRange
                 };
 
-                if(Vulkan.vkCreateImageView(_device.Device,viewInfo,null,out _depthImageViews[i])!= VkResult.Success)
+                if (Vulkan.vkCreateImageView(_device.Device, viewInfo, null, out _depthImageViews[i]) != VkResult.Success)
                 {
                     throw new Exception("Failed to create texture image view!");
                 }
@@ -384,7 +384,7 @@ namespace SDL_Vulkan_CS
         }
 
         #endregion
-        
+
         #region Create Frame Buffers
         /// <summary>
         /// Creates a frame buffer for each swap chain frame
@@ -393,13 +393,13 @@ namespace SDL_Vulkan_CS
         private unsafe void CreateFramebuffers()
         {
             _swapChainFrameBuffer = new VkFramebuffer[ImageCount];
-            
+
             for (int i = 0; i < ImageCount; i++)
             {
                 VkImageView[] attachements = [_swapChainImageViews[i], _depthImageViews[i]];
                 VkExtent2D swapChainExtent = _swapChainExtent;
 
-                fixed(VkImageView* pAttachements = &attachements[0])
+                fixed (VkImageView* pAttachements = &attachements[0])
                 {
 
                     VkFramebufferCreateInfo frameBufferInfo = new()
@@ -412,7 +412,7 @@ namespace SDL_Vulkan_CS
                         layers = 1
                     };
 
-                    if(Vulkan.vkCreateFramebuffer(_device.Device,frameBufferInfo,null,out _swapChainFrameBuffer[i]) != VkResult.Success)
+                    if (Vulkan.vkCreateFramebuffer(_device.Device, frameBufferInfo, null, out _swapChainFrameBuffer[i]) != VkResult.Success)
                     {
                         throw new Exception("Failed to create framebuffer!");
                     }
@@ -514,7 +514,7 @@ namespace SDL_Vulkan_CS
             VkSemaphore* pWaitSemaphores = stackalloc VkSemaphore[waitSemaphores.Length];
             fixed (VkSemaphore* waitTemp = &waitSemaphores[0])
             {
-                int byteSize = sizeof(VkSemaphore)*waitSemaphores.Length;
+                int byteSize = sizeof(VkSemaphore) * waitSemaphores.Length;
                 NativeMemory.Copy(waitTemp, pWaitSemaphores, (uint)byteSize);
             }
 

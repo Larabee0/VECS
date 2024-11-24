@@ -14,7 +14,7 @@ namespace SDL_Vulkan_CS
         private readonly VkDescriptorSetLayout _descriptorSetLayout;
 
         public uint BindingCount => (uint)Bindings.Count;
-        public VkDescriptorSetLayout SetLayout =>_descriptorSetLayout;
+        public VkDescriptorSetLayout SetLayout => _descriptorSetLayout;
 
         public unsafe DescriptorSetLayout(GraphicsDevice graphicsDevice, Dictionary<uint, VkDescriptorSetLayoutBinding> bindings)
         {
@@ -30,7 +30,7 @@ namespace SDL_Vulkan_CS
                     index++;
                 }
             }
-            
+
             VkDescriptorSetLayoutCreateInfo descriptorSetLayoutInfo = new()
             {
                 bindingCount = (uint)Bindings.Count,
@@ -54,7 +54,7 @@ namespace SDL_Vulkan_CS
         public class Builder
         {
             private readonly GraphicsDevice _graphicsDevice;
-            private readonly Dictionary<uint, VkDescriptorSetLayoutBinding> _bindings=[];
+            private readonly Dictionary<uint, VkDescriptorSetLayoutBinding> _bindings = [];
             public Builder(GraphicsDevice device)
             {
                 _graphicsDevice = device;
@@ -69,7 +69,7 @@ namespace SDL_Vulkan_CS
             /// <param name="count">descriptor count</param>
             /// <returns></returns>
             /// <exception cref="ArgumentException"></exception>
-            public Builder AddBinding(uint binding,VkDescriptorType descriptorType, VkShaderStageFlags stageFlags,uint count = 1)
+            public Builder AddBinding(uint binding, VkDescriptorType descriptorType, VkShaderStageFlags stageFlags, uint count = 1)
             {
                 if (_bindings.ContainsKey(binding))
                 {
@@ -89,7 +89,7 @@ namespace SDL_Vulkan_CS
                 return this;
             }
 
-            public Builder AddBinding(uint binding,DescriptorSetBinding req)
+            public Builder AddBinding(uint binding, DescriptorSetBinding req)
             {
                 return AddBinding(binding, req.DescriptorType, req.StageFlags, req.Count);
             }

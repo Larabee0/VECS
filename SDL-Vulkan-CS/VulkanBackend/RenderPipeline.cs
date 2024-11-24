@@ -57,7 +57,7 @@ namespace SDL_Vulkan_CS
             colourBlendInfo.pAttachments = &colourBlendAttachment;
 
             VkDynamicState* pDynamicStates = stackalloc VkDynamicState[configInfo.dynamicStateEnables.Length];
-            
+
             for (int i = 0; i < configInfo.dynamicStateEnables.Length; i++)
             {
                 pDynamicStates[i] = configInfo.dynamicStateEnables[i];
@@ -185,7 +185,7 @@ namespace SDL_Vulkan_CS
         {
             Vulkan.vkDestroyShaderModule(_device.Device, _vertShaderModule);
             Vulkan.vkDestroyShaderModule(_device.Device, _fragShaderModule);
-            Vulkan.vkDestroyPipeline(_device.Device,_graphicsPipeline);
+            Vulkan.vkDestroyPipeline(_device.Device, _graphicsPipeline);
         }
     }
 }

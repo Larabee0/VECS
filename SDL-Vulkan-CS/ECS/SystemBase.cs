@@ -1,14 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections.Generic;
 
 namespace SDL_Vulkan_CS.ECS
 {
     /// <summary>
     /// Base system implemnetation not quite finished.
-    /// Updating behaviour is suppsed to be dependant on teh Always update flag or if any of the queries in the last have entities.
+    /// Updating behaviour is suppsed to be dependant on the Always update flag or if any of the queries in the last have entities.
     /// </summary>
     public class SystemBase
     {

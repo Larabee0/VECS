@@ -1,9 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace SDL_Vulkan_CS
 {
@@ -31,10 +27,17 @@ namespace SDL_Vulkan_CS
         /// <returns></returns>
         public static Matrix4x4 TRS(Vector3 translation, Quaternion rotation, Vector3 scale)
         {
-            var transform = Matrix4x4.CreateScale(scale)*Matrix4x4.CreateFromQuaternion(rotation) * Matrix4x4.CreateTranslation(translation);
+            var transform = Matrix4x4.CreateScale(scale) * Matrix4x4.CreateFromQuaternion(rotation) * Matrix4x4.CreateTranslation(translation);
             return transform;
         }
 
+        /// <summary>
+        /// composes a translation, rotation and scale matrix from the main components
+        /// </summary>
+        /// <param name="translation"></param>
+        /// <param name="rotation"></param>
+        /// <param name="scale"></param>
+        /// <returns></returns>
         public static Matrix4x4 TRS(Vector3 translation, Vector3 rotation, Vector3 scale)
         {
             var transform = Matrix4x4.CreateScale(scale) * Matrix4x4.CreateFromYawPitchRoll(rotation.Y, rotation.X, rotation.Z) * Matrix4x4.CreateTranslation(translation);
@@ -52,7 +55,7 @@ namespace SDL_Vulkan_CS
             Y = float.DegreesToRadians(Y);
             Z = float.DegreesToRadians(Z);
 
-            return Quaternion.CreateFromYawPitchRoll(Y,X,Z);
+            return Quaternion.CreateFromYawPitchRoll(Y, X, Z);
         }
 
         public static Vector3 Cos(Vector3 x)
@@ -64,6 +67,7 @@ namespace SDL_Vulkan_CS
         {
             return new((float)Math.Sin(x.X), (float)Math.Sin(x.Y), (float)Math.Sin(x.Z));
         }
+
         /// <summary>
         /// https://stackoverflow.com/questions/70462758/c-sharp-how-to-convert-quaternions-to-euler-angles-xyz
         /// </summary>

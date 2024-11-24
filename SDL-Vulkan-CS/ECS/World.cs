@@ -22,7 +22,7 @@ namespace SDL_Vulkan_CS.ECS
 
         public EntityManager EntityManager => _entityManager;
         public List<SystemBase> Systems => new(Systems);
-        public List<PresentationSystemBase> PresentationSystems=>new(PresentationSystems);
+        public List<PresentationSystemBase> PresentationSystems => new(PresentationSystems);
 
         public World()
         {
@@ -42,17 +42,11 @@ namespace SDL_Vulkan_CS.ECS
         /// There is instance type safety as part of AddSystem,
         /// the existing instance will be returned if the type already exists.
         /// 
-        /// Presentation systems will raise an exception as these have a parameters in their constructors for the graphics device.
-        /// 
         /// </summary>
         /// <typeparam name="T"> System type </typeparam>
         /// <returns> System instance </returns>
         public T CreateSystem<T>() where T : SystemBase, new()
         {
-            // if(typeof(T).IsAssignableFrom(typeof(PresentationSystemBase)))
-            // {
-            //     throw new ArgumentException("CraeteSystem<T> type T cannot inherit from PresentationSystemBase\nPresentationSystems cannot use the default constructor");
-            // }
             return AddSystem((T)Activator.CreateInstance(typeof(T)));
         }
 

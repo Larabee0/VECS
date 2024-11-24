@@ -7,7 +7,7 @@ namespace SDL_Vulkan_CS
     /// <summary>
     /// Abstracted buffer class for managing a Vk buffer and device memory using the Vulkan Memory Allocator (VMA)
     /// 
-    /// These buffers are used for things like a vertex buffer, index buffer and later a texture.
+    /// These buffers are used for things like a vertex buffer, index buffer.
     /// 
     /// </summary>
     public sealed class CsharpVulkanBuffer : IDisposable
@@ -134,7 +134,7 @@ namespace SDL_Vulkan_CS
         /// <param name="size">how much of the buffer should be flushed</param>
         /// <param name="offset">where in the buffer the flush should start</param>
         /// <returns></returns>
-        public VkResult Flush( ulong size = Vulkan.VK_WHOLE_SIZE, ulong offset = 0)
+        public VkResult Flush(ulong size = Vulkan.VK_WHOLE_SIZE, ulong offset = 0)
         {
             return Vma.vmaFlushAllocation(_device.VmaAllocator, _allocation, offset, size);
         }

@@ -1,11 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using SDL_Vulkan_CS.VulkanBackend;
 
 namespace SDL_Vulkan_CS.ECS.Presentation
 {
+    /// <summary>
+    /// Stores index reference to a material <see cref="Material.Materials"/>
+    /// (Graphics pipeline consisting of a Vertex and Fragment shader and other arbitary data)
+    /// </summary>
     public struct MaterialIndex : IComponent
     {
         public static int ComponentId { get; set; }

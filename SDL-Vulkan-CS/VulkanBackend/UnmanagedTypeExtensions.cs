@@ -8,7 +8,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
 
     /// <summary>
     /// Source: https://stackoverflow.com/questions/53968920/how-do-i-check-if-a-type-fits-the-unmanaged-constraint-in-c
-    /// used to test if type given to Material is unmanaged.
+    /// Used to test if type given to Material is unmanaged.
     /// </summary>
     public static class UnmanagedTypeExtensions
     {

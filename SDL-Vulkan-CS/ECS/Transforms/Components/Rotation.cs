@@ -1,17 +1,14 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Numerics;
 
 namespace SDL_Vulkan_CS.ECS
 {
-    public  struct Rotation : IComponent
+    /// <summary>
+    /// stores a radian euler for rotation
+    /// </summary>
+    public struct Rotation : IComponent
     {
         public static int ComponentId { get; set; }
 
-        //public Quaternion Value;
         public Vector3 Value;
     }
 }

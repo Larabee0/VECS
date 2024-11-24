@@ -1,15 +1,21 @@
 ﻿using SDL3;
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace SDL_Vulkan_CS
 {
+    /// <summary>
+    /// class for mangaging user input outside of resizing the window and closing it (with esc)
+    /// This handles input like mouse movement for the camera
+    /// and wasd for moving around the sceen.
+    /// 
+    /// This uses teh SDL3 events system*
+    /// *apart from mouse motion because this didn't behave well.
+    /// Mouse motion update is triggered by <see cref="SDL3Window.UpdateWindowEvents"/>,
+    /// but handled locally in <see cref="MouseMotion(SDL_Event)"/>
+    /// </summary>
     public class InputManager
     {
         public Vector3 moveInput = Vector3.Zero;
@@ -31,16 +37,22 @@ namespace SDL_Vulkan_CS
             SDL3.SDL3.SDL_AddEventWatch(&RightClick, IntPtr.Zero);
         }
 
+        /// <summary>
+        /// defines a pointable function for handling a right click event.
+        /// </summary>
+        /// <param name="n"></param>
+        /// <param name="eventPtr"></param>
+        /// <returns></returns>
         [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
         private static unsafe SDLBool RightClick(nint n, SDL_Event* eventPtr)
         {
             if (eventPtr->button.Button == SDL_Button.Right)
             {
-                if(eventPtr->type == SDL_EventType.MouseButtonDown)
+                if (eventPtr->type == SDL_EventType.MouseButtonDown)
                 {
                     Instance.rightMouseDown = true;
                 }
-                else if(eventPtr->type == SDL_EventType.MouseButtonUp)
+                else if (eventPtr->type == SDL_EventType.MouseButtonUp)
                 {
                     Instance.rightMouseDown = false;
                     Instance.firstMouse = true;
@@ -49,6 +61,12 @@ namespace SDL_Vulkan_CS
             return false;
         }
 
+        /// <summary>
+        /// defines a pointale function for handling wasd input events
+        /// </summary>
+        /// <param name="n"></param>
+        /// <param name="eventPtr"></param>
+        /// <returns></returns>
         [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
         private static unsafe SDLBool KeyboardMove(nint n, SDL_Event* eventPtr)
         {
@@ -121,14 +139,47 @@ namespace SDL_Vulkan_CS
 
         public void Update()
         {
-            //Console.WriteLine(mouseInput.ToString());
         }
 
+        /// <summary>
+        /// sets mouse  delta to zero ready for next frame.
+        /// </summary>
         public void LateUpdate()
         {
             mouseDelta = Vector2.Zero;
-            //mousePosOld = mousePos;
             mouseMotion = false;
         }
+
+        /// <summary>
+        /// processes a mouse input event
+        /// </summary>
+        /// <param name="sdlEvent"></param>
+        public void MouseMotion(SDL_Event sdlEvent)
+        {
+            mouseMotion = true;
+
+            if (!firstMouse)
+            {
+
+                var pos = mousePos;
+                var delta = mouseDelta;
+                pos.X = sdlEvent.motion.x;
+                pos.Y = sdlEvent.motion.y;
+                delta.X = sdlEvent.motion.xrel;
+                delta.Y = sdlEvent.motion.yrel;
+                mousePos = pos;
+                mouseDelta = delta;
+            }
+            else
+            {
+                firstMouse = false;
+
+                var delta = mouseDelta;
+                delta.X = 0;
+                delta.Y = 0;
+                mouseDelta = delta;
+            }
+        }
+
     }
 }

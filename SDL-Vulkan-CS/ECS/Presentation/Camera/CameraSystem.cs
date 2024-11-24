@@ -1,10 +1,6 @@
 ﻿using SDL_Vulkan_CS.ECS;
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace SDL_Vulkan_CS
 {
@@ -13,24 +9,38 @@ namespace SDL_Vulkan_CS
     /// </summary>
     public class CameraSystem : SystemBase
     {
-        const float lookSpeed = 4.5f;
-        const float moveSpeed = 2f;
+        const float lookSpeed = 3.5f;
+        const float moveSpeed = 3f;
 
         EntityQuery _cameraQueryPerspective; // query for persepctive cameras
         EntityQuery _cameraQueryOrthographic; // query for orthographic cameras
         EntityQuery _cameraInitQuery; // initalises camera entities that lack the camera component type.
 
-        EntityQuery _cameraMotion; // initalises camera entities that lack the camera component type.
+        EntityQuery _cameraMotion; // query to update camera position and rotation.
 
         public override void OnCreate(EntityManager entityManager)
         {
-            _cameraMotion = new EntityQuery(entityManager).WithAll(typeof(Translation),typeof(Rotation),typeof(Camera)).Build();
+            _cameraMotion = new EntityQuery(entityManager)
+                .WithAll(typeof(Translation), typeof(Rotation), typeof(Camera))
+                .Build();
 
-            _cameraQueryPerspective = new EntityQuery(entityManager).WithAll(typeof(CameraPerspective), typeof(Camera), typeof(LocalToWorld)).Build();
-            _cameraQueryOrthographic = new EntityQuery(entityManager).WithAll(typeof(CameraOrthographic), typeof(Camera), typeof(LocalToWorld)).Build();
-            _cameraInitQuery = new EntityQuery(entityManager).WithAll(typeof(LocalToWorld)).WithAny(typeof(CameraOrthographic),typeof(CameraPerspective)).WithNone(typeof(Camera)).Build();
+            _cameraQueryPerspective = new EntityQuery(entityManager)
+                .WithAll(typeof(CameraPerspective), typeof(Camera), typeof(LocalToWorld))
+                .Build();
+            _cameraQueryOrthographic = new EntityQuery(entityManager)
+                .WithAll(typeof(CameraOrthographic), typeof(Camera), typeof(LocalToWorld))
+                .Build();
+            _cameraInitQuery = new EntityQuery(entityManager)
+                .WithAll(typeof(LocalToWorld))
+                .WithAny(typeof(CameraOrthographic), typeof(CameraPerspective))
+                .WithNone(typeof(Camera))
+                .Build();
         }
 
+        /// <summary>
+        /// Camera position and rotation is update after the view matrices are calculated, motion is 1 frame out of sync
+        /// </summary>
+        /// <param name="entityManager"></param>
         public override void OnUpdate(EntityManager entityManager)
         {
             if (_cameraInitQuery.HasEntities)
@@ -149,7 +159,7 @@ namespace SDL_Vulkan_CS
         /// <returns></returns>
         public static Matrix4x4 GetViewMatrix(Matrix4x4 transform)
         {
-            if(Matrix4x4.Decompose(transform,out _,out Quaternion rotation,out  Vector3 translation))
+            if (Matrix4x4.Decompose(transform, out _, out Quaternion rotation, out Vector3 translation))
             {
                 return Matrix4x4.CreateLookTo(
                     translation,
@@ -159,55 +169,60 @@ namespace SDL_Vulkan_CS
             return Matrix4x4.Identity;
         }
 
+        /// <summary>
+        /// moves and rotates the given camera entity.
+        /// </summary>
+        /// <param name="entityManager"></param>
+        /// <param name="entity"></param>
         private static void TransformCamera(EntityManager entityManager, Entity entity)
         {
+            // only transform the camera if right mouse down (unit editor like behaviour)
             if (!InputManager.Instance.rightMouseDown)
             {
                 return;
             }
+
+            // inital camera positon and rotation
             Translation translation = entityManager.GetComponent<Translation>(entity);
             Rotation rotation = entityManager.GetComponent<Rotation>(entity);
-            
 
-            var mouse = InputManager.Instance.mouseDelta;
-            var keyboard = InputManager.Instance.moveInput;
+            // collect look and move inputs.
+            var look = InputManager.Instance.mouseDelta;
+            var movement = InputManager.Instance.moveInput;
 
-            if (mouse.LengthSquared() > float.Epsilon)
+            // rotate camera
+            if (look.LengthSquared() > float.Epsilon)
             {
-                Vector3 rotate = default;
-                rotate.X = Math.Clamp(mouse.Y, -1, 1);
-                rotate.Y = Math.Clamp(-mouse.X, -1, 1);
+                Vector3 rotationInput = Vector3.Zero;
+                rotationInput.X = look.Y;
+                rotationInput.Y = -look.X;
 
-                if (Vector3.Dot(rotate, rotate) > float.Epsilon)
-                {
-                    rotation.Value += lookSpeed * Application.DeltaTime * Vector3.Normalize(rotate);
+                rotation.Value += lookSpeed * Application.DeltaTime * rotationInput;
 
-                    rotation.Value.X = Math.Clamp(rotation.Value.X, -1.5f, 1.5f);
-                    rotation.Value.Y %= MathF.Tau;
+                rotation.Value.X = Math.Clamp(rotation.Value.X, -1.5f, 1.5f);
+                rotation.Value.Y %= MathF.Tau;
 
-                    entityManager.SetComponent(entity, rotation);
-                }
+                entityManager.SetComponent(entity, rotation);
             }
 
 
-
-            if(keyboard.LengthSquared() > float.Epsilon)
+            // move camera, relies on rotation value
+            if (movement.LengthSquared() > float.Epsilon)
             {
+                // compute camera directions
                 Vector3 foward = new(MathF.Sin(rotation.Value.Y), 0f, MathF.Cos(rotation.Value.Y));
                 Vector3 right = new(foward.Z, 0f, -foward.X);
                 Vector3 up = new(0, 1, 0);
-                Vector3 moveDir = default;
 
-                moveDir += keyboard.Z * foward;
-                moveDir += keyboard.X * right;
-                moveDir += keyboard.Y * up;
+                Vector3 moveDir = Vector3.Zero;
 
-                if (Vector3.Dot(moveDir, moveDir) > float.Epsilon)
-                {
-                    float speed = InputManager.Instance.shiftDown ? moveSpeed * 2 : moveSpeed;
-                    translation.Value += speed * Application.DeltaTime * Vector3.Normalize(moveDir);
-                    entityManager.SetComponent(entity, translation);
-                }
+                moveDir += movement.Z * foward;
+                moveDir += movement.X * right;
+                moveDir += movement.Y * up;
+
+                float speed = InputManager.Instance.shiftDown ? moveSpeed * 2 : moveSpeed;
+                translation.Value += speed * Application.DeltaTime * Vector3.Normalize(moveDir);
+                entityManager.SetComponent(entity, translation);
             }
 
         }
