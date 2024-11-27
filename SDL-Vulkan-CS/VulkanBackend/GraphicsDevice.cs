@@ -401,7 +401,7 @@ namespace SDL_Vulkan_CS
                 NativeMemory.Copy(pTempQueueCreateInfos, pQueueCreateInfos, (uint)byteSize);
             }
 
-            VkPhysicalDeviceFeatures deviceFeature = new() { samplerAnisotropy = true };
+            VkPhysicalDeviceFeatures deviceFeature = new() { samplerAnisotropy = true, fillModeNonSolid = true };
 
             using VkStringArray deviceExtensionNames = new(_requiredDeviceExtensions);
 

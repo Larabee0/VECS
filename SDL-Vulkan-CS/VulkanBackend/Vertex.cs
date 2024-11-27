@@ -1,4 +1,7 @@
 ﻿using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using Vortice.Vulkan;
@@ -12,7 +15,7 @@ namespace SDL_Vulkan_CS
     /// A vertex is 44 bytes atomically. but likely has an extra 4 bytes of padding
     /// </summary>
     [StructLayout(LayoutKind.Sequential, Size = 44)]
-    public struct Vertex
+    public struct Vertex : IEqualityComparer<Vertex>
     {
         public static unsafe int SizeInBytes => sizeof(Vertex);
 
@@ -29,6 +32,17 @@ namespace SDL_Vulkan_CS
         }
 
 
+        public static Vertex Average(Vertex a, Vertex b)
+        {
+            return new Vertex()
+            {
+                Position = (a.Position + b.Position) * 0.5f,
+                Colour = (a.Colour + b.Colour) * 0.5f,
+                UV = (a.UV + b.UV) * 0.5f,
+                Normal = Vector3.Normalize((a.Normal + b.Normal) * 0.5f)
+            };
+        }
+
         public static bool operator ==(Vertex left, Vertex right)
         {
             return left.Position == right.Position
@@ -39,14 +53,19 @@ namespace SDL_Vulkan_CS
 
         public static bool operator !=(Vertex left, Vertex right) => !(left == right);
 
-        public override readonly bool Equals(object obj)
+        public bool Equals(Vertex x, Vertex y)
         {
-            return (obj is Vertex other) && Equals(other);
+            return x == y;
         }
 
         public readonly bool Equals(Vertex other)
         {
             return this == other;
+        }
+
+        public int GetHashCode([DisallowNull] Vertex obj)
+        {
+            return obj.GetHashCode();
         }
 
         public override readonly int GetHashCode()
@@ -90,6 +109,11 @@ namespace SDL_Vulkan_CS
             ];
 
             return attributeDescriptions;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is Vertex vertex ? vertex.Equals(this) : false;
         }
     }
 }

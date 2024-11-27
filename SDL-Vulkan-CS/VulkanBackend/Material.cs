@@ -220,6 +220,10 @@ namespace SDL_Vulkan_CS.VulkanBackend
 
             RenderPipelineConfigInfo pipelineConfigInfo = RenderPipelineConfigInfo.DefaultPipelineConfigInfo(Presenter.Instance.RenderPass, _pipelineLayout);
 
+            
+            //pipelineConfigInfo.rasterizationInfo.polygonMode = VkPolygonMode.Line;
+            pipelineConfigInfo.rasterizationInfo.cullMode = VkCullModeFlags.Front;
+
             _materialPipeline = new(GraphicsDevice.Instance, vertexShader, fragmentShader, pipelineConfigInfo);
         }
 
@@ -235,6 +239,14 @@ namespace SDL_Vulkan_CS.VulkanBackend
             if (mesh == null) return;
             BindTextures(rendererFrameInfo, textures);
 
+            mesh.BindAndDraw(rendererFrameInfo.CommandBuffer);
+        }
+
+        public void BindAndDraw<T>(RendererFrameInfo rendererFrameInfo, int meshIndex, T pushConstants) where T : unmanaged
+        {
+            Mesh mesh = Mesh.GetMeshAtIndex(meshIndex);
+            if (mesh == null) return;
+            PushConstants(rendererFrameInfo.CommandBuffer, pushConstants);
             mesh.BindAndDraw(rendererFrameInfo.CommandBuffer);
         }
 

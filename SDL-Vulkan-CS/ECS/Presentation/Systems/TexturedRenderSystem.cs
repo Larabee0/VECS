@@ -10,11 +10,11 @@ namespace SDL_Vulkan_CS.ECS.Presentation
     /// This expects all materials will have one texture and accept a push constant of <see cref="SimplePushConstantData"/>
     /// for the model local to world matrix.
     /// </summary>
-    public class SimpleRenderSystem : PresentationSystemBase
+    public class TexturedRenderSystem : PresentationSystemBase
     {
         private EntityQuery _renderQuery;
 
-        public SimpleRenderSystem() : base() { }
+        public TexturedRenderSystem() : base() { }
 
         public override void OnCreate(EntityManager entityManager)
         {
@@ -34,7 +34,7 @@ namespace SDL_Vulkan_CS.ECS.Presentation
             {
                 // get all data from the entities
                 List<Entity> entities = _renderQuery.GetEntities();
-                List<SimpleDrawCall> drawCalls = new(entities.Count);
+                List<TexturedDrawCall> drawCalls = new(entities.Count);
                 entities.ForEach(e =>
                 {
                     drawCalls.Add(new()
@@ -49,7 +49,7 @@ namespace SDL_Vulkan_CS.ECS.Presentation
 
                 // to mimise material binding, the entities are sorted by material
                 // this allows all entities of the same material to share a BindDescriptorSets operation
-                drawCalls.Sort(new SimpleDrawCall());
+                drawCalls.Sort(new TexturedDrawCall());
 
                 // draw each entity in material order.
                 Material mat = null;
@@ -77,14 +77,14 @@ namespace SDL_Vulkan_CS.ECS.Presentation
         /// <summary>
         /// contains the information needed to draw a mesh with a given texture, material and matrix
         /// </summary>
-        public struct SimpleDrawCall : IComparer<SimpleDrawCall>
+        public struct TexturedDrawCall : IComparer<TexturedDrawCall>
         {
             public int MeshIndex;
             public int TextureIndex;
             public int MaterialIndex;
             public Matrix4x4 Ltw;
 
-            public readonly int Compare(SimpleDrawCall x, SimpleDrawCall y)
+            public readonly int Compare(TexturedDrawCall x, TexturedDrawCall y)
             {
                 if (x.MaterialIndex.CompareTo(y.MaterialIndex) != 0)
                 {

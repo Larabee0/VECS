@@ -3,6 +3,8 @@ using SDL_Vulkan_CS.ECS;
 using SDL_Vulkan_CS.VulkanBackend;
 using SDL_Vulkan_CS.ECS.Presentation;
 using Vortice.Vulkan;
+using SDL_Vulkan_CS.ECS.Presentation.Systems;
+using SDL_Vulkan_CS.Artifact.Generator;
 
 namespace SDL_Vulkan_CS.Artifact
 {
@@ -25,12 +27,85 @@ namespace SDL_Vulkan_CS.Artifact
 
         public ArtifactAuthoring()
         {
-            World.DefaultWorld.CreateSystem<SimpleRenderSystem>();
+            World.DefaultWorld.CreateSystem<TexturelessRenderSystem>();
 
             EntityManager entityManager = World.DefaultWorld.EntityManager;
 
             CreateDefaultCamera(entityManager);
-            LoadScene(entityManager);
+            // LoadTestScene(entityManager);
+            LoadShape(entityManager);
+        }
+
+
+        private static void LoadShape(EntityManager entityManager)
+        {
+            var shape = Mesh.LoadModelFromFile(GraphicsDevice.Instance, Mesh.GetMeshInDefaultPath("Comp305-Shape-Split.obj"));
+
+            var lit = new Material("white_shader.vert", "white_shader.frag", typeof(SimplePushConstantData));
+
+            ShapeGenerator generator = CreateShapeGenerator();
+
+            generator.RandomiseSettings();
+
+            for (int i = 0; i < shape.Length; i++)
+            {
+                var mesh = shape[i];
+                Subdivider.Subdivide(mesh, 5);
+
+                generator.RaiseMesh(mesh);
+
+                var shapeEntity = entityManager.CreateEntity();
+                entityManager.AddComponent(shapeEntity, new Translation() { Value = new(0, 0, 0) });
+                entityManager.AddComponent(shapeEntity, new Scale() { Value = new(3f, 3f, 3f) });
+                entityManager.AddComponent(shapeEntity, new MeshIndex() { Value = Mesh.GetIndexOfMesh(mesh) });
+                entityManager.AddComponent(shapeEntity, new MaterialIndex() { Value = Material.GetIndexOfMaterial(lit) });
+            }
+        }
+
+        public static ShapeGenerator CreateShapeGenerator()
+        {
+            return new ShapeGenerator()
+            {
+                _planetRadius = 1f,
+                _seed = 0,
+                _randomSeed = false,
+                _noiseFilters =
+                [
+                    new SimpleNoiseSettings()
+                    {
+                        enabled = true,
+                        useFirstlayerAsMask = true,
+                        filterType = FilterType.Simple,
+                        strength = 0.07f,
+                        numLayers = 4,
+                        baseRoughness = 1.07f,
+                        roughness = 2.2f,
+                        persistence = 0.5f,
+                        centre = Vector3.Zero,
+                        offset = 0,
+                        minValue = 0.98f,
+                        gradientWeight = true,
+                        gradientWeightMul = 1,
+                    },
+
+                    new RigidNoiseSettings(){
+                        enabled = true,
+                        useFirstlayerAsMask = true,
+                        filterType = FilterType.Rigid,
+                        strength = 0.6f,
+                        numLayers = 4,
+                        baseRoughness = 1.59f,
+                        roughness = 3.3f,
+                        persistence = 0.5f,
+                        centre = Vector3.Zero,
+                        offset = 0,
+                        minValue = 0.37f,
+                        gradientWeight = true,
+                        gradientWeightMul = 1,
+                        weightMultiplier = 0.78f,
+                    }
+                ],
+            };
         }
 
         /// <summary>
@@ -38,7 +113,7 @@ namespace SDL_Vulkan_CS.Artifact
         /// then creates the entities that make up the scene.
         /// </summary>
         /// <param name="entityManager"></param>
-        private static void LoadScene(EntityManager entityManager)
+        private static void LoadTestScene(EntityManager entityManager)
         {
             var cubeUvMesh = Mesh.LoadModelFromFile(GraphicsDevice.Instance, Mesh.GetMeshInDefaultPath("cube-uv.obj"));
             var flatVaseMesh = Mesh.LoadModelFromFile(GraphicsDevice.Instance, Mesh.GetMeshInDefaultPath("flat_vase.obj"));

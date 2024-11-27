@@ -200,8 +200,8 @@ namespace SDL_Vulkan_CS
 
                     PointLights = new PointLight()
                     {
-                        Position = new Vector4(0, 0, 0, 0),
-                        Colour = new Vector4(1, 1, 1, 1f)
+                        Position = new Vector4(0, 5, 1, 0),
+                        Colour = new Vector4(1, 0.5f, 1, 1f)
                     },
                     NumLights = 1
                 };
