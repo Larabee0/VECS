@@ -47,6 +47,7 @@ For shaders I am just rendering white with direction lights and
 - Generation takes a long time
 - Normal calculation takes a long time
 - Outside of generation, the ECS implementation, one of the get component Id overloads incurs a major cost in execution speed from looking up te component type guid
+- Vertex struct has a lot of unused variables which add a lot of memory overhead which is simply not used
 
 ## Next
 - Improve performance of the application by addressing all the above
