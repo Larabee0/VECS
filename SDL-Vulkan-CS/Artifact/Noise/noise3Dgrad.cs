@@ -50,7 +50,7 @@ namespace SDL_Vulkan_CS.Artifact.Noise
 
             
             // Other corners
-            Vector3 g = SystemNumericsExtensions.Step(new Vector3(x0.Z, x0.X, x0.Y), x0);
+            Vector3 g = SystemNumericsExtensions.Step(new Vector3(x0.Y, x0.Z, x0.X), x0);
             Vector3 l = Vector3.One - g;
             Vector3 i1 = Vector3.Min(g, new Vector3(l.Z,l.X,l.Y));
             Vector3 i2 = Vector3.Max(g, new Vector3(l.Z,l.X,l.Y));

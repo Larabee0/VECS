@@ -21,7 +21,7 @@ namespace SDL_Vulkan_CS
 
         public static Vector3 Step(Vector3 threshold, Vector3 x)
         {
-            return Select(new Vector3(0.0f), new Vector3(1.0f), GreaterEqual( x , threshold));
+            return Select(Vector3.Zero, Vector3.One, GreaterEqual(x , threshold));
         }
 
         public static Vector4 Step(Vector4 threshold, Vector4 x)
@@ -32,16 +32,16 @@ namespace SDL_Vulkan_CS
         public static Vector3 Select(Vector3 falseValue, Vector3 trueValue, Bool3 test)
         {
             return new Vector3(test.X ? trueValue.X : falseValue.X,
-                test.Y ? trueValue.Y : falseValue.Y,
-                test.Z ? trueValue.Z : falseValue.Z);
+                               test.Y ? trueValue.Y : falseValue.Y,
+                               test.Z ? trueValue.Z : falseValue.Z);
         }
 
         public static Vector4 Select(Vector4 falseValue, Vector4 trueValue, Bool4 test)
         {
             return new Vector4(test.X ? trueValue.X : falseValue.X,
-                test.Y ? trueValue.Y : falseValue.Y,
-                test.Z ? trueValue.Z : falseValue.Z,
-                test.W ? trueValue.W : trueValue.W);
+                               test.Y ? trueValue.Y : falseValue.Y,
+                               test.Z ? trueValue.Z : falseValue.Z,
+                               test.W ? trueValue.W : falseValue.W);
         }
 
 
