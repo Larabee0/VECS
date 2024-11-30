@@ -43,6 +43,39 @@ I also added a randomisation system, by assigning a random number to the center 
 For shaders I am just rendering white with direction lights and
 
 ## Performance anayslsis
+### Generation
+The largest performance bottle neck according to visual studio cpu performance profiler is the raisemesh function (blue) which occupied 46% of total cpu time for loading the shape.
+
+The rest is taken up by the subdivison system (green & orange), which turns the simple shape loaded from disk into a high geometry count shape for terrain generation.
+Most of the subdividers times is spen on simplifySubdivison (green), which merges duplicate vertices. Looking in here most of the cost comes from dictionary oeprations, account for a combined 18% of total cpu time, where the hole simplify subdivsion method call takes 19.82%
+In both cases for the green and orange sections show a low self time to total cpu time ratio. This indicates the cost of the method is low, but it is being called a lot. These operation would benefit from parallelisation then.
+In both cases this makes sense, as they are mostly memory copy operations.
+
+Looking at hte blue area, the results are similar to teh subdivide, a relatively low self time but high total time. Indicating the actual cost to run raise mesh once is small, it is just being called a lot.
+Digging into raise mesh, the noise filter Evaluate calls are what occupy a vast majority of the total cpu time for this method, and within these the noise3Dgrad.snoise operation is the big cost. This is the simplex noise algorithim.
+Once again like the subdivider, this whole operation would benefit from parallisation.
+
+In both cases, parallising these operations is relatively simple. For Raise Mesh it is as simple as turning the vertex Evaluation for loop into a parallel for.
+For the subdivider, the subdivide operation is also simply parallised in the same way, as the size and therefore indices of the index and vertex buffers can be pre-calcuated.
+The simplfy operation is more complex as it involes a dictionary, which is not a thread-safe collection. Lucky something called a concurrent dictionary exists which is, but several parallel operations and steps will be needed still.
+
+### Frame Rendering
+Starting in off with the compiler in release mode, the entity world OnUpdate method took 49% of cpu time, and we can see it was the LocalToWorldSystem OnUpdate that is responsible for that. In release mode we can't see what exactly is taking most of the time.
+Another 47% of total cpu time is taken up by the presentation system, specifically the TexturelessRenderSystem OnPresent call, which is where all the meshes are bound and drawn. Similar to the LocalToWorldSystem, exactly what is taking time isn't shown in release compiler mode.
+
+Switching to the debug compiler to see whats taking so long, the LocalToWorld and presentation swap places as the presentation system raises from 47% of total time to 60%, with LocalToWorld falling proportionally to 37% they are still the two main bottlenecks.
+#### Presentation
+Looking at the presentation system first, the two major hogs are the GetComponent<T> (24% of total time) and the material bind and draw method (22% of total time).
+GetComponent (Cyan) we can see that its the Type.get guid incurring the the bulk of the cost at 23.78% of total time. This is quite signficiant and could be easily improved by not calling get component id.
+
+Next looking at the bind and draw (Green), we can see its external vulkan calls bind & draw incuring the cost. Nothing I can do to improve that other than providing smaller meshes.
+
+#### LocalToWorld
+Highlighted in cyan, we can see the main bottlenecks are once again get component id, taking a combined 29.76% of total cpu time and local to world is taking 31.65% of total. The camera system takes 6.05%, which accounts for pretty much all of the world OnUpdate (37.77%)
+
+#### Improvements to make
+The top thing to look at for frame rendering right now is GetComponentId. The way this works now is it gets the Type class of the component type, and computes the Type GUID. It seems this quite an expensive operation in C#, finding a way around needing to get the component id or using a differenet more efficient method of identifiying component types to lookup.
+
 - Subdivision takes a long time for each face
 - Generation takes a long time
 - Normal calculation takes a long time
