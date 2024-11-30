@@ -39,6 +39,7 @@ namespace SDL_Vulkan_CS
         private VkCommandPool _commandPool;
 
         private VkQueue _graphicsQueue;
+        private VkQueue _computeQueue;
         private VkQueue _presentQueue;
 
         private VmaAllocator _allocator;
@@ -320,7 +321,7 @@ namespace SDL_Vulkan_CS
             {
                 var family = queueFamilies[i];
 
-                if (family.queueCount > 0 && family.queueFlags.HasFlag(VkQueueFlags.Graphics))
+                if (family.queueCount > 0 && family.queueFlags.HasFlag(VkQueueFlags.Graphics) && family.queueFlags.HasFlag(VkQueueFlags.Compute))
                 {
                     indices.graphicsFamily = i;
                     indices.graphicsFamilyHasValue = true;
@@ -434,6 +435,7 @@ namespace SDL_Vulkan_CS
             Vulkan.vkLoadDevice(_device);
 
             Vulkan.vkGetDeviceQueue(_device, (uint)indices.graphicsFamily, 0, out _graphicsQueue);
+            Vulkan.vkGetDeviceQueue(_device, (uint)indices.graphicsFamily, 0, out _computeQueue);
             Vulkan.vkGetDeviceQueue(_device, (uint)indices.presentFamily, 0, out _presentQueue);
         }
 
