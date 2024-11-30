@@ -1,14 +1,13 @@
 #version 450
 
 layout (location = 0) in vec3 position;
-layout (location = 1) in vec3 colour;
-layout (location = 2) in vec3 normal;
-layout (location = 3) in vec2 uv;
+layout (location = 1) in vec3 normal;
+layout (location = 2) in float elevation;
 	   
 layout (location = 0) out vec3 fragColour;
 layout (location = 1) out vec3 fragPosWorld;
 layout (location = 2) out vec3 fragNormalWorld;
-layout (location = 3) out vec2 fragUV;
+layout (location = 3) out float fragElevation;
 
 struct PointLight {
 	vec4 position; // ignore w
@@ -44,5 +43,5 @@ void main()
 	float lightIntensity = AMBIENT + max(dot(fragNormalWorld, DIRECTION_TO_LIGHT), 0);
 	fragPosWorld = positionWorld.xyz;
 	fragColour = lightIntensity * vec3(1);
-	fragUV = uv;
+	fragElevation = elevation;
 }

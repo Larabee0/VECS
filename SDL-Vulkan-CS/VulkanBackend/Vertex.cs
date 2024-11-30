@@ -20,15 +20,13 @@ namespace SDL_Vulkan_CS
         public static unsafe int SizeInBytes => sizeof(Vertex);
 
         public Vector3 Position; // offset 0
-        public Vector3 Colour; // offset 12
-        public Vector3 Normal; // offset 24
-        public Vector2 UV; // offset 36
+        public Vector3 Normal; // offset 12
+        public float Elevation; // offset 16
 
         public Vertex(Vector3 position, Vector3 colour)
         {
 
             Position = position;
-            Colour = colour;
         }
 
 
@@ -37,18 +35,16 @@ namespace SDL_Vulkan_CS
             return new Vertex()
             {
                 Position = (a.Position + b.Position) * 0.5f,
-                Colour = (a.Colour + b.Colour) * 0.5f,
-                UV = (a.UV + b.UV) * 0.5f,
-                Normal = Vector3.Normalize((a.Normal + b.Normal) * 0.5f)
+                Normal = Vector3.Normalize((a.Normal + b.Normal) * 0.5f),
+                Elevation = (a.Elevation + b.Elevation) * 0.5f
             };
         }
 
         public static bool operator ==(Vertex left, Vertex right)
         {
             return left.Position == right.Position
-                && left.Colour == right.Colour
                 && left.Normal == right.Normal
-                && left.UV == right.UV;
+                && left.Elevation == right.Elevation;
         }
 
         public static bool operator !=(Vertex left, Vertex right) => !(left == right);
@@ -70,7 +66,7 @@ namespace SDL_Vulkan_CS
 
         public override readonly int GetHashCode()
         {
-            return HashCode.Combine(Position, Colour, Normal, UV);
+            return HashCode.Combine(Position, Normal, Elevation);
         }
 
         /// <summary>
@@ -101,11 +97,9 @@ namespace SDL_Vulkan_CS
             [
                 new VkVertexInputAttributeDescription(0, VkFormat.R32G32B32Sfloat, (uint)Marshal.OffsetOf<Vertex>(nameof(Position))), // position
 
-                new VkVertexInputAttributeDescription(1, VkFormat.R32G32B32Sfloat, (uint)Marshal.OffsetOf<Vertex>(nameof(Colour))), // colour
+                new VkVertexInputAttributeDescription(1, VkFormat.R32G32B32Sfloat, (uint)Marshal.OffsetOf<Vertex>(nameof(Normal))), // normal
 
-                new VkVertexInputAttributeDescription(2, VkFormat.R32G32B32Sfloat, (uint)Marshal.OffsetOf<Vertex>(nameof(Normal))), // normal
-
-                new VkVertexInputAttributeDescription(3, VkFormat.R32G32Sfloat, (uint)Marshal.OffsetOf<Vertex>(nameof(UV))) // uv
+                new VkVertexInputAttributeDescription(2, VkFormat.R32G32B32Sfloat, (uint)Marshal.OffsetOf<Vertex>(nameof(Elevation))) // Elevation
             ];
 
             return attributeDescriptions;

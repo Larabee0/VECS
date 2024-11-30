@@ -28,14 +28,15 @@ namespace SDL_Vulkan_CS.Artifact.Generator
 
         public void RaiseMesh(Mesh mesh)
         {
-            Vertex[] vertices = mesh.vertices;
+            Vertex[] vertices = mesh.Vertices;
 
             Parallel.For(0, vertices.Length, (int i) =>
             {
-                vertices[i].Position = CalculatePointOnPlanet(vertices[i].Position, out _);
+                vertices[i].Position = CalculatePointOnPlanet(vertices[i].Position, out float elevation);
+                vertices[i].Elevation = elevation;
             });
 
-            mesh.vertices = vertices;
+            mesh.Vertices = vertices;
             mesh.RecalculateNormals();
         }
 

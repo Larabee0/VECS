@@ -17,7 +17,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
     /// https://assimp-docs.readthedocs.io/en/latest/about/quickstart.html
     /// 
     /// Abstration of vk buffers that define a mesh.
-    /// This allows you to write to two arrays <see cref="vertices"/> & <see cref="indices"/>
+    /// This allows you to write to two arrays <see cref="_vertices"/> & <see cref="_indices"/>
     /// then flush them to the gpu via a staging buffer or directly, depending on how the mesh was configured on construction.
     /// </summary>
     public class Mesh
@@ -25,22 +25,48 @@ namespace SDL_Vulkan_CS.VulkanBackend
         public static string DefaultMeshPath => Path.Combine(Application.ExecutingDirectory, "Assets/Models");
         private readonly static List<Mesh> _meshes = [];
 
+        private const bool clearLocalBuffersOnFlush = true;
+
         public static List<Mesh> Meshes => _meshes;
 
         private readonly ulong _offset;
         private readonly bool _hasIndexBuffer;
         private bool _stagedMesh;
 
-        public Vertex[] vertices;
-        public uint[] indices;
+        private Vertex[] _vertices;
+        private uint[] _indices;
+
+        public Vertex[] Vertices
+        {
+            get => _vertices;
+            set
+            {
+                _vertices = value;
+                _vertexCount = _vertices.Length;
+            }
+        }
+
+        public uint[] Indices
+        {
+            get => _indices;
+            set
+            {
+                _indices = value;
+                _indicesCount = _indices.Length;
+            }
+        }
+
 
         private readonly GraphicsDevice _device;
 
         private CsharpVulkanBuffer _vertexBuffer;
         private CsharpVulkanBuffer _indexBuffer;
 
-        public int VertexCount => vertices.Length;
-        public int IndexCount => indices.Length;
+        private int _vertexCount = 0;
+        private int _indicesCount = 0;
+
+        public int VertexCount => _vertexCount;
+        public int IndexCount => _indicesCount;
 
         public bool HasIndexBuffer => _hasIndexBuffer;
         public bool StagedBuffers => _stagedMesh;
@@ -56,8 +82,8 @@ namespace SDL_Vulkan_CS.VulkanBackend
         public Mesh(GraphicsDevice device, Vertex[] vertices, bool useStagingBuffers = true)
         {
             _device = device;
-            this.vertices = vertices;
-            indices = [];
+            Vertices = vertices;
+            Indices = [];
             _hasIndexBuffer = false;
             _stagedMesh = useStagingBuffers;
         }
@@ -72,8 +98,8 @@ namespace SDL_Vulkan_CS.VulkanBackend
         public Mesh(GraphicsDevice device, Vertex[] vertices, uint[] indices, bool useStagingBuffers = true)
         {
             _device = device;
-            this.vertices = vertices;
-            this.indices = indices;
+            Vertices = vertices;
+            Indices = indices;
             _hasIndexBuffer = true;
             _stagedMesh = useStagingBuffers;
         }
@@ -134,6 +160,10 @@ namespace SDL_Vulkan_CS.VulkanBackend
         /// <param name="graphicsDevice"></param>
         public void SetStagedMode(bool staged)
         {
+            if (AnyBuffersAllocated && clearLocalBuffersOnFlush)
+            {
+                return;
+            }
             if (_stagedMesh == staged) return;
 
             if (_vertexBuffer != null)
@@ -171,33 +201,39 @@ namespace SDL_Vulkan_CS.VulkanBackend
         /// <param name="graphicsDevice"></param>
         public unsafe void FlushVertexBuffer()
         {
-            uint vertexBufferSize = (uint)(vertices.Length * Vertex.SizeInBytes);
-            if (_vertexBuffer != null && _vertexBuffer.InstanceCount != (uint)vertices.Length)
+            if (_vertices == null)
+            {
+                return;
+            }
+            uint vertexBufferSize = (uint)(_vertices.Length * Vertex.SizeInBytes);
+            if (_vertexBuffer != null && _vertexBuffer.InstanceCount != (uint)_vertices.Length)
             {
                 _vertexBuffer.Dispose();
                 _vertexBuffer = null;
             }
             if (_stagedMesh)
             {
-                var stagingBuffer = new CsharpVulkanBuffer(_device, (uint)Vertex.SizeInBytes, (uint)vertices.Length, VkBufferUsageFlags.TransferSrc, true);
-                fixed (void* data = &vertices[0])
+                var stagingBuffer = new CsharpVulkanBuffer(_device, (uint)Vertex.SizeInBytes, (uint)_vertices.Length, VkBufferUsageFlags.TransferSrc, true);
+                fixed (void* data = &_vertices[0])
                 {
                     stagingBuffer.WriteToBuffer(data);
                 }
 
-                _vertexBuffer ??= new CsharpVulkanBuffer(_device, (uint)Vertex.SizeInBytes, (uint)vertices.Length, VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.VertexBuffer, false);
+                _vertexBuffer ??= new CsharpVulkanBuffer(_device, (uint)Vertex.SizeInBytes, (uint)_vertices.Length, VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.VertexBuffer, false);
                 _device.CopyBuffer(stagingBuffer.VkBuffer, _vertexBuffer.VkBuffer, vertexBufferSize);
                 stagingBuffer.Dispose();
             }
             else
             {
 
-                _vertexBuffer ??= new CsharpVulkanBuffer(_device, (uint)Vertex.SizeInBytes, (uint)vertices.Length, VkBufferUsageFlags.VertexBuffer, true);
-                fixed (void* data = &vertices[0])
+                _vertexBuffer ??= new CsharpVulkanBuffer(_device, (uint)Vertex.SizeInBytes, (uint)_vertices.Length, VkBufferUsageFlags.VertexBuffer, true);
+                fixed (void* data = &_vertices[0])
                 {
                     _vertexBuffer.WriteToBuffer(data);
                 }
             }
+
+            _vertices = null;
         }
 
         /// <summary>
@@ -208,8 +244,12 @@ namespace SDL_Vulkan_CS.VulkanBackend
         /// <param name="graphicsDevice"></param>
         public unsafe void FlushIndexBuffer()
         {
-            uint indexBufferSize = (uint)(indices.Length * sizeof(uint));
-            if (_indexBuffer != null && _indexBuffer.InstanceCount != (uint)indices.Length)
+            if (_indices == null)
+            {
+                return;
+            }
+            uint indexBufferSize = (uint)(_indices.Length * sizeof(uint));
+            if (_indexBuffer != null && _indexBuffer.InstanceCount != (uint)_indices.Length)
             {
                 _indexBuffer.Dispose();
                 _indexBuffer = null;
@@ -217,25 +257,27 @@ namespace SDL_Vulkan_CS.VulkanBackend
 
             if (_stagedMesh)
             {
-                var stagingBuffer = new CsharpVulkanBuffer(_device, sizeof(uint), (uint)indices.Length, VkBufferUsageFlags.TransferSrc, true);
-                fixed (void* data = &indices[0])
+                var stagingBuffer = new CsharpVulkanBuffer(_device, sizeof(uint), (uint)_indices.Length, VkBufferUsageFlags.TransferSrc, true);
+                fixed (void* data = &_indices[0])
                 {
                     stagingBuffer.WriteToBuffer(data);
                 }
 
-                _indexBuffer ??= new CsharpVulkanBuffer(_device, sizeof(uint), (uint)indices.Length, VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.IndexBuffer, false);
+                _indexBuffer ??= new CsharpVulkanBuffer(_device, sizeof(uint), (uint)_indices.Length, VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.IndexBuffer, false);
                 _device.CopyBuffer(stagingBuffer.VkBuffer, _indexBuffer.VkBuffer, indexBufferSize);
                 stagingBuffer.Dispose();
             }
             else
             {
 
-                _indexBuffer ??= new CsharpVulkanBuffer(_device, sizeof(uint), (uint)indices.Length, VkBufferUsageFlags.IndexBuffer, true);
-                fixed (void* data = &indices[0])
+                _indexBuffer ??= new CsharpVulkanBuffer(_device, sizeof(uint), (uint)_indices.Length, VkBufferUsageFlags.IndexBuffer, true);
+                fixed (void* data = &_indices[0])
                 {
                     _indexBuffer.WriteToBuffer(data);
                 }
             }
+
+            _indices = null;
         }
 
         /// <summary>
@@ -311,22 +353,22 @@ namespace SDL_Vulkan_CS.VulkanBackend
         {
             Vertex[] vertices = new Vertex[m.Vertices.Count];
             List<Vector3D> positions = m.Vertices;
-            List<Color4D> colours = m.HasVertexColors(0) ? m.VertexColorChannels[0] : null;
+            // List<Color4D> colours = m.HasVertexColors(0) ? m.VertexColorChannels[0] : null;
             List<Vector3D> normals = m.HasNormals ? m.Normals : null;
-            List<Vector3D> uvs = m.HasTextureCoords(0) ? m.TextureCoordinateChannels[0] : null;
+            // List<Vector3D> uvs = m.HasTextureCoords(0) ? m.TextureCoordinateChannels[0] : null;
 
             for (int i = 0; i < positions.Count; i++)
             {
                 Vector3D position = positions[i];
-                Color4D colour = (colours != null) ? colours[i] : new Color4D(0, 0, 0, 0);
+                // Color4D colour = (colours != null) ? colours[i] : new Color4D(0, 0, 0, 0);
                 Vector3D normal = (normals != null) ? normals[i] : new Vector3D(0, 0, 0);
-                Vector3D uv = (uvs != null) ? uvs[i] : new Vector3D(0, 0, 0);
+                // Vector3D uv = (uvs != null) ? uvs[i] : new Vector3D(0, 0, 0);
                 vertices[i] = new()
                 {
                     Position = new(position.X, position.Y, position.Z),
-                    Colour = new(colour.R, colour.G, colour.B),
+                    // Colour = new(colour.R, colour.G, colour.B),
                     Normal = new(normal.X, normal.Y, normal.Z),
-                    UV = new(uv.X, uv.Y)
+                    // UV = new(uv.X, uv.Y)
                 };
             }
 
@@ -387,22 +429,22 @@ namespace SDL_Vulkan_CS.VulkanBackend
         /// </summary>
         public void RecalculateNormals()
         {
-            Parallel.For(0, vertices.Length, (int i) =>
+            Parallel.For(0, _vertices.Length, (int i) =>
             {
-                vertices[i].Normal = Vector3.Zero;
+                _vertices[i].Normal = Vector3.Zero;
             });
 
-            Parallel.For(0, indices.Length / 3, (int index) =>
+            Parallel.For(0, _indices.Length / 3, (int index) =>
             {
                 int i = index * 3;
-                uint vertexA = indices[i];
-                uint vertexB = indices[i + 1];
-                uint vertexC = indices[i + 2];
-                Vector3 point = Vector3.Cross(vertices[vertexB].Position - vertices[vertexA].Position, vertices[vertexC].Position - vertices[vertexA].Position);
+                uint vertexA = _indices[i];
+                uint vertexB = _indices[i + 1];
+                uint vertexC = _indices[i + 2];
+                Vector3 point = Vector3.Cross(_vertices[vertexB].Position - _vertices[vertexA].Position, _vertices[vertexC].Position - _vertices[vertexA].Position);
 
-                vertices[vertexA].Normal += point;
-                vertices[vertexB].Normal += point;
-                vertices[vertexC].Normal += point;
+                _vertices[vertexA].Normal += point;
+                _vertices[vertexB].Normal += point;
+                _vertices[vertexC].Normal += point;
             });
 
             // for (int i = 0; i < indices.Length; i += 3)
@@ -417,9 +459,9 @@ namespace SDL_Vulkan_CS.VulkanBackend
             //     vertices[vertexC].Normal += point;
             // }
 
-            Parallel.For(0, vertices.Length, (int i) =>
+            Parallel.For(0, _vertices.Length, (int i) =>
             {
-                vertices[i].Normal = Vector3.Normalize(vertices[i].Normal);
+                _vertices[i].Normal = Vector3.Normalize(_vertices[i].Normal);
             });
         }
     }

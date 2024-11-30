@@ -26,12 +26,12 @@ namespace SDL_Vulkan_CS.Artifact
 
         public static void Subdivide(Mesh targetMesh)
         {
-            Vertex[] currentVertices = targetMesh.vertices;
-            uint[] currentTriangles = targetMesh.indices;
-            int currentTriCount = targetMesh.indices.Length;
+            Vertex[] currentVertices = targetMesh.Vertices;
+            uint[] currentTriangles = targetMesh.Indices;
+            int currentTriCount = targetMesh.IndexCount;
 
 
-            int newVertexCount = targetMesh.indices.Length * 2;
+            int newVertexCount = targetMesh.IndexCount * 2;
             int newTriCount = newVertexCount * 2;
 
             Vertex[] newVertices = new Vertex[newVertexCount];
@@ -77,14 +77,14 @@ namespace SDL_Vulkan_CS.Artifact
                 newTriangles[triIndex + 11] = vertexIndex + 5;
             });
 
-            targetMesh.vertices = newVertices;
-            targetMesh.indices = newTriangles;
+            targetMesh.Vertices = newVertices;
+            targetMesh.Indices = newTriangles;
         }
 
         public static void SimpliftySubdivision(Mesh targetMesh)
         {
-            Vertex[] currentVertices = targetMesh.vertices;
-            uint[] currentTriangles = targetMesh.indices;
+            Vertex[] currentVertices = targetMesh.Vertices;
+            uint[] currentTriangles = targetMesh.Indices;
 
             int vertexCount = currentVertices.Length;
             ConcurrentDictionary<Vertex, uint> uniqueVertices = new(Environment.ProcessorCount * 2, vertexCount, new Vertex());
@@ -111,8 +111,8 @@ namespace SDL_Vulkan_CS.Artifact
                 currentTriangles[i] = uniqueVertices[vertex];
             });
 
-            targetMesh.vertices = reducedVertices;
-            targetMesh.indices = currentTriangles;
+            targetMesh.Vertices = reducedVertices;
+            targetMesh.Indices = currentTriangles;
         }
     }
 }
