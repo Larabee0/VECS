@@ -14,7 +14,7 @@ namespace SDL_Vulkan_CS
     /// 
     /// A vertex is 44 bytes atomically. but likely has an extra 4 bytes of padding
     /// </summary>
-    [StructLayout(LayoutKind.Sequential, Size = 44)]
+    [StructLayout(LayoutKind.Sequential, Size = 24)]
     public struct Vertex : IEqualityComparer<Vertex>
     {
         public static unsafe int SizeInBytes => sizeof(Vertex);

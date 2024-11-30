@@ -52,7 +52,7 @@ namespace SDL_Vulkan_CS.Artifact
             for (int i = 0; i < shape.Length; i++)
             {
                 var mesh = shape[i];
-                Subdivider.Subdivide(mesh, 4);
+                Subdivider.Subdivide(mesh, 6);
 
                 generator.RaiseMesh(mesh);
 
@@ -62,6 +62,18 @@ namespace SDL_Vulkan_CS.Artifact
                 entityManager.AddComponent(shapeEntity, new MeshIndex() { Value = Mesh.GetIndexOfMesh(mesh) });
                 entityManager.AddComponent(shapeEntity, new MaterialIndex() { Value = Material.GetIndexOfMaterial(lit) });
             }
+
+            int vertexCount = 0;
+            int indexCount = 0;
+
+            for (int i = 0; i < shape.Length; i++)
+            {
+                var mesh = shape[i];
+                vertexCount += mesh.VertexCount;
+                indexCount += mesh.IndexCount;
+            }
+
+            Console.WriteLine(string.Format("Total Vertices: {0}\nTotal Indices: {1}", vertexCount, indexCount));
         }
 
         public static ShapeGenerator CreateShapeGenerator()
