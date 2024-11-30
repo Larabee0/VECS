@@ -52,7 +52,7 @@ namespace SDL_Vulkan_CS.Artifact
             for (int i = 0; i < shape.Length; i++)
             {
                 var mesh = shape[i];
-                Subdivider.Subdivide(mesh, 6);
+                Subdivider.Subdivide(mesh, 8);
 
                 generator.RaiseMesh(mesh);
 

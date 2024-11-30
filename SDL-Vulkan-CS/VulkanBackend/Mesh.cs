@@ -387,13 +387,14 @@ namespace SDL_Vulkan_CS.VulkanBackend
         /// </summary>
         public void RecalculateNormals()
         {
-            for (int i = 0; i < vertices.Length; i++)
+            Parallel.For(0, vertices.Length, (int i) =>
             {
                 vertices[i].Normal = Vector3.Zero;
-            }
+            });
 
-            for (int i = 0; i < indices.Length; i += 3)
+            Parallel.For(0, indices.Length / 3, (int index) =>
             {
+                int i = index * 3;
                 uint vertexA = indices[i];
                 uint vertexB = indices[i + 1];
                 uint vertexC = indices[i + 2];
@@ -402,13 +403,24 @@ namespace SDL_Vulkan_CS.VulkanBackend
                 vertices[vertexA].Normal += point;
                 vertices[vertexB].Normal += point;
                 vertices[vertexC].Normal += point;
-            }
+            });
 
-            for (int i = 0; i < vertices.Length; i++)
+            // for (int i = 0; i < indices.Length; i += 3)
+            // {
+            //     uint vertexA = indices[i];
+            //     uint vertexB = indices[i + 1];
+            //     uint vertexC = indices[i + 2];
+            //     Vector3 point = Vector3.Cross(vertices[vertexB].Position - vertices[vertexA].Position, vertices[vertexC].Position - vertices/[vertexA].Position);
+            // 
+            //     vertices[vertexA].Normal += point;
+            //     vertices[vertexB].Normal += point;
+            //     vertices[vertexC].Normal += point;
+            // }
+
+            Parallel.For(0, vertices.Length, (int i) =>
             {
                 vertices[i].Normal = Vector3.Normalize(vertices[i].Normal);
-            }
-
+            });
         }
     }
 }

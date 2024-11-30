@@ -1,5 +1,6 @@
 ﻿using SDL_Vulkan_CS.VulkanBackend;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
@@ -36,9 +37,9 @@ namespace SDL_Vulkan_CS.Artifact
             Vertex[] newVertices = new Vertex[newVertexCount];
             uint[] newTriangles = new uint[newTriCount];
 
-            for (uint i = 0; i < currentTriCount / 3; i++)
+            Parallel.For(0, currentTriCount / 3, (int i) =>
             {
-                uint curIndex = i * 3;
+                uint curIndex = (uint)i * 3;
                 uint vertexIndex = curIndex * 2;
                 uint triIndex = curIndex * 4;
 
@@ -74,7 +75,7 @@ namespace SDL_Vulkan_CS.Artifact
                 newTriangles[triIndex + 9] = vertexIndex + 3;
                 newTriangles[triIndex + 10] = vertexIndex + 4;
                 newTriangles[triIndex + 11] = vertexIndex + 5;
-            }
+            });
 
             targetMesh.vertices = newVertices;
             targetMesh.indices = newTriangles;
@@ -86,34 +87,29 @@ namespace SDL_Vulkan_CS.Artifact
             uint[] currentTriangles = targetMesh.indices;
 
             int vertexCount = currentVertices.Length;
-            Dictionary<Vertex, uint> uniqueVertices = new(vertexCount);
+            ConcurrentDictionary<Vertex, uint> uniqueVertices = new(Environment.ProcessorCount * 2, vertexCount, new Vertex());
 
-            for (uint i = 0; i < vertexCount; i++)
+            Parallel.For(0, vertexCount, (int i) =>
             {
                 var vertex = currentVertices[i];
-                uniqueVertices.TryAdd(vertex, i);
-            }
+                uniqueVertices.TryAdd(vertex, 0);
+            });
 
             int reducedVertexCount = uniqueVertices.Count;
 
             Vertex[] reducedVertices = new Vertex[reducedVertexCount];
-            {
-                uint index = 0;
-                foreach (var pair in uniqueVertices)
-                {
-                    reducedVertices[index] = pair.Key;
-                    uniqueVertices[pair.Key] = index;
-                    index++;
-                }
-            }
 
-            for (uint i = 0;i < currentTriangles.Length; i++)
+            Parallel.ForEach(uniqueVertices, (pair, state, index) =>
+            {
+                reducedVertices[index] = pair.Key;
+                uniqueVertices[pair.Key] = (uint)index;
+            });
+            Parallel.For(0, currentTriangles.Length, (int i) =>
             {
                 uint index = currentTriangles[i];
                 var vertex = currentVertices[index];
                 currentTriangles[i] = uniqueVertices[vertex];
-            }
-
+            });
 
             targetMesh.vertices = reducedVertices;
             targetMesh.indices = currentTriangles;

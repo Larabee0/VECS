@@ -1,6 +1,7 @@
 ﻿using SDL_Vulkan_CS.VulkanBackend;
 using System;
 using System.Numerics;
+using System.Threading.Tasks;
 
 namespace SDL_Vulkan_CS.Artifact.Generator
 {
@@ -28,10 +29,12 @@ namespace SDL_Vulkan_CS.Artifact.Generator
         public void RaiseMesh(Mesh mesh)
         {
             Vertex[] vertices = mesh.vertices;
-            for (int i = 0; i < vertices.Length; i++)
+
+            Parallel.For(0, vertices.Length, (int i) =>
             {
                 vertices[i].Position = CalculatePointOnPlanet(vertices[i].Position, out _);
-            }
+            });
+
             mesh.vertices = vertices;
             mesh.RecalculateNormals();
         }
