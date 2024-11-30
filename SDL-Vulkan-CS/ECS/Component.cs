@@ -7,5 +7,6 @@
     public interface IComponent
     {
         public static int ComponentId { get; }
+        public int Id {  get; }
     }
 }

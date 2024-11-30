@@ -9,6 +9,7 @@ namespace SDL_Vulkan_CS
     public struct CameraOrthographic : IComponent
     {
         public static int ComponentId { get; set; }
+        public readonly int Id => ComponentId;
 
         public float width;
         public float height;

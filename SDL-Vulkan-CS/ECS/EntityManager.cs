@@ -310,6 +310,7 @@ namespace SDL_Vulkan_CS.ECS
         /// <returns></returns>
         public int GetEntityComponentSigature<T>(Entity entity) where T : IComponent
         {
+            //return HashCode.Combine(entity.GetHashCode(), GetComponentId<T>());
             return HashCode.Combine(entity.GetHashCode(), GetComponentId<T>());
         }
 
@@ -329,9 +330,9 @@ namespace SDL_Vulkan_CS.ECS
         /// </summary>
         /// <typeparam name="T">Component type</typeparam>
         /// <returns></returns>
-        public int GetComponentId<T>() where T : IComponent
+        public static int GetComponentId<T>() where T : IComponent
         {
-            return _componentTypeToIdLookup[typeof(T).GUID];
+            return default(T).Id;
         }
 
         /// <summary>

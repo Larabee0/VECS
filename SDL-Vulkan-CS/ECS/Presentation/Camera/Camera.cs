@@ -17,6 +17,8 @@ namespace SDL_Vulkan_CS
 
         public static int ComponentId { get; set; }
 
+        public int Id => ComponentId;
+
         public Matrix4x4 ProjectionMatrix;
         public Matrix4x4 ViewMatrix;
         public Matrix4x4 InverseViewMatrix;
@@ -28,5 +30,6 @@ namespace SDL_Vulkan_CS
     public struct MainCamera : IComponent
     {
         public static int ComponentId { get; set; }
+        public int Id => ComponentId;
     }
 }

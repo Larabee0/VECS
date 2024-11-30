@@ -8,6 +8,7 @@ namespace SDL_Vulkan_CS.ECS.Presentation
     public struct MeshIndex : IComponent
     {
         public static int ComponentId { get; set; }
+        public readonly int Id => ComponentId;
 
         public int Value;
     }

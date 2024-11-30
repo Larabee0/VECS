@@ -9,6 +9,7 @@ namespace SDL_Vulkan_CS
     public struct CameraPerspective : IComponent
     {
         public static int ComponentId { get; set; }
+        public readonly int Id => ComponentId;
 
         public float FOV;
         public float ClipNear;
