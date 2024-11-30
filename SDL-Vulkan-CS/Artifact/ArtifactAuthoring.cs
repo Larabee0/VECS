@@ -52,7 +52,7 @@ namespace SDL_Vulkan_CS.Artifact
             for (int i = 0; i < shape.Length; i++)
             {
                 var mesh = shape[i];
-                Subdivider.Subdivide(mesh, 6);
+                Subdivider.Subdivide(mesh, 5);
 
                 generator.RaiseMesh(mesh);
 
@@ -66,14 +66,21 @@ namespace SDL_Vulkan_CS.Artifact
             int vertexCount = 0;
             int indexCount = 0;
 
+            int heavyVertexCount = 0;
+            int heavyIndexCount = 0;
+
             for (int i = 0; i < shape.Length; i++)
             {
                 var mesh = shape[i];
                 vertexCount += mesh.VertexCount;
                 indexCount += mesh.IndexCount;
+
+                heavyVertexCount = Math.Max(mesh.VertexCount, heavyVertexCount);
+                heavyIndexCount = Math.Max(mesh.IndexCount, heavyIndexCount);
             }
 
-            Console.WriteLine(string.Format("Total Vertices: {0}\nTotal Indices: {1}", vertexCount, indexCount));
+            Console.WriteLine(string.Format("All Meshes           | Vertices: {0} | Total Indices: {1}", vertexCount, indexCount));
+            Console.WriteLine(string.Format("Heaviest Single Mesh | Vertices: {0} |Total Indices: {1}", heavyVertexCount, heavyIndexCount));
         }
 
         public static ShapeGenerator CreateShapeGenerator()
