@@ -15,7 +15,8 @@ namespace SDL_Vulkan_CS.VulkanBackend
     /// </summary>
     public sealed class Material : IDisposable
     {
-        public static List<Material> Materials = [];
+        private static readonly List<Material> _materials = [];
+        public static List<Material> Materials =>_materials;
 
         private readonly DescriptorSetLayout _materialDescriptorLayout;
         private VkPipelineLayout _pipelineLayout;

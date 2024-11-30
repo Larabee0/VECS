@@ -1,5 +1,4 @@
-﻿using SDL_Vulkan_CS.Artifact.Noise;
-using System;
+﻿using System;
 using System.Numerics;
 
 namespace SDL_Vulkan_CS.Artifact.Generator

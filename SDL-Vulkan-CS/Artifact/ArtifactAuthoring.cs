@@ -3,8 +3,8 @@ using SDL_Vulkan_CS.ECS;
 using SDL_Vulkan_CS.VulkanBackend;
 using SDL_Vulkan_CS.ECS.Presentation;
 using Vortice.Vulkan;
-using SDL_Vulkan_CS.ECS.Presentation.Systems;
 using SDL_Vulkan_CS.Artifact.Generator;
+using System;
 
 namespace SDL_Vulkan_CS.Artifact
 {
@@ -34,6 +34,8 @@ namespace SDL_Vulkan_CS.Artifact
             CreateDefaultCamera(entityManager);
             // LoadTestScene(entityManager);
             LoadShape(entityManager);
+
+            Console.WriteLine("Shape loaded");
         }
 
 
@@ -50,7 +52,7 @@ namespace SDL_Vulkan_CS.Artifact
             for (int i = 0; i < shape.Length; i++)
             {
                 var mesh = shape[i];
-                Subdivider.Subdivide(mesh, 5);
+                Subdivider.Subdivide(mesh, 6);
 
                 generator.RaiseMesh(mesh);
 
@@ -113,7 +115,7 @@ namespace SDL_Vulkan_CS.Artifact
         /// then creates the entities that make up the scene.
         /// </summary>
         /// <param name="entityManager"></param>
-        private static void LoadTestScene(EntityManager entityManager)
+        public static void LoadTestScene(EntityManager entityManager)
         {
             var cubeUvMesh = Mesh.LoadModelFromFile(GraphicsDevice.Instance, Mesh.GetMeshInDefaultPath("cube-uv.obj"));
             var flatVaseMesh = Mesh.LoadModelFromFile(GraphicsDevice.Instance, Mesh.GetMeshInDefaultPath("flat_vase.obj"));
@@ -175,9 +177,9 @@ namespace SDL_Vulkan_CS.Artifact
         /// Cube will have colours and vertices and nothing else.
         /// </summary>
         /// <returns></returns>
-        private Mesh Cube()
+        public Mesh Cube()
         {
-            Vertex[] vertices = new Vertex[]{
+            Vertex[] vertices = [
 
                 // left face (white)
                 new(new Vector3( -.5f, -.5f, -.5f),new Vector3 ( .9f, .9f, .9f) ),
@@ -227,7 +229,7 @@ namespace SDL_Vulkan_CS.Artifact
                  new(new Vector3(  .5f, -.5f, -0.5f), new Vector3( .1f, .8f, .1f)),
                  new(new Vector3(.5f, .5f, -0.5f), new Vector3( .1f, .8f, .1f)),
 
-            };
+            ];
             return new Mesh(GraphicsDevice.Instance, vertices);
         }
     }

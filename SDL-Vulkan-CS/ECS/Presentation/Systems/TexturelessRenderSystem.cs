@@ -1,12 +1,8 @@
 ﻿using SDL_Vulkan_CS.VulkanBackend;
-using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace SDL_Vulkan_CS.ECS.Presentation.Systems
+namespace SDL_Vulkan_CS.ECS.Presentation
 {
     public class TexturelessRenderSystem : PresentationSystemBase
     {

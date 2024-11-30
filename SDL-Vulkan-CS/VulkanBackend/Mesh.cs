@@ -23,7 +23,9 @@ namespace SDL_Vulkan_CS.VulkanBackend
     public class Mesh
     {
         public static string DefaultMeshPath => Path.Combine(Application.ExecutingDirectory, "Assets/Models");
-        public static List<Mesh> Meshes = [];
+        private readonly static List<Mesh> _meshes = [];
+
+        public static List<Mesh> Meshes => _meshes;
 
         private readonly ulong _offset;
         private readonly bool _hasIndexBuffer;
@@ -32,7 +34,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
         public Vertex[] vertices;
         public uint[] indices;
 
-        private GraphicsDevice _device;
+        private readonly GraphicsDevice _device;
 
         private CsharpVulkanBuffer _vertexBuffer;
         private CsharpVulkanBuffer _indexBuffer;

@@ -8,8 +8,8 @@ namespace SDL_Vulkan_CS
     /// </summary>
     public class DescriptorWriter
     {
-        private DescriptorSetLayout _setLayout;
-        private DescriptorPool _pool;
+        private readonly DescriptorSetLayout _setLayout;
+        private readonly DescriptorPool _pool;
         private VkWriteDescriptorSet[] _writes = [];
 
         public DescriptorWriter(DescriptorSetLayout setLayout, DescriptorPool pool)
@@ -27,12 +27,10 @@ namespace SDL_Vulkan_CS
         /// <exception cref="Exception"></exception>
         public unsafe DescriptorWriter WriteBuffer(uint binding, VkDescriptorBufferInfo bufferInfo)
         {
-            if (!_setLayout.Bindings.ContainsKey(binding))
+            if (!_setLayout.Bindings.TryGetValue(binding, out VkDescriptorSetLayoutBinding bindingDescription))
             {
                 throw new Exception("Layout does not contain specified binding");
             }
-
-            var bindingDescription = _setLayout.Bindings[binding];
 
             if (bindingDescription.descriptorCount != 1)
             {
@@ -60,12 +58,10 @@ namespace SDL_Vulkan_CS
         /// <exception cref="Exception"></exception>
         public unsafe DescriptorWriter WriteImage(uint binding, VkDescriptorImageInfo imageInfo)
         {
-            if (!_setLayout.Bindings.ContainsKey(binding))
+            if (!_setLayout.Bindings.TryGetValue(binding, out VkDescriptorSetLayoutBinding bindingDescription))
             {
                 throw new Exception("Layout does not contain specified binding");
             }
-
-            var bindingDescription = _setLayout.Bindings[binding];
 
             if (bindingDescription.descriptorCount != 1)
             {

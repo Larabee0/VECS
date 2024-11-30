@@ -32,4 +32,12 @@
     <Exec Command="rd /s /q $(TargetDir)" />
   </Target>
 
+  <ItemGroup>
+    <EditorConfigFiles Remove="H:\GitFork\COMP305-2202796\SDL-Vulkan-CS\.editorconfig" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="H:\GitFork\COMP305-2202796\SDL-Vulkan-CS\.editorconfig" />
+  </ItemGroup>
+
 </Project>

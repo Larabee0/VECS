@@ -53,7 +53,7 @@ namespace SDL_Vulkan_CS
 
         public static bool operator !=(Vertex left, Vertex right) => !(left == right);
 
-        public bool Equals(Vertex x, Vertex y)
+        public readonly bool Equals(Vertex x, Vertex y)
         {
             return x == y;
         }
@@ -63,7 +63,7 @@ namespace SDL_Vulkan_CS
             return this == other;
         }
 
-        public int GetHashCode([DisallowNull] Vertex obj)
+        public readonly int GetHashCode([DisallowNull] Vertex obj)
         {
             return obj.GetHashCode();
         }
@@ -111,9 +111,9 @@ namespace SDL_Vulkan_CS
             return attributeDescriptions;
         }
 
-        public override bool Equals(object obj)
+        public override readonly bool Equals(object obj)
         {
-            return obj is Vertex vertex ? vertex.Equals(this) : false;
+            return obj is Vertex vertex && vertex.Equals(this);
         }
     }
 }

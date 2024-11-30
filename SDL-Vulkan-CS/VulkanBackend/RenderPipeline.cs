@@ -10,7 +10,7 @@ namespace SDL_Vulkan_CS
     /// </summary>
     public sealed class RenderPipeline : IDisposable
     {
-        private GraphicsDevice _device;
+        private readonly GraphicsDevice _device;
         private VkPipeline _graphicsPipeline;
         private VkShaderModule _vertShaderModule;
         private VkShaderModule _fragShaderModule;

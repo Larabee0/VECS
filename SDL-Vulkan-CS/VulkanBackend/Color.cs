@@ -13,6 +13,6 @@ namespace SDL_Vulkan_CS.VulkanBackend
         public byte B;
         public byte A;
 
-        public static Color White => new Color() { R = 255, G = 255, B = 255, A = 255 };
+        public static Color White => new() { R = 255, G = 255, B = 255, A = 255 };
     }
 }

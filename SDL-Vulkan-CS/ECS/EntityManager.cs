@@ -33,6 +33,8 @@ namespace SDL_Vulkan_CS.ECS
         private readonly Queue<Entity> _idsToRecyle = [];
         private readonly HashSet<uint> _entityIds = [];
 
+        public int TotalComponentTypes => _totalComponentTypes;
+
         private readonly Dictionary<uint, Entity> _entityIdToEntity = []; // quick entity look up just given an entity id.
         private readonly Dictionary<int, IComponent> _compSignatureToCompReference = []; // component storage, keys are component sigantures.
 

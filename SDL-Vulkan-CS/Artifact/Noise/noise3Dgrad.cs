@@ -1,6 +1,6 @@
 ﻿using System.Numerics;
 
-namespace SDL_Vulkan_CS.Artifact.Noise
+namespace SDL_Vulkan_CS.Artifact
 {   
 
     // Description : Array and textureless GLSL 2D/3D/4D simplex 
