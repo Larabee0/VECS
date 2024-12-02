@@ -1,0 +1,72 @@
+#version 450
+#extension GL_KHR_vulkan_glsl: enable
+#include "noise3Dgrad.glsl"
+#include "structures.glsl"
+#include "simple_noise_filter.glsl"
+#include "rigid_noise_filter.glsl"
+
+layout(set = 0, binding = 0) uniform ComputeShaderParameters{
+	uint bufferLength;
+	uint width;
+	uint height;
+	uint depth;
+} params;
+
+
+layout(std430, binding = 1) buffer VertexBuffer {
+    Vertex vertexBuffer[];
+};
+
+layout(set = 0, binding = 2) uniform NoiseGeneratorParams{
+	int noiseFilterCount;
+	float planetRadius;
+};
+
+layout(std430, binding = 3) buffer NoiseSettings {
+	GlobalNoiseSettings noiseSettings[];
+};
+
+float evaluate(GlobalNoiseSettings settings, vec3 point){	
+	if(settings.filterType == 1){
+		return evaluateRigid(settings,point);
+	}
+	return evaluateSimple(settings,point);
+}
+
+layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
+void main() {
+	if(params.width <= gl_GlobalInvocationID.x || params.height <= gl_GlobalInvocationID.y){
+	 	return; 
+	}
+	uint x = gl_GlobalInvocationID.x;
+	uint y = gl_GlobalInvocationID.y;
+
+	uint bufferIndex = y * params.width + x;
+
+	Vertex v = vertexBuffer[bufferIndex];
+
+	vec3 pos = v.position;
+
+	float firstLayerValue = 0;
+	float elevation = 0;
+
+	if(noiseFilterCount > 0){
+		firstLayerValue = evaluate(noiseSettings[0], pos);
+		if(noiseSettings[0].enabled){
+			elevation = firstLayerValue;
+		}
+	}
+
+	for(int i = 1; i < noiseFilterCount; i++){
+		
+		if(noiseSettings[i].enabled){
+			float mask = noiseSettings[i].useFirstlayerAsMask ? firstLayerValue : 1.0;
+			elevation += evaluate(noiseSettings[i], pos);
+		}
+	}
+	elevation = planetRadius * (1.0 + elevation);
+
+	v.position = pos;
+	v.elevation = elevation;
+	vertexBuffer[bufferIndex] = v;
+}
