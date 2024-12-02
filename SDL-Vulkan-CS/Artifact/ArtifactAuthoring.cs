@@ -33,9 +33,17 @@ namespace SDL_Vulkan_CS.Artifact
 
             CreateDefaultCamera(entityManager);
             // LoadTestScene(entityManager);
-            LoadShape(entityManager);
+            //LoadShape(entityManager);
 
-            Console.WriteLine("Shape loaded");
+            //Console.WriteLine("Shape loaded");
+            TestComputeShader();
+        }
+
+        private static void TestComputeShader()
+        {
+            ComputeShaderTesting computeShader = new();
+
+            computeShader.Dispose();
         }
 
 

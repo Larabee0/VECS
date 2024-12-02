@@ -1,0 +1,31 @@
+#version 450
+
+
+layout(set = 0, binding = 0) uniform ComputeShaderParameters{
+	uint bufferLength;
+	uint width;
+	uint height;
+	uint depth;
+} params;
+
+layout(std430, binding = 1) buffer layA {
+    int inbuf[];
+};
+
+layout(std430, binding = 2) buffer layB {
+    int outbuf[];
+};
+
+layout(local_size_x = 8, local_size_y = 8) in;
+void main() {
+	// drop threads outside the buffer dimensions.
+	if(params.width <= gl_GlobalInvocationID.x || params.height <= gl_GlobalInvocationID.y){
+	 	return; 
+	}
+	uint x = gl_GlobalInvocationID.x;
+	uint y = gl_GlobalInvocationID.y;
+
+	uint i = y * params.width + x;
+
+	outbuf[i] = int(i);
+}

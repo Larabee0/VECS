@@ -125,6 +125,25 @@ namespace SDL_Vulkan_CS
                 memOffset += offset;
                 NativeMemory.Copy(memOffset, data, (uint)BufferSize);
             }
+            Unmap();
+        }
+
+        public unsafe void ReadFromBuffer(void* readout, ulong size = Vulkan.VK_WHOLE_SIZE,ulong offset = 0)
+        {
+            void* pMappedData;
+            Map(&pMappedData);
+
+            if(size == Vulkan.VK_WHOLE_SIZE)
+            {
+                NativeMemory.Copy(pMappedData,readout, (uint)BufferSize);
+            }
+            else
+            {
+                char* memOffset = (char*)pMappedData;
+                memOffset += offset;
+                NativeMemory.Copy(readout, memOffset, (uint)BufferSize);
+            }
+            Unmap();
         }
 
         /// <summary>
