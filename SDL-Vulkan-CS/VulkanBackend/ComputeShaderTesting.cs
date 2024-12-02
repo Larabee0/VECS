@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Numerics;
 using System.Runtime.InteropServices;
 using Vortice.Vulkan;
 
@@ -78,7 +79,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
 
             CsharpVulkanBuffer uniform = new(GraphicsDevice.Instance, (uint)sizeof(ComputeShaderParameters), 1, VkBufferUsageFlags.UniformBuffer, true);
             CsharpVulkanBuffer inBuffer = new(GraphicsDevice.Instance, (uint)(sizeof(int) * values.Length), 1, VkBufferUsageFlags.StorageBuffer, true);
-            CsharpVulkanBuffer outBuffer = new(GraphicsDevice.Instance, (uint)(sizeof(int) * values.Length), 1, VkBufferUsageFlags.StorageBuffer, true);
+            CsharpVulkanBuffer outBuffer = new(GraphicsDevice.Instance, (uint)(sizeof(Vector4) * values.Length), 1, VkBufferUsageFlags.StorageBuffer, true);
 
             fixed (int* pValues = values)
             {
@@ -121,14 +122,19 @@ namespace SDL_Vulkan_CS.VulkanBackend
             GraphicsDevice.Instance.EndSingleTimeCommands(commandBuffer);
 
             uniform.Dispose();
-            inBuffer.Dispose();
 
-            int[] results = new int[values.Length];
+            Vector4[] results = new Vector4[values.Length];
 
-            fixed (int* pResults = results)
+            fixed (Vector4* pResults = results)
             {
                 outBuffer.ReadFromBuffer(pResults);
             }
+
+            fixed(int* pValue = values)
+            {
+                inBuffer.ReadFromBuffer(pValue);
+            }
+            inBuffer.Dispose();
 
             outBuffer.Dispose();
 
