@@ -32,8 +32,8 @@ I then triangulated each face with a vertex in the center so the triangules that
 This allows me to import the mesh in my application then subdivide it to different levels to gain lower or higher levels of detail in the terrain gneration algorithim at the cost of performance.
 I then wrote a subdivison algorithim to subdivide the mesh further.
 after that I implemented Sebastian Lague's Noise filters and shape generator method. the Vertices that make up the polyherodn all point away from the center, so simply by multiplayer the elevation value with the vertex
-moves hte vertedx further away from the center, raising the terrain.
-After this I modiifed teh noise filter algorithims to implement the Gradient trick fo erosion.
+moves the vertex further away from the center, raising the terrain.
+After this I modiifed the noise filter algorithims to implement the Gradient trick fo erosion.
 
 This worked but things didn't look correct in the lighting, the vertex normals of the mesh need to be recalculated to be able to see the terrain properly
 so I implemented a vertex normal generation algorithim [cite]
@@ -45,16 +45,19 @@ For shaders I am just rendering white with direction lights and
 ## Performance anayslsis
 ### Generation
 The largest performance bottle neck according to visual studio cpu performance profiler is the raisemesh function (blue) which occupied 46% of total cpu time for loading the shape.
+![alt text](https://github.falmouth.ac.uk/GA-Undergrad-Student-Work-24-25/COMP305-2202796/blob/WS-2/Profiling/OnStartProfiling%20(Mesh%20Generation).png)
 
 The rest is taken up by the subdivison system (green & orange), which turns the simple shape loaded from disk into a high geometry count shape for terrain generation.
 Most of the subdividers times is spen on simplifySubdivison (green), which merges duplicate vertices. Looking in here most of the cost comes from dictionary oeprations, account for a combined 18% of total cpu time, where the hole simplify subdivsion method call takes 19.82%
 In both cases for the green and orange sections show a low self time to total cpu time ratio. This indicates the cost of the method is low, but it is being called a lot. These operation would benefit from parallelisation then.
 In both cases this makes sense, as they are mostly memory copy operations.
 
-Looking at the blue area, the results are similar to teh subdivide, a relatively low self time but high total time. Indicating the actual cost to run raise mesh once is small, it is just being called a lot.
+Looking at the blue area, the results are similar to the subdivide, a relatively low self time but high total time. Indicating the actual cost to run raise mesh once is small, it is just being called a lot.  
+<br>
 Digging into raise mesh, the noise filter Evaluate calls are what occupy a vast majority of the total cpu time for this method, and within these the noise3Dgrad.snoise operation is the big cost. This is the simplex noise algorithim.
 Once again like the subdivider, this whole operation would benefit from parallisation.
 
+![alt text](https://github.falmouth.ac.uk/GA-Undergrad-Student-Work-24-25/COMP305-2202796/blob/WS-2/Profiling/Hightlighting%20noise%20algorithim%20cost.png)
 In both cases, parallising these operations is relatively simple. For Raise Mesh it is as simple as turning the vertex Evaluation for loop into a parallel for.
 For the subdivider, the subdivide operation is also simply parallised in the same way, as the size and therefore indices of the index and vertex buffers can be pre-calcuated.
 The simplfy operation is more complex as it involes a dictionary, which is not a thread-safe collection. Lucky something called a concurrent dictionary exists which is, but several parallel operations and steps will be needed still.
@@ -91,7 +94,6 @@ The local vertices could be regenerated or copied back from the gpu if they ever
 The top thing to look at for frame rendering right now is GetComponentId. The way this works now is it gets the Type class of the component type, and computes the Type GUID. It seems this quite an expensive operation in C#, finding a way around needing to get the component id or using a differenet more efficient method of identifiying component types to lookup.
 
 - Subdivision takes a long time for each face
-- Generation takes a long time
 - Normal calculation takes a long time
 - Outside of generation, the ECS implementation, one of the get component Id overloads incurs a major cost in execution speed from looking up te component type guid
 - Vertex struct has a lot of unused variables which add a lot of memory overhead which is simply not used
