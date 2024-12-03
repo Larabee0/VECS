@@ -72,6 +72,20 @@ namespace SDL_Vulkan_CS.VulkanBackend
         public bool StagedBuffers => _stagedMesh;
 
         public bool AnyBuffersAllocated => _vertexBuffer != null || _indexBuffer != null;
+        public bool AllBuffersAllocated => _vertexBuffer != null && _indexBuffer != null;
+
+
+        public CsharpVulkanBuffer VertexBuffer
+        {
+            get
+            {
+                if(_vertexBuffer == null)
+                {
+                    FlushVertexBuffer();
+                }
+                return _vertexBuffer;
+            }
+        }
 
         /// <summary>
         /// Creates a vertex buffer only mesh
@@ -219,14 +233,14 @@ namespace SDL_Vulkan_CS.VulkanBackend
                     stagingBuffer.WriteToBuffer(data);
                 }
 
-                _vertexBuffer ??= new CsharpVulkanBuffer(_device, (uint)Vertex.SizeInBytes, (uint)_vertices.Length, VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.VertexBuffer, false);
+                _vertexBuffer ??= new CsharpVulkanBuffer(_device, (uint)Vertex.SizeInBytes, (uint)_vertices.Length, VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.StorageBuffer, false);
                 _device.CopyBuffer(stagingBuffer.VkBuffer, _vertexBuffer.VkBuffer, vertexBufferSize);
                 stagingBuffer.Dispose();
             }
             else
             {
 
-                _vertexBuffer ??= new CsharpVulkanBuffer(_device, (uint)Vertex.SizeInBytes, (uint)_vertices.Length, VkBufferUsageFlags.VertexBuffer, true);
+                _vertexBuffer ??= new CsharpVulkanBuffer(_device, (uint)Vertex.SizeInBytes, (uint)_vertices.Length, VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.StorageBuffer, true);
                 fixed (void* data = &_vertices[0])
                 {
                     _vertexBuffer.WriteToBuffer(data);
@@ -406,7 +420,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
             index = Math.Max(0, index);
             Mesh mesh = index < Meshes.Count ? Meshes[index] : null;
 
-            if (mesh != null && autoFlush && !mesh.AnyBuffersAllocated)
+            if (mesh != null && autoFlush && !mesh.AllBuffersAllocated)
             {
                 mesh.FlushMesh();
             }
@@ -429,6 +443,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
         /// </summary>
         public void RecalculateNormals()
         {
+            var now = DateTime.Now;
             Parallel.For(0, _vertices.Length, (int i) =>
             {
                 _vertices[i].Normal = Vector3.Zero;
@@ -463,6 +478,8 @@ namespace SDL_Vulkan_CS.VulkanBackend
             {
                 _vertices[i].Normal = Vector3.Normalize(_vertices[i].Normal);
             });
+            var delta = DateTime.Now - now;
+            Console.WriteLine(string.Format("Recalculate normals: {0}ms", delta.TotalMilliseconds));
         }
     }
 }

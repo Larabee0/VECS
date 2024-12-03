@@ -1,7 +1,6 @@
 ﻿using System;
 using System.IO;
 using System.Numerics;
-using System.Runtime.InteropServices;
 using Vortice.Vulkan;
 
 namespace SDL_Vulkan_CS.VulkanBackend
@@ -162,13 +161,5 @@ namespace SDL_Vulkan_CS.VulkanBackend
             Vulkan.vkDestroyShaderModule(GraphicsDevice.Instance.Device, _computeShaderModule);
         }
 
-        [StructLayout(LayoutKind.Sequential, Size = 16)]
-        private struct ComputeShaderParameters
-        {
-            public uint bufferLength;
-            public uint width;
-            public uint height;
-            public uint depth;
-        }
     }
 }

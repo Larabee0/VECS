@@ -8,8 +8,8 @@ float evaluateRigid(GlobalNoiseSettings settings, vec3 point){
 
 	for(int i = 0; i < settings.numLayers; i++){
 		vec3 gradient;
-		float v = 1 - abs(snoise(point * frequency + settings.centre, gradient));
-		if(settings.gradientWeight){
+		float v = 1 - abs(snoise(point * frequency, gradient));
+		if(settings.gradientWeight == 1){
 			v += gradientWeight(gradient)*settings.gradientWeightMul;
 		}
 		v *= v;

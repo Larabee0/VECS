@@ -13,18 +13,23 @@ layout(set = 0, binding = 0) uniform ComputeShaderParameters{
 } params;
 
 
-layout(std430, binding = 1) buffer VertexBuffer {
-    Vertex vertexBuffer[];
+layout(set = 0, binding = 1) buffer VertexBuffer {
+    vec4 vertexBuffer[];
 };
 
 layout(set = 0, binding = 2) uniform NoiseGeneratorParams{
 	int noiseFilterCount;
 	float planetRadius;
-};
+} noiseParams;
 
 layout(std430, binding = 3) buffer NoiseSettings {
 	GlobalNoiseSettings noiseSettings[];
 };
+
+layout(std430, binding = 4) buffer layB {
+    float outbuf[];
+};
+
 
 float evaluate(GlobalNoiseSettings settings, vec3 point){	
 	if(settings.filterType == 1){
@@ -33,7 +38,7 @@ float evaluate(GlobalNoiseSettings settings, vec3 point){
 	return evaluateSimple(settings,point);
 }
 
-layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 void main() {
 	if(params.width <= gl_GlobalInvocationID.x || params.height <= gl_GlobalInvocationID.y){
 	 	return; 
@@ -42,31 +47,62 @@ void main() {
 	uint y = gl_GlobalInvocationID.y;
 
 	uint bufferIndex = y * params.width + x;
+	bufferIndex =  gl_GlobalInvocationID.x;
 
-	Vertex v = vertexBuffer[bufferIndex];
+	vec3 v = vertexBuffer[bufferIndex].xyz;
 
-	vec3 pos = v.position;
+	vec3 pos = vec3(0.629473, 0.759494, 0.046027);
+	pos =v;
 
 	float firstLayerValue = 0;
 	float elevation = 0;
 
-	if(noiseFilterCount > 0){
+	if(noiseParams.noiseFilterCount > 0){
 		firstLayerValue = evaluate(noiseSettings[0], pos);
-		if(noiseSettings[0].enabled){
+		if(noiseSettings[0].enabled == 1){
 			elevation = firstLayerValue;
 		}
 	}
-
-	for(int i = 1; i < noiseFilterCount; i++){
+	
+	for(int i = 1; i < noiseParams.noiseFilterCount; i++){
 		
-		if(noiseSettings[i].enabled){
-			float mask = noiseSettings[i].useFirstlayerAsMask ? firstLayerValue : 1.0;
-			elevation += evaluate(noiseSettings[i], pos);
+		if(noiseSettings[i].enabled == 1){
+			float mask = noiseSettings[i].useFirstlayerAsMask == 1 ? firstLayerValue : 1.0;
+			elevation += evaluate(noiseSettings[i], pos)*mask;
 		}
 	}
-	elevation = planetRadius * (1.0 + elevation);
+	elevation = noiseParams.planetRadius * (1.0 + elevation);
 
-	v.position = pos;
-	v.elevation = elevation;
-	vertexBuffer[bufferIndex] = v;
+	v *= elevation;
+	//v.elevation = elevation;
+	vertexBuffer[bufferIndex] = vec4(v,1);
+	GlobalNoiseSettings settingsTestOut = noiseSettings[1];
+
+	vec3 gradient;
+	float noiseOut = snoise(vec3(0), gradient);
+	float gradWeight = gradientWeight(gradient);
+
+	outbuf[0] = elevation;
+	outbuf[7] = elevation;
+	outbuf[8] = noiseParams.planetRadius;
+	outbuf[1] = pos.x;
+	outbuf[2] = pos.y;
+	outbuf[3] = pos.z;
+	pos *= elevation;
+	outbuf[4] = pos.x;
+	outbuf[5] = pos.y;
+	outbuf[6] = pos.z;
+	//outbuf[0] = settingsTestOut.filterType;
+	//outbuf[1] = settingsTestOut.strength;
+	//outbuf[2] = settingsTestOut.numLayers;
+	//outbuf[3] = settingsTestOut.baseRoughness;
+	//outbuf[4] = settingsTestOut.roughness;
+	//outbuf[5] = settingsTestOut.persistence;
+	//outbuf[6] = settingsTestOut.offset;
+	//outbuf[7] = settingsTestOut.minValue;
+	//outbuf[8] = settingsTestOut.gradientWeight;
+	//outbuf[9] = settingsTestOut.gradientWeightMul;
+	//outbuf[10] = settingsTestOut.enabled;
+	//outbuf[11] = settingsTestOut.useFirstlayerAsMask;
+	//outbuf[12] = settingsTestOut.weightMultiplier;
 }

@@ -13,14 +13,20 @@ namespace SDL_Vulkan_CS.Artifact
     {
         public static void Subdivide(Mesh target, int subdivisons, bool simplify = true)
         {
+            var now = DateTime.Now;
             for (int i = 0; i < subdivisons; i++)
             {
                 Subdivide(target);
             }
+            var delta = DateTime.Now - now;
+            Console.WriteLine(string.Format("Subdivide: {0}ms", delta.TotalMilliseconds));
 
             if (simplify)
             {
+                now = DateTime.Now;
                 SimpliftySubdivision(target);
+                delta = DateTime.Now - now;
+                Console.WriteLine(string.Format("Simplify Mesh: {0}ms", delta.TotalMilliseconds));
             }
         }
 
@@ -87,7 +93,7 @@ namespace SDL_Vulkan_CS.Artifact
             uint[] currentTriangles = targetMesh.Indices;
 
             int vertexCount = currentVertices.Length;
-            ConcurrentDictionary<Vertex, uint> uniqueVertices = new(Environment.ProcessorCount * 2, vertexCount, new Vertex());
+            ConcurrentDictionary<Vertex, uint> uniqueVertices = new(Environment.ProcessorCount * 2, vertexCount/2, new Vertex());
 
             Parallel.For(0, vertexCount, (int i) =>
             {

@@ -99,7 +99,7 @@ namespace SDL_Vulkan_CS
 
                 new VkVertexInputAttributeDescription(1, VkFormat.R32G32B32Sfloat, (uint)Marshal.OffsetOf<Vertex>(nameof(Normal))), // normal
 
-                new VkVertexInputAttributeDescription(2, VkFormat.R32G32B32Sfloat, (uint)Marshal.OffsetOf<Vertex>(nameof(Elevation))) // Elevation
+                new VkVertexInputAttributeDescription(2, VkFormat.R32Sfloat, (uint)Marshal.OffsetOf<Vertex>(nameof(Elevation))) // Elevation
             ];
 
             return attributeDescriptions;

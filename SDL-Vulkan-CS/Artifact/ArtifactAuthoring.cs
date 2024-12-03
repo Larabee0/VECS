@@ -33,10 +33,10 @@ namespace SDL_Vulkan_CS.Artifact
 
             CreateDefaultCamera(entityManager);
             // LoadTestScene(entityManager);
-            //LoadShape(entityManager);
+            LoadShape(entityManager);
 
-            //Console.WriteLine("Shape loaded");
-            TestComputeShader();
+            Console.WriteLine("Shape loaded");
+            //TestComputeShader();
         }
 
         private static void TestComputeShader()
@@ -55,14 +55,20 @@ namespace SDL_Vulkan_CS.Artifact
 
             ShapeGenerator generator = CreateShapeGenerator();
 
-            generator.RandomiseSettings();
-
+            //generator.RandomiseSettings();
+            //GC.TryStartNoGCRegion(2000000000);
+            Vector3 firstVertex = shape[0].Vertices[0].Position;
             for (int i = 0; i < shape.Length; i++)
             {
                 var mesh = shape[i];
-                Subdivider.Subdivide(mesh, 5);
+                Subdivider.Subdivide(mesh, 6);
+                //generator.RaiseMesh(mesh);
 
-                generator.RaiseMesh(mesh);
+                var computeShader = new ComputeShapeGenerator();
+                computeShader.Prepare(generator, mesh.Vertices);
+                computeShader.Dispatch(mesh.Vertices);
+                computeShader.Dispose();
+                mesh.RecalculateNormals();
 
                 var shapeEntity = entityManager.CreateEntity();
                 entityManager.AddComponent(shapeEntity, new Translation() { Value = new(0, 0, 0) });
@@ -70,14 +76,15 @@ namespace SDL_Vulkan_CS.Artifact
                 entityManager.AddComponent(shapeEntity, new MeshIndex() { Value = Mesh.GetIndexOfMesh(mesh) });
                 entityManager.AddComponent(shapeEntity, new MaterialIndex() { Value = Material.GetIndexOfMaterial(lit) });
             }
-
+            //GC.EndNoGCRegion();
+            //GC.Collect();
             int vertexCount = 0;
             int indexCount = 0;
 
             int heavyVertexCount = 0;
             int heavyIndexCount = 0;
 
-            for (int i = 0; i < shape.Length; i++)
+            for (int i = 0; i < 1; i++)
             {
                 var mesh = shape[i];
                 vertexCount += mesh.VertexCount;
@@ -89,6 +96,9 @@ namespace SDL_Vulkan_CS.Artifact
 
             Console.WriteLine(string.Format("All Meshes           | Vertices: {0} | Total Indices: {1}", vertexCount, indexCount));
             Console.WriteLine(string.Format("Heaviest Single Mesh | Vertices: {0} |Total Indices: {1}", heavyVertexCount, heavyIndexCount));
+             _= generator.CalculatePointOnPlanet(firstVertex,out float elevation);
+
+            Console.WriteLine(string.Format("{0} {1} {2}", elevation, firstVertex, firstVertex * elevation));
         }
 
         public static ShapeGenerator CreateShapeGenerator()
@@ -102,8 +112,6 @@ namespace SDL_Vulkan_CS.Artifact
                 [
                     new SimpleNoiseSettings()
                     {
-                        enabled = true,
-                        useFirstlayerAsMask = true,
                         filterType = FilterType.Simple,
                         strength = 0.07f,
                         numLayers = 4,
@@ -115,11 +123,11 @@ namespace SDL_Vulkan_CS.Artifact
                         minValue = 0.98f,
                         gradientWeight = true,
                         gradientWeightMul = 1,
+                        enabled = true,
+                        useFirstlayerAsMask = true,
                     },
 
                     new RigidNoiseSettings(){
-                        enabled = true,
-                        useFirstlayerAsMask = true,
                         filterType = FilterType.Rigid,
                         strength = 0.6f,
                         numLayers = 4,
@@ -131,6 +139,8 @@ namespace SDL_Vulkan_CS.Artifact
                         minValue = 0.37f,
                         gradientWeight = true,
                         gradientWeightMul = 1,
+                        enabled = true,
+                        useFirstlayerAsMask = true,
                         weightMultiplier = 0.78f,
                     }
                 ],
