@@ -25,8 +25,8 @@ namespace SDL_Vulkan_CS.Artifact
             ClipFar = 100f
         };
 
-        private bool useComputeShaderForGeneration = false;
-        private int subdivisons = 7;
+        private bool useComputeShaderForGeneration = true;
+        private int subdivisons = 6;
 
         public ArtifactAuthoring()
         {

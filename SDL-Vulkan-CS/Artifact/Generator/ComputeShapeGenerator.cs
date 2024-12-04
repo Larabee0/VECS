@@ -47,7 +47,7 @@ namespace SDL_Vulkan_CS.Artifact.Generator
 
         public unsafe void Prepare(CsharpVulkanBuffer vertexBuffer)
         {
-            _terrainGenerator.Prepare(vertexBuffer.InstanceCount, vertexBuffer.InstanceCount, vertexBuffer.InstanceCount);
+            _terrainGenerator.Prepare(vertexBuffer.InstanceCount, vertexBuffer.InstanceCount, 1);
 
             //float[] debugOut = new float[_debugBufferSize];
             //_debugOutput = new(GraphicsDevice.Instance, (uint)sizeof(float), (uint)debugOut.Length, VkBufferUsageFlags.StorageBuffer, true);
@@ -101,7 +101,7 @@ namespace SDL_Vulkan_CS.Artifact.Generator
         public unsafe void Dispatch(VkCommandBuffer commandBuffer, Mesh mesh)
         {
             Prepare(mesh.VertexBuffer);
-            _terrainGenerator.Dispatch(commandBuffer, (uint)mesh.VertexCount, 1, 1);
+            _terrainGenerator.Dispatch(commandBuffer, (uint)Math.Max(mesh.VertexCount,1), 1, 1);
         }
 
         public unsafe void Dispatch(Mesh mesh)

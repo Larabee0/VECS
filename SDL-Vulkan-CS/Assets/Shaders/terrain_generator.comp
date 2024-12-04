@@ -38,7 +38,7 @@ float evaluate(GlobalNoiseSettings settings, vec3 point){
 	return evaluateSimple(settings,point);
 }
 
-layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+layout(local_size_x = 2, local_size_y = 1, local_size_z = 1) in;
 void main() {
 	if(params.width <= gl_GlobalInvocationID.x || params.height <= gl_GlobalInvocationID.y){
 	 	return; 
@@ -47,7 +47,7 @@ void main() {
 	uint y = gl_GlobalInvocationID.y;
 
 	uint bufferIndex = y * params.width + x;
-	bufferIndex =  gl_GlobalInvocationID.x;
+	//bufferIndex =  gl_GlobalInvocationID.x;
 
 	Vertex v = vertexBuffer[bufferIndex];
 
