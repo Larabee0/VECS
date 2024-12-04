@@ -25,6 +25,9 @@ namespace SDL_Vulkan_CS.Artifact
             ClipFar = 100f
         };
 
+        private bool useComputeShaderForGeneration = false;
+        private int subdivisons = 7;
+
         public ArtifactAuthoring()
         {
             World.DefaultWorld.CreateSystem<TexturelessRenderSystem>();
@@ -47,44 +50,54 @@ namespace SDL_Vulkan_CS.Artifact
         }
 
 
-        private static void LoadShape(EntityManager entityManager)
+        private void LoadShape(EntityManager entityManager)
         {
             var shape = Mesh.LoadModelFromFile(GraphicsDevice.Instance, Mesh.GetMeshInDefaultPath("Comp305-Shape-Split.obj"));
 
             var lit = new Material("white_shader.vert", "white_shader.frag", typeof(SimplePushConstantData));
 
-            ShapeGenerator generator = CreateShapeGenerator();
+            var now = DateTime.Now;
+            SubdividePlanet(shape);
+            var delta = DateTime.Now - now;
+            Console.WriteLine(string.Format("Total Subdivide: {0}ms", delta.TotalMilliseconds));
 
-            //generator.RandomiseSettings();
-            //GC.TryStartNoGCRegion(2000000000);
-            Vector3 firstVertex = shape[0].Vertices[0].Position;
+            now = DateTime.Now;
+            GeneratePlanet(shape);
+            delta = DateTime.Now - now;
+            if (useComputeShaderForGeneration)
+            {
+                Console.WriteLine(string.Format("Compute Shader Mesh: {0}ms", delta.TotalMilliseconds));
+            }
+            else
+            {
+                Console.WriteLine(string.Format("Parallel CPU Mesh: {0}ms", delta.TotalMilliseconds));
+            }
+
+            now = DateTime.Now;
+            for (int i = 0; i < shape.Length; i++)
+            {
+                shape[i].RecalculateNormals();
+            }
+            delta = DateTime.Now - now;
+            Console.WriteLine(string.Format("Normal recalculation: {0}ms", delta.TotalMilliseconds));
+
             for (int i = 0; i < shape.Length; i++)
             {
                 var mesh = shape[i];
-                Subdivider.Subdivide(mesh, 6);
-                //generator.RaiseMesh(mesh);
-
-                var computeShader = new ComputeShapeGenerator();
-                computeShader.Prepare(generator, mesh.Vertices);
-                computeShader.Dispatch(mesh.Vertices);
-                computeShader.Dispose();
-                mesh.RecalculateNormals();
-
                 var shapeEntity = entityManager.CreateEntity();
                 entityManager.AddComponent(shapeEntity, new Translation() { Value = new(0, 0, 0) });
                 entityManager.AddComponent(shapeEntity, new Scale() { Value = new(3f, 3f, 3f) });
                 entityManager.AddComponent(shapeEntity, new MeshIndex() { Value = Mesh.GetIndexOfMesh(mesh) });
                 entityManager.AddComponent(shapeEntity, new MaterialIndex() { Value = Material.GetIndexOfMaterial(lit) });
             }
-            //GC.EndNoGCRegion();
-            //GC.Collect();
+
             int vertexCount = 0;
             int indexCount = 0;
 
             int heavyVertexCount = 0;
             int heavyIndexCount = 0;
 
-            for (int i = 0; i < 1; i++)
+            for (int i = 0; i < shape.Length; i++)
             {
                 var mesh = shape[i];
                 vertexCount += mesh.VertexCount;
@@ -96,9 +109,60 @@ namespace SDL_Vulkan_CS.Artifact
 
             Console.WriteLine(string.Format("All Meshes           | Vertices: {0} | Total Indices: {1}", vertexCount, indexCount));
             Console.WriteLine(string.Format("Heaviest Single Mesh | Vertices: {0} |Total Indices: {1}", heavyVertexCount, heavyIndexCount));
-             _= generator.CalculatePointOnPlanet(firstVertex,out float elevation);
+        }
 
-            Console.WriteLine(string.Format("{0} {1} {2}", elevation, firstVertex, firstVertex * elevation));
+        private void SubdividePlanet(Mesh[] shape)
+        {
+            var now = DateTime.Now;
+            for (int i = 0; i < shape.Length; i++)
+            {
+                Subdivider.Subdivide(shape[i], subdivisons,false);
+            }
+            var delta = DateTime.Now - now;
+            Console.WriteLine(string.Format("Subdivide Mesh: {0}ms", delta.TotalMilliseconds));
+
+
+            now = DateTime.Now;
+            for (int i = 0; i < shape.Length; i++)
+            {
+                Subdivider.SimpliftySubdivision(shape[i]);
+            }
+            delta = DateTime.Now - now;
+            Console.WriteLine(string.Format("Simplify Mesh: {0}ms", delta.TotalMilliseconds));
+        }
+
+        private void GeneratePlanet(Mesh[] shape)
+        {
+
+            ShapeGenerator generator = CreateShapeGenerator();
+            ComputeShapeGenerator computeGenerator = null;
+            VkCommandBuffer commandBuffer = default;
+            if (useComputeShaderForGeneration)
+            {
+
+                computeGenerator = new ComputeShapeGenerator();
+                computeGenerator.PrePrepare(generator);
+                commandBuffer = GraphicsDevice.Instance.BeginSingleTimeCommands();
+            }
+            
+
+            for (int i = 0; i < shape.Length; i++)
+            {
+
+                if (useComputeShaderForGeneration)
+                {
+                    computeGenerator.Dispatch(commandBuffer, shape[i]);
+                }
+                else
+                {
+                    generator.RaiseMesh(shape[i]);
+                }
+            }
+            if (useComputeShaderForGeneration)
+            {
+                GraphicsDevice.Instance.EndSingleTimeCommands(commandBuffer);
+            }
+            computeGenerator?.Dispose();
         }
 
         public static ShapeGenerator CreateShapeGenerator()

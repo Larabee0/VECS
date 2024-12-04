@@ -48,7 +48,6 @@ namespace SDL_Vulkan_CS
             _writes = [.. _writes, write];
             return this;
         }
-
         /// <summary>
         /// writes an image to the given binding in the descriptor set
         /// </summary>
@@ -106,6 +105,27 @@ namespace SDL_Vulkan_CS
             for (int i = 0; i < _writes.Length; i++)
             {
                 _writes[i].dstSet = *set;
+            }
+            Vulkan.vkUpdateDescriptorSets(_pool.GraphicsDevice.Device, _writes);
+        }
+
+
+        public unsafe bool Build(VkDescriptorSet set)
+        {
+            bool success = _pool.AllocateDescriptorSet(_setLayout.SetLayout, &set);
+            if (!success)
+            {
+                return false;
+            }
+            Overwrite(set);
+            return true;
+        }
+
+        public unsafe void Overwrite(VkDescriptorSet set)
+        {
+            for (int i = 0; i < _writes.Length; i++)
+            {
+                _writes[i].dstSet = set;
             }
             Vulkan.vkUpdateDescriptorSets(_pool.GraphicsDevice.Device, _writes);
         }

@@ -1,4 +1,5 @@
 ﻿using System.Numerics;
+using System.Runtime.InteropServices;
 
 namespace SDL_Vulkan_CS.Artifact.Generator
 {
@@ -38,7 +39,7 @@ namespace SDL_Vulkan_CS.Artifact.Generator
                 baseRoughness = baseRoughness,
                 roughness = roughness,
                 persistence = persistence,
-                //centre = new(centre,0),
+                centre = (centre),
                 offset = offset,
                 minValue = minValue,
                 gradientWeight = gradientWeight ? 1 : 0,
@@ -66,25 +67,27 @@ namespace SDL_Vulkan_CS.Artifact.Generator
         }
     }
 
+
+    [StructLayout(LayoutKind.Sequential, Size = 64)]
     public struct GlobalNoiseSettings
     {
-        public int filterType;
+        public int filterType; // 64
 
-        public float strength;
-        public int numLayers;
-        public float baseRoughness;
-        public float roughness;
-        public float persistence;
-        //public Vector4 centre;
-        public float offset;
+        public float strength; // 60
+        public int numLayers; // 56
+        public float baseRoughness; // 52
+        public float roughness; // 48
+        public float persistence; // 44
+        public Vector3 centre; // 40
+        public float offset;  // 28
 
-        public float minValue;
-        public int gradientWeight;
-        public float gradientWeightMul;
+        public float minValue;  // 24
+        public int gradientWeight; // 20
+        public float gradientWeightMul; // 16
 
-        public int enabled;
-        public int useFirstlayerAsMask;
+        public int enabled; // 12
+        public int useFirstlayerAsMask; // 8
 
-        public float weightMultiplier;
+        public float weightMultiplier; // 4
     }
 }

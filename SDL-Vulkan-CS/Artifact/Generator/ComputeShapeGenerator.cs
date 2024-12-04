@@ -8,108 +8,72 @@ namespace SDL_Vulkan_CS.Artifact.Generator
 {
     public sealed class ComputeShapeGenerator : IDisposable
     {
-        private readonly VkShaderModule _computeShaderModule;
-        private readonly VkPipelineLayout _pipelineLayout;
-        private readonly VkPipelineCache _pipelineCache;
-        private readonly VkPipeline _pipeline;
-        private readonly VkDescriptorSet _descriptorSet;
-
-        private readonly DescriptorSetLayout _descriptorSetLayout;
+        private readonly GenericComputePipeline _terrainGenerator;
         private readonly DescriptorPool _pool;
 
-        public CsharpVulkanBuffer _vertexBuffer;
-        public CsharpVulkanBuffer _debugOutput;
-        private CsharpVulkanBuffer _shaderParameters;
+        //public CsharpVulkanBuffer _debugOutput;
         private CsharpVulkanBuffer _noiseSettings;
         private CsharpVulkanBuffer _noiseGeneratorParams;
 
+        public bool shaderDebug = false;
+        private const int _debugBufferSize = 16;
+
         public unsafe ComputeShapeGenerator()
         {
-            var filePath = Material.GetShaderFilePath("terrain_generator.comp");
 
-            Vulkan.vkCreateShaderModule(GraphicsDevice.Instance.Device, File.ReadAllBytes(filePath), null, out _computeShaderModule);
-
-            _descriptorSetLayout = new DescriptorSetLayout.Builder(GraphicsDevice.Instance)
-                .AddBinding(0, VkDescriptorType.UniformBuffer, VkShaderStageFlags.Compute)
-                .AddBinding(1, VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute)
-                .AddBinding(2, VkDescriptorType.UniformBuffer, VkShaderStageFlags.Compute)
-                .AddBinding(3, VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute)
-                .AddBinding(4, VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute)
-                .Build();
-
-            var layout = _descriptorSetLayout.SetLayout;
-            VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = new()
-            {
-                setLayoutCount = 1,
-                pSetLayouts = &layout
-            };
-            Vulkan.vkCreatePipelineLayout(GraphicsDevice.Instance.Device, pipelineLayoutCreateInfo, null, out _pipelineLayout);
-            Vulkan.vkCreatePipelineCache(GraphicsDevice.Instance.Device, new VkPipelineCacheCreateInfo(), null, out _pipelineCache);
-
-            VkUtf8ReadOnlyString main = "main"u8;
-            VkPipelineShaderStageCreateInfo _computeShaderStageInfo = new()
-            {
-                stage = VkShaderStageFlags.Compute,
-                module = _computeShaderModule,
-                pName = main
-            };
-
-            VkComputePipelineCreateInfo _computePipelineInfo = new()
-            {
-                layout = _pipelineLayout,
-                stage = _computeShaderStageInfo
-            };
-
-            Vulkan.vkCreateComputePipeline(GraphicsDevice.Instance.Device, _pipelineCache, _computePipelineInfo, out _pipeline);
-
+            _terrainGenerator = new GenericComputePipeline("terrain_generator.comp",
+                new DescriptorSetBinding(VkDescriptorType.UniformBuffer, VkShaderStageFlags.Compute),
+                new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute),
+                new DescriptorSetBinding(VkDescriptorType.UniformBuffer, VkShaderStageFlags.Compute),
+                new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute)
+                //new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute)
+            );
+            
             _pool = new DescriptorPool.Builder(GraphicsDevice.Instance)
                 .AddPoolSize(VkDescriptorType.UniformBuffer, 2)
-                .AddPoolSize(VkDescriptorType.StorageBuffer, 3)
+                .AddPoolSize(VkDescriptorType.StorageBuffer, 2)
                 .Build();
 
-            fixed (VkDescriptorSet* pSet = &_descriptorSet)
+            _terrainGenerator.AllocateDescriptorSet(_pool);
+
+        }
+
+
+        public unsafe void PrePrepare(ShapeGenerator generator)
+        {
+            WriteNoiseSettings(generator);
+            WriteGeneratorParameters(generator);
+        }
+
+        public unsafe void Prepare(CsharpVulkanBuffer vertexBuffer)
+        {
+            _terrainGenerator.Prepare(vertexBuffer.InstanceCount, vertexBuffer.InstanceCount, vertexBuffer.InstanceCount);
+
+            //float[] debugOut = new float[_debugBufferSize];
+            //_debugOutput = new(GraphicsDevice.Instance, (uint)sizeof(float), (uint)debugOut.Length, VkBufferUsageFlags.StorageBuffer, true);
+            //
+            //fixed (float* pOut = debugOut)
+            //{
+            //    _debugOutput.WriteToBuffer(pOut);
+            //}
+
+
+            fixed (VkDescriptorSet* pSet = &_terrainGenerator.DescriptorSet)
             {
-                _pool.AllocateDescriptorSet(_descriptorSetLayout.SetLayout, pSet);
+                new DescriptorWriter(_terrainGenerator.DescriptorSetLayout, _pool)
+                    .WriteBuffer(0, _terrainGenerator.ShaderParameters.DescriptorInfo())
+                    .WriteBuffer(1, vertexBuffer.DescriptorInfo())
+                    .WriteBuffer(2, _noiseGeneratorParams.DescriptorInfo())
+                    .WriteBuffer(3, _noiseSettings.DescriptorInfo())
+                    //.WriteBuffer(4, _debugOutput.DescriptorInfo())
+                    .Build(pSet);
             }
 
         }
-        public unsafe void Prepare(ShapeGenerator generator, Vertex[] vertices)
+
+        private unsafe void WriteNoiseSettings(ShapeGenerator generator)
         {
-            _debugOutput = new(GraphicsDevice.Instance, (uint)sizeof(float), (uint)13, VkBufferUsageFlags.StorageBuffer, true);
-
-            float[] debugOut = new float[13];
-
-            fixed (float* pOut = debugOut)
-            {
-                _debugOutput.WriteToBuffer(pOut);
-            }
-
-            _vertexBuffer = new(GraphicsDevice.Instance, (uint)sizeof(Vector4), (uint)vertices.Length, VkBufferUsageFlags.StorageBuffer, true);
-            Vector4* pVertices = stackalloc Vector4[vertices.Length];
-
-            for (int i = 0; i < vertices.Length; i++)
-            {
-                pVertices[i] = new(vertices[i].Position,0);
-            }
-
-            _vertexBuffer.WriteToBuffer(pVertices);
-
-            _shaderParameters = new(GraphicsDevice.Instance, (uint)sizeof(ComputeShaderParameters), 1, VkBufferUsageFlags.UniformBuffer, true);
-
-            ComputeShaderParameters* compShaderParams = stackalloc ComputeShaderParameters[1];
-
-            compShaderParams[0] = new()
-            {
-                bufferLength = (uint)vertices.Length,
-                height = (uint)vertices.Length,
-                width = (uint)vertices.Length,
-                depth = 1
-            };
-
-            _shaderParameters.WriteToBuffer(compShaderParams);
-
             _noiseSettings = new(GraphicsDevice.Instance, (uint)sizeof(GlobalNoiseSettings), (uint)generator._noiseFilters.Length, VkBufferUsageFlags.StorageBuffer, true);
-            _noiseGeneratorParams = new(GraphicsDevice.Instance, (uint)sizeof(NoiseGeneratorParams), 1, VkBufferUsageFlags.UniformBuffer, true);
 
             GlobalNoiseSettings* settingsPoint = stackalloc GlobalNoiseSettings[generator._noiseFilters.Length];
 
@@ -119,7 +83,11 @@ namespace SDL_Vulkan_CS.Artifact.Generator
             }
 
             _noiseSettings.WriteToBuffer(settingsPoint);
+        }
 
+        private unsafe void WriteGeneratorParameters(ShapeGenerator generator)
+        {
+            _noiseGeneratorParams = new(GraphicsDevice.Instance, (uint)sizeof(NoiseGeneratorParams), 1, VkBufferUsageFlags.UniformBuffer, true);
             NoiseGeneratorParams* parameters = stackalloc NoiseGeneratorParams[1];
             parameters[0] = new()
             {
@@ -128,31 +96,20 @@ namespace SDL_Vulkan_CS.Artifact.Generator
             };
 
             _noiseGeneratorParams.WriteToBuffer(parameters);
-
-            fixed (VkDescriptorSet* pSet = &_descriptorSet)
-            {
-                new DescriptorWriter(_descriptorSetLayout, _pool)
-                    .WriteBuffer(0, _shaderParameters.DescriptorInfo())
-                    .WriteBuffer(1, _vertexBuffer.DescriptorInfo())
-                    .WriteBuffer(2, _noiseGeneratorParams.DescriptorInfo())
-                    .WriteBuffer(3, _noiseSettings.DescriptorInfo())
-                    .WriteBuffer(4, _debugOutput.DescriptorInfo())
-                    .Build(pSet);
-            }
-
         }
 
-        public unsafe void Dispatch(Vertex[] vertices)
+        public unsafe void Dispatch(VkCommandBuffer commandBuffer, Mesh mesh)
         {
+            Prepare(mesh.VertexBuffer);
+            _terrainGenerator.Dispatch(commandBuffer, (uint)mesh.VertexCount, 1, 1);
+        }
+
+        public unsafe void Dispatch(Mesh mesh)
+        {
+
             var commandBuffer = GraphicsDevice.Instance.BeginSingleTimeCommands();
 
-            Vulkan.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Compute, _pipeline);
-            Vulkan.vkCmdBindDescriptorSets(commandBuffer, VkPipelineBindPoint.Compute, _pipelineLayout, 0, _descriptorSet);
-
-            Vulkan.vkCmdDispatch(commandBuffer,
-                (uint)vertices.Length,
-                1,
-                1);
+            Dispatch(commandBuffer,mesh);
 
             // Vulkan.vkCmdDispatch(commandBuffer,
             //     (uint)Math.Max(bufferLength / 2 / 32, 1),
@@ -162,49 +119,36 @@ namespace SDL_Vulkan_CS.Artifact.Generator
 
 
             GraphicsDevice.Instance.EndSingleTimeCommands(commandBuffer);
-            Vector4[] newVertices = new Vector4[vertices.Length];
+            //mesh.RecalculateNormals();
 
-            fixed (Vector4* pVertices = newVertices)
-            {
-                _vertexBuffer.ReadFromBuffer(pVertices);
-            }
-
-           for (int i = 0; i < newVertices.Length; i++)
-           {
-                vertices[i].Position = new(newVertices[i].X, newVertices[i].Y, newVertices[i].Z);
-           }
-
-            float[] debugOut = new float[13];
-
-            fixed (float* pOut = debugOut)
-            {
-                _debugOutput.ReadFromBuffer(pOut);
-            }
-
-
-            Console.WriteLine("Out values:");
-            for (int i = 0; i < debugOut.Length; i++)
-            {
-                Console.Write(string.Format(" {0}", debugOut[i]));
-            }
-            Console.WriteLine();
-
+            //if (shaderDebug)
+            //{
+            //    float[] debugOut = new float[_debugBufferSize];
+            //
+            //    fixed (float* pOut = debugOut)
+            //    {
+            //        _debugOutput.ReadFromBuffer(pOut);
+            //    }
+            //
+            //
+            //    Console.WriteLine("Out values:");
+            //    for (int i = 0; i < debugOut.Length; i++)
+            //    {
+            //        Console.Write(string.Format(" {0}", debugOut[i]));
+            //    }
+            //    Console.WriteLine();
+            //}
+            //_debugOutput.Dispose();
+            //_debugOutput = null;
         }
 
         public unsafe void Dispose()
         {
-            _debugOutput?.Dispose();
-            _vertexBuffer?.Dispose();
-            _shaderParameters?.Dispose();
+            //_debugOutput?.Dispose();
             _noiseSettings?.Dispose();
             _noiseGeneratorParams?.Dispose();
-
             _pool.Dispose();
-            Vulkan.vkDestroyPipeline(GraphicsDevice.Instance.Device, _pipeline);
-            Vulkan.vkDestroyPipelineCache(GraphicsDevice.Instance.Device, _pipelineCache);
-            Vulkan.vkDestroyPipelineLayout(GraphicsDevice.Instance.Device, _pipelineLayout);
-            _descriptorSetLayout.Dispose();
-            Vulkan.vkDestroyShaderModule(GraphicsDevice.Instance.Device, _computeShaderModule);
+            _terrainGenerator?.Dispose();
         }
 
         private struct NoiseGeneratorParams

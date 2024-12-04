@@ -28,7 +28,6 @@ namespace SDL_Vulkan_CS.Artifact.Generator
 
         public void RaiseMesh(Mesh mesh)
         {
-            var now = DateTime.Now;
             Vertex[] vertices = mesh.Vertices;
 
             Parallel.For(0, vertices.Length, (int i) =>
@@ -38,9 +37,7 @@ namespace SDL_Vulkan_CS.Artifact.Generator
             });
 
             mesh.Vertices = vertices;
-            var delta = DateTime.Now - now;
-            Console.WriteLine(string.Format("Raise Mesh: {0}ms", delta.TotalMilliseconds));
-            mesh.RecalculateNormals();
+            //mesh.RecalculateNormals();
         }
 
         public Vector3 CalculatePointOnPlanet(Vector3 pointOnUnitSphere, out float elevation)

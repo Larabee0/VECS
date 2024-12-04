@@ -1,7 +1,11 @@
 
 struct Vertex{
-	vec3 position;
-	vec3 normal;
+	float positionX;
+	float positionY;
+	float positionZ;
+	float normalX;
+	float normalY;
+	float normalZ;
 	float elevation;
 };
 
@@ -14,7 +18,9 @@ struct GlobalNoiseSettings{
     float baseRoughness; //16
     float roughness; // 20
     float persistence; // 24
-    //vec4 centre; // 36
+    float centreX; // 36
+    float centreY; // 36
+    float centreZ; // 36
     float offset; // 40
 
     float minValue; // 44

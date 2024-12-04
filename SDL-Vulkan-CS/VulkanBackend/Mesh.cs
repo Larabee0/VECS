@@ -87,6 +87,18 @@ namespace SDL_Vulkan_CS.VulkanBackend
             }
         }
 
+        public CsharpVulkanBuffer IndexBuffer
+        {
+            get
+            {
+                if (_indexBuffer == null)
+                {
+                    FlushIndexBuffer();
+                }
+                return _indexBuffer;
+            }
+        }
+
         /// <summary>
         /// Creates a vertex buffer only mesh
         /// This does not allocate any gpu side buffers.
@@ -233,14 +245,14 @@ namespace SDL_Vulkan_CS.VulkanBackend
                     stagingBuffer.WriteToBuffer(data);
                 }
 
-                _vertexBuffer ??= new CsharpVulkanBuffer(_device, (uint)Vertex.SizeInBytes, (uint)_vertices.Length, VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.StorageBuffer, false);
+                _vertexBuffer ??= new CsharpVulkanBuffer(_device, (uint)Vertex.SizeInBytes, (uint)_vertices.Length, VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.TransferSrc | VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.StorageBuffer, false);
                 _device.CopyBuffer(stagingBuffer.VkBuffer, _vertexBuffer.VkBuffer, vertexBufferSize);
                 stagingBuffer.Dispose();
             }
             else
             {
 
-                _vertexBuffer ??= new CsharpVulkanBuffer(_device, (uint)Vertex.SizeInBytes, (uint)_vertices.Length, VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.StorageBuffer, true);
+                _vertexBuffer ??= new CsharpVulkanBuffer(_device, (uint)Vertex.SizeInBytes, (uint)_vertices.Length, VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferSrc | VkBufferUsageFlags.StorageBuffer, true);
                 fixed (void* data = &_vertices[0])
                 {
                     _vertexBuffer.WriteToBuffer(data);
@@ -277,14 +289,14 @@ namespace SDL_Vulkan_CS.VulkanBackend
                     stagingBuffer.WriteToBuffer(data);
                 }
 
-                _indexBuffer ??= new CsharpVulkanBuffer(_device, sizeof(uint), (uint)_indices.Length, VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.IndexBuffer, false);
+                _indexBuffer ??= new CsharpVulkanBuffer(_device, sizeof(uint), (uint)_indices.Length, VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.IndexBuffer | VkBufferUsageFlags.StorageBuffer, false);
                 _device.CopyBuffer(stagingBuffer.VkBuffer, _indexBuffer.VkBuffer, indexBufferSize);
                 stagingBuffer.Dispose();
             }
             else
             {
 
-                _indexBuffer ??= new CsharpVulkanBuffer(_device, sizeof(uint), (uint)_indices.Length, VkBufferUsageFlags.IndexBuffer, true);
+                _indexBuffer ??= new CsharpVulkanBuffer(_device, sizeof(uint), (uint)_indices.Length, VkBufferUsageFlags.IndexBuffer | VkBufferUsageFlags.StorageBuffer, true);
                 fixed (void* data = &_indices[0])
                 {
                     _indexBuffer.WriteToBuffer(data);
@@ -438,12 +450,34 @@ namespace SDL_Vulkan_CS.VulkanBackend
             return Meshes.IndexOf(mesh);
         }
 
+        public unsafe void CopyVertexBufferBack()
+        {
+            if (_vertices == null && _vertexBuffer != null)
+            {
+
+                var stagingBuffer = new CsharpVulkanBuffer(_device, (uint)Vertex.SizeInBytes, (uint)_vertexCount, VkBufferUsageFlags.TransferDst, true);
+                _device.CopyBuffer(_vertexBuffer.VkBuffer, stagingBuffer.VkBuffer,  (uint)_vertexBuffer.BufferSize);
+                _vertices = new Vertex[_vertexCount];
+                fixed (void* data = &_vertices[0])
+                {
+                    stagingBuffer.ReadFromBuffer(data);
+                }
+                stagingBuffer.Dispose();
+            }
+        }
+
         /// <summary>
         /// https://computergraphics.stackexchange.com/questions/4031/programmatically-generating-vertex-normals 
         /// </summary>
         public void RecalculateNormals()
         {
-            var now = DateTime.Now;
+            //var now = DateTime.Now;
+            bool hadToCopyBack = false;
+            if(_vertices == null && _vertexBuffer != null)
+            {
+                hadToCopyBack = true;
+                CopyVertexBufferBack();
+            }
             Parallel.For(0, _vertices.Length, (int i) =>
             {
                 _vertices[i].Normal = Vector3.Zero;
@@ -462,24 +496,16 @@ namespace SDL_Vulkan_CS.VulkanBackend
                 _vertices[vertexC].Normal += point;
             });
 
-            // for (int i = 0; i < indices.Length; i += 3)
-            // {
-            //     uint vertexA = indices[i];
-            //     uint vertexB = indices[i + 1];
-            //     uint vertexC = indices[i + 2];
-            //     Vector3 point = Vector3.Cross(vertices[vertexB].Position - vertices[vertexA].Position, vertices[vertexC].Position - vertices/[vertexA].Position);
-            // 
-            //     vertices[vertexA].Normal += point;
-            //     vertices[vertexB].Normal += point;
-            //     vertices[vertexC].Normal += point;
-            // }
-
             Parallel.For(0, _vertices.Length, (int i) =>
             {
                 _vertices[i].Normal = Vector3.Normalize(_vertices[i].Normal);
             });
-            var delta = DateTime.Now - now;
-            Console.WriteLine(string.Format("Recalculate normals: {0}ms", delta.TotalMilliseconds));
+            if (hadToCopyBack)
+            {
+                FlushVertexBuffer();
+            }
+            //var delta = DateTime.Now - now;
+            //Console.WriteLine(string.Format("Recalculate normals: {0}ms", delta.TotalMilliseconds));
         }
     }
 }

@@ -1,0 +1,57 @@
+#version 450
+#extension GL_KHR_vulkan_glsl: enable
+#include "structures.glsl"
+
+layout(set = 0, binding = 0) uniform ComputeShaderParameters{
+	uint bufferLength;
+	uint width;
+	uint height;
+	uint depth;
+} params;
+
+
+layout(std430,set = 0, binding = 1) buffer VertexBuffer {
+    Vertex vertexBuffer[];
+};
+
+layout(std430,set = 0, binding = 2) buffer IndexBuffer {
+    uint indexBuffer[];
+};
+
+layout(std430,set = 0, binding = 3) buffer NormalBuffer {
+    vec4 normalBuffer[];
+};
+
+
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+void main() {
+	if(params.width <= gl_GlobalInvocationID.x || params.height <= gl_GlobalInvocationID.y){
+	 	return; 
+	}
+	uint x = gl_GlobalInvocationID.x;
+	uint y = gl_GlobalInvocationID.y;
+
+	uint indexBufferIndex = y * params.width + x;
+	indexBufferIndex =  gl_GlobalInvocationID.x;
+    indexBufferIndex = indexBufferIndex * 3;
+
+	uint indexA = indexBuffer[indexBufferIndex];
+	uint indexB = indexBuffer[indexBufferIndex+1];
+	uint indexC = indexBuffer[indexBufferIndex+2];
+
+	Vertex vertexA = vertexBuffer[indexA];
+	Vertex vertexB = vertexBuffer[indexB];
+	Vertex vertexC = vertexBuffer[indexC];
+
+	vec3 posA = vec3(vertexA.positionX, vertexA.positionY, vertexA.positionZ);
+	vec3 posB = vec3(vertexB.positionX, vertexB.positionY, vertexB.positionZ);
+	vec3 posC = vec3(vertexC.positionX, vertexC.positionY, vertexC.positionZ);
+
+	vec3 point = cross(posB - posA, posC-posA);
+
+	normalBuffer[indexBufferIndex] = vec4(point,indexA);
+	normalBuffer[indexBufferIndex+1] = vec4(point,indexB);
+	normalBuffer[indexBufferIndex+2] = vec4(point,indexC);
+
+
+}

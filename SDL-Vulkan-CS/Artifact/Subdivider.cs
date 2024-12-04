@@ -13,20 +13,20 @@ namespace SDL_Vulkan_CS.Artifact
     {
         public static void Subdivide(Mesh target, int subdivisons, bool simplify = true)
         {
-            var now = DateTime.Now;
+            ////var now = DateTime.Now;
             for (int i = 0; i < subdivisons; i++)
             {
                 Subdivide(target);
             }
-            var delta = DateTime.Now - now;
-            Console.WriteLine(string.Format("Subdivide: {0}ms", delta.TotalMilliseconds));
+            //var delta = DateTime.Now - now;
+            //Console.WriteLine(string.Format("Subdivide: {0}ms", delta.TotalMilliseconds));
 
             if (simplify)
             {
-                now = DateTime.Now;
+                //now = DateTime.Now;
                 SimpliftySubdivision(target);
-                delta = DateTime.Now - now;
-                Console.WriteLine(string.Format("Simplify Mesh: {0}ms", delta.TotalMilliseconds));
+                //delta = DateTime.Now - now;
+                //.WriteLine(string.Format("Simplify Mesh: {0}ms", delta.TotalMilliseconds));
             }
         }
 

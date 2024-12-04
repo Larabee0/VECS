@@ -13,8 +13,8 @@ layout(set = 0, binding = 0) uniform ComputeShaderParameters{
 } params;
 
 
-layout(set = 0, binding = 1) buffer VertexBuffer {
-    vec4 vertexBuffer[];
+layout(std430,set = 0, binding = 1) buffer VertexBuffer {
+    Vertex vertexBuffer[];
 };
 
 layout(set = 0, binding = 2) uniform NoiseGeneratorParams{
@@ -26,9 +26,9 @@ layout(std430, binding = 3) buffer NoiseSettings {
 	GlobalNoiseSettings noiseSettings[];
 };
 
-layout(std430, binding = 4) buffer layB {
-    float outbuf[];
-};
+//layout(std430, binding = 4) buffer layB {
+//    float outbuf[];
+//};
 
 
 float evaluate(GlobalNoiseSettings settings, vec3 point){	
@@ -49,10 +49,9 @@ void main() {
 	uint bufferIndex = y * params.width + x;
 	bufferIndex =  gl_GlobalInvocationID.x;
 
-	vec3 v = vertexBuffer[bufferIndex].xyz;
+	Vertex v = vertexBuffer[bufferIndex];
 
-	vec3 pos = vec3(0.629473, 0.759494, 0.046027);
-	pos =v;
+	vec3 pos = vec3(v.positionX,v.positionY,v.positionZ);
 
 	float firstLayerValue = 0;
 	float elevation = 0;
@@ -73,36 +72,47 @@ void main() {
 	}
 	elevation = noiseParams.planetRadius * (1.0 + elevation);
 
-	v *= elevation;
-	//v.elevation = elevation;
-	vertexBuffer[bufferIndex] = vec4(v,1);
-	GlobalNoiseSettings settingsTestOut = noiseSettings[1];
-
-	vec3 gradient;
-	float noiseOut = snoise(vec3(0), gradient);
-	float gradWeight = gradientWeight(gradient);
-
-	outbuf[0] = elevation;
-	outbuf[7] = elevation;
-	outbuf[8] = noiseParams.planetRadius;
-	outbuf[1] = pos.x;
-	outbuf[2] = pos.y;
-	outbuf[3] = pos.z;
 	pos *= elevation;
-	outbuf[4] = pos.x;
-	outbuf[5] = pos.y;
-	outbuf[6] = pos.z;
-	//outbuf[0] = settingsTestOut.filterType;
-	//outbuf[1] = settingsTestOut.strength;
-	//outbuf[2] = settingsTestOut.numLayers;
-	//outbuf[3] = settingsTestOut.baseRoughness;
-	//outbuf[4] = settingsTestOut.roughness;
-	//outbuf[5] = settingsTestOut.persistence;
-	//outbuf[6] = settingsTestOut.offset;
-	//outbuf[7] = settingsTestOut.minValue;
-	//outbuf[8] = settingsTestOut.gradientWeight;
-	//outbuf[9] = settingsTestOut.gradientWeightMul;
-	//outbuf[10] = settingsTestOut.enabled;
-	//outbuf[11] = settingsTestOut.useFirstlayerAsMask;
-	//outbuf[12] = settingsTestOut.weightMultiplier;
+	v.positionX = pos.x;
+	v.positionY = pos.y;
+	v.positionZ = pos.z;
+	vertexBuffer[bufferIndex] = v;
+
+
+	// debug
+	// GlobalNoiseSettings settingsTestOut = noiseSettings[0];
+	// 
+	// vec3 gradient;
+	// float noiseOut = snoise(vec3(0), gradient);
+	// float gradWeight = gradientWeight(gradient);
+
+	//outbuf[0] = elevation;
+	//outbuf[7] = elevation;
+	//outbuf[8] = noiseParams.planetRadius;
+	//outbuf[1] = pos.x;
+	//outbuf[2] = pos.y;
+	//outbuf[3] = pos.z;
+	//pos *= elevation;
+	//outbuf[4] = pos.x;
+	//outbuf[5] = pos.y;
+	//outbuf[6] = pos.z;
+
+	// outbuf[0] = settingsTestOut.filterType;
+	// outbuf[1] = settingsTestOut.strength;
+	// outbuf[2] = settingsTestOut.numLayers;
+	// outbuf[3] = settingsTestOut.baseRoughness;
+	// outbuf[4] = settingsTestOut.roughness;
+	// outbuf[5] = settingsTestOut.persistence;
+	// 
+	// outbuf[6] = settingsTestOut.centreX;
+	// outbuf[7] = settingsTestOut.centreY;
+	// outbuf[8] = settingsTestOut.centreZ;
+	// 
+	// outbuf[9] = settingsTestOut.offset;
+	// outbuf[10] = settingsTestOut.minValue;
+	// outbuf[11] = settingsTestOut.gradientWeight;
+	// outbuf[12] = settingsTestOut.gradientWeightMul;
+	// outbuf[13] = settingsTestOut.enabled;
+	// outbuf[14] = settingsTestOut.useFirstlayerAsMask;
+	// outbuf[15] = settingsTestOut.weightMultiplier;
 }
