@@ -16,11 +16,12 @@ layout(std430,set = 0, binding = 1) buffer VertexBuffer {
 
 
 layout(std430,set = 0, binding = 2) buffer NormalBuffer {
-    vec4 normalBuffer[];
+    int normalBuffer[];
 };
 
+float QUANTIIZE_FACTOR = 32768.0;
 
-layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+layout(local_size_x =1, local_size_y = 1, local_size_z = 1) in;
 void main() {
 	if(params.width <= gl_GlobalInvocationID.x || params.height <= gl_GlobalInvocationID.y){
 	 	return; 
@@ -29,10 +30,17 @@ void main() {
 	uint y = gl_GlobalInvocationID.y;
 
 	uint bufferIndex = y * params.width + x;
-	bufferIndex =  gl_GlobalInvocationID.x;
+	//bufferIndex =  gl_GlobalInvocationID.x;
 
 	Vertex v = vertexBuffer[bufferIndex];
-	vec3 norm = normalize(normalBuffer[bufferIndex].xyz);
+	uint normalIndex = bufferIndex * 3;
+
+	vec3 norm = vec3(0);
+	norm.x = (normalBuffer[normalIndex]) / QUANTIIZE_FACTOR;
+	norm.y = (normalBuffer[normalIndex+1]) / QUANTIIZE_FACTOR;
+	norm.z = (normalBuffer[normalIndex+2]) / QUANTIIZE_FACTOR;
+
+	norm = normalize(norm);
 	v.normalX = norm.x;	 
 	v.normalY = norm.y;	
 	v.normalZ = norm.z;

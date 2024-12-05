@@ -6,6 +6,12 @@ using Vortice.Vulkan;
 
 namespace SDL_Vulkan_CS.Artifact.Generator
 {
+    /// <summary>
+    /// https://www.khronos.org/opengl/wiki/Shader_Storage_Buffer_Object#Atomic_operations
+    /// https://discussions.unity.com/t/calculating-normals-of-a-mesh-in-compute-shader/896876/3
+    /// 
+    /// modify shaders with atomic add instead of direct add. Will need to use vec4 still
+    /// </summary>
     public sealed class ComputeShaderNormalsCalculation : IDisposable
     {
         private GenericComputePipeline _calcuateNormals;
@@ -48,10 +54,16 @@ namespace SDL_Vulkan_CS.Artifact.Generator
             );
         }
 
-        public unsafe void Prepare(CsharpVulkanBuffer indexBuffer, CsharpVulkanBuffer vertexBuffer)
+        private unsafe void Prepare(CsharpVulkanBuffer indexBuffer, CsharpVulkanBuffer vertexBuffer)
         {
-            _normalBuffer = new(GraphicsDevice.Instance, (uint)sizeof(Vector4), indexBuffer.InstanceCount, VkBufferUsageFlags.StorageBuffer | VkBufferUsageFlags.TransferDst, true);
-            _normalBuffer.Flush();
+            // to share this pipeline across the whole mesh, the normal buffer must be as long as the longest vertex buffer.
+            // recallocate when a new vertex buffer is longer than the current normal buffer
+            if (_normalBuffer == null || vertexBuffer.InstanceCount > _normalBuffer.InstanceCount)
+            {
+                _normalBuffer?.Dispose();
+                _normalBuffer = new(GraphicsDevice.Instance, (uint)sizeof(Vector3), vertexBuffer.InstanceCount, VkBufferUsageFlags.StorageBuffer | VkBufferUsageFlags.TransferDst, false);
+            }
+
             _calcuateNormals.Prepare(indexBuffer.InstanceCount, indexBuffer.InstanceCount, indexBuffer.InstanceCount, 1);
 
             fixed (VkDescriptorSet* pSet = &_calcuateNormals.DescriptorSet)
@@ -64,48 +76,6 @@ namespace SDL_Vulkan_CS.Artifact.Generator
                     .Build(pSet);
             }
 
-        }
-
-        public unsafe void DispatchSingleTimeCmd(uint indexBufferLength, CsharpVulkanBuffer vertexBuffer)
-        {
-            // fixed (Vector4* pNormals = normals)
-            // {
-            //     _normalBuffer.WriteToBuffer(pNormals);
-            // }
-
-            var commandBuffer = GraphicsDevice.Instance.BeginSingleTimeCommands();
-            Vulkan.vkCmdFillBuffer(commandBuffer, _normalBuffer.VkBuffer, 0, _normalBuffer.BufferSize, 0);
-            _calcuateNormals.Dispatch(commandBuffer, indexBufferLength / 3, 1, 1);
-            GraphicsDevice.Instance.EndSingleTimeCommands(commandBuffer);
-
-
-            Vector4[] rawNormals = new Vector4[indexBufferLength];
-            Vector4[] normals = new Vector4[vertexBuffer.InstanceCount];
-
-            fixed (Vector4* pNormals = rawNormals)
-            {
-                _normalBuffer.ReadFromBuffer(pNormals);
-            }
-
-
-            Parallel.For(0, (int)indexBufferLength / 3, (int index) =>
-            {
-                int i = index * 3;
-                Vector4 normCompA = rawNormals[i];
-                Vector4 normCompB = rawNormals[i + 1];
-                Vector4 normCompC = rawNormals[i + 2];
-
-                normals[(int)normCompA.W] += normCompA;
-                normals[(int)normCompB.W] += normCompB;
-                normals[(int)normCompC.W] += normCompC;
-            });
-
-            rawNormals = null;
-            fixed (Vector4* pNormals = normals)
-            {
-                _normalBuffer.WriteToBuffer(pNormals,(uint)(normals.Length * sizeof(Vector4)));
-            }
-            normals = null;
             _normalizeNormals.Prepare(vertexBuffer.InstanceCount, vertexBuffer.InstanceCount, vertexBuffer.InstanceCount, 1);
             fixed (VkDescriptorSet* pSet = &_normalizeNormals.DescriptorSet)
             {
@@ -115,9 +85,28 @@ namespace SDL_Vulkan_CS.Artifact.Generator
                     .WriteBuffer(2, _normalBuffer.DescriptorInfo())
                     .Build(pSet);
             }
-            commandBuffer = GraphicsDevice.Instance.BeginSingleTimeCommands();
-            _normalizeNormals.Dispatch(commandBuffer, vertexBuffer.InstanceCount, 1, 1);
+
+        }
+
+        public unsafe void DispatchSingleTimeCmd(CsharpVulkanBuffer indexBuffer, CsharpVulkanBuffer vertexBuffer)
+        {
+            var commandBuffer = GraphicsDevice.Instance.BeginSingleTimeCommands();
+            Dispatch(commandBuffer,indexBuffer, vertexBuffer);
+
             GraphicsDevice.Instance.EndSingleTimeCommands(commandBuffer);
+
+        }
+
+        public unsafe void Dispatch(VkCommandBuffer commandBuffer,CsharpVulkanBuffer indexBuffer, CsharpVulkanBuffer vertexBuffer)
+        {
+            Prepare(indexBuffer, vertexBuffer);
+
+            // clear normal buffer
+            Vulkan.vkCmdFillBuffer(commandBuffer, _normalBuffer.VkBuffer, 0, _normalBuffer.BufferSize, 0);
+
+            _calcuateNormals.Dispatch(commandBuffer, indexBuffer.InstanceCount / 3, 1, 1);
+            
+            _normalizeNormals.Dispatch(commandBuffer, vertexBuffer.InstanceCount, 1, 1);
         }
 
         public unsafe void Dispose()

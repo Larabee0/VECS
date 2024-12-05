@@ -19,9 +19,10 @@ layout(std430,set = 0, binding = 2) buffer IndexBuffer {
 };
 
 layout(std430,set = 0, binding = 3) buffer NormalBuffer {
-    vec4 normalBuffer[];
+    int normalBuffer[];
 };
 
+float QUANTIIZE_FACTOR = 32768.0;
 
 layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 void main() {
@@ -32,26 +33,38 @@ void main() {
 	uint y = gl_GlobalInvocationID.y;
 
 	uint indexBufferIndex = y * params.width + x;
-	indexBufferIndex =  gl_GlobalInvocationID.x;
+	//indexBufferIndex =  gl_GlobalInvocationID.x;
     indexBufferIndex = indexBufferIndex * 3;
 
 	uint indexA = indexBuffer[indexBufferIndex];
 	uint indexB = indexBuffer[indexBufferIndex+1];
 	uint indexC = indexBuffer[indexBufferIndex+2];
 
-	Vertex vertexA = vertexBuffer[indexA];
-	Vertex vertexB = vertexBuffer[indexB];
-	Vertex vertexC = vertexBuffer[indexC];
+	vec3 posA = vec3(vertexBuffer[indexA].positionX,
+	vertexBuffer[indexA].positionY,
+	vertexBuffer[indexA].positionZ);
+	
+	vec3 posB = vec3( vertexBuffer[indexB].positionX,
+	vertexBuffer[indexB].positionY,
+	vertexBuffer[indexB].positionZ);
 
-	vec3 posA = vec3(vertexA.positionX, vertexA.positionY, vertexA.positionZ);
-	vec3 posB = vec3(vertexB.positionX, vertexB.positionY, vertexB.positionZ);
-	vec3 posC = vec3(vertexC.positionX, vertexC.positionY, vertexC.positionZ);
+	vec3 posC = vec3(vertexBuffer[indexC].positionX,
+	vertexBuffer[indexC].positionY,
+	vertexBuffer[indexC].positionZ);
 
-	vec3 point = cross(posB - posA, posC-posA);
-
-	normalBuffer[indexBufferIndex] = vec4(point,indexA);
-	normalBuffer[indexBufferIndex+1] = vec4(point,indexB);
-	normalBuffer[indexBufferIndex+2] = vec4(point,indexC);
-
+	ivec3 faceNormal = ivec3(normalize(cross(posB - posA, posC - posA)) * QUANTIIZE_FACTOR);
+	
+	indexA *= 3;
+	indexB *= 3;
+	indexC *= 3;
+	atomicAdd(normalBuffer[indexA],faceNormal.x);
+	atomicAdd(normalBuffer[indexA + 1], faceNormal.y);
+	atomicAdd(normalBuffer[indexA + 2], faceNormal.z);
+	atomicAdd(normalBuffer[indexB], faceNormal.x);
+	atomicAdd(normalBuffer[indexB + 1], faceNormal.y);
+	atomicAdd(normalBuffer[indexB + 2], faceNormal.z);
+	atomicAdd(normalBuffer[indexC], faceNormal.x);
+	atomicAdd(normalBuffer[indexC + 1], faceNormal.y);
+	atomicAdd(normalBuffer[indexC + 2], faceNormal.z);
 
 }

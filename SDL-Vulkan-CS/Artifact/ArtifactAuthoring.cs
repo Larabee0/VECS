@@ -26,6 +26,7 @@ namespace SDL_Vulkan_CS.Artifact
         };
 
         private bool useComputeShaderForGeneration = true;
+        private bool useComputeShaderForNormals = true;
         private int subdivisons = 6;
 
         public ArtifactAuthoring()
@@ -56,30 +57,32 @@ namespace SDL_Vulkan_CS.Artifact
 
             var lit = new Material("white_shader.vert", "white_shader.frag", typeof(SimplePushConstantData));
 
-            var now = DateTime.Now;
             SubdividePlanet(shape);
-            var delta = DateTime.Now - now;
-            Console.WriteLine(string.Format("Total Subdivide: {0}ms", delta.TotalMilliseconds));
 
-            now = DateTime.Now;
+            var now = DateTime.Now;
             GeneratePlanet(shape);
-            delta = DateTime.Now - now;
+            var delta = DateTime.Now - now;
             if (useComputeShaderForGeneration)
             {
-                Console.WriteLine(string.Format("Compute Shader Mesh: {0}ms", delta.TotalMilliseconds));
+                Console.WriteLine(string.Format("GPU Raise Mesh: {0}ms", delta.TotalMilliseconds));
             }
             else
             {
-                Console.WriteLine(string.Format("Parallel CPU Mesh: {0}ms", delta.TotalMilliseconds));
+                Console.WriteLine(string.Format("Parallel CPU Raise Mesh: {0}ms", delta.TotalMilliseconds));
             }
 
             now = DateTime.Now;
-            for (int i = 0; i < shape.Length; i++)
-            {
-                shape[i].RecalculateNormals();
-            }
+            RecalucatioNormals(shape);
             delta = DateTime.Now - now;
-            Console.WriteLine(string.Format("Normal recalculation: {0}ms", delta.TotalMilliseconds));
+            if (useComputeShaderForGeneration && useComputeShaderForNormals)
+            {
+                Console.WriteLine(string.Format("GPU Normal recalculation: {0}ms", delta.TotalMilliseconds));
+            }
+            else
+            {
+                Console.WriteLine(string.Format("Parallel CPU Normal recalculation: {0}ms", delta.TotalMilliseconds));
+            }
+            
 
             for (int i = 0; i < shape.Length; i++)
             {
@@ -109,6 +112,34 @@ namespace SDL_Vulkan_CS.Artifact
 
             Console.WriteLine(string.Format("All Meshes           | Vertices: {0} | Total Indices: {1}", vertexCount, indexCount));
             Console.WriteLine(string.Format("Heaviest Single Mesh | Vertices: {0} |Total Indices: {1}", heavyVertexCount, heavyIndexCount));
+        }
+
+        private void RecalucatioNormals(Mesh[] shape)
+        {
+            ComputeShaderNormalsCalculation normalsCalculation = null;
+            VkCommandBuffer commandBuffer = default;
+            if (useComputeShaderForGeneration && useComputeShaderForNormals)
+            {
+                normalsCalculation = new();
+                commandBuffer = GraphicsDevice.Instance.BeginSingleTimeCommands();
+            }
+            for (int i = 0; i < shape.Length; i++)
+            {
+                if (useComputeShaderForGeneration && useComputeShaderForNormals)
+                {
+                    normalsCalculation.Dispatch(commandBuffer, shape[i].IndexBuffer, shape[i].VertexBuffer);
+
+                }
+                else
+                {
+                    shape[i].RecalculateNormals();
+                }
+            }
+            if (useComputeShaderForGeneration && useComputeShaderForNormals)
+            {
+                GraphicsDevice.Instance.EndSingleTimeCommands(commandBuffer);
+                normalsCalculation.Dispose();
+            }
         }
 
         private void SubdividePlanet(Mesh[] shape)
