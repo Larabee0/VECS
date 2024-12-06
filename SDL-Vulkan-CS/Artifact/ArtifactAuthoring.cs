@@ -5,6 +5,7 @@ using SDL_Vulkan_CS.ECS.Presentation;
 using Vortice.Vulkan;
 using SDL_Vulkan_CS.Artifact.Generator;
 using System;
+using System.Threading.Tasks;
 
 namespace SDL_Vulkan_CS.Artifact
 {
@@ -25,9 +26,9 @@ namespace SDL_Vulkan_CS.Artifact
             ClipFar = 100f
         };
 
-        private bool useComputeShaderForGeneration = true;
-        private bool useComputeShaderForNormals = true;
-        private int subdivisons = 6;
+        private readonly bool useComputeShaderForGeneration = true;
+        private readonly bool useComputeShaderForNormals = true;
+        private readonly int subdivisons = 7;
 
         public ArtifactAuthoring()
         {
@@ -144,20 +145,30 @@ namespace SDL_Vulkan_CS.Artifact
 
         private void SubdividePlanet(Mesh[] shape)
         {
+            Console.WriteLine(string.Format("Begin Subdivison {0} steps", subdivisons));
             var now = DateTime.Now;
-            for (int i = 0; i < shape.Length; i++)
-            {
-                Subdivider.Subdivide(shape[i], subdivisons,false);
-            }
+            Parallel.For(0, shape.Length, (i)=>{
+
+                Subdivider.Subdivide(shape[i], subdivisons, false);
+            });
+
+            // for (int i = 0; i < shape.Length; i++)
+            // {
+            //     Subdivider.Subdivide(shape[i], subdivisons,false);
+            // }
             var delta = DateTime.Now - now;
             Console.WriteLine(string.Format("Subdivide Mesh: {0}ms", delta.TotalMilliseconds));
 
 
             now = DateTime.Now;
-            for (int i = 0; i < shape.Length; i++)
-            {
-                Subdivider.SimpliftySubdivision(shape[i]);
-            }
+            Parallel.For(0, shape.Length, (i) => {
+
+                Subdivider.SimpliftySubdivisionMainThread(shape[i]);
+            });
+            //for (int i = 0; i < shape.Length; i++)
+            //{
+            //    Subdivider.SimpliftySubdivisionMainThread(shape[i]);
+            //}
             delta = DateTime.Now - now;
             Console.WriteLine(string.Format("Simplify Mesh: {0}ms", delta.TotalMilliseconds));
         }
@@ -192,8 +203,14 @@ namespace SDL_Vulkan_CS.Artifact
             if (useComputeShaderForGeneration)
             {
                 GraphicsDevice.Instance.EndSingleTimeCommands(commandBuffer);
+
+                Vector2 shaderMinMax = computeGenerator.ReadElevationMinMax();
+                generator.minMax.AddValue(shaderMinMax.X);
+                generator.minMax.AddValue(shaderMinMax.Y);
             }
             computeGenerator?.Dispose();
+            Vector2 minMax = new(generator.minMax.Min, generator.minMax.Max);
+            Console.WriteLine(string.Format("Elevation min-max: {0}", minMax));
         }
 
         public static ShapeGenerator CreateShapeGenerator()

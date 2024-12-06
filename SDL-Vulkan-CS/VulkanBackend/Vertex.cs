@@ -42,9 +42,7 @@ namespace SDL_Vulkan_CS
 
         public static bool operator ==(Vertex left, Vertex right)
         {
-            return left.Position == right.Position
-                && left.Normal == right.Normal
-                && left.Elevation == right.Elevation;
+            return left.Position == right.Position;
         }
 
         public static bool operator !=(Vertex left, Vertex right) => !(left == right);
@@ -66,7 +64,7 @@ namespace SDL_Vulkan_CS
 
         public override readonly int GetHashCode()
         {
-            return HashCode.Combine(Position, Normal, Elevation);
+            return HashCode.Combine(Position);
         }
 
         /// <summary>
