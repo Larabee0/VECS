@@ -1,6 +1,7 @@
 ﻿using SDL_Vulkan_CS.VulkanBackend;
 using System;
 using System.Numerics;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SDL_Vulkan_CS.Artifact.Generator
@@ -11,8 +12,13 @@ namespace SDL_Vulkan_CS.Artifact.Generator
         public int _seed = 0;
         public bool _randomSeed = false;
 
-        public SimpleNoiseSettings[] _noiseFilters;
+        public MinMax minMax;
 
+        public SimpleNoiseSettings[] _noiseFilters;
+        public ShapeGenerator()
+        {
+            minMax = new MinMax();
+        }
         public void RandomiseSettings()
         {
             _seed = _randomSeed ? Random.Shared.Next(int.MinValue, int.MaxValue) : 0;
@@ -34,6 +40,7 @@ namespace SDL_Vulkan_CS.Artifact.Generator
             {
                 vertices[i].Position = CalculatePointOnPlanet(vertices[i].Position, out float elevation);
                 vertices[i].Elevation = elevation;
+                minMax.AddValue(elevation);
             });
 
             mesh.Vertices = vertices;
@@ -67,4 +74,23 @@ namespace SDL_Vulkan_CS.Artifact.Generator
             return pointOnUnitSphere * elevation;
         }
     }
+
+    public class MinMax
+    {
+        public float Min { get; private set; }
+        public float Max { get; private set; }
+
+        public MinMax()
+        {
+            Min = float.MaxValue;
+            Max = float.MinValue;
+        }
+
+        public void AddValue(float v)
+        {
+            if (v < Min) Min = v;
+            if (v > Max) Max = v;
+        }
+    }
+
 }

@@ -11,7 +11,7 @@ namespace SDL_Vulkan_CS.Artifact.Generator
         private readonly GenericComputePipeline _terrainGenerator;
         private readonly DescriptorPool _pool;
 
-        //public CsharpVulkanBuffer _debugOutput;
+        public CsharpVulkanBuffer _elevationMinMax;
         private CsharpVulkanBuffer _noiseSettings;
         private CsharpVulkanBuffer _noiseGeneratorParams;
 
@@ -20,13 +20,12 @@ namespace SDL_Vulkan_CS.Artifact.Generator
 
         public unsafe ComputeShapeGenerator()
         {
-
             _terrainGenerator = new GenericComputePipeline("terrain_generator.comp",
                 new DescriptorSetBinding(VkDescriptorType.UniformBuffer, VkShaderStageFlags.Compute),
                 new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute),
                 new DescriptorSetBinding(VkDescriptorType.UniformBuffer, VkShaderStageFlags.Compute),
+                new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute),
                 new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute)
-                //new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute)
             );
             
             _pool = new DescriptorPool.Builder(GraphicsDevice.Instance)
@@ -34,8 +33,15 @@ namespace SDL_Vulkan_CS.Artifact.Generator
                 .AddPoolSize(VkDescriptorType.StorageBuffer, 2)
                 .Build();
 
-            _terrainGenerator.AllocateDescriptorSet(_pool);
+            _elevationMinMax = new(GraphicsDevice.Instance, sizeof(int), 2, VkBufferUsageFlags.StorageBuffer, true);
 
+            int* pMinMax = stackalloc int[2];
+            pMinMax[0] = int.MaxValue;
+            pMinMax[1] = int.MinValue;
+
+            _elevationMinMax.WriteToBuffer(pMinMax);
+
+            _terrainGenerator.AllocateDescriptorSet(_pool);
         }
 
 
@@ -49,15 +55,6 @@ namespace SDL_Vulkan_CS.Artifact.Generator
         {
             _terrainGenerator.Prepare(vertexBuffer.InstanceCount, vertexBuffer.InstanceCount, 1);
 
-            //float[] debugOut = new float[_debugBufferSize];
-            //_debugOutput = new(GraphicsDevice.Instance, (uint)sizeof(float), (uint)debugOut.Length, VkBufferUsageFlags.StorageBuffer, true);
-            //
-            //fixed (float* pOut = debugOut)
-            //{
-            //    _debugOutput.WriteToBuffer(pOut);
-            //}
-
-
             fixed (VkDescriptorSet* pSet = &_terrainGenerator.DescriptorSet)
             {
                 new DescriptorWriter(_terrainGenerator.DescriptorSetLayout, _pool)
@@ -65,10 +62,9 @@ namespace SDL_Vulkan_CS.Artifact.Generator
                     .WriteBuffer(1, vertexBuffer.DescriptorInfo())
                     .WriteBuffer(2, _noiseGeneratorParams.DescriptorInfo())
                     .WriteBuffer(3, _noiseSettings.DescriptorInfo())
-                    //.WriteBuffer(4, _debugOutput.DescriptorInfo())
+                    .WriteBuffer(4, _elevationMinMax.DescriptorInfo())
                     .Build(pSet);
             }
-
         }
 
         private unsafe void WriteNoiseSettings(ShapeGenerator generator)
@@ -104,47 +100,29 @@ namespace SDL_Vulkan_CS.Artifact.Generator
             _terrainGenerator.Dispatch(commandBuffer, (uint)Math.Max(mesh.VertexCount,1), 1, 1);
         }
 
-        public unsafe void Dispatch(Mesh mesh)
+        public unsafe void DispatchSingleTimeCmd(Mesh mesh)
         {
-
             var commandBuffer = GraphicsDevice.Instance.BeginSingleTimeCommands();
 
             Dispatch(commandBuffer,mesh);
 
-            // Vulkan.vkCmdDispatch(commandBuffer,
-            //     (uint)Math.Max(bufferLength / 2 / 32, 1),
-            //     (uint)Math.Max(bufferLength / 2 / 32, 1),
-            //     1);
-
-
-
             GraphicsDevice.Instance.EndSingleTimeCommands(commandBuffer);
-            //mesh.RecalculateNormals();
+        }
 
-            //if (shaderDebug)
-            //{
-            //    float[] debugOut = new float[_debugBufferSize];
-            //
-            //    fixed (float* pOut = debugOut)
-            //    {
-            //        _debugOutput.ReadFromBuffer(pOut);
-            //    }
-            //
-            //
-            //    Console.WriteLine("Out values:");
-            //    for (int i = 0; i < debugOut.Length; i++)
-            //    {
-            //        Console.Write(string.Format(" {0}", debugOut[i]));
-            //    }
-            //    Console.WriteLine();
-            //}
-            //_debugOutput.Dispose();
-            //_debugOutput = null;
+        public unsafe Vector2 ReadElevationMinMax()
+        {
+            int* pMinMax = stackalloc int[2];
+            _elevationMinMax.ReadFromBuffer(pMinMax);
+
+            float QUANTIIZE_FACTOR = 32768.0f;
+            float min = pMinMax[0] / QUANTIIZE_FACTOR;
+            float max = pMinMax[1] / QUANTIIZE_FACTOR;
+            return new Vector2(min, max);
         }
 
         public unsafe void Dispose()
         {
-            //_debugOutput?.Dispose();
+            _elevationMinMax?.Dispose();
             _noiseSettings?.Dispose();
             _noiseGeneratorParams?.Dispose();
             _pool.Dispose();

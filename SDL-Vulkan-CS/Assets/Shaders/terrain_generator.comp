@@ -26,9 +26,11 @@ layout(std430, binding = 3) buffer NoiseSettings {
 	GlobalNoiseSettings noiseSettings[];
 };
 
-//layout(std430, binding = 4) buffer layB {
-//    float outbuf[];
-//};
+layout(std430, binding = 4) buffer ElevationMinMax {
+    
+	int minElevation;
+	int maxElevation;
+}minMax;
 
 
 float evaluate(GlobalNoiseSettings settings, vec3 point){	
@@ -37,6 +39,7 @@ float evaluate(GlobalNoiseSettings settings, vec3 point){
 	}
 	return evaluateSimple(settings,point);
 }
+float QUANTIIZE_FACTOR = 32768.0;
 
 layout(local_size_x = 2, local_size_y = 1, local_size_z = 1) in;
 void main() {
@@ -77,8 +80,13 @@ void main() {
 	v.positionY = pos.y;
 	v.positionZ = pos.z;
 	vertexBuffer[bufferIndex] = v;
+	
+	float QUANTIIZE_FACTOR = 32768.0;
 
+	int elevationForMinMax = int(elevation*QUANTIIZE_FACTOR);
 
+	atomicMin(minMax.minElevation,elevationForMinMax);
+	atomicMax(minMax.maxElevation,elevationForMinMax);
 	// debug
 	// GlobalNoiseSettings settingsTestOut = noiseSettings[0];
 	// 
