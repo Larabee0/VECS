@@ -17,7 +17,7 @@ namespace SDL_Vulkan_CS.Artifact
             SubdivideMainThread(target,subdivisons);
             //for (int i = 0; i < subdivisons; i++)
             //{
-            //    SubdivideMainThread(target);
+            //    Subdivide(target);
             //}
             //var delta = DateTime.Now - now;
             //Console.WriteLine(string.Format("Subdivide: {0}ms", delta.TotalMilliseconds));
@@ -25,7 +25,7 @@ namespace SDL_Vulkan_CS.Artifact
             if (simplify)
             {
                 //now = DateTime.Now;
-                SimpliftySubdivision(target);
+                SimpliftySubdivisionMainThread(target);
                 //delta = DateTime.Now - now;
                 //.WriteLine(string.Format("Simplify Mesh: {0}ms", delta.TotalMilliseconds));
             }
@@ -43,8 +43,11 @@ namespace SDL_Vulkan_CS.Artifact
 
             Vertex[] newVertices = new Vertex[newVertexCount];
             uint[] newTriangles = new uint[newTriCount];
-
-            Parallel.For(0, currentTriCount / 3, (int i) =>
+            ParallelOptions options = new()
+            {
+                MaxDegreeOfParallelism = 2
+            };
+            Parallel.For(0, currentTriCount / 3,options, (int i) =>
             {
                 uint curIndex = (uint)i * 3;
                 uint vertexIndex = curIndex * 2;
@@ -271,10 +274,14 @@ namespace SDL_Vulkan_CS.Artifact
             int vertexCount = currentVertices.Length;
             HashSet<Vertex> uniqueTriangles = new(currentVertices);
             KeyValuePair<Vertex,uint>[] vertexTriPair = new KeyValuePair<Vertex, uint>[uniqueTriangles.Count];
-            
+
+            ParallelOptions options = new()
+            {
+                MaxDegreeOfParallelism = 1
+            };
 
 
-            Parallel.ForEach(uniqueTriangles, (vertex, state, index) =>
+            Parallel.ForEach(uniqueTriangles, options, (vertex, state, index) =>
             {
                 vertexTriPair[index] = new(vertex, (uint)index);
             });
@@ -283,7 +290,7 @@ namespace SDL_Vulkan_CS.Artifact
 
             int reducedVertexCount = vertexTriPair.Length;
 
-            Parallel.For(0, currentTriangles.Length, (int i) =>
+            Parallel.For(0, currentTriangles.Length, options, (int i) =>
             {
                 uint index = currentTriangles[i];
                 var vertex = currentVertices[index];

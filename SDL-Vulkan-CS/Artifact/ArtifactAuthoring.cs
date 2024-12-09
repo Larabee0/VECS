@@ -147,7 +147,11 @@ namespace SDL_Vulkan_CS.Artifact
         {
             Console.WriteLine(string.Format("Begin Subdivison {0} steps", subdivisons));
             var now = DateTime.Now;
-            Parallel.For(0, shape.Length, (i)=>{
+            ParallelOptions options = new()
+            {
+                MaxDegreeOfParallelism = 4
+            };
+            Parallel.For(0, shape.Length,options, (i)=>{
 
                 Subdivider.Subdivide(shape[i], subdivisons, false);
             });
@@ -161,7 +165,11 @@ namespace SDL_Vulkan_CS.Artifact
 
 
             now = DateTime.Now;
-            Parallel.For(0, shape.Length, (i) => {
+            options = new()
+            {
+                MaxDegreeOfParallelism = 6
+            };
+            Parallel.For(0, shape.Length,options, (i) => {
 
                 Subdivider.SimpliftySubdivisionMainThread(shape[i]);
             });
