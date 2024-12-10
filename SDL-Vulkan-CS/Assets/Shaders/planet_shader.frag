@@ -67,8 +67,8 @@ void main()
 		specularLight += intensity * blinnTerm; 
 	}
 
-	float oceanT = clamp(inverseLerp(minMax.elevationMin,0,fragBiome),0,1);
-	float terrainT = inverseLerp(0,minMax.elevationMax,fragBiome);
+	float oceanT = clamp(inverseLerp(minMax.elevationMin,0,fragElevation),0,1);
+	float terrainT = inverseLerp(0,minMax.elevationMax,fragElevation);
 	float floorOceanT = floor(oceanT);
 	float u = lerp(0,0.5,oceanT)*(1-floorOceanT) + (floorOceanT *lerp(0.5,1,terrainT));
 	float v = fragBiome;

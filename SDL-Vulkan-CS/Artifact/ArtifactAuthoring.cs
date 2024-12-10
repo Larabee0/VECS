@@ -272,7 +272,7 @@ namespace SDL_Vulkan_CS.Artifact
                             startHeight = 0.5f,
                             gradient = new(){
                                 gradientPoints =[
-                                    new(new(1,0,1,1),0),
+                                    new(new(1,1,0,1),0),
                                     new(new(1,0,0,1),1)
                                 ]
                             }
