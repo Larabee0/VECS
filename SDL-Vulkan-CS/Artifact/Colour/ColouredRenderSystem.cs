@@ -36,7 +36,8 @@ namespace SDL_Vulkan_CS.Artifact.Colour
                         MeshIndex = entityManager.GetComponent<MeshIndex>(e).Value,
                         TextureIndex = entityManager.GetComponent<TextureIndex>(e).Value,
                         MaterialIndex = entityManager.GetComponent<MaterialIndex>(e).Value,
-                        Ltw = entityManager.GetComponent<LocalToWorld>(e).Value
+                        Ltw = entityManager.GetComponent<LocalToWorld>(e).Value,
+                        elevationMinMax = entityManager.GetComponent<ElevationMinMax>(e).Value
                     });
                 });
 
