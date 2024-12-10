@@ -44,7 +44,7 @@ namespace SDL_Vulkan_CS.ECS
         /// <param name="frameInfo">current frame info</param>
         public override void OnPresent(EntityManager entityManager, RendererFrameInfo frameInfo)
         {
-            _triangleMaterial.BindDescriptorSets(frameInfo);
+            _triangleMaterial.BindGlobalDescriptorSet(frameInfo);
 
             Vulkan.vkCmdBindVertexBuffer(frameInfo.CommandBuffer, 0, _vertexBuffer.VkBuffer);
             Vulkan.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);

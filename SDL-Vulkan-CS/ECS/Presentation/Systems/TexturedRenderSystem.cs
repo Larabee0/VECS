@@ -62,7 +62,7 @@ namespace SDL_Vulkan_CS.ECS.Presentation
                     if (mat == null || mat != curMat)
                     {
                         mat = curMat;
-                        mat?.BindDescriptorSets(frameInfo);
+                        mat?.BindGlobalDescriptorSet(frameInfo);
                     }
                     mat?.BindAndDraw(frameInfo, drawCall.MeshIndex, new SimplePushConstantData(drawCall.Ltw), drawCall.TextureIndex);
                 }

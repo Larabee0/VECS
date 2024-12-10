@@ -69,13 +69,13 @@ namespace SDL_Vulkan_CS.Artifact.Generator
 
         private unsafe void WriteNoiseSettings(ShapeGenerator generator)
         {
-            _noiseSettings = new(GraphicsDevice.Instance, (uint)sizeof(GlobalNoiseSettings), (uint)generator._noiseFilters.Length, VkBufferUsageFlags.StorageBuffer, true);
+            _noiseSettings = new(GraphicsDevice.Instance, (uint)sizeof(GlobalNoiseSettings), (uint)generator.NoiseFilters.Length, VkBufferUsageFlags.StorageBuffer, true);
 
-            GlobalNoiseSettings* settingsPoint = stackalloc GlobalNoiseSettings[generator._noiseFilters.Length];
+            GlobalNoiseSettings* settingsPoint = stackalloc GlobalNoiseSettings[generator.NoiseFilters.Length];
 
-            for (int i = 0; i < generator._noiseFilters.Length; i++)
+            for (int i = 0; i < generator.NoiseFilters.Length; i++)
             {
-                settingsPoint[i] = generator._noiseFilters[i].GetSettings();
+                settingsPoint[i] = generator.NoiseFilters[i].GetSettings();
             }
 
             _noiseSettings.WriteToBuffer(settingsPoint);
@@ -87,8 +87,8 @@ namespace SDL_Vulkan_CS.Artifact.Generator
             NoiseGeneratorParams* parameters = stackalloc NoiseGeneratorParams[1];
             parameters[0] = new()
             {
-                noiseFilterCount = generator._noiseFilters.Length,
-                planetRadius = generator._planetRadius
+                noiseFilterCount = generator.NoiseFilters.Length,
+                planetRadius = generator.PlanetRadius
             };
 
             _noiseGeneratorParams.WriteToBuffer(parameters);

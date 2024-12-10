@@ -13,6 +13,8 @@ namespace SDL_Vulkan_CS.VulkanBackend
         public readonly VkImage VkImage;
         private readonly VmaAllocation _allocation;
 
+        private bool _disposed;
+
         public unsafe CsharpVulkanImage(GraphicsDevice graphicsDevice, VkImageCreateInfo imgCreateInfo)
         {
             _device = graphicsDevice;
@@ -20,7 +22,6 @@ namespace SDL_Vulkan_CS.VulkanBackend
             {
                 usage = VmaMemoryUsage.Auto
             };
-
             if (Vma.vmaCreateImage(_device.VmaAllocator, imgCreateInfo, allocationInfo, out VkImage, out _allocation) != VkResult.Success)
             {
                 throw new Exception("Failed to create vma image!");
@@ -72,8 +73,9 @@ namespace SDL_Vulkan_CS.VulkanBackend
 
         public void Dispose()
         {
-            if (VkImage == VkImage.Null || _allocation == VmaAllocation.Null) return;
+            if (_disposed||VkImage == VkImage.Null || _allocation == VmaAllocation.Null) return;
             Vma.vmaDestroyImage(_device.VmaAllocator, VkImage, _allocation);
+            _disposed = true;
         }
     }
 }

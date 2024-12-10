@@ -1,4 +1,5 @@
-﻿using SDL_Vulkan_CS.VulkanBackend;
+﻿using SDL_Vulkan_CS.Artifact.Colour;
+using SDL_Vulkan_CS.VulkanBackend;
 using System;
 using System.Numerics;
 using System.Threading;
@@ -6,30 +7,34 @@ using System.Threading.Tasks;
 
 namespace SDL_Vulkan_CS.Artifact.Generator
 {
-    public class ShapeGenerator
+    public sealed class ShapeGenerator : IDisposable
     {
-        public float _planetRadius = 1;
-        public int _seed = 0;
-        public bool _randomSeed = false;
+        public float PlanetRadius = 1;
+        public int Seed = 0;
+        public bool RandomSeed = false;
 
-        public MinMax minMax;
-
-        public SimpleNoiseSettings[] _noiseFilters;
-        public ShapeGenerator()
+        public MinMax MinMax;
+        public ColourGenerator ColourGenerator;
+        public SimpleNoiseSettings[] NoiseFilters;
+        public ShapeGenerator(ColourSettings colourSettings)
         {
-            minMax = new MinMax();
+            MinMax = new MinMax();
+            ColourGenerator = new();
+            ColourGenerator.UpdateSettings(colourSettings);
         }
         public void RandomiseSettings()
         {
-            _seed = _randomSeed ? Random.Shared.Next(int.MinValue, int.MaxValue) : 0;
+            Seed = RandomSeed ? Random.Shared.Next(int.MinValue, int.MaxValue) : 0;
 
-            Random random = new(_seed);
+            Random random = new(Seed);
 
 
-            for (int i = 0; i < _noiseFilters.Length; i++)
+            for (int i = 0; i < NoiseFilters.Length; i++)
             {
-                _noiseFilters[i].centre = new Vector3(random.Next(-1000, 1000), random.Next(-1000, 1000), random.Next(-1000, 1000));
+                NoiseFilters[i].centre = new Vector3(random.Next(-1000, 1000), random.Next(-1000, 1000), random.Next(-1000, 1000));
             }
+
+            ColourGenerator.settings.biomeColourSettings.noise.centre = new Vector3(random.Next(-1000, 1000), random.Next(-1000, 1000), random.Next(-1000, 1000));
         }
 
         public void RaiseMesh(Mesh mesh)
@@ -38,40 +43,55 @@ namespace SDL_Vulkan_CS.Artifact.Generator
 
             Parallel.For(0, vertices.Length, (int i) =>
             {
-                vertices[i].Position = CalculatePointOnPlanet(vertices[i].Position, out float elevation);
-                vertices[i].Elevation = elevation;
-                minMax.AddValue(elevation);
+                Vector3 pos = vertices[i].Position;
+                float unscaledElevation = CalculateUnscaledElevation(pos);
+                vertices[i].Position = pos * GetScaledElevation(unscaledElevation);
+                vertices[i].Elevation = unscaledElevation;
+                vertices[i].BiomeSelect = ColourGenerator.BiomePercentFromPoint(pos);
+                MinMax.AddValue(unscaledElevation);
             });
 
             mesh.Vertices = vertices;
             //mesh.RecalculateNormals();
         }
 
-        public Vector3 CalculatePointOnPlanet(Vector3 pointOnUnitSphere, out float elevation)
+        public float CalculateUnscaledElevation(Vector3 pointOnUnitSphere)
         {
             float firstLayerValue = 0f;
-            elevation = 0;
+            float elevation = 0;
 
-            if (_noiseFilters.Length > 0)
+            if (NoiseFilters.Length > 0)
             {
-                firstLayerValue = _noiseFilters[0].Evaluate(pointOnUnitSphere);
-                if (_noiseFilters[0].enabled)
+                firstLayerValue = NoiseFilters[0].Evaluate(pointOnUnitSphere);
+                if (NoiseFilters[0].enabled)
                 {
                     elevation = firstLayerValue;
                 }
             }
 
-            for (int i = 1; i < _noiseFilters.Length; i++)
+            for (int i = 1; i < NoiseFilters.Length; i++)
             {
-                if (_noiseFilters[i].enabled)
+                if (NoiseFilters[i].enabled)
                 {
-                    float mask = _noiseFilters[i].useFirstlayerAsMask ? firstLayerValue : 1;
-                    elevation += _noiseFilters[i].Evaluate(pointOnUnitSphere) * mask;
+                    float mask = NoiseFilters[i].useFirstlayerAsMask ? firstLayerValue : 1;
+                    elevation += NoiseFilters[i].Evaluate(pointOnUnitSphere) * mask;
                 }
             }
-            elevation = _planetRadius * (1 + elevation);
-            // elevationMinMax.AddValue(elevation);
-            return pointOnUnitSphere * elevation;
+            
+            //minMax.AddValue(elevation);
+            return elevation;
+        }
+
+        public float GetScaledElevation(float unscaledElevation)
+        {
+            float elevation = MathF.Max(0, unscaledElevation);
+            elevation = PlanetRadius * (1 + elevation);
+            return elevation;
+        }
+
+        public void Dispose()
+        {
+            ColourGenerator.Dispose();
         }
     }
 

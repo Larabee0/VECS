@@ -6,6 +6,7 @@ using Vortice.Vulkan;
 using SDL_Vulkan_CS.Artifact.Generator;
 using System;
 using System.Threading.Tasks;
+using SDL_Vulkan_CS.Artifact.Colour;
 
 namespace SDL_Vulkan_CS.Artifact
 {
@@ -26,13 +27,13 @@ namespace SDL_Vulkan_CS.Artifact
             ClipFar = 100f
         };
 
-        private readonly bool useComputeShaderForGeneration = true;
+        private readonly bool useComputeShaderForGeneration = false;
         private readonly bool useComputeShaderForNormals = true;
-        private readonly int subdivisons = 7;
+        private readonly int subdivisons = 3;
 
         public ArtifactAuthoring()
         {
-            World.DefaultWorld.CreateSystem<TexturelessRenderSystem>();
+            World.DefaultWorld.CreateSystem<ColouredRenderSystem>();
 
             EntityManager entityManager = World.DefaultWorld.EntityManager;
 
@@ -56,12 +57,14 @@ namespace SDL_Vulkan_CS.Artifact
         {
             var shape = Mesh.LoadModelFromFile(GraphicsDevice.Instance, Mesh.GetMeshInDefaultPath("Comp305-Shape-Split.obj"));
 
-            var lit = new Material("white_shader.vert", "white_shader.frag", typeof(SimplePushConstantData));
+            var lit = new Material("planet_shader.vert", "planet_shader.frag", typeof(SimplePushConstantData),
+                new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.UniformBuffer, StageFlags = VkShaderStageFlags.Fragment },
+                new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Fragment });
 
             SubdividePlanet(shape);
 
             var now = DateTime.Now;
-            GeneratePlanet(shape);
+            ElevationMinMax elevationMinMax = new() { Value = GeneratePlanet(shape) };
             var delta = DateTime.Now - now;
             if (useComputeShaderForGeneration)
             {
@@ -93,6 +96,8 @@ namespace SDL_Vulkan_CS.Artifact
                 entityManager.AddComponent(shapeEntity, new Scale() { Value = new(3f, 3f, 3f) });
                 entityManager.AddComponent(shapeEntity, new MeshIndex() { Value = Mesh.GetIndexOfMesh(mesh) });
                 entityManager.AddComponent(shapeEntity, new MaterialIndex() { Value = Material.GetIndexOfMaterial(lit) });
+                entityManager.AddComponent(shapeEntity, new TextureIndex() { Value = Texture2d.Textures.Count - 1 });
+                entityManager.AddComponent(shapeEntity, elevationMinMax);
             }
 
             int vertexCount = 0;
@@ -181,7 +186,7 @@ namespace SDL_Vulkan_CS.Artifact
             Console.WriteLine(string.Format("Simplify Mesh: {0}ms", delta.TotalMilliseconds));
         }
 
-        private void GeneratePlanet(Mesh[] shape)
+        private Vector2 GeneratePlanet(Mesh[] shape)
         {
 
             ShapeGenerator generator = CreateShapeGenerator();
@@ -195,7 +200,6 @@ namespace SDL_Vulkan_CS.Artifact
                 commandBuffer = GraphicsDevice.Instance.BeginSingleTimeCommands();
             }
             
-
             for (int i = 0; i < shape.Length; i++)
             {
 
@@ -213,22 +217,77 @@ namespace SDL_Vulkan_CS.Artifact
                 GraphicsDevice.Instance.EndSingleTimeCommands(commandBuffer);
 
                 Vector2 shaderMinMax = computeGenerator.ReadElevationMinMax();
-                generator.minMax.AddValue(shaderMinMax.X);
-                generator.minMax.AddValue(shaderMinMax.Y);
+                generator.MinMax.AddValue(shaderMinMax.X);
+                generator.MinMax.AddValue(shaderMinMax.Y);
             }
             computeGenerator?.Dispose();
-            Vector2 minMax = new(generator.minMax.Min, generator.minMax.Max);
+            generator.ColourGenerator.UpdateColours();
+            Vector2 minMax = new(generator.MinMax.Min, generator.MinMax.Max);
             Console.WriteLine(string.Format("Elevation min-max: {0}", minMax));
+            return minMax;
         }
 
         public static ShapeGenerator CreateShapeGenerator()
         {
-            return new ShapeGenerator()
+            ColourSettings colourSettings = new()
             {
-                _planetRadius = 1f,
-                _seed = 0,
-                _randomSeed = false,
-                _noiseFilters =
+                oceanGradient = new()
+                {
+                    gradientPoints = [
+                        new(new(0,0.05098039f,1,1),0),
+                        new(new(0,0.7019608f,1,1),1)
+                    ]
+                },
+                biomeColourSettings = new()
+                {
+                    blendAmount = 0.125f,
+                    noiseOffset = 1.75f,
+                    noiseStrength = 0.1f,
+                    noise = new()
+                    {
+                        strength = 1,
+                        numLayers = 3,
+                        baseRoughness = 1,
+                        roughness = 2,
+                        persistence = 1.5f,
+                        offset = 0,
+                        minValue = 0,
+                        gradientWeight = false
+                    },
+                    biomes = [
+                        new ColourSettings.BiomeColourSettings.Biome(){
+                            tint = Vector4.Zero,
+                            tintPercent = 0f,
+                            startHeight = 0,
+                            gradient = new(){
+                                gradientPoints =[
+                                    new(new(1,0,0,1),0),
+                                    new(new(0,1,0,1),1)
+                                ]
+                            }
+                        },
+                        new ColourSettings.BiomeColourSettings.Biome(){
+                            tint = new Vector4(0,0,1,1),
+                            tintPercent = 0f,
+                            startHeight = 0.5f,
+                            gradient = new(){
+                                gradientPoints =[
+                                    new(new(1,0,1,1),0),
+                                    new(new(1,0,0,1),1)
+                                ]
+                            }
+                        }
+                    ]
+                }
+            };
+
+
+            return new ShapeGenerator(colourSettings)
+            {
+                PlanetRadius = 1f,
+                Seed = 0,
+                RandomSeed = false,
+                NoiseFilters =
                 [
                     new SimpleNoiseSettings()
                     {

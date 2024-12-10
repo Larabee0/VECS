@@ -14,7 +14,7 @@ namespace SDL_Vulkan_CS
     /// 
     /// A vertex is 44 bytes atomically. but likely has an extra 4 bytes of padding
     /// </summary>
-    [StructLayout(LayoutKind.Sequential, Size = 28)]
+    [StructLayout(LayoutKind.Sequential, Size = 32)]
     public struct Vertex : IEqualityComparer<Vertex>
     {
         public static unsafe int SizeInBytes => sizeof(Vertex);
@@ -22,6 +22,7 @@ namespace SDL_Vulkan_CS
         public Vector3 Position; // offset 0
         public Vector3 Normal; // offset 12
         public float Elevation; // offset 16
+        public float BiomeSelect; // offset 20
 
         public Vertex(Vector3 position, Vector3 colour)
         {
@@ -97,7 +98,8 @@ namespace SDL_Vulkan_CS
 
                 new VkVertexInputAttributeDescription(1, VkFormat.R32G32B32Sfloat, (uint)Marshal.OffsetOf<Vertex>(nameof(Normal))), // normal
 
-                new VkVertexInputAttributeDescription(2, VkFormat.R32Sfloat, (uint)Marshal.OffsetOf<Vertex>(nameof(Elevation))) // Elevation
+                new VkVertexInputAttributeDescription(2, VkFormat.R32Sfloat, (uint)Marshal.OffsetOf<Vertex>(nameof(Elevation))), // Elevation
+                new VkVertexInputAttributeDescription(3, VkFormat.R32Sfloat, (uint)Marshal.OffsetOf<Vertex>(nameof(BiomeSelect))) // Elevation
             ];
 
             return attributeDescriptions;

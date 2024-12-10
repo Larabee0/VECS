@@ -9,6 +9,11 @@ namespace SDL_Vulkan_CS
     /// </summary>
     public static class SystemNumericsExtensions
     {
+        public static float InverseLerp(float a, float b, float value)
+        {
+            return a != b ? Math.Clamp((value - a) / (b - a), 0, 1) : 0;
+        }
+
         public static Vector3 Floor(Vector3 x)
         {
             return new Vector3(MathF.Floor(x.X), MathF.Floor(x.Y), MathF.Floor(x.Z));

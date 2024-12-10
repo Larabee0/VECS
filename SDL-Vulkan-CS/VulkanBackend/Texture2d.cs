@@ -29,9 +29,15 @@ namespace SDL_Vulkan_CS.VulkanBackend
         private VkImageView _textureImageView;
         private VkSampler _textureSampler;
 
+        private bool _disposed;
+
+        public CsharpVulkanImage TextureImage => _textureImage;
+
+        public VkExtent3D ImageExtent => _imageExtents;
+
         public VkDescriptorImageInfo GetImageInfo => new()
         {
-            imageLayout = VkImageLayout.ShaderReadOnlyOptimal,
+            imageLayout = _imageLayout,
             imageView = _textureImageView,
             sampler = _textureSampler
         };
@@ -70,7 +76,10 @@ namespace SDL_Vulkan_CS.VulkanBackend
             _imageFormat = format;
             _imageExtents = extent;
 
-
+            if (usage.HasFlag(VkImageUsageFlags.Sampled))
+            {
+                aspectMask = VkImageAspectFlags.Color;
+            }
             if (usage.HasFlag(VkImageUsageFlags.ColorAttachment))
             {
                 aspectMask = VkImageAspectFlags.Color;
@@ -83,8 +92,8 @@ namespace SDL_Vulkan_CS.VulkanBackend
             }
 
             VkImageCreateInfo imageInfo = CsharpVulkanImage.DefaultImageCreateInfo(_imageExtents);
-
-            CsharpVulkanImage image = new(deivce, imageInfo);
+            imageInfo.format = format;
+            _textureImage = new(deivce, imageInfo);
 
             VkImageViewCreateInfo viewInfo = new()
             {
@@ -98,7 +107,8 @@ namespace SDL_Vulkan_CS.VulkanBackend
                     baseArrayLayer = 0,
                     layerCount = 1
                 },
-                image = image.VkImage
+                image = _textureImage.VkImage,
+
             };
 
             if (Vulkan.vkCreateImageView(_device.Device, viewInfo, null, out _textureImageView) != VkResult.Success)
@@ -140,9 +150,11 @@ namespace SDL_Vulkan_CS.VulkanBackend
 
         public unsafe void Dispose()
         {
+            if (_disposed) { return; }
+            _disposed = true;
             Vulkan.vkDestroySampler(_device.Device, _textureSampler);
             Vulkan.vkDestroyImageView(_device.Device, _textureImageView);
-            _textureImage.Dispose();
+            _textureImage?.Dispose();
         }
 
         public void UpdateDescriptor()
@@ -327,7 +339,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
             uint imageSize = (uint)(width * height * sizeof(Color));
 
             var stagingBuffer = new CsharpVulkanBuffer(_device, imageSize, 1, VkBufferUsageFlags.TransferSrc, true);
-
+            
             void* pMappedData;
             stagingBuffer.Map(&pMappedData);
             CopyColor(new IntPtr(pMappedData), image);
