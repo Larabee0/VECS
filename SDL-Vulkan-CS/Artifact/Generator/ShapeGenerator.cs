@@ -41,7 +41,7 @@ namespace SDL_Vulkan_CS.Artifact.Generator
         {
             Vertex[] vertices = mesh.Vertices;
 
-            for(int i =0; i < vertices.Length; i++)
+            Parallel.For(0, vertices.Length, (int i) =>
             {
                 Vector3 pos = vertices[i].Position;
                 float unscaledElevation = CalculateUnscaledElevation(pos);
@@ -49,7 +49,7 @@ namespace SDL_Vulkan_CS.Artifact.Generator
                 vertices[i].Elevation = unscaledElevation;
                 vertices[i].BiomeSelect = ColourGenerator.BiomePercentFromPoint(pos);
                 MinMax.AddValue(unscaledElevation);
-            }
+            });
 
             mesh.Vertices = vertices;
             //mesh.RecalculateNormals();
