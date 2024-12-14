@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Numerics;
 using TeximpNet;
 using Vortice.Vulkan;
 
@@ -41,6 +42,8 @@ namespace SDL_Vulkan_CS.VulkanBackend
             imageView = _textureImageView,
             sampler = _textureSampler
         };
+
+        private Texture2d(GraphicsDevice device) { _device = device; }
 
         /// <summary>
         /// create an image that loaded from the given file path
@@ -203,12 +206,12 @@ namespace SDL_Vulkan_CS.VulkanBackend
         /// Creates a vk image view for this image.
         /// </summary>
         /// <exception cref="Exception"></exception>
-        private unsafe void CreateImageView()
+        private unsafe void CreateImageView(uint layerCount = 1)
         {
             VkImageViewCreateInfo viewInfo = new()
             {
                 image = _textureImage.VkImage,
-                viewType = VkImageViewType.Image2D,
+                viewType = layerCount > 1 ? VkImageViewType.Image2DArray: VkImageViewType.Image2D,
                 format = VkFormat.R8G8B8A8Srgb,
                 subresourceRange = new()
                 {
@@ -216,7 +219,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
                     baseMipLevel = 0,
                     levelCount = 1,
                     baseArrayLayer = 0,
-                    layerCount = 1,
+                    layerCount = layerCount,
                 }
             };
 
@@ -233,21 +236,21 @@ namespace SDL_Vulkan_CS.VulkanBackend
         /// <param name="oldLayout"></param>
         /// <param name="newLayout"></param>
         /// <exception cref="Exception"></exception>
-        public unsafe void TransitionImageLayout(VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout)
+        public unsafe void TransitionImageLayout(VkImageLayout newLayout)
         {
             VkCommandBuffer commandBuffer = _device.BeginSingleTimeCommands();
             VkImageMemoryBarrier barrier = new()
             {
-                oldLayout = oldLayout,
+                oldLayout = _imageLayout,
                 newLayout = newLayout,
                 srcQueueFamilyIndex = Vulkan.VK_QUEUE_FAMILY_IGNORED,
                 dstQueueFamilyIndex = Vulkan.VK_QUEUE_FAMILY_IGNORED,
-                image = image,
+                image = _textureImage.VkImage,
                 subresourceRange = new()
                 {
                     aspectMask = VkImageAspectFlags.Color,
                     baseMipLevel = 0,
-                    layerCount = 1,
+                    layerCount = _imageExtents.depth,
                     baseArrayLayer = 0,
                     levelCount = 1
                 }
@@ -258,7 +261,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
             VkPipelineStageFlags destinationStage;
 
 
-            if (oldLayout == VkImageLayout.Undefined && newLayout == VkImageLayout.TransferDstOptimal)
+            if (_imageLayout == VkImageLayout.Undefined && newLayout == VkImageLayout.TransferDstOptimal)
             {
                 barrier.srcAccessMask = 0;
                 barrier.dstAccessMask = VkAccessFlags.TransferWrite;
@@ -266,7 +269,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
                 sourceStage = VkPipelineStageFlags.TopOfPipe;
                 destinationStage = VkPipelineStageFlags.Transfer;
             }
-            else if (oldLayout == VkImageLayout.TransferDstOptimal && newLayout == VkImageLayout.ShaderReadOnlyOptimal)
+            else if (_imageLayout == VkImageLayout.TransferDstOptimal && newLayout == VkImageLayout.ShaderReadOnlyOptimal)
             {
                 barrier.srcAccessMask = VkAccessFlags.TransferWrite;
                 barrier.dstAccessMask = VkAccessFlags.ShaderRead;
@@ -293,6 +296,38 @@ namespace SDL_Vulkan_CS.VulkanBackend
 
             _device.EndSingleTimeCommands(commandBuffer);
             _imageLayout = newLayout;
+        }
+
+
+        public unsafe void CopyFromArray(Vector4[] colours)
+        {
+
+            uint imageSize = (uint)colours.Length * (uint)sizeof(Vector4);
+
+            var stagingBuffer = new CsharpVulkanBuffer(GraphicsDevice.Instance, imageSize, 1, VkBufferUsageFlags.TransferSrc, true);
+
+            fixed (Vector4* pColours = colours)
+            {
+                stagingBuffer.WriteToBuffer(pColours);
+            }
+
+            CopyFromBuffer(stagingBuffer, ImageExtent.width, ImageExtent.height);
+            stagingBuffer.Dispose();
+        }
+
+
+        public unsafe void CopyFromBuffer(CsharpVulkanBuffer buffer,uint width,uint height,uint depth = 1)
+        {
+            TransitionImageLayout(VkImageLayout.TransferDstOptimal);
+            if (depth == 1)
+            {
+                _textureImage.CopyFromBuffer(buffer, width, height);
+            }
+            else
+            {
+                _textureImage.CopyFromBuffer(buffer, width, height, depth);
+            }
+            TransitionImageLayout(VkImageLayout.ShaderReadOnlyOptimal);
         }
 
         /// <summary>
@@ -329,7 +364,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
         {
             if (image.ImageType != ImageType.Bitmap || image.BitsPerPixel != 32 || _device == null)
             {
-                throw new Exception("Provided image surfae is not in the right format, or device/memory allocator are null");
+                throw new Exception("Provided image surface is not in the right format, or device is null");
             }
 
 
@@ -347,13 +382,10 @@ namespace SDL_Vulkan_CS.VulkanBackend
 
             _imageExtents = new(width, height, 1);
 
-            VkImageCreateInfo imageInfo = CsharpVulkanImage.DefaultImageCreateInfo(_imageExtents);
+            _textureImage = new(_device, _imageExtents);
 
-            _textureImage = new(_device, imageInfo);
+            CopyFromBuffer(stagingBuffer, width, height);
 
-            TransitionImageLayout(_textureImage.VkImage, _imageLayout, VkImageLayout.TransferDstOptimal);
-            _textureImage.CopyFromBuffer(stagingBuffer, width, height);
-            TransitionImageLayout(_textureImage.VkImage, _imageLayout, VkImageLayout.ShaderReadOnlyOptimal);
             stagingBuffer.Dispose();
             image.Dispose();
         }
@@ -450,6 +482,86 @@ namespace SDL_Vulkan_CS.VulkanBackend
         {
             index = Math.Max(0, index);
             return index < Textures.Count ? Textures[index].GetImageInfo : Fallback.GetImageInfo;
+        }
+
+        public static unsafe Texture2d CreateTextureArray(params string[] textures)
+        {
+            // check file paths
+            for (int i = 0; i < textures.Length; i++)
+            {
+                textures[i] = GetTextureInDefaultPath(textures[i]);
+            }
+
+            // load images and validate type
+            Surface[] surfaces = new Surface[textures.Length];
+
+            for (int i = 0; i < textures.Length; i++)
+            {
+                var surface = LoadImage(textures[i]);
+                if(surface == null)
+                {
+                    return null;
+                }
+                if (surface.ImageType != ImageType.Bitmap || surface.BitsPerPixel != 32)
+                {
+                    throw new Exception("Provided image surface is not in the right format");
+                }
+                surfaces[i] = surface;
+            }
+
+            // validate texture dimentions are uniform
+            uint width = (uint)surfaces[0].Width;
+            uint height = (uint)surfaces[0].Height;
+            for (int i = 1; i < surfaces.Length; i++)
+            {
+                if (surfaces[i].Width != width || surfaces[i].Height != height)
+                {
+                    throw new Exception("Texture array Texture dimention mismatch! All textures in the array must have the same dimentions!");
+                }
+            }
+
+            uint depth = (uint)surfaces.Length;
+
+            uint textureArraySize = (uint)(width * height * depth * sizeof(Color));
+
+            Texture2d textureArray = new(GraphicsDevice.Instance);
+
+            var stagingBuffer = new CsharpVulkanBuffer(GraphicsDevice.Instance, textureArraySize, 1, VkBufferUsageFlags.TransferSrc, true);
+            
+            // the surface class needs to copy its data to this before it can be copied to the gpu.
+            // staging buffer for the staging buffer
+            Color* pSingleImageColourData = stackalloc Color[(int)(width * height)];
+
+            uint singleImageSize = (uint)(width * height * sizeof(Color));
+            ulong copyStartOffset = 0;
+            for (int i = 0; i < surfaces.Length; i++)
+            {
+                CopyColor(new IntPtr(pSingleImageColourData), surfaces[i]);
+                stagingBuffer.WriteToBuffer(pSingleImageColourData, singleImageSize, copyStartOffset);
+                copyStartOffset += singleImageSize;
+            }
+
+
+            textureArray._imageExtents = new(width, height, depth);
+            textureArray._textureImage = new(GraphicsDevice.Instance, textureArray._imageExtents);
+
+            
+            textureArray.CopyFromBuffer(stagingBuffer, width, height, depth);
+            
+            
+            stagingBuffer.Dispose();
+
+            for (int i = 0; i < surfaces.Length; i++)
+            {
+                surfaces[i].Dispose();
+            }
+
+            textureArray.CreateImageView(depth);
+            textureArray.CreateTextureSampler();
+            textureArray.UpdateDescriptor();
+            Textures.Add(textureArray);
+
+            return textureArray;
         }
     }
 }

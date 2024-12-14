@@ -121,9 +121,9 @@ namespace SDL_Vulkan_CS
             }
             else
             {
-                char* memOffset = (char*)pMappedData;
+                byte* memOffset = (byte*)pMappedData;
                 memOffset += offset;
-                NativeMemory.Copy(memOffset, data, (uint)BufferSize);
+                NativeMemory.Copy(data, memOffset,  (uint)size);
             }
             Unmap();
         }
@@ -139,9 +139,9 @@ namespace SDL_Vulkan_CS
             }
             else
             {
-                char* memOffset = (char*)pMappedData;
+                byte* memOffset = (byte*)pMappedData;
                 memOffset += offset;
-                NativeMemory.Copy(readout, memOffset, (uint)BufferSize);
+                NativeMemory.Copy(memOffset, readout, (uint)BufferSize);
             }
             Unmap();
         }

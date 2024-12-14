@@ -10,14 +10,25 @@ namespace SDL_Vulkan_CS.VulkanBackend
     {
         private readonly GraphicsDevice _device;
 
-        public readonly VkImage VkImage;
-        private readonly VmaAllocation _allocation;
+        public VkImage VkImage;
+        private VmaAllocation _allocation;
 
         private bool _disposed;
+
+        public CsharpVulkanImage(GraphicsDevice graphicsDevice, VkExtent3D extent)
+        {
+            _device = graphicsDevice;
+            CreateInternal(DefaultImageCreateInfo(extent));
+        }
 
         public unsafe CsharpVulkanImage(GraphicsDevice graphicsDevice, VkImageCreateInfo imgCreateInfo)
         {
             _device = graphicsDevice;
+            CreateInternal(imgCreateInfo);
+        }
+
+        private unsafe void CreateInternal(VkImageCreateInfo imgCreateInfo)
+        {
             VmaAllocationCreateInfo allocationInfo = new()
             {
                 usage = VmaMemoryUsage.Auto
@@ -52,15 +63,52 @@ namespace SDL_Vulkan_CS.VulkanBackend
             _device.EndSingleTimeCommands(commandBuffer);
         }
 
+        public unsafe void CopyFromBuffer(CsharpVulkanBuffer buffer, uint width, uint height,uint depth)
+        {
+            VkCommandBuffer commandBuffer = _device.BeginSingleTimeCommands();
+            VkBufferImageCopy[] bufferCopyRegions = new VkBufferImageCopy[depth];
+
+            ulong offset = 0;
+
+            uint size = width * height * (uint)sizeof(Color);
+
+            for (uint i = 0; i < depth; i++)
+            {
+
+                bufferCopyRegions[i] = new()
+                {
+                    bufferOffset = offset,
+                    bufferRowLength = 0,
+                    bufferImageHeight = 0,
+                    imageSubresource = new()
+                    {
+                        aspectMask = VkImageAspectFlags.Color,
+                        mipLevel = 0,
+                        baseArrayLayer = i,
+                        layerCount = 1
+                    },
+                    imageOffset = new(0, 0, 0),
+                    imageExtent = new(width, height, 1)
+                };
+                offset += size;
+            }
+
+            fixed (VkBufferImageCopy* pCopyRegions = bufferCopyRegions)
+            {
+                Vulkan.vkCmdCopyBufferToImage(commandBuffer, buffer.VkBuffer, VkImage, VkImageLayout.TransferDstOptimal, depth, pCopyRegions);
+            }
+            _device.EndSingleTimeCommands(commandBuffer);
+        }
+
 
         public static VkImageCreateInfo DefaultImageCreateInfo(VkExtent3D extent)
         {
             return new VkImageCreateInfo()
             {
                 imageType = VkImageType.Image2D,
-                extent = extent,
+                extent = new(extent.width,extent.height,1),
                 mipLevels = 1,
-                arrayLayers = 1,
+                arrayLayers = extent.depth,
                 format = VkFormat.R8G8B8A8Srgb,
                 tiling = VkImageTiling.Optimal,
                 initialLayout = VkImageLayout.Undefined,
