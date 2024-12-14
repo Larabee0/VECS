@@ -13,6 +13,11 @@ namespace SDL_Vulkan_CS
         {
             return a != b ? Math.Clamp((value - a) / (b - a), 0, 1) : 0;
         }
+        
+        public static float Lerp(float a, float b, float t)
+        {
+            return a + (b - a) * Math.Clamp(t, 0, 1);
+        }
 
         public static Vector3 Floor(Vector3 x)
         {
