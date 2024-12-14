@@ -19,6 +19,13 @@ namespace SDL_Vulkan_CS
 
         public static string ExecutingDirectory => AppDomain.CurrentDomain.BaseDirectory;
 
+
+        private static DateTime startTime;
+
+        public static double TimeSinceStartDouble => (DateTime.Now - startTime).TotalSeconds;
+
+        public static float TimeSinceStart=>(float)TimeSinceStartDouble;
+
         private DateTime currentTime;
         private static double deltaTime;
         public static double DeltaTimeDouble => deltaTime;
@@ -70,7 +77,7 @@ namespace SDL_Vulkan_CS
             _artifact = new ArtifactAuthoring();
 
             _mainWorld.OnCreate();
-
+            startTime = DateTime.Now;
         }
 
         /// <summary>
