@@ -29,7 +29,7 @@ namespace SDL_Vulkan_CS.Artifact
 
         private readonly bool useComputeShaderForGeneration = false;
         private readonly bool useComputeShaderForNormals = true;
-        private readonly int subdivisons = 3;
+        private readonly int subdivisons = 6;
 
         public ArtifactAuthoring()
         {
@@ -39,10 +39,35 @@ namespace SDL_Vulkan_CS.Artifact
 
             CreateDefaultCamera(entityManager);
             // LoadTestScene(entityManager);
-            LoadShape(entityManager);
+
+            var propertyEntity = LoadResources(entityManager);
+
+            LoadShape(entityManager,propertyEntity);
 
             Console.WriteLine("Shape loaded");
             //TestComputeShader();
+        }
+
+        private Entity LoadResources(EntityManager entityManager)
+        {
+            var waveA = new Texture2d(GraphicsDevice.Instance, Texture2d.GetTextureInDefaultPath("Wave.jpg"));
+            var waveC = new Texture2d(GraphicsDevice.Instance, Texture2d.GetTextureInDefaultPath("Wave A.png"));
+            var waveB = new Texture2d(GraphicsDevice.Instance, Texture2d.GetTextureInDefaultPath("Wave B.png"));
+
+            
+            var terrainShapes = Texture2d.CreateTextureArray("Rock1.png", "Rock2.png", "Rock3.png", "Rock4.png", "Rock5.png", "Snow.png", "SnowOld.png");
+
+
+            var shapeEntity = entityManager.CreateEntity();
+            entityManager.AddComponent(shapeEntity, new TerrainShaderProperties()
+            {
+                WaveA = Texture2d.GetIndexOfTexture(waveA),
+                WaveB = Texture2d.GetIndexOfTexture(waveB),
+                WaveC = Texture2d.GetIndexOfTexture(waveC),
+                TextureArrayIndex = Texture2d.GetIndexOfTexture(terrainShapes)
+            });
+
+            return shapeEntity;
         }
 
         private static void TestComputeShader()
@@ -53,18 +78,24 @@ namespace SDL_Vulkan_CS.Artifact
         }
 
 
-        private void LoadShape(EntityManager entityManager)
+        private void LoadShape(EntityManager entityManager, Entity propertyEntity)
         {
             var shape = Mesh.LoadModelFromFile(GraphicsDevice.Instance, Mesh.GetMeshInDefaultPath("Comp305-Shape-Split.obj"));
 
             var lit = new Material("planet_shader.vert", "planet_shader.frag", typeof(SimplePushConstantData),
                 new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.UniformBuffer, StageFlags = VkShaderStageFlags.Fragment },
-                new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Fragment });
+                new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Fragment },
+                new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Fragment },
+                new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Fragment },
+                new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Fragment },
+                new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Fragment },
+                new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Fragment }
+                );
 
             SubdividePlanet(shape);
 
             var now = DateTime.Now;
-            ElevationMinMax elevationMinMax = new() { Value = GeneratePlanet(shape) };
+            ElevationMinMax elevationMinMax = new() { Value = GeneratePlanet(shape, propertyEntity) };
             var delta = DateTime.Now - now;
             if (useComputeShaderForGeneration)
             {
@@ -76,7 +107,7 @@ namespace SDL_Vulkan_CS.Artifact
             }
 
             now = DateTime.Now;
-            RecalucatioNormals(shape);
+            RecalucateNormals(shape);
             delta = DateTime.Now - now;
             if (useComputeShaderForGeneration && useComputeShaderForNormals)
             {
@@ -96,7 +127,6 @@ namespace SDL_Vulkan_CS.Artifact
                 entityManager.AddComponent(shapeEntity, new Scale() { Value = new(3f, 3f, 3f) });
                 entityManager.AddComponent(shapeEntity, new MeshIndex() { Value = Mesh.GetIndexOfMesh(mesh) });
                 entityManager.AddComponent(shapeEntity, new MaterialIndex() { Value = Material.GetIndexOfMaterial(lit) });
-                entityManager.AddComponent(shapeEntity, new TextureIndex() { Value = Texture2d.Textures.Count - 1 });
                 entityManager.AddComponent(shapeEntity, elevationMinMax);
             }
 
@@ -120,7 +150,7 @@ namespace SDL_Vulkan_CS.Artifact
             Console.WriteLine(string.Format("Heaviest Single Mesh | Vertices: {0} |Total Indices: {1}", heavyVertexCount, heavyIndexCount));
         }
 
-        private void RecalucatioNormals(Mesh[] shape)
+        private void RecalucateNormals(Mesh[] shape)
         {
             ComputeShaderNormalsCalculation normalsCalculation = null;
             VkCommandBuffer commandBuffer = default;
@@ -186,7 +216,7 @@ namespace SDL_Vulkan_CS.Artifact
             Console.WriteLine(string.Format("Simplify Mesh: {0}ms", delta.TotalMilliseconds));
         }
 
-        private Vector2 GeneratePlanet(Mesh[] shape)
+        private Vector2 GeneratePlanet(Mesh[] shape, Entity propertyEntity)
         {
 
             ShapeGenerator generator = CreateShapeGenerator();
@@ -222,6 +252,11 @@ namespace SDL_Vulkan_CS.Artifact
             }
             computeGenerator?.Dispose();
             generator.ColourGenerator.UpdateColours();
+
+            var properties = World.DefaultWorld.EntityManager.GetComponent<TerrainShaderProperties>(propertyEntity);
+            properties.ColourTexture = Texture2d.GetIndexOfTexture(generator.ColourGenerator.colourTexture);
+            properties.SteepTexture = Texture2d.GetIndexOfTexture(generator.ColourGenerator.steepTexture);
+            World.DefaultWorld.EntityManager.SetComponent(propertyEntity,properties);
             Vector2 minMax = new(generator.MinMax.Min, generator.MinMax.Max);
             Console.WriteLine(string.Format("Elevation min-max: {0}", minMax));
             return minMax;
@@ -229,58 +264,7 @@ namespace SDL_Vulkan_CS.Artifact
 
         public static ShapeGenerator CreateShapeGenerator()
         {
-            ColourSettings colourSettings = new()
-            {
-                oceanGradient = new()
-                {
-                    gradientPoints = [
-                        new(new(0,0.05098039f,1,1),0),
-                        new(new(0,0.7019608f,1,1),1)
-                    ]
-                },
-                biomeColourSettings = new()
-                {
-                    blendAmount = 0.125f,
-                    noiseOffset = 1.75f,
-                    noiseStrength = 0.1f,
-                    noise = new()
-                    {
-                        strength = 1,
-                        numLayers = 3,
-                        baseRoughness = 1,
-                        roughness = 2,
-                        persistence = 1.5f,
-                        offset = 0,
-                        minValue = 0,
-                        gradientWeight = false
-                    },
-                    biomes = [
-                        new ColourSettings.BiomeColourSettings.Biome(){
-                            tint = Vector4.Zero,
-                            tintPercent = 0f,
-                            startHeight = 0,
-                            gradient = new(){
-                                gradientPoints =[
-                                    new(new(1,0,0,1),0),
-                                    new(new(0,1,0,1),1)
-                                ]
-                            }
-                        },
-                        new ColourSettings.BiomeColourSettings.Biome(){
-                            tint = new Vector4(0,0,1,1),
-                            tintPercent = 0f,
-                            startHeight = 0.5f,
-                            gradient = new(){
-                                gradientPoints =[
-                                    new(new(1,1,0,1),0),
-                                    new(new(1,0,0,1),1)
-                                ]
-                            }
-                        }
-                    ]
-                }
-            };
-
+            ColourSettings colourSettings = CreateColourSettings();
 
             return new ShapeGenerator(colourSettings)
             {
@@ -323,6 +307,81 @@ namespace SDL_Vulkan_CS.Artifact
                         weightMultiplier = 0.78f,
                     }
                 ],
+            };
+        }
+
+        private static ColourSettings CreateColourSettings()
+        {
+            return new()
+            {
+                oceanGradient = new()
+                {
+                    gradientPoints = [
+                        new(new(0,0.0491538f,1,1),0),
+                        new(new(0,0.7019608f,1,1),1)
+                    ]
+                },
+                biomeColourSettings = new()
+                {
+                    blendAmount = 0.125f,
+                    noiseOffset = 1.75f,
+                    noiseStrength = 0.1f,
+                    noise = new()
+                    {
+                        strength = 1,
+                        numLayers = 3,
+                        baseRoughness = 1,
+                        roughness = 2,
+                        persistence = 1.5f,
+                        offset = 0,
+                        minValue = 0,
+                        gradientWeight = false
+                    },
+                    biomes = [
+                        new ColourSettings.BiomeColourSettings.Biome(){
+                            tint = Vector4.Zero,
+                            tintPercent = 0f,
+                            startHeight = 0,
+                            colourGradient = new(){
+                                gradientPoints =[
+                                    new(new(1,0,0,1),0),
+                                    new(new(0,1,0,1),1)
+                                ]
+                            },
+                            steepGradient = new(){
+                                gradientPoints = [
+                                    new(new(1),0),
+                                    new(new(1),1)
+                                ],
+                                alphaPoints= [
+                                    new(0,0),
+                                    new(0,1)
+                                ]
+                            }
+                        },
+                        new ColourSettings.BiomeColourSettings.Biome(){
+                            tint = new Vector4(0,0,1,1),
+                            tintPercent = 0f,
+                            startHeight = 0.5f,
+                            colourGradient = new(){
+                                gradientPoints =[
+                                    new(new(1,1,0,1),0),
+                                    new(new(1,0,0,1),1)
+                                ]
+                            },
+                            steepGradient = new(){
+                                gradientPoints = [
+                                    new(new(1),0),
+                                    new(new(1),1)
+                                ],
+                                alphaPoints= [
+                                    new(1,0),
+                                    new(1,1)
+                                ]
+                            }
+                        }
+                    ]
+                }
             };
         }
 

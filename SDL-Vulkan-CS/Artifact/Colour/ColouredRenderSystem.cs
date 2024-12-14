@@ -14,27 +14,35 @@ namespace SDL_Vulkan_CS.Artifact.Colour
     public class ColouredRenderSystem : PresentationSystemBase
     {
         private EntityQuery _renderQuery;
-        CsharpVulkanBuffer minMaxBuffer;
+        private EntityQuery _shaderPropertyQuery;
+        CsharpVulkanBuffer shareParams;
         public unsafe override void OnCreate(EntityManager entityManager)
         {
-             minMaxBuffer = new(GraphicsDevice.Instance, (uint)sizeof(Vector2), 1, Vortice.Vulkan.VkBufferUsageFlags.UniformBuffer, true);
+             shareParams = new(GraphicsDevice.Instance, (uint)sizeof(float)*7, 1, VkBufferUsageFlags.UniformBuffer, true);
             _renderQuery = new EntityQuery(entityManager)
-                .WithAll(typeof(MeshIndex), typeof(TextureIndex), typeof(MaterialIndex), typeof(LocalToWorld),typeof(ElevationMinMax))
+                .WithAll(typeof(MeshIndex), typeof(MaterialIndex), typeof(LocalToWorld),typeof(ElevationMinMax))
+                .Build();
+
+            _shaderPropertyQuery = new EntityQuery(entityManager)
+                .WithAll(typeof(TerrainShaderProperties))
                 .Build();
         }
 
         public unsafe override void OnPresent(EntityManager entityManager, RendererFrameInfo frameInfo)
         {
-            if (_renderQuery.HasEntities)
+            if (_renderQuery.HasEntities && _shaderPropertyQuery.HasEntities)
             {
+                List<Entity> propertyEntities = _shaderPropertyQuery.GetEntities();
                 List<Entity> entities = _renderQuery.GetEntities();
-                List<DrawCall> drawCalls = new(entities.Count);
+                List<PlanetTileDrawCall> drawCalls = new(entities.Count);
+
+                var properties = entityManager.GetComponent<TerrainShaderProperties>(propertyEntities[0]);
                 entities.ForEach(e =>
                 {
                     drawCalls.Add(new()
                     {
+                        ShaderProperties = properties,
                         MeshIndex = entityManager.GetComponent<MeshIndex>(e).Value,
-                        TextureIndex = entityManager.GetComponent<TextureIndex>(e).Value,
                         MaterialIndex = entityManager.GetComponent<MaterialIndex>(e).Value,
                         Ltw = entityManager.GetComponent<LocalToWorld>(e).Value,
                         elevationMinMax = entityManager.GetComponent<ElevationMinMax>(e).Value
@@ -42,9 +50,19 @@ namespace SDL_Vulkan_CS.Artifact.Colour
                 });
 
 
-                drawCalls.Sort(new DrawCall());
+                drawCalls.Sort(new PlanetTileDrawCall());
 
 
+                float* pParams = stackalloc float[]
+                {
+                    float.MaxValue,
+                    float.MinValue,
+                    MathF.Sin(Application.TimeSinceStart),
+                    MathF.Cos(Application.TimeSinceStart),
+                    Texture2d.GetTextureAtIndex(properties.TextureArrayIndex).ImageExtent.depth,
+                    0.25f,
+                    5f
+                };
                 Material mat = null;
                 for (int i = 0; i < drawCalls.Count; i++)
                 {
@@ -59,12 +77,20 @@ namespace SDL_Vulkan_CS.Artifact.Colour
                         
                     }
 
-                    minMaxBuffer.WriteToBuffer(&drawCall.elevationMinMax);
+                    pParams[0] = drawCall.elevationMinMax.X;
+                    pParams[1] = drawCall.elevationMinMax.Y;
+
+                    shareParams.WriteToBuffer(pParams);
 
                     var descriptorWriter = new DescriptorWriter(mat.MaterialDescriptorLayout, frameInfo.FrameDescriptorPool)
 
-                    .WriteBuffer(0, minMaxBuffer.DescriptorInfo())
-                    .WriteImage(1, Texture2d.GetTextureImageInfoAtIndex(drawCall.TextureIndex));
+                    .WriteBuffer(0, shareParams.DescriptorInfo())
+                    .WriteImage(1, Texture2d.GetTextureImageInfoAtIndex(drawCall.ColourTexture))
+                    .WriteImage(2, Texture2d.GetTextureImageInfoAtIndex(drawCall.SteepTexture))
+                    .WriteImage(3, Texture2d.GetTextureImageInfoAtIndex(drawCall.TextureArrayIndex))
+                    .WriteImage(4, Texture2d.GetTextureImageInfoAtIndex(drawCall.WaveA))
+                    .WriteImage(5, Texture2d.GetTextureImageInfoAtIndex(drawCall.WaveB))
+                    .WriteImage(6, Texture2d.GetTextureImageInfoAtIndex(drawCall.WaveC));
 
 
                     VkDescriptorSet descriptorSet = new();
@@ -93,18 +119,24 @@ namespace SDL_Vulkan_CS.Artifact.Colour
         public override void OnDestroy(EntityManager entityManager)
         {
             base.OnDestroy(entityManager);
-            minMaxBuffer.Dispose();
+            shareParams.Dispose();
         }
 
-        public struct DrawCall : IComparer<DrawCall>
+        public struct PlanetTileDrawCall : IComparer<PlanetTileDrawCall>
         {
             public int MeshIndex;
-            public int TextureIndex;
+            public TerrainShaderProperties ShaderProperties;
+            public int ColourTexture=> ShaderProperties.ColourTexture;
+            public int SteepTexture=> ShaderProperties.SteepTexture;
+            public int WaveA=>ShaderProperties.WaveA;
+            public int WaveB=>ShaderProperties.WaveB;
+            public int WaveC=> ShaderProperties.WaveC;
+            public int TextureArrayIndex=> ShaderProperties.TextureArrayIndex;
             public int MaterialIndex;
             public Vector2 elevationMinMax;
             public Matrix4x4 Ltw;
 
-            public readonly int Compare(DrawCall x, DrawCall y)
+            public readonly int Compare(PlanetTileDrawCall x, PlanetTileDrawCall y)
             {
                 if (x.MaterialIndex.CompareTo(y.MaterialIndex) != 0)
                 {

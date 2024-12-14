@@ -10,6 +10,8 @@ layout (location = 1) out vec3 fragPosWorld;
 layout (location = 2) out vec3 fragNormalWorld;
 layout (location = 3) out float fragElevation;
 layout (location = 4) out float fragBiome;
+layout (location = 5) out vec3 fragPosObject;
+layout (location = 6) out vec3 fragNormalObject;
 
 struct PointLight {
 	vec4 position; // ignore w
@@ -47,4 +49,6 @@ void main()
 	fragColour = lightIntensity * vec3(1);
 	fragElevation = elevation;
 	fragBiome = biome;
+	fragPosObject = position;
+	fragNormalObject = normal;
 }

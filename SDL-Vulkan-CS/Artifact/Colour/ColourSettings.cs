@@ -23,7 +23,8 @@ namespace SDL_Vulkan_CS.Artifact
 
             public class Biome
             {
-                public ColourGradient gradient;
+                public ColourGradient colourGradient;
+                public ColourGradient steepGradient;
                 public Vector4 tint;
                 
                 public float startHeight;

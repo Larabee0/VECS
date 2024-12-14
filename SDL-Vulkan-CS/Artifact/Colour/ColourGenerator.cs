@@ -1,11 +1,7 @@
 ﻿using SDL_Vulkan_CS.Artifact.Generator;
 using SDL_Vulkan_CS.VulkanBackend;
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
 using Vortice.Vulkan;
 
 namespace SDL_Vulkan_CS.Artifact.Colour
@@ -14,15 +10,21 @@ namespace SDL_Vulkan_CS.Artifact.Colour
     {
         public ColourSettings settings;
         const int textureResolution = 50;
-        public Texture2d texture;
+        public Texture2d colourTexture;
+        public Texture2d steepTexture;
         public void UpdateSettings(ColourSettings settings)
         {
             this.settings = settings;
-            if (texture == null || texture.ImageExtent.height != settings.biomeColourSettings.biomes.Length)
+            if (colourTexture == null || colourTexture.ImageExtent.height != settings.biomeColourSettings.biomes.Length)
             {
-                texture?.Dispose();
+                colourTexture?.Dispose();
 
-                texture = new(GraphicsDevice.Instance, VkFormat.R32G32B32A32Sfloat, new(textureResolution * 2, settings.biomeColourSettings.biomes.Length, 1),  VkImageUsageFlags.Sampled);
+                colourTexture = new(GraphicsDevice.Instance, VkFormat.R32G32B32A32Sfloat, new(textureResolution * 2, settings.biomeColourSettings.biomes.Length, 1), VkImageUsageFlags.Sampled);
+            }
+            if (steepTexture == null || steepTexture.ImageExtent.height != settings.biomeColourSettings.biomes.Length)
+            {
+                steepTexture?.Dispose();
+                steepTexture = new(GraphicsDevice.Instance, VkFormat.R32G32B32A32Sfloat, new(textureResolution * 2, settings.biomeColourSettings.biomes.Length, 1), VkImageUsageFlags.Sampled);
             }
         }
 
@@ -47,7 +49,8 @@ namespace SDL_Vulkan_CS.Artifact.Colour
 
         public unsafe void UpdateColours()
         {
-            Vector4[] colours = new Vector4[texture.ImageExtent.width * texture.ImageExtent.height];
+            Vector4[] colours = new Vector4[colourTexture.ImageExtent.width * colourTexture.ImageExtent.height];
+            Vector4[] steepColours = new Vector4[colourTexture.ImageExtent.width * colourTexture.ImageExtent.height];
             int colourIndex = 0;
 
             foreach(var biome in settings.biomeColourSettings.biomes)
@@ -55,39 +58,35 @@ namespace SDL_Vulkan_CS.Artifact.Colour
                 for (int i = 0;i < textureResolution*2; i++, colourIndex++)
                 {
                     Vector4 gradientColour;
+                    Vector4 steepCol;
                     if(i < textureResolution)
                     {
-                        gradientColour = settings.oceanGradient.Evaluate(i / (textureResolution - 1f));
+                        steepCol = gradientColour = settings.oceanGradient.Evaluate(i / (textureResolution - 1f));
+                        steepCol.W = 0;
                     }
                     else
                     {
-                        gradientColour = biome.gradient.Evaluate((i-textureResolution)/(textureResolution - 1f));
+                        gradientColour = biome.colourGradient.Evaluate((i-textureResolution)/(textureResolution - 1f));
+                        steepCol = biome.steepGradient.Evaluate((i-textureResolution)/(textureResolution - 1f));
                     }
 
                     Vector4 tintColour = biome.tint;
 
                     colours[colourIndex] = gradientColour * (1-biome.tintPercent) + tintColour * biome.tintPercent;
+                    steepColours[colourIndex] = steepCol * (1-biome.tintPercent) + tintColour * biome.tintPercent;
                 }
             }
 
-            uint imageSize = (uint)colours.Length * (uint)sizeof(Vector4);
-
-            var stagingBuffer = new CsharpVulkanBuffer(GraphicsDevice.Instance, imageSize, 1, VkBufferUsageFlags.TransferSrc, true);
-
-            fixed (Vector4* pColours = colours)
-            {
-                stagingBuffer.WriteToBuffer(pColours);
-            }
-            texture.TransitionImageLayout(texture.TextureImage.VkImage, texture.GetImageInfo.imageLayout, VkImageLayout.TransferDstOptimal);
-            texture.TextureImage.CopyFromBuffer(stagingBuffer, texture.ImageExtent.width , texture.ImageExtent.height);
-            texture.TransitionImageLayout(texture.TextureImage.VkImage, texture.GetImageInfo.imageLayout, VkImageLayout.ShaderReadOnlyOptimal);
-            stagingBuffer.Dispose();
+            colourTexture.CopyFromArray(colours);
+            steepTexture.CopyFromArray(steepColours);
         }
 
         public void Dispose()
         {
-            texture?.Dispose();
-            texture = null;
+            colourTexture?.Dispose();
+            colourTexture = null;
+            steepTexture?.Dispose();
+            steepTexture = null;
         }
     }
 }

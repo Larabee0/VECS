@@ -6,8 +6,9 @@ namespace SDL_Vulkan_CS.Artifact
     public class ColourGradient
     {
         public GradientPoint[] gradientPoints;
+        public AlphaPoint[] alphaPoints;
 
-        public Vector4 Evaluate(float t)
+        public Vector4 Evaluate(float t, bool alphaIsTexture = false, int textureCount = 0)
         {
             int firstColourIndex = 0;
             int secondColourIndex = 0;
@@ -33,17 +34,56 @@ namespace SDL_Vulkan_CS.Artifact
 
             float localT = SystemNumericsExtensions.InverseLerp(gradientPoints[firstColourIndex].startPercent, gradientPoints[secondColourIndex].startPercent, t);
 
-            return Vector4.Lerp(a, b, localT);
+            var colourOut = Vector4.Lerp(a, b, localT);
+
+
+            if (alphaPoints != null && alphaPoints.Length > 0)
+            {
+                for (int i = 0; i < alphaPoints.Length; i++)
+                {
+                    if (t > alphaPoints[i].startPercent)
+                    {
+                        firstColourIndex = Math.Max(0, i - 1);
+                    }
+                    if (t <= alphaPoints[i].startPercent)
+                    {
+                        secondColourIndex = i;
+                        break;
+                    }
+                }
+
+                localT = SystemNumericsExtensions.InverseLerp(alphaPoints[firstColourIndex].startPercent, alphaPoints[secondColourIndex].startPercent, t);
+                colourOut.W = SystemNumericsExtensions.Lerp(alphaPoints[firstColourIndex].alpha, alphaPoints[secondColourIndex].alpha, localT);
+                if (alphaIsTexture && textureCount > 0)
+                {
+                    colourOut.W = MathF.Round(SystemNumericsExtensions.Lerp(0, textureCount-1, colourOut.W));
+                }
+
+            }
+            return colourOut;
         }
 
         public struct GradientPoint
         {
             public Vector4 colour;
             public float startPercent;
-
+            
+            public GradientPoint() { }
             public GradientPoint(Vector4 colour, float startPercent)
             {
                 this.colour = colour;
+                this.startPercent = startPercent;
+            }
+        }
+        public struct AlphaPoint
+        {
+            public float alpha;
+            public float startPercent;
+
+            public AlphaPoint() { }
+            public AlphaPoint(float alpha, float startPercent)
+            {
+                this.alpha = alpha;
                 this.startPercent = startPercent;
             }
         }
