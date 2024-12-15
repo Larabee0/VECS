@@ -9,7 +9,7 @@ namespace SDL_Vulkan_CS.Artifact.Colour
     public sealed class ColourGenerator : IDisposable
     {
         public ColourSettings settings;
-        const int textureResolution = 50;
+        const int textureResolution = 256;
         public Texture2d colourTexture;
         public Texture2d steepTexture;
         public void UpdateSettings(ColourSettings settings)
@@ -30,7 +30,7 @@ namespace SDL_Vulkan_CS.Artifact.Colour
 
         public float BiomePercentFromPoint(Vector3 pointOnUnitSphere)
         {
-            float heightPercent = (pointOnUnitSphere.Y + 1) * 0.5f;
+            float heightPercent = (pointOnUnitSphere.Y + 1) / 2f;
             heightPercent += (SimpleNosieFilter.Evaluate(settings.biomeColourSettings.noise, pointOnUnitSphere) - settings.biomeColourSettings.noiseOffset) * settings.biomeColourSettings.noiseStrength;
             float biomeIndex = 0;
             int numBiomes = settings.biomeColourSettings.biomes.Length;
@@ -53,8 +53,9 @@ namespace SDL_Vulkan_CS.Artifact.Colour
             Vector4[] steepColours = new Vector4[colourTexture.ImageExtent.width * colourTexture.ImageExtent.height];
             int colourIndex = 0;
 
-            foreach(var biome in settings.biomeColourSettings.biomes)
+            for (int b = 0; b < settings.biomeColourSettings.biomes.Length; b++)
             {
+                ColourSettings.BiomeColourSettings.Biome biome = settings.biomeColourSettings.biomes[b];
                 for (int i = 0;i < textureResolution*2; i++, colourIndex++)
                 {
                     Vector4 gradientColour;
@@ -66,7 +67,7 @@ namespace SDL_Vulkan_CS.Artifact.Colour
                     }
                     else
                     {
-                        gradientColour = biome.colourGradient.Evaluate((i-textureResolution)/(textureResolution - 1f));
+                        gradientColour = biome.colourGradient.Evaluate((i-textureResolution)/(textureResolution - 1f),true,7);
                         steepCol = biome.steepGradient.Evaluate((i-textureResolution)/(textureResolution - 1f));
                     }
 

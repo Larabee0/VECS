@@ -129,7 +129,7 @@ namespace SDL_Vulkan_CS
         public static RenderPipelineConfigInfo DefaultPipelineConfigInfo(VkRenderPass renderPass, VkPipelineLayout pipelineLayout)
         {
             var pipelineConfigInfo = DefaultPipelineConfigInfo();
-
+            //EnableAlphaBlending(ref pipelineConfigInfo);
             pipelineConfigInfo.renderPass = renderPass;
             pipelineConfigInfo.pipelineLayout = pipelineLayout;
 

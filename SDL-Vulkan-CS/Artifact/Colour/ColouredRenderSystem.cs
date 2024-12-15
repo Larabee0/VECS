@@ -60,7 +60,7 @@ namespace SDL_Vulkan_CS.Artifact.Colour
                     MathF.Sin(Application.TimeSinceStart),
                     MathF.Cos(Application.TimeSinceStart),
                     Texture2d.GetTextureAtIndex(properties.TextureArrayIndex).ImageExtent.depth,
-                    0.25f,
+                    3f,
                     5f
                 };
                 Material mat = null;

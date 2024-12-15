@@ -10,6 +10,10 @@
     <StartupObject>SDL_Vulkan_CS.Program</StartupObject>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <Optimize>False</Optimize>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Alimer.Bindings.SDL" Version="3.9.4" />
     <PackageReference Include="AssimpNet" Version="4.1.0" />

@@ -121,21 +121,33 @@ namespace SDL_Vulkan_CS.VulkanBackend
 
             if (usage.HasFlag(VkImageUsageFlags.Sampled))
             {
+                //CreateTextureSampler();
                 VkSamplerCreateInfo samplerInfo = new()
                 {
                     magFilter = VkFilter.Linear,
                     minFilter = VkFilter.Linear,
-                    mipmapMode = VkSamplerMipmapMode.Linear,
+
                     addressModeU = VkSamplerAddressMode.ClampToBorder,
                     addressModeV = VkSamplerAddressMode.ClampToBorder,
                     addressModeW = VkSamplerAddressMode.ClampToBorder,
+
+                    //anisotropyEnable = true,
+                    //maxAnisotropy = _device.Properties.limits.maxSamplerAnisotropy,
+
+                    borderColor = VkBorderColor.FloatOpaqueBlack,
+
+                    unnormalizedCoordinates = false,
+
+                    compareEnable = true,
+                    compareOp = VkCompareOp.Always,
+
+                    mipmapMode = VkSamplerMipmapMode.Linear,
                     mipLodBias = 0.0f,
                     minLod = 0.0f,
                     maxLod = 0.0f,
-                    borderColor = VkBorderColor.FloatOpaqueBlack,
-
+                
                 };
-
+                
                 if (Vulkan.vkCreateSampler(_device.Device, samplerInfo, null, out _textureSampler) != VkResult.Success)
                 {
                     throw new Exception("Failed to create sampler!");
@@ -143,7 +155,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
 
                 VkImageLayout samplerImageLayout = _imageLayout == VkImageLayout.ColorAttachmentOptimal
                 ? VkImageLayout.ShaderReadOnlyOptimal
-                : VkImageLayout.DepthStencilReadOnlyOptimal;
+                : VkImageLayout.ShaderReadOnlyOptimal;
                 _imageDescriptor.sampler = _textureSampler;
                 _imageDescriptor.imageView = _textureImageView;
                 _imageDescriptor.imageLayout = samplerImageLayout;
@@ -181,8 +193,10 @@ namespace SDL_Vulkan_CS.VulkanBackend
                 addressModeU = VkSamplerAddressMode.Repeat,
                 addressModeV = VkSamplerAddressMode.Repeat,
                 addressModeW = VkSamplerAddressMode.Repeat,
+
                 anisotropyEnable = true,
                 maxAnisotropy = _device.Properties.limits.maxSamplerAnisotropy,
+
                 borderColor = VkBorderColor.IntOpaqueBlack,
 
                 unnormalizedCoordinates = false,

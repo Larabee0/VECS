@@ -52,31 +52,33 @@ layout(push_constant) uniform Push
 } push;
 
 
-float colourSample(out vec4 colour, out vec4 steepColour)
+float colourSample(out vec4 colour, out vec4 steepColour, out float alpha)
 {
 	float oceanT = inverseLerp(params.elevationMin,0,fragElevation);
 	oceanT = clamp(oceanT,0,1);
 	float terrainT = inverseLerp(0,params.elevationMax,fragElevation);
-	terrainT = clamp(terrainT,0,1);
+	terrainT = clamp(terrainT,0.01,1.0);
 
 
-	float oceanWeight = lerp(0,0.5,oceanT);
+	float oceanWeight = lerp(0,0.5,clamp(oceanT,0,0.9915));
 	float floorOceanT = floor(oceanT);
 	float terrainWeight = lerp(0.5,1,terrainT);
 
 	oceanWeight = oceanWeight *(1 - floorOceanT);
 	terrainWeight = terrainWeight * floorOceanT;
-	float u = oceanWeight + terrainWeight;
+	float u = clamp(oceanWeight + terrainWeight,0,1);
 	float v = fragBiome;
 
 	colour = texture(texMainColour,vec2(u,v));
+	colour.w = (colour.w-0.5)*2;
 	steepColour = texture(texSteepColour,vec2(u,v));
+	//steepColour.w = (steepColour.w-0.5)*2;
 	return 1-floorOceanT;
 }
 
 float sampleTerrain(float mainAlpha){
-	float texIndex = clamp(round(remap(mainAlpha,0,1,0,params.textureCount-1)),0,params.textureCount-1);
-	vec3 col = triplanarArray(fragPosWorld, fragNormalWorld, 1,texIndex, texTerrain).xyz;
+	float texIndex = mainAlpha;// clamp(mainAlpha,0,params.textureCount-1);
+	vec3 col = triplanarArray(fragPosWorld, fragNormalWorld, params.terrainScale,texIndex, texTerrain).xyz;
 	
 	return (col.x + col.y + col.z) / 3;
 }
@@ -91,7 +93,7 @@ float sampleOcean()
 	vec3 colB = triplanarUVOffset(fragPosWorld, fragNormalWorld,vec2(scaleC-scaleB, -scaleA), scaleB, texWaveB).xyz;
 	vec3 colC = triplanarUVOffset(fragPosWorld, fragNormalWorld,vec2(-scaleA-scaleC, -scaleB), scaleC, texWaveC).xyz;
 
-	vec3 col = ((colA * colB) * colC) * params.oceanBrightness;
+	vec3 col = ((colA * colB) * colC) * (params.oceanBrightness*0.75);
 
 	return max((col.x + col.y + col.z) / 3, 0);
 
@@ -129,15 +131,20 @@ void main()
 
 	vec4 mainColour;
 	vec4 steepColour;
-	float oneMinusFloorOceanT = colourSample(mainColour,steepColour);
+	float alpha;
+	float oneMinusFloorOceanT = colourSample(mainColour,steepColour,alpha);
 
 	float steepness = dot(normalize(fragPosObject),fragNormalObject);
 	steepness = clamp(remap(steepness,steepColour.w,0,0,1),0,1);
 	
 	float oceanWeight = lerp(1, sampleOcean(), oneMinusFloorOceanT);
 	float terrainWeight = lerp(sampleTerrain(mainColour.w), 1, oneMinusFloorOceanT);
-	outColour = lerp(terrainWeight * oceanWeight*mainColour,terrainWeight * oceanWeight*steepColour,steepness);
-
+	outColour = lerp(mainColour,steepColour,steepness);
+	
+	outColour = outColour*terrainWeight * oceanWeight * (3);
+	//outColour =vec4(mainColour.xyz,1);
+	
+	//outColour = vec4(mainColour.w);
 	//outColour *=10;
 	//outColour = vec4(steepColour);
 	

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Numerics;
+using SDL_Vulkan_CS.Artifact.Colour;
 
 namespace SDL_Vulkan_CS.Artifact
 {
@@ -7,7 +8,7 @@ namespace SDL_Vulkan_CS.Artifact
     {
         public GradientPoint[] gradientPoints;
         public AlphaPoint[] alphaPoints;
-
+        
         public Vector4 Evaluate(float t, bool alphaIsTexture = false, int textureCount = 0)
         {
             int firstColourIndex = 0;
@@ -20,7 +21,7 @@ namespace SDL_Vulkan_CS.Artifact
             {
                 if (t > gradientPoints[i].startPercent)
                 {
-                    firstColourIndex = Math.Max(0, i - 1);
+                    firstColourIndex = i;
                 }
                 if (t <= gradientPoints[i].startPercent)
                 {
@@ -39,11 +40,13 @@ namespace SDL_Vulkan_CS.Artifact
 
             if (alphaPoints != null && alphaPoints.Length > 0)
             {
+                firstColourIndex = 0;
+                secondColourIndex = 0;
                 for (int i = 0; i < alphaPoints.Length; i++)
                 {
                     if (t > alphaPoints[i].startPercent)
                     {
-                        firstColourIndex = Math.Max(0, i - 1);
+                        firstColourIndex = i;
                     }
                     if (t <= alphaPoints[i].startPercent)
                     {
@@ -56,7 +59,7 @@ namespace SDL_Vulkan_CS.Artifact
                 colourOut.W = SystemNumericsExtensions.Lerp(alphaPoints[firstColourIndex].alpha, alphaPoints[secondColourIndex].alpha, localT);
                 if (alphaIsTexture && textureCount > 0)
                 {
-                    colourOut.W = MathF.Round(SystemNumericsExtensions.Lerp(0, textureCount-1, colourOut.W));
+                    colourOut.W = MathF.Round(colourOut.W);
                 }
 
             }
@@ -72,6 +75,11 @@ namespace SDL_Vulkan_CS.Artifact
             public GradientPoint(Vector4 colour, float startPercent)
             {
                 this.colour = colour;
+                this.startPercent = startPercent;
+            }
+            public GradientPoint(string hexCode, float startPercent)
+            {
+                colour = ColourTypeConversion.FromHex(hexCode);
                 this.startPercent = startPercent;
             }
         }
