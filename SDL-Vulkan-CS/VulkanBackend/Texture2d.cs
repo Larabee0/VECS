@@ -24,7 +24,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
         private VkImageLayout _imageLayout = VkImageLayout.Undefined;
         private readonly VkFormat _imageFormat;
         private VkExtent3D _imageExtents;
-
+        public VkImageViewType _imageImageViewType;
         private readonly GraphicsDevice _device;
         private CsharpVulkanImage _textureImage;
         private VkImageView _textureImageView;
@@ -58,6 +58,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
             CreateTextureImage(surface);
             CreateImageView();
             CreateTextureSampler();
+            _imageLayout = VkImageLayout.ShaderReadOnlyOptimal;
             UpdateDescriptor();
             Textures.Add(this);
         }
@@ -220,12 +221,13 @@ namespace SDL_Vulkan_CS.VulkanBackend
         /// Creates a vk image view for this image.
         /// </summary>
         /// <exception cref="Exception"></exception>
-        private unsafe void CreateImageView(uint layerCount = 1)
+        private unsafe void CreateImageView(VkImageViewType type = VkImageViewType.Image2D, uint depth = 1)
         {
+            _imageImageViewType = type;
             VkImageViewCreateInfo viewInfo = new()
             {
                 image = _textureImage.VkImage,
-                viewType = layerCount > 1 ? VkImageViewType.Image2DArray: VkImageViewType.Image2D,
+                viewType = type,
                 format = VkFormat.R8G8B8A8Srgb,
                 subresourceRange = new()
                 {
@@ -233,7 +235,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
                     baseMipLevel = 0,
                     levelCount = 1,
                     baseArrayLayer = 0,
-                    layerCount = layerCount,
+                    layerCount = depth,
                 }
             };
 
@@ -544,14 +546,17 @@ namespace SDL_Vulkan_CS.VulkanBackend
             
             // the surface class needs to copy its data to this before it can be copied to the gpu.
             // staging buffer for the staging buffer
-            Color* pSingleImageColourData = stackalloc Color[(int)(width * height)];
+            Color[] singleImageColourData = new Color[(int)(width * height)];
 
             uint singleImageSize = (uint)(width * height * sizeof(Color));
             ulong copyStartOffset = 0;
             for (int i = 0; i < surfaces.Length; i++)
             {
-                CopyColor(new IntPtr(pSingleImageColourData), surfaces[i]);
-                stagingBuffer.WriteToBuffer(pSingleImageColourData, singleImageSize, copyStartOffset);
+                fixed(Color* pSingleImageColourData = singleImageColourData)
+                {
+                    CopyColor(new IntPtr(pSingleImageColourData), surfaces[i]);
+                    stagingBuffer.WriteToBuffer(pSingleImageColourData, singleImageSize, copyStartOffset);
+                }
                 copyStartOffset += singleImageSize;
             }
 
@@ -570,11 +575,12 @@ namespace SDL_Vulkan_CS.VulkanBackend
                 surfaces[i].Dispose();
             }
 
-            textureArray.CreateImageView(depth);
+            textureArray.CreateImageView(VkImageViewType.Image2DArray, depth);
             textureArray.CreateTextureSampler();
+            textureArray._imageLayout = VkImageLayout.ShaderReadOnlyOptimal;
             textureArray.UpdateDescriptor();
             Textures.Add(textureArray);
-
+            
             return textureArray;
         }
     }

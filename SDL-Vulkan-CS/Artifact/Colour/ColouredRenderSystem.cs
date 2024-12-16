@@ -3,6 +3,7 @@ using SDL_Vulkan_CS.ECS.Presentation;
 using SDL_Vulkan_CS.VulkanBackend;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Numerics;
 using System.Text;
@@ -82,6 +83,8 @@ namespace SDL_Vulkan_CS.Artifact.Colour
 
                     shareParams.WriteToBuffer(pParams);
 
+                    Console.WriteLine(Texture2d.GetTextureAtIndex(drawCall.TextureArrayIndex)._imageImageViewType);
+                    //Debugger.Break();
                     var descriptorWriter = new DescriptorWriter(mat.MaterialDescriptorLayout, frameInfo.FrameDescriptorPool)
 
                     .WriteBuffer(0, shareParams.DescriptorInfo())
