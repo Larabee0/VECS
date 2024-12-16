@@ -2,6 +2,8 @@
 
 ## Peer review Demo Video [Link Here](https://falmouthac-my.sharepoint.com/:v:/g/personal/wv276829_falmouth_ac_uk/EfE2Nx1LVpROnpwmRMmH3ZIBk80XOGLOI3MoUP5FZV6dBw?nav=eyJyZWZlcnJhbEluZm8iOnsicmVmZXJyYWxBcHAiOiJPbmVEcml2ZUZvckJ1c2luZXNzIiwicmVmZXJyYWxBcHBQbGF0Zm9ybSI6IldlYiIsInJlZmVycmFsTW9kZSI6InZpZXciLCJyZWZlcnJhbFZpZXciOiJNeUZpbGVzTGlua0NvcHkifX0&e=I7PP3X)
 
+This is the write up for WS2 I have written a compute shader to do the terrain generation & vertex normal calculation since but not written up the performance improvements (big)
+
 My implementation of COMP305 relies on Vulkan SDK 1.3.290 or higher being installed https://vulkan.lunarg.com/sdk/home
 
 This project uses C# Bindings for Vulkan, Vulkan Memory Allocator & SDL3, managed by the NuGet package manager in Visual Studio.
