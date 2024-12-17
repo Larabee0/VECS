@@ -106,7 +106,7 @@ namespace SDL_Vulkan_CS.Artifact.Generator
             NoiseGeneratorParams* parameters = stackalloc NoiseGeneratorParams[1];
             parameters[0] = new()
             {
-                noiseFilterCount = generator.NoiseFilters.Length,
+                noiseFilterCount = generator.NoiseFilters.Length + 1,
                 biomeCount = generator.ColourGenerator.settings.biomeColourSettings.biomes.Length,
                 planetRadius = generator.PlanetRadius,
                 noiseOffset = generator.ColourGenerator.settings.biomeColourSettings.noiseOffset,

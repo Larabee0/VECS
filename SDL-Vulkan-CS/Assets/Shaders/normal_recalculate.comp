@@ -2,6 +2,7 @@
 #extension GL_KHR_vulkan_glsl: enable
 #include "structures.glsl"
 
+// information about the main buffer defining what threads should run/abort
 layout(set = 0, binding = 0) uniform ComputeShaderParameters{
 	uint bufferLength;
 	uint width;
@@ -10,35 +11,36 @@ layout(set = 0, binding = 0) uniform ComputeShaderParameters{
 } params;
 
 
+// vertex buffer to operate on (direct mesh buffer) Only read from here.
 layout(std430,set = 0, binding = 1) buffer VertexBuffer {
     Vertex vertexBuffer[];
 };
 
+// index buffer to operate on (direct mesh buffer) Only read from here.
 layout(std430,set = 0, binding = 2) buffer IndexBuffer {
     uint indexBuffer[];
 };
 
+// sizeof vertex buffer * 3 unormalized normals for each vertex expressed as ints to because atomic add
 layout(std430,set = 0, binding = 3) buffer NormalBuffer {
     int normalBuffer[];
 };
 
-float QUANTIIZE_FACTOR = 32768.0;
+// fucked up float to int conversion magic number (2^16/2)
+const float QUANTIIZE_FACTOR = 32768.0;
 
 layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 void main() {
 	if(params.width <= gl_GlobalInvocationID.x || params.height <= gl_GlobalInvocationID.y){
 	 	return; 
 	}
-	uint x = gl_GlobalInvocationID.x;
-	uint y = gl_GlobalInvocationID.y;
 
-	uint indexBufferIndex = y * params.width + x;
-	//indexBufferIndex =  gl_GlobalInvocationID.x;
-    indexBufferIndex = indexBufferIndex * 3;
+	// iterating 1 triangle per thread, triangle made up of 3 indices
+	uint indexBufferIndex = (gl_GlobalInvocationID.y * params.width + gl_GlobalInvocationID.x) * 3;
 
 	uint indexA = indexBuffer[indexBufferIndex];
-	uint indexB = indexBuffer[indexBufferIndex+1];
-	uint indexC = indexBuffer[indexBufferIndex+2];
+	uint indexB = indexBuffer[indexBufferIndex + 1];
+	uint indexC = indexBuffer[indexBufferIndex + 2];
 
 	vec3 posA = vec3(vertexBuffer[indexA].positionX,
 	vertexBuffer[indexA].positionY,
@@ -52,8 +54,10 @@ void main() {
 	vertexBuffer[indexC].positionY,
 	vertexBuffer[indexC].positionZ);
 
+	// compute face normal, remap the vec3 as an int vec3 for atomic add
 	ivec3 faceNormal = ivec3(normalize(cross(posB - posA, posC - posA)) * QUANTIIZE_FACTOR);
 	
+	// to write into the normal buffer multiply indices by 3 again for each component.
 	indexA *= 3;
 	indexB *= 3;
 	indexC *= 3;

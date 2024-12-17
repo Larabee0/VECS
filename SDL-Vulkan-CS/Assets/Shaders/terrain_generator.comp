@@ -6,6 +6,7 @@
 #include "simple_noise_filter.glsl"
 #include "rigid_noise_filter.glsl"
 
+// information about the main buffer defining what threads should run/abort
 layout(set = 0, binding = 0) uniform ComputeShaderParameters{
 	uint bufferLength;
 	uint width;
@@ -13,11 +14,12 @@ layout(set = 0, binding = 0) uniform ComputeShaderParameters{
 	uint depth;
 } params;
 
-
+// vertex buffer to operate on (direct mesh buffer)
 layout(std430,set = 0, binding = 1) buffer VertexBuffer {
     Vertex vertexBuffer[];
 };
 
+// Noise generator parameters (includes colour params)
 layout(set = 0, binding = 2) uniform NoiseGeneratorParams{
 	int noiseFilterCount;
 	int biomesCount;
@@ -27,46 +29,51 @@ layout(set = 0, binding = 2) uniform NoiseGeneratorParams{
 	float blendAmount;
 } noiseParams;
 
+// all noise settings. First element is the colour setting noise filter.
+// this should not be applied with generation.
 layout(std430, binding = 3) buffer NoiseSettings {
 	GlobalNoiseSettings noiseSettings[];
 };
 
+// % at which each biome starts.
 layout(std430, binding = 4) buffer Biomes {
 	float startHeights[];
 } biomes;
 
+// unscaled elevation min-max output
 layout(std430, binding = 5) buffer ElevationMinMax {
-    
 	int minElevation;
 	int maxElevation;
 }minMax;
 
 
+// elevaluates a GNS for a given point using configured filter
 float evaluate(GlobalNoiseSettings settings, vec3 point){	
 	if(settings.filterType == 1){
-		return evaluateRigid(settings,point);
+		return evaluateRigid(settings, point);
 	}
-	return evaluateSimple(settings,point);
+	return evaluateSimple(settings, point);
 }
 
+// calculates the biome index this vertex falls into
 float biomePercentFromPoint(vec3 point){
-    float heightPercent = (point.y + 1.0) / 2.0;
+    float heightPercent = (point.y + 1.0) * 0.5;
 	heightPercent += (evaluate(noiseSettings[0], point) - noiseParams.noiseOffset) * noiseParams.noiseStrength;
     float biomeIndex = 0;
-	int numBiomes = noiseParams.biomesCount;
 
-	float blendRange = noiseParams.blendAmount  / 2.0 + 0.001;
+	float blendRange = (noiseParams.blendAmount  * 0.5) + 0.001;
 
-	for(int i = 0; i < numBiomes; i++){
+	for(int i = 0; i < noiseParams.biomesCount; i++){
 		float dst = heightPercent - biomes.startHeights[i];
-		float weight = inverseLerp(-blendRange,blendRange,dst);
+		float weight = inverseLerp(-blendRange, blendRange,dst);
         biomeIndex *= (1 - weight);
         biomeIndex += i * weight;
 	}
 
-	return biomeIndex / max(1, numBiomes - 1);
+	return biomeIndex / max(1, noiseParams.biomesCount - 1);
 }
 
+// fucked up float to int conversion magic number (2^16/2)
 const float QUANTIIZE_FACTOR = 32768.0;
 
 layout(local_size_x = 2, local_size_y = 1, local_size_z = 1) in;
@@ -74,17 +81,14 @@ void main() {
 	if(params.width <= gl_GlobalInvocationID.x || params.height <= gl_GlobalInvocationID.y){
 	 	return; 
 	}
-	uint x = gl_GlobalInvocationID.x;
-	uint y = gl_GlobalInvocationID.y;
 
-	uint bufferIndex = y * params.width + x;
+	uint bufferIndex = gl_GlobalInvocationID.y * params.width +  gl_GlobalInvocationID.x;
 
 	Vertex v = vertexBuffer[bufferIndex];
 
 	vec3 pos = vec3(v.positionX,v.positionY,v.positionZ);
 
-	
-	//v.biome = biomePercentFromPoint(pos);
+	v.biome = biomePercentFromPoint(pos);
 
 	float firstLayerValue = 0;
 	float unscaledElevation = 0;
@@ -96,26 +100,24 @@ void main() {
 		}
 	}
 	
-	for(int i = 2; i < noiseParams.noiseFilterCount+1; i++){
+	for(int i = 2; i < noiseParams.noiseFilterCount; i++){
 		
 		if(noiseSettings[i].enabled == 1){
 			float mask = noiseSettings[i].useFirstlayerAsMask == 1 ? firstLayerValue : 1.0;
-			unscaledElevation += evaluate(noiseSettings[i], pos)*mask;
+			unscaledElevation += evaluate(noiseSettings[i], pos) * mask;
 		}
 	}
-	float scaledElevation = noiseParams.planetRadius * (1.0 + max(0,unscaledElevation));
 
-	pos *= scaledElevation;
+	pos *= noiseParams.planetRadius * (1.0 + max(0, unscaledElevation));
 	v.positionX = pos.x;
 	v.positionY = pos.y;
 	v.positionZ = pos.z;
 	v.elevation = unscaledElevation;
 	vertexBuffer[bufferIndex] = v;
 	
-	float QUANTIIZE_FACTOR = 32768.0;
-
-	int elevationForMinMax = int(unscaledElevation*QUANTIIZE_FACTOR);
-
+	// atomic operations only work with int/uint this magically reads the float bits as if it was an int.
+	int elevationForMinMax = int(unscaledElevation * QUANTIIZE_FACTOR);
+	// min and max elevation calculation using atomic operations to stop race condition
 	atomicMin(minMax.minElevation,elevationForMinMax);
 	atomicMax(minMax.maxElevation,elevationForMinMax);
 }
