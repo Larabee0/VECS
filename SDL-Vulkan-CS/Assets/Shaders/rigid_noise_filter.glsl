@@ -19,6 +19,6 @@ float evaluateRigid(GlobalNoiseSettings settings, vec3 point){
 		frequency *= settings.roughness;
 		amplitude *= settings.persistence;
 	}
-	noiseValue = max(0, noiseValue - settings.minValue);
+	noiseValue -= settings.minValue;
 	return noiseValue * settings.strength;
 }

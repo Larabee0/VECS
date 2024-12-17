@@ -13,6 +13,7 @@ namespace SDL_Vulkan_CS.Artifact.Generator
 
         public CsharpVulkanBuffer _elevationMinMax;
         private CsharpVulkanBuffer _noiseSettings;
+        private CsharpVulkanBuffer _biomes;
         private CsharpVulkanBuffer _noiseGeneratorParams;
 
         public bool shaderDebug = false;
@@ -25,11 +26,12 @@ namespace SDL_Vulkan_CS.Artifact.Generator
                 new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute),
                 new DescriptorSetBinding(VkDescriptorType.UniformBuffer, VkShaderStageFlags.Compute),
                 new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute),
+                new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute),
                 new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute)
             );
             
             _pool = new DescriptorPool.Builder(GraphicsDevice.Instance)
-                .AddPoolSize(VkDescriptorType.UniformBuffer, 2)
+                .AddPoolSize(VkDescriptorType.UniformBuffer, 3)
                 .AddPoolSize(VkDescriptorType.StorageBuffer, 2)
                 .Build();
 
@@ -48,6 +50,7 @@ namespace SDL_Vulkan_CS.Artifact.Generator
         public unsafe void PrePrepare(ShapeGenerator generator)
         {
             WriteNoiseSettings(generator);
+            WriteBiomeStartHeights(generator.ColourGenerator.settings);
             WriteGeneratorParameters(generator);
         }
 
@@ -62,23 +65,39 @@ namespace SDL_Vulkan_CS.Artifact.Generator
                     .WriteBuffer(1, vertexBuffer.DescriptorInfo())
                     .WriteBuffer(2, _noiseGeneratorParams.DescriptorInfo())
                     .WriteBuffer(3, _noiseSettings.DescriptorInfo())
-                    .WriteBuffer(4, _elevationMinMax.DescriptorInfo())
+                    .WriteBuffer(4, _biomes.DescriptorInfo())
+                    .WriteBuffer(5, _elevationMinMax.DescriptorInfo())
                     .Build(pSet);
             }
         }
 
         private unsafe void WriteNoiseSettings(ShapeGenerator generator)
         {
-            _noiseSettings = new(GraphicsDevice.Instance, (uint)sizeof(GlobalNoiseSettings), (uint)generator.NoiseFilters.Length, VkBufferUsageFlags.StorageBuffer, true);
+            _noiseSettings = new(GraphicsDevice.Instance, (uint)sizeof(GlobalNoiseSettings), (uint)generator.NoiseFilters.Length+1, VkBufferUsageFlags.StorageBuffer, true);
 
-            GlobalNoiseSettings* settingsPoint = stackalloc GlobalNoiseSettings[generator.NoiseFilters.Length];
-
+            GlobalNoiseSettings* settingsPoint = stackalloc GlobalNoiseSettings[generator.NoiseFilters.Length+1];
+            settingsPoint[0] = generator.ColourGenerator.settings.biomeColourSettings.noise.GetSettings();
             for (int i = 0; i < generator.NoiseFilters.Length; i++)
             {
-                settingsPoint[i] = generator.NoiseFilters[i].GetSettings();
+                settingsPoint[i+1] = generator.NoiseFilters[i].GetSettings();
             }
 
             _noiseSettings.WriteToBuffer(settingsPoint);
+        }
+
+        private unsafe void WriteBiomeStartHeights(ColourSettings colourSettings)
+        {
+            int biomeCount = colourSettings.biomeColourSettings.biomes.Length;
+            _biomes = new(GraphicsDevice.Instance, sizeof(float), (uint)biomeCount, VkBufferUsageFlags.StorageBuffer, true);
+
+            float* startHeights = stackalloc float[biomeCount];
+
+            for (int i = 0; i < biomeCount; i++)
+            {
+                startHeights[i] = colourSettings.biomeColourSettings.biomes[i].startHeight;
+            }
+
+            _biomes.WriteToBuffer(startHeights);
         }
 
         private unsafe void WriteGeneratorParameters(ShapeGenerator generator)
@@ -88,7 +107,11 @@ namespace SDL_Vulkan_CS.Artifact.Generator
             parameters[0] = new()
             {
                 noiseFilterCount = generator.NoiseFilters.Length,
-                planetRadius = generator.PlanetRadius
+                biomeCount = generator.ColourGenerator.settings.biomeColourSettings.biomes.Length,
+                planetRadius = generator.PlanetRadius,
+                noiseOffset = generator.ColourGenerator.settings.biomeColourSettings.noiseOffset,
+                noiseStrength = generator.ColourGenerator.settings.biomeColourSettings.noiseStrength,
+                blendAmount = generator.ColourGenerator.settings.biomeColourSettings.blendAmount
             };
 
             _noiseGeneratorParams.WriteToBuffer(parameters);
@@ -125,6 +148,7 @@ namespace SDL_Vulkan_CS.Artifact.Generator
             _elevationMinMax?.Dispose();
             _noiseSettings?.Dispose();
             _noiseGeneratorParams?.Dispose();
+            _biomes?.Dispose();
             _pool.Dispose();
             _terrainGenerator?.Dispose();
         }
@@ -132,7 +156,12 @@ namespace SDL_Vulkan_CS.Artifact.Generator
         private struct NoiseGeneratorParams
         {
             public int noiseFilterCount;
+            public int biomeCount;
             public float planetRadius;
+            public float noiseOffset;
+            public float noiseStrength;
+            public float blendAmount;
+            public GlobalNoiseSettings colourNoiseSettings;
         }
     }
 }

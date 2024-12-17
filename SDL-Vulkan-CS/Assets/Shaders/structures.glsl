@@ -7,6 +7,7 @@ struct Vertex{
 	float normalY;
 	float normalZ;
 	float elevation;
+	float biome;
 };
 
 

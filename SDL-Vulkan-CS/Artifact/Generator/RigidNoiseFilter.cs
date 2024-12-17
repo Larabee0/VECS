@@ -26,7 +26,7 @@ namespace SDL_Vulkan_CS.Artifact.Generator
                 frequency *= settings.roughness;
                 amplitude *= settings.persistence;
             }
-            noiseValue = noiseValue - settings.minValue;
+            noiseValue -= settings.minValue;
             return noiseValue * settings.strength;
         }
     }
