@@ -108,11 +108,11 @@ namespace SDL_Vulkan_CS.Artifact.Colour
             }
 
             Vulkan.vkCmdBindDescriptorSets(
-                            frameInfo.CommandBuffer,
-                            VkPipelineBindPoint.Graphics,
-                            mat.PipeLineLayout,
-                            1,  // starting set (0 is the globalDescriptorSet, 1 is the set specific to this system)
-                            descriptorSet);
+                frameInfo.CommandBuffer,
+                VkPipelineBindPoint.Graphics,
+                mat.PipeLineLayout,
+                1,  // starting set (0 is the globalDescriptorSet, 1 is the set specific to this system)
+                descriptorSet);
 
             mat?.BindAndDraw(frameInfo, drawCall.MeshIndex, new SimplePushConstantData(drawCall.Ltw));
             return mat;
@@ -121,6 +121,7 @@ namespace SDL_Vulkan_CS.Artifact.Colour
         public override void OnPostPresentation(EntityManager entityManager)
         {
             _renderQuery.MarkStale();
+            _shaderPropertyQuery.MarkStale();
         }
 
         public override void OnDestroy(EntityManager entityManager)
