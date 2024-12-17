@@ -65,47 +65,58 @@ namespace SDL_Vulkan_CS.Artifact.Colour
                     5f
                 };
                 Material mat = null;
+                VkDescriptorSet descriptorSet = default;
                 for (int i = 0; i < drawCalls.Count; i++)
                 {
                     var drawCall = drawCalls[i];
-                    mat = Draw(frameInfo, pParams, mat, drawCall);
+                    var curMat = Material.GetMaterialAtIndex(drawCall.MaterialIndex);
+
+                    // if mat is null or different from the last mat, it needs its descriptor sets bound
+                    if (mat == null || mat != curMat)
+                    {
+                        mat = curMat;
+                        mat?.BindGlobalDescriptorSet(frameInfo);
+                        descriptorSet = new();
+                        CreateDescriptorSet(frameInfo, mat, drawCall, ref descriptorSet);
+                    }
+
+                    // if (!descriptorWriter.Build(&descriptorSet))
+                    // {
+                    //     throw new Exception("Failed to build descriptor set");
+                    // }
+
+                    mat = Draw(frameInfo, pParams, mat, drawCall, ref descriptorSet);
                 }
             }
         }
 
-        private unsafe Material Draw(RendererFrameInfo frameInfo, float* pParams, Material mat, PlanetTileDrawCall drawCall)
+        private unsafe void CreateDescriptorSet(RendererFrameInfo frameInfo, Material mat, PlanetTileDrawCall drawCall, ref VkDescriptorSet descriptorSet)
         {
-            var curMat = Material.GetMaterialAtIndex(drawCall.MaterialIndex);
-
-            // if mat is null or different from the last mat, it needs its descriptor sets bound
-            if (mat == null || mat != curMat)
+            fixed (VkDescriptorSet* pSet = &descriptorSet)
             {
-                mat = curMat;
-                mat?.BindGlobalDescriptorSet(frameInfo);
+                new DescriptorWriter(mat.MaterialDescriptorLayout, frameInfo.FrameDescriptorPool)
+                .WriteBufferCached(0, shareParams.DescriptorInfo())
+                .WriteImageCached(1, Texture2d.GetTextureImageInfoAtIndex(drawCall.ColourTexture))
+                .WriteImageCached(2, Texture2d.GetTextureImageInfoAtIndex(drawCall.SteepTexture))
+                .WriteImageCached(3, Texture2d.GetTextureImageInfoAtIndex(drawCall.TextureArrayIndex))
+                .WriteImageCached(4, Texture2d.GetTextureImageInfoAtIndex(drawCall.WaveA))
+                .WriteImageCached(5, Texture2d.GetTextureImageInfoAtIndex(drawCall.WaveB))
+                .WriteImageCached(6, Texture2d.GetTextureImageInfoAtIndex(drawCall.WaveC)).Build(pSet);
+            }
+        }
 
+        private unsafe Material Draw(RendererFrameInfo frameInfo, float* pParams, Material mat, PlanetTileDrawCall drawCall, ref VkDescriptorSet descriptorSet)
+        {
+            
+            if (pParams[0] != drawCall.elevationMinMax.X|| pParams[1] != drawCall.elevationMinMax.Y)
+            {
+                pParams[0] = drawCall.elevationMinMax.X;
+                pParams[1] = drawCall.elevationMinMax.Y;
+                shareParams.WriteToBuffer(pParams);
             }
 
-            pParams[0] = drawCall.elevationMinMax.X;
-            pParams[1] = drawCall.elevationMinMax.Y;
+            
 
-            shareParams.WriteToBuffer(pParams);
-
-            var descriptorWriter = new DescriptorWriter(mat.MaterialDescriptorLayout, frameInfo.FrameDescriptorPool)
-
-            .WriteBuffer(0, shareParams.DescriptorInfo())
-            .WriteImage(1, Texture2d.GetTextureImageInfoAtIndex(drawCall.ColourTexture))
-            .WriteImage(2, Texture2d.GetTextureImageInfoAtIndex(drawCall.SteepTexture))
-            .WriteImage(3, Texture2d.GetTextureImageInfoAtIndex(drawCall.TextureArrayIndex))
-            .WriteImage(4, Texture2d.GetTextureImageInfoAtIndex(drawCall.WaveA))
-            .WriteImage(5, Texture2d.GetTextureImageInfoAtIndex(drawCall.WaveB))
-            .WriteImage(6, Texture2d.GetTextureImageInfoAtIndex(drawCall.WaveC));
-
-
-            VkDescriptorSet descriptorSet = new();
-            if (!descriptorWriter.Build(&descriptorSet))
-            {
-                throw new Exception("Failed to build descriptor set");
-            }
 
             Vulkan.vkCmdBindDescriptorSets(
                 frameInfo.CommandBuffer,
