@@ -68,50 +68,54 @@ namespace SDL_Vulkan_CS.Artifact.Colour
                 for (int i = 0; i < drawCalls.Count; i++)
                 {
                     var drawCall = drawCalls[i];
-                    var curMat = Material.GetMaterialAtIndex(drawCall.MaterialIndex);
-
-                    // if mat is null or different from the last mat, it needs its descriptor sets bound
-                    if (mat == null || mat != curMat)
-                    {
-                        mat = curMat;
-                        mat?.BindGlobalDescriptorSet(frameInfo);
-                        
-                    }
-
-                    pParams[0] = drawCall.elevationMinMax.X;
-                    pParams[1] = drawCall.elevationMinMax.Y;
-
-                    shareParams.WriteToBuffer(pParams);
-
-                    Console.WriteLine(Texture2d.GetTextureAtIndex(drawCall.TextureArrayIndex)._imageImageViewType);
-                    //Debugger.Break();
-                    var descriptorWriter = new DescriptorWriter(mat.MaterialDescriptorLayout, frameInfo.FrameDescriptorPool)
-
-                    .WriteBuffer(0, shareParams.DescriptorInfo())
-                    .WriteImage(1, Texture2d.GetTextureImageInfoAtIndex(drawCall.ColourTexture))
-                    .WriteImage(2, Texture2d.GetTextureImageInfoAtIndex(drawCall.SteepTexture))
-                    .WriteImage(3, Texture2d.GetTextureImageInfoAtIndex(drawCall.TextureArrayIndex))
-                    .WriteImage(4, Texture2d.GetTextureImageInfoAtIndex(drawCall.WaveA))
-                    .WriteImage(5, Texture2d.GetTextureImageInfoAtIndex(drawCall.WaveB))
-                    .WriteImage(6, Texture2d.GetTextureImageInfoAtIndex(drawCall.WaveC));
-
-
-                    VkDescriptorSet descriptorSet = new();
-                    if (!descriptorWriter.Build(&descriptorSet))
-                    {
-                        throw new Exception("Failed to build descriptor set");
-                    }
-
-                    Vulkan.vkCmdBindDescriptorSets(
-                                    frameInfo.CommandBuffer,
-                                    VkPipelineBindPoint.Graphics,
-                                    mat.PipeLineLayout,
-                                    1,  // starting set (0 is the globalDescriptorSet, 1 is the set specific to this system)
-                                    descriptorSet);
-
-                    mat?.BindAndDraw(frameInfo, drawCall.MeshIndex, new SimplePushConstantData(drawCall.Ltw));
+                    mat = Draw(frameInfo, pParams, mat, drawCall);
                 }
             }
+        }
+
+        private unsafe Material Draw(RendererFrameInfo frameInfo, float* pParams, Material mat, PlanetTileDrawCall drawCall)
+        {
+            var curMat = Material.GetMaterialAtIndex(drawCall.MaterialIndex);
+
+            // if mat is null or different from the last mat, it needs its descriptor sets bound
+            if (mat == null || mat != curMat)
+            {
+                mat = curMat;
+                mat?.BindGlobalDescriptorSet(frameInfo);
+
+            }
+
+            pParams[0] = drawCall.elevationMinMax.X;
+            pParams[1] = drawCall.elevationMinMax.Y;
+
+            shareParams.WriteToBuffer(pParams);
+
+            var descriptorWriter = new DescriptorWriter(mat.MaterialDescriptorLayout, frameInfo.FrameDescriptorPool)
+
+            .WriteBuffer(0, shareParams.DescriptorInfo())
+            .WriteImage(1, Texture2d.GetTextureImageInfoAtIndex(drawCall.ColourTexture))
+            .WriteImage(2, Texture2d.GetTextureImageInfoAtIndex(drawCall.SteepTexture))
+            .WriteImage(3, Texture2d.GetTextureImageInfoAtIndex(drawCall.TextureArrayIndex))
+            .WriteImage(4, Texture2d.GetTextureImageInfoAtIndex(drawCall.WaveA))
+            .WriteImage(5, Texture2d.GetTextureImageInfoAtIndex(drawCall.WaveB))
+            .WriteImage(6, Texture2d.GetTextureImageInfoAtIndex(drawCall.WaveC));
+
+
+            VkDescriptorSet descriptorSet = new();
+            if (!descriptorWriter.Build(&descriptorSet))
+            {
+                throw new Exception("Failed to build descriptor set");
+            }
+
+            Vulkan.vkCmdBindDescriptorSets(
+                            frameInfo.CommandBuffer,
+                            VkPipelineBindPoint.Graphics,
+                            mat.PipeLineLayout,
+                            1,  // starting set (0 is the globalDescriptorSet, 1 is the set specific to this system)
+                            descriptorSet);
+
+            mat?.BindAndDraw(frameInfo, drawCall.MeshIndex, new SimplePushConstantData(drawCall.Ltw));
+            return mat;
         }
 
         public override void OnPostPresentation(EntityManager entityManager)
