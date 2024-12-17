@@ -2,7 +2,7 @@
 
 namespace SDL_Vulkan_CS.Artifact.Colour
 {
-    public struct TerrainShaderProperties : IComponent
+    public struct TerrainShaderTextures : IComponent
     {
         public static int ComponentId { get; set; }
         public readonly int Id => ComponentId;

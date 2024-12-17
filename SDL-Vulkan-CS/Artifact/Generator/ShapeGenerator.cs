@@ -2,7 +2,6 @@
 using SDL_Vulkan_CS.VulkanBackend;
 using System;
 using System.Numerics;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace SDL_Vulkan_CS.Artifact.Generator
@@ -52,7 +51,6 @@ namespace SDL_Vulkan_CS.Artifact.Generator
             });
 
             mesh.Vertices = vertices;
-            //mesh.RecalculateNormals();
         }
 
         public float CalculateUnscaledElevation(Vector3 pointOnUnitSphere)
@@ -78,7 +76,6 @@ namespace SDL_Vulkan_CS.Artifact.Generator
                 }
             }
             
-            //minMax.AddValue(elevation);
             return elevation;
         }
 

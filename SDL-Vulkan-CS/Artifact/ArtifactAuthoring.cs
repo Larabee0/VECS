@@ -59,7 +59,7 @@ namespace SDL_Vulkan_CS.Artifact
 
 
             var shapeEntity = entityManager.CreateEntity();
-            entityManager.AddComponent(shapeEntity, new TerrainShaderProperties()
+            entityManager.AddComponent(shapeEntity, new TerrainShaderTextures()
             {
                 WaveA = Texture2d.GetIndexOfTexture(waveA),
                 WaveB = Texture2d.GetIndexOfTexture(waveB),
@@ -152,7 +152,7 @@ namespace SDL_Vulkan_CS.Artifact
 
         private void RecalucateNormals(Mesh[] shape)
         {
-            ComputeShaderNormalsCalculation normalsCalculation = null;
+            ComputeNormals normalsCalculation = null;
             VkCommandBuffer commandBuffer = default;
             if (useComputeShaderForGeneration && useComputeShaderForNormals)
             {
@@ -253,7 +253,7 @@ namespace SDL_Vulkan_CS.Artifact
             computeGenerator?.Dispose();
             generator.ColourGenerator.UpdateColours();
 
-            var properties = World.DefaultWorld.EntityManager.GetComponent<TerrainShaderProperties>(propertyEntity);
+            var properties = World.DefaultWorld.EntityManager.GetComponent<TerrainShaderTextures>(propertyEntity);
             properties.ColourTexture = Texture2d.GetIndexOfTexture(generator.ColourGenerator.colourTexture);
             properties.SteepTexture = Texture2d.GetIndexOfTexture(generator.ColourGenerator.steepTexture);
             World.DefaultWorld.EntityManager.SetComponent(propertyEntity,properties);

@@ -9,17 +9,27 @@ namespace SDL_Vulkan_CS.Artifact.Generator
     /// https://www.khronos.org/opengl/wiki/Shader_Storage_Buffer_Object#Atomic_operations
     /// https://discussions.unity.com/t/calculating-normals-of-a-mesh-in-compute-shader/896876/3
     /// 
+    /// Compute shader version of <see cref="Mesh.RecalculateNormals"/> to get around expensive copy back operation.
+    /// This is roughly equal in speed than the CPU algorithm. but avoid a 1 second copy back operation if <see cref="ComputeShapeGenerator"/> was run.
+    /// This inheriently flushes the vertex buffer to the GPU.
+    /// The CPU normals algorithm has to copy it back to compute the normals correctly.
+    /// 
+    /// This GPU algorithim operates on the same vertex buffer as the compute shape generator.
+    /// The algorithm runs in two kernels, one calculates the face normals for each face and adds this to the <see cref="_workingNormalBuffer"/>
+    /// through atomicAdd operations (the compute shaders interpret the buffer as a buffer of ints, here it is created as a buffer of Vector3s)
+    /// 
+    /// Then other kernel converts these ints back to vector3s then normalizes them and writes normals to the vertex buffer.
     /// </summary>
-    public sealed class ComputeShaderNormalsCalculation : IDisposable
+    public sealed class ComputeNormals : IDisposable
     {
         private readonly GenericComputePipeline _calcuateNormals;
         private readonly GenericComputePipeline _normalizeNormals;
 
         private readonly DescriptorPool _descriptorPool;
 
-        private CsharpVulkanBuffer _normalBuffer;
+        private CsharpVulkanBuffer _workingNormalBuffer;
 
-        public unsafe ComputeShaderNormalsCalculation()
+        public unsafe ComputeNormals()
         {
             _calcuateNormals = new("normal_recalculate.comp",
                 new DescriptorSetBinding(VkDescriptorType.UniformBuffer, VkShaderStageFlags.Compute), // binding 0
@@ -51,10 +61,10 @@ namespace SDL_Vulkan_CS.Artifact.Generator
         {
             // to share this pipeline across the whole mesh, the normal buffer must be as long as the longest vertex buffer.
             // recallocate when a new vertex buffer is longer than the current normal buffer
-            if (_normalBuffer == null || vertexBuffer.InstanceCount > _normalBuffer.InstanceCount)
+            if (_workingNormalBuffer == null || vertexBuffer.InstanceCount > _workingNormalBuffer.InstanceCount)
             {
-                _normalBuffer?.Dispose();
-                _normalBuffer = new(GraphicsDevice.Instance, (uint)sizeof(Vector3), vertexBuffer.InstanceCount, VkBufferUsageFlags.StorageBuffer | VkBufferUsageFlags.TransferDst, false);
+                _workingNormalBuffer?.Dispose();
+                _workingNormalBuffer = new(GraphicsDevice.Instance, (uint)sizeof(Vector3), vertexBuffer.InstanceCount, VkBufferUsageFlags.StorageBuffer | VkBufferUsageFlags.TransferDst, false);
             }
 
             PrepareNormalRecalculate(indexBuffer, vertexBuffer);
@@ -77,7 +87,7 @@ namespace SDL_Vulkan_CS.Artifact.Generator
                     .WriteBuffer(0, _calcuateNormals.ShaderParameters.DescriptorInfo())
                     .WriteBuffer(1, vertexBuffer.DescriptorInfo())
                     .WriteBuffer(2, indexBuffer.DescriptorInfo())
-                    .WriteBuffer(3, _normalBuffer.DescriptorInfo())
+                    .WriteBuffer(3, _workingNormalBuffer.DescriptorInfo())
                     .Build(pSet);
             }
         }
@@ -95,7 +105,7 @@ namespace SDL_Vulkan_CS.Artifact.Generator
                 new DescriptorWriter(_normalizeNormals.DescriptorSetLayout, _descriptorPool)
                     .WriteBuffer(0, _normalizeNormals.ShaderParameters.DescriptorInfo())
                     .WriteBuffer(1, vertexBuffer.DescriptorInfo())
-                    .WriteBuffer(2, _normalBuffer.DescriptorInfo())
+                    .WriteBuffer(2, _workingNormalBuffer.DescriptorInfo())
                     .Build(pSet);
             }
         }
@@ -111,10 +121,10 @@ namespace SDL_Vulkan_CS.Artifact.Generator
             Prepare(mesh.IndexBuffer, mesh.VertexBuffer);
 
             // clear normal buffer
-            Vulkan.vkCmdFillBuffer(commandBuffer, _normalBuffer.VkBuffer, 0, _normalBuffer.BufferSize, 0);
+            Vulkan.vkCmdFillBuffer(commandBuffer, _workingNormalBuffer.VkBuffer, 0, _workingNormalBuffer.BufferSize, 0);
 
             _calcuateNormals.Dispatch(commandBuffer, mesh.IndexBuffer.InstanceCount / 3, 1, 1);
-            
+
             _normalizeNormals.Dispatch(commandBuffer, mesh.VertexBuffer.InstanceCount, 1, 1);
         }
 
@@ -133,7 +143,7 @@ namespace SDL_Vulkan_CS.Artifact.Generator
 
         public unsafe void Dispose()
         {
-            _normalBuffer?.Dispose();
+            _workingNormalBuffer?.Dispose();
             _descriptorPool?.Dispose();
             _calcuateNormals?.Dispose();
             _normalizeNormals?.Dispose();
