@@ -163,7 +163,7 @@ namespace SDL_Vulkan_CS.Artifact
             {
                 if (useComputeShaderForGeneration && useComputeShaderForNormals)
                 {
-                    normalsCalculation.Dispatch(commandBuffer, shape[i].IndexBuffer, shape[i].VertexBuffer);
+                    normalsCalculation.Dispatch(commandBuffer, shape[i]);
 
                 }
                 else
