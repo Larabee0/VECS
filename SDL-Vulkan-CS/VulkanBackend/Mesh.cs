@@ -249,6 +249,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
                 _vertexBuffer ??= new CsharpVulkanBuffer(_device, (uint)Vertex.SizeInBytes, (uint)_vertices.Length, VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.TransferSrc | VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.StorageBuffer, false);
                 _device.CopyBuffer(stagingBuffer.VkBuffer, _vertexBuffer.VkBuffer, vertexBufferSize);
                 stagingBuffer.Dispose();
+                _vertices = null;
             }
             else
             {
@@ -259,8 +260,6 @@ namespace SDL_Vulkan_CS.VulkanBackend
                     _vertexBuffer.WriteToBuffer(data);
                 }
             }
-
-            _vertices = null;
         }
 
         /// <summary>
@@ -293,6 +292,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
                 _indexBuffer ??= new CsharpVulkanBuffer(_device, sizeof(uint), (uint)_indices.Length, VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.IndexBuffer | VkBufferUsageFlags.StorageBuffer, false);
                 _device.CopyBuffer(stagingBuffer.VkBuffer, _indexBuffer.VkBuffer, indexBufferSize);
                 stagingBuffer.Dispose();
+                _indices = null;
             }
             else
             {
@@ -303,8 +303,6 @@ namespace SDL_Vulkan_CS.VulkanBackend
                     _indexBuffer.WriteToBuffer(data);
                 }
             }
-
-            _indices = null;
         }
 
         /// <summary>
