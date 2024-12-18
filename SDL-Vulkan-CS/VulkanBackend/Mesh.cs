@@ -483,10 +483,6 @@ namespace SDL_Vulkan_CS.VulkanBackend
             });
 
 
-
-            //int[] normalInts = new int[_vertexCount * 3];
-            //Vector3[]normalVec3 = new Vector3[_vertexCount];
-
             Parallel.For(0, _indices.Length / 3, (int index) =>
             {
                 int i = index * 3;
@@ -499,45 +495,17 @@ namespace SDL_Vulkan_CS.VulkanBackend
                 _vertices[vertexA].Normal += point;
                 _vertices[vertexB].Normal += point;
                 _vertices[vertexC].Normal += point;
-
-                //point=Vector3.Normalize(point);
-                //float QUANTIIZE_FACTOR = 32768.0f;
-
-                //int pointA = (int)(point.X * QUANTIIZE_FACTOR);
-                //int pointB = (int)(point.Y * QUANTIIZE_FACTOR);
-                //int pointC = (int)(point.Z * QUANTIIZE_FACTOR);
-                //vertexA *= 3;
-                //vertexB *= 3;
-                //vertexC *= 3;
-                //Interlocked.Add(ref normalInts[vertexA], pointA);
-                //Interlocked.Add(ref normalInts[vertexA + 1], pointB);
-                //Interlocked.Add(ref normalInts[vertexA + 2], pointC);
-                //Interlocked.Add(ref normalInts[vertexB], pointA);
-                //Interlocked.Add(ref normalInts[vertexB + 1], pointB);
-                //Interlocked.Add(ref normalInts[vertexB + 2], pointC);
-                //Interlocked.Add(ref normalInts[vertexC], pointA);
-                //Interlocked.Add(ref normalInts[vertexC + 1], pointB);
-                //Interlocked.Add(ref normalInts[vertexC + 2], pointC);
-
             });
 
             Parallel.For(0, _vertices.Length, (int i) =>
             {
                 _vertices[i].Normal = Vector3.Normalize(_vertices[i].Normal);
-
-                //float QUANTIIZE_FACTOR = 32768.0f;
-                //int nI = i * 3;
-                //float pointA = ((float)normalInts[nI+0]) / QUANTIIZE_FACTOR;
-                //float pointB = ((float)normalInts[nI+1]) / QUANTIIZE_FACTOR;
-                //float pointC = ((float)normalInts[nI+2]) / QUANTIIZE_FACTOR;
-                //normalVec3[i] = Vector3.Normalize(new Vector3(pointA, pointB, pointC));
             });
             if (hadToCopyBack)
             {
                 FlushVertexBuffer();
             }
-            //var delta = DateTime.Now - now;
-            //Console.WriteLine(string.Format("Recalculate normals: {0}ms", delta.TotalMilliseconds));
         }
+
     }
 }

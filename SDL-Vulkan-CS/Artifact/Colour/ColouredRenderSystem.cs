@@ -24,10 +24,12 @@ namespace SDL_Vulkan_CS.Artifact.Colour
 
             _renderQuery = new EntityQuery(entityManager)
                 .WithAll(typeof(MeshIndex), typeof(MaterialIndex), typeof(LocalToWorld), typeof(ElevationMinMax))
+                .WithNone(typeof(DoNotRender))
                 .Build();
 
             _shaderPropertyQuery = new EntityQuery(entityManager)
                 .WithAll(typeof(TerrainShaderTextures))
+                .WithNone(typeof(DoNotRender))
                 .Build();
         }
 
