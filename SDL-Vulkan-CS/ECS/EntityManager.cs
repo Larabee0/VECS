@@ -1,10 +1,8 @@
-﻿using System;
+﻿using SDL_Vulkan_CS.ECS.Presentation;
+using SDL_Vulkan_CS.VulkanBackend;
+using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
-using System.Linq;
 using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace SDL_Vulkan_CS.ECS
 {
@@ -124,6 +122,56 @@ namespace SDL_Vulkan_CS.ECS
             }
         }
 
+        public void AddComponentToHierarchy<T>(Entity entity, T component) where T : IComponent
+        {
+            if (HasComponent<Children>(entity, out int signature))
+            {
+                var children = (Children)_compSignatureToCompReference[signature];
+                var childCount = children.Value != null ? children.Value.Length : 0;
+                for (int i = 0; i < childCount; i++)
+                {
+                    AddComponentToHierarchy(children.Value[i], component);
+                }
+            }
+            AddComponent(entity, component);
+        }
+
+
+        public void AddComponentToHierarchy<T>(Entity entity) where T : IComponent
+        {
+            if (HasComponent<Children>(entity, out int signature))
+            {
+                var children = (Children)_compSignatureToCompReference[signature];
+                var childCount = children.Value != null ? children.Value.Length : 0;
+                for (int i = 0; i < childCount; i++)
+                {
+                    AddComponentToHierarchy<T>(children.Value[i]);
+                }
+            }
+            AddComponent<T>(entity);
+        }
+
+
+        private void AddComponentById(Entity entity, int compId,bool archetypeRefresh = true)
+        {
+
+            if (_componentIdToEntities.TryGetValue(compId, out var entities))
+            {
+                entities.Add(entity);
+            }
+            else
+            {
+                _componentIdToEntities.Add(compId, [entity]);
+            }
+            _entityToComponentIds[entity.Id].Add(compId);
+            IComponent component = (IComponent)Activator.CreateInstance(_componentIdToTypeLookup[compId]);
+            _compSignatureToCompReference.Add(GetEntityComponentSigature(entity, compId), component);
+            if (archetypeRefresh)
+            {
+                UpdateEntityArchetype(entity);
+            }
+        }
+
         /// <summary>
         /// Removes a component from an entity only if the netity has the component.
         /// </summary>
@@ -134,8 +182,9 @@ namespace SDL_Vulkan_CS.ECS
         {
             if (HasComponent<T>(entity, out int signature))
             {
-                _entityToComponentIds[entity.Id].Remove(GetComponentId<T>());
-                _componentIdToEntities.Remove(signature);
+                int compId = GetComponentId<T>();
+                _entityToComponentIds[entity.Id].Remove(compId);
+                _componentIdToEntities[compId].Remove(entity);
                 _compSignatureToCompReference.Remove(signature);
 
                 if (archetypeRefresh)
@@ -144,6 +193,22 @@ namespace SDL_Vulkan_CS.ECS
                 }
             }
         }
+
+
+        public void RemoveComponentFromHierarchy<T>(Entity entity) where T : IComponent
+        {
+            if (HasComponent<Children>(entity, out int signature))
+            {
+                var children = (Children)_compSignatureToCompReference[signature];
+                var childCount = children.Value != null ? children.Value.Length : 0;
+                for (int i = 0; i < childCount; i++)
+                {
+                    RemoveComponentFromHierarchy<T>(children.Value[i]);
+                }
+            }
+            RemoveComponent<T>(entity);
+        }
+
 
         /// <summary>
         /// Remove the component id from the entity if the entity has the component
@@ -156,7 +221,7 @@ namespace SDL_Vulkan_CS.ECS
             if (HasComponent(entity, compId, out int signature))
             {
                 _entityToComponentIds[entity.Id].Remove(compId);
-                _componentIdToEntities.Remove(signature);
+                _componentIdToEntities[compId].Remove(entity);
                 _compSignatureToCompReference.Remove(signature);
 
                 if (archetypeRefresh)
@@ -258,6 +323,13 @@ namespace SDL_Vulkan_CS.ECS
             return hasComponent;
         }
 
+        private IComponent GetComponent(Entity entity, int compId)
+        {
+            int signature = GetEntityComponentSigature(entity,compId);
+            _compSignatureToCompReference.TryGetValue(signature, out IComponent comp);
+            return comp;
+        }
+
         /// <summary>
         /// Slightly unsafe get component overload that directly looks up a component sigature.
         /// If the signature is not present in <see cref="_compSignatureToCompReference"/>, an exception will be raised
@@ -270,6 +342,28 @@ namespace SDL_Vulkan_CS.ECS
         {
             int signature = GetEntityComponentSigature<T>(entity);
             return GetComponent<T>(signature);
+        }
+
+        public T[] GetComponentsInHierarchy<T>(Entity entity) where T : IComponent
+        {
+            T[] components = [];
+            
+            if (HasComponent<T>(entity, out int signature))
+            {
+                components = [(T)_compSignatureToCompReference[signature]];
+            }
+
+            if (HasComponent<Children>(entity,out signature))
+            {
+                var children = (Children)_compSignatureToCompReference[signature];
+                var childCount = children.Value != null ? children.Value.Length : 0;
+                for (int i = 0; i < childCount; i++)
+                {
+                    components = [.. components, .. GetComponentsInHierarchy<T>(children.Value[i])];
+                }
+            }
+
+            return components;
         }
 
         /// <summary>
@@ -299,6 +393,16 @@ namespace SDL_Vulkan_CS.ECS
                 _compSignatureToCompReference[signature] = component;
                 return true;
             }
+            return false;
+        }
+
+        public bool CopyComponent(Entity destEntity, IComponent source)
+        {
+            if (HasComponent(destEntity, source.Id, out int signature))
+            {
+                _compSignatureToCompReference[signature] = source;
+            }
+
             return false;
         }
 
@@ -659,6 +763,65 @@ namespace SDL_Vulkan_CS.ECS
             int id = GetComponentId<T>();
             component = default;
             return _componentIdToEntities.TryGetValue(id, out HashSet<Entity> entities) && entities.Count == 1 && GetComponent(new List<Entity>(entities)[0], out component);
+        }
+
+        /// <summary>
+        /// Components using mangaged data structures, other than <see cref="Children"/>, will have the same shared instance.
+        /// </summary>
+        /// <param name="entity"></param>
+        /// <param name="instantiateNewMeshes"></param>
+        /// <param name="parentEntity"></param>
+        /// <returns></returns>
+        public Entity Instantiate(Entity entity, bool instantiateNewMeshes = false, Entity parentEntity = default)
+        {
+            HashSet<int> components = new(_entityToComponentIds[entity.Id]);
+            components.Remove(GetComponentId<Prefab>());
+
+            Entity instance = CreateEntity();
+            
+            if (components.Remove(GetComponentId<Children>()))
+            {
+                InstantiateChildren(entity, instantiateNewMeshes, instance);
+            }
+
+            if (components.Remove(GetComponentId<Parent>()) || parentEntity != Entity.Null)
+            {
+                AddComponent<Parent>(instance, new() { Value = parentEntity });
+            }
+
+            if (instantiateNewMeshes && components.Remove(GetComponentId<MeshIndex>()))
+            {
+                InstantiateMeshes(entity, instance);
+            }
+
+            foreach (var compId in components)
+            {
+                IComponent sourceInstance = GetComponent(entity, compId);   
+                AddComponentById(instance, compId,false);
+                CopyComponent(instance, sourceInstance);
+            }
+
+            UpdateEntityArchetype(instance);
+
+            return instance;
+        }
+
+        private void InstantiateChildren(Entity entity, bool instantiateNewMeshes, Entity instance)
+        {
+            Children children = GetComponent<Children>(entity);
+            Children instanceChildren = new() { Value = new Entity[children.Value.Length] };
+            for (int i = 0; i < children.Value.Length; i++)
+            {
+                instanceChildren.Value[i] = Instantiate(children.Value[i], instantiateNewMeshes, instance);
+            }
+            AddComponent(instance, instanceChildren);
+        }
+
+        private void InstantiateMeshes(Entity entity, Entity instance)
+        {
+            MeshIndex mesh = GetComponent<MeshIndex>(entity);
+            Mesh instanceMesh = new(Mesh.GetMeshAtIndex(mesh.Value, false));
+            AddComponent(instance, new MeshIndex() { Value = Mesh.GetIndexOfMesh(instanceMesh) });
         }
     }
 }

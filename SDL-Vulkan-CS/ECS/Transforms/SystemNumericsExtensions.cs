@@ -9,6 +9,18 @@ namespace SDL_Vulkan_CS
     /// </summary>
     public static class SystemNumericsExtensions
     {
+        public static float Angle(Vector3 from, Vector3 to)
+        {
+            float num = (float)MathF.Sqrt(from.LengthSquared() + to.LengthSquared());
+            if(num < 1e-15f)
+            {
+                return 0f;
+            }
+
+            float num2 = Math.Clamp(Vector3.Dot(from,to),-1f,1f);
+            return float.RadiansToDegrees(MathF.Acos(num2));
+        }
+
         public static float InverseLerp(float a, float b, float value)
         {
             return a != b ? Math.Clamp((value - a) / (b - a), 0, 1) : 0;

@@ -4,14 +4,14 @@ using SDL_Vulkan_CS.VulkanBackend;
 using System;
 using System.Collections.Generic;
 using System.Numerics;
+using System.Reflection.Metadata.Ecma335;
 using Vortice.Vulkan;
 
 namespace SDL_Vulkan_CS.Artifact.Colour
 {
     public class ColouredRenderSystem : PresentationSystemBase
     {
-        private EntityQuery _renderQuery;
-        private EntityQuery _shaderPropertyQuery;
+        private EntityQuery _planetRenderQuery;
         private CsharpVulkanBuffer _shaderParams;
 
         /// <summary>
@@ -22,14 +22,9 @@ namespace SDL_Vulkan_CS.Artifact.Colour
         {
             _shaderParams = new(GraphicsDevice.Instance, (uint)sizeof(PlanetTileShaderParmeters), 1, VkBufferUsageFlags.UniformBuffer, true);
 
-            _renderQuery = new EntityQuery(entityManager)
-                .WithAll(typeof(MeshIndex), typeof(MaterialIndex), typeof(LocalToWorld), typeof(ElevationMinMax))
-                .WithNone(typeof(DoNotRender))
-                .Build();
-
-            _shaderPropertyQuery = new EntityQuery(entityManager)
-                .WithAll(typeof(TerrainShaderTextures))
-                .WithNone(typeof(DoNotRender))
+            _planetRenderQuery = new EntityQuery(entityManager)
+                .WithAll(typeof(Children),typeof(PlanetPropeties),typeof(LocalToWorld),typeof(MaterialIndex))
+                .WithNone(typeof(DoNotRender), typeof(Prefab))
                 .Build();
         }
 
@@ -46,62 +41,66 @@ namespace SDL_Vulkan_CS.Artifact.Colour
         /// <param name="frameInfo"></param>
         public unsafe override void OnPresent(EntityManager entityManager, RendererFrameInfo frameInfo)
         {
-            if (_renderQuery.HasEntities && _shaderPropertyQuery.HasEntities)
+            if (_planetRenderQuery.HasEntities)
             {
-
-                entityManager.SingletonComponent<TerrainShaderTextures>(out var properties);
-
-                List<PlanetTileDrawCall> drawCalls = CreateDrawCalls(entityManager, properties);
-
-                PlanetTileShaderParmeters shaderParameters = new()
-                {
-                    ElevationMin = float.MaxValue,
-                    ElevationMax = float.MinValue,
-                    SineTime = MathF.Sin(Application.TimeSinceStart),
-                    CosineTime = MathF.Cos(Application.TimeSinceStart),
-                    TextureCount = Texture2d.GetTextureAtIndex(properties.TextureArrayIndex).ImageExtent.depth,
-                    TerrainScale = 3f,
-                    OceanBrightness = 5f
-                };
-
                 Material mat = null;
-                VkDescriptorSet descriptorSet = default;
-
-                drawCalls.ForEach(drawCall =>
+                Matrix4x4 camLTW = Matrix4x4.Identity;
+                if(entityManager.SingletonEntity<Camera>(out var camEntity))
                 {
-                    var curMat = Material.GetMaterialAtIndex(drawCall.MaterialIndex);
+                    camLTW = entityManager.GetComponent<LocalToWorld>(camEntity).Value;
+                }
+                _planetRenderQuery.GetEntities().ForEach(e =>
+                {
+                    var material = entityManager.GetComponent<MaterialIndex>(e);
 
-                    // if mat is null or different from the last mat, it needs descriptor sets must be bound.
+                    var drawCalls = CreatePlanetDrawCalls(entityManager, e,camLTW);
+
+
+                    if (drawCalls == null || drawCalls.Count == 0) return;
+
+                    var curMat = Material.GetMaterialAtIndex(material.Value);
+                    if (curMat == null) return;
+                    
                     if (mat == null || mat != curMat)
                     {
                         mat = curMat;
-                        mat?.BindGlobalDescriptorSet(frameInfo);
-                        descriptorSet = new();
-                        WriteDescriptorSet(frameInfo, mat, drawCall, ref descriptorSet);
+                        curMat.BindGlobalDescriptorSet(frameInfo);
                     }
 
-                    mat = DrawTile(frameInfo, ref shaderParameters, mat, drawCall, ref descriptorSet);
+                    var planetProperties = entityManager.GetComponent<PlanetPropeties>(e);
+                    planetProperties.WriteShaderParamters(_shaderParams);
+
+                    VkDescriptorSet descriptorSet = new();
+                    WriteDescriptorSet(frameInfo, curMat, planetProperties, ref descriptorSet);
+
+                    Vulkan.vkCmdBindDescriptorSets(
+                        frameInfo.CommandBuffer,
+                        VkPipelineBindPoint.Graphics,
+                        curMat.PipeLineLayout,
+                        1,  // starting set (0 is the globalDescriptorSet, 1 is the set specific to this system)
+                        descriptorSet);
+
+                    drawCalls.ForEach(draw => curMat.BindAndDraw(frameInfo, draw.MeshIndex, new SimplePushConstantData(draw.Ltw)));
                 });
             }
         }
 
-        private List<PlanetTileDrawCall> CreateDrawCalls(EntityManager entityManager,TerrainShaderTextures properties)
+        private static List<PlanetTileDrawCall> CreatePlanetDrawCalls(EntityManager entityManager, Entity planetRoot, Matrix4x4 camLTW)
         {
-            List<Entity> entities = _renderQuery.GetEntities();
-            List<PlanetTileDrawCall> drawCalls = new(entities.Count);
-            entities.ForEach(e =>
-            {
-                drawCalls.Add(new()
-                {
-                    ShaderProperties = properties,
-                    MeshIndex = entityManager.GetComponent<MeshIndex>(e).Value,
-                    MaterialIndex = entityManager.GetComponent<MaterialIndex>(e).Value,
-                    Ltw = entityManager.GetComponent<LocalToWorld>(e).Value,
-                    elevationMinMax = entityManager.GetComponent<ElevationMinMax>(e).Value
-                });
-            });
+            var children = entityManager.GetComponent<Children>(planetRoot);
+            if(children.Value == null) { return null; }
 
-            drawCalls.Sort(new PlanetTileDrawCall());
+            List<PlanetTileDrawCall> drawCalls = new (children.Value.Length);
+
+            for(int i = 0; i < children.Value.Length; i++)
+            {
+                LocalToWorld ltw = entityManager.GetComponent<LocalToWorld>(children.Value[i]);
+                Vector3 toCamera = Vector3.Normalize(camLTW.Translation - ltw.Value.Translation);
+                if (SystemNumericsExtensions.Angle(-entityManager.GetComponent<TileNormalVector>(children.Value[i]).Value, toCamera) > 100)
+                {
+                    drawCalls.Add(new(entityManager.GetComponent<MeshIndex>(children.Value[i]), ltw));
+                }
+            }
 
             return drawCalls;
         }
@@ -111,59 +110,26 @@ namespace SDL_Vulkan_CS.Artifact.Colour
         /// </summary>
         /// <param name="frameInfo"></param>
         /// <param name="mat"></param>
-        /// <param name="drawCall"></param>
+        /// <param name="textures"></param>
         /// <param name="descriptorSet"></param>
-        private unsafe void WriteDescriptorSet(RendererFrameInfo frameInfo, Material mat, PlanetTileDrawCall drawCall, ref VkDescriptorSet descriptorSet)
+        private unsafe void WriteDescriptorSet(RendererFrameInfo frameInfo, Material mat, PlanetPropeties textures, ref VkDescriptorSet descriptorSet)
         {
             fixed (VkDescriptorSet* pSet = &descriptorSet)
             {
                 new DescriptorWriter(mat.MaterialDescriptorLayout, frameInfo.FrameDescriptorPool)
                 .WriteBufferCached(0, _shaderParams.DescriptorInfo())
-                .WriteImageCached(1, Texture2d.GetTextureImageInfoAtIndex(drawCall.ColourTexture))
-                .WriteImageCached(2, Texture2d.GetTextureImageInfoAtIndex(drawCall.SteepTexture))
-                .WriteImageCached(3, Texture2d.GetTextureImageInfoAtIndex(drawCall.TextureArrayIndex))
-                .WriteImageCached(4, Texture2d.GetTextureImageInfoAtIndex(drawCall.WaveA))
-                .WriteImageCached(5, Texture2d.GetTextureImageInfoAtIndex(drawCall.WaveB))
-                .WriteImageCached(6, Texture2d.GetTextureImageInfoAtIndex(drawCall.WaveC)).Build(pSet);
+                .WriteImageCached(1, Texture2d.GetTextureImageInfoAtIndex(textures.ColourTexture))
+                .WriteImageCached(2, Texture2d.GetTextureImageInfoAtIndex(textures.SteepTexture))
+                .WriteImageCached(3, Texture2d.GetTextureImageInfoAtIndex(textures.TextureArrayIndex))
+                .WriteImageCached(4, Texture2d.GetTextureImageInfoAtIndex(textures.WaveA))
+                .WriteImageCached(5, Texture2d.GetTextureImageInfoAtIndex(textures.WaveB))
+                .WriteImageCached(6, Texture2d.GetTextureImageInfoAtIndex(textures.WaveC)).Build(pSet);
             }
-        }
-
-        /// <summary>
-        ///  draw tile mesh, overwriting elevation minmax if required
-        /// </summary>
-        /// <param name="frameInfo"></param>
-        /// <param name="shaderParameters"></param>
-        /// <param name="mat"></param>
-        /// <param name="drawCall"></param>
-        /// <param name="descriptorSet"></param>
-        /// <returns></returns>
-        private unsafe Material DrawTile(RendererFrameInfo frameInfo, ref PlanetTileShaderParmeters shaderParameters, Material mat, PlanetTileDrawCall drawCall, ref VkDescriptorSet descriptorSet)
-        {
-            // overwrite MinMax if different.
-            if (shaderParameters.ElevationMinMax != drawCall.elevationMinMax)
-            {
-                shaderParameters.UpdateMinMax(drawCall.elevationMinMax);
-                fixed (PlanetTileShaderParmeters* pShaderParameters = &shaderParameters)
-                {
-                    _shaderParams.WriteToBuffer(pShaderParameters);
-                }
-            }
-
-            Vulkan.vkCmdBindDescriptorSets(
-                frameInfo.CommandBuffer,
-                VkPipelineBindPoint.Graphics,
-                mat.PipeLineLayout,
-                1,  // starting set (0 is the globalDescriptorSet, 1 is the set specific to this system)
-                descriptorSet);
-
-            mat?.BindAndDraw(frameInfo, drawCall.MeshIndex, new SimplePushConstantData(drawCall.Ltw));
-            return mat;
         }
 
         public override void OnPostPresentation(EntityManager entityManager)
         {
-            _renderQuery.MarkStale();
-            _shaderPropertyQuery.MarkStale();
+            _planetRenderQuery.MarkStale();
         }
 
         public override void OnDestroy(EntityManager entityManager)
@@ -173,56 +139,17 @@ namespace SDL_Vulkan_CS.Artifact.Colour
         }
 
         /// <summary>
-        /// This is mostly hardcoded for one planet.
         /// Contains the data needed to draw a planet tile.
         /// </summary>
-        public struct PlanetTileDrawCall : IComparer<PlanetTileDrawCall>
+        private struct PlanetTileDrawCall
         {
             public int MeshIndex;
-            public int MaterialIndex;
-            public Vector2 elevationMinMax;
             public Matrix4x4 Ltw;
-            public TerrainShaderTextures ShaderProperties;
 
-            public readonly int ColourTexture => ShaderProperties.ColourTexture;
-            public readonly int SteepTexture => ShaderProperties.SteepTexture;
-            public readonly int WaveA => ShaderProperties.WaveA;
-            public readonly int WaveB => ShaderProperties.WaveB;
-            public readonly int WaveC => ShaderProperties.WaveC;
-            public readonly int TextureArrayIndex => ShaderProperties.TextureArrayIndex;
-
-            public readonly int Compare(PlanetTileDrawCall x, PlanetTileDrawCall y)
+            public PlanetTileDrawCall(MeshIndex meshIndex, LocalToWorld ltw)
             {
-                if (x.MaterialIndex.CompareTo(y.MaterialIndex) != 0)
-                {
-                    return x.MaterialIndex.CompareTo(y.MaterialIndex);
-                }
-                else
-                {
-                    return 0;
-                }
-            }
-        }
-
-        /// <summary>
-        /// Contains the uniform paramters for the planet frag shader.
-        /// </summary>
-        private struct PlanetTileShaderParmeters
-        {
-            public float ElevationMin;
-            public float ElevationMax;
-            public float SineTime;
-            public float CosineTime;
-            public float TextureCount;
-            public float TerrainScale;
-            public float OceanBrightness;
-
-            public readonly Vector2 ElevationMinMax => new(ElevationMin, ElevationMax);
-
-            public void UpdateMinMax(Vector2 minMax)
-            {
-                ElevationMin = minMax.X;
-                ElevationMax = minMax.Y;
+                MeshIndex = meshIndex.Value;
+                Ltw = ltw.Value;
             }
         }
     }

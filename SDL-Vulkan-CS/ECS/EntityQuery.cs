@@ -275,9 +275,17 @@ namespace SDL_Vulkan_CS.ECS
 
             _withNone.ForEach(compId =>
             {
-                if (_entityManager.GetAllEntitiesWithoutComponent(compId,out var entities))
+                if (_entityManager.GetAllEntitiesWithoutComponent(compId, out var entities))
                 {
-                    entitiesSet.UnionWith(entities);
+                    if(entitiesSet.Count > 0)
+                    {
+                        entitiesSet.IntersectWith(entities);
+
+                    }
+                    else
+                    {
+                        entitiesSet.UnionWith(entities);
+                    }
                 }
             });
 

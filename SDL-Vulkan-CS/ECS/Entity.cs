@@ -1,8 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace SDL_Vulkan_CS.ECS
 {
@@ -27,6 +23,31 @@ namespace SDL_Vulkan_CS.ECS
         public override readonly int GetHashCode()
         {
             return HashCode.Combine(Id, Version);
+        }
+
+        public static bool operator ==(Entity left, Entity right)
+        {
+            return left.Id == right.Id && left.Version == right.Version;
+        }
+
+        public static bool operator !=(Entity left, Entity right)
+        {
+            return !(left == right);
+        }
+
+        public readonly bool Equals(Entity x, Entity y)
+        {
+            return x == y;
+        }
+
+        public readonly bool Equals(Entity other)
+        {
+            return this == other;
+        }
+
+        public override readonly bool Equals(object obj)
+        {
+            return obj is Entity vertex && vertex.Equals(this);
         }
     }
 }

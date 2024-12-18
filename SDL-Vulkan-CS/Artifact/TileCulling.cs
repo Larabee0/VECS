@@ -27,7 +27,7 @@ namespace SDL_Vulkan_CS.Artifact
     public struct TileNormalVector : IComponent
     {
         public static int ComponentId { get; set; }
-        public int Id => Id;
+        public int Id => ComponentId;
 
         public Vector3 Value;
     }

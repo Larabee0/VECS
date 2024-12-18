@@ -14,18 +14,19 @@ namespace SDL_Vulkan_CS.ECS
         {
             // any entity with a translation, rotation or scale component should get a LTW component added to it automatically.
             _addLTWQuery = new EntityQuery(entityManager)
-                .WithAny(typeof(Translation), typeof(Rotation), typeof(Scale), typeof(Parent))
-                .WithNone(typeof(LocalToWorld))
+                .WithAny(typeof(Translation), typeof(Rotation), typeof(Scale), typeof(Parent),typeof(Children))
+                .WithNone(typeof(LocalToWorld), typeof(Prefab))
                 .Build();
 
             // local to world update query
             _ltwQuery = new EntityQuery(entityManager)
                 .WithAll(typeof(LocalToWorld))
-                .WithAny(typeof(Translation), typeof(Rotation), typeof(Scale))
-                .WithNone(typeof(Parent))
+                .WithAny(typeof(Translation), typeof(Rotation), typeof(Scale), typeof(Children))
+                .WithNone(typeof(Parent),typeof(Prefab))
                 .Build();
             _ltwChildQuery = new EntityQuery(entityManager)
                 .WithAll(typeof(LocalToWorld), typeof(Parent))
+                .WithNone(typeof(Prefab))
                 .Build();
         }
 

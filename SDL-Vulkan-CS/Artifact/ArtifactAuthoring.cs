@@ -28,7 +28,6 @@ namespace SDL_Vulkan_CS.Artifact
         };
 
         private readonly bool useComputeShaderForGeneration = true;
-        private readonly bool useComputeShaderForNormals = true;
         private readonly int subdivisons = 7;
 
         public ArtifactAuthoring()
@@ -40,21 +39,42 @@ namespace SDL_Vulkan_CS.Artifact
             CreateDefaultCamera(entityManager);
             // LoadTestScene(entityManager);
 
-            var templatePlanet = CreateTemplatePlanet(entityManager);
+            var prefabPlanet = CreatePrefabPlanet(entityManager);
 
+            var theSun = entityManager.CreateEntity();
+            var planetInstance1 = entityManager.Instantiate(prefabPlanet, true);
+            var planetInstance2 = entityManager.Instantiate(prefabPlanet, true);
+
+            GeneratePlanet(planetInstance1);
+            GeneratePlanet(planetInstance2);
+
+            entityManager.RemoveComponentFromHierarchy<DoNotRender>(planetInstance1);
+            entityManager.RemoveComponentFromHierarchy<DoNotRender>(planetInstance2);
+
+            entityManager.AddComponent(theSun, new Children()
+            {
+                Value = [planetInstance1, planetInstance2]
+            });
+
+            Parent sunparent = new() { Value = theSun };
+
+            entityManager.AddComponent(planetInstance1, sunparent);
+            entityManager.AddComponent(planetInstance2, sunparent);
+
+            entityManager.SetComponent(planetInstance1, new Translation() { Value = new(-10, 0, 0) });
+            entityManager.SetComponent(planetInstance2, new Translation() { Value = new(10, 0, 0) });
 
             Console.WriteLine("Shape loaded");
-            //TestComputeShader();
         }
 
-        private Entity CreateTemplatePlanet(EntityManager entityManager)
+        private Entity CreatePrefabPlanet(EntityManager entityManager)
         {
             var waveA = new Texture2d(GraphicsDevice.Instance, Texture2d.GetTextureInDefaultPath("Wave.jpg"));
             var waveC = new Texture2d(GraphicsDevice.Instance, Texture2d.GetTextureInDefaultPath("Wave A.png"));
             var waveB = new Texture2d(GraphicsDevice.Instance, Texture2d.GetTextureInDefaultPath("Wave B.png"));
             var terrainShapes = Texture2d.CreateTextureArray("Rock1.png", "Rock2.png", "Rock3.png", "Rock4.png", "Rock5.png", "Snow.png", "SnowOld.png");
 
-            var lit = new Material("planet_shader.vert", "planet_shader.frag", typeof(SimplePushConstantData),
+            var planetLit = new Material("planet_shader.vert", "planet_shader.frag", typeof(SimplePushConstantData),
                 new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.UniformBuffer, StageFlags = VkShaderStageFlags.Fragment },
                 new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Fragment },
                 new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Fragment },
@@ -62,35 +82,29 @@ namespace SDL_Vulkan_CS.Artifact
                 new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Fragment },
                 new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Fragment },
                 new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Fragment }
-                );
+            );
 
 
             var planet = entityManager.CreateEntity();
-            entityManager.AddComponent(planet, new TerrainShaderTextures()
+            entityManager.AddComponent(planet, new PlanetPropeties()
             {
                 WaveA = Texture2d.GetIndexOfTexture(waveA),
                 WaveB = Texture2d.GetIndexOfTexture(waveB),
                 WaveC = Texture2d.GetIndexOfTexture(waveC),
-                TextureArrayIndex = Texture2d.GetIndexOfTexture(terrainShapes)
+                TextureArrayIndex = Texture2d.GetIndexOfTexture(terrainShapes),
+                TerrainScale = 3f,
+                OceanBrightness = 5f
             });
             entityManager.AddComponent(planet, new Translation() { Value = new(0, 0f, 0) });
             entityManager.AddComponent(planet, new Scale() { Value = new(3f, 3f, 3f) });
-            entityManager.AddComponent(planet, new Children());
-            entityManager.AddComponent(planet, new DoNotRender());
+            entityManager.AddComponent<Children>(planet);
+            entityManager.AddComponent<DoNotRender>(planet);
+            entityManager.AddComponent<Prefab>(planet);
+            entityManager.AddComponent(planet, new MaterialIndex { Value = Material.GetIndexOfMaterial(planetLit) });
 
             InitialiseTiles(entityManager, planet);
-
-
             return planet;
         }
-
-        private static void TestComputeShader()
-        {
-            ComputeShaderTesting computeShader = new();
-
-            computeShader.Dispose();
-        }
-
 
         private void InitialiseTiles(EntityManager entityManager, Entity planetRoot)
         {
@@ -114,6 +128,8 @@ namespace SDL_Vulkan_CS.Artifact
                 entityManager.AddComponent(tileEntity, new MeshIndex() { Value = Mesh.GetIndexOfMesh(mesh) });
                 entityManager.AddComponent(tileEntity, new Parent() { Value = planetRoot});
                 entityManager.AddComponent(tileEntity, new TileNormalVector() { Value = tileNormals[i] });
+                entityManager.AddComponent<DoNotRender>(tileEntity);
+                entityManager.AddComponent<Prefab>(tileEntity);
                 propertyChildren.Value[i] = tileEntity;
             }
 
@@ -152,13 +168,8 @@ namespace SDL_Vulkan_CS.Artifact
                 Subdivider.Subdivide(shape[i], subdivisons, false);
             });
 
-            // for (int i = 0; i < shape.Length; i++)
-            // {
-            //     Subdivider.Subdivide(shape[i], subdivisons,false);
-            // }
             var delta = DateTime.Now - now;
             Console.WriteLine(string.Format("Subdivide Mesh: {0}ms", delta.TotalMilliseconds));
-
 
             now = DateTime.Now;
             options = new()
@@ -169,21 +180,27 @@ namespace SDL_Vulkan_CS.Artifact
 
                 Subdivider.SimpliftySubdivisionMainThread(shape[i]);
             });
-            //for (int i = 0; i < shape.Length; i++)
-            //{
-            //    Subdivider.SimpliftySubdivisionMainThread(shape[i]);
-            //}
+
             delta = DateTime.Now - now;
             Console.WriteLine(string.Format("Simplify Mesh: {0}ms", delta.TotalMilliseconds));
         }
 
-        private Vector2 GeneratePlanet(Mesh[] shape, Entity propertyEntity)
+        private void GeneratePlanet(Entity planetRoot)
         {
+            MeshIndex[] meshIndices = World.DefaultWorld.EntityManager.GetComponentsInHierarchy<MeshIndex>(planetRoot);
+
+            Mesh[] meshes = new Mesh[meshIndices.Length];
+
+            for (int i = 0; i < meshIndices.Length; i++)
+            {
+                meshes[i] = Mesh.GetMeshAtIndex(meshIndices[i].Value);
+            }
 
             ShapeGenerator generator = CreateShapeGenerator();
             ComputeShapeGenerator computeGenerator = null;
             ComputeNormals computeNormals = null;
             VkCommandBuffer commandBuffer = default;
+
             if (useComputeShaderForGeneration)
             {
 
@@ -193,42 +210,43 @@ namespace SDL_Vulkan_CS.Artifact
                 commandBuffer = GraphicsDevice.Instance.BeginSingleTimeCommands();
             }
             
-            for (int i = 0; i < shape.Length; i++)
+            for (int i = 0; i < meshes.Length; i++)
             {
-
                 if (useComputeShaderForGeneration)
                 {
-                    computeGenerator.Dispatch(commandBuffer, shape[i]);
+                    computeGenerator.Dispatch(commandBuffer, meshes[i]);
                 }
                 else
                 {
-                    generator.RaiseMesh(shape[i]);
-                    shape[i].RecalculateNormals();
+                    generator.RaiseMesh(meshes[i]);
+                    meshes[i].RecalculateNormals();
                 }
             }
+
             if (useComputeShaderForGeneration)
             {
-                for (int i = 0; i < shape.Length; i++)
+                for (int i = 0; i < meshes.Length; i++)
                 {
-                    computeNormals.Dispatch(commandBuffer, shape[i]);
+                    computeNormals.Dispatch(commandBuffer, meshes[i]);
                 }
+
                 GraphicsDevice.Instance.EndSingleTimeCommands(commandBuffer);
 
                 Vector2 shaderMinMax = computeGenerator.ReadElevationMinMax();
                 generator.MinMax.AddValue(shaderMinMax.X);
                 generator.MinMax.AddValue(shaderMinMax.Y);
             }
+
             computeNormals?.Dispose();
             computeGenerator?.Dispose();
             generator.ColourGenerator.UpdateColours();
 
-            var properties = World.DefaultWorld.EntityManager.GetComponent<TerrainShaderTextures>(propertyEntity);
+            var properties = World.DefaultWorld.EntityManager.GetComponent<PlanetPropeties>(planetRoot);
             properties.ColourTexture = Texture2d.GetIndexOfTexture(generator.ColourGenerator.colourTexture);
             properties.SteepTexture = Texture2d.GetIndexOfTexture(generator.ColourGenerator.steepTexture);
-            World.DefaultWorld.EntityManager.SetComponent(propertyEntity,properties);
-            Vector2 minMax = new(generator.MinMax.Min, generator.MinMax.Max);
-            Console.WriteLine(string.Format("Elevation min-max: {0}", minMax));
-            return minMax;
+            properties.ElevationMinMax = new(generator.MinMax.Min, generator.MinMax.Max);
+            World.DefaultWorld.EntityManager.SetComponent(planetRoot,properties);
+            Console.WriteLine("Generated planet");
         }
 
         public static ShapeGenerator CreateShapeGenerator()

@@ -113,6 +113,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
             Indices = [];
             _hasIndexBuffer = false;
             _stagedMesh = useStagingBuffers;
+            Meshes.Add(this);
         }
 
         /// <summary>
@@ -129,6 +130,21 @@ namespace SDL_Vulkan_CS.VulkanBackend
             Indices = indices;
             _hasIndexBuffer = true;
             _stagedMesh = useStagingBuffers;
+            Meshes.Add(this);
+        }
+
+        public Mesh(Mesh mesh)
+        {
+            _device = mesh._device;
+            Vertices = (Vertex[])mesh.Vertices.Clone();
+            _hasIndexBuffer = mesh.HasIndexBuffer;
+            if (mesh.HasIndexBuffer)
+            {
+                Indices = (uint[])mesh.Indices.Clone();
+            }
+            _stagedMesh = mesh._stagedMesh;
+
+            Meshes.Add(this);
         }
 
         /// <summary>
@@ -347,7 +363,6 @@ namespace SDL_Vulkan_CS.VulkanBackend
             }
             var meshes = CreateMeshes(device, scene);
             importer.Dispose();
-            Meshes.AddRange(meshes);
             return meshes;
         }
 
@@ -506,6 +521,5 @@ namespace SDL_Vulkan_CS.VulkanBackend
                 FlushVertexBuffer();
             }
         }
-
     }
 }
