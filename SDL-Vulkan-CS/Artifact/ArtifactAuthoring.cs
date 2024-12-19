@@ -32,7 +32,9 @@ namespace SDL_Vulkan_CS.Artifact
 
         public ArtifactAuthoring()
         {
+            World.DefaultWorld.CreateSystem<TransformPlanetsSystem>();
             World.DefaultWorld.CreateSystem<ColouredRenderSystem>();
+            World.DefaultWorld.CreateSystem<StarRenderSystem>();
 
             EntityManager entityManager = World.DefaultWorld.EntityManager;
 
@@ -41,30 +43,36 @@ namespace SDL_Vulkan_CS.Artifact
 
             var prefabPlanet = CreatePrefabPlanet(entityManager);
 
-            var theSun = entityManager.CreateEntity();
-            var planetInstance1 = entityManager.Instantiate(prefabPlanet, true);
-            var planetInstance2 = entityManager.Instantiate(prefabPlanet, true);
+            var aStar = entityManager.CreateEntity();
+            entityManager.AddComponent(aStar, new Star() { Colour = Vector3.One, Intensity = 1, Radius = 0.5f });
 
-            GeneratePlanet(planetInstance1);
-            GeneratePlanet(planetInstance2);
+            Parent starParent = new() { Value = aStar };
 
-            entityManager.RemoveComponentFromHierarchy<DoNotRender>(planetInstance1);
-            entityManager.RemoveComponentFromHierarchy<DoNotRender>(planetInstance2);
-
-            entityManager.AddComponent(theSun, new Children()
+            entityManager.AddComponent(aStar, new Children()
             {
-                Value = [planetInstance1, planetInstance2]
+                Value = [
+                    InstantiateNewOrbitalPlanet(entityManager, prefabPlanet, starParent, new(-5f, 0, 0)),
+                    InstantiateNewOrbitalPlanet(entityManager, prefabPlanet, starParent, new(5f, 0, 0))
+                ]
             });
 
-            Parent sunparent = new() { Value = theSun };
-
-            entityManager.AddComponent(planetInstance1, sunparent);
-            entityManager.AddComponent(planetInstance2, sunparent);
-
-            entityManager.SetComponent(planetInstance1, new Translation() { Value = new(-10, 0, 0) });
-            entityManager.SetComponent(planetInstance2, new Translation() { Value = new(10, 0, 0) });
-
             Console.WriteLine("Shape loaded");
+        }
+
+        private Entity InstantiateNewOrbitalPlanet(EntityManager entityManager, Entity planetPrefab,Parent starParent,Vector3 initialPosition)
+        {
+            Entity orbitalPlane = entityManager.CreateEntity();
+            entityManager.AddComponent<Rotation>(orbitalPlane);
+            entityManager.AddComponent(orbitalPlane, starParent);
+            var planetInstance = entityManager.Instantiate(planetPrefab, true);
+            GeneratePlanet(planetInstance);
+            entityManager.RemoveComponentFromHierarchy<DoNotRender>(planetInstance);
+            entityManager.AddComponent(orbitalPlane, new Children() { Value = [planetInstance] });
+            entityManager.AddComponent(planetInstance, new Parent() { Value = orbitalPlane });
+            entityManager.AddComponent<Rotation>(planetInstance);
+            entityManager.SetComponent(planetInstance, new Translation() { Value = initialPosition });
+
+            return orbitalPlane;
         }
 
         private Entity CreatePrefabPlanet(EntityManager entityManager)
@@ -74,7 +82,7 @@ namespace SDL_Vulkan_CS.Artifact
             var waveB = new Texture2d(GraphicsDevice.Instance, Texture2d.GetTextureInDefaultPath("Wave B.png"));
             var terrainShapes = Texture2d.CreateTextureArray("Rock1.png", "Rock2.png", "Rock3.png", "Rock4.png", "Rock5.png", "Snow.png", "SnowOld.png");
 
-            var planetLit = new Material("planet_shader.vert", "planet_shader.frag", typeof(SimplePushConstantData),
+            var planetLit = new Material("planet_shader.vert", "planet_shader.frag", typeof(ModelPushConstantData),
                 new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.UniformBuffer, StageFlags = VkShaderStageFlags.Fragment },
                 new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Fragment },
                 new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Fragment },
@@ -93,7 +101,9 @@ namespace SDL_Vulkan_CS.Artifact
                 WaveC = Texture2d.GetIndexOfTexture(waveC),
                 TextureArrayIndex = Texture2d.GetIndexOfTexture(terrainShapes),
                 TerrainScale = 3f,
-                OceanBrightness = 5f
+                OceanBrightness = 5f,
+                OrbitalSpeed = float.DegreesToRadians(0),
+                DayNightSpeed = float.DegreesToRadians(0),
             });
             entityManager.AddComponent(planet, new Translation() { Value = new(0, 0f, 0) });
             entityManager.AddComponent(planet, new Scale() { Value = new(3f, 3f, 3f) });
@@ -197,6 +207,7 @@ namespace SDL_Vulkan_CS.Artifact
             }
 
             ShapeGenerator generator = CreateShapeGenerator();
+            generator.RandomiseSettings();
             ComputeShapeGenerator computeGenerator = null;
             ComputeNormals computeNormals = null;
             VkCommandBuffer commandBuffer = default;
@@ -251,13 +262,13 @@ namespace SDL_Vulkan_CS.Artifact
 
         public static ShapeGenerator CreateShapeGenerator()
         {
-            ColourSettings colourSettings = CreateColourSettings();
+            ColourSettings colourSettings = CreateColoursSet1();
 
             return new ShapeGenerator(colourSettings)
             {
                 PlanetRadius = 1f,
                 Seed = 0,
-                RandomSeed = false,
+                RandomSeed = true,
                 NoiseFilters =
                 [
                     new SimpleNoiseSettings()
@@ -297,7 +308,7 @@ namespace SDL_Vulkan_CS.Artifact
             };
         }
 
-        private static ColourSettings CreateColourSettings()
+        private static ColourSettings CreateColoursSet1()
         {
             return new()
             {
@@ -436,8 +447,8 @@ namespace SDL_Vulkan_CS.Artifact
             var paving = new Texture2d(GraphicsDevice.Instance, Texture2d.GetTextureInDefaultPath("paving 5.png"));
             var orangeStone = new Texture2d(GraphicsDevice.Instance, Texture2d.GetTextureInDefaultPath("orange.jpg"));
 
-            var lit = new Material("simple_shader.vert", "simple_shader.frag", typeof(SimplePushConstantData), new DescriptorSetBinding(VkDescriptorType.CombinedImageSampler, VkShaderStageFlags.Fragment));
-            var unlit = new Material("unlit_shader.vert", "unlit_shader.frag", typeof(SimplePushConstantData), new DescriptorSetBinding(VkDescriptorType.CombinedImageSampler, VkShaderStageFlags.Fragment));
+            var lit = new Material("simple_shader.vert", "simple_shader.frag", typeof(ModelPushConstantData), new DescriptorSetBinding(VkDescriptorType.CombinedImageSampler, VkShaderStageFlags.Fragment));
+            var unlit = new Material("unlit_shader.vert", "unlit_shader.frag", typeof(ModelPushConstantData), new DescriptorSetBinding(VkDescriptorType.CombinedImageSampler, VkShaderStageFlags.Fragment));
 
 
             var cubeUV = entityManager.CreateEntity();

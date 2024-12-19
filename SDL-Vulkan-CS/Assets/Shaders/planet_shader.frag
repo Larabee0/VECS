@@ -22,8 +22,8 @@ layout(set = 0, binding = 0) uniform GlobalUbo{
 	mat4 viewMatrix;
 	mat4 inverseViewMatrix;
 	vec4 ambientLightColour;
-	PointLight pointLights;
 	int numLights;
+	PointLight pointLights[10];
 } ubo;
 
 layout(set = 1, binding = 0) uniform shaderParams{
@@ -78,7 +78,7 @@ float colourSample(out vec4 colour, out vec4 steepColour, out float alpha)
 
 float sampleTerrain(float mainAlpha){
 	float texIndex = mainAlpha;// clamp(mainAlpha,0,params.textureCount-1);
-	vec3 col = triplanarArray(fragPosWorld, fragNormalWorld, params.terrainScale,texIndex, texTerrain).xyz;
+	vec3 col = triplanarArray(fragPosObject, fragNormalObject, params.terrainScale,texIndex, texTerrain).xyz;
 	
 	return (col.x + col.y + col.z) / 3;
 }
@@ -89,9 +89,9 @@ float sampleOcean()
 	float scaleB = remap(100*(params.cosineTime + 0.6), 0.6, 1.6, 0.4704, 0.4705);
 	float scaleC = remap(100*(params.cosineTime + 0.3), 0, 1.3, 0.320, 0.3202);
 
-	vec3 colA = triplanarUVOffset(fragPosWorld, fragNormalWorld,vec2(-scaleB-scaleA, scaleC), scaleA, texWaveA).xyz;
-	vec3 colB = triplanarUVOffset(fragPosWorld, fragNormalWorld,vec2(scaleC-scaleB, -scaleA), scaleB, texWaveB).xyz;
-	vec3 colC = triplanarUVOffset(fragPosWorld, fragNormalWorld,vec2(-scaleA-scaleC, -scaleB), scaleC, texWaveC).xyz;
+	vec3 colA = triplanarUVOffset(fragPosObject, fragNormalObject,vec2(-scaleB-scaleA, scaleC), scaleA, texWaveA).xyz;
+	vec3 colB = triplanarUVOffset(fragPosObject, fragNormalObject,vec2(scaleC-scaleB, -scaleA), scaleB, texWaveB).xyz;
+	vec3 colC = triplanarUVOffset(fragPosObject, fragNormalObject,vec2(-scaleA-scaleC, -scaleB), scaleC, texWaveC).xyz;
 
 	vec3 col = ((colA * colB) * colC) * (params.oceanBrightness*0.75);
 
@@ -109,7 +109,17 @@ void main()
 	vec3 viewDirection =normalize(cameraPosWorld - fragPosWorld);
 
 	for(int i = 0; i < ubo.numLights; i++){
-		PointLight light = ubo.pointLights;
+		PointLight light = ubo.pointLights[i];
+		
+
+		//vec4 pos = light.colour;
+		vec4 col = light.position;
+        //light.position = pos;
+        //light.colour = col;
+
+		
+        //light.position = vec4(0, 0, 0, 0);
+        //light.colour = vec4(1, 0.5, 1, 1);
 
 		vec3 directionToLight = light.position.xyz - fragPosWorld;
 		float attenuation = 1.0 / dot(directionToLight, directionToLight); // distance squared
@@ -117,7 +127,7 @@ void main()
 		directionToLight = normalize(directionToLight);
 
 		float cosAngIncidence = max(dot(surfaceNormal, directionToLight),0);
-		vec3 intensity = light.colour.xyz * light.colour.w * attenuation;
+		vec3 intensity = light.colour.xyz * light.colour.w ;
 		diffuseLight += intensity * cosAngIncidence;
 
 		// spec
@@ -154,6 +164,6 @@ void main()
 	//else{
 	//	outColour *= sampleTerrain(mainColour.w);
 	//}
-	//outColour = vec4(diffuseLight  * outColour.xyz + specularLight * outColour.xyz, 1.0);
-	outColour = vec4(outColour.xyz*fragColour,1.0);
+	outColour = vec4(diffuseLight  * outColour.xyz + specularLight * outColour.xyz, 1.0);
+	//outColour = vec4(outColour.xyz*fragColour,1.0);
 }

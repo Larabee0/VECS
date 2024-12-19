@@ -1,0 +1,17 @@
+﻿using SDL_Vulkan_CS.ECS;
+using System.Numerics;
+
+namespace SDL_Vulkan_CS.Artifact
+{
+    public struct Star : IComponent
+    {
+        public static int ComponentId { get; set; }
+        public readonly int Id => ComponentId;
+
+        public Vector3 Colour;
+
+        public float Intensity;
+        public float Radius;
+        public readonly Vector4 PointLightColour => new(Colour,Intensity);
+    }
+}

@@ -20,6 +20,9 @@ namespace SDL_Vulkan_CS.Artifact.Colour
         public float OceanBrightness;
         public Vector2 ElevationMinMax;
 
+        public float OrbitalSpeed;
+        public float DayNightSpeed;
+
         public PlanetTileShaderParmeters GetShaderParmeters(float timeSinceStart)
         {
             return new()

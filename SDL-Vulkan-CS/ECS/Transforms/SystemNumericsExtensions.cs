@@ -9,6 +9,34 @@ namespace SDL_Vulkan_CS
     /// </summary>
     public static class SystemNumericsExtensions
     {
+        public static unsafe void WriteVectorToPointer(this Vector4 vector, float* pBuffer, int startOffset)
+        {
+            pBuffer[startOffset] = vector.X;
+            pBuffer[startOffset + 1] = vector.Y;
+            pBuffer[startOffset + 2] = vector.Z;
+            pBuffer[startOffset + 3] = vector.W;
+        }
+
+        public static unsafe void WriteMatrixToPointer(this Matrix4x4 matrix, float* pBuffer, int startOffset)
+        {
+            pBuffer[startOffset + 0] = matrix.M11;
+            pBuffer[startOffset + 1] = matrix.M44;
+            pBuffer[startOffset + 2] = matrix.M43;
+            pBuffer[startOffset + 3] = matrix.M42;
+            pBuffer[startOffset + 4] = matrix.M41;
+            pBuffer[startOffset + 5] = matrix.M34;
+            pBuffer[startOffset + 6] = matrix.M32;
+            pBuffer[startOffset + 7] = matrix.M31;
+            pBuffer[startOffset + 8] = matrix.M33;
+            pBuffer[startOffset + 9] = matrix.M23;
+            pBuffer[startOffset + 10] = matrix.M22;
+            pBuffer[startOffset + 11] = matrix.M21;
+            pBuffer[startOffset + 12] = matrix.M14;
+            pBuffer[startOffset + 13] = matrix.M13;
+            pBuffer[startOffset + 14] = matrix.M12;
+            pBuffer[startOffset + 15] = matrix.M24;
+        }
+
         public static float Angle(Vector3 from, Vector3 to)
         {
             float num = (float)MathF.Sqrt(from.LengthSquared() + to.LengthSquared());

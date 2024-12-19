@@ -25,8 +25,8 @@ namespace SDL_Vulkan_CS.ECS
                 .WithNone(typeof(Parent),typeof(Prefab))
                 .Build();
             _ltwChildQuery = new EntityQuery(entityManager)
-                .WithAll(typeof(LocalToWorld), typeof(Parent))
-                .WithNone(typeof(Prefab))
+                .WithAll(typeof(LocalToWorld), typeof(Children))
+                .WithNone(typeof(Prefab),typeof(Parent))
                 .Build();
         }
 
@@ -46,12 +46,33 @@ namespace SDL_Vulkan_CS.ECS
 
             if(_ltwChildQuery.HasEntities)
             {
-                _ltwChildQuery.GetEntities().ForEach(e =>
+                // _ltwChildQuery.GetEntities().ForEach(e =>
+                // {
+                //     Entity parent = entityManager.GetComponent<Parent>(e).Value;
+                //     Matrix4x4 localToWorld = entityManager.GetComponent<LocalToWorld>(parent).Value * ComputeLocalTRS(entityManager, e);
+                //     entityManager.SetComponent<LocalToWorld>(e, new() { Value = localToWorld  });
+                // });
+                _ltwChildQuery.GetEntities().ForEach(e => UpdateHierachy(entityManager, e));
+            }
+        }
+
+        private static void UpdateHierachy(EntityManager entityManager, Entity root)
+        {
+            if(entityManager.HasComponent<Children>(root,out var sig))
+            {
+                var children = entityManager.GetComponent<Children>(sig).Value;
+                var ltw = entityManager.GetComponent<LocalToWorld>(root).Value;
+                if (children != null)
                 {
-                    Entity parent = entityManager.GetComponent<Parent>(e).Value;
-                    Matrix4x4 localToWorld = entityManager.GetComponent<LocalToWorld>(parent).Value * ComputeLocalTRS(entityManager, e);
-                    entityManager.SetComponent<LocalToWorld>(e, new() { Value = localToWorld  });
-                });
+                    for (int i = 0; i < children.Length; i++)
+                    {
+                        var childLTP = ComputeLocalTRS(entityManager, children[i]);
+
+                        var childLTW =  childLTP*ltw;
+                        entityManager.SetComponent<LocalToWorld>(children[i], new() { Value = childLTW });
+                        UpdateHierachy(entityManager, children[i]);
+                    }
+                }
             }
         }
 

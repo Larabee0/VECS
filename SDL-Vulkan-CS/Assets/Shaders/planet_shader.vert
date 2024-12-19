@@ -23,8 +23,8 @@ layout(set = 0,binding = 0) uniform GlobalUbo{
 	mat4 viewMatrix;
 	mat4 inverseViewMatrix;
 	vec4 ambientLightColour;
-	PointLight pointLights;
 	int numLights;
+	PointLight pointLights[10];
 } ubo;
 
 layout(push_constant) uniform Push
@@ -46,7 +46,7 @@ void main()
 	
 	float lightIntensity = AMBIENT + max(dot(fragNormalWorld, DIRECTION_TO_LIGHT), 0);
 	fragPosWorld = positionWorld.xyz;
-	fragColour = lightIntensity * vec3(1);
+	fragColour = vec3(1);
 	fragElevation = elevation;
 	fragBiome = biome;
 	fragPosObject = position;

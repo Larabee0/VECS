@@ -70,6 +70,14 @@ namespace SDL_Vulkan_CS.VulkanBackend
             CreatePipeline(vertexFilePath, fragmentFilePath);
             Materials.Add(this);
         }
+        public Material(string vertexShader, string fragmentShader, Type pushConstantType,bool alphaBlending, bool customInput)
+        {
+            string vertexFilePath = GetShaderFilePath(vertexShader);
+            string fragmentFilePath = GetShaderFilePath(fragmentShader);
+            CreatePipelineLayoutWithPushConstant(Presenter.Instance.GlobalSetLayout, pushConstantType);
+            CreatePipeline(vertexFilePath, fragmentFilePath,alphaBlending,customInput);
+            Materials.Add(this);
+        }
 
         /// <summary>
         /// Creates a material consiting of a vertex and fragment shader and also a descriptor set layout and push constant type.
@@ -113,6 +121,28 @@ namespace SDL_Vulkan_CS.VulkanBackend
 
             CreatePipelineLayoutWithPushConstant(Presenter.Instance.GlobalSetLayout, pushConstantType);
             CreatePipeline(vertexFilePath, fragmentFilePath);
+            Materials.Add(this);
+        }
+
+
+        public Material(string vertexShader, string fragmentShader, Type pushConstantType,bool alphaBlending,bool customInput, params DescriptorSetBinding[] reqs)
+        {
+            string vertexFilePath = GetShaderFilePath(vertexShader);
+            string fragmentFilePath = GetShaderFilePath(fragmentShader);
+
+            var builder = new DescriptorSetLayout.Builder(GraphicsDevice.Instance);
+            for (uint i = 0; i < reqs.Length; i++)
+            {
+                builder.AddBinding(i, reqs[i]);
+            }
+
+            _materialDescriptorLayout = builder.Build();
+
+            CreatePipelineLayoutWithPushConstant(Presenter.Instance.GlobalSetLayout, pushConstantType);
+
+
+
+            CreatePipeline(vertexFilePath, fragmentFilePath, alphaBlending, customInput);
             Materials.Add(this);
         }
 
@@ -212,7 +242,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
         /// <param name="vertexShader"></param>
         /// <param name="fragmentShader"></param>
         /// <exception cref="InvalidOperationException"></exception>
-        private void CreatePipeline(string vertexShader, string fragmentShader)
+        private void CreatePipeline(string vertexShader, string fragmentShader,bool enableAlphaBlending = false, bool customInput = false)
         {
             if (_pipelineLayout == VkPipelineLayout.Null)
             {
@@ -221,12 +251,28 @@ namespace SDL_Vulkan_CS.VulkanBackend
 
             RenderPipelineConfigInfo pipelineConfigInfo = RenderPipelineConfigInfo.DefaultPipelineConfigInfo(Presenter.Instance.RenderPass, _pipelineLayout);
 
-            
+            if (enableAlphaBlending)
+            {
+                RenderPipelineConfigInfo.EnableAlphaBlending(ref pipelineConfigInfo);
+            }
+
+            if (customInput)
+            {
+                pipelineConfigInfo.AttributeDescriptions = [];
+                pipelineConfigInfo.BindingDescriptions = [];
+            }
+
             //pipelineConfigInfo.rasterizationInfo.polygonMode = VkPolygonMode.Line;
             //pipelineConfigInfo.rasterizationInfo.lineWidth = 1;
             pipelineConfigInfo.rasterizationInfo.cullMode = VkCullModeFlags.Front;
 
             _materialPipeline = new(GraphicsDevice.Instance, vertexShader, fragmentShader, pipelineConfigInfo);
+        }
+
+        public void DrawQuad<T>(RendererFrameInfo rendererFrameInfo,T pushConstants) where T : unmanaged
+        {
+            PushConstants(rendererFrameInfo.CommandBuffer, pushConstants);
+            Vulkan.vkCmdDraw(rendererFrameInfo.CommandBuffer, 6, 1, 0, 0);
         }
 
         /// <summary>

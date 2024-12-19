@@ -23,6 +23,8 @@ namespace SDL_Vulkan_CS
         public int FrameIndex;
         public float DeltaTime;
         public VkCommandBuffer CommandBuffer;
+        public GlobalUbo Ubo;
+        public CsharpVulkanBuffer UboBuffer;
         public VkDescriptorSet GlobalDescriptorSet;
         public DescriptorPool FrameDescriptorPool;
 

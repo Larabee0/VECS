@@ -1,0 +1,51 @@
+﻿using SDL_Vulkan_CS.Artifact.Colour;
+using SDL_Vulkan_CS.ECS;
+
+namespace SDL_Vulkan_CS.Artifact
+{
+    public class TransformPlanetsSystem : SystemBase
+    {
+        private EntityQuery _planetRenderQuery;
+        public override void OnCreate(EntityManager entityManager)
+        {
+            _planetRenderQuery = new EntityQuery(entityManager)
+                .WithAll(typeof(Parent), typeof(PlanetPropeties), typeof(LocalToWorld), typeof(Translation), typeof(Rotation))
+                .WithNone(typeof(Prefab))
+                .Build();
+        }
+
+        public override void OnUpdate(EntityManager entityManager)
+        {
+            if (_planetRenderQuery.HasEntities)
+            {
+                var planetEntities = _planetRenderQuery.GetEntities();
+
+                float deltaTime = Application.DeltaTime;
+
+                planetEntities.ForEach(planet =>
+                {
+                    var parent = entityManager.GetComponent<Parent>(planet).Value;
+                    var props = entityManager.GetComponent<PlanetPropeties>(planet);
+                    Rotation orbitalRotation = entityManager.GetComponent<Rotation>(parent);
+
+                    orbitalRotation.Value.Y += deltaTime * props.OrbitalSpeed;
+                    orbitalRotation.Value.Y %= float.DegreesToRadians(360);
+
+                    entityManager.SetComponent(parent, orbitalRotation);
+
+                    var localRotation = entityManager.GetComponent<Rotation>(planet);
+
+                    localRotation.Value.Y += deltaTime * props.DayNightSpeed;
+                    localRotation.Value.Y %= float.DegreesToRadians(360);
+
+                    entityManager.SetComponent(planet, localRotation);
+                });
+            }
+        }
+
+        public override void OnPostUpdate(EntityManager entityManager)
+        {
+            _planetRenderQuery.MarkStale();
+        }
+    }
+}

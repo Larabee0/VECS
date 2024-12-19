@@ -51,7 +51,7 @@ namespace SDL_Vulkan_CS.ECS.Presentation
                         mat = curMat;
                         mat?.BindGlobalDescriptorSet(frameInfo);
                     }
-                    mat?.BindAndDraw(frameInfo, drawCall.MeshIndex, new SimplePushConstantData(drawCall.Ltw));
+                    mat?.BindAndDraw(frameInfo, drawCall.MeshIndex, new ModelPushConstantData(drawCall.Ltw));
                 }
             }
         }

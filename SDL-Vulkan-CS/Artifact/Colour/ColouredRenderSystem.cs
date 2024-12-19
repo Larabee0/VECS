@@ -80,7 +80,7 @@ namespace SDL_Vulkan_CS.Artifact.Colour
                         1,  // starting set (0 is the globalDescriptorSet, 1 is the set specific to this system)
                         descriptorSet);
 
-                    drawCalls.ForEach(draw => curMat.BindAndDraw(frameInfo, draw.MeshIndex, new SimplePushConstantData(draw.Ltw)));
+                    drawCalls.ForEach(draw => curMat.BindAndDraw(frameInfo, draw.MeshIndex, new ModelPushConstantData(draw.Ltw)));
                 });
             }
         }
@@ -96,7 +96,12 @@ namespace SDL_Vulkan_CS.Artifact.Colour
             {
                 LocalToWorld ltw = entityManager.GetComponent<LocalToWorld>(children.Value[i]);
                 Vector3 toCamera = Vector3.Normalize(camLTW.Translation - ltw.Value.Translation);
-                if (SystemNumericsExtensions.Angle(-entityManager.GetComponent<TileNormalVector>(children.Value[i]).Value, toCamera) > 100)
+
+                Vector3 forward = -entityManager.GetComponent<TileNormalVector>(children.Value[i]).Value;
+                forward = Vector3.TransformNormal(forward, ltw.Value);
+                
+
+                if (SystemNumericsExtensions.Angle(forward, toCamera) > 100)
                 {
                     drawCalls.Add(new(entityManager.GetComponent<MeshIndex>(children.Value[i]), ltw));
                 }

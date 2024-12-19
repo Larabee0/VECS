@@ -7,7 +7,7 @@ namespace SDL_Vulkan_CS.ECS.Presentation
     /// <summary>
     /// Relatively generic render system that will operate on all materials
     /// 
-    /// This expects all materials will have one texture and accept a push constant of <see cref="SimplePushConstantData"/>
+    /// This expects all materials will have one texture and accept a push constant of <see cref="ModelPushConstantData"/>
     /// for the model local to world matrix.
     /// </summary>
     public class TexturedRenderSystem : PresentationSystemBase
@@ -64,7 +64,7 @@ namespace SDL_Vulkan_CS.ECS.Presentation
                         mat = curMat;
                         mat?.BindGlobalDescriptorSet(frameInfo);
                     }
-                    mat?.BindAndDraw(frameInfo, drawCall.MeshIndex, new SimplePushConstantData(drawCall.Ltw), drawCall.TextureIndex);
+                    mat?.BindAndDraw(frameInfo, drawCall.MeshIndex, new ModelPushConstantData(drawCall.Ltw), drawCall.TextureIndex);
                 }
             }
         }

@@ -25,7 +25,7 @@ namespace SDL_Vulkan_CS
     /// </summary>
     public sealed class Presenter : IDisposable
     {
-        public const int MAX_LIGHTS = 1;
+        public const int MAX_LIGHTS = 10;
 
         public static Presenter Instance { get; private set; }
 
@@ -98,9 +98,6 @@ namespace SDL_Vulkan_CS
             frameInfoEntity = World.DefaultWorld.EntityManager.CreateEntity();
 
             World.DefaultWorld.EntityManager.AddComponent<FrameInfo>(frameInfoEntity);
-
-            // CreateTestTriangle();
-            // CreateSimpleRenderSystem();
         }
 
         public void LoadMissingTexture()
@@ -177,6 +174,7 @@ namespace SDL_Vulkan_CS
                     FrameIndex = frameIndex,
                     DeltaTime = deltaTime,
                     CommandBuffer = commandBuffer,
+                    UboBuffer = _globalUboBuffers[frameIndex],
                     GlobalDescriptorSet = _globalDescriptorSets[frameIndex],
                     FrameDescriptorPool = swapChainFrameDescriptorPools[frameIndex]
                 };
@@ -198,17 +196,10 @@ namespace SDL_Vulkan_CS
                     InverseView = camera.InverseViewMatrix,
                     AmbientLightColour = new(1.0f, 1.0f, 1.0f, 0.02f),
 
-                    PointLights = new PointLight()
-                    {
-                        Position = new Vector4(0, 5, 1, 0),
-                        Colour = new Vector4(1, 0.5f, 1, 1f)
-                    },
-                    NumLights = 1
+                    NumLights = 0
                 };
-
-                _globalUboBuffers[frameIndex].WriteToBuffer(&ubo);
-                _globalUboBuffers[frameIndex].Flush();
-
+                frameInfo.Ubo = ubo;
+                ubo.WriteToBuffer(_globalUboBuffers[frameIndex]);
                 _renderer.BeginSwapChainRenderPass(commandBuffer);
                 return frameInfo;
             }
