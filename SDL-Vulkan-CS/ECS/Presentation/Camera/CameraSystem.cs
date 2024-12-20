@@ -226,7 +226,7 @@ namespace SDL_Vulkan_CS
 
                 bool slow = InputManager.Instance.ctrlDown;
                 bool fast = InputManager.Instance.shiftDown;
-                bool extraFast = InputManager.Instance.shiftDown;
+                bool extraFast = InputManager.Instance.altDown;
 
                 float speed = slow ? moveSpeed * 0.25f : fast ? moveSpeed * 4f : extraFast ? moveSpeed * 8f : moveSpeed;
 
