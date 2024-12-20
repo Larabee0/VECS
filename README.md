@@ -52,3 +52,5 @@ The final artefact has 7 plants with 7 subdivison, much heavier than the 6 teste
 
 This is because an extra subdivison quadruples the geometry the final scene has 125m polys while with 6 only 25m
 The frame rate hit is massive as you can see
+
+GPU Busy remains optimally ontop of the cpu time
