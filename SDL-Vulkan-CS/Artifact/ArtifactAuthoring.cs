@@ -123,7 +123,7 @@ namespace SDL_Vulkan_CS.Artifact
         }
 
 
-        private void GeometryStats()
+        private static void GeometryStats()
         {
 
             int vertexCount = 0;
@@ -277,6 +277,7 @@ namespace SDL_Vulkan_CS.Artifact
 
         private void GeneratePlanet(Entity planetRoot, ShapeGenerator generator)
         {
+            var now = DateTime.Now;
             MeshIndex[] meshIndices = World.DefaultWorld.EntityManager.GetComponentsInHierarchy<MeshIndex>(planetRoot);
 
             Mesh[] meshes = new Mesh[meshIndices.Length];
@@ -335,7 +336,8 @@ namespace SDL_Vulkan_CS.Artifact
             properties.SteepTexture = Texture2d.GetIndexOfTexture(generator.ColourGenerator.steepTexture);
             properties.ElevationMinMax = new(generator.MinMax.Min, generator.MinMax.Max);
             World.DefaultWorld.EntityManager.SetComponent(planetRoot,properties);
-            Console.WriteLine("Generated planet");
+            var delta = DateTime.Now - now;
+            Console.WriteLine(string.Format("Generated planet: {0}ms", delta.TotalMilliseconds));
         }
 
         /// <summary>
