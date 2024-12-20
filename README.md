@@ -45,9 +45,17 @@ Very statisfactory improvements.
 Get component id was really slow because it calculted the component type guid every time. to fix this I made an accessor in as part of the interface for a component that gets component id.
 Before:
 ![alt text](https://github.falmouth.ac.uk/GA-Undergrad-Student-Work-24-25/COMP305-2202796/blob/WS-3/Profiling/WS3/WS2-Again/DebugFrameTimePresent.png)
+![alt text](https://github.falmouth.ac.uk/GA-Undergrad-Student-Work-24-25/COMP305-2202796/blob/WS-3/Profiling/WS3/WS2-Again/PresentMon.png)
 After:
-
 ![alt text](https://github.falmouth.ac.uk/GA-Undergrad-Student-Work-24-25/COMP305-2202796/blob/WS-3/Profiling/WS3/CPU-Parallel/GetComponentIdImprovement.png)
+![alt text](https://github.falmouth.ac.uk/GA-Undergrad-Student-Work-24-25/COMP305-2202796/blob/WS-3/Profiling/WS3/CPU-Parallel/Better%20GPU%20Busy%20Higher%20framerate.png)
+As you can see here getcomponent went from being 12% of total cpu time to less than half of a %.
+And the frame rate went from 280s to 580s.
+This frame rate software is called intel presentmon. One of the good thing about it is the GPU Busy graph which shows how much of the frametime the gpu is actually doing work for.
+Ideally the CPU and GPU lines are ontop of each other. You can see before i made the performance update there was a little gap, then afterwards there is no gap.
+This indicates more efficient GPU utilisation.
+
+
 ## Memory Improvements
 
 ![alt text](https://github.falmouth.ac.uk/GA-Undergrad-Student-Work-24-25/COMP305-2202796/blob/WS-3/Profiling/WS3/WS2-Again/DebugMemory.png)
