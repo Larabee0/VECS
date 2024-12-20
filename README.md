@@ -29,7 +29,9 @@ Using the derivative of the gradient, to lower areas of low slope using a weight
 
 ## Colouration addition
 I added colours it is pretty and textures through triplanar mapping. But lets check to see if performance was terribly effected.
+The ocean is even animated slightly
 
+![alt text](https://github.falmouth.ac.uk/GA-Undergrad-Student-Work-24-25/COMP305-2202796/blob/WS-3-Colouration/Example.png)
 # Generation time
 Before:
 <br>
