@@ -14,7 +14,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
 
         public VkDescriptorSet DescriptorSet;
 
-        public readonly DescriptorSetLayout _descriptorSetLayout;
+        private readonly DescriptorSetLayout _descriptorSetLayout;
 
         private CsharpVulkanBuffer _shaderParameters;
 
