@@ -12,7 +12,7 @@ namespace SDL_Vulkan_CS.Artifact.Colour
     public class ColouredRenderSystem : PresentationSystemBase
     {
         private EntityQuery _planetRenderQuery;
-        private CsharpVulkanBuffer _shaderParams;
+        private CsharpVulkanBuffer[] _shaderParamBuffers;
 
         /// <summary>
         /// query setup, also creates the shader params buffer.
@@ -20,7 +20,11 @@ namespace SDL_Vulkan_CS.Artifact.Colour
         /// <param name="entityManager"></param>
         public unsafe override void OnCreate(EntityManager entityManager)
         {
-            _shaderParams = new(GraphicsDevice.Instance, (uint)sizeof(PlanetTileShaderParmeters), 1, VkBufferUsageFlags.UniformBuffer, true);
+            _shaderParamBuffers = new CsharpVulkanBuffer[SwapChain.MAX_FRAMES_IN_FLIGHT];
+            for (int i = 0; i < _shaderParamBuffers.Length; i++)
+            {
+                _shaderParamBuffers[i] = new(GraphicsDevice.Instance, (uint)sizeof(PlanetTileShaderParmeters), 1, VkBufferUsageFlags.UniformBuffer, true);
+            }
 
             _planetRenderQuery = new EntityQuery(entityManager)
                 .WithAll(typeof(Children),typeof(PlanetPropeties),typeof(LocalToWorld),typeof(MaterialIndex))
@@ -49,6 +53,7 @@ namespace SDL_Vulkan_CS.Artifact.Colour
                 {
                     camLTW = entityManager.GetComponent<LocalToWorld>(camEntity).Value;
                 }
+                var shaderParams = _shaderParamBuffers[frameInfo.FrameIndex];
                 _planetRenderQuery.GetEntities().ForEach(e =>
                 {
                     var material = entityManager.GetComponent<MaterialIndex>(e);
@@ -66,12 +71,11 @@ namespace SDL_Vulkan_CS.Artifact.Colour
                         mat = curMat;
                         curMat.BindGlobalDescriptorSet(frameInfo);
                     }
-
                     var planetProperties = entityManager.GetComponent<PlanetPropeties>(e);
-                    planetProperties.WriteShaderParamters(_shaderParams);
+                    planetProperties.WriteShaderParamters(shaderParams);
 
                     VkDescriptorSet descriptorSet = new();
-                    WriteDescriptorSet(frameInfo, curMat, planetProperties, ref descriptorSet);
+                    WriteDescriptorSet(frameInfo, curMat,shaderParams, planetProperties, ref descriptorSet);
 
                     Vulkan.vkCmdBindDescriptorSets(
                         frameInfo.CommandBuffer,
@@ -117,12 +121,12 @@ namespace SDL_Vulkan_CS.Artifact.Colour
         /// <param name="mat"></param>
         /// <param name="textures"></param>
         /// <param name="descriptorSet"></param>
-        private unsafe void WriteDescriptorSet(RendererFrameInfo frameInfo, Material mat, PlanetPropeties textures, ref VkDescriptorSet descriptorSet)
+        private unsafe void WriteDescriptorSet(RendererFrameInfo frameInfo, Material mat, CsharpVulkanBuffer shaderParams, PlanetPropeties textures, ref VkDescriptorSet descriptorSet)
         {
             fixed (VkDescriptorSet* pSet = &descriptorSet)
             {
                 new DescriptorWriter(mat.MaterialDescriptorLayout, frameInfo.FrameDescriptorPool)
-                .WriteBufferCached(0, _shaderParams.DescriptorInfo())
+                .WriteBufferCached(0, shaderParams.DescriptorInfo())
                 .WriteImageCached(1, Texture2d.GetTextureImageInfoAtIndex(textures.ColourTexture))
                 .WriteImageCached(2, Texture2d.GetTextureImageInfoAtIndex(textures.SteepTexture))
                 .WriteImageCached(3, Texture2d.GetTextureImageInfoAtIndex(textures.TextureArrayIndex))
@@ -140,7 +144,12 @@ namespace SDL_Vulkan_CS.Artifact.Colour
         public override void OnDestroy(EntityManager entityManager)
         {
             base.OnDestroy(entityManager);
-            _shaderParams?.Dispose();
+
+            for (int i = 0; i < _shaderParamBuffers.Length; i++)
+            {
+                _shaderParamBuffers[i]?.Dispose();
+            }
+
         }
 
         /// <summary>
