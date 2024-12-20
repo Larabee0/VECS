@@ -48,11 +48,17 @@ namespace SDL_Vulkan_CS.Artifact
             ShapeGenerator generator = CreateShapeGenerator();
 
             generator.RandomiseSettings();
-
+            var now = DateTime.Now;
+            for (int i = 0; i < shape.Length; i++)
+            {
+                Subdivider.Subdivide(shape[i], 6);
+            }
+            var delta = DateTime.Now - now;
+            Console.WriteLine(string.Format("Subdivide Mesh: {0}ms", delta.TotalMilliseconds));
+            now = DateTime.Now;
             for (int i = 0; i < shape.Length; i++)
             {
                 var mesh = shape[i];
-                Subdivider.Subdivide(mesh, 6);
 
                 generator.RaiseMesh(mesh);
 
@@ -62,6 +68,8 @@ namespace SDL_Vulkan_CS.Artifact
                 entityManager.AddComponent(shapeEntity, new MeshIndex() { Value = Mesh.GetIndexOfMesh(mesh) });
                 entityManager.AddComponent(shapeEntity, new MaterialIndex() { Value = Material.GetIndexOfMaterial(lit) });
             }
+            delta = DateTime.Now - now;
+            Console.WriteLine(string.Format("Raise Mesh & Normals: {0}ms", delta.TotalMilliseconds));
         }
 
         public static ShapeGenerator CreateShapeGenerator()
