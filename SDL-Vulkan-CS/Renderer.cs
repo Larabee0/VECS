@@ -198,7 +198,7 @@ namespace SDL_Vulkan_CS
                 extent = _swapChain.SwapChainExtent
             };
 
-            VkClearValue[] clearValues = [new VkClearValue(0.1f, 0.1f, 0.1f), new VkClearValue(1.0f, 0)];
+            VkClearValue[] clearValues = [new VkClearValue(0f, 0f, 0f), new VkClearValue(1.0f, 0)];
 
             fixed (VkClearValue* pClearValues = &clearValues[0])
             {
