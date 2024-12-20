@@ -28,7 +28,7 @@ namespace SDL_Vulkan_CS.Artifact
         };
 
         private readonly bool useComputeShaderForGeneration = true;
-        private readonly int subdivisons = 7;
+        private readonly int subdivisons = 6;
 
         public ArtifactAuthoring()
         {
@@ -119,9 +119,34 @@ namespace SDL_Vulkan_CS.Artifact
             aStar.AddChildren(entityManager, planetOrbiterA, planetOrbiterB, planetOrbiterC);
 
             Console.WriteLine("Shape loaded");
+            GeometryStats();
         }
 
-        private void AddMoon(EntityManager entityManager, Entity planetOrbiter, Entity moonOrbiter)
+
+        private void GeometryStats()
+        {
+
+            int vertexCount = 0;
+            int indexCount = 0;
+
+            int heavyVertexCount = 0;
+            int heavyIndexCount = 0;
+
+            for (int i = 0; i < Mesh.Meshes.Count; i++)
+            {
+                var mesh = Mesh.Meshes[i];
+                vertexCount += mesh.VertexCount;
+                indexCount += mesh.IndexCount;
+
+                heavyVertexCount = Math.Max(mesh.VertexCount, heavyVertexCount);
+                heavyIndexCount = Math.Max(mesh.IndexCount, heavyIndexCount);
+            }
+
+            Console.WriteLine(string.Format("All Meshes           | Vertices: {0} | Total Indices: {1} | Tris: {2}", vertexCount, indexCount,indexCount/3));
+            Console.WriteLine(string.Format("Heaviest Single Mesh | Vertices: {0} |Total Indices: {1} | Tris: {2}", heavyVertexCount, heavyIndexCount, heavyIndexCount / 3));
+        }
+
+        private static void AddMoon(EntityManager entityManager, Entity planetOrbiter, Entity moonOrbiter)
         {
             Entity planet = entityManager.GetComponent<Children>(planetOrbiter).Value[0];
             planet.AddChildren(entityManager, moonOrbiter);
@@ -218,24 +243,6 @@ namespace SDL_Vulkan_CS.Artifact
 
             entityManager.SetComponent(planetRoot, propertyChildren);
 
-            int vertexCount = 0;
-            int indexCount = 0;
-
-            int heavyVertexCount = 0;
-            int heavyIndexCount = 0;
-
-            for (int i = 0; i < planetTileMeshes.Length; i++)
-            {
-                var mesh = planetTileMeshes[i];
-                vertexCount += mesh.VertexCount;
-                indexCount += mesh.IndexCount;
-
-                heavyVertexCount = Math.Max(mesh.VertexCount, heavyVertexCount);
-                heavyIndexCount = Math.Max(mesh.IndexCount, heavyIndexCount);
-            }
-
-            Console.WriteLine(string.Format("All Meshes           | Vertices: {0} | Total Indices: {1}", vertexCount, indexCount));
-            Console.WriteLine(string.Format("Heaviest Single Mesh | Vertices: {0} |Total Indices: {1}", heavyVertexCount, heavyIndexCount));
         }
 
         private void SubdividePlanet(Mesh[] shape)
