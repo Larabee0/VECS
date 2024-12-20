@@ -77,10 +77,18 @@ namespace SDL_Vulkan_CS.Artifact
                 this.colour = colour;
                 this.startPercent = startPercent;
             }
+
             public GradientPoint(string hexCode, float startPercent)
             {
                 colour = ColourTypeConversion.FromHex(hexCode);
                 this.startPercent = startPercent;
+            }
+
+            public GradientPoint(Random random, string hexCodeA, string hexCodeB, float startPercentA, float startPercentB)
+            {
+                colour = ColourTypeConversion.RandomColourFromRange(random, hexCodeA, hexCodeB);
+                
+                startPercent = SystemNumericsExtensions.Lerp(startPercentA, startPercentB, random.NextSingle());
             }
         }
         public struct AlphaPoint
@@ -93,6 +101,11 @@ namespace SDL_Vulkan_CS.Artifact
             {
                 this.alpha = alpha;
                 this.startPercent = startPercent;
+            }
+            public AlphaPoint(Random random, float alpha, float startPercentA,float startPercentB)
+            {
+                this.alpha = alpha;
+                startPercent = SystemNumericsExtensions.Lerp(startPercentA, startPercentB, random.NextSingle());
             }
         }
     }

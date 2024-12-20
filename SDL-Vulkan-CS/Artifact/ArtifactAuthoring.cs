@@ -44,28 +44,28 @@ namespace SDL_Vulkan_CS.Artifact
             var prefabPlanet = CreatePrefabPlanet(entityManager);
 
             var aStar = entityManager.CreateEntity();
-            entityManager.AddComponent(aStar, new Star() { Colour = Vector3.One, Intensity = 1, Radius = 0.5f });
+            entityManager.AddComponent(aStar, new Star() { Colour =ColourTypeConversion.FromHex("#FDFFFE"), Intensity = 1, Radius = 0.5f });
 
             Parent starParent = new() { Value = aStar };
 
             entityManager.AddComponent(aStar, new Children()
             {
                 Value = [
-                    InstantiateNewOrbitalPlanet(entityManager, prefabPlanet, starParent, new(-5f, 0, 0)),
-                    InstantiateNewOrbitalPlanet(entityManager, prefabPlanet, starParent, new(5f, 0, 0))
+                    InstantiateNewOrbitalPlanet(entityManager,PlanetPresets.ShapeGeneratorFixedEarthLike(), prefabPlanet, starParent, new(-5f, 0, 0)),
+                    InstantiateNewOrbitalPlanet(entityManager,PlanetPresets.ShapeGeneratorRandomEarthLike(), prefabPlanet, starParent, new(5f, 0, 0))
                 ]
             });
 
             Console.WriteLine("Shape loaded");
         }
 
-        private Entity InstantiateNewOrbitalPlanet(EntityManager entityManager, Entity planetPrefab,Parent starParent,Vector3 initialPosition)
+        private Entity InstantiateNewOrbitalPlanet(EntityManager entityManager,ShapeGenerator generator, Entity planetPrefab,Parent starParent,Vector3 initialPosition)
         {
             Entity orbitalPlane = entityManager.CreateEntity();
             entityManager.AddComponent<Rotation>(orbitalPlane);
             entityManager.AddComponent(orbitalPlane, starParent);
             var planetInstance = entityManager.Instantiate(planetPrefab, true);
-            GeneratePlanet(planetInstance);
+            GeneratePlanet(planetInstance, generator);
             entityManager.RemoveComponentFromHierarchy<DoNotRender>(planetInstance);
             entityManager.AddComponent(orbitalPlane, new Children() { Value = [planetInstance] });
             entityManager.AddComponent(planetInstance, new Parent() { Value = orbitalPlane });
@@ -195,7 +195,7 @@ namespace SDL_Vulkan_CS.Artifact
             Console.WriteLine(string.Format("Simplify Mesh: {0}ms", delta.TotalMilliseconds));
         }
 
-        private void GeneratePlanet(Entity planetRoot)
+        private void GeneratePlanet(Entity planetRoot, ShapeGenerator generator)
         {
             MeshIndex[] meshIndices = World.DefaultWorld.EntityManager.GetComponentsInHierarchy<MeshIndex>(planetRoot);
 
@@ -206,8 +206,6 @@ namespace SDL_Vulkan_CS.Artifact
                 meshes[i] = Mesh.GetMeshAtIndex(meshIndices[i].Value);
             }
 
-            ShapeGenerator generator = CreateShapeGenerator();
-            generator.RandomiseSettings();
             ComputeShapeGenerator computeGenerator = null;
             ComputeNormals computeNormals = null;
             VkCommandBuffer commandBuffer = default;
@@ -258,179 +256,6 @@ namespace SDL_Vulkan_CS.Artifact
             properties.ElevationMinMax = new(generator.MinMax.Min, generator.MinMax.Max);
             World.DefaultWorld.EntityManager.SetComponent(planetRoot,properties);
             Console.WriteLine("Generated planet");
-        }
-
-        public static ShapeGenerator CreateShapeGenerator()
-        {
-            ColourSettings colourSettings = CreateColoursSet1();
-
-            return new ShapeGenerator(colourSettings)
-            {
-                PlanetRadius = 1f,
-                Seed = 0,
-                RandomSeed = true,
-                NoiseFilters =
-                [
-                    new SimpleNoiseSettings()
-                    {
-                        filterType = FilterType.Simple,
-                        strength = 0.07f,
-                        numLayers = 4,
-                        baseRoughness = 1.07f,
-                        roughness = 2.2f,
-                        persistence = 0.5f,
-                        centre = Vector3.Zero,
-                        offset = 0,
-                        minValue = 0.98f,
-                        gradientWeight = true,
-                        gradientWeightMul = 1,
-                        enabled = true,
-                        useFirstlayerAsMask = true,
-                    },
-
-                    new RigidNoiseSettings(){
-                        filterType = FilterType.Rigid,
-                        strength = 0.6f,
-                        numLayers = 4,
-                        baseRoughness = 1.59f,
-                        roughness = 3.3f,
-                        persistence = 0.5f,
-                        centre = Vector3.Zero,
-                        offset = 0,
-                        minValue = 0.37f,
-                        gradientWeight = true,
-                        gradientWeightMul = 1,
-                        enabled = true,
-                        useFirstlayerAsMask = true,
-                        weightMultiplier = 0.78f,
-                    }
-                ],
-            };
-        }
-
-        private static ColourSettings CreateColoursSet1()
-        {
-            return new()
-            {
-                oceanGradient = new()
-                {
-                    gradientPoints = [
-                        new("#000ACC",0.68f),
-                        new("#008FCC",1)
-                    ],
-                    alphaPoints = [
-                        new(0,0),
-                        new(0,1)
-                    ]
-                },
-                biomeColourSettings = new()
-                {
-                    blendAmount = 0.0f,
-                    noiseOffset = 0f,
-                    noiseStrength = 0f,
-                    noise = new()
-                    {
-                        strength = 0.5f,
-                        numLayers = 3,
-                        baseRoughness = 1,
-                        roughness = 2,
-                        persistence = 1.5f,
-                        offset = 0,
-                        minValue = 0,
-                        gradientWeight = false
-                    },
-                    biomes = [
-                        //new ColourSettings.BiomeColourSettings.Biome(){
-                        //    tint = ColourTypeConversion.FromHex("#00000000"),
-                        //    tintPercent = 0f,
-                        //    startHeight = 0,
-                        //    colourGradient = new(){
-                        //        gradientPoints =[
-                        //            new("#FFFFFF",0),
-                        //            new("#FFFFFF",1)
-                        //        ],
-                        //        alphaPoints= [
-                        //            new(5,0),
-                        //            new(5,1)
-                        //        ]
-                        //    },
-                        //    steepGradient = new(){
-                        //        gradientPoints = [
-                        //            new("#FFFFFF",0),
-                        //            new("#FFFFFF",1)
-                        //        ],
-                        //        alphaPoints= [
-                        //            new(1,0),
-                        //            new(1,1)
-                        //        ]
-                        //    }
-                        //},
-                        new ColourSettings.BiomeColourSettings.Biome(){
-                            tint = ColourTypeConversion.FromHex("#00000000"),
-                            tintPercent = 0f,
-                            startHeight = 0.01f,
-                            colourGradient = new(){
-                                gradientPoints =[
-                                    new("#F7BC27",0),
-                                    new("#F7BC27",0.008f),
-                                    new("#3ABE00",0.012f),
-                                    new("#3ABE00",0.038f),
-                                    new("#1C8111",0.1f),
-                                    new("#623B00",0.15f),
-                                    new("#28220A",0.75f),
-                                    new("#FFFFFF",0.90f)
-                                ],
-                                alphaPoints= [
-                                    new(6,0.008f),
-                                    new(3,0.012f),
-                                    new(3,0.1f),
-                                    new(2,0.15f),
-                                    new(1,0.51f),
-                                    new(5,0.75f)
-                                ]
-                            },
-                            steepGradient = new(){
-                                gradientPoints = [
-                                    new("#FFFFFF",0),
-                                    new("#FFFFFF",1)
-                                ],
-                                alphaPoints= [
-                                    new(0,0),
-                                    new(0,0.14f),
-                                    new(1f,0.15f),
-                                    new(1,1)
-                                ]
-                            }
-                        },
-
-                        //new ColourSettings.BiomeColourSettings.Biome(){
-                        //    tint = ColourTypeConversion.FromHex("#00000000"),
-                        //    tintPercent = 0f,
-                        //    startHeight = 0.99f,
-                        //    colourGradient = new(){
-                        //        gradientPoints =[
-                        //            new("#FFFFFF",0),
-                        //            new("#FFFFFF",1)
-                        //        ],
-                        //        alphaPoints= [
-                        //            new(5,0),
-                        //            new(5,1)
-                        //        ]
-                        //    },
-                        //    steepGradient = new(){
-                        //        gradientPoints = [
-                        //            new("#FFFFFF",0),
-                        //            new("#FFFFFF",1)
-                        //        ],
-                        //        alphaPoints= [
-                        //            new(1,0),
-                        //            new(1,1)
-                        //        ]
-                        //    }
-                        //}
-                    ]
-                }
-            };
         }
 
         /// <summary>

@@ -10,30 +10,44 @@ namespace SDL_Vulkan_CS.Artifact.Generator
     {
         public float PlanetRadius = 1;
         public int Seed = 0;
+        public Random Random;
         public bool RandomSeed = false;
 
         public MinMax MinMax;
         public ColourGenerator ColourGenerator;
         public SimpleNoiseSettings[] NoiseFilters;
+
+        public ShapeGenerator()
+        {
+            MinMax = new MinMax();
+            ColourGenerator = new();
+        }
+
         public ShapeGenerator(ColourSettings colourSettings)
         {
             MinMax = new MinMax();
             ColourGenerator = new();
+            SetColourSettings(colourSettings);
+        }
+
+        public void SetColourSettings(ColourSettings colourSettings)
+        {
             ColourGenerator.UpdateSettings(colourSettings);
         }
+
         public void RandomiseSettings()
         {
             Seed = RandomSeed ? Random.Shared.Next(int.MinValue, int.MaxValue) : 0;
 
-            Random random = new(Seed);
+            Random = new(Seed);
 
 
             for (int i = 0; i < NoiseFilters.Length; i++)
             {
-                NoiseFilters[i].centre = new Vector3(random.Next(-1000, 1000), random.Next(-1000, 1000), random.Next(-1000, 1000));
+                NoiseFilters[i].centre = new Vector3(Random.Next(-1000, 1000), Random.Next(-1000, 1000), Random.Next(-1000, 1000));
             }
 
-            ColourGenerator.settings.biomeColourSettings.noise.centre = new Vector3(random.Next(-1000, 1000), random.Next(-1000, 1000), random.Next(-1000, 1000));
+            
         }
 
         public void RaiseMesh(Mesh mesh)

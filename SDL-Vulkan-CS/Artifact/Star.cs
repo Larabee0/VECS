@@ -8,10 +8,10 @@ namespace SDL_Vulkan_CS.Artifact
         public static int ComponentId { get; set; }
         public readonly int Id => ComponentId;
 
-        public Vector3 Colour;
+        public Vector4 Colour;
 
         public float Intensity;
         public float Radius;
-        public readonly Vector4 PointLightColour => new(Colour,Intensity);
+        public readonly Vector4 PointLightColour => new(Colour.X,Colour.Y,Colour.Z,Intensity);
     }
 }

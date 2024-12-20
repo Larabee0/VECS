@@ -89,19 +89,29 @@ namespace SDL_Vulkan_CS.Artifact.Colour
 
         public static Color RandomColourFromRange(Random random, Color a, Color b)
         {
-            VKColor colour1 = a.ToVkColor();
-            VKColor colour2 = b.ToVkColor();
+            // VKColor colour1 = a.ToVkColor();
+            // VKColor colour2 = b.ToVkColor();
+            // 
+            // 
+            // 
+            // VKColor randomColour = new()
+            // {
+            //     A = (byte)random.Next(Math.Min(colour1.A, colour2.A), Math.Max(colour1.A, colour2.A)),
+            //     B = (byte)random.Next(Math.Min(colour1.B, colour2.B), Math.Max(colour1.B, colour2.B)),
+            //     G = (byte)random.Next(Math.Min(colour1.G, colour1.G), Math.Max(colour1.G, colour2.G)),
+            //     R = (byte)random.Next(Math.Min(colour1.R, colour1.R), Math.Max(colour1.R, colour2.R))
+            // };
+            // 
+            // return randomColour.ToColor();
 
 
-            VKColor randomColour = new()
-            {
-                A = (byte)random.Next(colour1.A, colour2.A),
-                B = (byte)random.Next(colour1.B, colour2.B),
-                G = (byte)random.Next(colour1.G, colour2.G),
-                R = (byte)random.Next(colour1.R, colour2.R)
-            };
+            return Color.Lerp(a, b, random.NextSingle());
+        }
 
-            return randomColour.ToColor();
+
+        public static Color RandomColourFromRange(Random random, string hexA,  string hexB)
+        {
+            return RandomColourFromRange(random, FromHex(hexA), FromHex(hexB));
         }
     }
 }
