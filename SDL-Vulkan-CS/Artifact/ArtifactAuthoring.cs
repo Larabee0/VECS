@@ -24,7 +24,7 @@ namespace SDL_Vulkan_CS.Artifact
         {
             FOV = 50,
             ClipNear = 0.1f,
-            ClipFar = 100f
+            ClipFar = 1000f
         };
 
         private readonly bool useComputeShaderForGeneration = true;
@@ -35,6 +35,7 @@ namespace SDL_Vulkan_CS.Artifact
             World.DefaultWorld.CreateSystem<TransformPlanetsSystem>();
             World.DefaultWorld.CreateSystem<ColouredRenderSystem>();
             World.DefaultWorld.CreateSystem<StarRenderSystem>();
+            World.DefaultWorld.CreateSystem<InteractionSystem>();
 
             EntityManager entityManager = World.DefaultWorld.EntityManager;
 
@@ -44,34 +45,108 @@ namespace SDL_Vulkan_CS.Artifact
             var prefabPlanet = CreatePrefabPlanet(entityManager);
 
             var aStar = entityManager.CreateEntity();
-            entityManager.AddComponent(aStar, new Star() { Colour =ColourTypeConversion.FromHex("#FDFFFE"), Intensity = 1, Radius = 0.5f });
+            entityManager.AddComponent(aStar, new Star()
+            {
+                Colour =ColourTypeConversion.FromHex("#FDFFFE"),
+                DrawColour = ColourTypeConversion.FromHex("#CC5309"),
+                Intensity = 1,
+                Radius = 5f
+            });
+
+            entityManager.AddComponent(aStar, new Translation() { Value =new(-5f,0,0) });
 
             Parent starParent = new() { Value = aStar };
 
-            entityManager.AddComponent(aStar, new Children()
-            {
-                Value = [
-                    InstantiateNewOrbitalPlanet(entityManager,PlanetPresets.ShapeGeneratorFixedEarthLike(), prefabPlanet, starParent, new(-5f, 0, 0)),
-                    InstantiateNewOrbitalPlanet(entityManager,PlanetPresets.ShapeGeneratorRandomEarthLike(), prefabPlanet, starParent, new(5f, 0, 0))
-                ]
-            });
+            Entity planetOrbiterA = InstantiateNewOrbitalPlanet(entityManager,
+                PlanetPresets.ShapeGeneratorFixedEarthLike(),
+                prefabPlanet, starParent,
+                new(-20f, 0, 0),
+                3,
+                5, 12);
+
+            Entity moonOrbiterA = InstantiateNewOrbitalPlanet(entityManager,
+                PlanetPresets.ShapeGeneratorRandomEarthLike(),
+                prefabPlanet, starParent,
+                new(2.5f, 0, 0),
+                0.3f,
+                -5, -18);
+
+            AddMoon(entityManager, planetOrbiterA, moonOrbiterA);
+
+            Entity planetOrbiterB = InstantiateNewOrbitalPlanet(entityManager,
+                PlanetPresets.ShapeGeneratorRandomEarthLike(),
+                prefabPlanet, starParent,
+                new(40f, 0, 0),
+                2,
+                -10, -9);
+
+            Entity moonOrbiterB = InstantiateNewOrbitalPlanet(entityManager,
+                PlanetPresets.ShapeGeneratorRandomEarthLike(),
+                prefabPlanet, starParent,
+                new(0, 0, 2.0f),
+                0.3f,
+                50, 6);
+
+            AddMoon(entityManager, planetOrbiterB, moonOrbiterB);
+
+
+            Entity planetOrbiterC = InstantiateNewOrbitalPlanet(entityManager,
+                PlanetPresets.ShapeGeneratorRandomEarthLike(),
+                prefabPlanet, starParent,
+                new(0f, 0, 70),
+                4,
+                -2, 30);
+            Entity planetOrbiterD = InstantiateNewOrbitalPlanet(entityManager,
+                PlanetPresets.ShapeGeneratorFixedEarthLike(),
+                prefabPlanet, starParent,
+                new(3f, 0, 0),
+                0.4f,
+                -20, -9);
+
+            
+
+            Entity planetOrbiterE = InstantiateNewOrbitalPlanet(entityManager,
+                PlanetPresets.ShapeGeneratorFixedEarthLike(),
+                prefabPlanet, starParent,
+                new(-2f, 0, 2),
+                0.8f,
+                -40, -9);
+
+            AddMoon(entityManager, planetOrbiterC, planetOrbiterD);
+            AddMoon(entityManager, planetOrbiterD, planetOrbiterE);
+
+
+            aStar.AddChildren(entityManager, planetOrbiterA, planetOrbiterB, planetOrbiterC);
 
             Console.WriteLine("Shape loaded");
         }
 
-        private Entity InstantiateNewOrbitalPlanet(EntityManager entityManager,ShapeGenerator generator, Entity planetPrefab,Parent starParent,Vector3 initialPosition)
+        private void AddMoon(EntityManager entityManager, Entity planetOrbiter, Entity moonOrbiter)
+        {
+            Entity planet = entityManager.GetComponent<Children>(planetOrbiter).Value[0];
+            planet.AddChildren(entityManager, moonOrbiter);
+        }
+
+        private Entity InstantiateNewOrbitalPlanet(EntityManager entityManager,ShapeGenerator generator, Entity planetPrefab,Parent parent,Vector3 initialPosition,float scale,float orbitalSpeed, float dayNightSpeed)
         {
             Entity orbitalPlane = entityManager.CreateEntity();
             entityManager.AddComponent<Rotation>(orbitalPlane);
-            entityManager.AddComponent(orbitalPlane, starParent);
+            entityManager.AddComponent(orbitalPlane, parent);
             var planetInstance = entityManager.Instantiate(planetPrefab, true);
             GeneratePlanet(planetInstance, generator);
             entityManager.RemoveComponentFromHierarchy<DoNotRender>(planetInstance);
-            entityManager.AddComponent(orbitalPlane, new Children() { Value = [planetInstance] });
-            entityManager.AddComponent(planetInstance, new Parent() { Value = orbitalPlane });
+
+            orbitalPlane.AddChildren(entityManager, planetInstance);
+
             entityManager.AddComponent<Rotation>(planetInstance);
             entityManager.SetComponent(planetInstance, new Translation() { Value = initialPosition });
 
+
+            var properties = entityManager.GetComponent<PlanetPropeties>(planetInstance);
+            properties.OrbitalSpeed = float.DegreesToRadians(orbitalSpeed);
+            properties.DayNightSpeed = float.DegreesToRadians(dayNightSpeed);
+            entityManager.SetComponent(planetInstance, properties);
+            entityManager.SetComponent(planetInstance, new Scale() { Value = new(scale) });
             return orbitalPlane;
         }
 
@@ -101,9 +176,7 @@ namespace SDL_Vulkan_CS.Artifact
                 WaveC = Texture2d.GetIndexOfTexture(waveC),
                 TextureArrayIndex = Texture2d.GetIndexOfTexture(terrainShapes),
                 TerrainScale = 3f,
-                OceanBrightness = 5f,
-                OrbitalSpeed = float.DegreesToRadians(0),
-                DayNightSpeed = float.DegreesToRadians(0),
+                OceanBrightness = 5f
             });
             entityManager.AddComponent(planet, new Translation() { Value = new(0, 0f, 0) });
             entityManager.AddComponent(planet, new Scale() { Value = new(3f, 3f, 3f) });

@@ -98,14 +98,15 @@ namespace SDL_Vulkan_CS.Artifact.Colour
 
             for(int i = 0; i < children.Value.Length; i++)
             {
+                if (!entityManager.HasComponent<TileNormalVector>(children.Value[i], out int signature)) {  continue; }
                 LocalToWorld ltw = entityManager.GetComponent<LocalToWorld>(children.Value[i]);
                 Vector3 toCamera = Vector3.Normalize(camLTW.Translation - ltw.Value.Translation);
 
-                Vector3 forward = -entityManager.GetComponent<TileNormalVector>(children.Value[i]).Value;
+                Vector3 forward = -entityManager.GetComponent<TileNormalVector>(signature).Value;
                 forward = Vector3.TransformNormal(forward, ltw.Value);
                 
 
-                if (SystemNumericsExtensions.Angle(forward, toCamera) > 100)
+                if (NumericsExtensions.Angle(forward, toCamera) > 100)
                 {
                     drawCalls.Add(new(entityManager.GetComponent<MeshIndex>(children.Value[i]), ltw));
                 }

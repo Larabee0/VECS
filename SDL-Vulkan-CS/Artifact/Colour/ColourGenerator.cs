@@ -39,7 +39,7 @@ namespace SDL_Vulkan_CS.Artifact.Colour
             for (int i = 0; i < numBiomes; i++)
             {
                 float dst = heightPercent - settings.biomeColourSettings.biomes[i].startHeight;
-                float weight = SystemNumericsExtensions.InverseLerp(-blendRange, blendRange, dst);
+                float weight = NumericsExtensions.InverseLerp(-blendRange, blendRange, dst);
                 biomeIndex *= (1 - weight);
                 biomeIndex += i * weight;
             }

@@ -48,7 +48,8 @@ namespace SDL_Vulkan_CS.Artifact.Colour
                         Colour = startData.colour
                     };
 
-
+                    var star = entityManager.GetComponent<Star>(e);
+                    startData.colour = star.DrawColour;
                     starsToDraw.Add(startData);
                 }
                 rendererFrameInfo.Ubo.NumLights = starsToDraw.Count;

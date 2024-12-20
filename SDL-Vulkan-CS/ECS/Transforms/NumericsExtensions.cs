@@ -7,7 +7,7 @@ namespace SDL_Vulkan_CS
     /// <summary>
     /// Some system numerics extension for floor and step functions
     /// </summary>
-    public static class SystemNumericsExtensions
+    public static class NumericsExtensions
     {
         public static unsafe void WriteVectorToPointer(this Vector4 vector, float* pBuffer, int startOffset)
         {

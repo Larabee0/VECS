@@ -27,14 +27,21 @@ namespace SDL_Vulkan_CS
 
         public bool rightMouseDown = false;
         public bool shiftDown = false;
+        public bool ctrlDown = false;
+        public bool altDown = false;
 
         public static InputManager Instance { get; private set; }
 
         public unsafe InputManager()
         {
             Instance = this;
-            SDL3.SDL3.SDL_AddEventWatch(&KeyboardMove, IntPtr.Zero);
-            SDL3.SDL3.SDL_AddEventWatch(&RightClick, IntPtr.Zero);
+            RegisterWatcher(&KeyboardMove);
+            RegisterWatcher(&RightClick);
+        }
+
+        public static unsafe void RegisterWatcher(delegate* unmanaged[Cdecl]<nint, SDL_Event*, SDLBool> filter)
+        {
+            SDL3.SDL3.SDL_AddEventWatch(filter, IntPtr.Zero);
         }
 
         /// <summary>
@@ -98,6 +105,12 @@ namespace SDL_Vulkan_CS
                             case SDL_Keycode.LeftShift:
                                 Instance.shiftDown = true;
                                 break;
+                            case SDL_Keycode.LeftControl:
+                                Instance.ctrlDown = true;
+                                break;
+                            case SDL_Keycode.LeftAlt:
+                                Instance.altDown = true;
+                                break;
                         }
                         Instance.moveInput = cur;
                         break;
@@ -128,6 +141,12 @@ namespace SDL_Vulkan_CS
                                 break;
                             case SDL_Keycode.LeftShift:
                                 Instance.shiftDown = false;
+                                break;
+                            case SDL_Keycode.LeftControl:
+                                Instance.ctrlDown = false;
+                                break;
+                            case SDL_Keycode.LeftAlt:
+                                Instance.altDown = false;
                                 break;
                         }
                         Instance.moveInput = cur;

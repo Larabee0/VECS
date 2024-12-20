@@ -24,12 +24,12 @@ namespace SDL_Vulkan_CS.Artifact
 
         private static Vector3 mod289(Vector3 x)
         {
-            return x - SystemNumericsExtensions.Floor(x * (1.0f / 289.0f)) * 289.0f;
+            return x - NumericsExtensions.Floor(x * (1.0f / 289.0f)) * 289.0f;
         }
 
         private static Vector4 mod289(Vector4 x)
         {
-            return x - SystemNumericsExtensions.Floor(x * (1.0f / 289.0f)) * 289.0f;
+            return x - NumericsExtensions.Floor(x * (1.0f / 289.0f)) * 289.0f;
         }
 
         private static Vector4 permute(Vector4 x)
@@ -45,12 +45,12 @@ namespace SDL_Vulkan_CS.Artifact
         public static float snoise(Vector3 v, out Vector3 gradient)
         {
             // First corner
-            Vector3 i = SystemNumericsExtensions.Floor(v + new Vector3(Vector3.Dot(v, new Vector3(C.Y))));
+            Vector3 i = NumericsExtensions.Floor(v + new Vector3(Vector3.Dot(v, new Vector3(C.Y))));
             Vector3 x0 = v - i + new Vector3(Vector3.Dot(i, new Vector3(C.X)));
 
             
             // Other corners
-            Vector3 g = SystemNumericsExtensions.Step(new Vector3(x0.Y, x0.Z, x0.X), x0);
+            Vector3 g = NumericsExtensions.Step(new Vector3(x0.Y, x0.Z, x0.X), x0);
             Vector3 l = Vector3.One - g;
             Vector3 i1 = Vector3.Min(g, new Vector3(l.Z,l.X,l.Y));
             Vector3 i2 = Vector3.Max(g, new Vector3(l.Z,l.X,l.Y));
@@ -72,11 +72,11 @@ namespace SDL_Vulkan_CS.Artifact
             float n_ = 0.142857142857f; // 1.0/7.0
             Vector3 ns = n_ * new Vector3(D.W,D.Y,D.Z) - new Vector3(D.X,D.Z,D.X);
 
-            Vector4 j = p - 49.0f * SystemNumericsExtensions.Floor(p * ns.Z * ns.Z);
+            Vector4 j = p - 49.0f * NumericsExtensions.Floor(p * ns.Z * ns.Z);
 
 
-            Vector4 x_ = SystemNumericsExtensions.Floor(j * ns.Z);
-            Vector4 y_ = SystemNumericsExtensions.Floor(j - 7.0f * x_);
+            Vector4 x_ = NumericsExtensions.Floor(j * ns.Z);
+            Vector4 y_ = NumericsExtensions.Floor(j - 7.0f * x_);
 
             Vector4 x = x_ * ns.X + new Vector4(ns.Y);
             Vector4 y = y_ * ns.X + new Vector4(ns.Y);
@@ -85,9 +85,9 @@ namespace SDL_Vulkan_CS.Artifact
             Vector4 b0 = new(x.X, x.Y, y.X, y.Y);
             Vector4 b1 = new(x.Z, x.W, y.Z, y.W);
 
-            Vector4 s0 = SystemNumericsExtensions.Floor(b0) * 2.0f + Vector4.One;
-            Vector4 s1 = SystemNumericsExtensions.Floor(b1) * 2.0f + Vector4.One;
-            Vector4 sh = -SystemNumericsExtensions.Step(h, Vector4.Zero);
+            Vector4 s0 = NumericsExtensions.Floor(b0) * 2.0f + Vector4.One;
+            Vector4 s1 = NumericsExtensions.Floor(b1) * 2.0f + Vector4.One;
+            Vector4 sh = -NumericsExtensions.Step(h, Vector4.Zero);
 
             Vector4 a0 = new Vector4(b0.X, b0.Z, b0.Y, b0.W) + new Vector4(s0.X, s0.Z, s0.Y, s0.W) * new Vector4(sh.X, sh.X, sh.Y, sh.Y);
             Vector4 a1 = new Vector4(b1.X, b1.Z, b1.Y, b1.W) + new Vector4(s1.X, s1.Z, s1.Y, s1.W) * new Vector4(sh.Z, sh.Z, sh.W, sh.W);

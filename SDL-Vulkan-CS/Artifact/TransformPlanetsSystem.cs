@@ -16,7 +16,12 @@ namespace SDL_Vulkan_CS.Artifact
 
         public override void OnUpdate(EntityManager entityManager)
         {
-            if (_planetRenderQuery.HasEntities)
+            bool run = entityManager.SingletonComponent(out SimSpeed simSpeed);
+            if (run)
+            {
+                run = !simSpeed.Paused && simSpeed.Speed > 0;
+            }
+            if (run && _planetRenderQuery.HasEntities)
             {
                 var planetEntities = _planetRenderQuery.GetEntities();
 
@@ -28,14 +33,14 @@ namespace SDL_Vulkan_CS.Artifact
                     var props = entityManager.GetComponent<PlanetPropeties>(planet);
                     Rotation orbitalRotation = entityManager.GetComponent<Rotation>(parent);
 
-                    orbitalRotation.Value.Y += deltaTime * props.OrbitalSpeed;
+                    orbitalRotation.Value.Y += deltaTime * props.OrbitalSpeed * simSpeed.Speed;
                     orbitalRotation.Value.Y %= float.DegreesToRadians(360);
 
                     entityManager.SetComponent(parent, orbitalRotation);
 
                     var localRotation = entityManager.GetComponent<Rotation>(planet);
 
-                    localRotation.Value.Y += deltaTime * props.DayNightSpeed;
+                    localRotation.Value.Y += deltaTime * props.DayNightSpeed * simSpeed.Speed;
                     localRotation.Value.Y %= float.DegreesToRadians(360);
 
                     entityManager.SetComponent(planet, localRotation);

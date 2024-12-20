@@ -224,7 +224,12 @@ namespace SDL_Vulkan_CS
                 moveDir += movement.X * right;
                 moveDir += movement.Y * up;
 
-                float speed = InputManager.Instance.shiftDown ? moveSpeed * 2 : moveSpeed;
+                bool slow = InputManager.Instance.ctrlDown;
+                bool fast = InputManager.Instance.shiftDown;
+                bool extraFast = InputManager.Instance.shiftDown;
+
+                float speed = slow ? moveSpeed * 0.25f : fast ? moveSpeed * 4f : extraFast ? moveSpeed * 8f : moveSpeed;
+
                 translation.Value += speed * Application.DeltaTime * Vector3.Normalize(moveDir);
                 entityManager.SetComponent(entity, translation);
             }

@@ -1,4 +1,7 @@
-﻿using System;
+﻿using SDL_Vulkan_CS.ECS;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Numerics;
 
 namespace SDL_Vulkan_CS
@@ -8,6 +11,34 @@ namespace SDL_Vulkan_CS
     /// </summary>
     public static class TransformExtensions
     {
+        public static void AddChildren(this Entity parent, EntityManager entityManager, params Entity[] newChildren)
+        {
+            if(newChildren == null ||  newChildren.Length == 0) return;
+            Parent parentComp = new() { Value = parent };
+
+            Children children = entityManager.HasComponent<Children>(parent,out var signature)
+                ? entityManager.GetComponent<Children>(signature)
+                : entityManager.AddComponent<Children>(parent);
+
+            children.Value ??= [];
+
+            List<Entity> toAdd = new(children.Value);
+            for (int i = 0; i < newChildren.Length; i++)
+            {
+                Entity newChild = newChildren[i];
+
+                if (!children.Value.Contains(newChild))
+                {
+                    toAdd.Add(newChild);
+                    entityManager.AddComponent(newChild, parentComp);
+                }
+            }
+
+            children.Value = [.. toAdd];
+
+            entityManager.SetComponent(parent,children);
+        }
+
         public static Vector3 DegreesToRadians(Vector3 euler)
         {
             return new(float.DegreesToRadians(euler.X), float.DegreesToRadians(euler.Y), float.DegreesToRadians(euler.Z));

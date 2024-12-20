@@ -9,6 +9,7 @@ namespace SDL_Vulkan_CS.Artifact
         public readonly int Id => ComponentId;
 
         public Vector4 Colour;
+        public Vector4 DrawColour;
 
         public float Intensity;
         public float Radius;

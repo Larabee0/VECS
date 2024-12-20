@@ -33,7 +33,7 @@ namespace SDL_Vulkan_CS.Artifact
             Vector4 a = gradientPoints[firstColourIndex].colour;
             Vector4 b = gradientPoints[secondColourIndex].colour;
 
-            float localT = SystemNumericsExtensions.InverseLerp(gradientPoints[firstColourIndex].startPercent, gradientPoints[secondColourIndex].startPercent, t);
+            float localT = NumericsExtensions.InverseLerp(gradientPoints[firstColourIndex].startPercent, gradientPoints[secondColourIndex].startPercent, t);
 
             var colourOut = Vector4.Lerp(a, b, localT);
 
@@ -55,8 +55,8 @@ namespace SDL_Vulkan_CS.Artifact
                     }
                 }
 
-                localT = SystemNumericsExtensions.InverseLerp(alphaPoints[firstColourIndex].startPercent, alphaPoints[secondColourIndex].startPercent, t);
-                colourOut.W = SystemNumericsExtensions.Lerp(alphaPoints[firstColourIndex].alpha, alphaPoints[secondColourIndex].alpha, localT);
+                localT = NumericsExtensions.InverseLerp(alphaPoints[firstColourIndex].startPercent, alphaPoints[secondColourIndex].startPercent, t);
+                colourOut.W = NumericsExtensions.Lerp(alphaPoints[firstColourIndex].alpha, alphaPoints[secondColourIndex].alpha, localT);
                 if (alphaIsTexture && textureCount > 0)
                 {
                     colourOut.W = MathF.Round(colourOut.W);
@@ -88,7 +88,7 @@ namespace SDL_Vulkan_CS.Artifact
             {
                 colour = ColourTypeConversion.RandomColourFromRange(random, hexCodeA, hexCodeB);
                 
-                startPercent = SystemNumericsExtensions.Lerp(startPercentA, startPercentB, random.NextSingle());
+                startPercent = NumericsExtensions.Lerp(startPercentA, startPercentB, random.NextSingle());
             }
         }
         public struct AlphaPoint
@@ -105,7 +105,7 @@ namespace SDL_Vulkan_CS.Artifact
             public AlphaPoint(Random random, float alpha, float startPercentA,float startPercentB)
             {
                 this.alpha = alpha;
-                startPercent = SystemNumericsExtensions.Lerp(startPercentA, startPercentB, random.NextSingle());
+                startPercent = NumericsExtensions.Lerp(startPercentA, startPercentB, random.NextSingle());
             }
         }
     }
