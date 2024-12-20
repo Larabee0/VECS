@@ -15,10 +15,12 @@ namespace SDL_Vulkan_CS.VulkanBackend
 
         private bool _disposed;
 
-        public CsharpVulkanImage(GraphicsDevice graphicsDevice, VkExtent3D extent)
+        public CsharpVulkanImage(GraphicsDevice graphicsDevice, VkExtent3D extent, VkFormat format)
         {
             _device = graphicsDevice;
-            CreateInternal(DefaultImageCreateInfo(extent));
+            var createInfo = DefaultImageCreateInfo(extent);
+            createInfo.format = format;
+            CreateInternal(createInfo);
         }
 
         public unsafe CsharpVulkanImage(GraphicsDevice graphicsDevice, VkImageCreateInfo imgCreateInfo)

@@ -22,7 +22,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
         private VkDescriptorImageInfo _imageDescriptor;
 
         private VkImageLayout _imageLayout = VkImageLayout.Undefined;
-        private readonly VkFormat _imageFormat;
+        private readonly VkFormat _imageFormat = VkFormat.R8G8B8A8Unorm;
         private VkExtent3D _imageExtents;
         public VkImageViewType _imageImageViewType;
         private readonly GraphicsDevice _device;
@@ -223,12 +223,13 @@ namespace SDL_Vulkan_CS.VulkanBackend
         /// <exception cref="Exception"></exception>
         private unsafe void CreateImageView(VkImageViewType type = VkImageViewType.Image2D, uint depth = 1)
         {
+            
             _imageImageViewType = type;
             VkImageViewCreateInfo viewInfo = new()
             {
                 image = _textureImage.VkImage,
                 viewType = type,
-                format = VkFormat.R8G8B8A8Srgb,
+                format = _imageFormat,
                 subresourceRange = new()
                 {
                     aspectMask = VkImageAspectFlags.Color,
@@ -398,7 +399,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
 
             _imageExtents = new(width, height, 1);
 
-            _textureImage = new(_device, _imageExtents);
+            _textureImage = new(_device, _imageExtents,_imageFormat);
 
             CopyFromBuffer(stagingBuffer, width, height);
 
@@ -562,7 +563,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
 
 
             textureArray._imageExtents = new(width, height, depth);
-            textureArray._textureImage = new(GraphicsDevice.Instance, textureArray._imageExtents);
+            textureArray._textureImage = new(GraphicsDevice.Instance, textureArray._imageExtents,textureArray._imageFormat);
 
             
             textureArray.CopyFromBuffer(stagingBuffer, width, height, depth);
