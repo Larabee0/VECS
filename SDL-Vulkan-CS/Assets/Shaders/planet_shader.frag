@@ -54,38 +54,38 @@ layout(push_constant) uniform Push
 
 float colourSample(out vec4 colour, out vec4 steepColour, out float alpha)
 {
-	float oceanT = inverseLerp(params.elevationMin,0,fragElevation);
-	oceanT = clamp(oceanT,0,1);
-	float terrainT = inverseLerp(0,params.elevationMax,fragElevation);
+	float oceanT = inverseLerp(params.elevationMin,0.0,fragElevation);
+	oceanT = clamp(oceanT,0.0,1.0);
+	float terrainT = inverseLerp(0.0,params.elevationMax,fragElevation);
 	terrainT = clamp(terrainT,0.01,1.0);
 
 
-	float oceanWeight = lerp(0,0.5,clamp(oceanT,0,0.9915));
+	float oceanWeight = lerp(0.0,0.5,clamp(oceanT,0.0,0.9915));
 	float floorOceanT = floor(oceanT);
 	float terrainWeight = lerp(0.5,1,terrainT);
 
-	oceanWeight = oceanWeight *(1 - floorOceanT);
+	oceanWeight = oceanWeight *(1.0 - floorOceanT);
 	terrainWeight = terrainWeight * floorOceanT;
-	float u = clamp(oceanWeight + terrainWeight,0,1);
-	float v = fragBiome;
+	float u = clamp(oceanWeight + terrainWeight,0.0,1.0);
+	float v = floor(fragBiome);
 
 	colour = texture(texMainColour,vec2(u,v));
-	colour.w = (colour.w-0.5)*2;
+	colour.w = (colour.w-0.5)*2.0;
 	steepColour = texture(texSteepColour,vec2(u,v));
 	//steepColour.w = (steepColour.w-0.5)*2;
 	return 1-floorOceanT;
 }
 
 float sampleTerrain(float mainAlpha){
-	float texIndex = mainAlpha;// clamp(mainAlpha,0,params.textureCount-1);
+	float texIndex = floor(mainAlpha);// clamp(mainAlpha,0,params.textureCount-1);
 	vec3 col = triplanarArray(fragPosObject, fragNormalObject, params.terrainScale,texIndex, texTerrain).xyz;
 	
-	return (col.x + col.y + col.z) / 3;
+	return (col.x + col.y + col.z) / 3.0;
 }
 
 float sampleOcean()
 {
-	float scaleA = remap(100*params.sineTime, 0, 1, 0.320, 0.3201);
+	float scaleA = remap(100*params.sineTime, 0.0, 1.0, 0.320, 0.3201);
 	float scaleB = remap(100*(params.cosineTime + 0.6), 0.6, 1.6, 0.4704, 0.4705);
 	float scaleC = remap(100*(params.cosineTime + 0.3), 0, 1.3, 0.320, 0.3202);
 
@@ -93,9 +93,9 @@ float sampleOcean()
 	vec3 colB = triplanarUVOffset(fragPosObject, fragNormalObject,vec2(scaleC-scaleB, -scaleA), scaleB, texWaveB).xyz;
 	vec3 colC = triplanarUVOffset(fragPosObject, fragNormalObject,vec2(-scaleA-scaleC, -scaleB), scaleC, texWaveC).xyz;
 
-	vec3 col = ((colA * colB) * colC) * (params.oceanBrightness*0.75);
-
-	return max((col.x + col.y + col.z) / 3, 0);
+	vec3 col = ((colA * colB) * colC) / 3.0 * (params.oceanBrightness*0.75);
+	
+	return max((col.x + col.y + col.z) / 3.0, 0.0);
 
 }
 
@@ -112,15 +112,6 @@ void main()
 		PointLight light = ubo.pointLights[i];
 		
 
-		//vec4 pos = light.colour;
-		vec4 col = light.position;
-        //light.position = pos;
-        //light.colour = col;
-
-		
-        //light.position = vec4(0, 0, 0, 0);
-        //light.colour = vec4(1, 0.5, 1, 1);
-
 		vec3 directionToLight = light.position.xyz - fragPosWorld;
 		float attenuation = 1.0 / dot(directionToLight, directionToLight); // distance squared
 		
@@ -134,8 +125,8 @@ void main()
 
 		vec3 halfAngle = normalize(directionToLight + viewDirection);
 		float blinnTerm = dot(surfaceNormal, halfAngle);
-		blinnTerm = clamp(blinnTerm, 0, 1);
-		blinnTerm = pow(blinnTerm, 32.0); // higher values -> sharper highlight.
+		blinnTerm = clamp(blinnTerm, 0.0, 1.0);
+		blinnTerm = pow(blinnTerm, 8.0); // higher values -> sharper highlight.
 		specularLight += intensity * blinnTerm; 
 	}
 
@@ -145,13 +136,13 @@ void main()
 	float oneMinusFloorOceanT = colourSample(mainColour,steepColour,alpha);
 
 	float steepness = dot(normalize(fragPosObject),fragNormalObject);
-	steepness = clamp(remap(steepness,steepColour.w,0,0,1),0,1);
+	steepness = clamp(remap(steepness,steepColour.w,0.0,0.0,1.0),0.0,1.0);
 	
 	float oceanWeight = lerp(1, sampleOcean(), oneMinusFloorOceanT);
-	float terrainWeight = lerp(sampleTerrain(mainColour.w), 1, oneMinusFloorOceanT);
+	float terrainWeight = lerp(sampleTerrain(mainColour.w), 1.0, oneMinusFloorOceanT);
 	outColour = lerp(mainColour,steepColour,steepness);
 	
-	outColour = outColour*terrainWeight * oceanWeight * (3);
+	outColour = outColour*terrainWeight * oceanWeight;
 	//outColour =vec4(mainColour.xyz,1);
 	
 	//outColour = vec4(mainColour.w);
