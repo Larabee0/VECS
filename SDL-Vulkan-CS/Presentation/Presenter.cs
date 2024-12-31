@@ -35,7 +35,7 @@ namespace SDL_Vulkan_CS
         private DescriptorPool _globalDescriptorPool;
         private DescriptorSetLayout _globalDescriptorSetLayout;
         private readonly VkDescriptorSet[] _globalDescriptorSets = new VkDescriptorSet[SwapChain.MAX_FRAMES_IN_FLIGHT];
-        private readonly CsharpVulkanBuffer[] _globalUboBuffers = new CsharpVulkanBuffer[SwapChain.MAX_FRAMES_IN_FLIGHT];
+        private readonly CsharpVulkanBuffer<GlobalUbo.WriteableUBO>[] _globalUboBuffers = new CsharpVulkanBuffer<GlobalUbo.WriteableUBO>[SwapChain.MAX_FRAMES_IN_FLIGHT];
 
         private readonly DescriptorPool[] swapChainFrameDescriptorPools = new DescriptorPool[SwapChain.MAX_FRAMES_IN_FLIGHT];
 
@@ -105,7 +105,7 @@ namespace SDL_Vulkan_CS
             _ = new Texture2d(_device, Texture2d.GetTextureInDefaultPath("missing.png"));
         }
 
-        private unsafe DescriptorSetLayout ConfigureUboBuffers(CsharpVulkanBuffer[] uboBuffers, VkDescriptorSet[] globalDescriptorSets)
+        private unsafe DescriptorSetLayout ConfigureUboBuffers(CsharpVulkanBuffer<GlobalUbo.WriteableUBO>[] uboBuffers, VkDescriptorSet[] globalDescriptorSets)
         {
             for (int i = 0; i < uboBuffers.Length; i++)
             {
@@ -237,9 +237,25 @@ namespace SDL_Vulkan_CS
         /// </summary>
         public void Dispose()
         {
-            Material.Materials.ForEach(m => m.Dispose());
-            Texture2d.Textures.ForEach(t => t.Dispose());
-            Mesh.Meshes.ForEach(m => m.Dispose());
+            for (int i = Material.Materials.Count - 1; i >= 0; i--)
+            {
+                Material.Materials[i].Dispose();
+            }
+            
+            for (int i = Texture2d.Textures.Count - 1; i >= 0; i--)
+            {
+                Texture2d.Textures[i].Dispose();
+            }
+
+            for (int i = GPUMesh<Vertex>.MeshSets.Count - 1; i >= 0; i--)
+            {
+                GPUMesh<Vertex>.MeshSets[i].Dispose();
+            }
+
+            for (int i = Mesh.Meshes.Count - 1; i >= 0; i--)
+            {
+                Mesh.Meshes[i].Dispose();
+            }
 
             Instance = null;
             // deallocation order matters.

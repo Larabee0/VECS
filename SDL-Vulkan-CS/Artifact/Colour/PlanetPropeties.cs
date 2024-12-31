@@ -37,7 +37,7 @@ namespace SDL_Vulkan_CS.Artifact.Colour
             };
         }
 
-        public unsafe void WriteShaderParamters(CsharpVulkanBuffer paramsBuffer)
+        public unsafe void WriteShaderParamters(CsharpVulkanBuffer<PlanetTileShaderParmeters> paramsBuffer)
         {
             PlanetTileShaderParmeters shaderParameters = GetShaderParmeters(Application.TimeSinceStart);
             paramsBuffer.WriteToBuffer(&shaderParameters);

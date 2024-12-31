@@ -1,4 +1,6 @@
-﻿using System;
+﻿using SDL_Vulkan_CS.ECS;
+using SDL_Vulkan_CS.ECS.Presentation;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Numerics;
@@ -171,6 +173,30 @@ namespace SDL_Vulkan_CS.VulkanBackend
             Vulkan.vkDestroySampler(_device.Device, _textureSampler);
             Vulkan.vkDestroyImageView(_device.Device, _textureImageView);
             _textureImage?.Dispose();
+
+            int index = GetIndexOfTexture(this);
+
+            if (World.DefaultWorld != null && World.DefaultWorld.EntityManager != null)
+            {
+                var entityManager = World.DefaultWorld.EntityManager;
+                var allMeshEntities = entityManager.GetAllEntitiesWithComponent<TextureIndex>();
+                allMeshEntities?.ForEach(e =>
+                {
+                    var textureIndex = entityManager.GetComponent<TextureIndex>(e);
+
+                    if (textureIndex.Value == index)
+                    {
+                        entityManager.RemoveComponent<TextureIndex>(e);
+                    }
+                    else if (textureIndex.Value > index)
+                    {
+                        textureIndex.Value--;
+                        entityManager.SetComponent(e, textureIndex);
+                    }
+                });
+            }
+
+            Textures.RemoveAt(index);
         }
 
         public void UpdateDescriptor()
@@ -318,10 +344,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
 
         public unsafe void CopyFromArray(Vector4[] colours)
         {
-
-            uint imageSize = (uint)colours.Length * (uint)sizeof(Vector4);
-
-            var stagingBuffer = new CsharpVulkanBuffer(GraphicsDevice.Instance, imageSize, 1, VkBufferUsageFlags.TransferSrc, true);
+            var stagingBuffer = new CsharpVulkanBuffer<Vector4>(GraphicsDevice.Instance, (ulong)colours.LongLength, VkBufferUsageFlags.TransferSrc, true);
 
             fixed (Vector4* pColours = colours)
             {
@@ -333,7 +356,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
         }
 
 
-        public unsafe void CopyFromBuffer(CsharpVulkanBuffer buffer,uint width,uint height,uint depth = 1)
+        public unsafe void CopyFromBuffer<T>(CsharpVulkanBuffer<T> buffer,uint width,uint height,uint depth = 1) where T : unmanaged
         {
             TransitionImageLayout(VkImageLayout.TransferDstOptimal);
             if (depth == 1)
@@ -388,11 +411,9 @@ namespace SDL_Vulkan_CS.VulkanBackend
             uint width = (uint)image.Width;
             uint height = (uint)image.Height;
 
-            uint imageSize = (uint)(width * height * sizeof(Color));
+            var stagingBuffer = new CsharpVulkanBuffer<Color>(_device, width * height, VkBufferUsageFlags.TransferSrc, true);
 
-            var stagingBuffer = new CsharpVulkanBuffer(_device, imageSize, 1, VkBufferUsageFlags.TransferSrc, true);
-            
-            void* pMappedData;
+            Color* pMappedData;
             stagingBuffer.Map(&pMappedData);
             CopyColor(new IntPtr(pMappedData), image);
             stagingBuffer.Unmap();
@@ -539,11 +560,11 @@ namespace SDL_Vulkan_CS.VulkanBackend
 
             uint depth = (uint)surfaces.Length;
 
-            uint textureArraySize = (uint)(width * height * depth * sizeof(Color));
+            //uint textureArraySize = (uint)(width * height * depth * sizeof(Color));
 
             Texture2d textureArray = new(GraphicsDevice.Instance);
 
-            var stagingBuffer = new CsharpVulkanBuffer(GraphicsDevice.Instance, textureArraySize, 1, VkBufferUsageFlags.TransferSrc, true);
+            var stagingBuffer = new CsharpVulkanBuffer<Color>(GraphicsDevice.Instance, width * height * depth, VkBufferUsageFlags.TransferSrc, true);
             
             // the surface class needs to copy its data to this before it can be copied to the gpu.
             // staging buffer for the staging buffer

@@ -15,10 +15,10 @@ namespace SDL_Vulkan_CS.Artifact.Generator
         private readonly GenericComputePipeline _terrainGenerator;
         private readonly DescriptorPool _pool;
 
-        private readonly CsharpVulkanBuffer _elevationMinMax;
-        private CsharpVulkanBuffer _biomeStartHeights;
-        private CsharpVulkanBuffer _noiseSettings;
-        private readonly CsharpVulkanBuffer _noiseGeneratorParams;
+        private readonly CsharpVulkanBuffer<int> _elevationMinMax;
+        private CsharpVulkanBuffer<float> _biomeStartHeights;
+        private CsharpVulkanBuffer<GlobalNoiseSettings> _noiseSettings;
+        private readonly CsharpVulkanBuffer<NoiseGeneratorParams> _noiseGeneratorParams;
 
         public unsafe ComputeShapeGenerator()
         {
@@ -38,8 +38,8 @@ namespace SDL_Vulkan_CS.Artifact.Generator
             _terrainGenerator.AllocateDescriptorSet(_pool);
 
             // size of these buffers is known in advance.
-            _noiseGeneratorParams = new(GraphicsDevice.Instance, (uint)sizeof(NoiseGeneratorParams), 1, VkBufferUsageFlags.UniformBuffer, true);
-            _elevationMinMax = new(GraphicsDevice.Instance, sizeof(int), 2, VkBufferUsageFlags.StorageBuffer, true);
+            _noiseGeneratorParams = new(GraphicsDevice.Instance, 1, VkBufferUsageFlags.UniformBuffer, true);
+            _elevationMinMax = new(GraphicsDevice.Instance, 2, VkBufferUsageFlags.StorageBuffer, true);
 
             ResetMinMax();
 
@@ -63,12 +63,12 @@ namespace SDL_Vulkan_CS.Artifact.Generator
         /// <param name="generator"></param>
         private unsafe void WriteNoiseSettings(ShapeGenerator generator)
         {
-            if (_noiseSettings != null && _noiseSettings.InstanceCount != (uint)generator.NoiseFilters.Length + 1)
+            if (_noiseSettings != null && _noiseSettings.UInstanceCount32 != (uint)generator.NoiseFilters.Length + 1)
             {
                 _noiseSettings?.Dispose();
                 _noiseSettings = null;
             }
-            _noiseSettings = new(GraphicsDevice.Instance, (uint)sizeof(GlobalNoiseSettings), (uint)generator.NoiseFilters.Length + 1, VkBufferUsageFlags.StorageBuffer, true);
+            _noiseSettings = new(GraphicsDevice.Instance, (uint)generator.NoiseFilters.Length + 1, VkBufferUsageFlags.StorageBuffer, true);
 
             GlobalNoiseSettings* settingsPoint = stackalloc GlobalNoiseSettings[generator.NoiseFilters.Length + 1];
             settingsPoint[0] = generator.ColourGenerator.settings.biomeColourSettings.noise.GetSettings();
@@ -87,12 +87,12 @@ namespace SDL_Vulkan_CS.Artifact.Generator
         private unsafe void WriteBiomeStartHeights(ColourSettings colourSettings)
         {
             int biomeCount = colourSettings.biomeColourSettings.biomes.Length;
-            if(_biomeStartHeights != null && _biomeStartHeights.InstanceCount != (uint)biomeCount)
+            if(_biomeStartHeights != null && _biomeStartHeights.UInstanceCount32 != (uint)biomeCount)
             {
                 _biomeStartHeights?.Dispose();
                 _biomeStartHeights = null;
             }
-            _biomeStartHeights ??= new(GraphicsDevice.Instance, sizeof(float), (uint)biomeCount, VkBufferUsageFlags.StorageBuffer, true);
+            _biomeStartHeights ??= new(GraphicsDevice.Instance, (uint)biomeCount, VkBufferUsageFlags.StorageBuffer, true);
 
             float* startHeights = stackalloc float[biomeCount];
 
@@ -119,9 +119,9 @@ namespace SDL_Vulkan_CS.Artifact.Generator
         /// This done before the dispatch command is run for each tile of the planet.
         /// </summary>
         /// <param name="vertexBuffer"></param>
-        private unsafe void Prepare(CsharpVulkanBuffer vertexBuffer)
+        private unsafe void Prepare(CsharpVulkanBuffer<Vertex> vertexBuffer)
         {
-            _terrainGenerator.Prepare(vertexBuffer.InstanceCount, vertexBuffer.InstanceCount, 1);
+            _terrainGenerator.Prepare(vertexBuffer.UInstanceCount32, vertexBuffer.UInstanceCount32, 1);
 
             fixed (VkDescriptorSet* pSet = &_terrainGenerator.DescriptorSet)
             {

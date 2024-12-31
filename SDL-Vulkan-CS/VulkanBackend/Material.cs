@@ -1,4 +1,6 @@
-﻿using System;
+﻿using SDL_Vulkan_CS.ECS;
+using SDL_Vulkan_CS.ECS.Presentation;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using Vortice.Vulkan;
@@ -39,6 +41,23 @@ namespace SDL_Vulkan_CS.VulkanBackend
             Materials.Add(this);
         }
 
+        public Material(string vertexShader, string fragmentShader, params DescriptorSetBinding[] reqs)
+        {
+            string vertexFilePath = GetShaderFilePath(vertexShader);
+            string fragmentFilePath = GetShaderFilePath(fragmentShader);
+
+            var builder = new DescriptorSetLayout.Builder(GraphicsDevice.Instance);
+            for (uint i = 0; i < reqs.Length; i++)
+            {
+                builder.AddBinding(i, reqs[i]);
+            }
+
+            _materialDescriptorLayout = builder.Build();
+
+            CreatePipelineLayout(Presenter.Instance.GlobalSetLayout);
+            CreatePipeline(vertexFilePath, fragmentFilePath);
+            Materials.Add(this);
+        }
         /// <summary>
         /// Creates a material consiting of a vertex and fragment shader and also a descriptor set layout for arbitary data.
         /// </summary>
@@ -319,7 +338,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
             mesh.BindAndDraw(rendererFrameInfo.CommandBuffer);
         }
 
-        public void BindAndDraw<T>(RendererFrameInfo rendererFrameInfo, int meshIndex, T pushConstants, params CsharpVulkanBuffer[] buffers) where T : unmanaged
+        public void BindAndDraw<T,U>(RendererFrameInfo rendererFrameInfo, int meshIndex, T pushConstants, params CsharpVulkanBuffer<U>[] buffers) where T : unmanaged where U : unmanaged
         {
             Mesh mesh = Mesh.GetMeshAtIndex(meshIndex);
             if (mesh == null) return;
@@ -362,7 +381,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
         /// <param name="rendererFrameInfo"></param>
         /// <param name="bufferInfos"></param>
         /// <exception cref="Exception"></exception>
-        public unsafe void AddBuffers(DescriptorWriter builder, params CsharpVulkanBuffer[] bufferInfos)
+        public static unsafe void AddBuffers<T>(DescriptorWriter builder, params CsharpVulkanBuffer<T>[] bufferInfos) where T : unmanaged
         {
             for (uint i = 0; i < bufferInfos.Length; i++)
             {
@@ -376,7 +395,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
         /// <param name="rendererFrameInfo"></param>
         /// <param name="textures"></param>
         /// <exception cref="Exception"></exception>
-        public unsafe void AddTextures(DescriptorWriter builder, params int[] textures)
+        public static unsafe void AddTextures(DescriptorWriter builder, params int[] textures)
         {
             for (uint i = 0; i < textures.Length; i++)
             {
@@ -406,6 +425,30 @@ namespace SDL_Vulkan_CS.VulkanBackend
             _materialPipeline.Dispose();
             Vulkan.vkDestroyPipelineLayout(GraphicsDevice.Instance.Device, _pipelineLayout);
             _materialDescriptorLayout?.Dispose();
+
+            int index = GetIndexOfMaterial(this);
+
+            if (World.DefaultWorld != null && World.DefaultWorld.EntityManager != null)
+            {
+                var entityManager = World.DefaultWorld.EntityManager;
+                var allMeshEntities = entityManager.GetAllEntitiesWithComponent<MaterialIndex>();
+                allMeshEntities.ForEach(e =>
+                {
+                    var materialIndex = entityManager.GetComponent<MaterialIndex>(e);
+
+                    if (materialIndex.Value == index)
+                    {
+                        entityManager.RemoveComponent<MaterialIndex>(e);
+                    }
+                    else if (materialIndex.Value > index)
+                    {
+                        materialIndex.Value--;
+                        entityManager.SetComponent(e, materialIndex);
+                    }
+                });
+            }
+
+            Materials.RemoveAt(index);
         }
 
         /// <summary>

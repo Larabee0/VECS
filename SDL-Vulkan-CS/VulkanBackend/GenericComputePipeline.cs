@@ -1,6 +1,5 @@
 ﻿using System;
 using System.IO;
-using System.Numerics;
 using Vortice.Vulkan;
 
 namespace SDL_Vulkan_CS.VulkanBackend
@@ -16,10 +15,10 @@ namespace SDL_Vulkan_CS.VulkanBackend
 
         private readonly DescriptorSetLayout _descriptorSetLayout;
 
-        private CsharpVulkanBuffer _shaderParameters;
+        private CsharpVulkanBuffer<ComputeShaderParameters> _shaderParameters;
 
         public DescriptorSetLayout DescriptorSetLayout => _descriptorSetLayout;
-        public CsharpVulkanBuffer ShaderParameters =>_shaderParameters;
+        public CsharpVulkanBuffer<ComputeShaderParameters> ShaderParameters =>_shaderParameters;
 
         public unsafe GenericComputePipeline(string computeShaderName, params DescriptorSetBinding[] bindings)
         {
@@ -68,7 +67,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
         public unsafe void Prepare(uint mainBufferLength,uint mainBufferWidth = 1, uint mainBufferHeight = 1, uint mainBufferDepth = 1)
         {
             
-            _shaderParameters ??= new(GraphicsDevice.Instance, (uint)sizeof(ComputeShaderParameters), 1, VkBufferUsageFlags.UniformBuffer, true);
+            _shaderParameters ??= new(GraphicsDevice.Instance, 1, VkBufferUsageFlags.UniformBuffer, true);
 
             ComputeShaderParameters* compShaderParams = stackalloc ComputeShaderParameters[1];
 

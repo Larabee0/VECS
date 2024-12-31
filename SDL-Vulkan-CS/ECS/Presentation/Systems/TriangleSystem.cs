@@ -16,7 +16,7 @@ namespace SDL_Vulkan_CS.ECS
 
         private Material _triangleMaterial;
 
-        private CsharpVulkanBuffer _vertexBuffer;
+        private CsharpVulkanBuffer<Vertex> _vertexBuffer;
 
         public TriangleSystem(GraphicsDevice device, VkRenderPass renderPass, VkDescriptorSetLayout globalSetLayout) : base()
         {
@@ -70,13 +70,13 @@ namespace SDL_Vulkan_CS.ECS
 
             uint vertexBufferSize = (uint)(sourceData.Length * Vertex.SizeInBytes);
 
-            var stagingBuffer = new CsharpVulkanBuffer(_graphicsDevice, (uint)Vertex.SizeInBytes, (uint)sourceData.Length, VkBufferUsageFlags.TransferSrc, true);
-            fixed (void* data = &sourceData[0])
+            var stagingBuffer = new CsharpVulkanBuffer<Vertex>(_graphicsDevice, (uint)sourceData.Length, VkBufferUsageFlags.TransferSrc, true);
+            fixed (Vertex* data = &sourceData[0])
             {
                 stagingBuffer.WriteToBuffer(data);
             }
 
-            _vertexBuffer = new CsharpVulkanBuffer(_graphicsDevice, (uint)Vertex.SizeInBytes, (uint)sourceData.Length, VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.VertexBuffer, true);
+            _vertexBuffer = new CsharpVulkanBuffer<Vertex>(_graphicsDevice, (uint)sourceData.Length, VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.VertexBuffer, true);
 
             _graphicsDevice.CopyBuffer(stagingBuffer.VkBuffer, _vertexBuffer.VkBuffer, vertexBufferSize);
 

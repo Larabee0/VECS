@@ -27,14 +27,14 @@ namespace SDL_Vulkan_CS
         }
 
 
-        public readonly unsafe void WriteToBuffer(CsharpVulkanBuffer targetBuffer)
+        public readonly unsafe void WriteToBuffer(CsharpVulkanBuffer<WriteableUBO> targetBuffer)
         {
             WriteableUBO.Write(this, targetBuffer);
         }
 
 
         [StructLayout(LayoutKind.Sequential, Size = 212)]
-        private struct WriteableUBO
+        public struct WriteableUBO
         {
             public unsafe static int SizeInBytes => sizeof(WriteableUBO);
             public Matrix4x4 Projection;
@@ -53,7 +53,7 @@ namespace SDL_Vulkan_CS
 
             }
 
-            public static void Write(GlobalUbo source, CsharpVulkanBuffer buffer)
+            public static void Write(GlobalUbo source, CsharpVulkanBuffer<WriteableUBO> buffer)
             {
                 WriteableUBO writeable = new(source);
                 PointLight* pPointLights = stackalloc PointLight[Presenter.MAX_LIGHTS];

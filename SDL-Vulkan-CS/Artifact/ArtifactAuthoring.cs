@@ -7,6 +7,7 @@ using SDL_Vulkan_CS.Artifact.Generator;
 using System;
 using System.Threading.Tasks;
 using SDL_Vulkan_CS.Artifact.Colour;
+using SDL_Vulkan_CS.ECS.Presentation.Systems;
 
 namespace SDL_Vulkan_CS.Artifact
 {
@@ -30,10 +31,13 @@ namespace SDL_Vulkan_CS.Artifact
         private readonly bool useComputeShaderForGeneration = true;
         private readonly int subdivisons = 7;
 
+        private readonly bool generateIndirectMeshes = true;
+
         public ArtifactAuthoring()
         {
             World.DefaultWorld.CreateSystem<TransformPlanetsSystem>();
             World.DefaultWorld.CreateSystem<ColouredRenderSystem>();
+            World.DefaultWorld.CreateSystem<DrawIndirectRenderSystem>();
             World.DefaultWorld.CreateSystem<StarRenderSystem>();
             World.DefaultWorld.CreateSystem<InteractionSystem>();
 
@@ -44,16 +48,54 @@ namespace SDL_Vulkan_CS.Artifact
 
             var prefabPlanet = CreatePrefabPlanet(entityManager);
 
+            var indirectMeshMaterial = new Material("white_shader.vert", "white_shader.frag",
+                new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.StorageBuffer, StageFlags = VkShaderStageFlags.Vertex}
+                );
+
+            CreateSinglePlanetTestScene(entityManager, prefabPlanet);
+
+            Console.WriteLine("Shape loaded");
+            GeometryStats();
+        }
+
+        private void CreateSinglePlanetTestScene(EntityManager entityManager, Entity prefabPlanet)
+        {
             var aStar = entityManager.CreateEntity();
             entityManager.AddComponent(aStar, new Star()
             {
-                Colour =ColourTypeConversion.FromHex("#FDFFFE"),
+                Colour = ColourTypeConversion.FromHex("#FDFFFE"),
                 DrawColour = ColourTypeConversion.FromHex("#CC5309"),
                 Intensity = 1,
                 Radius = 5f
             });
 
-            entityManager.AddComponent(aStar, new Translation() { Value =new(-5f,0,0) });
+            entityManager.AddComponent(aStar, new Translation() { Value = new(-5f, 0, 0) });
+
+            Parent starParent = new() { Value = aStar };
+
+            Entity planetOrbiterA = InstantiateNewOrbitalPlanet(entityManager,
+                PlanetPresets.ShapeGeneratorFixedEarthLike(),
+                prefabPlanet, starParent,
+                new(-20f, 0, 0),
+                3,
+                5, 12);
+
+
+            aStar.AddChildren(entityManager, planetOrbiterA);
+        }
+
+        private void CreateBigTestScene(EntityManager entityManager, Entity prefabPlanet)
+        {
+            var aStar = entityManager.CreateEntity();
+            entityManager.AddComponent(aStar, new Star()
+            {
+                Colour = ColourTypeConversion.FromHex("#FDFFFE"),
+                DrawColour = ColourTypeConversion.FromHex("#CC5309"),
+                Intensity = 1,
+                Radius = 5f
+            });
+
+            entityManager.AddComponent(aStar, new Translation() { Value = new(-5f, 0, 0) });
 
             Parent starParent = new() { Value = aStar };
 
@@ -103,7 +145,7 @@ namespace SDL_Vulkan_CS.Artifact
                 0.4f,
                 -20, -9);
 
-            
+
 
             Entity planetOrbiterE = InstantiateNewOrbitalPlanet(entityManager,
                 PlanetPresets.ShapeGeneratorFixedEarthLike(),
@@ -117,11 +159,7 @@ namespace SDL_Vulkan_CS.Artifact
 
 
             aStar.AddChildren(entityManager, planetOrbiterA, planetOrbiterB, planetOrbiterC);
-
-            Console.WriteLine("Shape loaded");
-            GeometryStats();
         }
-
 
         private static void GeometryStats()
         {
@@ -159,7 +197,43 @@ namespace SDL_Vulkan_CS.Artifact
             entityManager.AddComponent(orbitalPlane, parent);
             var planetInstance = entityManager.Instantiate(planetPrefab, true);
             GeneratePlanet(planetInstance, generator);
-            entityManager.RemoveComponentFromHierarchy<DoNotRender>(planetInstance);
+
+            if (generateIndirectMeshes)
+            {
+
+                MeshIndex[] meshIndices =entityManager.GetComponentsInHierarchy<MeshIndex>(planetInstance);
+                entityManager.RemoveComponentFromHierarchy<MeshIndex>(planetInstance);
+
+                Mesh[] meshes = new Mesh[meshIndices.Length];
+                GPUMesh<Vertex>[] indirectMeshes = new GPUMesh<Vertex>[meshIndices.Length];
+
+                for (int i = 0; i < meshIndices.Length; i++)
+                {
+                    meshes[i] = Mesh.GetMeshAtIndex(meshIndices[i].Value);
+                    indirectMeshes[i] = new(0,meshes[i]);
+                }
+
+
+                var childrenEntities = entityManager.GetComponent<Children>(planetInstance).Value;
+
+                for (int i = 0; i < childrenEntities.Length; i++)
+                {
+                    entityManager.AddComponent(childrenEntities[i], new InDirectMesh()
+                    {
+                        Value = GPUMesh<Vertex>.Meshes.IndexOf(indirectMeshes[i])
+                    });
+                    entityManager.AddComponent(childrenEntities[i], new MaterialIndex()
+                    {
+                        Value = 2
+                    });
+                    entityManager.RemoveComponentFromHierarchy<DoNotRender>(childrenEntities[i]);
+                }
+            }
+            else
+            {
+                entityManager.RemoveComponentFromHierarchy<DoNotRender>(planetInstance);
+            }
+            
 
             orbitalPlane.AddChildren(entityManager, planetInstance);
 
@@ -253,8 +327,14 @@ namespace SDL_Vulkan_CS.Artifact
             {
                 MaxDegreeOfParallelism = 4
             };
-            Parallel.For(0, shape.Length,options, (i)=>{
 
+            // for (int i = 0; i < shape.Length; i++)
+            // {
+            //     Subdivider.Subdivide(shape[i], subdivisons, false);
+            // }
+
+            Parallel.For(0, shape.Length,options, (i)=>{
+            
                 Subdivider.Subdivide(shape[i], subdivisons, false);
             });
 
@@ -266,8 +346,13 @@ namespace SDL_Vulkan_CS.Artifact
             {
                 MaxDegreeOfParallelism = 6
             };
-            Parallel.For(0, shape.Length,options, (i) => {
 
+            // for (int i = 0; i < shape.Length; i++)
+            // {
+            //     Subdivider.SimpliftySubdivisionMainThread(shape[i]);
+            // }
+            Parallel.For(0, shape.Length,options, (i) => {
+            
                 Subdivider.SimpliftySubdivisionMainThread(shape[i]);
             });
 
@@ -309,17 +394,12 @@ namespace SDL_Vulkan_CS.Artifact
                 else
                 {
                     generator.RaiseMesh(meshes[i]);
-                    meshes[i].RecalculateNormals();
                 }
+                //meshes[i].RecalculateNormals(computeNormals,commandBuffer);
             }
 
             if (useComputeShaderForGeneration)
             {
-                for (int i = 0; i < meshes.Length; i++)
-                {
-                    computeNormals.Dispatch(commandBuffer, meshes[i]);
-                }
-
                 GraphicsDevice.Instance.EndSingleTimeCommands(commandBuffer);
 
                 Vector2 shaderMinMax = computeGenerator.ReadElevationMinMax();
@@ -327,6 +407,10 @@ namespace SDL_Vulkan_CS.Artifact
                 generator.MinMax.AddValue(shaderMinMax.Y);
             }
 
+            for (int i = 0; i < meshes.Length; i++)
+            {
+                meshes[i].RecalculateNormals();
+            }
             computeNormals?.Dispose();
             computeGenerator?.Dispose();
             generator.ColourGenerator.UpdateColours();

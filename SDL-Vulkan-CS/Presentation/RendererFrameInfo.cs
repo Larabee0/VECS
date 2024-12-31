@@ -24,7 +24,7 @@ namespace SDL_Vulkan_CS
         public float DeltaTime;
         public VkCommandBuffer CommandBuffer;
         public GlobalUbo Ubo;
-        public CsharpVulkanBuffer UboBuffer;
+        public CsharpVulkanBuffer<GlobalUbo.WriteableUBO> UboBuffer;
         public VkDescriptorSet GlobalDescriptorSet;
         public DescriptorPool FrameDescriptorPool;
 

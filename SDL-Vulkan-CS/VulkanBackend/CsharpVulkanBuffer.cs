@@ -10,21 +10,24 @@ namespace SDL_Vulkan_CS
     /// These buffers are used for things like a vertex buffer, index buffer.
     /// 
     /// </summary>
-    public sealed class CsharpVulkanBuffer : IDisposable
+    public sealed class CsharpVulkanBuffer<T> : IDisposable where T : unmanaged
     {
-        public readonly ulong BufferSize;
 
         private readonly GraphicsDevice _device;
 
         public readonly VkBuffer VkBuffer;
         private readonly VmaAllocation _allocation;
 
-        private readonly uint _instanceCount;
-        private readonly uint _instanceSize;
-        private readonly uint _alignmentSize;
+        private readonly ulong _instanceCount;
+        private readonly ulong _instanceSize;
+        private readonly ulong _alignmentSize;
         private readonly VkBufferUsageFlags _usageFlags;
 
-        public uint InstanceCount => _instanceCount;
+        public readonly ulong BufferSize;
+        public uint UInstanceCount32 => (uint)_instanceCount;
+        public int InstanceCount32 => (int)UInstanceCount32;
+        public ulong UInstanceCount => _instanceCount;
+        public long InstanceCount => (long)_instanceCount;
 
         public CsharpVulkanBuffer()
         {
@@ -41,6 +44,47 @@ namespace SDL_Vulkan_CS
         /// <param name="cpuAccessible">If this buffer is CPU accessible or just local to the GPU</param>
         /// <param name="minOffsetAlignment"></param>
         /// <exception cref="Exception"></exception>
+        public unsafe CsharpVulkanBuffer(
+            GraphicsDevice graphicsDevice,
+            //uint instanceSize,
+            uint instanceCount,
+            VkBufferUsageFlags usageFlags,
+            bool cpuAccessible,
+            uint minOffsetAlignment = 1)
+        {
+            _device = graphicsDevice;
+            _instanceSize = (ulong)sizeof(T);
+            _instanceCount = instanceCount;
+            _usageFlags = usageFlags;
+            _alignmentSize = GetAlignment(_instanceSize, minOffsetAlignment);
+
+            BufferSize = _alignmentSize * _instanceCount;
+
+            if (BufferSize == 0) return;
+
+            VkBufferCreateInfo bufferInfo = new()
+            {
+                size = BufferSize,
+                usage = _usageFlags,
+                sharingMode = VkSharingMode.Exclusive
+            };
+
+            VmaAllocationCreateInfo allocationInfo = new()
+            {
+                usage = VmaMemoryUsage.Auto
+            };
+
+            if (cpuAccessible)
+            {
+                allocationInfo.flags = VmaAllocationCreateFlags.HostAccessSequentialWrite | VmaAllocationCreateFlags.Mapped;
+            }
+
+            if (Vma.vmaCreateBuffer(_device.VmaAllocator, bufferInfo, allocationInfo, out VkBuffer, out _allocation) != VkResult.Success)
+            {
+                throw new Exception("Failed to create vma buffer!");
+            }
+        }
+
         public unsafe CsharpVulkanBuffer(
             GraphicsDevice graphicsDevice,
             uint instanceSize,
@@ -82,15 +126,56 @@ namespace SDL_Vulkan_CS
             }
         }
 
+        public unsafe CsharpVulkanBuffer(
+            GraphicsDevice graphicsDevice,
+            //ulong instanceSize,
+            ulong instanceCount,
+            VkBufferUsageFlags usageFlags,
+            bool cpuAccessible,
+            ulong minOffsetAlignment = 1)
+        {
+            _device = graphicsDevice;
+            _instanceSize = (ulong)sizeof(T);
+            _instanceCount = instanceCount;
+            _usageFlags = usageFlags;
+            _alignmentSize = GetAlignment(_instanceSize, minOffsetAlignment);
+
+            BufferSize = _alignmentSize * _instanceCount;
+
+            if (BufferSize == 0) return;
+
+            VkBufferCreateInfo bufferInfo = new()
+            {
+                size = BufferSize,
+                usage = _usageFlags,
+                sharingMode = VkSharingMode.Exclusive
+            };
+
+            VmaAllocationCreateInfo allocationInfo = new()
+            {
+                usage = VmaMemoryUsage.Auto
+            };
+
+            if (cpuAccessible)
+            {
+                allocationInfo.flags = VmaAllocationCreateFlags.HostAccessSequentialWrite | VmaAllocationCreateFlags.Mapped;
+            }
+            var result = Vma.vmaCreateBuffer(_device.VmaAllocator, bufferInfo, allocationInfo, out VkBuffer, out _allocation);
+            if (result != VkResult.Success)
+            {
+                throw new Exception(string.Format("Failed to create vma buffer!\n{0}",result));
+            }
+        }
+
         /// <summary>
         /// Maps the buffer to a given pointer
         /// </summary>
         /// <param name="allocator">Vma allocator instance</param>
         /// <param name="data"></param>
-        public unsafe void Map(void** data)
+        public unsafe void Map(T** data)
         {
             if (BufferSize == 0) return;
-            Vma.vmaMapMemory(_device.VmaAllocator, _allocation, data);
+            Vma.vmaMapMemory(_device.VmaAllocator, _allocation, (void**)data);
         }
 
         /// <summary>
@@ -113,7 +198,7 @@ namespace SDL_Vulkan_CS
         /// <param name="offset">what point in the buffer should we start writing to</param>
         public unsafe void WriteToBuffer(void* data, ulong size = Vulkan.VK_WHOLE_SIZE, ulong offset = 0)
         {
-            void* pMappedData;
+            T* pMappedData;
             Map(&pMappedData);
             if (size == Vulkan.VK_WHOLE_SIZE)
             {
@@ -128,9 +213,9 @@ namespace SDL_Vulkan_CS
             Unmap();
         }
 
-        public unsafe void ReadFromBuffer(void* readout, ulong size = Vulkan.VK_WHOLE_SIZE,ulong offset = 0)
+        public unsafe void ReadFromBuffer(T* readout, ulong size = Vulkan.VK_WHOLE_SIZE,ulong offset = 0)
         {
-            void* pMappedData;
+            T* pMappedData;
             Map(&pMappedData);
 
             if(size == Vulkan.VK_WHOLE_SIZE)
@@ -189,7 +274,7 @@ namespace SDL_Vulkan_CS
         /// <param name="instanceSize"></param>
         /// <param name="minOffsetAlignment"></param>
         /// <returns></returns>
-        private static uint GetAlignment(uint instanceSize, uint minOffsetAlignment)
+        private static ulong GetAlignment(ulong instanceSize, ulong minOffsetAlignment)
         {
             if (minOffsetAlignment > 0)
             {

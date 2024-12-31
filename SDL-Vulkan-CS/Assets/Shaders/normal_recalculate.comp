@@ -12,12 +12,12 @@ layout(set = 0, binding = 0) uniform ComputeShaderParameters{
 
 
 // vertex buffer to operate on (direct mesh buffer) Only read from here.
-layout(std430,set = 0, binding = 1) buffer VertexBuffer {
+layout(std430,set = 0, binding = 1) readonly buffer VertexBuffer {
     Vertex vertexBuffer[];
 };
 
 // index buffer to operate on (direct mesh buffer) Only read from here.
-layout(std430,set = 0, binding = 2) buffer IndexBuffer {
+layout(std430,set = 0, binding = 2) readonly buffer IndexBuffer {
     uint indexBuffer[];
 };
 

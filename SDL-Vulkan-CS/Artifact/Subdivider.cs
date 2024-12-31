@@ -235,15 +235,52 @@ namespace SDL_Vulkan_CS.Artifact
             Vertex[] currentVertices = targetMesh.Vertices;
             uint[] currentTriangles = targetMesh.Indices;
 
-            HashSet<Vertex> uniqueTriangles = new(currentVertices);
+
+            currentTriangles = FilterTriangles(currentTriangles);
+
+            HashSet<Vertex> uniqueTriangles = GetUniqueUsedVertices(currentVertices, currentTriangles);
+
             KeyValuePair<Vertex, uint>[] vertexTriPair = new KeyValuePair<Vertex, uint>[uniqueTriangles.Count];
             IterateUniques(uniqueTriangles, vertexTriPair);
 
             Dictionary<Vertex, uint> uniqueVertices = new(vertexTriPair, new Vertex());
             RemapTriangles(currentVertices, currentTriangles, uniqueVertices);
 
+            currentTriangles = FilterTriangles(currentTriangles);
+
             targetMesh.Vertices = [.. uniqueTriangles];
             targetMesh.Indices = currentTriangles;
+        }
+
+        private static uint[] FilterTriangles(uint[] currentTriangles)
+        {
+            List<uint> shortTris = new(currentTriangles.Length);
+
+
+            for (int i = 0; i < currentTriangles.Length; i+=3)
+            {
+                if (currentTriangles[i] == currentTriangles[i + 1]
+                    && currentTriangles[i] == currentTriangles[i + 2]
+                    && currentTriangles[i + 1] == currentTriangles[i + 2])
+                {
+                    continue;
+                }
+                shortTris.AddRange(currentTriangles.AsSpan(i, 3));
+            }
+
+            return [.. shortTris];
+        }
+
+        private static HashSet<Vertex> GetUniqueUsedVertices(Vertex[] currentVertices, uint[] currentTriangles)
+        {
+            HashSet<Vertex> uniques = new(currentVertices.Length);
+
+            for (uint i = 0; i < currentTriangles.Length; i++)
+            {
+                uniques.Add(currentVertices[currentTriangles[i]]);
+            }
+
+            return uniques;
         }
 
         private static void RemapTriangles(Vertex[] currentVertices, uint[] currentTriangles, Dictionary<Vertex, uint> uniqueVertices)

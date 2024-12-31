@@ -1,10 +1,8 @@
 ﻿using SDL_Vulkan_CS.ECS;
 using SDL_Vulkan_CS.ECS.Presentation;
 using SDL_Vulkan_CS.VulkanBackend;
-using System;
 using System.Collections.Generic;
 using System.Numerics;
-using System.Reflection.Metadata.Ecma335;
 using Vortice.Vulkan;
 
 namespace SDL_Vulkan_CS.Artifact.Colour
@@ -12,7 +10,7 @@ namespace SDL_Vulkan_CS.Artifact.Colour
     public class ColouredRenderSystem : PresentationSystemBase
     {
         private EntityQuery _planetRenderQuery;
-        private CsharpVulkanBuffer[] _shaderParamBuffers;
+        private CsharpVulkanBuffer<PlanetTileShaderParmeters>[] _shaderParamBuffers;
 
         /// <summary>
         /// query setup, also creates the shader params buffer.
@@ -20,7 +18,7 @@ namespace SDL_Vulkan_CS.Artifact.Colour
         /// <param name="entityManager"></param>
         public unsafe override void OnCreate(EntityManager entityManager)
         {
-            _shaderParamBuffers = new CsharpVulkanBuffer[SwapChain.MAX_FRAMES_IN_FLIGHT];
+            _shaderParamBuffers = new CsharpVulkanBuffer<PlanetTileShaderParmeters>[SwapChain.MAX_FRAMES_IN_FLIGHT];
             for (int i = 0; i < _shaderParamBuffers.Length; i++)
             {
                 _shaderParamBuffers[i] = new(GraphicsDevice.Instance, (uint)sizeof(PlanetTileShaderParmeters), 1, VkBufferUsageFlags.UniformBuffer, true);
@@ -122,7 +120,7 @@ namespace SDL_Vulkan_CS.Artifact.Colour
         /// <param name="mat"></param>
         /// <param name="textures"></param>
         /// <param name="descriptorSet"></param>
-        private unsafe void WriteDescriptorSet(RendererFrameInfo frameInfo, Material mat, CsharpVulkanBuffer shaderParams, PlanetPropeties textures, ref VkDescriptorSet descriptorSet)
+        private unsafe void WriteDescriptorSet(RendererFrameInfo frameInfo, Material mat, CsharpVulkanBuffer<PlanetTileShaderParmeters> shaderParams, PlanetPropeties textures, ref VkDescriptorSet descriptorSet)
         {
             fixed (VkDescriptorSet* pSet = &descriptorSet)
             {

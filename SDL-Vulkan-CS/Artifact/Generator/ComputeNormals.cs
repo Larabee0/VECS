@@ -27,7 +27,7 @@ namespace SDL_Vulkan_CS.Artifact.Generator
 
         private readonly DescriptorPool _descriptorPool;
 
-        private CsharpVulkanBuffer _workingNormalBuffer;
+        private CsharpVulkanBuffer<Vector3> _workingNormalBuffer;
 
         public unsafe ComputeNormals()
         {
@@ -35,7 +35,8 @@ namespace SDL_Vulkan_CS.Artifact.Generator
                 new DescriptorSetBinding(VkDescriptorType.UniformBuffer, VkShaderStageFlags.Compute), // binding 0
                 new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute),
                 new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute),
-                new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute) // binding 3
+                new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute), // binding 3
+                new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute) // binding 4
             );
 
             _normalizeNormals = new("normal_normalize.comp",
@@ -49,6 +50,7 @@ namespace SDL_Vulkan_CS.Artifact.Generator
                 .AddPoolSize(VkDescriptorType.StorageBuffer, 5)
                 .Build();
 
+
             _calcuateNormals.AllocateDescriptorSet(_descriptorPool);
             _normalizeNormals.AllocateDescriptorSet(_descriptorPool);
         }
@@ -57,14 +59,14 @@ namespace SDL_Vulkan_CS.Artifact.Generator
         /// Ensures normal buffer of sufficient size exists before calling prepare for compute shader pair.
         /// </summary>
         /// <param name="vertexBuffer"></param>
-        private unsafe void Prepare(CsharpVulkanBuffer indexBuffer, CsharpVulkanBuffer vertexBuffer)
+        private unsafe void Prepare(CsharpVulkanBuffer<uint> indexBuffer, CsharpVulkanBuffer<Vertex> vertexBuffer)
         {
             // to share this pipeline across the whole mesh, the normal buffer must be as long as the longest vertex buffer.
             // recallocate when a new vertex buffer is longer than the current normal buffer
-            if (_workingNormalBuffer == null || vertexBuffer.InstanceCount > _workingNormalBuffer.InstanceCount)
+            if (_workingNormalBuffer == null || vertexBuffer.UInstanceCount > _workingNormalBuffer.UInstanceCount)
             {
                 _workingNormalBuffer?.Dispose();
-                _workingNormalBuffer = new(GraphicsDevice.Instance, (uint)sizeof(Vector3), vertexBuffer.InstanceCount, VkBufferUsageFlags.StorageBuffer | VkBufferUsageFlags.TransferDst, false);
+                _workingNormalBuffer = new(GraphicsDevice.Instance, vertexBuffer.UInstanceCount, VkBufferUsageFlags.StorageBuffer | VkBufferUsageFlags.TransferDst, false);
             }
 
             PrepareNormalRecalculate(indexBuffer, vertexBuffer);
@@ -77,10 +79,10 @@ namespace SDL_Vulkan_CS.Artifact.Generator
         /// </summary>
         /// <param name="indexBuffer"></param>
         /// <param name="vertexBuffer"></param>
-        private unsafe void PrepareNormalRecalculate(CsharpVulkanBuffer indexBuffer, CsharpVulkanBuffer vertexBuffer)
+        private unsafe void PrepareNormalRecalculate(CsharpVulkanBuffer<uint> indexBuffer, CsharpVulkanBuffer<Vertex> vertexBuffer)
         {
-            _calcuateNormals.Prepare(indexBuffer.InstanceCount, indexBuffer.InstanceCount, indexBuffer.InstanceCount, 1);
-
+            _calcuateNormals.Prepare(indexBuffer.UInstanceCount32, indexBuffer.UInstanceCount32, indexBuffer.UInstanceCount32, 1);
+            
             fixed (VkDescriptorSet* pSet = &_calcuateNormals.DescriptorSet)
             {
                 new DescriptorWriter(_calcuateNormals.DescriptorSetLayout, _descriptorPool)
@@ -96,9 +98,9 @@ namespace SDL_Vulkan_CS.Artifact.Generator
         /// prepares the vertex normal normalisation compute shader by writing the required buffers to the descriptor set.
         /// </summary>
         /// <param name="vertexBuffer"></param>
-        private unsafe void PrepareNormalNormalize(CsharpVulkanBuffer vertexBuffer)
+        private unsafe void PrepareNormalNormalize(CsharpVulkanBuffer<Vertex> vertexBuffer)
         {
-            _normalizeNormals.Prepare(vertexBuffer.InstanceCount, vertexBuffer.InstanceCount, vertexBuffer.InstanceCount, 1);
+            _normalizeNormals.Prepare(vertexBuffer.UInstanceCount32, vertexBuffer.UInstanceCount32, vertexBuffer.UInstanceCount32, 1);
 
             fixed (VkDescriptorSet* pSet = &_normalizeNormals.DescriptorSet)
             {
@@ -123,9 +125,26 @@ namespace SDL_Vulkan_CS.Artifact.Generator
             // clear normal buffer
             Vulkan.vkCmdFillBuffer(commandBuffer, _workingNormalBuffer.VkBuffer, 0, _workingNormalBuffer.BufferSize, 0);
 
-            _calcuateNormals.Dispatch(commandBuffer, mesh.IndexBuffer.InstanceCount / 3, 1, 1);
+            _calcuateNormals.Dispatch(commandBuffer, mesh.IndexBuffer.UInstanceCount32 / 3, 1, 1);
 
-            _normalizeNormals.Dispatch(commandBuffer, mesh.VertexBuffer.InstanceCount, 1, 1);
+
+            VkMemoryBarrier2 memoryBarrier = new()
+            {
+                srcStageMask = VkPipelineStageFlags2.ComputeShader,
+                srcAccessMask = VkAccessFlags2.ShaderWrite,
+                dstStageMask = VkPipelineStageFlags2.ComputeShader,
+                dstAccessMask = VkAccessFlags2.ShaderRead
+            };
+
+            VkDependencyInfo dependencyInfo = new()
+            {
+                memoryBarrierCount = 1,
+                pMemoryBarriers = &memoryBarrier
+            };
+
+            Vulkan.vkCmdPipelineBarrier2(commandBuffer, &dependencyInfo);
+
+            _normalizeNormals.Dispatch(commandBuffer, mesh.VertexBuffer.UInstanceCount32, 1, 1);
         }
 
         /// <summary>
@@ -134,10 +153,9 @@ namespace SDL_Vulkan_CS.Artifact.Generator
         /// <param name="mesh"></param>
         public unsafe void DispatchSingleTimeCmd(Mesh mesh)
         {
+            mesh.FlushMesh();
             var commandBuffer = GraphicsDevice.Instance.BeginSingleTimeCommands();
-
             Dispatch(commandBuffer, mesh);
-
             GraphicsDevice.Instance.EndSingleTimeCommands(commandBuffer);
         }
 

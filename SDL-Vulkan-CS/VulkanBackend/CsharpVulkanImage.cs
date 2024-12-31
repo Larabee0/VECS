@@ -41,7 +41,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
             }
         }
 
-        public unsafe void CopyFromBuffer(CsharpVulkanBuffer buffer, uint width, uint height)
+        public unsafe void CopyFromBuffer<T>(CsharpVulkanBuffer<T> buffer, uint width, uint height) where T : unmanaged
         {
             VkCommandBuffer commandBuffer = _device.BeginSingleTimeCommands();
             VkBufferImageCopy region = new()
@@ -65,14 +65,14 @@ namespace SDL_Vulkan_CS.VulkanBackend
             _device.EndSingleTimeCommands(commandBuffer);
         }
 
-        public unsafe void CopyFromBuffer(CsharpVulkanBuffer buffer, uint width, uint height,uint depth)
+        public unsafe void CopyFromBuffer<T>(CsharpVulkanBuffer<T> buffer, uint width, uint height,uint depth) where T : unmanaged
         {
             VkCommandBuffer commandBuffer = _device.BeginSingleTimeCommands();
             VkBufferImageCopy[] bufferCopyRegions = new VkBufferImageCopy[depth];
 
             ulong offset = 0;
 
-            uint size = width * height * (uint)sizeof(Color);
+            uint size = width * height * (uint)sizeof(T);
 
             for (uint i = 0; i < depth; i++)
             {

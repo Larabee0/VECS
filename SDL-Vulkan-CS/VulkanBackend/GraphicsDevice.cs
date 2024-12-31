@@ -20,7 +20,7 @@ namespace SDL_Vulkan_CS
         const bool ENABLE_VALIDATION_LAYERS = false;
 #endif
         private readonly static string[] _requiredValidationLayers = ["VK_LAYER_KHRONOS_validation"];
-        private readonly static VkUtf8String[] _requiredDeviceExtensions = [Vulkan.VK_KHR_SWAPCHAIN_EXTENSION_NAME];
+        private readonly static VkUtf8String[] _requiredDeviceExtensions = [Vulkan.VK_KHR_SWAPCHAIN_EXTENSION_NAME, Vulkan.VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME,Vulkan.VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME];
 
         public static GraphicsDevice Instance { get; private set; }
 
@@ -402,9 +402,13 @@ namespace SDL_Vulkan_CS
                 NativeMemory.Copy(pTempQueueCreateInfos, pQueueCreateInfos, (uint)byteSize);
             }
 
-            VkPhysicalDeviceFeatures deviceFeature = new() { samplerAnisotropy = true, fillModeNonSolid = true };
-
+            VkPhysicalDeviceFeatures deviceFeature = new() { samplerAnisotropy = true, fillModeNonSolid = true,multiDrawIndirect = true, };
+            
             using VkStringArray deviceExtensionNames = new(_requiredDeviceExtensions);
+
+
+            VkPhysicalDeviceSynchronization2Features sync2 = new() { synchronization2 = true };
+
 
             VkDeviceCreateInfo createInfo = new()
             {
@@ -412,7 +416,8 @@ namespace SDL_Vulkan_CS
                 pQueueCreateInfos = pQueueCreateInfos,
                 pEnabledFeatures = &deviceFeature,
                 enabledExtensionCount = (uint)_requiredDeviceExtensions.Length,
-                ppEnabledExtensionNames = deviceExtensionNames
+                ppEnabledExtensionNames = deviceExtensionNames,
+                pNext = &sync2
             };
 
             if (ENABLE_VALIDATION_LAYERS)
@@ -584,16 +589,28 @@ namespace SDL_Vulkan_CS
         /// <param name="size"></param>
         public unsafe void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, uint size)
         {
+            CopyBuffer(size, srcBuffer, 0, dstBuffer, 0);
+        }
+
+        public void CopyBuffer(ulong size, VkBuffer srcBuffer, ulong srcOffset, VkBuffer dstBuffer, ulong dstOffset)
+        {
             VkCommandBuffer commandBuffer = BeginSingleTimeCommands();
+
+            CopyBuffer(commandBuffer,size,srcBuffer,srcOffset, dstBuffer, dstOffset);
+
+            EndSingleTimeCommands(commandBuffer);
+        }
+
+
+        public static unsafe void CopyBuffer(VkCommandBuffer commandBuffer, ulong size, VkBuffer srcBuffer, ulong srcOffset, VkBuffer dstBuffer, ulong dstOffset)
+        {
             VkBufferCopy copyRegion = new()
             {
-                srcOffset = 0,
-                dstOffset = 0,
+                srcOffset = srcOffset,
+                dstOffset = dstOffset,
                 size = size
             };
             Vulkan.vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
-
-            EndSingleTimeCommands(commandBuffer);
         }
 
         /// <summary>

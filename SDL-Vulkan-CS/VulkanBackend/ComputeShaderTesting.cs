@@ -76,9 +76,9 @@ namespace SDL_Vulkan_CS.VulkanBackend
                 values[i] = i + 1;
             }
 
-            CsharpVulkanBuffer uniform = new(GraphicsDevice.Instance, (uint)sizeof(ComputeShaderParameters), 1, VkBufferUsageFlags.UniformBuffer, true);
-            CsharpVulkanBuffer inBuffer = new(GraphicsDevice.Instance, (uint)(sizeof(int) * values.Length), 1, VkBufferUsageFlags.StorageBuffer, true);
-            CsharpVulkanBuffer outBuffer = new(GraphicsDevice.Instance, (uint)(sizeof(Vector4) * values.Length), 1, VkBufferUsageFlags.StorageBuffer, true);
+            CsharpVulkanBuffer<ComputeShaderParameters> uniform = new(GraphicsDevice.Instance, (uint)sizeof(ComputeShaderParameters), 1, VkBufferUsageFlags.UniformBuffer, true);
+            CsharpVulkanBuffer<int> inBuffer = new(GraphicsDevice.Instance, (ulong)values.LongLength, VkBufferUsageFlags.StorageBuffer, true);
+            CsharpVulkanBuffer<Vector4> outBuffer = new(GraphicsDevice.Instance, (ulong)values.LongLength, VkBufferUsageFlags.StorageBuffer, true);
 
             fixed (int* pValues = values)
             {
