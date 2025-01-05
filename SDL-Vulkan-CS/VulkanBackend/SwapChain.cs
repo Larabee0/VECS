@@ -320,7 +320,7 @@ namespace SDL_Vulkan_CS
                 stencilStoreOp = VkAttachmentStoreOp.DontCare,
                 stencilLoadOp = VkAttachmentLoadOp.DontCare,
                 initialLayout = VkImageLayout.Undefined,
-                finalLayout = VkImageLayout.ShaderReadOnlyOptimal// VkImageLayout.PresentSrcKHR
+                finalLayout = VkImageLayout.PresentSrcKHR//VkImageLayout.ShaderReadOnlyOptimal// VkImageLayout.PresentSrcKHR
             };
 
             VkAttachmentReference colourAttachmentRef = new()
