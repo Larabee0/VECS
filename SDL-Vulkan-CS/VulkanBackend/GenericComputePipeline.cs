@@ -11,6 +11,9 @@ namespace SDL_Vulkan_CS.VulkanBackend
         private readonly VkPipelineCache _pipelineCache;
         private readonly VkPipeline _computePipeline;
 
+        public VkPipeline ComputePipeline=>_computePipeline;
+        public VkPipelineLayout ComputePipelineLayout => _pipelineLayout;
+
         public VkDescriptorSet DescriptorSet;
 
         private readonly DescriptorSetLayout _descriptorSetLayout;
@@ -34,6 +37,63 @@ namespace SDL_Vulkan_CS.VulkanBackend
             {
                 setLayoutCount = 1,
                 pSetLayouts = &layout
+            };
+
+            Vulkan.vkCreatePipelineLayout(GraphicsDevice.Instance.Device, calcuateNormalsLayoutCreateInfo, null, out _pipelineLayout);
+            Vulkan.vkCreatePipelineCache(GraphicsDevice.Instance.Device, new VkPipelineCacheCreateInfo(), null, out _pipelineCache);
+
+            VkUtf8ReadOnlyString main = "main"u8;
+            VkPipelineShaderStageCreateInfo _computeShaderStageInfo = new()
+            {
+                stage = VkShaderStageFlags.Compute,
+                module = _shaderModule,
+                pName = main
+            };
+
+            VkComputePipelineCreateInfo _computePipelineInfo = new()
+            {
+                layout = _pipelineLayout,
+                stage = _computeShaderStageInfo
+            };
+
+            Vulkan.vkCreateComputePipeline(GraphicsDevice.Instance.Device, _pipelineCache, _computePipelineInfo, out _computePipeline);
+        }
+
+        public unsafe GenericComputePipeline(string computeShaderName,Type pushConstantsType, params DescriptorSetBinding[] bindings)
+        {
+            if (!pushConstantsType.IsUnManaged())
+            {
+                throw new ArgumentException(string.Format("Push constantsType \"{0}\" is not an unmanaged type", pushConstantsType.Name));
+            }
+
+            int structSize = pushConstantsType.StructLayoutAttribute.Size;
+
+            if (structSize == 0)
+            {
+                throw new Exception(string.Format("Push constantsType \"{0}\" missing StructLayout attribute defining size", pushConstantsType.Name));
+            }
+
+            VkPushConstantRange pushConstantRange = new()
+            {
+                stageFlags = VkShaderStageFlags.Compute,
+                offset = 0,
+                size = (uint)pushConstantsType.StructLayoutAttribute.Size
+            };
+
+            var shaderFilePath = Material.GetShaderFilePath(computeShaderName);
+            Vulkan.vkCreateShaderModule(GraphicsDevice.Instance.Device, File.ReadAllBytes(shaderFilePath), null, out _shaderModule);
+
+            _descriptorSetLayout = new DescriptorSetLayout.Builder(GraphicsDevice.Instance)
+                .AddBindings(bindings)
+                .Build();
+
+            var layout = _descriptorSetLayout.SetLayout;
+            VkPipelineLayoutCreateInfo calcuateNormalsLayoutCreateInfo = new()
+            {
+                setLayoutCount = 1,
+                pSetLayouts = &layout,
+                pushConstantRangeCount = 1,
+                pPushConstantRanges = &pushConstantRange,
             };
 
             Vulkan.vkCreatePipelineLayout(GraphicsDevice.Instance.Device, calcuateNormalsLayoutCreateInfo, null, out _pipelineLayout);

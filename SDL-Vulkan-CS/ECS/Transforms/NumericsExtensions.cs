@@ -9,6 +9,18 @@ namespace SDL_Vulkan_CS
     /// </summary>
     public static class NumericsExtensions
     {
+        
+
+        public static Vector4 GetMatrixRow(this Matrix4x4 mat,int row)
+        {
+            return new Vector4(mat[row, 0], mat[row, 1], mat[row, 2], mat[row, 3]);
+        }
+
+        public static Vector4 NormalizePlane(this Vector4 p)
+        {
+            return p / new Vector3(p.X, p.Y, p.Z).Length();
+        }
+
         public static unsafe void WriteVectorToPointer(this Vector4 vector, float* pBuffer, int startOffset)
         {
             pBuffer[startOffset] = vector.X;

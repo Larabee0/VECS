@@ -1,4 +1,6 @@
-﻿using System;
+﻿
+using SDL_Vulkan_CS.VulkanBackend;
+using System;
 using System.Runtime.InteropServices;
 using Vortice.Vulkan;
 
@@ -55,14 +57,94 @@ namespace SDL_Vulkan_CS
         public float AspectRatio => _swapChain.ExtentAspectRatio;
 
         public VkRenderPass SwapChainRenderPass => _swapChain.RenderPass;
-
+        private DescriptorSetLayout _blitLitPipelineDescriptorSetLayout;
+        private VkPipelineLayout _blitPipelineLayout;
+        private RenderPipeline _blitPipeline;
         public Renderer(IWindow window, GraphicsDevice device)
         {
             _window = window;
             _device = device;
 
             RecreateSwapChain();
+            CreateBlitPipeline();
             CreateCommandBuffers();
+
+        }
+
+        private unsafe void CreateBlitPipeline()
+        {
+            _blitLitPipelineDescriptorSetLayout = new DescriptorSetLayout.Builder(_device).AddBinding(0, new() { Count = 1, DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Fragment }).Build();
+            VkDescriptorSetLayout* pDescriptorSetLayouts = stackalloc VkDescriptorSetLayout[]
+            {
+                _blitLitPipelineDescriptorSetLayout.SetLayout
+            };
+            VkPipelineLayoutCreateInfo vkPipelineLayoutInfo = new()
+            {
+                setLayoutCount = 1,
+                pSetLayouts = pDescriptorSetLayouts,
+                pushConstantRangeCount = 0,
+                pPushConstantRanges = null
+            };
+
+            if (Vulkan.vkCreatePipelineLayout(GraphicsDevice.Instance.Device, vkPipelineLayoutInfo, null, out _blitPipelineLayout) != VkResult.Success)
+            {
+                throw new Exception("Failed to create blit pipeline layout!");
+            }
+
+
+            VkPipelineLayoutCreateInfo createInfo = new();
+
+            VkPipelineInputAssemblyStateCreateInfo inputAssembly = new()
+            {
+                topology = VkPrimitiveTopology.TriangleList
+            };
+            VkPipelineRasterizationStateCreateInfo rasterizer = new()
+            {
+                depthClampEnable = false,
+                rasterizerDiscardEnable = false,
+                polygonMode = VkPolygonMode.Fill,
+                lineWidth = 1,
+                cullMode = VkCullModeFlags.None,
+                frontFace = VkFrontFace.Clockwise,
+                depthBiasEnable = false,
+                depthBiasConstantFactor = 0,
+                depthBiasClamp = 0,
+                depthBiasSlopeFactor = 0,
+            };
+            VkPipelineMultisampleStateCreateInfo multisampleInfo = new()
+            {
+                sampleShadingEnable = false,
+                rasterizationSamples = VkSampleCountFlags.Count1,
+                minSampleShading = 1.0f,
+                pSampleMask = null,
+                alphaToCoverageEnable = false,
+                alphaToOneEnable = false
+            };
+            VkPipelineColorBlendAttachmentState colourBlendAttachment = new()
+            {
+                colorWriteMask = VkColorComponentFlags.All,
+                blendEnable = false
+            };
+            VkPipelineDepthStencilStateCreateInfo depthStencil = new()
+            {
+                depthBoundsTestEnable = false,
+                depthWriteEnable = false,
+                depthCompareOp = VkCompareOp.Always,
+                depthTestEnable = false,
+                minDepthBounds = 0f,
+                maxDepthBounds = 1f,
+                stencilTestEnable = false
+            };
+
+            RenderPipelineConfigInfo config = RenderPipelineConfigInfo.DefaultPipelineConfigInfo(_swapChain.CopyPass, _blitPipelineLayout);
+            config.inputAssemblyInfo = inputAssembly;
+            config.rasterizationInfo = rasterizer;
+            config.multisampleInfo = multisampleInfo;
+            config.colourBlendAttachment = colourBlendAttachment;
+            config.depthStencilInfo = depthStencil;
+            config.AttributeDescriptions = [];
+           
+            _blitPipeline = new(_device, Material.GetShaderFilePath("fullscreen.vert"), Material.GetShaderFilePath("blit.frag"), config);
         }
 
         /// <summary>
@@ -234,6 +316,74 @@ namespace SDL_Vulkan_CS
             Vulkan.vkCmdSetScissor(commandBuffer, scissor);
         }
 
+        public void ReduceDepth(RendererFrameInfo frameInfo)
+        {
+            _swapChain.ReduceDepth(frameInfo);
+        }
+
+        public unsafe void CopyRenderToSwapChain(RendererFrameInfo frameInfo)
+        {
+            VkRenderPassBeginInfo copyRP = new()
+            {
+                renderPass = _swapChain.CopyPass,
+                framebuffer = _swapChain.GetFrameBuffer(currentImageIndex),
+                clearValueCount = 0,
+                pClearValues = null,
+                renderArea = new()
+                {
+                    offset = new()
+                    {
+                        x = 0,
+                        y = 0
+                    },
+                    extent = _window.WindowExtend
+                }
+            };
+
+            Vulkan.vkCmdBeginRenderPass(frameInfo.CommandBuffer, &copyRP, VkSubpassContents.Inline);
+
+            VkViewport viewport = new()
+            {
+                x = 0.0f,
+                y = 0.0f,
+                width = _window.WindowExtend.width,
+                height = _window.WindowExtend.height,
+                minDepth = 0.0f,
+                maxDepth = 1.0f
+            };
+
+
+            VkRect2D scissor = new()
+            {
+                offset = new() { x = 0, y = 0 },
+                extent = _window.WindowExtend
+            };
+            Vulkan.vkCmdSetViewport(frameInfo.CommandBuffer, 0, 1, &viewport);
+            Vulkan.vkCmdSetScissor(frameInfo.CommandBuffer, 0, 1, &scissor);
+            Vulkan.vkCmdSetDepthBias(frameInfo.CommandBuffer, 0, 0, 0);
+            
+            _blitPipeline.Bind(frameInfo.CommandBuffer);
+
+
+            VkDescriptorImageInfo sourceImage;
+            sourceImage.sampler = _swapChain.SmoothSampler;
+
+            sourceImage.imageView = _swapChain.RawRenderImageView;
+            sourceImage.imageLayout = VkImageLayout.ShaderReadOnlyOptimal;
+
+            VkDescriptorSet blitSet;
+            new DescriptorWriter(_blitLitPipelineDescriptorSetLayout,frameInfo.FrameDescriptorPool)
+                .WriteImage(0, sourceImage)
+                .Build(&blitSet);
+
+            Vulkan.vkCmdBindDescriptorSets(frameInfo.CommandBuffer, VkPipelineBindPoint.Graphics, _blitPipelineLayout, 0, 1, &blitSet, 0, null);
+
+            Vulkan.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
+
+
+            Vulkan.vkCmdEndRenderPass(frameInfo.CommandBuffer);
+        }
+
         /// <summary>
         /// completes the swapchain frame render pass
         /// </summary>
@@ -299,8 +449,12 @@ namespace SDL_Vulkan_CS
         }
         #endregion
 
-        public void Dispose()
+        public unsafe void Dispose()
         {
+            _blitPipeline.Dispose();
+            Vulkan.vkDestroyPipelineLayout(_device.Device, _blitPipelineLayout);
+            _blitLitPipelineDescriptorSetLayout?.Dispose();
+
             FreeCommandBuffers();
             _swapChain.Dispose();
         }

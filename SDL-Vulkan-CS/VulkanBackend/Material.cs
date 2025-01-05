@@ -40,6 +40,16 @@ namespace SDL_Vulkan_CS.VulkanBackend
             CreatePipeline(vertexFilePath, fragmentFilePath);
             Materials.Add(this);
         }
+        
+        public Material(string vertexShader,string fragmentShader, VkPipelineLayoutCreateInfo vkPipelineLayoutInfo)
+        {
+            string vertexFilePath = GetShaderFilePath(vertexShader);
+            string fragmentFilePath = GetShaderFilePath(fragmentShader);
+
+            CreatePipelineLayout(vkPipelineLayoutInfo);
+            CreatePipeline(vertexFilePath, fragmentFilePath);
+            Materials.Add(this);
+        }
 
         public Material(string vertexShader, string fragmentShader, params DescriptorSetBinding[] reqs)
         {

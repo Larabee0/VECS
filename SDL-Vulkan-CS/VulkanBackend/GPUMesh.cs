@@ -1,5 +1,7 @@
-﻿using System;
+﻿using SDL_Vulkan_CS.ECS.Presentation.Systems;
+using System;
 using System.Collections.Generic;
+using System.Numerics;
 using Vortice.Vulkan;
 
 namespace SDL_Vulkan_CS.VulkanBackend
@@ -32,6 +34,8 @@ namespace SDL_Vulkan_CS.VulkanBackend
 
         private T[] _vertices;
         private uint[] _indices;
+
+        public RenderBounds renderBounds;
 
         public T[] Vertices
         {
@@ -270,10 +274,60 @@ namespace SDL_Vulkan_CS.VulkanBackend
                 Device.EndSingleTimeCommands(commandBuffer);
             }
 
+            RecalculateRenderBounds();
+
             if (_deallocateRWBuffersOnFlush)
             {
                 DeallocateHost();
             }
+        }
+
+        private void RecalculateRenderBounds()
+        {
+            float minX = float.MaxValue;
+            float minY = float.MaxValue;
+            float minZ = float.MaxValue;
+            float maxX = float.MinValue;
+            float maxY = float.MinValue;
+            float maxZ = float.MinValue;
+
+            for (int i = 0; i < Vertices.Length; i++)
+            {
+                Vector3 position = ((Vertex)(object)Vertices[i]).Position;
+
+                minX = Math.Min(minX, position.X);
+                minY = Math.Min(minY, position.Y);
+                minZ = Math.Min(minZ, position.Z);
+
+                maxX = Math.Max(maxX, position.X);
+                maxY = Math.Max(maxY, position.Y);
+                maxZ = Math.Max(maxZ, position.Z);
+            }
+
+            Vector3 min = new(minX, minY, minZ);
+            Vector3 max = new(maxX, maxY, maxZ);
+
+            Vector3 extents = (min - max) * 0.5f;
+            Vector3 centerAlt = (min + max) * 0.5f;
+            Vector3 center = min + extents;
+
+            float radius = float.MinValue;
+            radius = Math.Max(Vector3.Distance(center, new Vector3(min.X, min.Y, min.Z)), radius);
+            radius = Math.Max(Vector3.Distance(center, new Vector3(max.X, min.Y, min.Z)), radius);
+            radius = Math.Max(Vector3.Distance(center, new Vector3(min.X, min.Y, max.Z)), radius);
+            radius = Math.Max(Vector3.Distance(center, new Vector3(max.X, min.Y, max.Z)), radius);
+            radius = Math.Max(Vector3.Distance(center, new Vector3(min.X, max.Y, min.Z)), radius);
+            radius = Math.Max(Vector3.Distance(center, new Vector3(max.X, max.Y, min.Z)), radius);
+            radius = Math.Max(Vector3.Distance(center, new Vector3(min.X, max.Y, max.Z)), radius);
+            radius = Math.Max(Vector3.Distance(center, new Vector3(max.X, max.Y, max.Z)), radius);
+
+            renderBounds = new()
+            {
+                Extents = extents,
+                Origin = centerAlt,
+                Radius = radius,
+                Valid = true
+            };
         }
 
         public unsafe void DeallocateHost()

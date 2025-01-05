@@ -200,7 +200,7 @@ namespace SDL_Vulkan_CS
                 };
                 frameInfo.Ubo = ubo;
                 ubo.WriteToBuffer(_globalUboBuffers[frameIndex]);
-                _renderer.BeginSwapChainRenderPass(commandBuffer);
+                //_renderer.BeginSwapChainRenderPass(commandBuffer);
                 return frameInfo;
             }
 
@@ -225,7 +225,14 @@ namespace SDL_Vulkan_CS
         /// <param name="frameInfo"></param>
         public void EndPresent(RendererFrameInfo frameInfo)
         {
-            _renderer.EndSwapChainRenderPass(frameInfo.CommandBuffer);
+            //_renderer.EndSwapChainRenderPass(frameInfo.CommandBuffer);
+            
+            _renderer.ReduceDepth(frameInfo);
+
+            //_renderer.BeginSwapChainRenderPass(frameInfo.CommandBuffer);
+            _renderer.CopyRenderToSwapChain(frameInfo);
+            //_renderer.EndSwapChainRenderPass(frameInfo.CommandBuffer);
+
             _renderer.EndFrame();
         }
 

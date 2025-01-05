@@ -1,4 +1,6 @@
-﻿using System;
+﻿using SDL_Vulkan_CS.VulkanBackend;
+using System;
+using System.Numerics;
 using System.Runtime.InteropServices;
 using Vortice.Vulkan;
 
@@ -15,11 +17,19 @@ namespace SDL_Vulkan_CS
         private readonly GraphicsDevice _device;
         private readonly SwapChain _oldSwapChain;
 
+
+        public uint depthPyramidWidth;
+        public uint depthPyramidHeight;
+        public uint depthPyramidLevels;
+
+
         private int _currentFrame = 0;
 
         private VkExtent2D _windowExtent;
 
         private VkRenderPass _renderPass;
+
+        private VkRenderPass _copyPass;
 
         private VkExtent2D _swapChainExtent;
         private VkSwapchainKHR _swapChain;
@@ -34,6 +44,21 @@ namespace SDL_Vulkan_CS
         private VkDeviceMemory[] _depthImageMemorys;
         private VkImageView[] _depthImageViews;
 
+        private VkFormat _renderFormat;
+        private VkImage _rawRenderImage;
+        private VkDeviceMemory _rawRenderImageMemory;
+        private VkImageView _rawRenderImageView;
+        private VkSampler _smoothSampler;
+
+
+        private GenericComputePipeline _depthReducePipeline;
+        private VkFormat _depthPyramidFormat;
+        private VkImage _depthPyramidImage;
+        private VkDeviceMemory _depthPyramidImageMemory;
+        private VkImageView _depthPyramidImageView;
+        private readonly VkImageView[] _depthPyramidMips = new VkImageView[16];
+        private VkSampler _depthSampler;
+
         private VkFramebuffer[] _swapChainFrameBuffer;
 
         private VkSemaphore[] _imageAvailableSemaphores;
@@ -43,7 +68,10 @@ namespace SDL_Vulkan_CS
 
         public int ImageCount => _swapChainImages.Length;
         public VkRenderPass RenderPass => _renderPass;
+        public VkRenderPass CopyPass => _copyPass;
         public VkExtent2D SwapChainExtent => _swapChainExtent;
+        public VkSampler SmoothSampler =>_smoothSampler;
+        public VkImageView RawRenderImageView => _rawRenderImageView;
 
         /// <summary>
         /// Swap chain image aspect ratio
@@ -78,7 +106,8 @@ namespace SDL_Vulkan_CS
         {
             CreateSwapChain();
             CreateImageViews();
-            CreateRenderPass();
+            CreateForwardRenderPass();
+            CreateCopyRenderPass();
             CreateDepthResources();
             CreateFramebuffers();
             CreateSyncObjects();
@@ -216,6 +245,60 @@ namespace SDL_Vulkan_CS
                     throw new Exception("Failed to create texture image view!");
                 }
             }
+
+            {
+                VkExtent3D renderImageExtent = new()
+                {
+                    width = _windowExtent.width,
+                    height = _windowExtent.height,
+                    depth = 1
+                };
+                _renderFormat = VkFormat.R32G32B32A32Sfloat;
+                VkImageCreateInfo createInfo = new()
+                {
+                    imageType = VkImageType.Image2D,
+                    format = _renderFormat,
+                    extent = renderImageExtent,
+                    mipLevels = 1,
+                    arrayLayers = 1,
+                    samples = VkSampleCountFlags.Count1,
+                    tiling = VkImageTiling.Optimal,
+                    usage = VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.Sampled
+                };
+
+                _device.CreateImageWithInfo(createInfo, VkMemoryPropertyFlags.DeviceLocal, out _rawRenderImage, out _rawRenderImageMemory);
+                VkImageViewCreateInfo dview_info = new()
+                {
+                    viewType = VkImageViewType.Image2D,
+                    format = _renderFormat,
+                    image = _rawRenderImage,
+                    subresourceRange = new()
+                    {
+                        baseMipLevel = 0,
+                        levelCount = 1,
+                        baseArrayLayer = 0,
+                        layerCount =1,
+                        aspectMask = VkImageAspectFlags.Color
+                    }
+                };
+                if(Vulkan.vkCreateImageView(_device.Device,dview_info,null,out _rawRenderImageView) != VkResult.Success)
+                {
+                    throw new Exception("Failed to create _rawRenderImageView");
+                }
+            }
+
+            VkSamplerCreateInfo samplerInfo = new()
+            {
+                magFilter = VkFilter.Linear,
+                minFilter = VkFilter.Linear,
+                addressModeU = VkSamplerAddressMode.Repeat,
+                addressModeV = VkSamplerAddressMode.Repeat,
+                addressModeW = VkSamplerAddressMode.Repeat,
+                mipmapMode = VkSamplerMipmapMode.Linear
+            };
+
+            Vulkan.vkCreateSampler(_device.Device, &samplerInfo, null, out _smoothSampler);
+
         }
 
         #endregion
@@ -225,26 +308,9 @@ namespace SDL_Vulkan_CS
         /// Creates the Vk render pass for the swap chain defining waht colour and depth formats are being used to render to the Image view.
         /// </summary>
         /// <exception cref="Exception"></exception>
-        private unsafe void CreateRenderPass()
+        private unsafe void CreateForwardRenderPass()
         {
-            VkAttachmentDescription depthAttachment = new()
-            {
-                format = FindDepthFormat(),
-                samples = VkSampleCountFlags.Count1,
-                loadOp = VkAttachmentLoadOp.Clear,
-                storeOp = VkAttachmentStoreOp.DontCare,
-                stencilLoadOp = VkAttachmentLoadOp.DontCare,
-                stencilStoreOp = VkAttachmentStoreOp.DontCare,
-                initialLayout = VkImageLayout.Undefined,
-                finalLayout = VkImageLayout.DepthStencilAttachmentOptimal
-            };
-
-            VkAttachmentReference depthAttachmentRef = new()
-            {
-                attachment = 1,
-                layout = VkImageLayout.DepthStencilAttachmentOptimal
-            };
-
+            Console.WriteLine("Render image format is inline set!");
             VkAttachmentDescription colourAttachment = new()
             {
                 format = _swapChainImageFormat,
@@ -254,13 +320,31 @@ namespace SDL_Vulkan_CS
                 stencilStoreOp = VkAttachmentStoreOp.DontCare,
                 stencilLoadOp = VkAttachmentLoadOp.DontCare,
                 initialLayout = VkImageLayout.Undefined,
-                finalLayout = VkImageLayout.PresentSrcKHR
+                finalLayout = VkImageLayout.ShaderReadOnlyOptimal// VkImageLayout.PresentSrcKHR
             };
 
             VkAttachmentReference colourAttachmentRef = new()
             {
                 attachment = 0,
                 layout = VkImageLayout.ColorAttachmentOptimal
+            };
+
+            VkAttachmentDescription depthAttachment = new()
+            {
+                format = FindDepthFormat(),
+                samples = VkSampleCountFlags.Count1,
+                loadOp = VkAttachmentLoadOp.Clear,
+                storeOp = VkAttachmentStoreOp.Store,
+                stencilLoadOp = VkAttachmentLoadOp.Clear,
+                stencilStoreOp = VkAttachmentStoreOp.DontCare,
+                initialLayout = VkImageLayout.Undefined,
+                finalLayout = VkImageLayout.DepthStencilAttachmentOptimal
+            };
+
+            VkAttachmentReference depthAttachmentRef = new()
+            {
+                attachment = 1,
+                layout = VkImageLayout.DepthStencilAttachmentOptimal
             };
 
             VkSubpassDescription subPass = new()
@@ -273,12 +357,13 @@ namespace SDL_Vulkan_CS
 
             VkSubpassDependency dependency = new()
             {
-                srcSubpass = ~0u,
-                srcAccessMask = 0,
-                srcStageMask = VkPipelineStageFlags.ColorAttachmentOutput | VkPipelineStageFlags.EarlyFragmentTests,
+                srcSubpass = Vulkan.VK_SUBPASS_EXTERNAL,
                 dstSubpass = 0,
-                dstStageMask = VkPipelineStageFlags.ColorAttachmentOutput | VkPipelineStageFlags.EarlyFragmentTests,
-                dstAccessMask = VkAccessFlags.ColorAttachmentWrite | VkAccessFlags.DepthStencilAttachmentWrite
+                srcStageMask = VkPipelineStageFlags.ColorAttachmentOutput,
+                srcAccessMask = 0,
+                
+                dstStageMask = VkPipelineStageFlags.ColorAttachmentOutput,
+                dstAccessMask = VkAccessFlags.ColorAttachmentWrite
             };
 
             VkAttachmentDescription* pAttachments = stackalloc VkAttachmentDescription[2]
@@ -298,6 +383,48 @@ namespace SDL_Vulkan_CS
             };
 
             if (Vulkan.vkCreateRenderPass(_device.Device, renderPassInfo, null, out _renderPass) != VkResult.Success)
+            {
+                throw new Exception("Failed to create render pass!");
+            }
+        }
+
+
+        private unsafe void CreateCopyRenderPass()
+        {
+            VkAttachmentDescription colourAttachment = new()
+            {
+                format = _swapChainImageFormat,
+                samples = VkSampleCountFlags.Count1,
+                loadOp = VkAttachmentLoadOp.DontCare,
+                storeOp = VkAttachmentStoreOp.Store,
+                stencilLoadOp = VkAttachmentLoadOp.DontCare,
+                stencilStoreOp = VkAttachmentStoreOp.DontCare,
+                initialLayout = VkImageLayout.Undefined,
+                finalLayout = VkImageLayout.PresentSrcKHR
+            };
+
+            VkAttachmentReference colourAttachmentRef = new()
+            {
+                attachment = 0,
+                layout = VkImageLayout.ColorAttachmentOptimal
+            };
+
+            VkSubpassDescription subpass = new()
+            {
+                pipelineBindPoint = VkPipelineBindPoint.Graphics,
+                colorAttachmentCount = 1,
+                pColorAttachments = &colourAttachmentRef
+            };
+
+            VkRenderPassCreateInfo renderPassInfo = new()
+            {
+                attachmentCount = 1,
+                pAttachments = &colourAttachment,
+                subpassCount = 1,
+                pSubpasses = &subpass
+            };
+
+            if (Vulkan.vkCreateRenderPass(_device.Device, renderPassInfo, null, out _copyPass) != VkResult.Success)
             {
                 throw new Exception("Failed to create render pass!");
             }
@@ -360,7 +487,7 @@ namespace SDL_Vulkan_CS
                     format = depthFormat,
                     tiling = VkImageTiling.Optimal,
                     initialLayout = VkImageLayout.Undefined,
-                    usage = VkImageUsageFlags.DepthStencilAttachment,
+                    usage = VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.Sampled,
                     samples = VkSampleCountFlags.Count1,
                     sharingMode = VkSharingMode.Exclusive,
                     flags = 0
@@ -378,11 +505,134 @@ namespace SDL_Vulkan_CS
 
                 if (Vulkan.vkCreateImageView(_device.Device, viewInfo, null, out _depthImageViews[i]) != VkResult.Success)
                 {
-                    throw new Exception("Failed to create texture image view!");
+                    throw new Exception("Failed to create depth image view!");
                 }
             }
+
+            depthPyramidWidth = PreviousPow2(_windowExtent.width);
+            depthPyramidHeight = PreviousPow2(_windowExtent.height);
+            depthPyramidLevels = GetImageMipLevels(depthPyramidWidth, depthPyramidHeight);
+
+            VkExtent3D pyramidExtent = new()
+            {
+                width = (depthPyramidWidth),
+                height = (depthPyramidHeight),
+                depth = 1
+            };
+            _depthPyramidFormat = VkFormat.R32Sfloat;
+            VkImageCreateInfo pyramidInfo = new()
+            {
+                imageType = VkImageType.Image2D,
+                usage = VkImageUsageFlags.Sampled | VkImageUsageFlags.Storage | VkImageUsageFlags.TransferSrc,
+                format = _depthPyramidFormat,
+                extent = pyramidExtent,
+                mipLevels = depthPyramidLevels,
+                arrayLayers = 1,
+                samples = VkSampleCountFlags.Count1,
+                tiling = VkImageTiling.Optimal,                
+            };
+
+            _device.CreateImageWithInfo(pyramidInfo, VkMemoryPropertyFlags.DeviceLocal, out _depthPyramidImage, out _depthPyramidImageMemory);
+
+            VkImageViewCreateInfo priview_info = new()
+            {
+                viewType = VkImageViewType.Image2D,
+                image = _depthPyramidImage,
+                format = _depthPyramidFormat,
+                subresourceRange = new()
+                {
+                    baseMipLevel = 0,
+                    levelCount = depthPyramidLevels,
+                    baseArrayLayer = 0,
+                    layerCount = 1,
+                    aspectMask = VkImageAspectFlags.Color
+                }
+            };
+
+
+            if (Vulkan.vkCreateImageView(_device.Device, priview_info, null, out _depthPyramidImageView) != VkResult.Success)
+            {
+                throw new Exception("Failed to create depth Pyramid image view!");
+            }
+
+            for (uint i = 0; i < depthPyramidLevels; i++)
+            {
+                VkImageViewCreateInfo level_info = new()
+                {
+                    viewType = VkImageViewType.Image2D,
+                    image = _depthPyramidImage,
+                    format = _depthPyramidFormat,
+                    subresourceRange = new()
+                    {
+                        baseMipLevel = i,
+                        levelCount = 1,
+                        baseArrayLayer = 0,
+                        layerCount = 1,
+                        aspectMask = VkImageAspectFlags.Color
+                    }
+                };
+                if (Vulkan.vkCreateImageView(_device.Device, &level_info, null, out VkImageView pyramid) != VkResult.Success)
+                {
+                    throw new Exception("Failed to create depth Pyramid image view!");
+                }
+                _depthPyramidMips[i] = pyramid;
+            }
+
+            VkSamplerCreateInfo createInfo = new()
+            {
+                magFilter = VkFilter.Linear,
+                minFilter = VkFilter.Linear,
+                mipmapMode = VkSamplerMipmapMode.Nearest,
+                addressModeU = VkSamplerAddressMode.ClampToEdge,
+                addressModeV = VkSamplerAddressMode.ClampToEdge,
+                addressModeW = VkSamplerAddressMode.ClampToEdge,
+                minLod = 0,
+                maxLod = 16.0f
+            };
+
+            var reductionMode = VkSamplerReductionMode.Min;
+            VkSamplerReductionModeCreateInfo createInfoReduction = new();
+            if (reductionMode != VkSamplerReductionMode.WeightedAverageEXT)
+            {
+                createInfoReduction.reductionMode = reductionMode;
+
+                createInfo.pNext = &createInfoReduction;
+            }
+
+            if(Vulkan.vkCreateSampler(_device.Device, createInfo, null, out _depthSampler) != VkResult.Success)
+            {
+                throw new Exception("Failed to create depth sampler");
+            }
+
+            _depthReducePipeline ??= new("depthReduce.comp",typeof(DepthReduceData),
+                new () { DescriptorType = VkDescriptorType.StorageImage, StageFlags = VkShaderStageFlags.Compute, Count =1 },
+                new() { DescriptorType = VkDescriptorType.CombinedImageSampler,StageFlags = VkShaderStageFlags.Compute, Count =1 });
+
+
         }
 
+        private static uint PreviousPow2(uint v)
+        {
+            uint r = 1;
+
+            while (r * 2 < v)
+                r *= 2;
+
+            return r;
+        }
+        private static uint GetImageMipLevels(uint width, uint height)
+        {
+            uint result = 1;
+
+            while (width > 1 || height > 1)
+            {
+                result++;
+                width /= 2;
+                height /= 2;
+            }
+
+            return result;
+        }
         #endregion
 
         #region Create Frame Buffers
@@ -577,6 +827,117 @@ namespace SDL_Vulkan_CS
 
             return result;
         }
+
+        public unsafe void ReduceDepth(RendererFrameInfo frameInfo)
+        {
+            VkImageMemoryBarrier depthReadBarriers = new()
+            {
+                image = _depthImages[frameInfo.FrameIndex],
+                srcAccessMask = VkAccessFlags.DepthStencilAttachmentWrite,
+                dstAccessMask = VkAccessFlags.DepthStencilAttachmentRead,
+                oldLayout = VkImageLayout.DepthAttachmentOptimal,
+                newLayout = VkImageLayout.ShaderReadOnlyOptimal,
+                srcQueueFamilyIndex = Vulkan.VK_QUEUE_FAMILY_IGNORED,
+                dstQueueFamilyIndex = Vulkan.VK_QUEUE_FAMILY_IGNORED,
+                subresourceRange = new()
+                {
+                    levelCount = Vulkan.VK_REMAINING_MIP_LEVELS,
+                    layerCount = Vulkan.VK_REMAINING_ARRAY_LAYERS,
+                    aspectMask = VkImageAspectFlags.Depth
+                }
+            };
+
+            //Vulkan.vkCmdPipelineBarrier(frameInfo.CommandBuffer, VkPipelineStageFlags.LateFragmentTests, VkPipelineStageFlags.ComputeShader, VkDependencyFlags.ByRegion, 0, null, 0, null, 1, &depthReadBarriers);
+
+            Vulkan.vkCmdBindPipeline(frameInfo.CommandBuffer, VkPipelineBindPoint.Compute, _depthReducePipeline.ComputePipeline);
+
+            for (int i = 0; i < depthPyramidLevels; i++)
+            {
+                VkDescriptorImageInfo destTarget;
+                destTarget.sampler = _depthSampler;
+                destTarget.imageView = _depthPyramidMips[i];
+                destTarget.imageLayout = VkImageLayout.General;
+
+                VkDescriptorImageInfo sourceTarget;
+                sourceTarget.sampler = _depthSampler;
+                if(i == 0)
+                {
+                    sourceTarget.imageView = _depthImageViews[frameInfo.FrameIndex];
+                    sourceTarget.imageLayout = VkImageLayout.ShaderReadOnlyOptimal;
+                }
+                else
+                {
+                    sourceTarget.imageView = _depthPyramidMips[i - 1];
+                    sourceTarget.imageLayout = VkImageLayout.General;
+                }
+
+                VkDescriptorSet depthSet = default;
+                new DescriptorWriter(_depthReducePipeline.DescriptorSetLayout, frameInfo.FrameDescriptorPool)
+                    .WriteImage(0, destTarget)
+                    .WriteImage(1, sourceTarget)
+                    .Build(&depthSet);
+
+                Vulkan.vkCmdBindDescriptorSets(frameInfo.CommandBuffer, VkPipelineBindPoint.Compute, _depthReducePipeline.ComputePipelineLayout, 0, 1, &depthSet, 0, null);
+
+                uint levelWidth = depthPyramidWidth >> i;
+                uint levelHeight = depthPyramidHeight >> i;
+
+                if(levelWidth < 1) levelWidth = 1;
+                if (levelHeight < 1) levelHeight = 1;
+
+                DepthReduceData reduceData = new() { imageSize= new Vector2 (levelWidth, levelHeight) };
+                Vulkan.vkCmdPushConstants(frameInfo.CommandBuffer, _depthReducePipeline.ComputePipelineLayout, VkShaderStageFlags.Compute,0,(uint)sizeof(DepthReduceData),&reduceData);
+
+                Vulkan.vkCmdDispatch(frameInfo.CommandBuffer, GetGroupCount(levelWidth, 32), GetGroupCount(levelHeight, 32), 1);
+
+                VkImageMemoryBarrier reduceBarrier = new()
+                {
+                    image = _depthPyramidImage,
+                    srcAccessMask = VkAccessFlags.ShaderWrite,
+                    dstAccessMask = VkAccessFlags.ShaderRead,
+                    oldLayout = VkImageLayout.General,
+                    newLayout = VkImageLayout.General,
+                    srcQueueFamilyIndex = Vulkan.VK_QUEUE_FAMILY_IGNORED,
+                    dstQueueFamilyIndex = Vulkan.VK_QUEUE_FAMILY_IGNORED,
+                    subresourceRange = new()
+                    {
+                        levelCount = Vulkan.VK_REMAINING_MIP_LEVELS,
+                        layerCount = Vulkan.VK_REMAINING_ARRAY_LAYERS,
+                        aspectMask = VkImageAspectFlags.Color
+                    }
+                };
+
+                Vulkan.vkCmdPipelineBarrier(frameInfo.CommandBuffer,VkPipelineStageFlags.ComputeShader,VkPipelineStageFlags.ComputeShader,VkDependencyFlags.ByRegion,0,null,0,null,1,&reduceBarrier);
+
+            }
+            VkImageMemoryBarrier depthWriteBarrier = new()
+            {
+                image = _depthPyramidImage,
+                srcAccessMask = VkAccessFlags.ShaderRead,
+                dstAccessMask = VkAccessFlags.DepthStencilAttachmentRead | VkAccessFlags.DepthStencilAttachmentWrite,
+                oldLayout = VkImageLayout.ShaderReadOnlyOptimal,
+                newLayout = VkImageLayout.DepthAttachmentOptimal,
+                srcQueueFamilyIndex = Vulkan.VK_QUEUE_FAMILY_IGNORED,
+                dstQueueFamilyIndex = Vulkan.VK_QUEUE_FAMILY_IGNORED,
+                subresourceRange = new()
+                {
+                    levelCount = Vulkan.VK_REMAINING_MIP_LEVELS,
+                    layerCount = Vulkan.VK_REMAINING_ARRAY_LAYERS,
+                    aspectMask = VkImageAspectFlags.Depth
+                }
+            };
+            Vulkan.vkCmdPipelineBarrier(frameInfo.CommandBuffer, VkPipelineStageFlags.ComputeShader, VkPipelineStageFlags.EarlyFragmentTests, VkDependencyFlags.ByRegion, 0, null, 0, null, 1, &depthWriteBarrier);
+        }
+
+        [StructLayout(LayoutKind.Sequential, Size = 8)]
+        private struct DepthReduceData
+        {
+            public Vector2 imageSize;
+        }
+        private static uint GetGroupCount(uint threadCount, uint localSize)
+        {
+            return (threadCount + localSize - 1) / localSize;
+        }
         #endregion
 
         /// <summary>
@@ -584,6 +945,23 @@ namespace SDL_Vulkan_CS
         /// </summary>
         public unsafe void Dispose()
         {
+            _depthReducePipeline?.Dispose();
+            Vulkan.vkDestroySampler(_device.Device, _depthSampler);
+
+            for (int i = 0; i < _depthPyramidMips.Length; i++)
+            {
+                Vulkan.vkDestroyImageView(_device.Device, _depthPyramidMips[i]);
+            }
+            Vulkan.vkDestroyImageView(_device.Device, _depthPyramidImageView);
+            Vulkan.vkDestroyImage(_device.Device,_depthPyramidImage);
+            Vulkan.vkFreeMemory(_device.Device, _depthPyramidImageMemory);
+
+            Vulkan.vkDestroySampler(_device.Device,_smoothSampler);
+            Vulkan.vkDestroyImageView(_device.Device, _rawRenderImageView);
+            Vulkan.vkDestroyImage(_device.Device, _rawRenderImage);
+            Vulkan.vkFreeMemory(_device.Device, _rawRenderImageMemory);
+
+
             foreach (var item in _swapChainImageViews)
             {
                 Vulkan.vkDestroyImageView(_device.Device, item);
