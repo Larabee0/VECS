@@ -41,7 +41,7 @@ namespace SDL_Vulkan_CS.Artifact.Colour
         /// </summary>
         /// <param name="entityManager"></param>
         /// <param name="frameInfo"></param>
-        public unsafe override void OnPresent(EntityManager entityManager, RendererFrameInfo frameInfo)
+        public unsafe override void OnFowardPass(EntityManager entityManager, RendererFrameInfo frameInfo)
         {
             if (_planetRenderQuery.HasEntities)
             {

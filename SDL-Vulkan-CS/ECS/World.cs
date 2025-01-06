@@ -111,18 +111,38 @@ namespace SDL_Vulkan_CS.ECS
             _presentationSystems.ForEach(s => s.OnPostUpdate(_entityManager));
         }
 
+        public void PresentPreCull(RendererFrameInfo rendererFrameInfo)
+        {
+            _presentationSystems.ForEach(s => s.OnPreCull(_entityManager, rendererFrameInfo));
+        }
+
+        public void PresentOnCull(RendererFrameInfo rendererFrameInfo)
+        {
+            _presentationSystems.ForEach(s => s.OnCull(_entityManager, rendererFrameInfo));
+        }
+
+        public void PresentPostCullUpdate(RendererFrameInfo rendererFrameInfo)
+        {
+            _presentationSystems.ForEach(s => s.OnPostCull(_entityManager, rendererFrameInfo));
+        }
+
+        public void PresentShadowPassUpdate(RendererFrameInfo rendererFrameInfo)
+        {
+            _presentationSystems.ForEach(s => s.OnShadowPass(_entityManager, rendererFrameInfo));
+        }
+
         /// <summary>
         /// Called after PostUpdate
         /// </summary>
-        public void PresentationSystemUpdate(RendererFrameInfo rendererFrameInfo)
+        public void PresentFowardPassUpdate(RendererFrameInfo rendererFrameInfo)
         {
-            _presentationSystems.ForEach(s => s.OnPresent(_entityManager, rendererFrameInfo));
+            _presentationSystems.ForEach(s => s.OnFowardPass(_entityManager, rendererFrameInfo));
         }
 
         /// <summary>
         /// Called after present
         /// </summary>
-        public void PostPresentationSystemUpdate()
+        public void PostPresentUpdate()
         {
             _presentationSystems.ForEach(s => s.OnPostPresentation(_entityManager));
         }

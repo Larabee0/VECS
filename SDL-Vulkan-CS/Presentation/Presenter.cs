@@ -26,11 +26,13 @@ namespace SDL_Vulkan_CS
     public sealed class Presenter : IDisposable
     {
         public const int MAX_LIGHTS = 10;
+        public const bool RENDER_V2 = false;
 
         public static Presenter Instance { get; private set; }
 
         private readonly GraphicsDevice _device;
         private readonly Renderer _renderer;
+        private readonly RendererV2 _rendererV2;
 
         private DescriptorPool _globalDescriptorPool;
         private DescriptorSetLayout _globalDescriptorSetLayout;
@@ -41,13 +43,21 @@ namespace SDL_Vulkan_CS
 
         private Entity frameInfoEntity;
 
-        public VkRenderPass RenderPass => _renderer.SwapChainRenderPass;
+        public VkRenderPass RenderPass => RENDER_V2 ? _rendererV2.RenderPass :  _renderer.SwapChainRenderPass;
         public VkDescriptorSetLayout GlobalSetLayout => _globalDescriptorSetLayout.SetLayout;
 
         public Presenter(IWindow window, GraphicsDevice device)
         {
             _device = device;
-            _renderer = new(window, device);
+            if (RENDER_V2)
+            {
+                _rendererV2 = new(window);
+            }
+            else
+            {
+                _renderer = new(window, device);
+            }
+            
 
             InitGloalDescriptorPool();
             InitSwapChainFrameDescriptorPools();
@@ -138,18 +148,6 @@ namespace SDL_Vulkan_CS
             return globalSetLayout;
         }
 
-
-        /// <summary>
-        /// Creates a triangle system for testing the renderer.
-        /// This creates zero entities. The Triangle is local to the system.
-        /// </summary>
-        private void CreateTestTriangle()
-        {
-            var triangleSystem = new TriangleSystem(_device, _renderer.SwapChainRenderPass, _globalDescriptorSetLayout.SetLayout);
-            World.DefaultWorld.AddSystem(triangleSystem);
-            triangleSystem.CreateTriangle();
-        }
-
         /// <summary>
         /// Beings the frame render pass, this gets the command buffer, sets up the renderer frame info,
         /// and updates the global uniform buffer.
@@ -160,51 +158,57 @@ namespace SDL_Vulkan_CS
         /// </summary>
         /// <param name="deltaTime">delta time is included with the renderer frame info</param>
         /// <returns></returns>
-        public unsafe RendererFrameInfo BeginPresent(float deltaTime)
+        public RendererFrameInfo BeginPresent(float deltaTime)
         {
             UpdateEntityFrameInfo(World.DefaultWorld.EntityManager);
 
             VkCommandBuffer commandBuffer = _renderer.BeginFrame();
             if (commandBuffer != VkCommandBuffer.Null)
             {
-                int frameIndex = _renderer.FrameIndex;
-                swapChainFrameDescriptorPools[frameIndex].ResetPool();
-                RendererFrameInfo frameInfo = new()
-                {
-                    FrameIndex = frameIndex,
-                    DeltaTime = deltaTime,
-                    CommandBuffer = commandBuffer,
-                    UboBuffer = _globalUboBuffers[frameIndex],
-                    GlobalDescriptorSet = _globalDescriptorSets[frameIndex],
-                    FrameDescriptorPool = swapChainFrameDescriptorPools[frameIndex]
-                };
-
-                Camera camera = Camera.Identity;
-
-                if (World.DefaultWorld != null
-                    && World.DefaultWorld.EntityManager != null
-                    && World.DefaultWorld.EntityManager.SingletonEntity<MainCamera>(out Entity mainCamera)
-                    && World.DefaultWorld.EntityManager.HasComponent<Camera>(mainCamera, out int signature))
-                {
-                    camera = World.DefaultWorld.EntityManager.GetComponent<Camera>(signature);
-                }
-
-                GlobalUbo ubo = new()
-                {
-                    Projection = camera.ProjectionMatrix,
-                    View = camera.ViewMatrix,
-                    InverseView = camera.InverseViewMatrix,
-                    AmbientLightColour = new(1.0f, 1.0f, 1.0f, 0.02f),
-
-                    NumLights = 0
-                };
-                frameInfo.Ubo = ubo;
-                ubo.WriteToBuffer(_globalUboBuffers[frameIndex]);
+                RendererFrameInfo frameInfo = CreateRendererFrameInfo(deltaTime, commandBuffer);
                 _renderer.BeginSwapChainRenderPass(commandBuffer);
                 return frameInfo;
             }
 
             return RendererFrameInfo.Null;
+        }
+
+        private unsafe RendererFrameInfo CreateRendererFrameInfo(float deltaTime, VkCommandBuffer commandBuffer)
+        {
+            int frameIndex = _renderer.FrameIndex;
+            swapChainFrameDescriptorPools[frameIndex].ResetPool();
+            RendererFrameInfo frameInfo = new()
+            {
+                FrameIndex = frameIndex,
+                DeltaTime = deltaTime,
+                CommandBuffer = commandBuffer,
+                UboBuffer = _globalUboBuffers[frameIndex],
+                GlobalDescriptorSet = _globalDescriptorSets[frameIndex],
+                FrameDescriptorPool = swapChainFrameDescriptorPools[frameIndex]
+            };
+
+            Camera camera = Camera.Identity;
+
+            if (World.DefaultWorld != null
+                && World.DefaultWorld.EntityManager != null
+                && World.DefaultWorld.EntityManager.SingletonEntity<MainCamera>(out Entity mainCamera)
+                && World.DefaultWorld.EntityManager.HasComponent<Camera>(mainCamera, out int signature))
+            {
+                camera = World.DefaultWorld.EntityManager.GetComponent<Camera>(signature);
+            }
+
+            GlobalUbo ubo = new()
+            {
+                Projection = camera.ProjectionMatrix,
+                View = camera.ViewMatrix,
+                InverseView = camera.InverseViewMatrix,
+                AmbientLightColour = new(1.0f, 1.0f, 1.0f, 0.02f),
+
+                NumLights = 0
+            };
+            frameInfo.Ubo = ubo;
+            ubo.WriteToBuffer(_globalUboBuffers[frameIndex]);
+            return frameInfo;
         }
 
         /// <summary>
@@ -225,15 +229,45 @@ namespace SDL_Vulkan_CS
         /// <param name="frameInfo"></param>
         public void EndPresent(RendererFrameInfo frameInfo)
         {
-            _renderer.EndSwapChainRenderPass(frameInfo.CommandBuffer);
-            
-            //_renderer.ReduceDepth(frameInfo);
-
-            //_renderer.BeginSwapChainRenderPass(frameInfo.CommandBuffer);
-            //_renderer.CopyRenderToSwapChain(frameInfo);
-            //_renderer.EndSwapChainRenderPass(frameInfo.CommandBuffer);
-
+            _renderer.EndSwapChainRenderPass(frameInfo.CommandBuffer);            
             _renderer.EndFrame();
+        }
+
+        public void PresentV2(float deltaTime)
+        {
+            UpdateEntityFrameInfo(World.DefaultWorld.EntityManager);
+
+            VkCommandBuffer commandBuffer = _rendererV2.BeginFrame();
+            if (commandBuffer != VkCommandBuffer.Null)
+            {
+                RendererFrameInfo frameInfo = CreateRendererFrameInfo(deltaTime, commandBuffer);
+                // culling
+                World.DefaultWorld.PresentPreCull(frameInfo);
+                _rendererV2.EndPreCullBarrier(frameInfo.CommandBuffer);
+
+                World.DefaultWorld.PresentOnCull(frameInfo);
+
+                _rendererV2.PostCullBarrier(frameInfo.CommandBuffer);
+                World.DefaultWorld.PresentPostCullUpdate(frameInfo);
+
+                // shadows
+                _rendererV2.BeginShandowRenderPass(frameInfo.CommandBuffer);
+                World.DefaultWorld.PresentShadowPassUpdate(frameInfo);
+                RendererV2.EndShadowRenderPass(frameInfo.CommandBuffer);
+
+                // forward pass
+                _rendererV2.BeginForwardRenderPass(frameInfo.CommandBuffer);
+                World.DefaultWorld.PresentFowardPassUpdate(frameInfo);
+                RendererV2.EndForwardRenderPass(frameInfo.CommandBuffer);
+
+                // depth pyramid mip maps
+                _rendererV2.ReduceDepth(frameInfo);
+                // copy to swap chain
+                _rendererV2.CopyRenderToSwapChain(frameInfo);
+                // submit command buffer
+                _rendererV2.EndFrame();
+                World.DefaultWorld.PostPresentUpdate();
+            }
         }
 
         /// <summary>
@@ -284,7 +318,8 @@ namespace SDL_Vulkan_CS
             }
 
             // then destroy the renderer, which will destroy the swapchain.
-            _renderer.Dispose();
+            _renderer?.Dispose();
+            _rendererV2?.Dispose();
         }
     }
 }

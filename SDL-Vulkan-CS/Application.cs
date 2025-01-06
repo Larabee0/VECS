@@ -104,12 +104,19 @@ namespace SDL_Vulkan_CS
         /// </summary>
         private void Presentation()
         {
-            RendererFrameInfo frameInfo = _presenter.BeginPresent(DeltaTime);
-            if (frameInfo != RendererFrameInfo.Null)
+            if (Presenter.RENDER_V2)
             {
-                _mainWorld.PresentationSystemUpdate(frameInfo);
-                _presenter.EndPresent(frameInfo);
-                _mainWorld.PostPresentationSystemUpdate();
+                _presenter.PresentV2(DeltaTime);
+            }
+            else
+            {
+                RendererFrameInfo frameInfo = _presenter.BeginPresent(DeltaTime);
+                if (frameInfo != RendererFrameInfo.Null)
+                {
+                    _mainWorld.PresentFowardPassUpdate(frameInfo);
+                    _presenter.EndPresent(frameInfo);
+                    _mainWorld.PostPresentUpdate();
+                }
             }
         }
 

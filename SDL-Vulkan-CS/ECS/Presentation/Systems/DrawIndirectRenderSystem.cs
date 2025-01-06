@@ -28,7 +28,7 @@ namespace SDL_Vulkan_CS.ECS.Presentation.Systems
                 .Build();
         }
 
-        public unsafe override void OnPresent(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
+        public unsafe override void OnFowardPass(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
         {
 
             if (!_planetRenderQuery.HasEntities) return;

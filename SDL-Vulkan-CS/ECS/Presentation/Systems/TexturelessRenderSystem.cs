@@ -16,7 +16,7 @@ namespace SDL_Vulkan_CS.ECS.Presentation
                 .Build();
         }
 
-        public override void OnPresent(EntityManager entityManager, RendererFrameInfo frameInfo)
+        public override void OnFowardPass(EntityManager entityManager, RendererFrameInfo frameInfo)
         {
             if (_renderQuery.HasEntities)
             {

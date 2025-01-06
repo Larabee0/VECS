@@ -37,6 +37,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
         public CsharpVulkanImage TextureImage => _textureImage;
 
         public VkExtent3D ImageExtent => _imageExtents;
+        public VkImageView TextureImageView => _textureImageView;
 
         public VkDescriptorImageInfo GetImageInfo => new()
         {
@@ -73,7 +74,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
         /// <param name="extent"></param>
         /// <param name="usage"></param>
         /// <exception cref="Exception"></exception>
-        public unsafe Texture2d(GraphicsDevice deivce, VkFormat format, VkExtent3D extent, VkImageUsageFlags usage)
+        public unsafe Texture2d(GraphicsDevice deivce, VkFormat format, VkExtent3D extent, VkImageUsageFlags usage, bool exclusive = false)
         {
             _device = deivce;
             VkImageAspectFlags aspectMask = 0;
@@ -99,6 +100,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
 
             VkImageCreateInfo imageInfo = CsharpVulkanImage.DefaultImageCreateInfo(_imageExtents);
             imageInfo.format = format;
+            imageInfo.usage = usage;
             _textureImage = new(deivce, imageInfo);
 
             VkImageViewCreateInfo viewInfo = new()
@@ -163,8 +165,28 @@ namespace SDL_Vulkan_CS.VulkanBackend
                 _imageDescriptor.imageView = _textureImageView;
                 _imageDescriptor.imageLayout = samplerImageLayout;
             }
-            Textures.Add(this);
+            if (!exclusive)
+            {
+                Textures.Add(this);
+            }
         }
+
+        public unsafe Texture2d(GraphicsDevice device, VkImageCreateInfo imageCreateInfo, VkImageViewCreateInfo viewInfo, bool exclusive = false)
+        {
+            _device = device;
+            _textureImage = new(_device, imageCreateInfo);
+            viewInfo.image = _textureImage.VkImage;
+            if (Vulkan.vkCreateImageView(_device.Device, viewInfo, null, out _textureImageView) != VkResult.Success)
+            {
+                throw new Exception("Failed to create texture image view!");
+            }
+
+            if (!exclusive)
+            {
+                Textures.Add(this);
+            }
+        }
+
 
         public unsafe void Dispose()
         {
@@ -236,6 +258,11 @@ namespace SDL_Vulkan_CS.VulkanBackend
                 minLod = 0.0f,
                 maxLod = 0.0f
             };
+            CreateSampler(samplierInfo);
+        }
+
+        public unsafe void CreateSampler(VkSamplerCreateInfo samplierInfo)
+        {
 
             if (Vulkan.vkCreateSampler(_device.Device, samplierInfo, null, out _textureSampler) != VkResult.Success)
             {
