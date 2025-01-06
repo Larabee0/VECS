@@ -29,7 +29,7 @@ namespace SDL_Vulkan_CS.Artifact
         };
 
         private readonly bool useComputeShaderForGeneration = true;
-        private readonly int subdivisons = 4;
+        private readonly int subdivisons = 6;
 
         private readonly bool generateIndirectMeshes = true;
 
