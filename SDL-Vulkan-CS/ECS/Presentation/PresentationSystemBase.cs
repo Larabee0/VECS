@@ -17,14 +17,11 @@ namespace SDL_Vulkan_CS.ECS
 
         }
 
-        public virtual void OnPreCull(EntityManager entityManager, RendererFrameInfo rendererFrameInfo) { }
-        public virtual void OnCull(EntityManager entityManager, RendererFrameInfo rendererFrameInfo) { }
-        public virtual void OnPostCull(EntityManager entityManager, RendererFrameInfo rendererFrameInfo) { }
+        public abstract void OnPresent(EntityManager entityManager, RendererFrameInfo rendererFrameInfo);
 
-        public virtual void OnShadowPass(EntityManager entityManager, RendererFrameInfo rendererFrameInfo) { }
+        public virtual void OnPostPresentation(EntityManager entityManager)
+        {
 
-        public abstract void OnFowardPass(EntityManager entityManager, RendererFrameInfo rendererFrameInfo);
-
-        public virtual void OnPostPresentation(EntityManager entityManager) { }
+        }
     }
 }
