@@ -199,10 +199,14 @@ namespace SDL_Vulkan_CS
 
         public unsafe VkCommandBuffer BeginFrame()
         {
+
+            //var previousFrameIndex = (currentFrameIndex - 1);
+            //previousFrameIndex = previousFrameIndex < 0 ? SwapChain.MAX_FRAMES_IN_FLIGHT - 1 : previousFrameIndex;
             if (isFrameStarted)
             {
                 throw new InvalidOperationException("Can't call BeginFrame while frame already in progress");
             }
+            _swapChain.WaitResetRenderFence((uint)currentFrameIndex);
             var result = _swapChain.AcquireNextImage(out currentImageIndex);
 
             if (result == VkResult.ErrorOutOfDateKHR)
@@ -234,36 +238,42 @@ namespace SDL_Vulkan_CS
 
         public unsafe void EndPreCullBarrier(VkCommandBuffer commandBuffer)
         {
-            VkBufferMemoryBarrier[] cullReadyBarriers = [..this._cullReadyBarriers];
-            fixed (VkBufferMemoryBarrier* pMemoryBarrier = &cullReadyBarriers[0])
+            if (_cullReadyBarriers.Count > 0)
             {
-                Vulkan.vkCmdPipelineBarrier(commandBuffer,
-                    VkPipelineStageFlags.Transfer,
-                    VkPipelineStageFlags.ComputeShader,
-                    0,
-                    0,
-                    null,
-                    (uint)cullReadyBarriers.Length,
-                    pMemoryBarrier,
-                    0,
-                    null);
+                VkBufferMemoryBarrier[] cullReadyBarriers = [.. this._cullReadyBarriers];
+                fixed (VkBufferMemoryBarrier* pMemoryBarrier = &cullReadyBarriers[0])
+                {
+                    Vulkan.vkCmdPipelineBarrier(commandBuffer,
+                        VkPipelineStageFlags.Transfer,
+                        VkPipelineStageFlags.ComputeShader,
+                        0,
+                        0,
+                        null,
+                        (uint)cullReadyBarriers.Length,
+                        pMemoryBarrier,
+                        0,
+                        null);
+                }
             }
         }
 
         public unsafe void PostCullBarrier(VkCommandBuffer commandBuffer)
         {
-            VkBufferMemoryBarrier[] postCullBarriers = [.. this._postCullBarriers];
-            fixed (VkBufferMemoryBarrier* pPostCullBarrier = &postCullBarriers[0])
-            Vulkan.vkCmdPipelineBarrier(commandBuffer,
-                VkPipelineStageFlags.ComputeShader,
-                VkPipelineStageFlags.DrawIndirect,
-                0,
-                0,
-                null,
-                (uint)postCullBarriers.Length,
-                pPostCullBarrier,
-                0,
-                null);
+            if(_postCullBarriers.Count > 0)
+            {
+                VkBufferMemoryBarrier[] postCullBarriers = [.. this._postCullBarriers];
+                fixed (VkBufferMemoryBarrier* pPostCullBarrier = &postCullBarriers[0])
+                    Vulkan.vkCmdPipelineBarrier(commandBuffer,
+                        VkPipelineStageFlags.ComputeShader,
+                        VkPipelineStageFlags.DrawIndirect,
+                        0,
+                        0,
+                        null,
+                        (uint)postCullBarriers.Length,
+                        pPostCullBarrier,
+                        0,
+                        null);
+            }
         }
 
         public unsafe void BeginShandowRenderPass(VkCommandBuffer commandBuffer)
@@ -323,7 +333,7 @@ namespace SDL_Vulkan_CS
                 },
                 new()
                 {
-                    depthStencil = new(0, 0)
+                    depthStencil = new(1, 0)
                 }
             };
 
@@ -447,9 +457,9 @@ namespace SDL_Vulkan_CS
             VkViewport viewport = new()
             {
                 x = 0,
-                y = _swapChain.SwapChainExtent.height,
+                y = 0,
                 width = _swapChain.SwapChainExtent.width,
-                height = -_swapChain.SwapChainExtent.height,
+                height = _swapChain.SwapChainExtent.height,
                 minDepth = 0,
                 maxDepth = 1
             };

@@ -26,7 +26,7 @@ namespace SDL_Vulkan_CS
     public sealed class Presenter : IDisposable
     {
         public const int MAX_LIGHTS = 10;
-        public const bool RENDER_V2 = false;
+        public const bool RENDER_V2 = true;
 
         public static Presenter Instance { get; private set; }
 
@@ -175,7 +175,7 @@ namespace SDL_Vulkan_CS
 
         private unsafe RendererFrameInfo CreateRendererFrameInfo(float deltaTime, VkCommandBuffer commandBuffer)
         {
-            int frameIndex = _renderer.FrameIndex;
+            int frameIndex = RENDER_V2 ? _rendererV2.FrameIndex : _renderer.FrameIndex;
             swapChainFrameDescriptorPools[frameIndex].ResetPool();
             RendererFrameInfo frameInfo = new()
             {
@@ -219,7 +219,7 @@ namespace SDL_Vulkan_CS
         {
             entityManager.SetComponent(frameInfoEntity, new FrameInfo()
             {
-                screenAspect = _renderer.AspectRatio
+                screenAspect = RENDER_V2 ? _rendererV2.AspectRatio: _renderer.AspectRatio
             });
         }
 

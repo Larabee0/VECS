@@ -985,7 +985,7 @@ namespace SDL_Vulkan_CS
             {
                 Vulkan.vkDestroyFramebuffer(_device.Device, _swapChainFrameBuffer[i]);
             }
-
+            Vulkan.vkDestroyRenderPass(_device.Device, _copyPass);
             Vulkan.vkDestroyRenderPass(_device.Device, _renderPass);
 
             for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)

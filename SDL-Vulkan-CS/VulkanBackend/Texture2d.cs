@@ -175,6 +175,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
         {
             _device = device;
             _textureImage = new(_device, imageCreateInfo);
+            _imageExtents = imageCreateInfo.extent;
             viewInfo.image = _textureImage.VkImage;
             if (Vulkan.vkCreateImageView(_device.Device, viewInfo, null, out _textureImageView) != VkResult.Success)
             {
@@ -217,8 +218,11 @@ namespace SDL_Vulkan_CS.VulkanBackend
                     }
                 });
             }
-
-            Textures.RemoveAt(index);
+            if(index != -1)
+            {
+                Textures.RemoveAt(index);
+            }
+            
         }
 
         public void UpdateDescriptor()
@@ -306,7 +310,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
         /// <param name="oldLayout"></param>
         /// <param name="newLayout"></param>
         /// <exception cref="Exception"></exception>
-        public unsafe void TransitionImageLayout(VkImageLayout newLayout)
+        public unsafe void TransitionImageLayout(VkImageLayout newLayout, uint mipMapCount = 1)
         {
             VkCommandBuffer commandBuffer = _device.BeginSingleTimeCommands();
             VkImageMemoryBarrier barrier = new()
@@ -322,7 +326,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
                     baseMipLevel = 0,
                     layerCount = _imageExtents.depth,
                     baseArrayLayer = 0,
-                    levelCount = 1
+                    levelCount = mipMapCount
                 }
             };
 
@@ -347,6 +351,13 @@ namespace SDL_Vulkan_CS.VulkanBackend
                 sourceStage = VkPipelineStageFlags.Transfer;
                 destinationStage = VkPipelineStageFlags.FragmentShader;
             }
+            else if(_imageLayout == VkImageLayout.TransferDstOptimal && newLayout == VkImageLayout.General)
+            {
+                barrier.srcAccessMask = VkAccessFlags.TransferWrite;
+                barrier.dstAccessMask = VkAccessFlags.DepthStencilAttachmentRead | VkAccessFlags.DepthStencilAttachmentWrite;
+                sourceStage = VkPipelineStageFlags.Transfer;
+                destinationStage = VkPipelineStageFlags.AllCommands;
+            }
             else
             {
                 throw new Exception("Unsupported image layout transition!");
@@ -367,7 +378,6 @@ namespace SDL_Vulkan_CS.VulkanBackend
             _device.EndSingleTimeCommands(commandBuffer);
             _imageLayout = newLayout;
         }
-
 
         public unsafe void CopyFromArray(Vector4[] colours)
         {
