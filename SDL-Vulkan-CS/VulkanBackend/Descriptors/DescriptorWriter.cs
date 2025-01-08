@@ -89,6 +89,7 @@ namespace SDL_Vulkan_CS
             {
                 throw new Exception("Binding single descriptor info, but binding expects multiple");
             }
+            cachedWrites.Add(new(binding, imageInfo));
 
             VkWriteDescriptorSet write = new()
             {

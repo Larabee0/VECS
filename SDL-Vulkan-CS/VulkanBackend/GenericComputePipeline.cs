@@ -10,6 +10,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
         private readonly VkPipelineLayout _pipelineLayout;
         private readonly VkPipelineCache _pipelineCache;
         private readonly VkPipeline _computePipeline;
+        private readonly Type _pushConstantsType;
 
         public VkPipeline ComputePipeline=>_computePipeline;
         public VkPipelineLayout ComputePipelineLayout => _pipelineLayout;
@@ -72,7 +73,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
             {
                 throw new Exception(string.Format("Push constantsType \"{0}\" missing StructLayout attribute defining size", pushConstantsType.Name));
             }
-
+            _pushConstantsType = pushConstantsType;
             VkPushConstantRange pushConstantRange = new()
             {
                 stageFlags = VkShaderStageFlags.Compute,
@@ -146,6 +147,22 @@ namespace SDL_Vulkan_CS.VulkanBackend
         {
             Vulkan.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Compute, _computePipeline);
             Vulkan.vkCmdBindDescriptorSets(commandBuffer, VkPipelineBindPoint.Compute, _pipelineLayout, 0, DescriptorSet);
+
+            Vulkan.vkCmdDispatch(commandBuffer, groupCountX, groupCountY, groupCountZ);
+        }
+
+        public unsafe void Dispatch<T>(VkCommandBuffer commandBuffer,T pushConstants, uint groupCountX, uint groupCountY, uint groupCountZ) where T : unmanaged
+        {
+            Vulkan.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Compute, _computePipeline);
+            Vulkan.vkCmdBindDescriptorSets(commandBuffer, VkPipelineBindPoint.Compute, _pipelineLayout, 0, DescriptorSet);
+
+            Vulkan.vkCmdPushConstants(
+                commandBuffer,
+                _pipelineLayout,
+                VkShaderStageFlags.Compute,
+                0,
+                (uint)sizeof(T),
+                &pushConstants);
 
             Vulkan.vkCmdDispatch(commandBuffer, groupCountX, groupCountY, groupCountZ);
         }

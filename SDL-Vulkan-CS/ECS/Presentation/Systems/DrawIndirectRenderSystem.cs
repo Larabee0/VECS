@@ -2,6 +2,7 @@
 using SDL_Vulkan_CS.VulkanBackend;
 using System;
 using System.Numerics;
+using System.Runtime.InteropServices;
 using Vortice.Vulkan;
 
 namespace SDL_Vulkan_CS.ECS.Presentation.Systems
@@ -9,23 +10,135 @@ namespace SDL_Vulkan_CS.ECS.Presentation.Systems
     public class DrawIndirectRenderSystem : PresentationSystemBase
     {
         public const ulong MAX_INDIRECT_COMMANDS = 1000;
+        public const bool COMPUTE_CULL = true;
         private CsharpVulkanBuffer<VkDrawIndexedIndirectCommand>[] _indirectCmdBuffers;
-        private CsharpVulkanBuffer<ModelPushConstantData>[] _modelMatricesBuffers;
+        private CsharpVulkanBuffer<ObjectData>[] _objectDataBuffers;
 
         private EntityQuery _planetRenderQuery;
-
-        public int depthPyramidWidth;
-        public int depthPyramidHeight;
+        
+        private GenericComputePipeline _cullCompute;
 
         public override void OnCreate(EntityManager entityManager)
         {
             base.OnCreate(entityManager);
             CreateIndirectCmdBuffers();
-
+            CreateCullComputePipeline();
             _planetRenderQuery = new EntityQuery(entityManager)
                 .WithAll(typeof(InDirectMesh), typeof(LocalToWorld), typeof(MaterialIndex))
                 .WithNone(typeof(DoNotRender), typeof(Prefab))
                 .Build();
+        }
+
+        public unsafe override void OnCull(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
+        {
+            if (!_planetRenderQuery.HasEntities) return;
+            var cmdBuffer = rendererFrameInfo.CommandBuffer;
+
+            var indirectCmdBuffer = _indirectCmdBuffers[rendererFrameInfo.FrameIndex];
+            var objectDataBuffer = _objectDataBuffers[rendererFrameInfo.FrameIndex];
+            var entities = _planetRenderQuery.GetEntities();
+
+            CullParams cullParams = new()
+            {
+                ProjectionMatrix = rendererFrameInfo.Ubo.Projection,
+                ViewMatrix = rendererFrameInfo.Ubo.View,
+                FrustrumCulling = true,
+                OcclusionCulling = true,
+                DrawDist = 9999999
+            };
+
+            VkDrawIndexedIndirectCommand[] drawCmds = new VkDrawIndexedIndirectCommand[entities.Count];
+
+            VkDrawIndexedIndirectCommand[] drawOld = new VkDrawIndexedIndirectCommand[MAX_INDIRECT_COMMANDS];
+            fixed (VkDrawIndexedIndirectCommand* pDrawCmds = &drawOld[0])
+            {
+                indirectCmdBuffer.ReadFromBuffer(pDrawCmds);
+            }
+            bool anyCulled = false;
+            for(int i = 0; i < (int)MAX_INDIRECT_COMMANDS; i++)
+            {
+                if (drawOld[i].indexCount == 0)
+                {
+                    break;
+                }
+
+                if (drawOld[i].instanceCount == 0)
+                {
+                    anyCulled = true;
+                    break;
+                }
+            }
+
+            ObjectData[] drawObjectData = new ObjectData[entities.Count];
+
+            for (uint i = 0; i < entities.Count; i++)
+            {
+                var entity = entities[(int)i];
+
+                var mesh = GPUMesh<Vertex>.Meshes[entityManager.GetComponent<InDirectMesh>(entity).Value];
+                var subMesh = mesh.SubMesh;
+
+                drawCmds[i] = new()
+                {
+                    instanceCount = 0,
+                    firstIndex = (uint)subMesh.IndexOffset,
+                    indexCount = (uint)subMesh.IndexCount,
+                    vertexOffset = (int)subMesh.VertexOffset,
+                    firstInstance = i
+                };
+
+                var renderBounds = mesh.renderBounds;
+                drawObjectData[i] = new(entityManager.GetComponent<LocalToWorld>(entity).Value, new(renderBounds.Origin, renderBounds.Radius), new(renderBounds.Extents, renderBounds.Valid ? 1 : 0));
+            }
+
+            var drawCull = GenerateCullData(rendererFrameInfo,cullParams, drawCmds.Length);
+
+            if (COMPUTE_CULL)
+            {
+                fixed (VkDrawIndexedIndirectCommand* pDrawCmds = &drawCmds[0])
+                {
+                    indirectCmdBuffer.WriteToBuffer(pDrawCmds, (ulong)(sizeof(VkDrawIndexedIndirectCommand) * drawCmds.Length));
+                }
+            }
+            fixed (ObjectData* pMatrices = &drawObjectData[0])
+            {
+                objectDataBuffer.WriteToBuffer(pMatrices, (ulong)(sizeof(ObjectData) * drawObjectData.Length));
+            }
+            if (!COMPUTE_CULL) {
+
+                FrustumCull(drawCull, ref drawCmds, drawObjectData);
+
+                fixed (VkDrawIndexedIndirectCommand* pDrawCmds = &drawCmds[0])
+                {
+                    indirectCmdBuffer.WriteToBuffer(pDrawCmds, (ulong)(sizeof(VkDrawIndexedIndirectCommand) * drawCmds.Length));
+                }
+
+            }
+            else
+            {
+                _cullCompute.Prepare((uint)entities.Count, (uint)entities.Count);
+
+                fixed (VkDescriptorSet* pSet = &_cullCompute.DescriptorSet)
+                {
+                    new DescriptorWriter(_cullCompute.DescriptorSetLayout, rendererFrameInfo.FrameDescriptorPool)
+                        .WriteBuffer(0, objectDataBuffer.DescriptorInfo())
+                        .WriteBuffer(1, indirectCmdBuffer.DescriptorInfo())
+                        .WriteImage(2, rendererFrameInfo.DepthPyramid)
+                        .Build(pSet);
+                }
+
+                _cullCompute.Dispatch(cmdBuffer, drawCull, ((uint)entities.Count / 256) + 1, 1, 1);
+                VkBufferMemoryBarrier barrier = new()
+                {
+                    buffer = indirectCmdBuffer.VkBuffer,
+                    size = Vulkan.VK_WHOLE_SIZE,
+                    srcQueueFamilyIndex = (uint)GraphicsDevice.Instance.PhysicalQueueFamilies.graphicsFamily,
+                    dstQueueFamilyIndex = (uint)GraphicsDevice.Instance.PhysicalQueueFamilies.graphicsFamily,
+                    srcAccessMask = VkAccessFlags.ShaderWrite,
+                    dstAccessMask = VkAccessFlags.IndirectCommandRead
+                };
+                rendererFrameInfo.PostCullBarriers.Add(barrier);
+            }
         }
 
         public unsafe override void OnFowardPass(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
@@ -36,65 +149,9 @@ namespace SDL_Vulkan_CS.ECS.Presentation.Systems
             var cmdBuffer = rendererFrameInfo.CommandBuffer;
 
             var indirectCmdBuffer = _indirectCmdBuffers[rendererFrameInfo.FrameIndex];
-            var modelMatricesBuffer = _modelMatricesBuffers[rendererFrameInfo.FrameIndex];
+            var modelMatricesBuffer = _objectDataBuffers[rendererFrameInfo.FrameIndex];
 
             var entities = _planetRenderQuery.GetEntities();
-
-            CullParams cullParams = new()
-            {
-                ProjectionMatrix = rendererFrameInfo.Ubo.Projection,
-                ViewMatrix = rendererFrameInfo.Ubo.View,
-                FrustrumCulling = false,
-
-                DrawDist = 9999999
-            };
-
-            
-
-            VkDrawIndexedIndirectCommand[] drawCmds = new VkDrawIndexedIndirectCommand[entities.Count];
-            ModelPushConstantData[] modelMatrices = new ModelPushConstantData[entities.Count];
-            ObjectData[] drawObjectData = new ObjectData[entities.Count];
-
-            for (uint i = 0; i < entities.Count; i++)
-            {
-                var entity = entities[(int)i];
-
-                var mesh = GPUMesh<Vertex>.Meshes[ entityManager.GetComponent<InDirectMesh>(entity).Value];
-                var subMesh = mesh.SubMesh;
-
-                drawCmds[i] = new()
-                {
-                    instanceCount = 1,
-                    firstIndex = (uint)subMesh.IndexOffset,
-                    indexCount = (uint)subMesh.IndexCount,
-                    vertexOffset = (int)subMesh.VertexOffset,
-                    firstInstance = i
-                };
-
-                modelMatrices[i] = new(entityManager.GetComponent<LocalToWorld>(entity).Value);
-                var renderBounds = mesh.renderBounds;
-                drawObjectData[i] = new()
-                {
-                    ModelMatrix = modelMatrices[i].ModelMatrix,
-                    SphereBounds = new(renderBounds.Origin,renderBounds.Radius),
-                    Extents = new(renderBounds.Extents,renderBounds.Valid ? 1 : 0)
-                };
-            }
-
-
-            var drawCull = GenerateCullData(cullParams, drawCmds.Length);
-
-            FrustumCull(drawCull, ref drawCmds, drawObjectData);
-
-            fixed (VkDrawIndexedIndirectCommand* pDrawCmds = &drawCmds[0])
-            {
-                indirectCmdBuffer.WriteToBuffer(pDrawCmds, (ulong)(sizeof(VkDrawIndexedIndirectCommand) * drawCmds.Length));
-            }
-
-            fixed (ModelPushConstantData* pMatrices = &modelMatrices[0])
-            {
-                modelMatricesBuffer.WriteToBuffer(pMatrices,(ulong)(sizeof(ModelPushConstantData) * modelMatrices.Length));
-            }
 
             MeshSet<Vertex> meshSet = GPUMesh<Vertex>.Meshes[entityManager.GetComponent<InDirectMesh>(entities[0]).Value].MeshSet;
 
@@ -110,18 +167,10 @@ namespace SDL_Vulkan_CS.ECS.Presentation.Systems
             Vulkan.vkCmdBindVertexBuffer(cmdBuffer, 0, meshSet._vertexBuffer.VkBuffer, 0);
             Vulkan.vkCmdBindIndexBuffer(cmdBuffer, meshSet._indexBuffer.VkBuffer, 0, VkIndexType.Uint32);
 
-
-            //for (int i = 0; i < drawCmds.Length; i++)
-            //{
-            //    var drawCmd = drawCmds[i];
-            //    Vulkan.vkCmdDrawIndexed(cmdBuffer, drawCmd.indexCount, 1, drawCmd.firstIndex,drawCmd.vertexOffset, drawCmd.firstInstance);
-            //}
-            
-
             Vulkan.vkCmdDrawIndexedIndirect(cmdBuffer,
                 indirectCmdBuffer.VkBuffer,
                 0,
-                (uint)drawCmds.Length,
+                (uint)indirectCmdBuffer.InstanceCount,
                 (uint)sizeof(VkDrawIndexedIndirectCommand));
         }
 
@@ -132,18 +181,18 @@ namespace SDL_Vulkan_CS.ECS.Presentation.Systems
 
         public override void OnDestroy(EntityManager entityManager)
         {
+            _cullCompute?.Dispose();
             for (int i = 0; i < SwapChain.MAX_FRAMES_IN_FLIGHT; i++)
             {
                 _indirectCmdBuffers[i].Dispose();
-                _modelMatricesBuffers[i].Dispose();
+                _objectDataBuffers[i].Dispose();
             }
-
         }
 
         private void CreateIndirectCmdBuffers()
         {
             _indirectCmdBuffers = new CsharpVulkanBuffer<VkDrawIndexedIndirectCommand>[SwapChain.MAX_FRAMES_IN_FLIGHT];
-            _modelMatricesBuffers = new CsharpVulkanBuffer<ModelPushConstantData>[SwapChain.MAX_FRAMES_IN_FLIGHT];
+            _objectDataBuffers = new CsharpVulkanBuffer<ObjectData>[SwapChain.MAX_FRAMES_IN_FLIGHT];
 
             for (int i = 0; i < SwapChain.MAX_FRAMES_IN_FLIGHT; i++)
             {
@@ -154,7 +203,7 @@ namespace SDL_Vulkan_CS.ECS.Presentation.Systems
                     VkBufferUsageFlags.IndirectBuffer |
                     VkBufferUsageFlags.StorageBuffer,
                     true);
-                _modelMatricesBuffers[i] = new(GraphicsDevice.Instance,
+                _objectDataBuffers[i] = new(GraphicsDevice.Instance,
                     MAX_INDIRECT_COMMANDS,
                     VkBufferUsageFlags.TransferDst |
                     VkBufferUsageFlags.StorageBuffer,
@@ -166,10 +215,18 @@ namespace SDL_Vulkan_CS.ECS.Presentation.Systems
             for (int i = 0; i < SwapChain.MAX_FRAMES_IN_FLIGHT; i++)
             {
                 Vulkan.vkCmdFillBuffer(commandBuffer, _indirectCmdBuffers[i].VkBuffer, 0, _indirectCmdBuffers[i].BufferSize, 0);
-                Vulkan.vkCmdFillBuffer(commandBuffer, _modelMatricesBuffers[i].VkBuffer, 0, _modelMatricesBuffers[i].BufferSize, 0);
+                Vulkan.vkCmdFillBuffer(commandBuffer, _objectDataBuffers[i].VkBuffer, 0, _objectDataBuffers[i].BufferSize, 0);
             }
 
             GraphicsDevice.Instance.EndSingleTimeCommands(commandBuffer);
+        }
+
+        private void CreateCullComputePipeline()
+        {
+            _cullCompute = new("indirect_cull.comp", typeof(DrawCullData),
+                new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute),
+                new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute),
+                new DescriptorSetBinding(VkDescriptorType.CombinedImageSampler, VkShaderStageFlags.Compute));
         }
 
         public static void FrustumCull(DrawCullData cullData, ref VkDrawIndexedIndirectCommand[] drawCmds, ObjectData[] objectData)
@@ -258,7 +315,7 @@ namespace SDL_Vulkan_CS.ECS.Presentation.Systems
             return visible;
         }
 
-        public DrawCullData GenerateCullData(CullParams cullParams,int drawCount)
+        public DrawCullData GenerateCullData(RendererFrameInfo frameInfo,CullParams cullParams,int drawCount)
         {
             Matrix4x4 projection = cullParams.ProjectionMatrix;
             Matrix4x4 projectionT = Matrix4x4.Transpose(projection);
@@ -279,8 +336,8 @@ namespace SDL_Vulkan_CS.ECS.Presentation.Systems
             drawCullData.LodBase = 10.0f;
             drawCullData.LodStep = 1.5f;
 
-            drawCullData.PyramidWidth = depthPyramidWidth;
-            drawCullData.PyramidHeight = depthPyramidHeight;
+            drawCullData.PyramidWidth = frameInfo.DepthPyramidWidth;
+            drawCullData.PyramidHeight = frameInfo.DepthPyramidHeight;
             drawCullData.ViewMat = cullParams.ViewMatrix;//get_view_matrix();
 
             drawCullData.AABBcheck = cullParams.Aabb ? 1 : 0;
@@ -307,11 +364,25 @@ namespace SDL_Vulkan_CS.ECS.Presentation.Systems
 
     }
 
+
+    [StructLayout(LayoutKind.Sequential, Size = 160)]
     public struct ObjectData
     {
         public Matrix4x4 ModelMatrix;
+        public Matrix4x4 NormalMatrix;
         public Vector4 SphereBounds;
         public Vector4 Extents;
+
+        public ObjectData(Matrix4x4 modelMatrix, Vector4 sphereBounds, Vector4 extents)
+        {
+            SphereBounds = sphereBounds;
+            Extents = extents;
+            ModelMatrix = modelMatrix;
+            if (Matrix4x4.Invert(modelMatrix, out NormalMatrix))
+            {
+                NormalMatrix = Matrix4x4.Transpose(NormalMatrix);
+            }
+        }
     }
 
     public struct RenderBounds : IComponent

@@ -21,6 +21,9 @@ namespace SDL_Vulkan_CS
         private readonly List<VkBufferMemoryBarrier> _postCullBarriers = [];
         private readonly List<VkBufferMemoryBarrier> _uploadBarriers = [];
 
+        public List<VkBufferMemoryBarrier> CullReadyBarriers => _cullReadyBarriers;
+        public List<VkBufferMemoryBarrier> PostCullBarriers => _postCullBarriers;
+        public List<VkBufferMemoryBarrier> UploadBarriers => _uploadBarriers;
 
         private DescriptorSetLayout _blitDescriptorSetLayout;
         private VkPipelineLayout _blitPipelineLayout;
@@ -54,7 +57,9 @@ namespace SDL_Vulkan_CS
 
         public VkRenderPass RenderPass =>_swapChain.RenderPass;
         public VkRenderPass ShadowPass =>_swapChain.ShadowPass;
-
+        public VkDescriptorImageInfo DepthPyramid => _swapChain.DepthPyramid;
+        public uint DepthPyramidWidth => _swapChain.DepthPyramidWidth;
+        public uint DepthPyramidHeight => _swapChain.DepthPyramidHeight;
         public RendererV2(IWindow window)
         {
             _device = GraphicsDevice.Instance;
@@ -240,7 +245,7 @@ namespace SDL_Vulkan_CS
         {
             if (_cullReadyBarriers.Count > 0)
             {
-                VkBufferMemoryBarrier[] cullReadyBarriers = [.. this._cullReadyBarriers];
+                VkBufferMemoryBarrier[] cullReadyBarriers = [.. _cullReadyBarriers];
                 fixed (VkBufferMemoryBarrier* pMemoryBarrier = &cullReadyBarriers[0])
                 {
                     Vulkan.vkCmdPipelineBarrier(commandBuffer,
@@ -261,7 +266,7 @@ namespace SDL_Vulkan_CS
         {
             if(_postCullBarriers.Count > 0)
             {
-                VkBufferMemoryBarrier[] postCullBarriers = [.. this._postCullBarriers];
+                VkBufferMemoryBarrier[] postCullBarriers = [.. _postCullBarriers];
                 fixed (VkBufferMemoryBarrier* pPostCullBarrier = &postCullBarriers[0])
                     Vulkan.vkCmdPipelineBarrier(commandBuffer,
                         VkPipelineStageFlags.ComputeShader,
@@ -333,7 +338,7 @@ namespace SDL_Vulkan_CS
                 },
                 new()
                 {
-                    depthStencil = new(1, 0)
+                    depthStencil = new(0, 0)
                 }
             };
 
@@ -369,7 +374,7 @@ namespace SDL_Vulkan_CS
 
             Vulkan.vkCmdSetViewport(commandBuffer, viewport);
             Vulkan.vkCmdSetScissor(commandBuffer, scissor);
-            Vulkan.vkCmdSetDepthBias(commandBuffer, 0, 0, 0);
+            //Vulkan.vkCmdSetDepthBias(commandBuffer, 0, 0, 0);
         }
 
         public static void EndForwardRenderPass(VkCommandBuffer commandBuffer)

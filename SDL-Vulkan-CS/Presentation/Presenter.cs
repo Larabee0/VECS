@@ -184,8 +184,16 @@ namespace SDL_Vulkan_CS
                 CommandBuffer = commandBuffer,
                 UboBuffer = _globalUboBuffers[frameIndex],
                 GlobalDescriptorSet = _globalDescriptorSets[frameIndex],
-                FrameDescriptorPool = swapChainFrameDescriptorPools[frameIndex]
+                FrameDescriptorPool = swapChainFrameDescriptorPools[frameIndex],
+                PostCullBarriers = RENDER_V2 ? _rendererV2.PostCullBarriers : null
             };
+
+            if (RENDER_V2)
+            {
+                frameInfo.DepthPyramid = _rendererV2.DepthPyramid;
+                frameInfo.DepthPyramidWidth = (int)_rendererV2.DepthPyramidWidth;
+                frameInfo.DepthPyramidHeight = (int)_rendererV2.DepthPyramidHeight;
+            }
 
             Camera camera = Camera.Identity;
 

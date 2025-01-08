@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using Vortice.Vulkan;
 
 namespace SDL_Vulkan_CS
@@ -27,7 +28,10 @@ namespace SDL_Vulkan_CS
         public CsharpVulkanBuffer<GlobalUbo.WriteableUBO> UboBuffer;
         public VkDescriptorSet GlobalDescriptorSet;
         public DescriptorPool FrameDescriptorPool;
-
+        public List<VkBufferMemoryBarrier> PostCullBarriers;
+        public VkDescriptorImageInfo DepthPyramid;
+        public int DepthPyramidWidth;
+        public int DepthPyramidHeight;
         public static bool operator ==(RendererFrameInfo left, RendererFrameInfo right)
         {
             return left.FrameIndex == right.FrameIndex && left.DeltaTime == right.DeltaTime;

@@ -17,7 +17,7 @@ namespace SDL_Vulkan_CS
 #if DEBUG
         private const bool ENABLE_VALIDATION_LAYERS = true;
 #else
-        const bool ENABLE_VALIDATION_LAYERS = false;
+        private const bool ENABLE_VALIDATION_LAYERS = false;
 #endif
         private readonly static string[] _requiredValidationLayers = ["VK_LAYER_KHRONOS_validation"];
         private readonly static VkUtf8String[] _requiredDeviceExtensions = [Vulkan.VK_KHR_SWAPCHAIN_EXTENSION_NAME, Vulkan.VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME,Vulkan.VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,Vulkan.VK_EXT_SAMPLER_FILTER_MINMAX_EXTENSION_NAME];
@@ -259,7 +259,7 @@ namespace SDL_Vulkan_CS
 
             Console.WriteLine(string.Format("Device count: {0}", devices.Length));
 
-            for (int i = 1; i < devices.Length; i++)
+            for (int i = 0; i < devices.Length; i++)
             {
                 var device = devices[i];
                 if (IsDeviceSuitable(device))

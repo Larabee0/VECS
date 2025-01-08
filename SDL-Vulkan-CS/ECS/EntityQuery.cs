@@ -22,7 +22,7 @@ namespace SDL_Vulkan_CS.ECS
         private readonly HashSet<int> _withAnySet = [];
 
         private readonly EntityManager _entityManager; // probably want to eliminate this reference.
-
+        private List<Entity> entities = new();
         private bool _built = false; // indicate the query has been built so can be used
         private bool _stale = true; // indicates the query should be updated, _hasEnitities will be invalid
         private bool _hasEnitities = false;
@@ -203,6 +203,7 @@ namespace SDL_Vulkan_CS.ECS
         /// </summary>
         public void MarkStale()
         {
+            entities.Clear();
             _stale = true;
         }
 
@@ -255,6 +256,10 @@ namespace SDL_Vulkan_CS.ECS
         /// <returns></returns>
         public List<Entity> GetEntities()
         {
+            if(this.entities.Count != 0)
+            {
+                return this.entities;
+            }
             HashSet<Entity> entitiesSet = [];
 
             _withAll.ForEach(compId =>
@@ -297,7 +302,7 @@ namespace SDL_Vulkan_CS.ECS
                 }
             });
 
-            List<Entity> entities = new(entitiesSet);
+            var entities = new List<Entity>(entitiesSet);
             if (_withAny.Count > 0 && entities.Count > 0)
             {
                 for (int i = entities.Count - 1; i >= 0; i--)
@@ -318,10 +323,9 @@ namespace SDL_Vulkan_CS.ECS
                     }
                 }
 
-                entities.TrimExcess();
             }
-
-            return entities;
+            this.entities.AddRange(entities);
+            return this.entities;
         }
     }
 }

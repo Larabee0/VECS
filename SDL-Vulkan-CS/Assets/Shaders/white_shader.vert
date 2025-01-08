@@ -18,6 +18,8 @@ struct PointLight {
 struct ObjectMatrices{
 	mat4 modelMatrix; // project * view * model
 	mat4 normalMatrix;
+	vec4 spherebounds;
+	vec4 extents;
 };
 
 

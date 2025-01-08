@@ -8,7 +8,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
 {
     public sealed class SwapChainV2 : IDisposable
     {
-
+        public static SwapChainV2 Instance;
         private readonly GraphicsDevice _device;
         private readonly SwapChainV2 _oldSwapChain;
 
@@ -25,6 +25,9 @@ namespace SDL_Vulkan_CS.VulkanBackend
         private VkRenderPass _renderPass;
         private VkRenderPass _shadowPass;
         private VkRenderPass _copyPass;
+
+        public uint DepthPyramidWidth=> _depthPyramidWidth;
+        public uint DepthPyramidHeight=> _depthPyramidHeight;
 
         public VkRenderPass RenderPass =>_renderPass;
         public VkRenderPass ShadowPass => _shadowPass;
@@ -44,6 +47,12 @@ namespace SDL_Vulkan_CS.VulkanBackend
         private VkSampler _smoothSampler;
         private VkSampler _shadowSampler;
 
+        public VkDescriptorImageInfo DepthPyramid => new()
+        {
+            sampler = _depthSampler,
+            imageView = _depthPyramidImage.TextureImageView,
+            imageLayout = VkImageLayout.General
+        };
 
         public VkSampler SmoothSampler => _smoothSampler;
         public Texture2d RawRenderImage => _rawRenderImage;
@@ -91,6 +100,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
             _device = GraphicsDevice.Instance;
             _windowExtent = extent;
             Init();
+            Instance = this;
         }
         public SwapChainV2(VkExtent2D extent, SwapChainV2 previous)
         {
@@ -99,6 +109,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
             _oldSwapChain = previous;
 
             Init();
+            Instance = this;
             _oldSwapChain.Dispose();
             _oldSwapChain = null;
         }
