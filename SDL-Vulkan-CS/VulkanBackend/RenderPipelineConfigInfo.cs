@@ -108,7 +108,7 @@ namespace SDL_Vulkan_CS
                     sType = VkStructureType.PipelineDepthStencilStateCreateInfo,
                     depthTestEnable = true,
                     depthWriteEnable = true,
-                    depthCompareOp = VkCompareOp.Greater,
+                    depthCompareOp = VkCompareOp.GreaterOrEqual,
                     depthBoundsTestEnable = false,
                     minDepthBounds = 0.0f,
                     maxDepthBounds = 1.0f,

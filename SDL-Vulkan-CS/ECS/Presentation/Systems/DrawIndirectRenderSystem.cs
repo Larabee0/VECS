@@ -12,6 +12,7 @@ namespace SDL_Vulkan_CS.ECS.Presentation.Systems
         public const ulong MAX_INDIRECT_COMMANDS = 1000;
         public const bool COMPUTE_CULL = true;
         private CsharpVulkanBuffer<VkDrawIndexedIndirectCommand>[] _indirectCmdBuffers;
+        private CsharpVulkanBuffer<float>[] _depthSamples;
         private CsharpVulkanBuffer<ObjectData>[] _objectDataBuffers;
 
         private EntityQuery _planetRenderQuery;
@@ -35,6 +36,7 @@ namespace SDL_Vulkan_CS.ECS.Presentation.Systems
             var cmdBuffer = rendererFrameInfo.CommandBuffer;
 
             var indirectCmdBuffer = _indirectCmdBuffers[rendererFrameInfo.FrameIndex];
+            var depthSampler = _depthSamples[rendererFrameInfo.FrameIndex];
             var objectDataBuffer = _objectDataBuffers[rendererFrameInfo.FrameIndex];
             var entities = _planetRenderQuery.GetEntities();
 
@@ -49,24 +51,10 @@ namespace SDL_Vulkan_CS.ECS.Presentation.Systems
 
             VkDrawIndexedIndirectCommand[] drawCmds = new VkDrawIndexedIndirectCommand[entities.Count];
 
-            VkDrawIndexedIndirectCommand[] drawOld = new VkDrawIndexedIndirectCommand[MAX_INDIRECT_COMMANDS];
-            fixed (VkDrawIndexedIndirectCommand* pDrawCmds = &drawOld[0])
+            float[] drawOld = new float[MAX_INDIRECT_COMMANDS];
+            fixed (float* pDrawCmds = &drawOld[0])
             {
-                indirectCmdBuffer.ReadFromBuffer(pDrawCmds);
-            }
-            bool anyCulled = false;
-            for(int i = 0; i < (int)MAX_INDIRECT_COMMANDS; i++)
-            {
-                if (drawOld[i].indexCount == 0)
-                {
-                    break;
-                }
-
-                if (drawOld[i].instanceCount == 0)
-                {
-                    anyCulled = true;
-                    break;
-                }
+                depthSampler.ReadFromBuffer(pDrawCmds);
             }
 
             ObjectData[] drawObjectData = new ObjectData[entities.Count];
@@ -124,6 +112,7 @@ namespace SDL_Vulkan_CS.ECS.Presentation.Systems
                         .WriteBuffer(0, objectDataBuffer.DescriptorInfo())
                         .WriteBuffer(1, indirectCmdBuffer.DescriptorInfo())
                         .WriteImage(2, rendererFrameInfo.DepthPyramid)
+                        .WriteBuffer(3,depthSampler.DescriptorInfo())
                         .Build(pSet);
                 }
 
@@ -186,6 +175,7 @@ namespace SDL_Vulkan_CS.ECS.Presentation.Systems
             {
                 _indirectCmdBuffers[i].Dispose();
                 _objectDataBuffers[i].Dispose();
+                _depthSamples[i].Dispose();
             }
         }
 
@@ -193,6 +183,7 @@ namespace SDL_Vulkan_CS.ECS.Presentation.Systems
         {
             _indirectCmdBuffers = new CsharpVulkanBuffer<VkDrawIndexedIndirectCommand>[SwapChain.MAX_FRAMES_IN_FLIGHT];
             _objectDataBuffers = new CsharpVulkanBuffer<ObjectData>[SwapChain.MAX_FRAMES_IN_FLIGHT];
+            _depthSamples = new CsharpVulkanBuffer<float>[SwapChain.MAX_FRAMES_IN_FLIGHT];
 
             for (int i = 0; i < SwapChain.MAX_FRAMES_IN_FLIGHT; i++)
             {
@@ -208,6 +199,11 @@ namespace SDL_Vulkan_CS.ECS.Presentation.Systems
                     VkBufferUsageFlags.TransferDst |
                     VkBufferUsageFlags.StorageBuffer,
                     true);
+                _depthSamples[i] = new(GraphicsDevice.Instance,
+                    MAX_INDIRECT_COMMANDS,
+                    VkBufferUsageFlags.TransferDst |
+                    VkBufferUsageFlags.StorageBuffer,
+                    true);
             }
 
             VkCommandBuffer commandBuffer = GraphicsDevice.Instance.BeginSingleTimeCommands();
@@ -216,6 +212,7 @@ namespace SDL_Vulkan_CS.ECS.Presentation.Systems
             {
                 Vulkan.vkCmdFillBuffer(commandBuffer, _indirectCmdBuffers[i].VkBuffer, 0, _indirectCmdBuffers[i].BufferSize, 0);
                 Vulkan.vkCmdFillBuffer(commandBuffer, _objectDataBuffers[i].VkBuffer, 0, _objectDataBuffers[i].BufferSize, 0);
+                Vulkan.vkCmdFillBuffer(commandBuffer, _depthSamples[i].VkBuffer, 0, _depthSamples[i].BufferSize, 0);
             }
 
             GraphicsDevice.Instance.EndSingleTimeCommands(commandBuffer);
@@ -226,7 +223,8 @@ namespace SDL_Vulkan_CS.ECS.Presentation.Systems
             _cullCompute = new("indirect_cull.comp", typeof(DrawCullData),
                 new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute),
                 new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute),
-                new DescriptorSetBinding(VkDescriptorType.CombinedImageSampler, VkShaderStageFlags.Compute));
+                new DescriptorSetBinding(VkDescriptorType.CombinedImageSampler, VkShaderStageFlags.Compute),
+                new DescriptorSetBinding(VkDescriptorType.StorageBuffer,VkShaderStageFlags.Compute));
         }
 
         public static void FrustumCull(DrawCullData cullData, ref VkDrawIndexedIndirectCommand[] drawCmds, ObjectData[] objectData)

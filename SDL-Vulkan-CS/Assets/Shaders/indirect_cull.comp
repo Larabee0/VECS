@@ -50,20 +50,29 @@ layout(set = 0, binding = 1)  buffer InstanceBuffer{
 
 layout(set = 0,binding = 2) uniform sampler2D depthPyramid;
 
+layout(set = 0, binding = 3)  buffer DepthInstanceBuffer{   
+
+	float depth[];
+} depthBuffer;
+
 layout(push_constant) uniform  constants{   
    DrawCullData cullData;
 };
 
 bool projectSphere(vec3 C, float r, float znear, float P00, float P11, out vec4 aabb)
 {
-	if (C.z < r + znear)
+	//if (-C.z < r + znear){
+	if (C.z < r + znear){
 		return false;
+	}
 
+	//vec2 cx = C.xz;
 	vec2 cx = -C.xz;
 	vec2 vx = vec2(sqrt(dot(cx, cx) - r * r), r);
 	vec2 minx = mat2(vx.x, vx.y, -vx.y, vx.x) * cx;
 	vec2 maxx = mat2(vx.x, -vx.y, vx.y, vx.x) * cx;
 
+	//vec2 cy = C.yz;
 	vec2 cy = -C.yz;
 	vec2 vy = vec2(sqrt(dot(cy, cy) - r * r), r);
 	vec2 miny = mat2(vy.x, vy.y, -vy.y, vy.x) * cy;
@@ -108,6 +117,7 @@ bool IsVisible(uint objectIndex)
 	 if(visible)
 	 {
 	 	vec4 aabb;
+			depthBuffer.depth[objectIndex] = 2;
 	 	if (projectSphere(center, radius, cullData.znear, cullData.P00, cullData.P11, aabb))
 	 	{
 	 		float width = (aabb.z - aabb.x) * cullData.pyramidWidth;
@@ -118,9 +128,10 @@ bool IsVisible(uint objectIndex)
 	 		// Sampler is set up to do min reduction, so this computes the minimum depth of a 2x2 texel quad
 	 		
 	 		float depth = textureLod(depthPyramid, (aabb.xy + aabb.zw) * 0.5, level).x;
-	 		float depthSphere =cullData.znear / (center.z - radius);
-	 
+	 		float depthSphere = cullData.znear / (center.z - radius);
+	 		// float depthSphere = cullData.znear / (-center.z - radius);
 	 		visible = visible && depthSphere >= depth;
+			depthBuffer.depth[objectIndex] =visible ? 1 : 0;
 	 	}
 	 }
 
