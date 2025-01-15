@@ -94,7 +94,7 @@ namespace SDL_Vulkan_CS.ECS.Presentation.Systems
             }
             if (!COMPUTE_CULL) {
 
-                FrustumCull(drawCull, ref drawCmds, drawObjectData);
+                FrustumCull(drawCull,rendererFrameInfo.Ubo, ref drawCmds, drawObjectData);
 
                 fixed (VkDrawIndexedIndirectCommand* pDrawCmds = &drawCmds[0])
                 {
@@ -109,10 +109,11 @@ namespace SDL_Vulkan_CS.ECS.Presentation.Systems
                 fixed (VkDescriptorSet* pSet = &_cullCompute.DescriptorSet)
                 {
                     new DescriptorWriter(_cullCompute.DescriptorSetLayout, rendererFrameInfo.FrameDescriptorPool)
-                        .WriteBuffer(0, objectDataBuffer.DescriptorInfo())
-                        .WriteBuffer(1, indirectCmdBuffer.DescriptorInfo())
-                        .WriteImage(2, rendererFrameInfo.DepthPyramid)
-                        .WriteBuffer(3,depthSampler.DescriptorInfo())
+                        .WriteBuffer(0, rendererFrameInfo.UboBuffer.DescriptorInfo())
+                        .WriteBuffer(1, objectDataBuffer.DescriptorInfo())
+                        .WriteBuffer(2, indirectCmdBuffer.DescriptorInfo())
+                        .WriteImage(3, rendererFrameInfo.DepthPyramid)
+                        .WriteBuffer(4,depthSampler.DescriptorInfo())
                         .Build(pSet);
                 }
 
@@ -221,13 +222,14 @@ namespace SDL_Vulkan_CS.ECS.Presentation.Systems
         private void CreateCullComputePipeline()
         {
             _cullCompute = new("indirect_cull.comp", typeof(DrawCullData),
+                new DescriptorSetBinding(VkDescriptorType.UniformBuffer, VkShaderStageFlags.Compute),
                 new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute),
                 new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute),
                 new DescriptorSetBinding(VkDescriptorType.CombinedImageSampler, VkShaderStageFlags.Compute),
                 new DescriptorSetBinding(VkDescriptorType.StorageBuffer,VkShaderStageFlags.Compute));
         }
 
-        public static void FrustumCull(DrawCullData cullData, ref VkDrawIndexedIndirectCommand[] drawCmds, ObjectData[] objectData)
+        public static void FrustumCull(DrawCullData cullData, GlobalUbo ubo, ref VkDrawIndexedIndirectCommand[] drawCmds, ObjectData[] objectData)
         {
             for (int i = 0; i < cullData.DrawCount; i++)
             {
@@ -235,7 +237,7 @@ namespace SDL_Vulkan_CS.ECS.Presentation.Systems
 
                 if (cullData.AABBcheck == 0)
                 {
-                    visible = IsVisible(i, cullData, objectData);
+                    visible = IsVisible(i, ubo, cullData, objectData);
                 }
                 else
                 {
@@ -246,7 +248,7 @@ namespace SDL_Vulkan_CS.ECS.Presentation.Systems
             }
         }
 
-        private static bool IsVisible(int i, DrawCullData drawCullData, ObjectData[] objectData)
+        private static bool IsVisible(int i,GlobalUbo ubo, DrawCullData drawCullData, ObjectData[] objectData)
         {
             Vector4 sphereBounds = objectData[i].SphereBounds;
             
@@ -255,7 +257,7 @@ namespace SDL_Vulkan_CS.ECS.Presentation.Systems
             Vector3 center = new(centerV4.X, centerV4.Y, centerV4.Z);
             center = Vector3.Transform(center, objectData[i].ModelMatrix);
             centerV4 = new(center, 1);
-            centerV4 = Vector4.Transform(centerV4, drawCullData.ViewMat);
+            centerV4 = Vector4.Transform(centerV4, ubo.View);
             center = new(centerV4.X, centerV4.Y, centerV4.Z);
             float radius = sphereBounds.W;
             bool visible = true;
@@ -336,7 +338,6 @@ namespace SDL_Vulkan_CS.ECS.Presentation.Systems
 
             drawCullData.PyramidWidth = frameInfo.DepthPyramidWidth;
             drawCullData.PyramidHeight = frameInfo.DepthPyramidHeight;
-            drawCullData.ViewMat = cullParams.ViewMatrix;//get_view_matrix();
 
             drawCullData.AABBcheck = cullParams.Aabb ? 1 : 0;
             drawCullData.AabbMin_x = cullParams.AabbMin.X;

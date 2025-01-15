@@ -205,13 +205,17 @@ namespace SDL_Vulkan_CS.Artifact
                 entityManager.RemoveComponentFromHierarchy<MeshIndex>(planetInstance);
 
                 Mesh[] meshes = new Mesh[meshIndices.Length];
-                GPUMesh<Vertex>[] indirectMeshes = new GPUMesh<Vertex>[meshIndices.Length];
-
+                // GPUMesh<Vertex>[] indirectMeshes = new GPUMesh<Vertex>[meshIndices.Length];
                 for (int i = 0; i < meshIndices.Length; i++)
                 {
                     meshes[i] = Mesh.GetMeshAtIndex(meshIndices[i].Value);
-                    indirectMeshes[i] = new(0,meshes[i]);
+                    //indirectMeshes[i] = new(0,meshes[i]);
                 }
+
+                var now = DateTime.Now;
+                GPUMesh<Vertex>[] indirectMeshes = GPUMesh<Vertex>.BulkCreate(meshes);
+                var delta = DateTime.Now - now;
+                Console.WriteLine(string.Format("GPU Meshing: {0}ms", delta.TotalMilliseconds));
 
 
                 var childrenEntities = entityManager.GetComponent<Children>(planetInstance).Value;

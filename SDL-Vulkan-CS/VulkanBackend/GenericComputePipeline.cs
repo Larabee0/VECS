@@ -73,6 +73,11 @@ namespace SDL_Vulkan_CS.VulkanBackend
             {
                 throw new Exception(string.Format("Push constantsType \"{0}\" missing StructLayout attribute defining size", pushConstantsType.Name));
             }
+
+            if(structSize  > 128)
+            {
+                throw new Exception(string.Format("Push constantsType \"{0}\" exceeds max push constant size of 128 bytes (is {1} bytes", pushConstantsType.Name,structSize));
+            }
             _pushConstantsType = pushConstantsType;
             VkPushConstantRange pushConstantRange = new()
             {

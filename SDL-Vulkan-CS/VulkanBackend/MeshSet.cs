@@ -23,12 +23,56 @@ namespace SDL_Vulkan_CS.VulkanBackend
         public ulong VertexInstanceCount => _vertexBuffer == null ? 0 : _vertexBuffer.UInstanceCount;
 
         public ulong IndexInstanceCount => _indexBuffer == null ? 0 : _indexBuffer.UInstanceCount;
+        
+        public MeshSet() { }
 
+        public MeshSet(uint vertexBufferLength, uint indexBufferLength)
+        {
+            _vertexBuffer = new CsharpVulkanBuffer<T>(Device, vertexBufferLength,
+                VkBufferUsageFlags.VertexBuffer |
+                VkBufferUsageFlags.TransferDst |
+                VkBufferUsageFlags.TransferSrc, false);
+
+            _indexBuffer = new CsharpVulkanBuffer<uint>(
+                Device,
+                indexBufferLength,
+                VkBufferUsageFlags.IndexBuffer |
+                VkBufferUsageFlags.TransferDst |
+                VkBufferUsageFlags.TransferSrc, false);
+        }
 
         public unsafe void AddMember(GPUMesh<T> mesh)
         {
             _members = [.. _members, mesh];
             //smesh._subMeshIndex = _members.Length-1;
+        }
+
+        public unsafe long AddSubMeshSoft(long subMeshIndex, ulong vertexBufferLength, ulong indexBufferLength)
+        {
+            ulong vertexOffset = 0;
+            ulong indexOffset = 0;
+
+            for (int i = 0; i < SubMeshes.Length; i++)
+            {
+                vertexOffset += SubMeshes[i].VertexCount;
+                indexOffset += SubMeshes[i].IndexCount;
+            }
+
+            var meshSet = new SubMeshRange()
+            {
+                SubMeshIndex = subMeshIndex,
+                VertexCount = vertexBufferLength,
+                IndexCount = indexBufferLength,
+                VertexOffset = vertexOffset,
+                IndexOffset = indexOffset,
+                VertexBufferSize = vertexBufferLength * (ulong)sizeof(T),
+                IndexBufferSize = indexBufferLength * (ulong)sizeof(uint),
+                VertexSize = (ulong)sizeof(T)
+            };
+
+            SubMeshes = [.. SubMeshes, meshSet];
+
+            return SubMeshes[^1].SubMeshIndex;
         }
 
         public unsafe long AddSubMesh(CsharpVulkanBuffer<T> addVertexBuffer, CsharpVulkanBuffer<uint> addIndexBuffer)

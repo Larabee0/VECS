@@ -16,10 +16,10 @@ namespace SDL_Vulkan_CS.ECS.Presentation
         public Vector4 AabbMax;
     }
 
-    [StructLayout(LayoutKind.Sequential, Size = 160)]
+    [StructLayout(LayoutKind.Sequential, Size = 96)]
     public struct  DrawCullData
     {
-        public Matrix4x4 ViewMat;
+        //public Matrix4x4 ViewMat;
         public float P00;
         public float P11;
         public float Znear;

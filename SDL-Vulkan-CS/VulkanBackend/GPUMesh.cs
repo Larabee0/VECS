@@ -196,6 +196,38 @@ namespace SDL_Vulkan_CS.VulkanBackend
             _meshes.Add(this);
         }
 
+        public GPUMesh(int meshSet,long subMeshIndex, Mesh mesh, bool dellocateHostOnFlush = true)
+        {
+            if (typeof(T) != typeof(Vertex))
+            {
+                throw new ArgumentException(string.Format("Cannot copy SDL_Vulkan_CS.VulkanBackend.Mesh to SDL_Vulkan_CS.VulkanBackend.GPUMesh<{0}> GPUMesh<T> type T must be SDL_Vulkan_CS.Vertex!", typeof(T).FullName));
+            }
+
+            _deallocateRWBuffersOnFlush = dellocateHostOnFlush;
+            Vertices = (T[])mesh.Vertices.Clone();
+
+            if (!mesh.HasIndexBuffer)
+            {
+                _indices = new uint[mesh.Vertices.Length];
+                for (uint i = 0; i < _indices.Length; i++)
+                {
+                    _indices[i] = i;
+                }
+            }
+            else
+            {
+                Indices = (uint[])mesh.Indices.Clone();
+            }
+            
+            _meshSetIndex = meshSet;
+            
+            MeshSet.AddMember(this);
+            _subMeshIndex = MeshSet.AddSubMeshSoft(subMeshIndex, (ulong)mesh.VertexCount, (ulong)mesh.IndexCount);
+            Flush();
+            //ReadRWBuffers(true);
+            _meshes.Add(this);
+        }
+
         public unsafe void Flush()
         {
             if (_indices == null || _vertices == null)
@@ -459,5 +491,29 @@ namespace SDL_Vulkan_CS.VulkanBackend
             return (ulong)indexCount * sizeof(uint);
         }
 
+        public static GPUMesh<T>[] BulkCreate(Mesh[] meshes)
+        {
+            uint vertexCount = 0;
+            uint indexCount = 0;
+            
+            for (int i = 0; i < meshes.Length; i++)
+            {
+                vertexCount += (uint)meshes[i].VertexCount;
+                indexCount += (uint)meshes[i].IndexCount;
+            }
+
+            MeshSet<T> meshSet = new(vertexCount,indexCount);
+            int meshSetIndex = _meshSets.Count;
+            _meshSets.Add(meshSet);
+
+            GPUMesh<T>[] GPUMeshes = new GPUMesh<T>[meshes.Length];
+
+            for (int i = 0; i < meshes.Length; i++)
+            {
+                GPUMeshes[i] = new GPUMesh<T>(meshSetIndex,i, meshes[i]);
+            }
+
+            return GPUMeshes;
+        }
     }
 }
