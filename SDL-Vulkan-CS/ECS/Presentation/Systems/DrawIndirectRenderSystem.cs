@@ -44,7 +44,7 @@ namespace SDL_Vulkan_CS.ECS.Presentation.Systems
             {
                 ProjectionMatrix = rendererFrameInfo.Ubo.Projection,
                 ViewMatrix = rendererFrameInfo.Ubo.View,
-                FrustrumCulling = true,
+                FrustrumCulling = false,
                 OcclusionCulling = true,
                 DrawDist = 9999999
             };
@@ -56,6 +56,30 @@ namespace SDL_Vulkan_CS.ECS.Presentation.Systems
             {
                 depthSampler.ReadFromBuffer(pDrawCmds);
             }
+            bool anySample = false;
+            for (int i = 0; i < entities.Count; i++)
+            {
+                if(drawOld[i] != 0)
+                {
+                    anySample = true;
+                    break;
+                }
+            }
+
+            Vector3 center = default;
+            float radius = float.MaxValue;
+            Vector4 aabb = default;
+
+            center.X = drawOld[0];
+            center.Y = drawOld[1];
+            center.Z = drawOld[2];
+            
+            radius = drawOld[3];
+
+            aabb.X = drawOld[4];
+            aabb.Y = drawOld[5];
+            aabb.Z = drawOld[6];
+            aabb.W = drawOld[7];
 
             ObjectData[] drawObjectData = new ObjectData[entities.Count];
 
