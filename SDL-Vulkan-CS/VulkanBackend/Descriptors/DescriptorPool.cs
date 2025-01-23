@@ -26,7 +26,9 @@ namespace SDL_Vulkan_CS
             VkDescriptorPoolSize* pPoolSizes = stackalloc VkDescriptorPoolSize[poolSizes.Length];
             for (int i = 0; i < poolSizes.Length; i++)
             {
-                pPoolSizes[i] = poolSizes[i];
+                var size = poolSizes[i];
+                size.descriptorCount *= maxSets;
+                pPoolSizes[i] = size;
             }
 
             VkDescriptorPoolCreateInfo descriptorPoolInfo = new()
@@ -57,8 +59,15 @@ namespace SDL_Vulkan_CS
                 pSetLayouts = &descriptorSetLayout,
                 descriptorSetCount = 1
             };
-
-            return Vulkan.vkAllocateDescriptorSets(GraphicsDevice.Device, &allocInfo, descriptor) == VkResult.Success;
+            var result = Vulkan.vkAllocateDescriptorSets(GraphicsDevice.Device, &allocInfo, descriptor);
+#if DEBUG
+            if (result != VkResult.Success)
+            {
+                Console.WriteLine("vkAllocateDescriptorSets did not succeed");
+                Console.WriteLine(result.ToString());
+            }
+#endif
+            return result == VkResult.Success;
         }
 
         /// <summary>

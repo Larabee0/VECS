@@ -33,10 +33,9 @@ namespace SDL_Vulkan_CS.Artifact.Generator
 
             _pool = new DescriptorPool.Builder(GraphicsDevice.Instance)
                 .AddPoolSize(VkDescriptorType.UniformBuffer, 3)
-                .AddPoolSize(VkDescriptorType.StorageBuffer, 2)
+                .AddPoolSize(VkDescriptorType.StorageBuffer, 4)
                 .Build();
             _terrainGenerator.AllocateDescriptorSet(_pool);
-
             // size of these buffers is known in advance.
             _noiseGeneratorParams = new(GraphicsDevice.Instance, (uint)sizeof(NoiseGeneratorParams), 1, VkBufferUsageFlags.UniformBuffer, true);
             _elevationMinMax = new(GraphicsDevice.Instance, sizeof(int), 2, VkBufferUsageFlags.StorageBuffer, true);
