@@ -69,14 +69,14 @@ namespace SDL_Vulkan_CS.Artifact
                 Radius = 5f
             });
 
-            entityManager.AddComponent(aStar, new Translation() { Value = new(-5f, 0, 0) });
+            entityManager.AddComponent(aStar, new Translation() { Value = new(0f, 0, 0) });
 
             Parent starParent = new() { Value = aStar };
 
             Entity planetOrbiterA = InstantiateNewOrbitalPlanet(entityManager,
                 PlanetPresets.ShapeGeneratorFixedEarthLike(),
                 prefabPlanet, starParent,
-                new(-20f, 0, 0),
+                new(-0f, 0, 0),
                 3,
                 5, 12);
 

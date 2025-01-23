@@ -1,0 +1,23 @@
+#version 450
+#extension GL_KHR_vulkan_glsl: enable
+
+layout(set = 0,binding = 0) uniform Params{
+	vec2 uv;
+	float level;
+} params;
+
+
+layout(set = 0,binding = 1) uniform sampler2D depthPyramid;
+
+layout(set = 0, binding = 2) buffer OutputBuffer{
+	float outBuffer[];
+} outputBuffer;
+
+layout(local_size_x = 1) in;
+void main() {
+	uint gID = gl_GlobalInvocationID.x;
+	if(gID < 1)
+	{
+		outputBuffer.outBuffer[0] = textureLod(depthPyramid, params.uv, params.level).x;
+	}
+}

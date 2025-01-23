@@ -71,7 +71,7 @@ namespace SDL_Vulkan_CS
                     rasterizerDiscardEnable = false,
                     polygonMode = VkPolygonMode.Fill,
                     lineWidth = 1,
-                    cullMode = VkCullModeFlags.None,
+                    cullMode = VkCullModeFlags.Front,
                     frontFace = VkFrontFace.Clockwise,
                     depthBiasEnable = false,
                     depthBiasConstantFactor = 0,

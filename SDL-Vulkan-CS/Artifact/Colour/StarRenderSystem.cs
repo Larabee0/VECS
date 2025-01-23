@@ -27,6 +27,7 @@ namespace SDL_Vulkan_CS.Artifact.Colour
 
         public override void OnFowardPass(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
         {
+            return;
             if (_starQuery.HasEntities && entityManager.SingletonEntity<Camera>(out Entity cameraEntity))
             {
                 var stars = _starQuery.GetEntities();

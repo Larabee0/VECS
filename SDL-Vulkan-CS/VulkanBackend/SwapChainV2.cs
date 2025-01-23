@@ -57,6 +57,7 @@ namespace SDL_Vulkan_CS.VulkanBackend
         public VkSampler SmoothSampler => _smoothSampler;
         public Texture2d RawRenderImage => _rawRenderImage;
         public Texture2d DepthImage => _depthImage;
+        public Texture2d DepthPyramidImage => _depthPyramidImage;
 
         private VkExtent2D _swapChainExtent;
         private VkSwapchainKHR _swapChain;

@@ -72,7 +72,7 @@ layout(push_constant) uniform  constants{
    DrawCullData cullData;
 };
 
-bool projectSphereAlt(vec3 C, float r, float znear, float P00, float P11, out vec4 aabb)
+bool projectSphere(vec3 C, float r, float znear, float P00, float P11, out vec4 aabb)
 {
 	if (-C.z < r + znear){
 	
@@ -99,30 +99,6 @@ bool projectSphereAlt(vec3 C, float r, float znear, float P00, float P11, out ve
 	return true;
 }
 
-bool projectSphere(vec3 C, float r, float znear, float P00, float P11, out vec4 aabb)
-{
-	//if (-C.z < r + znear){
-	if (C.z < r + znear){
-		return false;
-	}
-
-	//vec2 cx = C.xz;
-	vec2 cx = -C.xz;
-	vec2 vx = vec2(sqrt(dot(cx, cx) - r * r), r);
-	vec2 minx = mat2(vx.x, vx.y, -vx.y, vx.x) * cx;
-	vec2 maxx = mat2(vx.x, -vx.y, vx.y, vx.x) * cx;
-
-	//vec2 cy = C.yz;
-	vec2 cy = -C.yz;
-	vec2 vy = vec2(sqrt(dot(cy, cy) - r * r), r);
-	vec2 miny = mat2(vy.x, vy.y, -vy.y, vy.x) * cy;
-	vec2 maxy = mat2(vy.x, -vy.y, vy.y, vy.x) * cy;
-
-	aabb = vec4(minx.x / minx.y * P00, miny.x / miny.y * P11, maxx.x / maxx.y * P00, maxy.x / maxy.y * P11);
-	aabb = aabb.xwzy * vec4(0.5, -0.5, 0.5, -0.5) + vec4(0.5); // clip space -> uv space
-
-	return true;
-}
 
 bool IsVisible(uint objectIndex)
 {
@@ -143,8 +119,8 @@ bool IsVisible(uint objectIndex)
 	vec3 center = sphereBounds.xyz;
 	
 	center = (objectBuffer.objects[index].model * vec4(center,1.0)).xyz;
-	center = (cullData.view * vec4(center,1.0)).xyz;
-	center = (ubo.viewMatrix * vec4(center,1.f)).xyz;
+	center = (ubo.viewMatrix * vec4(center,1.0)).xyz;
+	//center = (cullData.view * vec4(center,1.0)).xyz;
 
 	float radius = sphereBounds.w;
 
@@ -164,7 +140,7 @@ bool IsVisible(uint objectIndex)
 
 	//flip Y because we access depth texture that way
 	 //center.z *= -1;
-	 center.x *= -1;
+	 //center.x *= -1;
 	 center.y *= -1;
 
 	 if(visible)
@@ -188,15 +164,16 @@ bool IsVisible(uint objectIndex)
 	 	if (projectSphere(center, radius, cullData.znear, cullData.P00, cullData.P11, aabb))
 	 	{
 			depthBuffer.depth[index] = 2;
-	 		float width = (aabb.z - aabb.x) * cullData.pyramidWidth;
-	 		float height = (aabb.w - aabb.y) * cullData.pyramidHeight;
+	 		float width = abs((aabb.z - aabb.x) * cullData.pyramidWidth);
+	 		float height = abs((aabb.w - aabb.y) * cullData.pyramidHeight);
 	 
 	 		float level = floor(log2(max(width, height)));
-	 
+			vec2 uv = ((aabb.xy + aabb.zw) * 0.5);
+			uv.x = 1.0 - uv.x;
 	 		// Sampler is set up to do min reduction, so this computes the minimum depth of a 2x2 texel quad
 	 		
-	 		float depth = textureLod(depthPyramid, ((aabb.xy + aabb.zw) * 0.5), level).x;
-	 		float depthSphere = cullData.znear / (center.z - radius);
+	 		float depth = textureLod(depthPyramid, uv, level).x;
+	 		float depthSphere = abs(cullData.znear / (center.z - radius));
 	 		//float depthSphere = cullData.znear / (-center.z - radius);
 	 		visible = visible && depthSphere >= depth;
 			depthBuffer.depth[index] = depth;

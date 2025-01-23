@@ -1,6 +1,7 @@
 ﻿using SDL_Vulkan_CS.Artifact.Colour;
 using SDL_Vulkan_CS.VulkanBackend;
 using System;
+using System.Collections.Generic;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using Vortice.Vulkan;
@@ -10,14 +11,21 @@ namespace SDL_Vulkan_CS.ECS.Presentation.Systems
     public class DrawIndirectRenderSystem : PresentationSystemBase
     {
         public const ulong MAX_INDIRECT_COMMANDS = 1000;
-        public const bool COMPUTE_CULL = true;
+        public const bool COMPUTE_CULL = false;
         private CsharpVulkanBuffer<VkDrawIndexedIndirectCommand>[] _indirectCmdBuffers;
         private CsharpVulkanBuffer<float>[] _depthSamples;
         private CsharpVulkanBuffer<ObjectData>[] _objectDataBuffers;
+        
+
+        float[] texCopy;
+        private CsharpVulkanBuffer<float> _CPUDepthSample;
+        private CsharpVulkanBuffer<float> _sampleOutput;
+        private CsharpVulkanBuffer<float> _sampleInput;
 
         private EntityQuery _planetRenderQuery;
         
         private GenericComputePipeline _cullCompute;
+        private GenericComputePipeline _sampler;
 
         public override void OnCreate(EntityManager entityManager)
         {
@@ -45,7 +53,7 @@ namespace SDL_Vulkan_CS.ECS.Presentation.Systems
                 ProjectionMatrix = rendererFrameInfo.Ubo.Projection,
                 ViewMatrix = rendererFrameInfo.Ubo.View,
                 FrustrumCulling = false,
-                OcclusionCulling = true,
+                OcclusionCulling = false,
                 DrawDist = 9999999
             };
 
@@ -118,7 +126,44 @@ namespace SDL_Vulkan_CS.ECS.Presentation.Systems
             }
             if (!COMPUTE_CULL) {
 
-                FrustumCull(drawCull,rendererFrameInfo.Ubo, ref drawCmds, drawObjectData);
+                FrustumCull(drawCull,rendererFrameInfo, ref drawCmds, drawObjectData);
+                bool drawAll = true;
+                bool drawAny = false;
+                bool drawNone = true;
+                bool anyDontDraw = false;
+                for (int i = 0; i < drawCmds.Length; i++)
+                {
+                    if (drawCmds[i].instanceCount == 0)
+                    {
+                        drawAll = false;
+                        anyDontDraw = true;
+                    }
+                    if (drawCmds[i].instanceCount > 0)
+                    {
+                        drawNone = false;
+                        drawAny = true;
+                    }
+                }
+
+                if (drawAny)
+                {
+                    drawAny = true;
+                }
+
+                if (anyDontDraw)
+                {
+                    anyDontDraw = true;
+                }
+
+                if (drawAll)
+                {
+                    drawAll = true;
+                }
+
+                if (drawNone)
+                {
+                    drawNone = true;
+                }
 
                 fixed (VkDrawIndexedIndirectCommand* pDrawCmds = &drawCmds[0])
                 {
@@ -195,6 +240,10 @@ namespace SDL_Vulkan_CS.ECS.Presentation.Systems
 
         public override void OnDestroy(EntityManager entityManager)
         {
+            _sampleInput?.Dispose();
+            _sampleOutput?.Dispose();
+            _CPUDepthSample?.Dispose();
+            _sampler?.Dispose();
             _cullCompute?.Dispose();
             for (int i = 0; i < SwapChain.MAX_FRAMES_IN_FLIGHT; i++)
             {
@@ -245,15 +294,26 @@ namespace SDL_Vulkan_CS.ECS.Presentation.Systems
 
         private void CreateCullComputePipeline()
         {
+            var value = SwapChainV2.Instance.DepthPyramidHeight * SwapChainV2.Instance.DepthPyramidWidth;
+            _CPUDepthSample = new(GraphicsDevice.Instance, value, VkBufferUsageFlags.TransferDst, true);
+            _sampleOutput = new(GraphicsDevice.Instance, 1, VkBufferUsageFlags.StorageBuffer, true);
+            _sampleInput = new(GraphicsDevice.Instance,3, VkBufferUsageFlags.UniformBuffer, true);
+            texCopy = new float[_CPUDepthSample.InstanceCount32];
             _cullCompute = new("indirect_cull.comp", typeof(DrawCullData),
                 new DescriptorSetBinding(VkDescriptorType.UniformBuffer, VkShaderStageFlags.Compute),
                 new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute),
                 new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute),
                 new DescriptorSetBinding(VkDescriptorType.CombinedImageSampler, VkShaderStageFlags.Compute),
                 new DescriptorSetBinding(VkDescriptorType.StorageBuffer,VkShaderStageFlags.Compute));
+
+            _sampler = new("sample_texture_mip.comp",
+                new DescriptorSetBinding(VkDescriptorType.UniformBuffer, VkShaderStageFlags.Compute),
+                new DescriptorSetBinding(VkDescriptorType.CombinedImageSampler, VkShaderStageFlags.Compute),
+                new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute));
+
         }
 
-        public static void FrustumCull(DrawCullData cullData, GlobalUbo ubo, ref VkDrawIndexedIndirectCommand[] drawCmds, ObjectData[] objectData)
+        public void FrustumCull(DrawCullData cullData, RendererFrameInfo frameInfo, ref VkDrawIndexedIndirectCommand[] drawCmds, ObjectData[] objectData)
         {
             for (int i = 0; i < cullData.DrawCount; i++)
             {
@@ -261,7 +321,7 @@ namespace SDL_Vulkan_CS.ECS.Presentation.Systems
 
                 if (cullData.AABBcheck == 0)
                 {
-                    visible = IsVisible(i, ubo, cullData, objectData);
+                    visible = IsVisible(i, frameInfo, cullData, objectData);
                 }
                 else
                 {
@@ -272,23 +332,52 @@ namespace SDL_Vulkan_CS.ECS.Presentation.Systems
             }
         }
 
-        private static bool IsVisible(int i,GlobalUbo ubo, DrawCullData drawCullData, ObjectData[] objectData)
+        static bool ProjectSphere(Vector3 C, float r, float znear, float P00, float P11, out Vector4 aabb)
+        {
+            aabb = Vector4.Zero;
+            if (-C.Z < r + znear)
+            {
+                return false;
+            }
+
+            Vector2 cx = new Vector2(C.X, C.Z);
+            Vector2 vx = new(MathF.Sqrt(Vector2.Dot(cx, cx) - r * r), r);
+            Vector2 minx = new Mat2(vx.X, vx.Y, -vx.Y, vx.X) * cx;
+            Vector2 maxx = new Mat2(vx.X, -vx.Y, vx.Y, vx.X) * cx;
+
+            Vector2 cy = new Vector2(C.Y, C.Z);
+            Vector2 vy = new(MathF.Sqrt(Vector2.Dot(cy, cy) - r * r), r);
+            Vector2 miny = new Mat2(vy.X, vy.Y, -vy.Y, vy.X) * cy;
+            Vector2 maxy = new Mat2(vy.X, -vy.Y, vy.Y, vy.X) * cy;
+
+            aabb = new Vector4(minx.X / minx.Y * P00, miny.X / miny.Y * P11, maxx.X / maxx.Y * P00, maxy.X / maxy.Y * P11);
+            aabb = new Vector4( aabb.X, aabb.W, aabb.Z, aabb.Y) * new Vector4(0.5f, -0.5f, 0.5f, -0.5f) + new Vector4(0.5f); // clip space -> uv space
+
+            return true;
+        }
+        private unsafe bool IsVisible(int i,RendererFrameInfo frameInfo, DrawCullData drawCullData, ObjectData[] objectData)
         {
             Vector4 sphereBounds = objectData[i].SphereBounds;
-            
+
             Vector4 centerV4 = sphereBounds;
             centerV4.W = 1;
+
             Vector3 center = new(centerV4.X, centerV4.Y, centerV4.Z);
-            center = Vector3.Transform(center, objectData[i].ModelMatrix);
-            centerV4 = new(center, 1);
-            centerV4 = Vector4.Transform(centerV4, ubo.View);
+            centerV4 = Vector4.Transform(centerV4, objectData[i].ModelMatrix);
+            centerV4.W = 1;
+            centerV4 = Vector4.Transform(centerV4, frameInfo.Ubo.View);
             center = new(centerV4.X, centerV4.Y, centerV4.Z);
+
             float radius = sphereBounds.W;
             bool visible = true;
-
-            visible = visible && center.Z * drawCullData.Frustum[1] - MathF.Abs(center.X) * drawCullData.Frustum[0] > -radius;
-            visible = visible && center.Z * drawCullData.Frustum[3] - MathF.Abs(center.Y) * drawCullData.Frustum[2] > -radius;
-
+            float fusX = center.Z * drawCullData.Frustum[1] - MathF.Abs(center.X) * drawCullData.Frustum[0];
+            float fusY = center.Z * drawCullData.Frustum[3] - MathF.Abs(center.Y) * drawCullData.Frustum[2];
+            visible = visible && fusX > -radius;
+            visible = visible && fusY > -radius;
+            if (!visible)
+            {
+                visible = false;
+            }
             if (drawCullData.DistanceCheck != 0)
             {// the near/far plane culling uses camera space Z directly
                 visible = visible && center.Z + radius > drawCullData.Znear && center.Z - radius < drawCullData.Zfar;
@@ -297,26 +386,118 @@ namespace SDL_Vulkan_CS.ECS.Presentation.Systems
             visible = visible || drawCullData.CullingEnabled == 0;
 
             center.Y *= -1;
+            //Dictionary<float, int> interest = [];
+            //for (int t = 0; t < texCopy.Length; t++)
+            //{
+            //    if (texCopy[t] != 0 && !interest.TryAdd(texCopy[t], 1))
+            //    {
+            //        interest[texCopy[t]]++;
+            //    }
+            //}
+            //if(interest.Count != 0)
+            //{
+            //    var count = interest.Count;
+            //}
+            //Console.WriteLine(interest.Count);
 
-            // if (visible && drawCullData.OcclusionEnabled != 0)
-            // {
-            //     if (projectSphere(center, radius, drawCullData.Znear, drawCullData.P00, drawCullData.P11, out Vector4 aabb))
-            //     {
-            //         float width = (aabb.Z - aabb.X) * drawCullData.PyramidWidth;
-            //         float height = (aabb.W - aabb.Y) * drawCullData.PyramidHeight;
-            // 
-            //         float level = MathF.Floor(MathF.Log2(Math.Max(width, height)));
-            // 
-            //         // Sampler is set up to do min reduction, so this computes the minimum depth of a 2x2 texel quad
-            // 
-            //         float depth = textureLod(depthPyramid, (aabb.xy + aabb.zw) * 0.5, level).x;
-            //         float depthSphere = drawCullData.Znear / (center.Z - radius);
-            // 
-            //         visible = visible && depthSphere >= depth;
-            //     }
-            // }
+            if (visible && drawCullData.OcclusionEnabled != 0)
+            {
+                if (ProjectSphere(center, radius, drawCullData.Znear, drawCullData.P00, drawCullData.P11, out Vector4 aabb))
+                {
+                    float width = MathF.Abs((aabb.Z - aabb.X) * drawCullData.PyramidWidth);
+                    float height = MathF.Abs((aabb.W - aabb.Y) * drawCullData.PyramidHeight);
 
+                    float level = MathF.Floor(MathF.Log2(Math.Max(width, height)));
+
+                    // Sampler is set up to do min reduction, so this computes the minimum depth of a 2x2 texel quad
+                    Vector2 uv = (new Vector2(aabb.X,aabb.Y) + new Vector2(aabb.Z,aabb.W)) * 0.5f;
+                    uv.X = 1 - uv.X;
+                    //uv.Y = 1 - uv.Y;
+                    //float depth = textureLod(depthPyramid, uv, level).x;
+                    //ReadDepthPyramidAt(frameInfo, level);
+                    float depth = SampleDepthPyramid(frameInfo,uv, level);
+                    float depthSphere =Math.Abs((drawCullData.Znear / (center.Z - radius)));
+                    float sum = depth + depthSphere;
+                    if (depth != 0 && 1 - depthSphere <= depth)
+                    {
+                        visible = visible;
+                    }
+                    if(depth != 0)
+                    {
+                        visible = visible ;
+                    }
+                    visible = visible && depthSphere >= depth;
+                    if (!visible)
+                    {
+                        visible = false;
+                    }
+                }
+            }
             return visible;
+        }
+
+        private unsafe float SampleDepthPyramid(RendererFrameInfo frameInfo,Vector2 uv, float mipmapLevel)
+        {
+            _sampleInput.WriteToBuffer(&uv, 8);
+            _sampleInput.WriteToBuffer(&mipmapLevel, 4, 8);
+
+            float output =  0;
+            _sampleOutput.WriteToBuffer(&output);
+            fixed (VkDescriptorSet* pSet = &_sampler.DescriptorSet)
+            {
+                new DescriptorWriter(_sampler.DescriptorSetLayout, frameInfo.FrameDescriptorPool)
+                    .WriteBuffer(0, _sampleInput.DescriptorInfo())
+                    .WriteImage(1, frameInfo.DepthPyramid)
+                    .WriteBuffer(2, _sampleOutput.DescriptorInfo())
+                    .Build(pSet);
+            }
+
+            _sampler.Prepare(1, 1);
+            VkCommandBuffer cmd = GraphicsDevice.Instance.BeginSingleTimeCommands();
+
+            _sampler.Dispatch(cmd, 1, 1, 1);
+
+            GraphicsDevice.Instance.EndSingleTimeCommands(cmd);
+
+            _sampleOutput.ReadFromBuffer(&output);
+
+            return output;
+        }
+
+        private unsafe void ReadDepthPyramidAt(RendererFrameInfo frameInfo,float mipmapLevel)
+        {
+            var pyramid = frameInfo.DepthPyramid;
+
+            VkBufferImageCopy copy = new()
+            {
+                bufferOffset = 0,
+                bufferRowLength = SwapChainV2.Instance.DepthPyramidImage.ImageExtent.width,
+                bufferImageHeight = SwapChainV2.Instance.DepthPyramidImage.ImageExtent.height,
+                imageOffset = new()
+                { 
+                    x = 0,
+                    y = 0,
+                    z = 0
+                },
+                imageExtent = SwapChainV2.Instance.DepthPyramidImage.ImageExtent,
+                imageSubresource = new()
+                {
+                    aspectMask = VkImageAspectFlags.Color,
+                    baseArrayLayer = 0,
+                    layerCount = 1,
+                    mipLevel = 0,
+                }
+            };
+
+            VkCommandBuffer cmd = GraphicsDevice.Instance.BeginSingleTimeCommands();
+            Vulkan.vkCmdFillBuffer(cmd, _CPUDepthSample.VkBuffer, 0, _CPUDepthSample.BufferSize, 0);
+            Vulkan.vkCmdCopyImageToBuffer(cmd, SwapChainV2.Instance.DepthPyramidImage.TextureImage.VkImage, pyramid.imageLayout, _CPUDepthSample.VkBuffer, 1, &copy);
+            GraphicsDevice.Instance.EndSingleTimeCommands(cmd);
+            float[] texCopy = new float[_CPUDepthSample.InstanceCount32];
+            fixed (float* pTexCopy = &texCopy[0])
+            {
+                _CPUDepthSample.ReadFromBuffer(pTexCopy);
+            }
         }
 
         private static bool IsVisibleAABB(int i, DrawCullData drawCullData, ObjectData[] objectData)
@@ -417,6 +598,23 @@ namespace SDL_Vulkan_CS.ECS.Presentation.Systems
         public float Radius;
         public Vector3 Extents;
         public bool Valid;
+    }
+
+    public struct Mat2
+    {
+        public Vector2 c0;
+        public Vector2 c1;
+
+        public Mat2(float m00, float m01,float m10, float m11)
+        {
+            c0 = new Vector2(m00, m10);
+            c1 = new Vector2(m01, m11);
+        }
+
+        public static Vector2 operator *(Mat2 a,Vector2 b)
+        {
+            return a.c0 * b.X + a.c1 * b.Y;
+        }
     }
 
     public struct InDirectMesh : IComponent
