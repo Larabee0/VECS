@@ -34,30 +34,30 @@ namespace SDL_Vulkan_CS.VulkanBackend
                 .Build();
 
             var layout = _descriptorSetLayout.SetLayout;
-            VkPipelineLayoutCreateInfo calcuateNormalsLayoutCreateInfo = new()
+            VkPipelineLayoutCreateInfo layoutCreateInfo = new()
             {
                 setLayoutCount = 1,
                 pSetLayouts = &layout
             };
 
-            Vulkan.vkCreatePipelineLayout(GraphicsDevice.Instance.Device, calcuateNormalsLayoutCreateInfo, null, out _pipelineLayout);
+            Vulkan.vkCreatePipelineLayout(GraphicsDevice.Instance.Device, layoutCreateInfo, null, out _pipelineLayout);
             Vulkan.vkCreatePipelineCache(GraphicsDevice.Instance.Device, new VkPipelineCacheCreateInfo(), null, out _pipelineCache);
 
             VkUtf8ReadOnlyString main = "main"u8;
-            VkPipelineShaderStageCreateInfo _computeShaderStageInfo = new()
+            VkPipelineShaderStageCreateInfo computeShaderStageInfo = new()
             {
                 stage = VkShaderStageFlags.Compute,
                 module = _shaderModule,
                 pName = main
             };
 
-            VkComputePipelineCreateInfo _computePipelineInfo = new()
+            VkComputePipelineCreateInfo computePipelineInfo = new()
             {
                 layout = _pipelineLayout,
-                stage = _computeShaderStageInfo
+                stage = computeShaderStageInfo
             };
 
-            Vulkan.vkCreateComputePipeline(GraphicsDevice.Instance.Device, _pipelineCache, _computePipelineInfo, out _computePipeline);
+            Vulkan.vkCreateComputePipeline(GraphicsDevice.Instance.Device, _pipelineCache, computePipelineInfo, out _computePipeline);
         }
 
         public unsafe GenericComputePipeline(string computeShaderName,Type pushConstantsType, params DescriptorSetBinding[] bindings)
