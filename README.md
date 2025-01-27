@@ -1,3 +1,13 @@
+# Post Submission Overview
+This is a 3rd year indivudal module called "Graphics and Simulation" 
+
+For the assignment briefs see Assignment Worksheets 
+
+For this project I learnt Vulkan 1.3 in C++ from scratch without any prior graphics api expirence.
+After that I decided to make a C# based ECS graphics engine, basically a game engine, using knowledge gained from C++ pratice, which is this & what I ended up submiting.
+
+I earnt a 83/100 on the module, with a first being 70/100
+
 # COMP305-2202796
 
 My implementation of COMP305 relies on Vulkan SDK 1.3.290 or higher being installed https://vulkan.lunarg.com/sdk/home
