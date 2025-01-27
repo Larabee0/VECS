@@ -4,7 +4,7 @@ I have continued developing it by adding gpu driven rendering techniques.
 In no particular order 
 - (fixing) occlusion culling
 - adding a html ui library 
-- adding a physics library integration
+- adding a physics library
 - multi-threaded rendering
 - shadow casting 
 
