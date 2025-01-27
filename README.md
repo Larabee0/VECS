@@ -45,7 +45,7 @@ For shaders I am just rendering white with direction lights and
 ## Performance anayslsis
 ### Generation
 The largest performance bottle neck according to visual studio cpu performance profiler is the raisemesh function (blue) which occupied 46% of total cpu time for loading the shape.
-![alt text](https://github.falmouth.ac.uk/GA-Undergrad-Student-Work-24-25/COMP305-2202796/blob/WS-2/Profiling/OnStartProfiling%20(Mesh%20Generation).png)
+![alt text](https://github.com/Larabee0/SDL-Vulkan-CS/blob/WS-2/Profiling/OnStartProfiling%20(Mesh%20Generation).png)
 
 The rest is taken up by the subdivison system (green & orange), which turns the simple shape loaded from disk into a high geometry count shape for terrain generation.
 Most of the subdividers times is spen on simplifySubdivison (green), which merges duplicate vertices. Looking in here most of the cost comes from dictionary oeprations, account for a combined 18% of total cpu time, where the hole simplify subdivsion method call takes 19.82%
@@ -57,34 +57,34 @@ Looking at the blue area, the results are similar to the subdivide, a relatively
 Digging into raise mesh, the noise filter Evaluate calls are what occupy a vast majority of the total cpu time for this method, and within these the noise3Dgrad.snoise operation is the big cost. This is the simplex noise algorithim.
 Once again like the subdivider, this whole operation would benefit from parallisation.
 
-![alt text](https://github.falmouth.ac.uk/GA-Undergrad-Student-Work-24-25/COMP305-2202796/blob/WS-2/Profiling/Hightlighting%20noise%20algorithim%20cost.png)
+![alt text](https://github.com/Larabee0/SDL-Vulkan-CS/blob/WS-2/Profiling/Hightlighting%20noise%20algorithim%20cost.png)
 In both cases, parallising these operations is relatively simple. For Raise Mesh it is as simple as turning the vertex Evaluation for loop into a parallel for.
 For the subdivider, the subdivide operation is also simply parallised in the same way, as the size and therefore indices of the index and vertex buffers can be pre-calcuated.
 The simplfy operation is more complex as it involes a dictionary, which is not a thread-safe collection. Lucky something called a concurrent dictionary exists which is, but several parallel operations and steps will be needed still.
 
 ### Frame Rendering
 
-![alt text](https://github.falmouth.ac.uk/GA-Undergrad-Student-Work-24-25/COMP305-2202796/blob/WS-2/Profiling/ReleaseModeFrameProfile.png)
+![alt text](https://github.com/Larabee0/SDL-Vulkan-CS/blob/WS-2/Profiling/ReleaseModeFrameProfile.png)
 Starting in off with the compiler in release mode, the entity world OnUpdate method took 49% of cpu time, and we can see it was the LocalToWorldSystem OnUpdate that is responsible for that. In release mode we can't see what exactly is taking most of the time.
 Another 47% of total cpu time is taken up by the presentation system, specifically the TexturelessRenderSystem OnPresent call, which is where all the meshes are bound and drawn. Similar to the LocalToWorldSystem, exactly what is taking time isn't shown in release compiler mode.
 
 Switching to the debug compiler to see whats taking so long, the LocalToWorld and presentation swap places as the presentation system raises from 47% of total time to 60%, with LocalToWorld falling proportionally to 37% they are still the two main bottlenecks.
-![alt text](https://github.falmouth.ac.uk/GA-Undergrad-Student-Work-24-25/COMP305-2202796/blob/WS-2/Profiling/DebugModeFrameProfileCollapsed.png)
+![alt text](https://github.com/Larabee0/SDL-Vulkan-CS/blob/WS-2/Profiling/DebugModeFrameProfileCollapsed.png)
 #### Presentation
 Looking at the presentation system first, the two major hogs are the GetComponent<T> (24% of total time) and the material bind and draw method (22% of total time).
 GetComponent (Cyan) we can see that its the Type.get guid incurring the the bulk of the cost at 23.78% of total time. This is quite signficiant and could be easily improved by not calling get component id.
 
-![alt text](https://github.falmouth.ac.uk/GA-Undergrad-Student-Work-24-25/COMP305-2202796/blob/WS-2/Profiling/DebugPresentationSystemBreakDown.png)
+![alt text](https://github.com/Larabee0/SDL-Vulkan-CS/blob/WS-2/Profiling/DebugPresentationSystemBreakDown.png)
 
 Next looking at the bind and draw (Green), we can see its external vulkan calls bind & draw incuring the cost. Nothing I can do to improve that other than providing smaller meshes.
 
 #### LocalToWorld
 Highlighted in cyan, we can see the main bottlenecks are once again get component id, taking a combined 29.76% of total cpu time and local to world is taking 31.65% of total. The camera system takes 6.05%, again get component id, and that accounts for pretty much all of the world OnUpdate (37.77%)
 
-![alt text](https://github.falmouth.ac.uk/GA-Undergrad-Student-Work-24-25/COMP305-2202796/blob/WS-2/Profiling/DebugOnUpdateSystemBreakDown.png)
+![alt text](https://github.com/Larabee0/SDL-Vulkan-CS/blob/WS-2/Profiling/DebugOnUpdateSystemBreakDown.png)
 
 #### Memory Usage
-![alt text](https://github.falmouth.ac.uk/GA-Undergrad-Student-Work-24-25/COMP305-2202796/blob/WS-2/Profiling/6%20Subdivision%20memory%20usage.png)
+![alt text](https://github.com/Larabee0/SDL-Vulkan-CS/blob/WS-2/Profiling/6%20Subdivision%20memory%20usage.png)
 With 6 sudivisions the biggest memory usage is by far the vertex struct, which make sense its relatively large and store a lot of data. a vector3 for position, normal and vertex colour then vector2 for uv coordinates.
 For this terrain generator, the uv and vertex colour won't be needed, just position, normal and additiona float for elevation value. The fragment sahder then computes a colour to paint on the mesh (or will).
 Unmanaged memory usage isn't shown here, but the vertex buffer will storage a copy of this data in the gpu. once generated, the local vertex buffer stored in the mesh class is no longer needed, so this could be cleaned up in the C# side.
