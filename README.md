@@ -37,18 +37,18 @@ It measures the angle between the tiles up vector and the camera foward vector a
 ### Culling
 Culling gained back most of the performance lost by the heavy shader
 Before: <br>
-![alt text](https://github.com/Larabee0/SDL-Vulkan-CS/blob/sub-build/Profiling/WS3-Colour/Framerate%20hit.png)
+![alt text](https://github.com/Larabee0/SDL-Vulkan-CS/blob/WS-4/Profiling/WS3-Colour/Framerate%20hit.png)
 <br>
 After: <br>
-![alt text](https://github.com/Larabee0/SDL-Vulkan-CS/blob/sub-build/Profiling/WS4/Culling%20one%20planet%206%20subdivisons.png)
+![alt text](https://github.com/Larabee0/SDL-Vulkan-CS/blob/WS-4/Profiling/WS4/Culling%20one%20planet%206%20subdivisons.png)
 
 ## Final Performance
 The final artefact has 7 plants with 7 subdivison, much heavier than the 6 tested with so far
 6 subdivisons: <br>
-![alt text](https://github.com/Larabee0/SDL-Vulkan-CS/blob/sub-build/Profiling/WS4/Release%20Compiler%20culling%207%20planets%206%20subdivisons.png)
+![alt text](https://github.com/Larabee0/SDL-Vulkan-CS/blob/WS-4/Profiling/WS4/Release%20Compiler%20culling%207%20planets%206%20subdivisons.png)
 <br>
 7 Subdivisons: <br>
-![alt text](https://github.com/Larabee0/SDL-Vulkan-CS/blob/sub-build/Profiling/WS4/Release%20Compiler%20culling%207%20planets%207%20subdivisons.png)
+![alt text](https://github.com/Larabee0/SDL-Vulkan-CS/blob/WS-4/Profiling/WS4/Release%20Compiler%20culling%207%20planets%207%20subdivisons.png)
 
 This is because an extra subdivison quadruples the geometry the final scene has 125m polys while with 6 only 25m
 The frame rate hit is massive as you can see
