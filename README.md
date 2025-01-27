@@ -6,6 +6,8 @@ In no particular order
 - adding a html ui library 
 - adding a physics library
 - multi-threaded rendering
-- shadow casting 
+- shadow casting
+- improved transparency support
+- improved lighting system
 
 These are things I'd like to do, who knows how many will end up getting implemented 
