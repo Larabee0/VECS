@@ -31,23 +31,23 @@ Using the derivative of the gradient, to lower areas of low slope using a weight
 I added colours it is pretty and textures through triplanar mapping. But lets check to see if performance was terribly effected.
 The ocean is even animated slightly
 
-![alt text](https://github.falmouth.ac.uk/GA-Undergrad-Student-Work-24-25/COMP305-2202796/blob/WS-3-Colouration/Example.png)
+![alt text](https://github.com/Larabee0/SDL-Vulkan-CS/blob/WS-3-Colouration/Example.png)
 # Generation time
 Before:
 <br>
-![alt text](https://github.falmouth.ac.uk/GA-Undergrad-Student-Work-24-25/COMP305-2202796/blob/WS-3/Profiling/WS3/GPU/GPU%20Vertex%20Normals.png)
+![alt text](https://github.com/Larabee0/SDL-Vulkan-CS/blob/WS-3/Profiling/WS3/GPU/GPU%20Vertex%20Normals.png)
 <br>
 After:
 <br>
-![alt text](https://github.falmouth.ac.uk/GA-Undergrad-Student-Work-24-25/COMP305-2202796/blob/WS-3-Colouration/Profiling/WS3-Colour/Generation%20time%20not%20hit%20badly%20by%20colour.png)
+![alt text](https://github.com/Larabee0/SDL-Vulkan-CS/blob/WS-3-Colouration/Profiling/WS3-Colour/Generation%20time%20not%20hit%20badly%20by%20colour.png)
 # Frame time
 Frame time incurred a hit of about 100fps, but the shader now takes in multiple 14 textures so thats understable. 400fps with no culling seems pretty good <br>
 Before: 
 <br>
-![alt text](https://github.falmouth.ac.uk/GA-Undergrad-Student-Work-24-25/COMP305-2202796/blob/WS-3-Colouration/Profiling/WS3/CPU-Parallel/Better%20GPU%20Busy%20Higher%20framerate.png)
+![alt text](https://github.com/Larabee0/SDL-Vulkan-CS/blob/WS-3-Colouration/Profiling/WS3/CPU-Parallel/Better%20GPU%20Busy%20Higher%20framerate.png)
 <br>
 After: 
 <br>
-![alt text](https://github.falmouth.ac.uk/GA-Undergrad-Student-Work-24-25/COMP305-2202796/blob/WS-3-Colouration/Profiling/WS3-Colour/Framerate%20hit.png)
+![alt text](https://github.com/Larabee0/SDL-Vulkan-CS/blob/WS-3-Colouration/Profiling/WS3-Colour/Framerate%20hit.png)
 
 It just got heavier to render, culling would be a good improvment to not bother with tiles on the other side of the mesh
