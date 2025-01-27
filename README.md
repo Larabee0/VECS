@@ -7,4 +7,5 @@ In no particular order
 - adding a physics library integration
 - multi-threaded rendering
 - shadow casting 
+
 These are things I'd like to do, who knows how many will end up getting implemented 
