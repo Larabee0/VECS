@@ -23,19 +23,19 @@ All profiling from now on was done on my laptop which isn't as powerful as my de
 I was able to quite easily use C# Parallel.For to parallise the CPU subdivision, raise mesh and vertex normal calculations. Unfortunately this had the side effect of making the VS profiling tool useless as it counts other threads seequtially instead of in parallel for CPU time.
 So I switched to measuring times to execute a method with DateTime
 Here is WS2 base time for 6 subdivisions + Generation + Normals
-![alt text](https://github.falmouth.ac.uk/GA-Undergrad-Student-Work-24-25/COMP305-2202796/blob/WS-3/Profiling/WS3/WS2-Again/WS2-Subdivide-Raise-Normals.png)
+![alt text](https://github.com/Larabee0/SDL-Vulkan-CS/blob/WS-3/Profiling/WS3/WS2-Again/WS2-Subdivide-Raise-Normals.png)
 And after parallisation
 
-![alt text](https://github.falmouth.ac.uk/GA-Undergrad-Student-Work-24-25/COMP305-2202796/blob/WS-3/Profiling/WS3/CPU-Parallel/WS3%20CPU%20parallalisation%20Metrics.png)
+![alt text](https://github.com/Larabee0/SDL-Vulkan-CS/blob/WS-3/Profiling/WS3/CPU-Parallel/WS3%20CPU%20parallalisation%20Metrics.png)
 
 Very dramatic decrease in exeuction time. But more can still be had from a compute shader for generation time.
 ### GPU Generation
 After spending a long time on a workflow I got a compute shader for the terrain generator working and it is a lot faster, at generating terrain. 360 to 90ms a nice improvement at this time scale
-![alt text](https://github.falmouth.ac.uk/GA-Undergrad-Student-Work-24-25/COMP305-2202796/blob/WS-3/Profiling/WS3/GPU/Generation%20is%20fast%20normals%20slow.png)
+![alt text](https://github.com/Larabee0/SDL-Vulkan-CS/blob/WS-3/Profiling/WS3/GPU/Generation%20is%20fast%20normals%20slow.png)
 However the vertex normal calculation got worse and after some digging, it was the copying back of the vertex buffer that was the culprit.
 
 So I went away and made a vertex normal compute shader (two compute shaders actually)
-![alt text](https://github.falmouth.ac.uk/GA-Undergrad-Student-Work-24-25/COMP305-2202796/blob/WS-3/Profiling/WS3/GPU/GPU%20Vertex%20Normals.png)
+![alt text](https://github.com/Larabee0/SDL-Vulkan-CS/blob/WS-3/Profiling/WS3/GPU/GPU%20Vertex%20Normals.png)
 This brought down normal vector calculation from 500ms to 95ms, making the total gpu compute shader workflow take <200ms when just raise mesh before vertex normals calculations, took 360ms on the cpu.
 Very statisfactory improvements.
 
@@ -44,11 +44,11 @@ Very statisfactory improvements.
 
 Get component id was really slow because it calculted the component type guid every time. to fix this I made an accessor in as part of the interface for a component that gets component id.
 Before:
-![alt text](https://github.falmouth.ac.uk/GA-Undergrad-Student-Work-24-25/COMP305-2202796/blob/WS-3/Profiling/WS3/WS2-Again/DebugFrameTimePresent.png)
-![alt text](https://github.falmouth.ac.uk/GA-Undergrad-Student-Work-24-25/COMP305-2202796/blob/WS-3/Profiling/WS3/WS2-Again/PresentMon.png)
+![alt text](https://github.com/Larabee0/SDL-Vulkan-CS/blob/WS-3/Profiling/WS3/WS2-Again/DebugFrameTimePresent.png)
+![alt text](https://github.com/Larabee0/SDL-Vulkan-CS/blob/WS-3/Profiling/WS3/WS2-Again/PresentMon.png)
 After:
-![alt text](https://github.falmouth.ac.uk/GA-Undergrad-Student-Work-24-25/COMP305-2202796/blob/WS-3/Profiling/WS3/CPU-Parallel/GetComponentIdImprovement.png)
-![alt text](https://github.falmouth.ac.uk/GA-Undergrad-Student-Work-24-25/COMP305-2202796/blob/WS-3/Profiling/WS3/CPU-Parallel/Better%20GPU%20Busy%20Higher%20framerate.png)
+![alt text](https://github.com/Larabee0/SDL-Vulkan-CS/blob/WS-3/Profiling/WS3/CPU-Parallel/GetComponentIdImprovement.png)
+![alt text](https://github.com/Larabee0/SDL-Vulkan-CS/blob/WS-3/Profiling/WS3/CPU-Parallel/Better%20GPU%20Busy%20Higher%20framerate.png)
 As you can see here getcomponent went from being 12% of total cpu time to less than half of a %.
 And the frame rate went from 280s to 580s.
 This frame rate software is called intel presentmon. One of the good thing about it is the GPU Busy graph which shows how much of the frametime the gpu is actually doing work for.
@@ -58,8 +58,8 @@ This indicates more efficient GPU utilisation.
 
 ## Memory Improvements
 
-![alt text](https://github.falmouth.ac.uk/GA-Undergrad-Student-Work-24-25/COMP305-2202796/blob/WS-3/Profiling/WS3/WS2-Again/DebugMemory.png)
+![alt text](https://github.com/Larabee0/SDL-Vulkan-CS/blob/WS-3/Profiling/WS3/WS2-Again/DebugMemory.png)
 Before in WS2 the cpu side mesh data sticks around even though its not used this is not a memory leak but it is wasted memory
-![alt text](https://github.falmouth.ac.uk/GA-Undergrad-Student-Work-24-25/COMP305-2202796/blob/WS-3/Profiling/WS3/CPU-Parallel/CPU%20Side%20mesh%20data%20Cleaned%20up%20after%20flush.png)
+![alt text](https://github.com/Larabee0/SDL-Vulkan-CS/blob/WS-3/Profiling/WS3/CPU-Parallel/CPU%20Side%20mesh%20data%20Cleaned%20up%20after%20flush.png)
 I made a change to discard this data when a mesh is flushed to the GPU which entirely removed teh huge uin32 and vertex allocations.
 
