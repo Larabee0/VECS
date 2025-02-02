@@ -1,9 +1,8 @@
-﻿using VECS.VulkanBackend;
-using System;
+﻿using System;
 using System.Numerics;
 using Vortice.Vulkan;
 
-namespace VECS.ECS
+namespace VECS.ECS.Presentation
 {
     /// <summary>
     /// Basic presentation system to test out the application and figure out what to put in the base class/or on entites as components.

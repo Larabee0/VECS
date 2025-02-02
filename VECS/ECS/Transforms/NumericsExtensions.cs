@@ -1,8 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Numerics;
-
-namespace VECS
+﻿
+namespace System.Numerics
 {
     /// <summary>
     /// Some system numerics extension for floor and step functions

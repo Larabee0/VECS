@@ -19,3 +19,5 @@ x64/
 *.psess
 *.vsp
 *.vspx
+
+Shaders/

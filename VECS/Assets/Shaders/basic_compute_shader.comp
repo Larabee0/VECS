@@ -1,6 +1,5 @@
 #version 450
 #extension GL_KHR_vulkan_glsl: enable
-#include "noise3Dgrad.glsl"
 
 layout(set = 0, binding = 0) uniform ComputeShaderParameters{
 	uint bufferLength;
@@ -29,7 +28,7 @@ void main() {
 	uint i = y * params.width + x;
 	vec3 inVal = vec3(x,y,1);
 	vec3 gradient = vec3(1);
-	float val = snoise(inVal, gradient);
+	float val = 1;
 	outbuf[i] = vec4(val,gradient);
 	inbuf[i] = inbuf[i] * inbuf[i];
 }

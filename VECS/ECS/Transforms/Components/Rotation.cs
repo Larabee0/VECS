@@ -1,6 +1,6 @@
 ﻿using System.Numerics;
 
-namespace VECS.ECS
+namespace VECS.ECS.Transforms
 {
     /// <summary>
     /// stores a radian euler for rotation

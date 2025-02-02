@@ -1,0 +1,53 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <RootNamespace>Planets</RootNamespace>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+    <StartupObject>Planets.Program</StartupObject>
+    <RunPostBuildEvent>Always</RunPostBuildEvent>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <Optimize>False</Optimize>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Alimer.Bindings.SDL" Version="3.9.6" />
+    <PackageReference Include="AssimpNet" Version="4.1.0" />
+    <PackageReference Include="System.Net.Http" Version="4.3.4" />
+    <PackageReference Include="System.Text.RegularExpressions" Version="4.3.1" />
+    <PackageReference Include="TeximpNet" Version="1.4.3" />
+    <PackageReference Include="UltralightNet.Binaries" Version="1.3.0" />
+    <PackageReference Include="Vortice.Vulkan" Version="1.9.9" />
+    <PackageReference Include="Vortice.VulkanMemoryAllocator" Version="1.5.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Assets\Textures\" />
+  </ItemGroup>
+
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="if not exist $(ProjectDir)\Assets\Shaders mkdir $(ProjectDir)\Assets\Shaders&#xD;&#xA;&#xD;&#xA;if not exist $(SolutionDir)Shaders mkdir $(SolutionDir)Shaders&#xD;&#xA;if not exist $(SolutionDir)Shaders\Compiled mkdir $(SolutionDir)Shaders\Compiled&#xD;&#xA;&#xD;&#xA;&#xD;&#xA;XCOPY /s &quot;$(SolutionDir)VECS\Assets\Shaders&quot; &quot;$(SolutionDir)Shaders&quot;&#xD;&#xA;XCOPY /s &quot;$(ProjectDir)Assets\Shaders&quot; &quot;$(SolutionDir)Shaders&quot;&#xD;&#xA;&#xD;&#xA;for %25%25f in ($(SolutionDir)Shaders\*.vert) do (&#xD;&#xA;    echo %25%25~nf&#xD;&#xA;    $(VULKAN_SDK)\Bin\glslc.exe &quot;$(SolutionDir)Shaders\%25%25~nf.vert&quot; -o &quot;$(SolutionDir)Shaders\Compiled\%25%25~nf.vert.spv&quot;&#xD;&#xA;)&#xD;&#xA;&#xD;&#xA;for %25%25f in ($(SolutionDir)Shaders\*.frag) do (&#xD;&#xA;    echo %25%25~nf&#xD;&#xA;    $(VULKAN_SDK)\Bin\glslc.exe &quot;$(SolutionDir)Shaders\%25%25~nf.frag&quot; -o &quot;$(SolutionDir)Shaders\Compiled\%25%25~nf.frag.spv&quot;&#xD;&#xA;)&#xD;&#xA;&#xD;&#xA;&#xD;&#xA;for %25%25f in ($(SolutionDir)Shaders\*.comp) do (&#xD;&#xA;    echo %25%25~nf&#xD;&#xA;    $(VULKAN_SDK)\Bin\glslc.exe &quot;$(SolutionDir)Shaders\%25%25~nf.comp&quot; -o &quot;$(SolutionDir)Shaders\Compiled\%25%25~nf.comp.spv&quot;&#xD;&#xA;)&#xD;&#xA;&#xD;&#xA;&#xD;&#xA;if not exist $(TargetDir)Assets\Shaders mkdir $(TargetDir)Assets\Shaders&#xD;&#xA;XCOPY /s &quot;$(SolutionDir)Shaders\Compiled&quot; &quot;$(TargetDir)Assets\Shaders&quot;&#xD;&#xA;&#xD;&#xA;if not exist $(TargetDir)Assets\Models mkdir $(TargetDir)Assets\Models&#xD;&#xA;XCOPY /s &quot;$(SolutionDir)VECS\Assets\Models&quot; &quot;$(TargetDir)Assets\Models&quot;&#xD;&#xA;XCOPY /s &quot;$(ProjectDir)Assets\Models&quot; &quot;$(TargetDir)Assets\Models&quot;&#xD;&#xA;&#xD;&#xA;if not exist $(TargetDir)Assets\Textures mkdir $(TargetDir)Assets\Textures&#xD;&#xA;XCOPY /s &quot;$(SolutionDir)VECS\Assets\Textures&quot; &quot;$(TargetDir)Assets\Textures&quot;&#xD;&#xA;XCOPY /s &quot;$(ProjectDir)Assets\Textures&quot; &quot;$(TargetDir)Assets\Textures&quot;" />
+  </Target>
+
+  <ItemGroup>
+    <EditorConfigFiles Remove="H:\GitFork\COMP305-2202796\SDL-Vulkan-CS\.editorconfig" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="H:\GitFork\COMP305-2202796\SDL-Vulkan-CS\.editorconfig" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\VECS\VECS.csproj" />
+  </ItemGroup>
+
+  <Target Name="PreBuild" BeforeTargets="PreBuildEvent">
+    <Exec Command="rd /s /q $(TargetDir)Assets&#xD;&#xA;rd /s /q $(SolutionDir)Shaders" />
+  </Target>
+
+</Project>

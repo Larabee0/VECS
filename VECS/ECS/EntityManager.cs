@@ -1,8 +1,8 @@
-﻿using VECS.ECS.Presentation;
-using VECS.VulkanBackend;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Reflection;
+using VECS.ECS.Presentation;
+using VECS.ECS.Transforms;
 
 namespace VECS.ECS
 {
@@ -53,16 +53,24 @@ namespace VECS.ECS
         public EntityManager()
         {
             var executingAssembly = Assembly.GetExecutingAssembly();
-            Type[] allTypes = executingAssembly.GetTypes();
+            var entryAssembly = Assembly.GetEntryAssembly();
+            
+
+            HashSet<Type> allTypes = [];
+            allTypes.UnionWith(executingAssembly.GetTypes());
+            allTypes.UnionWith(entryAssembly.GetTypes());
+
             List<Type> components = [];
             Type icomp = typeof(IComponent);
-            for (int i = 0; i < allTypes.Length; i++)
+            allTypes.Remove(icomp);
+            foreach (var type in allTypes)
             {
-                if (icomp != allTypes[i] && icomp.IsAssignableFrom(allTypes[i]))
+                if (icomp.IsAssignableFrom(type))
                 {
-                    components.Add(allTypes[i]);
+                    components.Add(type);
                 }
             }
+
             for (int i = 0; i < components.Count; i++)
             {
                 components[i].GetProperty(nameof(IComponent.ComponentId)).SetValue(null, i);

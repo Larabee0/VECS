@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace VECS.ECS
+namespace VECS.ECS.Presentation
 {
     /// <summary>
     /// Base presentation system defines extra update calls when the frame render cycle occurs which parses in extra data for renderering

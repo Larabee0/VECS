@@ -1,10 +1,9 @@
-﻿using VECS.ECS;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 
-namespace VECS
+namespace VECS.ECS.Transforms
 {
     /// <summary>
     /// Some transform extensions I wrote to make working with system.numberics easiers

@@ -1,4 +1,4 @@
-﻿namespace VECS.ECS
+﻿namespace VECS.ECS.Transforms
 {
     public struct Children : IComponent
     {

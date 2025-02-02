@@ -1,6 +1,4 @@
-﻿using VECS.VulkanBackend;
-
-namespace VECS.ECS.Presentation
+﻿namespace VECS.ECS.Presentation
 {
     /// <summary>
     /// stores a reference to a texture2d <see cref="Texture2d.Textures"/>

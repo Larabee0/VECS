@@ -1,6 +1,4 @@
-﻿using VECS.ECS;
-
-namespace VECS
+﻿namespace VECS.ECS.Presentation
 {
     /// <summary>
     /// Indicates the entity is an orthographic camera

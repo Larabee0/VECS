@@ -1,6 +1,6 @@
-﻿using VECS.Artifact;
+﻿using System;
 using VECS.ECS;
-using System;
+using VECS.LowLevel;
 using Vortice.Vulkan;
 
 namespace VECS
@@ -14,22 +14,13 @@ namespace VECS
         private readonly GraphicsDevice _device;
         private readonly Presenter _presenter;
 
-        private World _mainWorld;
-        private ArtifactAuthoring _artifact;
+        private static World _mainWorld;
+
+        public Action PreOnCreate;
+        public Action PostOnCreate;
+        public Action OnDestroy;
 
         public static string ExecutingDirectory => AppDomain.CurrentDomain.BaseDirectory;
-
-
-        private static DateTime startTime;
-
-        public static double TimeSinceStartDouble => (DateTime.Now - startTime).TotalSeconds;
-
-        public static float TimeSinceStart=>(float)TimeSinceStartDouble;
-
-        private DateTime currentTime;
-        private static double deltaTime;
-        public static double DeltaTimeDouble => deltaTime;
-        public static float DeltaTime => (float)deltaTime;
 
         public Application()
         {
@@ -48,7 +39,7 @@ namespace VECS
             while (running)
             {
                 running = !_appWindow.UpdateWindowEvents();
-                FrameTime();
+                Time.Update();
                 if (!running)
                 {
                     break;
@@ -67,23 +58,20 @@ namespace VECS
         /// </summary>
         private void Start()
         {
-            currentTime = DateTime.Now;
-
             _mainWorld = new World();
 
             _presenter.Start(); // presenter depends on the main entity world existing right away
-
-
-            _artifact = new ArtifactAuthoring();
+            PreOnCreate?.Invoke();
 
             _mainWorld.OnCreate();
-            startTime = DateTime.Now;
+
+            PostOnCreate?.Invoke();
         }
 
         /// <summary>
         /// Game logic loop
         /// </summary>
-        private void Update()
+        private static void Update()
         {
             _mainWorld.OnUpdate();
             _mainWorld.OnPostUpdate();
@@ -104,30 +92,7 @@ namespace VECS
         /// </summary>
         private void Presentation()
         {
-            if (Presenter.RENDER_V2)
-            {
-                _presenter.PresentV2(DeltaTime);
-            }
-            else
-            {
-                RendererFrameInfo frameInfo = _presenter.BeginPresent(DeltaTime);
-                if (frameInfo != RendererFrameInfo.Null)
-                {
-                    _mainWorld.PresentFowardPassUpdate(frameInfo);
-                    _presenter.EndPresent(frameInfo);
-                    _mainWorld.PostPresentUpdate();
-                }
-            }
-        }
-
-        /// <summary>
-        /// Updates the frame time value
-        /// </summary>
-        private void FrameTime()
-        {
-            var newTime = DateTime.Now;
-            deltaTime = (newTime - currentTime).TotalSeconds;
-            currentTime = newTime;
+            _presenter.Present(Time.DeltaTime);
         }
 
         /// <summary>
@@ -135,10 +100,10 @@ namespace VECS
         /// Called after the graphics device is idle
         /// Called before <see cref="Dispose"/>
         /// </summary>
-        private void Destroy()
+        private static void Destroy()
         {
-            World.DefaultWorld.OnDestroy();
-            _artifact.Destroy();
+            _mainWorld.OnDestroy();
+            //_artifact.Destroy();
         }
 
         /// <summary>

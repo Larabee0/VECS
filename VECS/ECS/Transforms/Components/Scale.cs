@@ -1,6 +1,6 @@
 ﻿using System.Numerics;
 
-namespace VECS.ECS
+namespace VECS.ECS.Transforms
 {
     public struct Scale : IComponent
     {

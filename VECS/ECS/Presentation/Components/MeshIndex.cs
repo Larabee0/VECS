@@ -1,6 +1,4 @@
-﻿using VECS.VulkanBackend;
-
-namespace VECS.ECS.Presentation
+﻿namespace VECS.ECS.Presentation
 {
     /// <summary>
     /// Stores an index of a mesh in <see cref="Mesh.Meshes"/>

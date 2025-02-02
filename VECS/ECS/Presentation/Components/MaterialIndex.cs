@@ -1,6 +1,4 @@
-﻿using VECS.VulkanBackend;
-
-namespace VECS.ECS.Presentation
+﻿namespace VECS.ECS.Presentation
 {
     /// <summary>
     /// Stores index reference to a material <see cref="Material.Materials"/>

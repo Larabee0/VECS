@@ -1,4 +1,4 @@
-﻿namespace VECS.ECS
+﻿namespace VECS.ECS.Presentation
 {
     /// <summary>
     /// Stores the screen aspect ratio for the access by the camera system

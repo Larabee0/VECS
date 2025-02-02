@@ -1,8 +1,8 @@
-﻿using VECS.ECS;
-using System;
+﻿using System;
 using System.Numerics;
+using VECS.ECS.Transforms;
 
-namespace VECS
+namespace VECS.ECS.Presentation
 {
     /// <summary>
     /// Camera system updates all cameras
@@ -201,7 +201,7 @@ namespace VECS
                 rotationInput.X = look.Y;
                 rotationInput.Y = -look.X;
 
-                rotation.Value += lookSpeed * Application.DeltaTime * rotationInput;
+                rotation.Value += lookSpeed * Time.DeltaTime * rotationInput;
 
                 rotation.Value.X = Math.Clamp(rotation.Value.X, -1.5f, 1.5f);
                 rotation.Value.Y %= MathF.Tau;
@@ -230,7 +230,7 @@ namespace VECS
 
                 float speed = slow ? moveSpeed * 0.25f : fast ? moveSpeed * 4f : extraFast ? moveSpeed * 8f : moveSpeed;
 
-                translation.Value += speed * Application.DeltaTime * Vector3.Normalize(moveDir);
+                translation.Value += speed * Time.DeltaTime * Vector3.Normalize(moveDir);
                 entityManager.SetComponent(entity, translation);
             }
 

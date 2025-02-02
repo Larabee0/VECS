@@ -1,7 +1,7 @@
-﻿using VECS.ECS;
-using VECS.VulkanBackend;
-using System;
-using System.Numerics;
+﻿using System;
+using VECS.ECS;
+using VECS.ECS.Presentation;
+using VECS.LowLevel;
 using Vortice.Vulkan;
 
 namespace VECS
@@ -26,13 +26,11 @@ namespace VECS
     public sealed class Presenter : IDisposable
     {
         public const int MAX_LIGHTS = 10;
-        public const bool RENDER_V2 = true;
 
         public static Presenter Instance { get; private set; }
 
         private readonly GraphicsDevice _device;
         private readonly Renderer _renderer;
-        private readonly RendererV2 _rendererV2;
 
         private DescriptorPool _globalDescriptorPool;
         private DescriptorSetLayout _globalDescriptorSetLayout;
@@ -43,21 +41,14 @@ namespace VECS
 
         private Entity frameInfoEntity;
 
-        public VkRenderPass RenderPass => RENDER_V2 ? _rendererV2.RenderPass :  _renderer.SwapChainRenderPass;
+        public VkRenderPass RenderPass => _renderer.RenderPass;
         public VkDescriptorSetLayout GlobalSetLayout => _globalDescriptorSetLayout.SetLayout;
 
         public Presenter(IWindow window)
         {
             _device = GraphicsDevice.Instance;
-            if (RENDER_V2)
-            {
-                _rendererV2 = new(window);
-            }
-            else
-            {
-                _renderer = new(window);
-            }
-            
+            _renderer = new(window);
+
 
             InitGloalDescriptorPool();
             InitSwapChainFrameDescriptorPools();
@@ -146,34 +137,9 @@ namespace VECS
             return globalSetLayout;
         }
 
-        /// <summary>
-        /// Beings the frame render pass, this gets the command buffer, sets up the renderer frame info,
-        /// and updates the global uniform buffer.
-        /// 
-        /// If the command buffer is null, return a null renderer frame info,
-        /// indicating this frame has failed to start.
-        /// 
-        /// </summary>
-        /// <param name="deltaTime">delta time is included with the renderer frame info</param>
-        /// <returns></returns>
-        public RendererFrameInfo BeginPresent(float deltaTime)
-        {
-            UpdateEntityFrameInfo(World.DefaultWorld.EntityManager);
-
-            VkCommandBuffer commandBuffer = _renderer.BeginFrame();
-            if (commandBuffer != VkCommandBuffer.Null)
-            {
-                RendererFrameInfo frameInfo = CreateRendererFrameInfo(deltaTime, commandBuffer);
-                _renderer.BeginSwapChainRenderPass(commandBuffer);
-                return frameInfo;
-            }
-
-            return RendererFrameInfo.Null;
-        }
-
         private unsafe RendererFrameInfo CreateRendererFrameInfo(float deltaTime, VkCommandBuffer commandBuffer)
         {
-            int frameIndex = RENDER_V2 ? _rendererV2.FrameIndex : _renderer.FrameIndex;
+            int frameIndex = _renderer.FrameIndex;
             swapChainFrameDescriptorPools[frameIndex].ResetPool();
             RendererFrameInfo frameInfo = new()
             {
@@ -183,15 +149,11 @@ namespace VECS
                 UboBuffer = _globalUboBuffers[frameIndex],
                 GlobalDescriptorSet = _globalDescriptorSets[frameIndex],
                 FrameDescriptorPool = swapChainFrameDescriptorPools[frameIndex],
-                PostCullBarriers = RENDER_V2 ? _rendererV2.PostCullBarriers : null
+                PostCullBarriers = _renderer.PostCullBarriers,
+                DepthPyramid = _renderer.DepthPyramid,
+                DepthPyramidWidth = (int)_renderer.DepthPyramidWidth,
+                DepthPyramidHeight = (int)_renderer.DepthPyramidHeight
             };
-
-            if (RENDER_V2)
-            {
-                frameInfo.DepthPyramid = _rendererV2.DepthPyramid;
-                frameInfo.DepthPyramidWidth = (int)_rendererV2.DepthPyramidWidth;
-                frameInfo.DepthPyramidHeight = (int)_rendererV2.DepthPyramidHeight;
-            }
 
             Camera camera = Camera.Identity;
 
@@ -225,53 +187,43 @@ namespace VECS
         {
             entityManager.SetComponent(frameInfoEntity, new FrameInfo()
             {
-                screenAspect = RENDER_V2 ? _rendererV2.AspectRatio: _renderer.AspectRatio
+                screenAspect = _renderer.AspectRatio
             });
         }
 
-        /// <summary>
-        /// End the render pass to submit graphics queue and present the frame.
-        /// </summary>
-        /// <param name="frameInfo"></param>
-        public void EndPresent(RendererFrameInfo frameInfo)
-        {
-            _renderer.EndSwapChainRenderPass(frameInfo.CommandBuffer);            
-            _renderer.EndFrame();
-        }
-
-        public void PresentV2(float deltaTime)
+        public void Present(float deltaTime)
         {
             UpdateEntityFrameInfo(World.DefaultWorld.EntityManager);
 
-            VkCommandBuffer commandBuffer = _rendererV2.BeginFrame();
+            VkCommandBuffer commandBuffer = _renderer.BeginFrame();
             if (commandBuffer != VkCommandBuffer.Null)
             {
                 RendererFrameInfo frameInfo = CreateRendererFrameInfo(deltaTime, commandBuffer);
                 // culling
                 World.DefaultWorld.PresentPreCull(frameInfo);
-                _rendererV2.EndPreCullBarrier(frameInfo.CommandBuffer);
+                _renderer.EndPreCullBarrier(frameInfo.CommandBuffer);
 
                 World.DefaultWorld.PresentOnCull(frameInfo);
 
-                _rendererV2.PostCullBarrier(frameInfo.CommandBuffer);
+                _renderer.PostCullBarrier(frameInfo.CommandBuffer);
                 World.DefaultWorld.PresentPostCullUpdate(frameInfo);
 
                 // shadows
-                _rendererV2.BeginShandowRenderPass(frameInfo.CommandBuffer);
+                _renderer.BeginShandowRenderPass(frameInfo.CommandBuffer);
                 World.DefaultWorld.PresentShadowPassUpdate(frameInfo);
-                RendererV2.EndShadowRenderPass(frameInfo.CommandBuffer);
+                Renderer.EndShadowRenderPass(frameInfo.CommandBuffer);
 
                 // forward pass
-                _rendererV2.BeginForwardRenderPass(frameInfo.CommandBuffer);
+                _renderer.BeginForwardRenderPass(frameInfo.CommandBuffer);
                 World.DefaultWorld.PresentFowardPassUpdate(frameInfo);
-                RendererV2.EndForwardRenderPass(frameInfo.CommandBuffer);
+                Renderer.EndForwardRenderPass(frameInfo.CommandBuffer);
 
                 // depth pyramid mip maps
-                _rendererV2.ReduceDepth(frameInfo);
+                _renderer.ReduceDepth(frameInfo);
                 // copy to swap chain
-                _rendererV2.CopyRenderToSwapChain(frameInfo);
+                _renderer.CopyRenderToSwapChain(frameInfo);
                 // submit command buffer
-                _rendererV2.EndFrame();
+                _renderer.EndFrame();
                 World.DefaultWorld.PostPresentUpdate();
             }
         }
@@ -325,7 +277,6 @@ namespace VECS
 
             // then destroy the renderer, which will destroy the swapchain.
             _renderer?.Dispose();
-            _rendererV2?.Dispose();
         }
     }
 }

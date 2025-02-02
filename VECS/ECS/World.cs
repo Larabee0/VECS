@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using VECS.ECS.Presentation;
+using VECS.ECS.Transforms;
 
 namespace VECS.ECS
 {
@@ -89,14 +91,14 @@ namespace VECS.ECS
         /// <summary>
         /// called as part of start from <see cref="Application.Start"/>
         /// </summary>
-        public void OnCreate()
+        internal void OnCreate()
         {
         }
 
         /// <summary>
         /// Logical update for Systembases and PresentationSystems
         /// </summary>
-        public void OnUpdate()
+        internal void OnUpdate()
         {
             _systems.ForEach(s => s.OnUpdate(_entityManager));
             _presentationSystems.ForEach(s => s.OnUpdate(_entityManager));
@@ -105,28 +107,28 @@ namespace VECS.ECS
         /// <summary>
         /// Called after update and before presentation
         /// </summary>
-        public void OnPostUpdate()
+        internal void OnPostUpdate()
         {
             _systems.ForEach(s => s.OnPostUpdate(_entityManager));
             _presentationSystems.ForEach(s => s.OnPostUpdate(_entityManager));
         }
 
-        public void PresentPreCull(RendererFrameInfo rendererFrameInfo)
+        internal void PresentPreCull(RendererFrameInfo rendererFrameInfo)
         {
             _presentationSystems.ForEach(s => s.OnPreCull(_entityManager, rendererFrameInfo));
         }
 
-        public void PresentOnCull(RendererFrameInfo rendererFrameInfo)
+        internal void PresentOnCull(RendererFrameInfo rendererFrameInfo)
         {
             _presentationSystems.ForEach(s => s.OnCull(_entityManager, rendererFrameInfo));
         }
 
-        public void PresentPostCullUpdate(RendererFrameInfo rendererFrameInfo)
+        internal void PresentPostCullUpdate(RendererFrameInfo rendererFrameInfo)
         {
             _presentationSystems.ForEach(s => s.OnPostCull(_entityManager, rendererFrameInfo));
         }
 
-        public void PresentShadowPassUpdate(RendererFrameInfo rendererFrameInfo)
+        internal void PresentShadowPassUpdate(RendererFrameInfo rendererFrameInfo)
         {
             _presentationSystems.ForEach(s => s.OnShadowPass(_entityManager, rendererFrameInfo));
         }
@@ -134,7 +136,7 @@ namespace VECS.ECS
         /// <summary>
         /// Called after PostUpdate
         /// </summary>
-        public void PresentFowardPassUpdate(RendererFrameInfo rendererFrameInfo)
+        internal void PresentFowardPassUpdate(RendererFrameInfo rendererFrameInfo)
         {
             _presentationSystems.ForEach(s => s.OnFowardPass(_entityManager, rendererFrameInfo));
         }
@@ -142,7 +144,7 @@ namespace VECS.ECS
         /// <summary>
         /// Called after present
         /// </summary>
-        public void PostPresentUpdate()
+        internal void PostPresentUpdate()
         {
             _presentationSystems.ForEach(s => s.OnPostPresentation(_entityManager));
         }
@@ -150,7 +152,7 @@ namespace VECS.ECS
         /// <summary>
         /// For destroy, presentation systems get it first this is the only time they do.
         /// </summary>
-        public void OnDestroy()
+        internal void OnDestroy()
         {
             _presentationSystems.ForEach(s => s.OnDestroy(_entityManager));
             _systems.ForEach(s => s.OnDestroy(_entityManager));

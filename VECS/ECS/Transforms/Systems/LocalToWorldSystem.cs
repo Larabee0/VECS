@@ -1,6 +1,6 @@
 ﻿using System.Numerics;
 
-namespace VECS.ECS
+namespace VECS.ECS.Transforms
 {
     /// <summary>
     /// Operates on transform components to compute a local to world matrix

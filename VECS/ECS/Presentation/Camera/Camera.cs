@@ -1,7 +1,6 @@
-﻿using VECS.ECS;
-using System.Numerics;
+﻿using System.Numerics;
 
-namespace VECS
+namespace VECS.ECS.Presentation
 {
     /// <summary>
     /// Camera data used by the <see cref="Presenter"/> class to set camera properties in the global uniform buffer.
