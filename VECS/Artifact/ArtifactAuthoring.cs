@@ -35,10 +35,10 @@ namespace VECS.Artifact
 
         public ArtifactAuthoring()
         {
-            World.DefaultWorld.CreateSystem<TransformPlanetsSystem>();
-            World.DefaultWorld.CreateSystem<ColouredRenderSystem>();
-            World.DefaultWorld.CreateSystem<DrawIndirectRenderSystem>();
-            World.DefaultWorld.CreateSystem<StarRenderSystem>();
+            //World.DefaultWorld.CreateSystem<TransformPlanetsSystem>();
+            //World.DefaultWorld.CreateSystem<ColouredRenderSystem>();
+            //World.DefaultWorld.CreateSystem<DrawIndirectRenderSystem>();
+            //World.DefaultWorld.CreateSystem<StarRenderSystem>();
             World.DefaultWorld.CreateSystem<InteractionSystem>();
 
             EntityManager entityManager = World.DefaultWorld.EntityManager;

@@ -194,7 +194,7 @@ namespace VECS
             config.AttributeDescriptions = [];
 
             _blitPipeline = new(_device, Material.GetShaderFilePath("fullscreen.vert"), Material.GetShaderFilePath("blit.frag"), config);
-            _blitVertexBuffer = new(3, VkBufferUsageFlags.VertexBuffer, false);
+            _blitVertexBuffer = new(3, VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferDst, false);
             _blitVertexBuffer.FillBufferSingleTimeCmd(0);
         }
 

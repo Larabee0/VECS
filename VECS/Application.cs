@@ -35,7 +35,7 @@ namespace VECS
         {
             _appWindow = new(Width, Height, "Vulkan CS");
             _device = new(_appWindow);
-            _presenter = new(_appWindow, _device);
+            _presenter = new(_appWindow);
         }
 
         /// <summary>
