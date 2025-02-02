@@ -52,13 +52,14 @@ namespace VECS.ECS
         /// </summary>
         public EntityManager()
         {
-            var executingAssembly = Assembly.GetExecutingAssembly();
-            var entryAssembly = Assembly.GetEntryAssembly();
-            
+            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
 
             HashSet<Type> allTypes = [];
-            allTypes.UnionWith(executingAssembly.GetTypes());
-            allTypes.UnionWith(entryAssembly.GetTypes());
+
+            foreach (var assembly in assemblies)
+            {
+                allTypes.UnionWith(assembly.GetTypes());
+            }
 
             List<Type> components = [];
             Type icomp = typeof(IComponent);
