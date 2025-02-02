@@ -757,7 +757,7 @@ namespace VECS.LowLevel
                 VkAllocationCallbacks*,
                 VkDebugUtilsMessengerEXT*,
                 VkResult>
-                )Vulkan.vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
+                )Vulkan.vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT").Value;
 
             if (func != null)
             {
@@ -787,7 +787,7 @@ namespace VECS.LowLevel
                 VkDebugUtilsMessengerEXT,
                 VkAllocationCallbacks*,
                 void>
-                )Vulkan.vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
+                )Vulkan.vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT").Value;
             if (func != null)
             {
                 func(instance, debugMessenger, pAllocator);
