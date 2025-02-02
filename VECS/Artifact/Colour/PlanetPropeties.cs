@@ -37,7 +37,7 @@ namespace VECS.Artifact.Colour
             };
         }
 
-        public unsafe void WriteShaderParamters(CsharpVulkanBuffer<PlanetTileShaderParmeters> paramsBuffer)
+        public unsafe void WriteShaderParamters(GPUBuffer<PlanetTileShaderParmeters> paramsBuffer)
         {
             PlanetTileShaderParmeters shaderParameters = GetShaderParmeters(Application.TimeSinceStart);
             paramsBuffer.WriteToBuffer(&shaderParameters);

@@ -12,15 +12,15 @@ namespace VECS.ECS.Presentation.Systems
     {
         public const ulong MAX_INDIRECT_COMMANDS = 1000;
         public const bool COMPUTE_CULL = false;
-        private CsharpVulkanBuffer<VkDrawIndexedIndirectCommand>[] _indirectCmdBuffers;
-        private CsharpVulkanBuffer<float>[] _depthSamples;
-        private CsharpVulkanBuffer<ObjectData>[] _objectDataBuffers;
+        private GPUBuffer<VkDrawIndexedIndirectCommand>[] _indirectCmdBuffers;
+        private GPUBuffer<float>[] _depthSamples;
+        private GPUBuffer<ObjectData>[] _objectDataBuffers;
         
 
         float[] texCopy;
-        private CsharpVulkanBuffer<float> _CPUDepthSample;
-        private CsharpVulkanBuffer<float> _sampleOutput;
-        private CsharpVulkanBuffer<float> _sampleInput;
+        private GPUBuffer<float> _CPUDepthSample;
+        private GPUBuffer<float> _sampleOutput;
+        private GPUBuffer<float> _sampleInput;
 
         private EntityQuery _planetRenderQuery;
         
@@ -255,26 +255,23 @@ namespace VECS.ECS.Presentation.Systems
 
         private void CreateIndirectCmdBuffers()
         {
-            _indirectCmdBuffers = new CsharpVulkanBuffer<VkDrawIndexedIndirectCommand>[SwapChain.MAX_FRAMES_IN_FLIGHT];
-            _objectDataBuffers = new CsharpVulkanBuffer<ObjectData>[SwapChain.MAX_FRAMES_IN_FLIGHT];
-            _depthSamples = new CsharpVulkanBuffer<float>[SwapChain.MAX_FRAMES_IN_FLIGHT];
+            _indirectCmdBuffers = new GPUBuffer<VkDrawIndexedIndirectCommand>[SwapChain.MAX_FRAMES_IN_FLIGHT];
+            _objectDataBuffers = new GPUBuffer<ObjectData>[SwapChain.MAX_FRAMES_IN_FLIGHT];
+            _depthSamples = new GPUBuffer<float>[SwapChain.MAX_FRAMES_IN_FLIGHT];
 
             for (int i = 0; i < SwapChain.MAX_FRAMES_IN_FLIGHT; i++)
             {
-                _indirectCmdBuffers[i] = new(GraphicsDevice.Instance,
-                    MAX_INDIRECT_COMMANDS,
+                _indirectCmdBuffers[i] = new(MAX_INDIRECT_COMMANDS,
                     VkBufferUsageFlags.TransferDst |
                     VkBufferUsageFlags.TransferSrc |
                     VkBufferUsageFlags.IndirectBuffer |
                     VkBufferUsageFlags.StorageBuffer,
                     true);
-                _objectDataBuffers[i] = new(GraphicsDevice.Instance,
-                    MAX_INDIRECT_COMMANDS,
+                _objectDataBuffers[i] = new(MAX_INDIRECT_COMMANDS,
                     VkBufferUsageFlags.TransferDst |
                     VkBufferUsageFlags.StorageBuffer,
                     true);
-                _depthSamples[i] = new(GraphicsDevice.Instance,
-                    MAX_INDIRECT_COMMANDS,
+                _depthSamples[i] = new(MAX_INDIRECT_COMMANDS,
                     VkBufferUsageFlags.TransferDst |
                     VkBufferUsageFlags.StorageBuffer,
                     true);
@@ -284,9 +281,9 @@ namespace VECS.ECS.Presentation.Systems
 
             for (int i = 0; i < SwapChain.MAX_FRAMES_IN_FLIGHT; i++)
             {
-                Vulkan.vkCmdFillBuffer(commandBuffer, _indirectCmdBuffers[i].VkBuffer, 0, _indirectCmdBuffers[i].BufferSize, 0);
-                Vulkan.vkCmdFillBuffer(commandBuffer, _objectDataBuffers[i].VkBuffer, 0, _objectDataBuffers[i].BufferSize, 0);
-                Vulkan.vkCmdFillBuffer(commandBuffer, _depthSamples[i].VkBuffer, 0, _depthSamples[i].BufferSize, 0);
+                _indirectCmdBuffers[i].FillBuffer(commandBuffer, 0);
+                _objectDataBuffers[i].FillBuffer(commandBuffer, 0);
+                _depthSamples[i].FillBuffer(commandBuffer, 0);
             }
 
             GraphicsDevice.Instance.EndSingleTimeCommands(commandBuffer);
@@ -295,9 +292,9 @@ namespace VECS.ECS.Presentation.Systems
         private void CreateCullComputePipeline()
         {
             var value = SwapChainV2.Instance.DepthPyramidHeight * SwapChainV2.Instance.DepthPyramidWidth;
-            _CPUDepthSample = new(GraphicsDevice.Instance, value, VkBufferUsageFlags.TransferDst, true);
-            _sampleOutput = new(GraphicsDevice.Instance, 1, VkBufferUsageFlags.StorageBuffer, true);
-            _sampleInput = new(GraphicsDevice.Instance,3, VkBufferUsageFlags.UniformBuffer, true);
+            _CPUDepthSample = new(value, VkBufferUsageFlags.TransferDst, true);
+            _sampleOutput = new(1, VkBufferUsageFlags.StorageBuffer, true);
+            _sampleInput = new(3, VkBufferUsageFlags.UniformBuffer, true);
             texCopy = new float[_CPUDepthSample.InstanceCount32];
             _cullCompute = new("indirect_cull.comp", typeof(DrawCullData),
                 new DescriptorSetBinding(VkDescriptorType.UniformBuffer, VkShaderStageFlags.Compute),
@@ -340,12 +337,12 @@ namespace VECS.ECS.Presentation.Systems
                 return false;
             }
 
-            Vector2 cx = new Vector2(C.X, C.Z);
+            Vector2 cx = new(C.X, C.Z);
             Vector2 vx = new(MathF.Sqrt(Vector2.Dot(cx, cx) - r * r), r);
             Vector2 minx = new Mat2(vx.X, vx.Y, -vx.Y, vx.X) * cx;
             Vector2 maxx = new Mat2(vx.X, -vx.Y, vx.Y, vx.X) * cx;
 
-            Vector2 cy = new Vector2(C.Y, C.Z);
+            Vector2 cy = new(C.Y, C.Z);
             Vector2 vy = new(MathF.Sqrt(Vector2.Dot(cy, cy) - r * r), r);
             Vector2 miny = new Mat2(vy.X, vy.Y, -vy.Y, vy.X) * cy;
             Vector2 maxy = new Mat2(vy.X, -vy.Y, vy.Y, vy.X) * cy;
@@ -490,8 +487,8 @@ namespace VECS.ECS.Presentation.Systems
             };
 
             VkCommandBuffer cmd = GraphicsDevice.Instance.BeginSingleTimeCommands();
-            Vulkan.vkCmdFillBuffer(cmd, _CPUDepthSample.VkBuffer, 0, _CPUDepthSample.BufferSize, 0);
-            Vulkan.vkCmdCopyImageToBuffer(cmd, SwapChainV2.Instance.DepthPyramidImage.TextureImage.VkImage, pyramid.imageLayout, _CPUDepthSample.VkBuffer, 1, &copy);
+            _CPUDepthSample.FillBuffer(cmd, 0);
+            SwapChainV2.Instance.DepthPyramidImage.TextureImage.CopyToBuffer(cmd, pyramid.imageLayout, 1, &copy, _CPUDepthSample);
             GraphicsDevice.Instance.EndSingleTimeCommands(cmd);
             float[] texCopy = new float[_CPUDepthSample.InstanceCount32];
             fixed (float* pTexCopy = &texCopy[0])

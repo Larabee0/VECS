@@ -56,7 +56,7 @@ namespace VECS.VulkanBackend
             string vertexFilePath = GetShaderFilePath(vertexShader);
             string fragmentFilePath = GetShaderFilePath(fragmentShader);
 
-            var builder = new DescriptorSetLayout.Builder(GraphicsDevice.Instance);
+            var builder = new DescriptorSetLayout.Builder();
             for (uint i = 0; i < reqs.Length; i++)
             {
                 builder.AddBinding(i, reqs[i]);
@@ -140,7 +140,7 @@ namespace VECS.VulkanBackend
             string vertexFilePath = GetShaderFilePath(vertexShader);
             string fragmentFilePath = GetShaderFilePath(fragmentShader);
 
-            var builder = new DescriptorSetLayout.Builder(GraphicsDevice.Instance);
+            var builder = new DescriptorSetLayout.Builder();
             for (uint i = 0; i < reqs.Length; i++)
             {
                 builder.AddBinding(i, reqs[i]);
@@ -159,7 +159,7 @@ namespace VECS.VulkanBackend
             string vertexFilePath = GetShaderFilePath(vertexShader);
             string fragmentFilePath = GetShaderFilePath(fragmentShader);
 
-            var builder = new DescriptorSetLayout.Builder(GraphicsDevice.Instance);
+            var builder = new DescriptorSetLayout.Builder();
             for (uint i = 0; i < reqs.Length; i++)
             {
                 builder.AddBinding(i, reqs[i]);
@@ -348,7 +348,7 @@ namespace VECS.VulkanBackend
             mesh.BindAndDraw(rendererFrameInfo.CommandBuffer);
         }
 
-        public void BindAndDraw<T,U>(RendererFrameInfo rendererFrameInfo, int meshIndex, T pushConstants, params CsharpVulkanBuffer<U>[] buffers) where T : unmanaged where U : unmanaged
+        public void BindAndDraw<T,U>(RendererFrameInfo rendererFrameInfo, int meshIndex, T pushConstants, params GPUBuffer<U>[] buffers) where T : unmanaged where U : unmanaged
         {
             Mesh mesh = Mesh.GetMeshAtIndex(meshIndex);
             if (mesh == null) return;
@@ -391,7 +391,7 @@ namespace VECS.VulkanBackend
         /// <param name="rendererFrameInfo"></param>
         /// <param name="bufferInfos"></param>
         /// <exception cref="Exception"></exception>
-        public static unsafe void AddBuffers<T>(DescriptorWriter builder, params CsharpVulkanBuffer<T>[] bufferInfos) where T : unmanaged
+        public static unsafe void AddBuffers<T>(DescriptorWriter builder, params GPUBuffer<T>[] bufferInfos) where T : unmanaged
         {
             for (uint i = 0; i < bufferInfos.Length; i++)
             {

@@ -10,24 +10,22 @@ namespace VECS.ECS
     /// </summary>
     public class TriangleSystem : PresentationSystemBase
     {
-        protected GraphicsDevice _graphicsDevice;
         protected VkDescriptorSetLayout _globalSetLayout;
         protected VkRenderPass _renderPass;
 
         private Material _triangleMaterial;
 
-        private CsharpVulkanBuffer<Vertex> _vertexBuffer;
+        private GPUBuffer<Vertex> _vertexBuffer;
 
-        public TriangleSystem(GraphicsDevice device, VkRenderPass renderPass, VkDescriptorSetLayout globalSetLayout) : base()
+        public TriangleSystem(VkRenderPass renderPass, VkDescriptorSetLayout globalSetLayout) : base()
         {
-            _graphicsDevice = device;
             _globalSetLayout = globalSetLayout;
             _renderPass = renderPass;
         }
 
         public override void OnCreate(EntityManager entityManager)
         {
-            var renderSystemLayout = new DescriptorSetLayout.Builder(_graphicsDevice)
+            var renderSystemLayout = new DescriptorSetLayout.Builder()
                 .AddBinding(0, VkDescriptorType.UniformBuffer, VkShaderStageFlags.Vertex | VkShaderStageFlags.Fragment)
                 .Build();
             _triangleMaterial = new("triangle.vert", "triangle.frag", renderSystemLayout);
@@ -70,15 +68,15 @@ namespace VECS.ECS
 
             uint vertexBufferSize = (uint)(sourceData.Length * Vertex.SizeInBytes);
 
-            var stagingBuffer = new CsharpVulkanBuffer<Vertex>(_graphicsDevice, (uint)sourceData.Length, VkBufferUsageFlags.TransferSrc, true);
+            var stagingBuffer = new GPUBuffer<Vertex>((uint)sourceData.Length, VkBufferUsageFlags.TransferSrc, true);
             fixed (Vertex* data = &sourceData[0])
             {
                 stagingBuffer.WriteToBuffer(data);
             }
 
-            _vertexBuffer = new CsharpVulkanBuffer<Vertex>(_graphicsDevice, (uint)sourceData.Length, VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.VertexBuffer, true);
+            _vertexBuffer = new GPUBuffer<Vertex>((uint)sourceData.Length, VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.VertexBuffer, true);
 
-            _graphicsDevice.CopyBuffer(stagingBuffer.VkBuffer, _vertexBuffer.VkBuffer, vertexBufferSize);
+            stagingBuffer.CopyToSingleTime(_vertexBuffer);
 
             stagingBuffer.Dispose();
         }

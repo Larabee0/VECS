@@ -243,7 +243,7 @@ namespace VECS.VulkanBackend
             };
             
             _renderFormat = VkFormat.R32G32B32A32Sfloat;
-            _rawRenderImage = new(_device, _renderFormat, renderImageExtent, VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.Sampled, true);
+            _rawRenderImage = new(_renderFormat, renderImageExtent, VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.Sampled, true);
         }
 
         private unsafe void CreateDepthImage()
@@ -255,7 +255,7 @@ namespace VECS.VulkanBackend
                 depth = 1
             };
             _depthFormat = VkFormat.D32Sfloat;
-            _depthImage = new(_device, _depthFormat, depthImageExtent, VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.Sampled, true);
+            _depthImage = new(_depthFormat, depthImageExtent, VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.Sampled, true);
         }
 
         private unsafe void CreateShadowImage()
@@ -266,7 +266,7 @@ namespace VECS.VulkanBackend
                 height = _shadowExtent.height,
                 depth = 1
             };
-            _shadowImage = new(_device, _depthFormat, shadowImageExtent, VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.Sampled, true);
+            _shadowImage = new(_depthFormat, shadowImageExtent, VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.Sampled, true);
         }
 
         private unsafe void CreateDepthPyramid()
@@ -307,7 +307,7 @@ namespace VECS.VulkanBackend
                 }
             };
 
-            _depthPyramidImage = new(_device, pyramidInfo, pyramidViewInfo, true);
+            _depthPyramidImage = new(pyramidInfo, pyramidViewInfo, true);
 
             for (uint i = 0; i < _depthPyramidLevels; i++)
             {

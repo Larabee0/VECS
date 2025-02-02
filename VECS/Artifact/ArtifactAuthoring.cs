@@ -255,9 +255,9 @@ namespace VECS.Artifact
 
         private Entity CreatePrefabPlanet(EntityManager entityManager)
         {
-            var waveA = new Texture2d(GraphicsDevice.Instance, Texture2d.GetTextureInDefaultPath("Wave.jpg"));
-            var waveC = new Texture2d(GraphicsDevice.Instance, Texture2d.GetTextureInDefaultPath("Wave A.png"));
-            var waveB = new Texture2d(GraphicsDevice.Instance, Texture2d.GetTextureInDefaultPath("Wave B.png"));
+            var waveA = new Texture2d(Texture2d.GetTextureInDefaultPath("Wave.jpg"));
+            var waveC = new Texture2d(Texture2d.GetTextureInDefaultPath("Wave A.png"));
+            var waveB = new Texture2d(Texture2d.GetTextureInDefaultPath("Wave B.png"));
             var terrainShapes = Texture2d.CreateTextureArray("Rock1.png", "Rock2.png", "Rock3.png", "Rock4.png", "Rock5.png", "Snow.png", "SnowOld.png");
 
             var planetLit = new Material("planet_shader.vert", "planet_shader.frag", typeof(ModelPushConstantData),
@@ -294,7 +294,7 @@ namespace VECS.Artifact
 
         private void InitialiseTiles(EntityManager entityManager, Entity planetRoot)
         {
-            var planetTileMeshes = Mesh.LoadModelFromFile(GraphicsDevice.Instance, Mesh.GetMeshInDefaultPath("Comp305-Shape-Split.obj"));
+            var planetTileMeshes = Mesh.LoadModelFromFile(Mesh.GetMeshInDefaultPath("Comp305-Shape-Split.obj"));
             Vector3[] tileNormals = new Vector3[planetTileMeshes.Length];
             for (int i = 0; i < planetTileMeshes.Length; i++)
             {
@@ -411,12 +411,12 @@ namespace VECS.Artifact
         /// <param name="entityManager"></param>
         public static void LoadTestScene(EntityManager entityManager)
         {
-            var cubeUvMesh = Mesh.LoadModelFromFile(GraphicsDevice.Instance, Mesh.GetMeshInDefaultPath("cube-uv.obj"));
-            var flatVaseMesh = Mesh.LoadModelFromFile(GraphicsDevice.Instance, Mesh.GetMeshInDefaultPath("flat_vase.obj"));
-            var smoothVaseMesh = Mesh.LoadModelFromFile(GraphicsDevice.Instance, Mesh.GetMeshInDefaultPath("smooth_vase.obj"));
+            var cubeUvMesh = Mesh.LoadModelFromFile(Mesh.GetMeshInDefaultPath("cube-uv.obj"));
+            var flatVaseMesh = Mesh.LoadModelFromFile(Mesh.GetMeshInDefaultPath("flat_vase.obj"));
+            var smoothVaseMesh = Mesh.LoadModelFromFile(Mesh.GetMeshInDefaultPath("smooth_vase.obj"));
 
-            var paving = new Texture2d(GraphicsDevice.Instance, Texture2d.GetTextureInDefaultPath("paving 5.png"));
-            var orangeStone = new Texture2d(GraphicsDevice.Instance, Texture2d.GetTextureInDefaultPath("orange.jpg"));
+            var paving = new Texture2d(Texture2d.GetTextureInDefaultPath("paving 5.png"));
+            var orangeStone = new Texture2d(Texture2d.GetTextureInDefaultPath("orange.jpg"));
 
             var lit = new Material("simple_shader.vert", "simple_shader.frag", typeof(ModelPushConstantData), new DescriptorSetBinding(VkDescriptorType.CombinedImageSampler, VkShaderStageFlags.Fragment));
             var unlit = new Material("unlit_shader.vert", "unlit_shader.frag", typeof(ModelPushConstantData), new DescriptorSetBinding(VkDescriptorType.CombinedImageSampler, VkShaderStageFlags.Fragment));
@@ -524,7 +524,7 @@ namespace VECS.Artifact
                  new(new Vector3(.5f, .5f, -0.5f), new Vector3( .1f, .8f, .1f)),
 
             ];
-            return new Mesh(GraphicsDevice.Instance, vertices);
+            return new Mesh(vertices);
         }
     }
 }

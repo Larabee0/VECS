@@ -28,13 +28,13 @@ namespace VECS.VulkanBackend
         private VkExtent3D _imageExtents;
         public VkImageViewType _imageImageViewType;
         private readonly GraphicsDevice _device;
-        private CsharpVulkanImage _textureImage;
+        private GPUImage _textureImage;
         private VkImageView _textureImageView;
         private VkSampler _textureSampler;
 
         private bool _disposed;
 
-        public CsharpVulkanImage TextureImage => _textureImage;
+        public GPUImage TextureImage => _textureImage;
 
         public VkExtent3D ImageExtent => _imageExtents;
         public VkImageView TextureImageView => _textureImageView;
@@ -46,16 +46,16 @@ namespace VECS.VulkanBackend
             sampler = _textureSampler
         };
 
-        private Texture2d(GraphicsDevice device) { _device = device; }
+        private Texture2d() { _device = GraphicsDevice.Instance; }
 
         /// <summary>
         /// create an image that loaded from the given file path
         /// </summary>
         /// <param name="device"></param>
         /// <param name="filepath"></param>
-        public Texture2d(GraphicsDevice device, string filepath)
+        public Texture2d( string filepath)
         {
-            _device = device;
+            _device = GraphicsDevice.Instance;
             var surface = LoadImage(filepath);
             if (surface == null) return;
             CreateTextureImage(surface);
@@ -74,9 +74,9 @@ namespace VECS.VulkanBackend
         /// <param name="extent"></param>
         /// <param name="usage"></param>
         /// <exception cref="Exception"></exception>
-        public unsafe Texture2d(GraphicsDevice deivce, VkFormat format, VkExtent3D extent, VkImageUsageFlags usage, bool exclusive = false)
+        public unsafe Texture2d(VkFormat format, VkExtent3D extent, VkImageUsageFlags usage, bool exclusive = false)
         {
-            _device = deivce;
+            _device = GraphicsDevice.Instance;
             VkImageAspectFlags aspectMask = 0;
             _imageLayout = VkImageLayout.Undefined;
 
@@ -98,10 +98,10 @@ namespace VECS.VulkanBackend
                 _imageLayout = VkImageLayout.DepthAttachmentOptimal;
             }
 
-            VkImageCreateInfo imageInfo = CsharpVulkanImage.DefaultImageCreateInfo(_imageExtents);
+            VkImageCreateInfo imageInfo = GPUImage.DefaultImageCreateInfo(_imageExtents);
             imageInfo.format = format;
             imageInfo.usage = usage;
-            _textureImage = new(deivce, imageInfo);
+            _textureImage = new(imageInfo);
 
             VkImageViewCreateInfo viewInfo = new()
             {
@@ -171,10 +171,10 @@ namespace VECS.VulkanBackend
             }
         }
 
-        public unsafe Texture2d(GraphicsDevice device, VkImageCreateInfo imageCreateInfo, VkImageViewCreateInfo viewInfo, bool exclusive = false)
+        public unsafe Texture2d(VkImageCreateInfo imageCreateInfo, VkImageViewCreateInfo viewInfo, bool exclusive = false)
         {
-            _device = device;
-            _textureImage = new(_device, imageCreateInfo);
+            _device = GraphicsDevice.Instance;
+            _textureImage = new(imageCreateInfo);
             _imageExtents = imageCreateInfo.extent;
             viewInfo.image = _textureImage.VkImage;
             if (Vulkan.vkCreateImageView(_device.Device, viewInfo, null, out _textureImageView) != VkResult.Success)
@@ -381,7 +381,7 @@ namespace VECS.VulkanBackend
 
         public unsafe void CopyFromArray(Vector4[] colours)
         {
-            var stagingBuffer = new CsharpVulkanBuffer<Vector4>(GraphicsDevice.Instance, (ulong)colours.LongLength, VkBufferUsageFlags.TransferSrc, true);
+            var stagingBuffer = new GPUBuffer<Vector4>((ulong)colours.LongLength, VkBufferUsageFlags.TransferSrc, true);
 
             fixed (Vector4* pColours = colours)
             {
@@ -393,7 +393,7 @@ namespace VECS.VulkanBackend
         }
 
 
-        public unsafe void CopyFromBuffer<T>(CsharpVulkanBuffer<T> buffer,uint width,uint height,uint depth = 1) where T : unmanaged
+        public unsafe void CopyFromBuffer<T>(GPUBuffer<T> buffer,uint width,uint height,uint depth = 1) where T : unmanaged
         {
             TransitionImageLayout(VkImageLayout.TransferDstOptimal);
             if (depth == 1)
@@ -448,7 +448,7 @@ namespace VECS.VulkanBackend
             uint width = (uint)image.Width;
             uint height = (uint)image.Height;
 
-            var stagingBuffer = new CsharpVulkanBuffer<Color>(_device, width * height, VkBufferUsageFlags.TransferSrc, true);
+            var stagingBuffer = new GPUBuffer<Color>(width * height, VkBufferUsageFlags.TransferSrc, true);
 
             Color* pMappedData;
             stagingBuffer.Map(&pMappedData);
@@ -457,7 +457,7 @@ namespace VECS.VulkanBackend
 
             _imageExtents = new(width, height, 1);
 
-            _textureImage = new(_device, _imageExtents,_imageFormat);
+            _textureImage = new(_imageExtents,_imageFormat);
 
             CopyFromBuffer(stagingBuffer, width, height);
 
@@ -599,9 +599,9 @@ namespace VECS.VulkanBackend
 
             //uint textureArraySize = (uint)(width * height * depth * sizeof(Color));
 
-            Texture2d textureArray = new(GraphicsDevice.Instance);
+            Texture2d textureArray = new();
 
-            var stagingBuffer = new CsharpVulkanBuffer<Color>(GraphicsDevice.Instance, width * height * depth, VkBufferUsageFlags.TransferSrc, true);
+            var stagingBuffer = new GPUBuffer<Color>(width * height * depth, VkBufferUsageFlags.TransferSrc, true);
             
             // the surface class needs to copy its data to this before it can be copied to the gpu.
             // staging buffer for the staging buffer
@@ -621,7 +621,7 @@ namespace VECS.VulkanBackend
 
 
             textureArray._imageExtents = new(width, height, depth);
-            textureArray._textureImage = new(GraphicsDevice.Instance, textureArray._imageExtents,textureArray._imageFormat);
+            textureArray._textureImage = new(textureArray._imageExtents,textureArray._imageFormat);
 
             
             textureArray.CopyFromBuffer(stagingBuffer, width, height, depth);

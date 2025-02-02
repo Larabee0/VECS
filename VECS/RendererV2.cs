@@ -29,6 +29,8 @@ namespace VECS
         private VkPipelineLayout _blitPipelineLayout;
         private RenderPipeline _blitPipeline;
 
+        private GPUBuffer<float> _blitVertexBuffer;
+
         public int FrameIndex
         {
             get
@@ -120,7 +122,7 @@ namespace VECS
 
         private unsafe void CreateBlitPipeline()
         {
-            _blitDescriptorSetLayout = new DescriptorSetLayout.Builder(_device).AddBinding(0, new() { Count = 1, DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Fragment }).Build();
+            _blitDescriptorSetLayout = new DescriptorSetLayout.Builder().AddBinding(0, new() { Count = 1, DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Fragment }).Build();
             VkDescriptorSetLayout* pDescriptorSetLayouts = stackalloc VkDescriptorSetLayout[]
             {
                 _blitDescriptorSetLayout.SetLayout
@@ -133,7 +135,7 @@ namespace VECS
                 pPushConstantRanges = null
             };
 
-            if (Vulkan.vkCreatePipelineLayout(GraphicsDevice.Instance.Device, vkPipelineLayoutInfo, null, out _blitPipelineLayout) != VkResult.Success)
+            if (Vulkan.vkCreatePipelineLayout(_device.Device, vkPipelineLayoutInfo, null, out _blitPipelineLayout) != VkResult.Success)
             {
                 throw new Exception("Failed to create blit pipeline layout!");
             }
@@ -192,6 +194,8 @@ namespace VECS
             config.AttributeDescriptions = [];
 
             _blitPipeline = new(_device, Material.GetShaderFilePath("fullscreen.vert"), Material.GetShaderFilePath("blit.frag"), config);
+            _blitVertexBuffer = new(3, VkBufferUsageFlags.VertexBuffer, false);
+            _blitVertexBuffer.FillBufferSingleTimeCmd(0);
         }
 
         private unsafe void FreeCommandBuffers()
@@ -496,6 +500,7 @@ namespace VECS
 
             
             Vulkan.vkCmdBindDescriptorSets(frameInfo.CommandBuffer, VkPipelineBindPoint.Graphics,_blitPipelineLayout,0,blitSet);
+            Vulkan.vkCmdBindVertexBuffer(frameInfo.CommandBuffer, 0, _blitVertexBuffer.VkBuffer);
             Vulkan.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
 
             Vulkan.vkCmdEndRenderPass(frameInfo.CommandBuffer);
@@ -540,6 +545,7 @@ namespace VECS
 
         public unsafe void Dispose()
         {
+            _blitVertexBuffer.Dispose();
             _blitPipeline.Dispose();
             Vulkan.vkDestroyPipelineLayout(_device.Device, _blitPipelineLayout);
             _blitDescriptorSetLayout?.Dispose();

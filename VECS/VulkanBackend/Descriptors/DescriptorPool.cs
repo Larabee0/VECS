@@ -19,9 +19,9 @@ namespace VECS
         /// <param name="poolFlags">Behaviour flags</param>
         /// <param name="poolSizes">indivdual descriptor sizes for descriptor types</param>
         /// <exception cref="Exception"></exception>
-        unsafe DescriptorPool(GraphicsDevice device, uint maxSets, VkDescriptorPoolCreateFlags poolFlags, VkDescriptorPoolSize[] poolSizes)
+        private unsafe DescriptorPool(uint maxSets, VkDescriptorPoolCreateFlags poolFlags, VkDescriptorPoolSize[] poolSizes)
         {
-            GraphicsDevice = device;
+            GraphicsDevice = GraphicsDevice.Instance;
 
             VkDescriptorPoolSize* pPoolSizes = stackalloc VkDescriptorPoolSize[poolSizes.Length];
             for (int i = 0; i < poolSizes.Length; i++)
@@ -104,9 +104,9 @@ namespace VECS
             private VkDescriptorPoolSize[] _poolSizes = [];
             private uint _maxSets = 1000;
             private VkDescriptorPoolCreateFlags _poolFlags = 0;
-            public Builder(GraphicsDevice graphicsDevice)
+            public Builder()
             {
-                _graphicsDevice = graphicsDevice;
+                _graphicsDevice = GraphicsDevice.Instance;
             }
 
             /// <summary>
@@ -148,7 +148,7 @@ namespace VECS
 
             public DescriptorPool Build()
             {
-                return new DescriptorPool(_graphicsDevice, _maxSets, _poolFlags, _poolSizes);
+                return new DescriptorPool(_maxSets, _poolFlags, _poolSizes);
             }
         }
 

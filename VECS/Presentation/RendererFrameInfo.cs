@@ -25,7 +25,7 @@ namespace VECS
         public float DeltaTime;
         public VkCommandBuffer CommandBuffer;
         public GlobalUbo Ubo;
-        public CsharpVulkanBuffer<GlobalUbo.WriteableUBO> UboBuffer;
+        public GPUBuffer<GlobalUbo.WriteableUBO> UboBuffer;
         public VkDescriptorSet GlobalDescriptorSet;
         public DescriptorPool FrameDescriptorPool;
         public List<VkBufferMemoryBarrier> PostCullBarriers;

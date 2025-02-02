@@ -37,7 +37,7 @@ namespace VECS
         private DescriptorPool _globalDescriptorPool;
         private DescriptorSetLayout _globalDescriptorSetLayout;
         private readonly VkDescriptorSet[] _globalDescriptorSets = new VkDescriptorSet[SwapChain.MAX_FRAMES_IN_FLIGHT];
-        private readonly CsharpVulkanBuffer<GlobalUbo.WriteableUBO>[] _globalUboBuffers = new CsharpVulkanBuffer<GlobalUbo.WriteableUBO>[SwapChain.MAX_FRAMES_IN_FLIGHT];
+        private readonly GPUBuffer<GlobalUbo.WriteableUBO>[] _globalUboBuffers = new GPUBuffer<GlobalUbo.WriteableUBO>[SwapChain.MAX_FRAMES_IN_FLIGHT];
 
         private readonly DescriptorPool[] swapChainFrameDescriptorPools = new DescriptorPool[SwapChain.MAX_FRAMES_IN_FLIGHT];
 
@@ -46,16 +46,16 @@ namespace VECS
         public VkRenderPass RenderPass => RENDER_V2 ? _rendererV2.RenderPass :  _renderer.SwapChainRenderPass;
         public VkDescriptorSetLayout GlobalSetLayout => _globalDescriptorSetLayout.SetLayout;
 
-        public Presenter(IWindow window, GraphicsDevice device)
+        public Presenter(IWindow window)
         {
-            _device = device;
+            _device = GraphicsDevice.Instance;
             if (RENDER_V2)
             {
                 _rendererV2 = new(window);
             }
             else
             {
-                _renderer = new(window, device);
+                _renderer = new(window);
             }
             
 
@@ -70,7 +70,7 @@ namespace VECS
         /// </summary>
         private void InitGloalDescriptorPool()
         {
-            _globalDescriptorPool = new DescriptorPool.Builder(_device)
+            _globalDescriptorPool = new DescriptorPool.Builder()
                 .SetMaxSets(SwapChain.MAX_FRAMES_IN_FLIGHT)
                 .AddPoolSize(VkDescriptorType.UniformBuffer, SwapChain.MAX_FRAMES_IN_FLIGHT)
                 .Build();
@@ -81,7 +81,7 @@ namespace VECS
         /// </summary>
         private void InitSwapChainFrameDescriptorPools()
         {
-            DescriptorPool.Builder framePoolBuilder = new DescriptorPool.Builder(_device)
+            DescriptorPool.Builder framePoolBuilder = new DescriptorPool.Builder()
                             .SetMaxSets(1000)
                             .AddPoolSize(VkDescriptorType.CombinedImageSampler, 1000)
                             .AddPoolSize(VkDescriptorType.UniformBuffer, 1000)
@@ -110,18 +110,16 @@ namespace VECS
             World.DefaultWorld.EntityManager.AddComponent<FrameInfo>(frameInfoEntity);
         }
 
-        public void LoadMissingTexture()
+        private static void LoadMissingTexture()
         {
-            _ = new Texture2d(_device, Texture2d.GetTextureInDefaultPath("missing.png"));
+            _ = new Texture2d(Texture2d.GetTextureInDefaultPath("missing.png"));
         }
 
-        private unsafe DescriptorSetLayout ConfigureUboBuffers(CsharpVulkanBuffer<GlobalUbo.WriteableUBO>[] uboBuffers, VkDescriptorSet[] globalDescriptorSets)
+        private unsafe DescriptorSetLayout ConfigureUboBuffers(GPUBuffer<GlobalUbo.WriteableUBO>[] uboBuffers, VkDescriptorSet[] globalDescriptorSets)
         {
             for (int i = 0; i < uboBuffers.Length; i++)
             {
-                uboBuffers[i] = new(
-                    _device,
-                    (uint)GlobalUbo.SizeInBytes,
+                uboBuffers[i] = new((uint)GlobalUbo.SizeInBytes,
                     1,
                     VkBufferUsageFlags.UniformBuffer,
                     true);
@@ -129,7 +127,7 @@ namespace VECS
 
             // add the binding for this buffer and set where it is avaliable in the shader pipeline
             // in this case its avaliable to all graphis stages.
-            var globalSetLayout = new DescriptorSetLayout.Builder(_device)
+            var globalSetLayout = new DescriptorSetLayout.Builder()
                 .AddBinding(0, VkDescriptorType.UniformBuffer, VkShaderStageFlags.AllGraphics)
                 .Build();
 

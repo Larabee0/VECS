@@ -28,34 +28,34 @@ namespace VECS
         /// <param name="bufferInfo"></param>
         /// <returns></returns>
         /// <exception cref="Exception"></exception>
+        // public unsafe DescriptorWriter WriteBuffer(uint binding, VkDescriptorBufferInfo bufferInfo)
+        // {
+        //     if (!_setLayout.Bindings.TryGetValue(binding, out VkDescriptorSetLayoutBinding bindingDescription))
+        //     {
+        //         throw new Exception("Layout does not contain specified binding");
+        //     }
+        // 
+        //     if (bindingDescription.descriptorCount != 1)
+        //     {
+        //         throw new Exception("Binding single descriptor info, but binding expects multiple");
+        //     }
+        // 
+        //     cachedWrites.Add(new(binding, bufferInfo));
+        // 
+        //     VkWriteDescriptorSet write = new()
+        //     {
+        //         descriptorType = bindingDescription.descriptorType,
+        //         dstBinding = binding,
+        //         pBufferInfo = &bufferInfo,
+        //         descriptorCount = 1
+        //     };
+        // 
+        //     _writes = [.. _writes, write];
+        //     return this;
+        // }
+
+
         public unsafe DescriptorWriter WriteBuffer(uint binding, VkDescriptorBufferInfo bufferInfo)
-        {
-            if (!_setLayout.Bindings.TryGetValue(binding, out VkDescriptorSetLayoutBinding bindingDescription))
-            {
-                throw new Exception("Layout does not contain specified binding");
-            }
-
-            if (bindingDescription.descriptorCount != 1)
-            {
-                throw new Exception("Binding single descriptor info, but binding expects multiple");
-            }
-
-            cachedWrites.Add(new(binding, bufferInfo));
-
-            VkWriteDescriptorSet write = new()
-            {
-                descriptorType = bindingDescription.descriptorType,
-                dstBinding = binding,
-                pBufferInfo = &bufferInfo,
-                descriptorCount = 1
-            };
-
-            _writes = [.. _writes, write];
-            return this;
-        }
-
-
-        public unsafe DescriptorWriter WriteBufferCached(uint binding, VkDescriptorBufferInfo bufferInfo)
         {
             if (!_setLayout.Bindings.TryGetValue(binding, out VkDescriptorSetLayoutBinding bindingDescription))
             {
@@ -78,33 +78,33 @@ namespace VECS
         /// <param name="imageInfo"></param>
         /// <returns></returns>
         /// <exception cref="Exception"></exception>
+        //public unsafe DescriptorWriter WriteImage(uint binding, VkDescriptorImageInfo imageInfo)
+        //{
+        //    if (!_setLayout.Bindings.TryGetValue(binding, out VkDescriptorSetLayoutBinding bindingDescription))
+        //    {
+        //        throw new Exception("Layout does not contain specified binding");
+        //    }
+        //
+        //    if (bindingDescription.descriptorCount != 1)
+        //    {
+        //        throw new Exception("Binding single descriptor info, but binding expects multiple");
+        //    }
+        //    cachedWrites.Add(new(binding, imageInfo));
+        //
+        //    VkWriteDescriptorSet write = new()
+        //    {
+        //        descriptorType = bindingDescription.descriptorType,
+        //        dstBinding = binding,
+        //        pImageInfo = &imageInfo,
+        //        descriptorCount = 1
+        //    };
+        //
+        //    _writes = [.. _writes, write];
+        //    return this;
+        //}
+
+
         public unsafe DescriptorWriter WriteImage(uint binding, VkDescriptorImageInfo imageInfo)
-        {
-            if (!_setLayout.Bindings.TryGetValue(binding, out VkDescriptorSetLayoutBinding bindingDescription))
-            {
-                throw new Exception("Layout does not contain specified binding");
-            }
-
-            if (bindingDescription.descriptorCount != 1)
-            {
-                throw new Exception("Binding single descriptor info, but binding expects multiple");
-            }
-            cachedWrites.Add(new(binding, imageInfo));
-
-            VkWriteDescriptorSet write = new()
-            {
-                descriptorType = bindingDescription.descriptorType,
-                dstBinding = binding,
-                pImageInfo = &imageInfo,
-                descriptorCount = 1
-            };
-
-            _writes = [.. _writes, write];
-            return this;
-        }
-
-
-        public unsafe DescriptorWriter WriteImageCached(uint binding, VkDescriptorImageInfo imageInfo)
         {
             if (!_setLayout.Bindings.TryGetValue(binding, out VkDescriptorSetLayoutBinding bindingDescription))
             {
@@ -128,19 +128,18 @@ namespace VECS
         public unsafe bool Build(VkDescriptorSet* set)
         {
             bool success = _pool.AllocateDescriptorSet(_setLayout.SetLayout, set);
-            if (!success)
-            {
-                return false;
-            }
-            if (cachedWrites.Count > 0)
+            
+            if (success && cachedWrites.Count > 0)
             {
                 OverwriteCached(set);
+                return true;
             }
-            else
-            {
-                Overwrite(set);
-            }
-            return true;
+            //else
+            //{
+            //    Overwrite(set);
+            //    return true;
+            //}
+            return false;
         }
 
         private unsafe void OverwriteCached(VkDescriptorSet* set)
@@ -203,7 +202,6 @@ namespace VECS
                 }
                 else
                 {
-                    //VkDescriptorImageInfo imageInfo = cachedWrite.imageInfo;
                     fixed (VkDescriptorImageInfo* imageInfo = &cachedWrite.imageInfo)
                     {
                         writes[i] = new()
@@ -226,14 +224,14 @@ namespace VECS
         /// overwrites a given descriptor set with the current writes queued.
         /// </summary>
         /// <param name="set"></param>
-        public unsafe void Overwrite(VkDescriptorSet* set)
-        {
-            for (int i = 0; i < _writes.Length; i++)
-            {
-                _writes[i].dstSet = *set;
-            }
-            Vulkan.vkUpdateDescriptorSets(_pool.GraphicsDevice.Device, _writes);
-        }
+        //public unsafe void Overwrite(VkDescriptorSet* set)
+        //{
+        //    for (int i = 0; i < _writes.Length; i++)
+        //    {
+        //        _writes[i].dstSet = *set;
+        //    }
+        //    Vulkan.vkUpdateDescriptorSets(_pool.GraphicsDevice.Device, _writes);
+        //}
 
         public class CachedWrite
         {

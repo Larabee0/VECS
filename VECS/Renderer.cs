@@ -60,10 +60,10 @@ namespace VECS
         private DescriptorSetLayout _blitLitPipelineDescriptorSetLayout;
         private VkPipelineLayout _blitPipelineLayout;
         private RenderPipeline _blitPipeline;
-        public Renderer(IWindow window, GraphicsDevice device)
+        public Renderer(IWindow window)
         {
             _window = window;
-            _device = device;
+            _device = GraphicsDevice.Instance;
 
             RecreateSwapChain();
             CreateBlitPipeline();
@@ -73,7 +73,7 @@ namespace VECS
 
         private unsafe void CreateBlitPipeline()
         {
-            _blitLitPipelineDescriptorSetLayout = new DescriptorSetLayout.Builder(_device).AddBinding(0, new() { Count = 1, DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Fragment }).Build();
+            _blitLitPipelineDescriptorSetLayout = new DescriptorSetLayout.Builder().AddBinding(0, new() { Count = 1, DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Fragment }).Build();
             VkDescriptorSetLayout* pDescriptorSetLayouts = stackalloc VkDescriptorSetLayout[]
             {
                 _blitLitPipelineDescriptorSetLayout.SetLayout
@@ -86,7 +86,7 @@ namespace VECS
                 pPushConstantRanges = null
             };
 
-            if (Vulkan.vkCreatePipelineLayout(GraphicsDevice.Instance.Device, vkPipelineLayoutInfo, null, out _blitPipelineLayout) != VkResult.Success)
+            if (Vulkan.vkCreatePipelineLayout(_device.Device, vkPipelineLayoutInfo, null, out _blitPipelineLayout) != VkResult.Success)
             {
                 throw new Exception("Failed to create blit pipeline layout!");
             }

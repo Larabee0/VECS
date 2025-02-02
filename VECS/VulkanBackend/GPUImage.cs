@@ -6,7 +6,7 @@ namespace VECS.VulkanBackend
     /// <summary>
     /// Abstracted buffer class for managing a Vk Image and device memory using the Vulkan Memory Allocator (VMA)
     /// </summary>
-    public sealed class CsharpVulkanImage : IDisposable
+    public sealed class GPUImage : IDisposable
     {
         private readonly GraphicsDevice _device;
 
@@ -15,17 +15,17 @@ namespace VECS.VulkanBackend
 
         private bool _disposed;
 
-        public CsharpVulkanImage(GraphicsDevice graphicsDevice, VkExtent3D extent, VkFormat format)
+        public GPUImage(VkExtent3D extent, VkFormat format)
         {
-            _device = graphicsDevice;
+            _device = GraphicsDevice.Instance;
             var createInfo = DefaultImageCreateInfo(extent);
             createInfo.format = format;
             CreateInternal(createInfo);
         }
 
-        public unsafe CsharpVulkanImage(GraphicsDevice graphicsDevice, VkImageCreateInfo imgCreateInfo)
+        public unsafe GPUImage(VkImageCreateInfo imgCreateInfo)
         {
-            _device = graphicsDevice;
+            _device = GraphicsDevice.Instance;
             CreateInternal(imgCreateInfo);
         }
 
@@ -41,7 +41,7 @@ namespace VECS.VulkanBackend
             }
         }
 
-        public unsafe void CopyFromBuffer<T>(CsharpVulkanBuffer<T> buffer, uint width, uint height) where T : unmanaged
+        public unsafe void CopyFromBuffer<T>(GPUBuffer<T> buffer, uint width, uint height) where T : unmanaged
         {
             VkCommandBuffer commandBuffer = _device.BeginSingleTimeCommands();
             VkBufferImageCopy region = new()
@@ -65,7 +65,12 @@ namespace VECS.VulkanBackend
             _device.EndSingleTimeCommands(commandBuffer);
         }
 
-        public unsafe void CopyFromBuffer<T>(CsharpVulkanBuffer<T> buffer, uint width, uint height,uint depth) where T : unmanaged
+        public unsafe void CopyToBuffer<U>(VkCommandBuffer cmd,VkImageLayout srcImageLayout, uint cmdCount, VkBufferImageCopy* copyCmds, GPUBuffer<U> buffer) where U : unmanaged
+        {
+            Vulkan.vkCmdCopyImageToBuffer(cmd, VkImage, srcImageLayout, buffer.VkBuffer, cmdCount, copyCmds);
+        }
+
+        public unsafe void CopyFromBuffer<T>(GPUBuffer<T> buffer, uint width, uint height,uint depth) where T : unmanaged
         {
             VkCommandBuffer commandBuffer = _device.BeginSingleTimeCommands();
             VkBufferImageCopy[] bufferCopyRegions = new VkBufferImageCopy[depth];

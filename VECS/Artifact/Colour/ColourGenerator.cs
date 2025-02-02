@@ -19,12 +19,12 @@ namespace VECS.Artifact.Colour
             {
                 colourTexture?.Dispose();
 
-                colourTexture = new(GraphicsDevice.Instance, VkFormat.R32G32B32A32Sfloat, new(textureResolution * 2, settings.biomeColourSettings.biomes.Length, 1), VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferDst);
+                colourTexture = new(VkFormat.R32G32B32A32Sfloat, new(textureResolution * 2, settings.biomeColourSettings.biomes.Length, 1), VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferDst);
             }
             if (steepTexture == null || steepTexture.ImageExtent.height != settings.biomeColourSettings.biomes.Length)
             {
                 steepTexture?.Dispose();
-                steepTexture = new(GraphicsDevice.Instance, VkFormat.R32G32B32A32Sfloat, new(textureResolution * 2, settings.biomeColourSettings.biomes.Length, 1), VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferDst);
+                steepTexture = new(VkFormat.R32G32B32A32Sfloat, new(textureResolution * 2, settings.biomeColourSettings.biomes.Length, 1), VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferDst);
             }
         }
 

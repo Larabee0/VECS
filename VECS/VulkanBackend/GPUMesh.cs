@@ -29,8 +29,8 @@ namespace VECS.VulkanBackend
         private bool _disposed = false;
         private bool _deallocateRWBuffersOnFlush = true;
 
-        private CsharpVulkanBuffer<T> _vertexRWBuffer;
-        private CsharpVulkanBuffer<uint> _indexRWBuffer;
+        private GPUBuffer<T> _vertexRWBuffer;
+        private GPUBuffer<uint> _indexRWBuffer;
 
         private T[] _vertices;
         private uint[] _indices;
@@ -374,15 +374,13 @@ namespace VECS.VulkanBackend
 
         private unsafe void TryReallocateRWBuffers(ulong vertexBufferLength, ulong indexBufferLength)
         {
-            _vertexRWBuffer ??= new CsharpVulkanBuffer<T>(Device,
-                vertexBufferLength,
+            _vertexRWBuffer ??= new GPUBuffer<T>(vertexBufferLength,
                 VkBufferUsageFlags.TransferDst |
                 VkBufferUsageFlags.TransferSrc |
                 VkBufferUsageFlags.StorageBuffer, true);
 
 
-            _indexRWBuffer ??= new CsharpVulkanBuffer<uint>(Device,
-                indexBufferLength,
+            _indexRWBuffer ??= new GPUBuffer<uint>(indexBufferLength,
                 VkBufferUsageFlags.TransferDst |
                 VkBufferUsageFlags.TransferSrc |
                 VkBufferUsageFlags.StorageBuffer, true);

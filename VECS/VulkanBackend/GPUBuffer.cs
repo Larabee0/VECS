@@ -10,7 +10,7 @@ namespace VECS
     /// These buffers are used for things like a vertex buffer, index buffer.
     /// 
     /// </summary>
-    public sealed class CsharpVulkanBuffer<T> : IDisposable where T : unmanaged
+    public sealed class GPUBuffer<T> : IDisposable where T : unmanaged
     {
 
         private readonly GraphicsDevice _device;
@@ -29,7 +29,7 @@ namespace VECS
         public ulong UInstanceCount => _instanceCount;
         public long InstanceCount => (long)_instanceCount;
 
-        public CsharpVulkanBuffer()
+        public GPUBuffer()
         {
             BufferSize = 0;
         }
@@ -44,15 +44,13 @@ namespace VECS
         /// <param name="cpuAccessible">If this buffer is CPU accessible or just local to the GPU</param>
         /// <param name="minOffsetAlignment"></param>
         /// <exception cref="Exception"></exception>
-        public unsafe CsharpVulkanBuffer(
-            GraphicsDevice graphicsDevice,
-            //uint instanceSize,
+        public unsafe GPUBuffer(
             uint instanceCount,
             VkBufferUsageFlags usageFlags,
             bool cpuAccessible,
             uint minOffsetAlignment = 1)
         {
-            _device = graphicsDevice;
+            _device = GraphicsDevice.Instance;
             _instanceSize = (ulong)sizeof(T);
             _instanceCount = instanceCount;
             _usageFlags = usageFlags;
@@ -85,15 +83,14 @@ namespace VECS
             }
         }
 
-        public unsafe CsharpVulkanBuffer(
-            GraphicsDevice graphicsDevice,
+        public unsafe GPUBuffer(
             uint instanceSize,
             uint instanceCount,
             VkBufferUsageFlags usageFlags,
             bool cpuAccessible,
             uint minOffsetAlignment = 1)
         {
-            _device = graphicsDevice;
+            _device = GraphicsDevice.Instance;
             _instanceSize = instanceSize;
             _instanceCount = instanceCount;
             _usageFlags = usageFlags;
@@ -126,15 +123,13 @@ namespace VECS
             }
         }
 
-        public unsafe CsharpVulkanBuffer(
-            GraphicsDevice graphicsDevice,
-            //ulong instanceSize,
+        public unsafe GPUBuffer(
             ulong instanceCount,
             VkBufferUsageFlags usageFlags,
             bool cpuAccessible,
             ulong minOffsetAlignment = 1)
         {
-            _device = graphicsDevice;
+            _device = GraphicsDevice.Instance;
             _instanceSize = (ulong)sizeof(T);
             _instanceCount = instanceCount;
             _usageFlags = usageFlags;
@@ -231,6 +226,28 @@ namespace VECS
             Unmap();
         }
 
+        public void CopyToSingleTime<U>(GPUBuffer<U> dstBuffer) where U : unmanaged
+        {
+            CopyToSingleTime(0, dstBuffer, 0, BufferSize);
+        }
+
+        public void CopyToSingleTime<U>(ulong srcOffset, GPUBuffer<U> dstBuffer, ulong dstOffset, ulong size) where U : unmanaged
+        {
+            VkCommandBuffer cmd = _device.BeginSingleTimeCommands();
+            CopyTo(cmd, srcOffset, dstBuffer, dstOffset, size);
+            _device.EndSingleTimeCommands(cmd);
+        }
+
+        public void CopyTo<U>(VkCommandBuffer cmd,GPUBuffer<U> dstBuffer) where U : unmanaged
+        {
+            CopyTo(cmd, 0, dstBuffer, 0, BufferSize);
+        }
+
+        public void CopyTo<U>(VkCommandBuffer cmd, ulong srcOffset, GPUBuffer<U> dstBuffer, ulong dstOffset,ulong size) where U : unmanaged
+        {
+            GraphicsDevice.CopyBuffer(cmd, size, VkBuffer, srcOffset, dstBuffer.VkBuffer, dstOffset);
+        }
+
         /// <summary>
         /// Flush CPU changes to the GPU
         /// </summary>
@@ -256,6 +273,18 @@ namespace VECS
                 offset = offset,
                 range = size
             };
+        }
+
+        public void FillBufferSingleTimeCmd(uint data, ulong dstOffset = 0, ulong bufferSize = Vulkan.VK_WHOLE_SIZE)
+        {
+            var cmd = _device.BeginSingleTimeCommands();
+            FillBuffer(cmd, data, dstOffset, bufferSize);
+            _device.EndSingleTimeCommands(cmd);
+        }
+
+        public void FillBuffer(VkCommandBuffer commandBuffer, uint data, ulong dstOffset = 0, ulong bufferSize = Vulkan.VK_WHOLE_SIZE)
+        {
+            Vulkan.vkCmdFillBuffer(commandBuffer, VkBuffer, dstOffset, bufferSize, data);
         }
 
         /// <summary>

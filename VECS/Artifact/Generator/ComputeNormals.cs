@@ -27,7 +27,7 @@ namespace VECS.Artifact.Generator
 
         private readonly DescriptorPool _descriptorPool;
 
-        private CsharpVulkanBuffer<Vector3> _workingNormalBuffer;
+        private GPUBuffer<Vector3> _workingNormalBuffer;
 
         public unsafe ComputeNormals()
         {
@@ -45,7 +45,7 @@ namespace VECS.Artifact.Generator
                 new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute)
             );
 
-            _descriptorPool = new DescriptorPool.Builder(GraphicsDevice.Instance)
+            _descriptorPool = new DescriptorPool.Builder()
                 .AddPoolSize(VkDescriptorType.UniformBuffer, 2)
                 .AddPoolSize(VkDescriptorType.StorageBuffer, 5)
                 .Build();
@@ -59,14 +59,14 @@ namespace VECS.Artifact.Generator
         /// Ensures normal buffer of sufficient size exists before calling prepare for compute shader pair.
         /// </summary>
         /// <param name="vertexBuffer"></param>
-        private unsafe void Prepare(CsharpVulkanBuffer<uint> indexBuffer, CsharpVulkanBuffer<Vertex> vertexBuffer)
+        private unsafe void Prepare(GPUBuffer<uint> indexBuffer, GPUBuffer<Vertex> vertexBuffer)
         {
             // to share this pipeline across the whole mesh, the normal buffer must be as long as the longest vertex buffer.
             // recallocate when a new vertex buffer is longer than the current normal buffer
             if (_workingNormalBuffer == null || vertexBuffer.UInstanceCount > _workingNormalBuffer.UInstanceCount)
             {
                 _workingNormalBuffer?.Dispose();
-                _workingNormalBuffer = new(GraphicsDevice.Instance, vertexBuffer.UInstanceCount, VkBufferUsageFlags.StorageBuffer | VkBufferUsageFlags.TransferDst, false);
+                _workingNormalBuffer = new(vertexBuffer.UInstanceCount, VkBufferUsageFlags.StorageBuffer | VkBufferUsageFlags.TransferDst, false);
             }
 
             PrepareNormalRecalculate(indexBuffer, vertexBuffer);
@@ -79,7 +79,7 @@ namespace VECS.Artifact.Generator
         /// </summary>
         /// <param name="indexBuffer"></param>
         /// <param name="vertexBuffer"></param>
-        private unsafe void PrepareNormalRecalculate(CsharpVulkanBuffer<uint> indexBuffer, CsharpVulkanBuffer<Vertex> vertexBuffer)
+        private unsafe void PrepareNormalRecalculate(GPUBuffer<uint> indexBuffer, GPUBuffer<Vertex> vertexBuffer)
         {
             _calcuateNormals.Prepare(indexBuffer.UInstanceCount32, indexBuffer.UInstanceCount32, indexBuffer.UInstanceCount32, 1);
             
@@ -98,7 +98,7 @@ namespace VECS.Artifact.Generator
         /// prepares the vertex normal normalisation compute shader by writing the required buffers to the descriptor set.
         /// </summary>
         /// <param name="vertexBuffer"></param>
-        private unsafe void PrepareNormalNormalize(CsharpVulkanBuffer<Vertex> vertexBuffer)
+        private unsafe void PrepareNormalNormalize(GPUBuffer<Vertex> vertexBuffer)
         {
             _normalizeNormals.Prepare(vertexBuffer.UInstanceCount32, vertexBuffer.UInstanceCount32, vertexBuffer.UInstanceCount32, 1);
 
@@ -123,7 +123,7 @@ namespace VECS.Artifact.Generator
             Prepare(mesh.IndexBuffer, mesh.VertexBuffer);
 
             // clear normal buffer
-            Vulkan.vkCmdFillBuffer(commandBuffer, _workingNormalBuffer.VkBuffer, 0, _workingNormalBuffer.BufferSize, 0);
+            _workingNormalBuffer.FillBuffer(commandBuffer, 0);
 
             _calcuateNormals.Dispatch(commandBuffer, mesh.IndexBuffer.UInstanceCount32 / 3, 1, 1);
 

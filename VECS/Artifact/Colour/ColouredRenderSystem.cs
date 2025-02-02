@@ -10,7 +10,7 @@ namespace VECS.Artifact.Colour
     public class ColouredRenderSystem : PresentationSystemBase
     {
         private EntityQuery _planetRenderQuery;
-        private CsharpVulkanBuffer<PlanetTileShaderParmeters>[] _shaderParamBuffers;
+        private GPUBuffer<PlanetTileShaderParmeters>[] _shaderParamBuffers;
 
         /// <summary>
         /// query setup, also creates the shader params buffer.
@@ -18,10 +18,10 @@ namespace VECS.Artifact.Colour
         /// <param name="entityManager"></param>
         public unsafe override void OnCreate(EntityManager entityManager)
         {
-            _shaderParamBuffers = new CsharpVulkanBuffer<PlanetTileShaderParmeters>[SwapChain.MAX_FRAMES_IN_FLIGHT];
+            _shaderParamBuffers = new GPUBuffer<PlanetTileShaderParmeters>[SwapChain.MAX_FRAMES_IN_FLIGHT];
             for (int i = 0; i < _shaderParamBuffers.Length; i++)
             {
-                _shaderParamBuffers[i] = new(GraphicsDevice.Instance, (uint)sizeof(PlanetTileShaderParmeters), 1, VkBufferUsageFlags.UniformBuffer, true);
+                _shaderParamBuffers[i] = new((uint)sizeof(PlanetTileShaderParmeters), 1, VkBufferUsageFlags.UniformBuffer, true);
             }
 
             _planetRenderQuery = new EntityQuery(entityManager)
@@ -120,18 +120,18 @@ namespace VECS.Artifact.Colour
         /// <param name="mat"></param>
         /// <param name="textures"></param>
         /// <param name="descriptorSet"></param>
-        private unsafe void WriteDescriptorSet(RendererFrameInfo frameInfo, Material mat, CsharpVulkanBuffer<PlanetTileShaderParmeters> shaderParams, PlanetPropeties textures, ref VkDescriptorSet descriptorSet)
+        private unsafe void WriteDescriptorSet(RendererFrameInfo frameInfo, Material mat, GPUBuffer<PlanetTileShaderParmeters> shaderParams, PlanetPropeties textures, ref VkDescriptorSet descriptorSet)
         {
             fixed (VkDescriptorSet* pSet = &descriptorSet)
             {
                 new DescriptorWriter(mat.MaterialDescriptorLayout, frameInfo.FrameDescriptorPool)
-                .WriteBufferCached(0, shaderParams.DescriptorInfo())
-                .WriteImageCached(1, Texture2d.GetTextureImageInfoAtIndex(textures.ColourTexture))
-                .WriteImageCached(2, Texture2d.GetTextureImageInfoAtIndex(textures.SteepTexture))
-                .WriteImageCached(3, Texture2d.GetTextureImageInfoAtIndex(textures.TextureArrayIndex))
-                .WriteImageCached(4, Texture2d.GetTextureImageInfoAtIndex(textures.WaveA))
-                .WriteImageCached(5, Texture2d.GetTextureImageInfoAtIndex(textures.WaveB))
-                .WriteImageCached(6, Texture2d.GetTextureImageInfoAtIndex(textures.WaveC)).Build(pSet);
+                .WriteBuffer(0, shaderParams.DescriptorInfo())
+                .WriteImage(1, Texture2d.GetTextureImageInfoAtIndex(textures.ColourTexture))
+                .WriteImage(2, Texture2d.GetTextureImageInfoAtIndex(textures.SteepTexture))
+                .WriteImage(3, Texture2d.GetTextureImageInfoAtIndex(textures.TextureArrayIndex))
+                .WriteImage(4, Texture2d.GetTextureImageInfoAtIndex(textures.WaveA))
+                .WriteImage(5, Texture2d.GetTextureImageInfoAtIndex(textures.WaveB))
+                .WriteImage(6, Texture2d.GetTextureImageInfoAtIndex(textures.WaveC)).Build(pSet);
             }
         }
 

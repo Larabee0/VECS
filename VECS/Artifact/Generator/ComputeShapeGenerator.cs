@@ -15,10 +15,10 @@ namespace VECS.Artifact.Generator
         private readonly GenericComputePipeline _terrainGenerator;
         private readonly DescriptorPool _pool;
 
-        private readonly CsharpVulkanBuffer<int> _elevationMinMax;
-        private CsharpVulkanBuffer<float> _biomeStartHeights;
-        private CsharpVulkanBuffer<GlobalNoiseSettings> _noiseSettings;
-        private readonly CsharpVulkanBuffer<NoiseGeneratorParams> _noiseGeneratorParams;
+        private readonly GPUBuffer<int> _elevationMinMax;
+        private GPUBuffer<float> _biomeStartHeights;
+        private GPUBuffer<GlobalNoiseSettings> _noiseSettings;
+        private readonly GPUBuffer<NoiseGeneratorParams> _noiseGeneratorParams;
 
         public unsafe ComputeShapeGenerator()
         {
@@ -31,14 +31,14 @@ namespace VECS.Artifact.Generator
                 new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute)
             );
 
-            _pool = new DescriptorPool.Builder(GraphicsDevice.Instance)
+            _pool = new DescriptorPool.Builder()
                 .AddPoolSize(VkDescriptorType.UniformBuffer, 3)
                 .AddPoolSize(VkDescriptorType.StorageBuffer, 4)
                 .Build();
             _terrainGenerator.AllocateDescriptorSet(_pool);
             // size of these buffers is known in advance.
-            _noiseGeneratorParams = new(GraphicsDevice.Instance, 1, VkBufferUsageFlags.UniformBuffer, true);
-            _elevationMinMax = new(GraphicsDevice.Instance, 2, VkBufferUsageFlags.StorageBuffer, true);
+            _noiseGeneratorParams = new(1, VkBufferUsageFlags.UniformBuffer, true);
+            _elevationMinMax = new(2, VkBufferUsageFlags.StorageBuffer, true);
 
             ResetMinMax();
 
@@ -67,7 +67,7 @@ namespace VECS.Artifact.Generator
                 _noiseSettings?.Dispose();
                 _noiseSettings = null;
             }
-            _noiseSettings = new(GraphicsDevice.Instance, (uint)generator.NoiseFilters.Length + 1, VkBufferUsageFlags.StorageBuffer, true);
+            _noiseSettings = new((uint)generator.NoiseFilters.Length + 1, VkBufferUsageFlags.StorageBuffer, true);
 
             GlobalNoiseSettings* settingsPoint = stackalloc GlobalNoiseSettings[generator.NoiseFilters.Length + 1];
             settingsPoint[0] = generator.ColourGenerator.settings.biomeColourSettings.noise.GetSettings();
@@ -91,7 +91,7 @@ namespace VECS.Artifact.Generator
                 _biomeStartHeights?.Dispose();
                 _biomeStartHeights = null;
             }
-            _biomeStartHeights ??= new(GraphicsDevice.Instance, (uint)biomeCount, VkBufferUsageFlags.StorageBuffer, true);
+            _biomeStartHeights ??= new((uint)biomeCount, VkBufferUsageFlags.StorageBuffer, true);
 
             float* startHeights = stackalloc float[biomeCount];
 
@@ -118,7 +118,7 @@ namespace VECS.Artifact.Generator
         /// This done before the dispatch command is run for each tile of the planet.
         /// </summary>
         /// <param name="vertexBuffer"></param>
-        private unsafe void Prepare(CsharpVulkanBuffer<Vertex> vertexBuffer)
+        private unsafe void Prepare(GPUBuffer<Vertex> vertexBuffer)
         {
             _terrainGenerator.Prepare(vertexBuffer.UInstanceCount32, vertexBuffer.UInstanceCount32, 1);
 

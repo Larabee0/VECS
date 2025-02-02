@@ -6,6 +6,7 @@ namespace VECS.VulkanBackend
 {
     public sealed class GenericComputePipeline : IDisposable
     {
+        private readonly GraphicsDevice _device;
         private readonly VkShaderModule _shaderModule;
         private readonly VkPipelineLayout _pipelineLayout;
         private readonly VkPipelineCache _pipelineCache;
@@ -19,17 +20,18 @@ namespace VECS.VulkanBackend
 
         private readonly DescriptorSetLayout _descriptorSetLayout;
 
-        private CsharpVulkanBuffer<ComputeShaderParameters> _shaderParameters;
+        private GPUBuffer<ComputeShaderParameters> _shaderParameters;
 
         public DescriptorSetLayout DescriptorSetLayout => _descriptorSetLayout;
-        public CsharpVulkanBuffer<ComputeShaderParameters> ShaderParameters =>_shaderParameters;
+        public GPUBuffer<ComputeShaderParameters> ShaderParameters =>_shaderParameters;
 
         public unsafe GenericComputePipeline(string computeShaderName, params DescriptorSetBinding[] bindings)
         {
+            _device = GraphicsDevice.Instance;
             var shaderFilePath = Material.GetShaderFilePath(computeShaderName);
-            Vulkan.vkCreateShaderModule(GraphicsDevice.Instance.Device, File.ReadAllBytes(shaderFilePath), null, out _shaderModule);
+            Vulkan.vkCreateShaderModule(_device.Device, File.ReadAllBytes(shaderFilePath), null, out _shaderModule);
 
-            _descriptorSetLayout = new DescriptorSetLayout.Builder(GraphicsDevice.Instance)
+            _descriptorSetLayout = new DescriptorSetLayout.Builder()
                 .AddBindings(bindings)
                 .Build();
 
@@ -40,8 +42,8 @@ namespace VECS.VulkanBackend
                 pSetLayouts = &layout
             };
 
-            Vulkan.vkCreatePipelineLayout(GraphicsDevice.Instance.Device, layoutCreateInfo, null, out _pipelineLayout);
-            Vulkan.vkCreatePipelineCache(GraphicsDevice.Instance.Device, new VkPipelineCacheCreateInfo(), null, out _pipelineCache);
+            Vulkan.vkCreatePipelineLayout(_device.Device, layoutCreateInfo, null, out _pipelineLayout);
+            Vulkan.vkCreatePipelineCache(_device.Device, new VkPipelineCacheCreateInfo(), null, out _pipelineCache);
 
             VkUtf8ReadOnlyString main = "main"u8;
             VkPipelineShaderStageCreateInfo computeShaderStageInfo = new()
@@ -57,11 +59,12 @@ namespace VECS.VulkanBackend
                 stage = computeShaderStageInfo
             };
 
-            Vulkan.vkCreateComputePipeline(GraphicsDevice.Instance.Device, _pipelineCache, computePipelineInfo, out _computePipeline);
+            Vulkan.vkCreateComputePipeline(_device.Device, _pipelineCache, computePipelineInfo, out _computePipeline);
         }
 
         public unsafe GenericComputePipeline(string computeShaderName,Type pushConstantsType, params DescriptorSetBinding[] bindings)
         {
+            _device = GraphicsDevice.Instance;
             if (!pushConstantsType.IsUnManaged())
             {
                 throw new ArgumentException(string.Format("Push constantsType \"{0}\" is not an unmanaged type", pushConstantsType.Name));
@@ -87,9 +90,9 @@ namespace VECS.VulkanBackend
             };
 
             var shaderFilePath = Material.GetShaderFilePath(computeShaderName);
-            Vulkan.vkCreateShaderModule(GraphicsDevice.Instance.Device, File.ReadAllBytes(shaderFilePath), null, out _shaderModule);
+            Vulkan.vkCreateShaderModule(_device.Device, File.ReadAllBytes(shaderFilePath), null, out _shaderModule);
 
-            _descriptorSetLayout = new DescriptorSetLayout.Builder(GraphicsDevice.Instance)
+            _descriptorSetLayout = new DescriptorSetLayout.Builder()
                 .AddBindings(bindings)
                 .Build();
 
@@ -102,8 +105,8 @@ namespace VECS.VulkanBackend
                 pPushConstantRanges = &pushConstantRange,
             };
 
-            Vulkan.vkCreatePipelineLayout(GraphicsDevice.Instance.Device, calcuateNormalsLayoutCreateInfo, null, out _pipelineLayout);
-            Vulkan.vkCreatePipelineCache(GraphicsDevice.Instance.Device, new VkPipelineCacheCreateInfo(), null, out _pipelineCache);
+            Vulkan.vkCreatePipelineLayout(_device.Device, calcuateNormalsLayoutCreateInfo, null, out _pipelineLayout);
+            Vulkan.vkCreatePipelineCache(_device.Device, new VkPipelineCacheCreateInfo(), null, out _pipelineCache);
 
             VkUtf8ReadOnlyString main = "main"u8;
             VkPipelineShaderStageCreateInfo _computeShaderStageInfo = new()
@@ -119,7 +122,7 @@ namespace VECS.VulkanBackend
                 stage = _computeShaderStageInfo
             };
 
-            Vulkan.vkCreateComputePipeline(GraphicsDevice.Instance.Device, _pipelineCache, _computePipelineInfo, out _computePipeline);
+            Vulkan.vkCreateComputePipeline(_device.Device, _pipelineCache, _computePipelineInfo, out _computePipeline);
         }
 
         public unsafe void AllocateDescriptorSet(DescriptorPool descriptorPool)
@@ -133,7 +136,7 @@ namespace VECS.VulkanBackend
         public unsafe void Prepare(uint mainBufferLength,uint mainBufferWidth = 1, uint mainBufferHeight = 1, uint mainBufferDepth = 1)
         {
             
-            _shaderParameters ??= new(GraphicsDevice.Instance, 1, VkBufferUsageFlags.UniformBuffer, true);
+            _shaderParameters ??= new(1, VkBufferUsageFlags.UniformBuffer, true);
 
             ComputeShaderParameters* compShaderParams = stackalloc ComputeShaderParameters[1];
 
@@ -175,11 +178,11 @@ namespace VECS.VulkanBackend
         public unsafe void Dispose()
         {
             _shaderParameters?.Dispose();
-            Vulkan.vkDestroyPipeline(GraphicsDevice.Instance.Device, _computePipeline);
-            Vulkan.vkDestroyPipelineCache(GraphicsDevice.Instance.Device, _pipelineCache);
-            Vulkan.vkDestroyPipelineLayout(GraphicsDevice.Instance.Device, _pipelineLayout);
+            Vulkan.vkDestroyPipeline(_device.Device, _computePipeline);
+            Vulkan.vkDestroyPipelineCache(_device.Device, _pipelineCache);
+            Vulkan.vkDestroyPipelineLayout(_device.Device, _pipelineLayout);
             _descriptorSetLayout.Dispose();
-            Vulkan.vkDestroyShaderModule(GraphicsDevice.Instance.Device, _shaderModule);
+            Vulkan.vkDestroyShaderModule(_device.Device, _shaderModule);
         }
     }
 }

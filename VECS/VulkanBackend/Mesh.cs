@@ -77,8 +77,8 @@ namespace VECS.VulkanBackend
 
         private readonly GraphicsDevice _device;
 
-        private CsharpVulkanBuffer<Vertex> _vertexBuffer;
-        private CsharpVulkanBuffer<uint> _indexBuffer;
+        private GPUBuffer<Vertex> _vertexBuffer;
+        private GPUBuffer<uint> _indexBuffer;
 
         private int _vertexCount = 0;
         private int _indicesCount = 0;
@@ -93,7 +93,7 @@ namespace VECS.VulkanBackend
         public bool AllBuffersAllocated => _vertexBuffer != null && _indexBuffer != null;
 
 
-        public CsharpVulkanBuffer<Vertex> VertexBuffer
+        public GPUBuffer<Vertex> VertexBuffer
         {
             get
             {
@@ -105,7 +105,7 @@ namespace VECS.VulkanBackend
             }
         }
 
-        public CsharpVulkanBuffer<uint> IndexBuffer
+        public GPUBuffer<uint> IndexBuffer
         {
             get
             {
@@ -123,9 +123,9 @@ namespace VECS.VulkanBackend
         /// </summary>
         /// <param name="vertices"></param>
         /// <param name="useStagingBuffers"></param>
-        public Mesh(GraphicsDevice device, Vertex[] vertices, bool useStagingBuffers = true)
+        public Mesh(Vertex[] vertices, bool useStagingBuffers = true)
         {
-            _device = device;
+            _device = GraphicsDevice.Instance;
             Vertices = vertices;
             Indices = [];
             _hasIndexBuffer = false;
@@ -140,9 +140,9 @@ namespace VECS.VulkanBackend
         /// <param name="vertices"></param>
         /// <param name="indices"></param>
         /// <param name="useStagingBuffers"></param>
-        public Mesh(GraphicsDevice device, Vertex[] vertices, uint[] indices, bool useStagingBuffers = true)
+        public Mesh(Vertex[] vertices, uint[] indices, bool useStagingBuffers = true)
         {
-            _device = device;
+            _device = GraphicsDevice.Instance;
             Vertices = vertices;
             Indices = indices;
             _hasIndexBuffer = true;
@@ -273,13 +273,13 @@ namespace VECS.VulkanBackend
             }
             if (_stagedMesh)
             {
-                var stagingBuffer = new CsharpVulkanBuffer<Vertex>(_device, (uint)_vertices.Length, VkBufferUsageFlags.TransferSrc, true);
+                var stagingBuffer = new GPUBuffer<Vertex>((uint)_vertices.Length, VkBufferUsageFlags.TransferSrc, true);
                 fixed (void* data = &_vertices[0])
                 {
                     stagingBuffer.WriteToBuffer(data);
                 }
 
-                _vertexBuffer ??= new CsharpVulkanBuffer<Vertex>(_device, (uint)_vertices.Length, VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.TransferSrc | VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.StorageBuffer, false);
+                _vertexBuffer ??= new GPUBuffer<Vertex>((uint)_vertices.Length, VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.TransferSrc | VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.StorageBuffer, false);
                 _device.CopyBuffer(stagingBuffer.VkBuffer, _vertexBuffer.VkBuffer, vertexBufferSize);
                 stagingBuffer.Dispose();
                 _vertices = null;
@@ -287,7 +287,7 @@ namespace VECS.VulkanBackend
             else
             {
 
-                _vertexBuffer ??= new CsharpVulkanBuffer<Vertex>(_device,(uint)_vertices.Length, VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferSrc | VkBufferUsageFlags.StorageBuffer, true);
+                _vertexBuffer ??= new GPUBuffer<Vertex>((uint)_vertices.Length, VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferSrc | VkBufferUsageFlags.StorageBuffer, true);
                 fixed (void* data = &_vertices[0])
                 {
                     _vertexBuffer.WriteToBuffer(data);
@@ -316,13 +316,13 @@ namespace VECS.VulkanBackend
 
             if (_stagedMesh)
             {
-                var stagingBuffer = new CsharpVulkanBuffer<uint>(_device, (uint)_indices.Length, VkBufferUsageFlags.TransferSrc, true);
+                var stagingBuffer = new GPUBuffer<uint>((uint)_indices.Length, VkBufferUsageFlags.TransferSrc, true);
                 fixed (void* data = &_indices[0])
                 {
                     stagingBuffer.WriteToBuffer(data);
                 }
 
-                _indexBuffer ??= new CsharpVulkanBuffer<uint>(_device, (uint)_indices.Length, VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.TransferSrc | VkBufferUsageFlags.IndexBuffer | VkBufferUsageFlags.StorageBuffer, false);
+                _indexBuffer ??= new GPUBuffer<uint>((uint)_indices.Length, VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.TransferSrc | VkBufferUsageFlags.IndexBuffer | VkBufferUsageFlags.StorageBuffer, false);
                 _device.CopyBuffer(stagingBuffer.VkBuffer, _indexBuffer.VkBuffer, indexBufferSize);
                 stagingBuffer.Dispose();
                 _indices = null;
@@ -330,7 +330,7 @@ namespace VECS.VulkanBackend
             else
             {
 
-                _indexBuffer ??= new CsharpVulkanBuffer<uint>(_device, (uint)_indices.Length, VkBufferUsageFlags.IndexBuffer | VkBufferUsageFlags.TransferSrc | VkBufferUsageFlags.StorageBuffer, true);
+                _indexBuffer ??= new GPUBuffer<uint>((uint)_indices.Length, VkBufferUsageFlags.IndexBuffer | VkBufferUsageFlags.TransferSrc | VkBufferUsageFlags.StorageBuffer, true);
                 fixed (void* data = &_indices[0])
                 {
                     _indexBuffer.WriteToBuffer(data);
@@ -388,7 +388,7 @@ namespace VECS.VulkanBackend
         /// <param name="device"></param>
         /// <param name="filePath"></param>
         /// <returns></returns>
-        public static Mesh[] LoadModelFromFile(GraphicsDevice device, string filePath)
+        public static Mesh[] LoadModelFromFile(string filePath)
         {
             if (!File.Exists(filePath))
             {
@@ -402,7 +402,7 @@ namespace VECS.VulkanBackend
             {
                 return null;
             }
-            var meshes = CreateMeshes(device, scene);
+            var meshes = CreateMeshes(scene);
             importer.Dispose();
             return meshes;
         }
@@ -413,13 +413,13 @@ namespace VECS.VulkanBackend
         /// <param name="device"></param>
         /// <param name="scene"></param>
         /// <returns></returns>
-        public static Mesh[] CreateMeshes(GraphicsDevice device, Scene scene)
+        public static Mesh[] CreateMeshes(Scene scene)
         {
             Mesh[] sceneMeshs = new Mesh[scene.MeshCount];
 
             for (int i = 0; i < scene.Meshes.Count; i++)
             {
-                sceneMeshs[i] = new(device, CreateVertexArray(scene.Meshes[i]), CreateIndexArray(scene.Meshes[i]));
+                sceneMeshs[i] = new(CreateVertexArray(scene.Meshes[i]), CreateIndexArray(scene.Meshes[i]));
             }
 
             return sceneMeshs;
@@ -510,7 +510,7 @@ namespace VECS.VulkanBackend
             if (_vertices == null && _vertexBuffer != null)
             {
 
-                var stagingBuffer = new CsharpVulkanBuffer<Vertex>(_device, (uint)_vertexCount, VkBufferUsageFlags.TransferDst, true);
+                var stagingBuffer = new GPUBuffer<Vertex>((uint)_vertexCount, VkBufferUsageFlags.TransferDst, true);
                 _device.CopyBuffer(_vertexBuffer.VkBuffer, stagingBuffer.VkBuffer,  (uint)_vertexBuffer.BufferSize);
                 _vertices = new Vertex[_vertexCount];
                 fixed (Vertex* data = &_vertices[0])
@@ -526,7 +526,7 @@ namespace VECS.VulkanBackend
             if (_indices == null && _indexBuffer != null)
             {
 
-                var stagingBuffer = new CsharpVulkanBuffer<uint>(_device, (uint)_indicesCount, VkBufferUsageFlags.TransferDst, true);
+                var stagingBuffer = new GPUBuffer<uint>((uint)_indicesCount, VkBufferUsageFlags.TransferDst, true);
                 _device.CopyBuffer(_indexBuffer.VkBuffer, stagingBuffer.VkBuffer, (uint)_indexBuffer.BufferSize);
                 _indices = new uint[_indicesCount];
                 fixed (uint* data = &_indices[0])

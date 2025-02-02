@@ -21,14 +21,16 @@ namespace VECS.VulkanBackend
         private readonly DescriptorSetLayout _descriptorSetLayout;
         private readonly DescriptorPool _pool;
 
+        private readonly GraphicsDevice _device;
 
         public unsafe ComputeShaderTesting()
         {
+            _device = GraphicsDevice.Instance;
             var filePath = Material.GetShaderFilePath("basic_compute_shader.comp");
 
-            Vulkan.vkCreateShaderModule(GraphicsDevice.Instance.Device, File.ReadAllBytes(filePath), null, out _computeShaderModule);
+            Vulkan.vkCreateShaderModule(_device.Device, File.ReadAllBytes(filePath), null, out _computeShaderModule);
 
-            _descriptorSetLayout = new DescriptorSetLayout.Builder(GraphicsDevice.Instance)
+            _descriptorSetLayout = new DescriptorSetLayout.Builder()
                 .AddBinding(0, VkDescriptorType.UniformBuffer, VkShaderStageFlags.Compute)
                 .AddBinding(1, VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute)
                 .AddBinding(2, VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute)
@@ -40,7 +42,7 @@ namespace VECS.VulkanBackend
                 setLayoutCount = 1,
                 pSetLayouts = &layout
             };
-            Vulkan.vkCreatePipelineLayout(GraphicsDevice.Instance.Device, pipelineLayoutCreateInfo, null, out _pipelineLayout);
+            Vulkan.vkCreatePipelineLayout(_device.Device, pipelineLayoutCreateInfo, null, out _pipelineLayout);
             Vulkan.vkCreatePipelineCache(GraphicsDevice.Instance.Device, new VkPipelineCacheCreateInfo(), null, out _pipelineCache);
 
             VkUtf8ReadOnlyString main = "main"u8;
@@ -57,9 +59,9 @@ namespace VECS.VulkanBackend
                 stage = _computeShaderStageInfo
             };
 
-            Vulkan.vkCreateComputePipeline(GraphicsDevice.Instance.Device, _pipelineCache, _computePipelineInfo, out _pipeline);
+            Vulkan.vkCreateComputePipeline(_device.Device, _pipelineCache, _computePipelineInfo, out _pipeline);
 
-            _pool = new DescriptorPool.Builder(GraphicsDevice.Instance)
+            _pool = new DescriptorPool.Builder()
                 .AddPoolSize(VkDescriptorType.UniformBuffer, 1)
                 .AddPoolSize(VkDescriptorType.StorageBuffer, 2)
                 .Build();
@@ -76,9 +78,9 @@ namespace VECS.VulkanBackend
                 values[i] = i + 1;
             }
 
-            CsharpVulkanBuffer<ComputeShaderParameters> uniform = new(GraphicsDevice.Instance, (uint)sizeof(ComputeShaderParameters), 1, VkBufferUsageFlags.UniformBuffer, true);
-            CsharpVulkanBuffer<int> inBuffer = new(GraphicsDevice.Instance, (ulong)values.LongLength, VkBufferUsageFlags.StorageBuffer, true);
-            CsharpVulkanBuffer<Vector4> outBuffer = new(GraphicsDevice.Instance, (ulong)values.LongLength, VkBufferUsageFlags.StorageBuffer, true);
+            GPUBuffer<ComputeShaderParameters> uniform = new((uint)sizeof(ComputeShaderParameters), 1, VkBufferUsageFlags.UniformBuffer, true);
+            GPUBuffer<int> inBuffer = new((ulong)values.LongLength, VkBufferUsageFlags.StorageBuffer, true);
+            GPUBuffer<Vector4> outBuffer = new((ulong)values.LongLength, VkBufferUsageFlags.StorageBuffer, true);
 
             fixed (int* pValues = values)
             {
@@ -105,7 +107,7 @@ namespace VECS.VulkanBackend
                     .Build(pSet);
             }
 
-            var commandBuffer = GraphicsDevice.Instance.BeginSingleTimeCommands();
+            var commandBuffer = _device.BeginSingleTimeCommands();
 
             Vulkan.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Compute, _pipeline);
             Vulkan.vkCmdBindDescriptorSets(commandBuffer, VkPipelineBindPoint.Compute, _pipelineLayout, 0, _descriptorSet);
@@ -118,7 +120,7 @@ namespace VECS.VulkanBackend
 
 
 
-            GraphicsDevice.Instance.EndSingleTimeCommands(commandBuffer);
+            _device.EndSingleTimeCommands(commandBuffer);
 
             uniform.Dispose();
 
@@ -154,11 +156,11 @@ namespace VECS.VulkanBackend
         public unsafe void Dispose()
         {
             _pool.Dispose();
-            Vulkan.vkDestroyPipeline(GraphicsDevice.Instance.Device, _pipeline);
-            Vulkan.vkDestroyPipelineCache(GraphicsDevice.Instance.Device, _pipelineCache);
-            Vulkan.vkDestroyPipelineLayout(GraphicsDevice.Instance.Device, _pipelineLayout);
+            Vulkan.vkDestroyPipeline(_device.Device, _pipeline);
+            Vulkan.vkDestroyPipelineCache(_device.Device, _pipelineCache);
+            Vulkan.vkDestroyPipelineLayout(_device.Device, _pipelineLayout);
             _descriptorSetLayout.Dispose();
-            Vulkan.vkDestroyShaderModule(GraphicsDevice.Instance.Device, _computeShaderModule);
+            Vulkan.vkDestroyShaderModule(_device.Device, _computeShaderModule);
         }
 
     }

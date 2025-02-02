@@ -55,9 +55,9 @@ namespace VECS
         {
             private readonly GraphicsDevice _graphicsDevice;
             private readonly Dictionary<uint, VkDescriptorSetLayoutBinding> _bindings = [];
-            public Builder(GraphicsDevice device)
+            public Builder()
             {
-                _graphicsDevice = device;
+                _graphicsDevice = GraphicsDevice.Instance;
             }
 
             /// <summary>

@@ -9,8 +9,8 @@ namespace VECS.VulkanBackend
         private static GraphicsDevice Device => GraphicsDevice.Instance;
 
         private bool _disposed;
-        public CsharpVulkanBuffer<T> _vertexBuffer;
-        public CsharpVulkanBuffer<uint> _indexBuffer;
+        public GPUBuffer<T> _vertexBuffer;
+        public GPUBuffer<uint> _indexBuffer;
 
         private GPUMesh<T>[] _members=[];
         public SubMeshRange[] SubMeshes=[];
@@ -28,14 +28,12 @@ namespace VECS.VulkanBackend
 
         public MeshSet(uint vertexBufferLength, uint indexBufferLength)
         {
-            _vertexBuffer = new CsharpVulkanBuffer<T>(Device, vertexBufferLength,
+            _vertexBuffer = new GPUBuffer<T>(vertexBufferLength,
                 VkBufferUsageFlags.VertexBuffer |
                 VkBufferUsageFlags.TransferDst |
                 VkBufferUsageFlags.TransferSrc, false);
 
-            _indexBuffer = new CsharpVulkanBuffer<uint>(
-                Device,
-                indexBufferLength,
+            _indexBuffer = new GPUBuffer<uint>(indexBufferLength,
                 VkBufferUsageFlags.IndexBuffer |
                 VkBufferUsageFlags.TransferDst |
                 VkBufferUsageFlags.TransferSrc, false);
@@ -75,7 +73,7 @@ namespace VECS.VulkanBackend
             return SubMeshes[^1].SubMeshIndex;
         }
 
-        public unsafe long AddSubMesh(CsharpVulkanBuffer<T> addVertexBuffer, CsharpVulkanBuffer<uint> addIndexBuffer)
+        public unsafe long AddSubMesh(GPUBuffer<T> addVertexBuffer, GPUBuffer<uint> addIndexBuffer)
         {
             ulong vertexOffset = VertexInstanceCount;
             ulong indexOffset = IndexInstanceCount;
@@ -83,17 +81,13 @@ namespace VECS.VulkanBackend
             ulong newVertexCount = VertexInstanceCount + addVertexBuffer.UInstanceCount;
             ulong newIndexCount = IndexInstanceCount + addIndexBuffer.UInstanceCount;
 
-            var newVertexBuffer = new CsharpVulkanBuffer<T>(
-                Device,
-                newVertexCount,
+            var newVertexBuffer = new GPUBuffer<T>(newVertexCount,
                 VkBufferUsageFlags.VertexBuffer |
                 VkBufferUsageFlags.TransferDst |
                 VkBufferUsageFlags.TransferSrc, false);
 
 
-            var newIndexBuffer = new CsharpVulkanBuffer<uint>(
-                Device,
-                newIndexCount,
+            var newIndexBuffer = new GPUBuffer<uint>(newIndexCount,
                 VkBufferUsageFlags.IndexBuffer |
                 VkBufferUsageFlags.TransferDst |
                 VkBufferUsageFlags.TransferSrc, false);
@@ -166,23 +160,19 @@ namespace VECS.VulkanBackend
             ulong newIndexCount = (ulong)((long)curIndexCount - (long)targetSubMesh.IndexCount + (long)subIndexBufferLength);
 
 
-            CsharpVulkanBuffer<T> newVertexBuffer = null;
-            CsharpVulkanBuffer<uint> newIndexBuffer = null;
+            GPUBuffer<T> newVertexBuffer = null;
+            GPUBuffer<uint> newIndexBuffer = null;
 
             if (vertexOffsetDelta == 0)
             {
-                newVertexBuffer = new CsharpVulkanBuffer<T>(
-                    Device,
-                    newVertexCount,
+                newVertexBuffer = new GPUBuffer<T>(newVertexCount,
                     VkBufferUsageFlags.VertexBuffer |
                     VkBufferUsageFlags.TransferDst |
                     VkBufferUsageFlags.TransferSrc, false);
             }
             if (indexOffsetDelta == 0)
             {
-                newIndexBuffer = new CsharpVulkanBuffer<uint>(
-                    Device,
-                    newIndexCount,
+                newIndexBuffer = new GPUBuffer<uint>(newIndexCount,
                     VkBufferUsageFlags.IndexBuffer |
                     VkBufferUsageFlags.TransferDst |
                     VkBufferUsageFlags.TransferSrc, false);
@@ -194,11 +184,11 @@ namespace VECS.VulkanBackend
             // only nessecary if the buffers have gotten bigger.
             if (vertexOffsetDelta > 0)
             {
-                Vulkan.vkCmdFillBuffer(commandBuffer, newVertexBuffer.VkBuffer, 0, newVertexBuffer.BufferSize, 0);
+                newVertexBuffer.FillBuffer(commandBuffer, 0);
             }
             if (indexOffsetDelta > 0)
             {
-                Vulkan.vkCmdFillBuffer(commandBuffer, newIndexBuffer.VkBuffer, 0, newIndexBuffer.BufferSize, 0);
+                newIndexBuffer.FillBuffer(commandBuffer, 0);
             }
 
 
@@ -318,16 +308,12 @@ namespace VECS.VulkanBackend
                 SubMeshes = [];
                 return;
             }
-            CsharpVulkanBuffer<T> newVertexBuffer = new(
-                Device,
-                newVertexCount,
+            GPUBuffer<T> newVertexBuffer = new(newVertexCount,
                 VkBufferUsageFlags.VertexBuffer |
                 VkBufferUsageFlags.TransferDst |
                 VkBufferUsageFlags.TransferSrc, false);
 
-            CsharpVulkanBuffer<uint> newIndexBuffer = new(
-                Device,
-                newIndexCount,
+            GPUBuffer<uint> newIndexBuffer = new(newIndexCount,
                 VkBufferUsageFlags.IndexBuffer |
                 VkBufferUsageFlags.TransferDst |
                 VkBufferUsageFlags.TransferSrc, false);

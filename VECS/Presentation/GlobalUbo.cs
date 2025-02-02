@@ -27,7 +27,7 @@ namespace VECS
         }
 
 
-        public readonly unsafe void WriteToBuffer(CsharpVulkanBuffer<WriteableUBO> targetBuffer)
+        public readonly unsafe void WriteToBuffer(GPUBuffer<WriteableUBO> targetBuffer)
         {
             WriteableUBO.Write(this, targetBuffer);
         }
@@ -53,7 +53,7 @@ namespace VECS
 
             }
 
-            public static void Write(GlobalUbo source, CsharpVulkanBuffer<WriteableUBO> buffer)
+            public static void Write(GlobalUbo source, GPUBuffer<WriteableUBO> buffer)
             {
                 WriteableUBO writeable = new(source);
                 PointLight* pPointLights = stackalloc PointLight[Presenter.MAX_LIGHTS];
