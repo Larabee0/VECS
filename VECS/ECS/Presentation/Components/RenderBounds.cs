@@ -7,9 +7,8 @@ namespace VECS.ECS.Presentation
         public static int ComponentId { get; set; }
         public readonly int Id => ComponentId;
 
-        public Vector3 Origin;
+        public Bounds Bounds;
         public float Radius;
-        public Vector3 Extents;
         public bool Valid;
     }
 }

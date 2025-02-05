@@ -35,7 +35,7 @@ namespace VECS.GraphicsPipelines
             {
                 logicOpEnable = false,
                 logicOp = VkLogicOp.Copy,
-                attachmentCount = 1
+                attachmentCount = 1,
             };
             colourBlendInfo.blendConstants[0] = 0;
             colourBlendInfo.blendConstants[1] = 0;

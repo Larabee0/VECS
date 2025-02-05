@@ -55,6 +55,11 @@ namespace VECS
 
         public static bool operator !=(Vertex left, Vertex right) => !(left == right);
 
+        public override readonly bool Equals(object obj)
+        {
+            return obj is Vertex vertex && vertex.Equals(this);
+        }
+
         public readonly bool Equals(Vertex x, Vertex y)
         {
             return x == y;
@@ -110,11 +115,6 @@ namespace VECS
             ];
 
             return attributeDescriptions;
-        }
-
-        public override readonly bool Equals(object obj)
-        {
-            return obj is Vertex vertex && vertex.Equals(this);
         }
     }
 }

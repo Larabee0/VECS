@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Numerics;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Assimp;
@@ -24,31 +26,47 @@ namespace VECS
     /// </summary>
     public class Mesh
     {
-        public static string DefaultMeshPath => Path.Combine(Application.ExecutingDirectory, "Assets/Models");
-        private readonly static List<Mesh> _meshes = [];
-
         private const bool clearLocalBuffersOnFlush = true;
-
+        private readonly static List<Mesh> _meshes = [];
         public static List<Mesh> Meshes => _meshes;
+        public static string DefaultMeshPath => Path.Combine(Application.ExecutingDirectory, "Assets/Models");
 
-        private readonly ulong _offset;
         private readonly bool _hasIndexBuffer;
         private bool _stagedMesh;
 
         private Vertex[] _vertices;
         private uint[] _indices;
+        private Vector3UInt[] _faces;
+        private Vector3[] _faceNormals;
+
+        private Bounds _bounds;
+
+        private readonly GraphicsDevice _device;
+
+        private GPUBuffer<Vertex> _vertexBuffer;
+        private GPUBuffer<uint> _indexBuffer;
+
+        private int _vertexCount = 0;
+        private int _indicesCount = 0;
+
+        public Bounds Bounds => _bounds;
+
+        public int VertexCount => _vertexCount;
+        public int IndexCount => _indicesCount;
+
+        public bool HasIndexBuffer => _hasIndexBuffer;
+        public bool StagedBuffers => _stagedMesh;
+
+        public bool AnyBuffersAllocated => _vertexBuffer != null || _indexBuffer != null;
+        public bool AllBuffersAllocated => _vertexBuffer != null && _indexBuffer != null;
 
         public Vertex[] Vertices
         {
             get
             {
-                if (_vertices == null)
-                {
-                    CopyVertexBufferBack();
-                }
+                _vertices ??= CopyVertexBufferBack();
                 return _vertices;
             }
-
             set
             {
                 _vertices = value;
@@ -60,13 +78,9 @@ namespace VECS
         {
             get
             {
-                if (_indices == null)
-                {
-                    CopyIndexBufferBack();
-                }
+                _indices ??= CopyIndexBufferBack();
                 return _indices;
             }
-
             set
             {
                 _indices = value;
@@ -74,23 +88,23 @@ namespace VECS
             }
         }
 
+        public Vector3[] FaceNormals
+        {
+            get
+            {
+                _faceNormals ??= ComputeFaceNormals();
+                return _faceNormals;
+            }
+        }
 
-        private readonly GraphicsDevice _device;
-
-        private GPUBuffer<Vertex> _vertexBuffer;
-        private GPUBuffer<uint> _indexBuffer;
-
-        private int _vertexCount = 0;
-        private int _indicesCount = 0;
-
-        public int VertexCount => _vertexCount;
-        public int IndexCount => _indicesCount;
-
-        public bool HasIndexBuffer => _hasIndexBuffer;
-        public bool StagedBuffers => _stagedMesh;
-
-        public bool AnyBuffersAllocated => _vertexBuffer != null || _indexBuffer != null;
-        public bool AllBuffersAllocated => _vertexBuffer != null && _indexBuffer != null;
+        public Vector3UInt[] Faces
+        {
+            get
+            {
+                _faces ??= CrunchIndicesToFaces();
+                return _faces;
+            }
+        }
 
 
         public GPUBuffer<Vertex> VertexBuffer
@@ -117,12 +131,6 @@ namespace VECS
             }
         }
 
-        /// <summary>
-        /// Creates a vertex buffer only mesh
-        /// This does not allocate any gpu side buffers.
-        /// </summary>
-        /// <param name="vertices"></param>
-        /// <param name="useStagingBuffers"></param>
         public Mesh(Vertex[] vertices, bool useStagingBuffers = true)
         {
             _device = GraphicsDevice.Instance;
@@ -131,15 +139,10 @@ namespace VECS
             _hasIndexBuffer = false;
             _stagedMesh = useStagingBuffers;
             Meshes.Add(this);
+
+            
         }
 
-        /// <summary>
-        /// Creates a vertex & index buffer mesh
-        /// This does not allocate any gpu side buffers.
-        /// </summary>
-        /// <param name="vertices"></param>
-        /// <param name="indices"></param>
-        /// <param name="useStagingBuffers"></param>
         public Mesh(Vertex[] vertices, uint[] indices, bool useStagingBuffers = true)
         {
             _device = GraphicsDevice.Instance;
@@ -164,26 +167,16 @@ namespace VECS
             Meshes.Add(this);
         }
 
-        /// <summary>
-        /// Calls bind then draw
-        /// </summary>
-        /// <param name="commandBuffer"></param>
         public void BindAndDraw(VkCommandBuffer commandBuffer)
         {
             Bind(commandBuffer);
             Draw(commandBuffer);
         }
 
-        /// <summary>
-        /// bind the mesh to the command buffer
-        /// </summary>
-        /// <param name="commandBuffer"></param>
         public void Bind(VkCommandBuffer commandBuffer)
         {
             if (_vertexBuffer == null) return;
             if (_hasIndexBuffer && _indexBuffer == null) return;
-            // ReadOnlySpan<VkBuffer> buffers = new(in _vertexBuffer.VkBuffer);
-            // ReadOnlySpan<ulong> offsets = new(in _offset);
             Vulkan.vkCmdBindVertexBuffer(commandBuffer, 0, _vertexBuffer.VkBuffer);
 
             if (_hasIndexBuffer)
@@ -192,10 +185,6 @@ namespace VECS
             }
         }
 
-        /// <summary>
-        /// execute a draw command for the mesh
-        /// </summary>
-        /// <param name="commandBuffer"></param>
         public void Draw(VkCommandBuffer commandBuffer)
         {
             if (_vertexBuffer == null) return;
@@ -210,14 +199,6 @@ namespace VECS
             }
         }
 
-        /// <summary>
-        /// Changes the staged mode of the mesh.
-        /// A staged buffer mesh is more opitmal to render, but slower to edit.
-        /// Does nothing if the staged mode is already the requested mode.
-        /// </summary>
-        /// <param name="staged"></param>
-        /// <param name="allocator"></param>
-        /// <param name="graphicsDevice"></param>
         public void SetStagedMode(bool staged)
         {
             if (AnyBuffersAllocated && clearLocalBuffersOnFlush)
@@ -240,11 +221,6 @@ namespace VECS
             FlushMesh();
         }
 
-        /// <summary>
-        /// Flushes all buffers to GPU, creating them if they do not already exist.
-        /// </summary>
-        /// <param name="allocator"></param>
-        /// <param name="graphicsDevice"></param>
         public void FlushMesh()
         {
             FlushVertexBuffer();
@@ -254,11 +230,6 @@ namespace VECS
             }
         }
 
-        /// <summary>
-        /// Flushes the vertex buffer to GPU, creating it if it does not already exist.
-        /// </summary>
-        /// <param name="allocator"></param>
-        /// <param name="graphicsDevice"></param>
         public unsafe void FlushVertexBuffer()
         {
             if (_vertices == null)
@@ -295,12 +266,6 @@ namespace VECS
             }
         }
 
-        /// <summary>
-        /// Flushes the index buffer to GPU, creating it if it does not already exist.
-        /// This does nothing if the mesh is flagged as no index buffer.
-        /// </summary>
-        /// <param name="allocator"></param>
-        /// <param name="graphicsDevice"></param>
         public unsafe void FlushIndexBuffer()
         {
             if (_indices == null)
@@ -338,12 +303,6 @@ namespace VECS
             }
         }
 
-        /// <summary>
-        /// Deallocates the GPU side buffers
-        /// This does nothing if there are no buffers allocated.
-        /// This does not clear the vertices indices c# arrays.
-        /// </summary>
-        /// <param name="allocator"></param>
         public void Dispose()
         {
             if (_vertexBuffer != null)
@@ -382,12 +341,6 @@ namespace VECS
             Meshes.RemoveAt(index);
         }
 
-        /// <summary>
-        /// Load a mesh at the given file path
-        /// </summary>
-        /// <param name="device"></param>
-        /// <param name="filePath"></param>
-        /// <returns></returns>
         public static Mesh[] LoadModelFromFile(string filePath)
         {
             if (!File.Exists(filePath))
@@ -407,12 +360,6 @@ namespace VECS
             return meshes;
         }
 
-        /// <summary>
-        /// create mesh intances from the given scene. these will have staged buffers
-        /// </summary>
-        /// <param name="device"></param>
-        /// <param name="scene"></param>
-        /// <returns></returns>
         public static Mesh[] CreateMeshes(Scene scene)
         {
             Mesh[] sceneMeshs = new Mesh[scene.MeshCount];
@@ -425,63 +372,36 @@ namespace VECS
             return sceneMeshs;
         }
 
-        /// <summary>
-        /// Creates a vertex array for a mesh given an assimp mesh
-        /// </summary>
-        /// <param name="m"></param>
-        /// <returns></returns>
         private static Vertex[] CreateVertexArray(Assimp.Mesh m)
         {
             Vertex[] vertices = new Vertex[m.Vertices.Count];
             List<Vector3D> positions = m.Vertices;
-            // List<Color4D> colours = m.HasVertexColors(0) ? m.VertexColorChannels[0] : null;
             List<Vector3D> normals = m.HasNormals ? m.Normals : null;
-            // List<Vector3D> uvs = m.HasTextureCoords(0) ? m.TextureCoordinateChannels[0] : null;
 
             for (int i = 0; i < positions.Count; i++)
             {
                 Vector3D position = positions[i];
-                // Color4D colour = (colours != null) ? colours[i] : new Color4D(0, 0, 0, 0);
                 Vector3D normal = (normals != null) ? normals[i] : new Vector3D(0, 0, 0);
-                // Vector3D uv = (uvs != null) ? uvs[i] : new Vector3D(0, 0, 0);
                 vertices[i] = new()
                 {
                     Position = new(position.X, position.Y, position.Z),
-                    // Colour = new(colour.R, colour.G, colour.B),
                     Normal = new(normal.X, normal.Y, normal.Z),
-                    // UV = new(uv.X, uv.Y)
                 };
             }
 
             return vertices;
         }
 
-        /// <summary>
-        /// returns the unsighed indices array from the assimp mesh
-        /// </summary>
-        /// <param name="mesh"></param>
-        /// <returns></returns>
         private static unsafe uint[] CreateIndexArray(Assimp.Mesh mesh)
         {
             return mesh.GetUnsignedIndices();
         }
 
-        /// <summary>
-        /// Gets the file path of a mesh in the default mesh directory.
-        /// </summary>
-        /// <param name="file"></param>
-        /// <returns></returns>
         public static string GetMeshInDefaultPath(string file)
         {
             return Path.Combine(DefaultMeshPath, file);
         }
 
-        /// <summary>
-        /// Gets the mesh intance at the given index, by default this will call <see cref="FlushMesh"/>
-        /// </summary>
-        /// <param name="index"></param>
-        /// <param name="autoFlush"></param>
-        /// <returns></returns>
         public static Mesh GetMeshAtIndex(int index, bool autoFlush = true)
         {
             index = Math.Max(0, index);
@@ -495,46 +415,49 @@ namespace VECS
             return mesh;
         }
 
-        /// <summary>
-        /// get the index of the given mesh instance
-        /// </summary>
-        /// <param name="mesh"></param>
-        /// <returns></returns>
         public static int GetIndexOfMesh(Mesh mesh)
         {
             return Meshes.IndexOf(mesh);
         }
 
-        public unsafe void CopyVertexBufferBack()
+        public void EnsureAlloc()
         {
-            if (_vertices == null && _vertexBuffer != null)
-            {
-
-                var stagingBuffer = new GPUBuffer<Vertex>((uint)_vertexCount, VkBufferUsageFlags.TransferDst, true);
-                _device.CopyBuffer(_vertexBuffer.VkBuffer, stagingBuffer.VkBuffer,  (uint)_vertexBuffer.BufferSize);
-                _vertices = new Vertex[_vertexCount];
-                fixed (Vertex* data = &_vertices[0])
-                {
-                    stagingBuffer.ReadFromBuffer(data);
-                }
-                stagingBuffer.Dispose();
-            }
+            _vertices ??= new Vertex[_vertexCount];
+            _indices ??= new uint[_indicesCount];
         }
 
-        public unsafe void CopyIndexBufferBack()
+        public Vertex[] CopyVertexBufferBack()
         {
-            if (_indices == null && _indexBuffer != null)
+            var vertices = new Vertex[_vertexCount];
+            if (StagedBuffers)
             {
-
-                var stagingBuffer = new GPUBuffer<uint>((uint)_indicesCount, VkBufferUsageFlags.TransferDst, true);
-                _device.CopyBuffer(_indexBuffer.VkBuffer, stagingBuffer.VkBuffer, (uint)_indexBuffer.BufferSize);
-                _indices = new uint[_indicesCount];
-                fixed (uint* data = &_indices[0])
-                {
-                    stagingBuffer.ReadFromBuffer(data);
-                }
+                var stagingBuffer = new GPUBuffer<Vertex>((uint)_vertexCount, VkBufferUsageFlags.TransferDst, true);
+                _device.CopyBuffer(_vertexBuffer.VkBuffer, stagingBuffer.VkBuffer, (uint)_vertexBuffer.BufferSize);
+                stagingBuffer.ReadFromBuffer(vertices);
                 stagingBuffer.Dispose();
             }
+            else
+            {
+                _vertexBuffer.ReadFromBuffer(vertices);
+            }
+            return vertices;
+        }
+
+        public uint[] CopyIndexBufferBack()
+        {
+            var indices = new uint[_indicesCount];
+            if (StagedBuffers)
+            {
+                var stagingBuffer = new GPUBuffer<uint>((uint)_indicesCount, VkBufferUsageFlags.TransferDst, true);
+                _device.CopyBuffer(_indexBuffer.VkBuffer, stagingBuffer.VkBuffer, (uint)_indexBuffer.BufferSize);
+                stagingBuffer.ReadFromBuffer(indices);
+                stagingBuffer.Dispose();
+            }
+            else
+            {
+                _indexBuffer.ReadFromBuffer(indices);
+            }
+            return indices;
         }
 
         /// <summary>
@@ -542,29 +465,24 @@ namespace VECS
         /// </summary>
         /// 
         const bool computeShaderNormals = true;
-        public void RecalculateNormals(ComputeNormals computeNormals = null, VkCommandBuffer commandBuffer = default)
+        public void RecalculateNormals()
         {
             bool hadtoCopyBack = false;
             if (_vertices == null || _vertexBuffer != null)
             {
                 if (computeShaderNormals)
                 {
-                    //CopyVertexBufferBack();
-                    computeNormals = new ComputeNormals();
-                    computeNormals.DispatchSingleTimeCmd(this);
-                    computeNormals.Dispose();
-                    //CopyVertexBufferBack();
+                    ComputeNormals.DispatchNow(this);
                     return;
                 }
                 else
                 {
-                    CopyVertexBufferBack();
-                    CopyIndexBufferBack();
+                    _vertices = CopyVertexBufferBack();
+                    _indices = CopyIndexBufferBack();
                     hadtoCopyBack = true;
                 }
             }
             CPUComputeShaderMethod();
-            //SimpleParallelFor();
 
             if (hadtoCopyBack)
             {
@@ -574,11 +492,6 @@ namespace VECS
 
         private void CPUComputeShaderMethod()
         {
-            //Parallel.For(0, _vertices.Length, (int i) =>
-            //{
-            //    _vertices[i].Normal = Vector3.Zero;
-            //});
-
             int[] normals = new int[_vertices.Length * 3];
             Array.Fill(normals, 0);
 
@@ -641,32 +554,37 @@ namespace VECS
             });
         }
 
-        private void SimpleParallelFor()
+        public void RecalculateBounds()
         {
-            Parallel.For(0, _vertices.Length, (int i) =>
+            _bounds = new(Vector3.Zero, Vector3.Zero);
+            for (int i = 0; i < Vertices.Length; i++)
             {
-                _vertices[i].Normal = Vector3.Zero;
-            });
-
-
-            Parallel.For(0, _indices.Length / 3, (int index) =>
-            {
-                int i = index * 3;
-                uint vertexA = _indices[i];
-                uint vertexB = _indices[i + 1];
-                uint vertexC = _indices[i + 2];
-                Vector3 point = Vector3.Cross(_vertices[vertexB].Position - _vertices[vertexA].Position,
-                    _vertices[vertexC].Position - _vertices[vertexA].Position);
-
-                _vertices[vertexA].Normal += point;
-                _vertices[vertexB].Normal += point;
-                _vertices[vertexC].Normal += point;
-            });
-
-            Parallel.For(0, _vertices.Length, (int i) =>
-            {
-                _vertices[i].Normal = Vector3.Normalize(_vertices[i].Normal);
-            });
+                _bounds.Encapsulate(Vertices[i].Position);
+            }
         }
+
+        public Vector3[] ComputeFaceNormals()
+        {
+            var faceNormals = new Vector3[Faces.Length];
+            Parallel.For(0,Faces.Length, (int i) =>
+            {
+                var x = Vertices[Faces[i][0]].Position;
+                var a = Vertices[Faces[i][1]].Position - x;
+                var b = Vertices[Faces[i][2]].Position - x;
+                faceNormals[i] = Vector3.Normalize(Vector3.Cross(a, b));
+            });
+            return faceNormals;
+        }
+
+        private unsafe Vector3UInt[] CrunchIndicesToFaces()
+        {
+            var faces = new Vector3UInt[IndexCount / 3];
+
+            fixed (void* pIndices = &Indices[0])
+            fixed (void* pFaces = &faces[0])
+                NativeMemory.Copy(pIndices, pFaces, (nuint)(IndexCount * sizeof(uint)));
+            return faces;
+        }  
+
     }
 }

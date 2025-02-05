@@ -156,7 +156,7 @@ namespace VECS
             _meshes.Add(this);
         }
 
-        public GPUMesh(int meshSet,Mesh mesh, bool dellocateHostOnFlush = true)
+        public GPUMesh(int meshSet, Mesh mesh, bool dellocateHostOnFlush = true)
         {
             if(typeof(T) != typeof(Vertex))
             {
@@ -356,8 +356,7 @@ namespace VECS
 
             renderBounds = new()
             {
-                Extents = extents,
-                Origin = centerAlt,
+                Bounds = new(centerAlt,extents),
                 Radius = radius,
                 Valid = true
             };

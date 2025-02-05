@@ -12,7 +12,6 @@ namespace VECS
         private bool _disposed;
         public GPUBuffer<T> _vertexBuffer;
         public GPUBuffer<uint> _indexBuffer;
-
         private GPUMesh<T>[] _members=[];
         public SubMeshRange[] SubMeshes=[];
 

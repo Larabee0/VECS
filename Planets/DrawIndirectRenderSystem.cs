@@ -111,7 +111,7 @@ namespace Planets
                 };
 
                 var renderBounds = mesh.renderBounds;
-                drawObjectData[i] = new(entityManager.GetComponent<LocalToWorld>(entity).Value, new(renderBounds.Origin, renderBounds.Radius), new(renderBounds.Extents, renderBounds.Valid ? 1 : 0));
+                drawObjectData[i] = new(entityManager.GetComponent<LocalToWorld>(entity).Value, new(renderBounds.Bounds.center, renderBounds.Radius), new(renderBounds.Bounds.extents, renderBounds.Valid ? 1 : 0));
             }
 
             var drawCull = GenerateCullData(rendererFrameInfo,cullParams, drawCmds.Length);

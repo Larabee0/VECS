@@ -30,6 +30,20 @@ namespace VECS
 
         private GPUBuffer<Vector3> _workingNormalBuffer;
 
+        public static void DispatchNow(Mesh mesh)
+        {
+            ComputeNormals computeNormals = new();
+            computeNormals.DispatchSingleTimeCmd(mesh);
+            computeNormals.Dispose();
+        }
+
+        public static void DispatchNow(DirectMeshBuffer<Vertex> meshBuffer)
+        {
+            ComputeNormals computeNormals = new();
+            computeNormals.DispatchSingleTimeCmd(meshBuffer.VertexBuffer, meshBuffer.IndexBuffer);
+            computeNormals.Dispose();
+        }
+
         public unsafe ComputeNormals()
         {
             _calcuateNormals = new("normal_recalculate.comp",
@@ -113,20 +127,26 @@ namespace VECS
             }
         }
 
+        public void Dispatch(VkCommandBuffer commandBuffer, Mesh mesh)
+        {
+            Dispatch(commandBuffer, mesh.VertexBuffer, mesh.IndexBuffer);
+        }
+
+
         /// <summary>
         /// Dispatches the compute pipeline pairs in order on the given command buffer for the provided mesh.
         /// </summary>
         /// <param name="commandBuffer"></param>
         /// <param name="indexBuffer"></param>
         /// <param name="vertexBuffer"></param>
-        public unsafe void Dispatch(VkCommandBuffer commandBuffer, Mesh mesh)
+        public unsafe void Dispatch(VkCommandBuffer commandBuffer, GPUBuffer<Vertex> vertexBuffer, GPUBuffer<uint> indexBuffer)
         {
-            Prepare(mesh.IndexBuffer, mesh.VertexBuffer);
+            Prepare(indexBuffer, vertexBuffer);
 
             // clear normal buffer
             _workingNormalBuffer.FillBuffer(commandBuffer, 0);
 
-            _calcuateNormals.Dispatch(commandBuffer, mesh.IndexBuffer.UInstanceCount32 / 3, 1, 1);
+            _calcuateNormals.Dispatch(commandBuffer, indexBuffer.UInstanceCount32 / 3, 1, 1);
 
 
             VkMemoryBarrier2 memoryBarrier = new()
@@ -145,18 +165,24 @@ namespace VECS
 
             Vulkan.vkCmdPipelineBarrier2(commandBuffer, &dependencyInfo);
 
-            _normalizeNormals.Dispatch(commandBuffer, mesh.VertexBuffer.UInstanceCount32, 1, 1);
+            _normalizeNormals.Dispatch(commandBuffer, vertexBuffer.UInstanceCount32, 1, 1);
         }
 
         /// <summary>
         /// Dispatches the compute pipeline pairs in order as a single time command.
         /// </summary>
         /// <param name="mesh"></param>
-        public unsafe void DispatchSingleTimeCmd(Mesh mesh)
+        public void DispatchSingleTimeCmd(Mesh mesh)
         {
-            mesh.FlushMesh();
+            DispatchSingleTimeCmd(mesh.VertexBuffer, mesh.IndexBuffer);
+        }
+
+        public unsafe void DispatchSingleTimeCmd(GPUBuffer<Vertex> vertexBuffer, GPUBuffer<uint> indexBuffer)
+        {
+            vertexBuffer.Flush();
+            indexBuffer.Flush();
             var commandBuffer = GraphicsDevice.Instance.BeginSingleTimeCommands();
-            Dispatch(commandBuffer, mesh);
+            Dispatch(commandBuffer, vertexBuffer, indexBuffer);
             GraphicsDevice.Instance.EndSingleTimeCommands(commandBuffer);
         }
 

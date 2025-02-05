@@ -29,7 +29,7 @@ namespace Planets
             ClipFar = 1000f
         };
 
-        private readonly bool useComputeShaderForGeneration = true;
+        private static readonly bool useComputeShaderForGeneration = true;
         private readonly int subdivisons = 4;
 
         private readonly bool generateIndirectMeshes = true;
@@ -289,11 +289,11 @@ namespace Planets
             entityManager.AddComponent<Prefab>(planet);
             entityManager.AddComponent(planet, new MaterialIndex { Value = Material.GetIndexOfMaterial(planetLit) });
 
-            InitialiseTiles(entityManager, planet);
+            InitialiseTiles(entityManager, planet,subdivisons);
             return planet;
         }
 
-        private void InitialiseTiles(EntityManager entityManager, Entity planetRoot)
+        public static void InitialiseTiles(EntityManager entityManager, Entity planetRoot, int subdivisons)
         {
             var planetTileMeshes = Mesh.LoadModelFromFile(Mesh.GetMeshInDefaultPath("Comp305-Shape-Split.obj"));
             Vector3[] tileNormals = new Vector3[planetTileMeshes.Length];
@@ -303,7 +303,7 @@ namespace Planets
                 tileNormals[i] = planetTileMeshes[i].AverageNormal();
             }
 
-            SubdividePlanet(planetTileMeshes);
+            SubdividePlanet(planetTileMeshes, subdivisons);
 
             Children propertyChildren = entityManager.GetComponent<Children>(planetRoot);
             propertyChildren.Value = new Entity[planetTileMeshes.Length];
@@ -323,16 +323,16 @@ namespace Planets
             entityManager.SetComponent(planetRoot, propertyChildren);
         }
 
-        private void SubdividePlanet(Mesh[] shape)
+        private static void SubdividePlanet(Mesh[] shape,int subdivisons)
         {
             Console.WriteLine(string.Format("Begin Subdivison {0} steps", subdivisons));
             var now = DateTime.Now;
             ParallelOptions options = new()
             {
-                MaxDegreeOfParallelism = 4
+                MaxDegreeOfParallelism = 7
             };
 
-            Parallel.For(0, shape.Length,options, (i)=>{
+            Parallel.For(0, shape.Length, options, (i)=>{
 
                 shape[i].Subdivide(subdivisons);
             });
@@ -341,7 +341,7 @@ namespace Planets
             Console.WriteLine(string.Format("Subdivide Mesh: {0}ms", delta.TotalMilliseconds));
         }
 
-        private void GeneratePlanet(Entity planetRoot, ShapeGenerator generator)
+        public static void GeneratePlanet(Entity planetRoot, ShapeGenerator generator)
         {
             var now = DateTime.Now;
             MeshIndex[] meshIndices = World.DefaultWorld.EntityManager.GetComponentsInHierarchy<MeshIndex>(planetRoot);
@@ -396,11 +396,15 @@ namespace Planets
             computeGenerator?.Dispose();
             generator.ColourGenerator.UpdateColours();
 
-            var properties = World.DefaultWorld.EntityManager.GetComponent<PlanetPropeties>(planetRoot);
-            properties.ColourTexture = Texture2d.GetIndexOfTexture(generator.ColourGenerator.colourTexture);
-            properties.SteepTexture = Texture2d.GetIndexOfTexture(generator.ColourGenerator.steepTexture);
-            properties.ElevationMinMax = new(generator.MinMax.Min, generator.MinMax.Max);
-            World.DefaultWorld.EntityManager.SetComponent(planetRoot,properties);
+            if (World.DefaultWorld.EntityManager.HasComponent<PlanetPropeties>(planetRoot))
+            {
+                var properties = World.DefaultWorld.EntityManager.GetComponent<PlanetPropeties>(planetRoot);
+                properties.ColourTexture = Texture2d.GetIndexOfTexture(generator.ColourGenerator.colourTexture);
+                properties.SteepTexture = Texture2d.GetIndexOfTexture(generator.ColourGenerator.steepTexture);
+                properties.ElevationMinMax = new(generator.MinMax.Min, generator.MinMax.Max);
+                World.DefaultWorld.EntityManager.SetComponent(planetRoot, properties);
+            }
+
             var delta = DateTime.Now - now;
             Console.WriteLine(string.Format("Generated planet: {0}ms", delta.TotalMilliseconds));
         }
@@ -472,7 +476,7 @@ namespace Planets
         /// Cube will have colours and vertices and nothing else.
         /// </summary>
         /// <returns></returns>
-        public Mesh Cube()
+        public static Mesh Cube()
         {
             Vertex[] vertices = [
 
