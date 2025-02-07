@@ -7,12 +7,10 @@ namespace VECS.DataStructures
     public class DirectSubMesh
     {
         private readonly DirectMeshBuffer _directMeshBuffer;
-
-        private readonly DirectMeshInfo _directMeshInfo;
-
+        private readonly DirectSubMeshInfo _directMeshInfo;
         private Bounds _bounds;
 
-        public VkDrawIndexedIndirectCommand IndirectCommand => _directMeshInfo.IndirectDrawCmd();
+        public VkDrawIndexedIndirectCommand IndirectCommand => _directMeshInfo.IndirectDrawCmd;
         public Bounds Bounds => _bounds;
 
         public Span<Vector3> Vertices => _directMeshBuffer.GetVertexSpan<Vector3>(VertexAttribute.Position, _directMeshInfo.VertexOffset, _directMeshInfo.VertexCount);
@@ -20,10 +18,29 @@ namespace VECS.DataStructures
         public Span<uint> Indicies => _directMeshBuffer.GetIndexSpan(_directMeshInfo.FirstIndex, _directMeshInfo.IndexCount);
         public Span<Vector3UInt> Faces => _directMeshBuffer.GetFaceSpan(_directMeshInfo.FirstIndex, _directMeshInfo.IndexCount);
 
-        public DirectSubMesh(DirectMeshBuffer directMeshBuffer, DirectMeshInfo directMeshInfo)
+        public DirectSubMesh(DirectMeshBuffer directMeshBuffer, DirectSubMeshInfo directMeshInfo)
         {
             _directMeshBuffer = directMeshBuffer;
             _directMeshInfo = directMeshInfo;
+        }
+
+        public bool HasAttributeInFormat<T>(VertexAttribute attribute) where T : unmanaged
+        {
+            return _directMeshBuffer.HasAttributeInFormat<T>(attribute);
+        }
+
+        public Span<T> TryGetVertexDataSpan<T>(VertexAttribute attribute) where T : unmanaged
+        {
+            if (HasAttributeInFormat<T>(attribute))
+            {
+                return GetVertexDataSpan<T>(attribute);
+            }
+            return null;
+        }
+
+        public Span<T> GetVertexDataSpan<T>(VertexAttribute attribute) where T : unmanaged
+        {
+            return _directMeshBuffer.GetVertexSpan<T>(attribute, _directMeshInfo.VertexOffset, _directMeshInfo.VertexCount);
         }
 
         public void FlushAll()
@@ -53,5 +70,13 @@ namespace VECS.DataStructures
                 _bounds.Encapsulate(Vertices[i]);
             }
         }
+
+        public void SimpleBindAndDraw(VkCommandBuffer cmd)
+        {
+            _directMeshBuffer.BindBuffers(cmd);
+            var drawCmd = _directMeshInfo.IndirectDrawCmd;
+            Vulkan.vkCmdDrawIndexed(cmd, drawCmd.indexCount, 1, drawCmd.firstIndex, drawCmd.vertexOffset, 0);
+        }
+
     }
 }

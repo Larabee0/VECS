@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using VECS.LowLevel;
 using Vortice.Vulkan;
@@ -233,6 +234,18 @@ namespace VECS
             GraphicsDevice.CopyBuffer(cmd, size, VkBuffer, srcOffset, dstBuffer.VkBuffer, dstOffset);
         }
 
+        public virtual void SetGPUBufferChanged(bool changed)
+        {
+            throw new NotImplementedException("SetGPUBufferChanged is only implement on the generic variant of GPUBuffer");
+        }
+
+        public virtual void WriteFromHostBuffer()
+        {
+            throw new NotImplementedException("WriteFromHostBuffer is only implement on the generic variant of GPUBuffer");
+        }
+
+        public virtual void TryDellocateHostBuffer(bool write = true) { }
+
         public virtual void Dispose()
         {
             GC.SuppressFinalize(this);
@@ -376,7 +389,7 @@ namespace VECS
         public override unsafe void WriteToBuffer(void* data, ulong size = ulong.MaxValue, ulong offset = 0)
         {
             base.WriteToBuffer(data, size, offset);
-            _GPUBufferChanged = true;
+            SetGPUBufferChanged(true);
         }
 
         public unsafe void ReadFromBuffer(T[] readout)
@@ -385,6 +398,7 @@ namespace VECS
             {
                 ReadFromBuffer(pReadout);
             }
+            SetGPUBufferChanged(false);
         }
 
         public void TryAllocHostBuffer(bool read = true)
@@ -393,6 +407,10 @@ namespace VECS
             if (read)
             {
                 ReadToHostBuffer();
+            }
+            else
+            {
+                SetGPUBufferChanged(true);
             }
         }
 
@@ -404,10 +422,10 @@ namespace VECS
                 return;
             }
             ReadFromBuffer(_hostBuffer);
-            _GPUBufferChanged = false;
+            SetGPUBufferChanged(false);
         }
 
-        public void WriteFromHostBuffer()
+        public override void WriteFromHostBuffer()
         {
             if (_hostBuffer == null)
             {
@@ -415,20 +433,44 @@ namespace VECS
             }
 
             WriteToBuffer(_hostBuffer);
-            _GPUBufferChanged = false;
+            SetGPUBufferChanged(false);
         }
 
-        public void TryDellocateHostBuffer(bool write = true)
+        public override void TryDellocateHostBuffer(bool write = true)
         {
             if (_hostBuffer == null) return;
             if (write) { WriteFromHostBuffer(); }
             _hostBuffer = null;
         }
 
-        public override void FillBuffer(VkCommandBuffer commandBuffer, uint data, ulong dstOffset = 0, ulong bufferSize = Vulkan.VK_WHOLE_SIZE)
+        public unsafe override void FillBuffer(VkCommandBuffer commandBuffer, uint data, ulong dstOffset = 0, ulong bufferSize = Vulkan.VK_WHOLE_SIZE)
         {
             base.FillBuffer(commandBuffer, data, dstOffset, bufferSize);
-            _GPUBufferChanged = true;
+            if (_hostBuffer != null)
+            {
+                if(data <= 255)
+                {
+                    fixed (void* pData = &_hostBuffer[0])
+                    {
+
+                        NativeMemory.Fill(pData, (nuint)_hostBuffer.Length * (nuint)Unsafe.SizeOf<T>(), (byte)data);
+                    }
+                }
+                else
+                {
+                    ReadToHostBuffer();
+                }
+                
+            }
+            else
+            {
+                SetGPUBufferChanged(true);
+            }
+        }
+
+        public override void SetGPUBufferChanged(bool changed)
+        {
+            _GPUBufferChanged = changed;
         }
     }
 }

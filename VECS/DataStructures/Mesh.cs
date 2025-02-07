@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Numerics;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -470,17 +469,9 @@ namespace VECS
             bool hadtoCopyBack = false;
             if (_vertices == null || _vertexBuffer != null)
             {
-                if (computeShaderNormals)
-                {
-                    ComputeNormals.DispatchNow(this);
-                    return;
-                }
-                else
-                {
-                    _vertices = CopyVertexBufferBack();
-                    _indices = CopyIndexBufferBack();
-                    hadtoCopyBack = true;
-                }
+                _vertices = CopyVertexBufferBack();
+                _indices = CopyIndexBufferBack();
+                hadtoCopyBack = true;
             }
             CPUComputeShaderMethod();
 

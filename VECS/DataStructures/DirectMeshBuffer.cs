@@ -18,7 +18,7 @@ namespace VECS
         public readonly uint AttributeByteSize => format.GetAttributeByteSize();
         public readonly VkVertexInputAttributeDescription VkVertexInputAttribute => new()
         {
-            format = format.GetVkAttribute(),
+            format = format.GetVkFormat(),
             binding = binding,
             location = location,
             offset = offset
@@ -90,7 +90,7 @@ namespace VECS
         }
 
 
-        public static unsafe VkFormat GetVkAttribute(this VertexAttributeFormat format)
+        public static unsafe VkFormat GetVkFormat(this VertexAttributeFormat format)
         {
             return format switch
             {
@@ -103,21 +103,36 @@ namespace VECS
         }
     }
 
-    public struct DirectMeshCreateData
+    public readonly struct DirectSubMeshCreateData
     {
-        public int VertexCount;
-        public int IndexCount;
+        public readonly int VertexCount;
+        public readonly int IndexCount;
+
+        public DirectSubMeshCreateData(int vertexCount, int indexCount)
+        {
+            VertexCount = vertexCount;
+            IndexCount = indexCount;
+        }
     }
 
-    public struct DirectMeshInfo
+    public readonly struct DirectSubMeshInfo
     {
-        public int VertexCount;
-        public int IndexCount;
-        public int FirstIndex;
-        public int VertexOffset;
-        public int FirstInstance;
+        public readonly int VertexCount;
+        public readonly int IndexCount;
+        public readonly int FirstIndex;
+        public readonly int VertexOffset;
+        public readonly int FirstInstance;
 
-        public VkDrawIndexedIndirectCommand IndirectDrawCmd() => new()
+        public DirectSubMeshInfo(int vertexCount, int indexCount, int firstIndex, int vertexOffset, int firstInstance)
+        {
+            VertexCount = vertexCount;
+            IndexCount = indexCount;
+            FirstIndex = firstIndex;
+            VertexOffset = vertexOffset;
+            FirstInstance = firstInstance;
+        }
+
+        public VkDrawIndexedIndirectCommand IndirectDrawCmd => new()
         {
             indexCount = (uint)IndexCount,
             instanceCount = 1,
@@ -130,51 +145,59 @@ namespace VECS
     public sealed class DirectMeshBuffer : IDisposable
     {
 #if DEBUG
-        private static readonly HashSet<Type> validVertexFormats = [typeof(float), typeof(Vector2), typeof(Vector3), typeof(Vector4),];
+        private static readonly HashSet<Type> validVertexFormats = [typeof(float), typeof(Vector2), typeof(Vector3), typeof(Vector4)];
 #endif
-
+        public const VkBufferUsageFlags DIRECT_MESH_VERTEX_BUFFER_FLAGS = VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.TransferSrc;
+        public const VkBufferUsageFlags DIRECT_MESH_INDEX_BUFFER_FLAGS = VkBufferUsageFlags.IndexBuffer | VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.TransferSrc;
         private static GraphicsDevice Device => GraphicsDevice.Instance;
 
-        private bool _disposed;
         private readonly uint _allocatedVertexCount;
         private readonly uint _allocatedIndexCount;
-        private readonly DirectMeshInfo[] _meshes;
-        private readonly Dictionary<VertexAttribute, VertexAttributeDescription> _consumedAttributes;
 
-        private Dictionary<VertexAttribute, GPUBuffer> _vertexBuffers;
-        private GPUBuffer<uint> _indexBuffer;
+        private readonly DirectSubMeshInfo[] _meshes;
+        private readonly VertexAttribute[] _attributesInOrder;
+        private readonly VkVertexInputBindingDescription[] _bindingDescriptions;
+        private readonly VkVertexInputAttributeDescription[] _attributeDescriptions;
+        private readonly ulong[] _vertexOffsets;
+        private readonly VkBuffer[] _vertexVkBuffers;
+
+        private readonly Dictionary<VertexAttribute, VertexAttributeDescription> _consumedAttributes;
+        private readonly Dictionary<VertexAttribute, bool> _knownAttributes = [];
+
+        private readonly GPUBuffer<uint> _indexBuffer;
+
+        private bool _disposed;
+        private readonly Dictionary<VertexAttribute, GPUBuffer> _vertexBuffers;
         private Vector3UInt[] _faces;
 
 
-        public DirectMeshInfo[] DirectMeshes => _meshes;
+        public bool IsDisposed => _disposed;
+
+        public DirectSubMeshInfo[] DirectMeshes => _meshes;
+        public VertexAttribute[] AllAttributesInOrder => _attributesInOrder;
+        public VkVertexInputBindingDescription[] BindingDescriptions => _bindingDescriptions;
+        public VkVertexInputAttributeDescription[] AttributeDescriptions => _attributeDescriptions;
+
         public Dictionary<VertexAttribute, VertexAttributeDescription> ConsumedAttributes => _consumedAttributes;
+
 
         public GPUBuffer<uint> IndexBuffer => _indexBuffer;
         private uint[] Indices => _indexBuffer.HostBuffer;
 
-        public bool IsDisposed => _disposed;
-
         public bool CPU_Dellocated => Indices == null;
+        public int VertexBufferCount => _vertexBuffers.Count;
+        public ulong VertexBufferLength => _allocatedVertexCount;
+        public ulong IndexBufferLength => _allocatedIndexCount;
+        public ulong IndexBufferSize => sizeof(uint) * _allocatedIndexCount;
 
-        public ulong IndexBufferSize => _indexBuffer == null ? 0 : _indexBuffer.BufferSize;
-
-        public ulong IndexInstanceCount => _indexBuffer == null ? 0 : _indexBuffer.UInstanceCount;
-
-        public DirectMeshBuffer(VertexAttributeDescription[] vertexAttributes, DirectMeshCreateData[] meshes)
+        public DirectMeshBuffer(VertexAttributeDescription[] requestedVertexAttributes, DirectSubMeshCreateData[] meshes)
         {
-            _meshes = new DirectMeshInfo[meshes.Length];
+            _meshes = new DirectSubMeshInfo[meshes.Length];
             int indexOffset = 0;
             int vertexOffset = 0;
             for (int i = 0; i < meshes.Length; i++)
             {
-                _meshes[i] = new()
-                {
-                    VertexCount = meshes[i].VertexCount,
-                    IndexCount = meshes[i].IndexCount,
-                    FirstIndex = indexOffset,
-                    VertexOffset = vertexOffset,
-                    FirstInstance = i,
-                };
+                _meshes[i] = new(meshes[i].VertexCount, meshes[i].IndexCount,indexOffset,vertexOffset,i);
                 vertexOffset += meshes[i].VertexCount;
                 indexOffset += meshes[i].IndexCount;
             }
@@ -182,28 +205,93 @@ namespace VECS
             _allocatedVertexCount = (uint)vertexOffset;
             _allocatedIndexCount = (uint)indexOffset;
 
+            _vertexBuffers = [];
 
-            for (int i = 0; 0 < vertexAttributes.Length; i++)
+            for (int i = 0; 0 < requestedVertexAttributes.Length; i++)
             {
-                AddVertexBufferByAttribute(vertexAttributes[i]);
+                AddVertexBufferByAttribute(requestedVertexAttributes[i]);
             }
 
-            _indexBuffer = new(_allocatedIndexCount,
-                VkBufferUsageFlags.IndexBuffer |
-                VkBufferUsageFlags.TransferDst |
-                VkBufferUsageFlags.TransferSrc, false);
+            _indexBuffer = new(_allocatedIndexCount, DIRECT_MESH_INDEX_BUFFER_FLAGS, false);
 
             _indexBuffer.TryAllocHostBuffer(false);
+            
+            ZeroBuffers();
 
+            VertexAttributeDescription[] vertexAttributes = new VertexAttributeDescription[_consumedAttributes.Values.Count];
+            _attributesInOrder = new VertexAttribute[vertexAttributes.Length];
+            _vertexVkBuffers = new VkBuffer[vertexAttributes.Length];
+            _vertexOffsets = new ulong[vertexAttributes.Length];
             uint bindingIndex = 0;
             for(VertexAttribute attribute = VertexAttribute.Position; attribute <= VertexAttribute.TexCoord7; attribute++)
             {
                 if (_consumedAttributes.TryGetValue(attribute, out var attributeDescription))
                 {
-                    _consumedAttributes[attribute] = new(attributeDescription.attribute, attributeDescription.format, 0, bindingIndex, bindingIndex);
+                    _attributesInOrder[bindingIndex] = attribute;
+                    _consumedAttributes[attribute]= vertexAttributes[bindingIndex] = new(attributeDescription.attribute, attributeDescription.format, 0, bindingIndex, bindingIndex);
                     bindingIndex++;
+                    _vertexVkBuffers[bindingIndex] = _vertexBuffers[attribute].VkBuffer;
                 }
             }
+
+            _bindingDescriptions = GetBindingDescription(vertexAttributes);
+            _attributeDescriptions = GetAttributeDescriptions(vertexAttributes);
+        }
+
+        private void AddVertexBufferByAttribute(VertexAttributeDescription vertexAttribute)
+        {
+#if DEBUG
+            if (_consumedAttributes.ContainsKey(vertexAttribute.attribute))
+            {
+                throw new ArgumentException(string.Format("Given vertex attributre {0} already present in the vertex buffers", vertexAttribute.ToString()));
+            }
+#endif
+
+            VertexAttribute attribute = vertexAttribute.attribute;
+            VertexAttributeFormat format = vertexAttribute.format;
+            switch (format)
+            {
+                case VertexAttributeFormat.Float1:
+                    _vertexBuffers.Add(attribute, CreateBuffer<float>());
+                    break;
+                case VertexAttributeFormat.Float2:
+                    _vertexBuffers.Add(attribute, CreateBuffer<Vector2>());
+                    break;
+                case VertexAttributeFormat.Float3:
+                    _vertexBuffers.Add(attribute, CreateBuffer<Vector3>());
+                    break;
+                case VertexAttributeFormat.Float4:
+                    _vertexBuffers.Add(attribute, CreateBuffer<Vector4>());
+                    break;
+            }
+            _consumedAttributes.Add(vertexAttribute.attribute, vertexAttribute);
+        }
+
+        private GPUBuffer<T> CreateBuffer<T>() where T : unmanaged
+        {
+            var buffer = new GPUBuffer<T>(_allocatedVertexCount, DIRECT_MESH_VERTEX_BUFFER_FLAGS, false);
+
+            buffer.TryAllocHostBuffer(false);
+
+            return buffer;
+        }
+
+        public unsafe bool HasAttributeInFormat<T>(VertexAttribute attribute) where T : unmanaged
+        {
+#if DEBUG
+            if (!validVertexFormats.Contains(typeof(T)))
+            {
+                throw new ArgumentException(string.Format("Type {0} is not a valid target vertex attribute", typeof(T).FullName));
+            }
+#endif
+            if (_knownAttributes.TryGetValue(attribute, out bool hasAttribute)) return hasAttribute;
+            if (ConsumedAttributes.TryGetValue(attribute, out var value) && value.AttributeByteSize == sizeof(T))
+            {
+                _knownAttributes.Add(attribute, true);
+                return true;
+            }
+            _knownAttributes.Add(attribute, false);
+            return false;
         }
 
         public T[] GetFullVertexData<T>(VertexAttribute attribute) where T : unmanaged
@@ -223,6 +311,42 @@ namespace VECS
             IndexBuffer.WriteFromHostBuffer();
         }
 
+        public ulong GetVertexBufferSize(VertexAttributeFormat format)
+        {
+            return format.GetAttributeByteSize() * _allocatedVertexCount;
+        }
+
+        public GPUBuffer GetBufferAtAttribute(VertexAttribute attribute)
+        {
+#if DEBUG
+            if (!_consumedAttributes.ContainsKey(attribute))
+            {
+                throw new ArgumentException(string.Format("The given attribute {0} is not consumed by the mesh", attribute.ToString()));
+            }
+#endif
+            return _vertexBuffers[attribute];
+        }
+
+        public unsafe GPUBuffer<T> GetBufferAtAttribute<T>(VertexAttribute attribute) where T : unmanaged
+        {
+#if DEBUG
+            
+            if (!HasAttributeInFormat<T>(attribute))
+            {
+                throw new ArgumentException(string.Format("Type {0} is of different size {1} to values stored in the buffer {2} a valid target vertex attribute", typeof(T).FullName, sizeof(T), _consumedAttributes[attribute].format.GetAttributeByteSize()));
+            }
+#endif
+            var buffer = GetBufferAtAttribute(attribute);
+            if (buffer is GPUBuffer<T> genericBuffer)
+            {
+                return genericBuffer;
+            }
+            else
+            {
+                throw new InvalidOperationException(string.Format("Buffer for attribute \"{0}\" is not of format \"{1}\"", _consumedAttributes[attribute].ToString(), _consumedAttributes[attribute].format.ToString()));
+            }
+        }
+
         public Span<T> GetVertexSpan<T>(VertexAttribute attribute,int offset, int length) where T : unmanaged
         {
 #if DEBUG
@@ -231,10 +355,7 @@ namespace VECS
                 throw new ArgumentException(string.Format("Type {0} is not a valid target vertex attribute",typeof(T).FullName));
             }
 #endif
-
-            var buffer = GetBufferAtAttribute<T>(attribute);
-
-            return buffer.HostBuffer.AsSpan(offset, length);
+            return GetBufferAtAttribute<T>(attribute).HostBuffer.AsSpan(offset, length);
         }
 
         public Span<uint> GetIndexSpan(int offset, int length) { return Indices.AsSpan(offset, length); }
@@ -250,7 +371,7 @@ namespace VECS
         {
             foreach (var buffer in _vertexBuffers.Values)
             {
-                buffer.GetType().GetMethod("WriteFromHostBuffer").Invoke(buffer,null);
+                buffer.WriteFromHostBuffer();
             }
             _indexBuffer.WriteFromHostBuffer();
         }
@@ -309,113 +430,94 @@ namespace VECS
         {
             foreach (var buffer in _vertexBuffers.Values)
             {
-                buffer.GetType().GetMethod("TryDellocateHostBuffer").Invoke(buffer, null);
+                buffer.TryDellocateHostBuffer();
             }
             IndexBuffer.TryDellocateHostBuffer();
+        }
+
+        private unsafe Vector3UInt[] CrunchIndicesToFaces()
+        {
+            var faces = new Vector3UInt[IndexBufferLength / 3];
+
+            fixed (void* pIndices = &Indices[0])
+            fixed (void* pFaces = &faces[0])
+                NativeMemory.Copy(pIndices, pFaces, (nuint)(IndexBufferLength * sizeof(uint)));
+
+            return faces;
+        }
+
+        public void ZeroBuffers()
+        {
+            VkCommandBuffer cmd = Device.BeginSingleTimeCommands();
+            foreach (var buffer in _vertexBuffers.Values)
+            {
+                buffer.FillBuffer(cmd, 0);
+                buffer.SetGPUBufferChanged(false);
+            }
+
+            _indexBuffer.FillBuffer(cmd, 0);
+            _indexBuffer.SetGPUBufferChanged(false);
+
+            
+
+            Device.EndSingleTimeCommands(cmd);
+        }
+
+        public void BindBuffers(VkCommandBuffer cmd)
+        {
+            Vulkan.vkCmdBindVertexBuffers(cmd, 0, _vertexVkBuffers, _vertexOffsets);
+            Vulkan.vkCmdBindIndexBuffer(cmd, _indexBuffer.VkBuffer, 0, VkIndexType.Uint32);
         }
 
         public void Dispose()
         {
             if (_disposed) return;
 
-            foreach(var buffer in _vertexBuffers.Values)
+            foreach (var buffer in _vertexBuffers.Values)
             {
                 buffer.Dispose();
             }
 
             _indexBuffer?.Dispose();
 
-            _vertexBuffers = null;
-            _indexBuffer = null;
+            _vertexBuffers.Clear();
+            _vertexBuffers.TrimExcess();
 
             _disposed = true;
         }
 
-        private void AddVertexBufferByAttribute(VertexAttributeDescription vertexAttribute)
+        public static VkVertexInputBindingDescription[] GetBindingDescription(VertexAttributeDescription[] vertexAttributes)
         {
-#if DEBUG
-            if (_consumedAttributes.ContainsKey(vertexAttribute.attribute))
-            {
-                throw new ArgumentException(string.Format("Given vertex attributre {0} already present in the vertex buffers", vertexAttribute.ToString()));
-            }
-#endif
+            VkVertexInputBindingDescription[] bindingDescriptions = new VkVertexInputBindingDescription[vertexAttributes.Length];
 
-            VertexAttribute attribute = vertexAttribute.attribute;
-            VertexAttributeFormat format = vertexAttribute.format;
-            _vertexBuffers ??= [];
-            switch (format)
+            for (int i = 0; i < vertexAttributes.Length; i++)
             {
-                case VertexAttributeFormat.Float1:
-                    _vertexBuffers.Add(attribute, CreateBuffer<float>());
-                    break;
-                case VertexAttributeFormat.Float2:
-                    _vertexBuffers.Add(attribute, CreateBuffer<Vector2>());
-                    break;
-                case VertexAttributeFormat.Float3:
-                    _vertexBuffers.Add(attribute, CreateBuffer<Vector3>());
-                    break;
-                case VertexAttributeFormat.Float4:
-                    _vertexBuffers.Add(attribute, CreateBuffer<Vector4>());
-                    break;
+                var attributeDesc = vertexAttributes[i];
+                bindingDescriptions[i] = new VkVertexInputBindingDescription(
+                    attributeDesc.AttributeByteSize,
+                    VkVertexInputRate.Vertex,
+                    attributeDesc.binding);
             }
-            _consumedAttributes.Add(vertexAttribute.attribute, vertexAttribute);
+
+            return bindingDescriptions;
         }
 
-        private GPUBuffer<T> CreateBuffer<T>() where T : unmanaged
+        public static VkVertexInputAttributeDescription[] GetAttributeDescriptions(VertexAttributeDescription[] vertexAttributes)
         {
-            var buffer = new GPUBuffer<T>(_allocatedVertexCount,
-                VkBufferUsageFlags.VertexBuffer |
-                VkBufferUsageFlags.TransferDst |
-                VkBufferUsageFlags.TransferSrc, false);
+            VkVertexInputAttributeDescription[] attributeDescriptions = new VkVertexInputAttributeDescription[vertexAttributes.Length];
 
-            buffer.TryAllocHostBuffer(false);
+            for (int i = 0; i < vertexAttributes.Length; i++)
+            {
+                var attributeDesc = vertexAttributes[i];
+                attributeDescriptions[i] = new VkVertexInputAttributeDescription(
+                    attributeDesc.location,
+                    attributeDesc.format.GetVkFormat(),
+                    0,
+                    attributeDesc.binding);
+            }
 
-            return buffer;
+            return attributeDescriptions;
         }
 
-        private GPUBuffer GetBufferAtAttribute(VertexAttribute attribute)
-        {
-#if DEBUG
-            if (!_consumedAttributes.ContainsKey(attribute))
-            {
-                throw new ArgumentException(string.Format("The given attribute {0} is not consumed by the mesh", attribute.ToString()));
-            }
-#endif
-            return _vertexBuffers[attribute];
-        }
-
-        private unsafe GPUBuffer<T> GetBufferAtAttribute<T>(VertexAttribute attribute) where T : unmanaged
-        {
-#if DEBUG
-            if (!validVertexFormats.Contains(typeof(T)))
-            {
-                throw new ArgumentException(string.Format("Type {0} is not a valid target vertex attribute", typeof(T).FullName));
-            }
-            if (_consumedAttributes[attribute].format.GetAttributeByteSize() != sizeof(T))
-            {
-                throw new ArgumentException(string.Format("Type {0} is of different size {1} to values stored in the buffer {2} a valid target vertex attribute", typeof(T).FullName, sizeof(T), _consumedAttributes[attribute].format.GetAttributeByteSize()));
-            }
-#endif
-            var buffer = GetBufferAtAttribute(attribute);
-            if (buffer is GPUBuffer<T> genericBuffer)
-            {
-                return genericBuffer;
-            }
-            else
-            {
-                throw new InvalidOperationException(string.Format("Buffer for attribute \"{0}\" is not of format \"{1}\"", _consumedAttributes[attribute].ToString(), _consumedAttributes[attribute].format.ToString()));
-            }
-        }
-
-        private unsafe Vector3UInt[] CrunchIndicesToFaces()
-        {
-            var faces = new Vector3UInt[IndexInstanceCount / 3];
-
-            fixed (void* pIndices = &Indices[0])
-            fixed (void* pFaces = &faces[0])
-                NativeMemory.Copy(pIndices, pFaces, (nuint)(IndexInstanceCount * sizeof(uint)));
-
-            return faces;
-        }
     }
 }

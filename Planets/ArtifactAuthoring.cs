@@ -46,10 +46,18 @@ namespace Planets
 
             CreateDefaultCamera(entityManager);
             // LoadTestScene(entityManager);
-
+            VertexAttributeDescription[] vertexAttributeDescriptions = [
+                new(VertexAttribute.Position,VertexAttributeFormat.Float3,0,0,0),
+                new(VertexAttribute.Normal,VertexAttributeFormat.Float3,0,1,1),
+                new(VertexAttribute.TexCoord0,VertexAttributeFormat.Float1,0,2,2),
+                new(VertexAttribute.TexCoord1,VertexAttributeFormat.Float1,0,3,3),
+            ];
             var prefabPlanet = CreatePrefabPlanet(entityManager);
-
+            var bindingDescriptions = DirectMeshBuffer.GetBindingDescription(vertexAttributeDescriptions);
+            var attributeDescriptions = DirectMeshBuffer.GetAttributeDescriptions(vertexAttributeDescriptions);
             var indirectMeshMaterial = new Material("white_shader.vert", "white_shader.frag",
+                bindingDescriptions,
+                attributeDescriptions,
                 new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.StorageBuffer, StageFlags = VkShaderStageFlags.Vertex}
                 );
 
@@ -354,14 +362,12 @@ namespace Planets
             }
 
             ComputeShapeGenerator computeGenerator = null;
-            ComputeNormals computeNormals = null;
             VkCommandBuffer commandBuffer = default;
 
             if (useComputeShaderForGeneration)
             {
 
                 computeGenerator = new ComputeShapeGenerator();
-                computeNormals = new ComputeNormals();
                 computeGenerator.PrePrepare(generator);
                 commandBuffer = GraphicsDevice.Instance.BeginSingleTimeCommands();
             }
@@ -392,7 +398,6 @@ namespace Planets
             {
                 meshes[i].RecalculateNormals();
             }
-            computeNormals?.Dispose();
             computeGenerator?.Dispose();
             generator.ColourGenerator.UpdateColours();
 

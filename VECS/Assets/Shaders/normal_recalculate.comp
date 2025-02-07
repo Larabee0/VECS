@@ -1,6 +1,5 @@
 #version 450
 #extension GL_KHR_vulkan_glsl: enable
-#include "structures.glsl"
 
 // information about the main buffer defining what threads should run/abort
 layout(set = 0, binding = 0) uniform ComputeShaderParameters{
@@ -13,7 +12,7 @@ layout(set = 0, binding = 0) uniform ComputeShaderParameters{
 
 // vertex buffer to operate on (direct mesh buffer) Only read from here.
 layout(std430,set = 0, binding = 1) readonly buffer VertexBuffer {
-    Vertex vertexBuffer[];
+    vec4 vertexBuffer[];
 };
 
 // index buffer to operate on (direct mesh buffer) Only read from here.
@@ -42,17 +41,11 @@ void main() {
 	uint indexB = indexBuffer[indexBufferIndex + 1];
 	uint indexC = indexBuffer[indexBufferIndex + 2];
 
-	vec3 posA = vec3(vertexBuffer[indexA].positionX,
-	vertexBuffer[indexA].positionY,
-	vertexBuffer[indexA].positionZ);
+	vec3 posA = vertexBuffer[indexA].xyz;
 	
-	vec3 posB = vec3( vertexBuffer[indexB].positionX,
-	vertexBuffer[indexB].positionY,
-	vertexBuffer[indexB].positionZ);
+	vec3 posB = vertexBuffer[indexB].xyz;
 
-	vec3 posC = vec3(vertexBuffer[indexC].positionX,
-	vertexBuffer[indexC].positionY,
-	vertexBuffer[indexC].positionZ);
+	vec3 posC = vertexBuffer[indexC].xyz;
 
 	// compute face normal, remap the vec3 as an int vec3 for atomic add
 	ivec3 faceNormal = ivec3(normalize(cross(posB - posA, posC - posA)) * QUANTIIZE_FACTOR);

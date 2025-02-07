@@ -28,19 +28,10 @@ namespace VECS
 
         private readonly DescriptorPool _descriptorPool;
 
-        private GPUBuffer<Vector3> _workingNormalBuffer;
-
-        public static void DispatchNow(Mesh mesh)
+        public static void DispatchNow(DirectMeshBuffer meshBuffer)
         {
             ComputeNormals computeNormals = new();
-            computeNormals.DispatchSingleTimeCmd(mesh);
-            computeNormals.Dispose();
-        }
-
-        public static void DispatchNow(DirectMeshBuffer<Vertex> meshBuffer)
-        {
-            ComputeNormals computeNormals = new();
-            computeNormals.DispatchSingleTimeCmd(meshBuffer.VertexBuffer, meshBuffer.IndexBuffer);
+            computeNormals.DispatchSingleTimeCmd(meshBuffer.GetBufferAtAttribute<Vector3>(VertexAttribute.Position), meshBuffer.GetBufferAtAttribute<Vector3>(VertexAttribute.Normal), meshBuffer.IndexBuffer);
             computeNormals.Dispose();
         }
 
@@ -74,18 +65,10 @@ namespace VECS
         /// Ensures normal buffer of sufficient size exists before calling prepare for compute shader pair.
         /// </summary>
         /// <param name="vertexBuffer"></param>
-        private unsafe void Prepare(GPUBuffer<uint> indexBuffer, GPUBuffer<Vertex> vertexBuffer)
+        private unsafe void Prepare(GPUBuffer<uint> indexBuffer, GPUBuffer<Vector3> vertexBuffer, GPUBuffer<Vector3> normalBuffer)
         {
-            // to share this pipeline across the whole mesh, the normal buffer must be as long as the longest vertex buffer.
-            // recallocate when a new vertex buffer is longer than the current normal buffer
-            if (_workingNormalBuffer == null || vertexBuffer.UInstanceCount > _workingNormalBuffer.UInstanceCount)
-            {
-                _workingNormalBuffer?.Dispose();
-                _workingNormalBuffer = new(vertexBuffer.UInstanceCount, VkBufferUsageFlags.StorageBuffer | VkBufferUsageFlags.TransferDst, false);
-            }
-
-            PrepareNormalRecalculate(indexBuffer, vertexBuffer);
-            PrepareNormalNormalize(vertexBuffer);
+            PrepareNormalRecalculate(indexBuffer, vertexBuffer, normalBuffer);
+            PrepareNormalNormalize(normalBuffer);
 
         }
 
@@ -94,7 +77,9 @@ namespace VECS
         /// </summary>
         /// <param name="indexBuffer"></param>
         /// <param name="vertexBuffer"></param>
-        private unsafe void PrepareNormalRecalculate(GPUBuffer<uint> indexBuffer, GPUBuffer<Vertex> vertexBuffer)
+        private unsafe void PrepareNormalRecalculate(GPUBuffer<uint> indexBuffer,
+            GPUBuffer<Vector3> vertexBuffer,
+            GPUBuffer<Vector3> normalBuffer)
         {
             _calcuateNormals.Prepare(indexBuffer.UInstanceCount32, indexBuffer.UInstanceCount32, indexBuffer.UInstanceCount32, 1);
             
@@ -104,7 +89,7 @@ namespace VECS
                     .WriteBuffer(0, _calcuateNormals.ShaderParameters.DescriptorInfo())
                     .WriteBuffer(1, vertexBuffer.DescriptorInfo())
                     .WriteBuffer(2, indexBuffer.DescriptorInfo())
-                    .WriteBuffer(3, _workingNormalBuffer.DescriptorInfo())
+                    .WriteBuffer(3, normalBuffer.DescriptorInfo())
                     .Build(pSet);
             }
         }
@@ -113,25 +98,18 @@ namespace VECS
         /// prepares the vertex normal normalisation compute shader by writing the required buffers to the descriptor set.
         /// </summary>
         /// <param name="vertexBuffer"></param>
-        private unsafe void PrepareNormalNormalize(GPUBuffer<Vertex> vertexBuffer)
+        private unsafe void PrepareNormalNormalize(GPUBuffer<Vector3> normalBuffer)
         {
-            _normalizeNormals.Prepare(vertexBuffer.UInstanceCount32, vertexBuffer.UInstanceCount32, vertexBuffer.UInstanceCount32, 1);
+            _normalizeNormals.Prepare(normalBuffer.UInstanceCount32, normalBuffer.UInstanceCount32, normalBuffer.UInstanceCount32, 1);
 
             fixed (VkDescriptorSet* pSet = &_normalizeNormals.DescriptorSet)
             {
                 new DescriptorWriter(_normalizeNormals.DescriptorSetLayout, _descriptorPool)
                     .WriteBuffer(0, _normalizeNormals.ShaderParameters.DescriptorInfo())
-                    .WriteBuffer(1, vertexBuffer.DescriptorInfo())
-                    .WriteBuffer(2, _workingNormalBuffer.DescriptorInfo())
+                    .WriteBuffer(1, normalBuffer.DescriptorInfo())
                     .Build(pSet);
             }
         }
-
-        public void Dispatch(VkCommandBuffer commandBuffer, Mesh mesh)
-        {
-            Dispatch(commandBuffer, mesh.VertexBuffer, mesh.IndexBuffer);
-        }
-
 
         /// <summary>
         /// Dispatches the compute pipeline pairs in order on the given command buffer for the provided mesh.
@@ -139,12 +117,12 @@ namespace VECS
         /// <param name="commandBuffer"></param>
         /// <param name="indexBuffer"></param>
         /// <param name="vertexBuffer"></param>
-        public unsafe void Dispatch(VkCommandBuffer commandBuffer, GPUBuffer<Vertex> vertexBuffer, GPUBuffer<uint> indexBuffer)
+        public unsafe void Dispatch(VkCommandBuffer commandBuffer, GPUBuffer<Vector3> vertexBuffer, GPUBuffer<Vector3> normalBuffer, GPUBuffer<uint> indexBuffer)
         {
-            Prepare(indexBuffer, vertexBuffer);
+            Prepare(indexBuffer, vertexBuffer, normalBuffer);
 
             // clear normal buffer
-            _workingNormalBuffer.FillBuffer(commandBuffer, 0);
+            normalBuffer.FillBuffer(commandBuffer, 0);
 
             _calcuateNormals.Dispatch(commandBuffer, indexBuffer.UInstanceCount32 / 3, 1, 1);
 
@@ -168,27 +146,17 @@ namespace VECS
             _normalizeNormals.Dispatch(commandBuffer, vertexBuffer.UInstanceCount32, 1, 1);
         }
 
-        /// <summary>
-        /// Dispatches the compute pipeline pairs in order as a single time command.
-        /// </summary>
-        /// <param name="mesh"></param>
-        public void DispatchSingleTimeCmd(Mesh mesh)
-        {
-            DispatchSingleTimeCmd(mesh.VertexBuffer, mesh.IndexBuffer);
-        }
-
-        public unsafe void DispatchSingleTimeCmd(GPUBuffer<Vertex> vertexBuffer, GPUBuffer<uint> indexBuffer)
+        public unsafe void DispatchSingleTimeCmd(GPUBuffer<Vector3> vertexBuffer, GPUBuffer<Vector3> normalBuffer, GPUBuffer<uint> indexBuffer)
         {
             vertexBuffer.Flush();
             indexBuffer.Flush();
             var commandBuffer = GraphicsDevice.Instance.BeginSingleTimeCommands();
-            Dispatch(commandBuffer, vertexBuffer, indexBuffer);
+            Dispatch(commandBuffer, vertexBuffer, normalBuffer, indexBuffer);
             GraphicsDevice.Instance.EndSingleTimeCommands(commandBuffer);
         }
 
         public unsafe void Dispose()
         {
-            _workingNormalBuffer?.Dispose();
             _descriptorPool?.Dispose();
             _calcuateNormals?.Dispose();
             _normalizeNormals?.Dispose();
