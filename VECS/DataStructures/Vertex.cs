@@ -84,7 +84,7 @@ namespace VECS
         /// Binding descriptors are needed for a graphics pipeline if it wants to use this vertex struct
         /// </summary>
         /// <returns></returns>
-        public static VkVertexInputBindingDescription[] GetBindingDescriptions()
+        public static VkVertexInputBindingDescription[] GetVkBindingDescriptions()
         {
             VkVertexInputBindingDescription[] bindingDescriptions =
             [
@@ -102,7 +102,7 @@ namespace VECS
         /// Attribute descriptors are needed for a graphics pipeline if it wants to use this vertex struct
         /// </summary>
         /// <returns></returns>
-        public static VkVertexInputAttributeDescription[] GetAttributeDescriptions()
+        public static VkVertexInputAttributeDescription[] GetVkAttributeDescriptions()
         {
             VkVertexInputAttributeDescription[] attributeDescriptions =
             [
@@ -115,6 +115,16 @@ namespace VECS
             ];
 
             return attributeDescriptions;
+        }
+
+        public static VertexAttributeDescription[] GetAttributeDescriptions()
+        {
+            return [
+                new(VertexAttribute.Position,VertexAttributeFormat.Float3,(uint)Marshal.OffsetOf<Vertex>(nameof(Position)),0,0),
+                new(VertexAttribute.Normal,VertexAttributeFormat.Float3,(uint)Marshal.OffsetOf<Vertex>(nameof(Normal)),0,1),
+                new(VertexAttribute.TexCoord0,VertexAttributeFormat.Float1,(uint)Marshal.OffsetOf<Vertex>(nameof(Elevation)),0,2),
+                new(VertexAttribute.TexCoord1,VertexAttributeFormat.Float1,(uint)Marshal.OffsetOf<Vertex>(nameof(BiomeSelect)),0,3),
+                ];
         }
     }
 }

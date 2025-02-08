@@ -36,7 +36,8 @@ namespace VECS.DataStructures
 
             for (int i = 0; i < scene.MeshCount; i++)
             {
-                directMeshCreateInfo[i] = new DirectSubMeshCreateData(scene.Meshes[i].VertexCount, scene.Meshes[i].GetUnsignedIndices().Length);
+                directMeshCreateInfo[i] = new DirectSubMeshCreateData((uint)scene.Meshes[i].VertexCount,
+                    (uint)scene.Meshes[i].GetUnsignedIndices().Length);
             }
 
             var directMeshBuffer = new DirectMeshBuffer(attributeDescriptions, directMeshCreateInfo);
@@ -45,7 +46,7 @@ namespace VECS.DataStructures
 
             for(int i = 0;i < scene.MeshCount; i++)
             {
-                sceneMeshes[i] = new DirectSubMesh(directMeshBuffer, directMeshBuffer.DirectMeshes[i]);
+                sceneMeshes[i] = new DirectSubMesh(directMeshBuffer, i);
             }
 
             for (int i = 0; i < scene.MeshCount; i++)
@@ -89,17 +90,17 @@ namespace VECS.DataStructures
             for (int i = 0; 0 < srcMesh.VertexCount; i++)
             {
                 dstVertices[i] = srcVertices[i].ToVector3();
-                if (dstNormals != null && srcNormals != null) { dstNormals[i] = srcNormals[i].ToVector3(); }
-                if (dstTangents != null && srcTangents != null) { dstTangents[i] = srcTangents[i].ToVector3(); }
-                if (dstColours != null && srcColours != null) { dstColours[i] = ColourTypeConversion.ToColor(srcColours[i]); }
-                if (dstUV0 != null && srcUV0 != null) { dstUV0[i] = srcUV0[i].ToVector2(); }
-                if (dstUV1 != null && srcUV1 != null) { dstUV1[i] = srcUV1[i].ToVector2(); }
-                if (dstUV2 != null && srcUV2 != null) { dstUV2[i] = srcUV2[i].ToVector2(); }
-                if (dstUV3 != null && srcUV3 != null) { dstUV3[i] = srcUV3[i].ToVector2(); }
-                if (dstUV4 != null && srcUV4 != null) { dstUV4[i] = srcUV4[i].ToVector2(); }
-                if (dstUV5 != null && srcUV5 != null) { dstUV5[i] = srcUV5[i].ToVector2(); }
-                if (dstUV6 != null && srcUV6 != null) { dstUV6[i] = srcUV6[i].ToVector2(); }
-                if (dstUV7 != null && srcUV7 != null) { dstUV7[i] = srcUV7[i].ToVector2(); }
+                if (!dstNormals.IsEmpty && srcNormals != null) { dstNormals[i] = srcNormals[i].ToVector3(); }
+                if (!dstTangents.IsEmpty && srcTangents != null) { dstTangents[i] = srcTangents[i].ToVector3(); }
+                if (!dstColours.IsEmpty && srcColours != null) { dstColours[i] = ColourTypeConversion.ToColor(srcColours[i]); }
+                if (!dstUV0.IsEmpty && srcUV0 != null) { dstUV0[i] = srcUV0[i].ToVector2(); }
+                if (!dstUV1.IsEmpty && srcUV1 != null) { dstUV1[i] = srcUV1[i].ToVector2(); }
+                if (!dstUV2.IsEmpty && srcUV2 != null) { dstUV2[i] = srcUV2[i].ToVector2(); }
+                if (!dstUV3.IsEmpty && srcUV3 != null) { dstUV3[i] = srcUV3[i].ToVector2(); }
+                if (!dstUV4.IsEmpty && srcUV4 != null) { dstUV4[i] = srcUV4[i].ToVector2(); }
+                if (!dstUV5.IsEmpty && srcUV5 != null) { dstUV5[i] = srcUV5[i].ToVector2(); }
+                if (!dstUV6.IsEmpty && srcUV6 != null) { dstUV6[i] = srcUV6[i].ToVector2(); }
+                if (!dstUV7.IsEmpty && srcUV7 != null) { dstUV7[i] = srcUV7[i].ToVector2(); }
             }
 
             srcMesh.GetUnsignedIndices().CopyTo(dstMesh.Indicies);

@@ -105,10 +105,10 @@ namespace VECS
 
     public readonly struct DirectSubMeshCreateData
     {
-        public readonly int VertexCount;
-        public readonly int IndexCount;
+        public readonly uint VertexCount;
+        public readonly uint IndexCount;
 
-        public DirectSubMeshCreateData(int vertexCount, int indexCount)
+        public DirectSubMeshCreateData(uint vertexCount, uint indexCount)
         {
             VertexCount = vertexCount;
             IndexCount = indexCount;
@@ -117,13 +117,13 @@ namespace VECS
 
     public readonly struct DirectSubMeshInfo
     {
-        public readonly int VertexCount;
-        public readonly int IndexCount;
-        public readonly int FirstIndex;
-        public readonly int VertexOffset;
-        public readonly int FirstInstance;
+        public readonly uint VertexCount;
+        public readonly uint IndexCount;
+        public readonly uint FirstIndex;
+        public readonly uint VertexOffset;
+        public readonly uint FirstInstance;
 
-        public DirectSubMeshInfo(int vertexCount, int indexCount, int firstIndex, int vertexOffset, int firstInstance)
+        public DirectSubMeshInfo(uint vertexCount, uint indexCount, uint firstIndex, uint vertexOffset, uint firstInstance)
         {
             VertexCount = vertexCount;
             IndexCount = indexCount;
@@ -134,11 +134,11 @@ namespace VECS
 
         public VkDrawIndexedIndirectCommand IndirectDrawCmd => new()
         {
-            indexCount = (uint)IndexCount,
+            indexCount = IndexCount,
             instanceCount = 1,
-            firstIndex = (uint)FirstIndex,
-            vertexOffset = VertexOffset,
-            firstInstance = (uint)FirstInstance
+            firstIndex = FirstIndex,
+            vertexOffset = (int)VertexOffset,
+            firstInstance = FirstInstance
         };
     }
 
@@ -151,17 +151,17 @@ namespace VECS
         public const VkBufferUsageFlags DIRECT_MESH_INDEX_BUFFER_FLAGS = VkBufferUsageFlags.IndexBuffer | VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.TransferSrc;
         private static GraphicsDevice Device => GraphicsDevice.Instance;
 
-        private readonly uint _allocatedVertexCount;
-        private readonly uint _allocatedIndexCount;
+        private ulong _allocatedVertexCount;
+        private ulong _allocatedIndexCount;
 
-        private readonly DirectSubMeshInfo[] _meshes;
+        private readonly DirectSubMeshInfo[] _subMeshes;
         private readonly VertexAttribute[] _attributesInOrder;
         private readonly VkVertexInputBindingDescription[] _bindingDescriptions;
         private readonly VkVertexInputAttributeDescription[] _attributeDescriptions;
         private readonly ulong[] _vertexOffsets;
         private readonly VkBuffer[] _vertexVkBuffers;
 
-        private readonly Dictionary<VertexAttribute, VertexAttributeDescription> _consumedAttributes;
+        private readonly Dictionary<VertexAttribute, VertexAttributeDescription> _consumedAttributes = [];
         private readonly Dictionary<VertexAttribute, bool> _knownAttributes = [];
 
         private readonly GPUBuffer<uint> _indexBuffer;
@@ -173,7 +173,7 @@ namespace VECS
 
         public bool IsDisposed => _disposed;
 
-        public DirectSubMeshInfo[] DirectMeshes => _meshes;
+        public DirectSubMeshInfo[] DirectMeshes => _subMeshes;
         public VertexAttribute[] AllAttributesInOrder => _attributesInOrder;
         public VkVertexInputBindingDescription[] BindingDescriptions => _bindingDescriptions;
         public VkVertexInputAttributeDescription[] AttributeDescriptions => _attributeDescriptions;
@@ -182,9 +182,9 @@ namespace VECS
 
 
         public GPUBuffer<uint> IndexBuffer => _indexBuffer;
-        private uint[] Indices => _indexBuffer.HostBuffer;
+        private Span<uint> Indices => _indexBuffer.HostBuffer;
 
-        public bool CPU_Dellocated => Indices == null;
+        public bool CPU_Dellocated => Indices.IsEmpty;
         public int VertexBufferCount => _vertexBuffers.Count;
         public ulong VertexBufferLength => _allocatedVertexCount;
         public ulong IndexBufferLength => _allocatedIndexCount;
@@ -192,18 +192,18 @@ namespace VECS
 
         public DirectMeshBuffer(VertexAttributeDescription[] requestedVertexAttributes, DirectSubMeshCreateData[] meshes)
         {
-            _meshes = new DirectSubMeshInfo[meshes.Length];
-            int indexOffset = 0;
-            int vertexOffset = 0;
-            for (int i = 0; i < meshes.Length; i++)
+            _subMeshes = new DirectSubMeshInfo[meshes.Length];
+            uint indexOffset = 0;
+            uint vertexOffset = 0;
+            for (uint i = 0; i < meshes.Length; i++)
             {
-                _meshes[i] = new(meshes[i].VertexCount, meshes[i].IndexCount,indexOffset,vertexOffset,i);
+                _subMeshes[i] = new(meshes[i].VertexCount, meshes[i].IndexCount,indexOffset,vertexOffset,i);
                 vertexOffset += meshes[i].VertexCount;
                 indexOffset += meshes[i].IndexCount;
             }
 
-            _allocatedVertexCount = (uint)vertexOffset;
-            _allocatedIndexCount = (uint)indexOffset;
+            _allocatedVertexCount = vertexOffset;
+            _allocatedIndexCount = indexOffset;
 
             _vertexBuffers = [];
 
@@ -294,7 +294,7 @@ namespace VECS
             return false;
         }
 
-        public T[] GetFullVertexData<T>(VertexAttribute attribute) where T : unmanaged
+        public Span<T> GetFullVertexData<T>(VertexAttribute attribute) where T : unmanaged
         {
             return GetBufferAtAttribute<T>(attribute).HostBuffer;
         }
@@ -304,7 +304,7 @@ namespace VECS
             GetBufferAtAttribute<T>(attribute).WriteFromHostBuffer();
         }
 
-        public uint[] GetFullIndexArray() { return Indices; }
+        public Span<uint> GetFullIndexArray() { return Indices; }
 
         public void FlushFullIndexArray()
         {
@@ -347,7 +347,7 @@ namespace VECS
             }
         }
 
-        public Span<T> GetVertexSpan<T>(VertexAttribute attribute,int offset, int length) where T : unmanaged
+        public Span<T> GetVertexSpan<T>(VertexAttribute attribute,uint offset, uint length) where T : unmanaged
         {
 #if DEBUG
             if(!validVertexFormats.Contains(typeof(T)))
@@ -355,16 +355,24 @@ namespace VECS
                 throw new ArgumentException(string.Format("Type {0} is not a valid target vertex attribute",typeof(T).FullName));
             }
 #endif
-            return GetBufferAtAttribute<T>(attribute).HostBuffer.AsSpan(offset, length);
+            return GetBufferAtAttribute<T>(attribute).HostBuffer.Slice((int)offset, (int)length);
         }
 
-        public Span<uint> GetIndexSpan(int offset, int length) { return Indices.AsSpan(offset, length); }
+        public unsafe void* GetUnsafeVertexBuffer(VertexAttribute attribute, uint offset)
+        {
+            var buffer = GetBufferAtAttribute(attribute);
+            var ptr = (byte*)buffer.HostPtr;
+            ptr += offset * buffer.InstanceSize;
+            return ptr;
+        }
 
-        public Span<Vector3UInt> GetFaceSpan(int offset, int length)
+        public Span<uint> GetIndexSpan(uint offset, uint length) { return Indices.Slice((int)offset, (int)length); }
+
+        public Span<Vector3UInt> GetFaceSpan(uint offset, uint length)
         {
             _faces ??= CrunchIndicesToFaces();
 
-            return _faces.AsSpan(offset / 3, length / 3);
+            return _faces.AsSpan((int)offset / 3, (int)length / 3);
         }
 
         public void FlushAll()
@@ -376,7 +384,7 @@ namespace VECS
             _indexBuffer.WriteFromHostBuffer();
         }
 
-        public void FlushVertexRegion(VertexAttribute attribute, int offset, int length)
+        public void FlushVertexRegion(VertexAttribute attribute, uint offset, uint length)
         {
             if (_consumedAttributes.TryGetValue(attribute, out var attributeDescription))
             {
@@ -402,9 +410,9 @@ namespace VECS
             }
         }
 
-        public void FlushIndexRegion(int offset, int length) { FlushIndexSpan(offset, GetIndexSpan(offset, length)); }
+        public void FlushIndexRegion(uint offset, uint length) { FlushIndexSpan(offset, GetIndexSpan(offset, length)); }
 
-        public unsafe void FlushVertexSpan<T>(VertexAttribute attribute,int offset, Span<T> vertices) where T : unmanaged
+        public unsafe void FlushVertexSpan<T>(VertexAttribute attribute,uint offset, Span<T> vertices) where T : unmanaged
         {
 #if DEBUG
             if (!validVertexFormats.Contains(typeof(T)))
@@ -414,15 +422,15 @@ namespace VECS
 #endif
             fixed (T* v = vertices)
             {
-                GetBufferAtAttribute(attribute).WriteToBuffer(v, (ulong)(sizeof(T) * vertices.Length), (ulong)offset);
+                GetBufferAtAttribute(attribute).WriteToBuffer(v, (ulong)(sizeof(T) * vertices.Length), offset);
             }
         }
 
-        public unsafe void FlushIndexSpan(int offset, Span<uint> indices)
+        public unsafe void FlushIndexSpan(uint offset, Span<uint> indices)
         {
             fixed (uint* v = indices)
             {
-                _indexBuffer.WriteToBuffer(v, (ulong)(sizeof(uint) * indices.Length), (ulong)offset);
+                _indexBuffer.WriteToBuffer(v, (ulong)(sizeof(uint) * indices.Length), offset);
             }
         }
 
@@ -512,12 +520,120 @@ namespace VECS
                 attributeDescriptions[i] = new VkVertexInputAttributeDescription(
                     attributeDesc.location,
                     attributeDesc.format.GetVkFormat(),
-                    0,
+                    attributeDesc.offset,
                     attributeDesc.binding);
             }
 
             return attributeDescriptions;
         }
 
+        internal unsafe void ReallocateSubMesh(int subMeshIndex,DirectSubMeshCreateData newBufferSizes)
+        {
+            var currentData = _subMeshes[subMeshIndex];
+            ReallocateIndexBuffer(subMeshIndex, newBufferSizes, currentData);
+            ReallocateVertexBuffers(subMeshIndex, newBufferSizes, currentData);
+
+            _allocatedIndexCount = _allocatedIndexCount - currentData.IndexCount + newBufferSizes.IndexCount;
+            _allocatedVertexCount = _allocatedVertexCount - currentData.VertexCount + newBufferSizes.VertexCount;
+
+            uint indexOffsetOffset = newBufferSizes.IndexCount - currentData.IndexCount;
+            uint vertexOffsetOffset = newBufferSizes.VertexCount - currentData.VertexCount;
+
+            // update offsets and counts
+            for (uint i = 0; i < _subMeshes.Length; i++)
+            {
+                var subMesh = _subMeshes[i];
+                if (i == subMeshIndex)
+                {
+                    _subMeshes[i] = new(newBufferSizes.VertexCount,
+                        newBufferSizes.IndexCount,
+                        currentData.FirstIndex,
+                        currentData.VertexOffset,i);
+                }
+                else if (i > subMeshIndex)
+                {
+                    _subMeshes[i] = new(newBufferSizes.VertexCount,
+                        subMesh.IndexCount,
+                        indexOffsetOffset + subMesh.FirstIndex,
+                        vertexOffsetOffset + subMesh.VertexOffset, i);
+                }
+                else
+                {
+                    _subMeshes[i] = new(newBufferSizes.VertexCount,
+                        subMesh.IndexCount,
+                        subMesh.FirstIndex,
+                        subMesh.VertexOffset, i);
+                }
+            }
+        }
+
+        private void ReallocateVertexBuffers(int subMeshIndex, DirectSubMeshCreateData newBufferSizes, DirectSubMeshInfo currentData)
+        {
+            for (int i = 0; i < _attributesInOrder.Length; i++)
+            {
+                var attribute = _attributesInOrder[i];
+                _vertexVkBuffers[i] = ReallocateVertexBuffer(_vertexBuffers[attribute], subMeshIndex, newBufferSizes, currentData);
+            }
+        }
+
+        private unsafe VkBuffer ReallocateVertexBuffer(GPUBuffer buffer, int subMeshIndex, DirectSubMeshCreateData newBufferSizes, DirectSubMeshInfo currentData)
+        {
+            uint vertexOffsetOffset = newBufferSizes.VertexCount - currentData.VertexCount;
+            ulong newVertexBufferLength = VertexBufferLength - currentData.VertexCount + newBufferSizes.VertexCount;
+            buffer.ReadToHostBuffer();
+            byte* hostBuffer = (byte*)buffer.HostPtr;
+            buffer.ReallocateGPU(newVertexBufferLength);
+            for (int i = 0; i < _subMeshes.Length; i++)
+            {
+                var subMesh = _subMeshes[i];
+                byte* memOffset = hostBuffer;
+                memOffset += subMesh.VertexOffset;
+                if (i == subMeshIndex)
+                {
+                    buffer.WriteToBuffer(memOffset, sizeof(uint) * newBufferSizes.IndexCount, currentData.VertexOffset);
+                }
+                else if (i > subMeshIndex)
+                {
+                    buffer.WriteToBuffer(memOffset, sizeof(uint) * subMesh.IndexCount, vertexOffsetOffset + subMesh.VertexOffset);
+                }
+                else
+                {
+                    buffer.WriteToBuffer(memOffset, sizeof(uint) * subMesh.IndexCount, subMesh.VertexOffset);
+                }
+            }
+            buffer.TryDellocateHostBuffer(false);
+
+            return buffer.VkBuffer;
+        }
+
+        private unsafe void ReallocateIndexBuffer(int subMeshIndex, DirectSubMeshCreateData newBufferSizes, DirectSubMeshInfo currentData)
+        {
+            ulong indexOffsetOffset = newBufferSizes.IndexCount - currentData.IndexCount;
+            ulong newIndexBufferLength = IndexBufferLength - currentData.IndexCount + newBufferSizes.IndexCount;
+            _indexBuffer.ReadToHostBuffer();
+            byte* hostBuffer = (byte*)_indexBuffer.HostPtr;
+            _indexBuffer.ReallocateGPU(newIndexBufferLength);
+            for (int i = 0; i < _subMeshes.Length; i++)
+            {
+                var subMesh = _subMeshes[i];
+
+                byte* memOffset = hostBuffer;
+
+                memOffset += subMesh.FirstIndex;
+                if (i == subMeshIndex)
+                {
+                    _indexBuffer.WriteToBuffer(memOffset, sizeof(uint) * newBufferSizes.IndexCount, currentData.FirstIndex);
+                }
+                else if (i > subMeshIndex)
+                {
+                    _indexBuffer.WriteToBuffer(memOffset, sizeof(uint) * subMesh.IndexCount, indexOffsetOffset + subMesh.FirstIndex);
+                }
+                else
+                {
+                    _indexBuffer.WriteToBuffer(memOffset, sizeof(uint) * subMesh.IndexCount, subMesh.FirstIndex);
+                }
+            }
+            _indexBuffer.TryDellocateHostBuffer(false);
+        }
     }
 }

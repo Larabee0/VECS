@@ -53,8 +53,10 @@ namespace Planets
                 new(VertexAttribute.TexCoord1,VertexAttributeFormat.Float1,0,3,3),
             ];
             var prefabPlanet = CreatePrefabPlanet(entityManager);
-            var bindingDescriptions = DirectMeshBuffer.GetBindingDescription(vertexAttributeDescriptions);
-            var attributeDescriptions = DirectMeshBuffer.GetAttributeDescriptions(vertexAttributeDescriptions);
+            //var bindingDescriptions = DirectMeshBuffer.GetBindingDescription(vertexAttributeDescriptions);
+            //var attributeDescriptions = DirectMeshBuffer.GetAttributeDescriptions(vertexAttributeDescriptions);
+            var bindingDescriptions = Vertex.GetVkBindingDescriptions();
+            var attributeDescriptions = Vertex.GetVkAttributeDescriptions();
             var indirectMeshMaterial = new Material("white_shader.vert", "white_shader.frag",
                 bindingDescriptions,
                 attributeDescriptions,
@@ -337,13 +339,13 @@ namespace Planets
             var now = DateTime.Now;
             ParallelOptions options = new()
             {
-                MaxDegreeOfParallelism = 7
+                MaxDegreeOfParallelism = 1 // 7
             };
 
-            Parallel.For(0, shape.Length, options, (i)=>{
-
-                shape[i].Subdivide(subdivisons);
-            });
+            //Parallel.For(0, shape.Length, options, (i)=>{
+            //
+            //    shape[i].Subdivide(subdivisons);
+            //});
 
             var delta = DateTime.Now - now;
             Console.WriteLine(string.Format("Subdivide Mesh: {0}ms", delta.TotalMilliseconds));

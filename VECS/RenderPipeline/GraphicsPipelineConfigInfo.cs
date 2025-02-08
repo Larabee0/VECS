@@ -121,8 +121,8 @@ namespace VECS.GraphicsPipelines
 
                 dynamicInfo = dynamicInfo,
 
-                BindingDescriptions = Vertex.GetBindingDescriptions(),
-                AttributeDescriptions = Vertex.GetAttributeDescriptions()
+                BindingDescriptions = Vertex.GetVkBindingDescriptions(),
+                AttributeDescriptions = Vertex.GetVkAttributeDescriptions()
             };
         }
 

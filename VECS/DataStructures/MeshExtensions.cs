@@ -1,6 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Numerics;
+using VECS.DataStructures;
 
 namespace VECS
 {
@@ -8,28 +8,30 @@ namespace VECS
     {
         private const int VERTEX_WRITE_OFFSET = 3;
 
-        public static void Subdivide(this Mesh mesh, int divisions)
+        public static void Subdivide(this DirectSubMesh mesh, int divisions)
         {
-            uint curTris = (uint)mesh.IndexCount / 3;
+            uint curIndices = (uint)mesh.IndexCount / 3;
             uint vertexCountPerFace = GetVertsPerFace(divisions);
-            uint triCountPerFace = GetIndicesPerFace(divisions);
-            uint vertexCount = vertexCountPerFace * curTris;
-            uint triCount = triCountPerFace * curTris;
+            uint indexCountPerFace = GetIndicesPerFace(divisions);
+            uint vertexCount = vertexCountPerFace * curIndices;
+            uint indexCount = indexCountPerFace * curIndices;
 
-            if (!ValidateDivisionsCount(vertexCount, triCount))
+            if (!ValidateDivisionsCount(vertexCount, indexCount))
             {
                 return;
             }
 
-            Vertex[] vertices = new Vertex[vertexCount];
-            uint[] indicies = new uint[triCount];
+            LerpableVertex[] vertices = new LerpableVertex[vertexCount];
+            uint[] indicies = new uint[indexCount];
             uint vertexOffset = 0;
             uint indexOffset = 0;
+            var indexBuffer = mesh.Indicies;
             for (int i = 0; i < mesh.IndexCount; i += 3)
             {
-                vertices[vertexOffset] = mesh.Vertices[mesh.Indices[i + 0]];
-                vertices[vertexOffset + 1] = mesh.Vertices[mesh.Indices[i + 1]];
-                vertices[vertexOffset + 2] = mesh.Vertices[mesh.Indices[i + 2]];
+                vertices[vertexOffset] = new(indexBuffer[i + 0]);
+                vertices[vertexOffset + 1] = new(indexBuffer[i + 1]);
+                vertices[vertexOffset + 2] = new(indexBuffer[i + 2]);
+
                 indicies[indexOffset] = vertexOffset;
                 indicies[indexOffset + 1] = vertexOffset + 1;
                 indicies[indexOffset + 2] = vertexOffset + 2;
@@ -37,30 +39,15 @@ namespace VECS
                 DivideFace(divisions, vertices, indicies, vertexOffset, indexOffset);
 
                 vertexOffset += vertexCountPerFace;
-                indexOffset += triCountPerFace;
+                indexOffset += indexCountPerFace;
             }
-
-            mesh.Vertices = vertices;
-            mesh.Indices = indicies;
+            mesh.Reallocate(new(vertexCount, indexCount));
+            indicies.CopyTo(mesh.Indicies);
+            UnpackLerpableVertices(mesh, vertices);
+            
         }
 
-        private unsafe static bool ValidateDivisionsCount(uint vertexCount, uint triCount)
-        {
-            if (sizeof(Vector3) * vertexCount > int.MaxValue)
-            {
-                Console.WriteLine("Cannot subdivide mesh, exceeds max vertices count");
-                return false;
-            }
-            if (sizeof(int) * triCount > int.MaxValue)
-            {
-                Console.WriteLine("Cannot subdivide mesh, exceeds max triangles count");
-                return false;
-            }
-
-            return true;
-        }
-
-        private static void DivideFace(int divisions, Vertex[] vertices, uint[] indices, uint vertexOffset, uint indexOffset)
+        private static void DivideFace(int divisions, LerpableVertex[] vertices, uint[] indices, uint vertexOffset, uint indexOffset)
         {
             int numDivisions = Math.Max(0, divisions);
             uint writeOffset = vertexOffset + VERTEX_WRITE_OFFSET;
@@ -76,8 +63,8 @@ namespace VECS
 
             for (int i = 0; i < vertexTriPairs.Length; i += 2)
             {
-                Vertex startVertex = vertices[vertexTriPairs[i]];
-                Vertex endVertex = vertices[vertexTriPairs[i + 1]];
+                uint startVertex = vertexTriPairs[i];
+                uint endVertex = vertexTriPairs[i + 1];
 
                 uint[] edgeVertexIndices = new uint[numDivisions + 2];
                 edgeVertexIndices[0] = vertexTriPairs[i];
@@ -86,7 +73,7 @@ namespace VECS
                 {
                     float t = (divisionIndex + 1f) / (numDivisions + 1f);
                     edgeVertexIndices[divisionIndex + 1] = writeOffset;
-                    vertices[writeOffset] = Vertex.Lerp(startVertex, endVertex, t);
+                    vertices[writeOffset] = new(startVertex, endVertex, t);
                     writeOffset++;
                 }
                 edgeVertexIndices[numDivisions + 1] = vertexTriPairs[i + 1];
@@ -97,7 +84,7 @@ namespace VECS
             CreateFace(numDivisions, edges, vertices, writeOffset, indices, indexOffset);
         }
 
-        private static void CreateFace(int divisions, Edge[] edges, Vertex[] vertices, uint nextVertex, uint[] indices, uint indexOffset)
+        private static void CreateFace(int divisions, Edge[] edges, LerpableVertex[] vertices, uint nextVertex, uint[] indices, uint indexOffset)
         {
             int numPointsInEdge = edges[0].vertexIndices.Length;
 
@@ -113,15 +100,15 @@ namespace VECS
                 mapWriteIndex++;
 
                 // Add vertices between sideA and sideB
-                Vertex sideAVertex = vertices[edges[0].vertexIndices[i]];
-                Vertex sideBVertex = vertices[edges[1].vertexIndices[i]];
+                uint sideAVertex = edges[0].vertexIndices[i];
+                uint sideBVertex = edges[1].vertexIndices[i];
                 int numInnerPoints = i - 1;
                 for (int j = 0; j < numInnerPoints; j++)
                 {
                     float t = (j + 1f) / (numInnerPoints + 1f);
                     vertexMap[mapWriteIndex] = nextVertex;
                     mapWriteIndex++;
-                    vertices[nextVertex] = Vertex.Lerp(sideAVertex, sideBVertex, t);
+                    vertices[nextVertex] = new(sideAVertex, sideBVertex, t);
                     nextVertex++;
                 }
 
@@ -174,6 +161,42 @@ namespace VECS
             }
         }
 
+        private static unsafe void UnpackLerpableVertices(DirectSubMesh mesh, LerpableVertex[] vertices)
+        {
+            var attributes = mesh.AttributeDescriptions;
+
+            uint[] instanceSizes = new uint[attributes.Length];
+            float*[] buffers = new float*[attributes.Length];
+
+            for (int i = 0; i < attributes.Length; i++)
+            {
+                buffers[i] = (float*)mesh.GetUnsafeVertexData(attributes[i].attribute);
+                instanceSizes[i] = attributes[i].AttributeFloatSize;
+            }
+
+
+            for (uint i = 0; i < vertices.Length; i++)
+            {
+                if (vertices[i].t < 0) continue;
+                var lerpCommand = vertices[i];
+
+                for (int j = 0; j < attributes.Length; j++)
+                {
+                    float* buffer = buffers[j];
+                    uint instanceSize = instanceSizes[j];
+                    uint writeStartIndex = i * instanceSize;
+                    uint read_X_StartIndex = lerpCommand.vertices.X * instanceSize;
+                    uint read_Y_StartIndex = lerpCommand.vertices.Y * instanceSize;
+                    for (int k = 0; k < instanceSize; k++)
+                    {
+                        float x = buffer[read_X_StartIndex + k];
+                        float y = buffer[read_Y_StartIndex + k];
+                        buffer[writeStartIndex + k] = NumericsExtensions.Lerp(x, y, lerpCommand.t);
+                    }
+                }
+            }
+        }
+
         public static uint GetVertsPerFace(int divisions)
         {
             uint divisionsU = (uint)Math.Max(0, divisions);
@@ -186,77 +209,20 @@ namespace VECS
             return (divisionsU + 1) * (divisionsU + 1) * 3;
         }
 
-        public static void Simplify(this Mesh targetMesh)
+        private unsafe static bool ValidateDivisionsCount(uint vertexCount, uint triCount)
         {
-            Vertex[] currentVertices = targetMesh.Vertices;
-            uint[] currentTriangles = targetMesh.Indices;
-
-
-            currentTriangles = FilterTriangles(currentTriangles);
-
-            HashSet<Vertex> uniqueTriangles = GetUniqueUsedVertices(currentVertices, currentTriangles);
-
-            KeyValuePair<Vertex, uint>[] vertexTriPair = new KeyValuePair<Vertex, uint>[uniqueTriangles.Count];
-            IterateUniques(uniqueTriangles, vertexTriPair);
-
-            Dictionary<Vertex, uint> uniqueVertices = new(vertexTriPair, new Vertex());
-            RemapTriangles(currentVertices, currentTriangles, uniqueVertices);
-
-            currentTriangles = FilterTriangles(currentTriangles);
-
-            targetMesh.Vertices = [.. uniqueTriangles];
-            targetMesh.Indices = currentTriangles;
-        }
-
-        private static uint[] FilterTriangles(uint[] currentTriangles)
-        {
-            List<uint> shortTris = new(currentTriangles.Length);
-
-
-            for (int i = 0; i < currentTriangles.Length; i+=3)
+            if (sizeof(Vector3) * vertexCount > int.MaxValue)
             {
-                if (currentTriangles[i] == currentTriangles[i + 1]
-                    && currentTriangles[i] == currentTriangles[i + 2]
-                    && currentTriangles[i + 1] == currentTriangles[i + 2])
-                {
-                    continue;
-                }
-                shortTris.AddRange(currentTriangles.AsSpan(i, 3));
+                Console.WriteLine("Cannot subdivide mesh, exceeds max vertices count");
+                return false;
+            }
+            if (sizeof(int) * triCount > int.MaxValue)
+            {
+                Console.WriteLine("Cannot subdivide mesh, exceeds max triangles count");
+                return false;
             }
 
-            return [.. shortTris];
-        }
-
-        private static HashSet<Vertex> GetUniqueUsedVertices(Vertex[] currentVertices, uint[] currentTriangles)
-        {
-            HashSet<Vertex> uniques = new(currentVertices.Length);
-
-            for (uint i = 0; i < currentTriangles.Length; i++)
-            {
-                uniques.Add(currentVertices[currentTriangles[i]]);
-            }
-
-            return uniques;
-        }
-
-        private static void RemapTriangles(Vertex[] currentVertices, uint[] currentTriangles, Dictionary<Vertex, uint> uniqueVertices)
-        {
-            for (int i = 0; i < currentTriangles.Length; i++)
-            {
-                uint curIndex = currentTriangles[i];
-                var vertex = currentVertices[curIndex];
-                currentTriangles[i] = uniqueVertices[vertex];
-            }
-        }
-
-        private static void IterateUniques(HashSet<Vertex> uniqueTriangles, KeyValuePair<Vertex, uint>[] vertexTriPair)
-        {
-            uint index = 0;
-            foreach (var vertex in uniqueTriangles)
-            {
-                vertexTriPair[index] = new(vertex, index);
-                index++;
-            }
+            return true;
         }
 
         private class Edge
@@ -268,5 +234,24 @@ namespace VECS
                 this.vertexIndices = vertexIndices;
             }
         }
+
+        private readonly struct LerpableVertex
+        {
+            public readonly Vector2UInt vertices;
+            public readonly float t;
+
+            public LerpableVertex(uint v)
+            {
+                vertices = new(v);
+                t = -1;
+            }
+
+            public LerpableVertex(uint x, uint y, float t)
+            {
+                vertices = new(x, y);
+                this.t = t;
+            }
+        }
+
     }
 }
