@@ -1,20 +1,22 @@
 ﻿using System;
-using System.Linq;
 using System.Numerics;
+using VECS.ECS.Presentation;
 using Vortice.Vulkan;
 
-namespace VECS.DataStructures
+namespace VECS
 {
     public class DirectSubMesh
     {
         private readonly DirectMeshBuffer _directMeshBuffer;
         private readonly int _directSubMeshIndex;
-        private Bounds _bounds;
+        private RenderBounds _bounds;
 
-        public DirectSubMeshInfo DirectSubMeshInfo => _directMeshBuffer.DirectMeshes[_directSubMeshIndex];
+        public DirectMeshBuffer DirectMeshBuffer => _directMeshBuffer;
+
+        public DirectSubMeshInfo DirectSubMeshInfo => _directMeshBuffer.SubMeshInfos[_directSubMeshIndex];
 
         public VkDrawIndexedIndirectCommand IndirectCommand => DirectSubMeshInfo.IndirectDrawCmd;
-        public Bounds Bounds => _bounds;
+        public RenderBounds Bounds => _bounds;
         public VertexAttributeDescription[] AttributeDescriptions => [.. _directMeshBuffer.ConsumedAttributes.Values];
         public Span<Vector3> Vertices => _directMeshBuffer.GetVertexSpan<Vector3>(VertexAttribute.Position, DirectSubMeshInfo.VertexOffset, DirectSubMeshInfo.VertexCount);
 
@@ -73,14 +75,53 @@ namespace VECS.DataStructures
             _directMeshBuffer.FlushIndexRegion(DirectSubMeshInfo.FirstIndex, DirectSubMeshInfo.IndexCount);
         }
 
-        public unsafe void RecalculateBounds()
+        public void RecalculateRenderBounds()
         {
-            _bounds = new(Vector3.Zero, Vector3.Zero);
-            for (int i = 0; i < Vertices.Length; i++)
+            float minX = float.MaxValue;
+            float minY = float.MaxValue;
+            float minZ = float.MaxValue;
+            float maxX = float.MinValue;
+            float maxY = float.MinValue;
+            float maxZ = float.MinValue;
+            var vertices = Vertices;
+            for (int i = 0; i < VertexCount; i++)
             {
-                _bounds.Encapsulate(Vertices[i]);
+                Vector3 position = vertices[i];
+
+                minX = Math.Min(minX, position.X);
+                minY = Math.Min(minY, position.Y);
+                minZ = Math.Min(minZ, position.Z);
+
+                maxX = Math.Max(maxX, position.X);
+                maxY = Math.Max(maxY, position.Y);
+                maxZ = Math.Max(maxZ, position.Z);
             }
+
+            Vector3 min = new(minX, minY, minZ);
+            Vector3 max = new(maxX, maxY, maxZ);
+
+            Vector3 extents = (min - max) * 0.5f;
+            Vector3 centerAlt = (min + max) * 0.5f;
+            Vector3 center = min + extents;
+
+            float radius = float.MinValue;
+            radius = Math.Max(Vector3.Distance(center, new Vector3(min.X, min.Y, min.Z)), radius);
+            radius = Math.Max(Vector3.Distance(center, new Vector3(max.X, min.Y, min.Z)), radius);
+            radius = Math.Max(Vector3.Distance(center, new Vector3(min.X, min.Y, max.Z)), radius);
+            radius = Math.Max(Vector3.Distance(center, new Vector3(max.X, min.Y, max.Z)), radius);
+            radius = Math.Max(Vector3.Distance(center, new Vector3(min.X, max.Y, min.Z)), radius);
+            radius = Math.Max(Vector3.Distance(center, new Vector3(max.X, max.Y, min.Z)), radius);
+            radius = Math.Max(Vector3.Distance(center, new Vector3(min.X, max.Y, max.Z)), radius);
+            radius = Math.Max(Vector3.Distance(center, new Vector3(max.X, max.Y, max.Z)), radius);
+
+            _bounds = new()
+            {
+                Bounds = new(centerAlt, extents),
+                Radius = radius,
+                Valid = true
+            };
         }
+
 
         public void SimpleBindAndDraw(VkCommandBuffer cmd)
         {
@@ -92,6 +133,21 @@ namespace VECS.DataStructures
         public void Reallocate(DirectSubMeshCreateData directSubMeshCreateData)
         {
             _directMeshBuffer.ReallocateSubMesh(_directSubMeshIndex,directSubMeshCreateData);
+        }
+
+        public DirectSubMeshIndex GetSubMeshIndex()
+        {
+            return new DirectSubMeshIndex()
+            {
+                SubMeshIndex = _directSubMeshIndex,
+                DirectMeshBuffer = DirectMeshBuffer.GetIndexOfMesh(_directMeshBuffer)
+            };
+        }
+
+        public static DirectSubMesh GetSubMeshAtIndex(DirectSubMeshIndex directSubMeshIndex)
+        {
+            var directMesh = DirectMeshBuffer.GetMeshAtIndex(directSubMeshIndex.DirectMeshBuffer);
+            return directMesh.DirectSubMeshes[directSubMeshIndex.SubMeshIndex];
         }
     }
 }

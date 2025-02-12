@@ -12,7 +12,7 @@ namespace VECS.ECS.Presentation
         public override void OnCreate(EntityManager entityManager)
         {
             _renderQuery = new EntityQuery(entityManager)
-                .WithAll(typeof(MeshIndex), typeof(MaterialIndex), typeof(LocalToWorld))
+                .WithAll(typeof(DirectSubMeshIndex), typeof(MaterialIndex), typeof(LocalToWorld))
                 .Build();
         }
 
@@ -27,7 +27,7 @@ namespace VECS.ECS.Presentation
                 {
                     drawCalls.Add(new()
                     {
-                        MeshIndex = entityManager.GetComponent<MeshIndex>(e).Value,
+                        MeshIndex = entityManager.GetComponent<DirectSubMeshIndex>(e),
                         MaterialIndex = entityManager.GetComponent<MaterialIndex>(e).Value,
                         Ltw = entityManager.GetComponent<LocalToWorld>(e).Value
                     });
@@ -51,7 +51,14 @@ namespace VECS.ECS.Presentation
                         mat = curMat;
                         mat?.BindGlobalDescriptorSet(frameInfo);
                     }
-                    mat?.BindAndDraw(frameInfo, drawCall.MeshIndex, new ModelPushConstantData(drawCall.Ltw));
+                    if (mat != null)
+                    {
+                        //mat?.BindAndDraw(frameInfo, drawCall.MeshIndex, new ModelPushConstantData(drawCall.Ltw));
+
+                        mat.PushConstants(frameInfo.CommandBuffer, new ModelPushConstantData(drawCall.Ltw));
+                        DirectSubMesh.GetSubMeshAtIndex(drawCall.MeshIndex).SimpleBindAndDraw(frameInfo.CommandBuffer);
+
+                    }
                 }
             }
         }
@@ -63,7 +70,7 @@ namespace VECS.ECS.Presentation
 
         public struct DrawCall : IComparer<DrawCall>
         {
-            public int MeshIndex;
+            public DirectSubMeshIndex MeshIndex;
             public int MaterialIndex;
             public Matrix4x4 Ltw;
 

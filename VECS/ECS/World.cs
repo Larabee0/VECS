@@ -23,8 +23,8 @@ namespace VECS.ECS
         private readonly List<PresentationSystemBase> _presentationSystems;
 
         public EntityManager EntityManager => _entityManager;
-        public List<SystemBase> Systems => new(Systems);
-        public List<PresentationSystemBase> PresentationSystems => new(PresentationSystems);
+        public List<SystemBase> Systems => [.. Systems];
+        public List<PresentationSystemBase> PresentationSystems => [.. PresentationSystems];
 
         public World()
         {
@@ -49,7 +49,7 @@ namespace VECS.ECS
         /// <returns> System instance </returns>
         public T CreateSystem<T>() where T : SystemBase, new()
         {
-            return AddSystem((T)Activator.CreateInstance(typeof(T)));
+            return AddSystem(Activator.CreateInstance<T>());
         }
 
         /// <summary>

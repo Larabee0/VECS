@@ -7,7 +7,7 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
-    public sealed class GPUMesh<T> : IDisposable where T :  unmanaged
+    internal sealed class GPUMesh<T> : IDisposable where T :  unmanaged
     {
         private readonly static List<GPUMesh<T>> _meshes = [];
         private readonly static List<MeshSet<T>> _meshSets = [];

@@ -121,19 +121,20 @@ namespace Planets.Generator
         /// This done before the dispatch command is run for each tile of the planet.
         /// </summary>
         /// <param name="vertexBuffer"></param>
-        private unsafe void Prepare(GPUBuffer<Vertex> vertexBuffer)
+        private unsafe void Prepare(DirectMeshBuffer mesh)
         {
-            _terrainGenerator.Prepare(vertexBuffer.UInstanceCount32, vertexBuffer.UInstanceCount32, 1);
+            _terrainGenerator.Prepare((uint)mesh.VertexBufferLength, (uint)mesh.VertexBufferLength, 1);
 
             fixed (VkDescriptorSet* pSet = &_terrainGenerator.DescriptorSet)
             {
                 new DescriptorWriter(_terrainGenerator.DescriptorSetLayout, _pool)
                     .WriteBuffer(0, _terrainGenerator.ShaderParameters.DescriptorInfo())
-                    .WriteBuffer(1, vertexBuffer.DescriptorInfo())
-                    .WriteBuffer(2, _noiseGeneratorParams.DescriptorInfo())
-                    .WriteBuffer(3, _noiseSettings.DescriptorInfo())
-                    .WriteBuffer(4, _biomeStartHeights.DescriptorInfo())
-                    .WriteBuffer(5, _elevationMinMax.DescriptorInfo())
+                    .WriteBuffer(1, mesh.GetBufferAtAttribute(VertexAttribute.Position).DescriptorInfo())
+                    .WriteBuffer(2, mesh.GetBufferAtAttribute(VertexAttribute.TexCoord0).DescriptorInfo())
+                    .WriteBuffer(3, _noiseGeneratorParams.DescriptorInfo())
+                    .WriteBuffer(4, _noiseSettings.DescriptorInfo())
+                    .WriteBuffer(5, _biomeStartHeights.DescriptorInfo())
+                    .WriteBuffer(6, _elevationMinMax.DescriptorInfo())
                     .Build(pSet);
             }
         }
@@ -143,17 +144,17 @@ namespace Planets.Generator
         /// </summary>
         /// <param name="commandBuffer"></param>
         /// <param name="mesh"></param>
-        public void Dispatch(VkCommandBuffer commandBuffer, Mesh mesh)
+        public void Dispatch(VkCommandBuffer commandBuffer, DirectMeshBuffer mesh)
         {
-            Prepare(mesh.VertexBuffer);
-            _terrainGenerator.Dispatch(commandBuffer, (uint)mesh.VertexCount, 1, 1);
+            Prepare(mesh);
+            _terrainGenerator.Dispatch(commandBuffer, (uint)mesh.VertexBufferLength, 1, 1);
         }
 
         /// <summary>
         /// Calls dispatch but creates and ends a command buffer just for one operation.
         /// </summary>
         /// <param name="mesh"></param>
-        public void DispatchSingleTimeCmd(Mesh mesh)
+        public void DispatchSingleTimeCmd(DirectMeshBuffer mesh)
         {
             var commandBuffer = GraphicsDevice.Instance.BeginSingleTimeCommands();
 

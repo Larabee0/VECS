@@ -23,7 +23,7 @@ namespace VECS
     /// This allows you to write to two arrays <see cref="_vertices"/> & <see cref="_indices"/>
     /// then flush them to the gpu via a staging buffer or directly, depending on how the mesh was configured on construction.
     /// </summary>
-    public class Mesh
+    internal class Mesh
     {
         private const bool clearLocalBuffersOnFlush = true;
         private readonly static List<Mesh> _meshes = [];

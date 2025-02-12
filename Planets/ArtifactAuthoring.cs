@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Planets.Colour;
 using Planets.Generator;
 using VECS;
+using VECS.DataStructures;
 using VECS.ECS;
 using VECS.ECS.Presentation;
 using VECS.ECS.Transforms;
@@ -36,36 +37,47 @@ namespace Planets
 
         public ArtifactAuthoring()
         {
-            World.DefaultWorld.CreateSystem<TransformPlanetsSystem>();
-            World.DefaultWorld.CreateSystem<ColouredRenderSystem>();
-            World.DefaultWorld.CreateSystem<DrawIndirectRenderSystem>();
-            World.DefaultWorld.CreateSystem<StarRenderSystem>();
-            World.DefaultWorld.CreateSystem<InteractionSystem>();
+            //World.DefaultWorld.CreateSystem<TransformPlanetsSystem>();
+            //World.DefaultWorld.CreateSystem<ColouredRenderSystem>();
+            //World.DefaultWorld.CreateSystem<DrawIndirectRenderSystem>();
+            //World.DefaultWorld.CreateSystem<StarRenderSystem>();
+            //World.DefaultWorld.CreateSystem<InteractionSystem>();
+            World.DefaultWorld.CreateSystem<TexturelessRenderSystem>();
 
             EntityManager entityManager = World.DefaultWorld.EntityManager;
 
             CreateDefaultCamera(entityManager);
+            
+            var cubeSubMesh = CreateDirectCube();
+            var unlit = new Material("unlit_shader.vert", "unlit_shader.frag", typeof(ModelPushConstantData),
+                cubeSubMesh.DirectMeshBuffer.BindingDescriptions,
+                cubeSubMesh.DirectMeshBuffer.AttributeDescriptions);
+            CreateDirectCubeEntity(entityManager, cubeSubMesh, new MaterialIndex()
+            {
+                Value = Material.GetIndexOfMaterial(unlit)
+            });
+
             // LoadTestScene(entityManager);
-            VertexAttributeDescription[] vertexAttributeDescriptions = [
-                new(VertexAttribute.Position,VertexAttributeFormat.Float3,0,0,0),
-                new(VertexAttribute.Normal,VertexAttributeFormat.Float3,0,1,1),
-                new(VertexAttribute.TexCoord0,VertexAttributeFormat.Float1,0,2,2),
-                new(VertexAttribute.TexCoord1,VertexAttributeFormat.Float1,0,3,3),
-            ];
-            var prefabPlanet = CreatePrefabPlanet(entityManager);
-            //var bindingDescriptions = DirectMeshBuffer.GetBindingDescription(vertexAttributeDescriptions);
-            //var attributeDescriptions = DirectMeshBuffer.GetAttributeDescriptions(vertexAttributeDescriptions);
-            var bindingDescriptions = Vertex.GetVkBindingDescriptions();
-            var attributeDescriptions = Vertex.GetVkAttributeDescriptions();
-            var indirectMeshMaterial = new Material("white_shader.vert", "white_shader.frag",
-                bindingDescriptions,
-                attributeDescriptions,
-                new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.StorageBuffer, StageFlags = VkShaderStageFlags.Vertex}
-                );
+            //VertexAttributeDescription[] vertexAttributeDescriptions = [
+            //    new(VertexAttribute.Position,VertexAttributeFormat.Float3,0,0,0),
+            //    new(VertexAttribute.Normal,VertexAttributeFormat.Float3,0,1,1),
+            //    new(VertexAttribute.TexCoord0,VertexAttributeFormat.Float1,0,2,2),
+            //    new(VertexAttribute.TexCoord1,VertexAttributeFormat.Float1,0,3,3),
+            //];
+            //var prefabPlanet = CreatePrefabPlanet(entityManager);
+            ////var bindingDescriptions = DirectMeshBuffer.GetBindingDescription(vertexAttributeDescriptions);
+            ////var attributeDescriptions = DirectMeshBuffer.GetAttributeDescriptions(vertexAttributeDescriptions);
+            //var bindingDescriptions = Vertex.GetVkBindingDescriptions();
+            //var attributeDescriptions = Vertex.GetVkAttributeDescriptions();
+            //var indirectMeshMaterial = new Material("white_shader.vert", "white_shader.frag",
+            //    bindingDescriptions,
+            //    attributeDescriptions,
+            //    new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.StorageBuffer, StageFlags = VkShaderStageFlags.Vertex}
+            //    );
+            //
+            //CreateSinglePlanetTestScene(entityManager, prefabPlanet);
 
-            CreateSinglePlanetTestScene(entityManager, prefabPlanet);
-
-            Console.WriteLine("Shape loaded");
+            //Console.WriteLine("Shape loaded");
             GeometryStats();
         }
 
@@ -174,25 +186,17 @@ namespace Planets
 
         private static void GeometryStats()
         {
+            ulong vertexCount = 0;
+            ulong indexCount = 0;
 
-            int vertexCount = 0;
-            int indexCount = 0;
-
-            int heavyVertexCount = 0;
-            int heavyIndexCount = 0;
-
-            for (int i = 0; i < Mesh.Meshes.Count; i++)
+            for (int i = 0; i < DirectMeshBuffer.DirectMeshes.Count; i++)
             {
-                var mesh = Mesh.Meshes[i];
-                vertexCount += mesh.VertexCount;
-                indexCount += mesh.IndexCount;
-
-                heavyVertexCount = Math.Max(mesh.VertexCount, heavyVertexCount);
-                heavyIndexCount = Math.Max(mesh.IndexCount, heavyIndexCount);
+                var mesh = DirectMeshBuffer.DirectMeshes[i];
+                vertexCount += mesh.VertexBufferLength;
+                indexCount += mesh.IndexBufferLength;
             }
 
             Console.WriteLine(string.Format("All Meshes           | Vertices: {0} | Total Indices: {1} | Tris: {2}", vertexCount, indexCount,indexCount/3));
-            Console.WriteLine(string.Format("Heaviest Single Mesh | Vertices: {0} |Total Indices: {1} | Tris: {2}", heavyVertexCount, heavyIndexCount, heavyIndexCount / 3));
         }
 
         private static void AddMoon(EntityManager entityManager, Entity planetOrbiter, Entity moonOrbiter)
@@ -212,37 +216,37 @@ namespace Planets
             if (generateIndirectMeshes)
             {
 
-                MeshIndex[] meshIndices =entityManager.GetComponentsInHierarchy<MeshIndex>(planetInstance);
-                entityManager.RemoveComponentFromHierarchy<MeshIndex>(planetInstance);
-
-                Mesh[] meshes = new Mesh[meshIndices.Length];
-                // GPUMesh<Vertex>[] indirectMeshes = new GPUMesh<Vertex>[meshIndices.Length];
-                for (int i = 0; i < meshIndices.Length; i++)
-                {
-                    meshes[i] = Mesh.GetMeshAtIndex(meshIndices[i].Value);
-                    //indirectMeshes[i] = new(0,meshes[i]);
-                }
-
-                var now = DateTime.Now;
-                GPUMesh<Vertex>[] indirectMeshes = GPUMesh<Vertex>.BulkCreate(meshes);
-                var delta = DateTime.Now - now;
-                Console.WriteLine(string.Format("GPU Meshing: {0}ms", delta.TotalMilliseconds));
-
-
-                var childrenEntities = entityManager.GetComponent<Children>(planetInstance).Value;
-
-                for (int i = 0; i < childrenEntities.Length; i++)
-                {
-                    entityManager.AddComponent(childrenEntities[i], new InDirectMesh()
-                    {
-                        Value = GPUMesh<Vertex>.Meshes.IndexOf(indirectMeshes[i])
-                    });
-                    entityManager.AddComponent(childrenEntities[i], new MaterialIndex()
-                    {
-                        Value = 2
-                    });
-                    entityManager.RemoveComponentFromHierarchy<DoNotRender>(childrenEntities[i]);
-                }
+                // MeshIndex[] meshIndices =entityManager.GetComponentsInHierarchy<MeshIndex>(planetInstance);
+                // entityManager.RemoveComponentFromHierarchy<MeshIndex>(planetInstance);
+                // 
+                // Mesh[] meshes = new Mesh[meshIndices.Length];
+                // // GPUMesh<Vertex>[] indirectMeshes = new GPUMesh<Vertex>[meshIndices.Length];
+                // for (int i = 0; i < meshIndices.Length; i++)
+                // {
+                //     meshes[i] = Mesh.GetMeshAtIndex(meshIndices[i].Value);
+                //     //indirectMeshes[i] = new(0,meshes[i]);
+                // }
+                // 
+                // var now = DateTime.Now;
+                // GPUMesh<Vertex>[] indirectMeshes = GPUMesh<Vertex>.BulkCreate(meshes);
+                // var delta = DateTime.Now - now;
+                // Console.WriteLine(string.Format("GPU Meshing: {0}ms", delta.TotalMilliseconds));
+                // 
+                // 
+                // var childrenEntities = entityManager.GetComponent<Children>(planetInstance).Value;
+                // 
+                // for (int i = 0; i < childrenEntities.Length; i++)
+                // {
+                //     entityManager.AddComponent(childrenEntities[i], new InDirectMesh()
+                //     {
+                //         Value = GPUMesh<Vertex>.Meshes.IndexOf(indirectMeshes[i])
+                //     });
+                //     entityManager.AddComponent(childrenEntities[i], new MaterialIndex()
+                //     {
+                //         Value = 2
+                //     });
+                //     entityManager.RemoveComponentFromHierarchy<DoNotRender>(childrenEntities[i]);
+                // }
             }
             else
             {
@@ -305,11 +309,11 @@ namespace Planets
 
         public static void InitialiseTiles(EntityManager entityManager, Entity planetRoot, int subdivisons)
         {
-            var planetTileMeshes = Mesh.LoadModelFromFile(Mesh.GetMeshInDefaultPath("Comp305-Shape-Split.obj"));
+            var planetTileMeshes = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("Comp305-Shape-Split.obj"));
+            DirectMeshBuffer.RecalcualteAllNormals(planetTileMeshes[0].DirectMeshBuffer);
             Vector3[] tileNormals = new Vector3[planetTileMeshes.Length];
             for (int i = 0; i < planetTileMeshes.Length; i++)
             {
-                planetTileMeshes[i].RecalculateNormals();
                 tileNormals[i] = planetTileMeshes[i].AverageNormal();
             }
 
@@ -322,7 +326,7 @@ namespace Planets
             {
                 var mesh = planetTileMeshes[i];
                 var tileEntity = entityManager.CreateEntity();
-                entityManager.AddComponent(tileEntity, new MeshIndex() { Value = Mesh.GetIndexOfMesh(mesh) });
+                entityManager.AddComponent(tileEntity, mesh.GetSubMeshIndex());
                 entityManager.AddComponent(tileEntity, new Parent() { Value = planetRoot});
                 entityManager.AddComponent(tileEntity, new TileNormalVector() { Value = tileNormals[i] });
                 entityManager.AddComponent<DoNotRender>(tileEntity);
@@ -333,7 +337,7 @@ namespace Planets
             entityManager.SetComponent(planetRoot, propertyChildren);
         }
 
-        private static void SubdividePlanet(Mesh[] shape,int subdivisons)
+        private static void SubdividePlanet(DirectSubMesh[] shape,int subdivisons)
         {
             Console.WriteLine(string.Format("Begin Subdivison {0} steps", subdivisons));
             var now = DateTime.Now;
@@ -342,10 +346,10 @@ namespace Planets
                 MaxDegreeOfParallelism = 1 // 7
             };
 
-            //Parallel.For(0, shape.Length, options, (i)=>{
-            //
-            //    shape[i].Subdivide(subdivisons);
-            //});
+            Parallel.For(0, shape.Length, options, (i)=>{
+            
+                shape[i].Subdivide(subdivisons);
+            });
 
             var delta = DateTime.Now - now;
             Console.WriteLine(string.Format("Subdivide Mesh: {0}ms", delta.TotalMilliseconds));
@@ -354,13 +358,13 @@ namespace Planets
         public static void GeneratePlanet(Entity planetRoot, ShapeGenerator generator)
         {
             var now = DateTime.Now;
-            MeshIndex[] meshIndices = World.DefaultWorld.EntityManager.GetComponentsInHierarchy<MeshIndex>(planetRoot);
+            DirectSubMeshIndex[] meshIndices = World.DefaultWorld.EntityManager.GetComponentsInHierarchy<DirectSubMeshIndex>(planetRoot);
 
-            Mesh[] meshes = new Mesh[meshIndices.Length];
+            DirectSubMesh[] meshes = new DirectSubMesh[meshIndices.Length];
 
             for (int i = 0; i < meshIndices.Length; i++)
             {
-                meshes[i] = Mesh.GetMeshAtIndex(meshIndices[i].Value);
+                meshes[i] = DirectSubMesh.GetSubMeshAtIndex(meshIndices[i]);
             }
 
             ComputeShapeGenerator computeGenerator = null;
@@ -376,15 +380,15 @@ namespace Planets
             
             for (int i = 0; i < meshes.Length; i++)
             {
-                if (useComputeShaderForGeneration)
-                {
-                    computeGenerator.Dispatch(commandBuffer, meshes[i]);
-                }
-                else
-                {
-                    generator.RaiseMesh(meshes[i]);
-                }
-                //meshes[i].RecalculateNormals(computeNormals,commandBuffer);
+                // if (useComputeShaderForGeneration)
+                // {
+                //     computeGenerator.Dispatch(commandBuffer, meshes[i]);
+                // }
+                // else
+                // {
+                //     generator.RaiseMesh(meshes[i]);
+                // }
+                generator.RaiseMesh(meshes[i]);
             }
 
             if (useComputeShaderForGeneration)
@@ -395,11 +399,11 @@ namespace Planets
                 generator.MinMax.AddValue(shaderMinMax.X);
                 generator.MinMax.AddValue(shaderMinMax.Y);
             }
-
-            for (int i = 0; i < meshes.Length; i++)
-            {
-                meshes[i].RecalculateNormals();
-            }
+            DirectMeshBuffer.RecalcualteAllNormals(meshes[0].DirectMeshBuffer);
+            // for (int i = 0; i < meshes.Length; i++)
+            // {
+            //     meshes[i].RecalculateNormals();
+            // }
             computeGenerator?.Dispose();
             generator.ColourGenerator.UpdateColours();
 
@@ -421,47 +425,47 @@ namespace Planets
         /// then creates the entities that make up the scene.
         /// </summary>
         /// <param name="entityManager"></param>
-        public static void LoadTestScene(EntityManager entityManager)
-        {
-            var cubeUvMesh = Mesh.LoadModelFromFile(Mesh.GetMeshInDefaultPath("cube-uv.obj"));
-            var flatVaseMesh = Mesh.LoadModelFromFile(Mesh.GetMeshInDefaultPath("flat_vase.obj"));
-            var smoothVaseMesh = Mesh.LoadModelFromFile(Mesh.GetMeshInDefaultPath("smooth_vase.obj"));
-
-            var paving = new Texture2d(Texture2d.GetTextureInDefaultPath("paving 5.png"));
-            var orangeStone = new Texture2d(Texture2d.GetTextureInDefaultPath("orange.jpg"));
-
-            var lit = new Material("simple_shader.vert", "simple_shader.frag", typeof(ModelPushConstantData), new DescriptorSetBinding(VkDescriptorType.CombinedImageSampler, VkShaderStageFlags.Fragment));
-            var unlit = new Material("unlit_shader.vert", "unlit_shader.frag", typeof(ModelPushConstantData), new DescriptorSetBinding(VkDescriptorType.CombinedImageSampler, VkShaderStageFlags.Fragment));
-
-
-            var cubeUV = entityManager.CreateEntity();
-            entityManager.AddComponent(cubeUV, new Translation() { Value = new(1.5f, -1.5f, 0) });
-            entityManager.AddComponent(cubeUV, new MeshIndex() { Value = Mesh.GetIndexOfMesh(cubeUvMesh[0]) });
-            entityManager.AddComponent(cubeUV, new TextureIndex() { Value = Texture2d.GetIndexOfTexture(paving) });
-            entityManager.AddComponent(cubeUV, new MaterialIndex() { Value = Material.GetIndexOfMaterial(lit) });
-
-            var flatVase = entityManager.CreateEntity();
-            entityManager.AddComponent(flatVase, new Translation() { Value = new(-1.5f, 1.5f, 0) });
-            entityManager.AddComponent(flatVase, new Rotation() { Value = new(float.DegreesToRadians(180), 0, 0) });
-            entityManager.AddComponent(flatVase, new Scale() { Value = new(6, 6, 6) });
-            entityManager.AddComponent(flatVase, new MeshIndex() { Value = Mesh.GetIndexOfMesh(flatVaseMesh[0]) });
-            entityManager.AddComponent(flatVase, new TextureIndex() { Value = Texture2d.GetIndexOfTexture(paving) });
-            entityManager.AddComponent(flatVase, new MaterialIndex() { Value = Material.GetIndexOfMaterial(unlit) });
-
-            var smoothVase = entityManager.CreateEntity();
-            entityManager.AddComponent(smoothVase, new Translation() { Value = new(1.5f, 1.5f, 0) });
-            entityManager.AddComponent(smoothVase, new Rotation() { Value = new(float.DegreesToRadians(180), 0, 0) });
-            entityManager.AddComponent(smoothVase, new Scale() { Value = new(6, 6, 6) });
-            entityManager.AddComponent(smoothVase, new MeshIndex() { Value = Mesh.GetIndexOfMesh(smoothVaseMesh[0]) });
-            entityManager.AddComponent(smoothVase, new TextureIndex() { Value = Texture2d.GetIndexOfTexture(orangeStone) });
-            entityManager.AddComponent(smoothVase, new MaterialIndex() { Value = Material.GetIndexOfMaterial(lit) });
-
-            var cube4 = entityManager.CreateEntity();
-            entityManager.AddComponent(cube4, new Translation() { Value = new(-1.5f, -1.5f, 0) });
-            entityManager.AddComponent(cube4, new MeshIndex() { Value = Mesh.GetIndexOfMesh(cubeUvMesh[0]) });
-            entityManager.AddComponent(cube4, new TextureIndex() { Value = Texture2d.GetIndexOfTexture(orangeStone) });
-            entityManager.AddComponent(cube4, new MaterialIndex() { Value = Material.GetIndexOfMaterial(unlit) });
-        }
+        // public static void LoadTestScene(EntityManager entityManager)
+        // {
+        //     var cubeUvMesh = Mesh.LoadModelFromFile(Mesh.GetMeshInDefaultPath("cube-uv.obj"));
+        //     var flatVaseMesh = Mesh.LoadModelFromFile(Mesh.GetMeshInDefaultPath("flat_vase.obj"));
+        //     var smoothVaseMesh = Mesh.LoadModelFromFile(Mesh.GetMeshInDefaultPath("smooth_vase.obj"));
+        // 
+        //     var paving = new Texture2d(Texture2d.GetTextureInDefaultPath("paving 5.png"));
+        //     var orangeStone = new Texture2d(Texture2d.GetTextureInDefaultPath("orange.jpg"));
+        // 
+        //     var lit = new Material("simple_shader.vert", "simple_shader.frag", typeof(ModelPushConstantData), new DescriptorSetBinding(VkDescriptorType.CombinedImageSampler, VkShaderStageFlags.Fragment));
+        //     var unlit = new Material("unlit_shader.vert", "unlit_shader.frag", typeof(ModelPushConstantData), new DescriptorSetBinding(VkDescriptorType.CombinedImageSampler, VkShaderStageFlags.Fragment));
+        // 
+        // 
+        //     var cubeUV = entityManager.CreateEntity();
+        //     entityManager.AddComponent(cubeUV, new Translation() { Value = new(1.5f, -1.5f, 0) });
+        //     entityManager.AddComponent(cubeUV, new MeshIndex() { Value = Mesh.GetIndexOfMesh(cubeUvMesh[0]) });
+        //     entityManager.AddComponent(cubeUV, new TextureIndex() { Value = Texture2d.GetIndexOfTexture(paving) });
+        //     entityManager.AddComponent(cubeUV, new MaterialIndex() { Value = Material.GetIndexOfMaterial(lit) });
+        // 
+        //     var flatVase = entityManager.CreateEntity();
+        //     entityManager.AddComponent(flatVase, new Translation() { Value = new(-1.5f, 1.5f, 0) });
+        //     entityManager.AddComponent(flatVase, new Rotation() { Value = new(float.DegreesToRadians(180), 0, 0) });
+        //     entityManager.AddComponent(flatVase, new Scale() { Value = new(6, 6, 6) });
+        //     entityManager.AddComponent(flatVase, new MeshIndex() { Value = Mesh.GetIndexOfMesh(flatVaseMesh[0]) });
+        //     entityManager.AddComponent(flatVase, new TextureIndex() { Value = Texture2d.GetIndexOfTexture(paving) });
+        //     entityManager.AddComponent(flatVase, new MaterialIndex() { Value = Material.GetIndexOfMaterial(unlit) });
+        // 
+        //     var smoothVase = entityManager.CreateEntity();
+        //     entityManager.AddComponent(smoothVase, new Translation() { Value = new(1.5f, 1.5f, 0) });
+        //     entityManager.AddComponent(smoothVase, new Rotation() { Value = new(float.DegreesToRadians(180), 0, 0) });
+        //     entityManager.AddComponent(smoothVase, new Scale() { Value = new(6, 6, 6) });
+        //     entityManager.AddComponent(smoothVase, new MeshIndex() { Value = Mesh.GetIndexOfMesh(smoothVaseMesh[0]) });
+        //     entityManager.AddComponent(smoothVase, new TextureIndex() { Value = Texture2d.GetIndexOfTexture(orangeStone) });
+        //     entityManager.AddComponent(smoothVase, new MaterialIndex() { Value = Material.GetIndexOfMaterial(lit) });
+        // 
+        //     var cube4 = entityManager.CreateEntity();
+        //     entityManager.AddComponent(cube4, new Translation() { Value = new(-1.5f, -1.5f, 0) });
+        //     entityManager.AddComponent(cube4, new MeshIndex() { Value = Mesh.GetIndexOfMesh(cubeUvMesh[0]) });
+        //     entityManager.AddComponent(cube4, new TextureIndex() { Value = Texture2d.GetIndexOfTexture(orangeStone) });
+        //     entityManager.AddComponent(cube4, new MaterialIndex() { Value = Material.GetIndexOfMaterial(unlit) });
+        // }
 
         /// <summary>
         /// Creates a perspective camera using the member settings
@@ -478,65 +482,131 @@ namespace Planets
 
         public void Destroy() { }
 
+        public static Entity CreateDirectCubeEntity(EntityManager entityManager,DirectSubMesh cubeMesh, MaterialIndex mat)
+        {
+            Entity cube = entityManager.CreateEntity();
+            entityManager.AddComponent<Translation>(cube);
+            entityManager.AddComponent(cube, cubeMesh.GetSubMeshIndex());
+            entityManager.AddComponent(cube, mat);
+            return cube;
+        }
+
         /// <summary>
         /// Creates a cube directly for a mesh instead of loading it manually
         /// Cube will have colours and vertices and nothing else.
         /// </summary>
         /// <returns></returns>
-        public static Mesh Cube()
+        public static DirectSubMesh CreateDirectCube()
         {
-            Vertex[] vertices = [
-
-                // left face (white)
-                new(new Vector3( -.5f, -.5f, -.5f),new Vector3 ( .9f, .9f, .9f) ),
-                new(new Vector3( -.5f, .5f, .5f),new Vector3 ( .9f, .9f, .9f) ),
-                new(new Vector3( -.5f, -.5f, .5f),new Vector3 ( .9f, .9f, .9f) ),
-                new(new Vector3( -.5f, -.5f, -.5f),new Vector3 ( .9f, .9f, .9f) ),
-                new(new Vector3( -.5f, .5f, -.5f),new Vector3 ( .9f, .9f, .9f) ),
-                new(new Vector3( -.5f, .5f, .5f),new Vector3 ( .9f, .9f, .9f) ),
-                
-                // right face (yellow)
-                new(new Vector3( .5f, -.5f, -.5f),new Vector3( .8f, .8f, .1f) ),
-                new(new Vector3( .5f, .5f, .5f),new Vector3( .8f, .8f, .1f) ),
-                new(new Vector3( .5f, -.5f, .5f),new Vector3( .8f, .8f, .1f) ),
-                new(new Vector3( .5f, -.5f, -.5f),new Vector3( .8f, .8f, .1f) ),
-                new(new Vector3( .5f, .5f, -.5f),new Vector3( .8f, .8f, .1f) ),
-                new(new Vector3(.5f, .5f, .5f),new Vector3( .8f, .8f, .1f) ),
-                
-                // top face (orange, remember y axis points down)
-                new(new Vector3( -.5f, -.5f, -.5f), new Vector3( .9f, .6f, .1f) ),
-                new(new Vector3( .5f, -.5f, .5f), new Vector3( .9f, .6f, .1f) ),
-                new(new Vector3( -.5f, -.5f, .5f), new Vector3( .9f, .6f, .1f) ),
-                new(new Vector3( -.5f, -.5f, -.5f), new Vector3( .9f, .6f, .1f) ),
-                new(new Vector3( .5f, -.5f, -.5f), new Vector3( .9f, .6f, .1f) ),
-                new(new Vector3(.5f, -.5f, .5f), new Vector3( .9f, .6f, .1f) ),
-                
-                // bottom face (red)
-                new(new Vector3( -.5f, .5f, -.5f),new Vector3 ( .8f, .1f, .1f) ),
-                new(new Vector3( .5f, .5f, .5f),new Vector3 ( .8f, .1f, .1f) ),
-                new(new Vector3( -.5f, .5f, .5f),new Vector3 ( .8f, .1f, .1f) ),
-                new(new Vector3( -.5f, .5f, -.5f),new Vector3 ( .8f, .1f, .1f) ),
-                new(new Vector3( .5f, .5f, -.5f),new Vector3 ( .8f, .1f, .1f) ),
-                new(new Vector3(.5f, .5f, .5f),new Vector3 ( .8f, .1f, .1f) ),
-                
-                // nose face (blue)
-                new(new Vector3( -.5f, -.5f, 0.5f), new Vector3( .1f, .1f, .8f)),
-                new(new Vector3( .5f, .5f, 0.5f), new Vector3( .1f, .1f, .8f)),
-                new(new Vector3( -.5f, .5f, 0.5f), new Vector3( .1f, .1f, .8f)),
-                new(new Vector3( -.5f, -.5f, 0.5f), new Vector3( .1f, .1f, .8f)),
-                new(new Vector3( .5f, -.5f, 0.5f), new Vector3( .1f, .1f, .8f)),
-                new(new Vector3(.5f, .5f, 0.5f), new Vector3( .1f, .1f, .8f)),
-                
-                // tail face (green)
-                 new(new Vector3(  -.5f, -.5f, -0.5f), new Vector3( .1f, .8f, .1f)),
-                 new(new Vector3(  .5f, .5f, -0.5f), new Vector3( .1f, .8f, .1f)),
-                 new(new Vector3(  -.5f, .5f, -0.5f), new Vector3( .1f, .8f, .1f)),
-                 new(new Vector3(  -.5f, -.5f, -0.5f), new Vector3( .1f, .8f, .1f)),
-                 new(new Vector3(  .5f, -.5f, -0.5f), new Vector3( .1f, .8f, .1f)),
-                 new(new Vector3(.5f, .5f, -0.5f), new Vector3( .1f, .8f, .1f)),
-
+            VertexAttributeDescription[] attributeDescriptions =
+            [
+                new VertexAttributeDescription(VertexAttribute.Position,VertexAttributeFormat.Float3),
+                new VertexAttributeDescription(VertexAttribute.Colour,VertexAttributeFormat.Float3),
             ];
-            return new Mesh(vertices);
+
+            var directMesh = new DirectMeshBuffer(attributeDescriptions, [new DirectSubMeshCreateData(36, 36)]);
+            var subMesh = directMesh.DirectSubMeshes[0];
+
+            var vertices = subMesh.Vertices;
+            var colours = subMesh.GetVertexDataSpan<Vector3>(VertexAttribute.Colour);
+
+            var indices = subMesh.Indicies;
+            for (int i = 0; i < indices.Length; i++)
+            {
+                indices[i] = (uint)i;
+            }
+
+            // left face (white)
+            vertices[0] = new(-0.5f, -0.5f, -0.5f);
+            vertices[1] = new(-0.5f, 0.5f, 0.5f);
+            vertices[2] = new(-0.5f, -0.5f, 0.5f);
+            vertices[3] = new(-0.5f, -0.5f, -0.5f);
+            vertices[4] = new(-0.5f, 0.5f, -0.5f);
+            vertices[5] = new(-0.5f, 0.5f, 0.5f);
+
+            colours[0] = new(0.9f, 0.9f, 0.9f);
+            colours[1] = new(0.9f, 0.9f, 0.9f);
+            colours[2] = new(0.9f, 0.9f, 0.9f);
+            colours[3] = new(0.9f, 0.9f, 0.9f);
+            colours[4] = new(0.9f, 0.9f, 0.9f);
+            colours[5] = new(0.9f, 0.9f, 0.9f);
+
+            // right face (yellow)
+            vertices[6]  = new(0.5f, -0.5f, -0.5f);
+            vertices[7]  = new(0.5f, 0.5f, 0.5f);
+            vertices[8]  = new(0.5f, -0.5f, 0.5f);
+            vertices[9]  = new(0.5f, -0.5f, -0.5f);
+            vertices[10] = new(0.5f, 0.5f, -0.5f);
+            vertices[11] = new(0.5f, 0.5f, 0.5f);
+
+            colours[6]  = new(0.8f, 0.8f, 0.1f);
+            colours[7]  = new(0.8f, 0.8f, 0.1f);
+            colours[8]  = new(0.8f, 0.8f, 0.1f);
+            colours[9]  = new(0.8f, 0.8f, 0.1f);
+            colours[10] = new(0.8f, 0.8f, 0.1f);
+            colours[11] = new(0.8f, 0.8f, 0.1f);
+
+            // top face (orange, remember y axis points down)
+            vertices[12] = new(-0.5f, -0.5f, -0.5f);
+            vertices[13] = new(0.5f, -0.5f, 0.5f);
+            vertices[14] = new(-0.5f, -0.5f, 0.5f);
+            vertices[15] = new(-0.5f, -0.5f, -0.5f);
+            vertices[16] = new(0.5f, -0.5f, -0.5f);
+            vertices[17] = new(0.5f, -0.5f, 0.05f);
+
+            colours[12] = new(0.9f, 0.6f, 0.1f);
+            colours[13] = new(0.9f, 0.6f, 0.1f);
+            colours[14] = new(0.9f, 0.6f, 0.1f);
+            colours[15] = new(0.9f, 0.6f, 0.1f);
+            colours[16] = new(0.9f, 0.6f, 0.1f);
+            colours[17] = new(0.9f, 0.6f, 0.1f);
+
+            // bottom face (red)
+            vertices[18] = new(-0.5f, 0.5f, -0.5f);
+            vertices[19] = new(0.5f, 0.5f, 0.5f);
+            vertices[20] = new(-0.5f, 0.5f, 0.5f);
+            vertices[21] = new(-0.5f, 0.5f, -0.5f);
+            vertices[22] = new(0.5f, 0.5f, -0.5f);
+            vertices[23] = new(0.5f, 0.5f, 0.5f);
+
+            colours[18] = new(0.8f, 0.1f, 0.1f);
+            colours[19] = new(0.8f, 0.1f, 0.1f);
+            colours[20] = new(0.8f, 0.1f, 0.1f);
+            colours[21] = new(0.8f, 0.1f, 0.1f);
+            colours[22] = new(0.8f, 0.1f, 0.1f);
+            colours[23] = new(0.8f, 0.1f, 0.1f);
+
+            // nose face (blue)
+            vertices[24] = new(-0.5f, -0.5f, 0.5f);
+            vertices[25] = new( 0.5f, 0.5f, 0.5f);
+            vertices[26] = new(-0.5f, 0.5f, 0.5f);
+            vertices[27] = new(-0.5f, -0.5f, 0.5f);
+            vertices[28] = new( 0.5f, -0.5f, 0.5f);
+            vertices[29] = new(0.5f, 0.5f, 0.5f);
+
+            colours[24] = new(0.1f, 0.1f, 0.8f);
+            colours[25] = new(0.1f, 0.1f, 0.8f);
+            colours[26] = new(0.1f, 0.1f, 0.8f);
+            colours[27] = new(0.1f, 0.1f, 0.8f);
+            colours[28] = new(0.1f, 0.1f, 0.8f);
+            colours[29] = new(0.1f, 0.1f, 0.8f);
+
+            // tail face (green)
+            vertices[30] = new(-0.5f, -0.5f, -0.5f);
+            vertices[31] = new(0.5f, 0.5f, -0.5f);
+            vertices[32] = new(-0.5f, 0.5f, -0.5f);
+            vertices[33] = new(-0.5f, -0.5f, -0.5f);
+            vertices[34] = new(0.5f, -0.5f, -0.5f);
+            vertices[35] = new(0.5f, 0.5f, -0.5f);
+
+            colours[30] = new(0.1f, 0.8f, 0.1f);
+            colours[31] = new(0.1f, 0.8f, 0.1f);
+            colours[32] = new(0.1f, 0.8f, 0.1f);
+            colours[33] = new(0.1f, 0.8f, 0.1f);
+            colours[34] = new(0.1f, 0.8f, 0.1f);
+            colours[35] = new(0.1f, 0.8f, 0.1f);
+            subMesh.FlushAll();
+            return subMesh;
         }
     }
 }

@@ -5,7 +5,7 @@ using VECS.LowLevel;
 
 namespace VECS
 {
-    public sealed class MeshSet<T> : IDisposable where T : unmanaged
+    internal sealed class MeshSet<T> : IDisposable where T : unmanaged
     {
         private static GraphicsDevice Device => GraphicsDevice.Instance;
 

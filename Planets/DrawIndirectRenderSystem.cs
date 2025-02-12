@@ -98,19 +98,19 @@ namespace Planets
             {
                 var entity = entities[(int)i];
 
-                var mesh = GPUMesh<Vertex>.Meshes[entityManager.GetComponent<InDirectMesh>(entity).Value];
-                var subMesh = mesh.SubMesh;
+                var mesh = DirectSubMesh.GetSubMeshAtIndex(entityManager.GetComponent<DirectSubMeshIndex>(entity));
+                var subMesh = mesh.DirectSubMeshInfo;
 
                 drawCmds[i] = new()
                 {
                     instanceCount = 0,
-                    firstIndex = (uint)subMesh.IndexOffset,
-                    indexCount = (uint)subMesh.IndexCount,
+                    firstIndex = subMesh.FirstIndex,
+                    indexCount = subMesh.IndexCount,
                     vertexOffset = (int)subMesh.VertexOffset,
                     firstInstance = i
                 };
 
-                var renderBounds = mesh.renderBounds;
+                var renderBounds = mesh.Bounds;
                 drawObjectData[i] = new(entityManager.GetComponent<LocalToWorld>(entity).Value, new(renderBounds.Bounds.center, renderBounds.Radius), new(renderBounds.Bounds.extents, renderBounds.Valid ? 1 : 0));
             }
 
@@ -215,7 +215,7 @@ namespace Planets
 
             var entities = _planetRenderQuery.GetEntities();
 
-            MeshSet<Vertex> meshSet = GPUMesh<Vertex>.Meshes[entityManager.GetComponent<InDirectMesh>(entities[0]).Value].MeshSet;
+            DirectMeshBuffer meshSet = DirectSubMesh.GetSubMeshAtIndex(entityManager.GetComponent<DirectSubMeshIndex>(entities[0])).DirectMeshBuffer;
 
             Material material = Material.Materials[entityManager.GetComponent<MaterialIndex>(entities[0]).Value];
 
@@ -226,8 +226,10 @@ namespace Planets
 
             material.BindDescriptorSet(rendererFrameInfo, writer);
 
-            Vulkan.vkCmdBindVertexBuffer(cmdBuffer, 0, meshSet._vertexBuffer.VkBuffer, 0);
-            Vulkan.vkCmdBindIndexBuffer(cmdBuffer, meshSet._indexBuffer.VkBuffer, 0, VkIndexType.Uint32);
+            //Vulkan.vkCmdBindVertexBuffer(cmdBuffer, 0, meshSet._vertexBuffer.VkBuffer, 0);
+            //Vulkan.vkCmdBindIndexBuffer(cmdBuffer, meshSet._indexBuffer.VkBuffer, 0, VkIndexType.Uint32);
+
+            meshSet.BindBuffers(cmdBuffer);
 
             Vulkan.vkCmdDrawIndexedIndirect(cmdBuffer,
                 indirectCmdBuffer.VkBuffer,

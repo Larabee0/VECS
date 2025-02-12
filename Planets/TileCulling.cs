@@ -1,18 +1,22 @@
 ﻿using VECS;
 using VECS.ECS;
 using System.Numerics;
+using VECS.DataStructures;
 
 namespace Planets
 {
     public static class TileCullingExtensions
     {
-        public static Vector3 AverageNormal(this Mesh mesh)
+        public static Vector3 AverageNormal(this DirectSubMesh mesh)
         {
             Vector3 normal = Vector3.Zero;
 
-            for (int i = 0; i < mesh.Vertices.Length; i++)
+            var normalBuffer = mesh.TryGetVertexDataSpan<Vector3>(VertexAttribute.Normal);
+            if (normalBuffer.IsEmpty) return Vector3.Zero;
+
+            for (int i = 0; i < mesh.VertexCount; i++)
             {
-                normal += mesh.Vertices[i].Normal;
+                normal += normalBuffer[i];
             }
 
             return Vector3.Normalize(normal /= mesh.VertexCount);

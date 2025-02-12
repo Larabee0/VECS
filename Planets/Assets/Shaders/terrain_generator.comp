@@ -16,11 +16,16 @@ layout(set = 0, binding = 0) uniform ComputeShaderParameters{
 
 // vertex buffer to operate on (direct mesh buffer)
 layout(std430,set = 0, binding = 1) buffer VertexBuffer {
-    Vertex vertexBuffer[];
+    vec3 vertexBuffer[];
+};
+
+// vertex buffer to operate on (direct mesh buffer)
+layout(std430,set = 0, binding = 2) buffer UvBuffer {
+    vec2 uvBuffer[];
 };
 
 // Noise generator parameters (includes colour params)
-layout(set = 0, binding = 2) uniform NoiseGeneratorParams{
+layout(set = 0, binding = 3) uniform NoiseGeneratorParams{
 	int noiseFilterCount;
 	int biomesCount;
 	float planetRadius;
@@ -31,17 +36,17 @@ layout(set = 0, binding = 2) uniform NoiseGeneratorParams{
 
 // all noise settings. First element is the colour setting noise filter.
 // this should not be applied with generation.
-layout(std430, binding = 3) buffer NoiseSettings {
+layout(std430, binding = 4) buffer NoiseSettings {
 	GlobalNoiseSettings noiseSettings[];
 };
 
 // % at which each biome starts.
-layout(std430, binding = 4) buffer Biomes {
+layout(std430, binding = 5) buffer Biomes {
 	float startHeights[];
 } biomes;
 
 // unscaled elevation min-max output
-layout(std430, binding = 5) buffer ElevationMinMax {
+layout(std430, binding = 6) buffer ElevationMinMax {
 	int minElevation;
 	int maxElevation;
 }minMax;
@@ -84,11 +89,11 @@ void main() {
 
 	uint bufferIndex = gl_GlobalInvocationID.y * params.width +  gl_GlobalInvocationID.x;
 
-	Vertex v = vertexBuffer[bufferIndex];
 
-	vec3 pos = vec3(v.positionX,v.positionY,v.positionZ);
+	vec3 pos = vertexBuffer[bufferIndex];
+	vec2 uv = uvBuffer[bufferIndex];
 
-	v.biome = biomePercentFromPoint(pos);
+	uv.y = biomePercentFromPoint(pos);
 
 	float firstLayerValue = 0;
 	float unscaledElevation = 0;
@@ -109,11 +114,9 @@ void main() {
 	}
 
 	pos *= noiseParams.planetRadius * (1.0 + max(0, unscaledElevation));
-	v.positionX = pos.x;
-	v.positionY = pos.y;
-	v.positionZ = pos.z;
-	v.elevation = unscaledElevation;
-	vertexBuffer[bufferIndex] = v;
+	uv.x = unscaledElevation;
+	uvBuffer[bufferIndex] = uv;
+	vertexBuffer[bufferIndex] = pos;
 	
 	// atomic operations only work with int/uint this magically reads the float bits as if it was an int.
 	int elevationForMinMax = int(unscaledElevation * QUANTIIZE_FACTOR);

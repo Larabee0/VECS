@@ -3,8 +3,6 @@
 
 layout (location = 0) in vec3 fragColour;
 layout (location = 1) in vec3 fragPosWorld;
-layout (location = 2) in vec3 fragNormalWorld;
-layout (location = 3) in vec2 fragUV;
 
 layout (location = 0) out vec4 outColour;
 
@@ -38,6 +36,5 @@ layout(push_constant) uniform Push
 
 void main()
 {
-	vec4 textureColour = texture(texSampler,fragUV);
-	outColour = textureColour;
+	outColour = vec4(fragColour,1);
 }

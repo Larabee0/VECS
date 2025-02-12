@@ -72,6 +72,17 @@ namespace VECS
         }
 
 
+        public Material(string vertexShader, string fragmentShader, Type pushConstantType,
+            VkVertexInputBindingDescription[] bindingDescriptions,
+            VkVertexInputAttributeDescription[] attributeDescriptions)
+        {
+            string vertexFilePath = GetShaderFilePath(vertexShader);
+            string fragmentFilePath = GetShaderFilePath(fragmentShader);
+            CreatePipelineLayoutWithPushConstant(Presenter.Instance.GlobalSetLayout, pushConstantType);
+            CreatePipeline(vertexFilePath, fragmentFilePath, bindingDescriptions, attributeDescriptions);
+            Materials.Add(this);
+        }
+
         public Material(string vertexShader, string fragmentShader,
             VkVertexInputBindingDescription[] bindingDescriptions,
             VkVertexInputAttributeDescription[] attributeDescriptions,
@@ -329,7 +340,7 @@ namespace VECS
             }
             //pipelineConfigInfo.rasterizationInfo.polygonMode = VkPolygonMode.Line;
             //pipelineConfigInfo.rasterizationInfo.lineWidth = 1;
-            //pipelineConfigInfo.rasterizationInfo.cullMode = VkCullModeFlags.Front;
+            pipelineConfigInfo.rasterizationInfo.cullMode = VkCullModeFlags.None;
 
             _materialPipeline = new(GraphicsDevice.Instance, vertexShader, fragmentShader, pipelineConfigInfo);
         }
@@ -478,6 +489,7 @@ namespace VECS
             {
                 var entityManager = World.DefaultWorld.EntityManager;
                 var allMeshEntities = entityManager.GetAllEntitiesWithComponent<MaterialIndex>();
+                if (allMeshEntities == null) return;
                 allMeshEntities.ForEach(e =>
                 {
                     var materialIndex = entityManager.GetComponent<MaterialIndex>(e);

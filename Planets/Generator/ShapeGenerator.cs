@@ -50,21 +50,20 @@ namespace Planets.Generator
             
         }
 
-        public void RaiseMesh(Mesh mesh)
+        public void RaiseMesh(DirectSubMesh mesh)
         {
-            Vertex[] vertices = mesh.Vertices;
+            var vertices = mesh.Vertices.ToArray();
+            var uvs = mesh.GetVertexDataSpan<Vector2>(VertexAttribute.TexCoord0).ToArray();
 
             Parallel.For(0, vertices.Length, (int i) =>
             {
-                Vector3 pos = vertices[i].Position;
+                Vector3 pos = vertices[i];
                 float unscaledElevation = CalculateUnscaledElevation(pos);
-                vertices[i].Position = pos * GetScaledElevation(unscaledElevation);
-                vertices[i].Elevation = unscaledElevation;
-                vertices[i].BiomeSelect = ColourGenerator.BiomePercentFromPoint(pos);
+                vertices[i] = pos * GetScaledElevation(unscaledElevation);
+                uvs[i].X = unscaledElevation;
+                uvs[i].Y = ColourGenerator.BiomePercentFromPoint(pos);
                 MinMax.AddValue(unscaledElevation);
             });
-
-            mesh.Vertices = vertices;
         }
 
         public float CalculateUnscaledElevation(Vector3 pointOnUnitSphere)

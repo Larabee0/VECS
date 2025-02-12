@@ -9,6 +9,13 @@ namespace VECS.DataStructures
 {
     public static class MeshLoader
     {
+        public static string DefaultMeshPath => Path.Combine(Application.ExecutingDirectory, "Assets/Models");
+
+        public static string GetMeshInDefaultPath(string file)
+        {
+            return Path.Combine(DefaultMeshPath, file);
+        }
+
         public static DirectSubMesh[] LoadModelFromFile(string filePath)
         {
             if (!File.Exists(filePath))
@@ -105,7 +112,7 @@ namespace VECS.DataStructures
 
             srcMesh.GetUnsignedIndices().CopyTo(dstMesh.Indicies);
 
-            dstMesh.RecalculateBounds();
+            dstMesh.RecalculateRenderBounds();
         }
 
         public static VertexAttributeDescription[] GetAttributesFromScene(Scene scene)
