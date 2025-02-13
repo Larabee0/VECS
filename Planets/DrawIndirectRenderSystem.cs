@@ -36,7 +36,7 @@ namespace Planets
             CreateIndirectCmdBuffers();
             CreateCullComputePipeline();
             _planetRenderQuery = new EntityQuery(entityManager)
-                .WithAll(typeof(InDirectMesh), typeof(LocalToWorld), typeof(MaterialIndex))
+                .WithAll(typeof(DirectSubMeshIndex), typeof(LocalToWorld), typeof(MaterialIndex))
                 .WithNone(typeof(DoNotRender), typeof(Prefab))
                 .Build();
         }
@@ -230,12 +230,15 @@ namespace Planets
             //Vulkan.vkCmdBindIndexBuffer(cmdBuffer, meshSet._indexBuffer.VkBuffer, 0, VkIndexType.Uint32);
 
             meshSet.BindBuffers(cmdBuffer);
-
-            Vulkan.vkCmdDrawIndexedIndirect(cmdBuffer,
-                indirectCmdBuffer.VkBuffer,
-                0,
-                (uint)indirectCmdBuffer.InstanceCount,
-                (uint)sizeof(VkDrawIndexedIndirectCommand));
+            for (int i = 0; i < meshSet.DirectSubMeshes.Length; i++)
+            {
+                meshSet.DirectSubMeshes[i].SimpleBindAndDraw(cmdBuffer);
+            }
+            //Vulkan.vkCmdDrawIndexedIndirect(cmdBuffer,
+            //    indirectCmdBuffer.VkBuffer,
+            //    0,
+            //    (uint)indirectCmdBuffer.InstanceCount,
+            //    (uint)sizeof(VkDrawIndexedIndirectCommand));
         }
 
         public override void OnPostPresentation(EntityManager entityManager)
@@ -608,11 +611,5 @@ namespace Planets
         }
     }
 
-    public struct InDirectMesh : IComponent
-    {
-        public static int ComponentId { get; set; }
-        public readonly int Id => ComponentId;
-
-        public int Value;
-    }
+    
 }

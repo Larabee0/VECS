@@ -43,7 +43,7 @@ namespace VECS
             {
                 return GetVertexDataSpan<T>(attribute);
             }
-            return null;
+            return [];
         }
 
         public Span<T> GetVertexDataSpan<T>(VertexAttribute attribute) where T : unmanaged

@@ -30,54 +30,53 @@ namespace Planets
             ClipFar = 1000f
         };
 
-        private static readonly bool useComputeShaderForGeneration = true;
+        private static readonly bool useComputeShaderForGeneration = false;
         private readonly int subdivisons = 4;
 
         private readonly bool generateIndirectMeshes = true;
-
+        private static Material indirectMeshMaterial;
         public ArtifactAuthoring()
         {
             //World.DefaultWorld.CreateSystem<TransformPlanetsSystem>();
             //World.DefaultWorld.CreateSystem<ColouredRenderSystem>();
-            //World.DefaultWorld.CreateSystem<DrawIndirectRenderSystem>();
+            World.DefaultWorld.CreateSystem<DrawIndirectRenderSystem>();
             //World.DefaultWorld.CreateSystem<StarRenderSystem>();
             //World.DefaultWorld.CreateSystem<InteractionSystem>();
-            World.DefaultWorld.CreateSystem<TexturelessRenderSystem>();
+            //World.DefaultWorld.CreateSystem<TexturelessRenderSystem>();
 
             EntityManager entityManager = World.DefaultWorld.EntityManager;
 
             CreateDefaultCamera(entityManager);
             
-            var cubeSubMesh = CreateDirectCube();
-            var unlit = new Material("unlit_shader.vert", "unlit_shader.frag", typeof(ModelPushConstantData),
-                cubeSubMesh.DirectMeshBuffer.BindingDescriptions,
-                cubeSubMesh.DirectMeshBuffer.AttributeDescriptions);
-            CreateDirectCubeEntity(entityManager, cubeSubMesh, new MaterialIndex()
-            {
-                Value = Material.GetIndexOfMaterial(unlit)
-            });
+            //var cubeSubMesh = CreateDirectCube();
+            //var unlit = new Material("unlit_shader.vert", "unlit_shader.frag", typeof(ModelPushConstantData),
+            //    cubeSubMesh.DirectMeshBuffer.VkBindingDesc,
+            //    cubeSubMesh.DirectMeshBuffer.VkAttributeDesc);
+            //CreateDirectCubeEntity(entityManager, cubeSubMesh, new MaterialIndex()
+            //{
+            //    Value = Material.GetIndexOfMaterial(unlit)
+            //});
 
             // LoadTestScene(entityManager);
-            //VertexAttributeDescription[] vertexAttributeDescriptions = [
-            //    new(VertexAttribute.Position,VertexAttributeFormat.Float3,0,0,0),
-            //    new(VertexAttribute.Normal,VertexAttributeFormat.Float3,0,1,1),
-            //    new(VertexAttribute.TexCoord0,VertexAttributeFormat.Float1,0,2,2),
-            //    new(VertexAttribute.TexCoord1,VertexAttributeFormat.Float1,0,3,3),
-            //];
-            //var prefabPlanet = CreatePrefabPlanet(entityManager);
-            ////var bindingDescriptions = DirectMeshBuffer.GetBindingDescription(vertexAttributeDescriptions);
-            ////var attributeDescriptions = DirectMeshBuffer.GetAttributeDescriptions(vertexAttributeDescriptions);
+            VertexAttributeDescription[] vertexAttributeDescriptions = [
+                new(VertexAttribute.Position,VertexAttributeFormat.Float3,0,0,0),
+                new(VertexAttribute.Normal,VertexAttributeFormat.Float3,0,1,1),
+                new(VertexAttribute.TexCoord0,VertexAttributeFormat.Float2,0,2,2),
+            ];
+            var prefabPlanet = CreatePrefabPlanet(entityManager);
+            var bindingDescriptions = DirectMeshBuffer.GetBindingDescription(vertexAttributeDescriptions);
+            var attributeDescriptions = DirectMeshBuffer.GetAttributeDescriptions(vertexAttributeDescriptions);
             //var bindingDescriptions = Vertex.GetVkBindingDescriptions();
             //var attributeDescriptions = Vertex.GetVkAttributeDescriptions();
-            //var indirectMeshMaterial = new Material("white_shader.vert", "white_shader.frag",
-            //    bindingDescriptions,
-            //    attributeDescriptions,
-            //    new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.StorageBuffer, StageFlags = VkShaderStageFlags.Vertex}
-            //    );
-            //
-            //CreateSinglePlanetTestScene(entityManager, prefabPlanet);
+            indirectMeshMaterial = new Material("white_shader.vert", "white_shader.frag",
+                bindingDescriptions,
+                attributeDescriptions,
+                new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.StorageBuffer, StageFlags = VkShaderStageFlags.Vertex}
+                );
+            
+            CreateSinglePlanetTestScene(entityManager, prefabPlanet);
 
-            //Console.WriteLine("Shape loaded");
+            Console.WriteLine("Shape loaded");
             GeometryStats();
         }
 
@@ -216,37 +215,37 @@ namespace Planets
             if (generateIndirectMeshes)
             {
 
-                // MeshIndex[] meshIndices =entityManager.GetComponentsInHierarchy<MeshIndex>(planetInstance);
-                // entityManager.RemoveComponentFromHierarchy<MeshIndex>(planetInstance);
-                // 
-                // Mesh[] meshes = new Mesh[meshIndices.Length];
-                // // GPUMesh<Vertex>[] indirectMeshes = new GPUMesh<Vertex>[meshIndices.Length];
-                // for (int i = 0; i < meshIndices.Length; i++)
-                // {
-                //     meshes[i] = Mesh.GetMeshAtIndex(meshIndices[i].Value);
-                //     //indirectMeshes[i] = new(0,meshes[i]);
-                // }
-                // 
-                // var now = DateTime.Now;
-                // GPUMesh<Vertex>[] indirectMeshes = GPUMesh<Vertex>.BulkCreate(meshes);
-                // var delta = DateTime.Now - now;
-                // Console.WriteLine(string.Format("GPU Meshing: {0}ms", delta.TotalMilliseconds));
-                // 
-                // 
-                // var childrenEntities = entityManager.GetComponent<Children>(planetInstance).Value;
-                // 
-                // for (int i = 0; i < childrenEntities.Length; i++)
-                // {
-                //     entityManager.AddComponent(childrenEntities[i], new InDirectMesh()
-                //     {
-                //         Value = GPUMesh<Vertex>.Meshes.IndexOf(indirectMeshes[i])
-                //     });
-                //     entityManager.AddComponent(childrenEntities[i], new MaterialIndex()
-                //     {
-                //         Value = 2
-                //     });
-                //     entityManager.RemoveComponentFromHierarchy<DoNotRender>(childrenEntities[i]);
-                // }
+                //MeshIndex[] meshIndices =entityManager.GetComponentsInHierarchy<MeshIndex>(planetInstance);
+                //entityManager.RemoveComponentFromHierarchy<MeshIndex>(planetInstance);
+                //
+                //Mesh[] meshes = new Mesh[meshIndices.Length];
+                //// GPUMesh<Vertex>[] indirectMeshes = new GPUMesh<Vertex>[meshIndices.Length];
+                //for (int i = 0; i < meshIndices.Length; i++)
+                //{
+                //    meshes[i] = Mesh.GetMeshAtIndex(meshIndices[i].Value);
+                //    //indirectMeshes[i] = new(0,meshes[i]);
+                //}
+                //
+                //var now = DateTime.Now;
+                //GPUMesh<Vertex>[] indirectMeshes = GPUMesh<Vertex>.BulkCreate(meshes);
+                //var delta = DateTime.Now - now;
+                //Console.WriteLine(string.Format("GPU Meshing: {0}ms", delta.TotalMilliseconds));
+                
+                
+                var childrenEntities = entityManager.GetComponent<Children>(planetInstance).Value;
+                var indirectMatIndex = Material.GetIndexOfMaterial(indirectMeshMaterial);
+                for (int i = 0; i < childrenEntities.Length; i++)
+                {
+                    //entityManager.AddComponent(childrenEntities[i], new InDirectMesh()
+                    //{
+                    //    Value = GPUMesh<Vertex>.Meshes.IndexOf(indirectMeshes[i])
+                    //});
+                    entityManager.AddComponent(childrenEntities[i], new MaterialIndex()
+                    {
+                        Value = indirectMatIndex
+                    });
+                    entityManager.RemoveComponentFromHierarchy<DoNotRender>(childrenEntities[i]);
+                }
             }
             else
             {
@@ -309,7 +308,7 @@ namespace Planets
 
         public static void InitialiseTiles(EntityManager entityManager, Entity planetRoot, int subdivisons)
         {
-            var planetTileMeshes = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("Comp305-Shape-Split.obj"));
+            var planetTileMeshes = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("Comp305-Shape-Split.obj"), [new VertexAttributeDescription(VertexAttribute.TexCoord0, VertexAttributeFormat.Float2)]);
             DirectMeshBuffer.RecalcualteAllNormals(planetTileMeshes[0].DirectMeshBuffer);
             Vector3[] tileNormals = new Vector3[planetTileMeshes.Length];
             for (int i = 0; i < planetTileMeshes.Length; i++)
@@ -317,7 +316,7 @@ namespace Planets
                 tileNormals[i] = planetTileMeshes[i].AverageNormal();
             }
 
-            SubdividePlanet(planetTileMeshes, subdivisons);
+            planetTileMeshes=SubdividePlanet(planetTileMeshes[0].DirectMeshBuffer, subdivisons).DirectSubMeshes;
 
             Children propertyChildren = entityManager.GetComponent<Children>(planetRoot);
             propertyChildren.Value = new Entity[planetTileMeshes.Length];
@@ -337,7 +336,7 @@ namespace Planets
             entityManager.SetComponent(planetRoot, propertyChildren);
         }
 
-        private static void SubdividePlanet(DirectSubMesh[] shape,int subdivisons)
+        private static DirectMeshBuffer SubdividePlanet(DirectMeshBuffer shape,int subdivisons)
         {
             Console.WriteLine(string.Format("Begin Subdivison {0} steps", subdivisons));
             var now = DateTime.Now;
@@ -346,13 +345,21 @@ namespace Planets
                 MaxDegreeOfParallelism = 1 // 7
             };
 
-            Parallel.For(0, shape.Length, options, (i)=>{
-            
-                shape[i].Subdivide(subdivisons);
-            });
+            //Parallel.For(0, shape.Length, options, (i)=>{
+            //
+            //    shape[i].Subdivide(subdivisons);
+            //});
+
+            var buffer = shape.Subdivide(subdivisons);
+
+            //for (int i = 0; i < shape.Length; i++)
+            //{
+            //    shape[i].Subdivide(subdivisons);
+            //}
 
             var delta = DateTime.Now - now;
             Console.WriteLine(string.Format("Subdivide Mesh: {0}ms", delta.TotalMilliseconds));
+            return buffer;
         }
 
         public static void GeneratePlanet(Entity planetRoot, ShapeGenerator generator)

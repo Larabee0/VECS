@@ -149,8 +149,8 @@ namespace VECS
 #if DEBUG
         private static readonly HashSet<Type> validVertexFormats = [typeof(float), typeof(Vector2), typeof(Vector3), typeof(Vector4)];
 #endif
-        public const VkBufferUsageFlags DIRECT_MESH_VERTEX_BUFFER_FLAGS = VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.TransferSrc;
-        public const VkBufferUsageFlags DIRECT_MESH_INDEX_BUFFER_FLAGS = VkBufferUsageFlags.IndexBuffer | VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.TransferSrc;
+        public const VkBufferUsageFlags DIRECT_MESH_VERTEX_BUFFER_FLAGS = VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.TransferSrc | VkBufferUsageFlags.StorageBuffer;
+        public const VkBufferUsageFlags DIRECT_MESH_INDEX_BUFFER_FLAGS = VkBufferUsageFlags.IndexBuffer | VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.TransferSrc | VkBufferUsageFlags.StorageBuffer;
         private static GraphicsDevice Device => GraphicsDevice.Instance;
 
         private readonly static List<DirectMeshBuffer> _meshes = [];
@@ -174,6 +174,7 @@ namespace VECS
         private readonly Dictionary<VertexAttribute, bool> _knownAttributes = [];
 
         private readonly GPUBuffer<uint> _indexBuffer;
+        private GPUBuffer<uint> _indexOffsetBuffer;
 
         private bool _disposed;
         private readonly Dictionary<VertexAttribute, GPUBuffer> _vertexBuffers;
@@ -185,14 +186,60 @@ namespace VECS
         public DirectSubMeshInfo[] SubMeshInfos => _subMeshInfo;
         public DirectSubMesh[] DirectSubMeshes => _directSubMeshs;
         public VertexAttribute[] AllAttributesInOrder => _attributesInOrder;
-        public VkVertexInputBindingDescription[] BindingDescriptions => _bindingDescriptions;
-        public VkVertexInputAttributeDescription[] AttributeDescriptions => _attributeDescriptions;
+        public VkVertexInputBindingDescription[] VkBindingDesc => _bindingDescriptions;
+        public VkVertexInputAttributeDescription[] VkAttributeDesc => _attributeDescriptions;
 
         public Dictionary<VertexAttribute, VertexAttributeDescription> ConsumedAttributes => _consumedAttributes;
 
+        public VertexAttributeDescription[] AttributeDescriptions
+        {
+            get
+            {
+                var attributes = new VertexAttributeDescription[AllAttributesInOrder.Length];
+                for (int i = 0; i < AllAttributesInOrder.Length; i++)
+                {
+                    attributes[i] = ConsumedAttributes[AllAttributesInOrder[i]];
+                }
+                return attributes;
+            }
+        }
 
         public GPUBuffer<uint> IndexBuffer => _indexBuffer;
-        private Span<uint> Indices => _indexBuffer.HostBuffer;
+        public GPUBuffer<uint> IndexOffsetBuffer
+        {
+            get
+            {
+                if(_indexOffsetBuffer == null)
+                {
+                    _indexOffsetBuffer ??= new(IndexBufferLength, VkBufferUsageFlags.StorageBuffer, true);
+                    _indexOffsetBuffer.TryAllocHostBuffer(false);
+                    var offsets = _indexOffsetBuffer.HostBuffer;
+
+                    for (int i = 0; i < SubMeshInfos.Length; i++)
+                    {
+                        var info = SubMeshInfos[i];
+                        for (int j = (int)info.FirstIndex; j < (int)info.FirstIndex + info.IndexCount; j++)
+                        {
+                            offsets[j] = info.FirstIndex;
+                        }
+                    }
+                    _indexOffsetBuffer.TryDellocateHostBuffer(true);
+                }
+                return _indexOffsetBuffer;
+            }
+        }
+
+        private Span<uint> Indices
+        {
+            get
+            {
+                if(_indexBuffer.HostBuffer == Span<uint>.Empty)
+                {
+                    _indexBuffer.TryAllocHostBuffer(true);
+                }
+                return _indexBuffer.HostBuffer;
+            }
+        }
 
         public bool CPU_Dellocated => Indices.IsEmpty;
         public int VertexBufferCount => _vertexBuffers.Count;
@@ -369,12 +416,21 @@ namespace VECS
                 throw new ArgumentException(string.Format("Type {0} is not a valid target vertex attribute",typeof(T).FullName));
             }
 #endif
-            return GetBufferAtAttribute<T>(attribute).HostBuffer.Slice((int)offset, (int)length);
+            var buffer = GetBufferAtAttribute<T>(attribute);
+            if(buffer.HostBuffer == Span<T>.Empty)
+            {
+                buffer.TryAllocHostBuffer();
+            }
+            return buffer.HostBuffer.Slice((int)offset, (int)length);
         }
 
         public unsafe void* GetUnsafeVertexBuffer(VertexAttribute attribute, uint offset)
         {
             var buffer = GetBufferAtAttribute(attribute);
+            if(buffer.HostPtr == null)
+            {
+                buffer.TryAllocHostBuffer(true);
+            }
             var ptr = (byte*)buffer.HostPtr;
             ptr += offset * buffer.InstanceSize;
             return ptr;
@@ -503,7 +559,7 @@ namespace VECS
             {
                 buffer.Dispose();
             }
-
+            _indexOffsetBuffer?.Dispose();
             _indexBuffer?.Dispose();
 
             _vertexBuffers.Clear();
@@ -518,7 +574,7 @@ namespace VECS
             {
                 var entityManager = World.DefaultWorld.EntityManager;
                 var allMeshEntities = entityManager.GetAllEntitiesWithComponent<DirectSubMeshIndex>();
-                allMeshEntities.ForEach(e =>
+                allMeshEntities?.ForEach(e =>
                 {
                     var meshIndex = entityManager.GetComponent<DirectSubMeshIndex>(e);
 
@@ -573,6 +629,7 @@ namespace VECS
         public static void RecalcualteAllNormals(DirectMeshBuffer directMesh)
         {
             ComputeNormals.DispatchNow(directMesh);
+            directMesh.GetBufferAtAttribute(VertexAttribute.Normal).SetGPUBufferChanged(true);
         }
 
         internal static void ClearBufferBinds()
@@ -688,6 +745,8 @@ namespace VECS
                 }
             }
             _indexBuffer.TryDellocateHostBuffer(false);
+            _indexOffsetBuffer?.Dispose();
+            _indexOffsetBuffer = null;
         }
         #endregion
 

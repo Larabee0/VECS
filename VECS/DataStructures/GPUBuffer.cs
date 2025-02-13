@@ -54,8 +54,6 @@ namespace VECS
             _usageFlags = usageFlags;
             _alignmentSize = GetAlignment(_instanceSize, minOffsetAlignment);
 
-            _bufferSize = _alignmentSize * _instanceCount;
-
             if (BufferSize == 0) return;
             CreateInternal(cpuAccessible);
         }
@@ -72,8 +70,6 @@ namespace VECS
             _instanceCount = instanceCount;
             _usageFlags = usageFlags;
             _alignmentSize = GetAlignment(_instanceSize, minOffsetAlignment);
-
-            _bufferSize = _alignmentSize * _instanceCount;
 
             if (BufferSize == 0) return;
             CreateInternal(cpuAccessible);
@@ -99,6 +95,7 @@ namespace VECS
 
         protected unsafe void CreateInternal(bool cpuAccessible)
         {
+            _bufferSize = _alignmentSize * _instanceCount;
             VkBufferCreateInfo bufferInfo = new()
             {
                 size = BufferSize,
@@ -186,7 +183,7 @@ namespace VECS
             }
             else
             {
-                var stagingBuffer = new GPUBuffer(UInstanceCount,_instanceSize, VkBufferUsageFlags.TransferSrc, true);
+                var stagingBuffer = new GPUBuffer(UInstanceCount,_instanceSize, VkBufferUsageFlags.TransferDst, true);
                 CopyToSingleTime(stagingBuffer);
                 stagingBuffer.ReadFromBuffer(readout, size, offset);
                 stagingBuffer.Dispose();
@@ -311,6 +308,7 @@ namespace VECS
             _instanceCount = instanceCount;
             Vma.vmaDestroyBuffer(_device.VmaAllocator, VkBuffer, _allocation);
 
+            _bufferSize = _alignmentSize * _instanceCount;
             VkBufferCreateInfo bufferInfo = new()
             {
                 size = BufferSize,
@@ -339,8 +337,7 @@ namespace VECS
             GC.SuppressFinalize(this);
             if (BufferSize == 0 || _disposed) return;
             Vma.vmaDestroyBuffer(_device.VmaAllocator, VkBuffer, _allocation);
-            NativeMemory.Free(_hostPtr);
-            _hostPtr = null;
+            TryDellocateHostBuffer(false);
 
             _disposed = true;
         }

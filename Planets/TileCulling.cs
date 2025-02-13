@@ -1,7 +1,6 @@
 ﻿using VECS;
 using VECS.ECS;
 using System.Numerics;
-using VECS.DataStructures;
 
 namespace Planets
 {

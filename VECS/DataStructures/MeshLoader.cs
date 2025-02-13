@@ -16,7 +16,7 @@ namespace VECS.DataStructures
             return Path.Combine(DefaultMeshPath, file);
         }
 
-        public static DirectSubMesh[] LoadModelFromFile(string filePath)
+        public static DirectSubMesh[] LoadModelFromFile(string filePath, VertexAttributeDescription[] additionalAttributes)
         {
             if (!File.Exists(filePath))
             {
@@ -30,14 +30,25 @@ namespace VECS.DataStructures
             {
                 return null;
             }
-            var meshes = CreateMeshes(scene);
+            var meshes = CreateMeshes(scene, additionalAttributes);
             importer.Dispose();
             return meshes;
         }
 
-        public static DirectSubMesh[] CreateMeshes(Scene scene)
+        public static DirectSubMesh[] CreateMeshes(Scene scene, VertexAttributeDescription[] additionalAttributes)
         {
             VertexAttributeDescription[] attributeDescriptions = GetAttributesFromScene(scene);
+            if(additionalAttributes != null)
+            {
+                List<VertexAttributeDescription> descriptions = [.. attributeDescriptions];
+                for (int i = 0; i < additionalAttributes.Length; i++)
+                {
+                    var attribute = additionalAttributes[i];
+                    if (attributeDescriptions.Any(a => a.attribute == attribute.attribute)) { continue; }
+                    descriptions.Add(attribute);
+                }
+                attributeDescriptions = [.. descriptions];
+            }
 
             DirectSubMeshCreateData[] directMeshCreateInfo = new DirectSubMeshCreateData[scene.MeshCount];
 
@@ -94,7 +105,7 @@ namespace VECS.DataStructures
             Span<Vector2> dstUV6 = dstMesh.TryGetVertexDataSpan<Vector2>(VertexAttribute.TexCoord6);
             Span<Vector2> dstUV7 = dstMesh.TryGetVertexDataSpan<Vector2>(VertexAttribute.TexCoord7);
 
-            for (int i = 0; 0 < srcMesh.VertexCount; i++)
+            for (int i = 0; i < srcMesh.VertexCount; i++)
             {
                 dstVertices[i] = srcVertices[i].ToVector3();
                 if (!dstNormals.IsEmpty && srcNormals != null) { dstNormals[i] = srcNormals[i].ToVector3(); }

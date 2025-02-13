@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Numerics;
 using VECS.DataStructures;
+using VECS.ECS;
+using VECS.ECS.Presentation;
 
 namespace VECS
 {
@@ -8,9 +10,49 @@ namespace VECS
     {
         private const int VERTEX_WRITE_OFFSET = 3;
 
-        public static void Subdivide(this DirectSubMesh mesh, int divisions)
+        public static DirectMeshBuffer Subdivide(this DirectMeshBuffer srcMesh, int divisions)
         {
-            uint curIndices = (uint)mesh.IndexCount / 3;
+            DirectSubMeshCreateData[] newSubMeshes = new DirectSubMeshCreateData[srcMesh.SubMeshInfos.Length];
+            uint vertexCountPerFace = GetVertsPerFace(divisions);
+            uint indexCountPerFace = GetIndicesPerFace(divisions);
+            for (int i = 0; i < srcMesh.SubMeshInfos.Length; i++)
+            {
+                var existingSubMesh = srcMesh.SubMeshInfos[i];
+                newSubMeshes[i] = new(vertexCountPerFace * (existingSubMesh.IndexCount / 3), indexCountPerFace * (existingSubMesh.IndexCount / 3));
+            }
+
+            DirectMeshBuffer newBuffer = new(srcMesh.AttributeDescriptions, newSubMeshes);
+
+            DirectSubMesh[] srcSubMeshes = srcMesh.DirectSubMeshes;
+            DirectSubMesh[] dstSubMeshes = newBuffer.DirectSubMeshes;
+            for (int i = 0; i < srcMesh.SubMeshInfos.Length; i++)
+            {
+                Subdivide(srcSubMeshes[i], dstSubMeshes[i], divisions);
+                dstSubMeshes[i].FlushAll();
+            }
+            var oldIndex = DirectMeshBuffer.GetIndexOfMesh(srcMesh);
+            var newIndex = DirectMeshBuffer.GetIndexOfMesh(newBuffer);
+            var entityManager = World.DefaultWorld.EntityManager;
+            var allMeshEntities = entityManager.GetAllEntitiesWithComponent<DirectSubMeshIndex>();
+            allMeshEntities?.ForEach(e =>
+                {
+                    var meshIndex = entityManager.GetComponent<DirectSubMeshIndex>(e);
+
+                    if (meshIndex.DirectMeshBuffer == oldIndex)
+                    {
+                        var value = entityManager.GetComponent<DirectSubMeshIndex>(e);
+                        value.DirectMeshBuffer = newIndex;
+                        entityManager.SetComponent(e, value);
+                    }
+                });
+            srcMesh.Dispose();
+            return newBuffer;
+        }
+
+
+        public static void Subdivide(DirectSubMesh src,DirectSubMesh dst, int divisions)
+        {
+            uint curIndices = (uint)src.IndexCount / 3;
             uint vertexCountPerFace = GetVertsPerFace(divisions);
             uint indexCountPerFace = GetIndicesPerFace(divisions);
             uint vertexCount = vertexCountPerFace * curIndices;
@@ -25,8 +67,8 @@ namespace VECS
             uint[] indicies = new uint[indexCount];
             uint vertexOffset = 0;
             uint indexOffset = 0;
-            var indexBuffer = mesh.Indicies;
-            for (int i = 0; i < mesh.IndexCount; i += 3)
+            var indexBuffer = src.Indicies;
+            for (int i = 0; i < src.IndexCount; i += 3)
             {
                 vertices[vertexOffset] = new(indexBuffer[i + 0]);
                 vertices[vertexOffset + 1] = new(indexBuffer[i + 1]);
@@ -41,9 +83,9 @@ namespace VECS
                 vertexOffset += vertexCountPerFace;
                 indexOffset += indexCountPerFace;
             }
-            mesh.Reallocate(new(vertexCount, indexCount));
-            indicies.CopyTo(mesh.Indicies);
-            UnpackLerpableVertices(mesh, vertices);
+            
+            indicies.CopyTo(dst.Indicies);
+            UnpackLerpableVertices(src,dst, vertices);
             
         }
 
@@ -161,37 +203,45 @@ namespace VECS
             }
         }
 
-        private static unsafe void UnpackLerpableVertices(DirectSubMesh mesh, LerpableVertex[] vertices)
+        private static unsafe void UnpackLerpableVertices(DirectSubMesh src, DirectSubMesh dst, LerpableVertex[] vertices)
         {
-            var attributes = mesh.AttributeDescriptions;
+            var attributes = src.AttributeDescriptions;
 
-            uint[] instanceSizes = new uint[attributes.Length];
-            float*[] buffers = new float*[attributes.Length];
+            int[] instanceSizes = new int[attributes.Length];
+            float*[] srcBuffers = new float*[attributes.Length];
+            float*[] dstBuffers = new float*[attributes.Length];
 
             for (int i = 0; i < attributes.Length; i++)
             {
-                buffers[i] = (float*)mesh.GetUnsafeVertexData(attributes[i].attribute);
-                instanceSizes[i] = attributes[i].AttributeFloatSize;
+                srcBuffers[i] = (float*)src.GetUnsafeVertexData(attributes[i].attribute);
+                dstBuffers[i] = (float*)dst.GetUnsafeVertexData(attributes[i].attribute);
+                instanceSizes[i] = (int)attributes[i].AttributeFloatSize;
             }
 
 
-            for (uint i = 0; i < vertices.Length; i++)
+            for (int i = 0; i < vertices.Length; i++)
             {
-                if (vertices[i].t < 0) continue;
                 var lerpCommand = vertices[i];
-
                 for (int j = 0; j < attributes.Length; j++)
                 {
-                    float* buffer = buffers[j];
-                    uint instanceSize = instanceSizes[j];
-                    uint writeStartIndex = i * instanceSize;
-                    uint read_X_StartIndex = lerpCommand.vertices.X * instanceSize;
-                    uint read_Y_StartIndex = lerpCommand.vertices.Y * instanceSize;
+                    Span<float> srcBuffer = new Span<float>(srcBuffers[j],(int)src.VertexCount* instanceSizes[j]);
+                    Span<float> dstBuffer = new Span<float>(dstBuffers[j],(int)dst.VertexCount* instanceSizes[j]);
+                    int instanceSize = instanceSizes[j];
+                    int writeStartIndex = i * instanceSize;
+                    int read_X_StartIndex = (int)lerpCommand.vertices.X * instanceSize;
+                    int read_Y_StartIndex = (int)lerpCommand.vertices.Y * instanceSize;
                     for (int k = 0; k < instanceSize; k++)
                     {
-                        float x = buffer[read_X_StartIndex + k];
-                        float y = buffer[read_Y_StartIndex + k];
-                        buffer[writeStartIndex + k] = NumericsExtensions.Lerp(x, y, lerpCommand.t);
+                        float x = srcBuffer[read_X_StartIndex + k];
+                        if (lerpCommand.t < 0)
+                        {
+                            dstBuffer[writeStartIndex + k] = x;
+                        }
+                        else
+                        {
+                            float y = srcBuffer[read_Y_StartIndex + k];
+                            dstBuffer[writeStartIndex + k] = NumericsExtensions.Lerp(x, y, lerpCommand.t);
+                        }
                     }
                 }
             }

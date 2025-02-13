@@ -12,7 +12,7 @@ layout(set = 0, binding = 0) uniform ComputeShaderParameters{
 
 // vertex buffer to operate on (direct mesh buffer) Only read from here.
 layout(std430,set = 0, binding = 1) readonly buffer VertexBuffer {
-    vec4 vertexBuffer[];
+    float vertexBuffer[];
 };
 
 // index buffer to operate on (direct mesh buffer) Only read from here.
@@ -21,8 +21,13 @@ layout(std430,set = 0, binding = 2) readonly buffer IndexBuffer {
 };
 
 // sizeof vertex buffer * 3 unormalized normals for each vertex expressed as ints to because atomic add
-layout(std430,set = 0, binding = 3) buffer NormalBuffer {
+layout(std430,set = 0, binding = 3) writeonly buffer NormalBuffer {
     int normalBuffer[];
+};
+
+// this buffer is added to the index buffer to get the true vertex index
+layout(std430,set = 0, binding = 4) readonly buffer DrawCommands{
+	uint indexOffset[];
 };
 
 // fucked up float to int conversion magic number (2^16/2)
@@ -36,24 +41,20 @@ void main() {
 
 	// iterating 1 triangle per thread, triangle made up of 3 indices
 	uint indexBufferIndex = (gl_GlobalInvocationID.y * params.width + gl_GlobalInvocationID.x) * 3;
-
-	uint indexA = indexBuffer[indexBufferIndex];
-	uint indexB = indexBuffer[indexBufferIndex + 1];
-	uint indexC = indexBuffer[indexBufferIndex + 2];
-
-	vec3 posA = vertexBuffer[indexA].xyz;
 	
-	vec3 posB = vertexBuffer[indexB].xyz;
+	uint indexA = (indexOffset[indexBufferIndex] + indexBuffer[indexBufferIndex])*3;
+	uint indexB = (indexOffset[indexBufferIndex + 1] + indexBuffer[indexBufferIndex + 1])*3;
+	uint indexC = (indexOffset[indexBufferIndex + 2] + indexBuffer[indexBufferIndex + 2])*3;
+	// to write into the normal buffer multiply indices by 3 again for each component.
 
-	vec3 posC = vertexBuffer[indexC].xyz;
+	vec3 posA = vec3(vertexBuffer[indexA],vertexBuffer[indexA+1],vertexBuffer[indexA+2]);
+	
+	vec3 posB = vec3(vertexBuffer[indexB],vertexBuffer[indexB+1],vertexBuffer[indexB+2]);
+
+	vec3 posC = vec3(vertexBuffer[indexC],vertexBuffer[indexC+1],vertexBuffer[indexC+2]);
 
 	// compute face normal, remap the vec3 as an int vec3 for atomic add
 	ivec3 faceNormal = ivec3(normalize(cross(posB - posA, posC - posA)) * QUANTIIZE_FACTOR);
-	
-	// to write into the normal buffer multiply indices by 3 again for each component.
-	indexA *= 3;
-	indexB *= 3;
-	indexC *= 3;
 	atomicAdd(normalBuffer[indexA],faceNormal.x);
 	atomicAdd(normalBuffer[indexA + 1], faceNormal.y);
 	atomicAdd(normalBuffer[indexA + 2], faceNormal.z);
