@@ -22,14 +22,17 @@ namespace VECS
             }
 
             DirectMeshBuffer newBuffer = new(srcMesh.AttributeDescriptions, newSubMeshes);
-
+            
             DirectSubMesh[] srcSubMeshes = srcMesh.DirectSubMeshes;
             DirectSubMesh[] dstSubMeshes = newBuffer.DirectSubMeshes;
             for (int i = 0; i < srcMesh.SubMeshInfos.Length; i++)
             {
                 Subdivide(srcSubMeshes[i], dstSubMeshes[i], divisions);
-                dstSubMeshes[i].FlushAll();
+                //dstSubMeshes[i].FlushAll();
             }
+            newBuffer.GetBufferAtAttribute(VertexAttribute.Position).WriteFromHostBuffer();
+            newBuffer.IndexBuffer.WriteFromHostBuffer();
+            //DirectMeshBuffer.RecalcualteAllNormals(newBuffer);
             var oldIndex = DirectMeshBuffer.GetIndexOfMesh(srcMesh);
             var newIndex = DirectMeshBuffer.GetIndexOfMesh(newBuffer);
             var entityManager = World.DefaultWorld.EntityManager;
@@ -52,61 +55,58 @@ namespace VECS
 
         public static void Subdivide(DirectSubMesh src,DirectSubMesh dst, int divisions)
         {
-            uint curIndices = (uint)src.IndexCount / 3;
+            uint curTris = src.IndexCount / 3;
             uint vertexCountPerFace = GetVertsPerFace(divisions);
-            uint indexCountPerFace = GetIndicesPerFace(divisions);
-            uint vertexCount = vertexCountPerFace * curIndices;
-            uint indexCount = indexCountPerFace * curIndices;
+            uint triCountPerFace = GetIndicesPerFace(divisions);
+            uint vertexCount = vertexCountPerFace * curTris;
+            uint triCount = triCountPerFace * curTris;
 
-            if (!ValidateDivisionsCount(vertexCount, indexCount))
+            if (!ValidateDivisionsCount(vertexCount, triCount))
             {
                 return;
             }
-
-            LerpableVertex[] vertices = new LerpableVertex[vertexCount];
-            uint[] indicies = new uint[indexCount];
+            var srcVertices = src.Vertices;
+            var srcIndices = src.Indicies;
+            var dstVertices = dst.Vertices;
+            var dstIndices = dst.Indicies;
             uint vertexOffset = 0;
             uint indexOffset = 0;
-            var indexBuffer = src.Indicies;
             for (int i = 0; i < src.IndexCount; i += 3)
             {
-                vertices[vertexOffset] = new(indexBuffer[i + 0]);
-                vertices[vertexOffset + 1] = new(indexBuffer[i + 1]);
-                vertices[vertexOffset + 2] = new(indexBuffer[i + 2]);
+                dstVertices[(int)vertexOffset] = srcVertices[(int)srcIndices[i + 0]];
+                dstVertices[(int)vertexOffset + 1] = srcVertices[(int)srcIndices[i + 1]];
+                dstVertices[(int)vertexOffset + 2] = srcVertices[(int)srcIndices[i + 2]];
+                dstIndices[(int)indexOffset] = vertexOffset;
+                dstIndices[(int)indexOffset + 1] = vertexOffset + 1;
+                dstIndices[(int)indexOffset + 2] = vertexOffset + 2;
 
-                indicies[indexOffset] = vertexOffset;
-                indicies[indexOffset + 1] = vertexOffset + 1;
-                indicies[indexOffset + 2] = vertexOffset + 2;
-
-                DivideFace(divisions, vertices, indicies, vertexOffset, indexOffset);
+                DivideFace(divisions, dstVertices, dstIndices, vertexOffset, indexOffset);
 
                 vertexOffset += vertexCountPerFace;
-                indexOffset += indexCountPerFace;
+                indexOffset += triCountPerFace;
             }
-            
-            indicies.CopyTo(dst.Indicies);
-            UnpackLerpableVertices(src,dst, vertices);
-            
         }
 
-        private static void DivideFace(int divisions, LerpableVertex[] vertices, uint[] indices, uint vertexOffset, uint indexOffset)
+        private static void DivideFace(int divisions, Span<Vector3> vertices, Span<uint> indices, uint vertexOffset, uint indexOffset)
         {
             int numDivisions = Math.Max(0, divisions);
             uint writeOffset = vertexOffset + VERTEX_WRITE_OFFSET;
             uint[] vertexTriPairs =
-                [indices[indexOffset + 0],
-                indices[indexOffset + 1],
-                indices[indexOffset + 0],
-                indices[indexOffset + 2],
-                indices[indexOffset + 1],
-                indices[indexOffset + 2]];
+            [
+                indices[(int)indexOffset + 0],
+                indices[(int)indexOffset + 1],
+                indices[(int)indexOffset + 0],
+                indices[(int)indexOffset + 2],
+                indices[(int)indexOffset + 1],
+                indices[(int)indexOffset + 2]
+            ];
 
             Edge[] edges = new Edge[3];
 
             for (int i = 0; i < vertexTriPairs.Length; i += 2)
             {
-                uint startVertex = vertexTriPairs[i];
-                uint endVertex = vertexTriPairs[i + 1];
+                Vector3 startVertex = vertices[(int)vertexTriPairs[i]];
+                Vector3 endVertex = vertices[(int)vertexTriPairs[i + 1]];
 
                 uint[] edgeVertexIndices = new uint[numDivisions + 2];
                 edgeVertexIndices[0] = vertexTriPairs[i];
@@ -115,7 +115,7 @@ namespace VECS
                 {
                     float t = (divisionIndex + 1f) / (numDivisions + 1f);
                     edgeVertexIndices[divisionIndex + 1] = writeOffset;
-                    vertices[writeOffset] = new(startVertex, endVertex, t);
+                    vertices[(int)writeOffset] = Vector3.Lerp(startVertex, endVertex, t);
                     writeOffset++;
                 }
                 edgeVertexIndices[numDivisions + 1] = vertexTriPairs[i + 1];
@@ -126,7 +126,7 @@ namespace VECS
             CreateFace(numDivisions, edges, vertices, writeOffset, indices, indexOffset);
         }
 
-        private static void CreateFace(int divisions, Edge[] edges, LerpableVertex[] vertices, uint nextVertex, uint[] indices, uint indexOffset)
+        private static void CreateFace(int divisions, Edge[] edges, Span<Vector3> vertices, uint nextVertex, Span<uint> indices, uint indexOffset)
         {
             int numPointsInEdge = edges[0].vertexIndices.Length;
 
@@ -142,15 +142,15 @@ namespace VECS
                 mapWriteIndex++;
 
                 // Add vertices between sideA and sideB
-                uint sideAVertex = edges[0].vertexIndices[i];
-                uint sideBVertex = edges[1].vertexIndices[i];
+                Vector3 sideAVertex = vertices[(int)edges[0].vertexIndices[i]];
+                Vector3 sideBVertex = vertices[(int)edges[1].vertexIndices[i]];
                 int numInnerPoints = i - 1;
                 for (int j = 0; j < numInnerPoints; j++)
                 {
                     float t = (j + 1f) / (numInnerPoints + 1f);
                     vertexMap[mapWriteIndex] = nextVertex;
                     mapWriteIndex++;
-                    vertices[nextVertex] = new(sideAVertex, sideBVertex, t);
+                    vertices[(int)nextVertex] = Vector3.Lerp(sideAVertex, sideBVertex, t);
                     nextVertex++;
                 }
 
@@ -195,54 +195,10 @@ namespace VECS
                         v2 = topVertex - 1;
                     }
 
-                    indices[indicesWriteIndex] = vertexMap[v0];
-                    indices[indicesWriteIndex + 1] = vertexMap[v2];
-                    indices[indicesWriteIndex + 2] = vertexMap[v1];
+                    indices[(int)indicesWriteIndex] = vertexMap[v0];
+                    indices[(int)indicesWriteIndex + 1] = vertexMap[v2];
+                    indices[(int)indicesWriteIndex + 2] = vertexMap[v1];
                     indicesWriteIndex += 3;
-                }
-            }
-        }
-
-        private static unsafe void UnpackLerpableVertices(DirectSubMesh src, DirectSubMesh dst, LerpableVertex[] vertices)
-        {
-            var attributes = src.AttributeDescriptions;
-
-            int[] instanceSizes = new int[attributes.Length];
-            float*[] srcBuffers = new float*[attributes.Length];
-            float*[] dstBuffers = new float*[attributes.Length];
-
-            for (int i = 0; i < attributes.Length; i++)
-            {
-                srcBuffers[i] = (float*)src.GetUnsafeVertexData(attributes[i].attribute);
-                dstBuffers[i] = (float*)dst.GetUnsafeVertexData(attributes[i].attribute);
-                instanceSizes[i] = (int)attributes[i].AttributeFloatSize;
-            }
-
-
-            for (int i = 0; i < vertices.Length; i++)
-            {
-                var lerpCommand = vertices[i];
-                for (int j = 0; j < attributes.Length; j++)
-                {
-                    Span<float> srcBuffer = new Span<float>(srcBuffers[j],(int)src.VertexCount* instanceSizes[j]);
-                    Span<float> dstBuffer = new Span<float>(dstBuffers[j],(int)dst.VertexCount* instanceSizes[j]);
-                    int instanceSize = instanceSizes[j];
-                    int writeStartIndex = i * instanceSize;
-                    int read_X_StartIndex = (int)lerpCommand.vertices.X * instanceSize;
-                    int read_Y_StartIndex = (int)lerpCommand.vertices.Y * instanceSize;
-                    for (int k = 0; k < instanceSize; k++)
-                    {
-                        float x = srcBuffer[read_X_StartIndex + k];
-                        if (lerpCommand.t < 0)
-                        {
-                            dstBuffer[writeStartIndex + k] = x;
-                        }
-                        else
-                        {
-                            float y = srcBuffer[read_Y_StartIndex + k];
-                            dstBuffer[writeStartIndex + k] = NumericsExtensions.Lerp(x, y, lerpCommand.t);
-                        }
-                    }
                 }
             }
         }

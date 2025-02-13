@@ -36,7 +36,6 @@ namespace VECS
             computeNormals.DispatchSingleTimeCmd(meshBuffer);
             computeNormals.Dispose();
 
-
         }
 
         public unsafe ComputeNormals()
@@ -71,6 +70,7 @@ namespace VECS
         /// <param name="vertexBuffer"></param>
         private unsafe void Prepare(GPUBuffer<uint> indexBuffer, GPUBuffer<uint> indexOffsetBuffer, GPUBuffer<Vector3> vertexBuffer, GPUBuffer<Vector3> normalBuffer)
         {
+            //vertexBuffer.WriteFromHostBuffer();
             PrepareNormalRecalculate(indexBuffer, indexOffsetBuffer, vertexBuffer, normalBuffer);
             PrepareNormalNormalize(normalBuffer);
 

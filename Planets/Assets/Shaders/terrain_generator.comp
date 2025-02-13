@@ -16,7 +16,7 @@ layout(set = 0, binding = 0) uniform ComputeShaderParameters{
 
 // vertex buffer to operate on (direct mesh buffer)
 layout(std430,set = 0, binding = 1) buffer VertexBuffer {
-    vec3 vertexBuffer[];
+    float vertexBuffer[];
 };
 
 // vertex buffer to operate on (direct mesh buffer)
@@ -89,8 +89,8 @@ void main() {
 
 	uint bufferIndex = gl_GlobalInvocationID.y * params.width +  gl_GlobalInvocationID.x;
 
-
-	vec3 pos = vertexBuffer[bufferIndex];
+	uint posbuffer = bufferIndex * 3;
+	vec3 pos = vec3(vertexBuffer[posbuffer],vertexBuffer[posbuffer+1],vertexBuffer[posbuffer+2]);
 	vec2 uv = uvBuffer[bufferIndex];
 
 	uv.y = biomePercentFromPoint(pos);
@@ -116,7 +116,9 @@ void main() {
 	pos *= noiseParams.planetRadius * (1.0 + max(0, unscaledElevation));
 	uv.x = unscaledElevation;
 	uvBuffer[bufferIndex] = uv;
-	vertexBuffer[bufferIndex] = pos;
+	vertexBuffer[posbuffer] = pos.x;
+	vertexBuffer[posbuffer+1] = pos.y;
+	vertexBuffer[posbuffer+2] = pos.z;
 	
 	// atomic operations only work with int/uint this magically reads the float bits as if it was an int.
 	int elevationForMinMax = int(unscaledElevation * QUANTIIZE_FACTOR);

@@ -340,7 +340,7 @@ namespace VECS
             }
             //pipelineConfigInfo.rasterizationInfo.polygonMode = VkPolygonMode.Line;
             //pipelineConfigInfo.rasterizationInfo.lineWidth = 1;
-            pipelineConfigInfo.rasterizationInfo.cullMode = VkCullModeFlags.None;
+            pipelineConfigInfo.rasterizationInfo.cullMode = VkCullModeFlags.Front;
 
             _materialPipeline = new(GraphicsDevice.Instance, vertexShader, fragmentShader, pipelineConfigInfo);
         }

@@ -212,7 +212,7 @@ namespace VECS
                 if(_indexOffsetBuffer == null)
                 {
                     _indexOffsetBuffer ??= new(IndexBufferLength, VkBufferUsageFlags.StorageBuffer, true);
-                    _indexOffsetBuffer.TryAllocHostBuffer(false);
+                    //_indexOffsetBuffer.TryAllocHostBuffer(false);
                     var offsets = _indexOffsetBuffer.HostBuffer;
 
                     for (int i = 0; i < SubMeshInfos.Length; i++)
@@ -220,7 +220,7 @@ namespace VECS
                         var info = SubMeshInfos[i];
                         for (int j = (int)info.FirstIndex; j < (int)info.FirstIndex + info.IndexCount; j++)
                         {
-                            offsets[j] = info.FirstIndex;
+                            offsets[j] = info.VertexOffset;
                         }
                     }
                     _indexOffsetBuffer.TryDellocateHostBuffer(true);

@@ -64,6 +64,9 @@ namespace Planets.Generator
                 uvs[i].Y = ColourGenerator.BiomePercentFromPoint(pos);
                 MinMax.AddValue(unscaledElevation);
             });
+
+            vertices.CopyTo(mesh.Vertices);
+            uvs.CopyTo(mesh.GetVertexDataSpan<Vector2>(VertexAttribute.TexCoord0));
         }
 
         public float CalculateUnscaledElevation(Vector3 pointOnUnitSphere)

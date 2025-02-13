@@ -30,8 +30,8 @@ namespace Planets
             ClipFar = 1000f
         };
 
-        private static readonly bool useComputeShaderForGeneration = false;
-        private readonly int subdivisons = 4;
+        private static readonly bool useComputeShaderForGeneration = true;
+        private readonly int subdivisons = 40;
 
         private readonly bool generateIndirectMeshes = true;
         private static Material indirectMeshMaterial;
@@ -384,18 +384,17 @@ namespace Planets
                 computeGenerator.PrePrepare(generator);
                 commandBuffer = GraphicsDevice.Instance.BeginSingleTimeCommands();
             }
-            
-            for (int i = 0; i < meshes.Length; i++)
+            if (useComputeShaderForGeneration)
             {
-                // if (useComputeShaderForGeneration)
-                // {
-                //     computeGenerator.Dispatch(commandBuffer, meshes[i]);
-                // }
-                // else
-                // {
-                //     generator.RaiseMesh(meshes[i]);
-                // }
-                generator.RaiseMesh(meshes[i]);
+                computeGenerator.Dispatch(commandBuffer, meshes[0].DirectMeshBuffer);
+            }
+            else
+            {
+                for (int i = 0; i < meshes.Length; i++)
+                {
+
+                    generator.RaiseMesh(meshes[i]);
+                }
             }
 
             if (useComputeShaderForGeneration)

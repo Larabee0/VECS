@@ -111,7 +111,7 @@ namespace VECS
             if (cpuAccessible)
             {
                 _CPUAccess = true;
-                _hostPtr = NativeMemory.Alloc((nuint)UInstanceCount, (nuint)_instanceSize);
+                _hostPtr = NativeMemory.AllocZeroed((nuint)UInstanceCount, (nuint)_instanceSize);
                 allocationInfo.flags = VmaAllocationCreateFlags.HostAccessSequentialWrite | VmaAllocationCreateFlags.Mapped;
             }
             var result = Vma.vmaCreateBuffer(_device.VmaAllocator, bufferInfo, allocationInfo, out VkBuffer, out _allocation);
@@ -278,7 +278,7 @@ namespace VECS
         {
             if (_hostPtr == null)
             {
-                _hostPtr = NativeMemory.Alloc((nuint)UInstanceCount, (nuint)_instanceSize);
+                _hostPtr = NativeMemory.AllocZeroed((nuint)UInstanceCount, (nuint)_instanceSize);
             }
 
             if (read)

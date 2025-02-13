@@ -28,6 +28,7 @@ namespace Planets.Generator
             _terrainGenerator = new GenericComputePipeline("terrain_generator.comp",
                 new DescriptorSetBinding(VkDescriptorType.UniformBuffer, VkShaderStageFlags.Compute),
                 new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute),
+                new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute),
                 new DescriptorSetBinding(VkDescriptorType.UniformBuffer, VkShaderStageFlags.Compute),
                 new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute),
                 new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute),
@@ -35,8 +36,8 @@ namespace Planets.Generator
             );
 
             _pool = new DescriptorPool.Builder()
-                .AddPoolSize(VkDescriptorType.UniformBuffer, 3)
-                .AddPoolSize(VkDescriptorType.StorageBuffer, 4)
+                .AddPoolSize(VkDescriptorType.UniformBuffer, 2)
+                .AddPoolSize(VkDescriptorType.StorageBuffer, 5)
                 .Build();
             _terrainGenerator.AllocateDescriptorSet(_pool);
             // size of these buffers is known in advance.
