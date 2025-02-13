@@ -230,15 +230,15 @@ namespace Planets
             //Vulkan.vkCmdBindIndexBuffer(cmdBuffer, meshSet._indexBuffer.VkBuffer, 0, VkIndexType.Uint32);
 
             meshSet.BindBuffers(cmdBuffer);
-            for (int i = 0; i < meshSet.DirectSubMeshes.Length; i++)
-            {
-                meshSet.DirectSubMeshes[i].SimpleBindAndDraw(cmdBuffer);
-            }
-            //Vulkan.vkCmdDrawIndexedIndirect(cmdBuffer,
-            //    indirectCmdBuffer.VkBuffer,
-            //    0,
-            //    (uint)indirectCmdBuffer.InstanceCount,
-            //    (uint)sizeof(VkDrawIndexedIndirectCommand));
+            //for (int i = 0; i < meshSet.DirectSubMeshes.Length; i++)
+            //{
+            //    meshSet.DirectSubMeshes[i].SimpleBindAndDraw(cmdBuffer);
+            //}
+            Vulkan.vkCmdDrawIndexedIndirect(cmdBuffer,
+                indirectCmdBuffer.VkBuffer,
+                0,
+                (uint)indirectCmdBuffer.InstanceCount,
+                (uint)sizeof(VkDrawIndexedIndirectCommand));
         }
 
         public override void OnPostPresentation(EntityManager entityManager)
