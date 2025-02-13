@@ -10,7 +10,7 @@ namespace VECS
     /// https://www.khronos.org/opengl/wiki/Shader_Storage_Buffer_Object#Atomic_operations
     /// https://discussions.unity.com/t/calculating-normals-of-a-mesh-in-compute-shader/896876/3
     /// 
-    /// Compute shader version of <see cref="Mesh.RecalculateNormals"/> to get around expensive copy back operation.
+    /// Compute shader version of CPU RecalculateNormals to get around expensive copy back operation.
     /// This is roughly equal in speed than the CPU algorithm. but avoid a 1 second copy back operation if <see cref="ComputeShapeGenerator"/> was run.
     /// This inheriently flushes the vertex buffer to the GPU.
     /// The CPU normals algorithm has to copy it back to compute the normals correctly.

@@ -48,6 +48,11 @@ namespace VECS.GraphicsPipelines
                 dynamicStateCount = (uint)dynamicStateEnables.Length,
                 flags = 0
             };
+            var attributes = new VertexAttributeDescription[]
+            {
+                new(VertexAttribute.Position,VertexAttributeFormat.Float3,0,0,0),
+                new(VertexAttribute.Normal,VertexAttributeFormat.Float3,0,1,1),
+            };
 
             return new()
             {
@@ -120,9 +125,9 @@ namespace VECS.GraphicsPipelines
                 dynamicStateEnables = dynamicStateEnables,
 
                 dynamicInfo = dynamicInfo,
-
-                BindingDescriptions = Vertex.GetVkBindingDescriptions(),
-                AttributeDescriptions = Vertex.GetVkAttributeDescriptions()
+                
+                BindingDescriptions = DirectMeshBuffer.GetBindingDescription(attributes),
+                AttributeDescriptions = DirectMeshBuffer.GetAttributeDescriptions(attributes)
             };
         }
 

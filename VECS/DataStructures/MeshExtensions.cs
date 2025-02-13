@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Numerics;
+using System.Threading.Tasks;
 using VECS.DataStructures;
 using VECS.ECS;
 using VECS.ECS.Presentation;
@@ -25,10 +26,10 @@ namespace VECS
             
             DirectSubMesh[] srcSubMeshes = srcMesh.DirectSubMeshes;
             DirectSubMesh[] dstSubMeshes = newBuffer.DirectSubMeshes;
+
             for (int i = 0; i < srcMesh.SubMeshInfos.Length; i++)
             {
                 Subdivide(srcSubMeshes[i], dstSubMeshes[i], divisions);
-                //dstSubMeshes[i].FlushAll();
             }
             newBuffer.GetBufferAtAttribute(VertexAttribute.Position).WriteFromHostBuffer();
             newBuffer.IndexBuffer.WriteFromHostBuffer();

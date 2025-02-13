@@ -110,8 +110,8 @@ namespace VECS.GraphicsPipelines
         /// <summary>
         /// Create aVertex Input State CreateInfo struct for the graphics pipeline given the input binding and attribute descriptions
         /// </summary>
-        /// <param name="bindingDescriptions">vertex binding descriptions of the <see cref="Vertex.GetVkBindingDescriptions" struct/></param>
-        /// <param name="attributeDescriptions">vertex binding descriptions of the <see cref="Vertex.GetVkAttributeDescriptions" struct</param>
+        /// <param name="bindingDescriptions"></param>
+        /// <param name="attributeDescriptions"></param>
         /// <param name="pBindingDescriptions">stack memory destination for vertex binding descriptions</param>
         /// <param name="pAttributeDescriptions">stack memory destination for vertex attrubute descriptions</param>
         /// <returns></returns>

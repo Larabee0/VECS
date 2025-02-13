@@ -351,61 +351,6 @@ namespace VECS
             Vulkan.vkCmdDraw(rendererFrameInfo.CommandBuffer, 6, 1, 0, 0);
         }
 
-        /// <summary>
-        /// binds and draws the given mesh and textures
-        /// </summary>
-        /// <param name="rendererFrameInfo"></param>
-        /// <param name="meshIndex"></param>
-        /// <param name="textures"></param>
-        public void BindAndDraw(RendererFrameInfo rendererFrameInfo, int meshIndex, params int[] textures)
-        {
-            Mesh mesh = Mesh.GetMeshAtIndex(meshIndex);
-            if (mesh == null) return;
-            var builder = new DescriptorWriter(_materialDescriptorLayout, rendererFrameInfo.FrameDescriptorPool);
-            AddTextures(builder, textures);
-            BindDescriptorSet(rendererFrameInfo, builder);
-
-            mesh.BindAndDraw(rendererFrameInfo.CommandBuffer);
-        }
-
-        public void BindAndDraw<T>(RendererFrameInfo rendererFrameInfo, int meshIndex, T pushConstants) where T : unmanaged
-        {
-            Mesh mesh = Mesh.GetMeshAtIndex(meshIndex);
-            if (mesh == null) return;
-            PushConstants(rendererFrameInfo.CommandBuffer, pushConstants);
-            mesh.BindAndDraw(rendererFrameInfo.CommandBuffer);
-        }
-
-        /// <summary>
-        /// binds and draws the given mesh and textures and also push constants
-        /// </summary>
-        /// <typeparam name="T">Push constants</typeparam>
-        /// <param name="rendererFrameInfo"></param>
-        /// <param name="meshIndex"></param>
-        /// <param name="pushConstants"></param>
-        /// <param name="textures"></param>
-        public  void BindAndDraw<T>(RendererFrameInfo rendererFrameInfo, int meshIndex, T pushConstants, params int[] textures) where T : unmanaged
-        {
-            Mesh mesh = Mesh.GetMeshAtIndex(meshIndex);
-            if (mesh == null) return;
-            var builder = new DescriptorWriter(_materialDescriptorLayout, rendererFrameInfo.FrameDescriptorPool);
-            AddTextures(builder, textures);
-            BindDescriptorSet(rendererFrameInfo, builder);
-            PushConstants(rendererFrameInfo.CommandBuffer, pushConstants);
-            mesh.BindAndDraw(rendererFrameInfo.CommandBuffer);
-        }
-
-        public void BindAndDraw<T,U>(RendererFrameInfo rendererFrameInfo, int meshIndex, T pushConstants, params GPUBuffer<U>[] buffers) where T : unmanaged where U : unmanaged
-        {
-            Mesh mesh = Mesh.GetMeshAtIndex(meshIndex);
-            if (mesh == null) return;
-            var builder = new DescriptorWriter(_materialDescriptorLayout, rendererFrameInfo.FrameDescriptorPool);
-            AddBuffers(builder, buffers);
-            BindDescriptorSet(rendererFrameInfo, builder);
-            PushConstants(rendererFrameInfo.CommandBuffer, pushConstants);
-            mesh.BindAndDraw(rendererFrameInfo.CommandBuffer);
-        }
-
         public unsafe void BindDescriptorSet(RendererFrameInfo rendererFrameInfo, DescriptorWriter writer)
         {
             VkDescriptorSet descriptorSet = new();

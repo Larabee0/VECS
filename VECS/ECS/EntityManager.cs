@@ -798,11 +798,6 @@ namespace VECS.ECS
                 AddComponent<Parent>(instance, new() { Value = parentEntity });
             }
 
-            if (instantiateNewMeshes && components.Remove(GetComponentId<MeshIndex>()))
-            {
-                InstantiateMeshes(entity, instance);
-            }
-
             foreach (var compId in components)
             {
                 IComponent sourceInstance = GetComponent(entity, compId);   
@@ -826,11 +821,5 @@ namespace VECS.ECS
             AddComponent(instance, instanceChildren);
         }
 
-        private void InstantiateMeshes(Entity entity, Entity instance)
-        {
-            MeshIndex mesh = GetComponent<MeshIndex>(entity);
-            Mesh instanceMesh = new(Mesh.GetMeshAtIndex(mesh.Value, false));
-            AddComponent(instance, new MeshIndex() { Value = Mesh.GetIndexOfMesh(instanceMesh) });
-        }
     }
 }

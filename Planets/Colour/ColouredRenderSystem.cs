@@ -11,8 +11,11 @@ namespace Planets.Colour
 {
     public class ColouredRenderSystem : PresentationSystemBase
     {
+        public const ulong MAX_INDIRECT_COMMANDS = 1000;
         private EntityQuery _planetRenderQuery;
         private GPUBuffer<PlanetTileShaderParmeters>[] _shaderParamBuffers;
+        private GPUBuffer<ObjectData>[] _objectDataBuffers;
+        private GPUBuffer<VkDrawIndexedIndirectCommand>[] _indirectCmdBuffers;
 
         /// <summary>
         /// query setup, also creates the shader params buffer.
@@ -21,6 +24,7 @@ namespace Planets.Colour
         public unsafe override void OnCreate(EntityManager entityManager)
         {
             _shaderParamBuffers = new GPUBuffer<PlanetTileShaderParmeters>[SwapChain.MAX_FRAMES_IN_FLIGHT];
+            CreateIndirectCmdBuffers();
             for (int i = 0; i < _shaderParamBuffers.Length; i++)
             {
                 _shaderParamBuffers[i] = new((uint)sizeof(PlanetTileShaderParmeters), 1, VkBufferUsageFlags.UniformBuffer, true);
@@ -54,14 +58,15 @@ namespace Planets.Colour
                     camLTW = entityManager.GetComponent<LocalToWorld>(camEntity).Value;
                 }
                 var shaderParams = _shaderParamBuffers[frameInfo.FrameIndex];
+                //List<PlanetTileDrawCall> drawCalls = [];
+                int drawIndex = 0;
                 _planetRenderQuery.GetEntities().ForEach(e =>
                 {
                     var material = entityManager.GetComponent<MaterialIndex>(e);
+                    int originalDrawIndex = drawIndex;
+                    CreatePlanetDrawCalls(ref drawIndex, frameInfo, entityManager, e, camLTW);
 
-                    var drawCalls = CreatePlanetDrawCalls(entityManager, e,camLTW);
-
-
-                    if (drawCalls == null || drawCalls.Count == 0) return;
+                    if (drawIndex == originalDrawIndex) return;
 
                     var curMat = Material.GetMaterialAtIndex(material.Value);
                     if (curMat == null) return;
@@ -83,20 +88,26 @@ namespace Planets.Colour
                         curMat.PipeLineLayout,
                         1,  // starting set (0 is the globalDescriptorSet, 1 is the set specific to this system)
                         descriptorSet);
-
-                    drawCalls.ForEach(draw => curMat.BindAndDraw(frameInfo, draw.MeshIndex, new ModelPushConstantData(draw.Ltw)));
+                    var buffer = _indirectCmdBuffers[frameInfo.FrameIndex];
+                    buffer.WriteFromHostBuffer();
+                    _objectDataBuffers[frameInfo.FrameIndex].WriteFromHostBuffer();
+                    Vulkan.vkCmdDrawIndexedIndirect(frameInfo.CommandBuffer,
+                        buffer.VkBuffer,
+                        0,
+                        buffer.UInstanceCount32,
+                        (uint)sizeof(VkDrawIndexedIndirectCommand));
                 });
             }
         }
 
-        private static List<PlanetTileDrawCall> CreatePlanetDrawCalls(EntityManager entityManager, Entity planetRoot, Matrix4x4 camLTW)
+        private void CreatePlanetDrawCalls(ref int indirectWriteIndex,RendererFrameInfo frameInfo, EntityManager entityManager, Entity planetRoot, Matrix4x4 camLTW)
         {
             var children = entityManager.GetComponent<Children>(planetRoot);
-            if(children.Value == null) { return null; }
 
-            List<PlanetTileDrawCall> drawCalls = new (children.Value.Length);
+            var drawCmds = _indirectCmdBuffers[frameInfo.FrameIndex].HostBuffer;
+            var objData = _objectDataBuffers[frameInfo.FrameIndex].HostBuffer;
 
-            for(int i = 0; i < children.Value.Length; i++)
+            for (int i = 0; i < children.Value.Length; i++)
             {
                 if (!entityManager.HasComponent<TileNormalVector>(children.Value[i], out int signature)) {  continue; }
                 LocalToWorld ltw = entityManager.GetComponent<LocalToWorld>(children.Value[i]);
@@ -104,15 +115,19 @@ namespace Planets.Colour
 
                 Vector3 forward = -entityManager.GetComponent<TileNormalVector>(signature).Value;
                 forward = Vector3.TransformNormal(forward, ltw.Value);
-                
 
+                var subMesh = DirectSubMesh.GetSubMeshAtIndex(entityManager.GetComponent<DirectSubMeshIndex>(children.Value[i]));
+                drawCmds[indirectWriteIndex] = subMesh.IndirectCommand;
+                subMesh.DirectMeshBuffer.BindBuffers(frameInfo.CommandBuffer);
+                objData[indirectWriteIndex] = new(ltw.Value, new(subMesh.Bounds.Bounds.center, subMesh.Bounds.Radius), new(subMesh.Bounds.Bounds.extents, subMesh.Bounds.Valid ? 1 : 0));
+
+                indirectWriteIndex++;
                 if (NumericsExtensions.Angle(forward, toCamera) > 100)
                 {
-                    drawCalls.Add(new(entityManager.GetComponent<MeshIndex>(children.Value[i]), ltw));
+                    
                 }
             }
 
-            return drawCalls;
         }
 
         /// <summary>
@@ -133,7 +148,10 @@ namespace Planets.Colour
                 .WriteImage(3, Texture2d.GetTextureImageInfoAtIndex(textures.TextureArrayIndex))
                 .WriteImage(4, Texture2d.GetTextureImageInfoAtIndex(textures.WaveA))
                 .WriteImage(5, Texture2d.GetTextureImageInfoAtIndex(textures.WaveB))
-                .WriteImage(6, Texture2d.GetTextureImageInfoAtIndex(textures.WaveC)).Build(pSet);
+                .WriteImage(6, Texture2d.GetTextureImageInfoAtIndex(textures.WaveC))
+                .WriteBuffer(7, _objectDataBuffers[frameInfo.FrameIndex].DescriptorInfo())
+                .Build(pSet);
+
             }
         }
 
@@ -146,26 +164,44 @@ namespace Planets.Colour
         {
             base.OnDestroy(entityManager);
 
-            for (int i = 0; i < _shaderParamBuffers.Length; i++)
+            for (int i = 0; i < SwapChain.MAX_FRAMES_IN_FLIGHT; i++)
             {
                 _shaderParamBuffers[i]?.Dispose();
+                _indirectCmdBuffers[i].Dispose();
+                _objectDataBuffers[i].Dispose();
             }
 
         }
 
-        /// <summary>
-        /// Contains the data needed to draw a planet tile.
-        /// </summary>
-        private struct PlanetTileDrawCall
-        {
-            public int MeshIndex;
-            public Matrix4x4 Ltw;
 
-            public PlanetTileDrawCall(MeshIndex meshIndex, LocalToWorld ltw)
+        private void CreateIndirectCmdBuffers()
+        {
+            _indirectCmdBuffers = new GPUBuffer<VkDrawIndexedIndirectCommand>[SwapChain.MAX_FRAMES_IN_FLIGHT];
+            _objectDataBuffers = new GPUBuffer<ObjectData>[SwapChain.MAX_FRAMES_IN_FLIGHT];
+
+            for (int i = 0; i < SwapChain.MAX_FRAMES_IN_FLIGHT; i++)
             {
-                MeshIndex = meshIndex.Value;
-                Ltw = ltw.Value;
+                _indirectCmdBuffers[i] = new(MAX_INDIRECT_COMMANDS,
+                    VkBufferUsageFlags.TransferDst |
+                    VkBufferUsageFlags.TransferSrc |
+                    VkBufferUsageFlags.IndirectBuffer |
+                    VkBufferUsageFlags.StorageBuffer,
+                    true);
+                _objectDataBuffers[i] = new(MAX_INDIRECT_COMMANDS,
+                    VkBufferUsageFlags.TransferDst |
+                    VkBufferUsageFlags.StorageBuffer,
+                    true);
             }
+
+            VkCommandBuffer commandBuffer = GraphicsDevice.Instance.BeginSingleTimeCommands();
+
+            for (int i = 0; i < SwapChain.MAX_FRAMES_IN_FLIGHT; i++)
+            {
+                _indirectCmdBuffers[i].FillBuffer(commandBuffer, 0);
+                _objectDataBuffers[i].FillBuffer(commandBuffer, 0);
+            }
+
+            GraphicsDevice.Instance.EndSingleTimeCommands(commandBuffer);
         }
     }
 }

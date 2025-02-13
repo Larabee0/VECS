@@ -31,23 +31,23 @@ namespace Planets
         };
 
         private static readonly bool useComputeShaderForGeneration = true;
-        private readonly int subdivisons = 40;
+        private readonly int subdivisons = 60;
 
-        private readonly bool generateIndirectMeshes = true;
+        private readonly bool generateIndirectMeshes = false;
         private static Material indirectMeshMaterial;
         public ArtifactAuthoring()
         {
             //World.DefaultWorld.CreateSystem<TransformPlanetsSystem>();
-            //World.DefaultWorld.CreateSystem<ColouredRenderSystem>();
+            World.DefaultWorld.CreateSystem<ColouredRenderSystem>();
             World.DefaultWorld.CreateSystem<DrawIndirectRenderSystem>();
-            //World.DefaultWorld.CreateSystem<StarRenderSystem>();
+            World.DefaultWorld.CreateSystem<StarRenderSystem>();
             //World.DefaultWorld.CreateSystem<InteractionSystem>();
             //World.DefaultWorld.CreateSystem<TexturelessRenderSystem>();
 
             EntityManager entityManager = World.DefaultWorld.EntityManager;
 
             CreateDefaultCamera(entityManager);
-            
+
             //var cubeSubMesh = CreateDirectCube();
             //var unlit = new Material("unlit_shader.vert", "unlit_shader.frag", typeof(ModelPushConstantData),
             //    cubeSubMesh.DirectMeshBuffer.VkBindingDesc,
@@ -58,12 +58,12 @@ namespace Planets
             //});
 
             // LoadTestScene(entityManager);
+            var prefabPlanet = CreatePrefabPlanet(entityManager);
             VertexAttributeDescription[] vertexAttributeDescriptions = [
                 new(VertexAttribute.Position,VertexAttributeFormat.Float3,0,0,0),
                 new(VertexAttribute.Normal,VertexAttributeFormat.Float3,0,1,1),
                 new(VertexAttribute.TexCoord0,VertexAttributeFormat.Float2,0,2,2),
             ];
-            var prefabPlanet = CreatePrefabPlanet(entityManager);
             var bindingDescriptions = DirectMeshBuffer.GetBindingDescription(vertexAttributeDescriptions);
             var attributeDescriptions = DirectMeshBuffer.GetAttributeDescriptions(vertexAttributeDescriptions);
             //var bindingDescriptions = Vertex.GetVkBindingDescriptions();
@@ -98,7 +98,7 @@ namespace Planets
             Entity planetOrbiterA = InstantiateNewOrbitalPlanet(entityManager,
                 PlanetPresets.ShapeGeneratorFixedEarthLike(),
                 prefabPlanet, starParent,
-                new(-0f, 0, 0),
+                new(-15f, 0, 0),
                 3,
                 5, 12);
 
@@ -214,32 +214,11 @@ namespace Planets
 
             if (generateIndirectMeshes)
             {
-
-                //MeshIndex[] meshIndices =entityManager.GetComponentsInHierarchy<MeshIndex>(planetInstance);
-                //entityManager.RemoveComponentFromHierarchy<MeshIndex>(planetInstance);
-                //
-                //Mesh[] meshes = new Mesh[meshIndices.Length];
-                //// GPUMesh<Vertex>[] indirectMeshes = new GPUMesh<Vertex>[meshIndices.Length];
-                //for (int i = 0; i < meshIndices.Length; i++)
-                //{
-                //    meshes[i] = Mesh.GetMeshAtIndex(meshIndices[i].Value);
-                //    //indirectMeshes[i] = new(0,meshes[i]);
-                //}
-                //
-                //var now = DateTime.Now;
-                //GPUMesh<Vertex>[] indirectMeshes = GPUMesh<Vertex>.BulkCreate(meshes);
-                //var delta = DateTime.Now - now;
-                //Console.WriteLine(string.Format("GPU Meshing: {0}ms", delta.TotalMilliseconds));
-                
                 
                 var childrenEntities = entityManager.GetComponent<Children>(planetInstance).Value;
                 var indirectMatIndex = Material.GetIndexOfMaterial(indirectMeshMaterial);
                 for (int i = 0; i < childrenEntities.Length; i++)
                 {
-                    //entityManager.AddComponent(childrenEntities[i], new InDirectMesh()
-                    //{
-                    //    Value = GPUMesh<Vertex>.Meshes.IndexOf(indirectMeshes[i])
-                    //});
                     entityManager.AddComponent(childrenEntities[i], new MaterialIndex()
                     {
                         Value = indirectMatIndex
@@ -274,14 +253,23 @@ namespace Planets
             var waveB = new Texture2d(Texture2d.GetTextureInDefaultPath("Wave B.png"));
             var terrainShapes = Texture2d.CreateTextureArray("Rock1.png", "Rock2.png", "Rock3.png", "Rock4.png", "Rock5.png", "Snow.png", "SnowOld.png");
 
-            var planetLit = new Material("planet_shader.vert", "planet_shader.frag", typeof(ModelPushConstantData),
+            VertexAttributeDescription[] vertexAttributeDescriptions = [
+                new(VertexAttribute.Position,VertexAttributeFormat.Float3,0,0,0),
+                new(VertexAttribute.Normal,VertexAttributeFormat.Float3,0,1,1),
+                new(VertexAttribute.TexCoord0,VertexAttributeFormat.Float2,0,2,2),
+            ];
+            var bindingDescriptions = DirectMeshBuffer.GetBindingDescription(vertexAttributeDescriptions);
+            var attributeDescriptions = DirectMeshBuffer.GetAttributeDescriptions(vertexAttributeDescriptions);
+            var planetLit = new Material("planet_shader.vert", "planet_shader.frag", bindingDescriptions,
+                attributeDescriptions,
                 new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.UniformBuffer, StageFlags = VkShaderStageFlags.Fragment },
                 new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Fragment },
                 new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Fragment },
                 new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Fragment },
                 new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Fragment },
                 new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Fragment },
-                new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Fragment }
+                new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Fragment },
+                new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.StorageBuffer, StageFlags = VkShaderStageFlags.Vertex}
             );
 
 

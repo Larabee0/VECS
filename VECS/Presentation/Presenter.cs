@@ -251,16 +251,6 @@ namespace VECS
                 DirectMeshBuffer.DirectMeshes[i].Dispose();
             }
 
-            for (int i = GPUMesh<Vertex>.MeshSets.Count - 1; i >= 0; i--)
-            {
-                GPUMesh<Vertex>.MeshSets[i].Dispose();
-            }
-
-            for (int i = Mesh.Meshes.Count - 1; i >= 0; i--)
-            {
-                Mesh.Meshes[i].Dispose();
-            }
-
             Instance = null;
             // deallocation order matters.
             // first deallocat the buffers

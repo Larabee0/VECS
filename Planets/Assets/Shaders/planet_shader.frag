@@ -45,11 +45,11 @@ layout(set = 1, binding = 5) uniform sampler2D texWaveB;
 layout(set = 1, binding = 6) uniform sampler2D texWaveC;
 
 
-layout(push_constant) uniform Push
-{
-	mat4 modelMatrix; // project * view * model
-	mat4 normalMatrix;
-} push;
+//layout(push_constant) uniform Push
+//{
+//	mat4 modelMatrix; // project * view * model
+//	mat4 normalMatrix;
+//} push;
 
 
 float colourSample(out vec4 colour, out vec4 steepColour, out float alpha)

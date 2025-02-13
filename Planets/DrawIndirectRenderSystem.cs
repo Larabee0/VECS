@@ -15,12 +15,12 @@ namespace Planets
     {
         public const ulong MAX_INDIRECT_COMMANDS = 1000;
         public const bool COMPUTE_CULL = false;
+        private GPUBuffer<ObjectData>[] _objectDataBuffers;
         private GPUBuffer<VkDrawIndexedIndirectCommand>[] _indirectCmdBuffers;
         private GPUBuffer<float>[] _depthSamples;
-        private GPUBuffer<ObjectData>[] _objectDataBuffers;
         
 
-        float[] texCopy;
+        //float[] texCopy;
         private GPUBuffer<float> _CPUDepthSample;
         private GPUBuffer<float> _sampleOutput;
         private GPUBuffer<float> _sampleInput;
@@ -60,13 +60,8 @@ namespace Planets
                 DrawDist = 9999999
             };
 
-            VkDrawIndexedIndirectCommand[] drawCmds = new VkDrawIndexedIndirectCommand[entities.Count];
-
-            float[] drawOld = new float[MAX_INDIRECT_COMMANDS];
-            fixed (float* pDrawCmds = &drawOld[0])
-            {
-                depthSampler.ReadFromBuffer(pDrawCmds);
-            }
+            depthSampler.ReadToHostBuffer();
+            Span<float> drawOld = depthSampler.HostBuffer;
             bool anySample = false;
             for (int i = 0; i < entities.Count; i++)
             {
@@ -92,11 +87,12 @@ namespace Planets
             aabb.Z = drawOld[6];
             aabb.W = drawOld[7];
 
-            ObjectData[] drawObjectData = new ObjectData[entities.Count];
+            Span<VkDrawIndexedIndirectCommand> drawCmds = indirectCmdBuffer.HostBuffer;
+            Span<ObjectData> drawObjectData = objectDataBuffer.HostBuffer;
 
-            for (uint i = 0; i < entities.Count; i++)
+            for (int i = 0; i < entities.Count; i++)
             {
-                var entity = entities[(int)i];
+                var entity = entities[i];
 
                 var mesh = DirectSubMesh.GetSubMeshAtIndex(entityManager.GetComponent<DirectSubMeshIndex>(entity));
                 var subMesh = mesh.DirectSubMeshInfo;
@@ -107,7 +103,7 @@ namespace Planets
                     firstIndex = subMesh.FirstIndex,
                     indexCount = subMesh.IndexCount,
                     vertexOffset = (int)subMesh.VertexOffset,
-                    firstInstance = i
+                    firstInstance = (uint)i
                 };
 
                 var renderBounds = mesh.Bounds;
@@ -118,18 +114,12 @@ namespace Planets
 
             if (COMPUTE_CULL)
             {
-                fixed (VkDrawIndexedIndirectCommand* pDrawCmds = &drawCmds[0])
-                {
-                    indirectCmdBuffer.WriteToBuffer(pDrawCmds, (ulong)(sizeof(VkDrawIndexedIndirectCommand) * drawCmds.Length));
-                }
+                indirectCmdBuffer.WriteFromHostBuffer();
             }
-            fixed (ObjectData* pMatrices = &drawObjectData[0])
-            {
-                objectDataBuffer.WriteToBuffer(pMatrices, (ulong)(sizeof(ObjectData) * drawObjectData.Length));
-            }
+            objectDataBuffer.WriteFromHostBuffer();
             if (!COMPUTE_CULL) {
 
-                FrustumCull(drawCull,rendererFrameInfo, ref drawCmds, drawObjectData);
+                FrustumCull(drawCull,rendererFrameInfo, drawCmds, drawObjectData);
                 bool drawAll = true;
                 bool drawAny = false;
                 bool drawNone = true;
@@ -223,17 +213,8 @@ namespace Planets
 
             DescriptorWriter writer = new(material.MaterialDescriptorLayout, rendererFrameInfo.FrameDescriptorPool);
             writer.WriteBuffer(0, modelMatricesBuffer.DescriptorInfo());
-
             material.BindDescriptorSet(rendererFrameInfo, writer);
-
-            //Vulkan.vkCmdBindVertexBuffer(cmdBuffer, 0, meshSet._vertexBuffer.VkBuffer, 0);
-            //Vulkan.vkCmdBindIndexBuffer(cmdBuffer, meshSet._indexBuffer.VkBuffer, 0, VkIndexType.Uint32);
-
             meshSet.BindBuffers(cmdBuffer);
-            //for (int i = 0; i < meshSet.DirectSubMeshes.Length; i++)
-            //{
-            //    meshSet.DirectSubMeshes[i].SimpleBindAndDraw(cmdBuffer);
-            //}
             Vulkan.vkCmdDrawIndexedIndirect(cmdBuffer,
                 indirectCmdBuffer.VkBuffer,
                 0,
@@ -303,7 +284,6 @@ namespace Planets
             _CPUDepthSample = new(value, VkBufferUsageFlags.TransferDst, true);
             _sampleOutput = new(1, VkBufferUsageFlags.StorageBuffer, true);
             _sampleInput = new(3, VkBufferUsageFlags.UniformBuffer, true);
-            texCopy = new float[_CPUDepthSample.InstanceCount32];
             _cullCompute = new("indirect_cull.comp", typeof(DrawCullData),
                 new DescriptorSetBinding(VkDescriptorType.UniformBuffer, VkShaderStageFlags.Compute),
                 new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute),
@@ -318,7 +298,7 @@ namespace Planets
 
         }
 
-        public void FrustumCull(DrawCullData cullData, RendererFrameInfo frameInfo, ref VkDrawIndexedIndirectCommand[] drawCmds, ObjectData[] objectData)
+        public void FrustumCull(DrawCullData cullData, RendererFrameInfo frameInfo, Span<VkDrawIndexedIndirectCommand> drawCmds, Span<ObjectData> objectData)
         {
             for (int i = 0; i < cullData.DrawCount; i++)
             {
@@ -360,7 +340,7 @@ namespace Planets
 
             return true;
         }
-        private unsafe bool IsVisible(int i,RendererFrameInfo frameInfo, DrawCullData drawCullData, ObjectData[] objectData)
+        private unsafe bool IsVisible(int i,RendererFrameInfo frameInfo, DrawCullData drawCullData, Span<ObjectData> objectData)
         {
             Vector4 sphereBounds = objectData[i].SphereBounds;
 
@@ -505,7 +485,7 @@ namespace Planets
             }
         }
 
-        private static bool IsVisibleAABB(int i, DrawCullData drawCullData, ObjectData[] objectData)
+        private static bool IsVisibleAABB(int i, DrawCullData drawCullData, Span<ObjectData> objectData)
         {
             Vector4 sphereBounds = objectData[i].SphereBounds;
 
@@ -525,7 +505,7 @@ namespace Planets
             return visible;
         }
 
-        public DrawCullData GenerateCullData(RendererFrameInfo frameInfo,CullParams cullParams,int drawCount)
+        public static DrawCullData GenerateCullData(RendererFrameInfo frameInfo,CullParams cullParams,int drawCount)
         {
             Matrix4x4 projection = cullParams.ProjectionMatrix;
             Matrix4x4 projectionT = Matrix4x4.Transpose(projection);
