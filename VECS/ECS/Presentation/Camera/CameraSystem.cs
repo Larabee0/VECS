@@ -73,10 +73,10 @@ namespace VECS.ECS.Presentation
         public override void OnPostUpdate(EntityManager entityManager)
         {
             // mark queries stale for next frame
-            _cameraQueryPerspective.MarkStale();
-            _cameraQueryOrthographic.MarkStale();
-            _cameraInitQuery.MarkStale();
-            _cameraMotion.MarkStale();
+            //_cameraQueryPerspective.MarkStale();
+            //_cameraQueryOrthographic.MarkStale();
+            //_cameraInitQuery.MarkStale();
+            //_cameraMotion.MarkStale();
         }
 
         /// <summary>

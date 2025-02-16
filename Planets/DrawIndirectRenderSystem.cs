@@ -224,7 +224,7 @@ namespace Planets
 
         public override void OnPostPresentation(EntityManager entityManager)
         {
-            _planetRenderQuery.MarkStale();
+            //_planetRenderQuery.MarkStale();
         }
 
         public override void OnDestroy(EntityManager entityManager)

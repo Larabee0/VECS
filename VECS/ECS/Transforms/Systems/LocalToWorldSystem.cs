@@ -88,9 +88,9 @@ namespace VECS.ECS.Transforms
         public override void OnPostUpdate(EntityManager entityManager)
         {
             // mark the qurues as stale for next frame
-            _ltwChildQuery.MarkStale();
-            _ltwQuery.MarkStale();
-            _addLTWQuery.MarkStale();
+            //_ltwChildQuery.MarkStale();
+            //_ltwQuery.MarkStale();
+            //_addLTWQuery.MarkStale();
         }
 
         public override void OnDestroy(EntityManager entityManager)

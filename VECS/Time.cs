@@ -12,18 +12,18 @@ namespace VECS
 
         public static double DeltaTimeAsDouble => deltaTime;
         public static float DeltaTime => (float)deltaTime;
-        public static double TimeSinceStartUpAsDouble => (DateTime.Now - startTime).TotalSeconds;
+        public static double TimeSinceStartUpAsDouble => (DateTime.UtcNow - startTime).TotalSeconds;
         public static float TimeSinceStartUp => (float)TimeSinceStartUpAsDouble;
 
         static Time()
         {
-            startTime = DateTime.Now;
-            currentTime = DateTime.Now;
+            startTime = DateTime.UtcNow;
+            currentTime = DateTime.UtcNow;
         }
 
         internal static void Update()
         {
-            var newTime = DateTime.Now;
+            var newTime = DateTime.UtcNow;
             deltaTime = (newTime - currentTime).TotalSeconds;
             currentTime = newTime;
         }

@@ -47,7 +47,7 @@ namespace Planets
 
         public override void OnPostUpdate(EntityManager entityManager)
         {
-            _interactionEntity.MarkStale();
+            //_interactionEntity.MarkStale();
         }
 
 

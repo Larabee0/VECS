@@ -62,7 +62,7 @@ namespace Planets.Colour
 
         public override void OnPostPresentation(EntityManager entityManager)
         {
-            _starQuery.MarkStale();
+            //_starQuery.MarkStale();
         }
 
         [StructLayout(LayoutKind.Sequential,Size =40)]

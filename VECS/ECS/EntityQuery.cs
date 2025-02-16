@@ -20,8 +20,8 @@ namespace VECS.ECS
         private readonly HashSet<int> _withNoneSet = [];
         private readonly HashSet<int> _withAnySet = [];
 
-        private readonly EntityManager _entityManager; // probably want to eliminate this reference.
-        private List<Entity> entities = new();
+        private EntityManager _entityManager; // probably want to eliminate this reference.
+        private List<Entity> entities = [];
         private bool _built = false; // indicate the query has been built so can be used
         private bool _stale = true; // indicates the query should be updated, _hasEnitities will be invalid
         private bool _hasEnitities = false;
@@ -52,6 +52,7 @@ namespace VECS.ECS
         public EntityQuery(EntityManager entityManager)
         {
             _entityManager = entityManager;
+            entityManager.AddQuery(this);
         }
 
         /// <summary>
@@ -197,12 +198,32 @@ namespace VECS.ECS
             return this;
         }
 
+        internal void AutoStale(int componentId)
+        {
+            if (_stale)
+            {
+                return;
+            }
+            else if (_withAllSet.Contains(componentId))
+            {
+                MarkStale();
+            }
+            else if (_withAnySet.Contains(componentId))
+            {
+                MarkStale();
+            }
+            else if (_withNoneSet.Contains(componentId))
+            {
+                MarkStale();
+            }
+        }
+
         /// <summary>
         /// Marks the query as stale
         /// </summary>
         public void MarkStale()
         {
-            entities.Clear();
+            //entities.Clear();
             _stale = true;
         }
 
@@ -255,6 +276,10 @@ namespace VECS.ECS
         /// <returns></returns>
         public List<Entity> GetEntities()
         {
+            if (Stale)
+            {
+                this.entities.Clear();
+            }
             if(this.entities.Count != 0)
             {
                 return this.entities;

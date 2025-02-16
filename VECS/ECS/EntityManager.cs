@@ -46,6 +46,8 @@ namespace VECS.ECS
         private readonly Dictionary<Guid, int> _componentTypeToIdLookup = []; // look up for the component type guid to the smaller component id
         private readonly Dictionary<int, Type> _componentIdToTypeLookup = []; // look up for a component id to the component type
 
+        private readonly List<EntityQuery> _queries=[];
+
         /// <summary>
         /// Generates ids for all the components present in the executing assembly,
         /// then tracks them in <see cref="_componentIdToTypeLookup"/> and <see cref="_componentTypeToIdLookup"/>
@@ -126,7 +128,7 @@ namespace VECS.ECS
 
                 _compSignatureToCompReference.Add(GetEntityComponentSigature<T>(entity), comp);
                 UpdateEntityArchetype(entity);
-
+                AutoMarkQueriesStale(compId);
                 return comp;
             }
         }
@@ -200,6 +202,7 @@ namespace VECS.ECS
                 {
                     UpdateEntityArchetype(entity);
                 }
+                AutoMarkQueriesStale(compId);
             }
         }
 
@@ -821,5 +824,17 @@ namespace VECS.ECS
             AddComponent(instance, instanceChildren);
         }
 
+        internal void AddQuery(EntityQuery query)
+        {
+            if (!_queries.Contains(query))
+            {
+                _queries.Add(query);
+            }
+        }
+
+        private void AutoMarkQueriesStale(int componentId)
+        {
+            _queries.ForEach(q => q.AutoStale(componentId));
+        }
     }
 }
