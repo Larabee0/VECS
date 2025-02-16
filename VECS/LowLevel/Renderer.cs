@@ -74,7 +74,7 @@ namespace VECS.LowLevel
 
         private void RecreateSwapChain()
         {
-
+            currentImageIndex = SwapChain.MAX_FRAMES_IN_FLIGHT + 1;
             var extent = _window.WindowExtend;
             while (extent.width == 0 || extent.height == 0)
             {
@@ -207,10 +207,10 @@ namespace VECS.LowLevel
 
         public unsafe VkCommandBuffer BeginFrame()
         {
-            while (!_swapChain.SubmissionReady)
+            while (currentImageIndex == _swapChain.NextFrameIndex)
             {
-                _swapChain.Mutex.WaitOne();
-                _swapChain.Mutex.ReleaseMutex();
+                _swapChain.SubmissionMutex.WaitOne();
+                _swapChain.SubmissionMutex.ReleaseMutex();
             }
             if (_swapChain.SubmittedFrameResult != VkResult.Success)
             {

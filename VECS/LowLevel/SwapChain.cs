@@ -671,6 +671,7 @@ namespace VECS.LowLevel
 
         public unsafe void Dispose()
         {
+            _submissionQueue.Enqueue(new() { breakThread = true });
             foreach (var item in _swapChainImageViews)
             {
                 Vulkan.vkDestroyImageView(Device, item);
@@ -852,30 +853,29 @@ namespace VECS.LowLevel
 
         private Thread _submissionThread;
         private readonly ConcurrentQueue<SubmitInfo> _submissionQueue = [];
-        private bool _ready;
-        private readonly Mutex _mutex = new();
+        private readonly Mutex _submissionMutex = new();
         private VkResult _submittedFrameResult;
         public VkResult SubmittedFrameResult => _submittedFrameResult;
         private VkResult _nextFrameResult;
         public VkResult NextFrameResult => _submittedFrameResult;
         private uint _nextFrameIndex;
         public uint NextFrameIndex => _nextFrameIndex;
-        public bool SubmissionReady => _ready;
-        public Mutex Mutex => _mutex;
+        public Mutex SubmissionMutex => _submissionMutex;
         private struct SubmitInfo
         {
             public VkCommandBuffer CommandBuffer;
             public uint ImageIndex;
+            public bool breakThread;
 
             public SubmitInfo(VkCommandBuffer commandBuffer, uint imageIndex)
             {
                 CommandBuffer = commandBuffer;
                 ImageIndex = imageIndex;
+                breakThread = false;
             }
         }
         public void StartSubmissionThread()
         {
-
             _submissionThread = new(new ThreadStart(SubmitQueue))
             {
                 IsBackground = true
@@ -886,20 +886,20 @@ namespace VECS.LowLevel
         {
             // acquire first frame
             _nextFrameResult = AcquireNextImage( out _nextFrameIndex);
-            _mutex.WaitOne();
-            _ready = true;
-            _mutex.ReleaseMutex();
             
             while (true)
             {
-                if (!_ready&&_submissionQueue.TryDequeue(out var info))
+                if (_submissionQueue.TryDequeue(out var info))
                 {
-                    _mutex.WaitOne();
+                    if (info.breakThread)
+                    {
+                        return;
+                    }
+                    _submissionMutex.WaitOne();
                     int submitFrame = _currentFrame;
-                    _currentFrame = (_currentFrame + 1) % SwapChain.MAX_FRAMES_IN_FLIGHT;
+                    _currentFrame = (_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
                     _nextFrameResult = AcquireNextImage(out _nextFrameIndex);
-                    _ready = true;
-                    _mutex.ReleaseMutex();
+                    _submissionMutex.ReleaseMutex();
                     _submittedFrameResult = SubmitCommandBuffers(info.CommandBuffer, info.ImageIndex, submitFrame);
                 }
             }
@@ -907,7 +907,6 @@ namespace VECS.LowLevel
 
         public void EnqueueCommandBuffer(VkCommandBuffer commandBuffer, uint imageIndex)
         {
-            _ready = false;
             _submissionQueue.Enqueue(new(commandBuffer, imageIndex));
         }
 
