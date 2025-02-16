@@ -24,7 +24,7 @@ namespace VECS
 
         public Application()
         {
-            _appWindow = new(Width, Height, "Vulkan CS");
+            _appWindow = new(Width, Height, "VECS");
             _device = new(_appWindow);
             _presenter = new(_appWindow);
         }
@@ -48,6 +48,7 @@ namespace VECS
                 Presentation();
                 InputManager.Instance.LateUpdate();
             }
+            SwapChain.Instance.StopSubmissionThread();
             Vulkan.vkDeviceWaitIdle(_device.Device);
             Destroy();
         }
