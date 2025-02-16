@@ -81,7 +81,6 @@ namespace VECS.LowLevel
                 extent = _window.WindowExtend;
                 _window.WaitForNextWindowEvent();
             }
-            _swapChain?.StopSubmissionThread();
             Vulkan.vkDeviceWaitIdle(_device.Device);
 
             if (_swapChain == null)
@@ -237,7 +236,6 @@ namespace VECS.LowLevel
             {
                 throw new Exception("Failed to acquire next swap chain image");
             }
-            //Console.WriteLine("Frame started");
             isFrameStarted = true;
 
             var commandBuffer = CurrentCommandBuffer;

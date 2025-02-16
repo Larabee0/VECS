@@ -852,7 +852,6 @@ namespace VECS.LowLevel
 
         private Thread _submissionThread;
         private readonly ConcurrentQueue<SubmitInfo> _submissionQueue = [];
-        private bool _stop;
         private bool _ready;
         private readonly Mutex _mutex = new();
         private VkResult _submittedFrameResult;
@@ -876,12 +875,12 @@ namespace VECS.LowLevel
         }
         public void StartSubmissionThread()
         {
-            _submissionThread = new(new ThreadStart(SubmitQueue));
+
+            _submissionThread = new(new ThreadStart(SubmitQueue))
+            {
+                IsBackground = true
+            };
             _submissionThread.Start();
-        }
-        public void StopSubmissionThread()
-        {
-            _stop = true;
         }
         private unsafe void SubmitQueue()
         {
@@ -891,7 +890,7 @@ namespace VECS.LowLevel
             _ready = true;
             _mutex.ReleaseMutex();
             
-            while (!_stop)
+            while (true)
             {
                 if (!_ready&&_submissionQueue.TryDequeue(out var info))
                 {
@@ -908,10 +907,8 @@ namespace VECS.LowLevel
 
         public void EnqueueCommandBuffer(VkCommandBuffer commandBuffer, uint imageIndex)
         {
-            _mutex.WaitOne();
             _ready = false;
             _submissionQueue.Enqueue(new(commandBuffer, imageIndex));
-            _mutex.ReleaseMutex();
         }
 
         public unsafe VkResult SubmitCommandBuffers(VkCommandBuffer commandBuffer, uint imageIndex, int currentFrame)
