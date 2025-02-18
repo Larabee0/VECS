@@ -6,6 +6,8 @@ using VECS.ECS;
 using VECS.ECS.Presentation;
 using VECS.LowLevel;
 using Vortice.Vulkan;
+using System.Collections.Concurrent;
+using System.Threading.Tasks;
 
 namespace VECS
 {
@@ -171,7 +173,7 @@ namespace VECS
         private readonly VkBuffer[] _vertexVkBuffers;
 
         private readonly Dictionary<VertexAttribute, VertexAttributeDescription> _consumedAttributes = [];
-        private readonly Dictionary<VertexAttribute, bool> _knownAttributes = [];
+        private readonly ConcurrentDictionary<VertexAttribute, bool> _knownAttributes = [];
 
         private readonly GPUBuffer<uint> _indexBuffer;
         private GPUBuffer<uint> _indexOffsetBuffer;
@@ -179,6 +181,8 @@ namespace VECS
         private bool _disposed;
         private readonly Dictionary<VertexAttribute, GPUBuffer> _vertexBuffers;
         private Vector3UInt[] _faces;
+        private Vector3UInt[] _faceOffsets;
+        private Vector3[] _faceNormals;
 
 
         public bool IsDisposed => _disposed;
@@ -238,6 +242,18 @@ namespace VECS
                     _indexBuffer.TryAllocHostBuffer(true);
                 }
                 return _indexBuffer.HostBuffer;
+            }
+        }
+
+        private Span<uint> IndexOffsets
+        {
+            get
+            {
+                if(IndexOffsetBuffer.HostBuffer == Span<uint>.Empty)
+                {
+                    IndexOffsetBuffer.TryAllocHostBuffer(true);
+                }
+                return IndexOffsetBuffer.HostBuffer;
             }
         }
 
@@ -348,10 +364,10 @@ namespace VECS
             if (_knownAttributes.TryGetValue(attribute, out bool hasAttribute)) return hasAttribute;
             if (ConsumedAttributes.TryGetValue(attribute, out var value) && value.AttributeByteSize == sizeof(T))
             {
-                _knownAttributes.Add(attribute, true);
+                _knownAttributes.TryAdd(attribute, true);
                 return true;
             }
-            _knownAttributes.Add(attribute, false);
+            _knownAttributes.TryAdd(attribute, false);
             return false;
         }
 
@@ -445,6 +461,13 @@ namespace VECS
             return _faces.AsSpan((int)offset / 3, (int)length / 3);
         }
 
+        public Span<Vector3> GetFaceNormalsSpan(uint offset, uint length)
+        {
+            ForceCrunchFaceData();
+
+            return _faceNormals.AsSpan((int)offset / 3, (int)length / 3);
+        }
+
         public void FlushAll()
         {
             foreach (var buffer in _vertexBuffers.Values)
@@ -513,6 +536,13 @@ namespace VECS
             IndexBuffer.TryDellocateHostBuffer();
         }
 
+        public void ForceCrunchFaceData()
+        {
+            _faces ??= CrunchIndicesToFaces();
+            _faceOffsets ??= CrunchIndexOffsetsToFaceOffsets();
+            _faceNormals ??= ComputeFaceNormals();
+        }
+
         private unsafe Vector3UInt[] CrunchIndicesToFaces()
         {
             var faces = new Vector3UInt[IndexBufferLength / 3];
@@ -522,6 +552,33 @@ namespace VECS
                 NativeMemory.Copy(pIndices, pFaces, (nuint)(IndexBufferLength * sizeof(uint)));
 
             return faces;
+        }
+
+        private unsafe Vector3UInt[] CrunchIndexOffsetsToFaceOffsets()
+        {
+            var faceOffsets = new Vector3UInt[IndexBufferLength / 3];
+
+            fixed (void* pIndexOffsets = &IndexOffsets[0])
+            fixed (void* pFaceOffsets = &faceOffsets[0])
+                NativeMemory.Copy(pIndexOffsets, pFaceOffsets, (nuint)(IndexBufferLength * sizeof(uint)));
+
+            return faceOffsets;
+        }
+
+        private Vector3[] ComputeFaceNormals()
+        {
+            var vertices = GetFullVertexData<Vector3>(VertexAttribute.Position);
+            var faceNormals = new Vector3[IndexBufferLength / 3];
+
+            for (int i = 0; i < faceNormals.Length; i++)
+            {
+                var v0 = vertices[(int)(_faces[i][0] + _faceOffsets[i][0])];
+                var v1 = vertices[(int)(_faces[i][1] + _faceOffsets[i][1])];
+                var v2 = vertices[(int)(_faces[i][2] + _faceOffsets[i][2])];
+                faceNormals[i] = Vector3.Normalize(Vector3.Cross(v1 - v0, v2 - v0));
+            }
+
+            return faceNormals;
         }
 
         public void ZeroBuffers()
@@ -763,6 +820,41 @@ namespace VECS
         public static int GetIndexOfMesh(DirectMeshBuffer mesh)
         {
             return DirectMeshes.IndexOf(mesh);
+        }
+
+        public unsafe void ReadAllBuffers()
+        {
+            GPUBuffer[] buffers = [_indexBuffer, .. _vertexBuffers.Values];
+            GPUBuffer[] tmpReadBuffers = new GPUBuffer[buffers.Length];
+            for (int i = 0; i < buffers.Length; i++)
+            {
+                tmpReadBuffers[i] = new GPUBuffer(buffers[i].UInstanceCount, buffers[i].InstanceSize, VkBufferUsageFlags.TransferDst, true);
+            }
+            VkCommandBuffer singleTime = GraphicsDevice.Instance.BeginSingleTimeCommands();
+            for (int i = 0; i < buffers.Length; i++)
+            {
+                buffers[i].CopyTo(singleTime, tmpReadBuffers[i]);
+            }
+            GraphicsDevice.Instance.EndSingleTimeCommands(singleTime);
+
+            for (int i = 0; i < buffers.Length; i++)
+            {
+                buffers[i].TryAllocHostBuffer(false);
+                NativeMemory.Copy(tmpReadBuffers[i].HostPtr, buffers[i].HostPtr, (nuint)tmpReadBuffers[i].BufferSize);
+                tmpReadBuffers[i].Dispose();
+            }
+
+        }
+
+        public void SoftReallocateSubMesh(int subMeshIndex, DirectSubMeshCreateData directSubMeshCreateData)
+        {
+            var currentData = _subMeshInfo[subMeshIndex];
+
+            var newData = new DirectSubMeshInfo(directSubMeshCreateData.VertexCount, directSubMeshCreateData.IndexCount, currentData.FirstIndex, currentData.VertexOffset, currentData.FirstInstance);
+
+
+            _subMeshInfo[subMeshIndex] = newData;
+
         }
 
         #endregion

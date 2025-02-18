@@ -22,6 +22,7 @@ namespace VECS
 
         public Span<uint> Indicies => _directMeshBuffer.GetIndexSpan(DirectSubMeshInfo.FirstIndex, DirectSubMeshInfo.IndexCount);
         public Span<Vector3UInt> Faces => _directMeshBuffer.GetFaceSpan(DirectSubMeshInfo.FirstIndex, DirectSubMeshInfo.IndexCount);
+        public Span<Vector3> FaceNormals => _directMeshBuffer.GetFaceNormalsSpan(DirectSubMeshInfo.FirstIndex, DirectSubMeshInfo.IndexCount);
 
         public uint VertexCount { get => DirectSubMeshInfo.VertexCount; }
         public uint IndexCount { get => DirectSubMeshInfo.IndexCount; }
@@ -100,7 +101,7 @@ namespace VECS
             Vector3 min = new(minX, minY, minZ);
             Vector3 max = new(maxX, maxY, maxZ);
 
-            Vector3 extents = (min - max) * 0.5f;
+            Vector3 extents = (max - min) * 0.5f;
             Vector3 centerAlt = (min + max) * 0.5f;
             Vector3 center = min + extents;
 
@@ -133,6 +134,11 @@ namespace VECS
         public void Reallocate(DirectSubMeshCreateData directSubMeshCreateData)
         {
             _directMeshBuffer.ReallocateSubMesh(_directSubMeshIndex,directSubMeshCreateData);
+        }
+
+        public void SoftReallocate(DirectSubMeshCreateData directSubMeshCreateData)
+        {
+            _directMeshBuffer.SoftReallocateSubMesh(_directSubMeshIndex, directSubMeshCreateData);
         }
 
         public DirectSubMeshIndex GetSubMeshIndex()
