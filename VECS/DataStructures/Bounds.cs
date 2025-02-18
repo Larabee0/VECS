@@ -1,4 +1,6 @@
-﻿using System.Numerics;
+﻿using System;
+using System.Numerics;
+using System.Runtime.CompilerServices;
 
 namespace VECS
 {
@@ -6,8 +8,23 @@ namespace VECS
     {
         public Vector3 center;
         public Vector3 extents;
-        public readonly Vector3 Min => center - extents;
-        public readonly Vector3 Max => center + extents;
+        public  Vector3 Min
+        {
+            readonly get => center - extents;
+            set
+            {
+                SetMinMax(value, Max);
+            }
+        }
+
+        public Vector3 Max
+        {
+            readonly get => center + extents;
+            set
+            {
+                SetMinMax(Min, value);
+            }
+        }
 
         public Vector3 Size
         {   
@@ -21,15 +38,34 @@ namespace VECS
             this.extents = extents;
         }
 
+        public static Bounds FromMinMax(Vector3 min, Vector3 max)
+        {
+            Bounds aabb = default;
+            aabb.SetMinMax(min, max);
+            return aabb;
+        }
+
         public void Encapsulate(Vector3 point)
         {
             SetMinMax(Vector3.Min(Min,point),Vector3.Max(Max,point));
         }
 
-        private void SetMinMax(Vector3 min, Vector3 max)
+        public void SetMinMax(Vector3 min, Vector3 max)
         {
             extents = (max - min) * 0.5f;
             center = min + extents;
+        }
+
+        public void Encapsulate(Bounds bounds)
+        {
+            Encapsulate(bounds.center - bounds.extents);
+            Encapsulate(bounds.center + bounds.extents);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly bool Intersects(Bounds bounds)
+        {
+            return Min.X <= bounds.Max.X && Max.X >= bounds.Min.X && Min.Y <= bounds.Max.Y && Max.Y >= bounds.Min.Y && Min.Z <= bounds.Max.Z && Max.Z >= bounds.Min.Z;
         }
     }
 }

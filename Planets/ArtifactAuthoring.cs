@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Numerics;
 using System.Threading.Tasks;
 using Planets.Colour;
@@ -31,10 +32,11 @@ namespace Planets
         };
 
         private static readonly bool useComputeShaderForGeneration = true;
-        private readonly int subdivisons = 1;
+        private readonly int subdivisons = 4;
 
         private readonly bool generateIndirectMeshes = false;
         private static Material indirectMeshMaterial;
+        private static Stopwatch _stopwatch = new(); 
         public ArtifactAuthoring()
         {
             //World.DefaultWorld.CreateSystem<TransformPlanetsSystem>();
@@ -327,10 +329,10 @@ namespace Planets
         private static DirectMeshBuffer SubdividePlanet(DirectMeshBuffer shape,int subdivisons)
         {
             Console.WriteLine(string.Format("Begin Subdivison {0} steps", subdivisons));
-            var now = DateTime.Now;
+            _stopwatch.Restart();
             ParallelOptions options = new()
             {
-                MaxDegreeOfParallelism = 1 // 7
+                MaxDegreeOfParallelism = 7
             };
 
             //Parallel.For(0, shape.Length, options, (i)=>{
@@ -345,14 +347,14 @@ namespace Planets
             //    shape[i].Subdivide(subdivisons);
             //}
 
-            var delta = DateTime.Now - now;
-            Console.WriteLine(string.Format("Subdivide Mesh: {0}ms", delta.TotalMilliseconds));
+            _stopwatch.Stop();
+            Console.WriteLine(string.Format("Subdivide Mesh: {0}ms", _stopwatch.Elapsed.TotalMilliseconds));
             return buffer;
         }
 
         public static void GeneratePlanet(Entity planetRoot, ShapeGenerator generator)
         {
-            var now = DateTime.Now;
+            _stopwatch.Restart();
             DirectSubMeshIndex[] meshIndices = World.DefaultWorld.EntityManager.GetComponentsInHierarchy<DirectSubMeshIndex>(planetRoot);
 
             DirectSubMesh[] meshes = new DirectSubMesh[meshIndices.Length];
@@ -410,8 +412,8 @@ namespace Planets
                 World.DefaultWorld.EntityManager.SetComponent(planetRoot, properties);
             }
 
-            var delta = DateTime.Now - now;
-            Console.WriteLine(string.Format("Generated planet: {0}ms", delta.TotalMilliseconds));
+            _stopwatch.Stop();
+            Console.WriteLine(string.Format("Generated planet: {0}ms", _stopwatch.Elapsed.TotalMilliseconds));
         }
 
         /// <summary>
