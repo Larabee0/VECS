@@ -238,7 +238,7 @@ namespace VECS
             _device.EndSingleTimeCommands(cmd);
         }
 
-        public void CopyTo<U>(VkCommandBuffer cmd, GPUBuffer dstBuffer)
+        public void CopyTo(VkCommandBuffer cmd, GPUBuffer dstBuffer)
         {
             CopyTo(cmd, 0, dstBuffer, 0, BufferSize);
         }
