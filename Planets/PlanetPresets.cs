@@ -53,7 +53,7 @@ namespace Planets
                     }
                 ],
             };
-            shapeGenerator.RandomiseSettings();
+            shapeGenerator.RandomiseSeed();
             ColourSettings colourSettings = ColourPresets.CreateColoursSet2();
             shapeGenerator.SetColourSettings(colourSettings);
 

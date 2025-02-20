@@ -34,9 +34,9 @@ namespace Planets
         private static readonly bool useComputeShaderForGeneration = true;
         private readonly int subdivisons = 4;
 
-        private readonly bool generateIndirectMeshes = false;
+        private readonly bool generateIndirectMeshes = true;
         private static Material indirectMeshMaterial;
-        private static Stopwatch _stopwatch = new(); 
+        private readonly static Stopwatch _stopwatch = new(); 
         public ArtifactAuthoring()
         {
             //World.DefaultWorld.CreateSystem<TransformPlanetsSystem>();
@@ -305,8 +305,11 @@ namespace Planets
             {
                 tileNormals[i] = planetTileMeshes[i].AverageNormal();
             }
-
-            planetTileMeshes=SubdividePlanet(planetTileMeshes[0].DirectMeshBuffer, subdivisons).DirectSubMeshes;
+            
+            if (subdivisons > 0)
+            {
+                planetTileMeshes = SubdividePlanet(planetTileMeshes[0].DirectMeshBuffer, subdivisons).DirectSubMeshes;
+            }
 
             Children propertyChildren = entityManager.GetComponent<Children>(planetRoot);
             propertyChildren.Value = new Entity[planetTileMeshes.Length];
@@ -330,10 +333,10 @@ namespace Planets
         {
             Console.WriteLine(string.Format("Begin Subdivison {0} steps", subdivisons));
             _stopwatch.Restart();
-            ParallelOptions options = new()
-            {
-                MaxDegreeOfParallelism = 7
-            };
+            // ParallelOptions options = new()
+            // {
+            //     MaxDegreeOfParallelism = 7
+            // };
 
             //Parallel.For(0, shape.Length, options, (i)=>{
             //
@@ -355,6 +358,9 @@ namespace Planets
         public static void GeneratePlanet(Entity planetRoot, ShapeGenerator generator)
         {
             _stopwatch.Restart();
+            generator.MinMax = new MinMax();
+            generator.ColourGenerator = new();
+            generator.SetColourSettings(generator.ColourSettings);
             DirectSubMeshIndex[] meshIndices = World.DefaultWorld.EntityManager.GetComponentsInHierarchy<DirectSubMeshIndex>(planetRoot);
 
             DirectSubMesh[] meshes = new DirectSubMesh[meshIndices.Length];
@@ -395,13 +401,17 @@ namespace Planets
                 generator.MinMax.AddValue(shaderMinMax.X);
                 generator.MinMax.AddValue(shaderMinMax.Y);
             }
-            DirectMeshBuffer.RecalcualteAllNormals(meshes[0].DirectMeshBuffer);
+            else
+            {
+                meshes[0].DirectMeshBuffer.FlushAll();
+            }
+                DirectMeshBuffer.RecalcualteAllNormals(meshes[0].DirectMeshBuffer);
             // for (int i = 0; i < meshes.Length; i++)
             // {
             //     meshes[i].RecalculateNormals();
             // }
             computeGenerator?.Dispose();
-            generator.ColourGenerator.UpdateColours();
+            //generator.ColourGenerator.UpdateColours();
 
             if (World.DefaultWorld.EntityManager.HasComponent<PlanetPropeties>(planetRoot))
             {

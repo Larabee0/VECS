@@ -824,26 +824,57 @@ namespace VECS
 
         public unsafe void ReadAllBuffers()
         {
+            VkCommandBuffer singleTime = GraphicsDevice.Instance.BeginSingleTimeCommands();
+            var command = GenerateReadCommands(singleTime);
+            GraphicsDevice.Instance.EndSingleTimeCommands(singleTime);
+
+            Parallel.For(0, command[0].Length, (int i) =>
+            {
+                command[0][i].TryAllocHostBuffer(false);
+                command[1][i].ReadFromBuffer(command[0][i].HostPtr);
+                command[0][i].SetGPUBufferChanged(false);
+            });
+
+            for (int i = 0; i < command[1].Length; i++)
+            {
+                command[1][i].Dispose();
+            }
+
+        }
+
+        public GPUBuffer[][] GenerateReadCommands(VkCommandBuffer commandBuffer)
+        {
             GPUBuffer[] buffers = [_indexBuffer, .. _vertexBuffers.Values];
             GPUBuffer[] tmpReadBuffers = new GPUBuffer[buffers.Length];
             for (int i = 0; i < buffers.Length; i++)
             {
                 tmpReadBuffers[i] = new GPUBuffer(buffers[i].UInstanceCount, buffers[i].InstanceSize, VkBufferUsageFlags.TransferDst, true);
+                buffers[i].CopyTo(commandBuffer, tmpReadBuffers[i]);
             }
+            return [ buffers, tmpReadBuffers];
+        }
+
+        public static unsafe void ReadAllBuffersBatched(params DirectMeshBuffer[] meshes)
+        {
+            List<GPUBuffer> mainBuffers = [];
+            List<GPUBuffer> tmpReadBuffers = [];
+
             VkCommandBuffer singleTime = GraphicsDevice.Instance.BeginSingleTimeCommands();
-            for (int i = 0; i < buffers.Length; i++)
+            for (int i = 0; i < meshes.Length; i++)
             {
-                buffers[i].CopyTo(singleTime, tmpReadBuffers[i]);
+                var commands = meshes[i].GenerateReadCommands(singleTime);
+                mainBuffers.AddRange(commands[0]);
+                tmpReadBuffers.AddRange(commands[1]);
             }
             GraphicsDevice.Instance.EndSingleTimeCommands(singleTime);
 
-            for (int i = 0; i < buffers.Length; i++)
+            Parallel.For(0, mainBuffers.Count, (int i) =>
             {
-                buffers[i].TryAllocHostBuffer(false);
-                NativeMemory.Copy(tmpReadBuffers[i].HostPtr, buffers[i].HostPtr, (nuint)tmpReadBuffers[i].BufferSize);
-                tmpReadBuffers[i].Dispose();
-            }
-
+                mainBuffers[i].TryAllocHostBuffer(false);
+                tmpReadBuffers[i].ReadFromBuffer(mainBuffers[i].HostPtr);
+                mainBuffers[i].SetGPUBufferChanged(false);
+            });
+            tmpReadBuffers.ForEach(buffer => buffer.Dispose());
         }
 
         public void SoftReallocateSubMesh(int subMeshIndex, DirectSubMeshCreateData directSubMeshCreateData)

@@ -155,5 +155,10 @@ namespace VECS
             var directMesh = DirectMeshBuffer.GetMeshAtIndex(directSubMeshIndex.DirectMeshBuffer);
             return directMesh.DirectSubMeshes[directSubMeshIndex.SubMeshIndex];
         }
+
+        public uint Face(int f, int v)
+        {
+            return Faces[f][v];
+        }
     }
 }
