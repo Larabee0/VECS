@@ -73,9 +73,10 @@ namespace VECS
         private void InitSwapChainFrameDescriptorPools()
         {
             DescriptorPool.Builder framePoolBuilder = new DescriptorPool.Builder()
-                            .SetMaxSets(1000)
-                            .AddPoolSize(VkDescriptorType.CombinedImageSampler, 1000)
-                            .AddPoolSize(VkDescriptorType.UniformBuffer, 1000)
+                            .SetMaxSets(2000)
+                            .AddPoolSize(VkDescriptorType.CombinedImageSampler, 2000)
+                            .AddPoolSize(VkDescriptorType.UniformBuffer, 2000)
+                            .AddPoolSize(VkDescriptorType.StorageBuffer, 2000)
                             .SetPoolFlags(VkDescriptorPoolCreateFlags.FreeDescriptorSet);
             for (int i = 0; i < swapChainFrameDescriptorPools.Length; i++)
             {
