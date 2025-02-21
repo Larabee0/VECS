@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using VECS.GraphicsPipelines;
 using Vortice.Vulkan;
 
@@ -207,11 +208,7 @@ namespace VECS.LowLevel
 
         public unsafe VkCommandBuffer BeginFrame()
         {
-            while (currentImageIndex == _swapChain.NextFrameIndex)
-            {
-                _swapChain.SubmissionMutex.WaitOne();
-                _swapChain.SubmissionMutex.ReleaseMutex();
-            }
+            _swapChain.WaitForSubmission(currentImageIndex);
             if (_swapChain.SubmittedFrameResult != VkResult.Success)
             {
                 throw new Exception("Failed to acquire next swap chain image!");

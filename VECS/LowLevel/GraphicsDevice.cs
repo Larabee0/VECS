@@ -808,7 +808,7 @@ namespace VECS.LowLevel
         {
             var availableExtensions = Vulkan.vkEnumerateDeviceExtensionProperties(device);
 
-            HashSet<VkUtf8String> requiredSet = new(_requiredDeviceExtensions);
+            HashSet<VkUtf8String> requiredSet = [.. _requiredDeviceExtensions];
 
             for (int i = 0; i < availableExtensions.Length; i++)
             {

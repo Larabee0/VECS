@@ -471,7 +471,7 @@ namespace VECS.ECS
         {
             if (_componentIdToEntities.TryGetValue(compId, out var entitiesSet))
             {
-                return new(entitiesSet);
+                return [.. entitiesSet];
             }
 
             return null;
@@ -530,11 +530,11 @@ namespace VECS.ECS
                 }
             }
 
-            HashSet<Entity> allEntities = new(_entityIdToEntity.Values);
+            HashSet<Entity> allEntities = [.. _entityIdToEntity.Values];
 
             componentIds.ForEach(comp => allEntities.IntersectWith(_componentIdToEntities[comp]));
 
-            return new(allEntities);
+            return [.. allEntities];
         }
 
         /// <summary>
@@ -628,7 +628,7 @@ namespace VECS.ECS
         {
             if (_entityIds.Remove(entity.Id))
             {
-                List<int> componentsToRemove = new(_entityToComponentIds[entity.Id]);
+                List<int> componentsToRemove = [.. _entityToComponentIds[entity.Id]];
 
                 componentsToRemove.ForEach(comp => RemoveComponent(entity, comp, false));
 
@@ -786,7 +786,7 @@ namespace VECS.ECS
         /// <returns></returns>
         public Entity Instantiate(Entity entity, bool instantiateNewMeshes = false, Entity parentEntity = default)
         {
-            HashSet<int> components = new(_entityToComponentIds[entity.Id]);
+            HashSet<int> components = [.. _entityToComponentIds[entity.Id]];
             components.Remove(GetComponentId<Prefab>());
 
             Entity instance = CreateEntity();
