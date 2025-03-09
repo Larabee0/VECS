@@ -30,9 +30,9 @@ namespace Planets.Colour
             if (_starQuery.HasEntities && entityManager.SingletonEntity<Camera>(out Entity cameraEntity))
             {
                 var stars = _starQuery.GetEntities();
-                if (stars.Count > 10)
+                if (stars.Count > Presenter.MAX_LIGHTS)
                 {
-                    throw new ArgumentOutOfRangeException("MAX_LIGHTS", stars.Count, "Exceeded star max count! Max support stars is 10");
+                    throw new Exception(string.Format("star count {0}, exceeded star max count! Max support stars is 10", stars.Count));
                 }
                 Vector3 cameraPosition = entityManager.GetComponent<LocalToWorld>(cameraEntity).Value.Translation;
                 List<PointLightPushConstant> starsToDraw = new(stars.Count);

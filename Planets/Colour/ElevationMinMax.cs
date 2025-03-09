@@ -6,7 +6,7 @@ namespace Planets.Colour
     public struct ElevationMinMax : IComponent
     {
         public static int ComponentId { get; set; }
-        public int Id => ComponentId;
+        public readonly int Id => ComponentId;
 
         public Vector2 Value;
 

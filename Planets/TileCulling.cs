@@ -25,7 +25,7 @@ namespace Planets
     public struct TileNormalVector : IComponent
     {
         public static int ComponentId { get; set; }
-        public int Id => ComponentId;
+        public readonly int Id => ComponentId;
 
         public Vector3 Value;
     }

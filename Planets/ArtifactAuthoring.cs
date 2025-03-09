@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Numerics;
-using System.Threading.Tasks;
 using Planets.Colour;
 using Planets.Generator;
 using VECS;
@@ -34,9 +33,9 @@ namespace Planets
         private static readonly bool useComputeShaderForGeneration = true;
         private readonly int subdivisons = 4;
 
-        private readonly bool generateIndirectMeshes = true;
+        private readonly bool generateIndirectMeshes = false;
         private static Material indirectMeshMaterial;
-        private readonly static Stopwatch _stopwatch = new(); 
+        private readonly static Stopwatch _stopwatch = new();
         public ArtifactAuthoring()
         {
             //World.DefaultWorld.CreateSystem<TransformPlanetsSystem>();
@@ -73,9 +72,9 @@ namespace Planets
             indirectMeshMaterial = new Material("white_shader.vert", "white_shader.frag",
                 bindingDescriptions,
                 attributeDescriptions,
-                new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.StorageBuffer, StageFlags = VkShaderStageFlags.Vertex}
+                new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.StorageBuffer, StageFlags = VkShaderStageFlags.Vertex }
                 );
-            
+
             CreateSinglePlanetTestScene(entityManager, prefabPlanet);
 
             Console.WriteLine("Shape loaded");
@@ -197,7 +196,7 @@ namespace Planets
                 indexCount += mesh.IndexBufferLength;
             }
 
-            Console.WriteLine(string.Format("All Meshes           | Vertices: {0} | Total Indices: {1} | Tris: {2}", vertexCount, indexCount,indexCount/3));
+            Console.WriteLine(string.Format("All Meshes           | Vertices: {0} | Total Indices: {1} | Tris: {2}", vertexCount, indexCount, indexCount / 3));
         }
 
         private static void AddMoon(EntityManager entityManager, Entity planetOrbiter, Entity moonOrbiter)
@@ -206,7 +205,7 @@ namespace Planets
             planet.AddChildren(entityManager, moonOrbiter);
         }
 
-        private Entity InstantiateNewOrbitalPlanet(EntityManager entityManager,ShapeGenerator generator, Entity planetPrefab,Parent parent,Vector3 initialPosition,float scale,float orbitalSpeed, float dayNightSpeed)
+        private Entity InstantiateNewOrbitalPlanet(EntityManager entityManager, ShapeGenerator generator, Entity planetPrefab, Parent parent, Vector3 initialPosition, float scale, float orbitalSpeed, float dayNightSpeed)
         {
             Entity orbitalPlane = entityManager.CreateEntity();
             entityManager.AddComponent<Rotation>(orbitalPlane);
@@ -216,7 +215,7 @@ namespace Planets
 
             if (generateIndirectMeshes)
             {
-                
+
                 var childrenEntities = entityManager.GetComponent<Children>(planetInstance).Value;
                 var indirectMatIndex = Material.GetIndexOfMaterial(indirectMeshMaterial);
                 for (int i = 0; i < childrenEntities.Length; i++)
@@ -232,7 +231,7 @@ namespace Planets
             {
                 entityManager.RemoveComponentFromHierarchy<DoNotRender>(planetInstance);
             }
-            
+
 
             orbitalPlane.AddChildren(entityManager, planetInstance);
 
@@ -271,7 +270,7 @@ namespace Planets
                 new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Fragment },
                 new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Fragment },
                 new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Fragment },
-                new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.StorageBuffer, StageFlags = VkShaderStageFlags.Vertex}
+                new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.StorageBuffer, StageFlags = VkShaderStageFlags.Vertex }
             );
 
 
@@ -292,7 +291,7 @@ namespace Planets
             entityManager.AddComponent<Prefab>(planet);
             entityManager.AddComponent(planet, new MaterialIndex { Value = Material.GetIndexOfMaterial(planetLit) });
 
-            InitialiseTiles(entityManager, planet,subdivisons);
+            InitialiseTiles(entityManager, planet, subdivisons);
             return planet;
         }
 
@@ -305,7 +304,7 @@ namespace Planets
             {
                 tileNormals[i] = planetTileMeshes[i].AverageNormal();
             }
-            
+
             if (subdivisons > 0)
             {
                 planetTileMeshes = SubdividePlanet(planetTileMeshes[0].DirectMeshBuffer, subdivisons).DirectSubMeshes;
@@ -319,7 +318,7 @@ namespace Planets
                 var mesh = planetTileMeshes[i];
                 var tileEntity = entityManager.CreateEntity();
                 entityManager.AddComponent(tileEntity, mesh.GetSubMeshIndex());
-                entityManager.AddComponent(tileEntity, new Parent() { Value = planetRoot});
+                entityManager.AddComponent(tileEntity, new Parent() { Value = planetRoot });
                 entityManager.AddComponent(tileEntity, new TileNormalVector() { Value = tileNormals[i] });
                 entityManager.AddComponent<DoNotRender>(tileEntity);
                 entityManager.AddComponent<Prefab>(tileEntity);
@@ -329,7 +328,7 @@ namespace Planets
             entityManager.SetComponent(planetRoot, propertyChildren);
         }
 
-        private static DirectMeshBuffer SubdividePlanet(DirectMeshBuffer shape,int subdivisons)
+        private static DirectMeshBuffer SubdividePlanet(DirectMeshBuffer shape, int subdivisons)
         {
             Console.WriteLine(string.Format("Begin Subdivison {0} steps", subdivisons));
             _stopwatch.Restart();
@@ -405,13 +404,13 @@ namespace Planets
             {
                 meshes[0].DirectMeshBuffer.FlushAll();
             }
-                DirectMeshBuffer.RecalcualteAllNormals(meshes[0].DirectMeshBuffer);
+            DirectMeshBuffer.RecalcualteAllNormals(meshes[0].DirectMeshBuffer);
             // for (int i = 0; i < meshes.Length; i++)
             // {
             //     meshes[i].RecalculateNormals();
             // }
             computeGenerator?.Dispose();
-            //generator.ColourGenerator.UpdateColours();
+            generator.ColourGenerator.UpdateColours();
 
             if (World.DefaultWorld.EntityManager.HasComponent<PlanetPropeties>(planetRoot))
             {
@@ -486,9 +485,9 @@ namespace Planets
             entityManager.AddComponent<MainCamera>(MainCamera);
         }
 
-        public void Destroy() { }
+        public static void Destroy() { }
 
-        public static Entity CreateDirectCubeEntity(EntityManager entityManager,DirectSubMesh cubeMesh, MaterialIndex mat)
+        public static Entity CreateDirectCubeEntity(EntityManager entityManager, DirectSubMesh cubeMesh, MaterialIndex mat)
         {
             Entity cube = entityManager.CreateEntity();
             entityManager.AddComponent<Translation>(cube);
@@ -538,17 +537,17 @@ namespace Planets
             colours[5] = new(0.9f, 0.9f, 0.9f);
 
             // right face (yellow)
-            vertices[6]  = new(0.5f, -0.5f, -0.5f);
-            vertices[7]  = new(0.5f, 0.5f, 0.5f);
-            vertices[8]  = new(0.5f, -0.5f, 0.5f);
-            vertices[9]  = new(0.5f, -0.5f, -0.5f);
+            vertices[6] = new(0.5f, -0.5f, -0.5f);
+            vertices[7] = new(0.5f, 0.5f, 0.5f);
+            vertices[8] = new(0.5f, -0.5f, 0.5f);
+            vertices[9] = new(0.5f, -0.5f, -0.5f);
             vertices[10] = new(0.5f, 0.5f, -0.5f);
             vertices[11] = new(0.5f, 0.5f, 0.5f);
 
-            colours[6]  = new(0.8f, 0.8f, 0.1f);
-            colours[7]  = new(0.8f, 0.8f, 0.1f);
-            colours[8]  = new(0.8f, 0.8f, 0.1f);
-            colours[9]  = new(0.8f, 0.8f, 0.1f);
+            colours[6] = new(0.8f, 0.8f, 0.1f);
+            colours[7] = new(0.8f, 0.8f, 0.1f);
+            colours[8] = new(0.8f, 0.8f, 0.1f);
+            colours[9] = new(0.8f, 0.8f, 0.1f);
             colours[10] = new(0.8f, 0.8f, 0.1f);
             colours[11] = new(0.8f, 0.8f, 0.1f);
 
@@ -584,10 +583,10 @@ namespace Planets
 
             // nose face (blue)
             vertices[24] = new(-0.5f, -0.5f, 0.5f);
-            vertices[25] = new( 0.5f, 0.5f, 0.5f);
+            vertices[25] = new(0.5f, 0.5f, 0.5f);
             vertices[26] = new(-0.5f, 0.5f, 0.5f);
             vertices[27] = new(-0.5f, -0.5f, 0.5f);
-            vertices[28] = new( 0.5f, -0.5f, 0.5f);
+            vertices[28] = new(0.5f, -0.5f, 0.5f);
             vertices[29] = new(0.5f, 0.5f, 0.5f);
 
             colours[24] = new(0.1f, 0.1f, 0.8f);

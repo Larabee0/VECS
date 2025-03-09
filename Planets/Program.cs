@@ -34,7 +34,7 @@ namespace Planets
 
         static void DestroyArtifact()
         {
-            artifactAuthoring.Destroy();
+            ArtifactAuthoring.Destroy();
         }
     }
 }

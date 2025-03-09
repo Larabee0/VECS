@@ -14,7 +14,7 @@ namespace Planets
     public class DrawIndirectRenderSystem : PresentationSystemBase
     {
         public const ulong MAX_INDIRECT_COMMANDS = 1000;
-        public const bool COMPUTE_CULL = true;
+        public const bool COMPUTE_CULL = false;
         private GPUBuffer<ObjectData>[] _objectDataBuffers;
         private GPUBuffer<VkDrawIndexedIndirectCommand>[] _indirectCmdBuffers;
         private GPUBuffer<float>[] _depthSamples;
@@ -55,7 +55,7 @@ namespace Planets
             {
                 ProjectionMatrix = rendererFrameInfo.Ubo.Projection,
                 ViewMatrix = rendererFrameInfo.Ubo.View,
-                FrustrumCulling = true,
+                FrustrumCulling = false,
                 OcclusionCulling = false,
                 DrawDist = 9999999
             };

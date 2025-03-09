@@ -21,15 +21,12 @@ namespace Planets.Generator
         public ShapeGenerator()
         {
             MinMax = new MinMax();
-            ColourGenerator = new();
         }
 
         public ShapeGenerator(ColourSettings colourSettings)
         {
             MinMax = new MinMax();
-            ColourGenerator = new();
             ColourSettings = colourSettings;
-            //SetColourSettings(colourSettings);
         }
 
         public void SetColourSettings(ColourSettings colourSettings)
@@ -97,7 +94,7 @@ namespace Planets.Generator
                     elevation += NoiseFilters[i].Evaluate(pointOnUnitSphere) * mask;
                 }
             }
-            
+
             return elevation;
         }
 
@@ -131,5 +128,4 @@ namespace Planets.Generator
             if (v > Max) Max = v;
         }
     }
-
 }

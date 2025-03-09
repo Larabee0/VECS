@@ -12,13 +12,13 @@ namespace Planets.Colour
         const int textureResolution = 256;
         public Texture2d colourTexture;
         public Texture2d steepTexture;
+
         public void UpdateSettings(ColourSettings settings)
         {
             this.settings = settings;
             if (colourTexture == null || colourTexture.ImageExtent.height != settings.biomeColourSettings.biomes.Length)
             {
                 colourTexture?.Dispose();
-
                 colourTexture = new(VkFormat.R32G32B32A32Sfloat, new(textureResolution * 2, settings.biomeColourSettings.biomes.Length, 1), VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferDst);
             }
             if (steepTexture == null || steepTexture.ImageExtent.height != settings.biomeColourSettings.biomes.Length)
@@ -56,25 +56,25 @@ namespace Planets.Colour
             for (int b = 0; b < settings.biomeColourSettings.biomes.Length; b++)
             {
                 ColourSettings.BiomeColourSettings.Biome biome = settings.biomeColourSettings.biomes[b];
-                for (int i = 0;i < textureResolution*2; i++, colourIndex++)
+                for (int i = 0; i < textureResolution * 2; i++, colourIndex++)
                 {
                     Vector4 gradientColour;
                     Vector4 steepCol;
-                    if(i < textureResolution)
+                    if (i < textureResolution)
                     {
                         steepCol = gradientColour = settings.oceanGradient.Evaluate(i / (textureResolution - 1f));
                         steepCol.W = 0;
                     }
                     else
                     {
-                        gradientColour = biome.colourGradient.Evaluate((i-textureResolution)/(textureResolution - 1f),true,7);
-                        steepCol = biome.steepGradient.Evaluate((i-textureResolution)/(textureResolution - 1f));
+                        gradientColour = biome.colourGradient.Evaluate((i - textureResolution) / (textureResolution - 1f), true, 7);
+                        steepCol = biome.steepGradient.Evaluate((i - textureResolution) / (textureResolution - 1f));
                     }
 
                     Vector4 tintColour = biome.tint;
 
-                    colours[colourIndex] = gradientColour * (1-biome.tintPercent) + tintColour * biome.tintPercent;
-                    steepColours[colourIndex] = steepCol * (1-biome.tintPercent) + tintColour * biome.tintPercent;
+                    colours[colourIndex] = gradientColour * (1 - biome.tintPercent) + tintColour * biome.tintPercent;
+                    steepColours[colourIndex] = steepCol * (1 - biome.tintPercent) + tintColour * biome.tintPercent;
                 }
             }
 
