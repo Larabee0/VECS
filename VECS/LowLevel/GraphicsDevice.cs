@@ -15,19 +15,16 @@ namespace VECS.LowLevel
     public sealed class GraphicsDevice : IDisposable
     {
 #if DEBUG
-        private const bool ENABLE_VALIDATION_LAYERS = true;
-#else
-        private const bool ENABLE_VALIDATION_LAYERS = false;
-#endif
         private readonly static string[] _requiredValidationLayers = ["VK_LAYER_KHRONOS_validation"];
+#endif
         private readonly static VkUtf8String[] _requiredDeviceExtensions = [Vulkan.VK_KHR_SWAPCHAIN_EXTENSION_NAME, Vulkan.VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME,Vulkan.VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,Vulkan.VK_EXT_SAMPLER_FILTER_MINMAX_EXTENSION_NAME];
 
         public static GraphicsDevice Instance { get; private set; }
 
         private readonly IWindow _window;
-
+#if DEBUG
         private readonly VkDebugUtilsMessengerEXT _debugMessenger;
-
+#endif
         private VkInstance _instance;
 
         public VkPhysicalDeviceProperties Properties;
@@ -64,7 +61,9 @@ namespace VECS.LowLevel
             _window = window;
 
             CreateInstance();
+#if DEBUG
             SetUpDebugMessenger();
+#endif
             CreateSurface();
             PickPhysicalDevice();
             CreateLogicalDevice();
@@ -85,15 +84,16 @@ namespace VECS.LowLevel
         /// <exception cref="Exception">Exceptions are thrown when validation layers are requesed but not avalible or when the vulkan instance fails to be created.</exception>
         private unsafe void CreateInstance()
         {
-            if (ENABLE_VALIDATION_LAYERS && !CheckValidationLayerSupport())
+
+#if DEBUG
+            if (!CheckValidationLayerSupport())
             {
                 throw new Exception("Validation layers requested, but not avaliable!");
             }
-
+#endif
             VkApplicationInfo appInfo = GenerateAppInfo();
 
             using VkStringArray vkInstanceExtensions = new(GetRequiredExtensions());
-            using VkStringArray validationlayers = new(_requiredValidationLayers);
 
             VkInstanceCreateInfo createInfo = new()
             {
@@ -102,20 +102,19 @@ namespace VECS.LowLevel
                 ppEnabledExtensionNames = vkInstanceExtensions
             };
 
+#if DEBUG
+            using VkStringArray validationlayers = new(_requiredValidationLayers);
 
-            if (ENABLE_VALIDATION_LAYERS)
-            {
-                createInfo.enabledLayerCount = (uint)_requiredValidationLayers.Length;
-                createInfo.ppEnabledLayerNames = validationlayers;
-                VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo = PopulateDebugMessengerCreateInfo();
-                createInfo.pNext = &debugCreateInfo;
-            }
-            else
-            {
-                createInfo.enabledLayerCount = 0;
-                createInfo.pNext = null;
-            }
-
+            
+            createInfo.enabledLayerCount = (uint)_requiredValidationLayers.Length;
+            createInfo.ppEnabledLayerNames = validationlayers;
+            VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo = PopulateDebugMessengerCreateInfo();
+            createInfo.pNext = &debugCreateInfo;
+            
+#else
+            createInfo.enabledLayerCount = 0;
+            createInfo.pNext = null;
+#endif
 
             if (Vulkan.vkCreateInstance(&createInfo, null, out _instance) != VkResult.Success)
             {
@@ -202,16 +201,14 @@ namespace VECS.LowLevel
             {
                 requiredExtensions.Add(new ReadOnlySpan<byte>(Encoding.UTF8.GetBytes(sdlRequiredExtensions[i])));
             }
-
-            if (ENABLE_VALIDATION_LAYERS)
-            {
-                requiredExtensions.Add(Vulkan.VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-            }
-
+#if DEBUG
+            requiredExtensions.Add(Vulkan.VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+#endif
             return requiredExtensions;
         }
         #endregion
 
+#if DEBUG
         #region DebugMessenger
         /// <summary>
         /// Validation messenger setup
@@ -219,20 +216,20 @@ namespace VECS.LowLevel
         /// <exception cref="Exception"></exception>
         private unsafe void SetUpDebugMessenger()
         {
-            if (!ENABLE_VALIDATION_LAYERS) return;
             VkDebugUtilsMessengerCreateInfoEXT createInfoEXT = PopulateDebugMessengerCreateInfo();
 
             fixed (VkDebugUtilsMessengerEXT* toPtr = &_debugMessenger)
             {
-                if (CreateDebugUtilsMessengerEXT(_instance, &createInfoEXT, null, toPtr) != VkResult.Success)
+                var result = CreateDebugUtilsMessengerEXT(_instance, &createInfoEXT, null, toPtr);
+                if (result != VkResult.Success)
                 {
-                    throw new Exception("failed to set up debug messenger!");
+                    throw new Exception(string.Format("failed to set up debug messenger! {0}",result.ToString()));
                 }
             }
         }
 
         #endregion
-
+#endif
         /// <summary>
         /// creates the VK surface to output to
         /// </summary>
@@ -424,17 +421,17 @@ namespace VECS.LowLevel
                 pNext = &sync2
             };
 
-            if (ENABLE_VALIDATION_LAYERS)
-            {
-                using VkStringArray enabledValidationlayers = new(_requiredValidationLayers);
-                createInfo.enabledLayerCount = (uint)_requiredValidationLayers.Length;
-                createInfo.ppEnabledLayerNames = enabledValidationlayers;
-            }
-            else
-            {
-                createInfo.enabledLayerCount = 0;
-            }
-
+#if DEBUG
+            
+            using VkStringArray enabledValidationlayers = new(_requiredValidationLayers);
+            createInfo.enabledLayerCount = (uint)_requiredValidationLayers.Length;
+            createInfo.ppEnabledLayerNames = enabledValidationlayers;
+            
+#else
+            
+            createInfo.enabledLayerCount = 0;
+            
+#endif
             if (Vulkan.vkCreateDevice(_physicalDevice, in createInfo, null, out _device) != VkResult.Success)
             {
                 throw new Exception("Failed to create logical device");
@@ -448,7 +445,7 @@ namespace VECS.LowLevel
             Vulkan.vkGetDeviceQueue(_device, (uint)indices.presentFamily, 0, out _presentQueue);
         }
 
-        #endregion
+#endregion
 
         #region Create Command Pool
         /// <summary>
@@ -657,15 +654,15 @@ namespace VECS.LowLevel
             Vulkan.vkDestroyCommandPool(_device, _commandPool);
             Vulkan.vkDestroyDevice(_device);
 
-            if (ENABLE_VALIDATION_LAYERS)
-            {
-                DestroyDebugUtilsMessengerEXT(_instance, _debugMessenger, null);
-            }
+#if DEBUG
+            DestroyDebugUtilsMessengerEXT(_instance, _debugMessenger, null);
+#endif
 
             Vulkan.vkDestroySurfaceKHR(_instance, _surface);
             Vulkan.vkDestroyInstance(_instance);
         }
 
+#if DEBUG
         #region Validation and Debugging statics
         /// <summary>
         /// Checks if our hardware can support validation layers requrested in <see cref="_requiredValidationLayers"/>
@@ -695,7 +692,6 @@ namespace VECS.LowLevel
 
             return true;
         }
-
         /// <summary>
         /// Configures the debug messenger callback for validation layer errors.
         /// </summary>
@@ -796,8 +792,9 @@ namespace VECS.LowLevel
 
 
         #endregion
-
-        #region Extensions Statics
+        
+#endif
+#region Extensions Statics
         /// <summary>
         /// Checks if the given physical device supports the required
         /// device extentions in <see cref="_requiredDeviceExtensions"/>

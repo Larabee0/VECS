@@ -1,7 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Reflection;
-using VECS.ECS.Presentation;
 using VECS.ECS.Transforms;
 
 namespace VECS.ECS
@@ -645,6 +643,8 @@ namespace VECS.ECS
 
                 _idsToRecyle.Enqueue(entity);
                 _entityIdToEntity.Remove(entity.Id);
+                _entityToComponentIds.Remove(entity.Id);
+
                 return true;
             }
             return false;
@@ -835,6 +835,21 @@ namespace VECS.ECS
         private void AutoMarkQueriesStale(int componentId)
         {
             _queries.ForEach(q => q.AutoStale(componentId));
+        }
+
+
+        public void DestroyEntityHierarchy(Entity entity)
+        {
+            if (HasComponent<Children>(entity, out int signature))
+            {
+                var children = (Children)_compSignatureToCompReference[signature];
+                var childCount = children.Value != null ? children.Value.Length : 0;
+                for (int i = 0; i < childCount; i++)
+                {
+                    DestroyEntityHierarchy(children.Value[i]);
+                }
+            }
+            DestroyEntity(entity);
         }
     }
 }

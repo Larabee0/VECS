@@ -35,7 +35,7 @@ namespace VECS.ECS
             return !(left == right);
         }
 
-        public readonly bool Equals(Entity x, Entity y)
+        public static bool Equals(Entity x, Entity y)
         {
             return x == y;
         }

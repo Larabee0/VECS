@@ -9,6 +9,7 @@ namespace VECS
     {
         public readonly static int Width = 1280;
         public readonly static int Height = 720;
+        private static bool running = true;
 
         private readonly SDL3Window _appWindow;
         private readonly GraphicsDevice _device;
@@ -35,7 +36,6 @@ namespace VECS
         public void Run()
         {
             Start();
-            bool running = true;
             while (running)
             {
                 running = !_appWindow.UpdateWindowEvents();
@@ -52,6 +52,11 @@ namespace VECS
             Destroy();
         }
 
+        public static void Exit()
+        {
+            running = false;
+        }
+
         /// <summary>
         /// called before the first frame
         /// Sets up the entity world, presenter and artifact.
@@ -63,7 +68,7 @@ namespace VECS
             _presenter.Start(); // presenter depends on the main entity world existing right away
             PreOnCreate?.Invoke();
 
-            _mainWorld.OnCreate();
+            World.OnCreate();
 
             PostOnCreate?.Invoke();
         }

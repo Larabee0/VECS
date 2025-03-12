@@ -16,13 +16,12 @@ namespace Planets.Colour
 
         public override void OnCreate(EntityManager entityManager)
         {
-            _starQuery  = new EntityQuery(entityManager)
-                .WithAll(typeof(Star),typeof(LocalToWorld),typeof(Children))
-                .WithNone(typeof(Prefab),typeof(DoNotRender))
+            _starQuery = new EntityQuery(entityManager)
+                .WithAll(typeof(Star), typeof(LocalToWorld), typeof(Children))
+                .WithNone(typeof(Prefab), typeof(DoNotRender))
                 .Build();
 
-            _pointLightMaterial = new Material("point_light.vert", "point_light.frag", typeof(PointLightPushConstant),true,true);
-
+            _pointLightMaterial = new Material("point_light.vert", "point_light.frag", typeof(PointLightPushConstant), true, true);
         }
 
         public override void OnFowardPass(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
@@ -40,7 +39,6 @@ namespace Planets.Colour
                 {
                     Entity e = stars[i];
                     PointLightPushConstant startData = new(entityManager, e, cameraPosition);
-
 
                     rendererFrameInfo.Ubo.PointLights[i] = new PointLight()
                     {
@@ -60,12 +58,7 @@ namespace Planets.Colour
             }
         }
 
-        public override void OnPostPresentation(EntityManager entityManager)
-        {
-            //_starQuery.MarkStale();
-        }
-
-        [StructLayout(LayoutKind.Sequential,Size =40)]
+        [StructLayout(LayoutKind.Sequential, Size = 40)]
         private struct PointLightPushConstant : IComparer<PointLightPushConstant>
         {
             public Vector4 position;
@@ -74,7 +67,7 @@ namespace Planets.Colour
             public float dstSqrd;
 
             public PointLightPushConstant(EntityManager entityManager, Entity starEntity, Vector3 cameraPos)
-            { 
+            {
                 var ltw = entityManager.GetComponent<LocalToWorld>(starEntity).Value;
                 var star = entityManager.GetComponent<Star>(starEntity);
                 Matrix4x4.Decompose(ltw, out Vector3 scale, out _, out _);
@@ -86,7 +79,6 @@ namespace Planets.Colour
                 var offset = cameraPos - ltw.Translation;
                 dstSqrd = Vector3.Dot(offset, offset);
             }
-
 
             public readonly int Compare(PointLightPushConstant x, PointLightPushConstant y)
             {

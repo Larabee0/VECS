@@ -58,22 +58,22 @@ namespace Planets
             //    Value = Material.GetIndexOfMaterial(unlit)
             //});
 
-            // LoadTestScene(entityManager);
             var prefabPlanet = CreatePrefabPlanet(entityManager);
+
             VertexAttributeDescription[] vertexAttributeDescriptions = [
                 new(VertexAttribute.Position,VertexAttributeFormat.Float3,0,0,0),
                 new(VertexAttribute.Normal,VertexAttributeFormat.Float3,0,1,1),
                 new(VertexAttribute.TexCoord0,VertexAttributeFormat.Float2,0,2,2),
             ];
+
             var bindingDescriptions = DirectMeshBuffer.GetBindingDescription(vertexAttributeDescriptions);
             var attributeDescriptions = DirectMeshBuffer.GetAttributeDescriptions(vertexAttributeDescriptions);
-            //var bindingDescriptions = Vertex.GetVkBindingDescriptions();
-            //var attributeDescriptions = Vertex.GetVkAttributeDescriptions();
+
             indirectMeshMaterial = new Material("white_shader.vert", "white_shader.frag",
                 bindingDescriptions,
                 attributeDescriptions,
                 new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.StorageBuffer, StageFlags = VkShaderStageFlags.Vertex }
-                );
+            );
 
             CreateSinglePlanetTestScene(entityManager, prefabPlanet);
 
@@ -232,18 +232,18 @@ namespace Planets
                 entityManager.RemoveComponentFromHierarchy<DoNotRender>(planetInstance);
             }
 
-
             orbitalPlane.AddChildren(entityManager, planetInstance);
 
             entityManager.AddComponent<Rotation>(planetInstance);
             entityManager.SetComponent(planetInstance, new Translation() { Value = initialPosition });
 
-
             var properties = entityManager.GetComponent<PlanetPropeties>(planetInstance);
             properties.OrbitalSpeed = float.DegreesToRadians(orbitalSpeed);
             properties.DayNightSpeed = float.DegreesToRadians(dayNightSpeed);
+
             entityManager.SetComponent(planetInstance, properties);
             entityManager.SetComponent(planetInstance, new Scale() { Value = new(scale) });
+
             return orbitalPlane;
         }
 
@@ -252,6 +252,7 @@ namespace Planets
             var waveA = new Texture2d(Texture2d.GetTextureInDefaultPath("Wave.jpg"));
             var waveC = new Texture2d(Texture2d.GetTextureInDefaultPath("Wave A.png"));
             var waveB = new Texture2d(Texture2d.GetTextureInDefaultPath("Wave B.png"));
+
             var terrainShapes = Texture2d.CreateTextureArray("Rock1.png", "Rock2.png", "Rock3.png", "Rock4.png", "Rock5.png", "Snow.png", "SnowOld.png");
 
             VertexAttributeDescription[] vertexAttributeDescriptions = [
@@ -259,8 +260,10 @@ namespace Planets
                 new(VertexAttribute.Normal,VertexAttributeFormat.Float3,0,1,1),
                 new(VertexAttribute.TexCoord0,VertexAttributeFormat.Float2,0,2,2),
             ];
+
             var bindingDescriptions = DirectMeshBuffer.GetBindingDescription(vertexAttributeDescriptions);
             var attributeDescriptions = DirectMeshBuffer.GetAttributeDescriptions(vertexAttributeDescriptions);
+
             var planetLit = new Material("planet_shader.vert", "planet_shader.frag", bindingDescriptions,
                 attributeDescriptions,
                 new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.UniformBuffer, StageFlags = VkShaderStageFlags.Fragment },
@@ -273,8 +276,8 @@ namespace Planets
                 new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.StorageBuffer, StageFlags = VkShaderStageFlags.Vertex }
             );
 
-
             var planet = entityManager.CreateEntity();
+
             entityManager.AddComponent(planet, new PlanetPropeties()
             {
                 WaveA = Texture2d.GetIndexOfTexture(waveA),
@@ -284,6 +287,7 @@ namespace Planets
                 TerrainScale = 3f,
                 OceanBrightness = 5f
             });
+
             entityManager.AddComponent(planet, new Translation() { Value = new(0, 0f, 0) });
             entityManager.AddComponent(planet, new Scale() { Value = new(3f, 3f, 3f) });
             entityManager.AddComponent<Children>(planet);
@@ -292,6 +296,7 @@ namespace Planets
             entityManager.AddComponent(planet, new MaterialIndex { Value = Material.GetIndexOfMaterial(planetLit) });
 
             InitialiseTiles(entityManager, planet, subdivisons);
+
             return planet;
         }
 
@@ -332,22 +337,8 @@ namespace Planets
         {
             Console.WriteLine(string.Format("Begin Subdivison {0} steps", subdivisons));
             _stopwatch.Restart();
-            // ParallelOptions options = new()
-            // {
-            //     MaxDegreeOfParallelism = 7
-            // };
-
-            //Parallel.For(0, shape.Length, options, (i)=>{
-            //
-            //    shape[i].Subdivide(subdivisons);
-            //});
 
             var buffer = shape.Subdivide(subdivisons);
-
-            //for (int i = 0; i < shape.Length; i++)
-            //{
-            //    shape[i].Subdivide(subdivisons);
-            //}
 
             _stopwatch.Stop();
             Console.WriteLine(string.Format("Subdivide Mesh: {0}ms", _stopwatch.Elapsed.TotalMilliseconds));
@@ -404,11 +395,9 @@ namespace Planets
             {
                 meshes[0].DirectMeshBuffer.FlushAll();
             }
+
             DirectMeshBuffer.RecalcualteAllNormals(meshes[0].DirectMeshBuffer);
-            // for (int i = 0; i < meshes.Length; i++)
-            // {
-            //     meshes[i].RecalculateNormals();
-            // }
+
             computeGenerator?.Dispose();
             generator.ColourGenerator.UpdateColours();
 
@@ -424,53 +413,6 @@ namespace Planets
             _stopwatch.Stop();
             Console.WriteLine(string.Format("Generated planet: {0}ms", _stopwatch.Elapsed.TotalMilliseconds));
         }
-
-        /// <summary>
-        /// Loads all the models, shaders and textures for a scene
-        /// then creates the entities that make up the scene.
-        /// </summary>
-        /// <param name="entityManager"></param>
-        // public static void LoadTestScene(EntityManager entityManager)
-        // {
-        //     var cubeUvMesh = Mesh.LoadModelFromFile(Mesh.GetMeshInDefaultPath("cube-uv.obj"));
-        //     var flatVaseMesh = Mesh.LoadModelFromFile(Mesh.GetMeshInDefaultPath("flat_vase.obj"));
-        //     var smoothVaseMesh = Mesh.LoadModelFromFile(Mesh.GetMeshInDefaultPath("smooth_vase.obj"));
-        // 
-        //     var paving = new Texture2d(Texture2d.GetTextureInDefaultPath("paving 5.png"));
-        //     var orangeStone = new Texture2d(Texture2d.GetTextureInDefaultPath("orange.jpg"));
-        // 
-        //     var lit = new Material("simple_shader.vert", "simple_shader.frag", typeof(ModelPushConstantData), new DescriptorSetBinding(VkDescriptorType.CombinedImageSampler, VkShaderStageFlags.Fragment));
-        //     var unlit = new Material("unlit_shader.vert", "unlit_shader.frag", typeof(ModelPushConstantData), new DescriptorSetBinding(VkDescriptorType.CombinedImageSampler, VkShaderStageFlags.Fragment));
-        // 
-        // 
-        //     var cubeUV = entityManager.CreateEntity();
-        //     entityManager.AddComponent(cubeUV, new Translation() { Value = new(1.5f, -1.5f, 0) });
-        //     entityManager.AddComponent(cubeUV, new MeshIndex() { Value = Mesh.GetIndexOfMesh(cubeUvMesh[0]) });
-        //     entityManager.AddComponent(cubeUV, new TextureIndex() { Value = Texture2d.GetIndexOfTexture(paving) });
-        //     entityManager.AddComponent(cubeUV, new MaterialIndex() { Value = Material.GetIndexOfMaterial(lit) });
-        // 
-        //     var flatVase = entityManager.CreateEntity();
-        //     entityManager.AddComponent(flatVase, new Translation() { Value = new(-1.5f, 1.5f, 0) });
-        //     entityManager.AddComponent(flatVase, new Rotation() { Value = new(float.DegreesToRadians(180), 0, 0) });
-        //     entityManager.AddComponent(flatVase, new Scale() { Value = new(6, 6, 6) });
-        //     entityManager.AddComponent(flatVase, new MeshIndex() { Value = Mesh.GetIndexOfMesh(flatVaseMesh[0]) });
-        //     entityManager.AddComponent(flatVase, new TextureIndex() { Value = Texture2d.GetIndexOfTexture(paving) });
-        //     entityManager.AddComponent(flatVase, new MaterialIndex() { Value = Material.GetIndexOfMaterial(unlit) });
-        // 
-        //     var smoothVase = entityManager.CreateEntity();
-        //     entityManager.AddComponent(smoothVase, new Translation() { Value = new(1.5f, 1.5f, 0) });
-        //     entityManager.AddComponent(smoothVase, new Rotation() { Value = new(float.DegreesToRadians(180), 0, 0) });
-        //     entityManager.AddComponent(smoothVase, new Scale() { Value = new(6, 6, 6) });
-        //     entityManager.AddComponent(smoothVase, new MeshIndex() { Value = Mesh.GetIndexOfMesh(smoothVaseMesh[0]) });
-        //     entityManager.AddComponent(smoothVase, new TextureIndex() { Value = Texture2d.GetIndexOfTexture(orangeStone) });
-        //     entityManager.AddComponent(smoothVase, new MaterialIndex() { Value = Material.GetIndexOfMaterial(lit) });
-        // 
-        //     var cube4 = entityManager.CreateEntity();
-        //     entityManager.AddComponent(cube4, new Translation() { Value = new(-1.5f, -1.5f, 0) });
-        //     entityManager.AddComponent(cube4, new MeshIndex() { Value = Mesh.GetIndexOfMesh(cubeUvMesh[0]) });
-        //     entityManager.AddComponent(cube4, new TextureIndex() { Value = Texture2d.GetIndexOfTexture(orangeStone) });
-        //     entityManager.AddComponent(cube4, new MaterialIndex() { Value = Material.GetIndexOfMaterial(unlit) });
-        // }
 
         /// <summary>
         /// Creates a perspective camera using the member settings
@@ -610,7 +552,9 @@ namespace Planets
             colours[33] = new(0.1f, 0.8f, 0.1f);
             colours[34] = new(0.1f, 0.8f, 0.1f);
             colours[35] = new(0.1f, 0.8f, 0.1f);
+
             subMesh.FlushAll();
+
             return subMesh;
         }
     }

@@ -3,7 +3,6 @@ using System.Collections.Concurrent;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Threading;
-using System.Threading.Tasks;
 using VECS.Compute;
 using Vortice.Vulkan;
 
@@ -93,8 +92,8 @@ namespace VECS.LowLevel
         private VkSemaphore[] _presentSemaphore;
         private VkSemaphore[] _renderSemaphore;
 
-        private readonly VkSemaphore[] _imageAvailableSemaphores;
-        private readonly VkSemaphore[] _renderFinishedSemaphores;
+        //private readonly VkSemaphore[] _imageAvailableSemaphores;
+        //private readonly VkSemaphore[] _renderFinishedSemaphores;
         //private VkFence[] _renderFence;
         private VkFence[] _inFlightFences;
         private VkFence[] _imagesInFlight;
@@ -770,18 +769,18 @@ namespace VECS.LowLevel
             return _swapChainFrameBuffer[currentImageIndex];
         }
         
-        // public unsafe void WaitResetRenderFence(uint index)
+        // public static unsafe void WaitResetRenderFence(uint index)
         // {
         // 
-        //     VkFence renderFence = _renderFence[index];
-        //     if (Vulkan.vkWaitForFences(_device.Device, 1, &renderFence, true, 1000000000) != VkResult.Success)
-        //     {
-        //         throw new Exception("Wait to for fence");
-        //     }
-        //     if (Vulkan.vkResetFences(_device.Device, 1, &renderFence) != VkResult.Success)
-        //     {
-        //         throw new Exception("Failed to reset fences");
-        //     }
+        //     //VkFence renderFence = _renderFence[index];
+        //     //if (Vulkan.vkWaitForFences(_device.Device, 1, &renderFence, true, 1000000000) != VkResult.Success)
+        //     //{
+        //     //    throw new Exception("Wait to for fence");
+        //     //}
+        //     //if (Vulkan.vkResetFences(_device.Device, 1, &renderFence) != VkResult.Success)
+        //     //{
+        //     //    throw new Exception("Failed to reset fences");
+        //     //}
         // }
 
         public unsafe VkResult AcquireNextImage(out uint imageIndex)

@@ -91,7 +91,7 @@ namespace VECS.ECS
         /// <summary>
         /// called as part of start from <see cref="Application.Start"/>
         /// </summary>
-        internal void OnCreate()
+        internal static void OnCreate()
         {
         }
 

@@ -21,7 +21,7 @@ namespace VECS.ECS.Transforms
 
             children.Value ??= [];
 
-            List<Entity> toAdd = new(children.Value);
+            List<Entity> toAdd = [.. children.Value];
             for (int i = 0; i < newChildren.Length; i++)
             {
                 Entity newChild = newChildren[i];

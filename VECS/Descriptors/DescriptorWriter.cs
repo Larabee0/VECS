@@ -11,9 +11,9 @@ namespace VECS
     {
         private readonly DescriptorSetLayout _setLayout;
         private readonly DescriptorPool _pool;
-        private VkWriteDescriptorSet[] _writes = [];
+        private readonly VkWriteDescriptorSet[] _writes = [];
 
-        private List<CachedWrite> cachedWrites = new();
+        private readonly List<CachedWrite> cachedWrites = [];
 
         public DescriptorWriter(DescriptorSetLayout setLayout, DescriptorPool pool)
         {

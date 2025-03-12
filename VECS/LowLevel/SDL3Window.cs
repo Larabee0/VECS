@@ -128,7 +128,7 @@ namespace VECS.LowLevel
                 }
             }
 
-            _inputManager.Update();
+            InputManager.Update();
 
             SDL.SDL_SetWindowRelativeMouseMode(_window, _inputManager.rightMouseDown);
             return false;

@@ -182,7 +182,7 @@ namespace VECS.DataStructures
                 attributes.Add(new(VertexAttribute.TexCoord7, VertexAttributeFormat.Float2));
             }
 
-            return attributes.ToArray();
+            return [.. attributes];
         }
     }
 }

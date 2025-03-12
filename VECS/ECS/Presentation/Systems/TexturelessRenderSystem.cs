@@ -63,11 +63,6 @@ namespace VECS.ECS.Presentation
             }
         }
 
-        public override void OnPostPresentation(EntityManager entityManager)
-        {
-            //_renderQuery.MarkStale();
-        }
-
         public struct DrawCall : IComparer<DrawCall>
         {
             public DirectSubMeshIndex MeshIndex;

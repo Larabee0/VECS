@@ -16,7 +16,7 @@ namespace VECS.ECS.Presentation
 
         public static int ComponentId { get; set; }
 
-        public int Id => ComponentId;
+        public readonly int Id => ComponentId;
 
         public Matrix4x4 ProjectionMatrix;
         public Matrix4x4 ViewMatrix;
@@ -29,6 +29,6 @@ namespace VECS.ECS.Presentation
     public struct MainCamera : IComponent
     {
         public static int ComponentId { get; set; }
-        public int Id => ComponentId;
+        public readonly int Id => ComponentId;
     }
 }

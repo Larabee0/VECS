@@ -156,7 +156,7 @@ namespace VECS
             return false;
         }
 
-        public void Update()
+        public static void Update()
         {
         }
 

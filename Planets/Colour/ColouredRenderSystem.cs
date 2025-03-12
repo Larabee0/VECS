@@ -58,7 +58,6 @@ namespace Planets.Colour
                     camLTW = entityManager.GetComponent<LocalToWorld>(camEntity).Value;
                 }
                 var shaderParams = _shaderParamBuffers[frameInfo.FrameIndex];
-                //List<PlanetTileDrawCall> drawCalls = [];
                 int drawIndex = 0;
                 _planetRenderQuery.GetEntities().ForEach(e =>
                 {
@@ -127,7 +126,6 @@ namespace Planets.Colour
                     
                 }
             }
-
         }
 
         /// <summary>
@@ -151,13 +149,7 @@ namespace Planets.Colour
                 .WriteImage(6, Texture2d.GetTextureImageInfoAtIndex(textures.WaveC))
                 .WriteBuffer(7, _objectDataBuffers[frameInfo.FrameIndex].DescriptorInfo())
                 .Build(pSet);
-
             }
-        }
-
-        public override void OnPostPresentation(EntityManager entityManager)
-        {
-            //_planetRenderQuery.MarkStale();
         }
 
         public override void OnDestroy(EntityManager entityManager)

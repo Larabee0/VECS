@@ -20,8 +20,8 @@ namespace VECS.ECS
         private readonly HashSet<int> _withNoneSet = [];
         private readonly HashSet<int> _withAnySet = [];
 
-        private EntityManager _entityManager; // probably want to eliminate this reference.
-        private List<Entity> entities = [];
+        private readonly EntityManager _entityManager; // probably want to eliminate this reference.
+        private readonly List<Entity> entities = [];
         private bool _built = false; // indicate the query has been built so can be used
         private bool _stale = true; // indicates the query should be updated, _hasEnitities will be invalid
         private bool _hasEnitities = false;
@@ -69,9 +69,9 @@ namespace VECS.ECS
             {
                 return this;
             }
-            HashSet<int> all = new(_withAll);
+            HashSet<int> all = [.. _withAll];
             all.UnionWith(_entityManager.GetComponentIds(componentTypes));
-            _withAll = new(all);
+            _withAll = [.. all];
 
 
             if (all.Overlaps(_withNone))
@@ -88,9 +88,9 @@ namespace VECS.ECS
 
             if (_withAny.Count > 0)
             {
-                HashSet<int> any = new(_withAny);
+                HashSet<int> any = [.. _withAny];
                 any.ExceptWith(all);
-                _withAny = new(any);
+                _withAny = [.. any];
             }
             return this;
         }
@@ -108,9 +108,9 @@ namespace VECS.ECS
             {
                 return this;
             }
-            HashSet<int> none = new(_withNone);
+            HashSet<int> none = [.. _withNone];
             none.UnionWith(_entityManager.GetComponentIds(componentTypes));
-            _withNone = new(none);
+            _withNone = [.. none];
 
             if(none.Overlaps(_withAll))
             {
@@ -152,12 +152,12 @@ namespace VECS.ECS
             {
                 return this;
             }
-            HashSet<int> any = new(_withAny);
+            HashSet<int> any = [.. _withAny];
             any.UnionWith(_entityManager.GetComponentIds(componentTypes));
 
             any.ExceptWith(_withAll);
 
-            _withAny = new(any);
+            _withAny = [.. any];
 
             if (any.Overlaps(_withNone))
             {
@@ -173,9 +173,9 @@ namespace VECS.ECS
 
             if (_withAll.Count > 0)
             {
-                HashSet<int> all = new(_withAll);
+                HashSet<int> all = [.. _withAll];
                 any.ExceptWith(all);
-                _withAny = new(any);
+                _withAny = [.. any];
             }
 
             return this;
