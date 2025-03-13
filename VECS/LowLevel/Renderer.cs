@@ -81,7 +81,8 @@ namespace VECS.LowLevel
                 extent = _window.WindowExtend;
                 _window.WaitForNextWindowEvent();
             }
-            Vulkan.vkDeviceWaitIdle(_device.Device);
+
+            _swapChain?.EndSubmissionThread();
 
             if (_swapChain == null)
             {
