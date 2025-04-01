@@ -7,6 +7,7 @@ using VECS;
 using VECS.DataStructures;
 using VECS.ECS;
 using VECS.ECS.Presentation;
+using VECS.ECS.Presentation.Systems;
 using VECS.ECS.Transforms;
 using VECS.LowLevel;
 using Vortice.Vulkan;
@@ -42,6 +43,7 @@ namespace Planets
             World.DefaultWorld.CreateSystem<ColouredRenderSystem>();
             World.DefaultWorld.CreateSystem<DrawIndirectRenderSystem>();
             World.DefaultWorld.CreateSystem<StarRenderSystem>();
+            World.DefaultWorld.CreateSystem<DrawBoundsRenderSystem>();
             //World.DefaultWorld.CreateSystem<InteractionSystem>();
             //World.DefaultWorld.CreateSystem<TexturelessRenderSystem>();
 
@@ -398,6 +400,11 @@ namespace Planets
 
             DirectMeshBuffer.RecalcualteAllNormals(meshes[0].DirectMeshBuffer);
 
+            meshes[0].DirectMeshBuffer.ReadAllBuffers();
+            for (int i = 0; i < meshes.Length; i++)
+            {
+                meshes[i].RecalculateRenderBounds();
+            }
             computeGenerator?.Dispose();
             generator.ColourGenerator.UpdateColours();
 

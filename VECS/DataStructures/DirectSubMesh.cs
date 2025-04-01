@@ -117,7 +117,7 @@ namespace VECS
 
             _bounds = new()
             {
-                Bounds = new(centerAlt, extents),
+                Bounds = new(center, extents),
                 Radius = radius,
                 Valid = true
             };

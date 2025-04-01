@@ -84,6 +84,18 @@ namespace VECS
             CreatePipeline(vertexFilePath, fragmentFilePath, bindingDescriptions, attributeDescriptions);
             Materials.Add(this);
         }
+        public Material(string vertexShader, string fragmentShader, Type pushConstantType,
+            VkVertexInputBindingDescription[] bindingDescriptions,
+            VkVertexInputAttributeDescription[] attributeDescriptions,GraphicsPipelineConfigInfo pipelineConfigInfo)
+        {
+            string vertexFilePath = GetShaderFilePath(vertexShader);
+            string fragmentFilePath = GetShaderFilePath(fragmentShader);
+            CreatePipelineLayoutWithPushConstant(Presenter.Instance.GlobalSetLayout, pushConstantType);
+
+            pipelineConfigInfo.pipelineLayout = _pipelineLayout;
+            CreatePipeline(vertexFilePath, fragmentFilePath, bindingDescriptions, attributeDescriptions, pipelineConfigInfo);
+            Materials.Add(this);
+        }
 
         public Material(string vertexShader, string fragmentShader,
             VkVertexInputBindingDescription[] bindingDescriptions,
@@ -331,6 +343,19 @@ namespace VECS
             {
                 GraphicsPipelineConfigInfo.EnableAlphaBlending(ref pipelineConfigInfo);
             }
+
+            CreatePipeline(vertexShader, fragmentShader, bindingDescriptions, attributeDescriptions, pipelineConfigInfo);
+        }
+
+        private void CreatePipeline(string vertexShader, string fragmentShader,
+            VkVertexInputBindingDescription[] bindingDescriptions,
+            VkVertexInputAttributeDescription[] attributeDescriptions, GraphicsPipelineConfigInfo pipelineConfigInfo)
+        {
+            if (_pipelineLayout == VkPipelineLayout.Null)
+            {
+                throw new InvalidOperationException("Cannot create pipeline before pipeline layout!");
+            }
+
 
             if (attributeDescriptions != null)
             {
