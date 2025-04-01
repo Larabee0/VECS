@@ -24,10 +24,12 @@ namespace VECS
 
         private readonly DescriptorSetLayout _materialDescriptorLayout;
         private VkPipelineLayout _pipelineLayout;
-        private GraphicsPipelines.GraphicsPipeline _materialPipeline;
+        private GraphicsPipeline _materialPipeline;
 
         public VkPipelineLayout PipeLineLayout => _pipelineLayout;
         public DescriptorSetLayout MaterialDescriptorLayout => _materialDescriptorLayout;
+
+        private bool _disposed = false;
 
         /// <summary>
         /// Creates a material consisting of a vertex and fragment shader
@@ -424,7 +426,10 @@ namespace VECS
 
         public unsafe void Dispose()
         {
-            _materialPipeline.Dispose();
+            if(_disposed) return;
+            _disposed = true;
+            _materialPipeline?.Dispose();
+            _materialPipeline = null;
             Vulkan.vkDestroyPipelineLayout(GraphicsDevice.Instance.Device, _pipelineLayout);
             _materialDescriptorLayout?.Dispose();
 

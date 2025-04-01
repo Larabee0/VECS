@@ -55,7 +55,7 @@ namespace Planets
             {
                 ProjectionMatrix = rendererFrameInfo.Ubo.Projection,
                 ViewMatrix = rendererFrameInfo.Ubo.View,
-                FrustrumCulling = false,
+                FrustrumCulling = true,
                 OcclusionCulling = false,
                 DrawDist = 9999999
             };

@@ -15,6 +15,7 @@ namespace VECS.GraphicsPipelines
         private VkPipeline _graphicsPipeline;
         private VkShaderModule _vertShaderModule;
         private VkShaderModule _fragShaderModule;
+        private bool _disposed;
 
         public GraphicsPipeline(GraphicsDevice device, string vertFilePath, string fragFilePath, GraphicsPipelineConfigInfo configInfo)
         {
@@ -184,9 +185,11 @@ namespace VECS.GraphicsPipelines
 
         public unsafe void Dispose()
         {
+            if (_disposed) return;
             Vulkan.vkDestroyShaderModule(_device.Device, _vertShaderModule);
             Vulkan.vkDestroyShaderModule(_device.Device, _fragShaderModule);
             Vulkan.vkDestroyPipeline(_device.Device, _graphicsPipeline);
+            _disposed = true;
         }
     }
 }

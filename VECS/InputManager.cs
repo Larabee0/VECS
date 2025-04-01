@@ -77,6 +77,7 @@ namespace VECS
         [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
         private static unsafe SDLBool KeyboardMove(nint n, SDL_Event* eventPtr)
         {
+            if(Instance == null) return false;
             switch (eventPtr->type)
             {
                 case SDL_EventType.KeyDown:
@@ -200,5 +201,9 @@ namespace VECS
             }
         }
 
+        public void Destroy()
+        {
+            Instance = null;
+        }
     }
 }

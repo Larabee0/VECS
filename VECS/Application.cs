@@ -63,6 +63,7 @@ namespace VECS
         /// </summary>
         private void Start()
         {
+            running = true;
             _mainWorld = new World();
 
             _presenter.Start(); // presenter depends on the main entity world existing right away
@@ -105,9 +106,10 @@ namespace VECS
         /// Called after the graphics device is idle
         /// Called before <see cref="Dispose"/>
         /// </summary>
-        private static void Destroy()
+        private void Destroy()
         {
             _mainWorld.OnDestroy();
+            OnDestroy?.Invoke();
             //_artifact.Destroy();
         }
 

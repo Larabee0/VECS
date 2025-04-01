@@ -156,6 +156,7 @@ namespace VECS.ECS
         {
             _presentationSystems.ForEach(s => s.OnDestroy(_entityManager));
             _systems.ForEach(s => s.OnDestroy(_entityManager));
+            DefaultWorld = null;
         }
     }
 }

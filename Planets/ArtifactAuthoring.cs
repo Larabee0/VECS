@@ -31,9 +31,9 @@ namespace Planets
         };
 
         private static readonly bool useComputeShaderForGeneration = true;
-        private readonly int subdivisons = 4;
+        private readonly int subdivisons = 75;
 
-        private readonly bool generateIndirectMeshes = false;
+        private readonly bool generateIndirectMeshes = true;
         private static Material indirectMeshMaterial;
         private readonly static Stopwatch _stopwatch = new();
         public ArtifactAuthoring()

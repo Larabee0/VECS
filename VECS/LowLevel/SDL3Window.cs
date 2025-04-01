@@ -162,6 +162,7 @@ namespace VECS.LowLevel
 
         public void Dispose()
         {
+            _inputManager.Destroy();
             SDL.SDL_DestroyWindow(_window);
             SDL.SDL_Vulkan_UnloadLibrary();
             SDL.SDL_Quit();

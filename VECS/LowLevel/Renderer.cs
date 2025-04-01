@@ -81,7 +81,7 @@ namespace VECS.LowLevel
                 extent = _window.WindowExtend;
                 _window.WaitForNextWindowEvent();
             }
-
+            
             _swapChain?.EndSubmissionThread();
 
             if (_swapChain == null)
@@ -346,7 +346,7 @@ namespace VECS.LowLevel
                 },
                 new()
                 {
-                    depthStencil = new(0, 0)
+                    depthStencil = new(1, 0)
                 }
             };
 

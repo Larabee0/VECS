@@ -731,6 +731,7 @@ namespace VECS.LowLevel
                 Vulkan.vkDestroySemaphore(Device, _presentSemaphore[i]);
                 Vulkan.vkDestroyFence(Device, _inFlightFences[i]);
             }
+            Instance = null;
         }
 
         private static VkSurfaceFormatKHR ChooseSwapSurfaceFormat(VkSurfaceFormatKHR[] formats)
@@ -877,11 +878,14 @@ namespace VECS.LowLevel
 
         public void EndSubmissionThread()
         {
-            _submissionQueue.Enqueue((VkCommandBuffer.Null, 0, true));
+            _submissionMutex.WaitOne();
             while (_submittedFrameResult != VkResult.ThreadDoneKHR)
             {
-                if (_submittedFrameResult == VkResult.ThreadDoneKHR) break;
+                _submissionQueue.Enqueue((VkCommandBuffer.Null, 0, true));
+                _submissionMutex.ReleaseMutex();
+                _submissionMutex.WaitOne();
             }
+            _submissionMutex.ReleaseMutex();
             Vulkan.vkDeviceWaitIdle(_device.Device);
         }
 
