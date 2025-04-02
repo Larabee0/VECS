@@ -2,6 +2,7 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
 using VECS.ECS.Transforms;
+using VECS.LowLevel;
 using Vortice.Vulkan;
 
 namespace VECS.ECS.Presentation.Systems
@@ -9,15 +10,23 @@ namespace VECS.ECS.Presentation.Systems
     public class DrawBoundsRenderSystem : PresentationSystemBase
     {
         private EntityQuery _renderBoundsQuery;
+        private EntityQuery _cameraQuery;
+
         private GPUBuffer<Vector3> _lineBuffer;
+        private GPUBuffer<Vector3> _frustrumBuffer;
         private Material _lineMaterial;
         public override unsafe void OnCreate(EntityManager entityManager)
         {
             _renderBoundsQuery = new EntityQuery(entityManager)
-                .WithAll(typeof(DirectSubMeshIndex),typeof(LocalToWorld))
+                .WithAll(typeof(DirectSubMeshIndex),typeof(WorldRenderBounds))
                 .WithNone(typeof(Prefab),typeof(DoNotRender))
                 .Build();
+            _cameraQuery = new EntityQuery(entityManager)
+                .WithAll(typeof(CameraPerspective), typeof(Camera), typeof(LocalToWorld))
+                .WithNone(typeof(Prefab))
+                .Build();
             _lineBuffer = new(32, VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferDst, true);
+            _frustrumBuffer = new(14, VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferDst, true);
 
             var vertices = _lineBuffer.HostBuffer;
             float radians = 0;
@@ -52,12 +61,9 @@ namespace VECS.ECS.Presentation.Systems
                 for (int i = 0; i < entities.Count; i++)
                 {
                     var entity = entities[i];
-                    var renderBounds = DirectSubMesh.GetSubMeshAtIndex(entityManager.GetComponent<DirectSubMeshIndex>(entity)).Bounds;
-                    var ltw = entityManager.GetComponent<LocalToWorld>(entity);
-
-                    Matrix4x4.Decompose(ltw.Value, out Vector3 scale, out Quaternion rotation, out Vector3 translation);
-                    var radius = new Vector3(renderBounds.Radius) * scale;
-                    var center = Vector3.Transform(renderBounds.Bounds.center, ltw.Value);
+                    var bounds = entityManager.GetComponent<WorldRenderBounds>(entity);
+                    var center = bounds.Bounds.center;
+                    var radius = bounds.Radius;
                     LTW a = new()
                     {
                         ltw = TransformExtensions.TRS(center, new Vector3(), radius)
@@ -82,6 +88,36 @@ namespace VECS.ECS.Presentation.Systems
                     Vulkan.vkCmdDraw(rendererFrameInfo.CommandBuffer, 32, 1, 0, 0);
                     _lineMaterial.PushConstants(rendererFrameInfo.CommandBuffer, d);
                     Vulkan.vkCmdDraw(rendererFrameInfo.CommandBuffer, 32, 1, 0, 0);
+                }
+            }
+
+            if (_cameraQuery.HasEntities && SwapChain.Instance != null)
+            {
+                if (entityManager.SingletonComponent(out FrameInfo frameInfo)) {
+                    Vector2 screenWidthHeight = new(SwapChain.Instance.SwapChainExtent.width, SwapChain.Instance.SwapChainExtent.height);
+                    var cameras = _cameraQuery.GetEntities();
+                    _lineMaterial.BindGlobalDescriptorSet(rendererFrameInfo);
+                    for (int i = 0; i < cameras.Count; i++)
+                    {
+                        var cam = cameras[i];
+                        var fustrum = entityManager.GetComponent<CameraPerspective>(cam);
+                        var ltw = entityManager.GetComponent<LocalToWorld>(cam).Value;
+
+                        ltw = TransformExtensions.TRS(Vector3.Zero, Quaternion.Identity, Vector3.One);
+
+                        var minNear = new Vector3(-screenWidthHeight.X * 0.5f, -screenWidthHeight.Y * 0.5f, fustrum.ClipNear);
+                        var maxNear = new Vector3(screenWidthHeight.X * 0.5f, screenWidthHeight.Y * 0.5f, fustrum.ClipNear);
+
+                        _frustrumBuffer.HostBuffer[0] = minNear;
+                        _frustrumBuffer.HostBuffer[1] = new(minNear.X, maxNear.Y, maxNear.Z);
+                        _frustrumBuffer.HostBuffer[2] = maxNear;
+                        _frustrumBuffer.HostBuffer[3] = new(maxNear.X, minNear.Y, maxNear.Z);
+                        _frustrumBuffer.WriteFromHostBuffer();
+
+                        Vulkan.vkCmdBindVertexBuffer(rendererFrameInfo.CommandBuffer, 0, _frustrumBuffer.VkBuffer);
+                        _lineMaterial.PushConstants(rendererFrameInfo.CommandBuffer, new LTW() { ltw = Matrix4x4.Identity });
+                        Vulkan.vkCmdDraw(rendererFrameInfo.CommandBuffer, 4, 1, 0, 0);
+                    } 
                 }
             }
         }

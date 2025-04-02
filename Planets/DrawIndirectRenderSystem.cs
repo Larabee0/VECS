@@ -195,7 +195,7 @@ namespace Planets
 
         public unsafe override void OnFowardPass(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
         {
-
+            return;
             if (!_planetRenderQuery.HasEntities) return;
 
             var cmdBuffer = rendererFrameInfo.CommandBuffer;

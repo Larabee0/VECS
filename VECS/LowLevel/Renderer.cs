@@ -193,6 +193,14 @@ namespace VECS.LowLevel
             config.depthStencilInfo = depthStencil;
             config.AttributeDescriptions = [];
 
+
+            var attributes = new VertexAttributeDescription[]
+            {
+                new(VertexAttribute.Position,VertexAttributeFormat.Float3,0,0,0)
+            };
+            config.BindingDescriptions = DirectMeshBuffer.GetBindingDescription(attributes);
+
+
             _blitPipeline = new(_device, Material.GetShaderFilePath("fullscreen.vert"), Material.GetShaderFilePath("blit.frag"), config);
             _blitVertexBuffer = new(3, VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferDst, false);
             _blitVertexBuffer.FillBufferSingleTimeCmd(0);

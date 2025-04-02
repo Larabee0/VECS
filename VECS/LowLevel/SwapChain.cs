@@ -127,9 +127,9 @@ namespace VECS.LowLevel
             _oldSwapChain = previous;
 
             Init();
-            Instance = this;
             _oldSwapChain.Dispose();
             _oldSwapChain = null;
+            Instance = this;
         }
 
         private void Init()

@@ -44,6 +44,7 @@ namespace Planets
             World.DefaultWorld.CreateSystem<DrawIndirectRenderSystem>();
             World.DefaultWorld.CreateSystem<StarRenderSystem>();
             World.DefaultWorld.CreateSystem<DrawBoundsRenderSystem>();
+            World.DefaultWorld.CreateSystem<WorldRenderBoundsUpdateSystem>();
             //World.DefaultWorld.CreateSystem<InteractionSystem>();
             //World.DefaultWorld.CreateSystem<TexturelessRenderSystem>();
 
