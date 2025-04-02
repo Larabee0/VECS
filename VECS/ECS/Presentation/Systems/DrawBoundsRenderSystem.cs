@@ -12,6 +12,9 @@ namespace VECS.ECS.Presentation.Systems
         private EntityQuery _renderBoundsQuery;
         private EntityQuery _cameraQuery;
 
+        private readonly Vector2 _min = new(-1, -1);
+        private readonly Vector2 _max = new(1, 1);
+        private readonly Vector4[] _fustrumVerts = new Vector4[16];
         private GPUBuffer<Vector3> _lineBuffer;
         private GPUBuffer<Vector3> _frustrumBuffer;
         private Material _lineMaterial;
@@ -26,7 +29,7 @@ namespace VECS.ECS.Presentation.Systems
                 .WithNone(typeof(Prefab))
                 .Build();
             _lineBuffer = new(32, VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferDst, true);
-            _frustrumBuffer = new(14, VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferDst, true);
+            _frustrumBuffer = new(16, VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferDst, true);
 
             var vertices = _lineBuffer.HostBuffer;
             float radians = 0;
@@ -44,6 +47,7 @@ namespace VECS.ECS.Presentation.Systems
             _lineBuffer.WriteFromHostBuffer();
             var pipelineConfigInfo = GraphicsPipelines.GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo(Presenter.Instance.RenderPass,VkPipelineLayout.Null);
 
+            pipelineConfigInfo.rasterizationInfo.cullMode = VkCullModeFlags.FrontAndBack;
             pipelineConfigInfo.rasterizationInfo.polygonMode = VkPolygonMode.Line;
             pipelineConfigInfo.inputAssemblyInfo.topology = VkPrimitiveTopology.LineStrip;
             pipelineConfigInfo.rasterizationInfo.lineWidth = 1;
@@ -94,7 +98,6 @@ namespace VECS.ECS.Presentation.Systems
             if (_cameraQuery.HasEntities && SwapChain.Instance != null)
             {
                 if (entityManager.SingletonComponent(out FrameInfo frameInfo)) {
-                    Vector2 screenWidthHeight = new(SwapChain.Instance.SwapChainExtent.width, SwapChain.Instance.SwapChainExtent.height);
                     var cameras = _cameraQuery.GetEntities();
                     _lineMaterial.BindGlobalDescriptorSet(rendererFrameInfo);
                     for (int i = 0; i < cameras.Count; i++)
@@ -103,20 +106,50 @@ namespace VECS.ECS.Presentation.Systems
                         var fustrum = entityManager.GetComponent<CameraPerspective>(cam);
                         var ltw = entityManager.GetComponent<LocalToWorld>(cam).Value;
 
-                        ltw = TransformExtensions.TRS(Vector3.Zero, Quaternion.Identity, Vector3.One);
+                        ltw = TransformExtensions.TRS(new Vector3(0, 0, -20f), Quaternion.Identity, Vector3.One);
+                        fustrum.ClipFar = 6f;
+                        Matrix4x4 projection = CameraSystem.GetPerspectiveProject(fustrum, frameInfo.screenAspect);
+                        Matrix4x4 view = CameraSystem.GetViewMatrix(Matrix4x4.Identity);
+                        Matrix4x4.Invert(view * projection, out projection);
 
-                        var minNear = new Vector3(-screenWidthHeight.X * 0.5f, -screenWidthHeight.Y * 0.5f, fustrum.ClipNear);
-                        var maxNear = new Vector3(screenWidthHeight.X * 0.5f, screenWidthHeight.Y * 0.5f, fustrum.ClipNear);
 
-                        _frustrumBuffer.HostBuffer[0] = minNear;
-                        _frustrumBuffer.HostBuffer[1] = new(minNear.X, maxNear.Y, maxNear.Z);
-                        _frustrumBuffer.HostBuffer[2] = maxNear;
-                        _frustrumBuffer.HostBuffer[3] = new(maxNear.X, minNear.Y, maxNear.Z);
+                        float scale = 1;
+                        _fustrumVerts[0] = Vector4.Transform(new Vector4(_min, scale,1),projection);
+                        _fustrumVerts[1] = Vector4.Transform(new Vector4(_min.X, _max.Y, scale, 1),projection);
+                        _fustrumVerts[2] = Vector4.Transform(new Vector4(_max, scale, 1),projection);
+                        _fustrumVerts[3] = Vector4.Transform(new Vector4(_max.X, _min.Y, scale, 1), projection);
+                        _fustrumVerts[4] = Vector4.Transform(new Vector4(_min, scale, 1),projection);
+                        scale = -1;
+                        _fustrumVerts[5] = Vector4.Transform(new Vector4(_min, scale, 1),projection);
+                        _fustrumVerts[6] = Vector4.Transform(new Vector4(_min.X, _max.Y, scale, 1),projection);
+                        _fustrumVerts[7] = Vector4.Transform(new Vector4(_max, scale, 1),projection);
+                        _fustrumVerts[8] = Vector4.Transform(new Vector4(_max.X, _min.Y, scale, 1),projection);
+                        _fustrumVerts[9] = Vector4.Transform(new Vector4(_min.X, _min.Y, scale, 1),projection);
+                        _fustrumVerts[10] = Vector4.Transform(new Vector4(_min.X, _max.Y, scale, 1),projection);
+                        scale = 1;
+                        _fustrumVerts[11] = Vector4.Transform(new Vector4(_min.X, _max.Y, scale, 1),projection);
+                        _fustrumVerts[12] = Vector4.Transform(new Vector4(_max, scale, 1),projection);
+                        scale = -1;
+                        _fustrumVerts[13] = Vector4.Transform(new Vector4(_max, scale, 1),projection);
+                        _fustrumVerts[14] = Vector4.Transform(new Vector4(_max.X, _min.Y, scale, 1),projection);
+                        scale = 1;
+                        _fustrumVerts[15] = Vector4.Transform(new Vector4(_max.X, _min.Y, scale, 1),projection);
+
+                        var buffer = _frustrumBuffer.HostBuffer;
+                        for (int j = 0; j < _fustrumVerts.Length; j++)
+                        {
+                            _fustrumVerts[j].X /= _fustrumVerts[j].W;
+                            _fustrumVerts[j].Y /= _fustrumVerts[j].W;
+                            _fustrumVerts[j].Z /= _fustrumVerts[j].W;
+                            _fustrumVerts[j].W = 1.0f;
+                            buffer[j] = new Vector3(_fustrumVerts[j].X, _fustrumVerts[j].Y, _fustrumVerts[j].Z);
+                        }
+
                         _frustrumBuffer.WriteFromHostBuffer();
 
                         Vulkan.vkCmdBindVertexBuffer(rendererFrameInfo.CommandBuffer, 0, _frustrumBuffer.VkBuffer);
-                        _lineMaterial.PushConstants(rendererFrameInfo.CommandBuffer, new LTW() { ltw = Matrix4x4.Identity });
-                        Vulkan.vkCmdDraw(rendererFrameInfo.CommandBuffer, 4, 1, 0, 0);
+                        _lineMaterial.PushConstants(rendererFrameInfo.CommandBuffer, new LTW() { ltw = ltw });
+                        Vulkan.vkCmdDraw(rendererFrameInfo.CommandBuffer, 16, 1, 0, 0);
                     } 
                 }
             }
@@ -126,6 +159,7 @@ namespace VECS.ECS.Presentation.Systems
         {
 
             _lineBuffer?.Dispose();
+            _frustrumBuffer?.Dispose();
             _lineMaterial?.Dispose();
         }
 

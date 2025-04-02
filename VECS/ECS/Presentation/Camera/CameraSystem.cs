@@ -70,15 +70,6 @@ namespace VECS.ECS.Presentation
             }
         }
 
-        public override void OnPostUpdate(EntityManager entityManager)
-        {
-            // mark queries stale for next frame
-            //_cameraQueryPerspective.MarkStale();
-            //_cameraQueryOrthographic.MarkStale();
-            //_cameraInitQuery.MarkStale();
-            //_cameraMotion.MarkStale();
-        }
-
         /// <summary>
         /// computes the camera view and projection matrices for each Persective Camera
         /// </summary>

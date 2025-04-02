@@ -28,7 +28,7 @@ namespace Planets
         {
             FOV = 50,
             ClipNear = 0.1f,
-            ClipFar = 1000f
+            ClipFar = 100f
         };
 
         private static readonly bool useComputeShaderForGeneration = true;
