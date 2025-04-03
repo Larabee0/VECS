@@ -837,6 +837,11 @@ namespace VECS.ECS
             _queries.ForEach(q => q.AutoStale(componentId));
         }
 
+        internal void NextFrame()
+        {
+            _queries.ForEach(q => q.AutoStale());
+        }
+
 
         public void DestroyEntityHierarchy(Entity entity)
         {

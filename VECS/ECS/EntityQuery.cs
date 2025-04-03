@@ -24,6 +24,7 @@ namespace VECS.ECS
         private readonly List<Entity> entities = [];
         private bool _built = false; // indicate the query has been built so can be used
         private bool _stale = true; // indicates the query should be updated, _hasEnitities will be invalid
+        private bool _staleNextFrame = true; // indicates the query should be updated, _hasEnitities will be invalid
         private bool _hasEnitities = false;
         public bool Built => _built;
 
@@ -198,21 +199,27 @@ namespace VECS.ECS
             return this;
         }
 
+        internal void AutoStale()
+        {
+            _stale = _stale || _staleNextFrame;
+            _staleNextFrame = false;
+        }
+
         internal void AutoStale(int componentId)
         {
             if (_stale)
             {
                 return;
             }
-            else if (_withAllSet.Contains(componentId))
+            if (_withAllSet.Contains(componentId))
             {
                 MarkStale();
             }
-            else if (_withAnySet.Contains(componentId))
+            if (_withAnySet.Contains(componentId))
             {
                 MarkStale();
             }
-            else if (_withNoneSet.Contains(componentId))
+            if (_withNoneSet.Contains(componentId))
             {
                 MarkStale();
             }
@@ -224,7 +231,7 @@ namespace VECS.ECS
         public void MarkStale()
         {
             //entities.Clear();
-            _stale = true;
+            _staleNextFrame = true;
         }
 
         /// <summary>
@@ -239,6 +246,7 @@ namespace VECS.ECS
         {   
             bool any = false;
 
+            entities.Clear();
 
             foreach (var entitySet in _entityManager._archetypeIdsToComponentIds.Values)
             {

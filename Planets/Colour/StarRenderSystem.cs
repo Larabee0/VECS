@@ -26,7 +26,7 @@ namespace Planets.Colour
 
         public override void OnFowardPass(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
         {
-            if (_starQuery.HasEntities && entityManager.SingletonEntity<Camera>(out Entity cameraEntity))
+            if (_starQuery.HasEntities && entityManager.SingletonEntity<MainCamera>(out Entity cameraEntity))
             {
                 var stars = _starQuery.GetEntities();
                 if (stars.Count > Presenter.MAX_LIGHTS)
