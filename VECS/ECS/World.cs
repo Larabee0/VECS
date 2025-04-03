@@ -23,8 +23,8 @@ namespace VECS.ECS
         private readonly List<PresentationSystemBase> _presentationSystems;
 
         public EntityManager EntityManager => _entityManager;
-        public List<SystemBase> Systems => [.. Systems];
-        public List<PresentationSystemBase> PresentationSystems => [.. PresentationSystems];
+        public List<SystemBase> Systems => _systems;
+        public List<PresentationSystemBase> PresentationSystems => _presentationSystems;
 
         public World()
         {
@@ -50,6 +50,25 @@ namespace VECS.ECS
         public T CreateSystem<T>() where T : SystemBase, new()
         {
             return AddSystem(Activator.CreateInstance<T>());
+        }
+
+        public T GetSystem<T>() where T : SystemBase
+        {
+            for (int i = 0; i < Systems.Count; i++)
+            {
+                if (Systems[i] is T system)
+                {
+                    return system;
+                }
+            }
+            for (int i = 0; i < PresentationSystems.Count; i++)
+            {
+                if (PresentationSystems[i] is T system)
+                {
+                    return system;
+                }
+            }
+            return null;
         }
 
         /// <summary>
@@ -100,6 +119,7 @@ namespace VECS.ECS
         /// </summary>
         internal void OnUpdate()
         {
+            _entityManager.NextFrame();
             _systems.ForEach(s => s.OnUpdate(_entityManager));
             _presentationSystems.ForEach(s => s.OnUpdate(_entityManager));
         }

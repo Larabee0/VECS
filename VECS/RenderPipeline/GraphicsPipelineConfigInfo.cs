@@ -113,7 +113,7 @@ namespace VECS.GraphicsPipelines
                     sType = VkStructureType.PipelineDepthStencilStateCreateInfo,
                     depthTestEnable = true,
                     depthWriteEnable = true,
-                    depthCompareOp = VkCompareOp.Less,
+                    depthCompareOp = VkCompareOp.GreaterOrEqual,
                     depthBoundsTestEnable = false,
                     minDepthBounds = 0.0f,
                     maxDepthBounds = 1.0f,

@@ -5,6 +5,7 @@ using VECS;
 using VECS.Compute;
 using VECS.ECS;
 using VECS.ECS.Presentation;
+using VECS.ECS.Presentation.Systems;
 using VECS.ECS.Transforms;
 using VECS.LowLevel;
 using Vortice.Vulkan;
@@ -26,6 +27,7 @@ namespace Planets
         private GPUBuffer<float> _sampleInput;
 
         private EntityQuery _planetRenderQuery;
+        private EntityQuery _cameraQuery;
         
         private GenericComputePipeline _cullCompute;
         private GenericComputePipeline _sampler;
@@ -36,14 +38,19 @@ namespace Planets
             CreateIndirectCmdBuffers();
             CreateCullComputePipeline();
             _planetRenderQuery = new EntityQuery(entityManager)
-                .WithAll(typeof(DirectSubMeshIndex), typeof(LocalToWorld), typeof(MaterialIndex))
+                .WithAll(typeof(DirectSubMeshIndex), typeof(LocalToWorld), typeof(MaterialIndex),typeof(WorldRenderBounds))
                 .WithNone(typeof(DoNotRender), typeof(Prefab))
+                .Build();
+            _cameraQuery = new EntityQuery(entityManager)
+                .WithAll(typeof(Camera), typeof(LocalToWorld))
+                .WithNone(typeof(Prefab), typeof(MainCamera))
                 .Build();
         }
 
         public unsafe override void OnCull(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
         {
             if (!_planetRenderQuery.HasEntities) return;
+            if (!_cameraQuery.HasEntities) return;
             var cmdBuffer = rendererFrameInfo.CommandBuffer;
 
             var indirectCmdBuffer = _indirectCmdBuffers[rendererFrameInfo.FrameIndex];
@@ -51,12 +58,14 @@ namespace Planets
             var objectDataBuffer = _objectDataBuffers[rendererFrameInfo.FrameIndex];
             var entities = _planetRenderQuery.GetEntities();
 
+            var cam = entityManager.GetComponent<Camera>(_cameraQuery.GetEntities()[0]);
+
             CullParams cullParams = new()
             {
-                ProjectionMatrix = rendererFrameInfo.Ubo.Projection,
-                ViewMatrix = rendererFrameInfo.Ubo.View,
+                ProjectionMatrix = cam.ProjectionMatrix,
+                ViewMatrix = cam.ViewMatrix,
                 FrustrumCulling = false,
-                OcclusionCulling = false,
+                OcclusionCulling = true,
                 Aabb = false,
                 DrawDist = 9999999
             };
@@ -106,8 +115,8 @@ namespace Planets
                     firstInstance = (uint)i
                 };
 
-                var renderBounds = mesh.Bounds;
-                drawObjectData[i] = new(entityManager.GetComponent<LocalToWorld>(entity).Value, new(renderBounds.Bounds.center, renderBounds.Radius), new(renderBounds.Bounds.extents, renderBounds.Valid ? 1 : 0));
+                var renderBounds = entityManager.GetComponent<WorldRenderBounds>(entity);
+                drawObjectData[i] = new(entityManager.GetComponent<LocalToWorld>(entity).Value, new(renderBounds.Bounds.center, renderBounds.Radius.X), new(renderBounds.Bounds.extents, 1));
             }
 
             var drawCull = GenerateCullData(rendererFrameInfo,cullParams, drawCmds.Length);
@@ -119,7 +128,7 @@ namespace Planets
             objectDataBuffer.WriteFromHostBuffer();
             if (!COMPUTE_CULL) {
 
-                FrustumCull(drawCull,rendererFrameInfo, drawCmds, drawObjectData);
+                FrustumCull(cullParams.ViewMatrix, drawCull,rendererFrameInfo, drawCmds, drawObjectData);
                 bool drawAll = true;
                 bool drawAny = false;
                 bool drawNone = true;
@@ -195,7 +204,6 @@ namespace Planets
 
         public unsafe override void OnFowardPass(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
         {
-            return;
             if (!_planetRenderQuery.HasEntities) return;
 
             var cmdBuffer = rendererFrameInfo.CommandBuffer;
@@ -293,7 +301,7 @@ namespace Planets
 
         }
 
-        public void FrustumCull(DrawCullData cullData, RendererFrameInfo frameInfo, Span<VkDrawIndexedIndirectCommand> drawCmds, Span<ObjectData> objectData)
+        public void FrustumCull(Matrix4x4 view,DrawCullData cullData, RendererFrameInfo frameInfo, Span<VkDrawIndexedIndirectCommand> drawCmds, Span<ObjectData> objectData)
         {
             for (int i = 0; i < cullData.DrawCount; i++)
             {
@@ -301,7 +309,7 @@ namespace Planets
 
                 if (cullData.AABBcheck == 0)
                 {
-                    visible = IsVisible(i, frameInfo, cullData, objectData);
+                    visible = IsVisible(i, view, frameInfo, cullData, objectData);
                 }
                 else
                 {
@@ -315,27 +323,30 @@ namespace Planets
         static bool ProjectSphere(Vector3 C, float r, float znear, float P00, float P11, out Vector4 aabb)
         {
             aabb = Vector4.Zero;
-            if (C.Z < r + znear)
+            if (-C.Z < r + znear)
             {
                 return false;
             }
 
-            Vector2 cx = -new Vector2(C.X, C.Z);
+            Vector2 cx = new Vector2(-C.X, C.Z);
             Vector2 vx = new(MathF.Sqrt(Vector2.Dot(cx, cx) - r * r), r);
             Vector2 minx = new Mat2(vx.X, vx.Y, -vx.Y, vx.X) * cx;
             Vector2 maxx = new Mat2(vx.X, -vx.Y, vx.Y, vx.X) * cx;
 
-            Vector2 cy = -new Vector2(C.Y, C.Z);
+            Vector2 cy = new Vector2(C.Y, C.Z);
             Vector2 vy = new(MathF.Sqrt(Vector2.Dot(cy, cy) - r * r), r);
             Vector2 miny = new Mat2(vy.X, vy.Y, -vy.Y, vy.X) * cy;
             Vector2 maxy = new Mat2(vy.X, -vy.Y, vy.Y, vy.X) * cy;
 
             aabb = new Vector4(minx.X / minx.Y * P00, miny.X / miny.Y * P11, maxx.X / maxx.Y * P00, maxy.X / maxy.Y * P11);
-            aabb = new Vector4( aabb.X, aabb.W, aabb.Z, aabb.Y) * new Vector4(0.5f, -0.5f, 0.5f, -0.5f) + new Vector4(0.5f); // clip space -> uv space
+
+            var boundsDraw = World.DefaultWorld.GetSystem<DrawBoundsRenderSystem>();
+            boundsDraw?.AABBQueue.Enqueue(Bounds.FromMinMax(new(aabb.Z, aabb.W, 1), new(aabb.X, aabb.Y, 1)));
+            aabb = new Vector4(aabb.X, aabb.W, aabb.Z, aabb.Y) * new Vector4(0.5f, -0.5f, 0.5f, -0.5f) + new Vector4(0.5f); // clip space -> uv space
 
             return true;
         }
-        private unsafe bool IsVisible(int i,RendererFrameInfo frameInfo, DrawCullData drawCullData, Span<ObjectData> objectData)
+        private unsafe bool IsVisible(int i,Matrix4x4 view,RendererFrameInfo frameInfo, DrawCullData drawCullData, Span<ObjectData> objectData)
         {
             Vector4 sphereBounds = objectData[i].SphereBounds;
 
@@ -343,7 +354,7 @@ namespace Planets
             //centerV4.W = 1;
 
             Vector3 center = new(sphereBounds.X, sphereBounds.Y, sphereBounds.Z);
-            center = Vector3.Transform(center, frameInfo.Ubo.View);
+            center = Vector3.Transform(center, view);
             //centerV4 = Vector4.Transform(centerV4, objectData[i].ModelMatrix);
             //centerV4.W = 1;
             //centerV4 = Vector4.Transform(centerV4, frameInfo.Ubo.View);
@@ -378,10 +389,17 @@ namespace Planets
                     float level = MathF.Floor(MathF.Log2(MathF.Max(width, height)));
                     
                     Vector2 uv = (new Vector2(aabb.X, aabb.Y) + new Vector2(aabb.Z, aabb.W)) * 0.5f;
-
+                    
                     float depth = SampleDepthPyramid(frameInfo,uv, level);
-                    float depthSphere = drawCullData.Znear / (center.Z - radius);
-
+                    float depthSphere =1-MathF.Abs( drawCullData.Znear / (center.Z - (radius)));
+                    if(i == 145)
+                    {
+                        Console.WriteLine("145 {0}, {1}",depth, depthSphere);
+                    }
+                    if (i == 44)
+                    {
+                        Console.WriteLine("044 {0}, {1}", depth, depthSphere);
+                    }
                     visible = visible && depthSphere >= depth;
                 }
             }

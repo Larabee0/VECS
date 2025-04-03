@@ -121,8 +121,51 @@ namespace VECS
                 Radius = radius,
                 Valid = true
             };
+            AltRecalculateRenderBounds();
         }
 
+        public void AltRecalculateRenderBounds()
+        {
+            Vector3 min = new (float.MaxValue, float.MaxValue, float.MaxValue);
+            Vector3 max = new (float.MinValue, float.MinValue, float.MinValue);
+
+            var vertices = Vertices;
+            for (int i = 0; i < VertexCount; i++)
+            {
+                min[0] = MathF.Min(min[0], vertices[i][0]);
+                min[1] = MathF.Min(min[1], vertices[i][1]);
+                min[2] = MathF.Min(min[2], vertices[i][2]);
+
+                max[0] = MathF.Max(max[0], vertices[i][0]);
+                max[1] = MathF.Max(max[1], vertices[i][1]);
+                max[2] = MathF.Max(max[2], vertices[i][2]);
+            }
+
+            _bounds.Bounds.extents[0] = (max[0] - min[0]) / 2.0f;
+            _bounds.Bounds.extents[1] = (max[1] - min[1]) / 2.0f;
+            _bounds.Bounds.extents[2] = (max[2] - min[2]) / 2.0f;
+
+            _bounds.Bounds.center[0] = _bounds.Bounds.extents[0] + min[0];
+            _bounds.Bounds.center[1] = _bounds.Bounds.extents[1] + min[1];
+            _bounds.Bounds.center[2] = _bounds.Bounds.extents[2] + min[2];
+
+            //go through the vertices again to calculate the exact bounding sphere radius
+            float r2 = 0;
+            for (int i = 0; i < VertexCount; i++)
+            {
+
+                Vector3 offset = default;
+                offset[0] = vertices[i][0] - _bounds.Bounds.center[0];
+                offset[1] = vertices[i][1] - _bounds.Bounds.center[1];
+                offset[2] = vertices[i][2] - _bounds.Bounds.center[2];
+
+                //pithagoras
+                float distance = offset[0] * offset[0] + offset[1] * offset[1] + offset[2] * offset[2];
+                r2 = MathF.Max(r2, distance);
+            }
+
+            _bounds.Radius = MathF.Sqrt(r2);
+        }
 
         public void SimpleBindAndDraw(VkCommandBuffer cmd)
         {
