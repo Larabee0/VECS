@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using VECS.ECS.Transforms;
@@ -11,13 +12,17 @@ namespace VECS.ECS.Presentation.Systems
     {
         private EntityQuery _renderBoundsQuery;
         private EntityQuery _cameraQuery;
-
+        private bool _drawBounds = false;
         private readonly Vector2 _min = new(-1, -1);
         private readonly Vector2 _max = new(1, 1);
         private readonly Vector4[] _fustrumVerts = new Vector4[16];
         private GPUBuffer<Vector3> _lineBuffer;
         private GPUBuffer<Vector3> _frustrumBuffer;
+        private GPUBuffer<Vector3> _cubeBuffer;
         private Material _lineMaterial;
+
+        public Queue<Bounds> AABBQueue = new();
+
         public override unsafe void OnCreate(EntityManager entityManager)
         {
             _renderBoundsQuery = new EntityQuery(entityManager)
@@ -26,10 +31,12 @@ namespace VECS.ECS.Presentation.Systems
                 .Build();
             _cameraQuery = new EntityQuery(entityManager)
                 .WithAll(typeof(CameraPerspective), typeof(Camera), typeof(LocalToWorld))
-                .WithNone(typeof(Prefab))
+                .WithNone(typeof(Prefab),typeof(MainCamera))
                 .Build();
             _lineBuffer = new(32, VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferDst, true);
             _frustrumBuffer = new(16, VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferDst, true);
+            _cubeBuffer = new(16, VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferDst, true);
+            CreateWireCube();
 
             var vertices = _lineBuffer.HostBuffer;
             float radians = 0;
@@ -57,7 +64,7 @@ namespace VECS.ECS.Presentation.Systems
 
         public override void OnFowardPass(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
         {
-            if (_renderBoundsQuery.HasEntities)
+            if (_drawBounds && _renderBoundsQuery.HasEntities)
             {
                 var entities = _renderBoundsQuery.GetEntities();
                 _lineMaterial.BindGlobalDescriptorSet(rendererFrameInfo);
@@ -95,6 +102,11 @@ namespace VECS.ECS.Presentation.Systems
                 }
             }
 
+            if (InputManager.Instance.GetKeyUp(SDL3.SDL_Keycode.F1))
+            {
+                _drawBounds = !_drawBounds;
+            }
+
             if (_cameraQuery.HasEntities && SwapChain.Instance != null)
             {
                 if (entityManager.SingletonComponent(out FrameInfo frameInfo)) {
@@ -103,16 +115,16 @@ namespace VECS.ECS.Presentation.Systems
                     for (int i = 0; i < cameras.Count; i++)
                     {
                         var cam = cameras[i];
-                        var fustrum = entityManager.GetComponent<CameraPerspective>(cam);
                         var ltw = entityManager.GetComponent<LocalToWorld>(cam).Value;
-
-                        ltw = TransformExtensions.TRS(new Vector3(0, 0, -20f), Quaternion.Identity, Vector3.One);
-                        fustrum.ClipFar = 6f;
+                        if (InputManager.Instance.GetKey(SDL3.SDL_Keycode.Space) && entityManager.SingletonEntity<MainCamera>(out Entity mainCamera))
+                        {
+                            ltw = entityManager.GetComponent<LocalToWorld>(mainCamera).Value;
+                            entityManager.SetComponent(cam,new LocalToWorld() { Value =ltw});
+                        }
+                        var fustrum = entityManager.GetComponent<CameraPerspective>(cam);
                         Matrix4x4 projection = CameraSystem.GetPerspectiveProject(fustrum, frameInfo.screenAspect);
                         Matrix4x4 view = CameraSystem.GetViewMatrix(Matrix4x4.Identity);
                         Matrix4x4.Invert(view * projection, out projection);
-
-
                         float scale = 1;
                         _fustrumVerts[0] = Vector4.Transform(new Vector4(_min, scale,1),projection);
                         _fustrumVerts[1] = Vector4.Transform(new Vector4(_min.X, _max.Y, scale, 1),projection);
@@ -153,6 +165,58 @@ namespace VECS.ECS.Presentation.Systems
                     } 
                 }
             }
+
+            if (AABBQueue.Count > 0 && _cameraQuery.HasEntities)
+            {
+                var camera = _cameraQuery.GetEntities()[0];
+                var m = entityManager.GetComponent<LocalToWorld>(camera).Value;
+                _lineMaterial.BindGlobalDescriptorSet(rendererFrameInfo);
+
+                Matrix4x4.Decompose(m, out var scale, out var rotation, out var center);
+
+                while (AABBQueue.Count > 0)
+                {
+                    var aabb = AABBQueue.Dequeue();
+                    Matrix4x4 trs = TransformExtensions.TRS(center + aabb.center, rotation, aabb.extents);
+                    DrawWireCube(rendererFrameInfo.CommandBuffer, trs);
+                }
+            }
+        }
+
+        private void DrawWireCube(VkCommandBuffer commandBuffer, Matrix4x4 ltw)
+        {
+            Vulkan.vkCmdBindVertexBuffer(commandBuffer, 0, _cubeBuffer.VkBuffer);
+            _lineMaterial.PushConstants(commandBuffer, new LTW() { ltw = ltw });
+            Vulkan.vkCmdDraw(commandBuffer, 16, 1, 0, 0);
+        }
+
+        private void CreateWireCube()
+        {
+            Vector3 min = new(-0.5f, -0.5f, -0.5f);
+            Vector3 max = new(0.5f, 0.5f, 0.5f);
+            var verts = _cubeBuffer.HostBuffer;
+            verts[0] = min;
+            verts[1] = new Vector3(min.X, max.Y, min.Z);
+            verts[2] = new Vector3(max.X,max.Y, min.Z);
+            verts[3] = new Vector3(max.X, min.Y, min.Z);
+            verts[4] = min;
+
+            verts[5] = new Vector3(min.X,min.Y, max.Z);
+            verts[6] = new Vector3(min.X, max.Y, max.Z);
+            verts[7] = max;
+            verts[8] = new Vector3(max.X, min.Y, max.Z);
+            verts[9] = new Vector3(min.X, min.Y, max.Z);
+            verts[10] = new Vector3(min.X, max.Y, max.Z);
+                                        
+            verts[11] = new Vector3(min.X, max.Y, min.Z);
+            verts[12] = new Vector3(max.X,max.Y, min.Z);
+                                        
+            verts[13] = max;
+            verts[14] = new Vector3(max.X, min.Y, max.Z);
+
+            verts[15] = new Vector3(max.X, min.Y, min.Z);
+
+            _cubeBuffer.WriteFromHostBuffer();
         }
 
         public override void OnDestroy(EntityManager entityManager)
@@ -160,6 +224,7 @@ namespace VECS.ECS.Presentation.Systems
 
             _lineBuffer?.Dispose();
             _frustrumBuffer?.Dispose();
+            _cubeBuffer?.Dispose();
             _lineMaterial?.Dispose();
         }
 

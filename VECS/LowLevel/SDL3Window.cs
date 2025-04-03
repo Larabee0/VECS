@@ -123,14 +123,14 @@ namespace VECS.LowLevel
                         break;
 
                     case SDL_EventType.MouseMotion:
-                        _inputManager.MouseMotion(sdlEvent);
+                        _inputManager.OnMouseMotion(sdlEvent);
                         break;
                 }
             }
 
-            InputManager.Update();
+            _inputManager.Update();
 
-            SDL.SDL_SetWindowRelativeMouseMode(_window, _inputManager.rightMouseDown);
+            SDL.SDL_SetWindowRelativeMouseMode(_window, _inputManager.GetMouseButton(1));
             return false;
         }
 

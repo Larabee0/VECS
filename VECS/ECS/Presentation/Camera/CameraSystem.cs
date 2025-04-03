@@ -1,4 +1,5 @@
-﻿using System;
+﻿using SDL3;
+using System;
 using System.Numerics;
 using VECS.ECS.Transforms;
 
@@ -127,11 +128,30 @@ namespace VECS.ECS.Presentation
         /// <returns></returns>
         public static Matrix4x4 GetPerspectiveProject(CameraPerspective perspective, float aspect)
         {
-            return Matrix4x4.CreatePerspectiveFieldOfView(
-                float.DegreesToRadians(perspective.FOV),
-                aspect,
-                perspective.ClipNear,
-                perspective.ClipFar);
+            // return Matrix4x4.CreatePerspectiveFieldOfView(
+            //     float.DegreesToRadians(perspective.FOV),
+            //     aspect,
+            //     perspective.ClipFar,
+            //     perspective.ClipNear);
+
+            return GLMPerspectiveProject(float.DegreesToRadians(perspective.FOV), aspect, perspective.ClipNear, perspective.ClipFar);
+        }
+
+        public static Matrix4x4 GLMPerspectiveProject(float fov, float aspect,float zNear, float zFar)
+        {
+            float tanHalfFovy = MathF.Tan(fov / 2);
+
+            var result = new Matrix4x4();
+            result[0,0] = 1f / (aspect * tanHalfFovy);
+            result[1, 1] = 1f / (tanHalfFovy);
+            result[2, 2] = - (zFar + zNear) / (zFar - zNear);
+            result[2, 3] = -1;
+            result[3, 2] = -(2 * zFar * zNear) / (zFar - zNear);
+
+
+            //result[1, 1] *= -1;
+
+            return result;
         }
 
         /// <summary>
@@ -172,7 +192,7 @@ namespace VECS.ECS.Presentation
         private static void TransformCamera(EntityManager entityManager, Entity entity)
         {
             // only transform the camera if right mouse down (unit editor like behaviour)
-            if (!InputManager.Instance.rightMouseDown)
+            if (!InputManager.Instance.GetMouseButton(1))
             {
                 return;
             }
@@ -182,8 +202,35 @@ namespace VECS.ECS.Presentation
             Rotation rotation = entityManager.GetComponent<Rotation>(entity);
 
             // collect look and move inputs.
-            var look = InputManager.Instance.mouseDelta;
-            var movement = InputManager.Instance.moveInput;
+            var look = InputManager.Instance.MouseDelta;
+            Vector3 movement = Vector3.Zero;
+
+            if (InputManager.Instance.GetKey(SDL_Keycode.A))
+            {
+                movement.X = 1;
+            }
+            else if (InputManager.Instance.GetKey(SDL_Keycode.D))
+            {
+                movement.X = -1;
+            }
+
+            if (InputManager.Instance.GetKey(SDL_Keycode.W))
+            {
+                movement.Z = 1;
+            }
+            else if (InputManager.Instance.GetKey(SDL_Keycode.S))
+            {
+                movement.Z = -1;
+            }
+
+            if (InputManager.Instance.GetKey(SDL_Keycode.E))
+            {
+                movement.Y = 1;
+            }
+            else if (InputManager.Instance.GetKey(SDL_Keycode.Q))
+            {
+                movement.Y = -1;
+            }
 
             // rotate camera
             if (look.LengthSquared() > float.Epsilon)
@@ -215,9 +262,9 @@ namespace VECS.ECS.Presentation
                 moveDir += movement.X * right;
                 moveDir += movement.Y * up;
 
-                bool slow = InputManager.Instance.ctrlDown;
-                bool fast = InputManager.Instance.shiftDown;
-                bool extraFast = InputManager.Instance.altDown;
+                bool slow = InputManager.Instance.GetKey(SDL_Keycode.LeftControl) || InputManager.Instance.GetKey(SDL_Keycode.RightControl);
+                bool fast = InputManager.Instance.GetKey(SDL_Keycode.LeftShift) || InputManager.Instance.GetKey(SDL_Keycode.RightShift);
+                bool extraFast = InputManager.Instance.GetKey(SDL_Keycode.LeftAlt);
 
                 float speed = slow ? moveSpeed * 0.25f : fast ? moveSpeed * 4f : extraFast ? moveSpeed * 8f : moveSpeed;
 

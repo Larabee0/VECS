@@ -1,5 +1,6 @@
 ﻿using SDL3;
 using System;
+using System.Collections.Generic;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -18,25 +19,45 @@ namespace VECS
     /// </summary>
     public class InputManager
     {
-        public Vector3 moveInput = Vector3.Zero;
-        public Vector2 mousePos = Vector2.Zero;
-        public Vector2 mousePosOld = Vector2.Zero;
-        public Vector2 mouseDelta = Vector2.Zero;
-        public bool mouseMotion = false;
-        public bool firstMouse = true;
+        public Vector2 MousePos => _mousePos;
+        public Vector2 MousePosOld => _mousePosOld;
+        public Vector2 MouseDelta => _mouseDelta;
 
-        public bool rightMouseDown = false;
-        public bool shiftDown = false;
-        public bool ctrlDown = false;
-        public bool altDown = false;
+        private Vector3 _moveInput = Vector3.Zero;
+        private Vector2 _mousePos = Vector2.Zero;
+        private Vector2 _mousePosOld = Vector2.Zero;
+        private Vector2 _mouseDelta = Vector2.Zero;
+
+
+        private bool _mouseMotion = false;
+        public bool MouseMotion => _mouseMotion;
+
+        private readonly Dictionary<SDL_Keycode, (bool, bool)> _keyStates = new(Enum.GetNames<SDL_Keycode>().Length);
+        private readonly Queue<SDL_Keycode> _keysChangedState = new();
+
+
+        private readonly Dictionary<SDL_Button, (bool, bool)> _mouseButtonStates = new(Enum.GetNames<SDL_Button>().Length);
+        private readonly Queue<SDL_Button> _mouseButtonsChangedState = new();
 
         public static InputManager Instance { get; private set; }
 
         public unsafe InputManager()
         {
             Instance = this;
-            RegisterWatcher(&KeyboardMove);
-            RegisterWatcher(&RightClick);
+
+            var keys = Enum.GetValues<SDL_Keycode>();
+            var mouseButtons = Enum.GetValues<SDL_Button>();
+            for (int i = 0; i < keys.Length; i++)
+            {
+                _keyStates.Add(keys[i], (false, false));
+            }
+            for (int i = 0; i < mouseButtons.Length; i++)
+            {
+                _mouseButtonStates.Add(mouseButtons[i], (false, false));
+            }
+
+            RegisterWatcher(&KeyboardButtonEvents);
+            RegisterWatcher(&MouseButtonEvents);
         }
 
         public static unsafe void RegisterWatcher(delegate* unmanaged[Cdecl]<nint, SDL_Event*, SDLBool> filter)
@@ -51,20 +72,21 @@ namespace VECS
         /// <param name="eventPtr"></param>
         /// <returns></returns>
         [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-        private static unsafe SDLBool RightClick(nint n, SDL_Event* eventPtr)
+        private static unsafe SDLBool MouseButtonEvents(nint n, SDL_Event* eventPtr)
         {
-            if (eventPtr->button.Button == SDL_Button.Right)
+            var button = eventPtr->button.Button;
+            var type = eventPtr->type;
+            if (type == SDL_EventType.MouseButtonDown && !Instance._mouseButtonStates[button].Item1)
             {
-                if (eventPtr->type == SDL_EventType.MouseButtonDown)
-                {
-                    Instance.rightMouseDown = true;
-                }
-                else if (eventPtr->type == SDL_EventType.MouseButtonUp)
-                {
-                    Instance.rightMouseDown = false;
-                    Instance.firstMouse = true;
-                }
+                Instance._mouseButtonStates[button] = (true, true);
+                Instance._mouseButtonsChangedState.Enqueue(button);
             }
+            else if (type == SDL_EventType.MouseButtonUp && Instance._mouseButtonStates[button].Item1)
+            {
+                Instance._mouseButtonStates[button] = (false, true);
+                Instance._mouseButtonsChangedState.Enqueue(button);
+            }
+
             return false;
         }
 
@@ -75,90 +97,101 @@ namespace VECS
         /// <param name="eventPtr"></param>
         /// <returns></returns>
         [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-        private static unsafe SDLBool KeyboardMove(nint n, SDL_Event* eventPtr)
+        private static unsafe SDLBool KeyboardButtonEvents(nint n, SDL_Event* eventPtr)
         {
             if(Instance == null) return false;
-            switch (eventPtr->type)
-            {
-                case SDL_EventType.KeyDown:
-                    {
-                        var cur = Instance.moveInput;
-                        switch (eventPtr->key.key)
-                        {
-                            case SDL_Keycode.A:
-                                cur.X = 1;
-                                break;
-                            case SDL_Keycode.D:
-                                cur.X = -1;
-                                break;
-                            case SDL_Keycode.W:
-                                cur.Z = 1;
-                                break;
-                            case SDL_Keycode.S:
-                                cur.Z = -1;
-                                break;
-                            case SDL_Keycode.Q:
-                                cur.Y = -1;
-                                break;
-                            case SDL_Keycode.E:
-                                cur.Y = 1;
-                                break;
-                            case SDL_Keycode.LeftShift:
-                                Instance.shiftDown = true;
-                                break;
-                            case SDL_Keycode.LeftControl:
-                                Instance.ctrlDown = true;
-                                break;
-                            case SDL_Keycode.LeftAlt:
-                                Instance.altDown = true;
-                                break;
-                        }
-                        Instance.moveInput = cur;
-                        break;
-                    }
+            var keyCode = eventPtr->key.key;
+            var type = eventPtr->type;
 
-                case SDL_EventType.KeyUp:
-                    {
-                        var cur = Instance.moveInput;
-                        switch (eventPtr->key.key)
-                        {
-                            case SDL_Keycode.A when cur.X > 0:
-                                cur.X = 0;
-                                break;
-                            case SDL_Keycode.D when cur.X < 0:
-                                cur.X = 0;
-                                break;
-                            case SDL_Keycode.W when cur.Z > 0:
-                                cur.Z = 0;
-                                break;
-                            case SDL_Keycode.S when cur.Z < 0:
-                                cur.Z = 0;
-                                break;
-                            case SDL_Keycode.Q when cur.Y < 0:
-                                cur.Y = 0;
-                                break;
-                            case SDL_Keycode.E when cur.Y > 0:
-                                cur.Y = 0;
-                                break;
-                            case SDL_Keycode.LeftShift:
-                                Instance.shiftDown = false;
-                                break;
-                            case SDL_Keycode.LeftControl:
-                                Instance.ctrlDown = false;
-                                break;
-                            case SDL_Keycode.LeftAlt:
-                                Instance.altDown = false;
-                                break;
-                        }
-                        Instance.moveInput = cur;
-                        break;
-                    }
+            if (type==SDL_EventType.KeyDown && !Instance._keyStates[keyCode].Item1)
+            {
+                Instance._keyStates[keyCode] = (true, true);
+                Instance._keysChangedState.Enqueue(keyCode);
             }
+            else if (type == SDL_EventType.KeyUp && Instance._keyStates[keyCode].Item1)
+            {
+                Instance._keyStates[keyCode] = (false, true);
+                Instance._keysChangedState.Enqueue(keyCode);
+            }
+
             return false;
         }
 
-        public static void Update()
+        public bool GetKey(SDL_Keycode keycode)
         {
+            return _keyStates[keycode].Item1;
+        }
+
+        public bool GetKeyDown(SDL_Keycode keycode)
+        {
+            var val = _keyStates[keycode];
+            return val.Item1 && val.Item2;
+        }
+
+        public bool GetKeyUp(SDL_Keycode keycode)
+        {
+            var val = _keyStates[keycode];
+            return !val.Item1 && val.Item2;
+        }
+
+        public bool GetMouseButton(int button)
+        {
+            var val = button switch
+            {
+                0 => _mouseButtonStates[SDL_Button.Left],
+                1 => _mouseButtonStates[SDL_Button.Right],
+                2 => _mouseButtonStates[SDL_Button.Middle],
+                3 => _mouseButtonStates[SDL_Button.X1],
+                4 => _mouseButtonStates[SDL_Button.X2],
+                _ => throw new IndexOutOfRangeException(),
+            };
+            return val.Item1;
+        }
+
+        public bool GetMouseButtonDown(int button)
+        {
+            var val = button switch
+            {
+                0 => _mouseButtonStates[SDL_Button.Left],
+                1 => _mouseButtonStates[SDL_Button.Right],
+                2 => _mouseButtonStates[SDL_Button.Middle],
+                3 => _mouseButtonStates[SDL_Button.X1],
+                4 => _mouseButtonStates[SDL_Button.X2],
+                _ => throw new IndexOutOfRangeException(),
+            };
+            return val.Item1 && val.Item2;
+        }
+
+        public bool GetMouseButtonUp(int button)
+        {
+            var val = button switch
+            {
+                0 => _mouseButtonStates[SDL_Button.Left],
+                1 => _mouseButtonStates[SDL_Button.Right],
+                2 => _mouseButtonStates[SDL_Button.Middle],
+                3 => _mouseButtonStates[SDL_Button.X1],
+                4 => _mouseButtonStates[SDL_Button.X2],
+                _ => throw new IndexOutOfRangeException(),
+            };
+            return !val.Item1 && val.Item2;
+        }
+
+        /// <summary>
+        /// processes a mouse input event
+        /// </summary>
+        /// <param name="sdlEvent"></param>
+        public void OnMouseMotion(SDL_Event sdlEvent)
+        {
+            _mouseMotion = true;
+            _mousePos.X = sdlEvent.motion.x;
+            _mousePos.Y = sdlEvent.motion.y;
+            _mouseDelta.X = sdlEvent.motion.xrel;
+            _mouseDelta.Y = sdlEvent.motion.yrel;
+        }
+
+        public void Update()
+        {
+
         }
 
         /// <summary>
@@ -166,39 +199,23 @@ namespace VECS
         /// </summary>
         public void LateUpdate()
         {
-            mouseDelta = Vector2.Zero;
-            mouseMotion = false;
-        }
-
-        /// <summary>
-        /// processes a mouse input event
-        /// </summary>
-        /// <param name="sdlEvent"></param>
-        public void MouseMotion(SDL_Event sdlEvent)
-        {
-            mouseMotion = true;
-
-            if (!firstMouse)
+            while (_keysChangedState.Count > 0)
             {
-
-                var pos = mousePos;
-                var delta = mouseDelta;
-                pos.X = sdlEvent.motion.x;
-                pos.Y = sdlEvent.motion.y;
-                delta.X = sdlEvent.motion.xrel;
-                delta.Y = sdlEvent.motion.yrel;
-                mousePos = pos;
-                mouseDelta = delta;
+                var key = _keysChangedState.Dequeue();
+                (bool, bool) val = _keyStates[key];
+                val.Item2= false;
+                _keyStates[key] = val;
             }
-            else
+            while(_mouseButtonsChangedState.Count > 0)
             {
-                firstMouse = false;
-
-                var delta = mouseDelta;
-                delta.X = 0;
-                delta.Y = 0;
-                mouseDelta = delta;
+                var mouseButton = _mouseButtonsChangedState.Dequeue();
+                (bool, bool) val = _mouseButtonStates[mouseButton];
+                val.Item2 = false;
+                _mouseButtonStates[mouseButton] = val;
             }
+            _mouseDelta = Vector2.Zero;
+            _mouseMotion = false;
+            _mousePosOld = _mousePos;
         }
 
         public void Destroy()

@@ -28,13 +28,13 @@ namespace Planets
         {
             FOV = 50,
             ClipNear = 0.1f,
-            ClipFar = 100f
+            ClipFar = 5000f
         };
 
         private static readonly bool useComputeShaderForGeneration = true;
         private readonly int subdivisons = 75;
 
-        private readonly bool generateIndirectMeshes = true;
+        private readonly bool generateIndirectMeshes = false;
         private static Material indirectMeshMaterial;
         private readonly static Stopwatch _stopwatch = new();
         public ArtifactAuthoring()
@@ -50,7 +50,7 @@ namespace Planets
 
             EntityManager entityManager = World.DefaultWorld.EntityManager;
 
-            CreateDefaultCamera(entityManager);
+            CreateMainCamera(entityManager);
 
             //var cubeSubMesh = CreateDirectCube();
             //var unlit = new Material("unlit_shader.vert", "unlit_shader.frag", typeof(ModelPushConstantData),
@@ -426,13 +426,19 @@ namespace Planets
         /// Creates a perspective camera using the member settings
         /// </summary>
         /// <param name="entityManager"></param>
-        private void CreateDefaultCamera(EntityManager entityManager)
+        private void CreateMainCamera(EntityManager entityManager)
         {
             MainCamera = entityManager.CreateEntity();
             entityManager.AddComponent(MainCamera, new Translation() { Value = initalCameraPos });
             entityManager.AddComponent(MainCamera, new Rotation() { Value = initalCameraRot });
             entityManager.AddComponent(MainCamera, cameraPerspective);
             entityManager.AddComponent<MainCamera>(MainCamera);
+
+            var secondCamera = entityManager.CreateEntity();
+            entityManager.AddComponent(secondCamera, new LocalToWorld() { Value = TransformExtensions.TRS(initalCameraPos, initalCameraRot, Vector3.One) });
+            entityManager.AddComponent(secondCamera, cameraPerspective);
+
+
         }
 
         public static void Destroy() { }
