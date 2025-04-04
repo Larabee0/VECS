@@ -166,6 +166,18 @@ namespace VECS.ECS.Presentation
                 orthographic.ClipFar);
         }
 
+        public static Matrix4x4 OrthoLH_ZO(float left, float right, float bottom, float top, float zNear, float zFar)
+        {
+            Matrix4x4 result = new();
+            result[0, 0] = 2f / (right - left);
+            result[1, 1] = 2f / (top - bottom);
+            result[2, 2] = 1f / (zFar - zNear);
+            result[3, 0] = -(right + left) / (right - left);
+            result[3, 1] = -(top + bottom) / (top - bottom);
+            result[3, 1] = zNear / (zFar - zNear);
+            return result;
+        }
+
         /// <summary>
         /// Computes a view matrix from the given transform
         /// </summary>
