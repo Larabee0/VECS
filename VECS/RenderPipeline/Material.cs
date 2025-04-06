@@ -38,6 +38,7 @@ namespace VECS
         /// <param name="fragmentShader"></param>
         public Material(string vertexShader, string fragmentShader)
         {
+            
             string vertexFilePath = GetShaderFilePath(vertexShader);
             string fragmentFilePath = GetShaderFilePath(fragmentShader);
             CreatePipelineLayout(Presenter.Instance.GlobalSetLayout);
@@ -218,8 +219,6 @@ namespace VECS
             _materialDescriptorLayout = builder.Build();
 
             CreatePipelineLayoutWithPushConstant(Presenter.Instance.GlobalSetLayout, pushConstantType);
-
-
 
             CreatePipeline(vertexFilePath, fragmentFilePath, alphaBlending, customInput);
             Materials.Add(this);

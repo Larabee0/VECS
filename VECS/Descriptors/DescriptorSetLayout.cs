@@ -90,6 +90,18 @@ namespace VECS
                 return this;
             }
 
+            public Builder AddBinding(VkDescriptorSetLayoutBinding layoutBinding)
+            {
+                if (_bindings.ContainsKey(layoutBinding.binding))
+                {
+                    throw new ArgumentException(string.Format("Binding {0} already in use!", layoutBinding.binding));
+                }
+
+                _bindings[layoutBinding.binding] = layoutBinding;
+
+                return this;
+            }
+
             public Builder AddBinding(uint binding, DescriptorSetBinding req)
             {
                 return AddBinding(binding, req.DescriptorType, req.StageFlags, req.Count);

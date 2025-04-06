@@ -23,6 +23,11 @@ namespace VECS.GraphicsPipelines
             CreateGraphicsPipeline(vertFilePath, fragFilePath, configInfo);
         }
 
+        public GraphicsPipeline(GraphicsDevice device, byte[] vertexBytes, byte[] fragmentBytes, GraphicsPipelineConfigInfo configInfo)
+        {
+            _device = device;
+            CreateGraphicsPipeline(vertexBytes, fragmentBytes, configInfo);
+        }
         /// <summary>
         /// Create a VkPipeline <see cref="_graphicsPipeline"/> with the given RenderPipelineConfigInfo and vertex and fragment shaders.
         /// 
@@ -34,6 +39,19 @@ namespace VECS.GraphicsPipelines
         /// <param name="configInfo"></param>
         /// <exception cref="ArgumentException"></exception>
         private unsafe void CreateGraphicsPipeline(string vertFilePath, string fragFilePath, GraphicsPipelineConfigInfo configInfo)
+        {
+            byte[] vertexBytes = File.ReadAllBytes(vertFilePath);
+            byte[] fragmentBytes = File.ReadAllBytes(fragFilePath);
+
+            Console.WriteLine("\n\nVertex Shader {0}", vertFilePath);
+            SPIRVReflectUtil.SpirvReflectShaderInfo(vertexBytes);
+            Console.WriteLine("\nFragment Shader {0}", fragFilePath);
+            SPIRVReflectUtil.SpirvReflectShaderInfo(fragmentBytes);
+
+            CreateGraphicsPipeline(vertexBytes, fragmentBytes, configInfo);
+        }
+
+        private unsafe void CreateGraphicsPipeline(byte[] vertexBytes, byte[] fragmentBytes, GraphicsPipelineConfigInfo configInfo)
         {
             if (configInfo.pipelineLayout == VkPipelineLayout.Null)
             {
@@ -78,7 +96,7 @@ namespace VECS.GraphicsPipelines
 
             // Shader stages
             VkPipelineShaderStageCreateInfo* shaderStages = stackalloc VkPipelineShaderStageCreateInfo[2];
-            GetShaderStageCreateInfo(vertFilePath, fragFilePath, shaderStages);
+            GetShaderStageCreateInfo(vertexBytes, fragmentBytes, shaderStages);
 
             VkGraphicsPipelineCreateInfo pipelineInfo = new()
             {
@@ -134,25 +152,26 @@ namespace VECS.GraphicsPipelines
                 pVertexAttributeDescriptions = pAttributeDescriptions,
                 pVertexBindingDescriptions = pBindingDescriptions
             };
+
+            if (bindingDescriptions.Length == 0)
+            { 
+                vertexInputInfo.vertexBindingDescriptionCount = 0;
+                vertexInputInfo.pVertexBindingDescriptions = null;
+            }
+
+            if (bindingDescriptions.Length == 0)
+            {
+                vertexInputInfo.vertexAttributeDescriptionCount = 0;
+                vertexInputInfo.pVertexAttributeDescriptions = null;
+            }
+
             return vertexInputInfo;
         }
 
-        /// <summary>
-        /// Loads and creates VkShaderModules for the input vert and frag shader file paths,
-        /// then packages them into the pre-allocated VkPipelineShaderStageCreateInfo point for use
-        /// in creating a graphics pipeline.
-        /// 
-        /// The shader modules are cached in the Render Pipeline so they can be properly disposed when the pipeline is destroyed.
-        /// 
-        /// </summary>
-        /// <param name="vertFilePath">file path to compiled vertex shader</param>
-        /// <param name="fragFilePath">file path to compiled fragment shader</param>
-        /// <param name="shaderStages">stack allocated Pipeline Shader Stage Info</param>
-        private unsafe void GetShaderStageCreateInfo(string vertFilePath, string fragFilePath, VkPipelineShaderStageCreateInfo* shaderStages)
+        private unsafe void GetShaderStageCreateInfo(byte[] vertexBytes, byte[] fragmentBytes, VkPipelineShaderStageCreateInfo* shaderStages)
         {
-            Vulkan.vkCreateShaderModule(_device.Device, File.ReadAllBytes(vertFilePath), null, out _vertShaderModule);
-            Vulkan.vkCreateShaderModule(_device.Device, File.ReadAllBytes(fragFilePath), null, out _fragShaderModule);
-
+            Vulkan.vkCreateShaderModule(_device.Device, vertexBytes, null, out _vertShaderModule);
+            Vulkan.vkCreateShaderModule(_device.Device, fragmentBytes, null, out _fragShaderModule);
             VkUtf8ReadOnlyString main = "main"u8;
 
             shaderStages[0] = new()

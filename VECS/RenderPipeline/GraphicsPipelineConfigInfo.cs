@@ -31,6 +31,19 @@ namespace VECS.GraphicsPipelines
         public static unsafe GraphicsPipelineConfigInfo DefaultPipelineConfigInfo()
         {
 
+            var attributes = new VertexAttributeDescription[]
+            {
+                new(VertexAttribute.Position,VertexAttributeFormat.Float3,0,0,0),
+                new(VertexAttribute.Normal,VertexAttributeFormat.Float3,12,0,1),
+            };
+
+            return DefaultPipelineConfigInfo(DirectMeshBuffer.GetBindingDescription(attributes), DirectMeshBuffer.GetAttributeDescriptions(attributes));
+        }
+
+
+        public static unsafe GraphicsPipelineConfigInfo DefaultPipelineConfigInfo(VkVertexInputBindingDescription[] vkVertexInputBindings, VkVertexInputAttributeDescription[] vkVertexInputAttributes)
+        {
+
             VkPipelineColorBlendStateCreateInfo colourBlendInfo = new()
             {
                 logicOpEnable = false,
@@ -51,7 +64,7 @@ namespace VECS.GraphicsPipelines
             var attributes = new VertexAttributeDescription[]
             {
                 new(VertexAttribute.Position,VertexAttributeFormat.Float3,0,0,0),
-                new(VertexAttribute.Normal,VertexAttributeFormat.Float3,0,1,1),
+                new(VertexAttribute.Normal,VertexAttributeFormat.Float3,12,0,1),
             };
 
             return new()
@@ -125,9 +138,9 @@ namespace VECS.GraphicsPipelines
                 dynamicStateEnables = dynamicStateEnables,
 
                 dynamicInfo = dynamicInfo,
-                
-                BindingDescriptions = DirectMeshBuffer.GetBindingDescription(attributes),
-                AttributeDescriptions = DirectMeshBuffer.GetAttributeDescriptions(attributes)
+
+                BindingDescriptions = vkVertexInputBindings,
+                AttributeDescriptions = vkVertexInputAttributes
             };
         }
 
@@ -141,6 +154,15 @@ namespace VECS.GraphicsPipelines
             return pipelineConfigInfo;
         }
 
+        public static GraphicsPipelineConfigInfo DefaultPipelineConfigInfo(VkVertexInputBindingDescription[] vkVertexInputBindings, VkVertexInputAttributeDescription[] vkVertexInputAttributes,VkRenderPass renderPass, VkPipelineLayout pipelineLayout)
+        {
+            var pipelineConfigInfo = DefaultPipelineConfigInfo(vkVertexInputBindings,vkVertexInputAttributes);
+            //EnableAlphaBlending(ref pipelineConfigInfo);
+            pipelineConfigInfo.renderPass = renderPass;
+            pipelineConfigInfo.pipelineLayout = pipelineLayout;
+
+            return pipelineConfigInfo;
+        }
         /// <summary>
         /// Modify the given configInfo to enable alpha blending of the colour channel.
         /// </summary>

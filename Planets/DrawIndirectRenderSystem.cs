@@ -65,7 +65,7 @@ namespace Planets
                 ProjectionMatrix = cam.ProjectionMatrix,
                 ViewMatrix = cam.ViewMatrix,
                 FrustrumCulling = false,
-                OcclusionCulling = true,
+                OcclusionCulling = false,
                 Aabb = false,
                 DrawDist = 9999999
             };
