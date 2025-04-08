@@ -205,9 +205,12 @@ namespace VECS
         {
             if (_disposed) return;
             _disposed = true;
-            for (int i = 0; i < FrameBuffers.Length; i++)
+            if (FrameBuffers != null)
             {
-                FrameBuffers[i].Item1?.Dispose();
+                for (int i = 0; i < FrameBuffers.Length; i++)
+                {
+                    FrameBuffers[i].Item1?.Dispose();
+                }
             }
             FrameBuffers = null;
             WriteBuffer?.Dispose();

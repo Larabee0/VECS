@@ -140,7 +140,7 @@ namespace VECS.LowLevel
                 pApplicationName = pApplicationName,
                 pEngineName = pEngineName,
                 engineVersion = new VkVersion(1, 0, 0),
-                apiVersion = VkVersion.Version_1_3
+                apiVersion = VkVersion.Version_1_4
             };
             return appInfo;
         }
