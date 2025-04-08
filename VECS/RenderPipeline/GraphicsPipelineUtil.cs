@@ -139,7 +139,7 @@ namespace VECS
             };
         }
 
-        public unsafe static (uint, VkDescriptorSetLayoutBinding)[] GetDescriptorSetBindings(params SpvReflectShaderModule[] modules)
+        public unsafe static (uint,string, VkDescriptorSetLayoutBinding)[] GetDescriptorSetBindings(params SpvReflectShaderModule[] modules)
         {
             Dictionary<(uint, uint), VkShaderStageFlags> setsAndBindingsToFlags = [];
             for (int i = 0; i < modules.Length; i++)
@@ -167,7 +167,7 @@ namespace VECS
                     }
                 }
             }
-            (uint,VkDescriptorSetLayoutBinding)[] descriptorSetBindings = new (uint, VkDescriptorSetLayoutBinding)[setsAndBindingsToFlags.Count];
+            (uint,string,VkDescriptorSetLayoutBinding)[] descriptorSetBindings = new (uint, string, VkDescriptorSetLayoutBinding)[setsAndBindingsToFlags.Count];
 
             int writeIndex = 0;
 
@@ -185,7 +185,7 @@ namespace VECS
 
                     if (setsAndBindingsToFlags.TryGetValue(key, out VkShaderStageFlags shaderStageFlags))
                     {
-                        descriptorSetBindings[writeIndex] = (binding.set, new()
+                        descriptorSetBindings[writeIndex] = (binding.set,binding.Name, new()
                         {
                             binding = binding.binding,
                             descriptorCount = binding.count,
@@ -201,22 +201,23 @@ namespace VECS
             return descriptorSetBindings;
         }
 
-        public unsafe static VkDescriptorSetLayout[]  CreateDescriptorSetLayout(params SpvReflectShaderModule[] modules)
+        public unsafe static VkDescriptorSetLayout[] CreateDescriptorSetLayout(out Dictionary<string, VkDescriptorSetLayoutBinding> bindings, params SpvReflectShaderModule[] modules)
         {
             var allBindings = GetDescriptorSetBindings(modules);
             if(allBindings.Length == 0)
             {
+                bindings = null;
                 return null;
             }
             uint totalSets = 0;
 
-            Dictionary<uint, VkDescriptorSetLayoutBinding[]> sortedBindings = [];
-
+            Dictionary<uint, (string,VkDescriptorSetLayoutBinding[])> sortedBindings = [];
+            bindings = [];
             for (int i = 0; i < allBindings.Length; i++)
             {
-                if(!sortedBindings.TryAdd(allBindings[i].Item1, [allBindings[i].Item2]))
+                if (!sortedBindings.TryAdd(allBindings[i].Item1, (allBindings[i].Item2, [allBindings[i].Item3])))
                 {
-                    sortedBindings[allBindings[i].Item1] = [.. sortedBindings[allBindings[i].Item1], allBindings[i].Item2];
+                    sortedBindings[allBindings[i].Item1] = (allBindings[i].Item2, [.. sortedBindings[allBindings[i].Item1].Item2, allBindings[i].Item3]);
                 }
             }
 
@@ -224,7 +225,11 @@ namespace VECS
 
             for (uint i = 0; i < totalSets; i++)
             {
-                vkDescriptorSets[i] = CreateLayout(sortedBindings[i]);
+                vkDescriptorSets[i] = CreateLayout(sortedBindings[i].Item2);
+                for (int j = 0; j < sortedBindings[i].Item2.Length; j++)
+                {
+                    
+                }
             }
 
             return vkDescriptorSets;

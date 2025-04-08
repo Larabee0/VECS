@@ -19,6 +19,7 @@ namespace VECS
 
         private GraphicsPipelineConfigInfo _graphicsPipelineConfigInfo;
         private readonly VkDescriptorSetLayout[] _materialDescriptorLayouts;
+        private readonly Dictionary<string, VkDescriptorSetLayoutBinding> _materialDescriptorBindings;
         private readonly VkPushConstantRange[] _materialPushConstants;
         private VkPipelineLayout _pipelineLayout;
         private GraphicsPipeline _materialPipeline;
@@ -44,8 +45,8 @@ namespace VECS
                 _graphicsPipelineConfigInfo = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             }
 
-            _materialDescriptorLayouts = GraphicsPipelineUtil.CreateDescriptorSetLayout(spirVert, spirFrag);
-
+            _materialDescriptorLayouts = GraphicsPipelineUtil.CreateDescriptorSetLayout(out _materialDescriptorBindings, spirVert, spirFrag);
+            
             _materialPushConstants = GraphicsPipelineUtil.GetPushConstants(spirVert, spirFrag);
 
             SPIRVReflectUtil.DestroyReflectShaderModule(spirVert);

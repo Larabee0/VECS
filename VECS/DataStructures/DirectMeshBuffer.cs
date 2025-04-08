@@ -93,6 +93,17 @@ namespace VECS
             };
         }
 
+        public static VertexAttributeFormat GetAttributeFromByteSize(this uint byteCount)
+        {
+            return byteCount switch
+            {
+                4 => VertexAttributeFormat.Float1,
+                8 => VertexAttributeFormat.Float2,
+                12 => VertexAttributeFormat.Float3,
+                16 => VertexAttributeFormat.Float4,
+                _ => throw new NotImplementedException(),
+            };
+        }
 
         public static unsafe VkFormat GetVkFormat(this VertexAttributeFormat format)
         {
