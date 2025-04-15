@@ -6,6 +6,7 @@ using System.Text;
 using VECS.GraphicsPipelines;
 using Vortice.SPIRV;
 using Vortice.SPIRV.Reflect;
+using Vortice.Vulkan;
 
 namespace VECS
 {
@@ -72,8 +73,9 @@ namespace VECS
                 Console.WriteLine("Descriptor Bindings");
                 for(int i = 0;i < descriptorBindings.Length; i++)
                 {
-                    DescriptorBinding descriptorBinding = new(descriptorBindings[i]);
-                    Console.WriteLine("{0} {1}", descriptorBindings[i].binding, descriptorBindings[i].Name);
+                    DescriptorBinding descriptorBinding = new(descriptorBindings[i], (VkShaderStageFlags)module.shader_stage);
+                    Console.WriteLine(descriptorBinding.ToString());
+                    //Console.WriteLine("{0} {1}", descriptorBindings[i].binding, descriptorBindings[i].Name);
                     descriptorBinding.Dispose();
                 }
             }

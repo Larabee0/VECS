@@ -201,7 +201,7 @@ namespace VECS
             return descriptorSetBindings;
         }
 
-        public unsafe static VkDescriptorSetLayout[] CreateDescriptorSetLayout(out Dictionary<string, VkDescriptorSetLayoutBinding> bindings, params SpvReflectShaderModule[] modules)
+        public unsafe static VkDescriptorSetLayout[] CreateDescriptorSetLayout(out Dictionary<string, DescriptorBinding> bindings, params SpvReflectShaderModule[] modules)
         {
             var allBindings = GetDescriptorSetBindings(modules);
             if(allBindings.Length == 0)
@@ -235,17 +235,36 @@ namespace VECS
             return vkDescriptorSets;
         }
 
-        private static unsafe VkDescriptorSetLayout CreateLayout(VkDescriptorSetLayoutBinding[] bindings)
+        private static VkDescriptorSetLayout CreateLayout(VkDescriptorSetLayoutBinding[] bindings)
         {
             Array.Sort(bindings, (VkDescriptorSetLayoutBinding x, VkDescriptorSetLayoutBinding y) =>
             {
                 return x.binding.CompareTo(y.binding);
             });
 
-            var array = bindings.ToArray();
+            return CreateLayouts(bindings.ToArray());
+        }
 
+        public static VkDescriptorSetLayout CreateLayouts(DescriptorBinding[] bindings)
+        {
+            Array.Sort(bindings, (DescriptorBinding x, DescriptorBinding y) =>
+            {
+                return x.Set.CompareTo(y.Set);
+            });
+
+            VkDescriptorSetLayoutBinding[] vkBindings = new VkDescriptorSetLayoutBinding[bindings.Length];
+            for (int i = 0; i < bindings.Length; i++)
+            {
+                vkBindings[i] = bindings[i].VkSetBinding;
+            }
+
+            return CreateLayouts(vkBindings);
+        }
+
+        private static unsafe VkDescriptorSetLayout CreateLayouts(VkDescriptorSetLayoutBinding[] bindings)
+        {
             VkDescriptorSetLayout layout = VkDescriptorSetLayout.Null;
-            fixed (VkDescriptorSetLayoutBinding* pBindings = &array[0])
+            fixed (VkDescriptorSetLayoutBinding* pBindings = &bindings[0])
             {
                 VkDescriptorSetLayoutCreateInfo descriptorSetLayoutInfo = new()
                 {
@@ -255,11 +274,65 @@ namespace VECS
                 var result = Vulkan.vkCreateDescriptorSetLayout(GraphicsDevice.Instance.Device, descriptorSetLayoutInfo, null, out layout);
                 if (result != VkResult.Success)
                 {
-                    throw new Exception(string.Format("Failed to create descriptor set layout! {0}",result.ToString()));
+                    throw new Exception(string.Format("Failed to create descriptor set layout! {0}", result.ToString()));
                 }
             }
 
             return layout;
+        }
+
+        public static unsafe DescriptorBinding[] GenerateSharedDescriptorBindings(params SpvReflectShaderModule[] modules)
+        {
+            List<DescriptorBinding> descriptorBindings = [];
+
+            for (int i = 0; i < modules.Length; i++)
+            {
+                var module = modules[i];
+                var bindingsSPIR = SPIRVReflectUtil.DescriptorBindings(module);
+                for (int j = 0; j < bindingsSPIR.Length; j++)
+                {
+                    descriptorBindings.Add(new DescriptorBinding(bindingsSPIR[j], (VkShaderStageFlags)module.shader_stage));
+                }
+            }
+
+            Dictionary<string,DescriptorBinding> descriptorBindingsCombined = [];
+
+            for (int i = 0; i < descriptorBindings.Count; i++)
+            {
+                var binding = descriptorBindings[i];
+
+                if (!descriptorBindingsCombined.TryAdd(binding.Name, binding))
+                {
+                    var existing = descriptorBindingsCombined[binding.Name];
+                    if (existing == binding)
+                    {
+                        if (existing.VkSetBinding.stageFlags != binding.VkSetBinding.stageFlags)
+                        {
+                            existing.UpdateShaderStage(existing.VkSetBinding.stageFlags | binding.VkSetBinding.stageFlags);
+                        }
+                        binding.Dispose();
+                    }
+                    else
+                    {
+                        throw new Exception(string.Format("Descriptor binding with same name\"{0}\" exists but existing binding is different!", binding.Name));
+                    }
+                }
+            }
+
+            return [.. descriptorBindingsCombined.Values];
+        }
+
+        public static Dictionary<string, int> ExtractBindingsForSet(uint set, DescriptorBinding[] bindings)
+        {
+            Dictionary<string, int> setBindings = [];
+            for (int i = 0; i < bindings.Length; i++)
+            {
+                if (bindings[i].Set == set)
+                {
+                    setBindings.Add(bindings[i].Name,i);
+                }
+            }
+            return setBindings;
         }
     }
 }

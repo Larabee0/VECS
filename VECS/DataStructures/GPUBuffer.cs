@@ -275,7 +275,7 @@ namespace VECS
             SetGPUBufferChanged(false);
         }
         public unsafe void TryAllocHostBuffer(bool read = true)
-        {
+        {   
             if (_hostPtr == null)
             {
                 _hostPtr = NativeMemory.AllocZeroed((nuint)UInstanceCount, (nuint)_instanceSize);

@@ -19,10 +19,19 @@ namespace VECS
 
         private GraphicsPipelineConfigInfo _graphicsPipelineConfigInfo;
         private readonly VkDescriptorSetLayout[] _materialDescriptorLayouts;
-        private readonly Dictionary<string, VkDescriptorSetLayoutBinding> _materialDescriptorBindings;
         private readonly VkPushConstantRange[] _materialPushConstants;
         private VkPipelineLayout _pipelineLayout;
         private GraphicsPipeline _materialPipeline;
+
+        // all binding descriptions
+        private readonly DescriptorBinding[] _materialBindings;
+        // descriptor set 0 contains application wide data (camera data, lighting data)
+        private readonly Dictionary<string, int> applicationGlobalBindings;
+        // descriptor set 1 contains shared descriptors at the material level (textures, some shader properties)
+        private readonly Dictionary<string, int> materialGlobalBindings;
+        // descriptor set 2 contains object level descriptors (object matrices, object specific shader properties)
+        private readonly Dictionary<string, int> objectBindings;
+
 
         public VkPipelineLayout PipeLineLayout => _pipelineLayout;
 
@@ -45,8 +54,19 @@ namespace VECS
                 _graphicsPipelineConfigInfo = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             }
 
-            _materialDescriptorLayouts = GraphicsPipelineUtil.CreateDescriptorSetLayout(out _materialDescriptorBindings, spirVert, spirFrag);
-            
+            _materialBindings = GraphicsPipelineUtil.GenerateSharedDescriptorBindings(spirVert, spirFrag);
+
+            applicationGlobalBindings = GraphicsPipelineUtil.ExtractBindingsForSet(0, _materialBindings);
+            materialGlobalBindings = GraphicsPipelineUtil.ExtractBindingsForSet(1, _materialBindings);
+            objectBindings = GraphicsPipelineUtil.ExtractBindingsForSet(2, _materialBindings);
+
+            //_materialDescriptorLayouts = new VkDescriptorSetLayout[_materialBindings.Length];
+
+            //for (int i = 0; i < _materialBindings.Length; i++)
+            //{
+            //    _materialDescriptorLayouts = _materialBindings[i].VkSetBinding;
+            //}
+
             _materialPushConstants = GraphicsPipelineUtil.GetPushConstants(spirVert, spirFrag);
 
             SPIRVReflectUtil.DestroyReflectShaderModule(spirVert);
@@ -103,16 +123,23 @@ namespace VECS
             _materialPipeline = new(GraphicsDevice.Instance, vertexBytes, fragmentBytes, _graphicsPipelineConfigInfo);
         }
 
-        public static byte[] GetShaderBytes(string shaderName)
+        public DescriptorBinding GetBinding(string name)
         {
-            string shaderFilePath = Path.Combine(Application.ExecutingDirectory, string.Format("Assets/Shaders/{0}.spv", shaderName));
-
-            if (!File.Exists(shaderFilePath))
+            if(objectBindings.TryGetValue(name, out var binding))
             {
-                throw new FileNotFoundException(string.Format("Shader file not found at the specified file path:\n{0}", shaderFilePath));
+                return _materialBindings[binding];
             }
 
-            return File.ReadAllBytes(shaderFilePath);
+            if (materialGlobalBindings.TryGetValue(name, out binding))
+            {
+                return _materialBindings[binding];
+            }
+
+            if (applicationGlobalBindings.TryGetValue(name, out binding))
+            {
+                return _materialBindings[binding];
+            }
+            return null;
         }
 
         public unsafe void Dispose()
@@ -157,6 +184,19 @@ namespace VECS
 
             Materials.RemoveAt(index);
         }
+
+        public static byte[] GetShaderBytes(string shaderName)
+        {
+            string shaderFilePath = Path.Combine(Application.ExecutingDirectory, string.Format("Assets/Shaders/{0}.spv", shaderName));
+
+            if (!File.Exists(shaderFilePath))
+            {
+                throw new FileNotFoundException(string.Format("Shader file not found at the specified file path:\n{0}", shaderFilePath));
+            }
+
+            return File.ReadAllBytes(shaderFilePath);
+        }
+
         public static int GetIndexOfMaterial(MaterialV2 material)
         {
             return Materials.IndexOf(material);
