@@ -14,7 +14,7 @@ namespace VECS
     /// based on
     /// https://bitbucket.org/Starnick/assimpnet/src/master/AssimpNet.Sample/Helper.cs
     /// </summary>
-    public class Texture2d
+    public sealed class Texture2d : IDisposable
     {
         public static string DefaultTexturePath => Path.Combine(Application.ExecutingDirectory, "Assets/Textures");
 
