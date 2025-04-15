@@ -179,7 +179,7 @@ namespace Planets
 
                 fixed (VkDescriptorSet* pSet = &_cullCompute.DescriptorSet)
                 {
-                    new DescriptorWriter(_cullCompute.DescriptorSetLayout, rendererFrameInfo.FrameDescriptorPool)
+                    new DescriptorWriter(_cullCompute.DescriptorSetLayout, rendererFrameInfo.EntityDescriptorPool)
                         .WriteBuffer(0, rendererFrameInfo.UboBuffer.DescriptorInfo())
                         .WriteBuffer(1, objectDataBuffer.DescriptorInfo())
                         .WriteBuffer(2, indirectCmdBuffer.DescriptorInfo())
@@ -219,7 +219,7 @@ namespace Planets
 
             material.BindGlobalDescriptorSet(rendererFrameInfo);
 
-            DescriptorWriter writer = new(material.MaterialDescriptorLayout, rendererFrameInfo.FrameDescriptorPool);
+            DescriptorWriter writer = new(material.MaterialDescriptorLayout, rendererFrameInfo.EntityDescriptorPool);
             writer.WriteBuffer(0, modelMatricesBuffer.DescriptorInfo());
             material.BindDescriptorSet(rendererFrameInfo, writer);
             meshSet.BindBuffers(cmdBuffer);
@@ -415,7 +415,7 @@ namespace Planets
             _sampleOutput.WriteToBuffer(&output);
             fixed (VkDescriptorSet* pSet = &_sampler.DescriptorSet)
             {
-                new DescriptorWriter(_sampler.DescriptorSetLayout, frameInfo.FrameDescriptorPool)
+                new DescriptorWriter(_sampler.DescriptorSetLayout, frameInfo.EntityDescriptorPool)
                     .WriteBuffer(0, _sampleInput.DescriptorInfo())
                     .WriteImage(1, frameInfo.DepthPyramid)
                     .WriteBuffer(2, _sampleOutput.DescriptorInfo())

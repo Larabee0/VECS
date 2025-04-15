@@ -499,7 +499,7 @@ namespace VECS.LowLevel
             };
 
             VkDescriptorSet blitSet = default;
-            new DescriptorWriter(_blitDescriptorSetLayout, frameInfo.FrameDescriptorPool)
+            new DescriptorWriter(_blitDescriptorSetLayout, frameInfo.EntityDescriptorPool)
                 .WriteImage(0, sourceImage)
                 .Build(&blitSet);
 

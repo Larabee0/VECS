@@ -296,7 +296,7 @@ namespace VECS
                         break;
                     case SpvOp.TypeRuntimeArray:
                         arrayChildren = GetBlockMembers(member);
-                        variables.Add(new(member.Name, type_desc.op, member.padded_size, member.offset, member.array, arrayChildren));
+                        variables.Add(new(member.Name, type_desc.op, arrayChildren, member.padded_size, member.offset));
                         break;
                     case SpvOp.TypeVector:
                         variables.Add(new(member.Name, type_desc.op, member.padded_size, member.numeric, member.offset));

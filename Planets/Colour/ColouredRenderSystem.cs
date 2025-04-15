@@ -139,7 +139,7 @@ namespace Planets.Colour
         {
             fixed (VkDescriptorSet* pSet = &descriptorSet)
             {
-                new DescriptorWriter(mat.MaterialDescriptorLayout, frameInfo.FrameDescriptorPool)
+                new DescriptorWriter(mat.MaterialDescriptorLayout, frameInfo.EntityDescriptorPool)
                 .WriteBuffer(0, shaderParams.DescriptorInfo())
                 .WriteImage(1, Texture2d.GetTextureImageInfoAtIndex(textures.ColourTexture))
                 .WriteImage(2, Texture2d.GetTextureImageInfoAtIndex(textures.SteepTexture))

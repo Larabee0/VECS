@@ -17,6 +17,7 @@ namespace VECS
         public readonly bool Matrix;
         public readonly uint Rows;
         public readonly uint Columns;
+        public readonly bool VariableArraySize;
         public readonly uint ArrayDimentions;
         public readonly uint[] ArrayDimentionSizes;
         public readonly DescriptorPropertyInfo[] Members;
@@ -47,7 +48,6 @@ namespace VECS
                         }
                         return CachedMemberSize;
                     case SpvOp.TypeArray:
-
                         if (CachedMemberSize == 0)
                         {
                             for (int i = 0; i < Members.Length; i++)
@@ -59,6 +59,23 @@ namespace VECS
                         {
                             CachedArraySize = ArrayDimentionSizes[0] * CachedMemberSize;
                             for (int i = 1;i < ArrayDimentions; i++)
+                            {
+                                CachedArraySize *= ArrayDimentionSizes[i];
+                            }
+                        }
+                        return CachedArraySize;
+                    case SpvOp.TypeRuntimeArray:
+                        if (CachedMemberSize == 0)
+                        {
+                            for (int i = 0; i < Members.Length; i++)
+                            {
+                                CachedMemberSize += Members[i].Size;
+                            }
+                        }
+                        if (CachedArraySize == 0)
+                        {
+                            CachedArraySize = ArrayDimentionSizes[0] * CachedMemberSize;
+                            for (int i = 1; i < ArrayDimentions; i++)
                             {
                                 CachedArraySize *= ArrayDimentionSizes[i];
                             }
@@ -108,6 +125,19 @@ namespace VECS
             }
         }
 
+
+        public unsafe DescriptorPropertyInfo(string name, SpvOp type, List<DescriptorPropertyInfo> children, uint paddedSize, uint offset)
+        {
+            Name = name;
+            Type = type;
+            Offset = offset;
+            PaddedSize = paddedSize;
+            Members = [.. children];
+            ArrayDimentions = 1;
+            ArrayDimentionSizes = [1];
+            VariableArraySize = true;
+        }
+
         public DescriptorPropertyInfo(string name, SpvOp type, uint paddedSize, uint offset, List<DescriptorPropertyInfo> members)
         {
             Name = name;
@@ -145,6 +175,10 @@ namespace VECS
             {
                 throw new NotImplementedException(string.Format("Image ms = {0} unhandled", imageTraits.ms));
             }
+        }
+
+        public DescriptorPropertyInfo()
+        {
         }
     }
 }

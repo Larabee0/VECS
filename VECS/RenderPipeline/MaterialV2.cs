@@ -27,10 +27,10 @@ namespace VECS
         private readonly DescriptorBinding[] _materialBindings;
         // descriptor set 0 contains application wide data (camera data, lighting data)
         private readonly Dictionary<string, int> applicationGlobalBindings;
-        // descriptor set 1 contains shared descriptors at the material level (textures, some shader properties)
+        // descriptor set 1 contains shared descriptors at the material level (textures, shader properties)
         private readonly Dictionary<string, int> materialGlobalBindings;
-        // descriptor set 2 contains object level descriptors (object matrices, object specific shader properties)
-        private readonly Dictionary<string, int> objectBindings;
+        // descriptor set 2 contains per entity descriptors (matrices, entity specific shader properties)
+        private readonly Dictionary<string, int> entityBindings;
 
 
         public VkPipelineLayout PipeLineLayout => _pipelineLayout;
@@ -53,19 +53,16 @@ namespace VECS
             {
                 _graphicsPipelineConfigInfo = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             }
-
+            _graphicsPipelineConfigInfo.renderPass = Presenter.Instance.RenderPass;
             _materialBindings = GraphicsPipelineUtil.GenerateSharedDescriptorBindings(spirVert, spirFrag);
 
             applicationGlobalBindings = GraphicsPipelineUtil.ExtractBindingsForSet(0, _materialBindings);
             materialGlobalBindings = GraphicsPipelineUtil.ExtractBindingsForSet(1, _materialBindings);
-            objectBindings = GraphicsPipelineUtil.ExtractBindingsForSet(2, _materialBindings);
+            entityBindings = GraphicsPipelineUtil.ExtractBindingsForSet(2, _materialBindings);
 
-            //_materialDescriptorLayouts = new VkDescriptorSetLayout[_materialBindings.Length];
+            _materialDescriptorLayouts = new VkDescriptorSetLayout[applicationGlobalBindings.Count + materialGlobalBindings.Count + entityBindings.Count];
 
-            //for (int i = 0; i < _materialBindings.Length; i++)
-            //{
-            //    _materialDescriptorLayouts = _materialBindings[i].VkSetBinding;
-            //}
+            GenerateDescriptorSetLayouts();
 
             _materialPushConstants = GraphicsPipelineUtil.GetPushConstants(spirVert, spirFrag);
 
@@ -77,6 +74,50 @@ namespace VECS
             Materials.Add(this);
         }
 
+        private void GenerateDescriptorSetLayouts()
+        {
+            DescriptorBinding[] workingBindings;
+
+            int workingBindingIndex = 0;
+            int layoutIndex = 0;
+            if (applicationGlobalBindings.Count > 0)
+            {
+                workingBindings = new DescriptorBinding[applicationGlobalBindings.Count];
+                foreach (var item in applicationGlobalBindings)
+                {
+                    workingBindings[workingBindingIndex] = _materialBindings[item.Value];
+                    workingBindingIndex++;
+                }
+                _materialDescriptorLayouts[layoutIndex] = GraphicsPipelineUtil.CreateLayout(workingBindings);
+                layoutIndex++;
+            }
+
+            if (materialGlobalBindings.Count > 0)
+            {
+                workingBindingIndex = 0;
+                workingBindings = new DescriptorBinding[materialGlobalBindings.Count];
+                foreach (var item in materialGlobalBindings)
+                {
+                    workingBindings[workingBindingIndex] = _materialBindings[item.Value];
+                    workingBindingIndex++;
+                }
+                _materialDescriptorLayouts[layoutIndex] = GraphicsPipelineUtil.CreateLayout(workingBindings);
+                layoutIndex++;
+            }
+
+            if (entityBindings.Count > 0)
+            {
+                workingBindingIndex = 0;
+                workingBindings = new DescriptorBinding[entityBindings.Count];
+                foreach (var item in entityBindings)
+                {
+                    workingBindings[workingBindingIndex] = _materialBindings[item.Value];
+                    workingBindingIndex++;
+                }
+                _materialDescriptorLayouts[layoutIndex] = GraphicsPipelineUtil.CreateLayout(workingBindings);
+            }
+        }
+
         private unsafe void CreatePipelineLayout()
         {
             VkPipelineLayoutCreateInfo vkPipelineLayoutInfo = new()
@@ -85,7 +126,7 @@ namespace VECS
                 pushConstantRangeCount = _materialPushConstants == null ? 0 : (uint)_materialPushConstants.Length
             };
 
-            if (_materialDescriptorLayouts != null)
+            if (_materialDescriptorLayouts != null && _materialDescriptorLayouts.Length > 0)
             {
                 vkPipelineLayoutInfo.setLayoutCount = (uint)_materialDescriptorLayouts.Length;
                 fixed (VkDescriptorSetLayout* pLayouts = &_materialDescriptorLayouts[0])
@@ -94,7 +135,7 @@ namespace VECS
                 }
             }
 
-            if(_materialPushConstants != null)
+            if(_materialPushConstants != null && _materialPushConstants.Length > 0)
             {
                 vkPipelineLayoutInfo.pushConstantRangeCount = (uint)_materialPushConstants.Length;
                 fixed (VkPushConstantRange* pLayouts = &_materialPushConstants[0])
@@ -107,6 +148,7 @@ namespace VECS
             {
                 throw new Exception(string.Format("Failed to create pipeline layout! {0}",result.ToString()));
             }
+            _graphicsPipelineConfigInfo.pipelineLayout = _pipelineLayout;
         }
 
         private void CreatePipeline(byte[] vertexBytes, byte[] fragmentBytes)
@@ -115,7 +157,6 @@ namespace VECS
             {
                 throw new InvalidOperationException("Cannot create pipeline before pipeline layout!");
             }
-
             //pipelineConfigInfo.rasterizationInfo.polygonMode = VkPolygonMode.Line;
             //pipelineConfigInfo.rasterizationInfo.lineWidth = 1;
             _graphicsPipelineConfigInfo.rasterizationInfo.cullMode = VkCullModeFlags.Front;
@@ -125,7 +166,7 @@ namespace VECS
 
         public DescriptorBinding GetBinding(string name)
         {
-            if(objectBindings.TryGetValue(name, out var binding))
+            if(entityBindings.TryGetValue(name, out var binding))
             {
                 return _materialBindings[binding];
             }
@@ -165,8 +206,7 @@ namespace VECS
             {
                 var entityManager = World.DefaultWorld.EntityManager;
                 var allMeshEntities = entityManager.GetAllEntitiesWithComponent<MaterialIndexV2>();
-                if (allMeshEntities == null) return;
-                allMeshEntities.ForEach(e =>
+                allMeshEntities?.ForEach(e =>
                 {
                     var materialIndex = entityManager.GetComponent<MaterialIndexV2>(e);
 

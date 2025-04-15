@@ -37,7 +37,8 @@ namespace VECS
         private readonly VkDescriptorSet[] _globalDescriptorSets = new VkDescriptorSet[SwapChain.MAX_FRAMES_IN_FLIGHT];
         private readonly GPUBuffer<GlobalUbo.WriteableUBO>[] _globalUboBuffers = new GPUBuffer<GlobalUbo.WriteableUBO>[SwapChain.MAX_FRAMES_IN_FLIGHT];
 
-        private readonly DescriptorPool[] swapChainFrameDescriptorPools = new DescriptorPool[SwapChain.MAX_FRAMES_IN_FLIGHT];
+        private readonly DescriptorPool[] materialFrameDescriptorPools = new DescriptorPool[SwapChain.MAX_FRAMES_IN_FLIGHT];
+        private readonly DescriptorPool[] entityFrameDescriptorPools = new DescriptorPool[SwapChain.MAX_FRAMES_IN_FLIGHT];
 
         private Entity frameInfoEntity;
 
@@ -51,7 +52,8 @@ namespace VECS
 
 
             InitGloalDescriptorPool();
-            InitSwapChainFrameDescriptorPools();
+            InitMaterialFrameDescriptorPools();
+            InitEntityFrameDescriptorPools();
             LoadMissingTexture();
             Instance = this;
         }
@@ -67,10 +69,7 @@ namespace VECS
                 .Build();
         }
 
-        /// <summary>
-        /// Swap chain frame descriptor pools allow render systems to send arbitary data to their shader programs.
-        /// </summary>
-        private void InitSwapChainFrameDescriptorPools()
+        private void InitMaterialFrameDescriptorPools()
         {
             DescriptorPool.Builder framePoolBuilder = new DescriptorPool.Builder()
                             .SetMaxSets(2000)
@@ -78,9 +77,23 @@ namespace VECS
                             .AddPoolSize(VkDescriptorType.UniformBuffer, 2000)
                             .AddPoolSize(VkDescriptorType.StorageBuffer, 2000)
                             .SetPoolFlags(VkDescriptorPoolCreateFlags.FreeDescriptorSet);
-            for (int i = 0; i < swapChainFrameDescriptorPools.Length; i++)
+            for (int i = 0; i < materialFrameDescriptorPools.Length; i++)
             {
-                swapChainFrameDescriptorPools[i] = framePoolBuilder.Build();
+                materialFrameDescriptorPools[i] = framePoolBuilder.Build();
+            }
+        }
+
+        private void InitEntityFrameDescriptorPools()
+        {
+            DescriptorPool.Builder framePoolBuilder = new DescriptorPool.Builder()
+                            .SetMaxSets(2000)
+                            .AddPoolSize(VkDescriptorType.CombinedImageSampler, 2000)
+                            .AddPoolSize(VkDescriptorType.UniformBuffer, 2000)
+                            .AddPoolSize(VkDescriptorType.StorageBuffer, 2000)
+                            .SetPoolFlags(VkDescriptorPoolCreateFlags.FreeDescriptorSet);
+            for (int i = 0; i < entityFrameDescriptorPools.Length; i++)
+            {
+                entityFrameDescriptorPools[i] = framePoolBuilder.Build();
             }
         }
 
@@ -141,7 +154,8 @@ namespace VECS
         private unsafe RendererFrameInfo CreateRendererFrameInfo(float deltaTime, VkCommandBuffer commandBuffer)
         {
             int frameIndex = _renderer.FrameIndex;
-            swapChainFrameDescriptorPools[frameIndex].ResetPool();
+            materialFrameDescriptorPools[frameIndex].ResetPool();
+            entityFrameDescriptorPools[frameIndex].ResetPool();
             RendererFrameInfo frameInfo = new()
             {
                 FrameIndex = frameIndex,
@@ -149,7 +163,7 @@ namespace VECS
                 CommandBuffer = commandBuffer,
                 UboBuffer = _globalUboBuffers[frameIndex],
                 GlobalDescriptorSet = _globalDescriptorSets[frameIndex],
-                FrameDescriptorPool = swapChainFrameDescriptorPools[frameIndex],
+                EntityDescriptorPool = entityFrameDescriptorPools[frameIndex],
                 PostCullBarriers = _renderer.PostCullBarriers,
                 DepthPyramid = _renderer.DepthPyramid,
                 DepthPyramidWidth = (int)_renderer.DepthPyramidWidth,
@@ -265,10 +279,15 @@ namespace VECS
             // finally deallocate their pool
             _globalDescriptorPool.Dispose();
 
-            // deallocate frame pools
-            for (int i = 0; i < swapChainFrameDescriptorPools.Length; i++)
+            for (int i = 0; i < materialFrameDescriptorPools.Length; i++)
             {
-                swapChainFrameDescriptorPools[i].Dispose();
+                materialFrameDescriptorPools[i].Dispose();
+            }
+
+            // deallocate frame pools
+            for (int i = 0; i < entityFrameDescriptorPools.Length; i++)
+            {
+                entityFrameDescriptorPools[i].Dispose();
             }
 
             // then destroy the renderer, which will destroy the swapchain.

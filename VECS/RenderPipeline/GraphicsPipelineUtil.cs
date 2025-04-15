@@ -242,10 +242,10 @@ namespace VECS
                 return x.binding.CompareTo(y.binding);
             });
 
-            return CreateLayouts(bindings.ToArray());
+            return CreateLayouts([.. bindings]);
         }
 
-        public static VkDescriptorSetLayout CreateLayouts(DescriptorBinding[] bindings)
+        public static VkDescriptorSetLayout CreateLayout(DescriptorBinding[] bindings)
         {
             Array.Sort(bindings, (DescriptorBinding x, DescriptorBinding y) =>
             {

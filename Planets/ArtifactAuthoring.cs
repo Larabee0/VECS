@@ -78,10 +78,15 @@ namespace Planets
                 new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.StorageBuffer, StageFlags = VkShaderStageFlags.Vertex }
             );
 
+            var indirectV2 = new MaterialV2("white_shader.vert", "white_shader.frag");
+
+            indirectV2.Dispose();
+
             CreateSinglePlanetTestScene(entityManager, prefabPlanet);
 
             Console.WriteLine("Shape loaded");
             GeometryStats();
+
         }
 
         private void CreateSinglePlanetTestScene(EntityManager entityManager, Entity prefabPlanet)

@@ -17,17 +17,16 @@ namespace VECS
     /// render system pipelines.
     /// 
     /// </summary>
-    public struct RendererFrameInfo
+    public class RendererFrameInfo
     {
-        public static readonly RendererFrameInfo Null = new() { FrameIndex = -1, DeltaTime = -1 };
-
         public int FrameIndex;
         public float DeltaTime;
         public VkCommandBuffer CommandBuffer;
         public GlobalUbo Ubo;
         public GPUBuffer<GlobalUbo.WriteableUBO> UboBuffer;
         public VkDescriptorSet GlobalDescriptorSet;
-        public DescriptorPool FrameDescriptorPool;
+        public DescriptorPool MaterialDescriptorPool;
+        public DescriptorPool EntityDescriptorPool;
         public List<VkBufferMemoryBarrier> PostCullBarriers;
         public VkDescriptorImageInfo DepthPyramid;
         public int DepthPyramidWidth;
@@ -39,17 +38,17 @@ namespace VECS
 
         public static bool operator !=(RendererFrameInfo left, RendererFrameInfo right) => !(left == right);
 
-        public readonly bool Equals(RendererFrameInfo other)
+        public bool Equals(RendererFrameInfo other)
         {
             return this == other;
         }
 
-        public override readonly bool Equals(object obj)
+        public override bool Equals(object obj)
         {
             return (obj is RendererFrameInfo other) && Equals(other);
         }
 
-        public override readonly int GetHashCode()
+        public override int GetHashCode()
         {
             return HashCode.Combine(FrameIndex, DeltaTime);
         }

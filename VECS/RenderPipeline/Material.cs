@@ -463,8 +463,7 @@ namespace VECS
             {
                 var entityManager = World.DefaultWorld.EntityManager;
                 var allMeshEntities = entityManager.GetAllEntitiesWithComponent<MaterialIndex>();
-                if (allMeshEntities == null) return;
-                allMeshEntities.ForEach(e =>
+                allMeshEntities?.ForEach(e =>
                 {
                     var materialIndex = entityManager.GetComponent<MaterialIndex>(e);
 

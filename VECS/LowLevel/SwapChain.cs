@@ -827,7 +827,7 @@ namespace VECS.LowLevel
 
                 VkDescriptorSet depthSet = default;
 
-                new DescriptorWriter(_depthReducePipeline.DescriptorSetLayout, frameInfo.FrameDescriptorPool)
+                new DescriptorWriter(_depthReducePipeline.DescriptorSetLayout, frameInfo.EntityDescriptorPool)
                     .WriteImage(0, destTarget)
                     .WriteImage(1, sourceTarget)
                     .Build(&depthSet);
