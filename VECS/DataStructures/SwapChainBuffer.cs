@@ -62,6 +62,7 @@ namespace VECS
             _instanceCount = instanceCount;
             _alignmentSize = GPUBuffer.GetAlignment(_instanceSize, minOffsetAlignment);
             _CPUAccessible = cpuAccessible;
+            _bufferSize = _alignmentSize * _instanceCount;
             if (BufferSize == 0) return;
 
             for (int i = 0; i < SwapChain.MAX_FRAMES_IN_FLIGHT; i++)
@@ -82,6 +83,7 @@ namespace VECS
             _instanceCount = instanceCount;
             _alignmentSize = GPUBuffer.GetAlignment(_instanceSize, minOffsetAlignment);
             _CPUAccessible = cpuAccessible;
+            _bufferSize = _alignmentSize * _instanceCount;
 
             if (BufferSize == 0) return;
 
@@ -189,7 +191,7 @@ namespace VECS
             }
         }
 
-        private void SetBuffersDirty(bool dirty)
+        public void SetBuffersDirty(bool dirty)
         {
             for (int i = 0; i < SwapChain.MAX_FRAMES_IN_FLIGHT; i++)
             {

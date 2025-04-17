@@ -54,6 +54,7 @@ namespace VECS
             _usageFlags = usageFlags;
             _alignmentSize = GetAlignment(_instanceSize, minOffsetAlignment);
 
+            _bufferSize = _alignmentSize * _instanceCount;
             if (BufferSize == 0) return;
             CreateInternal(cpuAccessible, preventHostAllocation);
         }
@@ -71,6 +72,7 @@ namespace VECS
             _usageFlags = usageFlags;
             _alignmentSize = GetAlignment(_instanceSize, minOffsetAlignment);
 
+            _bufferSize = _alignmentSize * _instanceCount;
             if (BufferSize == 0) return;
             CreateInternal(cpuAccessible, preventHostAllocation);
         }
