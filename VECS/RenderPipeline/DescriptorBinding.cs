@@ -84,14 +84,31 @@ namespace VECS
 
         public DescriptorPropertyInfo GetProperty(string name)
         {
+            string topLevelMemberName = name;
+            int subPropertyIndex = name.IndexOf('.');
+
+            if (subPropertyIndex != -1)
+            {
+                topLevelMemberName = name[..subPropertyIndex];
+            }
+
+            DescriptorPropertyInfo topLevelMember = null;
+
             for (int i = 0; i < Variables.Length; i++)
             {
-                if (Variables[i].Name == name)
+                if (Variables[i].Name == topLevelMemberName)
                 {
-                    return Variables[i];
+                    topLevelMember = Variables[i];
+                    break;
                 }
             }
-            return null;
+
+            if(topLevelMember != null && subPropertyIndex != -1)
+            {
+                topLevelMember.LookUpMember(name[(subPropertyIndex + 1)..], out topLevelMember);
+            }
+
+            return topLevelMember;
         }
 
         public override string ToString()
@@ -112,7 +129,7 @@ namespace VECS
 
         public static bool operator ==(DescriptorBinding left, DescriptorBinding right)
         {
-            return left.Name == right.Name && left.Set == right.Set && left.Binding == right.Binding
+            return (object)left != null && (object)right != null && left.Name == right.Name && left.Set == right.Set && left.Binding == right.Binding
                 && left.Image == right.Image && left.Buffer == right.Buffer
                 && left.DynamicBuffer == right.DynamicBuffer && left.BufferSize == right.BufferSize
                 && left.BufferUsageFlags == right.BufferUsageFlags && left.GlobalUniformBuffer == right.GlobalUniformBuffer

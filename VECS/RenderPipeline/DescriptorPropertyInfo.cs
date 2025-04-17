@@ -18,12 +18,14 @@ namespace VECS
         public readonly uint Rows;
         public readonly uint Columns;
         public readonly bool VariableArraySize;
+        public readonly bool FixedArray;
         public readonly uint ArrayDimentions;
         public readonly uint[] ArrayDimentionSizes;
         public readonly DescriptorPropertyInfo[] Members;
         public readonly VkImageType ImageType;
         public readonly bool ImageArray;
         public readonly uint ImageDepth;
+        public readonly Dictionary<string, int> MemberMap;
 
         public uint CachedMemberSize = 0;
         public uint CachedArraySize = 0;
@@ -119,9 +121,17 @@ namespace VECS
             Members = [.. children];
             ArrayDimentions = arrayTraits.dims_count;
             ArrayDimentionSizes = new uint[arrayTraits.dims_count];
+            FixedArray = true;
             for (uint i = 0; i < arrayTraits.dims_count; i++)
             {
                 ArrayDimentionSizes[i] = arrayTraits.dims[i];
+            }
+
+            MemberMap = new(Members.Length);
+
+            for (int i = 0; i < Members.Length; i++)
+            {
+                MemberMap.Add(Members[i].Name, i);
             }
         }
 
@@ -136,6 +146,13 @@ namespace VECS
             ArrayDimentions = 1;
             ArrayDimentionSizes = [1];
             VariableArraySize = true;
+
+            MemberMap = new(Members.Length);
+
+            for (int i = 0; i < Members.Length; i++)
+            {
+                MemberMap.Add(Members[i].Name, i);
+            }
         }
 
         public DescriptorPropertyInfo(string name, SpvOp type, uint paddedSize, uint offset, List<DescriptorPropertyInfo> members)
@@ -145,6 +162,13 @@ namespace VECS
             Offset = offset;
             PaddedSize = paddedSize;
             Members = [.. members];
+
+            MemberMap = new(Members.Length);
+
+            for (int i = 0; i < Members.Length; i++)
+            {
+                MemberMap.Add(Members[i].Name, i);
+            }
         }
 
         public DescriptorPropertyInfo(string name, SpvOp type, uint offset, SpvReflectImageTraits imageTraits)
@@ -179,6 +203,41 @@ namespace VECS
 
         public DescriptorPropertyInfo()
         {
+        }
+
+        public DescriptorPropertyInfo(string name, SpvOp type, uint bufferSize, uint offset)
+        {
+            Name = name;
+            Type = type;
+            Offset = offset;
+            CachedMemberSize = bufferSize;
+        }
+
+        public bool LookUpMember(string name, out DescriptorPropertyInfo propertyInfo)
+        {
+            if(Name == name)
+            {
+                propertyInfo = this;
+                return true;
+            }
+            if(Members == null || Members.Length == 0)
+            {
+                propertyInfo = null;
+                return false;
+            }
+            var dotIndex = name.IndexOf('.');
+            if (dotIndex >= 0 && MemberMap.TryGetValue(name.Substring(0,dotIndex),out var memberIndex))
+            {
+                return Members[memberIndex].LookUpMember(name,out propertyInfo);
+            }
+            else if(MemberMap.TryGetValue(name, out memberIndex))
+            {
+                propertyInfo = Members[memberIndex];
+                return true;
+            }
+
+            propertyInfo = null;
+            return false;
         }
     }
 }

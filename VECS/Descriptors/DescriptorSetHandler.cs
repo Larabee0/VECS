@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using VECS.LowLevel;
+using Vortice.SPIRV;
 using Vortice.Vulkan;
 
 namespace VECS
@@ -12,6 +13,7 @@ namespace VECS
 
         internal readonly VkDescriptorSet[] _vkDescriptorSets = [SwapChain.MAX_FRAMES_IN_FLIGHT];
 
+        private readonly Dictionary<string, int> _bindingMap;
         private readonly DescriptorBinding[] _descriptorBindings;
         private readonly int[] _bufferBindings;
         private readonly int[] _imageBindings;
@@ -45,11 +47,13 @@ namespace VECS
             _descriptorLevel = level;
 
             _descriptorBindings = new DescriptorBinding[bindings.Length];
+            _bindingMap = new Dictionary<string, int>(bindings.Length);
 
             for (int i = 0; i < bindings.Length; i++)
             {
                 var binding = bindings[i];
                 _descriptorBindings[binding.Binding] = binding;
+                _bindingMap.Add(binding.Name, (int)binding.Binding);
                 if (binding.IsAnyBuffer)
                 {
                     _bufferCount++;
@@ -249,6 +253,42 @@ namespace VECS
             Vulkan.vkUpdateDescriptorSets(GraphicsDevice.Instance.Device, _vkDescriptorWrites);
             _vkDescriptorSets[frameIndex] = set;
             _setsAllocated[frameIndex] = false;
+        }
+
+
+        public bool LookUpProperty(string property, out uint bindingIndex, out DescriptorPropertyInfo propertyInfo)
+        {
+            int index = property.IndexOf('.');
+            var bindingName = property;
+            if (index != -1)
+            {
+                bindingName = property[..index];
+            }
+            if (!_bindingMap.TryGetValue(bindingName, out int internalBindingIndex))
+            {
+                propertyInfo = null;
+                bindingIndex = uint.MaxValue;
+                return false;
+            }
+
+            var binding = _descriptorBindings[internalBindingIndex];
+            bindingIndex = binding.Binding;
+            if (index != -1)
+            {
+                var address = property[(index + 1)..];
+                propertyInfo = binding.GetProperty(address);
+                return propertyInfo != null;
+            }
+            else if(binding != null && (binding.UniformBuffer || binding.Image))
+            {
+                propertyInfo = new DescriptorPropertyInfo(bindingName, SpvOp.TypeStruct, binding.BufferSize, 0);
+
+                return true;
+            }
+
+                propertyInfo = null;
+
+            return false;
         }
 
         public unsafe void Dispose()

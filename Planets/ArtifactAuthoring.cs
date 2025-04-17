@@ -78,7 +78,7 @@ namespace Planets
                 new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.StorageBuffer, StageFlags = VkShaderStageFlags.Vertex }
             );
 
-            var indirectV2 = new MaterialV2("white_shader.vert", "white_shader.frag");
+            var indirectV2 = new MaterialV2("planet_shader.vert", "planet_shader.frag");
 
             indirectV2.Dispose();
 
