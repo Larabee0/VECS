@@ -1,9 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using VECS.ECS;
 using VECS.ECS.Presentation;
 using VECS.GraphicsPipelines;
@@ -26,11 +23,17 @@ namespace VECS
         // all binding descriptions
         private readonly DescriptorBinding[] _materialBindings;
         // descriptor set 0 contains application wide data (camera data, lighting data)
+        // these sets are handled by the presenter
         private readonly Dictionary<string, int> applicationGlobalBindings;
         // descriptor set 1 contains shared descriptors at the material level (textures, shader properties)
+        // these ones we keep locally by create buffers and descriptor sets directly
         private readonly Dictionary<string, int> materialGlobalBindings;
         // descriptor set 2 contains per entity descriptors (matrices, entity specific shader properties)
+        // also keep the sets locally but the buffers that make up the sets are stored externally*
         private readonly Dictionary<string, int> entityBindings;
+
+        public VkDescriptorSet[] _materialDescriptor = new VkDescriptorSet[SwapChain.MAX_FRAMES_IN_FLIGHT];
+        public VkDescriptorSet[] _entityDescriptor;
 
 
         public VkPipelineLayout PipeLineLayout => _pipelineLayout;

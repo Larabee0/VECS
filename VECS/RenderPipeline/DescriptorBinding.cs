@@ -6,7 +6,7 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
-    public sealed class DescriptorBinding : IDisposable
+    public sealed class DescriptorBinding
     {
         public readonly string Name;
         public readonly uint Set;
@@ -16,26 +16,13 @@ namespace VECS
         public readonly bool Buffer;
         public readonly bool DynamicBuffer;
         public readonly uint BufferSize;
-        private readonly VkBufferUsageFlags BufferUsageFlags;
+        public readonly VkBufferUsageFlags BufferUsageFlags;
         public readonly bool GlobalUniformBuffer;
         public readonly bool UniformBuffer;
         public readonly VkDescriptorType DescriptorType;
-        public GPUBuffer[] WriteBuffers;
-        private bool _disposed;
-        public VkDescriptorSetLayoutBinding VkSetBinding;
-
-        private RendererFrameInfo _frameInfo;
-
-
-        public VkDescriptorBufferInfo bufferInfo;
-        public VkDescriptorImageInfo imageInfo;
+        public VkDescriptorSetLayoutBinding VkSetLayoutBinding;
 
         public bool IsAnyBuffer => Buffer || DynamicBuffer;
-        public bool CanWriteToBuffer => !IsAnyBuffer || _disposed || WriteBuffers == null;
-
-
-
-
 
         public DescriptorBinding(SpvReflectDescriptorBinding descriptorBinding, VkShaderStageFlags shaderStageFlags)
         {
@@ -72,7 +59,7 @@ namespace VECS
                     throw new NotImplementedException(string.Format("Descriptor type not implemented {0}", descriptorBinding.descriptor_type.ToString()));
             }
 
-            VkSetBinding = new()
+            VkSetLayoutBinding = new()
             {
                 binding = descriptorBinding.binding,
                 descriptorCount = descriptorBinding.count,
@@ -92,95 +79,7 @@ namespace VECS
 
         public void UpdateShaderStage(VkShaderStageFlags flags)
         {
-            VkSetBinding.stageFlags = flags;
-        }
-
-        public void AllocateBuffers(bool hostAccessible = true)
-        {
-            if (_disposed)
-            {
-                throw new InvalidOperationException("Cannot allocate buffers for a disposed descriptor binding!");
-            }
-
-            if (!UniformBuffer)
-            {
-                throw new InvalidOperationException("Cannot allocate buffers for Buffer type descriptor binding!");
-            }
-
-            WriteBuffers = new GPUBuffer[LowLevel.SwapChain.MAX_FRAMES_IN_FLIGHT];
-            for (int i = 0; i < WriteBuffers.Length; i++)
-            {
-                WriteBuffers[i] = new GPUBuffer(BufferSize, 1, BufferUsageFlags, hostAccessible);
-            }
-        }
-
-        public void SetStruct<T>(string property, T value) where T : unmanaged
-        {
-            var variable = GetProperty(property);
-            if (variable != null)
-            {
-                WriteInternal(variable.Offset, value);
-            }
-        }
-
-        public void SetFloat(string property, float value)
-        {
-            var variable = GetProperty(property);
-
-            if (variable != null)
-            {
-                WriteInternal(variable.Offset, value);
-            }
-        }
-
-        public void SetInt(string property, int value)
-        {
-            var variable = GetProperty(property);
-
-            if (variable != null)
-            {
-                WriteInternal(variable.Offset, value);
-            }
-        }
-
-        public void SetVector(string property, Vector2 vector)
-        {
-            var variable = GetProperty(property);
-
-            if (variable != null)
-            {
-                WriteInternal(variable.Offset, vector);
-            }
-        }
-
-        public void SetVector(string property, Vector3 vector)
-        {
-            var variable = GetProperty(property);
-
-            if (variable != null)
-            {
-                WriteInternal(variable.Offset, vector);
-            }
-        }
-
-        public void SetVector(string property, Vector4 vector)
-        {
-            var variable = GetProperty(property);
-
-            if (variable != null)
-            {
-                WriteInternal(variable.Offset, vector);
-            }
-        }
-
-        public void SetMatrix(string property, Matrix4x4 matrix)
-        {
-            var variable = GetProperty(property);
-
-            if(variable != null)
-            {
-                WriteInternal(variable.Offset, matrix);
-            }
+            VkSetLayoutBinding.stageFlags = flags;
         }
 
         public DescriptorPropertyInfo GetProperty(string name)
@@ -193,44 +92,6 @@ namespace VECS
                 }
             }
             return null;
-        }
-
-        private unsafe void WriteInternal<T>(uint offset, T data) where T : unmanaged
-        {
-            if (!CanWriteToBuffer)
-            {
-                return;
-            }
-
-            WriteBuffers[_frameInfo.FrameIndex].WriteToBuffer(&data, (uint)sizeof(T), offset);
-        }
-
-        public void CopyBufferTo(GPUBuffer buffer)
-        {
-            if (!CanWriteToBuffer)
-            {
-                return;
-            }
-            WriteBuffers[_frameInfo.FrameIndex].CopyTo(_frameInfo.CommandBuffer, buffer);
-        }
-
-        public void CopyFromBuffer(GPUBuffer buffer)
-        {
-            if (!CanWriteToBuffer)
-            {
-                return;
-            }
-            buffer.CopyTo(_frameInfo.CommandBuffer, WriteBuffers[_frameInfo.FrameIndex]);
-        }
-
-        public void UpdateFrameInfo(RendererFrameInfo frameInfo)
-        {
-            _frameInfo = frameInfo;
-
-            // if (GlobalUniformBuffer)
-            // {
-            //     CopyFromBuffer(frameInfo.UboBuffer);
-            // }
         }
 
         public override string ToString()
@@ -247,21 +108,6 @@ namespace VECS
 
             return stringBuilder.ToString();
 
-        }
-
-
-        public void Dispose()
-        {
-            if (_disposed) return;
-            _disposed = true;
-            if (WriteBuffers != null)
-            {
-                for (int i = 0; i < WriteBuffers.Length; i++)
-                {
-                    WriteBuffers[i]?.Dispose();
-                }
-            }
-            WriteBuffers = null;
         }
 
         public static bool operator ==(DescriptorBinding left, DescriptorBinding right)
@@ -286,7 +132,7 @@ namespace VECS
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(Name, Set, Binding, Image, DescriptorType, VkSetBinding);
+            return HashCode.Combine(Name, Set, Binding, Image, DescriptorType, VkSetLayoutBinding);
         }
     }
 }

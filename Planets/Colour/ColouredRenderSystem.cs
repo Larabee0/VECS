@@ -13,9 +13,9 @@ namespace Planets.Colour
     {
         public const ulong MAX_INDIRECT_COMMANDS = 1000;
         private EntityQuery _planetRenderQuery;
-        private GPUBuffer<PlanetTileShaderParmeters>[] _shaderParamBuffers;
-        private GPUBuffer<ObjectData>[] _objectDataBuffers;
-        private GPUBuffer<VkDrawIndexedIndirectCommand>[] _indirectCmdBuffers;
+        private SwapChainBuffer<PlanetTileShaderParmeters> _shaderParamBuffers;
+        private SwapChainBuffer<ObjectData> _objectDataBuffers;
+        private SwapChainBuffer<VkDrawIndexedIndirectCommand> _indirectCmdBuffers;
 
         /// <summary>
         /// query setup, also creates the shader params buffer.
@@ -23,12 +23,8 @@ namespace Planets.Colour
         /// <param name="entityManager"></param>
         public unsafe override void OnCreate(EntityManager entityManager)
         {
-            _shaderParamBuffers = new GPUBuffer<PlanetTileShaderParmeters>[SwapChain.MAX_FRAMES_IN_FLIGHT];
+            _shaderParamBuffers = new((uint)sizeof(PlanetTileShaderParmeters), 1, VkBufferUsageFlags.UniformBuffer, true);
             CreateIndirectCmdBuffers();
-            for (int i = 0; i < _shaderParamBuffers.Length; i++)
-            {
-                _shaderParamBuffers[i] = new((uint)sizeof(PlanetTileShaderParmeters), 1, VkBufferUsageFlags.UniformBuffer, true);
-            }
 
             _planetRenderQuery = new EntityQuery(entityManager)
                 .WithAll(typeof(Children),typeof(PlanetPropeties),typeof(LocalToWorld),typeof(MaterialIndex))
@@ -57,7 +53,6 @@ namespace Planets.Colour
                 {
                     camLTW = entityManager.GetComponent<LocalToWorld>(camEntity).Value;
                 }
-                var shaderParams = _shaderParamBuffers[frameInfo.FrameIndex];
                 int drawIndex = 0;
                 _planetRenderQuery.GetEntities().ForEach(e =>
                 {
@@ -76,10 +71,10 @@ namespace Planets.Colour
                         curMat.BindGlobalDescriptorSet(frameInfo);
                     }
                     var planetProperties = entityManager.GetComponent<PlanetPropeties>(e);
-                    planetProperties.WriteShaderParamters(shaderParams);
+                    planetProperties.WriteShaderParamters(_shaderParamBuffers.ActiveGPUBuffer);
 
                     VkDescriptorSet descriptorSet = new();
-                    WriteDescriptorSet(frameInfo, curMat,shaderParams, planetProperties, ref descriptorSet);
+                    WriteDescriptorSet(frameInfo, curMat, planetProperties, ref descriptorSet);
 
                     Vulkan.vkCmdBindDescriptorSets(
                         frameInfo.CommandBuffer,
@@ -87,13 +82,12 @@ namespace Planets.Colour
                         curMat.PipeLineLayout,
                         1,  // starting set (0 is the globalDescriptorSet, 1 is the set specific to this system)
                         descriptorSet);
-                    var buffer = _indirectCmdBuffers[frameInfo.FrameIndex];
-                    buffer.WriteFromHostBuffer();
-                    _objectDataBuffers[frameInfo.FrameIndex].WriteFromHostBuffer();
+                    _indirectCmdBuffers.WriteFromHostToActiveBuffer();
+                    _objectDataBuffers.WriteFromHostToActiveBuffer();
                     Vulkan.vkCmdDrawIndexedIndirect(frameInfo.CommandBuffer,
-                        buffer.VkBuffer,
+                        _indirectCmdBuffers.ActiveVkBuffer,
                         0,
-                        buffer.UInstanceCount32,
+                        _indirectCmdBuffers.UInstanceCount32,
                         (uint)sizeof(VkDrawIndexedIndirectCommand));
                 });
             }
@@ -103,8 +97,8 @@ namespace Planets.Colour
         {
             var children = entityManager.GetComponent<Children>(planetRoot);
 
-            var drawCmds = _indirectCmdBuffers[frameInfo.FrameIndex].HostBuffer;
-            var objData = _objectDataBuffers[frameInfo.FrameIndex].HostBuffer;
+            var drawCmds = _indirectCmdBuffers.HostBuffer;
+            var objData = _objectDataBuffers.HostBuffer;
 
             for (int i = 0; i < children.Value.Length; i++)
             {
@@ -135,19 +129,19 @@ namespace Planets.Colour
         /// <param name="mat"></param>
         /// <param name="textures"></param>
         /// <param name="descriptorSet"></param>
-        private unsafe void WriteDescriptorSet(RendererFrameInfo frameInfo, Material mat, GPUBuffer<PlanetTileShaderParmeters> shaderParams, PlanetPropeties textures, ref VkDescriptorSet descriptorSet)
+        private unsafe void WriteDescriptorSet(RendererFrameInfo frameInfo, Material mat, PlanetPropeties textures, ref VkDescriptorSet descriptorSet)
         {
             fixed (VkDescriptorSet* pSet = &descriptorSet)
             {
                 new DescriptorWriter(mat.MaterialDescriptorLayout, frameInfo.EntityDescriptorPool)
-                .WriteBuffer(0, shaderParams.DescriptorInfo())
+                .WriteBuffer(0, _shaderParamBuffers.ActiveDescriptorInfo())
                 .WriteImage(1, Texture2d.GetTextureImageInfoAtIndex(textures.ColourTexture))
                 .WriteImage(2, Texture2d.GetTextureImageInfoAtIndex(textures.SteepTexture))
                 .WriteImage(3, Texture2d.GetTextureImageInfoAtIndex(textures.TextureArrayIndex))
                 .WriteImage(4, Texture2d.GetTextureImageInfoAtIndex(textures.WaveA))
                 .WriteImage(5, Texture2d.GetTextureImageInfoAtIndex(textures.WaveB))
                 .WriteImage(6, Texture2d.GetTextureImageInfoAtIndex(textures.WaveC))
-                .WriteBuffer(7, _objectDataBuffers[frameInfo.FrameIndex].DescriptorInfo())
+                .WriteBuffer(7, _objectDataBuffers.ActiveDescriptorInfo())
                 .Build(pSet);
             }
         }
@@ -156,42 +150,30 @@ namespace Planets.Colour
         {
             base.OnDestroy(entityManager);
 
-            for (int i = 0; i < SwapChain.MAX_FRAMES_IN_FLIGHT; i++)
-            {
-                _shaderParamBuffers[i]?.Dispose();
-                _indirectCmdBuffers[i].Dispose();
-                _objectDataBuffers[i].Dispose();
-            }
-
+            _indirectCmdBuffers?.Dispose();
+            _objectDataBuffers?.Dispose();
+            _shaderParamBuffers?.Dispose();
         }
 
 
         private void CreateIndirectCmdBuffers()
         {
-            _indirectCmdBuffers = new GPUBuffer<VkDrawIndexedIndirectCommand>[SwapChain.MAX_FRAMES_IN_FLIGHT];
-            _objectDataBuffers = new GPUBuffer<ObjectData>[SwapChain.MAX_FRAMES_IN_FLIGHT];
-
-            for (int i = 0; i < SwapChain.MAX_FRAMES_IN_FLIGHT; i++)
-            {
-                _indirectCmdBuffers[i] = new(MAX_INDIRECT_COMMANDS,
+            _indirectCmdBuffers = new(MAX_INDIRECT_COMMANDS,
                     VkBufferUsageFlags.TransferDst |
                     VkBufferUsageFlags.TransferSrc |
                     VkBufferUsageFlags.IndirectBuffer |
                     VkBufferUsageFlags.StorageBuffer,
                     true);
-                _objectDataBuffers[i] = new(MAX_INDIRECT_COMMANDS,
+
+            _objectDataBuffers = new(MAX_INDIRECT_COMMANDS,
                     VkBufferUsageFlags.TransferDst |
                     VkBufferUsageFlags.StorageBuffer,
                     true);
-            }
 
             VkCommandBuffer commandBuffer = GraphicsDevice.Instance.BeginSingleTimeCommands();
 
-            for (int i = 0; i < SwapChain.MAX_FRAMES_IN_FLIGHT; i++)
-            {
-                _indirectCmdBuffers[i].FillBuffer(commandBuffer, 0);
-                _objectDataBuffers[i].FillBuffer(commandBuffer, 0);
-            }
+            _indirectCmdBuffers.FillAllBuffers(commandBuffer, 0);
+            _objectDataBuffers.FillAllBuffers(commandBuffer, 0);
 
             GraphicsDevice.Instance.EndSingleTimeCommands(commandBuffer);
         }

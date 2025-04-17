@@ -28,9 +28,25 @@ namespace VECS
         public DescriptorPool MaterialDescriptorPool;
         public DescriptorPool EntityDescriptorPool;
         public List<VkBufferMemoryBarrier> PostCullBarriers;
+        public Queue<DescriptorSetHandler> DescriptorSetDisposalQueue;
         public VkDescriptorImageInfo DepthPyramid;
         public int DepthPyramidWidth;
         public int DepthPyramidHeight;
+
+        public DescriptorPool GetDescriptorPool(DescriptorLevel descriptorLevel)
+        {
+            switch (descriptorLevel)
+            {
+                case DescriptorLevel.Game:
+                    throw new InvalidOperationException("Cannot allocate use game wide pools for arbtiary descriptor sets");
+                case DescriptorLevel.Material:
+                    return MaterialDescriptorPool;
+                case DescriptorLevel.Entity:
+                    return EntityDescriptorPool;
+            }
+            return null;
+        }
+
         public static bool operator ==(RendererFrameInfo left, RendererFrameInfo right)
         {
             return left.FrameIndex == right.FrameIndex && left.DeltaTime == right.DeltaTime;

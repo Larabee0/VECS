@@ -76,7 +76,6 @@ namespace VECS
                     DescriptorBinding descriptorBinding = new(descriptorBindings[i], (VkShaderStageFlags)module.shader_stage);
                     Console.WriteLine(descriptorBinding.ToString());
                     //Console.WriteLine("{0} {1}", descriptorBindings[i].binding, descriptorBindings[i].Name);
-                    descriptorBinding.Dispose();
                 }
             }
             if(descriptorSets != null)

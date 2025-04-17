@@ -11,7 +11,6 @@ namespace VECS
     {
         private readonly DescriptorSetLayout _setLayout;
         private readonly DescriptorPool _pool;
-        private readonly VkWriteDescriptorSet[] _writes = [];
 
         private readonly List<CachedWrite> cachedWrites = [];
 
@@ -74,48 +73,12 @@ namespace VECS
         {
             VkWriteDescriptorSet[] writes = new VkWriteDescriptorSet[cachedWrites.Count];
 
-            int bufferCount = 0;
-            int imageCount = 0;
-
-            for (int i = 0; i < cachedWrites.Count; i++)
-            {
-                if (cachedWrites[i].buffer)
-                {
-                    bufferCount++;
-                }
-                else
-                {
-                    imageCount++;
-                }
-            }
-            VkDescriptorBufferInfo* buffers = stackalloc VkDescriptorBufferInfo[bufferCount];
-            VkDescriptorImageInfo* images = stackalloc VkDescriptorImageInfo[imageCount];
-            bufferCount = 0;
-            imageCount = 0;
-            for (int i = 0; i < cachedWrites.Count; i++)
-            {
-                if (cachedWrites[i].buffer)
-                {
-                    buffers[bufferCount] = cachedWrites[i].bufferInfo;
-                    bufferCount++;
-                }
-                else
-                {
-                    images[imageCount] = cachedWrites[i].imageInfo;
-                    imageCount++;
-                }
-            }
-            
-            bufferCount = 0;
-            imageCount = 0;
-
             for (int i = 0; i < cachedWrites.Count; i++)
             {
                 var cachedWrite = cachedWrites[i];
                 VkDescriptorSetLayoutBinding bindingDescription = _setLayout.Bindings[cachedWrite.binding];
                 if (cachedWrite.buffer)
                 {
-
                     fixed (VkDescriptorBufferInfo* bufferInfo = &cachedWrite.bufferInfo)
                     {
                         writes[i] = new()
@@ -146,26 +109,26 @@ namespace VECS
             }
             Vulkan.vkUpdateDescriptorSets(_pool.GraphicsDevice.Device, writes);
         }
+    }
 
-        public class CachedWrite
+    public class CachedWrite
+    {
+        public bool buffer = true;
+        public uint binding;
+        public VkDescriptorBufferInfo bufferInfo;
+        public VkDescriptorImageInfo imageInfo;
+
+        public CachedWrite(uint binding, VkDescriptorBufferInfo bufferInfo)
         {
-            public bool buffer = true;
-            public uint binding;
-            public VkDescriptorBufferInfo bufferInfo;
-            public VkDescriptorImageInfo imageInfo;
+            this.binding = binding;
+            this.bufferInfo = bufferInfo;
+        }
 
-            public CachedWrite(uint binding, VkDescriptorBufferInfo bufferInfo)
-            {
-                this.binding = binding;
-                this.bufferInfo = bufferInfo;
-            }
-
-            public CachedWrite(uint binding, VkDescriptorImageInfo imageInfo)
-            {
-                this.binding = binding;
-                this.imageInfo = imageInfo;
-                buffer = false;
-            }
+        public CachedWrite(uint binding, VkDescriptorImageInfo imageInfo)
+        {
+            this.binding = binding;
+            this.imageInfo = imageInfo;
+            buffer = false;
         }
     }
 }

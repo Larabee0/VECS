@@ -46,7 +46,7 @@ namespace VECS
             uint instanceCount, ulong instanceSize,
             VkBufferUsageFlags usageFlags,
             bool cpuAccessible,
-            uint minOffsetAlignment = 1)
+            uint minOffsetAlignment = 1, bool preventHostAllocation = false)
         {
             _device = GraphicsDevice.Instance;
             _instanceSize = instanceSize;
@@ -55,7 +55,7 @@ namespace VECS
             _alignmentSize = GetAlignment(_instanceSize, minOffsetAlignment);
 
             if (BufferSize == 0) return;
-            CreateInternal(cpuAccessible);
+            CreateInternal(cpuAccessible, preventHostAllocation);
         }
 
         public GPUBuffer(
@@ -63,7 +63,7 @@ namespace VECS
             uint instanceCount,
             VkBufferUsageFlags usageFlags,
             bool cpuAccessible,
-            uint minOffsetAlignment = 1)
+            uint minOffsetAlignment = 1, bool preventHostAllocation = false)
         {
             _device = GraphicsDevice.Instance;
             _instanceSize = instanceSize;
@@ -72,14 +72,14 @@ namespace VECS
             _alignmentSize = GetAlignment(_instanceSize, minOffsetAlignment);
 
             if (BufferSize == 0) return;
-            CreateInternal(cpuAccessible);
+            CreateInternal(cpuAccessible, preventHostAllocation);
         }
 
         public GPUBuffer(
             ulong instanceCount, ulong instanceSize,
             VkBufferUsageFlags usageFlags,
             bool cpuAccessible,
-            ulong minOffsetAlignment = 1)
+            ulong minOffsetAlignment = 1, bool preventHostAllocation = false)
         {
             _device = GraphicsDevice.Instance;
             _instanceSize = instanceSize;
@@ -90,10 +90,10 @@ namespace VECS
             _bufferSize = _alignmentSize * _instanceCount;
 
             if (BufferSize == 0) return;
-            CreateInternal(cpuAccessible);
+            CreateInternal(cpuAccessible,preventHostAllocation);
         }
 
-        protected unsafe void CreateInternal(bool cpuAccessible)
+        protected unsafe void CreateInternal(bool cpuAccessible, bool preventHostAllocation)
         {
             _bufferSize = _alignmentSize * _instanceCount;
             VkBufferCreateInfo bufferInfo = new()
@@ -111,7 +111,10 @@ namespace VECS
             if (cpuAccessible)
             {
                 _CPUAccess = true;
-                _hostPtr = NativeMemory.AllocZeroed((nuint)UInstanceCount, (nuint)_instanceSize);
+                if (!preventHostAllocation)
+                {
+                    _hostPtr = NativeMemory.AllocZeroed((nuint)UInstanceCount, (nuint)_instanceSize);
+                }
                 allocationInfo.flags = VmaAllocationCreateFlags.HostAccessSequentialWrite | VmaAllocationCreateFlags.Mapped;
             }
             var result = Vma.vmaCreateBuffer(_device.VmaAllocator, bufferInfo, allocationInfo, out VkBuffer, out _allocation);
@@ -342,7 +345,7 @@ namespace VECS
             _disposed = true;
         }
 
-        protected static ulong GetAlignment(ulong instanceSize, ulong minOffsetAlignment)
+        public static ulong GetAlignment(ulong instanceSize, ulong minOffsetAlignment)
         {
             if (minOffsetAlignment > 0)
             {
@@ -379,7 +382,7 @@ namespace VECS
             uint instanceCount,
             VkBufferUsageFlags usageFlags,
             bool cpuAccessible,
-            uint minOffsetAlignment = 1)
+            uint minOffsetAlignment = 1, bool preventHostAllocation = false)
         {
             _device = GraphicsDevice.Instance;
             _instanceSize = (ulong)sizeof(T);
@@ -390,7 +393,7 @@ namespace VECS
             _bufferSize = _alignmentSize * _instanceCount;
 
             if (BufferSize == 0) return;
-            CreateInternal(cpuAccessible);
+            CreateInternal(cpuAccessible, preventHostAllocation);
         }
 
         public unsafe GPUBuffer(
@@ -398,7 +401,7 @@ namespace VECS
             uint instanceCount,
             VkBufferUsageFlags usageFlags,
             bool cpuAccessible,
-            uint minOffsetAlignment = 1)
+            uint minOffsetAlignment = 1, bool preventHostAllocation = false)
         {
             _device = GraphicsDevice.Instance;
             _instanceSize = instanceSize;
@@ -409,14 +412,14 @@ namespace VECS
             _bufferSize = _alignmentSize * _instanceCount;
 
             if (BufferSize == 0) return;
-            CreateInternal(cpuAccessible);
+            CreateInternal(cpuAccessible, preventHostAllocation);
         }
 
         public unsafe GPUBuffer(
             ulong instanceCount,
             VkBufferUsageFlags usageFlags,
             bool cpuAccessible,
-            ulong minOffsetAlignment = 1)
+            ulong minOffsetAlignment = 1, bool preventHostAllocation = false)
         {
             _device = GraphicsDevice.Instance;
             _instanceSize = (ulong)sizeof(T);
@@ -427,7 +430,7 @@ namespace VECS
             _bufferSize = _alignmentSize * _instanceCount;
 
             if (BufferSize == 0) return;
-            CreateInternal(cpuAccessible);
+            CreateInternal(cpuAccessible, preventHostAllocation);
         }
 
         public unsafe void Map(T** data)

@@ -255,7 +255,7 @@ namespace VECS
             VkDescriptorSetLayoutBinding[] vkBindings = new VkDescriptorSetLayoutBinding[bindings.Length];
             for (int i = 0; i < bindings.Length; i++)
             {
-                vkBindings[i] = bindings[i].VkSetBinding;
+                vkBindings[i] = bindings[i].VkSetLayoutBinding;
             }
 
             return CreateLayouts(vkBindings);
@@ -306,11 +306,10 @@ namespace VECS
                     var existing = descriptorBindingsCombined[binding.Name];
                     if (existing == binding)
                     {
-                        if (existing.VkSetBinding.stageFlags != binding.VkSetBinding.stageFlags)
+                        if (existing.VkSetLayoutBinding.stageFlags != binding.VkSetLayoutBinding.stageFlags)
                         {
-                            existing.UpdateShaderStage(existing.VkSetBinding.stageFlags | binding.VkSetBinding.stageFlags);
+                            existing.UpdateShaderStage(existing.VkSetLayoutBinding.stageFlags | binding.VkSetLayoutBinding.stageFlags);
                         }
-                        binding.Dispose();
                     }
                     else
                     {

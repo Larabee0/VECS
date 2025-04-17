@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using VECS.ECS;
 using VECS.ECS.Presentation;
 using VECS.LowLevel;
@@ -35,15 +36,20 @@ namespace VECS
         private DescriptorPool _globalDescriptorPool;
         private DescriptorSetLayout _globalDescriptorSetLayout;
         private readonly VkDescriptorSet[] _globalDescriptorSets = new VkDescriptorSet[SwapChain.MAX_FRAMES_IN_FLIGHT];
-        private readonly GPUBuffer<GlobalUbo.WriteableUBO>[] _globalUboBuffers = new GPUBuffer<GlobalUbo.WriteableUBO>[SwapChain.MAX_FRAMES_IN_FLIGHT];
 
-        private readonly DescriptorPool[] materialFrameDescriptorPools = new DescriptorPool[SwapChain.MAX_FRAMES_IN_FLIGHT];
-        private readonly DescriptorPool[] entityFrameDescriptorPools = new DescriptorPool[SwapChain.MAX_FRAMES_IN_FLIGHT];
+        private readonly SwapChainBuffer<GlobalUbo.WriteableUBO> _globalUboBuffers = new((uint)GlobalUbo.SizeInBytes, 1, VkBufferUsageFlags.UniformBuffer, true);
+
+        private readonly Queue<DescriptorSetHandler> _descriptorSetDisposalQueue = new();
+        private readonly List<(DescriptorSetHandler, int)> _descriptorSetWaitToDispose = [];
+        private readonly DescriptorPool[] _materialFrameDescriptorPools = new DescriptorPool[SwapChain.MAX_FRAMES_IN_FLIGHT];
+        private readonly DescriptorPool[] _entityFrameDescriptorPools = new DescriptorPool[SwapChain.MAX_FRAMES_IN_FLIGHT];
 
         private Entity frameInfoEntity;
 
         public VkRenderPass RenderPass => _renderer.RenderPass;
         public VkDescriptorSetLayout GlobalSetLayout => _globalDescriptorSetLayout.SetLayout;
+
+        public int FrameIndex => _renderer.FrameIndex;
 
         public Presenter(IWindow window)
         {
@@ -77,9 +83,9 @@ namespace VECS
                             .AddPoolSize(VkDescriptorType.UniformBuffer, 2000)
                             .AddPoolSize(VkDescriptorType.StorageBuffer, 2000)
                             .SetPoolFlags(VkDescriptorPoolCreateFlags.FreeDescriptorSet);
-            for (int i = 0; i < materialFrameDescriptorPools.Length; i++)
+            for (int i = 0; i < _materialFrameDescriptorPools.Length; i++)
             {
-                materialFrameDescriptorPools[i] = framePoolBuilder.Build();
+                _materialFrameDescriptorPools[i] = framePoolBuilder.Build();
             }
         }
 
@@ -91,9 +97,9 @@ namespace VECS
                             .AddPoolSize(VkDescriptorType.UniformBuffer, 2000)
                             .AddPoolSize(VkDescriptorType.StorageBuffer, 2000)
                             .SetPoolFlags(VkDescriptorPoolCreateFlags.FreeDescriptorSet);
-            for (int i = 0; i < entityFrameDescriptorPools.Length; i++)
+            for (int i = 0; i < _entityFrameDescriptorPools.Length; i++)
             {
-                entityFrameDescriptorPools[i] = framePoolBuilder.Build();
+                _entityFrameDescriptorPools[i] = framePoolBuilder.Build();
             }
         }
 
@@ -108,7 +114,7 @@ namespace VECS
         /// </summary>
         public void Start()
         {
-            _globalDescriptorSetLayout = ConfigureUboBuffers(_globalUboBuffers, _globalDescriptorSets);
+            _globalDescriptorSetLayout = ConfigureUboBuffers();
 
             frameInfoEntity = World.DefaultWorld.EntityManager.CreateEntity();
 
@@ -120,16 +126,8 @@ namespace VECS
             _ = new Texture2d(Texture2d.GetTextureInDefaultPath("missing.png"));
         }
 
-        private unsafe DescriptorSetLayout ConfigureUboBuffers(GPUBuffer<GlobalUbo.WriteableUBO>[] uboBuffers, VkDescriptorSet[] globalDescriptorSets)
+        private unsafe DescriptorSetLayout ConfigureUboBuffers()
         {
-            for (int i = 0; i < uboBuffers.Length; i++)
-            {
-                uboBuffers[i] = new((uint)GlobalUbo.SizeInBytes,
-                    1,
-                    VkBufferUsageFlags.UniformBuffer,
-                    true);
-            }
-
             // add the binding for this buffer and set where it is avaliable in the shader pipeline
             // in this case its avaliable to all graphis stages.
             var globalSetLayout = new DescriptorSetLayout.Builder()
@@ -137,10 +135,10 @@ namespace VECS
                 .Build();
 
             // write the buffer to the descriptor set linking all the data up
-            for (int i = 0; i < globalDescriptorSets.Length; i++)
+            for (int i = 0; i < _globalDescriptorSets.Length; i++)
             {
-                var bufferInfo = uboBuffers[i].DescriptorInfo();
-                fixed (VkDescriptorSet* pSet = &globalDescriptorSets[i])
+                var bufferInfo = _globalUboBuffers[i].DescriptorInfo();
+                fixed (VkDescriptorSet* pSet = &_globalDescriptorSets[i])
                 {
                     new DescriptorWriter(globalSetLayout, _globalDescriptorPool)
                         .WriteBuffer(0, bufferInfo)
@@ -154,8 +152,11 @@ namespace VECS
         private unsafe RendererFrameInfo CreateRendererFrameInfo(float deltaTime, VkCommandBuffer commandBuffer)
         {
             int frameIndex = _renderer.FrameIndex;
-            materialFrameDescriptorPools[frameIndex].ResetPool();
-            entityFrameDescriptorPools[frameIndex].ResetPool();
+            _materialFrameDescriptorPools[frameIndex].FreeDescriptors();
+            _entityFrameDescriptorPools[frameIndex].FreeDescriptors();
+
+            _materialFrameDescriptorPools[frameIndex].ResetPool();
+            _entityFrameDescriptorPools[frameIndex].ResetPool();
             RendererFrameInfo frameInfo = new()
             {
                 FrameIndex = frameIndex,
@@ -163,8 +164,9 @@ namespace VECS
                 CommandBuffer = commandBuffer,
                 UboBuffer = _globalUboBuffers[frameIndex],
                 GlobalDescriptorSet = _globalDescriptorSets[frameIndex],
-                EntityDescriptorPool = entityFrameDescriptorPools[frameIndex],
+                EntityDescriptorPool = _entityFrameDescriptorPools[frameIndex],
                 PostCullBarriers = _renderer.PostCullBarriers,
+                DescriptorSetDisposalQueue = _descriptorSetDisposalQueue,
                 DepthPyramid = _renderer.DepthPyramid,
                 DepthPyramidWidth = (int)_renderer.DepthPyramidWidth,
                 DepthPyramidHeight = (int)_renderer.DepthPyramidHeight
@@ -240,7 +242,53 @@ namespace VECS
                 // submit command buffer
                 _renderer.EndFrame();
                 World.DefaultWorld.PostPresentUpdate();
+                HandleDescriptorCleanUp();
             }
+        }
+
+        private void HandleDescriptorCleanUp()
+        {
+            for (int i = _descriptorSetWaitToDispose.Count - 1; i >= 0; i--)
+            {
+                var item = _descriptorSetWaitToDispose[i];
+                _descriptorSetWaitToDispose[i] = (item.Item1, item.Item2 + 1);
+                if(_descriptorSetWaitToDispose[i].Item2 > SwapChain.MAX_FRAMES_IN_FLIGHT)
+                {
+                    _descriptorSetWaitToDispose[i].Item1?.Dispose();
+                    _descriptorSetWaitToDispose.RemoveAt(i);
+                }
+            }
+
+
+            while (_descriptorSetDisposalQueue.Count > 0)
+            {
+                var set = _descriptorSetDisposalQueue.Dequeue();
+                DescriptorPool[] poolTarget = null;
+                switch (set.DescriptorLevel)
+                {
+                    case DescriptorLevel.Game:
+                        poolTarget = new DescriptorPool[SwapChain.MAX_FRAMES_IN_FLIGHT];
+                        for (int i = 0; i< SwapChain.MAX_FRAMES_IN_FLIGHT; i++)
+                        {
+                            poolTarget[i] = _globalDescriptorPool;
+                        }
+                        break;
+                    case DescriptorLevel.Material:
+                        poolTarget = _materialFrameDescriptorPools;
+                        break;
+                    case DescriptorLevel.Entity:
+                        poolTarget = _entityFrameDescriptorPools;
+                        break;
+                }
+
+                for (int i = 0; i < SwapChain.MAX_FRAMES_IN_FLIGHT; i++)
+                {
+                    poolTarget[i].AddSetToFree(set._vkDescriptorSets[i]);
+                }
+                _descriptorSetWaitToDispose.Add((set, 0));
+            }
+
+            
         }
 
         /// <summary>
@@ -269,25 +317,23 @@ namespace VECS
             Instance = null;
             // deallocation order matters.
             // first deallocat the buffers
-            for (int i = 0; i < _globalUboBuffers.Length; i++)
-            {
-                _globalUboBuffers[i].Dispose();
-            }
+
+            _globalUboBuffers?.Dispose();
 
             // next deallocat their set layout
             _globalDescriptorSetLayout.Dispose();
             // finally deallocate their pool
             _globalDescriptorPool.Dispose();
 
-            for (int i = 0; i < materialFrameDescriptorPools.Length; i++)
+            for (int i = 0; i < _materialFrameDescriptorPools.Length; i++)
             {
-                materialFrameDescriptorPools[i].Dispose();
+                _materialFrameDescriptorPools[i].Dispose();
             }
 
             // deallocate frame pools
-            for (int i = 0; i < entityFrameDescriptorPools.Length; i++)
+            for (int i = 0; i < _entityFrameDescriptorPools.Length; i++)
             {
-                entityFrameDescriptorPools[i].Dispose();
+                _entityFrameDescriptorPools[i].Dispose();
             }
 
             // then destroy the renderer, which will destroy the swapchain.

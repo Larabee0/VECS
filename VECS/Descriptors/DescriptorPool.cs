@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
@@ -11,6 +12,8 @@ namespace VECS
     {
         public readonly GraphicsDevice GraphicsDevice;
         private readonly VkDescriptorPool _descriptorPool;
+
+        private List<VkDescriptorSet> _setsToFree = [];
 
         /// <summary>
         /// Creaes a descriptor pool abstraction for allocating descriptor sets
@@ -78,6 +81,25 @@ namespace VECS
         public void FreeDescriptors(VkDescriptorSet[] descriptors)
         {
             Vulkan.vkFreeDescriptorSets(GraphicsDevice.Device, _descriptorPool, descriptors);
+        }
+
+        public void AddSetsToFree(VkDescriptorSet[] descriptors)
+        {
+            _setsToFree.AddRange(descriptors);
+        }
+
+        public void AddSetToFree(VkDescriptorSet descriptor)
+        {
+            _setsToFree.Add(descriptor);
+        }
+
+        public void FreeDescriptors()
+        {
+            if (_setsToFree.Count > 0)
+            {
+                FreeDescriptors([.. _setsToFree]);
+                _setsToFree.Clear();
+            }
         }
 
         /// <summary>

@@ -127,11 +127,49 @@ namespace System.Numerics
         public bool Y;
         public bool Z;
 
+        public bool this[int index]
+        {
+            readonly get => index switch
+            {
+                0 => X,
+                1 => Y,
+                2 => Z,
+                _ => throw new IndexOutOfRangeException()
+            };
+
+            set
+            {
+                switch (index)
+                {
+                    case 0:
+                        X = value;
+                        break;
+                    case 1:
+                        Y = value;
+                        break;
+                    case 2:
+                        Z = value;
+                        break;
+                    default:
+                        throw new IndexOutOfRangeException();
+                }
+            }
+        }
+        
+        
+
         public Bool3(bool x, bool y, bool z)
         {
             X = x;
             Y = y;
             Z = z;
+        }
+
+        public Bool3(bool value)
+        {
+            X = value;
+            Y = value;
+            Z = value;
         }
     }
 

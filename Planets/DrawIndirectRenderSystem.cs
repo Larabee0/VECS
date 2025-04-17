@@ -16,9 +16,9 @@ namespace Planets
     {
         public const ulong MAX_INDIRECT_COMMANDS = 1000;
         public const bool COMPUTE_CULL = false;
-        private GPUBuffer<ObjectData>[] _objectDataBuffers;
-        private GPUBuffer<VkDrawIndexedIndirectCommand>[] _indirectCmdBuffers;
-        private GPUBuffer<float>[] _depthSamples;
+        private SwapChainBuffer<ObjectData> _objectDataBuffers;
+        private SwapChainBuffer<VkDrawIndexedIndirectCommand> _indirectCmdBuffers;
+        private SwapChainBuffer<float> _depthSamples;
         
 
         //float[] texCopy;
@@ -53,9 +53,6 @@ namespace Planets
             if (!_cameraQuery.HasEntities) return;
             var cmdBuffer = rendererFrameInfo.CommandBuffer;
 
-            var indirectCmdBuffer = _indirectCmdBuffers[rendererFrameInfo.FrameIndex];
-            var depthSampler = _depthSamples[rendererFrameInfo.FrameIndex];
-            var objectDataBuffer = _objectDataBuffers[rendererFrameInfo.FrameIndex];
             var entities = _planetRenderQuery.GetEntities();
 
             var cam = entityManager.GetComponent<Camera>(_cameraQuery.GetEntities()[0]);
@@ -70,8 +67,8 @@ namespace Planets
                 DrawDist = 9999999
             };
 
-            depthSampler.ReadToHostBuffer();
-            Span<float> drawOld = depthSampler.HostBuffer;
+            _depthSamples.ReadToHostFromActiveBuffer();
+            var drawOld = _depthSamples.ReadOnlyHostBuffer;
             bool anySample = false;
             for (int i = 0; i < entities.Count; i++)
             {
@@ -97,8 +94,8 @@ namespace Planets
             aabb.Z = drawOld[6];
             aabb.W = drawOld[7];
 
-            Span<VkDrawIndexedIndirectCommand> drawCmds = indirectCmdBuffer.HostBuffer;
-            Span<ObjectData> drawObjectData = objectDataBuffer.HostBuffer;
+            Span<VkDrawIndexedIndirectCommand> drawCmds = _indirectCmdBuffers.HostBuffer;
+            Span<ObjectData> drawObjectData = _objectDataBuffers.HostBuffer;
 
             for (int i = 0; i < entities.Count; i++)
             {
@@ -123,9 +120,9 @@ namespace Planets
 
             if (COMPUTE_CULL)
             {
-                indirectCmdBuffer.WriteFromHostBuffer();
+                _indirectCmdBuffers.WriteFromHostToActiveBuffer();
             }
-            objectDataBuffer.WriteFromHostBuffer();
+            _objectDataBuffers.WriteFromHostToActiveBuffer();
             if (!COMPUTE_CULL) {
 
                 FrustumCull(cullParams.ViewMatrix, drawCull,rendererFrameInfo, drawCmds, drawObjectData);
@@ -167,11 +164,7 @@ namespace Planets
                     drawNone = true;
                 }
 
-                fixed (VkDrawIndexedIndirectCommand* pDrawCmds = &drawCmds[0])
-                {
-                    indirectCmdBuffer.WriteToBuffer(pDrawCmds, (ulong)(sizeof(VkDrawIndexedIndirectCommand) * drawCmds.Length));
-                }
-
+                _indirectCmdBuffers.WriteFromHostToActiveBuffer();
             }
             else
             {
@@ -181,17 +174,17 @@ namespace Planets
                 {
                     new DescriptorWriter(_cullCompute.DescriptorSetLayout, rendererFrameInfo.EntityDescriptorPool)
                         .WriteBuffer(0, rendererFrameInfo.UboBuffer.DescriptorInfo())
-                        .WriteBuffer(1, objectDataBuffer.DescriptorInfo())
-                        .WriteBuffer(2, indirectCmdBuffer.DescriptorInfo())
+                        .WriteBuffer(1, _objectDataBuffers.ActiveDescriptorInfo())
+                        .WriteBuffer(2, _indirectCmdBuffers.ActiveDescriptorInfo())
                         .WriteImage(3, rendererFrameInfo.DepthPyramid)
-                        .WriteBuffer(4,depthSampler.DescriptorInfo())
+                        .WriteBuffer(4, _depthSamples.ActiveDescriptorInfo())
                         .Build(pSet);
                 }
 
                 _cullCompute.Dispatch(cmdBuffer, drawCull, ((uint)entities.Count / 256) + 1, 1, 1);
                 VkBufferMemoryBarrier barrier = new()
                 {
-                    buffer = indirectCmdBuffer.VkBuffer,
+                    buffer = _indirectCmdBuffers.ActiveVkBuffer,
                     size = Vulkan.VK_WHOLE_SIZE,
                     srcQueueFamilyIndex = (uint)GraphicsDevice.Instance.PhysicalQueueFamilies.graphicsFamily,
                     dstQueueFamilyIndex = (uint)GraphicsDevice.Instance.PhysicalQueueFamilies.graphicsFamily,
@@ -208,8 +201,8 @@ namespace Planets
 
             var cmdBuffer = rendererFrameInfo.CommandBuffer;
 
-            var indirectCmdBuffer = _indirectCmdBuffers[rendererFrameInfo.FrameIndex];
-            var modelMatricesBuffer = _objectDataBuffers[rendererFrameInfo.FrameIndex];
+            var indirectCmdBuffer = _indirectCmdBuffers.ActiveGPUBuffer;
+            var modelMatricesBuffer = _objectDataBuffers.ActiveGPUBuffer;
 
             var entities = _planetRenderQuery.GetEntities();
 
@@ -237,46 +230,33 @@ namespace Planets
             _CPUDepthSample?.Dispose();
             _sampler?.Dispose();
             _cullCompute?.Dispose();
-            for (int i = 0; i < SwapChain.MAX_FRAMES_IN_FLIGHT; i++)
-            {
-                _indirectCmdBuffers[i].Dispose();
-                _objectDataBuffers[i].Dispose();
-                _depthSamples[i].Dispose();
-            }
+            _indirectCmdBuffers?.Dispose();
+            _objectDataBuffers?.Dispose();
+            _depthSamples?.Dispose();
         }
 
         private void CreateIndirectCmdBuffers()
         {
-            _indirectCmdBuffers = new GPUBuffer<VkDrawIndexedIndirectCommand>[SwapChain.MAX_FRAMES_IN_FLIGHT];
-            _objectDataBuffers = new GPUBuffer<ObjectData>[SwapChain.MAX_FRAMES_IN_FLIGHT];
-            _depthSamples = new GPUBuffer<float>[SwapChain.MAX_FRAMES_IN_FLIGHT];
-
-            for (int i = 0; i < SwapChain.MAX_FRAMES_IN_FLIGHT; i++)
-            {
-                _indirectCmdBuffers[i] = new(MAX_INDIRECT_COMMANDS,
+            _indirectCmdBuffers = new(MAX_INDIRECT_COMMANDS,
                     VkBufferUsageFlags.TransferDst |
                     VkBufferUsageFlags.TransferSrc |
                     VkBufferUsageFlags.IndirectBuffer |
                     VkBufferUsageFlags.StorageBuffer,
                     true);
-                _objectDataBuffers[i] = new(MAX_INDIRECT_COMMANDS,
+            _objectDataBuffers = new(MAX_INDIRECT_COMMANDS,
                     VkBufferUsageFlags.TransferDst |
                     VkBufferUsageFlags.StorageBuffer,
                     true);
-                _depthSamples[i] = new(MAX_INDIRECT_COMMANDS,
+            _depthSamples = new(MAX_INDIRECT_COMMANDS,
                     VkBufferUsageFlags.TransferDst |
                     VkBufferUsageFlags.StorageBuffer,
                     true);
-            }
 
             VkCommandBuffer commandBuffer = GraphicsDevice.Instance.BeginSingleTimeCommands();
 
-            for (int i = 0; i < SwapChain.MAX_FRAMES_IN_FLIGHT; i++)
-            {
-                _indirectCmdBuffers[i].FillBuffer(commandBuffer, 0);
-                _objectDataBuffers[i].FillBuffer(commandBuffer, 0);
-                _depthSamples[i].FillBuffer(commandBuffer, 0);
-            }
+            _indirectCmdBuffers.FillAllBuffers(commandBuffer, 0);
+            _objectDataBuffers.FillAllBuffers(commandBuffer, 0);
+            _depthSamples.FillAllBuffers(commandBuffer, 0);
 
             GraphicsDevice.Instance.EndSingleTimeCommands(commandBuffer);
         }
