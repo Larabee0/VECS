@@ -28,7 +28,7 @@ namespace VECS
 
         private readonly DescriptorPool _descriptorPool;
 
-        public static void DispatchNow(DirectMeshBuffer meshBuffer)
+        public static void DispatchNow(DirectMesh meshBuffer)
         {
             ComputeNormals computeNormals = new();
 
@@ -121,7 +121,7 @@ namespace VECS
         /// <param name="commandBuffer"></param>
         /// <param name="indexBuffer"></param>
         /// <param name="vertexBuffer"></param>
-        public unsafe void Dispatch(VkCommandBuffer commandBuffer, DirectMeshBuffer mesh)
+        public unsafe void Dispatch(VkCommandBuffer commandBuffer, DirectMesh mesh)
         {
             var normalBuffer = mesh.GetBufferAtAttribute<Vector3>(VertexAttribute.Normal);
             Prepare(mesh.IndexBuffer,mesh.IndexOffsetBuffer, mesh.GetBufferAtAttribute<Vector3>(VertexAttribute.Position),normalBuffer);
@@ -151,7 +151,7 @@ namespace VECS
             _normalizeNormals.Dispatch(commandBuffer, normalBuffer.UInstanceCount32, 1, 1);
         }
 
-        public unsafe void DispatchSingleTimeCmd(DirectMeshBuffer mesh)
+        public unsafe void DispatchSingleTimeCmd(DirectMesh mesh)
         {
             var commandBuffer = GraphicsDevice.Instance.BeginSingleTimeCommands();
             Dispatch(commandBuffer, mesh);

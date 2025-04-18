@@ -121,7 +121,7 @@ namespace Planets.Generator
         /// This done before the dispatch command is run for each tile of the planet.
         /// </summary>
         /// <param name="vertexBuffer"></param>
-        private unsafe void Prepare(DirectMeshBuffer mesh)
+        private unsafe void Prepare(DirectMesh mesh)
         {
             _terrainGenerator.Prepare((uint)mesh.VertexBufferLength, (uint)mesh.VertexBufferLength, 1);
 
@@ -144,7 +144,7 @@ namespace Planets.Generator
         /// </summary>
         /// <param name="commandBuffer"></param>
         /// <param name="mesh"></param>
-        public void Dispatch(VkCommandBuffer commandBuffer, DirectMeshBuffer mesh)
+        public void Dispatch(VkCommandBuffer commandBuffer, DirectMesh mesh)
         {
             Prepare(mesh);
             _terrainGenerator.Dispatch(commandBuffer, (uint)mesh.VertexBufferLength, 1, 1);
@@ -154,7 +154,7 @@ namespace Planets.Generator
         /// Calls dispatch but creates and ends a command buffer just for one operation.
         /// </summary>
         /// <param name="mesh"></param>
-        public void DispatchSingleTimeCmd(DirectMeshBuffer mesh)
+        public void DispatchSingleTimeCmd(DirectMesh mesh)
         {
             var commandBuffer = GraphicsDevice.Instance.BeginSingleTimeCommands();
 

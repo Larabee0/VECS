@@ -51,7 +51,6 @@ namespace Planets.Colour
                     starsToDraw.Add(startData);
                 }
                 rendererFrameInfo.Ubo.NumLights = starsToDraw.Count;
-                rendererFrameInfo.Ubo.WriteToBuffer(rendererFrameInfo.UboBuffer);
                 starsToDraw.Sort(new PointLightPushConstant());
                 _pointLightMaterial.BindGlobalDescriptorSet(rendererFrameInfo);
                 starsToDraw.ForEach(s => _pointLightMaterial.DrawQuad(rendererFrameInfo, s));

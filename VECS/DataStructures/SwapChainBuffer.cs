@@ -153,12 +153,17 @@ namespace VECS
 
         public unsafe void WriteFromHostToActiveBuffer()
         {
+            WriteFromHostToActiveBuffer(Presenter.Instance.FrameIndex);
+        }
+
+
+        public unsafe void WriteFromHostToActiveBuffer(int index)
+        {
             if (_hostPtr == null)
             {
                 throw new InvalidOperationException("Cannot write host buffer to GPU as it is null");
             }
 
-            int index = Presenter.Instance.FrameIndex;
             if (_diryBuffers[index])
             {
                 _buffers[index].WriteToBuffer(_hostPtr);

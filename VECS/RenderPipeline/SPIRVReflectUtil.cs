@@ -272,6 +272,33 @@ namespace VECS
             var members = variable.members;
             List<DescriptorPropertyInfo> variables = [];
 
+            if(memberCount == 0 && variable.type_description->op == SpvOp.TypeRuntimeArray)
+            {
+                SpvReflectTypeFlags flags = variable.type_description->type_flags;
+                var traits = variable.type_description->traits;
+                if (flags.HasFlag(SpvReflectTypeFlags.FlagMatrix))
+                {
+                    variables.Add(new(variable.Name, SpvOp.TypeMatrix, traits.array.stride, traits.numeric, 0));
+                }
+                else if (flags.HasFlag(SpvReflectTypeFlags.FlagVector))
+                {
+                    variables.Add(new(variable.Name, SpvOp.TypeVector, traits.array.stride, traits.numeric, 0));
+                }
+                else if (flags.HasFlag(SpvReflectTypeFlags.FlagFloat))
+                {
+                    variables.Add(new(variable.Name, SpvOp.TypeFloat, traits.array.stride, traits.numeric, 0));
+                }
+                else if (flags.HasFlag(SpvReflectTypeFlags.FlagInt))
+                {
+                    variables.Add(new(variable.Name, SpvOp.TypeInt, traits.array.stride, traits.numeric, 0));
+                }
+                else if (flags.HasFlag(SpvReflectTypeFlags.FlagBool))
+                {
+                    Console.WriteLine("New Type bool \"{1}\" Size {0}", variable.size, variable.Name);
+                    throw new NotImplementedException("Bool type not implemented for descriptor sets");
+                }
+            }
+
             for (uint i = 0; i < memberCount; i++)
             {
                 var member = members[i];

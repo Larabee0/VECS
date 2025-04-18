@@ -7,11 +7,11 @@ namespace VECS
 {
     public class DirectSubMesh
     {
-        private readonly DirectMeshBuffer _directMeshBuffer;
+        private readonly DirectMesh _directMeshBuffer;
         private readonly int _directSubMeshIndex;
         private RenderBounds _bounds;
 
-        public DirectMeshBuffer DirectMeshBuffer => _directMeshBuffer;
+        public DirectMesh DirectMeshBuffer => _directMeshBuffer;
 
         public DirectSubMeshInfo DirectSubMeshInfo => _directMeshBuffer.SubMeshInfos[_directSubMeshIndex];
 
@@ -27,7 +27,7 @@ namespace VECS
         public uint VertexCount { get => DirectSubMeshInfo.VertexCount; }
         public uint IndexCount { get => DirectSubMeshInfo.IndexCount; }
 
-        public DirectSubMesh(DirectMeshBuffer directMeshBuffer, int directSubMeshIndex)
+        public DirectSubMesh(DirectMesh directMeshBuffer, int directSubMeshIndex)
         {
             _directMeshBuffer = directMeshBuffer;
             _directSubMeshIndex = directSubMeshIndex;
@@ -189,13 +189,13 @@ namespace VECS
             return new DirectSubMeshIndex()
             {
                 SubMeshIndex = _directSubMeshIndex,
-                DirectMeshBuffer = DirectMeshBuffer.GetIndexOfMesh(_directMeshBuffer)
+                DirectMeshBuffer = DirectMesh.GetIndexOfMesh(_directMeshBuffer)
             };
         }
 
         public static DirectSubMesh GetSubMeshAtIndex(DirectSubMeshIndex directSubMeshIndex)
         {
-            var directMesh = DirectMeshBuffer.GetMeshAtIndex(directSubMeshIndex.DirectMeshBuffer);
+            var directMesh = DirectMesh.GetMeshAtIndex(directSubMeshIndex.DirectMeshBuffer);
             return directMesh.DirectSubMeshes[directSubMeshIndex.SubMeshIndex];
         }
 

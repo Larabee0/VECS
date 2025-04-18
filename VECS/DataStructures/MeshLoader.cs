@@ -58,7 +58,7 @@ namespace VECS.DataStructures
                     (uint)scene.Meshes[i].GetUnsignedIndices().Length);
             }
 
-            var directMeshBuffer = new DirectMeshBuffer(attributeDescriptions, directMeshCreateInfo);
+            var directMeshBuffer = new DirectMesh(attributeDescriptions, directMeshCreateInfo);
 
             DirectSubMesh[] sceneMeshes = new DirectSubMesh[scene.MeshCount];
 

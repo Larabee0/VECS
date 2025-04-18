@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.Marshalling;
 using VECS.ECS;
 using VECS.ECS.Presentation;
 using VECS.GraphicsPipelines;
@@ -9,7 +11,7 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
-    public sealed class MaterialV2 : IDisposable
+    public sealed partial class MaterialV2 : IDisposable
     {
         private static readonly List<MaterialV2> _materials = [];
         public static List<MaterialV2> Materials => _materials;
@@ -35,17 +37,43 @@ namespace VECS
         // also keep the sets locally but the buffers that make up the sets are stored externally*
         private readonly Dictionary<string, int> entityBindings;
 
-        public DescriptorSetHandler ApplicationDescriptorSetHandler;
-        public DescriptorSetHandler MaterialDescriptorSetHandler;
-        public VkDescriptorSet[] _entityDescriptor;
+        private int _applicationDescriptorSetHandlerIndex = -1;
+        private int _materialDescriptorSetHandlerIndex = -1;
+        private int _entityDescriptorSetHandlerIndex = -1;
+        private readonly DescriptorSetHandler[] _allHandlers;
 
+        private readonly uint _totalSets;
+
+        private unsafe VkDescriptorSet* _setsToBind;
 
         public VkPipelineLayout PipeLineLayout => _pipelineLayout;
 
+        public bool HasApplicationSet => applicationGlobalBindings.Count > 0;
+        public bool HasMaterialSet => materialGlobalBindings.Count > 0;
+        public bool HasEntitySet => entityBindings.Count > 0;
+
+        public DescriptorSetHandler ApplicationDescriptorSetHandler => _applicationDescriptorSetHandlerIndex != -1 ? _allHandlers[_applicationDescriptorSetHandlerIndex] : null;
+        public DescriptorSetHandler MaterialDescriptorSetHandler => _materialDescriptorSetHandlerIndex != -1 ? _allHandlers[_materialDescriptorSetHandlerIndex] : null;
+        public DescriptorSetHandler EntityDescriptorSetHandler => _entityDescriptorSetHandlerIndex != -1 ? _allHandlers[_entityDescriptorSetHandlerIndex] : null;
+
+        private bool _actAsGlobal = false;
         private bool _disposed = false;
 
-        public MaterialV2(string vertexShader, string fragmentShader)
+        public static MaterialV2 Create(string vertexShader, string fragmentShader)
         {
+            var material = new MaterialV2(vertexShader, fragmentShader, false);
+
+            if (material.HasApplicationSet)
+            {
+                material._allHandlers[0] = Presenter.Instance.GlobalSetHandler;
+            }
+
+            return material;
+        }
+
+        internal MaterialV2(string vertexShader, string fragmentShader, bool actAsGlobal)
+        {
+            _actAsGlobal = actAsGlobal;
             byte[] vertexBytes = GetShaderBytes(vertexShader);
             byte[] fragmentBytes = GetShaderBytes(fragmentShader);
 
@@ -68,9 +96,10 @@ namespace VECS
             entityBindings = GraphicsPipelineUtil.ExtractBindingsForSet(2, _materialBindings);
 
             GenerateDescriptorSetLayouts();
+            _totalSets = (uint)_allLayouts.Length;
+            _allHandlers = new DescriptorSetHandler[_allLayouts.Length];
 
-            CreateApplicationDescriptorSetHandler();
-            CreateMaterialDescriptorSetHandler();
+            CreateDescriptorSetHandler();
 
             _materialPushConstants = GraphicsPipelineUtil.GetPushConstants(spirVert, spirFrag);
 
@@ -82,30 +111,45 @@ namespace VECS
             Materials.Add(this);
         }
 
-        private void CreateApplicationDescriptorSetHandler()
+        
+
+        private void CreateDescriptorSetHandler(int index, Dictionary<string, int> bindingsDict)
         {
-            DescriptorBinding[] materialBindings = new DescriptorBinding[applicationGlobalBindings.Count];
+            DescriptorBinding[] bindings = new DescriptorBinding[bindingsDict.Count];
             int i = 0;
-            foreach (var item in applicationGlobalBindings.Values)
+            foreach (var item in bindingsDict.Values)
             {
-                materialBindings[i] = _materialBindings[item];
+                bindings[i] = _materialBindings[item];
                 i++;
             }
 
-            ApplicationDescriptorSetHandler = new(_materialDescriptorLayout, DescriptorLevel.Material, materialBindings);
+            _allHandlers[index] = new DescriptorSetHandler(_applicationDescriptorLayout, DescriptorLevel.Game, bindings);
+
         }
 
-        private void CreateMaterialDescriptorSetHandler()
+        private void CreateDescriptorSetHandler()
         {
-            DescriptorBinding[] materialBindings = new DescriptorBinding[materialGlobalBindings.Count];
-            int i = 0;
-            foreach (var item in materialGlobalBindings.Values)
+            int index = 0;
+            if (HasApplicationSet)
             {
-                materialBindings[i] = _materialBindings[ item];
-                i++;
+                if (_actAsGlobal)
+                {
+                    CreateDescriptorSetHandler(index, applicationGlobalBindings);
+                }
+                _applicationDescriptorSetHandlerIndex = index;
+                index++;
             }
-
-            MaterialDescriptorSetHandler = new(_materialDescriptorLayout, DescriptorLevel.Material, materialBindings);
+            if (HasMaterialSet)
+            {
+                CreateDescriptorSetHandler(index, materialGlobalBindings);
+                _materialDescriptorSetHandlerIndex = index;
+                index++;
+            }
+            if (HasEntitySet)
+            {
+                CreateDescriptorSetHandler(index, entityBindings);
+                _entityDescriptorSetHandlerIndex = index;
+            }
         }
 
         private void GenerateDescriptorSetLayouts()
@@ -113,19 +157,20 @@ namespace VECS
             DescriptorBinding[] workingBindings;
 
             int workingBindingIndex = 0;
-            if (applicationGlobalBindings.Count > 0)
+            if (HasApplicationSet)
             {
                 workingBindings = new DescriptorBinding[applicationGlobalBindings.Count];
                 foreach (var item in applicationGlobalBindings)
                 {
                     workingBindings[workingBindingIndex] = _materialBindings[item.Value];
+                    workingBindings[workingBindingIndex].UpdateShaderStage(VkShaderStageFlags.AllGraphics);
                     workingBindingIndex++;
                 }
                 _applicationDescriptorLayout = GraphicsPipelineUtil.CreateLayout(workingBindings);
                 _allLayouts = [_applicationDescriptorLayout];
             }
 
-            if (materialGlobalBindings.Count > 0)
+            if (HasMaterialSet)
             {
                 workingBindingIndex = 0;
                 workingBindings = new DescriptorBinding[materialGlobalBindings.Count];
@@ -135,10 +180,10 @@ namespace VECS
                     workingBindingIndex++;
                 }
                 _materialDescriptorLayout = GraphicsPipelineUtil.CreateLayout(workingBindings);
-                _allLayouts = [.. _allLayouts, _applicationDescriptorLayout];
+                _allLayouts = [.. _allLayouts, _materialDescriptorLayout];
             }
 
-            if (entityBindings.Count > 0)
+            if (HasEntitySet)
             {
                 workingBindingIndex = 0;
                 workingBindings = new DescriptorBinding[entityBindings.Count];
@@ -148,7 +193,7 @@ namespace VECS
                     workingBindingIndex++;
                 }
                 _entityDescriptorLayout = GraphicsPipelineUtil.CreateLayout(workingBindings);
-                _allLayouts = [.. _allLayouts, _applicationDescriptorLayout];
+                _allLayouts = [.. _allLayouts, _entityDescriptorLayout];
             }
         }
 
@@ -159,6 +204,8 @@ namespace VECS
                 setLayoutCount = _allLayouts == null ? 0 : (uint)_allLayouts.Length,
                 pushConstantRangeCount = _materialPushConstants == null ? 0 : (uint)_materialPushConstants.Length
             };
+
+            _setsToBind = (VkDescriptorSet*)NativeMemory.AllocZeroed((uint)_allLayouts.Length,(uint)sizeof(VkDescriptorSet));
 
             if (_allLayouts != null && _allLayouts.Length > 0)
             {
@@ -221,7 +268,12 @@ namespace VECS
         {
             if (_disposed) return;
             _disposed = true;
-            MaterialDescriptorSetHandler?.Dispose();
+
+            for (int i = 0; i < _allHandlers.Length; i++)
+            {
+                if (HasApplicationSet && !_actAsGlobal && i == 0) continue;
+                _allHandlers[i]?.Dispose();
+            }
             _materialPipeline?.Dispose();
             _materialPipeline = null;
             Vulkan.vkDestroyPipelineLayout(GraphicsDevice.Instance.Device, _pipelineLayout);
@@ -239,8 +291,6 @@ namespace VECS
             {
                 Vulkan.vkDestroyDescriptorSetLayout(GraphicsDevice.Instance.Device, _entityDescriptorLayout, null);
             }
-
-
 
             int index = GetIndexOfMaterial(this);
 

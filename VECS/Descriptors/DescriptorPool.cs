@@ -13,7 +13,7 @@ namespace VECS
         public readonly GraphicsDevice GraphicsDevice;
         private readonly VkDescriptorPool _descriptorPool;
 
-        private List<VkDescriptorSet> _setsToFree = [];
+        private readonly List<VkDescriptorSet> _setsToFree = [];
 
         /// <summary>
         /// Creaes a descriptor pool abstraction for allocating descriptor sets

@@ -22,29 +22,26 @@ namespace VECS
         public int FrameIndex;
         public float DeltaTime;
         public VkCommandBuffer CommandBuffer;
+        public VkDescriptorBufferInfo UboBufferInfo;
         public GlobalUbo Ubo;
-        public GPUBuffer<GlobalUbo.WriteableUBO> UboBuffer;
         public VkDescriptorSet GlobalDescriptorSet;
+        public DescriptorPool ApplicationDescriptorPool;
         public DescriptorPool MaterialDescriptorPool;
         public DescriptorPool EntityDescriptorPool;
         public List<VkBufferMemoryBarrier> PostCullBarriers;
-        public Queue<DescriptorSetHandler> DescriptorSetDisposalQueue;
         public VkDescriptorImageInfo DepthPyramid;
         public int DepthPyramidWidth;
         public int DepthPyramidHeight;
 
         public DescriptorPool GetDescriptorPool(DescriptorLevel descriptorLevel)
         {
-            switch (descriptorLevel)
+            return descriptorLevel switch
             {
-                case DescriptorLevel.Game:
-                    throw new InvalidOperationException("Cannot allocate use game wide pools for arbtiary descriptor sets");
-                case DescriptorLevel.Material:
-                    return MaterialDescriptorPool;
-                case DescriptorLevel.Entity:
-                    return EntityDescriptorPool;
-            }
-            return null;
+                DescriptorLevel.Game => ApplicationDescriptorPool,
+                DescriptorLevel.Material => MaterialDescriptorPool,
+                DescriptorLevel.Entity => EntityDescriptorPool,
+                _ => null,
+            };
         }
 
         public static bool operator ==(RendererFrameInfo left, RendererFrameInfo right)

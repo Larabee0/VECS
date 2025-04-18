@@ -15,7 +15,6 @@ namespace Planets.Colour
         private EntityQuery _planetRenderQuery;
         private SwapChainBuffer<PlanetTileShaderParmeters> _shaderParamBuffers;
         private SwapChainBuffer<ObjectData> _objectDataBuffers;
-        private SwapChainBuffer<VkDrawIndexedIndirectCommand> _indirectCmdBuffers;
 
         /// <summary>
         /// query setup, also creates the shader params buffer.
@@ -58,7 +57,7 @@ namespace Planets.Colour
                 {
                     var material = entityManager.GetComponent<MaterialIndex>(e);
                     int originalDrawIndex = drawIndex;
-                    CreatePlanetDrawCalls(ref drawIndex, frameInfo, entityManager, e, camLTW);
+                    var directMesh = CreatePlanetDrawCalls(ref drawIndex, frameInfo, entityManager, e, camLTW);
 
                     if (drawIndex == originalDrawIndex) return;
 
@@ -82,44 +81,44 @@ namespace Planets.Colour
                         curMat.PipeLineLayout,
                         1,  // starting set (0 is the globalDescriptorSet, 1 is the set specific to this system)
                         descriptorSet);
-                    _indirectCmdBuffers.WriteFromHostToActiveBuffer();
                     _objectDataBuffers.WriteFromHostToActiveBuffer();
-                    Vulkan.vkCmdDrawIndexedIndirect(frameInfo.CommandBuffer,
-                        _indirectCmdBuffers.ActiveVkBuffer,
-                        0,
-                        _indirectCmdBuffers.UInstanceCount32,
-                        (uint)sizeof(VkDrawIndexedIndirectCommand));
+                    directMesh.BindBuffers(frameInfo.CommandBuffer);
+                    directMesh.DrawIndirect(frameInfo.CommandBuffer);
                 });
             }
         }
 
-        private void CreatePlanetDrawCalls(ref int indirectWriteIndex,RendererFrameInfo frameInfo, EntityManager entityManager, Entity planetRoot, Matrix4x4 camLTW)
+        private DirectMesh CreatePlanetDrawCalls(ref int indirectWriteIndex,RendererFrameInfo frameInfo, EntityManager entityManager, Entity planetRoot, Matrix4x4 camLTW)
         {
             var children = entityManager.GetComponent<Children>(planetRoot);
-
-            var drawCmds = _indirectCmdBuffers.HostBuffer;
-            var objData = _objectDataBuffers.HostBuffer;
-
-            for (int i = 0; i < children.Value.Length; i++)
+            if (children.Value.Length > 0)
             {
-                if (!entityManager.HasComponent<TileNormalVector>(children.Value[i], out int signature)) {  continue; }
-                LocalToWorld ltw = entityManager.GetComponent<LocalToWorld>(children.Value[i]);
-                Vector3 toCamera = Vector3.Normalize(camLTW.Translation - ltw.Value.Translation);
+                var mesh = DirectSubMesh.GetSubMeshAtIndex(entityManager.GetComponent<DirectSubMeshIndex>(children.Value[0])).DirectMeshBuffer;
+                var drawCmds = mesh.IndirectDrawBuffer.HostBuffer;
+                var objData = _objectDataBuffers.HostBuffer;
 
-                Vector3 forward = -entityManager.GetComponent<TileNormalVector>(signature).Value;
-                forward = Vector3.TransformNormal(forward, ltw.Value);
-
-                var subMesh = DirectSubMesh.GetSubMeshAtIndex(entityManager.GetComponent<DirectSubMeshIndex>(children.Value[i]));
-                drawCmds[indirectWriteIndex] = subMesh.IndirectCommand;
-                subMesh.DirectMeshBuffer.BindBuffers(frameInfo.CommandBuffer);
-                objData[indirectWriteIndex] = new(ltw.Value, new(subMesh.Bounds.Bounds.center, subMesh.Bounds.Radius), new(subMesh.Bounds.Bounds.extents, subMesh.Bounds.Valid ? 1 : 0));
-
-                indirectWriteIndex++;
-                if (NumericsExtensions.Angle(forward, toCamera) > 100)
+                for (int i = 0; i < children.Value.Length; i++)
                 {
-                    
+                    if (!entityManager.HasComponent<TileNormalVector>(children.Value[i], out int signature)) { continue; }
+                    LocalToWorld ltw = entityManager.GetComponent<LocalToWorld>(children.Value[i]);
+                    Vector3 toCamera = Vector3.Normalize(camLTW.Translation - ltw.Value.Translation);
+
+                    Vector3 forward = -entityManager.GetComponent<TileNormalVector>(signature).Value;
+                    forward = Vector3.TransformNormal(forward, ltw.Value);
+
+                    var subMesh = DirectSubMesh.GetSubMeshAtIndex(entityManager.GetComponent<DirectSubMeshIndex>(children.Value[i]));
+                    drawCmds[indirectWriteIndex] = subMesh.IndirectCommand;
+                    objData[indirectWriteIndex] = new(ltw.Value, new(subMesh.Bounds.Bounds.center, subMesh.Bounds.Radius), new(subMesh.Bounds.Bounds.extents, subMesh.Bounds.Valid ? 1 : 0));
+
+                    indirectWriteIndex++;
+                    if (NumericsExtensions.Angle(forward, toCamera) > 100)
+                    {
+
+                    }
                 }
+                return mesh;
             }
+            return null;
         }
 
         /// <summary>
@@ -150,7 +149,6 @@ namespace Planets.Colour
         {
             base.OnDestroy(entityManager);
 
-            _indirectCmdBuffers?.Dispose();
             _objectDataBuffers?.Dispose();
             _shaderParamBuffers?.Dispose();
         }
@@ -158,13 +156,6 @@ namespace Planets.Colour
 
         private void CreateIndirectCmdBuffers()
         {
-            _indirectCmdBuffers = new(MAX_INDIRECT_COMMANDS,
-                    VkBufferUsageFlags.TransferDst |
-                    VkBufferUsageFlags.TransferSrc |
-                    VkBufferUsageFlags.IndirectBuffer |
-                    VkBufferUsageFlags.StorageBuffer,
-                    true);
-
             _objectDataBuffers = new(MAX_INDIRECT_COMMANDS,
                     VkBufferUsageFlags.TransferDst |
                     VkBufferUsageFlags.StorageBuffer,
@@ -172,7 +163,6 @@ namespace Planets.Colour
 
             VkCommandBuffer commandBuffer = GraphicsDevice.Instance.BeginSingleTimeCommands();
 
-            _indirectCmdBuffers.FillAllBuffers(commandBuffer, 0);
             _objectDataBuffers.FillAllBuffers(commandBuffer, 0);
 
             GraphicsDevice.Instance.EndSingleTimeCommands(commandBuffer);

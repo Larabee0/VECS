@@ -11,7 +11,7 @@ namespace VECS
     {
         private const int VERTEX_WRITE_OFFSET = 3;
 
-        public static DirectMeshBuffer Subdivide(this DirectMeshBuffer srcMesh, int divisions)
+        public static DirectMesh Subdivide(this DirectMesh srcMesh, int divisions)
         {
             DirectSubMeshCreateData[] newSubMeshes = new DirectSubMeshCreateData[srcMesh.SubMeshInfos.Length];
             uint vertexCountPerFace = GetVertsPerFace(divisions);
@@ -22,7 +22,7 @@ namespace VECS
                 newSubMeshes[i] = new(vertexCountPerFace * (existingSubMesh.IndexCount / 3), indexCountPerFace * (existingSubMesh.IndexCount / 3));
             }
 
-            DirectMeshBuffer newBuffer = new(srcMesh.AttributeDescriptions, newSubMeshes);
+            DirectMesh newBuffer = new(srcMesh.AttributeDescriptions, newSubMeshes);
             
             DirectSubMesh[] srcSubMeshes = srcMesh.DirectSubMeshes;
             DirectSubMesh[] dstSubMeshes = newBuffer.DirectSubMeshes;
@@ -34,8 +34,8 @@ namespace VECS
             newBuffer.GetBufferAtAttribute(VertexAttribute.Position).WriteFromHostBuffer();
             newBuffer.IndexBuffer.WriteFromHostBuffer();
             //DirectMeshBuffer.RecalcualteAllNormals(newBuffer);
-            var oldIndex = DirectMeshBuffer.GetIndexOfMesh(srcMesh);
-            var newIndex = DirectMeshBuffer.GetIndexOfMesh(newBuffer);
+            var oldIndex = DirectMesh.GetIndexOfMesh(srcMesh);
+            var newIndex = DirectMesh.GetIndexOfMesh(newBuffer);
             var entityManager = World.DefaultWorld.EntityManager;
             var allMeshEntities = entityManager.GetAllEntitiesWithComponent<DirectSubMeshIndex>();
             allMeshEntities?.ForEach(e =>

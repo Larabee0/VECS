@@ -143,6 +143,17 @@ namespace VECS
             Offset = offset;
             PaddedSize = paddedSize;
             Members = [.. children];
+            uint memberSize = 0;
+            for (int i = 0; i < Members.Length; i++)
+            {
+                memberSize += Members[i].PaddedSize;
+            }
+
+            if(memberSize > PaddedSize)
+            {
+                PaddedSize = memberSize;
+            }
+
             ArrayDimentions = 1;
             ArrayDimentionSizes = [1];
             VariableArraySize = true;

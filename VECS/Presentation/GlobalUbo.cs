@@ -1,4 +1,5 @@
-﻿using System.Numerics;
+﻿using System;
+using System.Numerics;
 using System.Runtime.InteropServices;
 
 namespace VECS
@@ -8,8 +9,7 @@ namespace VECS
     /// This holds things like the camera data and lights
     /// Point lights are defined up to a max lights value
     /// </summary>
-    [StructLayout(LayoutKind.Sequential, Size = 532)]
-    public unsafe struct GlobalUbo
+    public unsafe class GlobalUbo
     {
         public unsafe static int SizeInBytes => sizeof(WriteableUBO) + (sizeof(PointLight) * Presenter.MAX_LIGHTS);
 
@@ -27,11 +27,15 @@ namespace VECS
         }
 
 
-        public readonly unsafe void WriteToBuffer(GPUBuffer<WriteableUBO> targetBuffer)
+        public void WriteToBuffer(GPUBuffer targetBuffer)
         {
             WriteableUBO.Write(this, targetBuffer);
         }
 
+        public void WriteToSwapChainBuffer(SwapChainBuffer targetBuffer)
+        {
+            WriteableUBO.Write(this,targetBuffer);
+        }
 
         [StructLayout(LayoutKind.Sequential, Size = 212)]
         public struct WriteableUBO
@@ -53,7 +57,7 @@ namespace VECS
 
             }
 
-            public static void Write(GlobalUbo source, GPUBuffer<WriteableUBO> buffer)
+            public static void Write(GlobalUbo source, GPUBuffer buffer)
             {
                 WriteableUBO writeable = new(source);
                 PointLight* pPointLights = stackalloc PointLight[Presenter.MAX_LIGHTS];
@@ -68,6 +72,26 @@ namespace VECS
 
                 buffer.WriteToBuffer(pPointLights, (ulong)sizeof(PointLight) * Presenter.MAX_LIGHTS, offset+12);
                 //buffer.Flush();
+            }
+
+            public static void Write(GlobalUbo source, SwapChainBuffer buffer)
+            {
+                WriteableUBO writeable = new(source);
+                PointLight* pPointLights = stackalloc PointLight[Presenter.MAX_LIGHTS];
+
+                for (int i = 0; i < Presenter.MAX_LIGHTS; i++)
+                {
+                    pPointLights[i] = source.PointLights[i];
+                }
+
+                NativeMemory.Copy(&writeable, buffer.HostPtr, (uint)SizeInBytes);
+
+                var hostPtr = (IntPtr)buffer.HostPtr;
+
+                hostPtr = IntPtr.Add(hostPtr, SizeInBytes+12);
+
+                NativeMemory.Copy(pPointLights, (void*)hostPtr, (uint)sizeof(PointLight) * Presenter.MAX_LIGHTS);
+                buffer.SetBuffersDirty(true);
             }
         }
     }

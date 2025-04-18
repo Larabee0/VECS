@@ -11,20 +11,22 @@ using System.Threading.Tasks;
 
 namespace VECS
 {
-    public sealed class DirectMeshBuffer : IDisposable
+    public sealed class DirectMesh : IDisposable
     {
 #if DEBUG
         private static readonly HashSet<Type> validVertexFormats = [typeof(float), typeof(Vector2), typeof(Vector3), typeof(Vector4)];
 #endif
+
+        public const ulong MAX_INDIRECT_COMMANDS = 1000;
         public const VkBufferUsageFlags DIRECT_MESH_VERTEX_BUFFER_FLAGS = VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.TransferSrc | VkBufferUsageFlags.StorageBuffer;
         public const VkBufferUsageFlags DIRECT_MESH_INDEX_BUFFER_FLAGS = VkBufferUsageFlags.IndexBuffer | VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.TransferSrc | VkBufferUsageFlags.StorageBuffer;
         private static GraphicsDevice Device => GraphicsDevice.Instance;
 
-        private readonly static List<DirectMeshBuffer> _meshes = [];
-        public static List<DirectMeshBuffer> DirectMeshes => _meshes;
+        private readonly static List<DirectMesh> _meshes = [];
+        public static List<DirectMesh> DirectMeshes => _meshes;
 
-        private static DirectMeshBuffer _lastBoundDMB = null;
-        public static DirectMeshBuffer LastBoundDMB => _lastBoundDMB;
+        private static DirectMesh _lastBoundDMB = null;
+        public static DirectMesh LastBoundDMB => _lastBoundDMB;
 
         private ulong _allocatedVertexCount;
         private ulong _allocatedIndexCount;
@@ -42,6 +44,7 @@ namespace VECS
 
         private readonly GPUBuffer<uint> _indexBuffer;
         private GPUBuffer<uint> _indexOffsetBuffer;
+        private SwapChainBuffer<VkDrawIndexedIndirectCommand> _indirectCmdBuffers;
 
         private bool _disposed;
         private readonly Dictionary<VertexAttribute, GPUBuffer> _vertexBuffers;
@@ -56,6 +59,10 @@ namespace VECS
         public VertexAttribute[] AllAttributesInOrder => _attributesInOrder;
         public VkVertexInputBindingDescription[] VkBindingDesc => _bindingDescriptions;
         public VkVertexInputAttributeDescription[] VkAttributeDesc => _attributeDescriptions;
+
+        public VkBuffer IndirectDrawVkBuffer => _indirectCmdBuffers.ActiveVkBuffer;
+        public SwapChainBuffer<VkDrawIndexedIndirectCommand> IndirectDrawBuffer => _indirectCmdBuffers;
+        public uint IndirectDrawBufferLength => _indirectCmdBuffers.UInstanceCount32;
 
         public Dictionary<VertexAttribute, VertexAttributeDescription> ConsumedAttributes => _consumedAttributes;
 
@@ -127,7 +134,7 @@ namespace VECS
         public ulong IndexBufferLength => _allocatedIndexCount;
         public ulong IndexBufferSize => sizeof(uint) * _allocatedIndexCount;
 
-        public DirectMeshBuffer(VertexAttributeDescription[] requestedVertexAttributes, DirectSubMeshCreateData[] meshes)
+        public DirectMesh(VertexAttributeDescription[] requestedVertexAttributes, DirectSubMeshCreateData[] meshes)
         {
             _subMeshInfo = new DirectSubMeshInfo[meshes.Length];
             _directSubMeshs = new DirectSubMesh[meshes.Length];
@@ -175,6 +182,16 @@ namespace VECS
 
             _bindingDescriptions = GetBindingDescription(vertexAttributes);
             _attributeDescriptions = GetAttributeDescriptions(vertexAttributes);
+
+
+            _indirectCmdBuffers = new(MAX_INDIRECT_COMMANDS,
+                    VkBufferUsageFlags.TransferDst |
+                    VkBufferUsageFlags.TransferSrc |
+                    VkBufferUsageFlags.IndirectBuffer |
+                    VkBufferUsageFlags.StorageBuffer,
+                    true);
+            
+            _indirectCmdBuffers.SetBuffersDirty(true);
 
             DirectMeshes.Add(this);
         }
@@ -472,6 +489,15 @@ namespace VECS
             _lastBoundDMB = this;
         }
 
+        public unsafe void DrawIndirect(VkCommandBuffer cmd)
+        {
+            Vulkan.vkCmdDrawIndexedIndirect(cmd,
+                IndirectDrawVkBuffer,
+                0,
+                IndirectDrawBufferLength,
+                (uint)sizeof(VkDrawIndexedIndirectCommand));
+        }
+
         public void Dispose()
         {
             if (_disposed) return;
@@ -547,7 +573,7 @@ namespace VECS
             return attributeDescriptions;
         }
 
-        public static void RecalcualteAllNormals(DirectMeshBuffer directMesh)
+        public static void RecalcualteAllNormals(DirectMesh directMesh)
         {
             ComputeNormals.DispatchNow(directMesh);
             directMesh.GetBufferAtAttribute(VertexAttribute.Normal).SetGPUBufferChanged(true);
@@ -673,15 +699,15 @@ namespace VECS
 
         #region GetMeshes
 
-        public static DirectMeshBuffer GetMeshAtIndex(int index)
+        public static DirectMesh GetMeshAtIndex(int index)
         {
             index = Math.Max(0, index);
-            DirectMeshBuffer mesh = index < DirectMeshes.Count ? DirectMeshes[index] : null;
+            DirectMesh mesh = index < DirectMeshes.Count ? DirectMeshes[index] : null;
 
             return mesh;
         }
 
-        public static int GetIndexOfMesh(DirectMeshBuffer mesh)
+        public static int GetIndexOfMesh(DirectMesh mesh)
         {
             return DirectMeshes.IndexOf(mesh);
         }
@@ -718,7 +744,7 @@ namespace VECS
             return [ buffers, tmpReadBuffers];
         }
 
-        public static unsafe void ReadAllBuffersBatched(params DirectMeshBuffer[] meshes)
+        public static unsafe void ReadAllBuffersBatched(params DirectMesh[] meshes)
         {
             List<GPUBuffer> mainBuffers = [];
             List<GPUBuffer> tmpReadBuffers = [];

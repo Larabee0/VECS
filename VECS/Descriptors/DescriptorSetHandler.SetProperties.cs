@@ -73,45 +73,63 @@ namespace VECS
         {
             if (LookUpProperty(property, out uint bindingIndex, out DescriptorPropertyInfo propertyInfo) && propertyInfo.FixedArray)
             {
-                if (sizeof(T) * array.Length > propertyInfo.Size)
-                {
-                    throw new InvalidOperationException("Cannot write property with mismatched size");
-                }
-
-                uint offset = propertyInfo.Offset;
-                var hostPtr = (IntPtr)_bindingBuffers[bindingIndex].HostPtr;
-
-                hostPtr = IntPtr.Add(hostPtr, (int)offset);
-                fixed (T* arrayPtr = array)
-                {
-                    NativeMemory.Copy(arrayPtr, (void*)hostPtr, propertyInfo.Size);
-                }
-                _bindingBuffers[bindingIndex].SetBuffersDirty(true);
-
-                Span<float> properties = new(_bindingBuffers[bindingIndex].HostPtr, (int)_bindingBuffers[bindingIndex].InstanceSize / sizeof(float));
+                WriteArrayToBuffer(bindingIndex, propertyInfo, array);
             }
         }
 
         public unsafe void WriteToBuffer<T>(string property, T element) where T : unmanaged
         {
-            if (LookUpProperty(property,out uint bindingIndex, out DescriptorPropertyInfo propertyInfo))
+            if (LookUpProperty(property, out uint bindingIndex, out DescriptorPropertyInfo propertyInfo))
             {
-                if(sizeof(T) > propertyInfo.Size)
-                {
-                    throw new InvalidOperationException("Cannot write property with mismatched size");
-                }
-
-                uint offset = propertyInfo.Offset;
-                var hostPtr = (IntPtr)_bindingBuffers[bindingIndex].HostPtr;
-
-                hostPtr = IntPtr.Add(hostPtr, (int)offset);
-
-                NativeMemory.Copy(&element, (void*)hostPtr, propertyInfo.Size);
-                _bindingBuffers[bindingIndex].SetBuffersDirty(true);
-
-                Span<T> properties = new(_bindingBuffers[bindingIndex].HostPtr, (int)_bindingBuffers[bindingIndex].InstanceSize/sizeof(T));
-
+                WriteToBuffer(bindingIndex, propertyInfo, element);
             }
+        }
+
+        public unsafe void WriteArrayToBuffer<T>(uint bindingIndex, DescriptorPropertyInfo propertyInfo, T[] array) where T : unmanaged
+        {
+            if (sizeof(T) * array.Length > propertyInfo.Size)
+            {
+                throw new InvalidOperationException("Cannot write property with mismatched size");
+            }
+
+            uint offset = propertyInfo.Offset;
+            var hostPtr = (IntPtr)_bindingBuffers[bindingIndex].HostPtr;
+
+            hostPtr = IntPtr.Add(hostPtr, (int)offset);
+            fixed (T* arrayPtr = array)
+            {
+                NativeMemory.Copy(arrayPtr, (void*)hostPtr, propertyInfo.Size);
+            }
+            _bindingBuffers[bindingIndex].SetBuffersDirty(true);
+
+            Span<float> properties = new(_bindingBuffers[bindingIndex].HostPtr, (int)_bindingBuffers[bindingIndex].InstanceSize / sizeof(float));
+        }
+
+        public unsafe void WriteToBuffer<T>(uint bindingIndex, DescriptorPropertyInfo propertyInfo, T element) where T : unmanaged
+        {
+            if (sizeof(T) > propertyInfo.Size)
+            {
+                throw new InvalidOperationException("Cannot write property with mismatched size");
+            }
+
+            uint offset = propertyInfo.Offset;
+            var hostPtr = (IntPtr)_bindingBuffers[bindingIndex].HostPtr;
+
+            hostPtr = IntPtr.Add(hostPtr, (int)offset);
+
+            NativeMemory.Copy(&element, (void*)hostPtr, propertyInfo.Size);
+            _bindingBuffers[bindingIndex].SetBuffersDirty(true);
+
+            Span<T> properties = new(_bindingBuffers[bindingIndex].HostPtr, (int)_bindingBuffers[bindingIndex].InstanceSize / sizeof(T));
+        }
+
+        public SwapChainBuffer GetBufferOfProperty(string property)
+        {
+            if(LookUpProperty(property,out uint bindingIndex, out DescriptorPropertyInfo propertyInfo))
+            {
+                return _bindingBuffers[bindingIndex];
+            }
+            return null;
         }
     }
 

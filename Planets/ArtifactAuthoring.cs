@@ -69,8 +69,8 @@ namespace Planets
                 new(VertexAttribute.TexCoord0,VertexAttributeFormat.Float2,0,2,2),
             ];
 
-            var bindingDescriptions = DirectMeshBuffer.GetBindingDescription(vertexAttributeDescriptions);
-            var attributeDescriptions = DirectMeshBuffer.GetAttributeDescriptions(vertexAttributeDescriptions);
+            var bindingDescriptions = DirectMesh.GetBindingDescription(vertexAttributeDescriptions);
+            var attributeDescriptions = DirectMesh.GetAttributeDescriptions(vertexAttributeDescriptions);
 
             indirectMeshMaterial = new Material("white_shader.vert", "white_shader.frag",
                 bindingDescriptions,
@@ -78,7 +78,7 @@ namespace Planets
                 new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.StorageBuffer, StageFlags = VkShaderStageFlags.Vertex }
             );
 
-            var indirectV2 = new MaterialV2("planet_shader.vert", "planet_shader.frag");
+            var indirectV2 = MaterialV2.Create("planet_shader.vert", "planet_shader.frag");
 
             indirectV2.Dispose();
 
@@ -197,9 +197,9 @@ namespace Planets
             ulong vertexCount = 0;
             ulong indexCount = 0;
 
-            for (int i = 0; i < DirectMeshBuffer.DirectMeshes.Count; i++)
+            for (int i = 0; i < DirectMesh.DirectMeshes.Count; i++)
             {
-                var mesh = DirectMeshBuffer.DirectMeshes[i];
+                var mesh = DirectMesh.DirectMeshes[i];
                 vertexCount += mesh.VertexBufferLength;
                 indexCount += mesh.IndexBufferLength;
             }
@@ -269,8 +269,8 @@ namespace Planets
                 new(VertexAttribute.TexCoord0,VertexAttributeFormat.Float2,0,2,2),
             ];
 
-            var bindingDescriptions = DirectMeshBuffer.GetBindingDescription(vertexAttributeDescriptions);
-            var attributeDescriptions = DirectMeshBuffer.GetAttributeDescriptions(vertexAttributeDescriptions);
+            var bindingDescriptions = DirectMesh.GetBindingDescription(vertexAttributeDescriptions);
+            var attributeDescriptions = DirectMesh.GetAttributeDescriptions(vertexAttributeDescriptions);
 
             var planetLit = new Material("planet_shader.vert", "planet_shader.frag", bindingDescriptions,
                 attributeDescriptions,
@@ -311,7 +311,7 @@ namespace Planets
         public static void InitialiseTiles(EntityManager entityManager, Entity planetRoot, int subdivisons)
         {
             var planetTileMeshes = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("Comp305-Shape-Split.obj"), [new VertexAttributeDescription(VertexAttribute.TexCoord0, VertexAttributeFormat.Float2)]);
-            DirectMeshBuffer.RecalcualteAllNormals(planetTileMeshes[0].DirectMeshBuffer);
+            DirectMesh.RecalcualteAllNormals(planetTileMeshes[0].DirectMeshBuffer);
             Vector3[] tileNormals = new Vector3[planetTileMeshes.Length];
             for (int i = 0; i < planetTileMeshes.Length; i++)
             {
@@ -341,7 +341,7 @@ namespace Planets
             entityManager.SetComponent(planetRoot, propertyChildren);
         }
 
-        private static DirectMeshBuffer SubdividePlanet(DirectMeshBuffer shape, int subdivisons)
+        private static DirectMesh SubdividePlanet(DirectMesh shape, int subdivisons)
         {
             Console.WriteLine(string.Format("Begin Subdivison {0} steps", subdivisons));
             _stopwatch.Restart();
@@ -404,7 +404,7 @@ namespace Planets
                 meshes[0].DirectMeshBuffer.FlushAll();
             }
 
-            DirectMeshBuffer.RecalcualteAllNormals(meshes[0].DirectMeshBuffer);
+            DirectMesh.RecalcualteAllNormals(meshes[0].DirectMeshBuffer);
 
             meshes[0].DirectMeshBuffer.ReadAllBuffers();
             for (int i = 0; i < meshes.Length; i++)
@@ -470,7 +470,7 @@ namespace Planets
                 new VertexAttributeDescription(VertexAttribute.Colour,VertexAttributeFormat.Float3),
             ];
 
-            var directMesh = new DirectMeshBuffer(attributeDescriptions, [new DirectSubMeshCreateData(36, 36)]);
+            var directMesh = new DirectMesh(attributeDescriptions, [new DirectSubMeshCreateData(36, 36)]);
             var subMesh = directMesh.DirectSubMeshes[0];
 
             var vertices = subMesh.Vertices;

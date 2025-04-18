@@ -14,10 +14,8 @@ namespace Planets
 {
     public class DrawIndirectRenderSystem : PresentationSystemBase
     {
-        public const ulong MAX_INDIRECT_COMMANDS = 1000;
         public const bool COMPUTE_CULL = false;
         private SwapChainBuffer<ObjectData> _objectDataBuffers;
-        private SwapChainBuffer<VkDrawIndexedIndirectCommand> _indirectCmdBuffers;
         private SwapChainBuffer<float> _depthSamples;
         
 
@@ -54,6 +52,8 @@ namespace Planets
             var cmdBuffer = rendererFrameInfo.CommandBuffer;
 
             var entities = _planetRenderQuery.GetEntities();
+
+            var indirectCmdBuffers = DirectSubMesh.GetSubMeshAtIndex(entityManager.GetComponent<DirectSubMeshIndex>(entities[0])).DirectMeshBuffer.IndirectDrawBuffer;
 
             var cam = entityManager.GetComponent<Camera>(_cameraQuery.GetEntities()[0]);
 
@@ -94,7 +94,7 @@ namespace Planets
             aabb.Z = drawOld[6];
             aabb.W = drawOld[7];
 
-            Span<VkDrawIndexedIndirectCommand> drawCmds = _indirectCmdBuffers.HostBuffer;
+            Span<VkDrawIndexedIndirectCommand> drawCmds = indirectCmdBuffers.HostBuffer;
             Span<ObjectData> drawObjectData = _objectDataBuffers.HostBuffer;
 
             for (int i = 0; i < entities.Count; i++)
@@ -120,7 +120,7 @@ namespace Planets
 
             if (COMPUTE_CULL)
             {
-                _indirectCmdBuffers.WriteFromHostToActiveBuffer();
+                indirectCmdBuffers.WriteFromHostToActiveBuffer();
             }
             _objectDataBuffers.WriteFromHostToActiveBuffer();
             if (!COMPUTE_CULL) {
@@ -164,7 +164,7 @@ namespace Planets
                     drawNone = true;
                 }
 
-                _indirectCmdBuffers.WriteFromHostToActiveBuffer();
+                indirectCmdBuffers.WriteFromHostToActiveBuffer();
             }
             else
             {
@@ -173,9 +173,9 @@ namespace Planets
                 fixed (VkDescriptorSet* pSet = &_cullCompute.DescriptorSet)
                 {
                     new DescriptorWriter(_cullCompute.DescriptorSetLayout, rendererFrameInfo.EntityDescriptorPool)
-                        .WriteBuffer(0, rendererFrameInfo.UboBuffer.DescriptorInfo())
+                        .WriteBuffer(0, rendererFrameInfo.UboBufferInfo)
                         .WriteBuffer(1, _objectDataBuffers.ActiveDescriptorInfo())
-                        .WriteBuffer(2, _indirectCmdBuffers.ActiveDescriptorInfo())
+                        .WriteBuffer(2, indirectCmdBuffers.ActiveDescriptorInfo())
                         .WriteImage(3, rendererFrameInfo.DepthPyramid)
                         .WriteBuffer(4, _depthSamples.ActiveDescriptorInfo())
                         .Build(pSet);
@@ -184,7 +184,7 @@ namespace Planets
                 _cullCompute.Dispatch(cmdBuffer, drawCull, ((uint)entities.Count / 256) + 1, 1, 1);
                 VkBufferMemoryBarrier barrier = new()
                 {
-                    buffer = _indirectCmdBuffers.ActiveVkBuffer,
+                    buffer = indirectCmdBuffers.ActiveVkBuffer,
                     size = Vulkan.VK_WHOLE_SIZE,
                     srcQueueFamilyIndex = (uint)GraphicsDevice.Instance.PhysicalQueueFamilies.graphicsFamily,
                     dstQueueFamilyIndex = (uint)GraphicsDevice.Instance.PhysicalQueueFamilies.graphicsFamily,
@@ -201,12 +201,11 @@ namespace Planets
 
             var cmdBuffer = rendererFrameInfo.CommandBuffer;
 
-            var indirectCmdBuffer = _indirectCmdBuffers.ActiveGPUBuffer;
             var modelMatricesBuffer = _objectDataBuffers.ActiveGPUBuffer;
 
             var entities = _planetRenderQuery.GetEntities();
 
-            DirectMeshBuffer meshSet = DirectSubMesh.GetSubMeshAtIndex(entityManager.GetComponent<DirectSubMeshIndex>(entities[0])).DirectMeshBuffer;
+            DirectMesh meshSet = DirectSubMesh.GetSubMeshAtIndex(entityManager.GetComponent<DirectSubMeshIndex>(entities[0])).DirectMeshBuffer;
 
             Material material = Material.Materials[entityManager.GetComponent<MaterialIndex>(entities[0]).Value];
 
@@ -216,11 +215,7 @@ namespace Planets
             writer.WriteBuffer(0, modelMatricesBuffer.DescriptorInfo());
             material.BindDescriptorSet(rendererFrameInfo, writer);
             meshSet.BindBuffers(cmdBuffer);
-            Vulkan.vkCmdDrawIndexedIndirect(cmdBuffer,
-                indirectCmdBuffer.VkBuffer,
-                0,
-                (uint)indirectCmdBuffer.InstanceCount,
-                (uint)sizeof(VkDrawIndexedIndirectCommand));
+            meshSet.DrawIndirect(cmdBuffer);
         }
 
         public override void OnDestroy(EntityManager entityManager)
@@ -230,31 +225,23 @@ namespace Planets
             _CPUDepthSample?.Dispose();
             _sampler?.Dispose();
             _cullCompute?.Dispose();
-            _indirectCmdBuffers?.Dispose();
             _objectDataBuffers?.Dispose();
             _depthSamples?.Dispose();
         }
 
         private void CreateIndirectCmdBuffers()
         {
-            _indirectCmdBuffers = new(MAX_INDIRECT_COMMANDS,
-                    VkBufferUsageFlags.TransferDst |
-                    VkBufferUsageFlags.TransferSrc |
-                    VkBufferUsageFlags.IndirectBuffer |
-                    VkBufferUsageFlags.StorageBuffer,
-                    true);
-            _objectDataBuffers = new(MAX_INDIRECT_COMMANDS,
+            _objectDataBuffers = new(DirectMesh.MAX_INDIRECT_COMMANDS,
                     VkBufferUsageFlags.TransferDst |
                     VkBufferUsageFlags.StorageBuffer,
                     true);
-            _depthSamples = new(MAX_INDIRECT_COMMANDS,
+            _depthSamples = new(DirectMesh.MAX_INDIRECT_COMMANDS,
                     VkBufferUsageFlags.TransferDst |
                     VkBufferUsageFlags.StorageBuffer,
                     true);
 
             VkCommandBuffer commandBuffer = GraphicsDevice.Instance.BeginSingleTimeCommands();
 
-            _indirectCmdBuffers.FillAllBuffers(commandBuffer, 0);
             _objectDataBuffers.FillAllBuffers(commandBuffer, 0);
             _depthSamples.FillAllBuffers(commandBuffer, 0);
 
