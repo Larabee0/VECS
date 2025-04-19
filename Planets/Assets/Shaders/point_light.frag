@@ -1,9 +1,7 @@
-#version 450
+#version 460
 
 layout (location = 0) in vec2 fragOffset;
 layout (location = 0) out vec4 outColour;
-
-
 
 struct PointLight {
 		vec4 position; // ignore w

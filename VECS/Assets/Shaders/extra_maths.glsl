@@ -1,15 +1,18 @@
+precision highp float;
+precision lowp sampler2DArray;
+
 float lerp(float a, float b, float t){
-	return a + (b - a) * clamp(t, 0, 1);
+	return a + (b - a) * clamp(t, 0.0, 1.0);
 }
 
 vec4 lerp(vec4 a, vec4 b, float t){
-        t = clamp(t, 0, 1);
+        t = clamp(t, 0.0, 1.0);
         return vec4(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t, a.w + (b.w - a.w) * t);
 }
 
 float inverseLerp(float a, float b, float value){
 
-	return a != b ? clamp((value - a) / (b - a), 0, 1) : 0;
+	return a != b ? clamp((value - a) / (b - a), 0.0, 1.0) : 0.0;
 }
 
 vec4 triplanar(vec3 vertPos, vec3 normal, float scale, sampler2D tex)

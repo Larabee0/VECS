@@ -1,5 +1,4 @@
-#version 450
-#extension GL_KHR_vulkan_glsl: enable
+#version 460
 #include "structures.glsl"
 
 // information about the main buffer defining what threads should run/abort

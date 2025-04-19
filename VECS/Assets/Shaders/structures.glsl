@@ -1,3 +1,4 @@
+precision highp float;
 
 struct Vertex{
 	float positionX;

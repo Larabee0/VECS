@@ -1,5 +1,4 @@
 #version 460
-#extension GL_KHR_vulkan_glsl: enable
 layout (location = 0) in vec4 colour;
 layout (location = 0) out vec4 outColour;
 

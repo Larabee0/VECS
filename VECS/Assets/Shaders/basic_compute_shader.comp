@@ -1,5 +1,4 @@
-#version 450
-#extension GL_KHR_vulkan_glsl: enable
+#version 460
 
 layout(set = 0, binding = 0) uniform ComputeShaderParameters{
 	uint bufferLength;

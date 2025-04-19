@@ -1,5 +1,4 @@
 #version 450
-#extension GL_KHR_vulkan_glsl: enable
 
 const vec2 OFFSETS[6] = vec2[](
 	vec2(-1.0,-1.0),
