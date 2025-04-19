@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Numerics;
 using VECS.ECS.Presentation;
+using VECS.ECS.Transforms;
 using Vortice.Vulkan;
 
 namespace VECS
@@ -10,6 +11,7 @@ namespace VECS
         private readonly DirectMesh _directMeshBuffer;
         private readonly int _directSubMeshIndex;
         private RenderBounds _bounds;
+        private ModelBounds _modelBounds;
 
         public DirectMesh DirectMeshBuffer => _directMeshBuffer;
 
@@ -121,6 +123,7 @@ namespace VECS
                 Radius = radius,
                 Valid = true
             };
+            _modelBounds = new(Bounds);
             AltRecalculateRenderBounds();
         }
 
@@ -165,6 +168,7 @@ namespace VECS
             }
 
             _bounds.Radius = MathF.Sqrt(r2);
+            _modelBounds = new(Bounds);
         }
 
         public void SimpleBindAndDraw(VkCommandBuffer cmd)
@@ -172,6 +176,18 @@ namespace VECS
             _directMeshBuffer.BindBuffers(cmd);
             var drawCmd = DirectSubMeshInfo.IndirectDrawCmd;
             Vulkan.vkCmdDrawIndexed(cmd, drawCmd.indexCount, 1, drawCmd.firstIndex, drawCmd.vertexOffset, 0);
+        }
+
+        public void PushIndirectDraw(LocalToWorld localToWorld)
+        {
+            PushIndirectDraw(localToWorld.Value);
+        }
+
+        public void PushIndirectDraw(Matrix4x4 transformMatrix)
+        {
+            var matrices = new ModelMatrices(transformMatrix);
+            var bounds = _modelBounds;
+            _directMeshBuffer.Push(IndirectCommand, matrices, bounds);
         }
 
         public void Reallocate(DirectSubMeshCreateData directSubMeshCreateData)
@@ -197,11 +213,6 @@ namespace VECS
         {
             var directMesh = DirectMesh.GetMeshAtIndex(directSubMeshIndex.DirectMeshBuffer);
             return directMesh.DirectSubMeshes[directSubMeshIndex.SubMeshIndex];
-        }
-
-        public uint Face(int f, int v)
-        {
-            return Faces[f][v];
         }
     }
 }

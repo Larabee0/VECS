@@ -51,6 +51,9 @@ namespace VECS
         public bool HasMaterialSet => materialGlobalBindings.Count > 0;
         public bool HasEntitySet => entityBindings.Count > 0;
 
+        public VkVertexInputBindingDescription[] VertexBindings => _graphicsPipelineConfigInfo.BindingDescriptions;
+        public VkVertexInputAttributeDescription[] VertexAttributes => _graphicsPipelineConfigInfo.AttributeDescriptions;
+
         public DescriptorSetHandler ApplicationDescriptorSetHandler => _applicationDescriptorSetHandlerIndex != -1 ? _allHandlers[_applicationDescriptorSetHandlerIndex] : null;
         public DescriptorSetHandler MaterialDescriptorSetHandler => _materialDescriptorSetHandlerIndex != -1 ? _allHandlers[_materialDescriptorSetHandlerIndex] : null;
         public DescriptorSetHandler EntityDescriptorSetHandler => _entityDescriptorSetHandlerIndex != -1 ? _allHandlers[_entityDescriptorSetHandlerIndex] : null;

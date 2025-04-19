@@ -36,7 +36,7 @@ layout(std140, set = 1, binding = 1) readonly buffer ObjectBoundsBuffer{
 	ObjectBounds bounds[];
 }boundsBuffer;
 
-layout(std140, set = 1, binding = 9) readonly buffer ObjectColourBuffer{
+layout(std140, set = 1, binding = 2) readonly buffer ObjectColourBuffer{
 	vec4 colours[];
 } colourBuffer;
 

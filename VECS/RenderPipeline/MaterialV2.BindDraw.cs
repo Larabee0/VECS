@@ -40,7 +40,7 @@ namespace VECS
             }
         }
 
-        private void BindPipeline(RendererFrameInfo frameInfo)
+        public void BindPipeline(RendererFrameInfo frameInfo)
         {
             _materialPipeline.Bind(frameInfo.CommandBuffer);
         }

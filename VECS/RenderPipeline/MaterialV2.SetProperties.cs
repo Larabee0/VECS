@@ -4,11 +4,20 @@ using System.Linq;
 using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
+using Vortice.Vulkan;
 
 namespace VECS
 {
     public sealed partial class MaterialV2
     {
+        internal void SetBuffer(string buffer, VkDescriptorBufferInfo vkDescriptorBufferInfo)
+        {
+            if (LookUpProperty(buffer, out var handler, out var bindingIndex, out var propertyInfo))
+            {
+                handler.SetBuffer(bindingIndex, propertyInfo, vkDescriptorBufferInfo);
+            }
+        }
+
         public void SetInt(string property, int value)
         {
             WriteToBuffer(property, value);
@@ -71,28 +80,35 @@ namespace VECS
 
         private unsafe void WriteArrayToBuffer<T>(string property, T[] array) where T : unmanaged
         {
-            for (int i = 0; i < _totalSets; i++)
+            if(LookUpProperty(property, out var handler, out uint bindingIndex, out var propertyInfo))
             {
-                var handler = _allHandlers[i];
-                if (handler.LookUpProperty(property,out uint bindingIndex, out DescriptorPropertyInfo propertyInfo))
-                {
-                    handler.WriteArrayToBuffer(bindingIndex, propertyInfo, array);
-                    break;
-                }
+                handler.WriteArrayToBuffer(bindingIndex, propertyInfo, array);
             }
         }
 
         private void WriteToBuffer<T>(string property, T element) where T : unmanaged
         {
-            for (int i = 0; i < _totalSets; i++)
+            if (LookUpProperty(property, out var handler, out var bindingIndex, out var propertyInfo))
             {
-                var handler = _allHandlers[i];
-                if (handler.LookUpProperty(property, out uint bindingIndex, out DescriptorPropertyInfo propertyInfo))
-                {
-                    handler.WriteToBuffer(bindingIndex, propertyInfo, element);
-                    break;
-                }
+                handler.WriteToBuffer(bindingIndex, propertyInfo, element);
             }
         }
+
+        private bool LookUpProperty(string property, out DescriptorSetHandler handler, out uint bindingIndex, out DescriptorPropertyInfo propertyInfo)
+        {
+            for (int i = 0; i < _totalSets; i++)
+            {
+                handler = _allHandlers[i];
+                if (handler.LookUpProperty(property, out bindingIndex, out propertyInfo))
+                {
+                    return true;
+                }
+            }
+            handler = null;
+            bindingIndex = uint.MaxValue;
+            propertyInfo = null;
+            return false;
+        }
+
     }
 }

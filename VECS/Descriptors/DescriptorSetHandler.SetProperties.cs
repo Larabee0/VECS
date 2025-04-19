@@ -131,6 +131,11 @@ namespace VECS
             }
             return null;
         }
+
+        internal void SetBuffer(uint bindingIndex, DescriptorPropertyInfo propertyInfo, VkDescriptorBufferInfo vkDescriptorBufferInfo)
+        {
+            // need to overwrite descriptor set buffer binding for this binding index with the given storage buffer
+        }
     }
 
     public struct PlanetTileShaderParmeters

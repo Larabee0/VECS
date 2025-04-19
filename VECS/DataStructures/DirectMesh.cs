@@ -8,9 +8,40 @@ using VECS.LowLevel;
 using Vortice.Vulkan;
 using System.Collections.Concurrent;
 using System.Threading.Tasks;
+using System.Diagnostics;
 
 namespace VECS
 {
+    [StructLayout(LayoutKind.Sequential, Size = 128)]
+    public struct ModelMatrices
+    {
+        public Matrix4x4 ModelMatrix;
+        public Matrix4x4 NormalMatrix;
+
+        public ModelMatrices(Matrix4x4 transformMatrix)
+        {
+            ModelMatrix = transformMatrix;
+
+            if (Matrix4x4.Invert(transformMatrix, out Matrix4x4 NormalMatrix))
+            {
+                NormalMatrix = Matrix4x4.Transpose(NormalMatrix);
+            }
+        }
+    }
+
+    [StructLayout(LayoutKind.Sequential, Size = 32)]
+    public struct ModelBounds
+    {
+        public Vector4 Min;
+        public Vector4 Max;
+
+        public ModelBounds(RenderBounds renderBounds)
+        {
+            Min = new(renderBounds.Bounds.Min, renderBounds.Radius);
+            Max = new(renderBounds.Bounds.Max, renderBounds.Radius);
+        }
+    }
+
     public sealed class DirectMesh : IDisposable
     {
 #if DEBUG
@@ -42,9 +73,13 @@ namespace VECS
         private readonly Dictionary<VertexAttribute, VertexAttributeDescription> _consumedAttributes = [];
         private readonly ConcurrentDictionary<VertexAttribute, bool> _knownAttributes = [];
 
+        private readonly Stack<DrawCommand> _drawStack = new((int)MAX_INDIRECT_COMMANDS);
+        private readonly SwapChainBuffer<VkDrawIndexedIndirectCommand> _indirectCmdBuffer;
+        private readonly SwapChainBuffer<ModelMatrices> _modelMatricesBuffer;
+        private readonly SwapChainBuffer<ModelBounds> _modelBoundsBuffer;
+
         private readonly GPUBuffer<uint> _indexBuffer;
         private GPUBuffer<uint> _indexOffsetBuffer;
-        private SwapChainBuffer<VkDrawIndexedIndirectCommand> _indirectCmdBuffers;
 
         private bool _disposed;
         private readonly Dictionary<VertexAttribute, GPUBuffer> _vertexBuffers;
@@ -60,9 +95,9 @@ namespace VECS
         public VkVertexInputBindingDescription[] VkBindingDesc => _bindingDescriptions;
         public VkVertexInputAttributeDescription[] VkAttributeDesc => _attributeDescriptions;
 
-        public VkBuffer IndirectDrawVkBuffer => _indirectCmdBuffers.ActiveVkBuffer;
-        public SwapChainBuffer<VkDrawIndexedIndirectCommand> IndirectDrawBuffer => _indirectCmdBuffers;
-        public uint IndirectDrawBufferLength => _indirectCmdBuffers.UInstanceCount32;
+        public VkBuffer IndirectDrawVkBuffer => _indirectCmdBuffer.ActiveVkBuffer;
+        public SwapChainBuffer<VkDrawIndexedIndirectCommand> IndirectDrawBuffer => _indirectCmdBuffer;
+        public uint IndirectDrawBufferLength => _indirectCmdBuffer.UInstanceCount32;
 
         public Dictionary<VertexAttribute, VertexAttributeDescription> ConsumedAttributes => _consumedAttributes;
 
@@ -84,7 +119,7 @@ namespace VECS
         {
             get
             {
-                if(_indexOffsetBuffer == null)
+                if (_indexOffsetBuffer == null)
                 {
                     _indexOffsetBuffer ??= new(IndexBufferLength, VkBufferUsageFlags.StorageBuffer, true);
                     //_indexOffsetBuffer.TryAllocHostBuffer(false);
@@ -108,7 +143,7 @@ namespace VECS
         {
             get
             {
-                if(_indexBuffer.HostBuffer == Span<uint>.Empty)
+                if (_indexBuffer.HostBuffer == Span<uint>.Empty)
                 {
                     _indexBuffer.TryAllocHostBuffer(true);
                 }
@@ -120,7 +155,7 @@ namespace VECS
         {
             get
             {
-                if(IndexOffsetBuffer.HostBuffer == Span<uint>.Empty)
+                if (IndexOffsetBuffer.HostBuffer == Span<uint>.Empty)
                 {
                     IndexOffsetBuffer.TryAllocHostBuffer(true);
                 }
@@ -142,12 +177,12 @@ namespace VECS
             uint vertexOffset = 0;
             for (uint i = 0; i < meshes.Length; i++)
             {
-                _subMeshInfo[i] = new(meshes[i].VertexCount, meshes[i].IndexCount,indexOffset,vertexOffset,i);
+                _subMeshInfo[i] = new(meshes[i].VertexCount, meshes[i].IndexCount, indexOffset, vertexOffset, i);
                 _directSubMeshs[i] = new DirectSubMesh(this, (int)i);
                 vertexOffset += meshes[i].VertexCount;
                 indexOffset += meshes[i].IndexCount;
             }
-            
+
             _allocatedVertexCount = vertexOffset;
             _allocatedIndexCount = indexOffset;
 
@@ -161,7 +196,7 @@ namespace VECS
             _indexBuffer = new(_allocatedIndexCount, DIRECT_MESH_INDEX_BUFFER_FLAGS, false);
 
             _indexBuffer.TryAllocHostBuffer(false);
-            
+
             ZeroBuffers();
 
             VertexAttributeDescription[] vertexAttributes = new VertexAttributeDescription[_consumedAttributes.Values.Count];
@@ -169,12 +204,12 @@ namespace VECS
             _vertexVkBuffers = new VkBuffer[vertexAttributes.Length];
             _vertexOffsets = new ulong[vertexAttributes.Length];
             uint bindingIndex = 0;
-            for(VertexAttribute attribute = VertexAttribute.Position; attribute <= VertexAttribute.TexCoord7; attribute++)
+            for (VertexAttribute attribute = VertexAttribute.Position; attribute <= VertexAttribute.TexCoord7; attribute++)
             {
                 if (_consumedAttributes.TryGetValue(attribute, out var attributeDescription))
                 {
                     _attributesInOrder[bindingIndex] = attribute;
-                    _consumedAttributes[attribute]= vertexAttributes[bindingIndex] = new(attributeDescription.attribute, attributeDescription.format, 0, bindingIndex, bindingIndex);
+                    _consumedAttributes[attribute] = vertexAttributes[bindingIndex] = new(attributeDescription.attribute, attributeDescription.format, 0, bindingIndex, bindingIndex);
                     _vertexVkBuffers[bindingIndex] = _vertexBuffers[attribute].VkBuffer;
                     bindingIndex++;
                 }
@@ -184,14 +219,29 @@ namespace VECS
             _attributeDescriptions = GetAttributeDescriptions(vertexAttributes);
 
 
-            _indirectCmdBuffers = new(MAX_INDIRECT_COMMANDS,
+            _indirectCmdBuffer = new(MAX_INDIRECT_COMMANDS,
                     VkBufferUsageFlags.TransferDst |
                     VkBufferUsageFlags.TransferSrc |
                     VkBufferUsageFlags.IndirectBuffer |
                     VkBufferUsageFlags.StorageBuffer,
                     true);
-            
-            _indirectCmdBuffers.SetBuffersDirty(true);
+
+
+            _modelMatricesBuffer = new(MAX_INDIRECT_COMMANDS,
+                    VkBufferUsageFlags.TransferDst |
+                    VkBufferUsageFlags.TransferSrc |
+                    VkBufferUsageFlags.IndirectBuffer |
+                    VkBufferUsageFlags.StorageBuffer,
+                    true);
+            _modelBoundsBuffer = new(MAX_INDIRECT_COMMANDS,
+                    VkBufferUsageFlags.TransferDst |
+                    VkBufferUsageFlags.TransferSrc |
+                    VkBufferUsageFlags.IndirectBuffer |
+                    VkBufferUsageFlags.StorageBuffer,
+                    true);
+            _indirectCmdBuffer.SetBuffersDirty(true);
+            _modelMatricesBuffer.SetBuffersDirty(true);
+            _modelBoundsBuffer.SetBuffersDirty(true);
 
             DirectMeshes.Add(this);
         }
@@ -288,7 +338,7 @@ namespace VECS
         public unsafe GPUBuffer<T> GetBufferAtAttribute<T>(VertexAttribute attribute) where T : unmanaged
         {
 #if DEBUG
-            
+
             if (!HasAttributeInFormat<T>(attribute))
             {
                 throw new ArgumentException(string.Format("Type {0} is of different size {1} to values stored in the buffer {2} a valid target vertex attribute", typeof(T).FullName, sizeof(T), _consumedAttributes[attribute].format.GetAttributeByteSize()));
@@ -305,16 +355,16 @@ namespace VECS
             }
         }
 
-        public Span<T> GetVertexSpan<T>(VertexAttribute attribute,uint offset, uint length) where T : unmanaged
+        public Span<T> GetVertexSpan<T>(VertexAttribute attribute, uint offset, uint length) where T : unmanaged
         {
 #if DEBUG
-            if(!validVertexFormats.Contains(typeof(T)))
+            if (!validVertexFormats.Contains(typeof(T)))
             {
-                throw new ArgumentException(string.Format("Type {0} is not a valid target vertex attribute",typeof(T).FullName));
+                throw new ArgumentException(string.Format("Type {0} is not a valid target vertex attribute", typeof(T).FullName));
             }
 #endif
             var buffer = GetBufferAtAttribute<T>(attribute);
-            if(buffer.HostBuffer == Span<T>.Empty)
+            if (buffer.HostBuffer == Span<T>.Empty)
             {
                 buffer.TryAllocHostBuffer();
             }
@@ -324,7 +374,7 @@ namespace VECS
         public unsafe void* GetUnsafeVertexBuffer(VertexAttribute attribute, uint offset)
         {
             var buffer = GetBufferAtAttribute(attribute);
-            if(buffer.HostPtr == null)
+            if (buffer.HostPtr == null)
             {
                 buffer.TryAllocHostBuffer(true);
             }
@@ -386,7 +436,7 @@ namespace VECS
 
         public void FlushIndexRegion(uint offset, uint length) { FlushIndexSpan(offset, GetIndexSpan(offset, length)); }
 
-        public unsafe void FlushVertexSpan<T>(VertexAttribute attribute,uint offset, Span<T> vertices) where T : unmanaged
+        public unsafe void FlushVertexSpan<T>(VertexAttribute attribute, uint offset, Span<T> vertices) where T : unmanaged
         {
 #if DEBUG
             if (!validVertexFormats.Contains(typeof(T)))
@@ -474,7 +524,7 @@ namespace VECS
             _indexBuffer.FillBuffer(cmd, 0);
             _indexBuffer.SetGPUBufferChanged(false);
 
-            
+
 
             Device.EndSingleTimeCommands(cmd);
         }
@@ -489,6 +539,94 @@ namespace VECS
             _lastBoundDMB = this;
         }
 
+        private unsafe void BindCorrectBuffers(VkCommandBuffer cmd, VkVertexInputBindingDescription[] vBindings, VkVertexInputAttributeDescription[] vAttributes)
+        {
+            if (vAttributes.Length == _attributeDescriptions.Length)
+            {
+                BindBuffers(cmd);
+                return;
+            }
+
+            ulong* pOffsets = stackalloc ulong[Math.Min(vAttributes.Length, _attributeDescriptions.Length)];
+
+            VkBuffer* pBuffers = stackalloc VkBuffer[Math.Min(vAttributes.Length, _attributeDescriptions.Length)];
+            int index = 0;
+            for (int i = 0; i < vAttributes.Length; i++)
+            {
+                var actualIndex = FirstAttributeMatching(index, vAttributes[i]);
+                if (actualIndex >= 0)
+                {
+                    pBuffers[i] = _vertexVkBuffers[actualIndex];
+                    pOffsets[i] = _vertexOffsets[actualIndex];
+                    index = actualIndex + 1;
+                }
+                else
+                {
+                    pBuffers[i] = _vertexVkBuffers[i];
+                    pOffsets[i] = _vertexOffsets[i];
+                }
+            }
+            if (_lastBoundDMB != this)
+            {
+                Vulkan.vkCmdBindVertexBuffers(cmd, 0, (uint)_attributeDescriptions.Length, pBuffers, pOffsets);
+                Vulkan.vkCmdBindIndexBuffer(cmd, _indexBuffer.VkBuffer, 0, VkIndexType.Uint32);
+            }
+            _lastBoundDMB = this;
+        }
+
+        private int FirstAttributeMatching(int startIndex, VkVertexInputAttributeDescription attribute)
+        {
+            for (int i = startIndex; i < _attributeDescriptions.Length; i++)
+            {
+                var vkAttribute = _attributeDescriptions[i];
+                if(vkAttribute.format == attribute.format)
+                {
+                    return i;
+                }
+            }
+            return -1;
+        }
+
+        public unsafe void DrawIndirect(RendererFrameInfo frameInfo, MaterialV2 material)
+        {
+            uint drawCount = (uint)_drawStack.Count;
+
+            if (drawCount > 0)
+            {
+                int index = 0;
+                var indirect = _indirectCmdBuffer.HostBuffer;
+                var matrices = _modelMatricesBuffer.HostBuffer;
+                var bounds = _modelBoundsBuffer.HostBuffer;
+                while (_drawStack.Count > 0)
+                {
+                    var command = _drawStack.Pop();
+                    indirect[index] = command.VkDraw;
+                    matrices[index] = command.Matrices;
+                    bounds[index] = command.Bounds;
+                    index++;
+                }
+
+                material.BindPipeline(frameInfo); // bind graphics pipeline
+
+                // set descriptor sets to correct buffers, potentially set the SwapChain buffer directly by doing this
+                material.SetBuffer("matricesBuffer", _modelMatricesBuffer.ActiveDescriptorInfo());
+                material.SetBuffer("boundsBuffer", _modelBoundsBuffer.ActiveDescriptorInfo());
+                // ensure descripotr sets are up to date
+                // bind descriptor sets
+
+            }
+
+            // bind Mesh buffers
+            BindCorrectBuffers(frameInfo.CommandBuffer, material.VertexBindings, material.VertexAttributes);
+
+            Vulkan.vkCmdDrawIndexedIndirect(frameInfo.CommandBuffer,
+                    IndirectDrawVkBuffer,
+                    0,
+                    drawCount,
+                    (uint)sizeof(VkDrawIndexedIndirectCommand));
+
+            _lastBoundDMB = null;
+        }
         public unsafe void DrawIndirect(VkCommandBuffer cmd)
         {
             Vulkan.vkCmdDrawIndexedIndirect(cmd,
@@ -497,7 +635,6 @@ namespace VECS
                 IndirectDrawBufferLength,
                 (uint)sizeof(VkDrawIndexedIndirectCommand));
         }
-
         public void Dispose()
         {
             if (_disposed) return;
@@ -585,7 +722,7 @@ namespace VECS
         }
 
         #region Reallocation
-        public unsafe void ReallocateSubMesh(int subMeshIndex,DirectSubMeshCreateData newBufferSizes)
+        public unsafe void ReallocateSubMesh(int subMeshIndex, DirectSubMeshCreateData newBufferSizes)
         {
             var currentData = _subMeshInfo[subMeshIndex];
             ReallocateIndexBuffer(subMeshIndex, newBufferSizes, currentData);
@@ -606,7 +743,7 @@ namespace VECS
                     _subMeshInfo[i] = new(newBufferSizes.VertexCount,
                         newBufferSizes.IndexCount,
                         currentData.FirstIndex,
-                        currentData.VertexOffset,i);
+                        currentData.VertexOffset, i);
                 }
                 else if (i > subMeshIndex)
                 {
@@ -741,7 +878,7 @@ namespace VECS
                 tmpReadBuffers[i] = new GPUBuffer(buffers[i].UInstanceCount, buffers[i].InstanceSize, VkBufferUsageFlags.TransferDst, true);
                 buffers[i].CopyTo(commandBuffer, tmpReadBuffers[i]);
             }
-            return [ buffers, tmpReadBuffers];
+            return [buffers, tmpReadBuffers];
         }
 
         public static unsafe void ReadAllBuffersBatched(params DirectMesh[] meshes)
@@ -776,6 +913,25 @@ namespace VECS
 
             _subMeshInfo[subMeshIndex] = newData;
 
+        }
+
+        internal void Push(VkDrawIndexedIndirectCommand drawCommand, ModelMatrices matrices, ModelBounds bounds)
+        {
+            _drawStack.Push(new(drawCommand, matrices, bounds));
+        }
+
+        private struct DrawCommand
+        {
+            public VkDrawIndexedIndirectCommand VkDraw;
+            public ModelMatrices Matrices;
+            public ModelBounds Bounds;
+
+            public DrawCommand(VkDrawIndexedIndirectCommand vkDraw, ModelMatrices matrices, ModelBounds bounds)
+            {
+                VkDraw = vkDraw;
+                Matrices = matrices;
+                Bounds = bounds;
+            }
         }
 
         #endregion
