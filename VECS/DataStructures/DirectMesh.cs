@@ -606,15 +606,19 @@ namespace VECS
                     index++;
                 }
 
-                material.BindPipeline(frameInfo); // bind graphics pipeline
+                material.BindPipeline(frameInfo); // bind graphics pipeline, probably check if the pipeline is already bound
 
                 // set descriptor sets to correct buffers, potentially set the SwapChain buffer directly by doing this
+                // do not update sets if already set correctly
                 material.SetBuffer("matricesBuffer", _modelMatricesBuffer.ActiveDescriptorInfo());
                 material.SetBuffer("boundsBuffer", _modelBoundsBuffer.ActiveDescriptorInfo());
-                // ensure descripotr sets are up to date
-                // bind descriptor sets
+                // ensure descriptor sets are up to date
 
             }
+            material.BindPipeline(frameInfo); // bind graphics pipeline
+
+
+            // bind descriptor sets
 
             // bind Mesh buffers
             BindCorrectBuffers(frameInfo.CommandBuffer, material.VertexBindings, material.VertexAttributes);
