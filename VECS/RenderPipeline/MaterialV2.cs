@@ -10,6 +10,112 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
+
+    public struct EarlyDrawCommand : IComparable
+    {
+        public int DirectMesh;
+        public int MaterialIndex;
+        public int MaterialVariant;
+        public DrawCommand DrawCommand;
+
+        public EarlyDrawCommand(DrawCommand drawCommand,RenderMesh renderMesh)
+        {
+            DrawCommand = drawCommand;
+            DirectMesh = renderMesh.Mesh.DirectMesh;
+            MaterialIndex = renderMesh.Material.Material;
+            MaterialVariant = renderMesh.Material.Variant;
+        }
+
+        public readonly int CompareTo(object obj)
+        {
+            if(obj is EarlyDrawCommand b)
+            {
+                var material = MaterialIndex.CompareTo(b.MaterialIndex);
+                if(material != 0) return material;
+                var variant = MaterialVariant.CompareTo(b.MaterialVariant);
+                if (variant != 0) return variant;
+                var directMesh = DirectMesh.CompareTo(b.DirectMesh);
+                return directMesh;
+            }
+
+            throw new ArgumentException(string.Format("Object is not a {0}", typeof(EarlyDrawCommand)));
+        }
+    }
+
+    public struct VariantMaterialBufferRegion
+    {
+        public BufferRegion Region;
+        public int Material;
+        public int Variant;
+        public int DirectMesh;
+
+        public VariantMaterialBufferRegion(BufferRegion region,int material, int variant)
+        {
+            Region = region;
+            Material = material;
+            Variant = variant;
+        }
+
+        public VariantMaterialBufferRegion(BufferRegion region, int material, int variant, int directMesh)
+        {
+            Region = region;
+            Material = material;
+            Variant = variant;
+            DirectMesh = directMesh;
+        }
+
+        public override readonly bool Equals(object obj)
+        {
+            return obj is VariantMaterialBufferRegion command &&
+                   EqualityComparer<BufferRegion>.Default.Equals(Region, command.Region) &&
+                   Material == command.Material &&
+                   Variant == command.Variant &&
+                   DirectMesh == command.DirectMesh;
+        }
+
+        public override readonly int GetHashCode()
+        {
+            return HashCode.Combine(Region, Material, Variant,DirectMesh);
+        }
+        public static bool operator ==(VariantMaterialBufferRegion left, VariantMaterialBufferRegion right)
+        {
+            return left.Equals(right);
+        }
+
+        public static bool operator !=(VariantMaterialBufferRegion left, VariantMaterialBufferRegion right)
+        {
+            return !(left == right);
+        }
+    }
+
+
+    public struct BufferRegion
+    {
+        public int StartIndex;
+        public int Count;
+
+        public override readonly bool Equals(object obj)
+        {
+            return obj is BufferRegion region &&
+                   StartIndex == region.StartIndex &&
+                   Count == region.Count;
+        }
+
+        public override readonly int GetHashCode()
+        {
+            return HashCode.Combine(StartIndex, Count);
+        }
+        public static bool operator ==(BufferRegion left, BufferRegion right)
+        {
+            return left.Equals(right);
+        }
+
+        public static bool operator !=(BufferRegion left, BufferRegion right)
+        {
+            return !(left == right);
+        }
+    }
+
     public sealed partial class MaterialV2 : IDisposable
     {
         private static readonly List<MaterialV2> _materials = [];
@@ -44,6 +150,8 @@ namespace VECS
         private readonly uint _totalSets;
 
         private unsafe VkDescriptorSet* _setsToBind;
+
+        private readonly Queue<VariantMaterialBufferRegion> _drawCommands = new();
 
         public VkPipelineLayout PipeLineLayout => _pipelineLayout;
 
@@ -125,7 +233,7 @@ namespace VECS
                 i++;
             }
 
-            _allHandlers[index] = new DescriptorSetHandler(_applicationDescriptorLayout, DescriptorLevel.Game, bindings);
+            _allHandlers[index] = new DescriptorSetHandler(_allLayouts[index], DescriptorLevel.Game, bindings);
 
         }
 
@@ -304,13 +412,13 @@ namespace VECS
                 {
                     var materialIndex = entityManager.GetComponent<MaterialIndexV2>(e);
 
-                    if (materialIndex.Value == index)
+                    if (materialIndex.Material == index)
                     {
                         entityManager.RemoveComponent<MaterialIndexV2>(e);
                     }
-                    else if (materialIndex.Value > index)
+                    else if (materialIndex.Material > index)
                     {
-                        materialIndex.Value--;
+                        materialIndex.Material--;
                         entityManager.SetComponent(e, materialIndex);
                     }
                 });
@@ -335,5 +443,12 @@ namespace VECS
         {
             return Materials.IndexOf(material);
         }
+
+        public static MaterialV2 GetMaterialAtIndex(int index)
+        {
+            index = Math.Max(0, index);
+            return index < Materials.Count ? Materials[index] : null;
+        }
+
     }
 }

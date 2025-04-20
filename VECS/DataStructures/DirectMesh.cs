@@ -9,6 +9,7 @@ using Vortice.Vulkan;
 using System.Collections.Concurrent;
 using System.Threading.Tasks;
 using System.Diagnostics;
+using VECS.ECS.Transforms;
 
 namespace VECS
 {
@@ -22,7 +23,7 @@ namespace VECS
         {
             ModelMatrix = transformMatrix;
 
-            if (Matrix4x4.Invert(transformMatrix, out Matrix4x4 NormalMatrix))
+            if (Matrix4x4.Invert(transformMatrix, out NormalMatrix))
             {
                 NormalMatrix = Matrix4x4.Transpose(NormalMatrix);
             }
@@ -39,6 +40,12 @@ namespace VECS
         {
             Min = new(renderBounds.Bounds.Min, renderBounds.Radius);
             Max = new(renderBounds.Bounds.Max, renderBounds.Radius);
+        }
+
+        public ModelBounds(WorldRenderBounds worldRenderBounds) : this()
+        {
+            Min = new(worldRenderBounds.Bounds.Min,0);
+            Max = new(worldRenderBounds.Bounds.Min,0);
         }
     }
 
@@ -73,10 +80,9 @@ namespace VECS
         private readonly Dictionary<VertexAttribute, VertexAttributeDescription> _consumedAttributes = [];
         private readonly ConcurrentDictionary<VertexAttribute, bool> _knownAttributes = [];
 
-        private readonly Stack<DrawCommand> _drawStack = new((int)MAX_INDIRECT_COMMANDS);
+        private uint _materialDrawIndexer = 0;
+        private readonly Queue<DrawCommand> _drawQueue = new((int)MAX_INDIRECT_COMMANDS);
         private readonly SwapChainBuffer<VkDrawIndexedIndirectCommand> _indirectCmdBuffer;
-        private readonly SwapChainBuffer<ModelMatrices> _modelMatricesBuffer;
-        private readonly SwapChainBuffer<ModelBounds> _modelBoundsBuffer;
 
         private readonly GPUBuffer<uint> _indexBuffer;
         private GPUBuffer<uint> _indexOffsetBuffer;
@@ -226,22 +232,7 @@ namespace VECS
                     VkBufferUsageFlags.StorageBuffer,
                     true);
 
-
-            _modelMatricesBuffer = new(MAX_INDIRECT_COMMANDS,
-                    VkBufferUsageFlags.TransferDst |
-                    VkBufferUsageFlags.TransferSrc |
-                    VkBufferUsageFlags.IndirectBuffer |
-                    VkBufferUsageFlags.StorageBuffer,
-                    true);
-            _modelBoundsBuffer = new(MAX_INDIRECT_COMMANDS,
-                    VkBufferUsageFlags.TransferDst |
-                    VkBufferUsageFlags.TransferSrc |
-                    VkBufferUsageFlags.IndirectBuffer |
-                    VkBufferUsageFlags.StorageBuffer,
-                    true);
             _indirectCmdBuffer.SetBuffersDirty(true);
-            _modelMatricesBuffer.SetBuffersDirty(true);
-            _modelBoundsBuffer.SetBuffersDirty(true);
 
             DirectMeshes.Add(this);
         }
@@ -546,10 +537,11 @@ namespace VECS
                 BindBuffers(cmd);
                 return;
             }
+            int bufferCount = Math.Min(vAttributes.Length, _attributeDescriptions.Length);
 
-            ulong* pOffsets = stackalloc ulong[Math.Min(vAttributes.Length, _attributeDescriptions.Length)];
+            ulong* pOffsets = stackalloc ulong[bufferCount];
 
-            VkBuffer* pBuffers = stackalloc VkBuffer[Math.Min(vAttributes.Length, _attributeDescriptions.Length)];
+            VkBuffer* pBuffers = stackalloc VkBuffer[bufferCount];
             int index = 0;
             for (int i = 0; i < vAttributes.Length; i++)
             {
@@ -568,7 +560,7 @@ namespace VECS
             }
             if (_lastBoundDMB != this)
             {
-                Vulkan.vkCmdBindVertexBuffers(cmd, 0, (uint)_attributeDescriptions.Length, pBuffers, pOffsets);
+                Vulkan.vkCmdBindVertexBuffers(cmd, 0, (uint)bufferCount, pBuffers, pOffsets);
                 Vulkan.vkCmdBindIndexBuffer(cmd, _indexBuffer.VkBuffer, 0, VkIndexType.Uint32);
             }
             _lastBoundDMB = this;
@@ -587,50 +579,51 @@ namespace VECS
             return -1;
         }
 
+        [Obsolete("Never use this method")]
         public unsafe void DrawIndirect(RendererFrameInfo frameInfo, MaterialV2 material)
         {
-            uint drawCount = (uint)_drawStack.Count;
+            uint drawCount = (uint)_drawQueue.Count;
 
             if (drawCount > 0)
             {
-                int index = 0;
+                int index = (int)_materialDrawIndexer;
                 var indirect = _indirectCmdBuffer.HostBuffer;
-                var matrices = _modelMatricesBuffer.HostBuffer;
-                var bounds = _modelBoundsBuffer.HostBuffer;
-                while (_drawStack.Count > 0)
+                var matrices = material.GetStorageBuffer<ModelMatrices>("matricesBuffer");
+                var bounds = material.GetStorageBuffer<ModelBounds>("boundsBuffer");
+                while (_drawQueue.Count > 0)
                 {
-                    var command = _drawStack.Pop();
+                    var command = _drawQueue.Dequeue();
                     indirect[index] = command.VkDraw;
-                    matrices[index] = command.Matrices;
-                    bounds[index] = command.Bounds;
+                    if (matrices != Span<ModelMatrices>.Empty) { matrices[index] = command.Matrices; }
+                    if (bounds != Span<ModelBounds>.Empty) { bounds[index] = command.Bounds; }
                     index++;
                 }
-
-                material.BindPipeline(frameInfo); // bind graphics pipeline, probably check if the pipeline is already bound
-
-                // set descriptor sets to correct buffers, potentially set the SwapChain buffer directly by doing this
-                // do not update sets if already set correctly
-                material.SetBuffer("matricesBuffer", _modelMatricesBuffer.ActiveDescriptorInfo());
-                material.SetBuffer("boundsBuffer", _modelBoundsBuffer.ActiveDescriptorInfo());
-                // ensure descriptor sets are up to date
-
+                _indirectCmdBuffer.SetUsedInstanceCount(_materialDrawIndexer + drawCount);
+                material.SetStorageBufferUsageSize("matricesBuffer", _materialDrawIndexer + drawCount);
+                material.SetStorageBufferUsageSize("boundsBuffer", _materialDrawIndexer + drawCount);
             }
-            material.BindPipeline(frameInfo); // bind graphics pipeline
-
+            // bind graphics pipeline, probably check if the pipeline is already bound
+            material.BindPipeline(frameInfo);
 
             // bind descriptor sets
 
             // bind Mesh buffers
-            BindCorrectBuffers(frameInfo.CommandBuffer, material.VertexBindings, material.VertexAttributes);
-
-            Vulkan.vkCmdDrawIndexedIndirect(frameInfo.CommandBuffer,
-                    IndirectDrawVkBuffer,
-                    0,
-                    drawCount,
-                    (uint)sizeof(VkDrawIndexedIndirectCommand));
-
+            BindAndDrawDirectMesh(frameInfo.CommandBuffer, material, _materialDrawIndexer, drawCount);
+            _materialDrawIndexer += drawCount;
             _lastBoundDMB = null;
         }
+
+        public unsafe void BindAndDrawDirectMesh(VkCommandBuffer cmd, MaterialV2 material, uint startIndex, uint drawCount)
+        {
+            BindCorrectBuffers(cmd, material.VertexBindings, material.VertexAttributes);
+
+            Vulkan.vkCmdDrawIndexedIndirect(cmd,
+                    IndirectDrawVkBuffer,
+                    startIndex * (uint)sizeof(VkDrawIndexedIndirectCommand),
+                    drawCount,
+                    (uint)sizeof(VkDrawIndexedIndirectCommand));
+        }
+
         public unsafe void DrawIndirect(VkCommandBuffer cmd)
         {
             Vulkan.vkCmdDrawIndexedIndirect(cmd,
@@ -647,6 +640,7 @@ namespace VECS
             {
                 buffer.Dispose();
             }
+            _indirectCmdBuffer?.Dispose();
             _indexOffsetBuffer?.Dispose();
             _indexBuffer?.Dispose();
 
@@ -666,13 +660,13 @@ namespace VECS
                 {
                     var meshIndex = entityManager.GetComponent<DirectSubMeshIndex>(e);
 
-                    if (meshIndex.DirectMeshBuffer == index)
+                    if (meshIndex.DirectMesh == index)
                     {
                         entityManager.RemoveComponent<DirectSubMeshIndex>(e);
                     }
-                    else if (meshIndex.DirectMeshBuffer > index)
+                    else if (meshIndex.DirectMesh > index)
                     {
-                        meshIndex.DirectMeshBuffer--;
+                        meshIndex.DirectMesh--;
                         entityManager.SetComponent(e, meshIndex);
                     }
                 });
@@ -919,25 +913,53 @@ namespace VECS
 
         }
 
-        internal void Push(VkDrawIndexedIndirectCommand drawCommand, ModelMatrices matrices, ModelBounds bounds)
+        internal void FlushDrawQueue()
         {
-            _drawStack.Push(new(drawCommand, matrices, bounds));
-        }
 
-        private struct DrawCommand
-        {
-            public VkDrawIndexedIndirectCommand VkDraw;
-            public ModelMatrices Matrices;
-            public ModelBounds Bounds;
-
-            public DrawCommand(VkDrawIndexedIndirectCommand vkDraw, ModelMatrices matrices, ModelBounds bounds)
+            int index = 0;
+            var indirect = _indirectCmdBuffer.HostBuffer;
+            while (_drawQueue.Count > 0)
             {
-                VkDraw = vkDraw;
-                Matrices = matrices;
-                Bounds = bounds;
+                var command = _drawQueue.Dequeue();
+                var draw = command.VkDraw;
+                draw.firstInstance = (uint)index;
+                indirect[index] = draw;
+                index++;
             }
         }
 
+        internal void Enqueue(VkDrawIndexedIndirectCommand drawCommand, ModelMatrices matrices, ModelBounds bounds)
+        {
+            _drawQueue.Enqueue(new(drawCommand, matrices, bounds));
+        }
+
+        internal void Enqueue(DrawCommand drawCommand)
+        {
+            _drawQueue.Enqueue(drawCommand);
+        }
+
         #endregion
+    }
+
+
+    public struct DrawCommand
+    {
+        public VkDrawIndexedIndirectCommand VkDraw;
+        public ModelMatrices Matrices;
+        public ModelBounds Bounds;
+
+        public DrawCommand(VkDrawIndexedIndirectCommand vkDraw, ModelMatrices matrices, ModelBounds bounds)
+        {
+            VkDraw = vkDraw;
+            Matrices = matrices;
+            Bounds = bounds;
+        }
+
+        public DrawCommand(DirectSubMeshIndex subMeshIndex, LocalToWorld localToWorld, WorldRenderBounds worldRenderBounds)
+        {
+            VkDraw =  DirectSubMesh.GetSubMeshAtIndex(subMeshIndex).IndirectCommand;
+            Matrices = new(localToWorld.Value);
+            Bounds = new(worldRenderBounds);
+        }
     }
 }

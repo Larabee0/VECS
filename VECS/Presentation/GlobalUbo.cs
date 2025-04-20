@@ -77,21 +77,14 @@ namespace VECS
             public static void Write(GlobalUbo source, SwapChainBuffer buffer)
             {
                 WriteableUBO writeable = new(source);
-                PointLight* pPointLights = stackalloc PointLight[Presenter.MAX_LIGHTS];
-
-                for (int i = 0; i < Presenter.MAX_LIGHTS; i++)
-                {
-                    pPointLights[i] = source.PointLights[i];
-                }
-
-                NativeMemory.Copy(&writeable, buffer.HostPtr, (uint)SizeInBytes);
 
                 var hostPtr = (IntPtr)buffer.HostPtr;
+                NativeMemory.Copy(&writeable, (void*)hostPtr, (uint)SizeInBytes);
 
                 hostPtr = IntPtr.Add(hostPtr, SizeInBytes+12);
 
+                fixed(PointLight* pPointLights = &source.PointLights[0])
                 NativeMemory.Copy(pPointLights, (void*)hostPtr, (uint)sizeof(PointLight) * Presenter.MAX_LIGHTS);
-                buffer.SetBuffersDirty(true);
             }
         }
     }

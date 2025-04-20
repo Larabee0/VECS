@@ -16,6 +16,7 @@
         public static int ComponentId { get; set; }
         public readonly int Id => ComponentId;
 
-        public int Value;
+        public int Material;
+        public int Variant;
     }
 }

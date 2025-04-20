@@ -102,7 +102,7 @@ namespace VECS
             }
             _bindingBuffers[bindingIndex].SetBuffersDirty(true);
 
-            Span<float> properties = new(_bindingBuffers[bindingIndex].HostPtr, (int)_bindingBuffers[bindingIndex].InstanceSize / sizeof(float));
+            // Span<float> properties = new(_bindingBuffers[bindingIndex].HostPtr, (int)_bindingBuffers[bindingIndex].InstanceSize / sizeof(float));
         }
 
         public unsafe void WriteToBuffer<T>(uint bindingIndex, DescriptorPropertyInfo propertyInfo, T element) where T : unmanaged
@@ -120,21 +120,25 @@ namespace VECS
             NativeMemory.Copy(&element, (void*)hostPtr, propertyInfo.Size);
             _bindingBuffers[bindingIndex].SetBuffersDirty(true);
 
-            Span<T> properties = new(_bindingBuffers[bindingIndex].HostPtr, (int)_bindingBuffers[bindingIndex].InstanceSize / sizeof(T));
+            // Span<T> properties = new(_bindingBuffers[bindingIndex].HostPtr, (int)_bindingBuffers[bindingIndex].InstanceSize / sizeof(T));
         }
 
-        public SwapChainBuffer GetBufferOfProperty(string property)
+        public void SetStorageBufferRegion(uint startIndex, uint length)
         {
-            if(LookUpProperty(property,out uint bindingIndex, out DescriptorPropertyInfo propertyInfo))
-            {
-                return _bindingBuffers[bindingIndex];
-            }
-            return null;
+            _storageBufferStartIndex = startIndex;
+            _stoageBufferLength = length;
         }
 
-        internal void SetBuffer(uint bindingIndex, DescriptorPropertyInfo propertyInfo, VkDescriptorBufferInfo vkDescriptorBufferInfo)
+        public void SetStorageBufferUsageSize(string property, uint instanceSize)
         {
-            // need to overwrite descriptor set buffer binding for this binding index with the given storage buffer
+            var buffer = GetStorageSwapChainBuffer(property);
+            buffer?.SetUsedInstanceCount(instanceSize);
+        }
+
+        public void SetStorageBufferUsageSize(uint bindingIndex, DescriptorPropertyInfo propertyInfo, uint instanceSize)
+        {
+            var buffer = GetStorageSwapChainBuffer(bindingIndex,propertyInfo);
+            buffer?.SetUsedInstanceCount(instanceSize);
         }
     }
 

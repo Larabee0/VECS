@@ -47,7 +47,7 @@ namespace VECS
                 size += (uint)((VkFormat)property.format).BlockSize();
                 
                 attributes[i] = new(property.location, (VkFormat)property.format, offset, property.location);
-                bindings[i] = new(0, VkVertexInputRate.Vertex, property.location);
+                bindings[i] = new(((VkFormat)property.format).BlockSize(), VkVertexInputRate.Vertex, property.location);
                 offset += (uint)((VkFormat)property.format).BlockSize();
             }
 

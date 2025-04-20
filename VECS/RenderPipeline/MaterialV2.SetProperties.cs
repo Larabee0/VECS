@@ -1,23 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Numerics;
 using Vortice.Vulkan;
 
 namespace VECS
 {
     public sealed partial class MaterialV2
     {
-        internal void SetBuffer(string buffer, VkDescriptorBufferInfo vkDescriptorBufferInfo)
-        {
-            if (LookUpProperty(buffer, out var handler, out var bindingIndex, out var propertyInfo))
-            {
-                handler.SetBuffer(bindingIndex, propertyInfo, vkDescriptorBufferInfo);
-            }
-        }
-
         public void SetInt(string property, int value)
         {
             WriteToBuffer(property, value);
@@ -110,5 +97,12 @@ namespace VECS
             return false;
         }
 
+        public void SetStorageBufferUsageSize(string property, uint instanceSize)
+        {
+            if (LookUpProperty(property, out var handler, out var bindingIndex, out var propertyInfo))
+            {
+                handler.SetStorageBufferUsageSize(bindingIndex, propertyInfo, instanceSize);
+            }
+        }
     }
 }

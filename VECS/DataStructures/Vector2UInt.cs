@@ -31,5 +31,23 @@ namespace System.Numerics
             X = x;
             Y = y;
         }
+
+        public override readonly bool Equals(object obj)
+        {
+            return obj is Vector2UInt @int &&
+                   X == @int.X &&
+                   Y == @int.Y;
+        }
+        public static bool operator ==(Vector2UInt left, Vector2UInt right)
+        {
+            return left.Equals(right);
+        }
+
+        public static bool operator !=(Vector2UInt left, Vector2UInt right)
+        {
+            return !(left == right);
+        }
+
+        public override readonly int GetHashCode() => HashCode.Combine(X, Y);
     }
 }

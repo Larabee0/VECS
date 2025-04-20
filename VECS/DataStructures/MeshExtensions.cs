@@ -42,10 +42,10 @@ namespace VECS
                 {
                     var meshIndex = entityManager.GetComponent<DirectSubMeshIndex>(e);
 
-                    if (meshIndex.DirectMeshBuffer == oldIndex)
+                    if (meshIndex.DirectMesh == oldIndex)
                     {
                         var value = entityManager.GetComponent<DirectSubMeshIndex>(e);
-                        value.DirectMeshBuffer = newIndex;
+                        value.DirectMesh = newIndex;
                         entityManager.SetComponent(e, value);
                     }
                 });

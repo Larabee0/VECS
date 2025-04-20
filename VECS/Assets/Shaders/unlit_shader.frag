@@ -1,5 +1,5 @@
 #version 460
-layout (location = 0) in vec4 colour;
+layout (location = 0) in vec4 fragColour;
 layout (location = 0) out vec4 outColour;
 
 struct PointLight {
@@ -19,5 +19,5 @@ layout(set = 0,binding = 0) uniform GlobalUbo{
 
 void main()
 {
-	outColour = colour;
+	outColour = vec4(1.0);
 }

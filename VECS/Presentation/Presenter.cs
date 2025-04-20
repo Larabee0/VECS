@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Numerics;
 using VECS.ECS;
 using VECS.ECS.Presentation;
 using VECS.LowLevel;
@@ -47,6 +48,8 @@ namespace VECS
         private MaterialV2 _unlitMaterial;
         private Texture2d _fallbackTexture;
         private Entity frameInfoEntity;
+
+        public MaterialV2 Unlit =>_unlitMaterial;
 
         public VkRenderPass RenderPass => _renderer.RenderPass;
         public VkDescriptorSetLayout GlobalSetLayout => NEW_GLOBAL_SET ? _globalDescriptorSetHandler.VkDescriptorSetLayout : _globalDescriptorSetLayout.SetLayout;
@@ -139,6 +142,7 @@ namespace VECS
             {
                 _unlitMaterial = new MaterialV2("unlit_shader.vert", "unlit_shader.frag", true);
                 _globalDescriptorSetHandler = _unlitMaterial.ApplicationDescriptorSetHandler;
+                _unlitMaterial.GetStorageBuffer<Vector4>("colourBuffer").Fill(Vector4.One);
             }
         }
 
@@ -179,7 +183,7 @@ namespace VECS
                 FrameIndex = frameIndex,
                 DeltaTime = deltaTime,
                 CommandBuffer = commandBuffer,
-                UboBufferInfo = NEW_GLOBAL_SET ? _globalDescriptorSetHandler.GetBufferOfProperty("ubo").ActiveDescriptorInfo() : _globalUboBuffers[frameIndex].DescriptorInfo(),                
+                UboBufferInfo = NEW_GLOBAL_SET ? _globalDescriptorSetHandler.GetBufferOfUniform("ubo").ActiveDescriptorInfo() : _globalUboBuffers[frameIndex].DescriptorInfo(),                
                 GlobalDescriptorSet = NEW_GLOBAL_SET ? _globalDescriptorSetHandler.ActiveVkDescriptorSet : _globalDescriptorSets[frameIndex],
                 ApplicationDescriptorPool = _globalDescriptorPools[frameIndex],
                 MaterialDescriptorPool = _globalDescriptorPools[frameIndex],
@@ -210,7 +214,7 @@ namespace VECS
             frameInfo.Ubo = ubo;
             if (NEW_GLOBAL_SET)
             {
-                var swapChainBuffer = _globalDescriptorSetHandler.GetBufferOfProperty("ubo");
+                var swapChainBuffer = _globalDescriptorSetHandler.GetBufferOfUniform("ubo");
                 if (swapChainBuffer != null)
                 {
                     ubo.WriteToSwapChainBuffer(swapChainBuffer);

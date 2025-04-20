@@ -1,12 +1,11 @@
 ﻿namespace VECS.ECS.Presentation
 {
-    public struct DirectSubMeshIndex : IComponent
+    public struct RenderMesh : IComponent
     {
         public static int ComponentId { get; set; }
         public readonly int Id => ComponentId;
 
-        public int DirectMesh;
-        public int SubMeshIndex;
+        public DirectSubMeshIndex Mesh;
+        public MaterialIndexV2 Material;
     }
-
 }

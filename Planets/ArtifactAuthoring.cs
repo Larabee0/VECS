@@ -35,13 +35,21 @@ namespace Planets
         private readonly int subdivisons = 75;
 
         private readonly bool generateIndirectMeshes = false;
+        private readonly bool newMatieralSystem = true;
         private static Material indirectMeshMaterial;
         private readonly static Stopwatch _stopwatch = new();
         public ArtifactAuthoring()
         {
             //World.DefaultWorld.CreateSystem<TransformPlanetsSystem>();
-            World.DefaultWorld.CreateSystem<ColouredRenderSystem>();
-            World.DefaultWorld.CreateSystem<DrawIndirectRenderSystem>();
+            if (!newMatieralSystem)
+            {
+                World.DefaultWorld.CreateSystem<ColouredRenderSystem>();
+                World.DefaultWorld.CreateSystem<DrawIndirectRenderSystem>();
+            }
+            else
+            {
+                World.DefaultWorld.CreateSystem<GenericRenderSystem>();
+            }
             World.DefaultWorld.CreateSystem<StarRenderSystem>();
             World.DefaultWorld.CreateSystem<DrawBoundsRenderSystem>();
             World.DefaultWorld.CreateSystem<WorldRenderBoundsUpdateSystem>();
@@ -221,6 +229,21 @@ namespace Planets
             var planetInstance = entityManager.Instantiate(planetPrefab, true);
             GeneratePlanet(planetInstance, generator);
 
+
+            if (newMatieralSystem)
+            {
+                var childrenEntities = entityManager.GetComponent<Children>(planetInstance).Value;
+                var unlit = MaterialV2.GetIndexOfMaterial(Presenter.Instance.Unlit);
+                for (int i = 0; i < childrenEntities.Length; i++)
+                {
+                    entityManager.AddComponent(childrenEntities[i], new RenderMesh()
+                    {
+                        Material = new() { Material = unlit, Variant = 0 },
+                        Mesh = entityManager.GetComponent<DirectSubMeshIndex>(childrenEntities[i])
+                    });
+                }
+                entityManager.RemoveComponentFromHierarchy<DoNotRender>(planetInstance);
+            }
             if (generateIndirectMeshes)
             {
 

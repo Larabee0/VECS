@@ -5,7 +5,25 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
-    public sealed class SwapChainBuffer : IDisposable
+    public interface ISwapChainBuffer : IDisposable
+    {
+        public ulong BufferSize { get; }
+        public uint InstanceSize { get; }
+        public int InstanceSize32 { get; }
+        public uint UInstanceCount32 { get; }
+        public int InstanceCount32 { get; }
+        public ulong UInstanceCount { get; }
+        public long InstanceCount { get; }
+
+        public VkBuffer ActiveVkBuffer { get; }
+
+        public void SetBuffersDirty(bool dirty);
+
+        public void SetUsedInstanceCount(uint instanceCount);
+
+    }
+
+    public sealed class SwapChainBuffer : ISwapChainBuffer
     {
         private readonly GPUBuffer[] _buffers = new GPUBuffer[SwapChain.MAX_FRAMES_IN_FLIGHT];
         private readonly bool[] _diryBuffers = new bool[SwapChain.MAX_FRAMES_IN_FLIGHT];
@@ -18,9 +36,11 @@ namespace VECS
         private bool _disposed;
         private unsafe void* _hostPtr;
 
+        private uint _usedInstanceCount;
 
         public ulong BufferSize => _bufferSize;
         public uint InstanceSize => (uint)_instanceSize;
+        public int InstanceSize32 => (int)_instanceSize;
         public uint UInstanceCount32 => (uint)_instanceCount;
         public int InstanceCount32 => (int)UInstanceCount32;
         public ulong UInstanceCount => _instanceCount;
@@ -43,8 +63,15 @@ namespace VECS
 
         public unsafe void* HostPtr
         {
-            get => _hostPtr;
+            get
+            {
+                SetBuffersDirty(true);
+                return _hostPtr;
+            }
         }
+
+        public unsafe ReadOnlySpan<byte> HostReadOnly => new(_hostPtr, InstanceCount32 * InstanceSize32);
+
         public SwapChainBuffer()
         {
             _bufferSize = 0;
@@ -118,6 +145,7 @@ namespace VECS
 
         private unsafe void AutoAllocateCPUBuffer()
         {
+            _usedInstanceCount = (uint)InstanceCount;
             if (_CPUAccessible)
             {
                 _hostPtr = NativeMemory.AllocZeroed((nuint)UInstanceCount, (nuint)_instanceSize);
@@ -166,7 +194,14 @@ namespace VECS
 
             if (_diryBuffers[index])
             {
-                _buffers[index].WriteToBuffer(_hostPtr);
+                if(_usedInstanceCount == InstanceCount32)
+                {
+                    _buffers[index].WriteToBuffer(_hostPtr);
+                }
+                else
+                {
+                    _buffers[index].WriteToBuffer(_hostPtr, _usedInstanceCount * InstanceSize);
+                }
                 _diryBuffers[index] = false;
             }
         }
@@ -204,6 +239,11 @@ namespace VECS
             }
         }
 
+        public void SetUsedInstanceCount(uint instanceCount)
+        {
+            _usedInstanceCount = Math.Min(UInstanceCount32, instanceCount);
+        }
+
         public unsafe void Dispose()
         {
             if (_disposed) return;
@@ -218,18 +258,28 @@ namespace VECS
                 _hostPtr = null;
             }
         }
-        public VkDescriptorBufferInfo ActiveDescriptorInfo(ulong size = Vulkan.VK_WHOLE_SIZE, ulong offset = 0)
+        public VkDescriptorBufferInfo ActiveDescriptorInfo(uint startIndex, uint count)
         {
             return new()
             {
                 buffer = ActiveVkBuffer,
-                offset = offset,
-                range = size
+                offset = startIndex * InstanceSize,
+                range = count * InstanceSize
             };
+        }
+
+        public VkDescriptorBufferInfo ActiveDescriptorInfo(uint count)
+        {
+            return ActiveDescriptorInfo(0, count);
+        }
+
+        public VkDescriptorBufferInfo ActiveDescriptorInfo()
+        {
+            return ActiveDescriptorInfo(0, UInstanceCount32);
         }
     }
 
-    public sealed class SwapChainBuffer<T> : IDisposable where T : unmanaged
+    public sealed class SwapChainBuffer<T> : ISwapChainBuffer where T : unmanaged
     {
         private readonly GPUBuffer<T>[] _buffers = new GPUBuffer<T>[SwapChain.MAX_FRAMES_IN_FLIGHT];
         private readonly bool[] _diryBuffers = new bool[SwapChain.MAX_FRAMES_IN_FLIGHT];
@@ -241,11 +291,14 @@ namespace VECS
         private readonly bool _CPUAccessible;
 
 
-        private unsafe void* _hostPtr;
         private bool _disposed;
+        private unsafe void* _hostPtr;
+        
+        private uint _usedInstanceCount;
 
         public ulong BufferSize => _bufferSize;
         public uint InstanceSize => (uint)_instanceSize;
+        public int InstanceSize32 => (int)_instanceSize;
         public uint UInstanceCount32 => (uint)_instanceCount;
         public int InstanceCount32 => (int)UInstanceCount32;
         public ulong UInstanceCount => _instanceCount;
@@ -366,6 +419,7 @@ namespace VECS
 
         private unsafe void AutoAllocateCPUBuffer()
         {
+            _usedInstanceCount = (uint)InstanceCount;
             if (_CPUAccessible)
             {
                 _hostPtr = NativeMemory.AllocZeroed((nuint)UInstanceCount, (nuint)_instanceSize);
@@ -378,6 +432,11 @@ namespace VECS
             {
                 _diryBuffers[i] = dirty;
             }
+        }
+
+        public void SetUsedInstanceCount(uint instanceCount)
+        {
+            _usedInstanceCount = Math.Min(UInstanceCount32, instanceCount);
         }
 
         public unsafe void Dispose()
@@ -404,7 +463,14 @@ namespace VECS
             int index = Presenter.Instance.FrameIndex;
             if (_diryBuffers[index])
             {
-                _buffers[index].WriteToBuffer(_hostPtr);
+                if (_usedInstanceCount == InstanceCount32)
+                {
+                    _buffers[index].WriteToBuffer(_hostPtr);
+                }
+                else
+                {
+                    _buffers[index].WriteToBuffer(_hostPtr, _usedInstanceCount * InstanceSize);
+                }
                 _diryBuffers[index] = false;
             }
         }

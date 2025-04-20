@@ -23,6 +23,7 @@ namespace VECS
         public VkDescriptorSetLayoutBinding VkSetLayoutBinding;
 
         public bool IsAnyBuffer => Buffer || DynamicBuffer;
+        public bool StorageBuffer => !UniformBuffer && IsAnyBuffer;
 
         public DescriptorBinding(SpvReflectDescriptorBinding descriptorBinding, VkShaderStageFlags shaderStageFlags)
         {
@@ -150,6 +151,15 @@ namespace VECS
         public override int GetHashCode()
         {
             return HashCode.Combine(Name, Set, Binding, Image, DescriptorType, VkSetLayoutBinding);
+        }
+
+        public DescriptorPropertyInfo GetRunTimeArray()
+        {
+            if (StorageBuffer && Variables.Length == 1 && Variables[0].Type == Vortice.SPIRV.SpvOp.TypeRuntimeArray)
+            {
+                return Variables[0];
+            }
+            return null;
         }
     }
 }

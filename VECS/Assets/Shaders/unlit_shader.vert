@@ -42,6 +42,7 @@ layout(std140, set = 1, binding = 2) readonly buffer ObjectColourBuffer{
 
 void main()
 {
-	gl_Position = ubo.projectionMatrix * ubo.viewMatrix * matricesBuffer.matrices[gl_BaseInstance].modelMatrix * vec4(position, 1.0);
+	vec4 positionWorld = matricesBuffer.matrices[gl_BaseInstance].modelMatrix * vec4(position, 1.0);
+	gl_Position = ubo.projectionMatrix * ubo.viewMatrix * positionWorld;
 	fragColour = colourBuffer.colours[gl_BaseInstance];
 }

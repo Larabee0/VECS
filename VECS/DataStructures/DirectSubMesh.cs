@@ -187,7 +187,7 @@ namespace VECS
         {
             var matrices = new ModelMatrices(transformMatrix);
             var bounds = _modelBounds;
-            _directMeshBuffer.Push(IndirectCommand, matrices, bounds);
+            _directMeshBuffer.Enqueue(IndirectCommand, matrices, bounds);
         }
 
         public void Reallocate(DirectSubMeshCreateData directSubMeshCreateData)
@@ -205,13 +205,13 @@ namespace VECS
             return new DirectSubMeshIndex()
             {
                 SubMeshIndex = _directSubMeshIndex,
-                DirectMeshBuffer = DirectMesh.GetIndexOfMesh(_directMeshBuffer)
+                DirectMesh = DirectMesh.GetIndexOfMesh(_directMeshBuffer)
             };
         }
 
         public static DirectSubMesh GetSubMeshAtIndex(DirectSubMeshIndex directSubMeshIndex)
         {
-            var directMesh = DirectMesh.GetMeshAtIndex(directSubMeshIndex.DirectMeshBuffer);
+            var directMesh = DirectMesh.GetMeshAtIndex(directSubMeshIndex.DirectMesh);
             return directMesh.DirectSubMeshes[directSubMeshIndex.SubMeshIndex];
         }
     }
