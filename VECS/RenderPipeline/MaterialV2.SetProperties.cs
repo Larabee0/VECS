@@ -86,7 +86,7 @@ namespace VECS
             for (int i = 0; i < _totalSets; i++)
             {
                 handler = _allHandlers[i];
-                if (handler.LookUpProperty(property, out bindingIndex, out propertyInfo))
+                if (handler != null && handler.LookUpProperty(property, out bindingIndex, out propertyInfo))
                 {
                     return true;
                 }

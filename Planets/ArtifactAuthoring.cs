@@ -117,10 +117,16 @@ namespace Planets
                 prefabPlanet, starParent,
                 new(-15f, 0, 0),
                 3,
-                5, 12);
+                5, 12, Presenter.Instance.Lit);
 
+            Entity planetOrbiterB= InstantiateNewOrbitalPlanet(entityManager,
+                PlanetPresets.ShapeGeneratorFixedEarthLike(),
+                prefabPlanet, starParent,
+                new(15f, 0, 0),
+                3,
+                5, 12,Presenter.Instance.Unlit);
 
-            aStar.AddChildren(entityManager, planetOrbiterA);
+            aStar.AddChildren(entityManager, [planetOrbiterA, planetOrbiterB]);
         }
 
         private void CreateBigTestScene(EntityManager entityManager, Entity prefabPlanet)
@@ -221,7 +227,7 @@ namespace Planets
             planet.AddChildren(entityManager, moonOrbiter);
         }
 
-        private Entity InstantiateNewOrbitalPlanet(EntityManager entityManager, ShapeGenerator generator, Entity planetPrefab, Parent parent, Vector3 initialPosition, float scale, float orbitalSpeed, float dayNightSpeed)
+        private Entity InstantiateNewOrbitalPlanet(EntityManager entityManager, ShapeGenerator generator, Entity planetPrefab, Parent parent, Vector3 initialPosition, float scale, float orbitalSpeed, float dayNightSpeed, MaterialV2 mat = null)
         {
             Entity orbitalPlane = entityManager.CreateEntity();
             entityManager.AddComponent<Rotation>(orbitalPlane);
@@ -233,7 +239,7 @@ namespace Planets
             if (newMatieralSystem)
             {
                 var childrenEntities = entityManager.GetComponent<Children>(planetInstance).Value;
-                var unlit = MaterialV2.GetIndexOfMaterial(Presenter.Instance.Unlit);
+                var unlit = MaterialV2.GetIndexOfMaterial(mat);
                 for (int i = 0; i < childrenEntities.Length; i++)
                 {
                     entityManager.AddComponent(childrenEntities[i], new RenderMesh()

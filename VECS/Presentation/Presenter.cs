@@ -46,10 +46,12 @@ namespace VECS
         private readonly DescriptorPool[] _entityFrameDescriptorPools = new DescriptorPool[SwapChain.MAX_FRAMES_IN_FLIGHT];
 
         private MaterialV2 _unlitMaterial;
+        private MaterialV2 _litMaterial;
         private Texture2d _fallbackTexture;
         private Entity frameInfoEntity;
 
         public MaterialV2 Unlit =>_unlitMaterial;
+        public MaterialV2 Lit => _litMaterial;
 
         public VkRenderPass RenderPass => _renderer.RenderPass;
         public VkDescriptorSetLayout GlobalSetLayout => NEW_GLOBAL_SET ? _globalDescriptorSetHandler.VkDescriptorSetLayout : _globalDescriptorSetLayout.SetLayout;
@@ -142,7 +144,10 @@ namespace VECS
             {
                 _unlitMaterial = new MaterialV2("unlit_shader.vert", "unlit_shader.frag", true);
                 _globalDescriptorSetHandler = _unlitMaterial.ApplicationDescriptorSetHandler;
+
+                _litMaterial = new MaterialV2("lit_shader.vert", "lit_shader.frag", false);
                 _unlitMaterial.GetStorageBuffer<Vector4>("colourBuffer").Fill(Vector4.One);
+                _litMaterial.GetStorageBuffer<Vector4>("colourBuffer").Fill(new Vector4(1, 0, 0, 1));
             }
         }
 

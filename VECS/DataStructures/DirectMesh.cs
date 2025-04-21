@@ -922,7 +922,7 @@ namespace VECS
             {
                 var command = _drawQueue.Dequeue();
                 var draw = command.VkDraw;
-                draw.firstInstance = (uint)index;
+                //draw.firstInstance = (uint)index;
                 indirect[index] = draw;
                 index++;
             }

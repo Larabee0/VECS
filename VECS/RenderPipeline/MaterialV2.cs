@@ -94,6 +94,8 @@ namespace VECS
         public int StartIndex;
         public int Count;
 
+        public readonly int Offset => StartIndex + Count;
+
         public override readonly bool Equals(object obj)
         {
             return obj is BufferRegion region &&
@@ -245,6 +247,10 @@ namespace VECS
                 if (_actAsGlobal)
                 {
                     CreateDescriptorSetHandler(index, applicationGlobalBindings);
+                }
+                else
+                {
+                    _allHandlers[index] = Presenter.Instance.GlobalSetHandler;
                 }
                 _applicationDescriptorSetHandlerIndex = index;
                 index++;
