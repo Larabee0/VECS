@@ -11,7 +11,8 @@ namespace Planets
         public static ShapeGenerator ShapeGeneratorRandomEarthLike()
         {
 
-            var shapeGenerator = new ShapeGenerator()
+            ColourSettings colourSettings = ColourPresets.CreateColoursSet1();
+            var shapeGenerator = new ShapeGenerator(colourSettings)
             {
                 PlanetRadius = 1f,
                 Seed = 0,
@@ -54,8 +55,6 @@ namespace Planets
                 ],
             };
             shapeGenerator.RandomiseSeed();
-            ColourSettings colourSettings = ColourPresets.CreateColoursSet2();
-            shapeGenerator.SetColourSettings(colourSettings);
 
             return shapeGenerator;
         }

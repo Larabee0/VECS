@@ -97,11 +97,15 @@ namespace VECS
             if(_drawCommands.Count > 0)
             {
                 BindPipeline(rendererFrameInfo);
+                int lastVariant = -1;
                 while (_drawCommands.Count > 0)
                 {
                     var command = _drawCommands.Dequeue();
-
-                    BindDescriptors(rendererFrameInfo, command.Variant);
+                    if(lastVariant != command.Variant)
+                    {
+                        BindDescriptors(rendererFrameInfo, command.Variant);
+                        lastVariant = command.Variant;
+                    }
 
                     var mesh = DirectMesh.GetMeshAtIndex(command.DirectMesh);
                     mesh.BindAndDrawDirectMesh(rendererFrameInfo.CommandBuffer, this, (uint)command.Region.StartIndex, (uint)command.Region.Count);
