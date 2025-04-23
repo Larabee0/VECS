@@ -17,6 +17,16 @@ struct PointLight {
 	vec4 colour; // w is intensity
 };
 
+struct ObjectMatrices{
+	mat4 modelMatrix; // project * view * model
+	mat4 normalMatrix;
+};
+
+struct ObjectBounds{
+	vec4 bMin;
+	vec4 bMax;
+};
+
 layout(set = 0,binding = 0) uniform GlobalUbo{
 	mat4 projectionMatrix;
 	mat4 viewMatrix;
@@ -26,22 +36,20 @@ layout(set = 0,binding = 0) uniform GlobalUbo{
 	PointLight pointLights[10];
 } ubo;
 
-struct ObjectMatrices{
-	mat4 modelMatrix; // project * view * model
-	mat4 normalMatrix;
-	vec4 spherebounds;
-	vec4 extents;
-};
-layout(std140, set = 1, binding = 7) readonly buffer ObjectBuffer{
+layout(std140, set = 1, binding = 0) readonly buffer ObjectMatricesBuffer{
 	ObjectMatrices matrices[];
-} objectBuffer;
+}matricesBuffer;
+
+layout(std140, set = 1, binding = 1) readonly buffer ObjectBoundsBuffer{
+	ObjectBounds bounds[];
+}boundsBuffer;
 
 const vec3 DIRECTION_TO_LIGHT = normalize(vec3(1.0, 3.0, 1.0));
 const float AMBIENT = 0.02;
 
 void main()
 {
-	ObjectMatrices objectMat = objectBuffer.matrices[gl_BaseInstance];
+	ObjectMatrices objectMat = matricesBuffer.matrices[gl_BaseInstance];
 	vec4 positionWorld =  objectMat.modelMatrix * vec4(position, 1.0);
 
 	gl_Position = ubo.projectionMatrix * ubo.viewMatrix * positionWorld;

@@ -161,5 +161,14 @@ namespace VECS
             }
             return null;
         }
+
+        public DescriptorPropertyInfo GetTexture()
+        {
+            if (Image && Variables[0].Type == Vortice.SPIRV.SpvOp.SampledImage)
+            {
+                return Variables[0];
+            }
+            return null;
+        }
     }
 }

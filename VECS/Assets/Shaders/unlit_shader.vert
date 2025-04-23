@@ -9,6 +9,16 @@ struct PointLight {
 	vec4 colour; // w is intensity
 };
 
+struct ObjectMatrices{
+	mat4 modelMatrix; // project * view * model
+	mat4 normalMatrix;
+};
+
+struct ObjectBounds{
+	vec4 bMin;
+	vec4 bMax;
+};
+
 layout(set = 0, binding = 0) uniform GlobalUbo{
 	mat4 projectionMatrix;
 	mat4 viewMatrix;
@@ -18,19 +28,9 @@ layout(set = 0, binding = 0) uniform GlobalUbo{
 	PointLight pointLights[10];
 } ubo;
 
-struct ObjectMatrices{
-	mat4 modelMatrix; // project * view * model
-	mat4 normalMatrix;
-};
-
 layout(std140, set = 1, binding = 0) readonly buffer ObjectMatricesBuffer{
 	ObjectMatrices matrices[];
 }matricesBuffer;
-
-struct ObjectBounds{
-	vec4 bMin;
-	vec4 bMax;
-};
 
 layout(std140, set = 1, binding = 1) readonly buffer ObjectBoundsBuffer{
 	ObjectBounds bounds[];

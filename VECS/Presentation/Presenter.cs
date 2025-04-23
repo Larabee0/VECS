@@ -78,7 +78,8 @@ namespace VECS
         {
             var globalDescriptorPool = new DescriptorPool.Builder()
                 .SetMaxSets(SwapChain.MAX_FRAMES_IN_FLIGHT)
-                .AddPoolSize(VkDescriptorType.UniformBuffer, SwapChain.MAX_FRAMES_IN_FLIGHT);
+                .AddPoolSize(VkDescriptorType.UniformBuffer, SwapChain.MAX_FRAMES_IN_FLIGHT)
+                .SetPoolFlags(VkDescriptorPoolCreateFlags.FreeDescriptorSet);
 
             for (int i = 0; i < SwapChain.MAX_FRAMES_IN_FLIGHT; i++)
             {
@@ -178,9 +179,11 @@ namespace VECS
         {
             int frameIndex = _renderer.FrameIndex;
 
+            _globalDescriptorPools[frameIndex].FreeDescriptors();
             _materialFrameDescriptorPools[frameIndex].FreeDescriptors();
             _entityFrameDescriptorPools[frameIndex].FreeDescriptors();
 
+            _globalDescriptorPools[frameIndex].ResetPool();
             _materialFrameDescriptorPools[frameIndex].ResetPool();
             _entityFrameDescriptorPools[frameIndex].ResetPool();
             RendererFrameInfo frameInfo = new()
@@ -191,7 +194,7 @@ namespace VECS
                 UboBufferInfo = NEW_GLOBAL_SET ? _globalDescriptorSetHandler.GetBufferOfUniform("ubo").ActiveDescriptorInfo() : _globalUboBuffers[frameIndex].DescriptorInfo(),                
                 GlobalDescriptorSet = NEW_GLOBAL_SET ? _globalDescriptorSetHandler.ActiveVkDescriptorSet : _globalDescriptorSets[frameIndex],
                 ApplicationDescriptorPool = _globalDescriptorPools[frameIndex],
-                MaterialDescriptorPool = _globalDescriptorPools[frameIndex],
+                MaterialDescriptorPool = _materialFrameDescriptorPools[frameIndex],
                 EntityDescriptorPool = _entityFrameDescriptorPools[frameIndex],
                 PostCullBarriers = _renderer.PostCullBarriers,
                 DepthPyramid = _renderer.DepthPyramid,

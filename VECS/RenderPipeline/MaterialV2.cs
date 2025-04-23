@@ -16,6 +16,7 @@ namespace VECS
         public int DirectMesh;
         public int MaterialIndex;
         public int MaterialVariant;
+        public int MaterialEntity;
         public DrawCommand DrawCommand;
 
         public EarlyDrawCommand(DrawCommand drawCommand,RenderMesh renderMesh)
@@ -24,6 +25,7 @@ namespace VECS
             DirectMesh = renderMesh.Mesh.DirectMesh;
             MaterialIndex = renderMesh.Material.Material;
             MaterialVariant = renderMesh.Material.Variant;
+            MaterialEntity = renderMesh.Material.Entity;
         }
 
         public readonly int CompareTo(object obj)
@@ -34,6 +36,8 @@ namespace VECS
                 if(material != 0) return material;
                 var variant = MaterialVariant.CompareTo(b.MaterialVariant);
                 if (variant != 0) return variant;
+                var entity = MaterialEntity.CompareTo(b.MaterialEntity);
+                if (entity != 0) return entity;
                 var directMesh = DirectMesh.CompareTo(b.DirectMesh);
                 return directMesh;
             }
@@ -47,20 +51,23 @@ namespace VECS
         public BufferRegion Region;
         public int Material;
         public int Variant;
+        public int Entity;
         public int DirectMesh;
 
-        public VariantMaterialBufferRegion(BufferRegion region,int material, int variant)
+        public VariantMaterialBufferRegion(BufferRegion region,int material, int variant, int entity)
         {
             Region = region;
             Material = material;
             Variant = variant;
+            Entity = entity;
         }
 
-        public VariantMaterialBufferRegion(BufferRegion region, int material, int variant, int directMesh)
+        public VariantMaterialBufferRegion(BufferRegion region, int material, int variant, int entity, int directMesh)
         {
             Region = region;
             Material = material;
             Variant = variant;
+            Entity = entity;
             DirectMesh = directMesh;
         }
 
@@ -70,12 +77,13 @@ namespace VECS
                    EqualityComparer<BufferRegion>.Default.Equals(Region, command.Region) &&
                    Material == command.Material &&
                    Variant == command.Variant &&
+                   Entity == command.Entity &&
                    DirectMesh == command.DirectMesh;
         }
 
         public override readonly int GetHashCode()
         {
-            return HashCode.Combine(Region, Material, Variant,DirectMesh);
+            return HashCode.Combine(Region, Material, Variant, Entity,DirectMesh);
         }
         public static bool operator ==(VariantMaterialBufferRegion left, VariantMaterialBufferRegion right)
         {
@@ -225,7 +233,7 @@ namespace VECS
 
         
 
-        private void CreateDescriptorSetHandler(int index, Dictionary<string, int> bindingsDict)
+        private void CreateDescriptorSetHandler(int index,DescriptorLevel level, Dictionary<string, int> bindingsDict)
         {
             DescriptorBinding[] bindings = new DescriptorBinding[bindingsDict.Count];
             int i = 0;
@@ -235,7 +243,7 @@ namespace VECS
                 i++;
             }
 
-            _allHandlers[index] = new DescriptorSetHandler(_allLayouts[index], DescriptorLevel.Game, bindings);
+            _allHandlers[index] = new DescriptorSetHandler(_allLayouts[index], level, bindings);
 
         }
 
@@ -246,7 +254,7 @@ namespace VECS
             {
                 if (_actAsGlobal)
                 {
-                    CreateDescriptorSetHandler(index, applicationGlobalBindings);
+                    CreateDescriptorSetHandler(index,DescriptorLevel.Game, applicationGlobalBindings);
                 }
                 else
                 {
@@ -257,13 +265,13 @@ namespace VECS
             }
             if (HasMaterialSet)
             {
-                CreateDescriptorSetHandler(index, materialGlobalBindings);
+                CreateDescriptorSetHandler(index,DescriptorLevel.Material, materialGlobalBindings);
                 _materialDescriptorSetHandlerIndex = index;
                 index++;
             }
             if (HasEntitySet)
             {
-                CreateDescriptorSetHandler(index, entityBindings);
+                CreateDescriptorSetHandler(index, DescriptorLevel.Entity, entityBindings);
                 _entityDescriptorSetHandlerIndex = index;
             }
         }

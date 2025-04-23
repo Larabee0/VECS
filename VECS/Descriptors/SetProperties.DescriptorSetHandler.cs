@@ -140,16 +140,21 @@ namespace VECS
             var buffer = GetStorageSwapChainBuffer(bindingIndex,propertyInfo);
             buffer?.SetUsedInstanceCount(instanceSize);
         }
-    }
 
-    public struct PlanetTileShaderParmeters
-    {
-        public float ElevationMin;
-        public float ElevationMax;
-        public float SineTime;
-        public float CosineTime;
-        public float TextureCount;
-        public float TerrainScale;
-        public float OceanBrightness;
+        public void SetTexture(uint bindingIndex, DescriptorPropertyInfo propertyInfo, Texture2d texture)
+        {
+            if (propertyInfo.ImageType == VkImageType.Image2D && !propertyInfo.ImageArray && _bindingImages.TryGetValue(bindingIndex, out var value))
+            {
+                _bindingImages[bindingIndex] = (value.Item1,texture);
+            }
+        }
+
+        public void SetTextureArray(uint bindingIndex, DescriptorPropertyInfo propertyInfo, Texture2d textureArray)
+        {
+            if(propertyInfo.ImageType == VkImageType.Image2D && propertyInfo.ImageArray && _bindingImages.TryGetValue(bindingIndex, out var value))
+            {
+                _bindingImages[bindingIndex] = (value.Item1, textureArray);
+            }
+        }
     }
 }

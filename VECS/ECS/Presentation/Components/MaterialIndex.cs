@@ -18,5 +18,6 @@
 
         public int Material;
         public int Variant;
+        public int Entity;
     }
 }

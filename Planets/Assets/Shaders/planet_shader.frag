@@ -25,7 +25,12 @@ layout(set = 0, binding = 0) uniform GlobalUbo{
 	PointLight pointLights[10];
 } ubo;
 
-layout(set = 1, binding = 0) uniform shaderParams{
+layout(set = 1, binding = 2) uniform sampler2DArray texTerrain;
+layout(set = 1, binding = 3) uniform sampler2D texWaveA;
+layout(set = 1, binding = 4) uniform sampler2D texWaveB;
+layout(set = 1, binding = 5) uniform sampler2D texWaveC;
+
+layout(set = 2, binding = 0) uniform shaderParams{
 	float elevationMin;
 	float elevationMax;
 	float sineTime;
@@ -35,21 +40,8 @@ layout(set = 1, binding = 0) uniform shaderParams{
 	float oceanBrightness;
 } params;
 
-layout(set = 1, binding = 1) uniform sampler2D texMainColour;
-layout(set = 1, binding = 2) uniform sampler2D texSteepColour;
-
-layout(set = 1, binding = 3) uniform sampler2DArray texTerrain;
-layout(set = 1, binding = 4) uniform sampler2D texWaveA;
-layout(set = 1, binding = 5) uniform sampler2D texWaveB;
-layout(set = 1, binding = 6) uniform sampler2D texWaveC;
-
-
-//layout(push_constant) uniform Push
-//{
-//	mat4 modelMatrix; // project * view * model
-//	mat4 normalMatrix;
-//} push;
-
+layout(set = 2, binding = 1) uniform sampler2D texMainColour;
+layout(set = 2, binding = 2) uniform sampler2D texSteepColour;
 
 float colourSample(out vec4 colour, out vec4 steepColour, out float alpha)
 {

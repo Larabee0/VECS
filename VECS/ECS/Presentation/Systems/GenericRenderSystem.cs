@@ -70,6 +70,7 @@ namespace VECS.ECS.Presentation.Systems
                 int lastDirectMesh = cmd.DirectMesh;
                 int lastMaterial = cmd.MaterialIndex;
                 int lastVariant = cmd.MaterialVariant;
+                int lastEntity = cmd.MaterialEntity;
 
                 Vector2UInt lastCombinedMatID = new((uint)lastMaterial, (uint)lastVariant);
 
@@ -97,7 +98,7 @@ namespace VECS.ECS.Presentation.Systems
                         directMeshMapDrawCount = directMeshMapDrawCounts[lastDirectMesh];
                         curIndirectDrawRegion.Count = (int)directMeshMapDrawCount.Y;
 
-                        variantMeshDrawCommands.Add(new(curIndirectDrawRegion, lastMaterial, lastVariant, lastDirectMesh));
+                        variantMeshDrawCommands.Add(new(curIndirectDrawRegion, lastMaterial, lastVariant, lastEntity, lastDirectMesh));
 
                         curIndirectDrawRegion.StartIndex = (int)(directMeshMapDrawCount.X + directMeshMapDrawCount.Y);
                         directMeshMapDrawCount.X = directMeshMapDrawCount.Y;
@@ -112,13 +113,13 @@ namespace VECS.ECS.Presentation.Systems
                     {
                         directMeshMapDrawCount = directMeshMapDrawCounts[lastDirectMesh];
                         curIndirectDrawRegion.Count = (int)directMeshMapDrawCount.Y;
-                        VariantMaterialBufferRegion potential = new(curIndirectDrawRegion, lastMaterial, lastVariant, lastDirectMesh);
+                        VariantMaterialBufferRegion potential = new(curIndirectDrawRegion, lastMaterial, lastVariant, lastEntity, lastDirectMesh);
                         if ((variantMeshDrawCommands.Count == 0 || variantMeshDrawCommands[^1] != potential) && potential.Region.Count > 0)
                         {
                             variantMeshDrawCommands.Add(potential);
                         }
                         curVariantStorageRegion.Count = materialVairntsCounts[lastCombinedMatID];
-                        variantStorageRegions.Add(new(curVariantStorageRegion, lastMaterial, lastVariant));
+                        variantStorageRegions.Add(new(curVariantStorageRegion, lastMaterial, lastVariant, lastEntity));
 
                         lastVariant = cmd.MaterialVariant;
                         lastCombinedMatID = new((uint)lastMaterial, (uint)lastVariant);
@@ -134,13 +135,13 @@ namespace VECS.ECS.Presentation.Systems
                     {
                         directMeshMapDrawCount = directMeshMapDrawCounts[lastDirectMesh];
                         curIndirectDrawRegion.Count = (int)directMeshMapDrawCount.Y;
-                        VariantMaterialBufferRegion potential = new(curIndirectDrawRegion, lastMaterial, lastVariant,lastDirectMesh);
+                        VariantMaterialBufferRegion potential = new(curIndirectDrawRegion, lastMaterial, lastVariant, lastEntity, lastDirectMesh);
                         if ((variantMeshDrawCommands.Count == 0 || variantMeshDrawCommands[^1] != potential) && potential.Region.Count > 0)
                         {
                             variantMeshDrawCommands.Add(potential);
                         }
                         curVariantStorageRegion.Count = materialVairntsCounts[lastCombinedMatID];
-                        potential = new(curVariantStorageRegion, lastMaterial, lastVariant);
+                        potential = new(curVariantStorageRegion, lastMaterial, lastVariant, lastEntity);
                         if (variantStorageRegions.Count == 0 || variantStorageRegions[^1] != potential)
                         {
                             variantStorageRegions.Add(potential);
@@ -181,7 +182,7 @@ namespace VECS.ECS.Presentation.Systems
                 curIndirectDrawRegion.Count = (int)directMeshMapDrawCount.Y;
                 variantMeshDrawCommands.Add(new(curIndirectDrawRegion, lastMaterial, lastVariant,lastDirectMesh));
                 curVariantStorageRegion.Count = materialVairntsCounts[lastCombinedMatID];
-                variantStorageRegions.Add(new(curVariantStorageRegion, lastMaterial, lastVariant));
+                variantStorageRegions.Add(new(curVariantStorageRegion, lastMaterial, lastVariant, lastEntity));
                 curMaterialRegion.Count = currentVariantCount;
                 materialRegions[lastMaterial] = curMaterialRegion;
 

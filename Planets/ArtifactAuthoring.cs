@@ -38,6 +38,7 @@ namespace Planets
 
         private Texture2d textureArrayTerrainShapes;
         private Material planetLitMaterial;
+        private MaterialV2 planetLitMaterialV2;
         private PlanetPropeties planetProperties;
 
         private static readonly bool useComputeShaderForGeneration = true;
@@ -127,17 +128,17 @@ namespace Planets
                 prefabPlanet, starParent,
                 new(-15f, 0, 0),
                 3,
-                5, 12, Presenter.Instance.Unlit);
+                5, 12, planetLitMaterialV2);
 
-            Entity planetOrbiterB = InstantiateNewOrbitalPlanet(entityManager,
-                PlanetPresets.ShapeGeneratorRandomEarthLike(),
-                CreatePrefabPlanet(entityManager), starParent,
-                new(15f, 0, 0),
-                3,
-                5, 12,Presenter.Instance.Lit);
+            //Entity planetOrbiterB = InstantiateNewOrbitalPlanet(entityManager,
+            //    PlanetPresets.ShapeGeneratorRandomEarthLike(),
+            //    CreatePrefabPlanet(entityManager), starParent,
+            //    new(15f, 0, 0),
+            //    3,
+            //    5, 12,Presenter.Instance.Lit);
 
-            aStar.AddChildren(entityManager, [planetOrbiterA, planetOrbiterB]);
-            //aStar.AddChildren(entityManager, [planetOrbiterA]);
+            //aStar.AddChildren(entityManager, [planetOrbiterA, planetOrbiterB]);
+            aStar.AddChildren(entityManager, [planetOrbiterA]);
         }
 
         private void CreateBigTestScene(EntityManager entityManager, Entity prefabPlanet)
@@ -309,20 +310,20 @@ namespace Planets
                 new(VertexAttribute.TexCoord0,VertexAttributeFormat.Float2,0,2,2),
             ];
 
-            var bindingDescriptions = DirectMesh.GetBindingDescription(vertexAttributeDescriptions);
-            var attributeDescriptions = DirectMesh.GetAttributeDescriptions(vertexAttributeDescriptions);
+            //var bindingDescriptions = DirectMesh.GetBindingDescription(vertexAttributeDescriptions);
+            //var attributeDescriptions = DirectMesh.GetAttributeDescriptions(vertexAttributeDescriptions);
 
-            planetLitMaterial = new Material("planet_shader.vert", "planet_shader.frag", bindingDescriptions,
-                attributeDescriptions,
-                new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.UniformBuffer, StageFlags = VkShaderStageFlags.Fragment },
-                new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Fragment },
-                new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Fragment },
-                new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Fragment },
-                new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Fragment },
-                new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Fragment },
-                new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Fragment },
-                new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.StorageBuffer, StageFlags = VkShaderStageFlags.Vertex }
-            );
+            //planetLitMaterial = new Material("planet_shader.vert", "planet_shader.frag", bindingDescriptions,
+            //    attributeDescriptions,
+            //    new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.StorageBuffer, StageFlags = VkShaderStageFlags.Vertex },
+            //    new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Fragment },
+            //    new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Fragment },
+            //    new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Fragment },
+            //    new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Fragment },
+            //    new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Fragment },
+            //    new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Fragment },
+            //    new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.UniformBuffer, StageFlags = VkShaderStageFlags.Fragment }
+            //);
 
             planetProperties = new PlanetPropeties()
             {
@@ -333,6 +334,13 @@ namespace Planets
                 TerrainScale = 3f,
                 OceanBrightness = 5f
             };
+
+            planetLitMaterialV2 = MaterialV2.Create("planet_shader.vert", "planet_shader.frag");
+            planetLitMaterialV2.SetUniform("params", planetProperties.GetShaderParmeters(0));
+            planetLitMaterialV2.SetTextureArray("texTerrain", textureArrayTerrainShapes);
+            planetLitMaterialV2.SetTexture("texWaveA", textureWaveA);
+            planetLitMaterialV2.SetTexture("texWaveB", textureWaveC);
+            planetLitMaterialV2.SetTexture("texWaveC", textureWaveB);
         }
 
         private Entity CreatePrefabPlanet(EntityManager entityManager)
@@ -346,7 +354,8 @@ namespace Planets
             entityManager.AddComponent<Children>(planet);
             entityManager.AddComponent<DoNotRender>(planet);
             entityManager.AddComponent<Prefab>(planet);
-            entityManager.AddComponent(planet, new MaterialIndex { Value = Material.GetIndexOfMaterial(planetLitMaterial) });
+            //entityManager.AddComponent(planet, new MaterialIndex { Value = Material.GetIndexOfMaterial(planetLitMaterial) });
+            entityManager.AddComponent(planet, new MaterialIndex { Value =0 });
 
             InitialiseTiles(entityManager, planet, subdivisons);
 
@@ -400,7 +409,7 @@ namespace Planets
             return buffer;
         }
 
-        public static void GeneratePlanet(Entity planetRoot, ShapeGenerator generator)
+        public void GeneratePlanet(Entity planetRoot, ShapeGenerator generator)
         {
             _stopwatch.Restart();
             generator.MinMax = new MinMax();
@@ -469,6 +478,9 @@ namespace Planets
                 properties.SteepTexture = Texture2d.GetIndexOfTexture(generator.ColourGenerator.steepTexture);
                 properties.ElevationMinMax = new(generator.MinMax.Min, generator.MinMax.Max);
                 World.DefaultWorld.EntityManager.SetComponent(planetRoot, properties);
+
+                planetLitMaterialV2.SetTexture("texMainColour", generator.ColourGenerator.colourTexture);
+                planetLitMaterialV2.SetTexture("texSteepColour", generator.ColourGenerator.steepTexture);
             }
 
             _stopwatch.Stop();

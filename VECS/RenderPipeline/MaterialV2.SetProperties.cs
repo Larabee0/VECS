@@ -104,5 +104,21 @@ namespace VECS
                 handler.SetStorageBufferUsageSize(bindingIndex, propertyInfo, instanceSize);
             }
         }
+
+        public void SetTexture(string property, Texture2d texture)
+        {
+            if(LookUpProperty(property, out var handler, out var bindingIndex, out var propertyInfo))
+            {
+                handler.SetTexture(bindingIndex,propertyInfo,texture);
+            }
+        }
+
+        public void SetTextureArray(string property, Texture2d texture)
+        {
+            if(LookUpProperty(property,out var handler, out var bindingIndex,out var propertyInfo))
+            {
+                handler.SetTextureArray(bindingIndex, propertyInfo, texture);
+            }
+        }
     }
 }

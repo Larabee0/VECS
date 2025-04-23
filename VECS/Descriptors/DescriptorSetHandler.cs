@@ -21,7 +21,7 @@ namespace VECS
         private readonly int[] _imageBindings;
         private readonly SwapChainBuffer[] _bindingBuffers;
         private readonly Dictionary<uint, int> _bindingBufferMap;
-        private readonly Dictionary<uint, Texture2d> _bindingImages;
+        private readonly Dictionary<uint, (int,Texture2d)> _bindingImages; // need to do this for buffers so buffers can be at any binding, add index _bufferInfos to _bindingBufferMap 
         private readonly VkWriteDescriptorSet[] _vkDescriptorWrites; 
 
         private readonly VkDescriptorSetLayout _vkDescriptorSetLayout;
@@ -115,7 +115,7 @@ namespace VECS
             }
             if (_imageCount > 0)
             {
-                _bindingImages = new Dictionary<uint, Texture2d>((int)_imageCount);
+                _bindingImages = new Dictionary<uint, (int, Texture2d)>((int)_imageCount);
                 CreateBindingImages();
             }
         }
@@ -146,11 +146,13 @@ namespace VECS
 
         private void CreateBindingImages()
         {
+            int imageIndex = 0;
             for (int i = 0; i < _descriptorBindings.Length; i++)
             {
                 var binding = _descriptorBindings[i];
                 if (binding.IsAnyBuffer) continue;
-                _bindingImages.Add(binding.Binding, Texture2d.Fallback);
+                _bindingImages.Add(binding.Binding, (imageIndex,Texture2d.Fallback));
+                imageIndex++;
             }
 
 #if DEBUG
@@ -279,7 +281,7 @@ namespace VECS
             if (success)
             {
                 _vkDescriptorSets[frameIndex] = set;
-                _setsAllocated[frameIndex] = true;
+                //_setsAllocated[frameIndex] = true;
                 _setsDirty[frameIndex] = true;
                 _vkDescriptorPoolSource[frameIndex] = pool;
             }
@@ -309,8 +311,8 @@ namespace VECS
 
             for (int i = 0; i < _imageCount; i++)
             {
-                var bindingIndex = _descriptorBindings[_bufferBindings[i]].Binding;
-                _imageInfos[i] = _bindingImages[bindingIndex].GetImageInfo;
+                var bindingIndex = _descriptorBindings[_imageBindings[i]].Binding;
+                _imageInfos[i] = _bindingImages[bindingIndex].Item2.GetImageInfo;
             }
         }
 
@@ -325,7 +327,7 @@ namespace VECS
                 VkDescriptorSetLayoutBinding bindingDescription = binding.VkSetLayoutBinding;
                 var write = binding.IsAnyBuffer
                     ? new VkWriteDescriptorSet() { pBufferInfo = &_bufferInfos[binding.Binding] }
-                    : new VkWriteDescriptorSet() { pImageInfo = &_imageInfos[binding.Binding] };
+                    : new VkWriteDescriptorSet() { pImageInfo = &_imageInfos[_bindingImages[binding.Binding].Item1] };
                 write.descriptorType = bindingDescription.descriptorType;
                 write.dstBinding = binding.Binding;
                 write.descriptorCount = 1;
@@ -378,15 +380,20 @@ namespace VECS
                 propertyInfo = binding.GetProperty(address);
                 return propertyInfo != null;
             }
-            else if(binding != null && (binding.UniformBuffer || binding.Image))
+            else if(binding != null && binding.UniformBuffer )
             {
                 propertyInfo = new DescriptorPropertyInfo(bindingName, SpvOp.TypeStruct, binding.BufferSize, 0);
 
                 return true;
             }
-            else if(binding != null && binding.StorageBuffer)
+            else if(binding != null && binding.Image)
             {
-                propertyInfo =  binding.GetRunTimeArray();
+                propertyInfo = binding.GetTexture();
+                return true;
+            }
+            else if (binding != null && binding.StorageBuffer)
+            {
+                propertyInfo = binding.GetRunTimeArray();
                 return propertyInfo != null;
             }
 
