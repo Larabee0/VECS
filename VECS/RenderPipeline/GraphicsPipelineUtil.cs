@@ -77,7 +77,7 @@ namespace VECS
             return true;
         }
 
-        public unsafe static VkPushConstantRange[] GetPushConstants(params SpvReflectShaderModule[] modules)
+        public unsafe static PushConstantsInfo[] GetPushConstants(params SpvReflectShaderModule[] modules)
         {
             List<VkShaderStageFlags> shaderStageFlags = [];
             List<SpvReflectBlockVariable> constants = [];
@@ -104,18 +104,13 @@ namespace VECS
                 }
             }
 
-
-            VkPushConstantRange[] pushConstants = new VkPushConstantRange[constants.Count];
+            PushConstantsInfo[] pushConstants = new PushConstantsInfo[constants.Count];
 
             for (int i = 0; i < constants.Count; i++)
             {
-                pushConstants[i] = new()
-                {
-                    stageFlags = shaderStageFlags[i],
-                    offset = constants[i].offset,
-                    size = constants[i].size
-                };
-            }
+                pushConstants[i] = new(constants[i], shaderStageFlags[i]);
+            };
+            
 
             return pushConstants;
         }

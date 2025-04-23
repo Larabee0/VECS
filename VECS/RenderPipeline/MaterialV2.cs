@@ -136,7 +136,7 @@ namespace VECS
         private VkDescriptorSetLayout _materialDescriptorLayout;
         private VkDescriptorSetLayout _entityDescriptorLayout;
         private VkDescriptorSetLayout[] _allLayouts;
-        private readonly VkPushConstantRange[] _materialPushConstants;
+        private readonly PushConstantsInfo[] _materialPushConstants;
         private VkPipelineLayout _pipelineLayout;
         private GraphicsPipeline _materialPipeline;
 
@@ -343,10 +343,12 @@ namespace VECS
             if(_materialPushConstants != null && _materialPushConstants.Length > 0)
             {
                 vkPipelineLayoutInfo.pushConstantRangeCount = (uint)_materialPushConstants.Length;
-                fixed (VkPushConstantRange* pLayouts = &_materialPushConstants[0])
+                VkPushConstantRange* pLayouts = stackalloc VkPushConstantRange[_materialPushConstants.Length];
+                for (int i = 0; i < _materialPushConstants.Length; i++)
                 {
-                    vkPipelineLayoutInfo.pPushConstantRanges = pLayouts;
+                    pLayouts[i] = _materialPushConstants[i].VkPushConstantRange;
                 }
+                vkPipelineLayoutInfo.pPushConstantRanges = pLayouts;
             }
             var result = Vulkan.vkCreatePipelineLayout(GraphicsDevice.Instance.Device, vkPipelineLayoutInfo, null, out _pipelineLayout);
             if (result != VkResult.Success)

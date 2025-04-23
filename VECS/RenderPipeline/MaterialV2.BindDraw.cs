@@ -120,6 +120,10 @@ namespace VECS
                         BindEntityVariantDesc(rendererFrameInfo, lastEntity);
                     }
 
+                    for (int i = 0; i < _materialPushConstants.Length; i++)
+                    {
+                        _materialPushConstants[i].PushConstants(rendererFrameInfo,_pipelineLayout);
+                    }
                     var mesh = DirectMesh.GetMeshAtIndex(command.DirectMesh);
                     mesh.BindAndDrawDirectMesh(rendererFrameInfo.CommandBuffer, this, (uint)command.Region.StartIndex, (uint)command.Region.Count);
                 }

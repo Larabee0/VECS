@@ -93,7 +93,7 @@ namespace VECS
             }
 
             uint offset = propertyInfo.Offset;
-            var hostPtr = (IntPtr)_bindingBuffers[bindingIndex].HostPtr;
+            var hostPtr = (IntPtr)_bindingBuffers[_bindingBufferMap[bindingIndex]].HostPtr;
 
             hostPtr = IntPtr.Add(hostPtr, (int)offset);
             fixed (T* arrayPtr = array)
@@ -111,7 +111,7 @@ namespace VECS
             {
                 throw new InvalidOperationException("Cannot write property with mismatched size");
             }
-
+            bindingIndex = (uint)_bindingBufferMap[bindingIndex];
             uint offset = propertyInfo.Offset;
             var hostPtr = (IntPtr)_bindingBuffers[bindingIndex].HostPtr;
 

@@ -298,7 +298,7 @@ namespace VECS
             for (int i = 0; i < _bufferCount; i++)
             {
                 var binding = _descriptorBindings[_bufferBindings[i]];
-                var buffer = _bindingBuffers[binding.Binding];
+                var buffer = _bindingBuffers[_bindingBufferMap[binding.Binding]];
                 _bufferInfos[i] = binding.DynamicBuffer
                     ? buffer.ActiveDescriptorInfo(_storageBufferStartIndex, _stoageBufferLength)
                     : buffer.ActiveDescriptorInfo();
@@ -326,7 +326,7 @@ namespace VECS
                 var binding = _descriptorBindings[i];
                 VkDescriptorSetLayoutBinding bindingDescription = binding.VkSetLayoutBinding;
                 var write = binding.IsAnyBuffer
-                    ? new VkWriteDescriptorSet() { pBufferInfo = &_bufferInfos[binding.Binding] }
+                    ? new VkWriteDescriptorSet() { pBufferInfo = &_bufferInfos[_bindingBufferMap[binding.Binding]] }
                     : new VkWriteDescriptorSet() { pImageInfo = &_imageInfos[_bindingImages[binding.Binding].Item1] };
                 write.descriptorType = bindingDescription.descriptorType;
                 write.dstBinding = binding.Binding;

@@ -1,11 +1,11 @@
 ﻿using System;
-using System.Numerics;
 using System.Text;
 using Vortice.SPIRV.Reflect;
 using Vortice.Vulkan;
 
 namespace VECS
 {
+
     public sealed class DescriptorBinding
     {
         public readonly string Name;
@@ -130,7 +130,7 @@ namespace VECS
 
         public static bool operator ==(DescriptorBinding left, DescriptorBinding right)
         {
-            return (object)left != null && (object)right != null && left.Name == right.Name && left.Set == right.Set && left.Binding == right.Binding
+            return left is not null && right is not null && left.Name == right.Name && left.Set == right.Set && left.Binding == right.Binding
                 && left.Image == right.Image && left.Buffer == right.Buffer
                 && left.DynamicBuffer == right.DynamicBuffer && left.BufferSize == right.BufferSize
                 && left.BufferUsageFlags == right.BufferUsageFlags && left.GlobalUniformBuffer == right.GlobalUniformBuffer

@@ -5,6 +5,52 @@ namespace VECS
 {
     public sealed partial class MaterialV2
     {
+        public void SetPushConstantInt(string property, int value)
+        {
+            WriteToPushConstantBuffer(property, value);
+        }
+
+        public void SetPushConstantFloat(string property, float value)
+        {
+            WriteToPushConstantBuffer(property, value);
+        }
+
+        public void SetPushConstantVector2(string property, Vector2 value)
+        {
+            WriteToPushConstantBuffer(property, value);
+        }
+
+        public void SetPushConstantVector4(string property, Vector4 value)
+        {
+            WriteToPushConstantBuffer(property, value);
+        }
+
+        public void SetPushConstantMatrix3x2(string property, Matrix3x2 value)
+        {
+            WriteToPushConstantBuffer(property, value);
+        }
+
+        public void SetPushConstantMatrix4x4(string property, Matrix4x4 value)
+        {
+            WriteToPushConstantBuffer(property, value);
+        }
+
+        public void SetPushConstantUniform<T>(string property, T value) where T : unmanaged
+        {
+            WriteToPushConstantBuffer(property, value);
+        }
+
+        private void WriteToPushConstantBuffer<T>(string property, T value) where T : unmanaged
+        {
+            for (int i = 0; i < _materialPushConstants.Length; i++)
+            {
+                if(_materialPushConstants[i].WriteToPushConstantBuffer(property, value))
+                {
+                    break;
+                }
+            }
+        }
+
         public void SetInt(string property, int value)
         {
             WriteToBuffer(property, value);
