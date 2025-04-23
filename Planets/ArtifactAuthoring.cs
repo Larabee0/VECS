@@ -60,6 +60,7 @@ namespace Planets
             {
                 World.DefaultWorld.CreateSystem<GenericRenderSystem>();
             }
+            World.DefaultWorld.CreateSystem<UpdatePlanetTimeSystem>();
             World.DefaultWorld.CreateSystem<StarRenderSystem>();
             World.DefaultWorld.CreateSystem<DrawBoundsRenderSystem>();
             World.DefaultWorld.CreateSystem<WorldRenderBoundsUpdateSystem>();
@@ -336,7 +337,7 @@ namespace Planets
             };
 
             planetLitMaterialV2 = MaterialV2.Create("planet_shader.vert", "planet_shader.frag");
-            planetLitMaterialV2.SetUniform("params", planetProperties.GetShaderParmeters(0));
+            planetLitMaterialV2.SetUniform("planetProperties", planetProperties.GetShaderParmeters(0));
             planetLitMaterialV2.SetTextureArray("texTerrain", textureArrayTerrainShapes);
             planetLitMaterialV2.SetTexture("texWaveA", textureWaveA);
             planetLitMaterialV2.SetTexture("texWaveB", textureWaveC);
@@ -354,8 +355,8 @@ namespace Planets
             entityManager.AddComponent<Children>(planet);
             entityManager.AddComponent<DoNotRender>(planet);
             entityManager.AddComponent<Prefab>(planet);
+            entityManager.AddComponent(planet, new MaterialIndexV2 { Material = MaterialV2.GetIndexOfMaterial(planetLitMaterialV2) });
             //entityManager.AddComponent(planet, new MaterialIndex { Value = Material.GetIndexOfMaterial(planetLitMaterial) });
-            entityManager.AddComponent(planet, new MaterialIndex { Value =0 });
 
             InitialiseTiles(entityManager, planet, subdivisons);
 
@@ -478,7 +479,7 @@ namespace Planets
                 properties.SteepTexture = Texture2d.GetIndexOfTexture(generator.ColourGenerator.steepTexture);
                 properties.ElevationMinMax = new(generator.MinMax.Min, generator.MinMax.Max);
                 World.DefaultWorld.EntityManager.SetComponent(planetRoot, properties);
-
+                planetLitMaterialV2.SetUniform("planetProperties", properties.GetShaderParmeters(0));
                 planetLitMaterialV2.SetTexture("texMainColour", generator.ColourGenerator.colourTexture);
                 planetLitMaterialV2.SetTexture("texSteepColour", generator.ColourGenerator.steepTexture);
             }

@@ -30,24 +30,29 @@ layout(set = 1, binding = 3) uniform sampler2D texWaveA;
 layout(set = 1, binding = 4) uniform sampler2D texWaveB;
 layout(set = 1, binding = 5) uniform sampler2D texWaveC;
 
-layout(set = 2, binding = 0) uniform shaderParams{
+layout(set = 2, binding = 1) uniform shaderParams{
 	float elevationMin;
 	float elevationMax;
-	float sineTime;
-	float cosineTime;
 	float textureCount;
 	float terrainScale;
 	float oceanBrightness;
-} params;
+} planetProperties;
 
-layout(set = 2, binding = 1) uniform sampler2D texMainColour;
+layout(set = 2, binding = 0) uniform sampler2D texMainColour;
 layout(set = 2, binding = 2) uniform sampler2D texSteepColour;
+
+layout( push_constant ) uniform constants
+{
+	float time;
+	float sineTime;
+	float cosineTime;
+} time;
 
 float colourSample(out vec4 colour, out vec4 steepColour, out float alpha)
 {
-	float oceanT = inverseLerp(params.elevationMin,0.0,fragElevation);
+	float oceanT = inverseLerp(planetProperties.elevationMin,0.0,fragElevation);
 	oceanT = clamp(oceanT,0.0,1.0);
-	float terrainT = inverseLerp(0.0,params.elevationMax,fragElevation);
+	float terrainT = inverseLerp(0.0,planetProperties.elevationMax,fragElevation);
 	terrainT = clamp(terrainT,0.01,1.0);
 
 
@@ -69,22 +74,22 @@ float colourSample(out vec4 colour, out vec4 steepColour, out float alpha)
 
 float sampleTerrain(float mainAlpha){
 	float texIndex = floor(mainAlpha);// clamp(mainAlpha,0,params.textureCount-1);
-	vec3 col = triplanarArray(fragPosObject, fragNormalObject, params.terrainScale,texIndex, texTerrain).xyz;
+	vec3 col = triplanarArray(fragPosObject, fragNormalObject, planetProperties.terrainScale,texIndex, texTerrain).xyz;
 	
 	return (col.x + col.y + col.z) / 3.0;
 }
 
 float sampleOcean()
 {
-	float scaleA = remap(100*params.sineTime, 0.0, 1.0, 0.320, 0.3201);
-	float scaleB = remap(100*(params.cosineTime + 0.6), 0.6, 1.6, 0.4704, 0.4705);
-	float scaleC = remap(100*(params.cosineTime + 0.3), 0, 1.3, 0.320, 0.3202);
+	float scaleA = remap(100*time.sineTime, 0.0, 1.0, 0.320, 0.3201);
+	float scaleB = remap(100*(time.cosineTime + 0.6), 0.6, 1.6, 0.4704, 0.4705);
+	float scaleC = remap(100*(time.cosineTime + 0.3), 0, 1.3, 0.320, 0.3202);
 
 	vec3 colA = triplanarUVOffset(fragPosObject, fragNormalObject,vec2(-scaleB-scaleA, scaleC), scaleA, texWaveA).xyz;
 	vec3 colB = triplanarUVOffset(fragPosObject, fragNormalObject,vec2(scaleC-scaleB, -scaleA), scaleB, texWaveB).xyz;
 	vec3 colC = triplanarUVOffset(fragPosObject, fragNormalObject,vec2(-scaleA-scaleC, -scaleB), scaleC, texWaveC).xyz;
 
-	vec3 col = ((colA * colB) * colC) / 3.0 * (params.oceanBrightness*0.75);
+	vec3 col = ((colA * colB) * colC) / 3.0 * (planetProperties.oceanBrightness*0.75);
 	
 	return max((col.x + col.y + col.z) / 3.0, 0.0);
 

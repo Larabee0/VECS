@@ -29,8 +29,6 @@ namespace Planets.Colour
             {
                 ElevationMin = ElevationMinMax.X,
                 ElevationMax = ElevationMinMax.Y,
-                SineTime = MathF.Sin(timeSinceStart),
-                CosineTime = MathF.Cos(timeSinceStart),
                 TextureCount = Texture2d.GetTextureAtIndex(TextureArrayIndex).ImageExtent.depth,
                 TerrainScale = TerrainScale,
                 OceanBrightness = OceanBrightness
@@ -51,8 +49,6 @@ namespace Planets.Colour
     {
         public float ElevationMin;
         public float ElevationMax;
-        public float SineTime;
-        public float CosineTime;
         public float TextureCount;
         public float TerrainScale;
         public float OceanBrightness;
