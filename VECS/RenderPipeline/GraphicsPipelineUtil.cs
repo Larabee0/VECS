@@ -39,16 +39,16 @@ namespace VECS
             {
                 return x.location.CompareTo(y.location);
             });
-            uint size = 0;
-            uint offset = 0;
+            //uint size = 0;
+            //uint offset = 0;
             for (int i = 0; i < vertexProps.Count; i++)
             {
                 var property = vertexProps[i];
-                size += (uint)((VkFormat)property.format).BlockSize();
+                //size += (uint)((VkFormat)property.format).BlockSize();
                 
-                attributes[i] = new(property.location, (VkFormat)property.format, offset, property.location);
+                attributes[i] = new(property.location, (VkFormat)property.format, 0, property.location);
                 bindings[i] = new(((VkFormat)property.format).BlockSize(), VkVertexInputRate.Vertex, property.location);
-                offset += (uint)((VkFormat)property.format).BlockSize();
+                //offset += (uint)((VkFormat)property.format).BlockSize();
             }
 
             return true;
