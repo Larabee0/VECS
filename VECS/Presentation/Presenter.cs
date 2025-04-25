@@ -45,6 +45,11 @@ namespace VECS
         private readonly DescriptorPool[] _materialFrameDescriptorPools = new DescriptorPool[SwapChain.MAX_FRAMES_IN_FLIGHT];
         private readonly DescriptorPool[] _entityFrameDescriptorPools = new DescriptorPool[SwapChain.MAX_FRAMES_IN_FLIGHT];
 
+        private readonly List<(int,GPUBuffer)> _swapChainBufferDisposalQueue = [];
+
+        internal List<(int, GPUBuffer)> SwapChainBufferDisposalQueue => _swapChainBufferDisposalQueue;
+
+
         private MaterialV2 _unlitMaterial;
         private MaterialV2 _litMaterial;
         private Texture2d _fallbackTexture;
@@ -76,11 +81,15 @@ namespace VECS
         /// </summary>
         private void InitGloalDescriptorPool()
         {
-            var globalDescriptorPool = new DescriptorPool.Builder()
-                .SetMaxSets(SwapChain.MAX_FRAMES_IN_FLIGHT)
-                .AddPoolSize(VkDescriptorType.UniformBuffer, SwapChain.MAX_FRAMES_IN_FLIGHT)
-                .SetPoolFlags(VkDescriptorPoolCreateFlags.FreeDescriptorSet);
+            // var globalDescriptorPool = new DescriptorPool.Builder()
+            //     .SetMaxSets(SwapChain.MAX_FRAMES_IN_FLIGHT)
+            //     .AddPoolSize(VkDescriptorType.UniformBuffer, SwapChain.MAX_FRAMES_IN_FLIGHT)
+            //     .SetPoolFlags(VkDescriptorPoolCreateFlags.FreeDescriptorSet);
 
+            var globalDescriptorPool = new DescriptorPool.Builder()
+                .SetMaxSets(2000)
+                .AddPoolSize(VkDescriptorType.UniformBuffer, 2000)
+                .SetPoolFlags(VkDescriptorPoolCreateFlags.FreeDescriptorSet);
             for (int i = 0; i < SwapChain.MAX_FRAMES_IN_FLIGHT; i++)
             {
                 _globalDescriptorPools[i] = globalDescriptorPool.Build();
@@ -254,6 +263,16 @@ namespace VECS
             VkCommandBuffer commandBuffer = _renderer.BeginFrame();
             if (commandBuffer != VkCommandBuffer.Null)
             {
+
+                for (int i = _swapChainBufferDisposalQueue.Count - 1; i >= 0; i--)
+                {
+                    if(_swapChainBufferDisposalQueue[i].Item1 == FrameIndex)
+                    {
+                        _swapChainBufferDisposalQueue[i].Item2?.Dispose();
+                        _swapChainBufferDisposalQueue.RemoveAt(i);
+                    }
+                }
+
                 RendererFrameInfo frameInfo = CreateRendererFrameInfo(deltaTime, commandBuffer);
                 if (NEW_GLOBAL_SET)
                 {
@@ -324,6 +343,8 @@ namespace VECS
 
             _globalDescriptorSetHandler?.Dispose();
 
+            _swapChainBufferDisposalQueue.ForEach(b => b.Item2?.Dispose());
+            _swapChainBufferDisposalQueue.Clear();
             Instance = null;
             // deallocation order matters.
             // first deallocat the buffers

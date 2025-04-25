@@ -18,6 +18,7 @@ namespace VECS
         private readonly Dictionary<string, int> _bindingMap;
         private readonly DescriptorBinding[] _descriptorBindings;
         private readonly int[] _bufferBindings;
+        private readonly uint[] _bufferOffsets;
         private readonly int[] _imageBindings;
         private readonly SwapChainBuffer[] _bindingBuffers;
         private readonly Dictionary<uint, int> _bindingBufferMap;
@@ -37,7 +38,7 @@ namespace VECS
 
         private bool _disposed = false;
         private readonly bool _child = false;
-
+        private readonly int _uniformBaseOffset = 0;
         private uint _storageBufferStartIndex = 0;
         private uint _stoageBufferLength = 0;
 
@@ -62,20 +63,23 @@ namespace VECS
             _imageCount = parent._imageCount;
 
             _bufferBindings = new int [_bufferCount];
+            _bufferOffsets = new uint[_bufferCount];
             _imageBindings = new int[_imageCount];
 
             _vkDescriptorWrites = new VkWriteDescriptorSet[_descriptorBindings.Length];
             
-            AllocateInfos();
-
             if (_bufferCount > 0)
             {
                 _bindingBuffers = parent._bindingBuffers;
+                _uniformBaseOffset = parent.ReallocUniformBuffers();
+
             }
             if (_imageCount > 0)
             {
-                _bindingImages = parent._bindingImages;
+                _bindingImages = new(parent._bindingImages);
             }
+
+            AllocateInfos();
         }
 
         public DescriptorSetHandler(VkDescriptorSetLayout setLayout, DescriptorLevel level, DescriptorBinding[] bindings)
@@ -103,6 +107,7 @@ namespace VECS
             }
 
             _bufferBindings = new int[_bufferCount];
+            _bufferOffsets = new uint[_bufferCount];
             _imageBindings = new int[_imageCount];
 
             _vkDescriptorWrites = new VkWriteDescriptorSet[_descriptorBindings.Length];
@@ -142,6 +147,31 @@ namespace VECS
 #if DEBUG
             Debug.Assert(_bindingBufferMap.Count == _bufferCount, string.Format("Expected swapchain buffer allocations {0} does not much descriptor buffer count {1}", _bindingBufferMap.Count, _bufferCount));
 #endif
+        }
+
+
+        private int ReallocUniformBuffers()
+        {
+            Debug.Assert(!_child, "Cannot realloc uniforms from descriptor set child! Call it via the parent");
+            bool anyUniforms = false;
+            for (int i = 0; i < _descriptorBindings.Length; i++)
+            {
+                var binding = _descriptorBindings[i];
+                if (!binding.UniformBuffer) continue;
+                var bufferIndex = _bindingBufferMap[binding.Binding];
+                var oldBuffer = _bindingBuffers[bufferIndex];
+                var newBuffer = oldBuffer.Realloc((ulong)(_children.Count + 2) );
+                _bindingBuffers[bufferIndex] = newBuffer;
+                anyUniforms = true;
+            }
+
+            if (anyUniforms)
+            {
+                Array.Fill(_setsDirty, true);
+
+                _children.ForEach(child => Array.Fill(child._setsDirty, true));
+            }
+            return _children.Count + 1;
         }
 
         private void CreateBindingImages()
@@ -223,6 +253,10 @@ namespace VECS
                 else
                 {
                     _bufferBindings[bufferIndex] = i;
+                    if (_descriptorBindings[i].UniformBuffer)
+                    {
+                        _bufferOffsets[bufferIndex] = _descriptorBindings[i].UsedSize * (uint)_uniformBaseOffset;
+                    }
                     bufferIndex++;
                 }
             }
@@ -230,7 +264,6 @@ namespace VECS
             if (_bufferCount > 0)
             {
                 _bufferInfos = (VkDescriptorBufferInfo*)NativeMemory.AllocZeroed(_bufferCount, (uint)sizeof(VkDescriptorBufferInfo));
-                
 
             }
             if (_imageCount > 0)
@@ -298,10 +331,11 @@ namespace VECS
             for (int i = 0; i < _bufferCount; i++)
             {
                 var binding = _descriptorBindings[_bufferBindings[i]];
-                var buffer = _bindingBuffers[_bindingBufferMap[binding.Binding]];
+                var bufferIndex = _bindingBufferMap[binding.Binding];
+                var buffer = _bindingBuffers[bufferIndex];
                 _bufferInfos[i] = binding.DynamicBuffer
                     ? buffer.ActiveDescriptorInfo(_storageBufferStartIndex, _stoageBufferLength)
-                    : buffer.ActiveDescriptorInfo();
+                    : buffer.ActiveDescriptorInfoBytes(_bufferOffsets[bufferIndex], binding.UsedSize);
             }
         }
 

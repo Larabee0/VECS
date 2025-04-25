@@ -83,8 +83,8 @@ namespace VECS
                             }
                         }
                         return CachedArraySize;
-                    default:
-                        throw new NotSupportedException(string.Format("SpvOpType {0} is not an expected variable type",Type.ToString()));
+                    default: return 0;
+                        //throw new NotSupportedException(string.Format("SpvOpType {0} is not an expected variable type",Type.ToString()));
                 }
             }
         }

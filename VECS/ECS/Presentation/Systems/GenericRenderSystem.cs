@@ -14,8 +14,8 @@ namespace VECS.ECS.Presentation.Systems
         public override void OnCreate(EntityManager entityManager)
         {
             _renderEntityQuery = new EntityQuery(entityManager)
-                .WithAll(typeof(LocalToWorld),typeof(RenderMesh),typeof(WorldRenderBounds))
-                .WithNone(typeof(Prefab),typeof(DoNotRender))
+                .WithAll(typeof(LocalToWorld), typeof(RenderMesh), typeof(WorldRenderBounds))
+                .WithNone(typeof(Prefab), typeof(DoNotRender))
                 .Build();
         }
 
@@ -43,12 +43,12 @@ namespace VECS.ECS.Presentation.Systems
                     materialsMap.TryAdd(renderMesh.Material.Material, null);
                     directMeshMap.TryAdd(renderMesh.Mesh.DirectMesh, null);
                 }
-                Dictionary<Vector2UInt,int> materialVairntsCounts = new(materialsMap.Count);
-                Dictionary<int,int> materialDrawCounts = new(materialsMap.Count);
+                Dictionary<Vector3Int, int> materialVairntsCounts = new(materialsMap.Count);
+                Dictionary<int, int> materialDrawCounts = new(materialsMap.Count);
                 foreach (var matIndex in materialsMap.Keys)
                 {
                     materialsMap[matIndex] = MaterialV2.GetMaterialAtIndex(matIndex);
-                    materialVairntsCounts[new((uint)matIndex, 0)] = 0;
+                    
                     materialDrawCounts[matIndex] = 0;
                 }
 
@@ -64,6 +64,7 @@ namespace VECS.ECS.Presentation.Systems
 
                 List<VariantMaterialBufferRegion> variantMeshDrawCommands = [];
                 List<VariantMaterialBufferRegion> variantStorageRegions = [];
+                List<VariantMaterialBufferRegion> entityStorageRegions = [];
                 Dictionary<int, BufferRegion> materialRegions = new(materialsMap.Count);
 
                 var cmd = materialDrawComamnds[0];
@@ -72,9 +73,11 @@ namespace VECS.ECS.Presentation.Systems
                 int lastVariant = cmd.MaterialVariant;
                 int lastEntity = cmd.MaterialEntity;
 
-                Vector2UInt lastCombinedMatID = new((uint)lastMaterial, (uint)lastVariant);
+                Vector3Int lastCombinedMatID = new(lastMaterial, lastVariant, lastEntity);
+                //materialVairntsCounts[lastCombinedMatID] = 0;
 
                 BufferRegion curIndirectDrawRegion = default;
+                BufferRegion curEntityStorageRegion = default;
                 BufferRegion curVariantStorageRegion = default;
                 BufferRegion curMaterialRegion = default;
 
@@ -85,6 +88,7 @@ namespace VECS.ECS.Presentation.Systems
                 var matrices = material.GetStorageBuffer<ModelMatrices>("matricesBuffer");
                 var bounds = material.GetStorageBuffer<ModelBounds>("boundsBuffer");
 
+                int currentEntityCount = 1;
                 int currentVariantCount = 1;
                 Vector2UInt directMeshMapDrawCount;
 
@@ -95,73 +99,64 @@ namespace VECS.ECS.Presentation.Systems
 
                     if (lastDirectMesh != cmd.DirectMesh)
                     {
-                        directMeshMapDrawCount = directMeshMapDrawCounts[lastDirectMesh];
-                        curIndirectDrawRegion.Count = (int)directMeshMapDrawCount.Y;
+                        directMeshMapDrawCount = TryAddMeshVariant(directMeshMapDrawCounts, variantMeshDrawCommands, lastDirectMesh, lastMaterial, lastVariant, lastEntity, ref curIndirectDrawRegion);
 
-                        variantMeshDrawCommands.Add(new(curIndirectDrawRegion, lastMaterial, lastVariant, lastEntity, lastDirectMesh));
-
-                        curIndirectDrawRegion.StartIndex = (int)(directMeshMapDrawCount.X + directMeshMapDrawCount.Y);
-                        directMeshMapDrawCount.X = directMeshMapDrawCount.Y;
-                        directMeshMapDrawCount.Y = 0;
-                        directMeshMapDrawCounts[lastDirectMesh] = directMeshMapDrawCount;
+                        directMeshMapDrawCounts[lastDirectMesh] = IncrementDirectMeshMapDrawCount(directMeshMapDrawCount);
                         curIndirectDrawRegion.StartIndex = 0;
                         lastDirectMesh = cmd.DirectMesh;
                         directMesh = directMeshMap[lastDirectMesh];
                     }
 
-                    if(lastVariant != cmd.MaterialVariant)
+                    if (lastEntity != cmd.MaterialEntity)
                     {
-                        directMeshMapDrawCount = directMeshMapDrawCounts[lastDirectMesh];
-                        curIndirectDrawRegion.Count = (int)directMeshMapDrawCount.Y;
-                        VariantMaterialBufferRegion potential = new(curIndirectDrawRegion, lastMaterial, lastVariant, lastEntity, lastDirectMesh);
-                        if ((variantMeshDrawCommands.Count == 0 || variantMeshDrawCommands[^1] != potential) && potential.Region.Count > 0)
-                        {
-                            variantMeshDrawCommands.Add(potential);
-                        }
-                        curVariantStorageRegion.Count = materialVairntsCounts[lastCombinedMatID];
-                        variantStorageRegions.Add(new(curVariantStorageRegion, lastMaterial, lastVariant, lastEntity));
+                        directMeshMapDrawCount = TryAddMeshVariant(directMeshMapDrawCounts, variantMeshDrawCommands, lastDirectMesh, lastMaterial, lastVariant, lastEntity, ref curIndirectDrawRegion);
+
+                        curEntityStorageRegion = TryAddEntityVariant(entityStorageRegions, lastMaterial, lastVariant, lastEntity, curEntityStorageRegion, currentEntityCount);
+
+                        
+
+                        lastCombinedMatID = IncrementVariant(materialVairntsCounts, directMeshMapDrawCounts, lastDirectMesh, lastMaterial, lastVariant, lastEntity, ref curIndirectDrawRegion, ref curVariantStorageRegion, directMeshMapDrawCount);
+                        
+                        lastEntity = cmd.MaterialEntity;
+
+                        curEntityStorageRegion.StartIndex = entityStorageRegions.Count;
+
+                        currentEntityCount++;
+                    }
+
+                    if (lastVariant != cmd.MaterialVariant)
+                    {
+                        directMeshMapDrawCount = TryAddMeshVariant(directMeshMapDrawCounts, variantMeshDrawCommands, lastDirectMesh, lastMaterial, lastVariant, lastEntity, ref curIndirectDrawRegion);
+                        curVariantStorageRegion = TryAddMaterialVariant(materialVairntsCounts, variantStorageRegions, lastMaterial, lastVariant, lastEntity, lastCombinedMatID, curVariantStorageRegion);
+                        curEntityStorageRegion = TryAddEntityVariant(entityStorageRegions, lastMaterial, lastVariant, lastEntity, curEntityStorageRegion, currentEntityCount);
 
                         lastVariant = cmd.MaterialVariant;
-                        lastCombinedMatID = new((uint)lastMaterial, (uint)lastVariant);
-                        curIndirectDrawRegion.StartIndex = (int)(directMeshMapDrawCount.X + directMeshMapDrawCount.Y);
-                        directMeshMapDrawCount.X = directMeshMapDrawCount.Y;
-                        directMeshMapDrawCount.Y = 0;
-                        directMeshMapDrawCounts[lastDirectMesh] = directMeshMapDrawCount;
-                        curVariantStorageRegion.StartIndex = materialVairntsCounts[lastCombinedMatID];
+
+                        lastCombinedMatID = IncrementVariant(materialVairntsCounts, directMeshMapDrawCounts, lastDirectMesh, lastMaterial, lastVariant, lastEntity, ref curIndirectDrawRegion, ref curVariantStorageRegion, directMeshMapDrawCount);
+
                         currentVariantCount++;
+
+                        currentEntityCount = 1;
                     }
 
                     if (lastMaterial != cmd.MaterialIndex)
                     {
-                        directMeshMapDrawCount = directMeshMapDrawCounts[lastDirectMesh];
-                        curIndirectDrawRegion.Count = (int)directMeshMapDrawCount.Y;
-                        VariantMaterialBufferRegion potential = new(curIndirectDrawRegion, lastMaterial, lastVariant, lastEntity, lastDirectMesh);
-                        if ((variantMeshDrawCommands.Count == 0 || variantMeshDrawCommands[^1] != potential) && potential.Region.Count > 0)
-                        {
-                            variantMeshDrawCommands.Add(potential);
-                        }
-                        curVariantStorageRegion.Count = materialVairntsCounts[lastCombinedMatID];
-                        potential = new(curVariantStorageRegion, lastMaterial, lastVariant, lastEntity);
-                        if (variantStorageRegions.Count == 0 || variantStorageRegions[^1] != potential)
-                        {
-                            variantStorageRegions.Add(potential);
-                        }
+                        directMeshMapDrawCount = TryAddMeshVariant(directMeshMapDrawCounts, variantMeshDrawCommands, lastDirectMesh, lastMaterial, lastVariant, lastEntity, ref curIndirectDrawRegion);
+                        curVariantStorageRegion = TryAddMaterialVariant(materialVairntsCounts, variantStorageRegions, lastMaterial, lastVariant, lastEntity, lastCombinedMatID, curVariantStorageRegion);
+                        curEntityStorageRegion = TryAddEntityVariant(entityStorageRegions, lastMaterial, lastVariant, lastEntity, curEntityStorageRegion, currentEntityCount);
+
                         curMaterialRegion.Count = currentVariantCount;
                         materialRegions[lastMaterial] = curMaterialRegion;
-
+                        
                         lastMaterial = cmd.MaterialIndex;
-                        lastCombinedMatID = new((uint)lastMaterial, (uint)lastVariant);
-                        material = materialsMap[lastMaterial];
-                        curIndirectDrawRegion.StartIndex = (int)(directMeshMapDrawCount.X + directMeshMapDrawCount.Y);
-                        directMeshMapDrawCount.X = directMeshMapDrawCount.Y;
-                        directMeshMapDrawCount.Y = 0;
-                        directMeshMapDrawCounts[lastDirectMesh] = directMeshMapDrawCount;
-                        curVariantStorageRegion.StartIndex = materialVairntsCounts[lastCombinedMatID];
+
+                        lastCombinedMatID = IncrementVariant(materialVairntsCounts, directMeshMapDrawCounts, lastDirectMesh, lastMaterial, lastVariant,lastEntity, ref curIndirectDrawRegion, ref curVariantStorageRegion, directMeshMapDrawCount);
+
                         curMaterialRegion.StartIndex = variantStorageRegions.Count;
-
+                        
+                        currentEntityCount = 1;
                         currentVariantCount = 1;
-
-
+                        material = materialsMap[lastMaterial];
                         matrices = material.GetStorageBuffer<ModelMatrices>("matricesBuffer");
                         bounds = material.GetStorageBuffer<ModelBounds>("boundsBuffer");
                     }
@@ -174,13 +169,16 @@ namespace VECS.ECS.Presentation.Systems
 
                     directMeshMapDrawCount.Y++;
                     directMeshMapDrawCounts[lastDirectMesh] = directMeshMapDrawCount;
-                    materialVairntsCounts[lastCombinedMatID]++;
+
+                    materialVairntsCounts[lastCombinedMatID] = !materialVairntsCounts.TryGetValue(lastCombinedMatID, out int value) ? 1 : ++value;
+
+
                     materialDrawCounts[lastMaterial]++;
                 }
 
                 directMeshMapDrawCount = directMeshMapDrawCounts[lastDirectMesh];
                 curIndirectDrawRegion.Count = (int)directMeshMapDrawCount.Y;
-                variantMeshDrawCommands.Add(new(curIndirectDrawRegion, lastMaterial, lastVariant,lastDirectMesh));
+                variantMeshDrawCommands.Add(new(curIndirectDrawRegion, lastMaterial, lastVariant, lastEntity, lastDirectMesh));
                 curVariantStorageRegion.Count = materialVairntsCounts[lastCombinedMatID];
                 variantStorageRegions.Add(new(curVariantStorageRegion, lastMaterial, lastVariant, lastEntity));
                 curMaterialRegion.Count = currentVariantCount;
@@ -203,7 +201,7 @@ namespace VECS.ECS.Presentation.Systems
                     materialsMap[region.Material].EnqueueDrawCmd(region);
                 }
 
-                foreach(var mesh in directMeshMap.Values)
+                foreach (var mesh in directMeshMap.Values)
                 {
                     mesh.FlushDrawQueue();
                 }
@@ -213,6 +211,63 @@ namespace VECS.ECS.Presentation.Systems
                     materialV2.ExecuteDrawCommands(rendererFrameInfo);
                 }
             }
+        }
+
+        private static BufferRegion TryAddEntityVariant(List<VariantMaterialBufferRegion> entityStorageRegions, int lastMaterial, int lastVariant, int lastEntity, BufferRegion curEntityStorageRegion, int currentEntityCount)
+        {
+            curEntityStorageRegion.Count = currentEntityCount;
+            VariantMaterialBufferRegion potential = new(curEntityStorageRegion, lastMaterial, lastVariant, lastEntity);
+            if (entityStorageRegions.Count == 0 || entityStorageRegions[^1] != potential)
+            {
+                entityStorageRegions.Add(potential);
+            }
+
+            return curEntityStorageRegion;
+        }
+
+        private static Vector3Int IncrementVariant(Dictionary<Vector3Int, int> materialVairntsCounts, Dictionary<int, Vector2UInt> directMeshMapDrawCounts, int lastDirectMesh, int lastMaterial, int lastVariant, int lastEntity, ref BufferRegion curIndirectDrawRegion, ref BufferRegion curVariantStorageRegion, Vector2UInt directMeshMapDrawCount)
+        {
+            Vector3Int lastCombinedMatID = new(lastMaterial, lastVariant, lastEntity);
+            curIndirectDrawRegion.StartIndex = (int)(directMeshMapDrawCount.X + directMeshMapDrawCount.Y);
+            directMeshMapDrawCounts[lastDirectMesh] = IncrementDirectMeshMapDrawCount(directMeshMapDrawCount);
+            if(!materialVairntsCounts.TryGetValue(lastCombinedMatID,out curVariantStorageRegion.StartIndex))
+            {
+                materialVairntsCounts[lastCombinedMatID] = 0;
+                curVariantStorageRegion.StartIndex = 0;
+            }
+            return lastCombinedMatID;
+        }
+
+        private static Vector2UInt IncrementDirectMeshMapDrawCount(Vector2UInt directMeshMapDrawCount)
+        {
+            directMeshMapDrawCount.X = directMeshMapDrawCount.Y;
+            directMeshMapDrawCount.Y = 0;
+            return directMeshMapDrawCount;
+        }
+
+        private static BufferRegion TryAddMaterialVariant(Dictionary<Vector3Int, int> materialVairntsCounts, List<VariantMaterialBufferRegion> variantStorageRegions, int lastMaterial, int lastVariant, int lastEntity, Vector3Int lastCombinedMatID, BufferRegion curVariantStorageRegion)
+        {
+            curVariantStorageRegion.Count = materialVairntsCounts[lastCombinedMatID];
+            VariantMaterialBufferRegion potential = new(curVariantStorageRegion, lastMaterial, lastVariant, lastEntity);
+            if (variantStorageRegions.Count == 0 || variantStorageRegions[^1] != potential)
+            {
+                variantStorageRegions.Add(potential);
+            }
+
+            return curVariantStorageRegion;
+        }
+
+        private static Vector2UInt TryAddMeshVariant(Dictionary<int, Vector2UInt> directMeshMapDrawCounts, List<VariantMaterialBufferRegion> variantMeshDrawCommands, int lastDirectMesh, int lastMaterial, int lastVariant, int lastEntity, ref BufferRegion curIndirectDrawRegion)
+        {
+            Vector2UInt directMeshMapDrawCount = directMeshMapDrawCounts[lastDirectMesh];
+            curIndirectDrawRegion.Count = (int)directMeshMapDrawCount.Y;
+            VariantMaterialBufferRegion potential = new(curIndirectDrawRegion, lastMaterial, lastVariant, lastEntity, lastDirectMesh);
+            if ((variantMeshDrawCommands.Count == 0 || variantMeshDrawCommands[^1] != potential) && potential.Region.Count > 0)
+            {
+                variantMeshDrawCommands.Add(potential);
+            }
+
+            return directMeshMapDrawCount;
         }
     }
 }

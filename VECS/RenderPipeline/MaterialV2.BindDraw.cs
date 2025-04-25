@@ -102,22 +102,23 @@ namespace VECS
                 var command = _drawCommands.Peek();
                 BindPipeline(rendererFrameInfo);
 
-                BindDescriptors(rendererFrameInfo, command.Variant, 0);
+                BindDescriptors(rendererFrameInfo, command.Variant, command.Entity);
 
                 int lastVariant = command.Variant;
-                int lastEntity = 0;
+                int lastEntity = command.Entity;
 
                 while (_drawCommands.Count > 0)
                 {
                     command = _drawCommands.Dequeue();
                     if(lastVariant != command.Variant)
                     {
-                        BindMatVariantDesc(rendererFrameInfo, command.Variant);
+                        BindDescriptors(rendererFrameInfo, command.Variant, command.Entity);
                         lastVariant = command.Variant;
                     }
-                    if (lastEntity != 0)
+                    if (lastEntity != command.Entity)
                     {
-                        BindEntityVariantDesc(rendererFrameInfo, lastEntity);
+                        BindDescriptors(rendererFrameInfo, command.Variant, command.Entity);
+                        lastEntity = command.Entity;
                     }
 
                     for (int i = 0; i < _materialPushConstants.Length; i++)

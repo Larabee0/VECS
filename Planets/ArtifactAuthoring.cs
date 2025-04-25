@@ -32,6 +32,9 @@ namespace Planets
         };
 
 
+        private int planetCount;
+
+
         private Texture2d textureWaveA;
         private Texture2d textureWaveC;
         private Texture2d textureWaveB;
@@ -131,15 +134,15 @@ namespace Planets
                 3,
                 5, 12, planetLitMaterialV2);
 
-            //Entity planetOrbiterB = InstantiateNewOrbitalPlanet(entityManager,
-            //    PlanetPresets.ShapeGeneratorRandomEarthLike(),
-            //    CreatePrefabPlanet(entityManager), starParent,
-            //    new(15f, 0, 0),
-            //    3,
-            //    5, 12,Presenter.Instance.Lit);
+            Entity planetOrbiterB = InstantiateNewOrbitalPlanet(entityManager,
+                PlanetPresets.ShapeGeneratorRandomEarthLike(),
+                CreatePrefabPlanet(entityManager), starParent,
+                new(15f, 0, 0),
+                3,
+                5, 12, planetLitMaterialV2);
 
-            //aStar.AddChildren(entityManager, [planetOrbiterA, planetOrbiterB]);
-            aStar.AddChildren(entityManager, [planetOrbiterA]);
+            aStar.AddChildren(entityManager, [planetOrbiterA, planetOrbiterB]);
+            // aStar.AddChildren(entityManager, [planetOrbiterA]);
         }
 
         private void CreateBigTestScene(EntityManager entityManager, Entity prefabPlanet)
@@ -257,7 +260,7 @@ namespace Planets
                 {
                     entityManager.AddComponent(childrenEntities[i], new RenderMesh()
                     {
-                        Material = new() { Material = unlit, Variant = 0 },
+                        Material = new() { Material = unlit, Variant = 0, Entity = planetCount-1 },
                         Mesh = entityManager.GetComponent<DirectSubMeshIndex>(childrenEntities[i])
                     });
                 }
@@ -479,9 +482,11 @@ namespace Planets
                 properties.SteepTexture = Texture2d.GetIndexOfTexture(generator.ColourGenerator.steepTexture);
                 properties.ElevationMinMax = new(generator.MinMax.Min, generator.MinMax.Max);
                 World.DefaultWorld.EntityManager.SetComponent(planetRoot, properties);
-                planetLitMaterialV2.SetUniform("planetProperties", properties.GetShaderParmeters(0));
-                planetLitMaterialV2.SetTexture("texMainColour", generator.ColourGenerator.colourTexture);
-                planetLitMaterialV2.SetTexture("texSteepColour", generator.ColourGenerator.steepTexture);
+                planetLitMaterialV2.SetUniform("planetProperties", properties.GetShaderParmeters(0),0, planetCount);
+                planetLitMaterialV2.SetTexture("texMainColour", generator.ColourGenerator.colourTexture, 0, planetCount);
+                planetLitMaterialV2.SetTexture("texSteepColour", generator.ColourGenerator.steepTexture, 0, planetCount);
+
+                planetCount++;
             }
 
             _stopwatch.Stop();

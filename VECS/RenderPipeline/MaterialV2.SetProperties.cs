@@ -86,6 +86,11 @@ namespace VECS
             WriteToBuffer(property, value);
         }
 
+        public void SetUniform<T>(string property, T value, int variant, int entity) where T : unmanaged
+        {
+            WriteToBuffer(property, value, variant, entity);
+        }
+
         public void SetFloatArray(string property, float[] value)
         {
             WriteArrayToBuffer(property, value);
@@ -127,6 +132,22 @@ namespace VECS
             }
         }
 
+        private void WriteToBuffer<T>(string property, T element, int variant, int entity) where T : unmanaged
+        {
+            if (LookUpProperty(property, out var handler, out var bindingIndex, out var propertyInfo))
+            {
+                if(handler.DescriptorLevel == DescriptorLevel.Material)
+                {
+                    handler = handler.GetOrCreateChild(variant);
+                }
+                else if(handler.DescriptorLevel == DescriptorLevel.Entity)
+                {
+                    handler = handler.GetOrCreateChild(entity);
+                }
+                handler.WriteToBuffer(bindingIndex, propertyInfo, element);
+            }
+        }
+
         private bool LookUpProperty(string property, out DescriptorSetHandler handler, out uint bindingIndex, out DescriptorPropertyInfo propertyInfo)
         {
             for (int i = 0; i < _totalSets; i++)
@@ -156,6 +177,22 @@ namespace VECS
             if(LookUpProperty(property, out var handler, out var bindingIndex, out var propertyInfo))
             {
                 handler.SetTexture(bindingIndex,propertyInfo,texture);
+            }
+        }
+
+        public void SetTexture(string property, Texture2d texture, int variant, int entity)
+        {
+            if (LookUpProperty(property, out var handler, out var bindingIndex, out var propertyInfo))
+            {
+                if(handler.DescriptorLevel == DescriptorLevel.Material)
+                {
+                    handler = handler.GetOrCreateChild(variant);
+                }
+                else if(handler.DescriptorLevel == DescriptorLevel.Entity)
+                {
+                    handler = handler.GetOrCreateChild(entity);
+                }
+                handler.SetTexture(bindingIndex, propertyInfo, texture);
             }
         }
 

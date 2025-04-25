@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
@@ -67,8 +68,10 @@ namespace VECS
 #if DEBUG
             if (result != VkResult.Success)
             {
+                StackTrace stackTrace = new(true);
                 Console.WriteLine("vkAllocateDescriptorSets did not succeed");
                 Console.WriteLine(result.ToString());
+                Console.WriteLine(string.Format("vkAllocateDescriptorSets did not succeed! {0}\n{1}", result.ToString(), stackTrace.ToString()));
             }
 #endif
             return result == VkResult.Success;
