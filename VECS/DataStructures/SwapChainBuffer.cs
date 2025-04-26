@@ -174,12 +174,12 @@ namespace VECS
                 var newSize = (uint)UInstanceCount * (uint)_instanceSize;
                 var oldSize = copyFrom.InstanceCount32 * InstanceSize32;
 
-                _hostPtr = NativeMemory.Realloc(_hostPtr, (nuint)UInstanceCount * (nuint)_instanceSize);
+                _hostPtr = NativeMemory.Realloc(_hostPtr, newSize);
 
                 IntPtr ptr = new(_hostPtr);
                 ptr = IntPtr.Add(ptr, oldSize);
 
-                NativeMemory.Fill((void*)ptr, newSize, 0);
+                NativeMemory.Fill((void*)ptr, (uint)_instanceSize, 0);
             }
             copyFrom?.Dispose();
 
@@ -519,8 +519,8 @@ namespace VECS
             for (int i = 0; i < _buffers.Length; i++)
             {
                 Presenter.Instance.SwapChainBufferDisposalQueue.Add((i, _buffers[i]));
-                _buffers[i] = null;
             }
+            Array.Clear(_buffers);
         }
 
         public unsafe void WriteFromHostToActiveBuffer()
