@@ -1,11 +1,11 @@
 ﻿using System;
 using System.Text;
+using VECS.LowLevel;
 using Vortice.SPIRV.Reflect;
 using Vortice.Vulkan;
 
 namespace VECS
 {
-
     public sealed class DescriptorBinding
     {
         public readonly string Name;
@@ -16,7 +16,7 @@ namespace VECS
         public readonly bool Buffer;
         public readonly bool DynamicBuffer;
         public readonly uint BufferSize;
-        public readonly uint UsedSize;
+        public readonly uint Stride;
         public readonly VkBufferUsageFlags BufferUsageFlags;
         public readonly bool GlobalUniformBuffer;
         public readonly bool UniformBuffer;
@@ -74,8 +74,32 @@ namespace VECS
             for (int i = 0; i < Variables.Length; i++)
             {
                 BufferSize += Variables[i].PaddedSize;
-                UsedSize += Variables[i].Size;
             }
+
+            uint minOffset = BufferSize;
+            
+            if (UniformBuffer)
+            {
+                minOffset = (uint)GraphicsDevice.Instance.MinUniformBufferOffsetAlignment;
+            }
+            else if (StorageBuffer)
+            {
+                minOffset = (uint)GraphicsDevice.Instance.MinStorageBufferOffsetAlignment;
+            }
+
+            var mul = Math.Ceiling((float)BufferSize % (float)minOffset);
+
+            if (mul > 1)
+            {
+                BufferSize += (uint)mul;
+            }
+            else
+            {
+                BufferSize = Math.Max(BufferSize, minOffset);
+            }
+
+            Stride = BufferSize;
+
             GlobalUniformBuffer = Binding == 0 && Set == 0 && Name == "ubo";
 
         }

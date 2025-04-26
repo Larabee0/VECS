@@ -142,7 +142,7 @@ namespace Planets
                 5, 12, planetLitMaterialV2);
 
             aStar.AddChildren(entityManager, [planetOrbiterA, planetOrbiterB]);
-            // aStar.AddChildren(entityManager, [planetOrbiterA]);
+            //aStar.AddChildren(entityManager, [planetOrbiterA]);
         }
 
         private void CreateBigTestScene(EntityManager entityManager, Entity prefabPlanet)

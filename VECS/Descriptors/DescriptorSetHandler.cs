@@ -38,9 +38,9 @@ namespace VECS
 
         private bool _disposed = false;
         private readonly bool _child = false;
-        private readonly int _uniformBaseOffset = 0;
+        private readonly uint _uniformBufferIndex = 0;
         private uint _storageBufferStartIndex = 0;
-        private uint _stoageBufferLength = 0;
+        private uint _storageBufferLength = 0;
 
         public DescriptorLevel DescriptorLevel => _descriptorLevel;
         public VkDescriptorSetLayout VkDescriptorSetLayout => _vkDescriptorSetLayout;
@@ -71,8 +71,7 @@ namespace VECS
             if (_bufferCount > 0)
             {
                 _bindingBuffers = parent._bindingBuffers;
-                _uniformBaseOffset = parent.ReallocUniformBuffers();
-
+                _uniformBufferIndex = parent.ReallocUniformBuffers();
             }
             if (_imageCount > 0)
             {
@@ -150,18 +149,20 @@ namespace VECS
         }
 
 
-        private int ReallocUniformBuffers()
+        private uint ReallocUniformBuffers()
         {
             Debug.Assert(!_child, "Cannot realloc uniforms from descriptor set child! Call it via the parent");
             bool anyUniforms = false;
             for (int i = 0; i < _descriptorBindings.Length; i++)
             {
                 var binding = _descriptorBindings[i];
+
                 if (!binding.UniformBuffer) continue;
+
                 var bufferIndex = _bindingBufferMap[binding.Binding];
                 var oldBuffer = _bindingBuffers[bufferIndex];
-                var newBuffer = oldBuffer.Realloc((ulong)(_children.Count + 2) );
-                _bindingBuffers[bufferIndex] = newBuffer;
+
+                _bindingBuffers[bufferIndex] = oldBuffer.Realloc((ulong)(_children.Count + 2));
                 anyUniforms = true;
             }
 
@@ -171,7 +172,7 @@ namespace VECS
 
                 _children.ForEach(child => Array.Fill(child._setsDirty, true));
             }
-            return _children.Count + 1;
+            return (uint)_children.Count + 1;
         }
 
         private void CreateBindingImages()
@@ -255,7 +256,7 @@ namespace VECS
                     _bufferBindings[bufferIndex] = i;
                     if (_descriptorBindings[i].UniformBuffer)
                     {
-                        _bufferOffsets[bufferIndex] = _descriptorBindings[i].UsedSize * (uint)_uniformBaseOffset;
+                        _bufferOffsets[bufferIndex] = _descriptorBindings[i].Stride * (uint)_uniformBufferIndex;
                     }
                     bufferIndex++;
                 }
@@ -334,8 +335,8 @@ namespace VECS
                 var bufferIndex = _bindingBufferMap[binding.Binding];
                 var buffer = _bindingBuffers[bufferIndex];
                 _bufferInfos[i] = binding.DynamicBuffer
-                    ? buffer.ActiveDescriptorInfo(_storageBufferStartIndex, _stoageBufferLength)
-                    : buffer.ActiveDescriptorInfoBytes(_bufferOffsets[bufferIndex], binding.UsedSize);
+                    ? buffer.ActiveDescriptorInfo(_storageBufferStartIndex, _storageBufferLength)
+                    : buffer.ActiveDescriptorInfo(_uniformBufferIndex, 1);
             }
         }
 

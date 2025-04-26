@@ -56,6 +56,9 @@ namespace VECS.LowLevel
         public SwapChainSupportDetails SwapChainSupport => QuerySwapChainSupport(_physicalDevice);
         public QueueFamilyIndices PhysicalQueueFamilies => FindQueueFamilies(_physicalDevice);
 
+        public ulong MinUniformBufferOffsetAlignment => Properties.limits.minUniformBufferOffsetAlignment;
+        public ulong MinStorageBufferOffsetAlignment => Properties.limits.minStorageBufferOffsetAlignment;
+
         public GraphicsDevice(IWindow window)
         {
             _window = window;
