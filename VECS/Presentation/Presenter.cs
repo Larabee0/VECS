@@ -343,13 +343,13 @@ namespace VECS
 
             _globalDescriptorSetHandler?.Dispose();
 
+            _globalUboBuffers?.Dispose();
+
             _swapChainBufferDisposalQueue.ForEach(b => b.Item2?.Dispose());
             _swapChainBufferDisposalQueue.Clear();
             Instance = null;
             // deallocation order matters.
             // first deallocat the buffers
-
-            _globalUboBuffers?.Dispose();
 
             // next deallocat their set layout
             _globalDescriptorSetLayout?.Dispose();
