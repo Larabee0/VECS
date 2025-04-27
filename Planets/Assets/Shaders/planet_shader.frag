@@ -41,7 +41,7 @@ layout(set = 2, binding = 1) uniform shaderParams{
 layout(set = 2, binding = 0) uniform sampler2D texMainColour;
 layout(set = 2, binding = 2) uniform sampler2D texSteepColour;
 
-layout( push_constant ) uniform constants
+layout(push_constant) uniform constants
 {
 	float time;
 	float sineTime;

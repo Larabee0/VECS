@@ -77,16 +77,29 @@ namespace VECS
             directSubMesh.SimpleBindAndDraw(frameInfo.CommandBuffer);
         }
 
-        internal void SetDescriptorHandleStorageRegions(VariantMaterialBufferRegion variantMaterialBufferRegion)
+        internal void SetMatDescriptorHandleStorageRegions(VariantMaterialBufferRegion variantMaterialBufferRegion)
         {
             for (int i = 0; i < _allHandlers.Length; i++)
             {
                 var handle = _allHandlers[i];
-                if(handle.DescriptorLevel != DescriptorLevel.Game)
+                if(handle.DescriptorLevel == DescriptorLevel.Material)
                 {
                     handle = handle.GetOrCreateChild(variantMaterialBufferRegion.Variant);
+                    handle.SetStorageBufferRegion((uint)variantMaterialBufferRegion.Region.StartIndex, (uint)variantMaterialBufferRegion.Region.Count);
                 }
-                handle.SetStorageBufferRegion((uint)variantMaterialBufferRegion.Region.StartIndex, (uint)variantMaterialBufferRegion.Region.Count);
+            }
+        }
+
+        internal void SetEntityDescriptorHandleStorageRegions(VariantMaterialBufferRegion entityMaterialBufferRegion)
+        {
+            for (int i = 0; i < _allHandlers.Length; i++)
+            {
+                var handle = _allHandlers[i];
+                if (handle.DescriptorLevel == DescriptorLevel.Entity)
+                {
+                    handle = handle.GetOrCreateChild(entityMaterialBufferRegion.Entity);
+                    handle.SetStorageBufferRegion((uint)entityMaterialBufferRegion.Region.StartIndex, (uint)entityMaterialBufferRegion.Region.Count);
+                }
             }
         }
 

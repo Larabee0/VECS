@@ -61,7 +61,7 @@ namespace Planets
             }
             else
             {
-                World.DefaultWorld.CreateSystem<GenericRenderSystem>();
+                World.DefaultWorld.CreateSystem<GenericRenderSystemV2>();
             }
             World.DefaultWorld.CreateSystem<UpdatePlanetTimeSystem>();
             World.DefaultWorld.CreateSystem<StarRenderSystem>();

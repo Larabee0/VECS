@@ -2,7 +2,7 @@
 
 namespace System.Numerics
 {
-    [StructLayout(LayoutKind.Sequential, Size = 12)]
+    [StructLayout(LayoutKind.Sequential, Size = 8)]
     public struct Vector2UInt
     {
         public uint X;
@@ -44,6 +44,55 @@ namespace System.Numerics
         }
 
         public static bool operator !=(Vector2UInt left, Vector2UInt right)
+        {
+            return !(left == right);
+        }
+
+        public override readonly int GetHashCode() => HashCode.Combine(X, Y);
+    }
+
+    [StructLayout(LayoutKind.Sequential, Size = 8)]
+    public struct Vector2Int
+    {
+        public int X;
+        public int Y;
+
+        public readonly int this[int i] => i switch
+        {
+            0 => X,
+            1 => Y,
+            _ => throw new IndexOutOfRangeException(),
+        };
+
+        public Vector2Int()
+        {
+
+        }
+
+        public Vector2Int(int v)
+        {
+            X = v;
+            Y = v;
+        }
+
+        public Vector2Int(int x, int y)
+        {
+            X = x;
+            Y = y;
+        }
+
+        public override readonly bool Equals(object obj)
+        {
+            return obj is Vector2Int @int &&
+                   X == @int.X &&
+                   Y == @int.Y;
+        }
+        public static bool operator ==(Vector2Int left, Vector2Int right)
+        {
+            return left.Equals(right);
+        }
+
+        public static bool operator !=(Vector2Int left, Vector2Int right)
         {
             return !(left == right);
         }
