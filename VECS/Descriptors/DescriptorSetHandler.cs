@@ -334,7 +334,7 @@ namespace VECS
                 var binding = _descriptorBindings[_bufferBindings[i]];
                 var bufferIndex = _bindingBufferMap[binding.Binding];
                 var buffer = _bindingBuffers[bufferIndex];
-                _bufferInfos[i] = binding.DynamicBuffer
+                _bufferInfos[i] = binding.StorageBuffer
                     ? buffer.ActiveDescriptorInfo(_storageBufferStartIndex, _storageBufferLength)
                     : buffer.ActiveDescriptorInfo(_uniformBufferIndex, 1);
             }

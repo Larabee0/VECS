@@ -320,7 +320,7 @@ namespace VECS
             {
                 buffer = ActiveVkBuffer,
                 offset = startIndex * InstanceSize,
-                range = count * InstanceSize
+                range = (count == 0 ? UInstanceCount32 : count) * InstanceSize
             };
         }
 
