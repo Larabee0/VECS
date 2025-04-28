@@ -83,7 +83,7 @@ namespace Planets
             //    Value = Material.GetIndexOfMaterial(unlit)
             //});
             LoadResources();
-
+            LoadStaticResources(entityManager);
             var prefabPlanet = CreatePrefabPlanet(entityManager);
 
             VertexAttributeDescription[] vertexAttributeDescriptions = [
@@ -298,6 +298,31 @@ namespace Planets
             entityManager.SetComponent(planetInstance, new Scale() { Value = new(scale) });
 
             return orbitalPlane;
+        }
+
+        private void LoadStaticResources(EntityManager entityManager)
+        {
+            var cube = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("cube-UV.obj"), null);
+            var vases = MeshLoader.LoadModelsFromFiles([MeshLoader.GetMeshInDefaultPath("smooth_vase.obj"), MeshLoader.GetMeshInDefaultPath("flat_vase.obj")], null);
+
+            Entity cubeEntity = entityManager.CreateEntity();
+            Entity vaseSmooth = entityManager.CreateEntity();
+            Entity vaseFlat = entityManager.CreateEntity();
+
+            AddRenderMeshComponents(cubeEntity, Presenter.Instance.Lit, 0, 0, cube[0], entityManager);
+            AddRenderMeshComponents(vaseSmooth, Presenter.Instance.Lit, 0, 0, vases[0], entityManager);
+            AddRenderMeshComponents(vaseFlat, Presenter.Instance.Lit, 0, 0, vases[1], entityManager);
+
+            entityManager.SetComponent(cubeEntity, new Translation() { Value = new(0, 5, -2) });
+            entityManager.SetComponent(vaseSmooth, new Translation() { Value = new(5, 0, -2) });
+            entityManager.SetComponent(vaseFlat, new Translation() { Value = new(-5, 0, -2) });
+        }
+
+        public void AddRenderMeshComponents(Entity entity, MaterialV2 mat, int variant, int entityVariant, DirectSubMesh mesh, EntityManager entityManager)
+        {
+            entityManager.AddComponent<Translation>(entity);
+            entityManager.AddComponent(entity,new RenderMesh() { Mesh = mesh.GetSubMeshIndex(), Material = new() { Material = MaterialV2.GetIndexOfMaterial(mat), Variant = variant, Entity = entityVariant } });
+            entityManager.AddComponent(entity, mesh.GetSubMeshIndex());
         }
 
         private void LoadResources()

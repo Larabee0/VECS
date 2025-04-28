@@ -77,7 +77,7 @@ namespace VECS.DataStructures
             return sceneMeshes;
         }
 
-        private static void FillSubMesh(DirectSubMesh dstMesh, Assimp.Mesh srcMesh)
+        private static void FillSubMesh(DirectSubMesh dstMesh, Mesh srcMesh)
         {
             List<Vector3D> srcVertices = srcMesh.Vertices;
             List<Vector3D> srcNormals = srcMesh.HasNormals ? srcMesh.Normals : null;
@@ -183,6 +183,87 @@ namespace VECS.DataStructures
             }
 
             return [.. attributes];
+        }
+
+        public static DirectSubMesh[] LoadModelsFromFiles(string[] files, VertexAttributeDescription[] additionalAttributes)
+        {
+            List<string> validFiles = new(files.Length);
+            for (int i = 0; i < files.Length; i++)
+            {
+                if (File.Exists(files[i]))
+                {
+                    validFiles.Add(files[i]);
+                }
+            }
+
+            List<Scene> assimpScenes = new(validFiles.Count);
+
+            AssimpContext importer = new();
+
+            List<VertexAttributeDescription> attributeDescriptions = [];
+
+            List<Mesh> sceneMeshes = [];
+
+
+            for (int i = 0; i < validFiles.Count; i++)
+            {
+                var scene = importer.ImportFile(validFiles[i]);
+                if (scene != null)
+                {
+                    assimpScenes.Add(scene);
+                    sceneMeshes.AddRange(scene.Meshes);
+                    var curAttributeDescriptions = GetAttributesFromScene(scene);
+
+                    for (int j = 0; j < curAttributeDescriptions.Length; j++)
+                    {
+                        var attribute = curAttributeDescriptions[j];
+                        if(attributeDescriptions.Any(a=>a.attribute == attribute.attribute)) { continue; }
+                        attributeDescriptions.Add(attribute);
+                    }
+
+                }
+            }
+
+            if (additionalAttributes != null)
+            {
+                List<VertexAttributeDescription> descriptions = [.. attributeDescriptions];
+                for (int i = 0; i < additionalAttributes.Length; i++)
+                {
+                    var attribute = additionalAttributes[i];
+                    if (attributeDescriptions.Any(a => a.attribute == attribute.attribute)) { continue; }
+                    descriptions.Add(attribute);
+                }
+                attributeDescriptions = [.. descriptions];
+            }
+
+            DirectSubMeshCreateData[] directMeshCreateInfo = new DirectSubMeshCreateData[sceneMeshes.Count];
+
+            DirectSubMesh[] directSubMeshes = new DirectSubMesh[sceneMeshes.Count];
+
+            for (int i = 0; i < sceneMeshes.Count; i++)
+            {
+                directMeshCreateInfo[i] = new DirectSubMeshCreateData((uint)sceneMeshes[i].VertexCount,
+                    (uint)sceneMeshes[i].GetUnsignedIndices().Length);
+            }
+
+            var directMeshBuffer = new DirectMesh([..attributeDescriptions], directMeshCreateInfo);
+
+
+            for (int i = 0; i < directSubMeshes.Length; i++)
+            {
+                directSubMeshes[i] = new DirectSubMesh(directMeshBuffer, i);
+            }
+
+            for (int i = 0; i < directSubMeshes.Length; i++)
+            {
+                FillSubMesh(directSubMeshes[i], sceneMeshes[i]);
+            }
+
+            directMeshBuffer.FlushAll();
+
+            importer.Dispose();
+
+            return directSubMeshes;
         }
     }
 }

@@ -1,4 +1,5 @@
-﻿using Vortice.Vulkan;
+﻿using System;
+using Vortice.Vulkan;
 
 namespace VECS
 {
@@ -32,6 +33,11 @@ namespace VECS
             this.binding = binding;
             this.location = location;
             this.offset = offset;
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(attribute,format,binding, location, offset);
         }
     }
 }
