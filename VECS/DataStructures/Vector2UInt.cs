@@ -52,7 +52,7 @@ namespace System.Numerics
     }
 
     [StructLayout(LayoutKind.Sequential, Size = 8)]
-    public struct Vector2Int
+    public struct Vector2Int : IComparable
     {
         public int X;
         public int Y;
@@ -95,6 +95,19 @@ namespace System.Numerics
         public static bool operator !=(Vector2Int left, Vector2Int right)
         {
             return !(left == right);
+        }
+
+        public readonly int CompareTo(object obj)
+        {
+            if (obj is Vector2Int b)
+            {
+                var x = X.CompareTo(b.X);
+                if (x != 0) return x;
+                var y = Y.CompareTo(b.Y);
+                return y;
+            }
+
+            throw new ArgumentException(string.Format("Object is not a {0}", typeof(Vector2Int)));
         }
 
         public override readonly int GetHashCode() => HashCode.Combine(X, Y);

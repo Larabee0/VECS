@@ -164,7 +164,7 @@ namespace VECS
             return false;
         }
 
-        public void SetStorageBufferUsageSize(string property, uint instanceSize)
+        internal void SetStorageBufferUsageSize(string property, uint instanceSize)
         {
             if (LookUpProperty(property, out var handler, out var bindingIndex, out var propertyInfo))
             {

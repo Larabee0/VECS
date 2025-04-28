@@ -52,11 +52,13 @@ namespace VECS
 
         private MaterialV2 _unlitMaterial;
         private MaterialV2 _litMaterial;
+        private MaterialV2 _litTextureMaterial;
         private Texture2d _fallbackTexture;
         private Entity frameInfoEntity;
 
         public MaterialV2 Unlit =>_unlitMaterial;
         public MaterialV2 Lit => _litMaterial;
+        public MaterialV2 LitTexture => _litTextureMaterial;
 
         public VkRenderPass RenderPass => _renderer.RenderPass;
         public VkDescriptorSetLayout GlobalSetLayout => NEW_GLOBAL_SET ? _globalDescriptorSetHandler.VkDescriptorSetLayout : _globalDescriptorSetLayout.SetLayout;
@@ -152,12 +154,15 @@ namespace VECS
 
             if (NEW_GLOBAL_SET)
             {
-                _unlitMaterial = new MaterialV2("unlit_shader.vert", "unlit_shader.frag", true);
+                _unlitMaterial = new MaterialV2("unlit.vert", "unlit.frag", true);
                 _globalDescriptorSetHandler = _unlitMaterial.ApplicationDescriptorSetHandler;
 
-                _litMaterial = new MaterialV2("lit_shader.vert", "lit_shader.frag", false);
+                _litMaterial = new MaterialV2("lit.vert", "lit.frag", false);
                 _unlitMaterial.GetStorageBuffer<Vector4>("colourBuffer").Fill(Vector4.One);
-                _litMaterial.GetStorageBuffer<Vector4>("colourBuffer").Fill(new Vector4(1, 0, 0, 1));
+                _litMaterial.GetStorageBuffer<Vector4>("colourBuffer").Fill(Vector4.One);
+
+                _litTextureMaterial = new MaterialV2("lit_texture.vert", "lit_texture.frag", false);
+
             }
         }
 

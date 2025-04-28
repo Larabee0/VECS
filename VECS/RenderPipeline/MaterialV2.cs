@@ -211,7 +211,7 @@ namespace VECS
         private unsafe VkDescriptorSet* _setsToBind;
 
         private readonly Queue<VariantMaterialBufferRegion> _drawCommands = new();
-        private readonly Stack<MaterialDrawCommand> _drawCommandsV2 = new();
+        private readonly Queue<MaterialDrawCommand> _drawCommandsV2 = new();
 
         public VkPipelineLayout PipeLineLayout => _pipelineLayout;
 
@@ -414,9 +414,6 @@ namespace VECS
             {
                 throw new InvalidOperationException("Cannot create pipeline before pipeline layout!");
             }
-            //pipelineConfigInfo.rasterizationInfo.polygonMode = VkPolygonMode.Line;
-            //pipelineConfigInfo.rasterizationInfo.lineWidth = 1;
-            _graphicsPipelineConfigInfo.rasterizationInfo.cullMode = VkCullModeFlags.Front;
 
             _materialPipeline = new(GraphicsDevice.Instance, vertexBytes, fragmentBytes, _graphicsPipelineConfigInfo);
         }

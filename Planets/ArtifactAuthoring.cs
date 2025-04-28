@@ -306,16 +306,34 @@ namespace Planets
             var vases = MeshLoader.LoadModelsFromFiles([MeshLoader.GetMeshInDefaultPath("smooth_vase.obj"), MeshLoader.GetMeshInDefaultPath("flat_vase.obj")], null);
 
             Entity cubeEntity = entityManager.CreateEntity();
-            Entity vaseSmooth = entityManager.CreateEntity();
+            Entity cubeEntity2 = entityManager.CreateEntity();
+            Entity cubeEntity3 = entityManager.CreateEntity();
             Entity vaseFlat = entityManager.CreateEntity();
+            Entity vaseSmooth = entityManager.CreateEntity();
+            Entity vaseSmooth2 = entityManager.CreateEntity();
 
-            AddRenderMeshComponents(cubeEntity, Presenter.Instance.Lit, 0, 0, cube[0], entityManager);
-            AddRenderMeshComponents(vaseSmooth, Presenter.Instance.Lit, 0, 0, vases[0], entityManager);
-            AddRenderMeshComponents(vaseFlat, Presenter.Instance.Lit, 0, 0, vases[1], entityManager);
+            AddRenderMeshComponents(cubeEntity, Presenter.Instance.LitTexture, 1, 1, cube[0], entityManager);
+            AddRenderMeshComponents(cubeEntity2, Presenter.Instance.LitTexture, 0, 0, cube[0], entityManager);
+            AddRenderMeshComponents(cubeEntity3, Presenter.Instance.Lit, 0, 0, cube[0], entityManager);
+            AddRenderMeshComponents(vaseSmooth, Presenter.Instance.LitTexture, 0, 0, vases[0], entityManager);
+            AddRenderMeshComponents(vaseSmooth2, Presenter.Instance.Lit, 0, 0, vases[0], entityManager);
+            AddRenderMeshComponents(vaseFlat, Presenter.Instance.LitTexture, 1, 1, vases[1], entityManager);
 
-            entityManager.SetComponent(cubeEntity, new Translation() { Value = new(0, 5, -2) });
-            entityManager.SetComponent(vaseSmooth, new Translation() { Value = new(5, 0, -2) });
-            entityManager.SetComponent(vaseFlat, new Translation() { Value = new(-5, 0, -2) });
+            Presenter.Instance.LitTexture.SetTexture("texSampler", textureWaveC, 0, 0);
+            Presenter.Instance.LitTexture.SetTexture("texSampler", textureWaveB, 1, 0);
+
+            Presenter.Instance.LitTexture.SetUniform("colourMul", new Vector4(1, 0, 0, 1), 0, 0);
+            Presenter.Instance.LitTexture.SetUniform("colourMul", new Vector4(0, 1, 0, 1), 0, 1);
+
+            entityManager.SetComponent(cubeEntity2, new Translation() { Value = new(-1, 4f, -10) });
+            entityManager.SetComponent(cubeEntity3, new Translation() { Value = new(1, 4f, -10) });
+            entityManager.SetComponent(cubeEntity, new Translation() { Value = new(0, 1.5f, -10) });
+            entityManager.SetComponent(vaseSmooth, new Translation() { Value = new(5, 0, -10) });
+            entityManager.SetComponent(vaseSmooth2, new Translation() { Value = new(8, 0, -10) });
+            entityManager.SetComponent(vaseFlat, new Translation() { Value = new(-5, 0, -10) });
+            entityManager.AddComponent(vaseSmooth, new Scale() { Value = new(10) });
+            entityManager.AddComponent(vaseSmooth2, new Scale() { Value = new(10) });
+            entityManager.AddComponent(vaseFlat, new Scale() { Value = new(10) });
         }
 
         public void AddRenderMeshComponents(Entity entity, MaterialV2 mat, int variant, int entityVariant, DirectSubMesh mesh, EntityManager entityManager)

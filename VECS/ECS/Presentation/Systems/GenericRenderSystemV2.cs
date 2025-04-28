@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Numerics;
 using VECS.ECS.Transforms;
 
 namespace VECS.ECS.Presentation.Systems
@@ -33,8 +34,10 @@ namespace VECS.ECS.Presentation.Systems
             if (!_renderEntityQuery.HasEntities) { return; }
 
             var entities = _renderEntityQuery.GetEntities();
-            
+
             ResetEarlyDrawCommands(entities.Count);
+
+            Dictionary<Vector2Int, uint> materialVairantCounts = [];
 
             for (int i = 0; i < _earlyDrawCommands.Length; i++)
             {
@@ -48,11 +51,40 @@ namespace VECS.ECS.Presentation.Systems
 
                 _materialsMap.TryAdd(renderMesh.Material.Material, null);
                 _directMeshMap.TryAdd(renderMesh.Mesh.DirectMesh, null);
+
+                Vector2Int matVariant = new(renderMesh.Material.Material, renderMesh.Material.Variant);
+
+                if (!materialVairantCounts.TryAdd(matVariant, 1))
+                {
+                    materialVairantCounts[matVariant]++;
+                }
             }
+
 
             foreach (int matIndex in _materialsMap.Keys)
             {
                 _materialsMap[matIndex] = MaterialV2.GetMaterialAtIndex(matIndex);
+            }
+
+            Vector2Int[] regionKeys = [.. materialVairantCounts.Keys];
+            Vector2UInt[] regionOffsets = new Vector2UInt[regionKeys.Length];
+            Array.Sort(regionKeys);
+            int lastMat = regionKeys[0].X;
+            uint offset = 0;
+            for (int i = 0; i < regionKeys.Length; i++)
+            {
+                var key = regionKeys[i];
+                if (key.X != lastMat)
+                {
+                    offset = 0;
+                    lastMat = key.X;
+                }
+
+                Vector2UInt region = regionOffsets[i] = new(offset, materialVairantCounts[key]);
+
+                _materialsMap[key.X].SetMatDescriptorHandleStorageRegions(key.Y, region.X, region.Y);
+
+                offset += materialVairantCounts[key];
             }
 
             foreach (int meshIndex in _directMeshMap.Keys)
@@ -66,6 +98,7 @@ namespace VECS.ECS.Presentation.Systems
             EarlyDrawCommand cmd = _earlyDrawCommands[0];
             EarlyDrawCommand lastCmd = cmd;
             int materialDrawIndex = 0;
+            int materialVariantDrawIndex = 0;
 
             BufferRegion meshSubRegion = default;
             BufferRegion storageBufferRegion = default;
@@ -88,12 +121,14 @@ namespace VECS.ECS.Presentation.Systems
                     {
                         storageBufferRegion.Reset();
                         materialDrawIndex = 0;
+                        materialVariantDrawIndex = 0;
                         material = _materialsMap[cmd.MaterialIndex];
                         matrices = material.GetStorageBuffer<ModelMatrices>("matricesBuffer");
                         bounds = material.GetStorageBuffer<ModelBounds>("boundsBuffer");
                     }
-                    else if (lastCmd.MaterialVariant != cmd.MaterialVariant)
+                    if (lastCmd.MaterialVariant != cmd.MaterialVariant)
                     {
+                        materialVariantDrawIndex = 0;
                         storageBufferRegion.Increment();
                     }
 
@@ -109,7 +144,7 @@ namespace VECS.ECS.Presentation.Systems
                     lastCmd = cmd;
                 }
 
-                directMesh.Enqueue(cmd.DrawCommand, materialDrawIndex);
+                directMesh.Enqueue(cmd.DrawCommand, materialVariantDrawIndex);
 
                 if (matrices != Span<ModelMatrices>.Empty) { matrices[materialDrawIndex] = cmd.DrawCommand.Matrices; }
                 if (bounds != Span<ModelBounds>.Empty) { bounds[materialDrawIndex] = cmd.DrawCommand.Bounds; }
@@ -117,6 +152,7 @@ namespace VECS.ECS.Presentation.Systems
                 meshSubRegion.Count++;
                 storageBufferRegion.Count++;
                 materialDrawIndex++;
+                materialVariantDrawIndex++;
             }
 
             material.EnqueueDrawCmdV2(new(lastCmd.MaterialIndex, lastCmd.MaterialVariant, storageBufferRegion, lastCmd.MaterialEntity, lastCmd.DirectMesh, meshSubRegion));
@@ -128,7 +164,7 @@ namespace VECS.ECS.Presentation.Systems
 
             foreach (MaterialV2 materialV2 in _materialsMap.Values)
             {
-                materialV2.ExecuteDrawCommandsNew(rendererFrameInfo);
+                materialV2.ExecuteDrawCommandsV2(rendererFrameInfo);
             }
         }
     }

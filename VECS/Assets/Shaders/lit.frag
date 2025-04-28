@@ -21,7 +21,8 @@ layout(set = 0,binding = 0) uniform GlobalUbo{
 
 
 void main()
-{vec3 diffuseLight = ubo.ambientLightColour.xyz * ubo.ambientLightColour.w;
+{
+	vec3 diffuseLight = ubo.ambientLightColour.xyz * ubo.ambientLightColour.w;
 	vec3 specularLight = vec3(0.0);
 	vec3 surfaceNormal = normalize(fragNormalWorld);
 
@@ -50,6 +51,6 @@ void main()
 	}
 
 	
-	outColour = vec4(diffuseLight  * vec3(1) + specularLight * vec3(1), 1.0);
+	//outColour = vec4(diffuseLight  * vec3(1) + specularLight * vec3(1), 1.0);
 	outColour = fragColour;
 }
