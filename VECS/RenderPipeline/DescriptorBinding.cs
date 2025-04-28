@@ -87,17 +87,23 @@ namespace VECS
                 minOffset = (uint)GraphicsDevice.Instance.MinStorageBufferOffsetAlignment;
             }
 
-            var mul = Math.Ceiling((float)BufferSize % (float)minOffset);
-
-            if (mul > 1)
+            if (BufferSize <= minOffset)
             {
-                BufferSize += (uint)mul;
+                BufferSize = minOffset;
             }
             else
             {
-                BufferSize = Math.Max(BufferSize, minOffset);
-            }
+                var mul = Math.Ceiling((float)BufferSize % (float)minOffset);
 
+                if (mul > 1)
+                {
+                    BufferSize += (uint)mul;
+                }
+                else
+                {
+                    BufferSize = Math.Max(BufferSize, minOffset);
+                }
+            }
             Stride = BufferSize;
 
             GlobalUniformBuffer = Binding == 0 && Set == 0 && Name == "ubo";
