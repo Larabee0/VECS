@@ -274,7 +274,7 @@ namespace VECS.ECS.Presentation.Systems
             Vector2UInt newDirectMeshMapDrawCount = directMeshMapDrawCounts[lastDirectMesh];
             curIndirectDrawRegion.Count = (int)newDirectMeshMapDrawCount.Y;
             VariantMaterialBufferRegion potential = new(curIndirectDrawRegion, lastMaterial, lastVariant, lastEntity, lastDirectMesh);
-            if ((variantMeshDrawCommands.Count == 0 || variantMeshDrawCommands[^1] != potential) && potential.Region.Count > 0)
+            if ((variantMeshDrawCommands.Count == 0 || variantMeshDrawCommands[^1] != potential) && potential.MeshSubRegion.Count > 0)
             {
                 variantMeshDrawCommands.Add(potential);
                 return newDirectMeshMapDrawCount;

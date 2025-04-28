@@ -938,6 +938,12 @@ namespace VECS
             _drawQueue.Enqueue(drawCommand);
         }
 
+        internal void Enqueue(DrawCommand drawCommand, int materialDrawIndex)
+        {
+            drawCommand.VkDraw.firstInstance = (uint)materialDrawIndex;
+            Enqueue(drawCommand);
+        }
+
         #endregion
     }
 

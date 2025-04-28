@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Numerics;
 using VECS.ECS.Transforms;
 
 namespace VECS.ECS.Presentation.Systems
@@ -8,6 +7,12 @@ namespace VECS.ECS.Presentation.Systems
     public class GenericRenderSystemV2 : PresentationSystemBase
     {
         private EntityQuery _renderEntityQuery;
+
+        private readonly Dictionary<int, MaterialV2> _materialsMap = [];
+        private readonly Dictionary<int, DirectMesh> _directMeshMap = [];
+        private readonly Dictionary<int, BufferRegion> _meshNextCmdRegion = [];
+
+        private unsafe EarlyDrawCommand[] _earlyDrawCommands = [];
 
         public override void OnCreate(EntityManager entityManager)
         {
@@ -17,88 +22,114 @@ namespace VECS.ECS.Presentation.Systems
                 .Build();
         }
 
+        private unsafe void ResetEarlyDrawCommands(int count)
+        {
+            Array.Resize(ref _earlyDrawCommands, count);
+            Array.Fill(_earlyDrawCommands, default);
+        }
+
         public override void OnFowardPass(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
         {
             if (!_renderEntityQuery.HasEntities) { return; }
 
             var entities = _renderEntityQuery.GetEntities();
             
-            EarlyDrawCommand[] materialDrawCommands = new EarlyDrawCommand[entities.Count];
+            ResetEarlyDrawCommands(entities.Count);
 
-            Dictionary<Vector3Int, int> fullVariantCounts = [];
-            Dictionary<int, int> matDrawCounts = [];
-            Dictionary<int, MaterialV2> materialsMap = [];
-            Dictionary<int, DirectMesh> directMeshMap = [];
-
-            for (int i = 0; i < entities.Count; i++)
+            for (int i = 0; i < _earlyDrawCommands.Length; i++)
             {
-                var entity = entities[i];
+                Entity entity = entities[i];
                 var localToWorld = entityManager.GetComponent<LocalToWorld>(entity);
                 var renderMesh = entityManager.GetComponent<RenderMesh>(entity);
                 var worldBounds = entityManager.GetComponent<WorldRenderBounds>(entity);
 
                 DrawCommand drawCommand = new(renderMesh.Mesh, localToWorld, worldBounds);
-                materialDrawCommands[i] = new(drawCommand, renderMesh);
+                _earlyDrawCommands[i] = new(drawCommand, renderMesh);
 
-                var materialIndex = renderMesh.Material;
+                _materialsMap.TryAdd(renderMesh.Material.Material, null);
+                _directMeshMap.TryAdd(renderMesh.Mesh.DirectMesh, null);
+            }
 
-                Vector3Int combinedMatId = new(materialIndex.Material, materialIndex.Variant, materialIndex.Entity);
+            foreach (int matIndex in _materialsMap.Keys)
+            {
+                _materialsMap[matIndex] = MaterialV2.GetMaterialAtIndex(matIndex);
+            }
 
-                if (!fullVariantCounts.TryAdd(combinedMatId, 1))
+            foreach (int meshIndex in _directMeshMap.Keys)
+            {
+                _directMeshMap[meshIndex] = DirectMesh.GetMeshAtIndex(meshIndex);
+                _meshNextCmdRegion[meshIndex] = default;
+            }
+
+            Array.Sort(_earlyDrawCommands);
+
+            EarlyDrawCommand cmd = _earlyDrawCommands[0];
+            EarlyDrawCommand lastCmd = cmd;
+            int materialDrawIndex = 0;
+
+            BufferRegion meshSubRegion = default;
+            BufferRegion storageBufferRegion = default;
+
+            DirectMesh directMesh = _directMeshMap[lastCmd.DirectMesh];
+            MaterialV2 material = _materialsMap[lastCmd.MaterialIndex];
+
+            Span<ModelMatrices> matrices = material.GetStorageBuffer<ModelMatrices>("matricesBuffer");
+            Span<ModelBounds> bounds = material.GetStorageBuffer<ModelBounds>("boundsBuffer");
+
+            for (int i = 0; i < _earlyDrawCommands.Length; i++)
+            {
+                cmd = _earlyDrawCommands[i];
+
+                if (EarlyDrawCommand.MateriallyDifferent(lastCmd, cmd))
                 {
-                    fullVariantCounts[combinedMatId]++;
+                    material.EnqueueDrawCmdV2(lastCmd, storageBufferRegion, meshSubRegion);
+
+                    if (lastCmd.MaterialIndex != cmd.MaterialIndex)
+                    {
+                        storageBufferRegion.Reset();
+                        materialDrawIndex = 0;
+                        material = _materialsMap[cmd.MaterialIndex];
+                        matrices = material.GetStorageBuffer<ModelMatrices>("matricesBuffer");
+                        bounds = material.GetStorageBuffer<ModelBounds>("boundsBuffer");
+                    }
+                    else if (lastCmd.MaterialVariant != cmd.MaterialVariant)
+                    {
+                        storageBufferRegion.Increment();
+                    }
+
+                    if (lastCmd.DirectMesh != cmd.DirectMesh)
+                    {
+                        meshSubRegion.Increment();
+
+                        _meshNextCmdRegion[lastCmd.DirectMesh] = meshSubRegion;
+                        meshSubRegion = _meshNextCmdRegion[cmd.DirectMesh];
+                        directMesh = _directMeshMap[cmd.DirectMesh];
+                    }
+
+                    lastCmd = cmd;
                 }
 
-                materialsMap.TryAdd(renderMesh.Material.Material, null);
-                directMeshMap.TryAdd(renderMesh.Mesh.DirectMesh, null);
-            }
+                directMesh.Enqueue(cmd.DrawCommand, materialDrawIndex);
 
-            foreach (var matIndex in materialsMap.Keys)
-            {
-                materialsMap[matIndex] = MaterialV2.GetMaterialAtIndex(matIndex);
-            }
-
-            foreach (var meshIndex in directMeshMap.Keys)
-            {
-                directMeshMap[meshIndex] = DirectMesh.GetMeshAtIndex(meshIndex);
-            }
-
-            Array.Sort(materialDrawCommands);
-
-            var cmd = materialDrawCommands[0];
-
-
-            int lastDirectMesh = cmd.DirectMesh;
-            int lastMaterial = cmd.MaterialIndex;
-            int lastVariant = cmd.MaterialVariant;
-            int lastEntity = cmd.MaterialEntity;
-
-
-            BufferRegion curIndirectDrawRegion = default;
-            BufferRegion curEntityStorageRegion = default;
-            BufferRegion curVariantStorageRegion = default;
-            BufferRegion curMaterialRegion = default;
-
-            DirectMesh directMesh = directMeshMap[lastDirectMesh];
-            MaterialV2 material = materialsMap[lastMaterial];
-
-            var matrices = material.GetStorageBuffer<ModelMatrices>("matricesBuffer");
-            var bounds = material.GetStorageBuffer<ModelBounds>("boundsBuffer");
-
-            for (int i = 0; i < materialDrawCommands.Length; i++)
-            {
-                cmd = materialDrawCommands[i];
-
-
-                int materialDrawIndex = matDrawCounts[lastMaterial];
-                cmd.DrawCommand.VkDraw.firstInstance = (uint)materialDrawIndex;
-                directMesh.Enqueue(cmd.DrawCommand);
                 if (matrices != Span<ModelMatrices>.Empty) { matrices[materialDrawIndex] = cmd.DrawCommand.Matrices; }
                 if (bounds != Span<ModelBounds>.Empty) { bounds[materialDrawIndex] = cmd.DrawCommand.Bounds; }
 
-                matDrawCounts[lastMaterial]++;
+                meshSubRegion.Count++;
+                storageBufferRegion.Count++;
+                materialDrawIndex++;
             }
 
+            material.EnqueueDrawCmdV2(new(lastCmd.MaterialIndex, lastCmd.MaterialVariant, storageBufferRegion, lastCmd.MaterialEntity, lastCmd.DirectMesh, meshSubRegion));
+
+            foreach (DirectMesh mesh in _directMeshMap.Values)
+            {
+                mesh.FlushDrawQueue();
+            }
+
+            foreach (MaterialV2 materialV2 in _materialsMap.Values)
+            {
+                materialV2.ExecuteDrawCommandsNew(rendererFrameInfo);
+            }
         }
     }
 }

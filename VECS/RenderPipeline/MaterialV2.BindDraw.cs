@@ -85,7 +85,20 @@ namespace VECS
                 if(handle.DescriptorLevel == DescriptorLevel.Material)
                 {
                     handle = handle.GetOrCreateChild(variantMaterialBufferRegion.Variant);
-                    handle.SetStorageBufferRegion((uint)variantMaterialBufferRegion.Region.StartIndex, (uint)variantMaterialBufferRegion.Region.Count);
+                    handle.SetStorageBufferRegion((uint)variantMaterialBufferRegion.MeshSubRegion.StartIndex, (uint)variantMaterialBufferRegion.MeshSubRegion.Count);
+                }
+            }
+        }
+
+        internal void SetMatDescriptorHandleStorageRegions(MaterialDrawCommand drawCommand)
+        {
+            for (int i = 0; i < _allHandlers.Length; i++)
+            {
+                var handle = _allHandlers[i];
+                if (handle.DescriptorLevel == DescriptorLevel.Material)
+                {
+                    handle = handle.GetOrCreateChild(drawCommand.Variant);
+                    handle.SetStorageBufferRegion((uint)drawCommand.StorageBufferRegion.StartIndex, (uint)drawCommand.StorageBufferRegion.Count);
                 }
             }
         }
@@ -98,7 +111,7 @@ namespace VECS
                 if (handle.DescriptorLevel == DescriptorLevel.Entity)
                 {
                     handle = handle.GetOrCreateChild(entityMaterialBufferRegion.Entity);
-                    handle.SetStorageBufferRegion((uint)entityMaterialBufferRegion.Region.StartIndex, (uint)entityMaterialBufferRegion.Region.Count);
+                    handle.SetStorageBufferRegion((uint)entityMaterialBufferRegion.MeshSubRegion.StartIndex, (uint)entityMaterialBufferRegion.MeshSubRegion.Count);
                 }
             }
         }
@@ -106,6 +119,51 @@ namespace VECS
         internal void EnqueueDrawCmd(VariantMaterialBufferRegion region)
         {
             _drawCommands.Enqueue(region);
+        }
+
+        internal void EnqueueDrawCmdV2(MaterialDrawCommand cmd)
+        {
+            _drawCommandsV2.Push(cmd);
+        }
+
+        internal void EnqueueDrawCmdV2(EarlyDrawCommand cmd, BufferRegion storageBufferRegion, BufferRegion meshSubRegion) 
+        {
+            EnqueueDrawCmdV2(new MaterialDrawCommand(cmd, storageBufferRegion, meshSubRegion));
+        }
+
+        internal void ExecuteDrawCommandsNew(RendererFrameInfo rendererFrameInfo)
+        {
+            if (_drawCommandsV2.Count > 0)
+            {
+                BindPipeline(rendererFrameInfo);
+
+                var command = _drawCommandsV2.Peek();
+
+                SetMatDescriptorHandleStorageRegions(command);
+                BindDescriptors(rendererFrameInfo, command.Variant, command.Entity);
+
+                int lastVariant = command.Variant;
+                int lastEntity = command.Entity;
+
+                while(_drawCommandsV2.Count > 0)
+                {
+                    command = _drawCommandsV2.Pop();
+                    if(lastVariant != command.Variant || lastEntity != command.Entity)
+                    {
+                        SetMatDescriptorHandleStorageRegions(command);
+                        BindDescriptors(rendererFrameInfo, command.Variant, command.Entity);
+                        lastVariant = command.Variant;
+                        lastEntity = command.Entity;
+                    }
+
+                    for (int i = 0; i < _materialPushConstants.Length; i++)
+                    {
+                        _materialPushConstants[i].PushConstants(rendererFrameInfo, _pipelineLayout);
+                    }
+                    var mesh = DirectMesh.GetMeshAtIndex(command.DirectMesh);
+                    mesh.BindAndDrawDirectMesh(rendererFrameInfo.CommandBuffer, this, (uint)command.MeshSubRegion.StartIndex, (uint)command.MeshSubRegion.Count);
+                }
+            }
         }
 
         internal void ExecuteDrawCommands(RendererFrameInfo rendererFrameInfo)
@@ -139,7 +197,7 @@ namespace VECS
                         _materialPushConstants[i].PushConstants(rendererFrameInfo,_pipelineLayout);
                     }
                     var mesh = DirectMesh.GetMeshAtIndex(command.DirectMesh);
-                    mesh.BindAndDrawDirectMesh(rendererFrameInfo.CommandBuffer, this, (uint)command.Region.StartIndex, (uint)command.Region.Count);
+                    mesh.BindAndDrawDirectMesh(rendererFrameInfo.CommandBuffer, this, (uint)command.MeshSubRegion.StartIndex, (uint)command.MeshSubRegion.Count);
                 }
             }
         }
@@ -192,5 +250,6 @@ namespace VECS
                 Vulkan.vkCmdBindDescriptorSets(frameInfo.CommandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, 0, 1, &set);
             }
         }
+
     }
 }

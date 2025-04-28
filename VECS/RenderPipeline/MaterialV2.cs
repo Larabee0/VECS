@@ -28,6 +28,11 @@ namespace VECS
             MaterialEntity = renderMesh.Material.Entity;
         }
 
+        public static bool MateriallyDifferent(EarlyDrawCommand a, EarlyDrawCommand b)
+        {
+            return a.DirectMesh != b.DirectMesh || a.MaterialIndex != b.MaterialIndex || a.MaterialVariant != b.MaterialVariant || a.MaterialEntity != b.MaterialEntity;
+        }
+
         public readonly int CompareTo(object obj)
         {
             if(obj is EarlyDrawCommand b)
@@ -46,9 +51,40 @@ namespace VECS
         }
     }
 
+    public struct MaterialDrawCommand
+    {
+        public int Material;
+        public int Variant;
+        public BufferRegion StorageBufferRegion;
+        public int Entity;
+        public int DirectMesh;
+        public BufferRegion MeshSubRegion;
+
+        public MaterialDrawCommand(int material, int variant, BufferRegion storageBufferRegion, int entity, int directMesh, BufferRegion meshSubRegion)
+        {
+            Material = material;
+            Variant = variant;
+            StorageBufferRegion = storageBufferRegion;
+            Entity = entity;
+            DirectMesh = directMesh;
+            MeshSubRegion = meshSubRegion;
+        }
+
+        public MaterialDrawCommand(EarlyDrawCommand earlyDrawCommand,BufferRegion storageBufferRegion,BufferRegion meshSubRegion)
+        {
+            Material = earlyDrawCommand.MaterialIndex;
+            Variant = earlyDrawCommand.MaterialVariant;
+            Entity = earlyDrawCommand.MaterialEntity;
+            DirectMesh = earlyDrawCommand.DirectMesh;
+
+            StorageBufferRegion = storageBufferRegion;
+            MeshSubRegion = meshSubRegion;
+        }
+    }
+
     public struct VariantMaterialBufferRegion
     {
-        public BufferRegion Region;
+        public BufferRegion MeshSubRegion;
         public int Material;
         public int Variant;
         public int Entity;
@@ -56,7 +92,7 @@ namespace VECS
 
         public VariantMaterialBufferRegion(BufferRegion region,int material, int variant, int entity)
         {
-            Region = region;
+            MeshSubRegion = region;
             Material = material;
             Variant = variant;
             Entity = entity;
@@ -64,7 +100,7 @@ namespace VECS
 
         public VariantMaterialBufferRegion(BufferRegion region, int material, int variant, int entity, int directMesh)
         {
-            Region = region;
+            MeshSubRegion = region;
             Material = material;
             Variant = variant;
             Entity = entity;
@@ -74,7 +110,7 @@ namespace VECS
         public override readonly bool Equals(object obj)
         {
             return obj is VariantMaterialBufferRegion command &&
-                   EqualityComparer<BufferRegion>.Default.Equals(Region, command.Region) &&
+                   EqualityComparer<BufferRegion>.Default.Equals(MeshSubRegion, command.MeshSubRegion) &&
                    Material == command.Material &&
                    Variant == command.Variant &&
                    Entity == command.Entity &&
@@ -83,7 +119,7 @@ namespace VECS
 
         public override readonly int GetHashCode()
         {
-            return HashCode.Combine(Region, Material, Variant, Entity,DirectMesh);
+            return HashCode.Combine(MeshSubRegion, Material, Variant, Entity,DirectMesh);
         }
         public static bool operator ==(VariantMaterialBufferRegion left, VariantMaterialBufferRegion right)
         {
@@ -103,6 +139,19 @@ namespace VECS
         public int Count;
 
         public readonly int Offset => StartIndex + Count;
+
+
+        public void Reset()
+        {
+            StartIndex = 0;
+            Count = 0;
+        }
+
+        public void Increment()
+        {
+            StartIndex = Count;
+            Count = 0;
+        }
 
         public override readonly bool Equals(object obj)
         {
@@ -162,6 +211,7 @@ namespace VECS
         private unsafe VkDescriptorSet* _setsToBind;
 
         private readonly Queue<VariantMaterialBufferRegion> _drawCommands = new();
+        private readonly Stack<MaterialDrawCommand> _drawCommandsV2 = new();
 
         public VkPipelineLayout PipeLineLayout => _pipelineLayout;
 
@@ -176,7 +226,7 @@ namespace VECS
         public DescriptorSetHandler MaterialDescriptorSetHandler => _materialDescriptorSetHandlerIndex != -1 ? _allHandlers[_materialDescriptorSetHandlerIndex] : null;
         public DescriptorSetHandler EntityDescriptorSetHandler => _entityDescriptorSetHandlerIndex != -1 ? _allHandlers[_entityDescriptorSetHandlerIndex] : null;
 
-        private bool _actAsGlobal = false;
+        private readonly bool _actAsGlobal = false;
         private bool _disposed = false;
 
         public static MaterialV2 Create(string vertexShader, string fragmentShader)
