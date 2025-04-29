@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Numerics;
+using System.Runtime.InteropServices;
 using VECS.ECS.Transforms;
 
 namespace VECS.ECS.Presentation.Systems
@@ -12,8 +13,10 @@ namespace VECS.ECS.Presentation.Systems
         private readonly Dictionary<int, MaterialV2> _materialsMap = [];
         private readonly Dictionary<int, DirectMesh> _directMeshMap = [];
         private readonly Dictionary<int, BufferRegion> _meshNextCmdRegion = [];
+        private readonly Dictionary<Vector2Int, uint> _materialVairantCounts = [];
 
-        private unsafe EarlyDrawCommand[] _earlyDrawCommands = [];
+        private Vector2Int[] _regionKeys = [];
+        private EarlyDrawCommand[] _earlyDrawCommands = [];
 
         public override void OnCreate(EntityManager entityManager)
         {
@@ -29,15 +32,45 @@ namespace VECS.ECS.Presentation.Systems
             Array.Fill(_earlyDrawCommands, default);
         }
 
-        public override void OnFowardPass(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
+        private void ResetMaterials()
+        {
+            int matCount = MaterialV2.Materials.Count;
+            for (int i = 0; i < matCount; i++)
+            {
+                var material = MaterialV2.Materials[i];
+                _materialsMap.TryAdd(i, material);
+                _materialVairantCounts[new(i, 0)] = 0;
+                for (int j = 0; j < material.MaterialVariantCount; j++)
+                {
+                    _materialVairantCounts[new(i, j)] = 0;
+                }
+            }
+            if (matCount > _regionKeys.Length)
+            {
+                Array.Resize(ref _regionKeys, matCount);
+            }
+            _materialVairantCounts.Keys.CopyTo(_regionKeys, 0);
+        }
+
+        private void ResetMeshes()
+        {
+            int meshCount = DirectMesh.DirectMeshes.Count;
+            for(int i = 0; i < meshCount; i++)
+            {
+                var mesh = DirectMesh.DirectMeshes[i];
+                _directMeshMap.TryAdd(i, mesh);
+                _meshNextCmdRegion[i] = default;
+            }
+        }
+
+        public override void OnCull(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
         {
             if (!_renderEntityQuery.HasEntities) { return; }
 
             var entities = _renderEntityQuery.GetEntities();
-
             ResetEarlyDrawCommands(entities.Count);
-
-            Dictionary<Vector2Int, uint> materialVairantCounts = [];
+            ResetMaterials();
+            ResetMeshes();
 
             for (int i = 0; i < _earlyDrawCommands.Length; i++)
             {
@@ -49,51 +82,33 @@ namespace VECS.ECS.Presentation.Systems
                 DrawCommand drawCommand = new(renderMesh.Mesh, localToWorld, worldBounds);
                 _earlyDrawCommands[i] = new(drawCommand, renderMesh);
 
-                _materialsMap.TryAdd(renderMesh.Material.Material, null);
                 _directMeshMap.TryAdd(renderMesh.Mesh.DirectMesh, null);
 
                 Vector2Int matVariant = new(renderMesh.Material.Material, renderMesh.Material.Variant);
 
-                if (!materialVairantCounts.TryAdd(matVariant, 1))
-                {
-                    materialVairantCounts[matVariant]++;
-                }
+                _materialVairantCounts[matVariant]++;
             }
 
+            Array.Sort(_earlyDrawCommands);
+            Array.Sort(_regionKeys);
 
-            foreach (int matIndex in _materialsMap.Keys)
-            {
-                _materialsMap[matIndex] = MaterialV2.GetMaterialAtIndex(matIndex);
-            }
-
-            Vector2Int[] regionKeys = [.. materialVairantCounts.Keys];
-            Vector2UInt[] regionOffsets = new Vector2UInt[regionKeys.Length];
-            Array.Sort(regionKeys);
-            int lastMat = regionKeys[0].X;
+            int lastMat = _regionKeys[0].X;
             uint offset = 0;
-            for (int i = 0; i < regionKeys.Length; i++)
+            for (int i = 0; i < _regionKeys.Length; i++)
             {
-                var key = regionKeys[i];
+                var key = _regionKeys[i];
                 if (key.X != lastMat)
                 {
                     offset = 0;
                     lastMat = key.X;
                 }
 
-                Vector2UInt region = regionOffsets[i] = new(offset, materialVairantCounts[key]);
+                Vector2UInt region = new(offset, _materialVairantCounts[key]);
 
                 _materialsMap[key.X].SetMatDescriptorHandleStorageRegions(key.Y, region.X, region.Y);
 
-                offset += materialVairantCounts[key];
+                offset += _materialVairantCounts[key];
             }
-
-            foreach (int meshIndex in _directMeshMap.Keys)
-            {
-                _directMeshMap[meshIndex] = DirectMesh.GetMeshAtIndex(meshIndex);
-                _meshNextCmdRegion[meshIndex] = default;
-            }
-
-            Array.Sort(_earlyDrawCommands);
 
             EarlyDrawCommand cmd = _earlyDrawCommands[0];
             EarlyDrawCommand lastCmd = cmd;
@@ -161,6 +176,12 @@ namespace VECS.ECS.Presentation.Systems
             {
                 mesh.FlushDrawQueue();
             }
+
+        }
+
+        public override void OnFowardPass(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
+        {
+            if (!_renderEntityQuery.HasEntities) { return; }
 
             foreach (MaterialV2 materialV2 in _materialsMap.Values)
             {

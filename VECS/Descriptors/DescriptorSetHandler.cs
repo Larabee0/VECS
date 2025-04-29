@@ -42,6 +42,8 @@ namespace VECS
         private uint _storageBufferStartIndex = 0;
         private uint _storageBufferLength = 0;
 
+        public int ChildCount => _children.Count;
+
         public DescriptorLevel DescriptorLevel => _descriptorLevel;
         public VkDescriptorSetLayout VkDescriptorSetLayout => _vkDescriptorSetLayout;
         public VkDescriptorSet ActiveVkDescriptorSet => _vkDescriptorSets[Presenter.Instance.FrameIndex];

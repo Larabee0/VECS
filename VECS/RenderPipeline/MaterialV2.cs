@@ -10,7 +10,6 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
-
     public struct EarlyDrawCommand : IComparable
     {
         public int DirectMesh;
@@ -132,7 +131,6 @@ namespace VECS
         }
     }
 
-
     public struct BufferRegion
     {
         public int StartIndex;
@@ -205,6 +203,8 @@ namespace VECS
         private int _materialDescriptorSetHandlerIndex = -1;
         private int _entityDescriptorSetHandlerIndex = -1;
         private readonly DescriptorSetHandler[] _allHandlers;
+
+        public int MaterialVariantCount => !HasMaterialSet ? 0 : MaterialDescriptorSetHandler.ChildCount;
 
         private readonly uint _totalSets;
 
