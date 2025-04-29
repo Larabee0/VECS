@@ -15,6 +15,7 @@ struct DrawCommand
     int     vertexOffset;
     uint    firstInstance;
 };
+
 struct DrawCullData
 {
 	float P00, P11, znear, zfar; // symmetric projection parameters
