@@ -40,15 +40,15 @@ layout(set = 0, binding = 0) uniform GlobalUbo {
 	PointLight pointLights[10];
 } ubo;
 
-layout(std140, set = 1, binding = 0) readonly buffer ObjectMatricesBuffer {
+layout(std140, set = 0, binding = 1) readonly buffer ObjectMatricesBuffer {
 	ObjectMatrices matrices[];
 } matricesBuffer;
 
-layout(std140, set = 1, binding = 1) readonly buffer ObjectBoundsBuffer {
+layout(std140, set = 0, binding = 2) readonly buffer ObjectBoundsBuffer {
 	ObjectBounds bounds[];
 } boundsBuffer;
 
-layout(set = 1, binding = 2)  buffer InstanceBuffer {
+layout(set = 0, binding = 3)  buffer InstanceBuffer {
 	DrawCommand Draws[];
 } drawBuffer;
 

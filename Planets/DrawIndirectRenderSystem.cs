@@ -14,7 +14,7 @@ namespace Planets
 {
     public class DrawIndirectRenderSystem : PresentationSystemBase
     {
-        public const bool COMPUTE_CULL = false;
+        public const bool COMPUTE_CULL = true;
         private SwapChainBuffer<ObjectData> _objectDataBuffers;
         private SwapChainBuffer<float> _depthSamples;
         

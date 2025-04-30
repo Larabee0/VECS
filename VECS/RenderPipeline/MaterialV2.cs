@@ -211,7 +211,7 @@ namespace VECS
         private unsafe VkDescriptorSet* _setsToBind;
 
         private readonly Queue<VariantMaterialBufferRegion> _drawCommands = new();
-        private readonly Queue<MaterialDrawCommand> _drawCommandsV2 = new();
+        internal readonly Queue<MaterialDrawCommand> _drawCommandsV2 = new();
 
         public VkPipelineLayout PipeLineLayout => _pipelineLayout;
 

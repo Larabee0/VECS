@@ -3,17 +3,23 @@ using System.Collections.Generic;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using VECS.ECS.Transforms;
+using Vortice.Vulkan;
 
 namespace VECS.ECS.Presentation.Systems
 {
     public class GenericRenderSystemV2 : PresentationSystemBase
     {
+        private const uint MAX_DRAWS = 1000;
         private EntityQuery _renderEntityQuery;
 
         private readonly Dictionary<int, MaterialV2> _materialsMap = [];
         private readonly Dictionary<int, DirectMesh> _directMeshMap = [];
         private readonly Dictionary<int, BufferRegion> _meshNextCmdRegion = [];
         private readonly Dictionary<Vector2Int, uint> _materialVairantCounts = [];
+
+        private SwapChainBuffer<VkDrawIndexedIndirectCommand> _indirectCmdBuffer;
+        private SwapChainBuffer<ModelMatrices> _modelMatricesBuffer;
+        private SwapChainBuffer<ModelBounds> _modelBoundsBuffer;
 
         private Vector2Int[] _regionKeys = [];
         private EarlyDrawCommand[] _earlyDrawCommands = [];
@@ -24,6 +30,29 @@ namespace VECS.ECS.Presentation.Systems
                 .WithAll(typeof(LocalToWorld), typeof(RenderMesh), typeof(WorldRenderBounds))
                 .WithNone(typeof(Prefab), typeof(DoNotRender))
                 .Build();
+
+            _indirectCmdBuffer = new(MAX_DRAWS,
+                    VkBufferUsageFlags.TransferDst |
+                    VkBufferUsageFlags.TransferSrc |
+                    VkBufferUsageFlags.IndirectBuffer |
+                    VkBufferUsageFlags.StorageBuffer,
+                    true);
+
+            _modelMatricesBuffer = new(MAX_DRAWS,
+                    VkBufferUsageFlags.TransferDst |
+                    VkBufferUsageFlags.TransferSrc |
+                    VkBufferUsageFlags.StorageBuffer,
+                    true);
+            _modelBoundsBuffer = new(MAX_DRAWS,
+                    VkBufferUsageFlags.TransferDst |
+                    VkBufferUsageFlags.TransferSrc |
+                    VkBufferUsageFlags.StorageBuffer,
+                    true);
+        }
+
+        public override void OnDestroy(EntityManager entityManager)
+        {
+
         }
 
         private unsafe void ResetEarlyDrawCommands(int count)
@@ -45,11 +74,6 @@ namespace VECS.ECS.Presentation.Systems
                     _materialVairantCounts[new(i, j)] = 0;
                 }
             }
-            if (matCount > _regionKeys.Length)
-            {
-                Array.Resize(ref _regionKeys, matCount);
-            }
-            _materialVairantCounts.Keys.CopyTo(_regionKeys, 0);
         }
 
         private void ResetMeshes()
@@ -86,10 +110,20 @@ namespace VECS.ECS.Presentation.Systems
 
                 Vector2Int matVariant = new(renderMesh.Material.Material, renderMesh.Material.Variant);
 
-                _materialVairantCounts[matVariant]++;
+                if (!_materialVairantCounts.TryAdd(matVariant,1))
+                {
+                    _materialVairantCounts[matVariant]++;
+                }
             }
 
             Array.Sort(_earlyDrawCommands);
+
+            if (_materialVairantCounts.Count > _regionKeys.Length)
+            {
+                Array.Resize(ref _regionKeys, _materialVairantCounts.Count);
+            }
+            _materialVairantCounts.Keys.CopyTo(_regionKeys, 0);
+
             Array.Sort(_regionKeys);
 
             int lastMat = _regionKeys[0].X;

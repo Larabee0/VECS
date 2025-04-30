@@ -224,6 +224,39 @@ namespace VECS
             }
         }
 
+        internal VkDescriptorSet GetDescriptor(RendererFrameInfo frameInfo,DescriptorLevel level,int variant)
+        {
+            DescriptorSetHandler handler;
+            VkDescriptorSet set;
+            switch (level)
+            {
+                case DescriptorLevel.Game when HasApplicationSet:
+
+                    handler = _allHandlers[_applicationDescriptorSetHandlerIndex];
+                    handler.Update(frameInfo);
+                    set = handler.GetDescriptorSet(frameInfo.FrameIndex);
+                    handler.WriteFromBuffers(frameInfo.FrameIndex);
+                    return set;
+
+                case DescriptorLevel.Material when HasMaterialSet:
+
+                    handler = _allHandlers[_materialDescriptorSetHandlerIndex];
+                    handler.Update(frameInfo);
+                    set = handler.GetOrCreateChild(variant).GetDescriptorSet(frameInfo.FrameIndex);
+                    handler.WriteFromBuffers(frameInfo.FrameIndex);
+                    return set;
+                case DescriptorLevel.Entity when HasEntitySet:
+
+                    handler = _allHandlers[_entityDescriptorSetHandlerIndex];
+                    handler.Update(frameInfo);
+                    set = handler.GetOrCreateChild(variant).GetDescriptorSet(frameInfo.FrameIndex);
+                    handler.WriteFromBuffers(frameInfo.FrameIndex);
+                    return set;
+            }
+
+            return VkDescriptorSet.Null;
+        }
+
         private void BindDescriptors(RendererFrameInfo frameInfo, int variant, int entity)
         {
             for (int i = 0; i < _allHandlers.Length; i++)
@@ -295,5 +328,6 @@ namespace VECS
                 BindMatVariantDesc(frameInfo, variant);
             }
         }
+
     }
 }
