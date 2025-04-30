@@ -8,7 +8,6 @@ using VECS.LowLevel;
 using Vortice.Vulkan;
 using System.Collections.Concurrent;
 using System.Threading.Tasks;
-using System.Diagnostics;
 using VECS.ECS.Transforms;
 
 namespace VECS
@@ -44,8 +43,8 @@ namespace VECS
 
         public ModelBounds(WorldRenderBounds worldRenderBounds) : this()
         {
-            Min = new(worldRenderBounds.Bounds.Min,0);
-            Max = new(worldRenderBounds.Bounds.Min,0);
+            Min = new(worldRenderBounds.Bounds.Min,worldRenderBounds.Radius.X);
+            Max = new(worldRenderBounds.Bounds.Max,worldRenderBounds.Radius.X);
         }
     }
 
@@ -964,6 +963,7 @@ namespace VECS
         public DrawCommand(DirectSubMeshIndex subMeshIndex, LocalToWorld localToWorld, WorldRenderBounds worldRenderBounds)
         {
             VkDraw =  DirectSubMesh.GetSubMeshAtIndex(subMeshIndex).IndirectCommand;
+            VkDraw.instanceCount = 0;
             Matrices = new(localToWorld.Value);
             Bounds = new(worldRenderBounds);
         }

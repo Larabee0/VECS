@@ -28,7 +28,8 @@ namespace Planets
         {
             FOV = 50,
             ClipNear = 0.1f,
-            ClipFar = 5000f
+            ClipFar = 100f,
+            fustrumCulling = true
         };
 
 
@@ -304,7 +305,9 @@ namespace Planets
         {
             var cube = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("cube-UV.obj"), null);
             var vases = MeshLoader.LoadModelsFromFiles([MeshLoader.GetMeshInDefaultPath("smooth_vase.obj"), MeshLoader.GetMeshInDefaultPath("flat_vase.obj")], null);
-
+            cube[0].RecalculateRenderBounds();
+            vases[0].RecalculateRenderBounds();
+            vases[1].RecalculateRenderBounds();
             Entity cubeEntity = entityManager.CreateEntity();
             Entity cubeEntity2 = entityManager.CreateEntity();
             Entity cubeEntity3 = entityManager.CreateEntity();

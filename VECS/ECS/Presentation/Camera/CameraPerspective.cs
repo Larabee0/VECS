@@ -12,5 +12,6 @@
         public float FOV;
         public float ClipNear;
         public float ClipFar;
+        public bool fustrumCulling;
     }
 }

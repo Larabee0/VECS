@@ -74,7 +74,7 @@ namespace VECS.ECS.Presentation.Systems
                     var entity = entities[i];
                     var bounds = entityManager.GetComponent<WorldRenderBounds>(entity);
                     var center = bounds.Bounds.center;
-                    var radius = bounds.Radius;
+                    var radius = (bounds.Radius == Vector3.Zero) ? Vector3.One : bounds.Radius;
                     LTW a = new()
                     {
                         ltw = TransformExtensions.TRS(center, new Vector3(), radius)

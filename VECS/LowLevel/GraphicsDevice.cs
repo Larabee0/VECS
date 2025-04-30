@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
 using Vortice.Vulkan;
@@ -731,7 +732,9 @@ namespace VECS.LowLevel
             var message = new VkUtf8String(pCallbackData->pMessage);
 
             Console.WriteLine(string.Format("[{0}] Vulkan: Validation Layer: {1}", messageSeverity, Encoding.UTF8.GetString(message.Span)));
+            StackTrace trace = new(true);
 
+            Console.WriteLine(string.Format("Validation layer trace\n {0}",trace.ToString()));
             return 0;
         }
 

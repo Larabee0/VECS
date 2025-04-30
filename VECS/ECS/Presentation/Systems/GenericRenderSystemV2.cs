@@ -9,7 +9,7 @@ namespace VECS.ECS.Presentation.Systems
 {
     public class GenericRenderSystemV2 : PresentationSystemBase
     {
-        private const uint MAX_DRAWS = 1000;
+        public const uint MAX_DRAWS = 1000;
         private EntityQuery _renderEntityQuery;
 
         private readonly Dictionary<int, MaterialV2> _materialsMap = [];
@@ -21,7 +21,6 @@ namespace VECS.ECS.Presentation.Systems
         private readonly SortedDictionary<int, int> _directMeshCmdRegionIndex = [];
 
         private SwapChainBuffer<VkDrawIndexedIndirectCommand> _indirectCmdBuffer;
-        private SwapChainBuffer<ModelMatrices> _modelMatricesBuffer;
         private SwapChainBuffer<ModelBounds> _modelBoundsBuffer;
 
         private FustrumCull _cullCompute;
@@ -43,11 +42,6 @@ namespace VECS.ECS.Presentation.Systems
                     VkBufferUsageFlags.StorageBuffer,
                     true);
 
-            _modelMatricesBuffer = new(MAX_DRAWS,
-                    VkBufferUsageFlags.TransferDst |
-                    VkBufferUsageFlags.TransferSrc |
-                    VkBufferUsageFlags.StorageBuffer,
-                    true);
             _modelBoundsBuffer = new(MAX_DRAWS,
                     VkBufferUsageFlags.TransferDst |
                     VkBufferUsageFlags.TransferSrc |
@@ -57,7 +51,6 @@ namespace VECS.ECS.Presentation.Systems
             _cullCompute = new();
 
             _indirectCmdBuffer.SetBuffersDirty(true);
-            _modelMatricesBuffer.SetBuffersDirty(true);
             _modelBoundsBuffer.SetBuffersDirty(true);
         }
 
@@ -65,7 +58,6 @@ namespace VECS.ECS.Presentation.Systems
         {
             _cullCompute?.Dispose();
             _indirectCmdBuffer?.Dispose();
-            _modelMatricesBuffer?.Dispose();
             _modelBoundsBuffer?.Dispose();
         }
 
@@ -188,11 +180,9 @@ namespace VECS.ECS.Presentation.Systems
             BufferRegion meshSubRegion = _meshNextCmdRegion[lastCmd.DirectMesh];
             BufferRegion storageBufferRegion = default;
 
-            DirectMesh directMesh = _directMeshMap[lastCmd.DirectMesh];
             MaterialV2 material = _materialsMap[lastCmd.MaterialIndex];
 
             Span<VkDrawIndexedIndirectCommand> cullDraws = _indirectCmdBuffer.HostBuffer;
-            Span<ModelMatrices> cullMatrices = _modelMatricesBuffer.HostBuffer;
             Span<ModelBounds> cullBounds = _modelBoundsBuffer.HostBuffer;
 
             Span<ModelMatrices> matrices = material.GetStorageBuffer<ModelMatrices>("matricesBuffer");
@@ -228,20 +218,18 @@ namespace VECS.ECS.Presentation.Systems
                         meshCmdRegionStartIndex = _directMeshCmdRegions[cmd.DirectMesh].StartIndex;
                         _meshNextCmdRegion[lastCmd.DirectMesh] = meshSubRegion;
                         meshSubRegion = _meshNextCmdRegion[cmd.DirectMesh];
-                        directMesh = _directMeshMap[cmd.DirectMesh];
                     }
 
                     lastCmd = cmd;
                 }
 
-                directMesh.Enqueue(cmd.DrawCommand, materialVariantDrawIndex);
+                //directMesh.Enqueue(cmd.DrawCommand, materialVariantDrawIndex);
                 var draw = cmd.DrawCommand.VkDraw;
                 draw.firstInstance = (uint)materialVariantDrawIndex;
 
                 int cullIndex = meshCmdRegionStartIndex + _directMeshCmdRegionIndex[cmd.DirectMesh];
 
                 cullDraws[cullIndex] = draw;
-                cullMatrices[cullIndex] = cmd.DrawCommand.Matrices;
                 cullBounds[cullIndex] = cmd.DrawCommand.Bounds;
 
                 if (matrices != Span<ModelMatrices>.Empty) { matrices[materialDrawIndex] = cmd.DrawCommand.Matrices; }
@@ -260,13 +248,8 @@ namespace VECS.ECS.Presentation.Systems
             {
                 mesh.FlushDrawQueue();
             }
-            
-            _indirectCmdBuffer.WriteFromHostToActiveBuffer();
 
-            _cullCompute.ExecuteMaterial(rendererFrameInfo, (uint)_earlyDrawCommands.Length,
-                _indirectCmdBuffer.ActiveVkBuffer,
-                _modelMatricesBuffer.ActiveVkBuffer,
-                _modelBoundsBuffer.ActiveVkBuffer);
+            _cullCompute.Cull(rendererFrameInfo, (uint)_earlyDrawCommands.Length, _indirectCmdBuffer, _modelBoundsBuffer);
 
         }
 

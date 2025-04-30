@@ -91,6 +91,7 @@ namespace VECS.ECS.Presentation
                 {
                     ProjectionMatrix = GetPerspectiveProject(perCam, aspect),
                     ViewMatrix = GetViewMatrix(entityManager.GetComponent<LocalToWorld>(entity).Value),
+                    fustrumCulling = perCam.fustrumCulling,
                 };
 
                 Matrix4x4.Invert(camera.ViewMatrix, out camera.InverseViewMatrix);
@@ -112,6 +113,7 @@ namespace VECS.ECS.Presentation
                 {
                     ProjectionMatrix = GetOrthographicProject(orthCam),
                     ViewMatrix = GetViewMatrix(entityManager.GetComponent<LocalToWorld>(entity).Value),
+                    fustrumCulling = orthCam.fustrumCulling
                 };
 
                 Matrix4x4.Invert(camera.ViewMatrix, out camera.InverseViewMatrix);

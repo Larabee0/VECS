@@ -1,23 +1,18 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+using System.Numerics;
 using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading.Tasks;
 using VECS.Compute;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
 namespace VECS
 {
-    [StructLayout(LayoutKind.Sequential,Size =44)]
+    [StructLayout(LayoutKind.Sequential, Size = 108)]
     public struct CullData
     {
+        public Matrix4x4 viewMatrix;
         public float P00, P11, znear, zfar; // symmetric projection parameters
-        public float frustumLeft; // data for left/right/top/bottom frustum planes
-        public float frustumRight; // data for left/right/top/bottom frustum planes
-        public float frustumTop; // data for left/right/top/bottom frustum planes
-        public float frustumBottom; // data for left/right/top/bottom frustum planes
+        public Vector4 frustum;
         public uint drawCount;
         public int cullingEnabled;
         public int distCull;
@@ -26,6 +21,8 @@ namespace VECS
 
     public sealed class FustrumCull : IDisposable
     {
+        public readonly bool CPUCulling = false;
+
         private readonly GenericComputePipeline _cullPipe;
 
         private readonly unsafe VkWriteDescriptorSet* _writes;
@@ -35,18 +32,56 @@ namespace VECS
         public unsafe FustrumCull()
         {
             _cullPipe = new("fustrum_cull.comp", typeof(CullData),
-                new DescriptorSetBinding(VkDescriptorType.UniformBuffer, VkShaderStageFlags.Compute), // binding 0
                 new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute),
-                new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute),
-                new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute) // binding 3
+                new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute)
             );
 
-            _writes = (VkWriteDescriptorSet*)NativeMemory.AllocZeroed((uint)sizeof(VkWriteDescriptorSet) * 4);
+            _writes = (VkWriteDescriptorSet*)NativeMemory.AllocZeroed((uint)sizeof(VkWriteDescriptorSet) * 2);
+
         }
 
-        public unsafe void ExecuteMaterial(RendererFrameInfo frameInfo, uint drawCount, VkBuffer drawIndirect, VkBuffer matrices, VkBuffer bounds)
+        public void Cull(RendererFrameInfo frameInfo, uint drawCount, SwapChainBuffer<VkDrawIndexedIndirectCommand>drawIndirect, SwapChainBuffer<ModelBounds> bounds)
         {
-            
+            if (CPUCulling )
+            {
+                Span<VkDrawIndexedIndirectCommand> drawIndirectSpan = drawIndirect.HostBuffer;
+                Span<ModelBounds> boundsSpan = bounds.HostBuffer;
+                for (int i = 0; i < drawCount; i++)
+                {
+                    drawIndirectSpan[i].instanceCount =( IsVisible(boundsSpan[i],frameInfo.cullData) || frameInfo.cullData.cullingEnabled == 0) ? 1u : 0;
+                }
+            }
+            else
+            {
+                GPUCullInternal(frameInfo, drawCount, drawIndirect.ActiveVkBuffer, bounds.ActiveVkBuffer);
+            }
+        }
+
+        public static bool IsVisible(ModelBounds bounds, CullData cullData)
+        {
+            Vector3 extents = (bounds.Max.AsVector3() - bounds.Min.AsVector3()) * 0.5f;
+
+            Vector3 center = bounds.Min.AsVector3() + extents;
+
+            center = Vector3.Transform(center,cullData.viewMatrix);
+
+            float radius = bounds.Min.W;
+
+            bool visible = true;
+
+            visible = visible && center.Z * cullData.frustum[1] - MathF.Abs(center.X) * cullData.frustum[0] > -radius;
+            visible = visible && center.Z * cullData.frustum[3] - MathF.Abs(center.Y) * cullData.frustum[2] > -radius;
+            if (cullData.distCull != 0)
+            {
+                // the near/far plane culling uses camera space Z directly
+                visible = visible && MathF.Abs(center.Z) + radius > cullData.znear && MathF.Abs(center.Z) - radius < cullData.zfar;
+            }
+
+            return visible;
+        }
+
+        private unsafe void GPUCullInternal(RendererFrameInfo frameInfo, uint drawCount, VkBuffer drawIndirect, VkBuffer bounds)
+        {
             fixed (VkDescriptorSet* pSet = &sets[frameInfo.FrameIndex])
             {
                 frameInfo.ApplicationDescriptorPool.AllocateDescriptorSet(_cullPipe.DescriptorSetLayout.SetLayout, pSet);
@@ -56,12 +91,6 @@ namespace VECS
             VkDescriptorBufferInfo drawBuffer = new()
             {
                 buffer = drawIndirect,
-                offset = 0,
-                range = Vulkan.VK_WHOLE_SIZE
-            };
-            VkDescriptorBufferInfo matrixBuffer = new()
-            {
-                buffer = matrices,
                 offset = 0,
                 range = Vulkan.VK_WHOLE_SIZE
             };
@@ -75,10 +104,10 @@ namespace VECS
             _writes[0] = new()
             {
                 dstSet = set,
-                descriptorType = VkDescriptorType.UniformBuffer,
+                descriptorType = VkDescriptorType.StorageBuffer,
                 dstBinding = 0,
                 descriptorCount = 1,
-                pBufferInfo = &uboInfo,
+                pBufferInfo = &boundsBuffer,
             };
             _writes[1] = new()
             {
@@ -88,24 +117,8 @@ namespace VECS
                 descriptorCount = 1,
                 pBufferInfo = &drawBuffer,
             };
-            _writes[2] = new()
-            {
-                dstSet = set,
-                descriptorType = VkDescriptorType.StorageBuffer,
-                dstBinding = 2,
-                descriptorCount = 1,
-                pBufferInfo = &matrixBuffer,
-            };
-            _writes[3] = new()
-            {
-                dstSet = set,
-                descriptorType = VkDescriptorType.StorageBuffer,
-                dstBinding = 3,
-                descriptorCount = 1,
-                pBufferInfo = &boundsBuffer,
-            };
 
-            Vulkan.vkUpdateDescriptorSets(GraphicsDevice.Instance.Device, 4, _writes, 0, null);
+            Vulkan.vkUpdateDescriptorSets(GraphicsDevice.Instance.Device, 2, _writes, 0, null);
 
             _cullPipe.Prepare(drawCount, drawCount);
 
@@ -127,44 +140,6 @@ namespace VECS
             VkBufferMemoryBarrier barrier = new()
             {
                 buffer = drawIndirect,
-                size = Vulkan.VK_WHOLE_SIZE,
-                srcQueueFamilyIndex = (uint)GraphicsDevice.Instance.PhysicalQueueFamilies.graphicsFamily,
-                dstQueueFamilyIndex = (uint)GraphicsDevice.Instance.PhysicalQueueFamilies.graphicsFamily,
-                srcAccessMask = VkAccessFlags.ShaderWrite,
-                dstAccessMask = VkAccessFlags.IndirectCommandRead
-            };
-            frameInfo.PostCullBarriers.Add(barrier);
-            /// basically this needs do a similar thing to <see cref="MaterialV2.ExecuteDrawCommandsV2"/>
-            /// generate & bind the descriptor set containing global ubo, matrices, bounds and the indirectCmdBuffer
-            /// for each draw cmd (each mesh region) the draw cmds will contain the buffer indices the shader needs to read out of bounds/matrices
-            /// each draw cmd needs to call <see cref="Execute(int, RendererFrameInfo, VkBuffer, VkDescriptorSet, VkDescriptorSet, VkDescriptorSet)"/>
-            /// but execute needs to only take a single descriptor and vk buffer instead of 3
-            /// good luck dealing with materials that don't have matrices/bounds and also with caching the descriptor sets
-            ///  - maybe add cull descriptor set to the material.
-            /// Also remember to Set the cull data in frame info
-
-        }
-
-        public unsafe void Execute(int drawCount, RendererFrameInfo frameInfo, VkBuffer activeCmdBuffer, VkDescriptorSet cmd, VkDescriptorSet matrices, VkDescriptorSet bounds)
-        {
-            _cullPipe.Prepare((uint)drawCount, (uint)drawCount);
-
-            VkDescriptorSet* sets = stackalloc VkDescriptorSet[]
-            {
-                frameInfo.GlobalDescriptorSet,
-                matrices,
-                bounds,
-                cmd
-            };
-
-            Vulkan.vkCmdBindDescriptorSets(frameInfo.CommandBuffer, VkPipelineBindPoint.Compute, _cullPipe.ComputePipelineLayout, 0, 4, sets);
-
-            _cullPipe.Dispatch(frameInfo.CommandBuffer, frameInfo.cullData, ((uint)drawCount / 256) + 1, 1, 1);
-
-
-            VkBufferMemoryBarrier barrier = new()
-            {
-                buffer = activeCmdBuffer,
                 size = Vulkan.VK_WHOLE_SIZE,
                 srcQueueFamilyIndex = (uint)GraphicsDevice.Instance.PhysicalQueueFamilies.graphicsFamily,
                 dstQueueFamilyIndex = (uint)GraphicsDevice.Instance.PhysicalQueueFamilies.graphicsFamily,

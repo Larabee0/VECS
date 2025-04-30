@@ -281,11 +281,11 @@ namespace VECS
             Update(frameInfo.FrameIndex, pool);
         }
 
-        internal void Update(int frameIndex, DescriptorPool gamePool)
+        internal void Update(int frameIndex, DescriptorPool pool)
         {
             if (!_setsAllocated[frameIndex])
             {
-                AllocateSetInternal(frameIndex, gamePool);
+                AllocateSetInternal(frameIndex, pool);
             }
 
             if (_setsDirty[frameIndex] || DescriptorLevel == DescriptorLevel.Entity)
@@ -295,7 +295,7 @@ namespace VECS
 
             if (!_child && _children.Count > 0)
             {
-                _children.ForEach(c => c.Update(frameIndex, gamePool));
+                _children.ForEach(c => c.Update(frameIndex, pool));
             }
         }
 

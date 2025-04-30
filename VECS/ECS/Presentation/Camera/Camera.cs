@@ -21,6 +21,7 @@ namespace VECS.ECS.Presentation
         public Matrix4x4 ProjectionMatrix;
         public Matrix4x4 ViewMatrix;
         public Matrix4x4 InverseViewMatrix;
+        public bool fustrumCulling;
     }
 
     /// <summary>

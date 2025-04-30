@@ -60,12 +60,7 @@ namespace VECS.DataStructures
 
             var directMeshBuffer = new DirectMesh(attributeDescriptions, directMeshCreateInfo);
 
-            DirectSubMesh[] sceneMeshes = new DirectSubMesh[scene.MeshCount];
-
-            for(int i = 0;i < scene.MeshCount; i++)
-            {
-                sceneMeshes[i] = new DirectSubMesh(directMeshBuffer, i);
-            }
+            DirectSubMesh[] sceneMeshes = directMeshBuffer.DirectSubMeshes;
 
             for (int i = 0; i < scene.MeshCount; i++)
             {
@@ -238,8 +233,6 @@ namespace VECS.DataStructures
 
             DirectSubMeshCreateData[] directMeshCreateInfo = new DirectSubMeshCreateData[sceneMeshes.Count];
 
-            DirectSubMesh[] directSubMeshes = new DirectSubMesh[sceneMeshes.Count];
-
             for (int i = 0; i < sceneMeshes.Count; i++)
             {
                 directMeshCreateInfo[i] = new DirectSubMeshCreateData((uint)sceneMeshes[i].VertexCount,
@@ -248,11 +241,7 @@ namespace VECS.DataStructures
 
             var directMeshBuffer = new DirectMesh([..attributeDescriptions], directMeshCreateInfo);
 
-
-            for (int i = 0; i < directSubMeshes.Length; i++)
-            {
-                directSubMeshes[i] = new DirectSubMesh(directMeshBuffer, i);
-            }
+            DirectSubMesh[] directSubMeshes = directMeshBuffer.DirectSubMeshes;
 
             for (int i = 0; i < directSubMeshes.Length; i++)
             {

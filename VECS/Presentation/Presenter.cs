@@ -202,12 +202,6 @@ namespace VECS
             _entityFrameDescriptorPools[frameIndex].ResetPool();
 
 
-            Matrix4x4 projection = ubo.Projection;
-            Matrix4x4 projectionT = Matrix4x4.Transpose(projection);
-
-            Vector4 frustrumX = (projectionT.GetMatrixRow(3) + projectionT.GetMatrixRow(0)).NormalizePlane();
-            Vector4 frustrumY = (projectionT.GetMatrixRow(3) + projectionT.GetMatrixRow(1)).NormalizePlane();
-
             RendererFrameInfo frameInfo = new()
             {
                 FrameIndex = frameIndex,
@@ -222,38 +216,62 @@ namespace VECS
                 DepthPyramid = _renderer.DepthPyramid,
                 DepthPyramidWidth = (int)_renderer.DepthPyramidWidth,
                 DepthPyramidHeight = (int)_renderer.DepthPyramidHeight,
-                cullData = new()
-                {
-                    cullingEnabled = 1,
-                    P00 = ubo.Projection[0,0],
-                    P11 = ubo.Projection[1,1],
-                    znear = 0.1f,
-                    zfar = 5000f,
-                    frustumLeft = frustrumX.X,
-                    frustumRight = frustrumX.Z,
-                    frustumTop = frustrumY.Y,
-                    frustumBottom = frustrumY.Z,
-                    drawCount = 0,
-                    distCull = 0
-                }
+                
             };
 
             Camera camera = Camera.Identity;
-
-            if (World.DefaultWorld != null
-                && World.DefaultWorld.EntityManager != null
-                && World.DefaultWorld.EntityManager.SingletonEntity<MainCamera>(out Entity mainCamera)
-                && World.DefaultWorld.EntityManager.HasComponent<Camera>(mainCamera, out int signature))
+            float clipNear = 0.01f;
+            float clipFar = 1000;
+            if (World.DefaultWorld != null)
             {
-                camera = World.DefaultWorld.EntityManager.GetComponent<Camera>(signature);
+                var entityManager = World.DefaultWorld.EntityManager;
+                if (entityManager != null && entityManager.SingletonEntity<MainCamera>(out Entity mainCamera))
+                {
+                    if(entityManager.HasComponent<Camera>(mainCamera, out int signature))
+                    {
+                        camera = entityManager.GetComponent<Camera>(signature);
+                    }
+                    
+                    if(entityManager.HasComponent<CameraPerspective>(mainCamera, out signature))
+                    {
+                        var per = entityManager.GetComponent<CameraPerspective>(signature);
+                        clipNear = per.ClipNear;
+                        clipFar = per.ClipFar;
+                    }
+                    else if(entityManager.HasComponent<CameraOrthographic>(mainCamera, out signature))
+                    {
+                        var orth = entityManager.GetComponent<CameraOrthographic>(signature);
+                        clipNear = orth.ClipNear;
+                        clipFar = orth.ClipFar;
+                    }
+                }
             }
-
-
 
             ubo.Projection = camera.ProjectionMatrix;
             ubo.View = camera.ViewMatrix;
             ubo.InverseView = camera.InverseViewMatrix;
             ubo.AmbientLightColour = new(1.0f, 1.0f, 1.0f, 0.02f);
+
+            Matrix4x4 projection = ubo.Projection;
+            Matrix4x4 projectionT = Matrix4x4.Transpose(projection);
+
+            Vector4 frustrumX = (projectionT.GetMatrixRow(3) + projectionT.GetMatrixRow(0)).NormalizePlane();
+            Vector4 frustrumY = (projectionT.GetMatrixRow(3) + projectionT.GetMatrixRow(1)).NormalizePlane();
+            Vector4 frustum = new(frustrumX.X, frustrumX.Z, frustrumY.Y, frustrumY.Z);
+
+            frameInfo.cullData = new()
+            {
+                cullingEnabled = camera.fustrumCulling ? 1 : 0,
+                P00 = ubo.Projection[0, 0],
+                P11 = ubo.Projection[1, 1],
+                znear = clipNear,
+                zfar = clipFar,
+                frustum = frustum,
+                drawCount = 0,
+                
+                distCull = 1,
+                viewMatrix = camera.ViewMatrix
+            };
 
             frameInfo.Ubo = ubo;
             if (NEW_GLOBAL_SET)
