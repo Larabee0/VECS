@@ -200,6 +200,14 @@ namespace VECS
             _globalDescriptorPools[frameIndex].ResetPool();
             _materialFrameDescriptorPools[frameIndex].ResetPool();
             _entityFrameDescriptorPools[frameIndex].ResetPool();
+
+
+            Matrix4x4 projection = ubo.Projection;
+            Matrix4x4 projectionT = Matrix4x4.Transpose(projection);
+
+            Vector4 frustrumX = (projectionT.GetMatrixRow(3) + projectionT.GetMatrixRow(0)).NormalizePlane();
+            Vector4 frustrumY = (projectionT.GetMatrixRow(3) + projectionT.GetMatrixRow(1)).NormalizePlane();
+
             RendererFrameInfo frameInfo = new()
             {
                 FrameIndex = frameIndex,
@@ -213,7 +221,21 @@ namespace VECS
                 PostCullBarriers = _renderer.PostCullBarriers,
                 DepthPyramid = _renderer.DepthPyramid,
                 DepthPyramidWidth = (int)_renderer.DepthPyramidWidth,
-                DepthPyramidHeight = (int)_renderer.DepthPyramidHeight
+                DepthPyramidHeight = (int)_renderer.DepthPyramidHeight,
+                cullData = new()
+                {
+                    cullingEnabled = 1,
+                    P00 = ubo.Projection[0,0],
+                    P11 = ubo.Projection[1,1],
+                    znear = 0.1f,
+                    zfar = 5000f,
+                    frustumLeft = frustrumX.X,
+                    frustumRight = frustrumX.Z,
+                    frustumTop = frustrumY.Y,
+                    frustumBottom = frustrumY.Z,
+                    drawCount = 0,
+                    distCull = 0
+                }
             };
 
             Camera camera = Camera.Identity;

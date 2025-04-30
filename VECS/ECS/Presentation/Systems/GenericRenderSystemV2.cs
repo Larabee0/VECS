@@ -263,10 +263,10 @@ namespace VECS.ECS.Presentation.Systems
             
             _indirectCmdBuffer.WriteFromHostToActiveBuffer();
 
-            // _cullCompute.ExecuteMaterial(rendererFrameInfo, (uint)_earlyDrawCommands.Length,
-            //     _indirectCmdBuffer.ActiveVkBuffer,
-            //     _modelMatricesBuffer.ActiveVkBuffer,
-            //     _modelBoundsBuffer.ActiveVkBuffer);
+            _cullCompute.ExecuteMaterial(rendererFrameInfo, (uint)_earlyDrawCommands.Length,
+                _indirectCmdBuffer.ActiveVkBuffer,
+                _modelMatricesBuffer.ActiveVkBuffer,
+                _modelBoundsBuffer.ActiveVkBuffer);
 
         }
 

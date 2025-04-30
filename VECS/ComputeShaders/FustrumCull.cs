@@ -84,7 +84,7 @@ namespace VECS
             {
                 dstSet = set,
                 descriptorType = VkDescriptorType.StorageBuffer,
-                dstBinding = 0,
+                dstBinding = 1,
                 descriptorCount = 1,
                 pBufferInfo = &drawBuffer,
             };
@@ -92,7 +92,7 @@ namespace VECS
             {
                 dstSet = set,
                 descriptorType = VkDescriptorType.StorageBuffer,
-                dstBinding = 0,
+                dstBinding = 2,
                 descriptorCount = 1,
                 pBufferInfo = &matrixBuffer,
             };
@@ -100,7 +100,7 @@ namespace VECS
             {
                 dstSet = set,
                 descriptorType = VkDescriptorType.StorageBuffer,
-                dstBinding = 0,
+                dstBinding = 3,
                 descriptorCount = 1,
                 pBufferInfo = &boundsBuffer,
             };
@@ -113,6 +113,7 @@ namespace VECS
             Vulkan.vkCmdBindDescriptorSets(frameInfo.CommandBuffer, VkPipelineBindPoint.Compute, _cullPipe.ComputePipelineLayout, 0, set);
 
             var cullData = frameInfo.cullData;
+            cullData.drawCount = drawCount;
 
             Vulkan.vkCmdPushConstants(
                 frameInfo.CommandBuffer,
