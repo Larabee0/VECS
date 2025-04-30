@@ -151,6 +151,12 @@ namespace VECS
             Count = 0;
         }
 
+        public void IncrementAlt()
+        {
+            StartIndex += Count;
+            Count = 0;
+        }
+
         public override readonly bool Equals(object obj)
         {
             return obj is BufferRegion region &&

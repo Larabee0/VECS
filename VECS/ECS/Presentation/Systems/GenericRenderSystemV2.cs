@@ -15,11 +15,16 @@ namespace VECS.ECS.Presentation.Systems
         private readonly Dictionary<int, MaterialV2> _materialsMap = [];
         private readonly Dictionary<int, DirectMesh> _directMeshMap = [];
         private readonly Dictionary<int, BufferRegion> _meshNextCmdRegion = [];
-        private readonly Dictionary<Vector2Int, uint> _materialVairantCounts = [];
+        private readonly SortedDictionary<Vector2Int, uint> _materialVairantCounts = [];
+        private readonly Dictionary<int, int> _directMeshDraws = [];
+        private readonly SortedDictionary<int, BufferRegion> _directMeshCmdRegions = [];
+        private readonly SortedDictionary<int, int> _directMeshCmdRegionIndex = [];
 
         private SwapChainBuffer<VkDrawIndexedIndirectCommand> _indirectCmdBuffer;
         private SwapChainBuffer<ModelMatrices> _modelMatricesBuffer;
         private SwapChainBuffer<ModelBounds> _modelBoundsBuffer;
+
+        private FustrumCull _cullCompute;
 
         private Vector2Int[] _regionKeys = [];
         private EarlyDrawCommand[] _earlyDrawCommands = [];
@@ -48,11 +53,20 @@ namespace VECS.ECS.Presentation.Systems
                     VkBufferUsageFlags.TransferSrc |
                     VkBufferUsageFlags.StorageBuffer,
                     true);
+
+            _cullCompute = new();
+
+            _indirectCmdBuffer.SetBuffersDirty(true);
+            _modelMatricesBuffer.SetBuffersDirty(true);
+            _modelBoundsBuffer.SetBuffersDirty(true);
         }
 
         public override void OnDestroy(EntityManager entityManager)
         {
-
+            _cullCompute?.Dispose();
+            _indirectCmdBuffer?.Dispose();
+            _modelMatricesBuffer?.Dispose();
+            _modelBoundsBuffer?.Dispose();
         }
 
         private unsafe void ResetEarlyDrawCommands(int count)
@@ -84,6 +98,24 @@ namespace VECS.ECS.Presentation.Systems
                 var mesh = DirectMesh.DirectMeshes[i];
                 _directMeshMap.TryAdd(i, mesh);
                 _meshNextCmdRegion[i] = default;
+                _directMeshDraws[i] = 0;
+                _directMeshCmdRegions[i] = default;
+                _directMeshCmdRegionIndex[i] = 0;
+            }
+        }
+
+        private void CrunchMeshCmdRegions()
+        {
+            var region = _directMeshCmdRegions[0];
+            region.Count = _directMeshDraws[0];
+            _directMeshCmdRegions[0] = region;
+            for (int i = 1; i < _directMeshCmdRegions.Keys.Count; i++)
+            {
+                region.IncrementAlt();
+                //region = _directMeshCmdRegions[i];
+                region.Count = _directMeshDraws[i];
+                _directMeshCmdRegions[i] = region;
+                _meshNextCmdRegion[i] = new() { StartIndex = region.StartIndex };
             }
         }
 
@@ -105,14 +137,17 @@ namespace VECS.ECS.Presentation.Systems
 
                 DrawCommand drawCommand = new(renderMesh.Mesh, localToWorld, worldBounds);
                 _earlyDrawCommands[i] = new(drawCommand, renderMesh);
-
-                _directMeshMap.TryAdd(renderMesh.Mesh.DirectMesh, null);
+                _directMeshDraws[renderMesh.Mesh.DirectMesh]++;
 
                 Vector2Int matVariant = new(renderMesh.Material.Material, renderMesh.Material.Variant);
 
-                if (!_materialVairantCounts.TryAdd(matVariant,1))
+                if (!_materialVairantCounts.TryGetValue(matVariant, out uint value))
                 {
-                    _materialVairantCounts[matVariant]++;
+                    _materialVairantCounts[matVariant] = 1;
+                }
+                else
+                {
+                    _materialVairantCounts[matVariant] = ++value;
                 }
             }
 
@@ -123,8 +158,6 @@ namespace VECS.ECS.Presentation.Systems
                 Array.Resize(ref _regionKeys, _materialVairantCounts.Count);
             }
             _materialVairantCounts.Keys.CopyTo(_regionKeys, 0);
-
-            Array.Sort(_regionKeys);
 
             int lastMat = _regionKeys[0].X;
             uint offset = 0;
@@ -144,16 +177,23 @@ namespace VECS.ECS.Presentation.Systems
                 offset += _materialVairantCounts[key];
             }
 
+            CrunchMeshCmdRegions();
+
             EarlyDrawCommand cmd = _earlyDrawCommands[0];
             EarlyDrawCommand lastCmd = cmd;
             int materialDrawIndex = 0;
             int materialVariantDrawIndex = 0;
 
-            BufferRegion meshSubRegion = default;
+            int meshCmdRegionStartIndex = _directMeshCmdRegions[cmd.DirectMesh].StartIndex;
+            BufferRegion meshSubRegion = _meshNextCmdRegion[lastCmd.DirectMesh];
             BufferRegion storageBufferRegion = default;
 
             DirectMesh directMesh = _directMeshMap[lastCmd.DirectMesh];
             MaterialV2 material = _materialsMap[lastCmd.MaterialIndex];
+
+            Span<VkDrawIndexedIndirectCommand> cullDraws = _indirectCmdBuffer.HostBuffer;
+            Span<ModelMatrices> cullMatrices = _modelMatricesBuffer.HostBuffer;
+            Span<ModelBounds> cullBounds = _modelBoundsBuffer.HostBuffer;
 
             Span<ModelMatrices> matrices = material.GetStorageBuffer<ModelMatrices>("matricesBuffer");
             Span<ModelBounds> bounds = material.GetStorageBuffer<ModelBounds>("boundsBuffer");
@@ -161,6 +201,7 @@ namespace VECS.ECS.Presentation.Systems
             for (int i = 0; i < _earlyDrawCommands.Length; i++)
             {
                 cmd = _earlyDrawCommands[i];
+
 
                 if (EarlyDrawCommand.MateriallyDifferent(lastCmd, cmd))
                 {
@@ -183,8 +224,8 @@ namespace VECS.ECS.Presentation.Systems
 
                     if (lastCmd.DirectMesh != cmd.DirectMesh)
                     {
-                        meshSubRegion.Increment();
-
+                        meshSubRegion.IncrementAlt();
+                        meshCmdRegionStartIndex = _directMeshCmdRegions[cmd.DirectMesh].StartIndex;
                         _meshNextCmdRegion[lastCmd.DirectMesh] = meshSubRegion;
                         meshSubRegion = _meshNextCmdRegion[cmd.DirectMesh];
                         directMesh = _directMeshMap[cmd.DirectMesh];
@@ -194,14 +235,23 @@ namespace VECS.ECS.Presentation.Systems
                 }
 
                 directMesh.Enqueue(cmd.DrawCommand, materialVariantDrawIndex);
+                var draw = cmd.DrawCommand.VkDraw;
+                draw.firstInstance = (uint)materialVariantDrawIndex;
+
+                int cullIndex = meshCmdRegionStartIndex + _directMeshCmdRegionIndex[cmd.DirectMesh];
+
+                cullDraws[cullIndex] = draw;
+                cullMatrices[cullIndex] = cmd.DrawCommand.Matrices;
+                cullBounds[cullIndex] = cmd.DrawCommand.Bounds;
 
                 if (matrices != Span<ModelMatrices>.Empty) { matrices[materialDrawIndex] = cmd.DrawCommand.Matrices; }
                 if (bounds != Span<ModelBounds>.Empty) { bounds[materialDrawIndex] = cmd.DrawCommand.Bounds; }
-
                 meshSubRegion.Count++;
                 storageBufferRegion.Count++;
                 materialDrawIndex++;
                 materialVariantDrawIndex++;
+
+                _directMeshCmdRegionIndex[cmd.DirectMesh]++;
             }
 
             material.EnqueueDrawCmdV2(new(lastCmd.MaterialIndex, lastCmd.MaterialVariant, storageBufferRegion, lastCmd.MaterialEntity, lastCmd.DirectMesh, meshSubRegion));
@@ -210,6 +260,13 @@ namespace VECS.ECS.Presentation.Systems
             {
                 mesh.FlushDrawQueue();
             }
+            
+            _indirectCmdBuffer.WriteFromHostToActiveBuffer();
+
+            // _cullCompute.ExecuteMaterial(rendererFrameInfo, (uint)_earlyDrawCommands.Length,
+            //     _indirectCmdBuffer.ActiveVkBuffer,
+            //     _modelMatricesBuffer.ActiveVkBuffer,
+            //     _modelBoundsBuffer.ActiveVkBuffer);
 
         }
 
@@ -219,7 +276,8 @@ namespace VECS.ECS.Presentation.Systems
 
             foreach (MaterialV2 materialV2 in _materialsMap.Values)
             {
-                materialV2.ExecuteDrawCommandsV2(rendererFrameInfo);
+                //materialV2.ExecuteDrawCommandsV2(rendererFrameInfo);
+                materialV2.ExecuteDrawCommandsV3(rendererFrameInfo, _indirectCmdBuffer);
             }
         }
     }

@@ -28,13 +28,13 @@ namespace VECS
     {
         private readonly GenericComputePipeline _cullPipe;
 
-        private unsafe VkWriteDescriptorSet* _writes;
+        private readonly unsafe VkWriteDescriptorSet* _writes;
 
-        private VkDescriptorSet[] sets = new VkDescriptorSet[SwapChain.MAX_FRAMES_IN_FLIGHT];
+        private readonly VkDescriptorSet[] sets = new VkDescriptorSet[SwapChain.MAX_FRAMES_IN_FLIGHT];
 
         public unsafe FustrumCull()
         {
-            _cullPipe = new("fustrum_cull.comp",
+            _cullPipe = new("fustrum_cull.comp", typeof(CullData),
                 new DescriptorSetBinding(VkDescriptorType.UniformBuffer, VkShaderStageFlags.Compute), // binding 0
                 new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute),
                 new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute),
@@ -173,8 +173,9 @@ namespace VECS
             frameInfo.PostCullBarriers.Add(barrier);
         }
 
-        public void Dispose()
+        public unsafe void Dispose()
         {
+            NativeMemory.Free(_writes);
             _cullPipe.Dispose();
         }
     }

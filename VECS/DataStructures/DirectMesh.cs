@@ -530,7 +530,7 @@ namespace VECS
             _lastBoundDMB = this;
         }
 
-        private unsafe void BindCorrectBuffers(VkCommandBuffer cmd, VkVertexInputBindingDescription[] vBindings, VkVertexInputAttributeDescription[] vAttributes)
+        internal unsafe void BindCorrectBuffers(VkCommandBuffer cmd, VkVertexInputBindingDescription[] vBindings, VkVertexInputAttributeDescription[] vAttributes)
         {
             if (vAttributes.Length == _attributeDescriptions.Length)
             {

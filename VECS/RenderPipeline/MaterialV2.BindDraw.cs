@@ -144,6 +144,56 @@ namespace VECS
             EnqueueDrawCmdV2(new MaterialDrawCommand(cmd, storageBufferRegion, meshSubRegion));
         }
 
+        internal unsafe void ExecuteDrawCommandsV3(RendererFrameInfo rendererFrameInfo, SwapChainBuffer<VkDrawIndexedIndirectCommand> indirectCmdBuffer)
+        {
+            if (_drawCommandsV2.Count > 0)
+            {
+                BindPipeline(rendererFrameInfo);
+
+                var command = _drawCommandsV2.Peek();
+
+                BindDescriptors(rendererFrameInfo, command.Variant, command.Entity);
+
+                int lastVariant = command.Variant;
+                int lastEntity = command.Entity;
+
+                while (_drawCommandsV2.Count > 0)
+                {
+                    command = _drawCommandsV2.Dequeue();
+
+                    if (lastVariant != command.Variant && lastEntity != command.Entity)
+                    {
+                        BindMatVariantndEntity(rendererFrameInfo, command.Variant, command.Entity);
+                        lastEntity = command.Entity;
+                        lastVariant = command.Variant;
+                    }
+                    else if (lastVariant != command.Variant)
+                    {
+                        BindMatVariantDesc(rendererFrameInfo, command.Variant);
+                        lastVariant = command.Variant;
+                    }
+                    else if (lastEntity != command.Entity)
+                    {
+                        BindEntityVariantDesc(rendererFrameInfo, command.Entity);
+                        lastEntity = command.Entity;
+                    }
+
+                    for (int i = 0; i < _materialPushConstants.Length; i++)
+                    {
+                        _materialPushConstants[i].PushConstants(rendererFrameInfo, _pipelineLayout);
+                    }
+                    var mesh = DirectMesh.GetMeshAtIndex(command.DirectMesh);
+
+                    mesh.BindCorrectBuffers(rendererFrameInfo.CommandBuffer, VertexBindings, VertexAttributes);
+                    Vulkan.vkCmdDrawIndexedIndirect(
+                        rendererFrameInfo.CommandBuffer,
+                        indirectCmdBuffer.ActiveVkBuffer,
+                        (uint)command.MeshSubRegion.StartIndex * (uint)sizeof(VkDrawIndexedIndirectCommand),
+                        (uint)command.MeshSubRegion.Count, (uint)sizeof(VkDrawIndexedIndirectCommand));
+                }
+            }
+        }
+
         internal void ExecuteDrawCommandsV2(RendererFrameInfo rendererFrameInfo)
         {
             if (_drawCommandsV2.Count > 0)
