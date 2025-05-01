@@ -612,7 +612,7 @@ namespace VECS.LowLevel
                 width = _shadowExtent.width,
                 height = _shadowExtent.height,
                 layers = 1,
-                pAttachments = &shadowImageView
+                pAttachments = &shadowImageView,
             };
 
 
@@ -765,6 +765,7 @@ namespace VECS.LowLevel
                 return actualExtent;
             }
         }
+
         public VkFramebuffer GetFrameBuffer(uint currentImageIndex)
         {
             return _swapChainFrameBuffer[currentImageIndex];

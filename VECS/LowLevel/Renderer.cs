@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using VECS.GraphicsPipelines;
 using Vortice.Vulkan;
 
@@ -35,10 +36,7 @@ namespace VECS.LowLevel
         {
             get
             {
-                if (!isFrameStarted)
-                {
-                    throw new InvalidOperationException("Cannot get frame index when frame not in progress");
-                }
+                Debug.Assert(isFrameStarted, "Cannot get frame index when frame not in progress");
                 return currentFrameIndex;
             }
         }
@@ -47,10 +45,7 @@ namespace VECS.LowLevel
         {
             get
             {
-                if (!isFrameStarted)
-                {
-                    throw new InvalidOperationException("Cannot get command buffer when frame not in progress");
-                }
+                Debug.Assert(isFrameStarted, "Cannot get command buffer when frame not in progress");
                 return commandBuffers[currentFrameIndex];
             }
         }
@@ -62,6 +57,7 @@ namespace VECS.LowLevel
         public VkDescriptorImageInfo DepthPyramid => _swapChain.DepthPyramid;
         public uint DepthPyramidWidth => _swapChain.DepthPyramidWidth;
         public uint DepthPyramidHeight => _swapChain.DepthPyramidHeight;
+
         public Renderer(IWindow window)
         {
             _device = GraphicsDevice.Instance;
