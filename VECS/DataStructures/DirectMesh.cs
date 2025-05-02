@@ -79,10 +79,6 @@ namespace VECS
         private readonly Dictionary<VertexAttribute, VertexAttributeDescription> _consumedAttributes = [];
         private readonly ConcurrentDictionary<VertexAttribute, bool> _knownAttributes = [];
 
-        private uint _materialDrawIndexer = 0;
-        private readonly Queue<DrawCommand> _drawQueue = new((int)MAX_INDIRECT_COMMANDS);
-        private readonly SwapChainBuffer<VkDrawIndexedIndirectCommand> _indirectCmdBuffer;
-
         private readonly GPUBuffer<uint> _indexBuffer;
         private GPUBuffer<uint> _indexOffsetBuffer;
 
@@ -99,10 +95,6 @@ namespace VECS
         public VertexAttribute[] AllAttributesInOrder => _attributesInOrder;
         public VkVertexInputBindingDescription[] VkBindingDesc => _bindingDescriptions;
         public VkVertexInputAttributeDescription[] VkAttributeDesc => _attributeDescriptions;
-
-        public VkBuffer IndirectDrawVkBuffer => _indirectCmdBuffer.ActiveVkBuffer;
-        public SwapChainBuffer<VkDrawIndexedIndirectCommand> IndirectDrawBuffer => _indirectCmdBuffer;
-        public uint IndirectDrawBufferLength => _indirectCmdBuffer.UInstanceCount32;
 
         public Dictionary<VertexAttribute, VertexAttributeDescription> ConsumedAttributes => _consumedAttributes;
 
@@ -222,16 +214,6 @@ namespace VECS
 
             _bindingDescriptions = GetBindingDescription(vertexAttributes);
             _attributeDescriptions = GetAttributeDescriptions(vertexAttributes);
-
-
-            _indirectCmdBuffer = new(MAX_INDIRECT_COMMANDS,
-                    VkBufferUsageFlags.TransferDst |
-                    VkBufferUsageFlags.TransferSrc |
-                    VkBufferUsageFlags.IndirectBuffer |
-                    VkBufferUsageFlags.StorageBuffer,
-                    true);
-
-            _indirectCmdBuffer.SetBuffersDirty(true);
 
             DirectMeshes.Add(this);
         }
@@ -570,7 +552,7 @@ namespace VECS
             for (int i = startIndex; i < _attributeDescriptions.Length; i++)
             {
                 var vkAttribute = _attributeDescriptions[i];
-                if(vkAttribute.format == attribute.format)
+                if (vkAttribute.format == attribute.format)
                 {
                     return i;
                 }
@@ -578,59 +560,6 @@ namespace VECS
             return -1;
         }
 
-        [Obsolete("Never use this method")]
-        public unsafe void DrawIndirect(RendererFrameInfo frameInfo, MaterialV2 material)
-        {
-            uint drawCount = (uint)_drawQueue.Count;
-
-            if (drawCount > 0)
-            {
-                int index = (int)_materialDrawIndexer;
-                var indirect = _indirectCmdBuffer.HostBuffer;
-                var matrices = material.GetStorageBuffer<ModelMatrices>("matricesBuffer");
-                var bounds = material.GetStorageBuffer<ModelBounds>("boundsBuffer");
-                while (_drawQueue.Count > 0)
-                {
-                    var command = _drawQueue.Dequeue();
-                    indirect[index] = command.VkDraw;
-                    if (matrices != Span<ModelMatrices>.Empty) { matrices[index] = command.Matrices; }
-                    if (bounds != Span<ModelBounds>.Empty) { bounds[index] = command.Bounds; }
-                    index++;
-                }
-                _indirectCmdBuffer.SetUsedInstanceCount(_materialDrawIndexer + drawCount);
-                material.SetStorageBufferUsageSize("matricesBuffer", _materialDrawIndexer + drawCount);
-                material.SetStorageBufferUsageSize("boundsBuffer", _materialDrawIndexer + drawCount);
-            }
-            // bind graphics pipeline, probably check if the pipeline is already bound
-            material.BindPipeline(frameInfo);
-
-            // bind descriptor sets
-
-            // bind Mesh buffers
-            BindAndDrawDirectMesh(frameInfo.CommandBuffer, material, _materialDrawIndexer, drawCount);
-            _materialDrawIndexer += drawCount;
-            _lastBoundDMB = null;
-        }
-
-        public unsafe void BindAndDrawDirectMesh(VkCommandBuffer cmd, MaterialV2 material, uint startIndex, uint drawCount)
-        {
-            BindCorrectBuffers(cmd, material.VertexBindings, material.VertexAttributes);
-
-            Vulkan.vkCmdDrawIndexedIndirect(cmd,
-                    IndirectDrawVkBuffer,
-                    startIndex * (uint)sizeof(VkDrawIndexedIndirectCommand),
-                    drawCount,
-                    (uint)sizeof(VkDrawIndexedIndirectCommand));
-        }
-
-        public unsafe void DrawIndirect(VkCommandBuffer cmd)
-        {
-            Vulkan.vkCmdDrawIndexedIndirect(cmd,
-                IndirectDrawVkBuffer,
-                0,
-                IndirectDrawBufferLength,
-                (uint)sizeof(VkDrawIndexedIndirectCommand));
-        }
         public void Dispose()
         {
             if (_disposed) return;
@@ -639,7 +568,6 @@ namespace VECS
             {
                 buffer.Dispose();
             }
-            _indirectCmdBuffer?.Dispose();
             _indexOffsetBuffer?.Dispose();
             _indexBuffer?.Dispose();
 
@@ -910,37 +838,6 @@ namespace VECS
 
             _subMeshInfo[subMeshIndex] = newData;
 
-        }
-
-        internal void FlushDrawQueue()
-        {
-
-            int index = 0;
-            var indirect = _indirectCmdBuffer.HostBuffer;
-            while (_drawQueue.Count > 0)
-            {
-                var command = _drawQueue.Dequeue();
-                var draw = command.VkDraw;
-                //draw.firstInstance = (uint)index;
-                indirect[index] = draw;
-                index++;
-            }
-        }
-
-        internal void Enqueue(VkDrawIndexedIndirectCommand drawCommand, ModelMatrices matrices, ModelBounds bounds)
-        {
-            _drawQueue.Enqueue(new(drawCommand, matrices, bounds));
-        }
-
-        internal void Enqueue(DrawCommand drawCommand)
-        {
-            _drawQueue.Enqueue(drawCommand);
-        }
-
-        internal void Enqueue(DrawCommand drawCommand, int materialDrawIndex)
-        {
-            drawCommand.VkDraw.firstInstance = (uint)materialDrawIndex;
-            Enqueue(drawCommand);
         }
 
         #endregion

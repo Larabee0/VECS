@@ -53,7 +53,7 @@ namespace Planets
 
             var entities = _planetRenderQuery.GetEntities();
 
-            var indirectCmdBuffers = DirectSubMesh.GetSubMeshAtIndex(entityManager.GetComponent<DirectSubMeshIndex>(entities[0])).DirectMeshBuffer.IndirectDrawBuffer;
+            SwapChainBuffer<VkDrawIndexedIndirectCommand> indirectCmdBuffers = null; // DirectSubMesh.GetSubMeshAtIndex(entityManager.GetComponent<DirectSubMeshIndex>(entities[0])).DirectMeshBuffer.IndirectDrawBuffer;
 
             var cam = entityManager.GetComponent<Camera>(_cameraQuery.GetEntities()[0]);
 
@@ -215,7 +215,7 @@ namespace Planets
             writer.WriteBuffer(0, modelMatricesBuffer.DescriptorInfo());
             material.BindDescriptorSet(rendererFrameInfo, writer);
             meshSet.BindBuffers(cmdBuffer);
-            meshSet.DrawIndirect(cmdBuffer);
+            //meshSet.DrawIndirect(cmdBuffer);
         }
 
         public override void OnDestroy(EntityManager entityManager)

@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Numerics;
-using System.Runtime.InteropServices;
 using VECS.ECS.Transforms;
 using Vortice.Vulkan;
 
@@ -104,7 +103,6 @@ namespace VECS.ECS.Presentation.Systems
             for (int i = 1; i < _directMeshCmdRegions.Keys.Count; i++)
             {
                 region.IncrementAlt();
-                //region = _directMeshCmdRegions[i];
                 region.Count = _directMeshDraws[i];
                 _directMeshCmdRegions[i] = region;
                 _meshNextCmdRegion[i] = new() { StartIndex = region.StartIndex };
@@ -195,7 +193,7 @@ namespace VECS.ECS.Presentation.Systems
 
                 if (EarlyDrawCommand.MateriallyDifferent(lastCmd, cmd))
                 {
-                    material.EnqueueDrawCmdV2(lastCmd, storageBufferRegion, meshSubRegion);
+                    material.EnqueueDrawCmd(lastCmd, storageBufferRegion, meshSubRegion);
 
                     if (lastCmd.MaterialIndex != cmd.MaterialIndex)
                     {
@@ -206,6 +204,7 @@ namespace VECS.ECS.Presentation.Systems
                         matrices = material.GetStorageBuffer<ModelMatrices>("matricesBuffer");
                         bounds = material.GetStorageBuffer<ModelBounds>("boundsBuffer");
                     }
+
                     if (lastCmd.MaterialVariant != cmd.MaterialVariant)
                     {
                         materialVariantDrawIndex = 0;
@@ -223,7 +222,6 @@ namespace VECS.ECS.Presentation.Systems
                     lastCmd = cmd;
                 }
 
-                //directMesh.Enqueue(cmd.DrawCommand, materialVariantDrawIndex);
                 var draw = cmd.DrawCommand.VkDraw;
                 draw.firstInstance = (uint)materialVariantDrawIndex;
 
@@ -242,12 +240,7 @@ namespace VECS.ECS.Presentation.Systems
                 _directMeshCmdRegionIndex[cmd.DirectMesh]++;
             }
 
-            material.EnqueueDrawCmdV2(new(lastCmd.MaterialIndex, lastCmd.MaterialVariant, storageBufferRegion, lastCmd.MaterialEntity, lastCmd.DirectMesh, meshSubRegion));
-
-            foreach (DirectMesh mesh in _directMeshMap.Values)
-            {
-                mesh.FlushDrawQueue();
-            }
+            material.EnqueueDrawCmd(new(lastCmd.MaterialIndex, lastCmd.MaterialVariant, storageBufferRegion, lastCmd.MaterialEntity, lastCmd.DirectMesh, meshSubRegion));
 
             _cullCompute.Cull(rendererFrameInfo, (uint)_earlyDrawCommands.Length, _indirectCmdBuffer, _modelBoundsBuffer);
 
@@ -260,7 +253,7 @@ namespace VECS.ECS.Presentation.Systems
             foreach (MaterialV2 materialV2 in _materialsMap.Values)
             {
                 //materialV2.ExecuteDrawCommandsV2(rendererFrameInfo);
-                materialV2.ExecuteDrawCommandsV3(rendererFrameInfo, _indirectCmdBuffer);
+                materialV2.ExecuteDrawCommands(rendererFrameInfo, _indirectCmdBuffer);
             }
         }
     }

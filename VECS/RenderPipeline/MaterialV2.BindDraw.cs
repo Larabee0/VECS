@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Vortice.Vulkan;
+﻿using Vortice.Vulkan;
 
 namespace VECS
 {
@@ -59,16 +54,6 @@ namespace VECS
             BindPipeline(frameInfo);
             UpdateSetsToWrite(frameInfo, 0, 0);
             BindDescriptors(frameInfo);
-        }
-
-        private unsafe void DrawIndirect(RendererFrameInfo frameInfo,DirectMesh directMeshBuffer)
-        {
-            BindAll(frameInfo);
-            Vulkan.vkCmdDrawIndexedIndirect(frameInfo.CommandBuffer,
-                directMeshBuffer.IndirectDrawVkBuffer,
-                0,
-                directMeshBuffer.IndirectDrawBufferLength,
-                (uint)sizeof(VkDrawIndexedIndirectCommand));
         }
 
         private unsafe void DrawSimple(RendererFrameInfo frameInfo, DirectSubMesh directSubMesh)
@@ -129,37 +114,32 @@ namespace VECS
             }
         }
 
-        internal void EnqueueDrawCmd(VariantMaterialBufferRegion region)
+        internal void EnqueueDrawCmd(MaterialDrawCommand cmd)
         {
-            _drawCommands.Enqueue(region);
+            _drawCommands.Enqueue(cmd);
         }
 
-        internal void EnqueueDrawCmdV2(MaterialDrawCommand cmd)
+        internal void EnqueueDrawCmd(EarlyDrawCommand cmd, BufferRegion storageBufferRegion, BufferRegion meshSubRegion) 
         {
-            _drawCommandsV2.Enqueue(cmd);
+            EnqueueDrawCmd(new MaterialDrawCommand(cmd, storageBufferRegion, meshSubRegion));
         }
 
-        internal void EnqueueDrawCmdV2(EarlyDrawCommand cmd, BufferRegion storageBufferRegion, BufferRegion meshSubRegion) 
+        internal unsafe void ExecuteDrawCommands(RendererFrameInfo rendererFrameInfo, SwapChainBuffer<VkDrawIndexedIndirectCommand> indirectCmdBuffer)
         {
-            EnqueueDrawCmdV2(new MaterialDrawCommand(cmd, storageBufferRegion, meshSubRegion));
-        }
-
-        internal unsafe void ExecuteDrawCommandsV3(RendererFrameInfo rendererFrameInfo, SwapChainBuffer<VkDrawIndexedIndirectCommand> indirectCmdBuffer)
-        {
-            if (_drawCommandsV2.Count > 0)
+            if (_drawCommands.Count > 0)
             {
                 BindPipeline(rendererFrameInfo);
 
-                var command = _drawCommandsV2.Peek();
+                var command = _drawCommands.Peek();
 
                 BindDescriptors(rendererFrameInfo, command.Variant, command.Entity);
 
                 int lastVariant = command.Variant;
                 int lastEntity = command.Entity;
 
-                while (_drawCommandsV2.Count > 0)
+                while (_drawCommands.Count > 0)
                 {
-                    command = _drawCommandsV2.Dequeue();
+                    command = _drawCommands.Dequeue();
 
                     if (lastVariant != command.Variant && lastEntity != command.Entity)
                     {
@@ -190,86 +170,6 @@ namespace VECS
                         indirectCmdBuffer.ActiveVkBuffer,
                         (uint)command.MeshSubRegion.StartIndex * (uint)sizeof(VkDrawIndexedIndirectCommand),
                         (uint)command.MeshSubRegion.Count, (uint)sizeof(VkDrawIndexedIndirectCommand));
-                }
-            }
-        }
-
-        internal void ExecuteDrawCommandsV2(RendererFrameInfo rendererFrameInfo)
-        {
-            if (_drawCommandsV2.Count > 0)
-            {
-                BindPipeline(rendererFrameInfo);
-
-                var command = _drawCommandsV2.Peek();
-
-                BindDescriptors(rendererFrameInfo, command.Variant, command.Entity);
-
-                int lastVariant = command.Variant;
-                int lastEntity = command.Entity;
-
-                while(_drawCommandsV2.Count > 0)
-                {
-                    command = _drawCommandsV2.Dequeue();
-
-                    if (lastVariant != command.Variant && lastEntity != command.Entity)
-                    {
-                        BindMatVariantndEntity(rendererFrameInfo, command.Variant, command.Entity);
-                        lastEntity = command.Entity;
-                        lastVariant = command.Variant;
-                    }
-                    else if(lastVariant != command.Variant)
-                    {
-                        BindMatVariantDesc(rendererFrameInfo, command.Variant);
-                        lastVariant = command.Variant;
-                    }
-                    else if (lastEntity != command.Entity)
-                    {
-                        BindEntityVariantDesc(rendererFrameInfo, command.Entity);
-                        lastEntity = command.Entity;
-                    }
-
-                    for (int i = 0; i < _materialPushConstants.Length; i++)
-                    {
-                        _materialPushConstants[i].PushConstants(rendererFrameInfo, _pipelineLayout);
-                    }
-                    var mesh = DirectMesh.GetMeshAtIndex(command.DirectMesh);
-                    mesh.BindAndDrawDirectMesh(rendererFrameInfo.CommandBuffer, this, (uint)command.MeshSubRegion.StartIndex, (uint)command.MeshSubRegion.Count);
-                }
-            }
-        }
-
-        internal void ExecuteDrawCommands(RendererFrameInfo rendererFrameInfo)
-        {
-            if(_drawCommands.Count > 0)
-            {
-                var command = _drawCommands.Peek();
-                BindPipeline(rendererFrameInfo);
-
-                BindDescriptors(rendererFrameInfo, command.Variant, command.Entity);
-
-                int lastVariant = command.Variant;
-                int lastEntity = command.Entity;
-
-                while (_drawCommands.Count > 0)
-                {
-                    command = _drawCommands.Dequeue();
-                    if(lastVariant != command.Variant)
-                    {
-                        BindDescriptors(rendererFrameInfo, command.Variant, command.Entity);
-                        lastVariant = command.Variant;
-                    }
-                    if (lastEntity != command.Entity)
-                    {
-                        BindDescriptors(rendererFrameInfo, command.Variant, command.Entity);
-                        lastEntity = command.Entity;
-                    }
-
-                    for (int i = 0; i < _materialPushConstants.Length; i++)
-                    {
-                        _materialPushConstants[i].PushConstants(rendererFrameInfo,_pipelineLayout);
-                    }
-                    var mesh = DirectMesh.GetMeshAtIndex(command.DirectMesh);
-                    mesh.BindAndDrawDirectMesh(rendererFrameInfo.CommandBuffer, this, (uint)command.MeshSubRegion.StartIndex, (uint)command.MeshSubRegion.Count);
                 }
             }
         }
@@ -356,7 +256,6 @@ namespace VECS
             }
         }
 
-
         private unsafe void BindMatVariantndEntity(RendererFrameInfo frameInfo, int variant, int entity)
         {
             if (HasEntitySet && HasMaterialSet)
@@ -378,6 +277,5 @@ namespace VECS
                 BindMatVariantDesc(frameInfo, variant);
             }
         }
-
     }
 }

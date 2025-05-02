@@ -6,6 +6,7 @@ using VECS.ECS;
 using VECS.ECS.Presentation;
 using VECS.ECS.Transforms;
 using VECS.LowLevel;
+using System;
 
 namespace Planets.Colour
 {
@@ -83,7 +84,7 @@ namespace Planets.Colour
                         descriptorSet);
                     _objectDataBuffers.WriteFromHostToActiveBuffer();
                     directMesh.BindBuffers(frameInfo.CommandBuffer);
-                    directMesh.DrawIndirect(frameInfo.CommandBuffer);
+                    //directMesh.DrawIndirect(frameInfo.CommandBuffer);
                 });
             }
         }
@@ -94,7 +95,7 @@ namespace Planets.Colour
             if (children.Value.Length > 0)
             {
                 var mesh = DirectSubMesh.GetSubMeshAtIndex(entityManager.GetComponent<DirectSubMeshIndex>(children.Value[0])).DirectMeshBuffer;
-                var drawCmds = mesh.IndirectDrawBuffer.HostBuffer;
+                Span<VkDrawIndexedIndirectCommand> drawCmds = Span<VkDrawIndexedIndirectCommand>.Empty;// mesh.IndirectDrawBuffer.HostBuffer;
                 var objData = _objectDataBuffers.HostBuffer;
 
                 for (int i = 0; i < children.Value.Length; i++)

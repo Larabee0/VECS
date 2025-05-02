@@ -11,13 +11,15 @@ namespace VECS
     public struct CullData
     {
         public Matrix4x4 viewMatrix;
-        public float P00, P11, znear, zfar; // symmetric projection parameters
+        public float P00;
+        public float P11;
+        public float znear;
+        public float zfar; // symmetric projection parameters
         public Vector4 frustum;
         public uint drawCount;
         public int cullingEnabled;
         public int distCull;
     }
-
 
     public sealed class FustrumCull : IDisposable
     {

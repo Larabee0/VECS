@@ -178,18 +178,6 @@ namespace VECS
             Vulkan.vkCmdDrawIndexed(cmd, drawCmd.indexCount, 1, drawCmd.firstIndex, drawCmd.vertexOffset, 0);
         }
 
-        public void PushIndirectDraw(LocalToWorld localToWorld)
-        {
-            PushIndirectDraw(localToWorld.Value);
-        }
-
-        public void PushIndirectDraw(Matrix4x4 transformMatrix)
-        {
-            var matrices = new ModelMatrices(transformMatrix);
-            var bounds = _modelBounds;
-            _directMeshBuffer.Enqueue(IndirectCommand, matrices, bounds);
-        }
-
         public void Reallocate(DirectSubMeshCreateData directSubMeshCreateData)
         {
             _directMeshBuffer.ReallocateSubMesh(_directSubMeshIndex,directSubMeshCreateData);
