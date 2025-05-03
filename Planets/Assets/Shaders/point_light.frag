@@ -1,6 +1,7 @@
 #version 460
 
 layout (location = 0) in vec2 fragOffset;
+layout (location = 1) in vec4 fragColour;
 layout (location = 0) out vec4 outColour;
 
 struct PointLight {
@@ -18,14 +19,6 @@ layout(set = 0,binding = 0) uniform GlobalUbo{
 	PointLight pointLights[10];
 } ubo;
 
-
-layout(push_constant) uniform Push{
-	vec4 position;
-	vec4 colour;
-	float radius;
-	float dstSqrd;
-} push;
-
 const float M_PI = 3.1415926538;
 
 void main(){
@@ -34,5 +27,5 @@ void main(){
 		discard;
 	}
 	float cosDis = 0.5 *( cos(dist * M_PI)+1.0);
-	outColour = vec4(push.colour.xyz+cosDis,cosDis);
+	outColour = vec4(fragColour.xyz+cosDis,cosDis);
 }

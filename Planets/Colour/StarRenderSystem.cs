@@ -6,13 +6,16 @@ using VECS;
 using VECS.ECS;
 using VECS.ECS.Presentation;
 using VECS.ECS.Transforms;
+using Vortice.Vulkan;
 
 namespace Planets.Colour
 {
     public class StarRenderSystem : PresentationSystemBase
     {
-        private Material _pointLightMaterial;
+        private MaterialV2 _pointLightMaterial;
         private EntityQuery _starQuery;
+
+        private SwapChainBuffer<VkDrawIndirectCommand> _draws;
 
         public override void OnCreate(EntityManager entityManager)
         {
@@ -21,10 +24,16 @@ namespace Planets.Colour
                 .WithNone(typeof(Prefab), typeof(DoNotRender))
                 .Build();
 
-            _pointLightMaterial = new Material("point_light.vert", "point_light.frag", typeof(PointLightPushConstant), true, true);
+            _pointLightMaterial = MaterialV2.CreateWithAlphaBlending("point_light.vert", "point_light.frag");
+            _draws = new(1,VkBufferUsageFlags.IndirectBuffer | VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.StorageBuffer,true);
         }
 
-        public override void OnFowardPass(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
+        public override void OnDestroy(EntityManager entityManager)
+        {
+            _draws?.Dispose();
+        }
+
+        public unsafe override void OnFowardPass(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
         {
             if (_starQuery.HasEntities && entityManager.SingletonEntity<MainCamera>(out Entity cameraEntity))
             {
@@ -35,11 +44,14 @@ namespace Planets.Colour
                 }
                 Vector3 cameraPosition = entityManager.GetComponent<LocalToWorld>(cameraEntity).Value.Translation;
                 List<PointLightPushConstant> starsToDraw = new(stars.Count);
+                Span<Vector4> positions = _pointLightMaterial.GetStorageBuffer<Vector4>("starPosBuffer");
+                Span<Vector4> colours = _pointLightMaterial.GetStorageBuffer<Vector4>("starColourBuffer");
                 for (int i = 0; i < stars.Count; i++)
                 {
                     Entity e = stars[i];
                     PointLightPushConstant startData = new(entityManager, e, cameraPosition);
-
+                    positions[i] = startData.position;
+                    colours[i] = startData.colour;
                     rendererFrameInfo.Ubo.PointLights[i] = new PointLight()
                     {
                         Position = startData.position,
@@ -52,17 +64,24 @@ namespace Planets.Colour
                 }
                 rendererFrameInfo.Ubo.NumLights = starsToDraw.Count;
                 starsToDraw.Sort(new PointLightPushConstant());
-                _pointLightMaterial.BindGlobalDescriptorSet(rendererFrameInfo);
-                starsToDraw.ForEach(s => _pointLightMaterial.DrawQuad(rendererFrameInfo, s));
+
+                _pointLightMaterial.BindAll(rendererFrameInfo);
+                _draws.HostBuffer[0] = new()
+                {
+                    firstInstance = 0,
+                    firstVertex = 0,
+                    instanceCount = (uint)starsToDraw.Count,
+                    vertexCount = 6
+                };
+                Vulkan.vkCmdDrawIndirect(rendererFrameInfo.CommandBuffer,_draws.ActiveVkBuffer, 0, 1, (uint)sizeof(VkDrawIndirectCommand));
             }
         }
 
-        [StructLayout(LayoutKind.Sequential, Size = 40)]
+        [StructLayout(LayoutKind.Sequential, Size = 32)]
         private struct PointLightPushConstant : IComparer<PointLightPushConstant>
         {
             public Vector4 position;
             public Vector4 colour;
-            public float radius;
             public float dstSqrd;
 
             public PointLightPushConstant(EntityManager entityManager, Entity starEntity, Vector3 cameraPos)
@@ -73,7 +92,7 @@ namespace Planets.Colour
 
                 position = new(ltw.Translation, 0);
                 colour = star.PointLightColour;
-                radius = scale.X * star.Radius;
+                colour.W = scale.X * star.Radius;
 
                 var offset = cameraPos - ltw.Translation;
                 dstSqrd = Vector3.Dot(offset, offset);

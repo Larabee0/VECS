@@ -27,16 +27,7 @@ layout(std140, set = 1, binding = 0) readonly buffer ObjectMatricesBuffer{
 	ObjectMatrices matrices[];
 }matricesBuffer;
 
-struct ObjectBounds{
-	vec4 bMin;
-	vec4 bMax;
-};
-
-layout(std140, set = 1, binding = 1) readonly buffer ObjectBoundsBuffer{
-	ObjectBounds bounds[];
-}boundsBuffer;
-
-layout(std140, set = 1, binding = 2) readonly buffer ObjectColourBuffer{
+layout(std140, set = 1, binding = 1) readonly buffer ObjectColourBuffer{
 	vec4 colours[];
 } colourBuffer;
 

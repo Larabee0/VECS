@@ -258,6 +258,14 @@ namespace VECS
             return material;
         }
 
+        public static MaterialV2 CreateWithAlphaBlending(string vertexShader, string fragmentShader)
+        {
+            var config = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
+
+            GraphicsPipelineConfigInfo.EnableAlphaBlending(ref config);
+            return Create(vertexShader, fragmentShader, config);
+        }
+
         internal MaterialV2(string vertexShader, string fragmentShader, GraphicsPipelineConfigInfo pipelineConfig, bool actAsGlobal)
         {
             _actAsGlobal = actAsGlobal;
