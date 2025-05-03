@@ -50,16 +50,14 @@ namespace Planets.Colour
                 {
                     Entity e = stars[i];
                     PointLightPushConstant startData = new(entityManager, e, cameraPosition);
+                    var star = entityManager.GetComponent<Star>(e);
                     positions[i] = startData.position;
                     colours[i] = startData.colour;
                     rendererFrameInfo.Ubo.PointLights[i] = new PointLight()
                     {
                         Position = startData.position,
-                        Colour = startData.colour
+                        Colour = star.Colour
                     };
-
-                    var star = entityManager.GetComponent<Star>(e);
-                    startData.colour = star.DrawColour;
                     starsToDraw.Add(startData);
                 }
                 rendererFrameInfo.Ubo.NumLights = starsToDraw.Count;
@@ -91,7 +89,7 @@ namespace Planets.Colour
                 Matrix4x4.Decompose(ltw, out Vector3 scale, out _, out _);
 
                 position = new(ltw.Translation, 0);
-                colour = star.PointLightColour;
+                colour = star.DrawColour;
                 colour.W = scale.X * star.Radius;
 
                 var offset = cameraPos - ltw.Translation;

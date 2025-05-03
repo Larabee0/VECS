@@ -46,9 +46,6 @@ void main(){
 	vec3 positionWorld = starPosBuffer.positions[gl_BaseInstance].xyz
 	+  fragColour.w * fragOffset.x*cameraRightWorld
 	+  fragColour.w * fragOffset.y*cameraUpWorld;
-	
-	//fragColour.w = 1;
 
 	gl_Position = ubo.projectionMatrix * ubo.viewMatrix * vec4(positionWorld,1.0);
-
 }
