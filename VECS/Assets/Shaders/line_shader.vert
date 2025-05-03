@@ -18,18 +18,35 @@ layout(set = 0, binding = 0) uniform GlobalUbo{
 	PointLight pointLights[10];
 } ubo;
 
-layout(push_constant) uniform Push
-{
+struct ObjectMatrices{
 	mat4 modelMatrix; // project * view * model
-} push;
+	mat4 normalMatrix;
+};
+
+layout(std140, set = 1, binding = 0) readonly buffer ObjectMatricesBuffer{
+	ObjectMatrices matrices[];
+}matricesBuffer;
+
+struct ObjectBounds{
+	vec4 bMin;
+	vec4 bMax;
+};
+
+layout(std140, set = 1, binding = 1) readonly buffer ObjectBoundsBuffer{
+	ObjectBounds bounds[];
+}boundsBuffer;
+
+layout(std140, set = 1, binding = 2) readonly buffer ObjectColourBuffer{
+	vec4 colours[];
+} colourBuffer;
 
 void main()
 {
 
-	vec4 positionWorld =  push.modelMatrix * vec4(position, 1.0);
+	ObjectMatrices objectMat = matricesBuffer.matrices[gl_InstanceIndex];
+	vec4 positionWorld =  objectMat.modelMatrix * vec4(position, 1.0);
 	
 	gl_Position = ubo.projectionMatrix * ubo.viewMatrix * positionWorld;
 
-	
-	fragColour = vec3(1,0,0);
+	fragColour = colourBuffer.colours[gl_InstanceIndex].xyz;
 }

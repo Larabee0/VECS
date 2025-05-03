@@ -12,14 +12,16 @@ namespace VECS.ECS.Presentation.Systems
     {
         private EntityQuery _renderBoundsQuery;
         private EntityQuery _cameraQuery;
-        private bool _drawBounds = false;
+        private bool _drawBounds = true;
         private readonly Vector2 _min = new(-1, -1);
         private readonly Vector2 _max = new(1, 1);
         private readonly Vector4[] _fustrumVerts = new Vector4[16];
-        private GPUBuffer<Vector3> _lineBuffer;
+        private GPUBuffer<Vector3> _circleBuffer;
         private GPUBuffer<Vector3> _frustrumBuffer;
         private GPUBuffer<Vector3> _cubeBuffer;
-        private Material _lineMaterial;
+        private MaterialV2 _lineMaterial;
+
+        private SwapChainBuffer<VkDrawIndirectCommand> _drawBuffer;
 
         public Queue<Bounds> AABBQueue = new();
 
@@ -33,12 +35,13 @@ namespace VECS.ECS.Presentation.Systems
                 .WithAll(typeof(CameraPerspective), typeof(Camera), typeof(LocalToWorld))
                 .WithNone(typeof(Prefab),typeof(MainCamera))
                 .Build();
-            _lineBuffer = new(32, VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferDst, true);
-            _frustrumBuffer = new(16, VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferDst, true);
+            _circleBuffer = new(32, VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferDst, true);
+            _frustrumBuffer = new(16*1000, VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferDst, true);
             _cubeBuffer = new(16, VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferDst, true);
+            CreateDrawBuffers();
             CreateWireCube();
 
-            var vertices = _lineBuffer.HostBuffer;
+            var vertices = _circleBuffer.HostBuffer;
             float radians = 0;
             float radPerStep = float.DegreesToRadians(360) / 31;
 
@@ -51,7 +54,7 @@ namespace VECS.ECS.Presentation.Systems
                 radians += radPerStep;
             }
             vertices[^1] = (Vector3.Zero + new Vector3(MathF.Sin(0), -MathF.Cos(0), 0)) * 1f;
-            _lineBuffer.WriteFromHostBuffer();
+            _circleBuffer.WriteFromHostBuffer();
             var pipelineConfigInfo = GraphicsPipelines.GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo(Presenter.Instance.RenderPass,VkPipelineLayout.Null);
 
             pipelineConfigInfo.rasterizationInfo.cullMode = VkCullModeFlags.FrontAndBack;
@@ -59,135 +62,174 @@ namespace VECS.ECS.Presentation.Systems
             pipelineConfigInfo.inputAssemblyInfo.topology = VkPrimitiveTopology.LineStrip;
             pipelineConfigInfo.rasterizationInfo.lineWidth = 1;
 
-            _lineMaterial = new("line_shader.vert", "line_shader.frag", typeof(LTW), [new VkVertexInputBindingDescription(sizeof(Vector3))], [new VkVertexInputAttributeDescription(0, VkFormat.R32G32B32Sfloat, 0)], pipelineConfigInfo);
+            _lineMaterial = MaterialV2.Create("line_shader.vert", "line_shader.frag", pipelineConfigInfo);
         }
 
-        public override void OnFowardPass(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
+        public override void OnFowardPass(EntityManager entityManager, RendererFrameInfo frameInfo)
         {
-            if (_drawBounds && _renderBoundsQuery.HasEntities)
-            {
-                var entities = _renderBoundsQuery.GetEntities();
-                _lineMaterial.BindGlobalDescriptorSet(rendererFrameInfo);
-                Vulkan.vkCmdBindVertexBuffer(rendererFrameInfo.CommandBuffer, 0, _lineBuffer.VkBuffer);
-                for (int i = 0; i < entities.Count; i++)
-                {
-                    var entity = entities[i];
-                    var bounds = entityManager.GetComponent<WorldRenderBounds>(entity);
-                    var center = bounds.Bounds.center;
-                    var radius = (bounds.Radius == Vector3.Zero) ? Vector3.One : bounds.Radius;
-                    LTW a = new()
-                    {
-                        ltw = TransformExtensions.TRS(center, new Vector3(), radius)
-                    };
-                    LTW b = new()
-                    {
-                        ltw = TransformExtensions.TRS(center, new Vector3(float.DegreesToRadians(90),0,0), radius)
-                    };
-                    LTW c = new()
-                    {
-                        ltw = TransformExtensions.TRS(center, new Vector3(0, float.DegreesToRadians(90),  0), radius)
-                    };
-                    LTW d = new()
-                    {
-                        ltw = TransformExtensions.TRS(center, new Vector3(0, 0, float.DegreesToRadians(90)), radius)
-                    };
-                    _lineMaterial.PushConstants(rendererFrameInfo.CommandBuffer, a);
-                    Vulkan.vkCmdDraw(rendererFrameInfo.CommandBuffer, 32, 1, 0, 0);
-                    _lineMaterial.PushConstants(rendererFrameInfo.CommandBuffer, b);
-                    Vulkan.vkCmdDraw(rendererFrameInfo.CommandBuffer, 32, 1, 0, 0);
-                    _lineMaterial.PushConstants(rendererFrameInfo.CommandBuffer, c);
-                    Vulkan.vkCmdDraw(rendererFrameInfo.CommandBuffer, 32, 1, 0, 0);
-                    _lineMaterial.PushConstants(rendererFrameInfo.CommandBuffer, d);
-                    Vulkan.vkCmdDraw(rendererFrameInfo.CommandBuffer, 32, 1, 0, 0);
-                }
-            }
-
             if (InputManager.Instance.GetKeyUp(SDL3.SDL_Keycode.F1))
             {
                 _drawBounds = !_drawBounds;
             }
 
-            if (_cameraQuery.HasEntities && SwapChain.Instance != null)
+            int drawIndex = 0;
+            var matrices = Span<ModelMatrices>.Empty;
+            var colours = Span<Vector4>.Empty;
+            var draws = Span<VkDrawIndirectCommand>.Empty;
+
+            if (AABBQueue.Count > 0 && _cameraQuery.HasEntities
+                || _cameraQuery.HasEntities && SwapChain.Instance != null
+                || _drawBounds && _renderBoundsQuery.HasEntities)
             {
-                if (entityManager.SingletonComponent(out FrameInfo frameInfo)) {
-                    var cameras = _cameraQuery.GetEntities();
-                    _lineMaterial.BindGlobalDescriptorSet(rendererFrameInfo);
-                    for (int i = 0; i < cameras.Count; i++)
-                    {
-                        var cam = cameras[i];
-                        var ltw = entityManager.GetComponent<LocalToWorld>(cam).Value;
-                        if (InputManager.Instance.GetKey(SDL3.SDL_Keycode.Space) && entityManager.SingletonEntity<MainCamera>(out Entity mainCamera))
-                        {
-                            ltw = entityManager.GetComponent<LocalToWorld>(mainCamera).Value;
-                            entityManager.SetComponent(cam,new LocalToWorld() { Value =ltw});
-                        }
-                        var fustrum = entityManager.GetComponent<CameraPerspective>(cam);
-                        Matrix4x4 projection = CameraSystem.GetPerspectiveProject(fustrum, frameInfo.screenAspect);
-                        Matrix4x4 view = CameraSystem.GetViewMatrix(Matrix4x4.Identity);
-                        Matrix4x4.Invert(view * projection, out projection);
-                        float scale = 1;
-                        _fustrumVerts[0] = Vector4.Transform(new Vector4(_min, scale,1),projection);
-                        _fustrumVerts[1] = Vector4.Transform(new Vector4(_min.X, _max.Y, scale, 1),projection);
-                        _fustrumVerts[2] = Vector4.Transform(new Vector4(_max, scale, 1),projection);
-                        _fustrumVerts[3] = Vector4.Transform(new Vector4(_max.X, _min.Y, scale, 1), projection);
-                        _fustrumVerts[4] = Vector4.Transform(new Vector4(_min, scale, 1),projection);
-                        scale = -1;
-                        _fustrumVerts[5] = Vector4.Transform(new Vector4(_min, scale, 1),projection);
-                        _fustrumVerts[6] = Vector4.Transform(new Vector4(_min.X, _max.Y, scale, 1),projection);
-                        _fustrumVerts[7] = Vector4.Transform(new Vector4(_max, scale, 1),projection);
-                        _fustrumVerts[8] = Vector4.Transform(new Vector4(_max.X, _min.Y, scale, 1),projection);
-                        _fustrumVerts[9] = Vector4.Transform(new Vector4(_min.X, _min.Y, scale, 1),projection);
-                        _fustrumVerts[10] = Vector4.Transform(new Vector4(_min.X, _max.Y, scale, 1),projection);
-                        scale = 1;
-                        _fustrumVerts[11] = Vector4.Transform(new Vector4(_min.X, _max.Y, scale, 1),projection);
-                        _fustrumVerts[12] = Vector4.Transform(new Vector4(_max, scale, 1),projection);
-                        scale = -1;
-                        _fustrumVerts[13] = Vector4.Transform(new Vector4(_max, scale, 1),projection);
-                        _fustrumVerts[14] = Vector4.Transform(new Vector4(_max.X, _min.Y, scale, 1),projection);
-                        scale = 1;
-                        _fustrumVerts[15] = Vector4.Transform(new Vector4(_max.X, _min.Y, scale, 1),projection);
-
-                        var buffer = _frustrumBuffer.HostBuffer;
-                        for (int j = 0; j < _fustrumVerts.Length; j++)
-                        {
-                            _fustrumVerts[j].X /= _fustrumVerts[j].W;
-                            _fustrumVerts[j].Y /= _fustrumVerts[j].W;
-                            _fustrumVerts[j].Z /= _fustrumVerts[j].W;
-                            _fustrumVerts[j].W = 1.0f;
-                            buffer[j] = new Vector3(_fustrumVerts[j].X, _fustrumVerts[j].Y, _fustrumVerts[j].Z);
-                        }
-
-                        _frustrumBuffer.WriteFromHostBuffer();
-
-                        Vulkan.vkCmdBindVertexBuffer(rendererFrameInfo.CommandBuffer, 0, _frustrumBuffer.VkBuffer);
-                        _lineMaterial.PushConstants(rendererFrameInfo.CommandBuffer, new LTW() { ltw = ltw });
-                        Vulkan.vkCmdDraw(rendererFrameInfo.CommandBuffer, 16, 1, 0, 0);
-                    } 
-                }
+                _lineMaterial.BindAll(frameInfo);
+                matrices = _lineMaterial.GetStorageBuffer<ModelMatrices>("matricesBuffer");
+                colours = _lineMaterial.GetStorageBuffer<Vector4>("colourBuffer");
+                draws = _drawBuffer.HostBuffer;
             }
 
             if (AABBQueue.Count > 0 && _cameraQuery.HasEntities)
             {
                 var camera = _cameraQuery.GetEntities()[0];
                 var m = entityManager.GetComponent<LocalToWorld>(camera).Value;
-                _lineMaterial.BindGlobalDescriptorSet(rendererFrameInfo);
 
-                Matrix4x4.Decompose(m, out var scale, out var rotation, out var center);
+                Matrix4x4.Decompose(m, out _, out var rotation, out var center);
+
+                draws[0] = new()
+                {
+                    firstVertex = 0,
+                    firstInstance = 0,
+                    vertexCount = 16,
+                    instanceCount = (uint)AABBQueue.Count
+                };
 
                 while (AABBQueue.Count > 0)
                 {
                     var aabb = AABBQueue.Dequeue();
-                    Matrix4x4 trs = TransformExtensions.TRS(center + aabb.center, rotation, aabb.extents);
-                    DrawWireCube(rendererFrameInfo.CommandBuffer, trs);
+                    matrices[drawIndex] = TransformExtensions.TRS(center + aabb.center, rotation, aabb.extents);
+                    colours[drawIndex] = Vector4.One;
+                    drawIndex++;
+                }
+                Vulkan.vkCmdBindVertexBuffer(frameInfo.CommandBuffer, 0, _cubeBuffer.VkBuffer);
+                DrawIndirect(frameInfo, 0, 1);
+            }
+
+            if (_cameraQuery.HasEntities && SwapChain.Instance != null)
+            {
+                if (entityManager.SingletonComponent(out FrameInfo screenAspect))
+                {
+                    var cameras = _cameraQuery.GetEntities();
+                    int offset = drawIndex != 0 ? 1 : 0;
+                    int vertexOffset = 0;
+                    for (int i = 0; i < cameras.Count; i++, vertexOffset += 16)
+                    {
+                        var cam = cameras[i];
+                        var ltw = entityManager.GetComponent<LocalToWorld>(cam).Value;
+                        if (InputManager.Instance.GetKey(SDL3.SDL_Keycode.Space) && entityManager.SingletonEntity<MainCamera>(out Entity mainCamera))
+                        {
+                            ltw = entityManager.GetComponent<LocalToWorld>(mainCamera).Value;
+                            entityManager.SetComponent(cam, new LocalToWorld() { Value = ltw });
+                        }
+                        var fustrum = entityManager.GetComponent<CameraPerspective>(cam);
+                        Matrix4x4 projection = CameraSystem.GetPerspectiveProject(fustrum, screenAspect.screenAspect);
+                        Matrix4x4 view = CameraSystem.GetViewMatrix(Matrix4x4.Identity);
+                        Matrix4x4.Invert(view * projection, out projection);
+                        float scale = 1;
+                        _fustrumVerts[vertexOffset + 0] = Vector4.Transform(new Vector4(_min, scale, 1), projection);
+                        _fustrumVerts[vertexOffset + 1] = Vector4.Transform(new Vector4(_min.X, _max.Y, scale, 1), projection);
+                        _fustrumVerts[vertexOffset + 2] = Vector4.Transform(new Vector4(_max, scale, 1), projection);
+                        _fustrumVerts[vertexOffset + 3] = Vector4.Transform(new Vector4(_max.X, _min.Y, scale, 1), projection);
+                        _fustrumVerts[vertexOffset + 4] = Vector4.Transform(new Vector4(_min, scale, 1), projection);
+                        scale = -1;
+                        _fustrumVerts[vertexOffset + 5] = Vector4.Transform(new Vector4(_min, scale, 1), projection);
+                        _fustrumVerts[vertexOffset + 6] = Vector4.Transform(new Vector4(_min.X, _max.Y, scale, 1), projection);
+                        _fustrumVerts[vertexOffset + 7] = Vector4.Transform(new Vector4(_max, scale, 1), projection);
+                        _fustrumVerts[vertexOffset + 8] = Vector4.Transform(new Vector4(_max.X, _min.Y, scale, 1), projection);
+                        _fustrumVerts[vertexOffset + 9] = Vector4.Transform(new Vector4(_min.X, _min.Y, scale, 1), projection);
+                        _fustrumVerts[vertexOffset + 10] = Vector4.Transform(new Vector4(_min.X, _max.Y, scale, 1), projection);
+                        scale = 1;
+                        _fustrumVerts[vertexOffset + 11] = Vector4.Transform(new Vector4(_min.X, _max.Y, scale, 1), projection);
+                        _fustrumVerts[vertexOffset + 12] = Vector4.Transform(new Vector4(_max, scale, 1), projection);
+                        scale = -1;
+                        _fustrumVerts[vertexOffset + 13] = Vector4.Transform(new Vector4(_max, scale, 1), projection);
+                        _fustrumVerts[vertexOffset + 14] = Vector4.Transform(new Vector4(_max.X, _min.Y, scale, 1), projection);
+                        scale = 1;
+                        _fustrumVerts[vertexOffset + 15] = Vector4.Transform(new Vector4(_max.X, _min.Y, scale, 1), projection);
+
+                        var buffer = _frustrumBuffer.HostBuffer;
+                        for (int j = 0; j < 16; j++)
+                        {
+                            Vector4 vertex = _fustrumVerts[vertexOffset + j];
+                            vertex.X /= vertex.W;
+                            vertex.Y /= vertex.W;
+                            vertex.Z /= vertex.W;
+                            vertex.W = 1.0f;
+                            buffer[vertexOffset + j] = vertex.AsVector3();
+                            _fustrumVerts[vertexOffset + j] = vertex;
+                        }
+
+                        matrices[drawIndex] = ltw;
+                        colours[drawIndex] = Vector4.One;
+
+                        draws[drawIndex] = new()
+                        {
+                            firstInstance = (uint)drawIndex,
+                            firstVertex = (uint)vertexOffset,
+                            instanceCount = 1,
+                            vertexCount = 16
+                        };
+                        drawIndex++;
+                    }
+                    _frustrumBuffer.WriteFromHostBuffer();
+
+                    Vulkan.vkCmdBindVertexBuffer(frameInfo.CommandBuffer, 0, _frustrumBuffer.VkBuffer);
+                    DrawIndirect(frameInfo, offset, cameras.Count);
                 }
             }
+
+            if (_drawBounds && _renderBoundsQuery.HasEntities)
+            {
+                var entities = _renderBoundsQuery.GetEntities();
+                int offset = drawIndex;
+                draws[drawIndex] = new()
+                {
+                    vertexCount = 32,
+                    firstVertex = 0,
+                    firstInstance = (uint)offset,
+                    instanceCount = (uint)entities.Count * 4
+                };
+
+                for (int i = 0; i < entities.Count; i++)
+                {
+                    var entity = entities[i];
+                    var bounds = entityManager.GetComponent<WorldRenderBounds>(entity);
+                    var center = bounds.Bounds.center;
+                    var radius = (bounds.Radius == Vector3.Zero) ? Vector3.One : bounds.Radius;
+                    var a = TransformExtensions.TRS(center, new Vector3(), radius);
+                    var b = TransformExtensions.TRS(center, new Vector3(float.DegreesToRadians(90), 0, 0), radius);
+                    var c = TransformExtensions.TRS(center, new Vector3(0, float.DegreesToRadians(90), 0), radius);
+                    var d = TransformExtensions.TRS(center, new Vector3(0, 0, float.DegreesToRadians(90)), radius);
+
+                    matrices[drawIndex] = a;
+                    matrices[drawIndex + 1] = b;
+                    matrices[drawIndex + 2] = c;
+                    matrices[drawIndex + 3] = d;
+                    colours[drawIndex] = Vector4.One;
+                    colours[drawIndex + 1] = Vector4.One;
+                    colours[drawIndex + 2] = Vector4.One;
+                    colours[drawIndex + 3] = Vector4.One;
+
+                    drawIndex += 4;
+                }
+
+                Vulkan.vkCmdBindVertexBuffer(frameInfo.CommandBuffer, 0, _circleBuffer.VkBuffer);
+                DrawIndirect(frameInfo, offset, 1);
+            }
+
         }
 
-        private void DrawWireCube(VkCommandBuffer commandBuffer, Matrix4x4 ltw)
+        private unsafe void DrawIndirect(RendererFrameInfo frameInfo,int offset, int count)
         {
-            Vulkan.vkCmdBindVertexBuffer(commandBuffer, 0, _cubeBuffer.VkBuffer);
-            _lineMaterial.PushConstants(commandBuffer, new LTW() { ltw = ltw });
-            Vulkan.vkCmdDraw(commandBuffer, 16, 1, 0, 0);
+            Vulkan.vkCmdDrawIndirect(frameInfo.CommandBuffer, _drawBuffer.ActiveVkBuffer, (uint)offset * (uint)sizeof(VkDrawIndirectCommand), (uint)count, (uint)sizeof(VkDrawIndirectCommand));
         }
 
         private void CreateWireCube()
@@ -219,20 +261,20 @@ namespace VECS.ECS.Presentation.Systems
             _cubeBuffer.WriteFromHostBuffer();
         }
 
+        private void CreateDrawBuffers()
+        {
+            _drawBuffer = new(GenericRenderSystemV2.MAX_DRAWS, VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.IndirectBuffer, true);
+        }
+
         public override void OnDestroy(EntityManager entityManager)
         {
 
-            _lineBuffer?.Dispose();
+            _circleBuffer?.Dispose();
             _frustrumBuffer?.Dispose();
             _cubeBuffer?.Dispose();
             _lineMaterial?.Dispose();
-        }
 
-        [StructLayout(LayoutKind.Sequential,Size = 64)]
-        private struct LTW
-        {
-            public Matrix4x4 ltw;
+            _drawBuffer?.Dispose();
         }
-
     }
 }
