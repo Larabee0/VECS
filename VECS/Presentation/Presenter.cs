@@ -154,14 +154,14 @@ namespace VECS
 
             if (NEW_GLOBAL_SET)
             {
-                _unlitMaterial = new MaterialV2("unlit.vert", "unlit.frag", true);
+                _unlitMaterial = new MaterialV2("unlit.vert", "unlit.frag", GraphicsPipelines.GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []), true);
                 _globalDescriptorSetHandler = _unlitMaterial.ApplicationDescriptorSetHandler;
 
-                _litMaterial = new MaterialV2("lit.vert", "lit.frag", false);
+                _litMaterial = MaterialV2.Create("lit.vert", "lit.frag");
                 _unlitMaterial.GetStorageBuffer<Vector4>("colourBuffer").Fill(Vector4.One);
                 _litMaterial.GetStorageBuffer<Vector4>("colourBuffer").Fill(Vector4.One);
 
-                _litTextureMaterial = new MaterialV2("lit_texture.vert", "lit_texture.frag", false);
+                _litTextureMaterial = MaterialV2.Create("lit_texture.vert", "lit_texture.frag");
 
             }
         }

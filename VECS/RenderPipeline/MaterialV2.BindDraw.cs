@@ -49,7 +49,7 @@ namespace VECS
             Vulkan.vkCmdBindDescriptorSets(frameInfo.CommandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, 0, _totalSets, _setsToBind);
         }
 
-        private void BindAll(RendererFrameInfo frameInfo)
+        public void BindAll(RendererFrameInfo frameInfo)
         {
             BindPipeline(frameInfo);
             UpdateSetsToWrite(frameInfo, 0, 0);

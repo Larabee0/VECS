@@ -8,7 +8,7 @@ namespace VECS.ECS.Presentation.Systems
 {
     public class GenericRenderSystemV2 : PresentationSystemBase
     {
-        public const uint MAX_DRAWS = 1000;
+        public const uint MAX_DRAWS = 2000;
         private EntityQuery _renderEntityQuery;
 
         private readonly Dictionary<int, MaterialV2> _materialsMap = [];

@@ -6,6 +6,7 @@ using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
+using VECS.ECS.Presentation.Systems;
 
 namespace VECS
 {
@@ -130,7 +131,7 @@ namespace VECS
             if (ptr != null)
             {
                 Debug.Assert(propertyInfo.Size == sizeof(T), string.Format("(DescriptorSetHandler.GetStorageBuffer) Property {0} with size {1} has mismatched sized wtih target buffer type {2}", propertyInfo.Name, propertyInfo.Size, typeof(T).Name));
-                return new(ptr, (int)DirectMesh.MAX_INDIRECT_COMMANDS);
+                return new(ptr, (int)DEFAULT_STORAGE_BUFFER_COUNT);
             }
             return null;
         }
@@ -151,7 +152,7 @@ namespace VECS
             if (ptr != null)
             {
                 Debug.Assert(propertyInfo.Size == sizeof(T), string.Format("(DescriptorSetHandler.GetStorageBuffer) Property {0} with size {1} has mismatched sized wtih target buffer type {2}", propertyInfo.Name, propertyInfo.Size, typeof(T).Name));
-                return new(ptr, (int)DirectMesh.MAX_INDIRECT_COMMANDS);
+                return new(ptr, (int)DEFAULT_STORAGE_BUFFER_COUNT);
             }
             return null;
         }

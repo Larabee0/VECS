@@ -41,70 +41,31 @@ namespace Planets
         private Texture2d textureWaveB;
 
         private Texture2d textureArrayTerrainShapes;
-        private Material planetLitMaterial;
         private MaterialV2 planetLitMaterialV2;
         private PlanetPropeties planetProperties;
 
         private static readonly bool useComputeShaderForGeneration = true;
         private readonly int subdivisons = 75;
 
-        private readonly bool generateIndirectMeshes = false;
-        private readonly bool newMatieralSystem = true;
-        private static Material indirectMeshMaterial;
         private readonly static Stopwatch _stopwatch = new();
         public ArtifactAuthoring()
         {
             //World.DefaultWorld.CreateSystem<TransformPlanetsSystem>();
-            if (!newMatieralSystem)
-            {
-                World.DefaultWorld.CreateSystem<ColouredRenderSystem>();
-                World.DefaultWorld.CreateSystem<DrawIndirectRenderSystem>();
-            }
-            else
-            {
-                World.DefaultWorld.CreateSystem<GenericRenderSystemV2>();
-            }
+
+            World.DefaultWorld.CreateSystem<GenericRenderSystemV2>();
             World.DefaultWorld.CreateSystem<UpdatePlanetTimeSystem>();
             World.DefaultWorld.CreateSystem<StarRenderSystem>();
             World.DefaultWorld.CreateSystem<DrawBoundsRenderSystem>();
             World.DefaultWorld.CreateSystem<WorldRenderBoundsUpdateSystem>();
             //World.DefaultWorld.CreateSystem<InteractionSystem>();
-            //World.DefaultWorld.CreateSystem<TexturelessRenderSystem>();
 
             EntityManager entityManager = World.DefaultWorld.EntityManager;
 
             CreateMainCamera(entityManager);
 
-            //var cubeSubMesh = CreateDirectCube();
-            //var unlit = new Material("unlit_shader.vert", "unlit_shader.frag", typeof(ModelPushConstantData),
-            //    cubeSubMesh.DirectMeshBuffer.VkBindingDesc,
-            //    cubeSubMesh.DirectMeshBuffer.VkAttributeDesc);
-            //CreateDirectCubeEntity(entityManager, cubeSubMesh, new MaterialIndex()
-            //{
-            //    Value = Material.GetIndexOfMaterial(unlit)
-            //});
             LoadResources();
             LoadStaticResources(entityManager);
             var prefabPlanet = CreatePrefabPlanet(entityManager);
-
-            VertexAttributeDescription[] vertexAttributeDescriptions = [
-                new(VertexAttribute.Position,VertexAttributeFormat.Float3,0,0,0),
-                new(VertexAttribute.Normal,VertexAttributeFormat.Float3,0,1,1),
-                new(VertexAttribute.TexCoord0,VertexAttributeFormat.Float2,0,2,2),
-            ];
-
-            var bindingDescriptions = DirectMesh.GetBindingDescription(vertexAttributeDescriptions);
-            var attributeDescriptions = DirectMesh.GetAttributeDescriptions(vertexAttributeDescriptions);
-
-            indirectMeshMaterial = new Material("white_shader.vert", "white_shader.frag",
-                bindingDescriptions,
-                attributeDescriptions,
-                new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.StorageBuffer, StageFlags = VkShaderStageFlags.Vertex }
-            );
-
-            //var indirectV2 = MaterialV2.Create("planet_shader.vert", "planet_shader.frag");
-
-            //indirectV2.Dispose();
 
             CreateSinglePlanetTestScene(entityManager, prefabPlanet);
 
@@ -253,38 +214,17 @@ namespace Planets
             GeneratePlanet(planetInstance, generator);
 
 
-            if (newMatieralSystem)
+            var childrenEntities = entityManager.GetComponent<Children>(planetInstance).Value;
+            var unlit = MaterialV2.GetIndexOfMaterial(mat);
+            for (int i = 0; i < childrenEntities.Length; i++)
             {
-                var childrenEntities = entityManager.GetComponent<Children>(planetInstance).Value;
-                var unlit = MaterialV2.GetIndexOfMaterial(mat);
-                for (int i = 0; i < childrenEntities.Length; i++)
+                entityManager.AddComponent(childrenEntities[i], new RenderMesh()
                 {
-                    entityManager.AddComponent(childrenEntities[i], new RenderMesh()
-                    {
-                        Material = new() { Material = unlit, Variant = 0, Entity = planetCount-1 },
-                        Mesh = entityManager.GetComponent<DirectSubMeshIndex>(childrenEntities[i])
-                    });
-                }
-                entityManager.RemoveComponentFromHierarchy<DoNotRender>(planetInstance);
+                    Material = new() { Material = unlit, Variant = 0, Entity = planetCount - 1 },
+                    Mesh = entityManager.GetComponent<DirectSubMeshIndex>(childrenEntities[i])
+                });
             }
-            if (generateIndirectMeshes)
-            {
-
-                var childrenEntities = entityManager.GetComponent<Children>(planetInstance).Value;
-                var indirectMatIndex = Material.GetIndexOfMaterial(indirectMeshMaterial);
-                for (int i = 0; i < childrenEntities.Length; i++)
-                {
-                    entityManager.AddComponent(childrenEntities[i], new MaterialIndex()
-                    {
-                        Value = indirectMatIndex
-                    });
-                    entityManager.RemoveComponentFromHierarchy<DoNotRender>(childrenEntities[i]);
-                }
-            }
-            else
-            {
-                entityManager.RemoveComponentFromHierarchy<DoNotRender>(planetInstance);
-            }
+            entityManager.RemoveComponentFromHierarchy<DoNotRender>(planetInstance);
 
             orbitalPlane.AddChildren(entityManager, planetInstance);
 
@@ -363,18 +303,6 @@ namespace Planets
             var bindingDescriptions = DirectMesh.GetBindingDescription(vertexAttributeDescriptions);
             var attributeDescriptions = DirectMesh.GetAttributeDescriptions(vertexAttributeDescriptions);
 
-            planetLitMaterial = new Material("planet_shader_v1.vert", "planet_shader_v1.frag", bindingDescriptions,
-                attributeDescriptions,
-                new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.UniformBuffer, StageFlags = VkShaderStageFlags.Fragment },
-                new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Fragment },
-                new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Fragment },
-                new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Fragment },
-                new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Fragment },
-                new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Fragment },
-                new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Fragment },
-                new DescriptorSetBinding() { Count = 1, DescriptorType = VkDescriptorType.StorageBuffer, StageFlags = VkShaderStageFlags.Vertex }
-            );
-
             planetProperties = new PlanetPropeties()
             {
                 WaveA = Texture2d.GetIndexOfTexture(textureWaveA),
@@ -405,7 +333,6 @@ namespace Planets
             entityManager.AddComponent<DoNotRender>(planet);
             entityManager.AddComponent<Prefab>(planet);
             entityManager.AddComponent(planet, new MaterialIndexV2 { Material = MaterialV2.GetIndexOfMaterial(planetLitMaterialV2) });
-            entityManager.AddComponent(planet, new MaterialIndex { Value = Material.GetIndexOfMaterial(planetLitMaterial) });
 
             InitialiseTiles(entityManager, planet, subdivisons);
 

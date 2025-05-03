@@ -29,7 +29,7 @@ namespace VECS.Compute
         public unsafe GenericComputePipeline(string computeShaderName, params DescriptorSetBinding[] bindings)
         {
             _device = GraphicsDevice.Instance;
-            var shaderFilePath = Material.GetShaderFilePath(computeShaderName);
+            var shaderFilePath = MaterialV2.GetShaderFilePath(computeShaderName);
             Vulkan.vkCreateShaderModule(_device.Device, File.ReadAllBytes(shaderFilePath), null, out _shaderModule);
 
             _descriptorSetLayout = new DescriptorSetLayout.Builder()
@@ -90,7 +90,7 @@ namespace VECS.Compute
                 size = (uint)pushConstantsType.StructLayoutAttribute.Size
             };
 
-            var shaderFilePath = Material.GetShaderFilePath(computeShaderName);
+            var shaderFilePath = MaterialV2.GetShaderFilePath(computeShaderName);
             Vulkan.vkCreateShaderModule(_device.Device, File.ReadAllBytes(shaderFilePath), null, out _shaderModule);
 
             _descriptorSetLayout = new DescriptorSetLayout.Builder()

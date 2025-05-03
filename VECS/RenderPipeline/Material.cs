@@ -489,7 +489,7 @@ namespace VECS
         /// <param name="shaderName"></param>
         /// <returns></returns>
         /// <exception cref="FileNotFoundException"></exception>
-        public static string GetShaderFilePath(string shaderName)
+        private static string GetShaderFilePath(string shaderName)
         {
             string shaderFilePath = Path.Combine(Application.ExecutingDirectory, string.Format("Assets/Shaders/{0}.spv", shaderName));
 

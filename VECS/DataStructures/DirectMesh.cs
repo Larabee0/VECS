@@ -27,6 +27,8 @@ namespace VECS
                 NormalMatrix = Matrix4x4.Transpose(NormalMatrix);
             }
         }
+
+        public static implicit operator ModelMatrices(Matrix4x4 m) => new(m);
     }
 
     [StructLayout(LayoutKind.Sequential, Size = 32)]
@@ -54,7 +56,6 @@ namespace VECS
         private static readonly HashSet<Type> validVertexFormats = [typeof(float), typeof(Vector2), typeof(Vector3), typeof(Vector4)];
 #endif
 
-        public const ulong MAX_INDIRECT_COMMANDS = 1000;
         public const VkBufferUsageFlags DIRECT_MESH_VERTEX_BUFFER_FLAGS = VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.TransferSrc | VkBufferUsageFlags.StorageBuffer;
         public const VkBufferUsageFlags DIRECT_MESH_INDEX_BUFFER_FLAGS = VkBufferUsageFlags.IndexBuffer | VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.TransferSrc | VkBufferUsageFlags.StorageBuffer;
         private static GraphicsDevice Device => GraphicsDevice.Instance;

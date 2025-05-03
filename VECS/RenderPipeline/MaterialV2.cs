@@ -197,13 +197,13 @@ namespace VECS
         private readonly DescriptorBinding[] _materialBindings;
         // descriptor set 0 contains application wide data (camera data, lighting data)
         // these sets are handled by the presenter
-        private readonly Dictionary<string, int> applicationGlobalBindings;
+        private readonly Dictionary<string, int> _applicationGlobalBindings;
         // descriptor set 1 contains shared descriptors at the material level (textures, shader properties)
         // these ones we keep locally by create buffers and descriptor sets directly
-        private readonly Dictionary<string, int> materialGlobalBindings;
+        private readonly Dictionary<string, int> _materialGlobalBindings;
         // descriptor set 2 contains per entity descriptors (matrices, entity specific shader properties)
         // also keep the sets locally but the buffers that make up the sets are stored externally*
-        private readonly Dictionary<string, int> entityBindings;
+        private readonly Dictionary<string, int> _entityBindings;
 
         private int _applicationDescriptorSetHandlerIndex = -1;
         private int _materialDescriptorSetHandlerIndex = -1;
@@ -220,9 +220,9 @@ namespace VECS
 
         public VkPipelineLayout PipeLineLayout => _pipelineLayout;
 
-        public bool HasApplicationSet => applicationGlobalBindings.Count > 0;
-        public bool HasMaterialSet => materialGlobalBindings.Count > 0;
-        public bool HasEntitySet => entityBindings.Count > 0;
+        public bool HasApplicationSet => _applicationGlobalBindings.Count > 0;
+        public bool HasMaterialSet => _materialGlobalBindings.Count > 0;
+        public bool HasEntitySet => _entityBindings.Count > 0;
 
         public VkVertexInputBindingDescription[] VertexBindings => _graphicsPipelineConfigInfo.BindingDescriptions;
         public VkVertexInputAttributeDescription[] VertexAttributes => _graphicsPipelineConfigInfo.AttributeDescriptions;
@@ -236,7 +236,7 @@ namespace VECS
 
         public static MaterialV2 Create(string vertexShader, string fragmentShader)
         {
-            var material = new MaterialV2(vertexShader, fragmentShader, false);
+            var material = new MaterialV2(vertexShader, fragmentShader, GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []), false);
 
             if (material.HasApplicationSet)
             {
@@ -246,7 +246,19 @@ namespace VECS
             return material;
         }
 
-        internal MaterialV2(string vertexShader, string fragmentShader, bool actAsGlobal)
+        public static MaterialV2 Create(string vertexShader, string fragmentShader, GraphicsPipelineConfigInfo config)
+        {
+            var material = new MaterialV2(vertexShader, fragmentShader, config, false);
+
+            if (material.HasApplicationSet)
+            {
+                material._allHandlers[0] = Presenter.Instance.GlobalSetHandler;
+            }
+
+            return material;
+        }
+
+        internal MaterialV2(string vertexShader, string fragmentShader, GraphicsPipelineConfigInfo pipelineConfig, bool actAsGlobal)
         {
             _actAsGlobal = actAsGlobal;
             byte[] vertexBytes = GetShaderBytes(vertexShader);
@@ -257,18 +269,16 @@ namespace VECS
 
             if(GraphicsPipelineUtil.GetVertexInputState(spirVert, out VkVertexInputBindingDescription[] vertBindings, out VkVertexInputAttributeDescription[] vertAttributes))
             {
-                _graphicsPipelineConfigInfo = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo(vertBindings, vertAttributes);
+                pipelineConfig.BindingDescriptions = vertBindings;
+                pipelineConfig.AttributeDescriptions = vertAttributes;
             }
-            else
-            {
-                _graphicsPipelineConfigInfo = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
-            }
+            _graphicsPipelineConfigInfo = pipelineConfig;
             _graphicsPipelineConfigInfo.renderPass = Presenter.Instance.RenderPass;
             _materialBindings = GraphicsPipelineUtil.GenerateSharedDescriptorBindings(spirVert, spirFrag);
 
-            applicationGlobalBindings = GraphicsPipelineUtil.ExtractBindingsForSet(0, _materialBindings);
-            materialGlobalBindings = GraphicsPipelineUtil.ExtractBindingsForSet(1, _materialBindings);
-            entityBindings = GraphicsPipelineUtil.ExtractBindingsForSet(2, _materialBindings);
+            _applicationGlobalBindings = GraphicsPipelineUtil.ExtractBindingsForSet(0, _materialBindings);
+            _materialGlobalBindings = GraphicsPipelineUtil.ExtractBindingsForSet(1, _materialBindings);
+            _entityBindings = GraphicsPipelineUtil.ExtractBindingsForSet(2, _materialBindings);
 
             GenerateDescriptorSetLayouts();
             _totalSets = (uint)_allLayouts.Length;
@@ -309,7 +319,7 @@ namespace VECS
             {
                 if (_actAsGlobal)
                 {
-                    CreateDescriptorSetHandler(index,DescriptorLevel.Game, applicationGlobalBindings);
+                    CreateDescriptorSetHandler(index,DescriptorLevel.Game, _applicationGlobalBindings);
                 }
                 else
                 {
@@ -320,13 +330,13 @@ namespace VECS
             }
             if (HasMaterialSet)
             {
-                CreateDescriptorSetHandler(index,DescriptorLevel.Material, materialGlobalBindings);
+                CreateDescriptorSetHandler(index,DescriptorLevel.Material, _materialGlobalBindings);
                 _materialDescriptorSetHandlerIndex = index;
                 index++;
             }
             if (HasEntitySet)
             {
-                CreateDescriptorSetHandler(index, DescriptorLevel.Entity, entityBindings);
+                CreateDescriptorSetHandler(index, DescriptorLevel.Entity, _entityBindings);
                 _entityDescriptorSetHandlerIndex = index;
             }
         }
@@ -338,8 +348,8 @@ namespace VECS
             int workingBindingIndex = 0;
             if (HasApplicationSet)
             {
-                workingBindings = new DescriptorBinding[applicationGlobalBindings.Count];
-                foreach (var item in applicationGlobalBindings)
+                workingBindings = new DescriptorBinding[_applicationGlobalBindings.Count];
+                foreach (var item in _applicationGlobalBindings)
                 {
                     workingBindings[workingBindingIndex] = _materialBindings[item.Value];
                     workingBindings[workingBindingIndex].UpdateShaderStage(VkShaderStageFlags.AllGraphics);
@@ -352,8 +362,8 @@ namespace VECS
             if (HasMaterialSet)
             {
                 workingBindingIndex = 0;
-                workingBindings = new DescriptorBinding[materialGlobalBindings.Count];
-                foreach (var item in materialGlobalBindings)
+                workingBindings = new DescriptorBinding[_materialGlobalBindings.Count];
+                foreach (var item in _materialGlobalBindings)
                 {
                     workingBindings[workingBindingIndex] = _materialBindings[item.Value];
                     workingBindingIndex++;
@@ -365,8 +375,8 @@ namespace VECS
             if (HasEntitySet)
             {
                 workingBindingIndex = 0;
-                workingBindings = new DescriptorBinding[entityBindings.Count];
-                foreach (var item in entityBindings)
+                workingBindings = new DescriptorBinding[_entityBindings.Count];
+                foreach (var item in _entityBindings)
                 {
                     workingBindings[workingBindingIndex] = _materialBindings[item.Value];
                     workingBindingIndex++;
@@ -425,17 +435,17 @@ namespace VECS
 
         public DescriptorBinding GetBinding(string name)
         {
-            if(entityBindings.TryGetValue(name, out var binding))
+            if(_entityBindings.TryGetValue(name, out var binding))
             {
                 return _materialBindings[binding];
             }
 
-            if (materialGlobalBindings.TryGetValue(name, out binding))
+            if (_materialGlobalBindings.TryGetValue(name, out binding))
             {
                 return _materialBindings[binding];
             }
 
-            if (applicationGlobalBindings.TryGetValue(name, out binding))
+            if (_applicationGlobalBindings.TryGetValue(name, out binding))
             {
                 return _materialBindings[binding];
             }
@@ -495,7 +505,7 @@ namespace VECS
             Materials.RemoveAt(index);
         }
 
-        public static byte[] GetShaderBytes(string shaderName)
+        public static string GetShaderFilePath(string shaderName)
         {
             string shaderFilePath = Path.Combine(Application.ExecutingDirectory, string.Format("Assets/Shaders/{0}.spv", shaderName));
 
@@ -504,7 +514,12 @@ namespace VECS
                 throw new FileNotFoundException(string.Format("Shader file not found at the specified file path:\n{0}", shaderFilePath));
             }
 
-            return File.ReadAllBytes(shaderFilePath);
+            return shaderFilePath;
+        }
+
+        public static byte[] GetShaderBytes(string shaderName)
+        {
+            return File.ReadAllBytes(GetShaderFilePath(shaderName));
         }
 
         public static int GetIndexOfMaterial(MaterialV2 material)
