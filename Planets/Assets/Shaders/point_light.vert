@@ -1,12 +1,12 @@
 #version 460
 
 const vec2 OFFSETS[6] = vec2[](
+	vec2(-1.0,-1.0),
+	vec2(-1.0,1.0),
+	vec2(1.0,-1.0),
 	vec2(1.0,-1.0),
 	vec2(-1.0,1.0),
-	vec2(-1.0,-1.0),
-	vec2(1.0,1.0),
-	vec2(-1.0,1.0),
-	vec2(1.0,-1.0)
+	vec2(1.0,1.0)
 );
 
 layout (location = 0) out vec2 fragOffset;
@@ -47,7 +47,7 @@ void main(){
 	+  fragColour.w * fragOffset.x*cameraRightWorld
 	+  fragColour.w * fragOffset.y*cameraUpWorld;
 	
-	fragColour.w = 1;
+	//fragColour.w = 1;
 
 	gl_Position = ubo.projectionMatrix * ubo.viewMatrix * vec4(positionWorld,1.0);
 
