@@ -12,7 +12,7 @@ namespace Planets.Colour
 {
     public class StarRenderSystem : PresentationSystemBase
     {
-        private MaterialV2 _pointLightMaterial;
+        private Material _pointLightMaterial;
         private EntityQuery _starQuery;
 
         private SwapChainBuffer<VkDrawIndirectCommand> _draws;
@@ -24,7 +24,7 @@ namespace Planets.Colour
                 .WithNone(typeof(Prefab), typeof(DoNotRender))
                 .Build();
 
-            _pointLightMaterial = MaterialV2.CreateWithAlphaBlending("point_light.vert", "point_light.frag");
+            _pointLightMaterial = Material.CreateWithAlphaBlending("point_light.vert", "point_light.frag");
             _draws = new(1,VkBufferUsageFlags.IndirectBuffer | VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.StorageBuffer,true);
         }
 

@@ -6,12 +6,12 @@ using Vortice.Vulkan;
 
 namespace VECS.ECS.Presentation.Systems
 {
-    public class GenericRenderSystemV2 : PresentationSystemBase
+    public class GenericRenderSystem : PresentationSystemBase
     {
         public const uint MAX_DRAWS = 2000;
         private EntityQuery _renderEntityQuery;
 
-        private readonly Dictionary<int, MaterialV2> _materialsMap = [];
+        private readonly Dictionary<int, Material> _materialsMap = [];
         private readonly Dictionary<int, DirectMesh> _directMeshMap = [];
         private readonly Dictionary<int, BufferRegion> _meshNextCmdRegion = [];
         private readonly SortedDictionary<Vector2Int, uint> _materialVairantCounts = [];
@@ -68,10 +68,10 @@ namespace VECS.ECS.Presentation.Systems
 
         private void ResetMaterials()
         {
-            int matCount = MaterialV2.Materials.Count;
+            int matCount = Material.Materials.Count;
             for (int i = 0; i < matCount; i++)
             {
-                var material = MaterialV2.Materials[i];
+                var material = Material.Materials[i];
                 _materialsMap.TryAdd(i, material);
                 _materialVairantCounts[new(i, 0)] = 0;
                 for (int j = 0; j < material.MaterialVariantCount; j++)
@@ -178,7 +178,7 @@ namespace VECS.ECS.Presentation.Systems
             BufferRegion meshSubRegion = _meshNextCmdRegion[lastCmd.DirectMesh];
             BufferRegion storageBufferRegion = default;
 
-            MaterialV2 material = _materialsMap[lastCmd.MaterialIndex];
+            Material material = _materialsMap[lastCmd.MaterialIndex];
 
             Span<VkDrawIndexedIndirectCommand> cullDraws = _indirectCmdBuffer.HostBuffer;
             Span<ModelBounds> cullBounds = _modelBoundsBuffer.HostBuffer;
@@ -243,17 +243,15 @@ namespace VECS.ECS.Presentation.Systems
             material.EnqueueDrawCmd(new(lastCmd.MaterialIndex, lastCmd.MaterialVariant, storageBufferRegion, lastCmd.MaterialEntity, lastCmd.DirectMesh, meshSubRegion));
 
             _cullCompute.Cull(rendererFrameInfo, (uint)_earlyDrawCommands.Length, _indirectCmdBuffer, _modelBoundsBuffer);
-
         }
 
         public override void OnFowardPass(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
         {
             if (!_renderEntityQuery.HasEntities) { return; }
 
-            foreach (MaterialV2 materialV2 in _materialsMap.Values)
+            foreach (Material mat in _materialsMap.Values)
             {
-                //materialV2.ExecuteDrawCommandsV2(rendererFrameInfo);
-                materialV2.ExecuteDrawCommands(rendererFrameInfo, _indirectCmdBuffer);
+                mat.ExecuteDrawCommands(rendererFrameInfo, _indirectCmdBuffer);
             }
         }
     }

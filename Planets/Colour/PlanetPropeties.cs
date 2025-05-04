@@ -23,23 +23,14 @@ namespace Planets.Colour
         public float OrbitalSpeed;
         public float DayNightSpeed;
 
-        public PlanetTileShaderParmeters GetShaderParmeters(float timeSinceStart)
+        public PlanetTileShaderParmeters ShaderParmeters => new()
         {
-            return new()
-            {
-                ElevationMin = ElevationMinMax.X,
-                ElevationMax = ElevationMinMax.Y,
-                TextureCount = Texture2d.GetTextureAtIndex(TextureArrayIndex).ImageExtent.depth,
-                TerrainScale = TerrainScale,
-                OceanBrightness = OceanBrightness
-            };
-        }
-
-        public unsafe void WriteShaderParamters(GPUBuffer<PlanetTileShaderParmeters> paramsBuffer)
-        {
-            PlanetTileShaderParmeters shaderParameters = GetShaderParmeters(Time.TimeSinceStartUp);
-            paramsBuffer.WriteToBuffer(&shaderParameters);
-        }
+            ElevationMin = ElevationMinMax.X,
+            ElevationMax = ElevationMinMax.Y,
+            TextureCount = Texture2d.GetTextureAtIndex(TextureArrayIndex).ImageExtent.depth,
+            TerrainScale = TerrainScale,
+            OceanBrightness = OceanBrightness
+        };
     }
 
     /// <summary>

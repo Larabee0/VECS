@@ -3,7 +3,7 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
-    public sealed partial class MaterialV2
+    public sealed partial class Material
     {
         public void SetPushConstantInt(string property, int value)
         {

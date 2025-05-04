@@ -14,7 +14,7 @@ namespace Planets
         public override void OnCreate(EntityManager entityManager)
         {
             _planetRenderQuery = new EntityQuery(entityManager)
-                .WithAll(typeof(Children), typeof(PlanetPropeties), typeof(LocalToWorld), typeof(MaterialIndexV2))
+                .WithAll(typeof(Children), typeof(PlanetPropeties), typeof(LocalToWorld), typeof(MaterialIndex))
                 .WithNone(typeof(DoNotRender), typeof(Prefab))
                 .Build();
         }
@@ -27,12 +27,12 @@ namespace Planets
                 HashSet<int> materials = new (entities.Count);
                 for (int i = 0; i < entities.Count; i++)
                 {
-                    materials.Add(entityManager.GetComponent<MaterialIndexV2>(entities[0]).Material);
+                    materials.Add(entityManager.GetComponent<MaterialIndex>(entities[0]).Material);
                 }
                 float time = Time.TimeSinceStartUp;
                 foreach (var matIndex in materials)
                 {
-                    var mat = MaterialV2.GetMaterialAtIndex(matIndex);
+                    var mat = Material.GetMaterialAtIndex(matIndex);
                     mat.SetPushConstantFloat("time", time);
                     mat.SetPushConstantFloat("sineTime", MathF.Sin(time));
                     mat.SetPushConstantFloat("cosineTime", MathF.Cos(time));

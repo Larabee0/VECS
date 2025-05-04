@@ -41,7 +41,7 @@ namespace Planets
         private Texture2d textureWaveB;
 
         private Texture2d textureArrayTerrainShapes;
-        private MaterialV2 planetLitMaterialV2;
+        private Material planetLitMaterial;
         private PlanetPropeties planetProperties;
 
         private static readonly bool useComputeShaderForGeneration = true;
@@ -52,7 +52,7 @@ namespace Planets
         {
             //World.DefaultWorld.CreateSystem<TransformPlanetsSystem>();
 
-            World.DefaultWorld.CreateSystem<GenericRenderSystemV2>();
+            World.DefaultWorld.CreateSystem<GenericRenderSystem>();
             World.DefaultWorld.CreateSystem<UpdatePlanetTimeSystem>();
             World.DefaultWorld.CreateSystem<StarRenderSystem>();
             World.DefaultWorld.CreateSystem<DrawBoundsRenderSystem>();
@@ -94,14 +94,14 @@ namespace Planets
                 prefabPlanet, starParent,
                 new(-15f, 0, 0),
                 3,
-                5, 12, planetLitMaterialV2);
+                5, 12, planetLitMaterial);
 
             Entity planetOrbiterB = InstantiateNewOrbitalPlanet(entityManager,
                 PlanetPresets.ShapeGeneratorRandomEarthLike(),
                 CreatePrefabPlanet(entityManager), starParent,
                 new(15f, 0, 0),
                 3,
-                5, 12, planetLitMaterialV2);
+                5, 12, planetLitMaterial);
 
             aStar.AddChildren(entityManager, [planetOrbiterA, planetOrbiterB]);
             //aStar.AddChildren(entityManager, [planetOrbiterA]);
@@ -205,7 +205,7 @@ namespace Planets
             planet.AddChildren(entityManager, moonOrbiter);
         }
 
-        private Entity InstantiateNewOrbitalPlanet(EntityManager entityManager, ShapeGenerator generator, Entity planetPrefab, Parent parent, Vector3 initialPosition, float scale, float orbitalSpeed, float dayNightSpeed, MaterialV2 mat = null)
+        private Entity InstantiateNewOrbitalPlanet(EntityManager entityManager, ShapeGenerator generator, Entity planetPrefab, Parent parent, Vector3 initialPosition, float scale, float orbitalSpeed, float dayNightSpeed, Material mat = null)
         {
             Entity orbitalPlane = entityManager.CreateEntity();
             entityManager.AddComponent<Rotation>(orbitalPlane);
@@ -215,7 +215,7 @@ namespace Planets
 
 
             var childrenEntities = entityManager.GetComponent<Children>(planetInstance).Value;
-            var unlit = MaterialV2.GetIndexOfMaterial(mat);
+            var unlit = Material.GetIndexOfMaterial(mat);
             for (int i = 0; i < childrenEntities.Length; i++)
             {
                 entityManager.AddComponent(childrenEntities[i], new RenderMesh()
@@ -279,10 +279,10 @@ namespace Planets
             entityManager.AddComponent(vaseFlat, new Scale() { Value = new(10) });
         }
 
-        public void AddRenderMeshComponents(Entity entity, MaterialV2 mat, int variant, int entityVariant, DirectSubMesh mesh, EntityManager entityManager)
+        public void AddRenderMeshComponents(Entity entity, Material mat, int variant, int entityVariant, DirectSubMesh mesh, EntityManager entityManager)
         {
             entityManager.AddComponent<Translation>(entity);
-            entityManager.AddComponent(entity,new RenderMesh() { Mesh = mesh.GetSubMeshIndex(), Material = new() { Material = MaterialV2.GetIndexOfMaterial(mat), Variant = variant, Entity = entityVariant } });
+            entityManager.AddComponent(entity,new RenderMesh() { Mesh = mesh.GetSubMeshIndex(), Material = new() { Material = Material.GetIndexOfMaterial(mat), Variant = variant, Entity = entityVariant } });
             entityManager.AddComponent(entity, mesh.GetSubMeshIndex());
         }
 
@@ -313,12 +313,12 @@ namespace Planets
                 OceanBrightness = 5f
             };
 
-            planetLitMaterialV2 = MaterialV2.Create("planet_shader.vert", "planet_shader.frag");
-            planetLitMaterialV2.SetUniform("planetProperties", planetProperties.GetShaderParmeters(0));
-            planetLitMaterialV2.SetTextureArray("texTerrain", textureArrayTerrainShapes);
-            planetLitMaterialV2.SetTexture("texWaveA", textureWaveA);
-            planetLitMaterialV2.SetTexture("texWaveB", textureWaveC);
-            planetLitMaterialV2.SetTexture("texWaveC", textureWaveB);
+            planetLitMaterial = Material.Create("planet_shader.vert", "planet_shader.frag");
+            planetLitMaterial.SetUniform("planetProperties", planetProperties.ShaderParmeters);
+            planetLitMaterial.SetTextureArray("texTerrain", textureArrayTerrainShapes);
+            planetLitMaterial.SetTexture("texWaveA", textureWaveA);
+            planetLitMaterial.SetTexture("texWaveB", textureWaveC);
+            planetLitMaterial.SetTexture("texWaveC", textureWaveB);
         }
 
         private Entity CreatePrefabPlanet(EntityManager entityManager)
@@ -332,7 +332,7 @@ namespace Planets
             entityManager.AddComponent<Children>(planet);
             entityManager.AddComponent<DoNotRender>(planet);
             entityManager.AddComponent<Prefab>(planet);
-            entityManager.AddComponent(planet, new MaterialIndexV2 { Material = MaterialV2.GetIndexOfMaterial(planetLitMaterialV2) });
+            entityManager.AddComponent(planet, new MaterialIndex { Material = Material.GetIndexOfMaterial(planetLitMaterial) });
 
             InitialiseTiles(entityManager, planet, subdivisons);
 
@@ -455,9 +455,9 @@ namespace Planets
                 properties.SteepTexture = Texture2d.GetIndexOfTexture(generator.ColourGenerator.steepTexture);
                 properties.ElevationMinMax = new(generator.MinMax.Min, generator.MinMax.Max);
                 World.DefaultWorld.EntityManager.SetComponent(planetRoot, properties);
-                planetLitMaterialV2.SetUniform("planetProperties", properties.GetShaderParmeters(0),0, planetCount);
-                planetLitMaterialV2.SetTexture("texMainColour", generator.ColourGenerator.colourTexture, 0, planetCount);
-                planetLitMaterialV2.SetTexture("texSteepColour", generator.ColourGenerator.steepTexture, 0, planetCount);
+                planetLitMaterial.SetUniform("planetProperties", properties.ShaderParmeters,0, planetCount);
+                planetLitMaterial.SetTexture("texMainColour", generator.ColourGenerator.colourTexture, 0, planetCount);
+                planetLitMaterial.SetTexture("texSteepColour", generator.ColourGenerator.steepTexture, 0, planetCount);
 
                 planetCount++;
             }
@@ -486,15 +486,6 @@ namespace Planets
         }
 
         public static void Destroy() { }
-
-        public static Entity CreateDirectCubeEntity(EntityManager entityManager, DirectSubMesh cubeMesh, MaterialIndex mat)
-        {
-            Entity cube = entityManager.CreateEntity();
-            entityManager.AddComponent<Translation>(cube);
-            entityManager.AddComponent(cube, cubeMesh.GetSubMeshIndex());
-            entityManager.AddComponent(cube, mat);
-            return cube;
-        }
 
         /// <summary>
         /// Creates a cube directly for a mesh instead of loading it manually

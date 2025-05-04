@@ -18,7 +18,7 @@ namespace VECS.ECS.Presentation.Systems
         private GPUBuffer<Vector3> _circleBuffer;
         private GPUBuffer<Vector3> _frustrumBuffer;
         private GPUBuffer<Vector3> _cubeBuffer;
-        private MaterialV2 _lineMaterial;
+        private Material _lineMaterial;
 
         private SwapChainBuffer<VkDrawIndirectCommand> _drawBuffer;
 
@@ -61,7 +61,7 @@ namespace VECS.ECS.Presentation.Systems
             pipelineConfigInfo.inputAssemblyInfo.topology = VkPrimitiveTopology.LineStrip;
             pipelineConfigInfo.rasterizationInfo.lineWidth = 1;
 
-            _lineMaterial = MaterialV2.Create("line_shader.vert", "line_shader.frag", pipelineConfigInfo);
+            _lineMaterial = Material.Create("line_shader.vert", "line_shader.frag", pipelineConfigInfo);
         }
 
         public override void OnFowardPass(EntityManager entityManager, RendererFrameInfo frameInfo)
@@ -262,7 +262,7 @@ namespace VECS.ECS.Presentation.Systems
 
         private void CreateDrawBuffers()
         {
-            _drawBuffer = new(GenericRenderSystemV2.MAX_DRAWS, VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.IndirectBuffer, true);
+            _drawBuffer = new(GenericRenderSystem.MAX_DRAWS, VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.IndirectBuffer, true);
         }
 
         public override void OnDestroy(EntityManager entityManager)

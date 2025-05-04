@@ -50,15 +50,15 @@ namespace VECS
         internal List<(int, GPUBuffer)> SwapChainBufferDisposalQueue => _swapChainBufferDisposalQueue;
 
 
-        private MaterialV2 _unlitMaterial;
-        private MaterialV2 _litMaterial;
-        private MaterialV2 _litTextureMaterial;
+        private Material _unlitMaterial;
+        private Material _litMaterial;
+        private Material _litTextureMaterial;
         private Texture2d _fallbackTexture;
         private Entity frameInfoEntity;
 
-        public MaterialV2 Unlit =>_unlitMaterial;
-        public MaterialV2 Lit => _litMaterial;
-        public MaterialV2 LitTexture => _litTextureMaterial;
+        public Material Unlit =>_unlitMaterial;
+        public Material Lit => _litMaterial;
+        public Material LitTexture => _litTextureMaterial;
 
         public VkRenderPass RenderPass => _renderer.RenderPass;
         public VkDescriptorSetLayout GlobalSetLayout => NEW_GLOBAL_SET ? _globalDescriptorSetHandler.VkDescriptorSetLayout : _globalDescriptorSetLayout.SetLayout;
@@ -154,14 +154,14 @@ namespace VECS
 
             if (NEW_GLOBAL_SET)
             {
-                _unlitMaterial = new MaterialV2("unlit.vert", "unlit.frag", GraphicsPipelines.GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []), true);
+                _unlitMaterial = new Material("unlit.vert", "unlit.frag", GraphicsPipelines.GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []), true);
                 _globalDescriptorSetHandler = _unlitMaterial.ApplicationDescriptorSetHandler;
 
-                _litMaterial = MaterialV2.Create("lit.vert", "lit.frag");
+                _litMaterial = Material.Create("lit.vert", "lit.frag");
                 _unlitMaterial.GetStorageBuffer<Vector4>("colourBuffer").Fill(Vector4.One);
                 _litMaterial.GetStorageBuffer<Vector4>("colourBuffer").Fill(Vector4.One);
 
-                _litTextureMaterial = MaterialV2.Create("lit_texture.vert", "lit_texture.frag");
+                _litTextureMaterial = Material.Create("lit_texture.vert", "lit_texture.frag");
 
             }
         }
@@ -324,7 +324,7 @@ namespace VECS
                     _unlitMaterial.Update(frameInfo);
                     _unlitMaterial.Flush(frameInfo);
                     frameInfo.GlobalDescriptorSet = _unlitMaterial.ApplicationDescriptorSetHandler.ActiveVkDescriptorSet;
-                    MaterialV2.Materials.ForEach(m => m.Update(frameInfo));
+                    Material.Materials.ForEach(m => m.Update(frameInfo));
                     //_unlitMaterial.Flush(frameInfo);
                 }
 
@@ -366,11 +366,6 @@ namespace VECS
         /// </summary>
         public void Dispose()
         {
-            for (int i = Material.Materials.Count - 1; i >= 0; i--)
-            {
-                Material.Materials[i].Dispose();
-            }
-            
             for (int i = Texture2d.Textures.Count - 1; i >= 0; i--)
             {
                 Texture2d.Textures[i].Dispose();
@@ -381,9 +376,9 @@ namespace VECS
                 DirectMesh.DirectMeshes[i].Dispose();
             }
 
-            for (int i = MaterialV2.Materials.Count - 1; i >= 0; i--)
+            for (int i = Material.Materials.Count - 1; i >= 0; i--)
             {
-                MaterialV2.Materials[i].Dispose();
+                Material.Materials[i].Dispose();
             }
 
             _globalDescriptorSetHandler?.Dispose();

@@ -190,7 +190,7 @@ namespace VECS.LowLevel
             config.AttributeDescriptions = [];
             config.BindingDescriptions = [];
 
-            _blitPipeline = new(_device, MaterialV2.GetShaderFilePath("fullscreen.vert"), MaterialV2.GetShaderFilePath("blit.frag"), config);
+            _blitPipeline = new(_device, Material.GetShaderFilePath("fullscreen.vert"), Material.GetShaderFilePath("blit.frag"), config);
             _blitVertexBuffer = new(3, VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferDst, false);
             _blitVertexBuffer.FillBufferSingleTimeCmd(0);
         }

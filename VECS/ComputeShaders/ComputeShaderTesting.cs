@@ -28,7 +28,7 @@ namespace VECS
         public unsafe ComputeShaderTesting()
         {
             _device = GraphicsDevice.Instance;
-            var filePath = MaterialV2.GetShaderFilePath("basic_compute_shader.comp");
+            var filePath = Material.GetShaderFilePath("basic_compute_shader.comp");
 
             Vulkan.vkCreateShaderModule(_device.Device, File.ReadAllBytes(filePath), null, out _computeShaderModule);
 

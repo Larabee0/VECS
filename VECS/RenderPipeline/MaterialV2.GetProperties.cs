@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace VECS
 {
-    public sealed partial class MaterialV2
+    public sealed partial class Material
     {
         public int GetInt(string property)
         {

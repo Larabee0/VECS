@@ -179,10 +179,10 @@ namespace VECS
         }
     }
 
-    public sealed partial class MaterialV2 : IDisposable
+    public sealed partial class Material : IDisposable
     {
-        private static readonly List<MaterialV2> _materials = [];
-        public static List<MaterialV2> Materials => _materials;
+        private static readonly List<Material> _materials = [];
+        public static List<Material> Materials => _materials;
 
         private GraphicsPipelineConfigInfo _graphicsPipelineConfigInfo;
         private VkDescriptorSetLayout _applicationDescriptorLayout;
@@ -234,9 +234,9 @@ namespace VECS
         private readonly bool _actAsGlobal = false;
         private bool _disposed = false;
 
-        public static MaterialV2 Create(string vertexShader, string fragmentShader)
+        public static Material Create(string vertexShader, string fragmentShader)
         {
-            var material = new MaterialV2(vertexShader, fragmentShader, GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []), false);
+            var material = new Material(vertexShader, fragmentShader, GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []), false);
 
             if (material.HasApplicationSet)
             {
@@ -246,9 +246,9 @@ namespace VECS
             return material;
         }
 
-        public static MaterialV2 Create(string vertexShader, string fragmentShader, GraphicsPipelineConfigInfo config)
+        public static Material Create(string vertexShader, string fragmentShader, GraphicsPipelineConfigInfo config)
         {
-            var material = new MaterialV2(vertexShader, fragmentShader, config, false);
+            var material = new Material(vertexShader, fragmentShader, config, false);
 
             if (material.HasApplicationSet)
             {
@@ -258,7 +258,7 @@ namespace VECS
             return material;
         }
 
-        public static MaterialV2 CreateWithAlphaBlending(string vertexShader, string fragmentShader)
+        public static Material CreateWithAlphaBlending(string vertexShader, string fragmentShader)
         {
             var config = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
 
@@ -266,7 +266,7 @@ namespace VECS
             return Create(vertexShader, fragmentShader, config);
         }
 
-        internal MaterialV2(string vertexShader, string fragmentShader, GraphicsPipelineConfigInfo pipelineConfig, bool actAsGlobal)
+        internal Material(string vertexShader, string fragmentShader, GraphicsPipelineConfigInfo pipelineConfig, bool actAsGlobal)
         {
             _actAsGlobal = actAsGlobal;
             byte[] vertexBytes = GetShaderBytes(vertexShader);
@@ -493,14 +493,14 @@ namespace VECS
             if (World.DefaultWorld != null && World.DefaultWorld.EntityManager != null)
             {
                 var entityManager = World.DefaultWorld.EntityManager;
-                var allMeshEntities = entityManager.GetAllEntitiesWithComponent<MaterialIndexV2>();
+                var allMeshEntities = entityManager.GetAllEntitiesWithComponent<MaterialIndex>();
                 allMeshEntities?.ForEach(e =>
                 {
-                    var materialIndex = entityManager.GetComponent<MaterialIndexV2>(e);
+                    var materialIndex = entityManager.GetComponent<MaterialIndex>(e);
 
                     if (materialIndex.Material == index)
                     {
-                        entityManager.RemoveComponent<MaterialIndexV2>(e);
+                        entityManager.RemoveComponent<MaterialIndex>(e);
                     }
                     else if (materialIndex.Material > index)
                     {
@@ -530,12 +530,12 @@ namespace VECS
             return File.ReadAllBytes(GetShaderFilePath(shaderName));
         }
 
-        public static int GetIndexOfMaterial(MaterialV2 material)
+        public static int GetIndexOfMaterial(Material material)
         {
             return Materials.IndexOf(material);
         }
 
-        public static MaterialV2 GetMaterialAtIndex(int index)
+        public static Material GetMaterialAtIndex(int index)
         {
             index = Math.Max(0, index);
             return index < Materials.Count ? Materials[index] : null;
