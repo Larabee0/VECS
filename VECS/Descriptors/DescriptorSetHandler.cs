@@ -301,7 +301,7 @@ namespace VECS
 
         public void WriteFromBuffers(int frameIndex)
         {
-            if (!_child)
+            if (!_child && _bindingBuffers != null)
             {
                 for (int i = 0; i < _bindingBuffers.Length; i++)
                 {

@@ -20,7 +20,7 @@ namespace VECS
 
         public static readonly List<Texture2d> Textures = [];
 
-        public static Texture2d Fallback => Textures[0];
+        public static Texture2d Fallback => Textures.Count == 0 ? null : Textures[0];
 
         private VkDescriptorImageInfo _imageDescriptor;
 
@@ -34,7 +34,7 @@ namespace VECS
         private VkSampler _textureSampler;
 
         private bool _disposed;
-
+        public VkFormat Format => _imageFormat;
         public GPUImage TextureImage => _textureImage;
 
         public VkExtent3D ImageExtent => _imageExtents;
@@ -177,6 +177,8 @@ namespace VECS
             _device = GraphicsDevice.Instance;
             _textureImage = new(imageCreateInfo);
             _imageExtents = imageCreateInfo.extent;
+            _imageFormat = imageCreateInfo.format;
+            _imageImageViewType = viewInfo.viewType;
             viewInfo.image = _textureImage.VkImage;
             if (Vulkan.vkCreateImageView(_device.Device, viewInfo, null, out _textureImageView) != VkResult.Success)
             {
@@ -268,6 +270,10 @@ namespace VECS
 
         public unsafe void CreateSampler(VkSamplerCreateInfo samplierInfo)
         {
+            if(_textureSampler != VkSampler.Null)
+            {
+                Vulkan.vkDestroySampler(_device.Device,_textureSampler);
+            }
 
             if (Vulkan.vkCreateSampler(_device.Device, samplierInfo, null, out _textureSampler) != VkResult.Success)
             {
@@ -302,6 +308,11 @@ namespace VECS
             {
                 throw new Exception("Failed to create texture image view!");
             }
+        }
+
+        internal void SetImageLayoutDirect(VkImageLayout layout)
+        {
+            _imageLayout = layout;
         }
 
         /// <summary>
@@ -344,6 +355,14 @@ namespace VECS
                 sourceStage = VkPipelineStageFlags.TopOfPipe;
                 destinationStage = VkPipelineStageFlags.Transfer;
             }
+            else if(_imageLayout == VkImageLayout.ColorAttachmentOptimal && newLayout == VkImageLayout.ShaderReadOnlyOptimal)
+            {
+                barrier.srcAccessMask = VkAccessFlags.ColorAttachmentRead | VkAccessFlags.ColorAttachmentWrite;
+                barrier.dstAccessMask = VkAccessFlags.ShaderRead;
+
+                sourceStage = VkPipelineStageFlags.ColorAttachmentOutput;
+                destinationStage = VkPipelineStageFlags.FragmentShader;
+            }
             else if (_imageLayout == VkImageLayout.TransferDstOptimal && newLayout == VkImageLayout.ShaderReadOnlyOptimal)
             {
                 barrier.srcAccessMask = VkAccessFlags.TransferWrite;
@@ -352,7 +371,7 @@ namespace VECS
                 sourceStage = VkPipelineStageFlags.Transfer;
                 destinationStage = VkPipelineStageFlags.FragmentShader;
             }
-            else if(_imageLayout == VkImageLayout.TransferDstOptimal && newLayout == VkImageLayout.General)
+            else if (_imageLayout == VkImageLayout.TransferDstOptimal && newLayout == VkImageLayout.General)
             {
                 barrier.srcAccessMask = VkAccessFlags.TransferWrite;
                 barrier.dstAccessMask = VkAccessFlags.DepthStencilAttachmentRead | VkAccessFlags.DepthStencilAttachmentWrite;

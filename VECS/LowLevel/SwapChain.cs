@@ -1,80 +1,43 @@
 ﻿using System;
-using System.Collections.Concurrent;
 using System.Numerics;
 using System.Runtime.InteropServices;
-using System.Threading;
 using VECS.Compute;
 using Vortice.Vulkan;
 
 namespace VECS.LowLevel
 {
-    public sealed class SwapChain : IDisposable
+    public sealed partial class SwapChain : IDisposable
     {
         public const int MAX_FRAMES_IN_FLIGHT = 3;
-        public static SwapChain Instance { get; private set; }
-
-        private readonly GraphicsDevice _device;
-        private readonly SwapChain _oldSwapChain;
-
-
-        private readonly ConcurrentQueue<(VkCommandBuffer, uint, bool)> _submissionQueue = [];
-        private readonly Mutex _submissionMutex = new();
-        private Thread _submissionThread;
-        private uint _nextFrameIndex;
-        private VkResult _submittedFrameResult;
-        private VkResult _nextFrameResult;
-
-        public uint NextFrameIndex => _nextFrameIndex;
-        public VkResult SubmittedFrameResult => _submittedFrameResult;
-        public VkResult NextFrameResult => _submittedFrameResult;
-
+        internal static SwapChain Instance { get; private set; }
 
         private int _currentFrame = 0;
         private VkExtent2D _windowExtent;
         private VkExtent2D _shadowExtent = new(1024 * 4, 1024 * 4);
 
 
-        private GenericComputePipeline _depthReducePipeline;
-        private uint _depthPyramidWidth;
-        private uint _depthPyramidHeight;
-        private uint _depthPyramidLevels;
-
         private VkRenderPass _renderPass;
         private VkRenderPass _shadowPass;
         private VkRenderPass _copyPass;
 
-        public uint DepthPyramidWidth=> _depthPyramidWidth;
-        public uint DepthPyramidHeight=> _depthPyramidHeight;
+        internal VkRenderPass RenderPass =>_renderPass;
+        internal VkRenderPass ShadowPass => _shadowPass;
+        internal VkRenderPass CopyPass => _copyPass;
 
-        public VkRenderPass RenderPass =>_renderPass;
-        public VkRenderPass ShadowPass => _shadowPass;
-        public VkRenderPass CopyPass => _copyPass;
-
-        private VkFormat _renderFormat;
-        private VkFormat _depthFormat;
+        private VkFormat RenderFormat => RawRenderImage.Format;
+        private VkFormat DepthFormat => DepthImage.Format;
         
         private Texture2d _rawRenderImage;
         private Texture2d _depthImage;
         private Texture2d _shadowImage;
-        private Texture2d _depthPyramidImage;
         
-        private readonly VkImageView[] _depthPyramidMips = new VkImageView[16];
 
-        private VkSampler _depthSampler;
-        private VkSampler _smoothSampler;
         private VkSampler _shadowSampler;
 
-        public VkDescriptorImageInfo DepthPyramid => new()
-        {
-            sampler = _depthSampler,
-            imageView = _depthPyramidImage.TextureImageView,
-            imageLayout = VkImageLayout.General
-        };
+        internal VkDescriptorImageInfo DepthPyramid => _depthImage.GetImageInfo;
 
-        public VkSampler SmoothSampler => _smoothSampler;
-        public Texture2d RawRenderImage => _rawRenderImage;
-        public Texture2d DepthImage => _depthImage;
-        public Texture2d DepthPyramidImage => _depthPyramidImage;
+        internal Texture2d RawRenderImage => _rawRenderImage;
+        internal Texture2d DepthImage => _depthImage;
 
         private VkExtent2D _swapChainExtent;
         private VkSwapchainKHR _swapChain;
@@ -84,7 +47,6 @@ namespace VECS.LowLevel
         private VkImageView[] _swapChainImageViews;
 
         private VkFramebuffer[] _swapChainFrameBuffer;
-
 
         private VkFramebuffer _forwardFramebuffer;
         private VkFramebuffer _shadowFramebuffer;
@@ -99,48 +61,42 @@ namespace VECS.LowLevel
         private VkFence[] _imagesInFlight;
         private VkFence _uploadFence;
 
-        public int ImageCount => _swapChainImages.Length;
-        public VkExtent2D SwapChainExtent => _swapChainExtent;
+        internal int ImageCount => _swapChainImages.Length;
+        internal VkExtent2D SwapChainExtent => _swapChainExtent;
 
-        public float ExtentAspectRatio => (float)SwapChainExtent.width / (float)SwapChainExtent.height;
+        internal float ExtentAspectRatio => (float)SwapChainExtent.width / (float)SwapChainExtent.height;
+        private static GraphicsDevice GraphicsDevice => GraphicsDevice.Instance;
+        private static VkDevice Device => GraphicsDevice.Device;
 
-        private VkDevice Device => _device.Device;
+        internal VkExtent2D ShadowExtent =>_shadowExtent;
+        internal VkFramebuffer ShadowFrameBuffer =>_shadowFramebuffer;
 
-        public VkExtent2D ShadowExtent =>_shadowExtent;
-        public VkFramebuffer ShadowFrameBuffer =>_shadowFramebuffer;
+        internal VkFramebuffer ForwardFrameBuffer => _forwardFramebuffer;
 
-        public VkFramebuffer ForwardFrameBuffer => _forwardFramebuffer;
-
-        public uint DepthPyramidLevels => _depthPyramidLevels;
-
-        public SwapChain(VkExtent2D extent)
+        internal SwapChain(VkExtent2D extent)
         {
-            _device = GraphicsDevice.Instance;
             _windowExtent = extent;
-            Init();
-            Instance = this;
-        }
-        public SwapChain(VkExtent2D extent, SwapChain previous)
-        {
-            _device = GraphicsDevice.Instance;
-            _windowExtent = extent;
-            _oldSwapChain = previous;
-
-            Init();
-            _oldSwapChain.Dispose();
-            _oldSwapChain = null;
+            Init(null);
             Instance = this;
         }
 
-        private void Init()
+        internal SwapChain(VkExtent2D extent, SwapChain previous)
         {
-            CreateSwapChain();
+            _windowExtent = extent;
+
+            Init(previous);
+            previous.Dispose();
+            Instance = this;
+        }
+
+        private void Init(SwapChain previous)
+        {
+            CreateSwapChain(previous);
             CreateSwapChainImageViews();
             
             CreateRenderImage();
             CreateDepthImage();
             CreateShadowImage();
-            CreateDepthPyramid();
             CreateAdditionalSamplers();
 
             CreateFowardRenderPass();
@@ -153,10 +109,10 @@ namespace VECS.LowLevel
             StartSubmissionThread();
         }
 
-        private unsafe void CreateSwapChain()
+        private unsafe void CreateSwapChain(SwapChain oldSwapChain)
         {
 
-            var swapChainSupport = _device.SwapChainSupport;
+            var swapChainSupport = GraphicsDevice.SwapChainSupport;
             VkSurfaceFormatKHR surfaceFormat = ChooseSwapSurfaceFormat(swapChainSupport.formats);
             VkPresentModeKHR presentMode = ChooseSwapPresentMode(swapChainSupport.presentModes);
             VkExtent2D extent = ChooseSwapExtent(swapChainSupport.capabilities);
@@ -171,7 +127,7 @@ namespace VECS.LowLevel
 
             VkSwapchainCreateInfoKHR createInfo = new()
             {
-                surface = _device.Surface,
+                surface = GraphicsDevice.Surface,
                 minImageCount = imageCount,
                 imageFormat = surfaceFormat.format,
                 imageColorSpace = surfaceFormat.colorSpace,
@@ -180,7 +136,7 @@ namespace VECS.LowLevel
                 imageUsage = VkImageUsageFlags.ColorAttachment
             };
 
-            var indices = _device.PhysicalQueueFamilies;
+            var indices = GraphicsDevice.PhysicalQueueFamilies;
 
             uint[] queueFamilyIndices = [(uint)indices.graphicsFamily, (uint)indices.presentFamily];
 
@@ -205,14 +161,14 @@ namespace VECS.LowLevel
             createInfo.compositeAlpha = VkCompositeAlphaFlagsKHR.Opaque;
             createInfo.presentMode = presentMode;
             createInfo.clipped = true;
-            createInfo.oldSwapchain = _oldSwapChain == null ? VkSwapchainKHR.Null : _oldSwapChain._swapChain;
+            createInfo.oldSwapchain = oldSwapChain == null ? VkSwapchainKHR.Null : oldSwapChain._swapChain;
 
-            if (Vulkan.vkCreateSwapchainKHR(_device.Device, createInfo, null, out _swapChain) != VkResult.Success)
+            if (Vulkan.vkCreateSwapchainKHR(Device, createInfo, null, out _swapChain) != VkResult.Success)
             {
                 throw new Exception("Failed to create swap chain!");
             }
 
-            var swapChainImagesSpan = Vulkan.vkGetSwapchainImagesKHR(_device.Device, _swapChain);
+            var swapChainImagesSpan = Vulkan.vkGetSwapchainImagesKHR(Device, _swapChain);
 
             _swapChainImages = new VkImage[swapChainImagesSpan.Length];
             swapChainImagesSpan.CopyTo(_swapChainImages);
@@ -243,14 +199,13 @@ namespace VECS.LowLevel
                     subresourceRange = subresourceRange,
                 };
 
-                if (Vulkan.vkCreateImageView(_device.Device, viewInfo, null, out _swapChainImageViews[i]) != VkResult.Success)
+                if (Vulkan.vkCreateImageView(Device, viewInfo, null, out _swapChainImageViews[i]) != VkResult.Success)
                 {
                     throw new Exception("Failed to create texture image view!");
                 }
             }
-
         }
-        
+
         private unsafe void CreateRenderImage()
         {
             VkExtent3D renderImageExtent = new()
@@ -259,9 +214,9 @@ namespace VECS.LowLevel
                 height = _windowExtent.height,
                 depth = 1
             };
-            
-            _renderFormat = VkFormat.R32G32B32A32Sfloat;
-            _rawRenderImage = new(_renderFormat, renderImageExtent, VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.Sampled, true);
+
+            _rawRenderImage = new(VkFormat.R32G32B32A32Sfloat, renderImageExtent, VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.Sampled, true);
+            _rawRenderImage.SetImageLayoutDirect(VkImageLayout.ShaderReadOnlyOptimal);
         }
 
         private unsafe void CreateDepthImage()
@@ -272,8 +227,7 @@ namespace VECS.LowLevel
                 height = _windowExtent.height,
                 depth = 1
             };
-            _depthFormat = VkFormat.D32Sfloat;
-            _depthImage = new(_depthFormat, depthImageExtent, VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.Sampled, true);
+            _depthImage = new(VkFormat.D32Sfloat, depthImageExtent, VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.Sampled, true);
         }
 
         private unsafe void CreateShadowImage()
@@ -284,84 +238,11 @@ namespace VECS.LowLevel
                 height = _shadowExtent.height,
                 depth = 1
             };
-            _shadowImage = new(_depthFormat, shadowImageExtent, VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.Sampled, true);
-        }
-
-        private unsafe void CreateDepthPyramid()
-        {
-            _depthPyramidWidth = PreviousPow2(_windowExtent.width);
-            _depthPyramidHeight = PreviousPow2(_windowExtent.height);
-            _depthPyramidLevels = GetImageMipLevels(_depthPyramidWidth, _depthPyramidHeight);
-            VkExtent3D pyramidExtent = new()
-            {
-                width = _depthPyramidWidth,
-                height = _depthPyramidHeight,
-                depth = 1
-            };
-
-            VkImageCreateInfo pyramidInfo = new()
-            {
-                format = VkFormat.R32Sfloat,
-                usage = VkImageUsageFlags.Sampled | VkImageUsageFlags.Storage | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.TransferDst,
-                extent = pyramidExtent,
-                imageType = VkImageType.Image2D,
-                mipLevels = _depthPyramidLevels,
-                arrayLayers = 1,
-                samples = VkSampleCountFlags.Count1,
-                tiling = VkImageTiling.Optimal
-            };
-
-            VkImageViewCreateInfo pyramidViewInfo = new()
-            {
-                format = VkFormat.R32Sfloat,
-                viewType = VkImageViewType.Image2D,
-                subresourceRange = new()
-                {
-                    baseMipLevel = 0,
-                    levelCount = _depthPyramidLevels,
-                    baseArrayLayer = 0,
-                    layerCount = 1,
-                    aspectMask = VkImageAspectFlags.Color
-                }
-            };
-
-            _depthPyramidImage = new(pyramidInfo, pyramidViewInfo, true);
-
-            for (uint i = 0; i < _depthPyramidLevels; i++)
-            {
-                VkImageViewCreateInfo levelInfo = new()
-                {
-                    format = VkFormat.R32Sfloat,
-                    image = _depthPyramidImage.TextureImage.VkImage,
-                    viewType = VkImageViewType.Image2D,
-                    subresourceRange = new()
-                    {
-                        baseMipLevel = i,
-                        levelCount = 1,
-                        baseArrayLayer = 0,
-                        layerCount = 1,
-                        aspectMask = VkImageAspectFlags.Color
-                    }
-                };
-                
-                if (Vulkan.vkCreateImageView(Device, levelInfo, null, out VkImageView pyramid) != VkResult.Success)
-                {
-                    throw new Exception("Failed to create depth pyramid mip map level image view");
-                }
-
-                _depthPyramidMips[i] = pyramid;
-            }
-            _depthReducePipeline = new("depthReduce.comp", typeof(DepthReduceData),
-                new() { DescriptorType = VkDescriptorType.StorageImage, StageFlags = VkShaderStageFlags.Compute, Count = 1 },
-                new() { DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Compute, Count = 1 });
-            _depthPyramidImage.TransitionImageLayout(VkImageLayout.TransferDstOptimal, _depthPyramidLevels);
-            _depthPyramidImage.TransitionImageLayout(VkImageLayout.General, _depthPyramidLevels);
-
+            _shadowImage = new(DepthFormat, shadowImageExtent, VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.Sampled, true);
         }
 
         private unsafe void CreateAdditionalSamplers()
         {
-
             var reductionMode = VkSamplerReductionMode.Min;
             VkSamplerCreateInfo createInfo = new()
             {
@@ -384,10 +265,7 @@ namespace VECS.LowLevel
                 createInfo.pNext = &createInfoReduction;
             }
 
-            if (Vulkan.vkCreateSampler(Device, createInfo, null, out _depthSampler) != VkResult.Success)
-            {
-                throw new Exception("Failed to create _depthSampler!");
-            }
+            _depthImage.CreateSampler(createInfo);
 
             VkSamplerCreateInfo samplierInfo = new()
             {
@@ -399,11 +277,8 @@ namespace VECS.LowLevel
                 addressModeW = VkSamplerAddressMode.Repeat,
 
             };
-
-            if (Vulkan.vkCreateSampler(Device, samplierInfo, null, out _smoothSampler) != VkResult.Success)
-            {
-                throw new Exception("Failed to create _smoothSampler!");
-            }
+            _rawRenderImage.CreateSampler(samplierInfo);
+            
 
             VkSamplerCreateInfo shadowSamplerCreateInfo = new()
             {
@@ -425,7 +300,7 @@ namespace VECS.LowLevel
         {
             VkAttachmentDescription colourAttachment = new()
             {
-                format = _renderFormat,
+                format = RenderFormat,
                 samples = VkSampleCountFlags.Count1,
                 loadOp = VkAttachmentLoadOp.Clear,
                 storeOp = VkAttachmentStoreOp.Store,
@@ -445,7 +320,7 @@ namespace VECS.LowLevel
             VkAttachmentDescription depthAttachment = new()
             {
                 flags = 0,
-                format = _depthFormat,
+                format = DepthFormat,
                 samples = VkSampleCountFlags.Count1,
                 loadOp = VkAttachmentLoadOp.Clear,
                 storeOp = VkAttachmentStoreOp.Store,
@@ -546,7 +421,7 @@ namespace VECS.LowLevel
             VkAttachmentDescription depth_attachment = new()
             {
                 flags = 0,
-                format = _depthFormat,
+                format = DepthFormat,
                 samples = VkSampleCountFlags.Count1,
                 loadOp = VkAttachmentLoadOp.Clear,
                 storeOp = VkAttachmentStoreOp.Store,
@@ -682,72 +557,6 @@ namespace VECS.LowLevel
             }
         }
 
-        public unsafe void Dispose()
-        {
-
-            foreach (var item in _swapChainImageViews)
-            {
-                Vulkan.vkDestroyImageView(Device, item);
-            }
-            _swapChainImageViews = null;
-            if (_swapChain != VkSwapchainKHR.Null)
-            {
-                Vulkan.vkDestroySwapchainKHR(Device, _swapChain);
-                _swapChain = VkSwapchainKHR.Null;
-            }
-
-            _rawRenderImage.Dispose();
-            _depthImage.Dispose();
-            _shadowImage.Dispose();
-            _depthReducePipeline.Dispose();
-            _depthPyramidImage.Dispose();
-
-            for (int i = 0; i < _depthPyramidLevels; i++)
-            {
-                Vulkan.vkDestroyImageView(Device, _depthPyramidMips[i]);
-            }
-
-            Vulkan.vkDestroySampler(Device, _shadowSampler);
-            Vulkan.vkDestroySampler(Device, _smoothSampler);
-            Vulkan.vkDestroySampler(Device, _depthSampler);
-
-            for (int i = 0; i < _swapChainFrameBuffer.Length; i++)
-            {
-                Vulkan.vkDestroyFramebuffer(Device, _swapChainFrameBuffer[i]);
-            }
-
-            Vulkan.vkDestroyFramebuffer(Device, _shadowFramebuffer);
-            Vulkan.vkDestroyFramebuffer(Device, _forwardFramebuffer);
-
-
-            Vulkan.vkDestroyRenderPass(Device, _renderPass);
-            Vulkan.vkDestroyRenderPass(Device, _copyPass);
-            Vulkan.vkDestroyRenderPass(Device, _shadowPass);
-
-            Vulkan.vkDestroyFence(Device, _uploadFence);
-            for (int i = 0; i < SwapChain.MAX_FRAMES_IN_FLIGHT; i++)
-            {
-                Vulkan.vkDestroySemaphore(Device, _renderSemaphore[i]);
-                Vulkan.vkDestroySemaphore(Device, _presentSemaphore[i]);
-                Vulkan.vkDestroyFence(Device, _inFlightFences[i]);
-            }
-            Instance = null;
-        }
-
-        private static VkSurfaceFormatKHR ChooseSwapSurfaceFormat(VkSurfaceFormatKHR[] formats)
-        {
-            for (int i = 0; i < formats.Length; i++)
-            {
-                var availableFormat = formats[i];
-                if (availableFormat.format == VkFormat.B8G8R8A8Srgb && availableFormat.colorSpace == VkColorSpaceKHR.SrgbNonLinear)
-                {
-                    return availableFormat;
-                }
-            }
-
-            return formats[0];
-        }
-
         private VkExtent2D ChooseSwapExtent(VkSurfaceCapabilitiesKHR capabilities)
         {
             if (capabilities.currentExtent.width != uint.MaxValue)
@@ -766,11 +575,11 @@ namespace VECS.LowLevel
             }
         }
 
-        public VkFramebuffer GetFrameBuffer(uint currentImageIndex)
+        internal VkFramebuffer GetFrameBuffer(uint currentImageIndex)
         {
             return _swapChainFrameBuffer[currentImageIndex];
         }
-        
+
         // public static unsafe void WaitResetRenderFence(uint index)
         // {
         // 
@@ -785,221 +594,69 @@ namespace VECS.LowLevel
         //     //}
         // }
 
-        public unsafe VkResult AcquireNextImage(out uint imageIndex)
+        public unsafe void Dispose()
         {
-            VkFence fence = _inFlightFences[_currentFrame];
-            Vulkan.vkWaitForFences(_device.Device, 1, &fence, true, ulong.MaxValue);
-            return Vulkan.vkAcquireNextImageKHR(
-                _device.Device,
-                _swapChain,
-                0,
-                _presentSemaphore[_currentFrame],
-                VkFence.Null,
-                out imageIndex);
-        }
 
-        public unsafe void DepthReduce(RendererFrameInfo frameInfo)
-        {
-            Vulkan.vkCmdBindPipeline(frameInfo.CommandBuffer, VkPipelineBindPoint.Compute, _depthReducePipeline.ComputePipeline);
-            for (int i = 0; i < _depthPyramidLevels; i++)
+            foreach (var item in _swapChainImageViews)
             {
-                VkDescriptorImageInfo destTarget;
-                destTarget.sampler = _depthSampler;
-                destTarget.imageView = _depthPyramidMips[i];
-                destTarget.imageLayout = VkImageLayout.General;
-
-
-                VkDescriptorImageInfo sourceTarget = new()
-                {
-                    sampler = _depthSampler,
-                };
-
-                if(i == 0)
-                {
-                    sourceTarget.imageView = _depthImage.TextureImageView;
-                    sourceTarget.imageLayout = VkImageLayout.ShaderReadOnlyOptimal;
-                }
-                else
-                {
-                    sourceTarget.imageView = _depthPyramidMips[i-1];
-                    sourceTarget.imageLayout = VkImageLayout.General;
-                }
-
-
-                VkDescriptorSet depthSet = default;
-
-                new DescriptorWriter(_depthReducePipeline.DescriptorSetLayout, frameInfo.EntityDescriptorPool)
-                    .WriteImage(0, destTarget)
-                    .WriteImage(1, sourceTarget)
-                    .Build(&depthSet);
-
-                Vulkan.vkCmdBindDescriptorSets(frameInfo.CommandBuffer, VkPipelineBindPoint.Compute, _depthReducePipeline.ComputePipelineLayout, 0, depthSet);
-
-                uint levelWidth = (_depthPyramidWidth) >> i;
-                uint levelHeight = (_depthPyramidHeight) >> i;
-                if (levelHeight < 1) levelHeight = 1;
-                if (levelWidth < 1) levelWidth = 1;
-
-                DepthReduceData reduceData = new() { imageSize = new Vector2(levelWidth, levelHeight) };
-
-                Vulkan.vkCmdPushConstants(frameInfo.CommandBuffer, _depthReducePipeline.ComputePipelineLayout, VkShaderStageFlags.Compute,0,(uint)sizeof(DepthReduceData),&reduceData);
-                Vulkan.vkCmdDispatch(frameInfo.CommandBuffer, GetGroupCount(levelWidth, 32), GetGroupCount(levelHeight, 32), 1);
-
-                VkImageMemoryBarrier reduceBarrier = new()
-                {
-                    image = _depthPyramidImage.TextureImage.VkImage,
-                    srcAccessMask = VkAccessFlags.ShaderWrite,
-                    dstAccessMask = VkAccessFlags.ShaderRead,
-                    oldLayout = VkImageLayout.General,
-                    newLayout = VkImageLayout.General,
-                    srcQueueFamilyIndex = Vulkan.VK_QUEUE_FAMILY_IGNORED,
-                    dstQueueFamilyIndex = Vulkan.VK_QUEUE_FAMILY_IGNORED,
-                    subresourceRange = new()
-                    {
-                        levelCount = Vulkan.VK_REMAINING_MIP_LEVELS,
-                        layerCount = Vulkan.VK_REMAINING_ARRAY_LAYERS,
-                        aspectMask = VkImageAspectFlags.Color
-                    }
-                };
-
-                Vulkan.vkCmdPipelineBarrier(frameInfo.CommandBuffer, VkPipelineStageFlags.ComputeShader, VkPipelineStageFlags.ComputeShader, VkDependencyFlags.ByRegion, 0, null, 0, null, 1, &reduceBarrier);
-            }
-        }
-
-        public void StartSubmissionThread()
-        {
-            // acquire first frame
-            _nextFrameResult = AcquireNextImage(out _nextFrameIndex);
-            _submissionThread = new(new ThreadStart(SubmitQueue))
-            {
-                IsBackground = true
-            };
-            _submissionThread.Start();
-        }
-
-        public void EndSubmissionThread()
-        {
-            _submissionMutex.WaitOne();
-            while (_submittedFrameResult != VkResult.ThreadDoneKHR)
-            {
-                _submissionQueue.Enqueue((VkCommandBuffer.Null, 0, true));
-                _submissionMutex.ReleaseMutex();
-                _submissionMutex.WaitOne();
-            }
-            _submissionMutex.ReleaseMutex();
-            Vulkan.vkDeviceWaitIdle(_device.Device);
-        }
-
-        public void EnqueueCommandBuffer(VkCommandBuffer commandBuffer, uint imageIndex)
-        {
-            _submissionQueue.Enqueue((commandBuffer, imageIndex, false));
-        }
-
-        public void WaitForSubmission(uint currentImageIndex)
-        {
-            while (currentImageIndex == NextFrameIndex)
-            {
-                _submissionMutex.WaitOne();
-                _submissionMutex.ReleaseMutex();
-            }
-        }
-
-        private void SubmitQueue()
-        {
-            while (true)
-            {
-                if (!_submissionQueue.TryDequeue(out var info)) continue;
-
-                if (info.Item3)
-                {
-                    _submittedFrameResult = VkResult.ThreadDoneKHR;
-                    return;
-                }
-                _submissionMutex.WaitOne();
-                int submitFrame = _currentFrame;
-                _currentFrame = (_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
-                _nextFrameResult = AcquireNextImage(out _nextFrameIndex);
-                _submissionMutex.ReleaseMutex();
-                _submittedFrameResult = SubmitCommandBuffers(info.Item1, info.Item2, submitFrame);
-            }
-        }
-
-        private unsafe VkResult SubmitCommandBuffers(VkCommandBuffer commandBuffer, uint imageIndex, int currentFrame)
-        {
-
-            if (_imagesInFlight[imageIndex] != VkFence.Null)
-            {
-                VkFence fence = _imagesInFlight[imageIndex];
-                Vulkan.vkWaitForFences(_device.Device, fence, true, ulong.MaxValue);
+                Vulkan.vkDestroyImageView(Device, item);
             }
 
-            _imagesInFlight[imageIndex] = _inFlightFences[currentFrame];
+            _swapChainImageViews = null;
 
-            VkSemaphore waitPresent = _presentSemaphore[currentFrame];
-            VkSemaphore waitRender = _renderSemaphore[currentFrame];
-            VkPipelineStageFlags waitStage = VkPipelineStageFlags.ColorAttachmentOutput;
-            VkSubmitInfo submit = new()
+            if (_swapChain != VkSwapchainKHR.Null)
             {
-                waitSemaphoreCount = 1,
-                commandBufferCount = 1,
-                signalSemaphoreCount = 1,
-                pCommandBuffers = &commandBuffer,
-                pWaitDstStageMask = &waitStage,
-                pWaitSemaphores = &waitPresent,
-                pSignalSemaphores = &waitRender
-            };
-            Vulkan.vkResetFences(_device.Device, _inFlightFences[currentFrame]);
-
-            if (Vulkan.vkQueueSubmit(_device.GraphicsQueue, submit, _inFlightFences[currentFrame]) != VkResult.Success)
-            {
-                throw new Exception("Failed to queue submit");
+                Vulkan.vkDestroySwapchainKHR(Device, _swapChain);
+                _swapChain = VkSwapchainKHR.Null;
             }
 
-            VkSwapchainKHR swapChains = _swapChain;
-            VkPresentInfoKHR presentInfo = new()
+            _rawRenderImage.Dispose();
+            _depthImage.Dispose();
+            _shadowImage.Dispose();
+
+            Vulkan.vkDestroySampler(Device, _shadowSampler);
+
+            for (int i = 0; i < _swapChainFrameBuffer.Length; i++)
             {
-                swapchainCount = 1,
-                waitSemaphoreCount = 1,
-                pImageIndices = &imageIndex,
-                pSwapchains = &swapChains,
-                pWaitSemaphores = &waitRender
-            };
-            return Vulkan.vkQueuePresentKHR(_device.GraphicsQueue, &presentInfo);
+                Vulkan.vkDestroyFramebuffer(Device, _swapChainFrameBuffer[i]);
+            }
+
+            Vulkan.vkDestroyFramebuffer(Device, _shadowFramebuffer);
+            Vulkan.vkDestroyFramebuffer(Device, _forwardFramebuffer);
+
+
+            Vulkan.vkDestroyRenderPass(Device, _renderPass);
+            Vulkan.vkDestroyRenderPass(Device, _copyPass);
+            Vulkan.vkDestroyRenderPass(Device, _shadowPass);
+
+            Vulkan.vkDestroyFence(Device, _uploadFence);
+            for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+            {
+                Vulkan.vkDestroySemaphore(Device, _renderSemaphore[i]);
+                Vulkan.vkDestroySemaphore(Device, _presentSemaphore[i]);
+                Vulkan.vkDestroyFence(Device, _inFlightFences[i]);
+            }
+            Instance = null;
         }
 
-        public bool CompareSwapFormats(SwapChain swapChain)
+        internal bool CompareSwapFormats(SwapChain swapChain)
         {
-            return swapChain._depthFormat == _depthFormat
+            return swapChain.DepthFormat == DepthFormat
                 && swapChain._swapChainImageFormat == _swapChainImageFormat;
         }
 
-        private static uint GetGroupCount(uint threadCount, uint localSize)
+        private static VkSurfaceFormatKHR ChooseSwapSurfaceFormat(VkSurfaceFormatKHR[] formats)
         {
-            return (threadCount + localSize - 1) / localSize;
-        }
-
-        private static uint PreviousPow2(uint v)
-        {
-            uint r = 1;
-
-            while (r * 2 < v)
-                r *= 2;
-
-            return r;
-        }
-
-        private static uint GetImageMipLevels(uint width, uint height)
-        {
-            uint result = 1;
-
-            while (width > 1 || height > 1)
+            for (int i = 0; i < formats.Length; i++)
             {
-                result++;
-                width /= 2;
-                height /= 2;
+                var availableFormat = formats[i];
+                if (availableFormat.format == VkFormat.B8G8R8A8Srgb && availableFormat.colorSpace == VkColorSpaceKHR.SrgbNonLinear)
+                {
+                    return availableFormat;
+                }
             }
 
-            return result;
+            return formats[0];
         }
 
         private static VkPresentModeKHR ChooseSwapPresentMode(VkPresentModeKHR[] presentModes)
@@ -1029,10 +686,5 @@ namespace VECS.LowLevel
             return VkPresentModeKHR.Fifo;
         }
 
-        [StructLayout(LayoutKind.Sequential, Size = 8)]
-        private struct DepthReduceData
-        {
-            public Vector2 imageSize;
-        }
     }
 }

@@ -284,6 +284,7 @@ namespace VECS
             {
                 var module = modules[i];
                 var bindingsSPIR = SPIRVReflectUtil.DescriptorBindings(module);
+                if (bindingsSPIR == null) continue;
                 for (int j = 0; j < bindingsSPIR.Length; j++)
                 {
                     descriptorBindings.Add(new DescriptorBinding(bindingsSPIR[j], (VkShaderStageFlags)module.shader_stage));

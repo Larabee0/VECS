@@ -15,8 +15,6 @@ namespace Planets.Colour
         private Material _pointLightMaterial;
         private EntityQuery _starQuery;
 
-        private SwapChainBuffer<VkDrawIndirectCommand> _draws;
-
         public override void OnCreate(EntityManager entityManager)
         {
             _starQuery = new EntityQuery(entityManager)
@@ -25,12 +23,6 @@ namespace Planets.Colour
                 .Build();
 
             _pointLightMaterial = Material.CreateWithAlphaBlending("point_light.vert", "point_light.frag");
-            _draws = new(1,VkBufferUsageFlags.IndirectBuffer | VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.StorageBuffer,true);
-        }
-
-        public override void OnDestroy(EntityManager entityManager)
-        {
-            _draws?.Dispose();
         }
 
         public unsafe override void OnFowardPass(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
@@ -64,14 +56,7 @@ namespace Planets.Colour
                 starsToDraw.Sort(new PointLightPushConstant());
 
                 _pointLightMaterial.BindAll(rendererFrameInfo);
-                _draws.HostBuffer[0] = new()
-                {
-                    firstInstance = 0,
-                    firstVertex = 0,
-                    instanceCount = (uint)starsToDraw.Count,
-                    vertexCount = 6
-                };
-                Vulkan.vkCmdDrawIndirect(rendererFrameInfo.CommandBuffer,_draws.ActiveVkBuffer, 0, 1, (uint)sizeof(VkDrawIndirectCommand));
+                Vulkan.vkCmdDraw(rendererFrameInfo.CommandBuffer, 6, (uint)starsToDraw.Count, 0, 0);
             }
         }
 

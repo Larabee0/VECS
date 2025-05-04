@@ -236,7 +236,7 @@ namespace VECS
 
         public static Material Create(string vertexShader, string fragmentShader)
         {
-            var material = new Material(vertexShader, fragmentShader, GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []), false);
+            var material = new Material(vertexShader, fragmentShader, GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []), false, Presenter.Instance.RenderPass);
 
             if (material.HasApplicationSet)
             {
@@ -248,7 +248,7 @@ namespace VECS
 
         public static Material Create(string vertexShader, string fragmentShader, GraphicsPipelineConfigInfo config)
         {
-            var material = new Material(vertexShader, fragmentShader, config, false);
+            var material = new Material(vertexShader, fragmentShader, config, false, config.renderPass);
 
             if (material.HasApplicationSet)
             {
@@ -261,12 +261,12 @@ namespace VECS
         public static Material CreateWithAlphaBlending(string vertexShader, string fragmentShader)
         {
             var config = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
-
+            config.renderPass = Presenter.Instance.RenderPass;
             GraphicsPipelineConfigInfo.EnableAlphaBlending(ref config);
             return Create(vertexShader, fragmentShader, config);
         }
 
-        internal Material(string vertexShader, string fragmentShader, GraphicsPipelineConfigInfo pipelineConfig, bool actAsGlobal)
+        internal Material(string vertexShader, string fragmentShader, GraphicsPipelineConfigInfo pipelineConfig, bool actAsGlobal, VkRenderPass renderPass)
         {
             _actAsGlobal = actAsGlobal;
             byte[] vertexBytes = GetShaderBytes(vertexShader);
@@ -281,7 +281,7 @@ namespace VECS
                 pipelineConfig.AttributeDescriptions = vertAttributes;
             }
             _graphicsPipelineConfigInfo = pipelineConfig;
-            _graphicsPipelineConfigInfo.renderPass = Presenter.Instance.RenderPass;
+            _graphicsPipelineConfigInfo.renderPass = renderPass;
             _materialBindings = GraphicsPipelineUtil.GenerateSharedDescriptorBindings(spirVert, spirFrag);
 
             _applicationGlobalBindings = GraphicsPipelineUtil.ExtractBindingsForSet(0, _materialBindings);

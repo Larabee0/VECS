@@ -69,13 +69,13 @@ namespace VECS
         {
             _device = GraphicsDevice.Instance;
             _renderer = new(window);
-
-
             InitGloalDescriptorPool();
             InitMaterialFrameDescriptorPools();
             InitEntityFrameDescriptorPools();
             Instance = this;
             LoadDefaultResources();
+
+
         }
 
         /// <summary>
@@ -154,7 +154,7 @@ namespace VECS
 
             if (NEW_GLOBAL_SET)
             {
-                _unlitMaterial = new Material("unlit.vert", "unlit.frag", GraphicsPipelines.GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []), true);
+                _unlitMaterial = new Material("unlit.vert", "unlit.frag", GraphicsPipelines.GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []), true, RenderPass);
                 _globalDescriptorSetHandler = _unlitMaterial.ApplicationDescriptorSetHandler;
 
                 _litMaterial = Material.Create("lit.vert", "lit.frag");

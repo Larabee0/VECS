@@ -11,6 +11,7 @@ namespace VECS.LowLevel
         private readonly IWindow _window;
         private readonly GraphicsDevice _device;
         private SwapChain _swapChain;
+        private DepthReduction _depthReduction;
 
         private bool isFrameStarted = false;
         private uint currentImageIndex = 0;
@@ -26,11 +27,10 @@ namespace VECS.LowLevel
         public List<VkBufferMemoryBarrier> PostCullBarriers => _postCullBarriers;
         public List<VkBufferMemoryBarrier> UploadBarriers => _uploadBarriers;
 
-        private DescriptorSetLayout _blitDescriptorSetLayout;
-        private VkPipelineLayout _blitPipelineLayout;
-        private GraphicsPipeline _blitPipeline;
-
-        private GPUBuffer<float> _blitVertexBuffer;
+        private Material _blitMat;
+        // private DescriptorSetLayout _blitDescriptorSetLayout;
+        // private VkPipelineLayout _blitPipelineLayout;
+        // private GraphicsPipeline _blitPipeline;
 
         public int FrameIndex
         {
@@ -55,8 +55,8 @@ namespace VECS.LowLevel
         public VkRenderPass RenderPass =>_swapChain.RenderPass;
         public VkRenderPass ShadowPass =>_swapChain.ShadowPass;
         public VkDescriptorImageInfo DepthPyramid => _swapChain.DepthPyramid;
-        public uint DepthPyramidWidth => _swapChain.DepthPyramidWidth;
-        public uint DepthPyramidHeight => _swapChain.DepthPyramidHeight;
+        public uint DepthPyramidWidth => _depthReduction.DepthPyramidWidth;
+        public uint DepthPyramidHeight => _depthReduction.DepthPyramidHeight;
 
         public Renderer(IWindow window)
         {
@@ -83,17 +83,20 @@ namespace VECS.LowLevel
             if (_swapChain == null)
             {
                 _swapChain = new(extent);
+                _depthReduction = new(extent);
             }
             else
             {
                 var oldSwapChain = _swapChain;
+                _depthReduction.Dispose();
                 _swapChain = new(extent, oldSwapChain);
-
+                _depthReduction = new(extent);
                 if (!oldSwapChain.CompareSwapFormats(_swapChain))
                 {
                     throw new Exception("Swap chain image(or depth) format has changed!");
                 }
             }
+            _blitMat?.SetTexture("inputTexture", _swapChain.RawRenderImage);
         }
         
         private unsafe void CreateCommandBuffers()
@@ -118,27 +121,6 @@ namespace VECS.LowLevel
 
         private unsafe void CreateBlitPipeline()
         {
-            _blitDescriptorSetLayout = new DescriptorSetLayout.Builder().AddBinding(0, new() { Count = 1, DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Fragment }).Build();
-            VkDescriptorSetLayout* pDescriptorSetLayouts = stackalloc VkDescriptorSetLayout[]
-            {
-                _blitDescriptorSetLayout.SetLayout
-            };
-            VkPipelineLayoutCreateInfo vkPipelineLayoutInfo = new()
-            {
-                setLayoutCount = 1,
-                pSetLayouts = pDescriptorSetLayouts,
-                pushConstantRangeCount = 0,
-                pPushConstantRanges = null
-            };
-
-            if (Vulkan.vkCreatePipelineLayout(_device.Device, vkPipelineLayoutInfo, null, out _blitPipelineLayout) != VkResult.Success)
-            {
-                throw new Exception("Failed to create blit pipeline layout!");
-            }
-
-
-            VkPipelineLayoutCreateInfo createInfo = new();
-
             VkPipelineInputAssemblyStateCreateInfo inputAssembly = new()
             {
                 topology = VkPrimitiveTopology.TriangleList
@@ -181,7 +163,8 @@ namespace VECS.LowLevel
                 stencilTestEnable = false
             };
 
-            GraphicsPipelineConfigInfo config = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo(_swapChain.CopyPass, _blitPipelineLayout);
+            GraphicsPipelineConfigInfo config = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
+            config.renderPass = _swapChain.CopyPass;
             config.inputAssemblyInfo = inputAssembly;
             config.rasterizationInfo = rasterizer;
             config.multisampleInfo = multisampleInfo;
@@ -190,9 +173,8 @@ namespace VECS.LowLevel
             config.AttributeDescriptions = [];
             config.BindingDescriptions = [];
 
-            _blitPipeline = new(_device, Material.GetShaderFilePath("fullscreen.vert"), Material.GetShaderFilePath("blit.frag"), config);
-            _blitVertexBuffer = new(3, VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferDst, false);
-            _blitVertexBuffer.FillBufferSingleTimeCmd(0);
+            _blitMat = new("fullscreen.vert", "blit.frag", config, true, _swapChain.CopyPass);
+            _blitMat.SetTexture("inputTexture", _swapChain.RawRenderImage);
         }
 
         private unsafe void FreeCommandBuffers()
@@ -214,8 +196,6 @@ namespace VECS.LowLevel
             {
                 throw new InvalidOperationException("Can't call BeginFrame while frame already in progress");
             }
-            //_swapChain.WaitResetRenderFence((uint)currentFrameIndex);
-            //var result = _swapChain.AcquireNextImage(out currentImageIndex);
 
             var result = _swapChain.NextFrameResult;
             currentImageIndex = _swapChain.NextFrameIndex;
@@ -239,7 +219,6 @@ namespace VECS.LowLevel
             {
                 throw new Exception("Failed to begin recording command buffer");
             }
-
 
             _postCullBarriers.Clear();
             _cullReadyBarriers.Clear();
@@ -379,7 +358,6 @@ namespace VECS.LowLevel
 
             Vulkan.vkCmdSetViewport(commandBuffer, viewport);
             Vulkan.vkCmdSetScissor(commandBuffer, scissor);
-            //Vulkan.vkCmdSetDepthBias(commandBuffer, 0, 0, 0);
         }
 
         public static void EndForwardRenderPass(VkCommandBuffer commandBuffer)
@@ -418,7 +396,7 @@ namespace VECS.LowLevel
                 1,
                 &depthReadBarriers);
 
-            _swapChain.DepthReduce(frameInfo);
+            _depthReduction.DepthReduce(frameInfo);
 
             VkImageMemoryBarrier depthWriteBarrier = new()
             {
@@ -483,25 +461,8 @@ namespace VECS.LowLevel
             Vulkan.vkCmdSetViewport(frameInfo.CommandBuffer, viewport);
             Vulkan.vkCmdSetScissor(frameInfo.CommandBuffer, scissor);
             Vulkan.vkCmdSetDepthBias(frameInfo.CommandBuffer, 0, 0, 0);
-            
-            // blit pipeline pass
-            _blitPipeline.Bind(frameInfo.CommandBuffer);
 
-            VkDescriptorImageInfo sourceImage = new()
-            {
-                sampler = _swapChain.SmoothSampler,
-                imageView = _swapChain.RawRenderImage.TextureImageView,
-                imageLayout = VkImageLayout.ShaderReadOnlyOptimal
-            };
-
-            VkDescriptorSet blitSet = default;
-            new DescriptorWriter(_blitDescriptorSetLayout, frameInfo.EntityDescriptorPool)
-                .WriteImage(0, sourceImage)
-                .Build(&blitSet);
-
-            
-            Vulkan.vkCmdBindDescriptorSets(frameInfo.CommandBuffer, VkPipelineBindPoint.Graphics,_blitPipelineLayout,0,blitSet);
-            Vulkan.vkCmdBindVertexBuffer(frameInfo.CommandBuffer, 0, _blitVertexBuffer.VkBuffer);
+            _blitMat.BindAll(frameInfo);
             Vulkan.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
 
             Vulkan.vkCmdEndRenderPass(frameInfo.CommandBuffer);
@@ -521,7 +482,6 @@ namespace VECS.LowLevel
                 throw new Exception("Failed to record command buffer");
             }
 
-            //VkResult result = _swapChain.SubmitCommandBuffers(commandBuffer, currentImageIndex);
             _swapChain.EnqueueCommandBuffer(commandBuffer, currentImageIndex);
 
             if (_swapChain.SubmittedFrameResult == VkResult.ErrorOutOfDateKHR || _swapChain.SubmittedFrameResult == VkResult.SuboptimalKHR || _window.WasWindowResized)
@@ -530,29 +490,14 @@ namespace VECS.LowLevel
                 RecreateSwapChain();
 
             }
-            //if (result == VkResult.ErrorOutOfDateKHR || result == VkResult.SuboptimalKHR || _window.WasWindowResized)
-            //{
-            //    _window.ResetWindowResizedFlag();
-            //    RecreateSwapChain();
-            //
-            //}
-            //else if (result != VkResult.Success)
-            //{
-            //    throw new Exception("Failed to acquire next swap chain image!");
-            //}
-
             isFrameStarted = false;
             currentFrameIndex = (currentFrameIndex + 1) % SwapChain.MAX_FRAMES_IN_FLIGHT;
         }
 
         public unsafe void Dispose()
         {
-            _blitVertexBuffer.Dispose();
-            _blitPipeline.Dispose();
-            Vulkan.vkDestroyPipelineLayout(_device.Device, _blitPipelineLayout);
-            _blitDescriptorSetLayout?.Dispose();
-
             FreeCommandBuffers();
+            _depthReduction.Dispose();
             _swapChain.Dispose();
         }
     }
