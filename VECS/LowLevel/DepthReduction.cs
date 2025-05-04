@@ -137,6 +137,8 @@ namespace VECS.LowLevel
                     .Build(&depthSet);
 
                 Vulkan.vkCmdBindDescriptorSets(frameInfo.CommandBuffer, VkPipelineBindPoint.Compute, _depthReducePipeline.ComputePipelineLayout, 0, depthSet);
+                
+                frameInfo.EntityDescriptorPool.AddSetToFree(depthSet);
 
                 uint levelWidth = (_depthPyramidWidth) >> i;
                 uint levelHeight = (_depthPyramidHeight) >> i;

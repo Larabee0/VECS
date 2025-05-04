@@ -288,7 +288,7 @@ namespace VECS
                 AllocateSetInternal(frameIndex, pool);
             }
 
-            if (_setsDirty[frameIndex] || DescriptorLevel == DescriptorLevel.Entity)
+            if (_setsDirty[frameIndex])
             {
                 UpdateDescriptorSet(frameIndex);
             }
@@ -317,7 +317,7 @@ namespace VECS
             if (success)
             {
                 _vkDescriptorSets[frameIndex] = set;
-                //_setsAllocated[frameIndex] = true;
+                _setsAllocated[frameIndex] = true;
                 _setsDirty[frameIndex] = true;
                 _vkDescriptorPoolSource[frameIndex] = pool;
             }

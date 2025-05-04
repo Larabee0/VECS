@@ -84,9 +84,12 @@ namespace VECS
 
         private unsafe void GPUCullInternal(RendererFrameInfo frameInfo, uint drawCount, VkBuffer drawIndirect, VkBuffer bounds)
         {
-            fixed (VkDescriptorSet* pSet = &sets[frameInfo.FrameIndex])
+            if (sets[frameInfo.FrameIndex] == VkDescriptorSet.Null)
             {
-                frameInfo.ApplicationDescriptorPool.AllocateDescriptorSet(_cullPipe.DescriptorSetLayout.SetLayout, pSet);
+                fixed (VkDescriptorSet* pSet = &sets[frameInfo.FrameIndex])
+                {
+                    frameInfo.ApplicationDescriptorPool.AllocateDescriptorSet(_cullPipe.DescriptorSetLayout.SetLayout, pSet);
+                }
             }
 
             VkDescriptorSet set = sets[frameInfo.FrameIndex];
