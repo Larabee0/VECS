@@ -31,9 +31,6 @@ namespace VECS.LowLevel
         private Texture2d _depthImage;
         private Texture2d _shadowImage;
         
-
-        private VkSampler _shadowSampler;
-
         internal VkDescriptorImageInfo DepthPyramid => _depthImage.GetImageInfo;
 
         internal Texture2d RawRenderImage => _rawRenderImage;
@@ -289,11 +286,7 @@ namespace VECS.LowLevel
                 compareOp = VkCompareOp.Less,
             };
 
-            if (Vulkan.vkCreateSampler(Device, shadowSamplerCreateInfo, null, out _shadowSampler) != VkResult.Success)
-            {
-                throw new Exception("Failed to create _smoothSampler!");
-            }
-
+            _shadowImage.CreateSampler(shadowSamplerCreateInfo);
         }
 
         private unsafe void CreateFowardRenderPass()
@@ -613,8 +606,6 @@ namespace VECS.LowLevel
             _rawRenderImage.Dispose();
             _depthImage.Dispose();
             _shadowImage.Dispose();
-
-            Vulkan.vkDestroySampler(Device, _shadowSampler);
 
             for (int i = 0; i < _swapChainFrameBuffer.Length; i++)
             {
