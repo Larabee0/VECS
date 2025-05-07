@@ -53,7 +53,6 @@ namespace VECS.LowLevel
         public float AspectRatio => _swapChain.ExtentAspectRatio;
 
         public VkRenderPass RenderPass =>_swapChain.RenderPass;
-        public VkRenderPass ShadowPass =>_swapChain.ShadowPass;
         public VkDescriptorImageInfo DepthPyramid => _swapChain.DepthPyramid;
         public uint DepthPyramidWidth => _depthReduction.DepthPyramidWidth;
         public uint DepthPyramidHeight => _depthReduction.DepthPyramidHeight;
@@ -263,53 +262,6 @@ namespace VECS.LowLevel
                         0,
                         null);
             }
-        }
-
-        public unsafe void BeginShandowRenderPass(VkCommandBuffer commandBuffer)
-        {
-            VkClearValue depthClear = new()
-            {
-                depthStencil = new(1,0)
-            };
-
-            VkRenderPassBeginInfo renderPassInfo = new()
-            {
-                renderPass = _swapChain.ShadowPass,
-                renderArea = new()
-                {
-                    offset = new(0,0),
-                    extent = _swapChain.ShadowExtent
-                },
-                clearValueCount = 1,
-                pClearValues = &depthClear,
-                framebuffer = _swapChain.ShadowFrameBuffer
-            };
-
-            Vulkan.vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VkSubpassContents.Inline);
-
-            VkViewport viewport = new()
-            {
-                x = 0.0f,
-                y = _swapChain.ShadowExtent.height,
-                width = _swapChain.ShadowExtent.width,
-                height = -_swapChain.ShadowExtent.height,
-                minDepth = 0.0f,
-                maxDepth = 1.0f
-            };
-
-            VkRect2D scissor = new()
-            {
-                offset = new(0, 0),
-                extent = _swapChain.ShadowExtent
-            };
-
-            Vulkan.vkCmdSetViewport(commandBuffer, viewport);
-            Vulkan.vkCmdSetScissor(commandBuffer, scissor);
-        }
-
-        public static void EndShadowRenderPass(VkCommandBuffer commandBuffer)
-        {
-            Vulkan.vkCmdEndRenderPass(commandBuffer);
         }
 
         public unsafe void BeginForwardRenderPass(VkCommandBuffer commandBuffer)

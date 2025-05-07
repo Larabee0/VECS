@@ -18,7 +18,12 @@ namespace VECS.LowLevel
 #if DEBUG
         private readonly static string[] _requiredValidationLayers = ["VK_LAYER_KHRONOS_validation"];
 #endif
-        private readonly static VkUtf8String[] _requiredDeviceExtensions = [Vulkan.VK_KHR_SWAPCHAIN_EXTENSION_NAME, Vulkan.VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME,Vulkan.VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,Vulkan.VK_EXT_SAMPLER_FILTER_MINMAX_EXTENSION_NAME];
+        private readonly static VkUtf8String[] _requiredDeviceExtensions = [
+            Vulkan.VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+            Vulkan.VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME,
+            Vulkan.VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
+            Vulkan.VK_EXT_SAMPLER_FILTER_MINMAX_EXTENSION_NAME,
+        ];
 
         public static GraphicsDevice Instance { get; private set; }
 
@@ -408,7 +413,7 @@ namespace VECS.LowLevel
                 samplerAnisotropy = true,
                 fillModeNonSolid = true,
                 multiDrawIndirect = true,
-                drawIndirectFirstInstance = true
+                drawIndirectFirstInstance = true,
             };
             using VkStringArray deviceExtensionNames = new(_requiredDeviceExtensions);
 

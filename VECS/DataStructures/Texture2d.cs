@@ -172,6 +172,19 @@ namespace VECS
             }
         }
 
+        public unsafe Texture2d(VkImageCreateInfo imageCreateInfo, bool exclusive = false)
+        {
+            _device = GraphicsDevice.Instance;
+            _textureImage = new(imageCreateInfo);
+            _imageExtents = imageCreateInfo.extent;
+            _imageFormat = imageCreateInfo.format;
+
+            if (!exclusive)
+            {
+                Textures.Add(this);
+            }
+        }
+
         public unsafe Texture2d(VkImageCreateInfo imageCreateInfo, VkImageViewCreateInfo viewInfo, bool exclusive = false)
         {
             _device = GraphicsDevice.Instance;
@@ -190,6 +203,7 @@ namespace VECS
                 Textures.Add(this);
             }
         }
+
 
 
         public unsafe void Dispose()
@@ -313,6 +327,128 @@ namespace VECS
         internal void SetImageLayoutDirect(VkImageLayout layout)
         {
             _imageLayout = layout;
+        }
+
+        internal unsafe void SetImageLayout(
+            VkImageSubresourceRange subresourceRange,
+            VkImageLayout oldImageLayout,
+            VkImageLayout newImageLayout,
+            VkPipelineStageFlags srcStageMask = VkPipelineStageFlags.AllCommands,
+            VkPipelineStageFlags dstStageMask = VkPipelineStageFlags.AllCommands
+            )
+        {
+            VkImageMemoryBarrier imageMemoryBarrier = new()
+            {
+                image = TextureImage.VkImage,
+                subresourceRange = subresourceRange,
+                oldLayout = oldImageLayout,
+                newLayout = newImageLayout,
+            };
+
+            switch (oldImageLayout)
+            {
+                case VkImageLayout.Undefined:
+                    // Image layout is undefined (or does not matter)
+                    // Only valid as initial layout
+                    // No flags required, listed only for completeness
+                    imageMemoryBarrier.srcAccessMask = 0;
+                    break;
+                case VkImageLayout.Preinitialized:
+                    // Image is preinitialized
+                    // Only valid as initial layout for linear images, preserves memory contents
+                    // Make sure host writes have been finished
+                    imageMemoryBarrier.srcAccessMask = VkAccessFlags.HostWrite;
+                    break;
+
+                case VkImageLayout.ColorAttachmentOptimal:
+                    // Image is a color attachment
+                    // Make sure any writes to the color buffer have been finished
+                    imageMemoryBarrier.srcAccessMask = VkAccessFlags.ColorAttachmentWrite;
+                    break;
+
+                case VkImageLayout.DepthStencilAttachmentOptimal:
+                    // Image is a depth/stencil attachment
+                    // Make sure any writes to the depth/stencil buffer have been finished
+                    imageMemoryBarrier.srcAccessMask = VkAccessFlags.DepthStencilAttachmentWrite;
+                    break;
+
+                case VkImageLayout.TransferSrcOptimal:
+                    // Image is a transfer source
+                    // Make sure any reads from the image have been finished
+                    imageMemoryBarrier.srcAccessMask = VkAccessFlags.TransferRead;
+                    break;
+
+                case VkImageLayout.TransferDstOptimal:
+                    // Image is a transfer destination
+                    // Make sure any writes to the image have been finished
+                    imageMemoryBarrier.srcAccessMask = VkAccessFlags.TransferWrite;
+                    break;
+
+                case VkImageLayout.ShaderReadOnlyOptimal:
+                    // Image is read by a shader
+                    // Make sure any shader reads from the image have been finished
+                    imageMemoryBarrier.srcAccessMask = VkAccessFlags.ShaderRead;
+                    break;
+                default:
+                    // Other source layouts aren't handled (yet)
+                    break;
+            }
+
+            switch (newImageLayout)
+            {
+                case VkImageLayout.TransferDstOptimal:
+                    // Image will be used as a transfer destination
+                    // Make sure any writes to the image have been finished
+                    imageMemoryBarrier.dstAccessMask = VkAccessFlags.TransferWrite;
+                    break;
+
+                case VkImageLayout.TransferSrcOptimal:
+                    // Image will be used as a transfer source
+                    // Make sure any reads from the image have been finished
+                    imageMemoryBarrier.dstAccessMask = VkAccessFlags.TransferRead;
+                    break;
+
+                case VkImageLayout.ColorAttachmentOptimal:
+                    // Image will be used as a color attachment
+                    // Make sure any writes to the color buffer have been finished
+                    imageMemoryBarrier.dstAccessMask = VkAccessFlags.ColorAttachmentWrite;
+                    break;
+
+                case VkImageLayout.DepthStencilAttachmentOptimal:
+                    // Image layout will be used as a depth/stencil attachment
+                    // Make sure any writes to depth/stencil buffer have been finished
+                    imageMemoryBarrier.dstAccessMask = imageMemoryBarrier.dstAccessMask | VkAccessFlags.DepthStencilAttachmentWrite;
+                    break;
+
+                case VkImageLayout.ShaderReadOnlyOptimal:
+                    // Image will be read in a shader (sampler, input attachment)
+                    // Make sure any writes to the image have been finished
+                    if (imageMemoryBarrier.srcAccessMask == 0)
+                    {
+                        imageMemoryBarrier.srcAccessMask = VkAccessFlags.HostWrite | VkAccessFlags.TransferWrite;
+                    }
+                    imageMemoryBarrier.dstAccessMask = VkAccessFlags.ShaderRead;
+                    break;
+                default:
+                    // Other source layouts aren't handled (yet)
+                    break;
+            }
+
+            var cmd = GraphicsDevice.Instance.BeginSingleTimeCommands();
+            Vulkan.vkCmdPipelineBarrier(cmd, srcStageMask, dstStageMask, 0, 0, null, 0, null, 1, &imageMemoryBarrier);
+            GraphicsDevice.Instance.EndSingleTimeCommands(cmd);
+        }
+
+        internal unsafe void SetImageLayout(
+            VkImageAspectFlags aspectMask,
+            VkImageLayout oldImageLayout,
+            VkImageLayout newImageLayout,
+            VkPipelineStageFlags srcStageMask = VkPipelineStageFlags.AllCommands,
+            VkPipelineStageFlags dstStageMask = VkPipelineStageFlags.AllCommands)
+        {
+            VkImageSubresourceRange subresourceRange = new(aspectMask,0,1,0,1);
+
+            SetImageLayout(subresourceRange, oldImageLayout, newImageLayout, srcStageMask, dstStageMask);
         }
 
         /// <summary>

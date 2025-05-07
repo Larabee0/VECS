@@ -6,7 +6,36 @@ namespace System.Numerics
     /// </summary>
     public static class NumericsExtensions
     {
+        public static Matrix4x4 Rotate(this Matrix4x4 m, float angle, Vector3 v)
+        {
+            float a = angle;
+            float c = MathF.Cos(a);
+            float s = MathF.Sin(a);
 
+            Vector3 axis = Vector3.Normalize(v);
+            Vector3 temp = ((1 - c) * axis);
+
+            Matrix4x4 Rotate = new();
+            Rotate[0, 0] = c + temp[0] * axis[0];
+            Rotate[0, 1] = temp[0] * axis[1] + s * axis[2];
+            Rotate[0, 2] = temp[0] * axis[2] - s * axis[1];
+
+            Rotate[1, 0] = temp[1] * axis[0] - s * axis[2];
+            Rotate[1, 1] = c + temp[1] * axis[1];
+            Rotate[1, 2] = temp[1] * axis[2] + s * axis[0];
+
+            Rotate[2, 0] = temp[2] * axis[0] + s * axis[1];
+            Rotate[2, 1] = temp[2] * axis[1] - s * axis[0];
+            Rotate[2, 2] = c + temp[2] * axis[2];
+
+            Matrix4x4 Result = new();
+
+            Result.SetMatrixRow(0, m.GetMatrixRow(0) * Rotate[0, 0] + m.GetMatrixRow(1) * Rotate[0, 1] + m.GetMatrixRow(2) * Rotate[0, 2]);
+            Result.SetMatrixRow(1, m.GetMatrixRow(0) * Rotate[1, 0] + m.GetMatrixRow(1) * Rotate[1, 1] + m.GetMatrixRow(2) * Rotate[1, 2]);
+            Result.SetMatrixRow(2, m.GetMatrixRow(0) * Rotate[2, 0] + m.GetMatrixRow(1) * Rotate[2, 1] + m.GetMatrixRow(2) * Rotate[2, 2]);
+            Result.SetMatrixRow(3, m.GetMatrixRow(3));
+            return Result;
+        }
 
         public static Vector2 ToVector2(this Assimp.Vector3D vector)
         {
@@ -24,6 +53,14 @@ namespace System.Numerics
         public static Vector4 GetMatrixRow(this Matrix4x4 mat,int row)
         {
             return new Vector4(mat[row, 0], mat[row, 1], mat[row, 2], mat[row, 3]);
+        }
+
+        public static void SetMatrixRow(this Matrix4x4 mat, int row, Vector4 value)
+        {
+            mat[row, 0] = value.X;
+            mat[row, 1] = value.Y;
+            mat[row, 2] = value.Z;
+            mat[row, 3] = value.W;
         }
 
         public static Vector4 NormalizePlane(this Vector4 p)

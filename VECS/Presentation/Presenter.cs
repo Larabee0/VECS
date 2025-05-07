@@ -285,9 +285,7 @@ namespace VECS
                 World.DefaultWorld.PresentPostCullUpdate(frameInfo);
 
                 // shadows
-                _renderer.BeginShandowRenderPass(frameInfo.CommandBuffer);
                 World.DefaultWorld.PresentShadowPassUpdate(frameInfo);
-                Renderer.EndShadowRenderPass(frameInfo.CommandBuffer);
 
                 // forward pass
                 _renderer.BeginForwardRenderPass(frameInfo.CommandBuffer);

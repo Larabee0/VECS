@@ -6,6 +6,280 @@ using Vortice.Vulkan;
 
 namespace VECS.LowLevel
 {
+
+    public sealed class ShadowImage : IDisposable
+    {
+        public const int SHADOW_IMAGE_SIZE = 1024;
+        public const VkFormat SHADOW_IMAGE_FORMAT = VkFormat.R32Sfloat;
+        private readonly VkFormat _depthFormat;
+        public Texture2d CubeMap;
+        public Texture2d FrameBufferAttachment;
+        public readonly VkImageView[] ShadowCubeMapFaceImageViews = new VkImageView[6];
+        public readonly VkFramebuffer[] FrameBuffers = new VkFramebuffer[6];
+        public VkRenderPass ShadowPass;
+
+        public unsafe ShadowImage(VkFormat depth)
+        {
+            _depthFormat = depth;
+            VkImageCreateInfo imageCreateInfo = new()
+            {
+                imageType = VkImageType.Image2D,
+                format = SHADOW_IMAGE_FORMAT,
+                extent = new(SHADOW_IMAGE_SIZE, SHADOW_IMAGE_SIZE, 1),
+                mipLevels = 1,
+                arrayLayers = 6,
+                samples = VkSampleCountFlags.Count1,
+                tiling = VkImageTiling.Optimal,
+                usage = VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.Sampled,
+                sharingMode = VkSharingMode.Exclusive,
+                initialLayout = VkImageLayout.Undefined,
+                flags = VkImageCreateFlags.CubeCompatible
+            };
+
+            VkImageViewCreateInfo view = new()
+            {
+                viewType = VkImageViewType.ImageCube,
+                format = imageCreateInfo.format,
+                components = new(VkComponentSwizzle.R, VkComponentSwizzle.Identity, VkComponentSwizzle.Identity, VkComponentSwizzle.Identity),
+                subresourceRange = new()
+                {
+                    aspectMask = VkImageAspectFlags.Color,
+                    baseMipLevel = 0,
+                    levelCount = 1,
+                    baseArrayLayer = 0,
+                    layerCount = 6,
+                }
+            };
+
+            CubeMap = new Texture2d(imageCreateInfo, view, true);
+            
+            VkImageSubresourceRange subresourceRange = new(VkImageAspectFlags.Color,0,1,0,6);
+
+            CubeMap.SetImageLayout(subresourceRange, VkImageLayout.Undefined, VkImageLayout.ShaderReadOnlyOptimal);
+
+            VkSamplerCreateInfo sampler = new()
+            {
+                magFilter = VkFilter.Linear,
+                minFilter = VkFilter.Linear,
+                mipmapMode = VkSamplerMipmapMode.Linear,
+                addressModeU = VkSamplerAddressMode.ClampToBorder,
+                addressModeV = VkSamplerAddressMode.ClampToBorder,
+                addressModeW = VkSamplerAddressMode.ClampToBorder,
+                mipLodBias = 0,
+                maxAnisotropy = 1,
+                compareOp = VkCompareOp.Never,
+                minLod = 0,
+                maxLod = 1,
+                borderColor = VkBorderColor.FloatOpaqueWhite
+            };
+
+            CubeMap.CreateSampler(sampler);
+
+            view.viewType = VkImageViewType.Image2D;
+            view.subresourceRange.layerCount = 1;
+            view.image = CubeMap.TextureImage.VkImage;
+
+            for (uint i = 0; i < 6u; i++)
+            {
+                view.subresourceRange.baseArrayLayer = i;
+                fixed(VkImageView* pView = &ShadowCubeMapFaceImageViews[i])
+                Vulkan.vkCreateImageView(GraphicsDevice.Instance.Device, view, null, pView);
+            }
+
+            CreateShadowRenderPass();
+            CreateShadowFrameBuffer();
+        }
+
+        private unsafe void CreateShadowFrameBuffer()
+        {
+            VkImageCreateInfo shadowFB = new()
+            {
+                imageType = VkImageType.Image2D,
+                format = _depthFormat,
+                extent = new(SHADOW_IMAGE_SIZE, SHADOW_IMAGE_SIZE, 1),
+                mipLevels = 1,
+                arrayLayers = 1,
+                samples = VkSampleCountFlags.Count1,
+                tiling = VkImageTiling.Optimal,
+                initialLayout = VkImageLayout.Undefined,
+                usage = VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.TransferSrc,
+                sharingMode = VkSharingMode.Exclusive
+            };
+
+            VkImageViewCreateInfo depthImageView = new()
+            {
+                viewType = VkImageViewType.Image2D,
+                format = shadowFB.format,
+                flags = VkImageViewCreateFlags.None,
+                subresourceRange = new()
+                {
+                    aspectMask = VkImageAspectFlags.Depth,
+                    baseMipLevel = 0,
+                    levelCount = 1,
+                    baseArrayLayer = 0,
+                    layerCount = 1
+                }
+            };
+
+            if (depthImageView.format >= VkFormat.D16UnormS8Uint)
+            {
+                depthImageView.subresourceRange.aspectMask |= VkImageAspectFlags.Stencil;
+            }
+            FrameBufferAttachment = new(shadowFB, depthImageView, true);
+
+            FrameBufferAttachment.SetImageLayout(VkImageAspectFlags.Depth | VkImageAspectFlags.Stencil,
+                VkImageLayout.Undefined, VkImageLayout.DepthStencilAttachmentOptimal);
+
+            VkImageView* attachements = stackalloc VkImageView[2];
+            attachements[1] = FrameBufferAttachment.TextureImageView;
+
+            VkFramebufferCreateInfo framebufferCreateInfo = new()
+            {
+                renderPass = ShadowPass,
+                attachmentCount = 2,
+                pAttachments = attachements,
+                width = SHADOW_IMAGE_SIZE,
+                height = SHADOW_IMAGE_SIZE,
+                layers = 1
+            };
+
+            for (int i = 0; i < 6; i++)
+            {
+                attachements[0] = ShadowCubeMapFaceImageViews[i];
+                fixed (VkFramebuffer* pFB = &FrameBuffers[i])
+                    Vulkan.vkCreateFramebuffer(GraphicsDevice.Instance.Device, framebufferCreateInfo, null, pFB);
+            }
+        }
+
+        private unsafe void CreateShadowRenderPass()
+        {
+            VkAttachmentDescription* shadowAttachements = stackalloc VkAttachmentDescription[2];
+
+            shadowAttachements[0] = new VkAttachmentDescription(ShadowImage.SHADOW_IMAGE_FORMAT,
+                VkSampleCountFlags.Count1,
+                VkAttachmentLoadOp.Clear,
+                VkAttachmentStoreOp.Store,
+                VkAttachmentLoadOp.DontCare,
+                VkAttachmentStoreOp.DontCare,
+                VkImageLayout.ShaderReadOnlyOptimal,
+                VkImageLayout.ShaderReadOnlyOptimal);
+
+            shadowAttachements[1] = new VkAttachmentDescription(_depthFormat,
+                VkSampleCountFlags.Count1,
+                VkAttachmentLoadOp.Clear,
+                VkAttachmentStoreOp.Store,
+                VkAttachmentLoadOp.DontCare,
+                VkAttachmentStoreOp.DontCare,
+                VkImageLayout.DepthStencilAttachmentOptimal,
+                VkImageLayout.DepthStencilAttachmentOptimal);
+
+            VkAttachmentReference colourReference = new(0, VkImageLayout.ColorAttachmentOptimal);
+
+            VkAttachmentReference depthReference = new(1, VkImageLayout.DepthAttachmentOptimal);
+
+            VkSubpassDescription subpass = new()
+            {
+                pipelineBindPoint = VkPipelineBindPoint.Graphics,
+                colorAttachmentCount = 1,
+                pColorAttachments = &colourReference,
+                pDepthStencilAttachment = &depthReference
+            };
+
+            VkRenderPassCreateInfo renderPassCreateInfo = new()
+            {
+                attachmentCount = 2,
+                pAttachments = shadowAttachements,
+                subpassCount = 1,
+                pSubpasses = &subpass
+            };
+
+            VkResult result = Vulkan.vkCreateRenderPass(GraphicsDevice.Instance.Device, renderPassCreateInfo, null, out ShadowPass);
+            if (result != VkResult.Success)
+            {
+                throw new Exception("Failed to create Shadow render pass!");
+            }
+        }
+
+        public unsafe void UpdateCubeFace(int faceIndex, VkCommandBuffer commandBuffer)
+        {
+            VkClearValue* clearValues = stackalloc VkClearValue[]
+            {
+                new(0.0f, 0.0f, 0.0f, 1.0f),
+                new(1.0f, 0)
+            };
+
+            VkRenderPassBeginInfo renderPassBeginInfo = new()
+            {
+                renderPass = ShadowPass,
+                framebuffer = FrameBuffers[faceIndex],
+                renderArea = new(0, 0, SHADOW_IMAGE_SIZE, SHADOW_IMAGE_SIZE),
+                clearValueCount = 2,
+                pClearValues = clearValues
+            };
+
+            Matrix4x4 viewMatrix = Matrix4x4.Identity;
+            switch (faceIndex)
+            {
+                case 0: // POSITIVE_X
+
+                    viewMatrix = viewMatrix.Rotate(float.DegreesToRadians(90.0f), new(0.0f, 1.0f, 0.0f));
+                    viewMatrix = viewMatrix.Rotate(float.DegreesToRadians(180.0f), new(1.0f, 0.0f, 0.0f));
+                    break;
+                case 1: // NEGATIVE_X
+                    viewMatrix = viewMatrix.Rotate(float.DegreesToRadians(-90.0f), new(0.0f, 1.0f, 0.0f));
+                    viewMatrix = viewMatrix.Rotate(float.DegreesToRadians(180.0f), new(1.0f, 0.0f, 0.0f));
+                    break;
+                case 2: // POSITIVE_Y
+                    viewMatrix = viewMatrix.Rotate(float.DegreesToRadians(-90.0f), new(1.0f, 0.0f, 0.0f));
+                    break;
+                case 3: // NEGATIVE_Y
+                    viewMatrix = viewMatrix.Rotate(float.DegreesToRadians(90.0f), new(1.0f, 0.0f, 0.0f));
+                    break;
+                case 4: // POSITIVE_Z
+                    viewMatrix = viewMatrix.Rotate(float.DegreesToRadians(180.0f), new(1.0f, 0.0f, 0.0f));
+                    break;
+                case 5: // NEGATIVE_Z
+                    viewMatrix = viewMatrix.Rotate(float.DegreesToRadians(180.0f), new(0.0f, 0.0f, 1.0f));
+                    break;
+            }
+
+            Vulkan.vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VkSubpassContents.Inline);
+            // create Shadow Material
+            // Vulkan.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Graphics, pipelines.offscreen);
+
+            // this view matrix is required!!
+            // Vulkan.vkCmdPushConstants(commandBuffer,,VkShaderStageFlags.Vertex,0,sizeof(Matrix4x4),&viewMatrix);
+
+
+            // loop all materials, bind descriptor sets & meshes and draw but do not bind pipelines or push constants.
+            // do not dequeue draw stack
+            // Vulkan.vkCmdBindDescriptorSets(commandBuffer, VkPipelineBindPoint.Graphics, pipelineLayouts.offscreen, 0, 1, &descriptorSets.offscreen, 0, NULL);
+            // models.scene.draw(commandBuffer);
+
+            Vulkan.vkCmdEndRenderPass(commandBuffer);
+        }
+
+        public unsafe void Dispose()
+        {
+
+            for (int i = 0; i < 6; i++)
+            {
+                Vulkan.vkDestroyFramebuffer(GraphicsDevice.Instance.Device, FrameBuffers[i]);
+            }
+
+
+            Vulkan.vkDestroyRenderPass(GraphicsDevice.Instance.Device, ShadowPass);
+
+            for (int i = 0; i < 6; i++)
+            {
+                Vulkan.vkDestroyImageView(GraphicsDevice.Instance.Device, ShadowCubeMapFaceImageViews[i]);
+            }
+
+            CubeMap?.Dispose();
+            FrameBufferAttachment?.Dispose();
+        }
+    }
+
     public sealed partial class SwapChain : IDisposable
     {
         public const int MAX_FRAMES_IN_FLIGHT = 3;
@@ -13,15 +287,14 @@ namespace VECS.LowLevel
 
         private int _currentFrame = 0;
         private VkExtent2D _windowExtent;
-        private VkExtent2D _shadowExtent = new(1024 * 4, 1024 * 4);
+        // private VkExtent2D _shadowExtent = new(1024 * 4, 1024 * 4);
 
 
         private VkRenderPass _renderPass;
-        private VkRenderPass _shadowPass;
         private VkRenderPass _copyPass;
 
         internal VkRenderPass RenderPass =>_renderPass;
-        internal VkRenderPass ShadowPass => _shadowPass;
+        internal VkRenderPass ShadowPass => _shadowCubeMap.ShadowPass;
         internal VkRenderPass CopyPass => _copyPass;
 
         private VkFormat RenderFormat => RawRenderImage.Format;
@@ -29,7 +302,7 @@ namespace VECS.LowLevel
         
         private Texture2d _rawRenderImage;
         private Texture2d _depthImage;
-        private Texture2d _shadowImage;
+        private ShadowImage _shadowCubeMap;
         
         internal VkDescriptorImageInfo DepthPyramid => _depthImage.GetImageInfo;
 
@@ -65,8 +338,8 @@ namespace VECS.LowLevel
         private static GraphicsDevice GraphicsDevice => GraphicsDevice.Instance;
         private static VkDevice Device => GraphicsDevice.Device;
 
-        internal VkExtent2D ShadowExtent =>_shadowExtent;
-        internal VkFramebuffer ShadowFrameBuffer =>_shadowFramebuffer;
+        // internal VkExtent2D ShadowExtent =>_shadowExtent;
+        // internal VkFramebuffer ShadowFrameBuffer =>_shadowFramebuffer;
 
         internal VkFramebuffer ForwardFrameBuffer => _forwardFramebuffer;
 
@@ -93,17 +366,22 @@ namespace VECS.LowLevel
             
             CreateRenderImage();
             CreateDepthImage();
-            CreateShadowImage();
             CreateAdditionalSamplers();
+
+            CreateShadowCubeMap();
 
             CreateFowardRenderPass();
             CreateCopyRenderPass();
-            CreateShadowRenderPass();
 
             CreateFramebuffers();
 
             CreateSyncObjects();
             StartSubmissionThread();
+        }
+
+        private unsafe void CreateShadowCubeMap()
+        {
+            _shadowCubeMap = new ShadowImage(DepthFormat);
         }
 
         private unsafe void CreateSwapChain(SwapChain oldSwapChain)
@@ -227,17 +505,6 @@ namespace VECS.LowLevel
             _depthImage = new(VkFormat.D32Sfloat, depthImageExtent, VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.Sampled, true);
         }
 
-        private unsafe void CreateShadowImage()
-        {
-            VkExtent3D shadowImageExtent = new()
-            {
-                width = _shadowExtent.width,
-                height = _shadowExtent.height,
-                depth = 1
-            };
-            _shadowImage = new(DepthFormat, shadowImageExtent, VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.Sampled, true);
-        }
-
         private unsafe void CreateAdditionalSamplers()
         {
             var reductionMode = VkSamplerReductionMode.Min;
@@ -276,17 +543,6 @@ namespace VECS.LowLevel
             };
             _rawRenderImage.CreateSampler(samplierInfo);
             
-
-            VkSamplerCreateInfo shadowSamplerCreateInfo = new()
-            {
-                magFilter = VkFilter.Linear,
-                minFilter = VkFilter.Linear,
-                borderColor = VkBorderColor.FloatOpaqueWhite,
-                compareEnable = true,
-                compareOp = VkCompareOp.Less,
-            };
-
-            _shadowImage.CreateSampler(shadowSamplerCreateInfo);
         }
 
         private unsafe void CreateFowardRenderPass()
@@ -409,47 +665,6 @@ namespace VECS.LowLevel
             }
         }
 
-        private unsafe void CreateShadowRenderPass()
-        {
-            VkAttachmentDescription depth_attachment = new()
-            {
-                flags = 0,
-                format = DepthFormat,
-                samples = VkSampleCountFlags.Count1,
-                loadOp = VkAttachmentLoadOp.Clear,
-                storeOp = VkAttachmentStoreOp.Store,
-                stencilLoadOp = VkAttachmentLoadOp.Clear,
-                stencilStoreOp = VkAttachmentStoreOp.DontCare,
-                initialLayout = VkImageLayout.Undefined,
-                finalLayout = VkImageLayout.ShaderReadOnlyOptimal
-            };
-
-            VkAttachmentReference depth_attachment_ref = new()
-            {
-                attachment = 0,
-                layout = VkImageLayout.DepthStencilAttachmentOptimal
-            };
-
-            VkSubpassDescription subpass = new()
-            {
-                pipelineBindPoint = VkPipelineBindPoint.Graphics,
-                pDepthStencilAttachment = &depth_attachment_ref
-            };
-
-            VkRenderPassCreateInfo render_pass_info = new()
-            {
-                attachmentCount = 1,
-                pAttachments = &depth_attachment,
-                subpassCount = 1,
-                pSubpasses = &subpass,
-                
-            };
-            if (Vulkan.vkCreateRenderPass(Device, render_pass_info, null, out _shadowPass) != VkResult.Success)
-            {
-                throw new Exception("Failed to create shadow render pass");
-            }
-        }
-
         private unsafe void CreateFramebuffers()
         {
             VkImageView* attachements = stackalloc VkImageView[]
@@ -471,24 +686,6 @@ namespace VECS.LowLevel
             {
                 throw new Exception("Failed to create forward frame buffer");
             }
-
-            VkImageView shadowImageView = _shadowImage.TextureImageView;
-            VkFramebufferCreateInfo shadowInfo = new()
-            {
-                renderPass = _shadowPass,
-                attachmentCount = 1,
-                width = _shadowExtent.width,
-                height = _shadowExtent.height,
-                layers = 1,
-                pAttachments = &shadowImageView,
-            };
-
-
-            if (Vulkan.vkCreateFramebuffer(Device, shadowInfo, null, out _shadowFramebuffer) != VkResult.Success)
-            {
-                throw new Exception("Failed to create shadow frame buffer");
-            }
-
 
             _swapChainFrameBuffer = new VkFramebuffer[ImageCount];
 
@@ -512,6 +709,11 @@ namespace VECS.LowLevel
                     }
                 }
             }
+
+            
+
+
+
         }
 
         private unsafe void CreateSyncObjects()
@@ -605,20 +807,18 @@ namespace VECS.LowLevel
 
             _rawRenderImage.Dispose();
             _depthImage.Dispose();
-            _shadowImage.Dispose();
+            _shadowCubeMap.Dispose();
 
             for (int i = 0; i < _swapChainFrameBuffer.Length; i++)
             {
                 Vulkan.vkDestroyFramebuffer(Device, _swapChainFrameBuffer[i]);
             }
 
-            Vulkan.vkDestroyFramebuffer(Device, _shadowFramebuffer);
             Vulkan.vkDestroyFramebuffer(Device, _forwardFramebuffer);
 
 
             Vulkan.vkDestroyRenderPass(Device, _renderPass);
             Vulkan.vkDestroyRenderPass(Device, _copyPass);
-            Vulkan.vkDestroyRenderPass(Device, _shadowPass);
 
             Vulkan.vkDestroyFence(Device, _uploadFence);
             for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
