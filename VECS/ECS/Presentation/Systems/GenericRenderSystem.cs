@@ -76,7 +76,7 @@ namespace VECS.ECS.Presentation.Systems
                 _materialVairantCounts[new(i, 0)] = 0;
                 for (int j = 0; j < material.MaterialVariantCount; j++)
                 {
-                    _materialVairantCounts[new(i, j)] = 0;
+                    _materialVairantCounts[new(i, j+1)] = 0;
                 }
             }
         }

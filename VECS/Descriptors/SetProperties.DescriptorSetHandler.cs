@@ -128,8 +128,12 @@ namespace VECS
 
         public void SetStorageBufferRegion(uint startIndex, uint length)
         {
-            _storageBufferStartIndex = startIndex;
-            _storageBufferLength = length;
+            if (startIndex != _storageBufferStartIndex || length != _storageBufferLength)
+            {
+                _storageBufferStartIndex = startIndex;
+                _storageBufferLength = length;
+                Array.Fill(_setsDirty, true);
+            }
         }
 
         public void SetStorageBufferUsageSize(string property, uint instanceSize)
