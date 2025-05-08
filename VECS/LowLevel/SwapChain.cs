@@ -18,9 +18,12 @@ namespace VECS.LowLevel
         public readonly VkFramebuffer[] FrameBuffers = new VkFramebuffer[6];
         public VkRenderPass ShadowPass;
 
-        public unsafe ShadowImage(VkFormat depth)
+        public unsafe ShadowImage()
         {
-            _depthFormat = depth;
+            _depthFormat = GraphicsDevice.Instance.FindSupportFormat([VkFormat.D32SfloatS8Uint, VkFormat.D32Sfloat, VkFormat.D24UnormS8Uint, VkFormat.D16UnormS8Uint, VkFormat.D16Unorm],
+                VkImageTiling.Optimal,
+                VkFormatFeatureFlags.DepthStencilAttachment);
+
             VkImageCreateInfo imageCreateInfo = new()
             {
                 imageType = VkImageType.Image2D,
@@ -155,7 +158,7 @@ namespace VECS.LowLevel
         {
             VkAttachmentDescription* shadowAttachements = stackalloc VkAttachmentDescription[2];
 
-            shadowAttachements[0] = new VkAttachmentDescription(ShadowImage.SHADOW_IMAGE_FORMAT,
+            shadowAttachements[0] = new VkAttachmentDescription(SHADOW_IMAGE_FORMAT,
                 VkSampleCountFlags.Count1,
                 VkAttachmentLoadOp.Clear,
                 VkAttachmentStoreOp.Store,
@@ -175,7 +178,7 @@ namespace VECS.LowLevel
 
             VkAttachmentReference colourReference = new(0, VkImageLayout.ColorAttachmentOptimal);
 
-            VkAttachmentReference depthReference = new(1, VkImageLayout.DepthAttachmentOptimal);
+            VkAttachmentReference depthReference = new(1, VkImageLayout.DepthStencilAttachmentOptimal);
 
             VkSubpassDescription subpass = new()
             {
@@ -319,7 +322,6 @@ namespace VECS.LowLevel
         private VkFramebuffer[] _swapChainFrameBuffer;
 
         private VkFramebuffer _forwardFramebuffer;
-        private VkFramebuffer _shadowFramebuffer;
 
         private VkSemaphore[] _presentSemaphore;
         private VkSemaphore[] _renderSemaphore;
@@ -381,7 +383,7 @@ namespace VECS.LowLevel
 
         private unsafe void CreateShadowCubeMap()
         {
-            _shadowCubeMap = new ShadowImage(DepthFormat);
+            _shadowCubeMap = new ShadowImage();
         }
 
         private unsafe void CreateSwapChain(SwapChain oldSwapChain)
