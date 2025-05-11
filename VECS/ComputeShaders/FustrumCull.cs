@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using VECS.Compute;
@@ -29,7 +30,9 @@ namespace VECS
 
         private readonly unsafe VkWriteDescriptorSet* _writes;
 
-        private readonly VkDescriptorSet[] sets = new VkDescriptorSet[SwapChain.MAX_FRAMES_IN_FLIGHT];
+        private readonly Dictionary<int,List<VkDescriptorSet>> sets = [];
+        private int _executionThisFrame;
+        private int _lastFrameIndex;
 
         public unsafe FustrumCull()
         {
@@ -40,22 +43,29 @@ namespace VECS
 
             _writes = (VkWriteDescriptorSet*)NativeMemory.AllocZeroed((uint)sizeof(VkWriteDescriptorSet) * 2);
 
+            for (int i = 0; i < SwapChain.MAX_FRAMES_IN_FLIGHT; i++)
+            {
+                sets.Add(i, []);
+            }
         }
 
-        public void Cull(RendererFrameInfo frameInfo, uint drawCount, SwapChainBuffer<VkDrawIndexedIndirectCommand>drawIndirect, SwapChainBuffer<ModelBounds> bounds)
+        public VkBufferMemoryBarrier Cull(RendererFrameInfo frameInfo, CullData cullData, uint drawCount, SwapChainBuffer<VkDrawIndexedIndirectCommand> drawIndirect, SwapChainBuffer<ModelBounds> bounds)
         {
-            if (CPUCulling )
+            if (CPUCulling)
             {
                 Span<VkDrawIndexedIndirectCommand> drawIndirectSpan = drawIndirect.HostBuffer;
                 Span<ModelBounds> boundsSpan = bounds.HostBuffer;
                 for (int i = 0; i < drawCount; i++)
                 {
-                    drawIndirectSpan[i].instanceCount =( IsVisible(boundsSpan[i],frameInfo.cullData) || frameInfo.cullData.cullingEnabled == 0) ? 1u : 0;
+                    drawIndirectSpan[i].instanceCount = (IsVisible(boundsSpan[i], cullData) || cullData.cullingEnabled == 0) ? 1u : 0;
                 }
+                return new VkBufferMemoryBarrier();
             }
             else
             {
-                GPUCullInternal(frameInfo, drawCount, drawIndirect.ActiveVkBuffer, bounds.ActiveVkBuffer);
+                bounds.SetUsedInstanceCount(drawCount);
+                drawIndirect.SetUsedInstanceCount(drawCount);
+                return GPUCullInternal(frameInfo, cullData, drawCount, drawIndirect.ActiveVkBuffer, bounds.ActiveVkBuffer);
             }
         }
 
@@ -65,7 +75,7 @@ namespace VECS
 
             Vector3 center = bounds.Min.AsVector3() + extents;
 
-            center = Vector3.Transform(center,cullData.viewMatrix);
+            center = Vector3.Transform(center, cullData.viewMatrix);
 
             float radius = bounds.Min.W;
 
@@ -82,17 +92,26 @@ namespace VECS
             return visible;
         }
 
-        private unsafe void GPUCullInternal(RendererFrameInfo frameInfo, uint drawCount, VkBuffer drawIndirect, VkBuffer bounds)
+        private unsafe VkBufferMemoryBarrier GPUCullInternal(RendererFrameInfo frameInfo, CullData cullData, uint drawCount, VkBuffer drawIndirect, VkBuffer bounds)
         {
-            if (sets[frameInfo.FrameIndex] == VkDescriptorSet.Null)
+            if (_lastFrameIndex != frameInfo.FrameIndex)
             {
-                fixed (VkDescriptorSet* pSet = &sets[frameInfo.FrameIndex])
-                {
-                    frameInfo.ApplicationDescriptorPool.AllocateDescriptorSet(_cullPipe.DescriptorSetLayout.SetLayout, pSet);
-                }
+                _executionThisFrame = 0;
             }
 
-            VkDescriptorSet set = sets[frameInfo.FrameIndex];
+            if (sets[frameInfo.FrameIndex].Count <= _executionThisFrame + 1)
+            {
+                VkDescriptorSet newSet = default;
+                frameInfo.ApplicationDescriptorPool.AllocateDescriptorSet(_cullPipe.DescriptorSetLayout.SetLayout, &newSet);
+                sets[frameInfo.FrameIndex].Add(newSet);
+            }
+
+
+            VkDescriptorSet set = sets[frameInfo.FrameIndex][_executionThisFrame];
+            _executionThisFrame++;
+
+            _lastFrameIndex = frameInfo.FrameIndex;
+
             VkDescriptorBufferInfo drawBuffer = new()
             {
                 buffer = drawIndirect,
@@ -103,7 +122,7 @@ namespace VECS
             {
                 buffer = bounds,
                 offset = 0,
-                range = Vulkan.VK_WHOLE_SIZE
+                range = Vulkan.VK_WHOLE_SIZE,
             };
             var uboInfo = frameInfo.UboBufferInfo;
             _writes[0] = new()
@@ -130,7 +149,6 @@ namespace VECS
             Vulkan.vkCmdBindPipeline(frameInfo.CommandBuffer, VkPipelineBindPoint.Compute, _cullPipe.ComputePipeline);
             Vulkan.vkCmdBindDescriptorSets(frameInfo.CommandBuffer, VkPipelineBindPoint.Compute, _cullPipe.ComputePipelineLayout, 0, set);
 
-            var cullData = frameInfo.cullData;
             cullData.drawCount = drawCount;
 
             Vulkan.vkCmdPushConstants(
@@ -151,7 +169,8 @@ namespace VECS
                 srcAccessMask = VkAccessFlags.ShaderWrite,
                 dstAccessMask = VkAccessFlags.IndirectCommandRead
             };
-            frameInfo.PostCullBarriers.Add(barrier);
+
+            return barrier;
         }
 
         public unsafe void Dispose()

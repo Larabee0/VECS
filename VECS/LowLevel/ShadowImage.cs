@@ -200,7 +200,47 @@ namespace VECS.LowLevel
             }
         }
 
-        public unsafe Matrix4x4 UpdateCubeFace(int faceIndex, VkCommandBuffer commandBuffer)
+        public static Matrix4x4 GetViewMatrixForFace(int faceIndex)
+        {
+            Matrix4x4 viewMatrix;
+
+            // need to spend time to configure these correctly.
+            switch (faceIndex)
+            {
+                case 0: // POSITIVE_X correct
+                    viewMatrix = Matrix4x4.CreateRotationY(float.DegreesToRadians(-90.0f));
+                    viewMatrix *= Matrix4x4.CreateRotationX(float.DegreesToRadians(180.0f));
+                    break;
+                case 1: // NEGATIVE_X correct
+                    viewMatrix = Matrix4x4.CreateRotationY(float.DegreesToRadians(90.0f));
+                    viewMatrix *= Matrix4x4.CreateRotationX(float.DegreesToRadians(180.0f));
+                    break;
+                case 2: // POSITIVE_Y
+                    viewMatrix = Matrix4x4.CreateRotationX(float.DegreesToRadians(-90.0f));
+                    //
+                    //viewMatrix = Matrix4x4.CreateRotationY(float.DegreesToRadians(90.0f));
+                    //viewMatrix *= Matrix4x4.CreateRotationX(float.DegreesToRadians(180.0f));
+                    break;
+                case 3: // NEGATIVE_Y
+                    viewMatrix = Matrix4x4.CreateRotationX(float.DegreesToRadians(90.0f));
+                    // 
+                    // viewMatrix = Matrix4x4.CreateRotationY(float.DegreesToRadians(90.0f));
+                    // viewMatrix *= Matrix4x4.CreateRotationX(float.DegreesToRadians(180.0f));
+                    break;
+                case 4: // POSITIVE_Z correct
+                    viewMatrix = Matrix4x4.CreateRotationX(float.DegreesToRadians(180.0f));
+                    break;
+                case 5: // NEGATIVE_Z correct
+                    viewMatrix = Matrix4x4.CreateRotationZ(float.DegreesToRadians(180.0f));
+                    break;
+                default:
+                    viewMatrix = Matrix4x4.Identity;
+                    break;
+            }
+            return viewMatrix;
+        }
+
+        public unsafe void UpdateCubeFace(int faceIndex, VkCommandBuffer commandBuffer)
         {
             VkClearValue* clearValues = stackalloc VkClearValue[]
             {
@@ -217,48 +257,7 @@ namespace VECS.LowLevel
                 pClearValues = clearValues
             };
 
-            Matrix4x4 viewMatrix = Matrix4x4.Identity;
-
-            // need to spend time to configure these correctly.
-            switch (faceIndex)
-            {
-                case 0: // POSITIVE_X
-
-                    viewMatrix = Matrix4x4.CreateRotationY(float.DegreesToRadians(90.0f));
-                    viewMatrix *= Matrix4x4.CreateRotationX(float.DegreesToRadians(180.0f));
-                    break;
-                case 1: // NEGATIVE_X
-                    viewMatrix = Matrix4x4.CreateRotationY(float.DegreesToRadians(-90.0f));
-                    viewMatrix *= Matrix4x4.CreateRotationX(float.DegreesToRadians(180.0f));
-
-                    viewMatrix = Matrix4x4.CreateRotationY(float.DegreesToRadians(90.0f));
-                    viewMatrix *= Matrix4x4.CreateRotationX(float.DegreesToRadians(180.0f));
-                    break;
-                case 2: // POSITIVE_Y
-                    viewMatrix = Matrix4x4.CreateRotationX(float.DegreesToRadians(-90.0f));
-
-                    viewMatrix = Matrix4x4.CreateRotationY(float.DegreesToRadians(90.0f));
-                    viewMatrix *= Matrix4x4.CreateRotationX(float.DegreesToRadians(180.0f));
-                    break;
-                case 3: // NEGATIVE_Y
-                    viewMatrix = Matrix4x4.CreateRotationX(float.DegreesToRadians(90.0f));
-
-                    viewMatrix = Matrix4x4.CreateRotationY(float.DegreesToRadians(90.0f));
-                    viewMatrix *= Matrix4x4.CreateRotationX(float.DegreesToRadians(180.0f));
-                    break;
-                case 4: // POSITIVE_Z
-                    viewMatrix = Matrix4x4.CreateRotationX(float.DegreesToRadians(180.0f));
-
-                    viewMatrix = Matrix4x4.CreateRotationY(float.DegreesToRadians(90.0f));
-                    viewMatrix *= Matrix4x4.CreateRotationX(float.DegreesToRadians(180.0f));
-                    break;
-                case 5: // NEGATIVE_Z
-                    viewMatrix = Matrix4x4.CreateRotationZ(float.DegreesToRadians(180.0f));
-
-                    viewMatrix = Matrix4x4.CreateRotationY(float.DegreesToRadians(90.0f));
-                    viewMatrix *= Matrix4x4.CreateRotationX(float.DegreesToRadians(180.0f));
-                    break;
-            }
+            
 
             Vulkan.vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VkSubpassContents.Inline);
             // create Shadow Material
@@ -266,7 +265,6 @@ namespace VECS.LowLevel
 
             // this view matrix is required!!
             //Vulkan.vkCmdPushConstants(commandBuffer,,VkShaderStageFlags.Vertex,0,sizeof(Matrix4x4),&viewMatrix);
-            return viewMatrix;
 
             // loop all materials, bind descriptor sets & meshes and draw but do not bind pipelines or push constants.
             // do not dequeue draw stack

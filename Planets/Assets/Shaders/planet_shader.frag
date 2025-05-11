@@ -50,7 +50,7 @@ layout(push_constant) uniform constants
 } time;
 
 #define EPSILON 0.15
-#define SHADOW_OPACITY 0.05
+#define SHADOW_OPACITY 0.5
 
 float colourSample(out vec4 colour, out vec4 steepColour, out float alpha)
 {
@@ -101,75 +101,66 @@ float sampleOcean()
 
 void main()
 {
-	vec3 diffuseLight = ubo.ambientLightColour.xyz * ubo.ambientLightColour.w;
-	vec3 specularLight = vec3(0.0);
-	vec3 surfaceNormal = normalize(fragNormalWorld);
-
-	vec3 cameraPosWorld = ubo.inverseViewMatrix[3].xyz;
-	vec3 viewDirection =normalize(cameraPosWorld - fragPosWorld);
-
-	for(int i = 0; i < ubo.numLights; i++){
-		PointLight light = ubo.pointLights[i];
-		
-
-		vec3 directionToLight = light.position.xyz - fragPosWorld;
-		float attenuation = 1.0 / dot(directionToLight, directionToLight); // distance squared
-		
-		directionToLight = normalize(directionToLight);
-
-		float cosAngIncidence = max(dot(surfaceNormal, directionToLight),0);
-		vec3 intensity = light.colour.xyz * light.colour.w ;
-		diffuseLight += intensity * cosAngIncidence;
-
-		// spec
-
-		vec3 halfAngle = normalize(directionToLight + viewDirection);
-		float blinnTerm = dot(surfaceNormal, halfAngle);
-		blinnTerm = clamp(blinnTerm, 0.0, 1.0);
-		blinnTerm = pow(blinnTerm, 8.0); // higher values -> sharper highlight.
-		specularLight += intensity * blinnTerm; 
-	}
 
 	vec4 mainColour;
 	vec4 steepColour;
 	float alpha;
-	float oneMinusFloorOceanT = colourSample(mainColour,steepColour,alpha);
+	float oneMinusFloorOceanT = colourSample(mainColour, steepColour, alpha);
 
-	float steepness = dot(normalize(fragPosObject),fragNormalObject);
-	steepness = clamp(remap(steepness,steepColour.w,0.0,0.0,1.0),0.0,1.0);
+	float steepness = dot(normalize(fragPosObject), fragNormalObject);
+	steepness = clamp(remap(steepness, steepColour.w, 0.0, 0.0, 1.0), 0.0, 1.0);
 	
 	float oceanWeight = lerp(1, sampleOcean(), oneMinusFloorOceanT);
 	float terrainWeight = lerp(sampleTerrain(mainColour.w), 1.0, oneMinusFloorOceanT);
-	outColour = lerp(mainColour,steepColour,steepness);
+	outColour = lerp(mainColour, steepColour, steepness);
 	
-	outColour = outColour*terrainWeight * oceanWeight;
-	outColour = vec4(diffuseLight  * outColour.xyz + specularLight * outColour.xyz, 1.0);
-	//outColour =vec4(mainColour.xyz,1);
+	outColour = outColour * terrainWeight * oceanWeight;
 	
-	//outColour = vec4(mainColour.w);
-	//outColour *=10;
-	//outColour = vec4(steepColour);
-	
-	//if(oneMinusFloorOceanT  > 0.5){
-	//	outColour *= sampleOcean();
-	//}
-	//else{
-	//	outColour *= sampleTerrain(mainColour.w);
-	//}
-
-
-
-
-	//outColour = vec4(outColour.xyz*fragColour,1.0);
-
-	// shadow
+	// in shadow?
 
 	vec3 lightVec = fragPosWorld - ubo.pointLights[0].position.xyz;
 	float sampledDist = texture(shadowCubeMap, lightVec).r;
 	float dist = length(lightVec);
+	bool noShadow = dist <= sampledDist + EPSILON;
+	
 
-	float shadow = (dist <= sampledDist + EPSILON) ? 1.0 : SHADOW_OPACITY;
+	// lighting based on in shadow
+	vec3 diffuseLight = ubo.ambientLightColour.xyz *  ubo.ambientLightColour.w;
 
-	outColour.rgb *= shadow;
+	if(noShadow){
+	
+		vec3 specularLight = vec3(0.0);
+		vec3 surfaceNormal = normalize(fragNormalWorld);
+		vec3 cameraPosWorld = ubo.inverseViewMatrix[3].xyz;
+		vec3 viewDirection =normalize(cameraPosWorld - fragPosWorld);
+
+		for(int i = 0; i < ubo.numLights; i++){
+			PointLight light = ubo.pointLights[i];
+			
+
+			vec3 directionToLight = light.position.xyz - fragPosWorld;
+			float attenuation = 1.0 / dot(directionToLight, directionToLight); // distance squared
+			
+			directionToLight = normalize(directionToLight);
+
+			float cosAngIncidence = max(dot(surfaceNormal, directionToLight),0);
+			vec3 intensity = light.colour.xyz * light.colour.w ;
+			diffuseLight += intensity * cosAngIncidence;
+
+			// spec
+
+			vec3 halfAngle = normalize(directionToLight + viewDirection);
+			float blinnTerm = dot(surfaceNormal, halfAngle);
+			blinnTerm = clamp(blinnTerm, 0.0, 1.0);
+			blinnTerm = pow(blinnTerm, 8.0); // higher values -> sharper highlight.
+			specularLight += intensity * blinnTerm; 
+		}
+
+		outColour = vec4(diffuseLight  * outColour.xyz + specularLight * outColour.xyz, 1.0);
+	}
+	else{
+		outColour = vec4(diffuseLight  * outColour.xyz, 1.0);
+	}
+
 
 }

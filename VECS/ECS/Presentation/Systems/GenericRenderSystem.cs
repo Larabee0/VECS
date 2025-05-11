@@ -25,6 +25,7 @@ namespace VECS.ECS.Presentation.Systems
         private SwapChainBuffer<VkDrawIndexedIndirectCommand> _indirectCmdBuffer;
         private SwapChainBuffer<VkDrawIndexedIndirectCommand> _shadowIndirectCmdBuffer;
         private SwapChainBuffer<ModelBounds> _modelBoundsBuffer;
+        private SwapChainBuffer<ModelBounds> _shadowModelBoundsBuffer;
 
         private FustrumCull _cullCompute;
         private Material _shadowOffscreen;
@@ -60,6 +61,12 @@ namespace VECS.ECS.Presentation.Systems
                     VkBufferUsageFlags.StorageBuffer,
                     true);
 
+            _shadowModelBoundsBuffer = new(MAX_DRAWS,
+                    VkBufferUsageFlags.TransferDst |
+                    VkBufferUsageFlags.TransferSrc |
+                    VkBufferUsageFlags.StorageBuffer,
+                    true);
+
             _cullCompute = new();
 
             _indirectCmdBuffer.SetBuffersDirty(true);
@@ -68,7 +75,7 @@ namespace VECS.ECS.Presentation.Systems
 
             GraphicsPipelineConfigInfo shadowConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             shadowConfig.renderPass = SwapChain.Instance.ShadowPass;
-            //shadowConfig.rasterizationInfo.cullMode = VkCullModeFlags.None;
+            shadowConfig.rasterizationInfo.cullMode = VkCullModeFlags.None;
 
             _shadowOffscreen = Material.Create("shadow_offscreen.vert", "shadow_offscreen.frag", shadowConfig);
         }
@@ -79,6 +86,7 @@ namespace VECS.ECS.Presentation.Systems
             _indirectCmdBuffer?.Dispose();
             _shadowIndirectCmdBuffer?.Dispose();
             _modelBoundsBuffer?.Dispose();
+            _shadowModelBoundsBuffer?.Dispose();
         }
 
         private unsafe void ResetEarlyDrawCommands(int count)
@@ -269,11 +277,16 @@ namespace VECS.ECS.Presentation.Systems
             }
 
             material.EnqueueDrawCmd(new(lastCmd.MaterialIndex, lastCmd.MaterialVariant, storageBufferRegion, lastCmd.MaterialEntity, lastCmd.DirectMesh, meshSubRegion));
+            
+            var barrier = _cullCompute.Cull(rendererFrameInfo, rendererFrameInfo.cullData, (uint)_earlyDrawCommands.Length, _indirectCmdBuffer, _modelBoundsBuffer);
 
-            _cullCompute.Cull(rendererFrameInfo, (uint)_earlyDrawCommands.Length, _indirectCmdBuffer, _modelBoundsBuffer);
+            if (!_cullCompute.CPUCulling)
+            {
+                rendererFrameInfo.PostCullBarriers.Add(barrier);
+            }
         }
 
-        public override void OnShadowPass(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
+        public unsafe override void OnShadowPass(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
         {
             if (!_renderEntityQuery.HasEntities) { return; }
 
@@ -301,6 +314,7 @@ namespace VECS.ECS.Presentation.Systems
             Array.Sort(_shadowDrawCommands, (EarlyDrawCommand x, EarlyDrawCommand y) => { return x.DirectMesh.CompareTo(y.DirectMesh); });
 
             Span<ModelMatrices> matrices = _shadowOffscreen.GetStorageBuffer<ModelMatrices>("matricesBuffer");
+            Span<ModelBounds> bounds = _shadowModelBoundsBuffer.HostBuffer;
             Span<VkDrawIndexedIndirectCommand> shadowDraws = _shadowIndirectCmdBuffer.HostBuffer;
 
             int lastCount = 0;
@@ -325,6 +339,7 @@ namespace VECS.ECS.Presentation.Systems
                 drawCommand.VkDraw.instanceCount = 1;
                 drawCommand.VkDraw.firstInstance = (uint)i;
                 matrices[i] = drawCommand.Matrices;
+                bounds[i] = drawCommand.Bounds;
                 shadowDraws[i] = drawCommand.VkDraw;
             }
             _shadowOffscreen.SetMatDescriptorHandleStorageRegions(0, 0, (uint)drawCount);
@@ -334,9 +349,34 @@ namespace VECS.ECS.Presentation.Systems
             Matrix4x4 model = Matrix4x4.CreateTranslation(rendererFrameInfo.Ubo.PointLights[0].Position.AsVector3());
             _shadowOffscreen.SetPushConstantMatrix4x4("proj", projection);
             _shadowOffscreen.SetPushConstantMatrix4x4("model", model);
+
+            Matrix4x4 projectionT = Matrix4x4.Transpose(projection);
+            Vector4 frustrumX = (projectionT.GetMatrixRow(3) + projectionT.GetMatrixRow(0)).NormalizePlane();
+            Vector4 frustrumY = (projectionT.GetMatrixRow(3) + projectionT.GetMatrixRow(1)).NormalizePlane();
+            Vector4 frustum = new(frustrumX.X, frustrumX.Z, frustrumY.Y, frustrumY.Z);
+            CullData cullData = rendererFrameInfo.cullData;
+            cullData.P00 = projection[0, 0];
+            cullData.P11 = projection[1, 1];
+            cullData.znear = 0.1f;
+            cullData.zfar = 1024f;
+            cullData.frustum = frustum;
+
             for (int i = 0; i < 6; i++)
             {
-                var viewMatrix = SwapChain.Instance.ShadowImage.UpdateCubeFace(i, rendererFrameInfo.CommandBuffer);
+                var viewMatrix = ShadowImage.GetViewMatrixForFace(i);
+
+                cullData.viewMatrix = viewMatrix * model;
+
+                VkBufferMemoryBarrier memoryBarrier = _cullCompute.Cull(rendererFrameInfo, cullData, (uint)drawCount, _shadowIndirectCmdBuffer, _shadowModelBoundsBuffer);
+                if (!_cullCompute.CPUCulling)
+                {
+                    Vulkan.vkCmdPipelineBarrier(rendererFrameInfo.CommandBuffer,
+                            VkPipelineStageFlags.ComputeShader,
+                            VkPipelineStageFlags.DrawIndirect,
+                            0, 0, null, 1, &memoryBarrier, 0, null);
+                }
+
+                SwapChain.Instance.ShadowImage.UpdateCubeFace(i, rendererFrameInfo.CommandBuffer);
                 
                 Matrix4x4 final = projection * viewMatrix * model;
 

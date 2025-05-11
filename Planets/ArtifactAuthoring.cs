@@ -92,14 +92,14 @@ namespace Planets
             Entity planetOrbiterA = InstantiateNewOrbitalPlanet(entityManager,
                 PlanetPresets.ShapeGeneratorFixedEarthLike(),
                 prefabPlanet, starParent,
-                new(-15f, 0, 0),
+                new(-25f, 0, 0),
                 3,
                 5, 12, planetLitMaterial);
 
             Entity planetOrbiterB = InstantiateNewOrbitalPlanet(entityManager,
                 PlanetPresets.ShapeGeneratorRandomEarthLike(),
                 CreatePrefabPlanet(entityManager), starParent,
-                new(15f, 0, 0),
+                new(-10f, 0, 00),
                 3,
                 5, 12, planetLitMaterial);
 
