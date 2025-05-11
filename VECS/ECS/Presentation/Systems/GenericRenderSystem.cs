@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Numerics;
 using VECS.ECS.Transforms;
+using VECS.GraphicsPipelines;
+using VECS.LowLevel;
 using Vortice.Vulkan;
 
 namespace VECS.ECS.Presentation.Systems
@@ -17,15 +19,19 @@ namespace VECS.ECS.Presentation.Systems
         private readonly SortedDictionary<Vector2Int, uint> _materialVairantCounts = [];
         private readonly Dictionary<int, int> _directMeshDraws = [];
         private readonly SortedDictionary<int, BufferRegion> _directMeshCmdRegions = [];
+        private readonly SortedDictionary<int, BufferRegion> _shadowMeshRegions = [];
         private readonly SortedDictionary<int, int> _directMeshCmdRegionIndex = [];
 
         private SwapChainBuffer<VkDrawIndexedIndirectCommand> _indirectCmdBuffer;
+        private SwapChainBuffer<VkDrawIndexedIndirectCommand> _shadowIndirectCmdBuffer;
         private SwapChainBuffer<ModelBounds> _modelBoundsBuffer;
 
         private FustrumCull _cullCompute;
+        private Material _shadowOffscreen;
 
         private Vector2Int[] _regionKeys = [];
         private EarlyDrawCommand[] _earlyDrawCommands = [];
+        private EarlyDrawCommand[] _shadowDrawCommands = [];
 
         public override void OnCreate(EntityManager entityManager)
         {
@@ -41,6 +47,13 @@ namespace VECS.ECS.Presentation.Systems
                     VkBufferUsageFlags.StorageBuffer,
                     true);
 
+            _shadowIndirectCmdBuffer = new(MAX_DRAWS,
+                    VkBufferUsageFlags.TransferDst |
+                    VkBufferUsageFlags.TransferSrc |
+                    VkBufferUsageFlags.IndirectBuffer |
+                    VkBufferUsageFlags.StorageBuffer,
+                    true);
+
             _modelBoundsBuffer = new(MAX_DRAWS,
                     VkBufferUsageFlags.TransferDst |
                     VkBufferUsageFlags.TransferSrc |
@@ -50,13 +63,21 @@ namespace VECS.ECS.Presentation.Systems
             _cullCompute = new();
 
             _indirectCmdBuffer.SetBuffersDirty(true);
+            _shadowIndirectCmdBuffer.SetBuffersDirty(true);
             _modelBoundsBuffer.SetBuffersDirty(true);
+
+            GraphicsPipelineConfigInfo shadowConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
+            shadowConfig.renderPass = SwapChain.Instance.ShadowPass;
+            //shadowConfig.rasterizationInfo.cullMode = VkCullModeFlags.None;
+
+            _shadowOffscreen = Material.Create("shadow_offscreen.vert", "shadow_offscreen.frag", shadowConfig);
         }
 
         public override void OnDestroy(EntityManager entityManager)
         {
             _cullCompute?.Dispose();
             _indirectCmdBuffer?.Dispose();
+            _shadowIndirectCmdBuffer?.Dispose();
             _modelBoundsBuffer?.Dispose();
         }
 
@@ -64,6 +85,12 @@ namespace VECS.ECS.Presentation.Systems
         {
             Array.Resize(ref _earlyDrawCommands, count);
             Array.Fill(_earlyDrawCommands, default);
+        }
+
+        private unsafe void ResetShadowDrawCommands(int count)
+        {
+            Array.Resize(ref _shadowDrawCommands, count);
+            Array.Fill(_shadowDrawCommands, default);
         }
 
         private void ResetMaterials()
@@ -91,6 +118,7 @@ namespace VECS.ECS.Presentation.Systems
                 _meshNextCmdRegion[i] = default;
                 _directMeshDraws[i] = 0;
                 _directMeshCmdRegions[i] = default;
+                _shadowMeshRegions[i] = default;
                 _directMeshCmdRegionIndex[i] = 0;
             }
         }
@@ -243,6 +271,81 @@ namespace VECS.ECS.Presentation.Systems
             material.EnqueueDrawCmd(new(lastCmd.MaterialIndex, lastCmd.MaterialVariant, storageBufferRegion, lastCmd.MaterialEntity, lastCmd.DirectMesh, meshSubRegion));
 
             _cullCompute.Cull(rendererFrameInfo, (uint)_earlyDrawCommands.Length, _indirectCmdBuffer, _modelBoundsBuffer);
+        }
+
+        public override void OnShadowPass(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
+        {
+            if (!_renderEntityQuery.HasEntities) { return; }
+
+            var entities = _renderEntityQuery.GetEntities();
+            ResetShadowDrawCommands(entities.Count);
+
+            int drawCount = _shadowDrawCommands.Length;
+            int materialIndex = Material.GetIndexOfMaterial(_shadowOffscreen);
+
+            for (int i = 0; i < drawCount; i++)
+            {
+                Entity entity = entities[i];
+                var localToWorld = entityManager.GetComponent<LocalToWorld>(entity);
+                var renderMesh = entityManager.GetComponent<RenderMesh>(entity);
+                var worldBounds = entityManager.GetComponent<WorldRenderBounds>(entity);
+
+                DrawCommand drawCommand = new(renderMesh.Mesh, localToWorld, worldBounds);
+                _shadowDrawCommands[i] = new(drawCommand, renderMesh);
+                if(!_shadowMeshRegions.TryAdd(renderMesh.Mesh.DirectMesh, new(1)))
+                {
+                    _shadowMeshRegions[renderMesh.Mesh.DirectMesh] = new(_shadowMeshRegions[renderMesh.Mesh.DirectMesh].Count + 1);
+                }
+            }
+
+            Array.Sort(_shadowDrawCommands, (EarlyDrawCommand x, EarlyDrawCommand y) => { return x.DirectMesh.CompareTo(y.DirectMesh); });
+
+            Span<ModelMatrices> matrices = _shadowOffscreen.GetStorageBuffer<ModelMatrices>("matricesBuffer");
+            Span<VkDrawIndexedIndirectCommand> shadowDraws = _shadowIndirectCmdBuffer.HostBuffer;
+
+            int lastCount = 0;
+            foreach (var key in _shadowMeshRegions.Keys)
+            {
+                var region = _shadowMeshRegions[key];
+                region.StartIndex = lastCount;
+                lastCount += region.Count;
+                if (region.Count > 0)
+                {
+                    _shadowOffscreen.EnqueueDrawCmd(new(
+                        materialIndex, 0,
+                        new(drawCount),0,
+                        key,
+                        region));
+                }
+            }
+
+            for (int i = 0; i < drawCount; i++)
+            {
+                var drawCommand = _shadowDrawCommands[i].DrawCommand;
+                drawCommand.VkDraw.instanceCount = 1;
+                drawCommand.VkDraw.firstInstance = (uint)i;
+                matrices[i] = drawCommand.Matrices;
+                shadowDraws[i] = drawCommand.VkDraw;
+            }
+            _shadowOffscreen.SetMatDescriptorHandleStorageRegions(0, 0, (uint)drawCount);
+            ShadowImage.SetViewPort(rendererFrameInfo);
+
+            Matrix4x4 projection = Matrix4x4.CreatePerspectiveFieldOfView(MathF.PI * 0.5f, 1.0f, 0.1f, 1024f);
+            Matrix4x4 model = Matrix4x4.CreateTranslation(rendererFrameInfo.Ubo.PointLights[0].Position.AsVector3());
+            _shadowOffscreen.SetPushConstantMatrix4x4("proj", projection);
+            _shadowOffscreen.SetPushConstantMatrix4x4("model", model);
+            for (int i = 0; i < 6; i++)
+            {
+                var viewMatrix = SwapChain.Instance.ShadowImage.UpdateCubeFace(i, rendererFrameInfo.CommandBuffer);
+                
+                Matrix4x4 final = projection * viewMatrix * model;
+
+                _shadowOffscreen.SetPushConstantMatrix4x4("view", viewMatrix);
+                _shadowOffscreen.ExecuteDrawCommandKeepCommands(rendererFrameInfo, _shadowIndirectCmdBuffer);
+                Renderer.EndRenderPass(rendererFrameInfo.CommandBuffer);
+            }
+
+            _shadowOffscreen._drawCommands.Clear();
         }
 
         public override void OnFowardPass(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)

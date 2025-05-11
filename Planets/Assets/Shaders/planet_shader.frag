@@ -29,6 +29,7 @@ layout(set = 1, binding = 2) uniform sampler2DArray texTerrain;
 layout(set = 1, binding = 3) uniform sampler2D texWaveA;
 layout(set = 1, binding = 4) uniform sampler2D texWaveB;
 layout(set = 1, binding = 5) uniform sampler2D texWaveC;
+layout(set = 1, binding = 6) uniform samplerCube shadowCubeMap;
 
 layout(set = 2, binding = 1) uniform shaderParams{
 	float elevationMin;
@@ -47,6 +48,9 @@ layout(push_constant) uniform constants
 	float sineTime;
 	float cosineTime;
 } time;
+
+#define EPSILON 0.15
+#define SHADOW_OPACITY 0.05
 
 float colourSample(out vec4 colour, out vec4 steepColour, out float alpha)
 {
@@ -139,6 +143,7 @@ void main()
 	outColour = lerp(mainColour,steepColour,steepness);
 	
 	outColour = outColour*terrainWeight * oceanWeight;
+	outColour = vec4(diffuseLight  * outColour.xyz + specularLight * outColour.xyz, 1.0);
 	//outColour =vec4(mainColour.xyz,1);
 	
 	//outColour = vec4(mainColour.w);
@@ -151,6 +156,20 @@ void main()
 	//else{
 	//	outColour *= sampleTerrain(mainColour.w);
 	//}
-	outColour = vec4(diffuseLight  * outColour.xyz + specularLight * outColour.xyz, 1.0);
+
+
+
+
 	//outColour = vec4(outColour.xyz*fragColour,1.0);
+
+	// shadow
+
+	vec3 lightVec = fragPosWorld - ubo.pointLights[0].position.xyz;
+	float sampledDist = texture(shadowCubeMap, lightVec).r;
+	float dist = length(lightVec);
+
+	float shadow = (dist <= sampledDist + EPSILON) ? 1.0 : SHADOW_OPACITY;
+
+	outColour.rgb *= shadow;
+
 }

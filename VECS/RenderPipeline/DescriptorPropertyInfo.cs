@@ -193,6 +193,7 @@ namespace VECS
                 SpvDim.Dim1D => VkImageType.Image1D,
                 SpvDim.Dim2D => VkImageType.Image2D,
                 SpvDim.Dim3D => VkImageType.Image3D,
+                SpvDim.Cube => VkImageType.Image2D,
                 _ => throw new NotImplementedException(string.Format("Image dimention {0} is not implemented for descriptor variables", imageTraits.dim.ToString())),
             };
 

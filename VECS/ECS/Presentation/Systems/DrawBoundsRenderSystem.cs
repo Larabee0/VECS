@@ -76,10 +76,17 @@ namespace VECS.ECS.Presentation.Systems
             var colours = Span<Vector4>.Empty;
             var draws = Span<VkDrawIndirectCommand>.Empty;
 
+
             if (AABBQueue.Count > 0 && _cameraQuery.HasEntities
                 || _cameraQuery.HasEntities && SwapChain.Instance != null
                 || _drawBounds && _renderBoundsQuery.HasEntities)
             {
+                var drawCount = AABBQueue.Count;
+                drawCount += _cameraQuery.HasEntities ? _cameraQuery.GetEntities().Count : 0;
+                drawCount += _renderBoundsQuery.HasEntities ? _renderBoundsQuery.GetEntities().Count*4 : 0;
+
+                _lineMaterial.SetMatDescriptorHandleStorageRegions(0, 0, (uint)drawCount);
+
                 _lineMaterial.BindAll(frameInfo);
                 matrices = _lineMaterial.GetStorageBuffer<ModelMatrices>("matricesBuffer");
                 colours = _lineMaterial.GetStorageBuffer<Vector4>("colourBuffer");

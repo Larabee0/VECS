@@ -54,7 +54,7 @@ namespace Planets.Colour
                 }
                 rendererFrameInfo.Ubo.NumLights = starsToDraw.Count;
                 starsToDraw.Sort(new PointLightPushConstant());
-
+                _pointLightMaterial.SetMatDescriptorHandleStorageRegions(0, 0, (uint)stars.Count);
                 _pointLightMaterial.BindAll(rendererFrameInfo);
                 Vulkan.vkCmdDraw(rendererFrameInfo.CommandBuffer, 6, (uint)starsToDraw.Count, 0, 0);
             }

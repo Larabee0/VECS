@@ -42,6 +42,8 @@ namespace VECS
         private uint _storageBufferStartIndex = 0;
         private uint _storageBufferLength = 0;
 
+        private uint _sumStorageBufferLength = 0;
+
         public int ChildCount => _children.Count;
 
         public DescriptorLevel DescriptorLevel => _descriptorLevel;
@@ -299,10 +301,32 @@ namespace VECS
             }
         }
 
+
+        private void UpdateStorageBufferUsage()
+        {
+            if(_child) return;
+            var currentRegion = _sumStorageBufferLength;
+            _sumStorageBufferLength = _storageBufferLength;
+            _children.ForEach(child => _sumStorageBufferLength += child._storageBufferLength);
+
+            if (currentRegion != _sumStorageBufferLength)
+            {
+                for (int i = 0; i < _descriptorBindings.Length; i++)
+                {
+                    if (_descriptorBindings[i].StorageBuffer)
+                    {
+                        _bindingBuffers[_bindingBufferMap[_descriptorBindings[i].Binding]].SetUsedInstanceCount(_sumStorageBufferLength);
+                    }
+                }
+            }
+        }
+
         public void WriteFromBuffers(int frameIndex)
         {
             if (!_child && _bindingBuffers != null)
             {
+                UpdateStorageBufferUsage();
+
                 for (int i = 0; i < _bindingBuffers.Length; i++)
                 {
                     _bindingBuffers[i].WriteFromHostToActiveBuffer(frameIndex);

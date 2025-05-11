@@ -437,6 +437,8 @@ namespace VECS
             var cmd = GraphicsDevice.Instance.BeginSingleTimeCommands();
             Vulkan.vkCmdPipelineBarrier(cmd, srcStageMask, dstStageMask, 0, 0, null, 0, null, 1, &imageMemoryBarrier);
             GraphicsDevice.Instance.EndSingleTimeCommands(cmd);
+
+            SetImageLayoutDirect(newImageLayout);
         }
 
         internal unsafe void SetImageLayout(

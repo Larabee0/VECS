@@ -136,7 +136,21 @@ namespace VECS
         public int StartIndex;
         public int Count;
 
+        public BufferRegion(int startIndex, int count)
+        {
+            StartIndex = startIndex;
+            Count = count;
+        }
+
+        public BufferRegion(int count)
+        {
+            StartIndex = 0;
+            Count = count;
+        }
+
+
         public readonly int Offset => StartIndex + Count;
+
 
 
         public void Reset()
@@ -264,6 +278,20 @@ namespace VECS
             config.renderPass = Presenter.Instance.RenderPass;
             GraphicsPipelineConfigInfo.EnableAlphaBlending(ref config);
             return Create(vertexShader, fragmentShader, config);
+        }
+
+        public static Material CreateWithRenderPass(string vertexShader, string fragmentShader, VkRenderPass renderPass)
+        {
+            var config = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
+            config.renderPass = renderPass;
+            var material = new Material(vertexShader, fragmentShader, config, false, renderPass);
+
+            if (material.HasApplicationSet)
+            {
+                material._allHandlers[0] = Presenter.Instance.GlobalSetHandler;
+            }
+
+            return material;
         }
 
         internal Material(string vertexShader, string fragmentShader, GraphicsPipelineConfigInfo pipelineConfig, bool actAsGlobal, VkRenderPass renderPass)

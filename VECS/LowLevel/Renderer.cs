@@ -312,7 +312,7 @@ namespace VECS.LowLevel
             Vulkan.vkCmdSetScissor(commandBuffer, scissor);
         }
 
-        public static void EndForwardRenderPass(VkCommandBuffer commandBuffer)
+        public static void EndRenderPass(VkCommandBuffer commandBuffer)
         {
             Vulkan.vkCmdEndRenderPass(commandBuffer);
         }

@@ -290,7 +290,7 @@ namespace VECS
                 // forward pass
                 _renderer.BeginForwardRenderPass(frameInfo.CommandBuffer);
                 World.DefaultWorld.PresentFowardPassUpdate(frameInfo);
-                Renderer.EndForwardRenderPass(frameInfo.CommandBuffer);
+                Renderer.EndRenderPass(frameInfo.CommandBuffer);
                 DirectMesh.ClearBufferBinds();
                 // depth pyramid mip maps
                 _renderer.ReduceDepth(frameInfo);
