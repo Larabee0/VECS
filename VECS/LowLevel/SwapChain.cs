@@ -15,11 +15,10 @@ namespace VECS.LowLevel
         // private VkExtent2D _shadowExtent = new(1024 * 4, 1024 * 4);
 
 
-        private VkRenderPass _renderPass;
+        private VkRenderPass _fwdrenderPass;
         private VkRenderPass _copyPass;
 
-        internal VkRenderPass RenderPass =>_renderPass;
-        internal VkRenderPass ShadowPass => _shadowCubeMap.ShadowPass;
+        internal VkRenderPass ForwardRenderPass =>_fwdrenderPass;
         internal VkRenderPass CopyPass => _copyPass;
 
         private VkFormat RenderFormat => RawRenderImage.Format;
@@ -27,15 +26,12 @@ namespace VECS.LowLevel
         
         private Texture2d _rawRenderImage;
         private Texture2d _depthImage;
-        private ShadowImage _shadowCubeMap;
         
         internal VkDescriptorImageInfo DepthPyramid => _depthImage.GetImageInfo;
 
         internal Texture2d RawRenderImage => _rawRenderImage;
         internal Texture2d DepthImage => _depthImage;
-        internal ShadowImage ShadowImage => _shadowCubeMap;
 
-        public static Texture2d ShadowTexture => Instance.ShadowImage.CubeMap;
 
         private VkExtent2D _swapChainExtent;
         private VkSwapchainKHR _swapChain;
@@ -95,8 +91,6 @@ namespace VECS.LowLevel
             CreateDepthImage();
             CreateAdditionalSamplers();
 
-            CreateShadowCubeMap();
-
             CreateFowardRenderPass();
             CreateCopyRenderPass();
 
@@ -104,11 +98,6 @@ namespace VECS.LowLevel
 
             CreateSyncObjects();
             StartSubmissionThread();
-        }
-
-        private unsafe void CreateShadowCubeMap()
-        {
-            _shadowCubeMap = new ShadowImage();
         }
 
         private unsafe void CreateSwapChain(SwapChain oldSwapChain)
@@ -343,7 +332,7 @@ namespace VECS.LowLevel
                 dependencyCount = 1,
                 pDependencies = &dependency
             };
-            if(Vulkan.vkCreateRenderPass(Device, &render_pass_info, null, out _renderPass) != VkResult.Success)
+            if(Vulkan.vkCreateRenderPass(Device, &render_pass_info, null, out _fwdrenderPass) != VkResult.Success)
             {
                 throw new Exception("Failed to create renderPass");
             }
@@ -401,7 +390,7 @@ namespace VECS.LowLevel
             };
             VkFramebufferCreateInfo fwdInfo = new()
             {
-                renderPass = _renderPass,
+                renderPass = _fwdrenderPass,
                 attachmentCount = 2,
                 pAttachments = attachements,
                 width = _windowExtent.width,
@@ -534,7 +523,6 @@ namespace VECS.LowLevel
 
             _rawRenderImage.Dispose();
             _depthImage.Dispose();
-            _shadowCubeMap.Dispose();
 
             for (int i = 0; i < _swapChainFrameBuffer.Length; i++)
             {
@@ -544,7 +532,7 @@ namespace VECS.LowLevel
             Vulkan.vkDestroyFramebuffer(Device, _forwardFramebuffer);
 
 
-            Vulkan.vkDestroyRenderPass(Device, _renderPass);
+            Vulkan.vkDestroyRenderPass(Device, _fwdrenderPass);
             Vulkan.vkDestroyRenderPass(Device, _copyPass);
 
             Vulkan.vkDestroyFence(Device, _uploadFence);

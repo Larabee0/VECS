@@ -8,9 +8,11 @@ namespace VECS.LowLevel
 {
     public sealed class Renderer : IDisposable
     {
+        internal static Renderer Instance { get; private set; }
         private readonly IWindow _window;
         private readonly GraphicsDevice _device;
         private SwapChain _swapChain;
+        private ShadowImage _shadowCubeMap;
         private DepthReduction _depthReduction;
 
         private bool isFrameStarted = false;
@@ -28,9 +30,9 @@ namespace VECS.LowLevel
         public List<VkBufferMemoryBarrier> UploadBarriers => _uploadBarriers;
 
         private Material _blitMat;
-        // private DescriptorSetLayout _blitDescriptorSetLayout;
-        // private VkPipelineLayout _blitPipelineLayout;
-        // private GraphicsPipeline _blitPipeline;
+
+        public ShadowImage ShadowImage => _shadowCubeMap;
+        public static Texture2d ShadowTexture => Instance.ShadowImage.CubeMap;
 
         public int FrameIndex
         {
@@ -51,18 +53,20 @@ namespace VECS.LowLevel
         }
 
         public float AspectRatio => _swapChain.ExtentAspectRatio;
-
-        public VkRenderPass RenderPass =>_swapChain.RenderPass;
+        public VkRenderPass ShadowRenderPass => _shadowCubeMap.ShadowPass;
+        public VkRenderPass ForwardRenderPass =>_swapChain.ForwardRenderPass;
         public VkDescriptorImageInfo DepthPyramid => _swapChain.DepthPyramid;
         public uint DepthPyramidWidth => _depthReduction.DepthPyramidWidth;
         public uint DepthPyramidHeight => _depthReduction.DepthPyramidHeight;
 
         public Renderer(IWindow window)
         {
+            Instance = this;
             _device = GraphicsDevice.Instance;
             _window = window;
 
             RecreateSwapChain();
+            _shadowCubeMap = new();
             CreateCommandBuffers();
             CreateBlitPipeline();
         }
@@ -280,7 +284,7 @@ namespace VECS.LowLevel
 
             VkRenderPassBeginInfo renderPassInfo = new()
             {
-                renderPass = _swapChain.RenderPass,
+                renderPass = _swapChain.ForwardRenderPass,
                 renderArea = new()
                 {
                     offset = new(0, 0),
@@ -450,7 +454,9 @@ namespace VECS.LowLevel
         {
             FreeCommandBuffers();
             _depthReduction.Dispose();
+            _shadowCubeMap?.Dispose();
             _swapChain.Dispose();
+            Instance = null;
         }
     }
 }

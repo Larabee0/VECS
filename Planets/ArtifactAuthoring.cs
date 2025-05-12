@@ -319,7 +319,7 @@ namespace Planets
             planetLitMaterial.SetTexture("texWaveA", textureWaveA);
             planetLitMaterial.SetTexture("texWaveB", textureWaveC);
             planetLitMaterial.SetTexture("texWaveC", textureWaveB);
-            planetLitMaterial.SetTexture("shadowCubeMap", SwapChain.ShadowTexture);
+            planetLitMaterial.SetTexture("shadowCubeMap", Renderer.ShadowTexture);
         }
 
         private Entity CreatePrefabPlanet(EntityManager entityManager)

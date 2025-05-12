@@ -56,7 +56,7 @@ namespace VECS
         public Material Lit => _litMaterial;
         public Material LitTexture => _litTextureMaterial;
 
-        public VkRenderPass RenderPass => _renderer.RenderPass;
+        public VkRenderPass RenderPass => _renderer.ForwardRenderPass;
         public VkDescriptorSetLayout GlobalSetLayout => _globalDescriptorSetHandler.VkDescriptorSetLayout;
         internal DescriptorSetHandler GlobalSetHandler => _globalDescriptorSetHandler;
         public int FrameIndex => _renderer.FrameIndex;

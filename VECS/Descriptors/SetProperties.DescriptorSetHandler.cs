@@ -152,7 +152,8 @@ namespace VECS
         {
             if (propertyInfo.ImageType == VkImageType.Image2D && !propertyInfo.ImageArray && _bindingImages.TryGetValue(bindingIndex, out var value))
             {
-                _bindingImages[bindingIndex] = (value.Item1,texture);
+                _bindingImages[bindingIndex] = (value.Item1, texture);
+                Array.Fill(_setsDirty, true);
             }
         }
 
@@ -161,6 +162,7 @@ namespace VECS
             if(propertyInfo.ImageType == VkImageType.Image2D && propertyInfo.ImageArray && _bindingImages.TryGetValue(bindingIndex, out var value))
             {
                 _bindingImages[bindingIndex] = (value.Item1, textureArray);
+                Array.Fill(_setsDirty, true);
             }
         }
     }

@@ -74,7 +74,7 @@ namespace VECS.ECS.Presentation.Systems
             _modelBoundsBuffer.SetBuffersDirty(true);
 
             GraphicsPipelineConfigInfo shadowConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
-            shadowConfig.renderPass = SwapChain.Instance.ShadowPass;
+            shadowConfig.renderPass = Renderer.Instance.ShadowRenderPass;
             shadowConfig.rasterizationInfo.cullMode = VkCullModeFlags.None;
 
             _shadowOffscreen = Material.Create("shadow_offscreen.vert", "shadow_offscreen.frag", shadowConfig);
@@ -376,7 +376,7 @@ namespace VECS.ECS.Presentation.Systems
                             0, 0, null, 1, &memoryBarrier, 0, null);
                 }
 
-                SwapChain.Instance.ShadowImage.UpdateCubeFace(i, rendererFrameInfo.CommandBuffer);
+                Renderer.Instance.ShadowImage.UpdateCubeFace(i, rendererFrameInfo.CommandBuffer);
                 
                 Matrix4x4 final = projection * viewMatrix * model;
 
