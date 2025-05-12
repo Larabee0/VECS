@@ -117,9 +117,24 @@ namespace VECS.ECS
         /// <summary>
         /// Logical update for Systembases and PresentationSystems
         /// </summary>
+        /// 
+
+        internal void OnFixedUpdate()
+        {
+            _entityManager.DiryQueries();
+            _systems.ForEach(s => s.OnFixedUpdate(_entityManager));
+            _presentationSystems.ForEach(s => s.OnFixedUpdate(_entityManager));
+        }
+
+        internal void OnPostFixedUpdate()
+        {
+            _systems.ForEach(s => s.OnPostFixedUpdate(_entityManager));
+            _presentationSystems.ForEach(s => s.OnPostFixedUpdate(_entityManager));
+        }
+
         internal void OnUpdate()
         {
-            _entityManager.NextFrame();
+            _entityManager.DiryQueries();
             _systems.ForEach(s => s.OnUpdate(_entityManager));
             _presentationSystems.ForEach(s => s.OnUpdate(_entityManager));
         }

@@ -28,6 +28,7 @@ namespace VECS
             _appWindow = new(Width, Height, "VECS");
             _device = new(_appWindow);
             _presenter = new(_appWindow);
+            Time.FixedTimeStepCallback += FixedUpdate;
         }
 
         /// <summary>
@@ -39,11 +40,12 @@ namespace VECS
             while (running)
             {
                 running = !_appWindow.UpdateWindowEvents();
-                Time.Update();
                 if (!running)
                 {
                     break;
                 }
+                Time.Update();
+                Time.UpdateFixedTimeStep();
                 Update();
                 Presentation();
                 InputManager.Instance.LateUpdate();
@@ -72,6 +74,11 @@ namespace VECS
             World.OnCreate();
 
             PostOnCreate?.Invoke();
+        }
+
+        private static void FixedUpdate(double fixedTimeStep)
+        {
+
         }
 
         /// <summary>
@@ -118,6 +125,7 @@ namespace VECS
         /// </summary>
         public void Dispose()
         {
+            Time.FixedTimeStepCallback -= FixedUpdate;
             _presenter.Dispose();
             _device.Dispose();
             _appWindow.Dispose();

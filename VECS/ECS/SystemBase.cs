@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 namespace VECS.ECS
 {
@@ -21,6 +22,14 @@ namespace VECS.ECS
         public virtual void OnDestroy(EntityManager entityManager)
         {
 
+        }
+
+        internal void OnFixedUpdate(EntityManager entityManager)
+        {
+        }
+
+        internal void OnPostFixedUpdate(EntityManager entityManager)
+        {
         }
 
         public virtual void OnUpdate(EntityManager entityManager)

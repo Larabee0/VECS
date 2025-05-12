@@ -1,19 +1,23 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 namespace VECS
 {
     public static class Time
     {
         private readonly static DateTime startTime;
 
+        private const double FixedTimeStepDouble = 1.0 / 120.0;
+        private const float FixedTimeStep = (float)FixedTimeStepDouble;
         private static DateTime currentTime;
         private static double deltaTime;
 
+        private static double timeAccumulator;
         public static double DeltaTimeAsDouble => deltaTime;
         public static float DeltaTime => (float)deltaTime;
         public static double TimeSinceStartUpAsDouble => (DateTime.UtcNow - startTime).TotalSeconds;
         public static float TimeSinceStartUp => (float)TimeSinceStartUpAsDouble;
+        public static float InterpolationWeight { get; private set; }
+
+        internal static Action<double> FixedTimeStepCallback;
 
         static Time()
         {
@@ -26,6 +30,17 @@ namespace VECS
             var newTime = DateTime.UtcNow;
             deltaTime = (newTime - currentTime).TotalSeconds;
             currentTime = newTime;
+        }
+
+        internal static void UpdateFixedTimeStep()
+        {
+            timeAccumulator += deltaTime;
+            while (timeAccumulator >= FixedTimeStepDouble)
+            {
+                FixedTimeStepCallback?.Invoke(FixedTimeStepDouble);
+                timeAccumulator -= FixedTimeStepDouble;
+            }
+            InterpolationWeight = (float)timeAccumulator / FixedTimeStep;
         }
     }
 }

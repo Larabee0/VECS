@@ -837,7 +837,7 @@ namespace VECS.ECS
             _queries.ForEach(q => q.AutoStale(componentId));
         }
 
-        internal void NextFrame()
+        internal void DiryQueries()
         {
             _queries.ForEach(q => q.AutoStale());
         }
