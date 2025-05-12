@@ -8,8 +8,9 @@ In no particular order
 - (fixing) occlusion culling
 - adding a html ui library 
 - adding a physics library
-- ~~multi-threaded rendering~~
-- shadow casting
+- ~~submission queue on separate thread~~
+- multi-threaded rendering
+- ~~shadow casting~~
 - improved transparency support
 - improved lighting system
 
