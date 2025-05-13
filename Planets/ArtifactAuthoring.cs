@@ -279,7 +279,7 @@ namespace Planets
             entityManager.AddComponent(vaseFlat, new Scale() { Value = new(10) });
         }
 
-        public void AddRenderMeshComponents(Entity entity, Material mat, int variant, int entityVariant, DirectSubMesh mesh, EntityManager entityManager)
+        public static void AddRenderMeshComponents(Entity entity, Material mat, int variant, int entityVariant, DirectSubMesh mesh, EntityManager entityManager)
         {
             entityManager.AddComponent<Translation>(entity);
             entityManager.AddComponent(entity,new RenderMesh() { Mesh = mesh.GetSubMeshIndex(), Material = new() { Material = Material.GetIndexOfMaterial(mat), Variant = variant, Entity = entityVariant } });
@@ -293,15 +293,6 @@ namespace Planets
             textureWaveB = new Texture2d(Texture2d.GetTextureInDefaultPath("Wave B.png"));
 
             textureArrayTerrainShapes = Texture2d.CreateTextureArray("Rock1.png", "Rock2.png", "Rock3.png", "Rock4.png", "Rock5.png", "Snow.png", "SnowOld.png");
-
-            VertexAttributeDescription[] vertexAttributeDescriptions = [
-                new(VertexAttribute.Position,VertexAttributeFormat.Float3,0,0,0),
-                new(VertexAttribute.Normal,VertexAttributeFormat.Float3,0,1,1),
-                new(VertexAttribute.TexCoord0,VertexAttributeFormat.Float2,0,2,2),
-            ];
-
-            var bindingDescriptions = DirectMesh.GetBindingDescription(vertexAttributeDescriptions);
-            var attributeDescriptions = DirectMesh.GetAttributeDescriptions(vertexAttributeDescriptions);
 
             planetProperties = new PlanetPropeties()
             {

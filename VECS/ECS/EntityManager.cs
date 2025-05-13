@@ -24,6 +24,7 @@ namespace VECS.ECS
     /// </summary>
     public class EntityManager
     {
+        private readonly World _world;
         private readonly int _totalComponentTypes = 0;
         private uint _nextMaxEntityId = 0;
         private readonly Queue<Entity> _idsToRecyle = [];
@@ -50,7 +51,7 @@ namespace VECS.ECS
         /// Generates ids for all the components present in the executing assembly,
         /// then tracks them in <see cref="_componentIdToTypeLookup"/> and <see cref="_componentTypeToIdLookup"/>
         /// </summary>
-        public EntityManager()
+        public EntityManager(World world)
         {
             var assemblies = AppDomain.CurrentDomain.GetAssemblies();
 
@@ -81,6 +82,7 @@ namespace VECS.ECS
             _totalComponentTypes = components.Count;
             _archetypeIdsToEntities.Add(0, []);
             _archetypeIdsToComponentIds.Add(0, []);
+            _world = world;
         }
 
         /// <summary>
@@ -624,6 +626,8 @@ namespace VECS.ECS
         /// <returns></returns>
         public bool DestroyEntity(Entity entity)
         {
+            _world.Simulation.PreDestroyEntity(this,entity);
+
             if (_entityIds.Remove(entity.Id))
             {
                 List<int> componentsToRemove = [.. _entityToComponentIds[entity.Id]];

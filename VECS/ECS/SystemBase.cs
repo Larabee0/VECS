@@ -9,6 +9,7 @@ namespace VECS.ECS
     /// </summary>
     public class SystemBase
     {
+        public World World { get; set; }
         public bool AlwaysUpdate;
 
         public List<EntityQuery> Queries = [];
@@ -24,11 +25,11 @@ namespace VECS.ECS
 
         }
 
-        internal void OnFixedUpdate(EntityManager entityManager)
+        public virtual void OnFixedUpdate(EntityManager entityManager)
         {
         }
 
-        internal void OnPostFixedUpdate(EntityManager entityManager)
+        public virtual void OnPostFixedUpdate(EntityManager entityManager)
         {
         }
 

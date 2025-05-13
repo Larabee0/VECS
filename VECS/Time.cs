@@ -13,6 +13,7 @@ namespace VECS
         private static double timeAccumulator;
         public static double DeltaTimeAsDouble => deltaTime;
         public static float DeltaTime => (float)deltaTime;
+        public static float FixedDeltaTime => FixedTimeStep;
         public static double TimeSinceStartUpAsDouble => (DateTime.UtcNow - startTime).TotalSeconds;
         public static float TimeSinceStartUp => (float)TimeSinceStartUpAsDouble;
         public static float InterpolationWeight { get; private set; }

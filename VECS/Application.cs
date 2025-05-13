@@ -1,7 +1,7 @@
 ﻿using System;
 using VECS.ECS;
 using VECS.LowLevel;
-using Vortice.Vulkan;
+using VECS.Physics;
 
 namespace VECS
 {
@@ -125,6 +125,7 @@ namespace VECS
         /// </summary>
         public void Dispose()
         {
+            _mainWorld?.Dispose();
             Time.FixedTimeStepCallback -= FixedUpdate;
             _presenter.Dispose();
             _device.Dispose();

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using VECS.ECS.Presentation;
 using VECS.ECS.Transforms;
+using VECS.Physics;
 
 namespace VECS.ECS
 {
@@ -13,24 +14,28 @@ namespace VECS.ECS
     /// By default a transform and camrea system will exist inside a new world.
     /// 
     /// </summary>
-    public class World
+    public sealed class World : IDisposable
     {
         public static World DefaultWorld { get; private set; }
 
 
+
         private readonly EntityManager _entityManager;
+        private readonly PhysicsSimulation _physicsSimulation;
         private readonly List<SystemBase> _systems;
         private readonly List<PresentationSystemBase> _presentationSystems;
 
         public EntityManager EntityManager => _entityManager;
+        public PhysicsSimulation Simulation => _physicsSimulation;
         public List<SystemBase> Systems => _systems;
         public List<PresentationSystemBase> PresentationSystems => _presentationSystems;
 
         public World()
         {
-            _entityManager = new();
+            _entityManager = new(this);
             _systems = [];
             _presentationSystems = [];
+            _physicsSimulation = new PhysicsSimulation(PhysicsSettings.Default);
 
             // default systems
             CreateSystem<CameraSystem>();
@@ -83,6 +88,7 @@ namespace VECS.ECS
         /// <returns></returns>
         public T AddSystem<T>(T system) where T : SystemBase
         {
+            system.World = this;
             if (system is PresentationSystemBase presentationSystem)
             {
                 if (!_presentationSystems.Any(x => x.GetType() == presentationSystem.GetType()))
@@ -192,6 +198,11 @@ namespace VECS.ECS
             _presentationSystems.ForEach(s => s.OnDestroy(_entityManager));
             _systems.ForEach(s => s.OnDestroy(_entityManager));
             DefaultWorld = null;
+        }
+
+        public void Dispose()
+        {
+            _physicsSimulation?.Dispose();
         }
     }
 }
