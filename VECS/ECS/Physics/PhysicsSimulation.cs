@@ -7,8 +7,9 @@ using VECS.ECS;
 
 namespace VECS.Physics
 {
-    public  sealed partial class PhysicsSimulation : IDisposable
+    public sealed partial class PhysicsWorld : IDisposable
     {
+        private readonly World _world;
         private RayHitHandler rayHitHandler;
         private bool disposed;
 
@@ -29,8 +30,9 @@ namespace VECS.Physics
         /// </summary>
         public ThreadDispatcher ThreadDispatcher { get; private set; }
 
-        public PhysicsSimulation(PhysicsSettings settings)
+        public PhysicsWorld(World world,PhysicsSettings settings)
         {
+            _world = world;
             Settings = settings;
             BufferPool = new BufferPool();
 
@@ -42,11 +44,15 @@ namespace VECS.Physics
                 new NarrowPhaseCallsbacks(Settings),
                 new PoseIntegratorCallbacks(Settings),
                 new SolveDescription(8, 1));
+
+            InitRayCasting();
+
+            _world.CreateSystem<StaticBodySystem>();
+            _world.CreateSystem<RaycastTestSystem>();
         }
 
         public void FixedUpdate()
         {
-            
             Simulation.Timestep(Time.FixedDeltaTime, ThreadDispatcher);
         }
 

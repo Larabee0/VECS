@@ -10,6 +10,7 @@ using VECS.ECS.Presentation;
 using VECS.ECS.Presentation.Systems;
 using VECS.ECS.Transforms;
 using VECS.LowLevel;
+using VECS.Physics;
 using Vortice.Vulkan;
 
 namespace Planets
@@ -277,6 +278,22 @@ namespace Planets
             entityManager.AddComponent(vaseSmooth, new Scale() { Value = new(10) });
             entityManager.AddComponent(vaseSmooth2, new Scale() { Value = new(10) });
             entityManager.AddComponent(vaseFlat, new Scale() { Value = new(10) });
+
+            Vector3 max = cube[0].Bounds.Bounds.Max;
+            var boxCollider = new BoxCollider()
+            { 
+                Width =max.X,
+                Height = max.Y,
+                Depth = max.Z
+            };
+
+            entityManager.AddComponent(cubeEntity2, boxCollider);
+            entityManager.AddComponent(cubeEntity3, boxCollider);
+            entityManager.AddComponent(cubeEntity, boxCollider);
+
+            entityManager.AddComponent<StaticColliderTag>(cubeEntity2);
+            entityManager.AddComponent<StaticColliderTag>(cubeEntity3);
+            entityManager.AddComponent<StaticColliderTag>(cubeEntity);
         }
 
         public static void AddRenderMeshComponents(Entity entity, Material mat, int variant, int entityVariant, DirectSubMesh mesh, EntityManager entityManager)

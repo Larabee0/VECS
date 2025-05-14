@@ -16,11 +16,13 @@ namespace VECS.Physics
             _createBody = new EntityQuery(entityManager)
                 .WithAll(typeof(StaticColliderTag), typeof(LocalToWorld))
                 .WithAny(typeof(BoxCollider), typeof(SphereCollider))
-                .WithNone(typeof(Prefab), typeof(StaticBodyDescComp), typeof(StaticHandleComp));
+                .WithNone(typeof(Prefab), typeof(StaticBodyDescComp), typeof(StaticHandleComp))
+                .Build();
 
             _updateStaticBodyDescs = new EntityQuery(entityManager)
                 .WithAll(typeof(UpdateBodyDescTag), typeof(StaticColliderTag), typeof(LocalToWorld), typeof(StaticBodyDescComp), typeof(StaticHandleComp))
-                .WithNone(typeof(Prefab));
+                .WithNone(typeof(Prefab))
+                .Build();
         }
 
         public override void OnFixedUpdate(EntityManager entityManager)
@@ -45,6 +47,7 @@ namespace VECS.Physics
                         World.Simulation.Simulation.Statics.ApplyDescription(handle.Value, desc.Value);
                         entityManager.SetComponent(e, desc);
                     }
+                    entityManager.RemoveComponent<UpdateBodyDescTag>(e);
                 });
             }
         }

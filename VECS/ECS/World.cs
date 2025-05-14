@@ -21,12 +21,12 @@ namespace VECS.ECS
 
 
         private readonly EntityManager _entityManager;
-        private readonly PhysicsSimulation _physicsSimulation;
+        private readonly PhysicsWorld _physicsSimulation;
         private readonly List<SystemBase> _systems;
         private readonly List<PresentationSystemBase> _presentationSystems;
 
         public EntityManager EntityManager => _entityManager;
-        public PhysicsSimulation Simulation => _physicsSimulation;
+        public PhysicsWorld Simulation => _physicsSimulation;
         public List<SystemBase> Systems => _systems;
         public List<PresentationSystemBase> PresentationSystems => _presentationSystems;
 
@@ -35,11 +35,12 @@ namespace VECS.ECS
             _entityManager = new(this);
             _systems = [];
             _presentationSystems = [];
-            _physicsSimulation = new PhysicsSimulation(PhysicsSettings.Default);
+            CreateSystem<LocalToWorldSystem>();
+
+            _physicsSimulation = new PhysicsWorld(this, PhysicsSettings.Default);
 
             // default systems
             CreateSystem<CameraSystem>();
-            CreateSystem<LocalToWorldSystem>();
             DefaultWorld = this;
         }
 
@@ -127,6 +128,7 @@ namespace VECS.ECS
 
         internal void OnFixedUpdate()
         {
+            _physicsSimulation.FixedUpdate();
             _entityManager.DiryQueries();
             _systems.ForEach(s => s.OnFixedUpdate(_entityManager));
             _presentationSystems.ForEach(s => s.OnFixedUpdate(_entityManager));

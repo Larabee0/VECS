@@ -76,9 +76,10 @@ namespace VECS
             PostOnCreate?.Invoke();
         }
 
-        private static void FixedUpdate(double fixedTimeStep)
+        private  void FixedUpdate()
         {
-
+            _mainWorld.OnFixedUpdate();
+            _mainWorld.OnPostFixedUpdate();
         }
 
         /// <summary>

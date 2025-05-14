@@ -10,6 +10,44 @@ namespace VECS.ECS.Transforms
     /// </summary>
     public static class TransformExtensions
     {
+        internal static Vector3 GetAxisZ(this Matrix4x4 m)
+        {
+            return new Vector3(m[0, 2], m[1, 2], m[2, 2]);
+        }
+        internal static Vector3 GetPosition(this Matrix4x4 m)
+        {
+            return new Vector3(m[0, 3], m[1, 3], m[2, 3]);
+        }
+        internal static bool IsPerspective(this Matrix4x4 m) { return m[3,0] != 0.0f || m[3,1] != 0.0f || m[3,2] != 0.0f || m[3,3] != 1.0f; }
+
+        internal static bool PerspectiveMultiplyPoint3(this Matrix4x4 m, Vector3 v, out Vector3 output)
+        {
+            Vector3 res = new();
+            output = new();
+            float w;
+            res.X = m[0, 0] * v.X + m[0, 1] * v.Y + m[0, 2] * v.Z + m[0, 3];
+            res.Y = m[1, 0] * v.X + m[1, 1] * v.Y + m[1, 2] * v.Z + m[1, 3];
+            res.Z = m[2, 0] * v.X + m[2, 1] * v.Y + m[2, 2] * v.Z + m[2, 3];
+            w     = m[3, 0] * v.X + m[3, 1] * v.Y + m[3, 2] * v.Z + m[3, 3];
+
+
+            if (MathF.Abs(w) > 1.0e-7f)
+            {
+                float invW = 1.0f / w;
+                output.X = res.X * invW;
+                output.Y = res.Y * invW;
+                output.Z = res.Z * invW;
+                return true;
+            }
+            else
+            {
+                output.X = 0.0f;
+                output.Y = 0.0f;
+                output.Z = 0.0f;
+                return false;
+            }
+        }
+
         public static void AddChildren(this Entity parent, EntityManager entityManager, params Entity[] newChildren)
         {
             if(newChildren == null ||  newChildren.Length == 0) return;

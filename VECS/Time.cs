@@ -18,7 +18,7 @@ namespace VECS
         public static float TimeSinceStartUp => (float)TimeSinceStartUpAsDouble;
         public static float InterpolationWeight { get; private set; }
 
-        internal static Action<double> FixedTimeStepCallback;
+        internal static Action FixedTimeStepCallback;
 
         static Time()
         {
@@ -38,7 +38,7 @@ namespace VECS
             timeAccumulator += deltaTime;
             while (timeAccumulator >= FixedTimeStepDouble)
             {
-                FixedTimeStepCallback?.Invoke(FixedTimeStepDouble);
+                FixedTimeStepCallback?.Invoke();
                 timeAccumulator -= FixedTimeStepDouble;
             }
             InterpolationWeight = (float)timeAccumulator / FixedTimeStep;

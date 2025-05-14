@@ -31,8 +31,8 @@ namespace VECS.LowLevel
 
         public SDL3Window(int width, int height, string name)
         {
-            _width = width;
-            _height = height;
+            Screen.Width = _width = width;
+            Screen.Height = _height = height;
             _windowName = name;
             InitWindow();
 
@@ -154,8 +154,8 @@ namespace VECS.LowLevel
             int newHeight = window.data2;
             if (newWidth != _width || newHeight != _height)
             {
-                _width = newWidth;
-                _height = newHeight;
+                Screen.Width = _width = newWidth;
+                Screen.Height = _height = newHeight;
                 _framebufferResized = true;
             }
         }

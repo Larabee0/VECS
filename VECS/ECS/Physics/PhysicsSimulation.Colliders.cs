@@ -3,7 +3,7 @@ using BepuPhysics.Collidables;
 
 namespace VECS.Physics
 {
-    public sealed partial class PhysicsSimulation
+    public sealed partial class PhysicsWorld
     {
         public Shapes Shapes => Simulation.Shapes;
 

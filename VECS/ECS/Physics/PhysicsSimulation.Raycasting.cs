@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 
 namespace VECS.Physics
 {
-    public sealed partial class PhysicsSimulation
+    public sealed partial class PhysicsWorld
     {
         public const int MAX_BATCHED_RAYS = 1024;
         private struct RayJob
