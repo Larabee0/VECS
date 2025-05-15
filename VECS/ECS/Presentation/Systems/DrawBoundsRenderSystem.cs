@@ -56,7 +56,7 @@ namespace VECS.ECS.Presentation.Systems
             _circleBuffer.WriteFromHostBuffer();
             var pipelineConfigInfo = GraphicsPipelines.GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo(Presenter.Instance.RenderPass,VkPipelineLayout.Null);
 
-            pipelineConfigInfo.rasterizationInfo.cullMode = VkCullModeFlags.FrontAndBack;
+            pipelineConfigInfo.rasterizationInfo.cullMode = VkCullModeFlags.None;
             pipelineConfigInfo.rasterizationInfo.polygonMode = VkPolygonMode.Line;
             pipelineConfigInfo.inputAssemblyInfo.topology = VkPrimitiveTopology.LineStrip;
             pipelineConfigInfo.rasterizationInfo.lineWidth = 1;

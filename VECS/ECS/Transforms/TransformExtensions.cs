@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 
 namespace VECS.ECS.Transforms
 {
@@ -10,21 +11,27 @@ namespace VECS.ECS.Transforms
     /// </summary>
     public static class TransformExtensions
     {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static Matrix4x4 Invert(this Matrix4x4 m)
+        {
+            Matrix4x4.Invert(m, out m);
+            return m;
+        }
+
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static Vector3 GetAxisZ(this Matrix4x4 m)
         {
-            return new Vector3(m[0, 2], m[1, 2], m[2, 2]);
+            return new Vector3(m[2, 0], m[2, 1], m[2, 2]);
         }
-        internal static Vector3 GetPosition(this Matrix4x4 m)
-        {
-            return new Vector3(m[0, 3], m[1, 3], m[2, 3]);
-        }
-        internal static bool IsPerspective(this Matrix4x4 m) { return m[3,0] != 0.0f || m[3,1] != 0.0f || m[3,2] != 0.0f || m[3,3] != 1.0f; }
 
         internal static bool PerspectiveMultiplyPoint3(this Matrix4x4 m, Vector3 v, out Vector3 output)
         {
             Vector3 res = new();
             output = new();
             float w;
+
+            // unity matrix4x4
             // res.X = m[0, 0] * v.X + m[0, 1] * v.Y + m[0, 2] * v.Z + m[0, 3];
             // res.Y = m[1, 0] * v.X + m[1, 1] * v.Y + m[1, 2] * v.Z + m[1, 3];
             // res.Z = m[2, 0] * v.X + m[2, 1] * v.Y + m[2, 2] * v.Z + m[2, 3];
@@ -32,7 +39,7 @@ namespace VECS.ECS.Transforms
 
 
             res.X = m[0, 0] * v.X + m[1, 0] * v.Y + m[2, 0] * v.Z + m[3, 0];
-            res.Y = m[0, 1] * v.X + m[1, 1] * v.Y + m[1, 0] * v.Z + m[3, 1];
+            res.Y = m[0, 1] * v.X + m[1, 1] * v.Y + m[2, 1] * v.Z + m[3, 1];
             res.Z = m[0, 2] * v.X + m[1, 2] * v.Y + m[2, 2] * v.Z + m[3, 2];
             w     = m[0, 3] * v.X + m[1, 3] * v.Y + m[2, 3] * v.Z + m[3, 3];
 
@@ -82,11 +89,13 @@ namespace VECS.ECS.Transforms
             entityManager.SetComponent(parent,children);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Vector3 DegreesToRadians(Vector3 euler)
         {
             return new(float.DegreesToRadians(euler.X), float.DegreesToRadians(euler.Y), float.DegreesToRadians(euler.Z));
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Vector3 RadiansToDegrees(Vector3 euler)
         {
             return new(float.RadiansToDegrees(euler.X), float.RadiansToDegrees(euler.Y), float.RadiansToDegrees(euler.Z));
@@ -99,6 +108,7 @@ namespace VECS.ECS.Transforms
         /// <param name="rotation"></param>
         /// <param name="scale"></param>
         /// <returns></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Matrix4x4 TRS(Vector3 translation, Quaternion rotation, Vector3 scale)
         {
             var transform = Matrix4x4.CreateScale(scale) * Matrix4x4.CreateFromQuaternion(rotation) * Matrix4x4.CreateTranslation(translation);
@@ -112,6 +122,7 @@ namespace VECS.ECS.Transforms
         /// <param name="rotation"></param>
         /// <param name="scale"></param>
         /// <returns></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Matrix4x4 TRS(Vector3 translation, Vector3 rotation, Vector3 scale)
         {
             var transform = Matrix4x4.CreateScale(scale) * Matrix4x4.CreateFromYawPitchRoll(rotation.Y, rotation.X, rotation.Z) * Matrix4x4.CreateTranslation(translation);

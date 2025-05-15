@@ -12,6 +12,12 @@ namespace VECS.Physics
         public Vector3 Origin;
         public float MaximumT;
         public Vector3 Direction;
+
+        public RaycastInput(Vector3 origin, Vector3 direction) : this()
+        {
+            Origin = origin;
+            Direction = direction;
+        }
     }
 
     public struct RaycastHit

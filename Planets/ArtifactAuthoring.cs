@@ -272,6 +272,7 @@ namespace Planets
             entityManager.SetComponent(cubeEntity2, new Translation() { Value = new(-1, 4f, -10) });
             entityManager.SetComponent(cubeEntity3, new Translation() { Value = new(1, 4f, -10) });
             entityManager.SetComponent(cubeEntity, new Translation() { Value = new(0, 1.5f, -10) });
+            entityManager.AddComponent<TrackTag>(cubeEntity);
             entityManager.SetComponent(vaseSmooth, new Translation() { Value = new(5, 0, -10) });
             entityManager.SetComponent(vaseSmooth2, new Translation() { Value = new(8, 0, -10) });
             entityManager.SetComponent(vaseFlat, new Translation() { Value = new(-5, 0, -10) });

@@ -11,7 +11,9 @@ namespace VECS.ECS.Presentation
         {
             ProjectionMatrix = Matrix4x4.Identity,
             ViewMatrix = Matrix4x4.Identity,
-            InverseViewMatrix = Matrix4x4.Identity
+            InverseViewMatrix = Matrix4x4.Identity,
+            ClipNear = 0.3f,
+            ClipFar = 1000f
         };
 
         public static int ComponentId { get; set; }
@@ -22,6 +24,8 @@ namespace VECS.ECS.Presentation
         public Matrix4x4 ViewMatrix;
         public Matrix4x4 InverseViewMatrix;
         public bool fustrumCulling;
+        public float ClipNear;
+        public float ClipFar;
     }
 
     /// <summary>
