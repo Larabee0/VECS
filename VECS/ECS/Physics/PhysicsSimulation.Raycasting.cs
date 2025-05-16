@@ -15,11 +15,14 @@ namespace VECS.Physics
     public sealed partial class PhysicsWorld
     {
         public const int MAX_BATCHED_RAYS = 1024;
+        public const int MAX_UNBATCHED_RAYS = 1024;
         private struct RayJob
         {
             public int Start;
             public int End;
         }
+        public Buffer<RaycastHit> SingleTimeResults;
+        private RayHitHandler rayHitHandler;
         private QuickList<RaycastInput> _batchedRayInputs;
         private Buffer<RayJob> jobs;
 
@@ -27,8 +30,15 @@ namespace VECS.Physics
 
         private void InitRayCasting()
         {
+            BufferPool.Take(MAX_UNBATCHED_RAYS, out SingleTimeResults);
+            rayHitHandler = new() { Hits = SingleTimeResults };
             _rayBatcherAlgorithm = new("Batched", BatchedWorker, BufferPool, MAX_BATCHED_RAYS);
             _batchedRayInputs = new QuickList<RaycastInput>(MAX_BATCHED_RAYS, BufferPool);
+        }
+
+        public bool Raycast(RaycastInput raycastInput, out RaycastHit hit)
+        {
+            return Raycast(raycastInput.Origin, raycastInput.Direction, raycastInput.MaximumT, out hit);
         }
 
         public bool Raycast(Vector3 origin, Vector3 dir, float maxDst, out RaycastHit hit)
@@ -37,10 +47,15 @@ namespace VECS.Physics
             return hit.Hit;
         }
 
-        public RaycastHit Raycast(Vector3 origin, Vector3 dir, float maxDst)
+        public unsafe RaycastHit Raycast(Vector3 origin, Vector3 dir, float maxDst)
         {
+            int intersections = 0;
+            rayHitHandler.IntersectionCount = &intersections;
+            rayHitHandler.Hits[0].T = float.MaxValue;
+            rayHitHandler.Hits[0].Hit = false;
+
             Simulation.RayCast(origin, dir, maxDst, ref rayHitHandler);
-            return rayHitHandler.Hits.Length == 0 ? new RaycastHit() : rayHitHandler.Hits[0];
+            return rayHitHandler.Hits[0];
         }
 
         public RaycastHit[] RaycastAll(Vector3 origin, Vector3 dir, float maxDst)

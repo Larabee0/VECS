@@ -10,7 +10,6 @@ namespace VECS.Physics
     public sealed partial class PhysicsWorld : IDisposable
     {
         private readonly World _world;
-        private RayHitHandler rayHitHandler;
         private bool disposed;
 
 

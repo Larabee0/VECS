@@ -89,6 +89,7 @@ namespace VECS.Physics
                         var handle = World.Simulation.AddStatic(desc);
                         entityManager.AddComponent(e, new StaticBodyDescComp() { Value = desc });
                         entityManager.AddComponent(e, new StaticHandleComp() { Value = handle });
+                        entityManager.AddComponent<UpdateBodyDescTag>(e);
                     }
                 });
             }
