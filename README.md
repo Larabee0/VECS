@@ -7,7 +7,7 @@ I have continued developing it by adding gpu driven rendering techniques.
 In no particular order 
 - (fixing) occlusion culling
 - adding a html ui library 
-- adding a physics library
+- ~~adding a physics library~~
 - ~~submission queue on separate thread~~
 - multi-threaded rendering
 - ~~shadow casting~~
