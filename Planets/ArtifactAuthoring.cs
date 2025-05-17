@@ -326,7 +326,7 @@ namespace Planets
             xWingMaterial.SetTexture("samplerNormalMap", astroDroidNormalTexture, 2, 0);
 
             var xWingBase = entityManager.CreateEntity();
-            entityManager.AddComponent(xWingBase, new Translation() { Value = new Vector3(0, 27f, -20) });
+            entityManager.AddComponent(xWingBase, new Translation() { Value = new Vector3(0, 7f, -20) });
             entityManager.AddComponent(xWingBase, new Rotation());
             Children children = new() { Value = new Entity[xWing.Length] };
 
