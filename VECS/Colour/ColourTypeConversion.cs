@@ -46,7 +46,7 @@ namespace VECS
             return SystemColour.FromArgb(c.A, c.R, c.G, c.B);
         }
 
-        public static Vec4Colour ToColor(this VKColour c)
+        public static Vec4Colour ToColour(this VKColour c)
         {
             return new Vec4Colour((float)(int)c.R / 255f, (float)(int)c.G / 255f, (float)(int)c.B / 255f, (float)(int)c.A / 255f);
         }

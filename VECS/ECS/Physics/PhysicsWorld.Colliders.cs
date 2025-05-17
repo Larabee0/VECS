@@ -1,7 +1,7 @@
 ﻿using BepuPhysics;
 using BepuPhysics.Collidables;
 
-namespace VECS.Physics
+namespace VECS.ECS.Physics
 {
     public sealed partial class PhysicsWorld
     {

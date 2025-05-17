@@ -5,7 +5,7 @@ using BepuPhysics.Constraints;
 using System;
 using System.Runtime.CompilerServices;
 
-namespace VECS.Physics
+namespace VECS.ECS.Physics
 {
     public struct NarrowPhaseCallsbacks : INarrowPhaseCallbacks
     {

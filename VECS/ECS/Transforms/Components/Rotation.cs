@@ -10,6 +10,6 @@ namespace VECS.ECS.Transforms
         public static int ComponentId { get; set; }
         public readonly int Id => ComponentId;
 
-        public Vector3 Value;
+        public Quaternion Value;
     }
 }

@@ -6,7 +6,7 @@ using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
-using VECS.ECS.Presentation.Systems;
+using VECS.ECS.Presentation;
 
 namespace VECS
 {

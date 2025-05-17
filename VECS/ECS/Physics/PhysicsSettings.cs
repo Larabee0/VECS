@@ -1,7 +1,7 @@
 ﻿using BepuPhysics.Constraints;
 using System.Numerics;
 
-namespace VECS.Physics
+namespace VECS.ECS.Physics
 {
     public class PhysicsSettings
     {
@@ -17,7 +17,7 @@ namespace VECS.Physics
             SpringSettings = new SpringSettings(30,1),
             MaximumRecoveryVelocity = 2f,
             FrictionCoefficient = 1f,
-            Gravity = Vector3.Zero,
+            Gravity = new Vector3(0,0,0),
             LinearDamping = 0.03f,
             AngularDamping = 0.03f
         };

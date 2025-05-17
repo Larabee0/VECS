@@ -47,6 +47,8 @@ namespace VECS
             sampler = _textureSampler
         };
 
+        public int TextureIndex => GetIndexOfTexture(this);
+
         private Texture2d() { _device = GraphicsDevice.Instance; }
 
         /// <summary>

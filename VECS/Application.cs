@@ -1,7 +1,7 @@
 ﻿using System;
 using VECS.ECS;
 using VECS.LowLevel;
-using VECS.Physics;
+using VECS.ECS.Physics;
 
 namespace VECS
 {

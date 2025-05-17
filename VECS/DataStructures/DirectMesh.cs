@@ -781,7 +781,7 @@ namespace VECS
             var command = GenerateReadCommands(singleTime);
             GraphicsDevice.Instance.EndSingleTimeCommands(singleTime);
 
-            Parallel.For(0, command[0].Length, (int i) =>
+            Parallel.For(0, command[0].Length, i =>
             {
                 command[0][i].TryAllocHostBuffer(false);
                 command[1][i].ReadFromBuffer(command[0][i].HostPtr);
@@ -821,7 +821,7 @@ namespace VECS
             }
             GraphicsDevice.Instance.EndSingleTimeCommands(singleTime);
 
-            Parallel.For(0, mainBuffers.Count, (int i) =>
+            Parallel.For(0, mainBuffers.Count, i =>
             {
                 mainBuffers[i].TryAllocHostBuffer(false);
                 tmpReadBuffers[i].ReadFromBuffer(mainBuffers[i].HostPtr);

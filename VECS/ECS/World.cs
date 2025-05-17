@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using VECS.ECS.Presentation;
 using VECS.ECS.Transforms;
-using VECS.Physics;
+using VECS.ECS.Physics;
 
 namespace VECS.ECS
 {

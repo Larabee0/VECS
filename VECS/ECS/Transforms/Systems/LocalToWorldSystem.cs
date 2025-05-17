@@ -79,7 +79,7 @@ namespace VECS.ECS.Transforms
         private static Matrix4x4 ComputeLocalTRS(EntityManager entityManager, Entity e)
         {
             Vector3 translation = entityManager.GetComponent(e, out Translation t) ? t.Value : Vector3.Zero;
-            Vector3 rotation = entityManager.GetComponent(e, out Rotation r) ? r.Value : Vector3.Zero;
+            var rotation = entityManager.GetComponent(e, out Rotation r) ? r.Value : Quaternion.Identity;
             Vector3 scale = entityManager.GetComponent(e, out Scale s) ? s.Value : Vector3.One;
             var trsMatrix = TransformExtensions.TRS(translation, rotation, scale);
             return trsMatrix;

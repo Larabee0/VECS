@@ -1,7 +1,7 @@
 ﻿using System.Numerics;
 using VECS.ECS.Transforms;
 
-namespace VECS.ECS.Presentation.Systems
+namespace VECS.ECS.Presentation
 {
     public class WorldRenderBoundsUpdateSystem : SystemBase
     {

@@ -27,6 +27,7 @@
     <PackageReference Include="Vortice.SPIRV.Reflect" Version="1.0.5" />
     <PackageReference Include="Vortice.Vulkan" Version="2.1.2" />
     <PackageReference Include="Vortice.VulkanMemoryAllocator" Version="1.6.1" />
+    <PackageReference Include="YellowDogMan.Mikktspace.Net" Version="0.1.4" />
   </ItemGroup>
 
   <ItemGroup>

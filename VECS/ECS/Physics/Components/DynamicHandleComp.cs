@@ -3,7 +3,7 @@ using VECS.ECS;
 
 namespace VECS.ECS.Physics
 {
-    public struct BodyHandleComp : IComponent
+    public struct DynamicHandleComp : IComponent
     {
         public static int ComponentId { get; set; }
         public readonly int Id => ComponentId;

@@ -4,7 +4,7 @@ using BepuUtilities.Memory;
 using System;
 using System.Threading;
 
-namespace VECS.Physics
+namespace VECS.ECS.Physics
 {
     unsafe class IntersectionAlgorithm
     {
@@ -33,11 +33,8 @@ namespace VECS.Physics
 
         public void Execute(ref QuickList<RaycastInput> rays, IThreadDispatcher dispatcher)
         {
-            for (int i = 0; i < rays.Count; ++i)
-            {
-                Results[i].T = float.MaxValue;
-                Results[i].Hit = false;
-            }
+            Results.FillBuffer(RaycastHit.Null,rays.Count);
+
             JobIndex = -1;
             IntersectionCount = 0;
             if (dispatcher != null)

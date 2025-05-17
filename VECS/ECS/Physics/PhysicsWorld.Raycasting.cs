@@ -6,11 +6,12 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Numerics;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace VECS.Physics
+namespace VECS.ECS.Physics
 {
     public sealed partial class PhysicsWorld
     {
@@ -36,41 +37,75 @@ namespace VECS.Physics
             _batchedRayInputs = new QuickList<RaycastInput>(MAX_BATCHED_RAYS, BufferPool);
         }
 
-        public bool Raycast(RaycastInput raycastInput, out RaycastHit hit)
-        {
-            return Raycast(raycastInput.Origin, raycastInput.Direction, raycastInput.MaximumT, out hit);
-        }
-
+        /// <summary>
+        /// Returns the first hit object
+        /// </summary>
+        /// <param name="origin"></param>
+        /// <param name="dir"></param>
+        /// <param name="maxDst"></param>
+        /// <param name="hit"></param>
+        /// <returns></returns>
         public bool Raycast(Vector3 origin, Vector3 dir, float maxDst, out RaycastHit hit)
         {
-            hit = Raycast(origin, dir, maxDst);
+            return Raycast(new(origin, dir, maxDst), out hit);
+        }
+
+        /// <summary>
+        /// returns the first hit object
+        /// </summary>
+        /// <param name="raycastInput"></param>
+        /// <param name="hit"></param>
+        /// <returns></returns>
+        public bool Raycast(RaycastInput raycastInput, out RaycastHit hit)
+        {
+            hit = Raycast(raycastInput);
             return hit.Hit;
         }
 
-        public unsafe RaycastHit Raycast(Vector3 origin, Vector3 dir, float maxDst)
+        /// <summary>
+        /// Returns the first hit object
+        /// </summary>
+        /// <param name="raycastInput"></param>
+        /// <returns></returns>
+        public unsafe RaycastHit Raycast(RaycastInput raycastInput)
         {
+            Debug.Assert(raycastInput.Valid, string.Format("Raycast input invalid MaxDst = {0}, Direction = {1}", raycastInput.MaxDst, raycastInput.Direction));
             int intersections = 0;
             rayHitHandler.IntersectionCount = &intersections;
-            rayHitHandler.Hits[0].T = float.MaxValue;
-            rayHitHandler.Hits[0].Hit = false;
-
-            Simulation.RayCast(origin, dir, maxDst, ref rayHitHandler);
+            rayHitHandler.ClearOne();
+            Simulation.RayCast(raycastInput.Origin, raycastInput.Direction, raycastInput.MaxDst, ref rayHitHandler);
             return rayHitHandler.Hits[0];
         }
 
-        public RaycastHit[] RaycastAll(Vector3 origin, Vector3 dir, float maxDst)
+        /// <summary>
+        /// Returns all hit object
+        /// </summary>
+        /// <param name="raycastInput"></param>
+        /// <returns></returns>
+        public unsafe RaycastHit[] RaycastAll(RaycastInput raycastInput)
         {
-            Simulation.RayCast(origin, dir, maxDst, ref rayHitHandler);
-            if (rayHitHandler.Hits.Length == 0)
+            Debug.Assert(raycastInput.Valid, string.Format("Raycast input invalid MaxDst = {0}, Direction = {1}", raycastInput.MaxDst, raycastInput.Direction));
+            int intersections = 0;
+            rayHitHandler.IntersectionCount = &intersections;
+            rayHitHandler.ClearAll();
+
+            Simulation.RayCast(raycastInput.Origin, raycastInput.Direction, raycastInput.MaxDst, ref rayHitHandler);
+            if (intersections == 0)
             {
-                return null;
+                return [];
             }
 
-            RaycastHit[] hits = new RaycastHit[rayHitHandler.Hits.Length];
-            rayHitHandler.Hits.CopyTo(0, hits, 0, rayHitHandler.Hits.Length);
+            RaycastHit[] hits = new RaycastHit[intersections];
+
+            rayHitHandler.Hits.CopyTo(0, hits, 0, intersections);
             return hits;
         }
 
+        /// <summary>
+        /// Performs multiple fisrt hit ray casts in a single batch executed on multiple threads
+        /// </summary>
+        /// <param name="raycasts"></param>
+        /// <returns></returns>
         public RaycastHit[] RaycastBatch(params RaycastInput[] raycasts)
         {
             Debug.Assert(raycasts.Length > 0,"Batched Raycast inputs must be at least length 1");
@@ -79,7 +114,7 @@ namespace VECS.Physics
             _batchedRayInputs.AddRangeUnsafely(raycasts);
             _rayBatcherAlgorithm.Execute(ref _batchedRayInputs, ThreadDispatcher);
             RaycastHit[] hits = new RaycastHit[_rayBatcherAlgorithm.IntersectionCount];
-            _rayBatcherAlgorithm.Results.CopyTo(0, hits, 0, hits.Length);
+            _rayBatcherAlgorithm.Results.CopyTo(0, hits, 0, _rayBatcherAlgorithm.IntersectionCount);
             return hits;
         }
 
@@ -95,7 +130,8 @@ namespace VECS.Physics
                 for (int i = job.Start; i < job.End; ++i)
                 {
                     ref var ray = ref _batchedRayInputs[i];
-                    batcher.Add(ref ray.Origin, ref ray.Direction, ray.MaximumT, i);
+                    Debug.Assert(ray.Valid, string.Format("Raycast input Worker Index = {2} Job Index = {3} invalid MaxDst = {0}, Direction = {1}", ray.MaxDst, ray.Direction, workerIndex, i));
+                    batcher.Add(ref ray.Origin, ref ray.Direction, ray.MaxDst, i);
                 }
             }
             batcher.Flush();

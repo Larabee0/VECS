@@ -233,6 +233,11 @@ namespace VECS.ECS
             //entities.Clear();
             _staleNextFrame = true;
         }
+        public void MarkStaleNow()
+        {
+            //entities.Clear();
+            _stale = true;
+        }
 
         /// <summary>
         /// Should be a very fast way of checking if the query has any entities right now.

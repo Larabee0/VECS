@@ -1,7 +1,7 @@
 ﻿using BepuPhysics;
 using VECS.ECS;
 
-namespace VECS.Physics
+namespace VECS.ECS.Physics
 {
     public struct StaticHandleComp : IComponent
     {

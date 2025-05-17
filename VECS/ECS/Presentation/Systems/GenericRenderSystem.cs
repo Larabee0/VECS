@@ -6,7 +6,7 @@ using VECS.GraphicsPipelines;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
-namespace VECS.ECS.Presentation.Systems
+namespace VECS.ECS.Presentation
 {
     public class GenericRenderSystem : PresentationSystemBase
     {
@@ -247,13 +247,17 @@ namespace VECS.ECS.Presentation.Systems
                         storageBufferRegion.Increment();
                     }
 
-                    if (lastCmd.DirectMesh != cmd.DirectMesh)
+                    if (lastCmd.DirectMesh != cmd.DirectMesh || (lastCmd.SubMesh != cmd.SubMesh && lastCmd.MaterialVariant != cmd.MaterialVariant))
                     {
                         meshSubRegion.IncrementAlt();
                         meshCmdRegionStartIndex = _directMeshCmdRegions[cmd.DirectMesh].StartIndex;
                         _meshNextCmdRegion[lastCmd.DirectMesh] = meshSubRegion;
                         meshSubRegion = _meshNextCmdRegion[cmd.DirectMesh];
                     }
+                    //else if(lastCmd.SubMesh != cmd.SubMesh)
+                    //{
+                    //
+                    //}
 
                     lastCmd = cmd;
                 }
@@ -311,7 +315,7 @@ namespace VECS.ECS.Presentation.Systems
                 }
             }
 
-            Array.Sort(_shadowDrawCommands, (EarlyDrawCommand x, EarlyDrawCommand y) => { return x.DirectMesh.CompareTo(y.DirectMesh); });
+            Array.Sort(_shadowDrawCommands, (x, y) => { return x.DirectMesh.CompareTo(y.DirectMesh); });
 
             Span<ModelMatrices> matrices = _shadowOffscreen.GetStorageBuffer<ModelMatrices>("matricesBuffer");
             Span<ModelBounds> bounds = _shadowModelBoundsBuffer.HostBuffer;

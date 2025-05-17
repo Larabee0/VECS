@@ -13,6 +13,7 @@ namespace VECS
     public struct EarlyDrawCommand : IComparable
     {
         public int DirectMesh;
+        public int SubMesh;
         public int MaterialIndex;
         public int MaterialVariant;
         public int MaterialEntity;
@@ -22,6 +23,7 @@ namespace VECS
         {
             DrawCommand = drawCommand;
             DirectMesh = renderMesh.Mesh.DirectMesh;
+            SubMesh = renderMesh.Mesh.SubMeshIndex;
             MaterialIndex = renderMesh.Material.Material;
             MaterialVariant = renderMesh.Material.Variant;
             MaterialEntity = renderMesh.Material.Entity;
@@ -43,7 +45,9 @@ namespace VECS
                 var entity = MaterialEntity.CompareTo(b.MaterialEntity);
                 if (entity != 0) return entity;
                 var directMesh = DirectMesh.CompareTo(b.DirectMesh);
-                return directMesh;
+                if(directMesh != 0) return directMesh;
+                var subMesh = SubMesh.CompareTo(b.SubMesh);
+                return subMesh;
             }
 
             throw new ArgumentException(string.Format("Object is not a {0}", typeof(EarlyDrawCommand)));
@@ -224,6 +228,7 @@ namespace VECS
         private int _entityDescriptorSetHandlerIndex = -1;
         private readonly DescriptorSetHandler[] _allHandlers;
 
+        public int MaterialIndex => GetIndexOfMaterial(this);
         public int MaterialVariantCount => !HasMaterialSet ? 0 : MaterialDescriptorSetHandler.ChildCount;
 
         private readonly uint _totalSets;

@@ -1,4 +1,5 @@
 ﻿using Assimp;
+using Mikktspace.NET;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -89,7 +90,7 @@ namespace VECS.DataStructures
 
             Span<Vector3> dstVertices = dstMesh.Vertices;
             Span<Vector3> dstNormals = dstMesh.TryGetVertexDataSpan<Vector3>(VertexAttribute.Normal);
-            Span<Vector3> dstTangents = dstMesh.TryGetVertexDataSpan<Vector3>(VertexAttribute.Tangent);
+            Span<Vector4> dstTangents = dstMesh.TryGetVertexDataSpan<Vector4>(VertexAttribute.Tangent);
             Span<Vector4> dstColours = dstMesh.TryGetVertexDataSpan<Vector4>(VertexAttribute.Colour);
             Span<Vector2> dstUV0 = dstMesh.TryGetVertexDataSpan<Vector2>(VertexAttribute.TexCoord0);
             Span<Vector2> dstUV1 = dstMesh.TryGetVertexDataSpan<Vector2>(VertexAttribute.TexCoord1);
@@ -104,7 +105,7 @@ namespace VECS.DataStructures
             {
                 dstVertices[i] = srcVertices[i].ToVector3();
                 if (!dstNormals.IsEmpty && srcNormals != null) { dstNormals[i] = srcNormals[i].ToVector3(); }
-                if (!dstTangents.IsEmpty && srcTangents != null) { dstTangents[i] = srcTangents[i].ToVector3(); }
+                if (!dstTangents.IsEmpty && srcTangents != null) { dstTangents[i] = srcTangents[i].ToVector3().AsVector4(); }
                 if (!dstColours.IsEmpty && srcColours != null) { dstColours[i] = ColourTypeConversion.ToColor(srcColours[i]); }
                 if (!dstUV0.IsEmpty && srcUV0 != null) { dstUV0[i] = srcUV0[i].ToVector2(); }
                 if (!dstUV1.IsEmpty && srcUV1 != null) { dstUV1[i] = srcUV1[i].ToVector2(); }
@@ -117,6 +118,44 @@ namespace VECS.DataStructures
             }
 
             srcMesh.GetUnsignedIndices().CopyTo(dstMesh.Indicies);
+
+
+            if(dstTangents != Span<Vector4>.Empty && !srcMesh.HasTangentBasis)
+            {
+                Vector4[] generatedTangents = new Vector4[dstVertices.Length];
+                // calculate tangents
+                var context = new MikktspaceContext(srcMesh.FaceCount,
+                    face => 3,
+                    (int face, int vertex, out float x, out float y, out float z) =>
+                    {
+                        var vert = srcVertices[ vertex+(face*3)];
+                        x = vert.X;
+                        y = vert.Y;
+                        z = vert.Z;
+                    },
+                    (int face, int vertex, out float x, out float y, out float z) =>
+                    {
+                        var norm = srcNormals[vertex + (face * 3)];
+                        x = norm.X;
+                        y = norm.Y;
+                        z = norm.Z;
+                    },
+                    (int face, int vertex, out float u, out float v) =>
+                    {
+                        var norm = srcUV0[vertex + (face * 3)];
+                        u = norm.X;
+                        v = norm.Y;
+                    },
+                    (face, vertex, x, y, z, sign) => generatedTangents[vertex + (face * 3)] = new(x, y, z, sign)
+                );
+
+                if (!MikkGenerator.GenerateTangentSpace(context))
+                {
+                    throw new Exception("Failed to generate tangents");
+                }
+
+                generatedTangents.CopyTo(dstTangents);
+            }
 
             dstMesh.RecalculateRenderBounds();
         }
@@ -137,7 +176,7 @@ namespace VECS.DataStructures
             }
             if (scene.Meshes.Any(m => m.HasTangentBasis))
             {
-                attributes.Add(new(VertexAttribute.Tangent, VertexAttributeFormat.Float3));
+                attributes.Add(new(VertexAttribute.Tangent, VertexAttributeFormat.Float4));
             }
             if (scene.Meshes.Any(m => m.HasVertexColors(0)))
             {

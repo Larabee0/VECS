@@ -3,7 +3,7 @@ using BepuUtilities;
 using System;
 using System.Numerics;
 
-namespace VECS.Physics
+namespace VECS.ECS.Physics
 {
     public struct PoseIntegratorCallbacks : IPoseIntegratorCallbacks
     {

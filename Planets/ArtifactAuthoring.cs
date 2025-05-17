@@ -7,10 +7,10 @@ using VECS;
 using VECS.DataStructures;
 using VECS.ECS;
 using VECS.ECS.Presentation;
-using VECS.ECS.Presentation.Systems;
+using VECS.ECS.Presentation;
 using VECS.ECS.Transforms;
 using VECS.LowLevel;
-using VECS.Physics;
+using VECS.ECS.Physics;
 using Vortice.Vulkan;
 
 namespace Planets
@@ -56,7 +56,7 @@ namespace Planets
             World.DefaultWorld.CreateSystem<GenericRenderSystem>();
             World.DefaultWorld.CreateSystem<UpdatePlanetTimeSystem>();
             World.DefaultWorld.CreateSystem<StarRenderSystem>();
-            World.DefaultWorld.CreateSystem<DrawBoundsRenderSystem>();
+            World.DefaultWorld.CreateSystem<DebugDrawUtilities>();
             World.DefaultWorld.CreateSystem<WorldRenderBoundsUpdateSystem>();
             //World.DefaultWorld.CreateSystem<InteractionSystem>();
 
@@ -64,6 +64,7 @@ namespace Planets
 
             CreateMainCamera(entityManager);
 
+            CreateFlightRig(entityManager);
             LoadResources();
             LoadStaticResources(entityManager);
             var prefabPlanet = CreatePrefabPlanet(entityManager);
@@ -73,6 +74,7 @@ namespace Planets
             Console.WriteLine("Shape loaded");
             GeometryStats();
 
+            World.DefaultWorld.CreateSystem<MouseFlightShipMover>();
         }
 
         private void CreateSinglePlanetTestScene(EntityManager entityManager, Entity prefabPlanet)
@@ -272,7 +274,7 @@ namespace Planets
             entityManager.SetComponent(cubeEntity2, new Translation() { Value = new(-1, 4f, -10) });
             entityManager.SetComponent(cubeEntity3, new Translation() { Value = new(1, 4f, -10) });
             entityManager.SetComponent(cubeEntity, new Translation() { Value = new(0, 1.5f, -10) });
-            
+
             entityManager.SetComponent(vaseSmooth, new Translation() { Value = new(5, 0, -10) });
             entityManager.SetComponent(vaseSmooth2, new Translation() { Value = new(8, 0, -10) });
             entityManager.SetComponent(vaseFlat, new Translation() { Value = new(-5, 0, -10) });
@@ -280,12 +282,12 @@ namespace Planets
             entityManager.AddComponent(vaseSmooth2, new Scale() { Value = new(10) });
             entityManager.AddComponent(vaseFlat, new Scale() { Value = new(10) });
 
-            Vector3 max = cube[0].Bounds.Bounds.Max;
+            Vector3 size = cube[0].Bounds.Bounds.Size;
             var boxCollider = new BoxCollider()
-            { 
-                Width =max.X,
-                Height = max.Y,
-                Depth = max.Z
+            {
+                Width = size.X,
+                Height = size.Y,
+                Depth = size.Z
             };
 
             entityManager.AddComponent(cubeEntity2, boxCollider);
@@ -295,6 +297,115 @@ namespace Planets
             entityManager.AddComponent<StaticColliderTag>(cubeEntity2);
             entityManager.AddComponent<StaticColliderTag>(cubeEntity3);
             entityManager.AddComponent<StaticColliderTag>(cubeEntity);
+            CreateXWing(entityManager);
+        }
+
+        private static void CreateXWing(EntityManager entityManager)
+        {
+            var xWing = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("X-Wing.obj"), [new(VertexAttribute.Tangent,VertexAttributeFormat.Float4)]);
+
+            var astroDroidDiffuseTexture = new Texture2d(Texture2d.GetTextureInDefaultPath("X-Wing/st_Rebel_01_AstroDroid_diffuse.dds"));
+            var astroDroidNormalTexture = new Texture2d(Texture2d.GetTextureInDefaultPath("X-Wing/st_Rebel_01_AstroDroid_normal.dds"));
+
+            var hullDiffuseTexture = new Texture2d(Texture2d.GetTextureInDefaultPath("X-Wing/st_Rebel_01_X_Wing_hull_diffuse.dds"));
+            var hullNormalTexture = new Texture2d(Texture2d.GetTextureInDefaultPath("X-Wing/st_Rebel_01_X_Wing_hull_normal.dds"));
+
+            var wingDiffuseTexture = new Texture2d(Texture2d.GetTextureInDefaultPath("X-Wing/st_Rebel_01_X_Wing_wings_diffuse.dds"));
+            var wingNormalTexture = new Texture2d(Texture2d.GetTextureInDefaultPath("X-Wing/st_Rebel_01_X_Wing_wings_normal.dds"));
+
+
+            var xWingMaterial = Material.Create("texture_normal.vert", "texture_normal.frag");
+            xWingMaterial.GetStorageBuffer<Vector4>("colourBuffer").Fill(Vector4.One);
+            xWingMaterial.SetTexture("samplerColorMap", hullDiffuseTexture, 0, 0);
+            xWingMaterial.SetTexture("samplerNormalMap", hullNormalTexture, 0, 0);
+
+            xWingMaterial.SetTexture("samplerColorMap", wingDiffuseTexture, 1, 0);
+            xWingMaterial.SetTexture("samplerNormalMap", wingNormalTexture, 1, 0);
+
+            xWingMaterial.SetTexture("samplerColorMap", astroDroidDiffuseTexture, 2, 0);
+            xWingMaterial.SetTexture("samplerNormalMap", astroDroidNormalTexture, 2, 0);
+
+            var xWingBase = entityManager.CreateEntity();
+            entityManager.AddComponent(xWingBase, new Translation() { Value = new Vector3(0, 27f, -20) });
+            entityManager.AddComponent(xWingBase, new Rotation());
+            Children children = new() { Value = new Entity[xWing.Length] };
+
+            Bounds outerBounds = xWing[0].Bounds.Bounds;
+
+            for (int i = 0; i < xWing.Length; i++)
+            {
+                var subComponent = entityManager.CreateEntity();
+                outerBounds.Encapsulate(xWing[i].Bounds.Bounds);
+                AddRenderMeshComponents(subComponent, xWingMaterial, i, 0, xWing[i], entityManager);
+                children.Value[i] = subComponent;
+                entityManager.AddComponent(subComponent, new Parent() { Value = xWingBase });
+            }
+
+            for (int i = 0; i < xWing.Length; i++)
+            {
+                entityManager.AddComponent(children.Value[i], new Translation() { Value = -outerBounds.center });
+            }
+
+            entityManager.AddComponent(xWingBase, children);
+
+            Vector3 size = outerBounds.Size;
+            var boxCollider = new BoxCollider()
+            {
+                Width = size.X,
+                Height = size.Y,
+                Depth = size.Z
+            };
+            entityManager.AddComponent(xWingBase, boxCollider);
+            entityManager.AddComponent(xWingBase, new DynamicBodyTag() { Mass = 10000 });
+
+            entityManager.AddComponent(xWingBase, new ShipStatsMS()
+            {
+                Thrust = 3750,
+                TurnTorque = new(350,300,400),
+                ForceMult = 100,
+                Sensitivity = 5,
+                AggressiveTurnAngle = 6
+            });
+
+            entityManager.AddComponent<ShipControlInputMS>(xWingBase);
+        }
+
+        private void CreateFlightRig(EntityManager entityManager)
+        {
+            Entity flightRig = entityManager.CreateEntity();
+            Entity mouseAim = entityManager.CreateEntity();
+            Entity cameraRig = entityManager.CreateEntity();
+            Entity camera = MainCamera;
+
+            MouseFlightController msc = new()
+            {
+                TPScamSmoothSpeed = 5,
+                MouseSensitivity = 0.15f,
+                IsMouseAimFrozen = false,
+                frozenDirection = Vector3.UnitZ,
+                MouseAim = mouseAim,
+                CameraRig = cameraRig,
+                CameraEntity = camera,
+                ThrottleSenstivity = 1
+            };
+
+            // parent camera rig to camera
+            entityManager.AddComponent(camera, new Parent() { Value = cameraRig });
+            entityManager.AddComponent(cameraRig, new Children() { Value = [camera] });
+
+            // parent mouse aim and camera rig to flight rig
+            entityManager.AddComponent(cameraRig, new Parent() { Value = flightRig });
+            entityManager.AddComponent(mouseAim, new Parent() { Value = flightRig });
+            entityManager.AddComponent(flightRig, new Children() { Value = [mouseAim, cameraRig] });
+            // add msc to flight rig
+            entityManager.AddComponent(flightRig, msc);
+
+            entityManager.SetComponent(camera, new Translation() { Value = new(0, 0.75f, -3.6f) });
+            entityManager.AddComponent(cameraRig, new Translation());
+            entityManager.AddComponent(mouseAim, new Translation());
+            entityManager.AddComponent(cameraRig, new Rotation());
+            entityManager.AddComponent(mouseAim, new Rotation());
+            entityManager.AddComponent(flightRig, new Translation() { Value = initalCameraPos });
         }
 
         public static void AddRenderMeshComponents(Entity entity, Material mat, int variant, int entityVariant, DirectSubMesh mesh, EntityManager entityManager)
@@ -484,7 +595,7 @@ namespace Planets
         {
             MainCamera = entityManager.CreateEntity();
             entityManager.AddComponent(MainCamera, new Translation() { Value = initalCameraPos });
-            entityManager.AddComponent(MainCamera, new Rotation() { Value = initalCameraRot });
+            entityManager.AddComponent(MainCamera, new Rotation() { Value = TransformExtensions.Euler(initalCameraRot) });
             entityManager.AddComponent(MainCamera, cameraPerspective);
             entityManager.AddComponent<MainCamera>(MainCamera);
 

@@ -5,7 +5,7 @@ using System;
 using System.Numerics;
 using VECS.ECS;
 
-namespace VECS.Physics
+namespace VECS.ECS.Physics
 {
     public sealed partial class PhysicsWorld : IDisposable
     {
@@ -47,7 +47,8 @@ namespace VECS.Physics
             InitRayCasting();
 
             _world.CreateSystem<StaticBodySystem>();
-            _world.CreateSystem<RaycastTestSystem>();
+            _world.CreateSystem<DynamicBodySystem>();
+            //_world.CreateSystem<RaycastTestSystem>();
         }
 
         public void FixedUpdate()

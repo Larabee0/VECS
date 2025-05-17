@@ -2,14 +2,18 @@
 using BepuPhysics.Collidables;
 using System.Numerics;
 using VECS.ECS;
+using VECS.ECS.Presentation;
 using VECS.ECS.Transforms;
 
-namespace VECS.Physics
+namespace VECS.ECS.Physics
 {
     internal class StaticBodySystem : SystemBase
     {
         private EntityQuery _createBody;
-        private EntityQuery _updateStaticBodyDescs;
+        private EntityQuery _updateBodyDescs;
+        private EntityQuery _drawBodyDescs;
+
+        private bool _drawBodies = true;
 
         public override void OnCreate(EntityManager entityManager)
         {
@@ -19,10 +23,36 @@ namespace VECS.Physics
                 .WithNone(typeof(Prefab), typeof(StaticBodyDescComp), typeof(StaticHandleComp))
                 .Build();
 
-            _updateStaticBodyDescs = new EntityQuery(entityManager)
+            _updateBodyDescs = new EntityQuery(entityManager)
                 .WithAll(typeof(UpdateBodyDescTag), typeof(StaticColliderTag), typeof(LocalToWorld), typeof(StaticBodyDescComp), typeof(StaticHandleComp))
                 .WithNone(typeof(Prefab))
                 .Build();
+            _drawBodyDescs = new EntityQuery(entityManager)
+                .WithAll(typeof(StaticColliderTag), typeof(LocalToWorld), typeof(StaticBodyDescComp), typeof(StaticHandleComp))
+                .WithNone(typeof(Prefab))
+                .Build();
+        }
+
+        public override void OnUpdate(EntityManager entityManager)
+        {
+            if (InputManager.Instance.GetKeyUp(SDL3.SDL_Keycode.F4))
+            {
+                _drawBodies = !_drawBodies;
+            }
+
+            if (_drawBodies && _drawBodyDescs.HasEntities)
+            {
+                var drawRenderBounds = World.GetSystem<DebugDrawUtilities>();
+
+                _drawBodyDescs.GetEntities().ForEach(e =>
+                {
+                    var desc = entityManager.GetComponent<StaticBodyDescComp>(e);
+                    var shape =
+                    World.Simulation.Simulation.Shapes.GetShape<Box>(desc.Value.Shape.Index);
+                    
+                    drawRenderBounds.DrawWireCube(desc.Value.Pose.Position, new(shape.Width,shape.Height,shape.Length), desc.Value.Pose.Orientation.ToEuler(), new Vector4(0, 1, 0, 1).ToVkColor());
+                });
+            }
         }
 
         public override void OnFixedUpdate(EntityManager entityManager)
@@ -33,9 +63,9 @@ namespace VECS.Physics
 
         private void UpdateStatics(EntityManager entityManager)
         {
-            if (_updateStaticBodyDescs.HasEntities)
+            if (_updateBodyDescs.HasEntities)
             {
-                _updateStaticBodyDescs.GetEntities().ForEach(e =>
+                _updateBodyDescs.GetEntities().ForEach(e =>
                 {
                     var ltw = entityManager.GetComponent<LocalToWorld>(e);
                     var desc = entityManager.GetComponent<StaticBodyDescComp>(e);
@@ -47,7 +77,7 @@ namespace VECS.Physics
                         World.Simulation.Simulation.Statics.ApplyDescription(handle.Value, desc.Value);
                         entityManager.SetComponent(e, desc);
                     }
-                    entityManager.RemoveComponent<UpdateBodyDescTag>(e);
+                    //entityManager.RemoveComponent<UpdateBodyDescTag>(e);
                 });
             }
         }
@@ -60,6 +90,7 @@ namespace VECS.Physics
                 entities.ForEach(e =>
                 {
                     LocalToWorld ltw = entityManager.GetComponent<LocalToWorld>(e);
+                    Matrix4x4.Decompose(ltw.Value, out _, out Quaternion rotation, out Vector3 translation);
                     TypedIndex typedIndex;
                     if (entityManager.HasComponent<BoxCollider>(e, out int sig))
                     {
@@ -82,15 +113,12 @@ namespace VECS.Physics
                     {
                         return;
                     }
-                    
-                    if (Matrix4x4.Decompose(ltw.Value, out _, out Quaternion rotation, out Vector3 translation))
-                    {
-                        var desc = new StaticDescription(translation, rotation, typedIndex);
-                        var handle = World.Simulation.AddStatic(desc);
-                        entityManager.AddComponent(e, new StaticBodyDescComp() { Value = desc });
-                        entityManager.AddComponent(e, new StaticHandleComp() { Value = handle });
-                        entityManager.AddComponent<UpdateBodyDescTag>(e);
-                    }
+
+                    var desc = new StaticDescription(translation, rotation, typedIndex);
+                    var handle = World.Simulation.AddStatic(desc);
+                    entityManager.AddComponent(e, new StaticBodyDescComp() { Value = desc });
+                    entityManager.AddComponent(e, new StaticHandleComp() { Value = handle });
+                    entityManager.AddComponent<UpdateBodyDescTag>(e);
                 });
             }
         }

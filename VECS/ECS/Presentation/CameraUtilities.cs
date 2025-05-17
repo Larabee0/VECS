@@ -3,7 +3,7 @@ using System.Numerics;
 using System.Runtime.CompilerServices;
 using VECS.ECS.Presentation;
 using VECS.ECS.Transforms;
-using VECS.Physics;
+using VECS.ECS.Physics;
 
 namespace VECS.ECS
 {
@@ -39,6 +39,7 @@ namespace VECS.ECS
                 if (MathF.Abs(distToPlane) >= 1.0e-6f)
                 {
                     outP = pointOnPlane - forward * (distToPlane - p.Z);
+                    //outP = cameraPosition + dir;
                     return true;
 
                 }
