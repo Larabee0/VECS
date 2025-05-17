@@ -1,8 +1,24 @@
-This is a basic C# ECS graphics engine I wrote between November and December 2024 for a university module.
+This is a C# Vulkan ECS Game engine with Bepu Physics.
+# Features
+- SPIR-V Reflection - auto generation of material pipelines and descriptor sets
+- Automatic Material Variant handling
+- GPU Driven Rendering - Draw Indirect is the main way of drawing objects
+- Advanced Mesh class built for Draw Indirect
+- Camera Fustrum culling using GPU compute shaders
+- Compute shader vertex normal generation
+- Real-time omni directional point light shadow casting optimised with GPU fustrum culling
+- Simple ECS Arcitecture
+- BepuPhysics intergration
+- Assimp model & scene loading
+- Freeimage + NVTT texture loading
+- Mikktspace vertex tangent generation
+- SDL3
+- Vulkan 1.4
+- .Net 9.0
 
-See [WS-4 Branch](https://github.com/Larabee0/SDL-Vulkan-CS/tree/WS-4) for submission version
 
-I have continued developing it by adding gpu driven rendering techniques.
+For the basic graphics engine I wrote between November and December 2024 for a university module. See [WS-4 Branch](https://github.com/Larabee0/SDL-Vulkan-CS/tree/WS-4) for submission version
+
 # Things I want to do with this 
 In no particular order 
 - (fixing) occlusion culling
