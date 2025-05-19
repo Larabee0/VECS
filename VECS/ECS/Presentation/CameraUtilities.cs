@@ -7,6 +7,9 @@ using VECS.ECS.Physics;
 
 namespace VECS.ECS
 {
+    /// <summary>
+    /// basically nothing in here is working lol
+    /// </summary>
     public static class CameraUtilities
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
