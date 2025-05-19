@@ -26,6 +26,7 @@ layout(set = 1, binding = 2) uniform sampler2D texSampler;
 layout(set = 2, binding = 0) uniform Colour
 {
 	vec4 colour;
+	float tiling;
 } colourMul;
 
 void main()
@@ -58,7 +59,7 @@ void main()
 		specularLight += intensity * blinnTerm; 
 	}
 
-	vec4 textureColour = texture(texSampler,fragUV);
+	vec4 textureColour = texture(texSampler,fragUV * colourMul.tiling);
 	// outColour = vec4(fragUV,0,1);
 	//outColour = vec4(1);
 	outColour = textureColour*fragColour*colourMul.colour;

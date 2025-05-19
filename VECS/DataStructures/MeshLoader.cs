@@ -230,6 +230,11 @@ namespace VECS.DataStructures
                 }
             }
 
+            if(validFiles.Count == 0)
+            {
+                throw new FileNotFoundException();
+            }
+
             List<Scene> assimpScenes = new(validFiles.Count);
 
             AssimpContext importer = new();

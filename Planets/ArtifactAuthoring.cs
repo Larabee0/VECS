@@ -7,7 +7,6 @@ using VECS;
 using VECS.DataStructures;
 using VECS.ECS;
 using VECS.ECS.Presentation;
-using VECS.ECS.Presentation;
 using VECS.ECS.Transforms;
 using VECS.LowLevel;
 using VECS.ECS.Physics;
@@ -15,6 +14,19 @@ using Vortice.Vulkan;
 
 namespace Planets
 {
+
+    public struct ColourAndTiling
+    {
+        public Vector4 colour;
+        public float tiling;
+
+        public ColourAndTiling(Vector4 colour, float tiling)
+        {
+            this.colour = colour;
+            this.tiling = tiling;
+        }
+    }
+
     /// <summary>
     /// Main class used to set up the things in environment such as a camera, rendering system, objects in the environment.
     /// </summary>
@@ -29,7 +41,7 @@ namespace Planets
         {
             FOV = 50,
             ClipNear = 0.1f,
-            ClipFar = 100f,
+            ClipFar = 20000f,
             fustrumCulling = true
         };
 
@@ -58,6 +70,7 @@ namespace Planets
             World.DefaultWorld.CreateSystem<StarRenderSystem>();
             World.DefaultWorld.CreateSystem<DebugDrawUtilities>();
             World.DefaultWorld.CreateSystem<WorldRenderBoundsUpdateSystem>();
+            World.DefaultWorld.CreateSystem<ShipGuns>();
             //World.DefaultWorld.CreateSystem<InteractionSystem>();
 
             EntityManager entityManager = World.DefaultWorld.EntityManager;
@@ -67,6 +80,8 @@ namespace Planets
             CreateFlightRig(entityManager);
             LoadResources();
             LoadStaticResources(entityManager);
+            CreateXWing(entityManager);
+            CreateScene(entityManager);
             var prefabPlanet = CreatePrefabPlanet(entityManager);
 
             CreateSinglePlanetTestScene(entityManager, prefabPlanet);
@@ -88,7 +103,8 @@ namespace Planets
                 Radius = 5f
             });
 
-            entityManager.AddComponent(aStar, new Translation() { Value = new(0f, 0, 0) });
+            entityManager.AddComponent(aStar, new Translation() { Value = new(0f, 500, 0) });
+            entityManager.AddComponent(aStar, new Scale() { Value = new(30f, 30, 30) });
 
             Parent starParent = new() { Value = aStar };
 
@@ -258,18 +274,18 @@ namespace Planets
             Entity vaseSmooth = entityManager.CreateEntity();
             Entity vaseSmooth2 = entityManager.CreateEntity();
 
-            AddRenderMeshComponents(cubeEntity, Presenter.Instance.LitTexture, 1, 1, cube[0], entityManager);
-            AddRenderMeshComponents(cubeEntity2, Presenter.Instance.LitTexture, 0, 0, cube[0], entityManager);
-            AddRenderMeshComponents(cubeEntity3, Presenter.Instance.Lit, 0, 0, cube[0], entityManager);
-            AddRenderMeshComponents(vaseSmooth, Presenter.Instance.LitTexture, 0, 0, vases[0], entityManager);
-            AddRenderMeshComponents(vaseSmooth2, Presenter.Instance.Lit, 0, 0, vases[0], entityManager);
-            AddRenderMeshComponents(vaseFlat, Presenter.Instance.LitTexture, 1, 1, vases[1], entityManager);
+            // AddRenderMeshComponents(cubeEntity, Presenter.Instance.LitTexture, 1, 1, cube[0], entityManager);
+            // AddRenderMeshComponents(cubeEntity2, Presenter.Instance.LitTexture, 0, 0, cube[0], entityManager);
+            // AddRenderMeshComponents(cubeEntity3, Presenter.Instance.Lit, 0, 0, cube[0], entityManager);
+            // AddRenderMeshComponents(vaseSmooth, Presenter.Instance.LitTexture, 0, 0, vases[0], entityManager);
+            // AddRenderMeshComponents(vaseSmooth2, Presenter.Instance.Lit, 0, 0, vases[0], entityManager);
+            // AddRenderMeshComponents(vaseFlat, Presenter.Instance.LitTexture, 1, 1, vases[1], entityManager);
 
             Presenter.Instance.LitTexture.SetTexture("texSampler", textureWaveC, 0, 0);
             Presenter.Instance.LitTexture.SetTexture("texSampler", textureWaveB, 1, 0);
 
-            Presenter.Instance.LitTexture.SetUniform("colourMul", new Vector4(1, 0, 0, 1), 0, 0);
-            Presenter.Instance.LitTexture.SetUniform("colourMul", new Vector4(0, 1, 0, 1), 0, 1);
+            Presenter.Instance.LitTexture.SetUniform("colourMul", new ColourAndTiling(new Vector4(1, 0, 0, 1), 1f), 0, 0);
+            Presenter.Instance.LitTexture.SetUniform("colourMul", new ColourAndTiling(new Vector4(0, 1, 0, 1), 1f), 0, 1);
 
             entityManager.SetComponent(cubeEntity2, new Translation() { Value = new(-1, 4f, -10) });
             entityManager.SetComponent(cubeEntity3, new Translation() { Value = new(1, 4f, -10) });
@@ -297,12 +313,11 @@ namespace Planets
             entityManager.AddComponent<StaticColliderTag>(cubeEntity2);
             entityManager.AddComponent<StaticColliderTag>(cubeEntity3);
             entityManager.AddComponent<StaticColliderTag>(cubeEntity);
-            CreateXWing(entityManager);
         }
 
         private static void CreateXWing(EntityManager entityManager)
         {
-            var xWing = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("X-Wing.obj"), [new(VertexAttribute.Tangent,VertexAttributeFormat.Float4)]);
+            var xWing = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("X-Wing.obj"), [new(VertexAttribute.Tangent, VertexAttributeFormat.Float4)]);
 
             var astroDroidDiffuseTexture = new Texture2d(Texture2d.GetTextureInDefaultPath("X-Wing/st_Rebel_01_AstroDroid_diffuse.dds"));
             var astroDroidNormalTexture = new Texture2d(Texture2d.GetTextureInDefaultPath("X-Wing/st_Rebel_01_AstroDroid_normal.dds"));
@@ -328,6 +343,8 @@ namespace Planets
             var xWingBase = entityManager.CreateEntity();
             entityManager.AddComponent(xWingBase, new Translation() { Value = new Vector3(0, 27f, -20) });
             entityManager.AddComponent(xWingBase, new Rotation());
+
+
             Children children = new() { Value = new Entity[xWing.Length] };
 
             Bounds outerBounds = xWing[0].Bounds.Bounds;
@@ -340,6 +357,22 @@ namespace Planets
                 children.Value[i] = subComponent;
                 entityManager.AddComponent(subComponent, new Parent() { Value = xWingBase });
             }
+
+            entityManager.AddComponent(xWingBase, new XWingGuns()
+            {
+                TopRight = new Vector3(-0.4411f, 0.1635f, 0.4857f) - outerBounds.center,
+                BottomRight = new Vector3(-0.4419f, -0.1659f, 0.4857f) - outerBounds.center,
+
+                TopLeft = new Vector3(0.4411f, 0.1635f, 0.4857f) - outerBounds.center,
+                BottomLeft = new Vector3(0.442f, -0.1659f, 0.4857f) - outerBounds.center,
+            });
+
+            entityManager.AddComponent(xWingBase, new GunSequencer()
+            {
+                FireTime = 0.125f,
+                WaitTime = 0.025f
+            });
+
 
             for (int i = 0; i < xWing.Length; i++)
             {
@@ -368,6 +401,85 @@ namespace Planets
             });
 
             entityManager.AddComponent<ShipControlInputMS>(xWingBase);
+        }
+
+        private void CreateScene(EntityManager entityManager)
+        {
+            Entity sceneRoot = entityManager.CreateEntity();
+            entityManager.AddComponent<Translation>(sceneRoot);
+            var models = MeshLoader.LoadModelsFromFiles([MeshLoader.GetMeshInDefaultPath( "quad.obj"), MeshLoader.GetMeshInDefaultPath("cube-UV.obj")], null);
+
+            var grid = new Texture2d(Texture2d.GetTextureInDefaultPath("grid.png"));
+
+            Presenter.Instance.LitTexture.SetTexture("texSampler", grid, 2, 0);
+            Presenter.Instance.LitTexture.SetUniform("colourMul", new ColourAndTiling(new Vector4(0.1803922f, 0.2078431f, 0.2431373f, 1), 100f), 2, 2);
+            Presenter.Instance.LitTexture.SetUniform("colourMul", new ColourAndTiling(new Vector4(0.1803922f, 0.2078431f, 0.2431373f, 1), 10f), 2, 3);
+
+
+            var plane = entityManager.CreateEntity();
+            AddRenderMeshComponents(plane, Presenter.Instance.LitTexture, 2, 2, models[0], entityManager);
+            entityManager.AddComponent<StaticColliderTag>(plane);
+            Entity[] cubes = new Entity[9];
+
+            for (int i = 0; i < cubes.Length; i++)
+            {
+                cubes[i] = entityManager.CreateEntity();
+                AddRenderMeshComponents(cubes[i], Presenter.Instance.LitTexture, 2, 3, models[1], entityManager);
+                entityManager.AddComponent<StaticColliderTag>(cubes[i]);
+            }
+
+            entityManager.AddComponent(plane, new Scale() { Value = new(500, 1, 500) });
+
+            sceneRoot.AddChildren(entityManager, cubes);
+            sceneRoot.AddChildren(entityManager, plane);
+
+            entityManager.SetComponent(cubes[0], new Translation() { Value = new(-49, 32.7f, 38.1f) });
+            entityManager.SetComponent(cubes[1], new Translation() { Value = new(26.6f, 28.95f, 10.3f) });
+            entityManager.SetComponent(cubes[2], new Translation() { Value = new(-109.8f, 34.05f, -54.4f) });
+            entityManager.SetComponent(cubes[3], new Translation() { Value = new(-49.9f, 10, 163.5f) });
+            entityManager.SetComponent(cubes[4], new Translation() { Value = new(-48.6f, 45f, -17.8f) });
+            entityManager.SetComponent(cubes[5], new Translation() { Value = new(-107, 45f, 46.8f) });
+            entityManager.SetComponent(cubes[6], new Translation() { Value = new(-82.8f, 29.15f, -116.3f) });
+            entityManager.SetComponent(cubes[7], new Translation() { Value = new(-84.9f, 33.6f, 1.4f) });
+            entityManager.SetComponent(cubes[8], new Translation() { Value = new(-31.3f, 33.6f, -87f) });
+
+            entityManager.AddComponent(cubes[0], new Scale() { Value = new(31.5f, 65.4f, 27.3f) });
+            entityManager.AddComponent(cubes[1], new Scale() { Value = new(29.6f, 57.9f ,27.4f) });
+            entityManager.AddComponent(cubes[2], new Scale() { Value = new(25.9f, 68.1f ,10f) });
+            entityManager.AddComponent(cubes[3], new Scale() { Value = new(10, 20, 10) });
+            entityManager.AddComponent(cubes[4], new Scale() { Value = new(34.1f, 90, 34.9f) });
+            entityManager.AddComponent(cubes[5], new Scale() { Value = new(34.1f, 90, 34.9f) });
+            entityManager.AddComponent(cubes[6], new Scale() { Value = new(34.1f, 58.3f, 10.6f) });
+            entityManager.AddComponent(cubes[7], new Scale() { Value = new(10, 67.2f, 10) });
+            entityManager.AddComponent(cubes[8], new Scale() { Value = new(10, 67.2f, 10) });
+            var baseBounds = models[0].Bounds.Bounds;
+
+            baseBounds.extents *= entityManager.GetComponent<Scale>(plane).Value;
+
+            var boxCollider = new BoxCollider()
+            {
+                Width = baseBounds.Size.X,
+                Height = Math.Max(baseBounds.Size.Y,0.1f),
+                Depth = baseBounds.Size.Z
+            };
+            entityManager.AddComponent(plane, boxCollider);
+            baseBounds = models[1].Bounds.Bounds;
+            for (int i = 0; i < cubes.Length; i++)
+            {
+                var scaledBounds = baseBounds;
+                scaledBounds.extents = baseBounds.extents * entityManager.GetComponent<Scale>(cubes[i]).Value;
+                Vector3 size = scaledBounds.Size;
+                boxCollider = new BoxCollider()
+                {
+                    Width = size.X,
+                    Height = size.Y,
+                    Depth = size.Z
+                };
+
+                entityManager.AddComponent(cubes[i], boxCollider);
+            }
+
+
         }
 
         private void CreateFlightRig(EntityManager entityManager)

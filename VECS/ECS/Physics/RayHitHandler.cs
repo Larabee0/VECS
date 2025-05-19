@@ -76,9 +76,9 @@ namespace VECS.ECS.Physics
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void OnRayHit(in RayData ray, ref float maximumT, float t, in Vector3 normal, CollidableReference collidable, int childIndex)
         {
-            maximumT = t;
+            //maximumT = t;
             ref var hit = ref Hits[ray.Id];
-            if (t < hit.T)
+            if (t < hit.T && t > 0)
             {
                 if (hit.T == float.MaxValue)
                     ++*IntersectionCount;

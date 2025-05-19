@@ -247,7 +247,7 @@ namespace VECS.ECS.Presentation
                         storageBufferRegion.Increment();
                     }
 
-                    if (lastCmd.DirectMesh != cmd.DirectMesh || (lastCmd.SubMesh != cmd.SubMesh && lastCmd.MaterialVariant != cmd.MaterialVariant))
+                    if (lastCmd.DirectMesh != cmd.DirectMesh || (lastCmd.SubMesh != cmd.SubMesh && (lastCmd.MaterialVariant != cmd.MaterialVariant||lastCmd.MaterialEntity != cmd.MaterialEntity)))
                     {
                         meshSubRegion.IncrementAlt();
                         meshCmdRegionStartIndex = _directMeshCmdRegions[cmd.DirectMesh].StartIndex;
