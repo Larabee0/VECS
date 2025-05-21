@@ -850,6 +850,7 @@ namespace VECS
         public VkDrawIndexedIndirectCommand VkDraw;
         public ModelMatrices Matrices;
         public ModelBounds Bounds;
+        public bool Bloom;
 
         public DrawCommand(VkDrawIndexedIndirectCommand vkDraw, ModelMatrices matrices, ModelBounds bounds)
         {
@@ -864,6 +865,15 @@ namespace VECS
             VkDraw.instanceCount = 0;
             Matrices = new(localToWorld.Value);
             Bounds = new(worldRenderBounds);
+        }
+
+        public DrawCommand(DirectSubMeshIndex subMeshIndex, LocalToWorld localToWorld, WorldRenderBounds worldRenderBounds, bool bloom)
+        {
+            VkDraw = DirectSubMesh.GetSubMeshAtIndex(subMeshIndex).IndirectCommand;
+            VkDraw.instanceCount = 0;
+            Matrices = new(localToWorld.Value);
+            Bounds = new(worldRenderBounds);
+            Bloom = bloom;
         }
     }
 }

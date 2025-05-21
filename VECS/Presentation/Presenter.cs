@@ -32,6 +32,7 @@ namespace VECS
         public static Presenter Instance { get; private set; }
 
         private readonly Renderer _renderer;
+        private readonly Bloom _bloom;
 
         private DescriptorSetHandler _globalDescriptorSetHandler;
         private readonly GlobalUbo ubo = new();
@@ -47,16 +48,18 @@ namespace VECS
 
 
         private Material _unlitMaterial;
+        private Material _unlitTransparentMaterial;
         private Material _litMaterial;
         private Material _litTextureMaterial;
         private Texture2d _fallbackTexture;
         private Entity frameInfoEntity;
 
         public Material Unlit =>_unlitMaterial;
+        public Material UnlitTransparent => _unlitTransparentMaterial;
         public Material Lit => _litMaterial;
         public Material LitTexture => _litTextureMaterial;
 
-        public VkRenderPass RenderPass => _renderer.ForwardRenderPass;
+        public VkRenderPass ForwardRenderPass => _renderer.ForwardRenderPass;
         public VkDescriptorSetLayout GlobalSetLayout => _globalDescriptorSetHandler.VkDescriptorSetLayout;
         internal DescriptorSetHandler GlobalSetHandler => _globalDescriptorSetHandler;
         public int FrameIndex => _renderer.FrameIndex;
@@ -69,6 +72,9 @@ namespace VECS
             InitEntityFrameDescriptorPools();
             Instance = this;
             LoadDefaultResources();
+
+
+            _bloom = new(ForwardRenderPass);
         }
 
         /// <summary>
@@ -135,11 +141,14 @@ namespace VECS
         {
             _fallbackTexture = new Texture2d(Texture2d.GetTextureInDefaultPath("missing.png"));
 
-            _unlitMaterial = new Material("unlit.vert", "unlit.frag", GraphicsPipelines.GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []), true, RenderPass);
+            _unlitMaterial = new Material("unlit.vert", "unlit.frag", GraphicsPipelines.GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []), true, ForwardRenderPass);
             _globalDescriptorSetHandler = _unlitMaterial.ApplicationDescriptorSetHandler;
 
+            _unlitTransparentMaterial = Material.CreateWithAlphaBlending("unlit.vert", "unlit.frag");
             _litMaterial = Material.Create("lit.vert", "lit.frag");
+
             _unlitMaterial.GetStorageBuffer<Vector4>("colourBuffer").Fill(Vector4.One);
+            _unlitTransparentMaterial.GetStorageBuffer<Vector4>("colourBuffer").Fill(Vector4.One);
             _litMaterial.GetStorageBuffer<Vector4>("colourBuffer").Fill(Vector4.One);
 
             _litTextureMaterial = Material.Create("lit_texture.vert", "lit_texture.frag");
@@ -152,11 +161,6 @@ namespace VECS
             _globalDescriptorPools[frameIndex].FreeDescriptors();
             _materialFrameDescriptorPools[frameIndex].FreeDescriptors();
             _entityFrameDescriptorPools[frameIndex].FreeDescriptors();
-
-            // _globalDescriptorPools[frameIndex].ResetPool();
-            // _materialFrameDescriptorPools[frameIndex].ResetPool();
-            // _entityFrameDescriptorPools[frameIndex].ResetPool();
-
 
             RendererFrameInfo frameInfo = new()
             {
@@ -287,11 +291,21 @@ namespace VECS
                 // shadows
                 World.DefaultWorld.PresentShadowPassUpdate(frameInfo);
 
+                //Bloom early
+                _bloom.BeginGlowPass(frameInfo);
+                World.DefaultWorld.PresentBloomGlow(frameInfo);
+                Renderer.EndRenderPass(frameInfo.CommandBuffer);
+                _bloom.BlurVertical(frameInfo);
+
                 // forward pass
                 _renderer.BeginForwardRenderPass(frameInfo.CommandBuffer);
                 World.DefaultWorld.PresentFowardPassUpdate(frameInfo);
+
+                // bloom late
+                _bloom.BlurHorizontal(frameInfo);
                 Renderer.EndRenderPass(frameInfo.CommandBuffer);
                 DirectMesh.ClearBufferBinds();
+
                 // depth pyramid mip maps
                 _renderer.ReduceDepth(frameInfo);
                 // copy to swap chain
@@ -325,6 +339,7 @@ namespace VECS
                 Material.Materials[i].Dispose();
             }
 
+            _bloom?.Dispose();
             _globalDescriptorSetHandler?.Dispose();
 
             _globalUboBuffers?.Dispose();

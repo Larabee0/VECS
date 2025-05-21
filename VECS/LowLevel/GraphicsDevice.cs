@@ -25,6 +25,14 @@ namespace VECS.LowLevel
             Vulkan.VK_EXT_SAMPLER_FILTER_MINMAX_EXTENSION_NAME,
         ];
 
+        private readonly static HashSet<VkFormat> _stencilFormats =
+        [
+            VkFormat.S8Uint,
+            VkFormat.D16UnormS8Uint,
+            VkFormat.D24UnormS8Uint,
+            VkFormat.D32SfloatS8Uint
+        ];
+
         public static GraphicsDevice Instance { get; private set; }
 
         private readonly IWindow _window;
@@ -524,6 +532,11 @@ namespace VECS.LowLevel
             }
 
             throw new Exception("Failed to find support image format");
+        }
+
+        public static bool HasStencil(VkFormat format)
+        {
+            return _stencilFormats.Contains(format);
         }
 
         /// <summary>

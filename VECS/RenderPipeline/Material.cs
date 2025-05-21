@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Numerics;
 using System.Runtime.InteropServices;
 using VECS.ECS;
 using VECS.ECS.Presentation;
@@ -18,6 +19,8 @@ namespace VECS
         public int MaterialVariant;
         public int MaterialEntity;
         public DrawCommand DrawCommand;
+        public Vector4 Colour;
+        public bool Bloom;
 
         public EarlyDrawCommand(DrawCommand drawCommand,RenderMesh renderMesh)
         {
@@ -27,6 +30,7 @@ namespace VECS
             MaterialIndex = renderMesh.Material.Material;
             MaterialVariant = renderMesh.Material.Variant;
             MaterialEntity = renderMesh.Material.Entity;
+            Colour = renderMesh.Colour;
         }
 
         public static bool MateriallyDifferent(EarlyDrawCommand a, EarlyDrawCommand b)
@@ -62,8 +66,9 @@ namespace VECS
         public int Entity;
         public int DirectMesh;
         public BufferRegion MeshSubRegion;
+        public bool Bloom;
 
-        public MaterialDrawCommand(int material, int variant, BufferRegion storageBufferRegion, int entity, int directMesh, BufferRegion meshSubRegion)
+        public MaterialDrawCommand(int material, int variant, BufferRegion storageBufferRegion, int entity, int directMesh, BufferRegion meshSubRegion, bool bloom)
         {
             Material = material;
             Variant = variant;
@@ -71,6 +76,7 @@ namespace VECS
             Entity = entity;
             DirectMesh = directMesh;
             MeshSubRegion = meshSubRegion;
+            Bloom = bloom;
         }
 
         public MaterialDrawCommand(EarlyDrawCommand earlyDrawCommand,BufferRegion storageBufferRegion,BufferRegion meshSubRegion)
@@ -236,6 +242,7 @@ namespace VECS
         private unsafe VkDescriptorSet* _setsToBind;
 
         internal readonly Queue<MaterialDrawCommand> _drawCommands = new();
+        internal readonly Queue<MaterialDrawCommand> _bloomDrawCommands = new();
 
         public VkPipelineLayout PipeLineLayout => _pipelineLayout;
 
@@ -255,7 +262,7 @@ namespace VECS
 
         public static Material Create(string vertexShader, string fragmentShader)
         {
-            var material = new Material(vertexShader, fragmentShader, GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []), false, Presenter.Instance.RenderPass);
+            var material = new Material(vertexShader, fragmentShader, GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []), false, Presenter.Instance.ForwardRenderPass);
 
             if (material.HasApplicationSet)
             {
@@ -280,7 +287,7 @@ namespace VECS
         public static Material CreateWithAlphaBlending(string vertexShader, string fragmentShader)
         {
             var config = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
-            config.renderPass = Presenter.Instance.RenderPass;
+            config.renderPass = Presenter.Instance.ForwardRenderPass;
             GraphicsPipelineConfigInfo.EnableAlphaBlending(ref config);
             return Create(vertexShader, fragmentShader, config);
         }
@@ -387,6 +394,7 @@ namespace VECS
             DescriptorBinding[] workingBindings;
 
             int workingBindingIndex = 0;
+            _allLayouts = [];
             if (HasApplicationSet)
             {
                 workingBindings = new DescriptorBinding[_applicationGlobalBindings.Count];
@@ -397,7 +405,7 @@ namespace VECS
                     workingBindingIndex++;
                 }
                 _applicationDescriptorLayout = GraphicsPipelineUtil.CreateLayout(workingBindings);
-                _allLayouts = [_applicationDescriptorLayout];
+                _allLayouts = [.. _allLayouts, _applicationDescriptorLayout];
             }
 
             if (HasMaterialSet)

@@ -59,5 +59,5 @@ void main()
 	float lightIntensity = AMBIENT + max(dot(fragNormalWorld, DIRECTION_TO_LIGHT), 0);
 	fragPosWorld = positionWorld.xyz;
 
-	fragColour = lightIntensity *colourBuffer.colours[gl_BaseInstance];
+	fragColour = vec4(lightIntensity *colourBuffer.colours[gl_BaseInstance].xyz,colourBuffer.colours[gl_BaseInstance].w);
 }

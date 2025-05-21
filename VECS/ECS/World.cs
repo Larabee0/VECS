@@ -176,6 +176,10 @@ namespace VECS.ECS
             _presentationSystems.ForEach(s => s.OnShadowPass(_entityManager, rendererFrameInfo));
         }
 
+        internal void PresentBloomGlow(RendererFrameInfo rendererFrameInfo)
+        {
+            _presentationSystems.ForEach(s => s.OnBloomGlow(_entityManager, rendererFrameInfo));
+        }
         /// <summary>
         /// Called after PostUpdate
         /// </summary>
@@ -206,5 +210,6 @@ namespace VECS.ECS
         {
             _physicsSimulation?.Dispose();
         }
+
     }
 }

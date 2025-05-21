@@ -19,5 +19,5 @@ layout(set = 0,binding = 0) uniform GlobalUbo{
 
 void main()
 {
-	outColour = vec4(1.0);
+	outColour = fragColour;
 }

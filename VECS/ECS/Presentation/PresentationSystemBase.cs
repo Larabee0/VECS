@@ -23,8 +23,11 @@ namespace VECS.ECS.Presentation
 
         public virtual void OnShadowPass(EntityManager entityManager, RendererFrameInfo rendererFrameInfo) { }
 
+        public virtual void OnBloomGlow(EntityManager entityManager, RendererFrameInfo rendererFrameInfo) { }
+
         public abstract void OnFowardPass(EntityManager entityManager, RendererFrameInfo rendererFrameInfo);
 
         public virtual void OnPostPresentation(EntityManager entityManager) { }
+
     }
 }

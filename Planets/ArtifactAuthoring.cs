@@ -358,6 +358,16 @@ namespace Planets
                 entityManager.AddComponent(subComponent, new Parent() { Value = xWingBase });
             }
 
+            var engineRed = entityManager.GetComponent<RenderMesh>(children.Value[^1]);
+            engineRed.Colour = new Vector4(1, 0, 0, 1);
+            engineRed.Material = new()
+            {
+                Material = Material.GetIndexOfMaterial(Presenter.Instance.UnlitTransparent),
+                Variant = 0,
+                Entity = 0
+            };
+            entityManager.SetComponent(children.Value[^1], engineRed);
+
             entityManager.AddComponent(xWingBase, new XWingGuns()
             {
                 TopRight = new Vector3(-0.4411f, 0.1635f, 0.4857f) - outerBounds.center,
@@ -400,7 +410,10 @@ namespace Planets
                 AggressiveTurnAngle = 6
             });
 
-            entityManager.AddComponent<ShipControlInputMS>(xWingBase);
+            entityManager.AddComponent(xWingBase, new ShipControlInputMS()
+            {
+                Engines = children.Value[^1]
+            });
         }
 
         private void CreateScene(EntityManager entityManager)
@@ -512,7 +525,7 @@ namespace Planets
             // add msc to flight rig
             entityManager.AddComponent(flightRig, msc);
 
-            entityManager.SetComponent(camera, new Translation() { Value = new(0, 0.75f, -3.6f) });
+            entityManager.SetComponent(camera, new Translation() { Value = new(0, 0.75f, -2.6f) });
             entityManager.AddComponent(cameraRig, new Translation());
             entityManager.AddComponent(mouseAim, new Translation());
             entityManager.AddComponent(cameraRig, new Rotation());
@@ -523,7 +536,17 @@ namespace Planets
         public static void AddRenderMeshComponents(Entity entity, Material mat, int variant, int entityVariant, DirectSubMesh mesh, EntityManager entityManager)
         {
             entityManager.AddComponent<Translation>(entity);
-            entityManager.AddComponent(entity,new RenderMesh() { Mesh = mesh.GetSubMeshIndex(), Material = new() { Material = Material.GetIndexOfMaterial(mat), Variant = variant, Entity = entityVariant } });
+            entityManager.AddComponent(entity, new RenderMesh()
+            {
+                Mesh = mesh.GetSubMeshIndex(),
+                Material = new()
+                {
+                    Material = Material.GetIndexOfMaterial(mat),
+                    Variant = variant,
+                    Entity = entityVariant
+                },
+                Colour = Vector4.One
+            });
             entityManager.AddComponent(entity, mesh.GetSubMeshIndex());
         }
 

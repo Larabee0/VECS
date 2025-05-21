@@ -1,4 +1,6 @@
-﻿namespace VECS.ECS.Presentation
+﻿using System.Numerics;
+
+namespace VECS.ECS.Presentation
 {
     public struct RenderMesh : IComponent
     {
@@ -7,5 +9,6 @@
 
         public DirectSubMeshIndex Mesh;
         public MaterialIndex Material;
+        public Vector4 Colour;
     }
 }

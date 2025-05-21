@@ -12,7 +12,7 @@ namespace VECS.LowLevel
         private readonly IWindow _window;
         private readonly GraphicsDevice _device;
         private SwapChain _swapChain;
-        private ShadowImage _shadowCubeMap;
+        private readonly ShadowImage _shadowCubeMap;
         private DepthReduction _depthReduction;
 
         private bool isFrameStarted = false;
@@ -323,6 +323,7 @@ namespace VECS.LowLevel
 
         public unsafe void ReduceDepth(RendererFrameInfo frameInfo)
         {
+            return;
             VkImageMemoryBarrier depthReadBarriers = new()
             {
                 srcAccessMask = VkAccessFlags.DepthStencilAttachmentWrite,

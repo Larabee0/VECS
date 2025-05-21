@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using VECS;
 using VECS.ECS;
 using VECS.ECS.Physics;
+using VECS.ECS.Presentation;
 using VECS.ECS.Transforms;
 
 namespace Planets
@@ -30,6 +31,7 @@ namespace Planets
 
         public float Throttle;
         public Vector3 Stick;
+        public Entity Engines;
     }
 
     public struct MouseFlightController : IComponent
@@ -56,7 +58,7 @@ namespace Planets
         public override void OnCreate(EntityManager entityManager)
         {
             _shipQuery = new EntityQuery(entityManager)
-                .WithAll(typeof(ShipStatsMS), typeof(ShipControlInputMS), typeof(DynamicBodyTag),typeof(DynamicHandleComp))
+                .WithAll(typeof(ShipStatsMS), typeof(ShipControlInputMS), typeof(DynamicBodyTag), typeof(DynamicHandleComp))
                 .WithNone(typeof(Prefab))
                 .Build();
             _flightRigQuery = new EntityQuery(entityManager)
@@ -67,7 +69,7 @@ namespace Planets
 
         public override void OnUpdate(EntityManager entityManager)
         {
-            if(_shipQuery.HasEntities && _flightRigQuery.HasEntities)
+            if (_shipQuery.HasEntities && _flightRigQuery.HasEntities)
             {
                 var shipEntity = _shipQuery.GetEntities()[0];
                 var FlightRig = _flightRigQuery.GetEntities()[0];
@@ -80,6 +82,12 @@ namespace Planets
                 entityManager.SetComponent(FlightRig, new Translation() { Value = shipTransform.Translation });
 
                 input.Throttle = ThrottleInput(input.Throttle, msc.ThrottleSenstivity);
+
+                var enginesColour = entityManager.GetComponent<RenderMesh>(input.Engines);
+
+                enginesColour.Colour.W = MathF.Abs(input.Throttle);
+
+                entityManager.SetComponent(input.Engines, enginesColour);
 
                 var stickIn = GetStickOverrides();
 
@@ -113,7 +121,7 @@ namespace Planets
                         break;
                 }
 
-                Vector3 mouseAimPos = mouseAimTransform.Translation + (-mouseAimTransform.Forward()*500f);
+                Vector3 mouseAimPos = mouseAimTransform.Translation + (-mouseAimTransform.Forward() * 500f);
 
                 RunAutopilot(mouseAimPos, shipTransform, shipStats.Sensitivity, shipStats.AggressiveTurnAngle, out float autoYaw, out float autoPitch, out float autoRoll);
 
@@ -121,7 +129,7 @@ namespace Planets
                 input.Stick.Y = pitchOverride ? stickIn.Y : autoPitch;
                 input.Stick.Z = yawOverride ? stickIn.Z : autoYaw;
                 //input.Stick = stickIn;
-                entityManager.SetComponent(shipEntity,input);
+                entityManager.SetComponent(shipEntity, input);
                 RotateRig(entityManager,
                     msc.MouseSensitivity,
                     msc.TPScamSmoothSpeed,
@@ -188,11 +196,11 @@ namespace Planets
             {
                 axisValue = -1f;
             }
-            else if(InputManager.Instance.GetKey(SDL3.SDL_Keycode.LeftShift))
+            else if (InputManager.Instance.GetKey(SDL3.SDL_Keycode.LeftShift))
             {
                 axisValue = 1f;
             }
-            bool reverse =InputManager.Instance.GetKey(SDL3.SDL_Keycode.B);
+            bool reverse = InputManager.Instance.GetKey(SDL3.SDL_Keycode.B);
             axisValue = axisValue != 0 ? Math.Clamp(current + (axisValue * (sensitivity * Time.DeltaTime)), 0f, 1f) : current;
             axisValue = axisValue > 0 && reverse ? 0 : axisValue;
             axisValue -= reverse ? sensitivity * Time.DeltaTime : 0;
@@ -253,11 +261,11 @@ namespace Planets
 
         }
 
-        private static void RotateRig(EntityManager entityManager, float sensitivity, float smoothSpeed, Entity cameraEntity,Matrix4x4 cameraTransform, Entity mouseAim, Matrix4x4 mouseAimTransform, Entity cameraRig, Matrix4x4 cameraRigTransform)
+        private static void RotateRig(EntityManager entityManager, float sensitivity, float smoothSpeed, Entity cameraEntity, Matrix4x4 cameraTransform, Entity mouseAim, Matrix4x4 mouseAimTransform, Entity cameraRig, Matrix4x4 cameraRigTransform)
         {
             var rawAxis = InputManager.Instance.MouseDelta;
 
-            float mouseX = float.DegreesToRadians( -rawAxis.X * sensitivity);
+            float mouseX = float.DegreesToRadians(-rawAxis.X * sensitivity);
             float mouseY = float.DegreesToRadians(rawAxis.Y * sensitivity);
 
             Matrix4x4.Decompose(mouseAimTransform, out _, out Quaternion mouseAimRot, out _);
@@ -275,7 +283,7 @@ namespace Planets
                 TransformExtensions.QuaternionLookRotation(mouseAimTransform.Forward(), upVec),
                 smoothSpeed,
                 Time.DeltaTime);
-            entityManager.SetComponent(cameraRig, new Rotation() {Value =  cameraRigRot});
+            entityManager.SetComponent(cameraRig, new Rotation() { Value = cameraRigRot });
         }
 
 

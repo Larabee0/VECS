@@ -8,71 +8,61 @@ using Vortice.Vulkan;
 
 namespace VECS.ECS.Presentation
 {
-    public class GenericRenderSystem : PresentationSystemBase
+    internal abstract class RenderSystemInternal : IDisposable
     {
-        public const uint MAX_DRAWS = 2000;
-        private EntityQuery _renderEntityQuery;
+        public readonly SortedDictionary<int, BufferRegion> _directMeshCmdRegions = [];
+        public SwapChainBuffer<VkDrawIndexedIndirectCommand> _indirectCmdBuffer;
+        public SwapChainBuffer<ModelBounds> _modelBoundsBuffer;
+        public EarlyDrawCommand[] _earlyDrawCommands = [];
 
-        private readonly Dictionary<int, Material> _materialsMap = [];
-        private readonly Dictionary<int, DirectMesh> _directMeshMap = [];
-        private readonly Dictionary<int, BufferRegion> _meshNextCmdRegion = [];
-        private readonly SortedDictionary<Vector2Int, uint> _materialVairantCounts = [];
-        private readonly Dictionary<int, int> _directMeshDraws = [];
-        private readonly SortedDictionary<int, BufferRegion> _directMeshCmdRegions = [];
-        private readonly SortedDictionary<int, BufferRegion> _shadowMeshRegions = [];
-        private readonly SortedDictionary<int, int> _directMeshCmdRegionIndex = [];
+        protected FustrumCull _cullCompute;
 
-        private SwapChainBuffer<VkDrawIndexedIndirectCommand> _indirectCmdBuffer;
-        private SwapChainBuffer<VkDrawIndexedIndirectCommand> _shadowIndirectCmdBuffer;
-        private SwapChainBuffer<ModelBounds> _modelBoundsBuffer;
-        private SwapChainBuffer<ModelBounds> _shadowModelBoundsBuffer;
-
-        private FustrumCull _cullCompute;
-        private Material _shadowOffscreen;
-
-        private Vector2Int[] _regionKeys = [];
-        private EarlyDrawCommand[] _earlyDrawCommands = [];
-        private EarlyDrawCommand[] _shadowDrawCommands = [];
-
-        public override void OnCreate(EntityManager entityManager)
+        public RenderSystemInternal(FustrumCull cullCompute)
         {
-            _renderEntityQuery = new EntityQuery(entityManager)
-                .WithAll(typeof(LocalToWorld), typeof(RenderMesh), typeof(WorldRenderBounds))
-                .WithNone(typeof(Prefab), typeof(DoNotRender))
-                .Build();
+            _cullCompute = cullCompute;
 
-            _indirectCmdBuffer = new(MAX_DRAWS,
+            _indirectCmdBuffer = new(GenericRenderSystem.MAX_DRAWS,
                     VkBufferUsageFlags.TransferDst |
                     VkBufferUsageFlags.TransferSrc |
                     VkBufferUsageFlags.IndirectBuffer |
                     VkBufferUsageFlags.StorageBuffer,
                     true);
-
-            _shadowIndirectCmdBuffer = new(MAX_DRAWS,
-                    VkBufferUsageFlags.TransferDst |
-                    VkBufferUsageFlags.TransferSrc |
-                    VkBufferUsageFlags.IndirectBuffer |
-                    VkBufferUsageFlags.StorageBuffer,
-                    true);
-
-            _modelBoundsBuffer = new(MAX_DRAWS,
+            _modelBoundsBuffer = new(GenericRenderSystem.MAX_DRAWS,
                     VkBufferUsageFlags.TransferDst |
                     VkBufferUsageFlags.TransferSrc |
                     VkBufferUsageFlags.StorageBuffer,
                     true);
-
-            _shadowModelBoundsBuffer = new(MAX_DRAWS,
-                    VkBufferUsageFlags.TransferDst |
-                    VkBufferUsageFlags.TransferSrc |
-                    VkBufferUsageFlags.StorageBuffer,
-                    true);
-
-            _cullCompute = new();
-
             _indirectCmdBuffer.SetBuffersDirty(true);
-            _shadowIndirectCmdBuffer.SetBuffersDirty(true);
             _modelBoundsBuffer.SetBuffersDirty(true);
+        }
 
+        public void ResetEarlyDrawCommands(int count)
+        {
+            Array.Resize(ref _earlyDrawCommands, count);
+            Array.Fill(_earlyDrawCommands, default);
+        }
+
+        public virtual void ResetMesh(int i)
+        {
+            _directMeshCmdRegions[i] = default;
+        }
+
+        public abstract void GenerateDrawCmds(RendererFrameInfo frameInfo, EntityManager entityManager, List<Entity> entities);
+
+        public virtual void Dispose()
+        {
+            GC.SuppressFinalize(this);
+            _indirectCmdBuffer?.Dispose();
+            _modelBoundsBuffer?.Dispose();
+        }
+    }
+
+    internal class ShadowInternal : RenderSystemInternal
+    {
+        private readonly Material _shadowOffscreen;
+
+        public ShadowInternal(FustrumCull cull) : base(cull)
+        {
             GraphicsPipelineConfigInfo shadowConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             shadowConfig.renderPass = Renderer.Instance.ShadowRenderPass;
             shadowConfig.rasterizationInfo.cullMode = VkCullModeFlags.None;
@@ -80,25 +70,143 @@ namespace VECS.ECS.Presentation
             _shadowOffscreen = Material.Create("shadow_offscreen.vert", "shadow_offscreen.frag", shadowConfig);
         }
 
-        public override void OnDestroy(EntityManager entityManager)
+        public override void GenerateDrawCmds(RendererFrameInfo frameInfo, EntityManager entityManager, List<Entity> entities)
         {
-            _cullCompute?.Dispose();
-            _indirectCmdBuffer?.Dispose();
-            _shadowIndirectCmdBuffer?.Dispose();
-            _modelBoundsBuffer?.Dispose();
-            _shadowModelBoundsBuffer?.Dispose();
+            ResetEarlyDrawCommands(entities.Count);
+
+            int drawCount = _earlyDrawCommands.Length;
+            int materialIndex = Material.GetIndexOfMaterial(_shadowOffscreen);
+
+
+            for (int i = 0; i < drawCount; i++)
+            {
+                Entity entity = entities[i];
+                var localToWorld = entityManager.GetComponent<LocalToWorld>(entity);
+                var renderMesh = entityManager.GetComponent<RenderMesh>(entity);
+                var worldBounds = entityManager.GetComponent<WorldRenderBounds>(entity);
+
+                DrawCommand drawCommand = new(renderMesh.Mesh, localToWorld, worldBounds);
+                _earlyDrawCommands[i] = new(drawCommand, renderMesh);
+                if (!_directMeshCmdRegions.TryAdd(renderMesh.Mesh.DirectMesh, new(1)))
+                {
+                    _directMeshCmdRegions[renderMesh.Mesh.DirectMesh] = new(_directMeshCmdRegions[renderMesh.Mesh.DirectMesh].Count + 1);
+                }
+            }
+
+            Array.Sort(_earlyDrawCommands, (x, y) => { return x.DirectMesh.CompareTo(y.DirectMesh); });
+
+            Span<ModelMatrices> matrices = _shadowOffscreen.GetStorageBuffer<ModelMatrices>("matricesBuffer");
+            Span<ModelBounds> bounds = _modelBoundsBuffer.HostBuffer;
+            Span<VkDrawIndexedIndirectCommand> shadowDraws = _indirectCmdBuffer.HostBuffer;
+
+            int lastCount = 0;
+            foreach (var key in _directMeshCmdRegions.Keys)
+            {
+                var region = _directMeshCmdRegions[key];
+                region.StartIndex = lastCount;
+                lastCount += region.Count;
+                if (region.Count > 0)
+                {
+                    _shadowOffscreen.EnqueueDrawCmd(new(
+                        materialIndex, 0,
+                        new(drawCount), 0,
+                        key,
+                        region,
+                        false));
+                }
+            }
+
+            for (int i = 0; i < drawCount; i++)
+            {
+                var drawCommand = _earlyDrawCommands[i].DrawCommand;
+                drawCommand.VkDraw.instanceCount = 1;
+                drawCommand.VkDraw.firstInstance = (uint)i;
+                matrices[i] = drawCommand.Matrices;
+                bounds[i] = drawCommand.Bounds;
+                shadowDraws[i] = drawCommand.VkDraw;
+            }
+            RenderShadows(frameInfo, drawCount);
         }
 
-        private unsafe void ResetEarlyDrawCommands(int count)
+        private unsafe void RenderShadows(RendererFrameInfo frameInfo, int drawCount)
         {
-            Array.Resize(ref _earlyDrawCommands, count);
-            Array.Fill(_earlyDrawCommands, default);
+            _shadowOffscreen.SetMatDescriptorHandleStorageRegions(0, 0, (uint)drawCount);
+            ShadowImage.SetViewPort(frameInfo);
+
+            Matrix4x4 projection = Matrix4x4.CreatePerspectiveFieldOfView(MathF.PI * 0.5f, 1.0f, 0.1f, 1024f);
+            Matrix4x4 model = Matrix4x4.CreateTranslation(frameInfo.Ubo.PointLights[0].Position.AsVector3());
+            _shadowOffscreen.SetPushConstantMatrix4x4("proj", projection);
+            _shadowOffscreen.SetPushConstantMatrix4x4("model", model);
+
+            Matrix4x4 projectionT = Matrix4x4.Transpose(projection);
+            Vector4 frustrumX = (projectionT.GetMatrixRow(3) + projectionT.GetMatrixRow(0)).NormalizePlane();
+            Vector4 frustrumY = (projectionT.GetMatrixRow(3) + projectionT.GetMatrixRow(1)).NormalizePlane();
+            Vector4 frustum = new(frustrumX.X, frustrumX.Z, frustrumY.Y, frustrumY.Z);
+            CullData cullData = frameInfo.cullData;
+            cullData.P00 = projection[0, 0];
+            cullData.P11 = projection[1, 1];
+            cullData.znear = 0.1f;
+            cullData.zfar = 1024f;
+            cullData.frustum = frustum;
+
+            for (int i = 0; i < 6; i++)
+            {
+                var viewMatrix = ShadowImage.GetViewMatrixForFace(i);
+
+                cullData.viewMatrix = viewMatrix * model;
+
+                VkBufferMemoryBarrier memoryBarrier = _cullCompute.Cull(frameInfo, cullData, (uint)drawCount, _indirectCmdBuffer, _modelBoundsBuffer);
+                if (!_cullCompute.CPUCulling)
+                {
+                    Vulkan.vkCmdPipelineBarrier(frameInfo.CommandBuffer,
+                            VkPipelineStageFlags.ComputeShader,
+                            VkPipelineStageFlags.DrawIndirect,
+                            0, 0, null, 1, &memoryBarrier, 0, null);
+                }
+
+                Renderer.Instance.ShadowImage.UpdateCubeFace(i, frameInfo.CommandBuffer);
+
+                _shadowOffscreen.SetPushConstantMatrix4x4("view", viewMatrix);
+                _shadowOffscreen.ExecuteDrawCommandKeepCommands(frameInfo, _indirectCmdBuffer);
+                Renderer.EndRenderPass(frameInfo.CommandBuffer);
+            }
+
+            _shadowOffscreen._drawCommands.Clear();
+        }
+    }
+
+    internal class ForwardInternal : RenderSystemInternal
+    {
+        private readonly Dictionary<int, int> _directMeshDraws = [];
+        private readonly SortedDictionary<int, int> _directMeshCmdRegionIndex = [];
+        private readonly Dictionary<int, BufferRegion> _meshNextCmdRegion = [];
+        private readonly SortedDictionary<Vector2Int, uint> _materialVairantCounts = [];
+        private readonly Dictionary<int, Material> _materialsMap = [];
+        private Vector2Int[] _regionKeys = [];
+
+
+        EarlyDrawCommand cmd ;
+        EarlyDrawCommand lastCmd ;
+        int materialDrawIndex = 0;
+        int materialVariantDrawIndex = 0;
+
+        int meshCmdRegionStartIndex ;
+        BufferRegion meshSubRegion ;
+        BufferRegion storageBufferRegion;
+
+        Material material;
+
+
+        public ForwardInternal(FustrumCull cullCompute) : base(cullCompute)
+        {
         }
 
-        private unsafe void ResetShadowDrawCommands(int count)
+        public override void ResetMesh(int i)
         {
-            Array.Resize(ref _shadowDrawCommands, count);
-            Array.Fill(_shadowDrawCommands, default);
+            base.ResetMesh(i);
+            _meshNextCmdRegion[i] = default;
+            _directMeshDraws[i] = 0;
+            _directMeshCmdRegionIndex[i] = 0;
         }
 
         private void ResetMaterials()
@@ -111,49 +219,24 @@ namespace VECS.ECS.Presentation
                 _materialVairantCounts[new(i, 0)] = 0;
                 for (int j = 0; j < material.MaterialVariantCount; j++)
                 {
-                    _materialVairantCounts[new(i, j+1)] = 0;
+                    _materialVairantCounts[new(i, j + 1)] = 0;
                 }
             }
         }
 
-        private void ResetMeshes()
+        public override void GenerateDrawCmds(RendererFrameInfo frameInfo, EntityManager entityManager, List<Entity> entities)
         {
-            int meshCount = DirectMesh.DirectMeshes.Count;
-            for(int i = 0; i < meshCount; i++)
-            {
-                var mesh = DirectMesh.DirectMeshes[i];
-                _directMeshMap.TryAdd(i, mesh);
-                _meshNextCmdRegion[i] = default;
-                _directMeshDraws[i] = 0;
-                _directMeshCmdRegions[i] = default;
-                _shadowMeshRegions[i] = default;
-                _directMeshCmdRegionIndex[i] = 0;
-            }
-        }
-
-        private void CrunchMeshCmdRegions()
-        {
-            var region = _directMeshCmdRegions[0];
-            region.Count = _directMeshDraws[0];
-            _directMeshCmdRegions[0] = region;
-            for (int i = 1; i < _directMeshCmdRegions.Keys.Count; i++)
-            {
-                region.IncrementAlt();
-                region.Count = _directMeshDraws[i];
-                _directMeshCmdRegions[i] = region;
-                _meshNextCmdRegion[i] = new() { StartIndex = region.StartIndex };
-            }
-        }
-
-        public override void OnCull(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
-        {
-            if (!_renderEntityQuery.HasEntities) { return; }
-
-            var entities = _renderEntityQuery.GetEntities();
             ResetEarlyDrawCommands(entities.Count);
             ResetMaterials();
-            ResetMeshes();
+            GenerateEarlyDraws(entityManager, entities);
+            SetStorageBufferRegions();
+            CrunchMeshCmdRegions();
+            EnqueueDrawCmds();
+            Cull(frameInfo);
+        }
 
+        private void GenerateEarlyDraws(EntityManager entityManager, List<Entity> entities)
+        {
             for (int i = 0; i < _earlyDrawCommands.Length; i++)
             {
                 Entity entity = entities[i];
@@ -161,7 +244,7 @@ namespace VECS.ECS.Presentation
                 var renderMesh = entityManager.GetComponent<RenderMesh>(entity);
                 var worldBounds = entityManager.GetComponent<WorldRenderBounds>(entity);
 
-                DrawCommand drawCommand = new(renderMesh.Mesh, localToWorld, worldBounds);
+                DrawCommand drawCommand = new(renderMesh.Mesh, localToWorld, worldBounds, entityManager.HasComponent<BloomTag>(entity));
                 _earlyDrawCommands[i] = new(drawCommand, renderMesh);
                 _directMeshDraws[renderMesh.Mesh.DirectMesh]++;
 
@@ -178,7 +261,20 @@ namespace VECS.ECS.Presentation
             }
 
             Array.Sort(_earlyDrawCommands);
+        }
 
+        private void Cull(RendererFrameInfo frameInfo)
+        {
+            var barrier = _cullCompute.Cull(frameInfo, frameInfo.cullData, (uint)_earlyDrawCommands.Length, _indirectCmdBuffer, _modelBoundsBuffer);
+
+            if (!_cullCompute.CPUCulling)
+            {
+                frameInfo.PostCullBarriers.Add(barrier);
+            }
+        }
+
+        private void SetStorageBufferRegions()
+        {
             if (_materialVairantCounts.Count > _regionKeys.Length)
             {
                 Array.Resize(ref _regionKeys, _materialVairantCounts.Count);
@@ -202,25 +298,27 @@ namespace VECS.ECS.Presentation
 
                 offset += _materialVairantCounts[key];
             }
+        }
 
-            CrunchMeshCmdRegions();
+        private void EnqueueDrawCmds()
+        {
+            cmd = _earlyDrawCommands[0];
+            lastCmd = cmd;
+            materialDrawIndex = 0;
+            materialVariantDrawIndex = 0;
 
-            EarlyDrawCommand cmd = _earlyDrawCommands[0];
-            EarlyDrawCommand lastCmd = cmd;
-            int materialDrawIndex = 0;
-            int materialVariantDrawIndex = 0;
+            meshCmdRegionStartIndex = _directMeshCmdRegions[cmd.DirectMesh].StartIndex;
+            meshSubRegion = _meshNextCmdRegion[lastCmd.DirectMesh];
+            storageBufferRegion = default;
 
-            int meshCmdRegionStartIndex = _directMeshCmdRegions[cmd.DirectMesh].StartIndex;
-            BufferRegion meshSubRegion = _meshNextCmdRegion[lastCmd.DirectMesh];
-            BufferRegion storageBufferRegion = default;
-
-            Material material = _materialsMap[lastCmd.MaterialIndex];
+            material = _materialsMap[lastCmd.MaterialIndex];
 
             Span<VkDrawIndexedIndirectCommand> cullDraws = _indirectCmdBuffer.HostBuffer;
             Span<ModelBounds> cullBounds = _modelBoundsBuffer.HostBuffer;
 
             Span<ModelMatrices> matrices = material.GetStorageBuffer<ModelMatrices>("matricesBuffer");
             Span<ModelBounds> bounds = material.GetStorageBuffer<ModelBounds>("boundsBuffer");
+            Span<Vector4> colours = material.GetStorageBuffer<Vector4>("colourBuffer");
 
             for (int i = 0; i < _earlyDrawCommands.Length; i++)
             {
@@ -239,6 +337,7 @@ namespace VECS.ECS.Presentation
                         material = _materialsMap[cmd.MaterialIndex];
                         matrices = material.GetStorageBuffer<ModelMatrices>("matricesBuffer");
                         bounds = material.GetStorageBuffer<ModelBounds>("boundsBuffer");
+                        colours = material.GetStorageBuffer<Vector4>("colourBuffer");
                     }
 
                     if (lastCmd.MaterialVariant != cmd.MaterialVariant)
@@ -247,18 +346,13 @@ namespace VECS.ECS.Presentation
                         storageBufferRegion.Increment();
                     }
 
-                    if (lastCmd.DirectMesh != cmd.DirectMesh || (lastCmd.SubMesh != cmd.SubMesh && (lastCmd.MaterialVariant != cmd.MaterialVariant||lastCmd.MaterialEntity != cmd.MaterialEntity)))
+                    if (lastCmd.DirectMesh != cmd.DirectMesh || (lastCmd.SubMesh != cmd.SubMesh && (lastCmd.MaterialVariant != cmd.MaterialVariant || lastCmd.MaterialEntity != cmd.MaterialEntity)))
                     {
                         meshSubRegion.IncrementAlt();
                         meshCmdRegionStartIndex = _directMeshCmdRegions[cmd.DirectMesh].StartIndex;
                         _meshNextCmdRegion[lastCmd.DirectMesh] = meshSubRegion;
                         meshSubRegion = _meshNextCmdRegion[cmd.DirectMesh];
                     }
-                    //else if(lastCmd.SubMesh != cmd.SubMesh)
-                    //{
-                    //
-                    //}
-
                     lastCmd = cmd;
                 }
 
@@ -272,6 +366,7 @@ namespace VECS.ECS.Presentation
 
                 if (matrices != Span<ModelMatrices>.Empty) { matrices[materialDrawIndex] = cmd.DrawCommand.Matrices; }
                 if (bounds != Span<ModelBounds>.Empty) { bounds[materialDrawIndex] = cmd.DrawCommand.Bounds; }
+                if (colours != Span<Vector4>.Empty) { colours[materialDrawIndex] = cmd.Colour; }
                 meshSubRegion.Count++;
                 storageBufferRegion.Count++;
                 materialDrawIndex++;
@@ -280,14 +375,99 @@ namespace VECS.ECS.Presentation
                 _directMeshCmdRegionIndex[cmd.DirectMesh]++;
             }
 
-            material.EnqueueDrawCmd(new(lastCmd.MaterialIndex, lastCmd.MaterialVariant, storageBufferRegion, lastCmd.MaterialEntity, lastCmd.DirectMesh, meshSubRegion));
-            
-            var barrier = _cullCompute.Cull(rendererFrameInfo, rendererFrameInfo.cullData, (uint)_earlyDrawCommands.Length, _indirectCmdBuffer, _modelBoundsBuffer);
+            material.EnqueueDrawCmd(new(lastCmd.MaterialIndex, lastCmd.MaterialVariant, storageBufferRegion, lastCmd.MaterialEntity, lastCmd.DirectMesh, meshSubRegion,lastCmd.Bloom));
+        }
 
-            if (!_cullCompute.CPUCulling)
+        private void CrunchMeshCmdRegions()
+        {
+            var region = _directMeshCmdRegions[0];
+            region.Count = _directMeshDraws[0];
+            _directMeshCmdRegions[0] = region;
+            for (int i = 1; i < _directMeshCmdRegions.Keys.Count; i++)
             {
-                rendererFrameInfo.PostCullBarriers.Add(barrier);
+                region.IncrementAlt();
+                region.Count = _directMeshDraws[i];
+                _directMeshCmdRegions[i] = region;
+                _meshNextCmdRegion[i] = new() { StartIndex = region.StartIndex };
             }
+        }
+
+        public void ExecuteBloomDrawCmds(RendererFrameInfo frameInfo)
+        {
+            foreach (Material mat in _materialsMap.Values)
+            {
+                mat._bloomDrawCommands.Clear();
+                //mat.ExecuteBloomDrawCommands(frameInfo, _indirectCmdBuffer);
+            }
+        }
+
+        public void ExecuteDrawCmds(RendererFrameInfo frameInfo)
+        {
+            foreach (Material mat in _materialsMap.Values)
+            {
+                mat.ExecuteDrawCommands(frameInfo, _indirectCmdBuffer);
+            }
+        }
+
+    }
+
+    public class GenericRenderSystem : PresentationSystemBase
+    {
+        public const uint MAX_DRAWS = 2000;
+        private EntityQuery _renderEntityQuery;
+        private EntityQuery _renderBloomEntityQuery;
+
+        private FustrumCull _cullCompute;
+
+        private ForwardInternal _forwardData;
+        private ShadowInternal _shadowData;
+
+        public override void OnCreate(EntityManager entityManager)
+        {
+            _renderEntityQuery = new EntityQuery(entityManager)
+                .WithAll(typeof(LocalToWorld), typeof(RenderMesh), typeof(WorldRenderBounds))
+                .WithNone(typeof(Prefab), typeof(DoNotRender))
+                .Build();
+
+            _renderBloomEntityQuery = new EntityQuery(entityManager)
+                .WithAll(typeof(LocalToWorld),typeof(RenderMesh), typeof(WorldRenderBounds), typeof(BloomTag))
+                .WithNone(typeof(Prefab), typeof(DoNotRender))
+                .Build();
+
+
+            _cullCompute = new();
+
+            _forwardData = new(_cullCompute);
+            _shadowData = new(_cullCompute);
+        }
+
+        public override void OnDestroy(EntityManager entityManager)
+        {
+            _forwardData?.Dispose();
+            _shadowData?.Dispose();
+
+            _cullCompute?.Dispose();
+        }
+
+        private void ResetMeshes()
+        {
+            int meshCount = DirectMesh.DirectMeshes.Count;
+            for(int i = 0; i < meshCount; i++)
+            {
+                _forwardData.ResetMesh(i);
+                _shadowData.ResetMesh(i);
+            }
+        }
+
+        public override void OnCull(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
+        {
+            if (!_renderEntityQuery.HasEntities) { return; }
+
+            var entities = _renderEntityQuery.GetEntities();
+            ResetMeshes();
+
+            _forwardData.GenerateDrawCmds(rendererFrameInfo,entityManager,entities);
+            
         }
 
         public unsafe override void OnShadowPass(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
@@ -295,111 +475,21 @@ namespace VECS.ECS.Presentation
             if (!_renderEntityQuery.HasEntities) { return; }
 
             var entities = _renderEntityQuery.GetEntities();
-            ResetShadowDrawCommands(entities.Count);
+            _shadowData.GenerateDrawCmds(rendererFrameInfo,entityManager, entities);
+        }
 
-            int drawCount = _shadowDrawCommands.Length;
-            int materialIndex = Material.GetIndexOfMaterial(_shadowOffscreen);
+        public override void OnBloomGlow(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
+        {
+            if (!_renderEntityQuery.HasEntities) { return; }
 
-            for (int i = 0; i < drawCount; i++)
-            {
-                Entity entity = entities[i];
-                var localToWorld = entityManager.GetComponent<LocalToWorld>(entity);
-                var renderMesh = entityManager.GetComponent<RenderMesh>(entity);
-                var worldBounds = entityManager.GetComponent<WorldRenderBounds>(entity);
-
-                DrawCommand drawCommand = new(renderMesh.Mesh, localToWorld, worldBounds);
-                _shadowDrawCommands[i] = new(drawCommand, renderMesh);
-                if(!_shadowMeshRegions.TryAdd(renderMesh.Mesh.DirectMesh, new(1)))
-                {
-                    _shadowMeshRegions[renderMesh.Mesh.DirectMesh] = new(_shadowMeshRegions[renderMesh.Mesh.DirectMesh].Count + 1);
-                }
-            }
-
-            Array.Sort(_shadowDrawCommands, (x, y) => { return x.DirectMesh.CompareTo(y.DirectMesh); });
-
-            Span<ModelMatrices> matrices = _shadowOffscreen.GetStorageBuffer<ModelMatrices>("matricesBuffer");
-            Span<ModelBounds> bounds = _shadowModelBoundsBuffer.HostBuffer;
-            Span<VkDrawIndexedIndirectCommand> shadowDraws = _shadowIndirectCmdBuffer.HostBuffer;
-
-            int lastCount = 0;
-            foreach (var key in _shadowMeshRegions.Keys)
-            {
-                var region = _shadowMeshRegions[key];
-                region.StartIndex = lastCount;
-                lastCount += region.Count;
-                if (region.Count > 0)
-                {
-                    _shadowOffscreen.EnqueueDrawCmd(new(
-                        materialIndex, 0,
-                        new(drawCount),0,
-                        key,
-                        region));
-                }
-            }
-
-            for (int i = 0; i < drawCount; i++)
-            {
-                var drawCommand = _shadowDrawCommands[i].DrawCommand;
-                drawCommand.VkDraw.instanceCount = 1;
-                drawCommand.VkDraw.firstInstance = (uint)i;
-                matrices[i] = drawCommand.Matrices;
-                bounds[i] = drawCommand.Bounds;
-                shadowDraws[i] = drawCommand.VkDraw;
-            }
-            _shadowOffscreen.SetMatDescriptorHandleStorageRegions(0, 0, (uint)drawCount);
-            ShadowImage.SetViewPort(rendererFrameInfo);
-
-            Matrix4x4 projection = Matrix4x4.CreatePerspectiveFieldOfView(MathF.PI * 0.5f, 1.0f, 0.1f, 1024f);
-            Matrix4x4 model = Matrix4x4.CreateTranslation(rendererFrameInfo.Ubo.PointLights[0].Position.AsVector3());
-            _shadowOffscreen.SetPushConstantMatrix4x4("proj", projection);
-            _shadowOffscreen.SetPushConstantMatrix4x4("model", model);
-
-            Matrix4x4 projectionT = Matrix4x4.Transpose(projection);
-            Vector4 frustrumX = (projectionT.GetMatrixRow(3) + projectionT.GetMatrixRow(0)).NormalizePlane();
-            Vector4 frustrumY = (projectionT.GetMatrixRow(3) + projectionT.GetMatrixRow(1)).NormalizePlane();
-            Vector4 frustum = new(frustrumX.X, frustrumX.Z, frustrumY.Y, frustrumY.Z);
-            CullData cullData = rendererFrameInfo.cullData;
-            cullData.P00 = projection[0, 0];
-            cullData.P11 = projection[1, 1];
-            cullData.znear = 0.1f;
-            cullData.zfar = 1024f;
-            cullData.frustum = frustum;
-
-            for (int i = 0; i < 6; i++)
-            {
-                var viewMatrix = ShadowImage.GetViewMatrixForFace(i);
-
-                cullData.viewMatrix = viewMatrix * model;
-
-                VkBufferMemoryBarrier memoryBarrier = _cullCompute.Cull(rendererFrameInfo, cullData, (uint)drawCount, _shadowIndirectCmdBuffer, _shadowModelBoundsBuffer);
-                if (!_cullCompute.CPUCulling)
-                {
-                    Vulkan.vkCmdPipelineBarrier(rendererFrameInfo.CommandBuffer,
-                            VkPipelineStageFlags.ComputeShader,
-                            VkPipelineStageFlags.DrawIndirect,
-                            0, 0, null, 1, &memoryBarrier, 0, null);
-                }
-
-                Renderer.Instance.ShadowImage.UpdateCubeFace(i, rendererFrameInfo.CommandBuffer);
-                
-                Matrix4x4 final = projection * viewMatrix * model;
-
-                _shadowOffscreen.SetPushConstantMatrix4x4("view", viewMatrix);
-                _shadowOffscreen.ExecuteDrawCommandKeepCommands(rendererFrameInfo, _shadowIndirectCmdBuffer);
-                Renderer.EndRenderPass(rendererFrameInfo.CommandBuffer);
-            }
-
-            _shadowOffscreen._drawCommands.Clear();
+            _forwardData.ExecuteBloomDrawCmds(rendererFrameInfo);
         }
 
         public override void OnFowardPass(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
         {
             if (!_renderEntityQuery.HasEntities) { return; }
 
-            foreach (Material mat in _materialsMap.Values)
-            {
-                mat.ExecuteDrawCommands(rendererFrameInfo, _indirectCmdBuffer);
-            }
+            _forwardData.ExecuteDrawCmds(rendererFrameInfo);
         }
     }
 }
