@@ -94,9 +94,13 @@ namespace VECS.ECS.Physics
                         var desc = World.Simulation.Simulation.Bodies.GetDescription(handle.Value);
                         var current = entityManager.GetComponent<DynamicBodyDescComp>(e);
 
+                        var curTrans = entityManager.GetComponent<Translation>(e);
+                        var curRot = entityManager.GetComponent<Rotation>(e);
+
 
                         entityManager.SetComponent(e, new DynamicBodyDescComp() { Value = desc });
-                        entityManager.SetComponent(e, new PrevDynamicBodyDescComp() { Value = current.Value });
+                        entityManager.SetComponent(e, new PrevDynamicBodyDescComp() { Value = new() { Pose = new(curTrans.Value, curRot.Value) } });
+
                     }
                 });
             }
