@@ -45,8 +45,9 @@ namespace VECS
 
         public ModelBounds(WorldRenderBounds worldRenderBounds) : this()
         {
-            Min = new(worldRenderBounds.Bounds.Min,worldRenderBounds.Radius.X);
-            Max = new(worldRenderBounds.Bounds.Max,worldRenderBounds.Radius.X);
+            float maxRadius = MathF.Max(worldRenderBounds.Radius.X, MathF.Max(worldRenderBounds.Radius.Y, worldRenderBounds.Radius.Z));
+            Min = new(worldRenderBounds.Bounds.Min, maxRadius);
+            Max = new(worldRenderBounds.Bounds.Max, maxRadius);
         }
     }
 
