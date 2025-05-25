@@ -323,7 +323,6 @@ namespace VECS.LowLevel
 
         public unsafe void ReduceDepth(RendererFrameInfo frameInfo)
         {
-            return;
             VkImageMemoryBarrier depthReadBarriers = new()
             {
                 srcAccessMask = VkAccessFlags.DepthStencilAttachmentWrite,

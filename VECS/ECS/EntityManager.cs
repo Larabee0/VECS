@@ -572,6 +572,7 @@ namespace VECS.ECS
                 int[] unsorted = [.. componentIds];
                 Array.Sort(unsorted);
                 int hash = unsorted[0];
+
                 for (int i = 1; i < unsorted.Length; i++)
                 {
                     hash = HashCode.Combine(hash, unsorted[i]);

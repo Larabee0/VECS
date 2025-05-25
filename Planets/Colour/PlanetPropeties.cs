@@ -20,6 +20,8 @@ namespace Planets.Colour
         public float OceanBrightness;
         public Vector2 ElevationMinMax;
 
+        public Vector3 Euler;
+
         public float OrbitalSpeed;
         public float DayNightSpeed;
 

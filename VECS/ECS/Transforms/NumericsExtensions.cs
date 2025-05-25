@@ -6,6 +6,8 @@ namespace System.Numerics
     /// </summary>
     public static class NumericsExtensions
     {
+        public static readonly Vector3 Epsilon = new(float.Epsilon);
+
         public static Matrix4x4 Rotate(this Matrix4x4 m, float angle, Vector3 v)
         {
             float a = angle;

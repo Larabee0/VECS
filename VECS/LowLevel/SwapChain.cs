@@ -218,7 +218,7 @@ namespace VECS.LowLevel
                 height = _windowExtent.height,
                 depth = 1
             };
-            _depthImage = new(VkFormat.D32SfloatS8Uint, depthImageExtent, VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.Sampled, true);
+            _depthImage = new(VkFormat.D32Sfloat, depthImageExtent, VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.Sampled, true);
         }
 
         private unsafe void CreateAdditionalSamplers()

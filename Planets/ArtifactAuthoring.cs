@@ -63,7 +63,7 @@ namespace Planets
         private readonly static Stopwatch _stopwatch = new();
         public ArtifactAuthoring()
         {
-            //World.DefaultWorld.CreateSystem<TransformPlanetsSystem>();
+            World.DefaultWorld.CreateSystem<TransformPlanetsSystem>();
 
             World.DefaultWorld.CreateSystem<GenericRenderSystem>();
             World.DefaultWorld.CreateSystem<UpdatePlanetTimeSystem>();
@@ -71,7 +71,7 @@ namespace Planets
             World.DefaultWorld.CreateSystem<DebugDrawUtilities>();
             World.DefaultWorld.CreateSystem<WorldRenderBoundsUpdateSystem>();
             World.DefaultWorld.CreateSystem<ShipGuns>();
-            //World.DefaultWorld.CreateSystem<InteractionSystem>();
+            World.DefaultWorld.CreateSystem<InteractionSystem>();
 
             EntityManager entityManager = World.DefaultWorld.EntityManager;
 
@@ -81,10 +81,12 @@ namespace Planets
             LoadResources();
             LoadStaticResources(entityManager);
             CreateXWing(entityManager);
-            CreateScene(entityManager);
+            CreateFlightScene(entityManager);
             var prefabPlanet = CreatePrefabPlanet(entityManager);
 
             CreateSinglePlanetTestScene(entityManager, prefabPlanet);
+
+            //CreateBigTestScene(entityManager, prefabPlanet);
 
             Console.WriteLine("Shape loaded");
             GeometryStats();
@@ -103,7 +105,7 @@ namespace Planets
                 Radius = 5f
             });
 
-            entityManager.AddComponent(aStar, new Translation() { Value = new(0f, 500, 0) });
+            entityManager.AddComponent(aStar, new Translation() { Value = new(0f, 0000, 0) });
             entityManager.AddComponent(aStar, new Scale() { Value = new(30f, 30, 30) });
 
             Parent starParent = new() { Value = aStar };
@@ -120,7 +122,7 @@ namespace Planets
                 CreatePrefabPlanet(entityManager), starParent,
                 new(-10f, 0, 00),
                 3,
-                5, 12, planetLitMaterial);
+                -5, 12, planetLitMaterial);
 
             aStar.AddChildren(entityManager, [planetOrbiterA, planetOrbiterB]);
             //aStar.AddChildren(entityManager, [planetOrbiterA]);
@@ -146,61 +148,62 @@ namespace Planets
                 prefabPlanet, starParent,
                 new(-20f, 0, 0),
                 3,
-                5, 12);
+                5, 12, planetLitMaterial);
 
             Entity moonOrbiterA = InstantiateNewOrbitalPlanet(entityManager,
                 PlanetPresets.ShapeGeneratorRandomEarthLike(),
                 prefabPlanet, starParent,
                 new(2.5f, 0, 0),
                 0.3f,
-                -5, -18);
+                -5, -18, planetLitMaterial);
 
             AddMoon(entityManager, planetOrbiterA, moonOrbiterA);
 
-            Entity planetOrbiterB = InstantiateNewOrbitalPlanet(entityManager,
-                PlanetPresets.ShapeGeneratorRandomEarthLike(),
-                prefabPlanet, starParent,
-                new(40f, 0, 0),
-                2,
-                -10, -9);
+            //Entity planetOrbiterB = InstantiateNewOrbitalPlanet(entityManager,
+            //    PlanetPresets.ShapeGeneratorRandomEarthLike(),
+            //    prefabPlanet, starParent,
+            //    new(40f, 0, 0),
+            //    2,
+            //    -10, -9, planetLitMaterial);
+            //
+            //Entity moonOrbiterB = InstantiateNewOrbitalPlanet(entityManager,
+            //    PlanetPresets.ShapeGeneratorRandomEarthLike(),
+            //    prefabPlanet, starParent,
+            //    new(0, 0, 2.0f),
+            //    0.3f,
+            //    50, 6, planetLitMaterial);
+            //
+            //AddMoon(entityManager, planetOrbiterB, moonOrbiterB);
+            //
+            //
+            //Entity planetOrbiterC = InstantiateNewOrbitalPlanet(entityManager,
+            //    PlanetPresets.ShapeGeneratorRandomEarthLike(),
+            //    prefabPlanet, starParent,
+            //    new(0f, 0, 70),
+            //    4,
+            //    -2, 30, planetLitMaterial);
+            //Entity planetOrbiterD = InstantiateNewOrbitalPlanet(entityManager,
+            //    PlanetPresets.ShapeGeneratorFixedEarthLike(),
+            //    prefabPlanet, starParent,
+            //    new(3f, 0, 0),
+            //    0.4f,
+            //    -20, -9, planetLitMaterial);
+            //
+            //
+            //
+            //Entity planetOrbiterE = InstantiateNewOrbitalPlanet(entityManager,
+            //    PlanetPresets.ShapeGeneratorFixedEarthLike(),
+            //    prefabPlanet, starParent,
+            //    new(-2f, 0, 2),
+            //    0.8f,
+            //    -40, -9, planetLitMaterial);
+            //
+            //AddMoon(entityManager, planetOrbiterC, planetOrbiterD);
+            //AddMoon(entityManager, planetOrbiterD, planetOrbiterE);
 
-            Entity moonOrbiterB = InstantiateNewOrbitalPlanet(entityManager,
-                PlanetPresets.ShapeGeneratorRandomEarthLike(),
-                prefabPlanet, starParent,
-                new(0, 0, 2.0f),
-                0.3f,
-                50, 6);
 
-            AddMoon(entityManager, planetOrbiterB, moonOrbiterB);
-
-
-            Entity planetOrbiterC = InstantiateNewOrbitalPlanet(entityManager,
-                PlanetPresets.ShapeGeneratorRandomEarthLike(),
-                prefabPlanet, starParent,
-                new(0f, 0, 70),
-                4,
-                -2, 30);
-            Entity planetOrbiterD = InstantiateNewOrbitalPlanet(entityManager,
-                PlanetPresets.ShapeGeneratorFixedEarthLike(),
-                prefabPlanet, starParent,
-                new(3f, 0, 0),
-                0.4f,
-                -20, -9);
-
-
-
-            Entity planetOrbiterE = InstantiateNewOrbitalPlanet(entityManager,
-                PlanetPresets.ShapeGeneratorFixedEarthLike(),
-                prefabPlanet, starParent,
-                new(-2f, 0, 2),
-                0.8f,
-                -40, -9);
-
-            AddMoon(entityManager, planetOrbiterC, planetOrbiterD);
-            AddMoon(entityManager, planetOrbiterD, planetOrbiterE);
-
-
-            aStar.AddChildren(entityManager, planetOrbiterA, planetOrbiterB, planetOrbiterC);
+            // aStar.AddChildren(entityManager, planetOrbiterA, planetOrbiterB, planetOrbiterC);
+            aStar.AddChildren(entityManager, planetOrbiterA);
         }
 
         private static void GeometryStats()
@@ -341,7 +344,7 @@ namespace Planets
             xWingMaterial.SetTexture("samplerNormalMap", astroDroidNormalTexture, 2, 0);
 
             var xWingBase = entityManager.CreateEntity();
-            entityManager.AddComponent(xWingBase, new Translation() { Value = new Vector3(0, 7f, -20) });
+            entityManager.AddComponent(xWingBase, new Translation() { Value = new Vector3(0, 50f, -800) });
             entityManager.AddComponent(xWingBase, new Rotation());
 
 
@@ -416,10 +419,12 @@ namespace Planets
             });
         }
 
-        private void CreateScene(EntityManager entityManager)
+        private void CreateFlightScene(EntityManager entityManager)
         {
             Entity sceneRoot = entityManager.CreateEntity();
-            entityManager.AddComponent<Translation>(sceneRoot);
+            entityManager.AddComponent(sceneRoot, new Translation()  { Value = new Vector3(0,-500,0)});
+
+
             var models = MeshLoader.LoadModelsFromFiles([MeshLoader.GetMeshInDefaultPath( "quad.obj"), MeshLoader.GetMeshInDefaultPath("cube-UV.obj")], null);
 
             var grid = new Texture2d(Texture2d.GetTextureInDefaultPath("grid.png"));
@@ -588,6 +593,7 @@ namespace Planets
             entityManager.AddComponent<Children>(planet);
             entityManager.AddComponent<DoNotRender>(planet);
             entityManager.AddComponent<Prefab>(planet);
+            entityManager.AddComponent<PlanetEuler>(planet);
             entityManager.AddComponent(planet, new MaterialIndex { Material = Material.GetIndexOfMaterial(planetLitMaterial) });
 
             InitialiseTiles(entityManager, planet, subdivisons);

@@ -1,17 +1,26 @@
 ﻿using Planets.Colour;
+using System.Numerics;
 using VECS;
 using VECS.ECS;
 using VECS.ECS.Transforms;
 
 namespace Planets
 {
+    public struct PlanetEuler : IComponent
+    {
+        public static int ComponentId { get; set; }
+        public readonly int Id => ComponentId;
+
+        public Vector3 Value;
+    }
+
     public class TransformPlanetsSystem : SystemBase
     {
         private EntityQuery _planetRenderQuery;
         public override void OnCreate(EntityManager entityManager)
         {
             _planetRenderQuery = new EntityQuery(entityManager)
-                .WithAll(typeof(Parent), typeof(PlanetPropeties), typeof(LocalToWorld), typeof(Translation), typeof(Rotation))
+                .WithAll(typeof(Parent),typeof(PlanetEuler), typeof(PlanetPropeties), typeof(LocalToWorld), typeof(Translation), typeof(Rotation))
                 .WithNone(typeof(Prefab))
                 .Build();
         }
@@ -35,17 +44,24 @@ namespace Planets
                     var props = entityManager.GetComponent<PlanetPropeties>(planet);
                     Rotation orbitalRotation = entityManager.GetComponent<Rotation>(parent);
 
-                    orbitalRotation.Value.Y += deltaTime * props.OrbitalSpeed * simSpeed.Speed;
-                    orbitalRotation.Value.Y %= float.DegreesToRadians(360);
+                    
+
+                    props.Euler.Y += deltaTime * props.OrbitalSpeed * simSpeed.Speed;
+                    props.Euler.Y %= float.DegreesToRadians(360);
+
+                    orbitalRotation.Value = Quaternion.CreateFromYawPitchRoll(props.Euler.Y, props.Euler.X, props.Euler.Z);
 
                     entityManager.SetComponent(parent, orbitalRotation);
+                    entityManager.SetComponent(planet, props);
 
                     var localRotation = entityManager.GetComponent<Rotation>(planet);
+                    var euler = entityManager.GetComponent<PlanetEuler>(planet);
 
-                    localRotation.Value.Y += deltaTime * props.DayNightSpeed * simSpeed.Speed;
-                    localRotation.Value.Y %= float.DegreesToRadians(360);
-
+                    euler.Value.Y += deltaTime * props.DayNightSpeed * simSpeed.Speed;
+                    euler.Value.Y %= float.DegreesToRadians(360);
+                    localRotation.Value = Quaternion.CreateFromYawPitchRoll(euler.Value.Y, euler.Value.X, euler.Value.Z);
                     entityManager.SetComponent(planet, localRotation);
+                    entityManager.SetComponent(planet, euler);
                 });
             }
         }

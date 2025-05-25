@@ -171,7 +171,7 @@ namespace Planets
                         torqueVector = Vector3.Transform(torqueVector, wtl);
                         rigid.Awake = true;
 
-                        if (forceVector.LengthSquared() > Vector3.Epsilon.LengthSquared())
+                        if (forceVector.LengthSquared() > NumericsExtensions.Epsilon.LengthSquared())
                         {
 
                             rigid.Velocity.Linear = forceVector * rigid.LocalInertia.InverseMass;
@@ -180,7 +180,7 @@ namespace Planets
 
                         //Console.WriteLine(new Vector4(input.Stick, input.Throttle));
                         //rigid.ApplyAngularImpulse(torqueVector);
-                        if (torqueVector.LengthSquared() > Vector3.Epsilon.LengthSquared())
+                        if (torqueVector.LengthSquared() > NumericsExtensions.Epsilon.LengthSquared())
                         {
                             rigid.Velocity.Angular = torqueVector * rigid.LocalInertia.InverseMass;
                         }

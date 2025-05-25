@@ -2,8 +2,8 @@
 using VECS;
 using SDL3;
 using System;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
+using WinRT;
+using VECS.ECS.Transforms;
 
 namespace Planets
 {
@@ -14,7 +14,7 @@ namespace Planets
         private const float SimSpeedIncrement = MinSimSpeed;
 
         private static bool ShouldUpdate = false;
-        private static bool Paused = true;
+        private static bool Paused = false;
         private static float Speed = 1.0f;
 
         private EntityQuery _interactionEntity;
@@ -22,60 +22,53 @@ namespace Planets
         public unsafe override void OnCreate(EntityManager entityManager)
         {
             _interactionEntity = new EntityQuery(entityManager)
-                .WithAll(typeof(SimSpeed))
+                .WithAll(typeof(SimSpeed),typeof(Translation))
+                .WithNone(typeof(Prefab))
                 .Build();
 
             var simSpeedEntity = entityManager.CreateEntity();
 
             entityManager.AddComponent(simSpeedEntity, new SimSpeed() { Paused = Paused, Speed = Speed });
-
-            InputManager.RegisterWatcher(&SimSpeedInputs);
+            entityManager.AddComponent<Translation>(simSpeedEntity);
         }
 
         public override void OnUpdate(EntityManager entityManager)
         {
-            if (ShouldUpdate && _interactionEntity.HasEntities)
+            if (_interactionEntity.HasEntities)
             {
-                entityManager.SingletonEntity<SimSpeed>(out Entity simSpeedEntity);
-                var speed = entityManager.GetComponent<SimSpeed>(simSpeedEntity);
-                speed.Speed = Speed;
-                speed.Paused = Paused;
-                entityManager.SetComponent(simSpeedEntity, speed);
-                ShouldUpdate = false;
+                if (InputManager.Instance.GetKeyUp(SDL_Keycode.Space))
+                {
+                    Paused = !Paused;
+                    ShouldUpdate = true;
+                }
+
+                if (InputManager.Instance.GetKeyUp(SDL_Keycode.Minus))
+                {
+                    Speed = Math.Max(Speed - SimSpeedIncrement, MinSimSpeed);
+                    ShouldUpdate = true;
+                }
+                else if (InputManager.Instance.GetKeyUp(SDL_Keycode.Equals))
+                {
+                    Speed = Math.Min(Speed + SimSpeedIncrement, MaxSimSpeed);
+                    ShouldUpdate = true;
+                }
+
+
+                if (ShouldUpdate)
+                {
+                    entityManager.SingletonEntity<SimSpeed>(out Entity simSpeedEntity);
+                    var speed = entityManager.GetComponent<SimSpeed>(simSpeedEntity);
+                    speed.Speed = Speed;
+                    speed.Paused = Paused;
+                    entityManager.SetComponent(simSpeedEntity, speed);
+                    ShouldUpdate = false;
+                }
             }
         }
 
         public override void OnPostUpdate(EntityManager entityManager)
         {
             //_interactionEntity.MarkStale();
-        }
-
-
-        [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-        private static unsafe SDLBool SimSpeedInputs(nint n, SDL_Event* eventPtr)
-        {
-
-            switch (eventPtr->type)
-            {
-                case SDL_EventType.KeyUp:
-                    switch (eventPtr->key.key)
-                    {
-                        case SDL_Keycode.Minus:
-                            Speed = Math.Max(Speed- SimSpeedIncrement, MinSimSpeed);
-                            ShouldUpdate = true;
-                            break;
-                        case SDL_Keycode.Equals:
-                            Speed = Math.Min(Speed + SimSpeedIncrement, MaxSimSpeed);
-                            ShouldUpdate = true;
-                            break;
-                        case SDL_Keycode.Space:
-                            Paused = !Paused;
-                            ShouldUpdate = true;
-                            break;
-                    }
-                    break;
-            }
-            return false;
         }
     }
 
