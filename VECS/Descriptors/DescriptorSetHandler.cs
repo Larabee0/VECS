@@ -11,7 +11,7 @@ namespace VECS
     public sealed partial class DescriptorSetHandler : IDisposable
     {
         private const uint DEFAULT_STORAGE_BUFFER_COUNT = 10000;
-        private readonly List<DescriptorSetHandler> _children;
+        private readonly Dictionary<int, DescriptorSetHandler> _children;
         private readonly VkDescriptorSet[] _vkDescriptorSets = new VkDescriptorSet[SwapChain.MAX_FRAMES_IN_FLIGHT];
         private readonly DescriptorPool[] _vkDescriptorPoolSource = new DescriptorPool[SwapChain.MAX_FRAMES_IN_FLIGHT];
 
@@ -22,8 +22,8 @@ namespace VECS
         private readonly int[] _imageBindings;
         private readonly SwapChainBuffer[] _bindingBuffers;
         private readonly Dictionary<uint, int> _bindingBufferMap;
-        private readonly Dictionary<uint, (int,Texture2d)> _bindingImages; // need to do this for buffers so buffers can be at any binding, add index _bufferInfos to _bindingBufferMap 
-        private readonly VkWriteDescriptorSet[] _vkDescriptorWrites; 
+        private readonly Dictionary<uint, (int, Texture2d)> _bindingImages; // need to do this for buffers so buffers can be at any binding, add index _bufferInfos to _bindingBufferMap 
+        private readonly VkWriteDescriptorSet[] _vkDescriptorWrites;
 
         private readonly VkDescriptorSetLayout _vkDescriptorSetLayout;
         private readonly DescriptorLevel _descriptorLevel;
@@ -44,7 +44,7 @@ namespace VECS
 
         private uint _sumStorageBufferLength = 0;
 
-        public int ChildCount => _children.Count;
+        public int ChildCount => _children.Count - 1;
 
         public DescriptorLevel DescriptorLevel => _descriptorLevel;
         public VkDescriptorSetLayout VkDescriptorSetLayout => _vkDescriptorSetLayout;
@@ -66,12 +66,12 @@ namespace VECS
             _bufferCount = parent._bufferCount;
             _imageCount = parent._imageCount;
 
-            _bufferBindings = new int [_bufferCount];
+            _bufferBindings = new int[_bufferCount];
             _bufferOffsets = new uint[_bufferCount];
             _imageBindings = new int[_imageCount];
 
             _vkDescriptorWrites = new VkWriteDescriptorSet[_descriptorBindings.Length];
-            
+
             if (_bufferCount > 0)
             {
                 _bindingBuffers = parent._bindingBuffers;
@@ -87,7 +87,11 @@ namespace VECS
 
         public DescriptorSetHandler(VkDescriptorSetLayout setLayout, DescriptorLevel level, DescriptorBinding[] bindings)
         {
-            _children = [];
+            _children = new Dictionary<int, DescriptorSetHandler>
+            {
+                { 0, this }
+            };
+
             _vkDescriptorSetLayout = setLayout;
             _descriptorLevel = level;
 
@@ -166,7 +170,7 @@ namespace VECS
                 var bufferIndex = _bindingBufferMap[binding.Binding];
                 var oldBuffer = _bindingBuffers[bufferIndex];
 
-                _bindingBuffers[bufferIndex] = oldBuffer.Realloc((ulong)(_children.Count + 2));
+                _bindingBuffers[bufferIndex] = oldBuffer.Realloc((ulong)(_children.Count + 1));
                 anyUniforms = true;
             }
 
@@ -174,9 +178,12 @@ namespace VECS
             {
                 Array.Fill(_setsDirty, true);
 
-                _children.ForEach(child => Array.Fill(child._setsDirty, true));
+                foreach (var key in _children.Keys)
+                {
+                    Array.Fill(_children[key]._setsDirty, true);
+                }
             }
-            return (uint)_children.Count + 1;
+            return (uint)_children.Count;
         }
 
         private void CreateBindingImages()
@@ -186,59 +193,58 @@ namespace VECS
             {
                 var binding = _descriptorBindings[i];
                 if (binding.IsAnyBuffer) continue;
-                _bindingImages.Add(binding.Binding, (imageIndex,Texture2d.Fallback));
+                _bindingImages.Add(binding.Binding, (imageIndex, Texture2d.Fallback));
                 imageIndex++;
             }
-
 #if DEBUG
             Debug.Assert(_bindingImages.Count == _imageCount, string.Format("Expected swapchain image allocations {0} does not much descriptor image count {1}", _bindingImages.Count, _imageCount));
 #endif
         }
 
-        public int CreateChildSet()
+        public int CreateChildSet(int id)
         {
             Debug.Assert(!_child, "Attempted to create descriptor set handler child from a child descriptor set. This is illegal.");
-            _children.Add(new(this));
-            return _children.Count;
+            Debug.Assert(_children.TryAdd(id, new(this)), string.Format("Failed to create child set handler with ID: {0} because it already exists", id));
+            return id;
         }
 
         /// <summary>
         /// Index 0 refers to the first child
         /// </summary>
-        /// <param name="index"></param>
+        /// <param name="id"></param>
         /// <returns></returns>
-        public bool HasChildSet(int index)
+        public bool HasChildSet(int id)
         {
             Debug.Assert(!_child, "Attempted to get descriptor set handler child from a child descriptor set. This is illegal.");
-            return index < _children.Count;
+            return _children.ContainsKey(id);
         }
 
         /// <summary>
         /// Index 0 refers to the parent set
         /// </summary>
-        /// <param name="index"></param>
+        /// <param name="id"></param>
         /// <returns></returns>
-        public DescriptorSetHandler GetDescriptorSetHandler(int index)
+        public DescriptorSetHandler GetDescriptorSetHandler(int id)
         {
-            Debug.Assert(!_child || index == 0, "Attempted to get descriptor set handler from a child descriptor set. This is illegal.");
-            if(index == 0) return this;
-            index--;
-            if (HasChildSet(index))
+            Debug.Assert(!_child, "Attempted to get descriptor set handler from a child descriptor set. This is illegal.");
+
+            if (_children.TryGetValue(id, out var handler))
             {
-                return _children[index];
+                return handler;
             }
+
             return null;
         }
 
         /// <summary>
         /// Index 0 refers to the parent set
         /// </summary>
-        /// <param name="index"></param>
+        /// <param name="id"></param>
         /// <returns></returns>
-        public DescriptorSetHandler GetOrCreateChild(int index)
+        public DescriptorSetHandler GetOrCreateChild(int id)
         {
-            var handler = GetDescriptorSetHandler(index);
-            handler ??= _children[CreateChildSet()-1];
+            var handler = GetDescriptorSetHandler(id);
+            handler ??= _children[CreateChildSet(id)];
             return handler;
         }
 
@@ -295,19 +301,27 @@ namespace VECS
                 UpdateDescriptorSet(frameIndex);
             }
 
-            if (!_child && _children.Count > 0)
+            if (!_child && _children.Count > 1)
             {
-                _children.ForEach(c => c.Update(frameIndex, pool));
+                foreach (var key in _children.Keys)
+                {
+                    if (key == 0) continue;
+                    _children[key].Update(frameIndex, pool);
+                }
             }
         }
 
 
         private void UpdateStorageBufferUsage()
         {
-            if(_child) return;
+            if (_child) return;
             var currentRegion = _sumStorageBufferLength;
             _sumStorageBufferLength = _storageBufferLength;
-            _children.ForEach(child => _sumStorageBufferLength += child._storageBufferLength);
+
+            foreach (var key in _children.Keys)
+            {
+                _sumStorageBufferLength += _children[key]._storageBufferLength;
+            }
 
             if (currentRegion != _sumStorageBufferLength)
             {
@@ -368,7 +382,7 @@ namespace VECS
 
         private unsafe void RefreshImageInfos()
         {
-            if(_imageCount == 0) return;
+            if (_imageCount == 0) return;
 
             for (int i = 0; i < _imageCount; i++)
             {
@@ -407,7 +421,7 @@ namespace VECS
 
         public bool LookUpProperty(string property, out uint bindingIndex, out DescriptorPropertyInfo propertyInfo)
         {
-            return LookUpProperty(property,false, out bindingIndex, out propertyInfo);
+            return LookUpProperty(property, false, out bindingIndex, out propertyInfo);
         }
 
         public bool LookUpProperty(string property, bool requireUniform, out uint bindingIndex, out DescriptorPropertyInfo propertyInfo)
@@ -427,7 +441,7 @@ namespace VECS
 
             var binding = _descriptorBindings[internalBindingIndex];
 
-            if(requireUniform && !binding.UniformBuffer)
+            if (requireUniform && !binding.UniformBuffer)
             {
                 propertyInfo = null;
                 bindingIndex = uint.MaxValue;
@@ -441,13 +455,13 @@ namespace VECS
                 propertyInfo = binding.GetProperty(address);
                 return propertyInfo != null;
             }
-            else if(binding != null && binding.UniformBuffer )
+            else if (binding != null && binding.UniformBuffer)
             {
                 propertyInfo = new DescriptorPropertyInfo(bindingName, SpvOp.TypeStruct, binding.BufferSize, 0);
 
                 return true;
             }
-            else if(binding != null && binding.Image)
+            else if (binding != null && binding.Image)
             {
                 propertyInfo = binding.GetTexture();
                 return true;
@@ -465,7 +479,7 @@ namespace VECS
 
         public unsafe void Dispose()
         {
-            if(_disposed) return;
+            if (_disposed) return;
             _disposed = true;
 
             for (int i = 0; i < SwapChain.MAX_FRAMES_IN_FLIGHT; i++)
@@ -475,13 +489,13 @@ namespace VECS
 #if DEBUG
                 Debug.Assert(set != VkDescriptorSet.Null == (pool != null), " VkDescriptorSet null state did not match its pool null state");
 #endif
-                if(set != VkDescriptorSet.Null && pool != null)
+                if (set != VkDescriptorSet.Null && pool != null)
                 {
                     pool.AddSetToFree(set);
                 }
             }
 
-            if(_bufferCount > 0)
+            if (_bufferCount > 0)
             {
                 NativeMemory.Free(_bufferInfos);
                 if (!_child)
@@ -492,7 +506,7 @@ namespace VECS
                     }
                 }
             }
-            if(_imageCount > 0)
+            if (_imageCount > 0)
             {
                 NativeMemory.Free(_imageInfos);
             }

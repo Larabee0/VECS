@@ -182,6 +182,14 @@ namespace VECS.ECS.Presentation
         private readonly Dictionary<int, BufferRegion> _meshNextCmdRegion = [];
         private readonly SortedDictionary<Vector2Int, uint> _materialVairantCounts = [];
         private readonly Dictionary<int, Material> _materialsMap = [];
+
+        private readonly Dictionary<int, 
+                            Dictionary<int, 
+                                Dictionary<int, 
+                                    Dictionary<int, 
+                                        Dictionary<int, 
+                                            List<EarlyDrawCommand>>>>>> _preSortedCommands = [];
+
         private Vector2Int[] _regionKeys = [];
 
 
@@ -199,6 +207,103 @@ namespace VECS.ECS.Presentation
 
         public ForwardInternal(FustrumCull cullCompute) : base(cullCompute)
         {
+        }
+
+        private void OverwritePreSortedEarlyCmds()
+        {
+            int iterator = 0;
+            foreach (var matKeys in _preSortedCommands.Keys)
+            {
+                var matVariants = _preSortedCommands[matKeys];
+                foreach (var matVarKeys in matVariants.Keys)
+                {
+                    var matEntities = matVariants[matVarKeys];
+                    foreach (var matEntitiesKey in matEntities.Keys)
+                    {
+                        var directMeshes = matEntities[matEntitiesKey];
+                        foreach (var subMeshesKey in directMeshes.Keys)
+                        {
+                            var subMeshes = directMeshes[subMeshesKey];
+                            foreach (var cmdKeys in subMeshes.Keys)
+                            {
+                                subMeshes[cmdKeys].ForEach(cmd=>
+                                {
+                                    _earlyDrawCommands[iterator] = cmd;
+                                    iterator++;
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        private void ClearPreSortedEarlyCmds()
+        {
+            foreach (var matKeys in _preSortedCommands.Keys)
+            {
+                var matVariants = _preSortedCommands[matKeys];
+                foreach (var matVarKeys in matVariants.Keys)
+                {
+                    var matEntities = matVariants[matVarKeys];
+                    foreach (var matEntitiesKey in matEntities.Keys)
+                    {
+                        var directMeshes = matEntities[matEntitiesKey];
+                        foreach (var subMeshesKey in directMeshes.Keys)
+                        {
+                            var subMeshes = directMeshes[subMeshesKey];
+                            foreach (var cmdKeys in subMeshes.Keys)
+                            {
+                                subMeshes[cmdKeys].Clear();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        private void AddEarlyDrawCmd(EarlyDrawCommand cmd)
+        {
+            if(_preSortedCommands.TryGetValue(cmd.MaterialIndex,out var matVariants))
+            {
+                if(matVariants.TryGetValue(cmd.MaterialVariant,out var matEntities))
+                {
+                    if(matEntities.TryGetValue(cmd.MaterialEntity,out var directMeshes))
+                    {
+                        if(directMeshes.TryGetValue(cmd.DirectMesh,out var subMeshes))
+                        {
+                            if(subMeshes.TryGetValue(cmd.SubMesh,out var cmds))
+                            {
+                                cmds.Add(cmd);
+                            }
+                            else
+                            {
+                                subMeshes.Add(cmd.SubMesh, [cmd]);
+                            }
+                        }
+                        else
+                        {
+                            directMeshes.Add(cmd.DirectMesh, []);
+                            AddEarlyDrawCmd(cmd);
+                        }
+                    }
+                    else
+                    {
+                        matEntities.Add(cmd.MaterialEntity, []);
+                        AddEarlyDrawCmd(cmd);
+                    }
+                }
+                else
+                {
+                    matVariants.Add(cmd.MaterialVariant, []);
+                    AddEarlyDrawCmd(cmd);
+                }
+            }
+            else
+            {
+                _preSortedCommands.Add(cmd.MaterialIndex, []);
+                AddEarlyDrawCmd(cmd);
+            }
         }
 
         public override void ResetMesh(int i)
@@ -226,6 +331,7 @@ namespace VECS.ECS.Presentation
 
         public override void GenerateDrawCmds(RendererFrameInfo frameInfo, EntityManager entityManager, List<Entity> entities)
         {
+            ClearPreSortedEarlyCmds();
             ResetEarlyDrawCommands(entities.Count);
             ResetMaterials();
             GenerateEarlyDraws(entityManager, entities);
@@ -237,30 +343,33 @@ namespace VECS.ECS.Presentation
 
         private void GenerateEarlyDraws(EntityManager entityManager, List<Entity> entities)
         {
+            Entity entity;
+            LocalToWorld localToWorld;
+            RenderMesh renderMesh;
+            WorldRenderBounds worldBounds;
+            bool bloom;
+            DrawCommand drawCommand;
+            Vector2Int matVariant;
             for (int i = 0; i < _earlyDrawCommands.Length; i++)
             {
-                Entity entity = entities[i];
-                var localToWorld = entityManager.GetComponent<LocalToWorld>(entity);
-                var renderMesh = entityManager.GetComponent<RenderMesh>(entity);
-                var worldBounds = entityManager.GetComponent<WorldRenderBounds>(entity);
-
-                DrawCommand drawCommand = new(renderMesh.Mesh, localToWorld, worldBounds, entityManager.HasComponent<BloomTag>(entity));
+                entity = entities[i];
+                localToWorld = entityManager.GetComponent<LocalToWorld>(entity);
+                renderMesh = entityManager.GetComponent<RenderMesh>(entity);
+                worldBounds = entityManager.GetComponent<WorldRenderBounds>(entity);
+                bloom = entityManager.HasComponent<BloomTag>(entity);
+                drawCommand = new(renderMesh.Mesh, localToWorld, worldBounds, bloom);
                 _earlyDrawCommands[i] = new(drawCommand, renderMesh);
                 _directMeshDraws[renderMesh.Mesh.DirectMesh]++;
 
-                Vector2Int matVariant = new(renderMesh.Material.Material, renderMesh.Material.Variant);
+                matVariant = new(renderMesh.Material.Material, renderMesh.Material.Variant);
 
-                if (!_materialVairantCounts.TryGetValue(matVariant, out uint value))
-                {
-                    _materialVairantCounts[matVariant] = 1;
-                }
-                else
-                {
-                    _materialVairantCounts[matVariant] = ++value;
-                }
+                _materialVairantCounts[matVariant] = _materialVairantCounts.TryGetValue(matVariant, out uint value) ? ++value : 1;
+
+                AddEarlyDrawCmd(_earlyDrawCommands[i]);
+
             }
-
-            Array.Sort(_earlyDrawCommands);
+            OverwritePreSortedEarlyCmds();
+            //lArray.Sort(_earlyDrawCommands);
         }
 
         private void Cull(RendererFrameInfo frameInfo)
@@ -297,6 +406,20 @@ namespace VECS.ECS.Presentation
                 _materialsMap[key.X].SetMatDescriptorHandleStorageRegions(key.Y, region.X, region.Y);
 
                 offset += _materialVairantCounts[key];
+            }
+        }
+
+        private void CrunchMeshCmdRegions()
+        {
+            var region = _directMeshCmdRegions[0];
+            region.Count = _directMeshDraws[0];
+            _directMeshCmdRegions[0] = region;
+            for (int i = 1; i < _directMeshCmdRegions.Keys.Count; i++)
+            {
+                region.IncrementAlt();
+                region.Count = _directMeshDraws[i];
+                _directMeshCmdRegions[i] = region;
+                _meshNextCmdRegion[i] = new() { StartIndex = region.StartIndex };
             }
         }
 
@@ -378,20 +501,6 @@ namespace VECS.ECS.Presentation
             material.EnqueueDrawCmd(new(lastCmd.MaterialIndex, lastCmd.MaterialVariant, storageBufferRegion, lastCmd.MaterialEntity, lastCmd.DirectMesh, meshSubRegion,lastCmd.Bloom));
         }
 
-        private void CrunchMeshCmdRegions()
-        {
-            var region = _directMeshCmdRegions[0];
-            region.Count = _directMeshDraws[0];
-            _directMeshCmdRegions[0] = region;
-            for (int i = 1; i < _directMeshCmdRegions.Keys.Count; i++)
-            {
-                region.IncrementAlt();
-                region.Count = _directMeshDraws[i];
-                _directMeshCmdRegions[i] = region;
-                _meshNextCmdRegion[i] = new() { StartIndex = region.StartIndex };
-            }
-        }
-
         public void ExecuteBloomDrawCmds(RendererFrameInfo frameInfo)
         {
             foreach (Material mat in _materialsMap.Values)
@@ -408,7 +517,6 @@ namespace VECS.ECS.Presentation
                 mat.ExecuteDrawCommands(frameInfo, _indirectCmdBuffer);
             }
         }
-
     }
 
     public class GenericRenderSystem : PresentationSystemBase
