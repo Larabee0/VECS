@@ -61,6 +61,8 @@ namespace VECS.ECS.Presentation
     {
         private readonly Material _shadowOffscreen;
 
+        private Dictionary<int, List<EarlyDrawCommand>> _preSortedDrawCmds = [];
+
         public ShadowInternal(FustrumCull cull) : base(cull)
         {
             GraphicsPipelineConfigInfo shadowConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
@@ -77,7 +79,10 @@ namespace VECS.ECS.Presentation
             int drawCount = _earlyDrawCommands.Length;
             int materialIndex = Material.GetIndexOfMaterial(_shadowOffscreen);
 
-
+            foreach (var key in _preSortedDrawCmds.Keys)
+            {
+                _preSortedDrawCmds[key].Clear();
+            }
             for (int i = 0; i < drawCount; i++)
             {
                 Entity entity = entities[i];
@@ -91,9 +96,28 @@ namespace VECS.ECS.Presentation
                 {
                     _directMeshCmdRegions[renderMesh.Mesh.DirectMesh] = new(_directMeshCmdRegions[renderMesh.Mesh.DirectMesh].Count + 1);
                 }
+
+
+                if(_preSortedDrawCmds.TryGetValue(renderMesh.Mesh.DirectMesh,out var cmds))
+                {
+                    cmds.Add(_earlyDrawCommands[i]);
+                }
+                else
+                {
+                    _preSortedDrawCmds[renderMesh.Mesh.DirectMesh] = [_earlyDrawCommands[i]];
+                }
+            }
+            int iterator = 0;
+            foreach (var key in _preSortedDrawCmds.Keys)
+            {
+                _preSortedDrawCmds[key].ForEach(cmd =>
+                {
+                    _earlyDrawCommands[iterator] = cmd;
+                    iterator++;
+                });
             }
 
-            Array.Sort(_earlyDrawCommands, (x, y) => { return x.DirectMesh.CompareTo(y.DirectMesh); });
+            //Array.Sort(_earlyDrawCommands, (x, y) => { return x.DirectMesh.CompareTo(y.DirectMesh); });
 
             Span<ModelMatrices> matrices = _shadowOffscreen.GetStorageBuffer<ModelMatrices>("matricesBuffer");
             Span<ModelBounds> bounds = _modelBoundsBuffer.HostBuffer;
