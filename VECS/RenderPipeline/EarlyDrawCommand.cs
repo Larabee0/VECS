@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Numerics;
 using VECS.ECS.Presentation;
 
@@ -6,6 +7,7 @@ namespace VECS
 {
     public struct EarlyDrawCommand : IComparable
     {
+        private static readonly int UnknownDrawCmd = -1;
         public int DirectMesh;
         public int SubMesh;
         public int MaterialIndex;
@@ -14,6 +16,8 @@ namespace VECS
         public DrawCommand DrawCommand;
         public Vector4 Colour;
         public bool Bloom;
+
+        private readonly int _cachedHashCode;
 
         public EarlyDrawCommand(DrawCommand drawCommand,RenderMesh renderMesh)
         {
@@ -24,6 +28,7 @@ namespace VECS
             MaterialVariant = renderMesh.Material.Variant;
             MaterialEntity = renderMesh.Material.Entity;
             Colour = renderMesh.Colour;
+            _cachedHashCode = HashCode.Combine(MaterialIndex, MaterialVariant, MaterialEntity, DirectMesh, SubMesh);
         }
 
         public static bool MateriallyDifferent(EarlyDrawCommand a, EarlyDrawCommand b)
@@ -48,6 +53,12 @@ namespace VECS
             }
 
             throw new ArgumentException(string.Format("Object is not a {0}", typeof(EarlyDrawCommand)));
+        }
+
+        public override readonly int GetHashCode()
+        {
+            Debug.Assert(_cachedHashCode != UnknownDrawCmd,"Invalid hash code for early draw");
+            return _cachedHashCode;
         }
     }
 }
