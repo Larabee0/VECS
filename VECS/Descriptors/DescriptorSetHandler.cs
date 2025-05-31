@@ -204,7 +204,8 @@ namespace VECS
         public int CreateChildSet(int id)
         {
             Debug.Assert(!_child, "Attempted to create descriptor set handler child from a child descriptor set. This is illegal.");
-            Debug.Assert(_children.TryAdd(id, new(this)), string.Format("Failed to create child set handler with ID: {0} because it already exists", id));
+            bool created = _children.TryAdd(id, new(this));
+            Debug.Assert(created, string.Format("Failed to create child set handler with ID: {0} because it already exists", id));
             return id;
         }
 
