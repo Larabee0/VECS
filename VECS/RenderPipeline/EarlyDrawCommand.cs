@@ -6,12 +6,13 @@ using VECS.ECS.Presentation;
 namespace VECS
 {
     /// <summary>
+    /// Address Property
     ///  mat   var   ent   drm   sbm
     /// 0 000|0 000|0 000|0 000|0 000
     /// 
-    /// ulong draw addresses are a ulong divided up funnily
+    /// ulong draw addresses are a ulong divided up funnily (1844 6744 0737 0955 1615)
     /// 
-    /// Each property is given 1000 digits for cmds.
+    /// Each property is given 4 digits for cmds.
     /// The max number for each 9999, apart from mat which is capped at <see cref="MAX_MATERIAL_COUNT"/>
     /// 
     /// Theorically this supports 1843 * 9999 * 9999 * 9999 * 9999 (1.84x10^19) Unique combinations of draw command.
