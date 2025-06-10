@@ -214,6 +214,8 @@ namespace VECS.ECS.Presentation
                                         Dictionary<int, 
                                             List<EarlyDrawCommand>>>>>> _preSortedCommands = [];
 
+        private readonly SortedDictionary<ulong, List<EarlyDrawCommand>> _longAddressSortedCommands = [];
+
         private Vector2Int[] _regionKeys = [];
 
 
@@ -262,8 +264,28 @@ namespace VECS.ECS.Presentation
             }
         }
 
+        private void WriteAddressSortedCmds()
+        {
+            int index = 0;
+            List<EarlyDrawCommand> workingArray;
+            foreach (var address in _longAddressSortedCommands.Keys)
+            {
+                workingArray = _longAddressSortedCommands[address];
+                for (int i = 0; i < workingArray.Count; i++)
+                {
+                    _earlyDrawCommands[index] = workingArray[i];
+                    index++;
+                }
+            }
+        }
+
         private void ClearPreSortedEarlyCmds()
         {
+            foreach (var address in _longAddressSortedCommands.Keys)
+            {
+                _longAddressSortedCommands[address].Clear();
+            }
+
             foreach (var matKeys in _preSortedCommands.Keys)
             {
                 var matVariants = _preSortedCommands[matKeys];
@@ -286,8 +308,18 @@ namespace VECS.ECS.Presentation
             }
         }
 
+        private void AddEarlyDrawCmd(EarlyDrawCommand cmd,int index)
+        {
+            if(!_longAddressSortedCommands.TryAdd(cmd.DrawAddress, [cmd]))
+            {
+                _longAddressSortedCommands[cmd.DrawAddress].Add(cmd);
+            }
+        }
+
         private void AddEarlyDrawCmd(EarlyDrawCommand cmd)
         {
+
+
             if(_preSortedCommands.TryGetValue(cmd.MaterialIndex,out var matVariants))
             {
                 if(matVariants.TryGetValue(cmd.MaterialVariant,out var matEntities))
@@ -389,10 +421,12 @@ namespace VECS.ECS.Presentation
 
                 _materialVairantCounts[matVariant] = _materialVairantCounts.TryGetValue(matVariant, out uint value) ? ++value : 1;
 
-                AddEarlyDrawCmd(_earlyDrawCommands[i]);
+                //AddEarlyDrawCmd(_earlyDrawCommands[i]);
 
+                AddEarlyDrawCmd(_earlyDrawCommands[i], i);
             }
-            OverwritePreSortedEarlyCmds();
+            //OverwritePreSortedEarlyCmds();
+            WriteAddressSortedCmds();
             //lArray.Sort(_earlyDrawCommands);
         }
 

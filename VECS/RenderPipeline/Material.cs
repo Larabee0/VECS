@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using VECS.ECS;
@@ -149,6 +150,9 @@ namespace VECS
 
             CreatePipelineLayout();
             CreatePipeline(vertexBytes, fragmentBytes);
+
+            Debug.Assert(Materials.Count < EarlyDrawCommand.MAX_MATERIAL_COUNT, string.Format("Material Creation would Exceeded Max Theorectical Material Count ({0})\nProbably reduce the number of materials you have, jeez", EarlyDrawCommand.MAX_MATERIAL_COUNT));
+
             Materials.Add(this);
         }
 
