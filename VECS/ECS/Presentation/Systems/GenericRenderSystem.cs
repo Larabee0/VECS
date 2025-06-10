@@ -207,13 +207,6 @@ namespace VECS.ECS.Presentation
         private readonly SortedDictionary<Vector2Int, uint> _materialVairantCounts = [];
         private readonly Dictionary<int, Material> _materialsMap = [];
 
-        private readonly Dictionary<int, 
-                            Dictionary<int, 
-                                Dictionary<int, 
-                                    Dictionary<int, 
-                                        Dictionary<int, 
-                                            List<EarlyDrawCommand>>>>>> _preSortedCommands = [];
-
         private readonly SortedDictionary<ulong, List<EarlyDrawCommand>> _longAddressSortedCommands = [];
 
         private Vector2Int[] _regionKeys = [];
@@ -235,32 +228,19 @@ namespace VECS.ECS.Presentation
         {
         }
 
-        private void OverwritePreSortedEarlyCmds()
+        private void ClearPreSortedEarlyCmds()
         {
-            int iterator = 0;
-            foreach (var matKeys in _preSortedCommands.Keys)
+            foreach (var address in _longAddressSortedCommands.Keys)
             {
-                var matVariants = _preSortedCommands[matKeys];
-                foreach (var matVarKeys in matVariants.Keys)
-                {
-                    var matEntities = matVariants[matVarKeys];
-                    foreach (var matEntitiesKey in matEntities.Keys)
-                    {
-                        var directMeshes = matEntities[matEntitiesKey];
-                        foreach (var subMeshesKey in directMeshes.Keys)
-                        {
-                            var subMeshes = directMeshes[subMeshesKey];
-                            foreach (var cmdKeys in subMeshes.Keys)
-                            {
-                                subMeshes[cmdKeys].ForEach(cmd=>
-                                {
-                                    _earlyDrawCommands[iterator] = cmd;
-                                    iterator++;
-                                });
-                            }
-                        }
-                    }
-                }
+                _longAddressSortedCommands[address].Clear();
+            }
+        }
+
+        private void AddEarlyDrawCmd(EarlyDrawCommand cmd)
+        {
+            if (!_longAddressSortedCommands.TryAdd(cmd.DrawAddress, [cmd]))
+            {
+                _longAddressSortedCommands[cmd.DrawAddress].Add(cmd);
             }
         }
 
@@ -276,89 +256,6 @@ namespace VECS.ECS.Presentation
                     _earlyDrawCommands[index] = workingArray[i];
                     index++;
                 }
-            }
-        }
-
-        private void ClearPreSortedEarlyCmds()
-        {
-            foreach (var address in _longAddressSortedCommands.Keys)
-            {
-                _longAddressSortedCommands[address].Clear();
-            }
-
-            foreach (var matKeys in _preSortedCommands.Keys)
-            {
-                var matVariants = _preSortedCommands[matKeys];
-                foreach (var matVarKeys in matVariants.Keys)
-                {
-                    var matEntities = matVariants[matVarKeys];
-                    foreach (var matEntitiesKey in matEntities.Keys)
-                    {
-                        var directMeshes = matEntities[matEntitiesKey];
-                        foreach (var subMeshesKey in directMeshes.Keys)
-                        {
-                            var subMeshes = directMeshes[subMeshesKey];
-                            foreach (var cmdKeys in subMeshes.Keys)
-                            {
-                                subMeshes[cmdKeys].Clear();
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        private void AddEarlyDrawCmd(EarlyDrawCommand cmd,int index)
-        {
-            if(!_longAddressSortedCommands.TryAdd(cmd.DrawAddress, [cmd]))
-            {
-                _longAddressSortedCommands[cmd.DrawAddress].Add(cmd);
-            }
-        }
-
-        private void AddEarlyDrawCmd(EarlyDrawCommand cmd)
-        {
-
-
-            if(_preSortedCommands.TryGetValue(cmd.MaterialIndex,out var matVariants))
-            {
-                if(matVariants.TryGetValue(cmd.MaterialVariant,out var matEntities))
-                {
-                    if(matEntities.TryGetValue(cmd.MaterialEntity,out var directMeshes))
-                    {
-                        if(directMeshes.TryGetValue(cmd.DirectMesh,out var subMeshes))
-                        {
-                            if(subMeshes.TryGetValue(cmd.SubMesh,out var cmds))
-                            {
-                                cmds.Add(cmd);
-                            }
-                            else
-                            {
-                                subMeshes.Add(cmd.SubMesh, [cmd]);
-                            }
-                        }
-                        else
-                        {
-                            directMeshes.Add(cmd.DirectMesh, []);
-                            AddEarlyDrawCmd(cmd);
-                        }
-                    }
-                    else
-                    {
-                        matEntities.Add(cmd.MaterialEntity, []);
-                        AddEarlyDrawCmd(cmd);
-                    }
-                }
-                else
-                {
-                    matVariants.Add(cmd.MaterialVariant, []);
-                    AddEarlyDrawCmd(cmd);
-                }
-            }
-            else
-            {
-                _preSortedCommands.Add(cmd.MaterialIndex, []);
-                AddEarlyDrawCmd(cmd);
             }
         }
 
@@ -414,20 +311,16 @@ namespace VECS.ECS.Presentation
                 worldBounds = entityManager.GetComponent<WorldRenderBounds>(entity);
                 bloom = entityManager.HasComponent<BloomTag>(entity);
                 drawCommand = new(renderMesh.Mesh, localToWorld, worldBounds, bloom);
-                _earlyDrawCommands[i] = new(drawCommand, renderMesh);
+                
                 _directMeshDraws[renderMesh.Mesh.DirectMesh]++;
 
                 matVariant = new(renderMesh.Material.Material, renderMesh.Material.Variant);
 
                 _materialVairantCounts[matVariant] = _materialVairantCounts.TryGetValue(matVariant, out uint value) ? ++value : 1;
 
-                //AddEarlyDrawCmd(_earlyDrawCommands[i]);
-
-                AddEarlyDrawCmd(_earlyDrawCommands[i], i);
+                AddEarlyDrawCmd(new(drawCommand, renderMesh));
             }
-            //OverwritePreSortedEarlyCmds();
             WriteAddressSortedCmds();
-            //lArray.Sort(_earlyDrawCommands);
         }
 
         private void Cull(RendererFrameInfo frameInfo)
