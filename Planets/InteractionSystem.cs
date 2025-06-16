@@ -2,7 +2,6 @@
 using VECS;
 using SDL3;
 using System;
-using WinRT;
 using VECS.ECS.Transforms;
 
 namespace Planets

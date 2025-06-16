@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>Library</OutputType>
-    <TargetFramework>net9.0-windows10.0.19041.0</TargetFramework>
+    <TargetFramework>net9.0</TargetFramework>
     <RootNamespace>VECS</RootNamespace>
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>disable</Nullable>
@@ -31,10 +31,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Assets\Textures\" />
-  </ItemGroup>
-
-  <ItemGroup>
     <EditorConfigFiles Remove="H:\GitFork\COMP305-2202796\SDL-Vulkan-CS\.editorconfig" />
   </ItemGroup>
 
@@ -42,12 +38,13 @@
     <None Include="H:\GitFork\COMP305-2202796\SDL-Vulkan-CS\.editorconfig" />
   </ItemGroup>
 
-  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-    <Exec Command="&#xD;&#xA;if not exist $(TargetDir)Assets\Models mkdir $(TargetDir)Assets\Models&#xD;&#xA;XCOPY /s &quot;$(ProjectDir)Assets\Models&quot; &quot;$(TargetDir)Assets\Models&quot;&#xD;&#xA;&#xD;&#xA;if not exist $(TargetDir)Assets\Textures mkdir $(TargetDir)Assets\Textures&#xD;&#xA;XCOPY /s &quot;$(ProjectDir)Assets\Textures&quot; &quot;$(TargetDir)Assets\Textures&quot;" />
+  
+  <Target Name="PreBuild" BeforeTargets="PreBuildEvent">
+	  <RemoveDir Directories="$(TargetDir)Assets"/>
   </Target>
 
-  <Target Name="PreBuild" BeforeTargets="PreBuildEvent">
-    <Exec Command="rd /s /q $(TargetDir)Assets" />
+  <Target Name="ClearSolutionShaders" BeforeTargets="PreBuild">
+	  <RemoveDir Directories="$(SolutionDir)CompiledShaders"/>
   </Target>
 
 </Project>

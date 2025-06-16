@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net9.0-windows10.0.19041.0</TargetFramework>
+    <TargetFramework>net9.0</TargetFramework>
     <RootNamespace>Planets</RootNamespace>
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>disable</Nullable>
@@ -27,14 +27,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Assets\Textures\" />
-  </ItemGroup>
-
-  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-    <Exec Command="if not exist $(ProjectDir)\Assets\Shaders mkdir $(ProjectDir)\Assets\Shaders&#xD;&#xA;&#xD;&#xA;if not exist $(SolutionDir)Shaders mkdir $(SolutionDir)Shaders&#xD;&#xA;if not exist $(SolutionDir)Shaders\Compiled mkdir $(SolutionDir)Shaders\Compiled&#xD;&#xA;&#xD;&#xA;&#xD;&#xA;XCOPY /s &quot;$(SolutionDir)VECS\Assets\Shaders&quot; &quot;$(SolutionDir)Shaders&quot;&#xD;&#xA;XCOPY /s &quot;$(ProjectDir)Assets\Shaders&quot; &quot;$(SolutionDir)Shaders&quot;&#xD;&#xA;&#xD;&#xA;for %25%25f in ($(SolutionDir)Shaders\*.vert) do (&#xD;&#xA;    echo %25%25~nf&#xD;&#xA;    $(VULKAN_SDK)\Bin\glslc.exe &quot;$(SolutionDir)Shaders\%25%25~nf.vert&quot; -o &quot;$(SolutionDir)Shaders\Compiled\%25%25~nf.vert.spv&quot;&#xD;&#xA;)&#xD;&#xA;&#xD;&#xA;for %25%25f in ($(SolutionDir)Shaders\*.frag) do (&#xD;&#xA;    echo %25%25~nf&#xD;&#xA;    $(VULKAN_SDK)\Bin\glslc.exe &quot;$(SolutionDir)Shaders\%25%25~nf.frag&quot; -o &quot;$(SolutionDir)Shaders\Compiled\%25%25~nf.frag.spv&quot;&#xD;&#xA;)&#xD;&#xA;&#xD;&#xA;&#xD;&#xA;for %25%25f in ($(SolutionDir)Shaders\*.comp) do (&#xD;&#xA;    echo %25%25~nf&#xD;&#xA;    $(VULKAN_SDK)\Bin\glslc.exe &quot;$(SolutionDir)Shaders\%25%25~nf.comp&quot; -o &quot;$(SolutionDir)Shaders\Compiled\%25%25~nf.comp.spv&quot;&#xD;&#xA;)&#xD;&#xA;&#xD;&#xA;&#xD;&#xA;if not exist $(TargetDir)Assets\Shaders mkdir $(TargetDir)Assets\Shaders&#xD;&#xA;echo copy shaders&#xD;&#xA;echo &quot;$(SolutionDir)Shaders\Compiled&quot;&#xD;&#xA;echo &quot;$(TargetDir)Assets\Shaders&quot;&#xD;&#xA;XCOPY /s &quot;$(SolutionDir)Shaders\Compiled&quot; &quot;$(TargetDir)Assets\Shaders&quot;&#xD;&#xA;&#xD;&#xA;if not exist $(TargetDir)Assets\Models mkdir $(TargetDir)Assets\Models&#xD;&#xA;XCOPY /s &quot;$(SolutionDir)VECS\Assets\Models&quot; &quot;$(TargetDir)Assets\Models&quot;&#xD;&#xA;XCOPY /s &quot;$(ProjectDir)Assets\Models&quot; &quot;$(TargetDir)Assets\Models&quot;&#xD;&#xA;&#xD;&#xA;if not exist $(TargetDir)Assets\Textures mkdir $(TargetDir)Assets\Textures&#xD;&#xA;XCOPY /s &quot;$(SolutionDir)VECS\Assets\Textures&quot; &quot;$(TargetDir)Assets\Textures&quot;&#xD;&#xA;XCOPY /s &quot;$(ProjectDir)Assets\Textures&quot; &quot;$(TargetDir)Assets\Textures&quot;" />
-  </Target>
-
-  <ItemGroup>
     <EditorConfigFiles Remove="H:\GitFork\COMP305-2202796\SDL-Vulkan-CS\.editorconfig" />
   </ItemGroup>
 
@@ -47,7 +39,46 @@
   </ItemGroup>
 
   <Target Name="PreBuild" BeforeTargets="PreBuildEvent">
-    <Exec Command="rd /s /q $(TargetDir)Assets&#xD;&#xA;rd /s /q $(SolutionDir)Shaders" />
+	  <RemoveDir Directories="$(TargetDir)Assets"/>
+  </Target>
+
+  
+
+  <Target Name="MakeAssetsDir" AfterTargets="PostBuildEvent">
+    <MakeDir Directories="$(ProjectDir)\Assets\Shaders;$(SolutionDir)CompiledShaders;$(TargetDir)Assets\Shaders;$(TargetDir)Assets\Models;$(TargetDir)Assets\Textures"/>
+  </Target>
+
+
+  <Target Name="CopyAssets" AfterTargets="MakeAssetsDir">
+    
+    <ItemGroup>
+      <Assets Include="$(SolutionDir)Assets\**\*.*" />
+    </ItemGroup>
+    <Copy
+      SourceFiles="@(Assets)"
+      DestinationFolder="$(TargetDir)Assets\%(RecursiveDir)"
+     />
+  </Target>
+
+  
+  <Target Name="CompileShaders" AfterTargets="CopyAssets">
+
+    <ItemGroup>
+      <RawShaders Include="$(SolutionDir)Shaders\**\*.*" Exclude="$(SolutionDir)Shaders\**\*.glsl" />
+    </ItemGroup>
+
+    <Exec Command="$(VULKAN_SDK)\Bin\glslc %(RawShaders.Identity) -o $(SolutionDir)CompiledShaders\%(RawShaders.Filename)%(RawShaders.Extension).spv" />
+  </Target>
+
+  <Target Name="CopyShaders" AfterTargets="CompileShaders">
+    
+    <ItemGroup>
+      <Shaders Include="$(SolutionDir)CompiledShaders\*.*" />
+    </ItemGroup>
+    <Copy
+      SourceFiles="@(Shaders)"
+      DestinationFolder="$(TargetDir)Assets\Shaders"
+     />
   </Target>
 
 </Project>
