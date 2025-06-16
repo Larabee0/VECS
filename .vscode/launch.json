@@ -9,7 +9,7 @@
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "dotnet: build",
-            "program": "${workspaceFolder}/planets/bin/Debug/net9.0/planets.dll",
+            "program": "${workspaceFolder}/Planets/bin/Debug/net9.0/Planets",
             "args": [],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
