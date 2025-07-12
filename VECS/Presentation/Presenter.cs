@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Numerics;
 using VECS.ECS;
 using VECS.ECS.Presentation;
@@ -51,7 +52,6 @@ namespace VECS
         private Material _unlitTransparentMaterial;
         private Material _litMaterial;
         private Material _litTextureMaterial;
-        private Texture2d _fallbackTexture;
         private Entity frameInfoEntity;
 
         public Material Unlit =>_unlitMaterial;
@@ -139,8 +139,6 @@ namespace VECS
 
         private void LoadDefaultResources()
         {
-            _fallbackTexture = new Texture2d(Texture2d.GetTextureInDefaultPath("missing.png"));
-
             _unlitMaterial = new Material("unlit.vert", "unlit.frag", GraphicsPipelines.GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []), true, ForwardRenderPass);
             _globalDescriptorSetHandler = _unlitMaterial.ApplicationDescriptorSetHandler;
 
@@ -324,9 +322,10 @@ namespace VECS
         /// </summary>
         public void Dispose()
         {
-            for (int i = Texture2d.Textures.Count - 1; i >= 0; i--)
+            var textures = Texture.Textures.Values.ToArray();
+            for (int i = Texture.Textures.Count - 1; i >= 0; i--)
             {
-                Texture2d.Textures[i].Dispose();
+                textures[i].Dispose();
             }
 
             for (int i = DirectMesh.DirectMeshes.Count - 1; i >= 0; i--)

@@ -9,9 +9,8 @@ namespace VECS.LowLevel
         public const int SHADOW_IMAGE_SIZE = 1024;
         public const VkFormat SHADOW_IMAGE_FORMAT = VkFormat.R32Sfloat;
         private readonly VkFormat _depthFormat;
-        public Texture2d CubeMap;
-        public Texture2d FrameBufferAttachment;
-        public readonly VkImageView[] ShadowCubeMapFaceImageViews = new VkImageView[6];
+        public Cubemap CubeMap;
+        public Texture2D FrameBufferAttachment;
         public readonly VkFramebuffer[] FrameBuffers = new VkFramebuffer[6];
         public VkRenderPass ShadowPass;
 
@@ -21,70 +20,13 @@ namespace VECS.LowLevel
                 VkImageTiling.Optimal,
                 VkFormatFeatureFlags.DepthStencilAttachment);
 
-            VkImageCreateInfo imageCreateInfo = new()
-            {
-                imageType = VkImageType.Image2D,
-                format = SHADOW_IMAGE_FORMAT,
-                extent = new(SHADOW_IMAGE_SIZE, SHADOW_IMAGE_SIZE, 1),
-                mipLevels = 1,
-                arrayLayers = 6,
-                samples = VkSampleCountFlags.Count1,
-                tiling = VkImageTiling.Optimal,
-                usage = VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.Sampled,
-                sharingMode = VkSharingMode.Exclusive,
-                initialLayout = VkImageLayout.Undefined,
-                flags = VkImageCreateFlags.CubeCompatible
-            };
-
-            VkImageViewCreateInfo view = new()
-            {
-                viewType = VkImageViewType.ImageCube,
-                format = imageCreateInfo.format,
-                components = new(VkComponentSwizzle.R, VkComponentSwizzle.Identity, VkComponentSwizzle.Identity, VkComponentSwizzle.Identity),
-                subresourceRange = new()
-                {
-                    aspectMask = VkImageAspectFlags.Color,
-                    baseMipLevel = 0,
-                    levelCount = 1,
-                    baseArrayLayer = 0,
-                    layerCount = 6,
-                }
-            };
-
-            CubeMap = new Texture2d(imageCreateInfo, view, true);
-            
-            VkImageSubresourceRange subresourceRange = new(VkImageAspectFlags.Color,0,1,0,6);
-
-            CubeMap.SetImageLayout(subresourceRange, VkImageLayout.Undefined, VkImageLayout.ShaderReadOnlyOptimal);
-
-            VkSamplerCreateInfo sampler = new()
-            {
-                magFilter = VkFilter.Linear,
-                minFilter = VkFilter.Linear,
-                mipmapMode = VkSamplerMipmapMode.Linear,
-                addressModeU = VkSamplerAddressMode.ClampToBorder,
-                addressModeV = VkSamplerAddressMode.ClampToBorder,
-                addressModeW = VkSamplerAddressMode.ClampToBorder,
-                mipLodBias = 0,
-                maxAnisotropy = 1,
-                compareOp = VkCompareOp.Never,
-                minLod = 0,
-                maxLod = 1,
-                borderColor = VkBorderColor.FloatOpaqueWhite
-            };
-
-            CubeMap.CreateSampler(sampler);
-
-            view.viewType = VkImageViewType.Image2D;
-            view.subresourceRange.layerCount = 1;
-            view.image = CubeMap.TextureImage.VkImage;
-
-            for (uint i = 0; i < 6u; i++)
-            {
-                view.subresourceRange.baseArrayLayer = i;
-                fixed(VkImageView* pView = &ShadowCubeMapFaceImageViews[i])
-                Vulkan.vkCreateImageView(GraphicsDevice.Instance.Device, view, null, pView);
-            }
+            CubeMap = new(
+                SHADOW_IMAGE_SIZE,
+                SHADOW_IMAGE_SIZE,
+                SHADOW_IMAGE_FORMAT,
+                VkSamplerAddressMode.ClampToBorder,
+                VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled | VkImageUsageFlags.ColorAttachment
+            );
 
             CreateShadowRenderPass();
             CreateShadowFrameBuffer();
@@ -92,46 +34,15 @@ namespace VECS.LowLevel
 
         private unsafe void CreateShadowFrameBuffer()
         {
-            VkImageCreateInfo shadowFB = new()
-            {
-                imageType = VkImageType.Image2D,
-                format = _depthFormat,
-                extent = new(SHADOW_IMAGE_SIZE, SHADOW_IMAGE_SIZE, 1),
-                mipLevels = 1,
-                arrayLayers = 1,
-                samples = VkSampleCountFlags.Count1,
-                tiling = VkImageTiling.Optimal,
-                initialLayout = VkImageLayout.Undefined,
-                usage = VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.TransferSrc,
-                sharingMode = VkSharingMode.Exclusive
-            };
-
-            VkImageViewCreateInfo depthImageView = new()
-            {
-                viewType = VkImageViewType.Image2D,
-                format = shadowFB.format,
-                flags = VkImageViewCreateFlags.None,
-                subresourceRange = new()
-                {
-                    aspectMask = VkImageAspectFlags.Depth,
-                    baseMipLevel = 0,
-                    levelCount = 1,
-                    baseArrayLayer = 0,
-                    layerCount = 1
-                }
-            };
-
-            if (depthImageView.format >= VkFormat.D16UnormS8Uint)
-            {
-                depthImageView.subresourceRange.aspectMask |= VkImageAspectFlags.Stencil;
-            }
-            FrameBufferAttachment = new(shadowFB, depthImageView, true);
-
-            FrameBufferAttachment.SetImageLayout(VkImageAspectFlags.Depth | VkImageAspectFlags.Stencil,
-                VkImageLayout.Undefined, VkImageLayout.DepthStencilAttachmentOptimal);
+            FrameBufferAttachment = new(
+                SHADOW_IMAGE_SIZE,
+                SHADOW_IMAGE_SIZE,
+                _depthFormat,
+                VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.TransferSrc
+            );
 
             VkImageView* attachements = stackalloc VkImageView[2];
-            attachements[1] = FrameBufferAttachment.TextureImageView;
+            attachements[1] = FrameBufferAttachment._imageView;
 
             VkFramebufferCreateInfo framebufferCreateInfo = new()
             {
@@ -140,12 +51,12 @@ namespace VECS.LowLevel
                 pAttachments = attachements,
                 width = SHADOW_IMAGE_SIZE,
                 height = SHADOW_IMAGE_SIZE,
-                layers = 1
+                layers = 1,
             };
 
             for (int i = 0; i < 6; i++)
             {
-                attachements[0] = ShadowCubeMapFaceImageViews[i];
+                attachements[0] = CubeMap.FaceImageViews[i];
                 fixed (VkFramebuffer* pFB = &FrameBuffers[i])
                     Vulkan.vkCreateFramebuffer(GraphicsDevice.Instance.Device, framebufferCreateInfo, null, pFB);
             }
@@ -283,13 +194,7 @@ namespace VECS.LowLevel
                 Vulkan.vkDestroyFramebuffer(GraphicsDevice.Instance.Device, FrameBuffers[i]);
             }
 
-
             Vulkan.vkDestroyRenderPass(GraphicsDevice.Instance.Device, ShadowPass);
-
-            for (int i = 0; i < 6; i++)
-            {
-                Vulkan.vkDestroyImageView(GraphicsDevice.Instance.Device, ShadowCubeMapFaceImageViews[i]);
-            }
 
             CubeMap?.Dispose();
             FrameBufferAttachment?.Dispose();

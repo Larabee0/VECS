@@ -22,8 +22,8 @@ namespace VECS
         public readonly uint ArrayDimentions;
         public readonly uint[] ArrayDimentionSizes;
         public readonly DescriptorPropertyInfo[] Members;
-        public readonly VkImageType ImageType;
-        public readonly bool ImageArray;
+        public readonly VkImageViewType ImageType;
+        // public readonly bool ImageArray;
         public readonly uint ImageDepth;
         public readonly Dictionary<string, int> MemberMap;
 
@@ -190,16 +190,38 @@ namespace VECS
             Offset = offset;
             ImageType = imageTraits.dim switch
             {
-                SpvDim.Dim1D => VkImageType.Image1D,
-                SpvDim.Dim2D => VkImageType.Image2D,
-                SpvDim.Dim3D => VkImageType.Image3D,
-                SpvDim.Cube => VkImageType.Image2D,
+                SpvDim.Dim1D => VkImageViewType.Image1D,
+                SpvDim.Dim2D => VkImageViewType.Image2D,
+                SpvDim.Dim3D => VkImageViewType.Image3D,
+                SpvDim.Cube => VkImageViewType.ImageCube,
                 _ => throw new NotImplementedException(string.Format("Image dimention {0} is not implemented for descriptor variables", imageTraits.dim.ToString())),
             };
 
             if (imageTraits.arrayed != 0)
             {
-                ImageArray = true;
+                //ImageArray = true;
+                switch (ImageType)
+                {
+                    case VkImageViewType.Image1D:
+                        ImageType = VkImageViewType.Image1DArray;
+                        break;
+                    case VkImageViewType.Image2D:
+                        ImageType = VkImageViewType.Image2DArray;
+                        break;
+                    case VkImageViewType.Image3D:
+                        throw new InvalidOperationException("Cannot have arrayed 3d image!");
+                    case VkImageViewType.ImageCube:
+                        ImageType = VkImageViewType.ImageCubeArray;
+                        break;
+                    case VkImageViewType.Image1DArray:
+                        break;
+                    case VkImageViewType.Image2DArray:
+                        break;
+                    case VkImageViewType.ImageCubeArray:
+                        break;
+                    default:
+                        throw new NotImplementedException(string.Format("{0} arraying not currently handled!",ImageType.ToString()));
+                }
             }
 
             if (imageTraits.depth != 0)

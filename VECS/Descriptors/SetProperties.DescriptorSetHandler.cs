@@ -148,20 +148,29 @@ namespace VECS
             buffer?.SetUsedInstanceCount(instanceSize);
         }
 
-        public void SetTexture(uint bindingIndex, DescriptorPropertyInfo propertyInfo, Texture2d texture)
+        public void SetTexture(uint bindingIndex, DescriptorPropertyInfo propertyInfo, Texture2D texture)
         {
-            if (propertyInfo.ImageType == VkImageType.Image2D && !propertyInfo.ImageArray && _bindingImages.TryGetValue(bindingIndex, out var value))
+            if (propertyInfo.ImageType == VkImageViewType.Image2D && _bindingImages.TryGetValue(bindingIndex, out var value))
             {
                 _bindingImages[bindingIndex] = (value.Item1, texture);
                 Array.Fill(_setsDirty, true);
             }
         }
 
-        public void SetTextureArray(uint bindingIndex, DescriptorPropertyInfo propertyInfo, Texture2d textureArray)
+        public void SetTextureArray(uint bindingIndex, DescriptorPropertyInfo propertyInfo, Texture2DArray textureArray)
         {
-            if(propertyInfo.ImageType == VkImageType.Image2D && propertyInfo.ImageArray && _bindingImages.TryGetValue(bindingIndex, out var value))
+            if(propertyInfo.ImageType == VkImageViewType.Image2DArray && _bindingImages.TryGetValue(bindingIndex, out var value))
             {
                 _bindingImages[bindingIndex] = (value.Item1, textureArray);
+                Array.Fill(_setsDirty, true);
+            }
+        }
+
+        public void SetCubeMap(uint bindingIndex, DescriptorPropertyInfo propertyInfo, Cubemap cubemap)
+        {
+            if(propertyInfo.ImageType == VkImageViewType.ImageCube && _bindingImages.TryGetValue(bindingIndex, out var value))
+            {
+                _bindingImages[bindingIndex] = (value.Item1, cubemap);
                 Array.Fill(_setsDirty, true);
             }
         }

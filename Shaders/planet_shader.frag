@@ -1,4 +1,5 @@
 #version 460
+#extension GL_ARB_shading_language_include : require
 #include "extra_maths.glsl"
 
 layout (location = 0) in vec3 fragColour;

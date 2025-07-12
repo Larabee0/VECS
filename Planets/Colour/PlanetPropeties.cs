@@ -10,12 +10,12 @@ namespace Planets.Colour
         public static int ComponentId { get; set; }
         public readonly int Id => ComponentId;
 
-        public int ColourTexture;
-        public int SteepTexture;
-        public int WaveA;
-        public int WaveB;
-        public int WaveC;
-        public int TextureArrayIndex;
+        public Guid ColourTexture;
+        public Guid SteepTexture;
+        public Guid WaveA;
+        public Guid WaveB;
+        public Guid WaveC;
+        public Guid TextureArray;
         public float TerrainScale;
         public float OceanBrightness;
         public Vector2 ElevationMinMax;
@@ -29,7 +29,7 @@ namespace Planets.Colour
         {
             ElevationMin = ElevationMinMax.X,
             ElevationMax = ElevationMinMax.Y,
-            TextureCount = Texture2d.GetTextureAtIndex(TextureArrayIndex).ImageExtent.depth,
+            TextureCount = Texture.GetTexture(TextureArray).ImageExtent.depth,
             TerrainScale = TerrainScale,
             OceanBrightness = OceanBrightness
         };

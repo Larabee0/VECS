@@ -32,7 +32,7 @@ namespace VECS.LowLevel
         private Material _blitMat;
 
         public ShadowImage ShadowImage => _shadowCubeMap;
-        public static Texture2d ShadowTexture => Instance.ShadowImage.CubeMap;
+        public static Cubemap ShadowTexture => Instance.ShadowImage.CubeMap;
 
         public int FrameIndex
         {
@@ -331,7 +331,7 @@ namespace VECS.LowLevel
                 newLayout = VkImageLayout.ShaderReadOnlyOptimal,
                 srcQueueFamilyIndex = Vulkan.VK_QUEUE_FAMILY_IGNORED,
                 dstQueueFamilyIndex = Vulkan.VK_QUEUE_FAMILY_IGNORED,
-                image = _swapChain.DepthImage.TextureImage.VkImage,
+                image = _swapChain.DepthImage._vkImage,
                 subresourceRange = new()
                 {
                     aspectMask = VkImageAspectFlags.Depth,
@@ -362,7 +362,7 @@ namespace VECS.LowLevel
                 newLayout = VkImageLayout.DepthAttachmentOptimal,
                 srcQueueFamilyIndex = Vulkan.VK_QUEUE_FAMILY_IGNORED,
                 dstQueueFamilyIndex = Vulkan.VK_QUEUE_FAMILY_IGNORED,
-                image = _swapChain.DepthImage.TextureImage.VkImage,
+                image = _swapChain.DepthImage._vkImage,
                 subresourceRange = new()
                 {
                     aspectMask = VkImageAspectFlags.Depth,

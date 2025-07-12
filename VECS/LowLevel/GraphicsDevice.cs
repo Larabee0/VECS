@@ -23,6 +23,7 @@ namespace VECS.LowLevel
             Vulkan.VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME,
             Vulkan.VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
             Vulkan.VK_EXT_SAMPLER_FILTER_MINMAX_EXTENSION_NAME,
+            Vulkan.VK_KHR_IMAGELESS_FRAMEBUFFER_EXTENSION_NAME
         ];
 
         private readonly static HashSet<VkFormat> _stencilFormats =
@@ -423,19 +424,36 @@ namespace VECS.LowLevel
                 multiDrawIndirect = true,
                 drawIndirectFirstInstance = true,
             };
+            VkPhysicalDeviceVulkan12Features deviceFeatures12 = new()
+            {
+                imagelessFramebuffer = true,
+                samplerFilterMinmax = true
+            };
+
+
+            VkPhysicalDeviceFeatures2 deviceFeatures2 = new()
+            {
+                features = deviceFeature,
+                pNext = &deviceFeatures12
+            };
+
             using VkStringArray deviceExtensionNames = new(_requiredDeviceExtensions);
 
 
-            VkPhysicalDeviceSynchronization2Features sync2 = new() { synchronization2 = true };
-
+            VkPhysicalDeviceSynchronization2Features sync2 = new()
+            {
+                synchronization2 = true,
+                pNext = &deviceFeatures2
+            };
+            
             VkDeviceCreateInfo createInfo = new()
             {
                 queueCreateInfoCount = (uint)queueCreateInfos.Length,
                 pQueueCreateInfos = pQueueCreateInfos,
-                pEnabledFeatures = &deviceFeature,
+                pEnabledFeatures = null,
                 enabledExtensionCount = (uint)_requiredDeviceExtensions.Length,
                 ppEnabledExtensionNames = deviceExtensionNames,
-                pNext = &sync2
+                pNext = &sync2,
             };
 
 #if DEBUG

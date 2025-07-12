@@ -24,13 +24,20 @@ namespace VECS.LowLevel
         private VkFormat RenderFormat => RawRenderImage.Format;
         private VkFormat DepthFormat => DepthImage.Format;
         
-        private Texture2d _rawRenderImage;
-        private Texture2d _depthImage;
-        
-        internal VkDescriptorImageInfo DepthPyramid => _depthImage.GetImageInfo;
+        private Texture2D _rawRenderImage;
+        private Texture2D _depthImage;
 
-        internal Texture2d RawRenderImage => _rawRenderImage;
-        internal Texture2d DepthImage => _depthImage;
+        internal VkDescriptorImageInfo DepthPyramid
+        {
+            get
+            {
+                _depthImage.UpdateDescriptor();
+                return _depthImage.ImageInfo;
+            }
+        }
+
+        internal Texture2D RawRenderImage => _rawRenderImage;
+        internal Texture2D DepthImage => _depthImage;
 
 
         private VkExtent2D _swapChainExtent;
@@ -199,26 +206,13 @@ namespace VECS.LowLevel
 
         private unsafe void CreateRenderImage()
         {
-            VkExtent3D renderImageExtent = new()
-            {
-                width = _windowExtent.width,
-                height = _windowExtent.height,
-                depth = 1
-            };
-
-            _rawRenderImage = new(VkFormat.R32G32B32A32Sfloat, renderImageExtent, VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.Sampled, true);
-            _rawRenderImage.SetImageLayoutDirect(VkImageLayout.ShaderReadOnlyOptimal);
+            _rawRenderImage = new((int)_windowExtent.width, (int)_windowExtent.height ,VkFormat.R32G32B32A32Sfloat, VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.Sampled);
+            
         }
 
         private unsafe void CreateDepthImage()
         {
-            VkExtent3D depthImageExtent = new()
-            {
-                width = _windowExtent.width,
-                height = _windowExtent.height,
-                depth = 1
-            };
-            _depthImage = new(VkFormat.D32Sfloat, depthImageExtent, VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.Sampled, true);
+            _depthImage = new((int)_windowExtent.width, (int)_windowExtent.height,VkFormat.D32Sfloat, VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.Sampled);
         }
 
         private unsafe void CreateAdditionalSamplers()
@@ -385,8 +379,8 @@ namespace VECS.LowLevel
         {
             VkImageView* attachements = stackalloc VkImageView[]
             {
-                _rawRenderImage.TextureImageView,
-                _depthImage.TextureImageView
+                _rawRenderImage._imageView,
+                _depthImage._imageView
             };
             VkFramebufferCreateInfo fwdInfo = new()
             {

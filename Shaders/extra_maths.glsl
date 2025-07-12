@@ -50,7 +50,43 @@ vec4 triplanarUVOffset(vec3 vertPos, vec3 normal, vec2 uvOffset, float scale, sa
     return colX * blendWeight.x + colY * blendWeight.y + colZ * blendWeight.z;
 }
 
+vec4 triplanarUVOffset(vec3 vertPos, vec3 normal, vec2 uvOffset, float scale, usampler2D tex)
+{
+
+	// Calculate triplanar coordinates
+    vec2 uvX = (vertPos.zy + uvOffset) * scale;
+    vec2 uvY = (vertPos.xz + uvOffset) * scale;
+    vec2 uvZ = (vertPos.xy + uvOffset) * scale;
+
+    vec4 colX = texture(tex, uvX);
+    vec4 colY = texture(tex, uvY);
+    vec4 colZ = texture(tex, uvZ);
+	// Square normal to make all values positive + increase blend sharpness
+    vec3 blendWeight = normal * normal;
+	// Divide blend weight by the sum of its components. This will make x + y + z = 1
+    blendWeight /= dot(blendWeight, vec3(1));
+    return colX * blendWeight.x + colY * blendWeight.y + colZ * blendWeight.z;
+}
+
 vec4 triplanarArray(vec3 vertPos, vec3 normal, float scale, float index, sampler2DArray tex)
+{
+
+	// Calculate triplanar coordinates
+    vec3 uvX = vec3(vertPos.zy * scale, index);
+    vec3 uvY = vec3(vertPos.xz * scale, index);
+    vec3 uvZ = vec3(vertPos.xy * scale, index);
+
+    vec4 colX = texture(tex,uvX);
+    vec4 colY = texture(tex,uvY);
+    vec4 colZ = texture(tex,uvZ);
+	// Square normal to make all values positive + increase blend sharpness
+    vec3 blendWeight = normal * normal;
+	// Divide blend weight by the sum of its components. This will make x + y + z = 1
+    blendWeight /= dot(blendWeight, vec3(1));
+    return colX * blendWeight.x + colY * blendWeight.y + colZ * blendWeight.z;
+}
+
+vec4 triplanarArray(vec3 vertPos, vec3 normal, float scale, float index, usampler2DArray tex)
 {
 
 	// Calculate triplanar coordinates

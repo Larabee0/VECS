@@ -10,8 +10,8 @@ namespace Planets.Colour
     {
         public ColourSettings settings;
         const int textureResolution = 256;
-        public Texture2d colourTexture;
-        public Texture2d steepTexture;
+        public Texture2D colourTexture;
+        public Texture2D steepTexture;
 
         public void UpdateSettings(ColourSettings settings)
         {
@@ -19,12 +19,12 @@ namespace Planets.Colour
             if (colourTexture == null || colourTexture.ImageExtent.height != settings.biomeColourSettings.biomes.Length)
             {
                 colourTexture?.Dispose();
-                colourTexture = new(VkFormat.R32G32B32A32Sfloat, new(textureResolution * 2, settings.biomeColourSettings.biomes.Length, 1), VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferDst);
+                colourTexture = new(textureResolution * 2, settings.biomeColourSettings.biomes.Length, VkFormat.R32G32B32A32Sfloat, VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferDst);
             }
             if (steepTexture == null || steepTexture.ImageExtent.height != settings.biomeColourSettings.biomes.Length)
             {
                 steepTexture?.Dispose();
-                steepTexture = new(VkFormat.R32G32B32A32Sfloat, new(textureResolution * 2, settings.biomeColourSettings.biomes.Length, 1), VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferDst);
+                steepTexture = new(textureResolution * 2, settings.biomeColourSettings.biomes.Length,VkFormat.R32G32B32A32Sfloat, VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferDst);
             }
         }
 

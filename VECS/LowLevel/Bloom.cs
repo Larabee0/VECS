@@ -9,71 +9,20 @@ namespace VECS.LowLevel
     {
         private readonly struct FBTexture : IDisposable
         {
-            public readonly Texture2d Colour;
-            public readonly Texture2d DepthStencil;
+            public readonly Texture2D Colour;
+            public readonly Texture2D DepthStencil;
 
             public readonly VkFramebuffer Framebuffer;
 
             public unsafe FBTexture(VkFormat depthFormat, VkRenderPass renderPass)
             {
-                VkImageCreateInfo image = new()
-                {
-                    imageType = VkImageType.Image2D,
-                    format = VkFormat.R32G32B32A32Sfloat,
-                    extent = new()
-                    {
-                        width = FRAME_BUFFER_DIMENTIONS,
-                        height = FRAME_BUFFER_DIMENTIONS,
-                        depth = 1
-                    },
-                    mipLevels = 1,
-                    arrayLayers = 1,
-                    samples = VkSampleCountFlags.Count1,
-                    tiling = VkImageTiling.Optimal,
-                    usage = VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.Sampled
-                };
-
-                VkImageViewCreateInfo colourImageView = new()
-                {
-                    viewType = VkImageViewType.Image2D,
-                    format = image.format,
-                    flags = 0,
-                    subresourceRange = new()
-                    {
-                        aspectMask = VkImageAspectFlags.Color,
-                        baseMipLevel = 0,
-                        levelCount = 1,
-                        baseArrayLayer = 0,
-                        layerCount = 1
-                    }
-                };
-
-                Colour = new(image, colourImageView, true);
-
-                image.format = depthFormat;
-                image.usage = VkImageUsageFlags.DepthStencilAttachment;
-
-                VkImageViewCreateInfo depthStencilView = new()
-                {
-                    viewType = VkImageViewType.Image2D,
-                    format = image.format,
-                    flags = 0,
-                    subresourceRange = new()
-                    {
-                        aspectMask = GraphicsDevice.HasStencil(image.format) ? VkImageAspectFlags.Depth | VkImageAspectFlags.Stencil : VkImageAspectFlags.Depth,
-                        baseMipLevel = 0,
-                        levelCount = 1,
-                        baseArrayLayer = 0,
-                        layerCount = 1
-                    }
-                };
-
-                DepthStencil = new(image, depthStencilView, true);
+                Colour = new(FRAME_BUFFER_DIMENTIONS,FRAME_BUFFER_DIMENTIONS,VkFormat.R32G32B32A32Sfloat, VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.Sampled);
+                DepthStencil = new(FRAME_BUFFER_DIMENTIONS,FRAME_BUFFER_DIMENTIONS,depthFormat,VkImageUsageFlags.DepthStencilAttachment);
 
                 VkImageView* attachments = stackalloc VkImageView[2]
                 {
-                    Colour.TextureImageView,
-                    DepthStencil.TextureImageView
+                    Colour._imageView,
+                    DepthStencil._imageView
                 };
 
                 VkFramebufferCreateInfo vkFramebufferCreateInfo = new()
@@ -103,9 +52,9 @@ namespace VECS.LowLevel
                     borderColor = VkBorderColor.FloatOpaqueWhite
                 };
 
-                Colour.SetImageLayoutDirect(VkImageLayout.ShaderReadOnlyOptimal);
+                // Colour.SetImageLayoutDirect(VkImageLayout.ShaderReadOnlyOptimal);
 
-                Colour.CreateSampler(sampler);
+                // Colour.CreateSampler(sampler);
             }
 
             public readonly unsafe void Dispose()

@@ -22,7 +22,7 @@ namespace VECS
         private readonly int[] _imageBindings;
         private readonly SwapChainBuffer[] _bindingBuffers;
         private readonly Dictionary<uint, int> _bindingBufferMap;
-        private readonly Dictionary<uint, (int, Texture2d)> _bindingImages; // need to do this for buffers so buffers can be at any binding, add index _bufferInfos to _bindingBufferMap 
+        private readonly Dictionary<uint, (int, Texture)> _bindingImages; // need to do this for buffers so buffers can be at any binding, add index _bufferInfos to _bindingBufferMap 
         private readonly VkWriteDescriptorSet[] _vkDescriptorWrites;
 
         private readonly VkDescriptorSetLayout _vkDescriptorSetLayout;
@@ -127,7 +127,7 @@ namespace VECS
             }
             if (_imageCount > 0)
             {
-                _bindingImages = new Dictionary<uint, (int, Texture2d)>((int)_imageCount);
+                _bindingImages = new Dictionary<uint, (int, Texture)>((int)_imageCount);
                 CreateBindingImages();
             }
         }
@@ -193,7 +193,7 @@ namespace VECS
             {
                 var binding = _descriptorBindings[i];
                 if (binding.IsAnyBuffer) continue;
-                _bindingImages.Add(binding.Binding, (imageIndex, Texture2d.Fallback));
+                _bindingImages.Add(binding.Binding, (imageIndex, Texture2D.MissingTexture));
                 imageIndex++;
             }
 #if DEBUG
@@ -388,7 +388,8 @@ namespace VECS
             for (int i = 0; i < _imageCount; i++)
             {
                 var bindingIndex = _descriptorBindings[_imageBindings[i]].Binding;
-                _imageInfos[i] = _bindingImages[bindingIndex].Item2.GetImageInfo;
+                _bindingImages[bindingIndex].Item2.UpdateDescriptor();
+                _imageInfos[i] = _bindingImages[bindingIndex].Item2.ImageInfo;
             }
         }
 

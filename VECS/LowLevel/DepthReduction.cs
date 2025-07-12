@@ -18,13 +18,13 @@ namespace VECS.LowLevel
 
         private readonly VkImageView[] _depthPyramidMips = new VkImageView[16];
 
-        private readonly Texture2d _depthPyramidImage;
+        private readonly Texture2D _depthPyramidImage;
         private readonly GenericComputePipeline _depthReducePipeline;
         private readonly uint _depthPyramidWidth;
         private readonly uint _depthPyramidHeight;
         private readonly uint _depthPyramidLevels;
 
-        internal Texture2d DepthPyramidImage => _depthPyramidImage;
+        internal Texture2D DepthPyramidImage => _depthPyramidImage;
         internal uint DepthPyramidWidth => _depthPyramidWidth;
         internal uint DepthPyramidHeight => _depthPyramidHeight;
 
@@ -35,47 +35,15 @@ namespace VECS.LowLevel
             _depthPyramidWidth = PreviousPow2(windowExtent.width);
             _depthPyramidHeight = PreviousPow2(windowExtent.height);
             _depthPyramidLevels = GetImageMipLevels(_depthPyramidWidth, _depthPyramidHeight);
-            VkExtent3D pyramidExtent = new()
-            {
-                width = _depthPyramidWidth,
-                height = _depthPyramidHeight,
-                depth = 1
-            };
-
-            VkImageCreateInfo pyramidInfo = new()
-            {
-                format = VkFormat.R32Sfloat,
-                usage = VkImageUsageFlags.Sampled | VkImageUsageFlags.Storage | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.TransferDst,
-                extent = pyramidExtent,
-                imageType = VkImageType.Image2D,
-                mipLevels = _depthPyramidLevels,
-                arrayLayers = 1,
-                samples = VkSampleCountFlags.Count1,
-                tiling = VkImageTiling.Optimal
-            };
-
-            VkImageViewCreateInfo pyramidViewInfo = new()
-            {
-                format = VkFormat.R32Sfloat,
-                viewType = VkImageViewType.Image2D,
-                subresourceRange = new()
-                {
-                    baseMipLevel = 0,
-                    levelCount = _depthPyramidLevels,
-                    baseArrayLayer = 0,
-                    layerCount = 1,
-                    aspectMask = VkImageAspectFlags.Color
-                }
-            };
-
-            _depthPyramidImage = new(pyramidInfo, pyramidViewInfo, true);
+            
+            _depthPyramidImage = new((int)_depthPyramidWidth, (int)_depthPyramidHeight, VkFormat.R32Sfloat, VkImageUsageFlags.Sampled | VkImageUsageFlags.Storage | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.TransferDst, _depthPyramidLevels);
 
             for (uint i = 0; i < _depthPyramidLevels; i++)
             {
                 VkImageViewCreateInfo levelInfo = new()
                 {
                     format = VkFormat.R32Sfloat,
-                    image = _depthPyramidImage.TextureImage.VkImage,
+                    image = _depthPyramidImage._vkImage,
                     viewType = VkImageViewType.Image2D,
                     subresourceRange = new()
                     {
@@ -97,8 +65,8 @@ namespace VECS.LowLevel
             _depthReducePipeline = new("depthReduce.comp", typeof(DepthReduceData),
                 new() { DescriptorType = VkDescriptorType.StorageImage, StageFlags = VkShaderStageFlags.Compute, Count = 1 },
                 new() { DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Compute, Count = 1 });
-            _depthPyramidImage.TransitionImageLayout(VkImageLayout.TransferDstOptimal, _depthPyramidLevels);
-            _depthPyramidImage.TransitionImageLayout(VkImageLayout.General, _depthPyramidLevels);
+            _depthPyramidImage.SetImageLayout(VkImageLayout.TransferDstOptimal);
+            _depthPyramidImage.SetImageLayout(VkImageLayout.General);
 
         }
 
@@ -119,7 +87,7 @@ namespace VECS.LowLevel
 
                 if (i == 0)
                 {
-                    sourceTarget.imageView = SwapChain.Instance.DepthImage.TextureImageView;
+                    sourceTarget.imageView = SwapChain.Instance.DepthImage._imageView;
                     sourceTarget.imageLayout = VkImageLayout.ShaderReadOnlyOptimal;
                 }
                 else
@@ -152,7 +120,7 @@ namespace VECS.LowLevel
 
                 VkImageMemoryBarrier reduceBarrier = new()
                 {
-                    image = _depthPyramidImage.TextureImage.VkImage,
+                    image = _depthPyramidImage._vkImage,
                     srcAccessMask = VkAccessFlags.ShaderWrite,
                     dstAccessMask = VkAccessFlags.ShaderRead,
                     oldLayout = VkImageLayout.General,

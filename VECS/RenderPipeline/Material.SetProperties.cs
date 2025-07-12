@@ -44,7 +44,7 @@ namespace VECS
         {
             for (int i = 0; i < _materialPushConstants.Length; i++)
             {
-                if(_materialPushConstants[i].WriteToPushConstantBuffer(property, value))
+                if (_materialPushConstants[i].WriteToPushConstantBuffer(property, value))
                 {
                     break;
                 }
@@ -118,7 +118,7 @@ namespace VECS
 
         private unsafe void WriteArrayToBuffer<T>(string property, T[] array) where T : unmanaged
         {
-            if(LookUpProperty(property, out var handler, out uint bindingIndex, out var propertyInfo))
+            if (LookUpProperty(property, out var handler, out uint bindingIndex, out var propertyInfo))
             {
                 handler.WriteArrayToBuffer(bindingIndex, propertyInfo, array);
             }
@@ -136,11 +136,11 @@ namespace VECS
         {
             if (LookUpProperty(property, out var handler, out var bindingIndex, out var propertyInfo))
             {
-                if(handler.DescriptorLevel == DescriptorLevel.Material)
+                if (handler.DescriptorLevel == DescriptorLevel.Material)
                 {
                     handler = handler.GetOrCreateChild(variant);
                 }
-                else if(handler.DescriptorLevel == DescriptorLevel.Entity)
+                else if (handler.DescriptorLevel == DescriptorLevel.Entity)
                 {
                     handler = handler.GetOrCreateChild(entity);
                 }
@@ -172,23 +172,23 @@ namespace VECS
             }
         }
 
-        public void SetTexture(string property, Texture2d texture)
-        {
-            if(LookUpProperty(property, out var handler, out var bindingIndex, out var propertyInfo))
-            {
-                handler.SetTexture(bindingIndex,propertyInfo,texture);
-            }
-        }
-
-        public void SetTexture(string property, Texture2d texture, int variant, int entity)
+        public void SetTexture(string property, Texture2D texture)
         {
             if (LookUpProperty(property, out var handler, out var bindingIndex, out var propertyInfo))
             {
-                if(handler.DescriptorLevel == DescriptorLevel.Material)
+                handler.SetTexture(bindingIndex, propertyInfo, texture);
+            }
+        }
+
+        public void SetTexture(string property, Texture2D texture, int variant, int entity)
+        {
+            if (LookUpProperty(property, out var handler, out var bindingIndex, out var propertyInfo))
+            {
+                if (handler.DescriptorLevel == DescriptorLevel.Material)
                 {
                     handler = handler.GetOrCreateChild(variant);
                 }
-                else if(handler.DescriptorLevel == DescriptorLevel.Entity)
+                else if (handler.DescriptorLevel == DescriptorLevel.Entity)
                 {
                     handler = handler.GetOrCreateChild(entity);
                 }
@@ -196,11 +196,19 @@ namespace VECS
             }
         }
 
-        public void SetTextureArray(string property, Texture2d texture)
+        public void SetTextureArray(string property, Texture2DArray texture)
         {
-            if(LookUpProperty(property,out var handler, out var bindingIndex,out var propertyInfo))
+            if (LookUpProperty(property, out var handler, out var bindingIndex, out var propertyInfo))
             {
                 handler.SetTextureArray(bindingIndex, propertyInfo, texture);
+            }
+        }
+
+        public void SetCubeMap(string property, Cubemap cubemap)
+        {
+            if (LookUpProperty(property, out var handler, out var bindingIndex, out var propertyInfo))
+            {
+                handler.SetCubeMap(bindingIndex, propertyInfo, cubemap);
             }
         }
     }

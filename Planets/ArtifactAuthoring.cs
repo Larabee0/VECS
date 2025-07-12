@@ -49,11 +49,11 @@ namespace Planets
         private int planetCount;
 
 
-        private Texture2d textureWaveA;
-        private Texture2d textureWaveC;
-        private Texture2d textureWaveB;
+        private Texture2D textureWaveA;
+        private Texture2D textureWaveC;
+        private Texture2D textureWaveB;
 
-        private Texture2d textureArrayTerrainShapes;
+        private Texture2DArray textureArrayTerrainShapes;
         private Material planetLitMaterial;
         private PlanetPropeties planetProperties;
 
@@ -322,14 +322,14 @@ namespace Planets
         {
             var xWing = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("X-Wing.obj"), [new(VertexAttribute.Tangent, VertexAttributeFormat.Float4)]);
 
-            var astroDroidDiffuseTexture = new Texture2d(Texture2d.GetTextureInDefaultPath("X-Wing/st_Rebel_01_AstroDroid_diffuse.dds"));
-            var astroDroidNormalTexture = new Texture2d(Texture2d.GetTextureInDefaultPath("X-Wing/st_Rebel_01_AstroDroid_normal.dds"));
+            var astroDroidDiffuseTexture = new Texture2D(TextureLoader.GetTextureInDefaultPath("X-Wing/st_Rebel_01_AstroDroid_diffuse.dds"));
+            var astroDroidNormalTexture = new Texture2D(TextureLoader.GetTextureInDefaultPath("X-Wing/st_Rebel_01_AstroDroid_normal.dds"));
 
-            var hullDiffuseTexture = new Texture2d(Texture2d.GetTextureInDefaultPath("X-Wing/st_Rebel_01_X_Wing_hull_diffuse.dds"));
-            var hullNormalTexture = new Texture2d(Texture2d.GetTextureInDefaultPath("X-Wing/st_Rebel_01_X_Wing_hull_normal.dds"));
+            var hullDiffuseTexture = new Texture2D(TextureLoader.GetTextureInDefaultPath("X-Wing/st_Rebel_01_X_Wing_hull_diffuse.dds"));
+            var hullNormalTexture = new Texture2D(TextureLoader.GetTextureInDefaultPath("X-Wing/st_Rebel_01_X_Wing_hull_normal.dds"));
 
-            var wingDiffuseTexture = new Texture2d(Texture2d.GetTextureInDefaultPath("X-Wing/st_Rebel_01_X_Wing_wings_diffuse.dds"));
-            var wingNormalTexture = new Texture2d(Texture2d.GetTextureInDefaultPath("X-Wing/st_Rebel_01_X_Wing_wings_normal.dds"));
+            var wingDiffuseTexture = new Texture2D(TextureLoader.GetTextureInDefaultPath("X-Wing/st_Rebel_01_X_Wing_wings_diffuse.dds"));
+            var wingNormalTexture = new Texture2D(TextureLoader.GetTextureInDefaultPath("X-Wing/st_Rebel_01_X_Wing_wings_normal.dds"));
 
 
             var xWingMaterial = Material.Create("texture_normal.vert", "texture_normal.frag");
@@ -427,7 +427,7 @@ namespace Planets
 
             var models = MeshLoader.LoadModelsFromFiles([MeshLoader.GetMeshInDefaultPath( "quad.obj"), MeshLoader.GetMeshInDefaultPath("cube-UV.obj")], null);
 
-            var grid = new Texture2d(Texture2d.GetTextureInDefaultPath("grid.png"));
+            var grid = new Texture2D(TextureLoader.GetTextureInDefaultPath("grid.png"));
 
             Presenter.Instance.LitTexture.SetTexture("texSampler", grid, 2, 0);
             Presenter.Instance.LitTexture.SetUniform("colourMul", new ColourAndTiling(new Vector4(0.1803922f, 0.2078431f, 0.2431373f, 1), 100f), 2, 2);
@@ -557,18 +557,26 @@ namespace Planets
 
         private void LoadResources()
         {
-            textureWaveA = new Texture2d(Texture2d.GetTextureInDefaultPath("Wave.jpg"));
-            textureWaveC = new Texture2d(Texture2d.GetTextureInDefaultPath("Wave A.png"));
-            textureWaveB = new Texture2d(Texture2d.GetTextureInDefaultPath("Wave B.png"));
+            textureWaveA = new Texture2D(TextureLoader.GetTextureInDefaultPath("Wave.jpg"));
+            textureWaveC = new Texture2D(TextureLoader.GetTextureInDefaultPath("Wave A.png"));
+            textureWaveB = new Texture2D(TextureLoader.GetTextureInDefaultPath("Wave B.png"));
 
-            textureArrayTerrainShapes = Texture2d.CreateTextureArray("Rock1.png", "Rock2.png", "Rock3.png", "Rock4.png", "Rock5.png", "Snow.png", "SnowOld.png");
+            textureArrayTerrainShapes = new (
+                TextureLoader.GetTextureInDefaultPath("Rock1.png"),
+                TextureLoader.GetTextureInDefaultPath("Rock2.png"),
+                TextureLoader.GetTextureInDefaultPath("Rock3.png"),
+                TextureLoader.GetTextureInDefaultPath("Rock4.png"),
+                TextureLoader.GetTextureInDefaultPath("Rock5.png"),
+                TextureLoader.GetTextureInDefaultPath("Snow.png"),
+                TextureLoader.GetTextureInDefaultPath("SnowOld.png")
+            );
 
             planetProperties = new PlanetPropeties()
             {
-                WaveA = Texture2d.GetIndexOfTexture(textureWaveA),
-                WaveB = Texture2d.GetIndexOfTexture(textureWaveB),
-                WaveC = Texture2d.GetIndexOfTexture(textureWaveC),
-                TextureArrayIndex = Texture2d.GetIndexOfTexture(textureArrayTerrainShapes),
+                WaveA = textureWaveA.GUID,
+                WaveB = textureWaveB.GUID,
+                WaveC = textureWaveC.GUID,
+                TextureArray = textureArrayTerrainShapes.GUID,
                 TerrainScale = 3f,
                 OceanBrightness = 5f
             };
@@ -579,7 +587,7 @@ namespace Planets
             planetLitMaterial.SetTexture("texWaveA", textureWaveA);
             planetLitMaterial.SetTexture("texWaveB", textureWaveC);
             planetLitMaterial.SetTexture("texWaveC", textureWaveB);
-            planetLitMaterial.SetTexture("shadowCubeMap", Renderer.ShadowTexture);
+            planetLitMaterial.SetCubeMap("shadowCubeMap", Renderer.ShadowTexture);
         }
 
         private Entity CreatePrefabPlanet(EntityManager entityManager)
@@ -713,8 +721,8 @@ namespace Planets
             if (World.DefaultWorld.EntityManager.HasComponent<PlanetPropeties>(planetRoot))
             {
                 var properties = World.DefaultWorld.EntityManager.GetComponent<PlanetPropeties>(planetRoot);
-                properties.ColourTexture = Texture2d.GetIndexOfTexture(generator.ColourGenerator.colourTexture);
-                properties.SteepTexture = Texture2d.GetIndexOfTexture(generator.ColourGenerator.steepTexture);
+                properties.ColourTexture = generator.ColourGenerator.colourTexture.GUID;
+                properties.SteepTexture = generator.ColourGenerator.steepTexture.GUID;
                 properties.ElevationMinMax = new(generator.MinMax.Min, generator.MinMax.Max);
                 World.DefaultWorld.EntityManager.SetComponent(planetRoot, properties);
                 planetLitMaterial.SetUniform("planetProperties", properties.ShaderParmeters,0, planetCount);
