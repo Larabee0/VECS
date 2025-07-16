@@ -1,6 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+using System.Diagnostics;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using VECS.Compute;
@@ -34,9 +33,11 @@ namespace VECS.LowLevel
         {
             _depthPyramidWidth = PreviousPow2(windowExtent.width);
             _depthPyramidHeight = PreviousPow2(windowExtent.height);
-            _depthPyramidLevels = GetImageMipLevels(_depthPyramidWidth, _depthPyramidHeight);
+            _depthPyramidLevels = TextureExtensions.CalculateMipMapLevels(_depthPyramidWidth, _depthPyramidHeight);
             
-            _depthPyramidImage = new((int)_depthPyramidWidth, (int)_depthPyramidHeight, VkFormat.R32Sfloat, VkImageUsageFlags.Sampled | VkImageUsageFlags.Storage | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.TransferDst, _depthPyramidLevels);
+            _depthPyramidImage = new((int)_depthPyramidWidth, (int)_depthPyramidHeight, VkFormat.R32Sfloat, VkImageUsageFlags.Sampled | VkImageUsageFlags.Storage | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.TransferDst);
+
+            Debug.Assert(_depthPyramidLevels == _depthPyramidImage.MipMapCount, "Mipmap count mismatch!");
 
             for (uint i = 0; i < _depthPyramidLevels; i++)
             {
@@ -105,7 +106,7 @@ namespace VECS.LowLevel
                     .Build(&depthSet);
 
                 Vulkan.vkCmdBindDescriptorSets(frameInfo.CommandBuffer, VkPipelineBindPoint.Compute, _depthReducePipeline.ComputePipelineLayout, 0, depthSet);
-                
+
                 frameInfo.EntityDescriptorPool.AddSetToFree(depthSet);
 
                 uint levelWidth = (_depthPyramidWidth) >> i;
@@ -118,24 +119,16 @@ namespace VECS.LowLevel
                 Vulkan.vkCmdPushConstants(frameInfo.CommandBuffer, _depthReducePipeline.ComputePipelineLayout, VkShaderStageFlags.Compute, 0, (uint)sizeof(DepthReduceData), &reduceData);
                 Vulkan.vkCmdDispatch(frameInfo.CommandBuffer, GetGroupCount(levelWidth, 32), GetGroupCount(levelHeight, 32), 1);
 
-                VkImageMemoryBarrier reduceBarrier = new()
-                {
-                    image = _depthPyramidImage._vkImage,
-                    srcAccessMask = VkAccessFlags.ShaderWrite,
-                    dstAccessMask = VkAccessFlags.ShaderRead,
-                    oldLayout = VkImageLayout.General,
-                    newLayout = VkImageLayout.General,
-                    srcQueueFamilyIndex = Vulkan.VK_QUEUE_FAMILY_IGNORED,
-                    dstQueueFamilyIndex = Vulkan.VK_QUEUE_FAMILY_IGNORED,
-                    subresourceRange = new()
-                    {
-                        levelCount = Vulkan.VK_REMAINING_MIP_LEVELS,
-                        layerCount = Vulkan.VK_REMAINING_ARRAY_LAYERS,
-                        aspectMask = VkImageAspectFlags.Color
-                    }
-                };
-
-                Vulkan.vkCmdPipelineBarrier(frameInfo.CommandBuffer, VkPipelineStageFlags.ComputeShader, VkPipelineStageFlags.ComputeShader, VkDependencyFlags.ByRegion, 0, null, 0, null, 1, &reduceBarrier);
+                TextureExtensions.InsertImageMemoryBarrier(
+                    frameInfo.CommandBuffer,
+                    _depthPyramidImage._vkImage,
+                    VkAccessFlags.ShaderWrite,
+                    VkAccessFlags.ShaderRead,
+                    VkImageLayout.General,
+                    VkImageLayout.General,
+                    VkPipelineStageFlags.ComputeShader, VkPipelineStageFlags.ComputeShader,
+                    _depthPyramidImage.GetSubresourceRange()
+                );
             }
         }
 
@@ -165,20 +158,6 @@ namespace VECS.LowLevel
             }
 
             return r;
-        }
-
-        private static uint GetImageMipLevels(uint width, uint height)
-        {
-            uint result = 1;
-
-            while (width > 1 || height > 1)
-            {
-                result++;
-                width /= 2;
-                height /= 2;
-            }
-
-            return result;
         }
     }
 }

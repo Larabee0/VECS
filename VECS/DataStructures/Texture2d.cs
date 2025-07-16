@@ -1,6 +1,6 @@
 using System;
+using System.Diagnostics;
 using System.Numerics;
-using VECS.LowLevel;
 using Vortice.Vulkan;
 
 namespace VECS
@@ -15,7 +15,6 @@ namespace VECS
         public readonly static Texture2D Red;
         public readonly static Texture2D White;
 
-        protected GPUBuffer _hostBuffer;
 
         static Texture2D()
         {
@@ -28,14 +27,20 @@ namespace VECS
             copyFrom[1] = pink;
             copyFrom[4] = pink;
             copyFrom[5] = pink;
-            
+
             copyFrom[10] = pink;
             copyFrom[11] = pink;
             copyFrom[14] = pink;
             copyFrom[15] = pink;
-            
-            MissingTexture = new(4, 4);
+            Console.WriteLine("Begin");
+
+            //Vulkan.vkGetImageMemoryRequirements(GraphicsDevice.Instance.Device, TestSize._vkImage, out var memoryRequirements);
+            //Console.WriteLine("From Memory requirements | Size: {0} Alignment: {1}", memoryRequirements.size, memoryRequirements.alignment);
+            //Console.WriteLine("From Intner requirements | Size: {0}", TestSize.ImageExtent.width * TestSize.ImageExtent.height * Vulkan.BlockSize(TestSize.Format));
+
+            MissingTexture = new(4, 4, true);
             MissingTexture.CopyFromArray(copyFrom);
+            MissingTexture.CreateHostBuffer(true);
 
             Array.Fill(copyFrom, Colour.Clear);
             Zeroed = new(4, 4);
@@ -52,7 +57,7 @@ namespace VECS
             Array.Fill(copyFrom, new Vector4(0.5f, 0.5f, 1f, 1f).ToVkColor());
             Normal = new(4, 4);
             Normal.CopyFromArray(copyFrom);
-            
+
             Array.Fill(copyFrom, Colour.Red);
             Red = new(4, 4);
             Red.CopyFromArray(copyFrom);
@@ -60,34 +65,41 @@ namespace VECS
             Array.Fill(copyFrom, Colour.White);
             White = new(4, 4);
             White.CopyFromArray(copyFrom);
+            Console.WriteLine("End");
         }
-        
-        protected Texture2D(){}
 
-        public Texture2D(int width, int height)
+        protected Texture2D() { }
+
+        public Texture2D(int width, int height, bool generateMipMaps = true)
         {
             _imageExtent = new(width, height, 1);
             _imageImageViewType = VkImageViewType.Image2D;
- 
+
+            if (generateMipMaps)
+            {
+                _mipMapCount = TextureExtensions.CalculateMipMapLevels(width, height);
+            }
+
+
             this.CreateImage(GetImageCreateInfo());
             this.CreateImageView(GetImageViewCreateInfo());
-
-            if (_useageFlags.HasFlag(VkImageUsageFlags.Sampled))
-            {
-                this.CreateSampler(GetSamplerCreateInfo());
-            }
+            this.CreateSampler(GetSamplerCreateInfo());
 
             SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal);
             UpdateDescriptor();
         }
 
-        public Texture2D(int width, int height, VkFormat textureFormat, VkImageUsageFlags usage, uint mipMapCount = 1)
+        public Texture2D(int width, int height, VkFormat textureFormat, VkImageUsageFlags usage, bool generateMipMaps = true)
         {
             _imageExtent = new(width, height, 1);
             _imageImageViewType = VkImageViewType.Image2D;
             _imageFormat = textureFormat;
             _useageFlags = usage;
-            _mipMapCount = mipMapCount;
+
+            if (generateMipMaps)
+            {
+                _mipMapCount = TextureExtensions.CalculateMipMapLevels(width, height);
+            }
 
             this.CreateImage(GetImageCreateInfo());
 
@@ -104,11 +116,6 @@ namespace VECS
 
             this.CreateImageView(GetImageViewCreateInfo());
 
-            if (_mipMapCount > 1)
-            {
-                GenerateMipMaps();
-            }
-
             if (_useageFlags.HasFlag(VkImageUsageFlags.Sampled))
             {
                 this.CreateSampler(GetSamplerCreateInfo());
@@ -117,33 +124,32 @@ namespace VECS
             UpdateDescriptor();
         }
 
-        public Texture2D(string filePath)
+        public Texture2D(string filePath, bool generateMipMaps = true)
         {
             var surface = TextureLoader.LoadToSurface(filePath);
             _hostBuffer = TextureLoader.CopySurfaceToStagingBuffer(surface);
             _imageExtent = new(surface.Width, surface.Height, 1);
             _imageImageViewType = VkImageViewType.Image2D;
 
+            if (generateMipMaps)
+            {
+                _mipMapCount = TextureExtensions.CalculateMipMapLevels(_imageExtent.width, _imageExtent.height);
+            }
+
+
             this.CreateImage(GetImageCreateInfo());
             this.SetImageLayoutAndAspectFromUsage();
             this.CopyFromBuffer(_hostBuffer);
 
-            if (_mipMapCount > 1)
-            {
-                GenerateMipMaps();
-            }
-            
             this.CreateImageView(GetImageViewCreateInfo());
             this.CreateSampler(GetSamplerCreateInfo());
             SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal);
             UpdateDescriptor();
         }
 
-        public override void Dispose()
+        public unsafe override void RegenerateMipMaps(VkCommandBuffer cmd)
         {
-            GC.SuppressFinalize(this);
-            _hostBuffer?.Dispose();
-            base.Dispose();
+            this.GenerateMipMaps(cmd);
         }
     }
 }

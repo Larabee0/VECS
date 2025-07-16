@@ -561,7 +561,7 @@ namespace Planets
             textureWaveC = new Texture2D(TextureLoader.GetTextureInDefaultPath("Wave A.png"));
             textureWaveB = new Texture2D(TextureLoader.GetTextureInDefaultPath("Wave B.png"));
 
-            textureArrayTerrainShapes = new (
+            textureArrayTerrainShapes = new(true,
                 TextureLoader.GetTextureInDefaultPath("Rock1.png"),
                 TextureLoader.GetTextureInDefaultPath("Rock2.png"),
                 TextureLoader.GetTextureInDefaultPath("Rock3.png"),

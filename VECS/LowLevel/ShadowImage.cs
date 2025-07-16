@@ -22,10 +22,10 @@ namespace VECS.LowLevel
 
             CubeMap = new(
                 SHADOW_IMAGE_SIZE,
-                SHADOW_IMAGE_SIZE,
                 SHADOW_IMAGE_FORMAT,
                 VkSamplerAddressMode.ClampToBorder,
-                VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled | VkImageUsageFlags.ColorAttachment
+                VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled | VkImageUsageFlags.ColorAttachment,
+                false
             );
 
             CreateShadowRenderPass();
@@ -38,7 +38,8 @@ namespace VECS.LowLevel
                 SHADOW_IMAGE_SIZE,
                 SHADOW_IMAGE_SIZE,
                 _depthFormat,
-                VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.TransferSrc
+                VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.TransferSrc,
+                false
             );
 
             VkImageView* attachements = stackalloc VkImageView[2];

@@ -19,12 +19,12 @@ namespace Planets.Colour
             if (colourTexture == null || colourTexture.ImageExtent.height != settings.biomeColourSettings.biomes.Length)
             {
                 colourTexture?.Dispose();
-                colourTexture = new(textureResolution * 2, settings.biomeColourSettings.biomes.Length, VkFormat.R32G32B32A32Sfloat, VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferDst);
+                colourTexture = new(textureResolution * 2, settings.biomeColourSettings.biomes.Length, VkFormat.R32G32B32A32Sfloat, VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferDst,false);
             }
             if (steepTexture == null || steepTexture.ImageExtent.height != settings.biomeColourSettings.biomes.Length)
             {
                 steepTexture?.Dispose();
-                steepTexture = new(textureResolution * 2, settings.biomeColourSettings.biomes.Length,VkFormat.R32G32B32A32Sfloat, VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferDst);
+                steepTexture = new(textureResolution * 2, settings.biomeColourSettings.biomes.Length,VkFormat.R32G32B32A32Sfloat, VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferDst,false);
             }
         }
 

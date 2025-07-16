@@ -16,8 +16,8 @@ namespace VECS.LowLevel
 
             public unsafe FBTexture(VkFormat depthFormat, VkRenderPass renderPass)
             {
-                Colour = new(FRAME_BUFFER_DIMENTIONS,FRAME_BUFFER_DIMENTIONS,VkFormat.R32G32B32A32Sfloat, VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.Sampled);
-                DepthStencil = new(FRAME_BUFFER_DIMENTIONS,FRAME_BUFFER_DIMENTIONS,depthFormat,VkImageUsageFlags.DepthStencilAttachment);
+                Colour = new(FRAME_BUFFER_DIMENTIONS,FRAME_BUFFER_DIMENTIONS,VkFormat.R32G32B32A32Sfloat, VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.Sampled, false);
+                DepthStencil = new(FRAME_BUFFER_DIMENTIONS,FRAME_BUFFER_DIMENTIONS,depthFormat,VkImageUsageFlags.DepthStencilAttachment, false);
 
                 VkImageView* attachments = stackalloc VkImageView[2]
                 {

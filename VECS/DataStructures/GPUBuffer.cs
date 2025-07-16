@@ -31,6 +31,7 @@ namespace VECS
         public int InstanceCount32 => (int)UInstanceCount32;
         public ulong UInstanceCount => _instanceCount;
         public long InstanceCount => (long)_instanceCount;
+        public VkBufferUsageFlags UsageFlags => _usageFlags;
         public unsafe void* HostPtr
         {
             get => _hostPtr;
@@ -329,6 +330,9 @@ namespace VECS
             if (_CPUAccess)
             {
                 allocationInfo.flags = VmaAllocationCreateFlags.HostAccessSequentialWrite | VmaAllocationCreateFlags.Mapped;
+
+                _hostPtr = NativeMemory.Realloc(_hostPtr,(nuint)UInstanceCount * (nuint)_instanceSize);
+                
             }
             var result = Vma.vmaCreateBuffer(_device.VmaAllocator, bufferInfo, allocationInfo, out VkBuffer, out _allocation);
             if (result != VkResult.Success)

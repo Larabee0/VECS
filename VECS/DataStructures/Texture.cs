@@ -9,10 +9,11 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
-    public class Texture : IDisposable
+    public abstract class Texture : IDisposable
     {
         public static readonly ConcurrentDictionary<Guid, Texture> Textures = [];
         public static readonly HashSet<Guid> DisposedTextures = [];
+
         protected Guid _guid;
         protected int _anisoLevel;
         protected VkExtent3D _imageExtent;
@@ -23,7 +24,7 @@ namespace VECS
         protected float _mipMapBias;
         protected uint _mipMapCount = 1;
         protected uint _baseMipMapLevel = 0;
-        protected int _updateCount;
+        internal ulong _vkBufferSizeRequirement;
         protected VkSamplerAddressMode _wrapModeU = VkSamplerAddressMode.Repeat;
         protected VkSamplerAddressMode _wrapModeV = VkSamplerAddressMode.Repeat;
         protected VkSamplerAddressMode _wrapModeW = VkSamplerAddressMode.Repeat;
@@ -31,7 +32,7 @@ namespace VECS
         internal VkImageLayout _imageLayout = VkImageLayout.Undefined;
         protected VkImageViewType _imageImageViewType;
         protected VkImageTiling _imageTiling = VkImageTiling.Optimal;
-        internal VkImageUsageFlags _useageFlags = VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled;
+        internal VkImageUsageFlags _useageFlags = VkImageUsageFlags.TransferDst | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.Sampled;
         protected VkSampleCountFlags _sampleCountFlags = VkSampleCountFlags.Count1;
         internal VmaAllocation _allocation = VmaAllocation.Null;
         protected bool _disposed;
@@ -41,6 +42,8 @@ namespace VECS
         protected VkComponentMapping _swizzle = VkComponentMapping.Identity;
         internal VkImageAspectFlags _aspectFlags = VkImageAspectFlags.Color;
         internal VkImageView _imageView;
+
+        protected internal GPUBuffer _hostBuffer;
 
         // sampler
         protected VkBorderColor _borderColour = VkBorderColor.IntOpaqueBlack;
@@ -64,6 +67,8 @@ namespace VECS
             set => _maxMipLOD = value;
         }
 
+        public uint MipMapCount => _mipMapCount;
+
         public VkImageType ImageType => TextureExtensions.GetImageTypeFromViewType(_imageImageViewType);
 
         public VkImageLayout ImageLayout
@@ -80,9 +85,16 @@ namespace VECS
 
         public VkFormat Format => _imageFormat;
 
+        public int BufferInstanceSize => Vulkan.BlockSize(_imageFormat);
+        public ulong BufferInstanceCount => _vkBufferSizeRequirement / (uint)BufferInstanceSize;
+
         public VkDescriptorImageInfo ImageInfo => _imageInfo;
 
         public VkExtent3D ImageExtent => _imageExtent;
+
+        public int Height => (int)_imageExtent.height;
+        public int Width => (int)_imageExtent.width;
+        public int Depth => (int)_imageExtent.depth;
 
         protected Texture()
         {
@@ -158,101 +170,14 @@ namespace VECS
             };
         }
 
-        public virtual unsafe void GenerateMipMaps()
+        public void RegenerateMipMaps()
         {
             var cmd = GraphicsDevice.Instance.BeginSingleTimeCommands();
-
-            var subresourceRange = GetSubresourceRange();
-
-            for (uint i = 1; i < _mipMapCount; i++)
-            {
-                VkImageBlit imageBlit = new()
-                {
-                    srcSubresource = new()
-                    {
-                        aspectMask = subresourceRange.aspectMask,
-                        layerCount = subresourceRange.layerCount,
-                        mipLevel = i - 1,
-                    },
-                    dstSubresource = new()
-                    {
-                        aspectMask = subresourceRange.aspectMask,
-                        layerCount = subresourceRange.layerCount,
-                        mipLevel = i
-                    }
-                };
-
-                imageBlit.srcOffsets[1].x = (int)(_imageExtent.width >> (int)(i - 1));
-                imageBlit.srcOffsets[1].y = (int)(_imageExtent.height >> (int)(i - 1));
-                imageBlit.srcOffsets[1].z = 1;
-
-                imageBlit.dstOffsets[1].x = (int)(_imageExtent.width >> (int)i);
-                imageBlit.dstOffsets[1].y = (int)(_imageExtent.height >> (int)i);
-                imageBlit.dstOffsets[1].z = 1;
-
-                VkImageSubresourceRange mipSubRange = new(
-                    subresourceRange.aspectMask,
-                    i,
-                    1,
-                    subresourceRange.baseArrayLayer,
-                    subresourceRange.layerCount
-                );
-
-                TextureExtensions.InsertImageMemoryBarrier(
-                    cmd,
-                    _vkImage,
-                    0,
-                    VkAccessFlags.TransferWrite,
-                    _imageLayout,
-                    VkImageLayout.TransferSrcOptimal,
-                    VkPipelineStageFlags.Transfer,
-                    VkPipelineStageFlags.Transfer,
-                    mipSubRange
-                );
-
-                _imageLayout = VkImageLayout.TransferSrcOptimal;
-
-                Vulkan.vkCmdBlitImage(
-                    cmd,
-                    _vkImage,
-                    VkImageLayout.TransferSrcOptimal,
-                    _vkImage,
-                    VkImageLayout.TransferDstOptimal,
-                    1,
-                    &imageBlit,
-                    VkFilter.Linear
-                );
-
-                _imageLayout = VkImageLayout.TransferDstOptimal;
-
-                TextureExtensions.InsertImageMemoryBarrier(
-                    cmd,
-                    _vkImage,
-                    VkAccessFlags.TransferWrite,
-                    VkAccessFlags.TransferRead,
-                    _imageLayout,
-                    VkImageLayout.TransferSrcOptimal,
-                    VkPipelineStageFlags.Transfer,
-                    VkPipelineStageFlags.Transfer,
-                    mipSubRange
-                );
-                _imageLayout = VkImageLayout.TransferSrcOptimal;
-            }
-
-            TextureExtensions.InsertImageMemoryBarrier(
-                cmd,
-                _vkImage,
-                VkAccessFlags.TransferRead,
-                VkAccessFlags.ShaderRead,
-                VkImageLayout.TransferSrcOptimal,
-                VkImageLayout.ShaderReadOnlyOptimal,
-                VkPipelineStageFlags.Transfer,
-                VkPipelineStageFlags.FragmentShader,
-                subresourceRange
-            );
-
+            RegenerateMipMaps(cmd);
             GraphicsDevice.Instance.EndSingleTimeCommands(cmd);
         }
+
+        public abstract void RegenerateMipMaps(VkCommandBuffer cmd);
 
         public void SetImageLayout(VkImageLayout newImageLayout, VkPipelineStageFlags srcStage = VkPipelineStageFlags.AllCommands, VkPipelineStageFlags dstStage = VkPipelineStageFlags.AllCommands)
         {
@@ -261,11 +186,47 @@ namespace VECS
             GraphicsDevice.Instance.EndSingleTimeCommands(cmd);
         }
 
-        public virtual void SetImageLayout(VkCommandBuffer cmdbuffer, VkImageLayout newImageLayout, VkPipelineStageFlags srcStage = VkPipelineStageFlags.AllCommands, VkPipelineStageFlags dstStage = VkPipelineStageFlags.AllCommands)
+        public void SetImageLayout(VkCommandBuffer cmdbuffer, VkImageLayout newImageLayout, VkPipelineStageFlags srcStage = VkPipelineStageFlags.AllCommands, VkPipelineStageFlags dstStage = VkPipelineStageFlags.AllCommands)
         {
-            TextureExtensions.SetImageLayout(cmdbuffer, _vkImage, _imageLayout, newImageLayout, GetSubresourceRange(), srcStage, dstStage);
+            SetImageLayout(cmdbuffer, newImageLayout, GetSubresourceRange(), srcStage, dstStage);
+        }
+
+        public virtual void SetImageLayout(VkCommandBuffer cmdbuffer, VkImageLayout newImageLayout, VkImageSubresourceRange resourceRange, VkPipelineStageFlags srcStage = VkPipelineStageFlags.AllCommands, VkPipelineStageFlags dstStage = VkPipelineStageFlags.AllCommands)
+        {
+            TextureExtensions.SetImageLayout(cmdbuffer, _vkImage, _imageLayout, newImageLayout, resourceRange, srcStage, dstStage);
             _imageLayout = newImageLayout;
             UpdateDescriptor();
+        }
+
+        public virtual void Apply()
+        {
+            if (_hostBuffer != null)
+            {
+                this.CopyFromBuffer(_hostBuffer);
+            }
+        }
+
+        public virtual int MipStartOffset(int mipLevel)
+        {
+            if (mipLevel == 0) return 0;
+            var length = GetMipLength(mipLevel);
+            return length * BufferInstanceSize;
+        }
+
+        public virtual int GetMipLength(int mipLevel)
+        {
+            var resolution = GetMipResolution(mipLevel);
+            return (int)resolution.width * (int)resolution.height;
+        }
+
+        public virtual VkExtent3D GetMipResolution(int mipLevel)
+        {
+            if (mipLevel == 0) return _imageExtent;
+            return new VkExtent3D(
+                (int)(_imageExtent.width >> (int)mipLevel),
+                (int)(_imageExtent.height >> (int)mipLevel),
+                1
+            );
         }
 
         public virtual unsafe void Dispose()
@@ -276,6 +237,8 @@ namespace VECS
             {
                 return;
             }
+
+            _hostBuffer?.Dispose();
 
             Textures.Remove(_guid, out _);
 
