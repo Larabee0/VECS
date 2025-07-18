@@ -24,21 +24,25 @@ struct ObjectMatrices{
 	mat4 normalMatrix;
 };
 
-layout(std140, set = 1, binding = 0) readonly buffer ObjectMatricesBuffer{
+layout (set =1, binding = 0) uniform CubeConstants
+{
+	mat4 cubeProj;
+	mat4 cubeModel;
+} cubeConstant;
+
+layout(std140, set = 1, binding = 1) readonly buffer ObjectMatricesBuffer{
 	ObjectMatrices matrices[];
 }matricesBuffer;
 
 layout(push_constant) uniform CubeView 
 {
-	mat4 proj;
-	mat4 view;
-	mat4 model;
+	mat4 viewCube;
 } cube;
  
 void main()
 {
 	ObjectMatrices objectMat = matricesBuffer.matrices[gl_BaseInstance];
-	gl_Position = cube.proj * cube.view * cube.model * objectMat.modelMatrix * vec4(inPos, 1.0);
+	gl_Position = cubeConstant.cubeProj * cube.viewCube * cubeConstant.cubeModel * objectMat.modelMatrix * vec4(inPos, 1.0);
 
 	outPos = (objectMat.modelMatrix * vec4(inPos, 1.0)).xyz;
 	//outPos = inPos;
