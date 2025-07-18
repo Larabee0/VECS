@@ -1,10 +1,13 @@
-﻿using System;
+﻿#define NO_SUBMISSION_THREAD 
+using System;
 using System.Collections.Concurrent;
 using System.Threading;
 using Vortice.Vulkan;
 
+
 namespace VECS.LowLevel
 {
+
     public sealed partial class SwapChain
     {
         private struct SubmissionQueueElement
@@ -23,7 +26,9 @@ namespace VECS.LowLevel
 
         private readonly ConcurrentQueue<SubmissionQueueElement> _submissionQueue = [];
         private readonly Mutex _submissionMutex = new();
+        #if !NO_SUBMISSION_THREAD
         private Thread _submissionThread;
+        #endif
         private uint _nextFrameIndex;
         private VkResult _submittedFrameResult;
         private VkResult _nextFrameResult;
@@ -88,39 +93,52 @@ namespace VECS.LowLevel
             return Vulkan.vkQueuePresentKHR(GraphicsDevice.GraphicsQueue, &presentInfo);
         }
 
-        private void SubmitQueue()
+        private void SubmitQueueLoop()
         {
             while (true)
             {
-                if (!_submissionQueue.TryDequeue(out var info)) continue;
-
-                if (info.End)
+                if (SubmitOnce())
                 {
-                    _submittedFrameResult = VkResult.ThreadDoneKHR;
                     return;
                 }
-                _submissionMutex.WaitOne();
-                int submitFrame = _currentFrame;
-                _currentFrame = (_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
-                _nextFrameResult = AcquireNextImage(out _nextFrameIndex);
-                _submissionMutex.ReleaseMutex();
-                _submittedFrameResult = SubmitCommandBuffers(info.CommandBuffer, info.ImageIndex, submitFrame);
             }
+        }
+
+        private bool SubmitOnce()
+        {
+            if (!_submissionQueue.TryDequeue(out var info)) return false;
+
+            if (info.End)
+            {
+                _submittedFrameResult = VkResult.ThreadDoneKHR;
+                return true;
+            }
+            _submissionMutex.WaitOne();
+            int submitFrame = _currentFrame;
+            _currentFrame = (_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+            _nextFrameResult = AcquireNextImage(out _nextFrameIndex);
+            _submissionMutex.ReleaseMutex();
+            _submittedFrameResult = SubmitCommandBuffers(info.CommandBuffer, info.ImageIndex, submitFrame);
+            return false;
         }
 
         private void StartSubmissionThread()
         {
             // acquire first frame
             _nextFrameResult = AcquireNextImage(out _nextFrameIndex);
-            _submissionThread = new(new ThreadStart(SubmitQueue))
+            #if !NO_SUBMISSION_THREAD
+            _submissionThread = new(new ThreadStart(SubmitQueueLoop))
             {
+                Name = "Submission Thead",
                 IsBackground = true
             };
             _submissionThread.Start();
+            #endif
         }
 
         internal void EndSubmissionThread()
         {
+            #if !NO_SUBMISSION_THREAD
             _submissionMutex.WaitOne();
             while (_submittedFrameResult != VkResult.ThreadDoneKHR)
             {
@@ -129,21 +147,33 @@ namespace VECS.LowLevel
                 _submissionMutex.WaitOne();
             }
             _submissionMutex.ReleaseMutex();
+            #endif
             Vulkan.vkDeviceWaitIdle(Device);
         }
 
         internal void EnqueueCommandBuffer(VkCommandBuffer commandBuffer, uint imageIndex)
         {
+#if NO_SUBMISSION_THREAD
+            
             _submissionQueue.Enqueue(new(commandBuffer, imageIndex, false));
+#else
+
+            _submissionQueue.Enqueue(new(commandBuffer, imageIndex, false));
+#endif
         }
 
         internal void WaitForSubmission(uint currentImageIndex)
         {
+#if NO_SUBMISSION_THREAD
+            SubmitOnce();
+#else
+
             while (currentImageIndex == NextFrameIndex)
             {
                 _submissionMutex.WaitOne();
                 _submissionMutex.ReleaseMutex();
             }
+#endif
         }
     }
 }
