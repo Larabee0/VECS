@@ -83,7 +83,12 @@ namespace VECS
         /// <param name="vertexBuffer"></param>
         private unsafe void PrepareNormalRecalculate(GPUBuffer<uint> indexBuffer, GPUBuffer<uint> indexOffsetBuffer, GPUBuffer<Vector3> vertexBuffer, GPUBuffer<Vector3> normalBuffer)
         {
-            _calcuateNormals.Prepare(indexBuffer.UInstanceCount32, indexBuffer.UInstanceCount32, indexBuffer.UInstanceCount32, 1);
+
+            uint divider = (uint)(int)MathF.Ceiling((float)indexBuffer.UInstanceCount32 / (float)GraphicsDevice.Instance.MaxWorkGroupX);
+            uint workGroupX = (uint)Math.Min(indexBuffer.UInstanceCount32, GraphicsDevice.Instance.MaxWorkGroupX);
+
+
+            _calcuateNormals.Prepare(indexBuffer.UInstanceCount32, workGroupX, divider, 1);
 
             fixed (VkDescriptorSet* pSet = &_calcuateNormals.DescriptorSet)
             {
@@ -103,7 +108,10 @@ namespace VECS
         /// <param name="vertexBuffer"></param>
         private unsafe void PrepareNormalNormalize(GPUBuffer<Vector3> normalBuffer)
         {
-            _normalizeNormals.Prepare(normalBuffer.UInstanceCount32, normalBuffer.UInstanceCount32, normalBuffer.UInstanceCount32, 1);
+            uint divider = (uint)(int)MathF.Ceiling((float)normalBuffer.UInstanceCount32 / (float)GraphicsDevice.Instance.MaxWorkGroupX);
+            uint workGroupX = (uint)Math.Min(normalBuffer.UInstanceCount32, GraphicsDevice.Instance.MaxWorkGroupX);
+
+            _normalizeNormals.Prepare(normalBuffer.UInstanceCount32, workGroupX, divider, 1);
 
             fixed (VkDescriptorSet* pSet = &_normalizeNormals.DescriptorSet)
             {
@@ -128,8 +136,11 @@ namespace VECS
 
             // clear normal buffer
             normalBuffer.FillBuffer(commandBuffer, 0);
+            
+            uint divider = (uint)(int)MathF.Ceiling((float)mesh.IndexBufferLength / (float)GraphicsDevice.Instance.MaxWorkGroupX);
+            uint workGroupX = (uint)Math.Min(mesh.IndexBufferLength, GraphicsDevice.Instance.MaxWorkGroupX);
 
-            _calcuateNormals.Dispatch(commandBuffer, (uint)mesh.IndexBufferLength / 3, 1, 1);
+            _calcuateNormals.Dispatch(commandBuffer, workGroupX / 3, divider / 3, 1);
 
 
             VkMemoryBarrier2 memoryBarrier = new()
@@ -147,8 +158,12 @@ namespace VECS
             };
             
             Vulkan.vkCmdPipelineBarrier2(commandBuffer, &dependencyInfo);
+
+
+            divider = (uint)(int)MathF.Ceiling((float)normalBuffer.UInstanceCount32 / (float)GraphicsDevice.Instance.MaxWorkGroupX);
+            workGroupX = (uint)Math.Min(normalBuffer.UInstanceCount32, GraphicsDevice.Instance.MaxWorkGroupX);
             
-            _normalizeNormals.Dispatch(commandBuffer, normalBuffer.UInstanceCount32, 1, 1);
+            _normalizeNormals.Dispatch(commandBuffer, workGroupX, divider, 1);
         }
 
         public unsafe void DispatchSingleTimeCmd(DirectMesh mesh)

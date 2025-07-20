@@ -73,6 +73,7 @@ namespace VECS.LowLevel
 
         public ulong MinUniformBufferOffsetAlignment => Properties.limits.minUniformBufferOffsetAlignment;
         public ulong MinStorageBufferOffsetAlignment => Properties.limits.minStorageBufferOffsetAlignment;
+        public unsafe ulong MaxWorkGroupX => Properties.limits.maxComputeWorkGroupSize[0];
 
         public GraphicsDevice(IWindow window)
         {

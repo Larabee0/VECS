@@ -2,7 +2,6 @@
 using System.Numerics;
 using VECS.ECS;
 using VECS.ECS.Presentation;
-using VECS.ECS.Presentation;
 using VECS.ECS.Transforms;
 
 namespace VECS.ECS.Physics

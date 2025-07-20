@@ -121,9 +121,13 @@ namespace Planets.Generator
         /// This done before the dispatch command is run for each tile of the planet.
         /// </summary>
         /// <param name="vertexBuffer"></param>
-        private unsafe void Prepare(DirectMesh mesh)
+        private unsafe Vector2UInt Prepare(DirectMesh mesh)
         {
-            _terrainGenerator.Prepare((uint)mesh.VertexBufferLength, (uint)mesh.VertexBufferLength, 1);
+            uint divider = (uint)(int)MathF.Ceiling((float)mesh.VertexBufferLength / (float)GraphicsDevice.Instance.MaxWorkGroupX);
+            uint workGroupX = (uint)Math.Min(mesh.VertexBufferLength, GraphicsDevice.Instance.MaxWorkGroupX);
+
+
+            _terrainGenerator.Prepare((uint)mesh.VertexBufferLength, divider, 2);
 
             fixed (VkDescriptorSet* pSet = &_terrainGenerator.DescriptorSet)
             {
@@ -137,6 +141,8 @@ namespace Planets.Generator
                     .WriteBuffer(6, _elevationMinMax.DescriptorInfo())
                     .Build(pSet);
             }
+
+            return new(workGroupX, divider);
         }
 
         /// <summary>
@@ -146,8 +152,8 @@ namespace Planets.Generator
         /// <param name="mesh"></param>
         public void Dispatch(VkCommandBuffer commandBuffer, DirectMesh mesh)
         {
-            Prepare(mesh);
-            _terrainGenerator.Dispatch(commandBuffer, (uint)mesh.VertexBufferLength, 1, 1);
+            Vector2UInt workGroups = Prepare(mesh);
+            _terrainGenerator.Dispatch(commandBuffer, workGroups.X, workGroups.Y, 1);
         }
 
         /// <summary>
