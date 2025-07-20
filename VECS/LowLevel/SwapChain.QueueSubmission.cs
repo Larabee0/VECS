@@ -1,6 +1,7 @@
 ﻿#define NO_SUBMISSION_THREAD 
 using System;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Threading;
 using Vortice.Vulkan;
 
@@ -52,7 +53,7 @@ namespace VECS.LowLevel
 
         private unsafe VkResult SubmitCommandBuffers(VkCommandBuffer commandBuffer, uint imageIndex, int currentFrame)
         {
-
+            Debug.Assert(imageIndex < MAX_FRAMES_IN_FLIGHT, string.Format("Image Index {0} is out of range, Max Images: {1}", imageIndex, MAX_FRAMES_IN_FLIGHT));
             if (_imagesInFlight[imageIndex] != VkFence.Null)
             {
                 VkFence fence = _imagesInFlight[imageIndex];

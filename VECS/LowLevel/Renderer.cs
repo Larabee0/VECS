@@ -73,7 +73,7 @@ namespace VECS.LowLevel
 
         private void RecreateSwapChain()
         {
-            currentImageIndex = SwapChain.MAX_FRAMES_IN_FLIGHT + 1;
+            currentImageIndex = SwapChain.MAX_FRAMES_IN_FLIGHT_UINT + 1;
             var extent = _window.WindowExtend;
             while (extent.width == 0 || extent.height == 0)
             {

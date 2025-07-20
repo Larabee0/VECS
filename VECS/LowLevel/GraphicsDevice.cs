@@ -73,7 +73,7 @@ namespace VECS.LowLevel
 
         public ulong MinUniformBufferOffsetAlignment => Properties.limits.minUniformBufferOffsetAlignment;
         public ulong MinStorageBufferOffsetAlignment => Properties.limits.minStorageBufferOffsetAlignment;
-        public unsafe ulong MaxWorkGroupX => Properties.limits.maxComputeWorkGroupSize[0];
+        public unsafe ulong MaxWorkGroupX => Properties.limits.maxComputeWorkGroupCount[0];
 
         public GraphicsDevice(IWindow window)
         {
@@ -291,12 +291,22 @@ namespace VECS.LowLevel
             }
 
             Vulkan.vkGetPhysicalDeviceProperties(_physicalDevice, out Properties);
+            var swapChainCaps = SwapChainSupport.capabilities;
+            if (swapChainCaps.maxImageCount > 0)
+            {
+                Debug.Assert(swapChainCaps.maxImageCount >= swapChainCaps.minImageCount, string.Format("Max Swapchain image count ({0}) is less than min image count ({1}). Cannot compute valid swapchain image count.", swapChainCaps.maxImageCount, swapChainCaps.minImageCount));
+
+                SwapChain.MAX_FRAMES_IN_FLIGHT = Math.Max(3,(int)swapChainCaps.minImageCount);
+            }
+
+            SwapChain.MAX_FRAMES_IN_FLIGHT = Math.Max(3, (int)swapChainCaps.minImageCount);
 
             fixed (byte* devName = Properties.deviceName)
             {
                 var str = new VkUtf8String(devName);
                 Console.WriteLine(string.Format("Physical device: {0}", str));
             }
+            Console.WriteLine("Selected swapchain frame count: {0}", SwapChain.MAX_FRAMES_IN_FLIGHT);
         }
 
         /// <summary>

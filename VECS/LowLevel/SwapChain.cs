@@ -7,7 +7,8 @@ namespace VECS.LowLevel
 {
     public sealed partial class SwapChain : IDisposable
     {
-        public const int MAX_FRAMES_IN_FLIGHT = 3;
+        public static int MAX_FRAMES_IN_FLIGHT { get; internal set; }
+        public static uint MAX_FRAMES_IN_FLIGHT_UINT => (uint)MAX_FRAMES_IN_FLIGHT;
         internal static SwapChain Instance { get; private set; }
 
         private int _currentFrame = 0;
@@ -115,18 +116,10 @@ namespace VECS.LowLevel
             VkPresentModeKHR presentMode = ChooseSwapPresentMode(swapChainSupport.presentModes);
             VkExtent2D extent = ChooseSwapExtent(swapChainSupport.capabilities);
 
-            uint imageCount = swapChainSupport.capabilities.minImageCount + 1;
-
-            if (swapChainSupport.capabilities.maxImageCount > 0
-                && imageCount > swapChainSupport.capabilities.maxImageCount)
-            {
-                imageCount = swapChainSupport.capabilities.maxImageCount;
-            }
-
             VkSwapchainCreateInfoKHR createInfo = new()
             {
                 surface = GraphicsDevice.Surface,
-                minImageCount = imageCount,
+                minImageCount = MAX_FRAMES_IN_FLIGHT_UINT,
                 imageFormat = surfaceFormat.format,
                 imageColorSpace = surfaceFormat.colorSpace,
                 imageExtent = extent,
