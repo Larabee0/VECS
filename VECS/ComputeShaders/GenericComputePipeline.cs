@@ -176,6 +176,7 @@ namespace VECS.Compute
         public unsafe void Dispose()
         {
             _descriptorSetHandler.Dispose();
+            Vulkan.vkDestroyDescriptorSetLayout(_device.Device, _vkDescriptorSetLayout);
             Vulkan.vkDestroyPipeline(_device.Device, _computePipeline);
             Vulkan.vkDestroyPipelineCache(_device.Device, _pipelineCache);
             Vulkan.vkDestroyPipelineLayout(_device.Device, _pipelineLayout);
