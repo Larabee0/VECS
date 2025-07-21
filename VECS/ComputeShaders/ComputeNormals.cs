@@ -83,16 +83,25 @@ namespace VECS
         /// <param name="vertexBuffer"></param>
         private unsafe void PrepareNormalRecalculate(GPUBuffer<uint> indexBuffer, GPUBuffer<uint> indexOffsetBuffer, GPUBuffer<Vector3> vertexBuffer, GPUBuffer<Vector3> normalBuffer)
         {
-
-            uint divider = (uint)(int)MathF.Ceiling((float)indexBuffer.UInstanceCount32 / (float)GraphicsDevice.Instance.MaxWorkGroupX);
-            uint workGroupX = (uint)Math.Min(indexBuffer.UInstanceCount32, GraphicsDevice.Instance.MaxWorkGroupX);
+            uint componsatedBufferLength = (uint)(int)MathF.Ceiling((float)indexBuffer.UInstanceCount32 / 3f);
+            uint divider = (uint)(int)MathF.Ceiling((float)componsatedBufferLength / (float)GraphicsDevice.Instance.MaxWorkGroupX);
+            uint workGroupX = (uint)Math.Min(componsatedBufferLength, GraphicsDevice.Instance.MaxWorkGroupX);
 
             if (divider == 1)
             {
-                _calcuateNormals.Prepare(indexBuffer.UInstanceCount32, indexBuffer.UInstanceCount32, 1, 1);
+                _calcuateNormals.Prepare(indexBuffer.UInstanceCount32, componsatedBufferLength, 1, 1);
             }
             else
             {
+                if (divider % 3 != 0)
+                {
+                    divider += 3 - divider % 3;
+                }
+                if (workGroupX % 3 != 0)
+                {
+                    workGroupX += 3 - workGroupX % 3;
+                }
+
                 _calcuateNormals.Prepare(indexBuffer.UInstanceCount32, workGroupX, divider, 1);
             }
 
@@ -152,18 +161,26 @@ namespace VECS
             // clear normal buffer
             normalBuffer.FillBuffer(commandBuffer, 0);
 
-            uint divider = (uint)(int)MathF.Ceiling((float)mesh.IndexBufferLength / (float)GraphicsDevice.Instance.MaxWorkGroupX);
-            uint workGroupX = (uint)Math.Min(mesh.IndexBufferLength, GraphicsDevice.Instance.MaxWorkGroupX);
-
-
+            uint componsatedBufferLength = (uint)(int)MathF.Ceiling((float)mesh.IndexBufferLength / 3f);
+            uint divider = (uint)(int)MathF.Ceiling((float)componsatedBufferLength / (float)GraphicsDevice.Instance.MaxWorkGroupX);
+            uint workGroupX = (uint)Math.Min(componsatedBufferLength, GraphicsDevice.Instance.MaxWorkGroupX);
 
             if (divider == 1)
             {
-                _calcuateNormals.Dispatch(commandBuffer, (uint)mesh.IndexBufferLength / 3, 1, 1);
+                _calcuateNormals.Dispatch(commandBuffer, componsatedBufferLength, 1, 1);
             }
             else
             {
-                _calcuateNormals.Dispatch(commandBuffer, workGroupX / 3, divider / 3, 1);
+                if (divider % 3 != 0)
+                {
+                    divider += 3 - divider % 3;
+                }
+                if (workGroupX % 3 != 0)
+                {
+                    workGroupX += 3 - workGroupX % 3;
+                }
+
+                _calcuateNormals.Dispatch(commandBuffer, workGroupX, divider, 1);
             }
 
 

@@ -132,7 +132,7 @@ namespace Planets.Generator
             }
             else
             {
-                _terrainGenerator.Prepare((uint)mesh.VertexBufferLength, divider, 1);
+                _terrainGenerator.Prepare((uint)mesh.VertexBufferLength, workGroupX, divider);
             }
 
 
