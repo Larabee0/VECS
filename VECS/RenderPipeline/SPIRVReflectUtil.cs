@@ -1,9 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO.Enumeration;
 using System.Runtime.InteropServices;
-using System.Text;
-using VECS.GraphicsPipelines;
 using Vortice.SPIRV;
 using Vortice.SPIRV.Reflect;
 using Vortice.Vulkan;
@@ -251,8 +248,8 @@ namespace VECS
                 //     break;
                 case SpvReflectDescriptorType.CombinedImageSampler:
                     return [GetBlockImage(binding, binding.image)];
-                // case SpvReflectDescriptorType.SampledImage:
-                //     break;
+                case SpvReflectDescriptorType.StorageImage:
+                    return [GetBlockImage(binding, binding.image)];
                 case SpvReflectDescriptorType.UniformBuffer:
                     return [.. GetBlockMembers(binding.block)];
                 case SpvReflectDescriptorType.StorageBuffer:
@@ -351,6 +348,10 @@ namespace VECS
             if(traits.sampled == 1)
             {
                 return new(bindings.Name, SpvOp.SampledImage, 0, traits);
+            }
+            if (traits.sampled == 2)
+            {
+                return new(bindings.Name, SpvOp.TypeImage, 0, traits);
             }
 
             throw new NotImplementedException(string.Format("Image type not implemented for sampled = {0}", traits.sampled.ToString()));

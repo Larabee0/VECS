@@ -11,8 +11,20 @@ namespace VECS
     {
         public void SetInt(string property, int value)
         {
-            WriteToBuffer(property, value);
+            if (LookUpProperty(property, out uint bindingIndex, out DescriptorPropertyInfo propertyInfo) && propertyInfo.Signed && propertyInfo.Type == Vortice.SPIRV.SpvOp.TypeInt)
+            {
+                WriteToBuffer(bindingIndex, propertyInfo, value);
+            }
         }
+        
+        public void SetUInt(string property, uint value)
+        {
+            if (LookUpProperty(property, out uint bindingIndex, out DescriptorPropertyInfo propertyInfo) && !propertyInfo.Signed && propertyInfo.Type == Vortice.SPIRV.SpvOp.TypeInt)
+            {
+                WriteToBuffer(bindingIndex, propertyInfo, value);
+            }
+        }
+
 
         public void SetFloat(string property, float value)
         {
@@ -146,6 +158,26 @@ namespace VECS
         {
             var buffer = GetStorageSwapChainBuffer(bindingIndex,propertyInfo);
             buffer?.SetUsedInstanceCount(instanceSize);
+        }
+
+        public void SetStorageBuffer(string property, GPUBuffer buffer)
+        {
+            if (_descriptorLevel != DescriptorLevel.Compute)
+            {
+                throw new InvalidOperationException("Cannot override GPU buffers for graphics pipeline descriptor sets!");
+            }
+            var bindingIndex = GetStorageBufferBindingIndex(property);
+            if (bindingIndex != uint.MaxValue)
+            {
+                if (!_computeBuffers.TryAdd(bindingIndex, buffer))
+                {
+                    _computeBuffers[bindingIndex] = buffer;
+                }
+            }
+            else
+            {
+                throw new ArgumentException(string.Format("Failed to find buffer {0}", property));
+            }
         }
 
         public void SetTexture(uint bindingIndex, DescriptorPropertyInfo propertyInfo, Texture2D texture)

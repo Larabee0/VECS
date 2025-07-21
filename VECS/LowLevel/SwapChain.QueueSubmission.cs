@@ -1,4 +1,4 @@
-﻿#define NO_SUBMISSION_THREAD 
+﻿//#define NO_SUBMISSION_THREAD 
 using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;

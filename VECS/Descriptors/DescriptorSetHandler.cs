@@ -21,6 +21,7 @@ namespace VECS
         private readonly uint[] _bufferOffsets;
         private readonly int[] _imageBindings;
         private readonly SwapChainBuffer[] _bindingBuffers;
+        private readonly Dictionary<uint, GPUBuffer> _computeBuffers;
         private readonly Dictionary<uint, int> _bindingBufferMap;
         private readonly Dictionary<uint, (int, Texture)> _bindingImages; // need to do this for buffers so buffers can be at any binding, add index _bufferInfos to _bindingBufferMap 
         private readonly VkWriteDescriptorSet[] _vkDescriptorWrites;
@@ -95,6 +96,11 @@ namespace VECS
             _vkDescriptorSetLayout = setLayout;
             _descriptorLevel = level;
 
+            if (level == DescriptorLevel.Compute)
+            {
+                _computeBuffers = [];
+            }
+
             _descriptorBindings = new DescriptorBinding[bindings.Length];
             _bindingMap = new Dictionary<string, int>(bindings.Length);
 
@@ -147,12 +153,20 @@ namespace VECS
                 else if (binding.Buffer)
                 {
                     _bindingBufferMap.Add(binding.Binding, b);
-                    _bindingBuffers[b] = new(binding.BufferSize, DEFAULT_STORAGE_BUFFER_COUNT, binding.BufferUsageFlags, true);
+                    if (_descriptorLevel != DescriptorLevel.Compute)
+                    {
+                        _bindingBuffers[b] = new(binding.BufferSize, DEFAULT_STORAGE_BUFFER_COUNT, binding.BufferUsageFlags, true);
+                    }
+                    else
+                    {
+                        _bindingBuffers[b] = null;
+                    }
+                    
                     b++;
                 }
             }
 #if DEBUG
-            Debug.Assert(_bindingBufferMap.Count == _bufferCount, string.Format("Expected swapchain buffer allocations {0} does not much descriptor buffer count {1}", _bindingBufferMap.Count, _bufferCount));
+            Debug.Assert(_bindingBufferMap.Count == _bufferCount || _descriptorLevel == DescriptorLevel.Compute, string.Format("Expected swapchain buffer allocations {0} does not much descriptor buffer count {1}", _bindingBufferMap.Count, _bufferCount));
 #endif
         }
 
@@ -286,11 +300,12 @@ namespace VECS
 
         public void Update(RendererFrameInfo frameInfo)
         {
+            if (_descriptorLevel == DescriptorLevel.Compute) return;
             var pool = frameInfo.GetDescriptorPool(_descriptorLevel);
             Update(frameInfo.FrameIndex, pool);
         }
 
-        internal void Update(int frameIndex, DescriptorPool pool)
+        public void Update(int frameIndex, DescriptorPool pool)
         {
             if (!_setsAllocated[frameIndex])
             {
@@ -315,7 +330,7 @@ namespace VECS
 
         private void UpdateStorageBufferUsage()
         {
-            if (_child) return;
+            if (_child || _descriptorLevel != DescriptorLevel.Compute) return;
             var currentRegion = _sumStorageBufferLength;
             _sumStorageBufferLength = _storageBufferLength;
 
@@ -344,7 +359,7 @@ namespace VECS
 
                 for (int i = 0; i < _bindingBuffers.Length; i++)
                 {
-                    _bindingBuffers[i].WriteFromHostToActiveBuffer(frameIndex);
+                    _bindingBuffers[i]?.WriteFromHostToActiveBuffer(frameIndex);
                 }
             }
         }
@@ -375,9 +390,22 @@ namespace VECS
                 var binding = _descriptorBindings[_bufferBindings[i]];
                 var bufferIndex = _bindingBufferMap[binding.Binding];
                 var buffer = _bindingBuffers[bufferIndex];
-                _bufferInfos[i] = binding.StorageBuffer
-                    ? buffer.ActiveDescriptorInfo(_storageBufferStartIndex, _storageBufferLength)
-                    : buffer.ActiveDescriptorInfo(_uniformBufferIndex, 1);
+                if (binding.StorageBuffer)
+                {
+                    if (_descriptorLevel == DescriptorLevel.Compute)
+                    {
+                        Debug.Assert(_computeBuffers.ContainsKey(binding.Binding), string.Format("Unassigned GPU buffer for compute descriptor set! Index={0} Name={1}", binding.Binding, binding.Name));
+                        _bufferInfos[i] = _computeBuffers[binding.Binding].DescriptorInfo();
+                    }
+                    else
+                    {
+                        _bufferInfos[i] = buffer.ActiveDescriptorInfo(_storageBufferStartIndex, _storageBufferLength);
+                    }
+                }
+                else
+                {
+                    _bufferInfos[i] = buffer.ActiveDescriptorInfo(_uniformBufferIndex, 1);
+                }
             }
         }
 
@@ -519,6 +547,7 @@ namespace VECS
     {
         Game,
         Material,
-        Entity
+        Entity,
+        Compute
     }
 }

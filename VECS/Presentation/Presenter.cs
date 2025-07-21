@@ -32,6 +32,7 @@ namespace VECS
 
         public static Presenter Instance { get; private set; }
 
+        private bool FrameZero = true;
         private readonly Renderer _renderer;
         private readonly Bloom _bloom;
 
@@ -62,7 +63,15 @@ namespace VECS
         public VkRenderPass ForwardRenderPass => _renderer.ForwardRenderPass;
         public VkDescriptorSetLayout GlobalSetLayout => _globalDescriptorSetHandler.VkDescriptorSetLayout;
         internal DescriptorSetHandler GlobalSetHandler => _globalDescriptorSetHandler;
-        public int FrameIndex => _renderer.FrameIndex;
+        public int FrameIndex
+        {
+            get
+            {
+                return FrameZero ? 0 : _renderer.FrameIndex;
+            }
+        }
+
+        public DescriptorPool MaterialDescriptorSetPool => _materialFrameDescriptorPools[FrameIndex];
 
         public Presenter(IWindow window)
         {
@@ -254,8 +263,9 @@ namespace VECS
 
         public void Present(float deltaTime)
         {
+            FrameZero = false;
             UpdateEntityFrameInfo(World.DefaultWorld.EntityManager);
-
+            
             VkCommandBuffer commandBuffer = _renderer.BeginFrame();
             if (commandBuffer != VkCommandBuffer.Null)
             {

@@ -11,20 +11,15 @@ layout(set = 0, binding = 0) uniform ComputeShaderParameters{
 } params;
 
 
-// vertex buffer to operate on (direct mesh buffer) Read/Write here.
-// layout(std430,set = 0, binding = 1) buffer VertexBuffer {
-//     vec4 vertexBuffer[];
-// };
-
 // sizeof vertex buffer * 3 un-normalized normals for each vertex expressed as ints to because atomic add
 layout(std430,set = 0, binding = 1) readonly buffer NormalBuffer {
-    int normalBuffer[];
-};
+    int value[];
+} normalsRO;
 // the normal buffer to write into, this is actually the same as the buffer above
 // this is interpretened as floats to allow the normalized value to be written
 layout(std430,set = 0, binding = 2) writeonly buffer NormalBufferWrite {
-    float normalBufferWrite[];
-};
+    float value[];
+} normalsWO;
 // fucked up float to int conversion magic number (2^16/2)
 const float QUANTIIZE_FACTOR = 32768.0;
 
@@ -39,11 +34,11 @@ void main() {
 	uint normalIndex = bufferIndex * 3;
 
 	// convert each component of the normal vector back to a float and normalize the vector
-	vec3 norm = vec3(normalBuffer[normalIndex], normalBuffer[normalIndex + 1], normalBuffer[normalIndex + 2]) / QUANTIIZE_FACTOR;
+	vec3 norm = vec3(normalsRO.value[normalIndex], normalsRO.value[normalIndex + 1], normalsRO.value[normalIndex + 2]) / QUANTIIZE_FACTOR;
 	norm = normalize(norm);
 
 	// set vertex normal
-	normalBufferWrite[normalIndex] = norm.x;	 
-	normalBufferWrite[normalIndex + 1] = norm.y;	
-	normalBufferWrite[normalIndex + 2] = norm.z;
+	normalsWO.value[normalIndex] = norm.x;	 
+	normalsWO.value[normalIndex + 1] = norm.y;	
+	normalsWO.value[normalIndex + 2] = norm.z;
 }

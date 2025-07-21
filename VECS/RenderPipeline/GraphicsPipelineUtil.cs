@@ -242,7 +242,7 @@ namespace VECS
 
         public static VkDescriptorSetLayout CreateLayout(DescriptorBinding[] bindings)
         {
-            Array.Sort(bindings, (DescriptorBinding x, DescriptorBinding y) =>
+            Array.Sort(bindings, (x, y) =>
             {
                 return x.Set.CompareTo(y.Set);
             });

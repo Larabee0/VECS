@@ -10,7 +10,7 @@ using VECS.ECS.Presentation;
 
 namespace VECS
 {
-    public sealed partial  class DescriptorSetHandler
+    public sealed partial class DescriptorSetHandler
     {
         public int GetInt(string property)
         {
@@ -95,12 +95,12 @@ namespace VECS
         {
             uint offset = propertyInfo.Offset;
             var hostPtr = _bindingBuffers[bindingIndex].HostReadOnly;
-        
+
             T[] array = new T[propertyInfo.ArrayDimentionSizes[0]];
 
             fixed (T* arrayPtr = array)
             fixed (void* offsetPtr = &hostPtr[(int)offset])
-            NativeMemory.Copy(offsetPtr, arrayPtr, propertyInfo.Size);
+                NativeMemory.Copy(offsetPtr, arrayPtr, propertyInfo.Size);
 
             return array;
             // Span<float> properties = new(_bindingBuffers[bindingIndex].HostPtr, (int)_bindingBuffers[bindingIndex].InstanceSize / sizeof(float));
@@ -117,9 +117,9 @@ namespace VECS
             var hostPtr = _bindingBuffers[bindingIndex].HostReadOnly;
 
             T element = default;
-            fixed(void* offsetPtr = &hostPtr[(int)offset])
-            NativeMemory.Copy(offsetPtr, &element, propertyInfo.Size);
-            
+            fixed (void* offsetPtr = &hostPtr[(int)offset])
+                NativeMemory.Copy(offsetPtr, &element, propertyInfo.Size);
+
             // Span<T> properties = new(_bindingBuffers[bindingIndex].HostPtr, (int)_bindingBuffers[bindingIndex].InstanceSize / sizeof(T));
 
             return element;
@@ -127,7 +127,7 @@ namespace VECS
 
         public unsafe Span<T> GetStorageBuffer<T>(uint bindingIndex, DescriptorPropertyInfo propertyInfo) where T : unmanaged
         {
-            var ptr = GetStorageBuffer(bindingIndex,  propertyInfo);
+            var ptr = GetStorageBuffer(bindingIndex, propertyInfo);
             if (ptr != null)
             {
                 Debug.Assert(propertyInfo.Size == sizeof(T), string.Format("(DescriptorSetHandler.GetStorageBuffer) Property {0} with size {1} has mismatched sized wtih target buffer type {2}", propertyInfo.Name, propertyInfo.Size, typeof(T).Name));
@@ -159,9 +159,9 @@ namespace VECS
 
         internal unsafe void* GetStorageBuffer(string property, out DescriptorPropertyInfo propertyInfo)
         {
-            if(LookUpProperty(property, out uint bindingIndex, out propertyInfo))
+            if (LookUpProperty(property, out uint bindingIndex, out propertyInfo))
             {
-                return GetStorageBuffer(bindingIndex,propertyInfo);
+                return GetStorageBuffer(bindingIndex, propertyInfo);
             }
 
             return null;
@@ -180,7 +180,7 @@ namespace VECS
         {
             if (LookUpProperty(property, out uint bindingIndex, out DescriptorPropertyInfo propertyInfo))
             {
-                return GetStorageSwapChainBuffer(bindingIndex,propertyInfo);
+                return GetStorageSwapChainBuffer(bindingIndex, propertyInfo);
             }
             return null;
         }
@@ -192,6 +192,15 @@ namespace VECS
                 return _bindingBuffers[bindingIndex];
             }
             return null;
+        }
+
+        public uint GetStorageBufferBindingIndex(string property)
+        {
+            if (LookUpProperty(property, out uint bindingIndex, out DescriptorPropertyInfo propertyInfo) && propertyInfo.VariableArraySize)
+            {
+                return bindingIndex;
+            }
+            return uint.MaxValue;
         }
     }
 }

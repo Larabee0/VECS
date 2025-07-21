@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Vortice.SPIRV.Reflect;
 using Vortice.Vulkan;
@@ -83,12 +84,19 @@ namespace VECS
                 NativeMemory.Copy(&value, (void*)ptr, (uint)sizeof(T));
             }
         }
-
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal unsafe void PushConstants(RendererFrameInfo rendererFrameInfo, VkPipelineLayout pipelineLayout)
+        {
+            PushConstants(rendererFrameInfo.CommandBuffer, pipelineLayout);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal unsafe void PushConstants(VkCommandBuffer cmd, VkPipelineLayout pipelineLayout)
         {
             fixed (byte* pPushConstants = &_pushConstantBuffer[0])
             {
-                Vulkan.vkCmdPushConstants(rendererFrameInfo.CommandBuffer, pipelineLayout, ShaderStages, Offset, Size, pPushConstants);
+                Vulkan.vkCmdPushConstants(cmd, pipelineLayout, ShaderStages, Offset, Size, pPushConstants);
             }
         }
     }
