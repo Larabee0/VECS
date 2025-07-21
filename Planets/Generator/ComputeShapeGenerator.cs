@@ -126,8 +126,15 @@ namespace Planets.Generator
             uint divider = (uint)(int)MathF.Ceiling((float)mesh.VertexBufferLength / (float)GraphicsDevice.Instance.MaxWorkGroupX);
             uint workGroupX = (uint)Math.Min(mesh.VertexBufferLength, GraphicsDevice.Instance.MaxWorkGroupX);
 
+            if (divider == 1)
+            {
+                _terrainGenerator.Prepare((uint)mesh.VertexBufferLength, (uint)mesh.VertexBufferLength, 1);
+            }
+            else
+            {
+                _terrainGenerator.Prepare((uint)mesh.VertexBufferLength, divider, 1);
+            }
 
-            _terrainGenerator.Prepare((uint)mesh.VertexBufferLength, divider, 2);
 
             fixed (VkDescriptorSet* pSet = &_terrainGenerator.DescriptorSet)
             {
