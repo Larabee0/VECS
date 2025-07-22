@@ -11,23 +11,23 @@ layout(set = 0, binding = 0) uniform ComputeShaderParameters{
 
 // vertex buffer to operate on (direct mesh buffer) Only read from here.
 layout(std430,set = 0, binding = 1) readonly buffer VertexBuffer {
-    float values[];
-} vertices;
+    float vertexBuffer[];
+};
 
 // index buffer to operate on (direct mesh buffer) Only read from here.
 layout(std430,set = 0, binding = 2) readonly buffer IndexBuffer {
-    uint values[];
-} indices;
+    uint indexBuffer[];
+};
 
 // sizeof vertex buffer * 3 unormalized normals for each vertex expressed as ints to because atomic add
 layout(std430,set = 0, binding = 3) writeonly buffer NormalBuffer {
-    int values[];
-} normals;
+    int normalBuffer[];
+};
 
 // this buffer is added to the index buffer to get the true vertex index
 layout(std430,set = 0, binding = 4) readonly buffer IndexOffsets{
-	uint values[];
-} indexOffsets;
+	uint indexOffset[];
+};
 
 // fucked up float to int conversion magic number (2^16/2)
 const float QUANTIIZE_FACTOR = 32768.0;
@@ -39,31 +39,31 @@ void main() {
 	}
 
 	// iterating 1 triangle per thread, triangle made up of 3 indices
-	uint valuesIndex = (gl_GlobalInvocationID.y * params.width + gl_GlobalInvocationID.x) * 3;
-	if(valuesIndex + 2 > params.bufferLength){
+	uint indexBufferIndex = (gl_GlobalInvocationID.y * params.width + gl_GlobalInvocationID.x) * 3;
+	if(indexBufferIndex + 2 > params.bufferLength){
 		return;
 	}
-	uint indexA = (indexOffsets.values[valuesIndex] + indices.values[valuesIndex]) * 3;
-	uint indexB = (indexOffsets.values[valuesIndex + 1] + indices.values[valuesIndex + 1]) * 3;
-	uint indexC = (indexOffsets.values[valuesIndex + 2] + indices.values[valuesIndex + 2]) * 3;
+	uint indexA = (indexOffset[indexBufferIndex] + indexBuffer[indexBufferIndex]) * 3;
+	uint indexB = (indexOffset[indexBufferIndex + 1] + indexBuffer[indexBufferIndex + 1]) * 3;
+	uint indexC = (indexOffset[indexBufferIndex + 2] + indexBuffer[indexBufferIndex + 2]) * 3;
 	// to write into the normal buffer multiply indices by 3 again for each component.
 
-	vec3 posA = vec3(vertices.values[indexA], vertices.values[indexA + 1], vertices.values[indexA + 2]);
+	vec3 posA = vec3(vertexBuffer[indexA],vertexBuffer[indexA + 1],vertexBuffer[indexA + 2]);
 	
-	vec3 posB = vec3(vertices.values[indexB], vertices.values[indexB + 1], vertices.values[indexB + 2]);
+	vec3 posB = vec3(vertexBuffer[indexB],vertexBuffer[indexB + 1],vertexBuffer[indexB + 2]);
 
-	vec3 posC = vec3(vertices.values[indexC], vertices.values[indexC + 1], vertices.values[indexC + 2]);
+	vec3 posC = vec3(vertexBuffer[indexC],vertexBuffer[indexC + 1],vertexBuffer[indexC + 2]);
 
 	// compute face normal, remap the vec3 as an int vec3 for atomic add
 	ivec3 faceNormal = ivec3(normalize(cross(posB - posA, posC - posA)) * QUANTIIZE_FACTOR);
-	atomicAdd(normals.values[indexA],faceNormal.x);
-	atomicAdd(normals.values[indexA + 1], faceNormal.y);
-	atomicAdd(normals.values[indexA + 2], faceNormal.z);
-	atomicAdd(normals.values[indexB], faceNormal.x);
-	atomicAdd(normals.values[indexB + 1], faceNormal.y);
-	atomicAdd(normals.values[indexB + 2], faceNormal.z);
-	atomicAdd(normals.values[indexC], faceNormal.x);
-	atomicAdd(normals.values[indexC + 1], faceNormal.y);
-	atomicAdd(normals.values[indexC + 2], faceNormal.z);
+	atomicAdd(normalBuffer[indexA],faceNormal.x);
+	atomicAdd(normalBuffer[indexA + 1], faceNormal.y);
+	atomicAdd(normalBuffer[indexA + 2], faceNormal.z);
+	atomicAdd(normalBuffer[indexB], faceNormal.x);
+	atomicAdd(normalBuffer[indexB + 1], faceNormal.y);
+	atomicAdd(normalBuffer[indexB + 2], faceNormal.z);
+	atomicAdd(normalBuffer[indexC], faceNormal.x);
+	atomicAdd(normalBuffer[indexC + 1], faceNormal.y);
+	atomicAdd(normalBuffer[indexC + 2], faceNormal.z);
 
 }

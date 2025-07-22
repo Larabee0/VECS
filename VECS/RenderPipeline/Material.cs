@@ -279,7 +279,7 @@ namespace VECS
             var result = Vulkan.vkCreatePipelineLayout(GraphicsDevice.Instance.Device, vkPipelineLayoutInfo, null, out _pipelineLayout);
             if (result != VkResult.Success)
             {
-                throw new Exception(string.Format("Failed to create graphics pipeline layout! {0}",result.ToString()));
+                throw new Exception(string.Format("Failed to create pipeline layout! {0}",result.ToString()));
             }
             _graphicsPipelineConfigInfo.pipelineLayout = _pipelineLayout;
         }

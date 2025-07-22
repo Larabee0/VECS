@@ -57,9 +57,6 @@ namespace VECS
                     BufferUsageFlags = VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.TransferSrc | VkBufferUsageFlags.StorageBuffer;
                     DynamicBuffer = true;
                     break;
-                case SpvReflectDescriptorType.StorageImage:
-                    Image = true;
-                    break;
                 default:
                     throw new NotImplementedException(string.Format("Descriptor type not implemented {0}", descriptorBinding.descriptor_type.ToString()));
             }

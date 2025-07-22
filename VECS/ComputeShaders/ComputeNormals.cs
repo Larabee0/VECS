@@ -26,7 +26,7 @@ namespace VECS
         private readonly GenericComputePipeline _calcuateNormals;
         private readonly GenericComputePipeline _normalizeNormals;
 
-        //private readonly DescriptorPool _descriptorPool;
+        private readonly DescriptorPool _descriptorPool;
 
         public static void DispatchNow(DirectMesh meshBuffer)
         {
@@ -40,18 +40,28 @@ namespace VECS
 
         public unsafe ComputeNormals()
         {
-            _calcuateNormals = new("normal_recalculate.comp");
+            _calcuateNormals = new("normal_recalculate.comp",
+                new DescriptorSetBinding(VkDescriptorType.UniformBuffer, VkShaderStageFlags.Compute), // binding 0
+                new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute),
+                new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute),
+                new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute), // binding 3
+                new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute) // binding 4
+            );
 
-            _normalizeNormals = new("normal_normalize.comp");
+            _normalizeNormals = new("normal_normalize.comp",
+                new DescriptorSetBinding(VkDescriptorType.UniformBuffer, VkShaderStageFlags.Compute),
+                new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute),
+                new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute)
+            );
 
-            // _descriptorPool = new DescriptorPool.Builder()
-            //     .AddPoolSize(VkDescriptorType.UniformBuffer, 2)
-            //     .AddPoolSize(VkDescriptorType.StorageBuffer, 6)
-            //     .Build();
+            _descriptorPool = new DescriptorPool.Builder()
+                .AddPoolSize(VkDescriptorType.UniformBuffer, 2)
+                .AddPoolSize(VkDescriptorType.StorageBuffer, 6)
+                .Build();
 
 
-            // _calcuateNormals.AllocateDescriptorSet(_descriptorPool);
-            // _normalizeNormals.AllocateDescriptorSet(_descriptorPool);
+            _calcuateNormals.AllocateDescriptorSet(_descriptorPool);
+            _normalizeNormals.AllocateDescriptorSet(_descriptorPool);
         }
 
         /// <summary>
@@ -77,14 +87,9 @@ namespace VECS
             uint divider = (uint)(int)MathF.Ceiling((float)componsatedBufferLength / (float)GraphicsDevice.Instance.MaxWorkGroupX);
             uint workGroupX = (uint)Math.Min(componsatedBufferLength, GraphicsDevice.Instance.MaxWorkGroupX);
 
-            _calcuateNormals.DescriptorSet.SetUInt("params.bufferLength", indexBuffer.UInstanceCount32);
-            _calcuateNormals.DescriptorSet.SetUInt("params.depth", 1);
-
             if (divider == 1)
             {
-                // _calcuateNormals.Prepare(indexBuffer.UInstanceCount32, componsatedBufferLength, 1, 1);
-                _calcuateNormals.DescriptorSet.SetUInt("params.width", componsatedBufferLength);
-                _calcuateNormals.DescriptorSet.SetUInt("params.height", 1);
+                _calcuateNormals.Prepare(indexBuffer.UInstanceCount32, componsatedBufferLength, 1, 1);
             }
             else
             {
@@ -97,26 +102,19 @@ namespace VECS
                     workGroupX += 3 - workGroupX % 3;
                 }
 
-                _calcuateNormals.DescriptorSet.SetUInt("params.width", workGroupX);
-                _calcuateNormals.DescriptorSet.SetUInt("params.height", divider);
-                // _calcuateNormals.Prepare(indexBuffer.UInstanceCount32, workGroupX, divider, 1);
+                _calcuateNormals.Prepare(indexBuffer.UInstanceCount32, workGroupX, divider, 1);
             }
 
-            _calcuateNormals.DescriptorSet.SetStorageBuffer("vertices", vertexBuffer);
-            _calcuateNormals.DescriptorSet.SetStorageBuffer("indices", vertexBuffer);
-            _calcuateNormals.DescriptorSet.SetStorageBuffer("normals", vertexBuffer);
-            _calcuateNormals.DescriptorSet.SetStorageBuffer("indexOffsets", vertexBuffer);
-
-            // fixed (VkDescriptorSet* pSet = &_calcuateNormals.DescriptorSet)
-            // {
-            //     new DescriptorWriter(_calcuateNormals.DescriptorSetLayout, _descriptorPool)
-            //         .WriteBuffer(0, _calcuateNormals.ShaderParameters.DescriptorInfo())
-            //         .WriteBuffer(1, vertexBuffer.DescriptorInfo())
-            //         .WriteBuffer(2, indexBuffer.DescriptorInfo())
-            //         .WriteBuffer(3, normalBuffer.DescriptorInfo())
-            //         .WriteBuffer(4, indexOffsetBuffer.DescriptorInfo())
-            //         .Build(pSet);
-            // }
+            fixed (VkDescriptorSet* pSet = &_calcuateNormals.DescriptorSet)
+            {
+                new DescriptorWriter(_calcuateNormals.DescriptorSetLayout, _descriptorPool)
+                    .WriteBuffer(0, _calcuateNormals.ShaderParameters.DescriptorInfo())
+                    .WriteBuffer(1, vertexBuffer.DescriptorInfo())
+                    .WriteBuffer(2, indexBuffer.DescriptorInfo())
+                    .WriteBuffer(3, normalBuffer.DescriptorInfo())
+                    .WriteBuffer(4, indexOffsetBuffer.DescriptorInfo())
+                    .Build(pSet);
+            }
         }
 
         /// <summary>
@@ -128,23 +126,25 @@ namespace VECS
             uint divider = (uint)(int)MathF.Ceiling((float)normalBuffer.UInstanceCount32 / (float)GraphicsDevice.Instance.MaxWorkGroupX);
             uint workGroupX = (uint)Math.Min(normalBuffer.UInstanceCount32, GraphicsDevice.Instance.MaxWorkGroupX);
 
-            _normalizeNormals.DescriptorSet.SetUInt("params.bufferLength", normalBuffer.UInstanceCount32);
-            _normalizeNormals.DescriptorSet.SetUInt("params.depth", 1);
-
             if (divider == 1)
             {
-                _normalizeNormals.DescriptorSet.SetUInt("params.width", normalBuffer.UInstanceCount32);
-                _normalizeNormals.DescriptorSet.SetUInt("params.height", 1);
+                _normalizeNormals.Prepare(normalBuffer.UInstanceCount32, normalBuffer.UInstanceCount32, 1, 1);
             }
             else
             {
-                _normalizeNormals.DescriptorSet.SetUInt("params.width", workGroupX);
-                _normalizeNormals.DescriptorSet.SetUInt("params.height", divider);
+                _normalizeNormals.Prepare(normalBuffer.UInstanceCount32, workGroupX, divider, 1);
             }
 
 
-            _normalizeNormals.DescriptorSet.SetStorageBuffer("normalsRO", normalBuffer);
-            _normalizeNormals.DescriptorSet.SetStorageBuffer("normalsWO", normalBuffer);
+
+            fixed (VkDescriptorSet* pSet = &_normalizeNormals.DescriptorSet)
+            {
+                new DescriptorWriter(_normalizeNormals.DescriptorSetLayout, _descriptorPool)
+                    .WriteBuffer(0, _normalizeNormals.ShaderParameters.DescriptorInfo())
+                    .WriteBuffer(1, normalBuffer.DescriptorInfo())
+                    .WriteBuffer(2, normalBuffer.DescriptorInfo())
+                    .Build(pSet);
+            }
         }
 
         /// <summary>
@@ -160,9 +160,6 @@ namespace VECS
 
             // clear normal buffer
             normalBuffer.FillBuffer(commandBuffer, 0);
-
-            _calcuateNormals.UpdateDescriptorSets(Presenter.Instance.MaterialDescriptorSetPool, Presenter.Instance.FrameIndex);
-            _normalizeNormals.UpdateDescriptorSets(Presenter.Instance.MaterialDescriptorSetPool, Presenter.Instance.FrameIndex);
 
             uint componsatedBufferLength = (uint)(int)MathF.Ceiling((float)mesh.IndexBufferLength / 3f);
             uint divider = (uint)(int)MathF.Ceiling((float)componsatedBufferLength / (float)GraphicsDevice.Instance.MaxWorkGroupX);
@@ -225,7 +222,7 @@ namespace VECS
 
         public unsafe void Dispose()
         {
-            //_descriptorPool?.Dispose();
+            _descriptorPool?.Dispose();
             _calcuateNormals?.Dispose();
             _normalizeNormals?.Dispose();
         }

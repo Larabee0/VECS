@@ -63,7 +63,9 @@ namespace VECS.LowLevel
 
                 _depthPyramidMips[i] = pyramid;
             }
-            _depthReducePipeline = new("depthReduce.comp");
+            _depthReducePipeline = new("depthReduce.comp", typeof(DepthReduceData),
+                new() { DescriptorType = VkDescriptorType.StorageImage, StageFlags = VkShaderStageFlags.Compute, Count = 1 },
+                new() { DescriptorType = VkDescriptorType.CombinedImageSampler, StageFlags = VkShaderStageFlags.Compute, Count = 1 });
             _depthPyramidImage.SetImageLayout(VkImageLayout.TransferDstOptimal);
             _depthPyramidImage.SetImageLayout(VkImageLayout.General);
 
@@ -71,7 +73,6 @@ namespace VECS.LowLevel
 
         internal unsafe void DepthReduce(RendererFrameInfo frameInfo)
         {
-            return;
             Vulkan.vkCmdBindPipeline(frameInfo.CommandBuffer, VkPipelineBindPoint.Compute, _depthReducePipeline.ComputePipeline);
             for (int i = 0; i < _depthPyramidLevels; i++)
             {
@@ -99,10 +100,10 @@ namespace VECS.LowLevel
 
                 VkDescriptorSet depthSet = default;
 
-                //new DescriptorWriter(_depthReducePipeline.DescriptorSet.Des, frameInfo.EntityDescriptorPool)
-                //    .WriteImage(0, destTarget)
-                //    .WriteImage(1, sourceTarget)
-                //    .Build(&depthSet);
+                new DescriptorWriter(_depthReducePipeline.DescriptorSetLayout, frameInfo.EntityDescriptorPool)
+                    .WriteImage(0, destTarget)
+                    .WriteImage(1, sourceTarget)
+                    .Build(&depthSet);
 
                 Vulkan.vkCmdBindDescriptorSets(frameInfo.CommandBuffer, VkPipelineBindPoint.Compute, _depthReducePipeline.ComputePipelineLayout, 0, depthSet);
 
