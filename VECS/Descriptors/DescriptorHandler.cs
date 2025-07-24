@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using VECS.LowLevel;
 using Vortice.SPIRV;
@@ -8,10 +9,10 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
-    public sealed partial class DescriptorSetHandler : IDisposable
+    public sealed class DescriptorHandler : IDisposable
     {
-        private const uint DEFAULT_STORAGE_BUFFER_COUNT = 10000;
-        private readonly Dictionary<int, DescriptorSetHandler> _children;
+        public const uint DEFAULT_STORAGE_BUFFER_COUNT = 10000;
+        private readonly Dictionary<int, DescriptorHandler> _children;
         private readonly VkDescriptorSet[] _vkDescriptorSets = new VkDescriptorSet[SwapChain.MAX_FRAMES_IN_FLIGHT];
         private readonly DescriptorPool[] _vkDescriptorPoolSource = new DescriptorPool[SwapChain.MAX_FRAMES_IN_FLIGHT];
 
@@ -21,8 +22,10 @@ namespace VECS
         private readonly uint[] _bufferOffsets;
         private readonly int[] _imageBindings;
         private readonly SwapChainBuffer[] _bindingBuffers;
+
+        // need to do this for buffers so buffers can be at any binding, add index _bufferInfos to _bindingBufferMap 
         private readonly Dictionary<uint, int> _bindingBufferMap;
-        private readonly Dictionary<uint, (int, Texture)> _bindingImages; // need to do this for buffers so buffers can be at any binding, add index _bufferInfos to _bindingBufferMap 
+        private readonly Dictionary<uint, (int, Texture)> _bindingImages;
         private readonly VkWriteDescriptorSet[] _vkDescriptorWrites;
 
         private readonly VkDescriptorSetLayout _vkDescriptorSetLayout;
@@ -46,6 +49,8 @@ namespace VECS
 
         public int ChildCount => _children.Count - 1;
 
+        internal SwapChainBuffer[] BindingBuffers => _bindingBuffers;
+        internal Dictionary<uint, (int, Texture)> BindingImages => _bindingImages;
         public DescriptorLevel DescriptorLevel => _descriptorLevel;
         public VkDescriptorSetLayout VkDescriptorSetLayout => _vkDescriptorSetLayout;
         public VkDescriptorSet ActiveVkDescriptorSet => _vkDescriptorSets[Presenter.Instance.FrameIndex];
@@ -54,7 +59,7 @@ namespace VECS
         // probably should create a frame buffer handler (a class that is just handles buffers per swap chain)
         // keep buffers inside the descriptor set handler so it can handle all buffers for a descriptor set.
 
-        private DescriptorSetHandler(DescriptorSetHandler parent)
+        private DescriptorHandler(DescriptorHandler parent)
         {
             _child = true;
             _vkDescriptorSetLayout = parent._vkDescriptorSetLayout;
@@ -85,9 +90,9 @@ namespace VECS
             AllocateInfos();
         }
 
-        public DescriptorSetHandler(VkDescriptorSetLayout setLayout, DescriptorLevel level, DescriptorBinding[] bindings)
+        public DescriptorHandler(VkDescriptorSetLayout setLayout, DescriptorLevel level, DescriptorBinding[] bindings)
         {
-            _children = new Dictionary<int, DescriptorSetHandler>
+            _children = new Dictionary<int, DescriptorHandler>
             {
                 { 0, this }
             };
@@ -225,7 +230,7 @@ namespace VECS
         /// </summary>
         /// <param name="id"></param>
         /// <returns></returns>
-        public DescriptorSetHandler GetDescriptorSetHandler(int id)
+        public DescriptorHandler GetDescriptorSetHandler(int id)
         {
             Debug.Assert(!_child, "Attempted to get descriptor set handler from a child descriptor set. This is illegal.");
 
@@ -242,7 +247,7 @@ namespace VECS
         /// </summary>
         /// <param name="id"></param>
         /// <returns></returns>
-        public DescriptorSetHandler GetOrCreateChild(int id)
+        public DescriptorHandler GetOrCreateChild(int id)
         {
             var handler = GetDescriptorSetHandler(id);
             handler ??= _children[CreateChildSet(id)];
@@ -478,6 +483,64 @@ namespace VECS
 
             return false;
         }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetTexture(uint bindingIndex, int imageIndex, Texture texture)
+        {
+            _bindingImages[bindingIndex] = (imageIndex, texture);
+            Array.Fill(_setsDirty, true);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetStorageBufferRegion(uint startIndex, uint length)
+        {
+            if (startIndex != _storageBufferStartIndex || length != _storageBufferLength)
+            {
+                _storageBufferStartIndex = startIndex;
+                _storageBufferLength = length;
+                Array.Fill(_setsDirty, true);
+            }
+        }
+
+
+        public unsafe void WriteToBuffer<T>(uint bindingIndex, DescriptorPropertyInfo propertyInfo, T element) where T : unmanaged
+        {
+            if (sizeof(T) > propertyInfo.Size)
+            {
+                throw new InvalidOperationException("Cannot write property with mismatched size");
+            }
+            
+            bindingIndex = (uint)_bindingBufferMap[bindingIndex];
+
+            uint offset = propertyInfo.Offset + _bufferOffsets[bindingIndex];
+
+            var hostPtr = (IntPtr)_bindingBuffers[bindingIndex].HostPtr;
+
+            hostPtr = IntPtr.Add(hostPtr, (int)offset);
+
+            NativeMemory.Copy(&element, (void*)hostPtr, propertyInfo.Size);
+            _bindingBuffers[bindingIndex].SetBuffersDirty(true);
+        }
+
+
+        public unsafe void WriteArrayToBuffer<T>(uint bindingIndex, DescriptorPropertyInfo propertyInfo, T[] array) where T : unmanaged
+        {
+            if (sizeof(T) * array.Length > propertyInfo.Size)
+            {
+                throw new InvalidOperationException("Cannot write property with mismatched size");
+            }
+
+            uint offset = propertyInfo.Offset + _bufferOffsets[bindingIndex];
+            var hostPtr = (IntPtr)_bindingBuffers[_bindingBufferMap[bindingIndex]].HostPtr;
+
+            hostPtr = IntPtr.Add(hostPtr, (int)offset);
+            fixed (T* arrayPtr = array)
+            {
+                NativeMemory.Copy(arrayPtr, (void*)hostPtr, propertyInfo.Size);
+            }
+            _bindingBuffers[bindingIndex].SetBuffersDirty(true);
+        }
+
 
         public unsafe void Dispose()
         {

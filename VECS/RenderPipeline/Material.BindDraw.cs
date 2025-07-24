@@ -222,7 +222,7 @@ namespace VECS
 
         internal VkDescriptorSet GetDescriptor(RendererFrameInfo frameInfo,DescriptorLevel level,int variant)
         {
-            DescriptorSetHandler handler;
+            DescriptorHandler handler;
             VkDescriptorSet set;
             switch (level)
             {

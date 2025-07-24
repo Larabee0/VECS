@@ -41,7 +41,7 @@ namespace VECS
         private int _applicationDescriptorSetHandlerIndex = -1;
         private int _materialDescriptorSetHandlerIndex = -1;
         private int _entityDescriptorSetHandlerIndex = -1;
-        private readonly DescriptorSetHandler[] _allHandlers;
+        private readonly DescriptorHandler[] _allHandlers;
 
         public int MaterialIndex => GetIndexOfMaterial(this);
         public int MaterialVariantCount => !HasMaterialSet ? 0 : MaterialDescriptorSetHandler.ChildCount;
@@ -62,11 +62,11 @@ namespace VECS
         public VkVertexInputBindingDescription[] VertexBindings => _graphicsPipelineConfigInfo.BindingDescriptions;
         public VkVertexInputAttributeDescription[] VertexAttributes => _graphicsPipelineConfigInfo.AttributeDescriptions;
 
-        public DescriptorSetHandler[] AllHandlers => _allHandlers;
+        public DescriptorHandler[] AllHandlers => _allHandlers;
         public PushConstantsHandler PushConstants => _materialPushConstantsHandler;
-        public DescriptorSetHandler ApplicationDescriptorSetHandler => _applicationDescriptorSetHandlerIndex != -1 ? _allHandlers[_applicationDescriptorSetHandlerIndex] : null;
-        public DescriptorSetHandler MaterialDescriptorSetHandler => _materialDescriptorSetHandlerIndex != -1 ? _allHandlers[_materialDescriptorSetHandlerIndex] : null;
-        public DescriptorSetHandler EntityDescriptorSetHandler => _entityDescriptorSetHandlerIndex != -1 ? _allHandlers[_entityDescriptorSetHandlerIndex] : null;
+        public DescriptorHandler ApplicationDescriptorSetHandler => _applicationDescriptorSetHandlerIndex != -1 ? _allHandlers[_applicationDescriptorSetHandlerIndex] : null;
+        public DescriptorHandler MaterialDescriptorSetHandler => _materialDescriptorSetHandlerIndex != -1 ? _allHandlers[_materialDescriptorSetHandlerIndex] : null;
+        public DescriptorHandler EntityDescriptorSetHandler => _entityDescriptorSetHandlerIndex != -1 ? _allHandlers[_entityDescriptorSetHandlerIndex] : null;
 
         private readonly bool _actAsGlobal = false;
         private bool _disposed = false;
@@ -141,7 +141,7 @@ namespace VECS
 
             GenerateDescriptorSetLayouts();
             _totalSets = (uint)_allLayouts.Length;
-            _allHandlers = new DescriptorSetHandler[_allLayouts.Length];
+            _allHandlers = new DescriptorHandler[_allLayouts.Length];
 
             CreateDescriptorSetHandler();
 
@@ -170,7 +170,7 @@ namespace VECS
                 i++;
             }
 
-            _allHandlers[index] = new DescriptorSetHandler(_allLayouts[index], level, bindings);
+            _allHandlers[index] = new DescriptorHandler(_allLayouts[index], level, bindings);
 
         }
 
@@ -284,7 +284,7 @@ namespace VECS
             return null;
         }
 
-        internal bool LookUpProperty(string property, out DescriptorSetHandler handler, out uint bindingIndex, out DescriptorPropertyInfo propertyInfo)
+        internal bool LookUpProperty(string property, out DescriptorHandler handler, out uint bindingIndex, out DescriptorPropertyInfo propertyInfo)
         {
             for (int i = 0; i < _totalSets; i++)
             {

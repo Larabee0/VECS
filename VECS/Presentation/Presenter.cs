@@ -35,7 +35,7 @@ namespace VECS
         private readonly Renderer _renderer;
         private readonly Bloom _bloom;
 
-        private DescriptorSetHandler _globalDescriptorSetHandler;
+        private DescriptorHandler _globalDescriptorSetHandler;
         private readonly GlobalUbo ubo = new();
         private readonly SwapChainBuffer<GlobalUbo.WriteableUBO> _globalUboBuffers = new((uint)GlobalUbo.SizeInBytes, 1, VkBufferUsageFlags.UniformBuffer, true);
 
@@ -61,7 +61,7 @@ namespace VECS
 
         public VkRenderPass ForwardRenderPass => _renderer.ForwardRenderPass;
         public VkDescriptorSetLayout GlobalSetLayout => _globalDescriptorSetHandler.VkDescriptorSetLayout;
-        internal DescriptorSetHandler GlobalSetHandler => _globalDescriptorSetHandler;
+        internal DescriptorHandler GlobalSetHandler => _globalDescriptorSetHandler;
         public int FrameIndex => _renderer.FrameIndex;
 
         public Presenter(IWindow window)
