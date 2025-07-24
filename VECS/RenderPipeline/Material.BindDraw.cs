@@ -217,10 +217,7 @@ namespace VECS
 
         public void BindPushConstants(RendererFrameInfo rendererFrameInfo)
         {
-            for (int i = 0; i < _materialPushConstants.Length; i++)
-            {
-                _materialPushConstants[i].PushConstants(rendererFrameInfo, _pipelineLayout);
-            }
+            _materialPushConstantsHandler.BindPushConstants(rendererFrameInfo, _pipelineLayout);
         }
 
         internal VkDescriptorSet GetDescriptor(RendererFrameInfo frameInfo,DescriptorLevel level,int variant)

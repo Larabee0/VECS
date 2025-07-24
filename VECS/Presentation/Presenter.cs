@@ -172,8 +172,8 @@ namespace VECS
                 EntityDescriptorPool = _entityFrameDescriptorPools[frameIndex],
                 PostCullBarriers = _renderer.PostCullBarriers,
                 DepthPyramid = _renderer.DepthPyramid,
-                DepthPyramidWidth = (int)_renderer.DepthPyramidWidth,
-                DepthPyramidHeight = (int)_renderer.DepthPyramidHeight,
+                DepthPyramidWidth =0,// (int)_renderer.DepthPyramidWidth,
+                DepthPyramidHeight = 0// (int)_renderer.DepthPyramidHeight,
                 
             };
 
@@ -305,7 +305,7 @@ namespace VECS
                 DirectMesh.ClearBufferBinds();
 
                 // depth pyramid mip maps
-                _renderer.ReduceDepth(frameInfo);
+                //_renderer.ReduceDepth(frameInfo);
                 // copy to swap chain
                 _renderer.CopyRenderToSwapChain(frameInfo);
                 // submit command buffer

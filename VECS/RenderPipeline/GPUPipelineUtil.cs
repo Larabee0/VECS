@@ -1,8 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using VECS.LowLevel;
 using Vortice.SPIRV;
 using Vortice.SPIRV.Reflect;
@@ -10,9 +7,8 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
-    public static class GraphicsPipelineUtil
+    public static class GPUPipelineUtil
     {
-
         public static bool GetVertexInputState(SpvReflectShaderModule module, out VkVertexInputBindingDescription[] bindings, out VkVertexInputAttributeDescription[] attributes)
         {
             if (module.spirv_execution_model != SpvExecutionModel.Vertex)
@@ -35,17 +31,14 @@ namespace VECS
             bindings = new VkVertexInputBindingDescription[vertexProps.Count];
             if (vertexProps.Count == 0) return false;
 
-            vertexProps.Sort((SpvReflectInterfaceVariable x, SpvReflectInterfaceVariable y) =>
-            {
-                return x.location.CompareTo(y.location);
-            });
+            vertexProps.Sort((x, y) => x.location.CompareTo(y.location));
             //uint size = 0;
             //uint offset = 0;
             for (int i = 0; i < vertexProps.Count; i++)
             {
                 var property = vertexProps[i];
                 //size += (uint)((VkFormat)property.format).BlockSize();
-                
+
                 attributes[i] = new(property.location, (VkFormat)property.format, 0, property.location);
                 bindings[i] = new(((VkFormat)property.format).BlockSize(), VkVertexInputRate.Vertex, property.location);
                 //offset += (uint)((VkFormat)property.format).BlockSize();
@@ -57,7 +50,7 @@ namespace VECS
         public static bool GetPushConstants(SpvReflectShaderModule module, out VkPushConstantRange[] pushConstants)
         {
             var pushBlocks = SPIRVReflectUtil.PushConstants(module);
-            if(pushBlocks == null)
+            if (pushBlocks == null)
             {
                 pushConstants = [];
                 return false;
@@ -109,8 +102,9 @@ namespace VECS
             for (int i = 0; i < constants.Count; i++)
             {
                 pushConstants[i] = new(constants[i], shaderStageFlags[i]);
-            };
-            
+            }
+            ;
+
 
             return pushConstants;
         }
@@ -134,7 +128,7 @@ namespace VECS
             };
         }
 
-        public unsafe static (uint,string, VkDescriptorSetLayoutBinding)[] GetDescriptorSetBindings(params SpvReflectShaderModule[] modules)
+        public unsafe static (uint, string, VkDescriptorSetLayoutBinding)[] GetDescriptorSetBindings(params SpvReflectShaderModule[] modules)
         {
             Dictionary<(uint, uint), VkShaderStageFlags> setsAndBindingsToFlags = [];
             for (int i = 0; i < modules.Length; i++)
@@ -162,7 +156,7 @@ namespace VECS
                     }
                 }
             }
-            (uint,string,VkDescriptorSetLayoutBinding)[] descriptorSetBindings = new (uint, string, VkDescriptorSetLayoutBinding)[setsAndBindingsToFlags.Count];
+            (uint, string, VkDescriptorSetLayoutBinding)[] descriptorSetBindings = new (uint, string, VkDescriptorSetLayoutBinding)[setsAndBindingsToFlags.Count];
 
             int writeIndex = 0;
 
@@ -180,7 +174,7 @@ namespace VECS
 
                     if (setsAndBindingsToFlags.TryGetValue(key, out VkShaderStageFlags shaderStageFlags))
                     {
-                        descriptorSetBindings[writeIndex] = (binding.set,binding.Name, new()
+                        descriptorSetBindings[writeIndex] = (binding.set, binding.Name, new()
                         {
                             binding = binding.binding,
                             descriptorCount = binding.count,
@@ -192,21 +186,21 @@ namespace VECS
                     }
                 }
             }
-            
+
             return descriptorSetBindings;
         }
 
         public unsafe static VkDescriptorSetLayout[] CreateDescriptorSetLayout(out Dictionary<string, DescriptorBinding> bindings, params SpvReflectShaderModule[] modules)
         {
             var allBindings = GetDescriptorSetBindings(modules);
-            if(allBindings.Length == 0)
+            if (allBindings.Length == 0)
             {
                 bindings = null;
                 return null;
             }
             uint totalSets = 0;
 
-            Dictionary<uint, (string,VkDescriptorSetLayoutBinding[])> sortedBindings = [];
+            Dictionary<uint, (string, VkDescriptorSetLayoutBinding[])> sortedBindings = [];
             bindings = [];
             for (int i = 0; i < allBindings.Length; i++)
             {
@@ -220,29 +214,29 @@ namespace VECS
 
             for (uint i = 0; i < totalSets; i++)
             {
-                vkDescriptorSets[i] = CreateLayout(sortedBindings[i].Item2);
+                vkDescriptorSets[i] = CreateDescriptorSetLayoutInternal(sortedBindings[i].Item2);
                 for (int j = 0; j < sortedBindings[i].Item2.Length; j++)
                 {
-                    
+
                 }
             }
 
             return vkDescriptorSets;
         }
 
-        private static VkDescriptorSetLayout CreateLayout(VkDescriptorSetLayoutBinding[] bindings)
+        private static VkDescriptorSetLayout CreateDescriptorSetLayoutInternal(VkDescriptorSetLayoutBinding[] bindings)
         {
-            Array.Sort(bindings, (VkDescriptorSetLayoutBinding x, VkDescriptorSetLayoutBinding y) =>
+            Array.Sort(bindings, (x, y) =>
             {
                 return x.binding.CompareTo(y.binding);
             });
 
-            return CreateLayouts([.. bindings]);
+            return CreateDescriptorSetLayoutsInternal([.. bindings]);
         }
 
-        public static VkDescriptorSetLayout CreateLayout(DescriptorBinding[] bindings)
+        public static VkDescriptorSetLayout CreateDescriptorSetLayout(DescriptorBinding[] bindings)
         {
-            Array.Sort(bindings, (DescriptorBinding x, DescriptorBinding y) =>
+            Array.Sort(bindings, (x, y) =>
             {
                 return x.Set.CompareTo(y.Set);
             });
@@ -253,10 +247,10 @@ namespace VECS
                 vkBindings[i] = bindings[i].VkSetLayoutBinding;
             }
 
-            return CreateLayouts(vkBindings);
+            return CreateDescriptorSetLayoutsInternal(vkBindings);
         }
 
-        private static unsafe VkDescriptorSetLayout CreateLayouts(VkDescriptorSetLayoutBinding[] bindings)
+        private static unsafe VkDescriptorSetLayout CreateDescriptorSetLayoutsInternal(VkDescriptorSetLayoutBinding[] bindings)
         {
             VkDescriptorSetLayout layout = VkDescriptorSetLayout.Null;
             fixed (VkDescriptorSetLayoutBinding* pBindings = &bindings[0])
@@ -291,7 +285,7 @@ namespace VECS
                 }
             }
 
-            Dictionary<string,DescriptorBinding> descriptorBindingsCombined = [];
+            Dictionary<string, DescriptorBinding> descriptorBindingsCombined = [];
 
             for (int i = 0; i < descriptorBindings.Count; i++)
             {
@@ -324,10 +318,43 @@ namespace VECS
             {
                 if (bindings[i].Set == set)
                 {
-                    setBindings.Add(bindings[i].Name,i);
+                    setBindings.Add(bindings[i].Name, i);
                 }
             }
             return setBindings;
+        }
+
+        public unsafe static VkPipelineLayout CreatePipelineLayout(VkDescriptorSetLayout[] setLayouts,PushConstantsHandler pushConstants)
+        {
+            VkPipelineLayoutCreateInfo layoutCreateInfo = new()
+            {
+                setLayoutCount = setLayouts == null ? 0 : (uint)setLayouts.Length,
+                pushConstantRangeCount = pushConstants.UCount
+            };
+
+            if (setLayouts != null && setLayouts.Length > 0)
+            {
+                layoutCreateInfo.setLayoutCount = (uint)setLayouts.Length;
+                fixed (VkDescriptorSetLayout* pLayouts = &setLayouts[0])
+                {
+                    layoutCreateInfo.pSetLayouts = pLayouts;
+                }
+            }
+
+            if (pushConstants.HasPushConstrants)
+            {
+                VkPushConstantRange* pLayouts = stackalloc VkPushConstantRange[pushConstants.Count];
+                pushConstants.PopulateLayout(pLayouts);
+                layoutCreateInfo.pPushConstantRanges = pLayouts;
+            }
+
+            var result = Vulkan.vkCreatePipelineLayout(GraphicsDevice.Instance.Device, layoutCreateInfo, null, out VkPipelineLayout pipelineLayout);
+            if (result != VkResult.Success)
+            {
+                throw new Exception(string.Format("Failed to create pipeline layout! {0}", result.ToString()));
+            }
+
+            return pipelineLayout;
         }
     }
 }

@@ -13,7 +13,7 @@ namespace VECS.LowLevel
         private readonly GraphicsDevice _device;
         private SwapChain _swapChain;
         private readonly ShadowImage _shadowCubeMap;
-        private DepthReduction _depthReduction;
+        //private DepthReduction _depthReduction;
 
         private bool isFrameStarted = false;
         private uint currentImageIndex = 0;
@@ -56,8 +56,8 @@ namespace VECS.LowLevel
         public VkRenderPass ShadowRenderPass => _shadowCubeMap.ShadowPass;
         public VkRenderPass ForwardRenderPass =>_swapChain.ForwardRenderPass;
         public VkDescriptorImageInfo DepthPyramid => _swapChain.DepthPyramid;
-        public uint DepthPyramidWidth => _depthReduction.DepthPyramidWidth;
-        public uint DepthPyramidHeight => _depthReduction.DepthPyramidHeight;
+        // public uint DepthPyramidWidth => _depthReduction.DepthPyramidWidth;
+        // public uint DepthPyramidHeight => _depthReduction.DepthPyramidHeight;
 
         public Renderer(IWindow window)
         {
@@ -86,14 +86,14 @@ namespace VECS.LowLevel
             if (_swapChain == null)
             {
                 _swapChain = new(extent);
-                _depthReduction = new(extent);
+                //_depthReduction = new(extent);
             }
             else
             {
                 var oldSwapChain = _swapChain;
-                _depthReduction.Dispose();
+                //_depthReduction.Dispose();
                 _swapChain = new(extent, oldSwapChain);
-                _depthReduction = new(extent);
+                //_depthReduction = new(extent);
                 if (!oldSwapChain.CompareSwapFormats(_swapChain))
                 {
                     throw new Exception("Swap chain image(or depth) format has changed!");
@@ -352,7 +352,7 @@ namespace VECS.LowLevel
                 1,
                 &depthReadBarriers);
 
-            _depthReduction.DepthReduce(frameInfo);
+            //_depthReduction.DepthReduce(frameInfo);
 
             VkImageMemoryBarrier depthWriteBarrier = new()
             {
@@ -453,7 +453,7 @@ namespace VECS.LowLevel
         public unsafe void Dispose()
         {
             FreeCommandBuffers();
-            _depthReduction.Dispose();
+            //_depthReduction.Dispose();
             _shadowCubeMap?.Dispose();
             _swapChain.Dispose();
             Instance = null;

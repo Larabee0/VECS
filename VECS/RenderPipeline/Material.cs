@@ -22,7 +22,7 @@ namespace VECS
         private VkDescriptorSetLayout _materialDescriptorLayout;
         private VkDescriptorSetLayout _entityDescriptorLayout;
         private VkDescriptorSetLayout[] _allLayouts;
-        private readonly PushConstantsInfo[] _materialPushConstants;
+        private readonly PushConstantsHandler _materialPushConstantsHandler;
         private VkPipelineLayout _pipelineLayout;
         private GraphicsPipeline _materialPipeline;
 
@@ -124,18 +124,18 @@ namespace VECS
             var spirVert = SPIRVReflectUtil.CreateReflectShaderModule(vertexBytes);
             var spirFrag = SPIRVReflectUtil.CreateReflectShaderModule(fragmentBytes);
 
-            if(GraphicsPipelineUtil.GetVertexInputState(spirVert, out VkVertexInputBindingDescription[] vertBindings, out VkVertexInputAttributeDescription[] vertAttributes))
+            if(GPUPipelineUtil.GetVertexInputState(spirVert, out VkVertexInputBindingDescription[] vertBindings, out VkVertexInputAttributeDescription[] vertAttributes))
             {
                 pipelineConfig.BindingDescriptions = vertBindings;
                 pipelineConfig.AttributeDescriptions = vertAttributes;
             }
             _graphicsPipelineConfigInfo = pipelineConfig;
             _graphicsPipelineConfigInfo.renderPass = renderPass;
-            _materialBindings = GraphicsPipelineUtil.GenerateSharedDescriptorBindings(spirVert, spirFrag);
+            _materialBindings = GPUPipelineUtil.GenerateSharedDescriptorBindings(spirVert, spirFrag);
 
-            _applicationGlobalBindings = GraphicsPipelineUtil.ExtractBindingsForSet(0, _materialBindings);
-            _materialGlobalBindings = GraphicsPipelineUtil.ExtractBindingsForSet(1, _materialBindings);
-            _entityBindings = GraphicsPipelineUtil.ExtractBindingsForSet(2, _materialBindings);
+            _applicationGlobalBindings = GPUPipelineUtil.ExtractBindingsForSet(0, _materialBindings);
+            _materialGlobalBindings = GPUPipelineUtil.ExtractBindingsForSet(1, _materialBindings);
+            _entityBindings = GPUPipelineUtil.ExtractBindingsForSet(2, _materialBindings);
 
             GenerateDescriptorSetLayouts();
             _totalSets = (uint)_allLayouts.Length;
@@ -143,7 +143,7 @@ namespace VECS
 
             CreateDescriptorSetHandler();
 
-            _materialPushConstants = GraphicsPipelineUtil.GetPushConstants(spirVert, spirFrag);
+            _materialPushConstantsHandler = new(spirVert, spirFrag);
 
             SPIRVReflectUtil.DestroyReflectShaderModule(spirVert);
             SPIRVReflectUtil.DestroyReflectShaderModule(spirFrag);
@@ -216,7 +216,7 @@ namespace VECS
                     workingBindings[workingBindingIndex].UpdateShaderStage(VkShaderStageFlags.AllGraphics);
                     workingBindingIndex++;
                 }
-                _applicationDescriptorLayout = GraphicsPipelineUtil.CreateLayout(workingBindings);
+                _applicationDescriptorLayout = GPUPipelineUtil.CreateDescriptorSetLayout(workingBindings);
                 _allLayouts = [.. _allLayouts, _applicationDescriptorLayout];
             }
 
@@ -229,7 +229,7 @@ namespace VECS
                     workingBindings[workingBindingIndex] = _materialBindings[item.Value];
                     workingBindingIndex++;
                 }
-                _materialDescriptorLayout = GraphicsPipelineUtil.CreateLayout(workingBindings);
+                _materialDescriptorLayout = GPUPipelineUtil.CreateDescriptorSetLayout(workingBindings);
                 _allLayouts = [.. _allLayouts, _materialDescriptorLayout];
             }
 
@@ -242,46 +242,15 @@ namespace VECS
                     workingBindings[workingBindingIndex] = _materialBindings[item.Value];
                     workingBindingIndex++;
                 }
-                _entityDescriptorLayout = GraphicsPipelineUtil.CreateLayout(workingBindings);
+                _entityDescriptorLayout = GPUPipelineUtil.CreateDescriptorSetLayout(workingBindings);
                 _allLayouts = [.. _allLayouts, _entityDescriptorLayout];
             }
         }
 
         private unsafe void CreatePipelineLayout()
         {
-            VkPipelineLayoutCreateInfo vkPipelineLayoutInfo = new()
-            {
-                setLayoutCount = _allLayouts == null ? 0 : (uint)_allLayouts.Length,
-                pushConstantRangeCount = _materialPushConstants == null ? 0 : (uint)_materialPushConstants.Length
-            };
-
+            _graphicsPipelineConfigInfo.pipelineLayout = _pipelineLayout = GPUPipelineUtil.CreatePipelineLayout(_allLayouts, _materialPushConstantsHandler);
             _setsToBind = (VkDescriptorSet*)NativeMemory.AllocZeroed((uint)_allLayouts.Length,(uint)sizeof(VkDescriptorSet));
-
-            if (_allLayouts != null && _allLayouts.Length > 0)
-            {
-                vkPipelineLayoutInfo.setLayoutCount = (uint)_allLayouts.Length;
-                fixed (VkDescriptorSetLayout* pLayouts = &_allLayouts[0])
-                {
-                    vkPipelineLayoutInfo.pSetLayouts = pLayouts;
-                }
-            }
-
-            if(_materialPushConstants != null && _materialPushConstants.Length > 0)
-            {
-                vkPipelineLayoutInfo.pushConstantRangeCount = (uint)_materialPushConstants.Length;
-                VkPushConstantRange* pLayouts = stackalloc VkPushConstantRange[_materialPushConstants.Length];
-                for (int i = 0; i < _materialPushConstants.Length; i++)
-                {
-                    pLayouts[i] = _materialPushConstants[i].VkPushConstantRange;
-                }
-                vkPipelineLayoutInfo.pPushConstantRanges = pLayouts;
-            }
-            var result = Vulkan.vkCreatePipelineLayout(GraphicsDevice.Instance.Device, vkPipelineLayoutInfo, null, out _pipelineLayout);
-            if (result != VkResult.Success)
-            {
-                throw new Exception(string.Format("Failed to create pipeline layout! {0}",result.ToString()));
-            }
-            _graphicsPipelineConfigInfo.pipelineLayout = _pipelineLayout;
         }
 
         private void CreatePipeline(byte[] vertexBytes, byte[] fragmentBytes)
