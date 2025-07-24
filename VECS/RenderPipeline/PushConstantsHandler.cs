@@ -30,6 +30,42 @@ namespace VECS
 
     public static class PushConstantsExtensions
     {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void SetPushConstantInt(this Material material ,string property, int value)
+        {
+            WriteToPushConstantBuffer(material.PushConstants, property, value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void SetPushConstantFloat(this Material material ,string property, float value)
+        {
+            WriteToPushConstantBuffer(material.PushConstants, property, value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void SetPushConstantVector2(this Material material ,string property, Vector2 value)
+        {
+            WriteToPushConstantBuffer(material.PushConstants, property, value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void SetPushConstantVector4(this Material material ,string property, Vector4 value)
+        {
+            WriteToPushConstantBuffer(material.PushConstants, property, value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void SetPushConstantMatrix3x2(this Material material ,string property, Matrix3x2 value)
+        {
+            WriteToPushConstantBuffer(material.PushConstants, property, value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void SetPushConstantMatrix4x4(this Material material ,string property, Matrix4x4 value)
+        {
+            WriteToPushConstantBuffer(material.PushConstants, property, value);
+        }
+
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void SetPushConstantInt(this PushConstantsHandler handler, string property, int value)

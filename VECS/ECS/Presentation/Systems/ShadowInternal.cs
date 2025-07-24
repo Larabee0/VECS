@@ -140,7 +140,6 @@ namespace VECS.ECS.Presentation
                 }
 
                 Renderer.Instance.ShadowImage.UpdateCubeFace(i, frameInfo.CommandBuffer);
-
                 _shadowOffscreen.SetPushConstantMatrix4x4("viewCube", viewMatrix);
                 _shadowOffscreen.ExecuteDrawCommandKeepCommands(frameInfo, _indirectCmdBuffer);
                 Renderer.EndRenderPass(frameInfo.CommandBuffer);

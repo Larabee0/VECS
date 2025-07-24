@@ -33,7 +33,7 @@ namespace VECS
             _setLayout = GPUPipelineUtil.CreateDescriptorSetLayout(_computeShaderBindings);
             _pipelineLayout = GPUPipelineUtil.CreatePipelineLayout([_setLayout], _pushConstantsHandler);
 
-
+            // Descriptor Set bollocks
 
 
             VkUtf8ReadOnlyString main = "main"u8;

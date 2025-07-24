@@ -62,6 +62,8 @@ namespace VECS
         public VkVertexInputBindingDescription[] VertexBindings => _graphicsPipelineConfigInfo.BindingDescriptions;
         public VkVertexInputAttributeDescription[] VertexAttributes => _graphicsPipelineConfigInfo.AttributeDescriptions;
 
+        public DescriptorSetHandler[] AllHandlers => _allHandlers;
+        public PushConstantsHandler PushConstants => _materialPushConstantsHandler;
         public DescriptorSetHandler ApplicationDescriptorSetHandler => _applicationDescriptorSetHandlerIndex != -1 ? _allHandlers[_applicationDescriptorSetHandlerIndex] : null;
         public DescriptorSetHandler MaterialDescriptorSetHandler => _materialDescriptorSetHandlerIndex != -1 ? _allHandlers[_materialDescriptorSetHandlerIndex] : null;
         public DescriptorSetHandler EntityDescriptorSetHandler => _entityDescriptorSetHandlerIndex != -1 ? _allHandlers[_entityDescriptorSetHandlerIndex] : null;
@@ -282,6 +284,22 @@ namespace VECS
             return null;
         }
 
+        internal bool LookUpProperty(string property, out DescriptorSetHandler handler, out uint bindingIndex, out DescriptorPropertyInfo propertyInfo)
+        {
+            for (int i = 0; i < _totalSets; i++)
+            {
+                handler = _allHandlers[i];
+                if (handler != null && handler.LookUpProperty(property, out bindingIndex, out propertyInfo))
+                {
+                    return true;
+                }
+            }
+            handler = null;
+            bindingIndex = uint.MaxValue;
+            propertyInfo = null;
+            return false;
+        }
+        
         public unsafe void Dispose()
         {
             if (_disposed) return;
@@ -295,8 +313,8 @@ namespace VECS
             _materialPipeline?.Dispose();
             _materialPipeline = null;
             Vulkan.vkDestroyPipelineLayout(GraphicsDevice.Instance.Device, _pipelineLayout);
-            
-            if(_applicationDescriptorLayout != VkDescriptorSetLayout.Null)
+
+            if (_applicationDescriptorLayout != VkDescriptorSetLayout.Null)
             {
                 Vulkan.vkDestroyDescriptorSetLayout(GraphicsDevice.Instance.Device, _applicationDescriptorLayout, null);
             }
