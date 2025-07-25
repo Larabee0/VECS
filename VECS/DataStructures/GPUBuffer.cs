@@ -24,7 +24,8 @@ namespace VECS
         protected unsafe void* _hostPtr;
         public ulong BufferSize => _bufferSize;
 
-
+        public bool CPUAccess => _CPUAccess;
+        public ulong AlignmentSize => _alignmentSize;
         public bool IsDisposed => _disposed;
         public uint InstanceSize => (uint)_instanceSize;
         public uint UInstanceCount32 => (uint)_instanceCount;

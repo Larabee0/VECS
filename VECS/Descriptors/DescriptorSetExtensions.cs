@@ -1,4 +1,5 @@
-﻿using System.Numerics;
+﻿using System.Diagnostics;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using Vortice.Vulkan;
 
@@ -108,6 +109,15 @@ namespace VECS
         {
             var buffer = handler.GetStorageSwapChainBuffer(bindingIndex, propertyInfo);
             buffer?.SetUsedInstanceCount(instanceSize);
+        }
+
+        public static void SetStorageBuffer(this DescriptorHandler handler, string property, SwapChainBuffer buffer)
+        {
+            Debug.Assert(handler.DescriptorLevel == DescriptorLevel.ComputeEmpty, "Setting storage buffers of non ComputeEmpty sets is not supported!");
+            if (handler.LookUpProperty("property", out uint bindingIndex, out var propertyInfo) && propertyInfo.VariableArraySize)
+            {
+                handler.BindingBuffers[bindingIndex] = buffer;
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

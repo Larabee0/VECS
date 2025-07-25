@@ -91,5 +91,13 @@ namespace VECS
                 Vulkan.vkCmdPushConstants(rendererFrameInfo.CommandBuffer, pipelineLayout, ShaderStages, Offset, Size, pPushConstants);
             }
         }
+
+        internal unsafe void PushConstants(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout)
+        {
+            fixed (byte* pPushConstants = &_pushConstantBuffer[0])
+            {
+                Vulkan.vkCmdPushConstants(commandBuffer, pipelineLayout, ShaderStages, Offset, Size, pPushConstants);
+            }
+        }
     }
 }

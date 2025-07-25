@@ -28,15 +28,15 @@ namespace VECS
         {
             if (HasApplicationSet)
             {
-                _setsToBind[_applicationDescriptorSetHandlerIndex] = _allHandlers[_applicationDescriptorSetHandlerIndex].GetDescriptorSet(frameInfo.FrameIndex);
+                _setsToBind[_applicationDescriptorHandlerIndex] = _allHandlers[_applicationDescriptorHandlerIndex].GetDescriptorSet(frameInfo.FrameIndex);
             }
             if (HasMaterialSet)
             {
-                _setsToBind[_materialDescriptorSetHandlerIndex] = _allHandlers[_materialDescriptorSetHandlerIndex].GetOrCreateChild(variant).GetDescriptorSet(frameInfo.FrameIndex);
+                _setsToBind[_materialDescriptorHandlerIndex] = _allHandlers[_materialDescriptorHandlerIndex].GetOrCreateChild(variant).GetDescriptorSet(frameInfo.FrameIndex);
             }
             if (HasEntitySet)
             {
-                _setsToBind[_entityDescriptorSetHandlerIndex] = _allHandlers[_entityDescriptorSetHandlerIndex].GetOrCreateChild(entity).GetDescriptorSet(frameInfo.FrameIndex);
+                _setsToBind[_entityDescriptorHandlerIndex] = _allHandlers[_entityDescriptorHandlerIndex].GetOrCreateChild(entity).GetDescriptorSet(frameInfo.FrameIndex);
             }
         }
 
@@ -228,7 +228,7 @@ namespace VECS
             {
                 case DescriptorLevel.Game when HasApplicationSet:
 
-                    handler = _allHandlers[_applicationDescriptorSetHandlerIndex];
+                    handler = _allHandlers[_applicationDescriptorHandlerIndex];
                     handler.Update(frameInfo);
                     set = handler.GetDescriptorSet(frameInfo.FrameIndex);
                     handler.WriteFromBuffers(frameInfo.FrameIndex);
@@ -236,14 +236,14 @@ namespace VECS
 
                 case DescriptorLevel.Material when HasMaterialSet:
 
-                    handler = _allHandlers[_materialDescriptorSetHandlerIndex];
+                    handler = _allHandlers[_materialDescriptorHandlerIndex];
                     handler.Update(frameInfo);
                     set = handler.GetOrCreateChild(variant).GetDescriptorSet(frameInfo.FrameIndex);
                     handler.WriteFromBuffers(frameInfo.FrameIndex);
                     return set;
                 case DescriptorLevel.Entity when HasEntitySet:
 
-                    handler = _allHandlers[_entityDescriptorSetHandlerIndex];
+                    handler = _allHandlers[_entityDescriptorHandlerIndex];
                     handler.Update(frameInfo);
                     set = handler.GetOrCreateChild(variant).GetDescriptorSet(frameInfo.FrameIndex);
                     handler.WriteFromBuffers(frameInfo.FrameIndex);
@@ -268,11 +268,11 @@ namespace VECS
         {
             if (HasApplicationSet)
             {
-                var handler = _allHandlers[_applicationDescriptorSetHandlerIndex];
+                var handler = _allHandlers[_applicationDescriptorHandlerIndex];
                 handler.Update(frameInfo);
                 var set = handler.GetDescriptorSet(frameInfo.FrameIndex);
                 handler.WriteFromBuffers(frameInfo.FrameIndex);
-                Vulkan.vkCmdBindDescriptorSets(frameInfo.CommandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, (uint)_applicationDescriptorSetHandlerIndex, 1, &set);
+                Vulkan.vkCmdBindDescriptorSets(frameInfo.CommandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, (uint)_applicationDescriptorHandlerIndex, 1, &set);
             }
         }
 
@@ -280,12 +280,12 @@ namespace VECS
         {
             if (HasMaterialSet)
             {
-                var handler = _allHandlers[_materialDescriptorSetHandlerIndex];
+                var handler = _allHandlers[_materialDescriptorHandlerIndex];
                 handler.Update(frameInfo);
                 var set = handler.GetOrCreateChild(variant).GetDescriptorSet(frameInfo.FrameIndex);
 
                 handler.WriteFromBuffers(frameInfo.FrameIndex);
-                Vulkan.vkCmdBindDescriptorSets(frameInfo.CommandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, (uint)_materialDescriptorSetHandlerIndex, 1, &set);
+                Vulkan.vkCmdBindDescriptorSets(frameInfo.CommandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, (uint)_materialDescriptorHandlerIndex, 1, &set);
             }
         }
 
@@ -293,12 +293,12 @@ namespace VECS
         {
             if (HasEntitySet)
             {
-                var handler = _allHandlers[_entityDescriptorSetHandlerIndex];
+                var handler = _allHandlers[_entityDescriptorHandlerIndex];
                 handler.Update(frameInfo);
                 var set = handler.GetOrCreateChild(variant).GetDescriptorSet(frameInfo.FrameIndex);
 
                 handler.WriteFromBuffers(frameInfo.FrameIndex);
-                Vulkan.vkCmdBindDescriptorSets(frameInfo.CommandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, (uint)_entityDescriptorSetHandlerIndex, 1, &set);
+                Vulkan.vkCmdBindDescriptorSets(frameInfo.CommandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, (uint)_entityDescriptorHandlerIndex, 1, &set);
             }
         }
 
@@ -306,8 +306,8 @@ namespace VECS
         {
             if (HasEntitySet && HasMaterialSet)
             {
-                var matHandler = _allHandlers[_materialDescriptorSetHandlerIndex];
-                var entityHandler = _allHandlers[_entityDescriptorSetHandlerIndex];
+                var matHandler = _allHandlers[_materialDescriptorHandlerIndex];
+                var entityHandler = _allHandlers[_entityDescriptorHandlerIndex];
                 VkDescriptorSet* sets = stackalloc VkDescriptorSet[]
                 {
                     matHandler.GetOrCreateChild(variant).GetDescriptorSet(frameInfo.FrameIndex),
@@ -315,7 +315,7 @@ namespace VECS
                 };
                 matHandler.WriteFromBuffers(frameInfo.FrameIndex);
                 entityHandler.WriteFromBuffers(frameInfo.FrameIndex);
-                Vulkan.vkCmdBindDescriptorSets(frameInfo.CommandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, (uint)_materialDescriptorSetHandlerIndex, 2, sets);
+                Vulkan.vkCmdBindDescriptorSets(frameInfo.CommandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, (uint)_materialDescriptorHandlerIndex, 2, sets);
             }
             else
             {

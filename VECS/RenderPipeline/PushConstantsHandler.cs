@@ -131,6 +131,15 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void BindPushConstants(this PushConstantsHandler handler, VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout)
+        {
+            for (int i = 0; i < handler.Count; i++)
+            {
+                handler.PushConstants[i].PushConstants(commandBuffer, pipelineLayout);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static unsafe void PopulateLayout(this PushConstantsHandler handler, VkPushConstantRange* pLayouts)
         {
             for (int i = 0; i < handler.Count; i++)

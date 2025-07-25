@@ -38,9 +38,9 @@ namespace VECS
         // also keep the sets locally but the buffers that make up the sets are stored externally*
         private readonly Dictionary<string, int> _entityBindings;
 
-        private int _applicationDescriptorSetHandlerIndex = -1;
-        private int _materialDescriptorSetHandlerIndex = -1;
-        private int _entityDescriptorSetHandlerIndex = -1;
+        private int _applicationDescriptorHandlerIndex = -1;
+        private int _materialDescriptorHandlerIndex = -1;
+        private int _entityDescriptorHandlerIndex = -1;
         private readonly DescriptorHandler[] _allHandlers;
 
         public int MaterialIndex => GetIndexOfMaterial(this);
@@ -64,9 +64,9 @@ namespace VECS
 
         public DescriptorHandler[] AllHandlers => _allHandlers;
         public PushConstantsHandler PushConstants => _materialPushConstantsHandler;
-        public DescriptorHandler ApplicationDescriptorSetHandler => _applicationDescriptorSetHandlerIndex != -1 ? _allHandlers[_applicationDescriptorSetHandlerIndex] : null;
-        public DescriptorHandler MaterialDescriptorSetHandler => _materialDescriptorSetHandlerIndex != -1 ? _allHandlers[_materialDescriptorSetHandlerIndex] : null;
-        public DescriptorHandler EntityDescriptorSetHandler => _entityDescriptorSetHandlerIndex != -1 ? _allHandlers[_entityDescriptorSetHandlerIndex] : null;
+        public DescriptorHandler ApplicationDescriptorSetHandler => _applicationDescriptorHandlerIndex != -1 ? _allHandlers[_applicationDescriptorHandlerIndex] : null;
+        public DescriptorHandler MaterialDescriptorSetHandler => _materialDescriptorHandlerIndex != -1 ? _allHandlers[_materialDescriptorHandlerIndex] : null;
+        public DescriptorHandler EntityDescriptorSetHandler => _entityDescriptorHandlerIndex != -1 ? _allHandlers[_entityDescriptorHandlerIndex] : null;
 
         private readonly bool _actAsGlobal = false;
         private bool _disposed = false;
@@ -158,22 +158,6 @@ namespace VECS
             Materials.Add(this);
         }
 
-        
-
-        private void CreateDescriptorSetHandler(int index,DescriptorLevel level, Dictionary<string, int> bindingsDict)
-        {
-            DescriptorBinding[] bindings = new DescriptorBinding[bindingsDict.Count];
-            int i = 0;
-            foreach (var item in bindingsDict.Values)
-            {
-                bindings[i] = _materialBindings[item];
-                i++;
-            }
-
-            _allHandlers[index] = new DescriptorHandler(_allLayouts[index], level, bindings);
-
-        }
-
         private void CreateDescriptorSetHandler()
         {
             int index = 0;
@@ -181,25 +165,25 @@ namespace VECS
             {
                 if (_actAsGlobal)
                 {
-                    CreateDescriptorSetHandler(index,DescriptorLevel.Game, _applicationGlobalBindings);
+                    GPUPipelineUtil.CreateDescriptorSetHandler(_allHandlers,_materialBindings, _allLayouts, index, DescriptorLevel.Game, _applicationGlobalBindings);
                 }
                 else
                 {
                     _allHandlers[index] = Presenter.Instance.GlobalSetHandler;
                 }
-                _applicationDescriptorSetHandlerIndex = index;
+                _applicationDescriptorHandlerIndex = index;
                 index++;
             }
             if (HasMaterialSet)
             {
-                CreateDescriptorSetHandler(index,DescriptorLevel.Material, _materialGlobalBindings);
-                _materialDescriptorSetHandlerIndex = index;
+                GPUPipelineUtil.CreateDescriptorSetHandler(_allHandlers,_materialBindings, _allLayouts,index,DescriptorLevel.Material, _materialGlobalBindings);
+                _materialDescriptorHandlerIndex = index;
                 index++;
             }
             if (HasEntitySet)
             {
-                CreateDescriptorSetHandler(index, DescriptorLevel.Entity, _entityBindings);
-                _entityDescriptorSetHandlerIndex = index;
+                GPUPipelineUtil.CreateDescriptorSetHandler(_allHandlers,_materialBindings, _allLayouts,index, DescriptorLevel.Entity, _entityBindings);
+                _entityDescriptorHandlerIndex = index;
             }
         }
 

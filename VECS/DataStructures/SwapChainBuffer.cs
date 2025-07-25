@@ -1,4 +1,5 @@
-﻿using System;
+﻿using SDL3;
+using System;
 using System.Runtime.InteropServices;
 using VECS.LowLevel;
 using Vortice.Vulkan;
@@ -39,6 +40,8 @@ namespace VECS
         private unsafe void* _hostPtr;
 
         private uint _usedInstanceCount;
+
+        public readonly bool SameBufferForEachFrame = false;
 
         public ulong BufferSize => _bufferSize;
         public uint InstanceSize => (uint)_instanceSize;
@@ -152,6 +155,7 @@ namespace VECS
 
         private unsafe SwapChainBuffer(SwapChainBuffer copyFrom, ulong newInstanceCount)
         {
+            SameBufferForEachFrame = true;
             _instanceSize = copyFrom._instanceSize;
             _instanceCount = newInstanceCount;
             _alignmentSize = copyFrom._alignmentSize;
@@ -186,7 +190,31 @@ namespace VECS
             SetBuffersDirty(true);
         }
 
-        public static SwapChainBuffer Realloc(SwapChainBuffer oldBuffer,ulong newInstanceCount)
+        public unsafe SwapChainBuffer(GPUBuffer gpuBuffer)
+        {
+            _instanceSize = gpuBuffer.InstanceSize;
+            _instanceCount = gpuBuffer.UInstanceCount;
+            _alignmentSize = gpuBuffer.AlignmentSize;
+            _CPUAccessible = gpuBuffer.CPUAccess;
+            _usageFlags = gpuBuffer.UsageFlags;
+            _bufferSize = _alignmentSize * _instanceCount;
+
+
+            for (int i = 0; i < SwapChain.MAX_FRAMES_IN_FLIGHT; i++)
+            {
+                _buffers[i] = gpuBuffer;
+            }
+
+            _usedInstanceCount = (uint)InstanceCount;
+
+            if (_CPUAccessible)
+            {
+                _hostPtr = gpuBuffer.HostPtr;
+            }
+            SetBuffersDirty(true);
+        }
+
+        public static SwapChainBuffer Realloc(SwapChainBuffer oldBuffer, ulong newInstanceCount)
         {
             return new SwapChainBuffer(oldBuffer, newInstanceCount);
         }

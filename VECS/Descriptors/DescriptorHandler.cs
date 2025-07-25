@@ -152,7 +152,14 @@ namespace VECS
                 else if (binding.Buffer)
                 {
                     _bindingBufferMap.Add(binding.Binding, b);
-                    _bindingBuffers[b] = new(binding.BufferSize, DEFAULT_STORAGE_BUFFER_COUNT, binding.BufferUsageFlags, true);
+                    if (_descriptorLevel != DescriptorLevel.ComputeEmpty)
+                    {
+                        _bindingBuffers[b] = new(binding.BufferSize, DEFAULT_STORAGE_BUFFER_COUNT, binding.BufferUsageFlags, true);
+                    }
+                    else
+                    {
+                        _bindingBuffers[b] = null;
+                    }
                     b++;
                 }
             }
@@ -272,7 +279,7 @@ namespace VECS
                     _bufferBindings[bufferIndex] = i;
                     if (_descriptorBindings[i].UniformBuffer)
                     {
-                        _bufferOffsets[bufferIndex] = _descriptorBindings[i].Stride * (uint)_uniformBufferIndex;
+                        _bufferOffsets[bufferIndex] = _descriptorBindings[i].Stride * _uniformBufferIndex;
                     }
                     bufferIndex++;
                 }
@@ -289,6 +296,7 @@ namespace VECS
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Update(RendererFrameInfo frameInfo)
         {
             var pool = frameInfo.GetDescriptorPool(_descriptorLevel);
@@ -421,11 +429,13 @@ namespace VECS
             _setsDirty[frameIndex] = false;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public VkDescriptorSet GetDescriptorSet(int index)
         {
             return _vkDescriptorSets[index];
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool LookUpProperty(string property, out uint bindingIndex, out DescriptorPropertyInfo propertyInfo)
         {
             return LookUpProperty(property, false, out bindingIndex, out propertyInfo);
@@ -509,7 +519,12 @@ namespace VECS
             {
                 throw new InvalidOperationException("Cannot write property with mismatched size");
             }
-            
+#if DEBUG
+            if (DescriptorLevel == DescriptorLevel.ComputeEmpty && _bindingBuffers[_bindingBufferMap[bindingIndex]] != null)
+            {
+                throw new NullReferenceException(string.Format("Unallocated storage buffer (Binding Index = {0} [{1}]) has not been assigned and has a default value of null!", bindingIndex,propertyInfo.Name));
+            }
+#endif
             bindingIndex = (uint)_bindingBufferMap[bindingIndex];
 
             uint offset = propertyInfo.Offset + _bufferOffsets[bindingIndex];
@@ -522,13 +537,19 @@ namespace VECS
             _bindingBuffers[bindingIndex].SetBuffersDirty(true);
         }
 
-
         public unsafe void WriteArrayToBuffer<T>(uint bindingIndex, DescriptorPropertyInfo propertyInfo, T[] array) where T : unmanaged
         {
             if (sizeof(T) * array.Length > propertyInfo.Size)
             {
                 throw new InvalidOperationException("Cannot write property with mismatched size");
             }
+
+#if DEBUG
+            if (DescriptorLevel == DescriptorLevel.ComputeEmpty && _bindingBuffers[_bindingBufferMap[bindingIndex]] != null)
+            {
+                throw new NullReferenceException(string.Format("Unallocated storage buffer (Binding Index ={0}) has not been assigned and has a default value of null!",bindingIndex));
+            }
+#endif
 
             uint offset = propertyInfo.Offset + _bufferOffsets[bindingIndex];
             var hostPtr = (IntPtr)_bindingBuffers[_bindingBufferMap[bindingIndex]].HostPtr;
@@ -540,7 +561,6 @@ namespace VECS
             }
             _bindingBuffers[bindingIndex].SetBuffersDirty(true);
         }
-
 
         public unsafe void Dispose()
         {
@@ -565,9 +585,23 @@ namespace VECS
                 NativeMemory.Free(_bufferInfos);
                 if (!_child)
                 {
-                    for (int i = 0; i < _bindingBuffers.Length; i++)
+                    if (_descriptorLevel == DescriptorLevel.ComputeEmpty)
                     {
-                        _bindingBuffers[i]?.Dispose();
+                        for (int i = 0; i < _bufferBindings.Length; i++)
+                        {
+                            var bufferBinding = _bufferBindings[i];
+                            if (!_descriptorBindings[bufferBinding].StorageBuffer)
+                            {
+                                _bindingBuffers[i]?.Dispose();
+                            }
+                        }
+                    }
+                    else
+                    {
+                        for (int i = 0; i < _bindingBuffers.Length; i++)
+                        {
+                            _bindingBuffers[i]?.Dispose();
+                        }
                     }
                 }
             }
@@ -582,6 +616,8 @@ namespace VECS
     {
         Game,
         Material,
-        Entity
+        Entity,
+        ComputePreGen,
+        ComputeEmpty
     }
 }
