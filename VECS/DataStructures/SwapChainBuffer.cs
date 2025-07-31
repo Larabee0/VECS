@@ -1,5 +1,4 @@
-﻿using SDL3;
-using System;
+﻿using System;
 using System.Runtime.InteropServices;
 using VECS.LowLevel;
 using Vortice.Vulkan;
@@ -155,7 +154,6 @@ namespace VECS
 
         private unsafe SwapChainBuffer(SwapChainBuffer copyFrom, ulong newInstanceCount)
         {
-            SameBufferForEachFrame = true;
             _instanceSize = copyFrom._instanceSize;
             _instanceCount = newInstanceCount;
             _alignmentSize = copyFrom._alignmentSize;
@@ -192,6 +190,7 @@ namespace VECS
 
         public unsafe SwapChainBuffer(GPUBuffer gpuBuffer)
         {
+            SameBufferForEachFrame = true;
             _instanceSize = gpuBuffer.InstanceSize;
             _instanceCount = gpuBuffer.UInstanceCount;
             _alignmentSize = gpuBuffer.AlignmentSize;
