@@ -1,5 +1,8 @@
-﻿using System;
-using System.Runtime.CompilerServices;
+﻿//#define LOG_BUFFER_ALLOCS
+using System;
+#if LOG_BUFFER_ALLOCS
+using System.Diagnostics;
+#endif
 using System.Runtime.InteropServices;
 using VECS.LowLevel;
 using Vortice.Vulkan;
@@ -122,6 +125,12 @@ namespace VECS
                 allocationInfo.flags = VmaAllocationCreateFlags.HostAccessSequentialWrite | VmaAllocationCreateFlags.Mapped;
             }
             var result = Vma.vmaCreateBuffer(_device.VmaAllocator, bufferInfo, allocationInfo, out VkBuffer, out _allocation);
+
+#if LOG_BUFFER_ALLOCS
+            StackTrace trace = new(true);
+
+            Console.WriteLine(string.Format("0x{1}\nBuffer Creation trace\n {0}",trace.ToString(),VkBuffer.Handle.ToString("X16")));
+#endif
             if (result != VkResult.Success)
             {
                 throw new Exception(string.Format("Failed to create vma buffer!\n{0}", result));
@@ -336,6 +345,12 @@ namespace VECS
                 
             }
             var result = Vma.vmaCreateBuffer(_device.VmaAllocator, bufferInfo, allocationInfo, out VkBuffer, out _allocation);
+
+#if LOG_BUFFER_ALLOCS
+            StackTrace trace = new(true);
+
+            Console.WriteLine(string.Format("0x{1}\nBuffer Creation trace\n {0}",trace.ToString(),VkBuffer.Handle.ToString("X16")));
+#endif
             if (result != VkResult.Success)
             {
                 throw new Exception(string.Format("Failed to create vma buffer!\n{0}", result));
