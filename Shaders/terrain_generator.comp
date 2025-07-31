@@ -26,17 +26,17 @@ layout(set = 0, binding = 1) uniform NoiseGeneratorParams{
 
 // all noise settings. First element is the colour setting noise filter.
 // this should not be applied with generation.
-layout(std430, set = 0, binding = 2) buffer NoiseSettings {
+layout(std430, set = 0, binding = 2) readonly buffer NoiseSettings {
 	GlobalNoiseSettings values[];
 } noiseSettings;
 
 // % at which each biome starts.
-layout(std430, set = 0, binding = 3) buffer Biomes {
+layout(std430, set = 0, binding = 3) readonly buffer Biomes {
 	float values[];
 } biomes;
 
 // unscaled elevation min-max output
-layout(std430, set = 0, binding = 4) buffer ElevationMinMax {
+layout(std430, set = 0, binding = 4) writeonly buffer ElevationMinMax {
 	int values[];
 } minMax;
 

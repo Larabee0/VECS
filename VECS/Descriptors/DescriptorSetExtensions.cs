@@ -12,6 +12,11 @@ namespace VECS
         {
             handler.WriteToBuffer(property, value);
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void SetUInt(this DescriptorHandler handler, string property, uint value)
+        {
+            handler.WriteToBuffer(property, value);
+        }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void SetFloat(this DescriptorHandler handler, string property, float value)

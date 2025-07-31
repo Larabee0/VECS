@@ -116,18 +116,18 @@ namespace Planets.Generator
             uint divider = (uint)(int)MathF.Ceiling((float)mesh.VertexBufferLength / (float)GraphicsDevice.Instance.MaxWorkGroupX);
             uint workGroupX = (uint)Math.Min(mesh.VertexBufferLength, GraphicsDevice.Instance.MaxWorkGroupX);
 
-            _newFramework.PreAllocated.SetFloat("params.bufferLength", (uint)mesh.VertexBufferLength);
-            _newFramework.PreAllocated.SetFloat("params.depth", 1);
+            _newFramework.PreAllocated.SetUInt("params.bufferLength", (uint)mesh.VertexBufferLength);
+            _newFramework.PreAllocated.SetUInt("params.depth", 1);
 
             if (divider == 1)
             {
-                _newFramework.PreAllocated.SetFloat("params.width", (uint)mesh.VertexBufferLength);
-                _newFramework.PreAllocated.SetFloat("params.height", 1);
+                _newFramework.PreAllocated.SetUInt("params.width", (uint)mesh.VertexBufferLength);
+                _newFramework.PreAllocated.SetUInt("params.height", 1);
             }
             else
             {
-                _newFramework.PreAllocated.SetFloat("params.width", workGroupX);
-                _newFramework.PreAllocated.SetFloat("params.height", divider);
+                _newFramework.PreAllocated.SetUInt("params.width", workGroupX);
+                _newFramework.PreAllocated.SetUInt("params.height", divider);
             }
 
             SwapChainBuffer vertexBuffer = new(mesh.GetBufferAtAttribute(VertexAttribute.Position));
