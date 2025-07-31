@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -42,6 +43,8 @@ namespace VECS
         private int _materialDescriptorHandlerIndex = -1;
         private int _entityDescriptorHandlerIndex = -1;
         private readonly DescriptorHandler[] _allHandlers;
+
+        private readonly ConcurrentDictionary<string, (int, uint, DescriptorPropertyInfo)> _cachedProperties = new();
 
         public int MaterialIndex => GetIndexOfMaterial(this);
         public int MaterialVariantCount => !HasMaterialSet ? 0 : MaterialDescriptorSetHandler.ChildCount;
@@ -270,11 +273,19 @@ namespace VECS
 
         internal bool LookUpProperty(string property, out DescriptorHandler handler, out uint bindingIndex, out DescriptorPropertyInfo propertyInfo)
         {
+            if (_cachedProperties.TryGetValue(property, out var cached))
+            {
+                handler = _allHandlers[cached.Item1];
+                bindingIndex = cached.Item2;
+                propertyInfo = cached.Item3;
+                return true;
+            }
             for (int i = 0; i < _totalSets; i++)
             {
                 handler = _allHandlers[i];
                 if (handler != null && handler.LookUpProperty(property, out bindingIndex, out propertyInfo))
                 {
+                    _cachedProperties.TryAdd(property, (i, bindingIndex, propertyInfo));
                     return true;
                 }
             }

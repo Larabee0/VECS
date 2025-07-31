@@ -2,7 +2,6 @@
 using System.Numerics;
 using Planets.Colour;
 using VECS;
-using VECS.Compute;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
@@ -15,41 +14,20 @@ namespace Planets.Generator
     {
         private const float QUANTIIZE_FACTOR = 32768.0f;
 
-        private readonly GenericComputePipeline _terrainGenerator;
-        private readonly DescriptorPool _pool;
+        private readonly DescriptorPool _descriptorPool;
 
-        private readonly GPUBuffer<int> _elevationMinMax;
-        private GPUBuffer<float> _biomeStartHeights;
-        private GPUBuffer<GlobalNoiseSettings> _noiseSettings;
-        private readonly GPUBuffer<NoiseGeneratorParams> _noiseGeneratorParams;
-
-        private readonly ComputeShader _newFramework;
+        private readonly ComputeShader _computeShader;
 
         public ComputeShapeGenerator()
         {
-            // _terrainGenerator = new GenericComputePipeline("terrain_generator.comp",
-            //     new DescriptorSetBinding(VkDescriptorType.UniformBuffer, VkShaderStageFlags.Compute),
-            //     new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute),
-            //     new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute),
-            //     new DescriptorSetBinding(VkDescriptorType.UniformBuffer, VkShaderStageFlags.Compute),
-            //     new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute),
-            //     new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute),
-            //     new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute)
-            // );
-
-            _pool = new DescriptorPool.Builder()
+            _descriptorPool = new DescriptorPool.Builder()
                 .AddPoolSize(VkDescriptorType.UniformBuffer, 2)
                 .AddPoolSize(VkDescriptorType.StorageBuffer, 5)
                 .Build();
-            //_terrainGenerator.AllocateDescriptorSet(_pool);
-            // size of these buffers is known in advance.
-            _noiseGeneratorParams = new(1, VkBufferUsageFlags.UniformBuffer, true);
-            _elevationMinMax = new(2, VkBufferUsageFlags.StorageBuffer, true);
-
 
             var shaderFilePath = Material.GetShaderFilePath("terrain_generator.comp");
-            _newFramework = new ComputeShader(shaderFilePath);
-            _newFramework.PreAllocated.SetStorageBufferUsageSize("minMax", 2);
+            _computeShader = new ComputeShader(shaderFilePath);
+            _computeShader.PreAllocated.SetStorageBufferUsageSize("minMax", 2);
             ResetMinMax();
 
         }
@@ -72,8 +50,8 @@ namespace Planets.Generator
         /// <param name="generator"></param>
         private void WriteNoiseSettings(ShapeGenerator generator)
         {
-            _newFramework.PreAllocated.SetStorageBufferUsageSize("noiseSettings", (uint)generator.NoiseFilters.Length + 1);
-            Span<GlobalNoiseSettings> settingsPoint = _newFramework.PreAllocated.GetStorageBuffer<GlobalNoiseSettings>("noiseSettings");
+            _computeShader.PreAllocated.SetStorageBufferUsageSize("noiseSettings", (uint)generator.NoiseFilters.Length + 1);
+            Span<GlobalNoiseSettings> settingsPoint = _computeShader.PreAllocated.GetStorageBuffer<GlobalNoiseSettings>("noiseSettings");
             settingsPoint[0] = generator.ColourGenerator.settings.biomeColourSettings.noise.GetSettings();
             for (int i = 0; i < generator.NoiseFilters.Length; i++)
             {
@@ -88,8 +66,8 @@ namespace Planets.Generator
         private void WriteBiomeStartHeights(ColourSettings colourSettings)
         {
             int biomeCount = colourSettings.biomeColourSettings.biomes.Length;
-            _newFramework.PreAllocated.SetStorageBufferUsageSize("biomes", (uint)biomeCount);
-            Span<float> startHeights =  _newFramework.PreAllocated.GetStorageBuffer<float>("biomes");
+            _computeShader.PreAllocated.SetStorageBufferUsageSize("biomes", (uint)biomeCount);
+            Span<float> startHeights =  _computeShader.PreAllocated.GetStorageBuffer<float>("biomes");
 
             for (int i = 0; i < biomeCount; i++)
             {
@@ -103,7 +81,7 @@ namespace Planets.Generator
         /// <param name="generator"></param>
         private void WriteGeneratorParameters(ShapeGenerator generator)
         {
-            _newFramework.PreAllocated.SetUniform<NoiseGeneratorParams>("noiseParams", new(generator));
+            _computeShader.PreAllocated.SetUniform<NoiseGeneratorParams>("noiseParams", new(generator));
         }
 
         /// <summary>
@@ -116,41 +94,28 @@ namespace Planets.Generator
             uint divider = (uint)(int)MathF.Ceiling((float)mesh.VertexBufferLength / (float)GraphicsDevice.Instance.MaxWorkGroupX);
             uint workGroupX = (uint)Math.Min(mesh.VertexBufferLength, GraphicsDevice.Instance.MaxWorkGroupX);
 
-            _newFramework.PreAllocated.SetUInt("params.bufferLength", (uint)mesh.VertexBufferLength);
-            _newFramework.PreAllocated.SetUInt("params.depth", 1);
+            _computeShader.PreAllocated.SetUInt("params.bufferLength", (uint)mesh.VertexBufferLength);
+            _computeShader.PreAllocated.SetUInt("params.depth", 1);
 
             if (divider == 1)
             {
-                _newFramework.PreAllocated.SetUInt("params.width", (uint)mesh.VertexBufferLength);
-                _newFramework.PreAllocated.SetUInt("params.height", 1);
+                _computeShader.PreAllocated.SetUInt("params.width", (uint)mesh.VertexBufferLength);
+                _computeShader.PreAllocated.SetUInt("params.height", 1);
             }
             else
             {
-                _newFramework.PreAllocated.SetUInt("params.width", workGroupX);
-                _newFramework.PreAllocated.SetUInt("params.height", divider);
+                _computeShader.PreAllocated.SetUInt("params.width", workGroupX);
+                _computeShader.PreAllocated.SetUInt("params.height", divider);
             }
 
             SwapChainBuffer vertexBuffer = new(mesh.GetBufferAtAttribute(VertexAttribute.Position));
             SwapChainBuffer uvBuffer = new(mesh.GetBufferAtAttribute(VertexAttribute.TexCoord0));
 
-            _newFramework.UnAllocated.SetStorageBuffer("vertexBuffer", vertexBuffer);
-            _newFramework.UnAllocated.SetStorageBuffer("uvBuffer", uvBuffer);
+            _computeShader.UnAllocated.SetStorageBuffer("vertexBuffer", vertexBuffer);
+            _computeShader.UnAllocated.SetStorageBuffer("uvBuffer", uvBuffer);
 
-            // fixed (VkDescriptorSet* pSet = &_terrainGenerator.DescriptorSet)
-            // {
-            //     new DescriptorWriter(_terrainGenerator.DescriptorSetLayout, _pool)
-            //         .WriteBuffer(0, _terrainGenerator.ShaderParameters.DescriptorInfo())
-            //         .WriteBuffer(1, mesh.GetBufferAtAttribute(VertexAttribute.Position).DescriptorInfo())
-            //         .WriteBuffer(2, mesh.GetBufferAtAttribute(VertexAttribute.TexCoord0).DescriptorInfo())
-            //         .WriteBuffer(3, _noiseGeneratorParams.DescriptorInfo())
-            //         .WriteBuffer(4, _noiseSettings.DescriptorInfo())
-            //         .WriteBuffer(5, _biomeStartHeights.DescriptorInfo())
-            //         .WriteBuffer(6, _elevationMinMax.DescriptorInfo())
-            //         .Build(pSet);
-            // }
-
-            _newFramework.PreAllocated.Update(0, _pool);
-            _newFramework.UnAllocated.Update(0, _pool);
+            _computeShader.PreAllocated.Update(0, _descriptorPool);
+            _computeShader.UnAllocated.Update(0, _descriptorPool);
 
             return new(workGroupX, divider);
         }
@@ -164,7 +129,7 @@ namespace Planets.Generator
         {
             Vector2UInt workGroups = Prepare(mesh);
             //_terrainGenerator.Dispatch(commandBuffer, workGroups.X, workGroups.Y, 1);
-            _newFramework.Dispatch(commandBuffer, workGroups.X, workGroups.Y);
+            _computeShader.Dispatch(commandBuffer, workGroups.X, workGroups.Y);
         }
 
         /// <summary>
@@ -186,8 +151,8 @@ namespace Planets.Generator
         /// <returns></returns>
         public Vector2 ReadElevationMinMax()
         {
-            _newFramework.PreAllocated.GetStorageSwapChainBuffer("minMax").ReadToHostFromActiveBuffer();
-            Span<int> minMaxBuffer = _newFramework.PreAllocated.GetStorageBuffer<int>("minMax");
+            _computeShader.PreAllocated.GetStorageSwapChainBuffer("minMax").ReadToHostFromActiveBuffer();
+            Span<int> minMaxBuffer = _computeShader.PreAllocated.GetStorageBuffer<int>("minMax");
             return new Vector2(minMaxBuffer[0] / QUANTIIZE_FACTOR, minMaxBuffer[1] / QUANTIIZE_FACTOR);
         }
 
@@ -196,20 +161,15 @@ namespace Planets.Generator
         /// </summary>
         public void ResetMinMax()
         {
-            Span<int> minMaxBuffer = _newFramework.PreAllocated.GetStorageBuffer<int>("minMax");            
+            Span<int> minMaxBuffer = _computeShader.PreAllocated.GetStorageBuffer<int>("minMax");            
             minMaxBuffer[0] = int.MaxValue;
             minMaxBuffer[1] = int.MinValue;
         }
 
         public void Dispose()
         {
-            _newFramework.Dispose();
-            _elevationMinMax?.Dispose();
-            _biomeStartHeights?.Dispose();
-            _noiseSettings?.Dispose();
-            _noiseGeneratorParams?.Dispose();
-            _pool.Dispose();
-            _terrainGenerator?.Dispose();
+            _computeShader.Dispose();
+            _descriptorPool.Dispose();
         }
 
         private struct NoiseGeneratorParams

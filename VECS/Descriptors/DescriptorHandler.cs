@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
@@ -13,6 +14,9 @@ namespace VECS
     {
         public const uint DEFAULT_STORAGE_BUFFER_COUNT = 10000;
         private readonly Dictionary<int, DescriptorHandler> _children;
+
+        private readonly ConcurrentDictionary<string, (uint,DescriptorPropertyInfo)> _cachedProperties = new();
+
         private readonly VkDescriptorSet[] _vkDescriptorSets = new VkDescriptorSet[SwapChain.MAX_FRAMES_IN_FLIGHT];
         private readonly DescriptorPool[] _vkDescriptorPoolSource = new DescriptorPool[SwapChain.MAX_FRAMES_IN_FLIGHT];
 
@@ -443,6 +447,13 @@ namespace VECS
 
         public bool LookUpProperty(string property, bool requireUniform, out uint bindingIndex, out DescriptorPropertyInfo propertyInfo)
         {
+            if (_cachedProperties.TryGetValue(property, out var cached))
+            {
+                bindingIndex = cached.Item1;
+                propertyInfo = cached.Item2;
+                return true;
+            }
+
             int index = property.IndexOf('.');
             var bindingName = property;
             if (index != -1)
@@ -470,23 +481,34 @@ namespace VECS
             {
                 var address = property[(index + 1)..];
                 propertyInfo = binding.GetProperty(address);
-                return propertyInfo != null;
+                if (propertyInfo != null)
+                {
+                    _cachedProperties.TryAdd(property, (bindingIndex, propertyInfo));
+                    return true;
+                }
             }
             else if (binding != null && binding.UniformBuffer)
             {
                 propertyInfo = new DescriptorPropertyInfo(bindingName, SpvOp.TypeStruct, binding.BufferSize, 0);
+                _cachedProperties.TryAdd(property, (bindingIndex, propertyInfo));
 
                 return true;
             }
             else if (binding != null && binding.Image)
             {
                 propertyInfo = binding.GetTexture();
+                _cachedProperties.TryAdd(property, (bindingIndex, propertyInfo));
                 return true;
             }
             else if (binding != null && binding.StorageBuffer)
             {
                 propertyInfo = binding.GetRunTimeArray();
-                return propertyInfo != null;
+                
+                if (propertyInfo != null)
+                {
+                    _cachedProperties.TryAdd(property, (bindingIndex, propertyInfo));
+                    return true;
+                }
             }
 
             propertyInfo = null;

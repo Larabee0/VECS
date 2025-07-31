@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System;
+using System.Diagnostics;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using Vortice.Vulkan;
@@ -10,42 +11,92 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void SetInt(this DescriptorHandler handler, string property, int value)
         {
-            handler.WriteToBuffer(property, value);
+            if (handler.LookUpProperty(property, out _, out var info) && info.Signed && info.Type == Vortice.SPIRV.SpvOp.TypeInt)
+            {
+                handler.WriteToBuffer(property, value);
+            }
+            else
+            {
+                Console.WriteLine("No property {0} of type {1}", property, typeof(int).Name);
+            }
         }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void SetUInt(this DescriptorHandler handler, string property, uint value)
         {
-            handler.WriteToBuffer(property, value);
+            if (handler.LookUpProperty(property, out _, out var info) && !info.Signed && info.Type == Vortice.SPIRV.SpvOp.TypeInt)
+            {
+                handler.WriteToBuffer(property, value);
+            }
+            else
+            {
+                Console.WriteLine("No property {0} of type {1}", property, typeof(uint).Name);
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void SetFloat(this DescriptorHandler handler, string property, float value)
         {
-            handler.WriteToBuffer(property, value);
+            if (handler.LookUpProperty(property, out _, out var info) && info.Type == Vortice.SPIRV.SpvOp.TypeFloat)
+            {
+                handler.WriteToBuffer(property, value);
+            }
+            else
+            {
+                Console.WriteLine("No property {0} of type {1}", property, typeof(float).Name);
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void SetVector2(this DescriptorHandler handler, string property, Vector2 value)
         {
-            handler.WriteToBuffer(property, value);
+            if (handler.LookUpProperty(property, out _, out var info) && info.Type == Vortice.SPIRV.SpvOp.TypeFloat && info.VectorFormat == VertexAttributeFormat.Float2)
+            {
+                handler.WriteToBuffer(property, value);
+            }
+            else
+            {
+                Console.WriteLine("No property {0} of type {1}", property, typeof(Vector2).Name);
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void SetVector4(this DescriptorHandler handler, string property, Vector4 value)
         {
-            handler.WriteToBuffer(property, value);
+            if (handler.LookUpProperty(property, out _, out var info) && info.Type == Vortice.SPIRV.SpvOp.TypeFloat && info.VectorFormat == VertexAttributeFormat.Float3)
+            {
+                handler.WriteToBuffer(property, value);
+            }
+            else
+            {
+                Console.WriteLine("No property {0} of type {1}", property, typeof(Vector4).Name);
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void SetMatrix3x2(this DescriptorHandler handler, string property, Matrix3x2 value)
         {
-            handler.WriteToBuffer(property, value);
+            if (handler.LookUpProperty(property, out _, out var info) && info.Type == Vortice.SPIRV.SpvOp.TypeFloat && info.Matrix)
+            {
+                handler.WriteToBuffer(property, value);
+            }
+            else
+            {
+                Console.WriteLine("No property {0} of type {1}", property, typeof(Matrix3x2).Name);
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void SetMatrix4x4(this DescriptorHandler handler, string property, Matrix4x4 value)
         {
-            handler.WriteToBuffer(property, value);
+            if (handler.LookUpProperty(property, out _, out var info) && info.Type == Vortice.SPIRV.SpvOp.TypeFloat && info.Matrix)
+            {
+                handler.WriteToBuffer(property, value);
+            }
+            else
+            {
+                Console.WriteLine("No property {0} of type {1}", property, typeof(Matrix3x2).Name);
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
