@@ -111,13 +111,24 @@ namespace VECS
             buffer?.SetUsedInstanceCount(instanceSize);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void SetStorageBuffer(this DescriptorHandler handler, string property, SwapChainBuffer buffer)
         {
             Debug.Assert(handler.DescriptorLevel == DescriptorLevel.ComputeEmpty, "Setting storage buffers of non ComputeEmpty sets is not supported!");
-            if (handler.LookUpProperty("property", out uint bindingIndex, out var propertyInfo) && propertyInfo.VariableArraySize)
+            if (handler.LookUpProperty(property, out uint bindingIndex, out var propertyInfo) && propertyInfo.VariableArraySize)
             {
                 handler.BindingBuffers[bindingIndex] = buffer;
             }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool StorageBufferIsInitialised(this DescriptorHandler handler, string property)
+        {
+            if (handler.LookUpProperty(property, out uint bindingIndex, out var propertyInfo) && propertyInfo.VariableArraySize)
+            {
+                return handler.BindingBuffers[bindingIndex] != null;
+            }
+            return false;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

@@ -34,6 +34,9 @@ namespace VECS
         public bool HasPreAllocSet => _preAllocBindings.Count > 0;
         public bool HasUnAllocSet => _unAllocBindings.Count > 0;
 
+        public DescriptorHandler PreAllocated => _allHandlers[_preAllocDescriptorHandlerIndex];
+        public DescriptorHandler UnAllocated => _allHandlers[_unAllocDescriptorHandlerIndex];
+
         public unsafe ComputeShader(string shaderFilePath)
         {
             var shaderBytes = File.ReadAllBytes(shaderFilePath);
@@ -47,14 +50,15 @@ namespace VECS
 
             SPIRVReflectUtil.DestroyReflectShaderModule(spirShader);
 
-            GenerateDescriptorSetLayouts();
-            _pipelineLayout = GPUPipelineUtil.CreatePipelineLayout(_allLayouts, _pushConstantsHandler);
-            _setsToBind = (VkDescriptorSet*)NativeMemory.AllocZeroed((uint)_allLayouts.Length,(uint)sizeof(VkDescriptorSet));
 
             // Descriptor Set bollocks
             _preAllocBindings = GPUPipelineUtil.ExtractBindingsForSet(0, _computeBindings);
             _unAllocBindings = GPUPipelineUtil.ExtractBindingsForSet(1, _computeBindings);
+
+            GenerateDescriptorSetLayouts();
             _allHandlers = new DescriptorHandler[_allLayouts.Length];
+            _pipelineLayout = GPUPipelineUtil.CreatePipelineLayout(_allLayouts, _pushConstantsHandler);
+            _setsToBind = (VkDescriptorSet*)NativeMemory.AllocZeroed((uint)_allLayouts.Length, (uint)sizeof(VkDescriptorSet));
             _descriptorSetCount = (uint)_allLayouts.Length;
             CreateDescriptorSetHandler();
 
@@ -84,7 +88,6 @@ namespace VECS
 
             if (HasPreAllocSet)
             {
-                workingBindingIndex = 0;
                 workingBindings = new DescriptorBinding[_preAllocBindings.Count];
                 foreach (var item in _preAllocBindings)
                 {
@@ -141,20 +144,21 @@ namespace VECS
             }
         }
 
-        private unsafe void UpdateSetsToWrite(RendererFrameInfo frameInfo, int variant, int entity)
+        private unsafe void UpdateSetsToWrite(int frameIndex, int variant, int entity)
         {
             if (HasPreAllocSet)
             {
-                _setsToBind[_preAllocDescriptorHandlerIndex] = _allHandlers[_preAllocDescriptorHandlerIndex].GetDescriptorSet(frameInfo.FrameIndex);
+                _setsToBind[_preAllocDescriptorHandlerIndex] = _allHandlers[_preAllocDescriptorHandlerIndex].GetDescriptorSet(frameIndex);
             }
             if (HasUnAllocSet)
             {
-                _setsToBind[_unAllocDescriptorHandlerIndex] = _allHandlers[_unAllocDescriptorHandlerIndex].GetOrCreateChild(variant).GetDescriptorSet(frameInfo.FrameIndex);
+                _setsToBind[_unAllocDescriptorHandlerIndex] = _allHandlers[_unAllocDescriptorHandlerIndex].GetOrCreateChild(variant).GetDescriptorSet(frameIndex);
             }
         }
 
         public unsafe void Dispatch(VkCommandBuffer commandBuffer, uint workGroupCountX, uint workGroupCountY = 1, uint workGroupCountZ = 1)
         {
+            UpdateSetsToWrite(Presenter.Instance.FrameIndex, 0, 0);
             Vulkan.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Compute, _pipline);
             Vulkan.vkCmdBindDescriptorSets(commandBuffer, VkPipelineBindPoint.Compute, _pipelineLayout, 0, _descriptorSetCount, _setsToBind);
 

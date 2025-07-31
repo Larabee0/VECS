@@ -62,7 +62,13 @@ namespace VECS
         public VkRenderPass ForwardRenderPass => _renderer.ForwardRenderPass;
         public VkDescriptorSetLayout GlobalSetLayout => _globalDescriptorSetHandler.VkDescriptorSetLayout;
         internal DescriptorHandler GlobalSetHandler => _globalDescriptorSetHandler;
-        public int FrameIndex => _renderer.FrameIndex;
+        public int FrameIndex
+        {
+            get
+            {
+                return _renderer.IsFrameStarted ? _renderer.FrameIndex : 0;
+            }
+        }
 
         public Presenter(IWindow window)
         {

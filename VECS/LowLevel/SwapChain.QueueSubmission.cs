@@ -76,10 +76,22 @@ namespace VECS.LowLevel
                 pSignalSemaphores = &waitRender
             };
             Vulkan.vkResetFences(Device, _inFlightFences[currentFrame]);
-
-            if (Vulkan.vkQueueSubmit(GraphicsDevice.GraphicsQueue, submit, _inFlightFences[currentFrame]) != VkResult.Success)
+            var result = Vulkan.vkQueueSubmit(GraphicsDevice.GraphicsQueue, submit, _inFlightFences[currentFrame]);
+            if (result != VkResult.Success)
             {
-                throw new Exception("Failed to queue submit");
+                if (result == VkResult.ErrorDeviceLost)
+                {
+                    uint* dataCount = null;
+                    VkCheckpointDataNV* data = null;
+                    Vulkan.vkGetQueueCheckpointDataNV(GraphicsDevice.GraphicsQueue, dataCount, data);
+
+                    for (int i = 0; i < *dataCount; i++)
+                    {
+                        VkCheckpointDataNV dataPoint = data[*dataCount];
+                        Console.WriteLine(dataPoint.ToString());
+                    }
+                }
+                throw new Exception(string.Format("Failed to submit queue: {0}", result.ToString()));
             }
 
             VkSwapchainKHR swapChains = _swapChain;

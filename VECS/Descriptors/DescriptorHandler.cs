@@ -303,7 +303,7 @@ namespace VECS
             Update(frameInfo.FrameIndex, pool);
         }
 
-        internal void Update(int frameIndex, DescriptorPool pool)
+        public void Update(int frameIndex, DescriptorPool pool)
         {
             if (!_setsAllocated[frameIndex])
             {

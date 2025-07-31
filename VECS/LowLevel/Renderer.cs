@@ -34,6 +34,8 @@ namespace VECS.LowLevel
         public ShadowImage ShadowImage => _shadowCubeMap;
         public static Cubemap ShadowTexture => Instance.ShadowImage.CubeMap;
 
+        public bool IsFrameStarted => isFrameStarted;
+
         public int FrameIndex
         {
             get

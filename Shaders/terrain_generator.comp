@@ -14,18 +14,8 @@ layout(set = 0, binding = 0) uniform ComputeShaderParameters{
 	uint depth;
 } params;
 
-// vertex buffer to operate on (direct mesh buffer)
-layout(std430,set = 0, binding = 1) buffer VertexBuffer {
-    float vertexBuffer[];
-};
-
-// vertex buffer to operate on (direct mesh buffer)
-layout(std430,set = 0, binding = 2) buffer UvBuffer {
-    vec2 uvBuffer[];
-};
-
 // Noise generator parameters (includes colour params)
-layout(set = 0, binding = 3) uniform NoiseGeneratorParams{
+layout(set = 0, binding = 1) uniform NoiseGeneratorParams{
 	int noiseFilterCount;
 	int biomesCount;
 	float planetRadius;
@@ -36,20 +26,29 @@ layout(set = 0, binding = 3) uniform NoiseGeneratorParams{
 
 // all noise settings. First element is the colour setting noise filter.
 // this should not be applied with generation.
-layout(std430, binding = 4) buffer NoiseSettings {
-	GlobalNoiseSettings noiseSettings[];
-};
+layout(std430, set = 0, binding = 2) buffer NoiseSettings {
+	GlobalNoiseSettings values[];
+} noiseSettings;
 
 // % at which each biome starts.
-layout(std430, binding = 5) buffer Biomes {
-	float startHeights[];
+layout(std430, set = 0, binding = 3) buffer Biomes {
+	float values[];
 } biomes;
 
 // unscaled elevation min-max output
-layout(std430, binding = 6) buffer ElevationMinMax {
-	int minElevation;
-	int maxElevation;
-}minMax;
+layout(std430, set = 0, binding = 4) buffer ElevationMinMax {
+	int values[];
+} minMax;
+
+// vertex buffer to operate on (direct mesh buffer)
+layout(std430, set = 1, binding = 0) buffer VertexBuffer {
+    float values[];
+} vertexBuffer;
+
+// vertex buffer to operate on (direct mesh buffer)
+layout(std430, set = 1, binding = 1) buffer UvBuffer {
+    vec2 values[];
+} uvBuffer;
 
 
 // elevaluates a GNS for a given point using configured filter
@@ -63,13 +62,13 @@ float evaluate(GlobalNoiseSettings settings, vec3 point){
 // calculates the biome index this vertex falls into
 float biomePercentFromPoint(vec3 point){
     float heightPercent = (point.y + 1.0) * 0.5;
-	heightPercent += (evaluate(noiseSettings[0], point) - noiseParams.noiseOffset) * noiseParams.noiseStrength;
+	heightPercent += (evaluate(noiseSettings.values[0], point) - noiseParams.noiseOffset) * noiseParams.noiseStrength;
     float biomeIndex = 0;
 
 	float blendRange = (noiseParams.blendAmount  * 0.5) + 0.001;
 
 	for(int i = 0; i < noiseParams.biomesCount; i++){
-		float dst = heightPercent - biomes.startHeights[i];
+		float dst = heightPercent - biomes.values[i];
 		float weight = inverseLerp(-blendRange, blendRange,dst);
         biomeIndex *= (1 - weight);
         biomeIndex += i * weight;
@@ -90,8 +89,8 @@ void main() {
 	uint bufferIndex = gl_GlobalInvocationID.y * params.width +  gl_GlobalInvocationID.x;
 
 	uint posbuffer = bufferIndex * 3;
-	vec3 pos = vec3(vertexBuffer[posbuffer],vertexBuffer[posbuffer+1],vertexBuffer[posbuffer+2]);
-	vec2 uv = uvBuffer[bufferIndex];
+	vec3 pos = vec3(vertexBuffer.values[posbuffer],vertexBuffer.values[posbuffer+1],vertexBuffer.values[posbuffer+2]);
+	vec2 uv = uvBuffer.values[bufferIndex];
 
 	uv.y = biomePercentFromPoint(pos);
 
@@ -99,30 +98,30 @@ void main() {
 	float unscaledElevation = 0;
 
 	if(noiseParams.noiseFilterCount > 0){
-		firstLayerValue = evaluate(noiseSettings[1], pos);
-		if(noiseSettings[1].enabled == 1){
+		firstLayerValue = evaluate(noiseSettings.values[1], pos);
+		if(noiseSettings.values[1].enabled == 1){
 			unscaledElevation = firstLayerValue;
 		}
 	}
 	
 	for(int i = 2; i < noiseParams.noiseFilterCount; i++){
 		
-		if(noiseSettings[i].enabled == 1){
-			float mask = noiseSettings[i].useFirstlayerAsMask == 1 ? firstLayerValue : 1.0;
-			unscaledElevation += evaluate(noiseSettings[i], pos) * mask;
+		if(noiseSettings.values[i].enabled == 1){
+			float mask = noiseSettings.values[i].useFirstlayerAsMask == 1 ? firstLayerValue : 1.0;
+			unscaledElevation += evaluate(noiseSettings.values[i], pos) * mask;
 		}
 	}
 
 	pos *= noiseParams.planetRadius * (1.0 + max(0, unscaledElevation));
 	uv.x = unscaledElevation;
-	uvBuffer[bufferIndex] = uv;
-	vertexBuffer[posbuffer] = pos.x;
-	vertexBuffer[posbuffer+1] = pos.y;
-	vertexBuffer[posbuffer+2] = pos.z;
+	uvBuffer.values[bufferIndex] = uv;
+	vertexBuffer.values[posbuffer] = pos.x;
+	vertexBuffer.values[posbuffer+1] = pos.y;
+	vertexBuffer.values[posbuffer+2] = pos.z;
 	
 	// atomic operations only work with int/uint this magically reads the float bits as if it was an int.
 	int elevationForMinMax = int(unscaledElevation * QUANTIIZE_FACTOR);
 	// min and max elevation calculation using atomic operations to stop race condition
-	atomicMin(minMax.minElevation,elevationForMinMax);
-	atomicMax(minMax.maxElevation,elevationForMinMax);
+	atomicMin(minMax.values[0],elevationForMinMax);
+	atomicMax(minMax.values[1],elevationForMinMax);
 }

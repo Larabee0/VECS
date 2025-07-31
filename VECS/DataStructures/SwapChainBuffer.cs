@@ -327,7 +327,7 @@ namespace VECS
 
         public unsafe void Dispose()
         {
-            if (_disposed) return;
+            if (_disposed || SameBufferForEachFrame) return;
             _disposed = true;
             if (_hostPtr != null)
             {
