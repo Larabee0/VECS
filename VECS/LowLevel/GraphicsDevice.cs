@@ -124,12 +124,12 @@ namespace VECS.LowLevel
 #if DEBUG
             using VkStringArray validationlayers = new(_requiredValidationLayers);
 
-            
+
             createInfo.enabledLayerCount = (uint)_requiredValidationLayers.Length;
             createInfo.ppEnabledLayerNames = validationlayers;
             VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo = PopulateDebugMessengerCreateInfo();
             createInfo.pNext = &debugCreateInfo;
-            
+
 #else
             createInfo.enabledLayerCount = 0;
             createInfo.pNext = null;
@@ -242,7 +242,7 @@ namespace VECS.LowLevel
                 var result = CreateDebugUtilsMessengerEXT(_instance, &createInfoEXT, null, toPtr);
                 if (result != VkResult.Success)
                 {
-                    throw new Exception(string.Format("failed to set up debug messenger! {0}",result.ToString()));
+                    throw new Exception(string.Format("failed to set up debug messenger! {0}", result.ToString()));
                 }
             }
         }
@@ -274,15 +274,21 @@ namespace VECS.LowLevel
             }
 
             Console.WriteLine(string.Format("Device count: {0}", devices.Length));
-
+            List<DeviceInfo> deviceHeapInfo = [];
             for (int i = 0; i < devices.Length; i++)
             {
                 var device = devices[i];
                 if (IsDeviceSuitable(device))
                 {
                     _physicalDevice = device;
-                    break;
+                    deviceHeapInfo.Add(new(device));
                 }
+            }
+
+            if (deviceHeapInfo.Count > 1)
+            {
+                deviceHeapInfo.Sort();
+                _physicalDevice = deviceHeapInfo[0].Device;
             }
 
             if (_physicalDevice == VkPhysicalDevice.Null)
@@ -296,7 +302,7 @@ namespace VECS.LowLevel
             {
                 Debug.Assert(swapChainCaps.maxImageCount >= swapChainCaps.minImageCount, string.Format("Max Swapchain image count ({0}) is less than min image count ({1}). Cannot compute valid swapchain image count.", swapChainCaps.maxImageCount, swapChainCaps.minImageCount));
 
-                SwapChain.MAX_FRAMES_IN_FLIGHT = Math.Max(3,(int)swapChainCaps.minImageCount);
+                SwapChain.MAX_FRAMES_IN_FLIGHT = Math.Max(3, (int)swapChainCaps.minImageCount);
             }
 
             SwapChain.MAX_FRAMES_IN_FLIGHT = Math.Max(3, (int)swapChainCaps.minImageCount);
@@ -328,8 +334,7 @@ namespace VECS.LowLevel
                 swapChainAdequate = swapChainSupport.formats.Length > 0 && swapChainSupport.presentModes.Length > 0;
             }
 
-            Vulkan.vkGetPhysicalDeviceFeatures(device, out VkPhysicalDeviceFeatures supportedFeatures);
-
+            Vulkan.vkGetPhysicalDeviceFeatures(device, out VkPhysicalDeviceFeatures supportedFeatures); 
             return indices.IsComplete && extensionsSupported && swapChainAdequate && supportedFeatures.samplerAnisotropy;
         }
 
@@ -456,7 +461,7 @@ namespace VECS.LowLevel
                 synchronization2 = true,
                 pNext = &deviceFeatures2
             };
-            
+
             VkDeviceCreateInfo createInfo = new()
             {
                 queueCreateInfoCount = (uint)queueCreateInfos.Length,
@@ -468,11 +473,11 @@ namespace VECS.LowLevel
             };
 
 #if DEBUG
-            
+
             using VkStringArray enabledValidationlayers = new(_requiredValidationLayers);
             createInfo.enabledLayerCount = (uint)_requiredValidationLayers.Length;
             createInfo.ppEnabledLayerNames = enabledValidationlayers;
-            
+
 #else
             
             createInfo.enabledLayerCount = 0;
@@ -491,7 +496,7 @@ namespace VECS.LowLevel
             Vulkan.vkGetDeviceQueue(_device, (uint)indices.presentFamily, 0, out _presentQueue);
         }
 
-#endregion
+        #endregion
 
         #region Create Command Pool
         /// <summary>
@@ -648,7 +653,7 @@ namespace VECS.LowLevel
         {
             VkCommandBuffer commandBuffer = BeginSingleTimeCommands();
 
-            CopyBuffer(commandBuffer,size,srcBuffer,srcOffset, dstBuffer, dstOffset);
+            CopyBuffer(commandBuffer, size, srcBuffer, srcOffset, dstBuffer, dstOffset);
 
             EndSingleTimeCommands(commandBuffer);
         }
@@ -781,7 +786,7 @@ namespace VECS.LowLevel
             Console.WriteLine(string.Format("[{0}] Vulkan: Validation Layer: {1}", messageSeverity, Encoding.UTF8.GetString(message.Span)));
             StackTrace trace = new(true);
 
-            Console.WriteLine(string.Format("Validation layer trace\n {0}",trace.ToString()));
+            Console.WriteLine(string.Format("Validation layer trace\n {0}", trace.ToString()));
             return 0;
         }
 
@@ -845,9 +850,9 @@ namespace VECS.LowLevel
 
 
         #endregion
-        
+
 #endif
-#region Extensions Statics
+        #region Extensions Statics
         /// <summary>
         /// Checks if the given physical device supports the required
         /// device extentions in <see cref="_requiredDeviceExtensions"/>
@@ -900,6 +905,32 @@ namespace VECS.LowLevel
             public VkSurfaceCapabilitiesKHR capabilities;
             public VkSurfaceFormatKHR[] formats;
             public VkPresentModeKHR[] presentModes;
+        }
+
+        public struct DeviceInfo : IComparable
+        {
+            public ulong AvaliableMemory;
+            public VkPhysicalDevice Device;
+
+            public DeviceInfo(VkPhysicalDevice device)
+            {
+                Device = device;
+                Vulkan.vkGetPhysicalDeviceMemoryProperties(device, out var properties);
+                for (int i = 0; i < properties.memoryHeapCount; i++)
+                {
+                    var heap = properties.memoryHeaps[i];
+                    AvaliableMemory += heap.size;
+                }
+            }
+
+            public readonly int CompareTo(object obj)
+            {
+                if (obj is DeviceInfo other)
+                {
+                    return this.AvaliableMemory.CompareTo(other.AvaliableMemory);
+                }
+                throw new ArgumentException(string.Format("Object is not a {0}", typeof(DeviceInfo)));
+            }
         }
     }
 }
