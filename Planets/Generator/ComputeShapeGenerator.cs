@@ -186,6 +186,7 @@ namespace Planets.Generator
         /// <returns></returns>
         public Vector2 ReadElevationMinMax()
         {
+            _newFramework.PreAllocated.GetStorageSwapChainBuffer("minMax").ReadToHostFromActiveBuffer();
             Span<int> minMaxBuffer = _newFramework.PreAllocated.GetStorageBuffer<int>("minMax");
             return new Vector2(minMaxBuffer[0] / QUANTIIZE_FACTOR, minMaxBuffer[1] / QUANTIIZE_FACTOR);
         }
