@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using VECS.LowLevel;
 using Vortice.Vulkan;
@@ -30,12 +31,17 @@ namespace VECS
         private readonly VkPipeline _pipline;
         
         private readonly unsafe VkDescriptorSet* _setsToBind;
+
+        
+        private int _executionThisFrame;
+        private int _lastFrameIndex;
         
         public bool HasPreAllocSet => _preAllocBindings.Count > 0;
         public bool HasUnAllocSet => _unAllocBindings.Count > 0;
 
-        public DescriptorHandler PreAllocated => _allHandlers[_preAllocDescriptorHandlerIndex];
-        public DescriptorHandler UnAllocated => _allHandlers[_unAllocDescriptorHandlerIndex];
+        private DescriptorHandler PreAllocated => _allHandlers[_preAllocDescriptorHandlerIndex];
+        private DescriptorHandler UnAllocated => _allHandlers[_unAllocDescriptorHandlerIndex];
+        public PushConstantsHandler PushConstants => _pushConstantsHandler;
 
         public unsafe ComputeShader(string shaderFilePath)
         {
@@ -144,27 +150,136 @@ namespace VECS
             }
         }
 
-        private unsafe void UpdateSetsToWrite(int frameIndex, int variant, int entity)
+        private unsafe void UpdateSetsToWrite(int frameIndex)
         {
             if (HasPreAllocSet)
             {
-                _setsToBind[_preAllocDescriptorHandlerIndex] = _allHandlers[_preAllocDescriptorHandlerIndex].GetDescriptorSet(frameIndex);
+                _setsToBind[_preAllocDescriptorHandlerIndex] = PreAllocated.GetOrCreateChild(_executionThisFrame).GetDescriptorSet(frameIndex);
             }
             if (HasUnAllocSet)
             {
-                _setsToBind[_unAllocDescriptorHandlerIndex] = _allHandlers[_unAllocDescriptorHandlerIndex].GetOrCreateChild(variant).GetDescriptorSet(frameIndex);
+                _setsToBind[_unAllocDescriptorHandlerIndex] = UnAllocated.GetOrCreateChild(_executionThisFrame).GetDescriptorSet(frameIndex);
             }
         }
 
-        public unsafe void Dispatch(VkCommandBuffer commandBuffer, uint workGroupCountX, uint workGroupCountY = 1, uint workGroupCountZ = 1)
+        public void SetStorageBuffer(string property, SwapChainBuffer buffer)
         {
-            UpdateSetsToWrite(Presenter.Instance.FrameIndex, 0, 0);
+            if (HasUnAllocSet)
+            {
+                UnAllocated.GetOrCreateChild(_executionThisFrame).SetStorageBuffer(property, buffer);
+            }
+        }
+
+        public void SetStorageBuffer(string property, GPUBuffer buffer)
+        {
+            var scb = new SwapChainBuffer(buffer);
+            SetStorageBuffer(property, scb);
+        }
+
+        public void SetUInt(string property, uint value)
+        {
+            for (int i = 0; i < _allHandlers.Length; i++)
+            {
+                if (_allHandlers[i].HasProperty(property))
+                {
+                    _allHandlers[i].GetOrCreateChild(_executionThisFrame).SetUInt(property, value);    
+                }
+            }
+        }
+
+        public void SetUniform<T>(string property, T value) where T : unmanaged
+        {
+            for (int i = 0; i < _allHandlers.Length; i++)
+            {
+                if (_allHandlers[i].HasProperty(property))
+                {
+                    _allHandlers[i].GetOrCreateChild(_executionThisFrame).SetUniform(property, value);
+                }
+            }
+        }
+
+        public Span<T> GetStorageBuffer<T>(string property) where T : unmanaged
+        {
+            for (int i = 0; i < _allHandlers.Length; i++)
+            {
+                if (_allHandlers[i].HasProperty(property))
+                {
+                    var span = _allHandlers[i].GetOrCreateChild(_executionThisFrame).GetStorageBuffer<T>(property);
+                    if (span != Span<T>.Empty)
+                    {
+                        return span;
+                    }
+                }
+            }
+            return null;
+        }
+
+        public void SetStorageBufferUsageSize(string property, uint instanceSize)
+        {   
+            for (int i = 0; i < _allHandlers.Length; i++)
+            {
+                if (_allHandlers[i].HasProperty(property))
+                {
+                    _allHandlers[i].GetOrCreateChild(_executionThisFrame).SetStorageBufferUsageSize(property, instanceSize);
+                }
+            }
+        }
+
+        public SwapChainBuffer GetStorageSwapChainBuffer(string property)
+        {
+            for (int i = 0; i < _allHandlers.Length; i++)
+            {
+                if (_allHandlers[i].HasProperty(property))
+                {
+                    var buffer = _allHandlers[i].GetOrCreateChild(_executionThisFrame).GetStorageSwapChainBuffer(property);
+                    if (buffer != null)
+                    {
+                        return buffer;
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        private void UpdateSetHandlers(int frameIndex, DescriptorPool pool)
+        {
+            for (int i = 0; i < _allHandlers.Length; i++)
+            {
+                _allHandlers[i].GetOrCreateChild(_executionThisFrame).Update(frameIndex, pool);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Dispatch(RendererFrameInfo frameInfo, uint workGroupCountX, uint workGroupCountY = 1, uint workGroupCountZ = 1)
+        {
+            Dispatch(frameInfo.CommandBuffer, frameInfo.FrameIndex, frameInfo.ApplicationDescriptorPool, workGroupCountX, workGroupCountY, workGroupCountZ);
+        }
+
+        public unsafe void Dispatch(VkCommandBuffer commandBuffer, int frameIndex, DescriptorPool pool, uint workGroupCountX, uint workGroupCountY = 1, uint workGroupCountZ = 1)
+        {
+            if (_lastFrameIndex != frameIndex)
+            {
+                NextFrame();
+            }
+
+            UpdateSetHandlers(frameIndex, pool);
+
+            UpdateSetsToWrite(frameIndex);
+
             Vulkan.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Compute, _pipline);
             Vulkan.vkCmdBindDescriptorSets(commandBuffer, VkPipelineBindPoint.Compute, _pipelineLayout, 0, _descriptorSetCount, _setsToBind);
 
             _pushConstantsHandler.BindPushConstants(commandBuffer, _pipelineLayout);
 
             Vulkan.vkCmdDispatch(commandBuffer, workGroupCountX, workGroupCountY, workGroupCountZ);
+            _executionThisFrame++;
+            _lastFrameIndex = frameIndex;
+        }
+        
+        public void NextFrame()
+        {
+            _executionThisFrame = 0;
         }
 
         public unsafe void Dispose()
@@ -201,5 +316,6 @@ namespace VECS
 
             Vulkan.vkDestroyShaderModule(GraphicsDevice.Instance.Device, _shaderModule);
         }
+
     }
 }

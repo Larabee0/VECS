@@ -388,10 +388,6 @@ namespace VECS
                 if (_GPUBufferChanged) { ReadToHostBuffer(); }
                 return new Span<T>(_hostPtr, InstanceCount32);
             }
-            //set
-            //{
-            //    ((T*)_hostData[0]) = value;
-            //}
         }
 
         public GPUBuffer()

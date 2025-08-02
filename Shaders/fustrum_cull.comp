@@ -13,11 +13,15 @@ struct DrawCommand {
     uint firstInstance;
 };
 
-layout(std140, set = 0, binding = 0) readonly buffer ObjectBoundsBuffer {
+layout(set = 0, binding = 0) uniform Pad{
+	float pad;
+} padding;
+
+layout(std140, set = 1, binding = 0) readonly buffer ObjectBoundsBuffer {
 	ObjectBounds bounds[];
 } boundsBuffer;
 
-layout(set = 0, binding = 1) buffer InstanceBuffer {
+layout(set = 1, binding = 1) buffer InstanceBuffer {
 	DrawCommand Draws[];
 } drawBuffer;
 

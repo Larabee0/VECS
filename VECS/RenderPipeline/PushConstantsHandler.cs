@@ -74,6 +74,12 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void SetPushConstantUInt(this PushConstantsHandler handler, string property, uint value)
+        {
+            WriteToPushConstantBuffer(handler, property, value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void SetPushConstantFloat(this PushConstantsHandler handler, string property, float value)
         {
             WriteToPushConstantBuffer(handler, property, value);

@@ -174,6 +174,7 @@ namespace VECS
             if (handler.LookUpProperty(property, out uint bindingIndex, out var propertyInfo) && propertyInfo.VariableArraySize)
             {
                 handler.BindingBuffers[bindingIndex] = buffer;
+                handler.MarkSetsDirty();
             }
         }
 

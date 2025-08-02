@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Runtime.InteropServices;
-using VECS.Compute;
 using Vortice.Vulkan;
 
 namespace VECS.LowLevel

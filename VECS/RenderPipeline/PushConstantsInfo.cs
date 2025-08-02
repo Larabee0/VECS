@@ -70,6 +70,10 @@ namespace VECS
                 WriteToPushConstantBuffer((int)propertyInfo.Offset, value);
                 return true;
             }
+            else
+            {
+                Console.WriteLine("Failed to find property {0}", property);
+            }
             return false;
         }
 

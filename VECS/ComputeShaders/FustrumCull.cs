@@ -1,8 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Numerics;
 using System.Runtime.InteropServices;
-using VECS.Compute;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
@@ -20,33 +18,30 @@ namespace VECS
         public uint drawCount;
         public int cullingEnabled;
         public int distCull;
+
+        public readonly void SetPushConstant(PushConstantsHandler pushConstants)
+        {
+            pushConstants.SetPushConstantMatrix4x4("viewMatrix", viewMatrix);
+            pushConstants.SetPushConstantFloat("P00", P00);
+            pushConstants.SetPushConstantFloat("P11", P11);
+            pushConstants.SetPushConstantFloat("znear", znear);
+            pushConstants.SetPushConstantFloat("zfar", zfar);
+            pushConstants.SetPushConstantVector4("frustum", frustum);
+            pushConstants.SetPushConstantUInt("drawCount", drawCount);
+            pushConstants.SetPushConstantInt("cullingEnabled", cullingEnabled);
+            pushConstants.SetPushConstantInt("distCull", distCull);
+        }
     }
 
     public sealed class FustrumCull : IDisposable
     {
         public readonly bool CPUCulling = false;
 
-        private readonly GenericComputePipeline _cullPipe;
-
-        private readonly unsafe VkWriteDescriptorSet* _writes;
-
-        private readonly Dictionary<int,List<VkDescriptorSet>> sets = [];
-        private int _executionThisFrame;
-        private int _lastFrameIndex;
+        private readonly ComputeShader _computeShader;
 
         public unsafe FustrumCull()
         {
-            _cullPipe = new("fustrum_cull.comp", typeof(CullData),
-                new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute),
-                new DescriptorSetBinding(VkDescriptorType.StorageBuffer, VkShaderStageFlags.Compute)
-            );
-
-            _writes = (VkWriteDescriptorSet*)NativeMemory.AllocZeroed((uint)sizeof(VkWriteDescriptorSet) * 2);
-
-            for (int i = 0; i < SwapChain.MAX_FRAMES_IN_FLIGHT; i++)
-            {
-                sets.Add(i, []);
-            }
+            _computeShader = new(Material.GetShaderFilePath("fustrum_cull.comp"));
         }
 
         public VkBufferMemoryBarrier Cull(RendererFrameInfo frameInfo, CullData cullData, uint drawCount, SwapChainBuffer<VkDrawIndexedIndirectCommand> drawIndirect, SwapChainBuffer<ModelBounds> bounds)
@@ -65,7 +60,7 @@ namespace VECS
             {
                 bounds.SetUsedInstanceCount(drawCount);
                 drawIndirect.SetUsedInstanceCount(drawCount);
-                return GPUCullInternal(frameInfo, cullData, drawCount, drawIndirect.ActiveVkBuffer, bounds.ActiveVkBuffer);
+                return GPUCullInternal(frameInfo, cullData, drawCount, drawIndirect, bounds);
             }
         }
 
@@ -92,77 +87,17 @@ namespace VECS
             return visible;
         }
 
-        private unsafe VkBufferMemoryBarrier GPUCullInternal(RendererFrameInfo frameInfo, CullData cullData, uint drawCount, VkBuffer drawIndirect, VkBuffer bounds)
+        private unsafe VkBufferMemoryBarrier GPUCullInternal(RendererFrameInfo frameInfo, CullData cullData, uint drawCount, SwapChainBuffer drawIndirect, SwapChainBuffer bounds)
         {
-            if (_lastFrameIndex != frameInfo.FrameIndex)
-            {
-                _executionThisFrame = 0;
-            }
-
-            if (sets[frameInfo.FrameIndex].Count <= _executionThisFrame + 1)
-            {
-                VkDescriptorSet newSet = default;
-                frameInfo.ApplicationDescriptorPool.AllocateDescriptorSet(_cullPipe.DescriptorSetLayout.SetLayout, &newSet);
-                sets[frameInfo.FrameIndex].Add(newSet);
-            }
-
-
-            VkDescriptorSet set = sets[frameInfo.FrameIndex][_executionThisFrame];
-            _executionThisFrame++;
-
-            _lastFrameIndex = frameInfo.FrameIndex;
-
-            VkDescriptorBufferInfo drawBuffer = new()
-            {
-                buffer = drawIndirect,
-                offset = 0,
-                range = Vulkan.VK_WHOLE_SIZE
-            };
-            VkDescriptorBufferInfo boundsBuffer = new()
-            {
-                buffer = bounds,
-                offset = 0,
-                range = Vulkan.VK_WHOLE_SIZE,
-            };
-            var uboInfo = frameInfo.UboBufferInfo;
-            _writes[0] = new()
-            {
-                dstSet = set,
-                descriptorType = VkDescriptorType.StorageBuffer,
-                dstBinding = 0,
-                descriptorCount = 1,
-                pBufferInfo = &boundsBuffer,
-            };
-            _writes[1] = new()
-            {
-                dstSet = set,
-                descriptorType = VkDescriptorType.StorageBuffer,
-                dstBinding = 1,
-                descriptorCount = 1,
-                pBufferInfo = &drawBuffer,
-            };
-
-            Vulkan.vkUpdateDescriptorSets(GraphicsDevice.Instance.Device, 2, _writes, 0, null);
-
-            _cullPipe.Prepare(drawCount, drawCount);
-
-            Vulkan.vkCmdBindPipeline(frameInfo.CommandBuffer, VkPipelineBindPoint.Compute, _cullPipe.ComputePipeline);
-            Vulkan.vkCmdBindDescriptorSets(frameInfo.CommandBuffer, VkPipelineBindPoint.Compute, _cullPipe.ComputePipelineLayout, 0, set);
-
             cullData.drawCount = drawCount;
+            _computeShader.SetStorageBuffer("boundsBuffer", bounds);
+            _computeShader.SetStorageBuffer("drawBuffer", drawIndirect);
+            cullData.SetPushConstant(_computeShader.PushConstants);
+            _computeShader.Dispatch(frameInfo, (drawCount / 256) + 1);
 
-            Vulkan.vkCmdPushConstants(
-                frameInfo.CommandBuffer,
-                _cullPipe.ComputePipelineLayout,
-                VkShaderStageFlags.Compute,
-                0,
-                (uint)sizeof(CullData),
-                &cullData);
-
-            Vulkan.vkCmdDispatch(frameInfo.CommandBuffer, (drawCount / 256) + 1, 1, 1);
             VkBufferMemoryBarrier barrier = new()
             {
-                buffer = drawIndirect,
+                buffer = drawIndirect.ActiveVkBuffer,
                 size = Vulkan.VK_WHOLE_SIZE,
                 srcQueueFamilyIndex = (uint)GraphicsDevice.Instance.PhysicalQueueFamilies.graphicsFamily,
                 dstQueueFamilyIndex = (uint)GraphicsDevice.Instance.PhysicalQueueFamilies.graphicsFamily,
@@ -175,8 +110,7 @@ namespace VECS
 
         public unsafe void Dispose()
         {
-            NativeMemory.Free(_writes);
-            _cullPipe.Dispose();
+            _computeShader.Dispose();
         }
     }
 }
