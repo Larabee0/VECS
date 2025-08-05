@@ -27,7 +27,7 @@ namespace VECS.ECS.Physics
         /// <summary>
         /// Gets the thread dispatcher available for use by the simulation.
         /// </summary>
-        public ThreadDispatcher ThreadDispatcher { get; private set; }
+        public static ThreadDispatcher ThreadDispatcher => Application.ThreadDispatcher;
 
         public PhysicsWorld(World world,PhysicsSettings settings)
         {
@@ -35,14 +35,12 @@ namespace VECS.ECS.Physics
             Settings = settings;
             BufferPool = new BufferPool();
 
-            var targetThreadCount = int.Max(1, Environment.ProcessorCount > 4 ? Environment.ProcessorCount - 2 : Environment.ProcessorCount - 1);
-            ThreadDispatcher = new ThreadDispatcher(targetThreadCount);
-
             Simulation = Simulation.Create(
                 BufferPool,
                 new NarrowPhaseCallsbacks(Settings),
                 new PoseIntegratorCallbacks(Settings),
-                new SolveDescription(8, 1));
+                new SolveDescription(8, 1)
+            );
 
             InitRayCasting();
 

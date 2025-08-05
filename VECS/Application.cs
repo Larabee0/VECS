@@ -2,6 +2,8 @@
 using VECS.ECS;
 using VECS.LowLevel;
 using VECS.ECS.Physics;
+using System.Runtime.InteropServices.Marshalling;
+using BepuUtilities;
 
 namespace VECS
 {
@@ -16,6 +18,9 @@ namespace VECS
         private readonly Presenter _presenter;
 
         private static World _mainWorld;
+        private static ThreadDispatcher _threadDispatcher;
+
+        public static ThreadDispatcher ThreadDispatcher => _threadDispatcher;
 
         public Action PreOnCreate;
         public Action PostOnCreate;
@@ -28,6 +33,8 @@ namespace VECS
             _appWindow = new(Width, Height, "VECS");
             _device = new(_appWindow);
             _presenter = new(_appWindow);
+            var targetThreadCount = int.Max(1, Environment.ProcessorCount > 4 ? Environment.ProcessorCount - 2 : Environment.ProcessorCount - 1);
+            _threadDispatcher = new ThreadDispatcher(targetThreadCount);
             Time.FixedTimeStepCallback += FixedUpdate;
         }
 
