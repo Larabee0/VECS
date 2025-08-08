@@ -26,7 +26,7 @@ namespace VECS
         private VkDescriptorSetLayout _preAllocDescriptorLayout;
         private VkDescriptorSetLayout _unAllocDescriptorLayout;
         private VkDescriptorSetLayout[] _allLayouts;
-        private readonly VkShaderModule _shaderModule;
+        
         private readonly VkPipelineLayout _pipelineLayout;
         private readonly VkPipeline _pipline;
         
@@ -47,7 +47,7 @@ namespace VECS
         {
             var shaderBytes = File.ReadAllBytes(shaderFilePath);
 
-            Vulkan.vkCreateShaderModule(GraphicsDevice.Instance.Device, shaderBytes, null, out _shaderModule);
+            Vulkan.vkCreateShaderModule(GraphicsDevice.Instance.Device, shaderBytes, null, out var computeShaderModule);
 
             var spirShader = SPIRVReflectUtil.CreateReflectShaderModule(shaderBytes);
 
@@ -72,7 +72,7 @@ namespace VECS
             VkPipelineShaderStageCreateInfo computeShaderStageInfo = new()
             {
                 stage = VkShaderStageFlags.Compute,
-                module = _shaderModule,
+                module = computeShaderModule,
                 pName = main
             };
 
@@ -83,6 +83,8 @@ namespace VECS
             };
 
             Vulkan.vkCreateComputePipeline(GraphicsDevice.Instance.Device, computePipelineInfo, out _pipline);
+
+            Vulkan.vkDestroyShaderModule(GraphicsDevice.Instance.Device, computeShaderModule);
         }
 
         private void GenerateDescriptorSetLayouts()
@@ -313,9 +315,6 @@ namespace VECS
             {
                 Vulkan.vkDestroyDescriptorSetLayout(GraphicsDevice.Instance.Device, _unAllocDescriptorLayout, null);
             }
-
-            Vulkan.vkDestroyShaderModule(GraphicsDevice.Instance.Device, _shaderModule);
         }
-
     }
 }

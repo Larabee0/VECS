@@ -13,8 +13,6 @@ namespace VECS.GraphicsPipelines
     {
         private readonly GraphicsDevice _device;
         private VkPipeline _graphicsPipeline;
-        private VkShaderModule _vertShaderModule;
-        private VkShaderModule _fragShaderModule;
         private bool _disposed;
 
         public GraphicsPipeline(GraphicsDevice device, string vertFilePath, string fragFilePath, GraphicsPipelineConfigInfo configInfo)
@@ -124,6 +122,9 @@ namespace VECS.GraphicsPipelines
             {
                 throw new Exception("Failed to create graphics pipeline!");
             }
+            
+            Vulkan.vkDestroyShaderModule(_device.Device, shaderStages[0].module);
+            Vulkan.vkDestroyShaderModule(_device.Device, shaderStages[1].module);
         }
 
         /// <summary>
@@ -170,15 +171,15 @@ namespace VECS.GraphicsPipelines
 
         private unsafe void GetShaderStageCreateInfo(byte[] vertexBytes, byte[] fragmentBytes, VkPipelineShaderStageCreateInfo* shaderStages)
         {
-            Vulkan.vkCreateShaderModule(_device.Device, vertexBytes, null, out _vertShaderModule);
-            Vulkan.vkCreateShaderModule(_device.Device, fragmentBytes, null, out _fragShaderModule);
+            Vulkan.vkCreateShaderModule(_device.Device, vertexBytes, null, out var vertShaderModule);
+            Vulkan.vkCreateShaderModule(_device.Device, fragmentBytes, null, out var fragShaderModule);
             VkUtf8ReadOnlyString main = "main"u8;
 
             shaderStages[0] = new()
             {
                 sType = VkStructureType.PipelineShaderStageCreateInfo,
                 stage = VkShaderStageFlags.Vertex,
-                module = _vertShaderModule,
+                module = vertShaderModule,
                 pName = main,
                 flags = 0,
                 pNext = null,
@@ -189,7 +190,7 @@ namespace VECS.GraphicsPipelines
             {
                 sType = VkStructureType.PipelineShaderStageCreateInfo,
                 stage = VkShaderStageFlags.Fragment,
-                module = _fragShaderModule,
+                module = fragShaderModule,
                 pName = main,
                 flags = 0,
                 pNext = null,
@@ -205,8 +206,6 @@ namespace VECS.GraphicsPipelines
         public unsafe void Dispose()
         {
             if (_disposed) return;
-            Vulkan.vkDestroyShaderModule(_device.Device, _vertShaderModule);
-            Vulkan.vkDestroyShaderModule(_device.Device, _fragShaderModule);
             Vulkan.vkDestroyPipeline(_device.Device, _graphicsPipeline);
             _disposed = true;
         }
