@@ -29,39 +29,9 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static ulong ToNearestPowerOfTwo(ulong x)
-        {
-            ulong next = ToNextNearest(x);
-            ulong prev = next >> 1;
-            return next - x < x - prev ? next : prev;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong GetAlignment(ulong instanceSize)
         {
-            
-            if (IsPowerOfTwo(instanceSize))
-            {
-                // alignment is instance size.
-                return instanceSize;
-            }
 
-            ulong alignment = 2;
-            for (int i = 1; i <= 8; i++)
-            {
-                var val = ToNextNearest(alignment);
-                if (instanceSize % val != 0)
-                {
-                    break;
-                }
-                alignment = val + 1;
-            }
-
-            return alignment - 1;
-        }
-
-        public static unsafe ulong FinesseAlignment(ulong instanceSize)
-        {
             if (IsPowerOfTwo(instanceSize))
             {
                 // alignment is instance size.
@@ -188,6 +158,24 @@ namespace VECS
             return true;
         }
 
+        public unsafe static bool TryAllocHostBuffer(this SwapChainBuffer buffer, bool read = true)
+        {
+            if (buffer._hostPtr != null)
+            {
+                return false;
+            }
+
+            buffer._hostPtr = NativeMemory.AlignedAlloc((nuint)buffer.VkBufferSize, (nuint)buffer.HostAlignment);
+            NativeMemory.Fill(buffer._hostPtr, (nuint)buffer.VkBufferSize, 0);
+
+            if (read)
+            {
+                ReadToHostFromActiveBuffer(buffer);
+            }
+
+            return true;
+        }
+
         public unsafe static bool TryDellocateHostBuffer(this GPUBuffer buffer, bool write = true)
         {
             if (buffer._hostPtr == null)
@@ -302,6 +290,53 @@ namespace VECS
             buffer.SetGPUBufferChanged(false);
         }
 
+        
+        public unsafe static void WriteFromHostToBuffer(this SwapChainBuffer buffer, int index)
+        {
+            if (buffer._hostPtr == null)
+            {
+                throw new InvalidOperationException("Cannot write host buffer to GPU as it is null");
+            }
+
+            if (buffer._diryBuffers[index])
+            {
+                if (buffer.UsedInstanceCount == buffer.InstanceCount32)
+                {
+                    buffer[index].WriteToBuffer(buffer._hostPtr);
+                }
+                else
+                {
+                    buffer[index].WriteToBuffer(buffer._hostPtr, buffer.UsedInstanceCount * buffer.UInstanceSize32);
+                }
+                buffer._diryBuffers[index] = false;
+            }
+        }
+
+        public unsafe static void ReadToHostFromBuffer(this SwapChainBuffer buffer, int index)
+        {
+            if (buffer._hostPtr == null)
+            {
+                TryAllocHostBuffer(buffer);
+                return;
+            }
+            buffer[index].ReadFromBuffer(buffer._hostPtr);
+            buffer.SetBuffersDirty(true);
+            buffer._diryBuffers[index] = false;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe static void WriteFromHostToActiveBuffer(this SwapChainBuffer buffer)
+        {
+            WriteFromHostToBuffer(buffer, Presenter.Instance.FrameIndex);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe static void ReadToHostFromActiveBuffer(this SwapChainBuffer buffer)
+        {
+            ReadToHostFromBuffer(buffer, Presenter.Instance.FrameIndex);
+        }
+
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void CopyTo(this GPUBuffer srcBuffer, VkCommandBuffer cmd, GPUBuffer dstBuffer)
         {
@@ -348,13 +383,75 @@ namespace VECS
                 buffer.SetGPUBufferChanged(true);
             }
         }
-        
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe static void FillBufferSingleTimeCmd(this GPUBuffer buffer, uint data, ulong dstOffset = 0, ulong bufferSize = Vulkan.VK_WHOLE_SIZE)
         {
             var cmd = GraphicsDevice.Instance.BeginSingleTimeCommands();
             FillBuffer(buffer, cmd, data, dstOffset, bufferSize);
             GraphicsDevice.Instance.EndSingleTimeCommands(cmd);
+        }
+
+        
+        public unsafe static void FillActiveBuffer(this SwapChainBuffer buffer, VkCommandBuffer commandBuffer, uint data, ulong dstOffset = 0, ulong bufferSize = Vulkan.VK_WHOLE_SIZE)
+        {
+            Vulkan.vkCmdFillBuffer(commandBuffer, buffer.ActiveVkBuffer, dstOffset, bufferSize, data);
+
+            if (buffer._hostPtr != null && data <= 255)
+            {
+                NativeMemory.Fill(buffer._hostPtr, (nuint)buffer.VkBufferSize, (byte)data);
+            }
+            buffer.SetBuffersDirty(true);
+            buffer._diryBuffers[Presenter.Instance.FrameIndex] = false;
+        }
+
+        public unsafe static void FillAllBuffers(this SwapChainBuffer buffer, VkCommandBuffer commandBuffer, uint data, ulong dstOffset = 0, ulong bufferSize = Vulkan.VK_WHOLE_SIZE)
+        {
+            for (int i = 0; i < SwapChain.MAX_FRAMES_IN_FLIGHT; i++)
+            {
+                Vulkan.vkCmdFillBuffer(commandBuffer, buffer[i].VkBuffer, dstOffset, bufferSize, data);
+            }
+
+            if (buffer._hostPtr != null && data <= 255)
+            {
+                NativeMemory.Fill(buffer._hostPtr, (nuint)buffer.VkBufferSize, (byte)data);
+            }
+            buffer.SetBuffersDirty(false);
+        }
+
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static VkDescriptorBufferInfo ActiveDescriptorInfo(this SwapChainBuffer buffer, uint startIndex, uint count)
+        {
+            return new()
+            {
+                buffer = buffer.ActiveVkBuffer,
+                offset = startIndex * buffer.UInstanceSize32,
+                range = (count == 0 ? buffer.UInstanceCount32 : count) * buffer.UInstanceSize32
+            };
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static VkDescriptorBufferInfo ActiveDescriptorInfoBytes(this SwapChainBuffer buffer, uint offset, uint size)
+        {
+            return new()
+            {
+                buffer = buffer.ActiveVkBuffer,
+                offset = offset,
+                range = size
+            };
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static VkDescriptorBufferInfo ActiveDescriptorInfo(this SwapChainBuffer buffer, uint count)
+        {
+            return ActiveDescriptorInfo(buffer, 0, count);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static VkDescriptorBufferInfo ActiveDescriptorInfo(this SwapChainBuffer buffer)
+        {
+            return ActiveDescriptorInfo(buffer, 0, buffer.UInstanceCount32);
         }
     }
 }

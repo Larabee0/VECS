@@ -371,7 +371,7 @@ namespace VECS
 
                 for (int i = 0; i < _bindingBuffers.Length; i++)
                 {
-                    _bindingBuffers[i].WriteFromHostToActiveBuffer(frameIndex);
+                    _bindingBuffers[i].WriteFromHostToBuffer(frameIndex);
                 }
             }
         }

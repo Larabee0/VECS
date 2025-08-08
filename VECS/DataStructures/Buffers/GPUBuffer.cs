@@ -57,10 +57,7 @@ namespace VECS
             _instanceSize = instanceSize;
             _instanceCount = instanceCount;
             _usageFlags = usageFlags;
-            _hostAlignment = GPUBufferExtensions.GetAlignment(_instanceSize);
 
-            _vkBufferSize = HostBufferSize;
-            if (VkBufferSize == 0) return;
             CreateInternal(cpuAccessible, preventHostAllocation);
         }
 
@@ -74,10 +71,7 @@ namespace VECS
             _instanceSize = instanceSize;
             _instanceCount = instanceCount;
             _usageFlags = usageFlags;
-            _hostAlignment = GPUBufferExtensions.GetAlignment(_instanceSize);
-
-            _vkBufferSize = HostBufferSize;
-            if (VkBufferSize == 0) return;
+            
             CreateInternal(cpuAccessible, preventHostAllocation);
         }
 
@@ -90,17 +84,17 @@ namespace VECS
             _instanceSize = instanceSize;
             _instanceCount = instanceCount;
             _usageFlags = usageFlags;
-            _hostAlignment = GPUBufferExtensions.GetAlignment(_instanceSize);
-
-            _vkBufferSize = HostBufferSize;
-
-            if (VkBufferSize == 0) return;
+            
             CreateInternal(cpuAccessible, preventHostAllocation);
         }
 
-        protected unsafe void CreateInternal(bool cpuAccessible, bool preventHostAllocation)
+        protected unsafe bool CreateInternal(bool cpuAccessible, bool preventHostAllocation)
         {
+            _hostAlignment = GPUBufferExtensions.GetAlignment(_instanceSize);
             _vkBufferSize = HostBufferSize;
+            _disposed = true;
+            if (VkBufferSize == 0) return false;
+
             VkBufferCreateInfo bufferInfo = new()
             {
                 size = VkBufferSize,
@@ -134,7 +128,10 @@ namespace VECS
             {
                 throw new Exception(string.Format("Failed to create vma buffer!\n{0}", result));
             }
+
             _disposed = false;
+
+            return true;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -183,11 +180,7 @@ namespace VECS
             _instanceSize = (ulong)sizeof(T);
             _instanceCount = instanceCount;
             _usageFlags = usageFlags;
-            _hostAlignment = GPUBufferExtensions.GetAlignment(_instanceSize);
 
-            _vkBufferSize = HostBufferSize;
-
-            if (VkBufferSize == 0) return;
             CreateInternal(cpuAccessible, preventHostAllocation);
         }
 
@@ -201,11 +194,7 @@ namespace VECS
             _instanceSize = instanceSize;
             _instanceCount = instanceCount;
             _usageFlags = usageFlags;
-            _hostAlignment = GPUBufferExtensions.GetAlignment(_instanceSize);
 
-            _vkBufferSize = HostBufferSize;
-
-            if (VkBufferSize == 0) return;
             CreateInternal(cpuAccessible, preventHostAllocation);
         }
 
@@ -218,11 +207,7 @@ namespace VECS
             _instanceSize = (ulong)sizeof(T);
             _instanceCount = instanceCount;
             _usageFlags = usageFlags;
-            _hostAlignment = GPUBufferExtensions.GetAlignment(_instanceSize);
-
-            _vkBufferSize = HostBufferSize;
-
-            if (VkBufferSize == 0) return;
+            
             CreateInternal(cpuAccessible, preventHostAllocation);
         }
     }

@@ -172,7 +172,7 @@ namespace VECS
 
         public void SetStorageBuffer(string property, GPUBuffer buffer)
         {
-            var scb = new SwapChainBuffer(buffer);
+            var scb = SwapChainBuffer.AliasGPUBuffer(buffer);
             SetStorageBuffer(property, scb);
         }
 
