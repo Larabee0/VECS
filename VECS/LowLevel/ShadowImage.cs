@@ -6,7 +6,7 @@ namespace VECS.LowLevel
 {
     public sealed class ShadowImage : IDisposable
     {
-        public const int SHADOW_IMAGE_SIZE = 1024;
+        public const int SHADOW_IMAGE_SIZE = 8192;
         public const VkFormat SHADOW_IMAGE_FORMAT = VkFormat.R32Sfloat;
         private readonly VkFormat _depthFormat;
         public Cubemap CubeMap;

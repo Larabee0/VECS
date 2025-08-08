@@ -108,7 +108,7 @@ namespace VECS.ECS.Presentation
             _shadowOffscreen.SetMatDescriptorHandleStorageRegions(0, 0, (uint)drawCount);
             ShadowImage.SetViewPort(frameInfo);
 
-            Matrix4x4 projection = Matrix4x4.CreatePerspectiveFieldOfView(MathF.PI * 0.5f, 1.0f, 0.1f, 1024f);
+            Matrix4x4 projection = Matrix4x4.CreatePerspectiveFieldOfView(MathF.PI * 0.5f, 1.0f, 0.1f, ShadowImage.SHADOW_IMAGE_SIZE);
             Matrix4x4 model = Matrix4x4.CreateTranslation(frameInfo.Ubo.PointLights[0].Position.AsVector3());
             _shadowOffscreen.SetMatrix4x4("cubeConstant.cubeProj", projection);
             _shadowOffscreen.SetMatrix4x4("cubeConstant.cubeModel", model);
@@ -121,7 +121,7 @@ namespace VECS.ECS.Presentation
             cullData.P00 = projection[0, 0];
             cullData.P11 = projection[1, 1];
             cullData.znear = 0.1f;
-            cullData.zfar = 1024f;
+            cullData.zfar = ShadowImage.SHADOW_IMAGE_SIZE;
             cullData.frustum = frustum;
 
             for (int i = 0; i < 6; i++)

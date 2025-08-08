@@ -351,11 +351,18 @@ namespace VECS.LowLevel
             for (int i = 0; i < queueFamilies.Length; i++)
             {
                 var family = queueFamilies[i];
+                
 
-                if (family.queueCount > 0 && family.queueFlags.HasFlag(VkQueueFlags.Graphics) && family.queueFlags.HasFlag(VkQueueFlags.Compute))
+                if (family.queueCount > 0 && family.queueFlags.HasFlag(VkQueueFlags.Graphics))
                 {
                     indices.graphicsFamily = i;
                     indices.graphicsFamilyHasValue = true;
+                }
+
+                if (family.queueCount > 0 && family.queueFlags.HasFlag(VkQueueFlags.Compute))
+                {
+                    indices.computeFamily = i;
+                    indices.computeFamilyHasValue = true;
                 }
 
                 Vulkan.vkGetPhysicalDeviceSurfaceSupportKHR(device, (uint)i, _surface, out VkBool32 presentSupport);
@@ -408,7 +415,7 @@ namespace VECS.LowLevel
         {
             QueueFamilyIndices indices = FindQueueFamilies(_physicalDevice);
 
-            HashSet<int> uniqueQueueFamilies = [indices.graphicsFamily, indices.presentFamily];
+            HashSet<int> uniqueQueueFamilies = [indices.graphicsFamily, indices.computeFamily, indices.presentFamily];
             VkDeviceQueueCreateInfo[] queueCreateInfos = new VkDeviceQueueCreateInfo[uniqueQueueFamilies.Count];
 
             float queuePriority = 1f;
@@ -571,103 +578,6 @@ namespace VECS.LowLevel
         public static bool HasStencil(VkFormat format)
         {
             return _stencilFormats.Contains(format);
-        }
-
-        /// <summary>
-        /// Creates a Vk Image and assocsiated device memory with the given settings from imageInfo and properties
-        /// </summary>
-        /// <param name="imageInfo"></param>
-        /// <param name="properties"></param>
-        /// <param name="image"></param>
-        /// <param name="imageMemory"></param>
-        /// <exception cref="Exception"></exception>
-        public unsafe void CreateImageWithInfo(
-            VkImageCreateInfo imageInfo,
-            VkMemoryPropertyFlags properties,
-            out VkImage image,
-            out VkDeviceMemory imageMemory)
-        {
-            if (Vulkan.vkCreateImage(_device, imageInfo, null, out image) != VkResult.Success)
-            {
-                throw new Exception("Failed to create image with info");
-            }
-
-
-            Vulkan.vkGetImageMemoryRequirements(_device, image, out VkMemoryRequirements memoryRequirements);
-
-            VkMemoryAllocateInfo allocInfo = new()
-            {
-                allocationSize = memoryRequirements.size,
-                memoryTypeIndex = FindMemoryType(memoryRequirements.memoryTypeBits, properties),
-            };
-
-            if (Vulkan.vkAllocateMemory(_device, &allocInfo, null, out imageMemory) != VkResult.Success)
-            {
-                throw new Exception("failed to allocate image memory!");
-            }
-
-            if (Vulkan.vkBindImageMemory(_device, image, imageMemory, 0) != VkResult.Success)
-            {
-                throw new Exception("failed to bind image memory!");
-            }
-        }
-
-        /// <summary>
-        /// Funky method for determing the memory type index for a vkMemoryAllocation
-        /// </summary>
-        /// <param name="typeFilter"></param>
-        /// <param name="properties"></param>
-        /// <returns></returns>
-        /// <exception cref="Exception"></exception>
-        private uint FindMemoryType(uint typeFilter, VkMemoryPropertyFlags properties)
-        {
-            Vulkan.vkGetPhysicalDeviceMemoryProperties(_physicalDevice, out VkPhysicalDeviceMemoryProperties memoryProperties);
-
-            for (int i = 0; i < memoryProperties.memoryTypeCount; i++)
-            {
-                if ((typeFilter & 1) == 1)
-                {
-                    if ((memoryProperties.memoryTypes[i].propertyFlags & properties) == properties)
-                    {
-                        return (uint)i;
-                    }
-                }
-                typeFilter >>= 1;
-            }
-
-            throw new Exception("Failed to find suitable memory type!");
-        }
-
-        /// <summary>
-        /// Copies the src buffer to the dst buffer from 0 point in both buffers to size
-        /// </summary>
-        /// <param name="srcBuffer"></param>
-        /// <param name="dstBuffer"></param>
-        /// <param name="size"></param>
-        public unsafe void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, uint size)
-        {
-            CopyBuffer(size, srcBuffer, 0, dstBuffer, 0);
-        }
-
-        public void CopyBuffer(ulong size, VkBuffer srcBuffer, ulong srcOffset, VkBuffer dstBuffer, ulong dstOffset)
-        {
-            VkCommandBuffer commandBuffer = BeginSingleTimeCommands();
-
-            CopyBuffer(commandBuffer, size, srcBuffer, srcOffset, dstBuffer, dstOffset);
-
-            EndSingleTimeCommands(commandBuffer);
-        }
-
-
-        public static unsafe void CopyBuffer(VkCommandBuffer commandBuffer, ulong size, VkBuffer srcBuffer, ulong srcOffset, VkBuffer dstBuffer, ulong dstOffset)
-        {
-            VkBufferCopy copyRegion = new()
-            {
-                srcOffset = srcOffset,
-                dstOffset = dstOffset,
-                size = size
-            };
-            Vulkan.vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
         }
 
         /// <summary>
@@ -891,10 +801,12 @@ namespace VECS.LowLevel
         public struct QueueFamilyIndices
         {
             public int graphicsFamily;
+            public int computeFamily;
             public int presentFamily;
             public bool graphicsFamilyHasValue;
+            public bool computeFamilyHasValue;
             public bool presentFamilyHasValue;
-            public readonly bool IsComplete => graphicsFamilyHasValue && presentFamilyHasValue;
+            public readonly bool IsComplete => graphicsFamilyHasValue && computeFamilyHasValue && presentFamilyHasValue;
         }
 
         /// <summary>

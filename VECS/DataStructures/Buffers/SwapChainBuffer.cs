@@ -11,11 +11,10 @@ namespace VECS
         protected bool[] _diryBuffers = new bool[SwapChain.MAX_FRAMES_IN_FLIGHT];
         protected ulong _instanceCount;
         protected ulong _instanceSize;
-        protected ulong _alignmentSize;
-        protected ulong _bufferSize;
+        protected ulong _hostAlignment;
+        protected ulong _vkBufferSize;
         protected bool _CPUAccessible;
         protected VkBufferUsageFlags _usageFlags;
-        protected ulong _minOffsetAlignment;
 
         protected bool _disposed;
         protected unsafe void* _hostPtr;
@@ -24,8 +23,11 @@ namespace VECS
 
         public bool SameBufferForEachFrame = false;
 
-        public ulong BufferSize => _bufferSize;
-        public uint InstanceSize => (uint)_instanceSize;
+        public ulong BufferSize => _vkBufferSize;
+        public ulong HostBufferSize => Math.Max(_hostAlignment, _instanceSize) * _instanceCount;
+        public uint HostBufferSize32 => (uint)HostBufferSize;
+        public ulong UInstanceSize => _instanceSize;
+        public uint UInstanceSize32 => (uint)_instanceSize;
         public int InstanceSize32 => (int)_instanceSize;
         public uint UInstanceCount32 => (uint)_instanceCount;
         public int InstanceCount32 => (int)UInstanceCount32;
@@ -63,7 +65,7 @@ namespace VECS
 
         public SwapChainBuffer()
         {
-            _bufferSize = 0;
+            _vkBufferSize = 0;
             _disposed = true;
         }
 
@@ -71,22 +73,23 @@ namespace VECS
             uint instanceCount,
             ulong instanceSize,
             VkBufferUsageFlags usageFlags,
-            bool cpuAccessible,
-            uint minOffsetAlignment = 1)
+            bool cpuAccessible)
         {
             _instanceSize = instanceSize;
             _instanceCount = instanceCount;
-            _alignmentSize = GPUBuffer.GetAlignment(_instanceSize, minOffsetAlignment);
             _CPUAccessible = cpuAccessible;
-            _bufferSize = _alignmentSize * _instanceCount;
+            
+            _hostAlignment = GPUBufferExtensions.GetAlignment(_instanceSize);
+
+            _vkBufferSize = HostBufferSize;
             _usageFlags = usageFlags;
-            _minOffsetAlignment = minOffsetAlignment;
             if (BufferSize == 0) return;
 
             for (int i = 0; i < SwapChain.MAX_FRAMES_IN_FLIGHT; i++)
             {
-                _buffers[i] = new(instanceCount, instanceSize, usageFlags, cpuAccessible, minOffsetAlignment,true);
+                _buffers[i] = new(instanceCount, instanceSize, usageFlags, cpuAccessible, true);
             }
+
             AutoAllocateCPUBuffer();
         }
 
@@ -94,63 +97,66 @@ namespace VECS
             uint instanceSize,
             uint instanceCount,
             VkBufferUsageFlags usageFlags,
-            bool cpuAccessible,
-            uint minOffsetAlignment = 1)
+            bool cpuAccessible)
         {
             _instanceSize = instanceSize;
             _instanceCount = instanceCount;
-            _alignmentSize = GPUBuffer.GetAlignment(_instanceSize, minOffsetAlignment);
             _CPUAccessible = cpuAccessible;
-            _bufferSize = _alignmentSize * _instanceCount;
+            _hostAlignment = GPUBufferExtensions.GetAlignment(_instanceSize);
+
+            _vkBufferSize = HostBufferSize;
             _usageFlags = usageFlags;
-            _minOffsetAlignment = minOffsetAlignment;
             if (BufferSize == 0) return;
 
             for (int i = 0; i < SwapChain.MAX_FRAMES_IN_FLIGHT; i++)
             {
-                _buffers[i] = new(instanceSize, instanceCount, usageFlags, cpuAccessible, minOffsetAlignment, true);
+                _buffers[i] = new(instanceCount, instanceSize, usageFlags, cpuAccessible, true);
             }
+            
             AutoAllocateCPUBuffer();
         }
 
         public SwapChainBuffer(
-            ulong instanceCount, ulong instanceSize,
+            ulong instanceCount,
+            ulong instanceSize,
             VkBufferUsageFlags usageFlags,
-            bool cpuAccessible,
-            ulong minOffsetAlignment = 1)
+            bool cpuAccessible)
         {
             _instanceSize = instanceSize;
             _instanceCount = instanceCount;
-            _alignmentSize = GPUBuffer.GetAlignment(_instanceSize, minOffsetAlignment);
             _CPUAccessible = cpuAccessible;
-            _minOffsetAlignment = minOffsetAlignment;
             _usageFlags = usageFlags;
-            _bufferSize = _alignmentSize * _instanceCount;
+            _hostAlignment = GPUBufferExtensions.GetAlignment(_instanceSize);
+
+            _vkBufferSize = HostBufferSize;
 
             if (BufferSize == 0) return;
 
             for (int i = 0; i < SwapChain.MAX_FRAMES_IN_FLIGHT; i++)
             {
-                _buffers[i] = new(instanceCount, instanceSize, usageFlags, cpuAccessible, minOffsetAlignment, true);
+                _buffers[i] = new(instanceCount, instanceSize, usageFlags, cpuAccessible, true);
             }
+
             AutoAllocateCPUBuffer();
         }
 
 
         private unsafe SwapChainBuffer(SwapChainBuffer copyFrom, ulong newInstanceCount)
         {
+            var srcInstanceCount = copyFrom.UInstanceCount;
             _instanceSize = copyFrom._instanceSize;
             _instanceCount = newInstanceCount;
-            _alignmentSize = _minOffsetAlignment = copyFrom._alignmentSize;
             _CPUAccessible = copyFrom._CPUAccessible;
             _usageFlags = copyFrom._usageFlags;
-            _bufferSize = _alignmentSize * _instanceCount;
+            _hostAlignment = GPUBufferExtensions.GetAlignment(_instanceSize);
+
+            _vkBufferSize = HostBufferSize;
 
             if (BufferSize == 0) return;
 
             for (int i = 0; i < SwapChain.MAX_FRAMES_IN_FLIGHT; i++)
             {
-                _buffers[i] = new(_instanceCount, _instanceSize, _usageFlags, _CPUAccessible, _minOffsetAlignment, true);
+                _buffers[i] = new(_instanceCount, _instanceSize, _usageFlags, _CPUAccessible, true);
             }
 
             _usedInstanceCount = (uint)InstanceCount;
@@ -158,15 +164,15 @@ namespace VECS
             {
                 _hostPtr = copyFrom._hostPtr;
                 copyFrom._hostPtr = null;
-                var newSize = (uint)UInstanceCount * (uint)_instanceSize;
-                var oldSize = copyFrom.InstanceCount32 * InstanceSize32;
 
-                _hostPtr = NativeMemory.Realloc(_hostPtr, newSize);
-
-                IntPtr ptr = new(_hostPtr);
-                ptr = IntPtr.Add(ptr, oldSize);
-
-                NativeMemory.Fill((void*)ptr, (uint)_instanceSize, 0);
+                _hostPtr = NativeMemory.AlignedRealloc(_hostPtr, (nuint)_vkBufferSize, (nuint)_hostAlignment);
+                var fillCount = (newInstanceCount - srcInstanceCount) * _instanceSize;
+                if (fillCount > 0)
+                {
+                    var ptr = new IntPtr(_hostPtr);
+                    ptr = IntPtr.Add(ptr, (int)fillCount);
+                    NativeMemory.Fill(ptr.ToPointer(), (nuint)fillCount, 0);
+                }
             }
             copyFrom?.Dispose();
 
@@ -178,10 +184,11 @@ namespace VECS
             SameBufferForEachFrame = true;
             _instanceSize = gpuBuffer.InstanceSize;
             _instanceCount = gpuBuffer.UInstanceCount;
-            _alignmentSize = gpuBuffer.AlignmentSize;
+            _hostAlignment = gpuBuffer.HostAlignment;
             _CPUAccessible = gpuBuffer.CPUAccess;
             _usageFlags = gpuBuffer.UsageFlags;
-            _bufferSize = _alignmentSize * _instanceCount;
+
+            _vkBufferSize = HostBufferSize;
 
 
             for (int i = 0; i < SwapChain.MAX_FRAMES_IN_FLIGHT; i++)
@@ -208,7 +215,8 @@ namespace VECS
             _usedInstanceCount = (uint)InstanceCount;
             if (_CPUAccessible)
             {
-                _hostPtr = NativeMemory.AllocZeroed((nuint)UInstanceCount, (nuint)_instanceSize);
+                _hostPtr = NativeMemory.AlignedAlloc((nuint)_vkBufferSize, (nuint)_hostAlignment);
+                NativeMemory.Fill(_hostPtr, (nuint)_vkBufferSize, 0);
             }
         }
 
@@ -218,7 +226,7 @@ namespace VECS
 
             if (_hostPtr != null && data <= 255)
             {
-                NativeMemory.Fill(_hostPtr, (nuint)InstanceCount32 * (nuint)_instanceSize, (byte)data);
+                NativeMemory.Fill(_hostPtr, (nuint)_vkBufferSize, (byte)data);
             }
             SetBuffersDirty(true);
             _diryBuffers[Presenter.Instance.FrameIndex] = false;
@@ -233,7 +241,7 @@ namespace VECS
 
             if (_hostPtr != null && data <= 255)
             {
-                NativeMemory.Fill(_hostPtr, (nuint)InstanceCount32 * (nuint)_instanceSize, (byte)data);
+                NativeMemory.Fill(_hostPtr, (nuint)_vkBufferSize, (byte)data);
             }
             SetBuffersDirty(false);
         }
@@ -260,7 +268,7 @@ namespace VECS
                 }
                 else
                 {
-                    _buffers[index].WriteToBuffer(_hostPtr, _usedInstanceCount * InstanceSize);
+                    _buffers[index].WriteToBuffer(_hostPtr, _usedInstanceCount * UInstanceSize32);
                 }
                 _diryBuffers[index] = false;
             }
@@ -282,7 +290,8 @@ namespace VECS
         {
             if (_hostPtr == null)
             {
-                _hostPtr = NativeMemory.AllocZeroed((nuint)UInstanceCount, (nuint)_instanceSize);
+                _hostPtr = NativeMemory.AlignedAlloc((nuint)_vkBufferSize, (nuint)_hostAlignment);
+                NativeMemory.Fill(_hostPtr, (nuint)_vkBufferSize, 0);
             }
 
             if (read)
@@ -311,7 +320,7 @@ namespace VECS
             _disposed = true;
             if (_hostPtr != null)
             {
-                NativeMemory.Free(_hostPtr);
+                NativeMemory.AlignedFree(_hostPtr);
                 _hostPtr = null;
             }
 
@@ -327,8 +336,8 @@ namespace VECS
             return new()
             {
                 buffer = ActiveVkBuffer,
-                offset = startIndex * InstanceSize,
-                range = (count == 0 ? UInstanceCount32 : count) * InstanceSize
+                offset = startIndex * UInstanceSize32,
+                range = (count == 0 ? UInstanceCount32 : count) * UInstanceSize32
             };
         }
 
@@ -378,29 +387,29 @@ namespace VECS
 
         public SwapChainBuffer()
         {
-            _bufferSize = 0;
+            _vkBufferSize = 0;
             _disposed = true;
         }
 
         public unsafe SwapChainBuffer(
             uint instanceCount,
             VkBufferUsageFlags usageFlags,
-            bool cpuAccessible,
-            uint minOffsetAlignment = 1)
+            bool cpuAccessible)
         {
             _instanceSize = (ulong)sizeof(T);
             _instanceCount = instanceCount;
-            _alignmentSize = GPUBuffer.GetAlignment(_instanceSize, minOffsetAlignment);
             _CPUAccessible = cpuAccessible;
             _usageFlags = usageFlags;
 
-            _bufferSize = _alignmentSize * _instanceCount;
+            _hostAlignment = GPUBufferExtensions.GetAlignment(_instanceSize);
+
+            _vkBufferSize = HostBufferSize;
 
             if (BufferSize == 0) return;
             _disposed = false;
             for (int i = 0; i < SwapChain.MAX_FRAMES_IN_FLIGHT; i++)
             {
-                _buffers[i] = new(_instanceSize, _instanceCount, _usageFlags, _CPUAccessible, _alignmentSize);
+                _buffers[i] = new(_instanceCount, _instanceSize, _usageFlags, _CPUAccessible);
             }
 
             AutoAllocateCPUBuffer();
@@ -410,23 +419,23 @@ namespace VECS
             uint instanceSize,
             uint instanceCount,
             VkBufferUsageFlags usageFlags,
-            bool cpuAccessible,
-            uint minOffsetAlignment = 1)
+            bool cpuAccessible)
         {
             _instanceSize = instanceSize;
             _instanceCount = instanceCount;
-            _alignmentSize = GPUBuffer.GetAlignment(_instanceSize, minOffsetAlignment);
             _CPUAccessible = cpuAccessible;
             _usageFlags = usageFlags;
 
-            _bufferSize = _alignmentSize * _instanceCount;
+            _hostAlignment = GPUBufferExtensions.GetAlignment(_instanceSize);
+
+            _vkBufferSize = HostBufferSize;
 
             if (BufferSize == 0) return;
             _disposed = false;
 
             for (int i = 0; i < SwapChain.MAX_FRAMES_IN_FLIGHT; i++)
             {
-                _buffers[i] = new(_instanceSize, _instanceCount, _usageFlags, _CPUAccessible, _alignmentSize);
+                _buffers[i] = new(_instanceCount, _instanceSize, _usageFlags, _CPUAccessible);
             }
 
             AutoAllocateCPUBuffer();
@@ -435,15 +444,15 @@ namespace VECS
         public unsafe SwapChainBuffer(
             ulong instanceCount,
             VkBufferUsageFlags usageFlags,
-            bool cpuAccessible,
-            ulong minOffsetAlignment = 1)
+            bool cpuAccessible)
         {
             _instanceSize = (ulong)sizeof(T);
             _instanceCount = instanceCount;
-            _alignmentSize = GPUBuffer.GetAlignment(_instanceSize, minOffsetAlignment);
             _CPUAccessible = cpuAccessible;
 
-            _bufferSize = _alignmentSize * _instanceCount;
+            _hostAlignment = GPUBufferExtensions.GetAlignment(_instanceSize);
+
+            _vkBufferSize = HostBufferSize;
             _usageFlags = usageFlags;
 
             if (BufferSize == 0) return;
@@ -451,27 +460,28 @@ namespace VECS
 
             for (int i = 0; i < SwapChain.MAX_FRAMES_IN_FLIGHT; i++)
             {
-                _buffers[i] = new(_instanceSize, _instanceCount, _usageFlags, _CPUAccessible, _alignmentSize);
+                _buffers[i] = new(_instanceCount, _instanceSize, _usageFlags, _CPUAccessible);
             }
 
             AutoAllocateCPUBuffer();
         }
 
-        private unsafe SwapChainBuffer(SwapChainBuffer<T> copyFrom, ulong instanceCount)
+        private unsafe SwapChainBuffer(SwapChainBuffer<T> copyFrom, ulong newInstanceCount)
         {
+            var srcInstanceCount = copyFrom.UInstanceCount;
             _instanceSize = copyFrom._instanceSize;
-            _instanceCount = instanceCount;
-            _alignmentSize = _minOffsetAlignment = copyFrom._alignmentSize;
+            _instanceCount = newInstanceCount;
+            _hostAlignment = copyFrom._hostAlignment;
             _CPUAccessible = copyFrom._CPUAccessible;
             _usageFlags = copyFrom._usageFlags;
-            _bufferSize = _alignmentSize * _instanceCount;
+            _vkBufferSize = HostBufferSize;
 
             if (BufferSize == 0) return;
             _disposed = false;
 
             for (int i = 0; i < SwapChain.MAX_FRAMES_IN_FLIGHT; i++)
             {
-                _buffers[i] = new(_instanceSize, _instanceCount, _usageFlags, _CPUAccessible, _alignmentSize);
+                _buffers[i] = new(_instanceCount, _instanceSize, _usageFlags, _CPUAccessible);
             }
             _usedInstanceCount = (uint)InstanceCount;
 
@@ -479,15 +489,16 @@ namespace VECS
             {
                 _hostPtr = copyFrom._hostPtr;
                 copyFrom._hostPtr = null;
-                var newSize = (uint)UInstanceCount * (uint)_instanceSize;
-                var oldSize = copyFrom.InstanceCount32 * InstanceSize32;
 
-                _hostPtr = NativeMemory.Realloc(_hostPtr, newSize);
+                _hostPtr = NativeMemory.AlignedRealloc(_hostPtr, (nuint)_vkBufferSize, (nuint)_hostAlignment);
+                var fillCount = (newInstanceCount - srcInstanceCount) * _instanceSize;
 
-                IntPtr ptr = new(_hostPtr);
-                ptr = IntPtr.Add(ptr, oldSize);
-
-                NativeMemory.Fill((void*)ptr, (uint)_instanceSize, 0);
+                if (fillCount > 0)
+                {
+                    var ptr = new IntPtr(_hostPtr);
+                    ptr = IntPtr.Add(ptr, (int)fillCount);
+                    NativeMemory.Fill(ptr.ToPointer(), (nuint)fillCount, 0);
+                }
             }
             copyFrom?.Dispose();
 

@@ -1,0 +1,360 @@
+using System;
+using System.Diagnostics;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using VECS.LowLevel;
+using Vortice.Vulkan;
+
+namespace VECS
+{
+    public static class GPUBufferExtensions
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool IsPowerOfTwo(ulong x)
+        {
+            return (x & (x - 1)) == 0;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static ulong ToNextNearest(ulong x)
+        {
+            if (x < 0) { return 0; }
+            --x;
+            x |= x >> 1;
+            x |= x >> 2;
+            x |= x >> 4;
+            x |= x >> 8;
+            x |= x >> 16;
+            return x + 1;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static ulong ToNearestPowerOfTwo(ulong x)
+        {
+            ulong next = ToNextNearest(x);
+            ulong prev = next >> 1;
+            return next - x < x - prev ? next : prev;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static ulong GetAlignment(ulong instanceSize)
+        {
+            
+            if (IsPowerOfTwo(instanceSize))
+            {
+                // alignment is instance size.
+                return instanceSize;
+            }
+
+            ulong alignment = 2;
+            for (int i = 1; i <= 8; i++)
+            {
+                var val = ToNextNearest(alignment);
+                if (instanceSize % val != 0)
+                {
+                    break;
+                }
+                alignment = val + 1;
+            }
+
+            return alignment - 1;
+        }
+
+        public static unsafe ulong FinesseAlignment(ulong instanceSize)
+        {
+            if (IsPowerOfTwo(instanceSize))
+            {
+                // alignment is instance size.
+                return instanceSize;
+            }
+
+            ulong alignment = 2;
+            for (int i = 1; i <= 8; i++)
+            {
+                var val = ToNextNearest(alignment);
+                if (instanceSize % val != 0)
+                {
+                    break;
+                }
+                alignment = val + 1;
+            }
+
+            return alignment - 1;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe static void Map<T>(this GPUBuffer<T> buffer, T** data) where T : unmanaged
+        {
+            MapUnsafe(buffer, (void**)data);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe static void MapUnsafe(this GPUBuffer buffer, void** data)
+        {
+            if (buffer.VkBufferSize == 0) return;
+            Vma.vmaMapMemory(GraphicsDevice.Instance.VmaAllocator, buffer._allocation, data);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe static void Unmap(this GPUBuffer buffer)
+        {
+            if (buffer.VkBufferSize == 0) return;
+            Vma.vmaUnmapMemory(GraphicsDevice.Instance.VmaAllocator, buffer._allocation);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static VkResult Flush(this GPUBuffer buffer, ulong size = Vulkan.VK_WHOLE_SIZE, ulong offset = 0)
+        {
+            return Vma.vmaFlushAllocation(GraphicsDevice.Instance.VmaAllocator, buffer._allocation, offset, size);
+        }
+
+
+        public unsafe static void Reallocate(this GPUBuffer buffer, ulong newInstanceCount)
+        {
+            if (buffer.UInstanceCount == newInstanceCount)
+            {
+#if DEBUG
+                StackTrace trace = new(true);
+                Console.WriteLine("0x{1}\nReallocation aborted as instance count is unchanged!\nTrace\n {0}", trace.ToString(), buffer.VkBuffer.Handle.ToString("X16"));
+#endif
+                return;
+            }
+            var oldInstanceCount = buffer._instanceCount;
+
+            buffer._instanceCount = newInstanceCount;
+
+            Vma.vmaDestroyBuffer(GraphicsDevice.Instance.VmaAllocator, buffer.VkBuffer, buffer._allocation);
+
+            buffer._vkBufferSize = buffer.HostBufferSize;
+            VkBufferCreateInfo bufferInfo = new()
+            {
+                size = buffer.VkBufferSize,
+                usage = buffer.UsageFlags,
+                sharingMode = VkSharingMode.Exclusive
+            };
+
+            VmaAllocationCreateInfo allocationInfo = new()
+            {
+                usage = VmaMemoryUsage.Auto
+            };
+
+            if (buffer.CPUAccess)
+            {
+                allocationInfo.flags = VmaAllocationCreateFlags.HostAccessSequentialWrite | VmaAllocationCreateFlags.Mapped;
+
+                buffer._hostPtr = NativeMemory.AlignedRealloc(buffer._hostPtr, (nuint)buffer._vkBufferSize, (nuint)buffer.HostAlignment);
+                var fillCount = (newInstanceCount - oldInstanceCount) * Math.Max(buffer.HostAlignment, buffer.InstanceSize);
+
+                if (fillCount > 0)
+                {
+                    var ptr = new IntPtr(buffer._hostPtr);
+                    ptr = IntPtr.Add(ptr, (int)fillCount);
+                    NativeMemory.Fill(ptr.ToPointer(), (nuint)fillCount, 0);
+                }
+            }
+
+            var result = Vma.vmaCreateBuffer(GraphicsDevice.Instance.VmaAllocator, bufferInfo, allocationInfo, out buffer.VkBuffer, out buffer._allocation);
+
+#if LOG_BUFFER_ALLOCS
+            StackTrace trace = new(true);
+
+            Console.WriteLine("0x{1}\nBuffer Creation trace\n {0}",trace.ToString(),buffer.VkBuffer.Handle.ToString("X16"));
+#endif
+            if (result != VkResult.Success)
+            {
+                throw new Exception(string.Format("Failed to create vma buffer!\n{0}", result));
+            }
+        }
+
+        public unsafe static bool TryAllocHostBuffer(this GPUBuffer buffer, bool read = true)
+        {
+            if (buffer._hostPtr != null)
+            {
+                return false;
+            }
+
+            buffer._hostPtr = NativeMemory.AlignedAlloc((nuint)buffer._vkBufferSize, (nuint)buffer.HostAlignment);
+            NativeMemory.Fill(buffer._hostPtr, (nuint)buffer._vkBufferSize, 0);
+
+            if (read)
+            {
+                buffer.ReadToHostBuffer();
+            }
+            else
+            {
+                buffer.SetGPUBufferChanged(true);
+            }
+
+            return true;
+        }
+
+        public unsafe static bool TryDellocateHostBuffer(this GPUBuffer buffer, bool write = true)
+        {
+            if (buffer._hostPtr == null)
+            {
+                return false;
+            }
+            if (write)
+            {
+                buffer.WriteFromHostBuffer();
+            }
+            NativeMemory.AlignedFree(buffer._hostPtr);
+            buffer._hostPtr = null;
+            return true;
+        }
+
+        public unsafe static void WriteToBuffer(this GPUBuffer buffer, void* data, ulong size = Vulkan.VK_WHOLE_SIZE, ulong offset = 0)
+        {
+            if (buffer.CPUAccess)
+            {
+                void* pMappedData;
+                MapUnsafe(buffer, &pMappedData);
+                if (size == Vulkan.VK_WHOLE_SIZE)
+                {
+                    NativeMemory.Copy(data, pMappedData, (uint)buffer._vkBufferSize);
+                }
+                else
+                {
+                    byte* memOffset = (byte*)pMappedData;
+                    memOffset += offset;
+                    NativeMemory.Copy(data, memOffset, (uint)size);
+                }
+                Unmap(buffer);
+            }
+            else
+            {
+                var stagingBuffer = new GPUBuffer(buffer.UInstanceCount, buffer.InstanceSize, VkBufferUsageFlags.TransferSrc, true);
+                stagingBuffer.WriteToBuffer(data, size, offset);
+                stagingBuffer.CopyToSingleTime(buffer);
+                stagingBuffer.Dispose();
+            }
+            buffer.SetGPUBufferChanged(true);
+        }
+
+        public unsafe static void ReadFromBuffer(this GPUBuffer buffer, void* readout, ulong size = Vulkan.VK_WHOLE_SIZE, ulong offset = 0)
+        {
+            if (buffer.CPUAccess)
+            {
+                void* pMappedData;
+                MapUnsafe(buffer, &pMappedData);
+
+                if (size == Vulkan.VK_WHOLE_SIZE)
+                {
+                    NativeMemory.Copy(pMappedData, readout, (uint)buffer._vkBufferSize);
+                }
+                else
+                {
+                    byte* memOffset = (byte*)pMappedData;
+                    memOffset += offset;
+                    NativeMemory.Copy(memOffset, readout, (uint)size);
+                }
+                Unmap(buffer);
+            }
+            else
+            {
+                var stagingBuffer = new GPUBuffer(buffer.UInstanceCount, buffer.InstanceSize, VkBufferUsageFlags.TransferDst, true);
+                buffer.CopyToSingleTime(stagingBuffer);
+                stagingBuffer.ReadFromBuffer(readout, size, offset);
+                stagingBuffer.Dispose();
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe static void WriteFromHostBuffer(this GPUBuffer buffer)
+        {
+            if (buffer.HostPtr == null)
+            {
+                throw new InvalidOperationException("Cannot write host buffer to GPU as it is null");
+            }
+
+            WriteToBuffer(buffer, buffer.HostPtr);
+            buffer.SetGPUBufferChanged(false);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe static void ReadToHostBuffer(this GPUBuffer buffer)
+        {
+            if (buffer.HostPtr == null)
+            {
+                TryAllocHostBuffer(buffer);
+                return;
+            }
+            ReadFromBuffer(buffer, buffer.HostPtr);
+            buffer.SetGPUBufferChanged(false);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe static void WriteToBuffer<T>(this GPUBuffer<T> buffer, T[] writeIn) where T : unmanaged
+        {
+            fixed (T* pWriteIn = &writeIn[0])
+            {
+                WriteToBuffer(buffer, pWriteIn);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe static void ReadFromBuffer<T>(this GPUBuffer<T> buffer, T[] readout) where T : unmanaged
+        {
+            fixed (T* pReadout = &readout[0])
+            {
+                ReadFromBuffer(buffer, pReadout);
+            }
+            buffer.SetGPUBufferChanged(false);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void CopyTo(this GPUBuffer srcBuffer, VkCommandBuffer cmd, GPUBuffer dstBuffer)
+        {
+            CopyTo(srcBuffer, cmd, 0, dstBuffer, 0, dstBuffer._vkBufferSize);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe static void CopyTo(this GPUBuffer srcBuffer, VkCommandBuffer cmd, ulong srcOffset, GPUBuffer dstBuffer, ulong dstOffset, ulong size)
+        {
+            VkBufferCopy copyRegion = new()
+            {
+                srcOffset = srcOffset,
+                dstOffset = dstOffset,
+                size = size
+            };
+            Vulkan.vkCmdCopyBuffer(cmd, srcBuffer.VkBuffer, dstBuffer.VkBuffer, 1, &copyRegion);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void CopyToSingleTime(this GPUBuffer srcBuffer, GPUBuffer dstBuffer)
+        {
+            CopyToSingleTime(srcBuffer, 0, dstBuffer, 0, srcBuffer._vkBufferSize);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void CopyToSingleTime(this GPUBuffer srcBuffer, ulong srcOffset, GPUBuffer dstBuffer, ulong dstOffset, ulong size)
+        {
+            VkCommandBuffer cmd = GraphicsDevice.Instance.BeginSingleTimeCommands();
+            CopyTo(srcBuffer, cmd, srcOffset, dstBuffer, dstOffset, size);
+            GraphicsDevice.Instance.EndSingleTimeCommands(cmd);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe static void FillBuffer(this GPUBuffer buffer, VkCommandBuffer commandBuffer, uint data, ulong dstOffset = 0, ulong bufferSize = Vulkan.VK_WHOLE_SIZE)
+        {
+            Vulkan.vkCmdFillBuffer(commandBuffer, buffer.VkBuffer, dstOffset, bufferSize, data);
+
+            if (buffer.HostPtr != null && data <= 255)
+            {
+                NativeMemory.Fill(buffer.HostPtr, (nuint)buffer._vkBufferSize, (byte)data);
+            }
+            else
+            {
+                buffer.SetGPUBufferChanged(true);
+            }
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe static void FillBufferSingleTimeCmd(this GPUBuffer buffer, uint data, ulong dstOffset = 0, ulong bufferSize = Vulkan.VK_WHOLE_SIZE)
+        {
+            var cmd = GraphicsDevice.Instance.BeginSingleTimeCommands();
+            FillBuffer(buffer, cmd, data, dstOffset, bufferSize);
+            GraphicsDevice.Instance.EndSingleTimeCommands(cmd);
+        }
+    }
+}

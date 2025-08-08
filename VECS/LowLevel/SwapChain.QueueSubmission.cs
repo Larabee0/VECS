@@ -25,7 +25,7 @@ namespace VECS.LowLevel
             }
         }
 
-        private readonly ConcurrentQueue<SubmissionQueueElement> _submissionQueue = [];
+        private BlockingCollection<SubmissionQueueElement> _submissionQueue;
         private readonly Mutex _submissionMutex = new();
         #if !NO_SUBMISSION_THREAD
         private Thread _submissionThread;
@@ -119,8 +119,7 @@ namespace VECS.LowLevel
 
         private bool SubmitOnce()
         {
-            if (!_submissionQueue.TryDequeue(out var info)) return false;
-
+            if (!_submissionQueue.TryTake(out var info)) return false;
             if (info.End)
             {
                 _submittedFrameResult = VkResult.ThreadDoneKHR;
@@ -138,6 +137,7 @@ namespace VECS.LowLevel
         private void StartSubmissionThread()
         {
             // acquire first frame
+            _submissionQueue = new(MAX_FRAMES_IN_FLIGHT);
             _nextFrameResult = AcquireNextImage(out _nextFrameIndex);
             #if !NO_SUBMISSION_THREAD
             _submissionThread = new(new ThreadStart(SubmitQueueLoop))
@@ -155,7 +155,8 @@ namespace VECS.LowLevel
             _submissionMutex.WaitOne();
             while (_submittedFrameResult != VkResult.ThreadDoneKHR)
             {
-                _submissionQueue.Enqueue(new(VkCommandBuffer.Null, 0, true));
+                _submissionQueue.Add(new(VkCommandBuffer.Null, 0, true));
+                _submissionQueue.CompleteAdding();
                 _submissionMutex.ReleaseMutex();
                 _submissionMutex.WaitOne();
             }
@@ -168,10 +169,13 @@ namespace VECS.LowLevel
         {
 #if NO_SUBMISSION_THREAD
             
-            _submissionQueue.Enqueue(new(commandBuffer, imageIndex, false));
+            _submissionQueue.TryAdd(new(commandBuffer, imageIndex, false));
 #else
 
-            _submissionQueue.Enqueue(new(commandBuffer, imageIndex, false));
+            while (!_submissionQueue.TryAdd(new(commandBuffer, imageIndex, false)))
+            {
+                Thread.SpinWait(1);//throw new Exception("Failed to add to submission queue");
+            }
 #endif
         }
 

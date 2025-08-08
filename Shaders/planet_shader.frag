@@ -100,6 +100,46 @@ float sampleOcean()
 
 }
 
+float shadowCal()
+{
+	vec3 fragToLight = fragPosWorld - ubo.pointLights[0].position.xyz;
+	float closestDepth = texture(shadowCubeMap, fragToLight).r;
+	//closestDepth *= 20000.0;
+	float currentDepth = length(fragToLight);
+	float bias = 0.05;
+	float shadow = currentDepth - bias > closestDepth ? 1.0 : 0.0;
+
+	return shadow;
+}
+// https://learnopengl.com/Advanced-Lighting/Shadows/Point-Shadows
+float pcfShadow()
+{
+	float shadow = 0.0;
+	float bias = 0.05;
+	float samples = 4.0;
+	float offset = 0.1;
+	vec3 fragToLight = fragPosWorld - ubo.pointLights[0].position.xyz;
+	float currentDepth = length(fragToLight);
+
+	for(float x = -offset; x < offset; x += offset / (samples * 0.5))
+	{
+		for(float y = -offset; y < offset; y += offset / (samples * 0.5))
+		{
+			for(float z = -offset; z < offset; z += offset / (samples * 0.5))
+			{
+				float closestDepth = texture(shadowCubeMap, fragToLight + vec3(x, y, z)).r; 
+            	if(currentDepth - bias > closestDepth)
+				{
+					shadow += 1.0;
+				}
+                
+			}
+		}
+	}
+	shadow /= (samples * samples * samples);
+	return shadow;
+}
+
 void main()
 {
 
@@ -119,10 +159,7 @@ void main()
 	
 	// in shadow?
 
-	vec3 lightVec = fragPosWorld - ubo.pointLights[0].position.xyz;
-	float sampledDist = texture(shadowCubeMap, lightVec).r;
-	float dist = length(lightVec);
-	bool noShadow = dist <= sampledDist + EPSILON;
+	bool noShadow = shadowCal() == 0;
 	
 
 	// lighting based on in shadow

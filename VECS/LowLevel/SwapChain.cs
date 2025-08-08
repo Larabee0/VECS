@@ -11,8 +11,6 @@ namespace VECS.LowLevel
 
         private int _currentFrame = 0;
         private VkExtent2D _windowExtent;
-        // private VkExtent2D _shadowExtent = new(1024 * 4, 1024 * 4);
-
 
         private VkRenderPass _fwdrenderPass;
         private VkRenderPass _copyPass;

@@ -704,7 +704,7 @@ namespace VECS
             ulong newVertexBufferLength = VertexBufferLength - currentData.VertexCount + newBufferSizes.VertexCount;
             buffer.ReadToHostBuffer();
             byte* hostBuffer = (byte*)buffer.HostPtr;
-            buffer.ReallocateGPU(newVertexBufferLength);
+            buffer.Reallocate(newVertexBufferLength);
             for (int i = 0; i < _subMeshInfo.Length; i++)
             {
                 var subMesh = _subMeshInfo[i];
@@ -734,7 +734,7 @@ namespace VECS
             ulong newIndexBufferLength = IndexBufferLength - currentData.IndexCount + newBufferSizes.IndexCount;
             _indexBuffer.ReadToHostBuffer();
             byte* hostBuffer = (byte*)_indexBuffer.HostPtr;
-            _indexBuffer.ReallocateGPU(newIndexBufferLength);
+            _indexBuffer.Reallocate(newIndexBufferLength);
             for (int i = 0; i < _subMeshInfo.Length; i++)
             {
                 var subMesh = _subMeshInfo[i];

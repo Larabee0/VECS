@@ -154,7 +154,7 @@ namespace VECS
         internal static unsafe void CreateHostBuffer(this Texture texture, bool copyFromGPUNow)
         {
             bool createNewBuffer = true;
-            if (texture._hostBuffer != null && texture._hostBuffer.BufferSize == texture._vkBufferSizeRequirement)
+            if (texture._hostBuffer != null && texture._hostBuffer.VkBufferSize == texture._vkBufferSizeRequirement)
             {
                 if (texture._hostBuffer.UsageFlags.HasFlag(VkBufferUsageFlags.TransferSrc | VkBufferUsageFlags.TransferDst))
                 {
@@ -169,11 +169,11 @@ namespace VECS
                 texture._hostBuffer = null;
                 createNewBuffer = true;
             }
-            else if (texture._hostBuffer != null && texture._hostBuffer.BufferSize == texture._vkBufferSizeRequirement)
+            else if (texture._hostBuffer != null && texture._hostBuffer.VkBufferSize == texture._vkBufferSizeRequirement)
             {
                 if (texture._hostBuffer.UsageFlags.HasFlag(VkBufferUsageFlags.TransferSrc | VkBufferUsageFlags.TransferDst) && texture.BufferInstanceSize == texture._hostBuffer.InstanceSize)
                 {
-                    texture._hostBuffer.ReallocateGPU(texture._vkBufferSizeRequirement / texture.BufferInstanceCount);
+                    texture._hostBuffer.Reallocate(texture._vkBufferSizeRequirement / texture.BufferInstanceCount);
                     copyFromGPUNow = true;
                     createNewBuffer = false;
                 }
@@ -262,7 +262,7 @@ namespace VECS
             else if (texture is Texture2D texture2D)
             {
                 uint copyCount = texture.MipMapCount;
-                if (buffer.BufferSize <= baseImageSize)
+                if (buffer.VkBufferSize <= baseImageSize)
                 {
                     copyCount = 1;
                     hintRegenerateMipMaps = true;

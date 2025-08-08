@@ -31,7 +31,7 @@ namespace VECS
 
         public unsafe static Colour[] GetPixels(this Texture2D texture, int mipLevel = 0)
         {
-            if (texture._hostBuffer == null || texture._hostBuffer.BufferSize != texture._vkBufferSizeRequirement)
+            if (texture._hostBuffer == null || texture._hostBuffer.VkBufferSize != texture._vkBufferSizeRequirement)
             {
                 texture.CreateHostBuffer(true);
             }
@@ -94,7 +94,7 @@ namespace VECS
 
         public unsafe static void SetPixels(this Texture2D texture,Colour[] pixels, int mipLevel)
         {
-            if (texture._hostBuffer == null || texture._hostBuffer.BufferSize != texture._vkBufferSizeRequirement)
+            if (texture._hostBuffer == null || texture._hostBuffer.VkBufferSize != texture._vkBufferSizeRequirement)
             {
                 texture.CreateHostBuffer(true);
             }
