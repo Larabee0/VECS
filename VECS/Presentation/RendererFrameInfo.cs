@@ -29,9 +29,6 @@ namespace VECS
         public DescriptorPool MaterialDescriptorPool;
         public DescriptorPool EntityDescriptorPool;
         public List<VkBufferMemoryBarrier> PostCullBarriers;
-        public VkDescriptorImageInfo DepthPyramid;
-        public int DepthPyramidWidth;
-        public int DepthPyramidHeight;
         public CullData cullData;
 
         public DescriptorPool GetDescriptorPool(DescriptorLevel descriptorLevel)

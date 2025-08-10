@@ -517,7 +517,7 @@ namespace VECS.LowLevel
             VkCommandPoolCreateInfo poolInfo = new()
             {
                 queueFamilyIndex = (uint)queueFamilyIndices.graphicsFamily,
-                flags = VkCommandPoolCreateFlags.Transient | VkCommandPoolCreateFlags.ResetCommandBuffer
+                flags = VkCommandPoolCreateFlags.Transient | VkCommandPoolCreateFlags.ResetCommandBuffer,
             };
 
             if (Vulkan.vkCreateCommandPool(_device, poolInfo, null, out _commandPool) != VkResult.Success)
@@ -586,7 +586,7 @@ namespace VECS.LowLevel
         /// <returns></returns>
         public VkCommandBuffer BeginSingleTimeCommands()
         {
-            Vulkan.vkAllocateCommandBuffer(Device, _commandPool, VkCommandBufferLevel.Primary, out VkCommandBuffer commandBuffer);
+            Vulkan.vkAllocateCommandBuffer(Device, _commandPool, VkCommandBufferLevel.Primary, out VkCommandBuffer commandBuffer);            
             Vulkan.vkBeginCommandBuffer(commandBuffer, VkCommandBufferUsageFlags.OneTimeSubmit);
             return commandBuffer;
         }

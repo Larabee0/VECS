@@ -145,17 +145,17 @@ namespace VECS
 
         private void LoadDefaultResources()
         {
-            _unlitMaterial = new Material("unlit.vert", "unlit.frag", GraphicsPipelines.GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []), true, ForwardRenderPass);
+            _unlitMaterial = new Material("Unlit","unlit.vert", "unlit.frag", GraphicsPipelines.GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []), true, ForwardRenderPass);
             _globalDescriptorSetHandler = _unlitMaterial.ApplicationDescriptorSetHandler;
 
-            _unlitTransparentMaterial = Material.CreateWithAlphaBlending("unlit.vert", "unlit.frag");
-            _litMaterial = Material.Create("lit.vert", "lit.frag");
+            _unlitTransparentMaterial = Material.CreateWithAlphaBlending("Unlit Transparent","unlit.vert", "unlit.frag");
+            _litMaterial = Material.Create("Lit", "lit.vert", "lit.frag");
 
             _unlitMaterial.GetStorageBuffer<Vector4>("colourBuffer").Fill(Vector4.One);
             _unlitTransparentMaterial.GetStorageBuffer<Vector4>("colourBuffer").Fill(Vector4.One);
             _litMaterial.GetStorageBuffer<Vector4>("colourBuffer").Fill(Vector4.One);
 
-            _litTextureMaterial = Material.Create("lit_texture.vert", "lit_texture.frag");
+            _litTextureMaterial = Material.Create("TexturedLit","lit_texture.vert", "lit_texture.frag");
         }
 
         private unsafe RendererFrameInfo CreateRendererFrameInfo(float deltaTime, VkCommandBuffer commandBuffer)
@@ -177,9 +177,6 @@ namespace VECS
                 MaterialDescriptorPool = _materialFrameDescriptorPools[frameIndex],
                 EntityDescriptorPool = _entityFrameDescriptorPools[frameIndex],
                 PostCullBarriers = _renderer.PostCullBarriers,
-                DepthPyramid = _renderer.DepthPyramid,
-                DepthPyramidWidth =0,// (int)_renderer.DepthPyramidWidth,
-                DepthPyramidHeight = 0// (int)_renderer.DepthPyramidHeight,
                 
             };
 
@@ -328,21 +325,7 @@ namespace VECS
         /// </summary>
         public void Dispose()
         {
-            var textures = Texture.Textures.Values.ToArray();
-            for (int i = Texture.Textures.Count - 1; i >= 0; i--)
-            {
-                textures[i].Dispose();
-            }
-
-            for (int i = DirectMesh.DirectMeshes.Count - 1; i >= 0; i--)
-            {
-                DirectMesh.DirectMeshes[i].Dispose();
-            }
-
-            for (int i = Material.Materials.Count - 1; i >= 0; i--)
-            {
-                Material.Materials[i].Dispose();
-            }
+            AssetDataBase<DisposableAsset>.AllAssetsListForReading.ForEach(asset => asset.Dispose());
 
             _bloom?.Dispose();
             _globalDescriptorSetHandler?.Dispose();

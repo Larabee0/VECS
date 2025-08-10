@@ -12,11 +12,9 @@ namespace VECS.LowLevel
         private int _currentFrame = 0;
         private VkExtent2D _windowExtent;
 
-        private VkRenderPass _fwdrenderPass;
-        private VkRenderPass _copyPass;
+        private VkRenderPass _forwardRenderPass;
 
-        internal VkRenderPass ForwardRenderPass =>_fwdrenderPass;
-        internal VkRenderPass CopyPass => _copyPass;
+        internal VkRenderPass ForwardRenderPass =>_forwardRenderPass;
 
         private VkFormat RenderFormat => RawRenderImage.Format;
         private VkFormat DepthFormat => DepthImage.Format;
@@ -24,18 +22,11 @@ namespace VECS.LowLevel
         private Texture2D _rawRenderImage;
         private Texture2D _depthImage;
 
-        internal VkDescriptorImageInfo DepthPyramid
-        {
-            get
-            {
-                _depthImage.UpdateDescriptor();
-                return _depthImage.ImageInfo;
-            }
-        }
 
         internal Texture2D RawRenderImage => _rawRenderImage;
         internal Texture2D DepthImage => _depthImage;
 
+        private VkImageBlit _copyToSwapChainBlit;
 
         private VkExtent2D _swapChainExtent;
         private VkSwapchainKHR _swapChain;
@@ -44,31 +35,20 @@ namespace VECS.LowLevel
         private VkImage[] _swapChainImages;
         private VkImageView[] _swapChainImageViews;
 
-        private VkFramebuffer[] _swapChainFrameBuffer;
-
         private VkFramebuffer _forwardFramebuffer;
 
         private VkSemaphore[] _presentSemaphore;
         private VkSemaphore[] _renderSemaphore;
 
-        //private readonly VkSemaphore[] _imageAvailableSemaphores;
-        //private readonly VkSemaphore[] _renderFinishedSemaphores;
-        //private VkFence[] _renderFence;
         private VkFence[] _inFlightFences;
         private VkFence[] _imagesInFlight;
         private VkFence _uploadFence;
 
-        internal int ImageCount => _swapChainImages.Length;
         internal VkExtent2D SwapChainExtent => _swapChainExtent;
 
         internal float ExtentAspectRatio => (float)SwapChainExtent.width / (float)SwapChainExtent.height;
         private static GraphicsDevice GraphicsDevice => GraphicsDevice.Instance;
         private static VkDevice Device => GraphicsDevice.Device;
-
-        // internal VkExtent2D ShadowExtent =>_shadowExtent;
-        // internal VkFramebuffer ShadowFrameBuffer =>_shadowFramebuffer;
-
-        internal VkFramebuffer ForwardFrameBuffer => _forwardFramebuffer;
 
         internal SwapChain(VkExtent2D extent)
         {
@@ -96,7 +76,6 @@ namespace VECS.LowLevel
             CreateAdditionalSamplers();
 
             CreateFowardRenderPass();
-            CreateCopyRenderPass();
 
             CreateFramebuffers();
 
@@ -120,7 +99,7 @@ namespace VECS.LowLevel
                 imageColorSpace = surfaceFormat.colorSpace,
                 imageExtent = extent,
                 imageArrayLayers = 1,
-                imageUsage = VkImageUsageFlags.ColorAttachment
+                imageUsage = VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.TransferDst
             };
 
             var indices = GraphicsDevice.PhysicalQueueFamilies;
@@ -162,6 +141,14 @@ namespace VECS.LowLevel
 
             _swapChainImageFormat = surfaceFormat.format;
             _swapChainExtent = extent;
+
+            var cmd = GraphicsDevice.Instance.BeginSingleTimeCommands();
+            for (int i = 0; i < swapChainImagesSpan.Length; i++)
+            {
+                TextureExtensions.SetImageLayout(cmd, _swapChainImages[i], VkImageAspectFlags.Color, VkImageLayout.Undefined, VkImageLayout.PresentSrcKHR, VkPipelineStageFlags.AllGraphics, VkPipelineStageFlags.AllGraphics);
+            }
+
+            GraphicsDevice.Instance.EndSingleTimeCommands(cmd);
         }
 
         private unsafe void CreateSwapChainImageViews()
@@ -195,8 +182,32 @@ namespace VECS.LowLevel
 
         private unsafe void CreateRenderImage()
         {
-            _rawRenderImage = new((int)_windowExtent.width, (int)_windowExtent.height ,VkFormat.R32G32B32A32Sfloat, VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.Sampled, false);
-            
+            _rawRenderImage = new((int)_windowExtent.width, (int)_windowExtent.height, VkFormat.R32G32B32A32Sfloat, VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.Sampled, false);            
+
+            _copyToSwapChainBlit = new()
+            {
+                srcSubresource = new()
+                {
+                    aspectMask = _rawRenderImage._aspectFlags,
+                    layerCount = 1,
+                    mipLevel = 0,
+
+                },
+                dstSubresource = new()
+                {
+                    aspectMask = VkImageAspectFlags.Color,
+                    layerCount = 1,
+                    mipLevel = 0
+                }
+            };
+
+            _copyToSwapChainBlit.srcOffsets[1].x = _rawRenderImage.Width;
+            _copyToSwapChainBlit.srcOffsets[1].y = _rawRenderImage.Height;
+            _copyToSwapChainBlit.srcOffsets[1].z = 1;
+
+            _copyToSwapChainBlit.dstOffsets[1].x = (int)SwapChainExtent.width;
+            _copyToSwapChainBlit.dstOffsets[1].y = (int)SwapChainExtent.height;
+            _copyToSwapChainBlit.dstOffsets[1].z = 1;
         }
 
         private unsafe void CreateDepthImage()
@@ -315,52 +326,9 @@ namespace VECS.LowLevel
                 dependencyCount = 1,
                 pDependencies = &dependency
             };
-            if(Vulkan.vkCreateRenderPass(Device, &render_pass_info, null, out _fwdrenderPass) != VkResult.Success)
+            if(Vulkan.vkCreateRenderPass(Device, &render_pass_info, null, out _forwardRenderPass) != VkResult.Success)
             {
                 throw new Exception("Failed to create renderPass");
-            }
-        }
-
-        private unsafe void CreateCopyRenderPass()
-        {
-            VkAttachmentDescription color_attachment = new()
-            {
-                format = _swapChainImageFormat,
-                samples = VkSampleCountFlags.Count1,
-                loadOp = VkAttachmentLoadOp.DontCare,
-                storeOp = VkAttachmentStoreOp.Store,
-                stencilLoadOp = VkAttachmentLoadOp.DontCare,
-                stencilStoreOp = VkAttachmentStoreOp.DontCare,
-                initialLayout = VkImageLayout.Undefined,
-                finalLayout = VkImageLayout.PresentSrcKHR
-            };
-
-
-            VkAttachmentReference color_attachment_ref = new()
-            {
-                attachment = 0,
-                layout = VkImageLayout.ColorAttachmentOptimal
-            };
-
-            VkSubpassDescription subpass = new()
-            {
-                pipelineBindPoint = VkPipelineBindPoint.Graphics,
-                colorAttachmentCount = 1,
-                pColorAttachments = &color_attachment_ref
-            };
-
-
-            VkRenderPassCreateInfo render_pass_info = new()
-            {
-                attachmentCount = 1,
-                pAttachments = &color_attachment,
-                subpassCount = 1,
-                pSubpasses = &subpass
-            };
-
-            if(Vulkan.vkCreateRenderPass(Device,render_pass_info,null,out _copyPass) != VkResult.Success)
-            {
-                throw new Exception("Failed to create copy render pass");
             }
         }
 
@@ -373,7 +341,7 @@ namespace VECS.LowLevel
             };
             VkFramebufferCreateInfo fwdInfo = new()
             {
-                renderPass = _fwdrenderPass,
+                renderPass = _forwardRenderPass,
                 attachmentCount = 2,
                 pAttachments = attachements,
                 width = _windowExtent.width,
@@ -385,34 +353,6 @@ namespace VECS.LowLevel
             {
                 throw new Exception("Failed to create forward frame buffer");
             }
-
-            _swapChainFrameBuffer = new VkFramebuffer[ImageCount];
-
-            for (int i = 0; i < ImageCount; i++)
-            {
-                VkFramebufferCreateInfo frameBufferInfo = new()
-                {
-                    renderPass = _copyPass,
-                    attachmentCount = 1,
-                    width = _windowExtent.width,
-                    height = _windowExtent.height,
-                    layers = 1
-                };
-
-                fixed(VkImageView* pImageView = &_swapChainImageViews[i])
-                {
-                    frameBufferInfo.pAttachments = pImageView;
-                    if (Vulkan.vkCreateFramebuffer(Device, frameBufferInfo, null, out _swapChainFrameBuffer[i]) != VkResult.Success)
-                    {
-                        throw new Exception("Failed to create swap chain frame buffer");
-                    }
-                }
-            }
-
-            
-
-
-
         }
 
         private unsafe void CreateSyncObjects()
@@ -468,25 +408,78 @@ namespace VECS.LowLevel
                 return actualExtent;
             }
         }
-
-        internal VkFramebuffer GetFrameBuffer(uint currentImageIndex)
+        
+        public unsafe void BeginForwardRenderPass(VkCommandBuffer commandBuffer)
         {
-            return _swapChainFrameBuffer[currentImageIndex];
+            VkClearValue* clearValues = stackalloc VkClearValue[]
+            {
+                new()
+                {
+                    color = new(0,0,0)
+                },
+                new()
+                {
+                    depthStencil = new(1, 0)
+                }
+            };
+
+            VkRenderPassBeginInfo renderPassInfo = new()
+            {
+                renderPass = _forwardRenderPass,
+                renderArea = new()
+                {
+                    offset = new(0, 0),
+                    extent = _swapChainExtent
+                },
+                clearValueCount = 2,
+                pClearValues = clearValues,
+                framebuffer = _forwardFramebuffer
+            };
+            Vulkan.vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VkSubpassContents.Inline);
+
+            VkViewport viewport = new()
+            {
+                x = 0,
+                y = _swapChainExtent.height,
+                width = _swapChainExtent.width,
+                height = -_swapChainExtent.height,
+                minDepth = 0,
+                maxDepth = 1
+            };
+
+            VkRect2D scissor = new()
+            {
+                offset = new VkOffset2D(0, 0),
+                extent = _swapChainExtent
+            };
+
+            Vulkan.vkCmdSetViewport(commandBuffer, viewport);
+            Vulkan.vkCmdSetScissor(commandBuffer, scissor);
         }
 
-        // public static unsafe void WaitResetRenderFence(uint index)
-        // {
-        // 
-        //     //VkFence renderFence = _renderFence[index];
-        //     //if (Vulkan.vkWaitForFences(_device.Device, 1, &renderFence, true, 1000000000) != VkResult.Success)
-        //     //{
-        //     //    throw new Exception("Wait to for fence");
-        //     //}
-        //     //if (Vulkan.vkResetFences(_device.Device, 1, &renderFence) != VkResult.Success)
-        //     //{
-        //     //    throw new Exception("Failed to reset fences");
-        //     //}
-        // }
+        public unsafe void CopyRenderToSwapChain(RendererFrameInfo frameInfo, uint currentImageIndex)
+        {
+            var swapChainImage = _swapChainImages[currentImageIndex];
+
+            _rawRenderImage.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.TransferSrcOptimal);
+            TextureExtensions.SetImageLayout(frameInfo.CommandBuffer, swapChainImage, VkImageAspectFlags.Color, VkImageLayout.PresentSrcKHR, VkImageLayout.TransferDstOptimal, VkPipelineStageFlags.AllCommands, VkPipelineStageFlags.AllCommands);
+
+            var blit = _copyToSwapChainBlit;
+
+            Vulkan.vkCmdBlitImage(
+                frameInfo.CommandBuffer,
+                _rawRenderImage._vkImage,
+                _rawRenderImage.ImageLayout,
+                swapChainImage,
+                VkImageLayout.TransferDstOptimal,
+                1,
+                &blit,
+                VkFilter.Linear
+            );
+
+            _rawRenderImage.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal);
+            TextureExtensions.SetImageLayout(frameInfo.CommandBuffer, swapChainImage, VkImageAspectFlags.Color, VkImageLayout.TransferDstOptimal, VkImageLayout.PresentSrcKHR, VkPipelineStageFlags.AllCommands, VkPipelineStageFlags.AllCommands);
+        }
 
         public unsafe void Dispose()
         {
@@ -507,16 +500,10 @@ namespace VECS.LowLevel
             _rawRenderImage.Dispose();
             _depthImage.Dispose();
 
-            for (int i = 0; i < _swapChainFrameBuffer.Length; i++)
-            {
-                Vulkan.vkDestroyFramebuffer(Device, _swapChainFrameBuffer[i]);
-            }
-
             Vulkan.vkDestroyFramebuffer(Device, _forwardFramebuffer);
 
 
-            Vulkan.vkDestroyRenderPass(Device, _fwdrenderPass);
-            Vulkan.vkDestroyRenderPass(Device, _copyPass);
+            Vulkan.vkDestroyRenderPass(Device, _forwardRenderPass);
 
             Vulkan.vkDestroyFence(Device, _uploadFence);
             for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)

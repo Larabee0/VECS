@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using VECS.GraphicsPipelines;
 using Vortice.Vulkan;
 
@@ -13,7 +14,6 @@ namespace VECS.LowLevel
         private readonly GraphicsDevice _device;
         private SwapChain _swapChain;
         private readonly ShadowImage _shadowCubeMap;
-        //private DepthReduction _depthReduction;
 
         private bool isFrameStarted = false;
         private uint currentImageIndex = 0;
@@ -28,8 +28,6 @@ namespace VECS.LowLevel
         public List<VkBufferMemoryBarrier> CullReadyBarriers => _cullReadyBarriers;
         public List<VkBufferMemoryBarrier> PostCullBarriers => _postCullBarriers;
         public List<VkBufferMemoryBarrier> UploadBarriers => _uploadBarriers;
-
-        private Material _blitMat;
 
         public ShadowImage ShadowImage => _shadowCubeMap;
         public static Cubemap ShadowTexture => Instance.ShadowImage.CubeMap;
@@ -57,9 +55,6 @@ namespace VECS.LowLevel
         public float AspectRatio => _swapChain.ExtentAspectRatio;
         public VkRenderPass ShadowRenderPass => _shadowCubeMap.ShadowPass;
         public VkRenderPass ForwardRenderPass =>_swapChain.ForwardRenderPass;
-        public VkDescriptorImageInfo DepthPyramid => _swapChain.DepthPyramid;
-        // public uint DepthPyramidWidth => _depthReduction.DepthPyramidWidth;
-        // public uint DepthPyramidHeight => _depthReduction.DepthPyramidHeight;
 
         public Renderer(IWindow window)
         {
@@ -70,7 +65,6 @@ namespace VECS.LowLevel
             RecreateSwapChain();
             _shadowCubeMap = new();
             CreateCommandBuffers();
-            CreateBlitPipeline();
         }
 
         private void RecreateSwapChain()
@@ -88,20 +82,16 @@ namespace VECS.LowLevel
             if (_swapChain == null)
             {
                 _swapChain = new(extent);
-                //_depthReduction = new(extent);
             }
             else
             {
                 var oldSwapChain = _swapChain;
-                //_depthReduction.Dispose();
                 _swapChain = new(extent, oldSwapChain);
-                //_depthReduction = new(extent);
                 if (!oldSwapChain.CompareSwapFormats(_swapChain))
                 {
                     throw new Exception("Swap chain image(or depth) format has changed!");
                 }
             }
-            _blitMat?.SetTexture("inputTexture", _swapChain.RawRenderImage);
         }
         
         private unsafe void CreateCommandBuffers()
@@ -122,64 +112,6 @@ namespace VECS.LowLevel
                     throw new Exception("Failed to allocate command buffers");
                 }
             }
-        }
-
-        private unsafe void CreateBlitPipeline()
-        {
-            VkPipelineInputAssemblyStateCreateInfo inputAssembly = new()
-            {
-                topology = VkPrimitiveTopology.TriangleList
-            };
-            VkPipelineRasterizationStateCreateInfo rasterizer = new()
-            {
-                depthClampEnable = false,
-                rasterizerDiscardEnable = false,
-                polygonMode = VkPolygonMode.Fill,
-                lineWidth = 1,
-                cullMode = VkCullModeFlags.None,
-                frontFace = VkFrontFace.Clockwise,
-                depthBiasEnable = false,
-                depthBiasConstantFactor = 0,
-                depthBiasClamp = 0,
-                depthBiasSlopeFactor = 0,
-            };
-            VkPipelineMultisampleStateCreateInfo multisampleInfo = new()
-            {
-                sampleShadingEnable = false,
-                rasterizationSamples = VkSampleCountFlags.Count1,
-                minSampleShading = 1.0f,
-                pSampleMask = null,
-                alphaToCoverageEnable = false,
-                alphaToOneEnable = false
-            };
-            VkPipelineColorBlendAttachmentState colourBlendAttachment = new()
-            {
-                colorWriteMask = VkColorComponentFlags.All,
-                blendEnable = false
-            };
-            VkPipelineDepthStencilStateCreateInfo depthStencil = new()
-            {
-                depthBoundsTestEnable = false,
-                depthWriteEnable = false,
-                depthCompareOp = VkCompareOp.Always,
-                depthTestEnable = false,
-                minDepthBounds = 0f,
-                maxDepthBounds = 1f,
-                stencilTestEnable = false
-            };
-
-            GraphicsPipelineConfigInfo config = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
-            config.renderPass = _swapChain.CopyPass;
-            config.inputAssemblyInfo = inputAssembly;
-            config.rasterizationInfo = rasterizer;
-            config.multisampleInfo = multisampleInfo;
-            config.colourBlendAttachment = colourBlendAttachment;
-            config.depthStencilInfo = depthStencil;
-            config.AttributeDescriptions = [];
-            config.BindingDescriptions = [];
-
-            _blitMat = new("fullscreen.vert", "blit.frag", config, true, _swapChain.CopyPass);
-            _blitMat.SetTexture("inputTexture", _swapChain.RawRenderImage);
         }
 
         private unsafe void FreeCommandBuffers()
@@ -270,160 +202,22 @@ namespace VECS.LowLevel
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe void BeginForwardRenderPass(VkCommandBuffer commandBuffer)
         {
-            VkClearValue* clearValues = stackalloc VkClearValue[]
-            {
-                new()
-                {
-                    color = new(0,0,0)
-                },
-                new()
-                {
-                    depthStencil = new(1, 0)
-                }
-            };
-
-            VkRenderPassBeginInfo renderPassInfo = new()
-            {
-                renderPass = _swapChain.ForwardRenderPass,
-                renderArea = new()
-                {
-                    offset = new(0, 0),
-                    extent = _swapChain.SwapChainExtent
-                },
-                clearValueCount = 2,
-                pClearValues = clearValues,
-                framebuffer = _swapChain.ForwardFrameBuffer
-            };
-            Vulkan.vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VkSubpassContents.Inline);
-
-            VkViewport viewport = new()
-            {
-                x = 0,
-                y = _swapChain.SwapChainExtent.height,
-                width = _swapChain.SwapChainExtent.width,
-                height = -_swapChain.SwapChainExtent.height,
-                minDepth = 0,
-                maxDepth = 1
-            };
-
-            VkRect2D scissor = new()
-            {
-                offset = new VkOffset2D(0, 0),
-                extent = _swapChain.SwapChainExtent
-            };
-
-            Vulkan.vkCmdSetViewport(commandBuffer, viewport);
-            Vulkan.vkCmdSetScissor(commandBuffer, scissor);
+            _swapChain.BeginForwardRenderPass(commandBuffer);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void EndRenderPass(VkCommandBuffer commandBuffer)
         {
             Vulkan.vkCmdEndRenderPass(commandBuffer);
         }
 
-        public unsafe void ReduceDepth(RendererFrameInfo frameInfo)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void CopyRenderToSwapChain(RendererFrameInfo frameInfo)
         {
-            VkImageMemoryBarrier depthReadBarriers = new()
-            {
-                srcAccessMask = VkAccessFlags.DepthStencilAttachmentWrite,
-                dstAccessMask = VkAccessFlags.ShaderRead,
-                oldLayout = VkImageLayout.DepthStencilAttachmentOptimal,
-                newLayout = VkImageLayout.ShaderReadOnlyOptimal,
-                srcQueueFamilyIndex = Vulkan.VK_QUEUE_FAMILY_IGNORED,
-                dstQueueFamilyIndex = Vulkan.VK_QUEUE_FAMILY_IGNORED,
-                image = _swapChain.DepthImage._vkImage,
-                subresourceRange = new()
-                {
-                    aspectMask = VkImageAspectFlags.Depth,
-                    levelCount = Vulkan.VK_REMAINING_MIP_LEVELS,
-                    layerCount = Vulkan.VK_REMAINING_ARRAY_LAYERS
-                }
-            };
-
-            Vulkan.vkCmdPipelineBarrier(
-                frameInfo.CommandBuffer,
-                VkPipelineStageFlags.LateFragmentTests,
-                VkPipelineStageFlags.ComputeShader,
-                VkDependencyFlags.ByRegion,
-                0,
-                null,
-                0,
-                null,
-                1,
-                &depthReadBarriers);
-
-            //_depthReduction.DepthReduce(frameInfo);
-
-            VkImageMemoryBarrier depthWriteBarrier = new()
-            {
-                srcAccessMask = VkAccessFlags.ShaderRead,
-                dstAccessMask = VkAccessFlags.DepthStencilAttachmentRead | VkAccessFlags.DepthStencilAttachmentWrite,
-                oldLayout = VkImageLayout.ShaderReadOnlyOptimal,
-                newLayout = VkImageLayout.DepthAttachmentOptimal,
-                srcQueueFamilyIndex = Vulkan.VK_QUEUE_FAMILY_IGNORED,
-                dstQueueFamilyIndex = Vulkan.VK_QUEUE_FAMILY_IGNORED,
-                image = _swapChain.DepthImage._vkImage,
-                subresourceRange = new()
-                {
-                    aspectMask = VkImageAspectFlags.Depth,
-                    levelCount = Vulkan.VK_REMAINING_MIP_LEVELS,
-                    layerCount = Vulkan.VK_REMAINING_ARRAY_LAYERS
-                }
-            };
-
-
-            Vulkan.vkCmdPipelineBarrier(
-                frameInfo.CommandBuffer,
-                VkPipelineStageFlags.ComputeShader,
-                VkPipelineStageFlags.EarlyFragmentTests,
-                VkDependencyFlags.ByRegion,
-                0,
-                null,
-                0,
-                null,
-                1,
-                &depthWriteBarrier);
-        }
-
-        public unsafe void CopyRenderToSwapChain(RendererFrameInfo frameInfo)
-        {
-            VkRenderPassBeginInfo renderPass = new()
-            {
-                renderPass = _swapChain.CopyPass,
-                renderArea = new()
-                {
-                    extent = _swapChain.SwapChainExtent,
-                    offset = new(0,0)
-                },
-                framebuffer = _swapChain.GetFrameBuffer(currentImageIndex),
-            };
-            Vulkan.vkCmdBeginRenderPass(frameInfo.CommandBuffer, &renderPass, VkSubpassContents.Inline);
-            VkViewport viewport = new()
-            {
-                x = 0,
-                y = 0,
-                width = _swapChain.SwapChainExtent.width,
-                height = _swapChain.SwapChainExtent.height,
-                minDepth = 0,
-                maxDepth = 1
-            };
-
-            VkRect2D scissor = new()
-            {
-                offset = new VkOffset2D(0, 0),
-                extent = _swapChain.SwapChainExtent
-            };
-
-            Vulkan.vkCmdSetViewport(frameInfo.CommandBuffer, viewport);
-            Vulkan.vkCmdSetScissor(frameInfo.CommandBuffer, scissor);
-            Vulkan.vkCmdSetDepthBias(frameInfo.CommandBuffer, 0, 0, 0);
-
-            _blitMat.BindAll(frameInfo);
-            Vulkan.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
-
-            Vulkan.vkCmdEndRenderPass(frameInfo.CommandBuffer);
+            _swapChain.CopyRenderToSwapChain(frameInfo, currentImageIndex);
         }
 
         public unsafe void EndFrame()
@@ -455,7 +249,6 @@ namespace VECS.LowLevel
         public unsafe void Dispose()
         {
             FreeCommandBuffers();
-            //_depthReduction.Dispose();
             _shadowCubeMap?.Dispose();
             _swapChain.Dispose();
             Instance = null;
