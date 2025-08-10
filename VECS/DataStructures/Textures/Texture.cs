@@ -2,14 +2,12 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
-using System.Net.Http.Headers;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
 namespace VECS
 {
-    public abstract class Texture : IDisposable
+    public abstract class Texture : DisposableAsset
     {
         public static readonly ConcurrentDictionary<Guid, Texture> Textures = [];
         public static readonly HashSet<Guid> DisposedTextures = [];
@@ -35,7 +33,6 @@ namespace VECS
         internal VkImageUsageFlags _useageFlags = VkImageUsageFlags.TransferDst | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.Sampled;
         protected VkSampleCountFlags _sampleCountFlags = VkSampleCountFlags.Count1;
         internal VmaAllocation _allocation = VmaAllocation.Null;
-        protected bool _disposed;
 
         // image view
         protected VkImageViewCreateFlags _imageViewCreateFlags = VkImageViewCreateFlags.None;
@@ -229,7 +226,7 @@ namespace VECS
             );
         }
 
-        public virtual unsafe void Dispose()
+        public override unsafe void Dispose()
         {
             GC.SuppressFinalize(this);
 

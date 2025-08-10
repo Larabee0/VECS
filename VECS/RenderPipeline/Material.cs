@@ -13,7 +13,7 @@ using Vortice.Vulkan;
 namespace VECS
 {
 
-    public sealed partial class Material : IDisposable
+    public partial class Material : DisposableAsset
     {
         private static readonly List<Material> _materials = [];
         public static List<Material> Materials => _materials;
@@ -72,11 +72,10 @@ namespace VECS
         public DescriptorHandler EntityDescriptorSetHandler => _entityDescriptorHandlerIndex != -1 ? _allHandlers[_entityDescriptorHandlerIndex] : null;
 
         private readonly bool _actAsGlobal = false;
-        private bool _disposed = false;
 
-        public static Material Create(string vertexShader, string fragmentShader)
+        public static Material Create(string name, string vertexShader, string fragmentShader)
         {
-            var material = new Material(vertexShader, fragmentShader, GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []), false, Presenter.Instance.ForwardRenderPass);
+            var material = new Material(name, vertexShader, fragmentShader, GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []), false, Presenter.Instance.ForwardRenderPass);
 
             if (material.HasApplicationSet)
             {
@@ -86,9 +85,9 @@ namespace VECS
             return material;
         }
 
-        public static Material Create(string vertexShader, string fragmentShader, GraphicsPipelineConfigInfo config)
+        public static Material Create(string name, string vertexShader, string fragmentShader, GraphicsPipelineConfigInfo config)
         {
-            var material = new Material(vertexShader, fragmentShader, config, false, config.renderPass);
+            var material = new Material(name, vertexShader, fragmentShader, config, false, config.renderPass);
 
             if (material.HasApplicationSet)
             {
@@ -98,19 +97,19 @@ namespace VECS
             return material;
         }
 
-        public static Material CreateWithAlphaBlending(string vertexShader, string fragmentShader)
+        public static Material CreateWithAlphaBlending(string name, string vertexShader, string fragmentShader)
         {
             var config = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             config.renderPass = Presenter.Instance.ForwardRenderPass;
             GraphicsPipelineConfigInfo.EnableAlphaBlending(ref config);
-            return Create(vertexShader, fragmentShader, config);
+            return Create(name, vertexShader, fragmentShader, config);
         }
 
-        public static Material CreateWithRenderPass(string vertexShader, string fragmentShader, VkRenderPass renderPass)
+        public static Material CreateWithRenderPass(string name, string vertexShader, string fragmentShader, VkRenderPass renderPass)
         {
             var config = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             config.renderPass = renderPass;
-            var material = new Material(vertexShader, fragmentShader, config, false, renderPass);
+            var material = new Material(name, vertexShader, fragmentShader, config, false, renderPass);
 
             if (material.HasApplicationSet)
             {
@@ -120,8 +119,9 @@ namespace VECS
             return material;
         }
 
-        internal Material(string vertexShader, string fragmentShader, GraphicsPipelineConfigInfo pipelineConfig, bool actAsGlobal, VkRenderPass renderPass)
+        internal Material(string name, string vertexShader, string fragmentShader, GraphicsPipelineConfigInfo pipelineConfig, bool actAsGlobal, VkRenderPass renderPass)
         {
+            AssetName = name;
             _actAsGlobal = actAsGlobal;
             byte[] vertexBytes = GetShaderBytes(vertexShader);
             byte[] fragmentBytes = GetShaderBytes(fragmentShader);
@@ -129,7 +129,7 @@ namespace VECS
             var spirVert = SPIRVReflectUtil.CreateReflectShaderModule(vertexBytes);
             var spirFrag = SPIRVReflectUtil.CreateReflectShaderModule(fragmentBytes);
 
-            if(GPUPipelineUtil.GetVertexInputState(spirVert, out VkVertexInputBindingDescription[] vertBindings, out VkVertexInputAttributeDescription[] vertAttributes))
+            if (GPUPipelineUtil.GetVertexInputState(spirVert, out VkVertexInputBindingDescription[] vertBindings, out VkVertexInputAttributeDescription[] vertAttributes))
             {
                 pipelineConfig.BindingDescriptions = vertBindings;
                 pipelineConfig.AttributeDescriptions = vertAttributes;
@@ -159,6 +159,7 @@ namespace VECS
             Debug.Assert(Materials.Count < EarlyDrawCommand.MAX_MATERIAL_COUNT, string.Format("Material Creation would Exceeded Max Theorectical Material Count ({0})\nProbably reduce the number of materials you have, jeez", EarlyDrawCommand.MAX_MATERIAL_COUNT));
 
             Materials.Add(this);
+            AddToDisposableAssetDataBase();
         }
 
         private void CreateDescriptorSetHandler()
@@ -295,8 +296,9 @@ namespace VECS
             return false;
         }
         
-        public unsafe void Dispose()
+        public unsafe override void Dispose()
         {
+            GC.SuppressFinalize(this);
             if (_disposed) return;
             _disposed = true;
 

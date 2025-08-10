@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Numerics;
+using System.Text;
 
 namespace VECS.DataStructures
 {
@@ -31,12 +32,14 @@ namespace VECS.DataStructures
             {
                 return null;
             }
-            var meshes = CreateMeshes(scene, additionalAttributes);
+            var directMeshName = Path.GetFileNameWithoutExtension(filePath);
+            var meshes = CreateMeshes(directMeshName, scene, additionalAttributes);
+            meshes[0].DirectMeshBuffer.FileName = Path.GetFileName(filePath);
             importer.Dispose();
             return meshes;
         }
 
-        public static DirectSubMesh[] CreateMeshes(Scene scene, VertexAttributeDescription[] additionalAttributes)
+        public static DirectSubMesh[] CreateMeshes(string directMeshName,Scene scene, VertexAttributeDescription[] additionalAttributes)
         {
             VertexAttributeDescription[] attributeDescriptions = GetAttributesFromScene(scene);
             if(additionalAttributes != null)
@@ -59,12 +62,13 @@ namespace VECS.DataStructures
                     (uint)scene.Meshes[i].GetUnsignedIndices().Length);
             }
 
-            var directMeshBuffer = new DirectMesh(attributeDescriptions, directMeshCreateInfo);
+            var directMeshBuffer = new DirectMesh(directMeshName, attributeDescriptions, directMeshCreateInfo);
 
             DirectSubMesh[] sceneMeshes = directMeshBuffer.DirectSubMeshes;
 
             for (int i = 0; i < scene.MeshCount; i++)
             {
+                sceneMeshes[i].AssetName = directMeshName + "." + scene.Meshes[i].Name;
                 FillSubMesh(sceneMeshes[i], scene.Meshes[i]);
             }
             
@@ -222,11 +226,20 @@ namespace VECS.DataStructures
         public static DirectSubMesh[] LoadModelsFromFiles(string[] files, VertexAttributeDescription[] additionalAttributes)
         {
             List<string> validFiles = new(files.Length);
+            StringBuilder fileNames = new();
+            StringBuilder fileNamesWithoutExtensions = new();
             for (int i = 0; i < files.Length; i++)
             {
                 if (File.Exists(files[i]))
                 {
                     validFiles.Add(files[i]);
+                    if (fileNames.Length == 0)
+                    {
+                        fileNames.Append(Path.GetFileName(files[i]));
+                        fileNamesWithoutExtensions.Append(Path.GetFileNameWithoutExtension(files[i]));
+                    }
+                    fileNames.AppendFormat(", {0}", Path.GetFileName(files[i]));
+                    fileNamesWithoutExtensions.AppendFormat(", {0}", Path.GetFileNameWithoutExtension(files[i]));
                 }
             }
 
@@ -243,6 +256,7 @@ namespace VECS.DataStructures
 
             List<Mesh> sceneMeshes = [];
 
+            
 
             for (int i = 0; i < validFiles.Count; i++)
             {
@@ -256,7 +270,7 @@ namespace VECS.DataStructures
                     for (int j = 0; j < curAttributeDescriptions.Length; j++)
                     {
                         var attribute = curAttributeDescriptions[j];
-                        if(attributeDescriptions.Any(a=>a.attribute == attribute.attribute)) { continue; }
+                        if (attributeDescriptions.Any(a => a.attribute == attribute.attribute)) { continue; }
                         attributeDescriptions.Add(attribute);
                     }
 
@@ -283,12 +297,16 @@ namespace VECS.DataStructures
                     (uint)sceneMeshes[i].GetUnsignedIndices().Length);
             }
 
-            var directMeshBuffer = new DirectMesh([..attributeDescriptions], directMeshCreateInfo);
+            var directMeshBuffer = new DirectMesh(fileNamesWithoutExtensions.ToString(), [.. attributeDescriptions], directMeshCreateInfo)
+            {
+                FileName = fileNames.ToString()
+            };
 
             DirectSubMesh[] directSubMeshes = directMeshBuffer.DirectSubMeshes;
 
             for (int i = 0; i < directSubMeshes.Length; i++)
             {
+                directSubMeshes[i].AssetName = fileNamesWithoutExtensions.ToString() + "." + sceneMeshes[i].Name;
                 FillSubMesh(directSubMeshes[i], sceneMeshes[i]);
             }
 

@@ -207,7 +207,7 @@ namespace VECS
             BindPushConstants(rendererFrameInfo);
             var mesh = DirectMesh.GetMeshAtIndex(command.DirectMesh);
 
-            mesh.BindCorrectBuffers(rendererFrameInfo.CommandBuffer, VertexBindings, VertexAttributes);
+            mesh.BindSpecificBuffers(rendererFrameInfo.CommandBuffer, VertexBindings, VertexAttributes);
             Vulkan.vkCmdDrawIndexedIndirect(
                 rendererFrameInfo.CommandBuffer,
                 indirectCmdBuffer.ActiveVkBuffer,

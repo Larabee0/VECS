@@ -49,6 +49,8 @@ namespace VECS
 
             SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal);
             UpdateDescriptor();
+
+            AddToDisposableAssetDataBase();
         }
 
         public override VkImageCreateInfo GetImageCreateInfo()

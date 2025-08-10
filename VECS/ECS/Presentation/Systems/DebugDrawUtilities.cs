@@ -70,7 +70,7 @@ namespace VECS.ECS.Presentation
             pipelineConfigInfo.inputAssemblyInfo.topology = VkPrimitiveTopology.LineStrip;
             pipelineConfigInfo.rasterizationInfo.lineWidth = 1;
 
-            _wireFrameMaterial = Material.Create("line_shader.vert", "line_shader.frag", pipelineConfigInfo);
+            _wireFrameMaterial = Material.Create("WireFrame","line_shader.vert", "line_shader.frag", pipelineConfigInfo);
         }
 
         public override void OnFowardPass(EntityManager entityManager, RendererFrameInfo frameInfo)

@@ -1,15 +1,20 @@
 ﻿using System;
 using System.Numerics;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using VECS.DataStructures;
 using VECS.ECS;
 using VECS.ECS.Presentation;
+using Vortice.Vulkan;
 
 namespace VECS
 {
     public static class MeshExtensions
     {
         private const int VERTEX_WRITE_OFFSET = 3;
+        public const VkBufferUsageFlags DIRECT_MESH_VERTEX_BUFFER_FLAGS = VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.TransferSrc | VkBufferUsageFlags.StorageBuffer;
+        public const VkBufferUsageFlags DIRECT_MESH_INDEX_BUFFER_FLAGS = VkBufferUsageFlags.IndexBuffer | VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.TransferSrc | VkBufferUsageFlags.StorageBuffer;
+
 
         public static DirectMesh Subdivide(this DirectMesh srcMesh, int divisions)
         {
@@ -22,8 +27,8 @@ namespace VECS
                 newSubMeshes[i] = new(vertexCountPerFace * (existingSubMesh.IndexCount / 3), indexCountPerFace * (existingSubMesh.IndexCount / 3));
             }
 
-            DirectMesh newBuffer = new(srcMesh.AttributeDescriptions, newSubMeshes);
-            
+            DirectMesh newBuffer = new(srcMesh.AssetName, srcMesh.AttributeDescriptions, newSubMeshes);
+
             DirectSubMesh[] srcSubMeshes = srcMesh.DirectSubMeshes;
             DirectSubMesh[] dstSubMeshes = newBuffer.DirectSubMeshes;
 
@@ -53,8 +58,7 @@ namespace VECS
             return newBuffer;
         }
 
-
-        public static void Subdivide(DirectSubMesh src,DirectSubMesh dst, int divisions)
+        public static void Subdivide(DirectSubMesh src, DirectSubMesh dst, int divisions)
         {
             uint curTris = src.IndexCount / 3;
             uint vertexCountPerFace = GetVertsPerFace(divisions);
@@ -260,5 +264,119 @@ namespace VECS
             }
         }
 
+        public static VkVertexInputBindingDescription[] GetBindingDescription(VertexAttributeDescription[] vertexAttributes)
+        {
+            VkVertexInputBindingDescription[] bindingDescriptions = new VkVertexInputBindingDescription[vertexAttributes.Length];
+
+            for (int i = 0; i < vertexAttributes.Length; i++)
+            {
+                var attributeDesc = vertexAttributes[i];
+                bindingDescriptions[i] = new VkVertexInputBindingDescription(
+                    attributeDesc.AttributeByteSize,
+                    VkVertexInputRate.Vertex,
+                    attributeDesc.binding);
+            }
+
+            return bindingDescriptions;
+        }
+
+        public static VkVertexInputAttributeDescription[] GetAttributeDescriptions(VertexAttributeDescription[] vertexAttributes)
+        {
+            VkVertexInputAttributeDescription[] attributeDescriptions = new VkVertexInputAttributeDescription[vertexAttributes.Length];
+
+            for (int i = 0; i < vertexAttributes.Length; i++)
+            {
+                var attributeDesc = vertexAttributes[i];
+                attributeDescriptions[i] = new VkVertexInputAttributeDescription(
+                    attributeDesc.location,
+                    attributeDesc.format.GetVkFormat(),
+                    attributeDesc.offset,
+                    attributeDesc.binding);
+            }
+
+            return attributeDescriptions;
+        }
+
+        internal static void AddVertexBufferByAttribute(this DirectMesh directMesh, VertexAttributeDescription vertexAttribute)
+        {
+#if DEBUG
+            if (directMesh._consumedAttributes.ContainsKey(vertexAttribute.attribute))
+            {
+                throw new ArgumentException(string.Format("Given vertex attributre {0} already present in the vertex buffers", vertexAttribute.ToString()));
+            }
+#endif
+            var vertexCount = directMesh.VertexBufferLength;
+            VertexAttribute attribute = vertexAttribute.attribute;
+            VertexAttributeFormat format = vertexAttribute.format;
+            switch (format)
+            {
+                case VertexAttributeFormat.Float1:
+                    directMesh._vertexBuffers.Add(attribute, CreateBuffer<float>(vertexCount));
+                    break;
+                case VertexAttributeFormat.Float2:
+                    directMesh._vertexBuffers.Add(attribute, CreateBuffer<Vector2>(vertexCount));
+                    break;
+                case VertexAttributeFormat.Float3:
+                    directMesh._vertexBuffers.Add(attribute, CreateBuffer<Vector3>(vertexCount));
+                    break;
+                case VertexAttributeFormat.Float4:
+                    directMesh._vertexBuffers.Add(attribute, CreateBuffer<Vector4>(vertexCount));
+                    break;
+            }
+            directMesh._consumedAttributes.Add(vertexAttribute.attribute, vertexAttribute);
+        }
+
+        private static GPUBuffer<T> CreateBuffer<T>(ulong vertexCount) where T : unmanaged
+        {
+            var buffer = new GPUBuffer<T>(vertexCount, DIRECT_MESH_VERTEX_BUFFER_FLAGS, false);
+
+            buffer.TryAllocHostBuffer(false);
+
+            return buffer;
+        }
+
+        public static void RecalcualteAllNormals(this DirectMesh directMesh)
+        {
+            ComputeNormals.DispatchNow(directMesh);
+            directMesh.GetBufferAtAttribute(VertexAttribute.Normal).SetGPUBufferChanged(true);
+        }
+
+        internal static unsafe Vector3UInt[] CrunchIndicesToFaces(this DirectMesh directMesh)
+        {
+            var faces = new Vector3UInt[directMesh.IndexBufferLength / 3];
+
+            fixed (void* pIndices = &directMesh.Indices[0])
+            fixed (void* pFaces = &faces[0])
+                NativeMemory.Copy(pIndices, pFaces, (nuint)(directMesh.IndexBufferLength * sizeof(uint)));
+
+            return faces;
+        }
+
+        internal static unsafe Vector3UInt[] CrunchIndexOffsetsToFaceOffsets(this DirectMesh directMesh)
+        {
+            var faceOffsets = new Vector3UInt[directMesh.IndexBufferLength / 3];
+
+            fixed (void* pIndexOffsets = &directMesh.IndexOffsets[0])
+            fixed (void* pFaceOffsets = &faceOffsets[0])
+                NativeMemory.Copy(pIndexOffsets, pFaceOffsets, (nuint)(directMesh.IndexBufferLength * sizeof(uint)));
+
+            return faceOffsets;
+        }
+
+        internal static Vector3[] ComputeFaceNormals(this DirectMesh directMesh)
+        {
+            var vertices = directMesh.GetFullVertexData<Vector3>(VertexAttribute.Position);
+            var faceNormals = new Vector3[directMesh.IndexBufferLength / 3];
+
+            for (int i = 0; i < faceNormals.Length; i++)
+            {
+                var v0 = vertices[(int)(directMesh._faces[i][0] + directMesh._faceOffsets[i][0])];
+                var v1 = vertices[(int)(directMesh._faces[i][1] + directMesh._faceOffsets[i][1])];
+                var v2 = vertices[(int)(directMesh._faces[i][2] + directMesh._faceOffsets[i][2])];
+                faceNormals[i] = Vector3.Normalize(Vector3.Cross(v1 - v0, v2 - v0));
+            }
+
+            return faceNormals;
+        }
     }
 }

@@ -748,6 +748,9 @@ namespace VECS
                     // Make sure any shader reads from the image have been finished
                     imageMemoryBarrier.srcAccessMask = VkAccessFlags.ShaderRead;
                     break;
+                case VkImageLayout.PresentSrcKHR:
+                    imageMemoryBarrier.srcAccessMask = VkAccessFlags.TransferRead;
+                    break;
                 default:
                     // Other source layouts aren't handled (yet)
                     throw new InvalidOperationException(string.Format("Unhandled Image transition from image layout {0}", oldImageLayout.ToString()));
@@ -794,6 +797,9 @@ namespace VECS
                         imageMemoryBarrier.srcAccessMask = VkAccessFlags.HostWrite | VkAccessFlags.TransferWrite;
                     }
                     imageMemoryBarrier.dstAccessMask = VkAccessFlags.ShaderRead;
+                    break;
+                case VkImageLayout.PresentSrcKHR:
+                    imageMemoryBarrier.dstAccessMask = VkAccessFlags.TransferRead;
                     break;
                 default:
                     throw new InvalidOperationException(string.Format("Unhandled Image transition to image layout {0}", newImageLayout.ToString()));

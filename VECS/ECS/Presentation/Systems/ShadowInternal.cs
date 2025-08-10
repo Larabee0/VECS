@@ -20,7 +20,7 @@ namespace VECS.ECS.Presentation
             shadowConfig.renderPass = Renderer.Instance.ShadowRenderPass;
             shadowConfig.rasterizationInfo.cullMode = VkCullModeFlags.None;
 
-            _shadowOffscreen = Material.Create("shadow_offscreen.vert", "shadow_offscreen.frag", shadowConfig);
+            _shadowOffscreen = Material.Create("ShadowOffscreen","shadow_offscreen.vert", "shadow_offscreen.frag", shadowConfig);
         }
 
         public override void GenerateDrawCmds(RendererFrameInfo frameInfo, EntityManager entityManager, List<Entity> entities)

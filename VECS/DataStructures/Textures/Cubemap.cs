@@ -13,7 +13,7 @@ namespace VECS
             _imageFormat = format;
             _imageExtent = new(w, w, 1);
             _useageFlags = _usageFlags;
-            
+
 
             _imageImageViewType = VkImageViewType.ImageCube;
             _wrapModeU = wrapMode;
@@ -41,6 +41,8 @@ namespace VECS
 
             SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal);
             UpdateDescriptor();
+
+            AddToDisposableAssetDataBase();
         }
 
         public override VkImageCreateInfo GetImageCreateInfo()

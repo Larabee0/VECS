@@ -1,12 +1,11 @@
 ﻿using System;
 using System.Numerics;
 using VECS.ECS.Presentation;
-using VECS.ECS.Transforms;
 using Vortice.Vulkan;
 
 namespace VECS
 {
-    public class DirectSubMesh
+    public class DirectSubMesh : Asset
     {
         private readonly DirectMesh _directMeshBuffer;
         private readonly int _directSubMeshIndex;
@@ -173,7 +172,7 @@ namespace VECS
 
         public void SimpleBindAndDraw(VkCommandBuffer cmd)
         {
-            _directMeshBuffer.BindBuffers(cmd);
+            _directMeshBuffer.BindAllBuffers(cmd);
             var drawCmd = DirectSubMeshInfo.IndirectDrawCmd;
             Vulkan.vkCmdDrawIndexed(cmd, drawCmd.indexCount, 1, drawCmd.firstIndex, drawCmd.vertexOffset, 0);
         }

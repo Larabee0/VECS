@@ -1,5 +1,6 @@
 ﻿//#define LOG_BUFFER_ALLOCS
 using System;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 
 
@@ -14,6 +15,7 @@ namespace VECS
 {
     public class GPUBuffer : IDisposable
     {
+        public readonly static Queue<GPUBuffer> DisposalQueue = [];
         public VkBuffer VkBuffer;
         internal VmaAllocation _allocation;
 
@@ -71,7 +73,7 @@ namespace VECS
             _instanceSize = instanceSize;
             _instanceCount = instanceCount;
             _usageFlags = usageFlags;
-            
+
             CreateInternal(cpuAccessible, preventHostAllocation);
         }
 
@@ -84,7 +86,7 @@ namespace VECS
             _instanceSize = instanceSize;
             _instanceCount = instanceCount;
             _usageFlags = usageFlags;
-            
+
             CreateInternal(cpuAccessible, preventHostAllocation);
         }
 
@@ -144,12 +146,20 @@ namespace VECS
         {
             GC.SuppressFinalize(this);
             if (VkBufferSize == 0 || _disposed) return;
-            
+
             NativeMemory.AlignedFree(_hostPtr);
             _hostPtr = null;
             Vma.vmaDestroyBuffer(GraphicsDevice.Instance.VmaAllocator, VkBuffer, _allocation);
 
             _disposed = true;
+        }
+
+        public static void EmptyDisposalQueue()
+        {
+            while (DisposalQueue.Count > 0)
+            {
+                DisposalQueue.Dequeue().Dispose();
+            }
         }
     }
 

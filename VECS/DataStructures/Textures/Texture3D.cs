@@ -8,7 +8,7 @@ namespace VECS
         {
             _imageExtent = new(width, height, depth);
             _imageImageViewType = VkImageViewType.Image3D;
-            
+
             if (generateMipMaps)
             {
                 _mipMapCount = TextureExtensions.CalculateMipMapLevels(width, height);
@@ -20,9 +20,11 @@ namespace VECS
 
             SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal);
             UpdateDescriptor();
+            
+            AddToDisposableAssetDataBase();
         }
 
-        
+
         public Texture3D(int width, int height, int depth, VkFormat textureFormat, VkImageUsageFlags usage, bool generateMipMaps = true)
         {
             _imageExtent = new(width, height, depth);
@@ -56,6 +58,8 @@ namespace VECS
             }
 
             UpdateDescriptor();
+
+            AddToDisposableAssetDataBase();
         }
 
         public override void RegenerateMipMaps(VkCommandBuffer cmd)

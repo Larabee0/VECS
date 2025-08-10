@@ -92,6 +92,15 @@ namespace Planets
             GeometryStats();
 
             World.DefaultWorld.CreateSystem<MouseFlightShipMover>();
+
+            Console.WriteLine("Assets: {0}", AssetDataBase<Asset>.AssetCount);
+            Console.WriteLine("Disposable Assets: {0}", AssetDataBase<DisposableAsset>.AssetCount);
+            Console.WriteLine("Textures: {0}", AssetDataBase<Texture>.AssetCount);
+            Console.WriteLine("Texture2D: {0}", AssetDataBase<Texture2D>.AssetCount);
+            Console.WriteLine("Texture2DArray: {0}", AssetDataBase<Texture2DArray>.AssetCount);
+            Console.WriteLine("Texture3D: {0}", AssetDataBase<Texture3D>.AssetCount);
+            Console.WriteLine("Cubemap: {0}", AssetDataBase<Cubemap>.AssetCount);
+            Console.WriteLine("CubemapArray: {0}", AssetDataBase<CubemapArray>.AssetCount);
         }
 
         private void CreateSinglePlanetTestScene(EntityManager entityManager, Entity prefabPlanet)
@@ -332,7 +341,7 @@ namespace Planets
             var wingNormalTexture = new Texture2D(TextureLoader.GetTextureInDefaultPath("X-Wing/st_Rebel_01_X_Wing_wings_normal.dds"));
 
 
-            var xWingMaterial = Material.Create("texture_normal.vert", "texture_normal.frag");
+            var xWingMaterial = Material.Create("TexuredNormalMap","texture_normal.vert", "texture_normal.frag");
             xWingMaterial.GetStorageBuffer<Vector4>("colourBuffer").Fill(Vector4.One);
             xWingMaterial.SetTexture("samplerColorMap", hullDiffuseTexture, 0, 0);
             xWingMaterial.SetTexture("samplerNormalMap", hullNormalTexture, 0, 0);
@@ -561,7 +570,7 @@ namespace Planets
             textureWaveC = new Texture2D(TextureLoader.GetTextureInDefaultPath("Wave A.png"));
             textureWaveB = new Texture2D(TextureLoader.GetTextureInDefaultPath("Wave B.png"));
 
-            textureArrayTerrainShapes = new(true,
+            textureArrayTerrainShapes = new("terrainShapes",true,
                 TextureLoader.GetTextureInDefaultPath("Rock1.png"),
                 TextureLoader.GetTextureInDefaultPath("Rock2.png"),
                 TextureLoader.GetTextureInDefaultPath("Rock3.png"),
@@ -581,7 +590,7 @@ namespace Planets
                 OceanBrightness = 5f
             };
 
-            planetLitMaterial = Material.Create("planet_shader.vert", "planet_shader.frag");
+            planetLitMaterial = Material.Create("PlanetMat","planet_shader.vert", "planet_shader.frag");
             planetLitMaterial.SetUniform("planetProperties", planetProperties.ShaderParmeters);
             planetLitMaterial.SetTextureArray("texTerrain", textureArrayTerrainShapes);
             planetLitMaterial.SetTexture("texWaveA", textureWaveA);
@@ -614,7 +623,7 @@ namespace Planets
             var planetTileMeshes = MeshLoader.LoadModelFromFile(
                 MeshLoader.GetMeshInDefaultPath("Comp305-Shape-Split.obj"),
                 [new VertexAttributeDescription(VertexAttribute.TexCoord0, VertexAttributeFormat.Float2)]);
-            DirectMesh.RecalcualteAllNormals(planetTileMeshes[0].DirectMeshBuffer);
+            planetTileMeshes[0].DirectMeshBuffer.RecalcualteAllNormals();
             Vector3[] tileNormals = new Vector3[planetTileMeshes.Length];
             for (int i = 0; i < planetTileMeshes.Length; i++)
             {
@@ -707,7 +716,7 @@ namespace Planets
                 meshes[0].DirectMeshBuffer.FlushAll();
             }
 
-            DirectMesh.RecalcualteAllNormals(meshes[0].DirectMeshBuffer);
+            meshes[0].DirectMeshBuffer.RecalcualteAllNormals();
 
             meshes[0].DirectMeshBuffer.ReadAllBuffers();
             for (int i = 0; i < meshes.Length; i++)
@@ -770,9 +779,9 @@ namespace Planets
                 new VertexAttributeDescription(VertexAttribute.Colour,VertexAttributeFormat.Float3),
             ];
 
-            var directMesh = new DirectMesh(attributeDescriptions, [new DirectSubMeshCreateData(36, 36)]);
+            var directMesh = new DirectMesh("Cube", attributeDescriptions, [new DirectSubMeshCreateData(36, 36)]);
             var subMesh = directMesh.DirectSubMeshes[0];
-
+            subMesh.AssetName = "Cube.Cube";
             var vertices = subMesh.Vertices;
             var colours = subMesh.GetVertexDataSpan<Vector3>(VertexAttribute.Colour);
 

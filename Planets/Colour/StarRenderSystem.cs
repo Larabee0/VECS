@@ -22,7 +22,7 @@ namespace Planets.Colour
                 .WithNone(typeof(Prefab), typeof(DoNotRender))
                 .Build();
 
-            _pointLightMaterial = Material.CreateWithAlphaBlending("point_light.vert", "point_light.frag");
+            _pointLightMaterial = Material.CreateWithAlphaBlending("PointLightDisplay","point_light.vert", "point_light.frag");
         }
 
         public unsafe override void OnFowardPass(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)

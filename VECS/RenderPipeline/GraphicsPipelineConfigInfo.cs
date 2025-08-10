@@ -37,7 +37,7 @@ namespace VECS.GraphicsPipelines
                 new(VertexAttribute.Normal,VertexAttributeFormat.Float3,12,0,1),
             };
 
-            return DefaultPipelineConfigInfo(DirectMesh.GetBindingDescription(attributes), DirectMesh.GetAttributeDescriptions(attributes));
+            return DefaultPipelineConfigInfo(MeshExtensions.GetBindingDescription(attributes), MeshExtensions.GetAttributeDescriptions(attributes));
         }
 
 

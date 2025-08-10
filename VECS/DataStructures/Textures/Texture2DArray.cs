@@ -1,5 +1,6 @@
-using System;
 using System.Diagnostics;
+using System.IO;
+using System.Text;
 using TeximpNet;
 using Vortice.Vulkan;
 
@@ -12,7 +13,7 @@ namespace VECS
             Debug.Assert(arrayLayers > 1, "Cannot create texture array with 1 element!");
             _imageExtent = new(width, height, arrayLayers);
             _imageImageViewType = VkImageViewType.Image2DArray;
-            
+
             if (generateMipMaps)
             {
                 _mipMapCount = TextureExtensions.CalculateMipMapLevels(width, height);
@@ -24,6 +25,8 @@ namespace VECS
 
             SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal);
             UpdateDescriptor();
+            
+            AddToDisposableAssetDataBase();
         }
 
         public Texture2DArray(int width, int height, int arrayLayers, VkFormat textureFormat, VkImageUsageFlags usage, bool generateMipMaps = true)
@@ -60,9 +63,11 @@ namespace VECS
             }
 
             UpdateDescriptor();
+
+            AddToDisposableAssetDataBase();
         }
 
-        public Texture2DArray(bool generateMipMaps, params string[] filePaths)
+        public Texture2DArray(string assetName, bool generateMipMaps, params string[] filePaths)
         {
             Debug.Assert(filePaths.Length > 1, "Cannot create texture array from 1 file");
 
@@ -70,7 +75,7 @@ namespace VECS
             Surface[] surfaces = TextureLoader.LoadBulk(filePaths);
 
             _hostBuffer = TextureLoader.CopySurfacesToStagingBuffer(surfaces);
-            
+
             _imageExtent = new(surfaces[0].Width, surfaces[0].Height, surfaces.Length);
 
             if (generateMipMaps)
@@ -79,13 +84,26 @@ namespace VECS
             }
 
             this.CreateImage(GetImageCreateInfo());
-            this.SetImageLayoutAndAspectFromUsage();            
+            this.SetImageLayoutAndAspectFromUsage();
             this.CopyFromBuffer(_hostBuffer);
 
             this.CreateImageView(GetImageViewCreateInfo());
             this.CreateSampler(GetSamplerCreateInfo());
             SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal);
             UpdateDescriptor();
+
+            AssetName = assetName;
+            StringBuilder stringBuilder = new(Path.GetFileName(filePaths[0]));
+            for (int i = 1; i < filePaths.Length; i++)
+            {
+                var fileName = Path.GetFileName(filePaths[i]);
+                stringBuilder.Append(", ");
+                stringBuilder.Append(fileName);
+            }
+            FileName = stringBuilder.ToString();
+
+            
+            AddToDisposableAssetDataBase();
         }
 
         public override VkImageCreateInfo GetImageCreateInfo()

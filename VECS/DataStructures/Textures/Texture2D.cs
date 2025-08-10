@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.IO;
 using System.Numerics;
 using Vortice.Vulkan;
 
@@ -68,7 +69,10 @@ namespace VECS
             Console.WriteLine("End");
         }
 
-        protected Texture2D() { }
+        protected Texture2D()
+        {
+            
+        }
 
         public Texture2D(int width, int height, bool generateMipMaps = true)
         {
@@ -87,6 +91,7 @@ namespace VECS
 
             SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal);
             UpdateDescriptor();
+            AddToDisposableAssetDataBase();
         }
 
         public Texture2D(int width, int height, VkFormat textureFormat, VkImageUsageFlags usage, bool generateMipMaps = true)
@@ -122,6 +127,7 @@ namespace VECS
             }
 
             UpdateDescriptor();
+            AddToDisposableAssetDataBase();
         }
 
         public Texture2D(string filePath, bool generateMipMaps = true)
@@ -145,6 +151,10 @@ namespace VECS
             this.CreateSampler(GetSamplerCreateInfo());
             SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal);
             UpdateDescriptor();
+
+            FileName = Path.GetFileName(filePath);
+            AssetName = Path.GetFileNameWithoutExtension(filePath);
+            AddToDisposableAssetDataBase();
         }
 
         public unsafe override void RegenerateMipMaps(VkCommandBuffer cmd)
