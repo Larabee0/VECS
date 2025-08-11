@@ -21,13 +21,16 @@ For the basic graphics engine I wrote between November and December 2024 for a u
 
 # Things I want to do with this 
 In no particular order 
-- (fixing) occlusion culling
+- ~~(fixing) occlusion culling~~ Abandoned for now
 - adding a html ui library 
 - ~~adding a physics library~~
 - ~~submission queue on separate thread~~
-- multi-threaded rendering
+- Moving to a task based architecture for renderering and game logic
+- Better implementation of BepuPhysics
 - ~~shadow casting~~
 - improved transparency support
 - improved lighting system
+- Pre-loadable Asset database
+- PipelineCaches (Done for Compute Shaders)
 
 These are things I'd like to do, who knows how many will end up getting implemented 
