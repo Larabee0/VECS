@@ -9,9 +9,10 @@ namespace VECS
     {
         public readonly VkImageView[][] FaceImageViews;
 
-        public CubemapArray(int w, int arrayLayers, VkFormat format, VkSamplerAddressMode wrapMode = VkSamplerAddressMode.ClampToEdge, VkImageUsageFlags _usageFlags = VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled, bool generateMipMaps = true)
+        public CubemapArray(string name, int w, int arrayLayers, VkFormat format, VkSamplerAddressMode wrapMode = VkSamplerAddressMode.ClampToEdge, VkImageUsageFlags _usageFlags = VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled, bool generateMipMaps = true)
         {
             Debug.Assert(arrayLayers > 1, "Cannot create Cubemap array with 1 element!");
+            AssetName = name;
             _imageFormat = format;
             _imageExtent = new(w, w, arrayLayers);
             _useageFlags = _usageFlags;
@@ -50,7 +51,7 @@ namespace VECS
             SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal);
             UpdateDescriptor();
 
-            AddToDisposableAssetDataBase();
+            AssetDataBase<CubemapArray>.Add(this);
         }
 
         public override VkImageCreateInfo GetImageCreateInfo()

@@ -616,11 +616,8 @@ namespace VECS
             Array.Fill(_setsDirty, true);
         }
 
-        public unsafe void Dispose()
+        public void DeallocateDescriptorSets()
         {
-            if (_disposed) return;
-            _disposed = true;
-
             for (int i = 0; i < SwapChain.MAX_FRAMES_IN_FLIGHT; i++)
             {
                 var set = _vkDescriptorSets[i];
@@ -632,7 +629,19 @@ namespace VECS
                 {
                     pool.AddSetToFree(set);
                 }
+                _vkDescriptorSets[i] = VkDescriptorSet.Null;
+                _vkDescriptorPoolSource[i] = null;
             }
+            Array.Fill(_setsDirty, true);
+            Array.Fill(_setsAllocated, false);
+        }
+
+        public unsafe void Dispose()
+        {
+            if (_disposed) return;
+            _disposed = true;
+
+            DeallocateDescriptorSets();
 
             if (_bufferCount > 0)
             {

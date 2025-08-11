@@ -32,7 +32,10 @@ namespace VECS
         {
             _appWindow = new(Width, Height, "VECS");
             _device = new(_appWindow);
+            ShaderModule.LoadAllShaders();
             _presenter = new(_appWindow);
+            
+
             var targetThreadCount = int.Max(1, Environment.ProcessorCount > 4 ? Environment.ProcessorCount - 2 : Environment.ProcessorCount - 1);
             _threadDispatcher = new ThreadDispatcher(targetThreadCount);
             Time.FixedTimeStepCallback += FixedUpdate;

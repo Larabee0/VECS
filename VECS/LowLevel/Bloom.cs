@@ -14,10 +14,10 @@ namespace VECS.LowLevel
 
             public readonly VkFramebuffer Framebuffer;
 
-            public unsafe FBTexture(VkFormat depthFormat, VkRenderPass renderPass)
+            public unsafe FBTexture(string name,VkFormat depthFormat, VkRenderPass renderPass)
             {
-                Colour = new(FRAME_BUFFER_DIMENTIONS,FRAME_BUFFER_DIMENTIONS,VkFormat.R32G32B32A32Sfloat, VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.Sampled, false);
-                DepthStencil = new(FRAME_BUFFER_DIMENTIONS,FRAME_BUFFER_DIMENTIONS,depthFormat,VkImageUsageFlags.DepthStencilAttachment, false);
+                Colour = new(string.Format("{0}.Colour",name),FRAME_BUFFER_DIMENTIONS,FRAME_BUFFER_DIMENTIONS,VkFormat.R32G32B32A32Sfloat, VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.Sampled, false);
+                DepthStencil = new(string.Format("{0}.DepthStencil",name),FRAME_BUFFER_DIMENTIONS,FRAME_BUFFER_DIMENTIONS,depthFormat,VkImageUsageFlags.DepthStencilAttachment, false);
 
                 VkImageView* attachments = stackalloc VkImageView[2]
                 {
@@ -168,8 +168,8 @@ namespace VECS.LowLevel
 
             #endregion
 
-            _framebufferGlow = new(depthFormat, _renderPass);
-            _framebufferBlur = new(depthFormat, _renderPass);
+            _framebufferGlow = new("BloomGlow",depthFormat, _renderPass);
+            _framebufferBlur = new("BloomBlur",depthFormat, _renderPass);
 
             _renderPassBeginInfo->sType = VkStructureType.RenderPassBeginInfo;
             _renderPassBeginInfo->pNext = null;

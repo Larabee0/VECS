@@ -8,9 +8,10 @@ namespace VECS
 {
     public class Texture2DArray : Texture
     {
-        public Texture2DArray(int width, int height, int arrayLayers, bool generateMipMaps = true)
+        public Texture2DArray(string name,int width, int height, int arrayLayers, bool generateMipMaps = true)
         {
             Debug.Assert(arrayLayers > 1, "Cannot create texture array with 1 element!");
+            AssetName = name;
             _imageExtent = new(width, height, arrayLayers);
             _imageImageViewType = VkImageViewType.Image2DArray;
 
@@ -26,12 +27,13 @@ namespace VECS
             SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal);
             UpdateDescriptor();
             
-            AddToDisposableAssetDataBase();
+            AssetDataBase<Texture2DArray>.Add(this);
         }
 
-        public Texture2DArray(int width, int height, int arrayLayers, VkFormat textureFormat, VkImageUsageFlags usage, bool generateMipMaps = true)
+        public Texture2DArray(string name,int width, int height, int arrayLayers, VkFormat textureFormat, VkImageUsageFlags usage, bool generateMipMaps = true)
         {
             Debug.Assert(arrayLayers > 1, "Cannot create texture array with 1 element!");
+            AssetName = name;
             _imageExtent = new(width, height, arrayLayers);
             _imageImageViewType = VkImageViewType.Image2DArray;
             _imageFormat = textureFormat;
@@ -64,13 +66,13 @@ namespace VECS
 
             UpdateDescriptor();
 
-            AddToDisposableAssetDataBase();
+            AssetDataBase<Texture2DArray>.Add(this);
         }
 
-        public Texture2DArray(string assetName, bool generateMipMaps, params string[] filePaths)
+        public Texture2DArray(string name, bool generateMipMaps, params string[] filePaths)
         {
             Debug.Assert(filePaths.Length > 1, "Cannot create texture array from 1 file");
-
+            AssetName = name;
             _imageImageViewType = VkImageViewType.Image2DArray;
             Surface[] surfaces = TextureLoader.LoadBulk(filePaths);
 
@@ -92,7 +94,6 @@ namespace VECS
             SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal);
             UpdateDescriptor();
 
-            AssetName = assetName;
             StringBuilder stringBuilder = new(Path.GetFileName(filePaths[0]));
             for (int i = 1; i < filePaths.Length; i++)
             {
@@ -103,7 +104,7 @@ namespace VECS
             FileName = stringBuilder.ToString();
 
             
-            AddToDisposableAssetDataBase();
+            AssetDataBase<Texture2DArray>.Add(this);
         }
 
         public override VkImageCreateInfo GetImageCreateInfo()

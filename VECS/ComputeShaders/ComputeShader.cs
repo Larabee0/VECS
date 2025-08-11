@@ -8,10 +8,9 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
-    public class ComputeShader : IDisposable
+    public class ComputeShader : DisposableAsset
     {
-        private bool _disposed = false;
-
+        private readonly PipelineCache _cache;
         private readonly DescriptorBinding[] _computeBindings;
         private readonly PushConstantsHandler _pushConstantsHandler;
 
@@ -26,16 +25,16 @@ namespace VECS
         private VkDescriptorSetLayout _preAllocDescriptorLayout;
         private VkDescriptorSetLayout _unAllocDescriptorLayout;
         private VkDescriptorSetLayout[] _allLayouts;
-        
+
         private readonly VkPipelineLayout _pipelineLayout;
         private readonly VkPipeline _pipline;
-        
+
         private readonly unsafe VkDescriptorSet* _setsToBind;
 
-        
+
         private int _executionThisFrame;
         private int _lastFrameIndex;
-        
+
         public bool HasPreAllocSet => _preAllocBindings.Count > 0;
         public bool HasUnAllocSet => _unAllocBindings.Count > 0;
 
@@ -43,19 +42,13 @@ namespace VECS
         private DescriptorHandler UnAllocated => _allHandlers[_unAllocDescriptorHandlerIndex];
         public PushConstantsHandler PushConstants => _pushConstantsHandler;
 
-        public unsafe ComputeShader(string shaderFilePath)
+        public unsafe ComputeShader(string assetName, string shaderName)
         {
-            var shaderBytes = File.ReadAllBytes(shaderFilePath);
-
-            Vulkan.vkCreateShaderModule(GraphicsDevice.Instance.Device, shaderBytes, null, out var computeShaderModule);
-
-            var spirShader = SPIRVReflectUtil.CreateReflectShaderModule(shaderBytes);
-
+            AssetName = assetName;
+            var shaderModule = AssetDataBase<ShaderModule>.GetNamed(shaderName);
+            var spirShader = shaderModule.SpvShaderModule;
             _computeBindings = GPUPipelineUtil.GenerateSharedDescriptorBindings(spirShader);
             _pushConstantsHandler = new(spirShader);
-
-            SPIRVReflectUtil.DestroyReflectShaderModule(spirShader);
-
 
             // Descriptor Set bollocks
             _preAllocBindings = GPUPipelineUtil.ExtractBindingsForSet(0, _computeBindings);
@@ -68,23 +61,21 @@ namespace VECS
             _descriptorSetCount = (uint)_allLayouts.Length;
             CreateDescriptorSetHandler();
 
-            VkUtf8ReadOnlyString main = "main"u8;
-            VkPipelineShaderStageCreateInfo computeShaderStageInfo = new()
+            _cache = AssetDataBase<PipelineCache>.GetNamedSilentFail(shaderName);
+            if (_cache == null)
             {
-                stage = VkShaderStageFlags.Compute,
-                module = computeShaderModule,
-                pName = main
-            };
+                _cache = new PipelineCache(shaderName, _pipelineLayout);
+                AssetDataBase<PipelineCache>.Add(_cache);
+            }
 
             VkComputePipelineCreateInfo computePipelineInfo = new()
             {
                 layout = _pipelineLayout,
-                stage = computeShaderStageInfo
+                stage = shaderModule.ShaderStageCreateInfo
             };
 
-            Vulkan.vkCreateComputePipeline(GraphicsDevice.Instance.Device, computePipelineInfo, out _pipline);
+            Vulkan.vkCreateComputePipeline(GraphicsDevice.Instance.Device, _cache.Cache, computePipelineInfo, out _pipline);
 
-            Vulkan.vkDestroyShaderModule(GraphicsDevice.Instance.Device, computeShaderModule);
         }
 
         private void GenerateDescriptorSetLayouts()
@@ -125,13 +116,13 @@ namespace VECS
             int index = 0;
             if (HasPreAllocSet)
             {
-                GPUPipelineUtil.CreateDescriptorSetHandler(_allHandlers,_computeBindings, _allLayouts, index, DescriptorLevel.ComputePreGen, _preAllocBindings);
+                GPUPipelineUtil.CreateDescriptorSetHandler(_allHandlers, _computeBindings, _allLayouts, index, DescriptorLevel.ComputePreGen, _preAllocBindings);
                 _preAllocDescriptorHandlerIndex = index;
                 index++;
             }
             if (HasUnAllocSet)
             {
-                GPUPipelineUtil.CreateDescriptorSetHandler(_allHandlers, _computeBindings,_allLayouts, index, DescriptorLevel.ComputeEmpty, _unAllocBindings);
+                GPUPipelineUtil.CreateDescriptorSetHandler(_allHandlers, _computeBindings, _allLayouts, index, DescriptorLevel.ComputeEmpty, _unAllocBindings);
                 _unAllocDescriptorHandlerIndex = index;
             }
         }
@@ -184,7 +175,7 @@ namespace VECS
             {
                 if (_allHandlers[i].HasProperty(property))
                 {
-                    _allHandlers[i].GetOrCreateChild(_executionThisFrame).SetUInt(property, value);    
+                    _allHandlers[i].GetOrCreateChild(_executionThisFrame).SetUInt(property, value);
                 }
             }
         }
@@ -217,7 +208,7 @@ namespace VECS
         }
 
         public void SetStorageBufferUsageSize(string property, uint instanceSize)
-        {   
+        {
             for (int i = 0; i < _allHandlers.Length; i++)
             {
                 if (_allHandlers[i].HasProperty(property))
@@ -278,19 +269,27 @@ namespace VECS
             _executionThisFrame++;
             _lastFrameIndex = frameIndex;
         }
-        
+
         public void NextFrame()
         {
             _executionThisFrame = 0;
         }
 
-        public unsafe void Dispose()
+        public void DeallocateDescriptorSets()
         {
+            for (int i = 0; i < _allHandlers.Length; i++)
+            {
+                _allHandlers[i].DeallocateDescriptorSets();
+            } 
+        }
+
+        public override unsafe void Dispose()
+        {
+            GC.SuppressFinalize(this);
             if (_disposed)
             {
                 return;
             }
-            GC.SuppressFinalize(this);
 
             _disposed = true;
 
@@ -305,7 +304,11 @@ namespace VECS
             }
 
             Vulkan.vkDestroyPipeline(GraphicsDevice.Instance.Device, _pipline);
-            Vulkan.vkDestroyPipelineLayout(GraphicsDevice.Instance.Device, _pipelineLayout);
+            if (_cache == null)
+            {
+                Vulkan.vkDestroyPipelineLayout(GraphicsDevice.Instance.Device, _pipelineLayout);
+            }
+            
 
             if (_preAllocDescriptorLayout != VkDescriptorSetLayout.Null)
             {
@@ -315,6 +318,19 @@ namespace VECS
             {
                 Vulkan.vkDestroyDescriptorSetLayout(GraphicsDevice.Instance.Device, _unAllocDescriptorLayout, null);
             }
+        }
+
+        public static ComputeShader GetOrCreate(string shaderName)
+        {
+            var shader = AssetDataBase<ComputeShader>.GetNamedSilentFail(shaderName);
+
+            if (shader == null)
+            {
+                shader = new ComputeShader(shaderName, shaderName);
+                AssetDataBase<ComputeShader>.Add(shader);
+            }
+
+            return shader;
         }
     }
 }

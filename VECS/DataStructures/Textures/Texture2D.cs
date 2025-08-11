@@ -33,40 +33,36 @@ namespace VECS
             copyFrom[11] = pink;
             copyFrom[14] = pink;
             copyFrom[15] = pink;
-            Console.WriteLine("Begin");
+            Console.WriteLine("Begin Default Texture Creation");
 
-            //Vulkan.vkGetImageMemoryRequirements(GraphicsDevice.Instance.Device, TestSize._vkImage, out var memoryRequirements);
-            //Console.WriteLine("From Memory requirements | Size: {0} Alignment: {1}", memoryRequirements.size, memoryRequirements.alignment);
-            //Console.WriteLine("From Intner requirements | Size: {0}", TestSize.ImageExtent.width * TestSize.ImageExtent.height * Vulkan.BlockSize(TestSize.Format));
-
-            MissingTexture = new(4, 4, true);
+            MissingTexture = new("Fallback", 4, 4, true);
             MissingTexture.CopyFromArray(copyFrom);
             MissingTexture.CreateHostBuffer(true);
 
             Array.Fill(copyFrom, Colour.Clear);
-            Zeroed = new(4, 4);
+            Zeroed = new("Clear",4, 4);
             Zeroed.CopyFromArray(copyFrom);
 
             Array.Fill(copyFrom, Colour.Black);
-            Black = new(4, 4);
+            Black = new("Black",4, 4);
             Black.CopyFromArray(copyFrom);
 
             Array.Fill(copyFrom, new Vector4(0.5f, 0.5f, 0.5f, 1f).ToVkColor());
-            Gray = new(4, 4);
+            Gray = new("Gray",4, 4);
             Gray.CopyFromArray(copyFrom);
 
             Array.Fill(copyFrom, new Vector4(0.5f, 0.5f, 1f, 1f).ToVkColor());
-            Normal = new(4, 4);
+            Normal = new("Normal",4, 4);
             Normal.CopyFromArray(copyFrom);
 
             Array.Fill(copyFrom, Colour.Red);
-            Red = new(4, 4);
+            Red = new("Red",4, 4);
             Red.CopyFromArray(copyFrom);
 
             Array.Fill(copyFrom, Colour.White);
-            White = new(4, 4);
+            White = new("White",4, 4);
             White.CopyFromArray(copyFrom);
-            Console.WriteLine("End");
+            Console.WriteLine("Finished Default Texture Creation");
         }
 
         protected Texture2D()
@@ -74,8 +70,9 @@ namespace VECS
             
         }
 
-        public Texture2D(int width, int height, bool generateMipMaps = true)
+        public Texture2D(string name, int width, int height, bool generateMipMaps = true)
         {
+            AssetName = name;
             _imageExtent = new(width, height, 1);
             _imageImageViewType = VkImageViewType.Image2D;
 
@@ -91,11 +88,12 @@ namespace VECS
 
             SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal);
             UpdateDescriptor();
-            AddToDisposableAssetDataBase();
+            AssetDataBase<Texture2D>.Add(this);
         }
 
-        public Texture2D(int width, int height, VkFormat textureFormat, VkImageUsageFlags usage, bool generateMipMaps = true)
+        public Texture2D(string name, int width, int height, VkFormat textureFormat, VkImageUsageFlags usage, bool generateMipMaps = true)
         {
+            AssetName = name;
             _imageExtent = new(width, height, 1);
             _imageImageViewType = VkImageViewType.Image2D;
             _imageFormat = textureFormat;
@@ -127,7 +125,7 @@ namespace VECS
             }
 
             UpdateDescriptor();
-            AddToDisposableAssetDataBase();
+            AssetDataBase<Texture2D>.Add(this);
         }
 
         public Texture2D(string filePath, bool generateMipMaps = true)
@@ -154,7 +152,7 @@ namespace VECS
 
             FileName = Path.GetFileName(filePath);
             AssetName = Path.GetFileNameWithoutExtension(filePath);
-            AddToDisposableAssetDataBase();
+            AssetDataBase<Texture2D>.Add(this);
         }
 
         public unsafe override void RegenerateMipMaps(VkCommandBuffer cmd)

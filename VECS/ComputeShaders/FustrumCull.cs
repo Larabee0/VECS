@@ -33,7 +33,7 @@ namespace VECS
         }
     }
 
-    public sealed class FustrumCull : IDisposable
+    public sealed class FustrumCull
     {
         public readonly bool CPUCulling = false;
 
@@ -41,7 +41,7 @@ namespace VECS
 
         public unsafe FustrumCull()
         {
-            _computeShader = new(Material.GetShaderFilePath("fustrum_cull.comp"));
+            _computeShader = ComputeShader.GetOrCreate("fustrum_cull.comp");
         }
 
         public VkBufferMemoryBarrier Cull(RendererFrameInfo frameInfo, CullData cullData, uint drawCount, SwapChainBuffer<VkDrawIndexedIndirectCommand> drawIndirect, SwapChainBuffer<ModelBounds> bounds)
@@ -106,11 +106,6 @@ namespace VECS
             };
 
             return barrier;
-        }
-
-        public unsafe void Dispose()
-        {
-            _computeShader.Dispose();
         }
     }
 }

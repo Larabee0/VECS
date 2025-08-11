@@ -37,8 +37,6 @@ namespace VECS.ECS.Presentation
         {
             _forwardData?.Dispose();
             _shadowData?.Dispose();
-
-            _cullCompute?.Dispose();
         }
 
         private void ResetMeshes()

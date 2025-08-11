@@ -32,6 +32,8 @@ namespace VECS
         {
             _directMeshBuffer = directMeshBuffer;
             _directSubMeshIndex = directSubMeshIndex;
+            Generated = true;
+            AssetName = directMeshBuffer.AssetName + "." + directSubMeshIndex;
         }
 
         public bool HasAttributeInFormat<T>(VertexAttribute attribute) where T : unmanaged

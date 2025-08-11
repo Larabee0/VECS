@@ -63,6 +63,7 @@ namespace Planets
         private readonly static Stopwatch _stopwatch = new();
         public ArtifactAuthoring()
         {
+
             World.DefaultWorld.CreateSystem<TransformPlanetsSystem>();
 
             World.DefaultWorld.CreateSystem<GenericRenderSystem>();
@@ -93,14 +94,21 @@ namespace Planets
 
             World.DefaultWorld.CreateSystem<MouseFlightShipMover>();
 
-            Console.WriteLine("Assets: {0}", AssetDataBase<Asset>.AssetCount);
-            Console.WriteLine("Disposable Assets: {0}", AssetDataBase<DisposableAsset>.AssetCount);
-            Console.WriteLine("Textures: {0}", AssetDataBase<Texture>.AssetCount);
-            Console.WriteLine("Texture2D: {0}", AssetDataBase<Texture2D>.AssetCount);
-            Console.WriteLine("Texture2DArray: {0}", AssetDataBase<Texture2DArray>.AssetCount);
-            Console.WriteLine("Texture3D: {0}", AssetDataBase<Texture3D>.AssetCount);
-            Console.WriteLine("Cubemap: {0}", AssetDataBase<Cubemap>.AssetCount);
-            Console.WriteLine("CubemapArray: {0}", AssetDataBase<CubemapArray>.AssetCount);
+            Console.WriteLine("Loading completed");
+            LogAssetCounts();
+            Console.WriteLine("Purging Disposed Assets...");
+            DisposableAsset.RemoveDisposedFromAssetDataBase();
+            LogAssetCounts();
+        }
+
+        private static void LogAssetCounts()
+        {
+            Console.WriteLine("Logging Assets Counts...");
+            foreach (var assetType in typeof(Asset).AllSubclassesNonAbstract())
+            {
+                var assetCount = (int)GenericExtensions.GetStaticPropertyOnGenericType(typeof(AssetDataBase<>), assetType, "AssetCount");
+                Console.WriteLine("{0}: {1}", assetType.Name, assetCount);
+            }
         }
 
         private void CreateSinglePlanetTestScene(EntityManager entityManager, Entity prefabPlanet)

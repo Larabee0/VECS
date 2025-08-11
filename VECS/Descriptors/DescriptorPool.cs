@@ -15,6 +15,7 @@ namespace VECS
         private readonly VkDescriptorPool _descriptorPool;
 
         private readonly List<VkDescriptorSet> _setsToFree = [];
+        private readonly bool _allowFreeing;
 
         /// <summary>
         /// Creaes a descriptor pool abstraction for allocating descriptor sets
@@ -27,7 +28,7 @@ namespace VECS
         private unsafe DescriptorPool(uint maxSets, VkDescriptorPoolCreateFlags poolFlags, VkDescriptorPoolSize[] poolSizes)
         {
             GraphicsDevice = GraphicsDevice.Instance;
-
+            _allowFreeing = poolFlags.HasFlag(VkDescriptorPoolCreateFlags.FreeDescriptorSet);
             VkDescriptorPoolSize* pPoolSizes = stackalloc VkDescriptorPoolSize[poolSizes.Length];
             for (int i = 0; i < poolSizes.Length; i++)
             {
@@ -98,7 +99,7 @@ namespace VECS
 
         public void FreeDescriptors()
         {
-            if (_setsToFree.Count > 0)
+            if (_allowFreeing&&_setsToFree.Count > 0)
             {
                 FreeDescriptors([.. _setsToFree]);
                 _setsToFree.Clear();
@@ -118,6 +119,7 @@ namespace VECS
         /// </summary>
         public unsafe void Dispose()
         {
+            FreeDescriptors();
             Vulkan.vkDestroyDescriptorPool(GraphicsDevice.Device, _descriptorPool, null);
         }
 

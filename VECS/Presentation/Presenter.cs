@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
@@ -325,7 +326,15 @@ namespace VECS
         /// </summary>
         public void Dispose()
         {
-            AssetDataBase<DisposableAsset>.AllAssetsListForReading.ForEach(asset => asset.Dispose());
+            foreach (var assetType in typeof(DisposableAsset).AllSubclassesNonAbstract())
+            {
+                IEnumerable<DisposableAsset> disposableAssets = ((IEnumerable)GenericExtensions.GetStaticPropertyOnGenericType(typeof(AssetDataBase<>), assetType, "AllAssets")).Cast<DisposableAsset>();
+                foreach (DisposableAsset asset in disposableAssets)
+                {
+                    asset.Dispose();
+                }
+            }
+
 
             _bloom?.Dispose();
             _globalDescriptorSetHandler?.Dispose();

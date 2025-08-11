@@ -8,8 +8,9 @@ namespace VECS
     {
         public readonly VkImageView[] FaceImageViews = new VkImageView[6];
 
-        public Cubemap(int w, VkFormat format, VkSamplerAddressMode wrapMode = VkSamplerAddressMode.ClampToEdge, VkImageUsageFlags _usageFlags = VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled, bool generateMipMaps = true)
+        public Cubemap(string name,int w, VkFormat format, VkSamplerAddressMode wrapMode = VkSamplerAddressMode.ClampToEdge, VkImageUsageFlags _usageFlags = VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled, bool generateMipMaps = true)
         {
+            AssetName = name;
             _imageFormat = format;
             _imageExtent = new(w, w, 1);
             _useageFlags = _usageFlags;
@@ -42,7 +43,7 @@ namespace VECS
             SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal);
             UpdateDescriptor();
 
-            AddToDisposableAssetDataBase();
+            AssetDataBase<Cubemap>.Add(this);
         }
 
         public override VkImageCreateInfo GetImageCreateInfo()

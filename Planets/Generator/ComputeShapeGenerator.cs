@@ -25,8 +25,7 @@ namespace Planets.Generator
                 .AddPoolSize(VkDescriptorType.StorageBuffer, 5)
                 .Build();
 
-            var shaderFilePath = Material.GetShaderFilePath("terrain_generator.comp");
-            _computeShader = new ComputeShader(shaderFilePath);
+            _computeShader = ComputeShader.GetOrCreate("terrain_generator.comp");
             _computeShader.SetStorageBufferUsageSize("minMax", 2);
             ResetMinMax();
 
@@ -163,7 +162,7 @@ namespace Planets.Generator
 
         public void Dispose()
         {
-            _computeShader.Dispose();
+            _computeShader.DeallocateDescriptorSets();
             _descriptorPool.Dispose();
         }
 

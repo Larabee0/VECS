@@ -20,7 +20,7 @@ namespace VECS.LowLevel
                 VkImageTiling.Optimal,
                 VkFormatFeatureFlags.DepthStencilAttachment);
 
-            CubeMap = new(
+            CubeMap = new("ShadowCubeMap",
                 SHADOW_IMAGE_SIZE,
                 SHADOW_IMAGE_FORMAT,
                 VkSamplerAddressMode.ClampToBorder,
@@ -34,7 +34,7 @@ namespace VECS.LowLevel
 
         private unsafe void CreateShadowFrameBuffer()
         {
-            FrameBufferAttachment = new(
+            FrameBufferAttachment = new("ShadowFBAttachment",
                 SHADOW_IMAGE_SIZE,
                 SHADOW_IMAGE_SIZE,
                 _depthFormat,

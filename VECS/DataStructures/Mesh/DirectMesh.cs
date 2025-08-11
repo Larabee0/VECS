@@ -138,6 +138,7 @@ namespace VECS
                 _directSubMeshs[i] = new DirectSubMesh(this, (int)i);
                 vertexOffset += meshes[i].VertexCount;
                 indexOffset += meshes[i].IndexCount;
+                AssetDataBase<DirectSubMesh>.Add(_directSubMeshs[i]);
             }
 
             _allocatedVertexCount = vertexOffset;
@@ -176,7 +177,7 @@ namespace VECS
             _attributeDescriptions = MeshExtensions.GetAttributeDescriptions(vertexAttributes);
 
             DirectMeshes.Add(this);
-            AddToDisposableAssetDataBase();
+            AssetDataBase<DirectMesh>.Add(this);
         }
 
         public override void ClearCachedData()
@@ -504,6 +505,8 @@ namespace VECS
             }
 
             DirectMeshes.RemoveAt(index);
+
+            AssetDataBase<DirectSubMesh>.RemoveRange(_directSubMeshs);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

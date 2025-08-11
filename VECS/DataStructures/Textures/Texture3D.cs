@@ -4,8 +4,9 @@ namespace VECS
 {
     public class Texture3D : Texture
     {
-        public Texture3D(int width, int height, int depth, bool generateMipMaps = true)
+        public Texture3D(string name,int width, int height, int depth, bool generateMipMaps = true)
         {
+            AssetName = name;
             _imageExtent = new(width, height, depth);
             _imageImageViewType = VkImageViewType.Image3D;
 
@@ -21,12 +22,13 @@ namespace VECS
             SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal);
             UpdateDescriptor();
             
-            AddToDisposableAssetDataBase();
+            AssetDataBase<Texture3D>.Add(this);
         }
 
 
-        public Texture3D(int width, int height, int depth, VkFormat textureFormat, VkImageUsageFlags usage, bool generateMipMaps = true)
+        public Texture3D(string name,int width, int height, int depth, VkFormat textureFormat, VkImageUsageFlags usage, bool generateMipMaps = true)
         {
+            AssetName = name;
             _imageExtent = new(width, height, depth);
             _imageImageViewType = VkImageViewType.Image3D;
             _imageFormat = textureFormat;
@@ -59,7 +61,7 @@ namespace VECS
 
             UpdateDescriptor();
 
-            AddToDisposableAssetDataBase();
+            AssetDataBase<Texture3D>.Add(this);
         }
 
         public override void RegenerateMipMaps(VkCommandBuffer cmd)

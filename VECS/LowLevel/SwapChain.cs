@@ -182,7 +182,7 @@ namespace VECS.LowLevel
 
         private unsafe void CreateRenderImage()
         {
-            _rawRenderImage = new((int)_windowExtent.width, (int)_windowExtent.height, VkFormat.R32G32B32A32Sfloat, VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.Sampled, false);            
+            _rawRenderImage = new("_rawRenderImage",(int)_windowExtent.width, (int)_windowExtent.height, VkFormat.R32G32B32A32Sfloat, VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.Sampled, false);            
 
             _copyToSwapChainBlit = new()
             {
@@ -212,7 +212,7 @@ namespace VECS.LowLevel
 
         private unsafe void CreateDepthImage()
         {
-            _depthImage = new((int)_windowExtent.width, (int)_windowExtent.height,VkFormat.D32Sfloat, VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.Sampled, false);
+            _depthImage = new("_depthImage", (int)_windowExtent.width, (int)_windowExtent.height,VkFormat.D32Sfloat, VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.Sampled, false);
         }
 
         private unsafe void CreateAdditionalSamplers()

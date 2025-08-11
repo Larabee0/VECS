@@ -39,13 +39,14 @@ namespace VECS
 
         public unsafe ComputeNormals()
         {
-            _calcuateNormals = new(Material.GetShaderFilePath("normal_recalculate.comp"));
+            _calcuateNormals = ComputeShader.GetOrCreate("normal_recalculate.comp");
 
-            _normalizeNormals = new(Material.GetShaderFilePath("normal_normalize.comp"));
+            _normalizeNormals = ComputeShader.GetOrCreate("normal_normalize.comp");
 
             _descriptorPool = new DescriptorPool.Builder()
                 .AddPoolSize(VkDescriptorType.UniformBuffer, 2)
                 .AddPoolSize(VkDescriptorType.StorageBuffer, 6)
+                .SetPoolFlags(VkDescriptorPoolCreateFlags.FreeDescriptorSet)
                 .Build();
         }
 
@@ -203,9 +204,9 @@ namespace VECS
 
         public unsafe void Dispose()
         {
+            _calcuateNormals.DeallocateDescriptorSets();
+            _normalizeNormals.DeallocateDescriptorSets();
             _descriptorPool?.Dispose();
-            _calcuateNormals?.Dispose();
-            _normalizeNormals?.Dispose();
         }
     }
 }

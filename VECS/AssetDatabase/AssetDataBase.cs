@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.CompilerServices;
 
 namespace VECS
@@ -43,21 +44,28 @@ namespace VECS
                 return;
             }
 
+            if (string.IsNullOrEmpty(asset.AssetName)|| string.IsNullOrWhiteSpace(asset.AssetName))
+            {
+                asset.AssetName = Asset.DefaultAssetName;
+            }
+
             while (_assetsByName.ContainsKey(asset.AssetName))
             {
+                T t = asset;
+                var untocuhedname = asset.AssetName;
+                t.AssetName += (int)MathF.Round(Random.Shared.NextSingle() * 1000f);
                 Console.WriteLine(string.Concat(
                 [
                         "Adding duplicate ",
                     typeof(T),
                     " name: ",
+                    untocuhedname, " generated name:",
                     asset.AssetName
                 ]));
-                T t = asset;
-                t.AssetName += (int)MathF.Round(Random.Shared.NextSingle() * 1000f);
             }
             _assetsList.Add(asset);
             _assetsByName.Add(asset.AssetName, asset);
-            if (_assetsList.Count > 65535)
+            if (_assetsList.Count > ushort.MaxValue)
             {
                 Console.WriteLine(string.Concat(
                 [
@@ -67,16 +75,59 @@ namespace VECS
                     ushort.MaxValue
                 ]));
             }
-            asset.Index = (ushort)(_assetsList.Count - 1);
+            asset.Index = _assetsList.Count - 1;
         }
 
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static void Remove(T asset)
+        public static void Remove(T asset)
         {
             _assetsByName.Remove(asset.AssetName);
             _assetsList.Remove(asset);
             _assetsByHash.Remove(asset.Hash);
+            SetIndices();
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static void RemoveRange(T[] assets)
+        {
+            if (assets.Length == 0 || _assetsList == null || _assetsList.Count == 0)
+            {
+                return;
+            }
+
+            for (int i = 0; i < assets.Length; i++)
+            {
+                var asset = assets[i];
+                _assetsByName.Remove(asset.AssetName);
+                _assetsList.Remove(asset);
+                _assetsByHash.Remove(asset.Hash);
+            }
+            SetIndices();
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static void RemoveRangeInternal(object[] assets)
+        {
+            if (assets.Length == 0 || _assetsList == null || _assetsList.Count == 0)
+            {
+                return;
+            }
+
+            if (assets[0] is not T)
+            {
+                Console.WriteLine("Cannot remove asset list due to type mismatch. Expected {0} got {1}", typeof(T).Name, assets[0].GetType().Name);
+            }
+
+            IEnumerable<T> assetsAsT = assets.Cast<T>();
+
+            foreach (var asset in assetsAsT)
+            {
+                _assetsByName.Remove(asset.AssetName);
+                _assetsList.Remove(asset);
+                _assetsByHash.Remove(asset.Hash);
+            }
+
             SetIndices();
         }
 
