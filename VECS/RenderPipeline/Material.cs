@@ -24,8 +24,9 @@ namespace VECS
         private VkDescriptorSetLayout _entityDescriptorLayout;
         private VkDescriptorSetLayout[] _allLayouts;
         private readonly PushConstantsHandler _materialPushConstantsHandler;
-        private VkPipelineLayout _pipelineLayout;
-        private GraphicsPipeline _materialPipeline;
+        private VkPipelineLayout _pipelineLayout;        
+        private VkPipeline _graphicsPipeline;
+        
 
         // all binding descriptions
         private readonly DescriptorBinding[] _materialBindings;
@@ -119,24 +120,22 @@ namespace VECS
             return material;
         }
 
-        internal Material(string name, string vertexShader, string fragmentShader, GraphicsPipelineConfigInfo pipelineConfig, bool actAsGlobal, VkRenderPass renderPass)
+        internal Material(string name, string vertexShaderName, string fragmentShaderName, GraphicsPipelineConfigInfo pipelineConfig, bool actAsGlobal, VkRenderPass renderPass)
         {
             AssetName = name;
             _actAsGlobal = actAsGlobal;
-            byte[] vertexBytes = GetShaderBytes(vertexShader);
-            byte[] fragmentBytes = GetShaderBytes(fragmentShader);
 
-            var spirVert = SPIRVReflectUtil.CreateReflectShaderModule(vertexBytes);
-            var spirFrag = SPIRVReflectUtil.CreateReflectShaderModule(fragmentBytes);
+            ShaderModule vertex = AssetDataBase<ShaderModule>.GetNamed(vertexShaderName);;
+            ShaderModule fragment = AssetDataBase<ShaderModule>.GetNamed(fragmentShaderName);;
 
-            if (GPUPipelineUtil.GetVertexInputState(spirVert, out VkVertexInputBindingDescription[] vertBindings, out VkVertexInputAttributeDescription[] vertAttributes))
+            if (GPUPipelineUtil.GetVertexInputState(vertex.SpvShaderModule, out VkVertexInputBindingDescription[] vertBindings, out VkVertexInputAttributeDescription[] vertAttributes))
             {
                 pipelineConfig.BindingDescriptions = vertBindings;
                 pipelineConfig.AttributeDescriptions = vertAttributes;
             }
             _graphicsPipelineConfigInfo = pipelineConfig;
             _graphicsPipelineConfigInfo.renderPass = renderPass;
-            _materialBindings = GPUPipelineUtil.GenerateSharedDescriptorBindings(spirVert, spirFrag);
+            _materialBindings = GPUPipelineUtil.GenerateSharedDescriptorBindings(vertex.SpvShaderModule, fragment.SpvShaderModule);
 
             _applicationGlobalBindings = GPUPipelineUtil.ExtractBindingsForSet(0, _materialBindings);
             _materialGlobalBindings = GPUPipelineUtil.ExtractBindingsForSet(1, _materialBindings);
@@ -148,13 +147,11 @@ namespace VECS
 
             CreateDescriptorSetHandler();
 
-            _materialPushConstantsHandler = new(spirVert, spirFrag);
+            _materialPushConstantsHandler = new(vertex.SpvShaderModule, fragment.SpvShaderModule);
 
-            SPIRVReflectUtil.DestroyReflectShaderModule(spirVert);
-            SPIRVReflectUtil.DestroyReflectShaderModule(spirFrag);
+            CreatePipelineLayout(vertex,fragment);
 
-            CreatePipelineLayout();
-            CreatePipeline(vertexBytes, fragmentBytes);
+            _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipeline(vertex,fragment, _graphicsPipelineConfigInfo);
 
             Debug.Assert(Materials.Count < EarlyDrawCommand.MAX_MATERIAL_COUNT, string.Format("Material Creation would Exceeded Max Theorectical Material Count ({0})\nProbably reduce the number of materials you have, jeez", EarlyDrawCommand.MAX_MATERIAL_COUNT));
 
@@ -237,20 +234,19 @@ namespace VECS
             }
         }
 
-        private unsafe void CreatePipelineLayout()
+        private unsafe void CreatePipelineLayout(ShaderModule vertex, ShaderModule fragment)
         {
-            _graphicsPipelineConfigInfo.pipelineLayout = _pipelineLayout = GPUPipelineUtil.CreatePipelineLayout(_allLayouts, _materialPushConstantsHandler);
-            _setsToBind = (VkDescriptorSet*)NativeMemory.AllocZeroed((uint)_allLayouts.Length,(uint)sizeof(VkDescriptorSet));
-        }
+            string cacheName = vertex.AssetName + fragment.AssetName;
+            var cache = AssetDataBase<PipelineCache>.GetNamedSilentFail(cacheName);
 
-        private void CreatePipeline(byte[] vertexBytes, byte[] fragmentBytes)
-        {
-            if (_pipelineLayout == VkPipelineLayout.Null)
+            if (cache == null)
             {
-                throw new InvalidOperationException("Cannot create pipeline before pipeline layout!");
+                cache = new(cacheName,  GPUPipelineUtil.CreatePipelineLayout(_allLayouts, _materialPushConstantsHandler));
+                AssetDataBase<PipelineCache>.Add(cache);
             }
 
-            _materialPipeline = new(GraphicsDevice.Instance, vertexBytes, fragmentBytes, _graphicsPipelineConfigInfo);
+            _graphicsPipelineConfigInfo.pipelineLayout = _pipelineLayout = cache.Layout;
+            _setsToBind = (VkDescriptorSet*)NativeMemory.AllocZeroed((uint)_allLayouts.Length,(uint)sizeof(VkDescriptorSet));
         }
 
         public DescriptorBinding GetBinding(string name)
@@ -307,9 +303,7 @@ namespace VECS
                 if (HasApplicationSet && !_actAsGlobal && i == 0) continue;
                 _allHandlers[i]?.Dispose();
             }
-            _materialPipeline?.Dispose();
-            _materialPipeline = null;
-            Vulkan.vkDestroyPipelineLayout(GraphicsDevice.Instance.Device, _pipelineLayout);
+            Vulkan.vkDestroyPipeline(GraphicsDevice.Instance.Device, _graphicsPipeline);
 
             if (_applicationDescriptorLayout != VkDescriptorSetLayout.Null)
             {

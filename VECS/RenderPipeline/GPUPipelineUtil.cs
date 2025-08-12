@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using VECS.GraphicsPipelines;
 using VECS.LowLevel;
 using Vortice.SPIRV;
 using Vortice.SPIRV.Reflect;
@@ -9,7 +11,7 @@ namespace VECS
 {
     public static class GPUPipelineUtil
     {
-        public static void CreateDescriptorSetHandler(DescriptorHandler[] handlers, DescriptorBinding[] allBindings, VkDescriptorSetLayout[] layouts, int index,DescriptorLevel level, Dictionary<string, int> bindingsDict)
+        public static void CreateDescriptorSetHandler(DescriptorHandler[] handlers, DescriptorBinding[] allBindings, VkDescriptorSetLayout[] layouts, int index, DescriptorLevel level, Dictionary<string, int> bindingsDict)
         {
             DescriptorBinding[] bindings = new DescriptorBinding[bindingsDict.Count];
             int i = 0;
@@ -83,7 +85,7 @@ namespace VECS
             return true;
         }
 
-        public unsafe static PushConstantsInfo[] GetPushConstants(params SpvReflectShaderModule[] modules)
+        public static unsafe PushConstantsInfo[] GetPushConstants(params SpvReflectShaderModule[] modules)
         {
             List<VkShaderStageFlags> shaderStageFlags = [];
             List<SpvReflectBlockVariable> constants = [];
@@ -141,7 +143,7 @@ namespace VECS
             };
         }
 
-        public unsafe static (uint, string, VkDescriptorSetLayoutBinding)[] GetDescriptorSetBindings(params SpvReflectShaderModule[] modules)
+        public static unsafe (uint, string, VkDescriptorSetLayoutBinding)[] GetDescriptorSetBindings(params SpvReflectShaderModule[] modules)
         {
             Dictionary<(uint, uint), VkShaderStageFlags> setsAndBindingsToFlags = [];
             for (int i = 0; i < modules.Length; i++)
@@ -203,7 +205,7 @@ namespace VECS
             return descriptorSetBindings;
         }
 
-        public unsafe static VkDescriptorSetLayout[] CreateDescriptorSetLayout(out Dictionary<string, DescriptorBinding> bindings, params SpvReflectShaderModule[] modules)
+        public static unsafe VkDescriptorSetLayout[] CreateDescriptorSetLayout(out Dictionary<string, DescriptorBinding> bindings, params SpvReflectShaderModule[] modules)
         {
             var allBindings = GetDescriptorSetBindings(modules);
             if (allBindings.Length == 0)
@@ -337,7 +339,7 @@ namespace VECS
             return setBindings;
         }
 
-        public unsafe static VkPipelineLayout CreatePipelineLayout(VkDescriptorSetLayout[] setLayouts,PushConstantsHandler pushConstants)
+        public static unsafe VkPipelineLayout CreatePipelineLayout(VkDescriptorSetLayout[] setLayouts, PushConstantsHandler pushConstants)
         {
             VkPipelineLayoutCreateInfo layoutCreateInfo = new()
             {
@@ -368,6 +370,115 @@ namespace VECS
             }
 
             return pipelineLayout;
+        }
+
+        public static unsafe VkPipeline CreateGraphicsPipeline(ShaderModule vertex, ShaderModule fragement, GraphicsPipelineConfigInfo configInfo)
+        {
+            Debug.Assert(vertex.VkShaderStage == VkShaderStageFlags.Vertex, "Provided vertex shader is a wrong stage Name: {0} Provided Stage {1}", vertex.AssetName, vertex.VkShaderStage);
+            Debug.Assert(fragement.VkShaderStage == VkShaderStageFlags.Fragment, "Provided fragement shader is a wrong stage Name: {0} Provided Stage {1}", fragement.AssetName, fragement.VkShaderStage);
+            Debug.Assert(configInfo.renderPass != VkRenderPass.Null, "Cannot create graphics pipeline, no renderPass layout provided in config");
+                        
+            string cacheName = vertex.AssetName + fragement.AssetName;
+            var cache = AssetDataBase<PipelineCache>.GetNamed(cacheName);
+            // Fix the properties needed for Graphics Pipeline Create Info
+            configInfo.pipelineLayout = cache.Layout;
+            var vkDynamicInfo = configInfo.dynamicInfo;
+            var depthStencilInfo = configInfo.depthStencilInfo;
+            var colourBlendInfo = configInfo.colourBlendInfo;
+            var colourBlendAttachment = configInfo.colourBlendAttachment;
+            var inputAssemblyInfo = configInfo.inputAssemblyInfo;
+            var viewportInfo = configInfo.viewportInfo;
+            var multisampleInfo = configInfo.multisampleInfo;
+            var rasterizationInfo = configInfo.rasterizationInfo;
+
+            // Assign remaining memory pointers
+            colourBlendInfo.pAttachments = &colourBlendAttachment;
+
+            VkDynamicState* pDynamicStates = stackalloc VkDynamicState[configInfo.dynamicStateEnables.Length];
+
+            for (int i = 0; i < configInfo.dynamicStateEnables.Length; i++)
+            {
+                pDynamicStates[i] = configInfo.dynamicStateEnables[i];
+            }
+
+            vkDynamicInfo.pDynamicStates = pDynamicStates;
+
+            // Vertex Input State Create Info
+            VkVertexInputBindingDescription* pBindingDescriptions = stackalloc VkVertexInputBindingDescription[configInfo.BindingDescriptions.Length];
+            VkVertexInputAttributeDescription* pAttributeDescriptions = stackalloc VkVertexInputAttributeDescription[configInfo.AttributeDescriptions.Length];
+            VkPipelineVertexInputStateCreateInfo vertexInputState = GetVertexInputState(
+                configInfo.BindingDescriptions,
+                configInfo.AttributeDescriptions,
+                pBindingDescriptions,
+                pAttributeDescriptions);
+
+            // Shader stages
+            VkPipelineShaderStageCreateInfo* shaderStages = stackalloc VkPipelineShaderStageCreateInfo[2];
+            shaderStages[0] = vertex.ShaderStageCreateInfo;
+            shaderStages[1] = fragement.ShaderStageCreateInfo;
+
+            VkGraphicsPipelineCreateInfo pipelineInfo = new()
+            {
+                stageCount = 2,
+                pStages = shaderStages,
+                pVertexInputState = &vertexInputState,
+                pInputAssemblyState = &inputAssemblyInfo,
+                pViewportState = &viewportInfo,
+                pRasterizationState = &rasterizationInfo,
+                pMultisampleState = &multisampleInfo,
+                pColorBlendState = &colourBlendInfo,
+                pDepthStencilState = &depthStencilInfo,
+                pDynamicState = &vkDynamicInfo,
+
+                layout = configInfo.pipelineLayout,
+                renderPass = configInfo.renderPass,
+                subpass = configInfo.subpass,
+
+                basePipelineIndex = -1,
+                basePipelineHandle = VkPipeline.Null
+            };
+
+            var result = Vulkan.vkCreateGraphicsPipeline(GraphicsDevice.Instance.Device, cache.Cache, pipelineInfo, out var graphicsPipeline);
+            if (result!= VkResult.Success)
+            {
+                throw new Exception(string.Format("Failed to create graphics pipeline! {0}", result.ToString()));
+            }
+
+            return graphicsPipeline;
+        }
+
+        private static unsafe VkPipelineVertexInputStateCreateInfo GetVertexInputState(VkVertexInputBindingDescription[] bindingDescriptions, VkVertexInputAttributeDescription[] attributeDescriptions, VkVertexInputBindingDescription* pBindingDescriptions, VkVertexInputAttributeDescription* pAttributeDescriptions)
+        {
+            for (int i = 0; i < bindingDescriptions.Length; i++)
+            {
+                pBindingDescriptions[i] = bindingDescriptions[i];
+            }
+            for (int i = 0; i < attributeDescriptions.Length; i++)
+            {
+                pAttributeDescriptions[i] = attributeDescriptions[i];
+            }
+
+            VkPipelineVertexInputStateCreateInfo vertexInputInfo = new()
+            {
+                vertexAttributeDescriptionCount = (uint)attributeDescriptions.Length,
+                vertexBindingDescriptionCount = (uint)bindingDescriptions.Length,
+                pVertexAttributeDescriptions = pAttributeDescriptions,
+                pVertexBindingDescriptions = pBindingDescriptions
+            };
+
+            if (bindingDescriptions.Length == 0)
+            {
+                vertexInputInfo.vertexBindingDescriptionCount = 0;
+                vertexInputInfo.pVertexBindingDescriptions = null;
+            }
+
+            if (bindingDescriptions.Length == 0)
+            {
+                vertexInputInfo.vertexAttributeDescriptionCount = 0;
+                vertexInputInfo.pVertexAttributeDescriptions = null;
+            }
+
+            return vertexInputInfo;
         }
     }
 }

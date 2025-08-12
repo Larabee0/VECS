@@ -42,7 +42,7 @@ namespace VECS
 
         public void BindPipeline(RendererFrameInfo frameInfo)
         {
-            _materialPipeline.Bind(frameInfo.CommandBuffer);
+            Vulkan.vkCmdBindPipeline(frameInfo.CommandBuffer, VkPipelineBindPoint.Graphics, _graphicsPipeline);
         }
 
         private unsafe void BindDescriptors(RendererFrameInfo frameInfo)
