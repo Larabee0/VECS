@@ -16,6 +16,8 @@ namespace VECS
     public class GPUBuffer : IDisposable
     {
         public readonly static Queue<GPUBuffer> DisposalQueue = [];
+
+        private GPUBuffer _stagingBuffer;
         public VkBuffer VkBuffer;
         internal VmaAllocation _allocation;
 
@@ -27,13 +29,14 @@ namespace VECS
         protected bool _CPUAccess;
         protected bool _disposed;
         protected bool _GPUBufferChanged;
+        protected bool _persistentStagingBuffer;
         internal unsafe void* _hostPtr;
         public ulong VkBufferSize => _vkBufferSize;
 
-        public bool Disposed => _disposed;
+        public bool IsDisposed => _disposed;
+        public bool PersistentStagingBuffer => _persistentStagingBuffer;
         public bool CPUAccess => _CPUAccess;
         public ulong HostAlignment => _hostAlignment;
-        public bool IsDisposed => _disposed;
         public uint InstanceSize => (uint)_instanceSize;
         public ulong HostBufferSize => Math.Max(_hostAlignment, _instanceSize) * _instanceCount;
         public uint HostBufferSize32 => (uint)HostBufferSize;
@@ -43,6 +46,7 @@ namespace VECS
         public long InstanceCount => (long)_instanceCount;
         public VkBufferUsageFlags UsageFlags => _usageFlags;
         public unsafe void* HostPtr => _hostPtr;
+        public GPUBuffer StagingBuffer => _stagingBuffer;
 
         public GPUBuffer()
         {
@@ -54,11 +58,13 @@ namespace VECS
             uint instanceCount, ulong instanceSize,
             VkBufferUsageFlags usageFlags,
             bool cpuAccessible,
-            bool preventHostAllocation = false)
+            bool preventHostAllocation,
+            bool persistentStagingBuffer)
         {
             _instanceSize = instanceSize;
             _instanceCount = instanceCount;
             _usageFlags = usageFlags;
+            _persistentStagingBuffer = persistentStagingBuffer;
 
             CreateInternal(cpuAccessible, preventHostAllocation);
         }
@@ -68,11 +74,13 @@ namespace VECS
             uint instanceCount,
             VkBufferUsageFlags usageFlags,
             bool cpuAccessible,
-            bool preventHostAllocation = false)
+            bool preventHostAllocation,
+            bool persistentStagingBuffer)
         {
             _instanceSize = instanceSize;
             _instanceCount = instanceCount;
             _usageFlags = usageFlags;
+            _persistentStagingBuffer = persistentStagingBuffer;
 
             CreateInternal(cpuAccessible, preventHostAllocation);
         }
@@ -81,11 +89,13 @@ namespace VECS
             ulong instanceCount, ulong instanceSize,
             VkBufferUsageFlags usageFlags,
             bool cpuAccessible,
-            bool preventHostAllocation = false)
+            bool preventHostAllocation,
+            bool persistentStagingBuffer)
         {
             _instanceSize = instanceSize;
             _instanceCount = instanceCount;
             _usageFlags = usageFlags;
+            _persistentStagingBuffer = persistentStagingBuffer;
 
             CreateInternal(cpuAccessible, preventHostAllocation);
         }
@@ -117,9 +127,15 @@ namespace VECS
                     _hostPtr = NativeMemory.AlignedAlloc((nuint)_vkBufferSize, (nuint)_hostAlignment);
                     NativeMemory.Fill(_hostPtr, (nuint)_vkBufferSize, 0);
                 }
-                allocationInfo.flags = VmaAllocationCreateFlags.HostAccessSequentialWrite | VmaAllocationCreateFlags.Mapped;
+                allocationInfo.flags = VmaAllocationCreateFlags.HostAccessSequentialWrite;
+            }
+            else if(_persistentStagingBuffer)
+            {
+                _stagingBuffer = new(_instanceSize, _instanceCount, VkBufferUsageFlags.TransferSrc | VkBufferUsageFlags.TransferDst, true, preventHostAllocation, false);
             }
             var result = Vma.vmaCreateBuffer(GraphicsDevice.Instance.VmaAllocator, bufferInfo, allocationInfo, out VkBuffer, out _allocation);
+            VmaAllocationInfo vmaAllocationInfo = default;
+            Vma.vmaGetAllocationInfo(GraphicsDevice.Instance.VmaAllocator, _allocation, &vmaAllocationInfo);
 
 #if LOG_BUFFER_ALLOCS
             StackTrace trace = new(true);
@@ -145,13 +161,16 @@ namespace VECS
         public unsafe void Dispose()
         {
             GC.SuppressFinalize(this);
+            
             if (VkBufferSize == 0 || _disposed) return;
-
+            _stagingBuffer?.Dispose();
+            _stagingBuffer = null;
             NativeMemory.AlignedFree(_hostPtr);
             _hostPtr = null;
             Vma.vmaDestroyBuffer(GraphicsDevice.Instance.VmaAllocator, VkBuffer, _allocation);
 
             _disposed = true;
+            
         }
 
         public static void EmptyDisposalQueue()
@@ -185,11 +204,13 @@ namespace VECS
             uint instanceCount,
             VkBufferUsageFlags usageFlags,
             bool cpuAccessible,
-            bool preventHostAllocation = false)
+            bool preventHostAllocation,
+            bool persistentStagingBuffer)
         {
             _instanceSize = (ulong)sizeof(T);
             _instanceCount = instanceCount;
             _usageFlags = usageFlags;
+            _persistentStagingBuffer = persistentStagingBuffer;
 
             CreateInternal(cpuAccessible, preventHostAllocation);
         }
@@ -199,11 +220,13 @@ namespace VECS
             uint instanceCount,
             VkBufferUsageFlags usageFlags,
             bool cpuAccessible,
-            bool preventHostAllocation = false)
+            bool preventHostAllocation,
+            bool persistentStagingBuffer)
         {
             _instanceSize = instanceSize;
             _instanceCount = instanceCount;
             _usageFlags = usageFlags;
+            _persistentStagingBuffer = persistentStagingBuffer;
 
             CreateInternal(cpuAccessible, preventHostAllocation);
         }
@@ -212,11 +235,13 @@ namespace VECS
             ulong instanceCount,
             VkBufferUsageFlags usageFlags,
             bool cpuAccessible,
-            bool preventHostAllocation = false)
+            bool preventHostAllocation,
+            bool persistentStagingBuffer)
         {
             _instanceSize = (ulong)sizeof(T);
             _instanceCount = instanceCount;
             _usageFlags = usageFlags;
+            _persistentStagingBuffer = persistentStagingBuffer;
             
             CreateInternal(cpuAccessible, preventHostAllocation);
         }

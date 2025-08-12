@@ -6,7 +6,7 @@ using VECS;
 
 namespace Planets.Generator
 {
-    public sealed class ShapeGenerator : IDisposable
+    public sealed class ShapeGenerator
     {
         public float PlanetRadius = 1;
         public int Seed = 0;
@@ -29,10 +29,10 @@ namespace Planets.Generator
             ColourSettings = colourSettings;
         }
 
-        public void SetColourSettings(ColourSettings colourSettings)
+        public void SetColourSettings(ColourSettings colourSettings, string textureName)
         {
             ColourSettings = colourSettings;
-            ColourGenerator.UpdateSettings(colourSettings);
+            ColourGenerator.UpdateSettings(colourSettings,textureName);
         }
 
         public int RandomiseSeed()
@@ -103,11 +103,6 @@ namespace Planets.Generator
             float elevation = MathF.Max(0, unscaledElevation);
             elevation = PlanetRadius * (1 + elevation);
             return elevation;
-        }
-
-        public void Dispose()
-        {
-            ColourGenerator.Dispose();
         }
     }
 

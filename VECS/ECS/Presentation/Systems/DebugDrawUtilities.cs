@@ -39,10 +39,10 @@ namespace VECS.ECS.Presentation
                 .WithAll(typeof(CameraPerspective), typeof(Camera), typeof(LocalToWorld))
                 .WithNone(typeof(Prefab),typeof(MainCamera))
                 .Build();
-            _circleBuffer = new(32, VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferDst, true);
-            _frustrumBuffer = new(16*1000, VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferDst, true);
-            _cubeBuffer = new(16, VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferDst, true);
-            _lineBuffer = new(MAX_LINES, VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferDst, true);
+            _circleBuffer = new(32, VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferDst, true, false, false);
+            _frustrumBuffer = new(16 * 1000, VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferDst, true, false, false);
+            _cubeBuffer = new(16, VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferDst, true, false, false);
+            _lineBuffer = new(MAX_LINES, VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferDst, true, false, false);
 
             _lineBuffer.FillBufferSingleTimeCmd(0);
 

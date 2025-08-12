@@ -54,11 +54,11 @@ namespace VECS.DataStructures
                 attributeDescriptions = [.. descriptions];
             }
 
-            DirectSubMeshCreateData[] directMeshCreateInfo = new DirectSubMeshCreateData[scene.MeshCount];
+            DirectSubMeshCreateInfo[] directMeshCreateInfo = new DirectSubMeshCreateInfo[scene.MeshCount];
 
             for (int i = 0; i < scene.MeshCount; i++)
             {
-                directMeshCreateInfo[i] = new DirectSubMeshCreateData((uint)scene.Meshes[i].VertexCount,
+                directMeshCreateInfo[i] = new DirectSubMeshCreateInfo((uint)scene.Meshes[i].VertexCount,
                     (uint)scene.Meshes[i].GetUnsignedIndices().Length);
             }
 
@@ -289,11 +289,11 @@ namespace VECS.DataStructures
                 attributeDescriptions = [.. descriptions];
             }
 
-            DirectSubMeshCreateData[] directMeshCreateInfo = new DirectSubMeshCreateData[sceneMeshes.Count];
+            DirectSubMeshCreateInfo[] directMeshCreateInfo = new DirectSubMeshCreateInfo[sceneMeshes.Count];
 
             for (int i = 0; i < sceneMeshes.Count; i++)
             {
-                directMeshCreateInfo[i] = new DirectSubMeshCreateData((uint)sceneMeshes[i].VertexCount,
+                directMeshCreateInfo[i] = new DirectSubMeshCreateInfo((uint)sceneMeshes[i].VertexCount,
                     (uint)sceneMeshes[i].GetUnsignedIndices().Length);
             }
 

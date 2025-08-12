@@ -110,7 +110,7 @@ namespace VECS
 
             if (buffer.CPUAccess)
             {
-                allocationInfo.flags = VmaAllocationCreateFlags.HostAccessSequentialWrite | VmaAllocationCreateFlags.Mapped;
+                allocationInfo.flags = VmaAllocationCreateFlags.HostAccessSequentialWrite;
 
                 buffer._hostPtr = NativeMemory.AlignedRealloc(buffer._hostPtr, (nuint)buffer._vkBufferSize, (nuint)buffer.HostAlignment);
                 var fillCount = (newInstanceCount - oldInstanceCount) * Math.Max(buffer.HostAlignment, buffer.InstanceSize);
@@ -208,10 +208,11 @@ namespace VECS
                     NativeMemory.Copy(data, memOffset, (uint)size);
                 }
                 Unmap(buffer);
+                Flush(buffer, size, offset);
             }
             else
             {
-                var stagingBuffer = new GPUBuffer(buffer.UInstanceCount, buffer.InstanceSize, VkBufferUsageFlags.TransferSrc, true);
+                var stagingBuffer = new GPUBuffer(buffer.UInstanceCount, buffer.InstanceSize, VkBufferUsageFlags.TransferSrc, true, false, false);
                 stagingBuffer.WriteToBuffer(data, size, offset);
                 stagingBuffer.CopyToSingleTime(buffer);
                 stagingBuffer.Dispose();
@@ -240,10 +241,24 @@ namespace VECS
             }
             else
             {
-                var stagingBuffer = new GPUBuffer(buffer.UInstanceCount, buffer.InstanceSize, VkBufferUsageFlags.TransferDst, true);
+                GPUBuffer stagingBuffer;
+                if (buffer.PersistentStagingBuffer)
+                {
+                    stagingBuffer = buffer.StagingBuffer;
+                }
+                else
+                {
+                    stagingBuffer = new GPUBuffer(buffer.UInstanceCount, buffer.InstanceSize, VkBufferUsageFlags.TransferDst, true, false, false);
+                }
+
                 buffer.CopyToSingleTime(stagingBuffer);
                 stagingBuffer.ReadFromBuffer(readout, size, offset);
-                stagingBuffer.Dispose();
+
+                if (!buffer.PersistentStagingBuffer)
+                {
+                    stagingBuffer.Dispose();
+                }
+                
             }
         }
 

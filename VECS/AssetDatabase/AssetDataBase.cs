@@ -53,7 +53,7 @@ namespace VECS
             {
                 T t = asset;
                 var untocuhedname = asset.AssetName;
-                t.AssetName += (int)MathF.Round(Random.Shared.NextSingle() * 1000f);
+                t.AssetName +="^"+ (int)MathF.Round(Random.Shared.NextSingle() * 1000f);
                 Console.WriteLine(string.Concat(
                 [
                         "Adding duplicate ",

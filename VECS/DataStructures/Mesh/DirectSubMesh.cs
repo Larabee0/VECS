@@ -15,6 +15,7 @@ namespace VECS
         public DirectMesh DirectMeshBuffer => _directMeshBuffer;
 
         public DirectSubMeshInfo DirectSubMeshInfo => _directMeshBuffer.SubMeshInfos[_directSubMeshIndex];
+        public DirectSubMeshCreateInfo DirectSubMeshCreateInfo => new(VertexCount, IndexCount);
 
         public VkDrawIndexedIndirectCommand IndirectCommand => DirectSubMeshInfo.IndirectDrawCmd;
         public RenderBounds Bounds => _bounds;
@@ -179,12 +180,12 @@ namespace VECS
             Vulkan.vkCmdDrawIndexed(cmd, drawCmd.indexCount, 1, drawCmd.firstIndex, drawCmd.vertexOffset, 0);
         }
 
-        public void Reallocate(DirectSubMeshCreateData directSubMeshCreateData)
+        public void Reallocate(DirectSubMeshCreateInfo directSubMeshCreateData)
         {
             _directMeshBuffer.ReallocateSubMesh(_directSubMeshIndex,directSubMeshCreateData);
         }
 
-        public void SoftReallocate(DirectSubMeshCreateData directSubMeshCreateData)
+        public void SoftReallocate(DirectSubMeshCreateInfo directSubMeshCreateData)
         {
             _directMeshBuffer.SoftReallocateSubMesh(_directSubMeshIndex, directSubMeshCreateData);
         }

@@ -5,12 +5,14 @@ using System.Threading.Tasks;
 using VECS.DataStructures;
 using VECS.ECS;
 using VECS.ECS.Presentation;
+using VECS.LowLevel;
 using Vortice.Vulkan;
 
 namespace VECS
 {
     public static class MeshExtensions
     {
+        #region  Subdivision
         private const int VERTEX_WRITE_OFFSET = 3;
         public const VkBufferUsageFlags DIRECT_MESH_VERTEX_BUFFER_FLAGS = VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.TransferSrc | VkBufferUsageFlags.StorageBuffer;
         public const VkBufferUsageFlags DIRECT_MESH_INDEX_BUFFER_FLAGS = VkBufferUsageFlags.IndexBuffer | VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.TransferSrc | VkBufferUsageFlags.StorageBuffer;
@@ -18,7 +20,7 @@ namespace VECS
 
         public static DirectMesh Subdivide(this DirectMesh srcMesh, int divisions)
         {
-            DirectSubMeshCreateData[] newSubMeshes = new DirectSubMeshCreateData[srcMesh.SubMeshInfos.Length];
+            DirectSubMeshCreateInfo[] newSubMeshes = new DirectSubMeshCreateInfo[srcMesh.SubMeshInfos.Length];
             uint vertexCountPerFace = GetVertsPerFace(divisions);
             uint indexCountPerFace = GetIndicesPerFace(divisions);
             for (int i = 0; i < srcMesh.SubMeshInfos.Length; i++)
@@ -26,6 +28,9 @@ namespace VECS
                 var existingSubMesh = srcMesh.SubMeshInfos[i];
                 newSubMeshes[i] = new(vertexCountPerFace * (existingSubMesh.IndexCount / 3), indexCountPerFace * (existingSubMesh.IndexCount / 3));
             }
+
+            AssetDataBase<DirectMesh>.Remove(srcMesh);
+            AssetDataBase<DirectSubMesh>.RemoveRange(srcMesh.DirectSubMeshes);
 
             DirectMesh newBuffer = new(srcMesh.AssetName, srcMesh.AttributeDescriptions, newSubMeshes);
 
@@ -55,6 +60,12 @@ namespace VECS
                     }
                 });
             srcMesh.Dispose();
+
+            for (int i = 0; i < dstSubMeshes.Length; i++)
+            {
+                AssetDataBase<DirectSubMesh>.Add(dstSubMeshes[i]);
+            } 
+            
             return newBuffer;
         }
 
@@ -264,6 +275,8 @@ namespace VECS
             }
         }
 
+        #endregion
+
         public static VkVertexInputBindingDescription[] GetBindingDescription(VertexAttributeDescription[] vertexAttributes)
         {
             VkVertexInputBindingDescription[] bindingDescriptions = new VkVertexInputBindingDescription[vertexAttributes.Length];
@@ -328,7 +341,7 @@ namespace VECS
 
         private static GPUBuffer<T> CreateBuffer<T>(ulong vertexCount) where T : unmanaged
         {
-            var buffer = new GPUBuffer<T>(vertexCount, DIRECT_MESH_VERTEX_BUFFER_FLAGS, false);
+            var buffer = new GPUBuffer<T>(vertexCount, DIRECT_MESH_VERTEX_BUFFER_FLAGS, false, false, true);
 
             buffer.TryAllocHostBuffer(false);
 
@@ -377,6 +390,47 @@ namespace VECS
             }
 
             return faceNormals;
+        }
+
+        public static unsafe DirectMesh CreateCopy(this DirectMesh src, string name)
+        {
+            var subMeshes = new DirectSubMeshCreateInfo[src.DirectSubMeshes.Length];
+            for (int i = 0; i < subMeshes.Length; i++)
+            {
+                subMeshes[i] = src.DirectSubMeshes[i].DirectSubMeshCreateInfo;
+            }
+            var dst = new DirectMesh(name, src.AttributeDescriptions, subMeshes);
+
+            if (src.CPU_Dellocated)
+            {
+                VkCommandBuffer cmd = GraphicsDevice.Instance.BeginSingleTimeCommands();
+                var srcVertexBuffers = src._vertexBuffers;
+                var dstVertexBuffers = dst._vertexBuffers;
+                for (int i = 0; i < src.AllAttributesInOrder.Length; i++)
+                {
+                    var attribute = src.AllAttributesInOrder[i];
+                    srcVertexBuffers[attribute].CopyTo(cmd, dstVertexBuffers[attribute]);
+                }
+
+                src.IndexBuffer.CopyTo(cmd, dst.IndexBuffer);
+                GraphicsDevice.Instance.EndSingleTimeCommands(cmd);
+                dst.ReadAllBuffers();
+            }
+            else
+            {
+                for (int i = 0; i < src.AllAttributesInOrder.Length; i++)
+                {
+                    var attribute = src.AllAttributesInOrder[i];
+                    var srcBufferSize = src._vertexBuffers[attribute].HostBufferSize32;
+                    var srcBuffer = src.GetUnsafeVertexBuffer(attribute, 0);
+                    var dstBuffer = dst.GetUnsafeVertexBuffer(attribute, 0);
+                    NativeMemory.Copy(srcBuffer, dstBuffer, srcBufferSize);
+                }
+                NativeMemory.Copy(src.IndexBuffer.HostPtr, dst.IndexBuffer.HostPtr, src.IndexBuffer.HostBufferSize32);
+                dst.FlushAll();
+            }
+
+            return dst;
         }
     }
 }

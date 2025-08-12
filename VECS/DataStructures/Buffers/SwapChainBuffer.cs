@@ -187,7 +187,7 @@ namespace VECS
 
             for (int i = 0; i < SwapChain.MAX_FRAMES_IN_FLIGHT; i++)
             {
-                _buffers[i] = new(_instanceCount, _instanceSize, _usageFlags, _CPUAccessible, true);
+                _buffers[i] = new(_instanceCount, _instanceSize, _usageFlags, _CPUAccessible, true, !_CPUAccessible);
             }
 
             if (preventHostAllocation)

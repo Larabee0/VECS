@@ -143,7 +143,7 @@ namespace VECS
 
         public static void CopyFromArray<T>(this Texture texture, T[] colours) where T : unmanaged
         {
-            var stagingBuffer = new GPUBuffer<T>((ulong)colours.Length, VkBufferUsageFlags.TransferSrc, true);
+            var stagingBuffer = new GPUBuffer<T>((ulong)colours.Length, VkBufferUsageFlags.TransferSrc, true, false, false);
 
             stagingBuffer.WriteToBuffer(colours);
 
@@ -187,7 +187,7 @@ namespace VECS
             
             if (createNewBuffer || texture._hostBuffer == null)
             {
-                texture._hostBuffer = new(texture.BufferInstanceCount, (uint)texture.BufferInstanceSize, VkBufferUsageFlags.TransferSrc | VkBufferUsageFlags.TransferDst, true);
+                texture._hostBuffer = new(texture.BufferInstanceCount, (uint)texture.BufferInstanceSize, VkBufferUsageFlags.TransferSrc | VkBufferUsageFlags.TransferDst, true, false, false);
             }
             if (copyFromGPUNow)
                 {

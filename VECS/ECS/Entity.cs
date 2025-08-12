@@ -20,6 +20,11 @@ namespace VECS.ECS
             Version = version;
         }
 
+        public override readonly string ToString()
+        {
+            return string.Format("{0}.{1}", Id, Version);
+        }
+
         public override readonly int GetHashCode()
         {
             return HashCode.Combine(Id, Version);

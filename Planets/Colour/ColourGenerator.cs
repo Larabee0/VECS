@@ -6,25 +6,25 @@ using Vortice.Vulkan;
 
 namespace Planets.Colour
 {
-    public sealed class ColourGenerator : IDisposable
+    public sealed class ColourGenerator
     {
         public ColourSettings settings;
         const int textureResolution = 256;
         public Texture2D colourTexture;
         public Texture2D steepTexture;
 
-        public void UpdateSettings(ColourSettings settings)
+        public void UpdateSettings(ColourSettings settings, string textureName)
         {
             this.settings = settings;
             if (colourTexture == null || colourTexture.ImageExtent.height != settings.biomeColourSettings.biomes.Length)
             {
                 colourTexture?.Dispose();
-                colourTexture = new("PlanetColour",textureResolution * 2, settings.biomeColourSettings.biomes.Length, VkFormat.R32G32B32A32Sfloat, VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferDst,false);
+                colourTexture = new("PlanetColour."+textureName,textureResolution * 2, settings.biomeColourSettings.biomes.Length, VkFormat.R32G32B32A32Sfloat, VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferDst,false);
             }
             if (steepTexture == null || steepTexture.ImageExtent.height != settings.biomeColourSettings.biomes.Length)
             {
                 steepTexture?.Dispose();
-                steepTexture = new("PlanetSteepness",textureResolution * 2, settings.biomeColourSettings.biomes.Length,VkFormat.R32G32B32A32Sfloat, VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferDst,false);
+                steepTexture = new("PlanetSteepness."+textureName,textureResolution * 2, settings.biomeColourSettings.biomes.Length,VkFormat.R32G32B32A32Sfloat, VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferDst,false);
             }
         }
 
@@ -40,7 +40,7 @@ namespace Planets.Colour
             {
                 float dst = heightPercent - settings.biomeColourSettings.biomes[i].startHeight;
                 float weight = NumericsExtensions.InverseLerp(-blendRange, blendRange, dst);
-                biomeIndex *= (1 - weight);
+                biomeIndex *= 1 - weight;
                 biomeIndex += i * weight;
             }
 
@@ -80,14 +80,6 @@ namespace Planets.Colour
 
             colourTexture.CopyFromArray(colours);
             steepTexture.CopyFromArray(steepColours);
-        }
-
-        public void Dispose()
-        {
-            colourTexture?.Dispose();
-            colourTexture = null;
-            steepTexture?.Dispose();
-            steepTexture = null;
         }
     }
 }

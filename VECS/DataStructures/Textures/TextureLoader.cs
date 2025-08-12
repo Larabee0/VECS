@@ -64,7 +64,7 @@ namespace VECS
                 throw new Exception("Provided image surface is not in the right format, or device is null");
             }
 
-            var stagingBuffer = new GPUBuffer<Colour>((uint)surface.Width * (uint)surface.Height, VkBufferUsageFlags.TransferSrc, true);
+            var stagingBuffer = new GPUBuffer<Colour>((uint)surface.Width * (uint)surface.Height, VkBufferUsageFlags.TransferSrc, true,false,false);
 
             Colour* pMappedData;
 
@@ -91,7 +91,7 @@ namespace VECS
                 }
             }
 
-            var stagingBuffer = new GPUBuffer<Colour>((uint)surfaces[0].Width * (uint)surfaces[0].Height * (uint)surfaces.Length, VkBufferUsageFlags.TransferSrc, true);
+            var stagingBuffer = new GPUBuffer<Colour>((uint)surfaces[0].Width * (uint)surfaces[0].Height * (uint)surfaces.Length, VkBufferUsageFlags.TransferSrc, true, false, false);
             Colour[] singleImageColourData = new Colour[(int)(width * height)];
             uint singleImageSize = (uint)(width * height * sizeof(Colour));
             ulong copyStartOffset = 0;

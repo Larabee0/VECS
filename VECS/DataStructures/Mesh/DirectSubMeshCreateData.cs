@@ -1,11 +1,11 @@
 ﻿namespace VECS
 {
-    public readonly struct DirectSubMeshCreateData
+    public readonly struct DirectSubMeshCreateInfo
     {
         public readonly uint VertexCount;
         public readonly uint IndexCount;
 
-        public DirectSubMeshCreateData(uint vertexCount, uint indexCount)
+        public DirectSubMeshCreateInfo(uint vertexCount, uint indexCount)
         {
             VertexCount = vertexCount;
             IndexCount = indexCount;

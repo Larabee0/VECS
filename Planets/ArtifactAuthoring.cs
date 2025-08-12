@@ -101,6 +101,7 @@ namespace Planets
             LogAssetCounts();
         }
 
+
         private static void LogAssetCounts()
         {
             Console.WriteLine("Logging Assets Counts...");
@@ -628,10 +629,20 @@ namespace Planets
 
         public static void InitialiseTiles(EntityManager entityManager, Entity planetRoot, int subdivisons)
         {
-            var planetTileMeshes = MeshLoader.LoadModelFromFile(
+            Stopwatch loadTime = new();
+            loadTime.Start();
+            var planetTileBase = AssetDataBase<DirectMesh>.GetNamedSilentFail("Comp305-Shape-Split");
+            if (planetTileBase == null)
+            {
+                planetTileBase = MeshLoader.LoadModelFromFile(
                 MeshLoader.GetMeshInDefaultPath("Comp305-Shape-Split.obj"),
-                [new VertexAttributeDescription(VertexAttribute.TexCoord0, VertexAttributeFormat.Float2)]);
-            planetTileMeshes[0].DirectMeshBuffer.RecalcualteAllNormals();
+                [new VertexAttributeDescription(VertexAttribute.TexCoord0, VertexAttributeFormat.Float2)])[0].DirectMeshBuffer;
+                planetTileBase.RecalcualteAllNormals();
+            }
+            planetTileBase = planetTileBase.CreateCopy(planetTileBase.AssetName + planetRoot.ToString());
+            var planetTileMeshes = planetTileBase.DirectSubMeshes;
+            loadTime.Stop();
+            Console.WriteLine("Planet Mesh Instantiation time {0}ms", loadTime.ElapsedMilliseconds);
             Vector3[] tileNormals = new Vector3[planetTileMeshes.Length];
             for (int i = 0; i < planetTileMeshes.Length; i++)
             {
@@ -678,7 +689,7 @@ namespace Planets
             _stopwatch.Restart();
             generator.MinMax = new MinMax();
             generator.ColourGenerator = new();
-            generator.SetColourSettings(generator.ColourSettings);
+            generator.SetColourSettings(generator.ColourSettings,planetRoot.ToString());
             DirectSubMeshIndex[] meshIndices = World.DefaultWorld.EntityManager.GetComponentsInHierarchy<DirectSubMeshIndex>(planetRoot);
 
             DirectSubMesh[] meshes = new DirectSubMesh[meshIndices.Length];
@@ -787,7 +798,7 @@ namespace Planets
                 new VertexAttributeDescription(VertexAttribute.Colour,VertexAttributeFormat.Float3),
             ];
 
-            var directMesh = new DirectMesh("Cube", attributeDescriptions, [new DirectSubMeshCreateData(36, 36)]);
+            var directMesh = new DirectMesh("Cube", attributeDescriptions, [new DirectSubMeshCreateInfo(36, 36)]);
             var subMesh = directMesh.DirectSubMeshes[0];
             subMesh.AssetName = "Cube.Cube";
             var vertices = subMesh.Vertices;

@@ -78,7 +78,7 @@ namespace VECS
             {
                 if (_indexOffsetBuffer == null)
                 {
-                    _indexOffsetBuffer ??= new(IndexBufferLength, VkBufferUsageFlags.StorageBuffer, true);
+                    _indexOffsetBuffer ??= new GPUBuffer<uint>(IndexBufferLength, VkBufferUsageFlags.StorageBuffer, true, false, false);
                     var offsets = _indexOffsetBuffer.HostBuffer;
 
                     for (int i = 0; i < SubMeshInfos.Length; i++)
@@ -125,7 +125,7 @@ namespace VECS
         public ulong IndexBufferLength => _allocatedIndexCount;
         public ulong IndexBufferSize => sizeof(uint) * _allocatedIndexCount;
 
-        public DirectMesh(string name, VertexAttributeDescription[] requestedVertexAttributes, DirectSubMeshCreateData[] meshes)
+        public DirectMesh(string name, VertexAttributeDescription[] requestedVertexAttributes, DirectSubMeshCreateInfo[] meshes)
         {
             AssetName = name;
             _subMeshInfo = new DirectSubMeshInfo[meshes.Length];
@@ -151,11 +151,9 @@ namespace VECS
                 this.AddVertexBufferByAttribute(requestedVertexAttributes[i]);
             }
 
-            _indexBuffer = new(_allocatedIndexCount, MeshExtensions.DIRECT_MESH_INDEX_BUFFER_FLAGS, false);
+            _indexBuffer = new(_allocatedIndexCount, MeshExtensions.DIRECT_MESH_INDEX_BUFFER_FLAGS, false, false, true);
 
             _indexBuffer.TryAllocHostBuffer(false);
-
-            ZeroBuffers();
 
             VertexAttributeDescription[] vertexAttributes = new VertexAttributeDescription[_consumedAttributes.Values.Count];
             _attributesInOrder = new VertexAttribute[vertexAttributes.Length];
@@ -388,22 +386,6 @@ namespace VECS
             _faceNormals ??= this.ComputeFaceNormals();
         }
 
-        public void ZeroBuffers()
-        {
-            VkCommandBuffer cmd = GraphicsDevice.Instance.BeginSingleTimeCommands();
-
-            foreach (var buffer in _vertexBuffers.Values)
-            {
-                buffer.FillBuffer(cmd, 0);
-                buffer.SetGPUBufferChanged(false);
-            }
-
-            _indexBuffer.FillBuffer(cmd, 0);
-            _indexBuffer.SetGPUBufferChanged(false);
-
-            GraphicsDevice.Instance.EndSingleTimeCommands(cmd);
-        }
-
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void BindAllBuffers(VkCommandBuffer cmd)
         {
@@ -516,7 +498,7 @@ namespace VECS
         }
 
         #region Reallocation
-        public unsafe void ReallocateSubMesh(int subMeshIndex, DirectSubMeshCreateData newBufferSizes)
+        public unsafe void ReallocateSubMesh(int subMeshIndex, DirectSubMeshCreateInfo newBufferSizes)
         {
             var currentData = _subMeshInfo[subMeshIndex];
 
@@ -564,7 +546,7 @@ namespace VECS
             }
         }
 
-        private void ReallocateVertexBuffers(VkCommandBuffer cmd, int subMeshIndex, DirectSubMeshCreateData newBufferSizes, DirectSubMeshInfo currentData)
+        private void ReallocateVertexBuffers(VkCommandBuffer cmd, int subMeshIndex, DirectSubMeshCreateInfo newBufferSizes, DirectSubMeshInfo currentData)
         {
             for (int i = 0; i < _attributesInOrder.Length; i++)
             {
@@ -574,11 +556,11 @@ namespace VECS
             }
         }
 
-        private unsafe void ReallocateVertexBuffer(VkCommandBuffer cmd, VertexAttribute vertexAttribute, int subMeshIndex, DirectSubMeshCreateData newBufferSizes, DirectSubMeshInfo currentData)
+        private unsafe void ReallocateVertexBuffer(VkCommandBuffer cmd, VertexAttribute vertexAttribute, int subMeshIndex, DirectSubMeshCreateInfo newBufferSizes, DirectSubMeshInfo currentData)
         {
             var currentVertexBuffer = _vertexBuffers[vertexAttribute];
             var instanceSize = currentVertexBuffer.InstanceSize;
-            var newVertexBuffer = new GPUBuffer(_allocatedVertexCount, currentVertexBuffer.InstanceSize, MeshExtensions.DIRECT_MESH_VERTEX_BUFFER_FLAGS, false);
+            var newVertexBuffer = new GPUBuffer(_allocatedVertexCount, currentVertexBuffer.InstanceSize, MeshExtensions.DIRECT_MESH_VERTEX_BUFFER_FLAGS, false, false, true);
             newVertexBuffer.FillBuffer(cmd, 0);
 
             uint srcOffset = 0;
@@ -615,9 +597,9 @@ namespace VECS
             _vertexBuffers[vertexAttribute] = newVertexBuffer;
         }
 
-        private unsafe void ReallocateIndexBuffer(VkCommandBuffer cmd, int subMeshIndex, DirectSubMeshCreateData newBufferSizes, DirectSubMeshInfo currentData)
+        private unsafe void ReallocateIndexBuffer(VkCommandBuffer cmd, int subMeshIndex, DirectSubMeshCreateInfo newBufferSizes, DirectSubMeshInfo currentData)
         {
-            var newIndexBuffer = new GPUBuffer<uint>(_allocatedIndexCount, MeshExtensions.DIRECT_MESH_INDEX_BUFFER_FLAGS, false);
+            var newIndexBuffer = new GPUBuffer<uint>(_allocatedIndexCount, MeshExtensions.DIRECT_MESH_INDEX_BUFFER_FLAGS, false, false, true);
             newIndexBuffer.FillBuffer(cmd, 0);
             uint srcOffset = 0;
             uint dstOffset = 0;
@@ -667,7 +649,7 @@ namespace VECS
         {
             return DirectMeshes.IndexOf(mesh);
         }
-
+        
         public unsafe void ReadAllBuffers()
         {
             VkCommandBuffer singleTime = GraphicsDevice.Instance.BeginSingleTimeCommands();
@@ -693,7 +675,7 @@ namespace VECS
             GPUBuffer[] tmpReadBuffers = new GPUBuffer[buffers.Length];
             for (int i = 0; i < buffers.Length; i++)
             {
-                tmpReadBuffers[i] = new GPUBuffer(buffers[i].UInstanceCount, buffers[i].InstanceSize, VkBufferUsageFlags.TransferDst, true);
+                tmpReadBuffers[i] = new GPUBuffer(buffers[i].UInstanceCount, buffers[i].InstanceSize, VkBufferUsageFlags.TransferDst, true, false, false);
                 buffers[i].CopyTo(commandBuffer, tmpReadBuffers[i]);
             }
             return [buffers, tmpReadBuffers];
@@ -722,7 +704,7 @@ namespace VECS
             tmpReadBuffers.ForEach(buffer => buffer.Dispose());
         }
 
-        public void SoftReallocateSubMesh(int subMeshIndex, DirectSubMeshCreateData directSubMeshCreateData)
+        public void SoftReallocateSubMesh(int subMeshIndex, DirectSubMeshCreateInfo directSubMeshCreateData)
         {
             var currentData = _subMeshInfo[subMeshIndex];
 
