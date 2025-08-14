@@ -99,7 +99,7 @@ namespace VECS.LowLevel
             VkCommandBufferAllocateInfo allocInfo = new()
             {
                 level = VkCommandBufferLevel.Primary,
-                commandPool = GraphicsDevice.CommandBufferPool,
+                commandPool = GraphicsDevice.MainCommandPool,
                 commandBufferCount = (uint)commandBuffers.Length
             };
 
@@ -116,7 +116,7 @@ namespace VECS.LowLevel
         {
             fixed (VkCommandBuffer* pCommandBuffers = &commandBuffers[0])
             {
-                Vulkan.vkFreeCommandBuffers(GraphicsDevice.Device, GraphicsDevice.CommandBufferPool, (uint)commandBuffers.Length, pCommandBuffers);
+                Vulkan.vkFreeCommandBuffers(GraphicsDevice.Device, GraphicsDevice.MainCommandPool, (uint)commandBuffers.Length, pCommandBuffers);
             }
         }
 

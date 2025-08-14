@@ -403,7 +403,7 @@ namespace VECS
 
             if (src.CPU_Dellocated)
             {
-                VkCommandBuffer cmd = GraphicsDevice.BeginSingleTimeCommands();
+                VkCommandBuffer cmd = GraphicsDevice.BeginSingleTimeMainPipe();
                 var srcVertexBuffers = src._vertexBuffers;
                 var dstVertexBuffers = dst._vertexBuffers;
                 for (int i = 0; i < src.AllAttributesInOrder.Length; i++)
@@ -413,7 +413,7 @@ namespace VECS
                 }
 
                 src.IndexBuffer.CopyTo(cmd, dst.IndexBuffer);
-                GraphicsDevice.EndSingleTimeCommands(cmd);
+                GraphicsDevice.EndSingleTimeMainPipe(cmd);
                 dst.ReadAllBuffers();
             }
             else

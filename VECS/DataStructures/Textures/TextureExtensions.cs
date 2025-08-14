@@ -158,9 +158,9 @@ namespace VECS
             {
                 if (texture._hostBuffer.UsageFlags.HasFlag(VkBufferUsageFlags.TransferSrc | VkBufferUsageFlags.TransferDst))
                 {
-                    var cmd = GraphicsDevice.BeginSingleTimeCommands();
+                    var cmd = GraphicsDevice.BeginSingleTimeMainPipe();
                     texture.CopyToBuffer(cmd, texture._hostBuffer);
-                    GraphicsDevice.EndSingleTimeCommands(cmd);
+                    GraphicsDevice.EndSingleTimeMainPipe(cmd);
                     texture._hostBuffer.ReadToHostBuffer();
 
                     return;
@@ -191,9 +191,9 @@ namespace VECS
             }
             if (copyFromGPUNow)
                 {
-                    var cmd = GraphicsDevice.BeginSingleTimeCommands();
+                    var cmd = GraphicsDevice.BeginSingleTimeMainPipe();
                     texture.CopyToBuffer(cmd, texture._hostBuffer);
-                    GraphicsDevice.EndSingleTimeCommands(cmd);
+                    GraphicsDevice.EndSingleTimeMainPipe(cmd);
                     texture._hostBuffer.ReadToHostBuffer();
                     texture.CopyFromBuffer(texture._hostBuffer);
                 }
@@ -201,7 +201,7 @@ namespace VECS
 
         internal static void CopyFromBuffer(this Texture texture, GPUBuffer buffer)
         {
-            var cmd = GraphicsDevice.BeginSingleTimeCommands();
+            var cmd = GraphicsDevice.BeginSingleTimeMainPipe();
             bool hintRegenerateMipMaps = CopyFromBuffer(texture, cmd, buffer);
             if (hintRegenerateMipMaps && texture.MipMapCount > 1)
             {
@@ -212,7 +212,7 @@ namespace VECS
             {
                 Console.WriteLine("Skipped mipmaps regeneration for texture");
             }
-            GraphicsDevice.EndSingleTimeCommands(cmd);
+            GraphicsDevice.EndSingleTimeMainPipe(cmd);
         }
 
         internal static unsafe bool CopyFromBuffer(this Texture texture, VkCommandBuffer cmdBuffer, GPUBuffer buffer)

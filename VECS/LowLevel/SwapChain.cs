@@ -143,13 +143,13 @@ namespace VECS.LowLevel
             _swapChainImageFormat = surfaceFormat.format;
             _swapChainExtent = extent;
 
-            var cmd = GraphicsDevice.BeginSingleTimeCommands();
+            var cmd = GraphicsDevice.BeginSingleTimeMainPipe();
             for (int i = 0; i < swapChainImagesSpan.Length; i++)
             {
                 TextureExtensions.SetImageLayout(cmd, _swapChainImages[i], VkImageAspectFlags.Color, VkImageLayout.Undefined, VkImageLayout.PresentSrcKHR, VkPipelineStageFlags.AllGraphics, VkPipelineStageFlags.AllGraphics);
             }
 
-            GraphicsDevice.EndSingleTimeCommands(cmd);
+            GraphicsDevice.EndSingleTimeMainPipe(cmd);
         }
 
         private unsafe void CreateSwapChainImageViews()

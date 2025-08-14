@@ -73,9 +73,9 @@ namespace VECS
             get => _imageLayout;
             set
             {
-                var cmd = GraphicsDevice.BeginSingleTimeCommands();
+                var cmd = GraphicsDevice.BeginSingleTimeMainPipe();
                 TextureExtensions.SetImageLayout(cmd, _vkImage, _aspectFlags, _imageLayout, value, VkPipelineStageFlags.AllCommands, VkPipelineStageFlags.AllCommands);
-                GraphicsDevice.EndSingleTimeCommands(cmd);
+                GraphicsDevice.EndSingleTimeMainPipe(cmd);
                 _imageLayout = value;
             }
         }
@@ -169,18 +169,18 @@ namespace VECS
 
         public void RegenerateMipMaps()
         {
-            var cmd = GraphicsDevice.BeginSingleTimeCommands();
+            var cmd = GraphicsDevice.BeginSingleTimeMainPipe();
             RegenerateMipMaps(cmd);
-            GraphicsDevice.EndSingleTimeCommands(cmd);
+            GraphicsDevice.EndSingleTimeMainPipe(cmd);
         }
 
         public abstract void RegenerateMipMaps(VkCommandBuffer cmd);
 
         public void SetImageLayout(VkImageLayout newImageLayout, VkPipelineStageFlags srcStage = VkPipelineStageFlags.AllCommands, VkPipelineStageFlags dstStage = VkPipelineStageFlags.AllCommands)
         {
-            var cmd = GraphicsDevice.BeginSingleTimeCommands();
+            var cmd = GraphicsDevice.BeginSingleTimeMainPipe();
             SetImageLayout(cmd, newImageLayout, srcStage, dstStage);
-            GraphicsDevice.EndSingleTimeCommands(cmd);
+            GraphicsDevice.EndSingleTimeMainPipe(cmd);
         }
 
         public void SetImageLayout(VkCommandBuffer cmdbuffer, VkImageLayout newImageLayout, VkPipelineStageFlags srcStage = VkPipelineStageFlags.AllCommands, VkPipelineStageFlags dstStage = VkPipelineStageFlags.AllCommands)

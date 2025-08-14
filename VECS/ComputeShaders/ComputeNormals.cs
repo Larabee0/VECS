@@ -195,11 +195,11 @@ namespace VECS
 
         public unsafe void DispatchSingleTimeCmd(DirectMesh mesh)
         {
-            var commandBuffer = GraphicsDevice.BeginSingleTimeCommands();
+            var commandBuffer = GraphicsDevice.BeginSingleTimeMainPipe();
             Dispatch(commandBuffer, mesh);            
             _calcuateNormals.NextFrame();
             _normalizeNormals.NextFrame();
-            GraphicsDevice.EndSingleTimeCommands(commandBuffer);
+            GraphicsDevice.EndSingleTimeMainPipe(commandBuffer);
         }
 
         public unsafe void Dispose()

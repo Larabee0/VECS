@@ -132,11 +132,11 @@ namespace Planets.Generator
         /// <param name="mesh"></param>
         public void DispatchSingleTimeCmd(DirectMesh mesh)
         {
-            var commandBuffer = GraphicsDevice.BeginSingleTimeCommands();
+            var commandBuffer = GraphicsDevice.BeginSingleTimeMainPipe();
 
             Dispatch(commandBuffer, mesh);
 
-            GraphicsDevice.EndSingleTimeCommands(commandBuffer);
+            GraphicsDevice.EndSingleTimeMainPipe(commandBuffer);
         }
 
         /// <summary>

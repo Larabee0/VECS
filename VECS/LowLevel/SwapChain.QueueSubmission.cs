@@ -1,4 +1,4 @@
-﻿//#define NO_SUBMISSION_THREAD 
+﻿#define NO_SUBMISSION_THREAD
 using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
@@ -77,14 +77,14 @@ namespace VECS.LowLevel
                 pSignalSemaphores = &waitRender
             };
             Vulkan.vkResetFences(Device, _inFlightFences[currentFrame]);
-            var result = Vulkan.vkQueueSubmit(GraphicsDevice.GraphicsQueue, submit, _inFlightFences[currentFrame]);
+            var result = Vulkan.vkQueueSubmit(GraphicsDevice.MainQueue, submit, _inFlightFences[currentFrame]);
             if (result != VkResult.Success)
             {
                 if (result == VkResult.ErrorDeviceLost)
                 {
                     uint* dataCount = null;
                     VkCheckpointDataNV* data = null;
-                    Vulkan.vkGetQueueCheckpointDataNV(GraphicsDevice.GraphicsQueue, dataCount, data);
+                    Vulkan.vkGetQueueCheckpointDataNV(GraphicsDevice.MainQueue, dataCount, data);
 
                     for (int i = 0; i < *dataCount; i++)
                     {
@@ -104,7 +104,7 @@ namespace VECS.LowLevel
                 pSwapchains = &swapChains,
                 pWaitSemaphores = &waitRender
             };
-            return Vulkan.vkQueuePresentKHR(GraphicsDevice.GraphicsQueue, &presentInfo);
+            return Vulkan.vkQueuePresentKHR(GraphicsDevice.MainQueue, &presentInfo);
         }
 
         private void SubmitQueueLoop()
@@ -120,7 +120,11 @@ namespace VECS.LowLevel
 
         private bool SubmitOnce()
         {
-            if (!_submissionQueue.TryTake(out var info)) return false;
+            if (!_submissionQueue.TryTake(out var info))
+            {
+                Thread.SpinWait(10);
+                return false;
+            }
             if (info.End)
             {
                 _submittedFrameResult = VkResult.ThreadDoneKHR;

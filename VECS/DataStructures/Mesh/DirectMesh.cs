@@ -505,12 +505,12 @@ namespace VECS
             _allocatedIndexCount = _allocatedIndexCount - currentData.IndexCount + newBufferSizes.IndexCount;
             _allocatedVertexCount = _allocatedVertexCount - currentData.VertexCount + newBufferSizes.VertexCount;
 
-            var cmd = GraphicsDevice.BeginSingleTimeCommands();
+            var cmd = GraphicsDevice.BeginSingleTimeMainPipe();
 
             ReallocateIndexBuffer(cmd, subMeshIndex, newBufferSizes, currentData);
             ReallocateVertexBuffers(cmd, subMeshIndex, newBufferSizes, currentData);
 
-            GraphicsDevice.EndSingleTimeCommands(cmd);
+            GraphicsDevice.EndSingleTimeMainPipe(cmd);
             GPUBuffer.EmptyDisposalQueue();
             _indexOffsetBuffer?.Dispose();
             _indexOffsetBuffer = null;
@@ -652,9 +652,9 @@ namespace VECS
         
         public unsafe void ReadAllBuffers()
         {
-            VkCommandBuffer singleTime = GraphicsDevice.BeginSingleTimeCommands();
+            VkCommandBuffer singleTime = GraphicsDevice.BeginSingleTimeMainPipe();
             var command = GenerateReadCommands(singleTime);
-            GraphicsDevice.EndSingleTimeCommands(singleTime);
+            GraphicsDevice.EndSingleTimeMainPipe(singleTime);
 
             Parallel.For(0, command[0].Length, i =>
             {
@@ -686,14 +686,14 @@ namespace VECS
             List<GPUBuffer> mainBuffers = [];
             List<GPUBuffer> tmpReadBuffers = [];
 
-            VkCommandBuffer singleTime = GraphicsDevice.BeginSingleTimeCommands();
+            VkCommandBuffer singleTime = GraphicsDevice.BeginSingleTimeMainPipe();
             for (int i = 0; i < meshes.Length; i++)
             {
                 var commands = meshes[i].GenerateReadCommands(singleTime);
                 mainBuffers.AddRange(commands[0]);
                 tmpReadBuffers.AddRange(commands[1]);
             }
-            GraphicsDevice.EndSingleTimeCommands(singleTime);
+            GraphicsDevice.EndSingleTimeMainPipe(singleTime);
 
             Parallel.For(0, mainBuffers.Count, i =>
             {
