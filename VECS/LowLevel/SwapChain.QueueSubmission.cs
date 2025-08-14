@@ -24,13 +24,12 @@ namespace VECS.LowLevel
                 End = end;
             }
         }
-
+        /*
         private BlockingCollection<SubmissionQueueElement> _submissionQueue;
         private readonly Mutex _submissionMutex = new();
         #if !NO_SUBMISSION_THREAD
         private Thread _submissionThread;
 #endif
-        private ulong _frameCount;
         private uint _nextFrameIndex;
         private VkResult _submittedFrameResult;
         private VkResult _nextFrameResult;
@@ -54,7 +53,7 @@ namespace VECS.LowLevel
 
         private unsafe VkResult SubmitCommandBuffers(VkCommandBuffer commandBuffer, uint imageIndex, int currentFrame)
         {
-            Debug.Assert(imageIndex < MAX_FRAMES_IN_FLIGHT, string.Format("Image Index {0} is out of range, Max Images: {1}", imageIndex, MAX_FRAMES_IN_FLIGHT));
+            Debug.Assert(imageIndex < SWAP_CHAIN_IMAGE_COUNT, string.Format("Image Index {0} is out of range, Max Images: {1}", imageIndex, SWAP_CHAIN_IMAGE_COUNT));
             if (_imagesInFlight[imageIndex] != VkFence.Null)
             {
                 VkFence fence = _imagesInFlight[imageIndex];
@@ -132,7 +131,7 @@ namespace VECS.LowLevel
             }
             _submissionMutex.WaitOne();
             int submitFrame = _currentFrame;
-            _currentFrame = (_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+            _currentFrame = (_currentFrame + 1) % MAX_CONCURRENT_FRAMES;
             _nextFrameResult = AcquireNextImage(out _nextFrameIndex);
             _submissionMutex.ReleaseMutex();
             _submittedFrameResult = SubmitCommandBuffers(info.CommandBuffer, info.ImageIndex, submitFrame);
@@ -142,7 +141,7 @@ namespace VECS.LowLevel
         private void StartSubmissionThread()
         {
             // acquire first frame
-            _submissionQueue = new(MAX_FRAMES_IN_FLIGHT);
+            _submissionQueue = new(MAX_CONCURRENT_FRAMES);
             _nextFrameResult = AcquireNextImage(out _nextFrameIndex);
             #if !NO_SUBMISSION_THREAD
             _submissionThread = new(new ThreadStart(SubmitQueueLoop))
@@ -161,7 +160,6 @@ namespace VECS.LowLevel
             while (_submittedFrameResult != VkResult.ThreadDoneKHR)
             {
                 _submissionQueue.Add(new(VkCommandBuffer.Null, 0, true));
-                _submissionQueue.CompleteAdding();
                 _submissionMutex.ReleaseMutex();
                 _submissionMutex.WaitOne();
             }
@@ -196,6 +194,6 @@ namespace VECS.LowLevel
                 _submissionMutex.ReleaseMutex();
             }
 #endif
-        }
+        }*/
     }
 }

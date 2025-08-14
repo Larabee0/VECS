@@ -8,8 +8,8 @@ namespace VECS
 {
     public class SwapChainBuffer : IDisposable
     {
-        protected GPUBuffer[] _buffers = new GPUBuffer[SwapChain.MAX_FRAMES_IN_FLIGHT];
-        internal bool[] _diryBuffers = new bool[SwapChain.MAX_FRAMES_IN_FLIGHT];
+        protected GPUBuffer[] _buffers = new GPUBuffer[SwapChain.MAX_CONCURRENT_FRAMES];
+        internal bool[] _diryBuffers = new bool[SwapChain.MAX_CONCURRENT_FRAMES];
         protected ulong _instanceCount;
         protected ulong _instanceSize;
         protected ulong _hostAlignment;
@@ -164,7 +164,7 @@ namespace VECS
             _vkBufferSize = HostBufferSize;
 
 
-            for (int i = 0; i < SwapChain.MAX_FRAMES_IN_FLIGHT; i++)
+            for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
             {
                 _buffers[i] = gpuBuffer;
             }
@@ -185,7 +185,7 @@ namespace VECS
             _disposed = true;
             if (VkBufferSize == 0) return false;
 
-            for (int i = 0; i < SwapChain.MAX_FRAMES_IN_FLIGHT; i++)
+            for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
             {
                 _buffers[i] = new(_instanceCount, _instanceSize, _usageFlags, _CPUAccessible, true, !_CPUAccessible);
             }

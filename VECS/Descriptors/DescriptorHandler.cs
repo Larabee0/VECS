@@ -17,8 +17,8 @@ namespace VECS
 
         private readonly ConcurrentDictionary<string, (uint, DescriptorPropertyInfo)> _cachedProperties = new();
 
-        private readonly VkDescriptorSet[] _vkDescriptorSets = new VkDescriptorSet[SwapChain.MAX_FRAMES_IN_FLIGHT];
-        private readonly DescriptorPool[] _vkDescriptorPoolSource = new DescriptorPool[SwapChain.MAX_FRAMES_IN_FLIGHT];
+        private readonly VkDescriptorSet[] _vkDescriptorSets = new VkDescriptorSet[SwapChain.MAX_CONCURRENT_FRAMES];
+        private readonly DescriptorPool[] _vkDescriptorPoolSource = new DescriptorPool[SwapChain.MAX_CONCURRENT_FRAMES];
 
         private readonly Dictionary<string, int> _bindingMap;
         private readonly DescriptorBinding[] _descriptorBindings;
@@ -37,8 +37,8 @@ namespace VECS
         private readonly uint _bufferCount;
         private readonly uint _imageCount;
 
-        private readonly bool[] _setsAllocated = new bool[SwapChain.MAX_FRAMES_IN_FLIGHT];
-        private readonly bool[] _setsDirty = new bool[SwapChain.MAX_FRAMES_IN_FLIGHT];
+        private readonly bool[] _setsAllocated = new bool[SwapChain.MAX_CONCURRENT_FRAMES];
+        private readonly bool[] _setsDirty = new bool[SwapChain.MAX_CONCURRENT_FRAMES];
 
         private unsafe VkDescriptorBufferInfo* _bufferInfos;
         private unsafe VkDescriptorImageInfo* _imageInfos;
@@ -618,7 +618,7 @@ namespace VECS
 
         public void DeallocateDescriptorSets()
         {
-            for (int i = 0; i < SwapChain.MAX_FRAMES_IN_FLIGHT; i++)
+            for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
             {
                 var set = _vkDescriptorSets[i];
                 var pool = _vkDescriptorPoolSource[i];

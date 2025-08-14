@@ -40,9 +40,9 @@ namespace VECS
         private readonly GlobalUbo ubo = new();
         private readonly SwapChainBuffer<GlobalUbo.WriteableUBO> _globalUboBuffers = new((uint)GlobalUbo.SizeInBytes, 1, VkBufferUsageFlags.UniformBuffer, true);
 
-        private readonly DescriptorPool[] _globalDescriptorPools = new DescriptorPool[SwapChain.MAX_FRAMES_IN_FLIGHT];
-        private readonly DescriptorPool[] _materialFrameDescriptorPools = new DescriptorPool[SwapChain.MAX_FRAMES_IN_FLIGHT];
-        private readonly DescriptorPool[] _entityFrameDescriptorPools = new DescriptorPool[SwapChain.MAX_FRAMES_IN_FLIGHT];
+        private readonly DescriptorPool[] _globalDescriptorPools = new DescriptorPool[SwapChain.MAX_CONCURRENT_FRAMES];
+        private readonly DescriptorPool[] _materialFrameDescriptorPools = new DescriptorPool[SwapChain.MAX_CONCURRENT_FRAMES];
+        private readonly DescriptorPool[] _entityFrameDescriptorPools = new DescriptorPool[SwapChain.MAX_CONCURRENT_FRAMES];
 
         private readonly List<(int,GPUBuffer)> _swapChainBufferDisposalQueue = [];
 
@@ -93,7 +93,7 @@ namespace VECS
                 .SetMaxSets(2000)
                 .AddPoolSize(VkDescriptorType.UniformBuffer, 2000)
                 .SetPoolFlags(VkDescriptorPoolCreateFlags.FreeDescriptorSet);
-            for (int i = 0; i < SwapChain.MAX_FRAMES_IN_FLIGHT; i++)
+            for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
             {
                 _globalDescriptorPools[i] = globalDescriptorPool.Build();
             }
@@ -108,7 +108,7 @@ namespace VECS
                 .AddPoolSize(VkDescriptorType.StorageBuffer, 2000)
                 .SetPoolFlags(VkDescriptorPoolCreateFlags.FreeDescriptorSet);
 
-            for (int i = 0; i < SwapChain.MAX_FRAMES_IN_FLIGHT; i++)
+            for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
             {
                 _materialFrameDescriptorPools[i] = framePoolBuilder.Build();
             }
@@ -123,7 +123,7 @@ namespace VECS
                 .AddPoolSize(VkDescriptorType.StorageBuffer, 2000)
                 .SetPoolFlags(VkDescriptorPoolCreateFlags.FreeDescriptorSet);
 
-            for (int i = 0; i < SwapChain.MAX_FRAMES_IN_FLIGHT; i++)
+            for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
             {
                 _entityFrameDescriptorPools[i] = framePoolBuilder.Build();
             }
@@ -343,17 +343,17 @@ namespace VECS
 
             _swapChainBufferDisposalQueue.ForEach(b => b.Item2?.Dispose());
             _swapChainBufferDisposalQueue.Clear();
-            for (int i = 0; i < SwapChain.MAX_FRAMES_IN_FLIGHT; i++)
+            for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
             {
                 _globalDescriptorPools[i].Dispose();
             }
             
-            for (int i = 0; i < SwapChain.MAX_FRAMES_IN_FLIGHT; i++)
+            for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
             {
                 _materialFrameDescriptorPools[i].Dispose();
             }
 
-            for (int i = 0; i < SwapChain.MAX_FRAMES_IN_FLIGHT; i++)
+            for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
             {
                 _entityFrameDescriptorPools[i].Dispose();
             }

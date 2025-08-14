@@ -422,7 +422,7 @@ namespace VECS
 
         public unsafe static void FillAllBuffers(this SwapChainBuffer buffer, VkCommandBuffer commandBuffer, uint data, ulong dstOffset = 0, ulong bufferSize = Vulkan.VK_WHOLE_SIZE)
         {
-            for (int i = 0; i < SwapChain.MAX_FRAMES_IN_FLIGHT; i++)
+            for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
             {
                 Vulkan.vkCmdFillBuffer(commandBuffer, buffer[i].VkBuffer, dstOffset, bufferSize, data);
             }

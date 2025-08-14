@@ -220,14 +220,14 @@ namespace VECS.LowLevel
             {
                 Debug.Assert(swapChainSupport.capabilities.maxImageCount >= swapChainSupport.capabilities.minImageCount, string.Format("Max Swapchain image count ({0}) is less than min image count ({1}). Cannot compute valid swapchain image count.", swapChainSupport.capabilities.maxImageCount, swapChainSupport.capabilities.minImageCount));
 
-                SwapChain.MAX_FRAMES_IN_FLIGHT = Math.Max(3, (int)swapChainSupport.capabilities.minImageCount);
+                SwapChain.SWAP_CHAIN_IMAGE_COUNT = Math.Max(3, (int)swapChainSupport.capabilities.minImageCount);
             }
 
-            SwapChain.MAX_FRAMES_IN_FLIGHT = Math.Max(3, (int)swapChainSupport.capabilities.minImageCount);
+            SwapChain.SWAP_CHAIN_IMAGE_COUNT = Math.Max(3, (int)swapChainSupport.capabilities.minImageCount);
             SwapChainSupport = swapChainSupport;
             var str = new VkUtf8String(properties.deviceName);
             Console.WriteLine(string.Format("Physical device: {0}", str));
-            Console.WriteLine("Selected swapchain frame count: {0}", SwapChain.MAX_FRAMES_IN_FLIGHT);
+            Console.WriteLine("Selected swapchain frame count: {0}", SwapChain.SWAP_CHAIN_IMAGE_COUNT);
         }
 
 

@@ -15,8 +15,8 @@ namespace VECS.LowLevel
         private readonly ShadowImage _shadowCubeMap;
 
         private bool isFrameStarted = false;
-        private uint currentImageIndex = 0;
-        private int currentFrameIndex = 0;
+        private uint currentImageIndex => _swapChain.ImageIndex;
+        private int currentFrameIndex => _swapChain.FrameIndex;
 
         private VkCommandBuffer[] commandBuffers;
 
@@ -67,7 +67,7 @@ namespace VECS.LowLevel
 
         private void RecreateSwapChain()
         {
-            currentImageIndex = SwapChain.MAX_FRAMES_IN_FLIGHT_UINT + 1;
+            //currentImageIndex = SwapChain.SWAP_CHAIN_IMAGE_COUNT_UINT + 1;
             var extent = _window.WindowExtend;
             while (extent.width == 0 || extent.height == 0)
             {
@@ -75,7 +75,7 @@ namespace VECS.LowLevel
                 _window.WaitForNextWindowEvent();
             }
             
-            _swapChain?.EndSubmissionThread();
+            //_swapChain?.EndSubmissionThread();
 
             if (_swapChain == null)
             {
@@ -83,32 +83,35 @@ namespace VECS.LowLevel
             }
             else
             {
+                Vulkan.vkDeviceWaitIdle(GraphicsDevice.Device);
                 var oldSwapChain = _swapChain;
+                AssetDataBase<Texture2D>.Remove(oldSwapChain.RawRenderImage);
+                AssetDataBase<Texture2D>.Remove(oldSwapChain.DepthImage);
                 _swapChain = new(extent, oldSwapChain);
                 if (!oldSwapChain.CompareSwapFormats(_swapChain))
                 {
                     throw new Exception("Swap chain image(or depth) format has changed!");
                 }
+                FreeCommandBuffers();
+                CreateCommandBuffers();
+                Vulkan.vkDeviceWaitIdle(GraphicsDevice.Device);
             }
         }
         
         private unsafe void CreateCommandBuffers()
         {
-            commandBuffers = new VkCommandBuffer[SwapChain.MAX_FRAMES_IN_FLIGHT];
+            commandBuffers = new VkCommandBuffer[SwapChain.MAX_CONCURRENT_FRAMES];
 
             VkCommandBufferAllocateInfo allocInfo = new()
             {
                 level = VkCommandBufferLevel.Primary,
                 commandPool = GraphicsDevice.MainCommandPool,
-                commandBufferCount = (uint)commandBuffers.Length
+                commandBufferCount = SwapChain.MAX_CONCURRENT_FRAMES_UINT
             };
 
             fixed (VkCommandBuffer* pCommandBuffers = &commandBuffers[0])
             {
-                if (Vulkan.vkAllocateCommandBuffers(GraphicsDevice.Device, &allocInfo, pCommandBuffers) != VkResult.Success)
-                {
-                    throw new Exception("Failed to allocate command buffers");
-                }
+                Vulkan.CheckResult(Vulkan.vkAllocateCommandBuffers(GraphicsDevice.Device, &allocInfo, pCommandBuffers), "Failed to allocate command buffers");
             }
         }
 
@@ -119,10 +122,16 @@ namespace VECS.LowLevel
                 Vulkan.vkFreeCommandBuffers(GraphicsDevice.Device, GraphicsDevice.MainCommandPool, (uint)commandBuffers.Length, pCommandBuffers);
             }
         }
-
-        public unsafe VkCommandBuffer BeginFrame()
+        
+        /*
+        public bool SwapChainPreBegin()
         {
             _swapChain.WaitForSubmission(currentImageIndex);
+            if (_swapChain.SubmittedFrameResult == VkResult.ErrorOutOfDateKHR)
+            {
+                RecreateSwapChain();
+                return false;
+            }
             if (_swapChain.SubmittedFrameResult != VkResult.Success)
             {
                 throw new Exception("Failed to acquire next swap chain image!");
@@ -138,13 +147,36 @@ namespace VECS.LowLevel
             if (result == VkResult.ErrorOutOfDateKHR)
             {
                 RecreateSwapChain();
-                return VkCommandBuffer.Null;
+                return false;
             }
 
             if (result != VkResult.Success && result != VkResult.SuboptimalKHR)
             {
                 throw new Exception("Failed to acquire next swap chain image");
             }
+
+            return true;
+        }*/
+
+        private bool SwapChainPreBeginNew()
+        {
+
+            if (_swapChain.AcquireNextImage() == VkResult.ErrorOutOfDateKHR)
+            {
+                RecreateSwapChain();
+                return false;
+            }
+
+            return true;
+        }
+
+        public unsafe VkCommandBuffer BeginFrame()
+        {
+            if (!SwapChainPreBeginNew())
+            {
+                return VkCommandBuffer.Null;
+            }
+
             isFrameStarted = true;
 
             var commandBuffer = CurrentCommandBuffer;
@@ -232,16 +264,20 @@ namespace VECS.LowLevel
                 throw new Exception("Failed to record command buffer");
             }
 
-            _swapChain.EnqueueCommandBuffer(commandBuffer, currentImageIndex);
+            //_swapChain.EnqueueCommandBuffer(commandBuffer, currentImageIndex);
 
-            if (_swapChain.SubmittedFrameResult == VkResult.ErrorOutOfDateKHR || _swapChain.SubmittedFrameResult == VkResult.SuboptimalKHR || _window.WasWindowResized)
+            // if (_swapChain.SubmittedFrameResult == VkResult.ErrorOutOfDateKHR || _swapChain.SubmittedFrameResult == VkResult.SuboptimalKHR || _window.WasWindowResized)
+            // {
+            //     _window.ResetWindowResizedFlag();
+            //     RecreateSwapChain();
+            // 
+            // }
+            if (!_swapChain.Submit(commandBuffer))
             {
-                _window.ResetWindowResizedFlag();
                 RecreateSwapChain();
-
             }
             isFrameStarted = false;
-            currentFrameIndex = (currentFrameIndex + 1) % SwapChain.MAX_FRAMES_IN_FLIGHT;
+            
         }
 
         public unsafe void Dispose()
