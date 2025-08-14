@@ -505,12 +505,12 @@ namespace VECS
             _allocatedIndexCount = _allocatedIndexCount - currentData.IndexCount + newBufferSizes.IndexCount;
             _allocatedVertexCount = _allocatedVertexCount - currentData.VertexCount + newBufferSizes.VertexCount;
 
-            var cmd = GraphicsDevice.Instance.BeginSingleTimeCommands();
+            var cmd = GraphicsDevice.BeginSingleTimeCommands();
 
             ReallocateIndexBuffer(cmd, subMeshIndex, newBufferSizes, currentData);
             ReallocateVertexBuffers(cmd, subMeshIndex, newBufferSizes, currentData);
 
-            GraphicsDevice.Instance.EndSingleTimeCommands(cmd);
+            GraphicsDevice.EndSingleTimeCommands(cmd);
             GPUBuffer.EmptyDisposalQueue();
             _indexOffsetBuffer?.Dispose();
             _indexOffsetBuffer = null;
@@ -652,9 +652,9 @@ namespace VECS
         
         public unsafe void ReadAllBuffers()
         {
-            VkCommandBuffer singleTime = GraphicsDevice.Instance.BeginSingleTimeCommands();
+            VkCommandBuffer singleTime = GraphicsDevice.BeginSingleTimeCommands();
             var command = GenerateReadCommands(singleTime);
-            GraphicsDevice.Instance.EndSingleTimeCommands(singleTime);
+            GraphicsDevice.EndSingleTimeCommands(singleTime);
 
             Parallel.For(0, command[0].Length, i =>
             {
@@ -686,14 +686,14 @@ namespace VECS
             List<GPUBuffer> mainBuffers = [];
             List<GPUBuffer> tmpReadBuffers = [];
 
-            VkCommandBuffer singleTime = GraphicsDevice.Instance.BeginSingleTimeCommands();
+            VkCommandBuffer singleTime = GraphicsDevice.BeginSingleTimeCommands();
             for (int i = 0; i < meshes.Length; i++)
             {
                 var commands = meshes[i].GenerateReadCommands(singleTime);
                 mainBuffers.AddRange(commands[0]);
                 tmpReadBuffers.AddRange(commands[1]);
             }
-            GraphicsDevice.Instance.EndSingleTimeCommands(singleTime);
+            GraphicsDevice.EndSingleTimeCommands(singleTime);
 
             Parallel.For(0, mainBuffers.Count, i =>
             {

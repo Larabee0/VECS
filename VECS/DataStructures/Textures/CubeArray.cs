@@ -83,7 +83,7 @@ namespace VECS
                 {
                     createInfo.subresourceRange.baseArrayLayer = i;
                     fixed (VkImageView* pView = &FaceImageViews[d][i])
-                        Vulkan.vkCreateImageView(GraphicsDevice.Instance.Device, createInfo, null, pView);
+                        Vulkan.vkCreateImageView(GraphicsDevice.Device, createInfo, null, pView);
                 }
             }
         }
@@ -103,7 +103,7 @@ namespace VECS
             {
                 for (int i = 0; i < 6; i++)
                 {
-                    Vulkan.vkDestroyImageView(GraphicsDevice.Instance.Device, FaceImageViews[d][i]);
+                    Vulkan.vkDestroyImageView(GraphicsDevice.Device, FaceImageViews[d][i]);
                 }
             }
 

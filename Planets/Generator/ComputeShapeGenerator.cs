@@ -90,8 +90,8 @@ namespace Planets.Generator
         /// <param name="vertexBuffer"></param>
         private unsafe Vector2UInt Prepare(DirectMesh mesh)
         {
-            uint divider = (uint)(int)MathF.Ceiling((float)mesh.VertexBufferLength / (float)GraphicsDevice.Instance.MaxWorkGroupX);
-            uint workGroupX = (uint)Math.Min(mesh.VertexBufferLength, GraphicsDevice.Instance.MaxWorkGroupX);
+            uint divider = (uint)(int)MathF.Ceiling((float)mesh.VertexBufferLength / (float)GraphicsDevice.MaxWorkGroupX);
+            uint workGroupX = (uint)Math.Min(mesh.VertexBufferLength, GraphicsDevice.MaxWorkGroupX);
 
             _computeShader.SetUInt("params.bufferLength", (uint)mesh.VertexBufferLength);
             _computeShader.SetUInt("params.depth", 1);
@@ -132,11 +132,11 @@ namespace Planets.Generator
         /// <param name="mesh"></param>
         public void DispatchSingleTimeCmd(DirectMesh mesh)
         {
-            var commandBuffer = GraphicsDevice.Instance.BeginSingleTimeCommands();
+            var commandBuffer = GraphicsDevice.BeginSingleTimeCommands();
 
             Dispatch(commandBuffer, mesh);
 
-            GraphicsDevice.Instance.EndSingleTimeCommands(commandBuffer);
+            GraphicsDevice.EndSingleTimeCommands(commandBuffer);
         }
 
         /// <summary>

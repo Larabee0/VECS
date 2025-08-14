@@ -35,7 +35,7 @@ namespace VECS.LowLevel
                     layers = 1
                 };
 
-                Vulkan.vkCreateFramebuffer(GraphicsDevice.Instance.Device, vkFramebufferCreateInfo, null, out Framebuffer);
+                Vulkan.vkCreateFramebuffer(GraphicsDevice.Device, vkFramebufferCreateInfo, null, out Framebuffer);
 
                 VkSamplerCreateInfo sampler = new()
                 {
@@ -61,7 +61,7 @@ namespace VECS.LowLevel
             {
                 Colour?.Dispose();
                 DepthStencil?.Dispose();
-                Vulkan.vkDestroyFramebuffer(GraphicsDevice.Instance.Device, Framebuffer, null);
+                Vulkan.vkDestroyFramebuffer(GraphicsDevice.Device, Framebuffer, null);
             }
         }
 
@@ -90,7 +90,7 @@ namespace VECS.LowLevel
 
             _clearValues[0] = new(0, 0, 0, 1);
             _clearValues[1] = new(1, 0);
-            var depthFormat = GraphicsDevice.Instance.FindSupportFormat([VkFormat.D32SfloatS8Uint, VkFormat.D32Sfloat, VkFormat.D24UnormS8Uint, VkFormat.D16UnormS8Uint, VkFormat.D16Unorm], VkImageTiling.Optimal, VkFormatFeatureFlags.DepthStencilAttachment);
+            var depthFormat = GraphicsDevice.FindSupportFormat([VkFormat.D32SfloatS8Uint, VkFormat.D32Sfloat, VkFormat.D24UnormS8Uint, VkFormat.D16UnormS8Uint, VkFormat.D16Unorm], VkImageTiling.Optimal, VkFormatFeatureFlags.DepthStencilAttachment);
             
             #region Create Render Pass
 
@@ -164,7 +164,7 @@ namespace VECS.LowLevel
                 pDependencies = dependencies
             };
 
-            Vulkan.vkCreateRenderPass(GraphicsDevice.Instance.Device, renderPassInfo, null, out _renderPass);
+            Vulkan.vkCreateRenderPass(GraphicsDevice.Device, renderPassInfo, null, out _renderPass);
 
             #endregion
 
@@ -247,9 +247,9 @@ namespace VECS.LowLevel
             _framebufferGlow.Dispose();
             _framebufferBlur.Dispose();
 
-            Vulkan.vkDestroySampler(GraphicsDevice.Instance.Device, _sampler, null);
+            Vulkan.vkDestroySampler(GraphicsDevice.Device, _sampler, null);
 
-            Vulkan.vkDestroyRenderPass(GraphicsDevice.Instance.Device,_renderPass,null);
+            Vulkan.vkDestroyRenderPass(GraphicsDevice.Device,_renderPass,null);
 
             NativeMemory.Free(_renderPassBeginInfo);
             NativeMemory.Free(_clearValues);

@@ -11,7 +11,6 @@ namespace VECS
     /// </summary>
     public sealed class DescriptorPool : IDisposable
     {
-        public readonly GraphicsDevice GraphicsDevice;
         private readonly VkDescriptorPool _descriptorPool;
 
         private readonly List<VkDescriptorSet> _setsToFree = [];
@@ -27,7 +26,6 @@ namespace VECS
         /// <exception cref="Exception"></exception>
         private unsafe DescriptorPool(uint maxSets, VkDescriptorPoolCreateFlags poolFlags, VkDescriptorPoolSize[] poolSizes)
         {
-            GraphicsDevice = GraphicsDevice.Instance;
             _allowFreeing = poolFlags.HasFlag(VkDescriptorPoolCreateFlags.FreeDescriptorSet);
             VkDescriptorPoolSize* pPoolSizes = stackalloc VkDescriptorPoolSize[poolSizes.Length];
             for (int i = 0; i < poolSizes.Length; i++)
@@ -128,15 +126,10 @@ namespace VECS
         /// </summary>
         public class Builder
         {
-            private readonly GraphicsDevice _graphicsDevice;
             private VkDescriptorPoolSize[] _poolSizes = [];
             private uint _maxSets = 1000;
             private VkDescriptorPoolCreateFlags _poolFlags = 0;
-            public Builder()
-            {
-                _graphicsDevice = GraphicsDevice.Instance;
-            }
-
+            
             /// <summary>
             /// Add capacity for the given descriptor type and count to the pool
             /// </summary>

@@ -74,7 +74,7 @@ namespace VECS
                 stage = shaderModule.ShaderStageCreateInfo
             };
 
-            Vulkan.vkCreateComputePipeline(GraphicsDevice.Instance.Device, _cache.Cache, computePipelineInfo, out _pipline);
+            Vulkan.vkCreateComputePipeline(GraphicsDevice.Device, _cache.Cache, computePipelineInfo, out _pipline);
 
         }
 
@@ -303,20 +303,20 @@ namespace VECS
                 _allHandlers[i]?.Dispose();
             }
 
-            Vulkan.vkDestroyPipeline(GraphicsDevice.Instance.Device, _pipline);
+            Vulkan.vkDestroyPipeline(GraphicsDevice.Device, _pipline);
             if (_cache == null)
             {
-                Vulkan.vkDestroyPipelineLayout(GraphicsDevice.Instance.Device, _pipelineLayout);
+                Vulkan.vkDestroyPipelineLayout(GraphicsDevice.Device, _pipelineLayout);
             }
             
 
             if (_preAllocDescriptorLayout != VkDescriptorSetLayout.Null)
             {
-                Vulkan.vkDestroyDescriptorSetLayout(GraphicsDevice.Instance.Device, _preAllocDescriptorLayout, null);
+                Vulkan.vkDestroyDescriptorSetLayout(GraphicsDevice.Device, _preAllocDescriptorLayout, null);
             }
             if (_unAllocDescriptorLayout != VkDescriptorSetLayout.Null)
             {
-                Vulkan.vkDestroyDescriptorSetLayout(GraphicsDevice.Instance.Device, _unAllocDescriptorLayout, null);
+                Vulkan.vkDestroyDescriptorSetLayout(GraphicsDevice.Device, _unAllocDescriptorLayout, null);
             }
         }
 

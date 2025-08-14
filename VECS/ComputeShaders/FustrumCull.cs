@@ -99,8 +99,8 @@ namespace VECS
             {
                 buffer = drawIndirect.ActiveVkBuffer,
                 size = Vulkan.VK_WHOLE_SIZE,
-                srcQueueFamilyIndex = (uint)GraphicsDevice.Instance.PhysicalQueueFamilies.graphicsFamily,
-                dstQueueFamilyIndex = (uint)GraphicsDevice.Instance.PhysicalQueueFamilies.graphicsFamily,
+                srcQueueFamilyIndex = (uint)GraphicsDevice.PhysicalQueueFamilies.graphicsFamily,
+                dstQueueFamilyIndex = (uint)GraphicsDevice.PhysicalQueueFamilies.graphicsFamily,
                 srcAccessMask = VkAccessFlags.ShaderWrite,
                 dstAccessMask = VkAccessFlags.IndirectCommandRead
             };

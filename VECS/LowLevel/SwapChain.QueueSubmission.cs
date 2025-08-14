@@ -29,7 +29,8 @@ namespace VECS.LowLevel
         private readonly Mutex _submissionMutex = new();
         #if !NO_SUBMISSION_THREAD
         private Thread _submissionThread;
-        #endif
+#endif
+        private ulong _frameCount;
         private uint _nextFrameIndex;
         private VkResult _submittedFrameResult;
         private VkResult _nextFrameResult;

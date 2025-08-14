@@ -133,9 +133,9 @@ namespace VECS
             {
                 _stagingBuffer = new(_instanceSize, _instanceCount, VkBufferUsageFlags.TransferSrc | VkBufferUsageFlags.TransferDst, true, preventHostAllocation, false);
             }
-            var result = Vma.vmaCreateBuffer(GraphicsDevice.Instance.VmaAllocator, bufferInfo, allocationInfo, out VkBuffer, out _allocation);
+            var result = Vma.vmaCreateBuffer(GraphicsDevice.VmaAllocator, bufferInfo, allocationInfo, out VkBuffer, out _allocation);
             VmaAllocationInfo vmaAllocationInfo = default;
-            Vma.vmaGetAllocationInfo(GraphicsDevice.Instance.VmaAllocator, _allocation, &vmaAllocationInfo);
+            Vma.vmaGetAllocationInfo(GraphicsDevice.VmaAllocator, _allocation, &vmaAllocationInfo);
 
 #if LOG_BUFFER_ALLOCS
             StackTrace trace = new(true);
@@ -167,7 +167,7 @@ namespace VECS
             _stagingBuffer = null;
             NativeMemory.AlignedFree(_hostPtr);
             _hostPtr = null;
-            Vma.vmaDestroyBuffer(GraphicsDevice.Instance.VmaAllocator, VkBuffer, _allocation);
+            Vma.vmaDestroyBuffer(GraphicsDevice.VmaAllocator, VkBuffer, _allocation);
 
             _disposed = true;
             

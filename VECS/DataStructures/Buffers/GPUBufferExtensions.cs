@@ -62,20 +62,20 @@ namespace VECS
         public unsafe static void MapUnsafe(this GPUBuffer buffer, void** data)
         {
             if (buffer.VkBufferSize == 0) return;
-            Vma.vmaMapMemory(GraphicsDevice.Instance.VmaAllocator, buffer._allocation, data);
+            Vma.vmaMapMemory(GraphicsDevice.VmaAllocator, buffer._allocation, data);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe static void Unmap(this GPUBuffer buffer)
         {
             if (buffer.VkBufferSize == 0) return;
-            Vma.vmaUnmapMemory(GraphicsDevice.Instance.VmaAllocator, buffer._allocation);
+            Vma.vmaUnmapMemory(GraphicsDevice.VmaAllocator, buffer._allocation);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static VkResult Flush(this GPUBuffer buffer, ulong size = Vulkan.VK_WHOLE_SIZE, ulong offset = 0)
         {
-            return Vma.vmaFlushAllocation(GraphicsDevice.Instance.VmaAllocator, buffer._allocation, offset, size);
+            return Vma.vmaFlushAllocation(GraphicsDevice.VmaAllocator, buffer._allocation, offset, size);
         }
 
 
@@ -93,7 +93,7 @@ namespace VECS
 
             buffer._instanceCount = newInstanceCount;
 
-            Vma.vmaDestroyBuffer(GraphicsDevice.Instance.VmaAllocator, buffer.VkBuffer, buffer._allocation);
+            Vma.vmaDestroyBuffer(GraphicsDevice.VmaAllocator, buffer.VkBuffer, buffer._allocation);
 
             buffer._vkBufferSize = buffer.HostBufferSize;
             VkBufferCreateInfo bufferInfo = new()
@@ -123,7 +123,7 @@ namespace VECS
                 }
             }
 
-            var result = Vma.vmaCreateBuffer(GraphicsDevice.Instance.VmaAllocator, bufferInfo, allocationInfo, out buffer.VkBuffer, out buffer._allocation);
+            var result = Vma.vmaCreateBuffer(GraphicsDevice.VmaAllocator, bufferInfo, allocationInfo, out buffer.VkBuffer, out buffer._allocation);
 
 #if LOG_BUFFER_ALLOCS
             StackTrace trace = new(true);
@@ -379,9 +379,9 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void CopyToSingleTime(this GPUBuffer srcBuffer, ulong srcOffset, GPUBuffer dstBuffer, ulong dstOffset, ulong size)
         {
-            VkCommandBuffer cmd = GraphicsDevice.Instance.BeginSingleTimeCommands();
+            VkCommandBuffer cmd = GraphicsDevice.BeginSingleTimeCommands();
             CopyTo(srcBuffer, cmd, srcOffset, dstBuffer, dstOffset, size);
-            GraphicsDevice.Instance.EndSingleTimeCommands(cmd);
+            GraphicsDevice.EndSingleTimeCommands(cmd);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -402,9 +402,9 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe static void FillBufferSingleTimeCmd(this GPUBuffer buffer, uint data, ulong dstOffset = 0, ulong bufferSize = Vulkan.VK_WHOLE_SIZE)
         {
-            var cmd = GraphicsDevice.Instance.BeginSingleTimeCommands();
+            var cmd = GraphicsDevice.BeginSingleTimeCommands();
             FillBuffer(buffer, cmd, data, dstOffset, bufferSize);
-            GraphicsDevice.Instance.EndSingleTimeCommands(cmd);
+            GraphicsDevice.EndSingleTimeCommands(cmd);
         }
 
         

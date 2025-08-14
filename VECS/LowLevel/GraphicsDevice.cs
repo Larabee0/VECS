@@ -13,7 +13,7 @@ namespace VECS.LowLevel
     /// Responsible for the vulkan instance.
     /// Responsible for the Vulkan Memory Allocator (VMA)
     /// </summary>
-    public sealed class GraphicsDevice : IDisposable
+    public static class GraphicsDevice
     {
 #if DEBUG
         private readonly static string[] _requiredValidationLayers = ["VK_LAYER_KHRONOS_validation"];
@@ -23,7 +23,8 @@ namespace VECS.LowLevel
             Vulkan.VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME,
             Vulkan.VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
             Vulkan.VK_EXT_SAMPLER_FILTER_MINMAX_EXTENSION_NAME,
-            Vulkan.VK_KHR_IMAGELESS_FRAMEBUFFER_EXTENSION_NAME
+            Vulkan.VK_KHR_IMAGELESS_FRAMEBUFFER_EXTENSION_NAME,
+            Vulkan.VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME
         ];
 
         private readonly static HashSet<VkFormat> _stencilFormats =
@@ -34,48 +35,46 @@ namespace VECS.LowLevel
             VkFormat.D32SfloatS8Uint
         ];
 
-        public static GraphicsDevice Instance { get; private set; }
-
-        private readonly IWindow _window;
+        private static IWindow _window;
 #if DEBUG
-        private readonly VkDebugUtilsMessengerEXT _debugMessenger;
+        private static readonly VkDebugUtilsMessengerEXT _debugMessenger;
 #endif
-        private VkInstance _instance;
+        private static VkInstance _instance;
 
-        public VkPhysicalDeviceProperties Properties;
-        private VkPhysicalDevice _physicalDevice;
+        public static VkPhysicalDeviceProperties Properties;
+        private static VkPhysicalDevice _physicalDevice;
 
-        private VkDevice _device;
-        private VkSurfaceKHR _surface;
+        private static VkDevice _device;
+        private static VkSurfaceKHR _surface;
 
-        private VkCommandPool _commandPool;
+        private static VkCommandPool _commandPool;
 
-        private VkQueue _graphicsQueue;
-        private VkQueue _computeQueue;
-        private VkQueue _presentQueue;
+        private static VkQueue _graphicsQueue;
+        private static VkQueue _computeQueue;
+        private static VkQueue _presentQueue;
 
-        private VmaAllocator _allocator;
+        private static VmaAllocator _allocator;
 
-        public VkPhysicalDevice PhysucalDevice => _physicalDevice;
-        public VkDevice Device => _device;
-        public VkSurfaceKHR Surface => _surface;
+        public static VkPhysicalDevice PhysucalDevice => _physicalDevice;
+        public static VkDevice Device => _device;
+        public static VkSurfaceKHR Surface => _surface;
 
-        public VkCommandPool CommandBufferPool => _commandPool;
+        public static VkCommandPool CommandBufferPool => _commandPool;
 
-        public VkQueue GraphicsQueue => _graphicsQueue;
-        public VkQueue PresentQueue => _presentQueue;
+        public static VkQueue GraphicsQueue => _graphicsQueue;
 
-        public VmaAllocator VmaAllocator => _allocator;
+        public static VmaAllocator VmaAllocator => _allocator;
 
-        public VkInstance VkInstance => _instance;
-        public SwapChainSupportDetails SwapChainSupport => QuerySwapChainSupport(_physicalDevice);
-        public QueueFamilyIndices PhysicalQueueFamilies => FindQueueFamilies(_physicalDevice);
+        public static VkInstance VkInstance => _instance;
+        public static SwapChainSupportDetails SwapChainSupport => QuerySwapChainSupport(_physicalDevice);
+        public static QueueFamilyIndices PhysicalQueueFamilies => FindQueueFamilies(_physicalDevice);
 
-        public ulong MinUniformBufferOffsetAlignment => Properties.limits.minUniformBufferOffsetAlignment;
-        public ulong MinStorageBufferOffsetAlignment => Properties.limits.minStorageBufferOffsetAlignment;
-        public unsafe ulong MaxWorkGroupX => Properties.limits.maxComputeWorkGroupCount[0];
+        public static ulong MinUniformBufferOffsetAlignment => Properties.limits.minUniformBufferOffsetAlignment;
+        public static ulong MinStorageBufferOffsetAlignment => Properties.limits.minStorageBufferOffsetAlignment;
+        public static unsafe ulong MaxWorkGroupX => Properties.limits.maxComputeWorkGroupCount[0];
+        public static bool Initialised { get; private set; }
 
-        public GraphicsDevice(IWindow window)
+        public static void Initialise(IWindow window)
         {
             _window = window;
 
@@ -88,7 +87,7 @@ namespace VECS.LowLevel
             CreateLogicalDevice();
             CreateCommandPool();
             CreateVmaAllocator();
-            Instance = this;
+            Initialised = true;
         }
 
         #region Create Instance
@@ -101,7 +100,7 @@ namespace VECS.LowLevel
         /// 
         /// </summary>
         /// <exception cref="Exception">Exceptions are thrown when validation layers are requesed but not avalible or when the vulkan instance fails to be created.</exception>
-        private unsafe void CreateInstance()
+        private static unsafe void CreateInstance()
         {
 
 #if DEBUG
@@ -149,7 +148,7 @@ namespace VECS.LowLevel
         /// Configure the VkApplicationInfo struct.
         /// </summary>
         /// <returns></returns>
-        private VkApplicationInfo GenerateAppInfo()
+        private static VkApplicationInfo GenerateAppInfo()
         {
             VkUtf8ReadOnlyString pApplicationName = Encoding.UTF8.GetBytes(_window.WindowName);
             VkUtf8ReadOnlyString pEngineName = "SDLVCS"u8;
@@ -168,7 +167,7 @@ namespace VECS.LowLevel
         /// Determines if the hardware meets the requirements for the application
         /// </summary>
         /// <exception cref="Exception"></exception>
-        private unsafe void HasRequiredInstanceExtensions()
+        private static unsafe void HasRequiredInstanceExtensions()
         {
             Vulkan.vkEnumerateInstanceExtensionProperties(out uint propertyCount);
 
@@ -210,7 +209,7 @@ namespace VECS.LowLevel
         /// Also appends the debug utils extension if validation layers are enabled.
         /// </summary>
         /// <returns>List of Device extensions to configure the vulkan instance with</returns>
-        private List<VkUtf8String> GetRequiredExtensions()
+        private static List<VkUtf8String> GetRequiredExtensions()
         {
             string[] sdlRequiredExtensions = _window.GetWindowExtensionRequirements();
 
@@ -233,7 +232,7 @@ namespace VECS.LowLevel
         /// Validation messenger setup
         /// </summary>
         /// <exception cref="Exception"></exception>
-        private unsafe void SetUpDebugMessenger()
+        private static unsafe void SetUpDebugMessenger()
         {
             VkDebugUtilsMessengerCreateInfoEXT createInfoEXT = PopulateDebugMessengerCreateInfo();
 
@@ -252,7 +251,7 @@ namespace VECS.LowLevel
         /// <summary>
         /// creates the VK surface to output to
         /// </summary>
-        private void CreateSurface()
+        private static void CreateSurface()
         {
             _surface = _window.CreateWindowSurface(_instance);
         }
@@ -264,7 +263,7 @@ namespace VECS.LowLevel
         /// (if this code is running on my laptop I force it to use the nvidia card (i = 1)
         /// </summary>
         /// <exception cref="Exception"></exception>
-        private unsafe void PickPhysicalDevice()
+        private static unsafe void PickPhysicalDevice()
         {
             var devices = Vulkan.vkEnumeratePhysicalDevices(_instance);
 
@@ -320,7 +319,7 @@ namespace VECS.LowLevel
         /// </summary>
         /// <param name="device"></param>
         /// <returns></returns>
-        private bool IsDeviceSuitable(VkPhysicalDevice device)
+        private static bool IsDeviceSuitable(VkPhysicalDevice device)
         {
             QueueFamilyIndices indices = FindQueueFamilies(device);
 
@@ -343,7 +342,7 @@ namespace VECS.LowLevel
         /// </summary>
         /// <param name="device"></param>
         /// <returns></returns>
-        private QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device)
+        private static QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device)
         {
             QueueFamilyIndices indices = default;
             var queueFamilies = Vulkan.vkGetPhysicalDeviceQueueFamilyProperties(device);
@@ -387,7 +386,7 @@ namespace VECS.LowLevel
         /// </summary>
         /// <param name="device"></param>
         /// <returns></returns>
-        private SwapChainSupportDetails QuerySwapChainSupport(VkPhysicalDevice device)
+        private static SwapChainSupportDetails QuerySwapChainSupport(VkPhysicalDevice device)
         {
             SwapChainSupportDetails details = default;
             Vulkan.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, _surface, out details.capabilities);
@@ -411,7 +410,7 @@ namespace VECS.LowLevel
         /// creates a logical vulkan device from the selected physical device <see cref="_physicalDevice"/>
         /// </summary>
         /// <exception cref="Exception"></exception>
-        private unsafe void CreateLogicalDevice()
+        private static unsafe void CreateLogicalDevice()
         {
             QueueFamilyIndices indices = FindQueueFamilies(_physicalDevice);
 
@@ -510,7 +509,7 @@ namespace VECS.LowLevel
         /// Creates the command buffer pool for submitting commands to the logical device
         /// </summary>
         /// <exception cref="Exception"></exception>
-        private unsafe void CreateCommandPool()
+        private static unsafe void CreateCommandPool()
         {
             QueueFamilyIndices queueFamilyIndices = PhysicalQueueFamilies;
 
@@ -532,7 +531,7 @@ namespace VECS.LowLevel
         /// <summary>
         /// Create a Vma allocator for the allocation of VkBuffers and VKImages constructed during the application lifetime.
         /// </summary>
-        private void CreateVmaAllocator()
+        private static void CreateVmaAllocator()
         {
             VmaAllocatorCreateInfo allocatorCreateInfo = new()
             {
@@ -556,7 +555,7 @@ namespace VECS.LowLevel
         /// <param name="features">required format feature flags</param>
         /// <returns></returns>
         /// <exception cref="Exception"></exception>
-        public VkFormat FindSupportFormat(VkFormat[] candidates, VkImageTiling tiling, VkFormatFeatureFlags features)
+        public static VkFormat FindSupportFormat(VkFormat[] candidates, VkImageTiling tiling, VkFormatFeatureFlags features)
         {
             for (int i = 0; i < candidates.Length; i++)
             {
@@ -584,7 +583,7 @@ namespace VECS.LowLevel
         /// Gets a command buffer to a single command.
         /// </summary>
         /// <returns></returns>
-        public VkCommandBuffer BeginSingleTimeCommands()
+        public static VkCommandBuffer BeginSingleTimeCommands()
         {
             Vulkan.vkAllocateCommandBuffer(Device, _commandPool, VkCommandBufferLevel.Primary, out VkCommandBuffer commandBuffer);            
             Vulkan.vkBeginCommandBuffer(commandBuffer, VkCommandBufferUsageFlags.OneTimeSubmit);
@@ -595,7 +594,7 @@ namespace VECS.LowLevel
         /// Submit the given single time command buffer to the gpu
         /// </summary>
         /// <param name="commandBuffer"></param>
-        public unsafe void EndSingleTimeCommands(VkCommandBuffer commandBuffer)
+        public static unsafe void EndSingleTimeCommands(VkCommandBuffer commandBuffer)
         {
             Vulkan.vkEndCommandBuffer(commandBuffer);
             VkSubmitInfo submitInfo = new()
@@ -612,12 +611,13 @@ namespace VECS.LowLevel
         /// <summary>
         /// Cleans up the vulkan device and vulkan instance and Vma Allocator.
         /// </summary>
-        public unsafe void Dispose()
+        public static unsafe void Dispose()
         {
-            Instance = null;
-            Vma.vmaDestroyAllocator(_allocator);
+            Initialised = false;
+
 
             Vulkan.vkDestroyCommandPool(_device, _commandPool);
+            Vma.vmaDestroyAllocator(_allocator);
             Vulkan.vkDestroyDevice(_device);
 
 #if DEBUG

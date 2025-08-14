@@ -16,7 +16,7 @@ namespace VECS.LowLevel
 
         public unsafe ShadowImage()
         {
-            _depthFormat = GraphicsDevice.Instance.FindSupportFormat([VkFormat.D32SfloatS8Uint, VkFormat.D32Sfloat, VkFormat.D24UnormS8Uint, VkFormat.D16UnormS8Uint, VkFormat.D16Unorm],
+            _depthFormat = GraphicsDevice.FindSupportFormat([VkFormat.D32SfloatS8Uint, VkFormat.D32Sfloat, VkFormat.D24UnormS8Uint, VkFormat.D16UnormS8Uint, VkFormat.D16Unorm],
                 VkImageTiling.Optimal,
                 VkFormatFeatureFlags.DepthStencilAttachment);
 
@@ -59,7 +59,7 @@ namespace VECS.LowLevel
             {
                 attachements[0] = CubeMap.FaceImageViews[i];
                 fixed (VkFramebuffer* pFB = &FrameBuffers[i])
-                    Vulkan.vkCreateFramebuffer(GraphicsDevice.Instance.Device, framebufferCreateInfo, null, pFB);
+                    Vulkan.vkCreateFramebuffer(GraphicsDevice.Device, framebufferCreateInfo, null, pFB);
             }
         }
 
@@ -105,7 +105,7 @@ namespace VECS.LowLevel
                 pSubpasses = &subpass
             };
 
-            VkResult result = Vulkan.vkCreateRenderPass(GraphicsDevice.Instance.Device, renderPassCreateInfo, null, out ShadowPass);
+            VkResult result = Vulkan.vkCreateRenderPass(GraphicsDevice.Device, renderPassCreateInfo, null, out ShadowPass);
             if (result != VkResult.Success)
             {
                 throw new Exception("Failed to create Shadow render pass!");
@@ -192,10 +192,10 @@ namespace VECS.LowLevel
 
             for (int i = 0; i < 6; i++)
             {
-                Vulkan.vkDestroyFramebuffer(GraphicsDevice.Instance.Device, FrameBuffers[i]);
+                Vulkan.vkDestroyFramebuffer(GraphicsDevice.Device, FrameBuffers[i]);
             }
 
-            Vulkan.vkDestroyRenderPass(GraphicsDevice.Instance.Device, ShadowPass);
+            Vulkan.vkDestroyRenderPass(GraphicsDevice.Device, ShadowPass);
 
             CubeMap?.Dispose();
             FrameBufferAttachment?.Dispose();

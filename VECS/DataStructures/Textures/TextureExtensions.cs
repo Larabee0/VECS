@@ -89,10 +89,10 @@ namespace VECS
         {
             if (texture._textureSampler != VkSampler.Null)
             {
-                Vulkan.vkDestroySampler(GraphicsDevice.Instance.Device, texture._textureSampler);
+                Vulkan.vkDestroySampler(GraphicsDevice.Device, texture._textureSampler);
                 texture._textureSampler = VkSampler.Null;
             }
-            var result = Vulkan.vkCreateSampler(GraphicsDevice.Instance.Device, createInfo, null, out texture._textureSampler);
+            var result = Vulkan.vkCreateSampler(GraphicsDevice.Device, createInfo, null, out texture._textureSampler);
             if (result != VkResult.Success)
             {
                 throw new Exception(string.Format("VK Create Sampler failed: {0}", result.ToString()));
@@ -104,10 +104,10 @@ namespace VECS
         {
             if (texture._imageView != VkImageView.Null)
             {
-                Vulkan.vkDestroyImageView(GraphicsDevice.Instance.Device, texture._imageView);
+                Vulkan.vkDestroyImageView(GraphicsDevice.Device, texture._imageView);
                 texture._imageView = VkImageView.Null;
             }
-            var result = Vulkan.vkCreateImageView(GraphicsDevice.Instance.Device, createInfo, null, out texture._imageView);
+            var result = Vulkan.vkCreateImageView(GraphicsDevice.Device, createInfo, null, out texture._imageView);
             if (result != VkResult.Success)
             {
                 throw new Exception(string.Format("VK Create Image View failed: {0}", result.ToString()));
@@ -125,19 +125,19 @@ namespace VECS
         {
             if (texture._vkImage != VkImage.Null && texture._allocation != VmaAllocation.Null)
             {
-                Vma.vmaDestroyImage(GraphicsDevice.Instance.VmaAllocator, texture._vkImage, texture._allocation);
+                Vma.vmaDestroyImage(GraphicsDevice.VmaAllocator, texture._vkImage, texture._allocation);
                 texture._vkImage = VkImage.Null;
                 texture._allocation = VmaAllocation.Null;
             }
 
 
-            var result = Vma.vmaCreateImage(GraphicsDevice.Instance.VmaAllocator, imageCreateInfo, allocationCreateInfo, out texture._vkImage, out texture._allocation);
+            var result = Vma.vmaCreateImage(GraphicsDevice.VmaAllocator, imageCreateInfo, allocationCreateInfo, out texture._vkImage, out texture._allocation);
             if (result != VkResult.Success)
             {
                 throw new Exception(string.Format("VK Create Image View failed: {0}", result.ToString()));
             }
 
-            Vulkan.vkGetImageMemoryRequirements(GraphicsDevice.Instance.Device, texture._vkImage, out var requirements);
+            Vulkan.vkGetImageMemoryRequirements(GraphicsDevice.Device, texture._vkImage, out var requirements);
             texture._vkBufferSizeRequirement = requirements.size;
         }
 
@@ -158,9 +158,9 @@ namespace VECS
             {
                 if (texture._hostBuffer.UsageFlags.HasFlag(VkBufferUsageFlags.TransferSrc | VkBufferUsageFlags.TransferDst))
                 {
-                    var cmd = GraphicsDevice.Instance.BeginSingleTimeCommands();
+                    var cmd = GraphicsDevice.BeginSingleTimeCommands();
                     texture.CopyToBuffer(cmd, texture._hostBuffer);
-                    GraphicsDevice.Instance.EndSingleTimeCommands(cmd);
+                    GraphicsDevice.EndSingleTimeCommands(cmd);
                     texture._hostBuffer.ReadToHostBuffer();
 
                     return;
@@ -191,9 +191,9 @@ namespace VECS
             }
             if (copyFromGPUNow)
                 {
-                    var cmd = GraphicsDevice.Instance.BeginSingleTimeCommands();
+                    var cmd = GraphicsDevice.BeginSingleTimeCommands();
                     texture.CopyToBuffer(cmd, texture._hostBuffer);
-                    GraphicsDevice.Instance.EndSingleTimeCommands(cmd);
+                    GraphicsDevice.EndSingleTimeCommands(cmd);
                     texture._hostBuffer.ReadToHostBuffer();
                     texture.CopyFromBuffer(texture._hostBuffer);
                 }
@@ -201,7 +201,7 @@ namespace VECS
 
         internal static void CopyFromBuffer(this Texture texture, GPUBuffer buffer)
         {
-            var cmd = GraphicsDevice.Instance.BeginSingleTimeCommands();
+            var cmd = GraphicsDevice.BeginSingleTimeCommands();
             bool hintRegenerateMipMaps = CopyFromBuffer(texture, cmd, buffer);
             if (hintRegenerateMipMaps && texture.MipMapCount > 1)
             {
@@ -212,7 +212,7 @@ namespace VECS
             {
                 Console.WriteLine("Skipped mipmaps regeneration for texture");
             }
-            GraphicsDevice.Instance.EndSingleTimeCommands(cmd);
+            GraphicsDevice.EndSingleTimeCommands(cmd);
         }
 
         internal static unsafe bool CopyFromBuffer(this Texture texture, VkCommandBuffer cmdBuffer, GPUBuffer buffer)

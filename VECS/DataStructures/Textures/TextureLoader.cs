@@ -59,7 +59,7 @@ namespace VECS
 
         public static unsafe GPUBuffer<Colour> CopySurfaceToStagingBuffer(Surface surface)
         {
-            if (surface.ImageType != ImageType.Bitmap || surface.BitsPerPixel != 32 || GraphicsDevice.Instance == null)
+            if (surface.ImageType != ImageType.Bitmap || surface.BitsPerPixel != 32 || !GraphicsDevice.Initialised)
             {
                 throw new Exception("Provided image surface is not in the right format, or device is null");
             }

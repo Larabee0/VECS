@@ -707,7 +707,7 @@ namespace Planets
 
                 computeGenerator = new ComputeShapeGenerator();
                 computeGenerator.PrePrepare(generator);
-                commandBuffer = GraphicsDevice.Instance.BeginSingleTimeCommands();
+                commandBuffer = GraphicsDevice.BeginSingleTimeCommands();
             }
             if (useComputeShaderForGeneration)
             {
@@ -724,7 +724,7 @@ namespace Planets
 
             if (useComputeShaderForGeneration)
             {
-                GraphicsDevice.Instance.EndSingleTimeCommands(commandBuffer);
+                GraphicsDevice.EndSingleTimeCommands(commandBuffer);
 
                 Vector2 shaderMinMax = computeGenerator.ReadElevationMinMax();
                 generator.MinMax.AddValue(shaderMinMax.X);

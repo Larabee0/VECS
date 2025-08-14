@@ -73,9 +73,9 @@ namespace VECS
             get => _imageLayout;
             set
             {
-                var cmd = GraphicsDevice.Instance.BeginSingleTimeCommands();
+                var cmd = GraphicsDevice.BeginSingleTimeCommands();
                 TextureExtensions.SetImageLayout(cmd, _vkImage, _aspectFlags, _imageLayout, value, VkPipelineStageFlags.AllCommands, VkPipelineStageFlags.AllCommands);
-                GraphicsDevice.Instance.EndSingleTimeCommands(cmd);
+                GraphicsDevice.EndSingleTimeCommands(cmd);
                 _imageLayout = value;
             }
         }
@@ -155,7 +155,7 @@ namespace VECS
                 addressModeV = _wrapModeV,
                 addressModeW = _wrapModeW,
                 anisotropyEnable = _anisoLevel > 0,
-                maxAnisotropy = Math.Max(1,Math.Min(GraphicsDevice.Instance.Properties.limits.maxSamplerAnisotropy, _anisoLevel)),
+                maxAnisotropy = Math.Max(1,Math.Min(GraphicsDevice.Properties.limits.maxSamplerAnisotropy, _anisoLevel)),
                 borderColor = _borderColour,
                 unnormalizedCoordinates = _unnormalisedCoordinates,
                 compareEnable = _compareEnable,
@@ -169,18 +169,18 @@ namespace VECS
 
         public void RegenerateMipMaps()
         {
-            var cmd = GraphicsDevice.Instance.BeginSingleTimeCommands();
+            var cmd = GraphicsDevice.BeginSingleTimeCommands();
             RegenerateMipMaps(cmd);
-            GraphicsDevice.Instance.EndSingleTimeCommands(cmd);
+            GraphicsDevice.EndSingleTimeCommands(cmd);
         }
 
         public abstract void RegenerateMipMaps(VkCommandBuffer cmd);
 
         public void SetImageLayout(VkImageLayout newImageLayout, VkPipelineStageFlags srcStage = VkPipelineStageFlags.AllCommands, VkPipelineStageFlags dstStage = VkPipelineStageFlags.AllCommands)
         {
-            var cmd = GraphicsDevice.Instance.BeginSingleTimeCommands();
+            var cmd = GraphicsDevice.BeginSingleTimeCommands();
             SetImageLayout(cmd, newImageLayout, srcStage, dstStage);
-            GraphicsDevice.Instance.EndSingleTimeCommands(cmd);
+            GraphicsDevice.EndSingleTimeCommands(cmd);
         }
 
         public void SetImageLayout(VkCommandBuffer cmdbuffer, VkImageLayout newImageLayout, VkPipelineStageFlags srcStage = VkPipelineStageFlags.AllCommands, VkPipelineStageFlags dstStage = VkPipelineStageFlags.AllCommands)
@@ -241,19 +241,19 @@ namespace VECS
 
             if (_textureSampler != VkSampler.Null)
             {
-                Vulkan.vkDestroySampler(GraphicsDevice.Instance.Device, _textureSampler);
+                Vulkan.vkDestroySampler(GraphicsDevice.Device, _textureSampler);
                 _textureSampler = VkSampler.Null;
             }
 
             if (_imageView != VkImageView.Null)
             {
-                Vulkan.vkDestroyImageView(GraphicsDevice.Instance.Device, _imageView);
+                Vulkan.vkDestroyImageView(GraphicsDevice.Device, _imageView);
                 _imageView = VkImageView.Null;
             }
 
             if (_vkImage != VkImage.Null && _allocation != VmaAllocation.Null)
             {
-                Vma.vmaDestroyImage(GraphicsDevice.Instance.VmaAllocator, _vkImage, _allocation);
+                Vma.vmaDestroyImage(GraphicsDevice.VmaAllocator, _vkImage, _allocation);
             }
 
             _disposed = true;

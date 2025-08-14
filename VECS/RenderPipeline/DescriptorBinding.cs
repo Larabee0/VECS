@@ -80,11 +80,11 @@ namespace VECS
             
             if (UniformBuffer)
             {
-                minOffset = (uint)GraphicsDevice.Instance.MinUniformBufferOffsetAlignment;
+                minOffset = (uint)GraphicsDevice.MinUniformBufferOffsetAlignment;
             }
             else if (StorageBuffer)
             {
-                minOffset = (uint)GraphicsDevice.Instance.MinStorageBufferOffsetAlignment;
+                minOffset = (uint)GraphicsDevice.MinStorageBufferOffsetAlignment;
             }
 
             if (BufferSize <= minOffset)

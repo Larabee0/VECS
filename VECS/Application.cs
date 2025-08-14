@@ -14,7 +14,6 @@ namespace VECS
         private static bool running = true;
 
         private readonly SDL3Window _appWindow;
-        private readonly GraphicsDevice _device;
         private readonly Presenter _presenter;
 
         private static World _mainWorld;
@@ -31,7 +30,7 @@ namespace VECS
         public Application()
         {
             _appWindow = new(Width, Height, "VECS");
-            _device = new(_appWindow);
+            GraphicsDevice.Initialise(_appWindow);
             ShaderModule.LoadAllShaders();
             _presenter = new(_appWindow);
             
@@ -139,7 +138,7 @@ namespace VECS
             _mainWorld?.Dispose();
             Time.FixedTimeStepCallback -= FixedUpdate;
             _presenter.Dispose();
-            _device.Dispose();
+            GraphicsDevice.Dispose();
             _appWindow.Dispose();
         }
     }

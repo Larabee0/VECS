@@ -11,7 +11,6 @@ namespace VECS.LowLevel
     {
         internal static Renderer Instance { get; private set; }
         private readonly IWindow _window;
-        private readonly GraphicsDevice _device;
         private SwapChain _swapChain;
         private readonly ShadowImage _shadowCubeMap;
 
@@ -59,7 +58,6 @@ namespace VECS.LowLevel
         public Renderer(IWindow window)
         {
             Instance = this;
-            _device = GraphicsDevice.Instance;
             _window = window;
 
             RecreateSwapChain();
@@ -101,13 +99,13 @@ namespace VECS.LowLevel
             VkCommandBufferAllocateInfo allocInfo = new()
             {
                 level = VkCommandBufferLevel.Primary,
-                commandPool = _device.CommandBufferPool,
+                commandPool = GraphicsDevice.CommandBufferPool,
                 commandBufferCount = (uint)commandBuffers.Length
             };
 
             fixed (VkCommandBuffer* pCommandBuffers = &commandBuffers[0])
             {
-                if (Vulkan.vkAllocateCommandBuffers(_device.Device, &allocInfo, pCommandBuffers) != VkResult.Success)
+                if (Vulkan.vkAllocateCommandBuffers(GraphicsDevice.Device, &allocInfo, pCommandBuffers) != VkResult.Success)
                 {
                     throw new Exception("Failed to allocate command buffers");
                 }
@@ -118,7 +116,7 @@ namespace VECS.LowLevel
         {
             fixed (VkCommandBuffer* pCommandBuffers = &commandBuffers[0])
             {
-                Vulkan.vkFreeCommandBuffers(_device.Device, _device.CommandBufferPool, (uint)commandBuffers.Length, pCommandBuffers);
+                Vulkan.vkFreeCommandBuffers(GraphicsDevice.Device, GraphicsDevice.CommandBufferPool, (uint)commandBuffers.Length, pCommandBuffers);
             }
         }
 

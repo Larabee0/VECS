@@ -303,20 +303,20 @@ namespace VECS
                 if (HasApplicationSet && !_actAsGlobal && i == 0) continue;
                 _allHandlers[i]?.Dispose();
             }
-            Vulkan.vkDestroyPipeline(GraphicsDevice.Instance.Device, _graphicsPipeline);
+            Vulkan.vkDestroyPipeline(GraphicsDevice.Device, _graphicsPipeline);
 
             if (_applicationDescriptorLayout != VkDescriptorSetLayout.Null)
             {
-                Vulkan.vkDestroyDescriptorSetLayout(GraphicsDevice.Instance.Device, _applicationDescriptorLayout, null);
+                Vulkan.vkDestroyDescriptorSetLayout(GraphicsDevice.Device, _applicationDescriptorLayout, null);
             }
             if (_materialDescriptorLayout != VkDescriptorSetLayout.Null)
             {
-                Vulkan.vkDestroyDescriptorSetLayout(GraphicsDevice.Instance.Device, _materialDescriptorLayout, null);
+                Vulkan.vkDestroyDescriptorSetLayout(GraphicsDevice.Device, _materialDescriptorLayout, null);
             }
 
             if (_entityDescriptorLayout != VkDescriptorSetLayout.Null)
             {
-                Vulkan.vkDestroyDescriptorSetLayout(GraphicsDevice.Instance.Device, _entityDescriptorLayout, null);
+                Vulkan.vkDestroyDescriptorSetLayout(GraphicsDevice.Device, _entityDescriptorLayout, null);
             }
 
             int index = GetIndexOfMaterial(this);

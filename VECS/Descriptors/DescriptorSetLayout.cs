@@ -10,16 +10,14 @@ namespace VECS
     /// </summary>
     public sealed class DescriptorSetLayout : IDisposable
     {
-        private readonly GraphicsDevice _graphicsDevice;
         public readonly Dictionary<uint, VkDescriptorSetLayoutBinding> Bindings;
         private readonly VkDescriptorSetLayout _descriptorSetLayout;
 
         public uint BindingCount => (uint)Bindings.Count;
         public VkDescriptorSetLayout SetLayout => _descriptorSetLayout;
 
-        public unsafe DescriptorSetLayout(GraphicsDevice graphicsDevice, Dictionary<uint, VkDescriptorSetLayoutBinding> bindings)
+        public unsafe DescriptorSetLayout(Dictionary<uint, VkDescriptorSetLayoutBinding> bindings)
         {
-            _graphicsDevice = graphicsDevice;
             Bindings = bindings;
 
             VkDescriptorSetLayoutBinding* setLayoutBindings = stackalloc VkDescriptorSetLayoutBinding[Bindings.Count];
@@ -38,7 +36,7 @@ namespace VECS
                 pBindings = setLayoutBindings
             };
 
-            if (Vulkan.vkCreateDescriptorSetLayout(_graphicsDevice.Device, descriptorSetLayoutInfo, null, out _descriptorSetLayout) != VkResult.Success)
+            if (Vulkan.vkCreateDescriptorSetLayout(GraphicsDevice.Device, descriptorSetLayoutInfo, null, out _descriptorSetLayout) != VkResult.Success)
             {
                 throw new Exception("Failed to create descriptor set layout!");
             }
@@ -46,7 +44,7 @@ namespace VECS
 
         public unsafe void Dispose()
         {
-            Vulkan.vkDestroyDescriptorSetLayout(_graphicsDevice.Device, _descriptorSetLayout, null);
+            Vulkan.vkDestroyDescriptorSetLayout(GraphicsDevice.Device, _descriptorSetLayout, null);
         }
 
         /// <summary>
@@ -54,13 +52,8 @@ namespace VECS
         /// </summary>
         public class Builder
         {
-            private readonly GraphicsDevice _graphicsDevice;
             private readonly Dictionary<uint, VkDescriptorSetLayoutBinding> _bindings = [];
-            public Builder()
-            {
-                _graphicsDevice = GraphicsDevice.Instance;
-            }
-
+            
             /// <summary>
             /// adds a binding to the descriptor set.
             /// </summary>
@@ -118,7 +111,7 @@ namespace VECS
 
             public DescriptorSetLayout Build()
             {
-                return new DescriptorSetLayout(_graphicsDevice, _bindings);
+                return new DescriptorSetLayout(_bindings);
             }
         }
     }

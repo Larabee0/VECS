@@ -51,7 +51,7 @@ namespace VECS
             byte[] shaderCode = File.ReadAllBytes(filePath);
 
             _spvShaderModule = SPIRVReflectUtil.CreateReflectShaderModule(shaderCode);
-            var result = Vulkan.vkCreateShaderModule(GraphicsDevice.Instance.Device, shaderCode, null, out _vkShaderModule);
+            var result = Vulkan.vkCreateShaderModule(GraphicsDevice.Device, shaderCode, null, out _vkShaderModule);
 
             if (result != VkResult.Success)
             {
@@ -73,7 +73,7 @@ namespace VECS
 
 
             _spvShaderModule = SPIRVReflectUtil.CreateReflectShaderModule(shaderCode);
-            var result = Vulkan.vkCreateShaderModule(GraphicsDevice.Instance.Device, shaderCode, null, out _vkShaderModule);
+            var result = Vulkan.vkCreateShaderModule(GraphicsDevice.Device, shaderCode, null, out _vkShaderModule);
 
             if (result != VkResult.Success)
             {
@@ -95,7 +95,7 @@ namespace VECS
             _disposed = true;
 
             SPIRVReflectUtil.DestroyReflectShaderModule(_spvShaderModule);
-            Vulkan.vkDestroyShaderModule(GraphicsDevice.Instance.Device, _vkShaderModule);
+            Vulkan.vkDestroyShaderModule(GraphicsDevice.Device, _vkShaderModule);
         }
 
         

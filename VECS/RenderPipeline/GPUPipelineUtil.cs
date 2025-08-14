@@ -275,7 +275,7 @@ namespace VECS
                     bindingCount = (uint)bindings.Length,
                     pBindings = pBindings
                 };
-                var result = Vulkan.vkCreateDescriptorSetLayout(GraphicsDevice.Instance.Device, descriptorSetLayoutInfo, null, out layout);
+                var result = Vulkan.vkCreateDescriptorSetLayout(GraphicsDevice.Device, descriptorSetLayoutInfo, null, out layout);
                 if (result != VkResult.Success)
                 {
                     throw new Exception(string.Format("Failed to create descriptor set layout! {0}", result.ToString()));
@@ -363,7 +363,7 @@ namespace VECS
                 layoutCreateInfo.pPushConstantRanges = pLayouts;
             }
 
-            var result = Vulkan.vkCreatePipelineLayout(GraphicsDevice.Instance.Device, layoutCreateInfo, null, out VkPipelineLayout pipelineLayout);
+            var result = Vulkan.vkCreatePipelineLayout(GraphicsDevice.Device, layoutCreateInfo, null, out VkPipelineLayout pipelineLayout);
             if (result != VkResult.Success)
             {
                 throw new Exception(string.Format("Failed to create pipeline layout! {0}", result.ToString()));
@@ -438,7 +438,7 @@ namespace VECS
                 basePipelineHandle = VkPipeline.Null
             };
 
-            var result = Vulkan.vkCreateGraphicsPipeline(GraphicsDevice.Instance.Device, cache.Cache, pipelineInfo, out var graphicsPipeline);
+            var result = Vulkan.vkCreateGraphicsPipeline(GraphicsDevice.Device, cache.Cache, pipelineInfo, out var graphicsPipeline);
             if (result!= VkResult.Success)
             {
                 throw new Exception(string.Format("Failed to create graphics pipeline! {0}", result.ToString()));
