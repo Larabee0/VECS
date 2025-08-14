@@ -4,6 +4,7 @@ using VECS.LowLevel;
 using VECS.ECS.Physics;
 using System.Runtime.InteropServices.Marshalling;
 using BepuUtilities;
+using Vortice.Vulkan;
 
 namespace VECS
 {
@@ -59,7 +60,8 @@ namespace VECS
                 Presentation();
                 InputManager.Instance.LateUpdate();
             }
-            SwapChain.Instance.EndSubmissionThread();
+            //SwapChain.Instance.EndSubmissionThread();
+            Vulkan.vkDeviceWaitIdle(GraphicsDevice.Device);
             Destroy();
         }
 
