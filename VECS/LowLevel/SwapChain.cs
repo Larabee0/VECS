@@ -50,6 +50,8 @@ namespace VECS.LowLevel
 
         private VkSemaphore _timelineSemaphore;
 
+        private TimelineSemaphore[] _timelineSemaphores;
+
         private VkFence[] _waitFences;
 
         internal VkExtent2D SwapChainExtent => _swapChainExtent;
@@ -380,8 +382,12 @@ namespace VECS.LowLevel
         }
 
 
-        private unsafe void CreateTimelineSemaphore()
+        private unsafe void CreateTimelineSemaphores()
         {
+
+            _timelineSemaphores = new TimelineSemaphore[MAX_CONCURRENT_FRAMES];
+            
+
             VkSemaphoreCreateInfo createInfo = new();
             VkSemaphoreTypeCreateInfo typeCreateInfo = new()
             {
@@ -389,8 +395,16 @@ namespace VECS.LowLevel
                 initialValue = 0
             };
             createInfo.pNext = &typeCreateInfo;
-            Vulkan.CheckResult(Vulkan.vkCreateSemaphore(GraphicsDevice.Device, createInfo, null, out _timelineSemaphore));
+            for (int i = 0; i < _timelineSemaphores.Length; i++)
+            {
 
+                Vulkan.CheckResult(Vulkan.vkCreateSemaphore(GraphicsDevice.Device, createInfo, null, out var semaphore));
+                _timelineSemaphores[i] = new()
+                {
+                    semaphoreValue = 0,
+                    semaphore = semaphore
+                };
+            }
         }
 
 
@@ -470,6 +484,8 @@ namespace VECS.LowLevel
             {
                 Vulkan.CheckResult(Vulkan.vkCreateSemaphore(GraphicsDevice.Device, semaphoreInfo, null, out _renderCompleteSemaphore[i]), "Failed to create render semaphore!");
             }
+
+            CreateTimelineSemaphores();
         }
 
         public VkResult AcquireNextImage()
@@ -667,6 +683,7 @@ namespace VECS.LowLevel
             
             for (int i = 0; i < MAX_CONCURRENT_FRAMES; i++)
             {
+                Vulkan.vkDestroySemaphore(GraphicsDevice.Device,_timelineSemaphores[i].semaphore);
                 Vulkan.vkDestroySemaphore(GraphicsDevice.Device, _presentCompleteSemaphore[i]);
                 Vulkan.vkDestroyFence(GraphicsDevice.Device, _waitFences[i]);
             }
@@ -721,5 +738,11 @@ namespace VECS.LowLevel
             return VkPresentModeKHR.Fifo;
         }
 
+
+        private struct TimelineSemaphore
+        {
+            public VkSemaphore semaphore;
+            public ulong semaphoreValue;
+        }
     }
 }

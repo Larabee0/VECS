@@ -289,7 +289,8 @@ namespace VECS.LowLevel
             VkPhysicalDeviceVulkan12Features deviceFeatures12 = new()
             {
                 imagelessFramebuffer = true,
-                samplerFilterMinmax = true
+                samplerFilterMinmax = true,
+                timelineSemaphore = true
             };
 
 
