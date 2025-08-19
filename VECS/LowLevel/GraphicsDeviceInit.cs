@@ -72,10 +72,8 @@ namespace VECS.LowLevel
             createInfo.pNext = null;
 #endif
 
-            if (Vulkan.vkCreateInstance(&createInfo, null, out _instance) != VkResult.Success)
-            {
-                throw new Exception("Failed to create vulkan instance!");
-            }
+            Vulkan.CheckResult(Vulkan.vkCreateInstance(&createInfo, null, out _instance), "Failed to create vulkan instance!");
+            
 
             Vulkan.vkLoadInstanceOnly(_instance);
 
@@ -330,12 +328,8 @@ namespace VECS.LowLevel
             createInfo.enabledLayerCount = 0;
             
 #endif
-            if (Vulkan.vkCreateDevice(GraphicsDevice._physicalDevice, in createInfo, null, out GraphicsDevice._device) != VkResult.Success)
-            {
-                throw new Exception("Failed to create logical device");
-            }
-
-
+            Vulkan.CheckResult(Vulkan.vkCreateDevice(_physicalDevice, in createInfo, null, out _device), "Failed to create logical device");
+            
             Vulkan.vkLoadDevice(_device);
 
             Vulkan.vkGetDeviceQueue(_device, (uint)indices.graphicsFamily, 0, out _mainQueue);
@@ -486,13 +480,8 @@ namespace VECS.LowLevel
             VkDebugUtilsMessengerCreateInfoEXT createInfoEXT = PopulateDebugMessengerCreateInfo();
 
             fixed (VkDebugUtilsMessengerEXT* toPtr = &_debugMessenger)
-            {
-                var result = CreateDebugUtilsMessengerEXT(_instance, &createInfoEXT, null, toPtr);
-                if (result != VkResult.Success)
-                {
-                    throw new Exception(string.Format("failed to set up debug messenger! {0}", result.ToString()));
-                }
-            }
+                Vulkan.CheckResult(CreateDebugUtilsMessengerEXT(_instance, &createInfoEXT, null, toPtr), "failed to set up debug messenger! {0}");
+
         }
 
         #endregion

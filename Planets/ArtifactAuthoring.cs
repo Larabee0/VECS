@@ -605,7 +605,7 @@ namespace Planets
             planetLitMaterial.SetTexture("texWaveA", textureWaveA);
             planetLitMaterial.SetTexture("texWaveB", textureWaveC);
             planetLitMaterial.SetTexture("texWaveC", textureWaveB);
-            planetLitMaterial.SetCubeMap("shadowCubeMap", Renderer.ShadowTexture);
+            planetLitMaterial.SetCubeMap("shadowCubeMap", AssetDataBase<Cubemap>.GetNamed("ShadowCubeMap"));
         }
 
         private Entity CreatePrefabPlanet(EntityManager entityManager)

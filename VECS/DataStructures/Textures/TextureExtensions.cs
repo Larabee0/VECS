@@ -92,11 +92,8 @@ namespace VECS
                 Vulkan.vkDestroySampler(GraphicsDevice.Device, texture._textureSampler);
                 texture._textureSampler = VkSampler.Null;
             }
-            var result = Vulkan.vkCreateSampler(GraphicsDevice.Device, createInfo, null, out texture._textureSampler);
-            if (result != VkResult.Success)
-            {
-                throw new Exception(string.Format("VK Create Sampler failed: {0}", result.ToString()));
-            }
+            Vulkan.CheckResult(Vulkan.vkCreateSampler(GraphicsDevice.Device, createInfo, null, out texture._textureSampler), "Create Sampler failed");
+            
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -107,11 +104,8 @@ namespace VECS
                 Vulkan.vkDestroyImageView(GraphicsDevice.Device, texture._imageView);
                 texture._imageView = VkImageView.Null;
             }
-            var result = Vulkan.vkCreateImageView(GraphicsDevice.Device, createInfo, null, out texture._imageView);
-            if (result != VkResult.Success)
-            {
-                throw new Exception(string.Format("VK Create Image View failed: {0}", result.ToString()));
-            }
+
+            Vulkan.CheckResult(Vulkan.vkCreateImageView(GraphicsDevice.Device, createInfo, null, out texture._imageView), "Create Image View failed!");
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -130,12 +124,7 @@ namespace VECS
                 texture._allocation = VmaAllocation.Null;
             }
 
-
-            var result = Vma.vmaCreateImage(GraphicsDevice.VmaAllocator, imageCreateInfo, allocationCreateInfo, out texture._vkImage, out texture._allocation);
-            if (result != VkResult.Success)
-            {
-                throw new Exception(string.Format("VK Create Image View failed: {0}", result.ToString()));
-            }
+            Vulkan.CheckResult(Vma.vmaCreateImage(GraphicsDevice.VmaAllocator, imageCreateInfo, allocationCreateInfo, out texture._vkImage, out texture._allocation), "Create Image View failed!");
 
             Vulkan.vkGetImageMemoryRequirements(GraphicsDevice.Device, texture._vkImage, out var requirements);
             texture._vkBufferSizeRequirement = requirements.size;

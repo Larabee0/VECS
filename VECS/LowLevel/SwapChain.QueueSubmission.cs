@@ -28,6 +28,9 @@ namespace VECS.LowLevel
         private Thread _computeThread;
         private Thread _graphicsThread;
 
+        public Action GraphicsCallback;
+        public Action ComputeCallback;
+
         private void StartTimelineWorkers()
         {
             _graphicsThread = new Thread(DoGraphicsWork)
@@ -43,12 +46,18 @@ namespace VECS.LowLevel
             _computeThread.Start();
         }
 
-        private void FinishTimelineWorkers()
+        internal void FinishTimelineWorkers()
         {
-            SignalTimelineFromHost(Stages.MAX_STAGES);
+            if ((_graphicsThread != null && _graphicsThread.IsAlive) || (_graphicsThread != null && _computeThread.IsAlive))
+            {
+                SignalTimelineFromHost(Stages.MAX_STAGES);
 
-            _graphicsThread.Join();
-            _computeThread.Join();
+                _graphicsThread.Join();
+                _computeThread.Join();
+
+                _graphicsThread = null;
+                _computeThread = null;
+            }
         }
 
         private unsafe void DoComputeWork()
@@ -66,7 +75,7 @@ namespace VECS.LowLevel
 
                 signalValue = GetTimelineStageValue(Stages.Draw);
                 timelineSemaphore = _timelineSemaphores[_currentFrame].semaphore;
-                commandBuffer = &VkCommandBuffer.Null;
+                commandBuffer = CurrentComputeCommandBuffer;
 
                 timelineInfo = new()
                 {
@@ -128,7 +137,7 @@ namespace VECS.LowLevel
                 signalSemaphores[0] = _timelineSemaphores[_currentFrame].semaphore;
                 signalSemaphores[1] = _renderCompleteSemaphores[_currentImage];
 
-                commandBuffer = &VkCommandBuffer.Null;
+                commandBuffer = CurrentMainCommandBuffer;
 
                 timelineInfo = new()
                 {
@@ -164,14 +173,24 @@ namespace VECS.LowLevel
             }
         }
 
-        private void BuildGraphicsCommands()
+        private unsafe void BuildGraphicsCommands()
         {
-            
+
+            WaitForMainComamndBuffer();
+            VkCommandBufferBeginInfo beginInfo = new();
+
+            Vulkan.CheckResult(Vulkan.vkBeginCommandBuffer(CurrentMainCommandBuffer, &beginInfo), "Failed to begin recording main command buffer");
+            GraphicsCallback?.Invoke();
         }
 
-        private void BuildComputeCommands()
+        private unsafe void BuildComputeCommands()
         {
 
+            WaitForComputeComamndBuffer();
+            VkCommandBufferBeginInfo beginInfo = new();
+
+            Vulkan.CheckResult(Vulkan.vkBeginCommandBuffer(CurrentComputeCommandBuffer, &beginInfo), "Failed to begin recording compute command buffer");
+            ComputeCallback?.Invoke();
         }
     }
 }

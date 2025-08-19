@@ -133,7 +133,7 @@ namespace VECS
             {
                 _stagingBuffer = new(_instanceSize, _instanceCount, VkBufferUsageFlags.TransferSrc | VkBufferUsageFlags.TransferDst, true, preventHostAllocation, false);
             }
-            var result = Vma.vmaCreateBuffer(GraphicsDevice.VmaAllocator, bufferInfo, allocationInfo, out VkBuffer, out _allocation);
+            Vulkan.CheckResult(Vma.vmaCreateBuffer(GraphicsDevice.VmaAllocator, bufferInfo, allocationInfo, out VkBuffer, out _allocation), "Failed to create vma buffer!");
             VmaAllocationInfo vmaAllocationInfo = default;
             Vma.vmaGetAllocationInfo(GraphicsDevice.VmaAllocator, _allocation, &vmaAllocationInfo);
 
@@ -142,11 +142,6 @@ namespace VECS
 
             Console.WriteLine(string.Format("0x{1}\nBuffer Creation trace\n {0}",trace.ToString(),VkBuffer.Handle.ToString("X16")));
 #endif
-            if (result != VkResult.Success)
-            {
-                throw new Exception(string.Format("Failed to create vma buffer!\n{0}", result));
-            }
-
             _disposed = false;
 
             return true;

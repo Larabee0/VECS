@@ -51,17 +51,14 @@ namespace VECS.LowLevel
             }
 
             SDL.SDL_SetLogOutputFunction(SDL3Log);
-
+            
             if (!SDL.SDL_Vulkan_LoadLibrary())
             {
                 throw new Exception("SDL failed to load Vulkan");
             }
 
-            if (Vulkan.vkInitialize() != VkResult.Success)
-            {
-                throw new Exception("Failed Initialise vulkan");
-            }
-
+            Vulkan.CheckResult(Vulkan.vkInitialize(), "Failed Initialise vulkan!");
+            
             _window = SDL.SDL_CreateWindow(_windowName, _width, _height, _sdl_Window_Flags);
             Id = SDL.SDL_GetWindowID(_window);
         }

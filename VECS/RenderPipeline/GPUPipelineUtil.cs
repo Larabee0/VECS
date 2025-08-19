@@ -275,11 +275,8 @@ namespace VECS
                     bindingCount = (uint)bindings.Length,
                     pBindings = pBindings
                 };
-                var result = Vulkan.vkCreateDescriptorSetLayout(GraphicsDevice.Device, descriptorSetLayoutInfo, null, out layout);
-                if (result != VkResult.Success)
-                {
-                    throw new Exception(string.Format("Failed to create descriptor set layout! {0}", result.ToString()));
-                }
+
+                Vulkan.CheckResult(Vulkan.vkCreateDescriptorSetLayout(GraphicsDevice.Device, descriptorSetLayoutInfo, null, out layout), "Failed to create descriptor set layout!");                
             }
 
             return layout;
@@ -363,12 +360,8 @@ namespace VECS
                 layoutCreateInfo.pPushConstantRanges = pLayouts;
             }
 
-            var result = Vulkan.vkCreatePipelineLayout(GraphicsDevice.Device, layoutCreateInfo, null, out VkPipelineLayout pipelineLayout);
-            if (result != VkResult.Success)
-            {
-                throw new Exception(string.Format("Failed to create pipeline layout! {0}", result.ToString()));
-            }
-
+            Vulkan.CheckResult(Vulkan.vkCreatePipelineLayout(GraphicsDevice.Device, layoutCreateInfo, null, out VkPipelineLayout pipelineLayout), "Failed to create pipeline layout!");
+            
             return pipelineLayout;
         }
 
@@ -438,11 +431,8 @@ namespace VECS
                 basePipelineHandle = VkPipeline.Null
             };
 
-            var result = Vulkan.vkCreateGraphicsPipeline(GraphicsDevice.Device, cache.Cache, pipelineInfo, out var graphicsPipeline);
-            if (result!= VkResult.Success)
-            {
-                throw new Exception(string.Format("Failed to create graphics pipeline! {0}", result.ToString()));
-            }
+            Vulkan.CheckResult(Vulkan.vkCreateGraphicsPipeline(GraphicsDevice.Device, cache.Cache, pipelineInfo, out var graphicsPipeline), "Failed to create graphics pipeline!");
+            
 
             return graphicsPipeline;
         }

@@ -16,7 +16,6 @@ namespace VECS.LowLevel
 
         public static SwapChain Replace(this SwapChain old, VkExtent2D extent)
         {
-
             var swapChain = new SwapChain(extent);
             Init(old, swapChain);
             old.Dispose();
@@ -89,10 +88,7 @@ namespace VECS.LowLevel
             createInfo.clipped = true;
             createInfo.oldSwapchain = oldSwapChain == null ? VkSwapchainKHR.Null : oldSwapChain._swapChain;
 
-            if (Vulkan.vkCreateSwapchainKHR(GraphicsDevice.Device, createInfo, null, out newSwapChain._swapChain) != VkResult.Success)
-            {
-                throw new Exception("Failed to create swap chain!");
-            }
+            Vulkan.CheckResult(Vulkan.vkCreateSwapchainKHR(GraphicsDevice.Device, createInfo, null, out newSwapChain._swapChain), "Failed to create swap chain!");
 
             var swapChainImagesSpan = Vulkan.vkGetSwapchainImagesKHR(GraphicsDevice.Device, newSwapChain._swapChain);
 
@@ -310,17 +306,18 @@ namespace VECS.LowLevel
             Vulkan.CheckResult(Vulkan.vkCreateFramebuffer(GraphicsDevice.Device, fwdInfo, null, out swapChain._forwardFramebuffer), "Failed to create forward frame buffer");            
         }
 
-
         private static unsafe void CreateSyncObjects(SwapChain swapChain)
         {
             swapChain._acquiredImageReadySemaphores = new VkSemaphore[SwapChain.MAX_CONCURRENT_FRAMES];
-            swapChain._waitCommandBufferFences = new VkFence[SwapChain.MAX_CONCURRENT_FRAMES];
+            swapChain._waitMainBufferFences = new VkFence[SwapChain.MAX_CONCURRENT_FRAMES];
+            swapChain._waitComputeBufferFences = new VkFence[SwapChain.MAX_CONCURRENT_FRAMES];
 
             VkSemaphoreCreateInfo semaphoreInfo = new();
             VkFenceCreateInfo fenceInfo = new(VkFenceCreateFlags.Signaled);
             for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
             {
-                Vulkan.CheckResult(Vulkan.vkCreateFence(GraphicsDevice.Device, fenceInfo, null, out swapChain._waitCommandBufferFences[i]), "Failed to create in flight fence!");
+                Vulkan.CheckResult(Vulkan.vkCreateFence(GraphicsDevice.Device, fenceInfo, null, out swapChain._waitMainBufferFences[i]), "Failed to create in flight fence!");
+                Vulkan.CheckResult(Vulkan.vkCreateFence(GraphicsDevice.Device, fenceInfo, null, out swapChain._waitComputeBufferFences[i]), "Failed to create in flight fence!");
 
                 Vulkan.CheckResult(Vulkan.vkCreateSemaphore(GraphicsDevice.Device, semaphoreInfo, null, out swapChain._acquiredImageReadySemaphores[i]), "Failed to create present semaphore!");
             }
@@ -370,6 +367,7 @@ namespace VECS.LowLevel
 
             return formats[0];
         }
+
         private static VkExtent2D ChooseSwapExtent(VkSurfaceCapabilitiesKHR capabilities, VkExtent2D windowExtent)
         {
             if (capabilities.currentExtent.width != uint.MaxValue)
@@ -387,6 +385,7 @@ namespace VECS.LowLevel
                 return actualExtent;
             }
         }
+
         private static VkPresentModeKHR ChooseSwapPresentMode(VkPresentModeKHR[] presentModes)
         {
             // for (int i = 0; i < presentModes.Length; i++)

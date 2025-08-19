@@ -43,10 +43,7 @@ namespace VECS
                 flags = poolFlags
             };
 
-            if (Vulkan.vkCreateDescriptorPool(GraphicsDevice.Device, descriptorPoolInfo, null, out _descriptorPool) != VkResult.Success)
-            {
-                throw new Exception("Failed to create descriptor pool!");
-            }
+            Vulkan.CheckResult(Vulkan.vkCreateDescriptorPool(GraphicsDevice.Device, descriptorPoolInfo, null, out _descriptorPool), "Failed to create descriptor pool!");            
         }
 
         /// <summary>
@@ -55,7 +52,7 @@ namespace VECS
         /// <param name="descriptorSetLayout"></param>
         /// <param name="descriptor"></param>
         /// <returns></returns>
-        public unsafe bool AllocateDescriptorSet(VkDescriptorSetLayout descriptorSetLayout, VkDescriptorSet* descriptor)
+        public unsafe void AllocateDescriptorSet(VkDescriptorSetLayout descriptorSetLayout, VkDescriptorSet* descriptor)
         {
             VkDescriptorSetAllocateInfo allocInfo = new()
             {
@@ -63,17 +60,8 @@ namespace VECS
                 pSetLayouts = &descriptorSetLayout,
                 descriptorSetCount = 1
             };
-            var result = Vulkan.vkAllocateDescriptorSets(GraphicsDevice.Device, &allocInfo, descriptor);
-#if DEBUG
-            if (result != VkResult.Success)
-            {
-                StackTrace stackTrace = new(true);
-                Console.WriteLine("vkAllocateDescriptorSets did not succeed");
-                Console.WriteLine(result.ToString());
-                Console.WriteLine(string.Format("vkAllocateDescriptorSets did not succeed! {0}\n{1}", result.ToString(), stackTrace.ToString()));
-            }
-#endif
-            return result == VkResult.Success;
+
+            Vulkan.CheckResult(Vulkan.vkAllocateDescriptorSets(GraphicsDevice.Device, &allocInfo, descriptor), "Failed to Allocate Descriptor Sets");
         }
 
         /// <summary>

@@ -51,16 +51,11 @@ namespace VECS
             byte[] shaderCode = File.ReadAllBytes(filePath);
 
             _spvShaderModule = SPIRVReflectUtil.CreateReflectShaderModule(shaderCode);
-            var result = Vulkan.vkCreateShaderModule(GraphicsDevice.Device, shaderCode, null, out _vkShaderModule);
-
-            if (result != VkResult.Success)
-            {
-                throw new Exception(string.Format("Failed to Create VkShaderModule: {0}", result));
-            }
-
-            _spvStage = _spvShaderModule.shader_stage;
             
+            _spvStage = _spvShaderModule.shader_stage;            
             _vkStage = (VkShaderStageFlags)_spvStage;
+
+            Vulkan.CheckResult(Vulkan.vkCreateShaderModule(GraphicsDevice.Device, shaderCode, null, out _vkShaderModule), "Failed to Create Shader Module!");
         }
 
         internal unsafe ShaderModule(string name, byte[] shaderCode)
@@ -69,19 +64,15 @@ namespace VECS
             {
                 throw new NullReferenceException(string.Format("Shader Code was null: {0}", name));
             }
+
             AssetName = name;
 
-
             _spvShaderModule = SPIRVReflectUtil.CreateReflectShaderModule(shaderCode);
-            var result = Vulkan.vkCreateShaderModule(GraphicsDevice.Device, shaderCode, null, out _vkShaderModule);
-
-            if (result != VkResult.Success)
-            {
-                throw new Exception(string.Format("Failed to Create VkShaderModule: {0}", result));
-            }
 
             _spvStage = _spvShaderModule.shader_stage;
             _vkStage = (VkShaderStageFlags)_spvStage;
+
+            Vulkan.CheckResult(Vulkan.vkCreateShaderModule(GraphicsDevice.Device, shaderCode, null, out _vkShaderModule), "Failed to Create Shader Module!");
         }
 
         public unsafe override void Dispose()

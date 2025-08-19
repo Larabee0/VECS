@@ -34,12 +34,17 @@ namespace VECS.LowLevel
         private static VkSurfaceKHR _surface;
 
         internal static VmaAllocator _allocator;
-        internal static VkCommandPool _commandPoolMain;
-        internal static VkCommandPool _commandPoolCompute;
 
         internal static VkQueue _mainQueue;
         internal static VkQueue _computeQueue;
         internal static VkQueue _presentQueue;
+
+        internal static VkCommandPool _commandPoolMain;
+        internal static VkCommandPool _commandPoolCompute;
+
+        private static VkCommandBuffer[] _mainPipeCommandBuffers;
+        private static VkCommandBuffer[] _computeCommandBuffers;
+
 
 
         public static VkPhysicalDeviceProperties Properties { get; internal set; }
@@ -47,14 +52,17 @@ namespace VECS.LowLevel
         public static VkDevice Device => _device;
         public static VkSurfaceKHR Surface => _surface;
 
-        public static VkCommandPool MainCommandPool => _commandPoolMain;
-        public static VkCommandPool ComputeCommandPool => _commandPoolMain;
+        public static VmaAllocator VmaAllocator => _allocator;
 
         public static VkQueue MainQueue => _mainQueue;
         public static VkQueue ComputeQueue => _computeQueue;
         public static VkQueue PresentQueue => _presentQueue;
 
-        public static VmaAllocator VmaAllocator => _allocator;
+        public static VkCommandPool MainCommandPool => _commandPoolMain;
+        public static VkCommandPool ComputeCommandPool => _commandPoolCompute;
+
+        public static VkCommandBuffer[] MainPipeCommandBuffers => _mainPipeCommandBuffers;
+        public static VkCommandBuffer[] ComputePipeCommandBuffers => _computeCommandBuffers;
 
         public static VkInstance VkInstance => _instance;
         public static SwapChainSupportDetails SwapChainSupport  { get; internal set; }
@@ -90,6 +98,56 @@ namespace VECS.LowLevel
         }
 
         #region For Extneral use
+
+
+
+        internal static unsafe void CreateCommandBuffers()
+        {
+            _mainPipeCommandBuffers = new VkCommandBuffer[SwapChain.MAX_CONCURRENT_FRAMES];
+            _computeCommandBuffers = new VkCommandBuffer[SwapChain.MAX_CONCURRENT_FRAMES];
+
+            VkCommandBufferAllocateInfo allocInfo = new()
+            {
+                level = VkCommandBufferLevel.Primary,
+                commandPool = MainCommandPool,
+                commandBufferCount = SwapChain.MAX_CONCURRENT_FRAMES_UINT
+            };
+
+            fixed (VkCommandBuffer* pCommandBuffers = &_mainPipeCommandBuffers[0])
+            {
+                Vulkan.CheckResult(Vulkan.vkAllocateCommandBuffers(Device, &allocInfo, pCommandBuffers), "Failed to allocate main command buffers");
+            }
+
+            allocInfo.commandPool = ComputeCommandPool;
+            fixed (VkCommandBuffer* pCommandBuffers = &_computeCommandBuffers[0])
+            {
+                Vulkan.CheckResult(Vulkan.vkAllocateCommandBuffers(Device, &allocInfo, pCommandBuffers), "Failed to allocate compute command buffers");
+            }
+        }
+
+        internal static unsafe void FreeCommandBuffers()
+        {
+            if (_mainPipeCommandBuffers != null)
+            {
+                fixed (VkCommandBuffer* pCommandBuffers = &_mainPipeCommandBuffers[0])
+                {
+                    Vulkan.vkFreeCommandBuffers(Device, MainCommandPool, (uint)_mainPipeCommandBuffers.Length, pCommandBuffers);
+                }
+
+                _mainPipeCommandBuffers = null;
+            }
+
+            if (_computeCommandBuffers != null)
+            {
+                fixed (VkCommandBuffer* pCommandBuffers = &_computeCommandBuffers[0])
+                {
+                    Vulkan.vkFreeCommandBuffers(Device, ComputeCommandPool, (uint)_computeCommandBuffers.Length, pCommandBuffers);
+                }
+
+                _computeCommandBuffers = null;
+            }
+        }
+
         /// <summary>
         /// Used by the swapchain class to work out what which VkFormat from the given candidates is supported
         /// by the currently selected physical device <see cref="_physicalDevice"/>
@@ -175,6 +233,8 @@ namespace VECS.LowLevel
         public static unsafe void Dispose()
         {
             Initialised = false;
+
+            FreeCommandBuffers();
 
             Vulkan.vkDestroyCommandPool(_device, _commandPoolCompute);
             Vulkan.vkDestroyCommandPool(_device, _commandPoolMain);

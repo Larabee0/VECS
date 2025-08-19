@@ -379,18 +379,11 @@ namespace VECS
         private unsafe void AllocateSetInternal(int frameIndex, DescriptorPool pool)
         {
             VkDescriptorSet set = default;
-            bool success = pool.AllocateDescriptorSet(_vkDescriptorSetLayout, &set);
-            if (success)
-            {
-                _vkDescriptorSets[frameIndex] = set;
-                _setsAllocated[frameIndex] = true;
-                _setsDirty[frameIndex] = true;
-                _vkDescriptorPoolSource[frameIndex] = pool;
-            }
-            else
-            {
-                _setsAllocated[frameIndex] = false;
-            }
+            pool.AllocateDescriptorSet(_vkDescriptorSetLayout, &set);
+            _vkDescriptorSets[frameIndex] = set;
+            _setsAllocated[frameIndex] = true;
+            _setsDirty[frameIndex] = true;
+            _vkDescriptorPoolSource[frameIndex] = pool;
         }
 
         private unsafe void RefreshBufferInfos()

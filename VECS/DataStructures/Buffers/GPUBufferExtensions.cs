@@ -73,9 +73,9 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static VkResult Flush(this GPUBuffer buffer, ulong size = Vulkan.VK_WHOLE_SIZE, ulong offset = 0)
+        public static void Flush(this GPUBuffer buffer, ulong size = Vulkan.VK_WHOLE_SIZE, ulong offset = 0)
         {
-            return Vma.vmaFlushAllocation(GraphicsDevice.VmaAllocator, buffer._allocation, offset, size);
+            Vulkan.CheckResult(Vma.vmaFlushAllocation(GraphicsDevice.VmaAllocator, buffer._allocation, offset, size), "Failed to flush allocation!");
         }
 
 
@@ -123,17 +123,13 @@ namespace VECS
                 }
             }
 
-            var result = Vma.vmaCreateBuffer(GraphicsDevice.VmaAllocator, bufferInfo, allocationInfo, out buffer.VkBuffer, out buffer._allocation);
+            Vulkan.CheckResult(Vma.vmaCreateBuffer(GraphicsDevice.VmaAllocator, bufferInfo, allocationInfo, out buffer.VkBuffer, out buffer._allocation),"Failed to create vma buffer!");
 
 #if LOG_BUFFER_ALLOCS
             StackTrace trace = new(true);
 
             Console.WriteLine("0x{1}\nBuffer Creation trace\n {0}",trace.ToString(),buffer.VkBuffer.Handle.ToString("X16"));
 #endif
-            if (result != VkResult.Success)
-            {
-                throw new Exception(string.Format("Failed to create vma buffer!\n{0}", result));
-            }
         }
 
         public unsafe static bool TryAllocHostBuffer(this GPUBuffer buffer, bool read = true)

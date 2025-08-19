@@ -105,11 +105,7 @@ namespace VECS.LowLevel
                 pSubpasses = &subpass
             };
 
-            VkResult result = Vulkan.vkCreateRenderPass(GraphicsDevice.Device, renderPassCreateInfo, null, out ShadowPass);
-            if (result != VkResult.Success)
-            {
-                throw new Exception("Failed to create Shadow render pass!");
-            }
+            Vulkan.CheckResult(Vulkan.vkCreateRenderPass(GraphicsDevice.Device, renderPassCreateInfo, null, out ShadowPass), "Failed to create Shadow render pass!");            
         }
 
         public static Matrix4x4 GetViewMatrixForFace(int faceIndex)

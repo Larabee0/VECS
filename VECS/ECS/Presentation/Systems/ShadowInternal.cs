@@ -17,7 +17,7 @@ namespace VECS.ECS.Presentation
         public ShadowInternal(FustrumCull cull) : base(cull)
         {
             GraphicsPipelineConfigInfo shadowConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
-            shadowConfig.renderPass = Renderer.Instance.ShadowRenderPass;
+            shadowConfig.renderPass = Presenter.Instance.ShadowRenderPass;
             shadowConfig.rasterizationInfo.cullMode = VkCullModeFlags.None;
 
             _shadowOffscreen = Material.Create("ShadowOffscreen","shadow_offscreen.vert", "shadow_offscreen.frag", shadowConfig);
@@ -139,10 +139,10 @@ namespace VECS.ECS.Presentation
                             0, 0, null, 1, &memoryBarrier, 0, null);
                 }
 
-                Renderer.Instance.ShadowImage.UpdateCubeFace(i, frameInfo.CommandBuffer);
+                Presenter.Instance.ShadowImage.UpdateCubeFace(i, frameInfo.CommandBuffer);
                 _shadowOffscreen.SetPushConstantMatrix4x4("viewCube", viewMatrix);
                 _shadowOffscreen.ExecuteDrawCommandKeepCommands(frameInfo, _indirectCmdBuffer);
-                Renderer.EndRenderPass(frameInfo.CommandBuffer);
+                Presenter.EndRenderPass(frameInfo.CommandBuffer);
             }
 
             _shadowOffscreen._drawCommands.Clear();
