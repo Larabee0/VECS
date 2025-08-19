@@ -24,176 +24,154 @@ namespace VECS.LowLevel
                 End = end;
             }
         }
-        /*
-        private BlockingCollection<SubmissionQueueElement> _submissionQueue;
-        private readonly Mutex _submissionMutex = new();
-        #if !NO_SUBMISSION_THREAD
-        private Thread _submissionThread;
-#endif
-        private uint _nextFrameIndex;
-        private VkResult _submittedFrameResult;
-        private VkResult _nextFrameResult;
 
-        internal uint NextFrameIndex => _nextFrameIndex;
-        internal VkResult SubmittedFrameResult => _submittedFrameResult;
-        internal VkResult NextFrameResult => _submittedFrameResult;
+        private Thread _computeThread;
+        private Thread _graphicsThread;
 
-        private unsafe VkResult AcquireNextImage(out uint imageIndex)
+        private void StartTimelineWorkers()
         {
-            VkFence fence = _inFlightFences[_currentFrame];
-            Vulkan.vkWaitForFences(Device, 1, &fence, true, ulong.MaxValue);
-            return Vulkan.vkAcquireNextImageKHR(
-                Device,
-                _swapChain,
-                0,
-                _presentSemaphore[_currentFrame],
-                VkFence.Null,
-                out imageIndex);
+            _graphicsThread = new Thread(DoGraphicsWork)
+            {
+                Name = "Main Queue Thread"
+            };
+            _computeThread = new Thread(DoComputeWork)
+            {
+                Name = "Supplementary Compute Queue Thread"
+            };
+
+            _graphicsThread.Start();
+            _computeThread.Start();
         }
 
-        private unsafe VkResult SubmitCommandBuffers(VkCommandBuffer commandBuffer, uint imageIndex, int currentFrame)
+        private void FinishTimelineWorkers()
         {
-            Debug.Assert(imageIndex < SWAP_CHAIN_IMAGE_COUNT, string.Format("Image Index {0} is out of range, Max Images: {1}", imageIndex, SWAP_CHAIN_IMAGE_COUNT));
-            if (_imagesInFlight[imageIndex] != VkFence.Null)
-            {
-                VkFence fence = _imagesInFlight[imageIndex];
-                Vulkan.vkWaitForFences(Device, fence, true, ulong.MaxValue);
-            }
+            SignalTimelineFromHost(Stages.MAX_STAGES);
 
-            _imagesInFlight[imageIndex] = _inFlightFences[currentFrame];
+            _graphicsThread.Join();
+            _computeThread.Join();
+        }
 
-            VkSemaphore waitPresent = _presentSemaphore[currentFrame];
-            VkSemaphore waitRender = _renderSemaphore[currentFrame];
-            VkPipelineStageFlags waitStage = VkPipelineStageFlags.ColorAttachmentOutput;
-            VkSubmitInfo submit = new()
+        private unsafe void DoComputeWork()
+        {
+            ulong signalValue;
+            VkTimelineSemaphoreSubmitInfo timelineInfo;
+            VkCommandBuffer commandBuffer;           
+            VkSubmitInfo submitInfo;
+            VkSemaphore timelineSemaphore;
+            while (_computeThread.IsAlive)
             {
-                waitSemaphoreCount = 1,
-                commandBufferCount = 1,
-                signalSemaphoreCount = 1,
-                pCommandBuffers = &commandBuffer,
-                pWaitDstStageMask = &waitStage,
-                pWaitSemaphores = &waitPresent,
-                pSignalSemaphores = &waitRender
-            };
-            Vulkan.vkResetFences(Device, _inFlightFences[currentFrame]);
-            var result = Vulkan.vkQueueSubmit(GraphicsDevice.MainQueue, submit, _inFlightFences[currentFrame]);
-            if (result != VkResult.Success)
-            {
-                if (result == VkResult.ErrorDeviceLost)
+                WaitOnTimelineFromHost(Stages.Submit);
+
+                BuildComputeCommands();
+
+                signalValue = GetTimelineStageValue(Stages.Draw);
+                timelineSemaphore = _timelineSemaphores[_currentFrame].semaphore;
+                commandBuffer = &VkCommandBuffer.Null;
+
+                timelineInfo = new()
                 {
-                    uint* dataCount = null;
-                    VkCheckpointDataNV* data = null;
-                    Vulkan.vkGetQueueCheckpointDataNV(GraphicsDevice.MainQueue, dataCount, data);
-
-                    for (int i = 0; i < *dataCount; i++)
-                    {
-                        VkCheckpointDataNV dataPoint = data[*dataCount];
-                        Console.WriteLine(dataPoint.ToString());
-                    }
-                }
-                throw new Exception(string.Format("Failed to submit queue: {0}", result.ToString()));
-            }
-
-            VkSwapchainKHR swapChains = _swapChain;
-            VkPresentInfoKHR presentInfo = new()
-            {
-                swapchainCount = 1,
-                waitSemaphoreCount = 1,
-                pImageIndices = &imageIndex,
-                pSwapchains = &swapChains,
-                pWaitSemaphores = &waitRender
-            };
-            return Vulkan.vkQueuePresentKHR(GraphicsDevice.MainQueue, &presentInfo);
-        }
-
-        private void SubmitQueueLoop()
-        {
-            while (true)
-            {
-                if (SubmitOnce())
+                    waitSemaphoreValueCount = 0,
+                    pWaitSemaphoreValues = null,
+                    signalSemaphoreValueCount = 1,
+                    pSignalSemaphoreValues = &signalValue
+                };
+                submitInfo = new()
                 {
-                    return;
+                    pNext = &timelineInfo,
+                    signalSemaphoreCount = 1,
+                    pSignalSemaphores = &timelineSemaphore,
+                    commandBufferCount = 1,
+                    pCommandBuffers = &commandBuffer
+                };
+
+                if (_computeThread.IsAlive)
+                {
+                    Vulkan.CheckResult(Vulkan.vkQueueSubmit(GraphicsDevice.ComputeQueue, submitInfo, VkFence.Null), "Failed to submit compute queue!");
                 }
+
+                WaitForNextFrame();
             }
         }
 
-        private bool SubmitOnce()
+        private unsafe void DoGraphicsWork()
         {
-            if (!_submissionQueue.TryTake(out var info))
-            {
-                Thread.SpinWait(10);
-                return false;
-            }
-            if (info.End)
-            {
-                _submittedFrameResult = VkResult.ThreadDoneKHR;
-                return true;
-            }
-            _submissionMutex.WaitOne();
-            int submitFrame = _currentFrame;
-            _currentFrame = (_currentFrame + 1) % MAX_CONCURRENT_FRAMES;
-            _nextFrameResult = AcquireNextImage(out _nextFrameIndex);
-            _submissionMutex.ReleaseMutex();
-            _submittedFrameResult = SubmitCommandBuffers(info.CommandBuffer, info.ImageIndex, submitFrame);
-            return false;
-        }
+            bool waitForCompute = GraphicsDevice.ComputeQueue == GraphicsDevice.MainQueue;
+            ulong* waitValues = stackalloc ulong[2];
+            VkSemaphore* waitSemaphores = stackalloc VkSemaphore[2];
+            ulong* signalValues = stackalloc ulong[2];
+            VkSemaphore* signalSemaphores = stackalloc VkSemaphore[2];
 
-        private void StartSubmissionThread()
-        {
-            // acquire first frame
-            _submissionQueue = new(MAX_CONCURRENT_FRAMES);
-            _nextFrameResult = AcquireNextImage(out _nextFrameIndex);
-            #if !NO_SUBMISSION_THREAD
-            _submissionThread = new(new ThreadStart(SubmitQueueLoop))
+            VkPipelineStageFlags* waitStageMasks = stackalloc VkPipelineStageFlags[2]
             {
-                Name = "Submission Thead",
-                IsBackground = true
+                VkPipelineStageFlags.VertexInput,
+                VkPipelineStageFlags.ColorAttachmentOutput
             };
-            _submissionThread.Start();
-            #endif
-        }
 
-        internal void EndSubmissionThread()
-        {
-            #if !NO_SUBMISSION_THREAD
-            _submissionMutex.WaitOne();
-            while (_submittedFrameResult != VkResult.ThreadDoneKHR)
+
+            waitValues[1] = 0;
+            signalValues[1] = 0;
+
+            VkTimelineSemaphoreSubmitInfo timelineInfo; 
+            VkCommandBuffer commandBuffer;           
+            VkSubmitInfo submitInfo;
+
+            while (_graphicsThread.IsAlive)
             {
-                _submissionQueue.Add(new(VkCommandBuffer.Null, 0, true));
-                _submissionMutex.ReleaseMutex();
-                _submissionMutex.WaitOne();
+                WaitOnTimelineFromHost(Stages.Submit);
+                BuildGraphicsCommands();
+                
+                waitValues[0] = GetTimelineStageValue(Stages.Draw);
+                waitSemaphores[0] = _timelineSemaphores[_currentFrame].semaphore;
+                waitSemaphores[1] = _acquiredImageReadySemaphores[_currentFrame];
+
+                signalValues[0] = GetTimelineStageValue(Stages.Present);
+                signalSemaphores[0] = _timelineSemaphores[_currentFrame].semaphore;
+                signalSemaphores[1] = _renderCompleteSemaphores[_currentImage];
+
+                commandBuffer = &VkCommandBuffer.Null;
+
+                timelineInfo = new()
+                {
+                    waitSemaphoreValueCount = 2,
+                    pWaitSemaphoreValues = waitValues,
+                    signalSemaphoreValueCount = 2,
+                    pSignalSemaphoreValues = signalValues
+                };
+
+                submitInfo = new()
+                {
+                    pNext = &timelineInfo,
+                    waitSemaphoreCount = 2,
+                    pWaitSemaphores = waitSemaphores,
+                    pWaitDstStageMask = waitStageMasks,
+                    signalSemaphoreCount = 2,
+                    pSignalSemaphores = signalSemaphores,
+                    commandBufferCount = 1,
+                    pCommandBuffers = &commandBuffer
+                };
+
+                if (waitForCompute)
+                {
+                    WaitOnTimelineFromHost(Stages.Draw);
+                }
+
+                if (_graphicsThread.IsAlive)
+                {
+                    Vulkan.CheckResult(Vulkan.vkQueueSubmit(GraphicsDevice.MainQueue, submitInfo, VkFence.Null), "Failed to submit graphics queue!");
+                }
+
+                WaitForNextFrame();
             }
-            _submissionMutex.ReleaseMutex();
-            #endif
-            Vulkan.vkDeviceWaitIdle(Device);
         }
 
-        internal void EnqueueCommandBuffer(VkCommandBuffer commandBuffer, uint imageIndex)
+        private void BuildGraphicsCommands()
         {
-#if NO_SUBMISSION_THREAD
             
-            _submissionQueue.TryAdd(new(commandBuffer, imageIndex, false));
-#else
-
-            while (!_submissionQueue.TryAdd(new(commandBuffer, imageIndex, false)))
-            {
-                Thread.SpinWait(1);//throw new Exception("Failed to add to submission queue");
-            }
-#endif
         }
 
-        internal void WaitForSubmission(uint currentImageIndex)
+        private void BuildComputeCommands()
         {
-#if NO_SUBMISSION_THREAD
-            SubmitOnce();
-#else
 
-            while (currentImageIndex == NextFrameIndex)
-            {
-                _submissionMutex.WaitOne();
-                _submissionMutex.ReleaseMutex();
-            }
-#endif
-        }*/
+        }
     }
 }

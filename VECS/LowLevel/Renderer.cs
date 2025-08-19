@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using VECS.GraphicsPipelines;
 using Vortice.Vulkan;
 
 namespace VECS.LowLevel
@@ -79,7 +78,7 @@ namespace VECS.LowLevel
 
             if (_swapChain == null)
             {
-                _swapChain = new(extent);
+                _swapChain = SwapChainInit.Create(extent);
             }
             else
             {
@@ -87,7 +86,7 @@ namespace VECS.LowLevel
                 var oldSwapChain = _swapChain;
                 AssetDataBase<Texture2D>.Remove(oldSwapChain.RawRenderImage);
                 AssetDataBase<Texture2D>.Remove(oldSwapChain.DepthImage);
-                _swapChain = new(extent, oldSwapChain);
+                _swapChain = oldSwapChain.Replace(extent);
                 if (!oldSwapChain.CompareSwapFormats(_swapChain))
                 {
                     throw new Exception("Swap chain image(or depth) format has changed!");

@@ -12,359 +12,53 @@ namespace VECS.LowLevel
         public static int MAX_CONCURRENT_FRAMES => 2;
         public static uint MAX_CONCURRENT_FRAMES_UINT => (uint)MAX_CONCURRENT_FRAMES;
 
-        internal static SwapChain Instance { get; private set; }
+        internal static SwapChain Instance { get; set; }
 
         private static int _currentFrame = 0;
         private uint _currentImage = 0;
         private ulong _frameCount;
-        private VkExtent2D _windowExtent;
+        internal VkExtent2D _windowExtent;
 
-        private VkRenderPass _forwardRenderPass;
+        internal VkRenderPass _forwardRenderPass;
 
         public int FrameIndex => _currentFrame;
         public uint ImageIndex => _currentImage;
         internal VkRenderPass ForwardRenderPass => _forwardRenderPass;
 
-        private VkFormat RenderFormat => RawRenderImage.Format;
-        private VkFormat DepthFormat => DepthImage.Format;
+        internal VkFormat RenderFormat => RawRenderImage.Format;
+        internal VkFormat DepthFormat => DepthImage.Format;
         
-        private Texture2D _rawRenderImage;
-        private Texture2D _depthImage;
+        internal Texture2D _rawRenderImage;
+        internal Texture2D _depthImage;
 
         internal Texture2D RawRenderImage => _rawRenderImage;
         internal Texture2D DepthImage => _depthImage;
 
-        private VkImageBlit _copyToSwapChainBlit;
+        internal VkImageBlit _copyToSwapChainBlit;
 
-        private VkExtent2D _swapChainExtent;
-        private VkSwapchainKHR _swapChain;
+        internal VkExtent2D _swapChainExtent;
+        internal VkSwapchainKHR _swapChain;
 
-        private VkFormat _swapChainImageFormat;
-        private VkImage[] _swapChainImages;
-        private VkImageView[] _swapChainImageViews;
+        internal VkFormat _swapChainImageFormat;
+        internal VkImage[] _swapChainImages;
+        internal VkImageView[] _swapChainImageViews;
 
-        private VkFramebuffer _forwardFramebuffer;
+        internal VkFramebuffer _forwardFramebuffer;
 
-        private VkSemaphore[] _presentCompleteSemaphore;
-        private VkSemaphore[] _renderCompleteSemaphore;
+        internal VkSemaphore[] _acquiredImageReadySemaphores; /// <see cref="SwapChain.MAX_CONCURRENT_FRAMES"/>>
+        internal VkFence[] _waitCommandBufferFences; /// <see cref="SwapChain.MAX_CONCURRENT_FRAMES"/> 
+        internal VkSemaphore[] _renderCompleteSemaphores; /// <see cref="SwapChain.SWAP_CHAIN_IMAGE_COUNT"/>>
 
-        private VkSemaphore _timelineSemaphore;
+        internal TimelineSemaphore[] _timelineSemaphores;
 
-        private TimelineSemaphore[] _timelineSemaphores;
-
-        private VkFence[] _waitFences;
 
         internal VkExtent2D SwapChainExtent => _swapChainExtent;
 
         internal float ExtentAspectRatio => (float)SwapChainExtent.width / (float)SwapChainExtent.height;
-        
 
-        internal SwapChain(VkExtent2D extent)
+        internal SwapChain(VkExtent2D windowExtent)
         {
-            _windowExtent = extent;
-            Init(null);
-            Instance = this;
-        }
-
-        internal SwapChain(VkExtent2D extent, SwapChain previous)
-        {
-            _windowExtent = extent;
-
-            Init(previous);
-            previous.Dispose();
-            //_currentFrame = 0;
-            Instance = this;
-        }
-
-        private void Init(SwapChain previous)
-        {
-            CreateSwapChain(previous);
-            CreateSwapChainImageViews();
-            
-            CreateRenderImage();
-            CreateDepthImage();
-            CreateAdditionalSamplers();
-
-            CreateFowardRenderPass();
-
-            CreateFramebuffers();
-
-            CreateSyncObjects();
-            //StartSubmissionThread();
-        }
-
-        private unsafe void CreateSwapChain(SwapChain oldSwapChain)
-        {
-            GraphicsDevice.SwapChainSupport = GraphicsDeviceInit.QuerySwapChainSupport(GraphicsDevice.PhysicalDevice);
-            var swapChainSupport = GraphicsDevice.SwapChainSupport;
-            VkSurfaceFormatKHR surfaceFormat = ChooseSwapSurfaceFormat(swapChainSupport.formats);
-            VkPresentModeKHR presentMode = ChooseSwapPresentMode(swapChainSupport.presentModes);
-            VkExtent2D extent = ChooseSwapExtent(swapChainSupport.capabilities);
-
-            VkSwapchainCreateInfoKHR createInfo = new()
-            {
-                surface = GraphicsDevice.Surface,
-                minImageCount = SWAP_CHAIN_IMAGE_COUNT_UINT,
-                imageFormat = surfaceFormat.format,
-                imageColorSpace = surfaceFormat.colorSpace,
-                imageExtent = extent,
-                imageArrayLayers = 1,
-                imageUsage = VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.TransferDst
-            };
-
-            var indices = GraphicsDevice.PhysicalQueueFamilies;
-
-            uint[] queueFamilyIndices = [(uint)indices.graphicsFamily, (uint)indices.presentFamily];
-
-            if (indices.graphicsFamily != indices.presentFamily)
-            {
-                createInfo.imageSharingMode = VkSharingMode.Concurrent;
-                createInfo.queueFamilyIndexCount = 2;
-
-                fixed (uint* pQueueFamilyIndices = &queueFamilyIndices[0])
-                {
-                    createInfo.pQueueFamilyIndices = pQueueFamilyIndices;
-                }
-            }
-            else
-            {
-                createInfo.imageSharingMode = VkSharingMode.Exclusive;
-                createInfo.queueFamilyIndexCount = 0;
-                createInfo.pQueueFamilyIndices = null;
-            }
-
-            createInfo.preTransform = swapChainSupport.capabilities.currentTransform;
-            createInfo.compositeAlpha = VkCompositeAlphaFlagsKHR.Opaque;
-            createInfo.presentMode = presentMode;
-            createInfo.clipped = true;
-            createInfo.oldSwapchain = oldSwapChain == null ? VkSwapchainKHR.Null : oldSwapChain._swapChain;
-
-            if (Vulkan.vkCreateSwapchainKHR(GraphicsDevice.Device, createInfo, null, out _swapChain) != VkResult.Success)
-            {
-                throw new Exception("Failed to create swap chain!");
-            }
-
-            var swapChainImagesSpan = Vulkan.vkGetSwapchainImagesKHR(GraphicsDevice.Device, _swapChain);
-
-            _swapChainImages = new VkImage[swapChainImagesSpan.Length];
-            swapChainImagesSpan.CopyTo(_swapChainImages);
-
-            _swapChainImageFormat = surfaceFormat.format;
-            _swapChainExtent = extent;
-
-            var cmd = GraphicsDevice.BeginSingleTimeMainPipe();
-            for (int i = 0; i < swapChainImagesSpan.Length; i++)
-            {
-                TextureExtensions.SetImageLayout(cmd, _swapChainImages[i], VkImageAspectFlags.Color, VkImageLayout.Undefined, VkImageLayout.PresentSrcKHR, VkPipelineStageFlags.AllGraphics, VkPipelineStageFlags.AllGraphics);
-            }
-
-            GraphicsDevice.EndSingleTimeMainPipe(cmd);
-
-            Vulkan.vkDeviceWaitIdle(GraphicsDevice.Device);
-        }
-
-        private unsafe void CreateSwapChainImageViews()
-        {
-            _swapChainImageViews = new VkImageView[_swapChainImages.Length];
-            VkImageSubresourceRange subresourceRange = new()
-            {
-                aspectMask = VkImageAspectFlags.Color,
-                baseMipLevel = 0,
-                levelCount = 1,
-                baseArrayLayer = 0,
-                layerCount = 1
-            };
-
-            for (int i = 0; i < _swapChainImages.Length; i++)
-            {
-                VkImageViewCreateInfo viewInfo = new()
-                {
-                    image = _swapChainImages[i],
-                    viewType = VkImageViewType.Image2D,
-                    format = _swapChainImageFormat,
-                    subresourceRange = subresourceRange,
-                };
-
-                if (Vulkan.vkCreateImageView(GraphicsDevice.Device, viewInfo, null, out _swapChainImageViews[i]) != VkResult.Success)
-                {
-                    throw new Exception("Failed to create texture image view!");
-                }
-            }
-        }
-
-        private unsafe void CreateRenderImage()
-        {
-            _rawRenderImage = new("_rawRenderImage",(int)_windowExtent.width, (int)_windowExtent.height, VkFormat.R32G32B32A32Sfloat, VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.Sampled, false);            
-
-            _copyToSwapChainBlit = new()
-            {
-                srcSubresource = new()
-                {
-                    aspectMask = _rawRenderImage._aspectFlags,
-                    layerCount = 1,
-                    mipLevel = 0,
-
-                },
-                dstSubresource = new()
-                {
-                    aspectMask = VkImageAspectFlags.Color,
-                    layerCount = 1,
-                    mipLevel = 0
-                }
-            };
-
-            _copyToSwapChainBlit.srcOffsets[1].x = _rawRenderImage.Width;
-            _copyToSwapChainBlit.srcOffsets[1].y = _rawRenderImage.Height;
-            _copyToSwapChainBlit.srcOffsets[1].z = 1;
-
-            _copyToSwapChainBlit.dstOffsets[1].x = (int)SwapChainExtent.width;
-            _copyToSwapChainBlit.dstOffsets[1].y = (int)SwapChainExtent.height;
-            _copyToSwapChainBlit.dstOffsets[1].z = 1;
-        }
-
-        private unsafe void CreateDepthImage()
-        {
-            _depthImage = new("_depthImage", (int)_windowExtent.width, (int)_windowExtent.height,VkFormat.D32Sfloat, VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.Sampled, false);
-        }
-
-        private unsafe void CreateAdditionalSamplers()
-        {
-            var reductionMode = VkSamplerReductionMode.Min;
-            VkSamplerCreateInfo createInfo = new()
-            {
-                magFilter = VkFilter.Linear,
-                minFilter = VkFilter.Linear,
-                mipmapMode = VkSamplerMipmapMode.Nearest,
-                addressModeU = VkSamplerAddressMode.ClampToEdge,
-                addressModeV = VkSamplerAddressMode.ClampToEdge,
-                addressModeW = VkSamplerAddressMode.ClampToEdge,
-                minLod = 0,
-                maxLod = 16.0f
-            };
-
-            VkSamplerReductionModeCreateInfo createInfoReduction = new();
-
-            if (reductionMode != VkSamplerReductionMode.WeightedAverage)
-            {
-                createInfoReduction.reductionMode = reductionMode;
-
-                createInfo.pNext = &createInfoReduction;
-            }
-
-            _depthImage.CreateSampler(createInfo);
-
-            VkSamplerCreateInfo samplierInfo = new()
-            {
-                mipmapMode = VkSamplerMipmapMode.Linear,
-                magFilter = VkFilter.Linear,
-                minFilter = VkFilter.Linear,
-                addressModeU = VkSamplerAddressMode.Repeat,
-                addressModeV = VkSamplerAddressMode.Repeat,
-                addressModeW = VkSamplerAddressMode.Repeat,
-
-            };
-            _rawRenderImage.CreateSampler(samplierInfo);
-            
-        }
-
-        private unsafe void CreateFowardRenderPass()
-        {
-            VkAttachmentDescription colourAttachment = new()
-            {
-                format = RenderFormat,
-                samples = VkSampleCountFlags.Count1,
-                loadOp = VkAttachmentLoadOp.Clear,
-                storeOp = VkAttachmentStoreOp.Store,
-                stencilLoadOp = VkAttachmentLoadOp.DontCare,
-                stencilStoreOp = VkAttachmentStoreOp.DontCare,
-                initialLayout = VkImageLayout.Undefined,
-                finalLayout = VkImageLayout.ShaderReadOnlyOptimal
-            };
-
-            VkAttachmentReference color_attachment_ref = new()
-            {
-                attachment = 0,
-                layout = VkImageLayout.ColorAttachmentOptimal
-            };
-
-
-            VkAttachmentDescription depthAttachment = new()
-            {
-                flags = 0,
-                format = DepthFormat,
-                samples = VkSampleCountFlags.Count1,
-                loadOp = VkAttachmentLoadOp.Clear,
-                storeOp = VkAttachmentStoreOp.Store,
-                stencilLoadOp = VkAttachmentLoadOp.Clear,
-                stencilStoreOp = VkAttachmentStoreOp.DontCare,
-                initialLayout = VkImageLayout.Undefined,
-                finalLayout = VkImageLayout.DepthStencilAttachmentOptimal
-            };
-
-            VkAttachmentReference depth_attachment_ref = new()
-            {
-                attachment = 1,
-                layout = VkImageLayout.DepthStencilAttachmentOptimal
-            };
-
-
-            VkSubpassDescription subpass = new()
-            {
-                pipelineBindPoint = VkPipelineBindPoint.Graphics,
-                colorAttachmentCount = 1,
-                pColorAttachments = &color_attachment_ref,
-                pDepthStencilAttachment = &depth_attachment_ref
-            };
-
-            VkSubpassDependency dependency = new()
-            {
-                srcSubpass = Vulkan.VK_SUBPASS_EXTERNAL,
-                dstSubpass = 0,
-                srcStageMask = VkPipelineStageFlags.ColorAttachmentOutput,
-                srcAccessMask = 0,
-                dstStageMask = VkPipelineStageFlags.ColorAttachmentOutput,
-                dstAccessMask = VkAccessFlags.ColorAttachmentWrite
-            };
-
-
-            VkAttachmentDescription* attachments = stackalloc VkAttachmentDescription[] { colourAttachment, depthAttachment };
-
-            VkRenderPassCreateInfo render_pass_info = new()
-            {
-                attachmentCount = 2,
-                pAttachments = attachments,
-                subpassCount = 1,
-                pSubpasses = &subpass,
-                dependencyCount = 1,
-                pDependencies = &dependency
-            };
-            if(Vulkan.vkCreateRenderPass(GraphicsDevice.Device, &render_pass_info, null, out _forwardRenderPass) != VkResult.Success)
-            {
-                throw new Exception("Failed to create renderPass");
-            }
-        }
-
-        private unsafe void CreateFramebuffers()
-        {
-            VkImageView* attachements = stackalloc VkImageView[]
-            {
-                _rawRenderImage._imageView,
-                _depthImage._imageView
-            };
-            VkFramebufferCreateInfo fwdInfo = new()
-            {
-                renderPass = _forwardRenderPass,
-                attachmentCount = 2,
-                pAttachments = attachements,
-                width = _windowExtent.width,
-                height = _windowExtent.height,
-                layers = 1
-            };
-            
-            if (Vulkan.vkCreateFramebuffer(GraphicsDevice.Device, fwdInfo, null, out _forwardFramebuffer) != VkResult.Success)
-            {
-                throw new Exception("Failed to create forward frame buffer");
-            }
+            _windowExtent = windowExtent;
         }
 
         #region  TimelineSemaphore
@@ -381,39 +75,12 @@ namespace VECS.LowLevel
             return (_frameCount * (ulong)Stages.MAX_STAGES) + (ulong)stage;
         }
 
-
-        private unsafe void CreateTimelineSemaphores()
-        {
-
-            _timelineSemaphores = new TimelineSemaphore[MAX_CONCURRENT_FRAMES];
-            
-
-            VkSemaphoreCreateInfo createInfo = new();
-            VkSemaphoreTypeCreateInfo typeCreateInfo = new()
-            {
-                semaphoreType = VkSemaphoreType.Timeline,
-                initialValue = 0
-            };
-            createInfo.pNext = &typeCreateInfo;
-            for (int i = 0; i < _timelineSemaphores.Length; i++)
-            {
-
-                Vulkan.CheckResult(Vulkan.vkCreateSemaphore(GraphicsDevice.Device, createInfo, null, out var semaphore));
-                _timelineSemaphores[i] = new()
-                {
-                    semaphoreValue = 0,
-                    semaphore = semaphore
-                };
-            }
-        }
-
-
         private unsafe void SignalTimelineFromHost(Stages stage)
         {
             ulong signalValue = GetTimelineStageValue(stage);
             VkSemaphoreSignalInfo signalInfo = new()
             {
-                semaphore = _timelineSemaphore,
+                semaphore = _timelineSemaphores[_currentFrame].semaphore,
                 value = signalValue
             };
             Vulkan.CheckResult(Vulkan.vkSignalSemaphoreKHR(GraphicsDevice.Device, &signalInfo));
@@ -427,18 +94,16 @@ namespace VECS.LowLevel
                 semaphoreCount = 1,
                 pValues = &waitValue
             };
-            fixed (VkSemaphore* pSemaphore = &_timelineSemaphore)
-            {
-                waitInfo.pSemaphores = pSemaphore;
-                Vulkan.CheckResult(Vulkan.vkWaitSemaphoresKHR(GraphicsDevice.Device, &waitInfo, ulong.MaxValue));
-            }
+            var semaphore = _timelineSemaphores[_currentFrame].semaphore;
+            waitInfo.pSemaphores = &semaphore;
+            Vulkan.CheckResult(Vulkan.vkWaitSemaphoresKHR(GraphicsDevice.Device, &waitInfo, ulong.MaxValue));
         }
 
         private unsafe void SignalNextFrame()
         {
             VkSemaphoreSignalInfo signalInfo = new()
             {
-                semaphore = _timelineSemaphore,
+                semaphore = _timelineSemaphores[_currentFrame].semaphore,
                 value = GetTimelineStageValue(Stages.MAX_STAGES)
             };
 
@@ -457,47 +122,22 @@ namespace VECS.LowLevel
                 pValues = &waitValue
             };
             
-            fixed (VkSemaphore* pSemaphore = &_timelineSemaphore)
-            {
-                waitInfo.pSemaphores = pSemaphore;
-                Vulkan.CheckResult(Vulkan.vkWaitSemaphoresKHR(GraphicsDevice.Device, &waitInfo, ulong.MaxValue));
-            }
+            var semaphore = _timelineSemaphores[_currentFrame].semaphore;
+            waitInfo.pSemaphores = &semaphore;
+            Vulkan.CheckResult(Vulkan.vkWaitSemaphoresKHR(GraphicsDevice.Device, &waitInfo, ulong.MaxValue));
         }
         #endregion
 
-        private unsafe void CreateSyncObjects()
-        {
-            _presentCompleteSemaphore = new VkSemaphore[MAX_CONCURRENT_FRAMES];
-            _waitFences = new VkFence[MAX_CONCURRENT_FRAMES];
-
-            VkSemaphoreCreateInfo semaphoreInfo = new();
-            VkFenceCreateInfo fenceInfo = new(VkFenceCreateFlags.Signaled);
-            for (int i = 0; i < MAX_CONCURRENT_FRAMES; i++)
-            {
-                Vulkan.CheckResult(Vulkan.vkCreateFence(GraphicsDevice.Device, fenceInfo, null, out _waitFences[i]), "Failed to create in flight fence!");
-
-                Vulkan.CheckResult(Vulkan.vkCreateSemaphore(GraphicsDevice.Device, semaphoreInfo, null, out _presentCompleteSemaphore[i]), "Failed to create present semaphore!");
-            }
-
-            _renderCompleteSemaphore = new VkSemaphore[SWAP_CHAIN_IMAGE_COUNT];
-            for (int i = 0; i < SWAP_CHAIN_IMAGE_COUNT; i++)
-            {
-                Vulkan.CheckResult(Vulkan.vkCreateSemaphore(GraphicsDevice.Device, semaphoreInfo, null, out _renderCompleteSemaphore[i]), "Failed to create render semaphore!");
-            }
-
-            CreateTimelineSemaphores();
-        }
-
         public VkResult AcquireNextImage()
         {
-            Vulkan.vkWaitForFences(GraphicsDevice.Device, _waitFences[_currentFrame], true, ulong.MaxValue);
-            Vulkan.CheckResult(Vulkan.vkResetFences(GraphicsDevice.Device, _waitFences[_currentFrame]), string.Format("Faile to reset fence {0}", _currentFrame));
+            Vulkan.vkWaitForFences(GraphicsDevice.Device, _waitCommandBufferFences[_currentFrame], true, ulong.MaxValue);
+            Vulkan.CheckResult(Vulkan.vkResetFences(GraphicsDevice.Device, _waitCommandBufferFences[_currentFrame]), string.Format("Faile to reset fence {0}", _currentFrame));
 
             var result = Vulkan.vkAcquireNextImageKHR(
                 GraphicsDevice.Device,
                 _swapChain,
                 ulong.MaxValue,
-                _presentCompleteSemaphore[_currentFrame],
+                _acquiredImageReadySemaphores[_currentFrame],
                 VkFence.Null,
                 out _currentImage
             );
@@ -607,11 +247,11 @@ namespace VECS.LowLevel
             TextureExtensions.SetImageLayout(frameInfo.CommandBuffer, swapChainImage, VkImageAspectFlags.Color, VkImageLayout.TransferDstOptimal, VkImageLayout.PresentSrcKHR, VkPipelineStageFlags.AllCommands, VkPipelineStageFlags.AllCommands);
         }
 
-        public unsafe bool Submit(VkCommandBuffer commandBuffer)
+        private unsafe void SubmitMain(VkCommandBuffer commandBuffer)
         {
             VkPipelineStageFlags waitStageMask = VkPipelineStageFlags.AllCommands;
-            VkSemaphore presentComplete = _presentCompleteSemaphore[_currentFrame];
-            VkSemaphore renderComplete = _renderCompleteSemaphore[_currentImage];
+            VkSemaphore presentComplete = _acquiredImageReadySemaphores[_currentFrame];
+            VkSemaphore renderComplete = _renderCompleteSemaphores[_currentImage];
             VkSubmitInfo submitInfo = new()
             {
                 pWaitDstStageMask = &waitStageMask,
@@ -623,6 +263,13 @@ namespace VECS.LowLevel
                 pSignalSemaphores = &renderComplete
             };
 
+            Vulkan.CheckResult(Vulkan.vkQueueSubmit(GraphicsDevice.MainQueue, submitInfo, _waitCommandBufferFences[_currentFrame]));
+        }
+
+        private unsafe VkResult PresentMain()
+        {
+            
+            VkSemaphore renderComplete = _renderCompleteSemaphores[_currentImage];
             VkSwapchainKHR swapchain = _swapChain;
             uint imageIndex = _currentImage;
             VkPresentInfoKHR presentInfo = new()
@@ -634,10 +281,16 @@ namespace VECS.LowLevel
                 pImageIndices = &imageIndex
             };
 
-            Vulkan.CheckResult(Vulkan.vkQueueSubmit(GraphicsDevice.MainQueue, submitInfo, _waitFences[_currentFrame]));
 
-            var result = Vulkan.vkQueuePresentKHR(GraphicsDevice.MainQueue, &presentInfo);
-            
+            return Vulkan.vkQueuePresentKHR(GraphicsDevice.MainQueue, &presentInfo);
+        }
+
+        public unsafe bool Submit(VkCommandBuffer commandBuffer)
+        {
+            SubmitMain(commandBuffer);
+
+            var result = PresentMain();
+
             _currentFrame = (_currentFrame + 1) % MAX_CONCURRENT_FRAMES;
 
             if (result == VkResult.ErrorOutOfDateKHR || result == VkResult.SuboptimalKHR)
@@ -648,7 +301,7 @@ namespace VECS.LowLevel
             {
                 result.CheckResult("Could not present the image to the swapchain!");
             }
-            
+
             return true;
         }
 
@@ -678,14 +331,14 @@ namespace VECS.LowLevel
 
             for (int i = 0; i < SWAP_CHAIN_IMAGE_COUNT; i++)
             {
-                Vulkan.vkDestroySemaphore(GraphicsDevice.Device, _renderCompleteSemaphore[i]);
+                Vulkan.vkDestroySemaphore(GraphicsDevice.Device, _renderCompleteSemaphores[i]);
             }
             
             for (int i = 0; i < MAX_CONCURRENT_FRAMES; i++)
             {
                 Vulkan.vkDestroySemaphore(GraphicsDevice.Device,_timelineSemaphores[i].semaphore);
-                Vulkan.vkDestroySemaphore(GraphicsDevice.Device, _presentCompleteSemaphore[i]);
-                Vulkan.vkDestroyFence(GraphicsDevice.Device, _waitFences[i]);
+                Vulkan.vkDestroySemaphore(GraphicsDevice.Device, _acquiredImageReadySemaphores[i]);
+                Vulkan.vkDestroyFence(GraphicsDevice.Device, _waitCommandBufferFences[i]);
             }
 
             Instance = null;
@@ -738,11 +391,5 @@ namespace VECS.LowLevel
             return VkPresentModeKHR.Fifo;
         }
 
-
-        private struct TimelineSemaphore
-        {
-            public VkSemaphore semaphore;
-            public ulong semaphoreValue;
-        }
     }
 }
