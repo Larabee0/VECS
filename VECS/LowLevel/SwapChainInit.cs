@@ -63,17 +63,13 @@ namespace VECS.LowLevel
 
             var indices = GraphicsDevice.PhysicalQueueFamilies;
 
-            uint[] queueFamilyIndices = [(uint)indices.graphicsFamily, (uint)indices.presentFamily];
+            uint* queueFamilyIndices = stackalloc uint[2] { (uint)indices.graphicsFamily, (uint)indices.presentFamily };
 
             if (indices.graphicsFamily != indices.presentFamily)
             {
                 createInfo.imageSharingMode = VkSharingMode.Concurrent;
                 createInfo.queueFamilyIndexCount = 2;
-
-                fixed (uint* pQueueFamilyIndices = &queueFamilyIndices[0])
-                {
-                    createInfo.pQueueFamilyIndices = pQueueFamilyIndices;
-                }
+                createInfo.pQueueFamilyIndices = queueFamilyIndices;
             }
             else
             {
@@ -348,8 +344,8 @@ namespace VECS.LowLevel
                 Vulkan.CheckResult(Vulkan.vkCreateSemaphore(GraphicsDevice.Device, createInfo, null, out var semaphore),"Failed to create timeline semaphore!");
                 swapChain._timelineSemaphores[i] = new()
                 {
-                    semaphoreValue = 0,
-                    semaphore = semaphore
+                    SemaphoreValue = 0,
+                    Semaphore = semaphore
                 };
             }
         }

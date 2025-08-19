@@ -5,6 +5,7 @@ using VECS.ECS.Physics;
 using System.Runtime.InteropServices.Marshalling;
 using BepuUtilities;
 using Vortice.Vulkan;
+using System.Runtime.CompilerServices;
 
 namespace VECS
 {
@@ -65,6 +66,7 @@ namespace VECS
             Destroy();
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void Exit()
         {
             running = false;
@@ -74,6 +76,7 @@ namespace VECS
         /// called before the first frame
         /// Sets up the entity world, presenter and artifact.
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void Start()
         {
             running = true;
@@ -87,6 +90,7 @@ namespace VECS
             PostOnCreate?.Invoke();
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private  void FixedUpdate()
         {
             _mainWorld.OnFixedUpdate();
@@ -96,6 +100,7 @@ namespace VECS
         /// <summary>
         /// Game logic loop
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void Update()
         {
             _mainWorld.OnUpdate();
@@ -115,9 +120,10 @@ namespace VECS
         /// Finally PostPresentationSystemUpdate is called on all presentation systems in the main world
         /// 
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void Presentation()
         {
-            _presenter.Present(Time.DeltaTime);
+            _presenter.Present();
         }
 
         /// <summary>
@@ -125,6 +131,7 @@ namespace VECS
         /// Called after the graphics device is idle
         /// Called before <see cref="Dispose"/>
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void Destroy()
         {
             _mainWorld.OnDestroy();

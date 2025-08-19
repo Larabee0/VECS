@@ -4,7 +4,7 @@ namespace VECS.LowLevel
 {
     internal struct TimelineSemaphore
         {
-            public VkSemaphore semaphore;
-            public ulong semaphoreValue;
+            public VkSemaphore Semaphore;
+            public ulong SemaphoreValue;
         }
 }

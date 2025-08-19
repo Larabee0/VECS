@@ -27,7 +27,9 @@ namespace VECS
         private bool _isFrameStarted = false;
         private readonly ShadowImage _shadowCubeMap;
         private readonly Bloom _bloom;
+        private  ulong _frameCount;
 
+        public ulong FrameCount => _frameCount;
 
         private DescriptorHandler _globalDescriptorSetHandler;
         private readonly GlobalUbo _ubo = new();
@@ -113,6 +115,9 @@ namespace VECS
                 GraphicsDevice.CreateCommandBuffers();
                 Vulkan.vkDeviceWaitIdle(GraphicsDevice.Device);
             }
+
+            _swapChain.GraphicsCallback += GraphicsPipe;
+            _swapChain.StartTimelineWorkers();
         }
 
 
@@ -288,52 +293,66 @@ namespace VECS
             });
         }
 
-        public void Present(float deltaTime)
+        public void Present()
         {
             UpdateEntityFrameInfo(World.DefaultWorld.EntityManager);
 
-            VkCommandBuffer commandBuffer = BeginFrame();
-            if (commandBuffer != VkCommandBuffer.Null)
+            // acquire swapchain image
+            _isFrameStarted = BeginFrame();
+            if (_isFrameStarted)
             {
-
+                // kill off buffers
                 UpdateSwapChainBufferDisposal();
 
-                RendererFrameInfo frameInfo = CreateRendererFrameInfo(deltaTime, commandBuffer);
+                // signal workers to submit work
+                _swapChain.SignalTimelineFromHost(SemaphoreStages.Submit);
 
-                _unlitMaterial.Update(frameInfo);
-                _unlitMaterial.Flush(frameInfo);
+                // wait for workers to submit
+                _swapChain.WaitOnTimelineFromHost(SemaphoreStages.Present);
 
-                frameInfo.GlobalDescriptorSet = _unlitMaterial.ApplicationDescriptorSetHandler.ActiveVkDescriptorSet;
-                AssetDataBase<Material>.AllAssetsListForReading.ForEach(m => m.Update(frameInfo));
-
-                // culling
-                CullScene(commandBuffer, frameInfo);
-
-                // shadows
-                World.DefaultWorld.PresentShadowPassUpdate(frameInfo);
-
-                //Bloom early
-                _bloom.BeginGlowPass(frameInfo);
-                World.DefaultWorld.PresentBloomGlow(frameInfo);
-                EndRenderPass(commandBuffer);
-                _bloom.BlurVertical(frameInfo);
-
-                // forward pass
-                _swapChain.BeginForwardRenderPass(commandBuffer);
-                World.DefaultWorld.PresentFowardPassUpdate(frameInfo);
-
-                // bloom late
-                _bloom.BlurHorizontal(frameInfo);
-                EndRenderPass(commandBuffer);
-                DirectMesh.ClearBufferBinds();
-
-                // copy to swap chain
-                _swapChain.CopyRenderToSwapChain(commandBuffer);
-                // submit command buffer
-                EndFrame(commandBuffer);
+                // submit present queue
+                if (!_swapChain.PresentMain())
+                {
+                    RecreateSwapChain();
+                }
+                _isFrameStarted = false;
                 World.DefaultWorld.PostPresentUpdate();
+                _frameCount++;
             }
         }
+
+        private void GraphicsPipe()
+        {
+            VkCommandBuffer commandBuffer = SwapChain.CurrentMainCommandBuffer;
+            RendererFrameInfo frameInfo = CreateRendererFrameInfo(Time.DeltaTime, commandBuffer);
+
+            _unlitMaterial.Update(frameInfo);
+            _unlitMaterial.Flush(frameInfo);
+
+            frameInfo.GlobalDescriptorSet = _unlitMaterial.ApplicationDescriptorSetHandler.ActiveVkDescriptorSet;
+            AssetDataBase<Material>.AllAssetsListForReading.ForEach(m => m.Update(frameInfo));
+            // culling
+            CullScene(commandBuffer, frameInfo);
+
+            // shadows
+            World.DefaultWorld.PresentShadowPassUpdate(frameInfo);
+
+            //Bloom early
+            _bloom.BeginGlowPass(frameInfo);
+            World.DefaultWorld.PresentBloomGlow(frameInfo);
+            EndRenderPass(commandBuffer);
+            _bloom.BlurVertical(frameInfo);
+
+            // forward pass
+            _swapChain.BeginForwardRenderPass(commandBuffer);
+            World.DefaultWorld.PresentFowardPassUpdate(frameInfo);
+
+            // bloom late
+            _bloom.BlurHorizontal(frameInfo);
+            EndRenderPass(commandBuffer);
+            DirectMesh.ClearBufferBinds();
+        }
+
 
         private void UpdateSwapChainBufferDisposal()
         {
@@ -347,27 +366,19 @@ namespace VECS
             }
         }
 
-        public unsafe VkCommandBuffer BeginFrame()
+        public unsafe bool BeginFrame()
         {
             if (_swapChain.AcquireNextImage())
             {
-                _isFrameStarted = true;
-
-                _swapChain.WaitForMainComamndBuffer();
-
-                VkCommandBufferBeginInfo beginInfo = new();
-
-                Vulkan.CheckResult(Vulkan.vkBeginCommandBuffer(SwapChain.CurrentMainCommandBuffer, &beginInfo), "Failed to begin recording command buffer");
-
                 _postCullBarriers.Clear();
                 _cullReadyBarriers.Clear();
-                return SwapChain.CurrentMainCommandBuffer;
+                return true;
             }
             else
             {
                 RecreateSwapChain();
             }
-            return VkCommandBuffer.Null;
+            return false;
         }
 
         private void CullScene(VkCommandBuffer commandBuffer, RendererFrameInfo frameInfo)
@@ -419,23 +430,6 @@ namespace VECS
                         0,
                         null);
             }
-        }
-
-        private unsafe void EndFrame(VkCommandBuffer commandBuffer)
-        {
-            if (!_isFrameStarted)
-            {
-                throw new InvalidOperationException("Can't call EndFrame while frame is not in progress!");
-            }
-
-            Vulkan.CheckResult(Vulkan.vkEndCommandBuffer(commandBuffer), "Failed to record command buffer!");
-
-            if (!_swapChain.Submit(commandBuffer))
-            {
-                RecreateSwapChain();
-            }
-            _isFrameStarted = false;
-
         }
 
         /// <summary>

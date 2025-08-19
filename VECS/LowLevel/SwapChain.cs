@@ -12,10 +12,9 @@ namespace VECS.LowLevel
         public static uint MAX_CONCURRENT_FRAMES_UINT => (uint)MAX_CONCURRENT_FRAMES;
 
         internal static SwapChain Instance { get; set; }
-
         private static int _currentFrame = 0;
+        private static int _nextFrame => (_currentFrame + 1) % MAX_CONCURRENT_FRAMES;
         private uint _currentImage = 0;
-        private ulong _frameCount;
         internal VkExtent2D _windowExtent;
 
         internal VkRenderPass _forwardRenderPass;
@@ -26,7 +25,7 @@ namespace VECS.LowLevel
 
         internal VkFormat RenderFormat => RawRenderImage.Format;
         internal VkFormat DepthFormat => DepthImage.Format;
-        
+
         internal Texture2D _rawRenderImage;
         internal Texture2D _depthImage;
 
@@ -80,31 +79,25 @@ namespace VECS.LowLevel
         }
 
         #region  TimelineSemaphore
-        private enum Stages : ulong
+
+
+        public ulong GetTimelineStageValue(SemaphoreStages stage)
         {
-            Submit = 1,
-            Draw,
-            Present,
-            MAX_STAGES
+            return (_timelineSemaphores[_currentFrame].SemaphoreValue * (ulong)SemaphoreStages.MAX_STAGES) + (ulong)stage;
         }
 
-        private ulong GetTimelineStageValue(Stages stage)
-        {
-            return (_frameCount * (ulong)Stages.MAX_STAGES) + (ulong)stage;
-        }
-
-        private unsafe void SignalTimelineFromHost(Stages stage)
+        public unsafe void SignalTimelineFromHost(SemaphoreStages stage)
         {
             ulong signalValue = GetTimelineStageValue(stage);
             VkSemaphoreSignalInfo signalInfo = new()
             {
-                semaphore = _timelineSemaphores[_currentFrame].semaphore,
+                semaphore = _timelineSemaphores[_currentFrame].Semaphore,
                 value = signalValue
             };
             Vulkan.CheckResult(Vulkan.vkSignalSemaphoreKHR(GraphicsDevice.Device, &signalInfo));
         }
 
-        private unsafe void WaitOnTimelineFromHost(Stages stage)
+        public unsafe void WaitOnTimelineFromHost(SemaphoreStages stage)
         {
             ulong waitValue = GetTimelineStageValue(stage);
             VkSemaphoreWaitInfo waitInfo = new()
@@ -112,35 +105,35 @@ namespace VECS.LowLevel
                 semaphoreCount = 1,
                 pValues = &waitValue
             };
-            var semaphore = _timelineSemaphores[_currentFrame].semaphore;
+            var semaphore = _timelineSemaphores[_currentFrame].Semaphore;
             waitInfo.pSemaphores = &semaphore;
             Vulkan.CheckResult(Vulkan.vkWaitSemaphoresKHR(GraphicsDevice.Device, &waitInfo, ulong.MaxValue));
         }
 
-        private unsafe void SignalNextFrame()
+        public unsafe void SignalNextFrame()
         {
             VkSemaphoreSignalInfo signalInfo = new()
             {
-                semaphore = _timelineSemaphores[_currentFrame].semaphore,
-                value = GetTimelineStageValue(Stages.MAX_STAGES)
+                semaphore = _timelineSemaphores[_currentFrame].Semaphore,
+                value = GetTimelineStageValue(SemaphoreStages.MAX_STAGES)
             };
 
-            _frameCount++;
+            _timelineSemaphores[_currentFrame].SemaphoreValue++;
 
             Vulkan.CheckResult(Vulkan.vkSignalSemaphoreKHR(GraphicsDevice.Device, &signalInfo));
         }
 
-        private unsafe void WaitForNextFrame()
+        public unsafe void WaitForNextFrame()
         {
-            ulong waitValue = (_frameCount + 1) * (ulong)Stages.MAX_STAGES;
+            ulong waitValue = (_timelineSemaphores[_nextFrame].SemaphoreValue + 1) * (ulong)SemaphoreStages.MAX_STAGES;
 
             VkSemaphoreWaitInfo waitInfo = new()
             {
                 semaphoreCount = 1,
                 pValues = &waitValue
             };
-            
-            var semaphore = _timelineSemaphores[_currentFrame].semaphore;
+
+            var semaphore = _timelineSemaphores[_nextFrame].Semaphore;
             waitInfo.pSemaphores = &semaphore;
             Vulkan.CheckResult(Vulkan.vkWaitSemaphoresKHR(GraphicsDevice.Device, &waitInfo, ulong.MaxValue));
         }
@@ -226,7 +219,7 @@ namespace VECS.LowLevel
             Vulkan.vkCmdSetScissor(commandBuffer, scissor);
         }
 
-        public unsafe void CopyRenderToSwapChain(VkCommandBuffer commandBuffer)
+        private unsafe void CopyRenderToSwapChain(VkCommandBuffer commandBuffer)
         {
             var swapChainImage = _swapChainImages[_currentImage];
 
@@ -286,6 +279,8 @@ namespace VECS.LowLevel
 
 
             var result = Vulkan.vkQueuePresentKHR(GraphicsDevice.PresentQueue, &presentInfo);
+            _currentFrame = (_currentFrame + 1) % MAX_CONCURRENT_FRAMES;
+            SignalNextFrame();
             if (result == VkResult.ErrorOutOfDateKHR || result == VkResult.SuboptimalKHR)
             {
                 return false;
@@ -301,7 +296,6 @@ namespace VECS.LowLevel
 
             var result = PresentMain();
 
-            _currentFrame = (_currentFrame + 1) % MAX_CONCURRENT_FRAMES;
 
             return result;
         }
@@ -337,7 +331,7 @@ namespace VECS.LowLevel
 
             for (int i = 0; i < MAX_CONCURRENT_FRAMES; i++)
             {
-                Vulkan.vkDestroySemaphore(GraphicsDevice.Device, _timelineSemaphores[i].semaphore);
+                Vulkan.vkDestroySemaphore(GraphicsDevice.Device, _timelineSemaphores[i].Semaphore);
                 Vulkan.vkDestroySemaphore(GraphicsDevice.Device, _acquiredImageReadySemaphores[i]);
                 Vulkan.vkDestroyFence(GraphicsDevice.Device, _waitMainBufferFences[i]);
                 Vulkan.vkDestroyFence(GraphicsDevice.Device, _waitComputeBufferFences[i]);
