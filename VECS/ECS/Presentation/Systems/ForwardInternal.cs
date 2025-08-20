@@ -246,7 +246,7 @@ namespace VECS.ECS.Presentation
                 _directMeshCmdRegionIndex[cmd.DirectMesh]++;
             }
 
-            material.EnqueueDrawCmd(new(lastCmd.MaterialIndex, lastCmd.MaterialVariant, storageBufferRegion, lastCmd.MaterialEntity, lastCmd.DirectMesh, meshSubRegion,lastCmd.Bloom));
+            material.EnqueueDrawCmd(new(lastCmd.MaterialIndex, lastCmd.MaterialVariant, storageBufferRegion, lastCmd.MaterialEntity, lastCmd.DirectMesh, meshSubRegion, lastCmd.Bloom));
         }
 
         private void Cull(RendererFrameInfo frameInfo)

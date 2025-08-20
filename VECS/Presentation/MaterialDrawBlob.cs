@@ -45,7 +45,9 @@ namespace VECS
     public class MaterialDrawBlob
     {
         public Material TargetMaterial;
-        public MaterialDrawCommand[] DrawCommands = [];
+        public uint offset;
+        public uint count;
+        public Memory<EarlyDrawCommand> DrawCommands;
 
 
         public void Execute(RendererFrameInfo frameInfo, SwapChainBuffer<VkDrawIndexedIndirectCommand> indirectCmdBuffer)
@@ -107,17 +109,19 @@ namespace VECS
 
         public void RebuildBlob(EntityManager entityManager, List<Entity> entities)
         {
+            drawCount = (uint)entities.Count;
             var earlySort = GenerateEarlyDraws(entityManager, entities);
             CrunchMeshCmdRegions();
             SetStorageBufferRegions();
             earlySort.Wait();
+            SliceEarlyDraws();
         }
 
         public unsafe Task GenerateEarlyDraws(EntityManager entityManager, List<Entity> entities)
         {
             PrepareDirectMeshCounts();
             _materialVariants.Clear();
-            Parallel.For(0, entities.Count, i =>
+            Parallel.For(0, (int)drawCount, i =>
             {
                 Entity entity = entities[i];
                 LocalToWorld localToWorld = entityManager.GetComponent<LocalToWorld>(entity);
@@ -177,6 +181,12 @@ namespace VECS
             int lastMat = keys[0].X;
             uint offset = 0;
             var readingList = AssetDataBase<Material>.AllAssetsListForReading;
+
+            if (DrawBlobs.Length < readingList.Count)
+            {
+                Array.Resize(ref DrawBlobs, readingList.Count);
+            }
+            uint drawMatCount = 0;
             for (int i = 0; i < variants; i++)
             {
                 var key = keys[i];
@@ -184,10 +194,12 @@ namespace VECS
                 {
                     offset = 0;
                     lastMat = key.X;
+                    DrawBlobs[i].count = drawMatCount;
+                    drawMatCount = 0;
                 }
 
                 Vector2UInt region = new(offset, counts[i]);
-
+                drawMatCount += counts[i];
                 readingList[key.X].SetMatDescriptorHandleStorageRegions(key.Y, region.X, region.Y);
 
                 offset += counts[i];
@@ -208,6 +220,104 @@ namespace VECS
             }
         }
         
+        private void SliceEarlyDraws()
+        {
+            uint offset = 0;
+            int matIndex = _earlyDrawCommands[0].MaterialIndex;
+            for (uint i = 1; i < drawCount; i++)
+            {
+                var index = _earlyDrawCommands[i].MaterialIndex;
+                if (matIndex != index)
+                {
+                    DrawBlobs[matIndex].offset = offset;
+                    DrawBlobs[matIndex].DrawCommands = _earlyDrawCommands.AsMemory((int)offset, (int)DrawBlobs[i].count);
+                    offset = i;
+                    matIndex = index;
+                }
+            }
+        }
+
+        private unsafe void UpdateDrawCommands()
+        {
+            Parallel.For(0, DrawBlobs.Length, (blobIndex) =>
+            {
+                var blob = DrawBlobs[blobIndex];
+
+                var earlyDrawCommands = blob.DrawCommands.Span;
+                var cmd = earlyDrawCommands[0];
+                var lastCmd = cmd;
+                var materialDrawIndex = 0;
+                var materialVariantDrawIndex = 0;
+
+                var meshCmdRegionStartIndex = _directMeshCmdRegions[cmd.DirectMesh].StartIndex;
+                BufferRegion meshSubRegion = _nextDirectMeshCmdRegions[lastCmd.DirectMesh];
+                BufferRegion storageBufferRegion = default;
+
+                var material = blob.TargetMaterial;
+
+                var cullDraws = _indirectCmdBuffer.HostBuffer.Slice((int)blob.offset, (int)blob.count);
+                var cullBounds = _modelBoundsBuffer.HostBuffer.Slice((int)blob.offset, (int)blob.count); ;
+
+                // threads are guarateed exclusive access to the material they are writing to
+                Span<ModelMatrices> matrices = material.GetStorageBuffer<ModelMatrices>("matricesBuffer");
+                Span<ModelBounds> bounds = material.GetStorageBuffer<ModelBounds>("boundsBuffer");
+                Span<Vector4> colours = material.GetStorageBuffer<Vector4>("colourBuffer");
+
+                for (int i = 0; i < earlyDrawCommands.Length; i++)
+                {
+                    cmd = earlyDrawCommands[i];
+
+
+                    if (EarlyDrawCommand.MateriallyDifferent(lastCmd, cmd))
+                    {
+                        material.EnqueueDrawCmd(lastCmd, storageBufferRegion, meshSubRegion);
+
+                        if (lastCmd.MaterialIndex != cmd.MaterialIndex)
+                        {
+                            throw new InvalidOperationException("Material target cannot change during parallel draw command update!");
+                        }
+
+                        if (lastCmd.MaterialVariant != cmd.MaterialVariant)
+                        {
+                            materialVariantDrawIndex = 0;
+                            storageBufferRegion.Increment();
+                        }
+
+                        if (lastCmd.DirectMesh != cmd.DirectMesh || (lastCmd.SubMesh != cmd.SubMesh && (lastCmd.MaterialVariant != cmd.MaterialVariant || lastCmd.MaterialEntity != cmd.MaterialEntity)))
+                        {
+                            meshSubRegion.IncrementAlt();
+                            meshCmdRegionStartIndex = _directMeshCmdRegions[cmd.DirectMesh].StartIndex;
+                            throw new InvalidCastException("Attemping to read/write to mesh cmd regions!");
+                            _nextDirectMeshCmdRegions[lastCmd.DirectMesh] = meshSubRegion;
+                            meshSubRegion = _directMeshCmdRegions[cmd.DirectMesh];
+                        }
+                        lastCmd = cmd;
+                    }
+
+                    var draw = cmd.DrawCommand.VkDraw;
+                    draw.firstInstance = (uint)materialVariantDrawIndex;
+
+                    int cullIndex = meshCmdRegionStartIndex + _directMeshCmdRegionIndex[cmd.DirectMesh];
+
+                    cullDraws[cullIndex] = draw;
+                    cullBounds[cullIndex] = cmd.DrawCommand.Bounds;
+
+                    if (matrices != Span<ModelMatrices>.Empty) { matrices[materialDrawIndex] = cmd.DrawCommand.Matrices; }
+                    if (bounds != Span<ModelBounds>.Empty) { bounds[materialDrawIndex] = cmd.DrawCommand.Bounds; }
+                    if (colours != Span<Vector4>.Empty) { colours[materialDrawIndex] = cmd.Colour; }
+                    meshSubRegion.Count++;
+                    storageBufferRegion.Count++;
+                    materialDrawIndex++;
+                    materialVariantDrawIndex++;
+
+                    _directMeshCmdRegionIndex[cmd.DirectMesh]++;
+                }
+
+                material.EnqueueDrawCmd(new(lastCmd.MaterialIndex, lastCmd.MaterialVariant, storageBufferRegion, lastCmd.MaterialEntity, lastCmd.DirectMesh, meshSubRegion, lastCmd.Bloom));
+
+            });
+        }
+
         public unsafe void Dispose()
         {
             GC.SuppressFinalize(this);
