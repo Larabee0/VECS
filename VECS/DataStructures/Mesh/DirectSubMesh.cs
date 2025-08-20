@@ -194,7 +194,7 @@ namespace VECS
         {
             return new DirectSubMeshIndex()
             {
-                SubMeshIndex = _directSubMeshIndex,
+                SubMesh = _directSubMeshIndex,
                 DirectMesh = DirectMesh.GetIndexOfMesh(_directMeshBuffer)
             };
         }
@@ -202,7 +202,7 @@ namespace VECS
         public static DirectSubMesh GetSubMeshAtIndex(DirectSubMeshIndex directSubMeshIndex)
         {
             var directMesh = DirectMesh.GetMeshAtIndex(directSubMeshIndex.DirectMesh);
-            return directMesh.DirectSubMeshes[directSubMeshIndex.SubMeshIndex];
+            return directMesh.DirectSubMeshes[directSubMeshIndex.SubMesh];
         }
     }
 }

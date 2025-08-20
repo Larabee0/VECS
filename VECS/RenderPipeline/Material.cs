@@ -329,13 +329,13 @@ namespace VECS
                 {
                     var materialIndex = entityManager.GetComponent<MaterialIndex>(e);
 
-                    if (materialIndex.Material == index)
+                    if (materialIndex.Index == index)
                     {
                         entityManager.RemoveComponent<MaterialIndex>(e);
                     }
-                    else if (materialIndex.Material > index)
+                    else if (materialIndex.Index > index)
                     {
-                        materialIndex.Material--;
+                        materialIndex.Index--;
                         entityManager.SetComponent(e, materialIndex);
                     }
                 });

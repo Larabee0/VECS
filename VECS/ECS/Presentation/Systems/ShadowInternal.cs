@@ -42,7 +42,7 @@ namespace VECS.ECS.Presentation
                 var worldBounds = entityManager.GetComponent<WorldRenderBounds>(entity);
 
                 DrawCommand drawCommand = new(renderMesh.Mesh, localToWorld, worldBounds);
-                _earlyDrawCommands[i] = new(drawCommand, renderMesh);
+                _earlyDrawCommands[i] = new(entity, drawCommand, renderMesh);
                 if (!_directMeshCmdRegions.TryAdd(renderMesh.Mesh.DirectMesh, new(1)))
                 {
                     _directMeshCmdRegions[renderMesh.Mesh.DirectMesh] = new(_directMeshCmdRegions[renderMesh.Mesh.DirectMesh].Count + 1);

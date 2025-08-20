@@ -6,7 +6,7 @@
         public readonly int Id => ComponentId;
 
         public int DirectMesh;
-        public int SubMeshIndex;
+        public int SubMesh;
     }
 
 }

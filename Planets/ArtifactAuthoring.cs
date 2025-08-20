@@ -260,7 +260,7 @@ namespace Planets
             {
                 entityManager.AddComponent(childrenEntities[i], new RenderMesh()
                 {
-                    Material = new() { Material = unlit, Variant = 0, Entity = planetCount - 1 },
+                    Material = new() { Index = unlit, Variant = 0, Entity = planetCount - 1 },
                     Mesh = entityManager.GetComponent<DirectSubMeshIndex>(childrenEntities[i])
                 });
             }
@@ -383,7 +383,7 @@ namespace Planets
             engineRed.Colour = new Vector4(1, 0, 0, 1);
             engineRed.Material = new()
             {
-                Material = Material.GetIndexOfMaterial(Presenter.Instance.UnlitTransparent),
+                Index = Material.GetIndexOfMaterial(Presenter.Instance.UnlitTransparent),
                 Variant = 0,
                 Entity = 0
             };
@@ -564,7 +564,7 @@ namespace Planets
                 Mesh = mesh.GetSubMeshIndex(),
                 Material = new()
                 {
-                    Material = Material.GetIndexOfMaterial(mat),
+                    Index = Material.GetIndexOfMaterial(mat),
                     Variant = variant,
                     Entity = entityVariant
                 },
@@ -620,7 +620,7 @@ namespace Planets
             entityManager.AddComponent<DoNotRender>(planet);
             entityManager.AddComponent<Prefab>(planet);
             entityManager.AddComponent<PlanetEuler>(planet);
-            entityManager.AddComponent(planet, new MaterialIndex { Material = Material.GetIndexOfMaterial(planetLitMaterial) });
+            entityManager.AddComponent(planet, new MaterialIndex { Index = Material.GetIndexOfMaterial(planetLitMaterial) });
 
             InitialiseTiles(entityManager, planet, subdivisons);
 

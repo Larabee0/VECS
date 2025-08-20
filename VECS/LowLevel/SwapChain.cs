@@ -13,7 +13,7 @@ namespace VECS.LowLevel
 
         internal static SwapChain Instance { get; set; }
         private static int _currentFrame = 0;
-        private static int _nextFrame => (_currentFrame + 1) % MAX_CONCURRENT_FRAMES;
+        private static int NextFrame => (_currentFrame + 1) % MAX_CONCURRENT_FRAMES;
         private uint _currentImage = 0;
         internal VkExtent2D _windowExtent;
 
@@ -125,7 +125,7 @@ namespace VECS.LowLevel
 
         public unsafe void WaitForNextFrame()
         {
-            ulong waitValue = (_timelineSemaphores[_nextFrame].SemaphoreValue + 1) * (ulong)SemaphoreStages.MAX_STAGES;
+            ulong waitValue = (_timelineSemaphores[NextFrame].SemaphoreValue + 1) * (ulong)SemaphoreStages.MAX_STAGES;
 
             VkSemaphoreWaitInfo waitInfo = new()
             {
@@ -133,7 +133,7 @@ namespace VECS.LowLevel
                 pValues = &waitValue
             };
 
-            var semaphore = _timelineSemaphores[_nextFrame].Semaphore;
+            var semaphore = _timelineSemaphores[NextFrame].Semaphore;
             waitInfo.pSemaphores = &semaphore;
             Vulkan.CheckResult(Vulkan.vkWaitSemaphoresKHR(GraphicsDevice.Device, &waitInfo, ulong.MaxValue));
         }
@@ -321,7 +321,6 @@ namespace VECS.LowLevel
 
             Vulkan.vkDestroyFramebuffer(GraphicsDevice.Device, _forwardFramebuffer);
 
-
             Vulkan.vkDestroyRenderPass(GraphicsDevice.Device, _forwardRenderPass);
 
             for (int i = 0; i < SWAP_CHAIN_IMAGE_COUNT; i++)
@@ -342,8 +341,7 @@ namespace VECS.LowLevel
 
         internal bool CompareSwapFormats(SwapChain swapChain)
         {
-            return swapChain.DepthFormat == DepthFormat
-                && swapChain._swapChainImageFormat == _swapChainImageFormat;
+            return swapChain.DepthFormat == DepthFormat && swapChain._swapChainImageFormat == _swapChainImageFormat;
         }
     }
 }

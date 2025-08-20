@@ -121,23 +121,13 @@ namespace VECS.ECS.Presentation
                 
                 _directMeshDraws[renderMesh.Mesh.DirectMesh]++;
 
-                matVariant = new(renderMesh.Material.Material, renderMesh.Material.Variant);
+                matVariant = new(renderMesh.Material.Index, renderMesh.Material.Variant);
 
                 _materialVairantCounts[matVariant] = _materialVairantCounts.TryGetValue(matVariant, out uint value) ? ++value : 1;
 
-                AddEarlyDrawCmd(new(drawCommand, renderMesh));
+                AddEarlyDrawCmd(new(entity, drawCommand, renderMesh));
             }
             WriteAddressSortedCmds();
-        }
-
-        private void Cull(RendererFrameInfo frameInfo)
-        {
-            var barrier = _cullCompute.Cull(frameInfo, frameInfo.cullData, (uint)_earlyDrawCommands.Length, _indirectCmdBuffer, _modelBoundsBuffer);
-
-            if (!_cullCompute.CPUCulling)
-            {
-                frameInfo.PostCullBarriers.Add(barrier);
-            }
         }
 
         private void SetStorageBufferRegions()
@@ -257,6 +247,16 @@ namespace VECS.ECS.Presentation
             }
 
             material.EnqueueDrawCmd(new(lastCmd.MaterialIndex, lastCmd.MaterialVariant, storageBufferRegion, lastCmd.MaterialEntity, lastCmd.DirectMesh, meshSubRegion,lastCmd.Bloom));
+        }
+
+        private void Cull(RendererFrameInfo frameInfo)
+        {
+            var barrier = _cullCompute.Cull(frameInfo, frameInfo.cullData, (uint)_earlyDrawCommands.Length, _indirectCmdBuffer, _modelBoundsBuffer);
+
+            if (!_cullCompute.CPUCulling)
+            {
+                frameInfo.PostCullBarriers.Add(barrier);
+            }
         }
 
         public void ExecuteBloomDrawCmds(RendererFrameInfo frameInfo)

@@ -27,7 +27,7 @@ namespace Planets
                 HashSet<int> materials = new (entities.Count);
                 for (int i = 0; i < entities.Count; i++)
                 {
-                    materials.Add(entityManager.GetComponent<MaterialIndex>(entities[0]).Material);
+                    materials.Add(entityManager.GetComponent<MaterialIndex>(entities[0]).Index);
                 }
                 float time = Time.TimeSinceStartUp;
                 foreach (var matIndex in materials)

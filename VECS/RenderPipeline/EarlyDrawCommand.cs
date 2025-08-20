@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Numerics;
+using VECS.ECS;
 using VECS.ECS.Presentation;
 
 namespace VECS
@@ -24,29 +25,26 @@ namespace VECS
     public struct EarlyDrawCommand : IComparable
     {
         public const int MAX_MATERIAL_COUNT = 1843;
-
-        private static readonly int UnknownDrawCmd = -1;
-        public int DirectMesh;
-        public int SubMesh;
-        public int MaterialIndex;
-        public int MaterialVariant;
-        public int MaterialEntity;
-        public DrawCommand DrawCommand;
-        public Vector4 Colour;
-        public bool Bloom;
+        private const int UnknownDrawCmd = -1;
+        public readonly int DirectMesh => RenderMesh.Mesh.DirectMesh;
+        public readonly int SubMesh => RenderMesh.Mesh.SubMesh;
+        public readonly int MaterialIndex => RenderMesh.Material.Index;
+        public readonly int MaterialVariant=>RenderMesh.Material.Variant;
+        public readonly int MaterialEntity =>RenderMesh.Material.Entity;
+        public readonly Entity Entity;
+        public readonly RenderMesh RenderMesh;
+        public readonly DrawCommand DrawCommand;
+        public readonly Vector4 Colour => RenderMesh.Colour;
+        public readonly bool Bloom => DrawCommand.Bloom;
 
         public readonly ulong DrawAddress;
         private readonly int _cachedHashCode;
 
-        public EarlyDrawCommand(DrawCommand drawCommand,RenderMesh renderMesh)
+        public EarlyDrawCommand(Entity entity, DrawCommand drawCommand,RenderMesh renderMesh)
         {
+            Entity = entity;
             DrawCommand = drawCommand;
-            DirectMesh = renderMesh.Mesh.DirectMesh;
-            SubMesh = renderMesh.Mesh.SubMeshIndex;
-            MaterialIndex = renderMesh.Material.Material;
-            MaterialVariant = renderMesh.Material.Variant;
-            MaterialEntity = renderMesh.Material.Entity;
-            Colour = renderMesh.Colour;
+            RenderMesh = renderMesh;
             _cachedHashCode = HashCode.Combine(MaterialIndex, MaterialVariant, MaterialEntity, DirectMesh, SubMesh);
 
             DrawAddress = (ulong)MaterialIndex    * 10000000000000000;
@@ -65,16 +63,7 @@ namespace VECS
         {
             if(obj is EarlyDrawCommand b)
             {
-                var material = MaterialIndex.CompareTo(b.MaterialIndex);
-                if(material != 0) return material;
-                var variant = MaterialVariant.CompareTo(b.MaterialVariant);
-                if (variant != 0) return variant;
-                var entity = MaterialEntity.CompareTo(b.MaterialEntity);
-                if (entity != 0) return entity;
-                var directMesh = DirectMesh.CompareTo(b.DirectMesh);
-                if(directMesh != 0) return directMesh;
-                var subMesh = SubMesh.CompareTo(b.SubMesh);
-                return subMesh;
+                return DrawAddress.CompareTo(b.DrawAddress);
             }
 
             throw new ArgumentException(string.Format("Object is not a {0}", typeof(EarlyDrawCommand)));
@@ -82,7 +71,7 @@ namespace VECS
 
         public override readonly int GetHashCode()
         {
-            Debug.Assert(_cachedHashCode != UnknownDrawCmd,"Invalid hash code for early draw");
+            Debug.Assert(_cachedHashCode != UnknownDrawCmd,string.Format("Invalid hash code for early draw {0}",_cachedHashCode));
             return _cachedHashCode;
         }
     }
