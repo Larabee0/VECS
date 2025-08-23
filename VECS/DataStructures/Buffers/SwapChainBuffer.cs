@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using VECS.LowLevel;
@@ -229,6 +230,22 @@ namespace VECS
         public virtual SwapChainBuffer Realloc(ulong newInstanceCount)
         {
             return new SwapChainBuffer(this, newInstanceCount);
+        }
+        
+        /// <summary>
+        /// In Debug mode this will assert T is same size as InstanceSize.
+        /// In Release mode this won't check for size parity.
+        /// It will copy value to the region starting at hostBufferIndex * <see cref="InstanceSize32"/> for the size of T
+        /// This will not mark the buffer as dirty.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="hostBufferIndex"></param>
+        /// <param name="value"></param>
+        public unsafe void UnsafeSet<T>(int hostBufferIndex, T value) where T : unmanaged
+        {
+            Debug.Assert(sizeof(T) == InstanceSize32, string.Format("Type T: {0} does has instance size of {1}, but swapchain buffer expects instance size of {2}", value.GetType().Name, sizeof(T), InstanceSize32));
+            var offsetPtr = IntPtr.Add(new(_hostPtr), hostBufferIndex * InstanceSize32);
+            NativeMemory.Copy(&value, offsetPtr.ToPointer(), (uint)sizeof(T));
         }
 
         public unsafe void Dispose()
