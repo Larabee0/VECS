@@ -80,7 +80,7 @@ namespace VECS
 
         public void Execute(RendererFrameInfo frameInfo, SwapChainBuffer<VkDrawIndexedIndirectCommand> indirectCmdBuffer)
         {
-            TargetMaterial.ExecuteDrawCommands(frameInfo, MaterialDrawCommands, indirectCmdBuffer);
+            TargetMaterial.ExecuteDrawCommands(frameInfo, MaterialDrawCommands, indirectCmdBuffer,MatDrawCount);
         }
     }
 
@@ -91,7 +91,12 @@ namespace VECS
         private readonly SwapChainBuffer<VkDrawIndexedIndirectCommand> _indirectCmdBuffer;
         private readonly SwapChainBuffer<ModelBounds> _modelBoundsBuffer;
 
+        public SwapChainBuffer<VkDrawIndexedIndirectCommand> IndirectCmdBuffer => _indirectCmdBuffer;
+        public SwapChainBuffer<ModelBounds> ModelBoundsBuffer => _modelBoundsBuffer;
+
         private uint _drawCount;
+
+        public uint DrawCount => _drawCount;
 
         private readonly ConcurrentDictionary<Vector2Int, uint> _materialVariants = new();
 
@@ -136,7 +141,7 @@ namespace VECS
             SliceEarlyDraws();
             BuildMaterialDrawCommands();
 
-            CompareResult();
+            //CompareResult();
         }
 
         public unsafe Task GenerateEarlyDraws(EntityManager entityManager, List<Entity> entities)
@@ -238,11 +243,7 @@ namespace VECS
 
         private void BuildMaterialDrawCommands()
         {
-            ParallelOptions parallelOptions = new()
-            {
-                MaxDegreeOfParallelism = 1
-            };
-            Parallel.For(0, _drawBlobs.Length, parallelOptions, (blobIndex) =>
+            Parallel.For(0, _drawBlobs.Length, (blobIndex) =>
             {
                 var blob = _drawBlobs[blobIndex];
                 if (blob.EarlyDrawCount == 0) return;
@@ -358,6 +359,7 @@ namespace VECS
             Parallel.For(0, _drawBlobs.Length, (blobIndex) =>
             {
                 var blob = _drawBlobs[blobIndex];
+                if (blob.EarlyDrawCount == 0) return;
                 var material = _drawBlobs[blobIndex].TargetMaterial;
                 var earlyDrawCommands = blob.DrawIndexer.Span;
                 EarlyDrawCommand cmd;
@@ -380,14 +382,26 @@ namespace VECS
                     int cullIndex = (int)blob.EarlyDrawOffset + i;
                     modelBounds = new ModelBounds(worldBounds);
                     _modelBoundsBuffer.UnsafeSet(cullIndex, modelBounds);
-                    bounds[i] = modelBounds;
-                    matrices[i] = new ModelMatrices(localToWorld.Value);
-                    colours[i] = renderMesh.Colour;
+
+                    if (matrices != Span<ModelMatrices>.Empty) { matrices[i] =new ModelMatrices(localToWorld.Value); }
+                    if (bounds != Span<ModelBounds>.Empty) { bounds[i] = modelBounds; }
+                    if (colours != Span<Vector4>.Empty) { colours[i] = renderMesh.Colour; }
                 }
             });
 
             _indirectCmdBuffer.SetBuffersDirty(true);
             _modelBoundsBuffer.SetBuffersDirty(true);
+        }
+
+        public void Draw(RendererFrameInfo frameInfo)
+        {
+            for (int i = 0; i < _drawBlobs.Length; i++)
+            {
+                if (_drawBlobs[i].MatDrawCount > 0)
+                {
+                    _drawBlobs[i].Execute(frameInfo, _indirectCmdBuffer);
+                }
+            }
         }
 
         public unsafe void Dispose()
@@ -398,5 +412,6 @@ namespace VECS
             _modelBoundsBuffer.Dispose();
             GC.ReRegisterForFinalize(this);
         }
+
     }
 }

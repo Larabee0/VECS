@@ -185,9 +185,9 @@ namespace VECS
             }
         }
 
-        public unsafe void ExecuteDrawCommands(RendererFrameInfo rendererFrameInfo, MaterialDrawCommand[] drawCmds, SwapChainBuffer<VkDrawIndexedIndirectCommand> indirectCmdBuffer)
+        public unsafe void ExecuteDrawCommands(RendererFrameInfo rendererFrameInfo, MaterialDrawCommand[] drawCmds, SwapChainBuffer<VkDrawIndexedIndirectCommand> indirectCmdBuffer, int matDrawCount)
         {
-            if (drawCmds.Length > 0)
+            if (matDrawCount > 0)
             {
                 BindPipeline(rendererFrameInfo);
                 var command = drawCmds[0];
@@ -197,7 +197,7 @@ namespace VECS
                 int lastVariant = command.Variant;
                 int lastEntity = command.Entity;
 
-                for (int i = 1; i < drawCmds.Length; i++)
+                for (int i = 0; i < matDrawCount; i++)
                 {
                     command = drawCmds[i];
                     ExecuteDrawCommand(rendererFrameInfo, indirectCmdBuffer, command, ref lastVariant, ref lastEntity);
@@ -209,7 +209,7 @@ namespace VECS
         {
             if (lastVariant != command.Variant && lastEntity != command.Entity)
             {
-                BindMatVariantndEntity(rendererFrameInfo, command.Variant, command.Entity);
+                BindMatVariantAndEntity(rendererFrameInfo, command.Variant, command.Entity);
                 lastEntity = command.Entity;
                 lastVariant = command.Variant;
             }
@@ -322,7 +322,7 @@ namespace VECS
             }
         }
 
-        private unsafe void BindMatVariantndEntity(RendererFrameInfo frameInfo, int variant, int entity)
+        private unsafe void BindMatVariantAndEntity(RendererFrameInfo frameInfo, int variant, int entity)
         {
             if (HasEntitySet && HasMaterialSet)
             {
