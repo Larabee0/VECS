@@ -485,7 +485,7 @@ namespace VECS.LowLevel
         }
 
         #endregion
-#endif
+
 
         #region Validation and Debugging statics
         /// <summary>
@@ -618,7 +618,8 @@ namespace VECS.LowLevel
 
 
         #endregion
-#region Extensions Statics
+#endif
+        #region Extensions Statics
         /// <summary>
         /// Checks if the given physical device supports the required
         /// device extentions in <see cref="_requiredDeviceExtensions"/>
