@@ -311,7 +311,8 @@ namespace VECS
                 materialDrawIndex++;
                 blob.MatDrawCount = materialDrawIndex;
             });
-
+            _indirectCmdBuffer.SetUsedInstanceCount(_drawCount);
+            _modelBoundsBuffer.SetUsedInstanceCount(_drawCount);
             _indirectCmdBuffer.SetBuffersDirty(true);
             _modelBoundsBuffer.SetBuffersDirty(true);
         }
@@ -356,9 +357,13 @@ namespace VECS
 
         public void UpdateDrawCommands(EntityManager entityManager)
         {
-            Parallel.For(0, _drawBlobs.Length, (blobIndex) =>
-            {
-                var blob = _drawBlobs[blobIndex];
+            Parallel.For(0, _drawBlobs.Length, (i) => UpdateDrawCommandInternal(entityManager, i));
+            _modelBoundsBuffer.SetBuffersDirty(true);
+        }
+
+        private void UpdateDrawCommandInternal(EntityManager entityManager,int blobIndex)
+        {
+            var blob = _drawBlobs[blobIndex];
                 if (blob.EarlyDrawCount == 0) return;
                 var material = _drawBlobs[blobIndex].TargetMaterial;
                 var earlyDrawCommands = blob.DrawIndexer.Span;
@@ -387,10 +392,6 @@ namespace VECS
                     if (bounds != Span<ModelBounds>.Empty) { bounds[i] = modelBounds; }
                     if (colours != Span<Vector4>.Empty) { colours[i] = renderMesh.Colour; }
                 }
-            });
-
-            _indirectCmdBuffer.SetBuffersDirty(true);
-            _modelBoundsBuffer.SetBuffersDirty(true);
         }
 
         public void Draw(RendererFrameInfo frameInfo)
