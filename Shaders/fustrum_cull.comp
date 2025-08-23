@@ -61,14 +61,18 @@ bool IsVisible(uint objectIndex)
 }
 
 layout(local_size_x = 256) in;
-void main() {
+void main()
+{
 	uint gID = gl_GlobalInvocationID.x;
-	if(gID < cullData.drawCount) {
+	if(gID < cullData.drawCount)
+	{
 		bool visible = IsVisible(gID);
-		if(visible || cullData.cullingEnabled == 0) {
+		if(visible || cullData.cullingEnabled == 0)
+		{
 			drawBuffer.Draws[gID].instanceCount = 1;
 		}
-		else {
+		else
+		{
 			drawBuffer.Draws[gID].instanceCount = 0;
 		}
 	}

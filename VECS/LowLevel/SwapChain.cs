@@ -262,12 +262,11 @@ namespace VECS.LowLevel
             Vulkan.CheckResult(Vulkan.vkQueueSubmit(GraphicsDevice.MainQueue, submitInfo, _waitMainBufferFences[_currentFrame]));
         }
 
-        public unsafe bool PresentMain()
+        public unsafe bool PresentMain(uint imageIndex)
         {
 
-            VkSemaphore renderComplete = _renderCompleteSemaphores[_currentImage];
+            VkSemaphore renderComplete = _renderCompleteSemaphores[imageIndex];
             VkSwapchainKHR swapchain = _swapChain;
-            uint imageIndex = _currentImage;
             VkPresentInfoKHR presentInfo = new()
             {
                 waitSemaphoreCount = 1,
@@ -279,8 +278,7 @@ namespace VECS.LowLevel
 
 
             var result = Vulkan.vkQueuePresentKHR(GraphicsDevice.PresentQueue, &presentInfo);
-            _currentFrame = (_currentFrame + 1) % MAX_CONCURRENT_FRAMES;
-            SignalNextFrame();
+            
             if (result == VkResult.ErrorOutOfDateKHR || result == VkResult.SuboptimalKHR)
             {
                 return false;
@@ -294,8 +292,9 @@ namespace VECS.LowLevel
         {
             SubmitMain(commandBuffer);
 
-            var result = PresentMain();
+            var result = PresentMain(_currentImage);
 
+            _currentFrame = (_currentFrame + 1) % MAX_CONCURRENT_FRAMES;
 
             return result;
         }

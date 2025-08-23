@@ -24,12 +24,14 @@ namespace VECS.LowLevel
                 End = end;
             }
         }
-
+        internal bool RecreateSwapChain;
         private Thread _computeThread;
         private Thread _graphicsThread;
+        private Thread _presentThread;
 
         private CancellationTokenSource _graphicsCancel;
         private CancellationTokenSource _computeCancel;
+        private CancellationTokenSource _presentCancel;
 
         public Action GraphicsCallback;
         public Action ComputeCallback;
@@ -38,6 +40,7 @@ namespace VECS.LowLevel
         {
             _graphicsCancel = new();
             _computeCancel = new();
+            _presentCancel = new();
 
             _graphicsThread = new Thread(DoGraphicsWork)
             {
@@ -47,9 +50,15 @@ namespace VECS.LowLevel
             {
                 Name = "Supplementary Compute Queue Thread"
             };
-
+            _presentThread = new Thread(DoPresentWork)
+            {
+                Name = "Present Queue Thread"
+            };
             _graphicsThread.Start(_graphicsCancel);
             _computeThread.Start(_computeCancel);
+            _presentThread.Start(_presentCancel);
+
+            RecreateSwapChain = !AcquireNextImage();
         }
 
         internal void FinishTimelineWorkers()
@@ -58,16 +67,21 @@ namespace VECS.LowLevel
             {
                 _graphicsCancel.Cancel();
                 _computeCancel.Cancel();
+                _presentCancel.Cancel();
                 SignalTimelineFromHost(SemaphoreStages.MAX_STAGES);
                 _currentFrame = (_currentFrame + 1) % MAX_CONCURRENT_FRAMES;
-                
+                SignalTimelineFromHost(SemaphoreStages.MAX_STAGES);
+
                 _graphicsThread.Join();
                 _computeThread.Join();
+                _presentThread.Join();
+                
 
                 _graphicsThread = null;
                 _computeThread = null;
                 _graphicsCancel = null;
                 _computeCancel = null;
+                _presentCancel = null;
             }
         }
 
@@ -75,7 +89,7 @@ namespace VECS.LowLevel
         {
             ulong signalValue;
             VkTimelineSemaphoreSubmitInfo timelineInfo;
-            VkCommandBuffer commandBuffer;           
+            VkCommandBuffer commandBuffer;
             VkSubmitInfo submitInfo;
             VkSemaphore timelineSemaphore;
 
@@ -116,6 +130,18 @@ namespace VECS.LowLevel
             }
         }
 
+        private unsafe void BuildComputeCommands()
+        {
+
+            WaitForComputeComamndBuffer();
+            VkCommandBufferBeginInfo beginInfo = new();
+
+            Vulkan.CheckResult(Vulkan.vkBeginCommandBuffer(CurrentComputeCommandBuffer, &beginInfo), "Failed to begin recording compute command buffer");
+            ComputeCallback?.Invoke();
+
+            Vulkan.CheckResult(Vulkan.vkEndCommandBuffer(CurrentComputeCommandBuffer), "Failed to end compute command buffer!");
+        }
+
         private unsafe void DoGraphicsWork(object cancellationToken)
         {
             bool waitForCompute = GraphicsDevice.ComputeQueue == GraphicsDevice.MainQueue;
@@ -134,17 +160,17 @@ namespace VECS.LowLevel
             waitValues[1] = 0;
             signalValues[1] = 0;
 
-            VkTimelineSemaphoreSubmitInfo timelineInfo; 
-            VkCommandBuffer commandBuffer;           
+            VkTimelineSemaphoreSubmitInfo timelineInfo;
+            VkCommandBuffer commandBuffer;
             VkSubmitInfo submitInfo;
 
             CancellationTokenSource token = (CancellationTokenSource)cancellationToken;
-            
+
             while (!token.IsCancellationRequested)
             {
                 WaitOnTimelineFromHost(SemaphoreStages.Submit);
                 BuildGraphicsCommands();
-                
+
                 waitValues[0] = GetTimelineStageValue(SemaphoreStages.Draw);
                 waitSemaphores[0] = _timelineSemaphores[_currentFrame].Semaphore;
                 waitSemaphores[1] = _acquiredImageReadySemaphores[_currentFrame];
@@ -201,19 +227,35 @@ namespace VECS.LowLevel
             // copy to swap chain
             CopyRenderToSwapChain(CurrentMainCommandBuffer);
 
-	        Vulkan.CheckResult(Vulkan.vkEndCommandBuffer(CurrentMainCommandBuffer),"Failed to end main command buffer!");
+            Vulkan.CheckResult(Vulkan.vkEndCommandBuffer(CurrentMainCommandBuffer), "Failed to end main command buffer!");
         }
 
-        private unsafe void BuildComputeCommands()
+        private unsafe void DoPresentWork(object cancellationToken)
         {
+            uint submissionImageIndex;
 
-            WaitForComputeComamndBuffer();
-            VkCommandBufferBeginInfo beginInfo = new();
+            CancellationTokenSource token = (CancellationTokenSource)cancellationToken;
 
-            Vulkan.CheckResult(Vulkan.vkBeginCommandBuffer(CurrentComputeCommandBuffer, &beginInfo), "Failed to begin recording compute command buffer");
-            ComputeCallback?.Invoke();
+            while (!token.IsCancellationRequested)
+            {
+                WaitOnTimelineFromHost(SemaphoreStages.Present);
+                submissionImageIndex = _currentImage;
 
-	        Vulkan.CheckResult(Vulkan.vkEndCommandBuffer(CurrentComputeCommandBuffer),"Failed to end compute command buffer!");
+                _currentFrame = (_currentFrame + 1) % MAX_CONCURRENT_FRAMES;
+
+                if (!token.IsCancellationRequested && !AcquireNextImage())
+                {
+                    RecreateSwapChain = true;
+                    token.Cancel();
+                }
+                
+                SignalNextFrame();
+                if (!token.IsCancellationRequested && !PresentMain(submissionImageIndex))
+                {
+                    RecreateSwapChain = true;
+                    token.Cancel();
+                }
+            }
         }
     }
 }

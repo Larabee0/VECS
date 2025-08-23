@@ -308,13 +308,13 @@ namespace VECS
                 _swapChain.SignalTimelineFromHost(SemaphoreStages.Submit);
 
                 // wait for workers to submit
-                _swapChain.WaitOnTimelineFromHost(SemaphoreStages.Present);
-
+                //_swapChain.WaitOnTimelineFromHost(SemaphoreStages.Present);
+                _swapChain.WaitForNextFrame();
                 // submit present queue
-                if (!_swapChain.PresentMain())
-                {
-                    RecreateSwapChain();
-                }
+                //if (!_swapChain.PresentMain())
+                //{
+                //    RecreateSwapChain();
+                //}
                 _isFrameStarted = false;
                 World.DefaultWorld.PostPresentUpdate();
                 _frameCount++;
@@ -368,15 +368,16 @@ namespace VECS
 
         public unsafe bool BeginFrame()
         {
-            if (_swapChain.AcquireNextImage())
+
+            if (_swapChain.RecreateSwapChain)
+            {
+                RecreateSwapChain();
+            }
+            else
             {
                 _postCullBarriers.Clear();
                 _cullReadyBarriers.Clear();
                 return true;
-            }
-            else
-            {
-                RecreateSwapChain();
             }
             return false;
         }
