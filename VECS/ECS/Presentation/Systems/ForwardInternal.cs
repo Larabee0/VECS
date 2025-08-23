@@ -8,6 +8,7 @@ namespace VECS.ECS.Presentation
 {
     internal class ForwardInternal : RenderSystemInternal
     {
+        private readonly RenderBlob _renderBlob;
         private readonly SortedDictionary<Vector2Int, uint> _materialVairantCounts = [];
         private readonly Dictionary<int, Material> _materialsMap = [];
 
@@ -17,6 +18,7 @@ namespace VECS.ECS.Presentation
 
         public ForwardInternal(FustrumCull cullCompute) : base(cullCompute)
         {
+            _renderBlob = new(GenericRenderSystem.MAX_DRAWS);
         }
 
         private void ClearPreSortedEarlyCmds()
@@ -73,6 +75,7 @@ namespace VECS.ECS.Presentation
             GenerateEarlyDraws(entityManager, entities);
             SetStorageBufferRegions();
             EnqueueDrawCmds();
+            _renderBlob.RebuildBlob(entityManager, entities);
             Cull(frameInfo);
         }
 
@@ -93,7 +96,7 @@ namespace VECS.ECS.Presentation
                 worldBounds = entityManager.GetComponent<WorldRenderBounds>(entity);
                 bloom = entityManager.HasComponent<BloomTag>(entity);
                 drawCommand = new(renderMesh.Mesh, localToWorld, worldBounds, bloom);
-                
+
                 matVariant = new(renderMesh.Material.Index, renderMesh.Material.Variant);
 
                 _materialVairantCounts[matVariant] = _materialVairantCounts.TryGetValue(matVariant, out uint value) ? ++value : 1;
@@ -225,6 +228,13 @@ namespace VECS.ECS.Presentation
             {
                 mat.ExecuteDrawCommands(frameInfo, _indirectCmdBuffer);
             }
+        }
+
+        public override void Dispose()
+        {
+            GC.SuppressFinalize(this);
+            _renderBlob.Dispose();
+            base.Dispose();
         }
     }
 }
