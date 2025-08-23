@@ -42,6 +42,7 @@ namespace VECS
             throw new ArgumentException(string.Format("Object is not a {0}", typeof(MaterialDrawIndexer)));
         }
     }
+    
     public class MaterialDrawBlob
     {
         public Material TargetMaterial;
@@ -104,7 +105,9 @@ namespace VECS
 
             _directMeshDrawCounts = (int*)NativeMemory.AlignedAlloc((uint)_directMeshAllocCount * 4, 4);
             _directMeshCmdRegions = (BufferRegion*)NativeMemory.AlignedAlloc((uint)_directMeshAllocCount * 8, 8);
-            _nextDirectMeshCmdRegions = (BufferRegion*)NativeMemory.AlignedAlloc((uint)_directMeshAllocCount * 8, 8);
+            _nextDirectMeshCmdRegions = (BufferRegion*)NativeMemory.AlignedAlloc((uint)_directMeshAllocCount * 8, 8);            
+            _variantCombinations = (Vector2Int*)NativeMemory.AlignedAlloc((uint)_allocatedVariantsCount * 8, 8);
+            _variantCounts = (uint*)NativeMemory.AlignedAlloc((uint)_allocatedVariantsCount * 4, 4);
         }
 
         public void RebuildBlob(EntityManager entityManager, List<Entity> entities)
@@ -249,8 +252,7 @@ namespace VECS
                 var materialDrawIndex = 0;
                 var materialVariantDrawIndex = 0;
 
-                var meshCmdRegionStartIndex = _directMeshCmdRegions[cmd.DirectMesh].StartIndex;
-                BufferRegion meshSubRegion = _nextDirectMeshCmdRegions[lastCmd.DirectMesh];
+                BufferRegion meshSubRegion = new((int)blob.offset, 0);
                 BufferRegion storageBufferRegion = default;
 
                 var material = blob.TargetMaterial;
@@ -266,7 +268,6 @@ namespace VECS
                 for (int i = 0; i < earlyDrawCommands.Length; i++)
                 {
                     cmd = earlyDrawCommands[i];
-
 
                     if (EarlyDrawCommand.MateriallyDifferent(lastCmd, cmd))
                     {
@@ -286,10 +287,6 @@ namespace VECS
                         if (lastCmd.DirectMesh != cmd.DirectMesh || (lastCmd.SubMesh != cmd.SubMesh && (lastCmd.MaterialVariant != cmd.MaterialVariant || lastCmd.MaterialEntity != cmd.MaterialEntity)))
                         {
                             meshSubRegion.IncrementAlt();
-                            meshCmdRegionStartIndex = _directMeshCmdRegions[cmd.DirectMesh].StartIndex;
-                            throw new InvalidCastException("Attemping to read/write to mesh cmd regions!");
-                            _nextDirectMeshCmdRegions[lastCmd.DirectMesh] = meshSubRegion;
-                            meshSubRegion = _directMeshCmdRegions[cmd.DirectMesh];
                         }
                         lastCmd = cmd;
                     }
@@ -297,7 +294,7 @@ namespace VECS
                     var draw = cmd.DrawCommand.VkDraw;
                     draw.firstInstance = (uint)materialVariantDrawIndex;
 
-                    int cullIndex = meshCmdRegionStartIndex + _directMeshCmdRegionIndex[cmd.DirectMesh];
+                    int cullIndex = (int)blob.offset + i;
 
                     cullDraws[cullIndex] = draw;
                     cullBounds[cullIndex] = cmd.DrawCommand.Bounds;
@@ -309,8 +306,6 @@ namespace VECS
                     storageBufferRegion.Count++;
                     materialDrawIndex++;
                     materialVariantDrawIndex++;
-
-                    _directMeshCmdRegionIndex[cmd.DirectMesh]++;
                 }
 
                 material.EnqueueDrawCmd(new(lastCmd.MaterialIndex, lastCmd.MaterialVariant, storageBufferRegion, lastCmd.MaterialEntity, lastCmd.DirectMesh, meshSubRegion, lastCmd.Bloom));
@@ -359,4 +354,5 @@ namespace VECS
         }
 
     }
+    
 }

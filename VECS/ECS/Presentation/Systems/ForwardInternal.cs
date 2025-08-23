@@ -173,16 +173,16 @@ namespace VECS.ECS.Presentation
 
         private void EnqueueDrawCmds()
         {
-            cmd = _earlyDrawCommands[0];
-            lastCmd = cmd;
-            materialDrawIndex = 0;
-            materialVariantDrawIndex = 0;
+            var cmd = _earlyDrawCommands[0];
+            var lastCmd = cmd;
+            var materialDrawIndex = 0;
+            var materialVariantDrawIndex = 0;
 
-            meshCmdRegionStartIndex = _directMeshCmdRegions[cmd.DirectMesh].StartIndex;
-            meshSubRegion = _meshNextCmdRegion[lastCmd.DirectMesh];
-            storageBufferRegion = default;
+            //var meshCmdRegionStartIndex = _directMeshCmdRegions[cmd.DirectMesh].StartIndex;
+            BufferRegion meshSubRegion = _meshNextCmdRegion[lastCmd.DirectMesh];
+            BufferRegion storageBufferRegion = default;
 
-            material = _materialsMap[lastCmd.MaterialIndex];
+            var material = _materialsMap[lastCmd.MaterialIndex];
 
             Span<VkDrawIndexedIndirectCommand> cullDraws = _indirectCmdBuffer.HostBuffer;
             Span<ModelBounds> cullBounds = _modelBoundsBuffer.HostBuffer;
@@ -220,9 +220,6 @@ namespace VECS.ECS.Presentation
                     if (lastCmd.DirectMesh != cmd.DirectMesh || (lastCmd.SubMesh != cmd.SubMesh && (lastCmd.MaterialVariant != cmd.MaterialVariant || lastCmd.MaterialEntity != cmd.MaterialEntity)))
                     {
                         meshSubRegion.IncrementAlt();
-                        meshCmdRegionStartIndex = _directMeshCmdRegions[cmd.DirectMesh].StartIndex;
-                        _meshNextCmdRegion[lastCmd.DirectMesh] = meshSubRegion;
-                        meshSubRegion = _meshNextCmdRegion[cmd.DirectMesh];
                     }
                     lastCmd = cmd;
                 }
@@ -230,10 +227,10 @@ namespace VECS.ECS.Presentation
                 var draw = cmd.DrawCommand.VkDraw;
                 draw.firstInstance = (uint)materialVariantDrawIndex;
 
-                int cullIndex = meshCmdRegionStartIndex + _directMeshCmdRegionIndex[cmd.DirectMesh];
+                //int cullIndex = meshCmdRegionStartIndex + _directMeshCmdRegionIndex[cmd.DirectMesh];
 
-                cullDraws[cullIndex] = draw;
-                cullBounds[cullIndex] = cmd.DrawCommand.Bounds;
+                cullDraws[i] = draw;
+                cullBounds[i] = cmd.DrawCommand.Bounds;
 
                 if (matrices != Span<ModelMatrices>.Empty) { matrices[materialDrawIndex] = cmd.DrawCommand.Matrices; }
                 if (bounds != Span<ModelBounds>.Empty) { bounds[materialDrawIndex] = cmd.DrawCommand.Bounds; }
@@ -243,7 +240,7 @@ namespace VECS.ECS.Presentation
                 materialDrawIndex++;
                 materialVariantDrawIndex++;
 
-                _directMeshCmdRegionIndex[cmd.DirectMesh]++;
+                //_directMeshCmdRegionIndex[cmd.DirectMesh]++;
             }
 
             material.EnqueueDrawCmd(new(lastCmd.MaterialIndex, lastCmd.MaterialVariant, storageBufferRegion, lastCmd.MaterialEntity, lastCmd.DirectMesh, meshSubRegion, lastCmd.Bloom));

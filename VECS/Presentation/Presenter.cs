@@ -350,7 +350,6 @@ namespace VECS
             // bloom late
             _bloom.BlurHorizontal(frameInfo);
             EndRenderPass(commandBuffer);
-            DirectMesh.ClearBufferBinds();
         }
 
 

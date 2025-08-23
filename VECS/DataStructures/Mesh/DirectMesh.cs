@@ -21,9 +21,6 @@ namespace VECS
         private readonly static List<DirectMesh> _meshes = [];
         public static List<DirectMesh> DirectMeshes => _meshes;
 
-        private static DirectMesh _lastBoundDirectMesh = null;
-        public static DirectMesh LastBoundDMB => _lastBoundDirectMesh;
-
         private ulong _allocatedVertexCount;
         private ulong _allocatedIndexCount;
 
@@ -389,12 +386,8 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void BindAllBuffers(VkCommandBuffer cmd)
         {
-            if (_lastBoundDirectMesh != this)
-            {
-                Vulkan.vkCmdBindVertexBuffers(cmd, 0, _vertexVkBuffers, _vertexOffsets);
-                Vulkan.vkCmdBindIndexBuffer(cmd, _indexBuffer.VkBuffer, 0, VkIndexType.Uint32);
-            }
-            _lastBoundDirectMesh = this;
+            Vulkan.vkCmdBindVertexBuffers(cmd, 0, _vertexVkBuffers, _vertexOffsets);
+            Vulkan.vkCmdBindIndexBuffer(cmd, _indexBuffer.VkBuffer, 0, VkIndexType.Uint32);
         }
 
         internal unsafe void BindSpecificBuffers(VkCommandBuffer cmd, VkVertexInputBindingDescription[] vBindings, VkVertexInputAttributeDescription[] vAttributes)
@@ -425,12 +418,9 @@ namespace VECS
                     pOffsets[i] = _vertexOffsets[i];
                 }
             }
-            if (_lastBoundDirectMesh != this)
-            {
-                Vulkan.vkCmdBindVertexBuffers(cmd, 0, (uint)bufferCount, pBuffers, pOffsets);
-                Vulkan.vkCmdBindIndexBuffer(cmd, _indexBuffer.VkBuffer, 0, VkIndexType.Uint32);
-            }
-            _lastBoundDirectMesh = this;
+
+            Vulkan.vkCmdBindVertexBuffers(cmd, 0, (uint)bufferCount, pBuffers, pOffsets);
+            Vulkan.vkCmdBindIndexBuffer(cmd, _indexBuffer.VkBuffer, 0, VkIndexType.Uint32);
         }
 
         private int FirstAttributeMatching(int startIndex, VkVertexInputAttributeDescription attribute)
@@ -489,12 +479,6 @@ namespace VECS
             DirectMeshes.RemoveAt(index);
 
             AssetDataBase<DirectSubMesh>.RemoveRange(_directSubMeshs);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static void ClearBufferBinds()
-        {
-            _lastBoundDirectMesh = null;
         }
 
         #region Reallocation
