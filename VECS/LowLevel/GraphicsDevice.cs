@@ -45,6 +45,8 @@ namespace VECS.LowLevel
         private static VkCommandBuffer[] _mainPipeCommandBuffers;
         private static VkCommandBuffer[] _computeCommandBuffers;
 
+        private static VkCommandBuffer[] _secondaryMainPipeCommandBuffers;
+        private static VkCommandBuffer[] _secondaryComputePipeCommandBuffers;
 
 
         public static VkPhysicalDeviceProperties Properties { get; internal set; }
@@ -99,8 +101,6 @@ namespace VECS.LowLevel
 
         #region For Extneral use
 
-
-
         internal static unsafe void CreateCommandBuffers()
         {
             _mainPipeCommandBuffers = new VkCommandBuffer[SwapChain.MAX_CONCURRENT_FRAMES];
@@ -123,12 +123,38 @@ namespace VECS.LowLevel
             {
                 Vulkan.CheckResult(Vulkan.vkAllocateCommandBuffers(Device, &allocInfo, pCommandBuffers), "Failed to allocate compute command buffers");
             }
+
+            _secondaryMainPipeCommandBuffers = new VkCommandBuffer[SwapChain.MAX_CONCURRENT_FRAMES * Environment.ProcessorCount * 2];
+            _secondaryComputePipeCommandBuffers = new VkCommandBuffer[SwapChain.MAX_CONCURRENT_FRAMES * Environment.ProcessorCount];
+
+            allocInfo.level = VkCommandBufferLevel.Secondary;
+            allocInfo.commandBufferCount = SwapChain.MAX_CONCURRENT_FRAMES_UINT * (uint)Environment.ProcessorCount * 2;
+            allocInfo.commandPool = MainCommandPool;
+
+            fixed (VkCommandBuffer* pCommandBuffers = &_secondaryMainPipeCommandBuffers[0])
+            {
+                Vulkan.CheckResult(Vulkan.vkAllocateCommandBuffers(Device, &allocInfo, pCommandBuffers), "Failed to allocate secondary main command buffers");
+            }
+            allocInfo.commandBufferCount = SwapChain.MAX_CONCURRENT_FRAMES_UINT * (uint)Environment.ProcessorCount;
+            allocInfo.commandPool = ComputeCommandPool;
+
+            fixed (VkCommandBuffer* pCommandBuffers = &_secondaryComputePipeCommandBuffers[0])
+            {
+                Vulkan.CheckResult(Vulkan.vkAllocateCommandBuffers(Device, &allocInfo, pCommandBuffers), "Failed to allocate secondary main command buffers");
+            }
         }
 
         internal static unsafe void FreeCommandBuffers()
         {
             if (_mainPipeCommandBuffers != null)
             {
+                fixed (VkCommandBuffer* pCommandBuffers = &_secondaryMainPipeCommandBuffers[0])
+                {
+                    Vulkan.vkFreeCommandBuffers(Device, MainCommandPool, (uint)_secondaryMainPipeCommandBuffers.Length, pCommandBuffers);
+                }
+
+                _secondaryMainPipeCommandBuffers = null;
+
                 fixed (VkCommandBuffer* pCommandBuffers = &_mainPipeCommandBuffers[0])
                 {
                     Vulkan.vkFreeCommandBuffers(Device, MainCommandPool, (uint)_mainPipeCommandBuffers.Length, pCommandBuffers);
@@ -139,6 +165,13 @@ namespace VECS.LowLevel
 
             if (_computeCommandBuffers != null)
             {
+                fixed (VkCommandBuffer* pCommandBuffers = &_secondaryComputePipeCommandBuffers[0])
+                {
+                    Vulkan.vkFreeCommandBuffers(Device, ComputeCommandPool, (uint)_secondaryComputePipeCommandBuffers.Length, pCommandBuffers);
+                }
+
+                _secondaryComputePipeCommandBuffers = null;
+
                 fixed (VkCommandBuffer* pCommandBuffers = &_computeCommandBuffers[0])
                 {
                     Vulkan.vkFreeCommandBuffers(Device, ComputeCommandPool, (uint)_computeCommandBuffers.Length, pCommandBuffers);

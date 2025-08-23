@@ -25,6 +25,12 @@ namespace VECS.ECS.Presentation
 
         public override void GenerateDrawCmds(RendererFrameInfo frameInfo, EntityManager entityManager, List<Entity> entities)
         {
+            int drawCount = GenDrawInternal(entityManager, entities);
+            RenderShadows(frameInfo, drawCount);
+        }
+
+        private int GenDrawInternal(EntityManager entityManager, List<Entity> entities)
+        {
             ResetEarlyDrawCommands(entities.Count);
 
             int drawCount = _earlyDrawCommands.Length;
@@ -49,7 +55,7 @@ namespace VECS.ECS.Presentation
                 }
 
 
-                if(_preSortedDrawCmds.TryGetValue(renderMesh.Mesh.DirectMesh,out var cmds))
+                if (_preSortedDrawCmds.TryGetValue(renderMesh.Mesh.DirectMesh, out var cmds))
                 {
                     cmds.Add(_earlyDrawCommands[i]);
                 }
@@ -100,7 +106,8 @@ namespace VECS.ECS.Presentation
                 bounds[i] = drawCommand.Bounds;
                 shadowDraws[i] = drawCommand.VkDraw;
             }
-            RenderShadows(frameInfo, drawCount);
+
+            return drawCount;
         }
 
         private unsafe void RenderShadows(RendererFrameInfo frameInfo, int drawCount)
