@@ -69,8 +69,10 @@ namespace VECS.LowLevel
                 _computeCancel.Cancel();
                 _presentCancel.Cancel();
                 SignalTimelineFromHost(SemaphoreStages.MAX_STAGES);
-                _currentFrame = (_currentFrame + 1) % MAX_CONCURRENT_FRAMES;
-                SignalTimelineFromHost(SemaphoreStages.MAX_STAGES);
+                while (_graphicsThread.IsAlive|| _computeThread.IsAlive|| _presentThread.IsAlive)
+                {
+                    Thread.SpinWait(1000);
+                }
 
                 _graphicsThread.Join();
                 _computeThread.Join();
@@ -99,7 +101,11 @@ namespace VECS.LowLevel
             {
                 WaitOnTimelineFromHost(SemaphoreStages.Submit);
 
-                BuildComputeCommands();
+                if (!token.IsCancellationRequested)
+                {
+                    BuildComputeCommands();
+                }
+                
 
                 signalValue = GetTimelineStageValue(SemaphoreStages.Draw);
                 timelineSemaphore = _timelineSemaphores[_currentFrame].Semaphore;
@@ -169,7 +175,10 @@ namespace VECS.LowLevel
             while (!token.IsCancellationRequested)
             {
                 WaitOnTimelineFromHost(SemaphoreStages.Submit);
-                BuildGraphicsCommands();
+                if (!token.IsCancellationRequested)
+                {
+                    BuildGraphicsCommands();
+                }
 
                 waitValues[0] = GetTimelineStageValue(SemaphoreStages.Draw);
                 waitSemaphores[0] = _timelineSemaphores[_currentFrame].Semaphore;
@@ -201,7 +210,7 @@ namespace VECS.LowLevel
                     pCommandBuffers = &commandBuffer
                 };
 
-                if (waitForCompute)
+                if (waitForCompute && !token.IsCancellationRequested)
                 {
                     WaitOnTimelineFromHost(SemaphoreStages.Draw);
                 }
