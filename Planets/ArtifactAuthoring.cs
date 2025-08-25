@@ -75,7 +75,7 @@ namespace Planets
             World.DefaultWorld.CreateSystem<InteractionSystem>();
 
             EntityManager entityManager = World.DefaultWorld.EntityManager;
-
+            ThreadingTesting.Test();
             CreateMainCamera(entityManager);
 
             CreateFlightRig(entityManager);

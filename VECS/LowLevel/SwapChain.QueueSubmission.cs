@@ -44,15 +44,18 @@ namespace VECS.LowLevel
 
             _graphicsThread = new Thread(DoGraphicsWork)
             {
-                Name = "Main Queue Thread"
+                Name = "Main Queue Thread",
+                IsBackground = true
             };
             _computeThread = new Thread(DoComputeWork)
             {
-                Name = "Supplementary Compute Queue Thread"
+                Name = "Supplementary Compute Queue Thread",
+                IsBackground = true
             };
             _presentThread = new Thread(DoPresentWork)
             {
-                Name = "Present Queue Thread"
+                Name = "Present Queue Thread",
+                IsBackground = true
             };
             _graphicsThread.Start(_graphicsCancel);
             _computeThread.Start(_computeCancel);
@@ -97,10 +100,13 @@ namespace VECS.LowLevel
 
             CancellationTokenSource token = (CancellationTokenSource)cancellationToken;
 
+            Stopwatch stopwatch = new();
             while (!token.IsCancellationRequested)
             {
+                stopwatch.Reset();
                 WaitOnTimelineFromHost(SemaphoreStages.Submit);
 
+                stopwatch.Start();
                 if (!token.IsCancellationRequested)
                 {
                     BuildComputeCommands();
@@ -131,6 +137,8 @@ namespace VECS.LowLevel
                 {
                     Vulkan.CheckResult(Vulkan.vkQueueSubmit(GraphicsDevice.ComputeQueue, submitInfo, _waitComputeBufferFences[_currentFrame]), "Failed to submit compute queue!");
                 }
+                stopwatch.Stop();
+                Console.WriteLine("Compute Time to build commands & vksubmit {0}", stopwatch.ElapsedTicks);
 
                 WaitForNextFrame();
             }
@@ -171,10 +179,13 @@ namespace VECS.LowLevel
             VkSubmitInfo submitInfo;
 
             CancellationTokenSource token = (CancellationTokenSource)cancellationToken;
-
+            Stopwatch stopwatch = new();
             while (!token.IsCancellationRequested)
             {
+                stopwatch.Reset();
+                
                 WaitOnTimelineFromHost(SemaphoreStages.Submit);
+                stopwatch.Start();
                 if (!token.IsCancellationRequested)
                 {
                     BuildGraphicsCommands();
@@ -219,7 +230,8 @@ namespace VECS.LowLevel
                 {
                     Vulkan.CheckResult(Vulkan.vkQueueSubmit(GraphicsDevice.MainQueue, submitInfo, _waitMainBufferFences[_currentFrame]), "Failed to submit graphics queue!");
                 }
-
+                stopwatch.Stop();
+                Console.WriteLine("Graphics Time to build commands & vksubmit {0}", stopwatch.ElapsedTicks);
                 WaitForNextFrame();
             }
         }
@@ -245,9 +257,12 @@ namespace VECS.LowLevel
 
             CancellationTokenSource token = (CancellationTokenSource)cancellationToken;
 
+                Stopwatch stopwatch = new();
             while (!token.IsCancellationRequested)
             {
+                stopwatch.Reset();
                 WaitOnTimelineFromHost(SemaphoreStages.Present);
+                stopwatch.Start();
                 submissionImageIndex = _currentImage;
 
                 _currentFrame = (_currentFrame + 1) % MAX_CONCURRENT_FRAMES;
@@ -259,11 +274,16 @@ namespace VECS.LowLevel
                 }
                 
                 SignalNextFrame();
+                stopwatch.Stop();
+                Console.WriteLine("Signal Next frame {0}", stopwatch.ElapsedTicks);
+                stopwatch.Restart();
                 if (!token.IsCancellationRequested && !PresentMain(submissionImageIndex))
                 {
                     RecreateSwapChain = true;
                     token.Cancel();
                 }
+                stopwatch.Stop();
+                Console.WriteLine("Present Complete {0}", stopwatch.ElapsedTicks);
             }
         }
     }

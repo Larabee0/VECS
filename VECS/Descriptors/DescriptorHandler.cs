@@ -317,6 +317,17 @@ namespace VECS
             Update(frameInfo.FrameIndex, pool);
         }
 
+        public void AllocateAll(int frameIndex, DescriptorPool pool)
+        {
+            for (int i = 0; i < _children.Count; i++)
+            {
+                if (!_children[i]._setsAllocated[frameIndex])
+                {
+                    _children[i].AllocateSetInternal(frameIndex, pool);
+                }
+            }
+        }
+
         public void Update(int frameIndex, DescriptorPool pool)
         {
             if (!_setsAllocated[frameIndex])
@@ -413,7 +424,7 @@ namespace VECS
             }
         }
 
-        private unsafe void UpdateDescriptorSet(int frameIndex)
+        public unsafe void UpdateDescriptorSet(int frameIndex)
         {
             RefreshBufferInfos();
             RefreshImageInfos();

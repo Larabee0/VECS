@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Threading;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
@@ -29,12 +30,9 @@ namespace VECS
         private readonly VkPipelineLayout _pipelineLayout;
         private readonly VkPipeline _pipline;
 
-        private readonly unsafe VkDescriptorSet* _setsToBind;
-
-
         private int _executionThisFrame;
         private int _lastFrameIndex;
-
+        public int LastFrameIndex => _lastFrameIndex;
         public bool HasPreAllocSet => _preAllocBindings.Count > 0;
         public bool HasUnAllocSet => _unAllocBindings.Count > 0;
 
@@ -57,7 +55,6 @@ namespace VECS
             GenerateDescriptorSetLayouts();
             _allHandlers = new DescriptorHandler[_allLayouts.Length];
             _pipelineLayout = GPUPipelineUtil.CreatePipelineLayout(_allLayouts, _pushConstantsHandler);
-            _setsToBind = (VkDescriptorSet*)NativeMemory.AllocZeroed((uint)_allLayouts.Length, (uint)sizeof(VkDescriptorSet));
             _descriptorSetCount = (uint)_allLayouts.Length;
             CreateDescriptorSetHandler();
 
@@ -143,15 +140,15 @@ namespace VECS
             }
         }
 
-        private unsafe void UpdateSetsToWrite(int frameIndex)
+        private unsafe void UpdateSetsToWrite(VkDescriptorSet* sets, int frameIndex, int id)
         {
             if (HasPreAllocSet)
             {
-                _setsToBind[_preAllocDescriptorHandlerIndex] = PreAllocated.GetOrCreateChild(_executionThisFrame).GetDescriptorSet(frameIndex);
+                sets[_preAllocDescriptorHandlerIndex] = PreAllocated.GetOrCreateChild(id).GetDescriptorSet(frameIndex);
             }
             if (HasUnAllocSet)
             {
-                _setsToBind[_unAllocDescriptorHandlerIndex] = UnAllocated.GetOrCreateChild(_executionThisFrame).GetDescriptorSet(frameIndex);
+                sets[_unAllocDescriptorHandlerIndex] = UnAllocated.GetOrCreateChild(id).GetDescriptorSet(frameIndex);
             }
         }
 
@@ -235,11 +232,34 @@ namespace VECS
             return null;
         }
 
-        private void UpdateSetHandlers(int frameIndex, DescriptorPool pool)
+        public void UpdateSetHandlers(int frameIndex, DescriptorPool pool)
         {
             for (int i = 0; i < _allHandlers.Length; i++)
             {
                 _allHandlers[i].GetOrCreateChild(_executionThisFrame).Update(frameIndex, pool);
+            }
+        }
+
+        public void EnsureCapacity(int calls)
+        {
+            for (int i = 0; i < _allHandlers.Length; i++)
+            {
+                if (_allHandlers[i].ChildCount + 1 < calls)
+                {
+                    for (int j = 1; j < calls; j++)
+                    {
+                        _allHandlers[i].CreateChildSet(j);
+                    }
+                }
+            }
+            _pushConstantsHandler.EnsureCapacity(calls);
+        }
+
+        public void EnsureSetsAllocated(int frameIndex, DescriptorPool pool)
+        {
+            for (int i = 0; i < _allHandlers.Length; i++)
+            {
+                _allHandlers[i].AllocateAll(frameIndex, pool);
             }
         }
 
@@ -258,16 +278,23 @@ namespace VECS
 
             UpdateSetHandlers(frameIndex, pool);
 
-            UpdateSetsToWrite(frameIndex);
-
-            Vulkan.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Compute, _pipline);
-            Vulkan.vkCmdBindDescriptorSets(commandBuffer, VkPipelineBindPoint.Compute, _pipelineLayout, 0, _descriptorSetCount, _setsToBind);
-
-            _pushConstantsHandler.BindPushConstants(commandBuffer, _pipelineLayout);
-
-            Vulkan.vkCmdDispatch(commandBuffer, workGroupCountX, workGroupCountY, workGroupCountZ);
-            _executionThisFrame++;
+            Dispatch(commandBuffer, frameIndex, 0, workGroupCountX, workGroupCountY, workGroupCountZ);
+            Interlocked.Increment(ref _executionThisFrame);
             _lastFrameIndex = frameIndex;
+        }
+
+        public unsafe void Dispatch(VkCommandBuffer commandBuffer, int frameIndex, int setId, uint workGroupCountX, uint workGroupCountY = 1, uint workGroupCountZ = 1)
+        {
+            VkDescriptorSet* setsToBind = stackalloc VkDescriptorSet[(int)_descriptorSetCount];
+            for (int i = 0; i < _allHandlers.Length; i++)
+            {
+                _allHandlers[i].GetOrCreateChild(setId).UpdateDescriptorSet(frameIndex);
+            }
+            UpdateSetsToWrite(setsToBind, frameIndex, setId);
+            Vulkan.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Compute, _pipline);
+            Vulkan.vkCmdBindDescriptorSets(commandBuffer, VkPipelineBindPoint.Compute, _pipelineLayout, 0, _descriptorSetCount, setsToBind);
+            _pushConstantsHandler.BindPushConstants(commandBuffer, _pipelineLayout, setId);
+            Vulkan.vkCmdDispatch(commandBuffer, workGroupCountX, workGroupCountY, workGroupCountZ);
         }
 
         public void NextFrame()
@@ -275,12 +302,23 @@ namespace VECS
             _executionThisFrame = 0;
         }
 
+        public void NextFrame(int frameIndex)
+        {
+            NextFrame();
+            _lastFrameIndex = frameIndex;
+        }
+
+        public void Increment(int ammount)
+        {
+            _executionThisFrame += ammount;
+        }
+
         public void DeallocateDescriptorSets()
         {
             for (int i = 0; i < _allHandlers.Length; i++)
             {
                 _allHandlers[i].DeallocateDescriptorSets();
-            } 
+            }
         }
 
         public override unsafe void Dispose()
@@ -292,11 +330,6 @@ namespace VECS
             }
 
             _disposed = true;
-
-            if (_setsToBind != null)
-            {
-                NativeMemory.Free(_setsToBind);
-            }
 
             for (int i = 0; i < _allHandlers.Length; i++)
             {

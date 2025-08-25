@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Numerics;
 using System.Runtime.CompilerServices;
@@ -57,7 +58,6 @@ namespace VECS
         public Material LitTexture => _litTextureMaterial;
 
         public VkRenderPass ForwardRenderPass => _swapChain.ForwardRenderPass;
-        public VkRenderPass ShadowRenderPass => _shadowCubeMap.ShadowPass;
         public VkDescriptorSetLayout GlobalSetLayout => _globalDescriptorSetHandler.VkDescriptorSetLayout;
         internal DescriptorHandler GlobalSetHandler => _globalDescriptorSetHandler;
         public int FrameIndex
@@ -293,8 +293,12 @@ namespace VECS
             });
         }
 
+        Stopwatch stopwatch = new();
         public void Present()
         {
+            stopwatch.Stop();
+            Console.WriteLine("Rest of last frame {0}", stopwatch.ElapsedTicks);
+            stopwatch.Restart();
             UpdateEntityFrameInfo(World.DefaultWorld.EntityManager);
 
             // acquire swapchain image
@@ -305,11 +309,14 @@ namespace VECS
                 UpdateSwapChainBufferDisposal();
 
                 // signal workers to submit work
+                
                 _swapChain.SignalTimelineFromHost(SemaphoreStages.Submit);
-
                 // wait for workers to submit
                 //_swapChain.WaitOnTimelineFromHost(SemaphoreStages.Present);
                 _swapChain.WaitForNextFrame();
+                stopwatch.Stop();
+                Console.WriteLine("Time for signal and wait {0}", stopwatch.ElapsedTicks);
+                stopwatch.Restart();
                 // submit present queue
                 //if (!_swapChain.PresentMain())
                 //{
@@ -327,7 +334,7 @@ namespace VECS
             RendererFrameInfo frameInfo = CreateRendererFrameInfo(Time.DeltaTime, commandBuffer);
 
             _unlitMaterial.Update(frameInfo);
-            _unlitMaterial.Flush(frameInfo);
+            _unlitMaterial.Flush(frameInfo.FrameIndex);
 
             frameInfo.GlobalDescriptorSet = _unlitMaterial.ApplicationDescriptorSetHandler.ActiveVkDescriptorSet;
             AssetDataBase<Material>.AllAssetsListForReading.ForEach(m => m.Update(frameInfo));

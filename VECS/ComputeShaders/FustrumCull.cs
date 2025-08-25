@@ -19,17 +19,17 @@ namespace VECS
         public int cullingEnabled;
         public int distCull;
 
-        public readonly void SetPushConstant(PushConstantsHandler pushConstants)
+        public readonly void SetPushConstant(PushConstantsHandler pushConstants, int setId = 0)
         {
-            pushConstants.SetPushConstantMatrix4x4("viewMatrix", viewMatrix);
-            pushConstants.SetPushConstantFloat("P00", P00);
-            pushConstants.SetPushConstantFloat("P11", P11);
-            pushConstants.SetPushConstantFloat("znear", znear);
-            pushConstants.SetPushConstantFloat("zfar", zfar);
-            pushConstants.SetPushConstantVector4("frustum", frustum);
-            pushConstants.SetPushConstantUInt("drawCount", drawCount);
-            pushConstants.SetPushConstantInt("cullingEnabled", cullingEnabled);
-            pushConstants.SetPushConstantInt("distCull", distCull);
+            pushConstants.SetPushConstantMatrix4x4("viewMatrix", setId, viewMatrix);
+            pushConstants.SetPushConstantFloat("P00", setId, P00);
+            pushConstants.SetPushConstantFloat("P11", setId, P11);
+            pushConstants.SetPushConstantFloat("znear", setId, znear);
+            pushConstants.SetPushConstantFloat("zfar", setId, zfar);
+            pushConstants.SetPushConstantVector4("frustum", setId, frustum);
+            pushConstants.SetPushConstantUInt("drawCount", setId, drawCount);
+            pushConstants.SetPushConstantInt("cullingEnabled", setId, cullingEnabled);
+            pushConstants.SetPushConstantInt("distCull", setId, distCull);
         }
     }
 
@@ -38,13 +38,13 @@ namespace VECS
         public readonly bool CPUCulling = false;
 
         private readonly ComputeShader _computeShader;
-
+        public ComputeShader Shader => _computeShader;
         public unsafe FustrumCull()
         {
             _computeShader = ComputeShader.GetOrCreate("fustrum_cull.comp");
         }
 
-        public VkBufferMemoryBarrier Cull(RendererFrameInfo frameInfo, CullData cullData, uint drawCount, SwapChainBuffer<VkDrawIndexedIndirectCommand> drawIndirect, SwapChainBuffer<ModelBounds> bounds)
+        public VkBufferMemoryBarrier Cull(VkCommandBuffer commandBuffer,int frameIndex, CullData cullData, uint drawCount, SwapChainBuffer<VkDrawIndexedIndirectCommand> drawIndirect, SwapChainBuffer<ModelBounds> bounds, int setId = 0)
         {
             if (CPUCulling)
             {
@@ -60,7 +60,7 @@ namespace VECS
             {
                 bounds.SetUsedInstanceCount(drawCount);
                 drawIndirect.SetUsedInstanceCount(drawCount);
-                return GPUCullInternal(frameInfo, cullData, drawCount, drawIndirect, bounds);
+                return GPUCullInternal(commandBuffer,frameIndex, cullData, drawCount, drawIndirect, bounds,setId);
             }
         }
 
@@ -87,13 +87,11 @@ namespace VECS
             return visible;
         }
 
-        private unsafe VkBufferMemoryBarrier GPUCullInternal(RendererFrameInfo frameInfo, CullData cullData, uint drawCount, SwapChainBuffer drawIndirect, SwapChainBuffer bounds)
+        private unsafe VkBufferMemoryBarrier GPUCullInternal(VkCommandBuffer commandBuffer,int frameIndex, CullData cullData, uint drawCount, SwapChainBuffer drawIndirect, SwapChainBuffer bounds, int setId)
         {
             cullData.drawCount = drawCount;
-            _computeShader.SetStorageBuffer("boundsBuffer", bounds);
-            _computeShader.SetStorageBuffer("drawBuffer", drawIndirect);
-            cullData.SetPushConstant(_computeShader.PushConstants);
-            _computeShader.Dispatch(frameInfo, (drawCount / 256) + 1);
+            cullData.SetPushConstant(_computeShader.PushConstants, setId);
+            _computeShader.Dispatch(commandBuffer, frameIndex, setId, (drawCount / 256) + 1);
 
             VkBufferMemoryBarrier barrier = new()
             {

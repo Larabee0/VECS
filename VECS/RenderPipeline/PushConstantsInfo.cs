@@ -32,6 +32,21 @@ namespace VECS
             _pushConstantBuffer = new byte[Size];
         }
 
+        public PushConstantsInfo(PushConstantsInfo source)
+        {
+            ShaderStages = source.ShaderStages;
+            Variables = source.Variables;
+            Offset = source.Offset;
+            Size = source.Size;            
+            VkPushConstantRange = new()
+            {
+                stageFlags = ShaderStages,
+                offset = Offset,
+                size = Size
+            };
+            _pushConstantBuffer = new byte[Size];
+        }
+
 
         public DescriptorPropertyInfo GetProperty(string name)
         {

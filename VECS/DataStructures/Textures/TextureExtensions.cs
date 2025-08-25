@@ -719,7 +719,9 @@ namespace VECS
                     // Make sure any writes to the depth/stencil buffer have been finished
                     imageMemoryBarrier.srcAccessMask = VkAccessFlags.DepthStencilAttachmentWrite;
                     break;
-
+                case VkImageLayout.DepthAttachmentStencilReadOnlyOptimal:
+                    imageMemoryBarrier.srcAccessMask = VkAccessFlags.DepthStencilAttachmentRead;
+                    break;
                 case VkImageLayout.TransferSrcOptimal:
                     // Image is a transfer source
                     // Make sure any reads from the image have been finished
@@ -770,6 +772,9 @@ namespace VECS
                 case VkImageLayout.DepthAttachmentOptimal:
                     // Image layout will be used as a depth/stencil attachment
                     // Make sure any writes to depth/stencil buffer have been finished
+                    imageMemoryBarrier.dstAccessMask |= VkAccessFlags.DepthStencilAttachmentWrite;
+                    break;
+                case VkImageLayout.DepthStencilAttachmentOptimal:
                     imageMemoryBarrier.dstAccessMask |= VkAccessFlags.DepthStencilAttachmentWrite;
                     break;
                 case VkImageLayout.DepthAttachmentStencilReadOnlyOptimal:

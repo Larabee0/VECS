@@ -221,7 +221,7 @@ namespace VECS.LowLevel
             _renderPassBeginInfo->framebuffer = _framebufferBlur.Framebuffer;
             BeginRenderPassInternal(frameInfo);
             _blurVerticalMat.BindAll(frameInfo);
-            _blurVerticalMat.BindPushConstants(frameInfo);
+            _blurVerticalMat.BindPushConstants(frameInfo,0);
             Vulkan.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
             Vulkan.vkCmdEndRenderPass(frameInfo.CommandBuffer);
         }
@@ -230,7 +230,7 @@ namespace VECS.LowLevel
         {
             _renderPassBeginInfo->framebuffer = _framebufferBlur.Framebuffer;
             _blurHorizontalMat.BindAll(frameInfo);
-            _blurHorizontalMat.BindPushConstants(frameInfo);
+            _blurHorizontalMat.BindPushConstants(frameInfo,0);
             Vulkan.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
         }
 

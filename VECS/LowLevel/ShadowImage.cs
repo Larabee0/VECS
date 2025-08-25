@@ -11,8 +11,6 @@ namespace VECS.LowLevel
         private readonly VkFormat _depthFormat;
         public Cubemap CubeMap;
         public Texture2D FrameBufferAttachment;
-        public readonly VkFramebuffer[] FrameBuffers = new VkFramebuffer[6];
-        public VkRenderPass ShadowPass;
 
         public unsafe ShadowImage()
         {
@@ -27,13 +25,6 @@ namespace VECS.LowLevel
                 VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled | VkImageUsageFlags.ColorAttachment,
                 false
             );
-
-            CreateShadowRenderPass();
-            CreateShadowFrameBuffer();
-        }
-
-        private unsafe void CreateShadowFrameBuffer()
-        {
             FrameBufferAttachment = new("ShadowFBAttachment",
                 SHADOW_IMAGE_SIZE,
                 SHADOW_IMAGE_SIZE,
@@ -41,71 +32,6 @@ namespace VECS.LowLevel
                 VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.TransferSrc,
                 false
             );
-
-            VkImageView* attachements = stackalloc VkImageView[2];
-            attachements[1] = FrameBufferAttachment._imageView;
-
-            VkFramebufferCreateInfo framebufferCreateInfo = new()
-            {
-                renderPass = ShadowPass,
-                attachmentCount = 2,
-                pAttachments = attachements,
-                width = SHADOW_IMAGE_SIZE,
-                height = SHADOW_IMAGE_SIZE,
-                layers = 1,
-            };
-
-            for (int i = 0; i < 6; i++)
-            {
-                attachements[0] = CubeMap.FaceImageViews[i];
-                fixed (VkFramebuffer* pFB = &FrameBuffers[i])
-                    Vulkan.vkCreateFramebuffer(GraphicsDevice.Device, framebufferCreateInfo, null, pFB);
-            }
-        }
-
-        private unsafe void CreateShadowRenderPass()
-        {
-            VkAttachmentDescription* shadowAttachements = stackalloc VkAttachmentDescription[2];
-
-            shadowAttachements[0] = new VkAttachmentDescription(SHADOW_IMAGE_FORMAT,
-                VkSampleCountFlags.Count1,
-                VkAttachmentLoadOp.Clear,
-                VkAttachmentStoreOp.Store,
-                VkAttachmentLoadOp.DontCare,
-                VkAttachmentStoreOp.DontCare,
-                VkImageLayout.ShaderReadOnlyOptimal,
-                VkImageLayout.ShaderReadOnlyOptimal);
-
-            shadowAttachements[1] = new VkAttachmentDescription(_depthFormat,
-                VkSampleCountFlags.Count1,
-                VkAttachmentLoadOp.Clear,
-                VkAttachmentStoreOp.Store,
-                VkAttachmentLoadOp.DontCare,
-                VkAttachmentStoreOp.DontCare,
-                VkImageLayout.DepthStencilAttachmentOptimal,
-                VkImageLayout.DepthStencilAttachmentOptimal);
-
-            VkAttachmentReference colourReference = new(0, VkImageLayout.ColorAttachmentOptimal);
-
-            VkAttachmentReference depthReference = new(1, VkImageLayout.DepthStencilAttachmentOptimal);
-
-            VkSubpassDescription subpass = new()
-            {
-                pipelineBindPoint = VkPipelineBindPoint.Graphics,
-                colorAttachmentCount = 1,
-                pColorAttachments = &colourReference,
-                pDepthStencilAttachment = &depthReference
-            };
-
-            VkRenderPassCreateInfo renderPassCreateInfo = new()
-            {
-                attachmentCount = 2,
-                pAttachments = shadowAttachements,
-                subpassCount = 1,
-                pSubpasses = &subpass
-            };
-
-            Vulkan.CheckResult(Vulkan.vkCreateRenderPass(GraphicsDevice.Device, renderPassCreateInfo, null, out ShadowPass), "Failed to create Shadow render pass!");            
         }
 
         public static Matrix4x4 GetViewMatrixForFace(int faceIndex)
@@ -147,7 +73,6 @@ namespace VECS.LowLevel
             }
             return viewMatrix;
         }
-
         public unsafe void UpdateCubeFace(int faceIndex, VkCommandBuffer commandBuffer)
         {
             VkClearValue* clearValues = stackalloc VkClearValue[]
@@ -156,18 +81,36 @@ namespace VECS.LowLevel
                 new(1.0f, 0)
             };
 
-            VkRenderPassBeginInfo renderPassBeginInfo = new()
+            VkRenderingAttachmentInfo colour = new()
             {
-                renderPass = ShadowPass,
-                framebuffer = FrameBuffers[faceIndex],
-                renderArea = new(0, 0, SHADOW_IMAGE_SIZE, SHADOW_IMAGE_SIZE),
-                clearValueCount = 2,
-                pClearValues = clearValues
+                imageView = CubeMap.FaceImageViews[faceIndex],
+                imageLayout = CubeMap.ImageLayout,
+                loadOp = VkAttachmentLoadOp.Clear,
+                storeOp = VkAttachmentStoreOp.Store,
+                clearValue = clearValues[0]
             };
 
-            
+            VkRenderingAttachmentInfo depth = new()
+            {
+                imageView = FrameBufferAttachment._imageView,
+                imageLayout = FrameBufferAttachment.ImageLayout,
+                loadOp = VkAttachmentLoadOp.Clear,
+                storeOp = VkAttachmentStoreOp.Store,
+                clearValue = clearValues[1],
+            };
 
-            Vulkan.vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VkSubpassContents.Inline);
+            VkRenderingInfo renderingInfo = new()
+            {
+                renderArea = new(0, 0, SHADOW_IMAGE_SIZE, SHADOW_IMAGE_SIZE),
+                layerCount = 1,
+                colorAttachmentCount = 1,
+                pColorAttachments = &colour,
+                pDepthAttachment = &depth,
+                pStencilAttachment = &depth
+            };
+
+            Vulkan.vkCmdBeginRendering(commandBuffer, &renderingInfo);
+            SetViewPort(commandBuffer);
             // create Shadow Material
             // Vulkan.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Graphics, pipelines.offscreen);
 
@@ -178,26 +121,32 @@ namespace VECS.LowLevel
             // do not dequeue draw stack
             // Vulkan.vkCmdBindDescriptorSets(commandBuffer, VkPipelineBindPoint.Graphics, pipelineLayouts.offscreen, 0, 1, &descriptorSets.offscreen, 0, NULL);
             // models.scene.draw(commandBuffer);
-
         }
 
+        public void EndShadowPass(VkCommandBuffer commandBuffer)
+        {
+            Vulkan.vkCmdEndRendering(commandBuffer);
+        }
 
+        public void SetImageLayoutWrite(VkCommandBuffer commandBuffer)
+        {
+            CubeMap.SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags.AllGraphics, VkPipelineStageFlags.AllGraphics);
+            FrameBufferAttachment.SetImageLayout(commandBuffer, VkImageLayout.DepthStencilAttachmentOptimal, VkPipelineStageFlags.AllGraphics, VkPipelineStageFlags.AllGraphics);
+        }
+
+        public void SetImageLayoutRead(VkCommandBuffer commandBuffer)
+        {
+            CubeMap.SetImageLayout(commandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags.AllGraphics, VkPipelineStageFlags.AllGraphics);
+            FrameBufferAttachment.SetImageLayout(commandBuffer, VkImageLayout.DepthAttachmentStencilReadOnlyOptimal, VkPipelineStageFlags.AllGraphics, VkPipelineStageFlags.AllGraphics);
+        }
 
         public unsafe void Dispose()
         {
-
-            for (int i = 0; i < 6; i++)
-            {
-                Vulkan.vkDestroyFramebuffer(GraphicsDevice.Device, FrameBuffers[i]);
-            }
-
-            Vulkan.vkDestroyRenderPass(GraphicsDevice.Device, ShadowPass);
-
             CubeMap?.Dispose();
             FrameBufferAttachment?.Dispose();
         }
 
-        internal static unsafe void SetViewPort(RendererFrameInfo rendererFrameInfo)
+        internal static unsafe void SetViewPort(VkCommandBuffer commandBuffer)
         {
             VkViewport viewport = new()
             {
@@ -209,8 +158,8 @@ namespace VECS.LowLevel
 
             VkRect2D scissor = new(new(0, 0), new(SHADOW_IMAGE_SIZE, SHADOW_IMAGE_SIZE));
 
-            Vulkan.vkCmdSetViewport(rendererFrameInfo.CommandBuffer, 0, 1, &viewport);
-            Vulkan.vkCmdSetScissor(rendererFrameInfo.CommandBuffer, 0, 1, &scissor);
+            Vulkan.vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+            Vulkan.vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
         }
     }
 }

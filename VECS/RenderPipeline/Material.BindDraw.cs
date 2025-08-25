@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using Vortice.Vulkan;
 
 namespace VECS
@@ -15,47 +16,55 @@ namespace VECS
             }
         }
 
-        internal void Flush(RendererFrameInfo frameInfo)
+        internal void Flush(int frameIndex)
         {
             for (int i = 0; i < _allHandlers.Length; i++)
             {
                 if (HasApplicationSet && !_actAsGlobal && i == 0) continue;
-                _allHandlers[i].WriteFromBuffers(frameInfo.FrameIndex);
+                _allHandlers[i].WriteFromBuffers(frameIndex);
             }
         }
 
-        private unsafe void UpdateSetsToWrite(RendererFrameInfo frameInfo, int variant, int entity)
+        private unsafe void UpdateSetsToWrite(int frameIndex, int variant, int entity)
         {
             if (HasApplicationSet)
             {
-                _setsToBind[_applicationDescriptorHandlerIndex] = _allHandlers[_applicationDescriptorHandlerIndex].GetDescriptorSet(frameInfo.FrameIndex);
+                _setsToBind[_applicationDescriptorHandlerIndex] = _allHandlers[_applicationDescriptorHandlerIndex].GetDescriptorSet(frameIndex);
             }
             if (HasMaterialSet)
             {
-                _setsToBind[_materialDescriptorHandlerIndex] = _allHandlers[_materialDescriptorHandlerIndex].GetOrCreateChild(variant).GetDescriptorSet(frameInfo.FrameIndex);
+                _setsToBind[_materialDescriptorHandlerIndex] = _allHandlers[_materialDescriptorHandlerIndex].GetOrCreateChild(variant).GetDescriptorSet(frameIndex);
             }
             if (HasEntitySet)
             {
-                _setsToBind[_entityDescriptorHandlerIndex] = _allHandlers[_entityDescriptorHandlerIndex].GetOrCreateChild(entity).GetDescriptorSet(frameInfo.FrameIndex);
+                _setsToBind[_entityDescriptorHandlerIndex] = _allHandlers[_entityDescriptorHandlerIndex].GetOrCreateChild(entity).GetDescriptorSet(frameIndex);
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void BindPipeline(RendererFrameInfo frameInfo)
         {
-            Vulkan.vkCmdBindPipeline(frameInfo.CommandBuffer, VkPipelineBindPoint.Graphics, _graphicsPipeline);
+            BindPipeline(frameInfo.CommandBuffer);
         }
 
-        private unsafe void BindDescriptors(RendererFrameInfo frameInfo)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void BindPipeline(VkCommandBuffer commandBuffer)
         {
-            Flush(frameInfo);
-            Vulkan.vkCmdBindDescriptorSets(frameInfo.CommandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, 0, _totalSets, _setsToBind);
+            Vulkan.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Graphics, _graphicsPipeline);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private unsafe void BindDescriptors(VkCommandBuffer commandBuffer, int frameIndex)
+        {
+            Flush(frameIndex);
+            Vulkan.vkCmdBindDescriptorSets(commandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, 0, _totalSets, _setsToBind);
         }
 
         public void BindAll(RendererFrameInfo frameInfo)
         {
             BindPipeline(frameInfo);
-            UpdateSetsToWrite(frameInfo, 0, 0);
-            BindDescriptors(frameInfo);
+            UpdateSetsToWrite(frameInfo.FrameIndex, 0, 0);
+            BindDescriptors(frameInfo.CommandBuffer, frameInfo.FrameIndex);
         }
 
         private unsafe void DrawSimple(RendererFrameInfo frameInfo, DirectSubMesh directSubMesh)
@@ -131,22 +140,22 @@ namespace VECS
             
         }
 
-        internal unsafe void ExecuteDrawCommandKeepCommands(RendererFrameInfo rendererFrameInfo, SwapChainBuffer<VkDrawIndexedIndirectCommand> indirectCmdBuffer)
+        internal unsafe void ExecuteDrawCommandKeepCommands(VkCommandBuffer commandBuffer,int frameIndex, SwapChainBuffer<VkDrawIndexedIndirectCommand> indirectCmdBuffer,int pushConstantsId)
         {
             if (_drawCommands.Count > 0)
             {
-                BindPipeline(rendererFrameInfo);
+                BindPipeline(commandBuffer);
 
                 var command = _drawCommands.Peek();
 
-                BindDescriptors(rendererFrameInfo, command.Variant, command.Entity);
+                BindDescriptors(commandBuffer, frameIndex, command.Variant, command.Entity);
 
                 int lastVariant = command.Variant;
                 int lastEntity = command.Entity;
 
                 foreach (var loopCommand in _drawCommands)
                 {
-                    ExecuteDrawCommand(rendererFrameInfo, indirectCmdBuffer, loopCommand, ref lastVariant, ref lastEntity);
+                    ExecuteDrawCommand(commandBuffer, frameIndex, indirectCmdBuffer, loopCommand, ref lastVariant, ref lastEntity, pushConstantsId);
                 }
             }
         }
@@ -154,7 +163,7 @@ namespace VECS
         internal void ExecuteDrawCommands(RendererFrameInfo rendererFrameInfo,
             SwapChainBuffer<VkDrawIndexedIndirectCommand> indirectCmdBuffer)
         {
-            ExecuteDrawCommands(rendererFrameInfo,_drawCommands, indirectCmdBuffer);
+            ExecuteDrawCommands(rendererFrameInfo, _drawCommands, indirectCmdBuffer);
         }
 
         internal void ExecuteBloomDrawCommands(RendererFrameInfo rendererFrameInfo,
@@ -172,7 +181,7 @@ namespace VECS
 
                 var command = drawCmds.Peek();
 
-                BindDescriptors(rendererFrameInfo, command.Variant, command.Entity);
+                BindDescriptors(rendererFrameInfo.CommandBuffer, rendererFrameInfo.FrameIndex, command.Variant, command.Entity);
 
                 int lastVariant = command.Variant;
                 int lastEntity = command.Entity;
@@ -180,7 +189,7 @@ namespace VECS
                 while (drawCmds.Count > 0)
                 {
                     command = drawCmds.Dequeue();
-                    ExecuteDrawCommand(rendererFrameInfo, indirectCmdBuffer, command, ref lastVariant, ref lastEntity);
+                    ExecuteDrawCommand(rendererFrameInfo.CommandBuffer, rendererFrameInfo.FrameIndex, indirectCmdBuffer, command, ref lastVariant, ref lastEntity);
                 }
             }
         }
@@ -192,7 +201,7 @@ namespace VECS
                 BindPipeline(rendererFrameInfo);
                 var command = drawCmds[0];
 
-                BindDescriptors(rendererFrameInfo, command.Variant, command.Entity);
+                BindDescriptors(rendererFrameInfo.CommandBuffer, rendererFrameInfo.FrameIndex, command.Variant, command.Entity);
 
                 int lastVariant = command.Variant;
                 int lastEntity = command.Entity;
@@ -200,47 +209,54 @@ namespace VECS
                 for (int i = 0; i < matDrawCount; i++)
                 {
                     command = drawCmds[i];
-                    ExecuteDrawCommand(rendererFrameInfo, indirectCmdBuffer, command, ref lastVariant, ref lastEntity);
+                    ExecuteDrawCommand(rendererFrameInfo.CommandBuffer, rendererFrameInfo.FrameIndex, indirectCmdBuffer, command, ref lastVariant, ref lastEntity);
                 }
             }
         }
 
-        private unsafe void ExecuteDrawCommand(RendererFrameInfo rendererFrameInfo, SwapChainBuffer<VkDrawIndexedIndirectCommand> indirectCmdBuffer, MaterialDrawCommand command, ref int lastVariant, ref int lastEntity)
+        private unsafe void ExecuteDrawCommand(VkCommandBuffer commandBuffer,int frameIndex, SwapChainBuffer<VkDrawIndexedIndirectCommand> indirectCmdBuffer, MaterialDrawCommand command, ref int lastVariant, ref int lastEntity, int pushConstantsId = 0)
         {
             if (lastVariant != command.Variant && lastEntity != command.Entity)
             {
-                BindMatVariantAndEntity(rendererFrameInfo, command.Variant, command.Entity);
+                BindMatVariantAndEntity(commandBuffer,frameIndex, command.Variant, command.Entity);
                 lastEntity = command.Entity;
                 lastVariant = command.Variant;
             }
             else if (lastVariant != command.Variant)
             {
-                BindMatVariantDesc(rendererFrameInfo, command.Variant);
+                BindMatVariantDesc(commandBuffer,frameIndex, command.Variant);
                 lastVariant = command.Variant;
             }
             else if (lastEntity != command.Entity)
             {
-                BindEntityVariantDesc(rendererFrameInfo, command.Entity);
+                BindEntityVariantDesc(commandBuffer,frameIndex, command.Entity);
                 lastEntity = command.Entity;
             }
 
-            BindPushConstants(rendererFrameInfo);
+            BindPushConstants(commandBuffer, pushConstantsId);
             var mesh = DirectMesh.GetMeshAtIndex(command.DirectMesh);
 
-            mesh.BindSpecificBuffers(rendererFrameInfo.CommandBuffer, VertexBindings, VertexAttributes);
+            mesh.BindSpecificBuffers(commandBuffer, VertexBindings, VertexAttributes);
             Vulkan.vkCmdDrawIndexedIndirect(
-                rendererFrameInfo.CommandBuffer,
+                commandBuffer,
                 indirectCmdBuffer.ActiveVkBuffer,
                 (uint)command.MeshSubRegion.StartIndex * (uint)sizeof(VkDrawIndexedIndirectCommand),
                 (uint)command.MeshSubRegion.Count, (uint)sizeof(VkDrawIndexedIndirectCommand));
         }
 
-        public void BindPushConstants(RendererFrameInfo rendererFrameInfo)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void BindPushConstants(RendererFrameInfo rendererFrameInfo, int pushConstantId)
         {
-            _materialPushConstantsHandler.BindPushConstants(rendererFrameInfo, _pipelineLayout);
+            BindPushConstants(rendererFrameInfo.CommandBuffer, pushConstantId);
         }
 
-        internal VkDescriptorSet GetDescriptor(RendererFrameInfo frameInfo,DescriptorLevel level,int variant)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void BindPushConstants(VkCommandBuffer commandBuffer, int pushConstantId)
+        {
+            _materialPushConstantsHandler.BindPushConstants(commandBuffer, _pipelineLayout, pushConstantId);
+        }
+
+        internal VkDescriptorSet GetDescriptor(RendererFrameInfo frameInfo, DescriptorLevel level, int variant)
         {
             DescriptorHandler handler;
             VkDescriptorSet set;
@@ -273,15 +289,15 @@ namespace VECS
             return VkDescriptorSet.Null;
         }
 
-        private void BindDescriptors(RendererFrameInfo frameInfo, int variant, int entity)
+        private void BindDescriptors(VkCommandBuffer commandBuffer, int frameIndex, int variant, int entity)
         {
             for (int i = 0; i < _allHandlers.Length; i++)
             {
                 var handle = _allHandlers[i];
-                handle.Update(frameInfo);
+                //handle.Update(frameInfo);
             }
-            UpdateSetsToWrite(frameInfo, variant, entity);
-            BindDescriptors(frameInfo);
+            UpdateSetsToWrite(frameIndex, variant, entity);
+            BindDescriptors(commandBuffer, frameIndex);
         }
 
         private unsafe void BindApplicationDesc(RendererFrameInfo frameInfo)
@@ -296,33 +312,33 @@ namespace VECS
             }
         }
 
-        private unsafe void BindMatVariantDesc(RendererFrameInfo frameInfo, int variant)
+        private unsafe void BindMatVariantDesc(VkCommandBuffer commandBuffer, int frameIndex, int variant)
         {
             if (HasMaterialSet)
             {
                 var handler = _allHandlers[_materialDescriptorHandlerIndex];
-                handler.Update(frameInfo);
-                var set = handler.GetOrCreateChild(variant).GetDescriptorSet(frameInfo.FrameIndex);
+                //handler.Update(frameInfo);
+                var set = handler.GetOrCreateChild(variant).GetDescriptorSet(frameIndex);
 
-                handler.WriteFromBuffers(frameInfo.FrameIndex);
-                Vulkan.vkCmdBindDescriptorSets(frameInfo.CommandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, (uint)_materialDescriptorHandlerIndex, 1, &set);
+                handler.WriteFromBuffers(frameIndex);
+                Vulkan.vkCmdBindDescriptorSets(commandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, (uint)_materialDescriptorHandlerIndex, 1, &set);
             }
         }
 
-        private unsafe void BindEntityVariantDesc(RendererFrameInfo frameInfo, int variant)
+        private unsafe void BindEntityVariantDesc(VkCommandBuffer commandBuffer, int frameIndex, int variant)
         {
             if (HasEntitySet)
             {
                 var handler = _allHandlers[_entityDescriptorHandlerIndex];
-                handler.Update(frameInfo);
-                var set = handler.GetOrCreateChild(variant).GetDescriptorSet(frameInfo.FrameIndex);
+                //handler.Update(frameInfo);
+                var set = handler.GetOrCreateChild(variant).GetDescriptorSet(frameIndex);
 
-                handler.WriteFromBuffers(frameInfo.FrameIndex);
-                Vulkan.vkCmdBindDescriptorSets(frameInfo.CommandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, (uint)_entityDescriptorHandlerIndex, 1, &set);
+                handler.WriteFromBuffers(frameIndex);
+                Vulkan.vkCmdBindDescriptorSets(commandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, (uint)_entityDescriptorHandlerIndex, 1, &set);
             }
         }
 
-        private unsafe void BindMatVariantAndEntity(RendererFrameInfo frameInfo, int variant, int entity)
+        private unsafe void BindMatVariantAndEntity(VkCommandBuffer commandBuffer, int frameIndex, int variant, int entity)
         {
             if (HasEntitySet && HasMaterialSet)
             {
@@ -330,17 +346,17 @@ namespace VECS
                 var entityHandler = _allHandlers[_entityDescriptorHandlerIndex];
                 VkDescriptorSet* sets = stackalloc VkDescriptorSet[]
                 {
-                    matHandler.GetOrCreateChild(variant).GetDescriptorSet(frameInfo.FrameIndex),
-                    entityHandler.GetOrCreateChild(entity).GetDescriptorSet(frameInfo.FrameIndex)
+                    matHandler.GetOrCreateChild(variant).GetDescriptorSet(frameIndex),
+                    entityHandler.GetOrCreateChild(entity).GetDescriptorSet(frameIndex)
                 };
-                matHandler.WriteFromBuffers(frameInfo.FrameIndex);
-                entityHandler.WriteFromBuffers(frameInfo.FrameIndex);
-                Vulkan.vkCmdBindDescriptorSets(frameInfo.CommandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, (uint)_materialDescriptorHandlerIndex, 2, sets);
+                matHandler.WriteFromBuffers(frameIndex);
+                entityHandler.WriteFromBuffers(frameIndex);
+                Vulkan.vkCmdBindDescriptorSets(commandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, (uint)_materialDescriptorHandlerIndex, 2, sets);
             }
             else
             {
-                BindEntityVariantDesc(frameInfo, entity);
-                BindMatVariantDesc(frameInfo, variant);
+                BindEntityVariantDesc(commandBuffer, frameIndex, entity);
+                BindMatVariantDesc(commandBuffer, frameIndex, variant);
             }
         }
     }

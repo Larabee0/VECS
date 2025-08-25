@@ -22,6 +22,8 @@ namespace VECS.GraphicsPipelines
         public VkPipelineDynamicStateCreateInfo dynamicInfo;
         public VkPipelineLayout pipelineLayout;
         public VkRenderPass renderPass;
+        public VkPipelineRenderingCreateInfo pipelineRenderingCreateInfo;
+        public bool dynamicRendering;
         public uint subpass;
 
         /// <summary>

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using VECS.ECS.Transforms;
 
@@ -33,7 +34,7 @@ namespace VECS.ECS
         public int TotalComponentTypes => _totalComponentTypes;
 
         private readonly Dictionary<uint, Entity> _entityIdToEntity = []; // quick entity look up just given an entity id.
-        private readonly Dictionary<int, IComponent> _compSignatureToCompReference = []; // component storage, keys are component sigantures.
+        private readonly ConcurrentDictionary<int, IComponent> _compSignatureToCompReference = []; // component storage, keys are component sigantures.
 
         private readonly Dictionary<int, HashSet<Entity>> _archetypeIdsToEntities = []; // archetype ids to a hashset of entities that are members of archetype.
         public readonly Dictionary<int, HashSet<int>> _archetypeIdsToComponentIds = []; // archetype ids to a hashset of component ids that comprises the archetype.
@@ -126,7 +127,7 @@ namespace VECS.ECS
 
                 _entityToComponentIds[entity.Id].Add(compId);
 
-                _compSignatureToCompReference.Add(GetEntityComponentSigature<T>(entity), comp);
+                _compSignatureToCompReference.TryAdd(GetEntityComponentSigature<T>(entity), comp);
                 UpdateEntityArchetype(entity);
                 AutoMarkQueriesStale(compId);
                 return comp;
@@ -176,7 +177,7 @@ namespace VECS.ECS
             }
             _entityToComponentIds[entity.Id].Add(compId);
             IComponent component = (IComponent)Activator.CreateInstance(_componentIdToTypeLookup[compId]);
-            _compSignatureToCompReference.Add(GetEntityComponentSigature(entity, compId), component);
+            _compSignatureToCompReference.TryAdd(GetEntityComponentSigature(entity, compId), component);
             if (archetypeRefresh)
             {
                 UpdateEntityArchetype(entity);
@@ -196,12 +197,15 @@ namespace VECS.ECS
                 int compId = GetComponentId<T>();
                 _entityToComponentIds[entity.Id].Remove(compId);
                 _componentIdToEntities[compId].Remove(entity);
-                _compSignatureToCompReference.Remove(signature);
+                if (_compSignatureToCompReference.TryGetValue(signature, out var value))
+                {
+                    _compSignatureToCompReference.TryRemove(new(signature, value));
+                }
 
                 if (archetypeRefresh)
-                {
-                    UpdateEntityArchetype(entity);
-                }
+                    {
+                        UpdateEntityArchetype(entity);
+                    }
                 AutoMarkQueriesStale(compId);
             }
         }
@@ -234,7 +238,11 @@ namespace VECS.ECS
             {
                 _entityToComponentIds[entity.Id].Remove(compId);
                 _componentIdToEntities[compId].Remove(entity);
-                _compSignatureToCompReference.Remove(signature);
+                
+                if (_compSignatureToCompReference.TryGetValue(signature, out var value))
+                {
+                    _compSignatureToCompReference.TryRemove(new(signature, value));
+                }
 
                 if (archetypeRefresh)
                 {

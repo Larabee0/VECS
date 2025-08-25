@@ -6,6 +6,7 @@ using System.Runtime.InteropServices.Marshalling;
 using BepuUtilities;
 using Vortice.Vulkan;
 using System.Runtime.CompilerServices;
+using System.Threading;
 
 namespace VECS
 {
@@ -139,6 +140,20 @@ namespace VECS
             //_artifact.Destroy();
         }
 
+        public static void ParallelFor(int count, Action<int> action)
+        {
+
+            int bepuCounter = -1;
+            ThreadDispatcher.DispatchWorkers((workIndex) =>
+            {
+                int claimedIndex;
+                while ((claimedIndex = Interlocked.Increment(ref bepuCounter)) < count)
+                {
+                    action?.Invoke(claimedIndex);
+                }
+            });
+        }
+        
         /// <summary>
         /// Order of dispoal matters here.
         /// </summary>

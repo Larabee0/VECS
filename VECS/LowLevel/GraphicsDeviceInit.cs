@@ -283,29 +283,30 @@ namespace VECS.LowLevel
                 fillModeNonSolid = true,
                 multiDrawIndirect = true,
                 drawIndirectFirstInstance = true,
+                
             };
             VkPhysicalDeviceVulkan12Features deviceFeatures12 = new()
             {
                 imagelessFramebuffer = true,
                 samplerFilterMinmax = true,
-                timelineSemaphore = true
+                timelineSemaphore = true,
             };
-
+            VkPhysicalDeviceVulkan13Features deviceFeatures13 = new()
+            {
+                dynamicRendering = true,
+                synchronization2 = true,
+                pNext = &deviceFeatures12
+            };
 
             VkPhysicalDeviceFeatures2 deviceFeatures2 = new()
             {
                 features = deviceFeature,
-                pNext = &deviceFeatures12
+                pNext = &deviceFeatures13
             };
 
             using VkStringArray deviceExtensionNames = new(_requiredDeviceExtensions);
 
 
-            VkPhysicalDeviceSynchronization2Features sync2 = new()
-            {
-                synchronization2 = true,
-                pNext = &deviceFeatures2
-            };
 
             VkDeviceCreateInfo createInfo = new()
             {
@@ -314,7 +315,7 @@ namespace VECS.LowLevel
                 pEnabledFeatures = null,
                 enabledExtensionCount = (uint)_requiredDeviceExtensions.Length,
                 ppEnabledExtensionNames = deviceExtensionNames,
-                pNext = &sync2,
+                pNext = &deviceFeatures2,
             };
 
 #if DEBUG
@@ -353,11 +354,24 @@ namespace VECS.LowLevel
                 queueFamilyIndex = (uint)queueFamilyIndices.graphicsFamily,
                 flags = VkCommandPoolCreateFlags.Transient | VkCommandPoolCreateFlags.ResetCommandBuffer,
             };
-
+            
+            _secondaryMainPipeCommandBuffers = new VkCommandPool[Environment.ProcessorCount * 2];
+            _secondaryComputePipeCommandBuffers = new VkCommandPool[Environment.ProcessorCount];
             Vulkan.CheckResult(Vulkan.vkCreateCommandPool(_device, poolInfo, null, out _commandPoolMain), "Failed to create main command pool!");
+
+            for (int i = 0; i < _secondaryMainPipeCommandBuffers.Length; i++)
+            {
+                Vulkan.CheckResult(Vulkan.vkCreateCommandPool(_device, poolInfo, null, out _secondaryMainPipeCommandBuffers[i]), "Failed to create secondary main command pool!");
+            }
+            
+
             poolInfo.queueFamilyIndex = (uint)queueFamilyIndices.computeFamily;
             Vulkan.CheckResult(Vulkan.vkCreateCommandPool(_device, poolInfo, null, out _commandPoolCompute), "Failed to create compute command pool!");
 
+            for (int i = 0; i < _secondaryComputePipeCommandBuffers.Length; i++)
+            {
+                Vulkan.CheckResult(Vulkan.vkCreateCommandPool(_device, poolInfo, null, out _secondaryComputePipeCommandBuffers[i]), "Failed to create secondary main compute pool!");
+            }
         }
 
         #endregion

@@ -80,6 +80,7 @@ namespace VECS
 
         public void Execute(RendererFrameInfo frameInfo, SwapChainBuffer<VkDrawIndexedIndirectCommand> indirectCmdBuffer)
         {
+            TargetMaterial.Update(frameInfo);
             TargetMaterial.ExecuteDrawCommands(frameInfo, MaterialDrawCommands, indirectCmdBuffer,MatDrawCount);
         }
     }
@@ -357,7 +358,7 @@ namespace VECS
 
         public void UpdateDrawCommands(EntityManager entityManager)
         {
-            Parallel.For(0, _drawBlobs.Length, (i) => UpdateDrawCommandInternal(entityManager, i));
+            Application.ParallelFor(_drawBlobs.Length, (i) => UpdateDrawCommandInternal(entityManager, i));
             _modelBoundsBuffer.SetBuffersDirty(true);
         }
 

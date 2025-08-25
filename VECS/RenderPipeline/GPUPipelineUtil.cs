@@ -369,7 +369,7 @@ namespace VECS
         {
             Debug.Assert(vertex.VkShaderStage == VkShaderStageFlags.Vertex, "Provided vertex shader is a wrong stage Name: {0} Provided Stage {1}", vertex.AssetName, vertex.VkShaderStage);
             Debug.Assert(fragement.VkShaderStage == VkShaderStageFlags.Fragment, "Provided fragement shader is a wrong stage Name: {0} Provided Stage {1}", fragement.AssetName, fragement.VkShaderStage);
-            Debug.Assert(configInfo.renderPass != VkRenderPass.Null, "Cannot create graphics pipeline, no renderPass layout provided in config");
+            ///Debug.Assert(configInfo.renderPass != VkRenderPass.Null, "Cannot create graphics pipeline, no renderPass layout provided in config");
                         
             string cacheName = vertex.AssetName + fragement.AssetName;
             var cache = AssetDataBase<PipelineCache>.GetNamed(cacheName);
@@ -409,7 +409,7 @@ namespace VECS
             VkPipelineShaderStageCreateInfo* shaderStages = stackalloc VkPipelineShaderStageCreateInfo[2];
             shaderStages[0] = vertex.ShaderStageCreateInfo;
             shaderStages[1] = fragement.ShaderStageCreateInfo;
-
+            
             VkGraphicsPipelineCreateInfo pipelineInfo = new()
             {
                 stageCount = 2,
@@ -430,7 +430,11 @@ namespace VECS
                 basePipelineIndex = -1,
                 basePipelineHandle = VkPipeline.Null
             };
-
+            VkPipelineRenderingCreateInfo pipelineRenderingCreateInfo = configInfo.pipelineRenderingCreateInfo;
+            if (configInfo.dynamicRendering)
+            {
+                pipelineInfo.pNext = &pipelineRenderingCreateInfo;
+            }
             Vulkan.CheckResult(Vulkan.vkCreateGraphicsPipeline(GraphicsDevice.Device, cache.Cache, pipelineInfo, out var graphicsPipeline), "Failed to create graphics pipeline!");
             
 
