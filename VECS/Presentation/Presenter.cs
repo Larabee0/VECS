@@ -316,11 +316,11 @@ namespace VECS
                 if (UseSeperateQueueThreads)
                 {
                     // signal workers to submit work
-                    _swapChain.SignalTimelineFromHost(SemaphoreStages.Submit);
+                    _swapChain.SignalTimelineFromHost(SemaphoreStages.Submit,SwapChain.FrameIndex);
                     //Console.WriteLine("Signaled begin Submit");
                     // wait for workers to submit
 
-                    _swapChain.WaitForNextFrame();
+                    _swapChain.WaitForNextFrame(SwapChain.NextFrame);
                     //Console.WriteLine("Next frame signal");
                 }
                 else

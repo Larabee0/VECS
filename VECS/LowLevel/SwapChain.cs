@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Runtime.CompilerServices;
 using Vortice.Vulkan;
 
 namespace VECS.LowLevel
@@ -13,13 +14,13 @@ namespace VECS.LowLevel
 
         internal static SwapChain Instance { get; set; }
         private static int _currentFrame = 0;
-        private static int NextFrame => (_currentFrame + 1) % MAX_CONCURRENT_FRAMES;
         private uint _currentImage = 0;
         internal VkExtent2D _windowExtent;
 
         internal VkRenderPass _forwardRenderPass;
 
         public static int FrameIndex => _currentFrame;
+        public static int NextFrame => (_currentFrame + 1) % MAX_CONCURRENT_FRAMES;
         public uint ImageIndex => _currentImage;
         internal VkRenderPass ForwardRenderPass => _forwardRenderPass;
 
@@ -80,52 +81,55 @@ namespace VECS.LowLevel
         #region  TimelineSemaphore
 
 
-        public ulong GetTimelineStageValue(SemaphoreStages stage, bool nextFrame = false)
+        public ulong GetTimelineStageValue(SemaphoreStages stage, int frameIndex)
         {
-            return (_timelineSemaphores[nextFrame ? NextFrame : _currentFrame].SemaphoreValue * (ulong)SemaphoreStages.MAX_STAGES) + (ulong)stage;
+            return (_timelineSemaphores[frameIndex].SemaphoreValue * (ulong)SemaphoreStages.MAX_STAGES) + (ulong)stage;
         }
 
-        public unsafe void SignalTimelineFromHost(SemaphoreStages stage, bool nextFrame = false)
+        public unsafe void SignalTimelineFromHost(SemaphoreStages stage, int frameIndex)
         {
-            ulong signalValue = GetTimelineStageValue(stage);
+            ulong signalValue = GetTimelineStageValue(stage, frameIndex);
             VkSemaphoreSignalInfo signalInfo = new()
             {
-                semaphore = _timelineSemaphores[nextFrame ? NextFrame : _currentFrame].Semaphore,
+                semaphore = _timelineSemaphores[frameIndex].Semaphore,
                 value = signalValue
             };
             Vulkan.CheckResult(Vulkan.vkSignalSemaphoreKHR(GraphicsDevice.Device, &signalInfo));
         }
 
-        public unsafe void WaitOnTimelineFromHost(SemaphoreStages stage, bool nextFrame = false)
+        [MethodImpl(MethodImplOptions.NoOptimization)]
+        public unsafe void WaitOnTimelineFromHost(SemaphoreStages stage, int frameIndex)
         {
-            ulong waitValue = GetTimelineStageValue(stage,nextFrame);
+            ulong waitValue = GetTimelineStageValue(stage, frameIndex);
             VkSemaphoreWaitInfo waitInfo = new()
             {
                 semaphoreCount = 1,
                 pValues = &waitValue
             };
-            var semaphore = _timelineSemaphores[nextFrame ? NextFrame : _currentFrame].Semaphore;
+            var semaphore = _timelineSemaphores[frameIndex].Semaphore;
             waitInfo.pSemaphores = &semaphore;
             Vulkan.CheckResult(Vulkan.vkWaitSemaphoresKHR(GraphicsDevice.Device, &waitInfo, ulong.MaxValue));
+
         }
         
 
-        public unsafe void SignalNextFrame()
+        public unsafe void SignalNextFrame(int frameIndex)
         {
             VkSemaphoreSignalInfo signalInfo = new()
             {
-                semaphore = _timelineSemaphores[_currentFrame].Semaphore,
-                value = GetTimelineStageValue(SemaphoreStages.MAX_STAGES)
+                semaphore = _timelineSemaphores[frameIndex].Semaphore,
+                value = GetTimelineStageValue(SemaphoreStages.MAX_STAGES, frameIndex)
             };
 
-            _timelineSemaphores[_currentFrame].SemaphoreValue++;
+            _timelineSemaphores[frameIndex].SemaphoreValue++;
 
             Vulkan.CheckResult(Vulkan.vkSignalSemaphoreKHR(GraphicsDevice.Device, &signalInfo));
         }
 
-        public unsafe void WaitForNextFrame()
+        
+        public unsafe void WaitForNextFrame(int frameIndex)
         {
-            ulong waitValue = (_timelineSemaphores[NextFrame].SemaphoreValue + 1) * (ulong)SemaphoreStages.MAX_STAGES;
+            ulong waitValue = (_timelineSemaphores[frameIndex].SemaphoreValue + 1) * (ulong)SemaphoreStages.MAX_STAGES;
 
             VkSemaphoreWaitInfo waitInfo = new()
             {
@@ -133,7 +137,7 @@ namespace VECS.LowLevel
                 pValues = &waitValue
             };
 
-            var semaphore = _timelineSemaphores[NextFrame].Semaphore;
+            var semaphore = _timelineSemaphores[frameIndex].Semaphore;
             waitInfo.pSemaphores = &semaphore;
             Vulkan.CheckResult(Vulkan.vkWaitSemaphoresKHR(GraphicsDevice.Device, &waitInfo, ulong.MaxValue));
         }
