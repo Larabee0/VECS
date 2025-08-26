@@ -72,7 +72,7 @@ namespace VECS.LowLevel
                 _computeCancel.Cancel();
                 _presentCancel.Cancel();
                 SignalTimelineFromHost(SemaphoreStages.MAX_STAGES);
-                while (_graphicsThread.IsAlive|| _computeThread.IsAlive|| _presentThread.IsAlive)
+                while (_graphicsThread.IsAlive || _computeThread.IsAlive || _presentThread.IsAlive)
                 {
                     Thread.SpinWait(1000);
                 }
@@ -80,7 +80,7 @@ namespace VECS.LowLevel
                 _graphicsThread.Join();
                 _computeThread.Join();
                 _presentThread.Join();
-                
+
 
                 _graphicsThread = null;
                 _computeThread = null;
@@ -111,7 +111,7 @@ namespace VECS.LowLevel
                 {
                     BuildComputeCommands();
                 }
-                
+
 
                 signalValue = GetTimelineStageValue(SemaphoreStages.Draw);
                 timelineSemaphore = _timelineSemaphores[_currentFrame].Semaphore;
@@ -183,7 +183,7 @@ namespace VECS.LowLevel
             while (!token.IsCancellationRequested)
             {
                 stopwatch.Reset();
-                
+
                 WaitOnTimelineFromHost(SemaphoreStages.Submit);
                 stopwatch.Start();
                 if (!token.IsCancellationRequested)
@@ -239,7 +239,7 @@ namespace VECS.LowLevel
         private unsafe void BuildGraphicsCommands()
         {
 
-            WaitForMainComamndBuffer();
+            WaitForMainCommandBuffer();
             VkCommandBufferBeginInfo beginInfo = new();
 
             Vulkan.CheckResult(Vulkan.vkBeginCommandBuffer(CurrentMainCommandBuffer, &beginInfo), "Failed to begin recording main command buffer");
@@ -257,7 +257,7 @@ namespace VECS.LowLevel
 
             CancellationTokenSource token = (CancellationTokenSource)cancellationToken;
 
-                Stopwatch stopwatch = new();
+            Stopwatch stopwatch = new();
             while (!token.IsCancellationRequested)
             {
                 stopwatch.Reset();
@@ -272,7 +272,7 @@ namespace VECS.LowLevel
                     RecreateSwapChain = true;
                     token.Cancel();
                 }
-                
+
                 SignalNextFrame();
                 stopwatch.Stop();
                 Console.WriteLine("Signal Next frame {0}", stopwatch.ElapsedTicks);

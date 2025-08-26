@@ -163,7 +163,7 @@ namespace VECS.LowLevel
             return true;
         }
 
-        public void WaitForMainComamndBuffer()
+        public void WaitForMainCommandBuffer()
         {
             Vulkan.vkWaitForFences(GraphicsDevice.Device, _waitMainBufferFences[_currentFrame], true, ulong.MaxValue);
             Vulkan.CheckResult(Vulkan.vkResetFences(GraphicsDevice.Device, _waitMainBufferFences[_currentFrame]), string.Format("Faile to reset main fence {0}", _currentFrame));
