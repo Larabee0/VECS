@@ -103,22 +103,20 @@ namespace VECS.LowLevel
 
             CancellationTokenSource token = (CancellationTokenSource)cancellationToken;
 
-            int currentFrame = _currentFrame;
-            int nextFrame = NextFrame;
+            int currentFrame;
+            int nextFrame;
 
             while (!token.IsCancellationRequested)
             {
                 currentFrame = _currentFrame;
-                nextFrame = NextFrame;
 
                 WaitOnTimelineFromHost(SemaphoreStages.Submit, currentFrame);
-                //Console.WriteLine("Submit Begin Compute");
 
                 currentFrame = _currentFrame;
                 nextFrame = NextFrame;
                 if (!token.IsCancellationRequested)
                 {
-                    //BuildComputeCommands();
+                    BuildComputeCommands();
                 }
 
 
@@ -144,9 +142,9 @@ namespace VECS.LowLevel
 
                 if (!token.IsCancellationRequested)
                 {
-                    SignalTimelineFromHost(SemaphoreStages.ComputeComplete, currentFrame);
-                    //Vulkan.CheckResult(Vulkan.vkQueueSubmit(GraphicsDevice.ComputeQueue, submitInfo, _waitComputeBufferFences[_currentFrame]), "Failed to submit compute queue!");
-                    //Console.WriteLine("Compute Submit");
+                    //SignalTimelineFromHost(SemaphoreStages.ComputeComplete, currentFrame);
+                    Vulkan.CheckResult(Vulkan.vkQueueSubmit(GraphicsDevice.ComputeQueue, submitInfo, _waitComputeBufferFences[_currentFrame]), "Failed to submit compute queue!");
+                    
                 }
 
                 WaitForNextFrame(nextFrame);
@@ -189,18 +187,15 @@ namespace VECS.LowLevel
 
             CancellationTokenSource token = (CancellationTokenSource)cancellationToken;
 
-            int currentFrame = _currentFrame;
-            int nextFrame = NextFrame;
-            uint currentImage = _currentImage;
+            int currentFrame;
+            int nextFrame;
+            uint currentImage;
 
             while (!token.IsCancellationRequested)
             {
 
                 currentFrame = _currentFrame;
-                currentImage = _currentImage;
-                nextFrame = NextFrame;
                 WaitOnTimelineFromHost(SemaphoreStages.Submit, currentFrame);
-                //Console.WriteLine("Submit Begin Graphics");
                 currentFrame = _currentFrame;
                 currentImage = _currentImage;
                 nextFrame = NextFrame;
@@ -243,13 +238,11 @@ namespace VECS.LowLevel
                 if (waitForCompute && !token.IsCancellationRequested)
                 {
                     WaitOnTimelineFromHost(SemaphoreStages.ComputeComplete, currentFrame);
-                    //Console.WriteLine("Compute complete");
                 }
 
                 if (!token.IsCancellationRequested)
                 {
                     Vulkan.CheckResult(Vulkan.vkQueueSubmit(GraphicsDevice.MainQueue, submitInfo, _waitMainBufferFences[currentFrame]), "Failed to submit graphics queue!");
-                    //Console.WriteLine("Signal Queue Present");
                 }
 
                 if (!token.IsCancellationRequested)
@@ -285,7 +278,6 @@ namespace VECS.LowLevel
             while (!token.IsCancellationRequested)
             {
                 WaitOnTimelineFromHost(SemaphoreStages.QueuePresent, _currentFrame);
-                //Console.WriteLine("Queue Present");
 
                 submissionImageIndex = _currentImage;
                 if (!token.IsCancellationRequested)
@@ -299,7 +291,6 @@ namespace VECS.LowLevel
                 }
 
                 SignalNextFrame(_currentFrame);
-                //Console.WriteLine("Signal Next Frame");
 
                 if (!token.IsCancellationRequested && !PresentMain(submissionImageIndex))
                 {
@@ -310,7 +301,6 @@ namespace VECS.LowLevel
                 {
                     WaitOnTimelineFromHost(SemaphoreStages.RenderComplete, NextFrame);
                 }
-                //Console.WriteLine("Graphics complete");
             }
             SignalTimelineFromHost(SemaphoreStages.MAX_STAGES, NextFrame);
         }
