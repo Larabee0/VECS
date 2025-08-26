@@ -76,8 +76,8 @@ namespace VECS.LowLevel
                 {
                     SignalTimelineFromHost(SemaphoreStages.MAX_STAGES);
                     Thread.SpinWait(1000);
-                    SignalTimelineFromHost(SemaphoreStages.MAX_STAGES,true);
-                    Thread.SpinWait(1000);
+                    //SignalTimelineFromHost(SemaphoreStages.MAX_STAGES, true);
+                    //Thread.SpinWait(1000);
                 }
 
                 _graphicsThread.Join();
@@ -180,7 +180,7 @@ namespace VECS.LowLevel
             VkSubmitInfo submitInfo;
 
             CancellationTokenSource token = (CancellationTokenSource)cancellationToken;
-            
+
             while (!token.IsCancellationRequested)
             {
                 WaitOnTimelineFromHost(SemaphoreStages.Submit);
@@ -230,14 +230,17 @@ namespace VECS.LowLevel
                 if (!token.IsCancellationRequested)
                 {
                     Vulkan.CheckResult(Vulkan.vkQueueSubmit(GraphicsDevice.MainQueue, submitInfo, _waitMainBufferFences[_currentFrame]), "Failed to submit graphics queue!");
-                    SignalTimelineFromHost(SemaphoreStages.QueuePresent);
                     //Console.WriteLine("Signal Queue Present");
+                }
+                if (!token.IsCancellationRequested)
+                {
+                    SignalTimelineFromHost(SemaphoreStages.QueuePresent);
                 }
                 WaitForNextFrame();
             }
         }
 
-        private unsafe void BuildGraphicsCommands()
+        public unsafe VkCommandBuffer BuildGraphicsCommands()
         {
 
             WaitForMainCommandBuffer();
@@ -250,6 +253,8 @@ namespace VECS.LowLevel
             CopyRenderToSwapChain(commandBuffer);
 
             Vulkan.CheckResult(Vulkan.vkEndCommandBuffer(commandBuffer), "Failed to end main command buffer!");
+
+            return commandBuffer;
         }
 
         private unsafe void DoPresentWork(object cancellationToken)
@@ -261,11 +266,12 @@ namespace VECS.LowLevel
             {
                 WaitOnTimelineFromHost(SemaphoreStages.QueuePresent);
                 //Console.WriteLine("Queue Present");
-                
+
                 submissionImageIndex = _currentImage;
-
-                _currentFrame = (_currentFrame + 1) % MAX_CONCURRENT_FRAMES;
-
+                if (!token.IsCancellationRequested)
+                {
+                    _currentFrame = (_currentFrame + 1) % MAX_CONCURRENT_FRAMES;
+                }
                 if (!token.IsCancellationRequested && !AcquireNextImage())
                 {
                     RecreateSwapChain = true;
@@ -274,15 +280,19 @@ namespace VECS.LowLevel
 
                 SignalNextFrame();
                 //Console.WriteLine("Signal Next Frame");
-                
+
                 if (!token.IsCancellationRequested && !PresentMain(submissionImageIndex))
                 {
                     RecreateSwapChain = true;
                     token.Cancel();
                 }
-                WaitOnTimelineFromHost(SemaphoreStages.RenderComplete,true);
+                if (!token.IsCancellationRequested)
+                {
+                    WaitOnTimelineFromHost(SemaphoreStages.RenderComplete, true);
+                }
                 //Console.WriteLine("Graphics complete");
             }
+            SignalTimelineFromHost(SemaphoreStages.MAX_STAGES,true);
         }
     }
 }

@@ -101,7 +101,10 @@ namespace VECS
             }
             else
             {
-                _swapChain.FinishTimelineWorkers();
+                if (UseSeperateQueueThreads)
+                {
+                    _swapChain.FinishTimelineWorkers();
+                }
                 Vulkan.vkDeviceWaitIdle(GraphicsDevice.Device);
                 var oldSwapChain = _swapChain;
                 AssetDataBase<Texture2D>.Remove(oldSwapChain.RawRenderImage);
@@ -117,7 +120,10 @@ namespace VECS
             }
 
             _swapChain.GraphicsCallback += GraphicsPipe;
-            _swapChain.StartTimelineWorkers();
+            if (UseSeperateQueueThreads)
+            {
+                _swapChain.StartTimelineWorkers();
+            }
         }
 
 
@@ -293,31 +299,46 @@ namespace VECS
             });
         }
 
+        private static bool UseSeperateQueueThreads = true;
+
         public void Present()
         {
             UpdateEntityFrameInfo(World.DefaultWorld.EntityManager);
 
             // acquire swapchain image
             _isFrameStarted = BeginFrame();
-            
+
             if (_isFrameStarted)
             {
                 // kill off buffers
                 UpdateSwapChainBufferDisposal();
 
-                // signal workers to submit work
-                _swapChain.SignalTimelineFromHost(SemaphoreStages.Submit);
-                //Console.WriteLine("Signaled begin Submit");
-                // wait for workers to submit
-                
-                _swapChain.WaitForNextFrame();
-                //Console.WriteLine("Next frame signal");
-                
-                
+                if (UseSeperateQueueThreads)
+                {
+                    // signal workers to submit work
+                    _swapChain.SignalTimelineFromHost(SemaphoreStages.Submit);
+                    //Console.WriteLine("Signaled begin Submit");
+                    // wait for workers to submit
+
+                    _swapChain.WaitForNextFrame();
+                    //Console.WriteLine("Next frame signal");
+                }
+                else
+                {
+                    InlineSubmit();
+                }
+
+
                 _isFrameStarted = false;
                 World.DefaultWorld.PostPresentUpdate();
                 _frameCount++;
             }
+        }
+
+        private void InlineSubmit()
+        {
+            
+            _swapChain.Submit(_swapChain.BuildGraphicsCommands());
         }
 
         private void GraphicsPipe()
@@ -366,17 +387,21 @@ namespace VECS
 
         public unsafe bool BeginFrame()
         {
+            if (!UseSeperateQueueThreads)
+            {
+                _swapChain.RecreateSwapChain = !_swapChain.AcquireNextImage();
 
+            }
             if (_swapChain.RecreateSwapChain)
-            {
-                RecreateSwapChain();
-            }
-            else
-            {
-                _postCullBarriers.Clear();
-                _cullReadyBarriers.Clear();
-                return true;
-            }
+                {
+                    RecreateSwapChain();
+                }
+                else
+                {
+                    _postCullBarriers.Clear();
+                    _cullReadyBarriers.Clear();
+                    return true;
+                }
             return false;
         }
 
