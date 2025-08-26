@@ -293,35 +293,27 @@ namespace VECS
             });
         }
 
-        Stopwatch stopwatch = new();
         public void Present()
         {
-            stopwatch.Stop();
-            Console.WriteLine("Rest of last frame {0}", stopwatch.ElapsedTicks);
-            stopwatch.Restart();
             UpdateEntityFrameInfo(World.DefaultWorld.EntityManager);
 
             // acquire swapchain image
             _isFrameStarted = BeginFrame();
+            
             if (_isFrameStarted)
             {
                 // kill off buffers
                 UpdateSwapChainBufferDisposal();
 
                 // signal workers to submit work
-                
                 _swapChain.SignalTimelineFromHost(SemaphoreStages.Submit);
+                //Console.WriteLine("Signaled begin Submit");
                 // wait for workers to submit
-                //_swapChain.WaitOnTimelineFromHost(SemaphoreStages.Present);
+                
                 _swapChain.WaitForNextFrame();
-                stopwatch.Stop();
-                Console.WriteLine("Time for signal and wait {0}", stopwatch.ElapsedTicks);
-                stopwatch.Restart();
-                // submit present queue
-                //if (!_swapChain.PresentMain())
-                //{
-                //    RecreateSwapChain();
-                //}
+                //Console.WriteLine("Next frame signal");
+                
+                
                 _isFrameStarted = false;
                 World.DefaultWorld.PostPresentUpdate();
                 _frameCount++;
