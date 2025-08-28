@@ -33,7 +33,7 @@ In no particular order
 - Pre-loadable Asset database
 - ~~PipelineCaches~~
 - Mesh shaders and primative culling
-- multiple queues 
+- ~~multiple queues~~
 
 These are things I'd like to do, who knows how many will end up getting implemented 
 # Building and running 
