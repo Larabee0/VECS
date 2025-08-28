@@ -106,15 +106,15 @@ namespace VECS.LowLevel
             int currentFrame;
             int nextFrame;
 
-            while (!token.IsCancellationRequested)
+            while (!token.IsCancellationRequested) // check we havent been cancelled before block
             {
-                currentFrame = _currentFrame;
+                currentFrame = _currentFrame; // cache
 
-                WaitOnTimelineFromHost(SemaphoreStages.Submit, currentFrame);
+                WaitOnTimelineFromHost(SemaphoreStages.Submit, currentFrame); // block thread until submit signalled
 
-                currentFrame = _currentFrame;
-                nextFrame = NextFrame;
-                if (!token.IsCancellationRequested)
+                currentFrame = _currentFrame; // re cache after block
+                nextFrame = NextFrame; // next frame dependant on value at sync point
+                if (!token.IsCancellationRequested) // check we haven't been cancelled
                 {
                     BuildComputeCommands();
                 }
@@ -140,14 +140,13 @@ namespace VECS.LowLevel
                     pCommandBuffers = &commandBuffer
                 };
 
-                if (!token.IsCancellationRequested)
+                if (!token.IsCancellationRequested) // check we have been cancelled between last point and now
                 {
-                    //SignalTimelineFromHost(SemaphoreStages.ComputeComplete, currentFrame);
                     Vulkan.CheckResult(Vulkan.vkQueueSubmit(GraphicsDevice.ComputeQueue, submitInfo, _waitComputeBufferFences[_currentFrame]), "Failed to submit compute queue!");
                     
                 }
 
-                WaitForNextFrame(nextFrame);
+                WaitForNextFrame(nextFrame); // block thread until next frame signalled
             }
         }
 
