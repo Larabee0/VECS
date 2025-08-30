@@ -340,13 +340,11 @@ namespace VECS.LowLevel
             createInfo.pNext = &typeCreateInfo;
             for (int i = 0; i < swapChain._timelineSemaphores.Length; i++)
             {
-
-                Vulkan.CheckResult(Vulkan.vkCreateSemaphore(GraphicsDevice.Device, createInfo, null, out var semaphore),"Failed to create timeline semaphore!");
                 swapChain._timelineSemaphores[i] = new()
                 {
-                    SemaphoreValue = 0,
-                    Semaphore = semaphore
+                    SemaphoreValue = 0
                 };
+                Vulkan.CheckResult(Vulkan.vkCreateSemaphore(GraphicsDevice.Device, createInfo, null, out swapChain._timelineSemaphores[i].Semaphore),"Failed to create timeline semaphore!");                
             }
         }
 

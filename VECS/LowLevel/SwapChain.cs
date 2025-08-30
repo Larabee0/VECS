@@ -167,16 +167,25 @@ namespace VECS.LowLevel
             return true;
         }
 
-        public void WaitForMainCommandBuffer()
+        public bool WaitForMainCommandBuffer()
         {
-            Vulkan.vkWaitForFences(GraphicsDevice.Device, _waitMainBufferFences[_currentFrame], true, ulong.MaxValue);
+            if (Vulkan.vkWaitForFences(GraphicsDevice.Device, _waitMainBufferFences[_currentFrame], true, 1000000000) == VkResult.Timeout)
+            {
+                return false;
+            }
             Vulkan.CheckResult(Vulkan.vkResetFences(GraphicsDevice.Device, _waitMainBufferFences[_currentFrame]), string.Format("Failed to reset main fence {0}", _currentFrame));
+            return true;
+            
         }
 
-        public void WaitForComputeComamndBuffer()
+        public bool WaitForComputeComamndBuffer()
         {
-            Vulkan.vkWaitForFences(GraphicsDevice.Device, _waitComputeBufferFences[_currentFrame], true, ulong.MaxValue);
+            if (Vulkan.vkWaitForFences(GraphicsDevice.Device, _waitComputeBufferFences[_currentFrame], true, 1000000000) == VkResult.Timeout)
+            {
+                return false;
+            }
             Vulkan.CheckResult(Vulkan.vkResetFences(GraphicsDevice.Device, _waitComputeBufferFences[_currentFrame]), string.Format("Failed to reset compute fence {0}", _currentFrame));
+            return true;
         }
 
 
@@ -268,7 +277,6 @@ namespace VECS.LowLevel
 
         public unsafe bool PresentMain(uint imageIndex)
         {
-
             VkSemaphore renderComplete = _renderCompleteSemaphores[imageIndex];
             VkSwapchainKHR swapchain = _swapChain;
             VkPresentInfoKHR presentInfo = new()
