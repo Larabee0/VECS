@@ -97,24 +97,23 @@ namespace VECS.LowLevel
             VkSemaphore signalSemaphore;
             VkSemaphore waitSemaphore;
 
-            VkPipelineStageFlags waitStageMasks = VkPipelineStageFlags.TopOfPipe;
+            VkPipelineStageFlags waitStageMasks = VkPipelineStageFlags.ComputeShader;
 
             CancellationTokenSource token = (CancellationTokenSource)cancellationToken;
 
             int currentFrame = _currentFrame;
-            int nextFrame;
+            int nextFrame = NextFrame;
 
             bool flagComputeQueued = false;
 
             while (!token.IsCancellationRequested) // check we havent been cancelled before block
             {
                 flagComputeQueued = false;
-                currentFrame = _currentFrame; // cache
 
                 WaitOnTimelineFromHost(SemaphoreStages.Submit, currentFrame); // block thread until submit signalled
 
-                currentFrame = _currentFrame; // re cache after block
-                nextFrame = NextFrame; // next frame dependant on value at sync point
+                //currentFrame = _currentFrame;
+                //nextFrame = NextFrame;
 
                 if (!token.IsCancellationRequested) // check we haven't been cancelled
                 {
@@ -161,6 +160,9 @@ namespace VECS.LowLevel
                 if (!token.IsCancellationRequested)
                 {
                     WaitForNextFrame(nextFrame); // block thread until next frame signalled
+
+                    currentFrame = _currentFrame; // cache
+                    nextFrame = NextFrame; // next frame dependant on value at sync point
                 }
             }
             
@@ -211,18 +213,20 @@ namespace VECS.LowLevel
             CancellationTokenSource token = (CancellationTokenSource)cancellationToken;
 
             int currentFrame = _currentFrame;
-            int nextFrame;
-            uint currentImage;
+            int nextFrame = NextFrame;
+            uint currentImage = _currentImage;
             bool flagGraphicsQueued = false;
 
+            
+            
             while (!token.IsCancellationRequested)
             {
                 flagGraphicsQueued = false;
-                currentFrame = _currentFrame;
-                currentImage = _currentImage;
                 WaitOnTimelineFromHost(SemaphoreStages.Submit, currentFrame);
-                currentFrame = _currentFrame;
-                nextFrame = NextFrame;
+
+                //currentFrame = _currentFrame;
+                //nextFrame = NextFrame;
+                //currentImage = _currentImage;
 
                 if (!token.IsCancellationRequested)
                 {
@@ -290,6 +294,9 @@ namespace VECS.LowLevel
                 if (!token.IsCancellationRequested)
                 {
                     WaitForNextFrame(nextFrame);
+                    currentFrame = _currentFrame;
+                    nextFrame = NextFrame;
+                    currentImage = _currentImage;
                 }
             }
 
@@ -336,7 +343,7 @@ namespace VECS.LowLevel
             GraphicsCallback?.Invoke();
 
             // copy to swap chain
-            CopyRenderToSwapChain(commandBuffer);
+            CopyRenderToSwapChain(commandBuffer, (int)_currentImage);
 
             Vulkan.CheckResult(Vulkan.vkEndCommandBuffer(commandBuffer), "Failed to end main command buffer!");
 
@@ -371,7 +378,7 @@ namespace VECS.LowLevel
                 submissionImageIndex = _currentImage;
                 if (!token.IsCancellationRequested)
                 {
-                    _currentFrame = (_currentFrame + 1) % MAX_CONCURRENT_FRAMES;
+                    Interlocked.Exchange(ref _currentFrame, (_currentFrame + 1) % MAX_CONCURRENT_FRAMES);
                 }
                 if (!token.IsCancellationRequested && !RecreateSwapChain && !AcquireNextImage())
                 {
@@ -382,6 +389,7 @@ namespace VECS.LowLevel
                 if (!token.IsCancellationRequested)
                 {
                     SignalNextFrame(_currentFrame);
+                    WaitOnTimelineFromHost(SemaphoreStages.Submit, _currentFrame);
                 }
 
                 if (!token.IsCancellationRequested  && !RecreateSwapChain && !PresentMain(submissionImageIndex))

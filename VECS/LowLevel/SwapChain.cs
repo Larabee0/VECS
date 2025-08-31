@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using Vortice.Vulkan;
 
 namespace VECS.LowLevel
@@ -121,7 +122,7 @@ namespace VECS.LowLevel
                 value = GetTimelineStageValue(SemaphoreStages.MAX_STAGES, frameIndex)
             };
 
-            _timelineSemaphores[frameIndex].SemaphoreValue++;
+            Interlocked.Increment(ref _timelineSemaphores[frameIndex].SemaphoreValue);
 
             Vulkan.CheckResult(Vulkan.vkSignalSemaphoreKHR(GraphicsDevice.Device, &signalInfo));
         }
@@ -232,9 +233,9 @@ namespace VECS.LowLevel
             Vulkan.vkCmdSetScissor(commandBuffer, scissor);
         }
 
-        private unsafe void CopyRenderToSwapChain(VkCommandBuffer commandBuffer)
+        internal unsafe void CopyRenderToSwapChain(VkCommandBuffer commandBuffer, int imageIndex)
         {
-            var swapChainImage = _swapChainImages[_currentImage];
+            var swapChainImage = _swapChainImages[imageIndex];
 
             _rawRenderImage.SetImageLayout(commandBuffer, VkImageLayout.TransferSrcOptimal);
             TextureExtensions.SetImageLayout(commandBuffer, swapChainImage, VkImageAspectFlags.Color, VkImageLayout.PresentSrcKHR, VkImageLayout.TransferDstOptimal, VkPipelineStageFlags.AllCommands, VkPipelineStageFlags.AllCommands);
