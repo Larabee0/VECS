@@ -230,7 +230,7 @@ namespace VECS.LowLevel
 
                 if (!token.IsCancellationRequested)
                 {
-                    BuildGraphicsCommands();
+                    BuildGraphicsCommands((int)currentImage);
                 }
 
                 waitValues[0] = GetTimelineStageValue(SemaphoreStages.ComputeComplete, currentFrame);
@@ -329,7 +329,7 @@ namespace VECS.LowLevel
             }
         }
 
-        public unsafe VkCommandBuffer BuildGraphicsCommands()
+        public unsafe VkCommandBuffer BuildGraphicsCommands(int imageIndex)
         {
 
             if (!WaitForMainCommandBuffer())
@@ -343,7 +343,7 @@ namespace VECS.LowLevel
             GraphicsCallback?.Invoke();
 
             // copy to swap chain
-            CopyRenderToSwapChain(commandBuffer, (int)_currentImage);
+            CopyRenderToSwapChain(commandBuffer, imageIndex);
 
             Vulkan.CheckResult(Vulkan.vkEndCommandBuffer(commandBuffer), "Failed to end main command buffer!");
 
@@ -361,6 +361,7 @@ namespace VECS.LowLevel
                 if (!waitForCompute && !RecreateSwapChain)
                 {
                     WaitOnTimelineFromHost(SemaphoreStages.QueuePresentEarly, _currentFrame);
+                    SignalTimelineFromHost(SemaphoreStages.StartCompute, _currentFrame);
                 }
                 else
                 {
@@ -374,6 +375,7 @@ namespace VECS.LowLevel
                         }
                     }
                 }
+                
 
                 submissionImageIndex = _currentImage;
                 if (!token.IsCancellationRequested)
@@ -388,8 +390,9 @@ namespace VECS.LowLevel
 
                 if (!token.IsCancellationRequested)
                 {
+
                     SignalNextFrame(_currentFrame);
-                    WaitOnTimelineFromHost(SemaphoreStages.Submit, _currentFrame);
+                    //WaitOnTimelineFromHost(SemaphoreStages.Submit, _currentFrame);
                 }
 
                 if (!token.IsCancellationRequested  && !RecreateSwapChain && !PresentMain(submissionImageIndex))

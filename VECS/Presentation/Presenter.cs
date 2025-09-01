@@ -338,7 +338,7 @@ namespace VECS
         private void InlineSubmit()
         {
             
-            _swapChain.Submit(_swapChain.BuildGraphicsCommands());
+            _swapChain.Submit(_swapChain.BuildGraphicsCommands(0));
         }
 
         private void GraphicsPipe()
