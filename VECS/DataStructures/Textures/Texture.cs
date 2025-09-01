@@ -32,6 +32,8 @@ namespace VECS
         protected VkImageTiling _imageTiling = VkImageTiling.Optimal;
         internal VkImageUsageFlags _useageFlags = VkImageUsageFlags.TransferDst | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.Sampled;
         protected VkSampleCountFlags _sampleCountFlags = VkSampleCountFlags.Count1;
+        protected VkSharingMode _sharingMode = VkSharingMode.Exclusive;
+        protected uint[] _queueFamilyIndices = null;
         internal VmaAllocation _allocation = VmaAllocation.Null;
 
         // image view
@@ -109,9 +111,9 @@ namespace VECS
             };
         }
 
-        public virtual VkImageCreateInfo GetImageCreateInfo()
+        public unsafe virtual VkImageCreateInfo GetImageCreateInfo()
         {
-            return new()
+            VkImageCreateInfo createInfo = new()
             {
                 imageType = ImageType,
                 extent = _imageExtent,
@@ -121,8 +123,24 @@ namespace VECS
                 tiling = _imageTiling,
                 initialLayout = _imageLayout,
                 usage = _useageFlags,
-                samples = _sampleCountFlags
+                samples = _sampleCountFlags,
+                sharingMode = _sharingMode,
             };
+
+            if(_sharingMode == VkSharingMode.Concurrent)
+            {
+                Debug.Assert(_queueFamilyIndices != null, "Need to supply queue familyIndices!");
+                Debug.Assert(_queueFamilyIndices.Length > 1, "Need to supply queue familyIndices!");
+
+                createInfo.queueFamilyIndexCount = (uint)_queueFamilyIndices.Length;
+                fixed (uint* pFamilyIndices = &_queueFamilyIndices[0])
+                {
+                    createInfo.pQueueFamilyIndices = pFamilyIndices;
+                    return createInfo;
+                }
+            }
+
+            return createInfo;
         }
 
         public virtual VkImageViewCreateInfo GetImageViewCreateInfo()

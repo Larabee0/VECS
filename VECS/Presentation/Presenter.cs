@@ -101,14 +101,10 @@ namespace VECS
             }
             else
             {
-                if (UseSeperateQueueThreads)
-                {
-                    _swapChain.FinishTimelineWorkers();
-                }
+                _swapChain.FinishTimelineWorkers();
                 Vulkan.vkDeviceWaitIdle(GraphicsDevice.Device);
                 var oldSwapChain = _swapChain;
-                AssetDataBase<Texture2D>.Remove(oldSwapChain.RawRenderImage);
-                AssetDataBase<Texture2D>.Remove(oldSwapChain.DepthImage);
+                AssetDataBase<Texture2D>.RemoveRange([..oldSwapChain._rawRenderImage,..oldSwapChain._depthImage]);
                 _swapChain = oldSwapChain.Replace(extent);
                 if (!oldSwapChain.CompareSwapFormats(_swapChain))
                 {
@@ -120,10 +116,8 @@ namespace VECS
             }
 
             _swapChain.GraphicsCallback += GraphicsPipe;
-            if (UseSeperateQueueThreads)
-            {
-                _swapChain.StartTimelineWorkers();
-            }
+
+            _swapChain.StartTimelineWorkers();
         }
 
 
@@ -299,8 +293,6 @@ namespace VECS
             });
         }
 
-        private static bool UseSeperateQueueThreads = true;
-
         public void Present()
         {
             UpdateEntityFrameInfo(World.DefaultWorld.EntityManager);
@@ -313,32 +305,20 @@ namespace VECS
                 // kill off buffers
                 UpdateSwapChainBufferDisposal();
 
-                if (UseSeperateQueueThreads)
-                {
-                    // signal workers to submit work
-                    _swapChain.SignalTimelineFromHost(SemaphoreStages.Submit,SwapChain.FrameIndex);
-                    //Console.WriteLine("Signaled begin Submit");
-                    // wait for workers to submit
+                // signal workers to submit work
+                _swapChain.SignalTimelineFromHost(SemaphoreStages.Submit, SwapChain.FrameIndex);
+                //Console.WriteLine("Signaled begin Submit");
+                // wait for workers to submit
 
-                    _swapChain.WaitForNextFrame(SwapChain.NextFrame);
-                    //Console.WriteLine("Next frame signal");
-                }
-                else
-                {
-                    InlineSubmit();
-                }
+                _swapChain.WaitForNextFrame(SwapChain.NextFrame);
+                //Console.WriteLine("Next frame signal");
+
 
 
                 _isFrameStarted = false;
                 World.DefaultWorld.PostPresentUpdate();
                 _frameCount++;
             }
-        }
-
-        private void InlineSubmit()
-        {
-            
-            _swapChain.Submit(_swapChain.BuildGraphicsCommands(0));
         }
 
         private void GraphicsPipe()
@@ -387,21 +367,16 @@ namespace VECS
 
         public unsafe bool BeginFrame()
         {
-            if (!UseSeperateQueueThreads)
-            {
-                _swapChain.RecreateSwapChain = !_swapChain.AcquireNextImage();
-
-            }
             if (_swapChain.RecreateSwapChain)
-                {
-                    RecreateSwapChain();
-                }
-                else
-                {
-                    _postCullBarriers.Clear();
-                    _cullReadyBarriers.Clear();
-                    return true;
-                }
+            {
+                RecreateSwapChain();
+            }
+            else
+            {
+                _postCullBarriers.Clear();
+                _cullReadyBarriers.Clear();
+                return true;
+            }
             return false;
         }
 

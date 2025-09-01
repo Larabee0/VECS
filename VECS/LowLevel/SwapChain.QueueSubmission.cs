@@ -64,7 +64,7 @@ namespace VECS.LowLevel
                 {
                     Thread.SpinWait(1000);
                 }
-                
+
                 _presentCancel.Cancel();
                 Thread.SpinWait(100);
                 SignalTimelineFromHost(SemaphoreStages.MAX_STAGES, FrameIndex);
@@ -141,14 +141,13 @@ namespace VECS.LowLevel
                     waitSemaphoreCount = 1,
                     pWaitSemaphores = &waitSemaphore,
                     pWaitDstStageMask = &waitStageMasks,
-
                     commandBufferCount = 1,
                     pCommandBuffers = &commandBuffer
                 };
 
                 if (!token.IsCancellationRequested) // check we have been cancelled between last point and now
                 {
-                    Vulkan.CheckResult(Vulkan.vkQueueSubmit(GraphicsDevice.ComputeQueue, submitInfo, _waitComputeBufferFences[currentFrame]), "Failed to submit compute queue!");
+                    Vulkan.CheckResult(Vulkan.vkQueueSubmit(GraphicsDevice.ComputeQueue, submitInfo, VkFence.Null), "Failed to submit compute queue!");
                     flagComputeQueued = true;
                 }
 
@@ -165,7 +164,7 @@ namespace VECS.LowLevel
                     nextFrame = NextFrame; // next frame dependant on value at sync point
                 }
             }
-            
+
             if (flagComputeQueued)
             {
                 SignalTimelineFromHost(SemaphoreStages.StartCompute, currentFrame);
@@ -208,7 +207,29 @@ namespace VECS.LowLevel
 
             VkTimelineSemaphoreSubmitInfo timelineInfo;
             VkCommandBuffer commandBuffer;
-            VkSubmitInfo submitInfo;
+            VkCommandBufferSubmitInfo commandBufferSubmitInfo;
+            VkSemaphoreSubmitInfo* acquireCompleteInfo = stackalloc VkSemaphoreSubmitInfo[2]
+            {
+                new()
+                {
+                    stageMask = VkPipelineStageFlags2.ColorAttachmentOutput
+                },
+                new()
+                {
+                    stageMask = VkPipelineStageFlags2.ColorAttachmentOutput
+                }
+            };
+            VkSemaphoreSubmitInfo* renderingCompleteInfo = stackalloc VkSemaphoreSubmitInfo[2]
+            {
+                new()
+                {
+                    stageMask = VkPipelineStageFlags2.ColorAttachmentOutput,
+                },   new()
+                {
+                    stageMask = VkPipelineStageFlags2.ColorAttachmentOutput,
+                }
+            };
+            VkSubmitInfo2 submitInfo;
 
             CancellationTokenSource token = (CancellationTokenSource)cancellationToken;
 
@@ -217,8 +238,8 @@ namespace VECS.LowLevel
             uint currentImage = _currentImage;
             bool flagGraphicsQueued = false;
 
-            
-            
+
+
             while (!token.IsCancellationRequested)
             {
                 flagGraphicsQueued = false;
@@ -230,16 +251,26 @@ namespace VECS.LowLevel
 
                 if (!token.IsCancellationRequested)
                 {
-                    BuildGraphicsCommands((int)currentImage);
+                    BuildGraphicsCommands(currentFrame, (int)currentImage);
                 }
 
                 waitValues[0] = GetTimelineStageValue(SemaphoreStages.ComputeComplete, currentFrame);
                 waitSemaphores[0] = _timelineSemaphores[currentFrame].Semaphore;
                 waitSemaphores[1] = _acquiredImageReadySemaphores[currentFrame];
 
+                acquireCompleteInfo[0].semaphore = waitSemaphores[0];
+                acquireCompleteInfo[0].value = waitValues[0];
+                acquireCompleteInfo[1].semaphore = waitSemaphores[1];
+                acquireCompleteInfo[1].value = waitValues[1];
+
                 signalValues[0] = GetTimelineStageValue(SemaphoreStages.RenderComplete, currentFrame);
                 signalSemaphores[0] = _timelineSemaphores[currentFrame].Semaphore;
                 signalSemaphores[1] = _renderCompleteSemaphores[currentImage];
+
+                renderingCompleteInfo[0].semaphore = signalSemaphores[0];
+                renderingCompleteInfo[0].value = signalValues[0];
+                renderingCompleteInfo[1].semaphore = signalSemaphores[1];
+                renderingCompleteInfo[1].value = signalValues[1];
 
                 commandBuffer = CurrentMainCommandBuffer;
 
@@ -251,19 +282,34 @@ namespace VECS.LowLevel
                     pSignalSemaphoreValues = signalValues
                 };
 
-                submitInfo = new()
+                //submitInfo = new()
+                //{
+                //    pNext = &timelineInfo,
+                //    waitSemaphoreCount = 2,
+                //    pWaitSemaphores = waitSemaphores,
+                //    pWaitDstStageMask = waitStageMasks,
+                //    signalSemaphoreCount = 2,
+                //    pSignalSemaphores = signalSemaphores,
+                //    commandBufferCount = 1,
+                //    pCommandBuffers = &commandBuffer
+                //};
+
+                commandBufferSubmitInfo = new()
                 {
-                    pNext = &timelineInfo,
-                    waitSemaphoreCount = 2,
-                    pWaitSemaphores = waitSemaphores,
-                    pWaitDstStageMask = waitStageMasks,
-                    signalSemaphoreCount = 2,
-                    pSignalSemaphores = signalSemaphores,
-                    commandBufferCount = 1,
-                    pCommandBuffers = &commandBuffer
+                    commandBuffer = commandBuffer
                 };
 
-
+                submitInfo = new()
+                {
+                    //pNext = &timelineInfo,
+                    waitSemaphoreInfoCount = 2,
+                    pWaitSemaphoreInfos = acquireCompleteInfo,
+                    commandBufferInfoCount = 1,
+                    pCommandBufferInfos = &commandBufferSubmitInfo,
+                    signalSemaphoreInfoCount = 2,
+                    pSignalSemaphoreInfos = renderingCompleteInfo,
+                    
+                };
 
                 if (waitForCompute && !token.IsCancellationRequested)
                 {
@@ -277,7 +323,7 @@ namespace VECS.LowLevel
 
                 if (!token.IsCancellationRequested)
                 {
-                    Vulkan.CheckResult(Vulkan.vkQueueSubmit(GraphicsDevice.MainQueue, submitInfo, _waitMainBufferFences[currentFrame]), "Failed to submit graphics queue!");
+                    Vulkan.CheckResult(Vulkan.vkQueueSubmit2KHR(GraphicsDevice.MainQueue, 1, &submitInfo, VkFence.Null), "Failed to submit graphics queue!");
                     flagGraphicsQueued = true;
                 }
 
@@ -329,21 +375,27 @@ namespace VECS.LowLevel
             }
         }
 
-        public unsafe VkCommandBuffer BuildGraphicsCommands(int imageIndex)
+        public unsafe VkCommandBuffer BuildGraphicsCommands(int frameIndex, int imageIndex)
         {
 
             if (!WaitForMainCommandBuffer())
             {
                 return CurrentMainCommandBuffer;
             }
-            
+
+
+
             VkCommandBufferBeginInfo beginInfo = new();
             VkCommandBuffer commandBuffer = CurrentMainCommandBuffer;
             Vulkan.CheckResult(Vulkan.vkBeginCommandBuffer(commandBuffer, &beginInfo), "Failed to begin recording main command buffer");
+
+            TransferSwapChainImageToGraphicsQueue(commandBuffer, frameIndex, imageIndex);
+
             GraphicsCallback?.Invoke();
 
             // copy to swap chain
-            CopyRenderToSwapChain(commandBuffer, imageIndex);
+            CopyRenderToSwapChain(commandBuffer, frameIndex, imageIndex);
+
 
             Vulkan.CheckResult(Vulkan.vkEndCommandBuffer(commandBuffer), "Failed to end main command buffer!");
 
@@ -354,7 +406,9 @@ namespace VECS.LowLevel
         {
             bool waitForCompute = GraphicsDevice.ComputeQueue == GraphicsDevice.MainQueue;
             uint submissionImageIndex;
+            int submissionFrameIndex;
             CancellationTokenSource token = (CancellationTokenSource)cancellationToken;
+            bool frameZero = true;
 
             while (!token.IsCancellationRequested)
             {
@@ -375,19 +429,31 @@ namespace VECS.LowLevel
                         }
                     }
                 }
-                
+
 
                 submissionImageIndex = _currentImage;
+                submissionFrameIndex = _currentFrame;
                 if (!token.IsCancellationRequested)
                 {
                     Interlocked.Exchange(ref _currentFrame, (_currentFrame + 1) % MAX_CONCURRENT_FRAMES);
                 }
+
+                if (!token.IsCancellationRequested && !frameZero)
+                {
+                    WaitOnTimelineFromHost(SemaphoreStages.RenderComplete, _currentFrame);
+                }
+
                 if (!token.IsCancellationRequested && !RecreateSwapChain && !AcquireNextImage())
                 {
                     Console.WriteLine("Cancel on Acquire next image");
                     RecreateSwapChain = true;
                 }
 
+                if (!token.IsCancellationRequested && !RecreateSwapChain && !PresentMain(submissionFrameIndex,submissionImageIndex))
+                {
+                    Console.WriteLine("Cancel on Present current image");
+                    RecreateSwapChain = true;
+                }
                 if (!token.IsCancellationRequested)
                 {
 
@@ -395,16 +461,8 @@ namespace VECS.LowLevel
                     //WaitOnTimelineFromHost(SemaphoreStages.Submit, _currentFrame);
                 }
 
-                if (!token.IsCancellationRequested  && !RecreateSwapChain && !PresentMain(submissionImageIndex))
-                {
-                    Console.WriteLine("Cancel on Present current image");
-                    RecreateSwapChain = true;
-                }
 
-                if (!token.IsCancellationRequested)
-                {
-                    WaitOnTimelineFromHost(SemaphoreStages.RenderComplete, NextFrame);
-                }
+                frameZero = false;
             }
         }
     }

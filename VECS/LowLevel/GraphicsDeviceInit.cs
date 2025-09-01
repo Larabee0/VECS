@@ -238,7 +238,7 @@ namespace VECS.LowLevel
         {
             var indices = FindQueueFamilies(_physicalDevice);
 
-            Dictionary<int, int> uniqueQueueFamilies = new(3)
+            Dictionary<uint, int> uniqueQueueFamilies = new(3)
             {
                 { indices.graphicsFamily, 1 }
             };
@@ -255,7 +255,7 @@ namespace VECS.LowLevel
                 uniqueQueueFamilies[indices.presentFamily]++;
             }
 
-            GraphicsDevice.PhysicalQueueFamilies = indices;
+            PhysicalQueueFamilies = indices;
 
             VkDeviceQueueCreateInfo* pQueueCreateInfos = stackalloc VkDeviceQueueCreateInfo[uniqueQueueFamilies.Count];
 
@@ -351,7 +351,7 @@ namespace VECS.LowLevel
 
             VkCommandPoolCreateInfo poolInfo = new()
             {
-                queueFamilyIndex = (uint)queueFamilyIndices.graphicsFamily,
+                queueFamilyIndex = queueFamilyIndices.graphicsFamily,
                 flags = VkCommandPoolCreateFlags.Transient | VkCommandPoolCreateFlags.ResetCommandBuffer,
             };
             
@@ -365,13 +365,17 @@ namespace VECS.LowLevel
             }
             
 
-            poolInfo.queueFamilyIndex = (uint)queueFamilyIndices.computeFamily;
+            poolInfo.queueFamilyIndex = queueFamilyIndices.computeFamily;
             Vulkan.CheckResult(Vulkan.vkCreateCommandPool(_device, poolInfo, null, out _commandPoolCompute), "Failed to create compute command pool!");
 
             for (int i = 0; i < _secondaryComputePipeCommandBuffers.Length; i++)
             {
                 Vulkan.CheckResult(Vulkan.vkCreateCommandPool(_device, poolInfo, null, out _secondaryComputePipeCommandBuffers[i]), "Failed to create secondary main compute pool!");
             }
+
+            poolInfo.queueFamilyIndex = queueFamilyIndices.presentFamily;
+
+            Vulkan.CheckResult(Vulkan.vkCreateCommandPool(_device, poolInfo, null, out _commandPoolPresent),"Failed to create present command pool!");
         }
 
         #endregion
@@ -427,11 +431,11 @@ namespace VECS.LowLevel
             QueueFamilyIndices indices = default;
             var queueFamilies = Vulkan.vkGetPhysicalDeviceQueueFamilyProperties(device);
 
-            for (int i = 0; i < queueFamilies.Length; i++)
+            for (uint i = 0; i < queueFamilies.Length; i++)
             {
-                var family = queueFamilies[i];
+                var family = queueFamilies[(int)i];
 
-                Vulkan.vkGetPhysicalDeviceSurfaceSupportKHR(device, (uint)i, Surface, out VkBool32 presentSupport);
+                Vulkan.vkGetPhysicalDeviceSurfaceSupportKHR(device, i, Surface, out VkBool32 presentSupport);
 
                 if (family.queueCount > 0 && family.queueFlags.HasFlag(VkQueueFlags.Graphics) && family.queueFlags.HasFlag(VkQueueFlags.Compute))
                 {

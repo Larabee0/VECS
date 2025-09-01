@@ -41,9 +41,11 @@ namespace VECS.LowLevel
 
         internal static VkCommandPool _commandPoolMain;
         internal static VkCommandPool _commandPoolCompute;
+        internal static VkCommandPool _commandPoolPresent;
 
         private static VkCommandBuffer[] _mainPipeCommandBuffers;
         private static VkCommandBuffer[] _computeCommandBuffers;
+        private static VkCommandBuffer[] _presentCommandBuffers;
 
         internal static VkCommandPool[] _secondaryMainPipeCommandBuffers;
         internal static VkCommandPool[] _secondaryComputePipeCommandBuffers;
@@ -62,10 +64,15 @@ namespace VECS.LowLevel
 
         public static VkCommandPool MainCommandPool => _commandPoolMain;
         public static VkCommandPool ComputeCommandPool => _commandPoolCompute;
+        public static VkCommandPool PresentCommandPool => _commandPoolPresent;
 
         public static VkCommandBuffer[] MainPipeCommandBuffers => _mainPipeCommandBuffers;
         public static VkCommandPool[] SecondaryMainPipeCommandBuffers => _secondaryMainPipeCommandBuffers;
         public static VkCommandBuffer[] ComputePipeCommandBuffers => _computeCommandBuffers;
+        public static VkCommandPool[] SecondaryComputePipeCommandBuffers => _secondaryComputePipeCommandBuffers;
+        public static VkCommandBuffer[] PresentPipeCommandBuffers => _presentCommandBuffers;
+
+
 
         public static VkInstance VkInstance => _instance;
         public static SwapChainSupportDetails SwapChainSupport  { get; internal set; }
@@ -106,6 +113,7 @@ namespace VECS.LowLevel
         {
             _mainPipeCommandBuffers = new VkCommandBuffer[SwapChain.MAX_CONCURRENT_FRAMES];
             _computeCommandBuffers = new VkCommandBuffer[SwapChain.MAX_CONCURRENT_FRAMES];
+            _presentCommandBuffers = new VkCommandBuffer[SwapChain.MAX_CONCURRENT_FRAMES];
 
             VkCommandBufferAllocateInfo allocInfo = new()
             {
@@ -125,13 +133,12 @@ namespace VECS.LowLevel
                 Vulkan.CheckResult(Vulkan.vkAllocateCommandBuffers(Device, &allocInfo, pCommandBuffers), "Failed to allocate compute command buffers");
             }
 
-            allocInfo.level = VkCommandBufferLevel.Secondary;
-            allocInfo.commandBufferCount = SwapChain.MAX_CONCURRENT_FRAMES_UINT * (uint)Environment.ProcessorCount * 2;
-            allocInfo.commandPool = MainCommandPool;
+            allocInfo.commandPool = PresentCommandPool;
 
-            allocInfo.commandBufferCount = SwapChain.MAX_CONCURRENT_FRAMES_UINT * (uint)Environment.ProcessorCount;
-            allocInfo.commandPool = ComputeCommandPool;
-
+            fixed (VkCommandBuffer* pCommandBuffers = &_presentCommandBuffers[0])
+            {
+                Vulkan.CheckResult(Vulkan.vkAllocateCommandBuffers(Device, &allocInfo, pCommandBuffers), "Failed to allocate present command buffers");
+            }
         }
 
         internal static unsafe void FreeCommandBuffers()
@@ -164,6 +171,16 @@ namespace VECS.LowLevel
                 }
 
                 _computeCommandBuffers = null;
+            }
+
+            if (_presentCommandBuffers != null)
+            {
+                fixed (VkCommandBuffer* pCommandBuffers = &_presentCommandBuffers[0])
+                {
+                    Vulkan.vkFreeCommandBuffers(Device, PresentCommandPool, (uint)_presentCommandBuffers.Length, pCommandBuffers);
+                }
+
+                _presentCommandBuffers = null;
             }
         }
 
@@ -265,6 +282,7 @@ namespace VECS.LowLevel
                 Vulkan.vkDestroyCommandPool(Device, _secondaryComputePipeCommandBuffers[i]);
             }
 
+            Vulkan.vkDestroyCommandPool(_device, _commandPoolPresent);
             Vulkan.vkDestroyCommandPool(_device, _commandPoolCompute);
             Vulkan.vkDestroyCommandPool(_device, _commandPoolMain);
             Vma.vmaDestroyAllocator(_allocator);

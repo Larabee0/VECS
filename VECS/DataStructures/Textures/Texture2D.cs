@@ -127,6 +127,45 @@ namespace VECS
             UpdateDescriptor();
             AssetDataBase<Texture2D>.Add(this);
         }
+        public Texture2D(string name, int width, int height, VkFormat textureFormat, VkImageUsageFlags usage, uint[] queueIndices, bool generateMipMaps = true)
+        {
+            AssetName = name;
+            _imageExtent = new(width, height, 1);
+            _imageImageViewType = VkImageViewType.Image2D;
+            _imageFormat = textureFormat;
+            _useageFlags = usage;
+            _sharingMode = VkSharingMode.Concurrent;
+
+            _queueFamilyIndices = [.. queueIndices];
+
+            if (generateMipMaps)
+            {
+                _mipMapCount = TextureExtensions.CalculateMipMapLevels(width, height);
+            }
+
+            this.CreateImage(GetImageCreateInfo());
+
+            this.SetImageLayoutAndAspectFromUsage();
+
+            if (usage.HasFlag(VkImageUsageFlags.DepthStencilAttachment))
+            {
+                SetImageLayout(VkImageLayout.DepthAttachmentStencilReadOnlyOptimal);
+            }
+            else
+            {
+                SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal);
+            }
+
+            this.CreateImageView(GetImageViewCreateInfo());
+
+            if (_useageFlags.HasFlag(VkImageUsageFlags.Sampled))
+            {
+                this.CreateSampler(GetSamplerCreateInfo());
+            }
+
+            UpdateDescriptor();
+            AssetDataBase<Texture2D>.Add(this);
+        }
 
         public Texture2D(string filePath, bool generateMipMaps = true)
         {

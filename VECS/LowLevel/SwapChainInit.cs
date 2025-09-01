@@ -134,8 +134,18 @@ namespace VECS.LowLevel
 
         private static unsafe void CreateRenderImage(SwapChain swapChain)
         {
-            swapChain._rawRenderImage = new("_rawRenderImage",(int)swapChain._windowExtent.width, (int)swapChain._windowExtent.height, VkFormat.R32G32B32A32Sfloat, VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.Sampled, false);            
-
+            uint[] queueIndices = [GraphicsDevice.PhysicalQueueFamilies.presentFamily, GraphicsDevice.PhysicalQueueFamilies.graphicsFamily];
+            for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
+            {
+                if (GraphicsDevice.PresentQueue != GraphicsDevice.MainQueue)
+                {
+                    swapChain._rawRenderImage[i] = new(string.Format("_rawRenderImage_{0}", i), (int)swapChain._windowExtent.width, (int)swapChain._windowExtent.height, VkFormat.R32G32B32A32Sfloat, VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.Sampled, queueIndices, false);
+                }
+                else
+                {
+                    swapChain._rawRenderImage[i] = new(string.Format("_rawRenderImage_{0}", i), (int)swapChain._windowExtent.width, (int)swapChain._windowExtent.height, VkFormat.R32G32B32A32Sfloat, VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.Sampled, false);
+                }
+            }
             swapChain._copyToSwapChainBlit = new()
             {
                 srcSubresource = new()
@@ -164,7 +174,18 @@ namespace VECS.LowLevel
 
         private static unsafe void CreateDepthImage(SwapChain swapChain)
         {
-            swapChain._depthImage = new("_depthImage", (int)swapChain._windowExtent.width, (int)swapChain._windowExtent.height,VkFormat.D32Sfloat, VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.Sampled, false);
+            uint[] queueIndices = [GraphicsDevice.PhysicalQueueFamilies.presentFamily, GraphicsDevice.PhysicalQueueFamilies.graphicsFamily];
+            for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
+            {
+                if (GraphicsDevice.PresentQueue != GraphicsDevice.MainQueue)
+                {
+                    swapChain._depthImage[i] = new(string.Format("_depthImage_{0}", i), (int)swapChain._windowExtent.width, (int)swapChain._windowExtent.height, VkFormat.D32Sfloat, VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.Sampled, queueIndices, false);
+                }
+                else
+                {
+                    swapChain._depthImage[i] = new(string.Format("_depthImage_{0}", i), (int)swapChain._windowExtent.width, (int)swapChain._windowExtent.height, VkFormat.D32Sfloat, VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.Sampled, false);
+                }
+            }
         }
 
         private static unsafe void CreateAdditionalSamplers(SwapChain swapChain)
@@ -191,7 +212,6 @@ namespace VECS.LowLevel
                 createInfo.pNext = &createInfoReduction;
             }
 
-            swapChain._depthImage.CreateSampler(createInfo);
 
             VkSamplerCreateInfo samplierInfo = new()
             {
@@ -203,8 +223,12 @@ namespace VECS.LowLevel
                 addressModeW = VkSamplerAddressMode.Repeat,
 
             };
-            swapChain._rawRenderImage.CreateSampler(samplierInfo);
-            
+
+            for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
+            {
+                swapChain._depthImage[i].CreateSampler(createInfo);
+                swapChain._rawRenderImage[i].CreateSampler(samplierInfo);
+            }
         }
 
         private static unsafe void CreateFowardRenderPass(SwapChain swapChain)
@@ -284,44 +308,47 @@ namespace VECS.LowLevel
 
         private static unsafe void CreateFramebuffers(SwapChain swapChain)
         {
-            VkImageView* attachements = stackalloc VkImageView[]
+            VkImageView* attachements = stackalloc VkImageView[2];
+            for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
             {
-                swapChain.RawRenderImage._imageView,
-                swapChain.DepthImage._imageView
-            };
-            VkFramebufferCreateInfo fwdInfo = new()
-            {
-                renderPass = swapChain.ForwardRenderPass,
-                attachmentCount = 2,
-                pAttachments = attachements,
-                width = swapChain._windowExtent.width,
-                height = swapChain._windowExtent.height,
-                layers = 1
-            };
+                attachements[0] = swapChain._rawRenderImage[i]._imageView;
+                attachements[1] = swapChain._depthImage[i]._imageView;
 
-            Vulkan.CheckResult(Vulkan.vkCreateFramebuffer(GraphicsDevice.Device, fwdInfo, null, out swapChain._forwardFramebuffer), "Failed to create forward frame buffer");            
+                VkFramebufferCreateInfo fwdInfo = new()
+                {
+                    renderPass = swapChain.ForwardRenderPass,
+                    attachmentCount = 2,
+                    pAttachments = attachements,
+                    width = swapChain._windowExtent.width,
+                    height = swapChain._windowExtent.height,
+                    layers = 1
+                };
+                Vulkan.CheckResult(Vulkan.vkCreateFramebuffer(GraphicsDevice.Device, fwdInfo, null, out swapChain._forwardFramebuffer[i]), "Failed to create forward frame buffer");
+            }      
         }
 
         private static unsafe void CreateSyncObjects(SwapChain swapChain)
         {
             swapChain._acquiredImageReadySemaphores = new VkSemaphore[SwapChain.MAX_CONCURRENT_FRAMES];
-            swapChain._waitMainBufferFences = new VkFence[SwapChain.MAX_CONCURRENT_FRAMES];
-            swapChain._waitComputeBufferFences = new VkFence[SwapChain.MAX_CONCURRENT_FRAMES];
+            swapChain._waitPresentBufferFences = new VkFence[SwapChain.MAX_CONCURRENT_FRAMES];
+            //swapChain._waitComputeBufferFences = new VkFence[SwapChain.MAX_CONCURRENT_FRAMES];
 
             VkSemaphoreCreateInfo semaphoreInfo = new();
             VkFenceCreateInfo fenceInfo = new(VkFenceCreateFlags.Signaled);
             for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
             {
-                Vulkan.CheckResult(Vulkan.vkCreateFence(GraphicsDevice.Device, fenceInfo, null, out swapChain._waitMainBufferFences[i]), "Failed to create in flight fence!");
-                Vulkan.CheckResult(Vulkan.vkCreateFence(GraphicsDevice.Device, fenceInfo, null, out swapChain._waitComputeBufferFences[i]), "Failed to create in flight fence!");
+                Vulkan.CheckResult(Vulkan.vkCreateFence(GraphicsDevice.Device, fenceInfo, null, out swapChain._waitPresentBufferFences[i]), "Failed to create in present fence!");
+                //Vulkan.CheckResult(Vulkan.vkCreateFence(GraphicsDevice.Device, fenceInfo, null, out swapChain._waitComputeBufferFences[i]), "Failed to create in flight fence!");
 
                 Vulkan.CheckResult(Vulkan.vkCreateSemaphore(GraphicsDevice.Device, semaphoreInfo, null, out swapChain._acquiredImageReadySemaphores[i]), "Failed to create present semaphore!");
             }
 
             swapChain._renderCompleteSemaphores = new VkSemaphore[SwapChain.SWAP_CHAIN_IMAGE_COUNT];
+            swapChain._prePresentCompleteSemahpores = new VkSemaphore[SwapChain.SWAP_CHAIN_IMAGE_COUNT];
             for (int i = 0; i < SwapChain.SWAP_CHAIN_IMAGE_COUNT; i++)
             {
                 Vulkan.CheckResult(Vulkan.vkCreateSemaphore(GraphicsDevice.Device, semaphoreInfo, null, out swapChain._renderCompleteSemaphores[i]), "Failed to create render semaphore!");
+                Vulkan.CheckResult(Vulkan.vkCreateSemaphore(GraphicsDevice.Device, semaphoreInfo, null, out swapChain._prePresentCompleteSemahpores[i]), "Failed to create pre-present semaphore!");
             }
         }
 

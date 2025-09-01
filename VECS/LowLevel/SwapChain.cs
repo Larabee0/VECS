@@ -15,24 +15,24 @@ namespace VECS.LowLevel
 
         internal static SwapChain Instance { get; set; }
         private static int _currentFrame = 0;
-        private uint _currentImage = 0;
+        private static uint _currentImage = 0;
         internal VkExtent2D _windowExtent;
 
         internal VkRenderPass _forwardRenderPass;
 
         public static int FrameIndex => _currentFrame;
         public static int NextFrame => (_currentFrame + 1) % MAX_CONCURRENT_FRAMES;
-        public uint ImageIndex => _currentImage;
+        public static uint ImageIndex => _currentImage;
         internal VkRenderPass ForwardRenderPass => _forwardRenderPass;
 
         internal VkFormat RenderFormat => RawRenderImage.Format;
         internal VkFormat DepthFormat => DepthImage.Format;
 
-        internal Texture2D _rawRenderImage;
-        internal Texture2D _depthImage;
+        internal Texture2D[] _rawRenderImage = new Texture2D[MAX_CONCURRENT_FRAMES];
+        internal Texture2D[] _depthImage = new Texture2D[MAX_CONCURRENT_FRAMES];
 
-        internal Texture2D RawRenderImage => _rawRenderImage;
-        internal Texture2D DepthImage => _depthImage;
+        internal Texture2D RawRenderImage => _rawRenderImage[_currentFrame];
+        internal Texture2D DepthImage => _depthImage[_currentFrame];
 
         internal VkImageBlit _copyToSwapChainBlit;
 
@@ -43,12 +43,13 @@ namespace VECS.LowLevel
         internal VkImage[] _swapChainImages;
         internal VkImageView[] _swapChainImageViews;
 
-        internal VkFramebuffer _forwardFramebuffer;
+        internal VkFramebuffer[] _forwardFramebuffer = new VkFramebuffer[MAX_CONCURRENT_FRAMES];
 
         internal VkSemaphore[] _acquiredImageReadySemaphores; /// <see cref="SwapChain.MAX_CONCURRENT_FRAMES"/>>
-        internal VkFence[] _waitMainBufferFences; /// <see cref="SwapChain.MAX_CONCURRENT_FRAMES"/> 
-        internal VkFence[] _waitComputeBufferFences; /// <see cref="SwapChain.MAX_CONCURRENT_FRAMES"/> 
+        internal VkFence[] _waitPresentBufferFences; /// <see cref="SwapChain.MAX_CONCURRENT_FRAMES"/> 
+        //internal VkFence[] _waitComputeBufferFences; /// <see cref="SwapChain.MAX_CONCURRENT_FRAMES"/> 
         internal VkSemaphore[] _renderCompleteSemaphores; /// <see cref="SwapChain.SWAP_CHAIN_IMAGE_COUNT"/>>
+        internal VkSemaphore[] _prePresentCompleteSemahpores; /// <see cref="SwapChain.SWAP_CHAIN_IMAGE_COUNT"/>>
 
         internal TimelineSemaphore[] _timelineSemaphores;
 
@@ -70,6 +71,14 @@ namespace VECS.LowLevel
             get
             {
                 return GraphicsDevice.ComputePipeCommandBuffers[_currentFrame];
+            }
+        }
+
+        internal static VkCommandBuffer CurrentPresentCommandBuffer
+        {
+            get
+            {
+                return GraphicsDevice.PresentPipeCommandBuffers[_currentFrame];
             }
         }
 
@@ -170,22 +179,28 @@ namespace VECS.LowLevel
 
         public bool WaitForMainCommandBuffer()
         {
-            if (Vulkan.vkWaitForFences(GraphicsDevice.Device, _waitMainBufferFences[_currentFrame], true, 1000000000) == VkResult.Timeout)
-            {
-                return false;
-            }
-            Vulkan.CheckResult(Vulkan.vkResetFences(GraphicsDevice.Device, _waitMainBufferFences[_currentFrame]), string.Format("Failed to reset main fence {0}", _currentFrame));
+            //if (Vulkan.vkWaitForFences(GraphicsDevice.Device, _waitMainBufferFences[_currentFrame], true, 1000000000) == VkResult.Timeout)
+            //{
+            //    return false;
+            //}
+            //Vulkan.CheckResult(Vulkan.vkResetFences(GraphicsDevice.Device, _waitMainBufferFences[_currentFrame]), string.Format("Failed to reset main fence {0}", _currentFrame));
             return true;
             
         }
 
+        public static void WaitAndResetFence(VkFence fence)
+        {
+            Vulkan.vkWaitForFences(GraphicsDevice.Device, fence, true, ulong.MaxValue);
+            Vulkan.CheckResult(Vulkan.vkResetFences(GraphicsDevice.Device, fence), "Failed to reset fence ");
+        }
+
         public bool WaitForComputeComamndBuffer()
         {
-            if (Vulkan.vkWaitForFences(GraphicsDevice.Device, _waitComputeBufferFences[_currentFrame], true, 1000000000) == VkResult.Timeout)
-            {
-                return false;
-            }
-            Vulkan.CheckResult(Vulkan.vkResetFences(GraphicsDevice.Device, _waitComputeBufferFences[_currentFrame]), string.Format("Failed to reset compute fence {0}", _currentFrame));
+            //if (Vulkan.vkWaitForFences(GraphicsDevice.Device, _waitComputeBufferFences[_currentFrame], true, 1000000000) == VkResult.Timeout)
+            //{
+            //    return false;
+            //}
+            //Vulkan.CheckResult(Vulkan.vkResetFences(GraphicsDevice.Device, _waitComputeBufferFences[_currentFrame]), string.Format("Failed to reset compute fence {0}", _currentFrame));
             return true;
         }
 
@@ -208,7 +223,7 @@ namespace VECS.LowLevel
                 },
                 clearValueCount = 2,
                 pClearValues = clearValues,
-                framebuffer = _forwardFramebuffer
+                framebuffer = _forwardFramebuffer[_currentFrame]
             };
 
             Vulkan.vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VkSubpassContents.Inline);
@@ -233,19 +248,75 @@ namespace VECS.LowLevel
             Vulkan.vkCmdSetScissor(commandBuffer, scissor);
         }
 
-        internal unsafe void CopyRenderToSwapChain(VkCommandBuffer commandBuffer, int imageIndex)
+
+        // should be called from graphics queue
+        internal unsafe void TransferSwapChainImageToGraphicsQueue(VkCommandBuffer commandBuffer, int frameIndex, int imageIndex)
+        {
+
+            VkImageMemoryBarrier2 imageMemoryBarrier = new()
+            {
+                srcStageMask = VkPipelineStageFlags2.ColorAttachmentOutput,
+                dstStageMask = VkPipelineStageFlags2.ColorAttachmentOutput,
+                dstAccessMask = VkAccessFlags2.ColorAttachmentWrite,
+                oldLayout = VkImageLayout.PresentSrcKHR,
+                newLayout = VkImageLayout.TransferDstOptimal,
+                srcQueueFamilyIndex = Vulkan.VK_QUEUE_FAMILY_IGNORED,
+                dstQueueFamilyIndex = Vulkan.VK_QUEUE_FAMILY_IGNORED,
+                image = _swapChainImages[imageIndex],
+                subresourceRange = new(VkImageAspectFlags.Color)
+            };
+
+            VkDependencyInfo dependencyInfo = new()
+            {
+                imageMemoryBarrierCount = 1,
+                pImageMemoryBarriers = &imageMemoryBarrier
+            };
+
+            Vulkan.vkCmdPipelineBarrier2(commandBuffer, &dependencyInfo);
+        }
+
+        // should be called from graphics queue
+        internal unsafe void TransferSwapChainImageToPresentQueue(VkCommandBuffer commandBuffer, int frameIndex, int imageIndex)
+        {
+
+            VkImageMemoryBarrier2 imageMemoryBarrier = new()
+            {
+                srcStageMask = VkPipelineStageFlags2.ColorAttachmentOutput,
+                srcAccessMask = VkAccessFlags2.ColorAttachmentWrite,
+                dstAccessMask = VkAccessFlags2.None,
+                oldLayout = VkImageLayout.TransferDstOptimal,
+                newLayout = VkImageLayout.PresentSrcKHR,
+                srcQueueFamilyIndex = GraphicsDevice.PhysicalQueueFamilies.graphicsFamily,
+                dstQueueFamilyIndex = GraphicsDevice.PhysicalQueueFamilies.presentFamily,
+                image = _swapChainImages[imageIndex],
+                subresourceRange = new(VkImageAspectFlags.Color)
+            };
+
+            VkDependencyInfo dependencyInfo = new()
+            {
+                imageMemoryBarrierCount = 1,
+                pImageMemoryBarriers = &imageMemoryBarrier
+            };
+
+            Vulkan.vkCmdPipelineBarrier2(commandBuffer, &dependencyInfo);
+        }
+
+        internal unsafe void CopyRenderToSwapChain(VkCommandBuffer commandBuffer,int frameIndex, int imageIndex)
         {
             var swapChainImage = _swapChainImages[imageIndex];
+            var renderImage = _rawRenderImage[frameIndex];
 
-            _rawRenderImage.SetImageLayout(commandBuffer, VkImageLayout.TransferSrcOptimal);
-            TextureExtensions.SetImageLayout(commandBuffer, swapChainImage, VkImageAspectFlags.Color, VkImageLayout.PresentSrcKHR, VkImageLayout.TransferDstOptimal, VkPipelineStageFlags.AllCommands, VkPipelineStageFlags.AllCommands);
+            renderImage.SetImageLayout(commandBuffer, VkImageLayout.TransferSrcOptimal);
+
+            // done at as first command in graphics pipe by TransferSwapChainImageToGraphicsQueue
+            //TextureExtensions.SetImageLayout(commandBuffer, swapChainImage, VkImageAspectFlags.Color, VkImageLayout.PresentSrcKHR, VkImageLayout.TransferDstOptimal, VkPipelineStageFlags.AllCommands, VkPipelineStageFlags.AllCommands);
 
             var blit = _copyToSwapChainBlit;
 
             Vulkan.vkCmdBlitImage(
                 commandBuffer,
-                _rawRenderImage._vkImage,
-                _rawRenderImage.ImageLayout,
+                renderImage._vkImage,
+                renderImage.ImageLayout,
                 swapChainImage,
                 VkImageLayout.TransferDstOptimal,
                 1,
@@ -253,45 +324,74 @@ namespace VECS.LowLevel
                 VkFilter.Linear
             );
 
-            _rawRenderImage.SetImageLayout(commandBuffer, VkImageLayout.ShaderReadOnlyOptimal);
-            TextureExtensions.SetImageLayout(commandBuffer, swapChainImage, VkImageAspectFlags.Color, VkImageLayout.TransferDstOptimal, VkImageLayout.PresentSrcKHR, VkPipelineStageFlags.AllCommands, VkPipelineStageFlags.AllCommands);
+            renderImage.SetImageLayout(commandBuffer, VkImageLayout.ShaderReadOnlyOptimal);
+
+            // replaced by TransferSwapChainImageToPresentQueue
+            //TextureExtensions.SetImageLayout(commandBuffer, swapChainImage, VkImageAspectFlags.Color, VkImageLayout.TransferDstOptimal, VkImageLayout.PresentSrcKHR, VkPipelineStageFlags.AllCommands, VkPipelineStageFlags.AllCommands);
+            TransferSwapChainImageToPresentQueue(commandBuffer, frameIndex, imageIndex);
         }
 
-        private unsafe void SubmitMain(VkCommandBuffer commandBuffer)
-        {
-            VkPipelineStageFlags waitStageMask = VkPipelineStageFlags.AllCommands;
-            VkSemaphore presentComplete = _acquiredImageReadySemaphores[_currentFrame];
-            VkSemaphore renderComplete = _renderCompleteSemaphores[_currentImage];
-            VkSubmitInfo submitInfo = new()
-            {
-                pWaitDstStageMask = &waitStageMask,
-                pCommandBuffers = &commandBuffer,
-                commandBufferCount = 1,
-                waitSemaphoreCount = 1,
-                signalSemaphoreCount = 1,
-                pWaitSemaphores = &presentComplete,
-                pSignalSemaphores = &renderComplete
-            };
-
-            Vulkan.CheckResult(Vulkan.vkQueueSubmit(GraphicsDevice.MainQueue, submitInfo, _waitMainBufferFences[_currentFrame]));
-        }
-
-        public unsafe bool PresentMain(uint imageIndex)
+        public unsafe bool PresentMain(int frameIndex, uint imageIndex)
         {
             VkSemaphore renderComplete = _renderCompleteSemaphores[imageIndex];
+            VkSemaphore prePresentComplete = _prePresentCompleteSemahpores[imageIndex];
+            VkCommandBuffer presentCommandBuffer = GraphicsDevice.PresentPipeCommandBuffers[frameIndex];
+            
+            WaitAndResetFence(_waitPresentBufferFences[frameIndex]);
+
+            Vulkan.vkBeginCommandBuffer(presentCommandBuffer, VkCommandBufferUsageFlags.None);
+            VkImageMemoryBarrier2 presentBarrier = new()
+            {
+                oldLayout = VkImageLayout.TransferDstOptimal,
+                newLayout = VkImageLayout.PresentSrcKHR,
+                srcQueueFamilyIndex = GraphicsDevice.PhysicalQueueFamilies.graphicsFamily,
+                dstQueueFamilyIndex = GraphicsDevice.PhysicalQueueFamilies.presentFamily,
+                image = _swapChainImages[imageIndex],
+                subresourceRange = new(VkImageAspectFlags.Color)
+            };
+            VkDependencyInfo presentDependencyInfo = new()
+            {
+                imageMemoryBarrierCount = 1,
+                pImageMemoryBarriers = &presentBarrier
+            };
+            Vulkan.vkCmdPipelineBarrier2KHR(presentCommandBuffer, &presentDependencyInfo);
+            Vulkan.vkEndCommandBuffer(presentCommandBuffer);
+
+            VkSemaphoreSubmitInfo prePresentWaitInfo = new() {
+                semaphore = renderComplete,
+                stageMask = VkPipelineStageFlags2.AllCommands
+            };
+
+            VkSemaphoreSubmitInfo prePresentCompleteInfo = new() {
+                semaphore = prePresentComplete,
+                stageMask = VkPipelineStageFlags2.AllCommands
+            };
+
+            VkCommandBufferSubmitInfo prePresentCommandBufferInfo = new() {
+                commandBuffer = presentCommandBuffer
+            };
+            VkSubmitInfo2 prePresentSubmitInfo = new() {
+                waitSemaphoreInfoCount = 1,
+                pWaitSemaphoreInfos = &prePresentWaitInfo,
+                commandBufferInfoCount = 1,
+                pCommandBufferInfos = &prePresentCommandBufferInfo,
+                signalSemaphoreInfoCount = 1,
+                pSignalSemaphoreInfos = &prePresentCompleteInfo
+            };
+
+            Vulkan.vkQueueSubmit2KHR(GraphicsDevice.PresentQueue, 1, &prePresentSubmitInfo, _waitPresentBufferFences[frameIndex]);
+
             VkSwapchainKHR swapchain = _swapChain;
             VkPresentInfoKHR presentInfo = new()
             {
                 waitSemaphoreCount = 1,
                 swapchainCount = 1,
-                pWaitSemaphores = &renderComplete,
+                pWaitSemaphores = &prePresentComplete,
                 pSwapchains = &swapchain,
                 pImageIndices = &imageIndex
             };
 
-
             var result = Vulkan.vkQueuePresentKHR(GraphicsDevice.PresentQueue, &presentInfo);
-            
             if (result == VkResult.ErrorOutOfDateKHR || result == VkResult.SuboptimalKHR)
             {
                 return false;
@@ -299,17 +399,6 @@ namespace VECS.LowLevel
 
             result.CheckResult("Could not present the image to the swapchain!");
             return true;
-        }
-
-        public unsafe bool Submit(VkCommandBuffer commandBuffer)
-        {
-            SubmitMain(commandBuffer);
-
-            var result = PresentMain(_currentImage);
-
-            _currentFrame = (_currentFrame + 1) % MAX_CONCURRENT_FRAMES;
-
-            return result;
         }
 
         public unsafe void Dispose()
@@ -328,24 +417,31 @@ namespace VECS.LowLevel
                 _swapChain = VkSwapchainKHR.Null;
             }
 
-            _rawRenderImage.Dispose();
-            _depthImage.Dispose();
+            for (int i = 0; i < MAX_CONCURRENT_FRAMES; i++)
+            {
+                _rawRenderImage[i].Dispose();
+                _depthImage[i].Dispose();
+            }
 
-            Vulkan.vkDestroyFramebuffer(GraphicsDevice.Device, _forwardFramebuffer);
+            for (int i = 0; i < MAX_CONCURRENT_FRAMES; i++)
+            {
+                Vulkan.vkDestroyFramebuffer(GraphicsDevice.Device, _forwardFramebuffer[i]);
+            }
 
             Vulkan.vkDestroyRenderPass(GraphicsDevice.Device, _forwardRenderPass);
 
             for (int i = 0; i < SWAP_CHAIN_IMAGE_COUNT; i++)
             {
                 Vulkan.vkDestroySemaphore(GraphicsDevice.Device, _renderCompleteSemaphores[i]);
+                Vulkan.vkDestroySemaphore(GraphicsDevice.Device, _prePresentCompleteSemahpores[i]);
             }
 
             for (int i = 0; i < MAX_CONCURRENT_FRAMES; i++)
             {
                 Vulkan.vkDestroySemaphore(GraphicsDevice.Device, _timelineSemaphores[i].Semaphore);
                 Vulkan.vkDestroySemaphore(GraphicsDevice.Device, _acquiredImageReadySemaphores[i]);
-                Vulkan.vkDestroyFence(GraphicsDevice.Device, _waitMainBufferFences[i]);
-                Vulkan.vkDestroyFence(GraphicsDevice.Device, _waitComputeBufferFences[i]);
+                Vulkan.vkDestroyFence(GraphicsDevice.Device, _waitPresentBufferFences[i]);
+                //Vulkan.vkDestroyFence(GraphicsDevice.Device, _waitComputeBufferFences[i]);
             }
 
             Instance = null;

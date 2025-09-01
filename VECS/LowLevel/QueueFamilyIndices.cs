@@ -5,9 +5,9 @@ namespace VECS.LowLevel
     /// </summary>
     public struct QueueFamilyIndices
     {
-        public int graphicsFamily;
-        public int computeFamily;
-        public int presentFamily;
+        public uint graphicsFamily;
+        public uint computeFamily;
+        public uint presentFamily;
         public int computeIndex;
         public int presentIndex;
 
