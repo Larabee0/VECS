@@ -319,11 +319,11 @@ namespace VECS
 
         public void AllocateAll(int frameIndex, DescriptorPool pool)
         {
-            for (int i = 0; i < _children.Count; i++)
+            foreach (var pair in _children)
             {
-                if (!_children[i]._setsAllocated[frameIndex])
+                if (!pair.Value._setsAllocated[frameIndex])
                 {
-                    _children[i].AllocateSetInternal(frameIndex, pool);
+                    pair.Value.AllocateSetInternal(frameIndex, pool);
                 }
             }
         }
