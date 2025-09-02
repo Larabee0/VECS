@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Threading;
 using Vortice.Vulkan;
 
@@ -21,6 +22,8 @@ namespace VECS.LowLevel
 
         internal void StartTimelineWorkers()
         {
+            _currentFrame = 0;
+            _currentImage = 0;
             _graphicsCancel = new();
             _computeCancel = new();
             _presentCancel = new();
@@ -50,54 +53,81 @@ namespace VECS.LowLevel
             RecreateSwapChain = !AcquireNextImage();
         }
 
-        internal void FinishTimelineWorkers()
+        internal void FinishTimelineWorkers(bool recreate)
         {
-            if ((_graphicsThread != null && _graphicsThread.IsAlive) || (_graphicsThread != null && _computeThread.IsAlive))
+            if (((_graphicsThread != null && _graphicsThread.IsAlive) || (_graphicsThread != null && _computeThread.IsAlive)))
             {
-                _graphicsCancel.Cancel();
-                _computeCancel.Cancel();
-                Thread.SpinWait(100);
-
-                SignalTimelineFromHost(SemaphoreStages.Submit, FrameIndex);
-
-                while (_graphicsThread.IsAlive || _computeThread.IsAlive)
+#if DEBUG
+                GraphicsDeviceInit.BreakOnValidationError = true;
+#endif
+                if (!recreate)
                 {
+                    _graphicsCancel.Cancel();
+                    _computeCancel.Cancel();
+                    Thread.SpinWait(1000);
+
+                    SignalTimelineFromHost(SemaphoreStages.Submit, FrameIndex);
+
+                    while (_graphicsThread.IsAlive || _computeThread.IsAlive)
+                    {
+                        Thread.SpinWait(1000);
+                    }
+
+                    _presentCancel.Cancel();
+                    Thread.SpinWait(1000);
+                    if (_presentThread.IsAlive)
+                    {
+                        WaitOnTimelineFromHost(SemaphoreStages.RenderComplete, FrameIndex);
+                    }
+                    while (_presentThread.IsAlive)
+                    {
+                        Thread.SpinWait(1000);
+                    }
+                }
+                else
+                {
+                    _presentCancel.Cancel();
+                    _graphicsCancel.Cancel();
+                    _computeCancel.Cancel();
+                    Thread.SpinWait(1000);
+                    SignalTimelineFromHost(SemaphoreStages.Submit, FrameIndex);
                     Thread.SpinWait(1000);
                 }
-
-                _presentCancel.Cancel();
-                Thread.SpinWait(100);
-                SignalTimelineFromHost(SemaphoreStages.MAX_STAGES, FrameIndex);
-
-                while (_presentThread.IsAlive)
-                {
-                    Thread.SpinWait(1000);
-                }
-
-
-                _graphicsThread.Join();
-                _computeThread.Join();
-                _presentThread.Join();
-
-                _graphicsThread = null;
-                _computeThread = null;
-                _graphicsCancel = null;
-                _computeCancel = null;
-                _presentCancel = null;
             }
+            
+            _graphicsThread.Join();
+            _computeThread.Join();
+            _presentThread.Join();
+            Console.WriteLine("SwapChain Exited!");
+            _graphicsThread = null;
+            _computeThread = null;
+            _graphicsCancel = null;
+            _computeCancel = null;
+            _presentCancel = null;
         }
 
         private unsafe void DoComputeWork(object cancellationToken)
         {
-            ulong signalValue;
-            ulong waitValue;
-            VkTimelineSemaphoreSubmitInfo timelineInfo;
-            VkCommandBuffer commandBuffer;
-            VkSubmitInfo submitInfo;
-            VkSemaphore signalSemaphore;
-            VkSemaphore waitSemaphore;
+            VkCommandBufferSubmitInfo commandBufferSubmitInfo = new();
 
-            VkPipelineStageFlags waitStageMasks = VkPipelineStageFlags.ComputeShader;
+            VkSemaphoreSubmitInfo waitSemaphoreInfo = new()
+            {
+                stageMask = VkPipelineStageFlags2.ComputeShader
+            };
+            VkSemaphoreSubmitInfo signalSemaphoreInfo = new()
+            {
+                stageMask = VkPipelineStageFlags2.ComputeShader
+            };
+            VkSubmitInfo2 submitInfo = new()
+            {
+                waitSemaphoreInfoCount = 1,
+                pWaitSemaphoreInfos = &waitSemaphoreInfo,
+                commandBufferInfoCount = 1,
+                pCommandBufferInfos = &commandBufferSubmitInfo,
+                signalSemaphoreInfoCount = 1,
+                pSignalSemaphoreInfos = &signalSemaphoreInfo,
+
+            };
 
             CancellationTokenSource token = (CancellationTokenSource)cancellationToken;
 
@@ -112,42 +142,20 @@ namespace VECS.LowLevel
 
                 WaitOnTimelineFromHost(SemaphoreStages.Submit, currentFrame); // block thread until submit signalled
 
-                //currentFrame = _currentFrame;
-                //nextFrame = NextFrame;
-
                 if (!token.IsCancellationRequested) // check we haven't been cancelled
                 {
                     BuildComputeCommands();
                 }
 
-                waitValue = GetTimelineStageValue(SemaphoreStages.StartCompute, currentFrame);
-                signalValue = GetTimelineStageValue(SemaphoreStages.ComputeComplete, currentFrame);
-                signalSemaphore = _timelineSemaphores[currentFrame].Semaphore;
-                waitSemaphore = _timelineSemaphores[currentFrame].Semaphore;
-                commandBuffer = CurrentComputeCommandBuffer;
-
-                timelineInfo = new()
-                {
-                    waitSemaphoreValueCount = 1,
-                    pWaitSemaphoreValues = &waitValue,
-                    signalSemaphoreValueCount = 1,
-                    pSignalSemaphoreValues = &signalValue
-                };
-                submitInfo = new()
-                {
-                    pNext = &timelineInfo,
-                    signalSemaphoreCount = 1,
-                    pSignalSemaphores = &signalSemaphore,
-                    waitSemaphoreCount = 1,
-                    pWaitSemaphores = &waitSemaphore,
-                    pWaitDstStageMask = &waitStageMasks,
-                    commandBufferCount = 1,
-                    pCommandBuffers = &commandBuffer
-                };
+                waitSemaphoreInfo.semaphore = signalSemaphoreInfo.semaphore =_timelineSemaphores[currentFrame].Semaphore;
+                waitSemaphoreInfo.value = GetTimelineStageValue(SemaphoreStages.StartCompute, currentFrame);
+                signalSemaphoreInfo.value = GetTimelineStageValue(SemaphoreStages.ComputeComplete, currentFrame);
+                
+                commandBufferSubmitInfo.commandBuffer = CurrentComputeCommandBuffer;
 
                 if (!token.IsCancellationRequested) // check we have been cancelled between last point and now
                 {
-                    Vulkan.CheckResult(Vulkan.vkQueueSubmit(GraphicsDevice.ComputeQueue, submitInfo, VkFence.Null), "Failed to submit compute queue!");
+                    Vulkan.CheckResult(Vulkan.vkQueueSubmit2KHR(GraphicsDevice.ComputeQueue, 1, &submitInfo, VkFence.Null), "Failed to submit compute queue!");
                     flagComputeQueued = true;
                 }
 
@@ -191,23 +199,8 @@ namespace VECS.LowLevel
         private unsafe void DoGraphicsWork(object cancellationToken)
         {
             bool waitForCompute = GraphicsDevice.ComputeQueue == GraphicsDevice.MainQueue;
-            ulong* waitValues = stackalloc ulong[2];
-            VkSemaphore* waitSemaphores = stackalloc VkSemaphore[2];
-            ulong* signalValues = stackalloc ulong[2];
-            VkSemaphore* signalSemaphores = stackalloc VkSemaphore[2];
-
-            VkPipelineStageFlags* waitStageMasks = stackalloc VkPipelineStageFlags[2]
-            {
-                VkPipelineStageFlags.VertexInput,
-                VkPipelineStageFlags.ColorAttachmentOutput
-            };
-
-            waitValues[1] = 0;
-            signalValues[1] = 0;
-
-            VkTimelineSemaphoreSubmitInfo timelineInfo;
-            VkCommandBuffer commandBuffer;
-            VkCommandBufferSubmitInfo commandBufferSubmitInfo;
+            
+            VkCommandBufferSubmitInfo commandBufferSubmitInfo = new();
             VkSemaphoreSubmitInfo* acquireCompleteInfo = stackalloc VkSemaphoreSubmitInfo[2]
             {
                 new()
@@ -216,20 +209,34 @@ namespace VECS.LowLevel
                 },
                 new()
                 {
-                    stageMask = VkPipelineStageFlags2.ColorAttachmentOutput
+                    stageMask = VkPipelineStageFlags2.ColorAttachmentOutput,
+                    value = 0
                 }
             };
+
             VkSemaphoreSubmitInfo* renderingCompleteInfo = stackalloc VkSemaphoreSubmitInfo[2]
             {
                 new()
                 {
                     stageMask = VkPipelineStageFlags2.ColorAttachmentOutput,
-                },   new()
+                    value = 0
+                },
+                new()
                 {
                     stageMask = VkPipelineStageFlags2.ColorAttachmentOutput,
+                    value = 0
                 }
             };
-            VkSubmitInfo2 submitInfo;
+
+            VkSubmitInfo2 submitInfo = new()
+            {
+                waitSemaphoreInfoCount = 2,
+                pWaitSemaphoreInfos = acquireCompleteInfo,
+                commandBufferInfoCount = 1,
+                pCommandBufferInfos = &commandBufferSubmitInfo,
+                signalSemaphoreInfoCount = 2,
+                pSignalSemaphoreInfos = renderingCompleteInfo,
+            };
 
             CancellationTokenSource token = (CancellationTokenSource)cancellationToken;
 
@@ -245,72 +252,21 @@ namespace VECS.LowLevel
                 flagGraphicsQueued = false;
                 WaitOnTimelineFromHost(SemaphoreStages.Submit, currentFrame);
 
-                //currentFrame = _currentFrame;
-                //nextFrame = NextFrame;
-                //currentImage = _currentImage;
-
                 if (!token.IsCancellationRequested)
                 {
                     BuildGraphicsCommands(currentFrame, (int)currentImage);
                 }
 
-                waitValues[0] = GetTimelineStageValue(SemaphoreStages.ComputeComplete, currentFrame);
-                waitSemaphores[0] = _timelineSemaphores[currentFrame].Semaphore;
-                waitSemaphores[1] = _acquiredImageReadySemaphores[currentFrame];
+                acquireCompleteInfo[0].semaphore = _timelineSemaphores[currentFrame].Semaphore;
+                acquireCompleteInfo[0].value = GetTimelineStageValue(SemaphoreStages.ComputeComplete, currentFrame);
+                acquireCompleteInfo[1].semaphore = _acquiredImageReadySemaphores[currentFrame];
 
-                acquireCompleteInfo[0].semaphore = waitSemaphores[0];
-                acquireCompleteInfo[0].value = waitValues[0];
-                acquireCompleteInfo[1].semaphore = waitSemaphores[1];
-                acquireCompleteInfo[1].value = waitValues[1];
+                renderingCompleteInfo[0].semaphore = _timelineSemaphores[currentFrame].Semaphore;
+                renderingCompleteInfo[0].value = GetTimelineStageValue(SemaphoreStages.RenderComplete, currentFrame);
+                renderingCompleteInfo[1].semaphore = _renderCompleteSemaphores[currentImage];
 
-                signalValues[0] = GetTimelineStageValue(SemaphoreStages.RenderComplete, currentFrame);
-                signalSemaphores[0] = _timelineSemaphores[currentFrame].Semaphore;
-                signalSemaphores[1] = _renderCompleteSemaphores[currentImage];
-
-                renderingCompleteInfo[0].semaphore = signalSemaphores[0];
-                renderingCompleteInfo[0].value = signalValues[0];
-                renderingCompleteInfo[1].semaphore = signalSemaphores[1];
-                renderingCompleteInfo[1].value = signalValues[1];
-
-                commandBuffer = CurrentMainCommandBuffer;
-
-                timelineInfo = new()
-                {
-                    waitSemaphoreValueCount = 2,
-                    pWaitSemaphoreValues = waitValues,
-                    signalSemaphoreValueCount = 2,
-                    pSignalSemaphoreValues = signalValues
-                };
-
-                //submitInfo = new()
-                //{
-                //    pNext = &timelineInfo,
-                //    waitSemaphoreCount = 2,
-                //    pWaitSemaphores = waitSemaphores,
-                //    pWaitDstStageMask = waitStageMasks,
-                //    signalSemaphoreCount = 2,
-                //    pSignalSemaphores = signalSemaphores,
-                //    commandBufferCount = 1,
-                //    pCommandBuffers = &commandBuffer
-                //};
-
-                commandBufferSubmitInfo = new()
-                {
-                    commandBuffer = commandBuffer
-                };
-
-                submitInfo = new()
-                {
-                    //pNext = &timelineInfo,
-                    waitSemaphoreInfoCount = 2,
-                    pWaitSemaphoreInfos = acquireCompleteInfo,
-                    commandBufferInfoCount = 1,
-                    pCommandBufferInfos = &commandBufferSubmitInfo,
-                    signalSemaphoreInfoCount = 2,
-                    pSignalSemaphoreInfos = renderingCompleteInfo,
-                    
-                };
-
+                commandBufferSubmitInfo.commandBuffer = CurrentMainCommandBuffer;
+                
                 if (waitForCompute && !token.IsCancellationRequested)
                 {
                     WaitOnTimelineFromHost(SemaphoreStages.ComputeQueued, currentFrame);
@@ -352,9 +308,12 @@ namespace VECS.LowLevel
             {
                 if (flagGraphicsQueued)
                 {
-                    SignalTimelineFromHost(SemaphoreStages.ComputeComplete, currentFrame);
+                    SignalTimelineFromHost(SemaphoreStages.QueuePresentLate, currentFrame);
                 }
-                SignalTimelineFromHost(SemaphoreStages.QueuePresentLate, currentFrame);
+                else
+                {
+                    SignalTimelineFromHost(SemaphoreStages.RenderComplete, currentFrame);
+                }
             }
             else // indicates the compute thread queued work
             {

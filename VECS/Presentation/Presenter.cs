@@ -101,7 +101,7 @@ namespace VECS
             }
             else
             {
-                _swapChain.FinishTimelineWorkers();
+                _swapChain.FinishTimelineWorkers(true);
                 Vulkan.vkDeviceWaitIdle(GraphicsDevice.Device);
                 var oldSwapChain = _swapChain;
                 AssetDataBase<Texture2D>.RemoveRange([..oldSwapChain._rawRenderImage,..oldSwapChain._depthImage]);
@@ -118,6 +118,7 @@ namespace VECS
             _swapChain.GraphicsCallback += GraphicsPipe;
 
             _swapChain.StartTimelineWorkers();
+            Console.WriteLine(_swapChain.ExtentAspectRatio);
         }
 
 
@@ -295,11 +296,11 @@ namespace VECS
 
         public void Present()
         {
-            UpdateEntityFrameInfo(World.DefaultWorld.EntityManager);
 
             // acquire swapchain image
             _isFrameStarted = BeginFrame();
 
+            UpdateEntityFrameInfo(World.DefaultWorld.EntityManager);
             if (_isFrameStarted)
             {
                 // kill off buffers
@@ -370,6 +371,7 @@ namespace VECS
             if (_swapChain.RecreateSwapChain)
             {
                 RecreateSwapChain();
+                return false;
             }
             else
             {
@@ -377,7 +379,6 @@ namespace VECS
                 _cullReadyBarriers.Clear();
                 return true;
             }
-            return false;
         }
 
         private void CullScene(VkCommandBuffer commandBuffer, RendererFrameInfo frameInfo)
