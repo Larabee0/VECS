@@ -39,22 +39,11 @@ namespace VECS.ECS.Presentation
             _shadowData?.Dispose();
         }
 
-        private void ResetMeshes()
-        {
-            int meshCount = DirectMesh.DirectMeshes.Count;
-            for(int i = 0; i < meshCount; i++)
-            {
-                _forwardData.ResetMesh(i);
-                _shadowData.ResetMesh(i);
-            }
-        }
-
         public override void OnCull(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
         {
             if (!_renderEntityQuery.HasEntities) { return; }
 
             var entities = _renderEntityQuery.GetEntities();
-            ResetMeshes();
 
             _forwardData.GenerateDrawCmds(rendererFrameInfo,entityManager,entities);
             

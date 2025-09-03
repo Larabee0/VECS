@@ -58,7 +58,7 @@ namespace VECS.ECS.Presentation
         {
             GC.SuppressFinalize(this);
             _renderBlob.Dispose();
-            base.Dispose();
+            GC.ReRegisterForFinalize(this);
         }
     }
 }

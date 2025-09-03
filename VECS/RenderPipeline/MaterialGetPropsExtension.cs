@@ -7,77 +7,77 @@ namespace VECS
     public static class MaterialGetPropsExtension
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int GetInt(this Material material,string property)
+        public static int GetInt(this Material material, string property)
         {
             return material.ReadFromBuffer<int>(property);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static float GetFloat(this Material material,string property)
+        public static float GetFloat(this Material material, string property)
         {
             return material.ReadFromBuffer<float>(property);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Vector2 GetVector2(this Material material,string property)
+        public static Vector2 GetVector2(this Material material, string property)
         {
             return material.ReadFromBuffer<Vector2>(property);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Vector4 GetVector4(this Material material,string property)
+        public static Vector4 GetVector4(this Material material, string property)
         {
             return material.ReadFromBuffer<Vector4>(property);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Matrix3x2 GetMatrix3x2(this Material material,string property)
+        public static Matrix3x2 GetMatrix3x2(this Material material, string property)
         {
             return material.ReadFromBuffer<Matrix3x2>(property);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Matrix4x4 GetMatrix4x4(this Material material,string property)
+        public static Matrix4x4 GetMatrix4x4(this Material material, string property)
         {
             return material.ReadFromBuffer<Matrix4x4>(property);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static T GetUniform<T>(this Material material,string property) where T : unmanaged
+        public static T GetUniform<T>(this Material material, string property) where T : unmanaged
         {
             return material.ReadFromBuffer<T>(property);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static float[] GetFloatArray(this Material material,string property)
+        public static float[] GetFloatArray(this Material material, string property)
         {
             return material.ReadArrayFromBuffer<float>(property);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Vector2[] GetVector2Array(this Material material,string property)
+        public static Vector2[] GetVector2Array(this Material material, string property)
         {
             return material.ReadArrayFromBuffer<Vector2>(property);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Vector4[] GetVector4Array(this Material material,string property)
+        public static Vector4[] GetVector4Array(this Material material, string property)
         {
             return material.ReadArrayFromBuffer<Vector4>(property);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Matrix3x2[] GetMatrix3x2Array(this Material material,string property)
+        public static Matrix3x2[] GetMatrix3x2Array(this Material material, string property)
         {
             return material.ReadArrayFromBuffer<Matrix3x2>(property);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Matrix4x4[] GetMatrix4x4Array(this Material material,string property)
+        public static Matrix4x4[] GetMatrix4x4Array(this Material material, string property)
         {
             return material.ReadArrayFromBuffer<Matrix4x4>(property);
         }
-        private static unsafe T[] ReadArrayFromBuffer<T>(this Material material,string property) where T : unmanaged
+        private static unsafe T[] ReadArrayFromBuffer<T>(this Material material, string property) where T : unmanaged
         {
             if (material.LookUpProperty(property, out var handler, out uint bindingIndex, out var propertyInfo))
             {
@@ -87,7 +87,7 @@ namespace VECS
             return default;
         }
 
-        private static T ReadFromBuffer<T>(this Material material,string property) where T : unmanaged
+        private static T ReadFromBuffer<T>(this Material material, string property) where T : unmanaged
         {
             if (material.LookUpProperty(property, out var handler, out var bindingIndex, out var propertyInfo))
             {
@@ -103,6 +103,15 @@ namespace VECS
                 return handler.GetStorageBuffer<T>(bindingIndex, propertyInfo);
             }
             return default;
+        }
+
+        public static SwapChainBuffer GetStorageSwapChainBuffer(this Material material, string property)
+        {
+            if (material.LookUpProperty(property, out var handler, out var bindingIndex, out var propertyInfo))
+            {
+                return handler.GetStorageSwapChainBuffer(bindingIndex, propertyInfo);
+            }
+            return null;
         }
     }
 }

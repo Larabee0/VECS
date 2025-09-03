@@ -54,9 +54,6 @@ namespace VECS
 
         private unsafe VkDescriptorSet* _setsToBind;
 
-        internal readonly Queue<MaterialDrawCommand> _drawCommands = new();
-        internal readonly Queue<MaterialDrawCommand> _bloomDrawCommands = new();
-
         public VkPipelineLayout PipeLineLayout => _pipelineLayout;
 
         public bool HasApplicationSet => _applicationGlobalBindings.Count > 0;

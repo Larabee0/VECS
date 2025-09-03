@@ -125,53 +125,6 @@ namespace VECS
             }
         }
 
-        internal void EnqueueDrawCmd(MaterialDrawCommand cmd)
-        {
-            _drawCommands.Enqueue(cmd);
-            if (cmd.Bloom)
-            {
-                _bloomDrawCommands.Enqueue(cmd);
-            }
-        }
-
-        internal void EnqueueDrawCmd(EarlyDrawCommand cmd, BufferRegion storageBufferRegion, BufferRegion meshSubRegion) 
-        {
-            EnqueueDrawCmd(new MaterialDrawCommand(cmd, storageBufferRegion, meshSubRegion));
-            
-        }
-
-        internal unsafe void ExecuteDrawCommandKeepCommands(VkCommandBuffer commandBuffer,int frameIndex, SwapChainBuffer<VkDrawIndexedIndirectCommand> indirectCmdBuffer,int pushConstantsId)
-        {
-            if (_drawCommands.Count > 0)
-            {
-                BindPipeline(commandBuffer);
-
-                var command = _drawCommands.Peek();
-
-                BindDescriptors(commandBuffer, frameIndex, command.Variant, command.Entity);
-
-                int lastVariant = command.Variant;
-                int lastEntity = command.Entity;
-
-                foreach (var loopCommand in _drawCommands)
-                {
-                    ExecuteDrawCommand(commandBuffer, frameIndex, indirectCmdBuffer, loopCommand, ref lastVariant, ref lastEntity, pushConstantsId);
-                }
-            }
-        }
-
-        internal void ExecuteDrawCommands(RendererFrameInfo rendererFrameInfo,
-            SwapChainBuffer<VkDrawIndexedIndirectCommand> indirectCmdBuffer)
-        {
-            ExecuteDrawCommands(rendererFrameInfo, _drawCommands, indirectCmdBuffer);
-        }
-
-        internal void ExecuteBloomDrawCommands(RendererFrameInfo rendererFrameInfo,
-            SwapChainBuffer<VkDrawIndexedIndirectCommand> indirectCmdBuffer)
-        {
-            ExecuteDrawCommands(rendererFrameInfo, _drawCommands, indirectCmdBuffer);
-        }
-
         internal unsafe void ExecuteDrawCommands(RendererFrameInfo rendererFrameInfo, Queue<MaterialDrawCommand> drawCmds,
             SwapChainBuffer<VkDrawIndexedIndirectCommand> indirectCmdBuffer)
         {
@@ -210,6 +163,26 @@ namespace VECS
                 {
                     command = drawCmds[i];
                     ExecuteDrawCommand(rendererFrameInfo.CommandBuffer, rendererFrameInfo.FrameIndex, indirectCmdBuffer, command, ref lastVariant, ref lastEntity);
+                }
+            }
+        }
+
+        public unsafe void ExecuteDrawCommands(VkCommandBuffer commandBuffer, int frameIndex,MaterialDrawCommand[] drawCommands, SwapChainBuffer<VkDrawIndexedIndirectCommand> indirectCmdBuffer, int pushConstantsId)
+        {
+            if (drawCommands.Length > 0)
+            {
+                BindPipeline(commandBuffer);
+
+                var command = drawCommands[0];
+
+                BindDescriptors(commandBuffer, frameIndex, command.Variant, command.Entity);
+
+                int lastVariant = command.Variant;
+                int lastEntity = command.Entity;
+
+                for (int i = 0; i < drawCommands.Length; i++)
+                {
+                    ExecuteDrawCommand(commandBuffer, frameIndex, indirectCmdBuffer, drawCommands[i], ref lastVariant, ref lastEntity, pushConstantsId);
                 }
             }
         }
