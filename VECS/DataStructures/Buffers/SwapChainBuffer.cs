@@ -243,7 +243,12 @@ namespace VECS
         /// <param name="value"></param>
         public unsafe void UnsafeSet<T>(int hostBufferIndex, T value) where T : unmanaged
         {
-            Debug.Assert(sizeof(T) == InstanceSize32, string.Format("Type T: {0} does has instance size of {1}, but swapchain buffer expects instance size of {2}", value.GetType().Name, sizeof(T), InstanceSize32));
+#if DEBUG
+            if (sizeof(T) != InstanceSize32)
+            {
+                Debug.Assert(sizeof(T) == InstanceSize32, string.Format("Type T: {0} does has instance size of {1}, but swapchain buffer expects instance size of {2}", value.GetType().Name, sizeof(T), InstanceSize32));
+            }
+#endif
             var offsetPtr = IntPtr.Add(new(_hostPtr), hostBufferIndex * InstanceSize32);
             NativeMemory.Copy(&value, offsetPtr.ToPointer(), (uint)sizeof(T));
         }
