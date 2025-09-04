@@ -83,6 +83,18 @@ namespace VECS
             return material;
         }
 
+        public static Material Create(string name, string meshShader, string taskShader, string fragmentShader)
+        {
+            var material = new Material(name, meshShader, taskShader, fragmentShader, GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []), false);
+
+            if (material.HasApplicationSet)
+            {
+                material._allHandlers[0] = Presenter.Instance.GlobalSetHandler;
+            }
+
+            return material;
+        }
+
         public static Material Create(string name, string vertexShader, string fragmentShader, GraphicsPipelineConfigInfo config)
         {
             var material = new Material(name, vertexShader, fragmentShader, config, false);
@@ -120,8 +132,8 @@ namespace VECS
             AssetName = name;
             _actAsGlobal = actAsGlobal;
 
-            ShaderModule vertex = AssetDataBase<ShaderModule>.GetNamed(vertexShaderName);;
-            ShaderModule fragment = AssetDataBase<ShaderModule>.GetNamed(fragmentShaderName);;
+            ShaderModule vertex = AssetDataBase<ShaderModule>.GetNamed(vertexShaderName);
+            ShaderModule fragment = AssetDataBase<ShaderModule>.GetNamed(fragmentShaderName);
 
             if (GPUPipelineUtil.GetVertexInputState(vertex.SpvShaderModule, out VkVertexInputBindingDescription[] vertBindings, out VkVertexInputAttributeDescription[] vertAttributes))
             {
@@ -152,6 +164,43 @@ namespace VECS
             Materials.Add(this);
             AssetDataBase<Material>.Add(this);
         }
+        
+        internal Material(string name, string meshShaderName,string taskShaderName, string fragmentShaderName, GraphicsPipelineConfigInfo pipelineConfig, bool actAsGlobal)
+        {
+            AssetName = name;
+            _actAsGlobal = actAsGlobal;
+
+            ShaderModule mesh = AssetDataBase<ShaderModule>.GetNamed(meshShaderName);
+            ShaderModule task = AssetDataBase<ShaderModule>.GetNamed(taskShaderName);
+            ShaderModule fragment = AssetDataBase<ShaderModule>.GetNamed(fragmentShaderName);
+
+            pipelineConfig.BindingDescriptions = null;
+            pipelineConfig.AttributeDescriptions = null;
+
+            _graphicsPipelineConfigInfo = pipelineConfig;
+            _materialBindings = GPUPipelineUtil.GenerateSharedDescriptorBindings(mesh.SpvShaderModule, task.SpvShaderModule, fragment.SpvShaderModule);
+
+            _applicationGlobalBindings = GPUPipelineUtil.ExtractBindingsForSet(0, _materialBindings);
+            _materialGlobalBindings = GPUPipelineUtil.ExtractBindingsForSet(1, _materialBindings);
+            _entityBindings = GPUPipelineUtil.ExtractBindingsForSet(2, _materialBindings);
+
+            GenerateDescriptorSetLayouts();
+            _totalSets = (uint)_allLayouts.Length;
+            _allHandlers = new DescriptorHandler[_allLayouts.Length];
+
+            CreateDescriptorSetHandler();
+
+            _materialPushConstantsHandler = new(mesh.SpvShaderModule, task.SpvShaderModule, fragment.SpvShaderModule);
+
+            CreatePipelineLayout(mesh, task,fragment);
+
+            _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipeline(mesh, task,fragment, _graphicsPipelineConfigInfo);
+
+            Debug.Assert(Materials.Count < EarlyDrawCommand.MAX_MATERIAL_COUNT, string.Format("Material Creation would Exceeded Max Theorectical Material Count ({0})\nProbably reduce the number of materials you have, jeez", EarlyDrawCommand.MAX_MATERIAL_COUNT));
+
+            Materials.Add(this);
+            AssetDataBase<Material>.Add(this);
+        }
 
         private void CreateDescriptorSetHandler()
         {
@@ -160,7 +209,7 @@ namespace VECS
             {
                 if (_actAsGlobal)
                 {
-                    GPUPipelineUtil.CreateDescriptorSetHandler(_allHandlers,_materialBindings, _allLayouts, index, DescriptorLevel.Game, _applicationGlobalBindings);
+                    GPUPipelineUtil.CreateDescriptorSetHandler(_allHandlers, _materialBindings, _allLayouts, index, DescriptorLevel.Game, _applicationGlobalBindings);
                 }
                 else
                 {
@@ -171,13 +220,13 @@ namespace VECS
             }
             if (HasMaterialSet)
             {
-                GPUPipelineUtil.CreateDescriptorSetHandler(_allHandlers,_materialBindings, _allLayouts,index,DescriptorLevel.Material, _materialGlobalBindings);
+                GPUPipelineUtil.CreateDescriptorSetHandler(_allHandlers, _materialBindings, _allLayouts, index, DescriptorLevel.Material, _materialGlobalBindings);
                 _materialDescriptorHandlerIndex = index;
                 index++;
             }
             if (HasEntitySet)
             {
-                GPUPipelineUtil.CreateDescriptorSetHandler(_allHandlers,_materialBindings, _allLayouts,index, DescriptorLevel.Entity, _entityBindings);
+                GPUPipelineUtil.CreateDescriptorSetHandler(_allHandlers, _materialBindings, _allLayouts, index, DescriptorLevel.Entity, _entityBindings);
                 _entityDescriptorHandlerIndex = index;
             }
         }
@@ -194,7 +243,7 @@ namespace VECS
                 foreach (var item in _applicationGlobalBindings)
                 {
                     workingBindings[workingBindingIndex] = _materialBindings[item.Value];
-                    workingBindings[workingBindingIndex].UpdateShaderStage(VkShaderStageFlags.AllGraphics);
+                    workingBindings[workingBindingIndex].UpdateShaderStage(VkShaderStageFlags.AllGraphics | VkShaderStageFlags.MeshEXT);
                     workingBindingIndex++;
                 }
                 _applicationDescriptorLayout = GPUPipelineUtil.CreateDescriptorSetLayout(workingBindings);
@@ -242,10 +291,25 @@ namespace VECS
             _graphicsPipelineConfigInfo.pipelineLayout = _pipelineLayout = cache.Layout;
             _setsToBind = (VkDescriptorSet*)NativeMemory.AllocZeroed((uint)_allLayouts.Length,(uint)sizeof(VkDescriptorSet));
         }
+        
+        private unsafe void CreatePipelineLayout(ShaderModule mesh,ShaderModule task, ShaderModule fragment)
+        {
+            string cacheName = mesh.AssetName + task.AssetName + fragment.AssetName;
+            var cache = AssetDataBase<PipelineCache>.GetNamedSilentFail(cacheName);
 
+            if (cache == null)
+            {
+                cache = new(cacheName, GPUPipelineUtil.CreatePipelineLayout(_allLayouts, _materialPushConstantsHandler));
+                AssetDataBase<PipelineCache>.Add(cache);
+            }
+
+            _graphicsPipelineConfigInfo.pipelineLayout = _pipelineLayout = cache.Layout;
+            _setsToBind = (VkDescriptorSet*)NativeMemory.AllocZeroed((uint)_allLayouts.Length, (uint)sizeof(VkDescriptorSet));
+        }
+        
         public DescriptorBinding GetBinding(string name)
         {
-            if(_entityBindings.TryGetValue(name, out var binding))
+            if (_entityBindings.TryGetValue(name, out var binding))
             {
                 return _materialBindings[binding];
             }

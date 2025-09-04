@@ -75,7 +75,10 @@ namespace Planets
             World.DefaultWorld.CreateSystem<InteractionSystem>();
 
             EntityManager entityManager = World.DefaultWorld.EntityManager;
-            //ThreadingTesting.Test();
+
+
+            Material meshTrianlge = Material.Create("meshtriangle", "meshshader_tri.mesh", "meshshader_tri.task", "meshshader_tri.frag");
+
             CreateMainCamera(entityManager);
 
             CreateFlightRig(entityManager);

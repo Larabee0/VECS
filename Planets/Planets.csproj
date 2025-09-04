@@ -67,7 +67,7 @@
       <RawShaders Include="$(SolutionDir)/Shaders/**/*.*" Exclude="$(SolutionDir)/Shaders/**/*.glsl" />
     </ItemGroup>
 
-    <Exec Command="$(VULKAN_SDK)/bin/glslc %(RawShaders.Identity) -o $(SolutionDir)/CompiledShaders/%(RawShaders.Filename)%(RawShaders.Extension).spv" />
+    <Exec Command="$(VULKAN_SDK)/bin/glslc --target-env=vulkan1.4 %(RawShaders.Identity) -o $(SolutionDir)/CompiledShaders/%(RawShaders.Filename)%(RawShaders.Extension).spv" />
   </Target>
 
   <Target Name="CopyShaders" AfterTargets="CompileShaders">

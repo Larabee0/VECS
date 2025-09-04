@@ -12,7 +12,7 @@ namespace VECS.LowLevel
     internal static class GraphicsDeviceInit
     {
 #if DEBUG
-        public static bool BreakOnValidationError = false;
+        public static bool BreakOnValidationError = true;
         private readonly static string[] _requiredValidationLayers = ["VK_LAYER_KHRONOS_validation"];
 #endif
         private readonly static VkUtf8String[] _requiredDeviceExtensions = [
@@ -21,7 +21,11 @@ namespace VECS.LowLevel
             Vulkan.VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
             Vulkan.VK_EXT_SAMPLER_FILTER_MINMAX_EXTENSION_NAME,
             Vulkan.VK_KHR_IMAGELESS_FRAMEBUFFER_EXTENSION_NAME,
-            Vulkan.VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME
+            Vulkan.VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME,
+
+            Vulkan.VK_KHR_SPIRV_1_4_EXTENSION_NAME,
+            Vulkan.VK_EXT_MESH_SHADER_EXTENSION_NAME,
+            Vulkan.VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME
         ];
 
 #if DEBUG
@@ -282,17 +286,25 @@ namespace VECS.LowLevel
                 samplerAnisotropy = true,
                 fillModeNonSolid = true,
                 multiDrawIndirect = true,
-                drawIndirectFirstInstance = true,
-                
+                drawIndirectFirstInstance = true,  
             };
+
+            VkPhysicalDeviceMeshShaderFeaturesEXT meshShaderFeatures = new()
+            {
+                taskShader = true,
+                meshShader = true
+            };
+
             VkPhysicalDeviceVulkan12Features deviceFeatures12 = new()
             {
                 imagelessFramebuffer = true,
                 samplerFilterMinmax = true,
                 timelineSemaphore = true,
+                pNext = &meshShaderFeatures
             };
             VkPhysicalDeviceVulkan13Features deviceFeatures13 = new()
             {
+                maintenance4 = true,
                 dynamicRendering = true,
                 synchronization2 = true,
                 pNext = &deviceFeatures12
