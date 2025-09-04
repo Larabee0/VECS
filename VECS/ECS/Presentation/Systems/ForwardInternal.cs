@@ -84,7 +84,7 @@ namespace VECS.ECS.Presentation
             };
 
             Debug.Assert(_renderBlob.DrawSliceCount <= Application.ThreadDispatcher.ThreadCount, "Draw Slices cannot exceed worker count!");
-
+            
             Application.ParallelFor(_renderBlob.DrawSliceCount, (i) =>
             {
 

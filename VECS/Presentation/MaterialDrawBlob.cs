@@ -87,12 +87,12 @@ namespace VECS
         public void Execute(RendererFrameInfo frameInfo, SwapChainBuffer<VkDrawIndexedIndirectCommand> indirectCmdBuffer)
         {
             TargetMaterial.Update(frameInfo);
-            TargetMaterial.ExecuteDrawCommands(frameInfo, MaterialDrawCommands, indirectCmdBuffer, MatDrawCount);
+            TargetMaterial.ExecuteDrawCommands(frameInfo, MaterialDrawCommands, MatDrawCount, indirectCmdBuffer);
         }
 
         public void Execute(VkCommandBuffer commandBuffer, int frameIndex,int pushConstantId, SwapChainBuffer<VkDrawIndexedIndirectCommand> indirectCmdBuffer)
         {
-            TargetMaterial.ExecuteDrawCommands(commandBuffer, frameIndex, MaterialDrawCommands, indirectCmdBuffer, pushConstantId);
+            TargetMaterial.ExecuteDrawCommands(commandBuffer, frameIndex, MaterialDrawCommands,MatDrawCount, indirectCmdBuffer, pushConstantId);
         }
     }
 

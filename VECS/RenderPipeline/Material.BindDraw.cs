@@ -125,7 +125,7 @@ namespace VECS
             }
         }
 
-        public unsafe void ExecuteDrawCommands(RendererFrameInfo rendererFrameInfo, MaterialDrawCommand[] drawCmds, SwapChainBuffer<VkDrawIndexedIndirectCommand> indirectCmdBuffer, int matDrawCount)
+        public unsafe void ExecuteDrawCommands(RendererFrameInfo rendererFrameInfo, MaterialDrawCommand[] drawCmds, int matDrawCount, SwapChainBuffer<VkDrawIndexedIndirectCommand> indirectCmdBuffer)
         {
             if (matDrawCount > 0)
             {
@@ -145,9 +145,9 @@ namespace VECS
             }
         }
 
-        public unsafe void ExecuteDrawCommands(VkCommandBuffer commandBuffer, int frameIndex, MaterialDrawCommand[] drawCommands, SwapChainBuffer<VkDrawIndexedIndirectCommand> indirectCmdBuffer, int pushConstantsId)
+        public unsafe void ExecuteDrawCommands(VkCommandBuffer commandBuffer, int frameIndex, MaterialDrawCommand[] drawCommands, int matDrawCount, SwapChainBuffer<VkDrawIndexedIndirectCommand> indirectCmdBuffer, int pushConstantsId)
         {
-            if (drawCommands.Length > 0)
+            if (matDrawCount > 0)
             {
                 BindPipeline(commandBuffer);
 
@@ -158,7 +158,7 @@ namespace VECS
                 int lastVariant = command.Variant;
                 int lastEntity = command.Entity;
 
-                for (int i = 0; i < drawCommands.Length; i++)
+                for (int i = 0; i < matDrawCount; i++)
                 {
                     ExecuteDrawCommand(commandBuffer, frameIndex, indirectCmdBuffer, drawCommands[i], ref lastVariant, ref lastEntity, pushConstantsId);
                 }
