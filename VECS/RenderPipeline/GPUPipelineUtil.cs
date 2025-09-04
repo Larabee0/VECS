@@ -424,17 +424,22 @@ namespace VECS
                 pDynamicState = &vkDynamicInfo,
 
                 layout = configInfo.pipelineLayout,
-                renderPass = configInfo.renderPass,
-                subpass = configInfo.subpass,
 
                 basePipelineIndex = -1,
                 basePipelineHandle = VkPipeline.Null
             };
             VkPipelineRenderingCreateInfo pipelineRenderingCreateInfo = configInfo.pipelineRenderingCreateInfo;
-            if (configInfo.dynamicRendering)
+            fixed (VkFormat* colourFormats = &configInfo.colourFormats[0])
             {
-                pipelineInfo.pNext = &pipelineRenderingCreateInfo;
+                pipelineRenderingCreateInfo.colorAttachmentCount = (uint)configInfo.colourFormats.Length;
+                pipelineRenderingCreateInfo.pColorAttachmentFormats = colourFormats;    
             }
+            pipelineRenderingCreateInfo.depthAttachmentFormat = configInfo.depthFormat;
+            pipelineRenderingCreateInfo.stencilAttachmentFormat = configInfo.stencilFormat;
+            pipelineRenderingCreateInfo.viewMask = configInfo.viewMask;
+            
+            pipelineInfo.pNext = &pipelineRenderingCreateInfo;
+            
             Vulkan.CheckResult(Vulkan.vkCreateGraphicsPipeline(GraphicsDevice.Device, cache.Cache, pipelineInfo, out var graphicsPipeline), "Failed to create graphics pipeline!");
             
 

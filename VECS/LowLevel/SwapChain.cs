@@ -18,12 +18,13 @@ namespace VECS.LowLevel
         private static uint _currentImage = 0;
         internal VkExtent2D _windowExtent;
 
-        internal VkRenderPass _forwardRenderPass;
-
         public static int FrameIndex => _currentFrame;
         public static int NextFrame => (_currentFrame + 1) % MAX_CONCURRENT_FRAMES;
         public static uint ImageIndex => _currentImage;
-        internal VkRenderPass ForwardRenderPass => _forwardRenderPass;
+
+        public static VkViewport Viewport = new();
+
+        public static VkRect2D Scissor = new();
 
         internal VkFormat RenderFormat => RawRenderImage.Format;
         internal VkFormat DepthFormat => DepthImage.Format;
@@ -42,8 +43,6 @@ namespace VECS.LowLevel
         internal VkFormat _swapChainImageFormat;
         internal VkImage[] _swapChainImages;
         internal VkImageView[] _swapChainImageViews;
-
-        internal VkFramebuffer[] _forwardFramebuffer = new VkFramebuffer[MAX_CONCURRENT_FRAMES];
 
         internal VkSemaphore[] _acquiredImageReadySemaphores; /// <see cref="SwapChain.MAX_CONCURRENT_FRAMES"/>>
         internal VkFence[] _waitPresentBufferFences; /// <see cref="SwapChain.MAX_CONCURRENT_FRAMES"/> 
@@ -177,77 +176,57 @@ namespace VECS.LowLevel
             return true;
         }
 
-        public bool WaitForMainCommandBuffer()
-        {
-            //if (Vulkan.vkWaitForFences(GraphicsDevice.Device, _waitMainBufferFences[_currentFrame], true, 1000000000) == VkResult.Timeout)
-            //{
-            //    return false;
-            //}
-            //Vulkan.CheckResult(Vulkan.vkResetFences(GraphicsDevice.Device, _waitMainBufferFences[_currentFrame]), string.Format("Failed to reset main fence {0}", _currentFrame));
-            return true;
-            
-        }
-
         public static void WaitAndResetFence(VkFence fence)
         {
             Vulkan.vkWaitForFences(GraphicsDevice.Device, fence, true, ulong.MaxValue);
             Vulkan.CheckResult(Vulkan.vkResetFences(GraphicsDevice.Device, fence), "Failed to reset fence ");
         }
 
-        public bool WaitForComputeComamndBuffer()
+        public unsafe void BeginForwardRendering(VkCommandBuffer commandBuffer)
         {
-            //if (Vulkan.vkWaitForFences(GraphicsDevice.Device, _waitComputeBufferFences[_currentFrame], true, 1000000000) == VkResult.Timeout)
-            //{
-            //    return false;
-            //}
-            //Vulkan.CheckResult(Vulkan.vkResetFences(GraphicsDevice.Device, _waitComputeBufferFences[_currentFrame]), string.Format("Failed to reset compute fence {0}", _currentFrame));
-            return true;
+            VkRenderingAttachmentInfo colour = new()
+            {
+                imageView = RawRenderImage._imageView,
+                imageLayout = RawRenderImage.ImageLayout,
+                loadOp = VkAttachmentLoadOp.Clear,
+                storeOp = VkAttachmentStoreOp.Store,
+                clearValue = new(0, 0, 0, 1)
+            };
+
+            VkRenderingAttachmentInfo depth = new()
+            {
+                imageView = DepthImage._imageView,
+                imageLayout = DepthImage.ImageLayout,
+                loadOp = VkAttachmentLoadOp.Clear,
+                storeOp = VkAttachmentStoreOp.Store,
+                clearValue = new(1, 0)
+            };
+
+            VkRenderingInfo renderingInfo = new()
+            {
+                renderArea = new(0, 0, _swapChainExtent.width, _swapChainExtent.height),
+                layerCount = 1,
+                colorAttachmentCount = 1,
+                pColorAttachments = &colour,
+                pDepthAttachment = &depth,
+                pStencilAttachment = &depth,
+                flags = VkRenderingFlags.ContentsSecondaryCommandBuffers
+            };
+            Vulkan.vkCmdBeginRendering(commandBuffer, &renderingInfo);
+
+            SetViewPort(commandBuffer);
         }
 
-
-        public unsafe void BeginForwardRenderPass(VkCommandBuffer commandBuffer)
+        public static void SetViewPort(VkCommandBuffer commandBuffer)
         {
-            VkClearValue* clearValues = stackalloc VkClearValue[]
-            {
-                new(new VkClearColorValue(0,0,0)),
-                new(1,0)
-            };
-
-            VkRenderPassBeginInfo renderPassInfo = new()
-            {
-                renderPass = _forwardRenderPass,
-                renderArea = new()
-                {
-                    offset = new(0, 0),
-                    extent = _swapChainExtent
-                },
-                clearValueCount = 2,
-                pClearValues = clearValues,
-                framebuffer = _forwardFramebuffer[_currentFrame]
-            };
-
-            Vulkan.vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VkSubpassContents.Inline);
-
-            VkViewport viewport = new()
-            {
-                x = 0,
-                y = _swapChainExtent.height,
-                width = _swapChainExtent.width,
-                height = -_swapChainExtent.height,
-                minDepth = 0,
-                maxDepth = 1
-            };
-
-            VkRect2D scissor = new()
-            {
-                offset = new VkOffset2D(0, 0),
-                extent = _swapChainExtent
-            };
-
-            Vulkan.vkCmdSetViewport(commandBuffer, viewport);
-            Vulkan.vkCmdSetScissor(commandBuffer, scissor);
+            Vulkan.vkCmdSetViewport(commandBuffer, Viewport);
+            Vulkan.vkCmdSetScissor(commandBuffer, Scissor);
         }
 
+        public void EndForwardRendering(VkCommandBuffer commandBuffer)
+        {
+            Vulkan.vkCmdEndRendering(commandBuffer);
+        }
 
         // should be called from graphics queue
         internal unsafe void TransferSwapChainImageToGraphicsQueue(VkCommandBuffer commandBuffer, int frameIndex, int imageIndex)
@@ -324,7 +303,8 @@ namespace VECS.LowLevel
                 VkFilter.Linear
             );
 
-            renderImage.SetImageLayout(commandBuffer, VkImageLayout.ShaderReadOnlyOptimal);
+            renderImage.SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal);
+            //renderImage.SetImageLayout(commandBuffer, VkImageLayout.DepthStencilAttachmentOptimal);
 
             // replaced by TransferSwapChainImageToPresentQueue
             //TextureExtensions.SetImageLayout(commandBuffer, swapChainImage, VkImageAspectFlags.Color, VkImageLayout.TransferDstOptimal, VkImageLayout.PresentSrcKHR, VkPipelineStageFlags.AllCommands, VkPipelineStageFlags.AllCommands);
@@ -422,13 +402,6 @@ namespace VECS.LowLevel
                 _rawRenderImage[i].Dispose();
                 _depthImage[i].Dispose();
             }
-
-            for (int i = 0; i < MAX_CONCURRENT_FRAMES; i++)
-            {
-                Vulkan.vkDestroyFramebuffer(GraphicsDevice.Device, _forwardFramebuffer[i]);
-            }
-
-            Vulkan.vkDestroyRenderPass(GraphicsDevice.Device, _forwardRenderPass);
 
             for (int i = 0; i < SWAP_CHAIN_IMAGE_COUNT; i++)
             {

@@ -125,28 +125,6 @@ namespace VECS
             }
         }
 
-        internal unsafe void ExecuteDrawCommands(RendererFrameInfo rendererFrameInfo, Queue<MaterialDrawCommand> drawCmds,
-            SwapChainBuffer<VkDrawIndexedIndirectCommand> indirectCmdBuffer)
-        {
-            if (drawCmds.Count > 0)
-            {
-                BindPipeline(rendererFrameInfo);
-
-                var command = drawCmds.Peek();
-
-                BindDescriptors(rendererFrameInfo.CommandBuffer, rendererFrameInfo.FrameIndex, command.Variant, command.Entity);
-
-                int lastVariant = command.Variant;
-                int lastEntity = command.Entity;
-
-                while (drawCmds.Count > 0)
-                {
-                    command = drawCmds.Dequeue();
-                    ExecuteDrawCommand(rendererFrameInfo.CommandBuffer, rendererFrameInfo.FrameIndex, indirectCmdBuffer, command, ref lastVariant, ref lastEntity);
-                }
-            }
-        }
-
         public unsafe void ExecuteDrawCommands(RendererFrameInfo rendererFrameInfo, MaterialDrawCommand[] drawCmds, SwapChainBuffer<VkDrawIndexedIndirectCommand> indirectCmdBuffer, int matDrawCount)
         {
             if (matDrawCount > 0)
@@ -167,7 +145,7 @@ namespace VECS
             }
         }
 
-        public unsafe void ExecuteDrawCommands(VkCommandBuffer commandBuffer, int frameIndex,MaterialDrawCommand[] drawCommands, SwapChainBuffer<VkDrawIndexedIndirectCommand> indirectCmdBuffer, int pushConstantsId)
+        public unsafe void ExecuteDrawCommands(VkCommandBuffer commandBuffer, int frameIndex, MaterialDrawCommand[] drawCommands, SwapChainBuffer<VkDrawIndexedIndirectCommand> indirectCmdBuffer, int pushConstantsId)
         {
             if (drawCommands.Length > 0)
             {

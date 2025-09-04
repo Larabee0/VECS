@@ -33,13 +33,24 @@ namespace VECS.LowLevel
 
             CreateAdditionalSamplers(newSwapChain);
 
-            CreateFowardRenderPass(newSwapChain);
-
-            CreateFramebuffers(newSwapChain);
-
             CreateSyncObjects(newSwapChain);
 
             CreateTimelineSemaphores(newSwapChain);
+
+            SwapChain.Scissor = new()
+            {
+                offset = new VkOffset2D(0, 0),
+                extent = newSwapChain.SwapChainExtent
+            };
+            SwapChain.Viewport = new()
+            {
+                x = 0,
+                y =  newSwapChain.SwapChainExtent.height,
+                width =  newSwapChain.SwapChainExtent.width,
+                height = - newSwapChain.SwapChainExtent.height,
+                minDepth = 0,
+                maxDepth = 1
+            };
         }
 
         private static unsafe void CreateSwapChain(SwapChain oldSwapChain, SwapChain newSwapChain)
@@ -170,22 +181,39 @@ namespace VECS.LowLevel
             swapChain._copyToSwapChainBlit.dstOffsets[1].x = (int)swapChain.SwapChainExtent.width;
             swapChain._copyToSwapChainBlit.dstOffsets[1].y = (int)swapChain.SwapChainExtent.height;
             swapChain._copyToSwapChainBlit.dstOffsets[1].z = 1;
+
+            var commandBuffer = GraphicsDevice.BeginSingleTimeMainPipe();
+            for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
+            {
+                swapChain._rawRenderImage[i].SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal);
+            }
+            GraphicsDevice.EndSingleTimeMainPipe(commandBuffer);
         }
 
         private static unsafe void CreateDepthImage(SwapChain swapChain)
         {
+            var _depthFormat = GraphicsDevice.FindSupportFormat([VkFormat.D32SfloatS8Uint, VkFormat.D32Sfloat, VkFormat.D24UnormS8Uint, VkFormat.D16UnormS8Uint, VkFormat.D16Unorm],
+                VkImageTiling.Optimal,
+                VkFormatFeatureFlags.DepthStencilAttachment);
             uint[] queueIndices = [GraphicsDevice.PhysicalQueueFamilies.presentFamily, GraphicsDevice.PhysicalQueueFamilies.graphicsFamily];
             for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
             {
                 if (GraphicsDevice.PresentQueue != GraphicsDevice.MainQueue)
                 {
-                    swapChain._depthImage[i] = new(string.Format("_depthImage_{0}", i), (int)swapChain._windowExtent.width, (int)swapChain._windowExtent.height, VkFormat.D32Sfloat, VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.Sampled, queueIndices, false);
+                    swapChain._depthImage[i] = new(string.Format("_depthImage_{0}", i), (int)swapChain._windowExtent.width, (int)swapChain._windowExtent.height, _depthFormat, VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.Sampled, queueIndices, false);
                 }
                 else
                 {
-                    swapChain._depthImage[i] = new(string.Format("_depthImage_{0}", i), (int)swapChain._windowExtent.width, (int)swapChain._windowExtent.height, VkFormat.D32Sfloat, VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.Sampled, false);
+                    swapChain._depthImage[i] = new(string.Format("_depthImage_{0}", i), (int)swapChain._windowExtent.width, (int)swapChain._windowExtent.height, _depthFormat, VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.Sampled, false);
                 }
             }
+            
+            var commandBuffer = GraphicsDevice.BeginSingleTimeMainPipe();
+            for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
+            {
+                swapChain._depthImage[i].SetImageLayout(commandBuffer, VkImageLayout.DepthStencilAttachmentOptimal);
+            }
+            GraphicsDevice.EndSingleTimeMainPipe(commandBuffer);
         }
 
         private static unsafe void CreateAdditionalSamplers(SwapChain swapChain)
@@ -229,102 +257,6 @@ namespace VECS.LowLevel
                 swapChain._depthImage[i].CreateSampler(createInfo);
                 swapChain._rawRenderImage[i].CreateSampler(samplierInfo);
             }
-        }
-
-        private static unsafe void CreateFowardRenderPass(SwapChain swapChain)
-        {
-            VkAttachmentDescription colourAttachment = new()
-            {
-                format = swapChain.RenderFormat,
-                samples = VkSampleCountFlags.Count1,
-                loadOp = VkAttachmentLoadOp.Clear,
-                storeOp = VkAttachmentStoreOp.Store,
-                stencilLoadOp = VkAttachmentLoadOp.DontCare,
-                stencilStoreOp = VkAttachmentStoreOp.DontCare,
-                initialLayout = VkImageLayout.Undefined,
-                finalLayout = VkImageLayout.ShaderReadOnlyOptimal
-            };
-
-            VkAttachmentReference color_attachment_ref = new()
-            {
-                attachment = 0,
-                layout = VkImageLayout.ColorAttachmentOptimal
-            };
-
-
-            VkAttachmentDescription depthAttachment = new()
-            {
-                flags = 0,
-                format = swapChain.DepthFormat,
-                samples = VkSampleCountFlags.Count1,
-                loadOp = VkAttachmentLoadOp.Clear,
-                storeOp = VkAttachmentStoreOp.Store,
-                stencilLoadOp = VkAttachmentLoadOp.Clear,
-                stencilStoreOp = VkAttachmentStoreOp.DontCare,
-                initialLayout = VkImageLayout.Undefined,
-                finalLayout = VkImageLayout.DepthStencilAttachmentOptimal
-            };
-
-            VkAttachmentReference depth_attachment_ref = new()
-            {
-                attachment = 1,
-                layout = VkImageLayout.DepthStencilAttachmentOptimal
-            };
-
-
-            VkSubpassDescription subpass = new()
-            {
-                pipelineBindPoint = VkPipelineBindPoint.Graphics,
-                colorAttachmentCount = 1,
-                pColorAttachments = &color_attachment_ref,
-                pDepthStencilAttachment = &depth_attachment_ref
-            };
-
-            VkSubpassDependency dependency = new()
-            {
-                srcSubpass = Vulkan.VK_SUBPASS_EXTERNAL,
-                dstSubpass = 0,
-                srcStageMask = VkPipelineStageFlags.ColorAttachmentOutput,
-                srcAccessMask = 0,
-                dstStageMask = VkPipelineStageFlags.ColorAttachmentOutput,
-                dstAccessMask = VkAccessFlags.ColorAttachmentWrite
-            };
-
-
-            VkAttachmentDescription* attachments = stackalloc VkAttachmentDescription[] { colourAttachment, depthAttachment };
-
-            VkRenderPassCreateInfo render_pass_info = new()
-            {
-                attachmentCount = 2,
-                pAttachments = attachments,
-                subpassCount = 1,
-                pSubpasses = &subpass,
-                dependencyCount = 1,
-                pDependencies = &dependency
-            };
-            
-            Vulkan.CheckResult(Vulkan.vkCreateRenderPass(GraphicsDevice.Device, &render_pass_info, null, out swapChain._forwardRenderPass), "Failed to create renderPass");
-        }
-
-        private static unsafe void CreateFramebuffers(SwapChain swapChain)
-        {
-            VkImageView* attachements = stackalloc VkImageView[2];
-            for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
-            {
-                attachements[0] = swapChain._rawRenderImage[i]._imageView;
-                attachements[1] = swapChain._depthImage[i]._imageView;
-
-                VkFramebufferCreateInfo fwdInfo = new()
-                {
-                    renderPass = swapChain.ForwardRenderPass,
-                    attachmentCount = 2,
-                    pAttachments = attachements,
-                    width = swapChain._windowExtent.width,
-                    height = swapChain._windowExtent.height,
-                    layers = 1
-                };
-                Vulkan.CheckResult(Vulkan.vkCreateFramebuffer(GraphicsDevice.Device, fwdInfo, null, out swapChain._forwardFramebuffer[i]), "Failed to create forward frame buffer");
-            }      
         }
 
         private static unsafe void CreateSyncObjects(SwapChain swapChain)

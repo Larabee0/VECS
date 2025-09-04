@@ -190,11 +190,11 @@ namespace VECS.LowLevel
             blendAttachment.dstAlphaBlendFactor = VkBlendFactor.DstAlpha;
 
             blurConfig.colourBlendAttachment = blendAttachment;
-            blurConfig.renderPass = _renderPass;
+            //blurConfig.renderPass = _renderPass;
 
             _blurVerticalMat = Material.Create("VerticalGaussBlur","gaussblur.vert", "gaussblur.frag", blurConfig);
 
-            blurConfig.renderPass = foward;
+            //blurConfig.renderPass = foward;
             _blurHorizontalMat = Material.Create("HorizontalGaussBlur","gaussblur.vert", "gaussblur.frag", blurConfig);
 
             _blurVerticalMat.SetTexture("samplerColor", _framebufferGlow.Colour);

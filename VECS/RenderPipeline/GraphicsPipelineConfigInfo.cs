@@ -1,4 +1,5 @@
-﻿using Vortice.Vulkan;
+﻿using VECS.LowLevel;
+using Vortice.Vulkan;
 
 namespace VECS.GraphicsPipelines
 {
@@ -21,10 +22,12 @@ namespace VECS.GraphicsPipelines
         public VkDynamicState[] dynamicStateEnables;
         public VkPipelineDynamicStateCreateInfo dynamicInfo;
         public VkPipelineLayout pipelineLayout;
-        public VkRenderPass renderPass;
         public VkPipelineRenderingCreateInfo pipelineRenderingCreateInfo;
-        public bool dynamicRendering;
-        public uint subpass;
+        //public bool dynamicRendering;
+        public VkFormat[] colourFormats;
+        public VkFormat depthFormat;
+        public VkFormat stencilFormat;
+        public uint viewMask;
 
         /// <summary>
         /// Default graphics pipeline configuration. Because of course vulkan doesn't have a default.
@@ -45,7 +48,7 @@ namespace VECS.GraphicsPipelines
 
         public static unsafe GraphicsPipelineConfigInfo DefaultPipelineConfigInfo(VkVertexInputBindingDescription[] vkVertexInputBindings, VkVertexInputAttributeDescription[] vkVertexInputAttributes)
         {
-
+            
             VkPipelineColorBlendStateCreateInfo colourBlendInfo = new()
             {
                 logicOpEnable = false,
@@ -68,9 +71,12 @@ namespace VECS.GraphicsPipelines
                 new(VertexAttribute.Position,VertexAttributeFormat.Float3,0,0,0),
                 new(VertexAttribute.Normal,VertexAttributeFormat.Float3,12,0,1),
             };
-
             return new()
             {
+                colourFormats = [SwapChain.Instance.RenderFormat],
+                depthFormat = SwapChain.Instance.DepthFormat,
+                stencilFormat = SwapChain.Instance.DepthFormat,
+                pipelineRenderingCreateInfo = new(),
                 inputAssemblyInfo = new()
                 {
                     topology = VkPrimitiveTopology.TriangleList,
@@ -146,11 +152,10 @@ namespace VECS.GraphicsPipelines
             };
         }
 
-        public static GraphicsPipelineConfigInfo DefaultPipelineConfigInfo(VkRenderPass renderPass, VkPipelineLayout pipelineLayout)
+        public static GraphicsPipelineConfigInfo DefaultPipelineConfigInfo(VkPipelineLayout pipelineLayout)
         {
             var pipelineConfigInfo = DefaultPipelineConfigInfo();
             //EnableAlphaBlending(ref pipelineConfigInfo);
-            pipelineConfigInfo.renderPass = renderPass;
             pipelineConfigInfo.pipelineLayout = pipelineLayout;
 
             return pipelineConfigInfo;
@@ -160,7 +165,6 @@ namespace VECS.GraphicsPipelines
         {
             var pipelineConfigInfo = DefaultPipelineConfigInfo(vkVertexInputBindings,vkVertexInputAttributes);
             //EnableAlphaBlending(ref pipelineConfigInfo);
-            pipelineConfigInfo.renderPass = renderPass;
             pipelineConfigInfo.pipelineLayout = pipelineLayout;
 
             return pipelineConfigInfo;

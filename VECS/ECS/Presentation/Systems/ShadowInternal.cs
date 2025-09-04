@@ -18,26 +18,12 @@ namespace VECS.ECS.Presentation
         {
             GraphicsPipelineConfigInfo shadowConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             Cubemap shadowCube = AssetDataBase<Cubemap>.GetNamed("ShadowCubeMap");
-            Texture2D shadowDepthStencil = AssetDataBase<Texture2D>.GetNamed("ShadowFBAttachment");
-            var colour = shadowCube.Format;
+            Texture2D shadowDepthStencil = AssetDataBase<Texture2D>.GetNamed("ShadowDepthImage");
 
-            shadowConfig.renderPass = VkRenderPass.Null;
-            shadowConfig.colourBlendAttachment = new()
-            {
-                colorWriteMask = VkColorComponentFlags.All,
-                blendEnable = false,
-            };
-            shadowConfig.colourBlendInfo = new(shadowConfig.colourBlendAttachment);
-            shadowConfig.dynamicStateEnables = [VkDynamicState.Viewport, VkDynamicState.Scissor];
-            shadowConfig.pipelineRenderingCreateInfo = new()
-            {
-                colorAttachmentCount = 1,
-                pColorAttachmentFormats = &colour,
-                depthAttachmentFormat = shadowDepthStencil.Format,
-                stencilAttachmentFormat = shadowDepthStencil.Format
-            };
-            shadowConfig.dynamicRendering = true;
-            shadowConfig.rasterizationInfo.cullMode = VkCullModeFlags.None;
+            shadowConfig.colourFormats = [shadowCube.Format];
+            shadowConfig.depthFormat = shadowDepthStencil.Format;
+            shadowConfig.stencilFormat = shadowDepthStencil.Format;
+
             _freeBuffers = new VkCommandBuffer[SwapChain.MAX_CONCURRENT_FRAMES][];
             for (int i = 0; i < _freeBuffers.Length; i++)
             {
@@ -82,7 +68,7 @@ namespace VECS.ECS.Presentation
             cullData.frustum = frustum;
             VkCommandBuffer[] parallelCmdBuffers = _freeBuffers[frameInfo.FrameIndex];
 
-            for (int i = 0; i < 6; i++)
+            for (int i = 0; i < parallelCmdBuffers.Length; i++)
             {
                 if (parallelCmdBuffers[i].IsNull)
                 {

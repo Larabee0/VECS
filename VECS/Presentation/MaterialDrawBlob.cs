@@ -96,7 +96,7 @@ namespace VECS
         }
     }
 
-    public class RenderBlob :IRenderBlob, IDisposable
+    public class RenderBlob : IRenderBlob, IDisposable
     {
         private readonly EarlyDrawCommand[] _earlyDrawCommands;
         private readonly MaterialDrawIndexer[] _indexers;
@@ -108,8 +108,6 @@ namespace VECS
 
         private uint _drawCount;
 
-        public uint DrawCount => _drawCount;
-
         private readonly ConcurrentDictionary<Vector2Int, uint> _materialVariants = new();
 
         private int _allocatedVariantsCount;
@@ -117,6 +115,13 @@ namespace VECS
         private uint[] _variantCounts;
 
         private MaterialDrawBlob[] _drawBlobs = [];
+        public int[] _drawBlobMap = [];
+        public BufferRegion[] _drawSlices = [];
+
+        public int DrawSliceCount => _drawSlices.Length;
+        public uint DrawCount => _drawCount;
+
+        public int DrawBlobCount => _drawBlobs.Length;
 
         public unsafe RenderBlob(uint maxDraws)
         {
@@ -152,6 +157,7 @@ namespace VECS
             earlySort.Wait();
             SliceEarlyDraws();
             BuildMaterialDrawCommands();
+            SliceBlobs();
         }
 
         private unsafe Task GenerateEarlyDraws(EntityManager entityManager, List<Entity> entities)
@@ -327,6 +333,52 @@ namespace VECS
             _modelBoundsBuffer.SetBuffersDirty(true);
         }
 
+
+        /// <summary>
+        /// This method slices the draw blobs into buffer regions so that a worker thread can draw multiple blobs
+        /// This means dividing the blobs with work up between the max number of worker threads <see cref="Application.ThreadDispatcher.ThreadCount"/>
+        /// This is relatively easy to do if the number of blobs is less than or equal to the number of worker threads
+        /// when it exceeds it is also quite easy if the number of blobs is equal to a multiple of the thread count.
+        /// </summary>
+        private unsafe void SliceBlobs()
+        {
+            int workers = Application.ThreadDispatcher.ThreadCount;
+            int blobsWithWork = 0;
+            for (int i = 0; i < _drawBlobs.Length; i++)
+            {
+                if (BlobHasDraws(i))
+                {
+                    blobsWithWork++;
+                }
+            }
+            var arraySize = Math.Min(workers, blobsWithWork);
+            if (_drawSlices.Length != arraySize)
+            {
+                Array.Resize(ref _drawSlices, arraySize);
+                Array.Resize(ref _drawBlobMap, arraySize);
+            }
+            
+            
+            for (int i = 0, o = 0; i < _drawBlobs.Length; i++)
+            {
+                if (BlobHasDraws(i))
+                {
+                    _drawBlobMap[o] = i;
+                    o++;
+                }
+            }
+
+            int blobsPerWorker = blobsWithWork / workers;
+            int reminderBlobs = blobsWithWork % workers;
+            BufferRegion region = default;
+            for (int i = 0; i < Math.Min(blobsWithWork, workers); i++)
+            {
+                region.Count = i < reminderBlobs ? blobsPerWorker + 1 : blobsPerWorker;
+                _drawSlices[i] = region;
+                region.IncrementAlt();
+            }
+        }
+
         public void UpdateDrawCommands(EntityManager entityManager)
         {
             Application.ParallelFor(_drawBlobs.Length, (i) => UpdateDrawCommandInternal(entityManager, i));
@@ -368,6 +420,7 @@ namespace VECS
 
         public void Draw(RendererFrameInfo frameInfo)
         {
+            
             for (int i = 0; i < _drawBlobs.Length; i++)
             {
                 if (_drawBlobs[i].MatDrawCount > 0)
@@ -386,6 +439,29 @@ namespace VECS
                     _drawBlobs[i].Execute(commandBuffer, frameIndex, pushConstantId, _indirectCmdBuffer);
                 }
             }
+        }
+
+        public void DrawSlice(int sliceIndex, VkCommandBuffer commandBuffer, int frameIndex, int pushConstantId)
+        {
+            var region = _drawSlices[sliceIndex];
+            
+            for (int i = region.StartIndex; i < region.Offset; i++)
+            {
+                _drawBlobs[_drawBlobMap[i]].Execute(commandBuffer, frameIndex, pushConstantId, _indirectCmdBuffer);
+            }
+        }
+
+        public void DrawBlob(int blobIndex, VkCommandBuffer commandBuffer, int frameIndex, int pushConstantId)
+        {
+            if (_drawBlobs[blobIndex].MatDrawCount > 0)
+            {
+                _drawBlobs[blobIndex].Execute(commandBuffer, frameIndex, pushConstantId, _indirectCmdBuffer);
+            }
+        }
+
+        public bool BlobHasDraws(int blobIndex)
+        {
+            return _drawBlobs[blobIndex].MatDrawCount > 0;
         }
 
         public unsafe void Dispose()

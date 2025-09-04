@@ -154,6 +154,19 @@ namespace VECS
             });
         }
         
+        public static void ParallelFor(int count, Action<int,int> action)
+        {
+
+            int bepuCounter = -1;
+            ThreadDispatcher.DispatchWorkers((workIndex) =>
+            {
+                int claimedIndex;
+                while ((claimedIndex = Interlocked.Increment(ref bepuCounter)) < count)
+                {
+                    action?.Invoke(workIndex,claimedIndex);
+                }
+            });
+        }
         /// <summary>
         /// Order of dispoal matters here.
         /// </summary>

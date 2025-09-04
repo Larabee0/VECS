@@ -73,7 +73,7 @@ namespace VECS
 
         public static Material Create(string name, string vertexShader, string fragmentShader)
         {
-            var material = new Material(name, vertexShader, fragmentShader, GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []), false, Presenter.Instance.ForwardRenderPass);
+            var material = new Material(name, vertexShader, fragmentShader, GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []), false);
 
             if (material.HasApplicationSet)
             {
@@ -85,7 +85,7 @@ namespace VECS
 
         public static Material Create(string name, string vertexShader, string fragmentShader, GraphicsPipelineConfigInfo config)
         {
-            var material = new Material(name, vertexShader, fragmentShader, config, false, config.renderPass);
+            var material = new Material(name, vertexShader, fragmentShader, config, false);
 
             if (material.HasApplicationSet)
             {
@@ -98,16 +98,14 @@ namespace VECS
         public static Material CreateWithAlphaBlending(string name, string vertexShader, string fragmentShader)
         {
             var config = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
-            config.renderPass = Presenter.Instance.ForwardRenderPass;
             GraphicsPipelineConfigInfo.EnableAlphaBlending(ref config);
             return Create(name, vertexShader, fragmentShader, config);
         }
 
-        public static Material CreateWithRenderPass(string name, string vertexShader, string fragmentShader, VkRenderPass renderPass)
+        public static Material CreateWithRenderPass(string name, string vertexShader, string fragmentShader)
         {
             var config = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
-            config.renderPass = renderPass;
-            var material = new Material(name, vertexShader, fragmentShader, config, false, renderPass);
+            var material = new Material(name, vertexShader, fragmentShader, config, false);
 
             if (material.HasApplicationSet)
             {
@@ -117,7 +115,7 @@ namespace VECS
             return material;
         }
 
-        internal Material(string name, string vertexShaderName, string fragmentShaderName, GraphicsPipelineConfigInfo pipelineConfig, bool actAsGlobal, VkRenderPass renderPass)
+        internal Material(string name, string vertexShaderName, string fragmentShaderName, GraphicsPipelineConfigInfo pipelineConfig, bool actAsGlobal)
         {
             AssetName = name;
             _actAsGlobal = actAsGlobal;
@@ -131,7 +129,6 @@ namespace VECS
                 pipelineConfig.AttributeDescriptions = vertAttributes;
             }
             _graphicsPipelineConfigInfo = pipelineConfig;
-            _graphicsPipelineConfigInfo.renderPass = renderPass;
             _materialBindings = GPUPipelineUtil.GenerateSharedDescriptorBindings(vertex.SpvShaderModule, fragment.SpvShaderModule);
 
             _applicationGlobalBindings = GPUPipelineUtil.ExtractBindingsForSet(0, _materialBindings);

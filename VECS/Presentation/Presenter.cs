@@ -57,7 +57,6 @@ namespace VECS
         public Material Lit => _litMaterial;
         public Material LitTexture => _litTextureMaterial;
 
-        public VkRenderPass ForwardRenderPass => _swapChain.ForwardRenderPass;
         public VkDescriptorSetLayout GlobalSetLayout => _globalDescriptorSetHandler.VkDescriptorSetLayout;
         internal DescriptorHandler GlobalSetHandler => _globalDescriptorSetHandler;
         public int FrameIndex
@@ -80,7 +79,7 @@ namespace VECS
             LoadDefaultResources();
 
 
-            _bloom = new(ForwardRenderPass);
+            //_bloom = new(ForwardRenderPass);
         }
 
 
@@ -184,7 +183,7 @@ namespace VECS
 
         private void LoadDefaultResources()
         {
-            _unlitMaterial = new Material("Unlit", "unlit.vert", "unlit.frag", GraphicsPipelines.GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []), true, ForwardRenderPass);
+            _unlitMaterial = new Material("Unlit", "unlit.vert", "unlit.frag", GraphicsPipelines.GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []), true);
             _globalDescriptorSetHandler = _unlitMaterial.ApplicationDescriptorSetHandler;
 
             _unlitTransparentMaterial = Material.CreateWithAlphaBlending("Unlit Transparent", "unlit.vert", "unlit.frag");
@@ -339,18 +338,18 @@ namespace VECS
             World.DefaultWorld.PresentShadowPassUpdate(frameInfo);
 
             //Bloom early
-            _bloom.BeginGlowPass(frameInfo);
+            //_bloom.BeginGlowPass(frameInfo);
             World.DefaultWorld.PresentBloomGlow(frameInfo);
-            EndRenderPass(commandBuffer);
-            _bloom.BlurVertical(frameInfo);
+            //EndRenderPass(commandBuffer);
+            //_bloom.BlurVertical(frameInfo);
 
             // forward pass
-            _swapChain.BeginForwardRenderPass(commandBuffer);
+            _swapChain.BeginForwardRendering(commandBuffer);
             World.DefaultWorld.PresentFowardPassUpdate(frameInfo);
 
             // bloom late
-            _bloom.BlurHorizontal(frameInfo);
-            EndRenderPass(commandBuffer);
+            //_bloom.BlurHorizontal(frameInfo);
+            _swapChain.EndForwardRendering(commandBuffer);
         }
 
 

@@ -75,10 +75,10 @@ namespace VECS.LowLevel
 
                     _presentCancel.Cancel();
                     Thread.SpinWait(1000);
-                    if (_presentThread.IsAlive)
-                    {
-                        WaitOnTimelineFromHost(SemaphoreStages.RenderComplete, FrameIndex);
-                    }
+                    //if (_presentThread.IsAlive)
+                    //{
+                    //    WaitOnTimelineFromHost(SemaphoreStages.RenderComplete, FrameIndex);
+                    //}
                     while (_presentThread.IsAlive)
                     {
                         Thread.SpinWait(1000);
@@ -185,10 +185,6 @@ namespace VECS.LowLevel
 
         private unsafe void BuildComputeCommands()
         {
-            if (!WaitForComputeComamndBuffer())
-            {
-                return;
-            }
             VkCommandBufferBeginInfo beginInfo = new();
 
             Vulkan.CheckResult(Vulkan.vkBeginCommandBuffer(CurrentComputeCommandBuffer, &beginInfo), "Failed to begin recording compute command buffer");
@@ -336,14 +332,6 @@ namespace VECS.LowLevel
 
         public unsafe VkCommandBuffer BuildGraphicsCommands(int frameIndex, int imageIndex)
         {
-
-            if (!WaitForMainCommandBuffer())
-            {
-                return CurrentMainCommandBuffer;
-            }
-
-
-
             VkCommandBufferBeginInfo beginInfo = new();
             VkCommandBuffer commandBuffer = CurrentMainCommandBuffer;
             Vulkan.CheckResult(Vulkan.vkBeginCommandBuffer(commandBuffer, &beginInfo), "Failed to begin recording main command buffer");

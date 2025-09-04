@@ -10,7 +10,7 @@ namespace VECS.LowLevel
         public const VkFormat SHADOW_IMAGE_FORMAT = VkFormat.R32Sfloat;
         private readonly VkFormat _depthFormat;
         public Cubemap CubeMap;
-        public Texture2D FrameBufferAttachment;
+        public Texture2D DepthImage;
 
         public unsafe ShadowImage()
         {
@@ -25,7 +25,7 @@ namespace VECS.LowLevel
                 VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled | VkImageUsageFlags.ColorAttachment,
                 false
             );
-            FrameBufferAttachment = new("ShadowFBAttachment",
+            DepthImage = new("ShadowDepthImage",
                 SHADOW_IMAGE_SIZE,
                 SHADOW_IMAGE_SIZE,
                 _depthFormat,
@@ -92,8 +92,8 @@ namespace VECS.LowLevel
 
             VkRenderingAttachmentInfo depth = new()
             {
-                imageView = FrameBufferAttachment._imageView,
-                imageLayout = FrameBufferAttachment.ImageLayout,
+                imageView = DepthImage._imageView,
+                imageLayout = DepthImage.ImageLayout,
                 loadOp = VkAttachmentLoadOp.Clear,
                 storeOp = VkAttachmentStoreOp.Store,
                 clearValue = clearValues[1],
@@ -131,19 +131,19 @@ namespace VECS.LowLevel
         public void SetImageLayoutWrite(VkCommandBuffer commandBuffer)
         {
             CubeMap.SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags.AllGraphics, VkPipelineStageFlags.AllGraphics);
-            FrameBufferAttachment.SetImageLayout(commandBuffer, VkImageLayout.DepthStencilAttachmentOptimal, VkPipelineStageFlags.AllGraphics, VkPipelineStageFlags.AllGraphics);
+            DepthImage.SetImageLayout(commandBuffer, VkImageLayout.DepthStencilAttachmentOptimal, VkPipelineStageFlags.AllGraphics, VkPipelineStageFlags.AllGraphics);
         }
 
         public void SetImageLayoutRead(VkCommandBuffer commandBuffer)
         {
             CubeMap.SetImageLayout(commandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags.AllGraphics, VkPipelineStageFlags.AllGraphics);
-            FrameBufferAttachment.SetImageLayout(commandBuffer, VkImageLayout.DepthAttachmentStencilReadOnlyOptimal, VkPipelineStageFlags.AllGraphics, VkPipelineStageFlags.AllGraphics);
+            DepthImage.SetImageLayout(commandBuffer, VkImageLayout.DepthAttachmentStencilReadOnlyOptimal, VkPipelineStageFlags.AllGraphics, VkPipelineStageFlags.AllGraphics);
         }
 
         public unsafe void Dispose()
         {
             CubeMap?.Dispose();
-            FrameBufferAttachment?.Dispose();
+            DepthImage?.Dispose();
         }
 
         internal static unsafe void SetViewPort(VkCommandBuffer commandBuffer)

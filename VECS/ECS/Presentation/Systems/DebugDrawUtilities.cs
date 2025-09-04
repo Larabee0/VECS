@@ -63,7 +63,7 @@ namespace VECS.ECS.Presentation
             }
             vertices[^1] = (Vector3.Zero + new Vector3(MathF.Sin(0), -MathF.Cos(0), 0)) * 1f;
             _circleBuffer.WriteFromHostBuffer();
-            var pipelineConfigInfo = GraphicsPipelines.GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo(Presenter.Instance.ForwardRenderPass,VkPipelineLayout.Null);
+            var pipelineConfigInfo = GraphicsPipelines.GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo(VkPipelineLayout.Null);
 
             pipelineConfigInfo.rasterizationInfo.cullMode = VkCullModeFlags.None;
             pipelineConfigInfo.rasterizationInfo.polygonMode = VkPolygonMode.Line;

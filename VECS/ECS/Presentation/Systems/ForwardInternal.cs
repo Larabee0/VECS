@@ -1,7 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Numerics;
-using VECS.ECS.Transforms;
+using VECS.LowLevel;
 using Vortice.Vulkan;
 
 namespace VECS.ECS.Presentation
@@ -10,9 +11,18 @@ namespace VECS.ECS.Presentation
     {
         private readonly RenderBlob _renderBlob;
 
+        
+        private readonly VkCommandBuffer[][] _freeBuffers = new VkCommandBuffer[SwapChain.MAX_CONCURRENT_FRAMES][];
+
         public ForwardInternal(FustrumCull cullCompute) : base(cullCompute)
         {
             _renderBlob = new(GenericRenderSystem.MAX_DRAWS);
+
+            for (int i = 0; i < _freeBuffers.Length; i++)
+            {
+                _freeBuffers[i] = new VkCommandBuffer[Application.ThreadDispatcher.ThreadCount];
+            }
+            
         }
 
         public override void GenerateDrawCmds(RendererFrameInfo frameInfo, EntityManager entityManager, List<Entity> entities)
@@ -49,9 +59,52 @@ namespace VECS.ECS.Presentation
         {
         }
 
-        public void ExecuteDrawCmds(RendererFrameInfo frameInfo)
+        public unsafe void ExecuteDrawCmds(RendererFrameInfo frameInfo)
         {
-            _renderBlob.Draw(frameInfo);
+            VkCommandBuffer[] parallelCmdBuffers = _freeBuffers[frameInfo.FrameIndex];
+
+            for (int i = 0; i < parallelCmdBuffers.Length; i++)
+            {
+                if (parallelCmdBuffers[i].IsNull)
+                {
+                    Vulkan.CheckResult(Vulkan.vkAllocateCommandBuffer(GraphicsDevice.Device, GraphicsDevice.SecondaryMainPipeCommandBuffers[i], VkCommandBufferLevel.Secondary, out parallelCmdBuffers[i]), "Failed to allocate command buffer!");
+                }
+            }
+
+            int frameIndex = frameInfo.FrameIndex;
+            VkFormat colourFormat = SwapChain.Instance.RenderFormat;
+            VkCommandBufferInheritanceRenderingInfo renderingInfo = new()
+            {
+                flags = VkRenderingFlags.ContentsSecondaryCommandBuffers,
+                colorAttachmentCount = 1,
+                pColorAttachmentFormats = &colourFormat,
+                depthAttachmentFormat = SwapChain.Instance.DepthFormat,
+                stencilAttachmentFormat = SwapChain.Instance.DepthFormat,
+                rasterizationSamples = VkSampleCountFlags.Count1
+            };
+
+            Debug.Assert(_renderBlob.DrawSliceCount <= Application.ThreadDispatcher.ThreadCount, "Draw Slices cannot exceed worker count!");
+
+            Application.ParallelFor(_renderBlob.DrawSliceCount, (i) =>
+            {
+
+                VkCommandBufferInheritanceRenderingInfo renderingInfoInternal = renderingInfo;
+                VkCommandBufferInheritanceInfo inheritanceInfoInternal = new()
+                {
+                    pNext = &renderingInfoInternal
+                };
+                VkCommandBufferBeginInfo bufferBeginInfo = new() { pInheritanceInfo = &inheritanceInfoInternal, flags = VkCommandBufferUsageFlags.RenderPassContinue };
+                VkCommandBuffer internalBuffer = parallelCmdBuffers[i];
+                Vulkan.vkBeginCommandBuffer(internalBuffer, &bufferBeginInfo);
+                SwapChain.SetViewPort(internalBuffer);
+                _renderBlob.DrawSlice(i, internalBuffer, frameIndex, 0);
+                Vulkan.vkEndCommandBuffer(internalBuffer);
+            });
+
+            fixed (VkCommandBuffer* pCmdBuffers = &parallelCmdBuffers[0])
+            {
+                Vulkan.vkCmdExecuteCommands(frameInfo.CommandBuffer, (uint)_renderBlob.DrawSliceCount, pCmdBuffers);
+            }
         }
 
         public override void Dispose()
