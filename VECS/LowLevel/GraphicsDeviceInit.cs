@@ -307,6 +307,7 @@ namespace VECS.LowLevel
                 maintenance4 = true,
                 dynamicRendering = true,
                 synchronization2 = true,
+                shaderDemoteToHelperInvocation = true,
                 pNext = &deviceFeatures12
             };
 

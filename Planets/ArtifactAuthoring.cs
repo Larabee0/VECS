@@ -291,6 +291,9 @@ namespace Planets
             cube[0].RecalculateRenderBounds();
             vases[0].RecalculateRenderBounds();
             vases[1].RecalculateRenderBounds();
+
+            cube[0].DirectMeshBuffer.CreateMeshlets();
+
             Entity cubeEntity = entityManager.CreateEntity();
             Entity cubeEntity2 = entityManager.CreateEntity();
             Entity cubeEntity3 = entityManager.CreateEntity();

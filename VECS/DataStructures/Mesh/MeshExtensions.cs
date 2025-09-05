@@ -7,6 +7,9 @@ using VECS.ECS;
 using VECS.ECS.Presentation;
 using VECS.LowLevel;
 using Vortice.Vulkan;
+using MeshOptimizer;
+using System.Runtime.CompilerServices;
+using System.Text.Json.Serialization.Metadata;
 
 namespace VECS
 {
@@ -16,7 +19,6 @@ namespace VECS
         private const int VERTEX_WRITE_OFFSET = 3;
         public const VkBufferUsageFlags DIRECT_MESH_VERTEX_BUFFER_FLAGS = VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.TransferSrc | VkBufferUsageFlags.StorageBuffer;
         public const VkBufferUsageFlags DIRECT_MESH_INDEX_BUFFER_FLAGS = VkBufferUsageFlags.IndexBuffer | VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.TransferSrc | VkBufferUsageFlags.StorageBuffer;
-
 
         public static DirectMesh Subdivide(this DirectMesh srcMesh, int divisions)
         {
@@ -64,8 +66,8 @@ namespace VECS
             for (int i = 0; i < dstSubMeshes.Length; i++)
             {
                 AssetDataBase<DirectSubMesh>.Add(dstSubMeshes[i]);
-            } 
-            
+            }
+
             return newBuffer;
         }
 
@@ -273,6 +275,87 @@ namespace VECS
                 vertices = new(x, y);
                 this.t = t;
             }
+        }
+
+        #endregion
+
+        #region  MeshShading
+        public const uint MAX_MESHLET_VERTS = 64;
+        public const uint MAX_MESHLET_TRIS = 64;
+        public const float MESHLET_CONE_WEIGHT = 0.0f;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static unsafe void CreateMeshlets(this DirectSubMesh subMesh)
+        {
+            uint vertexStride = subMesh.DirectMeshBuffer.ConsumedAttributes[VertexAttribute.Position].AttributeByteSize;
+            int vertexBufferLength = (int)vertexStride * (int)subMesh.VertexCount / sizeof(float);
+            CreateMeshlets(
+                subMesh.Indicies,
+                new Span<float>(subMesh.GetUnsafeVertexData(VertexAttribute.Position), vertexBufferLength),
+                vertexStride
+            );
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static unsafe void CreateMeshlets(this DirectMesh srcMesh)
+        {
+            uint vertexStride = srcMesh.ConsumedAttributes[VertexAttribute.Position].AttributeByteSize;
+            int vertexBufferLength = (int)vertexStride * (int)srcMesh.VertexBufferLength / sizeof(float);
+            CreateMeshlets(
+                srcMesh.Indices,
+                new Span<float>(srcMesh.GetUnsafeVertexBuffer(VertexAttribute.Position, 0),
+                vertexBufferLength),
+                vertexStride
+            );
+
+        }
+
+        public static unsafe void CreateMeshlets(Span<uint> indices, Span<float> vertices,uint vertexStride)
+        {
+            uint indexCount = (uint)indices.Length;
+            int maxMeshlets = (int)Meshopt.BuildMeshletsBound(indexCount, MAX_MESHLET_VERTS, MAX_MESHLET_TRIS);
+
+            var meshlets = (Meshlet*)NativeMemory.AlignedAlloc((uint)maxMeshlets * (uint)sizeof(Meshlet), (uint)sizeof(Meshlet));
+            var meshletVertices = (uint*)NativeMemory.AlignedAlloc(indexCount * sizeof(uint), sizeof(uint));
+            var meshletTriangles = (byte*)NativeMemory.AlignedAlloc(indexCount, 2);
+
+            var spanMeshlets = new Span<Meshlet>(meshlets, maxMeshlets);
+            var spanVertices = new Span<uint>(meshletVertices, (int)indexCount * sizeof(uint));
+            var spanTrianges = new Span<byte>(meshletTriangles, (int)indexCount);
+
+            var meshletCount = Meshopt.BuildMeshlets(
+                spanMeshlets,
+                spanVertices,
+                spanTrianges,
+                indices,
+                vertices,
+                vertexStride,
+                MAX_MESHLET_VERTS,
+                MAX_MESHLET_TRIS,
+                MESHLET_CONE_WEIGHT
+            );
+
+            meshlets = (Meshlet*)NativeMemory.AlignedRealloc(meshlets, meshletCount * (uint)sizeof(Meshlet), (uint)sizeof(Meshlet));
+            spanMeshlets = new Span<Meshlet>(meshlets, (int)meshletCount);
+            var last = spanMeshlets[^1];
+
+            meshletVertices = (uint*)NativeMemory.AlignedRealloc(meshletVertices, (last.vertex_offset + last.vertex_count) * sizeof(uint), sizeof(uint));
+            meshletTriangles = (byte*)NativeMemory.AlignedRealloc(meshletTriangles, (last.triangle_offset + last.triangle_count) * 3, 2);
+
+            spanVertices = new Span<uint>(meshletVertices, (int)(last.vertex_offset + last.vertex_count));
+            spanTrianges = new Span<byte>(meshletTriangles, (int)(last.triangle_offset + last.triangle_count) * 3);
+
+            for (int i = 0; i < spanMeshlets.Length; i++)
+            {
+                var meshlet = spanMeshlets[i];
+                Meshopt.OptimizeMeshlet(spanVertices[(int)meshlet.vertex_offset..], spanTrianges[(int)meshlet.triangle_offset..], meshlet.vertex_count, meshlet.triangle_count);
+            }
+
+
+            NativeMemory.AlignedFree(meshlets);
+            NativeMemory.AlignedFree(meshletVertices);
+            NativeMemory.AlignedFree(meshletTriangles);
+
         }
 
         #endregion
