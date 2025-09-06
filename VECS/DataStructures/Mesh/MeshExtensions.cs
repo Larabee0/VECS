@@ -345,11 +345,14 @@ namespace VECS
             spanVertices = new Span<uint>(meshletVertices, (int)(last.vertex_offset + last.vertex_count));
             spanTrianges = new Span<byte>(meshletTriangles, (int)(last.triangle_offset + last.triangle_count) * 3);
 
+            var bounds = Meshopt.ComputeMeshletBounds(spanVertices, spanTrianges, vertices, vertexStride);
+
             for (int i = 0; i < spanMeshlets.Length; i++)
             {
                 var meshlet = spanMeshlets[i];
                 Meshopt.OptimizeMeshlet(spanVertices[(int)meshlet.vertex_offset..], spanTrianges[(int)meshlet.triangle_offset..], meshlet.vertex_count, meshlet.triangle_count);
             }
+
 
 
             NativeMemory.AlignedFree(meshlets);
