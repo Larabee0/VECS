@@ -7,12 +7,42 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
+    public class MeshShaderDescriptor
+    {
+        private readonly struct VertexBufferInfo
+        {
+            public readonly VertexAttribute Attribute;
+            public readonly VertexAttributeFormat Format;
+
+            public override readonly int GetHashCode()
+            {
+                return HashCode.Combine(Attribute, Format);
+            }
+
+            public VertexBufferInfo(VertexAttributeDescription attributeDescription)
+            {
+                Attribute = attributeDescription.attribute;
+                Format = attributeDescription.format;
+            }
+        }
+
+        private readonly bool[] _setsAllocated = new bool[SwapChain.MAX_CONCURRENT_FRAMES];
+        private readonly VkDescriptorSet[] _vkDescriptorSets = new VkDescriptorSet[SwapChain.MAX_CONCURRENT_FRAMES];
+        private readonly DescriptorPool[] _vkDescriptorPoolSource = new DescriptorPool[SwapChain.MAX_CONCURRENT_FRAMES];
+        private readonly VertexBufferInfo[] buffers;
+        private readonly VkDescriptorSetLayout _vkDescriptorSetLayout;
+        
+
+    }
+
     public class MeshShaderDescriptorSet : IDisposable
     {
+
+
         private bool _disposed = false;
         private readonly VkDescriptorSet[] _vkDescriptorSets = new VkDescriptorSet[SwapChain.MAX_CONCURRENT_FRAMES];
         private readonly DescriptorPool[] _vkDescriptorPoolSource = new DescriptorPool[SwapChain.MAX_CONCURRENT_FRAMES];
-        
+
         private readonly bool[] _setsAllocated = new bool[SwapChain.MAX_CONCURRENT_FRAMES];
         private readonly bool[] _setsDirty = new bool[SwapChain.MAX_CONCURRENT_FRAMES];
 
@@ -70,7 +100,7 @@ namespace VECS
                     range = buffer._vkBufferSize
                 };
             }
-            
+
             for (uint i = 0; i < _vkDescriptorWrites.Length; i++)
             {
                 _vkDescriptorWrites[i] = new()
@@ -89,7 +119,7 @@ namespace VECS
             var pool = frameInfo.GetDescriptorPool(DescriptorLevel.Game);
             Update(frameInfo.FrameIndex, pool);
         }
-        
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Update(int frameIndex, DescriptorPool pool)
         {
@@ -149,7 +179,7 @@ namespace VECS
             Array.Fill(_setsDirty, true);
             Array.Fill(_setsAllocated, false);
         }
-        
+
 
 
         public unsafe void Dispose()
@@ -170,7 +200,7 @@ namespace VECS
             VkDescriptorSetLayoutBinding* bindings = stackalloc VkDescriptorSetLayoutBinding[totalBindings];
 
             // vertex buffers and index buffer go to mesh shader only
-            
+
             bindings[0] = new()
             {
                 binding = 0,
@@ -178,7 +208,7 @@ namespace VECS
                 descriptorCount = 1,
                 stageFlags = VkShaderStageFlags.TaskEXT | VkShaderStageFlags.MeshEXT
             };
-            
+
             // bounds buffer goes to task shader only
             bindings[1] = new()
             {
@@ -215,7 +245,7 @@ namespace VECS
             }
 
             // meshlet buffer goes to task and mesh shader
-            
+
 
             VkDescriptorSetLayoutCreateInfo createInfo = new()
             {
