@@ -34,36 +34,53 @@ namespace VECS
             _vkDescriptorSetLayout = CreateMeshDescriptorSetLayout(owner);
 
             _vkDescriptorWrites = new VkWriteDescriptorSet[attributes.Length + 3];
-            _bufferInfos = (VkDescriptorBufferInfo*)NativeMemory.Alloc((uint)sizeof(VkDescriptorBufferInfo) * (uint)attributes.Length + 3);
+            _bufferInfos = (VkDescriptorBufferInfo*)NativeMemory.Alloc((uint)sizeof(VkDescriptorBufferInfo) * ((uint)attributes.Length + 3));
 
-            int i = 0;
-            GPUBuffer buffer;
-            for (; i < attributes.Length; i++)
+            GPUBuffer buffer = owner._meshletBuffer;
+            _bufferInfos[0] = new()
+            {
+                buffer = buffer.VkBuffer,
+                offset = 0,
+                range = buffer._vkBufferSize
+            };
+
+            buffer = owner._meshletBoundsBuffer;
+            _bufferInfos[1] = new()
+            {
+                buffer = buffer.VkBuffer,
+                offset = 0,
+                range = buffer._vkBufferSize
+            };
+
+            buffer = owner._meshletIndexBuffer;
+            _bufferInfos[2] = new()
+            {
+                buffer = buffer.VkBuffer,
+                offset = 0,
+                range = buffer._vkBufferSize
+            };
+
+            for (int i = 0; i < attributes.Length; i++)
             {
                 buffer = owner._vertexBuffersMeshShader[attributes[i]];
-                _bufferInfos[i] = new()
+                _bufferInfos[3 + i] = new()
                 {
                     buffer = buffer.VkBuffer,
                     offset = 0,
                     range = buffer._vkBufferSize
                 };
             }
-
-            buffer = owner._meshletBuffer;
-            _bufferInfos[i] = new()
+            
+            for (uint i = 0; i < _vkDescriptorWrites.Length; i++)
             {
-                buffer = owner._vertexBuffersMeshShader[attributes[i]].VkBuffer,
-                offset = 0,
-                range = buffer._vkBufferSize
-            };
-            buffer = owner._meshletBoundsBuffer;
-            i++;
-            _bufferInfos[i] = new()
-            {
-                buffer = owner._vertexBuffersMeshShader[attributes[i]].VkBuffer,
-                offset = 0,
-                range = buffer._vkBufferSize
-            };
+                _vkDescriptorWrites[i] = new()
+                {
+                    descriptorCount = 1,
+                    dstBinding = i,
+                    descriptorType = VkDescriptorType.StorageBuffer,
+                    pBufferInfo = &_bufferInfos[i]
+                };
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -102,6 +119,12 @@ namespace VECS
         public void UpdateDescriptorSet(int frameIndex)
         {
             VkDescriptorSet set = _vkDescriptorSets[frameIndex];
+
+            for (int i = 0; i < _vkDescriptorWrites.Length; i++)
+            {
+                _vkDescriptorWrites[i].dstSet = set;
+            }
+
             Vulkan.vkUpdateDescriptorSets(GraphicsDevice.Device, _vkDescriptorWrites);
             _vkDescriptorSets[frameIndex] = set;
             _setsDirty[frameIndex] = false;
@@ -181,7 +204,7 @@ namespace VECS
             for (int i = 0; i < srcMesh.AllAttributesInOrder.Length; i++)
             {
                 var attribute = srcMesh.AllAttributesInOrder[i];
-                var attributeIndex = (uint)attribute + 3;
+                var attributeIndex = (uint)i + 3;
                 bindings[3 + i] = new()
                 {
                     binding = attributeIndex,
@@ -196,7 +219,7 @@ namespace VECS
 
             VkDescriptorSetLayoutCreateInfo createInfo = new()
             {
-                bindingCount = (uint)srcMesh.AllAttributesInOrder.Length,
+                bindingCount = (uint)totalBindings,
                 pBindings = bindings
             };
             Vulkan.vkCreateDescriptorSetLayout(GraphicsDevice.Device, createInfo, null, out var setLayout).CheckResult("Failed to create MeshShader Mesh set");

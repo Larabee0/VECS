@@ -291,6 +291,7 @@ namespace Planets
 
             Material genMeshShaderBasic = Material.Create("genMeshBasic", "gen_meshshader_basic.mesh", "gen_meshshader_basic.task", "gen_meshshader_basic.frag");
             cube[0].DirectMeshBuffer.CreateMeshlets();
+            cube[0].DirectMeshBuffer.RecreateMeshShaderDescriptorSet();
 
             Entity cubeEntity = entityManager.CreateEntity();
             Entity cubeEntity2 = entityManager.CreateEntity();

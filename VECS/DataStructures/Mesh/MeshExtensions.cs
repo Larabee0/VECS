@@ -443,18 +443,33 @@ namespace VECS
             {
                 var submeshData = subMeshes[j];
                 var meshletData = submeshMeshletDatas[j];
-                var unsafeSrcVertexData = new IntPtr(srcMesh.GetUnsafeVertexBuffer(attribute, submeshData.VertexOffset));
-                var unsafeDstVertexData = new IntPtr((byte*)buffer.HostPtr + meshletData.vertexOffset * buffer.InstanceSize);
+
+                // src dst data might be anything from a float to a vec4 sooo treat everything as a byte
+                var srcVertexData = new Span<byte>(
+                    srcMesh.GetUnsafeVertexBuffer(attribute, submeshData.VertexOffset),
+                    (int)submeshData.VertexCount * (int)attributeStride
+                );
+               
+                var dstVertexData = new Span<byte>(
+                    IntPtr.Add(new IntPtr(buffer.HostPtr), (int)(meshletData.vertexOffset * buffer.InstanceSize)).ToPointer(),
+                    meshletData.vertexCount * (int)attributeStride
+                );
 
                 // var totalBytes = attributeStride * submeshData.VertexCount;
 
                 Span<uint> vertexMap = srcMesh._meshShaderVertexMap.AsSpan(meshletData.vertexOffset, meshletData.vertexCount);
 
+                // this copies and remaps the vertex data for optimal meshlet indexing
+                // we copy a stride (num bytes per vertex) at a time
                 for (int k = 0; k < vertexMap.Length; k++)
                 {
-                    unsafeDstVertexData = IntPtr.Add(unsafeDstVertexData, k * (int)attributeStride);
-                    var srcPtr = IntPtr.Add(unsafeSrcVertexData, (int)vertexMap[k] * (int)attributeStride);
-                    NativeMemory.Copy(srcPtr.ToPointer(), unsafeDstVertexData.ToPointer(), attributeStride);
+                    var srcOffset = (int)vertexMap[k] * (int)attributeStride;
+                    var dstOffset = k * (int)attributeStride;
+
+                    for (int l = 0; l < attributeStride; l++)
+                    {
+                        dstVertexData[dstOffset + l] = srcVertexData[srcOffset + l];
+                    }
                 }
             }
         }

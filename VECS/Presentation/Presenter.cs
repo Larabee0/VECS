@@ -129,6 +129,7 @@ namespace VECS
             var globalDescriptorPool = new DescriptorPool.Builder()
                 .SetMaxSets(2000)
                 .AddPoolSize(VkDescriptorType.UniformBuffer, 2000)
+                .AddPoolSize(VkDescriptorType.StorageBuffer,1000)
                 .SetPoolFlags(VkDescriptorPoolCreateFlags.FreeDescriptorSet);
             for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
             {

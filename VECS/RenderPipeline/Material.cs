@@ -229,8 +229,8 @@ namespace VECS
             _meshShaderBindings = GPUPipelineUtil.ExtractBindingsForSet((uint)_meshShaderDataBindingPoint, _materialBindings);
 
             GenerateDescriptorSetLayouts();
-            _totalSets = (uint)_allLayouts.Length;
-            _allHandlers = new DescriptorHandler[_allLayouts.Length];
+            _totalSets = (uint)_allLayouts.Length-1;
+            _allHandlers = new DescriptorHandler[_allLayouts.Length-1];
 
             CreateDescriptorSetHandler();
 
