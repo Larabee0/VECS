@@ -21,8 +21,11 @@ namespace VECS.LowLevel
             Vulkan.VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
             Vulkan.VK_EXT_SAMPLER_FILTER_MINMAX_EXTENSION_NAME,
             Vulkan.VK_KHR_IMAGELESS_FRAMEBUFFER_EXTENSION_NAME,
-            Vulkan.VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME,
+            Vulkan.VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME
+        ];
 
+        private const bool ForceMeshShadingOff = false;
+        private readonly static VkUtf8String[] _meshShaderExtensions = [
             Vulkan.VK_KHR_SPIRV_1_4_EXTENSION_NAME,
             Vulkan.VK_EXT_MESH_SHADER_EXTENSION_NAME,
             Vulkan.VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME
@@ -77,7 +80,7 @@ namespace VECS.LowLevel
 #endif
 
             Vulkan.CheckResult(Vulkan.vkCreateInstance(&createInfo, null, out _instance), "Failed to create vulkan instance!");
-            
+
 
             Vulkan.vkLoadInstanceOnly(_instance);
 
@@ -201,6 +204,26 @@ namespace VECS.LowLevel
                     deviceHeapInfo.Add(new(device));
                 }
             }
+            
+            List<DeviceInfo> meshShaderSupported = [.. deviceHeapInfo];
+            for (int i = meshShaderSupported.Count - 1; i >= 0; i--)
+            {
+                if (!CheckDeviceExtensionSupport(meshShaderSupported[i].Device, _meshShaderExtensions))
+                {
+                    meshShaderSupported.RemoveAt(i);
+                }
+            }
+
+            if (meshShaderSupported.Count == 0 || ForceMeshShadingOff)
+            {
+                MeshShading = false;
+            }
+            else
+            {
+                deviceHeapInfo = meshShaderSupported;
+                MeshShading = true;
+            }
+
 
             if (deviceHeapInfo.Count > 1)
             {
@@ -213,9 +236,14 @@ namespace VECS.LowLevel
                 throw new Exception("Failed to find a sutiable GPU!");
             }
 
-            Vulkan.vkGetPhysicalDeviceProperties(_physicalDevice, out var properties);
+            
+            if (MeshShading)
+            {
+                CheckRequiredMeshShadingFeaturesSupported(_physicalDevice);
+            }
 
-            Properties = properties;
+            GetDeviceProperties(_physicalDevice);
+
 
             var swapChainSupport = QuerySwapChainSupport(_physicalDevice);
             if (swapChainSupport.capabilities.maxImageCount > 0)
@@ -227,7 +255,8 @@ namespace VECS.LowLevel
 
             SwapChain.SWAP_CHAIN_IMAGE_COUNT = Math.Max(3, (int)swapChainSupport.capabilities.minImageCount);
             SwapChainSupport = swapChainSupport;
-            var str = new VkUtf8String(properties.deviceName);
+            var propertiesVK10 = PropertiesVK10;
+            var str = new VkUtf8String(propertiesVK10.deviceName);
             Console.WriteLine(string.Format("Physical device: {0}", str));
             Console.WriteLine("Selected swapchain frame count: {0}", SwapChain.SWAP_CHAIN_IMAGE_COUNT);
         }
@@ -286,7 +315,7 @@ namespace VECS.LowLevel
                 samplerAnisotropy = true,
                 fillModeNonSolid = true,
                 multiDrawIndirect = true,
-                drawIndirectFirstInstance = true,  
+                drawIndirectFirstInstance = true,
             };
 
             VkPhysicalDeviceMeshShaderFeaturesEXT meshShaderFeatures = new()
@@ -300,8 +329,17 @@ namespace VECS.LowLevel
                 imagelessFramebuffer = true,
                 samplerFilterMinmax = true,
                 timelineSemaphore = true,
-                pNext = &meshShaderFeatures
             };
+
+            if (MeshShading)
+            {
+                deviceFeatures12.storageBuffer8BitAccess = true;
+            }
+
+            deviceFeatures12.pNext = &meshShaderFeatures;
+
+
+
             VkPhysicalDeviceVulkan13Features deviceFeatures13 = new()
             {
                 maintenance4 = true,
@@ -317,8 +355,17 @@ namespace VECS.LowLevel
                 pNext = &deviceFeatures13
             };
 
-            using VkStringArray deviceExtensionNames = new(_requiredDeviceExtensions);
+            VkUtf8String[] loadExtensions;
+            if (MeshShading)
+            {
+                loadExtensions = [.. _requiredDeviceExtensions, .. _meshShaderExtensions];
+            }
+            else
+            {
+                loadExtensions = _requiredDeviceExtensions;
+            }
 
+            using VkStringArray deviceExtensionNames = new(loadExtensions);
 
 
             VkDeviceCreateInfo createInfo = new()
@@ -326,7 +373,7 @@ namespace VECS.LowLevel
                 queueCreateInfoCount = (uint)uniqueQueueFamilies.Count,
                 pQueueCreateInfos = pQueueCreateInfos,
                 pEnabledFeatures = null,
-                enabledExtensionCount = (uint)_requiredDeviceExtensions.Length,
+                enabledExtensionCount = (uint)loadExtensions.Length,
                 ppEnabledExtensionNames = deviceExtensionNames,
                 pNext = &deviceFeatures2,
             };
@@ -343,7 +390,7 @@ namespace VECS.LowLevel
             
 #endif
             Vulkan.CheckResult(Vulkan.vkCreateDevice(_physicalDevice, in createInfo, null, out _device), "Failed to create logical device");
-            
+
             Vulkan.vkLoadDevice(_device);
 
             Vulkan.vkGetDeviceQueue(_device, (uint)indices.graphicsFamily, 0, out _mainQueue);
@@ -353,7 +400,7 @@ namespace VECS.LowLevel
 
         #endregion
 
-#region Create Command Pool
+        #region Create Command Pool
         /// <summary>
         /// Creates the command buffer pool for submitting commands to the logical device
         /// </summary>
@@ -367,7 +414,7 @@ namespace VECS.LowLevel
                 queueFamilyIndex = queueFamilyIndices.graphicsFamily,
                 flags = VkCommandPoolCreateFlags.Transient | VkCommandPoolCreateFlags.ResetCommandBuffer,
             };
-            
+
             _secondaryMainPipeCommandBuffers = new VkCommandPool[Environment.ProcessorCount * 2];
             _secondaryComputePipeCommandBuffers = new VkCommandPool[Environment.ProcessorCount];
             Vulkan.CheckResult(Vulkan.vkCreateCommandPool(_device, poolInfo, null, out _commandPoolMain), "Failed to create main command pool!");
@@ -376,7 +423,7 @@ namespace VECS.LowLevel
             {
                 Vulkan.CheckResult(Vulkan.vkCreateCommandPool(_device, poolInfo, null, out _secondaryMainPipeCommandBuffers[i]), "Failed to create secondary main command pool!");
             }
-            
+
 
             poolInfo.queueFamilyIndex = queueFamilyIndices.computeFamily;
             Vulkan.CheckResult(Vulkan.vkCreateCommandPool(_device, poolInfo, null, out _commandPoolCompute), "Failed to create compute command pool!");
@@ -388,7 +435,7 @@ namespace VECS.LowLevel
 
             poolInfo.queueFamilyIndex = queueFamilyIndices.presentFamily;
 
-            Vulkan.CheckResult(Vulkan.vkCreateCommandPool(_device, poolInfo, null, out _commandPoolPresent),"Failed to create present command pool!");
+            Vulkan.CheckResult(Vulkan.vkCreateCommandPool(_device, poolInfo, null, out _commandPoolPresent), "Failed to create present command pool!");
         }
 
         #endregion
@@ -420,18 +467,18 @@ namespace VECS.LowLevel
         {
             QueueFamilyIndices indices = FindQueueFamilies(device);
 
-            bool extensionsSupported = CheckDeviceExtensionSupport(device);
+            bool requiredExtensionsSupported = CheckDeviceExtensionSupport(device, _requiredDeviceExtensions);
 
             bool swapChainAdequate = false;
 
-            if (extensionsSupported)
+            if (requiredExtensionsSupported)
             {
                 SwapChainSupportDetails swapChainSupport = QuerySwapChainSupport(device);
                 swapChainAdequate = swapChainSupport.formats.Length > 0 && swapChainSupport.presentModes.Length > 0;
             }
 
             Vulkan.vkGetPhysicalDeviceFeatures(device, out VkPhysicalDeviceFeatures supportedFeatures);
-            return indices.IsComplete && extensionsSupported && swapChainAdequate && supportedFeatures.samplerAnisotropy;
+            return indices.IsComplete && requiredExtensionsSupported && swapChainAdequate && supportedFeatures.samplerAnisotropy;
         }
 
         /// <summary>
@@ -655,17 +702,13 @@ namespace VECS.LowLevel
         #endregion
 #endif
         #region Extensions Statics
-        /// <summary>
-        /// Checks if the given physical device supports the required
-        /// device extentions in <see cref="_requiredDeviceExtensions"/>
-        /// </summary>
-        /// <param name="device"></param>
-        /// <returns>true if the physical devices supports the extensions requested </returns>
-        private unsafe static bool CheckDeviceExtensionSupport(VkPhysicalDevice device)
+
+        private unsafe static bool CheckDeviceExtensionSupport(VkPhysicalDevice device, VkUtf8String[] extensions)
         {
             var availableExtensions = Vulkan.vkEnumerateDeviceExtensionProperties(device);
 
-            HashSet<VkUtf8String> requiredSet = [.. _requiredDeviceExtensions];
+            HashSet<VkUtf8String> requiredSet = [.. extensions];
+
 
             for (int i = 0; i < availableExtensions.Length; i++)
             {
@@ -683,6 +726,81 @@ namespace VECS.LowLevel
 
 
             return requiredSet.Count == 0;
+        }
+
+        private unsafe static void CheckRequiredMeshShadingFeaturesSupported(VkPhysicalDevice device)
+        {
+
+            VkPhysicalDeviceMeshShaderFeaturesEXT meshShaderFeatures = new();
+
+            VkPhysicalDeviceVulkan12Features deviceFeatures12 = new()
+            {
+                pNext = &meshShaderFeatures
+            };
+
+            VkPhysicalDeviceVulkan13Features deviceFeatures13 = new()
+            {
+                pNext = &deviceFeatures12
+            };
+
+            VkPhysicalDeviceFeatures2 deviceFeatures2 = new()
+            {
+                pNext = &deviceFeatures13
+            };
+
+            Vulkan.vkGetPhysicalDeviceFeatures2(device, &deviceFeatures2);
+
+            if (MeshShading)
+            {
+                if (!meshShaderFeatures.taskShader)
+                {
+                    throw new InvalidOperationException("Device flagged as supporting mesh shading but task shader feature is unavaliable!");
+                }
+
+                if (!meshShaderFeatures.meshShader)
+                {
+                    throw new InvalidOperationException("Device flagged as supporting mesh shading but mesh shader feature is unavaliable!");
+                }
+            }
+        }
+
+        private unsafe static void GetDeviceProperties(VkPhysicalDevice device)
+        {
+            VkPhysicalDeviceVulkan11Properties deviceProperties11 = new();
+            VkPhysicalDeviceMeshShaderPropertiesEXT meshShaderProperties = new()
+            {
+                pNext = &deviceProperties11
+            };
+
+            VkPhysicalDeviceVulkan12Properties deviceProperties12 = new()
+            {
+                pNext = &meshShaderProperties
+            };
+
+            VkPhysicalDeviceVulkan13Properties deviceProperties13 = new()
+            {
+                pNext = &deviceProperties12
+            };
+
+            VkPhysicalDeviceVulkan14Properties deviceProperties14 = new()
+            {
+                pNext = &deviceProperties13
+            };
+
+            VkPhysicalDeviceProperties2 deviceProperties2 = new()
+            {
+                pNext = &deviceProperties14
+            };
+
+            Vulkan.vkGetPhysicalDeviceProperties2(device, &deviceProperties2);
+
+            PropertiesVK10 = deviceProperties2.properties;
+            PropertiesVK11 = deviceProperties11;
+            PropertiesVK12 = deviceProperties12;
+            PropertiesVK13 = deviceProperties13;
+            PropertiesVK14 = deviceProperties14;
+            PropertiesMeshShading = meshShaderProperties;
+
         }
 
         #endregion

@@ -173,7 +173,7 @@ namespace VECS
                 addressModeV = _wrapModeV,
                 addressModeW = _wrapModeW,
                 anisotropyEnable = _anisoLevel > 0,
-                maxAnisotropy = Math.Max(1,Math.Min(GraphicsDevice.Properties.limits.maxSamplerAnisotropy, _anisoLevel)),
+                maxAnisotropy = Math.Max(1,Math.Min(GraphicsDevice.PropertiesVK10.limits.maxSamplerAnisotropy, _anisoLevel)),
                 borderColor = _borderColour,
                 unnormalizedCoordinates = _unnormalisedCoordinates,
                 compareEnable = _compareEnable,

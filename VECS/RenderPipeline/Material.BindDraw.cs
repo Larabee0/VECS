@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using VECS.LowLevel;
 using Vortice.Vulkan;
 
 namespace VECS
@@ -65,6 +66,14 @@ namespace VECS
             BindPipeline(frameInfo);
             UpdateSetsToWrite(frameInfo.FrameIndex, 0, 0);
             BindDescriptors(frameInfo.CommandBuffer, frameInfo.FrameIndex);
+        }
+
+        public void BindMeshShaderData(RendererFrameInfo frameInfo, DirectMesh directMesh)
+        {
+            var meshShaderSet = directMesh.MeshShaderSet;
+            meshShaderSet.Update(frameInfo);
+
+            Vulkan.vkCmdBindDescriptorSets(frameInfo.CommandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, (uint)_meshShaderDataBindingPoint, meshShaderSet.ActiveVkDescriptorSet);
         }
 
         private unsafe void DrawSimple(RendererFrameInfo frameInfo, DirectSubMesh directSubMesh)
@@ -259,7 +268,7 @@ namespace VECS
                 handler.Update(frameInfo);
                 var set = handler.GetDescriptorSet(frameInfo.FrameIndex);
                 handler.WriteFromBuffers(frameInfo.FrameIndex);
-                Vulkan.vkCmdBindDescriptorSets(frameInfo.CommandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, (uint)_applicationDescriptorHandlerIndex, 1, &set);
+                Vulkan.vkCmdBindDescriptorSets(frameInfo.CommandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, (uint)_applicationDescriptorHandlerIndex, set);
             }
         }
 
@@ -272,7 +281,7 @@ namespace VECS
                 var set = handler.GetOrCreateChild(variant).GetDescriptorSet(frameIndex);
 
                 handler.WriteFromBuffers(frameIndex);
-                Vulkan.vkCmdBindDescriptorSets(commandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, (uint)_materialDescriptorHandlerIndex, 1, &set);
+                Vulkan.vkCmdBindDescriptorSets(commandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, (uint)_materialDescriptorHandlerIndex, set);
             }
         }
 
@@ -285,7 +294,7 @@ namespace VECS
                 var set = handler.GetOrCreateChild(variant).GetDescriptorSet(frameIndex);
 
                 handler.WriteFromBuffers(frameIndex);
-                Vulkan.vkCmdBindDescriptorSets(commandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, (uint)_entityDescriptorHandlerIndex, 1, &set);
+                Vulkan.vkCmdBindDescriptorSets(commandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, (uint)_entityDescriptorHandlerIndex, set);
             }
         }
 

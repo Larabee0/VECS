@@ -51,7 +51,12 @@ namespace VECS.LowLevel
         internal static VkCommandPool[] _secondaryComputePipeCommandBuffers;
 
 
-        public static VkPhysicalDeviceProperties Properties { get; internal set; }
+        public static VkPhysicalDeviceProperties PropertiesVK10 { get; internal set; }
+        public static VkPhysicalDeviceVulkan11Properties PropertiesVK11 { get; internal set; }
+        public static VkPhysicalDeviceVulkan12Properties PropertiesVK12 { get; internal set; }
+        public static VkPhysicalDeviceVulkan13Properties PropertiesVK13 { get; internal set; }
+        public static VkPhysicalDeviceVulkan14Properties PropertiesVK14 { get; internal set; }
+        public static VkPhysicalDeviceMeshShaderPropertiesEXT PropertiesMeshShading { get; internal set; }
         public static VkPhysicalDevice PhysicalDevice => _physicalDevice;
         public static VkDevice Device => _device;
         public static VkSurfaceKHR Surface => _surface;
@@ -78,16 +83,20 @@ namespace VECS.LowLevel
         public static SwapChainSupportDetails SwapChainSupport  { get; internal set; }
         public static QueueFamilyIndices PhysicalQueueFamilies { get; internal set; }
 
-        public static ulong MinUniformBufferOffsetAlignment => Properties.limits.minUniformBufferOffsetAlignment;
-        public static ulong MinStorageBufferOffsetAlignment => Properties.limits.minStorageBufferOffsetAlignment;
+        public static ulong MinUniformBufferOffsetAlignment => PropertiesVK10.limits.minUniformBufferOffsetAlignment;
+        public static ulong MinStorageBufferOffsetAlignment => PropertiesVK10.limits.minStorageBufferOffsetAlignment;
         public static unsafe ulong MaxWorkGroupX
         {
             get
             {
-                var props = Properties;
+                var props = PropertiesVK10;
                 return props.limits.maxComputeWorkGroupCount[0];
             }
         }
+
+        public static bool MeshShading { get; internal set; }
+        public static uint PreferredMeshWorkGroupInvocations => PropertiesMeshShading.maxPreferredMeshWorkGroupInvocations;
+        public static uint PreferredTaskWorkGroupInvocations => PropertiesMeshShading.maxPreferredTaskWorkGroupInvocations;
 
         public static bool Initialised { get; private set; }
 

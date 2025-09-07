@@ -1,0 +1,86 @@
+#version 460
+
+#extension GL_EXT_mesh_shader : require
+#extension GL_EXT_shader_explicit_arithmetic_types_int8 : require
+
+struct PointLight {
+	vec4 position; // ignore w
+	vec4 colour; // w is intensity
+};
+
+struct ObjectMatrices{
+	mat4 modelMatrix; // project * view * model
+	mat4 normalMatrix;
+};
+
+struct Meshlet{
+    uint vertex_offset;
+	uint triangle_offset;
+	uint vertex_count;
+	uint triangle_count;
+};
+
+layout(set = 0, binding = 0) uniform GlobalUbo{
+	mat4 projectionMatrix;
+	mat4 viewMatrix;
+	mat4 inverseViewMatrix;
+	vec4 ambientLightColour;
+	int numLights;
+	PointLight pointLights[10];
+} ubo;
+
+layout (std140, set = 1, binding = 0) buffer ObjectMatricesBuffer{
+	ObjectMatrices matrices[];
+} matricesBuffer;
+
+layout(std140, set = 2, binding = 0) buffer MeshletBuffer{
+	Meshlet meshlets[];
+} meshletsBuffer;
+
+// binding 1 is the bounds buffer
+
+layout(std140, set = 2, binding = 2) buffer MeshletIndexBuffer{
+	uint8_t indices[];
+} indexBuffer;
+
+layout(std140, set = 2, binding = 3) buffer VertexPositionBuffer{
+	vec3 pos[];
+} vertexPosBuffer;
+
+
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+layout(triangles, max_vertices = 3, max_primitives = 1) out;
+
+layout(location = 0) out VertexOutput
+{
+	vec4 color;
+} vertexOutput[];
+
+void main()
+{
+	uint meshletIndex = gl_GlobalInvocationID.x;
+
+    Meshlet meshlet = meshletsBuffer.meshlets[meshletIndex];
+	
+	SetMeshOutputsEXT(meshlet.vertex_count, meshlet.triangle_count);
+
+	mat4 mvp = ubo.projectionMatrix * ubo.viewMatrix * matricesBuffer.matrices[0].modelMatrix;
+    uvec3 triIndices;
+    uint vertexOffset = meshlet.vertex_offset;
+    uint indexOffset = meshlet.triangle_count;
+
+    for(uint i = 0; i < meshlet.vertex_count; i++)
+    {
+        gl_MeshVerticesEXT[i + 0].gl_Position = mvp * vec4(vertexPosBuffer.pos[vertexOffset + i], 0);
+        
+	    vertexOutput[i].color = vec4(1);
+    }
+
+    for(uint i = 0; i < meshlet.triangle_count; i+=3)
+    {
+        triIndices = uvec3(indexBuffer.indices[indexOffset + i + 0], indexBuffer.indices[indexOffset + i + 1], indexBuffer.indices[indexOffset + i + 2]);
+        gl_PrimitiveTriangleIndicesEXT[gl_LocalInvocationIndex] = triIndices;
+    }
+
+	gl_PrimitiveTriangleIndicesEXT[gl_LocalInvocationIndex] =  uvec3(0, 1, 2);
+}

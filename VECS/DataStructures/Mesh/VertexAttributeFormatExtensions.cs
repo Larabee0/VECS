@@ -33,6 +33,7 @@ namespace VECS
         {
             return byteCount switch
             {
+                1=> VertexAttributeFormat.Byte,
                 4 => VertexAttributeFormat.Float1,
                 8 => VertexAttributeFormat.Float2,
                 12 => VertexAttributeFormat.Float3,

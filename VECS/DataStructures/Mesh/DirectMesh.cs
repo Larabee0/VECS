@@ -9,6 +9,7 @@ using Vortice.Vulkan;
 using System.Collections.Concurrent;
 using System.Threading.Tasks;
 using System.Runtime.CompilerServices;
+using MeshOptimizer;
 
 namespace VECS
 {
@@ -25,6 +26,7 @@ namespace VECS
         private ulong _allocatedIndexCount;
 
         private readonly DirectSubMeshInfo[] _subMeshInfo;
+        internal SubmeshMeshletData[] _submeshMeshletInfos;
         private readonly DirectSubMesh[] _directSubMeshs;
         private readonly VertexAttribute[] _attributesInOrder;
         private readonly VkVertexInputBindingDescription[] _bindingDescriptions;
@@ -44,7 +46,25 @@ namespace VECS
         internal Vector3UInt[] _faceOffsets;
         private Vector3[] _faceNormals;
 
+        #region  Mesh Shading
+
+        private MeshShaderDescriptorSet _meshShaderDescriptorSet;
+
+        public MeshShaderDescriptorSet MeshShaderSet => _meshShaderDescriptorSet;
+
+        internal Dictionary<VertexAttribute, GPUBuffer> _vertexBuffersMeshShader;
+        
+        internal GPUBuffer<byte> _meshletIndexBuffer;
+
+        internal GPUBuffer<Meshlet> _meshletBuffer;
+
+        internal GPUBuffer<MeshOptimizer.Bounds> _meshletBoundsBuffer;
+        internal uint[] _meshShaderVertexMap;
+
+        #endregion
+
         public DirectSubMeshInfo[] SubMeshInfos => _subMeshInfo;
+        public SubmeshMeshletData[] SubMeshMesletInfos => _submeshMeshletInfos;
         public DirectSubMesh[] DirectSubMeshes => _directSubMeshs;
         public VertexAttribute[] AllAttributesInOrder => _attributesInOrder;
         public VkVertexInputBindingDescription[] VkBindingDesc => _bindingDescriptions;
@@ -436,10 +456,34 @@ namespace VECS
             return -1;
         }
 
+        public void RecreateMeshShaderDescriptorSet()
+        {
+            if (!GraphicsDevice.MeshShading)
+            {
+                throw new InvalidOperationException("Mesh shading is not enabled for this runtime instance!");
+            }
+            _meshShaderDescriptorSet?.Dispose();
+            _meshShaderDescriptorSet = new(this);
+        }
+
         public override void Dispose()
         {
             GC.SuppressFinalize(this);
             if (_disposed) return;
+
+            _meshShaderDescriptorSet?.Dispose();
+
+            if (_vertexBuffersMeshShader != null)
+            {
+                foreach (var buffer in _vertexBuffersMeshShader.Values)
+                {
+                    buffer?.Dispose();
+                }
+            }
+
+            _meshletIndexBuffer?.Dispose();
+            _meshletBuffer?.Dispose();
+            _meshletBoundsBuffer?.Dispose();
 
             foreach (var buffer in _vertexBuffers.Values)
             {

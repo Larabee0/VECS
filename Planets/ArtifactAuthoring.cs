@@ -76,9 +76,6 @@ namespace Planets
 
             EntityManager entityManager = World.DefaultWorld.EntityManager;
 
-
-            Material meshTrianlge = Material.Create("meshtriangle", "meshshader_tri.mesh", "meshshader_tri.task", "meshshader_tri.frag");
-
             CreateMainCamera(entityManager);
 
             CreateFlightRig(entityManager);
@@ -292,6 +289,7 @@ namespace Planets
             vases[0].RecalculateRenderBounds();
             vases[1].RecalculateRenderBounds();
 
+            Material genMeshShaderBasic = Material.Create("genMeshBasic", "gen_meshshader_basic.mesh", "gen_meshshader_basic.task", "gen_meshshader_basic.frag");
             cube[0].DirectMeshBuffer.CreateMeshlets();
 
             Entity cubeEntity = entityManager.CreateEntity();

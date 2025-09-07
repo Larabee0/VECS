@@ -336,6 +336,24 @@ namespace VECS
             return setBindings;
         }
 
+        public static int GetMeshDataBindingPoint(DescriptorBinding[] bindings)
+        {
+            if (!GraphicsDevice.MeshShading)
+            {
+                throw new InvalidOperationException("Mesh shading is not enabled for this runtime instance!");
+            }
+
+            for (int i = 0; i < bindings.Length; i++)
+            {
+                if (bindings[i].Name == "meshletsBuffer")
+                {
+                    return (int)bindings[i].Set;
+                }
+            }
+
+            throw new InvalidOperationException("Descriptors contained no mesh shader bindings in the expected pattern!");
+        }
+
         public static unsafe VkPipelineLayout CreatePipelineLayout(VkDescriptorSetLayout[] setLayouts, PushConstantsHandler pushConstants)
         {
             VkPipelineLayoutCreateInfo layoutCreateInfo = new()
@@ -361,12 +379,16 @@ namespace VECS
             }
 
             Vulkan.CheckResult(Vulkan.vkCreatePipelineLayout(GraphicsDevice.Device, layoutCreateInfo, null, out VkPipelineLayout pipelineLayout), "Failed to create pipeline layout!");
-            
+
             return pipelineLayout;
         }
 
         public static unsafe VkPipeline CreateGraphicsPipeline(ShaderModule mesh, ShaderModule task, ShaderModule fragment, GraphicsPipelineConfigInfo configInfo)
         {
+            if (!GraphicsDevice.MeshShading)
+            {
+                throw new InvalidOperationException("Mesh shading is not enabled for this runtime instance!");
+            }
             Debug.Assert(mesh.VkShaderStage == VkShaderStageFlags.MeshEXT, "Provided mesh shader is at the wrong stage! Name: {0} Provided Stage {1}", mesh.AssetName, mesh.VkShaderStage);
             Debug.Assert(task.VkShaderStage == VkShaderStageFlags.TaskEXT, "Provided task shader is at the wrong stage! Name: {0} Provided Stage {1}", task.AssetName, task.VkShaderStage);
             Debug.Assert(fragment.VkShaderStage == VkShaderStageFlags.Fragment, "Provided fragement shader is at wrong stage! Name: {0} Provided Stage {1}", fragment.AssetName, fragment.VkShaderStage);

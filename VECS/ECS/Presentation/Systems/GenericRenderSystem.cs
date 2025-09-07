@@ -1,4 +1,5 @@
 ﻿using VECS.ECS.Transforms;
+using VECS.LowLevel;
 using Vortice.Vulkan;
 
 namespace VECS.ECS.Presentation
@@ -67,11 +68,21 @@ namespace VECS.ECS.Presentation
 
         public override void OnFowardPass(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
         {
-            Material meshShader = AssetDataBase<Material>.GetNamed("meshtriangle");
-            meshShader.SetPushConstantMatrix4x4("model", TransformExtensions.TRS(new(0, 20, -20), System.Numerics.Quaternion.Identity, new(1)));
-            meshShader.Update(rendererFrameInfo);
-            meshShader.BindAll(rendererFrameInfo);
-            Vulkan.vkCmdDrawMeshTasksEXT(rendererFrameInfo.CommandBuffer, 1, 1, 1);
+            if (GraphicsDevice.MeshShading)
+            {
+                Material meshShader = AssetDataBase<Material>.GetNamed("genMeshBasic");
+                //meshShader.SetPushConstantMatrix4x4("model", TransformExtensions.TRS(new(0, 20, -20), System.Numerics.Quaternion.Identity, new(1)));
+                DirectMesh cube = AssetDataBase<DirectMesh>.GetNamed("cube-UV");
+                var subMesh = cube.DirectSubMeshes[0];
+                var meshletInfo = subMesh.MeshletInfo;
+                meshShader.PushConstants.SetPushConstantUInt("meshletCount", (uint)meshletInfo.meshletCount);
+                meshShader.GetStorageBuffer<ModelMatrices>("matricesBuffer")[0] = new(TransformExtensions.TRS(new(0, 0, -10), System.Numerics.Quaternion.Identity, new(1)));
+                meshShader.Update(rendererFrameInfo);
+                meshShader.BindAll(rendererFrameInfo);
+                meshShader.BindMeshShaderData(rendererFrameInfo, cube);
+                meshShader.PushConstants.BindPushConstants(rendererFrameInfo, meshShader.PipeLineLayout);
+                Vulkan.vkCmdDrawMeshTasksEXT(rendererFrameInfo.CommandBuffer, 1, 1, 1);
+            }
             if (!_renderEntityQuery.HasEntities) { return; }
 
             _forwardData.ExecuteDrawCmds(rendererFrameInfo);

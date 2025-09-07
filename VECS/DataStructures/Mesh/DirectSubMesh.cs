@@ -15,6 +15,7 @@ namespace VECS
         public DirectMesh DirectMeshBuffer => _directMeshBuffer;
 
         public DirectSubMeshInfo DirectSubMeshInfo => _directMeshBuffer.SubMeshInfos[_directSubMeshIndex];
+        public SubmeshMeshletData MeshletInfo => _directMeshBuffer.SubMeshMesletInfos[_directSubMeshIndex];
         public DirectSubMeshCreateInfo DirectSubMeshCreateInfo => new(VertexCount, IndexCount);
 
         public VkDrawIndexedIndirectCommand IndirectCommand => DirectSubMeshInfo.IndirectDrawCmd;

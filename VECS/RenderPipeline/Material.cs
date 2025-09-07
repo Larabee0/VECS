@@ -22,6 +22,8 @@ namespace VECS
         private VkDescriptorSetLayout _applicationDescriptorLayout;
         private VkDescriptorSetLayout _materialDescriptorLayout;
         private VkDescriptorSetLayout _entityDescriptorLayout;
+        private VkDescriptorSetLayout _meshShaderDescriptorLayout;
+
         private VkDescriptorSetLayout[] _allLayouts;
         private readonly PushConstantsHandler _materialPushConstantsHandler;
         private VkPipelineLayout _pipelineLayout;        
@@ -39,10 +41,12 @@ namespace VECS
         // descriptor set 2 contains per entity descriptors (matrices, entity specific shader properties)
         // also keep the sets locally but the buffers that make up the sets are stored externally*
         private readonly Dictionary<string, int> _entityBindings;
+        private readonly Dictionary<string, int> _meshShaderBindings;
 
         private int _applicationDescriptorHandlerIndex = -1;
         private int _materialDescriptorHandlerIndex = -1;
         private int _entityDescriptorHandlerIndex = -1;
+        private readonly int _meshShaderDataBindingPoint = -1;
         private readonly DescriptorHandler[] _allHandlers;
 
         private readonly ConcurrentDictionary<string, (int, uint, DescriptorPropertyInfo)> _cachedProperties = new();
@@ -70,6 +74,9 @@ namespace VECS
         public DescriptorHandler EntityDescriptorSetHandler => _entityDescriptorHandlerIndex != -1 ? _allHandlers[_entityDescriptorHandlerIndex] : null;
 
         private readonly bool _actAsGlobal = false;
+        private readonly bool _meshShader = false;
+
+        public bool MeshShader => _meshShader;
 
         public static Material Create(string name, string vertexShader, string fragmentShader)
         {
@@ -85,6 +92,10 @@ namespace VECS
 
         public static Material Create(string name, string meshShader, string taskShader, string fragmentShader)
         {
+            if (!GraphicsDevice.MeshShading)
+            {
+                throw new InvalidOperationException("Mesh shading is not enabled for this runtime instance!");
+            }
             var material = new Material(name, meshShader, taskShader, fragmentShader, GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []), false);
 
             if (material.HasApplicationSet)
@@ -155,9 +166,9 @@ namespace VECS
 
             _materialPushConstantsHandler = new(vertex.SpvShaderModule, fragment.SpvShaderModule);
 
-            CreatePipelineLayout(vertex,fragment);
+            CreatePipelineLayout(vertex, fragment);
 
-            _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipeline(vertex,fragment, _graphicsPipelineConfigInfo);
+            _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipeline(vertex, fragment, _graphicsPipelineConfigInfo);
 
             Debug.Assert(Materials.Count < EarlyDrawCommand.MAX_MATERIAL_COUNT, string.Format("Material Creation would Exceeded Max Theorectical Material Count ({0})\nProbably reduce the number of materials you have, jeez", EarlyDrawCommand.MAX_MATERIAL_COUNT));
 
@@ -167,8 +178,13 @@ namespace VECS
         
         internal Material(string name, string meshShaderName,string taskShaderName, string fragmentShaderName, GraphicsPipelineConfigInfo pipelineConfig, bool actAsGlobal)
         {
+            if (!GraphicsDevice.MeshShading)
+            {
+                throw new InvalidOperationException("Mesh shading is not enabled for this runtime instance!");
+            }
             AssetName = name;
             _actAsGlobal = actAsGlobal;
+            _meshShader = true;
 
             ShaderModule mesh = AssetDataBase<ShaderModule>.GetNamed(meshShaderName);
             ShaderModule task = AssetDataBase<ShaderModule>.GetNamed(taskShaderName);
@@ -180,9 +196,37 @@ namespace VECS
             _graphicsPipelineConfigInfo = pipelineConfig;
             _materialBindings = GPUPipelineUtil.GenerateSharedDescriptorBindings(mesh.SpvShaderModule, task.SpvShaderModule, fragment.SpvShaderModule);
 
-            _applicationGlobalBindings = GPUPipelineUtil.ExtractBindingsForSet(0, _materialBindings);
-            _materialGlobalBindings = GPUPipelineUtil.ExtractBindingsForSet(1, _materialBindings);
-            _entityBindings = GPUPipelineUtil.ExtractBindingsForSet(2, _materialBindings);
+            _meshShaderDataBindingPoint = GPUPipelineUtil.GetMeshDataBindingPoint(_materialBindings);
+
+            if (_meshShaderDataBindingPoint > 0)
+            {
+                _applicationGlobalBindings = GPUPipelineUtil.ExtractBindingsForSet(0, _materialBindings);
+            }
+            else
+            {
+                _applicationGlobalBindings = [];
+                Console.WriteLine("WARNING: Mesh Shader is using set 0!");
+            }
+
+            if (_meshShaderDataBindingPoint > 1)
+            {
+                _materialGlobalBindings = GPUPipelineUtil.ExtractBindingsForSet(1, _materialBindings);
+            }
+            else
+            {
+                _materialGlobalBindings = [];
+            }
+
+            if (_meshShaderDataBindingPoint > 2)
+            {
+                _entityBindings = GPUPipelineUtil.ExtractBindingsForSet(2, _materialBindings);
+            }
+            else
+            {
+                _entityBindings = [];
+            }
+
+            _meshShaderBindings = GPUPipelineUtil.ExtractBindingsForSet((uint)_meshShaderDataBindingPoint, _materialBindings);
 
             GenerateDescriptorSetLayouts();
             _totalSets = (uint)_allLayouts.Length;
@@ -275,6 +319,19 @@ namespace VECS
                 _entityDescriptorLayout = GPUPipelineUtil.CreateDescriptorSetLayout(workingBindings);
                 _allLayouts = [.. _allLayouts, _entityDescriptorLayout];
             }
+
+            if (_meshShader)
+            {
+                workingBindingIndex = 0;
+                workingBindings = new DescriptorBinding[_meshShaderBindings.Count];
+                foreach (var item in _meshShaderBindings)
+                {
+                    workingBindings[workingBindingIndex] = _materialBindings[item.Value];
+                    workingBindingIndex++;
+                }
+                _meshShaderDescriptorLayout = GPUPipelineUtil.CreateDescriptorSetLayout(workingBindings);
+                _allLayouts = [.. _allLayouts, _meshShaderDescriptorLayout];
+            }
         }
 
         private unsafe void CreatePipelineLayout(ShaderModule vertex, ShaderModule fragment)
@@ -294,6 +351,10 @@ namespace VECS
         
         private unsafe void CreatePipelineLayout(ShaderModule mesh,ShaderModule task, ShaderModule fragment)
         {
+            if (!GraphicsDevice.MeshShading)
+            {
+                throw new InvalidOperationException("Mesh shading is not enabled for this runtime instance!");
+            }
             string cacheName = mesh.AssetName + task.AssetName + fragment.AssetName;
             var cache = AssetDataBase<PipelineCache>.GetNamedSilentFail(cacheName);
 
@@ -375,6 +436,11 @@ namespace VECS
             if (_entityDescriptorLayout != VkDescriptorSetLayout.Null)
             {
                 Vulkan.vkDestroyDescriptorSetLayout(GraphicsDevice.Device, _entityDescriptorLayout, null);
+            }
+
+            if (_meshShaderDescriptorLayout != VkDescriptorSetLayout.Null)
+            {
+                Vulkan.vkDestroyDescriptorSetLayout(GraphicsDevice.Device, _meshShaderDescriptorLayout, null);
             }
 
             int index = GetIndexOfMaterial(this);
