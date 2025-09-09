@@ -132,7 +132,7 @@ namespace VECS.DataStructures
                     face => 3,
                     (int face, int vertex, out float x, out float y, out float z) =>
                     {
-                        var vert = srcVertices[ vertex+(face*3)];
+                        var vert = srcVertices[vertex + (face * 3)];
                         x = vert.X;
                         y = vert.Y;
                         z = vert.Z;

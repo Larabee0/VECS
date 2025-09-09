@@ -382,6 +382,12 @@ namespace VECS.LowLevel
                 pNext = &deviceFeatures12
             };
 
+            VkPhysicalDeviceVulkan14Features deviceFeatures14 = new()
+            {
+                hostImageCopy = true,
+                pNext = & deviceFeatures13
+            };
+
             VkPhysicalDeviceFeatures deviceFeature = new()
             {
                 samplerAnisotropy = true,
@@ -393,7 +399,7 @@ namespace VECS.LowLevel
             VkPhysicalDeviceFeatures2 deviceFeatures2 = new()
             {
                 features = deviceFeature,
-                pNext = &deviceFeatures13
+                pNext = &deviceFeatures14
             };
 
             VkUtf8String[] loadExtensions;
