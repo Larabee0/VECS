@@ -17,6 +17,8 @@ namespace VECS.LowLevel
 #endif
         private readonly static VkUtf8String[] _requiredDeviceExtensions = [
             
+            Vulkan.VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME,
+            Vulkan.VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
             Vulkan.VK_KHR_PRESENT_WAIT_EXTENSION_NAME,
             Vulkan.VK_KHR_PRESENT_ID_EXTENSION_NAME,
             Vulkan.VK_KHR_SWAPCHAIN_EXTENSION_NAME,
@@ -24,12 +26,12 @@ namespace VECS.LowLevel
             Vulkan.VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME,
             Vulkan.VK_EXT_NESTED_COMMAND_BUFFER_EXTENSION_NAME,
             Vulkan.VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME,
-            Vulkan.VK_EXT_DEVICE_FAULT_EXTENSION_NAME
+            Vulkan.VK_EXT_DEVICE_FAULT_EXTENSION_NAME,
         ];
 
         private const bool ForceMeshShadingOff = false;
         private readonly static VkUtf8String[] _meshShaderExtensions = [
-            Vulkan.VK_EXT_MESH_SHADER_EXTENSION_NAME
+            Vulkan.VK_EXT_MESH_SHADER_EXTENSION_NAME,
         ];
 
 #if DEBUG
@@ -310,11 +312,13 @@ namespace VECS.LowLevel
                 };
                 index++;
             }
+
             VkPhysicalDeviceNestedCommandBufferFeaturesEXT nestedCommandBufferFeatures = new()
             {
                 nestedCommandBuffer = true,
                 nestedCommandBufferRendering = true
             };
+
             VkPhysicalDevicePresentIdFeaturesKHR presentIdFeatures = new()
             {
                 presentId = true,
