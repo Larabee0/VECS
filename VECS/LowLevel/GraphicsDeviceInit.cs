@@ -21,7 +21,8 @@ namespace VECS.LowLevel
             Vulkan.VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
             Vulkan.VK_EXT_SAMPLER_FILTER_MINMAX_EXTENSION_NAME,
             Vulkan.VK_KHR_IMAGELESS_FRAMEBUFFER_EXTENSION_NAME,
-            Vulkan.VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME
+            Vulkan.VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME,
+            Vulkan.VK_EXT_NESTED_COMMAND_BUFFER_EXTENSION_NAME
         ];
 
         private const bool ForceMeshShadingOff = false;
@@ -324,11 +325,24 @@ namespace VECS.LowLevel
                 meshShader = true
             };
 
+            VkPhysicalDeviceNestedCommandBufferFeaturesEXT nestedCommandBuffers = new()
+            {
+                nestedCommandBuffer = true,
+                nestedCommandBufferRendering = true
+            };
+
+            if (MeshShading)
+            {
+                
+                nestedCommandBuffers.pNext = &meshShaderFeatures;
+            }
+
             VkPhysicalDeviceVulkan12Features deviceFeatures12 = new()
             {
                 imagelessFramebuffer = true,
                 samplerFilterMinmax = true,
                 timelineSemaphore = true,
+                pNext = &nestedCommandBuffers
             };
 
             if (MeshShading)
@@ -336,7 +350,6 @@ namespace VECS.LowLevel
                 deviceFeatures12.storageBuffer8BitAccess = true;
             }
 
-            deviceFeatures12.pNext = &meshShaderFeatures;
 
 
 

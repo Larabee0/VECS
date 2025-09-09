@@ -71,9 +71,15 @@ namespace VECS
         public void BindMeshShaderData(RendererFrameInfo frameInfo, DirectMesh directMesh)
         {
             var meshShaderSet = directMesh.MeshShaderSet;
-            meshShaderSet.Update(frameInfo);
+            if (!meshShaderSet.TryGetDescriptorSet(frameInfo.FrameIndex, _meshShaderDescriptorHash, out var set))
+            {
+                var descriptor = meshShaderSet.RegisterMaterial(_meshShaderDescriptorLayout, _meshShaderVertexAttributes);
+                descriptor.Allocate(frameInfo.FrameIndex, frameInfo.ApplicationDescriptorPool);
+                meshShaderSet.UpdateDescriptorSet(frameInfo.FrameIndex, descriptor);
+                set = descriptor.VkDescriptorSets[frameInfo.FrameIndex];
+            }
 
-            Vulkan.vkCmdBindDescriptorSets(frameInfo.CommandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, (uint)_meshShaderDataBindingPoint, meshShaderSet.ActiveVkDescriptorSet);
+            Vulkan.vkCmdBindDescriptorSets(frameInfo.CommandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, (uint)_meshShaderDataBindingPoint, set);
         }
 
         private unsafe void DrawSimple(RendererFrameInfo frameInfo, DirectSubMesh directSubMesh)

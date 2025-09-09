@@ -39,17 +39,17 @@ layout(std140, set = 2, binding = 0) buffer MeshletBuffer{
 
 // binding 1 is the bounds buffer
 
-layout(std140, set = 2, binding = 2) buffer MeshletIndexBuffer{
+layout(std430, set = 2, binding = 2) buffer MeshletIndexBuffer{
 	uint8_t indices[];
 } indexBuffer;
 
 layout(std140, set = 2, binding = 3) buffer VertexPositionBuffer{
-	vec3 pos[];
-} vertexPosBuffer;
+	vec4 pos[];
+} vertexPositionBuffer;
 
 
 layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
-layout(triangles, max_vertices = 3, max_primitives = 1) out;
+layout(triangles, max_vertices = 64, max_primitives = 64) out;
 
 layout(location = 0) out VertexOutput
 {
@@ -67,20 +67,18 @@ void main()
 	mat4 mvp = ubo.projectionMatrix * ubo.viewMatrix * matricesBuffer.matrices[0].modelMatrix;
     uvec3 triIndices;
     uint vertexOffset = meshlet.vertex_offset;
-    uint indexOffset = meshlet.triangle_count;
+    uint indexOffset = meshlet.triangle_offset;
 
     for(uint i = 0; i < meshlet.vertex_count; i++)
     {
-        gl_MeshVerticesEXT[i + 0].gl_Position = mvp * vec4(vertexPosBuffer.pos[vertexOffset + i], 0);
+        gl_MeshVerticesEXT[i].gl_Position = ubo.projectionMatrix * ubo.viewMatrix * (matricesBuffer.matrices[0].modelMatrix * vec4(vertexPositionBuffer.pos[vertexOffset + i].xyz, 1.0));
         
 	    vertexOutput[i].color = vec4(1);
     }
-
-    for(uint i = 0; i < meshlet.triangle_count; i+=3)
+	uint index;
+    for(uint i = 0; i < meshlet.triangle_count; i ++)
     {
-        triIndices = uvec3(indexBuffer.indices[indexOffset + i + 0], indexBuffer.indices[indexOffset + i + 1], indexBuffer.indices[indexOffset + i + 2]);
-        gl_PrimitiveTriangleIndicesEXT[gl_LocalInvocationIndex] = triIndices;
+		index = i * 3;
+        gl_PrimitiveTriangleIndicesEXT[i] = uvec3(indexBuffer.indices[indexOffset + index + 0], indexBuffer.indices[indexOffset + index + 1], indexBuffer.indices[indexOffset + index + 2]);
     }
-
-	gl_PrimitiveTriangleIndicesEXT[gl_LocalInvocationIndex] =  uvec3(0, 1, 2);
 }

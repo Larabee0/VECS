@@ -426,13 +426,14 @@ namespace VECS
                 GPUBuffer.DisposalQueue.Enqueue(buffer);
             }
 
-            buffer = new GPUBuffer(attributeStride, (uint)meshletVertexCount, MESH_SHADER_VERTEX_BUFFER_FLAGS, false, false, true);
+
+            buffer = new GPUBuffer(attributeStride == 12 ? 16 : attributeStride, (uint)meshletVertexCount, MESH_SHADER_VERTEX_BUFFER_FLAGS, false, false, true);
 
             buffer.TryAllocHostBuffer(false);
 
             MeshletCopyVertexDataToGPUBuffer(srcMesh, subMeshes, submeshMeshletDatas, i, attribute, buffer, attributeStride);
 
-            buffer.Flush();
+            buffer.WriteFromHostBuffer();
             srcMesh._vertexBuffersMeshShader[attribute] = buffer;
         }
 
@@ -452,8 +453,10 @@ namespace VECS
                
                 var dstVertexData = new Span<byte>(
                     IntPtr.Add(new IntPtr(buffer.HostPtr), (int)(meshletData.vertexOffset * buffer.InstanceSize)).ToPointer(),
-                    meshletData.vertexCount * (int)attributeStride
+                    meshletData.vertexCount * (int)buffer.InstanceSize
                 );
+
+                dstVertexData.Clear();
 
                 // var totalBytes = attributeStride * submeshData.VertexCount;
 
@@ -464,7 +467,7 @@ namespace VECS
                 for (int k = 0; k < vertexMap.Length; k++)
                 {
                     var srcOffset = (int)vertexMap[k] * (int)attributeStride;
-                    var dstOffset = k * (int)attributeStride;
+                    var dstOffset = k * (int)buffer.InstanceSize;
 
                     for (int l = 0; l < attributeStride; l++)
                     {
@@ -483,11 +486,9 @@ namespace VECS
             }
             indexBuffer = new((uint)meshletIndexCount, MESH_SHADER_INDEX_BUFFER_FLAGS, false, true, true);
             indexBuffer.TryAllocHostBuffer(false);
-            fixed (byte* pTris = &meshletTriangles[0])
-            {
-                NativeMemory.Copy(pTris, indexBuffer.HostPtr, (uint)meshletTriangles.Length);
-            }
-            indexBuffer.Flush();
+
+            meshletTriangles.CopyTo(indexBuffer.HostBuffer);
+            indexBuffer.WriteFromHostBuffer();
             srcMesh._meshletIndexBuffer = indexBuffer;
         }
 
@@ -513,6 +514,7 @@ namespace VECS
             }
             
             data.CopyTo(newBuffer.HostBuffer);
+            newBuffer.WriteFromHostBuffer();
             return newBuffer;
         } 
 

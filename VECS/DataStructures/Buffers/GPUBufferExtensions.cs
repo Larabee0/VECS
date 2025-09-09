@@ -73,7 +73,7 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void Flush(this GPUBuffer buffer, ulong size = Vulkan.VK_WHOLE_SIZE, ulong offset = 0)
+        public static unsafe void Flush(this GPUBuffer buffer, ulong size = Vulkan.VK_WHOLE_SIZE, ulong offset = 0)
         {
             Vulkan.CheckResult(Vma.vmaFlushAllocation(GraphicsDevice.VmaAllocator, buffer._allocation, offset, size), "Failed to flush allocation!");
         }

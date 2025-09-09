@@ -47,6 +47,7 @@ namespace VECS
         private int _materialDescriptorHandlerIndex = -1;
         private int _entityDescriptorHandlerIndex = -1;
         private readonly int _meshShaderDataBindingPoint = -1;
+        private readonly int _meshShaderDescriptorHash = 0;
         private readonly DescriptorHandler[] _allHandlers;
 
         private readonly ConcurrentDictionary<string, (int, uint, DescriptorPropertyInfo)> _cachedProperties = new();
@@ -63,6 +64,8 @@ namespace VECS
         public bool HasApplicationSet => _applicationGlobalBindings.Count > 0;
         public bool HasMaterialSet => _materialGlobalBindings.Count > 0;
         public bool HasEntitySet => _entityBindings.Count > 0;
+
+        private readonly VertexAttributeDescription[] _meshShaderVertexAttributes;
 
         public VkVertexInputBindingDescription[] VertexBindings => _graphicsPipelineConfigInfo.BindingDescriptions;
         public VkVertexInputAttributeDescription[] VertexAttributes => _graphicsPipelineConfigInfo.AttributeDescriptions;
@@ -227,6 +230,15 @@ namespace VECS
             }
 
             _meshShaderBindings = GPUPipelineUtil.ExtractBindingsForSet((uint)_meshShaderDataBindingPoint, _materialBindings);
+            _meshShaderVertexAttributes = GPUPipelineUtil.MeshShaderExtractVertexAttributes(_meshShaderBindings, _materialBindings);
+
+            _meshShaderDescriptorHash = HashCode.Combine((byte)_meshShaderVertexAttributes[0].attribute, (byte)_meshShaderVertexAttributes[0].format);
+
+            for (int i = 1; i < _meshShaderVertexAttributes.Length; i++)
+            {
+                var attributeDesc = _meshShaderVertexAttributes[i];
+                _meshShaderDescriptorHash = HashCode.Combine(_meshShaderDescriptorHash, HashCode.Combine((byte)attributeDesc.attribute, (byte)attributeDesc.format));
+            }
 
             GenerateDescriptorSetLayouts();
             _totalSets = (uint)_allLayouts.Length-1;

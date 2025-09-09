@@ -1,5 +1,8 @@
 using System;
+using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Dynamic;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using VECS.LowLevel;
@@ -9,49 +12,114 @@ namespace VECS
 {
     public class MeshShaderDescriptor
     {
-        private readonly struct VertexBufferInfo
+        public readonly struct VertexBufferInfo
         {
             public readonly VertexAttribute Attribute;
             public readonly VertexAttributeFormat Format;
+            public readonly int BufferIndex;
+            public readonly uint BindingPoint;
 
             public override readonly int GetHashCode()
             {
-                return HashCode.Combine(Attribute, Format);
+                return HashCode.Combine((byte)Attribute, (byte)Format);
             }
 
-            public VertexBufferInfo(VertexAttributeDescription attributeDescription)
+            public VertexBufferInfo(VertexAttributeDescription attributeDescription, int bufferIndex)
             {
                 Attribute = attributeDescription.attribute;
                 Format = attributeDescription.format;
+                BufferIndex = bufferIndex;
+                BindingPoint = attributeDescription.binding;
             }
         }
 
-        private readonly bool[] _setsAllocated = new bool[SwapChain.MAX_CONCURRENT_FRAMES];
-        private readonly VkDescriptorSet[] _vkDescriptorSets = new VkDescriptorSet[SwapChain.MAX_CONCURRENT_FRAMES];
-        private readonly DescriptorPool[] _vkDescriptorPoolSource = new DescriptorPool[SwapChain.MAX_CONCURRENT_FRAMES];
-        private readonly VertexBufferInfo[] buffers;
-        private readonly VkDescriptorSetLayout _vkDescriptorSetLayout;
-        
+        public readonly bool[] SetsAllocated = new bool[SwapChain.MAX_CONCURRENT_FRAMES];
+        public readonly bool[] SetsDirty = new bool[SwapChain.MAX_CONCURRENT_FRAMES];
+
+        public readonly VkDescriptorSet[] VkDescriptorSets = new VkDescriptorSet[SwapChain.MAX_CONCURRENT_FRAMES];
+        public readonly DescriptorPool[] VkDescriptorPoolSource = new DescriptorPool[SwapChain.MAX_CONCURRENT_FRAMES];
+        public readonly VertexBufferInfo[] Buffers;
+        public readonly VkDescriptorSetLayout VkDescriptorSetLayout;
+
+        public readonly int LayoutHash;
+
+
+        public MeshShaderDescriptor(VkDescriptorSetLayout layout, VertexAttributeDescription[] desired, DirectMesh mesh)
+        {
+            VkDescriptorSetLayout = layout;
+
+            Buffers = new VertexBufferInfo[desired.Length];
+
+            for (int i = 0; i < desired.Length; i++)
+            {
+                var attributeDesc = desired[i];
+                int bufferIndex = -1;
+                if (mesh.ConsumedAttributes.TryGetValue(attributeDesc.attribute, out var desc))
+                {
+                    bufferIndex = (int)desc.binding;
+                }
+                Buffers[i] = new(attributeDesc, bufferIndex);
+            }
+
+            LayoutHash = Buffers[0].GetHashCode();
+            for (int i = 1; i < Buffers.Length; i++)
+            {
+                LayoutHash = HashCode.Combine(LayoutHash, Buffers[i].GetHashCode());
+            }
+
+            Array.Fill(SetsDirty, true);
+            Array.Fill(SetsAllocated, false);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe void Allocate(int frameIndex, DescriptorPool pool)
+        {
+            if (SetsAllocated[frameIndex])
+            {
+                return;
+            }
+            VkDescriptorSet set = default;
+            pool.AllocateDescriptorSet(VkDescriptorSetLayout, &set);
+            VkDescriptorSets[frameIndex] = set;
+            SetsAllocated[frameIndex] = true;
+            SetsDirty[frameIndex] = true;
+            VkDescriptorPoolSource[frameIndex] = pool;
+        }
+
+        public void DeallocateDescriptorSets()
+        {
+            for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
+            {
+                var set = VkDescriptorSets[i];
+                var pool = VkDescriptorPoolSource[i];
+#if DEBUG
+                Debug.Assert(set != VkDescriptorSet.Null == (pool != null), " VkDescriptorSet null state did not match its pool null state");
+#endif
+                if (set != VkDescriptorSet.Null && pool != null)
+                {
+                    pool.AddSetToFree(set);
+                }
+                VkDescriptorSets[i] = VkDescriptorSet.Null;
+                VkDescriptorPoolSource[i] = null;
+            }
+            Array.Fill(SetsDirty, true);
+            Array.Fill(SetsAllocated, false);
+        }
+
+        public override int GetHashCode()
+        {
+            return LayoutHash;
+        }
 
     }
 
     public class MeshShaderDescriptorSet : IDisposable
     {
-
-
         private bool _disposed = false;
-        private readonly VkDescriptorSet[] _vkDescriptorSets = new VkDescriptorSet[SwapChain.MAX_CONCURRENT_FRAMES];
-        private readonly DescriptorPool[] _vkDescriptorPoolSource = new DescriptorPool[SwapChain.MAX_CONCURRENT_FRAMES];
-
-        private readonly bool[] _setsAllocated = new bool[SwapChain.MAX_CONCURRENT_FRAMES];
-        private readonly bool[] _setsDirty = new bool[SwapChain.MAX_CONCURRENT_FRAMES];
-
-        private readonly VkDescriptorSetLayout _vkDescriptorSetLayout;
+        private readonly DirectMesh _owner;
+        private readonly ConcurrentDictionary<int, MeshShaderDescriptor> _materialSets = [];
         private readonly VkWriteDescriptorSet[] _vkDescriptorWrites;
         private readonly unsafe VkDescriptorBufferInfo* _bufferInfos;
-
-        public VkDescriptorSetLayout VkDescriptorSetLayout => _vkDescriptorSetLayout;
-        public VkDescriptorSet ActiveVkDescriptorSet => _vkDescriptorSets[Presenter.Instance.FrameIndex];
 
         public unsafe MeshShaderDescriptorSet(DirectMesh owner)
         {
@@ -59,9 +127,9 @@ namespace VECS
             {
                 throw new InvalidOperationException("Mesh shading is not enabled for this runtime instance!");
             }
+            
             var attributes = owner.AllAttributesInOrder;
-
-            _vkDescriptorSetLayout = CreateMeshDescriptorSetLayout(owner);
+            _owner = owner;
 
             _vkDescriptorWrites = new VkWriteDescriptorSet[attributes.Length + 3];
             _bufferInfos = (VkDescriptorBufferInfo*)NativeMemory.Alloc((uint)sizeof(VkDescriptorBufferInfo) * ((uint)attributes.Length + 3));
@@ -123,61 +191,87 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Update(int frameIndex, DescriptorPool pool)
         {
-            if (!_setsAllocated[frameIndex])
-            {
-                AllocateSetInternal(frameIndex, pool);
-            }
+            if (_materialSets.IsEmpty) return;
 
-            if (_setsDirty[frameIndex])
+            foreach (var value in _materialSets.Values)
             {
-                UpdateDescriptorSet(frameIndex);
+                value.Allocate(frameIndex, pool);
+                UpdateDescriptorSet(frameIndex,value);
             }
         }
+
+
+        public unsafe void UpdateDescriptorSet(int frameIndex, MeshShaderDescriptor shaderDescriptor)
+        {
+            if (!shaderDescriptor.SetsDirty[frameIndex])
+            {
+                return;
+            }
+            VkDescriptorSet set = shaderDescriptor.VkDescriptorSets[frameIndex];
+            var bufferInfos = shaderDescriptor.Buffers;
+
+            VkWriteDescriptorSet* writes = stackalloc VkWriteDescriptorSet[bufferInfos.Length + 3];
+            for (int i = 0; i < 3; i++)
+            {
+                writes[i] = _vkDescriptorWrites[i];
+            }
+
+            for (int i = 0; i < bufferInfos.Length; i++)
+            {
+                var info = bufferInfos[i];
+                var bufferIndex = 3;
+                if (bufferInfos[i].BufferIndex > 0)
+                {
+                    bufferIndex += info.BufferIndex;
+                }
+
+                writes[info.BindingPoint] = _vkDescriptorWrites[bufferIndex];
+                writes[info.BindingPoint].dstBinding = info.BindingPoint;
+            }
+
+            for (int i = 0; i < bufferInfos.Length + 3; i++)
+            {
+                writes[i].dstSet = set;
+            }
+
+            Vulkan.vkUpdateDescriptorSets(GraphicsDevice.Device, (uint)bufferInfos.Length + 3, writes, 0, null);
+            shaderDescriptor.VkDescriptorSets[frameIndex] = set;
+            shaderDescriptor.SetsDirty[frameIndex] = false;
+        }
+        
+        public bool TryGetDescriptorSet(int frameIndex, int descriptorLayout, out VkDescriptorSet set)
+        {
+            set = VkDescriptorSet.Null;
+            if (_materialSets.TryGetValue(descriptorLayout, out var setContainer))
+            {
+                set = setContainer.VkDescriptorSets[frameIndex];
+                return true;
+            }
+            return false;
+        }
+
+        public MeshShaderDescriptor RegisterMaterial(VkDescriptorSetLayout setLayout, VertexAttributeDescription[] requiredAttributes)
+        {
+            MeshShaderDescriptor newLayout = new(setLayout, requiredAttributes, _owner);
+
+            if (!_materialSets.TryAdd(newLayout.LayoutHash, newLayout))
+            {
+                newLayout = _materialSets[newLayout.LayoutHash];
+            }
+
+            return newLayout;
+        }
+
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private unsafe void AllocateSetInternal(int frameIndex, DescriptorPool pool)
-        {
-            VkDescriptorSet set = default;
-            pool.AllocateDescriptorSet(_vkDescriptorSetLayout, &set);
-            _vkDescriptorSets[frameIndex] = set;
-            _setsAllocated[frameIndex] = true;
-            _setsDirty[frameIndex] = true;
-            _vkDescriptorPoolSource[frameIndex] = pool;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void UpdateDescriptorSet(int frameIndex)
-        {
-            VkDescriptorSet set = _vkDescriptorSets[frameIndex];
-
-            for (int i = 0; i < _vkDescriptorWrites.Length; i++)
-            {
-                _vkDescriptorWrites[i].dstSet = set;
-            }
-
-            Vulkan.vkUpdateDescriptorSets(GraphicsDevice.Device, _vkDescriptorWrites);
-            _vkDescriptorSets[frameIndex] = set;
-            _setsDirty[frameIndex] = false;
-        }
-
         public void DeallocateDescriptorSets()
         {
-            for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
+            if (_materialSets.IsEmpty) return;
+
+            foreach (var value in _materialSets.Values)
             {
-                var set = _vkDescriptorSets[i];
-                var pool = _vkDescriptorPoolSource[i];
-#if DEBUG
-                Debug.Assert(set != VkDescriptorSet.Null == (pool != null), " VkDescriptorSet null state did not match its pool null state");
-#endif
-                if (set != VkDescriptorSet.Null && pool != null)
-                {
-                    pool.AddSetToFree(set);
-                }
-                _vkDescriptorSets[i] = VkDescriptorSet.Null;
-                _vkDescriptorPoolSource[i] = null;
+                value.DeallocateDescriptorSets();
             }
-            Array.Fill(_setsDirty, true);
-            Array.Fill(_setsAllocated, false);
         }
 
 

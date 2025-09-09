@@ -573,5 +573,40 @@ namespace VECS
 
             return vertexInputInfo;
         }
+
+        public static VertexAttributeDescription[] MeshShaderExtractVertexAttributes(Dictionary<string, int> meshShaderBindings, DescriptorBinding[] materialBindings)
+        {
+            List<VertexAttributeDescription> attributeDescriptions = [];
+
+
+            foreach (var pair in meshShaderBindings)
+            {
+                if (pair.Key.StartsWith("vertex"))
+                {
+                    for (VertexAttribute attribute = VertexAttribute.Position; attribute <= VertexAttribute.TexCoord7; attribute++)
+                    {
+                        string pattern = "vertex" + attribute.ToString();
+                        if (pair.Key.StartsWith(pattern))
+                        {
+                            var bindingDesc = materialBindings[pair.Value];
+                            if (!bindingDesc.StorageBuffer) {
+                                throw new InvalidOperationException(string.Format("Shader property {0} should be a storage buffer as its flagged as a vertex buffer!", pair.Key));
+                            }
+
+                            var format = bindingDesc.Variables[0].Size.GetAttributeFromByteSize();
+                            if (format == VertexAttributeFormat.Byte)
+                            {
+                                throw new InvalidOperationException(string.Format("Shader property {0} is trying ot use a vertex buffer of bytes which is not supported by DirectMesh!", pair.Key));
+                            }
+                            VertexAttributeDescription attributeDesc = new(attribute, format, 0, bindingDesc.Binding, bindingDesc.Binding);
+
+                            attributeDescriptions.Add(attributeDesc);
+                        }
+                    }
+                }
+            }
+
+            return [.. attributeDescriptions];
+        }
     }
 }

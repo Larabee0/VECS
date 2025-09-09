@@ -210,7 +210,7 @@ namespace VECS.LowLevel
                 pColorAttachments = &colour,
                 pDepthAttachment = &depth,
                 pStencilAttachment = &depth,
-                flags = VkRenderingFlags.ContentsSecondaryCommandBuffers
+                flags = VkRenderingFlags.ContentsInlineKHR | VkRenderingFlags.ContentsSecondaryCommandBuffers
             };
             Vulkan.vkCmdBeginRendering(commandBuffer, &renderingInfo);
 

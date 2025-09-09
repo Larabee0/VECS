@@ -66,26 +66,35 @@ namespace VECS.ECS.Presentation
             _forwardData.ExecuteBloomDrawCmds(rendererFrameInfo);
         }
 
-        public override void OnFowardPass(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
+        public override void OnFowardPass(EntityManager entityManager, RendererFrameInfo frameInfo)
         {
             if (GraphicsDevice.MeshShading)
             {
                 Material meshShader = AssetDataBase<Material>.GetNamed("genMeshBasic");
                 //meshShader.SetPushConstantMatrix4x4("model", TransformExtensions.TRS(new(0, 20, -20), System.Numerics.Quaternion.Identity, new(1)));
                 DirectMesh cube = AssetDataBase<DirectMesh>.GetNamed("cube-UV");
+                cube.MeshShaderSet.Update(frameInfo);
                 var subMesh = cube.DirectSubMeshes[0];
                 var meshletInfo = subMesh.MeshletInfo;
                 meshShader.PushConstants.SetPushConstantUInt("meshletCount", (uint)meshletInfo.meshletCount);
-                meshShader.GetStorageBuffer<ModelMatrices>("matricesBuffer")[0] = new(TransformExtensions.TRS(new(0, 0, -10), System.Numerics.Quaternion.Identity, new(1)));
-                meshShader.Update(rendererFrameInfo);
-                meshShader.BindAll(rendererFrameInfo);
-                meshShader.BindMeshShaderData(rendererFrameInfo, cube);
-                meshShader.PushConstants.BindPushConstants(rendererFrameInfo, meshShader.PipeLineLayout);
-                Vulkan.vkCmdDrawMeshTasksEXT(rendererFrameInfo.CommandBuffer, 1, 1, 1);
+                meshShader.GetStorageBuffer<ModelMatrices>("matricesBuffer")[0] = new(TransformExtensions.TRS(new(0, 0, 10), System.Numerics.Quaternion.Identity, new(10)));
+                meshShader.Update(frameInfo);
+                meshShader.BindAll(frameInfo);
+                meshShader.BindMeshShaderData(frameInfo, cube);
+                meshShader.PushConstants.BindPushConstants(frameInfo, meshShader.PipeLineLayout);
+                Vulkan.vkCmdDrawMeshTasksEXT(frameInfo.CommandBuffer, 1, 1, 1);
+
+                //var unlit = Presenter.Instance.Unlit;
+                //var drawCmd = subMesh.DirectSubMeshInfo.IndirectDrawCmd;
+                //unlit.GetStorageBuffer<ModelMatrices>("matricesBuffer")[0] = new(TransformExtensions.TRS(new(0, 0, 10), System.Numerics.Quaternion.Identity, new(10)));
+                //unlit.Update(frameInfo);
+                //unlit.BindAll(frameInfo);
+                //cube.BindSpecificBuffers(frameInfo.CommandBuffer, unlit.VertexBindings, unlit.VertexAttributes);
+                //Vulkan.vkCmdDrawIndexed(frameInfo.CommandBuffer, drawCmd.indexCount, 1, drawCmd.firstIndex, drawCmd.vertexOffset, 0);
             }
             if (!_renderEntityQuery.HasEntities) { return; }
 
-            _forwardData.ExecuteDrawCmds(rendererFrameInfo);
+            _forwardData.ExecuteDrawCmds(frameInfo);
         }
     }
 }

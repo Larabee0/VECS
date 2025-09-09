@@ -28,5 +28,5 @@ layout(set = 0, binding = 0) uniform GlobalUbo{
 
 void main()
 {
-	outFragColor = vertexInput.color;
+	outFragColor = vec4(1);
 }
