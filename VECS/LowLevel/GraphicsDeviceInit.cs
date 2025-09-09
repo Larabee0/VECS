@@ -16,20 +16,20 @@ namespace VECS.LowLevel
         private readonly static string[] _requiredValidationLayers = ["VK_LAYER_KHRONOS_validation"];
 #endif
         private readonly static VkUtf8String[] _requiredDeviceExtensions = [
+            
+            Vulkan.VK_KHR_PRESENT_WAIT_EXTENSION_NAME,
+            Vulkan.VK_KHR_PRESENT_ID_EXTENSION_NAME,
             Vulkan.VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-            Vulkan.VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME,
-            Vulkan.VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
-            Vulkan.VK_EXT_SAMPLER_FILTER_MINMAX_EXTENSION_NAME,
-            Vulkan.VK_KHR_IMAGELESS_FRAMEBUFFER_EXTENSION_NAME,
-            Vulkan.VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME,
-            Vulkan.VK_EXT_NESTED_COMMAND_BUFFER_EXTENSION_NAME
+            
+            Vulkan.VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME,
+            Vulkan.VK_EXT_NESTED_COMMAND_BUFFER_EXTENSION_NAME,
+            Vulkan.VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME,
+            Vulkan.VK_EXT_DEVICE_FAULT_EXTENSION_NAME
         ];
 
         private const bool ForceMeshShadingOff = false;
         private readonly static VkUtf8String[] _meshShaderExtensions = [
-            Vulkan.VK_KHR_SPIRV_1_4_EXTENSION_NAME,
-            Vulkan.VK_EXT_MESH_SHADER_EXTENSION_NAME,
-            Vulkan.VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME
+            Vulkan.VK_EXT_MESH_SHADER_EXTENSION_NAME
         ];
 
 #if DEBUG
@@ -310,14 +310,35 @@ namespace VECS.LowLevel
                 };
                 index++;
             }
-
-            VkPhysicalDeviceFeatures deviceFeature = new()
+            VkPhysicalDeviceNestedCommandBufferFeaturesEXT nestedCommandBufferFeatures = new()
             {
-                samplerAnisotropy = true,
-                fillModeNonSolid = true,
-                multiDrawIndirect = true,
-                drawIndirectFirstInstance = true,
+                nestedCommandBuffer = true,
+                nestedCommandBufferRendering = true
             };
+            VkPhysicalDevicePresentIdFeaturesKHR presentIdFeatures = new()
+            {
+                presentId = true,
+                pNext = &nestedCommandBufferFeatures
+            };
+
+            VkPhysicalDevicePresentWaitFeaturesKHR presentWaitFeatures = new()
+            {
+                presentWait = true,
+                pNext = &presentIdFeatures
+            };
+
+            VkPhysicalDeviceFaultFeaturesEXT deviceFaultFeatures = new()
+            {
+                deviceFault = true,
+                pNext = &presentWaitFeatures
+            };
+
+            VkPhysicalDeviceDescriptorBufferFeaturesEXT descriptorBuffers = new()
+            {
+                descriptorBuffer = true,
+                pNext = &deviceFaultFeatures
+            };
+
 
             VkPhysicalDeviceMeshShaderFeaturesEXT meshShaderFeatures = new()
             {
@@ -325,31 +346,26 @@ namespace VECS.LowLevel
                 meshShader = true
             };
 
-            VkPhysicalDeviceNestedCommandBufferFeaturesEXT nestedCommandBuffers = new()
-            {
-                nestedCommandBuffer = true,
-                nestedCommandBufferRendering = true
-            };
-
             if (MeshShading)
             {
-                
-                nestedCommandBuffers.pNext = &meshShaderFeatures;
+                nestedCommandBufferFeatures.pNext = &meshShaderFeatures;
             }
+
+            VkPhysicalDeviceVulkan11Features deviceFeatures11 = new()
+            {
+                shaderDrawParameters = true,
+                pNext = &descriptorBuffers
+            };
+
 
             VkPhysicalDeviceVulkan12Features deviceFeatures12 = new()
             {
                 imagelessFramebuffer = true,
                 samplerFilterMinmax = true,
                 timelineSemaphore = true,
-                pNext = &nestedCommandBuffers
+                storageBuffer8BitAccess = true,
+                pNext = &deviceFeatures11
             };
-
-            if (MeshShading)
-            {
-                deviceFeatures12.storageBuffer8BitAccess = true;
-            }
-
 
 
 
@@ -360,6 +376,14 @@ namespace VECS.LowLevel
                 synchronization2 = true,
                 shaderDemoteToHelperInvocation = true,
                 pNext = &deviceFeatures12
+            };
+
+            VkPhysicalDeviceFeatures deviceFeature = new()
+            {
+                samplerAnisotropy = true,
+                fillModeNonSolid = true,
+                multiDrawIndirect = true,
+                drawIndirectFirstInstance = true,
             };
 
             VkPhysicalDeviceFeatures2 deviceFeatures2 = new()
