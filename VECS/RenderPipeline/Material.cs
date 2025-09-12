@@ -108,6 +108,17 @@ namespace VECS
 
             return material;
         }
+        public static Material Create(string name, string vertexShader,GraphicsPipelineConfigInfo config)
+        {
+            var material = new Material(name, vertexShader,config, false);
+
+            if (material.HasApplicationSet)
+            {
+                material._allHandlers[0] = Presenter.Instance.GlobalSetHandler;
+            }
+
+            return material;
+        }
 
         public static Material Create(string name, string vertexShader, string fragmentShader, GraphicsPipelineConfigInfo config)
         {
@@ -139,6 +150,42 @@ namespace VECS
             }
 
             return material;
+        }
+        internal Material(string name, string vertexShaderName,GraphicsPipelineConfigInfo pipelineConfig, bool actAsGlobal)
+        {
+            AssetName = name;
+            _actAsGlobal = actAsGlobal;
+
+            ShaderModule vertex = AssetDataBase<ShaderModule>.GetNamed(vertexShaderName);
+
+            if (GPUPipelineUtil.GetVertexInputState(vertex.SpvShaderModule, out VkVertexInputBindingDescription[] vertBindings, out VkVertexInputAttributeDescription[] vertAttributes))
+            {
+                pipelineConfig.BindingDescriptions = vertBindings;
+                pipelineConfig.AttributeDescriptions = vertAttributes;
+            }
+            _graphicsPipelineConfigInfo = pipelineConfig;
+            _materialBindings = GPUPipelineUtil.GenerateSharedDescriptorBindings(vertex.SpvShaderModule);
+
+            _applicationGlobalBindings = GPUPipelineUtil.ExtractBindingsForSet(0, _materialBindings);
+            _materialGlobalBindings = GPUPipelineUtil.ExtractBindingsForSet(1, _materialBindings);
+            _entityBindings = GPUPipelineUtil.ExtractBindingsForSet(2, _materialBindings);
+
+            GenerateDescriptorSetLayouts();
+            _totalSets = (uint)_allLayouts.Length;
+            _allHandlers = new DescriptorHandler[_allLayouts.Length];
+
+            CreateDescriptorSetHandler();
+
+            _materialPushConstantsHandler = new(vertex.SpvShaderModule);
+
+            CreatePipelineLayout(vertex);
+
+            _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipeline(vertex,_graphicsPipelineConfigInfo);
+
+            Debug.Assert(Materials.Count < EarlyDrawCommand.MAX_MATERIAL_COUNT, string.Format("Material Creation would Exceeded Max Theorectical Material Count ({0})\nProbably reduce the number of materials you have, jeez", EarlyDrawCommand.MAX_MATERIAL_COUNT));
+
+            Materials.Add(this);
+            AssetDataBase<Material>.Add(this);
         }
 
         internal Material(string name, string vertexShaderName, string fragmentShaderName, GraphicsPipelineConfigInfo pipelineConfig, bool actAsGlobal)
@@ -345,10 +392,9 @@ namespace VECS
                 _allLayouts = [.. _allLayouts, _meshShaderDescriptorLayout];
             }
         }
-
-        private unsafe void CreatePipelineLayout(ShaderModule vertex, ShaderModule fragment)
+        private unsafe void CreatePipelineLayout(ShaderModule vertex)
         {
-            string cacheName = vertex.AssetName + fragment.AssetName;
+            string cacheName = vertex.AssetName;
             var cache = AssetDataBase<PipelineCache>.GetNamedSilentFail(cacheName);
 
             if (cache == null)
@@ -359,6 +405,21 @@ namespace VECS
 
             _graphicsPipelineConfigInfo.pipelineLayout = _pipelineLayout = cache.Layout;
             _setsToBind = (VkDescriptorSet*)NativeMemory.AllocZeroed((uint)_allLayouts.Length,(uint)sizeof(VkDescriptorSet));
+        }
+        
+        private unsafe void CreatePipelineLayout(ShaderModule vertex, ShaderModule fragment)
+        {
+            string cacheName = vertex.AssetName + fragment.AssetName;
+            var cache = AssetDataBase<PipelineCache>.GetNamedSilentFail(cacheName);
+
+            if (cache == null)
+            {
+                cache = new(cacheName, GPUPipelineUtil.CreatePipelineLayout(_allLayouts, _materialPushConstantsHandler));
+                AssetDataBase<PipelineCache>.Add(cache);
+            }
+
+            _graphicsPipelineConfigInfo.pipelineLayout = _pipelineLayout = cache.Layout;
+            _setsToBind = (VkDescriptorSet*)NativeMemory.AllocZeroed((uint)_allLayouts.Length, (uint)sizeof(VkDescriptorSet));
         }
         
         private unsafe void CreatePipelineLayout(ShaderModule mesh,ShaderModule task, ShaderModule fragment)

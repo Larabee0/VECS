@@ -1,3 +1,4 @@
+using SDL3;
 using System;
 using System.Collections.Generic;
 using System.Numerics;
@@ -10,32 +11,45 @@ namespace VECS.ECS.Presentation
     internal class ShadowInternal : RenderSystemInternal
     {
         private readonly Material _shadowOffscreen;
+        private readonly Material _depthOnly;
         private readonly ShadowRenderBlob _shadowRenderBlob;
 
         private readonly VkCommandBuffer[][] _freeBuffers = new VkCommandBuffer[SwapChain.MAX_CONCURRENT_FRAMES][];
 
         public unsafe ShadowInternal(FustrumCull cull) : base(cull)
         {
-            GraphicsPipelineConfigInfo shadowConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
+            var shadowConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             Cubemap shadowCube = AssetDataBase<Cubemap>.GetNamed("ShadowCubeMap");
             Texture2D shadowDepthStencil = AssetDataBase<Texture2D>.GetNamed("ShadowDepthImage");
 
             shadowConfig.colourFormats = [shadowCube.Format];
             shadowConfig.depthFormat = shadowDepthStencil.Format;
             shadowConfig.stencilFormat = shadowDepthStencil.Format;
+            shadowConfig.depthStencilInfo.depthWriteEnable = true;
 
             _freeBuffers = new VkCommandBuffer[SwapChain.MAX_CONCURRENT_FRAMES][];
             for (int i = 0; i < _freeBuffers.Length; i++)
             {
-                _freeBuffers[i] = new VkCommandBuffer[6];
+                _freeBuffers[i] = new VkCommandBuffer[7];
             }
             _shadowOffscreen = Material.Create("ShadowOffscreen", "shadow_offscreen.vert", "shadow_offscreen.frag", shadowConfig);
 
+            var depthConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
+            depthConfig.colourFormats = [];
+            depthConfig.depthStencilInfo.depthWriteEnable = true;
+            depthConfig.depthStencilInfo.depthTestEnable = true;
+            depthConfig.depthStencilInfo.depthCompareOp = VkCompareOp.LessOrEqual;
+
+            _depthOnly = Material.Create("DepthOnly", "depth_only.vert", depthConfig);
             _shadowRenderBlob = new(_shadowOffscreen, GenericRenderSystem.MAX_DRAWS);
         }
 
         public override void GenerateDrawCmds(RendererFrameInfo frameInfo, EntityManager entityManager, List<Entity> entities)
         {
+            if (_cullCompute.Shader.LastFrameIndex != frameInfo.FrameIndex)
+            {
+                _cullCompute.Shader.NextFrame(frameInfo.FrameIndex);
+            }
             if (_shadowRenderBlob.DrawCount != entities.Count)
             {
                 _shadowRenderBlob.RebuildBlob(entityManager, entities);
@@ -44,13 +58,36 @@ namespace VECS.ECS.Presentation
             {
                 _shadowRenderBlob.UpdateDrawCommands(entityManager);
             }
+
+
             RenderShadows(frameInfo, entities.Count);
+        }
+
+        private unsafe void DepthOnly(VkCommandBuffer commandBuffer, CullData cullData,int computeSetId,int frameIndex, int drawCount)
+        {
+            
+            VkBufferMemoryBarrier memoryBarrier = _cullCompute.Cull(commandBuffer, frameIndex, cullData, (uint)drawCount, _shadowRenderBlob.IndirectCmdBuffer, _shadowRenderBlob.ModelBoundsBuffer, computeSetId);
+            if (!_cullCompute.CPUCulling)
+            {
+                Vulkan.vkCmdPipelineBarrier(commandBuffer,
+                        VkPipelineStageFlags.ComputeShader,
+                        VkPipelineStageFlags.DrawIndirect,
+                        0, 0, null, 1, &memoryBarrier, 0, null);
+            }
+
+            SwapChain.Instance.BeginForwardDepth(commandBuffer);
+            _shadowRenderBlob.DrawBlobWith(_depthOnly, commandBuffer, frameIndex, 0);
+            SwapChain.Instance.EndForwardDepthRendering(commandBuffer);
         }
 
         private unsafe void RenderShadows(RendererFrameInfo frameInfo, int drawCount)
         {
             _shadowOffscreen.SetMatDescriptorHandleStorageRegions(0, 0, (uint)drawCount);
+            _depthOnly.SetMatDescriptorHandleStorageRegions(0, 0, (uint)drawCount);
+            _shadowOffscreen.GetStorageBuffer<ModelMatrices>("matricesBuffer").CopyTo(_depthOnly.GetStorageBuffer<ModelMatrices>("matricesBuffer"));
 
+            _cullCompute.Shader.SetStorageBuffer("boundsBuffer", _shadowRenderBlob.ModelBoundsBuffer);
+            _cullCompute.Shader.SetStorageBuffer("drawBuffer", _shadowRenderBlob.IndirectCmdBuffer);
             Matrix4x4 projection = Matrix4x4.CreatePerspectiveFieldOfView(MathF.PI * 0.5f, 1.0f, 0.1f, ShadowImage.SHADOW_IMAGE_SIZE);
             Matrix4x4 model = Matrix4x4.CreateTranslation(frameInfo.Ubo.PointLights[0].Position.AsVector3());
             _shadowOffscreen.SetMatrix4x4("cubeConstant.cubeProj", projection);
@@ -76,28 +113,34 @@ namespace VECS.ECS.Presentation
                 }
             }
 
-            if (_cullCompute.Shader.LastFrameIndex != frameInfo.FrameIndex)
-            {
-                _cullCompute.Shader.NextFrame(frameInfo.FrameIndex);
-            }
             
-            _cullCompute.Shader.SetStorageBuffer("boundsBuffer", _shadowRenderBlob.ModelBoundsBuffer);
-            _cullCompute.Shader.SetStorageBuffer("drawBuffer", _shadowRenderBlob.IndirectCmdBuffer);
 
             _shadowOffscreen.PushConstants.EnsureCapacity(6);
             _shadowOffscreen.Update(frameInfo);
+            _depthOnly.Update(frameInfo);
             Presenter.Instance.ShadowImage.SetImageLayoutWrite(frameInfo.CommandBuffer);
 
-            Application.ParallelFor(6, (i) =>
+            Application.ParallelFor(7, (i) =>
             {
-                RenderShadow(frameInfo, drawCount, i, model, cullData, parallelCmdBuffers);
+                if (i == 6)
+                {
+                    VkCommandBufferInheritanceInfo inheritanceInfo = new() { };
+                    VkCommandBufferBeginInfo bufferBeginInfo = new() { pInheritanceInfo = &inheritanceInfo };
+                    Vulkan.vkBeginCommandBuffer(parallelCmdBuffers[6], &bufferBeginInfo);
+                    DepthOnly(parallelCmdBuffers[6], frameInfo.cullData, 7, frameInfo.FrameIndex, drawCount);
+                    Vulkan.vkEndCommandBuffer(parallelCmdBuffers[6]);
+                }
+                else
+                {
+                    RenderShadow(frameInfo, drawCount, i, model, cullData, parallelCmdBuffers);
+                }
             });
 
 
-            _cullCompute.Shader.Increment(6);
+            _cullCompute.Shader.Increment(7);
             fixed (VkCommandBuffer* pCmdBuffers = &parallelCmdBuffers[0])
             {
-                Vulkan.vkCmdExecuteCommands(frameInfo.CommandBuffer, 6, pCmdBuffers);
+                Vulkan.vkCmdExecuteCommands(frameInfo.CommandBuffer, 7, pCmdBuffers);
             }
             Presenter.Instance.ShadowImage.SetImageLayoutRead(frameInfo.CommandBuffer);
         }

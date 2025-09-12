@@ -182,6 +182,30 @@ namespace VECS.LowLevel
             Vulkan.CheckResult(Vulkan.vkResetFences(GraphicsDevice.Device, fence), "Failed to reset fence ");
         }
 
+        public unsafe void BeginForwardDepth(VkCommandBuffer commandBuffer)
+        {
+            VkRenderingAttachmentInfo depth = new()
+            {
+                imageView = DepthImage._imageView,
+                imageLayout = DepthImage.ImageLayout,
+                loadOp = VkAttachmentLoadOp.Clear,
+                storeOp = VkAttachmentStoreOp.Store,
+                clearValue = new(1, 0)
+            };
+            VkRenderingInfo renderingInfo = new()
+            {
+                renderArea = new(0, 0, _swapChainExtent.width, _swapChainExtent.height),
+                layerCount = 1,
+                colorAttachmentCount = 0,
+                pDepthAttachment = &depth,
+                pStencilAttachment = &depth,
+                flags = VkRenderingFlags.ContentsInlineKHR | VkRenderingFlags.ContentsSecondaryCommandBuffers
+            };
+            Vulkan.vkCmdBeginRendering(commandBuffer, &renderingInfo);
+
+            SetViewPort(commandBuffer);
+        }
+
         public unsafe void BeginForwardRendering(VkCommandBuffer commandBuffer)
         {
             VkRenderingAttachmentInfo colour = new()
@@ -197,9 +221,9 @@ namespace VECS.LowLevel
             {
                 imageView = DepthImage._imageView,
                 imageLayout = DepthImage.ImageLayout,
-                loadOp = VkAttachmentLoadOp.Clear,
-                storeOp = VkAttachmentStoreOp.Store,
-                clearValue = new(1, 0)
+                loadOp = VkAttachmentLoadOp.None,
+                storeOp = VkAttachmentStoreOp.None,
+                //clearValue = new(1, 0)
             };
 
             VkRenderingInfo renderingInfo = new()
@@ -228,6 +252,10 @@ namespace VECS.LowLevel
             Vulkan.vkCmdEndRendering(commandBuffer);
         }
 
+        public void EndForwardDepthRendering(VkCommandBuffer commandBuffer)
+        {
+            Vulkan.vkCmdEndRendering(commandBuffer);
+        }
         // should be called from graphics queue
         internal unsafe void TransferSwapChainImageToGraphicsQueue(VkCommandBuffer commandBuffer, int frameIndex, int imageIndex)
         {

@@ -44,7 +44,7 @@ namespace VECS.ECS.Presentation
             _cullCompute.Shader.SetStorageBuffer("boundsBuffer", _renderBlob.ModelBoundsBuffer);
             _cullCompute.Shader.SetStorageBuffer("drawBuffer", _renderBlob.IndirectCmdBuffer);
             
-            _cullCompute.Shader.EnsureCapacity(7);
+            _cullCompute.Shader.EnsureCapacity(8);
             _cullCompute.Shader.EnsureSetsAllocated(frameInfo.FrameIndex, frameInfo.ApplicationDescriptorPool);
             _cullCompute.Shader.UpdateSetHandlers(frameInfo.FrameIndex, frameInfo.ApplicationDescriptorPool);
             VkBufferMemoryBarrier barrier = _cullCompute.Cull(frameInfo.CommandBuffer, frameInfo.FrameIndex, frameInfo.cullData, _renderBlob.DrawCount, _renderBlob.IndirectCmdBuffer, _renderBlob.ModelBoundsBuffer);

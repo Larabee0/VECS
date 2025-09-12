@@ -12,7 +12,7 @@ namespace VECS.LowLevel
     internal static class GraphicsDeviceInit
     {
 #if DEBUG
-        public static bool BreakOnValidationError = true;
+        public static bool BreakOnValidationError = false;
         private readonly static string[] _requiredValidationLayers = ["VK_LAYER_KHRONOS_validation"];
 #endif
         private readonly static VkUtf8String[] _requiredDeviceExtensions = [
@@ -26,7 +26,7 @@ namespace VECS.LowLevel
             Vulkan.VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME,
             Vulkan.VK_EXT_NESTED_COMMAND_BUFFER_EXTENSION_NAME,
             Vulkan.VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME,
-            Vulkan.VK_EXT_DEVICE_FAULT_EXTENSION_NAME,
+            //Vulkan.VK_EXT_DEVICE_FAULT_EXTENSION_NAME,
         ];
 
         private const bool ForceMeshShadingOff = false;
@@ -333,7 +333,7 @@ namespace VECS.LowLevel
 
             VkPhysicalDeviceFaultFeaturesEXT deviceFaultFeatures = new()
             {
-                deviceFault = true,
+                deviceFault = false,
                 pNext = &presentWaitFeatures
             };
 
@@ -525,6 +525,28 @@ namespace VECS.LowLevel
             }
 
             Vulkan.vkGetPhysicalDeviceFeatures(device, out VkPhysicalDeviceFeatures supportedFeatures);
+
+            if (!indices.IsComplete)
+            {
+                Console.WriteLine("Device did not have required queues");
+            }
+
+            if (!requiredExtensionsSupported)
+            {
+                Console.WriteLine("Device did not have required extensions");
+            }
+
+            if (!swapChainAdequate)
+            {
+                Console.WriteLine("Device did not have swapchain adequate");
+            }
+
+            if (!supportedFeatures.samplerAnisotropy)
+            {
+                Console.WriteLine("Device did not have sampler anisotropy");
+            }
+
+
             return indices.IsComplete && requiredExtensionsSupported && swapChainAdequate && supportedFeatures.samplerAnisotropy;
         }
 
@@ -771,6 +793,13 @@ namespace VECS.LowLevel
                 }
             }
 
+            if (requiredSet.Count > 0)
+            {
+                foreach (var ext in requiredSet)
+                {
+                    Console.WriteLine("Device Missing {0}", ext);
+                }
+            }
 
             return requiredSet.Count == 0;
         }

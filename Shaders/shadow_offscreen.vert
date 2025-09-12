@@ -24,7 +24,7 @@ struct ObjectMatrices{
 	mat4 normalMatrix;
 };
 
-layout (set =1, binding = 0) uniform CubeConstants
+layout (set = 1, binding = 0) uniform CubeConstants
 {
 	mat4 cubeProj;
 	mat4 cubeModel;
