@@ -11,7 +11,6 @@ namespace VECS.ECS.Presentation
     internal class ShadowInternal : RenderSystemInternal
     {
         private readonly Material _shadowOffscreen;
-        private readonly Material _depthOnly;
         private readonly ShadowRenderBlob _shadowRenderBlob;
 
         private readonly VkCommandBuffer[][] _freeBuffers = new VkCommandBuffer[SwapChain.MAX_CONCURRENT_FRAMES][];
@@ -33,14 +32,6 @@ namespace VECS.ECS.Presentation
                 _freeBuffers[i] = new VkCommandBuffer[7];
             }
             _shadowOffscreen = Material.Create("ShadowOffscreen", "shadow_offscreen.vert", "shadow_offscreen.frag", shadowConfig);
-
-            var depthConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
-            depthConfig.colourFormats = [];
-            depthConfig.depthStencilInfo.depthWriteEnable = true;
-            depthConfig.depthStencilInfo.depthTestEnable = true;
-            depthConfig.depthStencilInfo.depthCompareOp = VkCompareOp.LessOrEqual;
-
-            _depthOnly = Material.Create("DepthOnly", "depth_only.vert", depthConfig);
             _shadowRenderBlob = new(_shadowOffscreen, GenericRenderSystem.MAX_DRAWS);
         }
 
@@ -63,28 +54,9 @@ namespace VECS.ECS.Presentation
             RenderShadows(frameInfo, entities.Count);
         }
 
-        private unsafe void DepthOnly(VkCommandBuffer commandBuffer, CullData cullData,int computeSetId,int frameIndex, int drawCount)
-        {
-            
-            VkBufferMemoryBarrier memoryBarrier = _cullCompute.Cull(commandBuffer, frameIndex, cullData, (uint)drawCount, _shadowRenderBlob.IndirectCmdBuffer, _shadowRenderBlob.ModelBoundsBuffer, computeSetId);
-            if (!_cullCompute.CPUCulling)
-            {
-                Vulkan.vkCmdPipelineBarrier(commandBuffer,
-                        VkPipelineStageFlags.ComputeShader,
-                        VkPipelineStageFlags.DrawIndirect,
-                        0, 0, null, 1, &memoryBarrier, 0, null);
-            }
-
-            SwapChain.Instance.BeginForwardDepth(commandBuffer);
-            _shadowRenderBlob.DrawBlobWith(_depthOnly, commandBuffer, frameIndex, 0);
-            SwapChain.Instance.EndForwardDepthRendering(commandBuffer);
-        }
-
         private unsafe void RenderShadows(RendererFrameInfo frameInfo, int drawCount)
         {
             _shadowOffscreen.SetMatDescriptorHandleStorageRegions(0, 0, (uint)drawCount);
-            _depthOnly.SetMatDescriptorHandleStorageRegions(0, 0, (uint)drawCount);
-            _shadowOffscreen.GetStorageBuffer<ModelMatrices>("matricesBuffer").CopyTo(_depthOnly.GetStorageBuffer<ModelMatrices>("matricesBuffer"));
 
             _cullCompute.Shader.SetStorageBuffer("boundsBuffer", _shadowRenderBlob.ModelBoundsBuffer);
             _cullCompute.Shader.SetStorageBuffer("drawBuffer", _shadowRenderBlob.IndirectCmdBuffer);
@@ -113,34 +85,20 @@ namespace VECS.ECS.Presentation
                 }
             }
 
-            
-
             _shadowOffscreen.PushConstants.EnsureCapacity(6);
             _shadowOffscreen.Update(frameInfo);
-            _depthOnly.Update(frameInfo);
             Presenter.Instance.ShadowImage.SetImageLayoutWrite(frameInfo.CommandBuffer);
 
-            Application.ParallelFor(7, (i) =>
+            Application.ParallelFor(6, (i) =>
             {
-                if (i == 6)
-                {
-                    VkCommandBufferInheritanceInfo inheritanceInfo = new() { };
-                    VkCommandBufferBeginInfo bufferBeginInfo = new() { pInheritanceInfo = &inheritanceInfo };
-                    Vulkan.vkBeginCommandBuffer(parallelCmdBuffers[6], &bufferBeginInfo);
-                    DepthOnly(parallelCmdBuffers[6], frameInfo.cullData, 7, frameInfo.FrameIndex, drawCount);
-                    Vulkan.vkEndCommandBuffer(parallelCmdBuffers[6]);
-                }
-                else
-                {
+                
                     RenderShadow(frameInfo, drawCount, i, model, cullData, parallelCmdBuffers);
-                }
             });
 
-
-            _cullCompute.Shader.Increment(7);
+            _cullCompute.Shader.Increment(6);
             fixed (VkCommandBuffer* pCmdBuffers = &parallelCmdBuffers[0])
             {
-                Vulkan.vkCmdExecuteCommands(frameInfo.CommandBuffer, 7, pCmdBuffers);
+                Vulkan.vkCmdExecuteCommands(frameInfo.CommandBuffer, 6, pCmdBuffers);
             }
             Presenter.Instance.ShadowImage.SetImageLayoutRead(frameInfo.CommandBuffer);
         }

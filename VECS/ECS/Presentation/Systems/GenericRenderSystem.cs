@@ -15,6 +15,7 @@ namespace VECS.ECS.Presentation
 
         private ForwardInternal _forwardData;
         private ShadowInternal _shadowData;
+        private DepthInternal _depthData;
 
         public override void OnCreate(EntityManager entityManager)
         {
@@ -24,7 +25,7 @@ namespace VECS.ECS.Presentation
                 .Build();
 
             _renderBloomEntityQuery = new EntityQuery(entityManager)
-                .WithAll(typeof(LocalToWorld),typeof(RenderMesh), typeof(WorldRenderBounds), typeof(BloomTag))
+                .WithAll(typeof(LocalToWorld), typeof(RenderMesh), typeof(WorldRenderBounds), typeof(BloomTag))
                 .WithNone(typeof(Prefab), typeof(DoNotRender))
                 .Build();
 
@@ -33,12 +34,14 @@ namespace VECS.ECS.Presentation
 
             _forwardData = new(_cullCompute);
             _shadowData = new(_cullCompute);
+            _depthData = new(_cullCompute);
         }
 
         public override void OnDestroy(EntityManager entityManager)
         {
             _forwardData?.Dispose();
             _shadowData?.Dispose();
+            _depthData?.Dispose();
         }
 
         public override void OnCull(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
@@ -51,12 +54,13 @@ namespace VECS.ECS.Presentation
             
         }
 
-        public unsafe override void OnShadowPass(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
+        public unsafe override void OnPreForwardPass(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
         {
             if (!_renderEntityQuery.HasEntities) { return; }
 
             var entities = _renderEntityQuery.GetEntities();
-            _shadowData.GenerateDrawCmds(rendererFrameInfo,entityManager, entities);
+            _shadowData.GenerateDrawCmds(rendererFrameInfo, entityManager, entities);
+            _depthData.GenerateDrawCmds(rendererFrameInfo, entityManager, entities);
         }
 
         public override void OnBloomGlow(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)

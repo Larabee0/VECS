@@ -336,7 +336,7 @@ namespace VECS
             CullScene(commandBuffer, frameInfo);
 
             // shadows
-            World.DefaultWorld.PresentShadowPassUpdate(frameInfo);
+            World.DefaultWorld.PresentPreForwardPassUpdate(frameInfo);
 
             //Bloom early
             //_bloom.BeginGlowPass(frameInfo);

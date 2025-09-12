@@ -171,9 +171,9 @@ namespace VECS.ECS
             _presentationSystems.ForEach(s => s.OnPostCull(_entityManager, rendererFrameInfo));
         }
 
-        internal void PresentShadowPassUpdate(RendererFrameInfo rendererFrameInfo)
+        internal void PresentPreForwardPassUpdate(RendererFrameInfo rendererFrameInfo)
         {
-            _presentationSystems.ForEach(s => s.OnShadowPass(_entityManager, rendererFrameInfo));
+            _presentationSystems.ForEach(s => s.OnPreForwardPass(_entityManager, rendererFrameInfo));
         }
 
         internal void PresentBloomGlow(RendererFrameInfo rendererFrameInfo)

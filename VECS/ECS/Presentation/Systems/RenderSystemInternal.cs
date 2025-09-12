@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using Vortice.Vulkan;
 
 namespace VECS.ECS.Presentation
 {

@@ -21,7 +21,7 @@ namespace VECS.ECS.Presentation
         public virtual void OnCull(EntityManager entityManager, RendererFrameInfo rendererFrameInfo) { }
         public virtual void OnPostCull(EntityManager entityManager, RendererFrameInfo rendererFrameInfo) { }
 
-        public virtual void OnShadowPass(EntityManager entityManager, RendererFrameInfo rendererFrameInfo) { }
+        public virtual void OnPreForwardPass(EntityManager entityManager, RendererFrameInfo rendererFrameInfo) { }
 
         public virtual void OnBloomGlow(EntityManager entityManager, RendererFrameInfo rendererFrameInfo) { }
 
