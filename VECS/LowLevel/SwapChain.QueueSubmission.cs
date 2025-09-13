@@ -155,7 +155,7 @@ namespace VECS.LowLevel
 
                 if (!token.IsCancellationRequested) // check we have been cancelled between last point and now
                 {
-                    Vulkan.CheckResult(Vulkan.vkQueueSubmit2KHR(GraphicsDevice.ComputeQueue, 1, &submitInfo, VkFence.Null), "Failed to submit compute queue!");
+                    GraphicsDevice.DeviceAPI.vkQueueSubmit2KHR(GraphicsDevice.ComputeQueue, 1, &submitInfo, VkFence.Null).CheckResult("Failed to submit compute queue!");
                     flagComputeQueued = true;
                 }
 
@@ -187,9 +187,9 @@ namespace VECS.LowLevel
         {
             VkCommandBufferBeginInfo beginInfo = new();
 
-            Vulkan.CheckResult(Vulkan.vkBeginCommandBuffer(CurrentComputeCommandBuffer, &beginInfo), "Failed to begin recording compute command buffer");
+            GraphicsDevice.DeviceAPI.vkBeginCommandBuffer(CurrentComputeCommandBuffer, &beginInfo).CheckResult("Failed to begin recording compute command buffer");
             ComputeCallback?.Invoke();
-            Vulkan.CheckResult(Vulkan.vkEndCommandBuffer(CurrentComputeCommandBuffer), "Failed to end compute command buffer!");
+            GraphicsDevice.DeviceAPI.vkEndCommandBuffer(CurrentComputeCommandBuffer).CheckResult("Failed to end compute command buffer!");
         }
 
         private unsafe void DoGraphicsWork(object cancellationToken)
@@ -275,7 +275,7 @@ namespace VECS.LowLevel
 
                 if (!token.IsCancellationRequested)
                 {
-                    Vulkan.CheckResult(Vulkan.vkQueueSubmit2KHR(GraphicsDevice.MainQueue, 1, &submitInfo, VkFence.Null), "Failed to submit graphics queue!");
+                    GraphicsDevice.DeviceAPI.vkQueueSubmit2KHR(GraphicsDevice.MainQueue, 1, &submitInfo, VkFence.Null).CheckResult("Failed to submit graphics queue!");
                     flagGraphicsQueued = true;
                 }
 
@@ -334,7 +334,7 @@ namespace VECS.LowLevel
         {
             VkCommandBufferBeginInfo beginInfo = new();
             VkCommandBuffer commandBuffer = CurrentMainCommandBuffer;
-            Vulkan.CheckResult(Vulkan.vkBeginCommandBuffer(commandBuffer, &beginInfo), "Failed to begin recording main command buffer");
+            GraphicsDevice.DeviceAPI.vkBeginCommandBuffer(commandBuffer, &beginInfo).CheckResult("Failed to begin recording main command buffer");
 
             TransferSwapChainImageToGraphicsQueue(commandBuffer, frameIndex, imageIndex);
 
@@ -344,7 +344,7 @@ namespace VECS.LowLevel
             CopyRenderToSwapChain(commandBuffer, frameIndex, imageIndex);
 
 
-            Vulkan.CheckResult(Vulkan.vkEndCommandBuffer(commandBuffer), "Failed to end main command buffer!");
+            GraphicsDevice.DeviceAPI.vkEndCommandBuffer(commandBuffer).CheckResult("Failed to end main command buffer!");
 
             return commandBuffer;
         }

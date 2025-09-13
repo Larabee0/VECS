@@ -50,7 +50,7 @@ namespace VECS.ECS.Presentation
             VkBufferMemoryBarrier memoryBarrier = _cullCompute.Cull(commandBuffer, frameIndex, cullData, (uint)drawCount, _depthRenderBlob.IndirectCmdBuffer, _depthRenderBlob.ModelBoundsBuffer, computeSetId);
             if (!_cullCompute.CPUCulling)
             {
-                Vulkan.vkCmdPipelineBarrier(commandBuffer,
+                GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier(commandBuffer,
                         VkPipelineStageFlags.ComputeShader,
                         VkPipelineStageFlags.DrawIndirect,
                         0, 0, null, 1, &memoryBarrier, 0, null);

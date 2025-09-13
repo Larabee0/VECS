@@ -43,7 +43,7 @@ namespace VECS
                 flags = poolFlags
             };
 
-            Vulkan.CheckResult(Vulkan.vkCreateDescriptorPool(GraphicsDevice.Device, descriptorPoolInfo, null, out _descriptorPool), "Failed to create descriptor pool!");            
+            GraphicsDevice.DeviceAPI.vkCreateDescriptorPool(GraphicsDevice.Device, descriptorPoolInfo, null, out _descriptorPool).CheckResult( "Failed to create descriptor pool!");            
         }
 
         /// <summary>
@@ -61,7 +61,7 @@ namespace VECS
                 descriptorSetCount = 1
             };
 
-            Vulkan.CheckResult(Vulkan.vkAllocateDescriptorSets(GraphicsDevice.Device, &allocInfo, descriptor), "Failed to Allocate Descriptor Sets");
+            GraphicsDevice.DeviceAPI.vkAllocateDescriptorSets(GraphicsDevice.Device, &allocInfo, descriptor).CheckResult( "Failed to Allocate Descriptor Sets");
         }
 
         /// <summary>
@@ -70,7 +70,7 @@ namespace VECS
         /// <param name="descriptors"></param>
         public void FreeDescriptors(VkDescriptorSet[] descriptors)
         {
-            Vulkan.vkFreeDescriptorSets(GraphicsDevice.Device, _descriptorPool, descriptors);
+            GraphicsDevice.DeviceAPI.vkFreeDescriptorSets(GraphicsDevice.Device, _descriptorPool, descriptors);
         }
 
         public void AddSetsToFree(VkDescriptorSet[] descriptors)
@@ -97,7 +97,7 @@ namespace VECS
         /// </summary>
         public void ResetPool()
         {
-            Vulkan.vkResetDescriptorPool(GraphicsDevice.Device, _descriptorPool, VkDescriptorPoolResetFlags.None);
+            GraphicsDevice.DeviceAPI.vkResetDescriptorPool(GraphicsDevice.Device, _descriptorPool, VkDescriptorPoolResetFlags.None);
         }
 
         /// <summary>
@@ -106,7 +106,7 @@ namespace VECS
         public unsafe void Dispose()
         {
             FreeDescriptors();
-            Vulkan.vkDestroyDescriptorPool(GraphicsDevice.Device, _descriptorPool, null);
+            GraphicsDevice.DeviceAPI.vkDestroyDescriptorPool(GraphicsDevice.Device, _descriptorPool, null);
         }
 
         /// <summary>

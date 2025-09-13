@@ -63,7 +63,7 @@ namespace VECS
                 InputManager.Instance.LateUpdate();
             }
             SwapChain.Instance.FinishTimelineWorkers(false);
-            Vulkan.vkDeviceWaitIdle(GraphicsDevice.Device);
+            GraphicsDevice.DeviceWaitIdle();
             Destroy();
         }
 

@@ -75,7 +75,7 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static unsafe void Flush(this GPUBuffer buffer, ulong size = Vulkan.VK_WHOLE_SIZE, ulong offset = 0)
         {
-            Vulkan.CheckResult(Vma.vmaFlushAllocation(GraphicsDevice.VmaAllocator, buffer._allocation, offset, size), "Failed to flush allocation!");
+            Vma.vmaFlushAllocation(GraphicsDevice.VmaAllocator, buffer._allocation, offset, size).CheckResult( "Failed to flush allocation!");
         }
 
 
@@ -123,7 +123,7 @@ namespace VECS
                 }
             }
 
-            Vulkan.CheckResult(Vma.vmaCreateBuffer(GraphicsDevice.VmaAllocator, bufferInfo, allocationInfo, out buffer.VkBuffer, out buffer._allocation),"Failed to create vma buffer!");
+            Vma.vmaCreateBuffer(GraphicsDevice.VmaAllocator, bufferInfo, allocationInfo, out buffer.VkBuffer, out buffer._allocation).CheckResult("Failed to create vma buffer!");
 
 #if LOG_BUFFER_ALLOCS
             StackTrace trace = new(true);
@@ -363,7 +363,7 @@ namespace VECS
                 dstOffset = dstOffset,
                 size = size
             };
-            Vulkan.vkCmdCopyBuffer(cmd, srcBuffer.VkBuffer, dstBuffer.VkBuffer, 1, &copyRegion);
+            GraphicsDevice.DeviceAPI.vkCmdCopyBuffer(cmd, srcBuffer.VkBuffer, dstBuffer.VkBuffer, 1, &copyRegion);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -383,7 +383,7 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe static void FillBuffer(this GPUBuffer buffer, VkCommandBuffer commandBuffer, uint data, ulong dstOffset = 0, ulong bufferSize = Vulkan.VK_WHOLE_SIZE)
         {
-            Vulkan.vkCmdFillBuffer(commandBuffer, buffer.VkBuffer, dstOffset, bufferSize, data);
+            GraphicsDevice.DeviceAPI.vkCmdFillBuffer(commandBuffer, buffer.VkBuffer, dstOffset, bufferSize, data);
 
             if (buffer.HostPtr != null && data <= 255)
             {
@@ -406,7 +406,7 @@ namespace VECS
         
         public unsafe static void FillActiveBuffer(this SwapChainBuffer buffer, VkCommandBuffer commandBuffer, uint data, ulong dstOffset = 0, ulong bufferSize = Vulkan.VK_WHOLE_SIZE)
         {
-            Vulkan.vkCmdFillBuffer(commandBuffer, buffer.ActiveVkBuffer, dstOffset, bufferSize, data);
+            GraphicsDevice.DeviceAPI.vkCmdFillBuffer(commandBuffer, buffer.ActiveVkBuffer, dstOffset, bufferSize, data);
 
             if (buffer._hostPtr != null && data <= 255)
             {
@@ -420,7 +420,7 @@ namespace VECS
         {
             for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
             {
-                Vulkan.vkCmdFillBuffer(commandBuffer, buffer[i].VkBuffer, dstOffset, bufferSize, data);
+                GraphicsDevice.DeviceAPI.vkCmdFillBuffer(commandBuffer, buffer[i].VkBuffer, dstOffset, bufferSize, data);
             }
 
             if (buffer._hostPtr != null && data <= 255)

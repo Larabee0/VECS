@@ -103,7 +103,7 @@ namespace VECS.LowLevel
                 semaphore = _timelineSemaphores[frameIndex].Semaphore,
                 value = signalValue
             };
-            Vulkan.CheckResult(Vulkan.vkSignalSemaphoreKHR(GraphicsDevice.Device, &signalInfo));
+            GraphicsDevice.DeviceAPI.vkSignalSemaphoreKHR(GraphicsDevice.Device, &signalInfo);
         }
 
         [MethodImpl(MethodImplOptions.NoOptimization)]
@@ -117,7 +117,7 @@ namespace VECS.LowLevel
             };
             var semaphore = _timelineSemaphores[frameIndex].Semaphore;
             waitInfo.pSemaphores = &semaphore;
-            Vulkan.CheckResult(Vulkan.vkWaitSemaphoresKHR(GraphicsDevice.Device, &waitInfo, ulong.MaxValue));
+            GraphicsDevice.DeviceAPI.vkWaitSemaphoresKHR(GraphicsDevice.Device, &waitInfo, ulong.MaxValue);
 
         }
         
@@ -132,7 +132,7 @@ namespace VECS.LowLevel
 
             Interlocked.Increment(ref _timelineSemaphores[frameIndex].SemaphoreValue);
 
-            Vulkan.CheckResult(Vulkan.vkSignalSemaphoreKHR(GraphicsDevice.Device, &signalInfo));
+            GraphicsDevice.DeviceAPI.vkSignalSemaphoreKHR(GraphicsDevice.Device, &signalInfo);
         }
 
         
@@ -148,13 +148,13 @@ namespace VECS.LowLevel
 
             var semaphore = _timelineSemaphores[frameIndex].Semaphore;
             waitInfo.pSemaphores = &semaphore;
-            Vulkan.CheckResult(Vulkan.vkWaitSemaphoresKHR(GraphicsDevice.Device, &waitInfo, ulong.MaxValue));
+           GraphicsDevice.DeviceAPI.vkWaitSemaphoresKHR(GraphicsDevice.Device, &waitInfo, ulong.MaxValue);
         }
         #endregion
 
         public bool AcquireNextImage()
         {
-            var result = Vulkan.vkAcquireNextImageKHR(
+            var result = GraphicsDevice.DeviceAPI.vkAcquireNextImageKHR(
                 GraphicsDevice.Device,
                 _swapChain,
                 ulong.MaxValue,
@@ -178,8 +178,8 @@ namespace VECS.LowLevel
 
         public static void WaitAndResetFence(VkFence fence)
         {
-            Vulkan.vkWaitForFences(GraphicsDevice.Device, fence, true, ulong.MaxValue);
-            Vulkan.CheckResult(Vulkan.vkResetFences(GraphicsDevice.Device, fence), "Failed to reset fence ");
+            GraphicsDevice.DeviceAPI.vkWaitForFences(GraphicsDevice.Device, fence, true, ulong.MaxValue);
+            GraphicsDevice.DeviceAPI.vkResetFences(GraphicsDevice.Device, fence).CheckResult( "Failed to reset fence ");
         }
 
         public unsafe void BeginForwardDepth(VkCommandBuffer commandBuffer)
@@ -201,7 +201,7 @@ namespace VECS.LowLevel
                 pStencilAttachment = &depth,
                 flags = VkRenderingFlags.ContentsInlineKHR | VkRenderingFlags.ContentsSecondaryCommandBuffers
             };
-            Vulkan.vkCmdBeginRendering(commandBuffer, &renderingInfo);
+            GraphicsDevice.DeviceAPI.vkCmdBeginRendering(commandBuffer, &renderingInfo);
 
             SetViewPort(commandBuffer);
         }
@@ -236,25 +236,25 @@ namespace VECS.LowLevel
                 pStencilAttachment = &depth,
                 flags = VkRenderingFlags.ContentsInlineKHR | VkRenderingFlags.ContentsSecondaryCommandBuffers
             };
-            Vulkan.vkCmdBeginRendering(commandBuffer, &renderingInfo);
+            GraphicsDevice.DeviceAPI.vkCmdBeginRendering(commandBuffer, &renderingInfo);
 
             SetViewPort(commandBuffer);
         }
 
         public static void SetViewPort(VkCommandBuffer commandBuffer)
         {
-            Vulkan.vkCmdSetViewport(commandBuffer, Viewport);
-            Vulkan.vkCmdSetScissor(commandBuffer, Scissor);
+            GraphicsDevice.DeviceAPI.vkCmdSetViewport(commandBuffer, Viewport);
+            GraphicsDevice.DeviceAPI.vkCmdSetScissor(commandBuffer, Scissor);
         }
 
         public void EndForwardRendering(VkCommandBuffer commandBuffer)
         {
-            Vulkan.vkCmdEndRendering(commandBuffer);
+            GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
         }
 
         public void EndForwardDepthRendering(VkCommandBuffer commandBuffer)
         {
-            Vulkan.vkCmdEndRendering(commandBuffer);
+            GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
         }
         // should be called from graphics queue
         internal unsafe void TransferSwapChainImageToGraphicsQueue(VkCommandBuffer commandBuffer, int frameIndex, int imageIndex)
@@ -279,7 +279,7 @@ namespace VECS.LowLevel
                 pImageMemoryBarriers = &imageMemoryBarrier
             };
 
-            Vulkan.vkCmdPipelineBarrier2(commandBuffer, &dependencyInfo);
+            GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier2(commandBuffer, &dependencyInfo);
         }
 
         // should be called from graphics queue
@@ -305,7 +305,7 @@ namespace VECS.LowLevel
                 pImageMemoryBarriers = &imageMemoryBarrier
             };
 
-            Vulkan.vkCmdPipelineBarrier2(commandBuffer, &dependencyInfo);
+            GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier2(commandBuffer, &dependencyInfo);
         }
 
         internal unsafe void CopyRenderToSwapChain(VkCommandBuffer commandBuffer,int frameIndex, int imageIndex)
@@ -320,7 +320,7 @@ namespace VECS.LowLevel
 
             var blit = _copyToSwapChainBlit;
 
-            Vulkan.vkCmdBlitImage(
+            GraphicsDevice.DeviceAPI.vkCmdBlitImage(
                 commandBuffer,
                 renderImage._vkImage,
                 renderImage.ImageLayout,
@@ -347,7 +347,7 @@ namespace VECS.LowLevel
             
             WaitAndResetFence(_waitPresentBufferFences[frameIndex]);
 
-            Vulkan.vkBeginCommandBuffer(presentCommandBuffer, VkCommandBufferUsageFlags.None);
+            GraphicsDevice.DeviceAPI.vkBeginCommandBuffer(presentCommandBuffer, VkCommandBufferUsageFlags.None);
             VkImageMemoryBarrier2 presentBarrier = new()
             {
                 oldLayout = VkImageLayout.TransferDstOptimal,
@@ -362,8 +362,8 @@ namespace VECS.LowLevel
                 imageMemoryBarrierCount = 1,
                 pImageMemoryBarriers = &presentBarrier
             };
-            Vulkan.vkCmdPipelineBarrier2KHR(presentCommandBuffer, &presentDependencyInfo);
-            Vulkan.vkEndCommandBuffer(presentCommandBuffer);
+            GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier2KHR(presentCommandBuffer, &presentDependencyInfo);
+            GraphicsDevice.DeviceAPI.vkEndCommandBuffer(presentCommandBuffer);
 
             VkSemaphoreSubmitInfo prePresentWaitInfo = new() {
                 semaphore = renderComplete,
@@ -387,7 +387,7 @@ namespace VECS.LowLevel
                 pSignalSemaphoreInfos = &prePresentCompleteInfo
             };
 
-            Vulkan.vkQueueSubmit2KHR(GraphicsDevice.PresentQueue, 1, &prePresentSubmitInfo, _waitPresentBufferFences[frameIndex]);
+            GraphicsDevice.DeviceAPI.vkQueueSubmit2KHR(GraphicsDevice.PresentQueue, 1, &prePresentSubmitInfo, _waitPresentBufferFences[frameIndex]);
 
             VkSwapchainKHR swapchain = _swapChain;
             VkPresentInfoKHR presentInfo = new()
@@ -399,7 +399,7 @@ namespace VECS.LowLevel
                 pImageIndices = &imageIndex
             };
 
-            var result = Vulkan.vkQueuePresentKHR(GraphicsDevice.PresentQueue, &presentInfo);
+            var result = GraphicsDevice.DeviceAPI.vkQueuePresentKHR(GraphicsDevice.PresentQueue, &presentInfo);
             if (result == VkResult.ErrorOutOfDateKHR || result == VkResult.SuboptimalKHR)
             {
                 return false;
@@ -414,14 +414,14 @@ namespace VECS.LowLevel
 
             foreach (var item in _swapChainImageViews)
             {
-                Vulkan.vkDestroyImageView(GraphicsDevice.Device, item);
+                GraphicsDevice.DeviceAPI.vkDestroyImageView(GraphicsDevice.Device, item);
             }
 
             _swapChainImageViews = null;
 
             if (_swapChain != VkSwapchainKHR.Null)
             {
-                Vulkan.vkDestroySwapchainKHR(GraphicsDevice.Device, _swapChain);
+                GraphicsDevice.DeviceAPI.vkDestroySwapchainKHR(GraphicsDevice.Device, _swapChain);
                 _swapChain = VkSwapchainKHR.Null;
             }
 
@@ -433,16 +433,16 @@ namespace VECS.LowLevel
 
             for (int i = 0; i < SWAP_CHAIN_IMAGE_COUNT; i++)
             {
-                Vulkan.vkDestroySemaphore(GraphicsDevice.Device, _renderCompleteSemaphores[i]);
-                Vulkan.vkDestroySemaphore(GraphicsDevice.Device, _prePresentCompleteSemahpores[i]);
+                GraphicsDevice.DeviceAPI.vkDestroySemaphore(GraphicsDevice.Device, _renderCompleteSemaphores[i]);
+                GraphicsDevice.DeviceAPI.vkDestroySemaphore(GraphicsDevice.Device, _prePresentCompleteSemahpores[i]);
             }
 
             for (int i = 0; i < MAX_CONCURRENT_FRAMES; i++)
             {
-                Vulkan.vkDestroySemaphore(GraphicsDevice.Device, _timelineSemaphores[i].Semaphore);
-                Vulkan.vkDestroySemaphore(GraphicsDevice.Device, _acquiredImageReadySemaphores[i]);
-                Vulkan.vkDestroyFence(GraphicsDevice.Device, _waitPresentBufferFences[i]);
-                //Vulkan.vkDestroyFence(GraphicsDevice.Device, _waitComputeBufferFences[i]);
+                GraphicsDevice.DeviceAPI.vkDestroySemaphore(GraphicsDevice.Device, _timelineSemaphores[i].Semaphore);
+                GraphicsDevice.DeviceAPI.vkDestroySemaphore(GraphicsDevice.Device, _acquiredImageReadySemaphores[i]);
+                GraphicsDevice.DeviceAPI.vkDestroyFence(GraphicsDevice.Device, _waitPresentBufferFences[i]);
+                //GraphicsDevice.DeviceAPI.vkDestroyFence(GraphicsDevice.Device, _waitComputeBufferFences[i]);
             }
 
             Instance = null;

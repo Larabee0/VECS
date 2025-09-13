@@ -81,7 +81,7 @@ namespace VECS.ECS.Presentation
             {
                 if (parallelCmdBuffers[i].IsNull)
                 {
-                    Vulkan.CheckResult(Vulkan.vkAllocateCommandBuffer(GraphicsDevice.Device, GraphicsDevice.SecondaryMainPipeCommandBuffers[i], VkCommandBufferLevel.Secondary, out parallelCmdBuffers[i]), "Failed to allocate command buffer!");
+                    GraphicsDevice.DeviceAPI.vkAllocateCommandBuffer(GraphicsDevice.Device, GraphicsDevice.SecondaryMainPipeCommandBuffers[i], VkCommandBufferLevel.Secondary, out parallelCmdBuffers[i]).CheckResult("Failed to allocate command buffer!");
                 }
             }
 
@@ -98,7 +98,7 @@ namespace VECS.ECS.Presentation
             _cullCompute.Shader.Increment(6);
             fixed (VkCommandBuffer* pCmdBuffers = &parallelCmdBuffers[0])
             {
-                Vulkan.vkCmdExecuteCommands(frameInfo.CommandBuffer, 6, pCmdBuffers);
+                GraphicsDevice.DeviceAPI.vkCmdExecuteCommands(frameInfo.CommandBuffer, 6, pCmdBuffers);
             }
             Presenter.Instance.ShadowImage.SetImageLayoutRead(frameInfo.CommandBuffer);
         }
@@ -108,7 +108,7 @@ namespace VECS.ECS.Presentation
             VkCommandBufferInheritanceInfo inheritanceInfo = new() { };
             VkCommandBufferBeginInfo bufferBeginInfo = new() { pInheritanceInfo = &inheritanceInfo };
             VkCommandBuffer internalBuffer = parallelCmdBuffers[i];
-            Vulkan.vkBeginCommandBuffer(internalBuffer, &bufferBeginInfo);
+            GraphicsDevice.DeviceAPI.vkBeginCommandBuffer(internalBuffer, &bufferBeginInfo);
             CullData cullDataInternal = cullData;
             var viewMatrix = ShadowImage.GetViewMatrixForFace(i);
             cullDataInternal.viewMatrix = viewMatrix * model;
@@ -116,7 +116,7 @@ namespace VECS.ECS.Presentation
             
             if (!_cullCompute.CPUCulling)
             {
-                Vulkan.vkCmdPipelineBarrier(internalBuffer,
+                GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier(internalBuffer,
                         VkPipelineStageFlags.ComputeShader,
                         VkPipelineStageFlags.DrawIndirect,
                         0, 0, null, 1, &memoryBarrier, 0, null);
@@ -127,7 +127,7 @@ namespace VECS.ECS.Presentation
             _shadowRenderBlob.Draw(internalBuffer, frameInfo.FrameIndex, i);
 
             Presenter.Instance.ShadowImage.EndShadowPass(internalBuffer);
-            Vulkan.vkEndCommandBuffer(internalBuffer);
+            GraphicsDevice.DeviceAPI.vkEndCommandBuffer(internalBuffer);
         }
 
         public override void Dispose()

@@ -55,7 +55,7 @@ namespace VECS
             _spvStage = _spvShaderModule.shader_stage;            
             _vkStage = (VkShaderStageFlags)_spvStage;
 
-            Vulkan.CheckResult(Vulkan.vkCreateShaderModule(GraphicsDevice.Device, shaderCode, null, out _vkShaderModule), "Failed to Create Shader Module!");
+            GraphicsDevice.DeviceAPI.vkCreateShaderModule(GraphicsDevice.Device, shaderCode, null, out _vkShaderModule).CheckResult("Failed to Create Shader Module!");
         }
 
         internal unsafe ShaderModule(string name, byte[] shaderCode)
@@ -72,7 +72,7 @@ namespace VECS
             _spvStage = _spvShaderModule.shader_stage;
             _vkStage = (VkShaderStageFlags)_spvStage;
 
-            Vulkan.CheckResult(Vulkan.vkCreateShaderModule(GraphicsDevice.Device, shaderCode, null, out _vkShaderModule), "Failed to Create Shader Module!");
+            GraphicsDevice.DeviceAPI.vkCreateShaderModule(GraphicsDevice.Device, shaderCode, null, out _vkShaderModule).CheckResult("Failed to Create Shader Module!");
         }
 
         public unsafe override void Dispose()
@@ -86,7 +86,7 @@ namespace VECS
             _disposed = true;
 
             SPIRVReflectUtil.DestroyReflectShaderModule(_spvShaderModule);
-            Vulkan.vkDestroyShaderModule(GraphicsDevice.Device, _vkShaderModule);
+            GraphicsDevice.DeviceAPI.vkDestroyShaderModule(GraphicsDevice.Device, _vkShaderModule);
         }
 
         

@@ -6,6 +6,7 @@ using VECS;
 using VECS.ECS;
 using VECS.ECS.Presentation;
 using VECS.ECS.Transforms;
+using VECS.LowLevel;
 using Vortice.Vulkan;
 
 namespace Planets.Colour
@@ -56,7 +57,7 @@ namespace Planets.Colour
                 starsToDraw.Sort(new PointLightPushConstant());
                 _pointLightMaterial.SetMatDescriptorHandleStorageRegions(0, 0, (uint)stars.Count);
                 _pointLightMaterial.BindAll(rendererFrameInfo);
-                Vulkan.vkCmdDraw(rendererFrameInfo.CommandBuffer, 6, (uint)starsToDraw.Count, 0, 0);
+                GraphicsDevice.DeviceAPI.vkCmdDraw(rendererFrameInfo.CommandBuffer, 6, (uint)starsToDraw.Count, 0, 0);
             }
         }
 

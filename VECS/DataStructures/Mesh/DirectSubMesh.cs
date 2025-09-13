@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Numerics;
 using VECS.ECS.Presentation;
+using VECS.LowLevel;
 using Vortice.Vulkan;
 
 namespace VECS
@@ -178,7 +179,7 @@ namespace VECS
         {
             _directMeshBuffer.BindAllBuffers(cmd);
             var drawCmd = DirectSubMeshInfo.IndirectDrawCmd;
-            Vulkan.vkCmdDrawIndexed(cmd, drawCmd.indexCount, 1, drawCmd.firstIndex, drawCmd.vertexOffset, 0);
+            GraphicsDevice.DeviceAPI.vkCmdDrawIndexed(cmd, drawCmd.indexCount, 1, drawCmd.firstIndex, drawCmd.vertexOffset, 0);
         }
 
         public void Reallocate(DirectSubMeshCreateInfo directSubMeshCreateData)

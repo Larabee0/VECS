@@ -413,8 +413,8 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void BindAllBuffers(VkCommandBuffer cmd)
         {
-            Vulkan.vkCmdBindVertexBuffers(cmd, 0, _vertexVkBuffers, _vertexOffsets);
-            Vulkan.vkCmdBindIndexBuffer(cmd, _indexBuffer.VkBuffer, 0, VkIndexType.Uint32);
+            GraphicsDevice.DeviceAPI.vkCmdBindVertexBuffers(cmd, 0, _vertexVkBuffers, _vertexOffsets);
+            GraphicsDevice.DeviceAPI.vkCmdBindIndexBuffer(cmd, _indexBuffer.VkBuffer, 0, VkIndexType.Uint32);
         }
 
         internal unsafe void BindSpecificBuffers(VkCommandBuffer cmd, VkVertexInputBindingDescription[] vBindings, VkVertexInputAttributeDescription[] vAttributes)
@@ -446,8 +446,8 @@ namespace VECS
                 }
             }
 
-            Vulkan.vkCmdBindVertexBuffers(cmd, 0, (uint)bufferCount, pBuffers, pOffsets);
-            Vulkan.vkCmdBindIndexBuffer(cmd, _indexBuffer.VkBuffer, 0, VkIndexType.Uint32);
+            GraphicsDevice.DeviceAPI.vkCmdBindVertexBuffers(cmd, 0, (uint)bufferCount, pBuffers, pOffsets);
+            GraphicsDevice.DeviceAPI.vkCmdBindIndexBuffer(cmd, _indexBuffer.VkBuffer, 0, VkIndexType.Uint32);
         }
 
         private int FirstAttributeMatching(int startIndex, VkVertexInputAttributeDescription attribute)

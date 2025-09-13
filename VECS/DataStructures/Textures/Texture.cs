@@ -259,13 +259,13 @@ namespace VECS
 
             if (_textureSampler != VkSampler.Null)
             {
-                Vulkan.vkDestroySampler(GraphicsDevice.Device, _textureSampler);
+                GraphicsDevice.DeviceAPI.vkDestroySampler(GraphicsDevice.Device, _textureSampler);
                 _textureSampler = VkSampler.Null;
             }
 
             if (_imageView != VkImageView.Null)
             {
-                Vulkan.vkDestroyImageView(GraphicsDevice.Device, _imageView);
+                GraphicsDevice.DeviceAPI.vkDestroyImageView(GraphicsDevice.Device, _imageView);
                 _imageView = VkImageView.Null;
             }
 

@@ -71,7 +71,7 @@ namespace VECS
                 stage = shaderModule.ShaderStageCreateInfo
             };
 
-            Vulkan.vkCreateComputePipeline(GraphicsDevice.Device, _cache.Cache, computePipelineInfo, out _pipline);
+            GraphicsDevice.DeviceAPI.vkCreateComputePipeline(GraphicsDevice.Device, _cache.Cache, computePipelineInfo, out _pipline);
 
         }
 
@@ -291,10 +291,10 @@ namespace VECS
                 _allHandlers[i].GetOrCreateChild(setId).UpdateDescriptorSet(frameIndex);
             }
             UpdateSetsToWrite(setsToBind, frameIndex, setId);
-            Vulkan.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Compute, _pipline);
-            Vulkan.vkCmdBindDescriptorSets(commandBuffer, VkPipelineBindPoint.Compute, _pipelineLayout, 0, _descriptorSetCount, setsToBind);
+            GraphicsDevice.DeviceAPI.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Compute, _pipline);
+            GraphicsDevice.DeviceAPI.vkCmdBindDescriptorSets(commandBuffer, VkPipelineBindPoint.Compute, _pipelineLayout, 0, _descriptorSetCount, setsToBind);
             _pushConstantsHandler.BindPushConstants(commandBuffer, _pipelineLayout, setId);
-            Vulkan.vkCmdDispatch(commandBuffer, workGroupCountX, workGroupCountY, workGroupCountZ);
+            GraphicsDevice.DeviceAPI.vkCmdDispatch(commandBuffer, workGroupCountX, workGroupCountY, workGroupCountZ);
         }
 
         public void NextFrame()
@@ -336,20 +336,20 @@ namespace VECS
                 _allHandlers[i]?.Dispose();
             }
 
-            Vulkan.vkDestroyPipeline(GraphicsDevice.Device, _pipline);
+            GraphicsDevice.DeviceAPI.vkDestroyPipeline(GraphicsDevice.Device, _pipline);
             if (_cache == null)
             {
-                Vulkan.vkDestroyPipelineLayout(GraphicsDevice.Device, _pipelineLayout);
+                GraphicsDevice.DeviceAPI.vkDestroyPipelineLayout(GraphicsDevice.Device, _pipelineLayout);
             }
             
 
             if (_preAllocDescriptorLayout != VkDescriptorSetLayout.Null)
             {
-                Vulkan.vkDestroyDescriptorSetLayout(GraphicsDevice.Device, _preAllocDescriptorLayout, null);
+                GraphicsDevice.DeviceAPI.vkDestroyDescriptorSetLayout(GraphicsDevice.Device, _preAllocDescriptorLayout, null);
             }
             if (_unAllocDescriptorLayout != VkDescriptorSetLayout.Null)
             {
-                Vulkan.vkDestroyDescriptorSetLayout(GraphicsDevice.Device, _unAllocDescriptorLayout, null);
+                GraphicsDevice.DeviceAPI.vkDestroyDescriptorSetLayout(GraphicsDevice.Device, _unAllocDescriptorLayout, null);
             }
         }
 

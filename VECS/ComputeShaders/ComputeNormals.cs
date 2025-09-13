@@ -178,7 +178,7 @@ namespace VECS
                 pMemoryBarriers = &memoryBarrier
             };
 
-            Vulkan.vkCmdPipelineBarrier2(commandBuffer, &dependencyInfo);
+            GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier2(commandBuffer, &dependencyInfo);
 
 
             divider = (uint)(int)MathF.Ceiling((float)normalBuffer.UInstanceCount32 / (float)GraphicsDevice.MaxWorkGroupX);

@@ -129,7 +129,7 @@ namespace VECS.ECS.Presentation
                     drawBufferIndex++;
                 }
                 _lineBuffer.WriteFromHostBuffer();
-                Vulkan.vkCmdBindVertexBuffer(frameInfo.CommandBuffer, 0, _lineBuffer.VkBuffer);
+                GraphicsDevice.DeviceAPI.vkCmdBindVertexBuffer(frameInfo.CommandBuffer, 0, _lineBuffer.VkBuffer);
                 DrawIndirect(frameInfo, 0, drawBufferIndex);
             }
 
@@ -151,7 +151,7 @@ namespace VECS.ECS.Presentation
                     colours[drawIndex] = aabb.Colour.ToColour();
                     drawIndex++;
                 }
-                Vulkan.vkCmdBindVertexBuffer(frameInfo.CommandBuffer, 0, _cubeBuffer.VkBuffer);
+                GraphicsDevice.DeviceAPI.vkCmdBindVertexBuffer(frameInfo.CommandBuffer, 0, _cubeBuffer.VkBuffer);
                 DrawIndirect(frameInfo, drawOffset, 1);
                 drawBufferIndex++;
             }
@@ -226,7 +226,7 @@ namespace VECS.ECS.Presentation
                     }
                     _frustrumBuffer.WriteFromHostBuffer();
 
-                    Vulkan.vkCmdBindVertexBuffer(frameInfo.CommandBuffer, 0, _frustrumBuffer.VkBuffer);
+                    GraphicsDevice.DeviceAPI.vkCmdBindVertexBuffer(frameInfo.CommandBuffer, 0, _frustrumBuffer.VkBuffer);
                     DrawIndirect(frameInfo, indirectStartIndex, cameras.Count);
                 }
             }
@@ -266,7 +266,7 @@ namespace VECS.ECS.Presentation
                     drawIndex += 4;
                 }
 
-                Vulkan.vkCmdBindVertexBuffer(frameInfo.CommandBuffer, 0, _circleBuffer.VkBuffer);
+                GraphicsDevice.DeviceAPI.vkCmdBindVertexBuffer(frameInfo.CommandBuffer, 0, _circleBuffer.VkBuffer);
                 DrawIndirect(frameInfo, offset, 1);
             }
 
@@ -274,7 +274,7 @@ namespace VECS.ECS.Presentation
 
         private unsafe void DrawIndirect(RendererFrameInfo frameInfo,int offset, int count)
         {
-            Vulkan.vkCmdDrawIndirect(frameInfo.CommandBuffer, _drawBuffer.ActiveVkBuffer, (uint)offset * (uint)sizeof(VkDrawIndirectCommand), (uint)count, (uint)sizeof(VkDrawIndirectCommand));
+            GraphicsDevice.DeviceAPI.vkCmdDrawIndirect(frameInfo.CommandBuffer, _drawBuffer.ActiveVkBuffer, (uint)offset * (uint)sizeof(VkDrawIndirectCommand), (uint)count, (uint)sizeof(VkDrawIndirectCommand));
         }
 
         private void CreateWireCube()

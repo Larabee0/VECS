@@ -96,12 +96,12 @@ namespace VECS
             {
                 _swapChain = SwapChainInit.Create(extent);
                 GraphicsDevice.CreateCommandBuffers();
-                Vulkan.vkDeviceWaitIdle(GraphicsDevice.Device);
+                GraphicsDevice.DeviceWaitIdle();
             }
             else
             {
                 _swapChain.FinishTimelineWorkers(true);
-                Vulkan.vkDeviceWaitIdle(GraphicsDevice.Device);
+                GraphicsDevice.DeviceWaitIdle();
                 var oldSwapChain = _swapChain;
                 AssetDataBase<Texture2D>.RemoveRange([..oldSwapChain._rawRenderImage,..oldSwapChain._depthImage]);
                 _swapChain = oldSwapChain.Replace(extent);
@@ -111,7 +111,7 @@ namespace VECS
                 }
                 GraphicsDevice.FreeCommandBuffers();
                 GraphicsDevice.CreateCommandBuffers();
-                Vulkan.vkDeviceWaitIdle(GraphicsDevice.Device);
+                GraphicsDevice.DeviceWaitIdle();
             }
 
             _swapChain.GraphicsCallback += GraphicsPipe;
@@ -399,7 +399,7 @@ namespace VECS
                 VkBufferMemoryBarrier[] cullReadyBarriers = [.. _cullReadyBarriers];
                 fixed (VkBufferMemoryBarrier* pMemoryBarrier = &cullReadyBarriers[0])
                 {
-                    Vulkan.vkCmdPipelineBarrier(commandBuffer,
+                    GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier(commandBuffer,
                         VkPipelineStageFlags.Transfer,
                         VkPipelineStageFlags.ComputeShader,
                         0,
@@ -419,7 +419,7 @@ namespace VECS
             {
                 VkBufferMemoryBarrier[] postCullBarriers = [.. _postCullBarriers];
                 fixed (VkBufferMemoryBarrier* pPostCullBarrier = &postCullBarriers[0])
-                    Vulkan.vkCmdPipelineBarrier(commandBuffer,
+                    GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier(commandBuffer,
                         VkPipelineStageFlags.ComputeShader,
                         VkPipelineStageFlags.DrawIndirect,
                         0,
@@ -475,12 +475,6 @@ namespace VECS
             _shadowCubeMap.Dispose();
             _swapChain.Dispose();
             Instance = null;
-        }
-        
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void EndRenderPass(VkCommandBuffer commandBuffer)
-        {
-            Vulkan.vkCmdEndRenderPass(commandBuffer);
         }
     }
 }

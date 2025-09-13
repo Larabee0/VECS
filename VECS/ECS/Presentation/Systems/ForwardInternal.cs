@@ -67,7 +67,7 @@ namespace VECS.ECS.Presentation
             {
                 if (parallelCmdBuffers[i].IsNull)
                 {
-                    Vulkan.CheckResult(Vulkan.vkAllocateCommandBuffer(GraphicsDevice.Device, GraphicsDevice.SecondaryMainPipeCommandBuffers[i], VkCommandBufferLevel.Secondary, out parallelCmdBuffers[i]), "Failed to allocate command buffer!");
+                    GraphicsDevice.DeviceAPI.vkAllocateCommandBuffer(GraphicsDevice.Device, GraphicsDevice.SecondaryMainPipeCommandBuffers[i], VkCommandBufferLevel.Secondary, out parallelCmdBuffers[i]).CheckResult("Failed to allocate command buffer!");
                 }
             }
 
@@ -95,15 +95,15 @@ namespace VECS.ECS.Presentation
                 };
                 VkCommandBufferBeginInfo bufferBeginInfo = new() { pInheritanceInfo = &inheritanceInfoInternal, flags = VkCommandBufferUsageFlags.RenderPassContinue };
                 VkCommandBuffer internalBuffer = parallelCmdBuffers[i];
-                Vulkan.vkBeginCommandBuffer(internalBuffer, &bufferBeginInfo);
+                GraphicsDevice.DeviceAPI.vkBeginCommandBuffer(internalBuffer, &bufferBeginInfo);
                 SwapChain.SetViewPort(internalBuffer);
                 _renderBlob.DrawSlice(i, internalBuffer, frameIndex, 0);
-                Vulkan.vkEndCommandBuffer(internalBuffer);
+                GraphicsDevice.DeviceAPI.vkEndCommandBuffer(internalBuffer);
             });
 
             fixed (VkCommandBuffer* pCmdBuffers = &parallelCmdBuffers[0])
             {
-                Vulkan.vkCmdExecuteCommands(frameInfo.CommandBuffer, (uint)_renderBlob.DrawSliceCount, pCmdBuffers);
+                GraphicsDevice.DeviceAPI.vkCmdExecuteCommands(frameInfo.CommandBuffer, (uint)_renderBlob.DrawSliceCount, pCmdBuffers);
             }
         }
 

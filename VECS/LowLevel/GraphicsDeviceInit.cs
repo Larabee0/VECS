@@ -82,10 +82,10 @@ namespace VECS.LowLevel
             createInfo.pNext = null;
 #endif
 
-            Vulkan.CheckResult(Vulkan.vkCreateInstance(&createInfo, null, out _instance), "Failed to create vulkan instance!");
+            Vulkan.vkCreateInstance(&createInfo, null, out _instance).CheckResult("Failed to create vulkan instance!");
 
-
-            Vulkan.vkLoadInstanceOnly(_instance);
+            _instanceApi = Vulkan.GetApi(_instance);
+            //Vulkan.vkLoadInstanceOnly(_instance);
 
             HasRequiredInstanceExtensions();
         }
@@ -189,7 +189,9 @@ namespace VECS.LowLevel
         /// <exception cref="Exception"></exception>
         internal static unsafe void PickPhysicalDevice()
         {
-            var devices = Vulkan.vkEnumeratePhysicalDevices(_instance);
+            _instanceApi.vkEnumeratePhysicalDevices(_instance, out uint deviceCount).CheckResult("Failed to find GPUs with Vulkan Support!");
+            VkPhysicalDevice[] devices = new VkPhysicalDevice[deviceCount];
+            _instanceApi.vkEnumeratePhysicalDevices(_instance, devices).CheckResult("Failed to find GPUs with Vulkan Support!");
 
             if (devices.Length == 0)
             {
@@ -436,13 +438,13 @@ namespace VECS.LowLevel
             createInfo.enabledLayerCount = 0;
             
 #endif
-            Vulkan.CheckResult(Vulkan.vkCreateDevice(_physicalDevice, in createInfo, null, out _device), "Failed to create logical device");
+            _instanceApi.vkCreateDevice(_physicalDevice, in createInfo, null, out _device).CheckResult("Failed to create logical device");
 
-            Vulkan.vkLoadDevice(_device);
+            _deviceApi = Vulkan.GetApi(_instance, _device);
 
-            Vulkan.vkGetDeviceQueue(_device, (uint)indices.graphicsFamily, 0, out _mainQueue);
-            Vulkan.vkGetDeviceQueue(_device, (uint)indices.computeFamily, (uint)indices.computeIndex, out _computeQueue);
-            Vulkan.vkGetDeviceQueue(_device, (uint)indices.presentFamily, (uint)indices.presentIndex, out _presentQueue);
+            _deviceApi.vkGetDeviceQueue(_device, (uint)indices.graphicsFamily, 0, out _mainQueue);
+            _deviceApi.vkGetDeviceQueue(_device, (uint)indices.computeFamily, (uint)indices.computeIndex, out _computeQueue);
+            _deviceApi.vkGetDeviceQueue(_device, (uint)indices.presentFamily, (uint)indices.presentIndex, out _presentQueue);
         }
 
         #endregion
@@ -464,25 +466,25 @@ namespace VECS.LowLevel
 
             _secondaryMainPipeCommandBuffers = new VkCommandPool[Environment.ProcessorCount * 2];
             _secondaryComputePipeCommandBuffers = new VkCommandPool[Environment.ProcessorCount];
-            Vulkan.CheckResult(Vulkan.vkCreateCommandPool(_device, poolInfo, null, out _commandPoolMain), "Failed to create main command pool!");
+            _deviceApi.vkCreateCommandPool(_device, poolInfo, null, out _commandPoolMain).CheckResult("Failed to create main command pool!");
 
             for (int i = 0; i < _secondaryMainPipeCommandBuffers.Length; i++)
             {
-                Vulkan.CheckResult(Vulkan.vkCreateCommandPool(_device, poolInfo, null, out _secondaryMainPipeCommandBuffers[i]), "Failed to create secondary main command pool!");
+                _deviceApi.vkCreateCommandPool(_device, poolInfo, null, out _secondaryMainPipeCommandBuffers[i]).CheckResult("Failed to create secondary main command pool!");
             }
 
 
             poolInfo.queueFamilyIndex = queueFamilyIndices.computeFamily;
-            Vulkan.CheckResult(Vulkan.vkCreateCommandPool(_device, poolInfo, null, out _commandPoolCompute), "Failed to create compute command pool!");
+            _deviceApi.vkCreateCommandPool(_device, poolInfo, null, out _commandPoolCompute).CheckResult("Failed to create compute command pool!");
 
             for (int i = 0; i < _secondaryComputePipeCommandBuffers.Length; i++)
             {
-                Vulkan.CheckResult(Vulkan.vkCreateCommandPool(_device, poolInfo, null, out _secondaryComputePipeCommandBuffers[i]), "Failed to create secondary main compute pool!");
+                _deviceApi.vkCreateCommandPool(_device, poolInfo, null, out _secondaryComputePipeCommandBuffers[i]).CheckResult("Failed to create secondary main compute pool!");
             }
 
             poolInfo.queueFamilyIndex = queueFamilyIndices.presentFamily;
 
-            Vulkan.CheckResult(Vulkan.vkCreateCommandPool(_device, poolInfo, null, out _commandPoolPresent), "Failed to create present command pool!");
+            _deviceApi.vkCreateCommandPool(_device, poolInfo, null, out _commandPoolPresent).CheckResult("Failed to create present command pool!");
         }
 
         #endregion
@@ -524,7 +526,7 @@ namespace VECS.LowLevel
                 swapChainAdequate = swapChainSupport.formats.Length > 0 && swapChainSupport.presentModes.Length > 0;
             }
 
-            Vulkan.vkGetPhysicalDeviceFeatures(device, out VkPhysicalDeviceFeatures supportedFeatures);
+            _instanceApi.vkGetPhysicalDeviceFeatures(device, out VkPhysicalDeviceFeatures supportedFeatures);
 
             if (!indices.IsComplete)
             {
@@ -558,13 +560,15 @@ namespace VECS.LowLevel
         internal static QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device)
         {
             QueueFamilyIndices indices = default;
-            var queueFamilies = Vulkan.vkGetPhysicalDeviceQueueFamilyProperties(device);
+            _instanceApi.vkGetPhysicalDeviceQueueFamilyProperties(device,out uint queuefamilyCount);
+            VkQueueFamilyProperties[] queueFamilies  = new VkQueueFamilyProperties[queuefamilyCount];
+            _instanceApi.vkGetPhysicalDeviceQueueFamilyProperties(device, queueFamilies);
 
             for (uint i = 0; i < queueFamilies.Length; i++)
             {
                 var family = queueFamilies[(int)i];
 
-                Vulkan.vkGetPhysicalDeviceSurfaceSupportKHR(device, i, Surface, out VkBool32 presentSupport);
+                _instanceApi.vkGetPhysicalDeviceSurfaceSupportKHR(device, i, Surface, out VkBool32 presentSupport);
 
                 if (family.queueCount > 0 && family.queueFlags.HasFlag(VkQueueFlags.Graphics) && family.queueFlags.HasFlag(VkQueueFlags.Compute))
                 {
@@ -600,15 +604,14 @@ namespace VECS.LowLevel
         internal static SwapChainSupportDetails QuerySwapChainSupport(VkPhysicalDevice device)
         {
             SwapChainSupportDetails details = default;
-            Vulkan.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, Surface, out details.capabilities);
+            _instanceApi.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, Surface, out details.capabilities).CheckResult("Device has no surface capabilities!");
+            _instanceApi.vkGetPhysicalDeviceSurfaceFormatsKHR(device, Surface, out uint surfaceFormatCount).CheckResult("Device has no surface formats!");
+            details.formats = new VkSurfaceFormatKHR[surfaceFormatCount];
+            _instanceApi.vkGetPhysicalDeviceSurfaceFormatsKHR(device, Surface, details.formats);
 
-            var formats = Vulkan.vkGetPhysicalDeviceSurfaceFormatsKHR(device, Surface);
-            details.formats = new VkSurfaceFormatKHR[formats.Length];
-            formats.CopyTo(details.formats);
-
-            var presentModes = Vulkan.vkGetPhysicalDeviceSurfacePresentModesKHR(device, Surface);
-            details.presentModes = new VkPresentModeKHR[presentModes.Length];
-            presentModes.CopyTo(details.presentModes);
+            _instanceApi.vkGetPhysicalDeviceSurfacePresentModesKHR(device, Surface,out uint presentModeCount).CheckResult("Device has not present modes!");
+            details.presentModes = new VkPresentModeKHR[presentModeCount];
+            _instanceApi.vkGetPhysicalDeviceSurfacePresentModesKHR(device, Surface,details.presentModes);
 
 
             return details;
@@ -627,7 +630,7 @@ namespace VECS.LowLevel
             VkDebugUtilsMessengerCreateInfoEXT createInfoEXT = PopulateDebugMessengerCreateInfo();
 
             fixed (VkDebugUtilsMessengerEXT* toPtr = &_debugMessenger)
-                Vulkan.CheckResult(CreateDebugUtilsMessengerEXT(_instance, &createInfoEXT, null, toPtr), "failed to set up debug messenger! {0}");
+                CreateDebugUtilsMessengerEXT(_instance, &createInfoEXT, null, toPtr).CheckResult( "failed to set up debug messenger! {0}");
 
         }
 
@@ -641,7 +644,9 @@ namespace VECS.LowLevel
         /// <returns></returns>
         private static bool CheckValidationLayerSupport()
         {
-            ReadOnlySpan<VkLayerProperties> availableLayers = Vulkan.vkEnumerateInstanceLayerProperties();
+            Vulkan.vkEnumerateInstanceLayerProperties(out uint propertyCount).CheckResult();
+            VkLayerProperties[] availableLayers = new VkLayerProperties[propertyCount];
+            Vulkan.vkEnumerateInstanceLayerProperties(availableLayers);
 
             for (int i = 0; i < _requiredValidationLayers.Length; i++)
             {
@@ -774,8 +779,9 @@ namespace VECS.LowLevel
 
         private unsafe static bool CheckDeviceExtensionSupport(VkPhysicalDevice device, VkUtf8String[] extensions)
         {
-            var availableExtensions = Vulkan.vkEnumerateDeviceExtensionProperties(device);
-
+            _instanceApi.vkEnumerateDeviceExtensionProperties(device,out uint extensionCount).CheckResult("Failed to get device extensions!");
+            var availableExtensions = new VkExtensionProperties[extensionCount];
+            _instanceApi.vkEnumerateDeviceExtensionProperties(device, availableExtensions);
             HashSet<VkUtf8String> requiredSet = [.. extensions];
 
 
@@ -819,12 +825,17 @@ namespace VECS.LowLevel
                 pNext = &deviceFeatures12
             };
 
-            VkPhysicalDeviceFeatures2 deviceFeatures2 = new()
+            VkPhysicalDeviceVulkan14Features deviceFeatures14 = new()
             {
                 pNext = &deviceFeatures13
             };
 
-            Vulkan.vkGetPhysicalDeviceFeatures2(device, &deviceFeatures2);
+            VkPhysicalDeviceFeatures2 deviceFeatures2 = new()
+            {
+                pNext = &deviceFeatures14
+            };
+
+            _instanceApi.vkGetPhysicalDeviceFeatures2(device, &deviceFeatures2);
 
             if (MeshShading)
             {
@@ -868,7 +879,7 @@ namespace VECS.LowLevel
                 pNext = &deviceProperties14
             };
 
-            Vulkan.vkGetPhysicalDeviceProperties2(device, &deviceProperties2);
+            _instanceApi.vkGetPhysicalDeviceProperties2(device, &deviceProperties2);
 
             PropertiesVK10 = deviceProperties2.properties;
             PropertiesVK11 = deviceProperties11;

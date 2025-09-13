@@ -276,7 +276,7 @@ namespace VECS
                     pBindings = pBindings
                 };
 
-                Vulkan.CheckResult(Vulkan.vkCreateDescriptorSetLayout(GraphicsDevice.Device, descriptorSetLayoutInfo, null, out layout), "Failed to create descriptor set layout!");                
+                GraphicsDevice.DeviceAPI.vkCreateDescriptorSetLayout(GraphicsDevice.Device, descriptorSetLayoutInfo, null, out layout).CheckResult( "Failed to create descriptor set layout!");                
             }
 
             return layout;
@@ -378,7 +378,7 @@ namespace VECS
                 layoutCreateInfo.pPushConstantRanges = pLayouts;
             }
 
-            Vulkan.CheckResult(Vulkan.vkCreatePipelineLayout(GraphicsDevice.Device, layoutCreateInfo, null, out VkPipelineLayout pipelineLayout), "Failed to create pipeline layout!");
+            GraphicsDevice.DeviceAPI.vkCreatePipelineLayout(GraphicsDevice.Device, layoutCreateInfo, null, out VkPipelineLayout pipelineLayout).CheckResult("Failed to create pipeline layout!");
 
             return pipelineLayout;
         }
@@ -454,7 +454,7 @@ namespace VECS
 
             pipelineInfo.pNext = &pipelineRenderingCreateInfo;
 
-            Vulkan.CheckResult(Vulkan.vkCreateGraphicsPipeline(GraphicsDevice.Device, cache.Cache, pipelineInfo, out var graphicsPipeline), "Failed to create graphics pipeline!");
+            GraphicsDevice.DeviceAPI.vkCreateGraphicsPipeline(GraphicsDevice.Device, cache.Cache, pipelineInfo, out var graphicsPipeline).CheckResult( "Failed to create graphics pipeline!");
 
             return graphicsPipeline;
         }
@@ -541,7 +541,7 @@ namespace VECS
 
             pipelineInfo.pNext = &pipelineRenderingCreateInfo;
 
-            Vulkan.CheckResult(Vulkan.vkCreateGraphicsPipeline(GraphicsDevice.Device, cache.Cache, pipelineInfo, out var graphicsPipeline), "Failed to create graphics pipeline!");
+            GraphicsDevice.DeviceAPI.vkCreateGraphicsPipeline(GraphicsDevice.Device, cache.Cache, pipelineInfo, out var graphicsPipeline).CheckResult( "Failed to create graphics pipeline!");
 
 
             return graphicsPipeline;
@@ -616,7 +616,7 @@ namespace VECS
 
             pipelineInfo.pNext = &pipelineRenderingCreateInfo;
 
-            Vulkan.CheckResult(Vulkan.vkCreateGraphicsPipeline(GraphicsDevice.Device, cache.Cache, pipelineInfo, out var graphicsPipeline), "Failed to create graphics pipeline!");
+            GraphicsDevice.DeviceAPI.vkCreateGraphicsPipeline(GraphicsDevice.Device, cache.Cache, pipelineInfo, out var graphicsPipeline).CheckResult("Failed to create graphics pipeline!");
 
 
             return graphicsPipeline;

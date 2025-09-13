@@ -57,7 +57,7 @@ namespace VECS.LowLevel
                 throw new Exception("SDL failed to load Vulkan");
             }
 
-            Vulkan.CheckResult(Vulkan.vkInitialize(), "Failed Initialise vulkan!");
+            Vulkan.vkInitialize().CheckResult("Failed Initialise vulkan!");
             
             _window = SDL.SDL_CreateWindow(_windowName, _width, _height, _sdl_Window_Flags);
             Id = SDL.SDL_GetWindowID(_window);

@@ -11,7 +11,7 @@ namespace VECS.LowLevel
         public DeviceInfo(VkPhysicalDevice device)
         {
             Device = device;
-            Vulkan.vkGetPhysicalDeviceMemoryProperties(device, out var properties);
+            GraphicsDevice.InstanceAPI.vkGetPhysicalDeviceMemoryProperties(device, out var properties);
             for (int i = 0; i < properties.memoryHeapCount; i++)
             {
                 var heap = properties.memoryHeaps[i];

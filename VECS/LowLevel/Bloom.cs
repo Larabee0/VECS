@@ -35,7 +35,7 @@ namespace VECS.LowLevel
                     layers = 1
                 };
 
-                Vulkan.vkCreateFramebuffer(GraphicsDevice.Device, vkFramebufferCreateInfo, null, out Framebuffer);
+                GraphicsDevice.DeviceAPI.vkCreateFramebuffer(GraphicsDevice.Device, vkFramebufferCreateInfo, null, out Framebuffer);
 
                 VkSamplerCreateInfo sampler = new()
                 {
@@ -61,7 +61,7 @@ namespace VECS.LowLevel
             {
                 Colour?.Dispose();
                 DepthStencil?.Dispose();
-                Vulkan.vkDestroyFramebuffer(GraphicsDevice.Device, Framebuffer, null);
+                GraphicsDevice.DeviceAPI.vkDestroyFramebuffer(GraphicsDevice.Device, Framebuffer, null);
             }
         }
 
@@ -164,7 +164,7 @@ namespace VECS.LowLevel
                 pDependencies = dependencies
             };
 
-            Vulkan.vkCreateRenderPass(GraphicsDevice.Device, renderPassInfo, null, out _renderPass);
+            GraphicsDevice.DeviceAPI.vkCreateRenderPass(GraphicsDevice.Device, renderPassInfo, null, out _renderPass);
 
             #endregion
 
@@ -222,8 +222,8 @@ namespace VECS.LowLevel
             BeginRenderPassInternal(frameInfo);
             _blurVerticalMat.BindAll(frameInfo);
             _blurVerticalMat.BindPushConstants(frameInfo,0);
-            Vulkan.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
-            Vulkan.vkCmdEndRenderPass(frameInfo.CommandBuffer);
+            GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
+            GraphicsDevice.DeviceAPI.vkCmdEndRenderPass(frameInfo.CommandBuffer);
         }
 
         public unsafe void BlurHorizontal(RendererFrameInfo frameInfo)
@@ -231,14 +231,14 @@ namespace VECS.LowLevel
             _renderPassBeginInfo->framebuffer = _framebufferBlur.Framebuffer;
             _blurHorizontalMat.BindAll(frameInfo);
             _blurHorizontalMat.BindPushConstants(frameInfo,0);
-            Vulkan.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
+            GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
         }
 
         private unsafe void BeginRenderPassInternal(RendererFrameInfo frameInfo)
         {
-            Vulkan.vkCmdSetViewport(frameInfo.CommandBuffer, _viewPort);
-            Vulkan.vkCmdSetScissor(frameInfo.CommandBuffer, _scissor);
-            Vulkan.vkCmdBeginRenderPass(frameInfo.CommandBuffer, _renderPassBeginInfo, VkSubpassContents.Inline);
+            GraphicsDevice.DeviceAPI.vkCmdSetViewport(frameInfo.CommandBuffer, _viewPort);
+            GraphicsDevice.DeviceAPI.vkCmdSetScissor(frameInfo.CommandBuffer, _scissor);
+            GraphicsDevice.DeviceAPI.vkCmdBeginRenderPass(frameInfo.CommandBuffer, _renderPassBeginInfo, VkSubpassContents.Inline);
         }
 
         public unsafe void Dispose()
@@ -247,9 +247,9 @@ namespace VECS.LowLevel
             _framebufferGlow.Dispose();
             _framebufferBlur.Dispose();
 
-            Vulkan.vkDestroySampler(GraphicsDevice.Device, _sampler, null);
+            GraphicsDevice.DeviceAPI.vkDestroySampler(GraphicsDevice.Device, _sampler, null);
 
-            Vulkan.vkDestroyRenderPass(GraphicsDevice.Device,_renderPass,null);
+            GraphicsDevice.DeviceAPI.vkDestroyRenderPass(GraphicsDevice.Device,_renderPass,null);
 
             NativeMemory.Free(_renderPassBeginInfo);
             NativeMemory.Free(_clearValues);

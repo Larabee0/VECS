@@ -495,25 +495,25 @@ namespace VECS
                 if (HasApplicationSet && !_actAsGlobal && i == 0) continue;
                 _allHandlers[i]?.Dispose();
             }
-            Vulkan.vkDestroyPipeline(GraphicsDevice.Device, _graphicsPipeline);
+            GraphicsDevice.DeviceAPI.vkDestroyPipeline(GraphicsDevice.Device, _graphicsPipeline);
 
             if (_applicationDescriptorLayout != VkDescriptorSetLayout.Null)
             {
-                Vulkan.vkDestroyDescriptorSetLayout(GraphicsDevice.Device, _applicationDescriptorLayout, null);
+                GraphicsDevice.DeviceAPI.vkDestroyDescriptorSetLayout(GraphicsDevice.Device, _applicationDescriptorLayout, null);
             }
             if (_materialDescriptorLayout != VkDescriptorSetLayout.Null)
             {
-                Vulkan.vkDestroyDescriptorSetLayout(GraphicsDevice.Device, _materialDescriptorLayout, null);
+                GraphicsDevice.DeviceAPI.vkDestroyDescriptorSetLayout(GraphicsDevice.Device, _materialDescriptorLayout, null);
             }
 
             if (_entityDescriptorLayout != VkDescriptorSetLayout.Null)
             {
-                Vulkan.vkDestroyDescriptorSetLayout(GraphicsDevice.Device, _entityDescriptorLayout, null);
+                GraphicsDevice.DeviceAPI.vkDestroyDescriptorSetLayout(GraphicsDevice.Device, _entityDescriptorLayout, null);
             }
 
             if (_meshShaderDescriptorLayout != VkDescriptorSetLayout.Null)
             {
-                Vulkan.vkDestroyDescriptorSetLayout(GraphicsDevice.Device, _meshShaderDescriptorLayout, null);
+                GraphicsDevice.DeviceAPI.vkDestroyDescriptorSetLayout(GraphicsDevice.Device, _meshShaderDescriptorLayout, null);
             }
 
             int index = GetIndexOfMaterial(this);

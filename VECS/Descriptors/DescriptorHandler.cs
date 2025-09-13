@@ -452,7 +452,7 @@ namespace VECS
 
                 _vkDescriptorWrites[i] = write;
             }
-            Vulkan.vkUpdateDescriptorSets(GraphicsDevice.Device, _vkDescriptorWrites);
+            GraphicsDevice.DeviceAPI.vkUpdateDescriptorSets(GraphicsDevice.Device, _vkDescriptorWrites);
             _vkDescriptorSets[frameIndex] = set;
             _setsDirty[frameIndex] = false;
         }

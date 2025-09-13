@@ -234,7 +234,7 @@ namespace VECS
                 writes[i].dstSet = set;
             }
 
-            Vulkan.vkUpdateDescriptorSets(GraphicsDevice.Device, (uint)bufferInfos.Length + 3, writes, 0, null);
+            GraphicsDevice.DeviceAPI.vkUpdateDescriptorSets(GraphicsDevice.Device, (uint)bufferInfos.Length + 3, writes, 0, null);
             shaderDescriptor.VkDescriptorSets[frameIndex] = set;
             shaderDescriptor.SetsDirty[frameIndex] = false;
         }
@@ -346,7 +346,7 @@ namespace VECS
                 bindingCount = (uint)totalBindings,
                 pBindings = bindings
             };
-            Vulkan.vkCreateDescriptorSetLayout(GraphicsDevice.Device, createInfo, null, out var setLayout).CheckResult("Failed to create MeshShader Mesh set");
+            GraphicsDevice.DeviceAPI.vkCreateDescriptorSetLayout(GraphicsDevice.Device, createInfo, null, out var setLayout).CheckResult("Failed to create MeshShader Mesh set");
             return setLayout;
         }
     }

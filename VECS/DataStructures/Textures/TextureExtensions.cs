@@ -89,10 +89,10 @@ namespace VECS
         {
             if (texture._textureSampler != VkSampler.Null)
             {
-                Vulkan.vkDestroySampler(GraphicsDevice.Device, texture._textureSampler);
+                GraphicsDevice.DeviceAPI.vkDestroySampler(GraphicsDevice.Device, texture._textureSampler);
                 texture._textureSampler = VkSampler.Null;
             }
-            Vulkan.CheckResult(Vulkan.vkCreateSampler(GraphicsDevice.Device, createInfo, null, out texture._textureSampler), "Create Sampler failed");
+            GraphicsDevice.DeviceAPI.vkCreateSampler(GraphicsDevice.Device, createInfo, null, out texture._textureSampler).CheckResult("Create Sampler failed");
             
         }
 
@@ -101,11 +101,11 @@ namespace VECS
         {
             if (texture._imageView != VkImageView.Null)
             {
-                Vulkan.vkDestroyImageView(GraphicsDevice.Device, texture._imageView);
+                GraphicsDevice.DeviceAPI.vkDestroyImageView(GraphicsDevice.Device, texture._imageView);
                 texture._imageView = VkImageView.Null;
             }
 
-            Vulkan.CheckResult(Vulkan.vkCreateImageView(GraphicsDevice.Device, createInfo, null, out texture._imageView), "Create Image View failed!");
+            GraphicsDevice.DeviceAPI.vkCreateImageView(GraphicsDevice.Device, createInfo, null, out texture._imageView).CheckResult( "Create Image View failed!");
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -124,9 +124,9 @@ namespace VECS
                 texture._allocation = VmaAllocation.Null;
             }
 
-            Vulkan.CheckResult(Vma.vmaCreateImage(GraphicsDevice.VmaAllocator, imageCreateInfo, allocationCreateInfo, out texture._vkImage, out texture._allocation), "Create Image View failed!");
+            Vma.vmaCreateImage(GraphicsDevice.VmaAllocator, imageCreateInfo, allocationCreateInfo, out texture._vkImage, out texture._allocation).CheckResult( "Create Image View failed!");
 
-            Vulkan.vkGetImageMemoryRequirements(GraphicsDevice.Device, texture._vkImage, out var requirements);
+            GraphicsDevice.DeviceAPI.vkGetImageMemoryRequirements(GraphicsDevice.Device, texture._vkImage, out var requirements);
             texture._vkBufferSizeRequirement = requirements.size;
         }
 
@@ -308,7 +308,7 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static unsafe void CopyBufferToTexture(Texture texture, VkCommandBuffer cmdBuffer, GPUBuffer buffer, VkBufferImageCopy* bufferCopyRegions)
         {
-            Vulkan.vkCmdCopyBufferToImage(cmdBuffer, buffer.VkBuffer, texture._vkImage, VkImageLayout.TransferDstOptimal, texture.ImageExtent.depth, bufferCopyRegions);
+            GraphicsDevice.DeviceAPI.vkCmdCopyBufferToImage(cmdBuffer, buffer.VkBuffer, texture._vkImage, VkImageLayout.TransferDstOptimal, texture.ImageExtent.depth, bufferCopyRegions);
         }
 
         internal static unsafe void CopyToBuffer(this Texture texture, VkCommandBuffer cmdBuffer, GPUBuffer buffer)
@@ -361,7 +361,7 @@ namespace VECS
                 offset += size;
             }
 
-            Vulkan.vkCmdCopyImageToBuffer(cmdBuffer, texture._vkImage, VkImageLayout.TransferSrcOptimal, buffer.VkBuffer, texture.MipMapCount, bufferCopyRegions);
+            GraphicsDevice.DeviceAPI.vkCmdCopyImageToBuffer(cmdBuffer, texture._vkImage, VkImageLayout.TransferSrcOptimal, buffer.VkBuffer, texture.MipMapCount, bufferCopyRegions);
 
             if (changeLayout && imageLayout != VkImageLayout.Undefined)
             {
@@ -422,7 +422,7 @@ namespace VECS
                     mipSubRange
                 );
 
-                Vulkan.vkCmdBlitImage(
+                GraphicsDevice.DeviceAPI.vkCmdBlitImage(
                     cmd,
                     texture._vkImage,
                     VkImageLayout.TransferSrcOptimal,
@@ -507,7 +507,7 @@ namespace VECS
                     mipSubRange
                 );
 
-                Vulkan.vkCmdBlitImage(
+                GraphicsDevice.DeviceAPI.vkCmdBlitImage(
                     cmd,
                     texture._vkImage,
                     VkImageLayout.TransferSrcOptimal,
@@ -644,7 +644,7 @@ namespace VECS
                         mipSubRange
                     );
 
-                    Vulkan.vkCmdBlitImage(
+                    GraphicsDevice.DeviceAPI.vkCmdBlitImage(
                         cmd,
                         image,
                         VkImageLayout.TransferSrcOptimal,
@@ -799,7 +799,7 @@ namespace VECS
                     throw new InvalidOperationException(string.Format("Unhandled Image transition to image layout {0}", newImageLayout.ToString()));
             }
 
-            Vulkan.vkCmdPipelineBarrier(cmdbuffer, srcStageMask, dstStageMask, 0, 0, null, 0, null, 1, &imageMemoryBarrier);
+            GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier(cmdbuffer, srcStageMask, dstStageMask, 0, 0, null, 0, null, 1, &imageMemoryBarrier);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -829,7 +829,7 @@ namespace VECS
         {
             VkImageMemoryBarrier imageMemoryBarrier = new(image, subresourceRange, srcAccessMask, dstAccessMask, oldImageLayout, newImageLayout);
 
-            Vulkan.vkCmdPipelineBarrier(cmdbuffer, srcStageMask, dstStageMask, 0, 0, null, 0, null, 1, &imageMemoryBarrier);
+            GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier(cmdbuffer, srcStageMask, dstStageMask, 0, 0, null, 0, null, 1, &imageMemoryBarrier);
         }
     }
 }

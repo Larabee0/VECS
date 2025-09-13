@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using VECS.LowLevel;
 using Vortice.SPIRV.Reflect;
 using Vortice.Vulkan;
 
@@ -107,7 +108,7 @@ namespace VECS
         {
             fixed (byte* pPushConstants = &_pushConstantBuffer[0])
             {
-                Vulkan.vkCmdPushConstants(rendererFrameInfo.CommandBuffer, pipelineLayout, ShaderStages, Offset, Size, pPushConstants);
+                GraphicsDevice.DeviceAPI.vkCmdPushConstants(rendererFrameInfo.CommandBuffer, pipelineLayout, ShaderStages, Offset, Size, pPushConstants);
             }
         }
 
@@ -115,7 +116,7 @@ namespace VECS
         {
             fixed (byte* pPushConstants = &_pushConstantBuffer[0])
             {
-                Vulkan.vkCmdPushConstants(commandBuffer, pipelineLayout, ShaderStages, Offset, Size, pPushConstants);
+                GraphicsDevice.DeviceAPI.vkCmdPushConstants(commandBuffer, pipelineLayout, ShaderStages, Offset, Size, pPushConstants);
             }
         }
     }

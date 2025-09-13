@@ -14,7 +14,7 @@ namespace VECS.LowLevel
         public readonly unsafe ulong GetCounterValue()
         {
             ulong value = 0;
-            Vulkan.CheckResult(Vulkan.vkGetSemaphoreCounterValue(GraphicsDevice.Device, Semaphore, &value),"Failed to read semaphore counter");
+            GraphicsDevice.DeviceAPI.vkGetSemaphoreCounterValue(GraphicsDevice.Device, Semaphore, &value).CheckResult("Failed to read semaphore counter");
         
             return value;
         }

@@ -27,10 +27,13 @@ namespace VECS.LowLevel
 
         internal static IWindow _window;
         internal static VkInstance _instance;
+        internal static VkInstanceApi _instanceApi;
 
         internal static VkPhysicalDevice _physicalDevice;
-
         internal static VkDevice _device;
+
+        internal static VkDeviceApi _deviceApi;
+
         private static VkSurfaceKHR _surface;
 
         internal static VmaAllocator _allocator;
@@ -59,9 +62,12 @@ namespace VECS.LowLevel
         public static VkPhysicalDeviceMeshShaderPropertiesEXT PropertiesMeshShading { get; internal set; }
         public static VkPhysicalDevice PhysicalDevice => _physicalDevice;
         public static VkDevice Device => _device;
+        public static VkDeviceApi DeviceAPI => _deviceApi;
+        public static VkInstanceApi InstanceAPI => _instanceApi;
         public static VkSurfaceKHR Surface => _surface;
 
         public static VmaAllocator VmaAllocator => _allocator;
+       
 
         public static VkQueue MainQueue => _mainQueue;
         public static VkQueue ComputeQueue => _computeQueue;
@@ -133,20 +139,20 @@ namespace VECS.LowLevel
 
             fixed (VkCommandBuffer* pCommandBuffers = &_mainPipeCommandBuffers[0])
             {
-                Vulkan.CheckResult(Vulkan.vkAllocateCommandBuffers(Device, &allocInfo, pCommandBuffers), "Failed to allocate main command buffers");
+                _deviceApi.vkAllocateCommandBuffers(Device, &allocInfo, pCommandBuffers).CheckResult("Failed to allocate main command buffers");
             }
 
             allocInfo.commandPool = ComputeCommandPool;
             fixed (VkCommandBuffer* pCommandBuffers = &_computeCommandBuffers[0])
             {
-                Vulkan.CheckResult(Vulkan.vkAllocateCommandBuffers(Device, &allocInfo, pCommandBuffers), "Failed to allocate compute command buffers");
+                _deviceApi.vkAllocateCommandBuffers(Device, &allocInfo, pCommandBuffers).CheckResult("Failed to allocate compute command buffers");
             }
 
             allocInfo.commandPool = PresentCommandPool;
 
             fixed (VkCommandBuffer* pCommandBuffers = &_presentCommandBuffers[0])
             {
-                Vulkan.CheckResult(Vulkan.vkAllocateCommandBuffers(Device, &allocInfo, pCommandBuffers), "Failed to allocate present command buffers");
+                _deviceApi.vkAllocateCommandBuffers(Device, &allocInfo, pCommandBuffers).CheckResult("Failed to allocate present command buffers");
             }
         }
 
@@ -156,12 +162,12 @@ namespace VECS.LowLevel
             {
                 for (int i = 0; i < _secondaryMainPipeCommandBuffers.Length; i++)
                 {
-                    Vulkan.vkResetCommandPool(Device, _secondaryMainPipeCommandBuffers[i], VkCommandPoolResetFlags.ReleaseResources);
+                    _deviceApi.vkResetCommandPool(Device, _secondaryMainPipeCommandBuffers[i], VkCommandPoolResetFlags.ReleaseResources);
                 }
 
                 fixed (VkCommandBuffer* pCommandBuffers = &_mainPipeCommandBuffers[0])
                 {
-                    Vulkan.vkFreeCommandBuffers(Device, MainCommandPool, (uint)_mainPipeCommandBuffers.Length, pCommandBuffers);
+                    _deviceApi.vkFreeCommandBuffers(Device, MainCommandPool, (uint)_mainPipeCommandBuffers.Length, pCommandBuffers);
                 }
 
                 _mainPipeCommandBuffers = null;
@@ -171,12 +177,12 @@ namespace VECS.LowLevel
             {
                 for (int i = 0; i < _secondaryComputePipeCommandBuffers.Length; i++)
                 {
-                    Vulkan.vkResetCommandPool(Device, _secondaryComputePipeCommandBuffers[i], VkCommandPoolResetFlags.ReleaseResources);
+                    _deviceApi.vkResetCommandPool(Device, _secondaryComputePipeCommandBuffers[i], VkCommandPoolResetFlags.ReleaseResources);
                 }
 
                 fixed (VkCommandBuffer* pCommandBuffers = &_computeCommandBuffers[0])
                 {
-                    Vulkan.vkFreeCommandBuffers(Device, ComputeCommandPool, (uint)_computeCommandBuffers.Length, pCommandBuffers);
+                    _deviceApi.vkFreeCommandBuffers(Device, ComputeCommandPool, (uint)_computeCommandBuffers.Length, pCommandBuffers);
                 }
 
                 _computeCommandBuffers = null;
@@ -186,7 +192,7 @@ namespace VECS.LowLevel
             {
                 fixed (VkCommandBuffer* pCommandBuffers = &_presentCommandBuffers[0])
                 {
-                    Vulkan.vkFreeCommandBuffers(Device, PresentCommandPool, (uint)_presentCommandBuffers.Length, pCommandBuffers);
+                    _deviceApi.vkFreeCommandBuffers(Device, PresentCommandPool, (uint)_presentCommandBuffers.Length, pCommandBuffers);
                 }
 
                 _presentCommandBuffers = null;
@@ -207,7 +213,7 @@ namespace VECS.LowLevel
             for (int i = 0; i < candidates.Length; i++)
             {
                 VkFormat format = candidates[i];
-                Vulkan.vkGetPhysicalDeviceFormatProperties(_physicalDevice, format, out VkFormatProperties props);
+                _instanceApi.vkGetPhysicalDeviceFormatProperties(_physicalDevice, format, out VkFormatProperties props);
                 if (tiling == VkImageTiling.Linear && (props.linearTilingFeatures & features) == features)
                 {
                     return format;
@@ -253,24 +259,29 @@ namespace VECS.LowLevel
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static VkCommandBuffer BeginSingleTime(VkCommandPool commandPool)
         {
-            Vulkan.CheckResult(Vulkan.vkAllocateCommandBuffer(Device, commandPool, VkCommandBufferLevel.Primary, out VkCommandBuffer commandBuffer), "Failed to allocate command buffer!");
-            Vulkan.CheckResult(Vulkan.vkBeginCommandBuffer(commandBuffer, VkCommandBufferUsageFlags.OneTimeSubmit), "Failed to begin command buffer!");
+            _deviceApi.vkAllocateCommandBuffer(Device, commandPool, VkCommandBufferLevel.Primary, out VkCommandBuffer commandBuffer).CheckResult("Failed to allocate command buffer!");
+            _deviceApi.vkBeginCommandBuffer(commandBuffer, VkCommandBufferUsageFlags.OneTimeSubmit).CheckResult("Failed to begin command buffer!");
             return commandBuffer;
         }
 
         public static unsafe void EndSingleTime(VkCommandBuffer commandBuffer, VkQueue queue, VkCommandPool commandPool)
         {
-            Vulkan.vkEndCommandBuffer(commandBuffer);
+            _deviceApi.vkEndCommandBuffer(commandBuffer);
             VkSubmitInfo submitInfo = new()
             {
                 commandBufferCount = 1,
                 pCommandBuffers = &commandBuffer
             };
-            Vulkan.vkQueueSubmit(queue, submitInfo, VkFence.Null);
-            Vulkan.vkQueueWaitIdle(queue);
-            Vulkan.vkFreeCommandBuffers(Device, commandPool, commandBuffer);
+            _deviceApi.vkQueueSubmit(queue, submitInfo, VkFence.Null);
+            _deviceApi.vkQueueWaitIdle(queue);
+            _deviceApi.vkFreeCommandBuffers(Device, commandPool, commandBuffer);
         }
         #endregion
+
+        public static void DeviceWaitIdle()
+        {
+            _deviceApi.vkDeviceWaitIdle(Device);
+        }
 
         /// <summary>
         /// Cleans up the vulkan device and vulkan instance and Vma Allocator.
@@ -283,26 +294,26 @@ namespace VECS.LowLevel
 
             for (int i = 0; i < _secondaryMainPipeCommandBuffers.Length; i++)
             {
-                Vulkan.vkDestroyCommandPool(Device, _secondaryMainPipeCommandBuffers[i]);
+                _deviceApi.vkDestroyCommandPool(Device, _secondaryMainPipeCommandBuffers[i]);
             }
 
             for (int i = 0; i < _secondaryComputePipeCommandBuffers.Length; i++)
             {
-                Vulkan.vkDestroyCommandPool(Device, _secondaryComputePipeCommandBuffers[i]);
+                _deviceApi.vkDestroyCommandPool(Device, _secondaryComputePipeCommandBuffers[i]);
             }
 
-            Vulkan.vkDestroyCommandPool(_device, _commandPoolPresent);
-            Vulkan.vkDestroyCommandPool(_device, _commandPoolCompute);
-            Vulkan.vkDestroyCommandPool(_device, _commandPoolMain);
+            _deviceApi.vkDestroyCommandPool(_device, _commandPoolPresent);
+            _deviceApi.vkDestroyCommandPool(_device, _commandPoolCompute);
+            _deviceApi.vkDestroyCommandPool(_device, _commandPoolMain);
             Vma.vmaDestroyAllocator(_allocator);
-            Vulkan.vkDestroyDevice(_device);
+            _deviceApi.vkDestroyDevice(_device);
 
 #if DEBUG
             GraphicsDeviceInit.DestroyDebugUtilsMessengerEXT(_instance, GraphicsDeviceInit._debugMessenger, null);
 #endif
 
-            Vulkan.vkDestroySurfaceKHR(_instance, _surface);
-            Vulkan.vkDestroyInstance(_instance);
+            _instanceApi.vkDestroySurfaceKHR(_instance, _surface);
+            _instanceApi.vkDestroyInstance(_instance);
         }
     }
 }

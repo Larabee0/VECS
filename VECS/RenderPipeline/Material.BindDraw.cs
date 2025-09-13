@@ -51,14 +51,14 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void BindPipeline(VkCommandBuffer commandBuffer)
         {
-            Vulkan.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Graphics, _graphicsPipeline);
+            GraphicsDevice.DeviceAPI.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Graphics, _graphicsPipeline);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private unsafe void BindDescriptors(VkCommandBuffer commandBuffer, int frameIndex)
         {
             Flush(frameIndex);
-            Vulkan.vkCmdBindDescriptorSets(commandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, 0, _totalSets, _setsToBind);
+            GraphicsDevice.DeviceAPI.vkCmdBindDescriptorSets(commandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, 0, _totalSets, _setsToBind);
         }
 
         public void BindAll(RendererFrameInfo frameInfo)
@@ -79,7 +79,7 @@ namespace VECS
                 set = descriptor.VkDescriptorSets[frameInfo.FrameIndex];
             }
 
-            Vulkan.vkCmdBindDescriptorSets(frameInfo.CommandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, (uint)_meshShaderDataBindingPoint, set);
+            GraphicsDevice.DeviceAPI.vkCmdBindDescriptorSets(frameInfo.CommandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, (uint)_meshShaderDataBindingPoint, set);
         }
 
         private unsafe void DrawSimple(RendererFrameInfo frameInfo, DirectSubMesh directSubMesh)
@@ -203,7 +203,7 @@ namespace VECS
             var mesh = DirectMesh.GetMeshAtIndex(command.DirectMesh);
 
             mesh.BindSpecificBuffers(commandBuffer, VertexBindings, VertexAttributes);
-            Vulkan.vkCmdDrawIndexedIndirect(
+            GraphicsDevice.DeviceAPI.vkCmdDrawIndexedIndirect(
                 commandBuffer,
                 indirectCmdBuffer.ActiveVkBuffer,
                 (uint)command.MeshSubRegion.StartIndex * (uint)sizeof(VkDrawIndexedIndirectCommand),
@@ -274,7 +274,7 @@ namespace VECS
                 handler.Update(frameInfo);
                 var set = handler.GetDescriptorSet(frameInfo.FrameIndex);
                 handler.WriteFromBuffers(frameInfo.FrameIndex);
-                Vulkan.vkCmdBindDescriptorSets(frameInfo.CommandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, (uint)_applicationDescriptorHandlerIndex, set);
+                GraphicsDevice.DeviceAPI.vkCmdBindDescriptorSets(frameInfo.CommandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, (uint)_applicationDescriptorHandlerIndex, set);
             }
         }
 
@@ -287,7 +287,7 @@ namespace VECS
                 var set = handler.GetOrCreateChild(variant).GetDescriptorSet(frameIndex);
 
                 handler.WriteFromBuffers(frameIndex);
-                Vulkan.vkCmdBindDescriptorSets(commandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, (uint)_materialDescriptorHandlerIndex, set);
+                GraphicsDevice.DeviceAPI.vkCmdBindDescriptorSets(commandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, (uint)_materialDescriptorHandlerIndex, set);
             }
         }
 
@@ -300,7 +300,7 @@ namespace VECS
                 var set = handler.GetOrCreateChild(variant).GetDescriptorSet(frameIndex);
 
                 handler.WriteFromBuffers(frameIndex);
-                Vulkan.vkCmdBindDescriptorSets(commandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, (uint)_entityDescriptorHandlerIndex, set);
+                GraphicsDevice.DeviceAPI.vkCmdBindDescriptorSets(commandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, (uint)_entityDescriptorHandlerIndex, set);
             }
         }
 
@@ -317,7 +317,7 @@ namespace VECS
                 };
                 matHandler.WriteFromBuffers(frameIndex);
                 entityHandler.WriteFromBuffers(frameIndex);
-                Vulkan.vkCmdBindDescriptorSets(commandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, (uint)_materialDescriptorHandlerIndex, 2, sets);
+                GraphicsDevice.DeviceAPI.vkCmdBindDescriptorSets(commandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, (uint)_materialDescriptorHandlerIndex, 2, sets);
             }
             else
             {

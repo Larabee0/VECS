@@ -109,7 +109,7 @@ namespace VECS.LowLevel
                 pStencilAttachment = &depth
             };
 
-            Vulkan.vkCmdBeginRendering(commandBuffer, &renderingInfo);
+            GraphicsDevice.DeviceAPI.vkCmdBeginRendering(commandBuffer, &renderingInfo);
             SetViewPort(commandBuffer);
             // create Shadow Material
             // Vulkan.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Graphics, pipelines.offscreen);
@@ -125,7 +125,7 @@ namespace VECS.LowLevel
 
         public void EndShadowPass(VkCommandBuffer commandBuffer)
         {
-            Vulkan.vkCmdEndRendering(commandBuffer);
+            GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
         }
 
         public void SetImageLayoutWrite(VkCommandBuffer commandBuffer)
@@ -158,8 +158,8 @@ namespace VECS.LowLevel
 
             VkRect2D scissor = new(new(0, 0), new(SHADOW_IMAGE_SIZE, SHADOW_IMAGE_SIZE));
 
-            Vulkan.vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-            Vulkan.vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+            GraphicsDevice.DeviceAPI.vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+            GraphicsDevice.DeviceAPI.vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
         }
     }
 }
