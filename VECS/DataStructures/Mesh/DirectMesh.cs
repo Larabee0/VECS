@@ -303,6 +303,13 @@ namespace VECS
             return ptr;
         }
 
+        public unsafe void* GetUnsafeIndexBuffer(uint offset)
+        {
+            var ptr = (byte*)_indexBuffer.HostPtr;
+            ptr += offset * _indexBuffer.InstanceSize;
+            return ptr;
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Span<uint> GetIndexSpan(uint offset, uint length) { return Indices.Slice((int)offset, (int)length); }
 

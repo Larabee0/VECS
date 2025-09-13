@@ -6,6 +6,7 @@ using VECS.ECS.Presentation;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 using MeshOptimizer;
+using Assimp;
 
 namespace VECS
 {
@@ -282,109 +283,115 @@ namespace VECS
         public const uint MAX_MESHLET_TRIS = 64;
         public const float MESHLET_CONE_WEIGHT = 0.0f;
 
+        private static unsafe SubmeshMeshletData CreateMeshlets(DirectSubMesh subMesh,
+            ref Meshlet[] srcMeshlets,
+            ref MeshOptimizer.Bounds[] srcMeshletBounds,
+            ref uint[] srcMeshletVertices,
+            ref byte[] srcMeshletTriangles)
+        {
+            DirectMesh directMesh = subMesh.DirectMeshBuffer;
+            uint vertexPositionStride = directMesh.ConsumedAttributes[VertexAttribute.Position].AttributeByteSize;
+            uint meshletCount = (uint)Meshopt.BuildMeshletsBound(subMesh.IndexCount, MAX_MESHLET_VERTS, MAX_MESHLET_TRIS);
+            SubmeshMeshletData submeshMeshletData = new(meshletCount);
+
+            Meshlet[] meshlets = new Meshlet[meshletCount];
+            MeshOptimizer.Bounds[] meshletBounds = new MeshOptimizer.Bounds[meshletCount];
+            uint[] meshletVertices = new uint[submeshMeshletData.VertexCount];
+            byte[] meshletTriangles = new byte[submeshMeshletData.TriangleCount];
+
+            fixed (uint* srcIndices = &subMesh.Indicies[0])
+            {
+                fixed (float* srcVertices = &subMesh.GetVertexDataSpan<Vector3>(VertexAttribute.Position)[0].X)
+                {
+                    fixed (Meshlet* subMeshlets = &meshlets[submeshMeshletData.MeshletOffset])
+                    {
+                        fixed (MeshOptimizer.Bounds* subMeshletBounds = &meshletBounds[submeshMeshletData.MeshletOffset])
+                        {
+                            fixed (uint* subMeshletVertices = &meshletVertices[submeshMeshletData.VertexOffset])
+                            {
+                                fixed (byte* subMeshetTriangles = &meshletTriangles[submeshMeshletData.TriangleOffset])
+                                {
+                                    submeshMeshletData = CreateMeshlets(meshletCount,
+                                    subMesh.IndexCount,
+                                    subMesh.VertexCount,
+                                    vertexPositionStride,
+                                    srcIndices,
+                                    srcVertices,
+                                    subMeshlets,
+                                    subMeshletBounds,
+                                    subMeshletVertices,
+                                    subMeshetTriangles);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            submeshMeshletData.MeshletOffset = srcMeshlets.Length;
+            submeshMeshletData.VertexOffset = srcMeshletVertices.Length;
+            submeshMeshletData.TriangleOffset = srcMeshletTriangles.Length;
+
+            Array.Resize(ref srcMeshlets, srcMeshlets.Length + submeshMeshletData.MeshletCount);
+            Array.Resize(ref srcMeshletBounds, srcMeshletBounds.Length + submeshMeshletData.MeshletCount);
+            Array.Resize(ref srcMeshletVertices, srcMeshletVertices.Length + submeshMeshletData.VertexCount);
+            Array.Resize(ref srcMeshletTriangles, srcMeshletTriangles.Length + submeshMeshletData.TriangleCount);
+
+            var mesletSrc = meshlets.AsSpan(0, submeshMeshletData.MeshletCount);
+            var mesletDst = srcMeshlets.AsSpan(submeshMeshletData.MeshletOffset, submeshMeshletData.MeshletCount);
+
+            var boundsSrc = meshletBounds.AsSpan(0, submeshMeshletData.MeshletCount);
+            var boundsDst = srcMeshletBounds.AsSpan(submeshMeshletData.MeshletOffset, submeshMeshletData.MeshletCount);
+
+            var vertsSrc = meshletVertices.AsSpan(0, submeshMeshletData.VertexCount);
+            var vertsDst = srcMeshletVertices.AsSpan(submeshMeshletData.VertexOffset, submeshMeshletData.VertexCount);
+
+            var trisSrc = meshletTriangles.AsSpan(0, submeshMeshletData.TriangleCount);
+            var trisDst = srcMeshletTriangles.AsSpan(submeshMeshletData.TriangleOffset, submeshMeshletData.TriangleCount);
+
+            mesletSrc.CopyTo(mesletDst);
+            boundsSrc.CopyTo(boundsDst);
+            vertsSrc.CopyTo(vertsDst);
+            trisSrc.CopyTo(trisDst);
+
+            return submeshMeshletData;
+        }
+
         public static unsafe void CreateMeshlets(this DirectMesh srcMesh)
         {
             if (!GraphicsDevice.MeshShading)
             {
                 throw new InvalidOperationException("Mesh shading is not enabled for this runtime instance");
             }
-            #region  Meshlet Generation
-            uint vertexPositionStride = srcMesh.ConsumedAttributes[VertexAttribute.Position].AttributeByteSize;
-            uint indexCount = 0;
+
             var subMeshes = srcMesh.SubMeshInfos;
             SubmeshMeshletData[] submeshMeshletDatas = srcMesh._submeshMeshletInfos = new SubmeshMeshletData[subMeshes.Length];
 
-            int maxMeshlets = 0;
-            for (int i = 0; i < 1; i++)
-            {
-                int subMeshMesletCount = (int)Meshopt.BuildMeshletsBound(subMeshes[i].IndexCount, MAX_MESHLET_VERTS, MAX_MESHLET_TRIS);
-                submeshMeshletDatas[i].meshletOffset = maxMeshlets;
-                submeshMeshletDatas[i].meshletCount = subMeshMesletCount;
-                maxMeshlets += subMeshMesletCount;
-                indexCount += subMeshes[i].IndexCount;
-            }
-
             // this is over allocated for worse case scenarios
-            Meshlet[] meshlets = new Meshlet[maxMeshlets];
-            MeshOptimizer.Bounds[] meshletBounds = new MeshOptimizer.Bounds[maxMeshlets];
-            uint[] meshletVertices = new uint[indexCount];
-            byte[] meshletTriangles = new byte[indexCount];
-
-            int meshletCount = 0;
-            int meshletIndexCount = 0;
-            int meshletVertexCount = 0;
-
-            for (int i = 0; i < 1; i++)
-            {
-                var data = submeshMeshletDatas[i];
-                var submeshData = subMeshes[i];
-                int vertexBufferLength = (int)vertexPositionStride * (int)submeshData.VertexCount / sizeof(float);
-
-                Span<Meshlet> subMeshlets = meshlets.AsSpan(data.meshletOffset, data.meshletCount);
-                Span<MeshOptimizer.Bounds> subMeshletBounds = meshletBounds.AsSpan(data.meshletOffset, data.meshletCount);
-                Span<uint> subMeshetVertices = meshletVertices.AsSpan((int)submeshData.VertexOffset, (int)submeshData.VertexCount);
-                Span<byte> subMeshetTriangles = meshletTriangles.AsSpan((int)submeshData.FirstIndex, (int)submeshData.IndexCount);
-
-                Span<uint> indices = srcMesh.GetIndexSpan(submeshData.FirstIndex, submeshData.IndexCount);
-                Span<float> vertices = new(srcMesh.GetUnsafeVertexBuffer(VertexAttribute.Position,submeshData.VertexOffset), vertexBufferLength);
-
-                submeshMeshletDatas[i] = data = CreateMeshlets(subMeshlets, subMeshletBounds, subMeshetVertices, subMeshetTriangles, indices, vertices, vertexPositionStride);
-
-                meshletCount += data.meshletCount;
-                meshletIndexCount += data.triangleCount;
-                meshletVertexCount += data.vertexCount;
-            }
-
-            #endregion
-
-            // this whole section could probably be combined with the GPU upload stage as all it does is repack the same data into
-            // smaller arrays
-            // Those smaller arrays are then copied into GPU Buffers then deallocated.
-            #region Trim Arrays
-            // these need to be turned into a GPU buffers
-            Meshlet[] outMeshlets = new Meshlet[meshletCount];
-            MeshOptimizer.Bounds[] outMeshletBounds = new MeshOptimizer.Bounds[meshletCount];
-            uint[] outMeshletVertices = new uint[meshletVertexCount];
-            byte[] outMeshletTriangles = new byte[meshletIndexCount];
-
+            Meshlet[] meshlets = [];
+            MeshOptimizer.Bounds[] meshletBounds = [];
+            uint[] meshletVertices = [];
+            byte[] meshletTriangles = [];
             for (int i = 0; i < subMeshes.Length; i++)
             {
-                var data = submeshMeshletDatas[i];
-                var submeshData = subMeshes[i];
-                //int vertexBufferLength = (int)vertexPositionStride * (int)submeshData.VertexCount / sizeof(float);
-
-                Span<Meshlet> subMeshlets = meshlets.AsSpan(data.meshletOffset, data.meshletCount);
-                Span<MeshOptimizer.Bounds> subMeshletBounds = meshletBounds.AsSpan(data.meshletOffset, data.meshletCount);
-                Span<uint> subMeshetVertices = meshletVertices.AsSpan((int)submeshData.VertexOffset, data.vertexCount);
-                Span<byte> subMeshetTriangles = meshletTriangles.AsSpan((int)submeshData.FirstIndex, data.triangleCount);
-
-                if (i > 0)
-                {
-                    for (int j = 0; j < i; j++)
-                    {
-                        var meshletData = submeshMeshletDatas[j];
-                        data.vertexCount += meshletData.vertexCount;
-                        data.triangleCount += meshletData.triangleCount;
-                        data.meshletOffset += meshletData.meshletCount;
-                    }
-                }
-
-                subMeshlets.CopyTo(outMeshlets.AsSpan(data.meshletOffset, data.meshletCount));
-                subMeshletBounds.CopyTo(outMeshletBounds.AsSpan(data.meshletOffset, data.meshletCount));
-                subMeshetVertices.CopyTo(outMeshletVertices.AsSpan(data.vertexOffset, data.vertexCount));
-                subMeshetTriangles.CopyTo(outMeshletTriangles.AsSpan(data.triangleOffset, data.triangleCount));
+                submeshMeshletDatas[i] = CreateMeshlets(srcMesh.DirectSubMeshes[i], ref meshlets, ref meshletBounds, ref meshletVertices, ref meshletTriangles);
             }
-            #endregion
 
-            UploadMesletData(srcMesh, meshlets, meshletBounds, meshletVertices, meshletTriangles);            
+            UploadMesletData(srcMesh, meshlets, meshletBounds, meshletVertices, meshletTriangles);
         }
 
-        private static void UploadMesletData(DirectMesh srcMesh, Meshlet[] meshlets, MeshOptimizer.Bounds[] meshletBounds, uint[] meshletVertices, byte[] meshletTriangles)
+        private static void UploadMesletData(DirectMesh srcMesh,
+            Meshlet[] meshlets,
+            MeshOptimizer.Bounds[] meshletBounds,
+            uint[] meshletVertices,
+            byte[] meshletTriangles)
         {
-            int meshletIndexCount = meshletTriangles.Length;
+            //int meshletIndexCount = meshletTriangles.Length;
             int meshletVertexCount = meshletVertices.Length;
+            int meshletIndexCount = meshletTriangles.Length;
             DirectSubMeshInfo[] subMeshes = srcMesh.SubMeshInfos;
             SubmeshMeshletData[] submeshMeshletDatas = srcMesh._submeshMeshletInfos;
+
 
             // keep the vertex map
             srcMesh._meshShaderVertexMap = meshletVertices;
@@ -406,7 +413,7 @@ namespace VECS
             }
 
             // copy meshlet index buffer
-            UploadMesletIndexData(srcMesh, meshletTriangles, meshletIndexCount);
+            UploadMesletIndexData(srcMesh, submeshMeshletDatas, meshletTriangles, meshletIndexCount);
 
             // copy meshlets - this get to be CPU coherent
             srcMesh._meshletBuffer = UploadMeshletData(meshlets, srcMesh._meshletBuffer);
@@ -451,17 +458,17 @@ namespace VECS
                     srcMesh.GetUnsafeVertexBuffer(attribute, submeshData.VertexOffset),
                     (int)submeshData.VertexCount * (int)attributeStride
                 );
-               
+
                 var dstVertexData = new Span<byte>(
-                    IntPtr.Add(new IntPtr(buffer.HostPtr), (int)(meshletData.vertexOffset * buffer.InstanceSize)).ToPointer(),
-                    meshletData.vertexCount * (int)buffer.InstanceSize
+                    IntPtr.Add(new IntPtr(buffer.HostPtr), (int)(meshletData.VertexOffset * buffer.InstanceSize)).ToPointer(),
+                    meshletData.VertexCount * (int)buffer.InstanceSize
                 );
 
                 dstVertexData.Clear();
 
                 // var totalBytes = attributeStride * submeshData.VertexCount;
 
-                Span<uint> vertexMap = srcMesh._meshShaderVertexMap.AsSpan(meshletData.vertexOffset, meshletData.vertexCount);
+                Span<uint> vertexMap = srcMesh._meshShaderVertexMap.AsSpan(meshletData.VertexOffset, meshletData.VertexCount);
 
                 // this copies and remaps the vertex data for optimal meshlet indexing
                 // we copy a stride (num bytes per vertex) at a time
@@ -478,7 +485,7 @@ namespace VECS
             }
         }
 
-        private static unsafe void UploadMesletIndexData(DirectMesh srcMesh, byte[] meshletTriangles, int meshletIndexCount)
+        private static unsafe void UploadMesletIndexData(DirectMesh srcMesh, SubmeshMeshletData[] submeshMeshletDatas, byte[] meshletTriangles, int meshletIndexCount)
         {
             var indexBuffer = srcMesh._meshletIndexBuffer;
             if (indexBuffer != null && !indexBuffer.IsDisposed)
@@ -487,8 +494,20 @@ namespace VECS
             }
             indexBuffer = new((uint)meshletIndexCount, MESH_SHADER_INDEX_BUFFER_FLAGS, false, true, true);
             indexBuffer.TryAllocHostBuffer(false);
+            var host = indexBuffer.HostBuffer;
 
-            meshletTriangles.CopyTo(indexBuffer.HostBuffer);
+            int indexAccumulator = 0;
+
+            for (int i = 0; i < submeshMeshletDatas.Length; i++)
+            {
+                var submeshMeshletData = submeshMeshletDatas[i];
+                var srcTris = meshletTriangles.AsSpan(submeshMeshletData.TriangleOffset, submeshMeshletData.TriangleCount);
+                srcTris.CopyTo(host.Slice(indexAccumulator, submeshMeshletData.TriangleCount));
+                submeshMeshletData.TriangleOffset = indexAccumulator;
+                submeshMeshletDatas[i] = submeshMeshletData;
+                indexAccumulator += submeshMeshletData.TriangleCount;
+            }
+
             indexBuffer.WriteFromHostBuffer();
             srcMesh._meshletIndexBuffer = indexBuffer;
         }
@@ -499,7 +518,7 @@ namespace VECS
             // if the buffer is null, disposed or of mistmatched size it needs realloc
             if ((buffer == null) || buffer.IsDisposed)
             {
-                if (buffer != null && !buffer.IsDisposed )
+                if (buffer != null && !buffer.IsDisposed)
                 {
                     GPUBuffer.DisposalQueue.Enqueue(buffer);
                 }
@@ -513,53 +532,51 @@ namespace VECS
                 }
                 newBuffer = buffer;
             }
-            
+
             data.CopyTo(newBuffer.HostBuffer);
             newBuffer.WriteFromHostBuffer();
             return newBuffer;
-        } 
+        }
 
-        private static SubmeshMeshletData CreateMeshlets(
-            Span<Meshlet> meshlets,
-            Span<MeshOptimizer.Bounds> meshletBounds,
-            Span<uint> meshletVerts,
-            Span<byte> meshletTris,
-            Span<uint> indices,
-            Span<float> vertices,
-            uint vertexStride
+        private unsafe static SubmeshMeshletData CreateMeshlets(uint meshletCount,
+            uint srcIndexCount,
+            uint srcVertexCount,
+            uint srcVertexStride,
+            uint* srcIndices,
+            float* srcVertices,
+            Meshlet* meshlets,
+            MeshOptimizer.Bounds* meshletBounds,
+            uint* meshletVerts,
+            byte* meshletTris
         )
         {
-            var meshletCount = Meshopt.BuildMeshlets(
+
+            meshletCount = (uint)Meshopt.BuildMeshlets(
                 meshlets,
                 meshletVerts,
                 meshletTris,
-                indices,
-                vertices,
-                vertexStride,
+                srcIndices, srcIndexCount,
+                srcVertices, srcVertexCount, srcVertexStride,
                 MAX_MESHLET_VERTS,
                 MAX_MESHLET_TRIS,
                 MESHLET_CONE_WEIGHT
             );
 
-            meshlets = meshlets[..(int)meshletCount];
-            var last = meshlets[^1];
+            var last = meshlets[meshletCount - 1];
             var submeshData = new SubmeshMeshletData()
             {
-                meshletCount = meshlets.Length,
-                vertexCount = (int)(last.vertex_offset + last.vertex_count),
-                triangleCount = (int)(last.triangle_offset + last.triangle_count) * 3
+                MeshletCount = (int)meshletCount,
+                VertexCount = (int)(last.vertex_offset + last.vertex_count),
+                TriangleCount = (int)(last.triangle_offset + last.triangle_count) * 3
             };
 
-            meshletVerts = meshletVerts[..submeshData.vertexCount];
-            meshletTris = meshletTris[..submeshData.triangleCount];
-
-            for (int i = 0; i < meshlets.Length; i++)
+            for (int i = 0; i < meshletCount; i++)
             {
                 var meshlet = meshlets[i];
-                var verts = meshletVerts[(int)meshlet.vertex_offset..];
-                var tris = meshletTris[(int)meshlet.triangle_offset..];
-                meshletBounds[i] = Meshopt.ComputeMeshletBounds(meshletVerts, meshletTris, vertices, vertexStride/sizeof(float));
+                var verts = &meshletVerts[(int)meshlet.vertex_offset];
+                var tris = &meshletTris[(int)meshlet.triangle_offset];
                 Meshopt.OptimizeMeshlet(verts, tris, meshlet.triangle_count, meshlet.vertex_count);
+                meshletBounds[i] = Meshopt.ComputeMeshletBounds(verts, tris, meshlet.triangle_count, srcVertices, srcVertexCount, srcVertexStride);
             }
 
             return submeshData;
@@ -567,6 +584,7 @@ namespace VECS
 
         #endregion
 
+        #region  General Operations
         public static VkVertexInputBindingDescription[] GetBindingDescription(VertexAttributeDescription[] vertexAttributes)
         {
             VkVertexInputBindingDescription[] bindingDescriptions = new VkVertexInputBindingDescription[vertexAttributes.Length];
@@ -722,5 +740,7 @@ namespace VECS
 
             return dst;
         }
+
+        #endregion
     }
 }

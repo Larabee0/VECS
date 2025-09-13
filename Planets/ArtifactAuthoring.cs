@@ -288,10 +288,11 @@ namespace Planets
             cube[0].RecalculateRenderBounds();
             vases[0].RecalculateRenderBounds();
             vases[1].RecalculateRenderBounds();
-
             Material genMeshShaderBasic = Material.Create("genMeshBasic", "gen_meshshader_basic.mesh", "gen_meshshader_basic.task", "gen_meshshader_basic.frag");
             cube[0].DirectMeshBuffer.CreateMeshlets();
-            cube[0].DirectMeshBuffer.RecreateMeshShaderDescriptorSet();
+            cube[0].DirectMeshBuffer.RecreateMeshShaderDescriptorSet();//xWing[0].DirectMeshBuffer.CreateMeshlets();
+            vases[0].DirectMeshBuffer.CreateMeshlets();
+            vases[0].DirectMeshBuffer.RecreateMeshShaderDescriptorSet();
 
             Entity cubeEntity = entityManager.CreateEntity();
             Entity cubeEntity2 = entityManager.CreateEntity();
@@ -344,7 +345,8 @@ namespace Planets
         private static void CreateXWing(EntityManager entityManager)
         {
             var xWing = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("X-Wing.obj"), [new(VertexAttribute.Tangent, VertexAttributeFormat.Float4)]);
-
+            //xWing[0].DirectMeshBuffer.CreateMeshlets();
+            //xWing[0].DirectMeshBuffer.RecreateMeshShaderDescriptorSet();
             var astroDroidDiffuseTexture = new Texture2D(TextureLoader.GetTextureInDefaultPath("X-Wing/st_Rebel_01_AstroDroid_diffuse.dds"));
             var astroDroidNormalTexture = new Texture2D(TextureLoader.GetTextureInDefaultPath("X-Wing/st_Rebel_01_AstroDroid_normal.dds"));
 

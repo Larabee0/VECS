@@ -72,19 +72,31 @@ namespace VECS.ECS.Presentation
 
         public override void OnFowardPass(EntityManager entityManager, RendererFrameInfo frameInfo)
         {
+            
             if (GraphicsDevice.MeshShading)
             {
                 Material meshShader = AssetDataBase<Material>.GetNamed("genMeshBasic");
-                //meshShader.SetPushConstantMatrix4x4("model", TransformExtensions.TRS(new(0, 20, -20), System.Numerics.Quaternion.Identity, new(1)));
-                DirectMesh cube = AssetDataBase<DirectMesh>.GetNamed("cube-UV");
-                cube.MeshShaderSet.Update(frameInfo);
-                var subMesh = cube.DirectSubMeshes[0];
+                meshShader.GetStorageBuffer<ModelMatrices>("matricesBuffer")[0] = new(TransformExtensions.TRS(new(0, 0, 0), System.Numerics.Quaternion.Identity, new(100)));
+
+                //DirectMesh cube = AssetDataBase<DirectMesh>.GetNamed("cube-UV");
+                //cube.MeshShaderSet.Update(frameInfo);
+                //var subMesh = cube.DirectSubMeshes[0];
+                //var meshletInfo = subMesh.MeshletInfo;
+                //meshShader.PushConstants.SetPushConstantUInt("meshletCount", (uint)meshletInfo.MeshletCount);
+                //meshShader.Update(frameInfo);
+                //meshShader.BindAll(frameInfo);
+                //meshShader.BindMeshShaderData(frameInfo, cube);
+                //meshShader.PushConstants.BindPushConstants(frameInfo, meshShader.PipeLineLayout);
+                //Vulkan.vkCmdDrawMeshTasksEXT(frameInfo.CommandBuffer, 1, 1, 1);
+
+                DirectMesh vase = AssetDataBase<DirectMesh>.GetNamed("smooth_vase, smooth_vase, flat_vase");
+                vase.MeshShaderSet.Update(frameInfo);
+                var subMesh = vase.DirectSubMeshes[0];
                 var meshletInfo = subMesh.MeshletInfo;
-                meshShader.PushConstants.SetPushConstantUInt("meshletCount", (uint)meshletInfo.meshletCount);
-                meshShader.GetStorageBuffer<ModelMatrices>("matricesBuffer")[0] = new(TransformExtensions.TRS(new(0, 0, 10), System.Numerics.Quaternion.Identity, new(10)));
+                meshShader.PushConstants.SetPushConstantUInt("meshletCount", (uint)meshletInfo.MeshletCount);
                 meshShader.Update(frameInfo);
                 meshShader.BindAll(frameInfo);
-                meshShader.BindMeshShaderData(frameInfo, cube);
+                meshShader.BindMeshShaderData(frameInfo, vase);
                 meshShader.PushConstants.BindPushConstants(frameInfo, meshShader.PipeLineLayout);
                 Vulkan.vkCmdDrawMeshTasksEXT(frameInfo.CommandBuffer, 1, 1, 1);
 
@@ -96,6 +108,7 @@ namespace VECS.ECS.Presentation
                 //cube.BindSpecificBuffers(frameInfo.CommandBuffer, unlit.VertexBindings, unlit.VertexAttributes);
                 //Vulkan.vkCmdDrawIndexed(frameInfo.CommandBuffer, drawCmd.indexCount, 1, drawCmd.firstIndex, drawCmd.vertexOffset, 0);
             }
+            
             if (!_renderEntityQuery.HasEntities) { return; }
 
             _forwardData.ExecuteDrawCmds(frameInfo);
