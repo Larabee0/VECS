@@ -26,8 +26,7 @@ namespace VECS.DataStructures
             }
 
             AssimpContext importer = new();
-
-            Scene scene = importer.ImportFile(filePath);
+            Scene scene = importer.ImportFile(filePath, PostProcessSteps.JoinIdenticalVertices);
             if (scene == null)
             {
                 return null;
@@ -127,30 +126,31 @@ namespace VECS.DataStructures
             if(dstTangents != Span<Vector4>.Empty && !srcMesh.HasTangentBasis)
             {
                 Vector4[] generatedTangents = new Vector4[dstVertices.Length];
+                int[] indices = srcMesh.GetIndices();
                 // calculate tangents
                 var context = new MikktspaceContext(srcMesh.FaceCount,
                     face => 3,
                     (int face, int vertex, out float x, out float y, out float z) =>
                     {
-                        var vert = srcVertices[vertex + (face * 3)];
+                        var vert = srcVertices[indices[vertex + (face * 3)]];
                         x = vert.X;
                         y = vert.Y;
                         z = vert.Z;
                     },
                     (int face, int vertex, out float x, out float y, out float z) =>
                     {
-                        var norm = srcNormals[vertex + (face * 3)];
+                        var norm = srcNormals[indices[vertex + (face * 3)]];
                         x = norm.X;
                         y = norm.Y;
                         z = norm.Z;
                     },
                     (int face, int vertex, out float u, out float v) =>
                     {
-                        var norm = srcUV0[vertex + (face * 3)];
+                        var norm = srcUV0[indices[vertex + (face * 3)]];
                         u = norm.X;
                         v = norm.Y;
                     },
-                    (face, vertex, x, y, z, sign) => generatedTangents[vertex + (face * 3)] = new(x, y, z, sign)
+                    (face, vertex, x, y, z, sign) => generatedTangents[indices[vertex + (face * 3)]] = new(x, y, z, sign)
                 );
 
                 if (!MikkGenerator.GenerateTangentSpace(context))

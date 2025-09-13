@@ -290,17 +290,18 @@ namespace VECS
             }
             #region  Meshlet Generation
             uint vertexPositionStride = srcMesh.ConsumedAttributes[VertexAttribute.Position].AttributeByteSize;
-            uint indexCount = (uint)srcMesh.IndexBufferLength;
+            uint indexCount = 0;
             var subMeshes = srcMesh.SubMeshInfos;
             SubmeshMeshletData[] submeshMeshletDatas = srcMesh._submeshMeshletInfos = new SubmeshMeshletData[subMeshes.Length];
 
             int maxMeshlets = 0;
-            for (int i = 0; i < subMeshes.Length; i++)
+            for (int i = 0; i < 1; i++)
             {
                 int subMeshMesletCount = (int)Meshopt.BuildMeshletsBound(subMeshes[i].IndexCount, MAX_MESHLET_VERTS, MAX_MESHLET_TRIS);
                 submeshMeshletDatas[i].meshletOffset = maxMeshlets;
                 submeshMeshletDatas[i].meshletCount = subMeshMesletCount;
                 maxMeshlets += subMeshMesletCount;
+                indexCount += subMeshes[i].IndexCount;
             }
 
             // this is over allocated for worse case scenarios
@@ -313,7 +314,7 @@ namespace VECS
             int meshletIndexCount = 0;
             int meshletVertexCount = 0;
 
-            for (int i = 0; i < subMeshes.Length; i++)
+            for (int i = 0; i < 1; i++)
             {
                 var data = submeshMeshletDatas[i];
                 var submeshData = subMeshes[i];
@@ -327,7 +328,7 @@ namespace VECS
                 Span<uint> indices = srcMesh.GetIndexSpan(submeshData.FirstIndex, submeshData.IndexCount);
                 Span<float> vertices = new(srcMesh.GetUnsafeVertexBuffer(VertexAttribute.Position,submeshData.VertexOffset), vertexBufferLength);
 
-                submeshMeshletDatas[i] = data = CreateMeshlets(meshlets, subMeshletBounds, subMeshetVertices, subMeshetTriangles, indices, vertices, vertexPositionStride);
+                submeshMeshletDatas[i] = data = CreateMeshlets(subMeshlets, subMeshletBounds, subMeshetVertices, subMeshetTriangles, indices, vertices, vertexPositionStride);
 
                 meshletCount += data.meshletCount;
                 meshletIndexCount += data.triangleCount;
