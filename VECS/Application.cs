@@ -1,10 +1,7 @@
 ﻿using System;
 using VECS.ECS;
 using VECS.LowLevel;
-using VECS.ECS.Physics;
-using System.Runtime.InteropServices.Marshalling;
 using BepuUtilities;
-using Vortice.Vulkan;
 using System.Runtime.CompilerServices;
 using System.Threading;
 
