@@ -72,7 +72,7 @@ namespace VECS.ECS.Presentation
 
         public override void OnFowardPass(EntityManager entityManager, RendererFrameInfo frameInfo)
         {
-            
+            /*
             if (GraphicsDevice.MeshShading)
             {
                 Material meshShader = AssetDataBase<Material>.GetNamed("genMeshBasic");
@@ -108,7 +108,7 @@ namespace VECS.ECS.Presentation
                 //cube.BindSpecificBuffers(frameInfo.CommandBuffer, unlit.VertexBindings, unlit.VertexAttributes);
                 //Vulkan.vkCmdDrawIndexed(frameInfo.CommandBuffer, drawCmd.indexCount, 1, drawCmd.firstIndex, drawCmd.vertexOffset, 0);
             }
-            
+            */
             if (!_renderEntityQuery.HasEntities) { return; }
 
             _forwardData.ExecuteDrawCmds(frameInfo);
