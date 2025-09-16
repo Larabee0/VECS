@@ -64,13 +64,10 @@ namespace Planets
         public ArtifactAuthoring()
         {
 
-            World.DefaultWorld.CreateSystem<TransformPlanetsSystem>();
-
-            World.DefaultWorld.CreateSystem<GenericRenderSystem>();
-            World.DefaultWorld.CreateSystem<UpdatePlanetTimeSystem>();
-            World.DefaultWorld.CreateSystem<StarRenderSystem>();
-            World.DefaultWorld.CreateSystem<DebugDrawUtilities>();
             World.DefaultWorld.CreateSystem<WorldRenderBoundsUpdateSystem>();
+            World.DefaultWorld.CreateSystem<UpdatePlanetTimeSystem>();
+            World.DefaultWorld.CreateSystem<TransformPlanetsSystem>();
+            World.DefaultWorld.CreateSystem<StarRenderSystem>();
             World.DefaultWorld.CreateSystem<ShipGuns>();
             World.DefaultWorld.CreateSystem<InteractionSystem>();
 
@@ -583,8 +580,8 @@ namespace Planets
         private void LoadResources()
         {
             textureWaveA = new Texture2D(TextureLoader.GetTextureInDefaultPath("Wave.jpg"));
-            textureWaveC = new Texture2D(TextureLoader.GetTextureInDefaultPath("Wave A.png"));
             textureWaveB = new Texture2D(TextureLoader.GetTextureInDefaultPath("Wave B.png"));
+            textureWaveC = new Texture2D(TextureLoader.GetTextureInDefaultPath("Wave A.png"));
 
             textureArrayTerrainShapes = new("terrainShapes",true,
                 TextureLoader.GetTextureInDefaultPath("Rock1.png"),
@@ -786,8 +783,6 @@ namespace Planets
             var secondCamera = entityManager.CreateEntity();
             entityManager.AddComponent(secondCamera, new LocalToWorld() { Value = TransformExtensions.TRS(initalCameraPos, initalCameraRot, Vector3.One) });
             entityManager.AddComponent(secondCamera, cameraPerspective);
-
-
         }
 
         public static void Destroy() { }

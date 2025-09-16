@@ -3,11 +3,11 @@ using VECS;
 
 namespace Planets
 {
-    public class Program
+    public class PlanetsEntryPoint : ISubAssemblyEntryPoint
     {
         private static ArtifactAuthoring artifactAuthoring;
 
-        static int Main(string[] args)
+        public int Main(string[] args)
         {
             try
             {

@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -10,7 +10,7 @@
     <StartupObject>VECS.Bootstrap</StartupObject>
     <RunPostBuildEvent>Always</RunPostBuildEvent>
   </PropertyGroup>
-
+  
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <Optimize>False</Optimize>
   </PropertyGroup>
@@ -19,6 +19,10 @@
     <PackageReference Include="Alimer.Bindings.SDL" Version="3.9.8" />
     <PackageReference Include="AssimpNet" Version="4.1.0" />
     <PackageReference Include="BepuPhysics" Version="2.4.0" />
+    <PackageReference Include="MSBuildTasks" Version="1.5.0.235">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
     <PackageReference Include="System.Net.Http" Version="4.3.4" />
     <PackageReference Include="System.Text.RegularExpressions" Version="4.3.1" />
     <PackageReference Include="TeximpNet" Version="1.4.3" />
@@ -30,13 +34,13 @@
     <PackageReference Include="YellowDogMan.Mikktspace.Net" Version="0.1.4" />
     <PackageReference Include="Alimer.Bindings.MeshOptimizer" Version="1.1.1" />
   </ItemGroup>
-
+  
   <ItemGroup>
-    <EditorConfigFiles Remove="H:\GitFork\COMP305-2202796\SDL-Vulkan-CS\.editorconfig" />
+    <EditorConfigFiles Remove="$(SolutionDir)\VECS\.editorconfig" />
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="H:\GitFork\COMP305-2202796\SDL-Vulkan-CS\.editorconfig" />
+    <None Include="$(SolutionDir)\VECS\.editorconfig" />
   </ItemGroup>
 
   
@@ -47,5 +51,53 @@
   <Target Name="ClearSolutionShaders" BeforeTargets="PreBuild">
 	  <RemoveDir Directories="$(SolutionDir)CompiledShaders" />
   </Target>
+
+	<Target Name="MakeAssetsDir" AfterTargets="PostBuildEvent">
+		<MakeDir Directories="$(ProjectDir)/Assets/Shaders;$(SolutionDir)CompiledShaders;$(TargetDir)Assets/Shaders;$(TargetDir)Assets/Models;$(TargetDir)Assets/Textures" />
+	</Target>
+
+
+	<Target Name="CopyAssets" AfterTargets="MakeAssetsDir">
+
+		<ItemGroup>
+			<Assets Include="$(SolutionDir)/Assets/**/*.*" />
+		</ItemGroup>
+		<Copy SourceFiles="@(Assets)" DestinationFolder="$(TargetDir)/Assets/%(RecursiveDir)" />
+	</Target>
+
+
+	<Target Name="CompileShaders" AfterTargets="CopyAssets">
+
+		<ItemGroup>
+			<RawShaders Include="$(SolutionDir)/Shaders/**/*.*" Exclude="$(SolutionDir)/Shaders/**/*.glsl" />
+		</ItemGroup>
+
+		<Exec Command="$(VULKAN_SDK)/bin/glslc --target-env=vulkan1.4 %(RawShaders.Identity) -o $(SolutionDir)/CompiledShaders/%(RawShaders.Filename)%(RawShaders.Extension).spv" />
+	</Target>
+
+	<Target Name="CopyShaders" AfterTargets="CompileShaders">
+
+		<Message Text="Text Test"/>
+		<ItemGroup>
+			<Shaders Include="$(SolutionDir)/CompiledShaders/*.*" />
+		</ItemGroup>
+		<Copy SourceFiles="@(Shaders)" DestinationFolder="$(TargetDir)/Assets/Shaders" />
+	</Target>
+
+	<Target Name="Test">
+  <GetSolutionProjects Solution="VECS.sln">
+  <Output ItemName="ProjectFiles" TaskParameter="Output"/>
+  </GetSolutionProjects>
+        
+  <Message Text="Project names:" />
+  <Message Text="%(ProjectFiles.ProjectName)" />
+  <Message Text="Relative project paths:" />
+  <Message Text="%(ProjectFiles.ProjectPath)" />
+  <Message Text="Project GUIDs:" />
+  <Message Text="%(ProjectFiles.ProjectGUID)" />
+  <Message Text="Full paths to project files:" />
+  <Message Text="%(ProjectFiles.FullPath)" />
+  </Target>
+	
 
 </Project>

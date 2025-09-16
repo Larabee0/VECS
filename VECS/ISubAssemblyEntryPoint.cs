@@ -10,8 +10,8 @@
     /// 
     /// VECS contains a default <see cref="ISubAssemblyEntryPoint"/> used if no assembly defines one.
     /// </summary>
-    internal interface ISubAssemblyEntryPoint
+    public interface ISubAssemblyEntryPoint
     {
-        public void Main(string[] args);
+        public int Main(string[] args);
     }
 }

@@ -1,0 +1,12 @@
+[
+  {
+    "Name": "EngineAndApp",
+    "Projects": [
+      {
+        "Path": "VECS\\VECS.csproj",
+        "Action": "Start",
+        "DebugTarget": "VECS"
+      }
+    ]
+  }
+]

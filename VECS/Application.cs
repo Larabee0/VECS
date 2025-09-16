@@ -29,6 +29,7 @@ namespace VECS
 
         public Application()
         {
+            Bootstrap.subAssemblyLoadPoints.ForEach(loadPoint => loadPoint.PreApplicationConstruction());
             _appWindow = new(Width, Height, "VECS");
             GraphicsDevice.Initialise(_appWindow);
             ShaderModule.LoadAllShaders();
@@ -45,6 +46,7 @@ namespace VECS
         /// </summary>
         public void Run()
         {
+            Bootstrap.subAssemblyLoadPoints.ForEach(loadPoint => loadPoint.PreApplicationStart());
             Start();
             while (running)
             {
@@ -78,6 +80,8 @@ namespace VECS
         private void Start()
         {
             running = true;
+
+            Bootstrap.subAssemblyLoadPoints.ForEach(loadPoint => loadPoint.PreDefaultWorldCreation());
             _mainWorld = new World();
 
             _presenter.Start(); // presenter depends on the main entity world existing right away
@@ -85,6 +89,7 @@ namespace VECS
 
             World.OnCreate();
 
+            Bootstrap.subAssemblyLoadPoints.ForEach(loadPoint => loadPoint.PostDefaultWorldCreation());
             PostOnCreate?.Invoke();
         }
 
@@ -132,7 +137,9 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void Destroy()
         {
+            Bootstrap.subAssemblyLoadPoints.ForEach(loadPoint => loadPoint.PreDefaultWorldDestroy());
             _mainWorld.OnDestroy();
+            Bootstrap.subAssemblyLoadPoints.ForEach(loadPoint => loadPoint.PostDefaultWorldDestroy());
             OnDestroy?.Invoke();
             //_artifact.Destroy();
         }
@@ -169,6 +176,18 @@ namespace VECS
         /// </summary>
         public void Dispose()
         {
+            try
+            {
+                Bootstrap.subAssemblyLoadPoints.ForEach(loadPoint => loadPoint.PreApplicationDispose());
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(string.Concat(new object[]
+                {
+                    "ERROR: Exception In PreApplicationDispose from sub assembly: ",
+                    ex
+                }));
+            }
             _mainWorld?.Dispose();
             Time.FixedTimeStepCallback -= FixedUpdate;
             _presenter.Dispose();

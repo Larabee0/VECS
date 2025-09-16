@@ -9,11 +9,11 @@
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "dotnet: build",
-            "program": "${workspaceFolder}/Planets/bin/Debug/net9.0/Planets",
+            "program": "${workspaceFolder}/VECS/bin/Debug/net9.0/VECS",
             "args": [],
-            "cwd": "${workspaceFolder}",
+            "cwd": "${workspaceFolder}/VECS/bin/Debug/net9.0",
             "stopAtEntry": false,
-            "console": "internalConsole"
+            "console": "integratedTerminal"
         }
 
     ]

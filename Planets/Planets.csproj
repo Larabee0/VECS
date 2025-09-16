@@ -7,8 +7,9 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>disable</Nullable>
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
-    <StartupObject>Planets.Program</StartupObject>
+    <StartupObject></StartupObject>
     <RunPostBuildEvent>Always</RunPostBuildEvent>
+    <BaseOutputPath></BaseOutputPath>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
@@ -38,41 +39,5 @@
     <ProjectReference Include="..\VECS\VECS.csproj" />
   </ItemGroup>
 
-  <Target Name="PreBuild" BeforeTargets="PreBuildEvent">
-	  <RemoveDir Directories="$(TargetDir)/Assets" />
-  </Target>
-
-  
-
-  <Target Name="MakeAssetsDir" AfterTargets="PostBuildEvent">
-    <MakeDir Directories="$(ProjectDir)/Assets/Shaders;$(SolutionDir)CompiledShaders;$(TargetDir)Assets/Shaders;$(TargetDir)Assets/Models;$(TargetDir)Assets/Textures" />
-  </Target>
-
-
-  <Target Name="CopyAssets" AfterTargets="MakeAssetsDir">
-    
-    <ItemGroup>
-      <Assets Include="$(SolutionDir)/Assets/**/*.*" />
-    </ItemGroup>
-    <Copy SourceFiles="@(Assets)" DestinationFolder="$(TargetDir)/Assets/%(RecursiveDir)" />
-  </Target>
-
-  
-  <Target Name="CompileShaders" AfterTargets="CopyAssets">
-
-    <ItemGroup>
-      <RawShaders Include="$(SolutionDir)/Shaders/**/*.*" Exclude="$(SolutionDir)/Shaders/**/*.glsl" />
-    </ItemGroup>
-
-    <Exec Command="$(VULKAN_SDK)/bin/glslc --target-env=vulkan1.4 %(RawShaders.Identity) -o $(SolutionDir)/CompiledShaders/%(RawShaders.Filename)%(RawShaders.Extension).spv" />
-  </Target>
-
-  <Target Name="CopyShaders" AfterTargets="CompileShaders">
-    
-    <ItemGroup>
-      <Shaders Include="$(SolutionDir)/CompiledShaders/*.*" />
-    </ItemGroup>
-    <Copy SourceFiles="@(Shaders)" DestinationFolder="$(TargetDir)/Assets/Shaders" />
-  </Target>
 
 </Project>

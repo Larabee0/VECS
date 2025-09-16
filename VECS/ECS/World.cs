@@ -41,6 +41,8 @@ namespace VECS.ECS
 
             // default systems
             CreateSystem<CameraSystem>();
+            CreateSystem<GenericRenderSystem>();
+            CreateSystem<DebugDrawUtilities>();
             DefaultWorld = this;
         }
 

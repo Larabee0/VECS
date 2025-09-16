@@ -281,7 +281,11 @@ namespace VECS.LowLevel
 
                 if (!waitForCompute && !token.IsCancellationRequested)
                 {
-                    SignalTimelineFromHost(SemaphoreStages.QueuePresentEarly, currentFrame);
+                    WaitOnTimelineFromHost(SemaphoreStages.ComputeQueued, currentFrame);
+                    if (!token.IsCancellationRequested)
+                    {
+                        SignalTimelineFromHost(SemaphoreStages.QueuePresentEarly, currentFrame);
+                    }
                 }
 
                 if (waitForCompute && !token.IsCancellationRequested)

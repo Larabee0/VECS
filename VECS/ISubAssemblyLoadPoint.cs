@@ -2,7 +2,7 @@
 
 namespace VECS
 {
-    internal interface ISubAssemblyLoadPoint
+    public interface ISubAssemblyLoadPoint
     {
         /// <summary>
         /// Called after the loaded assembly passes IsUseable
@@ -15,7 +15,7 @@ namespace VECS
         public void OnAllAssemblyLoaded();
 
         /// <summary>
-        /// Called before the <see cref="Application"/> instance is created
+        /// Called at the top of <see cref="Application"/> constructor
         /// </summary>
         public void PreApplicationConstruction();
 
@@ -26,26 +26,29 @@ namespace VECS
 
         /// <summary>
         /// Called as part of <see cref="Application.Start"/> before <see cref="World.OnCreate()"/>
+        /// This is called before <see cref="Presenter.Start"/> and <see cref="Application.PreOnCreate"/>
         /// </summary>
         public void PreDefaultWorldCreation();
 
         /// <summary>
         /// Called as part of <see cref="Application.Start"/> after <see cref="World.OnCreate()"/>
+        /// This is called before <see cref="Application.PostOnCreate"/> but after <see cref="Application.PreOnCreate"/> and <see cref="World.OnCreate"/>
         /// </summary>
         public void PostDefaultWorldCreation();
 
         /// <summary>
         /// Called as part of <see cref="Application.Destroy"/> before <see cref="World.OnDestroy()"/>
         /// </summary>
-        public void PreWorldDestroy();
+        public void PreDefaultWorldDestroy();
 
         /// <summary>
         /// Called as part of <see cref="Application.Destroy"/> after <see cref="World.OnDestroy()"/>
         /// </summary>
-        public void PostWorldDestroy();
+        public void PostDefaultWorldDestroy();
 
         /// <summary>
-        /// This occurs first in <see cref="Application.Dispose"/> before any other disposal operations"/>
+        /// Called at the top of <see cref="Application.Dispose"/>"/>
+        /// This is called beforethe default world is disposed
         /// </summary>
         public void PreApplicationDispose();
     }
