@@ -9,7 +9,7 @@
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
     <StartupObject></StartupObject>
     <RunPostBuildEvent>Always</RunPostBuildEvent>
-    <BaseOutputPath></BaseOutputPath>
+    <BaseOutputPath>../bin</BaseOutputPath>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">

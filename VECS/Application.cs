@@ -11,6 +11,7 @@ namespace VECS
     {
         public readonly static int Width = 1280;
         public readonly static int Height = 720;
+
         private static bool running = true;
 
         private readonly SDL3Window _appWindow;

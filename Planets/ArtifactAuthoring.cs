@@ -48,7 +48,6 @@ namespace Planets
 
         private int planetCount;
 
-
         private Texture2D textureWaveA;
         private Texture2D textureWaveC;
         private Texture2D textureWaveB;
@@ -63,7 +62,6 @@ namespace Planets
         private readonly static Stopwatch _stopwatch = new();
         public ArtifactAuthoring()
         {
-
             World.DefaultWorld.CreateSystem<WorldRenderBoundsUpdateSystem>();
             World.DefaultWorld.CreateSystem<UpdatePlanetTimeSystem>();
             World.DefaultWorld.CreateSystem<TransformPlanetsSystem>();
