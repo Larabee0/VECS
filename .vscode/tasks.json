@@ -1,0 +1,30 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		
+		{
+			"type": "process",
+			"command": "dotnet",
+			"group": "build",
+			"args": [
+				"build",
+				"${workspaceFolder}/VECS.sln"
+			],
+			"problemMatcher": [],
+			"label": "build Debug"
+		},
+		{
+			"type": "process",
+			"command": "dotnet",
+			"group": "build",
+			"args": [
+				"build",
+				"${workspaceFolder}/VECS.sln",
+				"-c",
+				"Release"
+			],
+			"problemMatcher": [],
+			"label": "build Release"
+		}
+	]
+}

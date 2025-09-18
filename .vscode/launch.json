@@ -4,14 +4,26 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+
         {
-            "name": ".NET Core Launch (console)",
+            "name": "VECS Debug Compiler",
             "type": "coreclr",
             "request": "launch",
-            "preLaunchTask": "dotnet: build",
-            "program": "${workspaceFolder}/VECS/bin/Debug/net9.0/VECS",
+            "preLaunchTask": "build Debug",
+            "program": "${workspaceFolder}/bin/Debug/net9.0/VECS",
             "args": [],
-            "cwd": "${workspaceFolder}/VECS/bin/Debug/net9.0",
+            "cwd": "${workspaceFolder}/bin/Debug/net9.0",
+            "stopAtEntry": false,
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "VECS Release Compiler",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build Release",
+            "program": "${workspaceFolder}/bin/Release/net9.0/VECS",
+            
+            "cwd": "${workspaceFolder}/bin/Release/net9.0",
             "stopAtEntry": false,
             "console": "integratedTerminal"
         }
