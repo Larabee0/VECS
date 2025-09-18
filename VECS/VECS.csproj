@@ -45,16 +45,17 @@
   </ItemGroup>
 	
   <Target Name="PreBuild" BeforeTargets="PreBuildEvent" Condition="'$(BuildAll)' != 'false'">
-	  
 	  <RemoveDir Directories="$(TargetDir)Assets" />
+	  <Message Importance="high" text="Cleared output assets directory" />
   </Target>
 
   <Target Name="ClearSolutionShaders" BeforeTargets="PreBuild" Condition="'$(BuildAll)' != 'false'">
 	  <RemoveDir Directories="$(SolutionDir)CompiledShaders" />
+	  <Message Importance="high" text="Cleared compiled shaders directory" />
   </Target>
 
 	<Target Name="MakeAssetsDir" AfterTargets="PostBuildEvent" Condition="'$(BuildAll)' != 'false'">
-		<MakeDir Directories="$(ProjectDir)/Assets/Shaders;$(SolutionDir)CompiledShaders;$(TargetDir)Assets/Shaders;$(TargetDir)Assets/Models;$(TargetDir)Assets/Textures" />
+		<MakeDir Directories="$(SolutionDir)CompiledShaders;$(TargetDir)Assets/Shaders;$(TargetDir)Assets/Models;$(TargetDir)Assets/Textures" />
 	</Target>
 
 
@@ -63,7 +64,9 @@
 		<ItemGroup>
 			<Assets Include="$(SolutionDir)/Assets/**/*.*" />
 		</ItemGroup>
+		<Message Importance="high" text="Copying assets to output.." />
 		<Copy SourceFiles="@(Assets)" DestinationFolder="$(TargetDir)/Assets/%(RecursiveDir)" />
+		<Message Importance="high" text="Asset copy complete" />
 	</Target>
 
 
@@ -73,8 +76,9 @@
 			<RawShaders Include="$(SolutionDir)/Shaders/**/*.*" Exclude="$(SolutionDir)/Shaders/**/*.glsl" />
 		</ItemGroup>
 
-		<Message Importance="high" text="Compiling Shaders" />
+		<Message Importance="high" text="Compiling Shaders.." />
 		<Exec Command="$(VULKAN_SDK)/bin/glslc --target-env=vulkan1.4 %(RawShaders.Identity) -o $(SolutionDir)/CompiledShaders/%(RawShaders.Filename)%(RawShaders.Extension).spv" />
+		<Message Importance="high" text="Shader Compilation Complete" />
 	</Target>
 
 	<Target Name="CopyShaders" AfterTargets="CompileShaders" Condition="'$(BuildAll)' != 'false'">
@@ -83,6 +87,7 @@
 			<Shaders Include="$(SolutionDir)/CompiledShaders/*.*" />
 		</ItemGroup>
 		<Copy SourceFiles="@(Shaders)" DestinationFolder="$(TargetDir)/Assets/Shaders" />
+		<Message Importance="high" text="Copied shaders to output directory" />
 	</Target>
 
 
@@ -91,6 +96,7 @@
 		<ItemGroup>
 			<ProjectFile Include="$(SolutionDir)/**/*.csproj" Exclude="$(SolutionDir)/VECS/VECS.csproj" />
 		</ItemGroup>
+		<Message Importance="high" text="Compiling subassemblies" />
 		<Exec command="dotnet build %(ProjectFile.Identity) --configuration $(Configuration) --property:BuildAll=false" />
 	</Target>
 

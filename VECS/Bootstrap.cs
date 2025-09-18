@@ -9,11 +9,10 @@ namespace VECS
 {
     internal static class Bootstrap
     {
-        private readonly static string[] AdditionalAssemblies = [
-            "Planets.dll"
-        ];
+        private static string[] AdditionalAssemblies = [];
 
         private static readonly bool LogLoadedAssembliesOnStart = true;
+        public static readonly bool LogAssetDataBaseCountsOnStart = true;
 
         public static List<Assembly> LoadedAssemblies = [];
 
@@ -24,6 +23,12 @@ namespace VECS
 
         static int Main(string[] args)
         {
+            var assembliesConfig = Path.Combine(Asset.AssetsPath, "AdditionalAssemblies.config");
+            if (File.Exists(assembliesConfig))
+            {
+                AdditionalAssemblies = File.ReadAllLines(assembliesConfig);
+            }
+            
             overrideEntryPoint = null;
             subAssemblyLoadPoints = [];
             LoadedAssemblies = [];
@@ -35,7 +40,7 @@ namespace VECS
                 foreach (var assemblyPath in AdditionalAssemblies)
                 {
                     Assembly loadedAssembly;
-                    FileInfo assembly = new(Path.Combine(Environment.CurrentDirectory, assemblyPath));
+                    FileInfo assembly = new(Path.Combine(Application.ExecutingDirectory, assemblyPath));
                     if (assembly.Exists)
                     {
                         byte[] assemblyBytes = File.ReadAllBytes(assembly.FullName);
