@@ -11,7 +11,7 @@ namespace VECS.DataStructures
 {
     public static class MeshLoader
     {
-        public static string DefaultMeshPath => Path.Combine(Application.ExecutingDirectory, "Assets/Models");
+        public static string DefaultMeshPath => Path.Combine(Asset.AssetsPath, "Models");
 
         public static string GetMeshInDefaultPath(string file)
         {

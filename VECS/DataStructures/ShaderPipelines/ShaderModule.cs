@@ -11,7 +11,7 @@ namespace VECS
 {
     public class ShaderModule : DisposableAsset
     {
-        public static string ShaderFilePath => Path.Combine(Application.ExecutingDirectory, "Assets/Shaders");
+        public static string ShaderFilePath => Path.Combine(AssetsPath, "Shaders");
 
         private readonly VkShaderModule _vkShaderModule;
         private readonly SpvReflectShaderModule _spvShaderModule;

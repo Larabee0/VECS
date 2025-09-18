@@ -541,23 +541,6 @@ namespace VECS
             Materials.RemoveAt(index);
         }
 
-        public static string GetShaderFilePath(string shaderName)
-        {
-            string shaderFilePath = Path.Combine(Application.ExecutingDirectory, string.Format("Assets/Shaders/{0}.spv", shaderName));
-
-            if (!File.Exists(shaderFilePath))
-            {
-                throw new FileNotFoundException(string.Format("Shader file not found at the specified file path:\n{0}", shaderFilePath));
-            }
-
-            return shaderFilePath;
-        }
-
-        public static byte[] GetShaderBytes(string shaderName)
-        {
-            return File.ReadAllBytes(GetShaderFilePath(shaderName));
-        }
-
         public static int GetIndexOfMaterial(Material material)
         {
             return Materials.IndexOf(material);

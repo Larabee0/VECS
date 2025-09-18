@@ -1,8 +1,11 @@
+using System.IO;
+
 namespace VECS
 {
     public class Asset
     {
         public const string DefaultAssetName = "UnnamedAsset";
+        public static string AssetsPath => Path.Combine(Application.ExecutingDirectory, "Assets");
         public string AssetName;
         public string Label;
         public string Description;

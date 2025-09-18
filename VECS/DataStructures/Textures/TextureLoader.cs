@@ -11,7 +11,7 @@ namespace VECS
 {
     public static class TextureLoader
     {
-        public static string DefaultTexturePath => Path.Combine(Application.ExecutingDirectory, "Assets/Textures");
+        public static string DefaultTexturePath => Path.Combine(Asset.AssetsPath, "Textures");
         
             
         public static string GetTextureInDefaultPath(string file)
