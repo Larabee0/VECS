@@ -62,7 +62,6 @@ namespace Planets
         private readonly static Stopwatch _stopwatch = new();
         public ArtifactAuthoring()
         {
-            World.DefaultWorld.CreateSystem<WorldRenderBoundsUpdateSystem>();
             World.DefaultWorld.CreateSystem<UpdatePlanetTimeSystem>();
             World.DefaultWorld.CreateSystem<TransformPlanetsSystem>();
             World.DefaultWorld.CreateSystem<StarRenderSystem>();
@@ -89,22 +88,6 @@ namespace Planets
 
             World.DefaultWorld.CreateSystem<MouseFlightShipMover>();
 
-            Console.WriteLine("Loading completed");
-            LogAssetCounts();
-            Console.WriteLine("Purging Disposed Assets...");
-            DisposableAsset.RemoveDisposedFromAssetDataBase();
-            LogAssetCounts();
-        }
-
-
-        private static void LogAssetCounts()
-        {
-            Console.WriteLine("Logging Assets Counts...");
-            foreach (var assetType in typeof(Asset).AllSubclassesNonAbstract())
-            {
-                var assetCount = (int)GenericExtensions.GetStaticPropertyOnGenericType(typeof(AssetDataBase<>), assetType, "AssetCount");
-                Console.WriteLine("{0}: {1}", assetType.Name, assetCount);
-            }
         }
 
         private void CreateSinglePlanetTestScene(EntityManager entityManager, Entity prefabPlanet)

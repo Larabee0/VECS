@@ -92,6 +92,29 @@ namespace VECS
 
             Bootstrap.subAssemblyLoadPoints.ForEach(loadPoint => loadPoint.PostDefaultWorldCreation());
             PostOnCreate?.Invoke();
+            Console.WriteLine("Start completed, Engine is Running!");
+            if (Bootstrap.LogAssetDataBaseCountsOnStart)
+            {
+                LogAssetCounts();
+            }
+            
+            DisposableAsset.RemoveDisposedFromAssetDataBase();
+
+            if (Bootstrap.LogAssetDataBaseCountsOnStart)
+            {
+                Console.WriteLine("Purging Disposed Assets...");
+                LogAssetCounts();
+            }
+        }
+
+        private static void LogAssetCounts()
+        {
+            Console.WriteLine("Logging Assets Counts...");
+            foreach (var assetType in typeof(Asset).AllSubclassesNonAbstract())
+            {
+                var assetCount = (int)GenericExtensions.GetStaticPropertyOnGenericType(typeof(AssetDataBase<>), assetType, "AssetCount");
+                Console.WriteLine("{0}: {1}", assetType.Name, assetCount);
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
