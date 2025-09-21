@@ -60,6 +60,7 @@ namespace VECS.LowLevel
         public static VkPhysicalDeviceVulkan13Properties PropertiesVK13 { get; internal set; }
         public static VkPhysicalDeviceVulkan14Properties PropertiesVK14 { get; internal set; }
         public static VkPhysicalDeviceMeshShaderPropertiesEXT PropertiesMeshShading { get; internal set; }
+        public static VkPhysicalDeviceDescriptorBufferPropertiesEXT PropertiesDescriptorBuffer { get; internal set; }
         public static VkPhysicalDevice PhysicalDevice => _physicalDevice;
         public static VkDevice Device => _device;
         public static VkDeviceApi DeviceAPI => _deviceApi;

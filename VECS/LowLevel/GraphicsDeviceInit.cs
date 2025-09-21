@@ -853,7 +853,13 @@ namespace VECS.LowLevel
 
         private unsafe static void GetDeviceProperties(VkPhysicalDevice device)
         {
-            VkPhysicalDeviceVulkan11Properties deviceProperties11 = new();
+            VkPhysicalDeviceDescriptorBufferPropertiesEXT descriptorBufferProperties = new();
+
+            VkPhysicalDeviceVulkan11Properties deviceProperties11 = new()
+            {
+                pNext = &descriptorBufferProperties
+            };
+
             VkPhysicalDeviceMeshShaderPropertiesEXT meshShaderProperties = new()
             {
                 pNext = &deviceProperties11
@@ -887,6 +893,7 @@ namespace VECS.LowLevel
             PropertiesVK13 = deviceProperties13;
             PropertiesVK14 = deviceProperties14;
             PropertiesMeshShading = meshShaderProperties;
+            PropertiesDescriptorBuffer = descriptorBufferProperties;
 
         }
 

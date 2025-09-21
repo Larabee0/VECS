@@ -21,6 +21,7 @@ namespace VECS
         public VkBuffer VkBuffer;
         internal VmaAllocation _allocation;
 
+        internal ulong _deviceBufferAddress;
         internal ulong _instanceCount;
         protected ulong _instanceSize;
         protected ulong _hostAlignment;
@@ -45,8 +46,16 @@ namespace VECS
         public ulong UInstanceCount => _instanceCount;
         public long InstanceCount => (long)_instanceCount;
         public VkBufferUsageFlags UsageFlags => _usageFlags;
+        public ulong DeviceAddress => _deviceBufferAddress;
         public unsafe void* HostPtr => _hostPtr;
         public GPUBuffer StagingBuffer => _stagingBuffer;
+
+        public virtual VkDescriptorAddressInfoEXT DeviceAddressInfo => new()
+        {
+            address = _deviceBufferAddress,
+            range = _vkBufferSize,
+            format = VkFormat.Undefined
+        };
 
         public GPUBuffer()
         {
@@ -136,6 +145,11 @@ namespace VECS
             Vma.vmaCreateBuffer(GraphicsDevice.VmaAllocator, bufferInfo, allocationInfo, out VkBuffer, out _allocation).CheckResult( "Failed to create vma buffer!");
             VmaAllocationInfo vmaAllocationInfo = default;
             Vma.vmaGetAllocationInfo(GraphicsDevice.VmaAllocator, _allocation, &vmaAllocationInfo);
+            VkBufferDeviceAddressInfo deviceAddressInfo = new()
+            {
+                buffer = VkBuffer
+            };
+            _deviceBufferAddress = GraphicsDevice.DeviceAPI.vkGetBufferDeviceAddress(GraphicsDevice.Device, &deviceAddressInfo);
 
 #if LOG_BUFFER_ALLOCS
             StackTrace trace = new(true);
