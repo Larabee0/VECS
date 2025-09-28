@@ -1,6 +1,5 @@
 #version 460
 #extension GL_ARB_shading_language_include : require
-#include "structures.glsl"
 
 // information about the main buffer defining what threads should run/abort
 layout(set = 0, binding = 0) uniform ComputeShaderParameters{
