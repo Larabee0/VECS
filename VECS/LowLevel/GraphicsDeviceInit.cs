@@ -16,13 +16,14 @@ namespace VECS.LowLevel
         private readonly static string[] _requiredValidationLayers = ["VK_LAYER_KHRONOS_validation"];
 #endif
         private readonly static VkUtf8String[] _requiredDeviceExtensions = [
-            
+
+            Vulkan.VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
             Vulkan.VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME,
             Vulkan.VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
             Vulkan.VK_KHR_PRESENT_WAIT_EXTENSION_NAME,
             Vulkan.VK_KHR_PRESENT_ID_EXTENSION_NAME,
             Vulkan.VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-            
+
             Vulkan.VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME,
             Vulkan.VK_EXT_NESTED_COMMAND_BUFFER_EXTENSION_NAME,
             Vulkan.VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME,
@@ -366,6 +367,7 @@ namespace VECS.LowLevel
 
             VkPhysicalDeviceVulkan12Features deviceFeatures12 = new()
             {
+                bufferDeviceAddress = true,
                 imagelessFramebuffer = true,
                 samplerFilterMinmax = true,
                 timelineSemaphore = true,
@@ -497,9 +499,9 @@ namespace VECS.LowLevel
         {
             VmaAllocatorCreateInfo allocatorCreateInfo = new()
             {
-                flags = VmaAllocatorCreateFlags.KHRDedicatedAllocation | VmaAllocatorCreateFlags.KHRBindMemory2,
+                flags = VmaAllocatorCreateFlags.KHRDedicatedAllocation | VmaAllocatorCreateFlags.KHRBindMemory2 | VmaAllocatorCreateFlags.BufferDeviceAddress,
                 instance = _instance,
-                vulkanApiVersion = VkVersion.Version_1_3,
+                vulkanApiVersion = VkVersion.Version_1_4,
                 physicalDevice = _physicalDevice,
                 device = Device,
             };

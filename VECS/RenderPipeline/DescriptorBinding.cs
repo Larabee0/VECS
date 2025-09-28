@@ -21,6 +21,7 @@ namespace VECS
         public readonly bool GlobalUniformBuffer;
         public readonly bool UniformBuffer;
         public readonly VkDescriptorType DescriptorType;
+        public readonly VkShaderStageFlags ShaderStage;
         public VkDescriptorSetLayoutBinding VkSetLayoutBinding;
 
         public bool IsAnyBuffer => Buffer || DynamicBuffer;
@@ -31,7 +32,7 @@ namespace VECS
             Name = descriptorBinding.Name;
             Binding = descriptorBinding.binding;
             Set = descriptorBinding.set;
-
+            ShaderStage = shaderStageFlags;
             switch (descriptorBinding.descriptor_type)
             {
                 // case SpvReflectDescriptorType.Sampler:

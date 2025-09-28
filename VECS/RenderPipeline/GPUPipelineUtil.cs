@@ -62,29 +62,6 @@ namespace VECS
             return true;
         }
 
-        public static bool GetPushConstants(SpvReflectShaderModule module, out VkPushConstantRange[] pushConstants)
-        {
-            var pushBlocks = SPIRVReflectUtil.PushConstants(module);
-            if (pushBlocks == null)
-            {
-                pushConstants = [];
-                return false;
-            }
-            pushConstants = new VkPushConstantRange[pushBlocks.Length];
-
-            for (int i = 0; i < pushBlocks.Length; i++)
-            {
-                pushConstants[i] = new()
-                {
-                    stageFlags = VkShaderStageFlags.Vertex | VkShaderStageFlags.Fragment,
-                    offset = pushConstants[i].offset,
-                    size = pushConstants[i].size
-                };
-            }
-
-            return true;
-        }
-
         public static unsafe PushConstantsInfo[] GetPushConstants(params SpvReflectShaderModule[] modules)
         {
             List<VkShaderStageFlags> shaderStageFlags = [];
@@ -118,9 +95,7 @@ namespace VECS
             {
                 pushConstants[i] = new(constants[i], shaderStageFlags[i]);
             }
-            ;
-
-
+            
             return pushConstants;
         }
 
@@ -142,114 +117,14 @@ namespace VECS
                 return false;
             };
         }
-
-        public static unsafe (uint, string, VkDescriptorSetLayoutBinding)[] GetDescriptorSetBindings(params SpvReflectShaderModule[] modules)
-        {
-            Dictionary<(uint, uint), VkShaderStageFlags> setsAndBindingsToFlags = [];
-            for (int i = 0; i < modules.Length; i++)
-            {
-                var sets = SPIRVReflectUtil.DescriptorSets(modules[i]);
-                if (sets == null)
-                {
-                    continue;
-                }
-                for (int j = 0; j < sets.Length; j++)
-                {
-                    var set = sets[j];
-                    for (int k = 0; k < set.binding_count; k++)
-                    {
-                        var binding = set.bindings[k]->binding;
-                        var key = (set.set, binding);
-                        if (!setsAndBindingsToFlags.ContainsKey(key))
-                        {
-                            setsAndBindingsToFlags.Add(key, (VkShaderStageFlags)modules[i].shader_stage);
-                        }
-                        else
-                        {
-                            setsAndBindingsToFlags[key] |= (VkShaderStageFlags)modules[i].shader_stage;
-                        }
-                    }
-                }
-            }
-            (uint, string, VkDescriptorSetLayoutBinding)[] descriptorSetBindings = new (uint, string, VkDescriptorSetLayoutBinding)[setsAndBindingsToFlags.Count];
-
-            int writeIndex = 0;
-
-            for (int i = 0; i < modules.Length; i++)
-            {
-                var bindings = SPIRVReflectUtil.DescriptorBindings(modules[i]);
-                if (bindings == null)
-                {
-                    continue;
-                }
-                for (int j = 0; j < bindings.Length; j++)
-                {
-                    var binding = bindings[j];
-                    var key = (binding.set, binding.binding);
-
-                    if (setsAndBindingsToFlags.TryGetValue(key, out VkShaderStageFlags shaderStageFlags))
-                    {
-                        descriptorSetBindings[writeIndex] = (binding.set, binding.Name, new()
-                        {
-                            binding = binding.binding,
-                            descriptorCount = binding.count,
-                            descriptorType = (VkDescriptorType)binding.descriptor_type,
-                            stageFlags = shaderStageFlags
-                        });
-                        writeIndex++;
-                        setsAndBindingsToFlags.Remove(key);
-                    }
-                }
-            }
-
-            return descriptorSetBindings;
-        }
-
-        public static unsafe VkDescriptorSetLayout[] CreateDescriptorSetLayout(out Dictionary<string, DescriptorBinding> bindings, params SpvReflectShaderModule[] modules)
-        {
-            var allBindings = GetDescriptorSetBindings(modules);
-            if (allBindings.Length == 0)
-            {
-                bindings = null;
-                return null;
-            }
-            uint totalSets = 0;
-
-            Dictionary<uint, (string, VkDescriptorSetLayoutBinding[])> sortedBindings = [];
-            bindings = [];
-            for (int i = 0; i < allBindings.Length; i++)
-            {
-                if (!sortedBindings.TryAdd(allBindings[i].Item1, (allBindings[i].Item2, [allBindings[i].Item3])))
-                {
-                    sortedBindings[allBindings[i].Item1] = (allBindings[i].Item2, [.. sortedBindings[allBindings[i].Item1].Item2, allBindings[i].Item3]);
-                }
-            }
-
-            VkDescriptorSetLayout[] vkDescriptorSets = new VkDescriptorSetLayout[totalSets];
-
-            for (uint i = 0; i < totalSets; i++)
-            {
-                vkDescriptorSets[i] = CreateDescriptorSetLayoutInternal(sortedBindings[i].Item2);
-                for (int j = 0; j < sortedBindings[i].Item2.Length; j++)
-                {
-
-                }
-            }
-
-            return vkDescriptorSets;
-        }
-
-        private static VkDescriptorSetLayout CreateDescriptorSetLayoutInternal(VkDescriptorSetLayoutBinding[] bindings)
-        {
-            Array.Sort(bindings, (x, y) =>
-            {
-                return x.binding.CompareTo(y.binding);
-            });
-
-            return CreateDescriptorSetLayoutsInternal([.. bindings]);
-        }
-
+        
         public static VkDescriptorSetLayout CreateDescriptorSetLayout(DescriptorBinding[] bindings)
+        {
+
+            return CreateDescriptorSetLayout(bindings, VkDescriptorSetLayoutCreateFlags.None);
+        }
+
+        public static VkDescriptorSetLayout CreateDescriptorSetLayout(DescriptorBinding[] bindings, VkDescriptorSetLayoutCreateFlags flags)
         {
             Array.Sort(bindings, (x, y) =>
             {
@@ -262,10 +137,10 @@ namespace VECS
                 vkBindings[i] = bindings[i].VkSetLayoutBinding;
             }
 
-            return CreateDescriptorSetLayoutsInternal(vkBindings);
+            return CreateDescriptorSetLayoutsInternal(vkBindings, flags);
         }
 
-        private static unsafe VkDescriptorSetLayout CreateDescriptorSetLayoutsInternal(VkDescriptorSetLayoutBinding[] bindings)
+        private static unsafe VkDescriptorSetLayout CreateDescriptorSetLayoutsInternal(VkDescriptorSetLayoutBinding[] bindings, VkDescriptorSetLayoutCreateFlags flags)
         {
             VkDescriptorSetLayout layout = VkDescriptorSetLayout.Null;
             fixed (VkDescriptorSetLayoutBinding* pBindings = &bindings[0])
@@ -273,7 +148,8 @@ namespace VECS
                 VkDescriptorSetLayoutCreateInfo descriptorSetLayoutInfo = new()
                 {
                     bindingCount = (uint)bindings.Length,
-                    pBindings = pBindings
+                    pBindings = pBindings,
+                    flags = flags
                 };
 
                 GraphicsDevice.DeviceAPI.vkCreateDescriptorSetLayout(GraphicsDevice.Device, descriptorSetLayoutInfo, null, out layout).CheckResult( "Failed to create descriptor set layout!");                

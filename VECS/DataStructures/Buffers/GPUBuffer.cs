@@ -116,12 +116,14 @@ namespace VECS
             _disposed = true;
             if (VkBufferSize == 0) return false;
 
+            _usageFlags |= VkBufferUsageFlags.ShaderDeviceAddress;
             VkBufferCreateInfo bufferInfo = new()
             {
                 size = VkBufferSize,
                 usage = _usageFlags,
                 sharingMode = VkSharingMode.Exclusive
             };
+
 
             VmaAllocationCreateInfo allocationInfo = new()
             {

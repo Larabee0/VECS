@@ -61,6 +61,18 @@ namespace VECS
             GraphicsDevice.DeviceAPI.vkCmdBindDescriptorSets(commandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, 0, _totalSets, _setsToBind);
         }
 
+        public unsafe void BindDescriptorBuffers(VkCommandBuffer commandBuffer)
+        {
+            DescriptorBuffer[] buffers = new DescriptorBuffer[_allHandlers.Length];
+            for (int i = 0; i < _allHandlers.Length; i++)
+            {
+                buffers[i] = _allHandlers[i].ActiveDescriptorBuffer;
+            }
+
+            DescriptorBuffer.BindSets(commandBuffer, buffers);
+            DescriptorBuffer.SetOffsets(commandBuffer, _pipelineLayout, VkShaderStageFlags.AllGraphics, 0, buffers);
+        }
+
         public void BindAll(RendererFrameInfo frameInfo)
         {
             BindPipeline(frameInfo);
