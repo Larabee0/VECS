@@ -16,6 +16,8 @@ namespace VECS
 
         private readonly VkDescriptorSetLayout _setLayout;
 
+        public VkDescriptorSetLayout Layout => _setLayout;
+
         public unsafe VkDescriptorBufferBindingInfoEXT BindingInfo => new()
         {
             address = _descriptorBuffer.DeviceAddress,
@@ -171,13 +173,17 @@ namespace VECS
 
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe void WriteDescriptor(VkDescriptorGetInfoEXT descriptorGetInfo,ulong dataSize,uint setIndex, uint bindingIndex)
+        public unsafe void WriteDescriptor(VkDescriptorGetInfoEXT descriptorGetInfo, ulong dataSize, uint setIndex, uint bindingIndex)
         {
             // aign for set index;
             // then aign for binding index
-            byte* ptr = ((byte*)_descriptorBuffer.HostPtr) + (setIndex * _alignedLayoutSize) + _bindingOffsets[bindingIndex];
+            IntPtr ptr = new(_descriptorBuffer.HostPtr);
+            int addressOffset = (int)((setIndex * _alignedLayoutSize) + _bindingOffsets[bindingIndex]);
+            ptr = IntPtr.Add(ptr, addressOffset);
+            Span<(ulong, ulong)> values = new Span<(ulong, ulong)>(_descriptorBuffer.HostPtr, (int)_descriptorBuffer.VkBufferSize / 16);
 
-            GraphicsDevice.DeviceAPI.vkGetDescriptorEXT(GraphicsDevice.Device, &descriptorGetInfo, dataSize, ptr);
+            GraphicsDevice.DeviceAPI.vkGetDescriptorEXT(GraphicsDevice.Device, &descriptorGetInfo, dataSize, ptr.ToPointer());
+
         }
 
         public void Flush()
@@ -191,6 +197,7 @@ namespace VECS
 
             for (int i = 0; i < buffers.Length; i++)
             {
+                buffers[i].Flush();
                 bindingInfo[i] = buffers[i].BindingInfo;
             }
 
@@ -205,7 +212,7 @@ namespace VECS
 
             for (uint i = 0; i < buffer.Length; i++)
             {
-                offsets[i] = buffer[i]._alignedLayoutSize;
+                offsets[i] = 0;
                 indices[i] = i;
             }
 

@@ -255,11 +255,11 @@ namespace VECS
             }
 
             GraphicsDevice.DeviceAPI.vkCreatePipelineLayout(GraphicsDevice.Device, layoutCreateInfo, null, out VkPipelineLayout pipelineLayout).CheckResult("Failed to create pipeline layout!");
-
+            
             return pipelineLayout;
         }
 
-        public static unsafe VkPipeline CreateGraphicsPipeline(ShaderModule mesh, ShaderModule task, ShaderModule fragment, GraphicsPipelineConfigInfo configInfo)
+        public static unsafe VkPipeline CreateGraphicsPipeline(ShaderModule mesh, ShaderModule task, ShaderModule fragment, GraphicsPipelineConfigInfo configInfo, VkPipelineCreateFlags flags = VkPipelineCreateFlags.None)
         {
             if (!GraphicsDevice.MeshShading)
             {
@@ -329,13 +329,14 @@ namespace VECS
             pipelineRenderingCreateInfo.viewMask = configInfo.viewMask;
 
             pipelineInfo.pNext = &pipelineRenderingCreateInfo;
+            pipelineInfo.flags = flags;
 
             GraphicsDevice.DeviceAPI.vkCreateGraphicsPipeline(GraphicsDevice.Device, cache.Cache, pipelineInfo, out var graphicsPipeline).CheckResult( "Failed to create graphics pipeline!");
 
             return graphicsPipeline;
         }
 
-        public static unsafe VkPipeline CreateGraphicsPipeline(ShaderModule vertex, ShaderModule fragment, GraphicsPipelineConfigInfo configInfo)
+        public static unsafe VkPipeline CreateGraphicsPipeline(ShaderModule vertex, ShaderModule fragment, GraphicsPipelineConfigInfo configInfo, VkPipelineCreateFlags flags = VkPipelineCreateFlags.None)
         {
             Debug.Assert(vertex.VkShaderStage == VkShaderStageFlags.Vertex, "Provided vertex shader is at wrong stage! Name: {0} Provided Stage {1}", vertex.AssetName, vertex.VkShaderStage);
             Debug.Assert(fragment.VkShaderStage == VkShaderStageFlags.Fragment, "Provided fragement shader is at wrong stage! Name: {0} Provided Stage {1}", fragment.AssetName, fragment.VkShaderStage);
@@ -416,6 +417,7 @@ namespace VECS
             pipelineRenderingCreateInfo.viewMask = configInfo.viewMask;
 
             pipelineInfo.pNext = &pipelineRenderingCreateInfo;
+            pipelineInfo.flags = flags;
 
             GraphicsDevice.DeviceAPI.vkCreateGraphicsPipeline(GraphicsDevice.Device, cache.Cache, pipelineInfo, out var graphicsPipeline).CheckResult( "Failed to create graphics pipeline!");
 
@@ -423,7 +425,7 @@ namespace VECS
             return graphicsPipeline;
         }
 
-        public static unsafe VkPipeline CreateGraphicsPipeline(ShaderModule vertex, GraphicsPipelineConfigInfo configInfo)
+        public static unsafe VkPipeline CreateGraphicsPipeline(ShaderModule vertex, GraphicsPipelineConfigInfo configInfo, VkPipelineCreateFlags flags = VkPipelineCreateFlags.None)
         {
             Debug.Assert(vertex.VkShaderStage == VkShaderStageFlags.Vertex, "Provided vertex shader is at wrong stage! Name: {0} Provided Stage {1}", vertex.AssetName, vertex.VkShaderStage);
             ///Debug.Assert(configInfo.renderPass != VkRenderPass.Null, "Cannot create graphics pipeline, no renderPass layout provided in config");
@@ -491,6 +493,7 @@ namespace VECS
             pipelineRenderingCreateInfo.viewMask = configInfo.viewMask;
 
             pipelineInfo.pNext = &pipelineRenderingCreateInfo;
+            pipelineInfo.flags = flags;
 
             GraphicsDevice.DeviceAPI.vkCreateGraphicsPipeline(GraphicsDevice.Device, cache.Cache, pipelineInfo, out var graphicsPipeline).CheckResult("Failed to create graphics pipeline!");
 

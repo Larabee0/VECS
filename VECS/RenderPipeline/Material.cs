@@ -26,8 +26,10 @@ namespace VECS
 
         private VkDescriptorSetLayout[] _allLayouts;
         private readonly PushConstantsHandler _materialPushConstantsHandler;
-        private VkPipelineLayout _pipelineLayout;        
+        private VkPipelineLayout _pipelineLayout;
+        private VkPipelineLayout _descriptorBufferPipelineLayout;    
         private VkPipeline _graphicsPipeline;
+        private VkPipeline _graphicsPipelineDescriptorBuffer;
         
 
         // all binding descriptions
@@ -181,6 +183,9 @@ namespace VECS
             CreatePipelineLayout(vertex);
 
             _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipeline(vertex,_graphicsPipelineConfigInfo);
+            var descBufferConfig = _graphicsPipelineConfigInfo;
+            descBufferConfig.pipelineLayout = _descriptorBufferPipelineLayout;
+            _graphicsPipelineDescriptorBuffer = GPUPipelineUtil.CreateGraphicsPipeline(vertex, descBufferConfig, VkPipelineCreateFlags.DescriptorBufferEXT);
 
             Debug.Assert(Materials.Count < EarlyDrawCommand.MAX_MATERIAL_COUNT, string.Format("Material Creation would Exceeded Max Theorectical Material Count ({0})\nProbably reduce the number of materials you have, jeez", EarlyDrawCommand.MAX_MATERIAL_COUNT));
 
@@ -219,6 +224,9 @@ namespace VECS
             CreatePipelineLayout(vertex, fragment);
 
             _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipeline(vertex, fragment, _graphicsPipelineConfigInfo);
+            var descBufferConfig = _graphicsPipelineConfigInfo;
+            descBufferConfig.pipelineLayout = _descriptorBufferPipelineLayout;
+            _graphicsPipelineDescriptorBuffer = GPUPipelineUtil.CreateGraphicsPipeline(vertex, fragment, descBufferConfig, VkPipelineCreateFlags.DescriptorBufferEXT);
 
             Debug.Assert(Materials.Count < EarlyDrawCommand.MAX_MATERIAL_COUNT, string.Format("Material Creation would Exceeded Max Theorectical Material Count ({0})\nProbably reduce the number of materials you have, jeez", EarlyDrawCommand.MAX_MATERIAL_COUNT));
 
@@ -298,6 +306,9 @@ namespace VECS
             CreatePipelineLayout(mesh, task,fragment);
 
             _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipeline(mesh, task,fragment, _graphicsPipelineConfigInfo);
+            var descBufferConfig = _graphicsPipelineConfigInfo;
+            descBufferConfig.pipelineLayout = _descriptorBufferPipelineLayout;
+            _graphicsPipelineDescriptorBuffer = GPUPipelineUtil.CreateGraphicsPipeline(mesh, task, fragment, descBufferConfig, VkPipelineCreateFlags.DescriptorBufferEXT);
 
             Debug.Assert(Materials.Count < EarlyDrawCommand.MAX_MATERIAL_COUNT, string.Format("Material Creation would Exceeded Max Theorectical Material Count ({0})\nProbably reduce the number of materials you have, jeez", EarlyDrawCommand.MAX_MATERIAL_COUNT));
 
@@ -399,14 +410,27 @@ namespace VECS
 
             if (cache == null)
             {
-                cache = new(cacheName,  GPUPipelineUtil.CreatePipelineLayout(_allLayouts, _materialPushConstantsHandler));
+                cache = new(cacheName, GPUPipelineUtil.CreatePipelineLayout(_allLayouts, _materialPushConstantsHandler));
                 AssetDataBase<PipelineCache>.Add(cache);
             }
 
+            CreateDescriptorBufferPipelineLayout();
+
             _graphicsPipelineConfigInfo.pipelineLayout = _pipelineLayout = cache.Layout;
-            _setsToBind = (VkDescriptorSet*)NativeMemory.AllocZeroed((uint)_allLayouts.Length,(uint)sizeof(VkDescriptorSet));
+            _setsToBind = (VkDescriptorSet*)NativeMemory.AllocZeroed((uint)_allLayouts.Length, (uint)sizeof(VkDescriptorSet));
         }
-        
+
+        private unsafe void CreateDescriptorBufferPipelineLayout()
+        {
+            VkDescriptorSetLayout[] descriptorBufferLayouts = new VkDescriptorSetLayout[_allLayouts.Length];
+            for (int i = 0; i < _allHandlers.Length; i++)
+            {
+                descriptorBufferLayouts[i] = _allHandlers[i].ActiveDescriptorBuffer.Layout;
+            }
+
+            _descriptorBufferPipelineLayout = GPUPipelineUtil.CreatePipelineLayout(descriptorBufferLayouts, _materialPushConstantsHandler);
+        }
+
         private unsafe void CreatePipelineLayout(ShaderModule vertex, ShaderModule fragment)
         {
             string cacheName = vertex.AssetName + fragment.AssetName;
@@ -418,6 +442,7 @@ namespace VECS
                 AssetDataBase<PipelineCache>.Add(cache);
             }
 
+            CreateDescriptorBufferPipelineLayout();
             _graphicsPipelineConfigInfo.pipelineLayout = _pipelineLayout = cache.Layout;
             _setsToBind = (VkDescriptorSet*)NativeMemory.AllocZeroed((uint)_allLayouts.Length, (uint)sizeof(VkDescriptorSet));
         }
@@ -437,6 +462,7 @@ namespace VECS
                 AssetDataBase<PipelineCache>.Add(cache);
             }
 
+            CreateDescriptorBufferPipelineLayout();
             _graphicsPipelineConfigInfo.pipelineLayout = _pipelineLayout = cache.Layout;
             _setsToBind = (VkDescriptorSet*)NativeMemory.AllocZeroed((uint)_allLayouts.Length, (uint)sizeof(VkDescriptorSet));
         }
@@ -489,7 +515,8 @@ namespace VECS
             GC.SuppressFinalize(this);
             if (_disposed) return;
             _disposed = true;
-
+            GraphicsDevice.DeviceAPI.vkDestroyPipeline(GraphicsDevice.Device, _graphicsPipelineDescriptorBuffer);
+            GraphicsDevice.DeviceAPI.vkDestroyPipelineLayout(GraphicsDevice.Device, _descriptorBufferPipelineLayout);
             for (int i = 0; i < _allHandlers.Length; i++)
             {
                 if (HasApplicationSet && !_actAsGlobal && i == 0) continue;

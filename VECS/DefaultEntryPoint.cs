@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Numerics;
+using VECS.DataStructures;
 using VECS.ECS;
 using VECS.ECS.Presentation;
 using VECS.ECS.Transforms;
@@ -25,9 +26,9 @@ namespace VECS
             try
             {
                 Application app = new();
-                app.PreOnCreate += CreateMainCamera;
+                app.PreOnCreate += PreCreate;
                 app.Run();
-                app.PreOnCreate -= CreateMainCamera;
+                app.PreOnCreate -= PreCreate;
                 app.Dispose();
             }
             catch (Exception ex)
@@ -37,6 +38,12 @@ namespace VECS
                 return 1;
             }
             return 0;
+        }
+
+        private static void PreCreate()
+        {
+            LoadModels();
+            CreateMainCamera();
         }
 
         private static void CreateMainCamera()
@@ -51,6 +58,12 @@ namespace VECS
             var secondCamera = entityManager.CreateEntity();
             entityManager.AddComponent(secondCamera, new LocalToWorld() { Value = TransformExtensions.TRS(initalCameraPos, initalCameraRot, Vector3.One) });
             entityManager.AddComponent(secondCamera, cameraPerspective);
+        }
+
+        private static void LoadModels()
+        {
+            Console.WriteLine(MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("cube-UV.obj"), [])[0].AssetName);
+            
         }
     }
 }

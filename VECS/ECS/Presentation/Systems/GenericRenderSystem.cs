@@ -56,7 +56,13 @@ namespace VECS.ECS.Presentation
 
         public unsafe override void OnPreForwardPass(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
         {
-            if (!_renderEntityQuery.HasEntities) { return; }
+            if (!_renderEntityQuery.HasEntities)
+            {
+                // empty depth pass just to clear the depth texture.
+                SwapChain.Instance.BeginForwardDepth(rendererFrameInfo.CommandBuffer);
+                SwapChain.Instance.EndForwardDepthRendering(rendererFrameInfo.CommandBuffer);
+                return;
+            }
 
             var entities = _renderEntityQuery.GetEntities();
             _shadowData.GenerateDrawCmds(rendererFrameInfo, entityManager, entities);
