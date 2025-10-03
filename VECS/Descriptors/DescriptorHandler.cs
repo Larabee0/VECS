@@ -17,7 +17,6 @@ namespace VECS
 
         private readonly ConcurrentDictionary<string, (uint, DescriptorPropertyInfo)> _cachedProperties = new();
 
-        private readonly DescriptorBuffer[] _descriptorBuffers = new DescriptorBuffer[SwapChain.MAX_CONCURRENT_FRAMES];
         private readonly VkDescriptorSet[] _vkDescriptorSets = new VkDescriptorSet[SwapChain.MAX_CONCURRENT_FRAMES];
         private readonly DescriptorPool[] _vkDescriptorPoolSource = new DescriptorPool[SwapChain.MAX_CONCURRENT_FRAMES];
 
@@ -59,7 +58,6 @@ namespace VECS
         public DescriptorLevel DescriptorLevel => _descriptorLevel;
         public VkDescriptorSetLayout VkDescriptorSetLayout => _vkDescriptorSetLayout;
         public VkDescriptorSet ActiveVkDescriptorSet => _vkDescriptorSets[Presenter.Instance.FrameIndex];
-        public DescriptorBuffer ActiveDescriptorBuffer => _descriptorBuffers[Presenter.Instance.FrameIndex];
 
         // where do the descriptor buffers live?
         // probably should create a frame buffer handler (a class that is just handles buffers per swap chain)
@@ -68,7 +66,6 @@ namespace VECS
         private DescriptorHandler(DescriptorHandler parent)
         {
             _child = true;
-            _descriptorBuffers = parent._descriptorBuffers;
             _vkDescriptorSetLayout = parent._vkDescriptorSetLayout;
             _descriptorLevel = parent._descriptorLevel;
 
@@ -135,11 +132,6 @@ namespace VECS
                 {
                     _imageCount++;
                 }
-            }
-
-            for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
-            {
-                _descriptorBuffers[i] = new(bindings, bindings.Length, 2000, _bufferCount > 0, _imageCount > 0);
             }
 
             _bufferBindings = new int[_bufferCount];
@@ -454,23 +446,10 @@ namespace VECS
                 if (binding.IsAnyBuffer)
                 {
                     write.pBufferInfo = &_bufferInfos[_bindingBufferMap[write.dstBinding]];
-                    if (binding.StorageBuffer)
-                    {
-                        _descriptorBuffers[frameIndex].SetStorageBinding(_bindingBuffers[_bindingBufferMap[binding.Binding]].ActiveGPUBuffer, 0, binding.Binding);
-                    }
-                    else if (binding.UniformBuffer)
-                    {
-                        _descriptorBuffers[frameIndex].SetUniformBinding(_bindingBuffers[_bindingBufferMap[binding.Binding]].ActiveGPUBuffer, 0, binding.Binding);
-                    }
-                    else
-                    {
-                        throw new NotImplementedException("Descriptor buffer binding for non unifrom, non stroage buffer bindings is not current;y implemented!");
-                    }
                 }
                 else
                 {
                     write.pImageInfo = &_imageInfos[_bindingImages[write.dstBinding].Item1];
-                    _descriptorBuffers[frameIndex].SetCombinedImageSamplerBinding(_bindingImages[write.dstBinding].Item2, 0, binding.Binding);
                 }
 
                 _vkDescriptorWrites[i] = write;
@@ -478,7 +457,6 @@ namespace VECS
             GraphicsDevice.DeviceAPI.vkUpdateDescriptorSets(GraphicsDevice.Device, _vkDescriptorWrites);
 
 
-            _descriptorBuffers[frameIndex].Flush();
 
             _vkDescriptorSets[frameIndex] = set;
             _setsDirty[frameIndex] = false;
@@ -672,11 +650,6 @@ namespace VECS
         {
             if (_disposed) return;
             _disposed = true;
-
-            for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
-            {
-                _descriptorBuffers[i].Dispose();
-            }
 
             DeallocateDescriptorSets();
 

@@ -4,6 +4,7 @@ using VECS.DataStructures;
 using VECS.ECS;
 using VECS.ECS.Presentation;
 using VECS.ECS.Transforms;
+using Vortice.Vulkan;
 
 namespace VECS
 {
@@ -43,7 +44,23 @@ namespace VECS
         private static void PreCreate()
         {
             LoadModels();
+            CreateDescriptorBufferMat();
             CreateMainCamera();
+        }
+
+        private static void CreateDescriptorBufferMat()
+        {
+            PipelineContainer pipelineContainer = new("DescriptorBufferTest", "unlit_no_buffers.vert", "unlit.frag");
+            SwapChainBuffer<GlobalUbo.WriteableUBO> ubo = new((uint)GlobalUbo.SizeInBytes, 1, VkBufferUsageFlags.UniformBuffer | VkBufferUsageFlags.ResourceDescriptorBufferEXT, true);
+            SwapChainBuffer<ModelMatrices> matrices = new(3, VkBufferUsageFlags.StorageBuffer | VkBufferUsageFlags.ResourceDescriptorBufferEXT, true);
+            SwapChainBuffer<ModelBounds> bounds = new(3, VkBufferUsageFlags.StorageBuffer | VkBufferUsageFlags.ResourceDescriptorBufferEXT, true);
+            SwapChainBuffer<Vector4> colours = new(3, VkBufferUsageFlags.StorageBuffer | VkBufferUsageFlags.ResourceDescriptorBufferEXT, true);
+            matrices.HostBuffer[0] = new ModelMatrices(TransformExtensions.TRS(new(0, 0, 0), Quaternion.Identity, new(5)));
+            colours.HostBuffer[0] = Vector4.One;
+            pipelineContainer.AddUniform(ubo, 0, 0);
+            pipelineContainer.AddStorage(matrices, 1, 0);
+            pipelineContainer.AddStorage(bounds, 1, 1);
+            pipelineContainer.AddStorage(colours, 1, 2);
         }
 
         private static void CreateMainCamera()

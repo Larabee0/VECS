@@ -34,7 +34,7 @@ namespace VECS
 
         private DescriptorHandler _globalDescriptorSetHandler;
         private readonly GlobalUbo _ubo = new();
-        private readonly SwapChainBuffer<GlobalUbo.WriteableUBO> _globalUboBuffers = new((uint)GlobalUbo.SizeInBytes, 1, VkBufferUsageFlags.UniformBuffer, true);
+        public readonly SwapChainBuffer<GlobalUbo.WriteableUBO> _globalUboBuffers = new((uint)GlobalUbo.SizeInBytes, 1, VkBufferUsageFlags.UniformBuffer, true);
 
         private readonly DescriptorPool[] _globalDescriptorPools = new DescriptorPool[SwapChain.MAX_CONCURRENT_FRAMES];
         private readonly DescriptorPool[] _materialFrameDescriptorPools = new DescriptorPool[SwapChain.MAX_CONCURRENT_FRAMES];

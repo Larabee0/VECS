@@ -180,7 +180,7 @@ namespace VECS
             IntPtr ptr = new(_descriptorBuffer.HostPtr);
             int addressOffset = (int)((setIndex * _alignedLayoutSize) + _bindingOffsets[bindingIndex]);
             ptr = IntPtr.Add(ptr, addressOffset);
-            Span<(ulong, ulong)> values = new Span<(ulong, ulong)>(_descriptorBuffer.HostPtr, (int)_descriptorBuffer.VkBufferSize / 16);
+            //Span<(ulong, ulong)> values = new Span<(ulong, ulong)>(_descriptorBuffer.HostPtr, (int)_descriptorBuffer.VkBufferSize / 16);
 
             GraphicsDevice.DeviceAPI.vkGetDescriptorEXT(GraphicsDevice.Device, &descriptorGetInfo, dataSize, ptr.ToPointer());
 
@@ -204,7 +204,7 @@ namespace VECS
             GraphicsDevice.DeviceAPI.vkCmdBindDescriptorBuffersEXT(cmd, (uint)buffers.Length, bindingInfo);
         }
 
-        public static unsafe void SetOffsets(VkCommandBuffer cmd, VkPipelineLayout layout, VkShaderStageFlags bindPoint, uint firstSet, DescriptorBuffer[] buffer)
+        public static unsafe void SetOffsets(VkCommandBuffer cmd, VkPipelineLayout layout, VkPipelineBindPoint bindPoint, uint firstSet, DescriptorBuffer[] buffer)
         {
             uint setCount = (uint)buffer.Length;
             ulong* offsets = stackalloc ulong[buffer.Length];
@@ -216,16 +216,7 @@ namespace VECS
                 indices[i] = i;
             }
 
-            VkSetDescriptorBufferOffsetsInfoEXT bindingInfo = new()
-            {
-                layout = layout,
-                firstSet = firstSet,
-                setCount = setCount,
-                stageFlags = bindPoint,
-                pBufferIndices = indices,
-                pOffsets = offsets
-            };
-            GraphicsDevice.DeviceAPI.vkCmdSetDescriptorBufferOffsets2EXT(cmd, &bindingInfo);
+            GraphicsDevice.DeviceAPI.vkCmdSetDescriptorBufferOffsetsEXT(cmd, bindPoint, layout, firstSet, setCount, indices, offsets);
         }
 
         public unsafe void Dispose()

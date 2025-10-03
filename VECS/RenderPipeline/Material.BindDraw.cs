@@ -55,28 +55,10 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void BindDescriptorBufferPipeline(VkCommandBuffer commandBuffer)
-        {
-            GraphicsDevice.DeviceAPI.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Graphics, _graphicsPipelineDescriptorBuffer);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private unsafe void BindDescriptors(VkCommandBuffer commandBuffer, int frameIndex)
         {
             Flush(frameIndex);
             GraphicsDevice.DeviceAPI.vkCmdBindDescriptorSets(commandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, 0, _totalSets, _setsToBind);
-        }
-
-        public unsafe void BindDescriptorBuffers(VkCommandBuffer commandBuffer)
-        {
-            DescriptorBuffer[] buffers = new DescriptorBuffer[_allHandlers.Length];
-            for (int i = 0; i < _allHandlers.Length; i++)
-            {
-                buffers[i] = _allHandlers[i].ActiveDescriptorBuffer;
-            }
-
-            DescriptorBuffer.BindSets(commandBuffer, buffers);
-            DescriptorBuffer.SetOffsets(commandBuffer, _descriptorBufferPipelineLayout, VkShaderStageFlags.AllGraphics, 0, buffers);
         }
 
         public void BindAll(RendererFrameInfo frameInfo)
