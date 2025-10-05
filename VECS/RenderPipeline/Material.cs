@@ -247,7 +247,7 @@ namespace VECS
             _graphicsPipelineConfigInfo = pipelineConfig;
             _materialBindings = GPUPipelineUtil.GenerateSharedDescriptorBindings(mesh.SpvShaderModule, task.SpvShaderModule, fragment.SpvShaderModule);
 
-            _meshShaderDataBindingPoint = GPUPipelineUtil.GetMeshDataBindingPoint(_materialBindings);
+            _meshShaderDataBindingPoint = GPUPipelineUtil.GetMeshDataSetIndex(_materialBindings);
 
             if (_meshShaderDataBindingPoint > 0)
             {
@@ -389,10 +389,11 @@ namespace VECS
                     workingBindings[workingBindingIndex] = _materialBindings[item.Value];
                     workingBindingIndex++;
                 }
-                _meshShaderDescriptorLayout = GPUPipelineUtil.CreateDescriptorSetLayout(workingBindings);
+                _meshShaderDescriptorLayout = GPUPipelineUtil.CreateDescriptorSetLayout(workingBindings, VkDescriptorSetLayoutCreateFlags.DescriptorBufferEXT);
                 _allLayouts = [.. _allLayouts, _meshShaderDescriptorLayout];
             }
         }
+        
         private unsafe void CreatePipelineLayout(ShaderModule vertex)
         {
             string cacheName = vertex.AssetName;
@@ -442,25 +443,6 @@ namespace VECS
             _setsToBind = (VkDescriptorSet*)NativeMemory.AllocZeroed((uint)_allLayouts.Length, (uint)sizeof(VkDescriptorSet));
         }
         
-        public DescriptorBinding GetBinding(string name)
-        {
-            if (_entityBindings.TryGetValue(name, out var binding))
-            {
-                return _materialBindings[binding];
-            }
-
-            if (_materialGlobalBindings.TryGetValue(name, out binding))
-            {
-                return _materialBindings[binding];
-            }
-
-            if (_applicationGlobalBindings.TryGetValue(name, out binding))
-            {
-                return _materialBindings[binding];
-            }
-            return null;
-        }
-
         internal bool LookUpProperty(string property, out DescriptorHandler handler, out uint bindingIndex, out DescriptorPropertyInfo propertyInfo)
         {
             if (_cachedProperties.TryGetValue(property, out var cached))

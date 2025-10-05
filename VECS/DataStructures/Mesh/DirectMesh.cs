@@ -48,9 +48,9 @@ namespace VECS
 
         #region  Mesh Shading
 
-        private MeshShaderDescriptorSet _meshShaderDescriptorSet;
+        private MeshShaderDescriptorAsBuffer _meshShaderDescriptorSet;
 
-        public MeshShaderDescriptorSet MeshShaderSet => _meshShaderDescriptorSet;
+        public MeshShaderDescriptorAsBuffer MeshShaderSet => _meshShaderDescriptorSet;
 
         internal Dictionary<VertexAttribute, GPUBuffer> _vertexBuffersMeshShader;
         

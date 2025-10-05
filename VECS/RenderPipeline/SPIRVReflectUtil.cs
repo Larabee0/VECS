@@ -243,56 +243,61 @@ namespace VECS
             return sets;
         }
 
-        public unsafe static DescriptorPropertyInfo[] GetBindingMembers(SpvReflectDescriptorBinding binding)
+        public unsafe static DescriptorPropertyInfo[] GetBindingMembers(SpvReflectDescriptorBinding binding, string bindingParentName)
         {
             switch (binding.descriptor_type)
             {
                 // case SpvReflectDescriptorType.Sampler:
                 //     break;
                 case SpvReflectDescriptorType.CombinedImageSampler:
-                    return [GetBlockImage(binding, binding.image)];
+                    return [GetBlockImage(bindingParentName, binding, binding.image)];
                 // case SpvReflectDescriptorType.SampledImage:
                 //     break;
                 case SpvReflectDescriptorType.UniformBuffer:
-                    return [.. GetBlockMembers(binding.block)];
+                    return [.. GetBlockMembers(bindingParentName, binding.block)];
                 case SpvReflectDescriptorType.StorageBuffer:
-                    return [.. GetBlockMembers(binding.block)];
+                    return [.. GetBlockMembers(bindingParentName, binding.block)];
                 case SpvReflectDescriptorType.UniformBufferDynamic:
-                    return [.. GetBlockMembers(binding.block)];
+                    return [.. GetBlockMembers(bindingParentName, binding.block)];
                 case SpvReflectDescriptorType.StorageBufferDynamic:
-                    return [.. GetBlockMembers(binding.block)];
+                    return [.. GetBlockMembers(bindingParentName, binding.block)];
                 default:
                     throw new NotImplementedException(string.Format("Descriptor type not implemented {0}", binding.descriptor_type.ToString()));
             }
         }
 
-        public unsafe static List<DescriptorPropertyInfo> GetBlockMembers(SpvReflectBlockVariable variable)
+        public unsafe static List<DescriptorPropertyInfo> GetBlockMembers(string bindingParentName, SpvReflectBlockVariable variable)
         {
             var memberCount = variable.member_count;
             var members = variable.members;
-            List<DescriptorPropertyInfo> variables = [];
+            List<DescriptorPropertyInfo> properties = [];
 
-            if(memberCount == 0 && variable.type_description->op == SpvOp.TypeRuntimeArray)
+            static bool HasFlag(SpvReflectTypeFlags flags,SpvReflectTypeFlags type)
+            {
+                return (flags & type) == type;
+            }
+
+            if (memberCount == 0 && variable.type_description->op == SpvOp.TypeRuntimeArray)
             {
                 SpvReflectTypeFlags flags = variable.type_description->type_flags;
                 var traits = variable.type_description->traits;
-                if (flags.HasFlag(SpvReflectTypeFlags.FlagMatrix))
+                if (HasFlag(flags, SpvReflectTypeFlags.FlagMatrix))
                 {
-                    variables.Add(new(variable.Name, SpvOp.TypeMatrix, traits.array.stride, traits.numeric, 0));
+                    properties.Add(new(bindingParentName,variable.Name, SpvOp.TypeMatrix, traits.array.stride, traits.numeric, 0));
                 }
-                else if (flags.HasFlag(SpvReflectTypeFlags.FlagVector))
+                else if (HasFlag(flags, SpvReflectTypeFlags.FlagVector))
                 {
-                    variables.Add(new(variable.Name, SpvOp.TypeVector, traits.array.stride, traits.numeric, 0));
+                    properties.Add(new(bindingParentName,variable.Name, SpvOp.TypeVector, traits.array.stride, traits.numeric, 0));
                 }
-                else if (flags.HasFlag(SpvReflectTypeFlags.FlagFloat))
+                else if (HasFlag(flags, SpvReflectTypeFlags.FlagFloat))
                 {
-                    variables.Add(new(variable.Name, SpvOp.TypeFloat, traits.array.stride, traits.numeric, 0));
+                    properties.Add(new(bindingParentName,variable.Name, SpvOp.TypeFloat, traits.array.stride, traits.numeric, 0));
                 }
-                else if (flags.HasFlag(SpvReflectTypeFlags.FlagInt))
+                else if (HasFlag(flags, SpvReflectTypeFlags.FlagInt))
                 {
-                    variables.Add(new(variable.Name, SpvOp.TypeInt, traits.array.stride, traits.numeric, 0));
+                    properties.Add(new(bindingParentName,variable.Name, SpvOp.TypeInt, traits.array.stride, traits.numeric, 0));
                 }
-                else if (flags.HasFlag(SpvReflectTypeFlags.FlagBool))
+                else if (HasFlag(flags, SpvReflectTypeFlags.FlagBool))
                 {
                     Console.WriteLine("New Type bool \"{1}\" Size {0}", variable.size, variable.Name);
                     throw new NotImplementedException("Bool type not implemented for descriptor sets");
@@ -302,7 +307,7 @@ namespace VECS
             for (uint i = 0; i < memberCount; i++)
             {
                 var member = members[i];
-                
+                var propertyAbsName = properties[^1].AbsName;
                 var type_desc = *member.type_description;
                 switch (type_desc.op)
                 {
@@ -313,44 +318,44 @@ namespace VECS
                         Console.WriteLine("New Type SampledImage \"{1}\" Size {0}", member.size, member.Name);
                         throw new NotImplementedException("SampledImage type not implemented for descriptor sets");
                     case SpvOp.TypeStruct:
-                        var structMembers = GetBlockMembers(member);
-                        variables.Add(new(member.Name, type_desc.op, member.padded_size, member.offset, structMembers));
+                        var structMembers = GetBlockMembers(propertyAbsName+member.Name, member);
+                        properties.Add(new(propertyAbsName,member.Name, type_desc.op, member.padded_size, member.offset, structMembers));
                         break;
                     case SpvOp.TypeArray:
-                        var arrayChildren = GetBlockMembers(member);
-                        variables.Add(new(member.Name, type_desc.op, member.padded_size, member.offset, member.array, arrayChildren));
+                        var arrayChildren = GetBlockMembers(propertyAbsName+member.Name, member);
+                        properties.Add(new(propertyAbsName,member.Name, type_desc.op, member.padded_size, member.offset, member.array, arrayChildren));
                         break;
                     case SpvOp.TypeRuntimeArray:
-                        arrayChildren = GetBlockMembers(member);
-                        variables.Add(new(member.Name, type_desc.op, arrayChildren, member.padded_size, member.offset));
+                        arrayChildren = GetBlockMembers(propertyAbsName+member.Name, member);
+                        properties.Add(new(propertyAbsName,member.Name, type_desc.op, arrayChildren, member.padded_size, member.offset));
                         break;
                     case SpvOp.TypeVector:
-                        variables.Add(new(member.Name, type_desc.op, member.padded_size, member.numeric, member.offset));
+                        properties.Add(new(propertyAbsName,member.Name, type_desc.op, member.padded_size, member.numeric, member.offset));
                         break;
                     case SpvOp.TypeMatrix:
-                        variables.Add(new(member.Name, type_desc.op, member.padded_size, member.numeric, member.offset));
+                        properties.Add(new(propertyAbsName,member.Name, type_desc.op, member.padded_size, member.numeric, member.offset));
                         break;
                     case SpvOp.TypeBool:
                         Console.WriteLine("New Type bool \"{1}\" Size {0}", member.size, member.Name);
                         throw new NotImplementedException("Bool type not implemented for descriptor sets");
                     case SpvOp.TypeFloat:
-                        variables.Add(new(member.Name, type_desc.op, member.padded_size, member.numeric, member.offset));
+                        properties.Add(new(propertyAbsName,member.Name, type_desc.op, member.padded_size, member.numeric, member.offset));
                         break;
                     case SpvOp.TypeInt:
-                        variables.Add(new(member.Name, type_desc.op, member.padded_size, member.numeric, member.offset));
+                        properties.Add(new(propertyAbsName,member.Name, type_desc.op, member.padded_size, member.numeric, member.offset));
                         break;
                     default:
                         throw new NotImplementedException(string.Format("Un implemented variable block type {0}", type_desc.op.ToString()));
                 }
             }
-            return variables;
+            return properties;
         }
 
-        public unsafe static DescriptorPropertyInfo GetBlockImage(SpvReflectDescriptorBinding bindings, SpvReflectImageTraits traits)
+        public unsafe static DescriptorPropertyInfo GetBlockImage(string bindingParentName, SpvReflectDescriptorBinding bindings, SpvReflectImageTraits traits)
         {
             if(traits.sampled == 1)
             {
-                return new(bindings.Name, SpvOp.SampledImage, 0, traits);
+                return new(bindingParentName, bindings.Name, SpvOp.SampledImage, 0, traits);
             }
 
             throw new NotImplementedException(string.Format("Image type not implemented for sampled = {0}", traits.sampled.ToString()));

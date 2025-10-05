@@ -9,8 +9,9 @@ namespace VECS
     public sealed class DescriptorBinding
     {
         public readonly string Name;
-        public readonly uint Set;
-        public readonly uint Binding;
+        public readonly int Id;
+        public readonly uint DescriptorSetIndex;
+        public readonly uint BindPoint;
         public readonly DescriptorPropertyInfo[] Variables;
         public readonly bool Image;
         public readonly bool Buffer;
@@ -30,8 +31,9 @@ namespace VECS
         public DescriptorBinding(SpvReflectDescriptorBinding descriptorBinding, VkShaderStageFlags shaderStageFlags)
         {
             Name = descriptorBinding.Name;
-            Binding = descriptorBinding.binding;
-            Set = descriptorBinding.set;
+            Id = Name.GetHashCode();
+            BindPoint = descriptorBinding.binding;
+            DescriptorSetIndex = descriptorBinding.set;
             ShaderStage = shaderStageFlags;
             switch (descriptorBinding.descriptor_type)
             {
@@ -70,7 +72,7 @@ namespace VECS
                 stageFlags = shaderStageFlags
             };
 
-            Variables = [.. SPIRVReflectUtil.GetBindingMembers(descriptorBinding)];
+            Variables = [.. SPIRVReflectUtil.GetBindingMembers(descriptorBinding, Name)];
 
             for (int i = 0; i < Variables.Length; i++)
             {
@@ -107,7 +109,7 @@ namespace VECS
             }
             Stride = BufferSize;
 
-            GlobalUniformBuffer = Binding == 0 && Set == 0 && Name == "ubo";
+            GlobalUniformBuffer = BindPoint == 0 && DescriptorSetIndex == 0 && Name == "ubo";
 
         }
 
@@ -145,6 +147,19 @@ namespace VECS
             return topLevelMember;
         }
 
+        public DescriptorPropertyInfo GetProperty(int id)
+        {
+            for (int i = 0; i < Variables.Length; i++)
+            {
+                if (Variables[i].LookUpMember(id, out var propertyInfo))
+                {
+                    return propertyInfo;
+                }
+            }
+
+            return null;
+        }
+
         public override string ToString()
         {
             StringBuilder stringBuilder = new();
@@ -163,7 +178,7 @@ namespace VECS
 
         public static bool operator ==(DescriptorBinding left, DescriptorBinding right)
         {
-            return left is not null && right is not null && left.Name == right.Name && left.Set == right.Set && left.Binding == right.Binding
+            return left is not null && right is not null && left.Name == right.Name && left.DescriptorSetIndex == right.DescriptorSetIndex && left.BindPoint == right.BindPoint
                 && left.Image == right.Image && left.Buffer == right.Buffer
                 && left.DynamicBuffer == right.DynamicBuffer && left.BufferSize == right.BufferSize
                 && left.BufferUsageFlags == right.BufferUsageFlags && left.GlobalUniformBuffer == right.GlobalUniformBuffer
@@ -183,7 +198,7 @@ namespace VECS
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(Name, Set, Binding, Image, DescriptorType, VkSetLayoutBinding);
+            return HashCode.Combine(Name, DescriptorSetIndex, BindPoint, Image, DescriptorType, VkSetLayoutBinding);
         }
 
         public DescriptorPropertyInfo GetRunTimeArray()

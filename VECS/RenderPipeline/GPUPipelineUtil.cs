@@ -128,7 +128,7 @@ namespace VECS
         {
             Array.Sort(bindings, (x, y) =>
             {
-                return x.Set.CompareTo(y.Set);
+                return x.DescriptorSetIndex.CompareTo(y.DescriptorSetIndex);
             });
 
             VkDescriptorSetLayoutBinding[] vkBindings = new VkDescriptorSetLayoutBinding[bindings.Length];
@@ -204,15 +204,40 @@ namespace VECS
             Dictionary<string, int> setBindings = [];
             for (int i = 0; i < bindings.Length; i++)
             {
-                if (bindings[i].Set == set)
+                if (bindings[i].DescriptorSetIndex == set)
                 {
                     setBindings.Add(bindings[i].Name, i);
                 }
             }
             return setBindings;
         }
+        public static int[] ExtractBindingsForSetAsIntArray(uint set, DescriptorBinding[] bindings)
+        {
+            List<int> setBindings = [];
+            for (int i = 0; i < bindings.Length; i++)
+            {
+                if (bindings[i].DescriptorSetIndex == set)
+                {
+                    setBindings.Add(i);
+                }
+            }
+            return [.. setBindings];
+        }
 
-        public static int GetMeshDataBindingPoint(DescriptorBinding[] bindings)
+        public static DescriptorBinding[] ExtractBindingsForSetAsBindingArray(uint set, DescriptorBinding[] bindings)
+        {
+            List<DescriptorBinding> setBindings = [];
+            for (int i = 0; i < bindings.Length; i++)
+            {
+                if (bindings[i].DescriptorSetIndex == set)
+                {
+                    setBindings.Add(bindings[i]);
+                }
+            }
+            return [.. setBindings];
+        }
+
+        public static int GetMeshDataSetIndex(DescriptorBinding[] bindings)
         {
             if (!GraphicsDevice.MeshShading)
             {
@@ -223,11 +248,39 @@ namespace VECS
             {
                 if (bindings[i].Name == "meshletsBuffer")
                 {
-                    return (int)bindings[i].Set;
+                    return (int)bindings[i].DescriptorSetIndex;
                 }
             }
 
             throw new InvalidOperationException("Descriptors contained no mesh shader bindings in the expected pattern!");
+        }
+
+        public static VkPipelineLayout CreatePipelineLayout(ShaderModule shaderModule, VkDescriptorSetLayout[] setLayouts, PushConstantsHandler pushConstants)
+        {
+            string cacheName = shaderModule.AssetName;
+            var cache = AssetDataBase<PipelineCache>.GetNamedSilentFail(cacheName);
+
+            if (cache == null)
+            {
+                cache = new(cacheName, CreatePipelineLayout(setLayouts, pushConstants));
+                AssetDataBase<PipelineCache>.Add(cache);
+            }
+
+            return cache.Layout;
+        }
+
+        public static VkPipelineLayout CreatePipelineLayout(ShaderModule vertex, ShaderModule fragment, VkDescriptorSetLayout[] setLayouts, PushConstantsHandler pushConstants)
+        {
+            string cacheName = vertex.AssetName + fragment.AssetName;
+            var cache = AssetDataBase<PipelineCache>.GetNamedSilentFail(cacheName);
+
+            if (cache == null)
+            {
+                cache = new(cacheName, CreatePipelineLayout(setLayouts, pushConstants));
+                AssetDataBase<PipelineCache>.Add(cache);
+            }
+
+            return cache.Layout;
         }
 
         public static unsafe VkPipelineLayout CreatePipelineLayout(VkDescriptorSetLayout[] setLayouts, PushConstantsHandler pushConstants)
@@ -559,7 +612,7 @@ namespace VECS
                             {
                                 throw new InvalidOperationException(string.Format("Shader property {0} is trying ot use a vertex buffer of bytes which is not supported by DirectMesh!", pair.Key));
                             }
-                            VertexAttributeDescription attributeDesc = new(attribute, format, 0, bindingDesc.Binding, bindingDesc.Binding);
+                            VertexAttributeDescription attributeDesc = new(attribute, format, 0, bindingDesc.BindPoint, bindingDesc.BindPoint);
 
                             attributeDescriptions.Add(attributeDesc);
                         }
@@ -568,6 +621,22 @@ namespace VECS
             }
 
             return [.. attributeDescriptions];
+        }
+
+        public static int GetSetCount(DescriptorBinding[] allBindings)
+        {
+            if(allBindings == null || allBindings.Length == 0) {  return 0; }
+            uint lastSet = allBindings[0].DescriptorSetIndex;
+            int count = 1;
+            for (int i = 1; i < allBindings.Length; i++)
+            {
+                if(allBindings[i].DescriptorSetIndex != lastSet)
+                {
+                    count++;
+                    lastSet = allBindings[i].DescriptorSetIndex;
+                }
+            }
+            return count;
         }
     }
 }

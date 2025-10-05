@@ -1,0 +1,259 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using VECS.LowLevel;
+using Vortice.Vulkan;
+
+namespace VECS
+{
+    public class DescriptorSetInfo : IDisposable
+    {
+        private readonly bool _noAllocStorageBuffers = false;
+        private readonly int _bindingCount;
+        private readonly uint _bufferCount;
+        private readonly uint _imageCount;
+
+        private readonly DescriptorBinding[] _descriptorBindings;
+
+        private readonly SwapChainBuffer[] _descriptorSetBuffers;
+        private readonly bool[] _descriptorSetBufferIsStorage;
+        private readonly bool[] _hasOwnerShipOfBuffer;
+
+        private readonly DescriptorBuffer[] _descriptorBuffers = new DescriptorBuffer[SwapChain.MAX_CONCURRENT_FRAMES];
+
+        private readonly int[] _bufferDescriptorBindingIndices;
+        private readonly int[] _imageDescriptorBindingIndices;
+
+        private readonly Dictionary<uint, int> _bindingPointToBufferIndex;
+        private readonly Dictionary<uint, int> _bindingPointToImageIndex;
+        
+        private bool _disposed = false;
+
+        public int BindingCount => _bindingCount;
+        public uint BufferCount => _bufferCount;
+        public uint ImageCount => _imageCount;
+
+        public DescriptorBinding[] DescriptorBindings => _descriptorBindings;
+
+        public int[] BufferDescriptorBindingIndices => _bufferDescriptorBindingIndices;
+        public int[] ImageDescriptorBindingIndices => _imageDescriptorBindingIndices;
+
+        public Dictionary<uint, int> BindingPointToBufferIndex => _bindingPointToBufferIndex;
+        public Dictionary<uint, int> BindingPointToImageIndex => _bindingPointToImageIndex;
+
+        public DescriptorBuffer[] DescriptorBuffers => _descriptorBuffers;
+        public SwapChainBuffer[] DescriptorSetBuffers => _descriptorSetBuffers;
+        public bool[] DescriptorSetBufferIsStorage => _descriptorSetBufferIsStorage;
+
+        public DescriptorSetInfo(VkDescriptorSetLayout layout, DescriptorBinding[] bindings, bool preventStorageBuffersAllocation)
+        {
+            _noAllocStorageBuffers = preventStorageBuffersAllocation;
+            _bindingCount = bindings.Length;
+            _descriptorBindings = bindings;
+            for (int i = 0; i < bindings.Length; i++)
+            {
+                var binding = bindings[i];
+                if (binding.IsAnyBuffer)
+                {
+                    _bufferCount++;
+                }
+                if (binding.Image)
+                {
+                    _imageCount++;
+                }
+            }
+
+            _bufferDescriptorBindingIndices = new int[_bufferCount];
+            _imageDescriptorBindingIndices = new int[_imageCount];
+
+            CreateDescriptorBindingIndices(bindings);
+
+            for (int frameIndex = 0; frameIndex < SwapChain.MAX_CONCURRENT_FRAMES; frameIndex++)
+            {
+                _descriptorBuffers[frameIndex] = new(layout, _bindingCount, MaterialV2.MAX_VARIANTS, _bufferCount > 0, _imageCount > 0);
+            }
+
+            if (_bufferCount > 0)
+            {
+                _descriptorSetBuffers = new SwapChainBuffer[_bufferCount];
+                _descriptorSetBufferIsStorage = new bool[_bufferCount];
+                _bindingPointToBufferIndex = new Dictionary<uint, int>((int)_bufferCount);
+                CreateBindingBuffers(bindings);
+            }
+
+            if (_imageCount > 0)
+            {
+                _bindingPointToImageIndex = new Dictionary<uint, int>((int)_imageCount);
+                CreateBindingImages(bindings);
+            }
+        }
+
+        private void CreateDescriptorBindingIndices(DescriptorBinding[] bindings)
+        {
+            int bufferIndex = 0;
+            int imageIndex = 0;
+
+            for (int i = 0; i < bindings.Length; i++)
+            {
+                if (bindings[i].Image)
+                {
+                    _imageDescriptorBindingIndices[imageIndex] = i;
+                    imageIndex++;
+                }
+                else
+                {
+                    _bufferDescriptorBindingIndices[bufferIndex] = i;
+                    bufferIndex++;
+                }
+            }
+        }
+
+        private void CreateBindingBuffers(DescriptorBinding[] bindings)
+        {
+            for (int i = 0, b = 0; i < bindings.Length; i++)
+            {
+                var binding = bindings[i];
+                if (!binding.IsAnyBuffer) continue;
+                SwapChainBuffer buffer = null;
+                if (binding.StorageBuffer)
+                {
+                    if (!_noAllocStorageBuffers)
+                    {
+                        buffer = new(binding.BufferSize, MaterialV2.DEFAULT_STORAGE_BUFFER_COUNT, binding.BufferUsageFlags, true);
+                        _hasOwnerShipOfBuffer[b] = true;
+                    }
+                    else
+                    {
+                        _hasOwnerShipOfBuffer[b] = false;
+                    }
+                    _descriptorSetBufferIsStorage[b] = true;
+                }
+                else if (binding.Buffer)
+                {
+                    buffer = new(binding.BufferSize, MaterialV2.MAX_VARIANTS, binding.BufferUsageFlags, true);
+                    _hasOwnerShipOfBuffer[b] = true;
+                }
+                _descriptorSetBuffers[b] = buffer;
+                _bindingPointToBufferIndex.Add(binding.BindPoint, b);
+                b++;
+            }
+#if DEBUG
+            Debug.Assert(_bindingPointToBufferIndex.Count == _bufferCount, string.Format("Expected swapchain buffer allocations {0} does not much descriptor buffer count {1}", _bindingPointToBufferIndex.Count, _bufferCount));
+#endif
+        }
+
+        private void CreateBindingImages(DescriptorBinding[] bindings)
+        {
+            for (int i = 0, b = 0; i < bindings.Length; i++)
+            {
+                var binding = bindings[i];
+                if (!binding.Image) continue;
+                _bindingPointToImageIndex.Add(binding.BindPoint, b);
+                b++;
+            }
+#if DEBUG
+            Debug.Assert(_bindingPointToImageIndex.Count == _imageCount, string.Format("Expected swapchain buffer allocations {0} does not much descriptor buffer count {1}", _bindingPointToBufferIndex.Count, _bufferCount));
+#endif
+        }
+
+        public DescriptorBinding GetBindingFromBufferIndex(int bufferIndex)
+        {
+            return _descriptorBindings[_bufferDescriptorBindingIndices[bufferIndex]];
+        }
+
+        public SwapChainBuffer GetBuffer(DescriptorBinding binding)
+        {
+            return GetBuffer(binding.BindPoint);
+        }
+
+        public SwapChainBuffer GetBuffer(uint bindPoint)
+        {
+            return _descriptorSetBuffers[_bindingPointToBufferIndex[bindPoint]];
+        }
+
+        public SwapChainBuffer GetBuffer(int bufferIndex)
+        {
+            return _descriptorSetBuffers[bufferIndex];
+        }
+
+        public void WriteFromBuffers(int frameIndex)
+        {
+            for (int i = 0; i < _bufferCount; i++)
+            {
+                _descriptorSetBuffers[i].WriteFromHostToBuffer(frameIndex);
+            }
+        }
+
+        public void WriteDescriptors(int frameIndex, uint setVariant, GPUBuffer[] bindingBuffers, Texture[] bindingTextures)
+        {
+            var descriptorBuffer = _descriptorBuffers[frameIndex];
+            for (int i = 0; i < _bindingCount; i++)
+            {
+                var binding = _descriptorBindings[i];
+                var bindPoint = binding.BindPoint;
+                if (binding.IsAnyBuffer)
+                {
+                    var bufferIndex = _bindingPointToBufferIndex[bindPoint];
+                    var buffer = bindingBuffers[bufferIndex];
+                    descriptorBuffer.SetBufferBinding(buffer.DeviceAddressInfo, binding.DescriptorType, setVariant, bindPoint);
+                }
+                else
+                {
+                    var textureIndex = _bindingPointToImageIndex[bindPoint];
+                    var texutre = bindingTextures[textureIndex];
+                    descriptorBuffer.SetCombinedImageSamplerBinding(texutre, setVariant, bindPoint);
+                }
+            }
+        }
+
+        public void WriteDescriptors(int frameIndex, uint bindingPoint, uint setVariant, GPUBuffer buffer)
+        {
+            var descriptorBuffer = _descriptorBuffers[frameIndex];
+            descriptorBuffer.SetStorageBinding(buffer, setVariant, bindingPoint);
+        }
+
+        public unsafe void WriteDescriptors(DescriptorBuffer descriptorBuffer, uint setIndex, VkDescriptorAddressInfoEXT* bindingBuffers, VkDescriptorImageInfo* bindingTextures)
+        {
+            for (int i = 0; i < _bindingCount; i++)
+            {
+                var binding = _descriptorBindings[i];
+                var bindPoint = binding.BindPoint;
+                if (binding.IsAnyBuffer)
+                {
+                    var bufferIndex = _bindingPointToBufferIndex[bindPoint];
+                    var buffer = bindingBuffers[bufferIndex];
+                    descriptorBuffer.SetBufferBinding(buffer, binding.DescriptorType, setIndex, bindPoint);
+                }
+                else
+                {
+                    var textureIndex = _bindingPointToImageIndex[bindPoint];
+                    var texutre = bindingTextures[textureIndex];
+                    descriptorBuffer.SetImageInfoBinding(texutre, VkDescriptorType.CombinedImageSampler, setIndex, bindPoint);
+                }
+            }
+        }
+
+        public void Dispose()
+        {
+
+            if (_disposed) return;
+            _disposed = true;
+
+            GC.SuppressFinalize(this);
+            for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
+            {
+                _descriptorBuffers[i].Dispose();
+            }
+
+            for (int i = 0; i < _bindingCount; i++)
+            {
+                if (_hasOwnerShipOfBuffer[i])
+                {
+                    _descriptorSetBuffers[i].Dispose();
+                }
+            }
+            GC.ReRegisterForFinalize(this);
+        }
+
+    }
+}

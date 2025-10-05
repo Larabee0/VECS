@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
-using System.Dynamic;
-using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using VECS.LowLevel;
@@ -10,29 +8,179 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
-    public class MeshShaderDescriptor
+    public readonly struct VertexBufferInfo
     {
-        public readonly struct VertexBufferInfo
-        {
-            public readonly VertexAttribute Attribute;
-            public readonly VertexAttributeFormat Format;
-            public readonly int BufferIndex;
-            public readonly uint BindingPoint;
+        public readonly VertexAttribute Attribute;
+        public readonly VertexAttributeFormat Format;
+        public readonly int BufferIndex;
+        public readonly uint BindingPoint;
 
-            public override readonly int GetHashCode()
+        public override readonly int GetHashCode()
+        {
+            return HashCode.Combine((byte)Attribute, (byte)Format);
+        }
+
+        public VertexBufferInfo(VertexAttributeDescription attributeDescription, int bufferIndex)
+        {
+            Attribute = attributeDescription.attribute;
+            Format = attributeDescription.format;
+            BufferIndex = bufferIndex;
+            BindingPoint = attributeDescription.binding;
+        }
+    }
+
+    public class MeshShaderDescriptorBuffer : IDisposable
+    {
+        private bool _disposed;
+        public readonly bool[] SetsDirty = new bool[SwapChain.MAX_CONCURRENT_FRAMES];
+        public readonly DescriptorBuffer[] DescriptorBuffers = new DescriptorBuffer[SwapChain.MAX_CONCURRENT_FRAMES];
+        public readonly VertexBufferInfo[] Buffers;
+        public readonly VkDescriptorSetLayout VkDescriptorSetLayout;
+        public readonly int LayoutHash;
+
+        public MeshShaderDescriptorBuffer(VkDescriptorSetLayout layout, VertexAttributeDescription[] desired, DirectMesh mesh)
+        {
+            VkDescriptorSetLayout = layout;
+
+            Buffers = new VertexBufferInfo[desired.Length];
+
+            for (int i = 0; i < desired.Length; i++)
             {
-                return HashCode.Combine((byte)Attribute, (byte)Format);
+                var attributeDesc = desired[i];
+                int bufferIndex = -1;
+                if (mesh.ConsumedAttributes.TryGetValue(attributeDesc.attribute, out var desc))
+                {
+                    bufferIndex = (int)desc.binding;
+                }
+                Buffers[i] = new(attributeDesc, bufferIndex);
             }
 
-            public VertexBufferInfo(VertexAttributeDescription attributeDescription, int bufferIndex)
+            LayoutHash = Buffers[0].GetHashCode();
+            for (int i = 1; i < Buffers.Length; i++)
             {
-                Attribute = attributeDescription.attribute;
-                Format = attributeDescription.format;
-                BufferIndex = bufferIndex;
-                BindingPoint = attributeDescription.binding;
+                LayoutHash = HashCode.Combine(LayoutHash, Buffers[i].GetHashCode());
+            }
+
+            for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
+            {
+                DescriptorBuffers[i] = new(layout, desired.Length, 1, true, false);
+            }
+            
+
+            Array.Fill(SetsDirty, true);
+        }
+
+        public void Dispose()
+        {
+            if (_disposed) return;
+            _disposed = true;
+            GC.SuppressFinalize(this);
+            for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
+            {
+                DescriptorBuffers[i].Dispose();
+            }
+            GC.ReRegisterForFinalize(this);
+        }
+    }
+
+    public class MeshShaderDescriptorAsBuffer : IDisposable
+    {
+        private bool _disposed = false;
+        private readonly DirectMesh _owner;
+        private readonly ConcurrentDictionary<int, MeshShaderDescriptorBuffer> _materialSets = [];
+
+        private readonly unsafe VkDescriptorAddressInfoEXT* _bufferAddress;
+
+        public unsafe MeshShaderDescriptorAsBuffer(DirectMesh owner)
+        {
+            if (!GraphicsDevice.MeshShading)
+            {
+                throw new InvalidOperationException("Mesh shading is not enabled for this runtime instance!");
+            }
+
+            var attributes = owner.AllAttributesInOrder;
+            _owner = owner;
+
+            _bufferAddress = (VkDescriptorAddressInfoEXT*)NativeMemory.Alloc((uint)sizeof(VkDescriptorAddressInfoEXT) * ((uint)attributes.Length + 3));
+
+            GPUBuffer buffer = owner._meshletBuffer;
+            _bufferAddress[0] = buffer.DeviceAddressInfo;
+
+            buffer = owner._meshletBoundsBuffer;
+            _bufferAddress[1] =  buffer.DeviceAddressInfo;
+
+            buffer = owner._meshletIndexBuffer;
+            _bufferAddress[2] =  buffer.DeviceAddressInfo;
+
+            for (int i = 0; i < attributes.Length; i++)
+            {
+                buffer = owner._vertexBuffersMeshShader[attributes[i]];
+                _bufferAddress[3 + i] =  buffer.DeviceAddressInfo;
             }
         }
 
+        public MeshShaderDescriptorBuffer RegisterMaterial(VkDescriptorSetLayout setLayout, VertexAttributeDescription[] requiredAttributes)
+        {
+            MeshShaderDescriptorBuffer newLayout = new(setLayout, requiredAttributes, _owner);
+
+            if (!_materialSets.TryAdd(newLayout.LayoutHash, newLayout))
+            {
+                newLayout = _materialSets[newLayout.LayoutHash];
+            }
+
+            return newLayout;
+        }
+
+        public unsafe void UpdateDescriptorBuffer(int frameIndex, MeshShaderDescriptorBuffer shaderDescriptorBuffer)
+        {
+
+            if (!shaderDescriptorBuffer.SetsDirty[frameIndex])
+            {
+                return;
+            }
+
+            DescriptorBuffer buffer = shaderDescriptorBuffer.DescriptorBuffers[frameIndex];
+            var bufferInfos = shaderDescriptorBuffer.Buffers;
+
+            for (int i = 0; i < bufferInfos.Length; i++)
+            {
+                var info = bufferInfos[i];
+                var bufferIndex = 3;
+                if (bufferInfos[i].BufferIndex > 0)
+                {
+                    bufferIndex += info.BufferIndex;
+                }
+
+                buffer.WriteDescriptor(new(_bufferAddress[bufferIndex], VkDescriptorType.StorageBuffer, 0, info.BindingPoint));
+            }
+
+            shaderDescriptorBuffer.SetsDirty[frameIndex] = false;
+        }
+
+        public bool TryGetDescriptorBuffer(int frameIndex, int descriptorLayout, out DescriptorBuffer set)
+        {
+            set = null;
+            if (_materialSets.TryGetValue(descriptorLayout, out var setContainer))
+            {
+                set = setContainer.DescriptorBuffers[frameIndex];
+                return true;
+            }
+            return false;
+        }
+        
+        public unsafe void Dispose()
+        {
+            if (_disposed) return;
+            _disposed = true;
+            GC.SuppressFinalize(this);
+            NativeMemory.Free(_bufferAddress);
+            GC.ReRegisterForFinalize(this);
+        }
+    }
+
+    [Obsolete("Use DescriptorBuffers")]
+    public class MeshShaderDescriptor
+    {
         public readonly bool[] SetsAllocated = new bool[SwapChain.MAX_CONCURRENT_FRAMES];
         public readonly bool[] SetsDirty = new bool[SwapChain.MAX_CONCURRENT_FRAMES];
 
@@ -113,6 +261,7 @@ namespace VECS
 
     }
 
+    [Obsolete("Use DescriptorBuffers")]
     public class MeshShaderDescriptorSet : IDisposable
     {
         private bool _disposed = false;
@@ -273,8 +422,6 @@ namespace VECS
                 value.DeallocateDescriptorSets();
             }
         }
-
-
 
         public unsafe void Dispose()
         {

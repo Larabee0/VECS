@@ -403,7 +403,18 @@ namespace VECS
             GraphicsDevice.EndSingleTimeMainPipe(cmd);
         }
 
-        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static VkDescriptorAddressInfoEXT GetBufferAddressRange(this GPUBuffer buffer, ulong srcOffset = 0, ulong count = Vulkan.VK_WHOLE_SIZE)
+        {
+            var addressInfo = buffer.DeviceAddressInfo;
+
+            addressInfo.address += buffer.InstanceSize * srcOffset;
+            addressInfo.range = count == Vulkan.VK_WHOLE_SIZE ? buffer.VkBufferSize : buffer.InstanceSize * count;
+
+            return addressInfo;
+        }
+
+
         public unsafe static void FillActiveBuffer(this SwapChainBuffer buffer, VkCommandBuffer commandBuffer, uint data, ulong dstOffset = 0, ulong bufferSize = Vulkan.VK_WHOLE_SIZE)
         {
             GraphicsDevice.DeviceAPI.vkCmdFillBuffer(commandBuffer, buffer.ActiveVkBuffer, dstOffset, bufferSize, data);
@@ -430,7 +441,6 @@ namespace VECS
             buffer.SetBuffersDirty(false);
         }
 
-        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static VkDescriptorBufferInfo ActiveDescriptorInfo(this SwapChainBuffer buffer, uint startIndex, uint count)
         {

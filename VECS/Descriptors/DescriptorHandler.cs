@@ -10,6 +10,7 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
+    [Obsolete("Use DescriptorBuffers")]
     public sealed class DescriptorHandler : IDisposable
     {
         public const uint DEFAULT_STORAGE_BUFFER_COUNT = 10000;
@@ -111,8 +112,6 @@ namespace VECS
                 { 0, this }
             };
 
-
-
             _vkDescriptorSetLayout = setLayout;
             _descriptorLevel = level;
 
@@ -122,8 +121,8 @@ namespace VECS
             for (int i = 0; i < bindings.Length; i++)
             {
                 var binding = bindings[i];
-                _descriptorBindings[binding.Binding] = binding;
-                _bindingMap.Add(binding.Name, (int)binding.Binding);
+                _descriptorBindings[binding.BindPoint] = binding;
+                _bindingMap.Add(binding.Name, (int)binding.BindPoint);
                 if (binding.IsAnyBuffer)
                 {
                     _bufferCount++;
@@ -161,13 +160,13 @@ namespace VECS
                 if (!binding.IsAnyBuffer) continue;
                 if (binding.UniformBuffer)
                 {
-                    _bindingBufferMap.Add(binding.Binding, b);
+                    _bindingBufferMap.Add(binding.BindPoint, b);
                     _bindingBuffers[b] = new SwapChainBuffer(binding.BufferSize, 1, binding.BufferUsageFlags, true);
                     b++;
                 }
                 else if (binding.Buffer)
                 {
-                    _bindingBufferMap.Add(binding.Binding, b);
+                    _bindingBufferMap.Add(binding.BindPoint, b);
                     if (_descriptorLevel != DescriptorLevel.ComputeEmpty)
                     {
                         _bindingBuffers[b] = new SwapChainBuffer(binding.BufferSize, DEFAULT_STORAGE_BUFFER_COUNT, binding.BufferUsageFlags, true);
@@ -195,7 +194,7 @@ namespace VECS
 
                 if (!binding.UniformBuffer) continue;
 
-                var bufferIndex = _bindingBufferMap[binding.Binding];
+                var bufferIndex = _bindingBufferMap[binding.BindPoint];
                 var oldBuffer = _bindingBuffers[bufferIndex];
 
                 _bindingBuffers[bufferIndex] = oldBuffer.Realloc((ulong)(_children.Count + 1));
@@ -221,7 +220,7 @@ namespace VECS
             {
                 var binding = _descriptorBindings[i];
                 if (binding.IsAnyBuffer) continue;
-                _bindingImages.Add(binding.Binding, (imageIndex, Texture2D.MissingTexture));
+                _bindingImages.Add(binding.BindPoint, (imageIndex, Texture2D.MissingTexture));
                 imageIndex++;
             }
 #if DEBUG
@@ -370,7 +369,7 @@ namespace VECS
                 {
                     if (_descriptorBindings[i].StorageBuffer)
                     {
-                        _bindingBuffers[_bindingBufferMap[_descriptorBindings[i].Binding]].SetUsedInstanceCount(_sumStorageBufferLength);
+                        _bindingBuffers[_bindingBufferMap[_descriptorBindings[i].BindPoint]].SetUsedInstanceCount(_sumStorageBufferLength);
                     }
                 }
             }
@@ -406,7 +405,7 @@ namespace VECS
             for (int i = 0; i < _bufferCount; i++)
             {
                 var binding = _descriptorBindings[_bufferBindings[i]];
-                var bufferIndex = _bindingBufferMap[binding.Binding];
+                var bufferIndex = _bindingBufferMap[binding.BindPoint];
                 var buffer = _bindingBuffers[bufferIndex];
                 _bufferInfos[i] = binding.StorageBuffer
                     ? buffer.ActiveDescriptorInfo(_storageBufferStartIndex, _storageBufferLength)
@@ -420,7 +419,7 @@ namespace VECS
 
             for (int i = 0; i < _imageCount; i++)
             {
-                var bindingIndex = _descriptorBindings[_imageBindings[i]].Binding;
+                var bindingIndex = _descriptorBindings[_imageBindings[i]].BindPoint;
                 _bindingImages[bindingIndex].Item2.UpdateDescriptor();
                 _imageInfos[i] = _bindingImages[bindingIndex].Item2.ImageInfo;
             }
@@ -438,7 +437,7 @@ namespace VECS
                 var write = new VkWriteDescriptorSet()
                 {
                     descriptorType = binding.VkSetLayoutBinding.descriptorType,
-                    dstBinding = binding.Binding,
+                    dstBinding = binding.BindPoint,
                     descriptorCount = 1,
                     dstSet = set,
                 };
@@ -511,7 +510,7 @@ namespace VECS
                 return false;
             }
 
-            bindingIndex = binding.Binding;
+            bindingIndex = binding.BindPoint;
             if (index != -1)
             {
                 var address = property[(index + 1)..];
@@ -524,7 +523,7 @@ namespace VECS
             }
             else if (binding != null && binding.UniformBuffer)
             {
-                propertyInfo = new DescriptorPropertyInfo(bindingName, SpvOp.TypeStruct, binding.BufferSize, 0);
+                propertyInfo = new DescriptorPropertyInfo("",bindingName, SpvOp.TypeStruct, binding.BufferSize, 0);
                 _cachedProperties.TryAdd(property, (bindingIndex, propertyInfo));
 
                 return true;

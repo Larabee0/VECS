@@ -11,7 +11,6 @@ namespace VECS
     {
         private readonly DescriptorBinding[] _descriptorBindings;
 
-
         private readonly List<SwapChainBuffer> _swapChainBuffers = [];
         private readonly List<Dictionary<string, int>> _setBindings = [];
         private readonly DescriptorBuffer[][] DescriptorBuffers = new DescriptorBuffer[SwapChain.MAX_CONCURRENT_FRAMES][];
@@ -86,12 +85,13 @@ namespace VECS
                     workingBindingIndex++;
                 }
 
+                DescriptorSetLayouts[i] = GPUPipelineUtil.CreateDescriptorSetLayout(workingBindings, VkDescriptorSetLayoutCreateFlags.DescriptorBufferEXT);
+
+                
                 for (int j = 0; j < SwapChain.MAX_CONCURRENT_FRAMES; j++)
                 {
-                    DescriptorBuffers[j][i] = new(workingBindings, workingBindings.Length, 1, buffers, images);
+                    DescriptorBuffers[j][i] = new(DescriptorSetLayouts[i] , workingBindings.Length, 1, buffers, images);
                 }
-
-                DescriptorSetLayouts[i] = GPUPipelineUtil.CreateDescriptorSetLayout(workingBindings, VkDescriptorSetLayoutCreateFlags.DescriptorBufferEXT);
             }
         }
 
