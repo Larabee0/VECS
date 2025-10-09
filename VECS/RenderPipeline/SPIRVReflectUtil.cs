@@ -307,7 +307,7 @@ namespace VECS
             for (uint i = 0; i < memberCount; i++)
             {
                 var member = members[i];
-                var propertyAbsName = properties[^1].AbsName;
+                var propertyAbsName = properties.Count > 0 ? properties[^1].AbsName : "";
                 var type_desc = *member.type_description;
                 switch (type_desc.op)
                 {
