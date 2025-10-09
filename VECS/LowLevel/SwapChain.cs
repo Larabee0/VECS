@@ -157,7 +157,7 @@ namespace VECS.LowLevel
             var result = GraphicsDevice.DeviceAPI.vkAcquireNextImageKHR(
                 GraphicsDevice.Device,
                 _swapChain,
-                ulong.MaxValue,
+                ulong.MaxValue - ushort.MaxValue,
                 _acquiredImageReadySemaphores[_currentFrame],
                 VkFence.Null,
                 out _currentImage

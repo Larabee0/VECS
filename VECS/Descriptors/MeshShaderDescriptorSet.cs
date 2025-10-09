@@ -150,8 +150,8 @@ namespace VECS
                 {
                     bufferIndex += info.BufferIndex;
                 }
-
-                buffer.WriteDescriptor(new(_bufferAddress[bufferIndex], VkDescriptorType.StorageBuffer, 0, info.BindingPoint));
+                DescriptorBufferWriteInfo writeInfo = new(_bufferAddress[bufferIndex], VkDescriptorType.StorageBuffer, 0, info.BindingPoint);
+                buffer.WriteDescriptor(ref writeInfo);
             }
 
             shaderDescriptorBuffer.SetsDirty[frameIndex] = false;

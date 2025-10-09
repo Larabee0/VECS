@@ -79,29 +79,32 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe void SetBufferBinding(VkDescriptorAddressInfoEXT addressInfo, VkDescriptorType type, uint set, uint binding)
         {
-            WriteDescriptor(new(addressInfo, type, set, binding));
+            DescriptorBufferWriteInfo info = new(addressInfo, type, set, binding);
+            WriteDescriptor(ref info);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe void SetImageInfoBinding(VkDescriptorImageInfo imageInfo, VkDescriptorType type, uint set, uint binding)
         {
-            WriteDescriptor(new(imageInfo, type, set, binding));
+            DescriptorBufferWriteInfo info = new(imageInfo, type, set, binding);
+            WriteDescriptor(ref info);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe void SetSamplerBinding(VkSampler sampler, uint set, uint binding)
         {
-            WriteDescriptor(new(sampler,set,binding));
+            DescriptorBufferWriteInfo info = new(sampler, set, binding);
+            WriteDescriptor(ref info);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe void WriteDescriptor(DescriptorBufferWriteInfo writeInfo)
+        public unsafe void WriteDescriptor(ref DescriptorBufferWriteInfo writeInfo)
         {
-            WriteDescriptor(writeInfo.DescriptorGetInfo, writeInfo.DataSize, writeInfo.Set, writeInfo.Binding);
+            WriteDescriptor(ref writeInfo.DescriptorGetInfo, writeInfo.DataSize, writeInfo.Set, writeInfo.Binding);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe void WriteDescriptor(VkDescriptorGetInfoEXT descriptorGetInfo, ulong dataSize, uint setIndex, uint bindingIndex)
+        public unsafe void WriteDescriptor(ref VkDescriptorGetInfoEXT descriptorGetInfo, ulong dataSize, uint setIndex, uint bindingIndex)
         {
             // aign for set index;
             // then aign for binding index
@@ -109,8 +112,8 @@ namespace VECS
             int addressOffset = (int)((setIndex * _alignedLayoutSize) + _bindingOffsets[bindingIndex]);
             ptr = IntPtr.Add(ptr, addressOffset);
             //Span<(ulong, ulong)> values = new Span<(ulong, ulong)>(_descriptorBuffer.HostPtr, (int)_descriptorBuffer.VkBufferSize / 16);
-
-            GraphicsDevice.DeviceAPI.vkGetDescriptorEXT(GraphicsDevice.Device, &descriptorGetInfo, dataSize, ptr.ToPointer());
+            var localInfo = descriptorGetInfo;
+            GraphicsDevice.DeviceAPI.vkGetDescriptorEXT(GraphicsDevice.Device, &localInfo, dataSize, ptr.ToPointer());
 
         }
 
@@ -179,6 +182,7 @@ namespace VECS
     public struct DescriptorBufferWriteInfo
     {
         public VkDescriptorGetInfoEXT DescriptorGetInfo;
+        public VkDescriptorAddressInfoEXT AddressInfoEXT;
         public ulong DataSize;
         public uint Set;
         public uint Binding;
@@ -233,6 +237,7 @@ namespace VECS
         public unsafe DescriptorBufferWriteInfo(VkDescriptorAddressInfoEXT addressInfo, VkDescriptorType type, uint set, uint binding)
         {
             Set = set;
+            AddressInfoEXT = addressInfo;
             Binding = binding;
             DescriptorGetInfo = new()
             {
@@ -251,6 +256,7 @@ namespace VECS
                     break;
                 case VkDescriptorType.UniformBuffer:
                     DescriptorGetInfo.data.pUniformBuffer = &addressInfo;
+                    DescriptorGetInfo.data.pUniformBuffer->sType = VkStructureType.DescriptorAddressInfoEXT;
                     DataSize = GraphicsDevice.PropertiesDescriptorBuffer.uniformBufferDescriptorSize;
                     break;
                 case VkDescriptorType.StorageBuffer:

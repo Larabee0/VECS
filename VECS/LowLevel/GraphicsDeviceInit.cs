@@ -26,8 +26,7 @@ namespace VECS.LowLevel
 
             Vulkan.VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME,
             Vulkan.VK_EXT_NESTED_COMMAND_BUFFER_EXTENSION_NAME,
-            Vulkan.VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME,
-            //Vulkan.VK_EXT_DEVICE_FAULT_EXTENSION_NAME,
+            Vulkan.VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME
         ];
 
         private const bool ForceMeshShadingOff = false;
@@ -388,7 +387,7 @@ namespace VECS.LowLevel
 
             VkPhysicalDeviceVulkan14Features deviceFeatures14 = new()
             {
-                hostImageCopy = true,
+                hostImageCopy = false,
                 pNext = & deviceFeatures13
             };
 
