@@ -13,7 +13,7 @@ namespace VECS.ComputeShaders
 
         private readonly int _descriptorSetCount = 0;
 
-        private readonly ConcurrentDictionary<int, PropertyInfo> _cachedShaderProperties = new();
+        private readonly ConcurrentDictionary<int, ShaderPropertyInfo> _cachedShaderProperties = new();
 
         private readonly DescriptorSetInfo[] _descriptorSetInfos;
         private readonly VkDescriptorSetLayout[] _descriptorSetLayouts;
@@ -59,17 +59,17 @@ namespace VECS.ComputeShaders
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool LookUpProperty(string property, out PropertyInfo propertyInfo)
+        public bool LookUpProperty(string property, out ShaderPropertyInfo propertyInfo)
         {
             return LookUpProperty(property.GetHashCode(), out propertyInfo);
         }
 
-        public bool LookUpProperty(int propertyId, out PropertyInfo propertyInfo)
+        public bool LookUpProperty(int propertyId, out ShaderPropertyInfo propertyInfo)
         {
             if (_cachedShaderProperties.TryGetValue(propertyId, out propertyInfo))
             {
 #if DEBUG
-                if (propertyInfo == PropertyInfo.Invalid)
+                if (propertyInfo == ShaderPropertyInfo.Invalid)
                 {
                     Console.WriteLine("Invalid property {0}", propertyId);
                 }
@@ -102,7 +102,7 @@ namespace VECS.ComputeShaders
 #if DEBUG
             Console.WriteLine("Caching Invalid property {0}", propertyId);
 #endif
-            propertyInfo = PropertyInfo.Invalid;
+            propertyInfo = ShaderPropertyInfo.Invalid;
             _cachedShaderProperties.TryAdd(propertyId, propertyInfo);
             return false;
         }

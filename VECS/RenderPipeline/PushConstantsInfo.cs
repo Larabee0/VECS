@@ -21,7 +21,7 @@ namespace VECS
         public PushConstantsInfo(SpvReflectBlockVariable pushConstantBlock, VkShaderStageFlags shaderStages)
         {
             ShaderStages = shaderStages;
-            Variables = [.. SPIRVReflectUtil.GetBlockMembers(pushConstantBlock)];
+            Variables = [.. SPIRVReflectUtil.GetBlockMembers("",pushConstantBlock)];
             Offset = pushConstantBlock.offset;
             Size = pushConstantBlock.size;
             VkPushConstantRange = new()

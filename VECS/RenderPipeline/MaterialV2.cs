@@ -24,7 +24,7 @@ namespace VECS
         private readonly int _descriptorSetCount = 0;
         private readonly int _meshShaderDescriptorSetIndex = -1;
 
-        private readonly ConcurrentDictionary<int, PropertyInfo> _cachedShaderProperties = new();
+        private readonly ConcurrentDictionary<int, ShaderPropertyInfo> _cachedShaderProperties = new();
 
         private readonly PushConstantsHandler _materialPushConstantsHandler;
         private readonly DescriptorSetInfo[] _descriptorSetInfos;
@@ -106,17 +106,17 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool LookUpProperty(string property, out PropertyInfo propertyInfo)
+        public bool LookUpProperty(string property, out ShaderPropertyInfo propertyInfo)
         {
             return LookUpProperty(property.GetHashCode(), out propertyInfo);
         }
 
-        public bool LookUpProperty(int propertyId, out PropertyInfo propertyInfo)
+        public bool LookUpProperty(int propertyId, out ShaderPropertyInfo propertyInfo)
         {
             if (_cachedShaderProperties.TryGetValue(propertyId, out propertyInfo))
             {
 #if DEBUG
-                if (propertyInfo == PropertyInfo.Invalid)
+                if (propertyInfo == ShaderPropertyInfo.Invalid)
                 {
                     Console.WriteLine("Invalid property {0}", propertyId);
                 }
@@ -143,7 +143,7 @@ namespace VECS
 #if DEBUG
             Console.WriteLine("Caching Invalid property {0}", propertyId);
 #endif
-            propertyInfo = PropertyInfo.Invalid;
+            propertyInfo = ShaderPropertyInfo.Invalid;
             _cachedShaderProperties.TryAdd(propertyId, propertyInfo);
             return false;
         }
@@ -361,9 +361,9 @@ namespace VECS
         
     }
 
-    public struct PropertyInfo
+    public struct ShaderPropertyInfo
     {
-        public static readonly PropertyInfo Invalid = new()
+        public static readonly ShaderPropertyInfo Invalid = new()
         {
             SetIndex = uint.MaxValue,
             BindPoint = uint.MaxValue,
@@ -374,19 +374,19 @@ namespace VECS
         public uint BindPoint;
         public DescriptorPropertyInfo Property;
 
-        public static bool operator ==(PropertyInfo a, PropertyInfo b)
+        public static bool operator ==(ShaderPropertyInfo a, ShaderPropertyInfo b)
         {
             return a.SetIndex == b.SetIndex && a.BindPoint == b.BindPoint && a.Property == b.Property;
         }
 
-        public static bool operator !=(PropertyInfo a, PropertyInfo b)
+        public static bool operator !=(ShaderPropertyInfo a, ShaderPropertyInfo b)
         {
             return !(a == b);
         }
 
         public readonly override bool Equals(object obj)
         {
-            if(obj is PropertyInfo propertyInfo)
+            if(obj is ShaderPropertyInfo propertyInfo)
             {
                 return this == propertyInfo;
             }
