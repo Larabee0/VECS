@@ -16,6 +16,8 @@ namespace VECS
 
         private readonly VkDescriptorSetLayout _setLayout;
 
+        public uint AlignedSize => _alignedLayoutSize;
+
         public VkDescriptorSetLayout Layout => _setLayout;
 
         public unsafe VkDescriptorBufferBindingInfoEXT BindingInfo => new()
@@ -122,6 +124,13 @@ namespace VECS
             _descriptorBuffer.WriteFromHostBuffer();
         }
 
+        public static unsafe void Bind(VkCommandBuffer cmd, DescriptorBuffer buffer)
+        {
+            buffer.Flush();
+            VkDescriptorBufferBindingInfoEXT bindingInfo = buffer.BindingInfo;
+            BindSets(cmd, 1, &bindingInfo);
+        }
+
         public static unsafe void BindSets(VkCommandBuffer cmd, DescriptorBuffer[] buffers)
         {
             VkDescriptorBufferBindingInfoEXT* bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[buffers.Length];
@@ -132,14 +141,12 @@ namespace VECS
                 bindingInfo[i] = buffers[i].BindingInfo;
             }
 
-            GraphicsDevice.DeviceAPI.vkCmdBindDescriptorBuffersEXT(cmd, (uint)buffers.Length, bindingInfo);
+            BindSets(cmd, (uint)buffers.Length, bindingInfo);
         }
 
-        public static unsafe void Bind(VkCommandBuffer cmd, DescriptorBuffer buffer)
+        public static unsafe void BindSets(VkCommandBuffer cmd,uint bufferCount, VkDescriptorBufferBindingInfoEXT* bindingInfo)
         {
-            buffer.Flush();
-            VkDescriptorBufferBindingInfoEXT bindingInfo = buffer.BindingInfo;
-            GraphicsDevice.DeviceAPI.vkCmdBindDescriptorBuffersEXT(cmd, 1, &bindingInfo);
+            GraphicsDevice.DeviceAPI.vkCmdBindDescriptorBuffersEXT(cmd, bufferCount, bindingInfo);
         }
 
         public static unsafe void SetOffsets(VkCommandBuffer cmd, VkPipelineLayout layout, VkPipelineBindPoint bindPoint, uint firstSet, DescriptorBuffer[] buffer)
@@ -154,6 +161,11 @@ namespace VECS
                 indices[i] = i;
             }
 
+            GraphicsDevice.DeviceAPI.vkCmdSetDescriptorBufferOffsetsEXT(cmd, bindPoint, layout, firstSet, setCount, indices, offsets);
+        }
+
+        public static unsafe void SetOffsets(VkCommandBuffer cmd, VkPipelineLayout layout, VkPipelineBindPoint bindPoint, uint firstSet, uint setCount, ulong* offsets, uint* indices)
+        {
             GraphicsDevice.DeviceAPI.vkCmdSetDescriptorBufferOffsetsEXT(cmd, bindPoint, layout, firstSet, setCount, indices, offsets);
         }
 

@@ -312,6 +312,14 @@ namespace VECS
             return pipelineLayout;
         }
 
+        public static unsafe VkPipeline CreateComputePipeline(ShaderModule computeShader,VkComputePipelineCreateInfo createInfo)
+        {
+            string cacheName = computeShader.AssetName;
+            var cache = AssetDataBase<PipelineCache>.GetNamed(cacheName);
+            GraphicsDevice.DeviceAPI.vkCreateComputePipeline(GraphicsDevice.Device, cache.Cache, createInfo, out var _pipline).CheckResult("Failed to create Compute Pipeline");
+            return _pipline;
+        }
+
         public static unsafe VkPipeline CreateGraphicsPipeline(ShaderModule mesh, ShaderModule task, ShaderModule fragment, GraphicsPipelineConfigInfo configInfo, VkPipelineCreateFlags flags = VkPipelineCreateFlags.None)
         {
             if (!GraphicsDevice.MeshShading)

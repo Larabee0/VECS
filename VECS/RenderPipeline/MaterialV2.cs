@@ -134,6 +134,7 @@ namespace VECS
                     var property = descriptorBinding.GetProperty(propertyId);
                     if(property != null)
                     {
+                        propertyInfo = new(descriptorBinding, property);
                         _cachedShaderProperties.TryAdd(propertyId, propertyInfo);
                         return true;
                     }
@@ -367,16 +368,26 @@ namespace VECS
         {
             SetIndex = uint.MaxValue,
             BindPoint = uint.MaxValue,
+            BindingInfo = null,
             Property = null
         };
 
         public uint SetIndex;
         public uint BindPoint;
+        public DescriptorBinding BindingInfo;
         public DescriptorPropertyInfo Property;
+
+        public ShaderPropertyInfo(DescriptorBinding bindingInfo, DescriptorPropertyInfo propertyInfo)
+        {
+            BindingInfo = bindingInfo;
+            Property = propertyInfo;
+            SetIndex = bindingInfo.DescriptorSetIndex;
+            BindPoint = bindingInfo.BindPoint;
+        }
 
         public static bool operator ==(ShaderPropertyInfo a, ShaderPropertyInfo b)
         {
-            return a.SetIndex == b.SetIndex && a.BindPoint == b.BindPoint && a.Property == b.Property;
+            return a.SetIndex == b.SetIndex && a.BindPoint == b.BindPoint && a.BindingInfo == b.BindingInfo && a.Property == b.Property;
         }
 
         public static bool operator !=(ShaderPropertyInfo a, ShaderPropertyInfo b)
@@ -395,7 +406,7 @@ namespace VECS
 
         public readonly override int GetHashCode()
         {
-            return HashCode.Combine(SetIndex, BindPoint, Property.GetHashCode());
+            return HashCode.Combine(SetIndex, BindPoint, BindingInfo.GetHashCode(), Property.GetHashCode());
         }
     }
 }

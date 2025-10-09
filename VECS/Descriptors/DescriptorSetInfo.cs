@@ -77,6 +77,7 @@ namespace VECS
             {
                 _descriptorSetBuffers = new SwapChainBuffer[_bufferCount];
                 _descriptorSetBufferIsStorage = new bool[_bufferCount];
+                _hasOwnerShipOfBuffer = new bool[_bufferCount];
                 _bindingPointToBufferIndex = new Dictionary<uint, int>((int)_bufferCount);
                 CreateBindingBuffers(bindings);
             }
@@ -180,7 +181,30 @@ namespace VECS
         {
             for (int i = 0; i < _bufferCount; i++)
             {
-                _descriptorSetBuffers[i].WriteFromHostToBuffer(frameIndex);
+                if (_hasOwnerShipOfBuffer[i])
+                {
+                    _descriptorSetBuffers[i].WriteFromHostToBuffer(frameIndex);
+                }
+            }
+        }
+
+        public void WriteUniforms(int frameIndex, uint setVariant)
+        {
+            var descriptorBuffer = _descriptorBuffers[frameIndex];
+            for (int i = 0; i < _bindingCount; i++)
+            {
+
+                var binding = _descriptorBindings[i];
+                var bindPoint = binding.BindPoint;
+                if (binding.UniformBuffer)
+                {
+                    var bufferIndex = _bindingPointToBufferIndex[bindPoint];
+                    var buffers = _descriptorSetBuffers[bufferIndex];
+                    buffers.WriteFromHostToBuffer(frameIndex);
+                    var buffer = buffers[frameIndex];
+                    
+                    descriptorBuffer.SetBufferBinding(buffer.GetBufferAddressRange(setVariant,1), binding.DescriptorType, setVariant, bindPoint);
+                }
             }
         }
 

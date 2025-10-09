@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Numerics;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using VECS.ECS;
 using VECS.ECS.Presentation;
 using VECS.LowLevel;
@@ -29,6 +30,7 @@ namespace VECS
         private readonly ShadowImage _shadowCubeMap;
         private readonly Bloom _bloom;
         private  ulong _frameCount;
+        private uint _computeShaderDispatchesLastFrame = 0;
 
         public ulong FrameCount => _frameCount;
 
@@ -313,7 +315,7 @@ namespace VECS
 
                 _swapChain.WaitForNextFrame(SwapChain.NextFrame);
                 //Console.WriteLine("Next frame signal");
-
+                _computeShaderDispatchesLastFrame = Interlocked.Exchange(ref ComputeNormalsV2._variant, 0);
 
 
                 _isFrameStarted = false;

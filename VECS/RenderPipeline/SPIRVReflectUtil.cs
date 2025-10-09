@@ -303,11 +303,11 @@ namespace VECS
                     throw new NotImplementedException("Bool type not implemented for descriptor sets");
                 }
             }
-
+            bindingParentName += ".";
             for (uint i = 0; i < memberCount; i++)
             {
                 var member = members[i];
-                var propertyAbsName = properties.Count > 0 ? properties[^1].AbsName : "";
+                var propertyAbsName = bindingParentName;
                 var type_desc = *member.type_description;
                 switch (type_desc.op)
                 {

@@ -68,7 +68,7 @@ namespace VECS
             {
                 binding = descriptorBinding.binding,
                 descriptorCount = descriptorBinding.count,
-                descriptorType = (VkDescriptorType)descriptorBinding.descriptor_type,
+                descriptorType = DescriptorType=(VkDescriptorType)descriptorBinding.descriptor_type,
                 stageFlags = shaderStageFlags
             };
 

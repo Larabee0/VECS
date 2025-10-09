@@ -79,8 +79,10 @@ namespace VECS
 
         private static void LoadModels()
         {
-            Console.WriteLine(MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("cube-UV.obj"), [])[0].AssetName);
-            
+            var res = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("cube-UV.obj"), []);
+
+            ComputeNormalsV2.DispatchSingleTimeCmd(res[0].DirectMeshBuffer);
+            res[0].DirectMeshBuffer.ReadAllBuffers();
         }
     }
 }

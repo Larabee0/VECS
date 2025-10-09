@@ -12,6 +12,7 @@ namespace VECS
         public readonly static int Width = 1280;
         public readonly static int Height = 720;
 
+        public static Application Instance { get; private set; }
         private static bool running = true;
 
         private readonly SDL3Window _appWindow;
@@ -30,6 +31,7 @@ namespace VECS
 
         public Application()
         {
+            Instance = this;
             Bootstrap.subAssemblyLoadPoints.ForEach(loadPoint => loadPoint.PreApplicationConstruction());
             _appWindow = new(Width, Height, "VECS");
             GraphicsDevice.Initialise(_appWindow);
@@ -170,7 +172,6 @@ namespace VECS
 
         public static void ParallelFor(int count, Action<int> action)
         {
-
             int bepuCounter = -1;
             ThreadDispatcher.DispatchWorkers((workIndex) =>
             {
@@ -184,7 +185,6 @@ namespace VECS
         
         public static void ParallelFor(int count, Action<int,int> action)
         {
-
             int bepuCounter = -1;
             ThreadDispatcher.DispatchWorkers((workIndex) =>
             {

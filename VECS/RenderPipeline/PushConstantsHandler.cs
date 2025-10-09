@@ -27,6 +27,7 @@ namespace VECS
             {
                 _pushConstantsCount = PrimaryPushConstants.Length;
             }
+            EnsureCapacity(MaterialV2.MAX_VARIANTS);
         }
 
         public void EnsureCapacity(int count)
@@ -50,6 +51,10 @@ namespace VECS
         }
 
         public PushConstantsInfo[] GetSecondary(int id)
+        {
+            return _pushConstants[id];
+        }
+        public PushConstantsInfo[] GetSecondary(uint id)
         {
             return _pushConstants[id];
         }
@@ -266,6 +271,15 @@ namespace VECS
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void BindPushConstants(this PushConstantsHandler handler, VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, int id)
+        {
+            for (int i = 0; i < handler.Count; i++)
+            {
+                handler.GetSecondary(id)[i].PushConstants(commandBuffer, pipelineLayout);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void BindPushConstants(this PushConstantsHandler handler, VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, uint id)
         {
             for (int i = 0; i < handler.Count; i++)
             {

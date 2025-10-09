@@ -1,14 +1,15 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Numerics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
-namespace VECS.ComputeShaders
+namespace VECS
 {
     internal class ComputeShaderV2 : DisposableAsset
     {
-        private readonly PipelineCache _cache;
         private readonly PushConstantsHandler _pushConstantsHandler;
 
         private readonly int _descriptorSetCount = 0;
@@ -46,16 +47,23 @@ namespace VECS.ComputeShaders
             VkComputePipelineCreateInfo computePipelineInfo = new()
             {
                 layout = _pipelineLayout,
-                stage = shaderModule.ShaderStageCreateInfo
+                stage = shaderModule.ShaderStageCreateInfo,
+                flags = VkPipelineCreateFlags.DescriptorBufferEXT
             };
 
-            GraphicsDevice.DeviceAPI.vkCreateComputePipeline(GraphicsDevice.Device, _cache.Cache, computePipelineInfo, out _pipline);
+            _pipline = GPUPipelineUtil.CreateComputePipeline(shaderModule, computePipelineInfo);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public DescriptorBinding[] GetDescriptorBindings(uint setIndex)
         {
             return _descriptorSetInfos[setIndex].DescriptorBindings;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public SwapChainBuffer GetBuffer(uint set, uint bindingPoint)
+        {
+            return _descriptorSetInfos[set].GetBuffer(bindingPoint);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -77,22 +85,22 @@ namespace VECS.ComputeShaders
                 return true;
             }
 
-            uint setIndex = 0;
-            for (; setIndex < _descriptorSetCount; setIndex++)
+            for (uint setIndex = 0; setIndex < _descriptorSetCount; setIndex++)
             {
                 var bindings = GetDescriptorBindings(setIndex);
                 for (int bindingIndex = 0; bindingIndex < bindings.Length; bindingIndex++)
                 {
                     var descriptorBinding = bindings[bindingIndex];
+                    if(descriptorBinding.Id == propertyId)
+                    {
+                        propertyInfo = new(descriptorBinding, null);
+                        _cachedShaderProperties.TryAdd(propertyId, propertyInfo);
+                        return true;
+                    }
                     var property = descriptorBinding.GetProperty(propertyId);
                     if (property != null)
                     {
-                        propertyInfo = new()
-                        {
-                            SetIndex = setIndex,
-                            BindPoint = descriptorBinding.BindPoint,
-                            Property = property
-                        };
+                        propertyInfo = new(descriptorBinding, property);
                         _cachedShaderProperties.TryAdd(propertyId, propertyInfo);
                         return true;
                     }
@@ -109,7 +117,7 @@ namespace VECS.ComputeShaders
 
         public void SetStorageBuffer(string property, uint variant, SwapChainBuffer buffer)
         {
-            if(LookUpProperty(property,out var propertyInfo))
+            if(LookUpProperty(property,out var propertyInfo) && propertyInfo.BindingInfo.StorageBuffer)
             {
                 var setInfo = _descriptorSetInfos[propertyInfo.SetIndex];
                 setInfo.WriteDescriptors(Presenter.Instance.FrameIndex,propertyInfo.BindPoint, variant, buffer[Presenter.Instance.FrameIndex]);
@@ -118,11 +126,131 @@ namespace VECS.ComputeShaders
 
         public void SetStorageBuffer(string property, uint variant, GPUBuffer buffer)
         {
-            if (LookUpProperty(property, out var propertyInfo))
+            if (LookUpProperty(property, out var propertyInfo) && propertyInfo.BindingInfo.StorageBuffer)
             {
                 var setInfo = _descriptorSetInfos[propertyInfo.SetIndex];
                 setInfo.WriteDescriptors(Presenter.Instance.FrameIndex, propertyInfo.BindPoint, variant, buffer);
             }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetInt(string property, uint variant, int value)
+        {
+            WriteToBuffer(property, variant, value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetUInt(string property, uint variant, uint value)
+        {
+            WriteToBuffer(property, variant, value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetFloat(string property, uint variant, float value)
+        {
+            WriteToBuffer(property, variant, value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetVector2(string property, uint variant, Vector2 value)
+        {
+            WriteToBuffer(property, variant, value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetVector4(string property, uint variant, Vector4 value)
+        {
+            WriteToBuffer(property, variant, value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetMatrix3x2( string property, uint variant, Matrix3x2 value)
+        {
+            WriteToBuffer(property, variant, value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetMatrix4x4(string property, uint variant, Matrix4x4 value)
+        {
+            WriteToBuffer(property, variant, value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetUniform<T>(string property, uint variant, T value) where T : unmanaged
+        {
+            WriteToBuffer(property, variant, value);
+        }
+
+        public void WriteToBuffer<T>(string property, uint variant, T value) where T : unmanaged
+        {
+            if(LookUpProperty(property,out var propertyInfo))
+            {
+                WriteToBuffer(propertyInfo.SetIndex, propertyInfo.BindPoint, variant, propertyInfo.Property, value);
+            }
+        }
+
+        public unsafe void WriteToBuffer<T>(uint setIndex, uint bindingPoint, uint variant, DescriptorPropertyInfo propertyInfo, T element) where T : unmanaged
+        {
+            if (sizeof(T) > propertyInfo.Size)
+            {
+                throw new InvalidOperationException("Cannot write property with mismatched size");
+            }
+
+            var buffer = GetBuffer(setIndex, bindingPoint);
+
+            uint offset = propertyInfo.Offset + (buffer.UInstanceSize32 * variant);
+
+            var hostPtr = (IntPtr)buffer.HostPtr;
+
+            hostPtr = IntPtr.Add(hostPtr, (int)offset);
+
+            NativeMemory.Copy(&element, (void*)hostPtr, propertyInfo.Size);
+        }
+
+        public unsafe void WriteArrayToBuffer<T>(uint setIndex, uint bindingPoint, uint variant, DescriptorPropertyInfo propertyInfo, T[] array) where T : unmanaged
+        {
+            if (sizeof(T) * array.Length > propertyInfo.Size)
+            {
+                throw new InvalidOperationException("Cannot write property with mismatched size");
+            }
+
+            var buffer = GetBuffer(setIndex, bindingPoint);
+
+            uint offset = propertyInfo.Offset + (buffer.UInstanceSize32 * variant);
+            var hostPtr = (IntPtr)buffer.HostPtr;
+
+            hostPtr = IntPtr.Add(hostPtr, (int)offset);
+            fixed (T* arrayPtr = array)
+            {
+                NativeMemory.Copy(arrayPtr, (void*)hostPtr, propertyInfo.Size);
+            }
+        }
+
+        public unsafe void Dispatch(VkCommandBuffer commandBuffer, int frameIndex, uint setId, uint workGroupCountX, uint workGroupCountY = 1, uint workGroupCountZ = 1)
+        {
+
+            VkDescriptorBufferBindingInfoEXT* bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[_descriptorSetCount];
+            ulong* offsets = stackalloc ulong[_descriptorSetCount];
+            uint* indices = stackalloc uint[_descriptorSetCount];
+
+
+            for (uint i = 0; i < _descriptorSetCount; i++)
+            {
+                _descriptorSetInfos[i].WriteUniforms(frameIndex,setId);
+                var buffer = _descriptorSetInfos[i].DescriptorBuffers[frameIndex];
+                buffer.Flush();
+                bindingInfo[i] = buffer.BindingInfo;
+                offsets[i] = buffer.AlignedSize * setId;
+                indices[i] = i;
+            }
+
+
+            GraphicsDevice.DeviceAPI.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Compute, _pipline);
+            DescriptorBuffer.BindSets(commandBuffer, (uint)_descriptorSetCount, bindingInfo);
+            DescriptorBuffer.SetOffsets(commandBuffer, _pipelineLayout, VkPipelineBindPoint.Compute, 0, (uint)_descriptorSetCount, offsets, indices);
+
+            _pushConstantsHandler.BindPushConstants(commandBuffer, _pipelineLayout, setId);
+            GraphicsDevice.DeviceAPI.vkCmdDispatch(commandBuffer, workGroupCountX, workGroupCountY, workGroupCountZ);
         }
 
         public override unsafe void Dispose()
@@ -135,7 +263,6 @@ namespace VECS.ComputeShaders
 
             _disposed = true;
 
-
             GraphicsDevice.DeviceAPI.vkDestroyPipeline(GraphicsDevice.Device, _pipline);
 
             for (int i = 0; i < _descriptorSetCount; i++)
@@ -145,5 +272,25 @@ namespace VECS.ComputeShaders
             }
         }
 
+        public static ComputeShaderV2 GetOrCreate(string shaderName)
+        {
+            var shader = AssetDataBase<ComputeShaderV2>.GetNamedSilentFail(shaderName);
+
+            if (shader == null)
+            {
+                shader = new ComputeShaderV2(shaderName, shaderName);
+                AssetDataBase<ComputeShaderV2>.Add(shader);
+            }
+
+            return shader;
+        }
+
+        public static Vector2UInt CompensateForWorkGroupLimits(uint totalInvocations)
+        {
+            var workGroupY = (uint)(int)MathF.Ceiling((float)totalInvocations / (float)GraphicsDevice.MaxWorkGroupX);
+            var workGroupX = (uint)Math.Min(totalInvocations, GraphicsDevice.MaxWorkGroupX);
+
+            return new(workGroupX,workGroupY);
+        }
     }
 }
