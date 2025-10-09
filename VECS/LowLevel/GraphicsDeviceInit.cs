@@ -333,16 +333,10 @@ namespace VECS.LowLevel
                 pNext = &presentIdFeatures
             };
 
-            VkPhysicalDeviceFaultFeaturesEXT deviceFaultFeatures = new()
-            {
-                deviceFault = false,
-                pNext = &presentWaitFeatures
-            };
-
             VkPhysicalDeviceDescriptorBufferFeaturesEXT descriptorBuffers = new()
             {
                 descriptorBuffer = true,
-                pNext = &deviceFaultFeatures
+                pNext = &presentWaitFeatures
             };
 
 
