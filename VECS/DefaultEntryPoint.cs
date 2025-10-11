@@ -79,9 +79,16 @@ namespace VECS
 
         private static void LoadModels()
         {
+            var colorCube = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("colored_cube.obj"), []);
             var res = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("cube-UV.obj"), []);
+            var vase = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("flat_vase.obj"), []);
 
+            ComputeNormalsV2.DispatchSingleTimeCmd(colorCube[0].DirectMeshBuffer);
+            ComputeNormalsV2.DispatchSingleTimeCmd(vase[0].DirectMeshBuffer);
             ComputeNormalsV2.DispatchSingleTimeCmd(res[0].DirectMeshBuffer);
+
+            colorCube[0].DirectMeshBuffer.ReadAllBuffers();
+            vase[0].DirectMeshBuffer.ReadAllBuffers();
             res[0].DirectMeshBuffer.ReadAllBuffers();
         }
     }

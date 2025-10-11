@@ -191,21 +191,19 @@ namespace VECS
         public void WriteUniforms(int frameIndex, uint setVariant)
         {
             var descriptorBuffer = _descriptorBuffers[frameIndex];
+            if (descriptorBuffer.HasDataBound[setVariant]) return;
             for (int i = 0; i < _bindingCount; i++)
             {
-
                 var binding = _descriptorBindings[i];
                 var bindPoint = binding.BindPoint;
                 if (binding.UniformBuffer)
                 {
                     var bufferIndex = _bindingPointToBufferIndex[bindPoint];
-                    var buffers = _descriptorSetBuffers[bufferIndex];
-                    buffers.WriteFromHostToBuffer(frameIndex);
-                    var buffer = buffers[frameIndex];
-                    
+                    var buffer = _descriptorSetBuffers[bufferIndex][frameIndex];
                     descriptorBuffer.SetBufferBinding(buffer.GetBufferAddressRange(setVariant,1), binding.DescriptorType, setVariant, bindPoint);
                 }
             }
+            descriptorBuffer.HasDataBound[setVariant] = true;
         }
 
         public void WriteDescriptors(int frameIndex, uint setVariant, GPUBuffer[] bindingBuffers, Texture[] bindingTextures)

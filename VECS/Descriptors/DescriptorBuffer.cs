@@ -11,12 +11,16 @@ namespace VECS
         private readonly uint _alignedLayoutSize;
 
         private readonly uint[] _bindingOffsets;
+        private readonly bool[] _hasDataBound;
 
         private readonly GPUBuffer _descriptorBuffer;
 
         private readonly VkDescriptorSetLayout _setLayout;
 
+        public bool _writesPending = true;
+
         public uint AlignedSize => _alignedLayoutSize;
+        public bool[] HasDataBound => _hasDataBound;
 
         public VkDescriptorSetLayout Layout => _setLayout;
 
@@ -36,6 +40,7 @@ namespace VECS
             Debug.Assert(_alignedLayoutSize % 2 == 0, string.Format("Descriptor Buffer Aligned layout size ({0}) must divisible by 2!", _alignedLayoutSize));
 
             _bindingOffsets = new uint[bindingCount];
+            _hasDataBound = new bool[bindingCount];
 
             ulong offset = 0;
             for (int i = 0; i < bindingCount; i++)
@@ -108,20 +113,23 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe void WriteDescriptor(ref VkDescriptorGetInfoEXT descriptorGetInfo, ulong dataSize, uint setIndex, uint bindingIndex)
         {
-            // aign for set index;
-            // then aign for binding index
+            // align for set index;
+            // then align for binding index
             IntPtr ptr = new(_descriptorBuffer.HostPtr);
             int addressOffset = (int)((setIndex * _alignedLayoutSize) + _bindingOffsets[bindingIndex]);
             ptr = IntPtr.Add(ptr, addressOffset);
-            //Span<(ulong, ulong)> values = new Span<(ulong, ulong)>(_descriptorBuffer.HostPtr, (int)_descriptorBuffer.VkBufferSize / 16);
+
             var localInfo = descriptorGetInfo;
             GraphicsDevice.DeviceAPI.vkGetDescriptorEXT(GraphicsDevice.Device, &localInfo, dataSize, ptr.ToPointer());
 
+            _writesPending = true;
         }
 
-        public void Flush()
+        private void Flush()
         {
+            if (!_writesPending) return;
             _descriptorBuffer.WriteFromHostBuffer();
+            _writesPending = false;
         }
 
         public static unsafe void Bind(VkCommandBuffer cmd, DescriptorBuffer buffer)

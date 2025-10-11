@@ -45,6 +45,14 @@ namespace VECS
             _textures = new Texture[TotalSets][];
 
             SetupBindingResources(this);
+            for (int i = 0; i < TotalSets; i++)
+            {
+                var info = _material.DescriptorSetInfos[i];
+                for (int j = 0; j < SwapChain.MAX_CONCURRENT_FRAMES; j++)
+                {
+                    info.WriteUniforms(j, variantIndex);
+                }
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

@@ -237,13 +237,12 @@ namespace VECS
             for (uint i = 0; i < _descriptorSetCount; i++)
             {
                 _descriptorSetInfos[i].WriteUniforms(frameIndex,setId);
+                _descriptorSetInfos[i].WriteFromBuffers(frameIndex);
                 var buffer = _descriptorSetInfos[i].DescriptorBuffers[frameIndex];
-                buffer.Flush();
                 bindingInfo[i] = buffer.BindingInfo;
                 offsets[i] = buffer.AlignedSize * setId;
                 indices[i] = i;
             }
-
 
             GraphicsDevice.DeviceAPI.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Compute, _pipline);
             DescriptorBuffer.BindSets(commandBuffer, (uint)_descriptorSetCount, bindingInfo);
