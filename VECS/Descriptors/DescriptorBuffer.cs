@@ -40,7 +40,7 @@ namespace VECS
             Debug.Assert(_alignedLayoutSize % 2 == 0, string.Format("Descriptor Buffer Aligned layout size ({0}) must divisible by 2!", _alignedLayoutSize));
 
             _bindingOffsets = new uint[bindingCount];
-            _hasDataBound = new bool[bindingCount];
+            _hasDataBound = new bool[maxSets];
 
             ulong offset = 0;
             for (int i = 0; i < bindingCount; i++)
