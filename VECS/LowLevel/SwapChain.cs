@@ -152,16 +152,24 @@ namespace VECS.LowLevel
         }
         #endregion
 
-        public bool AcquireNextImage()
+        public unsafe bool AcquireNextImage()
         {
-            var result = GraphicsDevice.DeviceAPI.vkAcquireNextImageKHR(
-                GraphicsDevice.Device,
-                _swapChain,
-                ulong.MaxValue - ushort.MaxValue,
-                _acquiredImageReadySemaphores[_currentFrame],
-                VkFence.Null,
-                out _currentImage
-            );
+            VkAcquireNextImageInfoKHR acquireInfo = new()
+            {
+                swapchain = _swapChain,
+                timeout = ulong.MaxValue - ushort.MaxValue,
+                semaphore = _acquiredImageReadySemaphores[_currentFrame],
+                deviceMask = 0 | (1 << /* 1st subdevice index*/0)
+            };
+            var result = GraphicsDevice.DeviceAPI.vkAcquireNextImage2KHR(GraphicsDevice.Device, &acquireInfo, out _currentImage);
+            //GraphicsDevice.DeviceAPI.vkAcquireNextImageKHR(
+            //    GraphicsDevice.Device,
+            //    _swapChain,
+            //    ulong.MaxValue - ushort.MaxValue,
+            //    _acquiredImageReadySemaphores[_currentFrame],
+            //    VkFence.Null,
+            //    out _currentImage
+            //);
 
             if (result == VkResult.ErrorOutOfDateKHR)
             {
@@ -285,7 +293,6 @@ namespace VECS.LowLevel
         // should be called from graphics queue
         internal unsafe void TransferSwapChainImageToPresentQueue(VkCommandBuffer commandBuffer, int frameIndex, int imageIndex)
         {
-
             VkImageMemoryBarrier2 imageMemoryBarrier = new()
             {
                 srcStageMask = VkPipelineStageFlags2.ColorAttachmentOutput,

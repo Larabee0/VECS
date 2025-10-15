@@ -78,7 +78,7 @@ namespace VECS
                 descriptorBuffer = descriptor.DescriptorBuffers[frameInfo.FrameIndex];
             }
             DescriptorBuffer.Bind(frameInfo.CommandBuffer, descriptorBuffer);
-            DescriptorBuffer.SetOffset(frameInfo.CommandBuffer, _pipelineLayout, VkPipelineBindPoint.Graphics, (uint)_meshShaderDataBindingPoint, descriptorBuffer);
+            DescriptorBuffer.SetOffset(frameInfo.CommandBuffer, _pipelineLayout, VkPipelineBindPoint.Graphics, (uint)_meshShaderDataBindingPoint);
         }
 
         private unsafe void DrawSimple(RendererFrameInfo frameInfo, DirectSubMesh directSubMesh)

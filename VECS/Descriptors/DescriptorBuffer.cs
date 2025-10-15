@@ -177,7 +177,7 @@ namespace VECS
             GraphicsDevice.DeviceAPI.vkCmdSetDescriptorBufferOffsetsEXT(cmd, bindPoint, layout, firstSet, setCount, indices, offsets);
         }
 
-        public static unsafe void SetOffset(VkCommandBuffer cmd, VkPipelineLayout layout, VkPipelineBindPoint bindPoint, uint firstSet, DescriptorBuffer buffer)
+        public static unsafe void SetOffset(VkCommandBuffer cmd, VkPipelineLayout layout, VkPipelineBindPoint bindPoint, uint firstSet)
         {
             ulong offsets = 0;
             uint indices = 0;
@@ -276,7 +276,6 @@ namespace VECS
                     break;
                 case VkDescriptorType.UniformBuffer:
                     DescriptorGetInfo.data.pUniformBuffer = &addressInfo;
-                    DescriptorGetInfo.data.pUniformBuffer->sType = VkStructureType.DescriptorAddressInfoEXT;
                     DataSize = GraphicsDevice.PropertiesDescriptorBuffer.uniformBufferDescriptorSize;
                     break;
                 case VkDescriptorType.StorageBuffer:

@@ -9,6 +9,7 @@ namespace VECS
     /// <summary>
     /// Abstract way of creating a descriptor pool using a builder class <see cref="Builder"/>
     /// </summary>
+    [Obsolete("Use DescriptorBuffers")]
     public sealed class DescriptorPool : IDisposable
     {
         private readonly VkDescriptorPool _descriptorPool;

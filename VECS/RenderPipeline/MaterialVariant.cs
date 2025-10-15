@@ -9,10 +9,10 @@ namespace VECS
     internal class MaterialVariant : IDisposable
     {
         private readonly uint _variantIndex;
-        private readonly MaterialV2 _material;
+        private readonly DescriptorSetInfo[] _descriptorSetInfos;
 
-        private unsafe readonly VkDescriptorAddressInfoEXT*[] _pBindingBuffers ;
-        private unsafe readonly VkDescriptorImageInfo*[] _pBindingTextures ;
+        private unsafe readonly VkDescriptorAddressInfoEXT*[] _pBindingBuffers;
+        private unsafe readonly VkDescriptorImageInfo*[] _pBindingTextures;
 
         private readonly Texture[][] _textures;
 
@@ -24,15 +24,17 @@ namespace VECS
         private readonly bool _hasStorageBuffers = false;
         private uint _storageBufferOffset;
         private uint _storageBufferLength;
+        private readonly int descripotrSetCount;
+        public int TotalSets => descripotrSetCount;
 
-        public int TotalSets => _material.DescriptorSetCount;
-
+        public uint StorageBufferOffset => _storageBufferOffset;
         public uint StorageBufferLength => _storageBufferLength;
 
         public unsafe MaterialVariant(MaterialV2 material, uint variantIndex)
         {
             _variantIndex = variantIndex;
-            _material = material;
+            descripotrSetCount = material.DescriptorSetCount;
+            _descriptorSetInfos = material.DescriptorSetInfos;
 
             _pBindingBuffers = new VkDescriptorAddressInfoEXT*[SwapChain.MAX_CONCURRENT_FRAMES * TotalSets];
             _pBindingTextures = new VkDescriptorImageInfo*[SwapChain.MAX_CONCURRENT_FRAMES * TotalSets];
@@ -47,7 +49,7 @@ namespace VECS
             SetupBindingResources(this);
             for (int i = 0; i < TotalSets; i++)
             {
-                var info = _material.DescriptorSetInfos[i];
+                var info = material.DescriptorSetInfos[i];
                 for (int j = 0; j < SwapChain.MAX_CONCURRENT_FRAMES; j++)
                 {
                     info.WriteUniforms(j, variantIndex);
@@ -75,31 +77,31 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe VkDescriptorAddressInfoEXT* GetBindingBuffers(int frameIndex,int setIndex)
         {
-            return _pBindingBuffers[frameIndex * SwapChain.MAX_CONCURRENT_FRAMES + setIndex];
+            return _pBindingBuffers[frameIndex + setIndex * SwapChain.MAX_CONCURRENT_FRAMES];
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe VkDescriptorImageInfo* GetBindingTextures(int frameIndex, int setIndex)
         {
-            return _pBindingTextures[frameIndex * SwapChain.MAX_CONCURRENT_FRAMES + setIndex];
+            return _pBindingTextures[frameIndex  + setIndex * SwapChain.MAX_CONCURRENT_FRAMES];
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private unsafe void SetAddressInfo(VkDescriptorAddressInfoEXT addressInfo, int frameIndex, int setIndex, int bufferIndex)
         {
-            _pBindingBuffers[frameIndex * SwapChain.MAX_CONCURRENT_FRAMES + setIndex][bufferIndex] = addressInfo;
+            _pBindingBuffers[frameIndex  + setIndex * SwapChain.MAX_CONCURRENT_FRAMES][bufferIndex] = addressInfo;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private unsafe void SetImageInfo(int frameIndex, int setIndex, int bufferIndex)
         {
-            _pBindingTextures[frameIndex * SwapChain.MAX_CONCURRENT_FRAMES + setIndex][bufferIndex] = _textures[setIndex][bufferIndex].ImageInfo;
+            _pBindingTextures[frameIndex + setIndex * SwapChain.MAX_CONCURRENT_FRAMES][bufferIndex] = _textures[setIndex][bufferIndex].ImageInfo;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private unsafe void SetImageInfo(VkDescriptorImageInfo imageInfo,int frameIndex, int setIndex, int bufferIndex)
         {
-            _pBindingTextures[frameIndex * SwapChain.MAX_CONCURRENT_FRAMES + setIndex][bufferIndex] = imageInfo;
+            _pBindingTextures[frameIndex + setIndex * SwapChain.MAX_CONCURRENT_FRAMES][bufferIndex] = imageInfo;
         }
 
         public unsafe void Dispose()
@@ -120,16 +122,15 @@ namespace VECS
         
         private unsafe static void SetupBindingResources(MaterialVariant variant)
         {
-            var setInfos  = variant._material.DescriptorSetInfos;
             
             for (uint i = 0; i < variant.TotalSets; i++)
             {
-                var setInfo = setInfos[i];
+                var setInfo = variant._descriptorSetInfos[i];
                 if (setInfo.BufferCount > 0)
                 {
                     for (int f = 0; f < SwapChain.MAX_CONCURRENT_FRAMES; f++)
                     {
-                        variant._pBindingBuffers[f * SwapChain.MAX_CONCURRENT_FRAMES + i] = (VkDescriptorAddressInfoEXT*)NativeMemory.Alloc((uint)(sizeof(VkDescriptorAddressInfoEXT) * setInfo.BindingCount));
+                        variant._pBindingBuffers[f + i * SwapChain.MAX_CONCURRENT_FRAMES] = (VkDescriptorAddressInfoEXT*)NativeMemory.Alloc((uint)(sizeof(VkDescriptorAddressInfoEXT) * setInfo.BindingCount));
                     }
                     InitialiseBindingBuffer(variant, setInfo, i);
                 }
@@ -139,7 +140,7 @@ namespace VECS
 
                     for (int f = 0; f < SwapChain.MAX_CONCURRENT_FRAMES; f++)
                     {
-                        variant._pBindingTextures[f * SwapChain.MAX_CONCURRENT_FRAMES + i] = (VkDescriptorImageInfo*)NativeMemory.Alloc((uint)(sizeof(VkDescriptorImageInfo) * setInfo.BindingCount));
+                        variant._pBindingTextures[f + i * SwapChain.MAX_CONCURRENT_FRAMES] = (VkDescriptorImageInfo*)NativeMemory.Alloc((uint)(sizeof(VkDescriptorImageInfo) * setInfo.ImageCount));
                     }
 
                     for (int j = 0; j < setInfo.ImageCount; j++)
@@ -189,14 +190,13 @@ namespace VECS
             if (!variant._dirtyStorageBuffers[frameIndex]) return;
             var offset = variant._storageBufferOffset;
             var length = variant._storageBufferLength;
-            var setInfos = variant._material.DescriptorSetInfos;
             for (int setIndex = 0; setIndex < variant.TotalSets; setIndex++)
             {
-                if (setInfos[setIndex].BufferCount == 0)
+                if (variant._descriptorSetInfos[setIndex].BufferCount == 0)
                 {
                     continue;
                 }
-                var setInfo = setInfos[setIndex];
+                var setInfo = variant._descriptorSetInfos[setIndex];
                 var isStorageBuffer = setInfo.DescriptorSetBufferIsStorage;
                 for (int bufferIndex = 0; bufferIndex < setInfo.BufferCount; bufferIndex++)
                 {
@@ -217,14 +217,13 @@ namespace VECS
         {
             if (!variant._dirtyImageBindings[frameIndex]) return;
 
-            var setInfos = variant._material.DescriptorSetInfos;
             for (int i = 0; i < variant.TotalSets; i++)
             {
-                if (setInfos[i].ImageCount == 0)
+                if (variant._descriptorSetInfos[i].ImageCount == 0)
                 {
                     continue;
                 }
-                var setInfo = setInfos[i];
+                var setInfo = variant._descriptorSetInfos[i];
                 for (int j = 0; j < setInfo.ImageCount; j++)
                 {
                     variant.SetImageInfo(frameIndex, i, j);

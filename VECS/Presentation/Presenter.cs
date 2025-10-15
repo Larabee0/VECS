@@ -8,6 +8,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using VECS.ECS;
 using VECS.ECS.Presentation;
+using VECS.ECS.Transforms;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
@@ -222,6 +223,8 @@ namespace VECS
             };
 
             Camera camera = Camera.Identity;
+            CameraOrthographic orthCam = default;
+            bool orth = false;
             float clipNear = 0.01f;
             float clipFar = 1000;
             if (World.DefaultWorld != null)
@@ -242,9 +245,10 @@ namespace VECS
                     }
                     else if (entityManager.HasComponent<CameraOrthographic>(mainCamera, out signature))
                     {
-                        var orth = entityManager.GetComponent<CameraOrthographic>(signature);
-                        clipNear = orth.ClipNear;
-                        clipFar = orth.ClipFar;
+                        orthCam = entityManager.GetComponent<CameraOrthographic>(signature);
+                        clipNear = orthCam.ClipNear;
+                        clipFar = orthCam.ClipFar;
+                        orth = true;
                     }
                 }
             }
@@ -281,6 +285,49 @@ namespace VECS
             {
                 _ubo.WriteToSwapChainBuffer(swapChainBuffer);
             }
+
+            frameInfo.CameraInfo = new(camera);
+            frameInfo.CameraInverseInfo = new(camera);
+            frameInfo.AdditionalCameraInfo = new(camera.ProjectionMatrix,clipNear,clipFar,_swapChain.ExtentAspectRatio);
+            frameInfo.OrthographicInfo = new(orth, orthCam);
+
+            if (World.DefaultWorld != null)
+            {
+                var entityManager = World.DefaultWorld.EntityManager;
+                var dirLights = entityManager.GetAllEntitiesWithComponent<DirectionalLight>();
+                var pointLights = entityManager.GetAllEntitiesWithComponent<PointLight>();
+
+                if (dirLights!= null && dirLights.Count > 0)
+                {
+                    frameInfo.LightingInfo = new(entityManager.GetComponent<DirectionalLight>(dirLights[0]), pointLights.Count);
+                }
+                else
+                {
+                    frameInfo.LightingInfo = new(Vector4.Zero, Vector3.Zero, 0);
+                }
+
+                if (pointLights != null && pointLights.Count > 0)
+                {
+                    frameInfo.PointLights = new PointLightUniform[pointLights.Count];
+
+                    for (int i = 0; i < pointLights.Count; i++)
+                    {
+                        Vector3 position = entityManager.GetComponent<LocalToWorld>(pointLights[i]).Value.Translation;
+                        Vector4 colour = entityManager.GetComponent<PointLight>(pointLights[i]).Colour;
+                        frameInfo.PointLights[i] = new(position, colour);
+                    }
+                }
+                else
+                {
+                    frameInfo.PointLights = [];
+                }
+            }
+            else
+            {
+                frameInfo.LightingInfo = new(Vector4.Zero, Vector3.Zero, 0);
+                frameInfo.PointLights = [];
+            }
+
             return frameInfo;
         }
 

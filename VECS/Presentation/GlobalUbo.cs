@@ -11,7 +11,7 @@ namespace VECS
     /// </summary>
     public unsafe class GlobalUbo
     {
-        public unsafe static int SizeInBytes => sizeof(WriteableUBO) + (sizeof(PointLight) * Presenter.MAX_LIGHTS);
+        public unsafe static int SizeInBytes => sizeof(WriteableUBO) + (sizeof(PointLightUniform) * Presenter.MAX_LIGHTS);
 
         public Matrix4x4 Projection;
         public Matrix4x4 View;
@@ -19,11 +19,11 @@ namespace VECS
         public Vector4 AmbientLightColour;
         public int NumLights;
 
-        public  PointLight[] PointLights;
+        public  PointLightUniform[] PointLights;
 
         public GlobalUbo()
         {
-            PointLights = new PointLight[Presenter.MAX_LIGHTS];
+            PointLights = new PointLightUniform[Presenter.MAX_LIGHTS];
         }
 
 
@@ -60,7 +60,7 @@ namespace VECS
             public static void Write(GlobalUbo source, GPUBuffer buffer)
             {
                 WriteableUBO writeable = new(source);
-                PointLight* pPointLights = stackalloc PointLight[Presenter.MAX_LIGHTS];
+                PointLightUniform* pPointLights = stackalloc PointLightUniform[Presenter.MAX_LIGHTS];
 
                 for (int i = 0; i < Presenter.MAX_LIGHTS; i++)
                 {
@@ -70,7 +70,7 @@ namespace VECS
 
                 ulong offset =  (ulong)SizeInBytes;
 
-                buffer.WriteToBuffer(pPointLights, (ulong)sizeof(PointLight) * Presenter.MAX_LIGHTS, offset+12);
+                buffer.WriteToBuffer(pPointLights, (ulong)sizeof(PointLightUniform) * Presenter.MAX_LIGHTS, offset+12);
                 //buffer.Flush();
             }
 
@@ -83,8 +83,8 @@ namespace VECS
 
                 hostPtr = IntPtr.Add(hostPtr, SizeInBytes+12);
 
-                fixed(PointLight* pPointLights = &source.PointLights[0])
-                NativeMemory.Copy(pPointLights, (void*)hostPtr, (uint)sizeof(PointLight) * Presenter.MAX_LIGHTS);
+                fixed(PointLightUniform* pPointLights = &source.PointLights[0])
+                NativeMemory.Copy(pPointLights, (void*)hostPtr, (uint)sizeof(PointLightUniform) * Presenter.MAX_LIGHTS);
             }
         }
     }

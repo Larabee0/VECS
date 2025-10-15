@@ -267,7 +267,7 @@ namespace VECS
                 _descriptorBuffers[i].Dispose();
             }
 
-            for (int i = 0; i < _bindingCount; i++)
+            for (int i = 0; i < _bufferCount; i++)
             {
                 if (_hasOwnerShipOfBuffer[i])
                 {

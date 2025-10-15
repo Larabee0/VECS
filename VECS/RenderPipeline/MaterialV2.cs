@@ -35,6 +35,11 @@ namespace VECS
 
         public DescriptorSetInfo[] DescriptorSetInfos => _descriptorSetInfos;
 
+        public readonly static MaterialV2 LitTexture;
+
+        static MaterialV2()
+        {
+        }
 
         internal MaterialV2(string name, string vertexShaderName, string fragmentShaderName, GraphicsPipelineConfigInfo pipelineConfig)
         {
@@ -43,13 +48,13 @@ namespace VECS
             ShaderModule vertex = AssetDataBase<ShaderModule>.GetNamed(vertexShaderName);
             ShaderModule fragment = AssetDataBase<ShaderModule>.GetNamed(fragmentShaderName);
 
-            if (GPUPipelineUtil.GetVertexInputState(vertex.SpvShaderModule, out VkVertexInputBindingDescription[] vertBindings, out VkVertexInputAttributeDescription[] vertAttributes))
+            if (vertex.HasVertexAttributes)
             {
-                pipelineConfig.BindingDescriptions = vertBindings;
-                pipelineConfig.AttributeDescriptions = vertAttributes;
+                pipelineConfig.BindingDescriptions = vertex.VertexBindings;
+                pipelineConfig.AttributeDescriptions = vertex.VertexAttributes;
             }
             _graphicsPipelineConfigInfo = pipelineConfig;
-            var descriptorSetBindings = GPUPipelineUtil.GenerateSharedDescriptorBindings(vertex.SpvShaderModule, fragment.SpvShaderModule);
+            var descriptorSetBindings = GPUPipelineUtil.GetSharedBindings(vertex, fragment);
             _descriptorSetCount = GPUPipelineUtil.GetSetCount(descriptorSetBindings);
 
             _descriptorSetLayouts = new VkDescriptorSetLayout[_descriptorSetCount];
@@ -60,7 +65,7 @@ namespace VECS
 
             _pipelineLayout = GPUPipelineUtil.CreatePipelineLayout(vertex, fragment, _descriptorSetLayouts, _materialPushConstantsHandler);
             _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipeline(vertex, fragment, _graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT);
-
+            _matVariants = new MaterialVariant[MAX_VARIANTS];
             AssetDataBase<MaterialV2>.Add(this);
         }
 
@@ -71,7 +76,7 @@ namespace VECS
                 var setBindings = GPUPipelineUtil.ExtractBindingsForSetAsBindingArray(setIndex, descriptorSetBindings);
                 var layout = GPUPipelineUtil.CreateDescriptorSetLayout(setBindings, VkDescriptorSetLayoutCreateFlags.DescriptorBufferEXT);
                 _descriptorSetLayouts[setIndex] = layout;
-                _descriptorSetInfos[setIndex] = new DescriptorSetInfo(layout, setBindings, _meshShaderDescriptorSetIndex != setIndex);
+                _descriptorSetInfos[setIndex] = new DescriptorSetInfo(layout, setBindings, _meshShaderDescriptorSetIndex == setIndex);
             }
         }
 
@@ -124,15 +129,20 @@ namespace VECS
                 return true;
             }
 
-            uint setIndex = 0;
-            for (; setIndex < _descriptorSetCount; setIndex++)
+            for (uint setIndex = 0; setIndex < _descriptorSetCount; setIndex++)
             {
                 var bindings = GetDescriptorBindings(setIndex);
                 for (int bindingIndex = 0; bindingIndex < bindings.Length; bindingIndex++)
                 {
                     var descriptorBinding = bindings[bindingIndex];
+                    if (descriptorBinding.Id == propertyId)
+                    {
+                        propertyInfo = new(descriptorBinding,null);
+                        _cachedShaderProperties.TryAdd(propertyId, propertyInfo);
+                        return true;
+                    }
                     var property = descriptorBinding.GetProperty(propertyId);
-                    if(property != null)
+                    if (property != null)
                     {
                         propertyInfo = new(descriptorBinding, property);
                         _cachedShaderProperties.TryAdd(propertyId, propertyInfo);
@@ -163,6 +173,10 @@ namespace VECS
 
         private unsafe void WriteSet(DescriptorSetInfo setInfo, DescriptorBuffer descriptorBuffer, int frameIndex, int setIndex, uint variant)
         {
+            if (_matVariants[variant] == null)
+            {
+                _matVariants[variant] = new MaterialVariant(this, variant);
+            }
             VkDescriptorAddressInfoEXT* bindingBuffers = _matVariants[variant].GetBindingBuffers(frameIndex, setIndex);
             VkDescriptorImageInfo* bindingImages = _matVariants[variant].GetBindingTextures(frameIndex, setIndex);
 
@@ -179,40 +193,46 @@ namespace VECS
             return _descriptorSetInfos[setIndex].DescriptorBindings[bindingIndex];
         }
 
-        public unsafe void WriteToBuffer<T>(uint setIndex, uint bindingPoint, uint variant, DescriptorPropertyInfo propertyInfo, T element) where T : unmanaged
+        public unsafe void WriteToBuffer<T>(uint variant, ShaderPropertyInfo propertyInfo, T element) where T : unmanaged
         {
-            if (sizeof(T) > propertyInfo.Size)
+            var maxSize = propertyInfo.Property == null ? propertyInfo.BindingInfo.BufferSize : propertyInfo.Property.Size;
+            var propertyOffset = propertyInfo.Property == null ? 0 : propertyInfo.Property.Offset;
+
+            if (sizeof(T) > propertyInfo.BindingInfo.BufferSize)
             {
                 throw new InvalidOperationException("Cannot write property with mismatched size");
             }
 
-            var buffer = GetBuffer(setIndex, bindingPoint);
+            var buffer = GetBuffer(propertyInfo.SetIndex, propertyInfo.BindPoint);
 
-            uint offset = propertyInfo.Offset + (buffer.UInstanceSize32 * variant);
+            uint offset = propertyOffset + (buffer.UInstanceSize32 * variant);
 
             var hostPtr = (IntPtr)buffer.HostPtr;
 
             hostPtr = IntPtr.Add(hostPtr, (int)offset);
 
-            NativeMemory.Copy(&element, (void*)hostPtr, propertyInfo.Size);
+            NativeMemory.Copy(&element, (void*)hostPtr, maxSize);
         }
 
-        public unsafe void WriteArrayToBuffer<T>(uint setIndex, uint bindingPoint, uint variant, DescriptorPropertyInfo propertyInfo, T[] array) where T : unmanaged
+        public unsafe void WriteArrayToBuffer<T>(uint variant, ShaderPropertyInfo propertyInfo, T[] array) where T : unmanaged
         {
-            if (sizeof(T) * array.Length > propertyInfo.Size)
+            var maxSize = propertyInfo.Property == null ? propertyInfo.BindingInfo.BufferSize : propertyInfo.Property.Size;
+            var propertyOffset = propertyInfo.Property == null ? 0 : propertyInfo.Property.Offset;
+
+            if (sizeof(T) * array.Length > maxSize)
             {
                 throw new InvalidOperationException("Cannot write property with mismatched size");
             }
 
-            var buffer = GetBuffer(setIndex, bindingPoint);
+            var buffer = GetBuffer(propertyInfo.SetIndex, propertyInfo.BindPoint);
 
-            uint offset = propertyInfo.Offset + (buffer.UInstanceSize32 * variant);
+            uint offset = propertyOffset + (buffer.UInstanceSize32 * variant);
             var hostPtr = (IntPtr)buffer.HostPtr;
 
             hostPtr = IntPtr.Add(hostPtr, (int)offset);
             fixed (T* arrayPtr = array)
             {
-                NativeMemory.Copy(arrayPtr, (void*)hostPtr, propertyInfo.Size);
+                NativeMemory.Copy(arrayPtr, (void*)hostPtr, maxSize);
             }
         }
 
@@ -220,7 +240,7 @@ namespace VECS
         {
             if (LookUpProperty(propertyId, out var propertyInfo))
             {
-                return GetStorageBuffer<T>(propertyInfo.SetIndex, propertyInfo.BindPoint, propertyInfo.Property);
+                return GetStorageBuffer<T>(propertyInfo);
             }
 
             return default;
@@ -230,7 +250,7 @@ namespace VECS
         {
             if (LookUpProperty(propertyId, out var propertyInfo))
             {
-                return GetStorageBuffer(propertyInfo.SetIndex, propertyInfo.BindPoint, propertyInfo.Property);
+                return GetStorageBuffer(propertyInfo);
             }
 
             return null;
@@ -246,22 +266,22 @@ namespace VECS
             return default;
         }
 
-        public unsafe Span<T> GetStorageBuffer<T>(uint setIndex, uint bindPoint, DescriptorPropertyInfo propertyInfo) where T : unmanaged
+        public unsafe Span<T> GetStorageBuffer<T>(ShaderPropertyInfo propertyInfo) where T : unmanaged
         {
-            var ptr = GetStorageBuffer(setIndex, bindPoint, propertyInfo);
+            var ptr = GetStorageBuffer(propertyInfo);
             if (ptr != null)
             {
-                Debug.Assert(propertyInfo.Size == sizeof(T), string.Format("(MaterialV2.GetStorageBuffer) Property {0} with size {1} has mismatched sized wtih target buffer type {2}", propertyInfo.Name, propertyInfo.Size, typeof(T).Name));
+                Debug.Assert(propertyInfo.BindingInfo.BufferSize == sizeof(T), string.Format("(MaterialV2.GetStorageBuffer) Property {0} with size {1} has mismatched sized wtih target buffer type {2}", propertyInfo.BindingInfo.Name, propertyInfo.BindingInfo.BufferSize, typeof(T).Name));
                 return new(ptr, (int)DEFAULT_STORAGE_BUFFER_COUNT);
             }
             return null;
         }
 
-        public unsafe void* GetStorageBuffer(uint setIndex, uint bindPoint, DescriptorPropertyInfo propertyInfo)
+        public unsafe void* GetStorageBuffer(ShaderPropertyInfo propertyInfo)
         {
-            if(propertyInfo.VariableArraySize)
+            if(propertyInfo.BindingInfo.StorageBuffer)
             {
-                return GetBuffer(setIndex, bindPoint).HostPtr;
+                return GetBuffer(propertyInfo.SetIndex, propertyInfo.BindPoint).HostPtr;
             }
             return null;
         }
@@ -304,11 +324,18 @@ namespace VECS
         public static void Update(MaterialV2 material, int frameIndex)
         {
             uint accumulatedBufferUsage = 0;
+
+            // this is horrible it will run for MAX_VARIANTS
             for (int i = 0; i < material._matVariants.Length; i++)
             {
-                MaterialVariant.UpdateVariant(material._matVariants[i], frameIndex);
+                var variant = material._matVariants[i];
+                if (variant == null) continue;
+                
+                MaterialVariant.UpdateVariant(variant, frameIndex);
 
-                accumulatedBufferUsage += material._matVariants[i].StorageBufferLength;
+                var offsetLegnth = variant.StorageBufferOffset + variant.StorageBufferLength;
+
+                accumulatedBufferUsage = Math.Max(accumulatedBufferUsage, offsetLegnth);
             }
 
             for (int i = 0; i < material.DescriptorSetCount; i++)
@@ -351,19 +378,84 @@ namespace VECS
             readingList.ForEach(m => Update(m, frameIndex));
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void WriteToBuffer<T>(MaterialV2 material, string property, int variant, T element) where T : unmanaged
+        {
+            WriteToBuffer(material,property.GetHashCode(),variant, element);
+        }
+
         public static void WriteToBuffer<T>(MaterialV2 material, int propertyId, int variant, T element) where T : unmanaged
         {
             if (material.LookUpProperty(propertyId, out var propertyInfo))
             {
-                material.WriteToBuffer(propertyInfo.SetIndex, propertyInfo.BindPoint, (uint)variant, propertyInfo.Property, element);
+                material.WriteToBuffer((uint)variant, propertyInfo, element);
             }
         }
 
-        
+        public static void WriteArrayToBuffer<T>(MaterialV2 material, int propertyId,int variant, T[] elements) where T : unmanaged
+        {
+            if (material.LookUpProperty(propertyId, out var propertyInfo))
+            {
+                material.WriteArrayToBuffer( (uint)variant, propertyInfo, elements);
+            }
+        }
+
+        public static void SetGlobalUniforms(MaterialV2 material, int variant, RendererFrameInfo frameInfo)
+        {
+            WriteToBuffer(material, ShaderPropertyInfo.CameraInfoProperty, variant, frameInfo.CameraInfo);
+            WriteToBuffer(material, ShaderPropertyInfo.CameraInverseProperty, variant, frameInfo.CameraInverseInfo);
+            WriteToBuffer(material, ShaderPropertyInfo.AdditionalCameraInfoProperty, variant, frameInfo.AdditionalCameraInfo);
+            WriteToBuffer(material, ShaderPropertyInfo.OrthographicInfoProperty, variant, frameInfo.OrthographicInfo);
+            WriteToBuffer(material, ShaderPropertyInfo.LightingInfoProperty, variant, frameInfo.LightingInfo);
+
+            var pointLights = material.GetStorageBuffer<PointLightUniform>(ShaderPropertyInfo.PointLightsBufferProperty);
+            frameInfo.PointLights.CopyTo(pointLights);
+            material._matVariants[variant].SetStorageBufferRegion(0, (uint)frameInfo.PointLights.Length);
+        }
+
+        public unsafe void BindAll(RendererFrameInfo frameInfo)
+        {
+            if (_matVariants[0] == null)
+            {
+                _matVariants[0] = new(this, 0);
+            }
+
+            var variant = _matVariants[0];
+            SetGlobalUniforms(this, 0, frameInfo);
+            variant.SetStorageBufferRegion(0, 1);
+            VkDescriptorBufferBindingInfoEXT* bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[_descriptorSetCount];
+            ulong* offsets = stackalloc ulong[_descriptorSetCount];
+            uint* indices = stackalloc uint[_descriptorSetCount];
+
+            Update(this, frameInfo.FrameIndex);
+            for (uint i = 0; i < _descriptorSetCount; i++)
+            {
+                _descriptorSetInfos[i].WriteFromBuffers(frameInfo.FrameIndex);
+                WriteSet(_descriptorSetInfos[i], _descriptorSetInfos[i].DescriptorBuffers[frameInfo.FrameIndex], frameInfo.FrameIndex, (int)i, 0);
+                var buffer = _descriptorSetInfos[i].DescriptorBuffers[frameInfo.FrameIndex];
+                bindingInfo[i] = buffer.BindingInfo;
+                offsets[i] = buffer.AlignedSize * 0;
+                indices[i] = i;
+            }
+            var commandBuffer = frameInfo.CommandBuffer;
+            GraphicsDevice.DeviceAPI.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Graphics, _graphicsPipeline);
+            DescriptorBuffer.BindSets(commandBuffer, (uint)_descriptorSetCount, bindingInfo);
+            DescriptorBuffer.SetOffsets(commandBuffer, _pipelineLayout, VkPipelineBindPoint.Graphics, 0, (uint)_descriptorSetCount, offsets, indices);
+
+            _materialPushConstantsHandler.BindPushConstants(commandBuffer, _pipelineLayout, 0);
+        }
     }
 
     public struct ShaderPropertyInfo
     {
+
+        public static readonly int CameraInfoProperty = "cameraMain".GetHashCode();
+        public static readonly int CameraInverseProperty = "cameraInverse".GetHashCode();
+        public static readonly int AdditionalCameraInfoProperty = "cameraPlanes".GetHashCode();
+        public static readonly int OrthographicInfoProperty = "orthographic".GetHashCode();
+        public static readonly int LightingInfoProperty = "lighting".GetHashCode();
+        public static readonly int PointLightsBufferProperty = "pointLightBuffer".GetHashCode();
+
         public static readonly ShaderPropertyInfo Invalid = new()
         {
             SetIndex = uint.MaxValue,

@@ -238,12 +238,18 @@ namespace VECS.LowLevel
         {
             return BeginSingleTime(_commandPoolMain);
         }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static VkCommandBuffer BeginSingleTimeComputePipe()
         {
             return BeginSingleTime(_commandPoolCompute);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static VkCommandBuffer BeginSingleTimePresentPipe()
+        {
+            return BeginSingleTime(_commandPoolPresent);
+        }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static unsafe void EndSingleTimeMainPipe(VkCommandBuffer commandBuffer)
@@ -255,6 +261,12 @@ namespace VECS.LowLevel
         public static unsafe void EndSingleTimeComputePipe(VkCommandBuffer commandBuffer)
         {
             EndSingleTime(commandBuffer, _computeQueue, _commandPoolCompute);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static unsafe void EndSingleTimePresentPipe(VkCommandBuffer commandBuffer)
+        {
+            EndSingleTime(commandBuffer, _presentQueue, _commandPoolPresent);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

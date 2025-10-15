@@ -158,6 +158,51 @@ namespace VECS
             return layout;
         }
 
+        public static DescriptorBinding[] GenerateDescriptorBindings(SpvReflectShaderModule module)
+        {
+            var bindingsSPIR = SPIRVReflectUtil.DescriptorBindings(module);
+            if (bindingsSPIR == null) return [];
+            DescriptorBinding[] bindings = new DescriptorBinding[bindingsSPIR.Length];
+            for (int i = 0; i < bindingsSPIR.Length; i++)
+            {
+                bindings[i]=new DescriptorBinding(bindingsSPIR[i], (VkShaderStageFlags)module.shader_stage);
+            }
+
+            return bindings;
+        }
+
+        public static DescriptorBinding[] GetSharedBindings(params ShaderModule[] modules)
+        {
+            Dictionary<string, DescriptorBinding> descriptorBindingsCombined = [];
+
+            for (int i = 0; i < modules.Length; i++)
+            {
+                var module = modules[i];
+                for (int j = 0; j < module.DescriptorBindings.Length; j++)
+                {
+                    var binding = module.DescriptorBindings[j];
+                    
+                    if (!descriptorBindingsCombined.TryAdd(binding.Name, binding))
+                    {
+                        var existing = descriptorBindingsCombined[binding.Name];
+                        if (existing == binding)
+                        {
+                            if (existing.VkSetLayoutBinding.stageFlags != binding.VkSetLayoutBinding.stageFlags)
+                            {
+                                existing.UpdateShaderStage(existing.VkSetLayoutBinding.stageFlags | binding.VkSetLayoutBinding.stageFlags);
+                            }
+                        }
+                        else
+                        {
+                            throw new Exception(string.Format("Descriptor binding with same name\"{0}\" exists but existing binding is different!", binding.Name));
+                        }
+                    }
+                }
+            }
+
+            return [.. descriptorBindingsCombined.Values];
+        }
+
         public static unsafe DescriptorBinding[] GenerateSharedDescriptorBindings(params SpvReflectShaderModule[] modules)
         {
             List<DescriptorBinding> descriptorBindings = [];
@@ -635,16 +680,11 @@ namespace VECS
         {
             if(allBindings == null || allBindings.Length == 0) {  return 0; }
             uint lastSet = allBindings[0].DescriptorSetIndex;
-            int count = 1;
             for (int i = 1; i < allBindings.Length; i++)
             {
-                if(allBindings[i].DescriptorSetIndex != lastSet)
-                {
-                    count++;
-                    lastSet = allBindings[i].DescriptorSetIndex;
-                }
+                lastSet = Math.Max(allBindings[i].DescriptorSetIndex, lastSet);
             }
-            return count;
+            return (int)lastSet + 1;
         }
     }
 }

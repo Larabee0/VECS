@@ -18,6 +18,12 @@ namespace VECS
         private readonly VkShaderStageFlags _vkStage = VkShaderStageFlags.None;
         private readonly SpvReflectShaderStageFlags _spvStage = SpvReflectShaderStageFlags.None;
 
+        private readonly VkVertexInputBindingDescription[] _vertexBindings = [];
+        private readonly VkVertexInputAttributeDescription[] _vertexAttributes = [];
+        private readonly bool _hasVertexAttributes= false;
+
+        private readonly DescriptorBinding[] _descriptorBindings;
+
         public VkShaderModule VkShaderModule => _vkShaderModule;
         public SpvReflectShaderModule SpvShaderModule => _spvShaderModule;
 
@@ -25,6 +31,11 @@ namespace VECS
         public VkShaderStageFlags VkShaderStage => _vkStage;
         public SpvReflectShaderStageFlags SpvShaderStage => _spvStage;
 
+        public bool HasVertexAttributes => _hasVertexAttributes;
+        public VkVertexInputBindingDescription[] VertexBindings =>_vertexBindings;
+        public VkVertexInputAttributeDescription[] VertexAttributes => _vertexAttributes;
+
+        public DescriptorBinding[] DescriptorBindings => _descriptorBindings;
         public VkPipelineShaderStageCreateInfo ShaderStageCreateInfo
         {
             get
@@ -56,6 +67,13 @@ namespace VECS
             _vkStage = (VkShaderStageFlags)_spvStage;
 
             GraphicsDevice.DeviceAPI.vkCreateShaderModule(GraphicsDevice.Device, shaderCode, null, out _vkShaderModule).CheckResult("Failed to Create Shader Module!");
+
+            if (_vkStage.HasFlag(VkShaderStageFlags.Vertex) && GPUPipelineUtil.GetVertexInputState(_spvShaderModule, out _vertexBindings, out _vertexAttributes))
+            {
+                _hasVertexAttributes = true;
+            }
+
+            _descriptorBindings = GPUPipelineUtil.GenerateDescriptorBindings(_spvShaderModule);
         }
 
         internal unsafe ShaderModule(string name, byte[] shaderCode)

@@ -31,6 +31,13 @@ namespace VECS
         public List<VkBufferMemoryBarrier> PostCullBarriers;
         public CullData cullData;
 
+        public CameraInfo CameraInfo;
+        public CameraInverseInfo CameraInverseInfo;
+        public AdditionalCameraInfo AdditionalCameraInfo;
+        public OrthographicInfo OrthographicInfo;
+        public LightingInfo LightingInfo;
+        public PointLightUniform[] PointLights;
+
         public DescriptorPool GetDescriptorPool(DescriptorLevel descriptorLevel)
         {
             return descriptorLevel switch

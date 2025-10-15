@@ -4,6 +4,7 @@ using VECS.DataStructures;
 using VECS.ECS;
 using VECS.ECS.Presentation;
 using VECS.ECS.Transforms;
+using VECS.GraphicsPipelines;
 using Vortice.Vulkan;
 
 namespace VECS
@@ -61,6 +62,13 @@ namespace VECS
             pipelineContainer.AddStorage(matrices, 1, 0);
             pipelineContainer.AddStorage(bounds, 1, 1);
             pipelineContainer.AddStorage(colours, 1, 2);
+
+
+            GraphicsPipelineConfigInfo defaultConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
+            MaterialV2 LitTexture = new("LitTexture", "lit_texture_new.vert", "lit_texture_new.frag", defaultConfig);
+
+            //var newLitTextured = MaterialV2.LitTexture;
+            //Console.WriteLine(newLitTextured.AssetName);
         }
 
         private static void CreateMainCamera()

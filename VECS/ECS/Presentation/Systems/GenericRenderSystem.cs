@@ -121,7 +121,8 @@ namespace VECS.ECS.Presentation
             bool descriptorBuffers = true;
             if (descriptorBuffers)
             {
-                PipelineContainer descBufferTest = AssetDataBase<PipelineContainer>.GetNamed("DescriptorBufferTest");
+                MaterialV2 descBufferTest = AssetDataBase<MaterialV2>.GetNamed("LitTexture");
+                descBufferTest.GetStorageBuffer<ModelMatrices>("matricesBuffer".GetHashCode())[0] = new(TransformExtensions.TRS(new(0, 0, 0), System.Numerics.Quaternion.Identity, new(5)));
                 descBufferTest.BindAll(frameInfo);
             }
             else
