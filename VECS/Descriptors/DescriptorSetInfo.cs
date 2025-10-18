@@ -9,6 +9,7 @@ namespace VECS
     public class DescriptorSetInfo : IDisposable
     {
         private readonly bool _noAllocStorageBuffers = false;
+        private readonly bool _hasStorageBuffers;
         private readonly int _bindingCount;
         private readonly uint _bufferCount;
         private readonly uint _imageCount;
@@ -32,6 +33,10 @@ namespace VECS
         public int BindingCount => _bindingCount;
         public uint BufferCount => _bufferCount;
         public uint ImageCount => _imageCount;
+
+        public bool HasStorageBuffers => _hasStorageBuffers;
+        public bool HasImages => _imageCount > 0;
+
 
         public DescriptorBinding[] DescriptorBindings => _descriptorBindings;
 
@@ -79,7 +84,7 @@ namespace VECS
                 _descriptorSetBufferIsStorage = new bool[_bufferCount];
                 _hasOwnerShipOfBuffer = new bool[_bufferCount];
                 _bindingPointToBufferIndex = new Dictionary<uint, int>((int)_bufferCount);
-                CreateBindingBuffers(bindings);
+                _hasStorageBuffers = CreateBindingBuffers(bindings);
             }
 
             if (_imageCount > 0)
@@ -109,8 +114,9 @@ namespace VECS
             }
         }
 
-        private void CreateBindingBuffers(DescriptorBinding[] bindings)
+        private bool CreateBindingBuffers(DescriptorBinding[] bindings)
         {
+            bool hasStoragebuffers = false;
             for (int i = 0, b = 0; i < bindings.Length; i++)
             {
                 var binding = bindings[i];
@@ -128,6 +134,7 @@ namespace VECS
                         _hasOwnerShipOfBuffer[b] = false;
                     }
                     _descriptorSetBufferIsStorage[b] = true;
+                    hasStoragebuffers = true;
                 }
                 else if (binding.Buffer)
                 {
@@ -141,6 +148,7 @@ namespace VECS
 #if DEBUG
             Debug.Assert(_bindingPointToBufferIndex.Count == _bufferCount, string.Format("Expected swapchain buffer allocations {0} does not much descriptor buffer count {1}", _bindingPointToBufferIndex.Count, _bufferCount));
 #endif
+            return hasStoragebuffers;
         }
 
         private void CreateBindingImages(DescriptorBinding[] bindings)
@@ -186,6 +194,7 @@ namespace VECS
                     _descriptorSetBuffers[i].WriteFromHostToBuffer(frameIndex);
                 }
             }
+            _descriptorBuffers[frameIndex].Flush();
         }
 
         public void WriteUniforms(int frameIndex, uint setVariant)
@@ -235,6 +244,27 @@ namespace VECS
         }
 
         public unsafe void WriteDescriptors(DescriptorBuffer descriptorBuffer, uint setIndex, VkDescriptorAddressInfoEXT* bindingBuffers, VkDescriptorImageInfo* bindingTextures)
+        {
+            for (int i = 0; i < _bindingCount; i++)
+            {
+                var binding = _descriptorBindings[i];
+                var bindPoint = binding.BindPoint;
+                if (binding.IsAnyBuffer)
+                {
+                    var bufferIndex = _bindingPointToBufferIndex[bindPoint];
+                    var buffer = bindingBuffers[bufferIndex];
+                    descriptorBuffer.SetBufferBinding(buffer, binding.DescriptorType, setIndex, bindPoint);
+                }
+                else
+                {
+                    var textureIndex = _bindingPointToImageIndex[bindPoint];
+                    var texutre = bindingTextures[textureIndex];
+                    descriptorBuffer.SetImageInfoBinding(texutre, VkDescriptorType.CombinedImageSampler, setIndex, bindPoint);
+                }
+            }
+        }
+
+        public unsafe void WriteDescriptors(DescriptorBuffer descriptorBuffer, uint setIndex, VkDescriptorAddressInfoEXT[] bindingBuffers, VkDescriptorImageInfo[] bindingTextures)
         {
             for (int i = 0; i < _bindingCount; i++)
             {

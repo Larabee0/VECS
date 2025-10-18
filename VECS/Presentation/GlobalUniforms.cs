@@ -17,7 +17,8 @@ namespace VECS
         {
             ProjectionMatrix = camera.ProjectionMatrix;
             ViewMatrix = camera.ViewMatrix;
-            ProjectionViewMatrix = ProjectionMatrix*ViewMatrix;
+
+            ProjectionViewMatrix = ViewMatrix * ProjectionMatrix;
         }
     }
 
@@ -32,7 +33,7 @@ namespace VECS
         {
             Matrix4x4.Invert(camera.ProjectionMatrix, out InverseProjectionMatrix);
             InverseViewMatrix = camera.InverseViewMatrix;
-            InverseProjectionViewMatrix = InverseProjectionMatrix * InverseViewMatrix;
+            InverseProjectionViewMatrix = InverseViewMatrix * InverseProjectionMatrix;
         }
     }
 

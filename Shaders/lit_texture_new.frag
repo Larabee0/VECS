@@ -91,10 +91,10 @@ void main()
 		specularLight += intensity * blinnTerm; 
 	}
 
-	vec4 textureColour = texture(texSampler,fragUV * colourMul.tiling);
+	vec4 textureColour = texture(texSampler,fragUV );
 	// outColour = vec4(fragUV,0,1);
 	//outColour = vec4(1);
-	outColour = textureColour*fragColour*colourMul.colour;
+	outColour = textureColour*fragColour;
 	//outColour = vec4(diffuseLight  * textureColour.xyz + specularLight * textureColour.xyz, 1.0);
 	//outColour = vec4(diffuseLight  * fragColour, 1.0);
 	

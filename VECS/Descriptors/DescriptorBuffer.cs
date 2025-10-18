@@ -125,7 +125,7 @@ namespace VECS
             _writesPending = true;
         }
 
-        private void Flush()
+        public void Flush()
         {
             if (!_writesPending) return;
             _descriptorBuffer.WriteFromHostBuffer();
@@ -152,9 +152,17 @@ namespace VECS
             BindSets(cmd, (uint)buffers.Length, bindingInfo);
         }
 
-        public static unsafe void BindSets(VkCommandBuffer cmd,uint bufferCount, VkDescriptorBufferBindingInfoEXT* bindingInfo)
+        public static unsafe void BindSets(VkCommandBuffer cmd, uint bufferCount, VkDescriptorBufferBindingInfoEXT* bindingInfo)
         {
             GraphicsDevice.DeviceAPI.vkCmdBindDescriptorBuffersEXT(cmd, bufferCount, bindingInfo);
+        }
+
+        public static unsafe void BindSets(VkCommandBuffer cmd, uint bufferCount, VkDescriptorBufferBindingInfoEXT[] bindingInfo)
+        {
+            fixed (VkDescriptorBufferBindingInfoEXT* pBindingInfo = &bindingInfo[0])
+            {
+                GraphicsDevice.DeviceAPI.vkCmdBindDescriptorBuffersEXT(cmd, bufferCount, pBindingInfo);
+            }
         }
 
         public static unsafe void SetOffsets(VkCommandBuffer cmd, VkPipelineLayout layout, VkPipelineBindPoint bindPoint, uint firstSet, DescriptorBuffer[] buffer)

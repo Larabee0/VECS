@@ -122,7 +122,7 @@ namespace VECS.ECS.Presentation
             if (descriptorBuffers)
             {
                 MaterialV2 descBufferTest = AssetDataBase<MaterialV2>.GetNamed("LitTexture");
-                descBufferTest.GetStorageBuffer<ModelMatrices>("matricesBuffer".GetHashCode())[0] = new(TransformExtensions.TRS(new(0, 0, 0), System.Numerics.Quaternion.Identity, new(5)));
+                descBufferTest.GetStorageBuffer<ModelMatrices>("matricesBuffer".GetHashCode())[0] = new(TransformExtensions.TRS(new(0, 0, 0), System.Numerics.Quaternion.Identity, new(4)));
                 descBufferTest.BindAll(frameInfo);
             }
             else

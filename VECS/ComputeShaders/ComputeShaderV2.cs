@@ -239,6 +239,7 @@ namespace VECS
                 _descriptorSetInfos[i].WriteUniforms(frameIndex,setId);
                 _descriptorSetInfos[i].WriteFromBuffers(frameIndex);
                 var buffer = _descriptorSetInfos[i].DescriptorBuffers[frameIndex];
+                buffer.Flush();
                 bindingInfo[i] = buffer.BindingInfo;
                 offsets[i] = buffer.AlignedSize * setId;
                 indices[i] = i;

@@ -24,6 +24,9 @@ namespace VECS
         private readonly int _descriptorSetCount = 0;
         private readonly int _meshShaderDescriptorSetIndex = -1;
 
+        private readonly int _setsWithTextures = 0;
+        private readonly int _setsWithBuffers = 0;
+
         private readonly ConcurrentDictionary<int, ShaderPropertyInfo> _cachedShaderProperties = new();
 
         private readonly PushConstantsHandler _materialPushConstantsHandler;
@@ -32,6 +35,8 @@ namespace VECS
         private readonly MaterialVariant[] _matVariants;
 
         public int DescriptorSetCount => _descriptorSetCount;
+        public int SetsWithTextures => _setsWithTextures;
+        public int SetsWithBuffers=> _setsWithBuffers;
 
         public DescriptorSetInfo[] DescriptorSetInfos => _descriptorSetInfos;
 
@@ -53,6 +58,7 @@ namespace VECS
                 pipelineConfig.BindingDescriptions = vertex.VertexBindings;
                 pipelineConfig.AttributeDescriptions = vertex.VertexAttributes;
             }
+            pipelineConfig.rasterizationInfo.cullMode = VkCullModeFlags.Back;
             _graphicsPipelineConfigInfo = pipelineConfig;
             var descriptorSetBindings = GPUPipelineUtil.GetSharedBindings(vertex, fragment);
             _descriptorSetCount = GPUPipelineUtil.GetSetCount(descriptorSetBindings);
@@ -177,8 +183,8 @@ namespace VECS
             {
                 _matVariants[variant] = new MaterialVariant(this, variant);
             }
-            VkDescriptorAddressInfoEXT* bindingBuffers = _matVariants[variant].GetBindingBuffers(frameIndex, setIndex);
-            VkDescriptorImageInfo* bindingImages = _matVariants[variant].GetBindingTextures(frameIndex, setIndex);
+            VkDescriptorAddressInfoEXT[] bindingBuffers = _matVariants[variant].GetBindingBuffers(frameIndex, setIndex);
+            VkDescriptorImageInfo[] bindingImages = _matVariants[variant].GetBindingTextures(frameIndex, setIndex);
 
             setInfo.WriteDescriptors(descriptorBuffer, variant, bindingBuffers, bindingImages);
         }
@@ -423,16 +429,22 @@ namespace VECS
             var variant = _matVariants[0];
             SetGlobalUniforms(this, 0, frameInfo);
             variant.SetStorageBufferRegion(0, 1);
-            VkDescriptorBufferBindingInfoEXT* bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[_descriptorSetCount];
+            VkDescriptorBufferBindingInfoEXT[] bindingInfo = new VkDescriptorBufferBindingInfoEXT[_descriptorSetCount];
             ulong* offsets = stackalloc ulong[_descriptorSetCount];
             uint* indices = stackalloc uint[_descriptorSetCount];
 
-            Update(this, frameInfo.FrameIndex);
+            int frameIndex = frameInfo.FrameIndex;
+            Update(this, frameIndex);
+
             for (uint i = 0; i < _descriptorSetCount; i++)
             {
-                _descriptorSetInfos[i].WriteFromBuffers(frameInfo.FrameIndex);
-                WriteSet(_descriptorSetInfos[i], _descriptorSetInfos[i].DescriptorBuffers[frameInfo.FrameIndex], frameInfo.FrameIndex, (int)i, 0);
-                var buffer = _descriptorSetInfos[i].DescriptorBuffers[frameInfo.FrameIndex];
+                DescriptorSetInfo descriptorSetInfo = _descriptorSetInfos[i];
+                DescriptorBuffer buffer = descriptorSetInfo.DescriptorBuffers[frameIndex];
+                
+                descriptorSetInfo.WriteFromBuffers(frameIndex);
+                
+                WriteSet(descriptorSetInfo, buffer, frameIndex, (int)i, 0);
+                buffer.Flush();
                 bindingInfo[i] = buffer.BindingInfo;
                 offsets[i] = buffer.AlignedSize * 0;
                 indices[i] = i;
