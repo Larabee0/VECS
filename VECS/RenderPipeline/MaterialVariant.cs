@@ -1,136 +1,31 @@
 ﻿using System;
+using System.Numerics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
 namespace VECS
 {
-    public class MaterialBufferHandler
-    {
-        private readonly VkDescriptorAddressInfoEXT[][] _bufferAddresses = new VkDescriptorAddressInfoEXT[SwapChain.MAX_CONCURRENT_FRAMES][];
-
-        private readonly int BufferCount;
-
-        public MaterialBufferHandler(DescriptorSetInfo setInfo, uint materialVariant, uint storageBufferOffset, uint storageBufferLength)
-        {
-            BufferCount = (int)setInfo.BufferCount;
-            
-            for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
-            {
-                _bufferAddresses[i] = new VkDescriptorAddressInfoEXT[BufferCount];
-            }
-
-            for (int bufferIndex = 0; bufferIndex < BufferCount; bufferIndex++)
-            {
-                var binding = setInfo.GetBindingFromBufferIndex(bufferIndex);
-
-                for (int frameIndex = 0; frameIndex < SwapChain.MAX_CONCURRENT_FRAMES; frameIndex++)
-                {
-                    var addreses = _bufferAddresses[frameIndex];
-                    var buffer = setInfo.DescriptorSetBuffers[bufferIndex];
-                    VkDescriptorAddressInfoEXT addressInfo = default;
-                    if (binding.UniformBuffer)
-                    {
-                        addressInfo = buffer[frameIndex].GetBufferAddressRange(materialVariant, 1);
-                    }
-                    else if (binding.StorageBuffer)
-                    {
-                        addressInfo = buffer[frameIndex].GetBufferAddressRange(storageBufferOffset, storageBufferLength);
-                    }
-                    addreses[bufferIndex] = addressInfo;
-                }
-            }
-        }
-
-        public void UpdateStorageBufferRegion(int frameIndex, DescriptorSetInfo setInfo, uint storageBufferOffset, uint storageBufferLength)
-        {
-            var bindings = _bufferAddresses[frameIndex];
-            for (int i = 0; i < BufferCount; i++)
-            {
-                var bindingInfo = setInfo.GetBindingFromBufferIndex(i);
-                if (bindingInfo.StorageBuffer)
-                {
-                    bindings[i] = setInfo.DescriptorSetBuffers[i][frameIndex].GetBufferAddressRange(storageBufferOffset, storageBufferLength);
-                }
-            }
-        }
-
-        public VkDescriptorAddressInfoEXT[] GetBindingBuffers(int frameIndex)
-        {
-            return _bufferAddresses[frameIndex];
-        }
-    }
-
-    public class MaterialTextureHandler
-    {
-        private readonly bool[] _dirtyImageBindings = new bool[SwapChain.MAX_CONCURRENT_FRAMES];
-        private readonly Texture[] _textures;
-        private readonly VkDescriptorImageInfo[][] _bindingTextures = new VkDescriptorImageInfo[SwapChain.MAX_CONCURRENT_FRAMES][];
-
-        private readonly int TextureCount;
-
-        public MaterialTextureHandler(DescriptorSetInfo setInfo)
-        {
-            TextureCount = (int)setInfo.ImageCount;
-            _textures = new Texture[TextureCount];
-
-            for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
-            {
-                _bindingTextures[i] = new VkDescriptorImageInfo[TextureCount];
-
-                for (int textureindex = 0; textureindex < TextureCount; textureindex++)
-                {
-                    _textures[textureindex] = Texture2D.MissingTexture;
-                    _bindingTextures[i][textureindex] = Texture2D.MissingTexture.ImageInfo;
-                }
-            }
-        }
-
-        public void SetTexture(Texture texture, int textureIndex)
-        {
-            _textures[textureIndex] = texture;
-            Array.Fill(_dirtyImageBindings, true);
-        }
-
-        public void UpdateTextureBindings(int frameIndex)
-        {
-            if (!_dirtyImageBindings[frameIndex]) return;
-            var bindingInfos = _bindingTextures[frameIndex];
-            for (int i = 0; i < TextureCount; i++)
-            {
-                bindingInfos[i] = _textures[i].ImageInfo;
-            }
-            _dirtyImageBindings[frameIndex] = false;
-        }
-
-        public VkDescriptorImageInfo[] GetBindingTextures(int frameIndex)
-        {
-            return _bindingTextures[frameIndex];
-        }
-    }
-
-
     internal class MaterialVariant : IDisposable
     {
         private readonly uint _variantIndex;
+        private readonly int _descriptorSetCount;
         private readonly DescriptorSetInfo[] _descriptorSetInfos;
 
-        private readonly MaterialBufferHandler[] _buffers;
-        private readonly MaterialTextureHandler[] _textures;
+        private readonly SetBufferDescriptors[] _bufferDescriptors;
+        private readonly bool[] _dirtyBufferRegions;
+        private readonly bool _hasStorageBuffers = false;
 
-        private readonly bool[] _dirtyStorageBuffers = new bool[SwapChain.MAX_CONCURRENT_FRAMES];
+        private readonly SetTextureDescriptors[] _imageDescriptors;
+        private readonly Texture[][] _textures;
+        private readonly bool[] _dirtyTextures;
+        private readonly bool _hasTextures = false;
 
         private bool _disposed = false;
 
-        private readonly bool _hasStorageBuffers = false;
-        private readonly bool _hasTextures = false;
-        private uint _storageBufferOffset;
-        private uint _storageBufferLength;
-        private readonly int _descriptorSetCount;
+        public uint VariantIndex => _variantIndex;
         public int TotalSets => _descriptorSetCount;
-
-        public uint StorageBufferOffset => _storageBufferOffset;
-        public uint StorageBufferLength => _storageBufferLength;
 
         public unsafe MaterialVariant(MaterialV2 material, uint variantIndex)
         {
@@ -138,10 +33,37 @@ namespace VECS
             _descriptorSetCount = material.DescriptorSetCount;
             _descriptorSetInfos = material.DescriptorSetInfos;
 
-            _buffers = new MaterialBufferHandler[_descriptorSetCount];
-            _textures = new MaterialTextureHandler[_descriptorSetCount];
+            _bufferDescriptors = new SetBufferDescriptors[_descriptorSetCount];
+            _imageDescriptors = new SetTextureDescriptors[_descriptorSetCount];
+            _textures = new Texture[_descriptorSetCount][];
 
-            SetupBindingResources(this);
+            for (uint i = 0; i < TotalSets; i++)
+            {
+                var setInfo = _descriptorSetInfos[i];
+                if (setInfo.BufferCount > 0)
+                {
+                    _bufferDescriptors[i] = new(setInfo, this);
+                    for (int j = 0; j < setInfo.BufferCount; j++)
+                    {
+                        _bufferDescriptors[i].SetStorageBufferRegion(variantIndex, 1);
+                        _bufferDescriptors[i].SetUniformBufferRegion(variantIndex, 1);
+                    }
+                }
+                else
+                {
+                    _bufferDescriptors[i] = SetBufferDescriptors.Null;
+                }
+                if (setInfo.ImageCount > 0)
+                {
+                    _imageDescriptors[i] = new(setInfo);
+                    _textures[i] = new Texture[setInfo.ImageCount];
+                    Array.Fill(_textures[i], Texture2D.MissingTexture);
+                }
+                else
+                {
+                    _imageDescriptors[i] = SetTextureDescriptors.Null;
+                }
+            }
 
             for (int i = 0; i < TotalSets; i++)
             {
@@ -160,81 +82,285 @@ namespace VECS
                 for (int j = 0; j < SwapChain.MAX_CONCURRENT_FRAMES; j++)
                 {
                     info.WriteUniforms(j, variantIndex);
+                    MaterialV2.WriteSet(info, info.DescriptorBuffers[j], _variantIndex, GetBindingBuffersPtr(j, i), GetBindingTexturesPtr(j, i));
                 }
+            }
+
+            if (_hasTextures)
+            {
+                _dirtyTextures = new bool[SwapChain.MAX_CONCURRENT_FRAMES];
+                Array.Fill(_dirtyTextures, true);
+            }
+
+            if (_hasStorageBuffers)
+            {
+                _dirtyBufferRegions = new bool[SwapChain.MAX_CONCURRENT_FRAMES];
+                Array.Fill(_dirtyBufferRegions, true);
             }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void SetStorageBufferRegion(uint offset, uint length)
+        public unsafe VkDescriptorAddressInfoEXT* GetBindingBuffersPtr(int frameIndex, int setIndex)
         {
-            if(offset == _storageBufferOffset && length == _storageBufferLength) return;
-            _storageBufferOffset = offset;
-            _storageBufferLength = length;
-            Array.Fill(_dirtyStorageBuffers, true);
+            return !_bufferDescriptors[setIndex].Disposed ? _bufferDescriptors[setIndex].GetBindingBuffersPtr(frameIndex) : null;
         }
 
-        public VkDescriptorAddressInfoEXT[] GetBindingBuffers(int frameIndex, int setIndex)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe VkDescriptorImageInfo* GetBindingTexturesPtr(int frameIndex, int setIndex)
         {
-            return _buffers[setIndex]?.GetBindingBuffers(frameIndex);
+            return !_imageDescriptors[setIndex].Disposed ? _imageDescriptors[setIndex].GetBindingTexturesPtr(frameIndex) : null;
         }
 
-        public VkDescriptorImageInfo[] GetBindingTextures(int frameIndex, int setIndex)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetStorageBufferRegion(uint setIndex, uint offset, uint length)
         {
-            return _textures[setIndex]?.GetBindingTextures(frameIndex);
+            if(_bufferDescriptors[setIndex].Disposed || !_bufferDescriptors[setIndex].SetStorageBufferRegion(offset, length)) return;
+            Array.Fill(_dirtyBufferRegions, true);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetStorageBufferOffset(uint setIndex, uint offset)
+        {
+            if (_bufferDescriptors[setIndex].Disposed || !_bufferDescriptors[setIndex].SetStorageBufferOffset(offset)) return;
+            Array.Fill(_dirtyBufferRegions, true);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetUniformBufferRegion(int setIndex, uint offset, uint length)
+        {
+            if (_bufferDescriptors[setIndex].Disposed || !_bufferDescriptors[setIndex].SetUniformBufferRegion(offset, length)) return;
+            Array.Fill(_dirtyBufferRegions, true);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public uint GetStorageTotal(uint setIndex)
+        {
+            if (_bufferDescriptors[setIndex].Disposed) return 0;
+            return _bufferDescriptors[setIndex].StorageBufferOffsetLength;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe void Dispose()
         {
             if (_disposed) return;
             _disposed = true;
 
             GC.SuppressFinalize(this);
-
+            for (int i = 0; i < _bufferDescriptors.Length; i++)
+            {
+                if (!_bufferDescriptors[i].Disposed)
+                {
+                    _bufferDescriptors[i].Dispose();
+                }
+            }
+            for (int i = 0; i < _imageDescriptors.Length; i++)
+            {
+                if (!_imageDescriptors[i].Disposed)
+                {
+                    _imageDescriptors[i].Dispose();
+                }
+            }
             GC.ReRegisterForFinalize(this);
         }
         
-        private unsafe static void SetupBindingResources(MaterialVariant variant)
-        {
-            for (uint i = 0; i < variant.TotalSets; i++)
-            {
-                var setInfo = variant._descriptorSetInfos[i];
-                if (setInfo.BufferCount > 0)
-                {
-                    variant._buffers[i] = new(setInfo, variant._variantIndex, variant._storageBufferOffset, variant._storageBufferLength);
-                }
-                if (setInfo.ImageCount > 0)
-                {
-                    variant._textures[i] = new(setInfo);
-                }
-            }
-        }
-
-
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void UpdateVariant(MaterialVariant variant, int frameIndex)
         {
-            if (variant._hasStorageBuffers && variant._dirtyStorageBuffers[frameIndex])
+            if (variant._hasTextures && variant._dirtyTextures[frameIndex])
             {
-                for (int i = 0; i < variant.TotalSets; i++)
+                var textures= variant._textures;
+                for (int setIndex = 0; setIndex < variant.TotalSets; setIndex++)
                 {
-                    variant._textures[i]?.UpdateTextureBindings(frameIndex);
+                    if (variant._imageDescriptors[setIndex].Disposed) continue;
+                    variant._imageDescriptors[setIndex].UpdateTextureBindings(frameIndex, textures[setIndex]);
+                }
+                variant._dirtyTextures[frameIndex] = false;
+            }
+
+            if (variant._hasStorageBuffers && variant._dirtyBufferRegions[frameIndex])
+            {
+                for (int setIndex = 0; setIndex < variant.TotalSets; setIndex++)
+                {
+                    if (variant._bufferDescriptors[setIndex].Disposed) continue;
+                    variant._bufferDescriptors[setIndex].UpdateStorageBufferRegion(frameIndex, variant._descriptorSetInfos[setIndex]);
+                }
+
+                variant._dirtyBufferRegions[frameIndex] = false;
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static int IndexOf(int frameIndex, int bufferIndex, int bindingCount)
+        {
+            return frameIndex * bindingCount + bufferIndex;
+        }
+
+        private struct SetBufferDescriptors : IDisposable
+        {
+            public unsafe static readonly SetBufferDescriptors Null = new() { _disposed = true };
+
+            private unsafe readonly VkDescriptorAddressInfoEXT* _pBufferAddresses;
+            private readonly int BufferCount;
+
+            private Vector2UInt _uniformRegion;
+            private Vector2UInt _storageRegion;
+
+            private bool _disposed;
+            public readonly bool Disposed => _disposed;
+            public readonly uint StorageBufferOffsetLength => _storageRegion.X + _storageRegion.Y;
+
+            public unsafe SetBufferDescriptors(DescriptorSetInfo setInfo, MaterialVariant variant)
+            {
+                BufferCount = (int)setInfo.BufferCount;
+
+                _pBufferAddresses = (VkDescriptorAddressInfoEXT*)NativeMemory.AllocZeroed((uint)sizeof(VkDescriptorAddressInfoEXT) * (uint)BufferCount * SwapChain.MAX_CONCURRENT_FRAMES_UINT);
+                
+                for (int bufferIndex = 0; bufferIndex < BufferCount; bufferIndex++)
+                {
+                    var binding = setInfo.GetBindingFromBufferIndex(bufferIndex);
+
+                    for (int frameIndex = 0; frameIndex < SwapChain.MAX_CONCURRENT_FRAMES; frameIndex++)
+                    {
+                        var pAddresses = GetBindingBuffersPtr(frameIndex);
+                        VkDescriptorAddressInfoEXT addressInfo = default;
+                        if (binding.IsAnyBuffer)
+                        {
+                            addressInfo = setInfo.GetBufferAddressInfo(frameIndex, bufferIndex, variant._variantIndex, 1);
+                        }
+
+                        pAddresses[bufferIndex] = addressInfo;
+                    }
                 }
             }
 
-            if (variant._hasStorageBuffers && variant._dirtyStorageBuffers[frameIndex])
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public readonly unsafe void UpdateStorageBufferRegion(int frameIndex, DescriptorSetInfo setInfo)
             {
-                for (int i = 0; i < variant.TotalSets; i++)
+                var pAddresses = GetBindingBuffersPtr(frameIndex);
+                for (int bufferIndex = 0; bufferIndex < BufferCount; bufferIndex++)
                 {
-                    variant._buffers[i]?.UpdateStorageBufferRegion
-                    (
-                        frameIndex,
-                        variant._descriptorSetInfos[i],
-                        variant.StorageBufferOffset,
-                        variant._storageBufferLength
-                    );
+                    var bindingInfo = setInfo.GetBindingFromBufferIndex(bufferIndex);
+                    if (bindingInfo.StorageBuffer)
+                    {
+                        var region = _storageRegion;
+                        pAddresses[bufferIndex] = setInfo.GetBufferAddressInfo(frameIndex, bufferIndex, region.X, region.Y);
+                    }
                 }
+            }
 
-                variant._dirtyStorageBuffers[frameIndex] = false;
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public readonly unsafe void UpdateUniformBufferRegion(int frameIndex, DescriptorSetInfo setInfo)
+            {
+                var pAddresses = GetBindingBuffersPtr(frameIndex);
+                for (int bufferIndex = 0; bufferIndex < BufferCount; bufferIndex++)
+                {
+                    var bindingInfo = setInfo.GetBindingFromBufferIndex(bufferIndex);
+                    if (bindingInfo.UniformBuffer)
+                    {
+                        var region = _uniformRegion;
+                        pAddresses[bufferIndex] = setInfo.GetBufferAddressInfo(frameIndex, bufferIndex, region.X, region.Y);
+                    }
+                }
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public unsafe bool SetStorageBufferRegion(uint offset, uint length)
+            {
+                if (_storageRegion == new Vector2UInt(offset, length)) return false;
+                _storageRegion = new(offset, length);
+                return true;
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public unsafe bool SetStorageBufferOffset(uint offset)
+            {
+                if (_storageRegion.X == offset) return false;
+                _storageRegion.X = offset;
+                return true;
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public unsafe bool SetUniformBufferRegion(uint offset, uint length)
+            {
+                if (_uniformRegion == new Vector2UInt(offset, length)) return false;
+                _uniformRegion = new(offset, length);
+                return true;
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public readonly unsafe VkDescriptorAddressInfoEXT* GetBindingBuffersPtr(int frameIndex)
+            {
+                IntPtr ptr = new(_pBufferAddresses);
+                int offset = sizeof(VkDescriptorAddressInfoEXT) * IndexOf(frameIndex, 0, BufferCount);
+                ptr = IntPtr.Add(ptr, offset);
+                return (VkDescriptorAddressInfoEXT*)ptr.ToPointer();
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public unsafe void Dispose()
+            {
+                if (_disposed) return;
+                _disposed = true;
+
+                NativeMemory.Free(_pBufferAddresses);
+            }
+        }
+
+        private struct SetTextureDescriptors : IDisposable
+        {
+            public unsafe static readonly SetTextureDescriptors Null = new() { _disposed = true };
+
+            private unsafe readonly VkDescriptorImageInfo* _pBindingTextures;
+
+            private readonly int TextureCount;
+
+            private bool _disposed;
+            public readonly bool Disposed => _disposed;
+
+            public unsafe SetTextureDescriptors(DescriptorSetInfo setInfo)
+            {
+                TextureCount = (int)setInfo.ImageCount;
+
+                _pBindingTextures = (VkDescriptorImageInfo*)NativeMemory.AllocZeroed((uint)sizeof(VkDescriptorImageInfo) * (uint)TextureCount * SwapChain.MAX_CONCURRENT_FRAMES_UINT);
+
+                var missingInfo = Texture2D.MissingTexture.ImageInfo;
+                for (int frameIndex = 0; frameIndex < SwapChain.MAX_CONCURRENT_FRAMES; frameIndex++)
+                {
+                    var pTextures = GetBindingTexturesPtr(frameIndex);
+
+                    for (int textureIndex = 0; textureIndex < TextureCount; textureIndex++)
+                    {
+                        pTextures[textureIndex] = missingInfo;
+                    }
+                }
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public readonly unsafe void UpdateTextureBindings(int frameIndex, Texture[] textures)
+            {
+                var pTextures = GetBindingTexturesPtr(frameIndex);
+                for (int textureIndex = 0; textureIndex < TextureCount; textureIndex++)
+                {
+                    pTextures[textureIndex] = textures[textureIndex].ImageInfo;
+                }
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public readonly unsafe VkDescriptorImageInfo* GetBindingTexturesPtr(int frameIndex)
+            {
+                IntPtr ptr = new(_pBindingTextures);
+                int offset = sizeof(VkDescriptorImageInfo) * IndexOf(frameIndex, 0, TextureCount);
+                ptr = IntPtr.Add(ptr, offset);
+                return (VkDescriptorImageInfo*)ptr.ToPointer();
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public unsafe void Dispose()
+            {
+                if (_disposed) return;
+                _disposed = true;
+
+                NativeMemory.Free(_pBindingTextures);
             }
         }
     }

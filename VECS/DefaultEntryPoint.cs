@@ -66,7 +66,8 @@ namespace VECS
 
             GraphicsPipelineConfigInfo defaultConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             MaterialV2 LitTexture = new("LitTexture", "lit_texture_new.vert", "lit_texture_new.frag", defaultConfig);
-
+            LitTexture.GetStorageBuffer<ModelMatrices>("matricesBuffer".GetHashCode())[0] = new(TransformExtensions.TRS(new(0, 0, 0), Quaternion.Identity, new(4)));
+            LitTexture.SetStorageBufferLength("matricesBuffer".GetHashCode(), 0, 1);
             //var newLitTextured = MaterialV2.LitTexture;
             //Console.WriteLine(newLitTextured.AssetName);
         }

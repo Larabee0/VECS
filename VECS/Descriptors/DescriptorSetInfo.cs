@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
@@ -283,6 +284,12 @@ namespace VECS
                     descriptorBuffer.SetImageInfoBinding(texutre, VkDescriptorType.CombinedImageSampler, setIndex, bindPoint);
                 }
             }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public VkDescriptorAddressInfoEXT GetBufferAddressInfo(int frameIndex, int bufferIndex, ulong offset, ulong length)
+        {
+            return DescriptorSetBuffers[bufferIndex][frameIndex].GetBufferAddressRange(offset, length);
         }
 
         public void Dispose()
