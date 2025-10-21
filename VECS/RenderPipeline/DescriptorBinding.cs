@@ -178,11 +178,11 @@ namespace VECS
 
         public static bool operator ==(DescriptorBinding left, DescriptorBinding right)
         {
-            return left is not null && right is not null && left.Name == right.Name && left.DescriptorSetIndex == right.DescriptorSetIndex && left.BindPoint == right.BindPoint
+            return (left is null && right is null) || (left is not null && right is not null && left.Name == right.Name && left.DescriptorSetIndex == right.DescriptorSetIndex && left.BindPoint == right.BindPoint
                 && left.Image == right.Image && left.Buffer == right.Buffer
                 && left.DynamicBuffer == right.DynamicBuffer && left.BufferSize == right.BufferSize
                 && left.BufferUsageFlags == right.BufferUsageFlags && left.GlobalUniformBuffer == right.GlobalUniformBuffer
-                && left.DescriptorType == right.DescriptorType;
+                && left.DescriptorType == right.DescriptorType);
         }
 
         public static bool operator !=(DescriptorBinding left, DescriptorBinding right)

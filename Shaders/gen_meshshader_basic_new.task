@@ -1,0 +1,50 @@
+#version 460
+
+#extension GL_EXT_mesh_shader : require
+#extension GL_EXT_shader_explicit_arithmetic_types_int8 : require
+
+struct Meshlet{
+    uint vertex_offset;
+	uint triangle_offset;
+	uint vertex_count;
+	uint triangle_count;
+};
+// escaping my vec3 nightmares heavily
+struct Bounds{
+    vec4 centerRadius; // radius in w
+    float cone_apex_x;
+    float cone_apex_y;
+    float cone_apex_z;
+    vec4 cone_axis_cutoff; // cut off in w
+    uint8_t cone_axis_x;
+    uint8_t cone_axis_y;
+    uint8_t cone_axis_z;
+    uint8_t cone_cutoff;
+};
+
+layout(set = 0,binding = 0) uniform CameraInfo{
+	mat4 projectionMatrix;
+	mat4 viewMatrix;
+	mat4 projectionViewMatrix;	
+	vec4 position;
+	vec4 forward;
+} cameraMain;
+
+layout(std140, set = 2, binding = 0) readonly buffer MeshletBuffer{
+	Meshlet meshlets[];
+} meshletsBuffer;
+
+layout(std140, set = 2, binding = 1) readonly buffer BoundsBuffer{
+	Bounds bounds[];
+} boundsBuffer;
+
+layout(push_constant) uniform pushConstant{
+    uint firstMeshlet;
+    uint meshletCount;
+};
+
+layout (local_size_x=1, local_size_y=1, local_size_z=1) in;
+void main()
+{
+	EmitMeshTasksEXT(meshletCount, 1, 1);
+}

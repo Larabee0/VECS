@@ -10,6 +10,7 @@ namespace VECS
     public class DescriptorSetInfo : IDisposable
     {
         private readonly bool _noAllocStorageBuffers = false;
+        private readonly bool _forMeshShader = false;
         private readonly bool _hasStorageBuffers;
         private readonly int _bindingCount;
         private readonly uint _bufferCount;
@@ -31,6 +32,7 @@ namespace VECS
         
         private bool _disposed = false;
 
+        public bool NoAllocStorageBuffers => _noAllocStorageBuffers;
         public int BindingCount => _bindingCount;
         public uint BufferCount => _bufferCount;
         public uint ImageCount => _imageCount;
@@ -51,9 +53,11 @@ namespace VECS
         public SwapChainBuffer[] DescriptorSetBuffers => _descriptorSetBuffers;
         public bool[] DescriptorSetBufferIsStorage => _descriptorSetBufferIsStorage;
 
-        public DescriptorSetInfo(VkDescriptorSetLayout layout, DescriptorBinding[] bindings, bool preventStorageBuffersAllocation)
+        public DescriptorSetInfo(VkDescriptorSetLayout layout, DescriptorBinding[] bindings, bool preventStorageBuffersAllocation, bool meshShader = false)
         {
             _noAllocStorageBuffers = preventStorageBuffersAllocation;
+            _forMeshShader = meshShader;
+            _noAllocStorageBuffers |= meshShader;
             _bindingCount = bindings.Length;
             _descriptorBindings = bindings;
             for (int i = 0; i < bindings.Length; i++)
@@ -67,6 +71,11 @@ namespace VECS
                 {
                     _imageCount++;
                 }
+            }
+
+            if (meshShader)
+            {
+                return;
             }
 
             _bufferDescriptorBindingIndices = new int[_bufferCount];
@@ -188,6 +197,7 @@ namespace VECS
 
         public void WriteFromBuffers(int frameIndex)
         {
+            if (_forMeshShader) return;
             for (int i = 0; i < _bufferCount; i++)
             {
                 if (_hasOwnerShipOfBuffer[i])
@@ -201,7 +211,7 @@ namespace VECS
         public void WriteUniforms(int frameIndex, uint setVariant)
         {
             var descriptorBuffer = _descriptorBuffers[frameIndex];
-            if (descriptorBuffer.HasDataBound[setVariant]) return;
+            if (_forMeshShader||descriptorBuffer.HasDataBound[setVariant]) return;
             for (int i = 0; i < _bindingCount; i++)
             {
                 var binding = _descriptorBindings[i];
@@ -246,6 +256,7 @@ namespace VECS
 
         public unsafe void WriteDescriptors(DescriptorBuffer descriptorBuffer, uint setIndex, VkDescriptorAddressInfoEXT* bindingBuffers, VkDescriptorImageInfo* bindingTextures)
         {
+            if (_forMeshShader) return;
             for (int i = 0; i < _bindingCount; i++)
             {
                 var binding = _descriptorBindings[i];
@@ -301,16 +312,20 @@ namespace VECS
             GC.SuppressFinalize(this);
             for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
             {
-                _descriptorBuffers[i].Dispose();
+                _descriptorBuffers[i]?.Dispose();
             }
 
-            for (int i = 0; i < _bufferCount; i++)
+            if (_hasOwnerShipOfBuffer != null)
             {
-                if (_hasOwnerShipOfBuffer[i])
+                for (int i = 0; i < _bufferCount; i++)
                 {
-                    _descriptorSetBuffers[i].Dispose();
+                    if (_hasOwnerShipOfBuffer[i])
+                    {
+                        _descriptorSetBuffers[i].Dispose();
+                    }
                 }
             }
+
             GC.ReRegisterForFinalize(this);
         }
 

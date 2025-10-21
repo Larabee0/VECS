@@ -20,9 +20,11 @@ namespace VECS
         private VkPipeline _graphicsPipeline;
 
         private readonly VkDescriptorSetLayout[] _descriptorSetLayouts;
+        private readonly VertexAttributeDescription[] _meshShaderVertexAttributes;
 
         private readonly int _descriptorSetCount = 0;
         private readonly int _meshShaderDescriptorSetIndex = -1;
+        private readonly int _meshShaderDescriptorHash = 0;
 
         private readonly int _setsWithTextures = 0;
         private readonly int _setsWithBuffers = 0;
@@ -36,11 +38,13 @@ namespace VECS
 
         private uint _variantCount;
 
+        public int MeshShaderDescriptorSetIndex => _meshShaderDescriptorSetIndex;
         public int DescriptorSetCount => _descriptorSetCount;
         public int SetsWithTextures => _setsWithTextures;
         public int SetsWithBuffers => _setsWithBuffers;
 
         public DescriptorSetInfo[] DescriptorSetInfos => _descriptorSetInfos;
+        public PushConstantsHandler PushConstants => _materialPushConstantsHandler;
 
         public readonly static MaterialV2 LitTexture;
 
@@ -69,7 +73,7 @@ namespace VECS
             _descriptorSetInfos = new DescriptorSetInfo[_descriptorSetCount];
             InitialiseDescriptorSets(descriptorSetBindings);
 
-            _materialPushConstantsHandler = new(vertex.SpvShaderModule, fragment.SpvShaderModule);
+            _materialPushConstantsHandler = new(vertex, fragment);
 
             _pipelineLayout = GPUPipelineUtil.CreatePipelineLayout(vertex, fragment, _descriptorSetLayouts, _materialPushConstantsHandler);
             _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipeline(vertex, fragment, _graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT);
@@ -77,6 +81,74 @@ namespace VECS
             AssetDataBase<MaterialV2>.Add(this);
         }
 
+        internal MaterialV2(string name, string vertexShaderName, GraphicsPipelineConfigInfo pipelineConfig)
+        {
+            AssetName = name;
+
+            ShaderModule vertex = AssetDataBase<ShaderModule>.GetNamed(vertexShaderName);
+
+            if (vertex.HasVertexAttributes)
+            {
+                pipelineConfig.BindingDescriptions = vertex.VertexBindings;
+                pipelineConfig.AttributeDescriptions = vertex.VertexAttributes;
+            }
+            pipelineConfig.rasterizationInfo.cullMode = VkCullModeFlags.Back;
+            _graphicsPipelineConfigInfo = pipelineConfig;
+            var descriptorSetBindings = GPUPipelineUtil.GetSharedBindings(vertex);
+            _descriptorSetCount = GPUPipelineUtil.GetSetCount(descriptorSetBindings);
+
+            _descriptorSetLayouts = new VkDescriptorSetLayout[_descriptorSetCount];
+            _descriptorSetInfos = new DescriptorSetInfo[_descriptorSetCount];
+            InitialiseDescriptorSets(descriptorSetBindings);
+
+            _materialPushConstantsHandler = new(vertex);
+
+            _pipelineLayout = GPUPipelineUtil.CreatePipelineLayout(vertex, _descriptorSetLayouts, _materialPushConstantsHandler);
+            _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipeline(vertex, _graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT);
+            _matVariants = new MaterialVariant[MAX_VARIANTS];
+            AssetDataBase<MaterialV2>.Add(this);
+        }
+
+        internal MaterialV2(string name, string meshShaderName, string taskShaderName, string fragmentShaderName, GraphicsPipelineConfigInfo pipelineConfig)
+        {
+            AssetName = name;
+
+            ShaderModule mesh = AssetDataBase<ShaderModule>.GetNamed(meshShaderName);
+            ShaderModule task = AssetDataBase<ShaderModule>.GetNamed(taskShaderName);
+            ShaderModule fragment = AssetDataBase<ShaderModule>.GetNamed(fragmentShaderName);
+
+            pipelineConfig.BindingDescriptions = null;
+            pipelineConfig.AttributeDescriptions = null;
+
+            pipelineConfig.rasterizationInfo.cullMode = VkCullModeFlags.Back;
+            _graphicsPipelineConfigInfo = pipelineConfig;
+            var descriptorSetBindings = GPUPipelineUtil.GetSharedBindings(mesh, task, fragment);
+            _descriptorSetCount = GPUPipelineUtil.GetSetCount(descriptorSetBindings);
+            _meshShaderDescriptorSetIndex = GPUPipelineUtil.GetMeshDataSetIndex(descriptorSetBindings);
+
+            _meshShaderVertexAttributes = GPUPipelineUtil.MeshShaderExtractVertexAttributes(GPUPipelineUtil.ExtractBindingsForSet((uint)_meshShaderDescriptorSetIndex,descriptorSetBindings), descriptorSetBindings);
+
+            _meshShaderDescriptorHash = HashCode.Combine((byte)_meshShaderVertexAttributes[0].attribute, (byte)_meshShaderVertexAttributes[0].format);
+
+            for (int i = 1; i < _meshShaderVertexAttributes.Length; i++)
+            {
+                var attributeDesc = _meshShaderVertexAttributes[i];
+                _meshShaderDescriptorHash = HashCode.Combine(_meshShaderDescriptorHash, HashCode.Combine((byte)attributeDesc.attribute, (byte)attributeDesc.format));
+            }
+
+            _descriptorSetLayouts = new VkDescriptorSetLayout[_descriptorSetCount];
+            _descriptorSetInfos = new DescriptorSetInfo[_descriptorSetCount];
+            InitialiseDescriptorSets(descriptorSetBindings);
+
+            _materialPushConstantsHandler = new(mesh, task, fragment);
+
+            _pipelineLayout = GPUPipelineUtil.CreatePipelineLayout(mesh, task, fragment, _descriptorSetLayouts, _materialPushConstantsHandler);
+            _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipeline(mesh, task, fragment, _graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT);
+            _matVariants = new MaterialVariant[MAX_VARIANTS];
+            AssetDataBase<MaterialV2>.Add(this);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void InitialiseDescriptorSets(DescriptorBinding[] descriptorSetBindings)
         {
             for (uint setIndex = 0; setIndex < _descriptorSetCount; setIndex++)
@@ -84,7 +156,7 @@ namespace VECS
                 var setBindings = GPUPipelineUtil.ExtractBindingsForSetAsBindingArray(setIndex, descriptorSetBindings);
                 var layout = GPUPipelineUtil.CreateDescriptorSetLayout(setBindings, VkDescriptorSetLayoutCreateFlags.DescriptorBufferEXT);
                 _descriptorSetLayouts[setIndex] = layout;
-                _descriptorSetInfos[setIndex] = new DescriptorSetInfo(layout, setBindings, _meshShaderDescriptorSetIndex == setIndex);
+                _descriptorSetInfos[setIndex] = new DescriptorSetInfo(layout, setBindings, _meshShaderDescriptorSetIndex == setIndex, _meshShaderDescriptorSetIndex == setIndex);
             }
         }
 
@@ -128,13 +200,7 @@ namespace VECS
         {
             if (_cachedShaderProperties.TryGetValue(propertyId, out propertyInfo))
             {
-#if DEBUG
-                if (propertyInfo == ShaderPropertyInfo.Invalid)
-                {
-                    Console.WriteLine("Invalid property {0}", propertyId);
-                }
-#endif
-                return true;
+                return propertyInfo != ShaderPropertyInfo.Invalid;
             }
 
             for (uint setIndex = 0; setIndex < _descriptorSetCount; setIndex++)
@@ -272,7 +338,6 @@ namespace VECS
             }
         }
 
-
         public void SetStorageBufferLength(int propertyId, uint variant, uint length)
         {
             if (LookUpProperty(propertyId, out var propertyInfo) && propertyInfo.BindingInfo.StorageBuffer)
@@ -402,6 +467,7 @@ namespace VECS
 
             for (int i = 0; i < material.DescriptorSetCount; i++)
             {
+                if(i == material._meshShaderDescriptorSetIndex) continue;
                 var bindings = material.GetDescriptorBindings(i);
                 var usage = accumulatedStorageBufferUsage[i];
                 for (int j = 0; j < bindings.Length; j++)
@@ -506,11 +572,51 @@ namespace VECS
 
             _materialPushConstantsHandler.BindPushConstants(commandBuffer, _pipelineLayout, 0);
         }
+
+        public unsafe void BindAllMesh(RendererFrameInfo frameInfo,DirectMesh mesh)
+        {
+            if (_meshShaderDescriptorSetIndex < 0) return;
+            CreateVariant(0);
+
+            var variant = _matVariants[0];
+            SetGlobalUniforms(this, 0, frameInfo);
+            VkDescriptorBufferBindingInfoEXT* bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[_descriptorSetCount];
+            ulong* offsets = stackalloc ulong[_descriptorSetCount];
+            uint* indices = stackalloc uint[_descriptorSetCount];
+
+            int frameIndex = frameInfo.FrameIndex;
+            Update(this, frameIndex);
+
+            for (uint i = 0; i < _descriptorSetCount; i++)
+            {
+                DescriptorSetInfo descriptorSetInfo = _descriptorSetInfos[i];
+                DescriptorBuffer buffer = descriptorSetInfo.DescriptorBuffers[frameIndex];
+                if(i == _meshShaderDescriptorSetIndex )
+                {
+                    if (!mesh.MeshShaderSet.TryGetDescriptorBuffer(frameIndex, _meshShaderDescriptorHash, out buffer))
+                    {
+                        MeshShaderDescriptorBuffer descriptor = mesh.MeshShaderSet.RegisterMaterial(_descriptorSetLayouts[_meshShaderDescriptorSetIndex], _meshShaderVertexAttributes);
+                        mesh.MeshShaderSet.UpdateDescriptorBuffer(frameInfo.FrameIndex, descriptor);
+                        buffer = descriptor.DescriptorBuffers[frameIndex];
+                    }
+                }
+                bindingInfo[i] = buffer.BindingInfo;
+                offsets[i] = buffer.AlignedSize * 0;
+                indices[i] = i;
+            }
+
+
+            var commandBuffer = frameInfo.CommandBuffer;
+            GraphicsDevice.DeviceAPI.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Graphics, _graphicsPipeline);
+            DescriptorBuffer.BindSets(commandBuffer, (uint)_descriptorSetCount, bindingInfo);
+            DescriptorBuffer.SetOffsets(commandBuffer, _pipelineLayout, VkPipelineBindPoint.Graphics, 0, (uint)_descriptorSetCount, offsets, indices);
+
+            _materialPushConstantsHandler.BindPushConstants(commandBuffer, _pipelineLayout, 0);
+        }
     }
 
     public struct ShaderPropertyInfo
     {
-
         public static readonly int CameraInfoProperty = "cameraMain".GetHashCode();
         public static readonly int CameraInverseProperty = "cameraInverse".GetHashCode();
         public static readonly int AdditionalCameraInfoProperty = "cameraPlanes".GetHashCode();

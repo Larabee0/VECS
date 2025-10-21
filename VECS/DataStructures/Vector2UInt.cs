@@ -34,9 +34,9 @@ namespace System.Numerics
 
         public override readonly bool Equals(object obj)
         {
-            return obj is Vector2UInt @int &&
-                   X == @int.X &&
-                   Y == @int.Y;
+            return obj is Vector2UInt vec2uint &&
+                   X == vec2uint.X &&
+                   Y == vec2uint.Y;
         }
         public static bool operator ==(Vector2UInt left, Vector2UInt right)
         {

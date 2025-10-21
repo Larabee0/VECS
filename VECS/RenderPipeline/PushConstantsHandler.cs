@@ -30,6 +30,16 @@ namespace VECS
             EnsureCapacity(MaterialV2.MAX_VARIANTS);
         }
 
+        public PushConstantsHandler(params ShaderModule[] modules)
+        {
+            _pushConstants = [GPUPipelineUtil.GetPushConstants(modules)];
+            if (PrimaryPushConstants != null)
+            {
+                _pushConstantsCount = PrimaryPushConstants.Length;
+            }
+            EnsureCapacity(MaterialV2.MAX_VARIANTS);
+        }
+
         public void EnsureCapacity(int count)
         {
             if (_pushConstants.Length >= count)

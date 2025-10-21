@@ -99,6 +99,43 @@ namespace VECS
             return pushConstants;
         }
 
+        public static unsafe PushConstantsInfo[] GetPushConstants(params ShaderModule[] modules)
+        {
+            List<VkShaderStageFlags> shaderStageFlags = [];
+            List<SpvReflectBlockVariable> constants = [];
+
+            for (int i = 0; i < modules.Length; i++)
+            {
+                var module = modules[i];
+                var pushBlocks = SPIRVReflectUtil.PushConstants(module.SpvShaderModule);
+                if (pushBlocks == null) continue;
+                var shaderStage = module.VkShaderStage;
+                for (int j = 0; j < pushBlocks.Length; j++)
+                {
+                    var pushBlock = pushBlocks[j];
+                    int priorIndex = constants.FindIndex(0, ComparePushBlocks(pushBlock));
+                    if (priorIndex == -1)
+                    {
+                        constants.Add(pushBlock);
+                        shaderStageFlags.Add(shaderStage);
+                    }
+                    else
+                    {
+                        shaderStageFlags[priorIndex] |= shaderStage;
+                    }
+                }
+            }
+
+            PushConstantsInfo[] pushConstants = new PushConstantsInfo[constants.Count];
+
+            for (int i = 0; i < constants.Count; i++)
+            {
+                pushConstants[i] = new(constants[i], shaderStageFlags[i]);
+            }
+
+            return pushConstants;
+        }
+
         private static unsafe Predicate<SpvReflectBlockVariable> ComparePushBlocks(SpvReflectBlockVariable pushBlock)
         {
             return (SpvReflectBlockVariable block) =>
@@ -317,6 +354,24 @@ namespace VECS
         public static VkPipelineLayout CreatePipelineLayout(ShaderModule vertex, ShaderModule fragment, VkDescriptorSetLayout[] setLayouts, PushConstantsHandler pushConstants)
         {
             string cacheName = vertex.AssetName + fragment.AssetName;
+            var cache = AssetDataBase<PipelineCache>.GetNamedSilentFail(cacheName);
+
+            if (cache == null)
+            {
+                cache = new(cacheName, CreatePipelineLayout(setLayouts, pushConstants));
+                AssetDataBase<PipelineCache>.Add(cache);
+            }
+
+            return cache.Layout;
+        }
+
+        public static VkPipelineLayout CreatePipelineLayout(ShaderModule mesh, ShaderModule task, ShaderModule fragment, VkDescriptorSetLayout[] setLayouts, PushConstantsHandler pushConstants)
+        {
+            if (!GraphicsDevice.MeshShading)
+            {
+                throw new InvalidOperationException("Mesh shading is not enabled for this runtime instance!");
+            }
+            string cacheName = mesh.AssetName + task.AssetName + fragment.AssetName;
             var cache = AssetDataBase<PipelineCache>.GetNamedSilentFail(cacheName);
 
             if (cache == null)

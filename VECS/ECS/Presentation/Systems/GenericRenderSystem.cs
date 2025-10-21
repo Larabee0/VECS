@@ -54,19 +54,19 @@ namespace VECS.ECS.Presentation
 
         }
 
-        public unsafe override void OnPreForwardPass(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
+        public unsafe override void OnPreForwardPass(EntityManager entityManager, RendererFrameInfo frameInfo)
         {
             if (!_renderEntityQuery.HasEntities)
             {
                 // empty depth pass just to clear the depth texture.
-                SwapChain.Instance.BeginForwardDepth(rendererFrameInfo.CommandBuffer);
-                SwapChain.Instance.EndForwardDepthRendering(rendererFrameInfo.CommandBuffer);
+                SwapChain.Instance.BeginForwardDepth(frameInfo.CommandBuffer);
+                SwapChain.Instance.EndForwardDepthRendering(frameInfo.CommandBuffer);
                 return;
             }
 
             var entities = _renderEntityQuery.GetEntities();
-            _shadowData.GenerateDrawCmds(rendererFrameInfo, entityManager, entities);
-            _depthData.GenerateDrawCmds(rendererFrameInfo, entityManager, entities);
+            _shadowData.GenerateDrawCmds(frameInfo, entityManager, entities);
+            _depthData.GenerateDrawCmds(frameInfo, entityManager, entities);
         }
 
         public override void OnBloomGlow(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
@@ -78,11 +78,10 @@ namespace VECS.ECS.Presentation
 
         public override unsafe void OnFowardPass(EntityManager entityManager, RendererFrameInfo frameInfo)
         {
-            /*
+            
             if (GraphicsDevice.MeshShading)
             {
-                Material meshShader = AssetDataBase<Material>.GetNamed("genMeshBasic");
-                meshShader.GetStorageBuffer<ModelMatrices>("matricesBuffer")[0] = new(TransformExtensions.TRS(new(0, 0, 0), System.Numerics.Quaternion.Identity, new(100)));
+                MaterialV2 meshShader = AssetDataBase<MaterialV2>.GetNamed("MeshShader");
 
                 //DirectMesh cube = AssetDataBase<DirectMesh>.GetNamed("cube-UV");
                 //cube.MeshShaderSet.Update(frameInfo);
@@ -95,16 +94,13 @@ namespace VECS.ECS.Presentation
                 //meshShader.PushConstants.BindPushConstants(frameInfo, meshShader.PipeLineLayout);
                 //Vulkan.vkCmdDrawMeshTasksEXT(frameInfo.CommandBuffer, 1, 1, 1);
 
-                DirectMesh vase = AssetDataBase<DirectMesh>.GetNamed("smooth_vase, smooth_vase, flat_vase");
-                vase.MeshShaderSet.Update(frameInfo);
+                DirectMesh vase = AssetDataBase<DirectMesh>.GetNamed("smooth_vase");
                 var subMesh = vase.DirectSubMeshes[0];
                 var meshletInfo = subMesh.MeshletInfo;
                 meshShader.PushConstants.SetPushConstantUInt("meshletCount", (uint)meshletInfo.MeshletCount);
-                meshShader.Update(frameInfo);
-                meshShader.BindAll(frameInfo);
-                meshShader.BindMeshShaderData(frameInfo, vase);
-                meshShader.PushConstants.BindPushConstants(frameInfo, meshShader.PipeLineLayout);
-                Vulkan.vkCmdDrawMeshTasksEXT(frameInfo.CommandBuffer, 1, 1, 1);
+                
+                meshShader.BindAllMesh(frameInfo,vase);
+                GraphicsDevice.DeviceAPI.vkCmdDrawMeshTasksEXT(frameInfo.CommandBuffer, 1, 1, 1);
 
                 //var unlit = Presenter.Instance.Unlit;
                 //var drawCmd = subMesh.DirectSubMeshInfo.IndirectDrawCmd;
@@ -114,8 +110,8 @@ namespace VECS.ECS.Presentation
                 //cube.BindSpecificBuffers(frameInfo.CommandBuffer, unlit.VertexBindings, unlit.VertexAttributes);
                 //Vulkan.vkCmdDrawIndexed(frameInfo.CommandBuffer, drawCmd.indexCount, 1, drawCmd.firstIndex, drawCmd.vertexOffset, 0);
             }
-            */
-
+            
+            /*
             DirectMesh cube = AssetDataBase<DirectMesh>.GetNamed("cube-UV");
 
             bool descriptorBuffers = true;
@@ -134,7 +130,7 @@ namespace VECS.ECS.Presentation
                 unlit.BindAll(frameInfo);
             }
             cube.DirectSubMeshes[0].SimpleBindAndDraw(frameInfo.CommandBuffer);
-
+            */
 
             if (!_renderEntityQuery.HasEntities) { return; }
 

@@ -40,7 +40,7 @@ namespace VECS
             for (uint i = 0; i < TotalSets; i++)
             {
                 var setInfo = _descriptorSetInfos[i];
-                if (setInfo.BufferCount > 0)
+                if (setInfo.BufferCount > 0 && !setInfo.NoAllocStorageBuffers)
                 {
                     _bufferDescriptors[i] = new(setInfo, this);
                     for (int j = 0; j < setInfo.BufferCount; j++)

@@ -64,10 +64,22 @@ namespace VECS
             pipelineContainer.AddStorage(colours, 1, 2);
 
 
-            GraphicsPipelineConfigInfo defaultConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
-            MaterialV2 LitTexture = new("LitTexture", "lit_texture_new.vert", "lit_texture_new.frag", defaultConfig);
+            MaterialV2 LitTexture = new("LitTexture", "lit_texture_new.vert", "lit_texture_new.frag", GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []));
             LitTexture.GetStorageBuffer<ModelMatrices>("matricesBuffer".GetHashCode())[0] = new(TransformExtensions.TRS(new(0, 0, 0), Quaternion.Identity, new(4)));
             LitTexture.SetStorageBufferLength("matricesBuffer".GetHashCode(), 0, 1);
+            var depthConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
+            depthConfig.colourFormats = [];
+            depthConfig.depthStencilInfo.depthWriteEnable = true;
+            depthConfig.depthStencilInfo.depthTestEnable = true;
+            depthConfig.depthStencilInfo.depthCompareOp = VkCompareOp.LessOrEqual;
+            MaterialV2 DepthOnly = new("DepthOnly", "depth_only_new.vert", depthConfig);
+            DepthOnly.GetStorageBuffer<ModelMatrices>("matricesBuffer".GetHashCode())[0] = new(TransformExtensions.TRS(new(0, 0, 0), Quaternion.Identity, new(4)));
+            DepthOnly.SetStorageBufferLength("matricesBuffer".GetHashCode(), 0, 1);
+
+            MaterialV2 MeshShader = new("MeshShader", "gen_meshshader_basic_new.mesh", "gen_meshshader_basic_new.task", "gen_meshshader_basic_new.frag", GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []));
+            MeshShader.GetStorageBuffer<ModelMatrices>("matricesBuffer".GetHashCode())[0] = new(TransformExtensions.TRS(new(0, 0, 0), Quaternion.Identity, new(4)));
+            MeshShader.SetStorageBufferLength("matricesBuffer".GetHashCode(), 0, 1);
+
             //var newLitTextured = MaterialV2.LitTexture;
             //Console.WriteLine(newLitTextured.AssetName);
         }
@@ -90,8 +102,7 @@ namespace VECS
         {
             var colorCube = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("colored_cube.obj"), []);
             var res = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("cube-UV.obj"), []);
-            var vase = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("flat_vase.obj"), []);
-
+            var vase = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("smooth_vase.obj"), []);
             ComputeNormalsV2.DispatchSingleTimeCmd(colorCube[0].DirectMeshBuffer);
             ComputeNormalsV2.DispatchSingleTimeCmd(vase[0].DirectMeshBuffer);
             ComputeNormalsV2.DispatchSingleTimeCmd(res[0].DirectMeshBuffer);
@@ -99,6 +110,9 @@ namespace VECS
             colorCube[0].DirectMeshBuffer.ReadAllBuffers();
             vase[0].DirectMeshBuffer.ReadAllBuffers();
             res[0].DirectMeshBuffer.ReadAllBuffers();
+
+            vase[0].DirectMeshBuffer.CreateMeshlets();
+            vase[0].DirectMeshBuffer.RecreateMeshShaderDescriptorSet();
         }
     }
 }

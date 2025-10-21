@@ -63,7 +63,7 @@ namespace VECS
 
             for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
             {
-                DescriptorBuffers[i] = new(layout, desired.Length, 1, true, false);
+                DescriptorBuffers[i] = new(layout, desired.Length+3, 1, true, false);
             }
             
 
@@ -128,10 +128,12 @@ namespace VECS
                 newLayout = _materialSets[newLayout.LayoutHash];
             }
 
+            
+
             return newLayout;
         }
 
-        public unsafe void UpdateDescriptorBuffer(int frameIndex, MeshShaderDescriptorBuffer shaderDescriptorBuffer)
+        public unsafe void UpdateDescriptorBuffer(int frameIndex,MeshShaderDescriptorBuffer shaderDescriptorBuffer)
         {
 
             if (!shaderDescriptorBuffer.SetsDirty[frameIndex])
@@ -141,6 +143,12 @@ namespace VECS
 
             DescriptorBuffer buffer = shaderDescriptorBuffer.DescriptorBuffers[frameIndex];
             var bufferInfos = shaderDescriptorBuffer.Buffers;
+
+            for (uint i = 0; i < 3; i++)
+            {
+                DescriptorBufferWriteInfo writeInfo = new(_bufferAddress[i], VkDescriptorType.StorageBuffer, 0, i);
+                buffer.WriteDescriptor(ref writeInfo);
+            }
 
             for (int i = 0; i < bufferInfos.Length; i++)
             {
@@ -153,7 +161,7 @@ namespace VECS
                 DescriptorBufferWriteInfo writeInfo = new(_bufferAddress[bufferIndex], VkDescriptorType.StorageBuffer, 0, info.BindingPoint);
                 buffer.WriteDescriptor(ref writeInfo);
             }
-
+            buffer.Flush();
             shaderDescriptorBuffer.SetsDirty[frameIndex] = false;
         }
 
@@ -162,6 +170,7 @@ namespace VECS
             set = null;
             if (_materialSets.TryGetValue(descriptorLayout, out var setContainer))
             {
+                UpdateDescriptorBuffer(frameIndex,setContainer);
                 set = setContainer.DescriptorBuffers[frameIndex];
                 return true;
             }
@@ -173,6 +182,12 @@ namespace VECS
             if (_disposed) return;
             _disposed = true;
             GC.SuppressFinalize(this);
+
+            foreach (var item in _materialSets.Values)
+            {
+                item.Dispose();
+            }
+
             NativeMemory.Free(_bufferAddress);
             GC.ReRegisterForFinalize(this);
         }
