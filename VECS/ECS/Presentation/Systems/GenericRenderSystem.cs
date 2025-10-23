@@ -78,7 +78,7 @@ namespace VECS.ECS.Presentation
 
         public override unsafe void OnFowardPass(EntityManager entityManager, RendererFrameInfo frameInfo)
         {
-            
+            /*
             if (GraphicsDevice.MeshShading)
             {
                 MaterialV2 meshShader = AssetDataBase<MaterialV2>.GetNamed("MeshShader");
@@ -110,6 +110,7 @@ namespace VECS.ECS.Presentation
                 //cube.BindSpecificBuffers(frameInfo.CommandBuffer, unlit.VertexBindings, unlit.VertexAttributes);
                 //Vulkan.vkCmdDrawIndexed(frameInfo.CommandBuffer, drawCmd.indexCount, 1, drawCmd.firstIndex, drawCmd.vertexOffset, 0);
             }
+            */
             
             /*
             DirectMesh cube = AssetDataBase<DirectMesh>.GetNamed("cube-UV");
