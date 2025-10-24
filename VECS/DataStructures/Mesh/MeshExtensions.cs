@@ -439,14 +439,14 @@ namespace VECS
 
             buffer.TryAllocHostBuffer(false);
 
-            MeshletCopyVertexDataToGPUBuffer(srcMesh, subMeshes, submeshMeshletDatas, i, attribute, buffer, attributeStride);
+            MeshletCopyVertexDataToGPUBuffer(srcMesh, subMeshes, submeshMeshletDatas, attribute, buffer, attributeStride);
 
             buffer.WriteFromHostBuffer();
             srcMesh._vertexBuffersMeshShader[attribute] = buffer;
         }
 
         // this casues a CLR error
-        private static unsafe void MeshletCopyVertexDataToGPUBuffer(DirectMesh srcMesh, DirectSubMeshInfo[] subMeshes, SubmeshMeshletData[] submeshMeshletDatas, int i, VertexAttribute attribute, GPUBuffer buffer, uint attributeStride)
+        private static unsafe void MeshletCopyVertexDataToGPUBuffer(DirectMesh srcMesh, DirectSubMeshInfo[] subMeshes, SubmeshMeshletData[] submeshMeshletDatas, VertexAttribute attribute, GPUBuffer buffer, uint attributeStride)
         {
             for (int j = 0; j < subMeshes.Length; j++)
             {
@@ -658,7 +658,7 @@ namespace VECS
 
         public static void RecalcualteAllNormals(this DirectMesh directMesh)
         {
-            ComputeNormals.DispatchNow(directMesh);
+            ComputeNormalsV2.DispatchSingleTimeCmd(directMesh);
             directMesh.GetBufferAtAttribute(VertexAttribute.Normal).SetGPUBufferChanged(true);
         }
 

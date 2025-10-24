@@ -11,7 +11,7 @@ namespace VECS.ECS.Presentation
         private readonly Material _depthOnly;
         private readonly ShadowRenderBlob _depthRenderBlob;
         
-        public DepthInternal(FustrumCull cullCompute) : base(cullCompute)
+        public DepthInternal()
         {
             var depthConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             depthConfig.colourFormats = [];
@@ -25,10 +25,6 @@ namespace VECS.ECS.Presentation
 
         public override void GenerateDrawCmds(RendererFrameInfo frameInfo, EntityManager entityManager, List<Entity> entities)
         {
-            if (_cullCompute.Shader.LastFrameIndex != frameInfo.FrameIndex)
-            {
-                _cullCompute.Shader.NextFrame(frameInfo.FrameIndex);
-            }
             if (_depthRenderBlob.DrawCount != entities.Count)
             {
                 _depthRenderBlob.RebuildBlob(entityManager, entities);
@@ -40,15 +36,15 @@ namespace VECS.ECS.Presentation
             _depthOnly.SetMatDescriptorHandleStorageRegions(0, 0, (uint)entities.Count);
             _depthOnly.Update(frameInfo);
 
-            DepthOnly(frameInfo.CommandBuffer, frameInfo.cullData, 7, frameInfo.FrameIndex, entities.Count);
+            DepthOnly(frameInfo.CommandBuffer, frameInfo.cullData, frameInfo.FrameIndex, entities.Count);
         }
         
-        private unsafe void DepthOnly(VkCommandBuffer commandBuffer, CullData cullData, int computeSetId, int frameIndex, int drawCount)
+        private unsafe void DepthOnly(VkCommandBuffer commandBuffer, CullData cullData, int frameIndex, int drawCount)
         {
 
             
-            VkBufferMemoryBarrier memoryBarrier = _cullCompute.Cull(commandBuffer, frameIndex, cullData, (uint)drawCount, _depthRenderBlob.IndirectCmdBuffer, _depthRenderBlob.ModelBoundsBuffer, computeSetId);
-            if (!_cullCompute.CPUCulling)
+            VkBufferMemoryBarrier memoryBarrier = FustrumCull.Cull(commandBuffer, frameIndex, cullData, (uint)drawCount, _depthRenderBlob.IndirectCmdBuffer, _depthRenderBlob.ModelBoundsBuffer);
+            if (!FustrumCull.CPUCulling)
             {
                 GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier(commandBuffer,
                         VkPipelineStageFlags.ComputeShader,

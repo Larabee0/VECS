@@ -11,8 +11,6 @@ namespace VECS.ECS.Presentation
         private EntityQuery _renderEntityQuery;
         private EntityQuery _renderBloomEntityQuery;
 
-        private FustrumCull _cullCompute;
-
         private ForwardInternal _forwardData;
         private ShadowInternal _shadowData;
         private DepthInternal _depthData;
@@ -30,11 +28,9 @@ namespace VECS.ECS.Presentation
                 .Build();
 
 
-            _cullCompute = new();
-
-            _forwardData = new(_cullCompute);
-            _shadowData = new(_cullCompute);
-            _depthData = new(_cullCompute);
+            _forwardData = new();
+            _shadowData = new();
+            _depthData = new();
         }
 
         public override void OnDestroy(EntityManager entityManager)
@@ -98,8 +94,8 @@ namespace VECS.ECS.Presentation
                 var subMesh = vase.DirectSubMeshes[0];
                 var meshletInfo = subMesh.MeshletInfo;
                 meshShader.PushConstants.SetPushConstantUInt("meshletCount", (uint)meshletInfo.MeshletCount);
-                
-                meshShader.BindAllMesh(frameInfo,vase);
+
+                meshShader.BindAllMesh(frameInfo, 0, vase);
                 GraphicsDevice.DeviceAPI.vkCmdDrawMeshTasksEXT(frameInfo.CommandBuffer, 1, 1, 1);
 
                 //var unlit = Presenter.Instance.Unlit;

@@ -7,6 +7,7 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
+    [Obsolete("Use ComputeShaderV2")]
     public class ComputeShader : DisposableAsset
     {
         private readonly PipelineCache _cache;

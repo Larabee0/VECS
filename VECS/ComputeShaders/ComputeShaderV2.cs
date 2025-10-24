@@ -8,7 +8,7 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
-    internal class ComputeShaderV2 : DisposableAsset
+    public class ComputeShaderV2 : DisposableAsset
     {
         private readonly PushConstantsHandler _pushConstantsHandler;
 
@@ -20,6 +20,8 @@ namespace VECS
         private readonly VkDescriptorSetLayout[] _descriptorSetLayouts;
         private readonly VkPipelineLayout _pipelineLayout;
         private readonly VkPipeline _pipline;
+
+        public PushConstantsHandler PushConstantsHandler => _pushConstantsHandler;
 
         public unsafe ComputeShaderV2(string assetName, string shaderName)
         {
@@ -124,9 +126,27 @@ namespace VECS
             }
         }
 
+        public void SetStorageBuffer(int propertyId, uint variant, SwapChainBuffer buffer)
+        {
+            if (LookUpProperty(propertyId, out var propertyInfo) && propertyInfo.BindingInfo.StorageBuffer)
+            {
+                var setInfo = _descriptorSetInfos[propertyInfo.SetIndex];
+                setInfo.WriteDescriptors(Presenter.Instance.FrameIndex, propertyInfo.BindPoint, variant, buffer[Presenter.Instance.FrameIndex]);
+            }
+        }
+
         public void SetStorageBuffer(string property, uint variant, GPUBuffer buffer)
         {
             if (LookUpProperty(property, out var propertyInfo) && propertyInfo.BindingInfo.StorageBuffer)
+            {
+                var setInfo = _descriptorSetInfos[propertyInfo.SetIndex];
+                setInfo.WriteDescriptors(Presenter.Instance.FrameIndex, propertyInfo.BindPoint, variant, buffer);
+            }
+        }
+
+        public void SetStorageBuffer(int propertyId, uint variant, GPUBuffer buffer)
+        {
+            if (LookUpProperty(propertyId, out var propertyInfo) && propertyInfo.BindingInfo.StorageBuffer)
             {
                 var setInfo = _descriptorSetInfos[propertyInfo.SetIndex];
                 setInfo.WriteDescriptors(Presenter.Instance.FrameIndex, propertyInfo.BindPoint, variant, buffer);
@@ -145,6 +165,11 @@ namespace VECS
             WriteToBuffer(property, variant, value);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetUInt(int propertyId, uint variant, uint value)
+        {
+            WriteToBuffer(propertyId, variant, value);
+        }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetFloat(string property, uint variant, float value)
         {
@@ -184,6 +209,14 @@ namespace VECS
         public void WriteToBuffer<T>(string property, uint variant, T value) where T : unmanaged
         {
             if(LookUpProperty(property,out var propertyInfo))
+            {
+                WriteToBuffer(propertyInfo.SetIndex, propertyInfo.BindPoint, variant, propertyInfo.Property, value);
+            }
+        }
+
+        public void WriteToBuffer<T>(int propertyId, uint variant, T value) where T : unmanaged
+        {
+            if (LookUpProperty(propertyId, out var propertyInfo))
             {
                 WriteToBuffer(propertyInfo.SetIndex, propertyInfo.BindPoint, variant, propertyInfo.Property, value);
             }

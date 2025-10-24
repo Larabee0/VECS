@@ -47,9 +47,23 @@ namespace VECS
         public PushConstantsHandler PushConstants => _materialPushConstantsHandler;
 
         public readonly static MaterialV2 LitTexture;
+        public readonly static MaterialV2 DepthOnly;
+        public readonly static MaterialV2 UnlitMeshShader;
 
         static MaterialV2()
         {
+            LitTexture = new("LitTexture", "lit_texture_new.vert", "lit_texture_new.frag", GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []));
+            var depthConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
+            depthConfig.colourFormats = [];
+            depthConfig.depthStencilInfo.depthWriteEnable = true;
+            depthConfig.depthStencilInfo.depthTestEnable = true;
+            depthConfig.depthStencilInfo.depthCompareOp = VkCompareOp.LessOrEqual;
+            DepthOnly = new("DepthOnly", "depth_only_new.vert", depthConfig);
+
+            if (GraphicsDevice.MeshShading)
+            {
+                UnlitMeshShader = new("MeshShader", "gen_meshshader_basic_new.mesh", "gen_meshshader_basic_new.task", "gen_meshshader_basic_new.frag", GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []));
+            }
         }
 
         internal MaterialV2(string name, string vertexShaderName, string fragmentShaderName, GraphicsPipelineConfigInfo pipelineConfig)
@@ -249,14 +263,12 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe void WriteSet(DescriptorSetInfo setInfo, DescriptorBuffer descriptorBuffer, int frameIndex, int setIndex, uint variant)
         {
-            CreateVariant(variant);
-
             var bindingBuffers = _matVariants[variant].GetBindingBuffersPtr(frameIndex, setIndex);
             var bindingImages = _matVariants[variant].GetBindingTexturesPtr(frameIndex, setIndex);
             WriteSet(setInfo, descriptorBuffer, variant, bindingBuffers, bindingImages);
         }
 
-        private void CreateVariant(uint variant)
+        private bool TryCreateVariant(uint variant)
         {
             if (_matVariants[variant] == null)
             {
@@ -274,7 +286,19 @@ namespace VECS
                         }
                     }
                 }
+                return true;
             }
+            return false;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private bool GetOrCreateVariant(uint variantIndex,out MaterialVariant variant)
+        {
+
+            bool hadToCreate = TryCreateVariant(variantIndex);
+            variant = _matVariants[variantIndex];
+            return !hadToCreate;
+
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -342,7 +366,7 @@ namespace VECS
         {
             if (LookUpProperty(propertyId, out var propertyInfo) && propertyInfo.BindingInfo.StorageBuffer)
             {
-                CreateVariant(variant);
+                TryCreateVariant(variant);
                 uint offset = 0;
                 for (uint i = 0; i < variant; i++)
                 {
@@ -444,18 +468,16 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe static void Update(MaterialV2 material, int frameIndex)
+        internal unsafe static void Update(MaterialV2 material, RendererFrameInfo frameInfo)
         {
             uint* accumulatedStorageBufferUsage = stackalloc uint[material.DescriptorSetCount];
-
-            // this is horrible it will run for MAX_VARIANTS
+            int frameIndex = frameInfo.FrameIndex;
             for (int i = 0; i < material._variantCount; i++)
             {
                 var variant = material._matVariants[i];
                 if (variant == null) continue;
-
+                SetGlobalUniforms(material, i, frameInfo);
                 MaterialVariant.UpdateVariant(variant, frameIndex);
-
             }
 
             MaterialVariant lastVariant = material._matVariants[material._variantCount-1];
@@ -488,22 +510,22 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void UpdateMaterialsParallel(int frameIndex)
+        internal static void UpdateMaterialsParallel(RendererFrameInfo frameInfo)
         {
             var count = AssetDataBase<MaterialV2>.AssetCount;
             var readingList = AssetDataBase<MaterialV2>.AllAssetsListForReading;
             Application.ParallelFor(count, (i) =>
             {
-                Update(readingList[i], frameIndex);
+                Update(readingList[i], frameInfo);
             });
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void UpdateMaterials(int frameIndex)
+        internal static void UpdateMaterials(RendererFrameInfo frameInfo)
         {
             var count = AssetDataBase<MaterialV2>.AssetCount;
             var readingList = AssetDataBase<MaterialV2>.AllAssetsListForReading;
-            readingList.ForEach(m => Update(m, frameIndex));
+            readingList.ForEach(m => Update(m, frameInfo));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -530,6 +552,7 @@ namespace VECS
 
         public static void SetGlobalUniforms(MaterialV2 material, int variant, RendererFrameInfo frameInfo)
         {
+            material.TryCreateVariant(0);
             WriteToBuffer(material, ShaderPropertyInfo.CameraInfoProperty, variant, frameInfo.CameraInfo);
             WriteToBuffer(material, ShaderPropertyInfo.CameraInverseProperty, variant, frameInfo.CameraInverseInfo);
             WriteToBuffer(material, ShaderPropertyInfo.AdditionalCameraInfoProperty, variant, frameInfo.AdditionalCameraInfo);
@@ -541,18 +564,18 @@ namespace VECS
             material._matVariants[variant].SetStorageBufferRegion(0, 0, (uint)frameInfo.PointLights.Length);
         }
 
-        public unsafe void BindAll(RendererFrameInfo frameInfo)
+        public unsafe void BindAll(RendererFrameInfo frameInfo,int variantIndex)
         {
-            CreateVariant(0);
+            if (!GetOrCreateVariant((uint)variantIndex,out var variant))
+            {
+                Update(this, frameInfo);
+            }
 
-            var variant = _matVariants[0];
-            SetGlobalUniforms(this, 0, frameInfo);
             VkDescriptorBufferBindingInfoEXT* bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[_descriptorSetCount];
             ulong* offsets = stackalloc ulong[_descriptorSetCount];
             uint* indices = stackalloc uint[_descriptorSetCount];
 
             int frameIndex = frameInfo.FrameIndex;
-            Update(this, frameIndex);
 
             for (uint i = 0; i < _descriptorSetCount; i++)
             {
@@ -560,32 +583,31 @@ namespace VECS
                 DescriptorBuffer buffer = descriptorSetInfo.DescriptorBuffers[frameIndex];
 
                 bindingInfo[i] = buffer.BindingInfo;
-                offsets[i] = buffer.AlignedSize * 0;
+                offsets[i] = buffer.AlignedSize * (uint)variantIndex;
                 indices[i] = i;
             }
-
 
             var commandBuffer = frameInfo.CommandBuffer;
             GraphicsDevice.DeviceAPI.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Graphics, _graphicsPipeline);
             DescriptorBuffer.BindSets(commandBuffer, (uint)_descriptorSetCount, bindingInfo);
-            DescriptorBuffer.SetOffsets(commandBuffer, _pipelineLayout, VkPipelineBindPoint.Graphics, 0, (uint)_descriptorSetCount, offsets, indices);
+            DescriptorBuffer.SetOffsets(commandBuffer, _pipelineLayout, VkPipelineBindPoint.Graphics, (uint)variantIndex, (uint)_descriptorSetCount, offsets, indices);
 
-            _materialPushConstantsHandler.BindPushConstants(commandBuffer, _pipelineLayout, 0);
+            _materialPushConstantsHandler.BindPushConstants(commandBuffer, _pipelineLayout, variantIndex);
         }
 
-        public unsafe void BindAllMesh(RendererFrameInfo frameInfo,DirectMesh mesh)
+        public unsafe void BindAllMesh(RendererFrameInfo frameInfo,int variantIndex, DirectMesh mesh)
         {
             if (_meshShaderDescriptorSetIndex < 0) return;
-            CreateVariant(0);
 
-            var variant = _matVariants[0];
-            SetGlobalUniforms(this, 0, frameInfo);
+            if (!GetOrCreateVariant((uint)variantIndex, out var variant))
+            {
+                Update(this, frameInfo);
+            }
             VkDescriptorBufferBindingInfoEXT* bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[_descriptorSetCount];
             ulong* offsets = stackalloc ulong[_descriptorSetCount];
             uint* indices = stackalloc uint[_descriptorSetCount];
 
             int frameIndex = frameInfo.FrameIndex;
-            Update(this, frameIndex);
 
             for (uint i = 0; i < _descriptorSetCount; i++)
             {
@@ -601,7 +623,7 @@ namespace VECS
                     }
                 }
                 bindingInfo[i] = buffer.BindingInfo;
-                offsets[i] = buffer.AlignedSize * 0;
+                offsets[i] = buffer.AlignedSize * (uint)variantIndex;
                 indices[i] = i;
             }
 
@@ -609,9 +631,15 @@ namespace VECS
             var commandBuffer = frameInfo.CommandBuffer;
             GraphicsDevice.DeviceAPI.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Graphics, _graphicsPipeline);
             DescriptorBuffer.BindSets(commandBuffer, (uint)_descriptorSetCount, bindingInfo);
-            DescriptorBuffer.SetOffsets(commandBuffer, _pipelineLayout, VkPipelineBindPoint.Graphics, 0, (uint)_descriptorSetCount, offsets, indices);
+            DescriptorBuffer.SetOffsets(commandBuffer, _pipelineLayout, VkPipelineBindPoint.Graphics, (uint)variantIndex, (uint)_descriptorSetCount, offsets, indices);
 
-            _materialPushConstantsHandler.BindPushConstants(commandBuffer, _pipelineLayout, 0);
+            _materialPushConstantsHandler.BindPushConstants(commandBuffer, _pipelineLayout, variantIndex);
+        }
+
+        public override void ClearCachedData()
+        {
+            base.ClearCachedData();
+            _cachedShaderProperties.Clear();
         }
     }
 

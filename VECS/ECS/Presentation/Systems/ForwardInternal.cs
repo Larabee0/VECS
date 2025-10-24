@@ -14,7 +14,7 @@ namespace VECS.ECS.Presentation
         
         private readonly VkCommandBuffer[][] _freeBuffers = new VkCommandBuffer[SwapChain.MAX_CONCURRENT_FRAMES][];
 
-        public ForwardInternal(FustrumCull cullCompute) : base(cullCompute)
+        public ForwardInternal()
         {
             _renderBlob = new(GenericRenderSystem.MAX_DRAWS);
 
@@ -41,15 +41,9 @@ namespace VECS.ECS.Presentation
 
         private void Cull(RendererFrameInfo frameInfo)
         {
-            _cullCompute.Shader.SetStorageBuffer("boundsBuffer", _renderBlob.ModelBoundsBuffer);
-            _cullCompute.Shader.SetStorageBuffer("drawBuffer", _renderBlob.IndirectCmdBuffer);
-            
-            _cullCompute.Shader.EnsureCapacity(8);
-            _cullCompute.Shader.EnsureSetsAllocated(frameInfo.FrameIndex, frameInfo.ApplicationDescriptorPool);
-            _cullCompute.Shader.UpdateSetHandlers(frameInfo.FrameIndex, frameInfo.ApplicationDescriptorPool);
-            VkBufferMemoryBarrier barrier = _cullCompute.Cull(frameInfo.CommandBuffer, frameInfo.FrameIndex, frameInfo.cullData, _renderBlob.DrawCount, _renderBlob.IndirectCmdBuffer, _renderBlob.ModelBoundsBuffer);
+            VkBufferMemoryBarrier barrier = FustrumCull.Cull(frameInfo.CommandBuffer, frameInfo.FrameIndex, frameInfo.cullData, _renderBlob.DrawCount, _renderBlob.IndirectCmdBuffer, _renderBlob.ModelBoundsBuffer);
 
-            if (!_cullCompute.CPUCulling)
+            if (!FustrumCull.CPUCulling)
             {
                 frameInfo.PostCullBarriers.Add(barrier);
             }

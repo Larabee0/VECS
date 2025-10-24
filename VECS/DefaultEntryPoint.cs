@@ -4,8 +4,7 @@ using VECS.DataStructures;
 using VECS.ECS;
 using VECS.ECS.Presentation;
 using VECS.ECS.Transforms;
-using VECS.GraphicsPipelines;
-using Vortice.Vulkan;
+using VECS.LowLevel;
 
 namespace VECS
 {
@@ -51,37 +50,20 @@ namespace VECS
 
         private static void CreateDescriptorBufferMat()
         {
-            PipelineContainer pipelineContainer = new("DescriptorBufferTest", "unlit_no_buffers.vert", "unlit.frag");
-            SwapChainBuffer<GlobalUbo.WriteableUBO> ubo = new((uint)GlobalUbo.SizeInBytes, 1, VkBufferUsageFlags.UniformBuffer | VkBufferUsageFlags.ResourceDescriptorBufferEXT, true);
-            SwapChainBuffer<ModelMatrices> matrices = new(3, VkBufferUsageFlags.StorageBuffer | VkBufferUsageFlags.ResourceDescriptorBufferEXT, true);
-            SwapChainBuffer<ModelBounds> bounds = new(3, VkBufferUsageFlags.StorageBuffer | VkBufferUsageFlags.ResourceDescriptorBufferEXT, true);
-            SwapChainBuffer<Vector4> colours = new(3, VkBufferUsageFlags.StorageBuffer | VkBufferUsageFlags.ResourceDescriptorBufferEXT, true);
-            matrices.HostBuffer[0] = new ModelMatrices(TransformExtensions.TRS(new(0, 0, 0), Quaternion.Identity, new(5)));
-            colours.HostBuffer[0] = Vector4.One;
-            pipelineContainer.AddUniform(ubo, 0, 0);
-            pipelineContainer.AddStorage(matrices, 1, 0);
-            pipelineContainer.AddStorage(bounds, 1, 1);
-            pipelineContainer.AddStorage(colours, 1, 2);
-
-
-            MaterialV2 LitTexture = new("LitTexture", "lit_texture_new.vert", "lit_texture_new.frag", GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []));
+            MaterialV2 LitTexture = MaterialV2.LitTexture;
             LitTexture.GetStorageBuffer<ModelMatrices>("matricesBuffer".GetHashCode())[0] = new(TransformExtensions.TRS(new(0, 0, 0), Quaternion.Identity, new(4)));
             LitTexture.SetStorageBufferLength("matricesBuffer".GetHashCode(), 0, 1);
-            var depthConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
-            depthConfig.colourFormats = [];
-            depthConfig.depthStencilInfo.depthWriteEnable = true;
-            depthConfig.depthStencilInfo.depthTestEnable = true;
-            depthConfig.depthStencilInfo.depthCompareOp = VkCompareOp.LessOrEqual;
-            MaterialV2 DepthOnly = new("DepthOnly", "depth_only_new.vert", depthConfig);
+            
+            MaterialV2 DepthOnly = MaterialV2.DepthOnly;
             DepthOnly.GetStorageBuffer<ModelMatrices>("matricesBuffer".GetHashCode())[0] = new(TransformExtensions.TRS(new(0, 0, 0), Quaternion.Identity, new(4)));
             DepthOnly.SetStorageBufferLength("matricesBuffer".GetHashCode(), 0, 1);
 
-            MaterialV2 MeshShader = new("MeshShader", "gen_meshshader_basic_new.mesh", "gen_meshshader_basic_new.task", "gen_meshshader_basic_new.frag", GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []));
-            MeshShader.GetStorageBuffer<ModelMatrices>("matricesBuffer".GetHashCode())[0] = new(TransformExtensions.TRS(new(0, 0, 0), Quaternion.Identity, new(4)));
-            MeshShader.SetStorageBufferLength("matricesBuffer".GetHashCode(), 0, 1);
-
-            //var newLitTextured = MaterialV2.LitTexture;
-            //Console.WriteLine(newLitTextured.AssetName);
+            if (GraphicsDevice.MeshShading)
+            {
+                MaterialV2 MeshShader = MaterialV2.UnlitMeshShader;
+                MeshShader.GetStorageBuffer<ModelMatrices>("matricesBuffer".GetHashCode())[0] = new(TransformExtensions.TRS(new(0, 0, 0), Quaternion.Identity, new(4)));
+                MeshShader.SetStorageBufferLength("matricesBuffer".GetHashCode(), 0, 1);
+            }
         }
 
         private static void CreateMainCamera()

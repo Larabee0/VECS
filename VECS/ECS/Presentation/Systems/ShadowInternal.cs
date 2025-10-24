@@ -15,7 +15,7 @@ namespace VECS.ECS.Presentation
 
         private readonly VkCommandBuffer[][] _freeBuffers = new VkCommandBuffer[SwapChain.MAX_CONCURRENT_FRAMES][];
 
-        public unsafe ShadowInternal(FustrumCull cull) : base(cull)
+        public unsafe ShadowInternal()
         {
             var shadowConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             Cubemap shadowCube = AssetDataBase<Cubemap>.GetNamed("ShadowCubeMap");
@@ -37,10 +37,6 @@ namespace VECS.ECS.Presentation
 
         public override void GenerateDrawCmds(RendererFrameInfo frameInfo, EntityManager entityManager, List<Entity> entities)
         {
-            if (_cullCompute.Shader.LastFrameIndex != frameInfo.FrameIndex)
-            {
-                _cullCompute.Shader.NextFrame(frameInfo.FrameIndex);
-            }
             if (_shadowRenderBlob.DrawCount != entities.Count)
             {
                 _shadowRenderBlob.RebuildBlob(entityManager, entities);
@@ -58,8 +54,6 @@ namespace VECS.ECS.Presentation
         {
             _shadowOffscreen.SetMatDescriptorHandleStorageRegions(0, 0, (uint)drawCount);
 
-            _cullCompute.Shader.SetStorageBuffer("boundsBuffer", _shadowRenderBlob.ModelBoundsBuffer);
-            _cullCompute.Shader.SetStorageBuffer("drawBuffer", _shadowRenderBlob.IndirectCmdBuffer);
             Matrix4x4 projection = Matrix4x4.CreatePerspectiveFieldOfView(MathF.PI * 0.5f, 1.0f, 0.1f, ShadowImage.SHADOW_IMAGE_SIZE);
             Matrix4x4 model = Matrix4x4.CreateTranslation(frameInfo.Ubo.PointLights[0].Position.AsVector3());
             _shadowOffscreen.SetMatrix4x4("cubeConstant.cubeProj", projection);
@@ -91,11 +85,9 @@ namespace VECS.ECS.Presentation
 
             Application.ParallelFor(6, (i) =>
             {
-                
-                    RenderShadow(frameInfo, drawCount, i, model, cullData, parallelCmdBuffers);
+                RenderShadow(frameInfo, drawCount, i, model, cullData, parallelCmdBuffers);
             });
 
-            _cullCompute.Shader.Increment(6);
             fixed (VkCommandBuffer* pCmdBuffers = &parallelCmdBuffers[0])
             {
                 GraphicsDevice.DeviceAPI.vkCmdExecuteCommands(frameInfo.CommandBuffer, 6, pCmdBuffers);
@@ -112,9 +104,9 @@ namespace VECS.ECS.Presentation
             CullData cullDataInternal = cullData;
             var viewMatrix = ShadowImage.GetViewMatrixForFace(i);
             cullDataInternal.viewMatrix = viewMatrix * model;
-            VkBufferMemoryBarrier memoryBarrier = _cullCompute.Cull(internalBuffer, frameInfo.FrameIndex, cullData, (uint)drawCount, _shadowRenderBlob.IndirectCmdBuffer, _shadowRenderBlob.ModelBoundsBuffer, i + 1);
+            VkBufferMemoryBarrier memoryBarrier = FustrumCull.Cull(internalBuffer, frameInfo.FrameIndex, cullData, (uint)drawCount, _shadowRenderBlob.IndirectCmdBuffer, _shadowRenderBlob.ModelBoundsBuffer);
             
-            if (!_cullCompute.CPUCulling)
+            if (!FustrumCull.CPUCulling)
             {
                 GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier(internalBuffer,
                         VkPipelineStageFlags.ComputeShader,

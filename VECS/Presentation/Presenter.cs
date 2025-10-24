@@ -30,8 +30,9 @@ namespace VECS
         private bool _isFrameStarted = false;
         private readonly ShadowImage _shadowCubeMap;
         private readonly Bloom _bloom;
-        private  ulong _frameCount;
-        private uint _computeShaderDispatchesLastFrame = 0;
+        private ulong _frameCount;
+
+        internal Action PostPresentationUpdate;
 
         public ulong FrameCount => _frameCount;
 
@@ -362,8 +363,7 @@ namespace VECS
 
                 _swapChain.WaitForNextFrame(SwapChain.NextFrame);
                 //Console.WriteLine("Next frame signal");
-                _computeShaderDispatchesLastFrame = Interlocked.Exchange(ref ComputeNormalsV2._variant, 0);
-
+                PostPresentationUpdate?.Invoke();
 
                 _isFrameStarted = false;
                 World.DefaultWorld.PostPresentUpdate();
@@ -378,6 +378,8 @@ namespace VECS
 
             _unlitMaterial.Update(frameInfo);
             _unlitMaterial.Flush(frameInfo.FrameIndex);
+
+            MaterialV2.UpdateMaterialsParallel(frameInfo);
 
             frameInfo.GlobalDescriptorSet = _unlitMaterial.ApplicationDescriptorSetHandler.ActiveVkDescriptorSet;
             AssetDataBase<Material>.AllAssetsListForReading.ForEach(m => m.Update(frameInfo));

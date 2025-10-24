@@ -5,21 +5,7 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
-    /// <summary>
-    /// https://www.khronos.org/opengl/wiki/Shader_Storage_Buffer_Object#Atomic_operations
-    /// https://discussions.unity.com/t/calculating-normals-of-a-mesh-in-compute-shader/896876/3
-    /// 
-    /// Compute shader version of CPU RecalculateNormals to get around expensive copy back operation.
-    /// This is roughly equal in speed than the CPU algorithm. but avoid a 1 second copy back operation if <see cref="ComputeShapeGenerator"/> was run.
-    /// This inheriently flushes the vertex buffer to the GPU.
-    /// The CPU normals algorithm has to copy it back to compute the normals correctly.
-    /// 
-    /// This GPU algorithim operates on the same vertex buffer as the compute shape generator.
-    /// The algorithm runs in two kernels, one calculates the face normals for each face and adds this to the <see cref="_workingNormalBuffer"/>
-    /// through atomicAdd operations (the compute shaders interpret the buffer as a buffer of ints, here it is created as a buffer of Vector3s)
-    /// 
-    /// Then other kernel converts these ints back to vector3s then normalizes them and writes normals to the vertex buffer.
-    /// </summary>
+    [Obsolete("Use ComputeNormalsV2")]
     public sealed class ComputeNormals : IDisposable
     {
         private readonly ComputeShader _calcuateNormals;
