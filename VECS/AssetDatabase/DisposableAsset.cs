@@ -29,8 +29,6 @@ namespace VECS
                     }
                 }
 
-                
-
                 GenericExtensions.InvokeStaticMethodOnGenericType(typeof(AssetDataBase<>), assetType, "RemoveRangeInternal",[assetsToRemove.ToArray()]);
                 assetsToRemove.Clear();
             }

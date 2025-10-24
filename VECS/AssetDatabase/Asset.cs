@@ -39,7 +39,7 @@ namespace VECS
 
         public virtual void ClearCachedData()
         {
-
+            _cachedHash = false;
         }
     }
 }

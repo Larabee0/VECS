@@ -40,7 +40,7 @@ namespace VECS
         {
             if (asset == null)
             {
-                Console.WriteLine("Tried to add null asset to AssetDatabase.");
+                Console.WriteLine("Tried to add null asset to {0} AssetDatabase.",typeof(T));
                 return;
             }
 
@@ -54,26 +54,17 @@ namespace VECS
                 T t = asset;
                 var untocuhedname = asset.AssetName;
                 t.AssetName +="^"+ (int)MathF.Round(Random.Shared.NextSingle() * 1000f);
-                Console.WriteLine(string.Concat(
-                [
-                        "Adding duplicate ",
+                Console.WriteLine("Adding duplicate {0} name: {1} generated name:{2}",
                     typeof(T),
-                    " name: ",
-                    untocuhedname, " generated name:",
+                    untocuhedname,
                     asset.AssetName
-                ]));
+                );
             }
             _assetsList.Add(asset);
             _assetsByName.Add(asset.AssetName, asset);
             if (_assetsList.Count > ushort.MaxValue)
             {
-                Console.WriteLine(string.Concat(
-                [
-                        "Too many ",
-                    typeof(T),
-                    "; over ",
-                    ushort.MaxValue
-                ]));
+                Console.WriteLine("Too many {0}; over {1}", typeof(T), ushort.MaxValue);
             }
             asset.Index = _assetsList.Count - 1;
         }
@@ -166,16 +157,11 @@ namespace VECS
                 {
                     return result;
                 }
-                Console.WriteLine(string.Concat(new object[]
-                {
-                "Failed to find ",
-                typeof(T),
-                " named ",
-                assetName,
-                ". There are ",
-                _assetsList.Count,
-                " assets of this type loaded."
-                }));
+                Console.WriteLine("Failed to find {0} named {1}. There are {2} assets of this type loaded.",
+                    typeof(T),
+                    assetName,
+                    _assetsList.Count
+                );
                 return default;
             }
             else
@@ -186,6 +172,40 @@ namespace VECS
                 }
                 return default;
             }
+        }
+
+        public static T GetHashed(int assetHash,bool errorOnFail = true)
+        {
+            if (errorOnFail)
+            {
+                if(_assetsByHash.TryGetValue(assetHash, out T result))
+                {
+                    return result;
+                }
+                Console.WriteLine("Failed to find {0} hash {1}. There are {2} assets of this type loaded.",
+                    typeof(T),
+                    assetHash,
+                    _assetsList.Count
+                );
+                return default;
+            }
+            else
+            {
+                if (_assetsByHash.TryGetValue(assetHash, out T result2))
+                {
+                    return result2;
+                }
+                return default;
+            }
+        }
+
+        public static T GetHashedSilentFail(int assetHash)
+        {
+            if (_assetsByHash.TryGetValue(assetHash, out T result))
+            {
+                return result;
+            }
+            return default;
         }
     }
 }
