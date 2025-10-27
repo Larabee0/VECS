@@ -251,8 +251,8 @@ namespace VECS.LowLevel
 
         public static void SetViewPort(VkCommandBuffer commandBuffer)
         {
-            GraphicsDevice.DeviceAPI.vkCmdSetViewport(commandBuffer, Viewport);
-            GraphicsDevice.DeviceAPI.vkCmdSetScissor(commandBuffer, Scissor);
+            GraphicsDevice.DeviceAPI.vkCmdSetViewport(commandBuffer, 0, Viewport);
+            GraphicsDevice.DeviceAPI.vkCmdSetScissor(commandBuffer, 0, Scissor);
         }
 
         public void EndForwardRendering(VkCommandBuffer commandBuffer)
@@ -268,51 +268,39 @@ namespace VECS.LowLevel
         internal unsafe void TransferSwapChainImageToGraphicsQueue(VkCommandBuffer commandBuffer, int frameIndex, int imageIndex)
         {
 
-            VkImageMemoryBarrier2 imageMemoryBarrier = new()
-            {
-                srcStageMask = VkPipelineStageFlags2.ColorAttachmentOutput,
-                dstStageMask = VkPipelineStageFlags2.ColorAttachmentOutput,
-                dstAccessMask = VkAccessFlags2.ColorAttachmentWrite,
-                oldLayout = VkImageLayout.PresentSrcKHR,
-                newLayout = VkImageLayout.TransferDstOptimal,
-                srcQueueFamilyIndex = Vulkan.VK_QUEUE_FAMILY_IGNORED,
-                dstQueueFamilyIndex = Vulkan.VK_QUEUE_FAMILY_IGNORED,
-                image = _swapChainImages[imageIndex],
-                subresourceRange = new(VkImageAspectFlags.Color)
-            };
+            VkImageSubresourceRange subResourceRange = new(VkImageAspectFlags.Color);
+            VkImage image = _swapChainImages[imageIndex];
 
-            VkDependencyInfo dependencyInfo = new()
-            {
-                imageMemoryBarrierCount = 1,
-                pImageMemoryBarriers = &imageMemoryBarrier
-            };
-
-            GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier2(commandBuffer, &dependencyInfo);
+            MemoryBarrierHelper.ImageMemoryBarrier(
+                commandBuffer,
+                image,
+                subResourceRange,
+                VkPipelineStageFlags2.ColorAttachmentOutput,
+                VkAccessFlags2.None,
+                VkPipelineStageFlags2.ColorAttachmentOutput,
+                VkAccessFlags2.ColorAttachmentWrite,
+                VkImageLayout.PresentSrcKHR,
+                VkImageLayout.TransferDstOptimal,
+                Vulkan.VK_QUEUE_FAMILY_IGNORED, Vulkan.VK_QUEUE_FAMILY_IGNORED);
         }
 
         // should be called from graphics queue
         internal unsafe void TransferSwapChainImageToPresentQueue(VkCommandBuffer commandBuffer, int frameIndex, int imageIndex)
         {
-            VkImageMemoryBarrier2 imageMemoryBarrier = new()
-            {
-                srcStageMask = VkPipelineStageFlags2.ColorAttachmentOutput,
-                srcAccessMask = VkAccessFlags2.ColorAttachmentWrite,
-                dstAccessMask = VkAccessFlags2.None,
-                oldLayout = VkImageLayout.TransferDstOptimal,
-                newLayout = VkImageLayout.PresentSrcKHR,
-                srcQueueFamilyIndex = GraphicsDevice.PhysicalQueueFamilies.graphicsFamily,
-                dstQueueFamilyIndex = GraphicsDevice.PhysicalQueueFamilies.presentFamily,
-                image = _swapChainImages[imageIndex],
-                subresourceRange = new(VkImageAspectFlags.Color)
-            };
+            VkImageSubresourceRange subResourceRange = new(VkImageAspectFlags.Color);
+            VkImage image = _swapChainImages[imageIndex];
 
-            VkDependencyInfo dependencyInfo = new()
-            {
-                imageMemoryBarrierCount = 1,
-                pImageMemoryBarriers = &imageMemoryBarrier
-            };
-
-            GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier2(commandBuffer, &dependencyInfo);
+            MemoryBarrierHelper.ImageMemoryBarrier(
+                commandBuffer,
+                image,
+                subResourceRange,
+                VkPipelineStageFlags2.ColorAttachmentOutput,
+                VkAccessFlags2.ColorAttachmentWrite,
+                VkPipelineStageFlags2.None,
+                VkAccessFlags2.None,
+                VkImageLayout.TransferDstOptimal,
+                VkImageLayout.PresentSrcKHR,
+                GraphicsDevice.PhysicalQueueFamilies.graphicsFamily, GraphicsDevice.PhysicalQueueFamilies.presentFamily);
         }
 
         internal unsafe void CopyRenderToSwapChain(VkCommandBuffer commandBuffer,int frameIndex, int imageIndex)
@@ -354,22 +342,19 @@ namespace VECS.LowLevel
             
             WaitAndResetFence(_waitPresentBufferFences[frameIndex]);
 
+            VkImageSubresourceRange subresourceRange = new(VkImageAspectFlags.Color);
+            VkImage image = _swapChainImages[imageIndex];
+
             GraphicsDevice.DeviceAPI.vkBeginCommandBuffer(presentCommandBuffer, VkCommandBufferUsageFlags.None);
-            VkImageMemoryBarrier2 presentBarrier = new()
-            {
-                oldLayout = VkImageLayout.TransferDstOptimal,
-                newLayout = VkImageLayout.PresentSrcKHR,
-                srcQueueFamilyIndex = GraphicsDevice.PhysicalQueueFamilies.graphicsFamily,
-                dstQueueFamilyIndex = GraphicsDevice.PhysicalQueueFamilies.presentFamily,
-                image = _swapChainImages[imageIndex],
-                subresourceRange = new(VkImageAspectFlags.Color)
-            };
-            VkDependencyInfo presentDependencyInfo = new()
-            {
-                imageMemoryBarrierCount = 1,
-                pImageMemoryBarriers = &presentBarrier
-            };
-            GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier2KHR(presentCommandBuffer, &presentDependencyInfo);
+            MemoryBarrierHelper.ImageMemoryBarrier(presentCommandBuffer,
+                image,
+                subresourceRange,
+                VkPipelineStageFlags2.None, VkAccessFlags2.None,
+                VkPipelineStageFlags2.None, VkAccessFlags2.None,
+                VkImageLayout.TransferDstOptimal,
+                VkImageLayout.PresentSrcKHR,
+                GraphicsDevice.PhysicalQueueFamilies.graphicsFamily,
+                GraphicsDevice.PhysicalQueueFamilies.presentFamily);
             GraphicsDevice.DeviceAPI.vkEndCommandBuffer(presentCommandBuffer);
 
             VkSemaphoreSubmitInfo prePresentWaitInfo = new() {

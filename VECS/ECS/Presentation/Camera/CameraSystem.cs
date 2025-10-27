@@ -62,13 +62,13 @@ namespace VECS.ECS.Presentation
                 UpdateOrthographicCameras(entityManager);
             }
 
-            //if (_cameraMotion.HasEntities)
-            //{
-            //    _cameraMotion.GetEntities().ForEach(entity =>
-            //    {
-            //        TransformCamera(entityManager, entity);
-            //    });
-            //}
+            if (_cameraMotion.HasEntities)
+            {
+                _cameraMotion.GetEntities().ForEach(entity =>
+                {
+                    TransformCamera(entityManager, entity);
+                });
+            }
         }
 
         /// <summary>
@@ -258,9 +258,12 @@ namespace VECS.ECS.Presentation
                 rotationInput.Y = -look.X;
 
                 //rotation.Value += lookSpeed * Time.DeltaTime * rotationInput;
+                var currentRotation = rotation.Value.ToEuler();
+                currentRotation.X = Math.Clamp(currentRotation.X, -1.5f, 1.5f);
+                currentRotation.Y %= MathF.Tau;
 
-                rotation.Value.X = Math.Clamp(rotation.Value.X, -1.5f, 1.5f);
-                rotation.Value.Y %= MathF.Tau;
+                rotation.Value = Quaternion.CreateFromYawPitchRoll(currentRotation.Y, currentRotation.X, currentRotation.Z);
+                
 
                 entityManager.SetComponent(entity, rotation);
             }

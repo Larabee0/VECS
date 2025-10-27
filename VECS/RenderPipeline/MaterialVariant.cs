@@ -23,7 +23,9 @@ namespace VECS
         private readonly bool _hasTextures = false;
 
         private bool _disposed = false;
+        private bool _raw = true;
 
+        public bool Raw => _raw;
         public uint VariantIndex => _variantIndex;
         public int TotalSets => _descriptorSetCount;
 
@@ -187,6 +189,7 @@ namespace VECS
 
                 variant._dirtyBufferRegions[frameIndex] = false;
             }
+            variant._raw = false;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

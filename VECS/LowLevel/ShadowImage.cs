@@ -130,14 +130,14 @@ namespace VECS.LowLevel
 
         public void SetImageLayoutWrite(VkCommandBuffer commandBuffer)
         {
-            CubeMap.SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags.AllGraphics, VkPipelineStageFlags.AllGraphics);
-            DepthImage.SetImageLayout(commandBuffer, VkImageLayout.DepthStencilAttachmentOptimal, VkPipelineStageFlags.AllGraphics, VkPipelineStageFlags.AllGraphics);
+            CubeMap.SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.AllGraphics, VkPipelineStageFlags2.AllGraphics);
+            DepthImage.SetImageLayout(commandBuffer, VkImageLayout.DepthStencilAttachmentOptimal, VkPipelineStageFlags2.AllGraphics, VkPipelineStageFlags2.AllGraphics);
         }
 
         public void SetImageLayoutRead(VkCommandBuffer commandBuffer)
         {
-            CubeMap.SetImageLayout(commandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags.AllGraphics, VkPipelineStageFlags.AllGraphics);
-            DepthImage.SetImageLayout(commandBuffer, VkImageLayout.DepthAttachmentStencilReadOnlyOptimal, VkPipelineStageFlags.AllGraphics, VkPipelineStageFlags.AllGraphics);
+            CubeMap.SetImageLayout(commandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.AllGraphics, VkPipelineStageFlags2.AllGraphics);
+            DepthImage.SetImageLayout(commandBuffer, VkImageLayout.DepthAttachmentStencilReadOnlyOptimal, VkPipelineStageFlags2.AllGraphics, VkPipelineStageFlags2.AllGraphics);
         }
 
         public unsafe void Dispose()

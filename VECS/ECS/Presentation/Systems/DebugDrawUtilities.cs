@@ -10,10 +10,12 @@ namespace VECS.ECS.Presentation
     public class DebugDrawUtilities : PresentationSystemBase
     {
         public const int MAX_LINES = 1000;
+        private static readonly int ColourBufferId = "colourBuffer".GetHashCode();
+        private static readonly int MatricesBufferId = "matricesBuffer".GetHashCode();
         private EntityQuery _renderBoundsQuery;
         private EntityQuery _cameraQuery;
         private bool _drawBounds = false;
-        private bool _drawCameraFustrums = false;
+        private bool _drawCameraFustrums = true;
         private readonly Vector2 _min = new(-1, -1);
         private readonly Vector2 _max = new(1, 1);
         private readonly Vector4[] _fustrumVerts = new Vector4[16];
@@ -21,7 +23,6 @@ namespace VECS.ECS.Presentation
         private GPUBuffer<Vector3> _frustrumBuffer;
         private GPUBuffer<Vector3> _cubeBuffer;
         private GPUBuffer<Matrix3x2> _lineBuffer;
-        private Material _wireFrameMaterial;
 
         private SwapChainBuffer<VkDrawIndirectCommand> _drawBuffer;
 
@@ -63,14 +64,7 @@ namespace VECS.ECS.Presentation
             }
             vertices[^1] = (Vector3.Zero + new Vector3(MathF.Sin(0), -MathF.Cos(0), 0)) * 1f;
             _circleBuffer.WriteFromHostBuffer();
-            var pipelineConfigInfo = GraphicsPipelines.GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo(VkPipelineLayout.Null);
-
-            pipelineConfigInfo.rasterizationInfo.cullMode = VkCullModeFlags.None;
-            pipelineConfigInfo.rasterizationInfo.polygonMode = VkPolygonMode.Line;
-            pipelineConfigInfo.inputAssemblyInfo.topology = VkPrimitiveTopology.LineStrip;
-            pipelineConfigInfo.rasterizationInfo.lineWidth = 1;
-
-            _wireFrameMaterial = Material.Create("WireFrame","line_shader.vert", "line_shader.frag", pipelineConfigInfo);
+            MaterialV2.WireFrame.SetStorageBufferLength(MatricesBufferId, 0, 0);
         }
 
         public override void OnFowardPass(EntityManager entityManager, RendererFrameInfo frameInfo)
@@ -100,11 +94,12 @@ namespace VECS.ECS.Presentation
                 drawCount += _cameraQuery.HasEntities ? _cameraQuery.GetEntities().Count : 0;
                 drawCount += _renderBoundsQuery.HasEntities ? _renderBoundsQuery.GetEntities().Count*4 : 0;
 
-                _wireFrameMaterial.SetMatDescriptorHandleStorageRegions(0, 0, (uint)drawCount);
+                MaterialV2.WireFrame.SetStorageBufferLength(MatricesBufferId, 0, (uint)drawCount);
+                MaterialV2.WireFrame.SetStorageBufferLength(ColourBufferId, 0, (uint)drawCount);
 
-                _wireFrameMaterial.BindAll(frameInfo);
-                matrices = _wireFrameMaterial.GetStorageBuffer<ModelMatrices>("matricesBuffer");
-                colours = _wireFrameMaterial.GetStorageBuffer<Vector4>("colourBuffer");
+                matrices = MaterialV2.WireFrame.GetStorageBuffer<ModelMatrices>(MatricesBufferId);
+                colours = MaterialV2.WireFrame.GetStorageBuffer<Vector4>(ColourBufferId);
+                MaterialV2.WireFrame.BindAll(frameInfo, 0);
                 draws = _drawBuffer.HostBuffer;
             }
 
@@ -318,7 +313,6 @@ namespace VECS.ECS.Presentation
             _frustrumBuffer?.Dispose();
             _cubeBuffer?.Dispose();
             _lineBuffer?.Dispose();
-            _wireFrameMaterial?.Dispose();
 
             _drawBuffer?.Dispose();
         }

@@ -8,7 +8,6 @@ namespace VECS.ECS.Presentation
 {
     internal class DepthInternal : RenderSystemInternal
     {
-        private readonly Material _depthOnly;
         private readonly ShadowRenderBlob _depthRenderBlob;
         
         public DepthInternal()
@@ -19,8 +18,7 @@ namespace VECS.ECS.Presentation
             depthConfig.depthStencilInfo.depthTestEnable = true;
             depthConfig.depthStencilInfo.depthCompareOp = VkCompareOp.LessOrEqual;
 
-            _depthOnly = Material.Create("DepthOnly", "depth_only.vert", depthConfig);
-            _depthRenderBlob = new(_depthOnly, GenericRenderSystem.MAX_DRAWS);
+            _depthRenderBlob = new(MaterialV2.DepthOnly, GenericRenderSystem.MAX_DRAWS);
         }
 
         public override void GenerateDrawCmds(RendererFrameInfo frameInfo, EntityManager entityManager, List<Entity> entities)
@@ -33,8 +31,8 @@ namespace VECS.ECS.Presentation
             {
                 _depthRenderBlob.UpdateDrawCommands(entityManager);
             }
-            _depthOnly.SetMatDescriptorHandleStorageRegions(0, 0, (uint)entities.Count);
-            _depthOnly.Update(frameInfo);
+            MaterialV2.DepthOnly.SetStorageBufferLength(0, 0, (uint)entities.Count);
+            //MaterialV2.Update(MaterialV2.DepthOnly, frameInfo);
 
             DepthOnly(frameInfo.CommandBuffer, frameInfo.cullData, frameInfo.FrameIndex, entities.Count);
         }
@@ -43,13 +41,10 @@ namespace VECS.ECS.Presentation
         {
 
             
-            VkBufferMemoryBarrier memoryBarrier = FustrumCull.Cull(commandBuffer, frameIndex, cullData, (uint)drawCount, _depthRenderBlob.IndirectCmdBuffer, _depthRenderBlob.ModelBoundsBuffer);
+            VkBufferMemoryBarrier2 memoryBarrier = FustrumCull.Cull(commandBuffer, frameIndex, cullData, (uint)drawCount, _depthRenderBlob.IndirectCmdBuffer, _depthRenderBlob.ModelBoundsBuffer);
             if (!FustrumCull.CPUCulling)
             {
-                GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier(commandBuffer,
-                        VkPipelineStageFlags.ComputeShader,
-                        VkPipelineStageFlags.DrawIndirect,
-                        0, 0, null, 1, &memoryBarrier, 0, null);
+                MemoryBarrierHelper.BufferMemoryBarrier(commandBuffer, memoryBarrier, VkPipelineStageFlags2.ComputeShader, VkPipelineStageFlags2.DrawIndirect);
             }
 
             SwapChain.Instance.BeginForwardDepth(commandBuffer);

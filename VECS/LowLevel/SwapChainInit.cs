@@ -108,7 +108,7 @@ namespace VECS.LowLevel
             var cmd = GraphicsDevice.BeginSingleTimeMainPipe();
             for (int i = 0; i < newSwapChain._swapChainImages.Length; i++)
             {
-                TextureExtensions.SetImageLayout(cmd, newSwapChain._swapChainImages[i], VkImageAspectFlags.Color, VkImageLayout.Undefined, VkImageLayout.PresentSrcKHR, VkPipelineStageFlags.AllGraphics, VkPipelineStageFlags.AllGraphics);
+                MemoryBarrierHelper.SetImageLayout(cmd, newSwapChain._swapChainImages[i], VkImageAspectFlags.Color, VkImageLayout.Undefined, VkImageLayout.PresentSrcKHR, VkPipelineStageFlags2.AllGraphics, VkPipelineStageFlags2.AllGraphics);
             }
 
             GraphicsDevice.EndSingleTimeMainPipe(cmd);

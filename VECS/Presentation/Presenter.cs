@@ -1,4 +1,5 @@
-﻿using System;
+﻿using BepuUtilities.Memory;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -23,9 +24,9 @@ namespace VECS
         private readonly IWindow _window;
         private SwapChain _swapChain;
 
-        private readonly List<VkBufferMemoryBarrier> _cullReadyBarriers = [];
-        private readonly List<VkBufferMemoryBarrier> _postCullBarriers = [];
-        private readonly List<VkBufferMemoryBarrier> _uploadBarriers = [];
+        private readonly List<VkBufferMemoryBarrier2> _cullReadyBarriers = [];
+        private readonly List<VkBufferMemoryBarrier2> _postCullBarriers = [];
+        private readonly List<VkBufferMemoryBarrier2> _uploadBarriers = [];
 
         private bool _isFrameStarted = false;
         private readonly ShadowImage _shadowCubeMap;
@@ -447,20 +448,16 @@ namespace VECS
         {
             if (_cullReadyBarriers.Count > 0)
             {
-                VkBufferMemoryBarrier[] cullReadyBarriers = [.. _cullReadyBarriers];
-                fixed (VkBufferMemoryBarrier* pMemoryBarrier = &cullReadyBarriers[0])
+                int count = _cullReadyBarriers.Count;
+                VkBufferMemoryBarrier2* pMemoryBarrier = stackalloc VkBufferMemoryBarrier2[count];
+                _cullReadyBarriers.CopyTo(new Span<VkBufferMemoryBarrier2>(pMemoryBarrier, count));
+
+                for (int i = 0; i < count; i++)
                 {
-                    GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier(commandBuffer,
-                        VkPipelineStageFlags.Transfer,
-                        VkPipelineStageFlags.ComputeShader,
-                        0,
-                        0,
-                        null,
-                        (uint)cullReadyBarriers.Length,
-                        pMemoryBarrier,
-                        0,
-                        null);
+                    pMemoryBarrier[i].srcStageMask = VkPipelineStageFlags2.Transfer;
+                    pMemoryBarrier[i].dstStageMask = VkPipelineStageFlags2.ComputeShader;
                 }
+                MemoryBarrierHelper.BufferMemoryBarrier(commandBuffer, (uint)count, pMemoryBarrier);
             }
         }
 
@@ -468,18 +465,17 @@ namespace VECS
         {
             if (_postCullBarriers.Count > 0)
             {
-                VkBufferMemoryBarrier[] postCullBarriers = [.. _postCullBarriers];
-                fixed (VkBufferMemoryBarrier* pPostCullBarrier = &postCullBarriers[0])
-                    GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier(commandBuffer,
-                        VkPipelineStageFlags.ComputeShader,
-                        VkPipelineStageFlags.DrawIndirect,
-                        0,
-                        0,
-                        null,
-                        (uint)postCullBarriers.Length,
-                        pPostCullBarrier,
-                        0,
-                        null);
+                int count = _postCullBarriers.Count;
+                VkBufferMemoryBarrier2* pMemoryBarrier = stackalloc VkBufferMemoryBarrier2[count];
+                _postCullBarriers.CopyTo(new Span<VkBufferMemoryBarrier2>(pMemoryBarrier, count));
+
+                for (int i = 0; i < count; i++)
+                {
+                    pMemoryBarrier[i].srcStageMask = VkPipelineStageFlags2.ComputeShader;
+                    pMemoryBarrier[i].dstStageMask = VkPipelineStageFlags2.DrawIndirect;
+                }
+
+                MemoryBarrierHelper.BufferMemoryBarrier(commandBuffer, (uint)count, pMemoryBarrier);
             }
         }
 

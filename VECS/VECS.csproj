@@ -30,7 +30,7 @@
     <PackageReference Include="UltralightNet.Binaries" Version="1.3.0" />
     <PackageReference Include="Vortice.SPIRV" Version="1.0.4" />
     <PackageReference Include="Vortice.SPIRV.Reflect" Version="1.0.5" />
-    <PackageReference Include="Vortice.Vulkan" Version="3.0.1" />
+    <PackageReference Include="Vortice.Vulkan" Version="3.0.3" />
     <PackageReference Include="Vortice.VulkanMemoryAllocator" Version="1.6.3" />
     <PackageReference Include="YellowDogMan.Mikktspace.Net" Version="0.1.4" />
     <PackageReference Include="Alimer.Bindings.MeshOptimizer" Version="1.1.1" />

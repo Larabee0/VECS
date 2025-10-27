@@ -12,7 +12,7 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
-
+    [Obsolete("Material is Deprecated, use MaterialV2")]
     public partial class Material : DisposableAsset
     {
         private static readonly List<Material> _materials = [];

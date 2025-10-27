@@ -4,19 +4,13 @@ layout (location = 0) in vec3 position;
 	   
 layout (location = 0) out vec3 fragColour;
 
-struct PointLight {
-	vec4 position; // ignore w
-	vec4 colour; // w is intensity
-};
-
-layout(set = 0, binding = 0) uniform GlobalUbo{
+layout(set = 0,binding = 0) uniform CameraInfo{
 	mat4 projectionMatrix;
 	mat4 viewMatrix;
-	mat4 inverseViewMatrix;
-	vec4 ambientLightColour;
-	int numLights;
-	PointLight pointLights[10];
-} ubo;
+	mat4 projectionViewMatrix;	
+	vec4 position;
+	vec4 forward;
+} cameraMain;
 
 struct ObjectMatrices{
 	mat4 modelMatrix; // project * view * model
@@ -37,7 +31,7 @@ void main()
 	ObjectMatrices objectMat = matricesBuffer.matrices[gl_InstanceIndex];
 	vec4 positionWorld =  objectMat.modelMatrix * vec4(position, 1.0);
 	
-	gl_Position = ubo.projectionMatrix * ubo.viewMatrix * positionWorld;
+	gl_Position = cameraMain.projectionViewMatrix * positionWorld;
 
 	fragColour = colourBuffer.colours[gl_InstanceIndex].xyz;
 }

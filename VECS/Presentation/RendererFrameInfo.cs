@@ -28,7 +28,7 @@ namespace VECS
         public DescriptorPool ApplicationDescriptorPool;
         public DescriptorPool MaterialDescriptorPool;
         public DescriptorPool EntityDescriptorPool;
-        public List<VkBufferMemoryBarrier> PostCullBarriers;
+        public List<VkBufferMemoryBarrier2> PostCullBarriers;
         public CullData cullData;
 
         public CameraInfo CameraInfo;

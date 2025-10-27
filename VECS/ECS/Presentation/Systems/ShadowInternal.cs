@@ -2,7 +2,6 @@ using SDL3;
 using System;
 using System.Collections.Generic;
 using System.Numerics;
-using VECS.GraphicsPipelines;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
@@ -10,29 +9,18 @@ namespace VECS.ECS.Presentation
 {
     internal class ShadowInternal : RenderSystemInternal
     {
-        private readonly Material _shadowOffscreen;
         private readonly ShadowRenderBlob _shadowRenderBlob;
 
         private readonly VkCommandBuffer[][] _freeBuffers = new VkCommandBuffer[SwapChain.MAX_CONCURRENT_FRAMES][];
 
         public unsafe ShadowInternal()
         {
-            var shadowConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
-            Cubemap shadowCube = AssetDataBase<Cubemap>.GetNamed("ShadowCubeMap");
-            Texture2D shadowDepthStencil = AssetDataBase<Texture2D>.GetNamed("ShadowDepthImage");
-
-            shadowConfig.colourFormats = [shadowCube.Format];
-            shadowConfig.depthFormat = shadowDepthStencil.Format;
-            shadowConfig.stencilFormat = shadowDepthStencil.Format;
-            shadowConfig.depthStencilInfo.depthWriteEnable = true;
-
             _freeBuffers = new VkCommandBuffer[SwapChain.MAX_CONCURRENT_FRAMES][];
             for (int i = 0; i < _freeBuffers.Length; i++)
             {
                 _freeBuffers[i] = new VkCommandBuffer[7];
             }
-            _shadowOffscreen = Material.Create("ShadowOffscreen", "shadow_offscreen.vert", "shadow_offscreen.frag", shadowConfig);
-            _shadowRenderBlob = new(_shadowOffscreen, GenericRenderSystem.MAX_DRAWS);
+            _shadowRenderBlob = new(MaterialV2.ShadowOffscreen, GenericRenderSystem.MAX_DRAWS);
         }
 
         public override void GenerateDrawCmds(RendererFrameInfo frameInfo, EntityManager entityManager, List<Entity> entities)
@@ -52,12 +40,13 @@ namespace VECS.ECS.Presentation
 
         private unsafe void RenderShadows(RendererFrameInfo frameInfo, int drawCount)
         {
-            _shadowOffscreen.SetMatDescriptorHandleStorageRegions(0, 0, (uint)drawCount);
+            MaterialV2 shadowOffscreen = MaterialV2.ShadowOffscreen;
+            shadowOffscreen.SetStorageBufferLength(0, (uint)drawCount);
 
             Matrix4x4 projection = Matrix4x4.CreatePerspectiveFieldOfView(MathF.PI * 0.5f, 1.0f, 0.1f, ShadowImage.SHADOW_IMAGE_SIZE);
             Matrix4x4 model = Matrix4x4.CreateTranslation(frameInfo.Ubo.PointLights[0].Position.AsVector3());
-            _shadowOffscreen.SetMatrix4x4("cubeConstant.cubeProj", projection);
-            _shadowOffscreen.SetMatrix4x4("cubeConstant.cubeModel", model);
+            shadowOffscreen.SetMatrix4x4("cubeConstant.cubeProj".GetHashCode(),0, projection);
+            shadowOffscreen.SetMatrix4x4("cubeConstant.cubeModel".GetHashCode(),0, model);
 
             Matrix4x4 projectionT = Matrix4x4.Transpose(projection);
             Vector4 frustrumX = (projectionT.GetMatrixRow(3) + projectionT.GetMatrixRow(0)).NormalizePlane();
@@ -79,8 +68,8 @@ namespace VECS.ECS.Presentation
                 }
             }
 
-            _shadowOffscreen.PushConstants.EnsureCapacity(6);
-            _shadowOffscreen.Update(frameInfo);
+            shadowOffscreen.PushConstants.EnsureCapacity(6);
+            MaterialV2.Update(shadowOffscreen, frameInfo);
             Presenter.Instance.ShadowImage.SetImageLayoutWrite(frameInfo.CommandBuffer);
 
             Application.ParallelFor(6, (i) =>
@@ -104,17 +93,14 @@ namespace VECS.ECS.Presentation
             CullData cullDataInternal = cullData;
             var viewMatrix = ShadowImage.GetViewMatrixForFace(i);
             cullDataInternal.viewMatrix = viewMatrix * model;
-            VkBufferMemoryBarrier memoryBarrier = FustrumCull.Cull(internalBuffer, frameInfo.FrameIndex, cullData, (uint)drawCount, _shadowRenderBlob.IndirectCmdBuffer, _shadowRenderBlob.ModelBoundsBuffer);
+            VkBufferMemoryBarrier2 memoryBarrier = FustrumCull.Cull(internalBuffer, frameInfo.FrameIndex, cullData, (uint)drawCount, _shadowRenderBlob.IndirectCmdBuffer, _shadowRenderBlob.ModelBoundsBuffer);
             
             if (!FustrumCull.CPUCulling)
             {
-                GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier(internalBuffer,
-                        VkPipelineStageFlags.ComputeShader,
-                        VkPipelineStageFlags.DrawIndirect,
-                        0, 0, null, 1, &memoryBarrier, 0, null);
+                MemoryBarrierHelper.BufferMemoryBarrier(internalBuffer, memoryBarrier, VkPipelineStageFlags2.ComputeShader, VkPipelineStageFlags2.DrawIndirect);
             }
             Presenter.Instance.ShadowImage.UpdateCubeFace(i, internalBuffer);
-            _shadowOffscreen.SetPushConstantMatrix4x4("viewCube", i, viewMatrix);
+            MaterialV2.ShadowOffscreen.PushConstants.SetPushConstantMatrix4x4("viewCube", i, viewMatrix);
 
             _shadowRenderBlob.Draw(internalBuffer, frameInfo.FrameIndex, i);
 

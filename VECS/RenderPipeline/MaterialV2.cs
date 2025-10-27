@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using VECS.GraphicsPipelines;
@@ -49,6 +50,8 @@ namespace VECS
         public readonly static MaterialV2 LitTexture;
         public readonly static MaterialV2 DepthOnly;
         public readonly static MaterialV2 UnlitMeshShader;
+        public readonly static MaterialV2 WireFrame;
+        public readonly static MaterialV2 ShadowOffscreen;
 
         static MaterialV2()
         {
@@ -60,6 +63,23 @@ namespace VECS
             depthConfig.depthStencilInfo.depthCompareOp = VkCompareOp.LessOrEqual;
             DepthOnly = new("DepthOnly", "depth_only_new.vert", depthConfig);
 
+            var pipelineConfigInfo = GraphicsPipelines.GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo(VkPipelineLayout.Null);
+
+            pipelineConfigInfo.rasterizationInfo.cullMode = VkCullModeFlags.None;
+            pipelineConfigInfo.rasterizationInfo.polygonMode = VkPolygonMode.Line;
+            pipelineConfigInfo.inputAssemblyInfo.topology = VkPrimitiveTopology.LineStrip;
+            pipelineConfigInfo.rasterizationInfo.lineWidth = 1;
+
+            WireFrame = new("WireFrame", "line_shader.vert", "line_shader.frag", pipelineConfigInfo);
+            var shadowConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
+            Cubemap shadowCube = AssetDataBase<Cubemap>.GetNamed("ShadowCubeMap");
+            Texture2D shadowDepthStencil = AssetDataBase<Texture2D>.GetNamed("ShadowDepthImage");
+
+            shadowConfig.colourFormats = [shadowCube.Format];
+            shadowConfig.depthFormat = shadowDepthStencil.Format;
+            shadowConfig.stencilFormat = shadowDepthStencil.Format;
+            shadowConfig.depthStencilInfo.depthWriteEnable = true;
+            ShadowOffscreen = new("ShadowOffscreen", "shadow_offscreen.vert", "shadow_offscreen.frag", shadowConfig);
             if (GraphicsDevice.MeshShading)
             {
                 UnlitMeshShader = new("MeshShader", "gen_meshshader_basic_new.mesh", "gen_meshshader_basic_new.task", "gen_meshshader_basic_new.frag", GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []));
@@ -383,6 +403,37 @@ namespace VECS
             }
         }
 
+        public void SetStorageBufferLength(uint variant, uint length)
+        {
+            TryCreateVariant(variant);
+            uint offset = 0;
+            for (uint i = 0; i < variant; i++)
+            {
+                MaterialVariant matVariant = _matVariants[i];
+                uint internalOffset = 0;
+                for (uint j = 0; j < _descriptorSetCount; j++)
+                {
+                    
+                    internalOffset = Math.Max(internalOffset, matVariant.GetStorageTotal(j));
+                }
+                offset += internalOffset;
+            }
+            for (uint j = 0; j < _descriptorSetCount; j++)
+            {
+                _matVariants[variant].SetStorageBufferRegion(j, offset, length);
+            }
+            offset += length;
+            for (uint i = variant + 1; i < _variantCount; i++)
+            {
+                MaterialVariant matVariant = _matVariants[i];
+                for (uint j = 0; j < _descriptorSetCount; j++)
+                {
+                    matVariant.SetStorageBufferOffset(j, offset);
+                    offset += matVariant.GetStorageTotal(j);
+                }
+            }
+        }
+
         public Span<T> GetStorageBuffer<T>(int propertyId) where T : unmanaged
         {
             if (LookUpProperty(propertyId, out var propertyInfo))
@@ -470,6 +521,7 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal unsafe static void Update(MaterialV2 material, RendererFrameInfo frameInfo)
         {
+            if (material._variantCount == 0) return;
             uint* accumulatedStorageBufferUsage = stackalloc uint[material.DescriptorSetCount];
             int frameIndex = frameInfo.FrameIndex;
             for (int i = 0; i < material._variantCount; i++)
@@ -550,6 +602,14 @@ namespace VECS
             }
         }
 
+        public void SetMatrix4x4(int propertyId, int variant, Matrix4x4 matrix)
+        {
+            if (LookUpProperty(propertyId, out var propertyInfo))
+            {
+                WriteToBuffer((uint)variant, propertyInfo, matrix);
+            }
+        }
+
         public static void SetGlobalUniforms(MaterialV2 material, int variant, RendererFrameInfo frameInfo)
         {
             material.TryCreateVariant(0);
@@ -570,7 +630,6 @@ namespace VECS
             {
                 Update(this, frameInfo);
             }
-
             VkDescriptorBufferBindingInfoEXT* bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[_descriptorSetCount];
             ulong* offsets = stackalloc ulong[_descriptorSetCount];
             uint* indices = stackalloc uint[_descriptorSetCount];
@@ -634,6 +693,71 @@ namespace VECS
             DescriptorBuffer.SetOffsets(commandBuffer, _pipelineLayout, VkPipelineBindPoint.Graphics, (uint)variantIndex, (uint)_descriptorSetCount, offsets, indices);
 
             _materialPushConstantsHandler.BindPushConstants(commandBuffer, _pipelineLayout, variantIndex);
+        }
+
+        public unsafe void ExecuteDrawCommands(RendererFrameInfo frameInfo, MaterialDrawCommand[] drawCmds, int matDrawCount, SwapChainBuffer<VkDrawIndexedIndirectCommand> indirectCmdBuffer)
+        {
+            if (matDrawCount <= 0) return;
+            var commandBuffer = frameInfo.CommandBuffer;
+            var frameIndex = frameInfo.FrameIndex;
+            GraphicsDevice.DeviceAPI.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Graphics, _graphicsPipeline);
+            var command = drawCmds[0];
+            if (!GetOrCreateVariant((uint)command.Variant, out _))
+            {
+                Update(this, frameInfo);
+            }
+            VkDescriptorBufferBindingInfoEXT* bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[_descriptorSetCount];
+            ulong* offsets = stackalloc ulong[_descriptorSetCount];
+            uint* indices = stackalloc uint[_descriptorSetCount];
+
+            for (uint i = 0; i < _descriptorSetCount; i++)
+            {
+                DescriptorSetInfo descriptorSetInfo = _descriptorSetInfos[i];
+                DescriptorBuffer buffer = descriptorSetInfo.DescriptorBuffers[frameIndex];
+
+                bindingInfo[i] = buffer.BindingInfo;
+                offsets[i] = buffer.AlignedSize * (uint)command.Variant;
+                indices[i] = i;
+            }
+            DescriptorBuffer.BindSets(commandBuffer, (uint)_descriptorSetCount, bindingInfo);
+            DescriptorBuffer.SetOffsets(commandBuffer, _pipelineLayout, VkPipelineBindPoint.Graphics, (uint)command.Variant, (uint)_descriptorSetCount, offsets, indices);
+            
+            int lastVariant = command.Variant;
+            
+            for (int i = 0; i < matDrawCount; i++)
+            {
+                if (!GetOrCreateVariant((uint)command.Variant, out _))
+                {
+                    Update(this, frameInfo);
+                }
+                ExecuteDrawCommand(commandBuffer, frameIndex, indirectCmdBuffer, command, offsets, indices, ref lastVariant);
+            }
+        }
+
+        private unsafe void ExecuteDrawCommand(VkCommandBuffer commandBuffer, int frameIndex, SwapChainBuffer<VkDrawIndexedIndirectCommand> indirectCmdBuffer, MaterialDrawCommand command, ulong* offsets, uint* indices, ref int lastVariant)
+        {
+            if(lastVariant != command.Variant)
+            {
+                for (uint i = 0; i < _descriptorSetCount; i++)
+                {
+                    DescriptorSetInfo descriptorSetInfo = _descriptorSetInfos[i];
+                    DescriptorBuffer buffer = descriptorSetInfo.DescriptorBuffers[frameIndex];
+
+                    offsets[i] = buffer.AlignedSize * (uint)command.Variant;
+                }
+                DescriptorBuffer.SetOffsets(commandBuffer, _pipelineLayout, VkPipelineBindPoint.Graphics, (uint)command.Variant, (uint)_descriptorSetCount, offsets, indices);
+                lastVariant = command.Variant;
+            }
+
+            _materialPushConstantsHandler.BindPushConstants(commandBuffer, _pipelineLayout, command.Entity);
+            var mesh = AssetDataBase<DirectMesh>.GetHashedSilentFail(command.DirectMesh);
+            mesh.BindSpecificBuffers(commandBuffer, _graphicsPipelineConfigInfo.BindingDescriptions, _graphicsPipelineConfigInfo.AttributeDescriptions);
+
+            GraphicsDevice.DeviceAPI.vkCmdDrawIndexedIndirect(
+                commandBuffer,
+                indirectCmdBuffer.ActiveVkBuffer,
+                (uint)command.MeshSubRegion.StartIndex * (uint)sizeof(VkDrawIndexedIndirectCommand),
+                (uint)command.MeshSubRegion.Count, (uint)sizeof(VkDrawIndexedIndirectCommand));
         }
 
         public override void ClearCachedData()

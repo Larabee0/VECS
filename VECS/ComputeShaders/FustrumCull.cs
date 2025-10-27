@@ -59,7 +59,7 @@ namespace VECS
             Interlocked.Exchange(ref _variant, 0);
         }
 
-        public static VkBufferMemoryBarrier Cull(VkCommandBuffer commandBuffer,int frameIndex, CullData cullData, uint drawCount, SwapChainBuffer<VkDrawIndexedIndirectCommand> drawIndirect, SwapChainBuffer<ModelBounds> bounds)
+        public static VkBufferMemoryBarrier2 Cull(VkCommandBuffer commandBuffer,int frameIndex, CullData cullData, uint drawCount, SwapChainBuffer<VkDrawIndexedIndirectCommand> drawIndirect, SwapChainBuffer<ModelBounds> bounds)
         {
             if (_variant > 2000)
             {
@@ -76,7 +76,7 @@ namespace VECS
                 {
                     drawIndirectSpan[i].instanceCount = (IsVisible(boundsSpan[i], cullData) || cullData.cullingEnabled == 0) ? 1u : 0;
                 }
-                return new VkBufferMemoryBarrier();
+                return default;
             }
             else
             {
@@ -109,7 +109,7 @@ namespace VECS
             return visible;
         }
 
-        private static unsafe VkBufferMemoryBarrier GPUCullInternal(VkCommandBuffer commandBuffer,int frameIndex, CullData cullData, uint drawCount, SwapChainBuffer drawIndirect, SwapChainBuffer bounds, uint setId)
+        private static unsafe VkBufferMemoryBarrier2 GPUCullInternal(VkCommandBuffer commandBuffer,int frameIndex, CullData cullData, uint drawCount, SwapChainBuffer drawIndirect, SwapChainBuffer bounds, uint setId)
         {
             cullData.drawCount = drawCount;
             cullData.SetPushConstant(_computeShader.PushConstantsHandler, (int)setId);
@@ -117,14 +117,14 @@ namespace VECS
             _computeShader.SetStorageBuffer(BoundsBufferId, setId, bounds);
             _computeShader.Dispatch(commandBuffer, frameIndex, setId, (drawCount / 256) + 1);
 
-            VkBufferMemoryBarrier barrier = new()
+            VkBufferMemoryBarrier2 barrier = new()
             {
                 buffer = drawIndirect.ActiveVkBuffer,
                 size = Vulkan.VK_WHOLE_SIZE,
                 srcQueueFamilyIndex = GraphicsDevice.PhysicalQueueFamilies.graphicsFamily,
                 dstQueueFamilyIndex = GraphicsDevice.PhysicalQueueFamilies.graphicsFamily,
-                srcAccessMask = VkAccessFlags.ShaderWrite,
-                dstAccessMask = VkAccessFlags.IndirectCommandRead
+                srcAccessMask = VkAccessFlags2.ShaderWrite,
+                dstAccessMask = VkAccessFlags2.IndirectCommandRead
             };
 
             return barrier;

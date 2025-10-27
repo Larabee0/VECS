@@ -98,21 +98,17 @@ namespace VECS
 
             _calcuateNormals.Dispatch(commandBuffer, frameIndex, discriptorIndex, workGroupXY.X, workGroupXY.Y, 1);
 
-            VkMemoryBarrier2 memoryBarrier = new()
+            VkBufferMemoryBarrier2 memoryBarrier = new()
             {
                 srcStageMask = VkPipelineStageFlags2.ComputeShader,
                 srcAccessMask = VkAccessFlags2.ShaderWrite,
                 dstStageMask = VkPipelineStageFlags2.ComputeShader,
-                dstAccessMask = VkAccessFlags2.ShaderRead
+                dstAccessMask = VkAccessFlags2.ShaderRead,
+                buffer = vertexNormalBuffer.VkBuffer,
+                size = Vulkan.VK_WHOLE_SIZE
             };
 
-            VkDependencyInfo dependencyInfo = new()
-            {
-                memoryBarrierCount = 1,
-                pMemoryBarriers = &memoryBarrier
-            };
-
-            GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier2(commandBuffer, &dependencyInfo);
+            MemoryBarrierHelper.BufferMemoryBarrier(commandBuffer, memoryBarrier);
 
             workGroupXY = ComputeShaderV2.CompensateForWorkGroupLimits(vertexNormalBuffer.UInstanceCount32);
             _normalizeNormals.Dispatch(commandBuffer, frameIndex, discriptorIndex, workGroupXY.X, workGroupXY.Y, 1);

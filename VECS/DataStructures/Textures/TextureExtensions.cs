@@ -373,6 +373,7 @@ namespace VECS
         {
             var subresourceRange = texture.GetSubresourceRange();
             var imageLayout = texture.ImageLayout;
+            uint queueFamily = GraphicsDevice.PhysicalQueueFamilies.graphicsFamily;
 
             texture.SetImageLayout(cmd, VkImageLayout.TransferSrcOptimal, subresourceRange);
 
@@ -410,16 +411,17 @@ namespace VECS
                     subresourceRange.layerCount
                 );
 
-                InsertImageMemoryBarrier(
+                MemoryBarrierHelper.ImageMemoryBarrier(
                     cmd,
                     texture._vkImage,
-                    0,
-                    VkAccessFlags.TransferWrite,
+                    mipSubRange,
+                    VkPipelineStageFlags2.Transfer,
+                    VkAccessFlags2.None,
+                    VkPipelineStageFlags2.Transfer,
+                    VkAccessFlags2.TransferWrite,
                     VkImageLayout.Undefined,
                     VkImageLayout.TransferDstOptimal,
-                    VkPipelineStageFlags.Transfer,
-                    VkPipelineStageFlags.Transfer,
-                    mipSubRange
+                    queueFamily, queueFamily
                 );
 
                 GraphicsDevice.DeviceAPI.vkCmdBlitImage(
@@ -433,16 +435,17 @@ namespace VECS
                     VkFilter.Linear
                 );
 
-                InsertImageMemoryBarrier(
+                MemoryBarrierHelper.ImageMemoryBarrier(
                     cmd,
                     texture._vkImage,
-                    VkAccessFlags.TransferWrite,
-                    VkAccessFlags.TransferRead,
+                    mipSubRange,
+                    VkPipelineStageFlags2.Transfer,
+                    VkAccessFlags2.TransferWrite,
+                    VkPipelineStageFlags2.Transfer,
+                    VkAccessFlags2.TransferRead,
                     VkImageLayout.TransferDstOptimal,
                     VkImageLayout.TransferSrcOptimal,
-                    VkPipelineStageFlags.Transfer,
-                    VkPipelineStageFlags.Transfer,
-                    mipSubRange
+                    queueFamily, queueFamily
                 );
             }
 
@@ -458,6 +461,7 @@ namespace VECS
         {
             var subresourceRange = texture.GetSubresourceRange();
             var imageLayout = texture.ImageLayout;
+            uint queueFamily = GraphicsDevice.PhysicalQueueFamilies.graphicsFamily;
 
             texture.SetImageLayout(cmd, VkImageLayout.TransferSrcOptimal, subresourceRange);
 
@@ -495,16 +499,17 @@ namespace VECS
                     subresourceRange.layerCount
                 );
 
-                InsertImageMemoryBarrier(
+                MemoryBarrierHelper.ImageMemoryBarrier(
                     cmd,
                     texture._vkImage,
-                    0,
-                    VkAccessFlags.TransferWrite,
+                    mipSubRange,
+                    VkPipelineStageFlags2.Transfer,
+                    VkAccessFlags2.None,
+                    VkPipelineStageFlags2.Transfer,
+                    VkAccessFlags2.TransferWrite,
                     VkImageLayout.Undefined,
                     VkImageLayout.TransferDstOptimal,
-                    VkPipelineStageFlags.Transfer,
-                    VkPipelineStageFlags.Transfer,
-                    mipSubRange
+                    queueFamily, queueFamily
                 );
 
                 GraphicsDevice.DeviceAPI.vkCmdBlitImage(
@@ -518,16 +523,18 @@ namespace VECS
                     VkFilter.Linear
                 );
 
-                InsertImageMemoryBarrier(
+
+                MemoryBarrierHelper.ImageMemoryBarrier(
                     cmd,
                     texture._vkImage,
-                    VkAccessFlags.TransferWrite,
-                    VkAccessFlags.TransferRead,
+                    mipSubRange,
+                    VkPipelineStageFlags2.Transfer,
+                    VkAccessFlags2.TransferWrite,
+                    VkPipelineStageFlags2.Transfer,
+                    VkAccessFlags2.TransferRead,
                     VkImageLayout.TransferDstOptimal,
                     VkImageLayout.TransferSrcOptimal,
-                    VkPipelineStageFlags.Transfer,
-                    VkPipelineStageFlags.Transfer,
-                    mipSubRange
+                    queueFamily, queueFamily
                 );
             }
 
@@ -594,6 +601,7 @@ namespace VECS
 
         private unsafe static void GenerateMipMapsTextureArrayCubemap(VkCommandBuffer cmd, VkImage image, uint arrayLayers, uint layerOffset, uint mipMapCount, VkExtent3D exetents, VkImageAspectFlags aspectMask)
         {
+            uint queueFamily = GraphicsDevice.PhysicalQueueFamilies.graphicsFamily;
             for (uint d = 0; d < arrayLayers; d++)
             {
                 for (uint i = 1; i < mipMapCount; i++)
@@ -632,16 +640,17 @@ namespace VECS
                         1
                     );
 
-                    InsertImageMemoryBarrier(
+                    MemoryBarrierHelper.ImageMemoryBarrier(
                         cmd,
                         image,
-                        0,
-                        VkAccessFlags.TransferWrite,
+                        mipSubRange,
+                        VkPipelineStageFlags2.Transfer,
+                        VkAccessFlags2.None,
+                        VkPipelineStageFlags2.Transfer,
+                        VkAccessFlags2.TransferWrite,
                         VkImageLayout.Undefined,
                         VkImageLayout.TransferDstOptimal,
-                        VkPipelineStageFlags.Transfer,
-                        VkPipelineStageFlags.Transfer,
-                        mipSubRange
+                        queueFamily, queueFamily
                     );
 
                     GraphicsDevice.DeviceAPI.vkCmdBlitImage(
@@ -655,181 +664,20 @@ namespace VECS
                         VkFilter.Linear
                     );
 
-                    InsertImageMemoryBarrier(
+                    MemoryBarrierHelper.ImageMemoryBarrier(
                         cmd,
                         image,
-                        VkAccessFlags.TransferWrite,
-                        VkAccessFlags.TransferRead,
+                        mipSubRange,
+                        VkPipelineStageFlags2.Transfer,
+                        VkAccessFlags2.TransferWrite,
+                        VkPipelineStageFlags2.Transfer,
+                        VkAccessFlags2.TransferRead,
                         VkImageLayout.TransferDstOptimal,
                         VkImageLayout.TransferSrcOptimal,
-                        VkPipelineStageFlags.Transfer,
-                        VkPipelineStageFlags.Transfer,
-                        mipSubRange
+                        queueFamily, queueFamily
                     );
                 }
             }
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static unsafe void SetImageLayout(
-            VkCommandBuffer cmdbuffer,
-            VkImage image,
-            VkImageLayout oldImageLayout,
-            VkImageLayout newImageLayout,
-            VkImageSubresourceRange subresourceRange,
-            VkPipelineStageFlags srcStageMask,
-            VkPipelineStageFlags dstStageMask)
-        {
-            VkImageMemoryBarrier imageMemoryBarrier = new()
-            {
-                oldLayout = oldImageLayout,
-                newLayout = newImageLayout,
-                image = image,
-                subresourceRange = subresourceRange
-            };
-
-
-            // Source layouts (old)
-            // Source access mask controls actions that have to be finished on the old layout
-            // before it will be transitioned to the new layout
-            switch (oldImageLayout)
-            {
-                case VkImageLayout.Undefined:
-                    // Image layout is undefined (or does not matter)
-                    // Only valid as initial layout
-                    // No flags required, listed only for completeness
-                    imageMemoryBarrier.srcAccessMask = 0;
-                    break;
-
-                case VkImageLayout.Preinitialized:
-                    // Image is preinitialized
-                    // Only valid as initial layout for linear images, preserves memory contents
-                    // Make sure host writes have been finished
-                    imageMemoryBarrier.srcAccessMask = VkAccessFlags.HostWrite;
-                    break;
-
-                case VkImageLayout.ColorAttachmentOptimal:
-                    // Image is a color attachment
-                    // Make sure any writes to the color buffer have been finished
-                    imageMemoryBarrier.srcAccessMask = VkAccessFlags.ColorAttachmentWrite;
-                    break;
-
-                case VkImageLayout.DepthStencilAttachmentOptimal:
-                    // Image is a depth/stencil attachment
-                    // Make sure any writes to the depth/stencil buffer have been finished
-                    imageMemoryBarrier.srcAccessMask = VkAccessFlags.DepthStencilAttachmentWrite;
-                    break;
-                case VkImageLayout.DepthAttachmentStencilReadOnlyOptimal:
-                    imageMemoryBarrier.srcAccessMask = VkAccessFlags.DepthStencilAttachmentRead;
-                    break;
-                case VkImageLayout.TransferSrcOptimal:
-                    // Image is a transfer source
-                    // Make sure any reads from the image have been finished
-                    imageMemoryBarrier.srcAccessMask = VkAccessFlags.TransferRead;
-                    break;
-
-                case VkImageLayout.TransferDstOptimal:
-                    // Image is a transfer destination
-                    // Make sure any writes to the image have been finished
-                    imageMemoryBarrier.srcAccessMask = VkAccessFlags.TransferWrite;
-                    break;
-
-                case VkImageLayout.ShaderReadOnlyOptimal:
-                    // Image is read by a shader
-                    // Make sure any shader reads from the image have been finished
-                    imageMemoryBarrier.srcAccessMask = VkAccessFlags.ShaderRead;
-                    break;
-                case VkImageLayout.PresentSrcKHR:
-                    imageMemoryBarrier.srcAccessMask = VkAccessFlags.TransferRead;
-                    break;
-                default:
-                    // Other source layouts aren't handled (yet)
-                    throw new InvalidOperationException(string.Format("Unhandled Image transition from image layout {0}", oldImageLayout.ToString()));
-            }
-
-            // Target layouts (new)
-            // Destination access mask controls the dependency for the new image layout
-            switch (newImageLayout)
-            {
-                case VkImageLayout.TransferDstOptimal:
-                    // Image will be used as a transfer destination
-                    // Make sure any writes to the image have been finished
-                    imageMemoryBarrier.dstAccessMask = VkAccessFlags.TransferWrite;
-                    break;
-
-                case VkImageLayout.TransferSrcOptimal:
-                    // Image will be used as a transfer source
-                    // Make sure any reads from the image have been finished
-                    imageMemoryBarrier.dstAccessMask = VkAccessFlags.TransferRead;
-                    break;
-
-                case VkImageLayout.ColorAttachmentOptimal:
-                    // Image will be used as a color attachment
-                    // Make sure any writes to the color buffer have been finished
-                    imageMemoryBarrier.dstAccessMask = VkAccessFlags.ColorAttachmentWrite;
-                    break;
-
-                case VkImageLayout.DepthAttachmentOptimal:
-                    // Image layout will be used as a depth/stencil attachment
-                    // Make sure any writes to depth/stencil buffer have been finished
-                    imageMemoryBarrier.dstAccessMask |= VkAccessFlags.DepthStencilAttachmentWrite;
-                    break;
-                case VkImageLayout.DepthStencilAttachmentOptimal:
-                    imageMemoryBarrier.dstAccessMask |= VkAccessFlags.DepthStencilAttachmentWrite;
-                    break;
-                case VkImageLayout.DepthAttachmentStencilReadOnlyOptimal:
-                    imageMemoryBarrier.dstAccessMask |= VkAccessFlags.DepthStencilAttachmentWrite;
-                    break;
-                case VkImageLayout.General:
-                    imageMemoryBarrier.dstAccessMask = VkAccessFlags.DepthStencilAttachmentRead | VkAccessFlags.DepthStencilAttachmentWrite;                    
-                    break;
-                case VkImageLayout.ShaderReadOnlyOptimal:
-                    // Image will be read in a shader (sampler, input attachment)
-                    // Make sure any writes to the image have been finished
-                    if (imageMemoryBarrier.srcAccessMask == 0)
-                    {
-                        imageMemoryBarrier.srcAccessMask = VkAccessFlags.HostWrite | VkAccessFlags.TransferWrite;
-                    }
-                    imageMemoryBarrier.dstAccessMask = VkAccessFlags.ShaderRead;
-                    break;
-                case VkImageLayout.PresentSrcKHR:
-                    imageMemoryBarrier.dstAccessMask = VkAccessFlags.TransferRead;
-                    break;
-                default:
-                    throw new InvalidOperationException(string.Format("Unhandled Image transition to image layout {0}", newImageLayout.ToString()));
-            }
-
-            GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier(cmdbuffer, srcStageMask, dstStageMask, 0, 0, null, 0, null, 1, &imageMemoryBarrier);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static void SetImageLayout(VkCommandBuffer cmdbuffer,
-            VkImage image,
-            VkImageAspectFlags aspectMask,
-            VkImageLayout oldImageLayout,
-            VkImageLayout newImageLayout,
-            VkPipelineStageFlags srcStageMask,
-            VkPipelineStageFlags dstStageMask)
-        {
-            VkImageSubresourceRange subresourceRange = new(aspectMask,0,1,0,1);
-            SetImageLayout(cmdbuffer, image, oldImageLayout, newImageLayout, subresourceRange, srcStageMask, dstStageMask);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static unsafe void InsertImageMemoryBarrier(
-            VkCommandBuffer cmdbuffer,
-            VkImage image,
-            VkAccessFlags srcAccessMask,
-            VkAccessFlags dstAccessMask,
-            VkImageLayout oldImageLayout,
-            VkImageLayout newImageLayout,
-            VkPipelineStageFlags srcStageMask,
-            VkPipelineStageFlags dstStageMask,
-            VkImageSubresourceRange subresourceRange)
-        {
-            VkImageMemoryBarrier imageMemoryBarrier = new(image, subresourceRange, srcAccessMask, dstAccessMask, oldImageLayout, newImageLayout);
-
-            GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier(cmdbuffer, srcStageMask, dstStageMask, 0, 0, null, 0, null, 1, &imageMemoryBarrier);
         }
     }
 }
