@@ -1,4 +1,3 @@
-using SDL3;
 using System;
 using System.Collections.Generic;
 using System.Numerics;

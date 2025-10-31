@@ -102,6 +102,14 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetTexture(uint setIndex, uint bindingIndex, Texture texture)
+        {
+            if (_textures[setIndex][bindingIndex] == texture) return;
+            _textures[setIndex][bindingIndex] = texture;
+            Array.Fill(_dirtyTextures, true);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe VkDescriptorAddressInfoEXT* GetBindingBuffersPtr(int frameIndex, int setIndex)
         {
             return !_bufferDescriptors[setIndex].Disposed ? _bufferDescriptors[setIndex].GetBindingBuffersPtr(frameIndex) : null;

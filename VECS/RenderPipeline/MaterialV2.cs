@@ -586,6 +586,7 @@ namespace VECS
             WriteToBuffer(material, property.GetHashCode(), variant, element);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void WriteToBuffer<T>(MaterialV2 material, int propertyId, int variant, T element) where T : unmanaged
         {
             if (material.LookUpProperty(propertyId, out var propertyInfo))
@@ -594,6 +595,7 @@ namespace VECS
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void WriteArrayToBuffer<T>(MaterialV2 material, int propertyId, int variant, T[] elements) where T : unmanaged
         {
             if (material.LookUpProperty(propertyId, out var propertyInfo))
@@ -602,6 +604,7 @@ namespace VECS
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetMatrix4x4(int propertyId, int variant, Matrix4x4 matrix)
         {
             if (LookUpProperty(propertyId, out var propertyInfo))
@@ -610,9 +613,19 @@ namespace VECS
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetTexture(int propertyId, int variant, Texture texture)
+        {
+            if (LookUpProperty(propertyId, out var propertyInfo))
+            {
+                TryCreateVariant((uint)variant);
+                _matVariants[variant].SetTexture(propertyInfo.SetIndex, propertyInfo.BindPoint, texture);
+            }
+        }
+
         public static void SetGlobalUniforms(MaterialV2 material, int variant, RendererFrameInfo frameInfo)
         {
-            material.TryCreateVariant(0);
+            material.TryCreateVariant((uint)variant);
             WriteToBuffer(material, ShaderPropertyInfo.CameraInfoProperty, variant, frameInfo.CameraInfo);
             WriteToBuffer(material, ShaderPropertyInfo.CameraInverseProperty, variant, frameInfo.CameraInverseInfo);
             WriteToBuffer(material, ShaderPropertyInfo.AdditionalCameraInfoProperty, variant, frameInfo.AdditionalCameraInfo);

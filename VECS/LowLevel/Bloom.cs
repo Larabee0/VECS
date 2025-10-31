@@ -67,9 +67,8 @@ namespace VECS.LowLevel
 
 
         private const int FRAME_BUFFER_DIMENTIONS = 256;
-
-        private readonly Material _blurVerticalMat;
-        private readonly Material _blurHorizontalMat;
+        private readonly static int SampleColourId = "samplerColor".GetHashCode();
+        private readonly MaterialV2 _blurMat;
         private readonly VkRenderPass _renderPass;
         private readonly VkSampler _sampler;
 
@@ -192,20 +191,17 @@ namespace VECS.LowLevel
             blurConfig.colourBlendAttachment = blendAttachment;
             //blurConfig.renderPass = _renderPass;
 
-            _blurVerticalMat = Material.Create("VerticalGaussBlur","gaussblur.vert", "gaussblur.frag", blurConfig);
+            _blurMat = new MaterialV2("VerticalGaussBlur","gaussblur.vert", "gaussblur.frag", blurConfig);
 
-            //blurConfig.renderPass = foward;
-            _blurHorizontalMat = Material.Create("HorizontalGaussBlur","gaussblur.vert", "gaussblur.frag", blurConfig);
+            _blurMat.SetTexture(SampleColourId, 0, _framebufferGlow.Colour);
+            _blurMat.PushConstants.SetPushConstantInt("blurdirection",0, 0);
+            _blurMat.PushConstants.SetPushConstantFloat("blurScale", 0, 1);
+            _blurMat.PushConstants.SetPushConstantFloat("blurStrength", 0, 1.5f);
 
-            _blurVerticalMat.SetTexture("samplerColor", _framebufferGlow.Colour);
-            _blurVerticalMat.SetPushConstantInt("blurdirection", 0);
-            _blurVerticalMat.SetPushConstantFloat("blurScale", 1);
-            _blurVerticalMat.SetPushConstantFloat("blurStrength", 1.5f);
-
-            _blurHorizontalMat.SetTexture("samplerColor", _framebufferBlur.Colour);
-            _blurHorizontalMat.SetPushConstantInt("blurdirection", 1);
-            _blurHorizontalMat.SetPushConstantFloat("blurScale", 1);
-            _blurHorizontalMat.SetPushConstantFloat("blurStrength", 1.5f);
+            _blurMat.SetTexture(SampleColourId, 1, _framebufferBlur.Colour);
+            _blurMat.PushConstants.SetPushConstantInt("blurdirection", 1, 1);
+            _blurMat.PushConstants.SetPushConstantFloat("blurScale", 1, 1);
+            _blurMat.PushConstants.SetPushConstantFloat("blurStrength", 1, 1.5f);
 
         }
 
@@ -220,8 +216,7 @@ namespace VECS.LowLevel
         {
             _renderPassBeginInfo->framebuffer = _framebufferBlur.Framebuffer;
             BeginRenderPassInternal(frameInfo);
-            _blurVerticalMat.BindAll(frameInfo);
-            _blurVerticalMat.BindPushConstants(frameInfo,0);
+            _blurMat.BindAll(frameInfo, 0);
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
             GraphicsDevice.DeviceAPI.vkCmdEndRenderPass(frameInfo.CommandBuffer);
         }
@@ -229,8 +224,7 @@ namespace VECS.LowLevel
         public unsafe void BlurHorizontal(RendererFrameInfo frameInfo)
         {
             _renderPassBeginInfo->framebuffer = _framebufferBlur.Framebuffer;
-            _blurHorizontalMat.BindAll(frameInfo);
-            _blurHorizontalMat.BindPushConstants(frameInfo,0);
+            _blurMat.BindAll(frameInfo,1);
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
         }
 
