@@ -1,0 +1,43 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <RootNamespace>Planets</RootNamespace>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+    <StartupObject></StartupObject>
+    <RunPostBuildEvent>Always</RunPostBuildEvent>
+    <BaseOutputPath>../bin</BaseOutputPath>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <Optimize>False</Optimize>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Alimer.Bindings.SDL" Version="3.9.8" />
+    <PackageReference Include="AssimpNet" Version="4.1.0" />
+    <PackageReference Include="System.Net.Http" Version="4.3.4" />
+    <PackageReference Include="System.Text.RegularExpressions" Version="4.3.1" />
+    <PackageReference Include="TeximpNet" Version="1.4.3" />
+    <PackageReference Include="UltralightNet.Binaries" Version="1.3.0" />
+    <PackageReference Include="Vortice.Vulkan" Version="3.0.1" />
+    <PackageReference Include="Vortice.VulkanMemoryAllocator" Version="1.6.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EditorConfigFiles Remove="H:\GitFork\COMP305-2202796\SDL-Vulkan-CS\.editorconfig" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="H:\GitFork\COMP305-2202796\SDL-Vulkan-CS\.editorconfig" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\VECS\VECS.csproj" />
+  </ItemGroup>
+
+
+</Project>
