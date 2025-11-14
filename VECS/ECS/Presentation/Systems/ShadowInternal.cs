@@ -101,7 +101,7 @@ namespace VECS.ECS.Presentation
             Presenter.Instance.ShadowImage.UpdateCubeFace(i, internalBuffer);
             MaterialV2.ShadowOffscreen.PushConstants.SetPushConstantMatrix4x4("viewCube", i, viewMatrix);
 
-            _shadowRenderBlob.Draw(internalBuffer, frameInfo.FrameIndex, i);
+            _shadowRenderBlob.Draw(frameInfo, internalBuffer, i);
 
             Presenter.Instance.ShadowImage.EndShadowPass(internalBuffer);
             GraphicsDevice.DeviceAPI.vkEndCommandBuffer(internalBuffer);

@@ -11,6 +11,7 @@ using VECS.ECS.Transforms;
 using VECS.LowLevel;
 using VECS.ECS.Physics;
 using Vortice.Vulkan;
+using VECS.GraphicsPipelines;
 
 namespace Planets
 {
@@ -53,7 +54,7 @@ namespace Planets
         private Texture2D textureWaveB;
 
         private Texture2DArray textureArrayTerrainShapes;
-        private Material planetLitMaterial;
+        private MaterialV2 planetLitMaterial;
         private PlanetPropeties planetProperties;
 
         private static readonly bool useComputeShaderForGeneration = true;
@@ -64,7 +65,7 @@ namespace Planets
         {
             World.DefaultWorld.CreateSystem<UpdatePlanetTimeSystem>();
             World.DefaultWorld.CreateSystem<TransformPlanetsSystem>();
-            World.DefaultWorld.CreateSystem<StarRenderSystem>();
+            World.DefaultWorld.CreateSystem<PointLightSystem>();
             World.DefaultWorld.CreateSystem<ShipGuns>();
             World.DefaultWorld.CreateSystem<InteractionSystem>();
 
@@ -78,7 +79,7 @@ namespace Planets
             CreateXWing(entityManager);
             CreateFlightScene(entityManager);
             var prefabPlanet = CreatePrefabPlanet(entityManager);
-
+            
             CreateSinglePlanetTestScene(entityManager, prefabPlanet);
 
             //CreateBigTestScene(entityManager, prefabPlanet);
@@ -93,10 +94,15 @@ namespace Planets
         private void CreateSinglePlanetTestScene(EntityManager entityManager, Entity prefabPlanet)
         {
             var aStar = entityManager.CreateEntity();
-            entityManager.AddComponent(aStar, new Star()
+            entityManager.AddComponent(aStar, new PointLightDrawer()
+            {
+                DrawColour = ColourTypeConversion.FromHex("#CC5309"),
+                Intensity = 1,
+                Radius = 5f
+            });
+            entityManager.AddComponent(aStar, new PointLight()
             {
                 Colour = ColourTypeConversion.FromHex("#FDFFFE"),
-                DrawColour = ColourTypeConversion.FromHex("#CC5309"),
                 Intensity = 1,
                 Radius = 5f
             });
@@ -127,13 +133,19 @@ namespace Planets
         private void CreateBigTestScene(EntityManager entityManager, Entity prefabPlanet)
         {
             var aStar = entityManager.CreateEntity();
-            entityManager.AddComponent(aStar, new Star()
+            entityManager.AddComponent(aStar, new PointLightDrawer()
             {
-                Colour = ColourTypeConversion.FromHex("#FDFFFE"),
                 DrawColour = ColourTypeConversion.FromHex("#CC5309"),
                 Intensity = 1,
                 Radius = 5f
             });
+            entityManager.AddComponent(aStar, new PointLight()
+            {
+                Colour = ColourTypeConversion.FromHex("#FDFFFE"),
+                Intensity = 1,
+                Radius = 5f
+            });
+
 
             entityManager.AddComponent(aStar, new Translation() { Value = new(-5f, 0, 0) });
 
@@ -155,50 +167,6 @@ namespace Planets
 
             AddMoon(entityManager, planetOrbiterA, moonOrbiterA);
 
-            //Entity planetOrbiterB = InstantiateNewOrbitalPlanet(entityManager,
-            //    PlanetPresets.ShapeGeneratorRandomEarthLike(),
-            //    prefabPlanet, starParent,
-            //    new(40f, 0, 0),
-            //    2,
-            //    -10, -9, planetLitMaterial);
-            //
-            //Entity moonOrbiterB = InstantiateNewOrbitalPlanet(entityManager,
-            //    PlanetPresets.ShapeGeneratorRandomEarthLike(),
-            //    prefabPlanet, starParent,
-            //    new(0, 0, 2.0f),
-            //    0.3f,
-            //    50, 6, planetLitMaterial);
-            //
-            //AddMoon(entityManager, planetOrbiterB, moonOrbiterB);
-            //
-            //
-            //Entity planetOrbiterC = InstantiateNewOrbitalPlanet(entityManager,
-            //    PlanetPresets.ShapeGeneratorRandomEarthLike(),
-            //    prefabPlanet, starParent,
-            //    new(0f, 0, 70),
-            //    4,
-            //    -2, 30, planetLitMaterial);
-            //Entity planetOrbiterD = InstantiateNewOrbitalPlanet(entityManager,
-            //    PlanetPresets.ShapeGeneratorFixedEarthLike(),
-            //    prefabPlanet, starParent,
-            //    new(3f, 0, 0),
-            //    0.4f,
-            //    -20, -9, planetLitMaterial);
-            //
-            //
-            //
-            //Entity planetOrbiterE = InstantiateNewOrbitalPlanet(entityManager,
-            //    PlanetPresets.ShapeGeneratorFixedEarthLike(),
-            //    prefabPlanet, starParent,
-            //    new(-2f, 0, 2),
-            //    0.8f,
-            //    -40, -9, planetLitMaterial);
-            //
-            //AddMoon(entityManager, planetOrbiterC, planetOrbiterD);
-            //AddMoon(entityManager, planetOrbiterD, planetOrbiterE);
-
-
-            // aStar.AddChildren(entityManager, planetOrbiterA, planetOrbiterB, planetOrbiterC);
             aStar.AddChildren(entityManager, planetOrbiterA);
         }
 
@@ -207,9 +175,9 @@ namespace Planets
             ulong vertexCount = 0;
             ulong indexCount = 0;
 
-            for (int i = 0; i < DirectMesh.DirectMeshes.Count; i++)
+            for (int i = 0; i < AssetDataBase< DirectMesh>.AssetCount; i++)
             {
-                var mesh = DirectMesh.DirectMeshes[i];
+                var mesh = AssetDataBase<DirectMesh>.AllAssetsListForReading[i];
                 vertexCount += mesh.VertexBufferLength;
                 indexCount += mesh.IndexBufferLength;
             }
@@ -223,7 +191,7 @@ namespace Planets
             planet.AddChildren(entityManager, moonOrbiter);
         }
 
-        private Entity InstantiateNewOrbitalPlanet(EntityManager entityManager, ShapeGenerator generator, Entity planetPrefab, Parent parent, Vector3 initialPosition, float scale, float orbitalSpeed, float dayNightSpeed, Material mat = null)
+        private Entity InstantiateNewOrbitalPlanet(EntityManager entityManager, ShapeGenerator generator, Entity planetPrefab, Parent parent, Vector3 initialPosition, float scale, float orbitalSpeed, float dayNightSpeed, MaterialV2 mat = null)
         {
             Entity orbitalPlane = entityManager.CreateEntity();
             entityManager.AddComponent<Rotation>(orbitalPlane);
@@ -233,12 +201,12 @@ namespace Planets
 
 
             var childrenEntities = entityManager.GetComponent<Children>(planetInstance).Value;
-            var unlit = Material.GetIndexOfMaterial(mat);
+            var unlit = mat.Hash;
             for (int i = 0; i < childrenEntities.Length; i++)
             {
                 entityManager.AddComponent(childrenEntities[i], new RenderMesh()
                 {
-                    Material = new() { Index = unlit, Variant = 0, Entity = planetCount - 1 },
+                    Material = new() { Hash = unlit, Variant = 0, Entity = planetCount - 1 },
                     Mesh = entityManager.GetComponent<DirectSubMeshIndex>(childrenEntities[i])
                 });
             }
@@ -286,11 +254,13 @@ namespace Planets
             // AddRenderMeshComponents(vaseSmooth2, Presenter.Instance.Lit, 0, 0, vases[0], entityManager);
             // AddRenderMeshComponents(vaseFlat, Presenter.Instance.LitTexture, 1, 1, vases[1], entityManager);
 
-            Presenter.Instance.LitTexture.SetTexture("texSampler", textureWaveC, 0, 0);
-            Presenter.Instance.LitTexture.SetTexture("texSampler", textureWaveB, 1, 0);
+            MaterialV2.LitTexture.SetTexture2D("texSampler".GetHashCode(), 0, textureWaveC);
+            MaterialV2.LitTexture.SetTexture2D("texSampler".GetHashCode(), 1, textureWaveB);
 
-            Presenter.Instance.LitTexture.SetUniform("colourMul", new ColourAndTiling(new Vector4(1, 0, 0, 1), 1f), 0, 0);
-            Presenter.Instance.LitTexture.SetUniform("colourMul", new ColourAndTiling(new Vector4(0, 1, 0, 1), 1f), 0, 1);
+            MaterialV2.LitTexture.PushConstants.SetPushConstantVector4("colour", 0, new Vector4(1, 0, 0, 1));
+            MaterialV2.LitTexture.PushConstants.SetPushConstantFloat("tiling", 0, 1f);
+            MaterialV2.LitTexture.PushConstants.SetPushConstantVector4("colour", 1, new Vector4(0, 1, 0, 1));
+            MaterialV2.LitTexture.PushConstants.SetPushConstantFloat("tiling", 1, 1f);
 
             entityManager.SetComponent(cubeEntity2, new Translation() { Value = new(-1, 4f, -10) });
             entityManager.SetComponent(cubeEntity3, new Translation() { Value = new(1, 4f, -10) });
@@ -335,16 +305,16 @@ namespace Planets
             var wingNormalTexture = new Texture2D(TextureLoader.GetTextureInDefaultPath("X-Wing/st_Rebel_01_X_Wing_wings_normal.dds"));
 
 
-            var xWingMaterial = Material.Create("TexuredNormalMap","texture_normal.vert", "texture_normal.frag");
-            xWingMaterial.GetStorageBuffer<Vector4>("colourBuffer").Fill(Vector4.One);
-            xWingMaterial.SetTexture("samplerColorMap", hullDiffuseTexture, 0, 0);
-            xWingMaterial.SetTexture("samplerNormalMap", hullNormalTexture, 0, 0);
+            var xWingMaterial = new MaterialV2("TexuredNormalMap","texture_normal.vert", "texture_normal.frag", GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []));
+            xWingMaterial.GetStorageBuffer<Vector4>("colourBuffer".GetHashCode()).Fill(Vector4.One);
+            xWingMaterial.SetTexture2D("samplerColorMap".GetHashCode(), 0, hullDiffuseTexture);
+            xWingMaterial.SetTexture2D("samplerNormalMap".GetHashCode(),0,  hullNormalTexture);
 
-            xWingMaterial.SetTexture("samplerColorMap", wingDiffuseTexture, 1, 0);
-            xWingMaterial.SetTexture("samplerNormalMap", wingNormalTexture, 1, 0);
+            xWingMaterial.SetTexture2D("samplerColorMap".GetHashCode(), 1, wingDiffuseTexture);
+            xWingMaterial.SetTexture2D("samplerNormalMap".GetHashCode(),1,  wingNormalTexture);
 
-            xWingMaterial.SetTexture("samplerColorMap", astroDroidDiffuseTexture, 2, 0);
-            xWingMaterial.SetTexture("samplerNormalMap", astroDroidNormalTexture, 2, 0);
+            xWingMaterial.SetTexture2D("samplerColorMap".GetHashCode(), 2, astroDroidDiffuseTexture);
+            xWingMaterial.SetTexture2D("samplerNormalMap".GetHashCode(),2,  astroDroidNormalTexture);
 
             var xWingBase = entityManager.CreateEntity();
             entityManager.AddComponent(xWingBase, new Translation() { Value = new Vector3(0, 50f, -800) });
@@ -368,7 +338,7 @@ namespace Planets
             engineRed.Colour = new Vector4(1, 0, 0, 1);
             engineRed.Material = new()
             {
-                Index = Material.GetIndexOfMaterial(Presenter.Instance.UnlitTransparent),
+                Hash = MaterialV2.UnlitTransparent.Hash,
                 Variant = 0,
                 Entity = 0
             };
@@ -432,20 +402,22 @@ namespace Planets
 
             var grid = new Texture2D(TextureLoader.GetTextureInDefaultPath("grid.png"));
 
-            Presenter.Instance.LitTexture.SetTexture("texSampler", grid, 2, 0);
-            Presenter.Instance.LitTexture.SetUniform("colourMul", new ColourAndTiling(new Vector4(0.1803922f, 0.2078431f, 0.2431373f, 1), 100f), 2, 2);
-            Presenter.Instance.LitTexture.SetUniform("colourMul", new ColourAndTiling(new Vector4(0.1803922f, 0.2078431f, 0.2431373f, 1), 10f), 2, 3);
+            MaterialV2.LitTexture.SetTexture2D("texSampler".GetHashCode(), 2, grid);
+            MaterialV2.LitTexture.PushConstants.SetPushConstantVector4("colour", 2, new Vector4(0.1803922f, 0.2078431f, 0.2431373f, 1));
+            MaterialV2.LitTexture.PushConstants.SetPushConstantFloat("tiling", 2, 100f);
+            MaterialV2.LitTexture.PushConstants.SetPushConstantVector4("colour", 3, new Vector4(0.1803922f, 0.2078431f, 0.2431373f, 1));
+            MaterialV2.LitTexture.PushConstants.SetPushConstantFloat("tiling", 3, 10f);
 
 
             var plane = entityManager.CreateEntity();
-            AddRenderMeshComponents(plane, Presenter.Instance.LitTexture, 2, 2, models[0], entityManager);
+            AddRenderMeshComponents(plane, MaterialV2.LitTexture, 2, 2, models[0], entityManager);
             entityManager.AddComponent<StaticColliderTag>(plane);
             Entity[] cubes = new Entity[9];
 
             for (int i = 0; i < cubes.Length; i++)
             {
                 cubes[i] = entityManager.CreateEntity();
-                AddRenderMeshComponents(cubes[i], Presenter.Instance.LitTexture, 2, 3, models[1], entityManager);
+                AddRenderMeshComponents(cubes[i], MaterialV2.LitTexture, 2, 3, models[1], entityManager);
                 entityManager.AddComponent<StaticColliderTag>(cubes[i]);
             }
 
@@ -541,15 +513,15 @@ namespace Planets
             entityManager.AddComponent(flightRig, new Translation() { Value = initalCameraPos });
         }
 
-        public static void AddRenderMeshComponents(Entity entity, Material mat, int variant, int entityVariant, DirectSubMesh mesh, EntityManager entityManager)
-        {
+        public static void AddRenderMeshComponents(Entity entity, MaterialV2 mat, int variant, int entityVariant, DirectSubMesh mesh, EntityManager entityManager)
+         {
             entityManager.AddComponent<Translation>(entity);
             entityManager.AddComponent(entity, new RenderMesh()
             {
                 Mesh = mesh.GetSubMeshIndex(),
                 Material = new()
                 {
-                    Index = Material.GetIndexOfMaterial(mat),
+                    Hash = mat.Hash,
                     Variant = variant,
                     Entity = entityVariant
                 },
@@ -584,13 +556,15 @@ namespace Planets
                 OceanBrightness = 5f
             };
 
-            planetLitMaterial = Material.Create("PlanetMat","planet_shader.vert", "planet_shader.frag");
-            planetLitMaterial.SetUniform("planetProperties", planetProperties.ShaderParmeters);
-            planetLitMaterial.SetTextureArray("texTerrain", textureArrayTerrainShapes);
-            planetLitMaterial.SetTexture("texWaveA", textureWaveA);
-            planetLitMaterial.SetTexture("texWaveB", textureWaveC);
-            planetLitMaterial.SetTexture("texWaveC", textureWaveB);
-            planetLitMaterial.SetCubeMap("shadowCubeMap", AssetDataBase<Cubemap>.GetNamed("ShadowCubeMap"));
+            planetLitMaterial = new MaterialV2("PlanetMat","planet_shader.vert", "planet_shader.frag", GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []));
+            //planetLitMaterial = MaterialV2.LitTexture;
+
+            planetLitMaterial.SetTexture2DArray("texTerrain".GetHashCode(), 0,textureArrayTerrainShapes);
+            planetLitMaterial.SetTexture2D("texWaveA".GetHashCode(), 0,textureWaveA);
+            planetLitMaterial.SetTexture2D("texWaveB".GetHashCode(), 0,textureWaveC);
+            planetLitMaterial.SetTexture2D("texWaveC".GetHashCode(), 0,textureWaveB);
+            planetLitMaterial.SetCubeMap("shadowCubeMap".GetHashCode(), 0, AssetDataBase<Cubemap>.GetNamed("ShadowCubeMap"));
+
         }
 
         private Entity CreatePrefabPlanet(EntityManager entityManager)
@@ -605,7 +579,7 @@ namespace Planets
             entityManager.AddComponent<DoNotRender>(planet);
             entityManager.AddComponent<Prefab>(planet);
             entityManager.AddComponent<PlanetEuler>(planet);
-            entityManager.AddComponent(planet, new MaterialIndex { Index = Material.GetIndexOfMaterial(planetLitMaterial) });
+            entityManager.AddComponent(planet, new MaterialIndex { Hash = planetLitMaterial.Hash });
 
             InitialiseTiles(entityManager, planet, subdivisons);
 
@@ -738,10 +712,10 @@ namespace Planets
                 properties.SteepTexture = generator.ColourGenerator.steepTexture.GUID;
                 properties.ElevationMinMax = new(generator.MinMax.Min, generator.MinMax.Max);
                 World.DefaultWorld.EntityManager.SetComponent(planetRoot, properties);
-                planetLitMaterial.SetUniform("planetProperties", properties.ShaderParmeters,0, planetCount);
-                planetLitMaterial.SetTexture("texMainColour", generator.ColourGenerator.colourTexture, 0, planetCount);
-                planetLitMaterial.SetTexture("texSteepColour", generator.ColourGenerator.steepTexture, 0, planetCount);
-
+                planetLitMaterial.PushConstants.SetPushConstantUniform("planetProperties", planetCount, properties.ShaderParmeters);
+                planetLitMaterial.SetTexture2D("texMainColour".GetHashCode(), planetCount, generator.ColourGenerator.colourTexture);
+                planetLitMaterial.SetTexture2D("texSteepColour".GetHashCode(), planetCount, generator.ColourGenerator.steepTexture);
+            
                 planetCount++;
             }
 

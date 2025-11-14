@@ -508,13 +508,13 @@ namespace VECS
                 {
                     var materialIndex = entityManager.GetComponent<MaterialIndex>(e);
 
-                    if (materialIndex.Index == index)
+                    if (materialIndex.Hash == index)
                     {
                         entityManager.RemoveComponent<MaterialIndex>(e);
                     }
-                    else if (materialIndex.Index > index)
+                    else if (materialIndex.Hash > index)
                     {
-                        materialIndex.Index--;
+                        materialIndex.Hash--;
                         entityManager.SetComponent(e, materialIndex);
                     }
                 });

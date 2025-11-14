@@ -36,7 +36,7 @@ namespace VECS
 
     public static class FustrumCull
     {
-        public static readonly bool CPUCulling = false;
+        public static readonly bool CPUCulling = true;
 
         private static readonly int BoundsBufferId = "boundsBuffer".GetHashCode();
         private static readonly int DrawBufferId = "drawBuffer".GetHashCode();

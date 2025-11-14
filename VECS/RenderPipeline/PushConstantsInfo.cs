@@ -20,6 +20,7 @@ namespace VECS
 
         public PushConstantsInfo(SpvReflectBlockVariable pushConstantBlock, VkShaderStageFlags shaderStages)
         {
+            Name = pushConstantBlock.Name;
             ShaderStages = shaderStages;
             Variables = [.. SPIRVReflectUtil.GetBlockMembers("",pushConstantBlock)];
             Offset = pushConstantBlock.offset;
@@ -35,6 +36,7 @@ namespace VECS
 
         public PushConstantsInfo(PushConstantsInfo source)
         {
+            Name = source.Name;
             ShaderStages = source.ShaderStages;
             Variables = source.Variables;
             Offset = source.Offset;
@@ -49,8 +51,9 @@ namespace VECS
         }
 
 
-        public DescriptorPropertyInfo GetProperty(string name)
+        private DescriptorPropertyInfo GetProperty(string name)
         {
+           
             string topLevelMemberName = name;
             int subPropertyIndex = name.IndexOf('.');
 
@@ -80,6 +83,11 @@ namespace VECS
 
         public bool WriteToPushConstantBuffer<T>(string property, T value) where T : unmanaged
         {
+            if(property == Name)
+            {
+                WriteToPushConstantBuffer(0, value);
+                return true;
+            }
             var propertyInfo = GetProperty(property);
             if (propertyInfo != null)
             {
@@ -88,7 +96,7 @@ namespace VECS
             }
             else
             {
-                Console.WriteLine("Failed to find property {0}", property);
+                Console.WriteLine("PUSH CONST Failed to find property {0}", property);
             }
             return false;
         }

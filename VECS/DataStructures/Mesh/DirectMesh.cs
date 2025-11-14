@@ -19,9 +19,6 @@ namespace VECS
         private static readonly HashSet<Type> validVertexFormats = [typeof(float), typeof(Vector2), typeof(Vector3), typeof(Vector4)];
 #endif
 
-        private readonly static List<DirectMesh> _meshes = [];
-        public static List<DirectMesh> DirectMeshes => _meshes;
-
         private ulong _allocatedVertexCount;
         private ulong _allocatedIndexCount;
 
@@ -191,7 +188,6 @@ namespace VECS
             _bindingDescriptions = MeshExtensions.GetBindingDescription(vertexAttributes);
             _attributeDescriptions = MeshExtensions.GetAttributeDescriptions(vertexAttributes);
 
-            DirectMeshes.Add(this);
             AssetDataBase<DirectMesh>.Add(this);
         }
 
@@ -504,31 +500,6 @@ namespace VECS
 
             _disposed = true;
 
-
-            int index = GetIndexOfMesh(this);
-
-            if (World.DefaultWorld != null && World.DefaultWorld.EntityManager != null)
-            {
-                var entityManager = World.DefaultWorld.EntityManager;
-                var allMeshEntities = entityManager.GetAllEntitiesWithComponent<DirectSubMeshIndex>();
-                allMeshEntities?.ForEach(e =>
-                {
-                    var meshIndex = entityManager.GetComponent<DirectSubMeshIndex>(e);
-
-                    if (meshIndex.DirectMesh == index)
-                    {
-                        entityManager.RemoveComponent<DirectSubMeshIndex>(e);
-                    }
-                    else if (meshIndex.DirectMesh > index)
-                    {
-                        meshIndex.DirectMesh--;
-                        entityManager.SetComponent(e, meshIndex);
-                    }
-                });
-            }
-
-            DirectMeshes.RemoveAt(index);
-
             AssetDataBase<DirectSubMesh>.RemoveRange(_directSubMeshs);
         }
 
@@ -670,21 +641,6 @@ namespace VECS
         }
         #endregion
 
-        #region GetMeshes
-
-        public static DirectMesh GetMeshAtIndex(int index)
-        {
-            index = Math.Max(0, index);
-            DirectMesh mesh = index < DirectMeshes.Count ? DirectMeshes[index] : null;
-
-            return mesh;
-        }
-
-        public static int GetIndexOfMesh(DirectMesh mesh)
-        {
-            return DirectMeshes.IndexOf(mesh);
-        }
-        
         public unsafe void ReadAllBuffers()
         {
             VkCommandBuffer singleTime = GraphicsDevice.BeginSingleTimeMainPipe();
@@ -749,7 +705,5 @@ namespace VECS
             _subMeshInfo[subMeshIndex] = newData;
 
         }
-
-        #endregion
     }
 }

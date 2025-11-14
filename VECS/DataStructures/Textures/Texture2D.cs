@@ -110,7 +110,7 @@ namespace VECS
 
             if (usage.HasFlag(VkImageUsageFlags.DepthStencilAttachment))
             {
-                SetImageLayout(VkImageLayout.DepthAttachmentStencilReadOnlyOptimal);
+                SetImageLayout(VkImageLayout.DepthAttachmentStencilReadOnlyOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.EarlyFragmentTests);
             }
             else
             {
@@ -149,7 +149,7 @@ namespace VECS
 
             if (usage.HasFlag(VkImageUsageFlags.DepthStencilAttachment))
             {
-                SetImageLayout(VkImageLayout.DepthAttachmentStencilReadOnlyOptimal);
+                SetImageLayout(VkImageLayout.DepthAttachmentStencilReadOnlyOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.EarlyFragmentTests);
             }
             else
             {
@@ -186,7 +186,7 @@ namespace VECS
 
             this.CreateImageView(GetImageViewCreateInfo());
             this.CreateSampler(GetSamplerCreateInfo());
-            SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal);
+            SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.Transfer);
             UpdateDescriptor();
 
             FileName = Path.GetFileName(filePath);

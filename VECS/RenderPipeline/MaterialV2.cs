@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Numerics;
 using System.Runtime.CompilerServices;
@@ -38,6 +39,9 @@ namespace VECS
         private readonly MaterialVariant[] _matVariants;
 
         private uint _variantCount;
+        private bool _preBindUpdate = false;
+
+        public uint VariantCount => _variantCount;
 
         public int MeshShaderDescriptorSetIndex => _meshShaderDescriptorSetIndex;
         public int DescriptorSetCount => _descriptorSetCount;
@@ -50,8 +54,10 @@ namespace VECS
         public readonly static MaterialV2 LitTexture;
         public readonly static MaterialV2 DepthOnly;
         public readonly static MaterialV2 UnlitMeshShader;
+        public readonly static MaterialV2 UnlitTransparent;
         public readonly static MaterialV2 WireFrame;
         public readonly static MaterialV2 ShadowOffscreen;
+        public readonly static MaterialV2 PointLight;
 
         static MaterialV2()
         {
@@ -69,8 +75,8 @@ namespace VECS
             pipelineConfigInfo.rasterizationInfo.polygonMode = VkPolygonMode.Line;
             pipelineConfigInfo.inputAssemblyInfo.topology = VkPrimitiveTopology.LineStrip;
             pipelineConfigInfo.rasterizationInfo.lineWidth = 1;
-
             WireFrame = new("WireFrame", "line_shader.vert", "line_shader.frag", pipelineConfigInfo);
+
             var shadowConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             Cubemap shadowCube = AssetDataBase<Cubemap>.GetNamed("ShadowCubeMap");
             Texture2D shadowDepthStencil = AssetDataBase<Texture2D>.GetNamed("ShadowDepthImage");
@@ -80,13 +86,22 @@ namespace VECS
             shadowConfig.stencilFormat = shadowDepthStencil.Format;
             shadowConfig.depthStencilInfo.depthWriteEnable = true;
             ShadowOffscreen = new("ShadowOffscreen", "shadow_offscreen.vert", "shadow_offscreen.frag", shadowConfig);
+
+            var pointLightConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
+            GraphicsPipelineConfigInfo.EnableAlphaBlending(ref pointLightConfig);
+            PointLight = new MaterialV2("PointLightDisplay", "point_light.vert", "point_light.frag", pointLightConfig);
+
+            var alphaBlending = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
+            GraphicsPipelineConfigInfo.EnableAlphaBlending(ref alphaBlending);
+            UnlitTransparent = new MaterialV2("Unlit Transparent", "unlit.vert", "unlit.frag", alphaBlending);
+
             if (GraphicsDevice.MeshShading)
             {
                 UnlitMeshShader = new("MeshShader", "gen_meshshader_basic_new.mesh", "gen_meshshader_basic_new.task", "gen_meshshader_basic_new.frag", GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []));
             }
         }
 
-        internal MaterialV2(string name, string vertexShaderName, string fragmentShaderName, GraphicsPipelineConfigInfo pipelineConfig)
+        public MaterialV2(string name, string vertexShaderName, string fragmentShaderName, GraphicsPipelineConfigInfo pipelineConfig)
         {
             AssetName = name;
 
@@ -260,7 +275,11 @@ namespace VECS
             }
 
 #if DEBUG
-            Console.WriteLine("Caching Invalid property {0}", propertyId);
+            bool isGlobalProperty = ShaderPropertyInfo.GlobalProperties.Contains(propertyId);
+            if (!isGlobalProperty || (ShaderPropertyInfo.LOG_MISSING_GLOBAL_SHADER_PROPERTIES && isGlobalProperty))
+            {
+                Console.WriteLine("GRAPHICS Caching Invalid property {0}", propertyId);
+            }
 #endif
             propertyInfo = ShaderPropertyInfo.Invalid;
             _cachedShaderProperties.TryAdd(propertyId, propertyInfo);
@@ -306,19 +325,18 @@ namespace VECS
                         }
                     }
                 }
+                _preBindUpdate = true;
                 return true;
             }
             return false;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private bool GetOrCreateVariant(uint variantIndex,out MaterialVariant variant)
+        private bool GetOrCreateVariant(uint variantIndex, out MaterialVariant variant)
         {
-
             bool hadToCreate = TryCreateVariant(variantIndex);
             variant = _matVariants[variantIndex];
             return !hadToCreate;
-
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -458,7 +476,7 @@ namespace VECS
         {
             if (LookUpProperty(propertyId, out var propertyInfo))
             {
-                return GetStorageSwapChainBuffer(propertyInfo.SetIndex, propertyInfo.BindPoint, propertyInfo.Property);
+                return GetStorageSwapChainBuffer(propertyInfo);
             }
 
             return default;
@@ -484,11 +502,11 @@ namespace VECS
             return null;
         }
 
-        public unsafe SwapChainBuffer GetStorageSwapChainBuffer(uint setIndex, uint bindPoint, DescriptorPropertyInfo propertyInfo)
+        public unsafe SwapChainBuffer GetStorageSwapChainBuffer(ShaderPropertyInfo propertyInfo)
         {
-            if (propertyInfo.VariableArraySize)
+            if (propertyInfo.Property == null && propertyInfo.BindingInfo.StorageBuffer || propertyInfo.Property != null &&propertyInfo.Property.VariableArraySize)
             {
-                return GetBuffer(setIndex, bindPoint);
+                return GetBuffer(propertyInfo.SetIndex, propertyInfo.BindPoint);
             }
             return null;
         }
@@ -559,6 +577,7 @@ namespace VECS
             {
                 material._descriptorSetInfos[i].WriteFromBuffers(frameIndex);
             }
+            material._preBindUpdate = false;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -614,12 +633,41 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void SetTexture(int propertyId, int variant, Texture texture)
+        public void SetTexture2D(int propertyId, int variant, Texture2D texture)
         {
             if (LookUpProperty(propertyId, out var propertyInfo))
             {
                 TryCreateVariant((uint)variant);
                 _matVariants[variant].SetTexture(propertyInfo.SetIndex, propertyInfo.BindPoint, texture);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetTexture2DArray(int propertyId, int variant, Texture2DArray texture)
+        {
+            if (LookUpProperty(propertyId, out var propertyInfo))
+            {
+                TryCreateVariant((uint)variant);
+                _matVariants[variant].SetTexture(propertyInfo.SetIndex, propertyInfo.BindPoint, texture);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetCubeMap(int propertyId, int variant, Cubemap texture)
+        {
+            if (LookUpProperty(propertyId, out var propertyInfo))
+            {
+                TryCreateVariant((uint)variant);
+                _matVariants[variant].SetTexture(propertyInfo.SetIndex, propertyInfo.BindPoint, texture);
+            }
+        }
+
+        public void SetUniform<T>(int propertyId, int variant, T uniform) where T : unmanaged
+        {
+            if (LookUpProperty(propertyId, out var propertyInfo))
+            {
+                TryCreateVariant((uint)variant);
+                WriteToBuffer((uint)variant, propertyInfo, uniform);
             }
         }
 
@@ -631,15 +679,18 @@ namespace VECS
             WriteToBuffer(material, ShaderPropertyInfo.AdditionalCameraInfoProperty, variant, frameInfo.AdditionalCameraInfo);
             WriteToBuffer(material, ShaderPropertyInfo.OrthographicInfoProperty, variant, frameInfo.OrthographicInfo);
             WriteToBuffer(material, ShaderPropertyInfo.LightingInfoProperty, variant, frameInfo.LightingInfo);
-
-            var pointLights = material.GetStorageBuffer<PointLightUniform>(ShaderPropertyInfo.PointLightsBufferProperty);
-            frameInfo.PointLights.CopyTo(pointLights);
-            material._matVariants[variant].SetStorageBufferRegion(0, 0, (uint)frameInfo.PointLights.Length);
+            if (material.LookUpProperty(ShaderPropertyInfo.PointLightsBufferProperty, out _))
+            {
+                var pointLights = material.GetStorageBuffer<PointLightUniform>(ShaderPropertyInfo.PointLightsBufferProperty);
+                frameInfo.PointLights.CopyTo(pointLights);
+                material._matVariants[variant].SetStorageBufferRegion(0, 0, (uint)frameInfo.PointLights.Length);
+            }
         }
 
         public unsafe void BindAll(RendererFrameInfo frameInfo,int variantIndex)
         {
-            if (!GetOrCreateVariant((uint)variantIndex,out var variant))
+            GetOrCreateVariant((uint)variantIndex, out var variant);
+            if (_preBindUpdate)
             {
                 Update(this, frameInfo);
             }
@@ -662,7 +713,7 @@ namespace VECS
             var commandBuffer = frameInfo.CommandBuffer;
             GraphicsDevice.DeviceAPI.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Graphics, _graphicsPipeline);
             DescriptorBuffer.BindSets(commandBuffer, (uint)_descriptorSetCount, bindingInfo);
-            DescriptorBuffer.SetOffsets(commandBuffer, _pipelineLayout, VkPipelineBindPoint.Graphics, (uint)variantIndex, (uint)_descriptorSetCount, offsets, indices);
+            DescriptorBuffer.SetOffsets(commandBuffer, _pipelineLayout, VkPipelineBindPoint.Graphics, 0, (uint)_descriptorSetCount, offsets, indices);
 
             _materialPushConstantsHandler.BindPushConstants(commandBuffer, _pipelineLayout, variantIndex);
         }
@@ -671,7 +722,8 @@ namespace VECS
         {
             if (_meshShaderDescriptorSetIndex < 0) return;
 
-            if (!GetOrCreateVariant((uint)variantIndex, out var variant))
+            GetOrCreateVariant((uint)variantIndex, out var variant);
+            if (_preBindUpdate)
             {
                 Update(this, frameInfo);
             }
@@ -703,19 +755,19 @@ namespace VECS
             var commandBuffer = frameInfo.CommandBuffer;
             GraphicsDevice.DeviceAPI.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Graphics, _graphicsPipeline);
             DescriptorBuffer.BindSets(commandBuffer, (uint)_descriptorSetCount, bindingInfo);
-            DescriptorBuffer.SetOffsets(commandBuffer, _pipelineLayout, VkPipelineBindPoint.Graphics, (uint)variantIndex, (uint)_descriptorSetCount, offsets, indices);
+            DescriptorBuffer.SetOffsets(commandBuffer, _pipelineLayout, VkPipelineBindPoint.Graphics, 0, (uint)_descriptorSetCount, offsets, indices);
 
             _materialPushConstantsHandler.BindPushConstants(commandBuffer, _pipelineLayout, variantIndex);
         }
 
-        public unsafe void ExecuteDrawCommands(RendererFrameInfo frameInfo, MaterialDrawCommand[] drawCmds, int matDrawCount, SwapChainBuffer<VkDrawIndexedIndirectCommand> indirectCmdBuffer)
+        public unsafe void ExecuteDrawCommands(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, MaterialDrawCommand[] drawCmds, int matDrawCount, SwapChainBuffer<VkDrawIndexedIndirectCommand> indirectCmdBuffer)
         {
             if (matDrawCount <= 0) return;
-            var commandBuffer = frameInfo.CommandBuffer;
             var frameIndex = frameInfo.FrameIndex;
             GraphicsDevice.DeviceAPI.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Graphics, _graphicsPipeline);
             var command = drawCmds[0];
-            if (!GetOrCreateVariant((uint)command.Variant, out _))
+            GetOrCreateVariant((uint)command.Variant, out _);
+            if (_preBindUpdate)
             {
                 Update(this, frameInfo);
             }
@@ -733,13 +785,15 @@ namespace VECS
                 indices[i] = i;
             }
             DescriptorBuffer.BindSets(commandBuffer, (uint)_descriptorSetCount, bindingInfo);
-            DescriptorBuffer.SetOffsets(commandBuffer, _pipelineLayout, VkPipelineBindPoint.Graphics, (uint)command.Variant, (uint)_descriptorSetCount, offsets, indices);
+            DescriptorBuffer.SetOffsets(commandBuffer, _pipelineLayout, VkPipelineBindPoint.Graphics, 0, (uint)_descriptorSetCount, offsets, indices);
             
             int lastVariant = command.Variant;
             
             for (int i = 0; i < matDrawCount; i++)
             {
-                if (!GetOrCreateVariant((uint)command.Variant, out _))
+                command = drawCmds[i];
+                GetOrCreateVariant((uint)command.Variant, out _);
+                if (_preBindUpdate)
                 {
                     Update(this, frameInfo);
                 }
@@ -758,12 +812,12 @@ namespace VECS
 
                     offsets[i] = buffer.AlignedSize * (uint)command.Variant;
                 }
-                DescriptorBuffer.SetOffsets(commandBuffer, _pipelineLayout, VkPipelineBindPoint.Graphics, (uint)command.Variant, (uint)_descriptorSetCount, offsets, indices);
+                DescriptorBuffer.SetOffsets(commandBuffer, _pipelineLayout, VkPipelineBindPoint.Graphics, 0, (uint)_descriptorSetCount, offsets, indices);
                 lastVariant = command.Variant;
             }
 
             _materialPushConstantsHandler.BindPushConstants(commandBuffer, _pipelineLayout, command.Entity);
-            var mesh = AssetDataBase<DirectMesh>.GetHashedSilentFail(command.DirectMesh);
+            var mesh = AssetDataBase<DirectMesh>.AllAssetsListForReading[command.DirectMesh];
             mesh.BindSpecificBuffers(commandBuffer, _graphicsPipelineConfigInfo.BindingDescriptions, _graphicsPipelineConfigInfo.AttributeDescriptions);
 
             GraphicsDevice.DeviceAPI.vkCmdDrawIndexedIndirect(
@@ -773,6 +827,72 @@ namespace VECS
                 (uint)command.MeshSubRegion.Count, (uint)sizeof(VkDrawIndexedIndirectCommand));
         }
 
+        public unsafe void ExecuteDrawCommandsPushConstantOverride(RendererFrameInfo frameInfo, int pushConstantOverride, VkCommandBuffer commandBuffer, MaterialDrawCommand[] drawCmds, int matDrawCount, SwapChainBuffer<VkDrawIndexedIndirectCommand> indirectCmdBuffer)
+        {
+            if (matDrawCount <= 0) return;
+            var frameIndex = frameInfo.FrameIndex;
+            GraphicsDevice.DeviceAPI.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Graphics, _graphicsPipeline);
+            var command = drawCmds[0];
+            GetOrCreateVariant((uint)command.Variant, out _);
+            if (_preBindUpdate)
+            {
+                Update(this, frameInfo);
+            }
+            VkDescriptorBufferBindingInfoEXT* bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[_descriptorSetCount];
+            ulong* offsets = stackalloc ulong[_descriptorSetCount];
+            uint* indices = stackalloc uint[_descriptorSetCount];
+
+            for (uint i = 0; i < _descriptorSetCount; i++)
+            {
+                DescriptorSetInfo descriptorSetInfo = _descriptorSetInfos[i];
+                DescriptorBuffer buffer = descriptorSetInfo.DescriptorBuffers[frameIndex];
+
+                bindingInfo[i] = buffer.BindingInfo;
+                offsets[i] = buffer.AlignedSize * (uint)command.Variant;
+                indices[i] = i;
+            }
+            DescriptorBuffer.BindSets(commandBuffer, (uint)_descriptorSetCount, bindingInfo);
+            DescriptorBuffer.SetOffsets(commandBuffer, _pipelineLayout, VkPipelineBindPoint.Graphics, 0, (uint)_descriptorSetCount, offsets, indices);
+
+            int lastVariant = command.Variant;
+
+            for (int i = 0; i < matDrawCount; i++)
+            {
+                command = drawCmds[i];
+                GetOrCreateVariant((uint)command.Variant, out _);
+                if (_preBindUpdate)
+                {
+                    Update(this, frameInfo);
+                }
+                ExecuteDrawCommandPushConstantOverride(commandBuffer, frameIndex, pushConstantOverride, indirectCmdBuffer, command, offsets, indices, ref lastVariant);
+            }
+        }
+
+        private unsafe void ExecuteDrawCommandPushConstantOverride(VkCommandBuffer commandBuffer, int frameIndex,int pushConstantIndex, SwapChainBuffer<VkDrawIndexedIndirectCommand> indirectCmdBuffer, MaterialDrawCommand command, ulong* offsets, uint* indices, ref int lastVariant)
+        {
+            if (lastVariant != command.Variant)
+            {
+                for (uint i = 0; i < _descriptorSetCount; i++)
+                {
+                    DescriptorSetInfo descriptorSetInfo = _descriptorSetInfos[i];
+                    DescriptorBuffer buffer = descriptorSetInfo.DescriptorBuffers[frameIndex];
+
+                    offsets[i] = buffer.AlignedSize * (uint)command.Variant;
+                }
+                DescriptorBuffer.SetOffsets(commandBuffer, _pipelineLayout, VkPipelineBindPoint.Graphics, 0, (uint)_descriptorSetCount, offsets, indices);
+                lastVariant = command.Variant;
+            }
+
+            _materialPushConstantsHandler.BindPushConstants(commandBuffer, _pipelineLayout, pushConstantIndex);
+            var mesh = AssetDataBase<DirectMesh>.AllAssetsListForReading[command.DirectMesh];
+            mesh.BindSpecificBuffers(commandBuffer, _graphicsPipelineConfigInfo.BindingDescriptions, _graphicsPipelineConfigInfo.AttributeDescriptions);
+
+            GraphicsDevice.DeviceAPI.vkCmdDrawIndexedIndirect(
+                commandBuffer,
+                indirectCmdBuffer.ActiveVkBuffer,
+                (uint)command.MeshSubRegion.StartIndex * (uint)sizeof(VkDrawIndexedIndirectCommand),
+                (uint)command.MeshSubRegion.Count, (uint)sizeof(VkDrawIndexedIndirectCommand));
+        }
         public override void ClearCachedData()
         {
             base.ClearCachedData();
@@ -782,12 +902,36 @@ namespace VECS
 
     public struct ShaderPropertyInfo
     {
+#if DEBUG
+        public const bool LOG_MISSING_GLOBAL_SHADER_PROPERTIES = false;
+#endif
         public static readonly int CameraInfoProperty = "cameraMain".GetHashCode();
         public static readonly int CameraInverseProperty = "cameraInverse".GetHashCode();
         public static readonly int AdditionalCameraInfoProperty = "cameraPlanes".GetHashCode();
         public static readonly int OrthographicInfoProperty = "orthographic".GetHashCode();
         public static readonly int LightingInfoProperty = "lighting".GetHashCode();
         public static readonly int PointLightsBufferProperty = "pointLightBuffer".GetHashCode();
+        public static readonly HashSet<int> GlobalProperties;
+
+        static ShaderPropertyInfo()
+        {
+            Console.WriteLine("GlobalProperty | cameraMain: {0}", CameraInfoProperty);
+            Console.WriteLine("GlobalProperty | cameraInverse: {0}", CameraInverseProperty);
+            Console.WriteLine("GlobalProperty | cameraPlanes: {0}", AdditionalCameraInfoProperty);
+            Console.WriteLine("GlobalProperty | orthographic: {0}", OrthographicInfoProperty);
+            Console.WriteLine("GlobalProperty | lighting: {0}", LightingInfoProperty);
+            Console.WriteLine("GlobalProperty | pointLightBuffer: {0}", PointLightsBufferProperty);
+            GlobalProperties =
+            [
+                CameraInfoProperty,
+                CameraInverseProperty,
+                AdditionalCameraInfoProperty,
+                OrthographicInfoProperty,
+                LightingInfoProperty,
+                PointLightsBufferProperty,
+            ];
+
+        }
 
         public static readonly ShaderPropertyInfo Invalid = new()
         {

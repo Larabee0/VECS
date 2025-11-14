@@ -161,7 +161,7 @@ namespace VECS
 
         public static SwapChainBuffer GetBufferOfUniform(this DescriptorHandler handler, string property)
         {
-             if (handler.LookUpProperty(property, true, out uint bindingIndex, out DescriptorPropertyInfo propertyInfo))
+            if (handler.LookUpProperty(property, true, out uint bindingIndex, out DescriptorPropertyInfo propertyInfo))
             {
                 return handler.BindingBuffers[bindingIndex];
             }

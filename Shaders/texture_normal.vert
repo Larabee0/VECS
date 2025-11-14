@@ -17,14 +17,23 @@ struct PointLight {
 	vec4 colour; // w is intensity
 };
 
-layout(set = 0, binding = 0) uniform GlobalUbo{
+layout(set = 0,binding = 0) uniform CameraInfo{
 	mat4 projectionMatrix;
 	mat4 viewMatrix;
-	mat4 inverseViewMatrix;
+	mat4 projectionViewMatrix;	
+	vec4 position;
+	vec4 forward;
+} cameraMain;
+
+layout(set = 0, binding = 1) uniform LightingInfo {
 	vec4 ambientLightColour;
-	int numLights;
-	PointLight pointLights[10];
-} ubo;
+	vec4 ambientLightDir;
+	int numPointLights;
+} lighting;
+
+layout (set = 0, binding = 2) readonly buffer PointLights{
+	PointLight values[];
+} pointLightBuffer;
 
 struct ObjectMatrices{
 	mat4 modelMatrix; // project * view * model
@@ -55,15 +64,22 @@ void main()
 {
 	ObjectMatrices objectMat = matricesBuffer.matrices[gl_BaseInstance];
 	vec3 pos =  (objectMat.modelMatrix * vec4(inPos, 1.0)).xyz;
-	mat4 viewMatrix = ubo.viewMatrix;
+	mat4 viewMatrix = cameraMain.viewMatrix;
 	vec3 viewPos = vec3(float(viewMatrix[3,0]),float(viewMatrix[3,1]),float(viewMatrix[3,2]));
 	
-	gl_Position = ubo.projectionMatrix * ubo.viewMatrix * vec4(pos,1);
+	gl_Position = cameraMain.projectionViewMatrix * vec4(pos,1);
 
 	outNormal = normalize(mat3(objectMat.normalMatrix) * inNormal);
 	outColor = colourBuffer.colours[gl_BaseInstance].xyz;
 	outUV = inUV;
 	outViewVec = viewPos - pos;
-	outLightVec = ubo.pointLights[0].position.xyz - pos;
+	if(lighting.numPointLights > 0)
+	{
+		outLightVec = pointLightBuffer.values[0].position.xyz - pos;
+	}
+	else
+	{
+		outLightVec = lighting.ambientLightDir.xyz;
+	}
 	outTangent = inTangent;
 }

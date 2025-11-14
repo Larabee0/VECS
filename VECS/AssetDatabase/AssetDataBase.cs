@@ -62,6 +62,7 @@ namespace VECS
             }
             _assetsList.Add(asset);
             _assetsByName.Add(asset.AssetName, asset);
+            _assetsByHash.Add(asset.Hash, asset);
             if (_assetsList.Count > ushort.MaxValue)
             {
                 Console.WriteLine("Too many {0}; over {1}", typeof(T), ushort.MaxValue);
@@ -206,6 +207,13 @@ namespace VECS
                 return result;
             }
             return default;
+        }
+
+        public static int GetCurrentIndexOfHashed(int assetHash)
+        {
+            var asset = GetHashedSilentFail(assetHash);
+            if (asset == null) return 0;
+            return asset.Index;
         }
     }
 }

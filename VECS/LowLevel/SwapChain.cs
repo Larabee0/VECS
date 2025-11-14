@@ -308,7 +308,7 @@ namespace VECS.LowLevel
             var swapChainImage = _swapChainImages[imageIndex];
             var renderImage = _rawRenderImage[frameIndex];
 
-            renderImage.SetImageLayout(commandBuffer, VkImageLayout.TransferSrcOptimal);
+            renderImage.SetImageLayout(commandBuffer, VkImageLayout.TransferSrcOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.Blit);
 
             // done at as first command in graphics pipe by TransferSwapChainImageToGraphicsQueue
             //TextureExtensions.SetImageLayout(commandBuffer, swapChainImage, VkImageAspectFlags.Color, VkImageLayout.PresentSrcKHR, VkImageLayout.TransferDstOptimal, VkPipelineStageFlags.AllCommands, VkPipelineStageFlags.AllCommands);
@@ -326,7 +326,7 @@ namespace VECS.LowLevel
                 VkFilter.Linear
             );
 
-            renderImage.SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal);
+            renderImage.SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.ColorAttachmentOutput);
             //renderImage.SetImageLayout(commandBuffer, VkImageLayout.DepthStencilAttachmentOptimal);
 
             // replaced by TransferSwapChainImageToPresentQueue

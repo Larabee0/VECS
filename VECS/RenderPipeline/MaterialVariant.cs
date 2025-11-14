@@ -58,7 +58,7 @@ namespace VECS
                 if (setInfo.ImageCount > 0)
                 {
                     _imageDescriptors[i] = new(setInfo);
-                    _textures[i] = new Texture[setInfo.ImageCount];
+                    _textures[i] = new Texture[setInfo.BindingCount];
                     Array.Fill(_textures[i], Texture2D.MissingTexture);
                 }
                 else
@@ -104,8 +104,9 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetTexture(uint setIndex, uint bindingIndex, Texture texture)
         {
-            if (_textures[setIndex][bindingIndex] == texture) return;
-            _textures[setIndex][bindingIndex] = texture;
+            int imageIndex = _descriptorSetInfos[setIndex].BindingPointToImageIndex[bindingIndex];
+            if (_textures[setIndex][imageIndex] == texture) return;
+            _textures[setIndex][imageIndex] = texture;
             Array.Fill(_dirtyTextures, true);
         }
 
@@ -124,7 +125,7 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetStorageBufferRegion(uint setIndex, uint offset, uint length)
         {
-            if(_bufferDescriptors[setIndex].Disposed || !_bufferDescriptors[setIndex].SetStorageBufferRegion(offset, length)) return;
+            if(length == 0 || _bufferDescriptors[setIndex].Disposed || !_bufferDescriptors[setIndex].SetStorageBufferRegion(offset, length)) return;
             Array.Fill(_dirtyBufferRegions, true);
         }
 
@@ -138,7 +139,7 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetUniformBufferRegion(int setIndex, uint offset, uint length)
         {
-            if (_bufferDescriptors[setIndex].Disposed || !_bufferDescriptors[setIndex].SetUniformBufferRegion(offset, length)) return;
+            if (length == 0 || _bufferDescriptors[setIndex].Disposed || !_bufferDescriptors[setIndex].SetUniformBufferRegion(offset, length)) return;
             Array.Fill(_dirtyBufferRegions, true);
         }
 
@@ -174,8 +175,9 @@ namespace VECS
         }
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void UpdateVariant(MaterialVariant variant, int frameIndex)
+        public unsafe static void UpdateVariant(MaterialVariant variant, int frameIndex)
         {
+            bool overwriteSet = false;
             if (variant._hasTextures && variant._dirtyTextures[frameIndex])
             {
                 var textures= variant._textures;
@@ -185,6 +187,7 @@ namespace VECS
                     variant._imageDescriptors[setIndex].UpdateTextureBindings(frameIndex, textures[setIndex]);
                 }
                 variant._dirtyTextures[frameIndex] = false;
+                overwriteSet = true;
             }
 
             if (variant._hasStorageBuffers && variant._dirtyBufferRegions[frameIndex])
@@ -196,6 +199,19 @@ namespace VECS
                 }
 
                 variant._dirtyBufferRegions[frameIndex] = false;
+                overwriteSet = true;
+            }
+
+            if (overwriteSet)
+            {
+
+                for (int i = 0; i < variant.TotalSets; i++)
+                {
+                    var info = variant._descriptorSetInfos[i];
+
+                    info.WriteUniforms(frameIndex, variant._variantIndex);
+                    MaterialV2.WriteSet(info, info.DescriptorBuffers[frameIndex], variant._variantIndex, variant.GetBindingBuffersPtr(frameIndex, i), variant.GetBindingTexturesPtr(frameIndex, i));
+                }
             }
             variant._raw = false;
         }

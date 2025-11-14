@@ -189,17 +189,11 @@ namespace VECS
             };
 
             frameInfo.Ubo = _ubo;
-            //var swapChainBuffer = _globalDescriptorSetHandler.GetBufferOfUniform("ubo");
-            //if (swapChainBuffer != null)
-            //{
-            //    _ubo.WriteToSwapChainBuffer(swapChainBuffer);
-            //}
 
             frameInfo.CameraInfo = new(camera);
             frameInfo.CameraInverseInfo = new(camera);
             frameInfo.AdditionalCameraInfo = new(camera.ProjectionMatrix,clipNear,clipFar,_swapChain.ExtentAspectRatio);
             frameInfo.OrthographicInfo = new(orth, orthCam);
-
             if (World.DefaultWorld != null)
             {
                 var entityManager = World.DefaultWorld.EntityManager;
@@ -208,7 +202,7 @@ namespace VECS
 
                 if (dirLights!= null && dirLights.Count > 0)
                 {
-                    frameInfo.LightingInfo = new(entityManager.GetComponent<DirectionalLight>(dirLights[0]), pointLights.Count);
+                    frameInfo.LightingInfo = new(entityManager.GetComponent<DirectionalLight>(dirLights[0]), dirLights.Count);
                 }
                 else
                 {
@@ -217,6 +211,7 @@ namespace VECS
 
                 if (pointLights != null && pointLights.Count > 0)
                 {
+                    frameInfo.LightingInfo = new(Vector4.Zero, Vector3.Zero, pointLights.Count);
                     frameInfo.PointLights = new PointLightUniform[pointLights.Count];
 
                     for (int i = 0; i < pointLights.Count; i++)
@@ -284,7 +279,8 @@ namespace VECS
             VkCommandBuffer commandBuffer = SwapChain.CurrentMainCommandBuffer;
             RendererFrameInfo frameInfo = CreateRendererFrameInfo(Time.DeltaTime, commandBuffer);
 
-            MaterialV2.UpdateMaterialsParallel(frameInfo);
+            //MaterialV2.Update(MaterialV2.WireFrame, frameInfo);
+            MaterialV2.UpdateMaterials(frameInfo);
             // culling
             CullScene(commandBuffer, frameInfo);
 

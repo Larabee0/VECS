@@ -91,7 +91,7 @@ namespace VECS.ECS.Presentation
                 VkCommandBuffer internalBuffer = parallelCmdBuffers[i];
                 GraphicsDevice.DeviceAPI.vkBeginCommandBuffer(internalBuffer, &bufferBeginInfo);
                 SwapChain.SetViewPort(internalBuffer);
-                _renderBlob.DrawSlice(i, internalBuffer, frameIndex, 0);
+                _renderBlob.DrawSlice(frameInfo, i, internalBuffer);
                 GraphicsDevice.DeviceAPI.vkEndCommandBuffer(internalBuffer);
             });
 

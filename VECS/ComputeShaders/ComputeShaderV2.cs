@@ -110,7 +110,7 @@ namespace VECS
             }
 
 #if DEBUG
-            Console.WriteLine("Caching Invalid property {0}", propertyId);
+            Console.WriteLine("COMPUTE Caching Invalid property {0}", propertyId);
 #endif
             propertyInfo = ShaderPropertyInfo.Invalid;
             _cachedShaderProperties.TryAdd(propertyId, propertyInfo);
@@ -210,7 +210,7 @@ namespace VECS
         {
             if(LookUpProperty(property,out var propertyInfo))
             {
-                WriteToBuffer(propertyInfo.SetIndex, propertyInfo.BindPoint, variant, propertyInfo.Property, value);
+                WriteToBuffer(variant, propertyInfo, value);
             }
         }
 
@@ -218,44 +218,50 @@ namespace VECS
         {
             if (LookUpProperty(propertyId, out var propertyInfo))
             {
-                WriteToBuffer(propertyInfo.SetIndex, propertyInfo.BindPoint, variant, propertyInfo.Property, value);
+                WriteToBuffer(variant, propertyInfo, value);
             }
         }
 
-        public unsafe void WriteToBuffer<T>(uint setIndex, uint bindingPoint, uint variant, DescriptorPropertyInfo propertyInfo, T element) where T : unmanaged
+        public unsafe void WriteToBuffer<T>(uint variant, ShaderPropertyInfo propertyInfo, T element) where T : unmanaged
         {
-            if (sizeof(T) > propertyInfo.Size)
+            var maxSize = propertyInfo.Property == null ? propertyInfo.BindingInfo.BufferSize : propertyInfo.Property.Size;
+            var propertyOffset = propertyInfo.Property == null ? 0 : propertyInfo.Property.Offset;
+
+            if (sizeof(T) > propertyInfo.BindingInfo.BufferSize)
             {
                 throw new InvalidOperationException("Cannot write property with mismatched size");
             }
 
-            var buffer = GetBuffer(setIndex, bindingPoint);
+            var buffer = GetBuffer(propertyInfo.SetIndex, propertyInfo.BindPoint);
 
-            uint offset = propertyInfo.Offset + (buffer.UInstanceSize32 * variant);
+            uint offset = propertyOffset + (buffer.UInstanceSize32 * variant);
 
             var hostPtr = (IntPtr)buffer.HostPtr;
 
             hostPtr = IntPtr.Add(hostPtr, (int)offset);
 
-            NativeMemory.Copy(&element, (void*)hostPtr, propertyInfo.Size);
+            NativeMemory.Copy(&element, (void*)hostPtr, maxSize);
         }
 
-        public unsafe void WriteArrayToBuffer<T>(uint setIndex, uint bindingPoint, uint variant, DescriptorPropertyInfo propertyInfo, T[] array) where T : unmanaged
+        public unsafe void WriteArrayToBuffer<T>(uint variant, ShaderPropertyInfo propertyInfo, T[] array) where T : unmanaged
         {
-            if (sizeof(T) * array.Length > propertyInfo.Size)
+            var maxSize = propertyInfo.Property == null ? propertyInfo.BindingInfo.BufferSize : propertyInfo.Property.Size;
+            var propertyOffset = propertyInfo.Property == null ? 0 : propertyInfo.Property.Offset;
+
+            if (sizeof(T) * array.Length > maxSize)
             {
                 throw new InvalidOperationException("Cannot write property with mismatched size");
             }
 
-            var buffer = GetBuffer(setIndex, bindingPoint);
+            var buffer = GetBuffer(propertyInfo.SetIndex, propertyInfo.BindPoint);
 
-            uint offset = propertyInfo.Offset + (buffer.UInstanceSize32 * variant);
+            uint offset = propertyOffset + (buffer.UInstanceSize32 * variant);
             var hostPtr = (IntPtr)buffer.HostPtr;
 
             hostPtr = IntPtr.Add(hostPtr, (int)offset);
             fixed (T* arrayPtr = array)
             {
-                NativeMemory.Copy(arrayPtr, (void*)hostPtr, propertyInfo.Size);
+                NativeMemory.Copy(arrayPtr, (void*)hostPtr, maxSize);
             }
         }
 

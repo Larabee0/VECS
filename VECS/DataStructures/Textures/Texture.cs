@@ -76,7 +76,7 @@ namespace VECS
             set
             {
                 var cmd = GraphicsDevice.BeginSingleTimeMainPipe();
-                MemoryBarrierHelper.SetImageLayout(cmd, _vkImage, _aspectFlags, _imageLayout, value, VkPipelineStageFlags2.AllGraphics, VkPipelineStageFlags2.AllGraphics);
+                MemoryBarrierHelper.SetImageLayout(cmd, _vkImage, _aspectFlags, _imageLayout, value, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.FragmentShader);
                 GraphicsDevice.EndSingleTimeMainPipe(cmd);
                 _imageLayout = value;
             }
@@ -194,19 +194,19 @@ namespace VECS
 
         public abstract void RegenerateMipMaps(VkCommandBuffer cmd);
 
-        public void SetImageLayout(VkImageLayout newImageLayout, VkPipelineStageFlags2 srcStage = VkPipelineStageFlags2.AllGraphics, VkPipelineStageFlags2 dstStage = VkPipelineStageFlags2.AllGraphics)
+        public void SetImageLayout(VkImageLayout newImageLayout, VkPipelineStageFlags2 srcStage = VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2 dstStage = VkPipelineStageFlags2.FragmentShader)
         {
             var cmd = GraphicsDevice.BeginSingleTimeMainPipe();
             SetImageLayout(cmd, newImageLayout, srcStage, dstStage);
             GraphicsDevice.EndSingleTimeMainPipe(cmd);
         }
 
-        public void SetImageLayout(VkCommandBuffer cmdbuffer, VkImageLayout newImageLayout, VkPipelineStageFlags2 srcStage = VkPipelineStageFlags2.AllGraphics, VkPipelineStageFlags2 dstStage = VkPipelineStageFlags2.AllGraphics)
+        public void SetImageLayout(VkCommandBuffer cmdbuffer, VkImageLayout newImageLayout, VkPipelineStageFlags2 srcStage = VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2 dstStage = VkPipelineStageFlags2.FragmentShader)
         {
             SetImageLayout(cmdbuffer, newImageLayout, GetSubresourceRange(), srcStage, dstStage);
         }
 
-        public virtual void SetImageLayout(VkCommandBuffer cmdbuffer, VkImageLayout newImageLayout, VkImageSubresourceRange resourceRange, VkPipelineStageFlags2 srcStage = VkPipelineStageFlags2.AllGraphics, VkPipelineStageFlags2 dstStage = VkPipelineStageFlags2.AllGraphics)
+        public virtual void SetImageLayout(VkCommandBuffer cmdbuffer, VkImageLayout newImageLayout, VkImageSubresourceRange resourceRange, VkPipelineStageFlags2 srcStage = VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2 dstStage = VkPipelineStageFlags2.FragmentShader)
         {
             MemoryBarrierHelper.SetImageLayout(cmdbuffer, _vkImage, _imageLayout, newImageLayout, resourceRange, srcStage, dstStage);
             _imageLayout = newImageLayout;

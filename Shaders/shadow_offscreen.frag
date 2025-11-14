@@ -9,18 +9,27 @@ struct PointLight {
 	vec4 colour; // w is intensity
 };
 
-layout(set = 0, binding = 0) uniform GlobalUbo{
-	mat4 projectionMatrix;
-	mat4 viewMatrix;
-	mat4 inverseViewMatrix;
+
+layout(set = 0, binding = 2) uniform LightingInfo {
 	vec4 ambientLightColour;
-	int numLights;
-	PointLight pointLights[10];
-} ubo;
+	vec4 ambientLightDir;
+	int numPointLights;
+} lighting;
+
+layout (set = 0, binding = 3) readonly buffer PointLights{
+	PointLight values[];
+} pointLightBuffer;
 
 void main() 
 {
+	vec3 lightVec;
+	if(lighting.numPointLights == 0)
+	{
+		lightVec = lighting.ambientLightDir.xyz;
+	}
+	else{
+		lightVec = inPos - pointLightBuffer.values[0].position.xyz;
+	}
 	// Store distance to light as 32 bit float value
-    vec3 lightVec = inPos - ubo.pointLights[0].position.xyz;
     outFragColor = length(lightVec);
 }

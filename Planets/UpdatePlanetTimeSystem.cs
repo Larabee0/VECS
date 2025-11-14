@@ -24,18 +24,21 @@ namespace Planets
             if (_planetRenderQuery.HasEntities)
             {
                 var entities = _planetRenderQuery.GetEntities();
-                HashSet<int> materials = new (entities.Count);
+                HashSet<MaterialV2> materials = new (entities.Count);
                 for (int i = 0; i < entities.Count; i++)
                 {
-                    materials.Add(entityManager.GetComponent<MaterialIndex>(entities[0]).Index);
+                    materials.Add(AssetDataBase<MaterialV2>.GetHashedSilentFail(entityManager.GetComponent<MaterialIndex>(entities[0]).Hash));
                 }
                 float time = Time.TimeSinceStartUp;
-                foreach (var matIndex in materials)
+                foreach (var mat in materials)
                 {
-                    var mat = Material.GetMaterialAtIndex(matIndex);
-                    mat.SetPushConstantFloat("time", time);
-                    mat.SetPushConstantFloat("sineTime", MathF.Sin(time));
-                    mat.SetPushConstantFloat("cosineTime", MathF.Cos(time));
+                    if(mat  == null) continue;
+                    for (int i = 0; i < mat.VariantCount; i++)
+                    {
+                        mat.PushConstants.SetPushConstantFloat("time", i, time);
+                        mat.PushConstants.SetPushConstantFloat("sineTime", i, MathF.Sin(time));
+                        mat.PushConstants.SetPushConstantFloat("cosineTime", i, MathF.Cos(time));
+                    }
                 }
             }
         }

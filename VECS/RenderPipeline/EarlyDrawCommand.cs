@@ -26,9 +26,9 @@ namespace VECS
     {
         public const int MAX_MATERIAL_COUNT = 1843;
         private const int UnknownDrawCmd = -1;
-        public readonly int DirectMesh => RenderMesh.Mesh.DirectMesh;
+        public readonly int DirectMesh => RenderMesh.Mesh.DirectMeshHash;
         public readonly int SubMesh => RenderMesh.Mesh.SubMesh;
-        public readonly int MaterialIndex => RenderMesh.Material.Index;
+        public readonly int MaterialIndex => RenderMesh.Material.Hash;
         public readonly int MaterialVariant=>RenderMesh.Material.Variant;
         public readonly int MaterialEntity =>RenderMesh.Material.Entity;
         public readonly Entity Entity;
@@ -45,6 +45,9 @@ namespace VECS
             Entity = entity;
             DrawCommand = drawCommand;
             RenderMesh = renderMesh;
+            RenderMesh.Mesh.DirectMeshHash = AssetDataBase<DirectMesh>.GetCurrentIndexOfHashed(DirectMesh);
+            RenderMesh.Material.Hash = AssetDataBase<MaterialV2>.GetCurrentIndexOfHashed(MaterialIndex);
+
             _cachedHashCode = HashCode.Combine(MaterialIndex, MaterialVariant, MaterialEntity, DirectMesh, SubMesh);
 
             DrawAddress = (ulong)MaterialIndex    * 10000000000000000;

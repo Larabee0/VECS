@@ -199,7 +199,7 @@ namespace VECS
             }
 
             BindPushConstants(commandBuffer, pushConstantsId);
-            var mesh = DirectMesh.GetMeshAtIndex(command.DirectMesh);
+            var mesh = AssetDataBase<DirectMesh>.AllAssetsListForReading[command.DirectMesh];
 
             mesh.BindSpecificBuffers(commandBuffer, VertexBindings, VertexAttributes);
             GraphicsDevice.DeviceAPI.vkCmdDrawIndexedIndirect(

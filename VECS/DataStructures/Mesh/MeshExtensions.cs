@@ -45,18 +45,18 @@ namespace VECS
             newBuffer.GetBufferAtAttribute(VertexAttribute.Position).WriteFromHostBuffer();
             newBuffer.IndexBuffer.WriteFromHostBuffer();
             //DirectMeshBuffer.RecalcualteAllNormals(newBuffer);
-            var oldIndex = DirectMesh.GetIndexOfMesh(srcMesh);
-            var newIndex = DirectMesh.GetIndexOfMesh(newBuffer);
+            var oldHash = srcMesh.Hash;
+            var newHash = newBuffer.Hash;
             var entityManager = World.DefaultWorld.EntityManager;
             var allMeshEntities = entityManager.GetAllEntitiesWithComponent<DirectSubMeshIndex>();
             allMeshEntities?.ForEach(e =>
                 {
                     var meshIndex = entityManager.GetComponent<DirectSubMeshIndex>(e);
 
-                    if (meshIndex.DirectMesh == oldIndex)
+                    if (meshIndex.DirectMeshHash == oldHash)
                     {
                         var value = entityManager.GetComponent<DirectSubMeshIndex>(e);
-                        value.DirectMesh = newIndex;
+                        value.DirectMeshHash = newHash;
                         entityManager.SetComponent(e, value);
                     }
                 });

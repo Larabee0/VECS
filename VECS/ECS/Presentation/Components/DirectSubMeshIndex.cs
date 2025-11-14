@@ -5,7 +5,7 @@
         public static int ComponentId { get; set; }
         public readonly int Id => ComponentId;
 
-        public int DirectMesh;
+        public int DirectMeshHash;
         public int SubMesh;
     }
 

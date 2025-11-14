@@ -31,25 +31,16 @@ namespace VECS.ECS.Presentation
             {
                 _depthRenderBlob.UpdateDrawCommands(entityManager);
             }
-            MaterialV2.DepthOnly.SetStorageBufferLength(0, 0, (uint)entities.Count);
-            //MaterialV2.Update(MaterialV2.DepthOnly, frameInfo);
+            MaterialV2.DepthOnly.SetStorageBufferLength(RenderBlob.MatricesBufferId, 0, (uint)entities.Count);
 
-            DepthOnly(frameInfo.CommandBuffer, frameInfo.cullData, frameInfo.FrameIndex, entities.Count);
-        }
-        
-        private unsafe void DepthOnly(VkCommandBuffer commandBuffer, CullData cullData, int frameIndex, int drawCount)
-        {
-
-            
-            VkBufferMemoryBarrier2 memoryBarrier = FustrumCull.Cull(commandBuffer, frameIndex, cullData, (uint)drawCount, _depthRenderBlob.IndirectCmdBuffer, _depthRenderBlob.ModelBoundsBuffer);
+            VkBufferMemoryBarrier2 memoryBarrier = FustrumCull.Cull(frameInfo.CommandBuffer, frameInfo.FrameIndex, frameInfo.cullData, (uint)_depthRenderBlob.DrawCount, _depthRenderBlob.IndirectCmdBuffer, _depthRenderBlob.ModelBoundsBuffer);
             if (!FustrumCull.CPUCulling)
             {
-                MemoryBarrierHelper.BufferMemoryBarrier(commandBuffer, memoryBarrier, VkPipelineStageFlags2.ComputeShader, VkPipelineStageFlags2.DrawIndirect);
+                MemoryBarrierHelper.BufferMemoryBarrier(frameInfo.CommandBuffer, memoryBarrier, VkPipelineStageFlags2.ComputeShader, VkPipelineStageFlags2.DrawIndirect);
             }
-
-            SwapChain.Instance.BeginForwardDepth(commandBuffer);
-            _depthRenderBlob.Draw(commandBuffer, frameIndex, 0);
-            SwapChain.Instance.EndForwardDepthRendering(commandBuffer);
+            SwapChain.Instance.BeginForwardDepth(frameInfo.CommandBuffer);
+            _depthRenderBlob.Draw(frameInfo);
+            SwapChain.Instance.EndForwardDepthRendering(frameInfo.CommandBuffer);
         }
         
         public override void Dispose()

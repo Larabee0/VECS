@@ -14,14 +14,16 @@ struct PointLight {
 	vec4 colour; // w is intensity
 };
 
-layout(set = 0, binding = 0) uniform GlobalUbo{
-	mat4 projectionMatrix;
-	mat4 viewMatrix;
-	mat4 inverseViewMatrix;
+
+layout(set = 0, binding = 1) uniform LightingInfo {
 	vec4 ambientLightColour;
-	int numLights;
-	PointLight pointLights[10];
-} ubo;
+	vec4 ambientLightDir;
+	int numPointLights;
+} lighting;
+
+layout (set = 0, binding = 2) readonly buffer PointLights{
+	PointLight values[];
+} pointLightBuffer;
 
 layout (set = 1, binding = 3) uniform sampler2D samplerColorMap;
 layout (set = 1, binding = 4) uniform sampler2D samplerNormalMap;
@@ -36,11 +38,17 @@ void main() {
 	mat3 TBN = mat3(T, B, N);
 	N = TBN * normalize(texture(samplerNormalMap, inUV).xyz * 2.0 - vec3(1.0));
 	
-	float ambient =ubo.pointLights[0].colour.w;
 	vec3 L = normalize(inLightVec);
 	vec3 V = normalize(inViewVec);
 	vec3 R = reflect(-L, N);
-	vec3 diffuse = max(dot(N, L), ambient) * ubo.pointLights[0].colour.xyz;
+	vec3 diffuse = vec3(0);
+	for(int i = 0; i < lighting.numPointLights; i++){
+
+		float ambient = pointLightBuffer.values[0].colour.w;
+		diffuse += max(dot(N, L), ambient) * pointLightBuffer.values[0].colour.xyz;
+	}
+	
 	float specular = pow(max(dot(R, V), 0.0), 32.0);
 	outFragColor = vec4(diffuse * color.rgb + specular, color.a);
+	//outFragColor = vec4(1);
 }

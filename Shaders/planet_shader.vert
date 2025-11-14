@@ -1,0 +1,65 @@
+#version 460
+
+layout (location = 0) in vec3 position;
+layout (location = 1) in vec3 normal;
+layout (location = 2) in vec2 uv;
+	   
+layout (location = 0) out vec3 fragColour;
+layout (location = 1) out vec3 fragPosWorld;
+layout (location = 2) out vec3 fragNormalWorld;
+layout (location = 3) out float fragElevation;
+layout (location = 4) out float fragBiome;
+layout (location = 5) out vec3 fragPosObject;
+layout (location = 6) out vec3 fragNormalObject;
+
+struct PointLight {
+	vec4 position; // ignore w
+	vec4 colour; // w is intensity
+};
+
+struct ObjectMatrices{
+	mat4 modelMatrix; // project * view * model
+	mat4 normalMatrix;
+};
+
+struct ObjectBounds{
+	vec4 bMin;
+	vec4 bMax;
+};
+
+layout(set = 0,binding = 0) uniform CameraInfo{
+	mat4 projectionMatrix;
+	mat4 viewMatrix;
+	mat4 projectionViewMatrix;	
+	vec4 position;
+	vec4 forward;
+} cameraMain;
+
+layout(std140, set = 1, binding = 0) readonly buffer ObjectMatricesBuffer{
+	ObjectMatrices matrices[];
+}matricesBuffer;
+
+layout(std140, set = 1, binding = 1) readonly buffer ObjectBoundsBuffer{
+	ObjectBounds bounds[];
+}boundsBuffer;
+
+const vec3 DIRECTION_TO_LIGHT = normalize(vec3(1.0, 3.0, 1.0));
+const float AMBIENT = 0.02;
+
+void main()
+{
+	ObjectMatrices objectMat = matricesBuffer.matrices[gl_BaseInstance];
+	vec4 positionWorld =  objectMat.modelMatrix * vec4(position, 1.0);
+
+	gl_Position = cameraMain.projectionViewMatrix * positionWorld;
+
+	fragNormalWorld = normalize(mat3(objectMat.normalMatrix) * normal);
+	
+	float lightIntensity = AMBIENT + max(dot(fragNormalWorld, DIRECTION_TO_LIGHT), 0);
+	fragPosWorld = positionWorld.xyz;
+	fragColour = vec3(1);
+	fragElevation = uv.x;
+	fragBiome = uv.y;
+	fragPosObject = position;
+	fragNormalObject = normal;
+}

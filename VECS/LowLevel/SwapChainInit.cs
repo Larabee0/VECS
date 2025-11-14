@@ -108,7 +108,7 @@ namespace VECS.LowLevel
             var cmd = GraphicsDevice.BeginSingleTimeMainPipe();
             for (int i = 0; i < newSwapChain._swapChainImages.Length; i++)
             {
-                MemoryBarrierHelper.SetImageLayout(cmd, newSwapChain._swapChainImages[i], VkImageAspectFlags.Color, VkImageLayout.Undefined, VkImageLayout.PresentSrcKHR, VkPipelineStageFlags2.AllGraphics, VkPipelineStageFlags2.AllGraphics);
+                MemoryBarrierHelper.SetImageLayout(cmd, newSwapChain._swapChainImages[i], VkImageAspectFlags.Color, VkImageLayout.Undefined, VkImageLayout.PresentSrcKHR, VkPipelineStageFlags2.TopOfPipe, VkPipelineStageFlags2.Blit);
             }
 
             GraphicsDevice.EndSingleTimeMainPipe(cmd);
@@ -185,7 +185,7 @@ namespace VECS.LowLevel
             var commandBuffer = GraphicsDevice.BeginSingleTimeMainPipe();
             for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
             {
-                swapChain._rawRenderImage[i].SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal);
+                swapChain._rawRenderImage[i].SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal,VkPipelineStageFlags2.FragmentShader,VkPipelineStageFlags2.ColorAttachmentOutput);
             }
             GraphicsDevice.EndSingleTimeMainPipe(commandBuffer);
         }
@@ -211,7 +211,7 @@ namespace VECS.LowLevel
             var commandBuffer = GraphicsDevice.BeginSingleTimeMainPipe();
             for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
             {
-                swapChain._depthImage[i].SetImageLayout(commandBuffer, VkImageLayout.DepthStencilAttachmentOptimal);
+                swapChain._depthImage[i].SetImageLayout(commandBuffer, VkImageLayout.DepthStencilAttachmentOptimal,VkPipelineStageFlags2.FragmentShader,VkPipelineStageFlags2.EarlyFragmentTests);
             }
             GraphicsDevice.EndSingleTimeMainPipe(commandBuffer);
         }

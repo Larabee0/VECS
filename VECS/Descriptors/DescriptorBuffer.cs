@@ -139,6 +139,15 @@ namespace VECS
             BindSets(cmd, 1, &bindingInfo);
         }
 
+        public unsafe Span<ulong> GetHostBuffer()
+        {
+            return new Span<ulong>(_descriptorBuffer.HostPtr, (int)(_descriptorBuffer.HostBufferSize / sizeof(ulong)));
+        }
+
+        public void ReadHost()
+        {
+            _descriptorBuffer.ReadToHostBuffer();
+        }
         public static unsafe void BindSets(VkCommandBuffer cmd, DescriptorBuffer[] buffers)
         {
             VkDescriptorBufferBindingInfoEXT* bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[buffers.Length];
