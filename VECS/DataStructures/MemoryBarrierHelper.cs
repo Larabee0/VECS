@@ -294,7 +294,7 @@ namespace VECS
                     dstAccessMask = VkAccessFlags2.ShaderRead;
                     break;
                 case VkImageLayout.PresentSrcKHR:
-                    dstAccessMask = VkAccessFlags2.TransferRead;
+                    dstAccessMask = VkAccessFlags2.None;
                     break;
                 default:
                     throw new InvalidOperationException(string.Format("Unhandled Image transition to image layout {0}", newLayout.ToString()));

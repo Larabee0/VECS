@@ -258,7 +258,6 @@ namespace VECS
             {
                 // kill off buffers
                 UpdateSwapChainBufferDisposal();
-
                 // signal workers to submit work
                 _swapChain.SignalTimelineFromHost(SemaphoreStages.Submit, SwapChain.FrameIndex);
                 //Console.WriteLine("Signaled begin Submit");

@@ -14,7 +14,7 @@ namespace VECS.LowLevel
 
         public unsafe ShadowImage()
         {
-            _depthFormat = GraphicsDevice.FindSupportFormat([VkFormat.D32SfloatS8Uint, VkFormat.D32Sfloat, VkFormat.D24UnormS8Uint, VkFormat.D16UnormS8Uint, VkFormat.D16Unorm],
+            _depthFormat = GraphicsDevice.FindSupportFormat([VkFormat.D24UnormS8Uint, VkFormat.D16UnormS8Uint, VkFormat.D16Unorm, VkFormat.D32SfloatS8Uint, VkFormat.D32Sfloat],
                 VkImageTiling.Optimal,
                 VkFormatFeatureFlags.DepthStencilAttachment);
 
@@ -29,9 +29,10 @@ namespace VECS.LowLevel
                 SHADOW_IMAGE_SIZE,
                 SHADOW_IMAGE_SIZE,
                 _depthFormat,
-                VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.TransferSrc,
+                VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.TransferDst,
                 false
             );
+            CubeMap.SetImageLayout(VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.Transfer, VkPipelineStageFlags2.ColorAttachmentOutput);
         }
 
         public static Matrix4x4 GetViewMatrixForFace(int faceIndex)
@@ -137,7 +138,7 @@ namespace VECS.LowLevel
         public void SetImageLayoutRead(VkCommandBuffer commandBuffer)
         {
             CubeMap.SetImageLayout(commandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.FragmentShader);
-            DepthImage.SetImageLayout(commandBuffer, VkImageLayout.DepthAttachmentStencilReadOnlyOptimal, VkPipelineStageFlags2.EarlyFragmentTests, VkPipelineStageFlags2.EarlyFragmentTests);
+            DepthImage.SetImageLayout(commandBuffer, VkImageLayout.DepthAttachmentStencilReadOnlyOptimal, VkPipelineStageFlags2.EarlyFragmentTests | VkPipelineStageFlags2.LateFragmentTests, VkPipelineStageFlags2.EarlyFragmentTests);
         }
 
         public unsafe void Dispose()

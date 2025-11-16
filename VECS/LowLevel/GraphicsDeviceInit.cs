@@ -16,14 +16,11 @@ namespace VECS.LowLevel
         private readonly static string[] _requiredValidationLayers = ["VK_LAYER_KHRONOS_validation"];
 #endif
         private readonly static VkUtf8String[] _requiredDeviceExtensions = [
-
-            Vulkan.VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
+            Vulkan.VK_KHR_SWAPCHAIN_EXTENSION_NAME,
             Vulkan.VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME,
             Vulkan.VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
-            Vulkan.VK_KHR_PRESENT_WAIT_EXTENSION_NAME,
-            Vulkan.VK_KHR_PRESENT_ID_EXTENSION_NAME,
-            Vulkan.VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-
+            Vulkan.VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME,
+            Vulkan.VK_EXT_PAGEABLE_DEVICE_LOCAL_MEMORY_EXTENSION_NAME,
             Vulkan.VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME,
             Vulkan.VK_EXT_NESTED_COMMAND_BUFFER_EXTENSION_NAME,
             Vulkan.VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME
@@ -315,28 +312,20 @@ namespace VECS.LowLevel
                 index++;
             }
 
+            VkPhysicalDevicePageableDeviceLocalMemoryFeaturesEXT pageableDeviceLocalMemoryFeaturesEXT = new() { pageableDeviceLocalMemory = true };
+
+
             VkPhysicalDeviceNestedCommandBufferFeaturesEXT nestedCommandBufferFeatures = new()
             {
                 nestedCommandBuffer = true,
-                nestedCommandBufferRendering = true
-            };
-
-            VkPhysicalDevicePresentIdFeaturesKHR presentIdFeatures = new()
-            {
-                presentId = true,
-                pNext = &nestedCommandBufferFeatures
-            };
-
-            VkPhysicalDevicePresentWaitFeaturesKHR presentWaitFeatures = new()
-            {
-                presentWait = true,
-                pNext = &presentIdFeatures
+                nestedCommandBufferRendering = true,
+                pNext = &pageableDeviceLocalMemoryFeaturesEXT
             };
 
             VkPhysicalDeviceDescriptorBufferFeaturesEXT descriptorBuffers = new()
             {
                 descriptorBuffer = true,
-                pNext = &presentWaitFeatures
+                pNext = &nestedCommandBufferFeatures
             };
 
 
@@ -492,7 +481,7 @@ namespace VECS.LowLevel
         {
             VmaAllocatorCreateInfo allocatorCreateInfo = new()
             {
-                flags = VmaAllocatorCreateFlags.KHRDedicatedAllocation | VmaAllocatorCreateFlags.KHRBindMemory2 | VmaAllocatorCreateFlags.BufferDeviceAddress,
+                flags = VmaAllocatorCreateFlags.KHRDedicatedAllocation | VmaAllocatorCreateFlags.KHRBindMemory2 | VmaAllocatorCreateFlags.BufferDeviceAddress | VmaAllocatorCreateFlags.EXTMemoryPriority,
                 instance = _instance,
                 vulkanApiVersion = VkVersion.Version_1_4,
                 physicalDevice = _physicalDevice,

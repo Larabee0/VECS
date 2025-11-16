@@ -119,14 +119,14 @@ namespace Planets
                 3,
                 5, 12, planetLitMaterial);
 
-            //Entity planetOrbiterB = InstantiateNewOrbitalPlanet(entityManager,
-            //    PlanetPresets.ShapeGeneratorRandomEarthLike(),
-            //    CreatePrefabPlanet(entityManager), starParent,
-            //    new(-10f, 0, 00),
-            //    3,
-            //    -5, 12, planetLitMaterial);
+            Entity planetOrbiterB = InstantiateNewOrbitalPlanet(entityManager,
+                PlanetPresets.ShapeGeneratorRandomEarthLike(),
+                CreatePrefabPlanet(entityManager), starParent,
+                new(-10f, 0, 00),
+                3,
+                -5, 12, planetLitMaterial);
 
-            aStar.AddChildren(entityManager, [planetOrbiterA]);//, planetOrbiterB]);
+            aStar.AddChildren(entityManager, [planetOrbiterA, planetOrbiterB]);
             //aStar.AddChildren(entityManager, [planetOrbiterA]);
         }
 

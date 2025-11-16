@@ -46,7 +46,7 @@ namespace VECS.LowLevel
 
         internal VkSemaphore[] _acquiredImageReadySemaphores; /// <see cref="SwapChain.MAX_CONCURRENT_FRAMES"/>>
         internal VkFence[] _waitPresentBufferFences; /// <see cref="SwapChain.MAX_CONCURRENT_FRAMES"/> 
-        //internal VkFence[] _waitComputeBufferFences; /// <see cref="SwapChain.MAX_CONCURRENT_FRAMES"/> 
+        internal VkFence[] _waitAcquireFences; /// <see cref="SwapChain.MAX_CONCURRENT_FRAMES"/> 
         internal VkSemaphore[] _renderCompleteSemaphores; /// <see cref="SwapChain.SWAP_CHAIN_IMAGE_COUNT"/>>
         internal VkSemaphore[] _prePresentCompleteSemahpores; /// <see cref="SwapChain.SWAP_CHAIN_IMAGE_COUNT"/>>
 
@@ -159,18 +159,12 @@ namespace VECS.LowLevel
                 swapchain = _swapChain,
                 timeout = ulong.MaxValue - ushort.MaxValue,
                 semaphore = _acquiredImageReadySemaphores[_currentFrame],
+                fence = _waitAcquireFences[_currentFrame],
                 deviceMask = 0 | (1 << /* 1st subdevice index*/0)
             };
-            var result = GraphicsDevice.DeviceAPI.vkAcquireNextImage2KHR(GraphicsDevice.Device, &acquireInfo, out _currentImage);
-            //GraphicsDevice.DeviceAPI.vkAcquireNextImageKHR(
-            //    GraphicsDevice.Device,
-            //    _swapChain,
-            //    ulong.MaxValue - ushort.MaxValue,
-            //    _acquiredImageReadySemaphores[_currentFrame],
-            //    VkFence.Null,
-            //    out _currentImage
-            //);
 
+            var result = GraphicsDevice.DeviceAPI.vkAcquireNextImage2KHR(GraphicsDevice.Device, &acquireInfo, out _currentImage);
+            
             if (result == VkResult.ErrorOutOfDateKHR)
             {
                 return false;
@@ -277,8 +271,8 @@ namespace VECS.LowLevel
                 subResourceRange,
                 VkPipelineStageFlags2.ColorAttachmentOutput,
                 VkAccessFlags2.None,
-                VkPipelineStageFlags2.ColorAttachmentOutput,
-                VkAccessFlags2.ColorAttachmentWrite,
+                VkPipelineStageFlags2.Transfer,
+                VkAccessFlags2.TransferWrite,
                 VkImageLayout.PresentSrcKHR,
                 VkImageLayout.TransferDstOptimal,
                 Vulkan.VK_QUEUE_FAMILY_IGNORED, Vulkan.VK_QUEUE_FAMILY_IGNORED);
@@ -294,8 +288,8 @@ namespace VECS.LowLevel
                 commandBuffer,
                 image,
                 subResourceRange,
-                VkPipelineStageFlags2.ColorAttachmentOutput,
-                VkAccessFlags2.ColorAttachmentWrite,
+                VkPipelineStageFlags2.Transfer,
+                VkAccessFlags2.TransferWrite,
                 VkPipelineStageFlags2.None,
                 VkAccessFlags2.None,
                 VkImageLayout.TransferDstOptimal,
@@ -339,17 +333,18 @@ namespace VECS.LowLevel
             VkSemaphore renderComplete = _renderCompleteSemaphores[imageIndex];
             VkSemaphore prePresentComplete = _prePresentCompleteSemahpores[imageIndex];
             VkCommandBuffer presentCommandBuffer = GraphicsDevice.PresentPipeCommandBuffers[frameIndex];
-            
+
+            WaitAndResetFence(_waitAcquireFences[frameIndex]);
             WaitAndResetFence(_waitPresentBufferFences[frameIndex]);
 
             VkImageSubresourceRange subresourceRange = new(VkImageAspectFlags.Color);
             VkImage image = _swapChainImages[imageIndex];
-
             GraphicsDevice.DeviceAPI.vkBeginCommandBuffer(presentCommandBuffer, VkCommandBufferUsageFlags.None);
+            
             MemoryBarrierHelper.ImageMemoryBarrier(presentCommandBuffer,
                 image,
                 subresourceRange,
-                VkPipelineStageFlags2.None, VkAccessFlags2.None,
+                VkPipelineStageFlags2.Transfer, VkAccessFlags2.TransferWrite,
                 VkPipelineStageFlags2.None, VkAccessFlags2.None,
                 VkImageLayout.TransferDstOptimal,
                 VkImageLayout.PresentSrcKHR,
@@ -357,7 +352,7 @@ namespace VECS.LowLevel
                 GraphicsDevice.PhysicalQueueFamilies.presentFamily);
             GraphicsDevice.DeviceAPI.vkEndCommandBuffer(presentCommandBuffer);
 
-            VkSemaphoreSubmitInfo prePresentWaitInfo = new() {
+            VkSemaphoreSubmitInfo prePresentWaitInfo =  new() {
                 semaphore = renderComplete,
                 stageMask = VkPipelineStageFlags2.AllCommands
             };
@@ -434,7 +429,7 @@ namespace VECS.LowLevel
                 GraphicsDevice.DeviceAPI.vkDestroySemaphore(GraphicsDevice.Device, _timelineSemaphores[i].Semaphore);
                 GraphicsDevice.DeviceAPI.vkDestroySemaphore(GraphicsDevice.Device, _acquiredImageReadySemaphores[i]);
                 GraphicsDevice.DeviceAPI.vkDestroyFence(GraphicsDevice.Device, _waitPresentBufferFences[i]);
-                //GraphicsDevice.DeviceAPI.vkDestroyFence(GraphicsDevice.Device, _waitComputeBufferFences[i]);
+                GraphicsDevice.DeviceAPI.vkDestroyFence(GraphicsDevice.Device, _waitAcquireFences[i]);
             }
 
             Instance = null;

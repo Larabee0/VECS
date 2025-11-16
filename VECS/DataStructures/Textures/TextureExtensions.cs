@@ -12,7 +12,8 @@ namespace VECS
 
         private static VmaAllocationCreateInfo _allocationCreateInfo = new()
         {
-            usage = VmaMemoryUsage.Auto
+            usage = VmaMemoryUsage.Auto,
+            priority = 1
         };
 
         public static byte[] GetBitsPerPixel(VkFormat format)
@@ -61,7 +62,7 @@ namespace VECS
             {
                 texture._aspectFlags = VkImageAspectFlags.Depth;
             }
-            if (texture.Format == VkFormat.D16UnormS8Uint || texture.Format == VkFormat.D32SfloatS8Uint )
+            if (texture.Format == VkFormat.D16UnormS8Uint || texture.Format == VkFormat.D32SfloatS8Uint || texture.Format == VkFormat.D24UnormS8Uint )
             {
                 texture._aspectFlags |= VkImageAspectFlags.Stencil;
             }
@@ -179,13 +180,13 @@ namespace VECS
                 texture._hostBuffer = new(texture.BufferInstanceCount, (uint)texture.BufferInstanceSize, VkBufferUsageFlags.TransferSrc | VkBufferUsageFlags.TransferDst, true, false, false);
             }
             if (copyFromGPUNow)
-                {
-                    var cmd = GraphicsDevice.BeginSingleTimeMainPipe();
-                    texture.CopyToBuffer(cmd, texture._hostBuffer);
-                    GraphicsDevice.EndSingleTimeMainPipe(cmd);
-                    texture._hostBuffer.ReadToHostBuffer();
-                    texture.CopyFromBuffer(texture._hostBuffer);
-                }
+            {
+                var cmd = GraphicsDevice.BeginSingleTimeMainPipe();
+                texture.CopyToBuffer(cmd, texture._hostBuffer);
+                GraphicsDevice.EndSingleTimeMainPipe(cmd);
+                texture._hostBuffer.ReadToHostBuffer();
+                texture.CopyFromBuffer(texture._hostBuffer);
+            }
         }
 
         internal static void CopyFromBuffer(this Texture texture, GPUBuffer buffer)
@@ -209,9 +210,16 @@ namespace VECS
             var imageLayout = texture.ImageLayout;
             bool changeLayout = false;
             bool hintRegenerateMipMaps = false;
-            if (!texture.ImageLayout.HasFlag(VkImageLayout.TransferDstOptimal))
+            if (texture.ImageLayout != VkImageLayout.TransferDstOptimal)
             {
-                texture.SetImageLayout(cmdBuffer, VkImageLayout.TransferDstOptimal,VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.Transfer);
+                if (texture.ImageLayout == VkImageLayout.TransferSrcOptimal)
+                {
+                    texture.SetImageLayout(cmdBuffer, VkImageLayout.TransferDstOptimal, VkPipelineStageFlags2.Transfer, VkPipelineStageFlags2.Transfer);
+                }
+                else
+                {
+                    texture.SetImageLayout(cmdBuffer, VkImageLayout.TransferDstOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.Transfer);
+                }
                 changeLayout = true;
             }
 
@@ -300,7 +308,14 @@ namespace VECS
 
             if (changeLayout && imageLayout != VkImageLayout.Undefined)
             {
-                texture.SetImageLayout(cmdBuffer, imageLayout,VkPipelineStageFlags2.Transfer);
+                if (imageLayout == VkImageLayout.TransferSrcOptimal)
+                {
+                    texture.SetImageLayout(cmdBuffer, imageLayout, VkPipelineStageFlags2.Transfer, VkPipelineStageFlags2.Transfer);
+                }
+                else
+                {
+                    texture.SetImageLayout(cmdBuffer, imageLayout, VkPipelineStageFlags2.Transfer);
+                }
             }
             return hintRegenerateMipMaps;
         }
@@ -315,9 +330,9 @@ namespace VECS
         {
             var imageLayout = texture.ImageLayout;
             bool changeLayout = false;
-            if (!texture.ImageLayout.HasFlag(VkImageLayout.TransferSrcOptimal))
+            if (texture.ImageLayout != (VkImageLayout.TransferSrcOptimal))
             {
-                texture.SetImageLayout(cmdBuffer, VkImageLayout.TransferSrcOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.Transfer);
+                texture.SetImageLayout(cmdBuffer, VkImageLayout.TransferSrcOptimal, VkPipelineStageFlags2.Transfer, VkPipelineStageFlags2.Transfer);
                 changeLayout = true;
             }
 
@@ -365,7 +380,7 @@ namespace VECS
 
             if (changeLayout && imageLayout != VkImageLayout.Undefined)
             {
-                texture.SetImageLayout(cmdBuffer, imageLayout, VkPipelineStageFlags2.Transfer);
+                texture.SetImageLayout(cmdBuffer, imageLayout, VkPipelineStageFlags2.Transfer, VkPipelineStageFlags2.Transfer);
             }
         }
 

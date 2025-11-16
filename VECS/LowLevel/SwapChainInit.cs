@@ -185,14 +185,14 @@ namespace VECS.LowLevel
             var commandBuffer = GraphicsDevice.BeginSingleTimeMainPipe();
             for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
             {
-                swapChain._rawRenderImage[i].SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal,VkPipelineStageFlags2.FragmentShader,VkPipelineStageFlags2.ColorAttachmentOutput);
+                swapChain._rawRenderImage[i].SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal,VkPipelineStageFlags2.Transfer,VkPipelineStageFlags2.ColorAttachmentOutput);
             }
             GraphicsDevice.EndSingleTimeMainPipe(commandBuffer);
         }
 
         private static unsafe void CreateDepthImage(SwapChain swapChain)
         {
-            var _depthFormat = GraphicsDevice.FindSupportFormat([VkFormat.D32SfloatS8Uint, VkFormat.D32Sfloat, VkFormat.D24UnormS8Uint, VkFormat.D16UnormS8Uint, VkFormat.D16Unorm],
+            var _depthFormat = GraphicsDevice.FindSupportFormat([VkFormat.D24UnormS8Uint, VkFormat.D16UnormS8Uint, VkFormat.D16Unorm, VkFormat.D32SfloatS8Uint, VkFormat.D32Sfloat],
                 VkImageTiling.Optimal,
                 VkFormatFeatureFlags.DepthStencilAttachment);
             uint[] queueIndices = [GraphicsDevice.PhysicalQueueFamilies.presentFamily, GraphicsDevice.PhysicalQueueFamilies.graphicsFamily];
@@ -211,7 +211,7 @@ namespace VECS.LowLevel
             var commandBuffer = GraphicsDevice.BeginSingleTimeMainPipe();
             for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
             {
-                swapChain._depthImage[i].SetImageLayout(commandBuffer, VkImageLayout.DepthStencilAttachmentOptimal,VkPipelineStageFlags2.FragmentShader,VkPipelineStageFlags2.EarlyFragmentTests);
+                swapChain._depthImage[i].SetImageLayout(commandBuffer, VkImageLayout.DepthStencilAttachmentOptimal,VkPipelineStageFlags2.EarlyFragmentTests, VkPipelineStageFlags2.EarlyFragmentTests);
             }
             GraphicsDevice.EndSingleTimeMainPipe(commandBuffer);
         }
@@ -263,15 +263,19 @@ namespace VECS.LowLevel
         {
             swapChain._acquiredImageReadySemaphores = new VkSemaphore[SwapChain.MAX_CONCURRENT_FRAMES];
             swapChain._waitPresentBufferFences = new VkFence[SwapChain.MAX_CONCURRENT_FRAMES];
-            //swapChain._waitComputeBufferFences = new VkFence[SwapChain.MAX_CONCURRENT_FRAMES];
+            swapChain._waitAcquireFences = new VkFence[SwapChain.MAX_CONCURRENT_FRAMES];
 
             VkSemaphoreCreateInfo semaphoreInfo = new();
             VkFenceCreateInfo fenceInfo = new(VkFenceCreateFlags.Signaled);
             for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
             {
                 GraphicsDevice.DeviceAPI.vkCreateFence(GraphicsDevice.Device, fenceInfo, null, out swapChain._waitPresentBufferFences[i]).CheckResult("Failed to create in present fence!");
+                GraphicsDevice.DeviceAPI.vkCreateFence(GraphicsDevice.Device, fenceInfo, null, out swapChain._waitAcquireFences[i]).CheckResult("Failed to create in acquire fence!");
                 GraphicsDevice.DeviceAPI.vkCreateSemaphore(GraphicsDevice.Device, semaphoreInfo, null, out swapChain._acquiredImageReadySemaphores[i]).CheckResult("Failed to create present semaphore!");
+
             }
+            
+            GraphicsDevice.DeviceAPI.vkResetFences(GraphicsDevice.Device, swapChain._waitAcquireFences);
 
             swapChain._renderCompleteSemaphores = new VkSemaphore[SwapChain.SWAP_CHAIN_IMAGE_COUNT];
             swapChain._prePresentCompleteSemahpores = new VkSemaphore[SwapChain.SWAP_CHAIN_IMAGE_COUNT];

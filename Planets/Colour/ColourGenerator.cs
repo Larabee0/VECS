@@ -19,12 +19,12 @@ namespace Planets.Colour
             if (colourTexture == null || colourTexture.ImageExtent.height != settings.biomeColourSettings.biomes.Length)
             {
                 colourTexture?.Dispose();
-                colourTexture = new("PlanetColour."+textureName,textureResolution * 2, settings.biomeColourSettings.biomes.Length, VkFormat.R32G32B32A32Sfloat, VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferDst,false);
+                colourTexture = new("PlanetColour."+textureName,textureResolution * 2, settings.biomeColourSettings.biomes.Length, VkFormat.R32G32B32A32Sfloat, VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferDst | VkImageUsageFlags.TransferSrc, false);
             }
             if (steepTexture == null || steepTexture.ImageExtent.height != settings.biomeColourSettings.biomes.Length)
             {
                 steepTexture?.Dispose();
-                steepTexture = new("PlanetSteepness."+textureName,textureResolution * 2, settings.biomeColourSettings.biomes.Length,VkFormat.R32G32B32A32Sfloat, VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferDst,false);
+                steepTexture = new("PlanetSteepness."+textureName,textureResolution * 2, settings.biomeColourSettings.biomes.Length,VkFormat.R32G32B32A32Sfloat, VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferDst | VkImageUsageFlags.TransferSrc, false);
             }
         }
 

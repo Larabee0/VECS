@@ -196,6 +196,7 @@ namespace VECS
 
         public void SetImageLayout(VkImageLayout newImageLayout, VkPipelineStageFlags2 srcStage = VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2 dstStage = VkPipelineStageFlags2.FragmentShader)
         {
+            if (newImageLayout == ImageLayout) return;
             var cmd = GraphicsDevice.BeginSingleTimeMainPipe();
             SetImageLayout(cmd, newImageLayout, srcStage, dstStage);
             GraphicsDevice.EndSingleTimeMainPipe(cmd);
@@ -208,6 +209,10 @@ namespace VECS
 
         public virtual void SetImageLayout(VkCommandBuffer cmdbuffer, VkImageLayout newImageLayout, VkImageSubresourceRange resourceRange, VkPipelineStageFlags2 srcStage = VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2 dstStage = VkPipelineStageFlags2.FragmentShader)
         {
+            if (newImageLayout == _imageLayout)
+            {
+                return;
+            }
             MemoryBarrierHelper.SetImageLayout(cmdbuffer, _vkImage, _imageLayout, newImageLayout, resourceRange, srcStage, dstStage);
             _imageLayout = newImageLayout;
             UpdateDescriptor();

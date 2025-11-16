@@ -117,6 +117,7 @@ namespace VECS
             if (VkBufferSize == 0) return false;
 
             _usageFlags |= VkBufferUsageFlags.ShaderDeviceAddress;
+            
             VkBufferCreateInfo bufferInfo = new()
             {
                 size = VkBufferSize,
@@ -127,7 +128,8 @@ namespace VECS
 
             VmaAllocationCreateInfo allocationInfo = new()
             {
-                usage = VmaMemoryUsage.Auto
+                usage = VmaMemoryUsage.Auto,
+                priority = 1.0f,
             };
 
             if (cpuAccessible)
