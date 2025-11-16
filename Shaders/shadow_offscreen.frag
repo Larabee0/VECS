@@ -10,13 +10,13 @@ struct PointLight {
 };
 
 
-layout(set = 0, binding = 2) uniform LightingInfo {
+layout(set = 0, binding = 0) uniform LightingInfo {
 	vec4 ambientLightColour;
 	vec4 ambientLightDir;
 	int numPointLights;
 } lighting;
 
-layout (set = 0, binding = 3) readonly buffer PointLights{
+layout (set = 0, binding = 1) readonly buffer PointLights{
 	PointLight values[];
 } pointLightBuffer;
 

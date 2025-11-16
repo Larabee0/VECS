@@ -11,13 +11,13 @@ struct ObjectMatrices{
 	mat4 normalMatrix;
 };
 
-layout (set = 0, binding = 0) uniform CubeConstants
+layout (set = 1, binding = 0) uniform CubeConstants
 {
 	mat4 cubeProj;
 	mat4 cubeModel;
 } cubeConstant;
 
-layout(std140, set = 0, binding = 1) readonly buffer ObjectMatricesBuffer{
+layout(std140, set = 1, binding = 1) readonly buffer ObjectMatricesBuffer{
 	ObjectMatrices matrices[];
 }matricesBuffer;
 

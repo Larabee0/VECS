@@ -40,7 +40,8 @@ namespace VECS.ECS.Presentation
         private unsafe void RenderShadows(RendererFrameInfo frameInfo, int drawCount)
         {
             MaterialV2 shadowOffscreen = MaterialV2.ShadowOffscreen;
-            shadowOffscreen.SetStorageBufferLength(0, (uint)drawCount);
+
+            shadowOffscreen.SetStorageBufferLength(RenderBlob.MatricesBufferId, 0, (uint)drawCount);
 
             Matrix4x4 projection = Matrix4x4.CreatePerspectiveFieldOfView(MathF.PI * 0.5f, 1.0f, 0.1f, ShadowImage.SHADOW_IMAGE_SIZE);
             Matrix4x4 model = Matrix4x4.CreateTranslation(frameInfo.Ubo.PointLights[0].Position.AsVector3());
@@ -71,10 +72,15 @@ namespace VECS.ECS.Presentation
             MaterialV2.Update(shadowOffscreen, frameInfo);
             Presenter.Instance.ShadowImage.SetImageLayoutWrite(frameInfo.CommandBuffer);
 
-            Application.ParallelFor(6, (i) =>
+            //Application.ParallelFor(6, (i) =>
+            //{
+            //    RenderShadow(frameInfo, drawCount, i, model, cullData, parallelCmdBuffers);
+            //});
+
+            for (int i = 0; i < 6; i++)
             {
                 RenderShadow(frameInfo, drawCount, i, model, cullData, parallelCmdBuffers);
-            });
+            }
 
             fixed (VkCommandBuffer* pCmdBuffers = &parallelCmdBuffers[0])
             {
