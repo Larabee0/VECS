@@ -112,8 +112,8 @@ namespace VECS
         private static readonly int ColourBufferId = "colourBuffer".GetHashCode();
         private static readonly int BoundsBufferId = "boundsBuffer".GetHashCode();
         public static readonly int MatricesBufferId = "matricesBuffer".GetHashCode();
-        private readonly EarlyDrawCommand[] _earlyDrawCommands;
-        private readonly MaterialDrawIndexer[] _indexers;
+        private EarlyDrawCommand[] _earlyDrawCommands;
+        private MaterialDrawIndexer[] _indexers;
         private readonly SwapChainBuffer<VkDrawIndexedIndirectCommand> _indirectCmdBuffer;
         private readonly SwapChainBuffer<ModelBounds> _modelBoundsBuffer;
 
@@ -156,8 +156,8 @@ namespace VECS
             _indirectCmdBuffer.SetBuffersDirty(true);
             _modelBoundsBuffer.SetBuffersDirty(true);
 
-            _earlyDrawCommands = new EarlyDrawCommand[maxDraws];
-            _indexers = new MaterialDrawIndexer[maxDraws];
+            _earlyDrawCommands = [];
+            _indexers = [];
 
             _variantCombinations = new Vector2Int[_allocatedVariantsCount];
             _variantCounts = new uint[_allocatedVariantsCount];
@@ -177,6 +177,11 @@ namespace VECS
         private unsafe Task GenerateEarlyDraws(EntityManager entityManager, List<Entity> entities)
         {
             _materialVariants.Clear();
+            if (_earlyDrawCommands.Length != _drawCount)
+            {
+                Array.Resize(ref _earlyDrawCommands, (int)_drawCount);
+                Array.Resize(ref _indexers, (int)_drawCount);
+            }
             Application.ParallelFor((int)_drawCount, i =>
             {
                 Entity entity = entities[i];

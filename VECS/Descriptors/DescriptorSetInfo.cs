@@ -211,7 +211,7 @@ namespace VECS
         public void WriteUniforms(int frameIndex, uint setVariant)
         {
             var descriptorBuffer = _descriptorBuffers[frameIndex];
-            if (_forMeshShader||descriptorBuffer.HasDataBound[setVariant]) return;
+            if (_forMeshShader || descriptorBuffer.HasDataBound[setVariant]) return;
             for (int i = 0; i < _bindingCount; i++)
             {
                 var binding = _descriptorBindings[i];
@@ -276,7 +276,7 @@ namespace VECS
             }
         }
 
-        public unsafe void WriteDescriptors(DescriptorBuffer descriptorBuffer, uint setIndex, VkDescriptorAddressInfoEXT[] bindingBuffers, VkDescriptorImageInfo[] bindingTextures)
+        public unsafe void WriteDescriptors(DescriptorBuffer descriptorBuffer, uint setIndex, Span<VkDescriptorAddressInfoEXT> bindingBuffers, Span<VkDescriptorImageInfo> bindingTextures)
         {
             for (int i = 0; i < _bindingCount; i++)
             {
@@ -305,7 +305,6 @@ namespace VECS
 
         public void Dispose()
         {
-
             if (_disposed) return;
             _disposed = true;
 

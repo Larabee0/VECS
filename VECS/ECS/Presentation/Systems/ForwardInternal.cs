@@ -78,27 +78,41 @@ namespace VECS.ECS.Presentation
             };
 
             Debug.Assert(_renderBlob.DrawSliceCount <= Application.ThreadDispatcher.ThreadCount, "Draw Slices cannot exceed worker count!");
-            
-            Application.ParallelFor(_renderBlob.DrawSliceCount, (i) =>
-            {
 
-                VkCommandBufferInheritanceRenderingInfo renderingInfoInternal = renderingInfo;
-                VkCommandBufferInheritanceInfo inheritanceInfoInternal = new()
-                {
-                    pNext = &renderingInfoInternal
-                };
-                VkCommandBufferBeginInfo bufferBeginInfo = new() { pInheritanceInfo = &inheritanceInfoInternal, flags = VkCommandBufferUsageFlags.RenderPassContinue };
-                VkCommandBuffer internalBuffer = parallelCmdBuffers[i];
-                GraphicsDevice.DeviceAPI.vkBeginCommandBuffer(internalBuffer, &bufferBeginInfo);
-                SwapChain.SetViewPort(internalBuffer);
-                _renderBlob.DrawSlice(frameInfo, i, internalBuffer);
-                GraphicsDevice.DeviceAPI.vkEndCommandBuffer(internalBuffer);
-            });
-
-            fixed (VkCommandBuffer* pCmdBuffers = &parallelCmdBuffers[0])
+            for (int i = 0; i < _renderBlob.DrawSliceCount; i++)
             {
-                GraphicsDevice.DeviceAPI.vkCmdExecuteCommands(frameInfo.CommandBuffer, (uint)_renderBlob.DrawSliceCount, pCmdBuffers);
+                //VkCommandBufferInheritanceRenderingInfo renderingInfoInternal = renderingInfo;
+                //VkCommandBufferInheritanceInfo inheritanceInfoInternal = new()
+                //{
+                //    pNext = &renderingInfoInternal
+                //};
+                //VkCommandBufferBeginInfo bufferBeginInfo = new() { pInheritanceInfo = &inheritanceInfoInternal, flags = VkCommandBufferUsageFlags.RenderPassContinue };
+                //VkCommandBuffer internalBuffer = parallelCmdBuffers[i];
+                //GraphicsDevice.DeviceAPI.vkBeginCommandBuffer(internalBuffer, &bufferBeginInfo);
+                //SwapChain.SetViewPort(internalBuffer);
+                _renderBlob.DrawSlice(frameInfo, i, frameInfo.CommandBuffer);
+                //GraphicsDevice.DeviceAPI.vkEndCommandBuffer(internalBuffer);
             }
+
+            //Application.ParallelFor(_renderBlob.DrawSliceCount, (i) =>
+            //{
+            //    VkCommandBufferInheritanceRenderingInfo renderingInfoInternal = renderingInfo;
+            //    VkCommandBufferInheritanceInfo inheritanceInfoInternal = new()
+            //    {
+            //        pNext = &renderingInfoInternal
+            //    };
+            //    VkCommandBufferBeginInfo bufferBeginInfo = new() { pInheritanceInfo = &inheritanceInfoInternal, flags = VkCommandBufferUsageFlags.RenderPassContinue };
+            //    VkCommandBuffer internalBuffer = parallelCmdBuffers[i];
+            //    GraphicsDevice.DeviceAPI.vkBeginCommandBuffer(internalBuffer, &bufferBeginInfo);
+            //    SwapChain.SetViewPort(internalBuffer);
+            //    _renderBlob.DrawSlice(frameInfo, i, internalBuffer);
+            //    GraphicsDevice.DeviceAPI.vkEndCommandBuffer(internalBuffer);
+            //});
+
+            // fixed (VkCommandBuffer* pCmdBuffers = &parallelCmdBuffers[0])
+            // {
+            //     GraphicsDevice.DeviceAPI.vkCmdExecuteCommands(frameInfo.CommandBuffer, (uint)_renderBlob.DrawSliceCount, pCmdBuffers);
+            // }
         }
 
         public override void Dispose()

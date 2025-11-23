@@ -50,7 +50,7 @@ namespace VECS
         public unsafe void* HostPtr => _hostPtr;
         public GPUBuffer StagingBuffer => _stagingBuffer;
 
-        public virtual VkDescriptorAddressInfoEXT DeviceAddressInfo => new()
+        public VkDescriptorAddressInfoEXT DeviceAddressInfo => new()
         {
             address = _deviceBufferAddress,
             range = _vkBufferSize,

@@ -74,8 +74,11 @@ namespace VECS
                 Span<ModelBounds> boundsSpan = bounds.HostBuffer;
                 for (int i = 0; i < drawCount; i++)
                 {
-                    drawIndirectSpan[i].instanceCount = (IsVisible(boundsSpan[i], cullData) || cullData.cullingEnabled == 0) ? 1u : 0;
+                    drawIndirectSpan[i].instanceCount = (cullData.cullingEnabled == 0 || IsVisible(boundsSpan[i], cullData)) ? 1u : 0;
                 }
+                bounds.SetUsedInstanceCount(drawCount);
+                drawIndirect.SetUsedInstanceCount(drawCount);
+                drawIndirect.WriteFromHostToActiveBuffer();
                 return default;
             }
             else

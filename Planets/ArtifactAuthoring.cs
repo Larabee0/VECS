@@ -35,7 +35,7 @@ namespace Planets
     {
         public Entity MainCamera;
 
-        private Vector3 initalCameraPos = new(0, 0, -20f);
+        private Vector3 initalCameraPos = new(0, -390f, -400);
         private Vector3 initalCameraRot = TransformExtensions.DegreesToRadians(new(0, 0, 0));
 
         private CameraPerspective cameraPerspective = new()
@@ -43,7 +43,7 @@ namespace Planets
             FOV = 50,
             ClipNear = 0.1f,
             ClipFar = 20000f,
-            fustrumCulling = true
+            fustrumCulling = false
         };
 
 
@@ -65,7 +65,7 @@ namespace Planets
         {
             World.DefaultWorld.CreateSystem<UpdatePlanetTimeSystem>();
             World.DefaultWorld.CreateSystem<TransformPlanetsSystem>();
-            World.DefaultWorld.CreateSystem<PointLightSystem>();
+            //World.DefaultWorld.CreateSystem<PointLightSystem>();
             World.DefaultWorld.CreateSystem<ShipGuns>();
             World.DefaultWorld.CreateSystem<InteractionSystem>();
 
@@ -75,11 +75,13 @@ namespace Planets
 
             CreateFlightRig(entityManager);
             LoadResources();
-            LoadStaticResources(entityManager);
-            CreateXWing(entityManager);
+            //LoadStaticResources(entityManager);
+            //CreateXWing(entityManager);
             CreateFlightScene(entityManager);
-            var prefabPlanet = CreatePrefabPlanet(entityManager);
-            
+            //var prefabPlanet = CreatePrefabPlanet(entityManager);
+
+            var prefabPlanet = Entity.Null;
+
             CreateSinglePlanetTestScene(entityManager, prefabPlanet);
 
             //CreateBigTestScene(entityManager, prefabPlanet);
@@ -89,6 +91,10 @@ namespace Planets
 
             World.DefaultWorld.CreateSystem<MouseFlightShipMover>();
 
+            World.DefaultWorld.CreateSystem<LocalToWorldSystem>();
+            World.DefaultWorld.CreateSystem<CameraSystem>();
+            World.DefaultWorld.CreateSystem<WorldRenderBoundsUpdateSystem>();
+            World.DefaultWorld.CreateSystem<GenericRenderSystem>();
         }
 
         private void CreateSinglePlanetTestScene(EntityManager entityManager, Entity prefabPlanet)
@@ -110,24 +116,25 @@ namespace Planets
             entityManager.AddComponent(aStar, new Translation() { Value = new(0f, 0000, 0) });
             entityManager.AddComponent(aStar, new Scale() { Value = new(30f, 30, 30) });
 
-            Parent starParent = new() { Value = aStar };
+            // Parent starParent = new() { Value = aStar };
+            // 
+            // Entity planetOrbiterA = InstantiateNewOrbitalPlanet(entityManager,
+            //     PlanetPresets.ShapeGeneratorFixedEarthLike(),
+            //     prefabPlanet, starParent,
+            //     new(-25f, 0, 0),
+            //     3,
+            //     5, 12, planetLitMaterial);
+            // 
+            // Entity planetOrbiterB = InstantiateNewOrbitalPlanet(entityManager,
+            //     PlanetPresets.ShapeGeneratorRandomEarthLike(),
+            //     CreatePrefabPlanet(entityManager), starParent,
+            //     new(-10f, 0, 00),
+            //     3,
+            //     -5, 12, planetLitMaterial);
+            // 
+            // aStar.AddChildren(entityManager, [planetOrbiterA, planetOrbiterB]);
 
-            Entity planetOrbiterA = InstantiateNewOrbitalPlanet(entityManager,
-                PlanetPresets.ShapeGeneratorFixedEarthLike(),
-                prefabPlanet, starParent,
-                new(-25f, 0, 0),
-                3,
-                5, 12, planetLitMaterial);
-
-            Entity planetOrbiterB = InstantiateNewOrbitalPlanet(entityManager,
-                PlanetPresets.ShapeGeneratorRandomEarthLike(),
-                CreatePrefabPlanet(entityManager), starParent,
-                new(-10f, 0, 00),
-                3,
-                -5, 12, planetLitMaterial);
-
-            aStar.AddChildren(entityManager, [planetOrbiterA, planetOrbiterB]);
-            //aStar.AddChildren(entityManager, [planetOrbiterA]);
+            // aStar.AddChildren(entityManager, [planetOrbiterA]);
         }
 
         private void CreateBigTestScene(EntityManager entityManager, Entity prefabPlanet)
@@ -317,7 +324,7 @@ namespace Planets
             xWingMaterial.SetTexture2D("samplerNormalMap".GetHashCode(),2,  astroDroidNormalTexture);
 
             var xWingBase = entityManager.CreateEntity();
-            entityManager.AddComponent(xWingBase, new Translation() { Value = new Vector3(0, 50f, -800) });
+            entityManager.AddComponent(xWingBase, new Translation() { Value = new Vector3(0, -390f, -400) });
             entityManager.AddComponent(xWingBase, new Rotation());
 
 
@@ -402,25 +409,26 @@ namespace Planets
 
             var grid = new Texture2D(TextureLoader.GetTextureInDefaultPath("grid.png"));
 
-            MaterialV2.LitTexture.SetTexture2D("texSampler".GetHashCode(), 2, grid);
-            MaterialV2.LitTexture.PushConstants.SetPushConstantVector4("colour", 2, new Vector4(0.1803922f, 0.2078431f, 0.2431373f, 1));
-            MaterialV2.LitTexture.PushConstants.SetPushConstantFloat("tiling", 2, 100f);
-            MaterialV2.LitTexture.PushConstants.SetPushConstantVector4("colour", 3, new Vector4(0.1803922f, 0.2078431f, 0.2431373f, 1));
-            MaterialV2.LitTexture.PushConstants.SetPushConstantFloat("tiling", 3, 10f);
+            MaterialV2.LitTexture.SetTexture2D("texSampler".GetHashCode(), 0, grid);
+            MaterialV2.LitTexture.PushConstants.SetPushConstantVector4("colour", 0, new Vector4(0.1803922f, 0.2078431f, 0.2431373f, 1));
+            MaterialV2.LitTexture.PushConstants.SetPushConstantFloat("tiling", 0, 100f);
+            MaterialV2.LitTexture.PushConstants.SetPushConstantVector4("colour", 1, new Vector4(0.1803922f, 0.2078431f, 0.2431373f, 1));
+            MaterialV2.LitTexture.PushConstants.SetPushConstantFloat("tiling", 1, 10f);
 
 
             var plane = entityManager.CreateEntity();
-            AddRenderMeshComponents(plane, MaterialV2.LitTexture, 2, 2, models[0], entityManager);
+            AddRenderMeshComponents(plane, MaterialV2.LitTexture, 0, 0, models[0], entityManager);
             entityManager.AddComponent<StaticColliderTag>(plane);
             Entity[] cubes = new Entity[9];
 
             for (int i = 0; i < cubes.Length; i++)
             {
                 cubes[i] = entityManager.CreateEntity();
-                AddRenderMeshComponents(cubes[i], MaterialV2.LitTexture, 2, 3, models[1], entityManager);
+                AddRenderMeshComponents(cubes[i], MaterialV2.LitTexture, 0, 1, models[1], entityManager);
                 entityManager.AddComponent<StaticColliderTag>(cubes[i]);
             }
 
+            entityManager.AddComponent(plane, new Rotation() { Value = TransformExtensions.Euler(TransformExtensions.DegreesToRadians( new(180,0,0))) });
             entityManager.AddComponent(plane, new Scale() { Value = new(500, 1, 500) });
 
             sceneRoot.AddChildren(entityManager, cubes);
@@ -471,8 +479,6 @@ namespace Planets
 
                 entityManager.AddComponent(cubes[i], boxCollider);
             }
-
-
         }
 
         private void CreateFlightRig(EntityManager entityManager)
@@ -735,9 +741,9 @@ namespace Planets
             entityManager.AddComponent(MainCamera, cameraPerspective);
             entityManager.AddComponent<MainCamera>(MainCamera);
 
-            var secondCamera = entityManager.CreateEntity();
-            entityManager.AddComponent(secondCamera, new LocalToWorld() { Value = TransformExtensions.TRS(initalCameraPos, initalCameraRot, Vector3.One) });
-            entityManager.AddComponent(secondCamera, cameraPerspective);
+            //var secondCamera = entityManager.CreateEntity();
+            //entityManager.AddComponent(secondCamera, new LocalToWorld() { Value = TransformExtensions.TRS(initalCameraPos, initalCameraRot, Vector3.One) });
+            //entityManager.AddComponent(secondCamera, cameraPerspective);
         }
 
         public static void Destroy() { }

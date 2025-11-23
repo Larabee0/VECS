@@ -35,7 +35,7 @@ namespace VECS
             _setLayout = setLayout;
             ulong unalignedLayoutSize;
             GraphicsDevice.DeviceAPI.vkGetDescriptorSetLayoutSizeEXT(GraphicsDevice.Device, _setLayout, &unalignedLayoutSize);
-            _alignedLayoutSize = GetAlignedSize(unalignedLayoutSize);
+            _alignedLayoutSize = (uint)GetAlignedSize(unalignedLayoutSize);
             Debug.Assert(_alignedLayoutSize > 0, "Descriptor Buffer Aligned layout size must be greater than 0 bytes");
             Debug.Assert(_alignedLayoutSize % 2 == 0, string.Format("Descriptor Buffer Aligned layout size ({0}) must divisible by 2!", _alignedLayoutSize));
 
@@ -87,40 +87,79 @@ namespace VECS
         public unsafe void SetBufferBinding(VkDescriptorAddressInfoEXT addressInfo, VkDescriptorType type, uint set, uint binding)
         {
             DescriptorBufferWriteInfo info = new(addressInfo, type, set, binding);
-            WriteDescriptor(ref info);
+            WriteDescriptor(info);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe void SetImageInfoBinding(VkDescriptorImageInfo imageInfo, VkDescriptorType type, uint set, uint binding)
         {
             DescriptorBufferWriteInfo info = new(imageInfo, type, set, binding);
-            WriteDescriptor(ref info);
+            WriteDescriptor(info);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe void SetSamplerBinding(VkSampler sampler, uint set, uint binding)
         {
             DescriptorBufferWriteInfo info = new(sampler, set, binding);
-            WriteDescriptor(ref info);
+            WriteDescriptor(info);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe void WriteDescriptor(ref DescriptorBufferWriteInfo writeInfo)
-        {
-            WriteDescriptor(ref writeInfo.DescriptorGetInfo, writeInfo.DataSize, writeInfo.Set, writeInfo.Binding);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe void WriteDescriptor(ref VkDescriptorGetInfoEXT descriptorGetInfo, ulong dataSize, uint setIndex, uint bindingIndex)
+        public unsafe void WriteDescriptor(DescriptorBufferWriteInfo writeInfo)
         {
             // align for set index;
             // then align for binding index
             IntPtr ptr = new(_descriptorBuffer.HostPtr);
-            int addressOffset = (int)((setIndex * _alignedLayoutSize) + _bindingOffsets[bindingIndex]);
+            int addressOffset = (int)((writeInfo.Set * _alignedLayoutSize) + _bindingOffsets[writeInfo.Binding]);
             ptr = IntPtr.Add(ptr, addressOffset);
 
-            var localInfo = descriptorGetInfo;
-            GraphicsDevice.DeviceAPI.vkGetDescriptorEXT(GraphicsDevice.Device, &localInfo, dataSize, ptr.ToPointer());
+            var getInfo = new VkDescriptorGetInfoEXT();
+            var addressInfo = writeInfo.AddressInfoEXT;
+            var imageInfo = writeInfo.ImageInfo;
+            var sampler = writeInfo.Sampler;
+            getInfo.type = writeInfo.Type;
+            switch (writeInfo.Type)
+            {
+                case VkDescriptorType.UniformTexelBuffer:
+                    getInfo.data.pUniformTexelBuffer = &addressInfo;
+                    break;
+                case VkDescriptorType.StorageTexelBuffer:
+                    getInfo.data.pStorageTexelBuffer = &addressInfo;
+                    break;
+                case VkDescriptorType.UniformBuffer:
+                    getInfo.data.pUniformBuffer = &addressInfo;
+                    break;
+                case VkDescriptorType.StorageBuffer:
+                    getInfo.data.pStorageBuffer = &addressInfo;
+                    break;
+                case VkDescriptorType.UniformBufferDynamic:
+                    getInfo.data.pUniformBuffer = &addressInfo;
+                    break;
+                case VkDescriptorType.StorageBufferDynamic:
+                    getInfo.data.pStorageBuffer = &addressInfo;
+                    break;
+                case VkDescriptorType.InlineUniformBlock:
+                    getInfo.data.pUniformBuffer = &addressInfo;
+                    break;
+                case VkDescriptorType.CombinedImageSampler:
+                    getInfo.data.pCombinedImageSampler = &imageInfo;
+                    break;
+                case VkDescriptorType.SampledImage:
+                    getInfo.data.pSampledImage = &imageInfo;
+                    break;
+                case VkDescriptorType.Sampler:
+                    getInfo.data.pSampler = &sampler;
+                    break;
+                case VkDescriptorType.StorageImage:
+                    getInfo.data.pStorageImage = &imageInfo;
+                    break;
+                case VkDescriptorType.InputAttachment:
+                    getInfo.data.pInputAttachmentImage = &imageInfo;
+                    break;
+                default:
+                    throw new NotImplementedException(string.Format("Descriptor Type {0} is invalid or not implemented for VkDescriptorAddressInfoEXT!", writeInfo.Type.ToString()));
+            }
+            GraphicsDevice.DeviceAPI.vkGetDescriptorEXT(GraphicsDevice.Device, &getInfo, writeInfo.DataSize, ptr.ToPointer());
 
             _writesPending = true;
         }
@@ -208,34 +247,30 @@ namespace VECS
             GC.ReRegisterForFinalize(this);
         }
 
-        private static uint GetAlignedSize(ulong size)
+        private static ulong GetAlignedSize(ulong size)
         {
             var alignment = GraphicsDevice.PropertiesDescriptorBuffer.descriptorBufferOffsetAlignment;
 
-            return (uint)((size + alignment - 1) & ~(alignment - 1));
+            return (size + alignment - 1) & ~(alignment - 1);
         }
     }
 
     public struct DescriptorBufferWriteInfo
     {
-        public VkDescriptorGetInfoEXT DescriptorGetInfo;
+        public VkDescriptorImageInfo ImageInfo;
+        public VkSampler Sampler;
         public VkDescriptorAddressInfoEXT AddressInfoEXT;
         public ulong DataSize;
         public uint Set;
         public uint Binding;
+        public VkDescriptorType Type;
 
         public unsafe DescriptorBufferWriteInfo(VkSampler sampler, uint set, uint binding)
         {
             Set = set;
             Binding = binding;
-            DescriptorGetInfo = new()
-            {
-                type = VkDescriptorType.Sampler,
-                data = new()
-                {
-                    pSampler = &sampler
-                }
-            };
+            Type = VkDescriptorType.Sampler;
+            Sampler = sampler;
             DataSize = GraphicsDevice.PropertiesDescriptorBuffer.samplerDescriptorSize;
         }
 
@@ -243,32 +278,17 @@ namespace VECS
         {
             Set = set;
             Binding = binding;
-            DescriptorGetInfo = new()
+            Type = type;
+            ImageInfo = imageInfo;
+            var properties = GraphicsDevice.PropertiesDescriptorBuffer;
+            DataSize = type switch
             {
-                type = type
+                VkDescriptorType.CombinedImageSampler => properties.combinedImageSamplerDescriptorSize,
+                VkDescriptorType.SampledImage => properties.sampledImageDescriptorSize,
+                VkDescriptorType.StorageImage => properties.storageImageDescriptorSize,
+                VkDescriptorType.InputAttachment => properties.inputAttachmentDescriptorSize,
+                _ => throw new NotImplementedException(string.Format("Descriptor Type {0} is invalid or not implemented for VkDescriptorImageInfo!", type.ToString())),
             };
-
-            switch (type)
-            {
-                case VkDescriptorType.CombinedImageSampler:
-                    DescriptorGetInfo.data.pCombinedImageSampler = &imageInfo;
-                    DataSize = GraphicsDevice.PropertiesDescriptorBuffer.combinedImageSamplerDescriptorSize;
-                    break;
-                case VkDescriptorType.SampledImage:
-                    DescriptorGetInfo.data.pSampledImage = &imageInfo;
-                    DataSize = GraphicsDevice.PropertiesDescriptorBuffer.sampledImageDescriptorSize;
-                    break;
-                case VkDescriptorType.StorageImage:
-                    DescriptorGetInfo.data.pStorageImage = &imageInfo;
-                    DataSize = GraphicsDevice.PropertiesDescriptorBuffer.storageImageDescriptorSize;
-                    break;
-                case VkDescriptorType.InputAttachment:
-                    DescriptorGetInfo.data.pInputAttachmentImage = &imageInfo;
-                    DataSize = GraphicsDevice.PropertiesDescriptorBuffer.inputAttachmentDescriptorSize;
-                    break;
-                default:
-                    throw new NotImplementedException(string.Format("Descriptor Type {0} is invalid or not implemented for VkDescriptorImageInfo!", type.ToString()));
-            }
         }
 
         public unsafe DescriptorBufferWriteInfo(VkDescriptorAddressInfoEXT addressInfo, VkDescriptorType type, uint set, uint binding)
@@ -276,44 +296,19 @@ namespace VECS
             Set = set;
             AddressInfoEXT = addressInfo;
             Binding = binding;
-            DescriptorGetInfo = new()
+            Type = type;
+            var properties = GraphicsDevice.PropertiesDescriptorBuffer;
+            DataSize = type switch
             {
-                type = type
+                VkDescriptorType.UniformTexelBuffer => properties.uniformTexelBufferDescriptorSize,
+                VkDescriptorType.StorageTexelBuffer => properties.storageTexelBufferDescriptorSize,
+                VkDescriptorType.UniformBuffer => properties.uniformBufferDescriptorSize,
+                VkDescriptorType.StorageBuffer => properties.storageBufferDescriptorSize,
+                VkDescriptorType.UniformBufferDynamic => properties.uniformBufferDescriptorSize,
+                VkDescriptorType.StorageBufferDynamic => properties.storageBufferDescriptorSize,
+                VkDescriptorType.InlineUniformBlock => properties.uniformBufferDescriptorSize,
+                _ => throw new NotImplementedException(string.Format("Descriptor Type {0} is invalid or not implemented for VkDescriptorAddressInfoEXT!", type.ToString())),
             };
-
-            switch (type)
-            {
-                case VkDescriptorType.UniformTexelBuffer:
-                    DescriptorGetInfo.data.pUniformTexelBuffer = &addressInfo;
-                    DataSize = GraphicsDevice.PropertiesDescriptorBuffer.uniformTexelBufferDescriptorSize;
-                    break;
-                case VkDescriptorType.StorageTexelBuffer:
-                    DescriptorGetInfo.data.pStorageTexelBuffer = &addressInfo;
-                    DataSize = GraphicsDevice.PropertiesDescriptorBuffer.storageTexelBufferDescriptorSize;
-                    break;
-                case VkDescriptorType.UniformBuffer:
-                    DescriptorGetInfo.data.pUniformBuffer = &addressInfo;
-                    DataSize = GraphicsDevice.PropertiesDescriptorBuffer.uniformBufferDescriptorSize;
-                    break;
-                case VkDescriptorType.StorageBuffer:
-                    DescriptorGetInfo.data.pStorageBuffer = &addressInfo;
-                    DataSize = GraphicsDevice.PropertiesDescriptorBuffer.storageBufferDescriptorSize;
-                    break;
-                case VkDescriptorType.UniformBufferDynamic:
-                    DescriptorGetInfo.data.pUniformBuffer = &addressInfo;
-                    DataSize = GraphicsDevice.PropertiesDescriptorBuffer.uniformBufferDescriptorSize;
-                    break;
-                case VkDescriptorType.StorageBufferDynamic:
-                    DescriptorGetInfo.data.pStorageBuffer = &addressInfo;
-                    DataSize = GraphicsDevice.PropertiesDescriptorBuffer.storageBufferDescriptorSize;
-                    break;
-                case VkDescriptorType.InlineUniformBlock:
-                    DescriptorGetInfo.data.pUniformBuffer = &addressInfo;
-                    DataSize = GraphicsDevice.PropertiesDescriptorBuffer.uniformBufferDescriptorSize;
-                    break;
-                default:
-                    throw new NotImplementedException(string.Format("Descriptor Type {0} is invalid or not implemented for VkDescriptorAddressInfoEXT!", type.ToString()));
-            }
         }
     }
 }

@@ -116,7 +116,13 @@ namespace VECS
         public void Start()
         {
             frameInfoEntity = World.DefaultWorld.EntityManager.CreateEntity();
-            World.DefaultWorld.EntityManager.AddComponent<FrameInfo>(frameInfoEntity);
+
+            var frameInfo = new FrameInfo()
+            {
+                screenAspect = _swapChain.ExtentAspectRatio
+            };
+
+            World.DefaultWorld.EntityManager.AddComponent(frameInfoEntity, frameInfo);
         }
 
         private unsafe RendererFrameInfo CreateRendererFrameInfo(float deltaTime, VkCommandBuffer commandBuffer)
@@ -280,6 +286,10 @@ namespace VECS
 
             //MaterialV2.Update(MaterialV2.WireFrame, frameInfo);
             MaterialV2.UpdateMaterials(frameInfo);
+            if (_frameCount < 2)
+            {
+                //MaterialV2.UpdateMaterials(frameInfo);
+            }
             // culling
             CullScene(commandBuffer, frameInfo);
 

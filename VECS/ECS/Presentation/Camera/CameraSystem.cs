@@ -49,7 +49,25 @@ namespace VECS.ECS.Presentation
         {
             if (_cameraInitQuery.HasEntities)
             {
-                _cameraInitQuery.GetEntities().ForEach(entity => entityManager.AddComponent<Camera>(entity));
+                float aspect = 1;
+
+                if (entityManager.SingletonComponent(out FrameInfo frameInfo))
+                {
+                    aspect = frameInfo.screenAspect;
+                }
+
+                _cameraInitQuery.GetEntities().ForEach(entity =>
+                {
+                    entityManager.AddComponent<Camera>(entity);
+                    if (entityManager.HasComponent<CameraPerspective>(entity))
+                    {
+                        UpdatePerspectiveCamera(entityManager, entity, aspect);
+                    }
+                    else if (entityManager.HasComponent<CameraOrthographic>(entity))
+                    {
+                        UpdateOrthographicCamera(entityManager, entity);
+                    }
+                });
             }
 
             if (_cameraQueryPerspective.HasEntities)
@@ -86,20 +104,25 @@ namespace VECS.ECS.Presentation
 
             _cameraQueryPerspective.GetEntities().ForEach(entity =>
             {
-                var perCam = entityManager.GetComponent<CameraPerspective>(entity);
-                var camera = new Camera()
-                {
-                    ProjectionMatrix = GetPerspectiveProject(perCam, aspect),
-                    ViewMatrix = GetViewMatrix(entityManager.GetComponent<LocalToWorld>(entity).Value),
-                    fustrumCulling = perCam.fustrumCulling,
-                    ClipNear = perCam.ClipNear,
-                    ClipFar = perCam.ClipFar,
-                };
-
-                Matrix4x4.Invert(camera.ViewMatrix, out camera.InverseViewMatrix);
-
-                entityManager.SetComponent(entity, camera);
+                UpdatePerspectiveCamera(entityManager, entity, aspect);
             });
+        }
+
+        private static void UpdatePerspectiveCamera(EntityManager entityManager, Entity entity, float aspect)
+        {
+            var perCam = entityManager.GetComponent<CameraPerspective>(entity);
+            var camera = new Camera()
+            {
+                ProjectionMatrix = GetPerspectiveProject(perCam, aspect),
+                ViewMatrix = GetViewMatrix(entityManager.GetComponent<LocalToWorld>(entity).Value),
+                fustrumCulling = perCam.fustrumCulling,
+                ClipNear = perCam.ClipNear,
+                ClipFar = perCam.ClipFar,
+            };
+
+            Matrix4x4.Invert(camera.ViewMatrix, out camera.InverseViewMatrix);
+
+            entityManager.SetComponent(entity, camera);
         }
 
         /// <summary>
@@ -110,20 +133,25 @@ namespace VECS.ECS.Presentation
         {
             _cameraQueryOrthographic.GetEntities().ForEach(entity =>
             {
-                var orthCam = entityManager.GetComponent<CameraOrthographic>(entity);
-                var camera = new Camera()
-                {
-                    ProjectionMatrix = GetOrthographicProject(orthCam),
-                    ViewMatrix = GetViewMatrix(entityManager.GetComponent<LocalToWorld>(entity).Value),
-                    fustrumCulling = orthCam.fustrumCulling,
-                    ClipNear = orthCam.ClipNear,
-                    ClipFar = orthCam.ClipFar,
-                };
-
-                Matrix4x4.Invert(camera.ViewMatrix, out camera.InverseViewMatrix);
-
-                entityManager.SetComponent(entity, camera);
+                UpdateOrthographicCamera(entityManager, entity);
             });
+        }
+
+        private static void UpdateOrthographicCamera(EntityManager entityManager, Entity entity)
+        {
+            var orthCam = entityManager.GetComponent<CameraOrthographic>(entity);
+            var camera = new Camera()
+            {
+                ProjectionMatrix = GetOrthographicProject(orthCam),
+                ViewMatrix = GetViewMatrix(entityManager.GetComponent<LocalToWorld>(entity).Value),
+                fustrumCulling = orthCam.fustrumCulling,
+                ClipNear = orthCam.ClipNear,
+                ClipFar = orthCam.ClipFar,
+            };
+
+            Matrix4x4.Invert(camera.ViewMatrix, out camera.InverseViewMatrix);
+
+            entityManager.SetComponent(entity, camera);
         }
 
         /// <summary>

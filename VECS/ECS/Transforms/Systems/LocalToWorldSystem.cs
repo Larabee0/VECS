@@ -34,8 +34,21 @@ namespace VECS.ECS.Transforms
         {
             if (_addLTWQuery.HasEntities) // updates and checks if the query has entities. NoAlloc check
             {
-                _addLTWQuery.GetEntities().ForEach(e => entityManager.AddComponent<LocalToWorld>(e));
+                LocalToWorld ltw = new();
+                _addLTWQuery.GetEntities().ForEach(e =>
+                {
+                    ltw.Value = ComputeLocalTRS(entityManager, e);
+                    entityManager.AddComponent(e,ltw);
+                });
+                _addLTWQuery.GetEntities().ForEach(e =>
+                {
+                    if (entityManager.HasComponent<Children>(e) && !entityManager.HasComponent<Parent>(e))
+                    {
+                        UpdateHierachy(entityManager, e);
+                    }
+                });
             }
+        
 
             if (_ltwQuery.HasEntities) // updates and checks if the query has entities. NoAlloc check
             {

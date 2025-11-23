@@ -61,7 +61,9 @@ namespace VECS
 
         static MaterialV2()
         {
-            LitTexture = new("LitTexture", "lit_texture_new.vert", "lit_texture_new.frag", GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []));
+            var litTexture = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
+            //litTexture.depthStencilInfo.depthWriteEnable = true;
+            LitTexture = new("LitTexture", "lit_texture_new.vert", "lit_texture_new.frag", litTexture);
             var depthConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             depthConfig.colourFormats = [];
             depthConfig.depthStencilInfo.depthWriteEnable = true;
@@ -69,7 +71,7 @@ namespace VECS
             depthConfig.depthStencilInfo.depthCompareOp = VkCompareOp.LessOrEqual;
             DepthOnly = new("DepthOnly", "depth_only_new.vert", depthConfig);
 
-            var pipelineConfigInfo = GraphicsPipelines.GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo(VkPipelineLayout.Null);
+            var pipelineConfigInfo = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo(VkPipelineLayout.Null);
 
             pipelineConfigInfo.rasterizationInfo.cullMode = VkCullModeFlags.None;
             pipelineConfigInfo.rasterizationInfo.polygonMode = VkPolygonMode.Line;
@@ -290,6 +292,7 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe void WriteSet(int* setIndices, uint* variants, int count, int frameIndex)
         {
+            Console.WriteLine("WARNING WriteSet has unused variant case");
             for (int i = 0; i < count; i++)
             {
                 var setIndex = setIndices[i];
@@ -302,8 +305,8 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe void WriteSet(DescriptorSetInfo setInfo, DescriptorBuffer descriptorBuffer, int frameIndex, int setIndex, uint variant)
         {
-            var bindingBuffers = _matVariants[variant].GetBindingBuffersPtr(frameIndex, setIndex);
-            var bindingImages = _matVariants[variant].GetBindingTexturesPtr(frameIndex, setIndex);
+            var bindingBuffers = _matVariants[variant].GetBindingBuffers(frameIndex, setIndex);
+            var bindingImages = _matVariants[variant].GetBindingTextures(frameIndex, setIndex);
             WriteSet(setInfo, descriptorBuffer, variant, bindingBuffers, bindingImages);
         }
 
@@ -341,6 +344,12 @@ namespace VECS
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static unsafe void WriteSet(DescriptorSetInfo setInfo, DescriptorBuffer descriptorBuffer, uint variant, VkDescriptorAddressInfoEXT* bindingBuffers, VkDescriptorImageInfo* bindingImages)
+        {
+            setInfo.WriteDescriptors(descriptorBuffer, variant, bindingBuffers, bindingImages);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static unsafe void WriteSet(DescriptorSetInfo setInfo, DescriptorBuffer descriptorBuffer, uint variant, Span<VkDescriptorAddressInfoEXT> bindingBuffers, Span<VkDescriptorImageInfo> bindingImages)
         {
             setInfo.WriteDescriptors(descriptorBuffer, variant, bindingBuffers, bindingImages);
         }
@@ -438,7 +447,7 @@ namespace VECS
             }
             for (uint j = 0; j < _descriptorSetCount; j++)
             {
-                _matVariants[variant].SetStorageBufferRegion(j, offset, length);
+                _preBindUpdate |= _matVariants[variant].SetStorageBufferRegion(j, offset, length);
             }
             offset += length;
             for (uint i = variant + 1; i < _variantCount; i++)
@@ -446,7 +455,7 @@ namespace VECS
                 MaterialVariant matVariant = _matVariants[i];
                 for (uint j = 0; j < _descriptorSetCount; j++)
                 {
-                    matVariant.SetStorageBufferOffset(j, offset);
+                    _preBindUpdate |=matVariant.SetStorageBufferOffset(j, offset);
                     offset += matVariant.GetStorageTotal(j);
                 }
             }
@@ -577,6 +586,7 @@ namespace VECS
             {
                 material._descriptorSetInfos[i].WriteFromBuffers(frameIndex);
             }
+
             material._preBindUpdate = false;
         }
 
@@ -771,6 +781,7 @@ namespace VECS
             {
                 Update(this, frameInfo);
             }
+
             VkDescriptorBufferBindingInfoEXT* bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[_descriptorSetCount];
             ulong* offsets = stackalloc ulong[_descriptorSetCount];
             uint* indices = stackalloc uint[_descriptorSetCount];
@@ -779,7 +790,6 @@ namespace VECS
             {
                 DescriptorSetInfo descriptorSetInfo = _descriptorSetInfos[i];
                 DescriptorBuffer buffer = descriptorSetInfo.DescriptorBuffers[frameIndex];
-
                 bindingInfo[i] = buffer.BindingInfo;
                 offsets[i] = buffer.AlignedSize * (uint)command.Variant;
                 indices[i] = i;
@@ -809,7 +819,6 @@ namespace VECS
                 {
                     DescriptorSetInfo descriptorSetInfo = _descriptorSetInfos[i];
                     DescriptorBuffer buffer = descriptorSetInfo.DescriptorBuffers[frameIndex];
-
                     offsets[i] = buffer.AlignedSize * (uint)command.Variant;
                 }
                 DescriptorBuffer.SetOffsets(commandBuffer, _pipelineLayout, VkPipelineBindPoint.Graphics, 0, (uint)_descriptorSetCount, offsets, indices);

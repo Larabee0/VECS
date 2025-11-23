@@ -147,7 +147,7 @@ namespace VECS
             for (uint i = 0; i < 3; i++)
             {
                 DescriptorBufferWriteInfo writeInfo = new(_bufferAddress[i], VkDescriptorType.StorageBuffer, 0, i);
-                buffer.WriteDescriptor(ref writeInfo);
+                buffer.WriteDescriptor(writeInfo);
             }
 
             for (int i = 0; i < bufferInfos.Length; i++)
@@ -159,7 +159,7 @@ namespace VECS
                     bufferIndex += info.BufferIndex;
                 }
                 DescriptorBufferWriteInfo writeInfo = new(_bufferAddress[bufferIndex], VkDescriptorType.StorageBuffer, 0, info.BindingPoint);
-                buffer.WriteDescriptor(ref writeInfo);
+                buffer.WriteDescriptor(writeInfo);
             }
             buffer.Flush();
             shaderDescriptorBuffer.SetsDirty[frameIndex] = false;

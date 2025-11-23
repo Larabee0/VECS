@@ -90,10 +90,11 @@ namespace VECS
             }
 
             PushConstantsInfo[] pushConstants = new PushConstantsInfo[constants.Count];
-
+            uint bufferOffset = 0;
             for (int i = 0; i < constants.Count; i++)
             {
-                pushConstants[i] = new(constants[i], shaderStageFlags[i]);
+                pushConstants[i] = new(constants[i], shaderStageFlags[i],bufferOffset);
+                bufferOffset = pushConstants[i].BlockSize;
             }
             
             return pushConstants;
@@ -127,10 +128,12 @@ namespace VECS
             }
 
             PushConstantsInfo[] pushConstants = new PushConstantsInfo[constants.Count];
+            uint bufferOffset = 0;
 
             for (int i = 0; i < constants.Count; i++)
             {
-                pushConstants[i] = new(constants[i], shaderStageFlags[i]);
+                pushConstants[i] = new(constants[i], shaderStageFlags[i], bufferOffset);
+                bufferOffset = pushConstants[i].BlockSize;
             }
 
             return pushConstants;

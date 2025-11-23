@@ -12,12 +12,6 @@ namespace VECS.ECS.Presentation
         
         public DepthInternal()
         {
-            var depthConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
-            depthConfig.colourFormats = [];
-            depthConfig.depthStencilInfo.depthWriteEnable = true;
-            depthConfig.depthStencilInfo.depthTestEnable = true;
-            depthConfig.depthStencilInfo.depthCompareOp = VkCompareOp.LessOrEqual;
-
             _depthRenderBlob = new(MaterialV2.DepthOnly, GenericRenderSystem.MAX_DRAWS);
         }
 
@@ -32,7 +26,7 @@ namespace VECS.ECS.Presentation
                 _depthRenderBlob.UpdateDrawCommands(entityManager);
             }
             MaterialV2.DepthOnly.SetStorageBufferLength(RenderBlob.MatricesBufferId, 0, (uint)entities.Count);
-
+            
             VkBufferMemoryBarrier2 memoryBarrier = FustrumCull.Cull(frameInfo.CommandBuffer, frameInfo.FrameIndex, frameInfo.cullData, (uint)_depthRenderBlob.DrawCount, _depthRenderBlob.IndirectCmdBuffer, _depthRenderBlob.ModelBoundsBuffer);
             if (!FustrumCull.CPUCulling)
             {

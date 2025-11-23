@@ -223,9 +223,9 @@ namespace VECS.LowLevel
             {
                 imageView = DepthImage._imageView,
                 imageLayout = DepthImage.ImageLayout,
-                loadOp = VkAttachmentLoadOp.None,
-                storeOp = VkAttachmentStoreOp.None,
-                //clearValue = new(1, 0)
+                loadOp = VkAttachmentLoadOp.Load,
+                storeOp = VkAttachmentStoreOp.Store,
+                //clearValue = new(0, 0)
             };
 
             VkRenderingInfo renderingInfo = new()
@@ -257,6 +257,20 @@ namespace VECS.LowLevel
         public void EndForwardDepthRendering(VkCommandBuffer commandBuffer)
         {
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
+            // PLEASE TRY REMOVING THIS BARRIER ON NV TO SEE IF IT CASUES FLICKERING
+            uint graphicsFamily = GraphicsDevice.PhysicalQueueFamilies.graphicsFamily;
+            
+            MemoryBarrierHelper.ImageMemoryBarrier(commandBuffer,
+                DepthImage._vkImage,
+                DepthImage.GetSubresourceRange(),
+                VkPipelineStageFlags2.EarlyFragmentTests | VkPipelineStageFlags2.LateFragmentTests,
+                VkAccessFlags2.DepthStencilAttachmentRead | VkAccessFlags2.DepthStencilAttachmentWrite,
+                VkPipelineStageFlags2.EarlyFragmentTests | VkPipelineStageFlags2.LateFragmentTests,
+                VkAccessFlags2.DepthStencilAttachmentRead | VkAccessFlags2.DepthStencilAttachmentWrite,
+                VkImageLayout.DepthStencilAttachmentOptimal,
+                VkImageLayout.DepthStencilAttachmentOptimal,
+                graphicsFamily, graphicsFamily
+            );
         }
         // should be called from graphics queue
         internal unsafe void TransferSwapChainImageToGraphicsQueue(VkCommandBuffer commandBuffer, int frameIndex, int imageIndex)

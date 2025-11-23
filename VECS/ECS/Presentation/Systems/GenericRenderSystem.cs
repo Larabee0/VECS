@@ -60,7 +60,7 @@ namespace VECS.ECS.Presentation
             }
 
             var entities = _renderEntityQuery.GetEntities();
-            _shadowData.GenerateDrawCmds(frameInfo, entityManager, entities);
+            //_shadowData.GenerateDrawCmds(frameInfo, entityManager, entities);
             _depthData.GenerateDrawCmds(frameInfo, entityManager, entities);
         }
 
