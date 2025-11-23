@@ -76,7 +76,7 @@ namespace Planets
             CreateFlightRig(entityManager);
             LoadResources();
             //LoadStaticResources(entityManager);
-            //CreateXWing(entityManager);
+            CreateXWing(entityManager);
             CreateFlightScene(entityManager);
             //var prefabPlanet = CreatePrefabPlanet(entityManager);
 
@@ -91,10 +91,6 @@ namespace Planets
 
             World.DefaultWorld.CreateSystem<MouseFlightShipMover>();
 
-            World.DefaultWorld.CreateSystem<LocalToWorldSystem>();
-            World.DefaultWorld.CreateSystem<CameraSystem>();
-            World.DefaultWorld.CreateSystem<WorldRenderBoundsUpdateSystem>();
-            World.DefaultWorld.CreateSystem<GenericRenderSystem>();
         }
 
         private void CreateSinglePlanetTestScene(EntityManager entityManager, Entity prefabPlanet)

@@ -36,11 +36,11 @@ namespace VECS.ECS
             _systems = [];
             _presentationSystems = [];
             
-            //CreateSystem<LocalToWorldSystem>();
-            //CreateSystem<CameraSystem>();
-            //CreateSystem<WorldRenderBoundsUpdateSystem>();
-            //CreateSystem<GenericRenderSystem>();
-            //CreateSystem<DebugDrawUtilities>();
+            CreateSystem<LocalToWorldSystem>();
+            CreateSystem<CameraSystem>();
+            CreateSystem<WorldRenderBoundsUpdateSystem>();
+            CreateSystem<GenericRenderSystem>();
+            CreateSystem<DebugDrawUtilities>();
 
             _physicsSimulation = new PhysicsWorld(this, PhysicsSettings.Default);
 

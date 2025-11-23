@@ -9,7 +9,7 @@ namespace VECS.ECS.Presentation
 {
     internal class ForwardInternal : RenderSystemInternal
     {
-        private readonly RenderBlob _renderBlob;
+        public RenderBlob _renderBlob;
 
         
         private readonly VkCommandBuffer[][] _freeBuffers = new VkCommandBuffer[SwapChain.MAX_CONCURRENT_FRAMES][];

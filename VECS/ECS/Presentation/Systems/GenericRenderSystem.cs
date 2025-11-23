@@ -29,7 +29,7 @@ namespace VECS.ECS.Presentation
 
             _forwardData = new();
             _shadowData = new();
-            _depthData = new();
+            _depthData = new(_forwardData._renderBlob);
         }
 
         public override void OnDestroy(EntityManager entityManager)

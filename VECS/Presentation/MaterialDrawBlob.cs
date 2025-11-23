@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Numerics;
+using System.Threading;
 using System.Threading.Tasks;
 using VECS.ECS;
 using VECS.ECS.Presentation;
@@ -52,8 +53,6 @@ namespace VECS
         public static implicit operator int(MaterialDrawIndexer i) => (int)i.DrawIndex;
         public static implicit operator uint(MaterialDrawIndexer i) => i.DrawIndex;
     }
-
-    
 
     public class MaterialDrawBlob
     {
@@ -112,21 +111,26 @@ namespace VECS
         private static readonly int ColourBufferId = "colourBuffer".GetHashCode();
         private static readonly int BoundsBufferId = "boundsBuffer".GetHashCode();
         public static readonly int MatricesBufferId = "matricesBuffer".GetHashCode();
-        private EarlyDrawCommand[] _earlyDrawCommands;
-        private MaterialDrawIndexer[] _indexers;
+        private EarlyDrawCommand[] _earlyDrawCommands = [];
+        private MaterialDrawIndexer[] _indexers = [];
         private readonly SwapChainBuffer<VkDrawIndexedIndirectCommand> _indirectCmdBuffer;
         private readonly SwapChainBuffer<ModelBounds> _modelBoundsBuffer;
-
+        private ModelMatrices[] _modelMatricesBuffer = [];
         public SwapChainBuffer<VkDrawIndexedIndirectCommand> IndirectCmdBuffer => _indirectCmdBuffer;
         public SwapChainBuffer<ModelBounds> ModelBoundsBuffer => _modelBoundsBuffer;
+        public ModelMatrices[] ModelMatricesBuffer => _modelMatricesBuffer;
 
         private uint _drawCount;
 
         private readonly ConcurrentDictionary<Vector2Int, uint> _materialVariants = new();
 
         private int _allocatedVariantsCount;
-        private Vector2Int[] _variantCombinations;
-        private uint[] _variantCounts;
+        private Vector2Int[] _variantCombinations = [];
+        private uint[] _variantCounts = [];
+
+        private readonly MaterialDrawBlob _allInOneDrawBlob;
+
+        public MaterialDrawBlob AllInOne => _allInOneDrawBlob;
 
         private MaterialDrawBlob[] _drawBlobs = [];
         public int[] _drawBlobMap = [];
@@ -156,17 +160,14 @@ namespace VECS
             _indirectCmdBuffer.SetBuffersDirty(true);
             _modelBoundsBuffer.SetBuffersDirty(true);
 
-            _earlyDrawCommands = [];
-            _indexers = [];
-
-            _variantCombinations = new Vector2Int[_allocatedVariantsCount];
-            _variantCounts = new uint[_allocatedVariantsCount];
+            _allInOneDrawBlob = new(null);
         }
 
         public void RebuildBlob(EntityManager entityManager, List<Entity> entities)
         {
             _drawCount = (uint)entities.Count;
-            var earlySort = GenerateEarlyDraws(entityManager, entities);
+            GenerateEarlyDraws(entityManager, entities, out var earlySort);
+
             SetStorageBufferRegions();
             earlySort.Wait();
             SliceEarlyDraws();
@@ -174,14 +175,16 @@ namespace VECS
             SliceBlobs();
         }
 
-        private unsafe Task GenerateEarlyDraws(EntityManager entityManager, List<Entity> entities)
+        private unsafe void GenerateEarlyDraws(EntityManager entityManager, List<Entity> entities, out Task mainSort)
         {
             _materialVariants.Clear();
             if (_earlyDrawCommands.Length != _drawCount)
             {
                 Array.Resize(ref _earlyDrawCommands, (int)_drawCount);
                 Array.Resize(ref _indexers, (int)_drawCount);
+                Array.Resize(ref _modelMatricesBuffer, (int)_drawCount);
             }
+
             Application.ParallelFor((int)_drawCount, i =>
             {
                 Entity entity = entities[i];
@@ -197,10 +200,9 @@ namespace VECS
                 _materialVariants.AddOrUpdate(matVariant, 1, (key, value) => value + 1);
             });
 
-            return Task.Run(() =>
+            mainSort = Task.Run(() =>
             {
                 new Span<MaterialDrawIndexer>(_indexers, 0, (int)_drawCount).Sort();
-
             });
         }
 
@@ -278,10 +280,15 @@ namespace VECS
 
         private void BuildMaterialDrawCommands()
         {
+            int totalDraws = 0;
             Application.ParallelFor(_drawBlobs.Length, (blobIndex) =>
             {
                 var blob = _drawBlobs[blobIndex];
-                if (blob.EarlyDrawCount == 0) return;
+                if (blob.EarlyDrawCount == 0)
+                {
+                    blob.MatDrawCount = 0;
+                    return;
+                }
                 var earlyDrawCommands = blob.DrawIndexer.Span;
                 var cmd = _earlyDrawCommands[earlyDrawCommands[0]];
                 var lastCmd = cmd;
@@ -333,6 +340,7 @@ namespace VECS
 
                     _indirectCmdBuffer.UnsafeSet(cullIndex, draw);
                     _modelBoundsBuffer.UnsafeSet(cullIndex, cmd.DrawCommand.Bounds);
+                    _modelMatricesBuffer[cullIndex] = cmd.DrawCommand.Matrices;
 
                     if (matrices != Span<ModelMatrices>.Empty) { matrices[i] = cmd.DrawCommand.Matrices; }
                     if (bounds != Span<ModelBounds>.Empty) { bounds[i] = cmd.DrawCommand.Bounds; }
@@ -340,12 +348,40 @@ namespace VECS
                     meshSubRegion.Count++;
                     storageBufferRegion.Count++;
                     materialVariantDrawIndex++;
+                    Interlocked.Increment(ref totalDraws);
                 }
 
                 blob.MatDrawCommands[materialDrawIndex] = new MaterialDrawCommand(lastCmd, storageBufferRegion, meshSubRegion);
                 materialDrawIndex++;
                 blob.MatDrawCount = materialDrawIndex;
+                Interlocked.Increment(ref totalDraws);
             });
+            _allInOneDrawBlob.EarlyDrawCount = _drawCount;
+            _allInOneDrawBlob.SetEarlyDrawOffset(0, _indexers);
+            if (_allInOneDrawBlob.MatDrawCommands.Length < totalDraws)
+            {
+                Array.Resize(ref _allInOneDrawBlob.MatDrawCommands, totalDraws);
+            }
+            _allInOneDrawBlob.MatDrawCount = totalDraws;
+            int offset = 0;
+            for (int i = 0; i < _drawBlobs.Length; i++)
+            {
+                _drawBlobs[i].MatDrawCommands.CopyTo(_allInOneDrawBlob.MatDrawCommands, offset);
+                offset += _drawBlobs[i].MatDrawCommands.Length;
+            }
+
+            Application.ParallelFor(totalDraws, (i) =>
+            {
+                var cmd = _allInOneDrawBlob.MatDrawCommands[i];
+                cmd.Bloom = false;
+                cmd.Variant = 0;
+                cmd.Material = 0;
+                cmd.Entity = 0;
+                _allInOneDrawBlob.MatDrawCommands[i] = cmd;
+            });
+
+            // set mat draw commands
+
             _indirectCmdBuffer.SetUsedInstanceCount(_drawCount);
             _modelBoundsBuffer.SetUsedInstanceCount(_drawCount);
             _indirectCmdBuffer.SetBuffersDirty(true);
@@ -410,12 +446,14 @@ namespace VECS
             if (blob.EarlyDrawCount == 0) return;
             var material = blob.TargetMaterialV2;
             var earlyDrawCommands = blob.DrawIndexer.Span;
+            int cullIndex;
             EarlyDrawCommand cmd;
             Entity entity;
             LocalToWorld localToWorld;
             RenderMesh renderMesh;
             WorldRenderBounds worldBounds;
             ModelBounds modelBounds;
+            ModelMatrices modelMatrix;
             Span<ModelMatrices> matrices = material.GetStorageBuffer<ModelMatrices>(MatricesBufferId);
             Span<ModelBounds> bounds = material.GetStorageBuffer<ModelBounds>(BoundsBufferId);
             Span<Vector4> colours = material.GetStorageBuffer<Vector4>(ColourBufferId);
@@ -427,11 +465,13 @@ namespace VECS
                 renderMesh = entityManager.GetComponent<RenderMesh>(entity);
                 worldBounds = entityManager.GetComponent<WorldRenderBounds>(entity);
 
-                int cullIndex = (int)blob.EarlyDrawOffset + i;
+                cullIndex = (int)blob.EarlyDrawOffset + i;
                 modelBounds = new ModelBounds(worldBounds);
+                modelMatrix = new(localToWorld.Value);
                 _modelBoundsBuffer.UnsafeSet(cullIndex, modelBounds);
+                _modelMatricesBuffer[cullIndex] = modelMatrix;
 
-                if (matrices != Span<ModelMatrices>.Empty) { matrices[i] = new ModelMatrices(localToWorld.Value); }
+                if (matrices != Span<ModelMatrices>.Empty) {  matrices[i] = modelMatrix; }
                 if (bounds != Span<ModelBounds>.Empty) { bounds[i] = modelBounds; }
                 if (colours != Span<Vector4>.Empty) { colours[i] = renderMesh.Colour; }
             }
@@ -488,8 +528,8 @@ namespace VECS
     public class ShadowRenderBlob : IRenderBlob, IDisposable
     {
         private static readonly int MatricesBufferId = "matricesBuffer".GetHashCode();
-        private readonly EarlyDrawCommand[] _earlyDrawCommands;
-        private readonly MaterialDrawIndexer[] _indexers;
+        private EarlyDrawCommand[] _earlyDrawCommands;
+        private MaterialDrawIndexer[] _indexers;
         private readonly SwapChainBuffer<VkDrawIndexedIndirectCommand> _indirectCmdBuffer;
         private readonly SwapChainBuffer<ModelBounds> _modelBoundsBuffer;
 
@@ -522,8 +562,8 @@ namespace VECS
             _indirectCmdBuffer.SetBuffersDirty(true);
             _modelBoundsBuffer.SetBuffersDirty(true);
 
-            _earlyDrawCommands = new EarlyDrawCommand[maxDraws];
-            _indexers = new MaterialDrawIndexer[maxDraws];
+            _earlyDrawCommands =[];
+            _indexers = [];
 
             _drawBlob = new(target);
         }
@@ -558,6 +598,12 @@ namespace VECS
         private unsafe Task GenerateEarlyDraws(EntityManager entityManager, List<Entity> entities)
         {
             _directMeshDraws.Clear();
+            if (_earlyDrawCommands.Length != _drawCount)
+            {
+                Array.Resize(ref _earlyDrawCommands, (int)_drawCount);
+                Array.Resize(ref _indexers, (int)_drawCount);
+            }
+
             Application.ParallelFor((int)_drawCount, i =>
             {
                 Entity entity = entities[i];
