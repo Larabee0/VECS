@@ -26,7 +26,7 @@ namespace VECS
     {
         public const int MAX_MATERIAL_COUNT = 1843;
         private const int UnknownDrawCmd = -1;
-        public readonly int DirectMesh => RenderMesh.Mesh.DirectMeshHash;
+        public readonly int DirectMesh => RenderMesh.Mesh.Hash;
         public readonly int SubMesh => RenderMesh.Mesh.SubMesh;
         public readonly int MaterialIndex => RenderMesh.Material.Hash;
         public readonly int MaterialVariant=>RenderMesh.Material.Variant;
@@ -45,7 +45,7 @@ namespace VECS
             Entity = entity;
             DrawCommand = drawCommand;
             RenderMesh = renderMesh;
-            RenderMesh.Mesh.DirectMeshHash = AssetDataBase<DirectMesh>.GetCurrentIndexOfHashed(DirectMesh);
+            RenderMesh.Mesh.Hash = AssetDataBase<DirectMesh>.GetCurrentIndexOfHashed(DirectMesh);
             RenderMesh.Material.Hash = AssetDataBase<MaterialV2>.GetCurrentIndexOfHashed(MaterialIndex);
 
             _cachedHashCode = HashCode.Combine(MaterialIndex, MaterialVariant, MaterialEntity, DirectMesh, SubMesh);
@@ -60,6 +60,12 @@ namespace VECS
         public static bool MateriallyDifferent(EarlyDrawCommand a, EarlyDrawCommand b)
         {
             return a.DirectMesh != b.DirectMesh || a.MaterialIndex != b.MaterialIndex || a.MaterialVariant != b.MaterialVariant || a.MaterialEntity != b.MaterialEntity;
+        }
+
+
+        public static bool ShouldMakeNewDrawCmd(RenderMesh a, RenderMesh b)
+        {
+            return a.Mesh.Hash != b.Mesh.Hash || a.Material.Hash != b.Material.Hash || a.Material.Variant != b.Material.Variant || a.Material.Entity != b.Material.Entity;
         }
 
         public readonly int CompareTo(object obj)

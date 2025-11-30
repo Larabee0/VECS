@@ -25,7 +25,7 @@ namespace VECS.ECS.Presentation
             {
                 _depthRenderBlob.UpdateDrawCommands(entityManager);
             }
-            MaterialV2.DepthOnly.SetStorageBufferLength(RenderBlob.MatricesBufferId, 0, (uint)entities.Count);
+            MaterialV2.DepthOnly.SetDescriptorStorageBufferLengthFromProperty(RenderBlob.MatricesBufferId, 0, (uint)entities.Count);
             
             VkBufferMemoryBarrier2 memoryBarrier = FustrumCull.Cull(frameInfo.CommandBuffer, frameInfo.FrameIndex, frameInfo.cullData, (uint)_depthRenderBlob.DrawCount, _depthRenderBlob.IndirectCmdBuffer, _depthRenderBlob.ModelBoundsBuffer);
             if (!FustrumCull.CPUCulling)

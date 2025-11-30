@@ -109,7 +109,7 @@ namespace VECS
     public class RenderBlob : IRenderBlob, IDisposable
     {
         private static readonly int ColourBufferId = "colourBuffer".GetHashCode();
-        private static readonly int BoundsBufferId = "boundsBuffer".GetHashCode();
+        public static readonly int BoundsBufferId = "boundsBuffer".GetHashCode();
         public static readonly int MatricesBufferId = "matricesBuffer".GetHashCode();
         private EarlyDrawCommand[] _earlyDrawCommands = [];
         private MaterialDrawIndexer[] _indexers = [];
@@ -253,7 +253,7 @@ namespace VECS
 
                 Vector2UInt region = new(offset, _variantCounts[i]);
                 drawMatCount += _variantCounts[i];
-                readingList[key.X].SetStorageBufferLength((uint)key.Y, region.Y);
+                // readingList[key.X].SetStorageBufferLength((uint)key.Y, region.Y);
 
                 offset += _variantCounts[i];
             }

@@ -41,7 +41,7 @@ namespace VECS.ECS.Presentation
         {
             MaterialV2 shadowOffscreen = MaterialV2.ShadowOffscreen;
 
-            shadowOffscreen.SetStorageBufferLength(RenderBlob.MatricesBufferId, 0, (uint)drawCount);
+            shadowOffscreen.SetDescriptorStorageBufferLengthFromProperty(RenderBlob.MatricesBufferId, 0, (uint)drawCount);
 
             Matrix4x4 projection = Matrix4x4.CreatePerspectiveFieldOfView(MathF.PI * 0.5f, 1.0f, 0.1f, ShadowImage.SHADOW_IMAGE_SIZE);
             Matrix4x4 model = Matrix4x4.CreateTranslation(frameInfo.Ubo.PointLights[0].Position.AsVector3());

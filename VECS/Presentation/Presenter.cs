@@ -97,6 +97,8 @@ namespace VECS
                 GraphicsDevice.CreateCommandBuffers();
                 GraphicsDevice.DeviceWaitIdle();
             }
+            
+            DrawBlob.Reset();
 
             _swapChain.GraphicsCallback += GraphicsPipe;
 
@@ -284,12 +286,6 @@ namespace VECS
             VkCommandBuffer commandBuffer = SwapChain.CurrentMainCommandBuffer;
             RendererFrameInfo frameInfo = CreateRendererFrameInfo(Time.DeltaTime, commandBuffer);
 
-            //MaterialV2.Update(MaterialV2.WireFrame, frameInfo);
-            MaterialV2.UpdateMaterials(frameInfo);
-            if (_frameCount < 2)
-            {
-                //MaterialV2.UpdateMaterials(frameInfo);
-            }
             // culling
             CullScene(commandBuffer, frameInfo);
 
@@ -344,6 +340,8 @@ namespace VECS
             World.DefaultWorld.PresentPreCull(frameInfo);
             EndPreCullBarrier(commandBuffer);
 
+            MaterialV2.UpdateMaterials(frameInfo);
+
             World.DefaultWorld.PresentOnCull(frameInfo);
 
             PostCullBarrier(commandBuffer);
@@ -393,6 +391,8 @@ namespace VECS
         /// </summary>
         public void Dispose()
         {
+            DrawBlob.CleanUp();
+
             foreach (var assetType in typeof(DisposableAsset).AllSubclassesNonAbstract())
             {
                 IEnumerable<DisposableAsset> disposableAssets = ((IEnumerable)GenericExtensions.GetStaticPropertyOnGenericType(typeof(AssetDataBase<>), assetType, "AllAssets")).Cast<DisposableAsset>();

@@ -64,7 +64,7 @@ namespace VECS.ECS.Presentation
             }
             vertices[^1] = (Vector3.Zero + new Vector3(MathF.Sin(0), -MathF.Cos(0), 0)) * 1f;
             _circleBuffer.WriteFromHostBuffer();
-            MaterialV2.WireFrame.SetStorageBufferLength(MatricesBufferId, 0, 0);
+            MaterialV2.WireFrame.SetDescriptorStorageBufferLength(0,1, 0);
         }
 
         public override void OnFowardPass(EntityManager entityManager, RendererFrameInfo frameInfo)
@@ -94,8 +94,8 @@ namespace VECS.ECS.Presentation
                 drawCount += _cameraQuery.HasEntities ? _cameraQuery.GetEntities().Count : 0;
                 drawCount += _renderBoundsQuery.HasEntities ? _renderBoundsQuery.GetEntities().Count*4 : 0;
 
-                MaterialV2.WireFrame.SetStorageBufferLength(MatricesBufferId, 0, (uint)drawCount);
-                MaterialV2.WireFrame.SetStorageBufferLength(ColourBufferId, 0, (uint)drawCount);
+                MaterialV2.WireFrame.SetDescriptorStorageBufferLength( 0,1, (uint)drawCount);
+                MaterialV2.WireFrame.SetDescriptorStorageBufferLength( 0,1, (uint)drawCount);
 
                 matrices = MaterialV2.WireFrame.GetStorageBuffer<ModelMatrices>(MatricesBufferId);
                 colours = MaterialV2.WireFrame.GetStorageBuffer<Vector4>(ColourBufferId);

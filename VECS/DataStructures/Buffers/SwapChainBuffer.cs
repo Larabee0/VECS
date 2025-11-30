@@ -16,6 +16,7 @@ namespace VECS
         protected ulong _hostAlignment;
         protected ulong _vkBufferSize;
         protected bool _CPUAccessible;
+        protected bool _hasHostBuffer;
         protected VkBufferUsageFlags _usageFlags;
 
         protected readonly bool _alisedGPUBuffer = false;
@@ -45,7 +46,7 @@ namespace VECS
             get
             {
                 int frameIndex = Presenter.Instance.FrameIndex;
-                if (_CPUAccessible && _diryBuffers[frameIndex] && HostPtrValid)
+                if (_CPUAccessible && _hasHostBuffer && _diryBuffers[frameIndex] && HostPtrValid)
                 {
                     this.WriteFromHostToBuffer(frameIndex);
                 }
@@ -83,7 +84,7 @@ namespace VECS
         {
             _instanceSize = instanceSize;
             _instanceCount = instanceCount;
-            _CPUAccessible = cpuAccessible;
+            _hasHostBuffer = _CPUAccessible = cpuAccessible;
             _usageFlags = usageFlags;
 
             CreateInternal();
@@ -97,7 +98,7 @@ namespace VECS
         {
             _instanceSize = instanceSize;
             _instanceCount = instanceCount;
-            _CPUAccessible = cpuAccessible;
+            _hasHostBuffer = _CPUAccessible = cpuAccessible;
             _usageFlags = usageFlags;
 
             CreateInternal();
@@ -111,7 +112,7 @@ namespace VECS
         {
             _instanceSize = instanceSize;
             _instanceCount = instanceCount;
-            _CPUAccessible = cpuAccessible;
+            _hasHostBuffer = _CPUAccessible = cpuAccessible;
             _usageFlags = usageFlags;
 
             CreateInternal();
@@ -123,7 +124,7 @@ namespace VECS
             var srcInstanceCount = copyFrom.UInstanceCount;
             _instanceSize = copyFrom._instanceSize;
             _instanceCount = newInstanceCount;
-            _CPUAccessible = copyFrom._CPUAccessible;
+            _hasHostBuffer = _CPUAccessible = copyFrom._CPUAccessible;
             _usageFlags = copyFrom._usageFlags;
 
             if (!CreateInternal(true))
@@ -132,7 +133,7 @@ namespace VECS
             }
 
             _usedInstanceCount = (uint)InstanceCount;
-            if (_CPUAccessible)
+            if (_CPUAccessible && _hasHostBuffer)
             {
                 _hostPtr = copyFrom._hostPtr;
                 copyFrom._hostPtr = null;
@@ -159,7 +160,7 @@ namespace VECS
             _instanceSize = gpuBuffer.InstanceSize;
             _instanceCount = gpuBuffer.UInstanceCount;
             _hostAlignment = gpuBuffer.HostAlignment;
-            _CPUAccessible = gpuBuffer.CPUAccess;
+            _hasHostBuffer = _CPUAccessible = gpuBuffer.CPUAccess;
             _usageFlags = gpuBuffer.UsageFlags;
 
             _vkBufferSize = HostBufferSize;
@@ -208,7 +209,7 @@ namespace VECS
         protected unsafe void AutoAllocateCPUBuffer()
         {
             _usedInstanceCount = (uint)InstanceCount;
-            if (_CPUAccessible)
+            if (_CPUAccessible && _hasHostBuffer)
             {
                 _hostPtr = NativeMemory.AlignedAlloc((nuint)_vkBufferSize, (nuint)_hostAlignment);
                 NativeMemory.Fill(_hostPtr, (nuint)_vkBufferSize, 0);
@@ -229,7 +230,11 @@ namespace VECS
 
         public virtual SwapChainBuffer Realloc(ulong newInstanceCount)
         {
-            return new SwapChainBuffer(this, newInstanceCount);
+            if (newInstanceCount > UInstanceCount)
+            {
+                return new SwapChainBuffer(this, newInstanceCount);
+            }
+            return this;
         }
         
         /// <summary>
@@ -317,10 +322,24 @@ namespace VECS
         {
             _instanceSize = (ulong)sizeof(T);
             _instanceCount = instanceCount;
-            _CPUAccessible = cpuAccessible;
+            _hasHostBuffer = _CPUAccessible = cpuAccessible;
             _usageFlags = usageFlags;
 
             CreateInternal();
+        }
+
+        public unsafe SwapChainBuffer(
+            uint instanceCount,
+            VkBufferUsageFlags usageFlags,
+            bool cpuAccessible, bool preventHostAlloc)
+        {
+            _instanceSize = (ulong)sizeof(T);
+            _instanceCount = instanceCount;
+            _CPUAccessible = cpuAccessible;
+            _hasHostBuffer = !preventHostAlloc;
+            _usageFlags = usageFlags;
+
+            CreateInternal(preventHostAlloc);
         }
 
         public unsafe SwapChainBuffer(
@@ -331,7 +350,7 @@ namespace VECS
         {
             _instanceSize = instanceSize;
             _instanceCount = instanceCount;
-            _CPUAccessible = cpuAccessible;
+            _hasHostBuffer = _CPUAccessible = cpuAccessible;
             _usageFlags = usageFlags;
 
             CreateInternal();
@@ -344,7 +363,7 @@ namespace VECS
         {
             _instanceSize = (ulong)sizeof(T);
             _instanceCount = instanceCount;
-            _CPUAccessible = cpuAccessible;
+            _hasHostBuffer = _CPUAccessible = cpuAccessible;
             _usageFlags = usageFlags;
 
             CreateInternal();
@@ -355,7 +374,7 @@ namespace VECS
             var srcInstanceCount = copyFrom.UInstanceCount;
             _instanceSize = copyFrom._instanceSize;
             _instanceCount = newInstanceCount;
-            _CPUAccessible = copyFrom._CPUAccessible;
+            _hasHostBuffer = _CPUAccessible = copyFrom._CPUAccessible;
             _usageFlags = copyFrom._usageFlags;
 
             if (!CreateInternal(true))
@@ -365,7 +384,7 @@ namespace VECS
 
             _usedInstanceCount = (uint)InstanceCount;
 
-            if (_CPUAccessible)
+            if (_CPUAccessible && _hasHostBuffer)
             {
                 _hostPtr = copyFrom._hostPtr;
                 copyFrom._hostPtr = null;
@@ -389,7 +408,11 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public override SwapChainBuffer Realloc(ulong newInstanceCount)
         {
-            return new SwapChainBuffer<T>(this, newInstanceCount);
+            if (newInstanceCount > UInstanceCount)
+            {
+                return new SwapChainBuffer<T>(this, newInstanceCount);
+            }
+            return this;
         }
     }
 }

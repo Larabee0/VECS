@@ -53,10 +53,10 @@ namespace VECS
                 {
                     var meshIndex = entityManager.GetComponent<DirectSubMeshIndex>(e);
 
-                    if (meshIndex.DirectMeshHash == oldHash)
+                    if (meshIndex.Hash == oldHash)
                     {
                         var value = entityManager.GetComponent<DirectSubMeshIndex>(e);
-                        value.DirectMeshHash = newHash;
+                        value.Hash = newHash;
                         entityManager.SetComponent(e, value);
                     }
                 });

@@ -123,20 +123,20 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool SetStorageBufferRegion(uint setIndex, uint offset, uint length)
+        public bool SetStorageBufferLength(uint setIndex, uint length)
         {
-            if(length == 0 || _bufferDescriptors[setIndex].Disposed || !_bufferDescriptors[setIndex].SetStorageBufferRegion(offset, length)) return false;
+            if(length == 0 || _bufferDescriptors[setIndex].Disposed || !_bufferDescriptors[setIndex].SetStorageBufferRegion(0, length)) return false;
             Array.Fill(_dirtyBufferRegions, true);
             return true;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool SetStorageBufferOffset(uint setIndex, uint offset)
-        {
-            if (_bufferDescriptors[setIndex].Disposed || !_bufferDescriptors[setIndex].SetStorageBufferOffset(offset)) return false;
-            Array.Fill(_dirtyBufferRegions, true);
-            return true;
-        }
+        // [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        // public bool SetStorageBufferOffset(uint setIndex, uint offset)
+        // {
+        //     if (_bufferDescriptors[setIndex].Disposed || !_bufferDescriptors[setIndex].SetStorageBufferOffset(offset)) return false;
+        //     Array.Fill(_dirtyBufferRegions, true);
+        //     return true;
+        // }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetUniformBufferRegion(int setIndex, uint offset, uint length)
@@ -146,10 +146,10 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public uint GetStorageTotal(uint setIndex)
+        public uint GetStorageBufferLength(uint setIndex)
         {
             if (_bufferDescriptors[setIndex].Disposed) return 0;
-            return _bufferDescriptors[setIndex].StorageBufferOffsetLength;
+            return _bufferDescriptors[setIndex].StorageBufferLength;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -235,11 +235,12 @@ namespace VECS
             private readonly int BufferCount;
 
             private Vector2UInt _uniformRegion;
-            private Vector2UInt _storageRegion;
+            private uint _storageBufferLength;
 
             private bool _disposed;
             public readonly bool Disposed => _disposed;
-            public readonly uint StorageBufferOffsetLength => _storageRegion.X + _storageRegion.Y;
+
+            public readonly uint StorageBufferLength => _storageBufferLength;
 
             public unsafe SetBufferDescriptors(DescriptorSetInfo setInfo, MaterialVariant variant)
             {
@@ -274,8 +275,7 @@ namespace VECS
                     var bindingInfo = setInfo.GetBindingFromBufferIndex(bufferIndex);
                     if (bindingInfo.StorageBuffer)
                     {
-                        var region = _storageRegion;
-                        addresses[bufferIndex] = setInfo.GetBufferAddressInfo(frameIndex, bufferIndex, region.X, region.Y);
+                        addresses[bufferIndex] = setInfo.GetBufferAddressInfo(frameIndex, bufferIndex, 0, _storageBufferLength);
                     }
                 }
             }
@@ -298,18 +298,18 @@ namespace VECS
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public unsafe bool SetStorageBufferRegion(uint offset, uint length)
             {
-                if (_storageRegion == new Vector2UInt(offset, length)) return false;
-                _storageRegion = new(offset, length);
+                if (_storageBufferLength == length) return false;
+                _storageBufferLength = length;
                 return true;
             }
 
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public unsafe bool SetStorageBufferOffset(uint offset)
-            {
-                if (_storageRegion.X == offset) return false;
-                _storageRegion.X = offset;
-                return true;
-            }
+            // [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            // public unsafe bool SetStorageBufferOffset(uint offset)
+            // {
+            //     if (_storageRegion.X == offset) return false;
+            //     _storageRegion.X = offset;
+            //     return true;
+            // }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public unsafe bool SetUniformBufferRegion(uint offset, uint length)

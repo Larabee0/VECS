@@ -32,6 +32,9 @@ namespace VECS
         public Application()
         {
             Instance = this;
+            var targetThreadCount = int.Max(1, Environment.ProcessorCount > 4 ? Environment.ProcessorCount - 2 : Environment.ProcessorCount - 1);
+            _threadDispatcher = new ThreadDispatcher(targetThreadCount);
+
             Bootstrap.subAssemblyLoadPoints.ForEach(loadPoint => loadPoint.PreApplicationConstruction());
             _appWindow = new(Width, Height, "VECS");
             GraphicsDevice.Initialise(_appWindow);
@@ -39,8 +42,6 @@ namespace VECS
             _presenter = new(_appWindow);
             
 
-            var targetThreadCount = int.Max(1, Environment.ProcessorCount > 4 ? Environment.ProcessorCount - 2 : Environment.ProcessorCount - 1);
-            _threadDispatcher = new ThreadDispatcher(targetThreadCount);
             Time.FixedTimeStepCallback += FixedUpdate;
         }
 

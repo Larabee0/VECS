@@ -10,9 +10,11 @@ namespace VECS.ECS.Presentation
         private EntityQuery _renderEntityQuery;
         private EntityQuery _renderBloomEntityQuery;
 
-        private ForwardInternal _forwardData;
-        private ShadowInternal _shadowData;
-        private DepthInternal _depthData;
+        // private ForwardInternal _forwardData;
+        // private ShadowInternal _shadowData;
+        // private DepthInternal _depthData;
+
+        
 
         public override void OnCreate(EntityManager entityManager)
         {
@@ -26,17 +28,25 @@ namespace VECS.ECS.Presentation
                 .WithNone(typeof(Prefab), typeof(DoNotRender))
                 .Build();
 
-
-            _forwardData = new();
-            _shadowData = new();
-            _depthData = new(_forwardData._renderBlob);
+            DrawBlob.AllInOneMats.Add(MaterialV2.DepthOnly.Hash);
+            // _forwardData = new();
+            // _shadowData = new();
+            // _depthData = new(_forwardData._renderBlob);
         }
 
         public override void OnDestroy(EntityManager entityManager)
         {
-            _forwardData?.Dispose();
-            _shadowData?.Dispose();
-            _depthData?.Dispose();
+            // _forwardData?.Dispose();
+            // _shadowData?.Dispose();
+            // _depthData?.Dispose();
+        }
+
+        public override void OnPreCull(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
+        {
+            if (!_renderEntityQuery.HasEntities) { return; }
+
+            var entities = _renderEntityQuery.GetEntities();
+            DrawBlob.RebuildOrUpdate(entityManager, entities);
         }
 
         public override void OnCull(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
@@ -45,8 +55,8 @@ namespace VECS.ECS.Presentation
 
             var entities = _renderEntityQuery.GetEntities();
 
-            _forwardData.GenerateDrawCmds(rendererFrameInfo, entityManager, entities);
-
+            // _forwardData.GenerateDrawCmds(rendererFrameInfo, entityManager, entities);
+            // DrawBlob.RebuildStructure(entityManager, entities);
         }
 
         public unsafe override void OnPreForwardPass(EntityManager entityManager, RendererFrameInfo frameInfo)
@@ -59,16 +69,18 @@ namespace VECS.ECS.Presentation
                 return;
             }
 
-            var entities = _renderEntityQuery.GetEntities();
+            DrawBlob.CullAllInOne(frameInfo, frameInfo.cullData);
+            DrawBlob.ExecuteAllInOneDrawCmds(frameInfo, frameInfo.CommandBuffer, MaterialV2.DepthOnly.Hash);
+
             //_shadowData.GenerateDrawCmds(frameInfo, entityManager, entities);
-            _depthData.GenerateDrawCmds(frameInfo, entityManager, entities);
+            // _depthData.GenerateDrawCmds(frameInfo, entityManager, entities);
         }
 
         public override void OnBloomGlow(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
         {
             if (!_renderEntityQuery.HasEntities) { return; }
 
-            _forwardData.ExecuteBloomDrawCmds(rendererFrameInfo);
+            // _forwardData.ExecuteBloomDrawCmds(rendererFrameInfo);
         }
 
         public override unsafe void OnFowardPass(EntityManager entityManager, RendererFrameInfo frameInfo)
@@ -128,7 +140,11 @@ namespace VECS.ECS.Presentation
 
             if (!_renderEntityQuery.HasEntities) { return; }
 
-            _forwardData.ExecuteDrawCmds(frameInfo);
+            DrawBlob.CullByMat(frameInfo,frameInfo.cullData);
+            DrawBlob.ExecuteDrawCmds(frameInfo, null, null, 0, default, default);
+
+            // 
+            // _forwardData.ExecuteDrawCmds(frameInfo);
         }
     }
 }

@@ -160,6 +160,8 @@ namespace VECS.ECS
             _presentationSystems.ForEach(s => s.OnPostUpdate(_entityManager));
         }
 
+
+
         internal void PresentPreCull(RendererFrameInfo rendererFrameInfo)
         {
             _presentationSystems.ForEach(s => s.OnPreCull(_entityManager, rendererFrameInfo));

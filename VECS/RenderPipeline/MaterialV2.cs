@@ -409,57 +409,45 @@ namespace VECS
             }
         }
 
-        public void SetStorageBufferLength(int propertyId, uint variant, uint length)
+        public void SetDescriptorStorageBufferLength(uint variant, uint descriptorIndex, uint length)
         {
-            if (LookUpProperty(propertyId, out var propertyInfo) && propertyInfo.BindingInfo.StorageBuffer)
+            if (descriptorIndex >= _descriptorSetCount)
             {
-                TryCreateVariant(variant);
-                uint offset = 0;
-                for (uint i = 0; i < variant; i++)
-                {
-                    offset += _matVariants[i].GetStorageTotal(propertyInfo.SetIndex);
-                }
-
-                _matVariants[variant].SetStorageBufferRegion(propertyInfo.SetIndex, offset, length);
-                offset += length;
-                for (uint i = variant+1; i < _variantCount; i++)
-                {
-                    _matVariants[i].SetStorageBufferOffset(propertyInfo.SetIndex, offset);
-                    offset += _matVariants[i].GetStorageTotal(propertyInfo.SetIndex);
-                }
+                return;
             }
-        }
-
-        public void SetStorageBufferLength(uint variant, uint length)
-        {
+            length = Math.Max(1, length);
             TryCreateVariant(variant);
-            uint offset = 0;
-            for (uint i = 0; i < variant; i++)
+
+            for (uint i = 0; i < _variantCount; i++)
             {
                 MaterialVariant matVariant = _matVariants[i];
-                uint internalOffset = 0;
-                for (uint j = 0; j < _descriptorSetCount; j++)
-                {
-                    
-                    internalOffset = Math.Max(internalOffset, matVariant.GetStorageTotal(j));
-                }
-                offset += internalOffset;
-            }
-            for (uint j = 0; j < _descriptorSetCount; j++)
-            {
-                _preBindUpdate |= _matVariants[variant].SetStorageBufferRegion(j, offset, length);
-            }
-            offset += length;
-            for (uint i = variant + 1; i < _variantCount; i++)
-            {
-                MaterialVariant matVariant = _matVariants[i];
-                for (uint j = 0; j < _descriptorSetCount; j++)
-                {
-                    _preBindUpdate |=matVariant.SetStorageBufferOffset(j, offset);
-                    offset += matVariant.GetStorageTotal(j);
-                }
+                _preBindUpdate |= matVariant.SetStorageBufferLength(descriptorIndex, length);
             }
         }
+
+        public void SetDescriptorStorageBufferLengthFromProperty(int propertyId, uint variant, uint length)
+        {
+            if(!LookUpProperty(propertyId, out var propertyInfo))
+            {
+                return;
+            }
+
+            SetDescriptorStorageBufferLength(variant,propertyInfo.SetIndex,length);
+        }
+
+        //public void SetStorageBufferLength(uint variant, uint length)
+        //{
+        //    TryCreateVariant(variant);
+        //    
+        //    for (uint i = 0; i < _variantCount; i++)
+        //    {
+        //        MaterialVariant matVariant = _matVariants[i];
+        //        for (uint j = 0; j < _descriptorSetCount; j++)
+        //        {
+        //            _preBindUpdate |= matVariant.SetStorageBufferLength(j, length);                   
+        //        }
+        //    }
+        //}
 
         public Span<T> GetStorageBuffer<T>(int propertyId) where T : unmanaged
         {
@@ -559,11 +547,11 @@ namespace VECS
                 MaterialVariant.UpdateVariant(variant, frameIndex);
             }
 
-            MaterialVariant lastVariant = material._matVariants[material._variantCount-1];
+            MaterialVariant lastVariant = material._matVariants[0];
 
             for (uint j = 0; j < material.DescriptorSetCount; j++)
             {
-                accumulatedStorageBufferUsage[j] = lastVariant.GetStorageTotal(j);
+                accumulatedStorageBufferUsage[j] = lastVariant.GetStorageBufferLength(j);
             }
 
             for (int i = 0; i < material.DescriptorSetCount; i++)
@@ -693,7 +681,7 @@ namespace VECS
             {
                 var pointLights = material.GetStorageBuffer<PointLightUniform>(ShaderPropertyInfo.PointLightsBufferProperty);
                 frameInfo.PointLights.CopyTo(pointLights);
-                material._matVariants[variant].SetStorageBufferRegion(0, 0, (uint)frameInfo.PointLights.Length);
+                material._matVariants[variant].SetStorageBufferLength(0, (uint)frameInfo.PointLights.Length);
             }
         }
 
@@ -770,7 +758,7 @@ namespace VECS
             _materialPushConstantsHandler.BindPushConstants(commandBuffer, _pipelineLayout, variantIndex);
         }
 
-        public unsafe void ExecuteDrawCommands(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, MaterialDrawCommand[] drawCmds, int matDrawCount, SwapChainBuffer<VkDrawIndexedIndirectCommand> indirectCmdBuffer)
+        public unsafe void ExecuteDrawCommands(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, Span<MaterialDrawCommand> drawCmds, int matDrawCount, SwapChainBuffer<VkDrawIndexedIndirectCommand> indirectCmdBuffer)
         {
             if (matDrawCount <= 0) return;
             var frameIndex = frameInfo.FrameIndex;
@@ -826,7 +814,7 @@ namespace VECS
             }
 
             _materialPushConstantsHandler.BindPushConstants(commandBuffer, _pipelineLayout, command.Entity);
-            var mesh = AssetDataBase<DirectMesh>.AllAssetsListForReading[command.DirectMesh];
+            var mesh = AssetDataBase<DirectMesh>.GetHashed(command.DirectMesh);
             mesh.BindSpecificBuffers(commandBuffer, _graphicsPipelineConfigInfo.BindingDescriptions, _graphicsPipelineConfigInfo.AttributeDescriptions);
 
             GraphicsDevice.DeviceAPI.vkCmdDrawIndexedIndirect(

@@ -10,6 +10,12 @@
         public BufferRegion MeshSubRegion;
         public bool Bloom;
 
+        public int BufferStart => StorageBufferRegion.StartIndex;
+        public int BufferCount => StorageBufferRegion.Count;
+
+        public int MeshStart => MeshSubRegion.StartIndex;
+        public int MeshCount => MeshSubRegion.Count;
+
         public MaterialDrawCommand(int material, int variant, BufferRegion storageBufferRegion, int entity, int directMesh, BufferRegion meshSubRegion, bool bloom)
         {
             Material = material;

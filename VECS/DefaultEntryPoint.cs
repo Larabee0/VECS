@@ -52,17 +52,17 @@ namespace VECS
         {
             MaterialV2 LitTexture = MaterialV2.LitTexture;
             LitTexture.GetStorageBuffer<ModelMatrices>("matricesBuffer".GetHashCode())[0] = new(TransformExtensions.TRS(new(0, 0, 0), Quaternion.Identity, new(4)));
-            LitTexture.SetStorageBufferLength("matricesBuffer".GetHashCode(), 0, 1);
+            LitTexture.SetDescriptorStorageBufferLengthFromProperty("matricesBuffer".GetHashCode(), 0, 1);
             
             MaterialV2 DepthOnly = MaterialV2.DepthOnly;
             DepthOnly.GetStorageBuffer<ModelMatrices>("matricesBuffer".GetHashCode())[0] = new(TransformExtensions.TRS(new(0, 0, 0), Quaternion.Identity, new(4)));
-            DepthOnly.SetStorageBufferLength("matricesBuffer".GetHashCode(), 0, 1);
+            DepthOnly.SetDescriptorStorageBufferLengthFromProperty("matricesBuffer".GetHashCode(), 0, 1);
 
             if (GraphicsDevice.MeshShading)
             {
                 MaterialV2 MeshShader = MaterialV2.UnlitMeshShader;
                 MeshShader.GetStorageBuffer<ModelMatrices>("matricesBuffer".GetHashCode())[0] = new(TransformExtensions.TRS(new(0, 0, 0), Quaternion.Identity, new(4)));
-                MeshShader.SetStorageBufferLength("matricesBuffer".GetHashCode(), 0, 1);
+                MeshShader.SetDescriptorStorageBufferLengthFromProperty("matricesBuffer".GetHashCode(), 0, 1);
             }
         }
 
