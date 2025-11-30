@@ -70,7 +70,9 @@ namespace VECS.ECS.Presentation
             }
 
             DrawBlob.CullAllInOne(frameInfo, frameInfo.cullData);
+            SwapChain.Instance.BeginForwardDepth(frameInfo.CommandBuffer);
             DrawBlob.ExecuteAllInOneDrawCmds(frameInfo, frameInfo.CommandBuffer, MaterialV2.DepthOnly.Hash);
+            SwapChain.Instance.EndForwardDepthRendering(frameInfo.CommandBuffer);
 
             //_shadowData.GenerateDrawCmds(frameInfo, entityManager, entities);
             // _depthData.GenerateDrawCmds(frameInfo, entityManager, entities);

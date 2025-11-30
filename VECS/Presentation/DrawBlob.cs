@@ -137,7 +137,7 @@ namespace VECS
 
             _indirectCmdBufferByMat.SetBuffersDirty(true);
             _indirectCmdBufferByMesh.SetBuffersDirty(true);
-            _drawRenderBoundsByMesh.SetBuffersDirty(true);
+            _drawRenderBoundsByMat.SetBuffersDirty(true);
             _drawRenderBoundsByMesh.SetBuffersDirty(true);
         }
 
@@ -145,8 +145,8 @@ namespace VECS
         {
             _indirectCmdBufferByMat.Dispose();
             _indirectCmdBufferByMesh.Dispose();
-            _indirectCmdBufferByMat.Dispose();
-            _indirectCmdBufferByMesh.Dispose();
+            _drawRenderBoundsByMat.Dispose();
+            _drawRenderBoundsByMesh.Dispose();
         }
 
         public static void RebuildOrUpdate(EntityManager entityManager, List<Entity> entities)
