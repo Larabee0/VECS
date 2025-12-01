@@ -17,7 +17,7 @@ namespace VECS.ECS.Presentation
         public override void OnCreate(EntityManager entityManager)
         {
             _pointLightQuery = new EntityQuery(entityManager)
-                .WithAll(typeof(PointLight),typeof(PointLightDrawer), typeof(LocalToWorld), typeof(Children))
+                .WithAll(typeof(PointLight),typeof(PointLightDrawer), typeof(LocalToWorld))
                 .WithNone(typeof(Prefab), typeof(DoNotRender))
                 .Build();
         }

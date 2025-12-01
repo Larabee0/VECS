@@ -11,7 +11,7 @@ namespace VECS.ECS.Presentation
         private EntityQuery _renderBloomEntityQuery;
 
         // private ForwardInternal _forwardData;
-        // private ShadowInternal _shadowData;
+         private ShadowInternal _shadowData;
         // private DepthInternal _depthData;
 
         
@@ -30,14 +30,14 @@ namespace VECS.ECS.Presentation
 
             DrawBlob.AllInOneMats.Add(MaterialV2.DepthOnly.Hash);
             // _forwardData = new();
-            // _shadowData = new();
+            _shadowData = new();
             // _depthData = new(_forwardData._renderBlob);
         }
 
         public override void OnDestroy(EntityManager entityManager)
         {
             // _forwardData?.Dispose();
-            // _shadowData?.Dispose();
+            _shadowData?.Dispose();
             // _depthData?.Dispose();
         }
 
@@ -49,15 +49,14 @@ namespace VECS.ECS.Presentation
             DrawBlob.RebuildOrUpdate(entityManager, entities);
         }
 
-        public override void OnCull(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
-        {
-            if (!_renderEntityQuery.HasEntities) { return; }
-
-            var entities = _renderEntityQuery.GetEntities();
-
-            // _forwardData.GenerateDrawCmds(rendererFrameInfo, entityManager, entities);
-            // DrawBlob.RebuildStructure(entityManager, entities);
-        }
+        // public override void OnCull(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
+        // {
+        //     if (!_renderEntityQuery.HasEntities) { return; }
+        // 
+        // 
+        //     // _forwardData.GenerateDrawCmds(rendererFrameInfo, entityManager, entities);
+        //     // DrawBlob.RebuildStructure(entityManager, entities);
+        // }
 
         public unsafe override void OnPreForwardPass(EntityManager entityManager, RendererFrameInfo frameInfo)
         {
@@ -69,12 +68,13 @@ namespace VECS.ECS.Presentation
                 return;
             }
 
-            DrawBlob.CullAllInOne(frameInfo, frameInfo.cullData);
+            DrawBlob.CullAllInOne(frameInfo,frameInfo.CommandBuffer, frameInfo.cullData);
             SwapChain.Instance.BeginForwardDepth(frameInfo.CommandBuffer);
             DrawBlob.ExecuteAllInOneDrawCmds(frameInfo, frameInfo.CommandBuffer, MaterialV2.DepthOnly.Hash);
             SwapChain.Instance.EndForwardDepthRendering(frameInfo.CommandBuffer);
 
-            //_shadowData.GenerateDrawCmds(frameInfo, entityManager, entities);
+            var entities = _renderEntityQuery.GetEntities();
+            _shadowData.GenerateDrawCmds(frameInfo, entityManager, entities);
             // _depthData.GenerateDrawCmds(frameInfo, entityManager, entities);
         }
 

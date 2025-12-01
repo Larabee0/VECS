@@ -57,7 +57,7 @@ namespace Planets
         private MaterialV2 planetLitMaterial;
         private PlanetPropeties planetProperties;
 
-        private static readonly bool useComputeShaderForGeneration = true;
+        private static readonly bool useComputeShaderForGeneration = false;
         private readonly int subdivisons = 75;
 
         private readonly static Stopwatch _stopwatch = new();
@@ -65,7 +65,7 @@ namespace Planets
         {
             World.DefaultWorld.CreateSystem<UpdatePlanetTimeSystem>();
             World.DefaultWorld.CreateSystem<TransformPlanetsSystem>();
-            //World.DefaultWorld.CreateSystem<PointLightSystem>();
+            World.DefaultWorld.CreateSystem<PointLightSystem>();
             World.DefaultWorld.CreateSystem<ShipGuns>();
             World.DefaultWorld.CreateSystem<InteractionSystem>();
 
@@ -78,9 +78,9 @@ namespace Planets
             //LoadStaticResources(entityManager);
             CreateXWing(entityManager);
             CreateFlightScene(entityManager);
-            //var prefabPlanet = CreatePrefabPlanet(entityManager);
+            var prefabPlanet = CreatePrefabPlanet(entityManager);
 
-            var prefabPlanet = Entity.Null;
+            //var prefabPlanet = Entity.Null;
 
             CreateSinglePlanetTestScene(entityManager, prefabPlanet);
 
@@ -112,23 +112,23 @@ namespace Planets
             entityManager.AddComponent(aStar, new Translation() { Value = new(0f, 0000, 0) });
             entityManager.AddComponent(aStar, new Scale() { Value = new(30f, 30, 30) });
 
-            // Parent starParent = new() { Value = aStar };
-            // 
-            // Entity planetOrbiterA = InstantiateNewOrbitalPlanet(entityManager,
-            //     PlanetPresets.ShapeGeneratorFixedEarthLike(),
-            //     prefabPlanet, starParent,
-            //     new(-25f, 0, 0),
-            //     3,
-            //     5, 12, planetLitMaterial);
-            // 
-            // Entity planetOrbiterB = InstantiateNewOrbitalPlanet(entityManager,
-            //     PlanetPresets.ShapeGeneratorRandomEarthLike(),
-            //     CreatePrefabPlanet(entityManager), starParent,
-            //     new(-10f, 0, 00),
-            //     3,
-            //     -5, 12, planetLitMaterial);
-            // 
-            // aStar.AddChildren(entityManager, [planetOrbiterA, planetOrbiterB]);
+            Parent starParent = new() { Value = aStar };
+            
+            Entity planetOrbiterA = InstantiateNewOrbitalPlanet(entityManager,
+                PlanetPresets.ShapeGeneratorFixedEarthLike(),
+                prefabPlanet, starParent,
+                new(-25f, 0, 0),
+                3,
+                5, 12, planetLitMaterial);
+            
+            Entity planetOrbiterB = InstantiateNewOrbitalPlanet(entityManager,
+                PlanetPresets.ShapeGeneratorRandomEarthLike(),
+                CreatePrefabPlanet(entityManager), starParent,
+                new(-10f, 0, 00),
+                3,
+                -5, 12, planetLitMaterial);
+            
+            aStar.AddChildren(entityManager, [planetOrbiterA, planetOrbiterB]);
 
             // aStar.AddChildren(entityManager, [planetOrbiterA]);
         }
@@ -320,7 +320,7 @@ namespace Planets
             xWingMaterial.SetTexture2D("samplerNormalMap".GetHashCode(),2,  astroDroidNormalTexture);
 
             var xWingBase = entityManager.CreateEntity();
-            entityManager.AddComponent(xWingBase, new Translation() { Value = new Vector3(0, -390f, -400) });
+            entityManager.AddComponent(xWingBase, new Translation() { Value = new Vector3(0, 0f, -400) });
             entityManager.AddComponent(xWingBase, new Rotation());
 
 

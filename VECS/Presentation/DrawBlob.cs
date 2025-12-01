@@ -80,8 +80,8 @@ namespace VECS
 
         public static void Reset()
         {
-            AllInOneMats.Clear();
-            AllInOneMats.TrimExcess();
+            //AllInOneMats.Clear();
+            //AllInOneMats.TrimExcess();
             _materialBufferRegions.Clear();
             _directMeshDraws.Clear();
             _materialVariants.Clear();
@@ -112,24 +112,24 @@ namespace VECS
             Array.Clear(_workerRegions);
             GC.Collect();
 
-            _indirectCmdBufferByMat = new(100,
+            _indirectCmdBufferByMat = new(400,
                     VkBufferUsageFlags.TransferDst |
                     VkBufferUsageFlags.TransferSrc |
                     VkBufferUsageFlags.IndirectBuffer |
                     VkBufferUsageFlags.StorageBuffer,
                     true);
-            _indirectCmdBufferByMesh = new(100,
+            _indirectCmdBufferByMesh = new(400,
                     VkBufferUsageFlags.TransferDst |
                     VkBufferUsageFlags.TransferSrc |
                     VkBufferUsageFlags.IndirectBuffer |
                     VkBufferUsageFlags.StorageBuffer,
                     true);
-            _drawRenderBoundsByMat = new(100,
+            _drawRenderBoundsByMat = new(400,
                     VkBufferUsageFlags.TransferDst |
                     VkBufferUsageFlags.TransferSrc |
                     VkBufferUsageFlags.StorageBuffer,
                     true);
-            _drawRenderBoundsByMesh = new(100,
+            _drawRenderBoundsByMesh = new(400,
                     VkBufferUsageFlags.TransferDst |
                     VkBufferUsageFlags.TransferSrc |
                     VkBufferUsageFlags.StorageBuffer,
@@ -432,12 +432,19 @@ namespace VECS
             mat.ExecuteDrawCommands(frameInfo, commandBuffer, _drawCommandsByMesh, _drawCommandsByMesh.Length, _indirectCmdBufferByMesh);
         }
 
-        public static void CullAllInOne(RendererFrameInfo frameInfo, CullData cullData)
+        public static void ExecuteAllInOneDrawCmds(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, int materialHash, int pushConstantIndex)
         {
-            VkBufferMemoryBarrier2 memoryBarrier = FustrumCull.Cull(frameInfo.CommandBuffer, frameInfo.FrameIndex, cullData, (uint)entityCount, _indirectCmdBufferByMesh, _drawRenderBoundsByMesh);
+            var mat = AssetDataBase<MaterialV2>.GetHashed(materialHash);
+
+            mat.ExecuteDrawCommandsPushConstantOverride(frameInfo, pushConstantIndex, commandBuffer, _drawCommandsByMesh, _drawCommandsByMesh.Length, _indirectCmdBufferByMesh);
+        }
+
+        public static void CullAllInOne(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, CullData cullData)
+        {
+            VkBufferMemoryBarrier2 memoryBarrier = FustrumCull.Cull(commandBuffer, frameInfo.FrameIndex, cullData, (uint)entityCount, _indirectCmdBufferByMesh, _drawRenderBoundsByMesh);
             if (!FustrumCull.CPUCulling)
             {
-                MemoryBarrierHelper.BufferMemoryBarrier(frameInfo.CommandBuffer, memoryBarrier, VkPipelineStageFlags2.ComputeShader, VkPipelineStageFlags2.DrawIndirect);
+                MemoryBarrierHelper.BufferMemoryBarrier(commandBuffer, memoryBarrier, VkPipelineStageFlags2.ComputeShader, VkPipelineStageFlags2.DrawIndirect);
             }
         }
 

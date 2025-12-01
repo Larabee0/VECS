@@ -91,6 +91,7 @@ namespace VECS
 
             var pointLightConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             GraphicsPipelineConfigInfo.EnableAlphaBlending(ref pointLightConfig);
+            pointLightConfig.depthStencilInfo.depthWriteEnable = true;
             PointLight = new MaterialV2("PointLightDisplay", "point_light.vert", "point_light.frag", pointLightConfig);
 
             var alphaBlending = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
@@ -881,7 +882,7 @@ namespace VECS
             }
 
             _materialPushConstantsHandler.BindPushConstants(commandBuffer, _pipelineLayout, pushConstantIndex);
-            var mesh = AssetDataBase<DirectMesh>.AllAssetsListForReading[command.DirectMesh];
+            var mesh = AssetDataBase<DirectMesh>.GetHashed(command.DirectMesh);
             mesh.BindSpecificBuffers(commandBuffer, _graphicsPipelineConfigInfo.BindingDescriptions, _graphicsPipelineConfigInfo.AttributeDescriptions);
 
             GraphicsDevice.DeviceAPI.vkCmdDrawIndexedIndirect(

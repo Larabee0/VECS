@@ -8,7 +8,7 @@ namespace VECS.ECS.Presentation
 {
     internal class ShadowInternal : RenderSystemInternal
     {
-        private readonly ShadowRenderBlob _shadowRenderBlob;
+        // private readonly ShadowRenderBlob _shadowRenderBlob;
 
         private readonly VkCommandBuffer[][] _freeBuffers = new VkCommandBuffer[SwapChain.MAX_CONCURRENT_FRAMES][];
 
@@ -19,21 +19,12 @@ namespace VECS.ECS.Presentation
             {
                 _freeBuffers[i] = new VkCommandBuffer[7];
             }
-            _shadowRenderBlob = new(MaterialV2.ShadowOffscreen, GenericRenderSystem.MAX_DRAWS);
+            DrawBlob.AllInOneMats.Add(MaterialV2.ShadowOffscreen.Hash);
+            //_shadowRenderBlob = new(MaterialV2.ShadowOffscreen, GenericRenderSystem.MAX_DRAWS);
         }
 
         public override void GenerateDrawCmds(RendererFrameInfo frameInfo, EntityManager entityManager, List<Entity> entities)
         {
-            if (_shadowRenderBlob.DrawCount != entities.Count)
-            {
-                _shadowRenderBlob.RebuildBlob(entityManager, entities);
-            }
-            else
-            {
-                _shadowRenderBlob.UpdateDrawCommands(entityManager);
-            }
-
-
             RenderShadows(frameInfo, entities.Count);
         }
 
@@ -41,7 +32,7 @@ namespace VECS.ECS.Presentation
         {
             MaterialV2 shadowOffscreen = MaterialV2.ShadowOffscreen;
 
-            shadowOffscreen.SetDescriptorStorageBufferLengthFromProperty(RenderBlob.MatricesBufferId, 0, (uint)drawCount);
+            //shadowOffscreen.SetDescriptorStorageBufferLengthFromProperty(RenderBlob.MatricesBufferId, 0, (uint)drawCount);
 
             Matrix4x4 projection = Matrix4x4.CreatePerspectiveFieldOfView(MathF.PI * 0.5f, 1.0f, 0.1f, ShadowImage.SHADOW_IMAGE_SIZE);
             Matrix4x4 model = Matrix4x4.CreateTranslation(frameInfo.Ubo.PointLights[0].Position.AsVector3());
@@ -98,16 +89,16 @@ namespace VECS.ECS.Presentation
             CullData cullDataInternal = cullData;
             var viewMatrix = ShadowImage.GetViewMatrixForFace(i);
             cullDataInternal.viewMatrix = viewMatrix * model;
-            VkBufferMemoryBarrier2 memoryBarrier = FustrumCull.Cull(internalBuffer, frameInfo.FrameIndex, cullData, (uint)drawCount, _shadowRenderBlob.IndirectCmdBuffer, _shadowRenderBlob.ModelBoundsBuffer);
+
+
+            DrawBlob.CullAllInOne(frameInfo, internalBuffer, cullData);
             
-            if (!FustrumCull.CPUCulling)
-            {
-                MemoryBarrierHelper.BufferMemoryBarrier(internalBuffer, memoryBarrier, VkPipelineStageFlags2.ComputeShader, VkPipelineStageFlags2.DrawIndirect);
-            }
             Presenter.Instance.ShadowImage.UpdateCubeFace(i, internalBuffer);
             MaterialV2.ShadowOffscreen.PushConstants.SetPushConstantMatrix4x4("viewCube", i, viewMatrix);
 
-            _shadowRenderBlob.Draw(frameInfo, internalBuffer, i);
+            //_shadowRenderBlob.Draw(frameInfo, internalBuffer, i);
+
+            DrawBlob.ExecuteAllInOneDrawCmds(frameInfo, internalBuffer, MaterialV2.ShadowOffscreen.Hash,i);
 
             Presenter.Instance.ShadowImage.EndShadowPass(internalBuffer);
             GraphicsDevice.DeviceAPI.vkEndCommandBuffer(internalBuffer);
@@ -115,9 +106,9 @@ namespace VECS.ECS.Presentation
 
         public override void Dispose()
         {
-            GC.SuppressFinalize(this);
-            _shadowRenderBlob.Dispose();
-            GC.ReRegisterForFinalize(this);
+            // GC.SuppressFinalize(this);
+            // _shadowRenderBlob.Dispose();
+            // GC.ReRegisterForFinalize(this);
         }
     }
 }
