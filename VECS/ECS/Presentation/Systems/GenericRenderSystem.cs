@@ -49,14 +49,15 @@ namespace VECS.ECS.Presentation
             DrawBlob.RebuildOrUpdate(entityManager, entities);
         }
 
-        // public override void OnCull(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
-        // {
-        //     if (!_renderEntityQuery.HasEntities) { return; }
-        // 
-        // 
-        //     // _forwardData.GenerateDrawCmds(rendererFrameInfo, entityManager, entities);
-        //     // DrawBlob.RebuildStructure(entityManager, entities);
-        // }
+        public override void OnCull(EntityManager entityManager, RendererFrameInfo frameInfo)
+        {
+            if (!_renderEntityQuery.HasEntities) { return; }
+
+
+            DrawBlob.CullByMat(frameInfo, frameInfo.cullData);
+            // _forwardData.GenerateDrawCmds(rendererFrameInfo, entityManager, entities);
+            // DrawBlob.RebuildStructure(entityManager, entities);
+        }
 
         public unsafe override void OnPreForwardPass(EntityManager entityManager, RendererFrameInfo frameInfo)
         {
@@ -84,6 +85,7 @@ namespace VECS.ECS.Presentation
 
             // _forwardData.ExecuteBloomDrawCmds(rendererFrameInfo);
         }
+        
 
         public override unsafe void OnFowardPass(EntityManager entityManager, RendererFrameInfo frameInfo)
         {
@@ -142,7 +144,6 @@ namespace VECS.ECS.Presentation
 
             if (!_renderEntityQuery.HasEntities) { return; }
 
-            DrawBlob.CullByMat(frameInfo,frameInfo.cullData);
             DrawBlob.ExecuteDrawCmds(frameInfo, null, null, 0, default, default);
 
             // 

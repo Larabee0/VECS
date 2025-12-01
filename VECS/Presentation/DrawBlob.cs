@@ -14,7 +14,7 @@ namespace VECS
 {
     public static class DrawBlob
     {
-        private const bool MULTI_THREAD_RENDERING = false;
+        public const bool MULTI_THREAD_RENDERING = false;
         private readonly struct MatComparerer : IComparer<RenderMesh>
         {
             public readonly static MatComparerer Comparer = new();
@@ -324,6 +324,9 @@ namespace VECS
                 _drawRenderBoundsByMat.HostBuffer[i] = new ModelBounds(entityManager.GetComponent<WorldRenderBounds>(entityMat));
                 _drawRenderBoundsByMesh.HostBuffer[i] = new ModelBounds(entityManager.GetComponent<WorldRenderBounds>(entityMesh));
             });
+
+            _drawRenderBoundsByMat.WriteFromHostToActiveBuffer();
+            _drawRenderBoundsByMesh.WriteFromHostToActiveBuffer();
         }
 
         public static void CopyDataToMaterials()

@@ -49,59 +49,71 @@ namespace VECS.ECS.Presentation
             cullData.znear = 0.1f;
             cullData.zfar = ShadowImage.SHADOW_IMAGE_SIZE;
             cullData.frustum = frustum;
-            VkCommandBuffer[] parallelCmdBuffers = _freeBuffers[frameInfo.FrameIndex];
-
-            for (int i = 0; i < parallelCmdBuffers.Length; i++)
-            {
-                if (parallelCmdBuffers[i].IsNull)
-                {
-                    GraphicsDevice.DeviceAPI.vkAllocateCommandBuffer(GraphicsDevice.Device, GraphicsDevice.SecondaryMainPipeCommandBuffers[i], VkCommandBufferLevel.Secondary, out parallelCmdBuffers[i]).CheckResult("Failed to allocate command buffer!");
-                }
-            }
+            
 
             shadowOffscreen.PushConstants.EnsureCapacity(6);
             MaterialV2.Update(shadowOffscreen, frameInfo);
             Presenter.Instance.ShadowImage.SetImageLayoutWrite(frameInfo.CommandBuffer);
-
-            //Application.ParallelFor(6, (i) =>
-            //{
-            //    RenderShadow(frameInfo, drawCount, i, model, cullData, parallelCmdBuffers);
-            //});
-
-            for (int i = 0; i < 6; i++)
+            if (DrawBlob.MULTI_THREAD_RENDERING)
             {
-                RenderShadow(frameInfo, drawCount, i, model, cullData, parallelCmdBuffers);
+                VkCommandBuffer[] parallelCmdBuffers = _freeBuffers[frameInfo.FrameIndex];
+
+                for (int i = 0; i < parallelCmdBuffers.Length; i++)
+                {
+                    if (parallelCmdBuffers[i].IsNull)
+                    {
+                        GraphicsDevice.DeviceAPI.vkAllocateCommandBuffer(GraphicsDevice.Device, GraphicsDevice.SecondaryMainPipeCommandBuffers[i], VkCommandBufferLevel.Secondary, out parallelCmdBuffers[i]).CheckResult("Failed to allocate command buffer!");
+                    }
+                }
+
+                Application.ParallelFor(6, (i) =>
+                {
+                    RenderShadow(frameInfo, drawCount, i, model, cullData, parallelCmdBuffers);
+                });
+
+                fixed (VkCommandBuffer* pCmdBuffers = &parallelCmdBuffers[0])
+                {
+                    GraphicsDevice.DeviceAPI.vkCmdExecuteCommands(frameInfo.CommandBuffer, 6, pCmdBuffers);
+                }
+            }
+            else
+            {
+                for (int i = 0; i < 6; i++)
+                {
+                    RenderShadow(frameInfo, drawCount, i, model, cullData, null);
+                }
             }
 
-            fixed (VkCommandBuffer* pCmdBuffers = &parallelCmdBuffers[0])
-            {
-                GraphicsDevice.DeviceAPI.vkCmdExecuteCommands(frameInfo.CommandBuffer, 6, pCmdBuffers);
-            }
             Presenter.Instance.ShadowImage.SetImageLayoutRead(frameInfo.CommandBuffer);
         }
 
         private unsafe void RenderShadow(RendererFrameInfo frameInfo, int drawCount, int i, Matrix4x4 model, CullData cullData, VkCommandBuffer[] parallelCmdBuffers)
         {
-            VkCommandBufferInheritanceInfo inheritanceInfo = new() { };
-            VkCommandBufferBeginInfo bufferBeginInfo = new() { pInheritanceInfo = &inheritanceInfo };
-            VkCommandBuffer internalBuffer = parallelCmdBuffers[i];
-            GraphicsDevice.DeviceAPI.vkBeginCommandBuffer(internalBuffer, &bufferBeginInfo);
+            VkCommandBuffer internalBuffer = frameInfo.CommandBuffer;
+            if (DrawBlob.MULTI_THREAD_RENDERING)
+            {
+                VkCommandBufferInheritanceInfo inheritanceInfo = new() { };
+                VkCommandBufferBeginInfo bufferBeginInfo = new() { pInheritanceInfo = &inheritanceInfo };
+                internalBuffer = parallelCmdBuffers[i];
+                GraphicsDevice.DeviceAPI.vkBeginCommandBuffer(internalBuffer, &bufferBeginInfo);
+            }
             CullData cullDataInternal = cullData;
             var viewMatrix = ShadowImage.GetViewMatrixForFace(i);
             cullDataInternal.viewMatrix = viewMatrix * model;
 
 
-            DrawBlob.CullAllInOne(frameInfo, internalBuffer, cullData);
+            //DrawBlob.CullAllInOne(frameInfo, internalBuffer, cullData);
             
             Presenter.Instance.ShadowImage.UpdateCubeFace(i, internalBuffer);
             MaterialV2.ShadowOffscreen.PushConstants.SetPushConstantMatrix4x4("viewCube", i, viewMatrix);
 
-            //_shadowRenderBlob.Draw(frameInfo, internalBuffer, i);
-
             DrawBlob.ExecuteAllInOneDrawCmds(frameInfo, internalBuffer, MaterialV2.ShadowOffscreen.Hash,i);
 
             Presenter.Instance.ShadowImage.EndShadowPass(internalBuffer);
-            GraphicsDevice.DeviceAPI.vkEndCommandBuffer(internalBuffer);
+            if (DrawBlob.MULTI_THREAD_RENDERING)
+            {
+                GraphicsDevice.DeviceAPI.vkEndCommandBuffer(internalBuffer);
+            }
         }
 
         public override void Dispose()
