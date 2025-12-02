@@ -100,16 +100,19 @@ namespace VECS.ECS.Presentation
             CullData cullDataInternal = cullData;
             var viewMatrix = ShadowImage.GetViewMatrixForFace(i);
             cullDataInternal.viewMatrix = viewMatrix * model;
-
-
-            //DrawBlob.CullAllInOne(frameInfo, internalBuffer, cullData);
-            
-            Presenter.Instance.ShadowImage.UpdateCubeFace(i, internalBuffer);
             MaterialV2.ShadowOffscreen.PushConstants.SetPushConstantMatrix4x4("viewCube", i, viewMatrix);
 
-            DrawBlob.ExecuteAllInOneDrawCmds(frameInfo, internalBuffer, MaterialV2.ShadowOffscreen.Hash,i);
+
+            DrawBlob.CullAllInOne(frameInfo, internalBuffer, cullData);
+            
+            Presenter.Instance.ShadowImage.UpdateCubeFace(i, internalBuffer);
+
+            DrawBlob.ExecuteAllInOneDrawCmds(frameInfo, internalBuffer, MaterialV2.ShadowOffscreen.Hash, i);
 
             Presenter.Instance.ShadowImage.EndShadowPass(internalBuffer);
+
+            DrawBlob.IndirectToComputeMemoryBarrierAllInOne(internalBuffer);
+
             if (DrawBlob.MULTI_THREAD_RENDERING)
             {
                 GraphicsDevice.DeviceAPI.vkEndCommandBuffer(internalBuffer);

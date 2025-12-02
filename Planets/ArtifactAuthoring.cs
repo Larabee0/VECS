@@ -43,7 +43,7 @@ namespace Planets
             FOV = 50,
             ClipNear = 0.1f,
             ClipFar = 20000f,
-            fustrumCulling = true
+            fustrumCulling = false
         };
 
 

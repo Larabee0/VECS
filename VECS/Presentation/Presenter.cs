@@ -305,6 +305,8 @@ namespace VECS
             // bloom late
             //_bloom.BlurHorizontal(frameInfo);
             _swapChain.EndForwardRendering(commandBuffer);
+
+            DrawBlob.IndirectToComputeMemoryBarrierByMat(frameInfo.CommandBuffer);
         }
 
 

@@ -460,5 +460,31 @@ namespace VECS
                 MemoryBarrierHelper.BufferMemoryBarrier(frameInfo.CommandBuffer, memoryBarrier, VkPipelineStageFlags2.ComputeShader, VkPipelineStageFlags2.DrawIndirect);
             }
         }
+
+        public static void IndirectToComputeMemoryBarrierAllInOne(VkCommandBuffer commandBuffer)
+        {
+            IndirectToComputeMemoryBarrier(commandBuffer, _indirectCmdBufferByMesh.ActiveVkBuffer);
+        }
+
+        public static void IndirectToComputeMemoryBarrierByMat(VkCommandBuffer commandBuffer)
+        {
+            IndirectToComputeMemoryBarrier(commandBuffer,_indirectCmdBufferByMat.ActiveVkBuffer);
+        }
+
+        public static void IndirectToComputeMemoryBarrier(VkCommandBuffer commandBuffer, VkBuffer buffer)
+        {
+
+            VkBufferMemoryBarrier2 barrier = new()
+            {
+                buffer = buffer,
+                size = Vulkan.VK_WHOLE_SIZE,
+                srcQueueFamilyIndex = GraphicsDevice.PhysicalQueueFamilies.graphicsFamily,
+                dstQueueFamilyIndex = GraphicsDevice.PhysicalQueueFamilies.graphicsFamily,
+                srcAccessMask = VkAccessFlags2.IndirectCommandRead,
+                dstAccessMask = VkAccessFlags2.ShaderWrite
+            };
+
+            MemoryBarrierHelper.BufferMemoryBarrier(commandBuffer, barrier, VkPipelineStageFlags2.DrawIndirect, VkPipelineStageFlags2.ComputeShader);
+        }
     }
 }
