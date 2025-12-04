@@ -168,6 +168,7 @@ namespace VECS
             _indexBuffer = new(_allocatedIndexCount, MeshExtensions.DIRECT_MESH_INDEX_BUFFER_FLAGS, false, false, true);
 
             _indexBuffer.TryAllocHostBuffer(false);
+            _indexBuffer.SetGPUBufferChanged(false);
 
             VertexAttributeDescription[] vertexAttributes = new VertexAttributeDescription[_consumedAttributes.Values.Count];
             _attributesInOrder = new VertexAttribute[vertexAttributes.Length];

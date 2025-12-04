@@ -87,6 +87,7 @@ namespace VECS
             shadowConfig.depthFormat = shadowDepthStencil.Format;
             shadowConfig.stencilFormat = shadowDepthStencil.Format;
             shadowConfig.depthStencilInfo.depthWriteEnable = true;
+            shadowConfig.depthStencilInfo.depthCompareOp = VkCompareOp.Less;
             shadowConfig.rasterizationInfo.cullMode = VkCullModeFlags.None;
             ShadowOffscreen = new("ShadowOffscreen", "shadow_offscreen.vert", "shadow_offscreen.frag", shadowConfig);
 

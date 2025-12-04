@@ -284,6 +284,12 @@ namespace VECS
         private void GraphicsPipe()
         {
             VkCommandBuffer commandBuffer = SwapChain.CurrentMainCommandBuffer;
+
+            GPUBufferExtensions.PlaybackFillBufferCmds(commandBuffer);
+            GPUBufferExtensions.PlaybackCopyBuffersCmds(commandBuffer);
+            TextureExtensions.PlaybackCopyCmds(commandBuffer);
+            TextureExtensions.PlaybackMipmapGenCmds(commandBuffer);
+            TextureExtensions.PlaybackSetLayoutCmds(commandBuffer);
             RendererFrameInfo frameInfo = CreateRendererFrameInfo(Time.DeltaTime, commandBuffer);
 
             // culling

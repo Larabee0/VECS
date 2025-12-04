@@ -31,6 +31,8 @@ namespace VECS.LowLevel
             CreateRenderImage(newSwapChain);
             CreateDepthImage(newSwapChain);
 
+            SetImageLayouts(newSwapChain);
+
             CreateAdditionalSamplers(newSwapChain);
 
             CreateSyncObjects(newSwapChain);
@@ -104,16 +106,6 @@ namespace VECS.LowLevel
 
             newSwapChain._swapChainImageFormat = surfaceFormat.format;
             newSwapChain._swapChainExtent = extent;
-
-            var cmd = GraphicsDevice.BeginSingleTimeMainPipe();
-            for (int i = 0; i < newSwapChain._swapChainImages.Length; i++)
-            {
-                MemoryBarrierHelper.SetImageLayout(cmd, newSwapChain._swapChainImages[i], VkImageAspectFlags.Color, VkImageLayout.Undefined, VkImageLayout.PresentSrcKHR, VkPipelineStageFlags2.TopOfPipe, VkPipelineStageFlags2.Blit);
-            }
-
-            GraphicsDevice.EndSingleTimeMainPipe(cmd);
-
-            GraphicsDevice.DeviceWaitIdle();
         }
         
         private static unsafe void CreateSwapChainImageViews(SwapChain swapChain)
@@ -182,12 +174,7 @@ namespace VECS.LowLevel
             swapChain._copyToSwapChainBlit.dstOffsets[1].y = (int)swapChain.SwapChainExtent.height;
             swapChain._copyToSwapChainBlit.dstOffsets[1].z = 1;
 
-            var commandBuffer = GraphicsDevice.BeginSingleTimeMainPipe();
-            for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
-            {
-                swapChain._rawRenderImage[i].SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal,VkPipelineStageFlags2.Transfer,VkPipelineStageFlags2.ColorAttachmentOutput);
-            }
-            GraphicsDevice.EndSingleTimeMainPipe(commandBuffer);
+            
         }
 
         private static unsafe void CreateDepthImage(SwapChain swapChain)
@@ -208,12 +195,23 @@ namespace VECS.LowLevel
                 }
             }
             
+        }
+
+        private static void SetImageLayouts(SwapChain swapChain)
+        {
             var commandBuffer = GraphicsDevice.BeginSingleTimeMainPipe();
+            for (int i = 0; i < swapChain._swapChainImages.Length; i++)
+            {
+                MemoryBarrierHelper.SetImageLayout(commandBuffer, swapChain._swapChainImages[i], VkImageAspectFlags.Color, VkImageLayout.Undefined, VkImageLayout.PresentSrcKHR, VkPipelineStageFlags2.TopOfPipe, VkPipelineStageFlags2.Blit);
+            }
             for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
             {
-                swapChain._depthImage[i].SetImageLayout(commandBuffer, VkImageLayout.DepthStencilAttachmentOptimal,VkPipelineStageFlags2.EarlyFragmentTests, VkPipelineStageFlags2.EarlyFragmentTests);
+                swapChain._rawRenderImage[i].SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.ColorAttachmentOutput);
+                swapChain._depthImage[i].SetImageLayout(commandBuffer, VkImageLayout.DepthStencilAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.EarlyFragmentTests);
             }
             GraphicsDevice.EndSingleTimeMainPipe(commandBuffer);
+
+            GraphicsDevice.DeviceWaitIdle();
         }
 
         private static unsafe void CreateAdditionalSamplers(SwapChain swapChain)

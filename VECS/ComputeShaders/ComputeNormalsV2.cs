@@ -60,6 +60,7 @@ namespace VECS
         public static unsafe void DispatchSingleTimeCmd(DirectMesh mesh)
         {
             var commandBuffer = GraphicsDevice.BeginSingleTimeMainPipe();
+            GPUBufferExtensions.PlaybackCopyBuffersCmds(commandBuffer);
             Dispatch(commandBuffer, Presenter.Instance.FrameIndex, mesh);
             GraphicsDevice.EndSingleTimeMainPipe(commandBuffer);
         }
@@ -112,6 +113,28 @@ namespace VECS
 
             workGroupXY = ComputeShaderV2.CompensateForWorkGroupLimits(vertexNormalBuffer.UInstanceCount32);
             _normalizeNormals.Dispatch(commandBuffer, frameIndex, discriptorIndex, workGroupXY.X, workGroupXY.Y, 1);
+
+            VkBufferMemoryBarrier2* barriers = stackalloc VkBufferMemoryBarrier2[2];
+
+            barriers[0] = new()
+            {
+                buffer = vertexPositionBuffer.VkBuffer,
+                srcAccessMask = VkAccessFlags2.ShaderRead,
+                dstAccessMask = VkAccessFlags2.ShaderWrite | VkAccessFlags2.ShaderRead | VkAccessFlags2.VertexAttributeRead,
+                srcStageMask = VkPipelineStageFlags2.ComputeShader,
+                dstStageMask = VkPipelineStageFlags2.ComputeShader | VkPipelineStageFlags2.VertexInput,
+                size = Vulkan.VK_WHOLE_SIZE
+            };
+            barriers[1] = new()
+            {
+                buffer = vertexNormalBuffer.VkBuffer,
+                srcAccessMask = VkAccessFlags2.ShaderWrite | VkAccessFlags2.ShaderRead,
+                dstAccessMask = VkAccessFlags2.ShaderWrite | VkAccessFlags2.ShaderRead | VkAccessFlags2.VertexAttributeRead,
+                srcStageMask = VkPipelineStageFlags2.ComputeShader,
+                dstStageMask = VkPipelineStageFlags2.ComputeShader | VkPipelineStageFlags2.VertexInput,
+                size = Vulkan.VK_WHOLE_SIZE
+            };
+            MemoryBarrierHelper.BufferMemoryBarrier(commandBuffer, 2, barriers);
         }
 
         private static unsafe void PrepareNormalRecalculate(uint setId, GPUBuffer<uint> indexBuffer, GPUBuffer<uint> indexOffsetBuffer, GPUBuffer<Vector3> vertexBuffer, GPUBuffer<Vector3> normalBuffer)

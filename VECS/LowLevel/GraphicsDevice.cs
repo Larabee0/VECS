@@ -254,6 +254,8 @@ namespace VECS.LowLevel
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static unsafe void EndSingleTimeMainPipe(VkCommandBuffer commandBuffer)
         {
+            //StackTrace trace = new(true);
+            //Console.WriteLine(string.Format("End Single Time Main Pipe\nTrace\n {0}", trace.ToString()));
             EndSingleTime(commandBuffer, _mainQueue, _commandPoolMain);
         }
 

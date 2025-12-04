@@ -40,7 +40,7 @@ namespace VECS
                 this.CreateSampler(GetSamplerCreateInfo());
             }
 
-            SetImageLayout(VkImageLayout.TransferDstOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.Transfer);
+            // SetImageLayout(VkImageLayout.TransferDstOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.Transfer);
             UpdateDescriptor();
 
             AssetDataBase<Cubemap>.Add(this);

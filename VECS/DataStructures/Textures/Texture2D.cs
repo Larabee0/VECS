@@ -33,7 +33,6 @@ namespace VECS
             copyFrom[11] = pink;
             copyFrom[14] = pink;
             copyFrom[15] = pink;
-            Console.WriteLine("Begin Default Texture Creation");
 
             MissingTexture = new("Fallback", 4, 4, true);
             MissingTexture.CopyFromArray(copyFrom);
@@ -62,7 +61,7 @@ namespace VECS
             Array.Fill(copyFrom, Colour.White);
             White = new("White",4, 4);
             White.CopyFromArray(copyFrom);
-            Console.WriteLine("Finished Default Texture Creation");
+            Console.WriteLine("Created Default Textures");
         }
 
         protected Texture2D()
@@ -86,7 +85,7 @@ namespace VECS
             this.CreateImageView(GetImageViewCreateInfo());
             this.CreateSampler(GetSamplerCreateInfo());
 
-            SetImageLayout(VkImageLayout.TransferDstOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.Transfer);
+            //SetImageLayout(VkImageLayout.TransferDstOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.Transfer);
             //SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal);
             UpdateDescriptor();
             AssetDataBase<Texture2D>.Add(this);
@@ -109,14 +108,14 @@ namespace VECS
 
             this.SetImageLayoutAndAspectFromUsage();
 
-            if (usage.HasFlag(VkImageUsageFlags.DepthStencilAttachment))
-            {
-                SetImageLayout(VkImageLayout.DepthStencilAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.EarlyFragmentTests);
-            }
-            else
-            {
-                SetImageLayout(VkImageLayout.TransferSrcOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.Transfer);
-            }
+            // if (usage.HasFlag(VkImageUsageFlags.DepthStencilAttachment))
+            // {
+            //     SetImageLayout(VkImageLayout.DepthStencilAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.EarlyFragmentTests);
+            // }
+            // else
+            // {
+            //     SetImageLayout(VkImageLayout.TransferSrcOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.Transfer);
+            // }
 
             this.CreateImageView(GetImageViewCreateInfo());
 
@@ -128,6 +127,7 @@ namespace VECS
             UpdateDescriptor();
             AssetDataBase<Texture2D>.Add(this);
         }
+
         public Texture2D(string name, int width, int height, VkFormat textureFormat, VkImageUsageFlags usage, uint[] queueIndices, bool generateMipMaps = true)
         {
             AssetName = name;
@@ -148,14 +148,14 @@ namespace VECS
 
             this.SetImageLayoutAndAspectFromUsage();
 
-            if (usage.HasFlag(VkImageUsageFlags.DepthStencilAttachment))
-            {
-                SetImageLayout(VkImageLayout.DepthStencilAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.EarlyFragmentTests);
-            }
-            else
-            {
-                SetImageLayout(VkImageLayout.TransferSrcOptimal,VkPipelineStageFlags2.None,VkPipelineStageFlags2.Transfer);
-            }
+            // if (usage.HasFlag(VkImageUsageFlags.DepthStencilAttachment))
+            // {
+            //     SetImageLayout(VkImageLayout.DepthStencilAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.EarlyFragmentTests);
+            // }
+            // else
+            // {
+            //     SetImageLayout(VkImageLayout.TransferSrcOptimal,VkPipelineStageFlags2.None,VkPipelineStageFlags2.Transfer);
+            // }
 
             this.CreateImageView(GetImageViewCreateInfo());
 
@@ -187,7 +187,7 @@ namespace VECS
 
             this.CreateImageView(GetImageViewCreateInfo());
             this.CreateSampler(GetSamplerCreateInfo());
-            SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.Transfer);
+            //SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.Transfer);
             UpdateDescriptor();
 
             FileName = Path.GetFileName(filePath);

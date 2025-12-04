@@ -57,7 +57,7 @@ namespace Planets
         private MaterialV2 planetLitMaterial;
         private PlanetPropeties planetProperties;
 
-        private static readonly bool useComputeShaderForGeneration = false;
+        private static readonly bool useComputeShaderForGeneration = true;
         private readonly int subdivisons = 75;
 
         private readonly static Stopwatch _stopwatch = new();
@@ -668,11 +668,10 @@ namespace Planets
 
                 computeGenerator = new ComputeShapeGenerator();
                 computeGenerator.PrePrepare(generator);
-                commandBuffer = GraphicsDevice.BeginSingleTimeMainPipe();
-            }
-            if (useComputeShaderForGeneration)
-            {
+                commandBuffer = GraphicsDevice.BeginSingleTimeMainPipe();            
                 computeGenerator.Dispatch(commandBuffer, meshes[0].DirectMeshBuffer);
+                meshes[0].DirectMeshBuffer.RecalcualteAllNormals(commandBuffer);
+                GraphicsDevice.EndSingleTimeMainPipe(commandBuffer);
             }
             else
             {
@@ -685,7 +684,6 @@ namespace Planets
 
             if (useComputeShaderForGeneration)
             {
-                GraphicsDevice.EndSingleTimeMainPipe(commandBuffer);
 
                 Vector2 shaderMinMax = computeGenerator.ReadElevationMinMax();
                 generator.MinMax.AddValue(shaderMinMax.X);
@@ -694,6 +692,8 @@ namespace Planets
             else
             {
                 meshes[0].DirectMeshBuffer.FlushAll();
+                meshes[0].DirectMeshBuffer.RecalcualteAllNormals();
+                
             }
 
             meshes[0].DirectMeshBuffer.RecalcualteAllNormals();

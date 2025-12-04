@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using VECS.LowLevel;
 using Vortice.Vulkan;
@@ -8,7 +9,42 @@ namespace VECS
 {
     public static class TextureExtensions
     {
-        private readonly static ConcurrentDictionary<VkFormat, byte[]> _componentBits;
+        private class TextureBufferCopyCmd
+        {
+            public readonly Texture Texture;
+            public readonly GPUBuffer Buffer;
+            public readonly bool DisposeBufferAfterCopy;
+
+            public TextureBufferCopyCmd(Texture target, GPUBuffer source, bool disposeBufferAfterCopy)
+            {
+                Texture = target;
+                Buffer = source;
+                DisposeBufferAfterCopy = disposeBufferAfterCopy;
+            }
+        }
+
+        private class SetTextureLayoutCmd
+        {
+            public readonly Texture Texture;
+            public readonly VkImageLayout NewImageLayout;
+            public readonly VkPipelineStageFlags2 SrcStage;
+            public readonly VkPipelineStageFlags2 DstStage;
+
+            public SetTextureLayoutCmd(Texture texture, VkImageLayout newImageLayout, VkPipelineStageFlags2 srcStage, VkPipelineStageFlags2 dstStage)
+            {
+                Texture = texture;
+                NewImageLayout = newImageLayout;
+                SrcStage = srcStage;
+                DstStage = dstStage;
+            }
+        }
+
+        private readonly static ConcurrentQueue<TextureBufferCopyCmd> _copyBufferToTexture = [];
+        private readonly static ConcurrentQueue<TextureBufferCopyCmd> _copyTextureToBuffer = [];
+        private readonly static ConcurrentQueue<Texture> _regenMipMapsCmds = [];
+        private readonly static ConcurrentQueue<SetTextureLayoutCmd> _setLayoutCmds = [];
+
+        private static ConcurrentDictionary<VkFormat, byte[]> _componentBits;
 
         private static VmaAllocationCreateInfo _allocationCreateInfo = new()
         {
@@ -23,9 +59,16 @@ namespace VECS
 
         static TextureExtensions()
         {
+            Reset();
+        }
+
+        public static void Reset()
+        {
+            _copyBufferToTexture.Clear();
+            _regenMipMapsCmds.Clear();
             var allFormats = Enum.GetValues<VkFormat>();
             _componentBits = new(Environment.ProcessorCount, allFormats.Length);
-            foreach(var format in allFormats)
+            foreach (var format in allFormats)
             {
                 var componentCount = Vulkan.ComponentCount(format);
                 byte[] componentBitsPerPixel = new byte[componentCount];
@@ -137,8 +180,7 @@ namespace VECS
 
             stagingBuffer.WriteToBuffer(colours);
 
-            texture.CopyFromBuffer(stagingBuffer);
-            stagingBuffer.Dispose();
+            texture.CopyFromBuffer(stagingBuffer, true);
         }
 
         internal static unsafe void CreateHostBuffer(this Texture texture, bool copyFromGPUNow)
@@ -148,10 +190,16 @@ namespace VECS
             {
                 if (texture._hostBuffer.UsageFlags.HasFlag(VkBufferUsageFlags.TransferSrc | VkBufferUsageFlags.TransferDst))
                 {
-                    var cmd = GraphicsDevice.BeginSingleTimeMainPipe();
-                    texture.CopyToBuffer(cmd, texture._hostBuffer);
-                    GraphicsDevice.EndSingleTimeMainPipe(cmd);
-                    texture._hostBuffer.ReadToHostBuffer();
+                    if (copyFromGPUNow)
+                    {
+                        var cmd = GraphicsDevice.BeginSingleTimeMainPipe();
+                        texture.CopyToBuffer(cmd, texture._hostBuffer);
+                        GraphicsDevice.EndSingleTimeMainPipe(cmd);
+                    }
+                    else
+                    {
+                        texture.CopyToBuffer(texture._hostBuffer);
+                    }
 
                     return;
                 }
@@ -184,12 +232,15 @@ namespace VECS
                 var cmd = GraphicsDevice.BeginSingleTimeMainPipe();
                 texture.CopyToBuffer(cmd, texture._hostBuffer);
                 GraphicsDevice.EndSingleTimeMainPipe(cmd);
-                texture._hostBuffer.ReadToHostBuffer();
-                texture.CopyFromBuffer(texture._hostBuffer);
             }
         }
 
-        internal static void CopyFromBuffer(this Texture texture, GPUBuffer buffer)
+        internal static void CopyFromBuffer(this Texture texture, GPUBuffer buffer, bool disposeBufferAfterCopy = false)
+        {
+            _copyBufferToTexture.Enqueue(new(texture,buffer, disposeBufferAfterCopy));
+        }
+
+        internal static void CopyFrombufferNow(this Texture texture, GPUBuffer buffer)
         {
             var cmd = GraphicsDevice.BeginSingleTimeMainPipe();
             bool hintRegenerateMipMaps = CopyFromBuffer(texture, cmd, buffer);
@@ -203,6 +254,52 @@ namespace VECS
                 Console.WriteLine("Skipped mipmaps regeneration for texture");
             }
             GraphicsDevice.EndSingleTimeMainPipe(cmd);
+        }
+
+        internal static void PlaybackCopyCmds(VkCommandBuffer cmd)
+        {
+            while (_copyBufferToTexture.TryDequeue(out var copy))
+            {
+                if (copy.Buffer.IsDisposed || copy.Texture.IsDisposed) continue;
+                bool hintRegenerateMipMaps = CopyFromBuffer(copy.Texture, cmd, copy.Buffer);
+                if (hintRegenerateMipMaps && copy.Texture.MipMapCount > 1)
+                {
+                    _regenMipMapsCmds.Enqueue(copy.Texture);
+                }
+                if (copy.DisposeBufferAfterCopy)
+                {
+                    Presenter.Instance.SwapChainBufferDisposalQueue.Add((Presenter.Instance.FrameIndex, copy.Buffer));
+                }
+            }
+
+            while(_copyTextureToBuffer.TryDequeue(out var copy))
+            {
+                if (copy.Buffer.IsDisposed || copy.Texture.IsDisposed) continue;
+                copy.Texture.CopyToBuffer(cmd, copy.Buffer);
+            }
+        }
+
+        internal static void PlaybackMipmapGenCmds(VkCommandBuffer cmd)
+        {
+            while(_regenMipMapsCmds.TryDequeue(out var texture))
+            {
+                if (texture.IsDisposed) continue;
+                Debug.Assert(texture.MipMapCount > 1, "Attempting regenerate mipmaps for texture with no mipmaps!");
+                texture.RegenerateMipMaps(cmd);
+            }
+        }
+
+        internal static void SetImageLayout(Texture texture,VkImageLayout newImageLayout, VkPipelineStageFlags2 srcStage , VkPipelineStageFlags2 dstStage)
+        {
+            _setLayoutCmds.Enqueue(new(texture, newImageLayout, srcStage, dstStage));
+        }
+
+        internal static void PlaybackSetLayoutCmds(VkCommandBuffer cmd)
+        {
+            while(_setLayoutCmds.TryDequeue(out var layout))
+            {
+                layout.Texture.SetImageLayout(cmd, layout.NewImageLayout, layout.SrcStage, layout.DstStage);
+            }
         }
 
         internal static unsafe bool CopyFromBuffer(this Texture texture, VkCommandBuffer cmdBuffer, GPUBuffer buffer)
@@ -291,10 +388,6 @@ namespace VECS
                         )
                     };
 
-                    var region = bufferCopyRegions[i];
-
-                    // Console.WriteLine("MipMapLevel: {0} x*y {1}*{2} Offset: {3}", i, region.imageExtent.width, region.imageExtent.height, offset);
-
                     baseImageSize = bufferCopyRegions[i].imageExtent.width * bufferCopyRegions[i].imageExtent.height * formatSize;
                     offset += baseImageSize;
                 }
@@ -326,6 +419,12 @@ namespace VECS
             GraphicsDevice.DeviceAPI.vkCmdCopyBufferToImage(cmdBuffer, buffer.VkBuffer, texture._vkImage, VkImageLayout.TransferDstOptimal, texture.ImageExtent.depth, bufferCopyRegions);
         }
 
+        internal static void CopyToBuffer(this Texture texture, GPUBuffer buffer)
+        {
+            _copyTextureToBuffer.Enqueue(new(texture, buffer, false));
+        }
+
+
         internal static unsafe void CopyToBuffer(this Texture texture, VkCommandBuffer cmdBuffer, GPUBuffer buffer)
         {
             var imageLayout = texture.ImageLayout;
@@ -341,7 +440,7 @@ namespace VECS
             uint size = texture.ImageExtent.width * texture.ImageExtent.height * formatSize;
             var subresourceRange = texture.GetSubresourceRange();
             VkBufferImageCopy* bufferCopyRegions = stackalloc VkBufferImageCopy[(int)texture.MipMapCount];
-            Console.WriteLine("MipMapCount: {0} Offset: {1}", texture.MipMapCount,size);
+            // Console.WriteLine("MipMapCount: {0} Offset: {1}", texture.MipMapCount,size);
             for (uint i = 0; i < texture.MipMapCount; i++)
             {
                 bufferCopyRegions[i] = new()

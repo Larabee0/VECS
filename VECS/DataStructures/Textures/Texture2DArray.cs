@@ -91,7 +91,7 @@ namespace VECS
 
             this.CreateImageView(GetImageViewCreateInfo());
             this.CreateSampler(GetSamplerCreateInfo());
-            SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.Transfer);
+            //SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.Transfer);
             UpdateDescriptor();
 
             StringBuilder stringBuilder = new(Path.GetFileName(filePaths[0]));

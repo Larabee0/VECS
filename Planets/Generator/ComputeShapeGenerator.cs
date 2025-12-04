@@ -128,11 +128,35 @@ namespace Planets.Generator
         /// </summary>
         /// <param name="commandBuffer"></param>
         /// <param name="mesh"></param>
-        public void Dispatch(VkCommandBuffer commandBuffer, DirectMesh mesh)
+        public unsafe void Dispatch(VkCommandBuffer commandBuffer, DirectMesh mesh)
         {
             Vector2UInt workGroups = Prepare(mesh);
+            GPUBufferExtensions.PlaybackCopyBuffersCmds(commandBuffer);
             //_terrainGenerator.Dispatch(commandBuffer, workGroups.X, workGroups.Y, 1);
             _computeShader.Dispatch(commandBuffer, Presenter.Instance.FrameIndex, 0, workGroups.X, workGroups.Y);
+            
+            VkBufferMemoryBarrier2* barriers = stackalloc VkBufferMemoryBarrier2[2];
+
+            barriers[0] = new()
+            {
+                buffer = mesh.GetBufferAtAttribute(VertexAttribute.Position).VkBuffer,
+                srcAccessMask = VkAccessFlags2.ShaderWrite | VkAccessFlags2.ShaderRead,
+                dstAccessMask = VkAccessFlags2.ShaderWrite | VkAccessFlags2.ShaderRead | VkAccessFlags2.VertexAttributeRead,
+                srcStageMask = VkPipelineStageFlags2.ComputeShader,
+                dstStageMask = VkPipelineStageFlags2.ComputeShader | VkPipelineStageFlags2.VertexInput,
+                size = Vulkan.VK_WHOLE_SIZE
+            };
+            barriers[1] = new()
+            {
+                buffer = mesh.GetBufferAtAttribute(VertexAttribute.TexCoord0).VkBuffer,
+                srcAccessMask = VkAccessFlags2.ShaderWrite | VkAccessFlags2.ShaderRead,
+                dstAccessMask = VkAccessFlags2.ShaderWrite | VkAccessFlags2.ShaderRead | VkAccessFlags2.VertexAttributeRead,
+                srcStageMask = VkPipelineStageFlags2.ComputeShader,
+                dstStageMask = VkPipelineStageFlags2.ComputeShader | VkPipelineStageFlags2.VertexInput,
+                size = Vulkan.VK_WHOLE_SIZE
+            };
+
+            MemoryBarrierHelper.BufferMemoryBarrier(commandBuffer, 2, barriers);
         }
 
         /// <summary>

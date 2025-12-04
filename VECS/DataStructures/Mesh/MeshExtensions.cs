@@ -50,16 +50,16 @@ namespace VECS
             var entityManager = World.DefaultWorld.EntityManager;
             var allMeshEntities = entityManager.GetAllEntitiesWithComponent<DirectSubMeshIndex>();
             allMeshEntities?.ForEach(e =>
-                {
-                    var meshIndex = entityManager.GetComponent<DirectSubMeshIndex>(e);
+            {
+                var meshIndex = entityManager.GetComponent<DirectSubMeshIndex>(e);
 
-                    if (meshIndex.Hash == oldHash)
-                    {
-                        var value = entityManager.GetComponent<DirectSubMeshIndex>(e);
-                        value.Hash = newHash;
-                        entityManager.SetComponent(e, value);
-                    }
-                });
+                if (meshIndex.Hash == oldHash)
+                {
+                    var value = entityManager.GetComponent<DirectSubMeshIndex>(e);
+                    value.Hash = newHash;
+                    entityManager.SetComponent(e, value);
+                }
+            });
             srcMesh.Dispose();
 
             for (int i = 0; i < dstSubMeshes.Length; i++)
@@ -652,6 +652,7 @@ namespace VECS
             var buffer = new GPUBuffer<T>(vertexCount, DIRECT_MESH_VERTEX_BUFFER_FLAGS, false, false, true);
 
             buffer.TryAllocHostBuffer(false);
+            buffer.SetGPUBufferChanged(false);
 
             return buffer;
         }
@@ -659,6 +660,12 @@ namespace VECS
         public static void RecalcualteAllNormals(this DirectMesh directMesh)
         {
             ComputeNormalsV2.DispatchSingleTimeCmd(directMesh);
+            directMesh.GetBufferAtAttribute(VertexAttribute.Normal).SetGPUBufferChanged(true);
+        }
+
+        public static void RecalcualteAllNormals(this DirectMesh directMesh, VkCommandBuffer commandBuffer)
+        {
+            ComputeNormalsV2.Dispatch(commandBuffer, Presenter.Instance.FrameIndex, directMesh);
             directMesh.GetBufferAtAttribute(VertexAttribute.Normal).SetGPUBufferChanged(true);
         }
 

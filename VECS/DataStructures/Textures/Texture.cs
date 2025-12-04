@@ -73,13 +73,13 @@ namespace VECS
         public VkImageLayout ImageLayout
         {
             get => _imageLayout;
-            set
-            {
-                var cmd = GraphicsDevice.BeginSingleTimeMainPipe();
-                MemoryBarrierHelper.SetImageLayout(cmd, _vkImage, _aspectFlags, _imageLayout, value, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.FragmentShader);
-                GraphicsDevice.EndSingleTimeMainPipe(cmd);
-                _imageLayout = value;
-            }
+            // set
+            // {
+            //     var cmd = GraphicsDevice.BeginSingleTimeMainPipe();
+            //     MemoryBarrierHelper.SetImageLayout(cmd, _vkImage, _aspectFlags, _imageLayout, value, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.FragmentShader);
+            //     GraphicsDevice.EndSingleTimeMainPipe(cmd);
+            //     _imageLayout = value;
+            // }
         }
 
         public VkFormat Format => _imageFormat;
@@ -185,7 +185,7 @@ namespace VECS
             };
         }
 
-        public void RegenerateMipMaps()
+        public void RegenerateMipMapsNow()
         {
             var cmd = GraphicsDevice.BeginSingleTimeMainPipe();
             RegenerateMipMaps(cmd);
@@ -197,9 +197,10 @@ namespace VECS
         public void SetImageLayout(VkImageLayout newImageLayout, VkPipelineStageFlags2 srcStage = VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2 dstStage = VkPipelineStageFlags2.FragmentShader)
         {
             if (newImageLayout == ImageLayout) return;
-            var cmd = GraphicsDevice.BeginSingleTimeMainPipe();
-            SetImageLayout(cmd, newImageLayout, srcStage, dstStage);
-            GraphicsDevice.EndSingleTimeMainPipe(cmd);
+            TextureExtensions.SetImageLayout(this, newImageLayout, srcStage, dstStage);
+            // var cmd = GraphicsDevice.BeginSingleTimeMainPipe();
+            // SetImageLayout(cmd, newImageLayout, srcStage, dstStage);
+            // GraphicsDevice.EndSingleTimeMainPipe(cmd);
         }
 
         public void SetImageLayout(VkCommandBuffer cmdbuffer, VkImageLayout newImageLayout, VkPipelineStageFlags2 srcStage = VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2 dstStage = VkPipelineStageFlags2.FragmentShader)
