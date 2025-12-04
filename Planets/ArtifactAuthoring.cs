@@ -695,8 +695,8 @@ namespace Planets
                 meshes[0].DirectMeshBuffer.RecalcualteAllNormals();
                 
             }
-
-            meshes[0].DirectMeshBuffer.RecalcualteAllNormals();
+            
+            ComputeBounds.DispatchAll(meshes[0].DirectMeshBuffer);
 
             meshes[0].DirectMeshBuffer.ReadAllBuffers();
             for (int i = 0; i < meshes.Length; i++)

@@ -87,10 +87,13 @@ namespace VECS
             float minX = float.MaxValue;
             float minY = float.MaxValue;
             float minZ = float.MaxValue;
+
             float maxX = float.MinValue;
             float maxY = float.MinValue;
             float maxZ = float.MinValue;
+
             var vertices = Vertices;
+
             for (int i = 0; i < VertexCount; i++)
             {
                 Vector3 position = vertices[i];
@@ -173,6 +176,11 @@ namespace VECS
 
             _bounds.Radius = MathF.Sqrt(r2);
             _modelBounds = new(Bounds);
+        }
+
+        internal void SetBounds(Vector3 min, Vector3 max)
+        {
+            _bounds.Bounds.SetMinMax(min, max);
         }
 
         public void SimpleBindAndDraw(VkCommandBuffer cmd)

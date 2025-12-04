@@ -32,6 +32,7 @@ namespace VECS
         private ulong _frameCount;
 
         internal Action PostPresentationUpdate;
+        internal Action<int> PreGraphicsPipe;
 
         public ulong FrameCount => _frameCount;
 
@@ -290,6 +291,9 @@ namespace VECS
             TextureExtensions.PlaybackCopyCmds(commandBuffer);
             TextureExtensions.PlaybackMipmapGenCmds(commandBuffer);
             TextureExtensions.PlaybackSetLayoutCmds(commandBuffer);
+
+            PreGraphicsPipe?.Invoke(FrameIndex);
+
             RendererFrameInfo frameInfo = CreateRendererFrameInfo(Time.DeltaTime, commandBuffer);
 
             // culling

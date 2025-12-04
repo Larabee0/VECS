@@ -23,6 +23,11 @@ namespace VECS
 
         public PushConstantsHandler PushConstantsHandler => _pushConstantsHandler;
 
+        [ThreadStatic]
+        private static ComputeShaderV2 _lastBoundComputeShader;
+        [ThreadStatic]
+        private static int _frameIndex;
+
         public unsafe ComputeShaderV2(string assetName, string shaderName)
         {
             AssetName = assetName;
@@ -283,9 +288,13 @@ namespace VECS
                 offsets[i] = buffer.AlignedSize * setId;
                 indices[i] = i;
             }
-
-            GraphicsDevice.DeviceAPI.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Compute, _pipline);
-            DescriptorBuffer.BindSets(commandBuffer, (uint)_descriptorSetCount, bindingInfo);
+            if(frameIndex != _frameIndex || this != _lastBoundComputeShader)
+            {
+                GraphicsDevice.DeviceAPI.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Compute, _pipline);
+                DescriptorBuffer.BindSets(commandBuffer, (uint)_descriptorSetCount, bindingInfo);
+                _lastBoundComputeShader = this;
+                _frameIndex = frameIndex;
+            }
             DescriptorBuffer.SetOffsets(commandBuffer, _pipelineLayout, VkPipelineBindPoint.Compute, 0, (uint)_descriptorSetCount, offsets, indices);
 
             _pushConstantsHandler.BindPushConstants(commandBuffer, _pipelineLayout, setId);
