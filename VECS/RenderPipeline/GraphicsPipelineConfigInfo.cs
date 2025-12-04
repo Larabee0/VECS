@@ -97,7 +97,7 @@ namespace VECS.GraphicsPipelines
                     rasterizerDiscardEnable = false,
                     polygonMode = VkPolygonMode.Fill,
                     lineWidth = 1,
-                    cullMode = VkCullModeFlags.None,
+                    cullMode = VkCullModeFlags.Back,
                     frontFace = VkFrontFace.CounterClockwise,
                     depthBiasEnable = false,
                     depthBiasConstantFactor = 0,

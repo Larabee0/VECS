@@ -117,7 +117,6 @@ namespace VECS
                 pipelineConfig.BindingDescriptions = vertex.VertexBindings;
                 pipelineConfig.AttributeDescriptions = vertex.VertexAttributes;
             }
-            pipelineConfig.rasterizationInfo.cullMode = VkCullModeFlags.Back;
             _graphicsPipelineConfigInfo = pipelineConfig;
             var descriptorSetBindings = GPUPipelineUtil.GetSharedBindings(vertex, fragment);
             _descriptorSetCount = GPUPipelineUtil.GetSetCount(descriptorSetBindings);
