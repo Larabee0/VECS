@@ -55,6 +55,14 @@ namespace VECS
             }
         }
 
+        public int NextFrameIndex
+        {
+            get
+            {
+                return _isFrameStarted ? SwapChain.NextFrame : 0;
+            }
+        }
+
         public Presenter(IWindow window)
         {
             _window = window;

@@ -39,7 +39,7 @@ namespace VECS
                 SubmittedFrameIndex = submittedFrameIndex;
             }
         }
-        private static readonly ConcurrentQueue<DirectMesh> _boundsRecalQueue = new();
+        private static readonly ConcurrentQueue<DirectMesh>[] _boundsRecalQueue = new ConcurrentQueue<DirectMesh>[SwapChain.MAX_CONCURRENT_FRAMES];
 
         private static readonly ConcurrentQueue<BoundsRecal> _boundsResultQueue = new();
 
@@ -54,6 +54,11 @@ namespace VECS
             Presenter.Instance.PostPresentationUpdate += PostPresent;
             Presenter.Instance.PreGraphicsPipe += CheckResults;
             Application.Instance.OnDestroy += CleanUp;
+
+            for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
+            {
+                _boundsRecalQueue[i] = new();
+            }
         }
 
         private static void CheckResults(int frameIndex)
@@ -103,12 +108,17 @@ namespace VECS
 
         public static void DispatchAll(DirectMesh mesh)
         {
-            _boundsRecalQueue.Enqueue(mesh);
+            _boundsRecalQueue[Presenter.Instance.FrameIndex].Enqueue(mesh);
+        }
+
+        private static void DispatchAllNextFrame(DirectMesh mesh)
+        {
+            _boundsRecalQueue[Presenter.Instance.NextFrameIndex].Enqueue(mesh);
         }
 
         public static void DispatchAll(VkCommandBuffer commandBuffer, int frameIndex)
         {
-            while(_boundsRecalQueue.TryDequeue(out var mesh))
+            while (_boundsRecalQueue[frameIndex].TryDequeue(out var mesh))
             {
                 if (mesh.IsDisposed) continue;
                 DispatchAll(commandBuffer, frameIndex,mesh);
@@ -119,10 +129,19 @@ namespace VECS
         {
             if (_variant > 2000)
             {
-                Console.WriteLine("Mesh Normal Compute Shader invokations exceeded default single frame count of {0}", MaterialV2.MAX_VARIANTS);
+                // previously exceeded max invokcations this frame, kick it to next frame
+                DispatchAllNextFrame(mesh);
+                return;
             }
 
             var firstDescriptor = Interlocked.Add(ref _variant, (uint)mesh.DirectSubMeshes.Length) - (uint)mesh.DirectSubMeshes.Length;
+
+            if(firstDescriptor + (uint)mesh.DirectSubMeshes.Length > 2000)
+            {
+                // execution would exceeded max invokcations this frame, kick it to next frame
+                DispatchAllNextFrame(mesh);
+                return;
+            }
 
             var vertexPositionBuffer = mesh.GetBufferAtAttribute<Vector3>(VertexAttribute.Position);
             VkBufferMemoryBarrier2 barrier = new(_minMaxBuffer.ActiveVkBuffer, VkPipelineStageFlags2.ComputeShader, VkAccessFlags2.ShaderWrite, VkPipelineStageFlags2.ComputeShader, VkAccessFlags2.ShaderWrite);

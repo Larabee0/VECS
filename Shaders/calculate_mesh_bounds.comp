@@ -33,7 +33,7 @@ void main() {
 	}
     uint index = params.vertexOffset + (gl_GlobalInvocationID.y * params.width + gl_GlobalInvocationID.x);
 
-    if(index >= params.bufferLength){
+    if(index >= params.vertexOffset + params.bufferLength){
         return;
     }
 

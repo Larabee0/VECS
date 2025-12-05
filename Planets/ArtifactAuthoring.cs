@@ -393,8 +393,6 @@ namespace Planets
             {
                 Engines = children.Value[^1]
             });
-
-            ComputeBounds.DispatchAll(xWing[0].DirectMeshBuffer);
         }
 
         private void CreateFlightScene(EntityManager entityManager)
@@ -699,7 +697,7 @@ namespace Planets
                 
             }
             
-            //ComputeBounds.DispatchAll(meshes[0].DirectMeshBuffer);
+            ComputeBounds.DispatchAll(meshes[0].DirectMeshBuffer);
 
             meshes[0].DirectMeshBuffer.ReadAllBuffers();
             for (int i = 0; i < meshes.Length; i++)
