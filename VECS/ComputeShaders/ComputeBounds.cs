@@ -125,7 +125,7 @@ namespace VECS
             var firstDescriptor = Interlocked.Add(ref _variant, (uint)mesh.DirectSubMeshes.Length) - (uint)mesh.DirectSubMeshes.Length;
 
             var vertexPositionBuffer = mesh.GetBufferAtAttribute<Vector3>(VertexAttribute.Position);
-
+            VkBufferMemoryBarrier2 barrier = new(_minMaxBuffer.ActiveVkBuffer, VkPipelineStageFlags2.ComputeShader, VkAccessFlags2.ShaderWrite, VkPipelineStageFlags2.ComputeShader, VkAccessFlags2.ShaderWrite);
             for (uint i = 0; i < mesh.DirectSubMeshes.Length; i++)
             {
                 var subMesh = mesh.DirectSubMeshes[i];
@@ -134,9 +134,12 @@ namespace VECS
                 _calculateBounds.SetStorageBuffer(VertexBufferId, firstDescriptor+i, vertexPositionBuffer);
                 Prepare(firstDescriptor + i, subMesh);
                 _calculateBounds.Dispatch(commandBuffer, frameIndex, firstDescriptor + i, workGroupXY.X, workGroupXY.Y, 1);
+                
+                MemoryBarrierHelper.BufferMemoryBarrier(commandBuffer, barrier);
                 _boundsResultQueue.Enqueue(new(subMesh, firstDescriptor + i, frameIndex));
             }
-            VkBufferMemoryBarrier2 barrier = new(_minMaxBuffer.ActiveVkBuffer, VkPipelineStageFlags2.ComputeShader, VkAccessFlags2.ShaderWrite, VkPipelineStageFlags2.Host, VkAccessFlags2.HostRead);
+            _minMaxBuffer.WriteFromHostToActiveBuffer();
+            barrier = new(_minMaxBuffer.ActiveVkBuffer, VkPipelineStageFlags2.ComputeShader, VkAccessFlags2.ShaderWrite, VkPipelineStageFlags2.Host, VkAccessFlags2.HostRead);
             MemoryBarrierHelper.BufferMemoryBarrier(commandBuffer, barrier);
         }
 

@@ -476,6 +476,17 @@ namespace VECS
             {
                 if (cmd.SrcBuffer.IsDisposed || cmd.DstBuffer.IsDisposed) continue;
                 CopyTo(cmd.SrcBuffer, commandBuffer, cmd.SrcOffset, cmd.DstBuffer, cmd.DstOffset, cmd.Size);
+
+                VkBufferMemoryBarrier2 memoryBarrier = new()
+                {
+                    srcStageMask = VkPipelineStageFlags2.Transfer,
+                    srcAccessMask = VkAccessFlags2.TransferWrite,
+                    dstStageMask = VkPipelineStageFlags2.Transfer|VkPipelineStageFlags2.ComputeShader|VkPipelineStageFlags2.VertexInput,
+                    dstAccessMask = VkAccessFlags2.TransferWrite|VkAccessFlags2.ShaderWrite|VkAccessFlags2.ShaderRead,
+                    buffer = cmd.DstBuffer.VkBuffer,
+                    size = Vulkan.VK_WHOLE_SIZE
+                };
+                MemoryBarrierHelper.BufferMemoryBarrier(commandBuffer, memoryBarrier);
             }
         }
 

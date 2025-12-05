@@ -130,7 +130,7 @@ namespace Planets
             
             aStar.AddChildren(entityManager, [planetOrbiterA, planetOrbiterB]);
 
-            // aStar.AddChildren(entityManager, [planetOrbiterA]);
+            //aStar.AddChildren(entityManager, [planetOrbiterA]);
         }
 
         private void CreateBigTestScene(EntityManager entityManager, Entity prefabPlanet)
@@ -393,6 +393,8 @@ namespace Planets
             {
                 Engines = children.Value[^1]
             });
+
+            ComputeBounds.DispatchAll(xWing[0].DirectMeshBuffer);
         }
 
         private void CreateFlightScene(EntityManager entityManager)
@@ -402,7 +404,7 @@ namespace Planets
 
 
             var models = MeshLoader.LoadModelsFromFiles([MeshLoader.GetMeshInDefaultPath( "quad.obj"), MeshLoader.GetMeshInDefaultPath("cube-UV.obj")], null);
-
+            
             var grid = new Texture2D(TextureLoader.GetTextureInDefaultPath("grid.png"));
 
             MaterialV2.LitTexture.SetTexture2D("texSampler".GetHashCode(), 0, grid);
@@ -475,6 +477,7 @@ namespace Planets
 
                 entityManager.AddComponent(cubes[i], boxCollider);
             }
+            // ComputeBounds.DispatchAll(models[0].DirectMeshBuffer);
         }
 
         private void CreateFlightRig(EntityManager entityManager)
@@ -696,7 +699,7 @@ namespace Planets
                 
             }
             
-            ComputeBounds.DispatchAll(meshes[0].DirectMeshBuffer);
+            //ComputeBounds.DispatchAll(meshes[0].DirectMeshBuffer);
 
             meshes[0].DirectMeshBuffer.ReadAllBuffers();
             for (int i = 0; i < meshes.Length; i++)

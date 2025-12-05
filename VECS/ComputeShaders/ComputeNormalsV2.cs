@@ -79,6 +79,17 @@ namespace VECS
             PrepareNormalRecalculate(discriptorIndex, mesh.IndexBuffer, mesh.IndexOffsetBuffer, vertexPositionBuffer, vertexNormalBuffer);
             PrepareNormalNormalize(discriptorIndex, vertexNormalBuffer);
             // clear normal buffer
+            VkBufferMemoryBarrier2 memoryBarrier = new()
+            {
+                srcStageMask = VkPipelineStageFlags2.Transfer,
+                srcAccessMask = VkAccessFlags2.TransferWrite,
+                dstStageMask = VkPipelineStageFlags2.Transfer,
+                dstAccessMask = VkAccessFlags2.TransferWrite,
+                buffer = vertexNormalBuffer.VkBuffer,
+                size = Vulkan.VK_WHOLE_SIZE
+            };
+            MemoryBarrierHelper.BufferMemoryBarrier(commandBuffer, memoryBarrier);
+
             vertexNormalBuffer.FillBuffer(commandBuffer, 0);
 
             uint componsatedBufferLength = (uint)(int)MathF.Ceiling(mesh.IndexBufferLength / 3f);
@@ -99,7 +110,7 @@ namespace VECS
 
             _calcuateNormals.Dispatch(commandBuffer, frameIndex, discriptorIndex, workGroupXY.X, workGroupXY.Y, 1);
 
-            VkBufferMemoryBarrier2 memoryBarrier = new()
+            memoryBarrier = new()
             {
                 srcStageMask = VkPipelineStageFlags2.ComputeShader,
                 srcAccessMask = VkAccessFlags2.ShaderWrite,
