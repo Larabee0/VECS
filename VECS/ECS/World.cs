@@ -93,6 +93,29 @@ namespace VECS.ECS
         /// <returns></returns>
         public T AddSystem<T>(T system) where T : SystemBase
         {
+            //List<SystemBase> updateBefores = [];
+            //List<SystemBase> updateAfters = [];
+            //foreach (var item in Attribute.GetCustomAttributes(typeof(T)))
+            //{
+            //    if (item is UpdateAfterAttribute updateAfter && updateAfter.SystemType.IsSubclassOf(typeof(SystemBase)))
+            //    {
+            //        var target = _systems.Find(f => f.GetType() == updateAfter.SystemType);
+            //        if (target != null)
+            //        {
+            //            updateAfters.Add(target);
+            //        }
+            //    }
+            //    else if(item is UpdateBeforeAttribute updateBefore && updateBefore.SystemType.IsSubclassOf(typeof(SystemBase)))
+            //    {
+            //        var target = _systems.Find(f => f.GetType() == updateBefore.SystemType);
+            //        if (target != null)
+            //        {
+            //            updateBefores.Add(target);
+            //        }
+            //    }
+            //}
+
+
             system.World = this;
             if (system is PresentationSystemBase presentationSystem)
             {

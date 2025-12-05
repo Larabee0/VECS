@@ -76,10 +76,15 @@ namespace Planets
                 var msc = entityManager.GetComponent<MouseFlightController>(FlightRig);
                 var input = entityManager.GetComponent<ShipControlInputMS>(shipEntity);
                 var mouseAimTransform = entityManager.GetComponent<LocalToWorld>(msc.MouseAim).Value;
-                var shipTransform = entityManager.GetComponent<LocalToWorld>(shipEntity).Value;
+                //var shipTransform = entityManager.GetComponent<LocalToWorld>(shipEntity).Value;
                 var shipStats = entityManager.GetComponent<ShipStatsMS>(shipEntity);
 
-                entityManager.SetComponent(FlightRig, new Translation() { Value = shipTransform.Translation });
+
+                var shipLTW = LocalToWorldSystem.ComputeLocalTRS(entityManager, shipEntity);
+
+                entityManager.SetComponent(shipEntity,new LocalToWorld() { Value = shipLTW });
+
+                entityManager.SetComponent(FlightRig, new Translation() { Value = shipLTW.Translation });
 
                 input.Throttle = ThrottleInput(input.Throttle, msc.ThrottleSenstivity);
 
@@ -123,7 +128,7 @@ namespace Planets
 
                 Vector3 mouseAimPos = mouseAimTransform.Translation + (-mouseAimTransform.Forward() * 500f);
 
-                RunAutopilot(mouseAimPos, shipTransform, shipStats.Sensitivity, shipStats.AggressiveTurnAngle, out float autoYaw, out float autoPitch, out float autoRoll);
+                RunAutopilot(mouseAimPos, shipLTW, shipStats.Sensitivity, shipStats.AggressiveTurnAngle, out float autoYaw, out float autoPitch, out float autoRoll);
 
                 input.Stick.X = rollOverride ? stickIn.X : autoRoll;
                 input.Stick.Y = pitchOverride ? stickIn.Y : autoPitch;
@@ -134,11 +139,11 @@ namespace Planets
                     msc.MouseSensitivity,
                     msc.TPScamSmoothSpeed,
                     msc.CameraEntity,
-                    entityManager.GetComponent<LocalToWorld>(msc.CameraEntity).Value,
+                     LocalToWorldSystem.ComputeLocalTRS(entityManager,msc.CameraEntity),
                     msc.MouseAim,
                     mouseAimTransform,
                     msc.CameraRig,
-                    entityManager.GetComponent<LocalToWorld>(msc.CameraRig).Value);
+                    LocalToWorldSystem.ComputeLocalTRS(entityManager,msc.CameraRig));
             }
         }
 
@@ -150,7 +155,7 @@ namespace Planets
 
                 entities.ForEach(e =>
                 {
-                    var wtl = entityManager.GetComponent<LocalToWorld>(e).Value;
+                    var wtl = LocalToWorldSystem.ComputeLocalTRS(entityManager,e);
                     //wtl = wtl.Invert();
 
                     var bodyHandle = entityManager.GetComponent<DynamicHandleComp>(e).Value;
@@ -283,7 +288,13 @@ namespace Planets
                 TransformExtensions.QuaternionLookRotation(mouseAimTransform.Forward(), upVec),
                 smoothSpeed,
                 Time.DeltaTime);
+
             entityManager.SetComponent(cameraRig, new Rotation() { Value = cameraRigRot });
+            var rigLTW = LocalToWorldSystem.ComputeLocalTRS(entityManager, cameraRig);
+            entityManager.SetComponent(cameraRig, new LocalToWorld() { Value = rigLTW });
+
+            var mouseAimLTW = LocalToWorldSystem.ComputeLocalTRS(entityManager, mouseAim);
+            entityManager.SetComponent(mouseAim, new LocalToWorld() { Value = mouseAimLTW });
         }
 
 

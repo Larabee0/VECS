@@ -15,7 +15,7 @@ namespace VECS.ECS.Presentation
         private EntityQuery _renderBoundsQuery;
         private EntityQuery _cameraQuery;
         private bool _drawBounds = false;
-        private bool _drawCameraFustrums = true;
+        private bool _drawCameraFustrums = false;
         private readonly Vector2 _min = new(-1, -1);
         private readonly Vector2 _max = new(1, 1);
         private readonly Vector4[] _fustrumVerts = new Vector4[16];
@@ -129,6 +129,19 @@ namespace VECS.ECS.Presentation
                 DrawIndirect(frameInfo, 0, drawBufferIndex);
             }
 
+
+            if (_drawBounds && _renderBoundsQuery.HasEntities)
+            {
+                var entities = _renderBoundsQuery.GetEntities();
+
+                for (int i = 0; i < entities.Count; i++)
+                {
+                    var entity = entities[i];
+                    var bounds = entityManager.GetComponent<WorldRenderBounds>(entity);
+                    DrawWireCube(bounds.Bounds.center, bounds.Bounds.Size, Quaternion.Identity);
+                }
+            }
+
             if (_wireCubes.Count > 0)
             {
                 int drawOffset = drawIndex;
@@ -227,45 +240,6 @@ namespace VECS.ECS.Presentation
                 }
             }
 
-            if (_drawBounds && _renderBoundsQuery.HasEntities)
-            {
-                var entities = _renderBoundsQuery.GetEntities();
-                int offset = drawBufferIndex;
-                draws[drawBufferIndex] = new()
-                {
-                    vertexCount = 32,
-                    firstVertex = 0,
-                    firstInstance = (uint)drawIndex,
-                    instanceCount = (uint)entities.Count * 4
-                };
-
-                for (int i = 0; i < entities.Count; i++)
-                {
-                    var entity = entities[i];
-                    var bounds = entityManager.GetComponent<WorldRenderBounds>(entity);
-                    var center = bounds.Bounds.center;
-                    var radius = (bounds.Radius == Vector3.Zero) ? Vector3.One : bounds.Radius;
-                    var a = TransformExtensions.TRS(center, new Vector3(), radius);
-                    var b = TransformExtensions.TRS(center, new Vector3(float.DegreesToRadians(90), 0, 0), radius);
-                    var c = TransformExtensions.TRS(center, new Vector3(0, float.DegreesToRadians(90), 0), radius);
-                    var d = TransformExtensions.TRS(center, new Vector3(0, 0, float.DegreesToRadians(90)), radius);
-
-                    matrices[drawIndex] = a;
-                    matrices[drawIndex + 1] = b;
-                    matrices[drawIndex + 2] = c;
-                    matrices[drawIndex + 3] = d;
-                    colours[drawIndex] = Vector4.One;
-                    colours[drawIndex + 1] = Vector4.One;
-                    colours[drawIndex + 2] = Vector4.One;
-                    colours[drawIndex + 3] = Vector4.One;
-
-                    drawIndex += 4;
-                }
-
-                GraphicsDevice.DeviceAPI.vkCmdBindVertexBuffer(frameInfo.CommandBuffer, 0, _circleBuffer.VkBuffer);
-                DrawIndirect(frameInfo, offset, 1);
-            }
-
         }
 
         private unsafe void DrawIndirect(RendererFrameInfo frameInfo,int offset, int count)
@@ -328,12 +302,12 @@ namespace VECS.ECS.Presentation
             _lineQueue.Enqueue(new Line(start, end, colour));
         }
 
-        public void DrawWireCube(Vector3 center, Vector3 size, Vector3 orientation)
+        public void DrawWireCube(Vector3 center, Vector3 size, Quaternion orientation)
         {
             _wireCubes.Enqueue(new DrawCube(center, size, orientation, Colour.White));
         }
 
-        public void DrawWireCube(Vector3 center, Vector3 size, Vector3 orientation, Colour colour)
+        public void DrawWireCube(Vector3 center, Vector3 size, Quaternion orientation, Colour colour)
         {
             _wireCubes.Enqueue(new DrawCube(center, size, orientation, colour));
         }
@@ -342,10 +316,10 @@ namespace VECS.ECS.Presentation
         {
             public readonly Vector3 Center;
             public readonly Vector3 Size;
-            public readonly Vector3 Orientation;
+            public readonly Quaternion Orientation;
             public readonly Colour Colour;
 
-            public DrawCube(Vector3 center, Vector3 size, Vector3 orientation, Colour colour)
+            public DrawCube(Vector3 center, Vector3 size, Quaternion orientation, Colour colour)
             {
                 Center = center;
                 Size = size;

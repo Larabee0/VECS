@@ -40,9 +40,8 @@ namespace VECS.ECS.Presentation
                     Matrix4x4.Decompose(ltw, out Vector3 scale, out Quaternion rotation, out Vector3 translation);
                     var renderBounds = DirectSubMesh.GetSubMeshAtIndex(entityManager.GetComponent<DirectSubMeshIndex>(e)).Bounds;
                     WorldRenderBounds worldBounds = new(renderBounds);
-                    worldBounds.Bounds.center = Vector3.Transform(renderBounds.Bounds.center, ltw);
+                    worldBounds.Bounds = Bounds.Transform(ltw, renderBounds.Bounds);
                     worldBounds.Radius = renderBounds.Radius * scale;
-                    worldBounds.Bounds.extents = renderBounds.Bounds.extents * scale;
                     entityManager.AddComponent(e, worldBounds);
                 });
             }

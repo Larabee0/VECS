@@ -64,6 +64,7 @@ namespace VECS
                 Update();
                 Presentation();
                 InputManager.Instance.LateUpdate();
+                //Thread.Sleep(1000);
             }
             SwapChain.Instance.FinishTimelineWorkers(false);
             GraphicsDevice.DeviceWaitIdle();

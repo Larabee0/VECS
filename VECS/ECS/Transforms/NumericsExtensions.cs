@@ -1,4 +1,6 @@
 ﻿
+using System.Runtime.CompilerServices;
+
 namespace System.Numerics
 {
     /// <summary>
@@ -55,6 +57,11 @@ namespace System.Numerics
         public static Vector4 GetMatrixRow(this Matrix4x4 mat,int row)
         {
             return new Vector4(mat[row, 0], mat[row, 1], mat[row, 2], mat[row, 3]);
+        }
+
+        public static Vector4 GetMatrixColumn(this Matrix4x4 mat, int column)
+        {
+            return new Vector4(mat[0, column], mat[1, column], mat[2, column], mat[3, column]);
         }
 
         public static void SetMatrixRow(this Matrix4x4 mat, int row, Vector4 value)
@@ -157,6 +164,7 @@ namespace System.Numerics
 
 
         public static Bool3 GreaterEqual(Vector3 lhs, Vector3 rhs) { return new Bool3(lhs.X >= rhs.X, lhs.Y >= rhs.Y, lhs.Z >= rhs.Z); }
+        public static Bool3 Less(Vector3 lhs, Vector3 rhs) { return new Bool3(lhs.X < rhs.X, lhs.Y  < rhs.Y, lhs.Z < rhs.Z); }
         public static Bool4 GreaterEqual(Vector4 lhs, Vector4 rhs) { return new Bool4(lhs.X >= rhs.X, lhs.Y >= rhs.Y, lhs.Z >= rhs.Z, lhs.W >= rhs.W); }
     }
 
@@ -209,6 +217,12 @@ namespace System.Numerics
             X = value;
             Y = value;
             Z = value;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static Bool3 operator !(Bool3 val)
+        {
+            return new Bool3(!val.X, !val.Y, !val.Z);
         }
     }
 

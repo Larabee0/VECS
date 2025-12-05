@@ -7,7 +7,7 @@ using VECS.ECS.Transforms;
 
 namespace VECS.ECS.Physics
 {
-    internal class StaticBodySystem : SystemBase
+    public class StaticBodySystem : SystemBase
     {
         private EntityQuery _createBody;
         private EntityQuery _updateBodyDescs;
@@ -50,7 +50,7 @@ namespace VECS.ECS.Physics
                     var shape =
                     World.Simulation.Simulation.Shapes.GetShape<Box>(desc.Value.Shape.Index);
                     
-                    drawRenderBounds.DrawWireCube(desc.Value.Pose.Position, new(shape.Width,shape.Height,shape.Length), desc.Value.Pose.Orientation.ToEuler(), new Vector4(0, 1, 0, 1).ToVkColor());
+                    drawRenderBounds.DrawWireCube(desc.Value.Pose.Position, new(shape.Width,shape.Height,shape.Length), desc.Value.Pose.Orientation, new Vector4(0, 1, 0, 1).ToVkColor());
                 });
             }
         }
