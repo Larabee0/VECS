@@ -30,6 +30,7 @@ namespace VECS.ECS.Presentation
             shadowOffscreen.PushConstants.EnsureCapacity(6);
             Material.Update(shadowOffscreen, frameInfo);
             Presenter.Instance.ShadowImage.SetImageLayoutWrite(frameInfo.CommandBuffer);
+#pragma warning disable CS0162
             if (DrawBlob.MULTI_THREAD_RENDERING)
             {
                 VkCommandBuffer[] parallelCmdBuffers = _freeBuffers[frameInfo.FrameIndex];
@@ -65,7 +66,7 @@ namespace VECS.ECS.Presentation
                     RenderShadow(frameInfo, i, model, null);
                 }
             }
-
+#pragma warning restore CS0162
             Presenter.Instance.ShadowImage.SetImageLayoutRead(frameInfo.CommandBuffer);
         }
 
@@ -74,6 +75,7 @@ namespace VECS.ECS.Presentation
             VkCommandBuffer internalBuffer = frameInfo.CommandBuffer;
             if (DrawBlob.MULTI_THREAD_RENDERING)
             {
+#pragma warning disable CS0162
                 unsafe
                 {
                     VkCommandBufferInheritanceInfo inheritanceInfo = new() { };
@@ -81,8 +83,9 @@ namespace VECS.ECS.Presentation
                     internalBuffer = parallelCmdBuffers[i];
                     GraphicsDevice.DeviceAPI.vkBeginCommandBuffer(internalBuffer, &bufferBeginInfo);
                 }
+#pragma warning restore CS0162
             }
-            
+
             var viewMatrix = ShadowImage.GetViewMatrixForFace(i) * model;
             var proj = ShadowImage.CubeProjectionMatrix;
 
@@ -104,7 +107,9 @@ namespace VECS.ECS.Presentation
 
             if (DrawBlob.MULTI_THREAD_RENDERING)
             {
+#pragma warning disable CS0162
                 GraphicsDevice.DeviceAPI.vkEndCommandBuffer(internalBuffer);
+#pragma warning restore CS0162
             }
         }
     }
