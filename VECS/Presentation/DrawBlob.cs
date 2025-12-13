@@ -331,7 +331,7 @@ namespace VECS
 
         public static void CopyDataToMaterials()
         {
-            var list = AssetDataBase<MaterialV2>.AllAssetsListForReading;
+            var list = AssetDataBase<Material>.AllAssetsListForReading;
             Application.ParallelFor(list.Count, (i) =>
             {
                 var mat = list[i];
@@ -357,7 +357,7 @@ namespace VECS
             int allInOneDrawCount = entityCount;
             Application.ParallelFor(AllInOneMats.Count, (i) =>
             {
-                var mat = AssetDataBase<MaterialV2>.GetHashed(AllInOneMats[i]);
+                var mat = AssetDataBase<Material>.GetHashed(AllInOneMats[i]);
                 var matrices = mat.GetStorageBuffer<ModelMatrices>(RenderBlob.MatricesBufferId);
                 var bounds = mat.GetStorageBuffer<ShaderAABB>(RenderBlob.BoundsBufferId);
                 if (!matrices.IsEmpty)
@@ -404,7 +404,7 @@ namespace VECS
                     for (int j = workerRegion.StartIndex; j < workerRegion.Offset; j++)
                     {
                         var region = _materialCmdRegions[j];
-                        var material = AssetDataBase<MaterialV2>.GetHashed(region.X);
+                        var material = AssetDataBase<Material>.GetHashed(region.X);
                         var cmds = _drawCommandsByMat.AsSpan(region.Y, region.Z);
                         material.ExecuteDrawCommands(frameInfo, cmdBuffer, cmds, region.Z, _indirectCmdBufferByMat);
                     }
@@ -421,7 +421,7 @@ namespace VECS
                 for (int i = 0; i < _materialCmdRegions.Length; i++)
                 {
                     var region = _materialCmdRegions[i];
-                    var material = AssetDataBase<MaterialV2>.GetHashed(region.X);
+                    var material = AssetDataBase<Material>.GetHashed(region.X);
                     var cmds = _drawCommandsByMat.AsSpan(region.Y, region.Z);
                     material.ExecuteDrawCommands(frameInfo, frameInfo.CommandBuffer, cmds, region.Z, _indirectCmdBufferByMat);
                 }
@@ -430,14 +430,14 @@ namespace VECS
 
         public static void ExecuteAllInOneDrawCmds(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer,int materialHash)
         {
-            var mat = AssetDataBase<MaterialV2>.GetHashed(materialHash);
+            var mat = AssetDataBase<Material>.GetHashed(materialHash);
 
             mat.ExecuteDrawCommands(frameInfo, commandBuffer, _drawCommandsByMesh, _drawCommandsByMesh.Length, _indirectCmdBufferByMesh);
         }
 
         public static void ExecuteAllInOneDrawCmds(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, int materialHash, int pushConstantIndex)
         {
-            var mat = AssetDataBase<MaterialV2>.GetHashed(materialHash);
+            var mat = AssetDataBase<Material>.GetHashed(materialHash);
 
             mat.ExecuteDrawCommandsPushConstantOverride(frameInfo, pushConstantIndex, commandBuffer, _drawCommandsByMesh, _drawCommandsByMesh.Length, _indirectCmdBufferByMesh);
         }

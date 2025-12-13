@@ -21,7 +21,7 @@ namespace VECS
     /// 
     /// Then other kernel converts these ints back to vector3s then normalizes them and writes normals to the vertex buffer.
     /// </summary>
-    public static class ComputeNormalsV2
+    public static class ComputeNormals
     {
         private static readonly int ParamsHeightId = "params.height".GetHashCode();
         private static readonly int ParamsBufferLengthId = "params.bufferLength".GetHashCode();
@@ -38,16 +38,16 @@ namespace VECS
         private static readonly int NormalReadBufferId = "normalReadBuffer".GetHashCode();
         private static readonly int NormalWriteBufferId = "normalWriteBuffer".GetHashCode();
 
-        private static readonly ComputeShaderV2 _calcuateNormals;
-        private static readonly ComputeShaderV2 _normalizeNormals;
+        private static readonly ComputeShader _calcuateNormals;
+        private static readonly ComputeShader _normalizeNormals;
 
         internal static uint _variant = 0;
 
-        static ComputeNormalsV2()
+        static ComputeNormals()
         {
-            _calcuateNormals = ComputeShaderV2.GetOrCreate("normal_recalculate.comp");
+            _calcuateNormals = ComputeShader.GetOrCreate("normal_recalculate.comp");
 
-            _normalizeNormals = ComputeShaderV2.GetOrCreate("normal_normalize.comp");
+            _normalizeNormals = ComputeShader.GetOrCreate("normal_normalize.comp");
 
             Presenter.Instance.PostPresentationUpdate += PostPresent;
         }
@@ -69,7 +69,7 @@ namespace VECS
         {
             if(_variant > 2000)
             {
-                Console.WriteLine("Mesh Normal Compute Shader invokations exceeded default single frame count of {0}", MaterialV2.MAX_VARIANTS);
+                Console.WriteLine("Mesh Normal Compute Shader invokations exceeded default single frame count of {0}", Material.MAX_VARIANTS);
             }
 
             var discriptorIndex = Interlocked.Increment(ref _variant) - 1;
@@ -94,7 +94,7 @@ namespace VECS
 
             uint componsatedBufferLength = (uint)(int)MathF.Ceiling(mesh.IndexBufferLength / 3f);
 
-            Vector2UInt workGroupXY = ComputeShaderV2.CompensateForWorkGroupLimits(componsatedBufferLength);
+            Vector2UInt workGroupXY = ComputeShader.CompensateForWorkGroupLimits(componsatedBufferLength);
 
             if (workGroupXY.Y != 1)
             {
@@ -122,7 +122,7 @@ namespace VECS
 
             MemoryBarrierHelper.BufferMemoryBarrier(commandBuffer, memoryBarrier);
 
-            workGroupXY = ComputeShaderV2.CompensateForWorkGroupLimits(vertexNormalBuffer.UInstanceCount32);
+            workGroupXY = ComputeShader.CompensateForWorkGroupLimits(vertexNormalBuffer.UInstanceCount32);
             _normalizeNormals.Dispatch(commandBuffer, frameIndex, discriptorIndex, workGroupXY.X, workGroupXY.Y, 1);
 
             VkBufferMemoryBarrier2* barriers = stackalloc VkBufferMemoryBarrier2[2];

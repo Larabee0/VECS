@@ -68,7 +68,7 @@ namespace VECS.LowLevel
 
         private const int FRAME_BUFFER_DIMENTIONS = 256;
         private readonly static int SampleColourId = "samplerColor".GetHashCode();
-        private readonly MaterialV2 _blurMat;
+        private readonly Material _blurMat;
         private readonly VkRenderPass _renderPass;
         private readonly VkSampler _sampler;
 
@@ -191,7 +191,7 @@ namespace VECS.LowLevel
             blurConfig.colourBlendAttachment = blendAttachment;
             //blurConfig.renderPass = _renderPass;
 
-            _blurMat = new MaterialV2("VerticalGaussBlur","gaussblur.vert", "gaussblur.frag", blurConfig);
+            _blurMat = new Material("VerticalGaussBlur","gaussblur.vert", "gaussblur.frag", blurConfig);
 
             _blurMat.SetTexture(SampleColourId, 0, _framebufferGlow.Colour);
             _blurMat.PushConstants.SetPushConstantInt("blurdirection",0, 0);

@@ -14,7 +14,7 @@ namespace Planets.Generator
     {
         private const float QUANTIIZE_FACTOR = 32768.0f;
 
-        private readonly ComputeShaderV2 _computeShader;
+        private readonly ComputeShader _computeShader;
 
         private readonly SwapChainBuffer<int> _minMaxBuffer;
         private readonly SwapChainBuffer<GlobalNoiseSettings> _noiseSettings;
@@ -24,7 +24,7 @@ namespace Planets.Generator
 
         public ComputeShapeGenerator()
         {
-            _computeShader = ComputeShaderV2.GetOrCreate("terrain_generator.comp");
+            _computeShader = ComputeShader.GetOrCreate("terrain_generator.comp");
 
             _minMaxBuffer = new SwapChainBuffer<int>(2, VkBufferUsageFlags.StorageBuffer, true);
             _noiseSettings = new SwapChainBuffer<GlobalNoiseSettings>(2000, VkBufferUsageFlags.StorageBuffer, true);

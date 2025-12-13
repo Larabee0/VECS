@@ -56,19 +56,19 @@ namespace VECS
 
     public class MaterialDrawBlob
     {
-        public MaterialV2 TargetMaterialV2;
+        public Material TargetMaterialV2;
         public uint EarlyDrawOffset;
         public uint EarlyDrawCount;
         public int MatDrawCount;
         public Memory<MaterialDrawIndexer> DrawIndexer;
         public MaterialDrawCommand[] MatDrawCommands = [];
 
-        public MaterialDrawBlob(MaterialV2 targetMaterial)
+        public MaterialDrawBlob(Material targetMaterial)
         {
             TargetMaterialV2 = targetMaterial;
         }
 
-        public void SetMaterial(MaterialV2 target)
+        public void SetMaterial(Material target)
         {
             if (TargetMaterialV2 != null && target != TargetMaterialV2)
             {
@@ -100,7 +100,7 @@ namespace VECS
             TargetMaterialV2?.ExecuteDrawCommandsPushConstantOverride(frameInfo, pushConstantId, commandBuffer, MatDrawCommands, MatDrawCount, indirectCmdBuffer);
         }
 
-        public void ExecuteWith(MaterialV2 material, RendererFrameInfo frameInfo, SwapChainBuffer<VkDrawIndexedIndirectCommand> indirectCmdBuffer)
+        public void ExecuteWith(Material material, RendererFrameInfo frameInfo, SwapChainBuffer<VkDrawIndexedIndirectCommand> indirectCmdBuffer)
         {
             material.ExecuteDrawCommands(frameInfo, frameInfo.CommandBuffer, MatDrawCommands, MatDrawCount, indirectCmdBuffer);
         }
@@ -194,7 +194,7 @@ namespace VECS
                 bool bloom = entityManager.HasComponent<BloomTag>(entity);
                 DrawCommand drawCommand = new(renderMesh.Mesh, localToWorld, worldBounds, bloom);
                 EarlyDrawCommand current = new(entity, drawCommand, renderMesh);
-                Vector2Int matVariant = new(AssetDataBase<MaterialV2>.GetCurrentIndexOfHashed(renderMesh.Material.Hash), renderMesh.Material.Variant);
+                Vector2Int matVariant = new(AssetDataBase<Material>.GetCurrentIndexOfHashed(renderMesh.Material.Hash), renderMesh.Material.Variant);
                 _earlyDrawCommands[i] = current;
                 _indexers[i] = new(current.DrawAddress, i);
                 _materialVariants.AddOrUpdate(matVariant, 1, (key, value) => value + 1);
@@ -219,7 +219,7 @@ namespace VECS
             _materialVariants.Values.CopyTo(_variantCounts, 0);
             Array.Sort(_variantCombinations, _variantCounts);
 
-            var readingList = AssetDataBase<MaterialV2>.AllAssetsListForReading;
+            var readingList = AssetDataBase<Material>.AllAssetsListForReading;
 
             if (_drawBlobs.Length < readingList.Count)
             {
@@ -544,7 +544,7 @@ namespace VECS
 
         private readonly ConcurrentDictionary<int, int> _directMeshDraws = new();
 
-        public ShadowRenderBlob(MaterialV2 target, uint maxDraws)
+        public ShadowRenderBlob(Material target, uint maxDraws)
         {
             _indirectCmdBuffer = new(maxDraws,
                     VkBufferUsageFlags.TransferDst |
@@ -679,7 +679,7 @@ namespace VECS
             _drawBlob.Execute(frameInfo, commandBuffer, pushConstantId, _indirectCmdBuffer);
         }
 
-        public void DrawBlobWith(MaterialV2 material, RendererFrameInfo frameInfo)
+        public void DrawBlobWith(Material material, RendererFrameInfo frameInfo)
         {
             _drawBlob.ExecuteWith(material, frameInfo, _indirectCmdBuffer);
         }

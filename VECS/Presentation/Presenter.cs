@@ -341,7 +341,7 @@ namespace VECS
             World.DefaultWorld.PresentPreCull(frameInfo);
             EndPreCullBarrier(commandBuffer);
 
-            MaterialV2.UpdateMaterials(frameInfo);
+            Material.UpdateMaterials(frameInfo);
 
             World.DefaultWorld.PresentOnCull(frameInfo);
 

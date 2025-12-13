@@ -659,13 +659,13 @@ namespace VECS
 
         public static void RecalcualteAllNormals(this DirectMesh directMesh)
         {
-            ComputeNormalsV2.DispatchSingleTimeCmd(directMesh);
+            ComputeNormals.DispatchSingleTimeCmd(directMesh);
             directMesh.GetBufferAtAttribute(VertexAttribute.Normal).SetGPUBufferChanged(true);
         }
 
         public static void RecalcualteAllNormals(this DirectMesh directMesh, VkCommandBuffer commandBuffer)
         {
-            ComputeNormalsV2.Dispatch(commandBuffer, Presenter.Instance.FrameIndex, directMesh);
+            ComputeNormals.Dispatch(commandBuffer, Presenter.Instance.FrameIndex, directMesh);
             directMesh.GetBufferAtAttribute(VertexAttribute.Normal).SetGPUBufferChanged(true);
         }
 

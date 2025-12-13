@@ -7,13 +7,13 @@ namespace VECS
     public class EngineMaterials
     {
 
-        public readonly static MaterialV2 LitTexture;
-        public readonly static MaterialV2 DepthOnly;
-        public readonly static MaterialV2 UnlitMeshShader;
-        public readonly static MaterialV2 UnlitTransparent;
-        public readonly static MaterialV2 WireFrame;
-        public readonly static MaterialV2 ShadowOffscreen;
-        public readonly static MaterialV2 PointLight;
+        public readonly static Material LitTexture;
+        public readonly static Material DepthOnly;
+        public readonly static Material UnlitMeshShader;
+        public readonly static Material UnlitTransparent;
+        public readonly static Material WireFrame;
+        public readonly static Material ShadowOffscreen;
+        public readonly static Material PointLight;
 
         static EngineMaterials()
         {
@@ -50,11 +50,11 @@ namespace VECS
             var pointLightConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             GraphicsPipelineConfigInfo.EnableAlphaBlending(ref pointLightConfig);
             pointLightConfig.depthStencilInfo.depthWriteEnable = true;
-            PointLight = new MaterialV2("PointLightDisplay", "point_light.vert", "point_light.frag", pointLightConfig);
+            PointLight = new Material("PointLightDisplay", "point_light.vert", "point_light.frag", pointLightConfig);
 
             var alphaBlending = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             GraphicsPipelineConfigInfo.EnableAlphaBlending(ref alphaBlending);
-            UnlitTransparent = new MaterialV2("Unlit Transparent", "unlit.vert", "unlit.frag", alphaBlending);
+            UnlitTransparent = new Material("Unlit Transparent", "unlit.vert", "unlit.frag", alphaBlending);
 
             if (GraphicsDevice.MeshShading)
             {

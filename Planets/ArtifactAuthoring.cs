@@ -55,7 +55,7 @@ namespace Planets
         private Texture2D textureWaveB;
 
         private Texture2DArray textureArrayTerrainShapes;
-        private MaterialV2 planetLitMaterial;
+        private Material planetLitMaterial;
         private PlanetPropeties planetProperties;
 
         private static readonly bool useComputeShaderForGeneration = true;
@@ -195,7 +195,7 @@ namespace Planets
             planet.AddChildren(entityManager, moonOrbiter);
         }
 
-        private Entity InstantiateNewOrbitalPlanet(EntityManager entityManager, ShapeGenerator generator, Entity planetPrefab, Parent parent, Vector3 initialPosition, float scale, float orbitalSpeed, float dayNightSpeed, MaterialV2 mat = null)
+        private Entity InstantiateNewOrbitalPlanet(EntityManager entityManager, ShapeGenerator generator, Entity planetPrefab, Parent parent, Vector3 initialPosition, float scale, float orbitalSpeed, float dayNightSpeed, Material mat = null)
         {
             Entity orbitalPlane = entityManager.CreateEntity();
             entityManager.AddComponent<Rotation>(orbitalPlane);
@@ -309,7 +309,7 @@ namespace Planets
             var wingNormalTexture = new Texture2D(TextureLoader.GetTextureInDefaultPath("X-Wing/st_Rebel_01_X_Wing_wings_normal.dds"));
 
 
-            var xWingMaterial = new MaterialV2("TexuredNormalMap","texture_normal.vert", "texture_normal.frag", GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []));
+            var xWingMaterial = new Material("TexuredNormalMap","texture_normal.vert", "texture_normal.frag", GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []));
             xWingMaterial.GetStorageBuffer<Vector4>("colourBuffer".GetHashCode()).Fill(Vector4.One);
             xWingMaterial.SetTexture("samplerColorMap".GetHashCode(), 0, hullDiffuseTexture);
             xWingMaterial.SetTexture("samplerNormalMap".GetHashCode(),0,  hullNormalTexture);
@@ -517,7 +517,7 @@ namespace Planets
             entityManager.AddComponent(flightRig, new Translation() { Value = initalCameraPos });
         }
 
-        public static void AddRenderMeshComponents(Entity entity, MaterialV2 mat, int variant, int entityVariant, DirectSubMesh mesh, EntityManager entityManager)
+        public static void AddRenderMeshComponents(Entity entity, Material mat, int variant, int entityVariant, DirectSubMesh mesh, EntityManager entityManager)
          {
             entityManager.AddComponent<Translation>(entity);
             entityManager.AddComponent(entity, new RenderMesh()
@@ -560,7 +560,7 @@ namespace Planets
                 OceanBrightness = 5f
             };
 
-            planetLitMaterial = new MaterialV2("PlanetMat","planet_shader.vert", "planet_shader.frag", GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []));
+            planetLitMaterial = new Material("PlanetMat","planet_shader.vert", "planet_shader.frag", GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []));
             //planetLitMaterial = MaterialV2.LitTexture;
 
             planetLitMaterial.SetTextureArray("texTerrain".GetHashCode(), 0,textureArrayTerrainShapes);

@@ -29,7 +29,7 @@ namespace VECS
         public uint VariantIndex => _variantIndex;
         public int TotalSets => _descriptorSetCount;
 
-        public unsafe MaterialVariant(MaterialV2 material, uint variantIndex)
+        public unsafe MaterialVariant(Material material, uint variantIndex)
         {
             _variantIndex = variantIndex;
             _descriptorSetCount = material.DescriptorSetCount;
@@ -84,7 +84,7 @@ namespace VECS
                 for (int j = 0; j < SwapChain.MAX_CONCURRENT_FRAMES; j++)
                 {
                     info.WriteUniforms(j, _variantIndex);
-                    MaterialV2.WriteSet(info, info.DescriptorBuffers[j], _variantIndex, GetBindingBuffers(j, i), GetBindingTextures(j, i));
+                    Material.WriteSet(info, info.DescriptorBuffers[j], _variantIndex, GetBindingBuffers(j, i), GetBindingTextures(j, i));
                 }
             }
 
@@ -213,7 +213,7 @@ namespace VECS
                     var info = variant._descriptorSetInfos[i];
                     int j = frameIndex;
                     info.WriteUniforms(j, variantIndex);
-                    MaterialV2.WriteSet(info, info.DescriptorBuffers[j], variantIndex, variant.GetBindingBuffers(j, i), variant.GetBindingTextures(j, i));
+                    Material.WriteSet(info, info.DescriptorBuffers[j], variantIndex, variant.GetBindingBuffers(j, i), variant.GetBindingTextures(j, i));
                 }
             }
 

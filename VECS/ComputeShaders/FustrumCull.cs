@@ -113,15 +113,15 @@ namespace VECS
         private static readonly int DrawBufferId = "drawBuffer".GetHashCode();
 
 
-        private static readonly ComputeShaderV2 _computeShader;
+        private static readonly ComputeShader _computeShader;
 
         private static uint _variant = 0;
 
-        public static ComputeShaderV2 Shader => _computeShader;
+        public static ComputeShader Shader => _computeShader;
 
         static FustrumCull()
         {
-            _computeShader = ComputeShaderV2.GetOrCreate("fustrum_cull.comp");
+            _computeShader = ComputeShader.GetOrCreate("fustrum_cull.comp");
             Presenter.Instance.PostPresentationUpdate += PostPresent;
         }
 
@@ -134,7 +134,7 @@ namespace VECS
         {
             if (_variant > 2000)
             {
-                Console.WriteLine("Fustrum Cull Compute Shader invokations exceeded default max uniform count of {0}", MaterialV2.MAX_VARIANTS);
+                Console.WriteLine("Fustrum Cull Compute Shader invokations exceeded default max uniform count of {0}", Material.MAX_VARIANTS);
             }
 
             var discriptorIndex = Interlocked.Increment(ref _variant) - 1;

@@ -85,7 +85,7 @@ namespace VECS
 
             for (int frameIndex = 0; frameIndex < SwapChain.MAX_CONCURRENT_FRAMES; frameIndex++)
             {
-                _descriptorBuffers[frameIndex] = new(layout, _bindingCount, MaterialV2.MAX_VARIANTS, _bufferCount > 0, _imageCount > 0);
+                _descriptorBuffers[frameIndex] = new(layout, _bindingCount, Material.MAX_VARIANTS, _bufferCount > 0, _imageCount > 0);
             }
 
             if (_bufferCount > 0)
@@ -136,7 +136,7 @@ namespace VECS
                 {
                     if (!_noAllocStorageBuffers)
                     {
-                        buffer = new(binding.BufferSize, MaterialV2.DEFAULT_STORAGE_BUFFER_COUNT, binding.BufferUsageFlags, true);
+                        buffer = new(binding.BufferSize, Material.DEFAULT_STORAGE_BUFFER_COUNT, binding.BufferUsageFlags, true);
                         _hasOwnerShipOfBuffer[b] = true;
                     }
                     else
@@ -148,7 +148,7 @@ namespace VECS
                 }
                 else if (binding.Buffer)
                 {
-                    buffer = new(binding.BufferSize, MaterialV2.MAX_VARIANTS, binding.BufferUsageFlags, true);
+                    buffer = new(binding.BufferSize, Material.MAX_VARIANTS, binding.BufferUsageFlags, true);
                     _hasOwnerShipOfBuffer[b] = true;
                 }
                 _descriptorSetBuffers[b] = buffer;

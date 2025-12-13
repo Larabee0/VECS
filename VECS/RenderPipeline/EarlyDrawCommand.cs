@@ -46,7 +46,7 @@ namespace VECS
             DrawCommand = drawCommand;
             RenderMesh = renderMesh;
             RenderMesh.Mesh.Hash = AssetDataBase<DirectMesh>.GetCurrentIndexOfHashed(DirectMesh);
-            RenderMesh.Material.Hash = AssetDataBase<MaterialV2>.GetCurrentIndexOfHashed(MaterialIndex);
+            RenderMesh.Material.Hash = AssetDataBase<Material>.GetCurrentIndexOfHashed(MaterialIndex);
 
             _cachedHashCode = HashCode.Combine(MaterialIndex, MaterialVariant, MaterialEntity, DirectMesh, SubMesh);
 

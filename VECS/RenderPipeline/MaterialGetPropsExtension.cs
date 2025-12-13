@@ -7,77 +7,77 @@ namespace VECS
     public static class MaterialGetPropsExtension
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int GetInt(this MaterialV2 material, int propertyId, int variant)
+        public static int GetInt(this Material material, int propertyId, int variant)
         {
             return material.ReadFromBuffer<int>(propertyId, variant);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static float GetFloat(this MaterialV2 material, int propertyId, int variant)
+        public static float GetFloat(this Material material, int propertyId, int variant)
         {
             return material.ReadFromBuffer<float>(propertyId, variant);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Vector2 GetVector2(this MaterialV2 material, int propertyId, int variant)
+        public static Vector2 GetVector2(this Material material, int propertyId, int variant)
         {
             return material.ReadFromBuffer<Vector2>(propertyId, variant);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Vector4 GetVector4(this MaterialV2 material, int propertyId, int variant)
+        public static Vector4 GetVector4(this Material material, int propertyId, int variant)
         {
             return material.ReadFromBuffer<Vector4>(propertyId, variant);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Matrix3x2 GetMatrix3x2(this MaterialV2 material, int propertyId, int variant)
+        public static Matrix3x2 GetMatrix3x2(this Material material, int propertyId, int variant)
         {
             return material.ReadFromBuffer<Matrix3x2>(propertyId, variant);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Matrix4x4 GetMatrix4x4(this MaterialV2 material, int propertyId, int variant)
+        public static Matrix4x4 GetMatrix4x4(this Material material, int propertyId, int variant)
         {
             return material.ReadFromBuffer<Matrix4x4>(propertyId, variant);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static T GetUniform<T>(this MaterialV2 material, int propertyId, int variant) where T : unmanaged
+        public static T GetUniform<T>(this Material material, int propertyId, int variant) where T : unmanaged
         {
             return material.ReadFromBuffer<T>(propertyId, variant);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static float[] GetFloatArray(this MaterialV2 material, int propertyId, int variant)
+        public static float[] GetFloatArray(this Material material, int propertyId, int variant)
         {
             return material.ReadArrayFromBuffer<float>(propertyId, variant);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Vector2[] GetVector2Array(this MaterialV2 material, int propertyId, int variant)
+        public static Vector2[] GetVector2Array(this Material material, int propertyId, int variant)
         {
             return material.ReadArrayFromBuffer<Vector2>(propertyId, variant);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Vector4[] GetVector4Array(this MaterialV2 material, int propertyId, int variant)
+        public static Vector4[] GetVector4Array(this Material material, int propertyId, int variant)
         {
             return material.ReadArrayFromBuffer<Vector4>(propertyId, variant);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Matrix3x2[] GetMatrix3x2Array(this MaterialV2 material, int propertyId, int variant)
+        public static Matrix3x2[] GetMatrix3x2Array(this Material material, int propertyId, int variant)
         {
             return material.ReadArrayFromBuffer<Matrix3x2>(propertyId, variant);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Matrix4x4[] GetMatrix4x4Array(this MaterialV2 material, int propertyId, int variant)
+        public static Matrix4x4[] GetMatrix4x4Array(this Material material, int propertyId, int variant)
         {
             return material.ReadArrayFromBuffer<Matrix4x4>(propertyId, variant);
         }
-        private static unsafe T[] ReadArrayFromBuffer<T>(this MaterialV2 material, int propertyId, int variant) where T : unmanaged
+        private static unsafe T[] ReadArrayFromBuffer<T>(this Material material, int propertyId, int variant) where T : unmanaged
         {
             if (material.LookUpProperty(propertyId, out var propertyInfo))
             {
@@ -87,7 +87,7 @@ namespace VECS
             return default;
         }
 
-        private static T ReadFromBuffer<T>(this MaterialV2 material, int propertyId, int variant) where T : unmanaged
+        private static T ReadFromBuffer<T>(this Material material, int propertyId, int variant) where T : unmanaged
         {
             if (material.LookUpProperty(propertyId, out var propertyInfo))
             {
@@ -96,7 +96,7 @@ namespace VECS
             return default;
         }
 
-        public static Span<T> GetStorageBuffer<T>(this MaterialV2 material, int propertyId) where T : unmanaged
+        public static Span<T> GetStorageBuffer<T>(this Material material, int propertyId) where T : unmanaged
         {
             if (material.LookUpProperty(propertyId, out var propertyInfo))
             {
@@ -106,7 +106,7 @@ namespace VECS
             return default;
         }
 
-        public unsafe static void* GetUnsafeStorageBuffer(this MaterialV2 material, int propertyId)
+        public unsafe static void* GetUnsafeStorageBuffer(this Material material, int propertyId)
         {
             if (material.LookUpProperty(propertyId, out var propertyInfo))
             {

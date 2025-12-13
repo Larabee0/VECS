@@ -22,7 +22,7 @@ namespace VECS
         private static readonly int MinMaxBufferId = "minMaxBuffer".GetHashCode();
 
 
-        private static readonly ComputeShaderV2 _calculateBounds;
+        private static readonly ComputeShader _calculateBounds;
 
         private static readonly SwapChainBuffer<int> _minMaxBuffer;
 
@@ -47,7 +47,7 @@ namespace VECS
 
         static ComputeBounds()
         {
-            _calculateBounds = ComputeShaderV2.GetOrCreate("calculate_mesh_bounds.comp");
+            _calculateBounds = ComputeShader.GetOrCreate("calculate_mesh_bounds.comp");
 
             _minMaxBuffer = new SwapChainBuffer<int>(6 * 2000, VkBufferUsageFlags.StorageBuffer, true);
 
@@ -148,7 +148,7 @@ namespace VECS
             for (uint i = 0; i < mesh.DirectSubMeshes.Length; i++)
             {
                 var subMesh = mesh.DirectSubMeshes[i];
-                Vector2UInt workGroupXY = ComputeShaderV2.CompensateForWorkGroupLimits(subMesh.VertexCount);
+                Vector2UInt workGroupXY = ComputeShader.CompensateForWorkGroupLimits(subMesh.VertexCount);
 
                 _calculateBounds.SetStorageBuffer(VertexBufferId, firstDescriptor+i, vertexPositionBuffer);
                 Prepare(firstDescriptor + i, subMesh);

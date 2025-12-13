@@ -9,7 +9,7 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
-    public class MaterialV2 : DisposableAsset
+    public class Material : DisposableAsset
     {
         public const int MAX_VARIANTS = 1000;
         public const uint DEFAULT_STORAGE_BUFFER_COUNT = 10000;
@@ -49,7 +49,7 @@ namespace VECS
         public DescriptorSetInfo[] DescriptorSetInfos => _descriptorSetInfos;
         public PushConstantsHandler PushConstants => _materialPushConstantsHandler;
 
-        public MaterialV2(string name, string vertexShaderName, string fragmentShaderName, GraphicsPipelineConfigInfo pipelineConfig)
+        public Material(string name, string vertexShaderName, string fragmentShaderName, GraphicsPipelineConfigInfo pipelineConfig)
         {
             AssetName = name;
 
@@ -74,10 +74,10 @@ namespace VECS
             _pipelineLayout = GPUPipelineUtil.CreatePipelineLayout(vertex, fragment, _descriptorSetLayouts, _materialPushConstantsHandler);
             _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipeline(vertex, fragment, _graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT);
             _matVariants = new MaterialVariant[MAX_VARIANTS];
-            AssetDataBase<MaterialV2>.Add(this);
+            AssetDataBase<Material>.Add(this);
         }
 
-        internal MaterialV2(string name, string vertexShaderName, GraphicsPipelineConfigInfo pipelineConfig)
+        internal Material(string name, string vertexShaderName, GraphicsPipelineConfigInfo pipelineConfig)
         {
             AssetName = name;
 
@@ -102,10 +102,10 @@ namespace VECS
             _pipelineLayout = GPUPipelineUtil.CreatePipelineLayout(vertex, _descriptorSetLayouts, _materialPushConstantsHandler);
             _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipeline(vertex, _graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT);
             _matVariants = new MaterialVariant[MAX_VARIANTS];
-            AssetDataBase<MaterialV2>.Add(this);
+            AssetDataBase<Material>.Add(this);
         }
 
-        internal MaterialV2(string name, string meshShaderName, string taskShaderName, string fragmentShaderName, GraphicsPipelineConfigInfo pipelineConfig)
+        internal Material(string name, string meshShaderName, string taskShaderName, string fragmentShaderName, GraphicsPipelineConfigInfo pipelineConfig)
         {
             AssetName = name;
 
@@ -141,7 +141,7 @@ namespace VECS
             _pipelineLayout = GPUPipelineUtil.CreatePipelineLayout(mesh, task, fragment, _descriptorSetLayouts, _materialPushConstantsHandler);
             _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipeline(mesh, task, fragment, _graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT);
             _matVariants = new MaterialVariant[MAX_VARIANTS];
-            AssetDataBase<MaterialV2>.Add(this);
+            AssetDataBase<Material>.Add(this);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -658,7 +658,7 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal unsafe static void Update(MaterialV2 material, RendererFrameInfo frameInfo)
+        internal unsafe static void Update(Material material, RendererFrameInfo frameInfo)
         {
             if (material._variantCount == 0) return;
             uint* accumulatedStorageBufferUsage = stackalloc uint[material.DescriptorSetCount];
@@ -705,8 +705,8 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static void UpdateMaterialsParallel(RendererFrameInfo frameInfo)
         {
-            var count = AssetDataBase<MaterialV2>.AssetCount;
-            var readingList = AssetDataBase<MaterialV2>.AllAssetsListForReading;
+            var count = AssetDataBase<Material>.AssetCount;
+            var readingList = AssetDataBase<Material>.AllAssetsListForReading;
             Application.ParallelFor(count, (i) =>
             {
                 Update(readingList[i], frameInfo);
@@ -716,8 +716,8 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static void UpdateMaterials(RendererFrameInfo frameInfo)
         {
-            var count = AssetDataBase<MaterialV2>.AssetCount;
-            var readingList = AssetDataBase<MaterialV2>.AllAssetsListForReading;
+            var count = AssetDataBase<Material>.AssetCount;
+            var readingList = AssetDataBase<Material>.AllAssetsListForReading;
             readingList.ForEach(m => Update(m, frameInfo));
         }
     }

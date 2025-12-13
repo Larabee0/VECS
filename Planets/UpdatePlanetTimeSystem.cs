@@ -24,10 +24,10 @@ namespace Planets
             if (_planetRenderQuery.HasEntities)
             {
                 var entities = _planetRenderQuery.GetEntities();
-                HashSet<MaterialV2> materials = new (entities.Count);
+                HashSet<Material> materials = new (entities.Count);
                 for (int i = 0; i < entities.Count; i++)
                 {
-                    materials.Add(AssetDataBase<MaterialV2>.GetHashedSilentFail(entityManager.GetComponent<MaterialIndex>(entities[0]).Hash));
+                    materials.Add(AssetDataBase<Material>.GetHashedSilentFail(entityManager.GetComponent<MaterialIndex>(entities[0]).Hash));
                 }
                 float time = Time.TimeSinceStartUp;
                 foreach (var mat in materials)

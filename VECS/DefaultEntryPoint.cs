@@ -50,17 +50,17 @@ namespace VECS
 
         private static void CreateDescriptorBufferMat()
         {
-            MaterialV2 LitTexture = EngineMaterials.LitTexture;
+            Material LitTexture = EngineMaterials.LitTexture;
             LitTexture.GetStorageBuffer<ModelMatrices>("matricesBuffer".GetHashCode())[0] = new(TransformExtensions.TRS(new(0, 0, 0), Quaternion.Identity, new(4)));
             LitTexture.SetDescriptorStorageBufferLengthFromProperty("matricesBuffer".GetHashCode(), 0, 1);
             
-            MaterialV2 DepthOnly = EngineMaterials.DepthOnly;
+            Material DepthOnly = EngineMaterials.DepthOnly;
             DepthOnly.GetStorageBuffer<ModelMatrices>("matricesBuffer".GetHashCode())[0] = new(TransformExtensions.TRS(new(0, 0, 0), Quaternion.Identity, new(4)));
             DepthOnly.SetDescriptorStorageBufferLengthFromProperty("matricesBuffer".GetHashCode(), 0, 1);
 
             if (GraphicsDevice.MeshShading)
             {
-                MaterialV2 MeshShader = EngineMaterials.UnlitMeshShader;
+                Material MeshShader = EngineMaterials.UnlitMeshShader;
                 MeshShader.GetStorageBuffer<ModelMatrices>("matricesBuffer".GetHashCode())[0] = new(TransformExtensions.TRS(new(0, 0, 0), Quaternion.Identity, new(4)));
                 MeshShader.SetDescriptorStorageBufferLengthFromProperty("matricesBuffer".GetHashCode(), 0, 1);
             }
@@ -85,9 +85,9 @@ namespace VECS
             var colorCube = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("colored_cube.obj"), []);
             var res = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("cube-UV.obj"), []);
             var vase = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("smooth_vase.obj"), []);
-            ComputeNormalsV2.DispatchSingleTimeCmd(colorCube[0].DirectMeshBuffer);
-            ComputeNormalsV2.DispatchSingleTimeCmd(vase[0].DirectMeshBuffer);
-            ComputeNormalsV2.DispatchSingleTimeCmd(res[0].DirectMeshBuffer);
+            ComputeNormals.DispatchSingleTimeCmd(colorCube[0].DirectMeshBuffer);
+            ComputeNormals.DispatchSingleTimeCmd(vase[0].DirectMeshBuffer);
+            ComputeNormals.DispatchSingleTimeCmd(res[0].DirectMeshBuffer);
 
             colorCube[0].DirectMeshBuffer.ReadAllBuffers();
             vase[0].DirectMeshBuffer.ReadAllBuffers();

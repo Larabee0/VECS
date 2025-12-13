@@ -8,7 +8,7 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
-    public class ComputeShaderV2 : DisposableAsset
+    public class ComputeShader : DisposableAsset
     {
         private readonly PushConstantsHandler _pushConstantsHandler;
 
@@ -24,11 +24,11 @@ namespace VECS
         public PushConstantsHandler PushConstantsHandler => _pushConstantsHandler;
 
         [ThreadStatic]
-        private static ComputeShaderV2 _lastBoundComputeShader;
+        private static ComputeShader _lastBoundComputeShader;
         [ThreadStatic]
         private static int _frameIndex;
 
-        public unsafe ComputeShaderV2(string assetName, string shaderName)
+        public unsafe ComputeShader(string assetName, string shaderName)
         {
             AssetName = assetName;
             var shaderModule = AssetDataBase<ShaderModule>.GetNamed(shaderName);
@@ -320,14 +320,14 @@ namespace VECS
             }
         }
 
-        public static ComputeShaderV2 GetOrCreate(string shaderName)
+        public static ComputeShader GetOrCreate(string shaderName)
         {
-            var shader = AssetDataBase<ComputeShaderV2>.GetNamedSilentFail(shaderName);
+            var shader = AssetDataBase<ComputeShader>.GetNamedSilentFail(shaderName);
 
             if (shader == null)
             {
-                shader = new ComputeShaderV2(shaderName, shaderName);
-                AssetDataBase<ComputeShaderV2>.Add(shader);
+                shader = new ComputeShader(shaderName, shaderName);
+                AssetDataBase<ComputeShader>.Add(shader);
             }
 
             return shader;

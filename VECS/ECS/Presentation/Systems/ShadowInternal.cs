@@ -20,7 +20,7 @@ namespace VECS.ECS.Presentation
 
         public void RenderShadows(RendererFrameInfo frameInfo)
         {
-            MaterialV2 shadowOffscreen = EngineMaterials.ShadowOffscreen;
+            Material shadowOffscreen = EngineMaterials.ShadowOffscreen;
 
             Matrix4x4 projection = ShadowImage.CubeProjectionMatrix;
             Matrix4x4 model = Matrix4x4.CreateTranslation(frameInfo.Ubo.PointLights[0].Position.AsVector3());
@@ -28,7 +28,7 @@ namespace VECS.ECS.Presentation
             shadowOffscreen.SetMatrix4x4("cubeConstant.cubeModel".GetHashCode(),0, model);
 
             shadowOffscreen.PushConstants.EnsureCapacity(6);
-            MaterialV2.Update(shadowOffscreen, frameInfo);
+            Material.Update(shadowOffscreen, frameInfo);
             Presenter.Instance.ShadowImage.SetImageLayoutWrite(frameInfo.CommandBuffer);
             if (DrawBlob.MULTI_THREAD_RENDERING)
             {
