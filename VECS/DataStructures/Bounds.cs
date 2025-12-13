@@ -38,6 +38,12 @@ namespace VECS
             this.extents = extents;
         }
 
+        public Bounds(ModelBounds modelBounds)
+        {
+
+            SetMinMax(modelBounds.Min.AsVector3(), modelBounds.Max.AsVector3());
+        }
+
         public static Bounds FromMinMax(Vector3 min, Vector3 max)
         {
             Bounds aabb = default;

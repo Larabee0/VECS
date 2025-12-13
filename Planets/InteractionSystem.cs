@@ -13,8 +13,8 @@ namespace Planets
         private const float SimSpeedIncrement = MinSimSpeed;
 
         private static bool ShouldUpdate = false;
-        private static bool Paused = false;
-        private static float Speed = 1.0f;
+        private static bool Paused = true;
+        private static float Speed = 0.0f;
 
         private EntityQuery _interactionEntity;
 
@@ -35,11 +35,11 @@ namespace Planets
         {
             if (_interactionEntity.HasEntities)
             {
-                if (InputManager.Instance.GetKeyUp(SDL_Keycode.Space))
-                {
-                    Paused = !Paused;
-                    ShouldUpdate = true;
-                }
+                // if (InputManager.Instance.GetKeyUp(SDL_Keycode.Space))
+                // {
+                //     Paused = !Paused;
+                //     ShouldUpdate = true;
+                // }
 
                 if (InputManager.Instance.GetKeyUp(SDL_Keycode.Minus))
                 {

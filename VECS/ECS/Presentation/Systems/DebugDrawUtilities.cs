@@ -138,7 +138,7 @@ namespace VECS.ECS.Presentation
                 {
                     var entity = entities[i];
                     var bounds = entityManager.GetComponent<WorldRenderBounds>(entity);
-                    DrawWireCube(bounds.Bounds.center, bounds.Bounds.Size, Quaternion.Identity);
+                    DrawWireCube(bounds.Value.center, bounds.Value.Size, Quaternion.Identity);
                 }
             }
 

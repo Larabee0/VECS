@@ -14,7 +14,7 @@ namespace VECS.ECS.Physics
         private EntityQuery _updateBodyDescs;
         private EntityQuery _drawBodyDescs;
 
-        private bool _drawBodies = true;
+        private bool _drawBodies = false;
 
         public override void OnCreate(EntityManager entityManager)
         {

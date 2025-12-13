@@ -11,17 +11,34 @@ namespace VECS
         public Vector4 Min;
         public Vector4 Max;
 
-        public ModelBounds(RenderBounds renderBounds)
+        public ModelBounds(Vector4 min, Vector4 max)
         {
-            Min = new(renderBounds.Bounds.Min, renderBounds.Radius);
-            Max = new(renderBounds.Bounds.Max, renderBounds.Radius);
+            Min = min;
+            Max = max;
         }
 
-        public ModelBounds(WorldRenderBounds worldRenderBounds) : this()
+        public ModelBounds(Vector3 min, Vector3 max)
         {
-            float maxRadius = MathF.Max(worldRenderBounds.Radius.X, MathF.Max(worldRenderBounds.Radius.Y, worldRenderBounds.Radius.Z));
-            Min = new(worldRenderBounds.Bounds.Min, maxRadius);
-            Max = new(worldRenderBounds.Bounds.Max, maxRadius);
+            Min = new(min, 1);
+            Max = new(max, 1);
+        }
+
+        public ModelBounds(Bounds bounds)
+        {
+            Min = new(bounds.Min, 1);
+            Max = new(bounds.Max, 1);
+        }
+
+        public ModelBounds(RenderBounds renderBounds)
+        {
+            Min = new(renderBounds.Value.Min, 1);
+            Max = new(renderBounds.Value.Max, 1);
+        }
+
+        public ModelBounds(WorldRenderBounds worldRenderBounds)
+        {
+            Min = new(worldRenderBounds.Value.Min, 1);
+            Max = new(worldRenderBounds.Value.Max, 1);
         }
     }
 }

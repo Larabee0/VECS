@@ -80,13 +80,13 @@ namespace VECS.ECS.Presentation
                 UpdateOrthographicCameras(entityManager);
             }
 
-            if (_cameraMotion.HasEntities)
-            {
-                _cameraMotion.GetEntities().ForEach(entity =>
-                {
-                    TransformCamera(entityManager, entity);
-                });
-            }
+            // if (_cameraMotion.HasEntities)
+            // {
+            //     _cameraMotion.GetEntities().ForEach(entity =>
+            //     {
+            //         TransformCamera(entityManager, entity);
+            //     });
+            // }
         }
 
         /// <summary>
@@ -116,6 +116,8 @@ namespace VECS.ECS.Presentation
                 ProjectionMatrix = GetPerspectiveProject(perCam, aspect),
                 ViewMatrix = GetViewMatrix(entityManager.GetComponent<LocalToWorld>(entity).Value),
                 fustrumCulling = perCam.fustrumCulling,
+                dstCull = perCam.dstCull,
+                depthCull = perCam.depthCull,
                 ClipNear = perCam.ClipNear,
                 ClipFar = perCam.ClipFar,
             };
@@ -145,6 +147,8 @@ namespace VECS.ECS.Presentation
                 ProjectionMatrix = GetOrthographicProject(orthCam),
                 ViewMatrix = GetViewMatrix(entityManager.GetComponent<LocalToWorld>(entity).Value),
                 fustrumCulling = orthCam.fustrumCulling,
+                dstCull = orthCam.dstCull,
+                depthCull = orthCam.depthCull,
                 ClipNear = orthCam.ClipNear,
                 ClipFar = orthCam.ClipFar,
             };
@@ -162,13 +166,13 @@ namespace VECS.ECS.Presentation
         /// <returns></returns>
         public static Matrix4x4 GetPerspectiveProject(CameraPerspective perspective, float aspect)
         {
-            // return Matrix4x4.CreatePerspectiveFieldOfView(
-            //     float.DegreesToRadians(perspective.FOV),
-            //     aspect,
-            //     perspective.ClipFar,
-            //     perspective.ClipNear);
+            return Matrix4x4.CreatePerspectiveFieldOfView(
+                float.DegreesToRadians(perspective.FOV),
+                aspect,
+                perspective.ClipNear,
+                perspective.ClipFar);
 
-            return GLMPerspectiveProject(float.DegreesToRadians(perspective.FOV), aspect, perspective.ClipNear, perspective.ClipFar);
+            //return GLMPerspectiveProject(float.DegreesToRadians(perspective.FOV), aspect, perspective.ClipNear, perspective.ClipFar);
         }
 
         public static Matrix4x4 GLMPerspectiveProject(float fov, float aspect,float zNear, float zFar)

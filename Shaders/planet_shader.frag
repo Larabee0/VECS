@@ -203,5 +203,4 @@ void main()
 	else{
 		outColour = vec4(diffuseLight  * outColour.xyz, 1.0);
 	}
-	//outColour = vec4(1);
 }

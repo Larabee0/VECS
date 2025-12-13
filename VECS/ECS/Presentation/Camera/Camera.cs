@@ -24,6 +24,8 @@ namespace VECS.ECS.Presentation
         public Matrix4x4 ViewMatrix;
         public Matrix4x4 InverseViewMatrix;
         public bool fustrumCulling;
+        public bool dstCull;
+        public bool depthCull;
         public float ClipNear;
         public float ClipFar;
     }

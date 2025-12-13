@@ -8,6 +8,12 @@ namespace VECS.LowLevel
     {
         public const int SHADOW_IMAGE_SIZE = 8192;
         public const VkFormat SHADOW_IMAGE_FORMAT = VkFormat.R32Sfloat;
+        public const bool SHADOW_CULLING = true;
+        public const bool SHADOW_DST_CULLING = true;
+        public const bool SHADOW_DEPTH_CULLING = false;
+
+        public static readonly Matrix4x4 CubeProjectionMatrix = Matrix4x4.CreatePerspectiveFieldOfView(MathF.PI * 0.5f, 1.0f, 0.1f, SHADOW_IMAGE_SIZE);
+
         private readonly VkFormat _depthFormat;
         public Cubemap CubeMap;
         public Texture2D DepthImage;

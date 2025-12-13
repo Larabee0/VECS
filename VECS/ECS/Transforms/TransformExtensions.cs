@@ -326,5 +326,12 @@ namespace VECS.ECS.Transforms
             //return RadiansToDegrees(euler);
         }
 
+
+        public static Vector4 Plane(Vector3 p1, Vector3 norm)
+        {
+            return new (Vector3.Normalize(norm),Vector3.Dot(norm,p1));
+
+        }
+
     }
 }

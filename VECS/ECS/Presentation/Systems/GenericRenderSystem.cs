@@ -1,5 +1,6 @@
 ﻿using VECS.ECS.Transforms;
 using VECS.LowLevel;
+using Vortice.Vulkan;
 
 namespace VECS.ECS.Presentation
 {
@@ -10,11 +11,7 @@ namespace VECS.ECS.Presentation
         private EntityQuery _renderEntityQuery;
         private EntityQuery _renderBloomEntityQuery;
 
-        // private ForwardInternal _forwardData;
          private ShadowInternal _shadowData;
-        // private DepthInternal _depthData;
-
-        
 
         public override void OnCreate(EntityManager entityManager)
         {
@@ -29,16 +26,7 @@ namespace VECS.ECS.Presentation
                 .Build();
 
             DrawBlob.AllInOneMats.Add(MaterialV2.DepthOnly.Hash);
-            // _forwardData = new();
             _shadowData = new();
-            // _depthData = new(_forwardData._renderBlob);
-        }
-
-        public override void OnDestroy(EntityManager entityManager)
-        {
-            // _forwardData?.Dispose();
-            _shadowData?.Dispose();
-            // _depthData?.Dispose();
         }
 
         public override void OnPreCull(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
@@ -53,36 +41,40 @@ namespace VECS.ECS.Presentation
         {
             if (!_renderEntityQuery.HasEntities) { return; }
 
+            var depthBufferCullInfo = frameInfo.cullData;
+            depthBufferCullInfo.depthCulling = 0;
 
+            DrawBlob.CullAllInOne(frameInfo, depthBufferCullInfo);
             DrawBlob.CullByMat(frameInfo, frameInfo.cullData);
-            // _forwardData.GenerateDrawCmds(rendererFrameInfo, entityManager, entities);
-            // DrawBlob.RebuildStructure(entityManager, entities);
         }
 
         public unsafe override void OnPreForwardPass(EntityManager entityManager, RendererFrameInfo frameInfo)
         {
+            VkCommandBuffer commandBuffer = frameInfo.CommandBuffer;
             if (!_renderEntityQuery.HasEntities)
             {
                 // empty depth pass just to clear the depth texture.
-                SwapChain.Instance.BeginForwardDepth(frameInfo.CommandBuffer);
-                SwapChain.Instance.EndForwardDepthRendering(frameInfo.CommandBuffer);
+                SwapChain.Instance.BeginForwardDepth(commandBuffer);
+                SwapChain.Instance.EndForwardDepthRendering(commandBuffer);
+
+                // empty shadow passes just to clear the cube map.
+                for (int i = 0; i < 6; i++)
+                {
+                    Presenter.Instance.ShadowImage.UpdateCubeFace(i, commandBuffer);
+                    Presenter.Instance.ShadowImage.EndShadowPass(commandBuffer);
+                }
                 return;
             }
 
-            DrawBlob.CullAllInOne(frameInfo,frameInfo.CommandBuffer, frameInfo.cullData);
+            SwapChain.Instance.BeginForwardDepth(commandBuffer);
 
-            SwapChain.Instance.BeginForwardDepth(frameInfo.CommandBuffer);
+            DrawBlob.ExecuteAllInOneDrawCmds(frameInfo, commandBuffer, MaterialV2.DepthOnly.Hash);
 
-            DrawBlob.ExecuteAllInOneDrawCmds(frameInfo, frameInfo.CommandBuffer, MaterialV2.DepthOnly.Hash);
+            SwapChain.Instance.EndForwardDepthRendering(commandBuffer);
 
-            SwapChain.Instance.EndForwardDepthRendering(frameInfo.CommandBuffer);
+            DrawBlob.IndirectToComputeMemoryBarrierAllInOne(commandBuffer);
 
-            DrawBlob.IndirectToComputeMemoryBarrierAllInOne(frameInfo.CommandBuffer);
-
-
-            var entities = _renderEntityQuery.GetEntities();
-            _shadowData.GenerateDrawCmds(frameInfo, entityManager, entities);
-            // _depthData.GenerateDrawCmds(frameInfo, entityManager, entities);
+            _shadowData.RenderShadows(frameInfo);
         }
 
         public override void OnBloomGlow(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)

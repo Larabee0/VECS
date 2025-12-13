@@ -179,31 +179,15 @@ namespace VECS
                     }
                 }
             }
+
             _ubo.Projection = camera.ProjectionMatrix;
             _ubo.View = camera.ViewMatrix;
             _ubo.InverseView = camera.InverseViewMatrix;
             _ubo.AmbientLightColour = new(1.0f, 1.0f, 1.0f, 0.02f);
 
-            Matrix4x4 projection = _ubo.Projection;
-            Matrix4x4 projectionT = Matrix4x4.Transpose(projection);
+            Matrix4x4 projection = camera.ViewMatrix * camera.ProjectionMatrix;
 
-            Vector4 frustrumX = (projectionT.GetMatrixRow(3) + projectionT.GetMatrixRow(0)).NormalizePlane();
-            Vector4 frustrumY = (projectionT.GetMatrixRow(3) + projectionT.GetMatrixRow(1)).NormalizePlane();
-            Vector4 frustum = new(frustrumX.X, frustrumX.Z, frustrumY.Y, frustrumY.Z);
-
-            frameInfo.cullData = new()
-            {
-                cullingEnabled = camera.fustrumCulling ? 1 : 0,
-                P00 = _ubo.Projection[0, 0],
-                P11 = _ubo.Projection[1, 1],
-                znear = clipNear,
-                zfar = clipFar,
-                frustum = frustum,
-                drawCount = 0,
-
-                distCull = 1,
-                viewMatrix = camera.ViewMatrix
-            };
+            frameInfo.cullData = new(camera.fustrumCulling, camera.dstCull, camera.depthCull, projection);
 
             frameInfo.Ubo = _ubo;
 

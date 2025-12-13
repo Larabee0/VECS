@@ -27,5 +27,7 @@ namespace VECS
         public static Colour Clear => new() { R = 0, G = 0, B = 0, A = 0 };
         public static Colour Black => new() { R = 0, G = 0, B = 0, A = 255 };
         public static Colour Red => new() { R = 255, G = 0, B = 0, A = 255 };
+        public static Colour Green => new() { R = 0, G = 255, B = 0, A = 255 };
+        public static Colour Blue => new() { R = 0, G = 0, B = 255, A = 255 };
     }
 }

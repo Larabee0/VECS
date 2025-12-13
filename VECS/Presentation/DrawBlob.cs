@@ -442,6 +442,11 @@ namespace VECS
             mat.ExecuteDrawCommandsPushConstantOverride(frameInfo, pushConstantIndex, commandBuffer, _drawCommandsByMesh, _drawCommandsByMesh.Length, _indirectCmdBufferByMesh);
         }
 
+        public static void CullAllInOne(RendererFrameInfo frameInfo, CullData cullData)
+        {
+            CullAllInOne(frameInfo,frameInfo.CommandBuffer,cullData);
+        }
+
         public static void CullAllInOne(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, CullData cullData)
         {
             VkBufferMemoryBarrier2 memoryBarrier = FustrumCull.Cull(commandBuffer, frameInfo.FrameIndex, cullData, (uint)entityCount, _indirectCmdBufferByMesh, _drawRenderBoundsByMesh);

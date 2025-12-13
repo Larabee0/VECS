@@ -39,9 +39,7 @@ namespace VECS.ECS.Presentation
                     Matrix4x4 ltw = entityManager.GetComponent<LocalToWorld>(e).Value;
                     Matrix4x4.Decompose(ltw, out Vector3 scale, out Quaternion rotation, out Vector3 translation);
                     var renderBounds = DirectSubMesh.GetSubMeshAtIndex(entityManager.GetComponent<DirectSubMeshIndex>(e)).Bounds;
-                    WorldRenderBounds worldBounds = new(renderBounds);
-                    worldBounds.Bounds = Bounds.Transform(ltw, renderBounds.Bounds);
-                    worldBounds.Radius = renderBounds.Radius * scale;
+                    WorldRenderBounds worldBounds = new(Bounds.Transform(ltw, renderBounds.Value));
                     entityManager.AddComponent(e, worldBounds);
                 });
             }

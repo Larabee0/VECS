@@ -43,7 +43,8 @@ namespace Planets
             FOV = 50,
             ClipNear = 0.1f,
             ClipFar = 20000f,
-            fustrumCulling = false
+            fustrumCulling = true,
+            dstCull = true
         };
 
 
@@ -276,7 +277,7 @@ namespace Planets
             entityManager.AddComponent(vaseSmooth2, new Scale() { Value = new(10) });
             entityManager.AddComponent(vaseFlat, new Scale() { Value = new(10) });
 
-            Vector3 size = cube[0].Bounds.Bounds.Size;
+            Vector3 size = cube[0].Bounds.Value.Size;
             var boxCollider = new BoxCollider()
             {
                 Width = size.X,
@@ -326,12 +327,12 @@ namespace Planets
 
             Children children = new() { Value = new Entity[xWing.Length] };
 
-            Bounds outerBounds = xWing[0].Bounds.Bounds;
+            Bounds outerBounds = xWing[0].Bounds.Value;
 
             for (int i = 0; i < xWing.Length; i++)
             {
                 var subComponent = entityManager.CreateEntity();
-                outerBounds.Encapsulate(xWing[i].Bounds.Bounds);
+                outerBounds.Encapsulate(xWing[i].Bounds.Value);
                 AddRenderMeshComponents(subComponent, xWingMaterial, i, 0, xWing[i], entityManager);
                 children.Value[i] = subComponent;
                 entityManager.AddComponent(subComponent, new Parent() { Value = xWingBase });
@@ -449,7 +450,7 @@ namespace Planets
             entityManager.AddComponent(cubes[6], new Scale() { Value = new(34.1f, 58.3f, 10.6f) });
             entityManager.AddComponent(cubes[7], new Scale() { Value = new(10, 67.2f, 10) });
             entityManager.AddComponent(cubes[8], new Scale() { Value = new(10, 67.2f, 10) });
-            var baseBounds = models[0].Bounds.Bounds;
+            var baseBounds = models[0].Bounds.Value;
 
             baseBounds.extents *= entityManager.GetComponent<Scale>(plane).Value;
 
@@ -460,7 +461,7 @@ namespace Planets
                 Depth = baseBounds.Size.Z
             };
             entityManager.AddComponent(plane, boxCollider);
-            baseBounds = models[1].Bounds.Bounds;
+            baseBounds = models[1].Bounds.Value;
             for (int i = 0; i < cubes.Length; i++)
             {
                 var scaledBounds = baseBounds;
@@ -737,10 +738,10 @@ namespace Planets
             entityManager.AddComponent(MainCamera, new Rotation() { Value = TransformExtensions.Euler(initalCameraRot) });
             entityManager.AddComponent(MainCamera, cameraPerspective);
             entityManager.AddComponent<MainCamera>(MainCamera);
-
-            //var secondCamera = entityManager.CreateEntity();
-            //entityManager.AddComponent(secondCamera, new LocalToWorld() { Value = TransformExtensions.TRS(initalCameraPos, initalCameraRot, Vector3.One) });
-            //entityManager.AddComponent(secondCamera, cameraPerspective);
+            //cameraPerspective.ClipFar = 100f;
+            var secondCamera = entityManager.CreateEntity();
+            entityManager.AddComponent(secondCamera, new LocalToWorld() { Value = TransformExtensions.TRS(Vector3.Zero, Quaternion.Identity, Vector3.One) });
+            entityManager.AddComponent(secondCamera, cameraPerspective);
         }
 
         public static void Destroy() { }

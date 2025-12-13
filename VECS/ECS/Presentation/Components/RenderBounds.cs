@@ -1,38 +1,41 @@
-﻿using System.Numerics;
-
-namespace VECS.ECS.Presentation
+﻿namespace VECS.ECS.Presentation
 {
     public struct RenderBounds : IComponent
     {
         public static int ComponentId { get; set; }
         public readonly int Id => ComponentId;
 
-        public Bounds Bounds;
-        public float Radius;
+        public Bounds Value;
         public bool Valid;
+
+        public RenderBounds(Bounds bounds, bool valid)
+        {
+            Value = bounds;
+            Valid = valid;
+        }
+
+        public RenderBounds(ModelBounds bounds, bool valid)
+        {
+            Value = new(bounds);
+            Valid = valid;
+        }
+
     }
 
     public struct WorldRenderBounds : IComponent
     {
         public static int ComponentId { get; set; }
         public readonly int Id => ComponentId;
-        public Bounds Bounds;
-        public Vector3 Radius;
+        public Bounds Value;
 
-        public WorldRenderBounds(Bounds bounds, Vector3 radius)
+        public WorldRenderBounds(Bounds bounds)
         {
-            Bounds = bounds;
-            Radius = radius;
+            Value = bounds;
         }
-        public WorldRenderBounds(Bounds bounds, float radius)
-        {
-            Bounds = bounds;
-            Radius = new(radius);
-        }
+
         public WorldRenderBounds(RenderBounds renderBounds)
         {
-            Bounds = renderBounds.Bounds;
-            Radius = new(renderBounds.Radius);
+            Value = renderBounds.Value;
         }
     }
 }

@@ -2,35 +2,95 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Threading;
+using VECS.ECS;
+using VECS.ECS.Presentation;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
 namespace VECS
 {
-    [StructLayout(LayoutKind.Sequential, Size = 108)]
+    [StructLayout(LayoutKind.Sequential, Size = 112)]
     public struct CullData
     {
-        public Matrix4x4 viewMatrix;
-        public float P00;
-        public float P11;
-        public float znear;
-        public float zfar; // symmetric projection parameters
-        public Vector4 frustum;
+        public Vector4 left;
+        public Vector4 right;
+        public Vector4 bottom;
+        public Vector4 top;
+        public Vector4 near;
+        public Vector4 far;
         public uint drawCount;
         public int cullingEnabled;
-        public int distCull;
+        public int dstCulling;
+        public int depthCulling;
+
+        public readonly Vector4 this[int i] => i switch
+        {
+            0 => left,
+            1 => right,
+            2 => bottom,
+            3 => top,
+            4 => near,
+            5 => far,
+            _ => throw new IndexOutOfRangeException(),
+        };
 
         public readonly void SetPushConstant(PushConstantsHandler pushConstants, int setId = 0)
         {
-            pushConstants.SetPushConstantMatrix4x4("viewMatrix", setId, viewMatrix);
-            pushConstants.SetPushConstantFloat("P00", setId, P00);
-            pushConstants.SetPushConstantFloat("P11", setId, P11);
-            pushConstants.SetPushConstantFloat("znear", setId, znear);
-            pushConstants.SetPushConstantFloat("zfar", setId, zfar);
-            pushConstants.SetPushConstantVector4("frustum", setId, frustum);
-            pushConstants.SetPushConstantUInt("drawCount", setId, drawCount);
-            pushConstants.SetPushConstantInt("cullingEnabled", setId, cullingEnabled);
-            pushConstants.SetPushConstantInt("distCull", setId, distCull);
+            pushConstants.SetPushConstantUniform("cullData", setId, this);
+        }
+
+        public CullData(bool cull, bool dstCull,bool depthCull, Matrix4x4 projection)
+        {
+            Matrix4x4 projectionT = Matrix4x4.Transpose(projection);
+            near = projectionT.GetMatrixRow(3) - projectionT.GetMatrixRow(2);
+            far = projectionT.GetMatrixRow(3) + projectionT.GetMatrixRow(2);
+
+            right = projectionT.GetMatrixRow(3) - projectionT.GetMatrixRow(0);
+            left = projectionT.GetMatrixRow(3) + projectionT.GetMatrixRow(0);
+
+            top = projectionT.GetMatrixRow(3) + projectionT.GetMatrixRow(1);
+            bottom = projectionT.GetMatrixRow(3) - projectionT.GetMatrixRow(1);
+
+            cullingEnabled = cull ? 1 : 0;
+            dstCulling = dstCull ? 1 : 0;
+            depthCulling = depthCull ? 1 : 0;
+            drawCount = 0;
+        }
+
+        public CullData(int cull, int dstCull, int depthCull, Matrix4x4 projection)
+        {
+            Matrix4x4 projectionT = Matrix4x4.Transpose(projection);
+            near = projectionT.GetMatrixRow(3) - projectionT.GetMatrixRow(2);
+            far = projectionT.GetMatrixRow(3) + projectionT.GetMatrixRow(2);
+
+            right = projectionT.GetMatrixRow(3) - projectionT.GetMatrixRow(0);
+            left = projectionT.GetMatrixRow(3) + projectionT.GetMatrixRow(0);
+
+            top = projectionT.GetMatrixRow(3) + projectionT.GetMatrixRow(1);
+            bottom = projectionT.GetMatrixRow(3) - projectionT.GetMatrixRow(1);
+
+            cullingEnabled = cull;
+            dstCulling = dstCull;
+            depthCulling = depthCull;
+            drawCount = 0;
+        }
+
+        public CullData(bool cull, bool dstCull, bool depthCull, uint draws, Matrix4x4 projection)
+        {
+            Matrix4x4 projectionT = Matrix4x4.Transpose(projection);
+            near = projectionT.GetMatrixRow(3) - projectionT.GetMatrixRow(2);
+            far = projectionT.GetMatrixRow(3) + projectionT.GetMatrixRow(2);
+
+            right = projectionT.GetMatrixRow(3) - projectionT.GetMatrixRow(0);
+            left = projectionT.GetMatrixRow(3) + projectionT.GetMatrixRow(0);
+
+            top = projectionT.GetMatrixRow(3) + projectionT.GetMatrixRow(1);
+            bottom = projectionT.GetMatrixRow(3) - projectionT.GetMatrixRow(1);
+
+            cullingEnabled = cull ? 1 : 0;
+            dstCulling = dstCull ? 1 : 0;
+            depthCulling = depthCull ? 1 : 0;
+            drawCount = draws;
         }
     }
 
@@ -72,9 +132,25 @@ namespace VECS
             {
                 Span<VkDrawIndexedIndirectCommand> drawIndirectSpan = drawIndirect.HostBuffer;
                 Span<ModelBounds> boundsSpan = bounds.HostBuffer;
+
+
+                World.DefaultWorld.GetSystem<DebugDrawUtilities>().DrawWireCube(cullData.near.AsVector3(), Vector3.One, Quaternion.Identity, Colour.Blue);
+                World.DefaultWorld.GetSystem<DebugDrawUtilities>().DrawWireCube(cullData.far.AsVector3(), Vector3.One, Quaternion.Identity, Colour.White);
+
                 for (int i = 0; i < drawCount; i++)
                 {
-                    drawIndirectSpan[i].instanceCount = (cullData.cullingEnabled == 0 || IsVisible(boundsSpan[i], cullData)) ? 1u : 0;
+                    var boundsInternal = new Bounds(boundsSpan[i]);
+                    
+                    if (cullData.cullingEnabled == 0 || IsVisibleAABB(boundsSpan[i],cullData))
+                    {
+                        drawIndirectSpan[i].instanceCount = 1;
+                        World.DefaultWorld.GetSystem<DebugDrawUtilities>().DrawWireCube(boundsInternal.center, boundsInternal.Size, Quaternion.Identity, Colour.Green);
+                    }
+                    else
+                    {
+                        drawIndirectSpan[i].instanceCount = 0;
+                        World.DefaultWorld.GetSystem<DebugDrawUtilities>().DrawWireCube(boundsInternal.center, boundsInternal.Size, Quaternion.Identity, Colour.Red);
+                    }
                 }
                 bounds.SetUsedInstanceCount(drawCount);
                 drawIndirect.SetUsedInstanceCount(drawCount);
@@ -89,27 +165,40 @@ namespace VECS
             }
         }
 
-        public static bool IsVisible(ModelBounds bounds, CullData cullData)
+        public static bool IsVisibleAABB(ModelBounds bounds, CullData cullData)
         {
-            Vector3 extents = (bounds.Max.AsVector3() - bounds.Min.AsVector3()) * 0.5f;
-
-            Vector3 center = bounds.Min.AsVector3() + extents;
-
-            center = Vector3.Transform(center, cullData.viewMatrix);
-
-            float radius = bounds.Min.W;
-
-            bool visible = true;
-
-            visible = visible && center.Z * cullData.frustum[1] - MathF.Abs(center.X) * cullData.frustum[0] > -radius;
-            visible = visible && center.Z * cullData.frustum[3] - MathF.Abs(center.Y) * cullData.frustum[2] > -radius;
-            if (cullData.distCull != 0)
+            var min = bounds.Min;
+            var max = bounds.Max;
+            min.W = 1f;
+            max.W = 1f;
+            int planeCount = cullData.dstCulling == 1 ? 6 : 4;
+            for (int i = 0; i < 6; i++)
             {
-                // the near/far plane culling uses camera space Z directly
-                visible = visible && MathF.Abs(center.Z) + radius > cullData.znear && MathF.Abs(center.Z) - radius < cullData.zfar;
+                var g = cullData[i];
+                float d0 = Vector4.Dot(g, min);
+                float d1 = Vector4.Dot(g, new Vector4(max.X, min.Y, min.Z, 1f));
+                float d2 = Vector4.Dot(g, new Vector4(min.X, max.Y, min.Z, 1f));
+                float d3 = Vector4.Dot(g, new Vector4(max.X, max.Y, min.Z, 1f));
+
+                float d4 = Vector4.Dot(g, new Vector4(min.X, min.Y, max.Z, 1f));
+                float d5 = Vector4.Dot(g, new Vector4(max.X, min.Y, max.Z, 1f));
+                float d6 = Vector4.Dot(g, new Vector4(min.X, max.Y, max.Z, 1f));
+                float d7 = Vector4.Dot(g, max);
+
+                if (d0 < 0.0f &&
+                    d1 < 0.0f &&
+                    d2 < 0.0f &&
+                    d3 < 0.0f &&
+                    d4 < 0.0f &&
+                    d5 < 0.0f &&
+                    d6 < 0.0f &&
+                    d7 < 0.0f)
+                {
+                    return false;
+                }
             }
 
-            return visible;
+            return true;
         }
 
         private static unsafe VkBufferMemoryBarrier2 GPUCullInternal(VkCommandBuffer commandBuffer,int frameIndex, CullData cullData, uint drawCount, SwapChainBuffer drawIndirect, SwapChainBuffer bounds, uint setId)

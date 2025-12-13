@@ -21,39 +21,42 @@ layout(set = 0, binding = 1) buffer InstanceBuffer {
 	DrawCommand Draws[];
 } drawBuffer;
 
-layout(push_constant) uniform  constants{   
-	mat4 viewMatrix;
-	float P00, P11, znear, zfar; // symmetric projection parameters
-	float frustum[4]; // data for left/right/top/bottom frustum planes
+layout(push_constant) uniform  constants{
+	vec4 frustum[6]; // data for left/right/top/bottom frustum planes
 	uint drawCount;
 	int cullingEnabled;
 	int distCull;
+	int depthCulling;
 } cullData;
 
 bool IsVisible(uint objectIndex)
 {
 	ObjectBounds bounds = boundsBuffer.bounds[objectIndex];
 
-	vec3 extents = (bounds.bMax.xyz - bounds.bMin.xyz) * 0.5;
+	vec4 bmin = bounds.bMin;
+	vec4 bmax = bounds.bMax;
+	bmin.w = 1;
+	bmax.w = 1;
+	int planeCount = cullData.distCull == 1 ? 6 : 4;
+	for (int i = 0; i < 6; i++)
+	{
+	    vec4 g = cullData.frustum[i];
+	    bool visible =
+		dot(g, bmin) < 0.0 &&
+	    dot(g, vec4(bmax.x, bmin.y, bmin.z, 1.0)) < 0.0 &&
+	    dot(g, vec4(bmin.x, bmax.y, bmin.z, 1.0)) < 0.0 &&
+	    dot(g, vec4(bmax.x, bmax.y, bmin.z, 1.0)) < 0.0 &&
+	    dot(g, vec4(bmin.x, bmin.y, bmax.z, 1.0)) < 0.0 &&
+	    dot(g, vec4(bmax.x, bmin.y, bmax.z, 1.0)) < 0.0 &&
+	    dot(g, vec4(bmin.x, bmax.y, bmax.z, 1.0)) < 0.0 &&
+	    dot(g, bmax) < 0.0;
 
-	vec3 center = bounds.bMin.xyz + extents;
-	
-    center = (cullData.viewMatrix * vec4(center, 1)).xyz;
-
-	float radius = bounds.bMin.w;
-
-	bool visible = true;
-
-	// the left/top/right/bottom plane culling utilizes frustum symmetry to cull against two planes at the same time
-	visible = visible && center.z * cullData.frustum[1] - abs(center.x) * cullData.frustum[0] > -radius;
-	visible = visible && center.z * cullData.frustum[3] - abs(center.y) * cullData.frustum[2] > -radius;
-
-	if(cullData.distCull != 0)	{
-		// the near/far plane culling uses camera space Z directly
-		visible = visible && abs(center.z) + radius > cullData.znear && abs(center.z) - radius < cullData.zfar;
+	    if (visible)
+	    {
+	        return false;
+	    }
 	}
-
-	return visible;
+	return true;
 }
 
 layout(local_size_x = 256) in;

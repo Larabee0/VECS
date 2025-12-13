@@ -65,10 +65,5 @@ namespace Planets
                 });
             }
         }
-
-        public override void OnPostUpdate(EntityManager entityManager)
-        {
-            //_planetRenderQuery.MarkStale();
-        }
     }
 }
