@@ -41,12 +41,7 @@ namespace VECS.ECS.Presentation
 
         private void Cull(RendererFrameInfo frameInfo)
         {
-            VkBufferMemoryBarrier2 barrier = FustrumCull.Cull(frameInfo.CommandBuffer, frameInfo.FrameIndex, frameInfo.cullData, _renderBlob.DrawCount, _renderBlob.IndirectCmdBuffer, _renderBlob.ModelBoundsBuffer);
-
-            if (!FustrumCull.CPUCulling)
-            {
-                frameInfo.PostCullBarriers.Add(barrier);
-            }
+            FustrumCull.Cull(frameInfo.CommandBuffer, frameInfo.FrameIndex, frameInfo.cullData, _renderBlob.DrawCount, _renderBlob.IndirectCmdBuffer, _renderBlob.ModelBoundsBuffer);
         }
 
         public void ExecuteBloomDrawCmds(RendererFrameInfo frameInfo)

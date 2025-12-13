@@ -34,6 +34,9 @@ bool IsVisible(uint objectIndex)
 	ObjectBounds bounds = boundsBuffer.bounds[objectIndex];
 
 	vec4 bmin = bounds.bMin;
+	float cullOveride = bmin.w;
+	if(cullOveride > 0.5 && cullOveride < 2) return true;
+
 	vec4 bmax = bounds.bMax;
 	bmin.w = 1;
 	bmax.w = 1;

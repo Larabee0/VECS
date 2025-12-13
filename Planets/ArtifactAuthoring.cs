@@ -327,7 +327,7 @@ namespace Planets
 
             Children children = new() { Value = new Entity[xWing.Length] };
 
-            Bounds outerBounds = xWing[0].Bounds.Value;
+            AABB outerBounds = xWing[0].Bounds.Value;
 
             for (int i = 0; i < xWing.Length; i++)
             {
@@ -350,11 +350,11 @@ namespace Planets
 
             entityManager.AddComponent(xWingBase, new XWingGuns()
             {
-                TopRight = new Vector3(-0.4411f, 0.1635f, 0.4857f) - outerBounds.center,
-                BottomRight = new Vector3(-0.4419f, -0.1659f, 0.4857f) - outerBounds.center,
+                TopRight = new Vector3(-0.4411f, 0.1635f, 0.4857f) - outerBounds.Center,
+                BottomRight = new Vector3(-0.4419f, -0.1659f, 0.4857f) - outerBounds.Center,
 
-                TopLeft = new Vector3(0.4411f, 0.1635f, 0.4857f) - outerBounds.center,
-                BottomLeft = new Vector3(0.442f, -0.1659f, 0.4857f) - outerBounds.center,
+                TopLeft = new Vector3(0.4411f, 0.1635f, 0.4857f) - outerBounds.Center,
+                BottomLeft = new Vector3(0.442f, -0.1659f, 0.4857f) - outerBounds.Center,
             });
 
             entityManager.AddComponent(xWingBase, new GunSequencer()
@@ -366,7 +366,7 @@ namespace Planets
 
             for (int i = 0; i < xWing.Length; i++)
             {
-                entityManager.AddComponent(children.Value[i], new Translation() { Value = -outerBounds.center });
+                entityManager.AddComponent(children.Value[i], new Translation() { Value = -outerBounds.Center });
             }
 
             entityManager.AddComponent(xWingBase, children);
@@ -452,7 +452,7 @@ namespace Planets
             entityManager.AddComponent(cubes[8], new Scale() { Value = new(10, 67.2f, 10) });
             var baseBounds = models[0].Bounds.Value;
 
-            baseBounds.extents *= entityManager.GetComponent<Scale>(plane).Value;
+            baseBounds.Extents *= entityManager.GetComponent<Scale>(plane).Value;
 
             var boxCollider = new BoxCollider()
             {
@@ -465,7 +465,7 @@ namespace Planets
             for (int i = 0; i < cubes.Length; i++)
             {
                 var scaledBounds = baseBounds;
-                scaledBounds.extents = baseBounds.extents * entityManager.GetComponent<Scale>(cubes[i]).Value;
+                scaledBounds.Extents = baseBounds.Extents * entityManager.GetComponent<Scale>(cubes[i]).Value;
                 Vector3 size = scaledBounds.Size;
                 boxCollider = new BoxCollider()
                 {

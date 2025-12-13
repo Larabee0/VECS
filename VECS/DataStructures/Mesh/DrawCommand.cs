@@ -10,10 +10,10 @@ namespace VECS
     {
         public VkDrawIndexedIndirectCommand VkDraw; // 20
         public ModelMatrices Matrices; // 128
-        public ModelBounds Bounds; // 32
+        public ShaderAABB Bounds; // 32
         public bool Bloom;
 
-        public DrawCommand(VkDrawIndexedIndirectCommand vkDraw, ModelMatrices matrices, ModelBounds bounds)
+        public DrawCommand(VkDrawIndexedIndirectCommand vkDraw, ModelMatrices matrices, ShaderAABB bounds)
         {
             VkDraw = vkDraw;
             Matrices = matrices;
@@ -25,7 +25,7 @@ namespace VECS
             VkDraw =  DirectSubMesh.GetSubMeshAtIndex(subMeshIndex).IndirectCommand;
             VkDraw.instanceCount = 0;
             Matrices = new(localToWorld.Value);
-            Bounds = new(worldRenderBounds);
+            Bounds = worldRenderBounds.Value;
         }
 
         public DrawCommand(DirectSubMeshIndex subMeshIndex, LocalToWorld localToWorld, WorldRenderBounds worldRenderBounds, bool bloom)
@@ -33,7 +33,7 @@ namespace VECS
             VkDraw = DirectSubMesh.GetSubMeshAtIndex(subMeshIndex).IndirectCommand;
             VkDraw.instanceCount = 0;
             Matrices = new(localToWorld.Value);
-            Bounds = new(worldRenderBounds);
+            Bounds = worldRenderBounds.Value;
             Bloom = bloom;
         }
     }

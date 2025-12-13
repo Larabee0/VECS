@@ -169,7 +169,6 @@ namespace VECS
             _mainWorld.OnDestroy();
             Bootstrap.subAssemblyLoadPoints.ForEach(loadPoint => loadPoint.PostDefaultWorldDestroy());
             OnDestroy?.Invoke();
-            //_artifact.Destroy();
         }
 
         public static void ParallelFor(int count, Action<int> action)
@@ -197,6 +196,7 @@ namespace VECS
                 }
             });
         }
+
         /// <summary>
         /// Order of dispoal matters here.
         /// </summary>

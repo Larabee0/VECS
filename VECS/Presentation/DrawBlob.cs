@@ -57,12 +57,12 @@ namespace VECS
 
         private static Entity[] _drawEntitiesByMat = [];
         private static ModelMatrices[] _drawMatrixByMat = [];
-        private static SwapChainBuffer<ModelBounds> _drawRenderBoundsByMat;
+        private static SwapChainBuffer<ShaderAABB> _drawRenderBoundsByMat;
 
         private static Entity[] _drawEntitiesByMesh = [];
         private static DirectSubMeshIndex[] _drawDirectSubMeshIndex = [];
         private static ModelMatrices[] _drawMatrixByMesh = [];
-        private static SwapChainBuffer<ModelBounds> _drawRenderBoundsByMesh;
+        private static SwapChainBuffer<ShaderAABB> _drawRenderBoundsByMesh;
 
         private static MaterialDrawCommand[] _drawCommandsByMat = [];
         private static MaterialDrawCommand[] _drawCommandsByMesh = [];
@@ -321,8 +321,8 @@ namespace VECS
                 Entity entityMesh = _drawEntitiesByMesh[i];
                 _drawMatrixByMat[i] = entityManager.GetComponent<LocalToWorld>(entityMat).Value;
                 _drawMatrixByMesh[i] = entityManager.GetComponent<LocalToWorld>(entityMesh).Value;
-                _drawRenderBoundsByMat.HostBuffer[i] = new ModelBounds(entityManager.GetComponent<WorldRenderBounds>(entityMat));
-                _drawRenderBoundsByMesh.HostBuffer[i] = new ModelBounds(entityManager.GetComponent<WorldRenderBounds>(entityMesh));
+                _drawRenderBoundsByMat.HostBuffer[i] = entityManager.GetComponent<WorldRenderBounds>(entityMat).Value;
+                _drawRenderBoundsByMesh.HostBuffer[i] = entityManager.GetComponent<WorldRenderBounds>(entityMesh).Value;
             });
 
             _drawRenderBoundsByMat.WriteFromHostToActiveBuffer();
@@ -338,7 +338,7 @@ namespace VECS
                 if (!_materialBufferRegions.TryGetValue(mat.Hash, out var region)) return;
                 
                 var matrices = mat.GetStorageBuffer<ModelMatrices>(RenderBlob.MatricesBufferId);
-                var bounds = mat.GetStorageBuffer<ModelBounds>(RenderBlob.BoundsBufferId);
+                var bounds = mat.GetStorageBuffer<ShaderAABB>(RenderBlob.BoundsBufferId);
                 if (!matrices.IsEmpty)
                 {
                     mat.SetDescriptorStorageBufferLengthFromProperty(RenderBlob.MatricesBufferId, 0, (uint)region.Count);
@@ -347,7 +347,7 @@ namespace VECS
                 if (!bounds.IsEmpty)
                 {
                     mat.SetDescriptorStorageBufferLengthFromProperty(RenderBlob.BoundsBufferId, 0, (uint)region.Count);
-                    _drawRenderBoundsByMat.HostBuffer.Slice(region.StartIndex, region.Count).CopyTo(mat.GetStorageBuffer<ModelBounds>(RenderBlob.BoundsBufferId));
+                    _drawRenderBoundsByMat.HostBuffer.Slice(region.StartIndex, region.Count).CopyTo(mat.GetStorageBuffer<ShaderAABB>(RenderBlob.BoundsBufferId));
                 }
             });
         }
@@ -359,7 +359,7 @@ namespace VECS
             {
                 var mat = AssetDataBase<MaterialV2>.GetHashed(AllInOneMats[i]);
                 var matrices = mat.GetStorageBuffer<ModelMatrices>(RenderBlob.MatricesBufferId);
-                var bounds = mat.GetStorageBuffer<ModelBounds>(RenderBlob.BoundsBufferId);
+                var bounds = mat.GetStorageBuffer<ShaderAABB>(RenderBlob.BoundsBufferId);
                 if (!matrices.IsEmpty)
                 {
                     mat.SetDescriptorStorageBufferLengthFromProperty(RenderBlob.MatricesBufferId, 0, (uint)allInOneDrawCount);
@@ -449,21 +449,12 @@ namespace VECS
 
         public static void CullAllInOne(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, CullData cullData)
         {
-            VkBufferMemoryBarrier2 memoryBarrier = FustrumCull.Cull(commandBuffer, frameInfo.FrameIndex, cullData, (uint)entityCount, _indirectCmdBufferByMesh, _drawRenderBoundsByMesh);
-            if (!FustrumCull.CPUCulling)
-            {
-                MemoryBarrierHelper.BufferMemoryBarrier(commandBuffer, memoryBarrier, VkPipelineStageFlags2.ComputeShader, VkPipelineStageFlags2.DrawIndirect);
-            }
+            FustrumCull.Cull(commandBuffer, frameInfo.FrameIndex, cullData, (uint)entityCount, _indirectCmdBufferByMesh, _drawRenderBoundsByMesh);
         }
 
         public static void CullByMat(RendererFrameInfo frameInfo, CullData cullData)
         {
-            VkBufferMemoryBarrier2 memoryBarrier = FustrumCull.Cull(frameInfo.CommandBuffer, frameInfo.FrameIndex, cullData, (uint)entityCount, _indirectCmdBufferByMat, _drawRenderBoundsByMat);
-
-            if (!FustrumCull.CPUCulling)
-            {
-                MemoryBarrierHelper.BufferMemoryBarrier(frameInfo.CommandBuffer, memoryBarrier, VkPipelineStageFlags2.ComputeShader, VkPipelineStageFlags2.DrawIndirect);
-            }
+            FustrumCull.Cull(frameInfo.CommandBuffer, frameInfo.FrameIndex, cullData, (uint)entityCount, _indirectCmdBufferByMat, _drawRenderBoundsByMat);
         }
 
         public static void IndirectToComputeMemoryBarrierAllInOne(VkCommandBuffer commandBuffer)

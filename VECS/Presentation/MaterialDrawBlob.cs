@@ -16,7 +16,7 @@ namespace VECS
     {
         public uint DrawCount { get; }
         public SwapChainBuffer<VkDrawIndexedIndirectCommand> IndirectCmdBuffer { get; }
-        public SwapChainBuffer<ModelBounds> ModelBoundsBuffer { get; }
+        public SwapChainBuffer<ShaderAABB> ModelBoundsBuffer { get; }
         public void RebuildBlob(EntityManager entityManager, List<Entity> entities);
         public void UpdateDrawCommands(EntityManager entityManager);
         public void Draw(RendererFrameInfo frameInfo);
@@ -114,10 +114,10 @@ namespace VECS
         private EarlyDrawCommand[] _earlyDrawCommands = [];
         private MaterialDrawIndexer[] _indexers = [];
         private readonly SwapChainBuffer<VkDrawIndexedIndirectCommand> _indirectCmdBuffer;
-        private readonly SwapChainBuffer<ModelBounds> _modelBoundsBuffer;
+        private readonly SwapChainBuffer<ShaderAABB> _modelBoundsBuffer;
         private ModelMatrices[] _modelMatricesBuffer = [];
         public SwapChainBuffer<VkDrawIndexedIndirectCommand> IndirectCmdBuffer => _indirectCmdBuffer;
-        public SwapChainBuffer<ModelBounds> ModelBoundsBuffer => _modelBoundsBuffer;
+        public SwapChainBuffer<ShaderAABB> ModelBoundsBuffer => _modelBoundsBuffer;
         public ModelMatrices[] ModelMatricesBuffer => _modelMatricesBuffer;
 
         private uint _drawCount;
@@ -307,7 +307,7 @@ namespace VECS
 
                 // threads are guarateed exclusive access to the material they are writing to
                 Span<ModelMatrices> matrices = material.GetStorageBuffer<ModelMatrices>(MatricesBufferId);
-                Span<ModelBounds> bounds = material.GetStorageBuffer<ModelBounds>(BoundsBufferId);
+                Span<ShaderAABB> bounds = material.GetStorageBuffer<ShaderAABB>(BoundsBufferId);
                 Span<Vector4> colours = material.GetStorageBuffer<Vector4>(ColourBufferId);
 
                 for (int i = 0; i < blob.EarlyDrawCount; i++)
@@ -343,7 +343,7 @@ namespace VECS
                     _modelMatricesBuffer[cullIndex] = cmd.DrawCommand.Matrices;
 
                     if (matrices != Span<ModelMatrices>.Empty) { matrices[i] = cmd.DrawCommand.Matrices; }
-                    if (bounds != Span<ModelBounds>.Empty) { bounds[i] = cmd.DrawCommand.Bounds; }
+                    if (bounds != Span<ShaderAABB>.Empty) { bounds[i] = cmd.DrawCommand.Bounds; }
                     if (colours != Span<Vector4>.Empty) { colours[i] = cmd.Colour; }
                     meshSubRegion.Count++;
                     storageBufferRegion.Count++;
@@ -452,10 +452,10 @@ namespace VECS
             LocalToWorld localToWorld;
             RenderMesh renderMesh;
             WorldRenderBounds worldBounds;
-            ModelBounds modelBounds;
+            ShaderAABB modelBounds;
             ModelMatrices modelMatrix;
             Span<ModelMatrices> matrices = material.GetStorageBuffer<ModelMatrices>(MatricesBufferId);
-            Span<ModelBounds> bounds = material.GetStorageBuffer<ModelBounds>(BoundsBufferId);
+            Span<ShaderAABB> bounds = material.GetStorageBuffer<ShaderAABB>(BoundsBufferId);
             Span<Vector4> colours = material.GetStorageBuffer<Vector4>(ColourBufferId);
             for (int i = 0; i < blob.EarlyDrawCount; i++)
             {
@@ -466,13 +466,13 @@ namespace VECS
                 worldBounds = entityManager.GetComponent<WorldRenderBounds>(entity);
 
                 cullIndex = (int)blob.EarlyDrawOffset + i;
-                modelBounds = new ModelBounds(worldBounds);
+                modelBounds = worldBounds.Value;
                 modelMatrix = new(localToWorld.Value);
                 _modelBoundsBuffer.UnsafeSet(cullIndex, modelBounds);
                 _modelMatricesBuffer[cullIndex] = modelMatrix;
 
                 if (matrices != Span<ModelMatrices>.Empty) {  matrices[i] = modelMatrix; }
-                if (bounds != Span<ModelBounds>.Empty) { bounds[i] = modelBounds; }
+                if (bounds != Span<ShaderAABB>.Empty) { bounds[i] = modelBounds; }
                 if (colours != Span<Vector4>.Empty) { colours[i] = renderMesh.Colour; }
             }
         }
@@ -531,10 +531,10 @@ namespace VECS
         private EarlyDrawCommand[] _earlyDrawCommands;
         private MaterialDrawIndexer[] _indexers;
         private readonly SwapChainBuffer<VkDrawIndexedIndirectCommand> _indirectCmdBuffer;
-        private readonly SwapChainBuffer<ModelBounds> _modelBoundsBuffer;
+        private readonly SwapChainBuffer<ShaderAABB> _modelBoundsBuffer;
 
         public SwapChainBuffer<VkDrawIndexedIndirectCommand> IndirectCmdBuffer => _indirectCmdBuffer;
-        public SwapChainBuffer<ModelBounds> ModelBoundsBuffer => _modelBoundsBuffer;
+        public SwapChainBuffer<ShaderAABB> ModelBoundsBuffer => _modelBoundsBuffer;
 
         private uint _drawCount;
 
@@ -662,7 +662,7 @@ namespace VECS
                 Entity entity = _earlyDrawCommands[_indexers[i]].Entity;
                 LocalToWorld localToWorld = entityManager.GetComponent<LocalToWorld>(entity);
                 WorldRenderBounds worldBounds = entityManager.GetComponent<WorldRenderBounds>(entity);
-                _modelBoundsBuffer.UnsafeSet(i, new ModelBounds(worldBounds));
+                _modelBoundsBuffer.UnsafeSet(i, worldBounds.Value);
                 matrices.UnsafeSet(i, new ModelMatrices(localToWorld.Value));
             });
             _modelBoundsBuffer.SetBuffersDirty(true);

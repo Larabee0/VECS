@@ -5,18 +5,18 @@
         public static int ComponentId { get; set; }
         public readonly int Id => ComponentId;
 
-        public Bounds Value;
+        public AABB Value;
         public bool Valid;
 
-        public RenderBounds(Bounds bounds, bool valid)
+        public RenderBounds(AABB bounds, bool valid)
         {
             Value = bounds;
             Valid = valid;
         }
 
-        public RenderBounds(ModelBounds bounds, bool valid)
+        public RenderBounds(ShaderAABB bounds, bool valid)
         {
-            Value = new(bounds);
+            Value = bounds;
             Valid = valid;
         }
 
@@ -26,16 +26,11 @@
     {
         public static int ComponentId { get; set; }
         public readonly int Id => ComponentId;
-        public Bounds Value;
+        public ShaderAABB Value;
 
-        public WorldRenderBounds(Bounds bounds)
+        public WorldRenderBounds(AABB bounds, CullOverrides cullOverrides)
         {
-            Value = bounds;
-        }
-
-        public WorldRenderBounds(RenderBounds renderBounds)
-        {
-            Value = renderBounds.Value;
+            Value = new(bounds, cullOverrides);
         }
     }
 }

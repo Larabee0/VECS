@@ -9,6 +9,15 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
+    [Flags]
+    public enum CullOverrides : int
+    {
+        None = 0,
+        NoCull = 1,
+        NoDepth = 2
+    }
+
+
     [StructLayout(LayoutKind.Sequential, Size = 112)]
     public struct CullData
     {
@@ -96,7 +105,9 @@ namespace VECS
 
     public static class FustrumCull
     {
-        public static readonly bool CPUCulling = false;
+#if DEBUG
+        public const bool CPUCulling = false;
+#endif
 
         private static readonly int BoundsBufferId = "boundsBuffer".GetHashCode();
         private static readonly int DrawBufferId = "drawBuffer".GetHashCode();
@@ -119,7 +130,7 @@ namespace VECS
             Interlocked.Exchange(ref _variant, 0);
         }
 
-        public static VkBufferMemoryBarrier2 Cull(VkCommandBuffer commandBuffer,int frameIndex, CullData cullData, uint drawCount, SwapChainBuffer<VkDrawIndexedIndirectCommand> drawIndirect, SwapChainBuffer<ModelBounds> bounds)
+        public static void Cull(VkCommandBuffer commandBuffer,int frameIndex, CullData cullData, uint drawCount, SwapChainBuffer<VkDrawIndexedIndirectCommand> drawIndirect, SwapChainBuffer<ShaderAABB> bounds)
         {
             if (_variant > 2000)
             {
@@ -127,52 +138,78 @@ namespace VECS
             }
 
             var discriptorIndex = Interlocked.Increment(ref _variant) - 1;
-
+#if DEBUG
+#pragma warning disable CS0162
             if (CPUCulling)
             {
-                Span<VkDrawIndexedIndirectCommand> drawIndirectSpan = drawIndirect.HostBuffer;
-                Span<ModelBounds> boundsSpan = bounds.HostBuffer;
-
-
-                World.DefaultWorld.GetSystem<DebugDrawUtilities>().DrawWireCube(cullData.near.AsVector3(), Vector3.One, Quaternion.Identity, Colour.Blue);
-                World.DefaultWorld.GetSystem<DebugDrawUtilities>().DrawWireCube(cullData.far.AsVector3(), Vector3.One, Quaternion.Identity, Colour.White);
-
-                for (int i = 0; i < drawCount; i++)
-                {
-                    var boundsInternal = new Bounds(boundsSpan[i]);
-                    
-                    if (cullData.cullingEnabled == 0 || IsVisibleAABB(boundsSpan[i],cullData))
-                    {
-                        drawIndirectSpan[i].instanceCount = 1;
-                        World.DefaultWorld.GetSystem<DebugDrawUtilities>().DrawWireCube(boundsInternal.center, boundsInternal.Size, Quaternion.Identity, Colour.Green);
-                    }
-                    else
-                    {
-                        drawIndirectSpan[i].instanceCount = 0;
-                        World.DefaultWorld.GetSystem<DebugDrawUtilities>().DrawWireCube(boundsInternal.center, boundsInternal.Size, Quaternion.Identity, Colour.Red);
-                    }
-                }
-                bounds.SetUsedInstanceCount(drawCount);
-                drawIndirect.SetUsedInstanceCount(drawCount);
-                drawIndirect.WriteFromHostToActiveBuffer();
-                return default;
+                CPUCull(cullData, drawCount, drawIndirect, bounds);
+                return;
             }
-            else
+#pragma warning restore CS0162
+#endif
+            GPUCullInternal(commandBuffer,frameIndex, cullData, drawCount, drawIndirect, bounds, discriptorIndex);
+            
+        }
+        private static void GPUCullInternal(VkCommandBuffer commandBuffer, int frameIndex, CullData cullData, uint drawCount, SwapChainBuffer drawIndirect, SwapChainBuffer bounds, uint setId)
+        {
+            bounds.SetUsedInstanceCount(drawCount);
+            drawIndirect.SetUsedInstanceCount(drawCount);
+            cullData.drawCount = drawCount;
+            cullData.SetPushConstant(_computeShader.PushConstantsHandler, (int)setId);
+            _computeShader.SetStorageBuffer(DrawBufferId, setId, drawIndirect);
+            _computeShader.SetStorageBuffer(BoundsBufferId, setId, bounds);
+            _computeShader.Dispatch(commandBuffer, frameIndex, setId, (drawCount / 256) + 1);
+
+            VkBufferMemoryBarrier2 barrier = new()
             {
-                bounds.SetUsedInstanceCount(drawCount);
-                drawIndirect.SetUsedInstanceCount(drawCount);
-                return GPUCullInternal(commandBuffer,frameIndex, cullData, drawCount, drawIndirect, bounds, discriptorIndex);
-            }
+                buffer = drawIndirect.ActiveVkBuffer,
+                size = Vulkan.VK_WHOLE_SIZE,
+                srcQueueFamilyIndex = GraphicsDevice.PhysicalQueueFamilies.graphicsFamily,
+                dstQueueFamilyIndex = GraphicsDevice.PhysicalQueueFamilies.graphicsFamily,
+                srcAccessMask = VkAccessFlags2.ShaderWrite,
+                dstAccessMask = VkAccessFlags2.IndirectCommandRead | VkAccessFlags2.ShaderWrite
+            };
+
+            MemoryBarrierHelper.BufferMemoryBarrier(commandBuffer, barrier, VkPipelineStageFlags2.ComputeShader, VkPipelineStageFlags2.DrawIndirect | VkPipelineStageFlags2.ComputeShader);
         }
 
-        public static bool IsVisibleAABB(ModelBounds bounds, CullData cullData)
+#if DEBUG
+        private static void CPUCull(CullData cullData, uint drawCount, SwapChainBuffer<VkDrawIndexedIndirectCommand> drawIndirect, SwapChainBuffer<ShaderAABB> bounds)
+        {
+            Span<VkDrawIndexedIndirectCommand> drawIndirectSpan = drawIndirect.HostBuffer;
+            Span<ShaderAABB> boundsSpan = bounds.HostBuffer;
+
+
+            World.DefaultWorld.GetSystem<DebugDrawUtilities>().DrawWireCube(cullData.near.AsVector3(), Vector3.One, Quaternion.Identity, Colour.Blue);
+            World.DefaultWorld.GetSystem<DebugDrawUtilities>().DrawWireCube(cullData.far.AsVector3(), Vector3.One, Quaternion.Identity, Colour.White);
+
+            for (int i = 0; i < drawCount; i++)
+            {
+                AABB boundsInternal = boundsSpan[i];
+
+                if (cullData.cullingEnabled == 0 || IsVisibleAABB(boundsSpan[i], cullData))
+                {
+                    drawIndirectSpan[i].instanceCount = 1;
+                    World.DefaultWorld.GetSystem<DebugDrawUtilities>().DrawWireCube(boundsInternal.Center, boundsInternal.Size, Quaternion.Identity, Colour.Green);
+                }
+                else
+                {
+                    drawIndirectSpan[i].instanceCount = 0;
+                    World.DefaultWorld.GetSystem<DebugDrawUtilities>().DrawWireCube(boundsInternal.Center, boundsInternal.Size, Quaternion.Identity, Colour.Red);
+                }
+            }
+            bounds.SetUsedInstanceCount(drawCount);
+            drawIndirect.SetUsedInstanceCount(drawCount);
+            drawIndirect.WriteFromHostToActiveBuffer();
+        }
+        public static bool IsVisibleAABB(ShaderAABB bounds, CullData cullData)
         {
             var min = bounds.Min;
             var max = bounds.Max;
             min.W = 1f;
             max.W = 1f;
             int planeCount = cullData.dstCulling == 1 ? 6 : 4;
-            for (int i = 0; i < 6; i++)
+            for (int i = 0; i < planeCount; i++)
             {
                 var g = cullData[i];
                 float d0 = Vector4.Dot(g, min);
@@ -200,26 +237,6 @@ namespace VECS
 
             return true;
         }
-
-        private static unsafe VkBufferMemoryBarrier2 GPUCullInternal(VkCommandBuffer commandBuffer,int frameIndex, CullData cullData, uint drawCount, SwapChainBuffer drawIndirect, SwapChainBuffer bounds, uint setId)
-        {
-            cullData.drawCount = drawCount;
-            cullData.SetPushConstant(_computeShader.PushConstantsHandler, (int)setId);
-            _computeShader.SetStorageBuffer(DrawBufferId, setId, drawIndirect);
-            _computeShader.SetStorageBuffer(BoundsBufferId, setId, bounds);
-            _computeShader.Dispatch(commandBuffer, frameIndex, setId, (drawCount / 256) + 1);
-
-            VkBufferMemoryBarrier2 barrier = new()
-            {
-                buffer = drawIndirect.ActiveVkBuffer,
-                size = Vulkan.VK_WHOLE_SIZE,
-                srcQueueFamilyIndex = GraphicsDevice.PhysicalQueueFamilies.graphicsFamily,
-                dstQueueFamilyIndex = GraphicsDevice.PhysicalQueueFamilies.graphicsFamily,
-                srcAccessMask = VkAccessFlags2.ShaderWrite,
-                dstAccessMask = VkAccessFlags2.IndirectCommandRead
-            };
-
-            return barrier;
-        }
+#endif        
     }
 }

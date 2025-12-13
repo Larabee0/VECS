@@ -10,6 +10,7 @@ namespace VECS.ECS.Presentation
         public DirectSubMeshIndex Mesh;
         public MaterialIndex Material;
         public Vector4 Colour;
+        public CullOverrides CullOverrides;
 
         public int MeshHash => Mesh.Hash;
         public int SubMesh => Mesh.SubMesh;

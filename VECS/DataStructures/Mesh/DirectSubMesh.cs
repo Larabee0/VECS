@@ -12,7 +12,7 @@ namespace VECS
         private readonly DirectMesh _directMeshBuffer;
         private readonly int _directSubMeshIndex;
         //private RenderBounds _bounds;
-        private ModelBounds _modelBounds;
+        private AABB _modelBounds;
 
         public DirectMesh DirectMeshBuffer => _directMeshBuffer;
 
@@ -110,7 +110,7 @@ namespace VECS
 
             Vector3 min = new(minX, minY, minZ);
             Vector3 max = new(maxX, maxY, maxZ);
-            var b = VECS.Bounds.FromMinMax(min, max);
+            var b = AABB.FromMinMax(min, max);
             var size = b.Size;
             if (MathF.Abs(size.X) < float.Epsilon)
             {
@@ -125,12 +125,12 @@ namespace VECS
                 size.Z = .1f;
             }
             b.Size = size;
-            _modelBounds = new(b);
+            _modelBounds = b;
         }
 
         internal void SetBounds(Vector3 min, Vector3 max)
         {
-            var b = VECS.Bounds.FromMinMax(min, max);
+            var b = AABB.FromMinMax(min, max);
             var size = b.Size;
             if (MathF.Abs(size.X) < float.Epsilon)
             {
@@ -145,7 +145,7 @@ namespace VECS
                 size.Z = .1f;
             }
             b.Size = size;
-            _modelBounds = new(b);
+            _modelBounds = b;
         }
 
         public void SimpleBindAndDraw(VkCommandBuffer cmd)

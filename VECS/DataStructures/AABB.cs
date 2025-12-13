@@ -1,16 +1,18 @@
-﻿using System;
-using System.Numerics;
+﻿using System.Numerics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace VECS
 {
-    public struct Bounds
+    [StructLayout(LayoutKind.Sequential, Size = 24)]
+    public struct AABB
     {
-        public Vector3 center;
-        public Vector3 extents;
+        public Vector3 Center;
+        public Vector3 Extents;
+
         public  Vector3 Min
         {
-            readonly get => center - extents;
+            readonly get => Center - Extents;
             set
             {
                 SetMinMax(value, Max);
@@ -19,7 +21,7 @@ namespace VECS
 
         public Vector3 Max
         {
-            readonly get => center + extents;
+            readonly get => Center + Extents;
             set
             {
                 SetMinMax(Min, value);
@@ -28,54 +30,64 @@ namespace VECS
 
         public Vector3 Size
         {   
-            readonly get => extents * 2f;
-            set => extents = value * 0.5f;
-        }
-
-        public Bounds(Vector3 center, Vector3 extents)
-        {
-            this.center = center;
-            this.extents = extents;
-        }
-
-        public Bounds(ModelBounds modelBounds)
-        {
-
-            SetMinMax(modelBounds.Min.AsVector3(), modelBounds.Max.AsVector3());
-        }
-
-        public static Bounds FromMinMax(Vector3 min, Vector3 max)
-        {
-            Bounds aabb = default;
-            aabb.SetMinMax(min, max);
-            return aabb;
-        }
-
-        public void Encapsulate(Vector3 point)
-        {
-            SetMinMax(Vector3.Min(Min,point),Vector3.Max(Max,point));
-        }
-
-        public void SetMinMax(Vector3 min, Vector3 max)
-        {
-            extents = (max - min) * 0.5f;
-            center = min + extents;
-        }
-
-        public void Encapsulate(Bounds bounds)
-        {
-            Encapsulate(bounds.center - bounds.extents);
-            Encapsulate(bounds.center + bounds.extents);
+            readonly get => Extents * 2f;
+            set => Extents = value * 0.5f;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly bool Intersects(Bounds bounds)
+        public readonly bool Intersects(AABB bounds)
         {
             return Min.X <= bounds.Max.X && Max.X >= bounds.Min.X && Min.Y <= bounds.Max.Y && Max.Y >= bounds.Min.Y && Min.Z <= bounds.Max.Z && Max.Z >= bounds.Min.Z;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Bounds Transform(Matrix4x4 transform, Bounds aabb)
+        public void Encapsulate(Vector3 point)
+        {
+            SetMinMax(Vector3.Min(Min,point),Vector3.Max(Max,point));
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetMinMax(Vector3 min, Vector3 max)
+        {
+            Extents = (max - min) * 0.5f;
+            Center = min + Extents;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Encapsulate(AABB bounds)
+        {
+            Encapsulate(bounds.Center - bounds.Extents);
+            Encapsulate(bounds.Center + bounds.Extents);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static AABB FromMinMax(Vector3 min, Vector3 max)
+        {
+            AABB aabb = default;
+            aabb.SetMinMax(min, max);
+            return aabb;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static AABB FromCenterExtents(Vector3 center, Vector3 extents)
+        {
+            return new() { Center = center, Extents = extents };
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static AABB FromCenterSize(Vector3 center, Vector3 size)
+        {
+            return new AABB() { Center = center, Size = size };
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static implicit operator AABB (ShaderAABB shaderBounds) => FromMinMax(shaderBounds.Min.AsVector3(), shaderBounds.Max.AsVector3());
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static explicit operator ShaderAABB(AABB aabb) => new(aabb, CullOverrides.None);
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static AABB Transform(Matrix4x4 transform, AABB aabb)
         {
             // stolen unity bounds transform assumes column major, this stupid engine uses row major
             transform = Matrix4x4.Transpose(transform);
@@ -86,7 +98,7 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Bounds Transform(Matrix3x3 transform, Bounds aabb)
+        public static AABB Transform(Matrix3x3 transform, AABB aabb)
         {
             // From Christer Ericson's Real-Time Collision Detection on page 86 and 87.
             // We want the transformed minimum and maximums of the AABB. Multiplying a 3x3 matrix on the left of a
@@ -121,7 +133,7 @@ namespace VECS
             var t1 = transform.c0 * new Vector3(aabb.Min.X, aabb.Min.X, aabb.Min.X);
             var t2 = transform.c0 * new Vector3(aabb.Max.X, aabb.Max.X, aabb.Max.X);
             var minMask = NumericsExtensions.Less( t1 , t2);
-            var transformed = Bounds.FromMinMax(NumericsExtensions.Select(t2, t1, minMask), NumericsExtensions.Select(t2, t1, !minMask));
+            var transformed = AABB.FromMinMax(NumericsExtensions.Select(t2, t1, minMask), NumericsExtensions.Select(t2, t1, !minMask));
             t1 = transform.c1 * new Vector3(aabb.Min.Y,aabb.Min.Y,aabb.Min.Y);
             t2 = transform.c1 * new Vector3(aabb.Max.Y, aabb.Max.Y, aabb.Max.Y);
             minMask = NumericsExtensions.Less(t1, t2);
