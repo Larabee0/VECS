@@ -50,17 +50,17 @@ namespace VECS
 
         private static void CreateDescriptorBufferMat()
         {
-            MaterialV2 LitTexture = MaterialV2.LitTexture;
+            MaterialV2 LitTexture = EngineMaterials.LitTexture;
             LitTexture.GetStorageBuffer<ModelMatrices>("matricesBuffer".GetHashCode())[0] = new(TransformExtensions.TRS(new(0, 0, 0), Quaternion.Identity, new(4)));
             LitTexture.SetDescriptorStorageBufferLengthFromProperty("matricesBuffer".GetHashCode(), 0, 1);
             
-            MaterialV2 DepthOnly = MaterialV2.DepthOnly;
+            MaterialV2 DepthOnly = EngineMaterials.DepthOnly;
             DepthOnly.GetStorageBuffer<ModelMatrices>("matricesBuffer".GetHashCode())[0] = new(TransformExtensions.TRS(new(0, 0, 0), Quaternion.Identity, new(4)));
             DepthOnly.SetDescriptorStorageBufferLengthFromProperty("matricesBuffer".GetHashCode(), 0, 1);
 
             if (GraphicsDevice.MeshShading)
             {
-                MaterialV2 MeshShader = MaterialV2.UnlitMeshShader;
+                MaterialV2 MeshShader = EngineMaterials.UnlitMeshShader;
                 MeshShader.GetStorageBuffer<ModelMatrices>("matricesBuffer".GetHashCode())[0] = new(TransformExtensions.TRS(new(0, 0, 0), Quaternion.Identity, new(4)));
                 MeshShader.SetDescriptorStorageBufferLengthFromProperty("matricesBuffer".GetHashCode(), 0, 1);
             }

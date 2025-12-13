@@ -44,9 +44,6 @@ namespace VECS
 
         public ShadowImage ShadowImage => _shadowCubeMap;
 
-        public VkDescriptorSetLayout GlobalSetLayout => VkDescriptorSetLayout.Null;
-        internal DescriptorHandler GlobalSetHandler => null;
-
         public int FrameIndex
         {
             get

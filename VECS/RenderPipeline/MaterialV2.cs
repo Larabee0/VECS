@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using VECS.GraphicsPipelines;
@@ -36,7 +34,7 @@ namespace VECS
         private readonly PushConstantsHandler _materialPushConstantsHandler;
         private readonly DescriptorSetInfo[] _descriptorSetInfos;
 
-        private readonly MaterialVariant[] _matVariants;
+        internal readonly MaterialVariant[] _matVariants;
 
         private uint _variantCount;
         private bool _preBindUpdate = false;
@@ -50,61 +48,6 @@ namespace VECS
 
         public DescriptorSetInfo[] DescriptorSetInfos => _descriptorSetInfos;
         public PushConstantsHandler PushConstants => _materialPushConstantsHandler;
-
-        public readonly static MaterialV2 LitTexture;
-        public readonly static MaterialV2 DepthOnly;
-        public readonly static MaterialV2 UnlitMeshShader;
-        public readonly static MaterialV2 UnlitTransparent;
-        public readonly static MaterialV2 WireFrame;
-        public readonly static MaterialV2 ShadowOffscreen;
-        public readonly static MaterialV2 PointLight;
-
-        static MaterialV2()
-        {
-            var litTexture = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
-            //litTexture.depthStencilInfo.depthWriteEnable = true;
-            LitTexture = new("LitTexture", "lit_texture_new.vert", "lit_texture_new.frag", litTexture);
-            var depthConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
-            depthConfig.colourFormats = [];
-            depthConfig.depthStencilInfo.depthWriteEnable = true;
-            depthConfig.depthStencilInfo.depthTestEnable = true;
-            depthConfig.depthStencilInfo.depthCompareOp = VkCompareOp.LessOrEqual;
-            DepthOnly = new("DepthOnly", "depth_only_new.vert", depthConfig);
-
-            var pipelineConfigInfo = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo(VkPipelineLayout.Null);
-
-            pipelineConfigInfo.rasterizationInfo.cullMode = VkCullModeFlags.None;
-            pipelineConfigInfo.rasterizationInfo.polygonMode = VkPolygonMode.Line;
-            pipelineConfigInfo.inputAssemblyInfo.topology = VkPrimitiveTopology.LineStrip;
-            pipelineConfigInfo.rasterizationInfo.lineWidth = 1;
-            WireFrame = new("WireFrame", "line_shader.vert", "line_shader.frag", pipelineConfigInfo);
-
-            var shadowConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
-            Cubemap shadowCube = AssetDataBase<Cubemap>.GetNamed("ShadowCubeMap");
-            Texture2D shadowDepthStencil = AssetDataBase<Texture2D>.GetNamed("ShadowDepthImage");
-
-            shadowConfig.colourFormats = [shadowCube.Format];
-            shadowConfig.depthFormat = shadowDepthStencil.Format;
-            shadowConfig.stencilFormat = shadowDepthStencil.Format;
-            shadowConfig.depthStencilInfo.depthWriteEnable = true;
-            shadowConfig.depthStencilInfo.depthCompareOp = VkCompareOp.Less;
-            shadowConfig.rasterizationInfo.cullMode = VkCullModeFlags.None;
-            ShadowOffscreen = new("ShadowOffscreen", "shadow_offscreen.vert", "shadow_offscreen.frag", shadowConfig);
-
-            var pointLightConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
-            GraphicsPipelineConfigInfo.EnableAlphaBlending(ref pointLightConfig);
-            pointLightConfig.depthStencilInfo.depthWriteEnable = true;
-            PointLight = new MaterialV2("PointLightDisplay", "point_light.vert", "point_light.frag", pointLightConfig);
-
-            var alphaBlending = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
-            GraphicsPipelineConfigInfo.EnableAlphaBlending(ref alphaBlending);
-            UnlitTransparent = new MaterialV2("Unlit Transparent", "unlit.vert", "unlit.frag", alphaBlending);
-
-            if (GraphicsDevice.MeshShading)
-            {
-                UnlitMeshShader = new("MeshShader", "gen_meshshader_basic_new.mesh", "gen_meshshader_basic_new.task", "gen_meshshader_basic_new.frag", GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []));
-            }
-        }
 
         public MaterialV2(string name, string vertexShaderName, string fragmentShaderName, GraphicsPipelineConfigInfo pipelineConfig)
         {
@@ -226,27 +169,15 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public SwapChainBuffer GetBuffer(DescriptorBinding descriptorBinding)
+        private SwapChainBuffer GetBuffer(DescriptorBinding descriptorBinding)
         {
             return GetBuffer(descriptorBinding.DescriptorSetIndex, descriptorBinding.BindPoint);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public SwapChainBuffer GetBuffer(int set, int bufferIndex)
-        {
-            return _descriptorSetInfos[set].GetBuffer(bufferIndex);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public SwapChainBuffer GetBuffer(uint set, uint bindingPoint)
+        private SwapChainBuffer GetBuffer(uint set, uint bindingPoint)
         {
             return _descriptorSetInfos[set].GetBuffer(bindingPoint);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool LookUpProperty(string property, out ShaderPropertyInfo propertyInfo)
-        {
-            return LookUpProperty(property.GetHashCode(), out propertyInfo);
         }
 
         public bool LookUpProperty(int propertyId, out ShaderPropertyInfo propertyInfo)
@@ -290,29 +221,7 @@ namespace VECS
             return false;
         }
 
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe void WriteSet(int* setIndices, uint* variants, int count, int frameIndex)
-        {
-            Console.WriteLine("WARNING WriteSet has unused variant case");
-            for (int i = 0; i < count; i++)
-            {
-                var setIndex = setIndices[i];
-                var setVariant = variants[setIndex];
-                var setInfo = _descriptorSetInfos[setIndex];
-                WriteSet(setInfo, setInfo.DescriptorBuffers[frameIndex], frameIndex, setIndex, variants[i]);
-            }
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe void WriteSet(DescriptorSetInfo setInfo, DescriptorBuffer descriptorBuffer, int frameIndex, int setIndex, uint variant)
-        {
-            var bindingBuffers = _matVariants[variant].GetBindingBuffers(frameIndex, setIndex);
-            var bindingImages = _matVariants[variant].GetBindingTextures(frameIndex, setIndex);
-            WriteSet(setInfo, descriptorBuffer, variant, bindingBuffers, bindingImages);
-        }
-
-        private bool TryCreateVariant(uint variant)
+        internal bool TryCreateVariant(uint variant)
         {
             if (_matVariants[variant] == null)
             {
@@ -345,27 +254,9 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe void WriteSet(DescriptorSetInfo setInfo, DescriptorBuffer descriptorBuffer, uint variant, VkDescriptorAddressInfoEXT* bindingBuffers, VkDescriptorImageInfo* bindingImages)
-        {
-            setInfo.WriteDescriptors(descriptorBuffer, variant, bindingBuffers, bindingImages);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static unsafe void WriteSet(DescriptorSetInfo setInfo, DescriptorBuffer descriptorBuffer, uint variant, Span<VkDescriptorAddressInfoEXT> bindingBuffers, Span<VkDescriptorImageInfo> bindingImages)
         {
             setInfo.WriteDescriptors(descriptorBuffer, variant, bindingBuffers, bindingImages);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public DescriptorBinding GetBinding(int setIndex, int bindingIndex)
-        {
-            return _descriptorSetInfos[setIndex].DescriptorBindings[bindingIndex];
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public DescriptorBinding GetBinding(uint setIndex, int bindingIndex)
-        {
-            return _descriptorSetInfos[setIndex].DescriptorBindings[bindingIndex];
         }
 
         public unsafe void WriteToBuffer<T>(uint variant, ShaderPropertyInfo propertyInfo, T element) where T : unmanaged
@@ -389,6 +280,29 @@ namespace VECS
             NativeMemory.Copy(&element, (void*)hostPtr, maxSize);
         }
 
+        public unsafe T ReadFromBuffer<T>(uint variant, ShaderPropertyInfo propertyInfo) where T : unmanaged
+        {
+            var maxSize = propertyInfo.Property == null ? propertyInfo.BindingInfo.BufferSize : propertyInfo.Property.Size;
+            var propertyOffset = propertyInfo.Property == null ? 0 : propertyInfo.Property.Offset;
+
+            if (sizeof(T) > propertyInfo.BindingInfo.BufferSize)
+            {
+                throw new InvalidOperationException("Cannot read property with mismatched size");
+            }
+
+            var buffer = GetBuffer(propertyInfo.SetIndex, propertyInfo.BindPoint);
+
+            uint offset = propertyOffset + (buffer.UInstanceSize32 * variant);
+
+            var hostPtr = (IntPtr)buffer.HostPtr;
+
+            hostPtr = IntPtr.Add(hostPtr, (int)offset);
+            T value = default;
+            NativeMemory.Copy((void*)hostPtr, &value, maxSize);
+
+            return value;
+        }
+
         public unsafe void WriteArrayToBuffer<T>(uint variant, ShaderPropertyInfo propertyInfo, T[] array) where T : unmanaged
         {
             var maxSize = propertyInfo.Property == null ? propertyInfo.BindingInfo.BufferSize : propertyInfo.Property.Size;
@@ -407,8 +321,38 @@ namespace VECS
             hostPtr = IntPtr.Add(hostPtr, (int)offset);
             fixed (T* arrayPtr = array)
             {
-                NativeMemory.Copy(arrayPtr, (void*)hostPtr, maxSize);
+                NativeMemory.Copy(arrayPtr, hostPtr.ToPointer(), maxSize);
             }
+        }
+
+        public unsafe T[] ReadArrayFromBuffer<T>(uint variant, ShaderPropertyInfo propertyInfo) where T : unmanaged
+        {
+            var maxSize = propertyInfo.Property == null ? propertyInfo.BindingInfo.BufferSize : propertyInfo.Property.Size;
+            var propertyOffset = propertyInfo.Property == null ? 0 : propertyInfo.Property.Offset;
+
+            if (sizeof(T) % maxSize != 0)
+            {
+                throw new InvalidOperationException("Cannot read property with unpadded size");
+            }
+
+            var buffer = GetBuffer(propertyInfo.SetIndex, propertyInfo.BindPoint);
+
+            uint offset = propertyOffset + (buffer.UInstanceSize32 * variant);
+            var hostPtr = (IntPtr)buffer.HostPtr;
+            T[] array = new T[maxSize / sizeof(T)];
+            hostPtr = IntPtr.Add(hostPtr, (int)offset);
+            fixed (T* arrayPtr = array)
+            {
+                NativeMemory.Copy(hostPtr.ToPointer(), arrayPtr, maxSize);
+            }
+
+            return array;
+        }
+
+        internal void SetTexture(ShaderPropertyInfo propertyInfo, int variant, Texture texture)
+        {
+            TryCreateVariant((uint)variant);
+            _matVariants[variant].SetTexture(propertyInfo.SetIndex, propertyInfo.BindPoint, texture);
         }
 
         public void SetDescriptorStorageBufferLength(uint variant, uint descriptorIndex, uint length)
@@ -435,40 +379,6 @@ namespace VECS
             }
 
             SetDescriptorStorageBufferLength(variant,propertyInfo.SetIndex,length);
-        }
-
-        //public void SetStorageBufferLength(uint variant, uint length)
-        //{
-        //    TryCreateVariant(variant);
-        //    
-        //    for (uint i = 0; i < _variantCount; i++)
-        //    {
-        //        MaterialVariant matVariant = _matVariants[i];
-        //        for (uint j = 0; j < _descriptorSetCount; j++)
-        //        {
-        //            _preBindUpdate |= matVariant.SetStorageBufferLength(j, length);                   
-        //        }
-        //    }
-        //}
-
-        public Span<T> GetStorageBuffer<T>(int propertyId) where T : unmanaged
-        {
-            if (LookUpProperty(propertyId, out var propertyInfo))
-            {
-                return GetStorageBuffer<T>(propertyInfo);
-            }
-
-            return default;
-        }
-
-        public unsafe void* GetStorageBuffer(int propertyId)
-        {
-            if (LookUpProperty(propertyId, out var propertyInfo))
-            {
-                return GetStorageBuffer(propertyInfo);
-            }
-
-            return null;
         }
 
         public SwapChainBuffer GetStorageSwapChainBuffer(int propertyId)
@@ -508,183 +418,6 @@ namespace VECS
                 return GetBuffer(propertyInfo.SetIndex, propertyInfo.BindPoint);
             }
             return null;
-        }
-
-        public unsafe override void Dispose()
-        {
-            if (_disposed) return;
-            _disposed = true;
-
-            GC.SuppressFinalize(this);
-            for (int i = 0; i < _matVariants.Length; i++)
-            {
-                _matVariants[i]?.Dispose();
-            }
-            GraphicsDevice.DeviceAPI.vkDestroyPipeline(GraphicsDevice.Device, _graphicsPipeline);
-
-            for (int i = 0; i < _descriptorSetCount; i++)
-            {
-                _descriptorSetInfos[i].Dispose();
-            }
-
-            for (int i = 0; i < _descriptorSetLayouts.Length; i++)
-            {
-                GraphicsDevice.DeviceAPI.vkDestroyDescriptorSetLayout(GraphicsDevice.Device, _descriptorSetLayouts[i], null);
-            }
-
-            GC.ReRegisterForFinalize(this);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal unsafe static void Update(MaterialV2 material, RendererFrameInfo frameInfo)
-        {
-            if (material._variantCount == 0) return;
-            uint* accumulatedStorageBufferUsage = stackalloc uint[material.DescriptorSetCount];
-            int frameIndex = frameInfo.FrameIndex;
-            for (int i = 0; i < material._variantCount; i++)
-            {
-                var variant = material._matVariants[i];
-                if (variant == null) continue;
-                SetGlobalUniforms(material, i, frameInfo);
-                MaterialVariant.UpdateVariant(variant, frameIndex);
-            }
-
-            MaterialVariant lastVariant = material._matVariants[0];
-
-            for (uint j = 0; j < material.DescriptorSetCount; j++)
-            {
-                accumulatedStorageBufferUsage[j] = lastVariant.GetStorageBufferLength(j);
-            }
-
-            for (int i = 0; i < material.DescriptorSetCount; i++)
-            {
-                if(i == material._meshShaderDescriptorSetIndex) continue;
-                var bindings = material.GetDescriptorBindings(i);
-                var usage = accumulatedStorageBufferUsage[i];
-                for (int j = 0; j < bindings.Length; j++)
-                {
-                    if (bindings[j].StorageBuffer)
-                    {
-                        // this seems suspect
-                        // maybe make a way to look up buffers from bindings easily
-                        material.GetBuffer(bindings[j]).SetUsedInstanceCount(usage);
-                    }
-                }
-            }
-
-            for (int i = 0; i < material._descriptorSetInfos.Length; i++)
-            {
-                material._descriptorSetInfos[i].WriteFromBuffers(frameIndex);
-            }
-
-            material._preBindUpdate = false;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static void UpdateMaterialsParallel(RendererFrameInfo frameInfo)
-        {
-            var count = AssetDataBase<MaterialV2>.AssetCount;
-            var readingList = AssetDataBase<MaterialV2>.AllAssetsListForReading;
-            Application.ParallelFor(count, (i) =>
-            {
-                Update(readingList[i], frameInfo);
-            });
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static void UpdateMaterials(RendererFrameInfo frameInfo)
-        {
-            var count = AssetDataBase<MaterialV2>.AssetCount;
-            var readingList = AssetDataBase<MaterialV2>.AllAssetsListForReading;
-            readingList.ForEach(m => Update(m, frameInfo));
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void WriteToBuffer<T>(MaterialV2 material, string property, int variant, T element) where T : unmanaged
-        {
-            WriteToBuffer(material, property.GetHashCode(), variant, element);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void WriteToBuffer<T>(MaterialV2 material, int propertyId, int variant, T element) where T : unmanaged
-        {
-            if (material.LookUpProperty(propertyId, out var propertyInfo))
-            {
-                material.WriteToBuffer((uint)variant, propertyInfo, element);
-            }
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void WriteArrayToBuffer<T>(MaterialV2 material, int propertyId, int variant, T[] elements) where T : unmanaged
-        {
-            if (material.LookUpProperty(propertyId, out var propertyInfo))
-            {
-                material.WriteArrayToBuffer((uint)variant, propertyInfo, elements);
-            }
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void SetMatrix4x4(int propertyId, int variant, Matrix4x4 matrix)
-        {
-            if (LookUpProperty(propertyId, out var propertyInfo))
-            {
-                WriteToBuffer((uint)variant, propertyInfo, matrix);
-            }
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void SetTexture2D(int propertyId, int variant, Texture2D texture)
-        {
-            if (LookUpProperty(propertyId, out var propertyInfo))
-            {
-                TryCreateVariant((uint)variant);
-                _matVariants[variant].SetTexture(propertyInfo.SetIndex, propertyInfo.BindPoint, texture);
-            }
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void SetTexture2DArray(int propertyId, int variant, Texture2DArray texture)
-        {
-            if (LookUpProperty(propertyId, out var propertyInfo))
-            {
-                TryCreateVariant((uint)variant);
-                _matVariants[variant].SetTexture(propertyInfo.SetIndex, propertyInfo.BindPoint, texture);
-            }
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void SetCubeMap(int propertyId, int variant, Cubemap texture)
-        {
-            if (LookUpProperty(propertyId, out var propertyInfo))
-            {
-                TryCreateVariant((uint)variant);
-                _matVariants[variant].SetTexture(propertyInfo.SetIndex, propertyInfo.BindPoint, texture);
-            }
-        }
-
-        public void SetUniform<T>(int propertyId, int variant, T uniform) where T : unmanaged
-        {
-            if (LookUpProperty(propertyId, out var propertyInfo))
-            {
-                TryCreateVariant((uint)variant);
-                WriteToBuffer((uint)variant, propertyInfo, uniform);
-            }
-        }
-
-        public static void SetGlobalUniforms(MaterialV2 material, int variant, RendererFrameInfo frameInfo)
-        {
-            material.TryCreateVariant((uint)variant);
-            WriteToBuffer(material, ShaderPropertyInfo.CameraInfoProperty, variant, frameInfo.CameraInfo);
-            WriteToBuffer(material, ShaderPropertyInfo.CameraInverseProperty, variant, frameInfo.CameraInverseInfo);
-            WriteToBuffer(material, ShaderPropertyInfo.AdditionalCameraInfoProperty, variant, frameInfo.AdditionalCameraInfo);
-            WriteToBuffer(material, ShaderPropertyInfo.OrthographicInfoProperty, variant, frameInfo.OrthographicInfo);
-            WriteToBuffer(material, ShaderPropertyInfo.LightingInfoProperty, variant, frameInfo.LightingInfo);
-            if (material.LookUpProperty(ShaderPropertyInfo.PointLightsBufferProperty, out _))
-            {
-                var pointLights = material.GetStorageBuffer<PointLightUniform>(ShaderPropertyInfo.PointLightsBufferProperty);
-                frameInfo.PointLights.CopyTo(pointLights);
-                material._matVariants[variant].SetStorageBufferLength(0, (uint)frameInfo.PointLights.Length);
-            }
         }
 
         public unsafe void BindAll(RendererFrameInfo frameInfo,int variantIndex)
@@ -892,89 +625,100 @@ namespace VECS
                 (uint)command.MeshSubRegion.StartIndex * (uint)sizeof(VkDrawIndexedIndirectCommand),
                 (uint)command.MeshSubRegion.Count, (uint)sizeof(VkDrawIndexedIndirectCommand));
         }
+        
         public override void ClearCachedData()
         {
             base.ClearCachedData();
             _cachedShaderProperties.Clear();
         }
-    }
 
-    public struct ShaderPropertyInfo
-    {
-#if DEBUG
-        public const bool LOG_MISSING_GLOBAL_SHADER_PROPERTIES = false;
-#endif
-        public static readonly int CameraInfoProperty = "cameraMain".GetHashCode();
-        public static readonly int CameraInverseProperty = "cameraInverse".GetHashCode();
-        public static readonly int AdditionalCameraInfoProperty = "cameraPlanes".GetHashCode();
-        public static readonly int OrthographicInfoProperty = "orthographic".GetHashCode();
-        public static readonly int LightingInfoProperty = "lighting".GetHashCode();
-        public static readonly int PointLightsBufferProperty = "pointLightBuffer".GetHashCode();
-        public static readonly HashSet<int> GlobalProperties;
-
-        static ShaderPropertyInfo()
+        public unsafe override void Dispose()
         {
-            Console.WriteLine("GlobalProperty | cameraMain: {0}", CameraInfoProperty);
-            Console.WriteLine("GlobalProperty | cameraInverse: {0}", CameraInverseProperty);
-            Console.WriteLine("GlobalProperty | cameraPlanes: {0}", AdditionalCameraInfoProperty);
-            Console.WriteLine("GlobalProperty | orthographic: {0}", OrthographicInfoProperty);
-            Console.WriteLine("GlobalProperty | lighting: {0}", LightingInfoProperty);
-            Console.WriteLine("GlobalProperty | pointLightBuffer: {0}", PointLightsBufferProperty);
-            GlobalProperties =
-            [
-                CameraInfoProperty,
-                CameraInverseProperty,
-                AdditionalCameraInfoProperty,
-                OrthographicInfoProperty,
-                LightingInfoProperty,
-                PointLightsBufferProperty,
-            ];
+            if (_disposed) return;
+            _disposed = true;
 
-        }
-
-        public static readonly ShaderPropertyInfo Invalid = new()
-        {
-            SetIndex = uint.MaxValue,
-            BindPoint = uint.MaxValue,
-            BindingInfo = null,
-            Property = null
-        };
-
-        public uint SetIndex;
-        public uint BindPoint;
-        public DescriptorBinding BindingInfo;
-        public DescriptorPropertyInfo Property;
-
-        public ShaderPropertyInfo(DescriptorBinding bindingInfo, DescriptorPropertyInfo propertyInfo)
-        {
-            BindingInfo = bindingInfo;
-            Property = propertyInfo;
-            SetIndex = bindingInfo.DescriptorSetIndex;
-            BindPoint = bindingInfo.BindPoint;
-        }
-
-        public static bool operator ==(ShaderPropertyInfo a, ShaderPropertyInfo b)
-        {
-            return a.SetIndex == b.SetIndex && a.BindPoint == b.BindPoint && a.BindingInfo == b.BindingInfo && a.Property == b.Property;
-        }
-
-        public static bool operator !=(ShaderPropertyInfo a, ShaderPropertyInfo b)
-        {
-            return !(a == b);
-        }
-
-        public readonly override bool Equals(object obj)
-        {
-            if(obj is ShaderPropertyInfo propertyInfo)
+            GC.SuppressFinalize(this);
+            for (int i = 0; i < _matVariants.Length; i++)
             {
-                return this == propertyInfo;
+                _matVariants[i]?.Dispose();
             }
-            return false;
+            GraphicsDevice.DeviceAPI.vkDestroyPipeline(GraphicsDevice.Device, _graphicsPipeline);
+
+            for (int i = 0; i < _descriptorSetCount; i++)
+            {
+                _descriptorSetInfos[i].Dispose();
+            }
+
+            for (int i = 0; i < _descriptorSetLayouts.Length; i++)
+            {
+                GraphicsDevice.DeviceAPI.vkDestroyDescriptorSetLayout(GraphicsDevice.Device, _descriptorSetLayouts[i], null);
+            }
+
+            GC.ReRegisterForFinalize(this);
         }
 
-        public readonly override int GetHashCode()
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal unsafe static void Update(MaterialV2 material, RendererFrameInfo frameInfo)
         {
-            return HashCode.Combine(SetIndex, BindPoint, BindingInfo.GetHashCode(), Property.GetHashCode());
+            if (material._variantCount == 0) return;
+            uint* accumulatedStorageBufferUsage = stackalloc uint[material.DescriptorSetCount];
+            int frameIndex = frameInfo.FrameIndex;
+            for (int i = 0; i < material._variantCount; i++)
+            {
+                var variant = material._matVariants[i];
+                if (variant == null) continue;
+                material.SetGlobalUniforms(i, frameInfo);
+                MaterialVariant.UpdateVariant(variant, frameIndex);
+            }
+
+            MaterialVariant lastVariant = material._matVariants[0];
+
+            for (uint j = 0; j < material.DescriptorSetCount; j++)
+            {
+                accumulatedStorageBufferUsage[j] = lastVariant.GetStorageBufferLength(j);
+            }
+
+            for (int i = 0; i < material.DescriptorSetCount; i++)
+            {
+                if (i == material._meshShaderDescriptorSetIndex) continue;
+                var bindings = material.GetDescriptorBindings(i);
+                var usage = accumulatedStorageBufferUsage[i];
+                for (int j = 0; j < bindings.Length; j++)
+                {
+                    if (bindings[j].StorageBuffer)
+                    {
+                        // this seems suspect
+                        // maybe make a way to look up buffers from bindings easily
+                        material.GetBuffer(bindings[j]).SetUsedInstanceCount(usage);
+                    }
+                }
+            }
+
+            for (int i = 0; i < material._descriptorSetInfos.Length; i++)
+            {
+                material._descriptorSetInfos[i].WriteFromBuffers(frameIndex);
+            }
+
+            material._preBindUpdate = false;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static void UpdateMaterialsParallel(RendererFrameInfo frameInfo)
+        {
+            var count = AssetDataBase<MaterialV2>.AssetCount;
+            var readingList = AssetDataBase<MaterialV2>.AllAssetsListForReading;
+            Application.ParallelFor(count, (i) =>
+            {
+                Update(readingList[i], frameInfo);
+            });
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static void UpdateMaterials(RendererFrameInfo frameInfo)
+        {
+            var count = AssetDataBase<MaterialV2>.AssetCount;
+            var readingList = AssetDataBase<MaterialV2>.AllAssetsListForReading;
+            readingList.ForEach(m => Update(m, frameInfo));
         }
     }
 }

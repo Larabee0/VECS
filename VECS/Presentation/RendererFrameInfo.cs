@@ -25,9 +25,6 @@ namespace VECS
         public VkDescriptorBufferInfo UboBufferInfo;
         public GlobalUbo Ubo;
         public VkDescriptorSet GlobalDescriptorSet;
-        public DescriptorPool ApplicationDescriptorPool;
-        public DescriptorPool MaterialDescriptorPool;
-        public DescriptorPool EntityDescriptorPool;
         public List<VkBufferMemoryBarrier2> PostCullBarriers;
         public CullData cullData;
 
@@ -37,17 +34,6 @@ namespace VECS
         public OrthographicInfo OrthographicInfo;
         public LightingInfo LightingInfo;
         public PointLightUniform[] PointLights;
-
-        public DescriptorPool GetDescriptorPool(DescriptorLevel descriptorLevel)
-        {
-            return descriptorLevel switch
-            {
-                DescriptorLevel.Game => ApplicationDescriptorPool,
-                DescriptorLevel.Material => MaterialDescriptorPool,
-                DescriptorLevel.Entity => EntityDescriptorPool,
-                _ => null,
-            };
-        }
 
         public static bool operator ==(RendererFrameInfo left, RendererFrameInfo right)
         {

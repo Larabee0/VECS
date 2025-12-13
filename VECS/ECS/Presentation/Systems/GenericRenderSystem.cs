@@ -25,7 +25,7 @@ namespace VECS.ECS.Presentation
                 .WithNone(typeof(Prefab), typeof(DoNotRender))
                 .Build();
 
-            DrawBlob.AllInOneMats.Add(MaterialV2.DepthOnly.Hash);
+            DrawBlob.AllInOneMats.Add(EngineMaterials.DepthOnly.Hash);
             _shadowData = new();
         }
 
@@ -68,7 +68,7 @@ namespace VECS.ECS.Presentation
 
             SwapChain.Instance.BeginForwardDepth(commandBuffer);
 
-            DrawBlob.ExecuteAllInOneDrawCmds(frameInfo, commandBuffer, MaterialV2.DepthOnly.Hash);
+            DrawBlob.ExecuteAllInOneDrawCmds(frameInfo, commandBuffer, EngineMaterials.DepthOnly.Hash);
 
             SwapChain.Instance.EndForwardDepthRendering(commandBuffer);
 

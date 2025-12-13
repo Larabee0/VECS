@@ -11,19 +11,6 @@ namespace VECS
 {
     public static class GPUPipelineUtil
     {
-        public static void CreateDescriptorSetHandler(DescriptorHandler[] handlers, DescriptorBinding[] allBindings, VkDescriptorSetLayout[] layouts, int index, DescriptorLevel level, Dictionary<string, int> bindingsDict)
-        {
-            DescriptorBinding[] bindings = new DescriptorBinding[bindingsDict.Count];
-            int i = 0;
-            foreach (var item in bindingsDict.Values)
-            {
-                bindings[i] = allBindings[item];
-                i++;
-            }
-
-            handlers[index] = new DescriptorHandler(layouts[index], level, bindings);
-        }
-
         public static bool GetVertexInputState(SpvReflectShaderModule module, out VkVertexInputBindingDescription[] bindings, out VkVertexInputAttributeDescription[] attributes)
         {
             if (module.spirv_execution_model != SpvExecutionModel.Vertex)
@@ -141,7 +128,7 @@ namespace VECS
 
         private static unsafe Predicate<SpvReflectBlockVariable> ComparePushBlocks(SpvReflectBlockVariable pushBlock)
         {
-            return (SpvReflectBlockVariable block) =>
+            return block =>
             {
                 if (block.Name == pushBlock.Name && block.size == pushBlock.size && pushBlock.member_count == block.member_count)
                 {

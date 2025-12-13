@@ -258,13 +258,13 @@ namespace Planets
             // AddRenderMeshComponents(vaseSmooth2, Presenter.Instance.Lit, 0, 0, vases[0], entityManager);
             // AddRenderMeshComponents(vaseFlat, Presenter.Instance.LitTexture, 1, 1, vases[1], entityManager);
 
-            MaterialV2.LitTexture.SetTexture2D("texSampler".GetHashCode(), 0, textureWaveC);
-            MaterialV2.LitTexture.SetTexture2D("texSampler".GetHashCode(), 1, textureWaveB);
+            EngineMaterials.LitTexture.SetTexture("texSampler".GetHashCode(), 0, textureWaveC);
+            EngineMaterials.LitTexture.SetTexture("texSampler".GetHashCode(), 1, textureWaveB);
 
-            MaterialV2.LitTexture.PushConstants.SetPushConstantVector4("colour", 0, new Vector4(1, 0, 0, 1));
-            MaterialV2.LitTexture.PushConstants.SetPushConstantFloat("tiling", 0, 1f);
-            MaterialV2.LitTexture.PushConstants.SetPushConstantVector4("colour", 1, new Vector4(0, 1, 0, 1));
-            MaterialV2.LitTexture.PushConstants.SetPushConstantFloat("tiling", 1, 1f);
+            EngineMaterials.LitTexture.PushConstants.SetPushConstantVector4("colour", 0, new Vector4(1, 0, 0, 1));
+            EngineMaterials.LitTexture.PushConstants.SetPushConstantFloat("tiling", 0, 1f);
+            EngineMaterials.LitTexture.PushConstants.SetPushConstantVector4("colour", 1, new Vector4(0, 1, 0, 1));
+            EngineMaterials.LitTexture.PushConstants.SetPushConstantFloat("tiling", 1, 1f);
 
             entityManager.SetComponent(cubeEntity2, new Translation() { Value = new(-1, 4f, -10) });
             entityManager.SetComponent(cubeEntity3, new Translation() { Value = new(1, 4f, -10) });
@@ -311,14 +311,14 @@ namespace Planets
 
             var xWingMaterial = new MaterialV2("TexuredNormalMap","texture_normal.vert", "texture_normal.frag", GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []));
             xWingMaterial.GetStorageBuffer<Vector4>("colourBuffer".GetHashCode()).Fill(Vector4.One);
-            xWingMaterial.SetTexture2D("samplerColorMap".GetHashCode(), 0, hullDiffuseTexture);
-            xWingMaterial.SetTexture2D("samplerNormalMap".GetHashCode(),0,  hullNormalTexture);
+            xWingMaterial.SetTexture("samplerColorMap".GetHashCode(), 0, hullDiffuseTexture);
+            xWingMaterial.SetTexture("samplerNormalMap".GetHashCode(),0,  hullNormalTexture);
 
-            xWingMaterial.SetTexture2D("samplerColorMap".GetHashCode(), 1, wingDiffuseTexture);
-            xWingMaterial.SetTexture2D("samplerNormalMap".GetHashCode(),1,  wingNormalTexture);
+            xWingMaterial.SetTexture("samplerColorMap".GetHashCode(), 1, wingDiffuseTexture);
+            xWingMaterial.SetTexture("samplerNormalMap".GetHashCode(),1,  wingNormalTexture);
 
-            xWingMaterial.SetTexture2D("samplerColorMap".GetHashCode(), 2, astroDroidDiffuseTexture);
-            xWingMaterial.SetTexture2D("samplerNormalMap".GetHashCode(),2,  astroDroidNormalTexture);
+            xWingMaterial.SetTexture("samplerColorMap".GetHashCode(), 2, astroDroidDiffuseTexture);
+            xWingMaterial.SetTexture("samplerNormalMap".GetHashCode(),2,  astroDroidNormalTexture);
 
             var xWingBase = entityManager.CreateEntity();
             entityManager.AddComponent(xWingBase, new Translation() { Value = new Vector3(0, 0f, -400) });
@@ -342,7 +342,7 @@ namespace Planets
             engineRed.Colour = new Vector4(1, 0, 0, 1);
             engineRed.Material = new()
             {
-                Hash = MaterialV2.UnlitTransparent.Hash,
+                Hash = EngineMaterials.UnlitTransparent.Hash,
                 Variant = 0,
                 Entity = 0
             };
@@ -406,22 +406,22 @@ namespace Planets
             
             var grid = new Texture2D(TextureLoader.GetTextureInDefaultPath("grid.png"));
 
-            MaterialV2.LitTexture.SetTexture2D("texSampler".GetHashCode(), 0, grid);
-            MaterialV2.LitTexture.PushConstants.SetPushConstantVector4("colour", 0, new Vector4(0.1803922f, 0.2078431f, 0.2431373f, 1));
-            MaterialV2.LitTexture.PushConstants.SetPushConstantFloat("tiling", 0, 100f);
-            MaterialV2.LitTexture.PushConstants.SetPushConstantVector4("colour", 1, new Vector4(0.1803922f, 0.2078431f, 0.2431373f, 1));
-            MaterialV2.LitTexture.PushConstants.SetPushConstantFloat("tiling", 1, 10f);
+            EngineMaterials.LitTexture.SetTexture("texSampler".GetHashCode(), 0, grid);
+            EngineMaterials.LitTexture.PushConstants.SetPushConstantVector4("colour", 0, new Vector4(0.1803922f, 0.2078431f, 0.2431373f, 1));
+            EngineMaterials.LitTexture.PushConstants.SetPushConstantFloat("tiling", 0, 100f);
+            EngineMaterials.LitTexture.PushConstants.SetPushConstantVector4("colour", 1, new Vector4(0.1803922f, 0.2078431f, 0.2431373f, 1));
+            EngineMaterials.LitTexture.PushConstants.SetPushConstantFloat("tiling", 1, 10f);
 
 
             var plane = entityManager.CreateEntity();
-            AddRenderMeshComponents(plane, MaterialV2.LitTexture, 0, 0, models[0], entityManager);
+            AddRenderMeshComponents(plane, EngineMaterials.LitTexture, 0, 0, models[0], entityManager);
             entityManager.AddComponent<StaticColliderTag>(plane);
             Entity[] cubes = new Entity[9];
 
             for (int i = 0; i < cubes.Length; i++)
             {
                 cubes[i] = entityManager.CreateEntity();
-                AddRenderMeshComponents(cubes[i], MaterialV2.LitTexture, 0, 1, models[1], entityManager);
+                AddRenderMeshComponents(cubes[i], EngineMaterials.LitTexture, 0, 1, models[1], entityManager);
                 entityManager.AddComponent<StaticColliderTag>(cubes[i]);
             }
 
@@ -563,10 +563,10 @@ namespace Planets
             planetLitMaterial = new MaterialV2("PlanetMat","planet_shader.vert", "planet_shader.frag", GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []));
             //planetLitMaterial = MaterialV2.LitTexture;
 
-            planetLitMaterial.SetTexture2DArray("texTerrain".GetHashCode(), 0,textureArrayTerrainShapes);
-            planetLitMaterial.SetTexture2D("texWaveA".GetHashCode(), 0,textureWaveA);
-            planetLitMaterial.SetTexture2D("texWaveB".GetHashCode(), 0,textureWaveC);
-            planetLitMaterial.SetTexture2D("texWaveC".GetHashCode(), 0,textureWaveB);
+            planetLitMaterial.SetTextureArray("texTerrain".GetHashCode(), 0,textureArrayTerrainShapes);
+            planetLitMaterial.SetTexture("texWaveA".GetHashCode(), 0,textureWaveA);
+            planetLitMaterial.SetTexture("texWaveB".GetHashCode(), 0,textureWaveC);
+            planetLitMaterial.SetTexture("texWaveC".GetHashCode(), 0,textureWaveB);
             planetLitMaterial.SetCubeMap("shadowCubeMap".GetHashCode(), 0, AssetDataBase<Cubemap>.GetNamed("ShadowCubeMap"));
 
         }
@@ -717,8 +717,8 @@ namespace Planets
                 properties.ElevationMinMax = new(generator.MinMax.Min, generator.MinMax.Max);
                 World.DefaultWorld.EntityManager.SetComponent(planetRoot, properties);
                 planetLitMaterial.PushConstants.SetPushConstantUniform("planetProperties", planetCount, properties.ShaderParmeters);
-                planetLitMaterial.SetTexture2D("texMainColour".GetHashCode(), planetCount, generator.ColourGenerator.colourTexture);
-                planetLitMaterial.SetTexture2D("texSteepColour".GetHashCode(), planetCount, generator.ColourGenerator.steepTexture);
+                planetLitMaterial.SetTexture("texMainColour".GetHashCode(), planetCount, generator.ColourGenerator.colourTexture);
+                planetLitMaterial.SetTexture("texSteepColour".GetHashCode(), planetCount, generator.ColourGenerator.steepTexture);
             
                 planetCount++;
             }

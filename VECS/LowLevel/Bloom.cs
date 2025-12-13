@@ -193,12 +193,12 @@ namespace VECS.LowLevel
 
             _blurMat = new MaterialV2("VerticalGaussBlur","gaussblur.vert", "gaussblur.frag", blurConfig);
 
-            _blurMat.SetTexture2D(SampleColourId, 0, _framebufferGlow.Colour);
+            _blurMat.SetTexture(SampleColourId, 0, _framebufferGlow.Colour);
             _blurMat.PushConstants.SetPushConstantInt("blurdirection",0, 0);
             _blurMat.PushConstants.SetPushConstantFloat("blurScale", 0, 1);
             _blurMat.PushConstants.SetPushConstantFloat("blurStrength", 0, 1.5f);
 
-            _blurMat.SetTexture2D(SampleColourId, 1, _framebufferBlur.Colour);
+            _blurMat.SetTexture(SampleColourId, 1, _framebufferBlur.Colour);
             _blurMat.PushConstants.SetPushConstantInt("blurdirection", 1, 1);
             _blurMat.PushConstants.SetPushConstantFloat("blurScale", 1, 1);
             _blurMat.PushConstants.SetPushConstantFloat("blurStrength", 1, 1.5f);

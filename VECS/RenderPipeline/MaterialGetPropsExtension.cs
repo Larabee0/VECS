@@ -7,110 +7,112 @@ namespace VECS
     public static class MaterialGetPropsExtension
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int GetInt(this Material material, string property)
+        public static int GetInt(this MaterialV2 material, int propertyId, int variant)
         {
-            return material.ReadFromBuffer<int>(property);
+            return material.ReadFromBuffer<int>(propertyId, variant);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static float GetFloat(this Material material, string property)
+        public static float GetFloat(this MaterialV2 material, int propertyId, int variant)
         {
-            return material.ReadFromBuffer<float>(property);
+            return material.ReadFromBuffer<float>(propertyId, variant);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Vector2 GetVector2(this Material material, string property)
+        public static Vector2 GetVector2(this MaterialV2 material, int propertyId, int variant)
         {
-            return material.ReadFromBuffer<Vector2>(property);
+            return material.ReadFromBuffer<Vector2>(propertyId, variant);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Vector4 GetVector4(this Material material, string property)
+        public static Vector4 GetVector4(this MaterialV2 material, int propertyId, int variant)
         {
-            return material.ReadFromBuffer<Vector4>(property);
+            return material.ReadFromBuffer<Vector4>(propertyId, variant);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Matrix3x2 GetMatrix3x2(this Material material, string property)
+        public static Matrix3x2 GetMatrix3x2(this MaterialV2 material, int propertyId, int variant)
         {
-            return material.ReadFromBuffer<Matrix3x2>(property);
+            return material.ReadFromBuffer<Matrix3x2>(propertyId, variant);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Matrix4x4 GetMatrix4x4(this Material material, string property)
+        public static Matrix4x4 GetMatrix4x4(this MaterialV2 material, int propertyId, int variant)
         {
-            return material.ReadFromBuffer<Matrix4x4>(property);
+            return material.ReadFromBuffer<Matrix4x4>(propertyId, variant);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static T GetUniform<T>(this Material material, string property) where T : unmanaged
+        public static T GetUniform<T>(this MaterialV2 material, int propertyId, int variant) where T : unmanaged
         {
-            return material.ReadFromBuffer<T>(property);
+            return material.ReadFromBuffer<T>(propertyId, variant);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static float[] GetFloatArray(this Material material, string property)
+        public static float[] GetFloatArray(this MaterialV2 material, int propertyId, int variant)
         {
-            return material.ReadArrayFromBuffer<float>(property);
+            return material.ReadArrayFromBuffer<float>(propertyId, variant);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Vector2[] GetVector2Array(this Material material, string property)
+        public static Vector2[] GetVector2Array(this MaterialV2 material, int propertyId, int variant)
         {
-            return material.ReadArrayFromBuffer<Vector2>(property);
+            return material.ReadArrayFromBuffer<Vector2>(propertyId, variant);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Vector4[] GetVector4Array(this Material material, string property)
+        public static Vector4[] GetVector4Array(this MaterialV2 material, int propertyId, int variant)
         {
-            return material.ReadArrayFromBuffer<Vector4>(property);
+            return material.ReadArrayFromBuffer<Vector4>(propertyId, variant);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Matrix3x2[] GetMatrix3x2Array(this Material material, string property)
+        public static Matrix3x2[] GetMatrix3x2Array(this MaterialV2 material, int propertyId, int variant)
         {
-            return material.ReadArrayFromBuffer<Matrix3x2>(property);
+            return material.ReadArrayFromBuffer<Matrix3x2>(propertyId, variant);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Matrix4x4[] GetMatrix4x4Array(this Material material, string property)
+        public static Matrix4x4[] GetMatrix4x4Array(this MaterialV2 material, int propertyId, int variant)
         {
-            return material.ReadArrayFromBuffer<Matrix4x4>(property);
+            return material.ReadArrayFromBuffer<Matrix4x4>(propertyId, variant);
         }
-        private static unsafe T[] ReadArrayFromBuffer<T>(this Material material, string property) where T : unmanaged
+        private static unsafe T[] ReadArrayFromBuffer<T>(this MaterialV2 material, int propertyId, int variant) where T : unmanaged
         {
-            if (material.LookUpProperty(property, out var handler, out uint bindingIndex, out var propertyInfo))
+            if (material.LookUpProperty(propertyId, out var propertyInfo))
             {
-                return handler.ReadArrayFromBuffer<T>(bindingIndex, propertyInfo);
+                return material.ReadArrayFromBuffer<T>((uint)variant, propertyInfo);
             }
 
             return default;
         }
 
-        private static T ReadFromBuffer<T>(this Material material, string property) where T : unmanaged
+        private static T ReadFromBuffer<T>(this MaterialV2 material, int propertyId, int variant) where T : unmanaged
         {
-            if (material.LookUpProperty(property, out var handler, out var bindingIndex, out var propertyInfo))
+            if (material.LookUpProperty(propertyId, out var propertyInfo))
             {
-                return handler.ReadFromBuffer<T>(bindingIndex, propertyInfo);
+                return material.ReadFromBuffer<T>((uint)variant, propertyInfo);
             }
             return default;
         }
 
-        public static Span<T> GetStorageBuffer<T>(this Material material, string property) where T : unmanaged
+        public static Span<T> GetStorageBuffer<T>(this MaterialV2 material, int propertyId) where T : unmanaged
         {
-            if (material.LookUpProperty(property, out var handler, out var bindingIndex, out var propertyInfo))
+            if (material.LookUpProperty(propertyId, out var propertyInfo))
             {
-                return handler.GetStorageBuffer<T>(bindingIndex, propertyInfo);
+                return material.GetStorageBuffer<T>(propertyInfo);
             }
+
             return default;
         }
 
-        public static SwapChainBuffer GetStorageSwapChainBuffer(this Material material, string property)
+        public unsafe static void* GetUnsafeStorageBuffer(this MaterialV2 material, int propertyId)
         {
-            if (material.LookUpProperty(property, out var handler, out var bindingIndex, out var propertyInfo))
+            if (material.LookUpProperty(propertyId, out var propertyInfo))
             {
-                return handler.GetStorageSwapChainBuffer(bindingIndex, propertyInfo);
+                return material.GetStorageBuffer(propertyInfo);
             }
+
             return null;
         }
     }

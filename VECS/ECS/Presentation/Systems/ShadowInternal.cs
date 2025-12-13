@@ -15,12 +15,12 @@ namespace VECS.ECS.Presentation
             {
                 _freeBuffers[i] = new VkCommandBuffer[7];
             }
-            DrawBlob.AllInOneMats.Add(MaterialV2.ShadowOffscreen.Hash);
+            DrawBlob.AllInOneMats.Add(EngineMaterials.ShadowOffscreen.Hash);
         }
 
         public void RenderShadows(RendererFrameInfo frameInfo)
         {
-            MaterialV2 shadowOffscreen = MaterialV2.ShadowOffscreen;
+            MaterialV2 shadowOffscreen = EngineMaterials.ShadowOffscreen;
 
             Matrix4x4 projection = ShadowImage.CubeProjectionMatrix;
             Matrix4x4 model = Matrix4x4.CreateTranslation(frameInfo.Ubo.PointLights[0].Position.AsVector3());
@@ -89,14 +89,14 @@ namespace VECS.ECS.Presentation
             CullData cullDataInternal = new(ShadowImage.SHADOW_CULLING, ShadowImage.SHADOW_DST_CULLING, ShadowImage.SHADOW_DEPTH_CULLING, viewMatrix * proj);
 
 
-            MaterialV2.ShadowOffscreen.PushConstants.SetPushConstantMatrix4x4("viewCube", i, viewMatrix);
+            EngineMaterials.ShadowOffscreen.PushConstants.SetPushConstantMatrix4x4("viewCube", i, viewMatrix);
 
 
             DrawBlob.CullAllInOne(frameInfo, internalBuffer, cullDataInternal);
             
             Presenter.Instance.ShadowImage.UpdateCubeFace(i, internalBuffer);
 
-            DrawBlob.ExecuteAllInOneDrawCmds(frameInfo, internalBuffer, MaterialV2.ShadowOffscreen.Hash, i);
+            DrawBlob.ExecuteAllInOneDrawCmds(frameInfo, internalBuffer, EngineMaterials.ShadowOffscreen.Hash, i);
 
             Presenter.Instance.ShadowImage.EndShadowPass(internalBuffer);
 
