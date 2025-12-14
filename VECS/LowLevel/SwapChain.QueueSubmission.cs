@@ -368,9 +368,9 @@ namespace VECS.LowLevel
                     }
                 }
 
-
                 submissionImageIndex = _currentImage;
                 submissionFrameIndex = _currentFrame;
+
                 if (!token.IsCancellationRequested)
                 {
                     Interlocked.Exchange(ref _currentFrame, (_currentFrame + 1) % MAX_CONCURRENT_FRAMES);
@@ -394,11 +394,8 @@ namespace VECS.LowLevel
                 }
                 if (!token.IsCancellationRequested)
                 {
-
                     SignalNextFrame(_currentFrame);
-                    //WaitOnTimelineFromHost(SemaphoreStages.Submit, _currentFrame);
                 }
-
 
                 frameZero = false;
             }

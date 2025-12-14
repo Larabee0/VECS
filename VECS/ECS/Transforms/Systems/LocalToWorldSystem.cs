@@ -102,10 +102,5 @@ namespace VECS.ECS.Transforms
             var trsMatrix = TransformExtensions.TRS(translation, rotation, scale);
             return trsMatrix;
         }
-
-        public override void OnDestroy(EntityManager entityManager)
-        {
-
-        }
     }
 }

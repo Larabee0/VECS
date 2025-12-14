@@ -2,8 +2,6 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Collections.Generic;
-using VECS.ECS;
-using VECS.ECS.Presentation;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 using System.Collections.Concurrent;
@@ -55,7 +53,7 @@ namespace VECS
 
         internal GPUBuffer<Meshlet> _meshletBuffer;
 
-        internal GPUBuffer<MeshOptimizer.Bounds> _meshletBoundsBuffer;
+        internal GPUBuffer<Bounds> _meshletBoundsBuffer;
         internal uint[] _meshShaderVertexMap;
 
         #endregion
@@ -255,7 +253,6 @@ namespace VECS
         public unsafe GPUBuffer<T> GetBufferAtAttribute<T>(VertexAttribute attribute) where T : unmanaged
         {
 #if DEBUG
-
             if (!HasAttributeInFormat<T>(attribute))
             {
                 throw new ArgumentException(string.Format("Type {0} is of different size {1} to values stored in the buffer {2} a valid target vertex attribute", typeof(T).FullName, sizeof(T), _consumedAttributes[attribute].format.GetAttributeByteSize()));
@@ -336,6 +333,7 @@ namespace VECS
             _indexBuffer.WriteFromHostBuffer();
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void FlushVertexRegion(VertexAttribute attribute, uint offset, uint length)
         {
             if (_consumedAttributes.TryGetValue(attribute, out var attributeDescription))
@@ -389,6 +387,7 @@ namespace VECS
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void DeallocateHostData()
         {
             foreach (var buffer in _vertexBuffers.Values)
@@ -460,6 +459,7 @@ namespace VECS
             return -1;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void RecreateMeshShaderDescriptorSet()
         {
             if (!GraphicsDevice.MeshShading)
@@ -553,6 +553,7 @@ namespace VECS
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void ReallocateVertexBuffers(VkCommandBuffer cmd, int subMeshIndex, DirectSubMeshCreateInfo newBufferSizes, DirectSubMeshInfo currentData)
         {
             for (int i = 0; i < _attributesInOrder.Length; i++)
@@ -696,15 +697,12 @@ namespace VECS
             tmpReadBuffers.ForEach(buffer => buffer.Dispose());
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SoftReallocateSubMesh(int subMeshIndex, DirectSubMeshCreateInfo directSubMeshCreateData)
         {
             var currentData = _subMeshInfo[subMeshIndex];
-
             var newData = new DirectSubMeshInfo(directSubMeshCreateData.VertexCount, directSubMeshCreateData.IndexCount, currentData.FirstIndex, currentData.VertexOffset, currentData.FirstInstance);
-
-
             _subMeshInfo[subMeshIndex] = newData;
-
         }
     }
 }

@@ -258,8 +258,8 @@ namespace Planets
             // AddRenderMeshComponents(vaseSmooth2, Presenter.Instance.Lit, 0, 0, vases[0], entityManager);
             // AddRenderMeshComponents(vaseFlat, Presenter.Instance.LitTexture, 1, 1, vases[1], entityManager);
 
-            EngineMaterials.LitTexture.SetTexture("texSampler".GetHashCode(), 0, textureWaveC);
-            EngineMaterials.LitTexture.SetTexture("texSampler".GetHashCode(), 1, textureWaveB);
+            EngineMaterials.LitTexture.SetTexture("texSampler".GetShaderPropertyId(), 0, textureWaveC);
+            EngineMaterials.LitTexture.SetTexture("texSampler".GetShaderPropertyId(), 1, textureWaveB);
 
             EngineMaterials.LitTexture.PushConstants.SetPushConstantVector4("colour", 0, new Vector4(1, 0, 0, 1));
             EngineMaterials.LitTexture.PushConstants.SetPushConstantFloat("tiling", 0, 1f);
@@ -310,15 +310,15 @@ namespace Planets
 
 
             var xWingMaterial = new Material("TexuredNormalMap","texture_normal.vert", "texture_normal.frag", GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []));
-            xWingMaterial.GetStorageBuffer<Vector4>("colourBuffer".GetHashCode()).Fill(Vector4.One);
-            xWingMaterial.SetTexture("samplerColorMap".GetHashCode(), 0, hullDiffuseTexture);
-            xWingMaterial.SetTexture("samplerNormalMap".GetHashCode(),0,  hullNormalTexture);
+            xWingMaterial.GetStorageBuffer<Vector4>("colourBuffer".GetShaderPropertyId()).Fill(Vector4.One);
+            xWingMaterial.SetTexture("samplerColorMap".GetShaderPropertyId(), 0, hullDiffuseTexture);
+            xWingMaterial.SetTexture("samplerNormalMap".GetShaderPropertyId(),0,  hullNormalTexture);
 
-            xWingMaterial.SetTexture("samplerColorMap".GetHashCode(), 1, wingDiffuseTexture);
-            xWingMaterial.SetTexture("samplerNormalMap".GetHashCode(),1,  wingNormalTexture);
+            xWingMaterial.SetTexture("samplerColorMap".GetShaderPropertyId(), 1, wingDiffuseTexture);
+            xWingMaterial.SetTexture("samplerNormalMap".GetShaderPropertyId(),1,  wingNormalTexture);
 
-            xWingMaterial.SetTexture("samplerColorMap".GetHashCode(), 2, astroDroidDiffuseTexture);
-            xWingMaterial.SetTexture("samplerNormalMap".GetHashCode(),2,  astroDroidNormalTexture);
+            xWingMaterial.SetTexture("samplerColorMap".GetShaderPropertyId(), 2, astroDroidDiffuseTexture);
+            xWingMaterial.SetTexture("samplerNormalMap".GetShaderPropertyId(),2,  astroDroidNormalTexture);
 
             var xWingBase = entityManager.CreateEntity();
             entityManager.AddComponent(xWingBase, new Translation() { Value = new Vector3(0, 0f, -400) });
@@ -406,7 +406,7 @@ namespace Planets
             
             var grid = new Texture2D(TextureLoader.GetTextureInDefaultPath("grid.png"));
 
-            EngineMaterials.LitTexture.SetTexture("texSampler".GetHashCode(), 0, grid);
+            EngineMaterials.LitTexture.SetTexture("texSampler".GetShaderPropertyId(), 0, grid);
             EngineMaterials.LitTexture.PushConstants.SetPushConstantVector4("colour", 0, new Vector4(0.1803922f, 0.2078431f, 0.2431373f, 1));
             EngineMaterials.LitTexture.PushConstants.SetPushConstantFloat("tiling", 0, 100f);
             EngineMaterials.LitTexture.PushConstants.SetPushConstantVector4("colour", 1, new Vector4(0.1803922f, 0.2078431f, 0.2431373f, 1));
@@ -552,10 +552,10 @@ namespace Planets
 
             planetProperties = new PlanetPropeties()
             {
-                WaveA = textureWaveA.GUID,
-                WaveB = textureWaveB.GUID,
-                WaveC = textureWaveC.GUID,
-                TextureArray = textureArrayTerrainShapes.GUID,
+                WaveA = textureWaveA.Hash,
+                WaveB = textureWaveB.Hash,
+                WaveC = textureWaveC.Hash,
+                TextureArray = textureArrayTerrainShapes.Hash,
                 TerrainScale = 3f,
                 OceanBrightness = 5f
             };
@@ -563,11 +563,11 @@ namespace Planets
             planetLitMaterial = new Material("PlanetMat","planet_shader.vert", "planet_shader.frag", GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []));
             //planetLitMaterial = MaterialV2.LitTexture;
 
-            planetLitMaterial.SetTextureArray("texTerrain".GetHashCode(), 0,textureArrayTerrainShapes);
-            planetLitMaterial.SetTexture("texWaveA".GetHashCode(), 0,textureWaveA);
-            planetLitMaterial.SetTexture("texWaveB".GetHashCode(), 0,textureWaveC);
-            planetLitMaterial.SetTexture("texWaveC".GetHashCode(), 0,textureWaveB);
-            planetLitMaterial.SetCubeMap("shadowCubeMap".GetHashCode(), 0, AssetDataBase<Cubemap>.GetNamed("ShadowCubeMap"));
+            planetLitMaterial.SetTextureArray("texTerrain".GetShaderPropertyId(), 0,textureArrayTerrainShapes);
+            planetLitMaterial.SetTexture("texWaveA".GetShaderPropertyId(), 0,textureWaveA);
+            planetLitMaterial.SetTexture("texWaveB".GetShaderPropertyId(), 0,textureWaveC);
+            planetLitMaterial.SetTexture("texWaveC".GetShaderPropertyId(), 0,textureWaveB);
+            planetLitMaterial.SetCubeMap("shadowCubeMap".GetShaderPropertyId(), 0, AssetDataBase<Cubemap>.GetNamed("ShadowCubeMap"));
 
         }
 
@@ -712,13 +712,13 @@ namespace Planets
             if (World.DefaultWorld.EntityManager.HasComponent<PlanetPropeties>(planetRoot))
             {
                 var properties = World.DefaultWorld.EntityManager.GetComponent<PlanetPropeties>(planetRoot);
-                properties.ColourTexture = generator.ColourGenerator.colourTexture.GUID;
-                properties.SteepTexture = generator.ColourGenerator.steepTexture.GUID;
+                properties.ColourTexture = generator.ColourGenerator.colourTexture.Hash;
+                properties.SteepTexture = generator.ColourGenerator.steepTexture.Hash;
                 properties.ElevationMinMax = new(generator.MinMax.Min, generator.MinMax.Max);
                 World.DefaultWorld.EntityManager.SetComponent(planetRoot, properties);
                 planetLitMaterial.PushConstants.SetPushConstantUniform("planetProperties", planetCount, properties.ShaderParmeters);
-                planetLitMaterial.SetTexture("texMainColour".GetHashCode(), planetCount, generator.ColourGenerator.colourTexture);
-                planetLitMaterial.SetTexture("texSteepColour".GetHashCode(), planetCount, generator.ColourGenerator.steepTexture);
+                planetLitMaterial.SetTexture("texMainColour".GetShaderPropertyId(), planetCount, generator.ColourGenerator.colourTexture);
+                planetLitMaterial.SetTexture("texSteepColour".GetShaderPropertyId(), planetCount, generator.ColourGenerator.steepTexture);
             
                 planetCount++;
             }

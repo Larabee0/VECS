@@ -30,18 +30,6 @@ namespace VECS
             };
         }
 
-        public PushConstantsInfo(PushConstantsInfo source)
-        {
-            Name = source.Name;
-            Variables = source.Variables;      
-            VkPushConstantRange = new()
-            {
-                stageFlags = source.ShaderStages,
-                offset = source.ShaderOffset,
-                size = source.BlockSize
-            };
-        }
-
         private DescriptorPropertyInfo GetProperty(string name)
         {
            
@@ -97,12 +85,6 @@ namespace VECS
             Debug.Assert(sizeof(T) + offset <= BlockSize, "Push constant element is larger with offset than the buffer has capacity");
             buffer = buffer.Slice(offset, sizeof(T));
             MemoryMarshal.Write(buffer, value);
-            // fixed (void* pPushConstant = &buffer[0])
-            // {
-            //     var ptr = new IntPtr(pPushConstant);
-            //     ptr = IntPtr.Add(ptr, offset);
-            //     NativeMemory.Copy(&value, (void*)ptr, (uint)sizeof(T));
-            // }
         }
 
         internal unsafe void PushConstants(Span<byte> buffer, VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout)

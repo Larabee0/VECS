@@ -83,12 +83,6 @@ namespace VECS
         {
             if (_cachedShaderProperties.TryGetValue(propertyId, out propertyInfo))
             {
-#if DEBUG
-                if (propertyInfo == ShaderPropertyInfo.Invalid)
-                {
-                    Console.WriteLine("Invalid property {0}", propertyId);
-                }
-#endif
                 return true;
             }
 
@@ -114,9 +108,8 @@ namespace VECS
                 }
             }
 
-#if DEBUG
-            Console.WriteLine("COMPUTE Caching Invalid property {0}", propertyId);
-#endif
+            Console.WriteLine("ComputeShader '{0}' has no shader property matching propertyId: '{1}' -> '{2}'", AssetName, propertyId, propertyId.GetPropertyIdString());
+
             propertyInfo = ShaderPropertyInfo.Invalid;
             _cachedShaderProperties.TryAdd(propertyId, propertyInfo);
             return false;
@@ -272,7 +265,6 @@ namespace VECS
 
         public unsafe void Dispatch(VkCommandBuffer commandBuffer, int frameIndex, uint setId, uint workGroupCountX, uint workGroupCountY = 1, uint workGroupCountZ = 1)
         {
-
             VkDescriptorBufferBindingInfoEXT* bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[_descriptorSetCount];
             ulong* offsets = stackalloc ulong[_descriptorSetCount];
             uint* indices = stackalloc uint[_descriptorSetCount];

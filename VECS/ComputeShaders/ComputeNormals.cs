@@ -23,20 +23,20 @@ namespace VECS
     /// </summary>
     public static class ComputeNormals
     {
-        private static readonly int ParamsHeightId = "params.height".GetHashCode();
-        private static readonly int ParamsBufferLengthId = "params.bufferLength".GetHashCode();
-        private static readonly int ParamsDepthId = "params.depth".GetHashCode();
-        private static readonly int ParamsWidthId = "params.width".GetHashCode();
+        private static readonly int ParamsHeightId = "params.height".GetShaderPropertyId();
+        private static readonly int ParamsBufferLengthId = "params.bufferLength".GetShaderPropertyId();
+        private static readonly int ParamsDepthId = "params.depth".GetShaderPropertyId();
+        private static readonly int ParamsWidthId = "params.width".GetShaderPropertyId();
 
 
 
-        private static readonly int VertexBufferId = "vertexBuffer".GetHashCode();
-        private static readonly int IndexBufferId = "indexBuffer".GetHashCode();
-        private static readonly int NormalBufferId = "normalBuffer".GetHashCode();
-        private static readonly int IndexOffsetId = "indexOffset".GetHashCode();
+        private static readonly int VertexBufferId = "vertexBuffer".GetShaderPropertyId();
+        private static readonly int IndexBufferId = "indexBuffer".GetShaderPropertyId();
+        private static readonly int NormalBufferId = "normalBuffer".GetShaderPropertyId();
+        private static readonly int IndexOffsetId = "indexOffset".GetShaderPropertyId();
 
-        private static readonly int NormalReadBufferId = "normalReadBuffer".GetHashCode();
-        private static readonly int NormalWriteBufferId = "normalWriteBuffer".GetHashCode();
+        private static readonly int NormalReadBufferId = "normalReadBuffer".GetShaderPropertyId();
+        private static readonly int NormalWriteBufferId = "normalWriteBuffer".GetShaderPropertyId();
 
         private static readonly ComputeShader _calcuateNormals;
         private static readonly ComputeShader _normalizeNormals;

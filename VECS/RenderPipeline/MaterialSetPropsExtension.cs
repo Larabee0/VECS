@@ -189,8 +189,13 @@ namespace VECS
             if (material.LookUpProperty(ShaderPropertyInfo.PointLightsBufferProperty, out _))
             {
                 var pointLights = material.GetStorageBuffer<PointLightUniform>(ShaderPropertyInfo.PointLightsBufferProperty);
-                frameInfo.PointLights.CopyTo(pointLights);
-                material._matVariants[variant].SetStorageBufferLength(0, (uint)frameInfo.PointLights.Length);
+                unsafe
+                {
+                    void* pPointLights = &frameInfo.PointLights[0];
+                    var span = new Span<PointLightUniform>(pPointLights, Presenter.MAX_LIGHTS);
+                    span.CopyTo(pointLights);
+                }
+                material._matVariants[variant].SetStorageBufferLength(0, Presenter.MAX_LIGHTS);
             }
         }
 

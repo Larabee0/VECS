@@ -1,8 +1,6 @@
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Numerics;
 using TeximpNet;
 using VECS.LowLevel;
 using Vortice.Vulkan;
@@ -13,7 +11,6 @@ namespace VECS
     {
         public static string DefaultTexturePath => Path.Combine(Asset.AssetsPath, "Textures");
         
-            
         public static string GetTextureInDefaultPath(string file)
         {
             return Path.Combine(DefaultTexturePath, file);

@@ -10,11 +10,11 @@
         public BufferRegion MeshSubRegion;
         public bool Bloom;
 
-        public int BufferStart => StorageBufferRegion.StartIndex;
-        public int BufferCount => StorageBufferRegion.Count;
+        public readonly int BufferStart => StorageBufferRegion.StartIndex;
+        public readonly int BufferCount => StorageBufferRegion.Count;
 
-        public int MeshStart => MeshSubRegion.StartIndex;
-        public int MeshCount => MeshSubRegion.Count;
+        public readonly int MeshStart => MeshSubRegion.StartIndex;
+        public readonly int MeshCount => MeshSubRegion.Count;
 
         public MaterialDrawCommand(int material, int variant, BufferRegion storageBufferRegion, int entity, int directMesh, BufferRegion meshSubRegion, bool bloom)
         {
@@ -25,17 +25,6 @@
             DirectMesh = directMesh;
             MeshSubRegion = meshSubRegion;
             Bloom = bloom;
-        }
-
-        public MaterialDrawCommand(EarlyDrawCommand earlyDrawCommand,BufferRegion storageBufferRegion,BufferRegion meshSubRegion)
-        {
-            Material = earlyDrawCommand.MaterialIndex;
-            Variant = earlyDrawCommand.MaterialVariant;
-            Entity = earlyDrawCommand.MaterialEntity;
-            DirectMesh = earlyDrawCommand.DirectMesh;
-
-            StorageBufferRegion = storageBufferRegion;
-            MeshSubRegion = meshSubRegion;
         }
 
         public static bool Equal(MaterialDrawCommand a, MaterialDrawCommand b)

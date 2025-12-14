@@ -46,16 +46,11 @@ namespace VECS
 
         private static ConcurrentDictionary<VkFormat, byte[]> _componentBits;
 
-        private static VmaAllocationCreateInfo _allocationCreateInfo = new()
+        private static readonly VmaAllocationCreateInfo _allocationCreateInfo = new()
         {
             usage = VmaMemoryUsage.Auto,
             priority = 1
         };
-
-        public static byte[] GetBitsPerPixel(VkFormat format)
-        {
-            return _componentBits[format];
-        }
 
         static TextureExtensions()
         {
@@ -80,38 +75,38 @@ namespace VECS
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static byte[] GetBitsPerPixel(VkFormat format)
+        {
+            return _componentBits[format];
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static uint CalculateMipMapLevels(int w, int h)
         {
             return (uint)Math.Floor(Math.Log2(Math.Max(w, h))) + 1u;
         }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static uint CalculateMipMapLevels(uint w, uint h)
         {
             return (uint)Math.Floor(Math.Log2(Math.Max(w, h))) + 1u;
         }
 
-        public static VkImageLayout SetImageLayoutAndAspectFromUsage(this Texture texture)
+        #region Image, View & Sampler Creation
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static unsafe void CreateSampler(this Texture texture, VkSamplerCreateInfo createInfo)
         {
-            var layout = VkImageLayout.Undefined;
-            if (texture._useageFlags.HasFlag(VkImageUsageFlags.Sampled))
+            if (texture._textureSampler != VkSampler.Null)
             {
-                texture._aspectFlags = VkImageAspectFlags.Color;
+                GraphicsDevice.DeviceAPI.vkDestroySampler(GraphicsDevice.Device, texture._textureSampler);
+                texture._textureSampler = VkSampler.Null;
             }
-            if (texture._useageFlags.HasFlag(VkImageUsageFlags.ColorAttachment))
-            {
-                texture._aspectFlags = VkImageAspectFlags.Color;
-                layout = VkImageLayout.ColorAttachmentOptimal;
-            }
-            if (texture._useageFlags.HasFlag(VkImageUsageFlags.DepthStencilAttachment))
-            {
-                texture._aspectFlags = VkImageAspectFlags.Depth;
-            }
-            if (texture.Format == VkFormat.D16UnormS8Uint || texture.Format == VkFormat.D32SfloatS8Uint || texture.Format == VkFormat.D24UnormS8Uint )
-            {
-                texture._aspectFlags |= VkImageAspectFlags.Stencil;
-            }
-            return layout;
+
+            GraphicsDevice.DeviceAPI.vkCreateSampler(GraphicsDevice.Device, createInfo, null, out texture._textureSampler).CheckResult("Create Sampler failed");            
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static VkImageType GetImageTypeFromViewType(VkImageViewType viewType)
         {
             return viewType switch
@@ -125,19 +120,6 @@ namespace VECS
                 VkImageViewType.ImageCubeArray => VkImageType.Image2D,
                 _ => throw new ArgumentOutOfRangeException(nameof(viewType)),
             };
-        }
-
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static unsafe void CreateSampler(this Texture texture, VkSamplerCreateInfo createInfo)
-        {
-            if (texture._textureSampler != VkSampler.Null)
-            {
-                GraphicsDevice.DeviceAPI.vkDestroySampler(GraphicsDevice.Device, texture._textureSampler);
-                texture._textureSampler = VkSampler.Null;
-            }
-            GraphicsDevice.DeviceAPI.vkCreateSampler(GraphicsDevice.Device, createInfo, null, out texture._textureSampler).CheckResult("Create Sampler failed");
-            
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -173,15 +155,49 @@ namespace VECS
             GraphicsDevice.DeviceAPI.vkGetImageMemoryRequirements(GraphicsDevice.Device, texture._vkImage, out var requirements);
             texture._vkBufferSizeRequirement = requirements.size;
         }
-
-        public static void CopyFromArray<T>(this Texture texture, T[] colours) where T : unmanaged
+        #endregion
+        
+        #region Image Layout
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static VkImageLayout SetImageLayoutAndAspectFromUsage(this Texture texture)
         {
-            var stagingBuffer = new GPUBuffer<T>((ulong)colours.Length, VkBufferUsageFlags.TransferSrc, true, false, false);
-
-            stagingBuffer.WriteToBuffer(colours);
-
-            texture.CopyFromBuffer(stagingBuffer, true);
+            var layout = VkImageLayout.Undefined;
+            if (texture._useageFlags.HasFlag(VkImageUsageFlags.Sampled))
+            {
+                texture._aspectFlags = VkImageAspectFlags.Color;
+            }
+            if (texture._useageFlags.HasFlag(VkImageUsageFlags.ColorAttachment))
+            {
+                texture._aspectFlags = VkImageAspectFlags.Color;
+                layout = VkImageLayout.ColorAttachmentOptimal;
+            }
+            if (texture._useageFlags.HasFlag(VkImageUsageFlags.DepthStencilAttachment))
+            {
+                texture._aspectFlags = VkImageAspectFlags.Depth;
+            }
+            if (texture.Format == VkFormat.D16UnormS8Uint || texture.Format == VkFormat.D32SfloatS8Uint || texture.Format == VkFormat.D24UnormS8Uint)
+            {
+                texture._aspectFlags |= VkImageAspectFlags.Stencil;
+            }
+            return layout;
         }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static void SetImageLayout(Texture texture,VkImageLayout newImageLayout, VkPipelineStageFlags2 srcStage , VkPipelineStageFlags2 dstStage)
+        {
+            _setLayoutCmds.Enqueue(new(texture, newImageLayout, srcStage, dstStage));
+        }
+
+        internal static void PlaybackSetLayoutCmds(VkCommandBuffer cmd)
+        {
+            while(_setLayoutCmds.TryDequeue(out var layout))
+            {
+                layout.Texture.SetImageLayout(cmd, layout.NewImageLayout, layout.SrcStage, layout.DstStage);
+            }
+        }
+        #endregion
+
+        #region Image Copy To/From
 
         internal static unsafe void CreateHostBuffer(this Texture texture, bool copyFromGPUNow)
         {
@@ -222,7 +238,7 @@ namespace VECS
                     createNewBuffer = true;
                 }
             }
-            
+
             if (createNewBuffer || texture._hostBuffer == null)
             {
                 texture._hostBuffer = new(texture.BufferInstanceCount, (uint)texture.BufferInstanceSize, VkBufferUsageFlags.TransferSrc | VkBufferUsageFlags.TransferDst, true, false, false);
@@ -235,11 +251,23 @@ namespace VECS
             }
         }
 
-        internal static void CopyFromBuffer(this Texture texture, GPUBuffer buffer, bool disposeBufferAfterCopy = false)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void CopyFromArray<T>(this Texture texture, T[] colours) where T : unmanaged
         {
-            _copyBufferToTexture.Enqueue(new(texture,buffer, disposeBufferAfterCopy));
+            var stagingBuffer = new GPUBuffer<T>((ulong)colours.Length, VkBufferUsageFlags.TransferSrc, true, false, false);
+
+            stagingBuffer.WriteToBuffer(colours);
+
+            texture.CopyFromBuffer(stagingBuffer, true);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static void CopyFromBuffer(this Texture texture, GPUBuffer buffer, bool disposeBufferAfterCopy = false)
+        {
+            _copyBufferToTexture.Enqueue(new(texture, buffer, disposeBufferAfterCopy));
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static void CopyFrombufferNow(this Texture texture, GPUBuffer buffer)
         {
             var cmd = GraphicsDevice.BeginSingleTimeMainPipe();
@@ -272,33 +300,10 @@ namespace VECS
                 }
             }
 
-            while(_copyTextureToBuffer.TryDequeue(out var copy))
+            while (_copyTextureToBuffer.TryDequeue(out var copy))
             {
                 if (copy.Buffer.IsDisposed || copy.Texture.IsDisposed) continue;
                 copy.Texture.CopyToBuffer(cmd, copy.Buffer);
-            }
-        }
-
-        internal static void PlaybackMipmapGenCmds(VkCommandBuffer cmd)
-        {
-            while(_regenMipMapsCmds.TryDequeue(out var texture))
-            {
-                if (texture.IsDisposed) continue;
-                Debug.Assert(texture.MipMapCount > 1, "Attempting regenerate mipmaps for texture with no mipmaps!");
-                texture.RegenerateMipMaps(cmd);
-            }
-        }
-
-        internal static void SetImageLayout(Texture texture,VkImageLayout newImageLayout, VkPipelineStageFlags2 srcStage , VkPipelineStageFlags2 dstStage)
-        {
-            _setLayoutCmds.Enqueue(new(texture, newImageLayout, srcStage, dstStage));
-        }
-
-        internal static void PlaybackSetLayoutCmds(VkCommandBuffer cmd)
-        {
-            while(_setLayoutCmds.TryDequeue(out var layout))
-            {
-                layout.Texture.SetImageLayout(cmd, layout.NewImageLayout, layout.SrcStage, layout.DstStage);
             }
         }
 
@@ -419,11 +424,11 @@ namespace VECS
             GraphicsDevice.DeviceAPI.vkCmdCopyBufferToImage(cmdBuffer, buffer.VkBuffer, texture._vkImage, VkImageLayout.TransferDstOptimal, texture.ImageExtent.depth, bufferCopyRegions);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static void CopyToBuffer(this Texture texture, GPUBuffer buffer)
         {
             _copyTextureToBuffer.Enqueue(new(texture, buffer, false));
         }
-
 
         internal static unsafe void CopyToBuffer(this Texture texture, VkCommandBuffer cmdBuffer, GPUBuffer buffer)
         {
@@ -440,7 +445,6 @@ namespace VECS
             uint size = texture.ImageExtent.width * texture.ImageExtent.height * formatSize;
             var subresourceRange = texture.GetSubresourceRange();
             VkBufferImageCopy* bufferCopyRegions = stackalloc VkBufferImageCopy[(int)texture.MipMapCount];
-            // Console.WriteLine("MipMapCount: {0} Offset: {1}", texture.MipMapCount,size);
             for (uint i = 0; i < texture.MipMapCount; i++)
             {
                 bufferCopyRegions[i] = new()
@@ -469,8 +473,6 @@ namespace VECS
 
                 var region = bufferCopyRegions[i];
 
-                // Console.WriteLine("MipMapLevel: {0} x*y {1}*{2} Offset: {3}", i, region.imageExtent.width, region.imageExtent.height, offset);
-
                 size = bufferCopyRegions[i].imageExtent.width * bufferCopyRegions[i].imageExtent.height * formatSize;
                 offset += size;
             }
@@ -480,6 +482,19 @@ namespace VECS
             if (changeLayout && imageLayout != VkImageLayout.Undefined)
             {
                 texture.SetImageLayout(cmdBuffer, imageLayout, VkPipelineStageFlags2.Transfer, VkPipelineStageFlags2.Transfer);
+            }
+        }
+
+        #endregion
+
+        #region MipMap Generation
+        internal static void PlaybackMipmapGenCmds(VkCommandBuffer cmd)
+        {
+            while (_regenMipMapsCmds.TryDequeue(out var texture))
+            {
+                if (texture.IsDisposed) continue;
+                Debug.Assert(texture.MipMapCount > 1, "Attempting regenerate mipmaps for texture with no mipmaps!");
+                texture.RegenerateMipMaps(cmd);
             }
         }
 
@@ -822,5 +837,7 @@ namespace VECS
                 }
             }
         }
+        #endregion
+
     }
 }

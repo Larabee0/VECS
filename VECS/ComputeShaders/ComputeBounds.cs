@@ -18,8 +18,8 @@ namespace VECS
         private static readonly string ParamsSetIndexId = "setIndex";
         private static readonly string ParamsVertexOffsetId = "vertexOffset";
 
-        private static readonly int VertexBufferId = "vertexBuffer".GetHashCode();
-        private static readonly int MinMaxBufferId = "minMaxBuffer".GetHashCode();
+        private static readonly int VertexBufferId = "vertexBuffer".GetShaderPropertyId();
+        private static readonly int MinMaxBufferId = "minMaxBuffer".GetShaderPropertyId();
 
 
         private static readonly ComputeShader _calculateBounds;

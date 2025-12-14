@@ -23,9 +23,9 @@ namespace VECS.ECS.Presentation
             Material shadowOffscreen = EngineMaterials.ShadowOffscreen;
 
             Matrix4x4 projection = ShadowImage.CubeProjectionMatrix;
-            Matrix4x4 model = Matrix4x4.CreateTranslation(frameInfo.Ubo.PointLights[0].Position.AsVector3());
-            shadowOffscreen.SetMatrix4x4("cubeConstant.cubeProj".GetHashCode(),0, projection);
-            shadowOffscreen.SetMatrix4x4("cubeConstant.cubeModel".GetHashCode(),0, model);
+            Matrix4x4 model = Matrix4x4.CreateTranslation(frameInfo.PointLights[0].Position.AsVector3());
+            shadowOffscreen.SetMatrix4x4("cubeConstant.cubeProj".GetShaderPropertyId(),0, projection);
+            shadowOffscreen.SetMatrix4x4("cubeConstant.cubeModel".GetShaderPropertyId(),0, model);
 
             shadowOffscreen.PushConstants.EnsureCapacity(6);
             Material.Update(shadowOffscreen, frameInfo);

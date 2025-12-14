@@ -1,29 +1,43 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 
 namespace VECS
 {
+    public static class ShaderPropertyExtention
+    {
+        private static ConcurrentDictionary<int, string> _propertyIdToString = new();
+
+        public static int GetShaderPropertyId(this string property)
+        {
+            var hash = property.GetHashCode();
+            _propertyIdToString.TryAdd(hash, property);
+            return hash;
+        }
+
+        public static string GetPropertyIdString(this int propertyId)
+        {
+            if(_propertyIdToString.TryGetValue(propertyId,out string value))
+                return value;
+            return "Property Not Found";
+        }
+    }
+
     public struct ShaderPropertyInfo
     {
 #if DEBUG
         public const bool LOG_MISSING_GLOBAL_SHADER_PROPERTIES = false;
 #endif
-        public static readonly int CameraInfoProperty = "cameraMain".GetHashCode();
-        public static readonly int CameraInverseProperty = "cameraInverse".GetHashCode();
-        public static readonly int AdditionalCameraInfoProperty = "cameraPlanes".GetHashCode();
-        public static readonly int OrthographicInfoProperty = "orthographic".GetHashCode();
-        public static readonly int LightingInfoProperty = "lighting".GetHashCode();
-        public static readonly int PointLightsBufferProperty = "pointLightBuffer".GetHashCode();
+        public static readonly int CameraInfoProperty = "cameraMain".GetShaderPropertyId();
+        public static readonly int CameraInverseProperty = "cameraInverse".GetShaderPropertyId();
+        public static readonly int AdditionalCameraInfoProperty = "cameraPlanes".GetShaderPropertyId();
+        public static readonly int OrthographicInfoProperty = "orthographic".GetShaderPropertyId();
+        public static readonly int LightingInfoProperty = "lighting".GetShaderPropertyId();
+        public static readonly int PointLightsBufferProperty = "pointLightBuffer".GetShaderPropertyId();
         public static readonly HashSet<int> GlobalProperties;
 
         static ShaderPropertyInfo()
         {
-            Console.WriteLine("GlobalProperty | cameraMain: {0}", CameraInfoProperty);
-            Console.WriteLine("GlobalProperty | cameraInverse: {0}", CameraInverseProperty);
-            Console.WriteLine("GlobalProperty | cameraPlanes: {0}", AdditionalCameraInfoProperty);
-            Console.WriteLine("GlobalProperty | orthographic: {0}", OrthographicInfoProperty);
-            Console.WriteLine("GlobalProperty | lighting: {0}", LightingInfoProperty);
-            Console.WriteLine("GlobalProperty | pointLightBuffer: {0}", PointLightsBufferProperty);
             GlobalProperties =
             [
                 CameraInfoProperty,
@@ -32,8 +46,9 @@ namespace VECS
                 OrthographicInfoProperty,
                 LightingInfoProperty,
                 PointLightsBufferProperty,
+                DrawBlob.BoundsBufferId,
+                DrawBlob.MatricesBufferId
             ];
-
         }
 
         public static readonly ShaderPropertyInfo Invalid = new()

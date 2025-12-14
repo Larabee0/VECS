@@ -37,13 +37,9 @@ namespace VECS
             ShaderStage = shaderStageFlags;
             switch (descriptorBinding.descriptor_type)
             {
-                // case SpvReflectDescriptorType.Sampler:
-                //     break;
                 case SpvReflectDescriptorType.CombinedImageSampler:
                     Image = true;
                     break;
-                // case SpvReflectDescriptorType.SampledImage:
-                //     break;
                 case SpvReflectDescriptorType.UniformBuffer:
                     BufferUsageFlags = VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.TransferSrc | VkBufferUsageFlags.UniformBuffer;
                     UniformBuffer = Buffer = true;
@@ -116,35 +112,6 @@ namespace VECS
         public void UpdateShaderStage(VkShaderStageFlags flags)
         {
             VkSetLayoutBinding.stageFlags = flags;
-        }
-
-        public DescriptorPropertyInfo GetProperty(string name)
-        {
-            string topLevelMemberName = name;
-            int subPropertyIndex = name.IndexOf('.');
-
-            if (subPropertyIndex != -1)
-            {
-                topLevelMemberName = name[..subPropertyIndex];
-            }
-
-            DescriptorPropertyInfo topLevelMember = null;
-
-            for (int i = 0; i < Variables.Length; i++)
-            {
-                if (Variables[i].Name == topLevelMemberName)
-                {
-                    topLevelMember = Variables[i];
-                    break;
-                }
-            }
-
-            if(topLevelMember != null && subPropertyIndex != -1)
-            {
-                topLevelMember.LookUpMember(name[(subPropertyIndex + 1)..], out topLevelMember);
-            }
-
-            return topLevelMember;
         }
 
         public DescriptorPropertyInfo GetProperty(int id)

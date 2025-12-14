@@ -27,7 +27,6 @@ namespace VECS
         public VkShaderModule VkShaderModule => _vkShaderModule;
         public SpvReflectShaderModule SpvShaderModule => _spvShaderModule;
 
-
         public VkShaderStageFlags VkShaderStage => _vkStage;
         public SpvReflectShaderStageFlags SpvShaderStage => _spvStage;
 
@@ -36,6 +35,7 @@ namespace VECS
         public VkVertexInputAttributeDescription[] VertexAttributes => _vertexAttributes;
 
         public DescriptorBinding[] DescriptorBindings => _descriptorBindings;
+
         public VkPipelineShaderStageCreateInfo ShaderStageCreateInfo
         {
             get
@@ -105,9 +105,9 @@ namespace VECS
 
             SPIRVReflectUtil.DestroyReflectShaderModule(_spvShaderModule);
             GraphicsDevice.DeviceAPI.vkDestroyShaderModule(GraphicsDevice.Device, _vkShaderModule);
+            GC.ReRegisterForFinalize(this);
         }
 
-        
         public static ShaderModule Create(string filePath)
         {
             var module = new ShaderModule(filePath);

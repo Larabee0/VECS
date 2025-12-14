@@ -9,8 +9,8 @@ namespace VECS.ECS.Presentation
 {
     public class PointLightSystem : PresentationSystemBase
     {
-        private readonly static int ColourBufferId = "colourBuffer".GetHashCode();
-        private readonly static int PositionBufferId = "positionBuffer".GetHashCode();
+        private readonly static int ColourBufferId = "colourBuffer".GetShaderPropertyId();
+        private readonly static int PositionBufferId = "positionBuffer".GetShaderPropertyId();
         private EntityQuery _pointLightQuery;
         private readonly List<PointLightPushConstant> _pointLights = new(Presenter.MAX_LIGHTS);
 

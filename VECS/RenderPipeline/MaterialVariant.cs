@@ -59,7 +59,7 @@ namespace VECS
                 {
                     _imageDescriptors[i] = new(setInfo);
                     _textures[i] = new Texture[setInfo.BindingCount];
-                    Array.Fill(_textures[i], Texture2D.MissingTexture);
+                    Array.Fill(_textures[i], EngineTextures.MissingTexture);
                 }
                 else
                 {
@@ -129,14 +129,6 @@ namespace VECS
             Array.Fill(_dirtyBufferRegions, true);
             return true;
         }
-
-        // [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        // public bool SetStorageBufferOffset(uint setIndex, uint offset)
-        // {
-        //     if (_bufferDescriptors[setIndex].Disposed || !_bufferDescriptors[setIndex].SetStorageBufferOffset(offset)) return false;
-        //     Array.Fill(_dirtyBufferRegions, true);
-        //     return true;
-        // }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetUniformBufferRegion(int setIndex, uint offset, uint length)
@@ -303,14 +295,6 @@ namespace VECS
                 return true;
             }
 
-            // [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            // public unsafe bool SetStorageBufferOffset(uint offset)
-            // {
-            //     if (_storageRegion.X == offset) return false;
-            //     _storageRegion.X = offset;
-            //     return true;
-            // }
-
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public unsafe bool SetUniformBufferRegion(uint offset, uint length)
             {
@@ -360,7 +344,7 @@ namespace VECS
 
                 _pBindingTextures = (VkDescriptorImageInfo*)NativeMemory.AllocZeroed((uint)sizeof(VkDescriptorImageInfo) * (uint)TextureCount * SwapChain.MAX_CONCURRENT_FRAMES_UINT);
                 
-                var missingInfo = Texture2D.MissingTexture.ImageInfo;
+                var missingInfo = EngineTextures.MissingTexture.ImageInfo;
                 for (int frameIndex = 0; frameIndex < SwapChain.MAX_CONCURRENT_FRAMES; frameIndex++)
                 {
                     var textures = GetBindingTextures(frameIndex);

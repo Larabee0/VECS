@@ -11,11 +11,19 @@ namespace VECS.ECS.Presentation
         public MaterialIndex Material;
         public Vector4 Colour;
         public CullOverrides CullOverrides;
-
-        public int MeshHash => Mesh.Hash;
-        public int SubMesh => Mesh.SubMesh;
-        public int MatHash => Material.Hash;
-        public int MatVar => Material.Variant;
-        public int MatEntity => Material.Entity;
+#if DEBUG
+        public readonly int MeshHash => Mesh.Hash;
+        public readonly int SubMesh => Mesh.SubMesh;
+        public readonly int MatHash => Material.Hash;
+        public readonly int MatVar => Material.Variant;
+        public readonly int MatEntity => Material.Entity;
+        public readonly DirectMesh DEBUG_DirectMesh => AssetDataBase<DirectMesh>.GetHashedSilentFail(Mesh.Hash);
+        public readonly DirectSubMesh DEBUG_DirectSubMesh => DirectSubMesh.GetSubMeshAtIndex(Mesh);
+        public readonly Material DEBUG_Mat => AssetDataBase<Material>.GetHashedSilentFail(MatHash);
+#endif
+        public static bool ShouldMakeNewDrawCmd(RenderMesh a, RenderMesh b)
+        {
+            return a.Mesh.Hash != b.Mesh.Hash || a.Material.Hash != b.Material.Hash || a.Material.Variant != b.Material.Variant || a.Material.Entity != b.Material.Entity;
+        }
     }
 }

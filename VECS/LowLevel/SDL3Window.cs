@@ -18,6 +18,7 @@ namespace VECS.LowLevel
         private int _width;
         private int _height;
         private bool _framebufferResized = false;
+        private bool _screenSaverAllowed = true;
 
         private SDL_Window _window;
         private readonly InputManager _inputManager;
@@ -28,6 +29,7 @@ namespace VECS.LowLevel
         public VkExtent2D WindowExtend => new(_width, _height);
 
         public bool WasWindowResized => _framebufferResized;
+        public bool ScreenSaverAllowed => _screenSaverAllowed;
 
         public SDL3Window(int width, int height, string name)
         {
@@ -157,6 +159,18 @@ namespace VECS.LowLevel
             }
         }
 
+        public void SetSleepAllowed(bool allowed)
+        {
+            if (allowed)
+            {
+                _framebufferResized = SDL.SDL_DisableScreenSaver();
+            }
+            else
+            {
+                _framebufferResized = !SDL.SDL_EnableScreenSaver();
+            }
+        }
+
         public void Dispose()
         {
             _inputManager.Destroy();
@@ -172,7 +186,7 @@ namespace VECS.LowLevel
 
         private static void SDL3Log(SDL_LogCategory category, SDL_LogPriority priority, string message)
         {
-            if (priority >= SDL_LogPriority.Error)
+            if (priority >= SDL_LogPriority.Warn)
             {
                 throw new Exception(string.Format("[{0}] SDL: {1}",priority,message));
             }

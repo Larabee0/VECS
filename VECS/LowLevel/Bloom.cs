@@ -67,7 +67,7 @@ namespace VECS.LowLevel
 
 
         private const int FRAME_BUFFER_DIMENTIONS = 256;
-        private readonly static int SampleColourId = "samplerColor".GetHashCode();
+        private readonly static int SampleColourId = "samplerColor".GetShaderPropertyId();
         private readonly Material _blurMat;
         private readonly VkRenderPass _renderPass;
         private readonly VkSampler _sampler;

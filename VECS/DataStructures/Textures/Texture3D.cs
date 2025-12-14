@@ -25,7 +25,6 @@ namespace VECS
             AssetDataBase<Texture3D>.Add(this);
         }
 
-
         public Texture3D(string name,int width, int height, int depth, VkFormat textureFormat, VkImageUsageFlags usage, bool generateMipMaps = true)
         {
             AssetName = name;

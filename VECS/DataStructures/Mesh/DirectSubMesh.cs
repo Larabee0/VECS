@@ -11,7 +11,6 @@ namespace VECS
     {
         private readonly DirectMesh _directMeshBuffer;
         private readonly int _directSubMeshIndex;
-        //private RenderBounds _bounds;
         private AABB _modelBounds;
 
         public DirectMesh DirectMeshBuffer => _directMeshBuffer;
@@ -29,8 +28,8 @@ namespace VECS
         public Span<Vector3UInt> Faces => _directMeshBuffer.GetFaceSpan(DirectSubMeshInfo.FirstIndex, DirectSubMeshInfo.IndexCount);
         public Span<Vector3> FaceNormals => _directMeshBuffer.GetFaceNormalsSpan(DirectSubMeshInfo.FirstIndex, DirectSubMeshInfo.IndexCount);
 
-        public uint VertexCount { get => DirectSubMeshInfo.VertexCount; }
-        public uint IndexCount { get => DirectSubMeshInfo.IndexCount; }
+        public uint VertexCount => DirectSubMeshInfo.VertexCount;
+        public uint IndexCount => DirectSubMeshInfo.IndexCount;
 
         public DirectSubMesh(DirectMesh directMeshBuffer, int directSubMeshIndex)
         {

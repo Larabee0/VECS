@@ -16,7 +16,6 @@ namespace VECS
         public string FileName;
         public bool Generated;
 
-
         public override string ToString()
         {
             return AssetName;

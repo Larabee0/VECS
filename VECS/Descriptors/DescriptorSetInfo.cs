@@ -190,11 +190,6 @@ namespace VECS
             return _descriptorSetBuffers[_bindingPointToBufferIndex[bindPoint]];
         }
 
-        public SwapChainBuffer GetBuffer(int bufferIndex)
-        {
-            return _descriptorSetBuffers[bufferIndex];
-        }
-
         public void WriteFromBuffers(int frameIndex)
         {
             if (_forMeshShader) return;
@@ -226,54 +221,11 @@ namespace VECS
             descriptorBuffer.HasDataBound[setVariant] = true;
         }
 
-        public void WriteDescriptors(int frameIndex, uint setVariant, GPUBuffer[] bindingBuffers, Texture[] bindingTextures)
-        {
-            var descriptorBuffer = _descriptorBuffers[frameIndex];
-            for (int i = 0; i < _bindingCount; i++)
-            {
-                var binding = _descriptorBindings[i];
-                var bindPoint = binding.BindPoint;
-                if (binding.IsAnyBuffer)
-                {
-                    var bufferIndex = _bindingPointToBufferIndex[bindPoint];
-                    var buffer = bindingBuffers[bufferIndex];
-                    descriptorBuffer.SetBufferBinding(buffer.DeviceAddressInfo, binding.DescriptorType, setVariant, bindPoint);
-                }
-                else
-                {
-                    var textureIndex = _bindingPointToImageIndex[bindPoint];
-                    var texutre = bindingTextures[textureIndex];
-                    descriptorBuffer.SetCombinedImageSamplerBinding(texutre, setVariant, bindPoint);
-                }
-            }
-        }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void WriteDescriptors(int frameIndex, uint bindingPoint, uint setVariant, GPUBuffer buffer)
         {
             var descriptorBuffer = _descriptorBuffers[frameIndex];
             descriptorBuffer.SetStorageBinding(buffer, setVariant, bindingPoint);
-        }
-
-        public unsafe void WriteDescriptors(DescriptorBuffer descriptorBuffer, uint setIndex, VkDescriptorAddressInfoEXT* bindingBuffers, VkDescriptorImageInfo* bindingTextures)
-        {
-            if (_forMeshShader) return;
-            for (int i = 0; i < _bindingCount; i++)
-            {
-                var binding = _descriptorBindings[i];
-                var bindPoint = binding.BindPoint;
-                if (binding.IsAnyBuffer)
-                {
-                    var bufferIndex = _bindingPointToBufferIndex[bindPoint];
-                    var buffer = bindingBuffers[bufferIndex];
-                    descriptorBuffer.SetBufferBinding(buffer, binding.DescriptorType, setIndex, bindPoint);
-                }
-                else
-                {
-                    var textureIndex = _bindingPointToImageIndex[bindPoint];
-                    var texutre = bindingTextures[textureIndex];
-                    descriptorBuffer.SetImageInfoBinding(texutre, VkDescriptorType.CombinedImageSampler, setIndex, bindPoint);
-                }
-            }
         }
 
         public unsafe void WriteDescriptors(DescriptorBuffer descriptorBuffer, uint setIndex, Span<VkDescriptorAddressInfoEXT> bindingBuffers, Span<VkDescriptorImageInfo> bindingTextures)
@@ -327,6 +279,5 @@ namespace VECS
 
             GC.ReRegisterForFinalize(this);
         }
-
     }
 }

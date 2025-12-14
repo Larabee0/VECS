@@ -2,14 +2,12 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-
-
-#if LOG_BUFFER_ALLOCS
-using System.Diagnostics;
-#endif
 using System.Runtime.InteropServices;
 using VECS.LowLevel;
 using Vortice.Vulkan;
+#if LOG_BUFFER_ALLOCS
+using System.Diagnostics;
+#endif
 
 namespace VECS
 {
@@ -124,7 +122,6 @@ namespace VECS
                 usage = _usageFlags,
                 sharingMode = VkSharingMode.Exclusive
             };
-
 
             VmaAllocationCreateInfo allocationInfo = new()
             {

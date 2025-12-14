@@ -36,7 +36,6 @@ namespace VECS
                 _mipMapCount = TextureExtensions.CalculateMipMapLevels(w, w);
             }
 
-
             this.SetImageLayoutAndAspectFromUsage();
 
             this.CreateImage(GetImageCreateInfo());

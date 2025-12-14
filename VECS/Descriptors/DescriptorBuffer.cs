@@ -187,6 +187,7 @@ namespace VECS
         {
             _descriptorBuffer.ReadToHostBuffer();
         }
+
         public static unsafe void BindSets(VkCommandBuffer cmd, DescriptorBuffer[] buffers)
         {
             VkDescriptorBufferBindingInfoEXT* bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[buffers.Length];

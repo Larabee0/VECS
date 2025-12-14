@@ -51,18 +51,18 @@ namespace VECS
         private static void CreateDescriptorBufferMat()
         {
             Material LitTexture = EngineMaterials.LitTexture;
-            LitTexture.GetStorageBuffer<ModelMatrices>("matricesBuffer".GetHashCode())[0] = new(TransformExtensions.TRS(new(0, 0, 0), Quaternion.Identity, new(4)));
-            LitTexture.SetDescriptorStorageBufferLengthFromProperty("matricesBuffer".GetHashCode(), 0, 1);
+            LitTexture.GetStorageBuffer<ModelMatrices>("matricesBuffer".GetShaderPropertyId())[0] = new(TransformExtensions.TRS(new(0, 0, 0), Quaternion.Identity, new(4)));
+            LitTexture.SetDescriptorStorageBufferLengthFromProperty("matricesBuffer".GetShaderPropertyId(), 0, 1);
             
             Material DepthOnly = EngineMaterials.DepthOnly;
-            DepthOnly.GetStorageBuffer<ModelMatrices>("matricesBuffer".GetHashCode())[0] = new(TransformExtensions.TRS(new(0, 0, 0), Quaternion.Identity, new(4)));
-            DepthOnly.SetDescriptorStorageBufferLengthFromProperty("matricesBuffer".GetHashCode(), 0, 1);
+            DepthOnly.GetStorageBuffer<ModelMatrices>("matricesBuffer".GetShaderPropertyId())[0] = new(TransformExtensions.TRS(new(0, 0, 0), Quaternion.Identity, new(4)));
+            DepthOnly.SetDescriptorStorageBufferLengthFromProperty("matricesBuffer".GetShaderPropertyId(), 0, 1);
 
             if (GraphicsDevice.MeshShading)
             {
                 Material MeshShader = EngineMaterials.UnlitMeshShader;
-                MeshShader.GetStorageBuffer<ModelMatrices>("matricesBuffer".GetHashCode())[0] = new(TransformExtensions.TRS(new(0, 0, 0), Quaternion.Identity, new(4)));
-                MeshShader.SetDescriptorStorageBufferLengthFromProperty("matricesBuffer".GetHashCode(), 0, 1);
+                MeshShader.GetStorageBuffer<ModelMatrices>("matricesBuffer".GetShaderPropertyId())[0] = new(TransformExtensions.TRS(new(0, 0, 0), Quaternion.Identity, new(4)));
+                MeshShader.SetDescriptorStorageBufferLengthFromProperty("matricesBuffer".GetShaderPropertyId(), 0, 1);
             }
         }
 

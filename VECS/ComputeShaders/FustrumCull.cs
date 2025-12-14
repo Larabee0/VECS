@@ -2,22 +2,15 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Threading;
+#if DEBUG
 using VECS.ECS;
 using VECS.ECS.Presentation;
+#endif
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
 namespace VECS
 {
-    [Flags]
-    public enum CullOverrides : int
-    {
-        None = 0,
-        NoCull = 1,
-        NoDepth = 2
-    }
-
-
     [StructLayout(LayoutKind.Sequential, Size = 112)]
     public struct CullData
     {
@@ -109,8 +102,8 @@ namespace VECS
         public const bool CPUCulling = false;
 #endif
 
-        private static readonly int BoundsBufferId = "boundsBuffer".GetHashCode();
-        private static readonly int DrawBufferId = "drawBuffer".GetHashCode();
+        private static readonly int BoundsBufferId = "boundsBuffer".GetShaderPropertyId();
+        private static readonly int DrawBufferId = "drawBuffer".GetShaderPropertyId();
 
 
         private static readonly ComputeShader _computeShader;

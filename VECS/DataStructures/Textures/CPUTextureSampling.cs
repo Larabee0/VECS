@@ -6,7 +6,6 @@ namespace VECS
 {
     public static class CPUTextureSampling
     {
-
         public static Colour GetPixel(this Texture2D texture, int x, int y, int mipLevel = 0)
         {
             var res = texture.GetMipResolution(mipLevel);

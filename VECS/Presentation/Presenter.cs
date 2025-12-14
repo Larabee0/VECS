@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Numerics;
 using VECS.ECS;
@@ -21,12 +20,7 @@ namespace VECS
         private readonly IWindow _window;
         private SwapChain _swapChain;
 
-        private readonly List<VkBufferMemoryBarrier2> _cullReadyBarriers = [];
-        private readonly List<VkBufferMemoryBarrier2> _postCullBarriers = [];
-        private readonly List<VkBufferMemoryBarrier2> _uploadBarriers = [];
-
         private bool _isFrameStarted = false;
-        private readonly GlobalUbo _ubo = new();
         private readonly ShadowImage _shadowCubeMap;
         private readonly Bloom _bloom;
         private ulong _frameCount;
@@ -136,16 +130,6 @@ namespace VECS
         private unsafe RendererFrameInfo CreateRendererFrameInfo(float deltaTime, VkCommandBuffer commandBuffer)
         {
             int frameIndex = SwapChain.FrameIndex;
-
-            RendererFrameInfo frameInfo = new()
-            {
-                FrameIndex = frameIndex,
-                DeltaTime = deltaTime,
-                CommandBuffer = commandBuffer,
-                PostCullBarriers = _postCullBarriers,
-
-            };
-
             Camera camera = Camera.Identity;
             CameraOrthographic orthCam = default;
             bool orth = false;
@@ -177,21 +161,16 @@ namespace VECS
                 }
             }
 
-            _ubo.Projection = camera.ProjectionMatrix;
-            _ubo.View = camera.ViewMatrix;
-            _ubo.InverseView = camera.InverseViewMatrix;
-            _ubo.AmbientLightColour = new(1.0f, 1.0f, 1.0f, 0.02f);
-
             Matrix4x4 projection = camera.ViewMatrix * camera.ProjectionMatrix;
 
-            frameInfo.cullData = new(camera.fustrumCulling, camera.dstCull, camera.depthCull, projection);
+            CullData cullData = new(camera.fustrumCulling, camera.dstCull, camera.depthCull, projection);
 
-            frameInfo.Ubo = _ubo;
-
-            frameInfo.CameraInfo = new(camera);
-            frameInfo.CameraInverseInfo = new(camera);
-            frameInfo.AdditionalCameraInfo = new(camera.ProjectionMatrix,clipNear,clipFar,_swapChain.ExtentAspectRatio);
-            frameInfo.OrthographicInfo = new(orth, orthCam);
+            CameraInfo cameraInfo = new(camera);
+            CameraInverseInfo cameraInverseInfo = new(camera);
+            AdditionalCameraInfo additionalCameraInfo = new(camera.ProjectionMatrix,clipNear,clipFar,_swapChain.ExtentAspectRatio);
+            OrthographicInfo orthographicInfo = new(orth, orthCam);
+            LightingInfo lightingInfo;
+            BufferMAXLIGHTS<PointLightUniform> pointLightBuffer = default;
             if (World.DefaultWorld != null)
             {
                 var entityManager = World.DefaultWorld.EntityManager;
@@ -200,37 +179,40 @@ namespace VECS
 
                 if (dirLights!= null && dirLights.Count > 0)
                 {
-                    frameInfo.LightingInfo = new(entityManager.GetComponent<DirectionalLight>(dirLights[0]), dirLights.Count);
+                    lightingInfo = new(entityManager.GetComponent<DirectionalLight>(dirLights[0]), dirLights.Count);
                 }
                 else
                 {
-                    frameInfo.LightingInfo = new(Vector4.Zero, Vector3.Zero, 0);
+                    lightingInfo = new(Vector4.Zero, Vector3.Zero, 0);
                 }
 
                 if (pointLights != null && pointLights.Count > 0)
                 {
-                    frameInfo.LightingInfo = new(Vector4.Zero, Vector3.Zero, pointLights.Count);
-                    frameInfo.PointLights = new PointLightUniform[pointLights.Count];
+                    lightingInfo = new(Vector4.Zero, Vector3.Zero, pointLights.Count);
 
                     for (int i = 0; i < pointLights.Count; i++)
                     {
                         Vector3 position = entityManager.GetComponent<LocalToWorld>(pointLights[i]).Value.Translation;
                         Vector4 colour = entityManager.GetComponent<PointLight>(pointLights[i]).Colour;
-                        frameInfo.PointLights[i] = new(position, colour);
+                        pointLightBuffer[i] = new(position, colour);
                     }
-                }
-                else
-                {
-                    frameInfo.PointLights = [];
                 }
             }
             else
             {
-                frameInfo.LightingInfo = new(Vector4.Zero, Vector3.Zero, 0);
-                frameInfo.PointLights = [];
+                lightingInfo = new(Vector4.Zero, Vector3.Zero, 0);
             }
 
-            return frameInfo;
+            return new RendererFrameInfo(frameIndex,
+                deltaTime,
+                commandBuffer,
+                cullData,
+                cameraInfo,
+                cameraInverseInfo,
+                additionalCameraInfo,
+                orthographicInfo,
+                lightingInfo,
+                pointLightBuffer);
         }
 
         /// <summary>
@@ -286,7 +268,7 @@ namespace VECS
             RendererFrameInfo frameInfo = CreateRendererFrameInfo(Time.DeltaTime, commandBuffer);
 
             // culling
-            CullScene(commandBuffer, frameInfo);
+            CullScene(frameInfo);
 
             // shadows
             World.DefaultWorld.PresentPreForwardPassUpdate(frameInfo);
@@ -330,58 +312,19 @@ namespace VECS
             }
             else
             {
-                _postCullBarriers.Clear();
-                _cullReadyBarriers.Clear();
                 return true;
             }
         }
 
-        private void CullScene(VkCommandBuffer commandBuffer, RendererFrameInfo frameInfo)
+        private static void CullScene(RendererFrameInfo frameInfo)
         {
             World.DefaultWorld.PresentPreCull(frameInfo);
-            EndPreCullBarrier(commandBuffer);
 
             Material.UpdateMaterials(frameInfo);
 
             World.DefaultWorld.PresentOnCull(frameInfo);
 
-            PostCullBarrier(commandBuffer);
             World.DefaultWorld.PresentPostCullUpdate(frameInfo);
-        }
-
-        public unsafe void EndPreCullBarrier(VkCommandBuffer commandBuffer)
-        {
-            if (_cullReadyBarriers.Count > 0)
-            {
-                int count = _cullReadyBarriers.Count;
-                VkBufferMemoryBarrier2* pMemoryBarrier = stackalloc VkBufferMemoryBarrier2[count];
-                _cullReadyBarriers.CopyTo(new Span<VkBufferMemoryBarrier2>(pMemoryBarrier, count));
-
-                for (int i = 0; i < count; i++)
-                {
-                    pMemoryBarrier[i].srcStageMask = VkPipelineStageFlags2.Transfer;
-                    pMemoryBarrier[i].dstStageMask = VkPipelineStageFlags2.ComputeShader;
-                }
-                MemoryBarrierHelper.BufferMemoryBarrier(commandBuffer, (uint)count, pMemoryBarrier);
-            }
-        }
-
-        public unsafe void PostCullBarrier(VkCommandBuffer commandBuffer)
-        {
-            if (_postCullBarriers.Count > 0)
-            {
-                int count = _postCullBarriers.Count;
-                VkBufferMemoryBarrier2* pMemoryBarrier = stackalloc VkBufferMemoryBarrier2[count];
-                _postCullBarriers.CopyTo(new Span<VkBufferMemoryBarrier2>(pMemoryBarrier, count));
-
-                for (int i = 0; i < count; i++)
-                {
-                    pMemoryBarrier[i].srcStageMask = VkPipelineStageFlags2.ComputeShader;
-                    pMemoryBarrier[i].dstStageMask = VkPipelineStageFlags2.DrawIndirect;
-                }
-
-                MemoryBarrierHelper.BufferMemoryBarrier(commandBuffer, (uint)count, pMemoryBarrier);
-            }
         }
 
         /// <summary>

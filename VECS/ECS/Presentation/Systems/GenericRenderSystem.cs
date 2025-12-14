@@ -41,11 +41,11 @@ namespace VECS.ECS.Presentation
         {
             if (!_renderEntityQuery.HasEntities) { return; }
 
-            var depthBufferCullInfo = frameInfo.cullData;
+            var depthBufferCullInfo = frameInfo.CullData;
             depthBufferCullInfo.depthCulling = 0;
 
             DrawBlob.CullAllInOne(frameInfo, depthBufferCullInfo);
-            DrawBlob.CullByMat(frameInfo, frameInfo.cullData);
+            DrawBlob.CullByMat(frameInfo, frameInfo.CullData);
         }
 
         public unsafe override void OnPreForwardPass(EntityManager entityManager, RendererFrameInfo frameInfo)
@@ -143,9 +143,6 @@ namespace VECS.ECS.Presentation
             if (!_renderEntityQuery.HasEntities) { return; }
 
             DrawBlob.ExecuteDrawCmds(frameInfo, null, null, 0, default, default);
-
-            // 
-            // _forwardData.ExecuteDrawCmds(frameInfo);
         }
     }
 }

@@ -42,9 +42,7 @@ namespace VECS.ECS
                 if (MathF.Abs(distToPlane) >= 1.0e-6f)
                 {
                     outP = pointOnPlane - forward * (distToPlane - p.Z);
-                    //outP = cameraPosition + dir;
                     return true;
-
                 }
             }
 
@@ -70,7 +68,6 @@ namespace VECS.ECS
             }
             Vector3 dir = o - ray.Origin;
             ray.Direction = Vector3.Normalize(dir);
-
 
             return ray;
         }

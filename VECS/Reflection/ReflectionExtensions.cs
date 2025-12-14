@@ -17,15 +17,6 @@ namespace VECS
             get
             {
                 yield return Assembly.GetExecutingAssembly();
-                //foreach (ContentPack mod in LoadManager.RunningMods)
-                //{
-                //    int num = 0;
-                //    for (int i = 0; i < mod.assemblies.loadedAssemblies.Count; i = num + 1)
-                //    {
-                //        yield return mod.assemblies.loadedAssemblies[i];
-                //        num = i;
-                //    }
-                //}
                 yield break;
             }
         }
@@ -59,7 +50,7 @@ namespace VECS
                                 Type[] types = ex.Types;
                                 if (types != null)
                                 {
-                                    array = (from x in types where x != null && x.TypeInitializer != null select x).ToArray();
+                                    array = [.. (from x in types where x != null && x.TypeInitializer != null select x)];
                                 }
                             }
                             catch (Exception arg)
@@ -111,6 +102,4 @@ namespace VECS
             return value;
         }
     }
-
-
 } 

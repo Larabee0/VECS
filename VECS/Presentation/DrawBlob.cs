@@ -14,6 +14,8 @@ namespace VECS
 {
     public static class DrawBlob
     {
+        public static readonly int BoundsBufferId = "boundsBuffer".GetShaderPropertyId();
+        public static readonly int MatricesBufferId = "matricesBuffer".GetShaderPropertyId();
         public const bool MULTI_THREAD_RENDERING = false;
         private readonly struct MatComparerer : IComparer<RenderMesh>
         {
@@ -209,7 +211,7 @@ namespace VECS
             {
                 var renderMesh = _drawRenderMesh[i];
 
-                if (EarlyDrawCommand.ShouldMakeNewDrawCmd(lastRenderMesh, renderMesh))
+                if (RenderMesh.ShouldMakeNewDrawCmd(lastRenderMesh, renderMesh))
                 {
                     _drawCommandsByMat[count] = new(lastRenderMesh.Material.Hash, lastRenderMesh.Material.Variant, new(0, 0), lastRenderMesh.Material.Entity, lastRenderMesh.Mesh.Hash, meshSubRegion, false);
                     count++;
@@ -337,17 +339,17 @@ namespace VECS
                 var mat = list[i];
                 if (!_materialBufferRegions.TryGetValue(mat.Hash, out var region)) return;
                 
-                var matrices = mat.GetStorageBuffer<ModelMatrices>(RenderBlob.MatricesBufferId);
-                var bounds = mat.GetStorageBuffer<ShaderAABB>(RenderBlob.BoundsBufferId);
+                var matrices = mat.GetStorageBuffer<ModelMatrices>(MatricesBufferId);
+                var bounds = mat.GetStorageBuffer<ShaderAABB>(BoundsBufferId);
                 if (!matrices.IsEmpty)
                 {
-                    mat.SetDescriptorStorageBufferLengthFromProperty(RenderBlob.MatricesBufferId, 0, (uint)region.Count);
-                    _drawMatrixByMat.AsSpan(region.StartIndex, region.Count).CopyTo(mat.GetStorageBuffer<ModelMatrices>(RenderBlob.MatricesBufferId));
+                    mat.SetDescriptorStorageBufferLengthFromProperty(MatricesBufferId, 0, (uint)region.Count);
+                    _drawMatrixByMat.AsSpan(region.StartIndex, region.Count).CopyTo(mat.GetStorageBuffer<ModelMatrices>(MatricesBufferId));
                 }
                 if (!bounds.IsEmpty)
                 {
-                    mat.SetDescriptorStorageBufferLengthFromProperty(RenderBlob.BoundsBufferId, 0, (uint)region.Count);
-                    _drawRenderBoundsByMat.HostBuffer.Slice(region.StartIndex, region.Count).CopyTo(mat.GetStorageBuffer<ShaderAABB>(RenderBlob.BoundsBufferId));
+                    mat.SetDescriptorStorageBufferLengthFromProperty(BoundsBufferId, 0, (uint)region.Count);
+                    _drawRenderBoundsByMat.HostBuffer.Slice(region.StartIndex, region.Count).CopyTo(mat.GetStorageBuffer<ShaderAABB>(BoundsBufferId));
                 }
             });
         }
@@ -358,16 +360,16 @@ namespace VECS
             Application.ParallelFor(AllInOneMats.Count, (i) =>
             {
                 var mat = AssetDataBase<Material>.GetHashed(AllInOneMats[i]);
-                var matrices = mat.GetStorageBuffer<ModelMatrices>(RenderBlob.MatricesBufferId);
-                var bounds = mat.GetStorageBuffer<ShaderAABB>(RenderBlob.BoundsBufferId);
+                var matrices = mat.GetStorageBuffer<ModelMatrices>(MatricesBufferId);
+                var bounds = mat.GetStorageBuffer<ShaderAABB>(BoundsBufferId);
                 if (!matrices.IsEmpty)
                 {
-                    mat.SetDescriptorStorageBufferLengthFromProperty(RenderBlob.MatricesBufferId, 0, (uint)allInOneDrawCount);
+                    mat.SetDescriptorStorageBufferLengthFromProperty(MatricesBufferId, 0, (uint)allInOneDrawCount);
                     _drawMatrixByMesh.AsSpan(0, allInOneDrawCount).CopyTo(matrices);
                 }
                 if (!bounds.IsEmpty)
                 {
-                    mat.SetDescriptorStorageBufferLengthFromProperty(RenderBlob.BoundsBufferId, 0, (uint)allInOneDrawCount);
+                    mat.SetDescriptorStorageBufferLengthFromProperty(BoundsBufferId, 0, (uint)allInOneDrawCount);
                     _drawRenderBoundsByMat.HostBuffer[..allInOneDrawCount].CopyTo(bounds);
                 }
             });

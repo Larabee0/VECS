@@ -161,14 +161,6 @@ namespace VECS.GraphicsPipelines
             return pipelineConfigInfo;
         }
 
-        public static GraphicsPipelineConfigInfo DefaultPipelineConfigInfo(VkVertexInputBindingDescription[] vkVertexInputBindings, VkVertexInputAttributeDescription[] vkVertexInputAttributes,VkRenderPass renderPass, VkPipelineLayout pipelineLayout)
-        {
-            var pipelineConfigInfo = DefaultPipelineConfigInfo(vkVertexInputBindings,vkVertexInputAttributes);
-            //EnableAlphaBlending(ref pipelineConfigInfo);
-            pipelineConfigInfo.pipelineLayout = pipelineLayout;
-
-            return pipelineConfigInfo;
-        }
         /// <summary>
         /// Modify the given configInfo to enable alpha blending of the colour channel.
         /// </summary>

@@ -15,7 +15,6 @@ namespace VECS
             _imageExtent = new(w, w, 1);
             _useageFlags = _usageFlags;
 
-
             _imageImageViewType = VkImageViewType.ImageCube;
             _wrapModeU = wrapMode;
             _wrapModeV = wrapMode;
@@ -28,7 +27,6 @@ namespace VECS
                 _mipMapCount = TextureExtensions.CalculateMipMapLevels(w, w);
             }
 
-
             this.SetImageLayoutAndAspectFromUsage();
 
             this.CreateImage(GetImageCreateInfo());
@@ -40,7 +38,6 @@ namespace VECS
                 this.CreateSampler(GetSamplerCreateInfo());
             }
 
-            // SetImageLayout(VkImageLayout.TransferDstOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.Transfer);
             UpdateDescriptor();
 
             AssetDataBase<Cubemap>.Add(this);
@@ -93,6 +90,5 @@ namespace VECS
 
             base.Dispose();
         }
-
     }
 }

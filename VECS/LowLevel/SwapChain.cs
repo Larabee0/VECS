@@ -89,7 +89,6 @@ namespace VECS.LowLevel
 
         #region  TimelineSemaphore
 
-
         public ulong GetTimelineStageValue(SemaphoreStages stage, int frameIndex)
         {
             return (_timelineSemaphores[frameIndex].SemaphoreValue * (ulong)SemaphoreStages.MAX_STAGES) + (ulong)stage;
@@ -121,7 +120,6 @@ namespace VECS.LowLevel
 
         }
         
-
         public unsafe void SignalNextFrame(int frameIndex)
         {
             VkSemaphoreSignalInfo signalInfo = new()

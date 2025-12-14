@@ -8,5 +8,4 @@
         public int Hash;
         public int SubMesh;
     }
-
 }

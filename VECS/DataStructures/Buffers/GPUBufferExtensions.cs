@@ -123,7 +123,6 @@ namespace VECS
             Vma.vmaFlushAllocation(GraphicsDevice.VmaAllocator, buffer._allocation, offset, size).CheckResult( "Failed to flush allocation!");
         }
 
-
         public unsafe static void Reallocate(this GPUBuffer buffer, ulong newInstanceCount)
         {
             if (buffer.UInstanceCount == newInstanceCount)
@@ -177,6 +176,7 @@ namespace VECS
 #endif
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe static bool TryAllocHostBuffer(this GPUBuffer buffer, bool read = true)
         {
             if (buffer._hostPtr != null)
@@ -199,6 +199,7 @@ namespace VECS
             return true;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe static bool TryAllocHostBuffer(this SwapChainBuffer buffer, bool read = true)
         {
             if (buffer._hostPtr != null)
@@ -217,6 +218,7 @@ namespace VECS
             return true;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe static bool TryDellocateHostBuffer(this GPUBuffer buffer, bool write = true)
         {
             if (buffer._hostPtr == null)
@@ -307,7 +309,6 @@ namespace VECS
                 {
                     stagingBuffer.Dispose();
                 }
-                
             }
         }
 
@@ -354,7 +355,7 @@ namespace VECS
             buffer.SetGPUBufferChanged(false);
         }
 
-        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe static void WriteFromHostToBuffer(this SwapChainBuffer buffer, int index)
         {
             if (buffer._hostPtr == null)
@@ -376,6 +377,7 @@ namespace VECS
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe static void ReadToHostFromBuffer(this SwapChainBuffer buffer, int index)
         {
             if (buffer._hostPtr == null)
@@ -399,7 +401,6 @@ namespace VECS
         {
             ReadToHostFromBuffer(buffer, Presenter.Instance.FrameIndex);
         }
-
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void CopyTo(this GPUBuffer srcBuffer, VkCommandBuffer cmd, GPUBuffer dstBuffer)
@@ -456,6 +457,7 @@ namespace VECS
             GraphicsDevice.EndSingleTimeMainPipe(cmd);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void FillBuffer(this GPUBuffer buffer, uint data, ulong dstOffset = 0, ulong bufferSize = Vulkan.VK_WHOLE_SIZE)
         {
             _fillBufferQueue.Enqueue(new(buffer,data, dstOffset, bufferSize));
@@ -501,7 +503,7 @@ namespace VECS
             return addressInfo;
         }
 
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe static void FillActiveBuffer(this SwapChainBuffer buffer, VkCommandBuffer commandBuffer, uint data, ulong dstOffset = 0, ulong bufferSize = Vulkan.VK_WHOLE_SIZE)
         {
             GraphicsDevice.DeviceAPI.vkCmdFillBuffer(commandBuffer, buffer.ActiveVkBuffer, dstOffset, bufferSize, data);
@@ -514,6 +516,7 @@ namespace VECS
             buffer._diryBuffers[Presenter.Instance.FrameIndex] = false;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe static void FillAllBuffers(this SwapChainBuffer buffer, VkCommandBuffer commandBuffer, uint data, ulong dstOffset = 0, ulong bufferSize = Vulkan.VK_WHOLE_SIZE)
         {
             for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)

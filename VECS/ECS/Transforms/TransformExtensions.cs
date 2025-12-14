@@ -75,6 +75,7 @@ namespace VECS.ECS.Transforms
         {
             return a + (b - a) * Math.Clamp(t, 0, 1);
         }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static float InverseLerp(float a, float b, float value)
         {
@@ -320,18 +321,11 @@ namespace VECS.ECS.Transforms
             angles.Z = (float)Math.Atan2(siny_cosp, cosy_cosp);
 
             return angles;
-
-
-
-            //return RadiansToDegrees(euler);
         }
-
 
         public static Vector4 Plane(Vector3 p1, Vector3 norm)
         {
             return new (Vector3.Normalize(norm),Vector3.Dot(norm,p1));
-
         }
-
     }
 }

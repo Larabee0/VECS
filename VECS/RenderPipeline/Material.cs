@@ -213,7 +213,7 @@ namespace VECS
             bool isGlobalProperty = ShaderPropertyInfo.GlobalProperties.Contains(propertyId);
             if (!isGlobalProperty || (ShaderPropertyInfo.LOG_MISSING_GLOBAL_SHADER_PROPERTIES && isGlobalProperty))
             {
-                Console.WriteLine("GRAPHICS Caching Invalid property {0}", propertyId);
+                Console.WriteLine("Material '{0}' has no shader property matching propertyId: '{1}' -> '{2}'", AssetName, propertyId, propertyId.GetPropertyIdString());
             }
 #endif
             propertyInfo = ShaderPropertyInfo.Invalid;

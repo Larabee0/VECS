@@ -10,8 +10,8 @@ namespace VECS.ECS.Presentation
     public class DebugDrawUtilities : PresentationSystemBase
     {
         public const int MAX_LINES = 1000;
-        private static readonly int ColourBufferId = "colourBuffer".GetHashCode();
-        private static readonly int MatricesBufferId = "matricesBuffer".GetHashCode();
+        private static readonly int ColourBufferId = "colourBuffer".GetShaderPropertyId();
+        private static readonly int MatricesBufferId = "matricesBuffer".GetShaderPropertyId();
         private EntityQuery _renderBoundsQuery;
         private EntityQuery _cameraQuery;
         private bool _drawBounds = false;
@@ -342,6 +342,5 @@ namespace VECS.ECS.Presentation
                 Colour = colour;
             }
         }
-
     }
 }

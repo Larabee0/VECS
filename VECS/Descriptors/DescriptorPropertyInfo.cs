@@ -253,20 +253,6 @@ namespace VECS
             }
         }
 
-        public DescriptorPropertyInfo()
-        {
-        }
-
-        public DescriptorPropertyInfo(string parentName, string name, SpvOp type, uint bufferSize, uint offset)
-        {
-            Name = name;
-            AbsName = parentName + name;
-            Id = AbsName.GetHashCode();
-            Type = type;
-            Offset = offset;
-            CachedMemberSize = bufferSize;
-        }
-
         public bool LookUpMember(string name, out DescriptorPropertyInfo propertyInfo)
         {
             if (Name == name)

@@ -145,12 +145,6 @@ namespace VECS
             };
         }
         
-        public static VkDescriptorSetLayout CreateDescriptorSetLayout(DescriptorBinding[] bindings)
-        {
-
-            return CreateDescriptorSetLayout(bindings, VkDescriptorSetLayoutCreateFlags.None);
-        }
-
         public static VkDescriptorSetLayout CreateDescriptorSetLayout(DescriptorBinding[] bindings, VkDescriptorSetLayoutCreateFlags flags)
         {
             Array.Sort(bindings, (x, y) =>
@@ -283,19 +277,7 @@ namespace VECS
             }
             return setBindings;
         }
-        public static int[] ExtractBindingsForSetAsIntArray(uint set, DescriptorBinding[] bindings)
-        {
-            List<int> setBindings = [];
-            for (int i = 0; i < bindings.Length; i++)
-            {
-                if (bindings[i].DescriptorSetIndex == set)
-                {
-                    setBindings.Add(i);
-                }
-            }
-            return [.. setBindings];
-        }
-
+        
         public static DescriptorBinding[] ExtractBindingsForSetAsBindingArray(uint set, DescriptorBinding[] bindings)
         {
             List<DescriptorBinding> setBindings = [];
@@ -689,7 +671,6 @@ namespace VECS
         public static VertexAttributeDescription[] MeshShaderExtractVertexAttributes(Dictionary<string, int> meshShaderBindings, DescriptorBinding[] materialBindings)
         {
             List<VertexAttributeDescription> attributeDescriptions = [];
-
 
             foreach (var pair in meshShaderBindings)
             {

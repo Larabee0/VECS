@@ -1,7 +1,5 @@
 using System;
 using System.Collections.Concurrent;
-using System.Diagnostics;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using VECS.LowLevel;
 using Vortice.Vulkan;
@@ -192,5 +190,4 @@ namespace VECS
             GC.ReRegisterForFinalize(this);
         }
     }
-
 }

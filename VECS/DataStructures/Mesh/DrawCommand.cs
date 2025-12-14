@@ -13,13 +13,6 @@ namespace VECS
         public ShaderAABB Bounds; // 32
         public bool Bloom;
 
-        public DrawCommand(VkDrawIndexedIndirectCommand vkDraw, ModelMatrices matrices, ShaderAABB bounds)
-        {
-            VkDraw = vkDraw;
-            Matrices = matrices;
-            Bounds = bounds;
-        }
-
         public DrawCommand(DirectSubMeshIndex subMeshIndex, LocalToWorld localToWorld, WorldRenderBounds worldRenderBounds)
         {
             VkDraw =  DirectSubMesh.GetSubMeshAtIndex(subMeshIndex).IndirectCommand;

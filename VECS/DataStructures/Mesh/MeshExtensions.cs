@@ -6,7 +6,6 @@ using VECS.ECS.Presentation;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 using MeshOptimizer;
-using Assimp;
 
 namespace VECS
 {
@@ -386,7 +385,6 @@ namespace VECS
             uint[] meshletVertices,
             byte[] meshletTriangles)
         {
-            //int meshletIndexCount = meshletTriangles.Length;
             int meshletVertexCount = meshletVertices.Length;
             int meshletIndexCount = meshletTriangles.Length;
             DirectSubMeshInfo[] subMeshes = srcMesh.SubMeshInfos;
@@ -433,7 +431,6 @@ namespace VECS
             {
                 GPUBuffer.DisposalQueue.Enqueue(buffer);
             }
-
 
             buffer = new GPUBuffer(attributeStride == 12 ? 16 : attributeStride, (uint)meshletVertexCount, MESH_SHADER_VERTEX_BUFFER_FLAGS, false, false, true);
 
@@ -545,7 +542,7 @@ namespace VECS
             uint* srcIndices,
             float* srcVertices,
             Meshlet* meshlets,
-            MeshOptimizer.Bounds* meshletBounds,
+            Bounds* meshletBounds,
             uint* meshletVerts,
             byte* meshletTris
         )

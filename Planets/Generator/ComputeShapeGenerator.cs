@@ -29,9 +29,9 @@ namespace Planets.Generator
             _minMaxBuffer = new SwapChainBuffer<int>(2, VkBufferUsageFlags.StorageBuffer, true);
             _noiseSettings = new SwapChainBuffer<GlobalNoiseSettings>(2000, VkBufferUsageFlags.StorageBuffer, true);
             _biomes = new SwapChainBuffer<float>(2000, VkBufferUsageFlags.StorageBuffer, true);
-            _computeShader.SetStorageBuffer("minMax".GetHashCode(), 0, _minMaxBuffer);
-            _computeShader.SetStorageBuffer("noiseSettings".GetHashCode(), 0, _noiseSettings);
-            _computeShader.SetStorageBuffer("biomes".GetHashCode(), 0, _biomes);
+            _computeShader.SetStorageBuffer("minMax".GetShaderPropertyId(), 0, _minMaxBuffer);
+            _computeShader.SetStorageBuffer("noiseSettings".GetShaderPropertyId(), 0, _noiseSettings);
+            _computeShader.SetStorageBuffer("biomes".GetShaderPropertyId(), 0, _biomes);
             ResetMinMax();
 
         }
