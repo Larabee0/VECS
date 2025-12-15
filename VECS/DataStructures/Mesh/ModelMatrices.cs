@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 namespace VECS
 {
     [StructLayout(LayoutKind.Sequential, Size = 128)]
-    public struct ModelMatrices
+    public struct ModelMatrices : IRenderBufferElement
     {
         public Matrix4x4 ModelMatrix;
         public Matrix4x4 NormalMatrix;

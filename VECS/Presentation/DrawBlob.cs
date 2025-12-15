@@ -3,6 +3,8 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Numerics;
+using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using VECS.ECS;
 using VECS.ECS.Presentation;
@@ -12,11 +14,51 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
+    public interface IRenderBufferElement;
+    public interface IRenderBuffer : IComponent
+    {
+        public Type ElementType { get; }
+        public uint ElementSize { get; }
+        public IRenderBufferElement RenderBufferData { get; }
+
+        public unsafe void CopyIn(void* ptr);
+    }
+
+    public class RenderBuffer
+    {
+        public readonly Type SourceType;
+        public readonly Type ElementType;
+        public int SourceTypeComponentId=> (int)SourceType.GetProperty(nameof(IComponent.ComponentId)).GetValue(null);
+        public byte[] Buffer = [];
+        public readonly uint ElementSize = 0;
+        public uint ElementCount => (uint)Buffer.Length / ElementSize;
+
+        public RenderBuffer(Type sourceElement)
+        {
+            SourceType = sourceElement;
+            ElementSize = (uint)sourceElement.GetField("BufferElementSize").GetValue(null);
+            ElementType = (Type)sourceElement.GetField("BufferElementType").GetValue(null);
+            //SourceTypeComponentId = 
+            Activator.CreateInstance(ElementType);
+        }
+
+        public void Resize(int newLength)
+        {
+            Array.Resize(ref Buffer, newLength * (int)ElementSize);
+        }
+
+        public unsafe void Write(void* ptr, int index)
+        {
+            Marshal.Copy((nint)ptr, Buffer, index, (int)ElementSize);
+        }
+    }
+
     public static class DrawBlob
     {
         public static readonly int BoundsBufferId = "boundsBuffer".GetShaderPropertyId();
         public static readonly int MatricesBufferId = "matricesBuffer".GetShaderPropertyId();
         public const bool MULTI_THREAD_RENDERING = false;
+        
         private readonly struct MatComparerer : IComparer<RenderMesh>
         {
             public readonly static MatComparerer Comparer = new();
@@ -58,6 +100,7 @@ namespace VECS
         private static RenderMesh[] _drawRenderMesh = [];
 
         private static Entity[] _drawEntitiesByMat = [];
+        private static RenderBuffer[] _renderBuffers = [];
         private static ModelMatrices[] _drawMatrixByMat = [];
         private static SwapChainBuffer<ShaderAABB> _drawRenderBoundsByMat;
 
@@ -82,6 +125,40 @@ namespace VECS
 
         public static void Reset()
         {
+            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
+
+
+            HashSet<Type> allTypes = [];
+
+            foreach (var assembly in assemblies)
+            {
+                allTypes.UnionWith(assembly.DefinedTypes);
+            }
+
+            List<Type> renderBufferTypes = [];
+            List<Type> renderBufferElementTypes = [];
+            Type baseRenderBuffer = typeof(IRenderBuffer);
+            Type baseRenderBufferElement = typeof(IRenderBufferElement);
+            allTypes.Remove(baseRenderBufferElement);
+            allTypes.Remove(baseRenderBuffer);
+            foreach (var type in allTypes)
+            {
+                if (baseRenderBuffer.IsAssignableFrom(type))
+                {
+                    renderBufferTypes.Add(type);
+                }
+                if (baseRenderBufferElement.IsAssignableFrom(type))
+                {
+                    renderBufferElementTypes.Add(type);
+                }
+            }
+            _renderBuffers = new RenderBuffer[renderBufferTypes.Count];
+
+            for (int i = 0; i < renderBufferTypes.Count; i++)
+            {
+                _renderBuffers[i] = new(renderBufferTypes[i]);
+            }
+
             //AllInOneMats.Clear();
             //AllInOneMats.TrimExcess();
             _materialBufferRegions.Clear();
@@ -168,6 +245,12 @@ namespace VECS
             entityCount = entities.Count;
             _materialVariants.Clear();
             _directMeshDraws.Clear();
+
+            for (int i = 0; i < _renderBuffers.Length; i++)
+            {
+                _renderBuffers[i].Resize(entityCount);
+            }
+
             Array.Resize(ref _drawRenderMesh, entityCount);
             Array.Resize(ref _drawDirectSubMeshIndex, entityCount);
             Array.Resize(ref _drawEntitiesByMat, entityCount);
@@ -325,10 +408,26 @@ namespace VECS
                 _drawMatrixByMesh[i] = entityManager.GetComponent<LocalToWorld>(entityMesh).Value;
                 _drawRenderBoundsByMat.HostBuffer[i] = entityManager.GetComponent<WorldRenderBounds>(entityMat).Value;
                 _drawRenderBoundsByMesh.HostBuffer[i] = entityManager.GetComponent<WorldRenderBounds>(entityMesh).Value;
+
+                for (int j = 0; j < _renderBuffers.Length; j++)
+                {
+                    WriteToRenderBuffer(entityManager, i, entityMat, j);
+                }
             });
 
             _drawRenderBoundsByMat.WriteFromHostToActiveBuffer();
             _drawRenderBoundsByMesh.WriteFromHostToActiveBuffer();
+        }
+
+        private static unsafe void WriteToRenderBuffer(EntityManager entityManager, int i, Entity entityMat, int j)
+        {
+            var buffer = _renderBuffers[j];
+            void* dataIn = stackalloc byte[(int)buffer.ElementSize];
+            if (entityManager.HasComponent(entityMat, buffer.SourceTypeComponentId, out int signiture))
+            {
+                entityManager.GetComponent<IRenderBuffer>(signiture).CopyIn(dataIn);
+                buffer.Write(dataIn, i);
+            }
         }
 
         public static void CopyDataToMaterials()
@@ -471,7 +570,6 @@ namespace VECS
 
         public static void IndirectToComputeMemoryBarrier(VkCommandBuffer commandBuffer, VkBuffer buffer)
         {
-
             VkBufferMemoryBarrier2 barrier = new()
             {
                 buffer = buffer,
@@ -483,6 +581,33 @@ namespace VECS
             };
 
             MemoryBarrierHelper.BufferMemoryBarrier(commandBuffer, barrier, VkPipelineStageFlags2.DrawIndirect, VkPipelineStageFlags2.ComputeShader);
+        }
+    
+        public static Span<MaterialDrawCommand> GetMaterialDrawCmds(int hash)
+        {
+            if (_materialBufferRegions.TryGetValue(hash, out var region))
+            {
+                return _drawCommandsByMat.AsSpan(region.StartIndex, region.Count);
+            }
+            return null;
+        }
+
+        public static Span<ModelMatrices> GetModelMatricesForMat(int hash)
+        {
+            if (_materialBufferRegions.TryGetValue(hash, out var region))
+            {
+                return _drawMatrixByMat.AsSpan(region.StartIndex,region.Count);
+            }
+            return null;
+        }
+
+        public static Span<ShaderAABB> GetShaderAABBForMat(int hash)
+        {
+            if (_materialBufferRegions.TryGetValue(hash, out var region))
+            {
+                return _drawRenderBoundsByMat.HostBuffer.Slice(region.StartIndex, region.Count);
+            }
+            return null;
         }
     }
 }
