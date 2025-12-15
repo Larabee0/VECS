@@ -288,6 +288,10 @@ namespace VECS
             _swapChain.EndForwardRendering(commandBuffer);
 
             DrawBlob.IndirectToComputeMemoryBarrierByMat(frameInfo.CommandBuffer);
+
+            UI.ULUI.RenderUI();
+            UI.ULUI.CopyUIToTexture(commandBuffer);
+            UI.ULUI.BlitCamera(commandBuffer,_swapChain.RawRenderImage);
         }
 
 

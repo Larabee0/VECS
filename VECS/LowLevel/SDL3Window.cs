@@ -3,6 +3,7 @@ using System;
 using Vortice.Vulkan;
 using SDL = SDL3.SDL3;
 
+
 namespace VECS.LowLevel
 {
     /// <summary>

@@ -4,6 +4,7 @@ using VECS.LowLevel;
 using BepuUtilities;
 using System.Runtime.CompilerServices;
 using System.Threading;
+using VECS.UI;
 
 namespace VECS
 {
@@ -40,7 +41,7 @@ namespace VECS
             GraphicsDevice.Initialise(_appWindow);
             ShaderModule.LoadAllShaders();
             _presenter = new(_appWindow);
-            
+            ULUI.Initialise();
 
             Time.FixedTimeStepCallback += FixedUpdate;
         }
@@ -62,6 +63,7 @@ namespace VECS
                 Time.Update();
                 Time.UpdateFixedTimeStep();
                 Update();
+                ULUI.UpdateUI();
                 Presentation();
                 InputManager.Instance.LateUpdate();
                 //Thread.Sleep(1000);
@@ -216,6 +218,7 @@ namespace VECS
             }
             _mainWorld?.Dispose();
             Time.FixedTimeStepCallback -= FixedUpdate;
+            ULUI.CleanUp();
             _presenter.Dispose();
             GraphicsDevice.Dispose();
             _appWindow.Dispose();

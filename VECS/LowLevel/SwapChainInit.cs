@@ -142,11 +142,11 @@ namespace VECS.LowLevel
             {
                 if (GraphicsDevice.PresentQueue != GraphicsDevice.MainQueue)
                 {
-                    swapChain._rawRenderImage[i] = new(string.Format("_rawRenderImage_{0}", i), (int)swapChain._windowExtent.width, (int)swapChain._windowExtent.height, VkFormat.R32G32B32A32Sfloat, VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.Sampled, queueIndices, false);
+                    swapChain._rawRenderImage[i] = new(string.Format("_rawRenderImage_{0}", i), (int)swapChain._windowExtent.width, (int)swapChain._windowExtent.height, VkFormat.R32G32B32A32Sfloat, VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled, queueIndices, false);
                 }
                 else
                 {
-                    swapChain._rawRenderImage[i] = new(string.Format("_rawRenderImage_{0}", i), (int)swapChain._windowExtent.width, (int)swapChain._windowExtent.height, VkFormat.R32G32B32A32Sfloat, VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.Sampled, false);
+                    swapChain._rawRenderImage[i] = new(string.Format("_rawRenderImage_{0}", i), (int)swapChain._windowExtent.width, (int)swapChain._windowExtent.height, VkFormat.R32G32B32A32Sfloat, VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled, false);
                 }
             }
             swapChain._copyToSwapChainBlit = new()
