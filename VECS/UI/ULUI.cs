@@ -1,8 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using UltralightNet;
 using UltralightNet.AppCore;
 using VECS.LowLevel;
@@ -10,6 +6,7 @@ using Vortice.Vulkan;
 
 namespace VECS.UI
 {
+    
     public static class ULUI
     {
         private static readonly ULConfig config = new()

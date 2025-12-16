@@ -118,6 +118,21 @@ namespace VECS
             CreateInternal();
         }
 
+        public SwapChainBuffer(
+            ulong instanceCount,
+            ulong instanceSize,
+            VkBufferUsageFlags usageFlags,
+            bool cpuAccessible, bool hasHostBuffer)
+        {
+            _instanceSize = instanceSize;
+            _instanceCount = instanceCount;
+            _hasHostBuffer = hasHostBuffer;
+            _CPUAccessible = cpuAccessible;
+            _usageFlags = usageFlags;
+
+            CreateInternal();
+        }
+
 
         private unsafe SwapChainBuffer(SwapChainBuffer copyFrom, ulong newInstanceCount)
         {
@@ -260,9 +275,10 @@ namespace VECS
 
         public unsafe void Dispose()
         {
-            GC.SuppressFinalize(this);
 
             if (_disposed || AlisedGPUBuffer) return;
+
+            GC.SuppressFinalize(this);
 
             _disposed = true;
 

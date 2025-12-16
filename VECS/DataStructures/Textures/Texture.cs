@@ -230,12 +230,12 @@ namespace VECS
 
         public override unsafe void Dispose()
         {
-            GC.SuppressFinalize(this);
 
             if (_disposed)
             {
                 return;
             }
+            GC.SuppressFinalize(this);
 
             _hostBuffer?.Dispose();
 
