@@ -171,7 +171,7 @@ namespace VECS
                 b++;
             }
 #if DEBUG
-            Debug.Assert(_bindingPointToImageIndex.Count == _imageCount, string.Format("Expected swapchain buffer allocations {0} does not much descriptor buffer count {1}", _bindingPointToBufferIndex.Count, _bufferCount));
+            Debug.Assert(_bindingPointToImageIndex.Count == _imageCount, string.Format("Expected swapchain buffer allocations {0} does not much descriptor image count {1}", _bindingPointToImageIndex.Count, _imageCount));
 #endif
         }
 

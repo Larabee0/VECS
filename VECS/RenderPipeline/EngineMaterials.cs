@@ -14,6 +14,7 @@ namespace VECS
         public readonly static Material WireFrame;
         public readonly static Material ShadowOffscreen;
         public readonly static Material PointLight;
+        public readonly static Material Blit; 
 
         static EngineMaterials()
         {
@@ -60,6 +61,8 @@ namespace VECS
             {
                 UnlitMeshShader = new("MeshShader", "gen_meshshader_basic_new.mesh", "gen_meshshader_basic_new.task", "gen_meshshader_basic_new.frag", GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []));
             }
+
+            Blit = new("Blitter", "fullscreen.vert", "blit.frag", alphaBlending);
         }
 
     }

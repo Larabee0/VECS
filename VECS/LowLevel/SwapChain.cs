@@ -314,7 +314,7 @@ namespace VECS.LowLevel
             var swapChainImage = _swapChainImages[imageIndex];
             var renderImage = _rawRenderImage[frameIndex];
 
-            renderImage.SetImageLayout(commandBuffer, VkImageLayout.TransferSrcOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.Blit);
+            renderImage.SetImageLayout(commandBuffer, VkImageLayout.TransferSrcOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.Blit);
 
             // done at as first command in graphics pipe by TransferSwapChainImageToGraphicsQueue
             //TextureExtensions.SetImageLayout(commandBuffer, swapChainImage, VkImageAspectFlags.Color, VkImageLayout.PresentSrcKHR, VkImageLayout.TransferDstOptimal, VkPipelineStageFlags.AllCommands, VkPipelineStageFlags.AllCommands);

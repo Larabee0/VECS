@@ -14,15 +14,15 @@ namespace VECS.UI
     {
         private static readonly ULConfig config = new()
         {
-            UserStylesheet = "body { background: purple; }"
+            UserStylesheet = "body { background: purple; color: white; } h1 {color: white; background: blue; }"
         };
         private static readonly ULViewConfig viewConfig = new()
         {
             IsAccelerated = false,
-            IsTransparent = false,
+            IsTransparent = true,
         };
 
-        private static readonly string _defaultHTML = "<h1>Hello World!</h1>";
+        private static readonly string _defaultHTML = "<h1>Hello World!<br><i>omg italics?</i></h1>";
 
         private static Renderer _ulRenderer;
         private static View _ulView;
@@ -40,13 +40,14 @@ namespace VECS.UI
 
             _ulRenderer = ULPlatform.CreateRenderer(config);
 
-            _ulView = _ulRenderer.CreateView(500, 500, viewConfig);
-            _ulView.HTML = _defaultHTML;
+            _ulView = _ulRenderer.CreateView(1280, 720, viewConfig);
+                        _ulView.HTML = _defaultHTML;
+            //ulView.URL = "https://www.google.com/";
             _bitmap = _ulView.Surface.Value.Bitmap;
 
-            uiCopyBuffer = new GPUBuffer(500 * 500, (uint)Vulkan.BlockSize(VkFormat.B8G8R8A8Snorm), VkBufferUsageFlags.TransferSrc, true, true, false);
-            uiOutputTex = new("UI_Out", 500, 500, VkFormat.B8G8R8A8Snorm, VkImageUsageFlags.TransferDst | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.Sampled);
-
+            uiCopyBuffer = new GPUBuffer(1280 * 720, (uint)Vulkan.BlockSize(VkFormat.B8G8R8A8Unorm), VkBufferUsageFlags.TransferSrc, true, true, false);
+            uiOutputTex = new("UI_Out", 1280, 720, VkFormat.B8G8R8A8Unorm, VkImageUsageFlags.TransferDst | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.Sampled,false);
+            EngineMaterials.Blit.SetTexture("inputTexture".GetShaderPropertyId(), 0, uiOutputTex);
             Console.WriteLine(_bitmap.Format.ToString());
         }
 
@@ -61,48 +62,41 @@ namespace VECS.UI
 
         public static unsafe void CopyUIToTexture(VkCommandBuffer commandBuffer)
         {
-            uiOutputTex.SetImageLayout(commandBuffer, VkImageLayout.TransferDstOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.Transfer);
+            uiOutputTex.SetImageLayout(commandBuffer, VkImageLayout.TransferDstOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.Transfer);
 
             uiOutputTex.CopyFromBuffer(commandBuffer, uiCopyBuffer);
 
-            uiOutputTex.SetImageLayout(commandBuffer, VkImageLayout.TransferSrcOptimal, VkPipelineStageFlags2.Transfer, VkPipelineStageFlags2.Blit);
+            uiOutputTex.SetImageLayout(commandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.Transfer, VkPipelineStageFlags2.FragmentShader);
         }
 
-        public static unsafe void BlitCamera(VkCommandBuffer commandBuffer, Texture2D camera)
+        public static unsafe void BlitCamera(RendererFrameInfo frameInfo, Texture2D camera)
         {
-            camera.SetImageLayout(commandBuffer, VkImageLayout.TransferDstOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.Blit);
-            VkImageBlit2 regions = new()
+            VkRenderingAttachmentInfo renderingAttachmentInfo = new()
             {
-                srcSubresource = new(uiOutputTex._aspectFlags, 0, 0, 1),
-                dstSubresource = new(camera._aspectFlags, 0, 0, 1)
+                clearValue = new(0,0,0,0),
+                loadOp = VkAttachmentLoadOp.Load,
+                storeOp = VkAttachmentStoreOp.Store,
+                imageLayout = camera.ImageLayout,
+                imageView = camera._imageView
             };
-
-            regions.srcOffsets[1].x = 500;
-            regions.srcOffsets[1].y = 500;
-            regions.srcOffsets[1].z = 1;
-
-            regions.dstOffsets[1].x = camera.Width;
-            regions.dstOffsets[1].y = camera.Height;
-            regions.dstOffsets[1].z = 1;
-
-            VkBlitImageInfo2 imageBlit2 = new()
+            VkRenderingInfo renderingInfo = new()
             {
-                srcImage = uiOutputTex._vkImage,
-                dstImage = camera._vkImage,
-                srcImageLayout = VkImageLayout.TransferSrcOptimal,
-                dstImageLayout = VkImageLayout.TransferDstOptimal,
-                filter = VkFilter.Linear,
-                regionCount = 1,
-                pRegions = &regions
+                renderArea = new(0, 0, (uint)camera.Width, (uint)camera.Height),
+                layerCount = 1,
+                colorAttachmentCount = 1,
+                pColorAttachments = &renderingAttachmentInfo
             };
-            GraphicsDevice.DeviceAPI.vkCmdBlitImage2(commandBuffer, &imageBlit2);
-            camera.SetImageLayout(commandBuffer, VkImageLayout.TransferSrcOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.Blit);
+            GraphicsDevice.DeviceAPI.vkCmdBeginRendering(frameInfo.CommandBuffer, &renderingInfo);
+            EngineMaterials.Blit.BindAll(frameInfo,0);
+            GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 6, 1, 0, 0);
+            GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
         }
 
         public static unsafe void UpdateUI()
         {
             _ulRenderer.Update();
             _ulRenderer.Render();
+            //_ulView.Surface.Value.Bitmap.SwapRedBlueChannels();
             var pixels = _ulView.Surface.Value.Bitmap.RawPixels;
             uiCopyBuffer.WriteToBuffer(pixels, _ulView.Surface.Value.Size);
         }

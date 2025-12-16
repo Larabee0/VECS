@@ -291,7 +291,7 @@ namespace VECS
 
             UI.ULUI.RenderUI();
             UI.ULUI.CopyUIToTexture(commandBuffer);
-            UI.ULUI.BlitCamera(commandBuffer,_swapChain.RawRenderImage);
+            UI.ULUI.BlitCamera(frameInfo,_swapChain.RawRenderImage);
         }
 
 
