@@ -68,8 +68,12 @@ namespace VECS.UI
                 VertexBufferSize = vertexBuffer.size;
                 IndexBufferSize = indexBuffer.size;
                 IndexBufferOffset = vertexBuffer.size;
-                Buffer.ActiveGPUBuffer.WriteToBuffer(vertexBuffer.data, vertexBuffer.size, 0);
-                Buffer.ActiveGPUBuffer.WriteToBuffer(indexBuffer.data, indexBuffer.size, vertexBuffer.size);
+                var ptr = Buffer.HostPtr;
+                System.Buffer.MemoryCopy(vertexBuffer.data, ptr, Buffer.HostBufferSize, vertexBuffer.size);
+
+                ptr = (new UIntPtr(ptr) + vertexBuffer.size).ToPointer();
+
+                System.Buffer.MemoryCopy(indexBuffer.data, ptr, Buffer.HostBufferSize - vertexBuffer.size, indexBuffer.size);
             }
 
             public void Dispose()
@@ -130,6 +134,7 @@ namespace VECS.UI
         private readonly ULResourceLibrary<GeometryBuffer> _geometryLibrary = new();
 
         private readonly Material _ulFill;
+        private readonly Material _ulFillNoBlend;
         private readonly Material _ulFillPath;
 
         private readonly Queue<ULCommand> _commands = [];
@@ -137,17 +142,8 @@ namespace VECS.UI
         public unsafe UltralightVulkanDriver()
         {
             GraphicsPipelineConfigInfo configInfo = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
-            GraphicsPipelineConfigInfo.EnableAlphaBlending(ref configInfo);
-
-            configInfo.rasterizationInfo.cullMode = VkCullModeFlags.None;
             
-            configInfo.depthStencilInfo.depthCompareOp = VkCompareOp.Never;
-            configInfo.depthStencilInfo.depthTestEnable = false;
-
-            configInfo.colourBlendAttachment.dstAlphaBlendFactor = VkBlendFactor.OneMinusSrc1Alpha;
-            configInfo.colourBlendAttachment.dstColorBlendFactor = VkBlendFactor.OneMinusSrc1Alpha;
-            
-            
+            // common
             configInfo.colourFormats[0] = ImageFormat;
 
             configInfo.BindingDescriptions = [
@@ -217,11 +213,32 @@ namespace VECS.UI
                 }
             ];
 
-            
+            configInfo.rasterizationInfo.cullMode = VkCullModeFlags.None;
+
+            configInfo.depthStencilInfo.depthTestEnable = false;
+            configInfo.depthStencilInfo.depthCompareOp = VkCompareOp.Never;
+
+            configInfo.colourBlendAttachment.blendEnable = true;
+            configInfo.colourBlendAttachment.dstAlphaBlendFactor = VkBlendFactor.OneMinusSrcAlpha;
+            configInfo.colourBlendAttachment.dstColorBlendFactor = VkBlendFactor.OneMinusSrcAlpha;
+
 
             _ulFill = new Material("UL_Fill", "ul_fill.vert", "ul_fill.frag", configInfo);
 
+            // path uses blending ig
             var pathConfigInfo = configInfo;
+
+            // no blend
+            configInfo.colourBlendAttachment.blendEnable = false;
+            configInfo.colourBlendAttachment.srcAlphaBlendFactor = VkBlendFactor.One;
+            configInfo.colourBlendAttachment.dstAlphaBlendFactor = VkBlendFactor.One;
+            configInfo.colourBlendAttachment.srcColorBlendFactor = VkBlendFactor.One;
+            configInfo.colourBlendAttachment.dstColorBlendFactor = VkBlendFactor.One;
+
+            configInfo.colourBlendInfo.logicOp = VkLogicOp.Clear;
+
+            _ulFillNoBlend = new Material("UL_FillNoBlend", "ul_fill.vert", "ul_fill.frag", configInfo);
+
             pathConfigInfo.BindingDescriptions = [
                  new()
                  {
@@ -249,13 +266,6 @@ namespace VECS.UI
                     offset = 12
                 },
             ];
-
-            pathConfigInfo.colourBlendInfo.logicOp = VkLogicOp.Clear;
-            pathConfigInfo.colourBlendAttachment.blendEnable = false;
-            pathConfigInfo.colourBlendAttachment.srcAlphaBlendFactor = VkBlendFactor.One;
-            pathConfigInfo.colourBlendAttachment.dstAlphaBlendFactor = VkBlendFactor.One;
-            pathConfigInfo.colourBlendAttachment.srcColorBlendFactor = VkBlendFactor.One;
-            pathConfigInfo.colourBlendAttachment.dstColorBlendFactor = VkBlendFactor.One;
 
             _ulFillPath = new Material("UL_Fill_Path", "ul_fill_path.vert", "ul_fill_path.frag", pathConfigInfo);
         }
@@ -346,8 +356,7 @@ namespace VECS.UI
                 vertexBuffer.size + indexBuffer.size,
                 1,
                 VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.IndexBuffer | VkBufferUsageFlags.TransferDst,
-                true,
-                false);
+                true);
 
             if (!_geometryLibrary.TryAddResource(geometryId, new(geometryBuffer, vertexBuffer.size, indexBuffer.size, vertexBuffer.size)))
             {
@@ -442,7 +451,8 @@ namespace VECS.UI
                     Material mat = null;
                     if (gpuState.ShaderType == ULShaderType.Fill)
                     {
-                        mat = _ulFill;
+
+                        mat = gpuState.EnableBlend ? _ulFill : _ulFillNoBlend;
                         var texutre1 = _textureLibrary[gpuState.Texture1Id].Texture;
                         mat.SetTexture("Texture1".GetShaderPropertyId(), uniformBufferId, texutre1);
                         if (gpuState.Texture2Id != 0)
@@ -473,7 +483,7 @@ namespace VECS.UI
         {
             var gpuState = command.GPUState;
             var commandBuffer = frameInfo.CommandBuffer;
-            mat.SetMatrix4x4("uni.Transform".GetShaderPropertyId(), variant, gpuState.Transform.ApplyProjection(gpuState.ViewportWidth, gpuState.ViewportHeight, true));
+            mat.SetMatrix4x4("uni.Transform".GetShaderPropertyId(), variant, gpuState.Transform.ApplyProjection(gpuState.ViewportWidth, gpuState.ViewportHeight, false));
             mat.SetUint("uni.ClipSize".GetShaderPropertyId(), variant, gpuState.ClipSize);
             mat.SetFloatArray("uni.Scalar4".GetShaderPropertyId(), variant, gpuState.Scalar);
             if (gpuState.ClipSize > 0)
