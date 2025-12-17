@@ -121,12 +121,12 @@ namespace VECS.GraphicsPipelines
                 {
                     colorWriteMask = VkColorComponentFlags.All,
                     blendEnable = false,
-                    srcColorBlendFactor = VkBlendFactor.One,
-                    dstColorBlendFactor = VkBlendFactor.Zero,
                     colorBlendOp = VkBlendOp.Add,
+                    alphaBlendOp = VkBlendOp.Add,
                     srcAlphaBlendFactor = VkBlendFactor.One,
                     dstAlphaBlendFactor = VkBlendFactor.Zero,
-                    alphaBlendOp = VkBlendOp.Add
+                    srcColorBlendFactor = VkBlendFactor.One,
+                    dstColorBlendFactor = VkBlendFactor.Zero,
                 },
 
                 depthStencilInfo = new()
@@ -169,15 +169,17 @@ namespace VECS.GraphicsPipelines
         {
             var colourBlendAttachment = configInfo.colourBlendAttachment;
 
-            colourBlendAttachment.blendEnable = true;
             colourBlendAttachment.colorWriteMask = VkColorComponentFlags.All;
+            colourBlendAttachment.blendEnable = true;
+
+            colourBlendAttachment.colorBlendOp = VkBlendOp.Add;
+            colourBlendAttachment.alphaBlendOp = VkBlendOp.Add;
 
             colourBlendAttachment.srcColorBlendFactor = VkBlendFactor.SrcAlpha;
             colourBlendAttachment.dstColorBlendFactor = VkBlendFactor.OneMinusSrcAlpha;
-            colourBlendAttachment.colorBlendOp = VkBlendOp.Add;
+
             colourBlendAttachment.srcAlphaBlendFactor = VkBlendFactor.One;
             colourBlendAttachment.dstAlphaBlendFactor = VkBlendFactor.Zero;
-            colourBlendAttachment.alphaBlendOp = VkBlendOp.Add;
 
             configInfo.colourBlendAttachment = colourBlendAttachment;
         }

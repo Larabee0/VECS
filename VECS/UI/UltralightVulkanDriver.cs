@@ -139,10 +139,15 @@ namespace VECS.UI
             GraphicsPipelineConfigInfo configInfo = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             GraphicsPipelineConfigInfo.EnableAlphaBlending(ref configInfo);
 
+            configInfo.rasterizationInfo.cullMode = VkCullModeFlags.None;
+            
             configInfo.depthStencilInfo.depthCompareOp = VkCompareOp.Never;
             configInfo.depthStencilInfo.depthTestEnable = false;
+
             configInfo.colourBlendAttachment.dstAlphaBlendFactor = VkBlendFactor.OneMinusSrc1Alpha;
-            configInfo.colourBlendAttachment.srcColorBlendFactor = VkBlendFactor.One;
+            configInfo.colourBlendAttachment.dstColorBlendFactor = VkBlendFactor.OneMinusSrc1Alpha;
+            
+            
             configInfo.colourFormats[0] = ImageFormat;
 
             configInfo.BindingDescriptions = [
@@ -212,6 +217,8 @@ namespace VECS.UI
                 }
             ];
 
+            
+
             _ulFill = new Material("UL_Fill", "ul_fill.vert", "ul_fill.frag", configInfo);
 
             var pathConfigInfo = configInfo;
@@ -243,6 +250,12 @@ namespace VECS.UI
                 },
             ];
 
+            pathConfigInfo.colourBlendInfo.logicOp = VkLogicOp.Clear;
+            pathConfigInfo.colourBlendAttachment.blendEnable = false;
+            pathConfigInfo.colourBlendAttachment.srcAlphaBlendFactor = VkBlendFactor.One;
+            pathConfigInfo.colourBlendAttachment.dstAlphaBlendFactor = VkBlendFactor.One;
+            pathConfigInfo.colourBlendAttachment.srcColorBlendFactor = VkBlendFactor.One;
+            pathConfigInfo.colourBlendAttachment.dstColorBlendFactor = VkBlendFactor.One;
 
             _ulFillPath = new Material("UL_Fill_Path", "ul_fill_path.vert", "ul_fill_path.frag", pathConfigInfo);
         }
@@ -430,10 +443,20 @@ namespace VECS.UI
                     if (gpuState.ShaderType == ULShaderType.Fill)
                     {
                         mat = _ulFill;
+                        var texutre1 = _textureLibrary[gpuState.Texture1Id].Texture;
+                        mat.SetTexture("Texture1".GetShaderPropertyId(), uniformBufferId, texutre1);
+                        if (gpuState.Texture2Id != 0)
+                        {
+                            mat.SetTexture("Texture2".GetShaderPropertyId(), uniformBufferId, _textureLibrary[gpuState.Texture2Id].Texture);
+                        }
+                        else
+                        {
+                            mat.SetTexture("Texture2".GetShaderPropertyId(), uniformBufferId, texutre1);
+                        }
                     }
                     else if (gpuState.ShaderType == ULShaderType.FillPath)
                     {
-                        mat = _ulFillPath;   
+                        mat = _ulFillPath;
                     }
                     Draw(frameInfo, command, uniformBufferId, mat);
                     uniformBufferId++;
@@ -489,7 +512,7 @@ namespace VECS.UI
                 renderBufferTarget.Texture.SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.Transfer | VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
             }
 
-            VkClearColorValue clearColorValue = new(209f / 255f, 113f / 255f, 177f / 255f);
+            VkClearColorValue clearColorValue = new(0,0,0,0);
 
             VkRenderingAttachmentInfo attachmentInfo = new()
             {
