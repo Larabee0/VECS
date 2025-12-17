@@ -232,6 +232,7 @@ namespace VECS
 
             // acquire swapchain image
             _isFrameStarted = BeginFrame();
+            Console.WriteLine("New Frame {0}", FrameCount);
 
             UpdateEntityFrameInfo(World.DefaultWorld.EntityManager);
             if (_isFrameStarted)
@@ -289,8 +290,6 @@ namespace VECS
 
             DrawBlob.IndirectToComputeMemoryBarrierByMat(frameInfo.CommandBuffer);
 
-            UI.ULUI.RenderUI();
-            UI.ULUI.CopyUIToTexture(commandBuffer);
             UI.ULUI.BlitCamera(frameInfo,_swapChain.RawRenderImage);
         }
 

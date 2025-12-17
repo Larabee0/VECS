@@ -1,11 +1,15 @@
 ﻿using System;
+using System.Numerics;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Threading;
 using UltralightNet;
 using UltralightNet.Platform;
+using VECS.GraphicsPipelines;
 using VECS.LowLevel;
 using Vortice.Vulkan;
+using SDL3;
+using System.Collections.Generic;
 
 namespace VECS.UI
 {
@@ -125,25 +129,128 @@ namespace VECS.UI
         private readonly ULResourceLibrary<TextureWithStagingBuffer> _renderBufferLibrary = new();
         private readonly ULResourceLibrary<GeometryBuffer> _geometryLibrary = new();
 
-        private VkCommandBuffer[] CommandBuffers = new VkCommandBuffer[SwapChain.MAX_CONCURRENT_FRAMES];
-        private int frameIndex = 0;
+        private readonly Material _ulFill;
+        private readonly Material _ulFillPath;
+
+        private readonly Queue<ULCommand> _commands = [];
 
         public unsafe UltralightVulkanDriver()
         {
-            VkCommandBufferAllocateInfo allocInfo = new()
-            {
-                commandBufferCount = SwapChain.MAX_CONCURRENT_FRAMES_UINT,
-                commandPool = GraphicsDevice.MainCommandPool,
-                level = VkCommandBufferLevel.Secondary
-            };
-            fixed (VkCommandBuffer* pCommandBuffers = &CommandBuffers[0]) {
-                GraphicsDevice.DeviceAPI.vkAllocateCommandBuffers(GraphicsDevice.Device, &allocInfo,pCommandBuffers);
-            } 
+            GraphicsPipelineConfigInfo configInfo = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
+            GraphicsPipelineConfigInfo.EnableAlphaBlending(ref configInfo);
+
+            configInfo.depthStencilInfo.depthCompareOp = VkCompareOp.Never;
+            configInfo.depthStencilInfo.depthTestEnable = false;
+            configInfo.colourBlendAttachment.dstAlphaBlendFactor = VkBlendFactor.OneMinusSrc1Alpha;
+            configInfo.colourBlendAttachment.srcColorBlendFactor = VkBlendFactor.One;
+            configInfo.colourFormats[0] = ImageFormat;
+
+            configInfo.BindingDescriptions = [
+                new()
+                {
+                    binding = 0,
+                    stride = 140,
+                    inputRate = VkVertexInputRate.Vertex
+                }
+            ];
+            configInfo.AttributeDescriptions = [
+                new (){
+                    binding = 0,
+                    location = 0,
+                    format = VkFormat.R32G32Sfloat,
+                    offset = 0
+                }, new(){
+                    binding = 0,
+                    location = 1,
+                    format = VkFormat.R8G8B8A8Unorm,
+                    offset = 8
+                }, new(){
+                    binding = 0,
+                    location = 2,
+                    format = VkFormat.R32G32Sfloat,
+                    offset = 12
+                }, new(){ // in_ObjCoord
+					binding = 0,
+                    location = 3,
+                    format = VkFormat.R32G32Sfloat,
+                    offset = 20
+                }, new(){ // in_Data0
+					binding = 0,
+                    location = 4,
+                    format = VkFormat.R32G32B32A32Sfloat,
+                    offset = 28
+                }, new(){ // in_Data1
+					binding = 0,
+                    location = 5,
+                    format = VkFormat.R32G32B32A32Sfloat,
+                    offset = 44
+                }, new(){ // in_Data2
+					binding = 0,
+                    location = 6,
+                    format = VkFormat.R32G32B32A32Sfloat,
+                    offset = 60
+                }, new(){ // in_Data3
+					binding = 0,
+                    location = 7,
+                    format = VkFormat.R32G32B32A32Sfloat,
+                    offset = 76
+                }, new(){ // in_Data4
+					binding = 0,
+                    location = 8,
+                    format = VkFormat.R32G32B32A32Sfloat,
+                    offset = 92
+                }, new(){ // in_Data5
+					binding = 0,
+                    location = 9,
+                    format = VkFormat.R32G32B32A32Sfloat,
+                    offset = 108
+                }, new(){ // in_Data6
+					binding = 0,
+                    location = 10,
+                    format = VkFormat.R32G32B32A32Sfloat,
+                    offset = 124
+                }
+            ];
+
+            _ulFill = new Material("UL_Fill", "ul_fill.vert", "ul_fill.frag", configInfo);
+
+            var pathConfigInfo = configInfo;
+            pathConfigInfo.BindingDescriptions = [
+                 new()
+                 {
+                    binding = 0,
+                    stride = 20,
+                    inputRate = VkVertexInputRate.Vertex
+                 }
+            ];
+
+            pathConfigInfo.AttributeDescriptions = [
+                new (){
+                    binding = 0,
+                    location = 0,
+                    format = VkFormat.R32G32Sfloat,
+                    offset = 0
+                }, new(){
+                    binding = 0,
+                    location = 1,
+                    format = VkFormat.R8G8B8A8Unorm,
+                    offset = 8
+                }, new(){
+                    binding = 0,
+                    location = 2,
+                    format = VkFormat.R32G32Sfloat,
+                    offset = 12
+                },
+            ];
+
+
+            _ulFillPath = new Material("UL_Fill_Path", "ul_fill_path.vert", "ul_fill_path.frag", pathConfigInfo);
         }
 
         #region RenderBuffer
         public void CreateRenderBuffer(uint renderBufferId, ULRenderBuffer renderBuffer)
         {
+            Console.WriteLine("Create Render Buffer");
             var textureEntry = _textureLibrary[renderBuffer.TextureId];
 
             if (!_renderBufferLibrary.TryAddResource(renderBufferId, textureEntry))
@@ -154,7 +261,8 @@ namespace VECS.UI
 
         public void DestroyRenderBuffer(uint renderBufferId)
         {
-            if(!_renderBufferLibrary.TryDestroyResoure(renderBufferId, out _))
+            Console.WriteLine("Destroy RenderBuffer");
+            if (!_renderBufferLibrary.TryDestroyResoure(renderBufferId, out _))
             {
                 throw new InvalidOperationException(string.Format("Failed to remove RenderBufferId {0}", renderBufferId));
             }
@@ -169,6 +277,7 @@ namespace VECS.UI
         #region Texture
         public void CreateTexture(uint textureId, ULBitmap bitmap)
         {
+            Console.WriteLine("Create Texure");
             bool isRenderTarget = bitmap.IsEmpty;
 
             TextureWithStagingBuffer ulBitmap = new(textureId,
@@ -192,7 +301,8 @@ namespace VECS.UI
 
         public void DestroyTexture(uint textureId)
         {
-            if(_textureLibrary.TryDestroyResoure(textureId,out var texture))
+            Console.WriteLine("Destroy Texture");
+            if (_textureLibrary.TryDestroyResoure(textureId,out var texture))
             {
                 texture.Dispose();
             }
@@ -216,9 +326,9 @@ namespace VECS.UI
         #region Geometry
         public void CreateGeometry(uint geometryId, ULVertexBuffer vertexBuffer, ULIndexBuffer indexBuffer)
         {
-            Debug.Assert(vertexBuffer.size % 256 == 0, "nonCoherentAtomSize");
-            Debug.Assert(indexBuffer.size % 256 == 0, "nonCoherentAtomSize");
-
+            // Debug.Assert(vertexBuffer.size % 256 == 0, "nonCoherentAtomSize");
+            // Debug.Assert(indexBuffer.size % 256 == 0, "nonCoherentAtomSize");
+            Console.WriteLine("Create Geometry");
             SwapChainBuffer geometryBuffer = new SwapChainBuffer(
                 vertexBuffer.size + indexBuffer.size,
                 1,
@@ -236,7 +346,8 @@ namespace VECS.UI
 
         public void DestroyGeometry(uint geometryId)
         {
-            if(_geometryLibrary.TryDestroyResoure(geometryId,out var geometry))
+            Console.WriteLine("Destroy Geometry");
+            if (_geometryLibrary.TryDestroyResoure(geometryId,out var geometry))
             {
                 geometry.Dispose();
             }
@@ -257,40 +368,112 @@ namespace VECS.UI
         }
         #endregion
 
+        private readonly struct RenderPassInfo
+        {
+            public readonly bool Clear;
+            public readonly uint RenderBuffer;
+            public readonly VkExtent2D Dimentions;
+
+            public RenderPassInfo(bool clear, uint renderBuffer, VkExtent2D dimentions)
+            {
+                Clear = clear;
+                RenderBuffer = renderBuffer;
+                Dimentions = dimentions;
+            }
+
+            public RenderPassInfo(ULCommand command)
+            {
+                Clear = command.CommandType is ULCommandType.ClearRenderBuffer;
+                RenderBuffer = command.GPUState.RenderBufferId;
+                Dimentions = new(command.GPUState.ViewportWidth, command.GPUState.ViewportHeight);
+            }
+        }
+
         public unsafe void UpdateCommandList(ULCommandList commandList)
         {
-            uint currentRenderBuffer = 0;
-            
+            Console.WriteLine("UL Update CommandList");
             var commands = commandList.AsSpan();
-            var commandBuffer = CommandBuffers[frameIndex];
-            foreach (var command in commands)
+            _commands.EnsureCapacity(commands.Length);
+            for (int i = 0; i < commands.Length; i++)
             {
-                Debug.Assert(command.CommandType is ULCommandType.ClearRenderBuffer or ULCommandType.DrawGeometry);
-                Debug.Assert(command.GPUState.RenderBufferId is not 0);
+                _commands.Enqueue(commands[i]);
+            }
 
-                BeginRenderPass(commandBuffer, ref currentRenderBuffer, command.CommandType is ULCommandType.ClearRenderBuffer, command.GPUState.RenderBufferId, new(command.GPUState.ViewportWidth, command.GPUState.ViewportHeight));
+        }
+
+        public Texture2D GetViewTexture(View view)
+        {
+            var id = view.RenderTarget.TextureId;
+            return _textureLibrary[id].Texture;
+        }
+
+        public unsafe void ExecuteCommandList(RendererFrameInfo frameInfo)
+        {
+            if(_commands.Count == 0) return;
+            Console.WriteLine("UL ExecuteCommandList {0}");
+            uint currentRenderBuffer = 0;
+            int uniformBufferId = 0;
+            var commandBuffer = frameInfo.CommandBuffer;
+            while (_commands.Count > 0)
+            {
+                var command = _commands.Dequeue();
+                Debug.Assert(command.CommandType is ULCommandType.ClearRenderBuffer or ULCommandType.DrawGeometry);
+                var gpuState = command.GPUState;
+                Debug.Assert(gpuState.RenderBufferId is not 0);
+                //Debug.Assert((command.CommandType is ULCommandType.DrawGeometry) && (gpuState.ShaderType is ULShaderType.Fill or ULShaderType.FillPath));
+
+                BeginRenderPass(commandBuffer, ref currentRenderBuffer, new(command));
+
                 if (command.CommandType is ULCommandType.DrawGeometry)
                 {
-                    var geometry = _geometryLibrary[command.GeometryId];
-                    var vkBuffer = geometry.Buffer.ActiveVkBuffer;
-                    GraphicsDevice.DeviceAPI.vkCmdBindIndexBuffer(commandBuffer, vkBuffer, geometry.IndexBufferOffset, VkIndexType.Uint32);
-                    GraphicsDevice.DeviceAPI.vkCmdBindVertexBuffer(commandBuffer, 0, vkBuffer);
-                    GraphicsDevice.DeviceAPI.vkCmdDrawIndexed(commandBuffer, command.IndicesCount, 1, command.IndicesOffset, 0, 0);
+                    Material mat = null;
+                    if (gpuState.ShaderType == ULShaderType.Fill)
+                    {
+                        mat = _ulFill;
+                    }
+                    else if (gpuState.ShaderType == ULShaderType.FillPath)
+                    {
+                        mat = _ulFillPath;   
+                    }
+                    Draw(frameInfo, command, uniformBufferId, mat);
+                    uniformBufferId++;
                 }
             }
 
-            if (currentRenderBuffer is not 0)
+            if (currentRenderBuffer != 0)
+            {
                 GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
+            }
         }
 
-        private unsafe void BeginRenderPass(VkCommandBuffer commandBuffer, ref uint currentRenderBuffer, bool clear, uint renderBuffer, VkExtent2D dimensions)
+        private unsafe void Draw(RendererFrameInfo frameInfo, ULCommand command, int variant,Material mat)
         {
-            if (clear && currentRenderBuffer == renderBuffer)
+            var gpuState = command.GPUState;
+            var commandBuffer = frameInfo.CommandBuffer;
+            mat.SetMatrix4x4("uni.Transform".GetShaderPropertyId(), variant, gpuState.Transform.ApplyProjection(gpuState.ViewportWidth, gpuState.ViewportHeight, true));
+            mat.SetUint("uni.ClipSize".GetShaderPropertyId(), variant, gpuState.ClipSize);
+            mat.SetFloatArray("uni.Scalar4".GetShaderPropertyId(), variant, gpuState.Scalar);
+            if (gpuState.ClipSize > 0)
             {
-                Debug.Assert(currentRenderBuffer != renderBuffer, "Double Ultralight RenderBuffer clear"); // this shouldn't happen
+                mat.SetMatrix4x4Array("uni.Clip".GetShaderPropertyId(), variant, gpuState.Clip);
+            }
+            mat.BindAll(frameInfo, variant);
+            var geometry = _geometryLibrary[command.GeometryId];
+            var vkBuffer = geometry.Buffer.ActiveVkBuffer;
+
+            GraphicsDevice.DeviceAPI.vkCmdBindIndexBuffer(commandBuffer, vkBuffer, geometry.IndexBufferOffset, VkIndexType.Uint32);
+            GraphicsDevice.DeviceAPI.vkCmdBindVertexBuffer(commandBuffer, 0,vkBuffer);
+            GraphicsDevice.DeviceAPI.vkCmdDrawIndexed(commandBuffer, command.IndicesCount, 1, command.IndicesOffset, 0, 0);
+        }
+
+        private unsafe void BeginRenderPass(VkCommandBuffer commandBuffer, ref uint currentRenderBuffer, RenderPassInfo passInfo)
+        {
+            if (passInfo.Clear && currentRenderBuffer == passInfo.RenderBuffer)
+            {
+                Debug.Assert(currentRenderBuffer != passInfo.RenderBuffer, "Double Ultralight RenderBuffer clear"); // this shouldn't happen
             }
 
-            if (currentRenderBuffer == renderBuffer)
+            if (currentRenderBuffer == passInfo.RenderBuffer)
             {
                 return;
             }
@@ -299,7 +482,7 @@ namespace VECS.UI
                 GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
             }
 
-            var renderBufferTarget = _renderBufferLibrary[renderBuffer];
+            var renderBufferTarget = _renderBufferLibrary[passInfo.RenderBuffer];
 
             if(renderBufferTarget.Texture.ImageLayout != VkImageLayout.ColorAttachmentOptimal)
             {
@@ -313,28 +496,30 @@ namespace VECS.UI
                 imageLayout = renderBufferTarget.Texture.ImageLayout,
                 imageView = renderBufferTarget.Texture._imageView,
                 clearValue = new(clearColorValue),
-                loadOp = clear ? VkAttachmentLoadOp.Clear : VkAttachmentLoadOp.Load,
+                loadOp = passInfo.Clear ? VkAttachmentLoadOp.Clear : VkAttachmentLoadOp.Load,
             };
 
             VkRenderingInfo renderingInfo = new()
             {
-                renderArea = new(new(0,0),dimensions),
+                renderArea = new(new(0,0), passInfo.Dimentions),
                 colorAttachmentCount = 1,
                 layerCount = 1,
                 pColorAttachments = &attachmentInfo
             };
 
             GraphicsDevice.DeviceAPI.vkCmdBeginRendering(commandBuffer, &renderingInfo);
+
+            currentRenderBuffer = passInfo.RenderBuffer;
         }
 
         public void BeginSynchronize()
         {
-            GraphicsDevice.DeviceAPI.vkBeginCommandBuffer(CommandBuffers[frameIndex], VkCommandBufferUsageFlags.None);
+            Console.WriteLine("UL Begin Sync");
         }
 
         public void EndSynchronize()
         {
-            GraphicsDevice.DeviceAPI.vkEndCommandBuffer(CommandBuffers[frameIndex]);
+            Console.WriteLine("UL End Sync");
         }
 
         public void Dispose()

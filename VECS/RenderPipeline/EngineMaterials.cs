@@ -28,7 +28,7 @@ namespace VECS
             depthConfig.depthStencilInfo.depthCompareOp = VkCompareOp.LessOrEqual;
             DepthOnly = new("DepthOnly", "depth_only_new.vert", depthConfig);
 
-            var pipelineConfigInfo = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo(VkPipelineLayout.Null);
+            var pipelineConfigInfo = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
 
             pipelineConfigInfo.rasterizationInfo.cullMode = VkCullModeFlags.None;
             pipelineConfigInfo.rasterizationInfo.polygonMode = VkPolygonMode.Line;

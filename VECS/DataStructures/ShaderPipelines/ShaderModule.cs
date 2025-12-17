@@ -1,11 +1,15 @@
+#define PARALLEL_SHADER_LOADING
 using System;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
+#if PARALLEL_SHADER_LOADING
 using System.Threading.Tasks;
+#endif
 using VECS.LowLevel;
 using Vortice.SPIRV.Reflect;
 using Vortice.Vulkan;
+
 
 namespace VECS
 {
@@ -134,6 +138,7 @@ namespace VECS
             var dir = new DirectoryInfo(ShaderFilePath);
             var shaderFiles = dir.GetFiles("*.spv");
             ShaderModule[] shaderModules = new ShaderModule[shaderFiles.Length];
+#if PARALLEL_SHADER_LOADING
             Parallel.ForEach(shaderFiles, (shaderFile, state, index) =>
             {
                 shaderModules[(int)index] = new ShaderModule(shaderFile.FullName)
@@ -141,7 +146,15 @@ namespace VECS
                     Generated = true
                 };
             });
-
+#else
+            for (int i = 0; i < shaderFiles.Length; i++)
+			{
+                shaderModules[i] = new ShaderModule(shaderFiles[i].FullName)
+                {
+                    Generated = true
+                };
+			}
+#endif
             for (int i = 0; i < shaderModules.Length; i++)
             {
                 AssetDataBase<ShaderModule>.Add(shaderModules[i]);

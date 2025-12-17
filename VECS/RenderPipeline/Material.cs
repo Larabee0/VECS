@@ -56,7 +56,7 @@ namespace VECS
             ShaderModule vertex = AssetDataBase<ShaderModule>.GetNamed(vertexShaderName);
             ShaderModule fragment = AssetDataBase<ShaderModule>.GetNamed(fragmentShaderName);
 
-            if (vertex.HasVertexAttributes)
+            if (vertex.HasVertexAttributes && (pipelineConfig.BindingDescriptions.Length == 0 || pipelineConfig.AttributeDescriptions.Length == 0))
             {
                 pipelineConfig.BindingDescriptions = vertex.VertexBindings;
                 pipelineConfig.AttributeDescriptions = vertex.VertexAttributes;
@@ -303,7 +303,7 @@ namespace VECS
             return value;
         }
 
-        public unsafe void WriteArrayToBuffer<T>(uint variant, ShaderPropertyInfo propertyInfo, T[] array) where T : unmanaged
+        public unsafe void WriteArrayToBuffer<T>(uint variant, ShaderPropertyInfo propertyInfo, Span<T> array) where T : unmanaged
         {
             var maxSize = propertyInfo.Property == null ? propertyInfo.BindingInfo.BufferSize : propertyInfo.Property.Size;
             var propertyOffset = propertyInfo.Property == null ? 0 : propertyInfo.Property.Offset;

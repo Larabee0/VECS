@@ -11,11 +11,11 @@ namespace VECS.UI
     {
         private static readonly ULConfig config = new()
         {
-            UserStylesheet = "body { background: purple; color: white; } h1 {color: white; background: blue; }"
+            UserStylesheet = "body { background: blue; color: white; } h1 {color: white; background: blue; }"
         };
         private static readonly ULViewConfig viewConfig = new()
         {
-            IsAccelerated = false,
+            IsAccelerated = true,
             IsTransparent = true,
         };
 
@@ -28,33 +28,46 @@ namespace VECS.UI
         private static GPUBuffer uiCopyBuffer;
         private static Texture2D uiOutputTex;
 
+        private static UltralightVulkanDriver UltralightVulkanDriver;
+
         public static  void Initialise()
         {
+            if(viewConfig.IsAccelerated)
+            {
+                ULPlatform.GPUDriver = UltralightVulkanDriver = new UltralightVulkanDriver();
+            }
+
             ULPlatform.SetDefaultFontLoader = true;
             ULPlatform.SetDefaultFileSystem = true;
             ULPlatform.EnableDefaultLogger = true;
+            ULPlatform.ErrorWrongThread = false;
             AppCoreMethods.SetPlatformFontLoader();
 
             _ulRenderer = ULPlatform.CreateRenderer(config);
 
             _ulView = _ulRenderer.CreateView(1280, 720, viewConfig);
-                        _ulView.HTML = _defaultHTML;
-            //ulView.URL = "https://www.google.com/";
-            _bitmap = _ulView.Surface.Value.Bitmap;
+            _ulView.HTML = _defaultHTML;
 
-            uiCopyBuffer = new GPUBuffer(1280 * 720, (uint)Vulkan.BlockSize(VkFormat.B8G8R8A8Unorm), VkBufferUsageFlags.TransferSrc, true, true, false);
-            uiOutputTex = new("UI_Out", 1280, 720, VkFormat.B8G8R8A8Unorm, VkImageUsageFlags.TransferDst | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.Sampled,false);
-            EngineMaterials.Blit.SetTexture("inputTexture".GetShaderPropertyId(), 0, uiOutputTex);
-            Console.WriteLine(_bitmap.Format.ToString());
+            //ulView.URL = "https://www.google.com/";
+            if (!viewConfig.IsAccelerated)
+            {
+                _bitmap = _ulView.Surface.Value.Bitmap;
+
+                EngineMaterials.Blit.SetTexture("inputTexture".GetShaderPropertyId(), 0, uiOutputTex);
+                uiCopyBuffer = new GPUBuffer(1280 * 720, (uint)Vulkan.BlockSize(VkFormat.B8G8R8A8Unorm), VkBufferUsageFlags.TransferSrc, true, true, false);
+                uiOutputTex = new("UI_Out", 1280, 720, VkFormat.B8G8R8A8Unorm, VkImageUsageFlags.TransferDst | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.Sampled, false);
+                Console.WriteLine(_bitmap.Format.ToString());
+            }
         }
 
         public static void CleanUp()
         {
-            uiOutputTex.Dispose();
-            uiCopyBuffer.Dispose();
-            _bitmap.Dispose();
-            _ulView.Dispose();
-            _ulRenderer.Dispose();
+            UltralightVulkanDriver?.Dispose();
+            uiOutputTex?.Dispose();
+            uiCopyBuffer?.Dispose();
+            _bitmap?.Dispose();
+            _ulView?.Dispose();
+            _ulRenderer?.Dispose();
         }
 
         public static unsafe void CopyUIToTexture(VkCommandBuffer commandBuffer)
@@ -68,9 +81,19 @@ namespace VECS.UI
 
         public static unsafe void BlitCamera(RendererFrameInfo frameInfo, Texture2D camera)
         {
+            if (!viewConfig.IsAccelerated)
+            {
+                CopyUIToTexture(frameInfo.CommandBuffer);
+            }
+            else
+            {
+                _ulRenderer.Render();
+                UltralightVulkanDriver.ExecuteCommandList(frameInfo);
+                EngineMaterials.Blit.SetTexture("inputTexture".GetShaderPropertyId(), 0, UltralightVulkanDriver.GetViewTexture(_ulView));
+            }
             VkRenderingAttachmentInfo renderingAttachmentInfo = new()
             {
-                clearValue = new(0,0,0,0),
+                clearValue = new(0, 0, 0, 0),
                 loadOp = VkAttachmentLoadOp.Load,
                 storeOp = VkAttachmentStoreOp.Store,
                 imageLayout = camera.ImageLayout,
@@ -92,14 +115,13 @@ namespace VECS.UI
         public static unsafe void UpdateUI()
         {
             _ulRenderer.Update();
-            _ulRenderer.Render();
-            //_ulView.Surface.Value.Bitmap.SwapRedBlueChannels();
-            var pixels = _ulView.Surface.Value.Bitmap.RawPixels;
-            uiCopyBuffer.WriteToBuffer(pixels, _ulView.Surface.Value.Size);
-        }
-
-        public static void RenderUI()
-        {
+            if (!viewConfig.IsAccelerated)
+            {
+                _ulRenderer.Render();
+                //_ulView.Surface.Value.Bitmap.SwapRedBlueChannels();
+                var pixels = _ulView.Surface.Value.Bitmap.RawPixels;
+                uiCopyBuffer.WriteToBuffer(pixels, _ulView.Surface.Value.Size);
+            }
         }
     }
 }

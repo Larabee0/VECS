@@ -380,6 +380,7 @@ namespace VECS.LowLevel
                 fillModeNonSolid = true,
                 multiDrawIndirect = true,
                 drawIndirectFirstInstance = true,
+                dualSrcBlend = true,
             };
 
             VkPhysicalDeviceFeatures2 deviceFeatures2 = new()

@@ -17,6 +17,15 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void SetUint(this Material material, int propertyId, int variant, uint value)
+        {
+            if (material.LookUpProperty(propertyId, out var propertyInfo))
+            {
+                material.WriteToBuffer((uint)variant, propertyInfo, value);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void SetFloat(this Material material, int propertyId, int variant, float value)
         {
             if (material.LookUpProperty(propertyId, out var propertyInfo))
@@ -84,6 +93,15 @@ namespace VECS
         {
             if (material.LookUpProperty(propertyId, out var propertyInfo))
             {
+                material.WriteArrayToBuffer((uint)variant, propertyInfo, value.AsSpan());
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void SetFloatArray(this Material material, int propertyId, int variant, Span<float> value)
+        {
+            if (material.LookUpProperty(propertyId, out var propertyInfo))
+            {
                 material.WriteArrayToBuffer((uint)variant, propertyInfo, value);
             }
         }
@@ -93,7 +111,7 @@ namespace VECS
         {
             if (material.LookUpProperty(propertyId, out var propertyInfo))
             {
-                material.WriteArrayToBuffer((uint)variant, propertyInfo, value);
+                material.WriteArrayToBuffer((uint)variant, propertyInfo, value.AsSpan());
             }
         }
 
@@ -102,7 +120,7 @@ namespace VECS
         {
             if (material.LookUpProperty(propertyId, out var propertyInfo))
             {
-                material.WriteArrayToBuffer((uint)variant, propertyInfo, value);
+                material.WriteArrayToBuffer((uint)variant, propertyInfo, value.AsSpan());
             }
         }
 
@@ -111,7 +129,7 @@ namespace VECS
         {
             if (material.LookUpProperty(propertyId, out var propertyInfo))
             {
-                material.WriteArrayToBuffer((uint)variant, propertyInfo, value);
+                material.WriteArrayToBuffer((uint)variant, propertyInfo, value.AsSpan());
             }
         }
 
@@ -120,12 +138,21 @@ namespace VECS
         {
             if (material.LookUpProperty(propertyId, out var propertyInfo))
             {
-                material.WriteArrayToBuffer((uint)variant, propertyInfo, value);
+                material.WriteArrayToBuffer((uint)variant, propertyInfo, value.AsSpan());
             }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void SetMatrix4x4Array(this Material material, int propertyId, int variant, Matrix4x4[] value)
+        {
+            if (material.LookUpProperty(propertyId, out var propertyInfo))
+            {
+                material.WriteArrayToBuffer((uint)variant, propertyInfo, value.AsSpan());
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void SetMatrix4x4Array(this Material material, int propertyId, int variant, Span<Matrix4x4> value)
         {
             if (material.LookUpProperty(propertyId, out var propertyInfo))
             {
@@ -138,7 +165,7 @@ namespace VECS
         {
             if (material.LookUpProperty(propertyId, out var propertyInfo))
             {
-                material.WriteArrayToBuffer((uint)variant, propertyInfo, values);
+                material.WriteArrayToBuffer((uint)variant, propertyInfo, values.AsSpan());
             }
         }
 

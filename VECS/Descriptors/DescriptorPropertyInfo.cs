@@ -69,6 +69,10 @@ namespace VECS
                                 CachedArraySize *= ArrayDimentionSizes[i];
                             }
                         }
+                        if(CachedArraySize == 0 && FixedArray)
+                        {
+                            CachedArraySize = PaddedSize;
+                        }
                         return CachedArraySize;
                     case SpvOp.TypeRuntimeArray:
                         if (CachedMemberSize == 0)
@@ -143,6 +147,29 @@ namespace VECS
                 MemberMap.Add(Members[i].Name, i);
                 MemberMap2.Add(Members[i].Id, i);
             }
+        }
+
+        public unsafe DescriptorPropertyInfo(string parentName, SpvReflectTypeDescription typeDesc, SpvReflectBlockVariable member)
+        {
+            Name = member.Name;
+            AbsName = parentName + member.Name;
+            Id = AbsName.GetHashCode();
+            Type = typeDesc.op;
+            Offset = member.offset;
+            PaddedSize = member.padded_size;
+            Members = [];
+            ArrayDimentions = member.array.dims_count;
+            ArrayDimentionSizes = new uint[member.array.dims_count];
+            FixedArray = true;
+            for (uint i = 0; i < member.array.dims_count; i++)
+            {
+                ArrayDimentionSizes[i] = member.array.dims[i];
+            }
+
+            MemberMap = [];
+            MemberMap2 = [];
+
+            CachedMemberSize = member.size;
         }
 
         public unsafe DescriptorPropertyInfo(string parentName, string name, SpvOp type, List<DescriptorPropertyInfo> children, uint paddedSize, uint offset)

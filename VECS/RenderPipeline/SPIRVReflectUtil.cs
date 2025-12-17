@@ -196,7 +196,14 @@ namespace VECS
                         break;
                     case SpvOp.TypeArray:
                         var arrayChildren = GetBlockMembers(propertyAbsName+member.Name, member);
-                        properties.Add(new(propertyAbsName,member.Name, type_desc.op, member.padded_size, member.offset, member.array, arrayChildren));
+                        if (arrayChildren.Count == 0)
+                        {
+                            properties.Add(new(propertyAbsName, type_desc, member));
+                        }
+                        else
+                        {
+                            properties.Add(new(propertyAbsName, member.Name, type_desc.op, member.padded_size, member.offset, member.array, arrayChildren));
+                        }
                         break;
                     case SpvOp.TypeRuntimeArray:
                         arrayChildren = GetBlockMembers(propertyAbsName+member.Name, member);
