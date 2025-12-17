@@ -28,6 +28,10 @@ namespace VECS.UI
                 height,
                 format,
                 usageFlags,
+                VkSamplerAddressMode.ClampToEdge,
+                0,
+                false,
+                VkCompareOp.Never,
                 false);
 
                 TextureStagingBuffer = new((uint)(width * height), (uint)Vulkan.BlockSize(format), VkBufferUsageFlags.TransferSrc | VkBufferUsageFlags.TransferDst, true, false);
@@ -273,7 +277,6 @@ namespace VECS.UI
         #region RenderBuffer
         public void CreateRenderBuffer(uint renderBufferId, ULRenderBuffer renderBuffer)
         {
-            Console.WriteLine("Create Render Buffer");
             var textureEntry = _textureLibrary[renderBuffer.TextureId];
 
             if (!_renderBufferLibrary.TryAddResource(renderBufferId, textureEntry))
@@ -284,7 +287,6 @@ namespace VECS.UI
 
         public void DestroyRenderBuffer(uint renderBufferId)
         {
-            Console.WriteLine("Destroy RenderBuffer");
             if (!_renderBufferLibrary.TryDestroyResoure(renderBufferId, out _))
             {
                 throw new InvalidOperationException(string.Format("Failed to remove RenderBufferId {0}", renderBufferId));
@@ -300,7 +302,6 @@ namespace VECS.UI
         #region Texture
         public void CreateTexture(uint textureId, ULBitmap bitmap)
         {
-            Console.WriteLine("Create Texure");
             bool isRenderTarget = bitmap.IsEmpty;
 
             TextureWithStagingBuffer ulBitmap = new(textureId,
@@ -324,7 +325,6 @@ namespace VECS.UI
 
         public void DestroyTexture(uint textureId)
         {
-            Console.WriteLine("Destroy Texture");
             if (_textureLibrary.TryDestroyResoure(textureId,out var texture))
             {
                 texture.Dispose();
@@ -349,9 +349,6 @@ namespace VECS.UI
         #region Geometry
         public void CreateGeometry(uint geometryId, ULVertexBuffer vertexBuffer, ULIndexBuffer indexBuffer)
         {
-            // Debug.Assert(vertexBuffer.size % 256 == 0, "nonCoherentAtomSize");
-            // Debug.Assert(indexBuffer.size % 256 == 0, "nonCoherentAtomSize");
-            Console.WriteLine("Create Geometry");
             SwapChainBuffer geometryBuffer = new SwapChainBuffer(
                 vertexBuffer.size + indexBuffer.size,
                 1,
@@ -368,7 +365,6 @@ namespace VECS.UI
 
         public void DestroyGeometry(uint geometryId)
         {
-            Console.WriteLine("Destroy Geometry");
             if (_geometryLibrary.TryDestroyResoure(geometryId,out var geometry))
             {
                 geometry.Dispose();
@@ -413,7 +409,6 @@ namespace VECS.UI
 
         public unsafe void UpdateCommandList(ULCommandList commandList)
         {
-            Console.WriteLine("UL Update CommandList");
             var commands = commandList.AsSpan();
             _commands.EnsureCapacity(commands.Length);
             for (int i = 0; i < commands.Length; i++)
@@ -432,7 +427,7 @@ namespace VECS.UI
         public unsafe void ExecuteCommandList(RendererFrameInfo frameInfo)
         {
             if(_commands.Count == 0) return;
-            Console.WriteLine("UL ExecuteCommandList {0}");
+            TextureExtensions.PlaybackCopyCmds(frameInfo.CommandBuffer);
             uint currentRenderBuffer = 0;
             int uniformBufferId = 0;
             var commandBuffer = frameInfo.CommandBuffer;
@@ -442,7 +437,6 @@ namespace VECS.UI
                 Debug.Assert(command.CommandType is ULCommandType.ClearRenderBuffer or ULCommandType.DrawGeometry);
                 var gpuState = command.GPUState;
                 Debug.Assert(gpuState.RenderBufferId is not 0);
-                //Debug.Assert((command.CommandType is ULCommandType.DrawGeometry) && (gpuState.ShaderType is ULShaderType.Fill or ULShaderType.FillPath));
 
                 BeginRenderPass(commandBuffer, ref currentRenderBuffer, new(command));
 
@@ -547,12 +541,10 @@ namespace VECS.UI
 
         public void BeginSynchronize()
         {
-            Console.WriteLine("UL Begin Sync");
         }
 
         public void EndSynchronize()
         {
-            Console.WriteLine("UL End Sync");
         }
 
         public void Dispose()

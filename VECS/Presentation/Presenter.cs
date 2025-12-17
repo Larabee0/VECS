@@ -232,7 +232,6 @@ namespace VECS
 
             // acquire swapchain image
             _isFrameStarted = BeginFrame();
-            Console.WriteLine("New Frame {0}", FrameCount);
 
             UpdateEntityFrameInfo(World.DefaultWorld.EntityManager);
             if (_isFrameStarted)
