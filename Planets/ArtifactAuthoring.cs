@@ -44,7 +44,8 @@ namespace Planets
             ClipNear = 0.1f,
             ClipFar = 20000f,
             fustrumCulling = true,
-            dstCull = true
+            dstCull = true,
+            depthCull = false
         };
 
 

@@ -44,6 +44,7 @@ namespace VECS
                 VkImageLayout.TransferDstOptimal => VkAccessFlags2.TransferWrite,
                 VkImageLayout.ShaderReadOnlyOptimal => VkAccessFlags2.ShaderRead,
                 VkImageLayout.PresentSrcKHR => VkAccessFlags2.TransferRead,
+                VkImageLayout.General => VkAccessFlags2.ShaderRead | VkAccessFlags2.ShaderWrite,
                 _ => throw new InvalidOperationException(string.Format("Unhandled Image transition from image layout {0}", oldLayout.ToString())),// Other source layouts aren't handled (yet)
             };
             switch (newLayout)

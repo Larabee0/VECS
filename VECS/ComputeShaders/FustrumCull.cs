@@ -12,7 +12,7 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
-    [StructLayout(LayoutKind.Sequential, Size = 132)]
+    [StructLayout(LayoutKind.Sequential, Size = 136)]
     public struct CullData
     {
         public Vector4 left;
@@ -21,9 +21,10 @@ namespace VECS
         public Vector4 top;
         public Vector4 near;
         public Vector4 far;
-        public float zNear;
-        public float P00;
-        public float P11;
+        public float zNear;// 96
+        public float P00; // 100
+        public float P11; // 104
+        public float pad;
         public Vector2 pyramid;
         public uint drawCount;
         public int cullingEnabled;
@@ -60,6 +61,8 @@ namespace VECS
             this.zNear = zNear;
             P00 = projection[0, 0];
             P11 = projection[1, 1];
+
+            pyramid = new(DepthReduction.DepthPryamid.Width, DepthReduction.DepthPryamid.Height);
 
             cullingEnabled = cull ? 1 : 0;
             dstCulling = dstCull ? 1 : 0;
@@ -182,23 +185,28 @@ namespace VECS
             Span<VkDrawIndexedIndirectCommand> drawIndirectSpan = drawIndirect.HostBuffer;
             Span<ShaderAABB> boundsSpan = bounds.HostBuffer;
 
-
-            World.DefaultWorld.GetSystem<DebugDrawUtilities>().DrawWireCube(cullData.near.AsVector3(), Vector3.One, Quaternion.Identity, Colour.Blue);
-            World.DefaultWorld.GetSystem<DebugDrawUtilities>().DrawWireCube(cullData.far.AsVector3(), Vector3.One, Quaternion.Identity, Colour.White);
-
             for (int i = 0; i < drawCount; i++)
             {
                 AABB boundsInternal = boundsSpan[i];
 
                 if (cullData.cullingEnabled == 0 || IsVisibleAABB(boundsSpan[i], cullData))
                 {
+
+                    if(cullData.depthCulling != 0 && DepthProj(boundsSpan[i],cullData.zNear,cullData.P00,cullData.P11,out var aabb))
+                    {
+                        float width = MathF.Abs((aabb.Z - aabb.X) * cullData.pyramid.X);
+                        float height = MathF.Abs((aabb.W - aabb.Y) * cullData.pyramid.Y);
+                        float level = MathF.Floor(MathF.Log2(Math.Max(width, height)));
+                        Vector2 uv = (new Vector2(aabb.X, aabb.Y) + new Vector2(aabb.Z, aabb.W)) * 0.5f;
+                    }
+
                     drawIndirectSpan[i].instanceCount = 1;
-                    World.DefaultWorld.GetSystem<DebugDrawUtilities>().DrawWireCube(boundsInternal.Center, boundsInternal.Size, Quaternion.Identity, Colour.Green);
+                    //World.DefaultWorld.GetSystem<DebugDrawUtilities>().DrawWireCube(boundsInternal.Center, boundsInternal.Size, Quaternion.Identity, Colour.Green);
                 }
                 else
                 {
                     drawIndirectSpan[i].instanceCount = 0;
-                    World.DefaultWorld.GetSystem<DebugDrawUtilities>().DrawWireCube(boundsInternal.Center, boundsInternal.Size, Quaternion.Identity, Colour.Red);
+                    //World.DefaultWorld.GetSystem<DebugDrawUtilities>().DrawWireCube(boundsInternal.Center, boundsInternal.Size, Quaternion.Identity, Colour.Red);
                 }
             }
             bounds.SetUsedInstanceCount(drawCount);
@@ -239,6 +247,58 @@ namespace VECS
             }
 
             return true;
+        }
+
+        private static bool DepthProj(AABB boundingBox, float zNear,float p00, float p11, out Vector4 aabb)
+        {
+            Vector3 center = boundingBox.Center;
+            float radius = Vector3.Distance(boundingBox.Min, boundingBox.Max) * 0.5f;
+
+            World.DefaultWorld.GetSystem<DebugDrawUtilities>().DrawSphere(center, radius, Colour.Green);
+            return ProjectSphere(center, radius, zNear, p00, p11, out aabb);
+        }
+
+        // 2D Polyhedral Bounds of a Clipped, Perspective-Projected 3D Sphere. Michael Mara, Morgan McGuire. 2013
+        private static bool ProjectSphere(Vector3 C, float r, float znear, float P00, float P11, out Vector4 aabb)
+        {
+            C.Z *= -1.0f;
+            if (C.Z < r + znear)
+            {
+                aabb = default;
+                return false;
+            }
+
+            Vector2 cx = new (-C.X,-C.Z);
+            Vector2 vx = new(MathF.Sqrt(Vector2.Dot(cx, cx) - r * r), r);
+            Vector2 minx = new Mat2(vx.X, vx.Y, -vx.Y, vx.X) * cx;
+            Vector2 maxx = new Mat2(vx.X, -vx.Y, vx.Y, vx.X) * cx;
+
+            Vector2 cy = new(-C.Y,-C.Z);
+            Vector2 vy = new(MathF.Sqrt(Vector2.Dot(cy, cy) - r * r), r);
+            Vector2 miny = new Mat2(vy.X, vy.Y, -vy.Y, vy.X) * cy;
+            Vector2 maxy = new Mat2(vy.X, -vy.Y, vy.Y, vy.X) * cy;
+
+            aabb = new Vector4(minx.X / minx.Y * P00, miny.X / miny.Y * P11, maxx.X / maxx.Y * P00, maxy.X / maxy.Y * P11);
+            aabb =  new Vector4(aabb.X,aabb.W,aabb.Z,aabb.Y) * new Vector4(0.5f, -0.5f, 0.5f, -0.5f) + new Vector4(0.5f); // clip space -> uv space
+
+            return true;
+        }
+
+        public struct Mat2
+        {
+            public Vector2 c0;
+            public Vector2 c1;
+
+            public Mat2(float m00, float m01, float m10, float m11)
+            {
+                c0 = new Vector2(m00, m10);
+                c1 = new Vector2(m01, m11);
+            }
+
+            public static Vector2 operator *(Mat2 a, Vector2 b)
+            {
+                return a.c0 * b.X + a.c1 * b.Y;
+            }
         }
 #endif        
     }

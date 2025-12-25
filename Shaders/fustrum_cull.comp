@@ -90,11 +90,11 @@ bool IsVisible(uint objectIndex)
 
     if(cullData.depthCulling != 0)
 	{
-		vec3 center =  bmin.xyz + (bmax.xyz - bmin.xyz * 0.5);
+		vec3 center =  bmin.xyz + ((bmax.xyz - bmin.xyz) * 0.5);
 		//flip Y because we access depth texture that way
-		center.y *= -1.0;
-
-		float radius = length(max(abs(bmin.xyz), abs(bmax.xyz)));
+		center.z *= -1.0;
+		
+		float radius = distance(bmin.xyz,bmax.xyz)*0.5;
 		
 		vec4 aabb;
 		if(projectSphere(center, radius, cullData.zNear, cullData.P00, cullData.P11, aabb)){
