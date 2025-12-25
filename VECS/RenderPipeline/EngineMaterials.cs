@@ -1,5 +1,6 @@
 ﻿using VECS.GraphicsPipelines;
 using VECS.LowLevel;
+using VECS.Presentation;
 using Vortice.Vulkan;
 
 namespace VECS
@@ -63,6 +64,8 @@ namespace VECS
             }
 
             Blit = new("Blitter", "fullscreen.vert", "blit.frag", alphaBlending);
+
+            DepthReduction.Init();
         }
 
     }

@@ -152,6 +152,26 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetTexture(int propertyId, uint variant, VkDescriptorImageInfo imageInfo, VkDescriptorType imageType)
+        {
+            if(LookUpProperty(propertyId, out var propertyInfo) && propertyInfo.BindingInfo.Image)
+            {
+                var setInfo = _descriptorSetInfos[propertyInfo.SetIndex];
+                setInfo.WriteDescriptors(Presenter.Instance.FrameIndex, propertyInfo.BindPoint, variant, imageInfo, imageType);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetTexture(int propertyId, uint variant, Texture texture)
+        {
+            if (LookUpProperty(propertyId, out var propertyInfo) && propertyInfo.BindingInfo.Image)
+            {
+                var setInfo = _descriptorSetInfos[propertyInfo.SetIndex];
+                setInfo.WriteDescriptors(Presenter.Instance.FrameIndex, propertyInfo.BindPoint, variant, texture);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetInt(string property, uint variant, int value)
         {
             WriteToBuffer(property, variant, value);

@@ -1,5 +1,6 @@
 ﻿using VECS.ECS.Transforms;
 using VECS.LowLevel;
+using VECS.Presentation;
 using Vortice.Vulkan;
 
 namespace VECS.ECS.Presentation
@@ -57,6 +58,8 @@ namespace VECS.ECS.Presentation
                 SwapChain.Instance.BeginForwardDepth(commandBuffer);
                 SwapChain.Instance.EndForwardDepthRendering(commandBuffer);
 
+                DepthReduction.ReduceDepth(frameInfo);
+
                 // empty shadow passes just to clear the cube map.
                 for (int i = 0; i < 6; i++)
                 {
@@ -71,6 +74,8 @@ namespace VECS.ECS.Presentation
             DrawBlob.ExecuteAllInOneDrawCmds(frameInfo, commandBuffer, EngineMaterials.DepthOnly.Hash);
 
             SwapChain.Instance.EndForwardDepthRendering(commandBuffer);
+
+            DepthReduction.ReduceDepth(frameInfo);
 
             DrawBlob.IndirectToComputeMemoryBarrierAllInOne(commandBuffer);
 

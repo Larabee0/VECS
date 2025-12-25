@@ -126,6 +126,8 @@ namespace VECS
                     return [GetBlockImage(bindingParentName, binding, binding.image)];
                 // case SpvReflectDescriptorType.SampledImage:
                 //     break;
+                case SpvReflectDescriptorType.StorageImage:
+                     return [GetBlockImage(bindingParentName,binding, binding.image)];
                 case SpvReflectDescriptorType.UniformBuffer:
                     return [.. GetBlockMembers(bindingParentName, binding.block)];
                 case SpvReflectDescriptorType.StorageBuffer:
@@ -237,8 +239,12 @@ namespace VECS
             {
                 return new(bindingParentName, bindings.Name, SpvOp.SampledImage, 0, traits);
             }
+            else if(traits.sampled == 2)
+            {
+                return new(bindingParentName, bindings.Name, SpvOp.Image, 0, traits);
+            }
 
-            throw new NotImplementedException(string.Format("Image type not implemented for sampled = {0}", traits.sampled.ToString()));
+                throw new NotImplementedException(string.Format("Image type not implemented for sampled = {0}", traits.sampled.ToString()));
         }
     }
 }

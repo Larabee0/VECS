@@ -228,6 +228,20 @@ namespace VECS
             descriptorBuffer.SetStorageBinding(buffer, setVariant, bindingPoint);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void WriteDescriptors(int frameIndex, uint bindingPoint, uint setVariant, Texture texture)
+        {
+            var descriptorBuffer = _descriptorBuffers[frameIndex];
+            descriptorBuffer.SetCombinedImageSamplerBinding(texture, setVariant, bindingPoint);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void WriteDescriptors(int frameIndex, uint bindingPoint, uint setVariant, VkDescriptorImageInfo imageInfo, VkDescriptorType imageType)
+        {
+            var descriptorBuffer = _descriptorBuffers[frameIndex];
+            descriptorBuffer.SetImageInfoBinding(imageInfo, imageType, setVariant, bindingPoint);
+        }
+
         public unsafe void WriteDescriptors(DescriptorBuffer descriptorBuffer, uint setIndex, Span<VkDescriptorAddressInfoEXT> bindingBuffers, Span<VkDescriptorImageInfo> bindingTextures)
         {
             for (int i = 0; i < _bindingCount; i++)

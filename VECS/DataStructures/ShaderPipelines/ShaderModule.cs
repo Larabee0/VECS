@@ -1,4 +1,4 @@
-#define PARALLEL_SHADER_LOADING
+//#define PARALLEL_SHADER_LOADING
 using System;
 using System.Diagnostics;
 using System.IO;

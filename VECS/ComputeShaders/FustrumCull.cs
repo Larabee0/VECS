@@ -7,11 +7,12 @@ using VECS.ECS;
 using VECS.ECS.Presentation;
 #endif
 using VECS.LowLevel;
+using VECS.Presentation;
 using Vortice.Vulkan;
 
 namespace VECS
 {
-    [StructLayout(LayoutKind.Sequential, Size = 112)]
+    [StructLayout(LayoutKind.Sequential, Size = 132)]
     public struct CullData
     {
         public Vector4 left;
@@ -20,6 +21,10 @@ namespace VECS
         public Vector4 top;
         public Vector4 near;
         public Vector4 far;
+        public float zNear;
+        public float P00;
+        public float P11;
+        public Vector2 pyramid;
         public uint drawCount;
         public int cullingEnabled;
         public int dstCulling;
@@ -41,7 +46,7 @@ namespace VECS
             pushConstants.SetPushConstantUniform("cullData", setId, this);
         }
 
-        public CullData(bool cull, bool dstCull,bool depthCull, Matrix4x4 projection)
+        public CullData(bool cull, bool dstCull,bool depthCull, float zNear, Matrix4x4 projection)
         {
             Matrix4x4 projectionT = Matrix4x4.Transpose(projection);
             near = projectionT.GetMatrixRow(3) - projectionT.GetMatrixRow(2);
@@ -52,6 +57,9 @@ namespace VECS
 
             top = projectionT.GetMatrixRow(3) + projectionT.GetMatrixRow(1);
             bottom = projectionT.GetMatrixRow(3) - projectionT.GetMatrixRow(1);
+            this.zNear = zNear;
+            P00 = projection[0, 0];
+            P11 = projection[1, 1];
 
             cullingEnabled = cull ? 1 : 0;
             dstCulling = dstCull ? 1 : 0;
@@ -104,6 +112,7 @@ namespace VECS
 
         private static readonly int BoundsBufferId = "boundsBuffer".GetShaderPropertyId();
         private static readonly int DrawBufferId = "drawBuffer".GetShaderPropertyId();
+        private static readonly int DepthPyramidId = "depthPyramid".GetShaderPropertyId();
 
 
         private static readonly ComputeShader _computeShader;
@@ -151,6 +160,7 @@ namespace VECS
             cullData.SetPushConstant(_computeShader.PushConstantsHandler, (int)setId);
             _computeShader.SetStorageBuffer(DrawBufferId, setId, drawIndirect);
             _computeShader.SetStorageBuffer(BoundsBufferId, setId, bounds);
+            _computeShader.SetTexture(DepthPyramidId, setId, DepthReduction.DepthPryamid);
             _computeShader.Dispatch(commandBuffer, frameIndex, setId, (drawCount / 256) + 1);
 
             VkBufferMemoryBarrier2 barrier = new()

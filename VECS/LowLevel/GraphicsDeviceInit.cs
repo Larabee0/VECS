@@ -627,7 +627,7 @@ namespace VECS.LowLevel
         /// Checks if our hardware can support validation layers requrested in <see cref="_requiredValidationLayers"/>
         /// </summary>
         /// <returns></returns>
-        private static bool CheckValidationLayerSupport()
+        private static unsafe bool CheckValidationLayerSupport()
         {
             Vulkan.vkEnumerateInstanceLayerProperties(out uint propertyCount).CheckResult();
             VkLayerProperties[] availableLayers = new VkLayerProperties[propertyCount];
@@ -638,7 +638,9 @@ namespace VECS.LowLevel
                 bool supportsLayer = false;
                 for (int j = 0; j < availableLayers.Length; j++)
                 {
-                    if (_requiredValidationLayers[i] == _requiredValidationLayers[j])
+                    var layer = availableLayers[j];
+                    var name = new VkUtf8String(layer.layerName, 86).ToString();
+                    if (name.Contains( _requiredValidationLayers[i]) )
                     {
                         supportsLayer = true;
                         break;

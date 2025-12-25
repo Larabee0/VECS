@@ -89,7 +89,7 @@ namespace VECS.ECS.Presentation
             var viewMatrix = ShadowImage.GetViewMatrixForFace(i) * model;
             var proj = ShadowImage.CubeProjectionMatrix;
 
-            CullData cullDataInternal = new(ShadowImage.SHADOW_CULLING, ShadowImage.SHADOW_DST_CULLING, ShadowImage.SHADOW_DEPTH_CULLING, viewMatrix * proj);
+            CullData cullDataInternal = new(ShadowImage.SHADOW_CULLING, ShadowImage.SHADOW_DST_CULLING, ShadowImage.SHADOW_DEPTH_CULLING,frameInfo.CullData.zNear, viewMatrix * proj);
 
 
             EngineMaterials.ShadowOffscreen.PushConstants.SetPushConstantMatrix4x4("viewCube", i, viewMatrix);

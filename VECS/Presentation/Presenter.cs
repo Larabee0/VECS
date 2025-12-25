@@ -27,6 +27,7 @@ namespace VECS
 
         internal Action PostPresentationUpdate;
         internal Action<int> PreGraphicsPipe;
+        internal Action OnSwapChainRecreation;
 
         public ulong FrameCount => _frameCount;
 
@@ -103,6 +104,7 @@ namespace VECS
             _swapChain.GraphicsCallback += GraphicsPipe;
 
             _swapChain.StartTimelineWorkers();
+            OnSwapChainRecreation?.Invoke();
             Console.WriteLine(_swapChain.ExtentAspectRatio);
         }
 
@@ -163,7 +165,7 @@ namespace VECS
 
             Matrix4x4 projection = camera.ViewMatrix * camera.ProjectionMatrix;
 
-            CullData cullData = new(camera.fustrumCulling, camera.dstCull, camera.depthCull, projection);
+            CullData cullData = new(camera.fustrumCulling, camera.dstCull, camera.depthCull, clipNear, projection);
 
             CameraInfo cameraInfo = new(camera);
             CameraInverseInfo cameraInverseInfo = new(camera);

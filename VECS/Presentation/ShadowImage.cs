@@ -1,8 +1,9 @@
 ﻿using System;
 using System.Numerics;
+using VECS.LowLevel;
 using Vortice.Vulkan;
 
-namespace VECS.LowLevel
+namespace VECS
 {
     public sealed class ShadowImage : IDisposable
     {
