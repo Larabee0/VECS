@@ -110,7 +110,7 @@ namespace VECS
     public static class FustrumCull
     {
 #if DEBUG
-        public const bool CPUCulling = false;
+        public const bool CPUCulling = true;
 #endif
 
         private static readonly int BoundsBufferId = "boundsBuffer".GetShaderPropertyId();
@@ -119,6 +119,9 @@ namespace VECS
 
 
         private static readonly ComputeShader _computeShader;
+        private static readonly ComputeShader _textureSampler;
+
+        private static readonly GPUBuffer<float> _textureResult;
 
         private static uint _variant = 0;
 
@@ -127,7 +130,11 @@ namespace VECS
         static FustrumCull()
         {
             _computeShader = ComputeShader.GetOrCreate("fustrum_cull.comp");
+            _textureSampler = ComputeShader.GetOrCreate("textureSampler.comp");
+            _textureResult = new GPUBuffer<float>(1, VkBufferUsageFlags.StorageBuffer, true, false, false);
+            _textureSampler.SetStorageBuffer("outBuffer".GetShaderPropertyId(), 0, _textureResult);
             Presenter.Instance.PostPresentationUpdate += PostPresent;
+            Application.Instance.OnDestroy += static () => _textureResult.Dispose();
         }
 
         public static void PostPresent()
@@ -192,15 +199,38 @@ namespace VECS
                 if (cullData.cullingEnabled == 0 || IsVisibleAABB(boundsSpan[i], cullData))
                 {
 
-                    if(cullData.depthCulling != 0 && DepthProj(boundsSpan[i],cullData.zNear,cullData.P00,cullData.P11,out var aabb))
+                    if (cullData.depthCulling != 0 && DepthProj(boundsSpan[i], cullData.zNear, cullData.P00, cullData.P11, out var aabb, out float radius))
                     {
                         float width = MathF.Abs((aabb.Z - aabb.X) * cullData.pyramid.X);
                         float height = MathF.Abs((aabb.W - aabb.Y) * cullData.pyramid.Y);
                         float level = MathF.Floor(MathF.Log2(Math.Max(width, height)));
                         Vector2 uv = (new Vector2(aabb.X, aabb.Y) + new Vector2(aabb.Z, aabb.W)) * 0.5f;
-                    }
+                        uv.Y = 1.0f - uv.Y;
+                        _textureSampler.SetTexture("depthPyramid".GetShaderPropertyId(), 0, DepthReduction.DepthPryamid);
+                        _textureSampler.PushConstantsHandler.SetPushConstantVector2("uv", 0, uv);
+                        _textureSampler.PushConstantsHandler.SetPushConstantFloat("level", 0, level);
+                        var computeCommandBuffer = GraphicsDevice.BeginSingleTimeMainPipe();
 
-                    drawIndirectSpan[i].instanceCount = 1;
+                        _textureSampler.Dispatch(computeCommandBuffer, 0, 0, 1);
+                        GraphicsDevice.EndSingleTimeMainPipe(computeCommandBuffer);
+                        _textureResult.ReadToHostBuffer();  
+                        var depthValue = _textureResult.HostBuffer[0];
+                        float depthSphere = cullData.zNear / (boundsInternal.Center.Z - radius);
+
+                        bool visible = -depthSphere >= depthValue;
+                        if (visible)
+                        {
+                            drawIndirectSpan[i].instanceCount =1u;
+                        }
+                        else
+                        {
+                            drawIndirectSpan[i].instanceCount = 0;
+                        }
+                    }
+                    else
+                    {
+                        drawIndirectSpan[i].instanceCount = 1;
+                    }
                     //World.DefaultWorld.GetSystem<DebugDrawUtilities>().DrawWireCube(boundsInternal.Center, boundsInternal.Size, Quaternion.Identity, Colour.Green);
                 }
                 else
@@ -249,11 +279,12 @@ namespace VECS
             return true;
         }
 
-        private static bool DepthProj(AABB boundingBox, float zNear,float p00, float p11, out Vector4 aabb)
+        private static bool DepthProj(AABB boundingBox, float zNear,float p00, float p11, out Vector4 aabb, out float radius)
         {
             Vector3 center = boundingBox.Center;
-            float radius = Vector3.Distance(boundingBox.Min, boundingBox.Max) * 0.5f;
+            radius = Vector3.Distance(boundingBox.Min, boundingBox.Max) * 0.5f;
 
+            center.Y *= -1;
             World.DefaultWorld.GetSystem<DebugDrawUtilities>().DrawSphere(center, radius, Colour.Green);
             return ProjectSphere(center, radius, zNear, p00, p11, out aabb);
         }
@@ -261,19 +292,19 @@ namespace VECS
         // 2D Polyhedral Bounds of a Clipped, Perspective-Projected 3D Sphere. Michael Mara, Morgan McGuire. 2013
         private static bool ProjectSphere(Vector3 C, float r, float znear, float P00, float P11, out Vector4 aabb)
         {
-            C.Z *= -1.0f;
-            if (C.Z < r + znear)
+            //C.Z *= -1.0f;
+            if (-C.Z < r + znear)
             {
                 aabb = default;
                 return false;
             }
 
-            Vector2 cx = new (-C.X,-C.Z);
+            Vector2 cx = new (-C.X,C.Z);
             Vector2 vx = new(MathF.Sqrt(Vector2.Dot(cx, cx) - r * r), r);
             Vector2 minx = new Mat2(vx.X, vx.Y, -vx.Y, vx.X) * cx;
             Vector2 maxx = new Mat2(vx.X, -vx.Y, vx.Y, vx.X) * cx;
 
-            Vector2 cy = new(-C.Y,-C.Z);
+            Vector2 cy = new(C.Y,C.Z);
             Vector2 vy = new(MathF.Sqrt(Vector2.Dot(cy, cy) - r * r), r);
             Vector2 miny = new Mat2(vy.X, vy.Y, -vy.Y, vy.X) * cy;
             Vector2 maxy = new Mat2(vy.X, -vy.Y, vy.Y, vy.X) * cy;

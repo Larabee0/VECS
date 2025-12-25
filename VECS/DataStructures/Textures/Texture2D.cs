@@ -52,6 +52,34 @@ namespace VECS
             AssetDataBase<Texture2D>.Add(this);
         }
 
+        public Texture2D(string name, int width, int height, VkFormat textureFormat, VkImageUsageFlags usage, VkSamplerAddressMode addressMode, bool generateMipMaps = true)
+        {
+            AssetName = name;
+            _imageExtent = new(width, height, 1);
+            _imageImageViewType = VkImageViewType.Image2D;
+            _imageFormat = textureFormat;
+            _useageFlags = usage;
+
+            if (generateMipMaps)
+            {
+                _mipMapCount = TextureExtensions.CalculateMipMapLevels(width, height);
+            }
+
+            this.CreateImage(GetImageCreateInfo());
+
+            this.SetImageLayoutAndAspectFromUsage();
+
+            this.CreateImageView(GetImageViewCreateInfo());
+
+            if (_useageFlags.HasFlag(VkImageUsageFlags.Sampled))
+            {
+                this.CreateSampler(GetSamplerCreateInfo());
+            }
+
+            UpdateDescriptor();
+            AssetDataBase<Texture2D>.Add(this);
+        }
+
         public Texture2D(string name, int width, int height, VkFormat textureFormat, VkImageUsageFlags usage,VkSamplerAddressMode addressMode, int anisoLevel, bool compareEnabled, VkCompareOp compareOp, bool generateMipMaps = true)
         {
             AssetName = name;

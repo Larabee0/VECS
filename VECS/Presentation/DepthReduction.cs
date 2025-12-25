@@ -17,7 +17,7 @@ namespace VECS.Presentation
         public static void Init()
         {
 
-            _depthReduceShader = new ComputeShader("CullDepthReduce", "depth_reduce.comp");
+            _depthReduceShader = ComputeShader.GetOrCreate("depth_reduce.comp");
             RecreateImage();
             Presenter.Instance.OnSwapChainRecreation += RecreateImage;
             Application.Instance.OnDestroy += DestroyResources;
@@ -50,7 +50,8 @@ namespace VECS.Presentation
                     (int)_depthPyramidWidth,
                     (int)_depthPyramidHeight,
                     depthFormat,
-                    VkImageUsageFlags.Storage | VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferDst | VkImageUsageFlags.TransferSrc);
+                    VkImageUsageFlags.Storage | VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferDst | VkImageUsageFlags.TransferSrc,
+                    VkSamplerAddressMode.ClampToEdge);
             _additionalViews = new VkImageView[DepthPryamid.MipMapCount];
             for (uint i = 0; i < _additionalViews.Length; i++)
             {
