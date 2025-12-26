@@ -51,7 +51,7 @@ namespace VECS.Presentation
                     (int)_depthPyramidHeight,
                     depthFormat,
                     VkImageUsageFlags.Storage | VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferDst | VkImageUsageFlags.TransferSrc,
-                    VkSamplerAddressMode.ClampToEdge, 0, false, VkCompareOp.Never, VkSamplerMipmapMode.Nearest);
+                    VkSamplerAddressMode.ClampToEdge, 0, false, VkCompareOp.Never, VkSamplerMipmapMode.Nearest,VkBorderColor.FloatTransparentBlack);
             _additionalViews = new VkImageView[DepthPryamid.MipMapCount];
             for (uint i = 0; i < _additionalViews.Length; i++)
             {

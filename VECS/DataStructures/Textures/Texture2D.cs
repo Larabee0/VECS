@@ -117,7 +117,7 @@ namespace VECS
             AssetDataBase<Texture2D>.Add(this);
         }
 
-        public Texture2D(string name, int width, int height, VkFormat textureFormat, VkImageUsageFlags usage, VkSamplerAddressMode addressMode, int anisoLevel, bool compareEnabled, VkCompareOp compareOp, VkSamplerMipmapMode mipmapMode, bool generateMipMaps = true)
+        public Texture2D(string name, int width, int height, VkFormat textureFormat, VkImageUsageFlags usage, VkSamplerAddressMode addressMode, int anisoLevel, bool compareEnabled, VkCompareOp compareOp, VkSamplerMipmapMode mipmapMode, VkBorderColor borderColor, bool generateMipMaps = true)
         {
             AssetName = name;
             _imageExtent = new(width, height, 1);
@@ -126,11 +126,13 @@ namespace VECS
             _useageFlags = usage;
             _wrapModeU = addressMode;
             _wrapModeV = addressMode;
+            _wrapModeW = addressMode;
 
             _anisoLevel = anisoLevel;
             _compareEnable = compareEnabled;
             _compareOp = compareOp;
             _mipMapMode = mipmapMode;
+            _borderColour = borderColor;
 
             if (generateMipMaps)
             {
