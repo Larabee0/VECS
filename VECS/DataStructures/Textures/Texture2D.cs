@@ -59,6 +59,9 @@ namespace VECS
             _imageImageViewType = VkImageViewType.Image2D;
             _imageFormat = textureFormat;
             _useageFlags = usage;
+            _wrapModeU = addressMode;
+            _wrapModeV = addressMode;
+            _wrapModeW = addressMode;
 
             if (generateMipMaps)
             {
