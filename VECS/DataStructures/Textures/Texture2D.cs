@@ -150,6 +150,82 @@ namespace VECS
             AssetDataBase<Texture2D>.Add(this);
         }
 
+        public Texture2D(string name, int width, int height, VkFormat textureFormat, VkImageUsageFlags usage, VkSamplerAddressMode addressMode, int anisoLevel, bool compareEnabled, VkCompareOp compareOp, VkBorderColor borderColor, uint[] queueIndices, bool generateMipMaps = true)
+        {
+            AssetName = name;
+            _imageExtent = new(width, height, 1);
+            _imageImageViewType = VkImageViewType.Image2D;
+            _imageFormat = textureFormat;
+            _useageFlags = usage;
+            _sharingMode = VkSharingMode.Concurrent;
+            _wrapModeU = addressMode;
+            _wrapModeV = addressMode;
+            _wrapModeW = addressMode;
+
+            _anisoLevel = anisoLevel;
+            _compareEnable = compareEnabled;
+            _compareOp = compareOp;
+            _borderColour = borderColor;
+
+            _queueFamilyIndices = [.. queueIndices];
+
+            if (generateMipMaps)
+            {
+                _mipMapCount = TextureExtensions.CalculateMipMapLevels(width, height);
+            }
+
+            this.CreateImage(GetImageCreateInfo());
+
+            this.SetImageLayoutAndAspectFromUsage();
+
+            this.CreateImageView(GetImageViewCreateInfo());
+
+            if (_useageFlags.HasFlag(VkImageUsageFlags.Sampled))
+            {
+                this.CreateSampler(GetSamplerCreateInfo());
+            }
+
+            UpdateDescriptor();
+            AssetDataBase<Texture2D>.Add(this);
+        }
+
+        public Texture2D(string name, int width, int height, VkFormat textureFormat, VkImageUsageFlags usage, VkSamplerAddressMode addressMode, int anisoLevel, bool compareEnabled, VkCompareOp compareOp, VkBorderColor borderColor, bool generateMipMaps = true)
+        {
+            AssetName = name;
+            _imageExtent = new(width, height, 1);
+            _imageImageViewType = VkImageViewType.Image2D;
+            _imageFormat = textureFormat;
+            _useageFlags = usage;
+            _sharingMode = VkSharingMode.Concurrent;
+            _wrapModeU = addressMode;
+            _wrapModeV = addressMode;
+            _wrapModeW = addressMode;
+
+            _anisoLevel = anisoLevel;
+            _compareEnable = compareEnabled;
+            _compareOp = compareOp;
+            _borderColour = borderColor;
+
+            if (generateMipMaps)
+            {
+                _mipMapCount = TextureExtensions.CalculateMipMapLevels(width, height);
+            }
+
+            this.CreateImage(GetImageCreateInfo());
+
+            this.SetImageLayoutAndAspectFromUsage();
+
+            this.CreateImageView(GetImageViewCreateInfo());
+
+            if (_useageFlags.HasFlag(VkImageUsageFlags.Sampled))
+            {
+                this.CreateSampler(GetSamplerCreateInfo());
+            }
+
+            UpdateDescriptor();
+            AssetDataBase<Texture2D>.Add(this);
+        }
+
         public Texture2D(string filePath, bool generateMipMaps = true)
         {
             var surface = TextureLoader.LoadToSurface(filePath);

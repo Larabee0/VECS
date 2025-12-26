@@ -187,11 +187,34 @@ namespace VECS.LowLevel
             {
                 if (GraphicsDevice.PresentQueue != GraphicsDevice.MainQueue)
                 {
-                    swapChain._depthImage[i] = new(string.Format("_depthImage_{0}", i), (int)swapChain._windowExtent.width, (int)swapChain._windowExtent.height, _depthFormat, VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferSrc, queueIndices, false);
+                    swapChain._depthImage[i] = new(
+                        string.Format("_depthImage_{0}", i), (int)swapChain._windowExtent.width,
+                        (int)swapChain._windowExtent.height,
+                        _depthFormat,
+                        VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferSrc,
+                        VkSamplerAddressMode.ClampToEdge,
+                        0,
+                        false,
+                        VkCompareOp.Never,
+                        VkBorderColor.FloatTransparentBlack,
+                        queueIndices,
+                        false);
                 }
                 else
                 {
-                    swapChain._depthImage[i] = new(string.Format("_depthImage_{0}", i), (int)swapChain._windowExtent.width, (int)swapChain._windowExtent.height, _depthFormat, VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferSrc, false);
+                    swapChain._depthImage[i] = new(
+                        string.Format("_depthImage_{0}", i),
+                        (int)swapChain._windowExtent.width,
+                        (int)swapChain._windowExtent.height,
+                        _depthFormat,
+                        VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferSrc,
+                        VkSamplerAddressMode.ClampToEdge,
+                        0,
+                        false,
+                        VkCompareOp.Never,
+                        VkBorderColor.FloatTransparentBlack,
+                        queueIndices,
+                        false);
                 }
             }
             
