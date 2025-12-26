@@ -198,7 +198,6 @@ namespace VECS.LowLevel
                 layerCount = 1,
                 colorAttachmentCount = 0,
                 pDepthAttachment = &depth,
-                pStencilAttachment = &depth,
                 flags = VkRenderingFlags.ContentsInlineKHR | VkRenderingFlags.ContentsSecondaryCommandBuffers
             };
             GraphicsDevice.DeviceAPI.vkCmdBeginRendering(commandBuffer, &renderingInfo);
@@ -233,7 +232,6 @@ namespace VECS.LowLevel
                 colorAttachmentCount = 1,
                 pColorAttachments = &colour,
                 pDepthAttachment = &depth,
-                pStencilAttachment = &depth,
                 flags = VkRenderingFlags.ContentsInlineKHR | VkRenderingFlags.ContentsSecondaryCommandBuffers
             };
             GraphicsDevice.DeviceAPI.vkCmdBeginRendering(commandBuffer, &renderingInfo);

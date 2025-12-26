@@ -43,7 +43,7 @@ namespace VECS
 
             shadowConfig.colourFormats = [shadowCube.Format];
             shadowConfig.depthFormat = shadowDepthStencil.Format;
-            shadowConfig.stencilFormat = shadowDepthStencil.Format;
+            shadowConfig.stencilFormat = VkFormat.Undefined;
             shadowConfig.depthStencilInfo.depthWriteEnable = true;
             shadowConfig.depthStencilInfo.depthCompareOp = VkCompareOp.Less;
             shadowConfig.rasterizationInfo.cullMode = VkCullModeFlags.None;

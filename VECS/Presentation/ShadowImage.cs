@@ -21,9 +21,7 @@ namespace VECS
 
         public unsafe ShadowImage()
         {
-            _depthFormat = GraphicsDevice.FindSupportFormat([VkFormat.D24UnormS8Uint, VkFormat.D16UnormS8Uint, VkFormat.D16Unorm, VkFormat.D32SfloatS8Uint, VkFormat.D32Sfloat],
-                VkImageTiling.Optimal,
-                VkFormatFeatureFlags.DepthStencilAttachment);
+            _depthFormat = VkFormat.D32Sfloat;
 
             CubeMap = new("ShadowCubeMap",
                 SHADOW_IMAGE_SIZE,
@@ -115,8 +113,7 @@ namespace VECS
                 layerCount = 1,
                 colorAttachmentCount = 1,
                 pColorAttachments = &colour,
-                pDepthAttachment = &depth,
-                pStencilAttachment = &depth
+                pDepthAttachment = &depth
             };
 
             GraphicsDevice.DeviceAPI.vkCmdBeginRendering(commandBuffer, &renderingInfo);

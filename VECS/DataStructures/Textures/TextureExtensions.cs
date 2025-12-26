@@ -508,6 +508,10 @@ namespace VECS
             {
                 texture.SetImageLayout(cmd, VkImageLayout.TransferSrcOptimal, subresourceRange, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.Transfer);
             }
+            else if (texture._imageLayout == VkImageLayout.General)
+            {
+                texture.SetImageLayout(cmd, VkImageLayout.TransferSrcOptimal, subresourceRange, VkPipelineStageFlags2.ComputeShader, VkPipelineStageFlags2.Transfer);
+            }
             else
             {
                 texture.SetImageLayout(cmd, VkImageLayout.TransferSrcOptimal, subresourceRange, VkPipelineStageFlags2.Transfer, VkPipelineStageFlags2.Transfer);
@@ -591,9 +595,13 @@ namespace VECS
             {
                 texture.SetImageLayout(cmd, imageLayout, VkPipelineStageFlags2.Transfer, VkPipelineStageFlags2.Transfer);
             }
+            else if(imageLayout == VkImageLayout.General)
+            {
+                texture.SetImageLayout(cmd,imageLayout,VkPipelineStageFlags2.Transfer,VkPipelineStageFlags2.ComputeShader);
+            }
             else if (imageLayout != VkImageLayout.Undefined)
             {
-                texture.SetImageLayout(cmd, imageLayout,VkPipelineStageFlags2.Transfer);
+                texture.SetImageLayout(cmd, imageLayout, VkPipelineStageFlags2.Transfer);
             }
         }
 

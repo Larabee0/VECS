@@ -179,9 +179,7 @@ namespace VECS.LowLevel
 
         private static unsafe void CreateDepthImage(SwapChain swapChain)
         {
-            var _depthFormat = GraphicsDevice.FindSupportFormat([VkFormat.D24UnormS8Uint, VkFormat.D16UnormS8Uint, VkFormat.D16Unorm, VkFormat.D32SfloatS8Uint, VkFormat.D32Sfloat],
-                VkImageTiling.Optimal,
-                VkFormatFeatureFlags.DepthStencilAttachment);
+            var _depthFormat = VkFormat.D32Sfloat;
             uint[] queueIndices = [GraphicsDevice.PhysicalQueueFamilies.presentFamily, GraphicsDevice.PhysicalQueueFamilies.graphicsFamily];
             for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
             {

@@ -75,7 +75,7 @@ namespace VECS.GraphicsPipelines
             {
                 colourFormats = [SwapChain.Instance.RenderFormat],
                 depthFormat = SwapChain.Instance.DepthFormat,
-                stencilFormat = SwapChain.Instance.DepthFormat,
+                stencilFormat = VkFormat.Undefined,
                 pipelineRenderingCreateInfo = new(),
                 inputAssemblyInfo = new()
                 {
