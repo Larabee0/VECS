@@ -97,28 +97,67 @@ namespace VECS.Presentation
 
             GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier2(frameInfo.CommandBuffer, &dependencyInfo);
 
-            VkDescriptorImageInfo destTarget = new()
+            for (int i = 0; i < depthPryamid.MipMapCount; i++)
             {
-                sampler = depthPryamid._textureSampler,
-                imageView = _additionalViews[0],
-                imageLayout = VkImageLayout.General
-            };
+                VkDescriptorImageInfo destTarget = new()
+                {
+                    sampler = depthPryamid._textureSampler,
+                    imageView = _additionalViews[i],
+                    imageLayout = VkImageLayout.General
+                };
 
-            VkDescriptorImageInfo srcTarget = new()
-            {
-                sampler = destTarget.sampler,
-                imageView = depthTexture._imageView,
-                imageLayout = VkImageLayout.ShaderReadOnlyOptimal
-            };
+                VkDescriptorImageInfo srcTarget = new()
+                {
+                    sampler = destTarget.sampler,
+                };
 
-            _depthReduceShader.SetTexture("outImage".GetShaderPropertyId(), 0, destTarget, VkDescriptorType.StorageImage);
-            _depthReduceShader.SetTexture("inImage".GetShaderPropertyId(), 0, srcTarget, VkDescriptorType.CombinedImageSampler);
+                if (i == 0)
+                {
+                    srcTarget.imageView = depthTexture._imageView;
+                    srcTarget.imageLayout = VkImageLayout.ShaderReadOnlyOptimal;
+                }
+                else
+                {
+                    srcTarget.imageView = _additionalViews[i - 1];
+                    srcTarget.imageLayout = VkImageLayout.General;
+                }
 
-            _depthReduceShader.PushConstantsHandler.SetPushConstantVector2("imageSize", 0, new(_depthPyramidWidth, _depthPyramidHeight));
-            _depthReduceShader.Dispatch(frameInfo.CommandBuffer, frameInfo.FrameIndex, 0, GetGroupCount(_depthPyramidWidth, 32), GetGroupCount(_depthPyramidHeight, 32));
+                _depthReduceShader.SetTexture("outImage".GetShaderPropertyId(), (uint)i, destTarget, VkDescriptorType.StorageImage);
+                _depthReduceShader.SetTexture("inImage".GetShaderPropertyId(), (uint)i, srcTarget, VkDescriptorType.CombinedImageSampler);
 
-            DepthPryamid.RegenerateMipMaps(frameInfo.CommandBuffer);
+                uint levelWidth = _depthPyramidWidth >> i;
+                uint levelHeight = _depthPyramidHeight >> i;
+                if (levelHeight < 1) levelHeight = 1;
+                if (levelWidth < 1) levelWidth = 1;
 
+                _depthReduceShader.PushConstantsHandler.SetPushConstantVector2("imageSize", i, new(levelWidth, levelHeight));
+                _depthReduceShader.Dispatch(frameInfo.CommandBuffer, frameInfo.FrameIndex, (uint)i, GetGroupCount(levelWidth, 32), GetGroupCount(levelHeight, 32));
+
+                VkImageMemoryBarrier2 reduceBarrier = new()
+                {
+                    image = depthPryamid._vkImage,
+                    srcAccessMask = VkAccessFlags2.ShaderWrite,
+                    dstAccessMask = VkAccessFlags2.ShaderRead,
+                    oldLayout = VkImageLayout.General,
+                    newLayout = VkImageLayout.General,
+                    subresourceRange = new()
+                    {
+                        levelCount = Vulkan.VK_REMAINING_MIP_LEVELS,
+                        layerCount = Vulkan.VK_REMAINING_ARRAY_LAYERS,
+                        aspectMask = VkImageAspectFlags.Color
+                    },
+                    srcStageMask = VkPipelineStageFlags2.ComputeShader,
+                    dstStageMask = VkPipelineStageFlags2.ComputeShader
+                };
+
+                dependencyInfo = new()
+                {
+                    pImageMemoryBarriers = &reduceBarrier,
+                    imageMemoryBarrierCount = 1,
+                    dependencyFlags = VkDependencyFlags.ByRegion
+                };
+                GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier2(frameInfo.CommandBuffer, &dependencyInfo);
+            }
 
             VkImageMemoryBarrier2 depthTextureBarrier = new()
             {
