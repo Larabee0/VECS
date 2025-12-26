@@ -44,14 +44,14 @@ namespace VECS.Presentation
 
             _depthPyramidWidth = PreviousPow2( SwapChain.Instance._windowExtent.width);
             _depthPyramidHeight = PreviousPow2(SwapChain.Instance._windowExtent.height);
-            VkFormat depthFormat = SwapChain.Instance.DepthFormat;
+            VkFormat depthFormat = VkFormat.R32Sfloat;
             DepthPryamid = new Texture2D(
-                    string.Format("DeptImage {0}",  Presenter.Instance.FrameCount),
+                    string.Format("DepthPryamid {0}", Presenter.Instance.FrameCount),
                     (int)_depthPyramidWidth,
                     (int)_depthPyramidHeight,
                     depthFormat,
                     VkImageUsageFlags.Storage | VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferDst | VkImageUsageFlags.TransferSrc,
-                    VkSamplerAddressMode.ClampToEdge);
+                    VkSamplerAddressMode.ClampToEdge, 0, false, VkCompareOp.Never, VkSamplerMipmapMode.Nearest);
             _additionalViews = new VkImageView[DepthPryamid.MipMapCount];
             for (uint i = 0; i < _additionalViews.Length; i++)
             {
@@ -68,7 +68,7 @@ namespace VECS.Presentation
 
         public static unsafe void ReduceDepth(RendererFrameInfo frameInfo)
         {
-            ReduceDepthBlit(frameInfo);
+            ComputeShaderTransfer(frameInfo);
         }
 
         private static unsafe void ComputeShaderTransfer(RendererFrameInfo frameInfo)
