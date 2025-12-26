@@ -31,6 +31,8 @@ namespace VECS
         public int dstCulling;
         public int depthCulling;
 
+        public Matrix4x4 View;
+
         public readonly Vector4 this[int i] => i switch
         {
             0 => left,
@@ -47,7 +49,7 @@ namespace VECS
             pushConstants.SetPushConstantUniform("cullData", setId, this);
         }
 
-        public CullData(bool cull, bool dstCull,bool depthCull, float zNear, Matrix4x4 projection)
+        public CullData(bool cull, bool dstCull,bool depthCull, float zNear, Matrix4x4 projection, Matrix4x4 view)
         {
             Matrix4x4 projectionT = Matrix4x4.Transpose(projection);
             near = projectionT.GetMatrixRow(3) - projectionT.GetMatrixRow(2);
@@ -68,6 +70,8 @@ namespace VECS
             dstCulling = dstCull ? 1 : 0;
             depthCulling = depthCull ? 1 : 0;
             drawCount = 0;
+
+            View = view;
         }
 
         public CullData(int cull, int dstCull, int depthCull, Matrix4x4 projection)
@@ -199,13 +203,14 @@ namespace VECS
                 if (cullData.cullingEnabled == 0 || IsVisibleAABB(boundsSpan[i], cullData))
                 {
 
-                    if (cullData.depthCulling != 0 && DepthProj(boundsSpan[i], cullData.zNear, cullData.P00, cullData.P11, out var aabb, out float radius))
+                    if (cullData.depthCulling != 0 && DepthProj(boundsSpan[i], cullData.View, cullData.zNear, cullData.P00, cullData.P11, out var aabb, out float radius))
                     {
-                        float width = MathF.Abs((aabb.Z - aabb.X) * cullData.pyramid.X);
-                        float height = MathF.Abs((aabb.W - aabb.Y) * cullData.pyramid.Y);
-                        float level = MathF.Floor(MathF.Log2(Math.Max(width, height)));
+                        var center = Vector3.Transform(boundsInternal.Center, cullData.View);
+                        float width = ((aabb.Z - aabb.X) * cullData.pyramid.X);
+                        float height = ((aabb.W - aabb.Y) * cullData.pyramid.Y);
+                        float level = Math.Min(9, MathF.Floor(MathF.Log2(Math.Max(width, height))));
                         Vector2 uv = (new Vector2(aabb.X, aabb.Y) + new Vector2(aabb.Z, aabb.W)) * 0.5f;
-                        uv.Y = 1.0f - uv.Y;
+                        uv.X = 1.0f - uv.X;
                         _textureSampler.SetTexture("depthPyramid".GetShaderPropertyId(), 0, DepthReduction.DepthPryamid);
                         _textureSampler.PushConstantsHandler.SetPushConstantVector2("uv", 0, uv);
                         _textureSampler.PushConstantsHandler.SetPushConstantFloat("level", 0, level);
@@ -215,9 +220,9 @@ namespace VECS
                         GraphicsDevice.EndSingleTimeMainPipe(computeCommandBuffer);
                         _textureResult.ReadToHostBuffer();  
                         var depthValue = _textureResult.HostBuffer[0];
-                        float depthSphere = cullData.zNear / (boundsInternal.Center.Z - radius);
+                        float depthSphere = MathF.Abs( cullData.zNear / (center.Z - radius));
 
-                        bool visible = -depthSphere >= depthValue;
+                        bool visible = depthSphere >= depthValue;
                         if (visible)
                         {
                             drawIndirectSpan[i].instanceCount =1u;
@@ -279,32 +284,33 @@ namespace VECS
             return true;
         }
 
-        private static bool DepthProj(AABB boundingBox, float zNear,float p00, float p11, out Vector4 aabb, out float radius)
+        private static bool DepthProj(AABB boundingBox, Matrix4x4 view, float zNear,float p00, float p11, out Vector4 aabb, out float radius)
         {
             Vector3 center = boundingBox.Center;
             radius = Vector3.Distance(boundingBox.Min, boundingBox.Max) * 0.5f;
 
-            center.Y *= -1;
+
             World.DefaultWorld.GetSystem<DebugDrawUtilities>().DrawSphere(center, radius, Colour.Green);
+            center = Vector3.Transform(center, view);
             return ProjectSphere(center, radius, zNear, p00, p11, out aabb);
         }
 
         // 2D Polyhedral Bounds of a Clipped, Perspective-Projected 3D Sphere. Michael Mara, Morgan McGuire. 2013
         private static bool ProjectSphere(Vector3 C, float r, float znear, float P00, float P11, out Vector4 aabb)
         {
-            //C.Z *= -1.0f;
             if (-C.Z < r + znear)
             {
                 aabb = default;
                 return false;
             }
+            C.Y *= -1;
 
-            Vector2 cx = new (-C.X,C.Z);
+            Vector2 cx = new Vector2(C.X,C.Z);
             Vector2 vx = new(MathF.Sqrt(Vector2.Dot(cx, cx) - r * r), r);
             Vector2 minx = new Mat2(vx.X, vx.Y, -vx.Y, vx.X) * cx;
             Vector2 maxx = new Mat2(vx.X, -vx.Y, vx.Y, vx.X) * cx;
 
-            Vector2 cy = new(C.Y,C.Z);
+            Vector2 cy = new Vector2(C.Y,C.Z);
             Vector2 vy = new(MathF.Sqrt(Vector2.Dot(cy, cy) - r * r), r);
             Vector2 miny = new Mat2(vy.X, vy.Y, -vy.Y, vy.X) * cy;
             Vector2 maxy = new Mat2(vy.X, -vy.Y, vy.Y, vy.X) * cy;
