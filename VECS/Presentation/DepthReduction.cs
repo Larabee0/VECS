@@ -44,7 +44,7 @@ namespace VECS.Presentation
 
             _depthPyramidWidth = PreviousPow2( SwapChain.Instance._windowExtent.width);
             _depthPyramidHeight = PreviousPow2(SwapChain.Instance._windowExtent.height);
-            VkFormat depthFormat = VkFormat.R32Sfloat;
+            VkFormat depthFormat = SwapChain.Instance.DepthFormat;
             DepthPryamid = new Texture2D(
                     string.Format("DeptImage {0}",  Presenter.Instance.FrameCount),
                     (int)_depthPyramidWidth,
@@ -67,6 +67,11 @@ namespace VECS.Presentation
         }
 
         public static unsafe void ReduceDepth(RendererFrameInfo frameInfo)
+        {
+            ReduceDepthBlit(frameInfo);
+        }
+
+        private static unsafe void ComputeShaderTransfer(RendererFrameInfo frameInfo)
         {
             var depthTexture = SwapChain.Instance.DepthImage;
             var depthPryamid = DepthPryamid;
@@ -100,13 +105,13 @@ namespace VECS.Presentation
                     imageView = _additionalViews[i],
                     imageLayout = VkImageLayout.General
                 };
-            
+
                 VkDescriptorImageInfo srcTarget = new()
                 {
                     sampler = destTarget.sampler,
                 };
-            
-                if(i == 0)
+
+                if (i == 0)
                 {
                     srcTarget.imageView = depthTexture._imageView;
                     srcTarget.imageLayout = VkImageLayout.ShaderReadOnlyOptimal;
@@ -116,16 +121,16 @@ namespace VECS.Presentation
                     srcTarget.imageView = _additionalViews[i - 1];
                     srcTarget.imageLayout = VkImageLayout.General;
                 }
-            
-                _depthReduceShader.SetTexture("outImage".GetShaderPropertyId(),(uint)i, destTarget, VkDescriptorType.StorageImage);
+
+                _depthReduceShader.SetTexture("outImage".GetShaderPropertyId(), (uint)i, destTarget, VkDescriptorType.StorageImage);
                 _depthReduceShader.SetTexture("inImage".GetShaderPropertyId(), (uint)i, srcTarget, VkDescriptorType.CombinedImageSampler);
-            
+
                 uint levelWidth = _depthPyramidWidth >> i;
                 uint levelHeight = _depthPyramidHeight >> i;
                 if (levelHeight < 1) levelHeight = 1;
                 if (levelWidth < 1) levelWidth = 1;
-            
-                _depthReduceShader.PushConstantsHandler.SetPushConstantVector2("imageSize",i, new(levelWidth,levelHeight));
+
+                _depthReduceShader.PushConstantsHandler.SetPushConstantVector2("imageSize", i, new(levelWidth, levelHeight));
                 _depthReduceShader.Dispatch(frameInfo.CommandBuffer, frameInfo.FrameIndex, (uint)i, GetGroupCount(levelWidth, 32), GetGroupCount(levelHeight, 32));
 
                 VkImageMemoryBarrier2 reduceBarrier = new()
@@ -136,7 +141,7 @@ namespace VECS.Presentation
                     oldLayout = VkImageLayout.General,
                     newLayout = VkImageLayout.General,
                     subresourceRange = new()
-                    { 
+                    {
                         levelCount = Vulkan.VK_REMAINING_MIP_LEVELS,
                         layerCount = Vulkan.VK_REMAINING_ARRAY_LAYERS,
                         aspectMask = VkImageAspectFlags.Color
@@ -158,7 +163,7 @@ namespace VECS.Presentation
             {
                 srcAccessMask = VkAccessFlags2.ShaderRead,
                 dstAccessMask = VkAccessFlags2.DepthStencilAttachmentRead | VkAccessFlags2.DepthStencilAttachmentWrite,
-                oldLayout= VkImageLayout.ShaderReadOnlyOptimal,
+                oldLayout = VkImageLayout.ShaderReadOnlyOptimal,
                 newLayout = depthTexture.ImageLayout,
                 image = depthTexture._vkImage,
                 subresourceRange = depthTexture.GetSubresourceRange(),
@@ -176,7 +181,7 @@ namespace VECS.Presentation
             depthTexture._imageLayout = VkImageLayout.DepthStencilAttachmentOptimal;
         }
 
-        private static unsafe Texture2D ReduceDepthBlit(RendererFrameInfo frameInfo)
+        private static unsafe void ReduceDepthBlit(RendererFrameInfo frameInfo)
         {
             var depthTexture = SwapChain.Instance.DepthImage;
             var depthPryamid = DepthPryamid;
@@ -210,10 +215,28 @@ namespace VECS.Presentation
             GraphicsDevice.DeviceAPI.vkCmdBlitImage(frameInfo.CommandBuffer, depthTexture._vkImage, VkImageLayout.TransferSrcOptimal, depthPryamid._vkImage, VkImageLayout.TransferDstOptimal, 1, &blit, VkFilter.Nearest);
 
             depthPryamid.RegenerateMipMaps(frameInfo.CommandBuffer);
-
-
             depthPryamid.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.General, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.ComputeShader);
-            return depthTexture;
+
+
+            VkImageMemoryBarrier2 depthTextureBarrier = new()
+            {
+                srcAccessMask = VkAccessFlags2.ShaderRead,
+                dstAccessMask = VkAccessFlags2.DepthStencilAttachmentRead | VkAccessFlags2.DepthStencilAttachmentWrite,
+                oldLayout = VkImageLayout.ShaderReadOnlyOptimal,
+                newLayout = depthTexture.ImageLayout,
+                image = depthTexture._vkImage,
+                subresourceRange = depthTexture.GetSubresourceRange(),
+                srcStageMask = VkPipelineStageFlags2.ComputeShader,
+                dstStageMask = VkPipelineStageFlags2.EarlyFragmentTests,
+            };
+
+            VkDependencyInfo depthDependencyInfo = new()
+            {
+                pImageMemoryBarriers = &depthTextureBarrier,
+                imageMemoryBarrierCount = 1,
+                dependencyFlags = VkDependencyFlags.ByRegion
+            };
+            GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier2(frameInfo.CommandBuffer, &depthDependencyInfo);
         }
 
         private static uint  GetGroupCount(uint threadCount, uint localSize)
