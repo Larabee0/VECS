@@ -219,7 +219,7 @@ namespace VECS
                         _textureSampler.Dispatch(computeCommandBuffer, 0, 0, 1);
                         GraphicsDevice.EndSingleTimeMainPipe(computeCommandBuffer);
                         _textureResult.ReadToHostBuffer();  
-                        var depthValue = _textureResult.HostBuffer[0];
+                        var depthValue = 1-_textureResult.HostBuffer[0];
                         float depthSphere = MathF.Abs( cullData.zNear / (center.Z - radius));
 
                         bool visible = depthSphere >= depthValue;
