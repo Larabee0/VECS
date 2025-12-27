@@ -61,7 +61,7 @@ namespace VECS.LowLevel
             _framebufferBlur = new("BloomBlur",depthFormat);
 
             var blurConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
-            blurConfig.colourFormats = [_framebufferGlow.Colour.Format];
+            // blurConfig.colourFormats = [_framebufferGlow.Colour.Format];
             var blendAttachment = blurConfig.colourBlendAttachment;
             blendAttachment.colorWriteMask = VkColorComponentFlags.All;
             blendAttachment.blendEnable = true;
@@ -90,7 +90,9 @@ namespace VECS.LowLevel
 
         public unsafe void RenderBloomObjects(RendererFrameInfo frameInfo)
         {
-
+            _framebufferGlow.Colour.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
+            BeginRenderPassInternal(frameInfo, _framebufferGlow);
+            GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
             var forwardRenderer = Presenter.Instance.ForwardRenderer;
             _framebufferGlow.Colour.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.TransferDstOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.Blit);
             forwardRenderer.BlitFromMainColour(frameInfo.CommandBuffer, _framebufferGlow.Colour._vkImage, FRAME_BUFFER_DIMENTIONS, FRAME_BUFFER_DIMENTIONS, VkImageAspectFlags.Color);
@@ -130,13 +132,24 @@ namespace VECS.LowLevel
         private unsafe void BeginRenderPassInternal(RendererFrameInfo frameInfo, FBTexture attachments)
         {
 
-            VkRenderingAttachmentInfo colourAttachmentInfo = new()
+            VkRenderingAttachmentInfo* colourAttachmentInfo =  stackalloc VkRenderingAttachmentInfo[]
             {
-                imageView = attachments.Colour._imageView,
-                loadOp = VkAttachmentLoadOp.Clear,
-                storeOp = VkAttachmentStoreOp.Store,
-                imageLayout = attachments.Colour.ImageLayout,
-                clearValue = _colourClear
+                new()
+                {
+                    imageView = attachments.Colour._imageView,
+                    loadOp = VkAttachmentLoadOp.Clear,
+                    storeOp = VkAttachmentStoreOp.Store,
+                    imageLayout = attachments.Colour.ImageLayout,
+                    clearValue = _colourClear
+                },
+                new()
+                {
+                    imageView = attachments.Colour._imageView,
+                    loadOp = VkAttachmentLoadOp.Clear,
+                    storeOp = VkAttachmentStoreOp.Store,
+                    imageLayout = attachments.Colour.ImageLayout,
+                    clearValue = _colourClear
+                }
             };
 
             VkRenderingAttachmentInfo depthAttachmentInfo = new()
@@ -150,9 +163,9 @@ namespace VECS.LowLevel
 
             VkRenderingInfo renderingInfo = new()
             {
-                colorAttachmentCount = 1,
+                colorAttachmentCount = 2,
                 pDepthAttachment = &depthAttachmentInfo,
-                pColorAttachments = &colourAttachmentInfo,
+                pColorAttachments = colourAttachmentInfo,
                 layerCount = 1,
                 renderArea = new(0,0, FRAME_BUFFER_DIMENTIONS, FRAME_BUFFER_DIMENTIONS),
                 flags = VkRenderingFlags.ContentsInlineKHR
