@@ -300,7 +300,9 @@ namespace VECS
             
             var extents = _swapChain.SwapChainExtent;
 
-            _forwardRenderer.BlitFromMainColour(commandBuffer, _swapChain._swapChainImages[imageIndex], (int)extents.width, (int)extents.height, VkImageAspectFlags.None);
+            _forwardRenderer.BlitFromMainColour(commandBuffer, _swapChain._swapChainImages[imageIndex], (int)extents.width, (int)extents.height, VkImageAspectFlags.Color);
+
+            _swapChain.TransferSwapChainImageToPresentQueue(commandBuffer, FrameIndex, imageIndex);
         }
 
 

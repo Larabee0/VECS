@@ -15,7 +15,7 @@ namespace VECS.LowLevel
                 Colour = new(string.Format("{0}.Colour",name),
                     FRAME_BUFFER_DIMENTIONS,FRAME_BUFFER_DIMENTIONS,
                     VkFormat.R32G32B32A32Sfloat,
-                    VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.Sampled,
+                    VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferDst,
                     false);
 
                 DepthStencil = new(string.Format("{0}.DepthStencil",name),
@@ -90,9 +90,12 @@ namespace VECS.LowLevel
 
         public unsafe void RenderBloomObjects(RendererFrameInfo frameInfo)
         {
-            BeginGlowPass(frameInfo);
-            DrawBlob.ExecuteDrawCmds(frameInfo, null, null, 0, default, default);
-            EndGlowPass(frameInfo);
+
+            var forwardRenderer = Presenter.Instance.ForwardRenderer;
+            _framebufferGlow.Colour.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.TransferDstOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.Blit);
+            forwardRenderer.BlitFromMainColour(frameInfo.CommandBuffer, _framebufferGlow.Colour._vkImage, FRAME_BUFFER_DIMENTIONS, FRAME_BUFFER_DIMENTIONS, VkImageAspectFlags.Color);
+
+            _framebufferGlow.Colour.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.ColorAttachmentOutput);
             BlurVertical(frameInfo);
         }
 

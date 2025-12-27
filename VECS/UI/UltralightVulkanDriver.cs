@@ -148,7 +148,7 @@ namespace VECS.UI
             GraphicsPipelineConfigInfo configInfo = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             
             // common
-            configInfo.colourFormats[0] = ImageFormat;
+            configInfo.colourFormats = [ImageFormat];
 
             configInfo.BindingDescriptions = [
                 new()

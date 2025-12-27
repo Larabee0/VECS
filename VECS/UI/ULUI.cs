@@ -91,20 +91,31 @@ namespace VECS.UI
                 UltralightVulkanDriver.ExecuteCommandList(frameInfo);
                 EngineMaterials.Blit.SetTexture("inputTexture".GetShaderPropertyId(), 0, UltralightVulkanDriver.GetViewTexture(_ulView));
             }
-            VkRenderingAttachmentInfo renderingAttachmentInfo = new()
+            VkRenderingAttachmentInfo* renderingAttachmentInfo = stackalloc VkRenderingAttachmentInfo[]
             {
-                clearValue = new(0, 0, 0, 0),
-                loadOp = VkAttachmentLoadOp.Load,
-                storeOp = VkAttachmentStoreOp.Store,
-                imageLayout = camera.ImageLayout,
-                imageView = camera._imageView
+                new ()
+                {
+                    clearValue = new(0, 0, 0, 0),
+                    loadOp = VkAttachmentLoadOp.Load,
+                    storeOp = VkAttachmentStoreOp.Store,
+                    imageLayout = camera.ImageLayout,
+                    imageView = camera._imageView
+                },
+                new ()
+                {
+                    clearValue = new(0, 0, 0, 0),
+                    loadOp = VkAttachmentLoadOp.Load,
+                    storeOp = VkAttachmentStoreOp.Store,
+                    imageLayout = camera.ImageLayout,
+                    imageView = camera._imageView
+                }
             };
             VkRenderingInfo renderingInfo = new()
             {
                 renderArea = new(0, 0, (uint)camera.Width, (uint)camera.Height),
                 layerCount = 1,
-                colorAttachmentCount = 1,
-                pColorAttachments = &renderingAttachmentInfo
+                colorAttachmentCount = 2,
+                pColorAttachments = renderingAttachmentInfo
             };
             GraphicsDevice.DeviceAPI.vkCmdBeginRendering(frameInfo.CommandBuffer, &renderingInfo);
             EngineMaterials.Blit.BindAll(frameInfo,0);

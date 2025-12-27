@@ -416,7 +416,13 @@ namespace VECS
             var rasterizationInfo = configInfo.rasterizationInfo;
 
             // Assign remaining memory pointers
-            colourBlendInfo.pAttachments = &colourBlendAttachment;
+            VkPipelineColorBlendAttachmentState* colourAttachments = stackalloc VkPipelineColorBlendAttachmentState[configInfo.colourFormats.Length];
+            for (int i = 0; i < configInfo.colourFormats.Length; i++)
+            {
+                colourAttachments[i] = colourBlendAttachment;
+            }
+            colourBlendInfo.pAttachments = colourAttachments;
+            colourBlendInfo.attachmentCount = (uint)configInfo.colourFormats.Length;
 
             VkDynamicState* pDynamicStates = stackalloc VkDynamicState[configInfo.dynamicStateEnables.Length];
 
