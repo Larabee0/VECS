@@ -6,7 +6,7 @@ namespace VECS
 {
     public static class ShaderPropertyExtention
     {
-        private static ConcurrentDictionary<int, string> _propertyIdToString = new();
+        private static readonly ConcurrentDictionary<int, string> _propertyIdToString = new();
 
         public static int GetShaderPropertyId(this string property)
         {
@@ -34,11 +34,11 @@ namespace VECS
         public static readonly int OrthographicInfoProperty = "orthographic".GetShaderPropertyId();
         public static readonly int LightingInfoProperty = "lighting".GetShaderPropertyId();
         public static readonly int PointLightsBufferProperty = "pointLightBuffer".GetShaderPropertyId();
-        public static readonly HashSet<int> GlobalProperties;
+        public static readonly HashSet<int> IgnoreUnFoundShaderProperties;
 
         static ShaderPropertyInfo()
         {
-            GlobalProperties =
+            IgnoreUnFoundShaderProperties =
             [
                 CameraInfoProperty,
                 CameraInverseProperty,

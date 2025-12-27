@@ -12,7 +12,7 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
-    [StructLayout(LayoutKind.Sequential, Size = 200)]
+    [StructLayout(LayoutKind.Sequential, Size = 208)]
     public struct CullData
     {
         public Vector4 left;

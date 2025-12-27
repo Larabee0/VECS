@@ -88,9 +88,9 @@ namespace Planets
 
                 input.Throttle = ThrottleInput(input.Throttle, msc.ThrottleSenstivity);
 
-                var enginesColour = entityManager.GetComponent<RenderMesh>(input.Engines);
+                var enginesColour = entityManager.GetComponent<MainColour>(input.Engines);
 
-                enginesColour.Colour.W = MathF.Abs(input.Throttle);
+                enginesColour.Value.W = MathF.Abs(input.Throttle);
 
                 entityManager.SetComponent(input.Engines, enginesColour);
 

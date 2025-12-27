@@ -210,7 +210,7 @@ namespace VECS
             }
 
 #if DEBUG
-            bool isGlobalProperty = ShaderPropertyInfo.GlobalProperties.Contains(propertyId);
+            bool isGlobalProperty = ShaderPropertyInfo.IgnoreUnFoundShaderProperties.Contains(propertyId);
             if (!isGlobalProperty || (ShaderPropertyInfo.LOG_MISSING_GLOBAL_SHADER_PROPERTIES && isGlobalProperty))
             {
                 Console.WriteLine("Material '{0}' has no shader property matching propertyId: '{1}' -> '{2}'", AssetName, propertyId, propertyId.GetPropertyIdString());

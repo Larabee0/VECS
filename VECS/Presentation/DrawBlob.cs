@@ -3,7 +3,6 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Numerics;
-using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using VECS.ECS;
@@ -14,42 +13,77 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
-    public interface IRenderBufferElement;
-    public interface IRenderBuffer : IComponent
+    public interface IRenderBuffer
     {
+        public int ComponentId { get; }
         public Type ElementType { get; }
         public uint ElementSize { get; }
-        public IRenderBufferElement RenderBufferData { get; }
+        public int BufferShaderPropertyId { get; }
 
-        public unsafe void CopyIn(void* ptr);
+        public unsafe void CopyIn(void* ptr, IComponent component);
+        public unsafe void DefaultIn(void* ptr);
     }
 
-    public class RenderBuffer
+    public class RenderBuffer : IDisposable
     {
         public readonly Type SourceType;
         public readonly Type ElementType;
-        public int SourceTypeComponentId=> (int)SourceType.GetProperty(nameof(IComponent.ComponentId)).GetValue(null);
-        public byte[] Buffer = [];
+        public  int SourceTypeComponentId=> BufferSource.ComponentId;
+        public readonly int BufferShaderPropertyId;
+        public readonly IRenderBuffer BufferSource;
         public readonly uint ElementSize = 0;
-        public uint ElementCount => (uint)Buffer.Length / ElementSize;
+        public readonly uint Alignment = 0;
+        private uint _allocationSize = 1;
+        private unsafe byte* _buffer = null;
 
-        public RenderBuffer(Type sourceElement)
+        public uint ElementCount => _allocationSize / ElementSize;
+
+        public unsafe RenderBuffer(Type sourceElement)
         {
             SourceType = sourceElement;
-            ElementSize = (uint)sourceElement.GetField("BufferElementSize").GetValue(null);
-            ElementType = (Type)sourceElement.GetField("BufferElementType").GetValue(null);
-            //SourceTypeComponentId = 
-            Activator.CreateInstance(ElementType);
+
+            BufferSource = (IRenderBuffer)Activator.CreateInstance(SourceType);
+            
+            //SourceTypeComponentId = BufferSource.ComponentId;
+            ElementSize = BufferSource.ElementSize;
+            ElementType = BufferSource.ElementType;
+            BufferShaderPropertyId = BufferSource.BufferShaderPropertyId;
+            ShaderPropertyInfo.IgnoreUnFoundShaderProperties.Add(BufferShaderPropertyId);
+            Alignment = (uint)GPUBufferExtensions.GetAlignment(ElementSize);
+
+            _buffer = (byte*)NativeMemory.AlignedAlloc(ElementSize, Alignment);
         }
 
-        public void Resize(int newLength)
+        public unsafe void Resize(int newLength)
         {
-            Array.Resize(ref Buffer, newLength * (int)ElementSize);
+            _allocationSize = Math.Max(1, (uint)newLength) * ElementSize;
+            _buffer = (byte*)NativeMemory.AlignedRealloc(_buffer, _allocationSize , Alignment);
         }
 
-        public unsafe void Write(void* ptr, int index)
+        public unsafe void Write(int index, IComponent component)
         {
-            Marshal.Copy((nint)ptr, Buffer, index, (int)ElementSize);
+            var ptr = _buffer + (index * ElementSize);
+            BufferSource.CopyIn(ptr, component);
+        }
+        public unsafe void Default(int index)
+        {
+            var ptr = _buffer + (index * ElementSize);
+            BufferSource.DefaultIn(ptr);
+        }
+
+        public unsafe void CopyTo(void* dst, int offset, int count)
+        {
+            Debug.Assert((count * ElementSize + offset * ElementSize) <= _allocationSize);
+            var ptr = _buffer + (offset * ElementSize);
+            Buffer.MemoryCopy(ptr, dst, count * ElementSize, count * ElementSize);
+        }
+
+        public unsafe void Dispose()
+        {
+            GC.SuppressFinalize(this);
+            NativeMemory.AlignedFree(_buffer);
+            _buffer = null;
+            GC.ReRegisterForFinalize(this);
         }
     }
 
@@ -101,7 +135,6 @@ namespace VECS
 
         private static Entity[] _drawEntitiesByMat = [];
         private static RenderBuffer[] _renderBuffers = [];
-        private static ModelMatrices[] _drawMatrixByMat = [];
         private static SwapChainBuffer<ShaderAABB> _drawRenderBoundsByMat;
 
         private static Entity[] _drawEntitiesByMesh = [];
@@ -136,10 +169,7 @@ namespace VECS
             }
 
             List<Type> renderBufferTypes = [];
-            List<Type> renderBufferElementTypes = [];
             Type baseRenderBuffer = typeof(IRenderBuffer);
-            Type baseRenderBufferElement = typeof(IRenderBufferElement);
-            allTypes.Remove(baseRenderBufferElement);
             allTypes.Remove(baseRenderBuffer);
             foreach (var type in allTypes)
             {
@@ -147,11 +177,16 @@ namespace VECS
                 {
                     renderBufferTypes.Add(type);
                 }
-                if (baseRenderBufferElement.IsAssignableFrom(type))
+            }
+
+            if (_renderBuffers != null)
+            {
+                for (int i = 0; i < _renderBuffers.Length; i++)
                 {
-                    renderBufferElementTypes.Add(type);
+                    _renderBuffers[i].Dispose();
                 }
             }
+
             _renderBuffers = new RenderBuffer[renderBufferTypes.Count];
 
             for (int i = 0; i < renderBufferTypes.Count; i++)
@@ -168,7 +203,6 @@ namespace VECS
             _drawRenderMesh = [];
 
             _drawEntitiesByMat = [];
-            _drawMatrixByMat = [];
 
             _drawEntitiesByMesh = [];
             _drawDirectSubMeshIndex = [];
@@ -222,6 +256,14 @@ namespace VECS
 
         public static void CleanUp()
         {
+            if (_renderBuffers != null)
+            {
+                for (int i = 0; i < _renderBuffers.Length; i++)
+                {
+                    _renderBuffers[i].Dispose();
+                }
+            }
+
             _indirectCmdBufferByMat.Dispose();
             _indirectCmdBufferByMesh.Dispose();
             _drawRenderBoundsByMat.Dispose();
@@ -255,7 +297,6 @@ namespace VECS
             Array.Resize(ref _drawDirectSubMeshIndex, entityCount);
             Array.Resize(ref _drawEntitiesByMat, entityCount);
             Array.Resize(ref _drawEntitiesByMesh, entityCount);
-            Array.Resize(ref _drawMatrixByMat, entityCount);
             Array.Resize(ref _drawMatrixByMesh, entityCount);
 
             _drawRenderBoundsByMat.Realloc((uint)entityCount);
@@ -404,7 +445,6 @@ namespace VECS
             {
                 Entity entityMat = _drawEntitiesByMat[i];
                 Entity entityMesh = _drawEntitiesByMesh[i];
-                _drawMatrixByMat[i] = entityManager.GetComponent<LocalToWorld>(entityMat).Value;
                 _drawMatrixByMesh[i] = entityManager.GetComponent<LocalToWorld>(entityMesh).Value;
                 _drawRenderBoundsByMat.HostBuffer[i] = entityManager.GetComponent<WorldRenderBounds>(entityMat).Value;
                 _drawRenderBoundsByMesh.HostBuffer[i] = entityManager.GetComponent<WorldRenderBounds>(entityMesh).Value;
@@ -422,11 +462,13 @@ namespace VECS
         private static unsafe void WriteToRenderBuffer(EntityManager entityManager, int i, Entity entityMat, int j)
         {
             var buffer = _renderBuffers[j];
-            void* dataIn = stackalloc byte[(int)buffer.ElementSize];
             if (entityManager.HasComponent(entityMat, buffer.SourceTypeComponentId, out int signiture))
             {
-                entityManager.GetComponent<IRenderBuffer>(signiture).CopyIn(dataIn);
-                buffer.Write(dataIn, i);
+                buffer.Write(i, entityManager.GetComponent<IComponent>(signiture));
+            }
+            else
+            {
+                buffer.Default(i);
             }
         }
 
@@ -437,20 +479,23 @@ namespace VECS
             {
                 var mat = list[i];
                 if (!_materialBufferRegions.TryGetValue(mat.Hash, out var region)) return;
-                
-                var matrices = mat.GetStorageBuffer<ModelMatrices>(MatricesBufferId);
-                var bounds = mat.GetStorageBuffer<ShaderAABB>(BoundsBufferId);
-                if (!matrices.IsEmpty)
+
+                for (int j = 0; j < _renderBuffers.Length; j++)
                 {
-                    mat.SetDescriptorStorageBufferLengthFromProperty(MatricesBufferId, 0, (uint)region.Count);
-                    _drawMatrixByMat.AsSpan(region.StartIndex, region.Count).CopyTo(mat.GetStorageBuffer<ModelMatrices>(MatricesBufferId));
-                }
-                if (!bounds.IsEmpty)
-                {
-                    mat.SetDescriptorStorageBufferLengthFromProperty(BoundsBufferId, 0, (uint)region.Count);
-                    _drawRenderBoundsByMat.HostBuffer.Slice(region.StartIndex, region.Count).CopyTo(mat.GetStorageBuffer<ShaderAABB>(BoundsBufferId));
+                    CopyFromRenderBuffer(mat,region,j);
                 }
             });
+        }
+
+        private static unsafe void CopyFromRenderBuffer(Material mat, BufferRegion region, int bufferIndex)
+        {
+            var renderBuffer = _renderBuffers[bufferIndex];
+            var materialBuffer = mat.GetStorageSwapChainBuffer(renderBuffer.BufferShaderPropertyId);
+            if (materialBuffer != null)
+            {
+                mat.SetDescriptorStorageBufferLengthFromProperty(renderBuffer.BufferShaderPropertyId, 0, (uint)region.Count);
+                renderBuffer.CopyTo(materialBuffer.HostPtr, region.StartIndex, region.Count);
+            }
         }
 
         public static void CopyToAllInOneMateriasl()
@@ -588,15 +633,6 @@ namespace VECS
             if (_materialBufferRegions.TryGetValue(hash, out var region))
             {
                 return _drawCommandsByMat.AsSpan(region.StartIndex, region.Count);
-            }
-            return null;
-        }
-
-        public static Span<ModelMatrices> GetModelMatricesForMat(int hash)
-        {
-            if (_materialBufferRegions.TryGetValue(hash, out var region))
-            {
-                return _drawMatrixByMat.AsSpan(region.StartIndex,region.Count);
             }
             return null;
         }

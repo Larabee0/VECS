@@ -1,7 +1,41 @@
-﻿using System.Numerics;
+﻿using System;
+using System.Numerics;
 
 namespace VECS.ECS.Presentation
 {
+    public readonly struct MainColourRenderBuffer : IRenderBuffer
+    {
+        public readonly static Type BufferElementType = typeof(Vector4);
+        public readonly static int ColourShaderPropertyId = "colourBuffer".GetShaderPropertyId();
+        public unsafe readonly static uint BufferElementSize = (uint)sizeof(Vector4);
+        public readonly Type ElementType => BufferElementType;
+
+        public readonly uint ElementSize => BufferElementSize;
+
+        public readonly int BufferShaderPropertyId => ColourShaderPropertyId;
+
+        public readonly int ComponentId => MainColour.ComponentId;
+
+        public readonly unsafe void CopyIn(void* ptr, IComponent component)
+        {
+            var cast = (MainColour)component;
+            ((Vector4*)ptr)[0] = cast.Value;
+        }
+
+        public readonly unsafe void DefaultIn(void* ptr)
+        {
+            ((Vector4*)ptr)[0] = Vector4.One;
+        }
+    }
+
+    public struct MainColour : IComponent
+    {
+        public static int ComponentId { get; set; }
+        public readonly int Id => ComponentId;
+
+        public Vector4 Value;
+    }
+
     public struct RenderMesh : IComponent
     {
         public static int ComponentId { get; set; }
@@ -9,7 +43,6 @@ namespace VECS.ECS.Presentation
 
         public DirectSubMeshIndex Mesh;
         public MaterialIndex Material;
-        public Vector4 Colour;
         public CullOverrides CullOverrides;
 #if DEBUG
         public readonly int MeshHash => Mesh.Hash;

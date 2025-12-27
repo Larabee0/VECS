@@ -45,7 +45,7 @@ namespace Planets
             ClipFar = 20000f,
             fustrumCulling = true,
             dstCull = true,
-            depthCull = true
+            depthCull = false
         };
 
 
@@ -340,7 +340,7 @@ namespace Planets
             }
 
             var engineRed = entityManager.GetComponent<RenderMesh>(children.Value[^1]);
-            engineRed.Colour = new Vector4(1, 0, 0, 1);
+            entityManager.AddComponent(children.Value[^1], new MainColour() { Value = new Vector4(1, 0, 0, 1) });
             engineRed.Material = new()
             {
                 Hash = EngineMaterials.UnlitTransparent.Hash,
@@ -530,7 +530,6 @@ namespace Planets
                     Variant = variant,
                     Entity = entityVariant
                 },
-                Colour = Vector4.One
             });
             entityManager.AddComponent(entity, mesh.GetSubMeshIndex());
         }

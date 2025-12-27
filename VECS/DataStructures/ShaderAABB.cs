@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 namespace VECS
 {
     [StructLayout(LayoutKind.Sequential, Size = 32)]
-    public struct ShaderAABB : IRenderBufferElement
+    public struct ShaderAABB
     {
         public Vector4 Min;
         public Vector4 Max;
