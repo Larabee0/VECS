@@ -99,7 +99,7 @@ namespace VECS
 
                 if (mul > 1)
                 {
-                    BufferSize += (uint)mul;
+                    BufferSize = minOffset * (uint)Math.Ceiling((float)BufferSize / (float)minOffset);
                 }
                 else
                 {
