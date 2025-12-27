@@ -64,7 +64,7 @@ namespace VECS
             //LoadDefaultResources();
 
 
-            //_bloom = new(ForwardRenderPass);
+            _bloom = new();
         }
 
 
@@ -279,14 +279,14 @@ namespace VECS
             //_bloom.BeginGlowPass(frameInfo);
             World.DefaultWorld.PresentBloomGlow(frameInfo);
             //EndRenderPass(commandBuffer);
-            //_bloom.BlurVertical(frameInfo);
+            _bloom.RenderBloomObjects(frameInfo);
 
             // forward pass
             _swapChain.BeginForwardRendering(commandBuffer);
             World.DefaultWorld.PresentFowardPassUpdate(frameInfo);
 
             // bloom late
-            //_bloom.BlurHorizontal(frameInfo);
+            _bloom.BlurHorizontal(frameInfo);
             _swapChain.EndForwardRendering(commandBuffer);
 
             DrawBlob.IndirectToComputeMemoryBarrierByMat(frameInfo.CommandBuffer);
@@ -349,8 +349,6 @@ namespace VECS
                     asset.Dispose();
                 }
             }
-
-            _bloom?.Dispose();
 
             _swapChainBufferDisposalQueue.ForEach(b => b.Item2?.Dispose());
             _swapChainBufferDisposalQueue.Clear();
