@@ -26,7 +26,7 @@ namespace VECS
             DepthAttachment = new("DepthAttacment",(int)winbdowExtents.width, (int)winbdowExtents.height, VkFormat.D32Sfloat);
         }
 
-        public unsafe void BeginForwardRendering(VkCommandBuffer commandBuffer)
+        public unsafe void BeginForwardRendering(VkCommandBuffer commandBuffer, VkAttachmentLoadOp colourLoad = VkAttachmentLoadOp.Clear)
         {
             MainColourAttachment.Target.SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.ColorAttachmentOutput);
             BrightObjectAttachment.Target.SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.ColorAttachmentOutput);
@@ -37,7 +37,7 @@ namespace VECS
                 {
                     imageView = MainColourAttachment.VkImageView,
                     imageLayout = MainColourAttachment.ImageLayout,
-                    loadOp = VkAttachmentLoadOp.Clear,
+                    loadOp = colourLoad,
                     storeOp = VkAttachmentStoreOp.Store,
                     clearValue = new(0, 0, 0, 1)
                 },
@@ -46,7 +46,7 @@ namespace VECS
                 {
                     imageView = BrightObjectAttachment.VkImageView,
                     imageLayout = BrightObjectAttachment.ImageLayout,
-                    loadOp = VkAttachmentLoadOp.Clear,
+                    loadOp = colourLoad,
                     storeOp = VkAttachmentStoreOp.Store,
                     clearValue = new(0, 0, 0, 1)
                 } 
@@ -128,18 +128,20 @@ namespace VECS
         public void BlitFromMainColour(VkCommandBuffer commandBuffer, VkImage dst, int dstWidth,int  dstHeight, VkImageAspectFlags dstAspectMask)
         {
             MainColourAttachment.Target.SetImageLayout(commandBuffer, VkImageLayout.TransferSrcOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.Blit);
-            BrightObjectAttachment.Target.SetImageLayout(commandBuffer, VkImageLayout.TransferSrcOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.Blit);
             
             BlitGeneric(commandBuffer, VkFilter.Linear, MainColourAttachment.GetBlitCmd(dstWidth, dstHeight, dstAspectMask), MainColourAttachment.VkImage, MainColourAttachment.ImageLayout, dst, VkImageLayout.TransferDstOptimal);
 
             MainColourAttachment.Target.SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.ColorAttachmentOutput);
-            BrightObjectAttachment.Target.SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.ColorAttachmentOutput);
 
         }
 
         public void BlitFromBrightObjects(VkCommandBuffer commandBuffer, VkImage dst, int dstWidth, int dstHeight, VkImageAspectFlags dstAspectMask)
         {
+            BrightObjectAttachment.Target.SetImageLayout(commandBuffer, VkImageLayout.TransferSrcOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.Blit);
+
             BlitGeneric(commandBuffer, VkFilter.Linear, BrightObjectAttachment.GetBlitCmd(dstWidth, dstHeight, dstAspectMask), BrightObjectAttachment.VkImage, BrightObjectAttachment.ImageLayout, dst, VkImageLayout.TransferDstOptimal);
+
+            BrightObjectAttachment.Target.SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.ColorAttachmentOutput);
         }
 
         public static unsafe void BlitGeneric(VkCommandBuffer commandBuffer, VkFilter blitFilter, VkImageBlit blit, VkImage src, VkImageLayout srcLayout, VkImage dst, VkImageLayout dstLayout)

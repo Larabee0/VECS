@@ -1,67 +1,45 @@
-﻿using VECS.GraphicsPipelines;
+﻿using System;
+using VECS.GraphicsPipelines;
+using VECS.Presentation;
 using Vortice.Vulkan;
 
 namespace VECS.LowLevel
 {
     public sealed class Bloom
     {
-        private readonly struct FBTexture
-        {
-            public readonly Texture2D Colour;
-            public readonly Texture2D DepthStencil;
-
-            public unsafe FBTexture(string name,VkFormat depthFormat)
-            {
-                Colour = new(string.Format("{0}.Colour",name),
-                    FRAME_BUFFER_DIMENTIONS,FRAME_BUFFER_DIMENTIONS,
-                    VkFormat.R32G32B32A32Sfloat,
-                    VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferDst,
-                    false);
-
-                DepthStencil = new(string.Format("{0}.DepthStencil",name),
-                    FRAME_BUFFER_DIMENTIONS,FRAME_BUFFER_DIMENTIONS,
-                    depthFormat,VkImageUsageFlags.DepthStencilAttachment,
-                    false);
-
-                DepthStencil.SetImageLayout(VkImageLayout.DepthStencilAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.EarlyFragmentTests);
-            }
-        }
-
-        private const int FRAME_BUFFER_DIMENTIONS = 256;
+        private const int FRAME_BUFFER_MAX_RES = 256;
+        private int FRAME_BUFFER_DIMENTIONS_X = 256;
+        private int FRAME_BUFFER_DIMENTIONS_Y = 256;
         private readonly static int SampleColourId = "samplerColor".GetShaderPropertyId();
         private readonly Material _blurMat;
 
-        private readonly FBTexture _framebufferGlow;
-        private readonly FBTexture _framebufferBlur;
+        private Texture2D _glowTexture;
+        private Texture2D _blurTexture;
+        private Texture2D _depthAttachment;
 
-        private readonly VkRect2D _scissor = new()
+        private VkRect2D Scissor => new()
         {
             offset = new VkOffset2D(0, 0),
-            extent = new(FRAME_BUFFER_DIMENTIONS, FRAME_BUFFER_DIMENTIONS)
+            extent = new(FRAME_BUFFER_DIMENTIONS_X, FRAME_BUFFER_DIMENTIONS_Y)
         };
-        private readonly VkViewport _viewPort = new()
+        private VkViewport ViewPort => new()
         {
             x = 0,
-            y = FRAME_BUFFER_DIMENTIONS,
-            width = FRAME_BUFFER_DIMENTIONS,
-            height = -FRAME_BUFFER_DIMENTIONS,
+            y = FRAME_BUFFER_DIMENTIONS_Y,
+            width = FRAME_BUFFER_DIMENTIONS_X,
+            height = -FRAME_BUFFER_DIMENTIONS_Y,
             minDepth = 0,
             maxDepth = 1,
         };
 
         private readonly VkClearValue _depthClear = new(1, 0);
         private readonly VkClearValue _colourClear = new(0, 0, 0, 1);
+        
+        private VkRenderingAttachmentInfo _depthAttachmentInfo;
 
         public unsafe Bloom()
         {
-            var depthFormat = VkFormat.D32Sfloat;
-
-
-            _framebufferGlow = new("BloomGlow",depthFormat);
-            _framebufferBlur = new("BloomBlur",depthFormat);
-
             var blurConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
-            // blurConfig.colourFormats = [_framebufferGlow.Colour.Format];
             var blendAttachment = blurConfig.colourBlendAttachment;
             blendAttachment.colorWriteMask = VkColorComponentFlags.All;
             blendAttachment.blendEnable = true;
@@ -72,55 +50,105 @@ namespace VECS.LowLevel
             blendAttachment.srcAlphaBlendFactor = VkBlendFactor.SrcAlpha;
             blendAttachment.dstAlphaBlendFactor = VkBlendFactor.DstAlpha;
             blurConfig.colourBlendAttachment = blendAttachment;
-            blurConfig.colourFormats[0] = _framebufferGlow.Colour.Format;
+            blurConfig.colourFormats[0] = VkFormat.R32G32B32A32Sfloat;
 
             _blurMat = new Material("VerticalGaussBlur","gaussblur.vert", "gaussblur.frag", blurConfig);
 
-            _blurMat.SetTexture(SampleColourId, 0, _framebufferGlow.Colour);
             _blurMat.PushConstants.SetPushConstantInt("blurdirection",0, 0);
             _blurMat.PushConstants.SetPushConstantFloat("blurScale", 0, 1);
             _blurMat.PushConstants.SetPushConstantFloat("blurStrength", 0, 1.5f);
 
-            _blurMat.SetTexture(SampleColourId, 1, _framebufferBlur.Colour);
             _blurMat.PushConstants.SetPushConstantInt("blurdirection", 1, 1);
             _blurMat.PushConstants.SetPushConstantFloat("blurScale", 1, 1);
             _blurMat.PushConstants.SetPushConstantFloat("blurStrength", 1, 1.5f);
+            
+            RecreateAttachments();
+        }
 
+        public void RecreateAttachments()
+        {
+            _glowTexture?.Dispose();
+            _blurTexture?.Dispose();
+            _depthAttachment?.Dispose();
+
+
+            var winbdowExtents = SwapChain.Instance._windowExtent;
+
+            FRAME_BUFFER_DIMENTIONS_X = FRAME_BUFFER_MAX_RES;
+            FRAME_BUFFER_DIMENTIONS_Y = FRAME_BUFFER_MAX_RES;
+
+            if (winbdowExtents.height > winbdowExtents.width)
+            {
+                FRAME_BUFFER_DIMENTIONS_X = (int)(((float)winbdowExtents.width / (float)winbdowExtents.height) * FRAME_BUFFER_MAX_RES);
+            }
+            else
+            {
+                FRAME_BUFFER_DIMENTIONS_Y = (int)(((float)winbdowExtents.height / (float)winbdowExtents.width) * FRAME_BUFFER_MAX_RES);
+            }
+
+
+            _glowTexture = new(string.Format("Bloom_Glow_{0}", Presenter.FrameCount),
+                    FRAME_BUFFER_DIMENTIONS_X, FRAME_BUFFER_DIMENTIONS_Y,
+                    VkFormat.R32G32B32A32Sfloat,
+                    VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferDst,
+                    VkSamplerAddressMode.ClampToEdge,
+                    false);
+            _blurTexture = new(string.Format("Bloom_Blur_{0}", Presenter.FrameCount),
+                    FRAME_BUFFER_DIMENTIONS_X, FRAME_BUFFER_DIMENTIONS_Y,
+                    VkFormat.R32G32B32A32Sfloat,
+                    VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferDst,
+                    VkSamplerAddressMode.ClampToEdge,
+                    false);
+
+            _depthAttachment = new(string.Format("Bloom_Depth_{0}", Presenter.FrameCount),
+                    FRAME_BUFFER_DIMENTIONS_X, FRAME_BUFFER_DIMENTIONS_Y,
+                    VkFormat.D32Sfloat, VkImageUsageFlags.DepthStencilAttachment,
+                    false);
+
+            _depthAttachment.SetImageLayout(VkImageLayout.DepthStencilAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.EarlyFragmentTests);
+
+            _blurMat.SetTexture(SampleColourId, 0, _glowTexture);
+            _blurMat.SetTexture(SampleColourId, 1, _blurTexture);
+            _depthAttachmentInfo = new()
+            {
+                imageView = _depthAttachment._imageView,
+                loadOp = VkAttachmentLoadOp.Clear,
+                storeOp = VkAttachmentStoreOp.DontCare,
+                imageLayout = VkImageLayout.DepthStencilAttachmentOptimal,
+                clearValue = _depthClear
+            };
         }
 
         public unsafe void RenderBloomObjects(RendererFrameInfo frameInfo)
         {
-            _framebufferGlow.Colour.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
-            BeginRenderPassInternal(frameInfo, _framebufferGlow);
-            GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
+            // copy forward output into glow texture
             var forwardRenderer = Presenter.Instance.ForwardRenderer;
-            _framebufferGlow.Colour.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.TransferDstOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.Blit);
-            forwardRenderer.BlitFromMainColour(frameInfo.CommandBuffer, _framebufferGlow.Colour._vkImage, FRAME_BUFFER_DIMENTIONS, FRAME_BUFFER_DIMENTIONS, VkImageAspectFlags.Color);
 
-            _framebufferGlow.Colour.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.ColorAttachmentOutput);
+            _glowTexture.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.TransferDstOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.Blit);
+
+            forwardRenderer.BlitFromBrightObjects(frameInfo.CommandBuffer, _glowTexture._vkImage, FRAME_BUFFER_DIMENTIONS_X, FRAME_BUFFER_DIMENTIONS_Y, VkImageAspectFlags.Color);
+
+            _glowTexture.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.ColorAttachmentOutput);
+
+            //blur glow, store in blur texture
             BlurVertical(frameInfo);
-        }
 
-        private unsafe void BeginGlowPass(RendererFrameInfo frameInfo)
-        {
-            _framebufferGlow.Colour.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
-            BeginRenderPassInternal(frameInfo,_framebufferGlow);
-        }
+            // blur horizontal store in forward output
+            forwardRenderer.BeginForwardRendering(frameInfo.CommandBuffer, VkAttachmentLoadOp.Load);
 
-        private unsafe void EndGlowPass(RendererFrameInfo frameInfo)
-        {
-            GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
-            _framebufferGlow.Colour.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.FragmentShader);
+            BlurHorizontal(frameInfo);
+
+            forwardRenderer.EndForwardRendering(frameInfo.CommandBuffer);
         }
 
         private unsafe void BlurVertical(RendererFrameInfo frameInfo)
         {
-            _framebufferBlur.Colour.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
-            BeginRenderPassInternal(frameInfo, _framebufferBlur);
+            _blurTexture.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
+            BeginRenderPassInternal(frameInfo, _blurTexture);
             _blurMat.BindAll(frameInfo, 0);
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
-            _framebufferBlur.Colour.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.FragmentShader);
+            _blurTexture.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.FragmentShader);
         }
 
         public unsafe void BlurHorizontal(RendererFrameInfo frameInfo)
@@ -129,51 +157,43 @@ namespace VECS.LowLevel
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
         }
 
-        private unsafe void BeginRenderPassInternal(RendererFrameInfo frameInfo, FBTexture attachments)
+        private unsafe void BeginRenderPassInternal(RendererFrameInfo frameInfo, Texture2D colourAttachments)
         {
-
             VkRenderingAttachmentInfo* colourAttachmentInfo =  stackalloc VkRenderingAttachmentInfo[]
             {
                 new()
                 {
-                    imageView = attachments.Colour._imageView,
+                    imageView = colourAttachments._imageView,
                     loadOp = VkAttachmentLoadOp.Clear,
                     storeOp = VkAttachmentStoreOp.Store,
-                    imageLayout = attachments.Colour.ImageLayout,
+                    imageLayout = colourAttachments.ImageLayout,
                     clearValue = _colourClear
                 },
                 new()
                 {
-                    imageView = attachments.Colour._imageView,
+                    imageView = colourAttachments._imageView,
                     loadOp = VkAttachmentLoadOp.Clear,
                     storeOp = VkAttachmentStoreOp.Store,
-                    imageLayout = attachments.Colour.ImageLayout,
+                    imageLayout = colourAttachments.ImageLayout,
                     clearValue = _colourClear
                 }
             };
 
-            VkRenderingAttachmentInfo depthAttachmentInfo = new()
-            {
-                imageView = attachments.DepthStencil._imageView,
-                loadOp = VkAttachmentLoadOp.Clear,
-                storeOp = VkAttachmentStoreOp.DontCare,
-                imageLayout = attachments.DepthStencil.ImageLayout,
-                clearValue = _depthClear
-            };
 
+            var depthAttachment = _depthAttachmentInfo;
             VkRenderingInfo renderingInfo = new()
             {
                 colorAttachmentCount = 2,
-                pDepthAttachment = &depthAttachmentInfo,
+                pDepthAttachment = &depthAttachment,
                 pColorAttachments = colourAttachmentInfo,
                 layerCount = 1,
-                renderArea = new(0,0, FRAME_BUFFER_DIMENTIONS, FRAME_BUFFER_DIMENTIONS),
+                renderArea = new(0,0, (uint)FRAME_BUFFER_DIMENTIONS_X, (uint)FRAME_BUFFER_DIMENTIONS_Y),
                 flags = VkRenderingFlags.ContentsInlineKHR
             };
 
             GraphicsDevice.DeviceAPI.vkCmdBeginRendering(frameInfo.CommandBuffer, &renderingInfo);
-            GraphicsDevice.DeviceAPI.vkCmdSetViewport(frameInfo.CommandBuffer, 0, _viewPort);
-            GraphicsDevice.DeviceAPI.vkCmdSetScissor(frameInfo.CommandBuffer, 0, _scissor);
+            GraphicsDevice.DeviceAPI.vkCmdSetViewport(frameInfo.CommandBuffer, 0, ViewPort);
+            GraphicsDevice.DeviceAPI.vkCmdSetScissor(frameInfo.CommandBuffer, 0, Scissor);
         }
     }
 }

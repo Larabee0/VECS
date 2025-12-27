@@ -149,7 +149,7 @@ namespace VECS.Presentation
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static uint PreviousPow2(uint v)
+        public static uint PreviousPow2(uint v)
         {
             uint r = 1;
             while (r * 2 < v)

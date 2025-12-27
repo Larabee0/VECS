@@ -22,18 +22,9 @@ namespace VECS.LowLevel
         public static int NextFrame => (_currentFrame + 1) % MAX_CONCURRENT_FRAMES;
         public static uint ImageIndex => _currentImage;
 
-        public static VkViewport Viewport = new();
+        internal static VkViewport Viewport = new();
 
-        public static VkRect2D Scissor = new();
-
-        // internal VkFormat RenderFormat => RawRenderImage.Format;
-        // internal VkFormat DepthFormat => DepthImage.Format;
-
-        // internal Texture2D[] _rawRenderImage = new Texture2D[MAX_CONCURRENT_FRAMES];
-        // internal Texture2D[] _depthImage = new Texture2D[MAX_CONCURRENT_FRAMES];
-
-        // internal Texture2D RawRenderImage => _rawRenderImage[_currentFrame];
-        // internal Texture2D DepthImage => _depthImage[_currentFrame];
+        internal static VkRect2D Scissor = new();
 
         internal VkImageBlit _copyToSwapChainBlit;
 
@@ -182,123 +173,6 @@ namespace VECS.LowLevel
             GraphicsDevice.DeviceAPI.vkResetFences(GraphicsDevice.Device, fence).CheckResult( "Failed to reset fence ");
         }
 
-        /*
-        public unsafe void BeginForwardDepth(VkCommandBuffer commandBuffer)
-        {
-            VkRenderingAttachmentInfo depth = new()
-            {
-                imageView = DepthImage._imageView,
-                imageLayout = DepthImage.ImageLayout,
-                loadOp = VkAttachmentLoadOp.Clear,
-                storeOp = VkAttachmentStoreOp.Store,
-                clearValue = new(1, 0)
-            };
-            VkRenderingInfo renderingInfo = new()
-            {
-                renderArea = new(0, 0, _swapChainExtent.width, _swapChainExtent.height),
-                layerCount = 1,
-                colorAttachmentCount = 0,
-                pDepthAttachment = &depth,
-                flags = VkRenderingFlags.ContentsInlineKHR | VkRenderingFlags.ContentsSecondaryCommandBuffers
-            };
-            GraphicsDevice.DeviceAPI.vkCmdBeginRendering(commandBuffer, &renderingInfo);
-
-            SetViewPort(commandBuffer);
-        }
-
-        public unsafe void BeginForwardRendering(VkCommandBuffer commandBuffer)
-        {
-            VkRenderingAttachmentInfo colour = new()
-            {
-                imageView = RawRenderImage._imageView,
-                imageLayout = RawRenderImage.ImageLayout,
-                loadOp = VkAttachmentLoadOp.Clear,
-                storeOp = VkAttachmentStoreOp.Store,
-                clearValue = new(0, 0, 0, 1)
-            };
-
-            VkRenderingAttachmentInfo depth = new()
-            {
-                imageView = DepthImage._imageView,
-                imageLayout = DepthImage.ImageLayout,
-                loadOp = VkAttachmentLoadOp.Load,
-                storeOp = VkAttachmentStoreOp.Store,
-                //clearValue = new(0, 0)
-            };
-
-            VkRenderingInfo renderingInfo = new()
-            {
-                renderArea = new(0, 0, _swapChainExtent.width, _swapChainExtent.height),
-                layerCount = 1,
-                colorAttachmentCount = 1,
-                pColorAttachments = &colour,
-                pDepthAttachment = &depth,
-                flags = VkRenderingFlags.ContentsInlineKHR | VkRenderingFlags.ContentsSecondaryCommandBuffers
-            };
-            GraphicsDevice.DeviceAPI.vkCmdBeginRendering(commandBuffer, &renderingInfo);
-
-            SetViewPort(commandBuffer);
-        }
-
-        public void EndForwardRendering(VkCommandBuffer commandBuffer)
-        {
-            GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
-        }
-        
-        public void EndForwardDepthRendering(VkCommandBuffer commandBuffer)
-        {
-            GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
-            // PLEASE TRY REMOVING THIS BARRIER ON NV TO SEE IF IT CASUES FLICKERING
-            uint graphicsFamily = GraphicsDevice.PhysicalQueueFamilies.graphicsFamily;
-            
-            MemoryBarrierHelper.ImageMemoryBarrier(commandBuffer,
-                DepthImage._vkImage,
-                DepthImage.GetSubresourceRange(),
-                VkPipelineStageFlags2.EarlyFragmentTests | VkPipelineStageFlags2.LateFragmentTests,
-                VkAccessFlags2.DepthStencilAttachmentRead | VkAccessFlags2.DepthStencilAttachmentWrite,
-                VkPipelineStageFlags2.EarlyFragmentTests | VkPipelineStageFlags2.LateFragmentTests,
-                VkAccessFlags2.DepthStencilAttachmentRead | VkAccessFlags2.DepthStencilAttachmentWrite,
-                VkImageLayout.DepthStencilAttachmentOptimal,
-                VkImageLayout.DepthStencilAttachmentOptimal,
-                graphicsFamily, graphicsFamily
-            );
-        }
-
-        
-        internal unsafe void CopyRenderToSwapChain(VkCommandBuffer commandBuffer,int frameIndex, int imageIndex)
-        {
-            var swapChainImage = _swapChainImages[imageIndex];
-            var renderImage = _rawRenderImage[frameIndex];
-
-            renderImage.SetImageLayout(commandBuffer, VkImageLayout.TransferSrcOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.Blit);
-
-            // done at as first command in graphics pipe by TransferSwapChainImageToGraphicsQueue
-            //TextureExtensions.SetImageLayout(commandBuffer, swapChainImage, VkImageAspectFlags.Color, VkImageLayout.PresentSrcKHR, VkImageLayout.TransferDstOptimal, VkPipelineStageFlags.AllCommands, VkPipelineStageFlags.AllCommands);
-
-            var blit = _copyToSwapChainBlit;
-
-            GraphicsDevice.DeviceAPI.vkCmdBlitImage(
-                commandBuffer,
-                renderImage._vkImage,
-                renderImage.ImageLayout,
-                swapChainImage,
-                VkImageLayout.TransferDstOptimal,
-                1,
-                &blit,
-                VkFilter.Linear
-            );
-
-            renderImage.SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.ColorAttachmentOutput);
-            //renderImage.SetImageLayout(commandBuffer, VkImageLayout.DepthStencilAttachmentOptimal);
-
-            // replaced by TransferSwapChainImageToPresentQueue
-            //TextureExtensions.SetImageLayout(commandBuffer, swapChainImage, VkImageAspectFlags.Color, VkImageLayout.TransferDstOptimal, VkImageLayout.PresentSrcKHR, VkPipelineStageFlags.AllCommands, VkPipelineStageFlags.AllCommands);
-            TransferSwapChainImageToPresentQueue(commandBuffer, frameIndex, imageIndex);
-        }
-
-
-        */
-
         public static void SetViewPort(VkCommandBuffer commandBuffer)
         {
             GraphicsDevice.DeviceAPI.vkCmdSetViewport(commandBuffer, 0, Viewport);
@@ -427,12 +301,6 @@ namespace VECS.LowLevel
                 GraphicsDevice.DeviceAPI.vkDestroySwapchainKHR(GraphicsDevice.Device, _swapChain);
                 _swapChain = VkSwapchainKHR.Null;
             }
-
-            // for (int i = 0; i < MAX_CONCURRENT_FRAMES; i++)
-            // {
-            //     _rawRenderImage[i].Dispose();
-            //     _depthImage[i].Dispose();
-            // }
 
             for (int i = 0; i < SWAP_CHAIN_IMAGE_COUNT; i++)
             {

@@ -65,10 +65,6 @@ namespace VECS
             RecreateSwapChain();
             _shadowCubeMap = new();
             Instance = this;
-            //LoadDefaultResources();
-
-
-            _bloom = new();
         }
 
 
@@ -87,6 +83,7 @@ namespace VECS
                 GraphicsDevice.CreateCommandBuffers();
                 GraphicsDevice.DeviceWaitIdle();
                 _forwardRenderer = new ForwardRenderer();
+                _bloom = new();
             }
             else
             {
@@ -99,6 +96,7 @@ namespace VECS
                     throw new Exception("Swap chain image(or depth) format has changed!");
                 }
                 _forwardRenderer.RecreateAttachments();
+                _bloom.RecreateAttachments();
                 GraphicsDevice.FreeCommandBuffers();
                 GraphicsDevice.CreateCommandBuffers();
                 GraphicsDevice.DeviceWaitIdle();
@@ -280,22 +278,17 @@ namespace VECS
             // shadows
             World.DefaultWorld.PresentPreForwardPassUpdate(frameInfo);
 
-            //Bloom early
-            //_bloom.BeginGlowPass(frameInfo);
             World.DefaultWorld.PresentBloomGlow(frameInfo);
-            //EndRenderPass(commandBuffer);
 
             // forward pass
             _forwardRenderer.BeginForwardRendering(commandBuffer);
+
             World.DefaultWorld.PresentFowardPassUpdate(frameInfo);
 
             _forwardRenderer.EndForwardRendering(commandBuffer);
+            
+            //Bloom
             _bloom.RenderBloomObjects(frameInfo);
-
-            // bloom late
-            _forwardRenderer.BeginForwardRendering(commandBuffer);
-            _bloom.BlurHorizontal(frameInfo);
-            _forwardRenderer.EndForwardRendering(commandBuffer);
 
             DrawBlob.IndirectToComputeMemoryBarrierByMat(frameInfo.CommandBuffer);
 
