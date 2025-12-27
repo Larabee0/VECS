@@ -95,7 +95,7 @@ namespace VECS.ECS.Presentation
             EngineMaterials.ShadowOffscreen.PushConstants.SetPushConstantMatrix4x4("viewCube", i, viewMatrix);
 
 
-            //DrawBlob.CullAllInOne(frameInfo, internalBuffer, cullDataInternal);
+            DrawBlob.CullAllInOne(frameInfo, internalBuffer, cullDataInternal);
             
             Presenter.Instance.ShadowImage.UpdateCubeFace(i, internalBuffer);
 

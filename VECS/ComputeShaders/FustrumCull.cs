@@ -12,7 +12,7 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
-    [StructLayout(LayoutKind.Sequential, Size = 136)]
+    [StructLayout(LayoutKind.Sequential, Size = 200)]
     public struct CullData
     {
         public Vector4 left;
@@ -114,12 +114,13 @@ namespace VECS
     public static class FustrumCull
     {
 #if DEBUG
-        public const bool CPUCulling = true;
+        public const bool CPUCulling = false;
 #endif
 
         private static readonly int BoundsBufferId = "boundsBuffer".GetShaderPropertyId();
         private static readonly int DrawBufferId = "drawBuffer".GetShaderPropertyId();
         private static readonly int DepthPyramidId = "depthPyramid".GetShaderPropertyId();
+        private static readonly int CullDataId = "cullData".GetShaderPropertyId();
 
 
         private static readonly ComputeShader _computeShader;
@@ -171,7 +172,8 @@ namespace VECS
             bounds.SetUsedInstanceCount(drawCount);
             drawIndirect.SetUsedInstanceCount(drawCount);
             cullData.drawCount = drawCount;
-            cullData.SetPushConstant(_computeShader.PushConstantsHandler, (int)setId);
+            //cullData.SetPushConstant(_computeShader.PushConstantsHandler, (int)setId);
+            _computeShader.SetUniform(CullDataId, setId, cullData);
             _computeShader.SetStorageBuffer(DrawBufferId, setId, drawIndirect);
             _computeShader.SetStorageBuffer(BoundsBufferId, setId, bounds);
             _computeShader.SetTexture(DepthPyramidId, setId, DepthReduction.DepthPryamid);
@@ -206,8 +208,8 @@ namespace VECS
                     if (cullData.depthCulling != 0 && DepthProj(boundsSpan[i], cullData.View, cullData.zNear, cullData.P00, cullData.P11, out var aabb, out float radius))
                     {
                         var center = Vector3.Transform(boundsInternal.Center, cullData.View);
-                        float width = ((aabb.Z - aabb.X) * cullData.pyramid.X);
-                        float height = ((aabb.W - aabb.Y) * cullData.pyramid.Y);
+                        float width = MathF.Abs((aabb.Z - aabb.X) * cullData.pyramid.X);
+                        float height = MathF.Abs((aabb.W - aabb.Y) * cullData.pyramid.Y);
                         float level = Math.Min(9, MathF.Floor(MathF.Log2(Math.Max(width, height))));
                         Vector2 uv = (new Vector2(aabb.X, aabb.Y) + new Vector2(aabb.Z, aabb.W)) * 0.5f;
                         uv.X = 1.0f - uv.X;

@@ -45,7 +45,7 @@ namespace VECS.ECS.Presentation
             var depthBufferCullInfo = frameInfo.CullData;
             depthBufferCullInfo.depthCulling = 0;
 
-            //DrawBlob.CullAllInOne(frameInfo, depthBufferCullInfo);
+            DrawBlob.CullAllInOne(frameInfo, depthBufferCullInfo);
         }
 
         public unsafe override void OnPreForwardPass(EntityManager entityManager, RendererFrameInfo frameInfo)

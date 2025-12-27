@@ -224,6 +224,12 @@ namespace VECS
             WriteToBuffer(property, variant, value);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetUniform<T>(int propertyId, uint variant, T value) where T : unmanaged
+        {
+            WriteToBuffer(propertyId, variant, value);
+        }
+
         public void WriteToBuffer<T>(string property, uint variant, T value) where T : unmanaged
         {
             if(LookUpProperty(property,out var propertyInfo))

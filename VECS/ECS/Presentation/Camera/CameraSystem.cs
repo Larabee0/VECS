@@ -111,6 +111,12 @@ namespace VECS.ECS.Presentation
         private static void UpdatePerspectiveCamera(EntityManager entityManager, Entity entity, float aspect)
         {
             var perCam = entityManager.GetComponent<CameraPerspective>(entity);
+            if (InputManager.Instance.GetKeyDown(SDL_Keycode.F7))
+            {
+                perCam.depthCull = !perCam.depthCull;
+                Console.WriteLine("Depth culling {0} {1}", perCam.depthCull, entity.Id);
+                entityManager.SetComponent(entity, perCam);
+            }
             var camera = new Camera()
             {
                 ProjectionMatrix = GetPerspectiveProject(perCam, aspect),
@@ -121,6 +127,7 @@ namespace VECS.ECS.Presentation
                 ClipNear = perCam.ClipNear,
                 ClipFar = perCam.ClipFar,
             };
+
 
             Matrix4x4.Invert(camera.ViewMatrix, out camera.InverseViewMatrix);
 
