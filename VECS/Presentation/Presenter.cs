@@ -284,13 +284,16 @@ namespace VECS
             //_bloom.BeginGlowPass(frameInfo);
             World.DefaultWorld.PresentBloomGlow(frameInfo);
             //EndRenderPass(commandBuffer);
-            _bloom.RenderBloomObjects(frameInfo);
 
             // forward pass
             _forwardRenderer.BeginForwardRendering(commandBuffer);
             World.DefaultWorld.PresentFowardPassUpdate(frameInfo);
 
+            _forwardRenderer.EndForwardRendering(commandBuffer);
+            _bloom.RenderBloomObjects(frameInfo);
+
             // bloom late
+            _forwardRenderer.BeginForwardRendering(commandBuffer);
             _bloom.BlurHorizontal(frameInfo);
             _forwardRenderer.EndForwardRendering(commandBuffer);
 
