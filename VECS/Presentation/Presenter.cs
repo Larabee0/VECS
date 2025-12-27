@@ -19,10 +19,10 @@ namespace VECS
 
         private readonly IWindow _window;
         private SwapChain _swapChain;
-        private ForwardRenderer _forwardRenderer;
         private bool _isFrameStarted = false;
-        private readonly ShadowImage _shadowCubeMap;
-        private readonly Bloom _bloom;
+        private ForwardRenderer _forwardRenderer;
+        private ShadowImage _shadowCubeMap;
+        private Bloom _bloom;
         private static ulong _frameCount;
 
         public ForwardRenderer ForwardRenderer => _forwardRenderer;
@@ -62,11 +62,9 @@ namespace VECS
         public Presenter(IWindow window)
         {
             _window = window;
-            RecreateSwapChain();
-            _shadowCubeMap = new();
             Instance = this;
+            RecreateSwapChain();
         }
-
 
         private void RecreateSwapChain()
         {
@@ -83,6 +81,7 @@ namespace VECS
                 GraphicsDevice.CreateCommandBuffers();
                 GraphicsDevice.DeviceWaitIdle();
                 _forwardRenderer = new ForwardRenderer();
+                _shadowCubeMap = new();
                 _bloom = new();
             }
             else
