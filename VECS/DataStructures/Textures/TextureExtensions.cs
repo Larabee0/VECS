@@ -531,13 +531,14 @@ namespace VECS
                     }
                 };
 
-                imageBlit.srcOffsets[1].x = (int)(texture.ImageExtent.width >> (int)(i - 1));
-                imageBlit.srcOffsets[1].y = (int)(texture.ImageExtent.height >> (int)(i - 1));
+                imageBlit.srcOffsets[1].x = Math.Max(1, (int)(texture.ImageExtent.width >> (int)(i - 1)));
+                imageBlit.srcOffsets[1].y = Math.Max(1, (int)(texture.ImageExtent.height >> (int)(i - 1)));
                 imageBlit.srcOffsets[1].z = 1;
 
-                imageBlit.dstOffsets[1].x = (int)(texture.ImageExtent.width >> (int)i);
-                imageBlit.dstOffsets[1].y = (int)(texture.ImageExtent.height >> (int)i);
+                imageBlit.dstOffsets[1].x = Math.Max(1, (int)(texture.ImageExtent.width >> (int)i));
+                imageBlit.dstOffsets[1].y = Math.Max(1, (int)(texture.ImageExtent.height >> (int)i));
                 imageBlit.dstOffsets[1].z = 1;
+
 
                 VkImageSubresourceRange mipSubRange = new(
                     subresourceRange.aspectMask,
