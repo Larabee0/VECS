@@ -28,12 +28,12 @@ namespace VECS.LowLevel
             CreateSwapChain(oldSwapChain, newSwapChain);
             CreateSwapChainImageViews(newSwapChain);
 
-            CreateRenderImage(newSwapChain);
-            CreateDepthImage(newSwapChain);
+            // CreateRenderImage(newSwapChain);
+            // CreateDepthImage(newSwapChain);
 
             SetImageLayouts(newSwapChain);
 
-            CreateAdditionalSamplers(newSwapChain);
+            // CreateAdditionalSamplers(newSwapChain);
 
             CreateSyncObjects(newSwapChain);
 
@@ -138,22 +138,22 @@ namespace VECS.LowLevel
         private static unsafe void CreateRenderImage(SwapChain swapChain)
         {
             uint[] queueIndices = [GraphicsDevice.PhysicalQueueFamilies.presentFamily, GraphicsDevice.PhysicalQueueFamilies.graphicsFamily];
-            for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
-            {
-                if (GraphicsDevice.PresentQueue != GraphicsDevice.MainQueue)
-                {
-                    swapChain._rawRenderImage[i] = new(string.Format("_rawRenderImage_{0}", i), (int)swapChain._windowExtent.width, (int)swapChain._windowExtent.height, VkFormat.R32G32B32A32Sfloat, VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled, queueIndices, false);
-                }
-                else
-                {
-                    swapChain._rawRenderImage[i] = new(string.Format("_rawRenderImage_{0}", i), (int)swapChain._windowExtent.width, (int)swapChain._windowExtent.height, VkFormat.R32G32B32A32Sfloat, VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled, false);
-                }
-            }
+            // for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
+            // {
+            //     if (GraphicsDevice.PresentQueue != GraphicsDevice.MainQueue)
+            //     {
+            //         swapChain._rawRenderImage[i] = new(string.Format("_rawRenderImage_{0}", i), (int)swapChain._windowExtent.width, (int)swapChain._windowExtent.height, VkFormat.R32G32B32A32Sfloat, VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled, queueIndices, false);
+            //     }
+            //     else
+            //     {
+            //         swapChain._rawRenderImage[i] = new(string.Format("_rawRenderImage_{0}", i), (int)swapChain._windowExtent.width, (int)swapChain._windowExtent.height, VkFormat.R32G32B32A32Sfloat, VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled, false);
+            //     }
+            // }
             swapChain._copyToSwapChainBlit = new()
             {
                 srcSubresource = new()
                 {
-                    aspectMask = swapChain.RawRenderImage._aspectFlags,
+                    //aspectMask = swapChain.RawRenderImage._aspectFlags,
                     layerCount = 1,
                     mipLevel = 0,
 
@@ -166,8 +166,8 @@ namespace VECS.LowLevel
                 }
             };
 
-            swapChain._copyToSwapChainBlit.srcOffsets[1].x = swapChain.RawRenderImage.Width;
-            swapChain._copyToSwapChainBlit.srcOffsets[1].y = swapChain.RawRenderImage.Height;
+            // swapChain._copyToSwapChainBlit.srcOffsets[1].x = swapChain.RawRenderImage.Width;
+            // swapChain._copyToSwapChainBlit.srcOffsets[1].y = swapChain.RawRenderImage.Height;
             swapChain._copyToSwapChainBlit.srcOffsets[1].z = 1;
 
             swapChain._copyToSwapChainBlit.dstOffsets[1].x = (int)swapChain.SwapChainExtent.width;
@@ -181,17 +181,17 @@ namespace VECS.LowLevel
         {
             var _depthFormat = VkFormat.D32Sfloat;
             uint[] queueIndices = [GraphicsDevice.PhysicalQueueFamilies.presentFamily, GraphicsDevice.PhysicalQueueFamilies.graphicsFamily];
-            for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
-            {
-                if (GraphicsDevice.PresentQueue != GraphicsDevice.MainQueue)
-                {
-                    swapChain._depthImage[i] = new(string.Format("_depthImage_{0}", i), (int)swapChain._windowExtent.width, (int)swapChain._windowExtent.height, _depthFormat, VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferSrc, queueIndices, false);
-                }
-                else
-                {
-                    swapChain._depthImage[i] = new(string.Format("_depthImage_{0}", i), (int)swapChain._windowExtent.width, (int)swapChain._windowExtent.height, _depthFormat, VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferSrc, false);
-                }
-            }
+            // for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
+            // {
+            //     if (GraphicsDevice.PresentQueue != GraphicsDevice.MainQueue)
+            //     {
+            //         swapChain._depthImage[i] = new(string.Format("_depthImage_{0}", i), (int)swapChain._windowExtent.width, (int)swapChain._windowExtent.height, _depthFormat, VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferSrc, queueIndices, false);
+            //     }
+            //     else
+            //     {
+            //         swapChain._depthImage[i] = new(string.Format("_depthImage_{0}", i), (int)swapChain._windowExtent.width, (int)swapChain._windowExtent.height, _depthFormat, VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferSrc, false);
+            //     }
+            // }
             
         }
 
@@ -202,11 +202,11 @@ namespace VECS.LowLevel
             {
                 MemoryBarrierHelper.SetImageLayout(commandBuffer, swapChain._swapChainImages[i], VkImageAspectFlags.Color, VkImageLayout.Undefined, VkImageLayout.PresentSrcKHR, VkPipelineStageFlags2.TopOfPipe, VkPipelineStageFlags2.Blit);
             }
-            for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
-            {
-                swapChain._rawRenderImage[i].SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.ColorAttachmentOutput);
-                swapChain._depthImage[i].SetImageLayout(commandBuffer, VkImageLayout.DepthStencilAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.EarlyFragmentTests);
-            }
+            // for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
+            // {
+            //     swapChain._rawRenderImage[i].SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.ColorAttachmentOutput);
+            //     swapChain._depthImage[i].SetImageLayout(commandBuffer, VkImageLayout.DepthStencilAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.EarlyFragmentTests);
+            // }
             GraphicsDevice.EndSingleTimeMainPipe(commandBuffer);
 
             GraphicsDevice.DeviceWaitIdle();
@@ -248,11 +248,11 @@ namespace VECS.LowLevel
 
             };
 
-            for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
-            {
-                swapChain._depthImage[i].CreateSampler(createInfo);
-                swapChain._rawRenderImage[i].CreateSampler(samplierInfo);
-            }
+            // for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
+            // {
+            //     swapChain._depthImage[i].CreateSampler(createInfo);
+            //     swapChain._rawRenderImage[i].CreateSampler(samplierInfo);
+            // }
         }
 
         private static unsafe void CreateSyncObjects(SwapChain swapChain)

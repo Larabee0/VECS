@@ -26,14 +26,14 @@ namespace VECS.LowLevel
 
         public static VkRect2D Scissor = new();
 
-        internal VkFormat RenderFormat => RawRenderImage.Format;
-        internal VkFormat DepthFormat => DepthImage.Format;
+        // internal VkFormat RenderFormat => RawRenderImage.Format;
+        // internal VkFormat DepthFormat => DepthImage.Format;
 
-        internal Texture2D[] _rawRenderImage = new Texture2D[MAX_CONCURRENT_FRAMES];
-        internal Texture2D[] _depthImage = new Texture2D[MAX_CONCURRENT_FRAMES];
+        // internal Texture2D[] _rawRenderImage = new Texture2D[MAX_CONCURRENT_FRAMES];
+        // internal Texture2D[] _depthImage = new Texture2D[MAX_CONCURRENT_FRAMES];
 
-        internal Texture2D RawRenderImage => _rawRenderImage[_currentFrame];
-        internal Texture2D DepthImage => _depthImage[_currentFrame];
+        // internal Texture2D RawRenderImage => _rawRenderImage[_currentFrame];
+        // internal Texture2D DepthImage => _depthImage[_currentFrame];
 
         internal VkImageBlit _copyToSwapChainBlit;
 
@@ -182,6 +182,7 @@ namespace VECS.LowLevel
             GraphicsDevice.DeviceAPI.vkResetFences(GraphicsDevice.Device, fence).CheckResult( "Failed to reset fence ");
         }
 
+        /*
         public unsafe void BeginForwardDepth(VkCommandBuffer commandBuffer)
         {
             VkRenderingAttachmentInfo depth = new()
@@ -239,17 +240,11 @@ namespace VECS.LowLevel
             SetViewPort(commandBuffer);
         }
 
-        public static void SetViewPort(VkCommandBuffer commandBuffer)
-        {
-            GraphicsDevice.DeviceAPI.vkCmdSetViewport(commandBuffer, 0, Viewport);
-            GraphicsDevice.DeviceAPI.vkCmdSetScissor(commandBuffer, 0, Scissor);
-        }
-
         public void EndForwardRendering(VkCommandBuffer commandBuffer)
         {
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
         }
-
+        
         public void EndForwardDepthRendering(VkCommandBuffer commandBuffer)
         {
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
@@ -268,6 +263,48 @@ namespace VECS.LowLevel
                 graphicsFamily, graphicsFamily
             );
         }
+
+        
+        internal unsafe void CopyRenderToSwapChain(VkCommandBuffer commandBuffer,int frameIndex, int imageIndex)
+        {
+            var swapChainImage = _swapChainImages[imageIndex];
+            var renderImage = _rawRenderImage[frameIndex];
+
+            renderImage.SetImageLayout(commandBuffer, VkImageLayout.TransferSrcOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.Blit);
+
+            // done at as first command in graphics pipe by TransferSwapChainImageToGraphicsQueue
+            //TextureExtensions.SetImageLayout(commandBuffer, swapChainImage, VkImageAspectFlags.Color, VkImageLayout.PresentSrcKHR, VkImageLayout.TransferDstOptimal, VkPipelineStageFlags.AllCommands, VkPipelineStageFlags.AllCommands);
+
+            var blit = _copyToSwapChainBlit;
+
+            GraphicsDevice.DeviceAPI.vkCmdBlitImage(
+                commandBuffer,
+                renderImage._vkImage,
+                renderImage.ImageLayout,
+                swapChainImage,
+                VkImageLayout.TransferDstOptimal,
+                1,
+                &blit,
+                VkFilter.Linear
+            );
+
+            renderImage.SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.ColorAttachmentOutput);
+            //renderImage.SetImageLayout(commandBuffer, VkImageLayout.DepthStencilAttachmentOptimal);
+
+            // replaced by TransferSwapChainImageToPresentQueue
+            //TextureExtensions.SetImageLayout(commandBuffer, swapChainImage, VkImageAspectFlags.Color, VkImageLayout.TransferDstOptimal, VkImageLayout.PresentSrcKHR, VkPipelineStageFlags.AllCommands, VkPipelineStageFlags.AllCommands);
+            TransferSwapChainImageToPresentQueue(commandBuffer, frameIndex, imageIndex);
+        }
+
+
+        */
+
+        public static void SetViewPort(VkCommandBuffer commandBuffer)
+        {
+            GraphicsDevice.DeviceAPI.vkCmdSetViewport(commandBuffer, 0, Viewport);
+            GraphicsDevice.DeviceAPI.vkCmdSetScissor(commandBuffer, 0, Scissor);
+        }
+
         // should be called from graphics queue
         internal unsafe void TransferSwapChainImageToGraphicsQueue(VkCommandBuffer commandBuffer, int frameIndex, int imageIndex)
         {
@@ -305,37 +342,6 @@ namespace VECS.LowLevel
                 VkImageLayout.TransferDstOptimal,
                 VkImageLayout.PresentSrcKHR,
                 GraphicsDevice.PhysicalQueueFamilies.graphicsFamily, GraphicsDevice.PhysicalQueueFamilies.presentFamily);
-        }
-
-        internal unsafe void CopyRenderToSwapChain(VkCommandBuffer commandBuffer,int frameIndex, int imageIndex)
-        {
-            var swapChainImage = _swapChainImages[imageIndex];
-            var renderImage = _rawRenderImage[frameIndex];
-
-            renderImage.SetImageLayout(commandBuffer, VkImageLayout.TransferSrcOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.Blit);
-
-            // done at as first command in graphics pipe by TransferSwapChainImageToGraphicsQueue
-            //TextureExtensions.SetImageLayout(commandBuffer, swapChainImage, VkImageAspectFlags.Color, VkImageLayout.PresentSrcKHR, VkImageLayout.TransferDstOptimal, VkPipelineStageFlags.AllCommands, VkPipelineStageFlags.AllCommands);
-
-            var blit = _copyToSwapChainBlit;
-
-            GraphicsDevice.DeviceAPI.vkCmdBlitImage(
-                commandBuffer,
-                renderImage._vkImage,
-                renderImage.ImageLayout,
-                swapChainImage,
-                VkImageLayout.TransferDstOptimal,
-                1,
-                &blit,
-                VkFilter.Linear
-            );
-
-            renderImage.SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.ColorAttachmentOutput);
-            //renderImage.SetImageLayout(commandBuffer, VkImageLayout.DepthStencilAttachmentOptimal);
-
-            // replaced by TransferSwapChainImageToPresentQueue
-            //TextureExtensions.SetImageLayout(commandBuffer, swapChainImage, VkImageAspectFlags.Color, VkImageLayout.TransferDstOptimal, VkImageLayout.PresentSrcKHR, VkPipelineStageFlags.AllCommands, VkPipelineStageFlags.AllCommands);
-            TransferSwapChainImageToPresentQueue(commandBuffer, frameIndex, imageIndex);
         }
 
         public unsafe bool PresentMain(int frameIndex, uint imageIndex)
@@ -422,11 +428,11 @@ namespace VECS.LowLevel
                 _swapChain = VkSwapchainKHR.Null;
             }
 
-            for (int i = 0; i < MAX_CONCURRENT_FRAMES; i++)
-            {
-                _rawRenderImage[i].Dispose();
-                _depthImage[i].Dispose();
-            }
+            // for (int i = 0; i < MAX_CONCURRENT_FRAMES; i++)
+            // {
+            //     _rawRenderImage[i].Dispose();
+            //     _depthImage[i].Dispose();
+            // }
 
             for (int i = 0; i < SWAP_CHAIN_IMAGE_COUNT; i++)
             {
@@ -447,7 +453,7 @@ namespace VECS.LowLevel
 
         internal bool CompareSwapFormats(SwapChain swapChain)
         {
-            return swapChain.DepthFormat == DepthFormat && swapChain._swapChainImageFormat == _swapChainImageFormat;
+            return swapChain._swapChainImageFormat == _swapChainImageFormat;
         }
     }
 }

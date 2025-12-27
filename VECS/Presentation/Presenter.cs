@@ -19,17 +19,21 @@ namespace VECS
 
         private readonly IWindow _window;
         private SwapChain _swapChain;
-
+        private ForwardRenderer _forwardRenderer;
         private bool _isFrameStarted = false;
         private readonly ShadowImage _shadowCubeMap;
         private readonly Bloom _bloom;
-        private ulong _frameCount;
+        private static ulong _frameCount;
+
+        public ForwardRenderer ForwardRenderer => _forwardRenderer;
+        public VkFormat[] ColourFormats => [_forwardRenderer.MainColourAttachment.Target.Format, _forwardRenderer.BrightObjectAttachment.Target.Format];
+        public VkFormat DepthFormat => _forwardRenderer.DepthAttachment.Target.Format;
 
         internal Action PostPresentationUpdate;
         internal Action<int> PreGraphicsPipe;
         internal Action OnSwapChainRecreation;
 
-        public ulong FrameCount => _frameCount;
+        public static ulong FrameCount => _frameCount;
 
         private readonly List<(int, GPUBuffer)> _swapChainBufferDisposalQueue = [];
 
@@ -82,18 +86,19 @@ namespace VECS
                 _swapChain = SwapChainInit.Create(extent);
                 GraphicsDevice.CreateCommandBuffers();
                 GraphicsDevice.DeviceWaitIdle();
+                _forwardRenderer = new ForwardRenderer();
             }
             else
             {
                 _swapChain.FinishTimelineWorkers(true);
                 GraphicsDevice.DeviceWaitIdle();
                 var oldSwapChain = _swapChain;
-                AssetDataBase<Texture2D>.RemoveRange([..oldSwapChain._rawRenderImage,..oldSwapChain._depthImage]);
                 _swapChain = oldSwapChain.Replace(extent);
                 if (!oldSwapChain.CompareSwapFormats(_swapChain))
                 {
                     throw new Exception("Swap chain image(or depth) format has changed!");
                 }
+                _forwardRenderer.RecreateAttachments();
                 GraphicsDevice.FreeCommandBuffers();
                 GraphicsDevice.CreateCommandBuffers();
                 GraphicsDevice.DeviceWaitIdle();
@@ -255,7 +260,7 @@ namespace VECS
             }
         }
 
-        private void GraphicsPipe()
+        private void GraphicsPipe(int imageIndex)
         {
             VkCommandBuffer commandBuffer = SwapChain.CurrentMainCommandBuffer;
 
@@ -282,16 +287,20 @@ namespace VECS
             _bloom.RenderBloomObjects(frameInfo);
 
             // forward pass
-            _swapChain.BeginForwardRendering(commandBuffer);
+            _forwardRenderer.BeginForwardRendering(commandBuffer);
             World.DefaultWorld.PresentFowardPassUpdate(frameInfo);
 
             // bloom late
             _bloom.BlurHorizontal(frameInfo);
-            _swapChain.EndForwardRendering(commandBuffer);
+            _forwardRenderer.EndForwardRendering(commandBuffer);
 
             DrawBlob.IndirectToComputeMemoryBarrierByMat(frameInfo.CommandBuffer);
 
-            UI.ULUI.BlitCamera(frameInfo,_swapChain.RawRenderImage);
+            UI.ULUI.BlitCamera(frameInfo, _forwardRenderer.MainColourAttachment.Target);
+            
+            var extents = _swapChain.SwapChainExtent;
+
+            _forwardRenderer.BlitFromMainColour(commandBuffer, _swapChain._swapChainImages[imageIndex], (int)extents.width, (int)extents.height, VkImageAspectFlags.None);
         }
 
 

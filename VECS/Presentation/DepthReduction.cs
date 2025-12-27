@@ -47,7 +47,7 @@ namespace VECS.Presentation
             _depthPyramidHeight = PreviousPow2(SwapChain.Instance._windowExtent.height);
             VkFormat depthFormat = VkFormat.R32Sfloat;
             _depthPryamid = new Texture2D(
-                    string.Format("DepthPryamid {0}", Presenter.Instance.FrameCount),
+                    string.Format("DepthPryamid {0}", Presenter.FrameCount),
                     (int)_depthPyramidWidth,
                     (int)_depthPyramidHeight,
                     depthFormat,
@@ -73,7 +73,7 @@ namespace VECS.Presentation
         {
             if (frameInfo.CullData.depthCulling == 0) return;
 
-            var depthTexture = SwapChain.Instance.DepthImage;
+            var depthTexture = Presenter.Instance.ForwardRenderer.DepthAttachment.Target;
             var depthPryamid = _depthPryamid;
 
             VkImageMemoryBarrier2 depthReadBarrier = new()

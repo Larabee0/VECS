@@ -33,9 +33,21 @@ namespace VECS.LowLevel
 
         private readonly FBTexture _framebufferGlow;
         private readonly FBTexture _framebufferBlur;
-        
-        private readonly VkViewport _viewPort = new(0, 0, FRAME_BUFFER_DIMENTIONS, FRAME_BUFFER_DIMENTIONS, 0, 1);
-        private readonly VkRect2D _scissor = new(FRAME_BUFFER_DIMENTIONS, FRAME_BUFFER_DIMENTIONS, 0, 0);
+
+        private readonly VkRect2D _scissor = new()
+        {
+            offset = new VkOffset2D(0, 0),
+            extent = new(FRAME_BUFFER_DIMENTIONS, FRAME_BUFFER_DIMENTIONS)
+        };
+        private readonly VkViewport _viewPort = new()
+        {
+            x = 0,
+            y = FRAME_BUFFER_DIMENTIONS,
+            width = FRAME_BUFFER_DIMENTIONS,
+            height = -FRAME_BUFFER_DIMENTIONS,
+            minDepth = 0,
+            maxDepth = 1,
+        };
 
         private readonly VkClearValue _depthClear = new(1, 0);
         private readonly VkClearValue _colourClear = new(0, 0, 0, 1);
@@ -49,6 +61,7 @@ namespace VECS.LowLevel
             _framebufferBlur = new("BloomBlur",depthFormat);
 
             var blurConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
+            blurConfig.colourFormats = [_framebufferGlow.Colour.Format];
             var blendAttachment = blurConfig.colourBlendAttachment;
             blendAttachment.colorWriteMask = VkColorComponentFlags.All;
             blendAttachment.blendEnable = true;
@@ -113,8 +126,6 @@ namespace VECS.LowLevel
 
         private unsafe void BeginRenderPassInternal(RendererFrameInfo frameInfo, FBTexture attachments)
         {
-            GraphicsDevice.DeviceAPI.vkCmdSetViewport(frameInfo.CommandBuffer, 0, _viewPort);
-            GraphicsDevice.DeviceAPI.vkCmdSetScissor(frameInfo.CommandBuffer, 0, _scissor);
 
             VkRenderingAttachmentInfo colourAttachmentInfo = new()
             {
@@ -140,10 +151,13 @@ namespace VECS.LowLevel
                 pDepthAttachment = &depthAttachmentInfo,
                 pColorAttachments = &colourAttachmentInfo,
                 layerCount = 1,
-                renderArea = new(0,0, FRAME_BUFFER_DIMENTIONS, FRAME_BUFFER_DIMENTIONS)
+                renderArea = new(0,0, FRAME_BUFFER_DIMENTIONS, FRAME_BUFFER_DIMENTIONS),
+                flags = VkRenderingFlags.ContentsInlineKHR
             };
 
             GraphicsDevice.DeviceAPI.vkCmdBeginRendering(frameInfo.CommandBuffer, &renderingInfo);
+            GraphicsDevice.DeviceAPI.vkCmdSetViewport(frameInfo.CommandBuffer, 0, _viewPort);
+            GraphicsDevice.DeviceAPI.vkCmdSetScissor(frameInfo.CommandBuffer, 0, _scissor);
         }
     }
 }

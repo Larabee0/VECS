@@ -54,8 +54,8 @@ namespace VECS.ECS.Presentation
             if (!_renderEntityQuery.HasEntities)
             {
                 // empty depth pass just to clear the depth texture.
-                SwapChain.Instance.BeginForwardDepth(commandBuffer);
-                SwapChain.Instance.EndForwardDepthRendering(commandBuffer);
+                Presenter.Instance.ForwardRenderer.BeginForwardDepthOnlyRendering(commandBuffer);
+                Presenter.Instance.ForwardRenderer.EndForwardDepthOnlyRendering(commandBuffer);
 
                 DepthReduction.ReduceDepth(frameInfo);
 
@@ -68,11 +68,11 @@ namespace VECS.ECS.Presentation
                 return;
             }
 
-            SwapChain.Instance.BeginForwardDepth(commandBuffer);
+            Presenter.Instance.ForwardRenderer.BeginForwardDepthOnlyRendering(commandBuffer);
 
             DrawBlob.ExecuteAllInOneDrawCmds(frameInfo, commandBuffer, EngineMaterials.DepthOnly.Hash);
 
-            SwapChain.Instance.EndForwardDepthRendering(commandBuffer);
+            Presenter.Instance.ForwardRenderer.EndForwardDepthOnlyRendering(commandBuffer);
 
             DepthReduction.ReduceDepth(frameInfo);
             DrawBlob.CullByMat(frameInfo, frameInfo.CullData);

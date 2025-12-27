@@ -16,7 +16,7 @@ namespace VECS.LowLevel
         private CancellationTokenSource _computeCancel;
         private CancellationTokenSource _presentCancel;
 
-        public Action GraphicsCallback;
+        public Action<int> GraphicsCallback;
         public Action ComputeCallback;
 
         internal void StartTimelineWorkers()
@@ -329,10 +329,10 @@ namespace VECS.LowLevel
 
             TransferSwapChainImageToGraphicsQueue(commandBuffer, frameIndex, imageIndex);
 
-            GraphicsCallback?.Invoke();
+            GraphicsCallback?.Invoke(imageIndex);
 
             // copy to swap chain
-            CopyRenderToSwapChain(commandBuffer, frameIndex, imageIndex);
+            // CopyRenderToSwapChain(commandBuffer, frameIndex, imageIndex);
 
 
             GraphicsDevice.DeviceAPI.vkEndCommandBuffer(commandBuffer).CheckResult("Failed to end main command buffer!");

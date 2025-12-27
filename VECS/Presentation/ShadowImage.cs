@@ -81,6 +81,7 @@ namespace VECS
             }
             return viewMatrix;
         }
+        
         public unsafe void UpdateCubeFace(int faceIndex, VkCommandBuffer commandBuffer)
         {
             VkClearValue* clearValues = stackalloc VkClearValue[]

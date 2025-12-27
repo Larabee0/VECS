@@ -24,6 +24,17 @@ namespace VECS.LowLevel
             VkFormat.D24UnormS8Uint,
             VkFormat.D32SfloatS8Uint
         ];
+        private readonly static HashSet<VkFormat> _depthStencilFormats =
+        [
+            VkFormat.D16Unorm,
+            VkFormat.D32Sfloat,
+            VkFormat.D16UnormS8Uint,
+            VkFormat.D24UnormS8Uint,
+            VkFormat.D32SfloatS8Uint
+        ];
+
+        public static HashSet<VkFormat> DepthStencilFormats => _depthStencilFormats;
+        public static HashSet<VkFormat> StencilFormats => _stencilFormats;
 
         internal static IWindow _window;
         internal static VkInstance _instance;
