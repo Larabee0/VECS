@@ -99,7 +99,7 @@ namespace VECS.ECS.Presentation
             
             Presenter.Instance.ShadowImage.UpdateCubeFace(i, internalBuffer);
 
-            DrawBlob.ExecuteAllInOneDrawCmds(frameInfo, internalBuffer, EngineMaterials.ShadowOffscreen.Hash, i);
+            DrawBlob.ExecuteAllInOneOpaqueDrawCmds(frameInfo, internalBuffer, EngineMaterials.ShadowOffscreen.Hash, i);
 
             Presenter.Instance.ShadowImage.EndShadowPass(internalBuffer);
 

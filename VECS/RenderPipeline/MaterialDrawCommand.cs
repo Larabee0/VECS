@@ -8,7 +8,6 @@
         public int Entity;
         public int DirectMesh;
         public BufferRegion MeshSubRegion;
-        public bool Bloom;
 
         public readonly int BufferStart => StorageBufferRegion.StartIndex;
         public readonly int BufferCount => StorageBufferRegion.Count;
@@ -16,7 +15,7 @@
         public readonly int MeshStart => MeshSubRegion.StartIndex;
         public readonly int MeshCount => MeshSubRegion.Count;
 
-        public MaterialDrawCommand(int material, int variant, BufferRegion storageBufferRegion, int entity, int directMesh, BufferRegion meshSubRegion, bool bloom)
+        public MaterialDrawCommand(int material, int variant, BufferRegion storageBufferRegion, int entity, int directMesh, BufferRegion meshSubRegion)
         {
             Material = material;
             Variant = variant;
@@ -24,7 +23,6 @@
             Entity = entity;
             DirectMesh = directMesh;
             MeshSubRegion = meshSubRegion;
-            Bloom = bloom;
         }
 
         public static bool Equal(MaterialDrawCommand a, MaterialDrawCommand b)
@@ -34,7 +32,6 @@
                 && a.Entity == b.Entity
                 && a.MeshSubRegion.StartIndex == b.MeshSubRegion.StartIndex
                 && a.MeshSubRegion.Count == b.MeshSubRegion.Count
-                && a.Bloom == b.Bloom
                 && a.StorageBufferRegion.StartIndex == b.StorageBufferRegion.StartIndex
                 && a.StorageBufferRegion.Count == b.StorageBufferRegion.Count;
         }

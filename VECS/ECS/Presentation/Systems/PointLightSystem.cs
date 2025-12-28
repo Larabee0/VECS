@@ -22,7 +22,7 @@ namespace VECS.ECS.Presentation
                 .Build();
         }
 
-        public unsafe override void OnFowardPass(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
+        public unsafe override void OnOpaquePass(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
         {
             if (_pointLightQuery.HasEntities && entityManager.SingletonEntity<MainCamera>(out Entity cameraEntity))
             {

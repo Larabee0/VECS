@@ -233,7 +233,7 @@ namespace VECS
 
         public void Present()
         {
-
+            World.DefaultWorld.OnPrePresent();
             // acquire swapchain image
             _isFrameStarted = BeginFrame();
 
@@ -272,20 +272,38 @@ namespace VECS
             RendererFrameInfo frameInfo = CreateRendererFrameInfo(Time.DeltaTime, commandBuffer);
 
             // culling
-            CullScene(frameInfo);
 
-            // shadows
-            World.DefaultWorld.PresentPreForwardPassUpdate(frameInfo);
+            Material.UpdateMaterials(frameInfo);
 
-            World.DefaultWorld.PresentBloomGlow(frameInfo);
+            // shadows pass
+            World.DefaultWorld.OnPreShadowPass(frameInfo);
 
-            // forward pass
+            World.DefaultWorld.OnShadowPass(frameInfo);
+
+            World.DefaultWorld.OnPostShadowPass(frameInfo);
+
+            // Opaque pass
+            World.DefaultWorld.OnPreOpaquePass(frameInfo);
+
             _forwardRenderer.BeginForwardRendering(commandBuffer);
 
-            World.DefaultWorld.PresentFowardPassUpdate(frameInfo);
+            World.DefaultWorld.OnOpaquePass(frameInfo);
 
             _forwardRenderer.EndForwardRendering(commandBuffer);
-            
+
+            World.DefaultWorld.OnPostOpaquePass(frameInfo);
+
+            // Transparent pass
+            World.DefaultWorld.OnPreTransparentPass(frameInfo);
+
+            _forwardRenderer.BeginForwardRendering(commandBuffer,VkAttachmentLoadOp.Load);
+
+            World.DefaultWorld.OnTransparentPass(frameInfo);
+
+            _forwardRenderer.EndForwardRendering(commandBuffer);
+
+            World.DefaultWorld.OnPostTransparentPass(frameInfo);
+
             //Bloom
             _bloom.RenderBloomObjects(frameInfo);
 
@@ -324,17 +342,6 @@ namespace VECS
             {
                 return true;
             }
-        }
-
-        private static void CullScene(RendererFrameInfo frameInfo)
-        {
-            World.DefaultWorld.PresentPreCull(frameInfo);
-
-            Material.UpdateMaterials(frameInfo);
-
-            World.DefaultWorld.PresentOnCull(frameInfo);
-
-            World.DefaultWorld.PresentPostCullUpdate(frameInfo);
         }
 
         /// <summary>

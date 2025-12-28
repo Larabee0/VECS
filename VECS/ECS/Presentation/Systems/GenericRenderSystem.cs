@@ -10,7 +10,6 @@ namespace VECS.ECS.Presentation
     {
         public const uint MAX_DRAWS = 2000;
         private EntityQuery _renderEntityQuery;
-        private EntityQuery _renderBloomEntityQuery;
 
          private ShadowInternal _shadowData;
 
@@ -21,16 +20,11 @@ namespace VECS.ECS.Presentation
                 .WithNone(typeof(Prefab), typeof(DoNotRender))
                 .Build();
 
-            _renderBloomEntityQuery = new EntityQuery(entityManager)
-                .WithAll(typeof(LocalToWorld), typeof(RenderMesh), typeof(WorldRenderBounds), typeof(BloomTag))
-                .WithNone(typeof(Prefab), typeof(DoNotRender))
-                .Build();
-
             DrawBlob.AllInOneMats.Add(EngineMaterials.DepthOnly.Hash);
             _shadowData = new();
         }
 
-        public override void OnPreCull(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
+        public override void OnPrePresent(EntityManager entityManager)
         {
             if (!_renderEntityQuery.HasEntities) { return; }
 
@@ -38,17 +32,23 @@ namespace VECS.ECS.Presentation
             DrawBlob.RebuildOrUpdate(entityManager, entities);
         }
 
-        public override void OnCull(EntityManager entityManager, RendererFrameInfo frameInfo)
+        public override void OnShadowPass(EntityManager entityManager, RendererFrameInfo frameInfo)
         {
-            if (!_renderEntityQuery.HasEntities) { return; }
+            if (!_renderEntityQuery.HasEntities)
+            {
+                // empty shadow passes just to clear the cube map.
+                for (int i = 0; i < 6; i++)
+                {
+                    Presenter.Instance.ShadowImage.UpdateCubeFace(i, frameInfo.CommandBuffer);
+                    Presenter.Instance.ShadowImage.EndShadowPass(frameInfo.CommandBuffer);
+                }
+                return;
+            }
 
-            var depthBufferCullInfo = frameInfo.CullData;
-            depthBufferCullInfo.depthCulling = 0;
-
-            DrawBlob.CullAllInOne(frameInfo, depthBufferCullInfo);
+            _shadowData.RenderShadows(frameInfo);
         }
 
-        public unsafe override void OnPreForwardPass(EntityManager entityManager, RendererFrameInfo frameInfo)
+        public unsafe override void OnPreOpaquePass(EntityManager entityManager, RendererFrameInfo frameInfo)
         {
             VkCommandBuffer commandBuffer = frameInfo.CommandBuffer;
             if (!_renderEntityQuery.HasEntities)
@@ -59,18 +59,17 @@ namespace VECS.ECS.Presentation
 
                 DepthReduction.ReduceDepth(frameInfo);
 
-                // empty shadow passes just to clear the cube map.
-                for (int i = 0; i < 6; i++)
-                {
-                    Presenter.Instance.ShadowImage.UpdateCubeFace(i, commandBuffer);
-                    Presenter.Instance.ShadowImage.EndShadowPass(commandBuffer);
-                }
                 return;
             }
 
+            var depthBufferCullInfo = frameInfo.CullData;
+            depthBufferCullInfo.depthCulling = 0;
+
+            DrawBlob.CullAllInOne(frameInfo, depthBufferCullInfo);
+
             Presenter.Instance.ForwardRenderer.BeginForwardDepthOnlyRendering(commandBuffer);
 
-            DrawBlob.ExecuteAllInOneDrawCmds(frameInfo, commandBuffer, EngineMaterials.DepthOnly.Hash);
+            DrawBlob.ExecuteAllInOneOpaqueDrawCmds(frameInfo, commandBuffer, EngineMaterials.DepthOnly.Hash);
 
             Presenter.Instance.ForwardRenderer.EndForwardDepthOnlyRendering(commandBuffer);
 
@@ -79,18 +78,9 @@ namespace VECS.ECS.Presentation
 
             DrawBlob.IndirectToComputeMemoryBarrierAllInOne(commandBuffer);
 
-            _shadowData.RenderShadows(frameInfo);
         }
 
-        public override void OnBloomGlow(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
-        {
-            if (!_renderEntityQuery.HasEntities) { return; }
-
-            // _forwardData.ExecuteBloomDrawCmds(rendererFrameInfo);
-        }
-        
-
-        public override unsafe void OnFowardPass(EntityManager entityManager, RendererFrameInfo frameInfo)
+        public override unsafe void OnOpaquePass(EntityManager entityManager, RendererFrameInfo frameInfo)
         {
             //if (GraphicsDevice.MeshShading)
             //{
@@ -147,7 +137,37 @@ namespace VECS.ECS.Presentation
 
             if (!_renderEntityQuery.HasEntities) { return; }
 
-            DrawBlob.ExecuteDrawCmds(frameInfo, null, null, 0, default, default);
+            DrawBlob.ExecuteOpaqueDrawCmds(frameInfo, null, null, 0, default, default);
+        }
+
+        public override void OnPreTransparentPass(EntityManager entityManager, RendererFrameInfo frameInfo)
+        {
+            
+            if (!_renderEntityQuery.HasEntities)
+            {
+                return;
+            }
+
+            VkCommandBuffer commandBuffer = frameInfo.CommandBuffer;
+
+            Presenter.Instance.ForwardRenderer.BeginForwardDepthOnlyRendering(commandBuffer,VkAttachmentLoadOp.Load);
+
+            DrawBlob.ExecuteAllInOneTransparentDrawCmds(frameInfo, commandBuffer, EngineMaterials.DepthOnly.Hash);
+
+            Presenter.Instance.ForwardRenderer.EndForwardDepthOnlyRendering(commandBuffer);
+            var cullData = frameInfo.CullData;
+            cullData.depthCulling = 0;
+
+            DrawBlob.CullByMat(frameInfo, cullData);
+
+            DrawBlob.IndirectToComputeMemoryBarrierAllInOne(commandBuffer);
+        }
+
+        public override unsafe void OnTransparentPass(EntityManager entityManager, RendererFrameInfo frameInfo)
+        {
+            if (!_renderEntityQuery.HasEntities) { return; }
+
+            DrawBlob.ExecuteTransparentDrawCmds(frameInfo, null, null, 0, default, default);
         }
     }
 }

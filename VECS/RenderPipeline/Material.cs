@@ -39,6 +39,8 @@ namespace VECS
         private uint _variantCount;
         private bool _preBindUpdate = false;
 
+        public bool Transparent => _graphicsPipelineConfigInfo.colourBlendAttachment.blendEnable;
+
         public uint VariantCount => _variantCount;
 
         public int MeshShaderDescriptorSetIndex => _meshShaderDescriptorSetIndex;
@@ -559,7 +561,7 @@ namespace VECS
                 (uint)command.MeshSubRegion.Count, (uint)sizeof(VkDrawIndexedIndirectCommand));
         }
 
-        public unsafe void ExecuteDrawCommandsPushConstantOverride(RendererFrameInfo frameInfo, int pushConstantOverride, VkCommandBuffer commandBuffer, MaterialDrawCommand[] drawCmds, int matDrawCount, SwapChainBuffer<VkDrawIndexedIndirectCommand> indirectCmdBuffer)
+        public unsafe void ExecuteDrawCommandsPushConstantOverride(RendererFrameInfo frameInfo, int pushConstantOverride, VkCommandBuffer commandBuffer, Span<MaterialDrawCommand> drawCmds, int matDrawCount, SwapChainBuffer<VkDrawIndexedIndirectCommand> indirectCmdBuffer)
         {
             if (matDrawCount <= 0) return;
             var frameIndex = frameInfo.FrameIndex;

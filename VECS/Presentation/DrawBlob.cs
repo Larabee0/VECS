@@ -13,6 +13,88 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
+    internal readonly struct MatComparerer : IComparer<RenderMesh>
+    {
+        public readonly static MatComparerer Comparer = new();
+
+        public readonly int Compare(RenderMesh x, RenderMesh y)
+        {
+            var matX = x.Material;
+            var matY = y.Material;
+            var comp = matX.Transparent.CompareTo(matY.Transparent);
+            if (comp != 0) return comp;
+            comp = matX.Hash.CompareTo(matY.Hash);
+            if (comp != 0) return comp;
+            comp = matX.Variant.CompareTo(matY.Variant);
+            if (comp != 0) return comp;
+            comp = matX.Entity.CompareTo(matY.Entity);
+            if (comp != 0) return comp;
+
+            var meshX = x.Mesh;
+            var meshY = y.Mesh;
+            comp = meshX.Hash.CompareTo(meshY.Hash);
+            if (comp != 0) return comp;
+            return meshX.SubMesh.CompareTo(meshY.SubMesh);
+
+        }
+    }
+
+    internal readonly struct MeshComparerer : IComparer<MeshWithTransparency>
+    {
+        public readonly static MeshComparerer Comparer = new();
+
+        public readonly int Compare(MeshWithTransparency x, MeshWithTransparency y)
+        {
+            var comp = x.Transparent.CompareTo(y.Transparent);
+            if (comp != 0) return comp;
+            comp = x.Mesh.Hash.CompareTo(y.Mesh.Hash);
+            if (comp != 0) return comp;
+
+            return x.Mesh.SubMesh.CompareTo(y.Mesh.SubMesh);
+        }
+    }
+
+    internal readonly struct MeshWithTransparency
+    {
+        public readonly bool Transparent;
+        public readonly DirectSubMeshIndex Mesh;
+
+        public MeshWithTransparency(bool transparent, DirectSubMeshIndex mesh)
+        {
+            Transparent = transparent;
+            Mesh = mesh;
+        }
+    }
+
+    internal readonly struct MeshHashWithTransparency
+    {
+        public readonly bool Transparent;
+        public readonly int Hash;
+
+        public MeshHashWithTransparency(bool transparent, int mesh)
+        {
+            Transparent = transparent;
+            Hash = mesh;
+        }
+
+        public static bool operator ==(MeshHashWithTransparency lhs, MeshHashWithTransparency rhs) => lhs.Transparent == rhs.Transparent && lhs.Hash == rhs.Hash;
+        public static bool operator !=(MeshHashWithTransparency lhs, MeshHashWithTransparency rhs) => !(lhs == rhs);
+
+        public override bool Equals(object obj)
+        {
+            if(obj is MeshHashWithTransparency meshHashWithTransparency)
+            {
+                return this == meshHashWithTransparency;
+            }
+            return false;
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(Transparent.GetHashCode(), Hash.GetHashCode());
+        }
+    }
+
     public interface IRenderBuffer
     {
         public int ComponentId { get; }
@@ -93,43 +175,6 @@ namespace VECS
         public static readonly int MatricesBufferId = "matricesBuffer".GetShaderPropertyId();
         public const bool MULTI_THREAD_RENDERING = false;
         
-        private readonly struct MatComparerer : IComparer<RenderMesh>
-        {
-            public readonly static MatComparerer Comparer = new();
-
-            public readonly int Compare(RenderMesh x, RenderMesh y)
-            {
-                var matX = x.Material;
-                var matY = y.Material;
-                var comp = matX.Hash.CompareTo(matY.Hash);
-                if (comp != 0) return comp;
-                comp = matX.Variant.CompareTo(matY.Variant);
-                if (comp != 0) return comp;
-                comp = matX.Entity.CompareTo(matY.Entity);
-                if (comp != 0) return comp;
-
-                var meshX = x.Mesh;
-                var meshY = y.Mesh;
-                comp = meshX.Hash.CompareTo(meshY.Hash);
-                if (comp != 0) return comp;
-                return meshX.SubMesh.CompareTo(meshY.SubMesh);
-
-            }
-        }
-
-        private readonly struct MeshComparerer : IComparer<DirectSubMeshIndex>
-        {
-            public readonly static MeshComparerer Comparer = new();
-
-            public readonly int Compare(DirectSubMeshIndex x, DirectSubMeshIndex y)
-            {
-                var comp = x.Hash.CompareTo(y.Hash);
-                if (comp != 0) return comp;
-
-                return x.SubMesh.CompareTo(y.SubMesh);
-            }
-        }
-
         private static int entityCount;
         private static RenderMesh[] _drawRenderMesh = [];
 
@@ -138,7 +183,7 @@ namespace VECS
         private static SwapChainBuffer<ShaderAABB> _drawRenderBoundsByMat;
 
         private static Entity[] _drawEntitiesByMesh = [];
-        private static DirectSubMeshIndex[] _drawDirectSubMeshIndex = [];
+        private static MeshWithTransparency[] _drawDirectSubMeshIndex = [];
         private static ModelMatrices[] _drawMatrixByMesh = [];
         private static SwapChainBuffer<ShaderAABB> _drawRenderBoundsByMesh;
 
@@ -148,13 +193,23 @@ namespace VECS
         private static SwapChainBuffer<VkDrawIndexedIndirectCommand> _indirectCmdBufferByMat;
         private static SwapChainBuffer<VkDrawIndexedIndirectCommand> _indirectCmdBufferByMesh;
 
+        private static int _firstTransparentByMat;
+        public static int OpaqueCmdCountByMat => _firstTransparentByMat;
+        public static int TransparentCmdCountByMat => _drawCommandsByMat.Length - _firstTransparentByMat;
+
+        private static int _firstTransparentByMesh;
+        public static int OpaqueCmdCountByMesh => _firstTransparentByMesh;
+        public static int TransparentcmdCountByMesh => _drawCommandsByMesh.Length - _firstTransparentByMesh;
+
         private static readonly ConcurrentDictionary<Vector3Int, uint> _materialVariants = new();
-        private static readonly ConcurrentDictionary<int, int> _directMeshDraws = new();
+        private static readonly ConcurrentDictionary<MeshHashWithTransparency, int> _directMeshDraws = new();
         private static readonly ConcurrentDictionary<int, BufferRegion> _materialBufferRegions = new();
 
         public static readonly List<int> AllInOneMats = [];
         private static Vector3Int[] _materialCmdRegions = [];
-        private static readonly BufferRegion[] _workerRegions = new BufferRegion[Application.ThreadDispatcher.ThreadCount];
+        private static int _firstTransparentCmdRegion;
+        private static readonly BufferRegion[] _workerRegionsOpaqueQueue = new BufferRegion[Application.ThreadDispatcher.ThreadCount];
+        private static readonly BufferRegion[] _workerRegionsTransparentQueue = new BufferRegion[Application.ThreadDispatcher.ThreadCount];
 
         public static void Reset()
         {
@@ -222,7 +277,7 @@ namespace VECS
             _drawRenderBoundsByMat = null;
             _drawRenderBoundsByMesh = null;
             entityCount = 0;
-            Array.Clear(_workerRegions);
+            Array.Clear(_workerRegionsOpaqueQueue);
             GC.Collect();
 
             _indirectCmdBufferByMat = new(400,
@@ -316,9 +371,9 @@ namespace VECS
             {
                 Entity entity = _drawEntitiesByMat[i];
                 var renderMesh = _drawRenderMesh[i] = entityManager.GetComponent<RenderMesh>(entity);
-                _drawDirectSubMeshIndex[i] = renderMesh.Mesh;
+                _drawDirectSubMeshIndex[i] = new(renderMesh.Material.Transparent,renderMesh.Mesh);
                 _materialVariants.AddOrUpdate(new(renderMesh.Material.Hash, renderMesh.Material.Variant, renderMesh.Material.Entity), 1, (key, value) => value + 1);
-                _directMeshDraws.AddOrUpdate(renderMesh.Mesh.Hash, 1, (key, value) => value + 1);
+                _directMeshDraws.AddOrUpdate(new (renderMesh.Material.Transparent, renderMesh.Mesh.Hash), 1, (key, value) => value + 1);
             });
 
             var allInOneGen = RebuildAllInOne();
@@ -331,14 +386,20 @@ namespace VECS
             BufferRegion storageBufferRegion = default;
             var materialVariantDrawIndex = 0;
             var lastRenderMesh = _drawRenderMesh[0];
-            for (int i = 0, count = 0; i < entityCount; i++)
+            
+            if (lastRenderMesh.Material.Transparent)
+            {
+                _firstTransparentByMat = 0;
+            }
+
+            for (int i = 0, drawCmd = 0; i < entityCount; i++)
             {
                 var renderMesh = _drawRenderMesh[i];
 
                 if (RenderMesh.ShouldMakeNewDrawCmd(lastRenderMesh, renderMesh))
                 {
-                    _drawCommandsByMat[count] = new(lastRenderMesh.Material.Hash, lastRenderMesh.Material.Variant, new(0, 0), lastRenderMesh.Material.Entity, lastRenderMesh.Mesh.Hash, meshSubRegion, false);
-                    count++;
+                    _drawCommandsByMat[drawCmd] = new(lastRenderMesh.Material.Hash, lastRenderMesh.Material.Variant, new(0, 0), lastRenderMesh.Material.Entity, lastRenderMesh.Mesh.Hash, meshSubRegion);
+                    drawCmd++;
 
                     if (lastRenderMesh.Material.Hash != renderMesh.Material.Hash)
                     {
@@ -355,6 +416,12 @@ namespace VECS
                     {
                         meshSubRegion.IncrementAlt();
                     }
+
+                    if(renderMesh.Material.Transparent && !lastRenderMesh.Material.Transparent)
+                    {
+                        _firstTransparentByMat = drawCmd;
+                    }
+
                     lastRenderMesh = renderMesh;
                 }
                 var vkDraw = DirectSubMesh.GetSubMeshAtIndex(renderMesh.Mesh).IndirectCommand;
@@ -366,7 +433,12 @@ namespace VECS
                 materialVariantDrawIndex++;
 
             }
-            _drawCommandsByMat[^1] = new(lastRenderMesh.Material.Hash, lastRenderMesh.Material.Variant, new(0, 0), lastRenderMesh.Material.Entity, lastRenderMesh.Mesh.Hash, meshSubRegion, false);
+            _drawCommandsByMat[^1] = new(lastRenderMesh.Material.Hash, lastRenderMesh.Material.Variant, new(0, 0), lastRenderMesh.Material.Entity, lastRenderMesh.Mesh.Hash, meshSubRegion);
+
+            if (!lastRenderMesh.Material.Transparent)
+            {
+                _firstTransparentByMat = _drawEntitiesByMat.Length;
+            }
 
             _materialBufferRegions.AddOrUpdate(lastRenderMesh.Material.Hash, storageBufferRegion, (key, value) => storageBufferRegion);
 
@@ -381,6 +453,9 @@ namespace VECS
 
             BufferRegion cmdRegion = default;
             var lastCmd = _drawCommandsByMat[0];
+
+            _firstTransparentCmdRegion = 0;
+
             for (int i = 0, j = 0; i < _drawCommandsByMat.Length; i++)
             {
                 var cmd = _drawCommandsByMat[i];
@@ -391,19 +466,41 @@ namespace VECS
                     j++;
                     lastCmd = cmd;
                 }
+                if(i == _firstTransparentByMat)
+                {
+                    _firstTransparentCmdRegion = j;
+                }
                 cmdRegion.Count++;
             }
             _materialCmdRegions[^1] = new Vector3Int(lastCmd.Material, cmdRegion.StartIndex, cmdRegion.Count);
 
+            if(TransparentCmdCountByMat == 0)
+            {
+                _firstTransparentCmdRegion = _materialCmdRegions.Length;
+            }
+            
 
-            int length = Math.Min(_materialCmdRegions.Length, _workerRegions.Length);
-            int blobsPerWorker = _materialCmdRegions.Length / _workerRegions.Length;
-            int reminderBlobs = _materialCmdRegions.Length % _workerRegions.Length;
+            int length = Math.Min(_firstTransparentCmdRegion, _workerRegionsOpaqueQueue.Length);
+            int blobsPerWorker = _firstTransparentCmdRegion / _workerRegionsOpaqueQueue.Length;
+            int reminderBlobs = _firstTransparentCmdRegion % _workerRegionsOpaqueQueue.Length;
             cmdRegion = default;
             for (int i = 0; i < length; i++)
             {
                 cmdRegion.Count = i < reminderBlobs ? blobsPerWorker + 1 : blobsPerWorker;
-                _workerRegions[i] = cmdRegion;
+                _workerRegionsOpaqueQueue[i] = cmdRegion;
+                cmdRegion.IncrementAlt();
+            }
+
+            var transparentLength = _materialCmdRegions.Length - _firstTransparentCmdRegion;
+
+            length = Math.Min(transparentLength, _workerRegionsTransparentQueue.Length);
+            blobsPerWorker = transparentLength / _workerRegionsTransparentQueue.Length;
+            reminderBlobs = transparentLength % _workerRegionsTransparentQueue.Length;
+            cmdRegion = default;
+            for (int i = 0; i < length; i++)
+            {
+                cmdRegion.Count = i < reminderBlobs ? blobsPerWorker + 1 : blobsPerWorker;
+                _workerRegionsTransparentQueue[i] = cmdRegion;
                 cmdRegion.IncrementAlt();
             }
         }
@@ -415,27 +512,44 @@ namespace VECS
                 int meshDrawCount = _directMeshDraws.Count;
                 Array.Resize(ref _drawCommandsByMesh, meshDrawCount);
                 Array.Sort(_drawDirectSubMeshIndex, _drawEntitiesByMesh, MeshComparerer.Comparer);
-                var lastMeshHash = _drawDirectSubMeshIndex[0].Hash;
-                var directrMesh = AssetDataBase<DirectMesh>.GetHashed(lastMeshHash);
+                MeshHashWithTransparency directMeshDrawKey = new(_drawDirectSubMeshIndex[0].Transparent, _drawDirectSubMeshIndex[0].Mesh.Hash);
+                var directrMesh = AssetDataBase<DirectMesh>.GetHashed(directMeshDrawKey.Hash);
                 var indirectCmdBuffer = _indirectCmdBufferByMesh.HostBuffer;
+                
+                if (directMeshDrawKey.Transparent)
+                {
+                    _firstTransparentByMesh = 0;
+                }
+
                 for (int i = 0, drawCmd = 0; i < entityCount; i++)
                 {
                     var subMeshInfo = _drawDirectSubMeshIndex[i];
-                    if (subMeshInfo.Hash != lastMeshHash)
+                    MeshHashWithTransparency curKey = new(subMeshInfo.Transparent, subMeshInfo.Mesh.Hash);
+                    if (curKey != directMeshDrawKey)
                     {
-                        var drawIndirectCmdCount = _directMeshDraws[lastMeshHash];
+                        var drawIndirectCmdCount = _directMeshDraws[directMeshDrawKey];
                         Debug.Assert(i - drawIndirectCmdCount >= 0, "i - drawIndirectCmdCount should be greater than equal to zero");
-                        _drawCommandsByMesh[drawCmd] = new(0, 0, new(0, 0), 0, lastMeshHash, new(i - drawIndirectCmdCount, drawIndirectCmdCount), false);
+                        _drawCommandsByMesh[drawCmd] = new(0, 0, new(0, 0), 0, directMeshDrawKey.Hash, new(i - drawIndirectCmdCount, drawIndirectCmdCount));
                         drawCmd++;
-                        directrMesh = AssetDataBase<DirectMesh>.GetHashed(subMeshInfo.Hash);
-                        lastMeshHash = subMeshInfo.Hash;
+                        directrMesh = AssetDataBase<DirectMesh>.GetHashed(subMeshInfo.Mesh.Hash);
+                        if(curKey.Transparent&& !directMeshDrawKey.Transparent)
+                        {
+                            _firstTransparentByMesh = drawCmd;
+                        }
+                        directMeshDrawKey = curKey;
                     }
-                    var cmd = directrMesh.SubMeshInfos[subMeshInfo.SubMesh].IndirectDrawCmd;
+                    var cmd = directrMesh.SubMeshInfos[subMeshInfo.Mesh.SubMesh].IndirectDrawCmd;
                     cmd.instanceCount = 1;
                     cmd.firstInstance = (uint)i;
                     indirectCmdBuffer[i] = cmd;
                 }
-                _drawCommandsByMesh[^1] = new(0, 0, new(0, 0), 0, lastMeshHash, new(entityCount - _directMeshDraws[lastMeshHash], _directMeshDraws[lastMeshHash]), false);
+
+                _drawCommandsByMesh[^1] = new(0, 0, new(0, 0), 0, directMeshDrawKey.Hash, new(entityCount - _directMeshDraws[directMeshDrawKey], _directMeshDraws[directMeshDrawKey]));
+
+                if (!directMeshDrawKey.Transparent)
+                {
+                    _firstTransparentByMesh = _drawCommandsByMesh.Length;
+                }
             });
         }
 
@@ -519,7 +633,7 @@ namespace VECS
             });
         }
 
-        public unsafe static void ExecuteDrawCmds(RendererFrameInfo frameInfo, VkCommandBuffer[] commandBuffers, VkFormat* colourFormats, uint colourAttachmentCount, VkFormat depthFormat, VkFormat stencilFormat)
+        public unsafe static void ExecuteOpaqueDrawCmds(RendererFrameInfo frameInfo, VkCommandBuffer[] commandBuffers, VkFormat* colourFormats, uint colourAttachmentCount, VkFormat depthFormat, VkFormat stencilFormat)
         {
             if (MULTI_THREAD_RENDERING && commandBuffers != null)
             {
@@ -534,7 +648,7 @@ namespace VECS
                     rasterizationSamples = VkSampleCountFlags.Count1
                 };
 
-                Application.ParallelFor(_workerRegions.Length, (i,t) =>
+                Application.ParallelFor(_workerRegionsOpaqueQueue.Length, (i,t) =>
                 {
                     VkCommandBufferInheritanceRenderingInfo renderingInfoInternal = renderInheritance;
                     VkCommandBufferInheritanceInfo inheritanceInfoInternal = new()
@@ -542,7 +656,7 @@ namespace VECS
                         pNext = &renderingInfoInternal
                     };
                     VkCommandBufferBeginInfo bufferBeginInfo = new() { pInheritanceInfo = &inheritanceInfoInternal, flags = VkCommandBufferUsageFlags.RenderPassContinue };
-                    var workerRegion = _workerRegions[i];
+                    var workerRegion = _workerRegionsOpaqueQueue[i];
                     var cmdBuffer = commandBuffers[t];
                     GraphicsDevice.DeviceAPI.vkBeginCommandBuffer(cmdBuffer, &bufferBeginInfo);
                     SwapChain.SetViewPort(cmdBuffer);
@@ -564,7 +678,7 @@ namespace VECS
             }
             else
             {
-                for (int i = 0; i < _materialCmdRegions.Length; i++)
+                for (int i = 0; i < _firstTransparentCmdRegion; i++)
                 {
                     var region = _materialCmdRegions[i];
                     var material = AssetDataBase<Material>.GetHashed(region.X);
@@ -574,18 +688,87 @@ namespace VECS
             }
         }
 
-        public static void ExecuteAllInOneDrawCmds(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer,int materialHash)
+        public unsafe static void ExecuteTransparentDrawCmds(RendererFrameInfo frameInfo, VkCommandBuffer[] commandBuffers, VkFormat* colourFormats, uint colourAttachmentCount, VkFormat depthFormat, VkFormat stencilFormat)
         {
-            var mat = AssetDataBase<Material>.GetHashed(materialHash);
+            if (MULTI_THREAD_RENDERING && commandBuffers != null)
+            {
+                Debug.Assert(commandBuffers.Length >= Application.ThreadDispatcher.ThreadCount, "Too few command buffers recieved!");
+                VkCommandBufferInheritanceRenderingInfo renderInheritance = new()
+                {
+                    flags = VkRenderingFlags.ContentsSecondaryCommandBuffers,
+                    colorAttachmentCount = colourAttachmentCount,
+                    pColorAttachmentFormats = colourFormats,
+                    depthAttachmentFormat = depthFormat,
+                    stencilAttachmentFormat = stencilFormat,
+                    rasterizationSamples = VkSampleCountFlags.Count1
+                };
 
-            mat.ExecuteDrawCommands(frameInfo, commandBuffer, _drawCommandsByMesh, _drawCommandsByMesh.Length, _indirectCmdBufferByMesh);
+                Application.ParallelFor(_workerRegionsTransparentQueue.Length, (i, t) =>
+                {
+                    VkCommandBufferInheritanceRenderingInfo renderingInfoInternal = renderInheritance;
+                    VkCommandBufferInheritanceInfo inheritanceInfoInternal = new()
+                    {
+                        pNext = &renderingInfoInternal
+                    };
+                    VkCommandBufferBeginInfo bufferBeginInfo = new() { pInheritanceInfo = &inheritanceInfoInternal, flags = VkCommandBufferUsageFlags.RenderPassContinue };
+                    var workerRegion = _workerRegionsTransparentQueue[i];
+                    var cmdBuffer = commandBuffers[t];
+                    GraphicsDevice.DeviceAPI.vkBeginCommandBuffer(cmdBuffer, &bufferBeginInfo);
+                    SwapChain.SetViewPort(cmdBuffer);
+
+                    for (int j = workerRegion.StartIndex; j < workerRegion.Offset; j++)
+                    {
+                        var region = _materialCmdRegions[j];
+                        var material = AssetDataBase<Material>.GetHashed(region.X);
+                        var cmds = _drawCommandsByMat.AsSpan(region.Y, region.Z);
+                        material.ExecuteDrawCommands(frameInfo, cmdBuffer, cmds, region.Z, _indirectCmdBufferByMat);
+                    }
+                    GraphicsDevice.DeviceAPI.vkEndCommandBuffer(cmdBuffer);
+                });
+
+                fixed (VkCommandBuffer* pCmdBuffers = &commandBuffers[0])
+                {
+                    GraphicsDevice.DeviceAPI.vkCmdExecuteCommands(frameInfo.CommandBuffer, (uint)Application.ThreadDispatcher.ThreadCount, pCmdBuffers);
+                }
+            }
+            else
+            {
+                for (int i = _firstTransparentCmdRegion; i < _materialCmdRegions.Length; i++)
+                {
+                    var region = _materialCmdRegions[i];
+                    var material = AssetDataBase<Material>.GetHashed(region.X);
+                    var cmds = _drawCommandsByMat.AsSpan(region.Y, region.Z);
+                    material.ExecuteDrawCommands(frameInfo, frameInfo.CommandBuffer, cmds, region.Z, _indirectCmdBufferByMat);
+                }
+            }
         }
 
-        public static void ExecuteAllInOneDrawCmds(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, int materialHash, int pushConstantIndex)
+        public static void ExecuteAllInOneOpaqueDrawCmds(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer,int materialHash)
         {
             var mat = AssetDataBase<Material>.GetHashed(materialHash);
 
-            mat.ExecuteDrawCommandsPushConstantOverride(frameInfo, pushConstantIndex, commandBuffer, _drawCommandsByMesh, _drawCommandsByMesh.Length, _indirectCmdBufferByMesh);
+            mat.ExecuteDrawCommands(frameInfo, commandBuffer, _drawCommandsByMesh, OpaqueCmdCountByMesh, _indirectCmdBufferByMesh);
+        }
+
+        public static void ExecuteAllInOneOpaqueDrawCmds(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, int materialHash, int pushConstantIndex)
+        {
+            var mat = AssetDataBase<Material>.GetHashed(materialHash);
+
+            mat.ExecuteDrawCommandsPushConstantOverride(frameInfo, pushConstantIndex, commandBuffer, _drawCommandsByMesh, OpaqueCmdCountByMesh, _indirectCmdBufferByMesh);
+        }
+
+        public static void ExecuteAllInOneTransparentDrawCmds(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, int materialHash)
+        {
+            var mat = AssetDataBase<Material>.GetHashed(materialHash);
+
+            mat.ExecuteDrawCommands(frameInfo, commandBuffer, _drawCommandsByMesh.AsSpan(_firstTransparentByMesh,TransparentcmdCountByMesh), TransparentcmdCountByMesh, _indirectCmdBufferByMesh);
+        }
+
+        public static void ExecuteAllInOneTransparentDrawCmds(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, int materialHash, int pushConstantIndex)
+        {
+            var mat = AssetDataBase<Material>.GetHashed(materialHash);
+
+            mat.ExecuteDrawCommandsPushConstantOverride(frameInfo, pushConstantIndex, commandBuffer, _drawCommandsByMesh.AsSpan(_firstTransparentByMesh, TransparentcmdCountByMesh), TransparentcmdCountByMesh, _indirectCmdBufferByMesh);
         }
 
         public static void CullAllInOne(RendererFrameInfo frameInfo, CullData cullData)

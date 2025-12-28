@@ -206,12 +206,11 @@ namespace Planets
 
 
             var childrenEntities = entityManager.GetComponent<Children>(planetInstance).Value;
-            var unlit = mat.Hash;
             for (int i = 0; i < childrenEntities.Length; i++)
             {
                 entityManager.AddComponent(childrenEntities[i], new RenderMesh()
                 {
-                    Material = new() { Hash = unlit, Variant = 0, Entity = planetCount - 1 },
+                    Material = new() { Transparent = mat.Transparent, Hash = mat.Hash, Variant = 0, Entity = planetCount - 1 },
                     Mesh = entityManager.GetComponent<DirectSubMeshIndex>(childrenEntities[i])
                 });
             }
@@ -343,6 +342,7 @@ namespace Planets
             entityManager.AddComponent(children.Value[^1], new MainColour() { Value = new Vector4(1, 0, 0, 1) });
             engineRed.Material = new()
             {
+                Transparent = EngineMaterials.UnlitTransparent.Transparent,
                 Hash = EngineMaterials.UnlitTransparent.Hash,
                 Variant = 0,
                 Entity = 0
@@ -526,6 +526,7 @@ namespace Planets
                 Mesh = mesh.GetSubMeshIndex(),
                 Material = new()
                 {
+                    Transparent = mat.Transparent,
                     Hash = mat.Hash,
                     Variant = variant,
                     Entity = entityVariant
@@ -583,7 +584,7 @@ namespace Planets
             entityManager.AddComponent<DoNotRender>(planet);
             entityManager.AddComponent<Prefab>(planet);
             entityManager.AddComponent<PlanetEuler>(planet);
-            entityManager.AddComponent(planet, new MaterialIndex { Hash = planetLitMaterial.Hash });
+            entityManager.AddComponent(planet, new MaterialIndex { Transparent = planetLitMaterial.Transparent, Hash = planetLitMaterial.Hash });
 
             InitialiseTiles(entityManager, planet, subdivisons);
 

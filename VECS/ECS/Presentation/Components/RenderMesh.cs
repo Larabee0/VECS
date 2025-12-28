@@ -44,6 +44,9 @@ namespace VECS.ECS.Presentation
         public DirectSubMeshIndex Mesh;
         public MaterialIndex Material;
         public CullOverrides CullOverrides;
+
+
+
 #if DEBUG
         public readonly int MeshHash => Mesh.Hash;
         public readonly int SubMesh => Mesh.SubMesh;

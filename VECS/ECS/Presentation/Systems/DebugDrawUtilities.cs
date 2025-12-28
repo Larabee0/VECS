@@ -70,7 +70,7 @@ namespace VECS.ECS.Presentation
             EngineMaterials.WireFrame.SetDescriptorStorageBufferLength(0,1, 0);
         }
 
-        public override void OnFowardPass(EntityManager entityManager, RendererFrameInfo frameInfo)
+        public override void OnOpaquePass(EntityManager entityManager, RendererFrameInfo frameInfo)
         {
             if (InputManager.Instance.GetKeyUp(SDL3.SDL_Keycode.F1))
             {

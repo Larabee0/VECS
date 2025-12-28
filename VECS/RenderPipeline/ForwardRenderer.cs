@@ -82,13 +82,13 @@ namespace VECS
         }
 
 
-        public unsafe void BeginForwardDepthOnlyRendering(VkCommandBuffer commandBuffer)
+        public unsafe void BeginForwardDepthOnlyRendering(VkCommandBuffer commandBuffer, VkAttachmentLoadOp loadOp = VkAttachmentLoadOp.Clear)
         {
             VkRenderingAttachmentInfo depth = new()
             {
                 imageView = DepthAttachment.VkImageView,
                 imageLayout = DepthAttachment.ImageLayout,
-                loadOp = VkAttachmentLoadOp.Clear,
+                loadOp = loadOp,
                 storeOp = VkAttachmentStoreOp.Store,
                 clearValue = new(1, 0)
             };
