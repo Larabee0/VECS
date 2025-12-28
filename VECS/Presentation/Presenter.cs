@@ -233,9 +233,10 @@ namespace VECS
 
         public void Present()
         {
-            World.DefaultWorld.OnPrePresent();
             // acquire swapchain image
             _isFrameStarted = BeginFrame();
+
+            World.DefaultWorld.OnPrePresent();
 
             UpdateEntityFrameInfo(World.DefaultWorld.EntityManager);
             if (_isFrameStarted)
