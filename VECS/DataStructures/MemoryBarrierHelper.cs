@@ -37,9 +37,9 @@ namespace VECS
             {
                 VkImageLayout.Undefined => VkAccessFlags2.None,
                 VkImageLayout.Preinitialized => VkAccessFlags2.HostWrite,
-                VkImageLayout.ColorAttachmentOptimal => VkAccessFlags2.ColorAttachmentWrite,
-                VkImageLayout.DepthStencilAttachmentOptimal => VkAccessFlags2.DepthStencilAttachmentWrite,
-                VkImageLayout.DepthAttachmentStencilReadOnlyOptimal => VkAccessFlags2.DepthStencilAttachmentRead,
+                VkImageLayout.ColorAttachmentOptimal => VkAccessFlags2.ColorAttachmentWrite | VkAccessFlags2.ColorAttachmentRead,
+                VkImageLayout.DepthStencilAttachmentOptimal => VkAccessFlags2.DepthStencilAttachmentWrite | VkAccessFlags2.DepthStencilAttachmentRead,
+                VkImageLayout.DepthAttachmentStencilReadOnlyOptimal => VkAccessFlags2.DepthStencilAttachmentRead | VkAccessFlags2.DepthStencilAttachmentWrite,
                 VkImageLayout.TransferSrcOptimal => VkAccessFlags2.TransferRead,
                 VkImageLayout.TransferDstOptimal => VkAccessFlags2.TransferWrite,
                 VkImageLayout.ShaderReadOnlyOptimal => VkAccessFlags2.ShaderRead,
@@ -56,16 +56,16 @@ namespace VECS
                     dstAccessMask = VkAccessFlags2.TransferRead;
                     break;
                 case VkImageLayout.ColorAttachmentOptimal:
-                    dstAccessMask = VkAccessFlags2.ColorAttachmentWrite;
+                    dstAccessMask = VkAccessFlags2.ColorAttachmentWrite | VkAccessFlags2.ColorAttachmentRead;
                     break;
                 case VkImageLayout.DepthAttachmentOptimal:
-                    dstAccessMask = VkAccessFlags2.DepthStencilAttachmentWrite;
+                    dstAccessMask = VkAccessFlags2.DepthStencilAttachmentWrite | VkAccessFlags2.DepthStencilAttachmentRead;
                     break;
                 case VkImageLayout.DepthStencilAttachmentOptimal:
-                    dstAccessMask = VkAccessFlags2.DepthStencilAttachmentWrite;
+                    dstAccessMask = VkAccessFlags2.DepthStencilAttachmentWrite | VkAccessFlags2.DepthStencilAttachmentRead;
                     break;
                 case VkImageLayout.DepthAttachmentStencilReadOnlyOptimal:
-                    dstAccessMask = VkAccessFlags2.DepthStencilAttachmentWrite;
+                    dstAccessMask = VkAccessFlags2.DepthStencilAttachmentWrite | VkAccessFlags2.DepthStencilAttachmentRead;
                     break;
                 case VkImageLayout.General:
                     dstAccessMask = VkAccessFlags2.DepthStencilAttachmentRead | VkAccessFlags2.DepthStencilAttachmentWrite;

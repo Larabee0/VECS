@@ -64,6 +64,7 @@ namespace VECS.ECS.Presentation
 
             var depthBufferCullInfo = frameInfo.CullData;
             depthBufferCullInfo.depthCulling = 0;
+            DrawBlob.IndirectToComputeMemoryBarrierByMat(commandBuffer);
 
             DrawBlob.CullAllInOne(frameInfo, depthBufferCullInfo);
 
@@ -76,7 +77,7 @@ namespace VECS.ECS.Presentation
             DepthReduction.ReduceDepth(frameInfo);
             DrawBlob.CullByMat(frameInfo, frameInfo.CullData);
 
-            DrawBlob.IndirectToComputeMemoryBarrierAllInOne(commandBuffer);
+            DrawBlob.IndirectToComputeMemoryBarrierByMat(commandBuffer);
 
         }
 
