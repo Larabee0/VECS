@@ -22,8 +22,6 @@ layout (set = 0, binding = 1) readonly buffer PointLights{
 
 void main() 
 {
-	discard;
-	return;
 	vec3 lightVec;
 	if(lighting.numPointLights == 0)
 	{

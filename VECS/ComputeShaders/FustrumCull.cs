@@ -19,6 +19,7 @@ namespace VECS
         Default = 1,
         NoShadow = 2,
         OnlyShadow = 4,
+        All = Default | NoShadow | OnlyShadow
     }
 
     [StructLayout(LayoutKind.Sequential, Size = 24)]
@@ -36,12 +37,12 @@ namespace VECS
             layerFlags = RenderLayer.Default;
 
 
-            uint includeMask =(uint)( RenderLayer.Default | RenderLayer.OnlyShadow);
-            uint excludeMask =(uint)( RenderLayer.NoShadow | RenderLayer.None);
-            uint flags = (uint)(RenderLayer.Default | RenderLayer.NoShadow);
-            var include = (includeMask | flags) == flags;
-            var exclude = (excludeMask | flags) == flags;
-            var visible = include && !exclude;
+            // uint includeMask =(uint)( RenderLayer.All);
+            // uint excludeMask =(uint)( RenderLayer.OnlyShadow);
+            // uint flags = (uint)(RenderLayer.Default | RenderLayer.NoShadow);
+            // var include = (flags | includeMask) == includeMask;
+            // var exclude = (flags | excludeMask) == excludeMask;
+            // var visible = include && !exclude;
         }
     }
 

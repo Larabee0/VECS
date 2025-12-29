@@ -163,7 +163,8 @@ void main()
 	
 	// in shadow?
 
-	bool noShadow =  shadowCal() == 0;
+	float shadow = shadowCal();
+	bool noShadow =  shadow == 0;
 	
 
 	// lighting based on in shadow

@@ -140,8 +140,8 @@ void main()
 	{
 		uint flags = drawBuffer.Draws[gID].layerFlags;
 		
-		bool includeMask = (cullData.includeMask | flags) == flags;
-		bool excludeMask = (cullData.excludeMask | flags) == flags;
+		bool includeMask = (flags | cullData.includeMask) == cullData.includeMask;
+		bool excludeMask = (flags | cullData.excludeMask) == cullData.excludeMask;
 
 		bool visible = includeMask && !excludeMask;
 
