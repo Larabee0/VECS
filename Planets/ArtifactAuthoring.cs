@@ -65,6 +65,9 @@ namespace Planets
         private readonly static Stopwatch _stopwatch = new();
         public ArtifactAuthoring()
         {
+            new Texture2D(TextureLoader.GetTextureInDefaultPath("AreaTexDX10.dds"), false);
+            new Texture2D(TextureLoader.GetTextureInDefaultPath("SearchTex.dds"), false);
+            return;
             World.DefaultWorld.CreateSystem<UpdatePlanetTimeSystem>();
             World.DefaultWorld.CreateSystem<TransformPlanetsSystem>();
             World.DefaultWorld.CreateSystem<PointLightSystem>();

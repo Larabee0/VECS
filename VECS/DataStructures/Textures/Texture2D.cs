@@ -291,6 +291,35 @@ namespace VECS
             AssetDataBase<Texture2D>.Add(this);
         }
 
+        public Texture2D(string filePath, VkSamplerAddressMode samplerMode, bool generateMipMaps = true)
+        {
+            var surface = TextureLoader.LoadToSurface(filePath);
+            _hostBuffer = TextureLoader.CopySurfaceToStagingBuffer(surface);
+            _imageExtent = new(surface.Width, surface.Height, 1);
+            _imageImageViewType = VkImageViewType.Image2D;
+            _wrapModeU = samplerMode;
+            _wrapModeV = samplerMode;
+            _wrapModeW = samplerMode;
+
+            if (generateMipMaps)
+            {
+                _mipMapCount = TextureExtensions.CalculateMipMapLevels(_imageExtent.width, _imageExtent.height);
+            }
+
+            this.CreateImage(GetImageCreateInfo());
+            this.SetImageLayoutAndAspectFromUsage();
+            this.CopyFromBuffer(_hostBuffer);
+
+            this.CreateImageView(GetImageViewCreateInfo());
+            this.CreateSampler(GetSamplerCreateInfo());
+
+            UpdateDescriptor();
+
+            FileName = Path.GetFileName(filePath);
+            AssetName = Path.GetFileNameWithoutExtension(filePath);
+            AssetDataBase<Texture2D>.Add(this);
+        }
+
         public unsafe override void RegenerateMipMaps(VkCommandBuffer cmd)
         {
             this.GenerateMipMaps(cmd);

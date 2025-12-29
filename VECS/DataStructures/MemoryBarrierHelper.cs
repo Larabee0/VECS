@@ -38,6 +38,7 @@ namespace VECS
                 VkImageLayout.Undefined => VkAccessFlags2.None,
                 VkImageLayout.Preinitialized => VkAccessFlags2.HostWrite,
                 VkImageLayout.ColorAttachmentOptimal => VkAccessFlags2.ColorAttachmentWrite | VkAccessFlags2.ColorAttachmentRead,
+                VkImageLayout.DepthAttachmentOptimal => VkAccessFlags2.DepthStencilAttachmentWrite | VkAccessFlags2.DepthStencilAttachmentRead,
                 VkImageLayout.DepthStencilAttachmentOptimal => VkAccessFlags2.DepthStencilAttachmentWrite | VkAccessFlags2.DepthStencilAttachmentRead,
                 VkImageLayout.DepthAttachmentStencilReadOnlyOptimal => VkAccessFlags2.DepthStencilAttachmentRead | VkAccessFlags2.DepthStencilAttachmentWrite,
                 VkImageLayout.TransferSrcOptimal => VkAccessFlags2.TransferRead,

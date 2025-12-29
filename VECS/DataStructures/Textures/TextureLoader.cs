@@ -2,6 +2,8 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using TeximpNet;
+using TeximpNet.DDS;
+using TeximpNet.Unmanaged;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
@@ -41,17 +43,56 @@ namespace VECS
                 throw new FileNotFoundException("Texture not found",filePath);
             }
 
-            Surface image = Surface.LoadFromFile(filePath);
+            Surface image = null;
+            
+            if (Path.GetExtension(filePath) == ".dds")
+            {
+                var ddsLoad = DDSFile.Read(filePath, DDSFlags.ForceRgb);
+                VkFormat format = VkFormat.Undefined;
+                switch (ddsLoad.Format)
+                {
+                    case DXGIFormat.R8_UNorm:
+                        format = VkFormat.R8Unorm;
+                        break;
+                    case DXGIFormat.R8G8B8A8_UNorm:
+                        format = VkFormat.R8G8B8A8Unorm;
+                        break;
+                    default:
+                        throw new NotImplementedException(string.Format("DDS Format {0} loading has not been implemented!", ddsLoad.Format.ToString()));
+                }
+
+
+                var bufferInstanceSize = Vulkan.BlockSize(format);
+                var mipmapZero = ddsLoad.MipChains[0][0];
+                var totalPixels = (uint)(mipmapZero.Width * mipmapZero.Height);
+
+                image = new(bufferInstanceSize * 8, mipmapZero.Width, mipmapZero.Height);
+
+
+                ImageHelper.CopyImageData(image.DataPtr, mipmapZero.RowPitch, mipmapZero.SlicePitch, mipmapZero.Data, mipmapZero.RowPitch, mipmapZero.SlicePitch, mipmapZero.Width, mipmapZero.Height, mipmapZero.Depth);
+
+                ddsLoad.Dispose();
+                
+            }
+            else
+            {
+                image = Surface.LoadFromFile(filePath);
+            }
+
+            
 
             if (image == null)
             {
+                
                 return null;
             }
+
 
             if (image.ImageType != ImageType.Bitmap || image.BitsPerPixel != 32)
                 image.ConvertTo(ImageConversion.To32Bits);
 
             return image;
+            
         }
 
         public static unsafe GPUBuffer<Colour> CopySurfaceToStagingBuffer(Surface surface)
