@@ -18,8 +18,6 @@ namespace VECS
         private readonly SwapChainBuffer _geometry;
         private SwapChainBuffer _linkedList;
 
-        private uint _maxNodes = OIT_NODE_COUNT;
-
         [StructLayout(LayoutKind.Sequential, Size = 24)]
         private struct OITNode
         {
@@ -30,11 +28,11 @@ namespace VECS
 
         public ForwardRenderer()
         {
-            _geometry = SwapChainBuffer.AliasGPUBuffer(new GPUBuffer<Vector2UInt>(1, VkBufferUsageFlags.StorageBuffer | VkBufferUsageFlags.TransferDst, false, false, false));
+            _geometry = SwapChainBuffer.AliasGPUBuffer(new GPUBuffer<Vector2UInt>(1, VkBufferUsageFlags.StorageBuffer | VkBufferUsageFlags.TransferDst, false, false, true));
             RecreateAttachments();
         }
 
-        public void RecreateAttachments()
+        public unsafe void RecreateAttachments()
         {
             MainColourAttachment?.Dispose();
             BrightObjectAttachment?.Dispose();
@@ -47,8 +45,9 @@ namespace VECS
 
             var windowExtents = SwapChain.Instance._windowExtent;
 
-            _maxNodes = OIT_NODE_COUNT * windowExtents.width * windowExtents.height;
+            var _maxNodes = OIT_NODE_COUNT * windowExtents.width * windowExtents.height;
             _linkedList = SwapChainBuffer.AliasGPUBuffer(new GPUBuffer<OITNode>(_maxNodes, VkBufferUsageFlags.StorageBuffer, false, false, false));
+            _geometry[0].WriteToBuffer(&_maxNodes, sizeof(uint),sizeof(uint));
 
             _headIndex = new("OIT_HeadIndex", (int)windowExtents.width, (int)windowExtents.height, VkFormat.R32Uint, VkImageUsageFlags.TransferDst | VkImageUsageFlags.Storage, false);
             _headIndex.SetImageLayout(VkImageLayout.General, VkPipelineStageFlags2.None, VkPipelineStageFlags2.Transfer);
@@ -200,7 +199,7 @@ namespace VECS
 
 
             VkClearColorValue clearColor;
-            clearColor.uint32[0] = 0xffffffff;
+            clearColor.uint32[0] = uint.MaxValue;
             VkImageSubresourceRange imageSubresource = _headIndex.GetSubresourceRange();
 
             GraphicsDevice.DeviceAPI.vkCmdClearColorImage(commandBuffer, _headIndex._vkImage, VkImageLayout.General, &clearColor,1,&imageSubresource);
