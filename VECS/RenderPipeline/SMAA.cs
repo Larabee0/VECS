@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using VECS.GraphicsPipelines;
 using VECS.LowLevel;
+using VECS.SMAA;
 using Vortice.Vulkan;
 
 namespace VECS.RenderPipeline
@@ -23,12 +24,18 @@ namespace VECS.RenderPipeline
 
         public SMAA()
         {
-            SearchTexture = new Texture2D(TextureLoader.GetTextureInDefaultPath("SearchTex.dds"));
-            AreaTexture =   new Texture2D(TextureLoader.GetTextureInDefaultPath("AreaTexDX10.dds"));
+            SearchTexture = new Texture2D("SMAA_Search", SMAASearchTexture.SEARCHTEX_WIDTH, SMAASearchTexture.SEARCHTEX_HEIGHT, SMAASearchTexture.SEARCHTEX_FORMAT, VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled, false);
+
+            SearchTexture.CopyFromArray(SMAASearchTexture.SearchTexBytes);
+
+            AreaTexture = new Texture2D("SMAA_Area", SMAAAreaTexture.AREATEX_WIDTH, SMAAAreaTexture.AREATEX_HEIGHT, SMAAAreaTexture.AREATEX_FORMAT, VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled, false);
+
+            AreaTexture.CopyFromArray(SMAAAreaTexture.AreaTexBytes);
+
             var pipelineConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
-            EdgeDetection =         new("SMAA_Edge",        "smaa_edge_detection.vert",         "smaa_edge_detection.frag",         pipelineConfig);
-            BlendWeightCalc =       new("SMAA_BlendWeight", "smaa_blending_weight.vert",        "smaa_blending_weight.frag",        pipelineConfig);
-            NeighbourhoodBlending = new("SMAA_Blending",    "smaa_neighbourhood_blending.vert", "smaa_neighbourhood_blending.frag", pipelineConfig);
+            EdgeDetection = new("SMAA_Edge", "smaa_edge_detection.vert", "smaa_edge_detection.frag", pipelineConfig);
+            BlendWeightCalc = new("SMAA_BlendWeight", "smaa_blending_weight.vert", "smaa_blending_weight.frag", pipelineConfig);
+            NeighbourhoodBlending = new("SMAA_Blending", "smaa_neighbourhood_blending.vert", "smaa_neighbourhood_blending.frag", pipelineConfig);
 
             BlendWeightCalc.SetTexture("uAreaTexture".GetShaderPropertyId(), 0, AreaTexture);
             BlendWeightCalc.SetTexture("uSearchTexture".GetShaderPropertyId(), 0, SearchTexture);
@@ -54,5 +61,8 @@ namespace VECS.RenderPipeline
             BlendWeightCalc.SetTexture("uBlendTexture".GetShaderPropertyId(), 0, BlendTarget.Target);
             BlendWeightCalc.SetTexture("uColorTexture".GetShaderPropertyId(), 0, Presenter.Instance.ForwardRenderer.MainColourAttachment.Target);
         }
+
+
+        
     }
 }

@@ -12,6 +12,7 @@ using VECS.LowLevel;
 using VECS.ECS.Physics;
 using Vortice.Vulkan;
 using VECS.GraphicsPipelines;
+using VECS.SMAA;
 
 namespace Planets
 {
@@ -65,8 +66,13 @@ namespace Planets
         private readonly static Stopwatch _stopwatch = new();
         public ArtifactAuthoring()
         {
-            new Texture2D(TextureLoader.GetTextureInDefaultPath("AreaTexDX10.dds"), false);
-            new Texture2D(TextureLoader.GetTextureInDefaultPath("SearchTex.dds"), false);
+            var SearchTexture = new Texture2D("SMAA_Search", SMAASearchTexture.SEARCHTEX_WIDTH, SMAASearchTexture.SEARCHTEX_HEIGHT, SMAASearchTexture.SEARCHTEX_FORMAT, VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled, false);
+
+            SearchTexture.CopyFromArray(SMAASearchTexture.SearchTexBytes);
+
+            var AreaTexture = new Texture2D("SMAA_Area", SMAAAreaTexture.AREATEX_WIDTH, SMAAAreaTexture.AREATEX_HEIGHT, SMAAAreaTexture.AREATEX_FORMAT, VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled, false);
+
+            AreaTexture.CopyFromArray(SMAAAreaTexture.AreaTexBytes);
             return;
             World.DefaultWorld.CreateSystem<UpdatePlanetTimeSystem>();
             World.DefaultWorld.CreateSystem<TransformPlanetsSystem>();
