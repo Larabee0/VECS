@@ -59,8 +59,11 @@ void main()
 
     outFragColor = color;
     brightness = dot(color.rgb, vec3(0.2126, 0.7152, 0.0722));
-    if(brightness > 5000)
+    if(brightness > 0.20)
     {
         outBrightColor = color;
+    }
+    else{
+        outBrightColor = vec4(0);
     }
 }

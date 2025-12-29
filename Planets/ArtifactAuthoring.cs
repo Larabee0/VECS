@@ -345,7 +345,7 @@ namespace Planets
             }
 
             var engineRed = entityManager.GetComponent<RenderMesh>(children.Value[^1]);
-            entityManager.AddComponent(children.Value[^1], new MainColour() { Value = new Vector4(2, 0, 0, 1) });
+            entityManager.AddComponent(children.Value[^1], new MainColour() { Value = new Vector4(4, 0, 0, 1) });
             engineRed.Material = new()
             {
                 Transparent = true,
