@@ -58,11 +58,13 @@ namespace VECS
     {
         public readonly bool Transparent;
         public readonly DirectSubMeshIndex Mesh;
+        public readonly RenderLayer LayerFlags;
 
-        public MeshWithTransparency(bool transparent, DirectSubMeshIndex mesh)
+        public MeshWithTransparency(bool transparent, DirectSubMeshIndex mesh, RenderLayer layerFlags)
         {
             Transparent = transparent;
             Mesh = mesh;
+            LayerFlags = layerFlags;
         }
     }
 
@@ -188,8 +190,8 @@ namespace VECS
         private static MaterialDrawCommand[] _drawCommandsByMat = [];
         private static MaterialDrawCommand[] _drawCommandsByMesh = [];
 
-        private static SwapChainBuffer<VkDrawIndexedIndirectCommand> _indirectCmdBufferByMat;
-        private static SwapChainBuffer<VkDrawIndexedIndirectCommand> _indirectCmdBufferByMesh;
+        private static SwapChainBuffer<VECSDrawIndexIndirectCommand> _indirectCmdBufferByMat;
+        private static SwapChainBuffer<VECSDrawIndexIndirectCommand> _indirectCmdBufferByMesh;
 
         private static int _firstTransparentByMat;
         public static int OpaqueCmdCountByMat => _firstTransparentByMat;
@@ -369,7 +371,7 @@ namespace VECS
             {
                 Entity entity = _drawEntitiesByMat[i];
                 var renderMesh = _drawRenderMesh[i] = entityManager.GetComponent<RenderMesh>(entity);
-                _drawDirectSubMeshIndex[i] = new(renderMesh.Material.Transparent,renderMesh.Mesh);
+                _drawDirectSubMeshIndex[i] = new(renderMesh.Material.Transparent,renderMesh.Mesh,renderMesh.LayerFlags);
                 _materialVariants.AddOrUpdate(new(renderMesh.Material.Hash, renderMesh.Material.Variant, renderMesh.Material.Entity), 1, (key, value) => value + 1);
                 _directMeshDraws.AddOrUpdate(new (renderMesh.Material.Transparent, renderMesh.Mesh.Hash), 1, (key, value) => value + 1);
             });
@@ -425,6 +427,7 @@ namespace VECS
                 var vkDraw = DirectSubMesh.GetSubMeshAtIndex(renderMesh.Mesh).IndirectCommand;
                 vkDraw.firstInstance = (uint)materialVariantDrawIndex;
                 vkDraw.instanceCount = 0;
+                vkDraw.layerFlags = renderMesh.LayerFlags;
                 indirectCmdBuffer[i] = vkDraw;
                 meshSubRegion.Count++;
                 storageBufferRegion.Count++;
@@ -539,6 +542,7 @@ namespace VECS
                     var cmd = directrMesh.SubMeshInfos[subMeshInfo.Mesh.SubMesh].IndirectDrawCmd;
                     cmd.instanceCount = 1;
                     cmd.firstInstance = (uint)i;
+                    cmd.layerFlags = subMeshInfo.LayerFlags;
                     indirectCmdBuffer[i] = cmd;
                 }
 

@@ -12,6 +12,8 @@ namespace VECS
         public const bool SHADOW_CULLING = true;
         public const bool SHADOW_DST_CULLING = true;
         public const bool SHADOW_DEPTH_CULLING = false;
+        public const RenderLayer SHADOW_INCLUDE_MASK = RenderLayer.Default | RenderLayer.OnlyShadow;
+        public const RenderLayer SHADOW_EXCLUDE_MASK = RenderLayer.NoShadow |RenderLayer.None;
 
         public static readonly Matrix4x4 CubeProjectionMatrix = Matrix4x4.CreatePerspectiveFieldOfView(MathF.PI * 0.5f, 1.0f, 0.1f, SHADOW_IMAGE_SIZE);
 

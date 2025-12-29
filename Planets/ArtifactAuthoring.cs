@@ -108,6 +108,10 @@ namespace Planets
             
             AddRenderMeshComponents(aStar, EngineMaterials.Unlit, 0, 0, AssetDataBase<DirectMesh>.GetNamed("UV-Sphere").DirectSubMeshes[0], entityManager);
 
+            var renderMesh = entityManager.GetComponent<RenderMesh>(aStar);
+            renderMesh.LayerFlags |= RenderLayer.NoShadow;
+            entityManager.SetComponent(aStar,renderMesh);
+
             entityManager.AddComponent(aStar, new MainColour()
             {
                 Value = ColourTypeConversion.FromHex("#CC5309")

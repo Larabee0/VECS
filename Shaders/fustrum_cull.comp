@@ -11,6 +11,7 @@ struct DrawCommand {
     uint firstIndex;
     int vertexOffset;
     uint firstInstance;
+	uint layerFlags;
 };
 
 layout(std140, set = 0, binding = 0) readonly buffer ObjectBoundsBuffer {
@@ -25,10 +26,12 @@ layout(set = 0, binding = 2) uniform sampler2D depthPyramid;
 
 layout(set = 0, binding = 3) uniform CullData{
 	vec4 frustum[6]; // data for left/right/top/bottom frustum planes
+	vec2 pyramid;
 	float zNear;
 	float P00;
 	float P11;
-	vec2 pyramid;
+	uint includeMask;
+	uint excludeMask;
 	uint drawCount;
 	int cullingEnabled;
 	int distCull;
@@ -135,16 +138,21 @@ void main()
 	uint gID = gl_GlobalInvocationID.x;
 	if(gID < cullData.drawCount)
 	{
-		bool visible = true;
-		bool depthVisible = true;
-		if(cullData.cullingEnabled != 0){
+		uint flags = drawBuffer.Draws[gID].layerFlags;
+		
+		bool includeMask = (cullData.includeMask | flags) == flags;
+		bool excludeMask = (cullData.excludeMask | flags) == flags;
+
+		bool visible = includeMask && !excludeMask;
+
+		if(visible && cullData.cullingEnabled != 0){
 			visible = IsVisible(gID);
 		}
-		if(cullData.depthCulling != 0){
-			depthVisible = IsDepthVisible(gID);
+		if(visible && cullData.depthCulling != 0){
+			visible = IsDepthVisible(gID);
 		}
 		
-		if(visible && depthVisible){
+		if(visible){
 			drawBuffer.Draws[gID].instanceCount = 1;
 		}
 		else{

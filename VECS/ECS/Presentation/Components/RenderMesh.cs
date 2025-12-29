@@ -44,7 +44,12 @@ namespace VECS.ECS.Presentation
         public DirectSubMeshIndex Mesh;
         public MaterialIndex Material;
         public CullOverrides CullOverrides;
+        public RenderLayer LayerFlags;
 
+        public RenderMesh()
+        {
+            LayerFlags = RenderLayer.Default;
+        }
 
 
 #if DEBUG

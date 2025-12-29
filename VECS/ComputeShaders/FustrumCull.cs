@@ -12,6 +12,39 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
+    [Flags]
+    public enum RenderLayer : uint
+    {
+        None = 0,
+        Default = 1,
+        NoShadow = 2,
+        OnlyShadow = 4,
+    }
+
+    [StructLayout(LayoutKind.Sequential, Size = 24)]
+    public struct VECSDrawIndexIndirectCommand
+    {
+        public uint indexCount;
+        public uint instanceCount;
+        public uint firstIndex;
+        public int vertexOffset;
+        public uint firstInstance;
+        public RenderLayer layerFlags;
+
+        public VECSDrawIndexIndirectCommand()
+        {
+            layerFlags = RenderLayer.Default;
+
+
+            uint includeMask =(uint)( RenderLayer.Default | RenderLayer.OnlyShadow);
+            uint excludeMask =(uint)( RenderLayer.NoShadow | RenderLayer.None);
+            uint flags = (uint)(RenderLayer.Default | RenderLayer.NoShadow);
+            var include = (includeMask | flags) == flags;
+            var exclude = (excludeMask | flags) == flags;
+            var visible = include && !exclude;
+        }
+    }
+
     [StructLayout(LayoutKind.Sequential, Size = 208)]
     public struct CullData
     {
@@ -21,11 +54,12 @@ namespace VECS
         public Vector4 top;
         public Vector4 near;
         public Vector4 far;
+        public Vector2 pyramid;
         public float zNear;// 96
         public float P00; // 100
         public float P11; // 104
-        public float pad;
-        public Vector2 pyramid;
+        public RenderLayer IncludeMask;
+        public RenderLayer ExcludeMask;
         public uint drawCount;
         public int cullingEnabled;
         public int dstCulling;
@@ -49,7 +83,7 @@ namespace VECS
             pushConstants.SetPushConstantUniform("cullData", setId, this);
         }
 
-        public CullData(bool cull, bool dstCull,bool depthCull, float zNear, Matrix4x4 projection, Matrix4x4 view)
+        public CullData(RenderLayer includeMask, RenderLayer excludeMask, bool cull, bool dstCull,bool depthCull, float zNear, Matrix4x4 projection, Matrix4x4 view)
         {
             Matrix4x4 projectionT = Matrix4x4.Transpose(projection);
             near = projectionT.GetMatrixRow(3) - projectionT.GetMatrixRow(2);
@@ -70,7 +104,8 @@ namespace VECS
             dstCulling = dstCull ? 1 : 0;
             depthCulling = depthCull ? 1 : 0;
             drawCount = 0;
-
+            IncludeMask = includeMask;
+            ExcludeMask = excludeMask;
             View = view;
         }
 
@@ -147,7 +182,7 @@ namespace VECS
             Interlocked.Exchange(ref _variant, 0);
         }
 
-        public static void Cull(VkCommandBuffer commandBuffer,int frameIndex, CullData cullData, uint drawCount, SwapChainBuffer<VkDrawIndexedIndirectCommand> drawIndirect, SwapChainBuffer<ShaderAABB> bounds)
+        public static void Cull(VkCommandBuffer commandBuffer,int frameIndex, CullData cullData, uint drawCount, SwapChainBuffer<VECSDrawIndexIndirectCommand> drawIndirect, SwapChainBuffer<ShaderAABB> bounds)
         {
             if (_variant > 2000)
             {
@@ -164,6 +199,16 @@ namespace VECS
             }
 #pragma warning restore CS0162
 #endif
+            var includeMask = cullData.IncludeMask;
+            var excludeMask = cullData.ExcludeMask;
+            for (int i = 0; i < drawCount; i++)
+            {
+                var flags = drawIndirect.HostBuffer[i].layerFlags;
+                var include = (includeMask & flags) == flags;
+                var exclude = (excludeMask & flags) == flags;
+                var visible = include && !exclude;
+            }
+
             GPUCullInternal(commandBuffer,frameIndex, cullData, drawCount, drawIndirect, bounds, discriptorIndex);
             
         }
@@ -193,9 +238,9 @@ namespace VECS
         }
 
 #if DEBUG
-        private static void CPUCull(CullData cullData, uint drawCount, SwapChainBuffer<VkDrawIndexedIndirectCommand> drawIndirect, SwapChainBuffer<ShaderAABB> bounds)
+        private static void CPUCull(CullData cullData, uint drawCount, SwapChainBuffer<VECSDrawIndexIndirectCommand> drawIndirect, SwapChainBuffer<ShaderAABB> bounds)
         {
-            Span<VkDrawIndexedIndirectCommand> drawIndirectSpan = drawIndirect.HostBuffer;
+            Span<VECSDrawIndexIndirectCommand> drawIndirectSpan = drawIndirect.HostBuffer;
             Span<ShaderAABB> boundsSpan = bounds.HostBuffer;
 
             for (int i = 0; i < drawCount; i++)

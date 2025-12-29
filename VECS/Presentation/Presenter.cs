@@ -169,7 +169,7 @@ namespace VECS
 
             Matrix4x4 projection = camera.ViewMatrix * camera.ProjectionMatrix;
 
-            CullData cullData = new(camera.fustrumCulling, camera.dstCull, camera.depthCull, clipNear, projection, camera.ViewMatrix);
+            CullData cullData = new(RenderLayer.Default, RenderLayer.None | RenderLayer.OnlyShadow, camera.fustrumCulling, camera.dstCull, camera.depthCull, clipNear, projection, camera.ViewMatrix);
 
             CameraInfo cameraInfo = new(camera);
             CameraInverseInfo cameraInverseInfo = new(camera);

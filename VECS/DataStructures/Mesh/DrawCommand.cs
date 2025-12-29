@@ -8,7 +8,7 @@ namespace VECS
     [StructLayout(LayoutKind.Sequential,Size = 181)]
     public struct DrawCommand
     {
-        public VkDrawIndexedIndirectCommand VkDraw; // 20
+        public VECSDrawIndexIndirectCommand VkDraw; // 20
         public ModelMatrices Matrices; // 128
         public ShaderAABB Bounds; // 32
         public bool Bloom;

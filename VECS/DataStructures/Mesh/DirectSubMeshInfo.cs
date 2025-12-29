@@ -19,7 +19,7 @@ namespace VECS
             FirstInstance = firstInstance;
         }
 
-        public VkDrawIndexedIndirectCommand IndirectDrawCmd => new()
+        public VECSDrawIndexIndirectCommand IndirectDrawCmd => new()
         {
             indexCount = IndexCount,
             instanceCount = 1,
