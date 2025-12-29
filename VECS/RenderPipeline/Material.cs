@@ -23,6 +23,7 @@ namespace VECS
         private readonly VertexAttributeDescription[] _meshShaderVertexAttributes;
 
         private readonly int _descriptorSetCount = 0;
+        private readonly int _oitDescriptorSetIndex = -1;
         private readonly int _meshShaderDescriptorSetIndex = -1;
         private readonly int _meshShaderDescriptorHash = 0;
 
@@ -66,6 +67,7 @@ namespace VECS
             _graphicsPipelineConfigInfo = pipelineConfig;
             var descriptorSetBindings = GPUPipelineUtil.GetSharedBindings(vertex, fragment);
             _descriptorSetCount = GPUPipelineUtil.GetSetCount(descriptorSetBindings);
+            _oitDescriptorSetIndex = GPUPipelineUtil.GetOITSetIndex(descriptorSetBindings);
 
             _descriptorSetLayouts = new VkDescriptorSetLayout[_descriptorSetCount];
             _descriptorSetInfos = new DescriptorSetInfo[_descriptorSetCount];
@@ -94,6 +96,7 @@ namespace VECS
             _graphicsPipelineConfigInfo = pipelineConfig;
             var descriptorSetBindings = GPUPipelineUtil.GetSharedBindings(vertex);
             _descriptorSetCount = GPUPipelineUtil.GetSetCount(descriptorSetBindings);
+            _oitDescriptorSetIndex = GPUPipelineUtil.GetOITSetIndex(descriptorSetBindings);
 
             _descriptorSetLayouts = new VkDescriptorSetLayout[_descriptorSetCount];
             _descriptorSetInfos = new DescriptorSetInfo[_descriptorSetCount];
@@ -122,6 +125,7 @@ namespace VECS
             _graphicsPipelineConfigInfo = pipelineConfig;
             var descriptorSetBindings = GPUPipelineUtil.GetSharedBindings(mesh, task, fragment);
             _descriptorSetCount = GPUPipelineUtil.GetSetCount(descriptorSetBindings);
+            _oitDescriptorSetIndex = GPUPipelineUtil.GetOITSetIndex(descriptorSetBindings);
             _meshShaderDescriptorSetIndex = GPUPipelineUtil.GetMeshDataSetIndex(descriptorSetBindings);
 
             _meshShaderVertexAttributes = GPUPipelineUtil.MeshShaderExtractVertexAttributes(GPUPipelineUtil.ExtractBindingsForSet((uint)_meshShaderDescriptorSetIndex,descriptorSetBindings), descriptorSetBindings);
@@ -154,7 +158,8 @@ namespace VECS
                 var setBindings = GPUPipelineUtil.ExtractBindingsForSetAsBindingArray(setIndex, descriptorSetBindings);
                 var layout = GPUPipelineUtil.CreateDescriptorSetLayout(setBindings, VkDescriptorSetLayoutCreateFlags.DescriptorBufferEXT);
                 _descriptorSetLayouts[setIndex] = layout;
-                _descriptorSetInfos[setIndex] = new DescriptorSetInfo(layout, setBindings, _meshShaderDescriptorSetIndex == setIndex, _meshShaderDescriptorSetIndex == setIndex);
+                bool preventStorageBufferAllocation = _meshShaderDescriptorSetIndex == setIndex || _oitDescriptorSetIndex == setIndex;
+                _descriptorSetInfos[setIndex] = new DescriptorSetInfo(layout, setBindings, preventStorageBufferAllocation, _meshShaderDescriptorSetIndex == setIndex);
             }
         }
 
@@ -381,6 +386,14 @@ namespace VECS
             }
 
             SetDescriptorStorageBufferLength(variant,propertyInfo.SetIndex,length);
+        }
+
+        public void SetStorageBuffer(int propertyId, SwapChainBuffer buffer)
+        {
+            if(LookUpProperty(propertyId, out var propertyInfo) && propertyInfo.BindingInfo.StorageBuffer)
+            {
+                _descriptorSetInfos[propertyInfo.SetIndex].SetBuffer(buffer, propertyInfo.BindPoint);
+            }
         }
 
         public SwapChainBuffer GetStorageSwapChainBuffer(int propertyId)

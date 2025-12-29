@@ -2,6 +2,7 @@
 using System.Numerics;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using Vortice.Vulkan;
 
 namespace VECS
 {
@@ -208,14 +209,14 @@ namespace VECS
         public static void SetGlobalUniforms(this Material material, int variant, RendererFrameInfo frameInfo)
         {
             material.TryCreateVariant((uint)variant);
-            WriteToBuffer(material, ShaderPropertyInfo.CameraInfoProperty, variant, frameInfo.CameraInfo);
-            WriteToBuffer(material, ShaderPropertyInfo.CameraInverseProperty, variant, frameInfo.CameraInverseInfo);
-            WriteToBuffer(material, ShaderPropertyInfo.AdditionalCameraInfoProperty, variant, frameInfo.AdditionalCameraInfo);
-            WriteToBuffer(material, ShaderPropertyInfo.OrthographicInfoProperty, variant, frameInfo.OrthographicInfo);
-            WriteToBuffer(material, ShaderPropertyInfo.LightingInfoProperty, variant, frameInfo.LightingInfo);
-            if (material.LookUpProperty(ShaderPropertyInfo.PointLightsBufferProperty, out _))
+            WriteToBuffer(material, ShaderPropertyInfo.CameraInfoId, variant, frameInfo.CameraInfo);
+            WriteToBuffer(material, ShaderPropertyInfo.CameraInverseId, variant, frameInfo.CameraInverseInfo);
+            WriteToBuffer(material, ShaderPropertyInfo.AdditionalCameraInfoId, variant, frameInfo.AdditionalCameraInfo);
+            WriteToBuffer(material, ShaderPropertyInfo.OrthographicInfoId, variant, frameInfo.OrthographicInfo);
+            WriteToBuffer(material, ShaderPropertyInfo.LightingInfoId, variant, frameInfo.LightingInfo);
+            if (material.LookUpProperty(ShaderPropertyInfo.PointLightsBufferId, out _))
             {
-                var pointLights = material.GetStorageBuffer<PointLightUniform>(ShaderPropertyInfo.PointLightsBufferProperty);
+                var pointLights = material.GetStorageBuffer<PointLightUniform>(ShaderPropertyInfo.PointLightsBufferId);
                 unsafe
                 {
                     void* pPointLights = &frameInfo.PointLights[0];

@@ -342,8 +342,8 @@ namespace Planets
             entityManager.AddComponent(children.Value[^1], new MainColour() { Value = new Vector4(1, 0, 0, 1) });
             engineRed.Material = new()
             {
-                Transparent = EngineMaterials.UnlitTransparent.Transparent,
-                Hash = EngineMaterials.UnlitTransparent.Hash,
+                Transparent = true,
+                Hash = EngineMaterials.OIT_Unlit.Hash,
                 Variant = 0,
                 Entity = 0
             };

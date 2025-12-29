@@ -171,8 +171,6 @@ namespace VECS
 
     public static class DrawBlob
     {
-        public static readonly int BoundsBufferId = "boundsBuffer".GetShaderPropertyId();
-        public static readonly int MatricesBufferId = "matricesBuffer".GetShaderPropertyId();
         public const bool MULTI_THREAD_RENDERING = false;
         
         private static int entityCount;
@@ -618,16 +616,16 @@ namespace VECS
             Application.ParallelFor(AllInOneMats.Count, (i) =>
             {
                 var mat = AssetDataBase<Material>.GetHashed(AllInOneMats[i]);
-                var matrices = mat.GetStorageBuffer<ModelMatrices>(MatricesBufferId);
-                var bounds = mat.GetStorageBuffer<ShaderAABB>(BoundsBufferId);
+                var matrices = mat.GetStorageBuffer<ModelMatrices>(ShaderPropertyInfo.MatricesBufferId);
+                var bounds = mat.GetStorageBuffer<ShaderAABB>(ShaderPropertyInfo.BoundsBufferId);
                 if (!matrices.IsEmpty)
                 {
-                    mat.SetDescriptorStorageBufferLengthFromProperty(MatricesBufferId, 0, (uint)allInOneDrawCount);
+                    mat.SetDescriptorStorageBufferLengthFromProperty(ShaderPropertyInfo.MatricesBufferId, 0, (uint)allInOneDrawCount);
                     _drawMatrixByMesh.AsSpan(0, allInOneDrawCount).CopyTo(matrices);
                 }
                 if (!bounds.IsEmpty)
                 {
-                    mat.SetDescriptorStorageBufferLengthFromProperty(BoundsBufferId, 0, (uint)allInOneDrawCount);
+                    mat.SetDescriptorStorageBufferLengthFromProperty(ShaderPropertyInfo.BoundsBufferId, 0, (uint)allInOneDrawCount);
                     _drawRenderBoundsByMat.HostBuffer[..allInOneDrawCount].CopyTo(bounds);
                 }
             });

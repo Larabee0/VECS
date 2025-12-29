@@ -83,6 +83,7 @@ namespace VECS
                 _forwardRenderer = new ForwardRenderer();
                 _shadowCubeMap = new();
                 _bloom = new();
+                _forwardRenderer.SetOIT();
             }
             else
             {
@@ -368,6 +369,7 @@ namespace VECS
             _swapChainBufferDisposalQueue.Clear();
             GraphicsDevice.FreeCommandBuffers();
             _shadowCubeMap.Dispose();
+            _forwardRenderer.Dispose();
             _swapChain.Dispose();
             Instance = null;
         }

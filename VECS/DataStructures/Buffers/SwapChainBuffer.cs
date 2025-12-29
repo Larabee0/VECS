@@ -276,7 +276,13 @@ namespace VECS
         public unsafe void Dispose()
         {
 
-            if (_disposed || AlisedGPUBuffer) return;
+            if (_disposed) return;
+
+            if (AlisedGPUBuffer)
+            {
+                _disposed = true;
+                return;
+            }
 
             GC.SuppressFinalize(this);
 

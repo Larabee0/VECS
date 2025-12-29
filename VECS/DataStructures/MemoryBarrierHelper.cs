@@ -153,5 +153,27 @@ namespace VECS
             };
             GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier2(cmdBuffer, &info);
         }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static unsafe void MemoryBarrier(VkCommandBuffer cmdBuffer, uint barrierCount, VkMemoryBarrier2* barriers)
+        {
+            VkDependencyInfo info = new()
+            {
+                memoryBarrierCount = barrierCount,
+                pMemoryBarriers = barriers
+            };
+            GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier2(cmdBuffer, &info);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static unsafe void MemoryBarrier(VkCommandBuffer cmdBuffer, VkMemoryBarrier2 barriers)
+        {
+            VkDependencyInfo info = new()
+            {
+                memoryBarrierCount = 1,
+                pMemoryBarriers = &barriers
+            };
+            GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier2(cmdBuffer, &info);
+        }
     }
 }

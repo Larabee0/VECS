@@ -190,6 +190,19 @@ namespace VECS
             return _descriptorSetBuffers[_bindingPointToBufferIndex[bindPoint]];
         }
 
+        public void SetBuffer(SwapChainBuffer buffer, uint bindPoint)
+        {
+            int bufferIndex = _bindingPointToBufferIndex[bindPoint];
+            if (!_hasOwnerShipOfBuffer[bufferIndex])
+            {
+                _descriptorSetBuffers[bufferIndex] = buffer;
+            }
+            else
+            {
+                throw new InvalidOperationException(string.Format("Cannot override owned storage buffer! Binding {0}", bindPoint));
+            }
+        }
+
         public void WriteFromBuffers(int frameIndex)
         {
             if (_forMeshShader) return;
@@ -251,14 +264,31 @@ namespace VECS
                 if (binding.IsAnyBuffer)
                 {
                     var bufferIndex = _bindingPointToBufferIndex[bindPoint];
-                    var buffer = bindingBuffers[bufferIndex];
-                    descriptorBuffer.SetBufferBinding(buffer, binding.DescriptorType, setIndex, bindPoint);
+                    var hasOwnerShip = _hasOwnerShipOfBuffer[bufferIndex];
+                    if (binding.UniformBuffer || hasOwnerShip)
+                    {
+                        descriptorBuffer.SetBufferBinding(bindingBuffers[bufferIndex], binding.DescriptorType, setIndex, bindPoint);
+                    }
+                    else if(binding.StorageBuffer)
+                    {
+                        var scb = _descriptorSetBuffers[bufferIndex];
+                        if (scb != null && !scb.Disposed)
+                        {
+                            int scbIndex = scb.AlisedGPUBuffer ? 0 : Presenter.Instance.FrameIndex;
+                            descriptorBuffer.SetStorageBinding(_descriptorSetBuffers[bufferIndex][scbIndex], setIndex, bindPoint);
+                        }
+                    }
+                    else
+                    {
+                        throw new NotSupportedException("Buffer cannot be unowned uniform");
+                    }
                 }
                 else
                 {
                     var textureIndex = _bindingPointToImageIndex[bindPoint];
-                    var texutre = bindingTextures[textureIndex];
-                    descriptorBuffer.SetImageInfoBinding(texutre, VkDescriptorType.CombinedImageSampler, setIndex, bindPoint);
+                    var texture = bindingTextures[textureIndex];
+                    
+                    descriptorBuffer.SetImageInfoBinding(texture, binding.DescriptorType, setIndex, bindPoint);
                 }
             }
         }

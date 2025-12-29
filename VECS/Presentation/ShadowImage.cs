@@ -169,5 +169,17 @@ namespace VECS
             GraphicsDevice.DeviceAPI.vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
             GraphicsDevice.DeviceAPI.vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
         }
+
+        internal unsafe void ClearImage(RendererFrameInfo frameInfo)
+        {
+            VkClearColorValue clearValue = new(0, 0, 0, 1);
+            VkImageSubresourceRange subresourceRange = CubeMap.GetSubresourceRange();
+
+            CubeMap.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.TransferDstOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.Transfer);
+
+            GraphicsDevice.DeviceAPI.vkCmdClearColorImage(frameInfo.CommandBuffer, CubeMap._vkImage, VkImageLayout.TransferDstOptimal,&clearValue, 1, &subresourceRange);
+
+            CubeMap.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.Transfer, VkPipelineStageFlags2.FragmentShader);
+        }
     }
 }

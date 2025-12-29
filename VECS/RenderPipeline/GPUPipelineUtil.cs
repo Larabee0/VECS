@@ -309,6 +309,19 @@ namespace VECS
             throw new InvalidOperationException("Descriptors contained no mesh shader bindings in the expected pattern!");
         }
 
+        public static int GetOITSetIndex(DescriptorBinding[] bindings)
+        {
+            for (int i = 0; i < bindings.Length; i++)
+            {
+                if (bindings[i].Name == "headIndexImage")
+                {
+                    return (int)bindings[i].DescriptorSetIndex;
+                }
+            }
+
+            return -1;
+        }
+
         public static VkPipelineLayout CreatePipelineLayout(ShaderModule shaderModule, VkDescriptorSetLayout[] setLayouts, PushConstantsHandler pushConstants)
         {
             string cacheName = shaderModule.AssetName;

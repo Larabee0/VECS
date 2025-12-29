@@ -1,4 +1,5 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System;
+using System.Runtime.CompilerServices;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
@@ -63,6 +64,18 @@ namespace VECS.Presentation
             }
         }
 
+        public static unsafe void ClearPyramid(RendererFrameInfo frameInfo)
+        {
+            VkClearColorValue clearDepthStencilValue = new(0, 0, 0, 0);
+            VkImageSubresourceRange subresourceRange = _depthPryamid.GetSubresourceRange();
+
+            _depthPryamid.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.General, VkPipelineStageFlags2.ComputeShader | VkPipelineStageFlags2.Transfer, VkPipelineStageFlags2.ComputeShader);
+
+            GraphicsDevice.DeviceAPI.vkCmdClearColorImage(frameInfo.CommandBuffer, _depthPryamid._vkImage, _depthPryamid.ImageLayout, &clearDepthStencilValue, 1, &subresourceRange);
+
+            _depthPryamid.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.General, VkPipelineStageFlags2.ComputeShader, VkPipelineStageFlags2.ComputeShader | VkPipelineStageFlags2.Transfer);
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static unsafe void ReduceDepth(RendererFrameInfo frameInfo)
         {
@@ -74,7 +87,6 @@ namespace VECS.Presentation
             if (frameInfo.CullData.depthCulling == 0) return;
 
             var depthTexture = Presenter.Instance.ForwardRenderer.DepthAttachment.Target;
-            var depthPryamid = _depthPryamid;
 
             VkImageMemoryBarrier2 depthReadBarrier = new()
             {
@@ -99,7 +111,7 @@ namespace VECS.Presentation
 
             VkDescriptorImageInfo destTarget = new()
             {
-                sampler = depthPryamid._textureSampler,
+                sampler = _depthPryamid._textureSampler,
                 imageView = _additionalViews[0],
                 imageLayout = VkImageLayout.General
             };
@@ -158,5 +170,6 @@ namespace VECS.Presentation
             }
             return r;
         }
+
     }
 }

@@ -60,6 +60,14 @@ namespace VECS
                     _imageDescriptors[i] = new(setInfo);
                     _textures[i] = new Texture[setInfo.BindingCount];
                     Array.Fill(_textures[i], EngineTextures.MissingTexture);
+
+                    for (int j = 0; j < setInfo.BindingCount; j++)
+                    {
+                        if(setInfo.DescriptorBindings[j].Image && setInfo.DescriptorBindings[j].DescriptorType == VkDescriptorType.StorageImage)
+                        {
+                            _textures[i][j] = null;
+                        }
+                    }
                 }
                 else
                 {

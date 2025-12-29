@@ -28,26 +28,37 @@ namespace VECS
 #if DEBUG
         public const bool LOG_MISSING_GLOBAL_SHADER_PROPERTIES = false;
 #endif
-        public static readonly int CameraInfoProperty = "cameraMain".GetShaderPropertyId();
-        public static readonly int CameraInverseProperty = "cameraInverse".GetShaderPropertyId();
-        public static readonly int AdditionalCameraInfoProperty = "cameraPlanes".GetShaderPropertyId();
-        public static readonly int OrthographicInfoProperty = "orthographic".GetShaderPropertyId();
-        public static readonly int LightingInfoProperty = "lighting".GetShaderPropertyId();
-        public static readonly int PointLightsBufferProperty = "pointLightBuffer".GetShaderPropertyId();
+        public static readonly int CameraInfoId = "cameraMain".GetShaderPropertyId();
+        public static readonly int CameraInverseId = "cameraInverse".GetShaderPropertyId();
+        public static readonly int AdditionalCameraInfoId = "cameraPlanes".GetShaderPropertyId();
+        public static readonly int OrthographicInfoId = "orthographic".GetShaderPropertyId();
+        
+        public static readonly int LightingInfoId = "lighting".GetShaderPropertyId();
+        public static readonly int PointLightsBufferId = "pointLightBuffer".GetShaderPropertyId();
+        
+        public static readonly int BoundsBufferId = "boundsBuffer".GetShaderPropertyId();
+        public static readonly int MatricesBufferId = "matricesBuffer".GetShaderPropertyId();
+
+        public static readonly int GeometrySBOId = "geometrySBO".GetShaderPropertyId();
+        public static readonly int LinkedListSBOId = "linkedListSBO".GetShaderPropertyId();
+        public static readonly int HeadIndexImageId = "headIndexImage".GetShaderPropertyId();
+
         public static readonly HashSet<int> IgnoreUnFoundShaderProperties;
 
         static ShaderPropertyInfo()
         {
             IgnoreUnFoundShaderProperties =
             [
-                CameraInfoProperty,
-                CameraInverseProperty,
-                AdditionalCameraInfoProperty,
-                OrthographicInfoProperty,
-                LightingInfoProperty,
-                PointLightsBufferProperty,
-                DrawBlob.BoundsBufferId,
-                DrawBlob.MatricesBufferId
+                CameraInfoId,
+                CameraInverseId,
+                AdditionalCameraInfoId,
+                OrthographicInfoId,
+                LightingInfoId,
+                PointLightsBufferId,
+                BoundsBufferId,
+                MatricesBufferId,
+                GeometrySBOId,
+
             ];
         }
 

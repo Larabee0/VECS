@@ -15,7 +15,9 @@ namespace VECS
         public readonly static Material WireFrame;
         public readonly static Material ShadowOffscreen;
         public readonly static Material PointLight;
-        public readonly static Material Blit; 
+        public readonly static Material Blit;
+        public readonly static Material OIT_Composite;
+        public readonly static Material OIT_Unlit;
 
         static EngineMaterials()
         {
@@ -64,6 +66,23 @@ namespace VECS
             }
 
             Blit = new("Blitter", "fullscreen.vert", "blit.frag", alphaBlending);
+
+            var oit_blit = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
+            oit_blit.rasterizationInfo.cullMode = VkCullModeFlags.Front;
+            oit_blit.rasterizationInfo.frontFace = VkFrontFace.CounterClockwise;
+
+            OIT_Composite = new("OIT_Composite", "fullscreen.vert", "oit_composite.frag", oit_blit);
+
+            var oit_unlit = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
+            
+            oit_unlit.colourFormats = [];
+            oit_unlit.rasterizationInfo.cullMode = VkCullModeFlags.Back;
+            oit_unlit.rasterizationInfo.frontFace = VkFrontFace.CounterClockwise;
+            oit_unlit.depthStencilInfo.depthTestEnable = false;
+            oit_unlit.depthStencilInfo.depthWriteEnable = false;
+            oit_unlit.depthStencilInfo.depthCompareOp = VkCompareOp.LessOrEqual;
+
+            OIT_Unlit = new("OIT_Unlit", "unlit.vert", "oit_unlit.frag", oit_unlit);
 
             DepthReduction.Init();
         }
