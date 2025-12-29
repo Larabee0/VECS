@@ -10,6 +10,7 @@ struct Node
 };
 
 layout (location = 0) out vec4 outFragColor;
+layout (location = 1) out vec4 outBrightColor;
 
 layout (set = 0, binding = 0, r32ui) uniform uimage2D headIndexImage;
 
@@ -46,11 +47,13 @@ void main()
     }
 
     // Do blending
-    vec4 color = vec4(0.025, 0.025, 0.025, 1.0f);
+    vec4 color = vec4(0.0, 0.0, 0.0, 0.0);
     for (int i = 0; i < count; ++i)
     {
         color = mix(color, fragments[i].color, fragments[i].color.a);
     }
 
     outFragColor = color;
+    outBrightColor = color;
+
 }

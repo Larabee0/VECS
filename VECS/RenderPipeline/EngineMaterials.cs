@@ -67,11 +67,7 @@ namespace VECS
 
             Blit = new("Blitter", "fullscreen.vert", "blit.frag", alphaBlending);
 
-            var oit_blit = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
-            oit_blit.rasterizationInfo.cullMode = VkCullModeFlags.Front;
-            oit_blit.rasterizationInfo.frontFace = VkFrontFace.CounterClockwise;
-
-            OIT_Composite = new("OIT_Composite", "fullscreen.vert", "oit_composite.frag", oit_blit);
+            OIT_Composite = new("OIT_Composite", "fullscreen.vert", "oit_composite.frag", alphaBlending);
 
             var oit_unlit = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             

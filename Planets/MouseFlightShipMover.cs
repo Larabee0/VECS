@@ -90,7 +90,7 @@ namespace Planets
 
                 var enginesColour = entityManager.GetComponent<MainColour>(input.Engines);
 
-                //enginesColour.Value.W = MathF.Abs(input.Throttle);
+                enginesColour.Value.W = MathF.Abs(input.Throttle);
 
                 entityManager.SetComponent(input.Engines, enginesColour);
 

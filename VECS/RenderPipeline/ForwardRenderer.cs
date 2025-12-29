@@ -238,7 +238,7 @@ namespace VECS
 
             DrawBlob.IndirectToComputeMemoryBarrierByMat(commandBuffer);
 
-            BeginForwardRendering(commandBuffer);
+            BeginForwardRendering(commandBuffer, VkAttachmentLoadOp.Load);
 
             EngineMaterials.OIT_Composite.BindAll(frameInfo, 0);
 
