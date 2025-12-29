@@ -68,7 +68,7 @@ namespace VECS
                     dstAccessMask = VkAccessFlags2.DepthStencilAttachmentWrite | VkAccessFlags2.DepthStencilAttachmentRead;
                     break;
                 case VkImageLayout.General:
-                    dstAccessMask = VkAccessFlags2.DepthStencilAttachmentRead | VkAccessFlags2.DepthStencilAttachmentWrite;
+                    dstAccessMask = VkAccessFlags2.TransferRead | VkAccessFlags2.TransferWrite; //dstAccessMask = VkAccessFlags2.DepthStencilAttachmentRead | VkAccessFlags2.DepthStencilAttachmentWrite;
                     break;
                 case VkImageLayout.ShaderReadOnlyOptimal:
                     if(srcAccessMask == VkAccessFlags2.None)

@@ -1,6 +1,7 @@
 ﻿
 using System;
 using System.Numerics;
+using Vortice.Vulkan;
 
 namespace VECS
 {
@@ -31,7 +32,7 @@ namespace VECS
             copyFrom[14] = pink;
             copyFrom[15] = pink;
 
-            MissingTexture = new("Fallback", 4, 4, true);
+            MissingTexture = new("Fallback", 4, 4, VkFormat.R8G8B8A8Unorm, VkImageUsageFlags.TransferDst | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.Sampled | VkImageUsageFlags.Storage, true);
             MissingTexture.CopyFromArray(copyFrom);
             MissingTexture.CreateHostBuffer(true);
 

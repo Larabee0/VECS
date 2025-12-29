@@ -97,6 +97,7 @@ namespace VECS
                 }
                 _forwardRenderer.RecreateAttachments();
                 _bloom.RecreateAttachments();
+                _forwardRenderer.SetOIT();
                 GraphicsDevice.FreeCommandBuffers();
                 GraphicsDevice.CreateCommandBuffers();
                 GraphicsDevice.DeviceWaitIdle();
