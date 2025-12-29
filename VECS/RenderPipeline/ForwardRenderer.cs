@@ -188,13 +188,22 @@ namespace VECS
 
             DrawBlob.CullByMat(frameInfo, cullData);
 
+            VkRenderingAttachmentInfo depthAttachment = new()
+            {
+                imageLayout = DepthAttachment.ImageLayout,
+                imageView = DepthAttachment.VkImageView,
+                loadOp = VkAttachmentLoadOp.Load,
+                storeOp = VkAttachmentStoreOp.Store,
+                clearValue = new(1,0)
+            };
 
             VkRenderingInfo renderingInfo = new()
             {
                 renderArea = new(0, 0, (uint)_headIndex.Width, (uint)_headIndex.Height),
                 colorAttachmentCount = 0,
                 layerCount = 1,
-                flags = VkRenderingFlags.ContentsInlineKHR | VkRenderingFlags.ContentsSecondaryCommandBuffers
+                flags = VkRenderingFlags.ContentsInlineKHR | VkRenderingFlags.ContentsSecondaryCommandBuffers,
+                pDepthAttachment = &depthAttachment
             };
 
 
@@ -242,7 +251,7 @@ namespace VECS
 
             EngineMaterials.OIT_Composite.BindAll(frameInfo, 0);
 
-            GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 6, 1, 0, 0);
+            GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
 
             EndForwardRendering(commandBuffer);
         }

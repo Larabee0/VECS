@@ -345,7 +345,7 @@ namespace Planets
             }
 
             var engineRed = entityManager.GetComponent<RenderMesh>(children.Value[^1]);
-            entityManager.AddComponent(children.Value[^1], new MainColour() { Value = new Vector4(1, 0, 0, 1) });
+            entityManager.AddComponent(children.Value[^1], new MainColour() { Value = new Vector4(2, 0, 0, 1) });
             engineRed.Material = new()
             {
                 Transparent = true,
@@ -428,7 +428,18 @@ namespace Planets
             for (int i = 0; i < cubes.Length; i++)
             {
                 cubes[i] = entityManager.CreateEntity();
-                AddRenderMeshComponents(cubes[i], EngineMaterials.LitTexture, 0, 1, models[1], entityManager);
+                if (i % 2 == 0)
+                {
+                    AddRenderMeshComponents(cubes[i], EngineMaterials.OIT_Unlit, 0, 1, models[1], entityManager);
+                    var renderMesh = entityManager.GetComponent<RenderMesh>(cubes[i]);
+                    renderMesh.Material.Transparent = true;
+                    entityManager.SetComponent(cubes[i], renderMesh);
+                    entityManager.AddComponent(cubes[i], new MainColour() { Value = new Vector4(0.1803922f, 0.2078431f, 0.2431373f, 0.5f) });
+                }
+                else
+                {
+                    AddRenderMeshComponents(cubes[i], EngineMaterials.LitTexture, 0, 1, models[1], entityManager);
+                }
                 entityManager.AddComponent<StaticColliderTag>(cubes[i]);
             }
 

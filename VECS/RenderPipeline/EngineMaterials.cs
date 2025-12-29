@@ -76,7 +76,7 @@ namespace VECS
             oit_unlit.colourFormats = [];
             oit_unlit.rasterizationInfo.cullMode = VkCullModeFlags.Back;
             oit_unlit.rasterizationInfo.frontFace = VkFrontFace.CounterClockwise;
-            oit_unlit.depthStencilInfo.depthTestEnable = false;
+            oit_unlit.depthStencilInfo.depthTestEnable = true;
             oit_unlit.depthStencilInfo.depthWriteEnable = false;
             oit_unlit.depthStencilInfo.depthCompareOp = VkCompareOp.LessOrEqual;
 

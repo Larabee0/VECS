@@ -18,7 +18,7 @@ layout (set = 0, binding = 1) buffer LinkedListSBO
 {
     Node nodes[];
 } linkedListSBO;
-
+#define FLT_MAX 3.402823466e+38
 void main()
 {
     Node fragments[MAX_FRAGMENT_COUNT];
@@ -48,12 +48,19 @@ void main()
 
     // Do blending
     vec4 color = vec4(0.0, 0.0, 0.0, 0.0);
+    
+    float brightness  = 0;
+
     for (int i = 0; i < count; ++i)
     {
-        color = mix(color, fragments[i].color, fragments[i].color.a);
+        vec4 fragColour = fragments[i].color;
+        color = mix(color, fragColour, fragColour.a);
     }
 
     outFragColor = color;
-    outBrightColor = color;
-
+    brightness = dot(color.rgb, vec3(0.2126, 0.7152, 0.0722));
+    if(brightness > 5000)
+    {
+        outBrightColor = color;
+    }
 }
