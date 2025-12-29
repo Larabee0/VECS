@@ -98,17 +98,19 @@ namespace Planets
         private void CreateSinglePlanetTestScene(EntityManager entityManager, Entity prefabPlanet)
         {
             var aStar = entityManager.CreateEntity();
-            entityManager.AddComponent(aStar, new PointLightDrawer()
-            {
-                DrawColour = ColourTypeConversion.FromHex("#CC5309"),
-                Intensity = 1,
-                Radius = 5f
-            });
             entityManager.AddComponent(aStar, new PointLight()
             {
                 Colour = ColourTypeConversion.FromHex("#FDFFFE"),
                 Intensity = 1,
                 Radius = 5f
+            });
+
+            
+            AddRenderMeshComponents(aStar, EngineMaterials.Unlit, 0, 0, AssetDataBase<DirectMesh>.GetNamed("UV-Sphere").DirectSubMeshes[0], entityManager);
+
+            entityManager.AddComponent(aStar, new MainColour()
+            {
+                Value = ColourTypeConversion.FromHex("#CC5309")
             });
 
             entityManager.AddComponent(aStar, new Translation() { Value = new(0f, 0000, 0) });
@@ -537,6 +539,8 @@ namespace Planets
 
         private void LoadResources()
         {
+            MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("UV-Sphere.obj"), null);
+
             textureWaveA = new Texture2D(TextureLoader.GetTextureInDefaultPath("Wave.jpg"));
             textureWaveB = new Texture2D(TextureLoader.GetTextureInDefaultPath("Wave B.png"));
             textureWaveC = new Texture2D(TextureLoader.GetTextureInDefaultPath("Wave A.png"));

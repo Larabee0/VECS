@@ -12,6 +12,7 @@ namespace VECS
         public readonly static Material DepthOnly;
         public readonly static Material UnlitMeshShader;
         public readonly static Material UnlitTransparent;
+        public readonly static Material Unlit;
         public readonly static Material WireFrame;
         public readonly static Material ShadowOffscreen;
         public readonly static Material PointLight;
@@ -57,6 +58,7 @@ namespace VECS
             PointLight = new Material("PointLightDisplay", "point_light.vert", "point_light.frag", pointLightConfig);
 
             var alphaBlending = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
+            Unlit = new Material("Unlit", "unlit.vert", "unlit.frag", alphaBlending);
             GraphicsPipelineConfigInfo.EnableAlphaBlending(ref alphaBlending);
             UnlitTransparent = new Material("Unlit Transparent", "unlit.vert", "unlit.frag", alphaBlending);
 
