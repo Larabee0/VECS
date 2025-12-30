@@ -315,9 +315,10 @@ namespace VECS
 
             DrawBlob.IndirectToComputeMemoryBarrierByMat(frameInfo.CommandBuffer);
 
+            _smaa.ApplyAA(frameInfo);
+
             UI.ULUI.BlitCamera(frameInfo, _forwardRenderer.MainColourAttachment.Target);
 
-            _smaa.ApplyAA(frameInfo);
             
             var extents = _swapChain.SwapChainExtent;
 

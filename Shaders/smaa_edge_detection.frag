@@ -4,6 +4,8 @@
 #include "smaa_defines.glsl"
 #include "smaa_functions.glsl"
 
+#define SMAA_EDGES_COLOR
+
 layout (location = 0) in vec2 vTexCoord0;
 layout (location = 1) in vec4 vOffset[3];
 layout (location = 0) out vec4 outFragColour;
