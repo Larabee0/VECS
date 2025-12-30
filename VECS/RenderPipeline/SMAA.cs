@@ -22,7 +22,7 @@ namespace VECS
         public Material NeighbourhoodBlending;
         public Material BlitInternal;
 
-        public GPUBuffer<Vector3> vertexBuffer;
+        public GPUBuffer<Vector2> vertexBuffer;
 
         public SMAA()
         {
@@ -36,6 +36,9 @@ namespace VECS
             AreaTexture.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.Transfer, VkPipelineStageFlags2.FragmentShader);
 
             var pipelineConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
+
+            pipelineConfig.rasterizationInfo.cullMode = VkCullModeFlags.Front;
+            pipelineConfig.rasterizationInfo.frontFace = VkFrontFace.CounterClockwise;
 
             NeighbourhoodBlending = new("SMAA_Blending", "smaa_neighbourhood_blending.vert", "smaa_neighbourhood_blending.frag", pipelineConfig);
 
@@ -54,16 +57,19 @@ namespace VECS
             alphaBlending.depthStencilInfo.depthTestEnable = false;
             //GraphicsPipelineConfigInfo.EnableAlphaBlending(ref alphaBlending);
             BlitInternal = new("SMAA_Blitter", "fullscreen.vert", "blit.frag", alphaBlending);
-
+            
+            CreateFullScreenTriangle();
             RecreateRenderTargets();
         }
 
         private void CreateFullScreenTriangle()
         {
-            vertexBuffer = new GPUBuffer<Vector3>(3, VkBufferUsageFlags.VertexBuffer, true, false, false);
-            vertexBuffer.HostBuffer[0] = new(-1, -1, 1);
-            vertexBuffer.HostBuffer[1] = new(-1, 3, 1);
-            vertexBuffer.HostBuffer[2] = new(3, -1, 1);
+            vertexBuffer = new GPUBuffer<Vector2>(3, VkBufferUsageFlags.VertexBuffer, true, false, false);
+            vertexBuffer.HostBuffer[0] = new(-1, -1);
+            vertexBuffer.HostBuffer[1] = new(-1, 3);
+            vertexBuffer.HostBuffer[2] = new(3, -1);
+
+            vertexBuffer.WriteFromHostBuffer();
         }
 
         public void RecreateRenderTargets()
@@ -89,6 +95,7 @@ namespace VECS
             NeighbourhoodBlending.SetTexture("uColourTexture".GetShaderPropertyId(), 0, EdgeInputTarget.Target);
 
             BlitInternal.SetTexture("inputTexture".GetShaderPropertyId(), 0, Presenter.Instance.ForwardRenderer.MainColourAttachment.Target);
+            BlitInternal.SetTexture("inputTexture".GetShaderPropertyId(), 1, EdgeTarget.Target);
         }
 
         public unsafe void ApplyAA(RendererFrameInfo frameInfo)
@@ -111,9 +118,23 @@ namespace VECS
                 VkPipelineStageFlags2.FragmentShader,
                 VkPipelineStageFlags2.ColorAttachmentOutput);
 
-            OutputBlending(frameInfo);
+            // OutputBlending(frameInfo);
+
+            OutputEdgeDetection(frameInfo);
         }
 
+        
+        private unsafe void OutputEdgeDetection(RendererFrameInfo frameInfo)
+        {
+            Presenter.Instance.ForwardRenderer.BeginForwardRendering(frameInfo.CommandBuffer, VkAttachmentLoadOp.Clear);
+
+            BlitInternal.BindAll(frameInfo, 1);
+            GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
+
+            Presenter.Instance.ForwardRenderer.EndForwardRendering(frameInfo.CommandBuffer);
+        }
+
+        
         private unsafe void OutputBlending(RendererFrameInfo frameInfo)
         {
             Presenter.Instance.ForwardRenderer.BeginForwardRendering(frameInfo.CommandBuffer, VkAttachmentLoadOp.Load);
@@ -208,7 +229,6 @@ namespace VECS
 
             GraphicsDevice.DeviceAPI.vkCmdBeginRendering(frameInfo.CommandBuffer, &copyedgeDetectionTarget);
             EdgeDetection.BindAll(frameInfo, 0);
-            GraphicsDevice.DeviceAPI.vkCmdBindVertexBuffer(frameInfo.CommandBuffer, 0, vertexBuffer.VkBuffer, 0);
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
 
