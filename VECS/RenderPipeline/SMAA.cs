@@ -1,11 +1,13 @@
-﻿using VECS.GraphicsPipelines;
+﻿using System;
+using System.Numerics;
+using VECS.GraphicsPipelines;
 using VECS.LowLevel;
 using VECS.SMAATextures;
 using Vortice.Vulkan;
 
 namespace VECS
 {
-    public class SMAA
+    public class SMAA : IDisposable
     {
         public RenderTarget EdgeInputTarget;
         public RenderTarget EdgeTarget;
@@ -19,6 +21,9 @@ namespace VECS
         public Material BlendWeightCalc;
         public Material NeighbourhoodBlending;
         public Material BlitInternal;
+
+        public GPUBuffer<Vector3> vertexBuffer;
+
         public SMAA()
         {
             SearchTexture = new Texture2D("SMAA_Search", SMAASearchTexture.SEARCHTEX_WIDTH, SMAASearchTexture.SEARCHTEX_HEIGHT, SMAASearchTexture.SEARCHTEX_FORMAT, VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled, false);
@@ -49,6 +54,14 @@ namespace VECS
             BlitInternal = new("SMAA_Blitter", "fullscreen.vert", "blit.frag", alphaBlending);
 
             RecreateRenderTargets();
+        }
+
+        private void CreateFullScreenTriangle()
+        {
+            vertexBuffer = new GPUBuffer<Vector3>(3, VkBufferUsageFlags.VertexBuffer, true, false, false);
+            vertexBuffer.HostBuffer[0] = new(-1, -1, 1);
+            vertexBuffer.HostBuffer[1] = new(-1, 3, 1);
+            vertexBuffer.HostBuffer[2] = new(3, -1, 1);
         }
 
         public void RecreateRenderTargets()
@@ -104,6 +117,7 @@ namespace VECS
             Presenter.Instance.ForwardRenderer.BeginForwardRendering(frameInfo.CommandBuffer, VkAttachmentLoadOp.Load);
 
             NeighbourhoodBlending.BindAll(frameInfo, 0);
+            GraphicsDevice.DeviceAPI.vkCmdBindVertexBuffer(frameInfo.CommandBuffer, 0, vertexBuffer.VkBuffer, 0);
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
 
             Presenter.Instance.ForwardRenderer.EndForwardRendering(frameInfo.CommandBuffer);
@@ -145,6 +159,7 @@ namespace VECS
             };
             GraphicsDevice.DeviceAPI.vkCmdBeginRendering(frameInfo.CommandBuffer, &blendWeightTarget);
             BlendWeightCalc.BindAll(frameInfo, 0);
+            GraphicsDevice.DeviceAPI.vkCmdBindVertexBuffer(frameInfo.CommandBuffer, 0, vertexBuffer.VkBuffer, 0);
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
 
@@ -191,6 +206,7 @@ namespace VECS
 
             GraphicsDevice.DeviceAPI.vkCmdBeginRendering(frameInfo.CommandBuffer, &copyedgeDetectionTarget);
             EdgeDetection.BindAll(frameInfo, 0);
+            GraphicsDevice.DeviceAPI.vkCmdBindVertexBuffer(frameInfo.CommandBuffer, 0, vertexBuffer.VkBuffer, 0);
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
 
@@ -237,6 +253,7 @@ namespace VECS
 
             GraphicsDevice.DeviceAPI.vkCmdBeginRendering(frameInfo.CommandBuffer, &copyToEdgeTarget);
             BlitInternal.BindAll(frameInfo, 0);
+            GraphicsDevice.DeviceAPI.vkCmdBindVertexBuffer(frameInfo.CommandBuffer, 0, vertexBuffer.VkBuffer, 0);
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
 
@@ -244,6 +261,13 @@ namespace VECS
                 VkImageLayout.ShaderReadOnlyOptimal,
                 VkPipelineStageFlags2.ColorAttachmentOutput,
                 VkPipelineStageFlags2.FragmentShader);
+        }
+
+        public void Dispose()
+        {
+            GC.SuppressFinalize(this);
+            vertexBuffer?.Dispose();
+            GC.ReRegisterForFinalize(this);
         }
     }
 }
