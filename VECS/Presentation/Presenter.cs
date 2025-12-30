@@ -376,6 +376,7 @@ namespace VECS
             GraphicsDevice.FreeCommandBuffers();
             _shadowCubeMap.Dispose();
             _forwardRenderer.Dispose();
+            _smaa.Dispose();
             _swapChain.Dispose();
             Instance = null;
         }
