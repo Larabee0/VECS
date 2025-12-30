@@ -83,7 +83,7 @@ namespace VECS
 
             NeighbourhoodBlending.PushConstants.SetPushConstantVector4("texelSize", 0, texelSize);
             NeighbourhoodBlending.SetTexture("uBlendTexture".GetShaderPropertyId(), 0, BlendTarget.Target);
-            NeighbourhoodBlending.SetTexture("uColourTexture".GetShaderPropertyId(), 0, EdgeInputTarget.Target);
+            NeighbourhoodBlending.SetTexture("uColourTexture".GetShaderPropertyId(), 0, Presenter.Instance.ForwardRenderer.MainColourAttachment.Target);
 
             BlitInternal.SetTexture("inputTexture".GetShaderPropertyId(), 0, Presenter.Instance.ForwardRenderer.MainColourAttachment.Target);
             BlitInternal.SetTexture("inputTexture".GetShaderPropertyId(), 1, EdgeTarget.Target);
