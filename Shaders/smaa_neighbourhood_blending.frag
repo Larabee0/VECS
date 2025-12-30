@@ -9,22 +9,23 @@ layout (location = 0) in vec2 vTexCoord0;
 layout (location = 1) in vec4 vOffset;
 layout (location = 0) out vec4 outFragColour;
 
-
-layout(set = 0, binding = 0) uniform TexelSize{
-	vec2 value;
-} texelSize;
-
-layout (set = 1, binding = 0) uniform sampler2D uColourTexture;
-layout (set = 1, binding = 1) uniform sampler2D uBlendTexture;
+layout (set = 0, binding = 0) uniform sampler2D uColourTexture;
+layout (set = 0, binding = 1) uniform sampler2D uBlendTexture;
 
 #if SMAA_REPROJECTION                                  
-layout (set = 1, binding = 2) uniform sampler2D uVelocityTexture;
+layout (set = 0, binding = 2) uniform sampler2D uVelocityTexture;
 #endif
+
+layout(push_constant) uniform TexelSize 
+{
+	vec4 value;
+} texelSize;
 
 //-----------------------------------------------------------------------------
 // Neighborhood Blending Pixel Shader (Third Pass)
 
 vec4 SMAANeighborhoodBlendingPS(vec2 texcoord,
+                                  vec4 rtInfo,
                                   vec4 offset,
                                   sampler2D colourTex,
                                   sampler2D blendTex
@@ -62,7 +63,7 @@ vec4 SMAANeighborhoodBlendingPS(vec2 texcoord,
         blendingWeight /= dot(blendingWeight, vec2(1.0, 1.0));
 
         // Calculate the texture coordinates:
-        vec4 blendingCoord = fma(blendingOffset, vec4(SMAA_RT_METRICS.xy, -SMAA_RT_METRICS.xy), texcoord.xyxy);
+        vec4 blendingCoord = fma(blendingOffset, vec4(rtInfo.xy, -rtInfo.xy), texcoord.xyxy);
 
         // We exploit bilinear filtering to mix current pixel with the chosen
         // neighbor:
@@ -86,6 +87,7 @@ void main()
 {
     outFragColour = SMAANeighborhoodBlendingPS(
         vTexCoord0,
+        texelSize.value,
         vOffset,
         uColourTexture,
         uBlendTexture

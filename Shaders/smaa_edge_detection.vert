@@ -7,10 +7,10 @@
 layout (location = 0) out vec2 vTexCoord0;
 layout (location = 1) out vec4 vOffset[3];
 
-layout(set = 0, binding = 0) uniform TexelSize{
-	vec2 value;
+layout(push_constant) uniform TexelSize 
+{
+	vec4 value;
 } texelSize;
-
 
 /**
  * Edge Detection Vertex Shader
@@ -25,7 +25,6 @@ void SMAAEdgeDetectionVS(vec2 texcoord, vec4 rtInfo,
 
 void main()
 {
-    vec4 RT = vec4(1/texelSize.value.x,1/texelSize.value.y,texelSize.value);
     vec2 vertexBase;
 
     if(gl_VertexIndex == 0){
@@ -40,10 +39,9 @@ void main()
 
     gl_Position = vec4(vertexBase, 0.0, 1.0);
 
-    //vTexCoord0 = vec2((gl_VertexIndex << 1) & 2, 1.0-(gl_VertexIndex & 2));
     vTexCoord0 = clamp(vertexBase,vec2(0.0),vec2(1.0))*2.0;
     vTexCoord0.y = 1.0 - vTexCoord0.y;
 
-    SMAAEdgeDetectionVS(vTexCoord0, RT, vOffset);
+    SMAAEdgeDetectionVS(vTexCoord0, texelSize.value, vOffset);
 
 }

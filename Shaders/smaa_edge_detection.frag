@@ -11,13 +11,13 @@ layout (location = 1) in vec4 vOffset[3];
 layout (location = 0) out vec4 outFragColour;
 
 #if defined(SMAA_EDGES_DEPTH) || SMAA_PREDICATION
-layout (set = 1, binding = 0) uniform sampler2D uDepthTexture;
+layout (set = 0, binding = 0) uniform sampler2D uDepthTexture;
 #endif
 
 #if !defined(SMAA_EDGES_DEPTH) && SMAA_PREDICATION
-layout (set = 1, binding = 1) uniform sampler2D uColourTexture;
+layout (set = 0, binding = 1) uniform sampler2D uColourTexture;
 #elif !defined(SMAA_EDGES_DEPTH) && !SMAA_PREDICATION
-layout (set = 1, binding = 0) uniform sampler2D uColourTexture;
+layout (set = 0, binding = 0) uniform sampler2D uColourTexture;
 #endif
 
 #ifdef SMAA_EDGES_LUMA
@@ -157,10 +157,11 @@ vec2 SMAAColourEdgeDetectionPS(vec2 texcoord,
 /**
  * Depth Edge Detection
  */
-vec2 SMAADepthEdgeDetectionPS(vec2 texcoord,
+vec2 SMAADepthEdgeDetectionPS(vec2 texcoord, 
+                                vec4 rtInfo,
                                 vec4 offset[3],
                                 sampler2D depthTex) {
-    vec3 neighbours = SMAAGatherNeighbours(texcoord, offset, depthTex);
+    vec3 neighbours = SMAAGatherNeighbours(texcoord, rtInfo, offset, depthTex);
     vec2 delta = abs(neighbours.xx - vec2(neighbours.y, neighbours.z));
     vec2 edges = step(SMAA_DEPTH_THRESHOLD, delta);
 
