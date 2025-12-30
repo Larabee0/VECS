@@ -21,7 +21,7 @@ namespace VECS
         public VkImage VkImage => _image._vkImage;
         public VkImageView VkImageView => _image._imageView;
 
-        public RenderTarget(string name, int width, int height, VkFormat format)
+        public RenderTarget(string name, int width, int height, VkFormat format,  VkSamplerAddressMode samplerMode = VkSamplerAddressMode.ClampToEdge)
         {
             uint[] queueIndices = [GraphicsDevice.PhysicalQueueFamilies.presentFamily, GraphicsDevice.PhysicalQueueFamilies.graphicsFamily];
 
@@ -53,11 +53,11 @@ namespace VECS
 
             if (GraphicsDevice.PresentQueue != GraphicsDevice.MainQueue)
             {
-                _image = new(string.Format("_RT_{0}_{2}_{1}", name, Presenter.FrameCount, _renderTargetType.ToString()), width, height, format, usageFlags, queueIndices, false);
+                _image = new(string.Format("_RT_{0}_{2}_{1}", name, Presenter.FrameCount, _renderTargetType.ToString()), width, height, format, samplerMode, usageFlags, queueIndices, false);
             }
             else
             {
-                _image = new(string.Format("_RT_{0}_{2}_{1}", name, Presenter.FrameCount, _renderTargetType.ToString()), width, height, format, usageFlags, false);
+                _image = new(string.Format("_RT_{0}_{2}_{1}", name, Presenter.FrameCount, _renderTargetType.ToString()), width, height, format, usageFlags,samplerMode, false);
             }
 
             if(_renderTargetType == RenderTargetType.Colour)

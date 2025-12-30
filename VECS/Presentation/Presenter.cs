@@ -23,6 +23,7 @@ namespace VECS
         private ForwardRenderer _forwardRenderer;
         private ShadowImage _shadowCubeMap;
         private Bloom _bloom;
+        private SMAA _smaa;
         private static ulong _frameCount;
 
         public ForwardRenderer ForwardRenderer => _forwardRenderer;
@@ -83,6 +84,7 @@ namespace VECS
                 _forwardRenderer = new ForwardRenderer();
                 _shadowCubeMap = new();
                 _bloom = new();
+                _smaa = new();
                 _forwardRenderer.SetOIT();
             }
             else
@@ -98,6 +100,7 @@ namespace VECS
                 _forwardRenderer.RecreateAttachments();
                 _bloom.RecreateAttachments();
                 _forwardRenderer.SetOIT();
+                _smaa.RecreateRenderTargets();
                 GraphicsDevice.FreeCommandBuffers();
                 GraphicsDevice.CreateCommandBuffers();
                 GraphicsDevice.DeviceWaitIdle();
@@ -313,6 +316,8 @@ namespace VECS
             DrawBlob.IndirectToComputeMemoryBarrierByMat(frameInfo.CommandBuffer);
 
             UI.ULUI.BlitCamera(frameInfo, _forwardRenderer.MainColourAttachment.Target);
+
+            _smaa.ApplyAA(frameInfo);
             
             var extents = _swapChain.SwapChainExtent;
 

@@ -1,6 +1,6 @@
 ﻿using Vortice.Vulkan;
 
-namespace VECS.SMAA
+namespace VECS.SMAATextures
 {
     public static class SMAAAreaTexture
     {

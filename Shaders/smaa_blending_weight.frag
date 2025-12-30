@@ -7,7 +7,7 @@
 layout (location = 0) in vec2 vTexCoord0;
 layout (location = 1) in vec2 vPixCoord0;
 layout (location = 2) in vec4 vOffset[3];
-layout (location = 0) out vec4 outFragColor;
+layout (location = 0) out vec4 outFragColour;
 
 
 layout(set = 0, binding = 0) uniform TexelSize{
@@ -438,6 +438,6 @@ vec4 SMAABlendingWeightCalculationPS(vec2 texcoord,
 
 void main()
 {
-    outFragColor = SMAABlendingWeightCalculationPS(vTexCoord0,vPixCoord0,vOffset,uEdgeTexture,uAreaTexture,uSearchTexture,vec4(0));
+    outFragColour = SMAABlendingWeightCalculationPS(vTexCoord0,vPixCoord0,vOffset,uEdgeTexture,uAreaTexture,uSearchTexture,vec4(0));
 
 }

@@ -20,7 +20,6 @@ namespace VECS.Presentation
         {
 
             _depthReduceShader = ComputeShader.GetOrCreate("depth_reduce.comp");
-            RecreateImage();
             Presenter.Instance.OnSwapChainRecreation += RecreateImage;
             Application.Instance.OnDestroy += DestroyResources;
         }
