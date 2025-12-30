@@ -35,6 +35,7 @@ namespace VECS
             NeighbourhoodBlending = new("SMAA_Blending", "smaa_neighbourhood_blending.vert", "smaa_neighbourhood_blending.frag", pipelineConfig);
 
             pipelineConfig.colourFormats = [VkFormat.R8G8B8A8Unorm];
+            pipelineConfig.depthStencilInfo.depthTestEnable = false;
 
             EdgeDetection = new("SMAA_Edge", "smaa_edge_detection.vert", "smaa_edge_detection.frag", pipelineConfig);
             BlendWeightCalc = new("SMAA_BlendWeight", "smaa_blending_weight.vert", "smaa_blending_weight.frag", pipelineConfig);
@@ -45,7 +46,8 @@ namespace VECS
 
             var alphaBlending = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             alphaBlending.colourFormats = [VkFormat.R8G8B8A8Unorm];
-            GraphicsPipelineConfigInfo.EnableAlphaBlending(ref alphaBlending);
+            alphaBlending.depthStencilInfo.depthTestEnable = false;
+            //GraphicsPipelineConfigInfo.EnableAlphaBlending(ref alphaBlending);
             BlitInternal = new("SMAA_Blitter", "fullscreen.vert", "blit.frag", alphaBlending);
 
             RecreateRenderTargets();
