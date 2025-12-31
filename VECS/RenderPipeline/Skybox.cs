@@ -19,6 +19,7 @@ namespace VECS
 
             pipelineConfig.rasterizationInfo.cullMode = VkCullModeFlags.Back;
             pipelineConfig.rasterizationInfo.frontFace = VkFrontFace.Clockwise;
+            pipelineConfig.depthStencilInfo.depthTestEnable = true;
 
             _skybox = new Material("Skybox", "skybox.vert", "skybox.frag", pipelineConfig);
             pipelineConfig.depthStencilInfo.depthTestEnable = true;

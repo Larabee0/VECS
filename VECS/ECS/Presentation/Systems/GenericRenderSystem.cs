@@ -60,7 +60,7 @@ namespace VECS.ECS.Presentation
 
             DrawBlob.CullAllInOne(frameInfo, depthBufferCullInfo);
 
-            Presenter.Instance.ForwardRenderer.BeginForwardDepthOnlyRendering(commandBuffer,VkAttachmentLoadOp.Load);
+            Presenter.Instance.ForwardRenderer.BeginForwardDepthOnlyRendering(commandBuffer,VkAttachmentLoadOp.Clear);
 
             DrawBlob.ExecuteAllInOneOpaqueDrawCmds(frameInfo, commandBuffer, EngineMaterials.DepthOnly.Hash);
 
