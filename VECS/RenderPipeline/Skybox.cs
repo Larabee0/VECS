@@ -13,12 +13,12 @@ namespace VECS
 
         public Skybox()
         {
-            SkyboxTexture = new Cubemap("GL_Skybox", TextureLoader.GetTextureInDefaultPath("Skyboxes/GL_Skybox"), VkSamplerAddressMode.ClampToEdge);
+            SkyboxTexture = new Cubemap("Kurt", TextureLoader.GetTextureInDefaultPath("Skyboxes/Red"), VkSamplerAddressMode.ClampToEdge,false);
             var pipelineConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
 
-            pipelineConfig.rasterizationInfo.cullMode = VkCullModeFlags.None;
-            pipelineConfig.rasterizationInfo.frontFace = VkFrontFace.CounterClockwise;
-            pipelineConfig.depthStencilInfo.depthTestEnable = false;
+            pipelineConfig.rasterizationInfo.cullMode = VkCullModeFlags.Back;
+            pipelineConfig.rasterizationInfo.frontFace = VkFrontFace.Clockwise;
+            pipelineConfig.depthStencilInfo.depthTestEnable = true;
 
             _skybox = new Material("Skybox", "skybox.vert", "skybox.frag", pipelineConfig);
 
@@ -26,7 +26,7 @@ namespace VECS
             _cube = AssetDataBase<DirectSubMesh>.GetNamed("quad-cube-UV.1");
         }
 
-        public void RenderSkybox(RendererFrameInfo frameInfo)
+        public void RenderSkyboxPass(RendererFrameInfo frameInfo)
         {
             _skybox.PushConstants.SetPushConstantUniform("ubo", new UBO(frameInfo.CameraInfo));
             _cube ??= AssetDataBase<DirectSubMesh>.GetNamed("quad-cube-UV.1");
@@ -36,6 +36,14 @@ namespace VECS
             _cube.SimpleBindAndDraw(frameInfo.CommandBuffer);
 
             Presenter.Instance.ForwardRenderer.EndForwardRendering(frameInfo.CommandBuffer);
+        }
+
+        public void RenderSkybox(RendererFrameInfo frameInfo)
+        {
+            _skybox.PushConstants.SetPushConstantUniform("ubo", new UBO(frameInfo.CameraInfo));
+            _cube ??= AssetDataBase<DirectSubMesh>.GetNamed("quad-cube-UV.1");
+            _skybox.BindAll(frameInfo, 0);
+            _cube.SimpleBindAndDraw(frameInfo.CommandBuffer);
         }
 
         private readonly struct UBO

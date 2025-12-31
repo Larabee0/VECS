@@ -405,12 +405,10 @@ namespace Planets
 
         private void CreateFlightScene(EntityManager entityManager)
         {
-            Entity sceneRoot = entityManager.CreateEntity();
-            entityManager.AddComponent(sceneRoot, new Translation()  { Value = new Vector3(0,-500,0)});
 
 
             var models = MeshLoader.LoadModelsFromFiles([MeshLoader.GetMeshInDefaultPath( "quad.obj"), MeshLoader.GetMeshInDefaultPath("cube-UV.obj")], null);
-            
+            return;
             var grid = new Texture2D(TextureLoader.GetTextureInDefaultPath("grid.png"));
 
             EngineMaterials.LitTexture.SetTexture("texSampler".GetShaderPropertyId(), 0, grid);
@@ -419,6 +417,8 @@ namespace Planets
             EngineMaterials.LitTexture.PushConstants.SetPushConstantVector4("colour", 1, new Vector4(0.1803922f, 0.2078431f, 0.2431373f, 1));
             EngineMaterials.LitTexture.PushConstants.SetPushConstantFloat("tiling", 1, 10f);
 
+            Entity sceneRoot = entityManager.CreateEntity();
+            entityManager.AddComponent(sceneRoot, new Translation() { Value = new Vector3(0, -500, 0) });
 
             var plane = entityManager.CreateEntity();
             AddRenderMeshComponents(plane, EngineMaterials.LitTexture, 0, 0, models[0], entityManager);

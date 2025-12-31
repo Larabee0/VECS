@@ -355,7 +355,7 @@ namespace VECS
                     };
                     offset += baseImageSize;
                 }
-                CopyBufferToTexture(texture, cmdBuffer, buffer, bufferCopyRegions);
+                CopyBufferToTexture(texture, cmdBuffer, buffer,6u, bufferCopyRegions);
                 hintRegenerateMipMaps = true;
             }
             else if (texture is Texture2DArray textureArray)
@@ -380,7 +380,7 @@ namespace VECS
                     };
                     offset += baseImageSize;
                 }
-                CopyBufferToTexture(texture, cmdBuffer, buffer, bufferCopyRegions);
+                CopyBufferToTexture(texture, cmdBuffer, buffer, texture.ImageExtent.depth, bufferCopyRegions);
                 hintRegenerateMipMaps = true;
             }
             else if (texture is Texture2D texture2D)
@@ -422,7 +422,7 @@ namespace VECS
                     offset += baseImageSize;
                 }
 
-                CopyBufferToTexture(texture, cmdBuffer, buffer, bufferCopyRegions);
+                CopyBufferToTexture(texture, cmdBuffer, buffer,1u, bufferCopyRegions);
             }
             else
             {
@@ -444,9 +444,9 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static unsafe void CopyBufferToTexture(Texture texture, VkCommandBuffer cmdBuffer, GPUBuffer buffer, VkBufferImageCopy* bufferCopyRegions)
+        private static unsafe void CopyBufferToTexture(Texture texture, VkCommandBuffer cmdBuffer, GPUBuffer buffer, uint copyCount, VkBufferImageCopy* bufferCopyRegions)
         {
-            GraphicsDevice.DeviceAPI.vkCmdCopyBufferToImage(cmdBuffer, buffer.VkBuffer, texture._vkImage, VkImageLayout.TransferDstOptimal, texture.ImageExtent.depth, bufferCopyRegions);
+            GraphicsDevice.DeviceAPI.vkCmdCopyBufferToImage(cmdBuffer, buffer.VkBuffer, texture._vkImage, VkImageLayout.TransferDstOptimal, copyCount, bufferCopyRegions);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

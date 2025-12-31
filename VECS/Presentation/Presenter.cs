@@ -291,12 +291,13 @@ namespace VECS
 
             World.DefaultWorld.OnPostShadowPass(frameInfo);
 
-            _skybox.RenderSkybox(frameInfo);
+            //_skybox.RenderSkyboxPass(frameInfo);
 
             // Opaque pass
             World.DefaultWorld.OnPreOpaquePass(frameInfo);
 
-            _forwardRenderer.BeginForwardRendering(commandBuffer,VkAttachmentLoadOp.Load);
+            _forwardRenderer.BeginForwardRendering(commandBuffer,VkAttachmentLoadOp.Clear);
+            _skybox.RenderSkybox(frameInfo);
 
             World.DefaultWorld.OnOpaquePass(frameInfo);
 

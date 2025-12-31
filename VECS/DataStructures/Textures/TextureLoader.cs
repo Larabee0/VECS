@@ -1,6 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
+using System.Text;
 using TeximpNet;
 using TeximpNet.DDS;
 using TeximpNet.Unmanaged;
@@ -157,6 +160,9 @@ namespace VECS
             }
         }
 
+        private static readonly HashSet<string> SkyboxTextures = ["right", "left", "bottom", "top", "front", "back"];
+        private static readonly string[] InOrderSkybox = ["right", "left", "bottom", "top", "front", "back"];
+
         public static Surface[] GetSkyboxTextures(string skyboxFolder)
         {
             if (!Directory.Exists(skyboxFolder))
@@ -165,13 +171,47 @@ namespace VECS
             }
 
             var files = Directory.GetFiles(skyboxFolder);
-
-            if(files.Length != 6)
+            if (files.Length != 6)
             {
                 throw new FileLoadException(string.Format("Skybox folder: {0} contains incorrect number of files: {1}\nMust be 6 files.", skyboxFolder, files.Length));
             }
+            HashSet<string> names = [];
+            int[] order = new int[6];
+            for (int j = 0; j < files.Length; j++)
+            {
+                var filename = Path.GetFileNameWithoutExtension(files[j]).ToLower();
+                if (SkyboxTextures.Contains(filename))
+                {
+                    names.Add(filename);
+                    order[Array.IndexOf(InOrderSkybox, filename)]=j;
+                }
+            }
 
-            return LoadBulk(files);
+            if (names.Count != 6)
+            {
+                StringBuilder stringBuilder = new(string.Format("Skybox folder: {0} contains insufficient cubemap names.\n", skyboxFolder));
+                HashSet<string> tempSkyboxes = [.. SkyboxTextures];
+                tempSkyboxes.ExceptWith(names);
+
+                foreach (var name in tempSkyboxes)
+                {
+                    stringBuilder.AppendLine("Missing file for: ");
+                    stringBuilder.Append(name);
+                    stringBuilder.Append(" face");
+                }
+
+                throw new FileLoadException(stringBuilder.ToString());
+            }
+
+            var filesToLoad = new string[6];
+
+            for (int i = 0; i < 6; i++)
+            {
+                filesToLoad[i] = files[order[i]];
+            }
+
+
+            return LoadBulk(filesToLoad);
         }
     }
 }
