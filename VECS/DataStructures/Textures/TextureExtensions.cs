@@ -333,7 +333,32 @@ namespace VECS
 
             uint baseImageSize = texture.ImageExtent.width * texture.ImageExtent.height * formatSize;
 
-            if (texture is Texture2DArray textureArray)
+            if(texture is Cubemap cubemap)
+            {
+                VkBufferImageCopy* bufferCopyRegions = stackalloc VkBufferImageCopy[6];
+                for (uint i = 0; i < 6; i++)
+                {
+                    bufferCopyRegions[i] = new()
+                    {
+                        bufferOffset = offset,
+                        bufferRowLength = 0,
+                        bufferImageHeight = 0,
+                        imageSubresource = new()
+                        {
+                            aspectMask = subresourceRange.aspectMask,
+                            mipLevel = 0,
+                            baseArrayLayer = i,
+                            layerCount = 1
+                        },
+                        imageOffset = new(0, 0, 0),
+                        imageExtent = new(texture.ImageExtent.width, texture.ImageExtent.height, 1)
+                    };
+                    offset += baseImageSize;
+                }
+                CopyBufferToTexture(texture, cmdBuffer, buffer, bufferCopyRegions);
+                hintRegenerateMipMaps = true;
+            }
+            else if (texture is Texture2DArray textureArray)
             {
                 VkBufferImageCopy* bufferCopyRegions = stackalloc VkBufferImageCopy[(int)texture.ImageExtent.depth];
                 for (uint i = 0; i < texture.ImageExtent.depth; i++)
@@ -733,21 +758,34 @@ namespace VECS
         {
             var subresourceRange = texture.GetSubresourceRange();
             var imageLayout = texture.ImageLayout;
-            texture.SetImageLayout(cmd, VkImageLayout.TransferSrcOptimal, subresourceRange);
+
+            if (texture._imageLayout == VkImageLayout.ShaderReadOnlyOptimal)
+            {
+                texture.SetImageLayout(cmd, VkImageLayout.TransferSrcOptimal, subresourceRange, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.Transfer);
+            }
+            else
+            {
+                texture.SetImageLayout(cmd, VkImageLayout.TransferSrcOptimal, subresourceRange, VkPipelineStageFlags2.Transfer, VkPipelineStageFlags2.Transfer);
+            }
 
             GenerateMipMapsTextureArrayCubemap(cmd, texture._vkImage, 6,0, texture.MipMapCount, texture.ImageExtent, texture._aspectFlags);
             
 
             texture._imageLayout = VkImageLayout.TransferSrcOptimal;
 
-            if (imageLayout != VkImageLayout.Undefined)
+            if (imageLayout == VkImageLayout.TransferDstOptimal)
             {
-                texture.SetImageLayout(cmd, imageLayout);
+                texture.SetImageLayout(cmd, imageLayout, VkPipelineStageFlags2.Transfer, VkPipelineStageFlags2.Transfer);
+            }
+            else if (imageLayout != VkImageLayout.Undefined)
+            {
+                texture.SetImageLayout(cmd, imageLayout, VkPipelineStageFlags2.Transfer);
             }
         }
 
         public static unsafe void GenerateMipMaps(this CubemapArray texture, VkCommandBuffer cmd)
-        {var subresourceRange = texture.GetSubresourceRange();
+        {
+            var subresourceRange = texture.GetSubresourceRange();
             var imageLayout = texture.ImageLayout;
             texture.SetImageLayout(cmd, VkImageLayout.TransferSrcOptimal, subresourceRange);
 

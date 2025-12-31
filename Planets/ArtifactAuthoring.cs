@@ -556,6 +556,7 @@ namespace Planets
         {
             MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("UV-Sphere.obj"), null);
 
+
             textureWaveA = new Texture2D(TextureLoader.GetTextureInDefaultPath("Wave.jpg"));
             textureWaveB = new Texture2D(TextureLoader.GetTextureInDefaultPath("Wave B.png"));
             textureWaveC = new Texture2D(TextureLoader.GetTextureInDefaultPath("Wave A.png"));

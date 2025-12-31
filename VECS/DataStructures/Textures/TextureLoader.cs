@@ -156,5 +156,22 @@ namespace VECS
                 }
             }
         }
+
+        public static Surface[] GetSkyboxTextures(string skyboxFolder)
+        {
+            if (!Directory.Exists(skyboxFolder))
+            {
+                throw new FileNotFoundException("Skybox folder not found", skyboxFolder);
+            }
+
+            var files = Directory.GetFiles(skyboxFolder);
+
+            if(files.Length != 6)
+            {
+                throw new FileLoadException(string.Format("Skybox folder: {0} contains incorrect number of files: {1}\nMust be 6 files.", skyboxFolder, files.Length));
+            }
+
+            return LoadBulk(files);
+        }
     }
 }
