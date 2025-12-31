@@ -460,9 +460,11 @@ namespace VECS
 
             var commandBuffer = frameInfo.CommandBuffer;
             GraphicsDevice.DeviceAPI.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Graphics, _graphicsPipeline);
-            DescriptorBuffer.BindSets(commandBuffer, (uint)_descriptorSetCount, bindingInfo);
-            DescriptorBuffer.SetOffsets(commandBuffer, _pipelineLayout, VkPipelineBindPoint.Graphics, 0, (uint)_descriptorSetCount, offsets, indices);
-
+            if (_descriptorSetCount > 0)
+            {
+                DescriptorBuffer.BindSets(commandBuffer, (uint)_descriptorSetCount, bindingInfo);
+                DescriptorBuffer.SetOffsets(commandBuffer, _pipelineLayout, VkPipelineBindPoint.Graphics, 0, (uint)_descriptorSetCount, offsets, indices);
+            }
             _materialPushConstantsHandler.BindPushConstants(commandBuffer, _pipelineLayout, variantIndex);
         }
 

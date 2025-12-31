@@ -29,7 +29,6 @@ namespace VECS
             depthConfig.colourFormats = [];
             depthConfig.depthStencilInfo.depthWriteEnable = true;
             depthConfig.depthStencilInfo.depthTestEnable = true;
-            depthConfig.depthStencilInfo.depthCompareOp = VkCompareOp.LessOrEqual;
             DepthOnly = new("DepthOnly", "depth_only_new.vert", depthConfig);
 
             var pipelineConfigInfo = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
