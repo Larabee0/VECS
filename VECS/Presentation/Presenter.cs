@@ -25,7 +25,6 @@ namespace VECS
         private ShadowImage _shadowCubeMap;
         private Bloom _bloom;
         private SMAA _smaa;
-        private Skybox _skybox;
         private static ulong _frameCount;
 
         public ForwardRenderer ForwardRenderer => _forwardRenderer;
@@ -87,7 +86,6 @@ namespace VECS
                 _shadowCubeMap = new();
                 _bloom = new();
                 _smaa = new();
-                _skybox = new();
                 _forwardRenderer.SetOIT();
             }
             else
@@ -302,7 +300,7 @@ namespace VECS
 
             World.DefaultWorld.OnOpaquePass(frameInfo);
             
-            _skybox.RenderSkybox(frameInfo);
+            Skybox.RenderSkybox(frameInfo);
 
             _forwardRenderer.EndForwardRendering(commandBuffer);
 

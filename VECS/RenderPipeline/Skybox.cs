@@ -1,20 +1,29 @@
 ﻿using System.Numerics;
+using System.Runtime.CompilerServices;
 using VECS.GraphicsPipelines;
 using Vortice.Vulkan;
 
 namespace VECS
 {
-    public class Skybox
+    public static class Skybox
     {
-        public static Cubemap SkyboxTexture;
+        private readonly static int SkyboxTextureProperty = "samplerCubeMap".GetShaderPropertyId();        
+        private readonly static DirectSubMesh _cube;
+        private readonly static Material _skybox;
 
-        private DirectSubMesh _cube;
-        private readonly Material _skybox;
-        private readonly Material _skyboxDepthOnly;
-
-        public Skybox()
+        private static Cubemap _skyboxTexture;
+        public static Cubemap SkyboxTexture
         {
-            SkyboxTexture = new Cubemap("Kurt", TextureLoader.GetTextureInDefaultPath("Skyboxes/Red"), VkSamplerAddressMode.ClampToEdge,false);
+            get => _skyboxTexture;
+            set
+            {
+                _skyboxTexture = value;
+                _skybox.SetCubeMap(SkyboxTextureProperty, 0, SkyboxTexture);
+            }
+        }
+
+        static Skybox()
+        {
             var pipelineConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
 
             pipelineConfig.rasterizationInfo.cullMode = VkCullModeFlags.Back;
@@ -22,43 +31,16 @@ namespace VECS
             pipelineConfig.depthStencilInfo.depthTestEnable = true;
 
             _skybox = new Material("Skybox", "skybox.vert", "skybox.frag", pipelineConfig);
-            pipelineConfig.depthStencilInfo.depthTestEnable = true;
-            pipelineConfig.depthStencilInfo.depthWriteEnable = true;
-            pipelineConfig.colourFormats = [];
-            _skyboxDepthOnly = new Material("SkyboxDepthOnly","skybox.vert",pipelineConfig);
-
-            _skybox.SetCubeMap("samplerCubeMap".GetShaderPropertyId(), 0, SkyboxTexture);
+            
             _cube = AssetDataBase<DirectSubMesh>.GetNamed("quad-cube-UV.1");
+            SkyboxTexture = new Cubemap("Kurt", TextureLoader.GetTextureInDefaultPath("Skyboxes/Red"), VkSamplerAddressMode.ClampToEdge, false);
         }
 
-        public void RenderSkyboxPass(RendererFrameInfo frameInfo)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void RenderSkybox(RendererFrameInfo frameInfo)
         {
+            if (SkyboxTexture == null || _cube == null) return;
             _skybox.PushConstants.SetPushConstantUniform("ubo", new UBO(frameInfo.CameraInfo));
-            _cube ??= AssetDataBase<DirectSubMesh>.GetNamed("quad-cube-UV.1");
-            Presenter.Instance.ForwardRenderer.BeginForwardRendering(frameInfo.CommandBuffer, VkAttachmentLoadOp.Clear);
-
-            _skybox.BindAll(frameInfo, 0);
-            _cube.SimpleBindAndDraw(frameInfo.CommandBuffer);
-
-            Presenter.Instance.ForwardRenderer.EndForwardRendering(frameInfo.CommandBuffer);
-        }
-
-        public void RenderSkyboxDepthOnly(RendererFrameInfo frameInfo)
-        {
-            _skybox.PushConstants.SetPushConstantUniform("ubo", new UBO(frameInfo.CameraInfo));
-            _cube ??= AssetDataBase<DirectSubMesh>.GetNamed("quad-cube-UV.1");
-            Presenter.Instance.ForwardRenderer.BeginForwardDepthOnlyRendering(frameInfo.CommandBuffer, VkAttachmentLoadOp.Clear);
-
-            _skyboxDepthOnly.BindAll(frameInfo, 0);
-            _cube.SimpleBindAndDraw(frameInfo.CommandBuffer);
-
-            Presenter.Instance.ForwardRenderer.EndForwardDepthOnlyRendering(frameInfo.CommandBuffer);
-        }
-
-        public void RenderSkybox(RendererFrameInfo frameInfo)
-        {
-            _skybox.PushConstants.SetPushConstantUniform("ubo", new UBO(frameInfo.CameraInfo));
-            _cube ??= AssetDataBase<DirectSubMesh>.GetNamed("quad-cube-UV.1");
             _skybox.BindAll(frameInfo, 0);
             _cube.SimpleBindAndDraw(frameInfo.CommandBuffer);
         }
