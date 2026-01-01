@@ -21,6 +21,7 @@ namespace VECS.DataStructures
         public string DiffuseTexture;
         public Vector4 DiffuseColour;
         public List<int> appliesTo = new();
+        public bool TrasnparencyHint;
 
         public MaterialInfo(Assimp.Material mat,string meshFileName)
         {
@@ -29,7 +30,12 @@ namespace VECS.DataStructures
             {
                 DiffuseTexture = Path.Combine(TextureLoader.DefaultTexturePath, meshFileName, Path.GetFileName(mat.TextureDiffuse.FilePath));
             }
-            
+
+            if (mat.HasColorTransparent)
+            {
+                TrasnparencyHint = true;
+            }
+
 
             DiffuseColour = mat.ColorDiffuse.ToColor();
         }

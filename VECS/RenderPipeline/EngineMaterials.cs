@@ -19,6 +19,7 @@ namespace VECS
         public readonly static Material Blit;
         public readonly static Material OIT_Composite;
         public readonly static Material OIT_Unlit;
+        public readonly static Material OIT_LitTexture;
 
         static EngineMaterials()
         {
@@ -80,6 +81,8 @@ namespace VECS
             oit_unlit.depthStencilInfo.depthCompareOp = VkCompareOp.LessOrEqual;
 
             OIT_Unlit = new("OIT_Unlit", "unlit.vert", "oit_unlit.frag", oit_unlit);
+
+            OIT_LitTexture = new("OIT_Lit_Texture", "lit_texture_new.vert", "oit_lit_texture.frag", oit_unlit);
 
             DepthReduction.Init();
         }

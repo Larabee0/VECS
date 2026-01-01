@@ -9,11 +9,6 @@ layout (location = 1) out vec3 fragPosWorld;
 layout (location = 2) out vec3 fragNormalWorld;
 layout (location = 3) out vec2 fragUV;
 
-struct PointLight {
-	vec4 position; // ignore w
-	vec4 colour; // w is intensity
-};
-
 layout(set = 0,binding = 0) uniform CameraInfo{
 	mat4 projectionMatrix;
 	mat4 viewMatrix;
@@ -21,39 +16,6 @@ layout(set = 0,binding = 0) uniform CameraInfo{
 	vec4 position;
 	vec4 forward;
 } cameraMain;
-
-layout(set = 0,binding = 1) uniform CameraInverse{
-	mat4 inverseProjectionMatrix;
-	mat4 inverseViewMatrix;
-	mat4 inverseProjectionViewMatrix;
-} cameraInverse;
-
-layout (set = 0, binding = 2) uniform AdditionalCameraInfo
-{
-	float ratio;
- 	float p00;
- 	float p11;
- 	float nearPlane;
-	float farPlane;
- 	vec4 frustum;
-} cameraPlanes;
-
-layout (set = 0, binding = 3) uniform OrthographicInfo
-{
-	float orthographic;
-	float width;
-	float height;
-} orthographic;
-
-layout(set = 0, binding = 4) uniform LightingInfo {
-	vec4 ambientLightColour;
-	vec4 ambientLightDir;
-	int numPointLights;
-} lighting;
-
-layout (set = 0, binding = 5) readonly buffer PointLights{
-	PointLight values[];
-} pointLightBuffer;
 
 struct ObjectMatrices{
 	mat4 modelMatrix; // project * view * model

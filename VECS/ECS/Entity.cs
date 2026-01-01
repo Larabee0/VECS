@@ -14,10 +14,13 @@ namespace VECS.ECS
         public uint Id;
         public int Version;
 
+        private readonly int HashCache;
+
         public Entity(uint id, int version)
         {
             Id = id;
             Version = version;
+            HashCache = HashCode.Combine(Id, Version);
         }
 
         public override readonly string ToString()
@@ -27,7 +30,7 @@ namespace VECS.ECS
 
         public override readonly int GetHashCode()
         {
-            return HashCode.Combine(Id, Version);
+            return HashCache;
         }
 
         public static bool operator ==(Entity left, Entity right)

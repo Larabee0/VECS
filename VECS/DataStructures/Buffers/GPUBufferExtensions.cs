@@ -325,6 +325,18 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe static void WriteFromHostBuffer(this GPUBuffer buffer, ulong size= Vulkan.VK_WHOLE_SIZE, ulong offset = 0)
+        {
+            if (buffer.HostPtr == null)
+            {
+                throw new InvalidOperationException("Cannot write host buffer to GPU as it is null");
+            }
+
+            WriteToBuffer(buffer, buffer.HostPtr, size,offset);
+            buffer.SetGPUBufferChanged(false);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe static void ReadToHostBuffer(this GPUBuffer buffer)
         {
             if (buffer.HostPtr == null)

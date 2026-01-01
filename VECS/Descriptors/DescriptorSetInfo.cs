@@ -203,6 +203,14 @@ namespace VECS
             }
         }
 
+        public void SetVariantLength(uint length)
+        {
+            for (int i = 0; i < _descriptorBuffers.Length; i++)
+            {
+                _descriptorBuffers[i].SetUsageLength(length);
+            }
+        }
+
         public void WriteFromBuffers(int frameIndex)
         {
             if (_forMeshShader) return;

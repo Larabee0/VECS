@@ -19,7 +19,7 @@ namespace VECS.UI
             IsTransparent = true,
         };
 
-        private static readonly string _defaultHTML = "<h1>Hello World!<br><i>omg italics?</i></h1>";
+        private static readonly string _defaultHTML = "";// "<h1>Hello World!<br><i>omg italics?</i></h1>";
 
         private static Renderer _ulRenderer;
         private static View _ulView;

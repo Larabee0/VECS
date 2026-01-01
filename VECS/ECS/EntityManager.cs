@@ -323,7 +323,7 @@ namespace VECS.ECS
         /// <param name="entity"></param>
         /// <param name="signature">Component instance signature</param>
         /// <returns></returns>
-        public bool HasComponent<T>(Entity entity, out int signature) where T : IComponent
+        public bool HasComponent<T>(in Entity entity, out int signature) where T : IComponent
         {
             signature = GetEntityComponentSigature<T>(entity);
             return _compSignatureToCompReference.ContainsKey(signature);
@@ -412,7 +412,7 @@ namespace VECS.ECS
         /// <param name="entity"></param>
         /// <param name="component"></param>
         /// <returns>True if the component was set</returns>
-        public bool SetComponent<T>(Entity entity, T component) where T : IComponent
+        public bool SetComponent<T>(in Entity entity, in T component) where T : IComponent
         {
             if (HasComponent<T>(entity, out int signature))
             {
@@ -438,7 +438,7 @@ namespace VECS.ECS
         /// <typeparam name="T">Component type</typeparam>
         /// <param name="entity"></param>
         /// <returns></returns>
-        public static int GetEntityComponentSigature<T>(Entity entity) where T : IComponent
+        public static int GetEntityComponentSigature<T>(in Entity entity) where T : IComponent
         {
             //return HashCode.Combine(entity.GetHashCode(), GetComponentId<T>());
             return HashCode.Combine(entity.GetHashCode(), GetComponentId<T>());

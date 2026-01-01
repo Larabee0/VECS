@@ -15,7 +15,7 @@ namespace VECS.ECS.Presentation
                 .WithNone(typeof(RenderBounds))
                 .Build();
             _updateRenderBounds = new EntityQuery(entityManager)
-                .WithAll(typeof(RenderBounds),typeof(LocalToWorld),typeof(DirectSubMeshIndex), typeof(RenderMesh))
+                .WithAll(typeof(RenderBounds),typeof(WorldRenderBounds),typeof(LocalToWorld),typeof(DirectSubMeshIndex), typeof(RenderMesh))
                 .Build();
         }
 
@@ -28,6 +28,10 @@ namespace VECS.ECS.Presentation
                 {
                     var renderBounds = DirectSubMesh.GetSubMeshAtIndex(entityManager.GetComponent<DirectSubMeshIndex>(e)).Bounds;
                     entityManager.AddComponent(e, renderBounds);
+                    Matrix4x4 ltw = entityManager.GetComponent<LocalToWorld>(e).Value;
+                    var renderMesh = entityManager.GetComponent<RenderMesh>(e);
+                    WorldRenderBounds worldBounds = new(AABB.Transform(ltw, renderBounds.Value), renderMesh.CullOverrides);
+                    entityManager.AddComponent(e, worldBounds);
                 });
             }
 
@@ -37,11 +41,10 @@ namespace VECS.ECS.Presentation
                 updateEntities.ForEach(e =>
                 {
                     Matrix4x4 ltw = entityManager.GetComponent<LocalToWorld>(e).Value;
-                    Matrix4x4.Decompose(ltw, out Vector3 scale, out Quaternion rotation, out Vector3 translation);
                     var renderMesh = entityManager.GetComponent<RenderMesh>(e);
                     var renderBounds = DirectSubMesh.GetSubMeshAtIndex(entityManager.GetComponent<DirectSubMeshIndex>(e)).Bounds;
                     WorldRenderBounds worldBounds = new(AABB.Transform(ltw, renderBounds.Value),renderMesh.CullOverrides);
-                    entityManager.AddComponent(e, worldBounds);
+                    entityManager.SetComponent(e, worldBounds);
                 });
             }
         }

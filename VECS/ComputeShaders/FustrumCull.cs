@@ -180,6 +180,8 @@ namespace VECS
 
         public static void PostPresent()
         {
+            _computeShader.SetUniformBufferLength(_variant);
+
             Interlocked.Exchange(ref _variant, 0);
         }
 
@@ -198,8 +200,7 @@ namespace VECS
                 CPUCull(cullData, drawCount, drawIndirect, bounds);
                 return;
             }
-#pragma warning restore CS0162
-#endif
+
             var includeMask = cullData.IncludeMask;
             var excludeMask = cullData.ExcludeMask;
             for (int i = 0; i < drawCount; i++)
@@ -209,6 +210,10 @@ namespace VECS
                 var exclude = (excludeMask & flags) == flags;
                 var visible = include && !exclude;
             }
+
+#pragma warning restore CS0162
+#endif
+
 
             GPUCullInternal(commandBuffer,frameIndex, cullData, drawCount, drawIndirect, bounds, discriptorIndex);
             

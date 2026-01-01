@@ -189,7 +189,7 @@ namespace VECS
 
                 if (dirLights!= null && dirLights.Count > 0)
                 {
-                    lightingInfo = new(entityManager.GetComponent<DirectionalLight>(dirLights[0]), dirLights.Count);
+                    lightingInfo = new(entityManager.GetComponent<DirectionalLight>(dirLights[0]), pointLights == null ? 0 : pointLights.Count);
                 }
                 else
                 {
@@ -318,7 +318,7 @@ namespace VECS
             World.DefaultWorld.OnPostTransparentPass(frameInfo);
 
             //Bloom
-            _bloom.RenderBloomObjects(frameInfo);
+            // _bloom.RenderBloomObjects(frameInfo);
 
             DrawBlob.IndirectToComputeMemoryBarrierByMat(frameInfo.CommandBuffer);
 

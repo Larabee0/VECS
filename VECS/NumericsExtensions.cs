@@ -148,7 +148,7 @@ namespace System.Numerics
             return Select(Vector4.Zero, Vector4.One, GreaterEqual(x, threshold));
         }
 
-        public static Vector3 Select(Vector3 falseValue, Vector3 trueValue, Bool3 test)
+        public static Vector3 Select(in Vector3 falseValue, in Vector3 trueValue, in Bool3 test)
         {
             return new Vector3(test.X ? trueValue.X : falseValue.X,
                                test.Y ? trueValue.Y : falseValue.Y,
@@ -165,7 +165,7 @@ namespace System.Numerics
 
 
         public static Bool3 GreaterEqual(Vector3 lhs, Vector3 rhs) { return new Bool3(lhs.X >= rhs.X, lhs.Y >= rhs.Y, lhs.Z >= rhs.Z); }
-        public static Bool3 Less(Vector3 lhs, Vector3 rhs) { return new Bool3(lhs.X < rhs.X, lhs.Y  < rhs.Y, lhs.Z < rhs.Z); }
+        public static Bool3 Less(in Vector3 lhs, in Vector3 rhs) { return new Bool3(lhs.X < rhs.X, lhs.Y  < rhs.Y, lhs.Z < rhs.Z); }
         public static Bool4 GreaterEqual(Vector4 lhs, Vector4 rhs) { return new Bool4(lhs.X >= rhs.X, lhs.Y >= rhs.Y, lhs.Z >= rhs.Z, lhs.W >= rhs.W); }
     }
 

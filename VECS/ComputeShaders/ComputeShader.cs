@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Threading;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
@@ -27,6 +28,9 @@ namespace VECS
         private static ComputeShader _lastBoundComputeShader;
         [ThreadStatic]
         private static int _frameIndex;
+        private static int _variantCount;
+
+        private uint _uniformLength = Material.MAX_VARIANTS;
 
         public unsafe ComputeShader(string assetName, string shaderName)
         {
@@ -59,6 +63,24 @@ namespace VECS
             };
 
             _pipline = GPUPipelineUtil.CreateComputePipeline(shaderModule, computePipelineInfo);
+        }
+
+        public void SetUniformBufferLength(uint length)
+        {
+            if (_uniformLength == length) return;
+            _uniformLength = Math.Max(1, length);
+            for (uint i = 0; i < _descriptorSetCount; i++)
+            {
+                _descriptorSetInfos[i].SetVariantLength(length);
+                var bindings = GetDescriptorBindings(i);
+                for (int j = 0; j < bindings.Length; j++)
+                {
+                    if (bindings[j].UniformBuffer)
+                    {
+                        GetBuffer(i, bindings[j].BindPoint).SetUsedInstanceCount(_uniformLength);
+                    }
+                }
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

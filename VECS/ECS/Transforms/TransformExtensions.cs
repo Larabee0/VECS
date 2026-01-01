@@ -227,7 +227,7 @@ namespace VECS.ECS.Transforms
         /// <param name="scale"></param>
         /// <returns></returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Matrix4x4 TRS(Vector3 translation, Quaternion rotation, Vector3 scale)
+        public static Matrix4x4 TRS(in Vector3 translation, in Quaternion rotation, in Vector3 scale)
         {
             var transform = Matrix4x4.CreateScale(scale) * Matrix4x4.CreateFromQuaternion(rotation) * Matrix4x4.CreateTranslation(translation);
             return transform;

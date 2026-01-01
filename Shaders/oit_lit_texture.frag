@@ -1,24 +1,21 @@
 #version 460
 
+layout (early_fragment_tests) in;
 layout (location = 0) in vec4 fragColour;
 layout (location = 1) in vec3 fragPosWorld;
 layout (location = 2) in vec3 fragNormalWorld;
 layout (location = 3) in vec2 fragUV;
 
-layout (location = 0) out vec4 outColour;
-
+struct Node
+{
+    vec4 color;
+    float depth;
+    uint next;
+};
 struct PointLight {
 	vec4 position; // ignore w
 	vec4 colour; // w is intensity
 };
-
-layout(set = 0,binding = 0) uniform CameraInfo{
-	mat4 projectionMatrix;
-	mat4 viewMatrix;
-	mat4 projectionViewMatrix;	
-	vec4 position;
-	vec4 forward;
-} cameraMain;
 
 layout(set = 0,binding = 1) uniform CameraInverse{
 	mat4 inverseProjectionMatrix;
@@ -26,34 +23,30 @@ layout(set = 0,binding = 1) uniform CameraInverse{
 	mat4 inverseProjectionViewMatrix;
 } cameraInverse;
 
-layout (set = 0, binding = 2) uniform AdditionalCameraInfo
-{
-	float ratio;
- 	float p00;
- 	float p11;
- 	float nearPlane;
-	float farPlane;
- 	vec4 frustum;
-} cameraPlanes;
-
-layout (set = 0, binding = 3) uniform OrthographicInfo
-{
-	float orthographic;
-	float width;
-	float height;
-} orthographic;
-
-layout(set = 0, binding = 4) uniform LightingInfo {
+layout(set = 0, binding = 2) uniform LightingInfo {
 	vec4 ambientLightColour;
 	vec4 ambientLightDir;
 	int numPointLights;
 } lighting;
 
-layout (set = 0, binding = 5) readonly buffer PointLights{
+layout (set = 0, binding = 3) readonly buffer PointLights{
 	PointLight values[];
 } pointLightBuffer;
 
 layout(set = 1, binding = 2) uniform sampler2D texSampler;
+
+layout (set = 2, binding = 0) buffer GeometrySBO
+{
+    uint count;
+    uint maxNodeCount;
+} geometrySBO;
+
+layout (set = 2, binding = 1, r32ui) uniform coherent uimage2D headIndexImage;
+
+layout (set = 2, binding = 2) buffer LinkedListSBO
+{
+    Node nodes[];
+} linkedListSBO;
 
 layout(push_constant) uniform constants
 {
@@ -63,7 +56,7 @@ layout(push_constant) uniform constants
 
 void main()
 {
-	vec3 diffuseLight = lighting.ambientLightColour.xyz * lighting.ambientLightColour.w;
+    vec3 diffuseLight = lighting.ambientLightColour.xyz * lighting.ambientLightColour.w;
 	vec3 specularLight = vec3(0.0);
 	vec3 surfaceNormal = normalize(fragNormalWorld);
 
@@ -92,16 +85,27 @@ void main()
 	}
 
 	vec4 textureColour = texture(texSampler,fragUV* textureProperties.tiling );
-	
+	float w = textureColour.w;
 	// outColour = vec4(fragUV,0,1);
 	//outColour = textureProperties.colour;
-	outColour = textureColour * fragColour * textureProperties.colour;
-	// outColour = vec4(1);
-	//outColour = vec4(diffuseLight  * textureColour.xyz + specularLight * textureColour.xyz, 1.0);
-	//outColour = vec4(diffuseLight  * fragColour, 1.0);
-	
-	//PointLight light = ubo.pointLights;
-	//outColour =light.colour;
-	//outColour =vec4(ubo.numLights,0,0,1);
-	
+	textureColour = textureColour * fragColour * textureProperties.colour;
+
+    //textureColour.xyz = normalize(textureColour.xyz);
+    textureColour.w = w;
+
+
+    // Increase the node count
+    uint nodeIdx = atomicAdd(geometrySBO.count, 1);
+
+    // Check LinkedListSBO is full
+    if (nodeIdx < geometrySBO.maxNodeCount)
+    {
+        // Exchange new head index and previous head index
+        uint prevHeadIdx = imageAtomicExchange(headIndexImage, ivec2(gl_FragCoord.xy), nodeIdx);
+
+        // Store node data
+        linkedListSBO.nodes[nodeIdx].color = textureColour;
+        linkedListSBO.nodes[nodeIdx].depth = gl_FragCoord.z;
+        linkedListSBO.nodes[nodeIdx].next = prevHeadIdx;
+    }
 }

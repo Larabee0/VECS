@@ -34,7 +34,7 @@ namespace VECS.ECS.Presentation
 
         public override void OnShadowPass(EntityManager entityManager, RendererFrameInfo frameInfo)
         {
-            if (!_renderEntityQuery.HasEntities)
+            if (frameInfo.LightingInfo.NumPointLights == 0 || !_renderEntityQuery.HasEntities)
             {
                 Presenter.Instance.ShadowImage.ClearImage(frameInfo);
                 return;

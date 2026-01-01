@@ -144,18 +144,18 @@ namespace VECS
             _buffer = (byte*)NativeMemory.AlignedRealloc(_buffer, _allocationSize , Alignment);
         }
 
-        public unsafe void Write(int index, IComponent component)
+        public unsafe void Write(in int index, in IComponent component)
         {
             var ptr = _buffer + (index * ElementSize);
             BufferSource.CopyIn(ptr, component);
         }
-        public unsafe void Default(int index)
+        public unsafe void Default(in int index)
         {
             var ptr = _buffer + (index * ElementSize);
             BufferSource.DefaultIn(ptr);
         }
 
-        public unsafe void CopyTo(void* dst, int offset, int count)
+        public unsafe void CopyTo(in void* dst, in int offset, in int count)
         {
             Debug.Assert((count * ElementSize + offset * ElementSize) <= _allocationSize);
             var ptr = _buffer + (offset * ElementSize);

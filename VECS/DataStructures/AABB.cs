@@ -47,7 +47,7 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void SetMinMax(Vector3 min, Vector3 max)
+        public void SetMinMax(in Vector3 min, in Vector3 max)
         {
             Extents = (max - min) * 0.5f;
             Center = min + Extents;
@@ -61,7 +61,7 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static AABB FromMinMax(Vector3 min, Vector3 max)
+        public static AABB FromMinMax(in Vector3 min, in Vector3 max)
         {
             AABB aabb = default;
             aabb.SetMinMax(min, max);

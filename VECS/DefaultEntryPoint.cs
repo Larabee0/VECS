@@ -89,19 +89,42 @@ namespace VECS
             };
             Parent parent = new() { Value = commonParent };
 
-            var mat = EngineMaterials.LitTexture;
+            var lit = EngineMaterials.LitTexture;
+            var litTransparent = EngineMaterials.OIT_LitTexture;
+
             var texProp = "texSampler".GetShaderPropertyId();
+
+            int litVariant = 0;
+            int transVariant = 0;
 
             for (int i = 0, k = 0; i < sponzaMatInfo.Length; i++)
             {
                 var matInfo = sponzaMatInfo[i];
+                bool transparent = matInfo.Name == "chain" || matInfo.Name == "Material__57";
                 if (matInfo.DiffuseTexture != null)
                 {
                     matTextureMap[i] = new Texture2D(matInfo.DiffuseTexture);
-                    mat.SetTexture(texProp, i, matTextureMap[i]);
+                    if (transparent)
+                    {
+                        litTransparent.SetTexture(ShaderPropertyInfo.HeadIndexImageId, 0, Presenter.Instance.ForwardRenderer._headIndex);
+                        litTransparent.SetTexture(texProp, transVariant, matTextureMap[i]);
+                    }
+                    else
+                    {
+                        lit.SetTexture(texProp, litVariant, matTextureMap[i]);
+                    }
                 }
-                mat.PushConstants.SetPushConstantVector4("colour", matInfo.DiffuseColour);
-                mat.PushConstants.SetPushConstantFloat("tiling", 1);
+                if (transparent)
+                {
+                    litTransparent.PushConstants.SetPushConstantVector4("colour", transVariant, matInfo.DiffuseColour);
+                    litTransparent.PushConstants.SetPushConstantFloat("tiling", transVariant, 1);
+                }
+                else
+                {
+                    lit.PushConstants.SetPushConstantVector4("colour", litVariant, matInfo.DiffuseColour);
+                    lit.PushConstants.SetPushConstantFloat("tiling", litVariant, 1);
+                }
+
 
                 for (int j = 0; j < matInfo.appliesTo.Count; j++, k++)
                 {
@@ -109,7 +132,22 @@ namespace VECS
                     var entity = entityManager.CreateEntity();
                     children.Value[k] = entity;
                     entityManager.AddComponent(entity, parent);
-                    AddRenderMeshComponents(entity, mat, i, i, sponza[meshIndex], entityManager);
+                    if (transparent)
+                    {
+                        AddRenderMeshComponents(entity, litTransparent, transVariant, transVariant, sponza[meshIndex], entityManager);
+                    }
+                    else
+                    {
+                        AddRenderMeshComponents(entity, lit, litVariant, litVariant, sponza[meshIndex], entityManager);
+                    }
+                }
+                if (transparent)
+                {
+                    transVariant++;
+                }
+                else
+                {
+                    litVariant++;
                 }
             }
 

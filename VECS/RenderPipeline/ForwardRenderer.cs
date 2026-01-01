@@ -14,7 +14,7 @@ namespace VECS
         public RenderTarget BrightObjectAttachment;
         public RenderTarget DepthAttachment;
 
-        private Texture2D _headIndex;
+        public Texture2D _headIndex;
         private readonly SwapChainBuffer _geometry;
         private SwapChainBuffer _linkedList;
 
@@ -63,9 +63,22 @@ namespace VECS
             EngineMaterials.OIT_Composite.SetTexture(ShaderPropertyInfo.HeadIndexImageId, 0, _headIndex);
             EngineMaterials.OIT_Composite.SetStorageBuffer(ShaderPropertyInfo.LinkedListSBOId, _linkedList);
 
-            EngineMaterials.OIT_Unlit.SetTexture(ShaderPropertyInfo.HeadIndexImageId, 0, _headIndex);
-            EngineMaterials.OIT_Unlit.SetStorageBuffer(ShaderPropertyInfo.LinkedListSBOId, _linkedList);
             EngineMaterials.OIT_Unlit.SetStorageBuffer(ShaderPropertyInfo.GeometrySBOId, _geometry);
+            EngineMaterials.OIT_LitTexture.SetStorageBuffer(ShaderPropertyInfo.GeometrySBOId, _geometry);
+
+            AssetDataBase<Material>.AllAssetsListForReading.ForEach(asset =>
+            {
+                if (asset.Transparent)
+                {
+                    for (int i = 0; i < asset.VariantCount; i++)
+                    {
+                        asset.SetTexture(ShaderPropertyInfo.HeadIndexImageId, i, _headIndex);
+                    }
+
+                    asset.SetStorageBuffer(ShaderPropertyInfo.LinkedListSBOId, _linkedList);
+                }
+            });
+
         }
 
         public unsafe void BeginForwardRendering(VkCommandBuffer commandBuffer, VkAttachmentLoadOp colourLoad = VkAttachmentLoadOp.Clear)

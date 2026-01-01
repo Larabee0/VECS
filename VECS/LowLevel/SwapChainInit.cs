@@ -226,25 +226,25 @@ namespace VECS.LowLevel
 
         private static VkPresentModeKHR ChooseSwapPresentMode(VkPresentModeKHR[] presentModes)
         {
-            for (int i = 0; i < presentModes.Length; i++)
-            {
-                var availablePresentMode = presentModes[i];
-                if (availablePresentMode == VkPresentModeKHR.Mailbox)
-                {
-                    Console.WriteLine("Present mode: Mailbox");
-                    return availablePresentMode;
-                }
-            }
-
             // for (int i = 0; i < presentModes.Length; i++)
             // {
             //     var availablePresentMode = presentModes[i];
-            //     if (availablePresentMode == VkPresentModeKHR.Immediate)
+            //     if (availablePresentMode == VkPresentModeKHR.Mailbox)
             //     {
-            //         Console.WriteLine("Present mode: Immediate");
+            //         Console.WriteLine("Present mode: Mailbox");
             //         return availablePresentMode;
             //     }
             // }
+
+            for (int i = 0; i < presentModes.Length; i++)
+            {
+                var availablePresentMode = presentModes[i];
+                if (availablePresentMode == VkPresentModeKHR.Immediate)
+                {
+                    Console.WriteLine("Present mode: Immediate");
+                    return availablePresentMode;
+                }
+            }
 
             Console.WriteLine("Present mode: V-Sync");
 

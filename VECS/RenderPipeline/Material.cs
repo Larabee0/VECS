@@ -40,7 +40,7 @@ namespace VECS
         private uint _variantCount;
         private bool _preBindUpdate = false;
 
-        public bool Transparent => _graphicsPipelineConfigInfo.colourBlendAttachment.blendEnable;
+        public bool Transparent => _oitDescriptorSetIndex != -1;
 
         public uint VariantCount => _variantCount;
 
@@ -697,7 +697,8 @@ namespace VECS
 
             for (int i = 0; i < material.DescriptorSetCount; i++)
             {
-                if (i == material._meshShaderDescriptorSetIndex) continue;
+                if (i == material._meshShaderDescriptorSetIndex|| i == material._oitDescriptorSetIndex) continue;
+                material._descriptorSetInfos[i].SetVariantLength(material.VariantCount);
                 var bindings = material.GetDescriptorBindings(i);
                 var usage = accumulatedStorageBufferUsage[i];
                 for (int j = 0; j < bindings.Length; j++)
@@ -710,6 +711,7 @@ namespace VECS
                     }
                 }
             }
+
 
             for (int i = 0; i < material._descriptorSetInfos.Length; i++)
             {

@@ -18,6 +18,7 @@ namespace VECS
         private readonly VkDescriptorSetLayout _setLayout;
 
         public bool _writesPending = true;
+        private uint _usageLength;
 
         public uint AlignedSize => _alignedLayoutSize;
         public bool[] HasDataBound => _hasDataBound;
@@ -32,6 +33,7 @@ namespace VECS
 
         public unsafe DescriptorBuffer(VkDescriptorSetLayout setLayout, int bindingCount, int maxSets, bool uniformOrBuffer, bool image)
         {
+            _usageLength = (uint)maxSets;
             _setLayout = setLayout;
             ulong unalignedLayoutSize;
             GraphicsDevice.DeviceAPI.vkGetDescriptorSetLayoutSizeEXT(GraphicsDevice.Device, _setLayout, &unalignedLayoutSize);
@@ -61,7 +63,7 @@ namespace VECS
                 usageFlags |= VkBufferUsageFlags.SamplerDescriptorBufferEXT;
             }
 
-            _descriptorBuffer = new((uint)maxSets, _alignedLayoutSize, usageFlags, true, false, false);
+            _descriptorBuffer = new(_alignedLayoutSize, (uint)maxSets, usageFlags, true, false, false);
 
         }
 
@@ -164,10 +166,15 @@ namespace VECS
             _writesPending = true;
         }
 
-        public void Flush()
+        public void SetUsageLength(uint length)
+        {
+            _usageLength = Math.Max(1,length);
+        }
+
+        public unsafe void Flush()
         {
             if (!_writesPending) return;
-            _descriptorBuffer.WriteFromHostBuffer();
+            _descriptorBuffer.WriteFromHostBuffer(_usageLength * _alignedLayoutSize);
             _writesPending = false;
         }
 
