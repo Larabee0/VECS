@@ -34,14 +34,32 @@ namespace VECS.ECS.Transforms
         {
             if (_addLTWQuery.HasEntities) // updates and checks if the query has entities. NoAlloc check
             {
-                _addLTWQuery.GetEntities().ForEach(e => entityManager.AddComponent<LocalToWorld>(e));
+                LocalToWorld ltw = new();
+                _addLTWQuery.GetEntities().ForEach(e =>
+                {
+                    ltw.Value = ComputeLocalTRS(entityManager, e);
+                    entityManager.AddComponent(e,ltw);
+                });
+                _addLTWQuery.GetEntities().ForEach(e =>
+                {
+                    if (entityManager.HasComponent<Children>(e) && !entityManager.HasComponent<Parent>(e))
+                    {
+                        UpdateHierachy(entityManager, e);
+                    }
+                });
             }
+        
 
             if (_ltwQuery.HasEntities) // updates and checks if the query has entities. NoAlloc check
             {
                 // compute a ltw matrix for each entity matching the query.
                 // defaults are assume for entities missing t r s components
-                _ltwQuery.GetEntities().ForEach(e => entityManager.SetComponent<LocalToWorld>(e, new() { Value = ComputeLocalTRS(entityManager, e) }));
+                _ltwQuery.GetEntities().ForEach(e =>
+                {
+                    var ltw = entityManager.GetComponent<LocalToWorld>(e);
+                    LocalToWorld newLtw = new() { Value = ComputeLocalTRS(entityManager, e) };
+                    entityManager.SetComponent<LocalToWorld>(e, newLtw);
+                });
             }
 
             if(_ltwChildQuery.HasEntities)
@@ -68,7 +86,7 @@ namespace VECS.ECS.Transforms
                     {
                         var childLTP = ComputeLocalTRS(entityManager, children[i]);
 
-                        var childLTW =  childLTP*ltw;
+                        var childLTW = childLTP*ltw;
                         entityManager.SetComponent<LocalToWorld>(children[i], new() { Value = childLTW });
                         UpdateHierachy(entityManager, children[i]);
                     }
@@ -76,26 +94,13 @@ namespace VECS.ECS.Transforms
             }
         }
 
-        private static Matrix4x4 ComputeLocalTRS(EntityManager entityManager, Entity e)
+        public static Matrix4x4 ComputeLocalTRS(EntityManager entityManager, Entity e)
         {
             Vector3 translation = entityManager.GetComponent(e, out Translation t) ? t.Value : Vector3.Zero;
             var rotation = entityManager.GetComponent(e, out Rotation r) ? r.Value : Quaternion.Identity;
             Vector3 scale = entityManager.GetComponent(e, out Scale s) ? s.Value : Vector3.One;
             var trsMatrix = TransformExtensions.TRS(translation, rotation, scale);
             return trsMatrix;
-        }
-
-        public override void OnPostUpdate(EntityManager entityManager)
-        {
-            // mark the qurues as stale for next frame
-            //_ltwChildQuery.MarkStale();
-            //_ltwQuery.MarkStale();
-            //_addLTWQuery.MarkStale();
-        }
-
-        public override void OnDestroy(EntityManager entityManager)
-        {
-
         }
     }
 }

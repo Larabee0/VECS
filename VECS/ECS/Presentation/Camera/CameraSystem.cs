@@ -1,4 +1,5 @@
-﻿using SDL3;
+﻿using BepuUtilities;
+using SDL3;
 using System;
 using System.Numerics;
 using VECS.ECS.Transforms;
@@ -10,7 +11,7 @@ namespace VECS.ECS.Presentation
     /// </summary>
     public class CameraSystem : SystemBase
     {
-        const float lookSpeed = 3.5f;
+        const float lookSpeed = 0.4f;
         const float moveSpeed = 3f;
 
         EntityQuery _cameraQueryPerspective; // query for persepctive cameras
@@ -22,7 +23,7 @@ namespace VECS.ECS.Presentation
         public override void OnCreate(EntityManager entityManager)
         {
             _cameraMotion = new EntityQuery(entityManager)
-                .WithAll(typeof(Translation), typeof(Rotation), typeof(Camera))
+                .WithAll(typeof(Translation), typeof(Rotation), typeof(Camera), typeof(FreeCamera))
                 .WithNone(typeof(Prefab))
                 .Build();
 
@@ -49,7 +50,25 @@ namespace VECS.ECS.Presentation
         {
             if (_cameraInitQuery.HasEntities)
             {
-                _cameraInitQuery.GetEntities().ForEach(entity => entityManager.AddComponent<Camera>(entity));
+                float aspect = 1;
+
+                if (entityManager.SingletonComponent(out FrameInfo frameInfo))
+                {
+                    aspect = frameInfo.screenAspect;
+                }
+
+                _cameraInitQuery.GetEntities().ForEach(entity =>
+                {
+                    entityManager.AddComponent<Camera>(entity);
+                    if (entityManager.HasComponent<CameraPerspective>(entity))
+                    {
+                        UpdatePerspectiveCamera(entityManager, entity, aspect);
+                    }
+                    else if (entityManager.HasComponent<CameraOrthographic>(entity))
+                    {
+                        UpdateOrthographicCamera(entityManager, entity);
+                    }
+                });
             }
 
             if (_cameraQueryPerspective.HasEntities)
@@ -86,20 +105,34 @@ namespace VECS.ECS.Presentation
 
             _cameraQueryPerspective.GetEntities().ForEach(entity =>
             {
-                var perCam = entityManager.GetComponent<CameraPerspective>(entity);
-                var camera = new Camera()
-                {
-                    ProjectionMatrix = GetPerspectiveProject(perCam, aspect),
-                    ViewMatrix = GetViewMatrix(entityManager.GetComponent<LocalToWorld>(entity).Value),
-                    fustrumCulling = perCam.fustrumCulling,
-                    ClipNear = perCam.ClipNear,
-                    ClipFar = perCam.ClipFar,
-                };
-
-                Matrix4x4.Invert(camera.ViewMatrix, out camera.InverseViewMatrix);
-
-                entityManager.SetComponent(entity, camera);
+                UpdatePerspectiveCamera(entityManager, entity, aspect);
             });
+        }
+
+        private static void UpdatePerspectiveCamera(EntityManager entityManager, Entity entity, float aspect)
+        {
+            var perCam = entityManager.GetComponent<CameraPerspective>(entity);
+            if (InputManager.Instance.GetKeyDown(SDL_Keycode.F7))
+            {
+                perCam.depthCull = !perCam.depthCull;
+                Console.WriteLine("Depth culling {0} {1}", perCam.depthCull, entity.Id);
+                entityManager.SetComponent(entity, perCam);
+            }
+            var camera = new Camera()
+            {
+                ProjectionMatrix = GetPerspectiveProject(perCam, aspect),
+                ViewMatrix = GetViewMatrix(entityManager.GetComponent<LocalToWorld>(entity).Value),
+                fustrumCulling = perCam.fustrumCulling,
+                dstCull = perCam.dstCull,
+                depthCull = perCam.depthCull,
+                ClipNear = perCam.ClipNear,
+                ClipFar = perCam.ClipFar,
+            };
+
+
+            Matrix4x4.Invert(camera.ViewMatrix, out camera.InverseViewMatrix);
+
+            entityManager.SetComponent(entity, camera);
         }
 
         /// <summary>
@@ -110,20 +143,27 @@ namespace VECS.ECS.Presentation
         {
             _cameraQueryOrthographic.GetEntities().ForEach(entity =>
             {
-                var orthCam = entityManager.GetComponent<CameraOrthographic>(entity);
-                var camera = new Camera()
-                {
-                    ProjectionMatrix = GetOrthographicProject(orthCam),
-                    ViewMatrix = GetViewMatrix(entityManager.GetComponent<LocalToWorld>(entity).Value),
-                    fustrumCulling = orthCam.fustrumCulling,
-                    ClipNear = orthCam.ClipNear,
-                    ClipFar = orthCam.ClipFar,
-                };
-
-                Matrix4x4.Invert(camera.ViewMatrix, out camera.InverseViewMatrix);
-
-                entityManager.SetComponent(entity, camera);
+                UpdateOrthographicCamera(entityManager, entity);
             });
+        }
+
+        private static void UpdateOrthographicCamera(EntityManager entityManager, Entity entity)
+        {
+            var orthCam = entityManager.GetComponent<CameraOrthographic>(entity);
+            var camera = new Camera()
+            {
+                ProjectionMatrix = GetOrthographicProject(orthCam),
+                ViewMatrix = GetViewMatrix(entityManager.GetComponent<LocalToWorld>(entity).Value),
+                fustrumCulling = orthCam.fustrumCulling,
+                dstCull = orthCam.dstCull,
+                depthCull = orthCam.depthCull,
+                ClipNear = orthCam.ClipNear,
+                ClipFar = orthCam.ClipFar,
+            };
+
+            Matrix4x4.Invert(camera.ViewMatrix, out camera.InverseViewMatrix);
+
+            entityManager.SetComponent(entity, camera);
         }
 
         /// <summary>
@@ -134,13 +174,13 @@ namespace VECS.ECS.Presentation
         /// <returns></returns>
         public static Matrix4x4 GetPerspectiveProject(CameraPerspective perspective, float aspect)
         {
-            // return Matrix4x4.CreatePerspectiveFieldOfView(
-            //     float.DegreesToRadians(perspective.FOV),
-            //     aspect,
-            //     perspective.ClipFar,
-            //     perspective.ClipNear);
+            return Matrix4x4.CreatePerspectiveFieldOfView(
+                TransformExtensions.Deg2Rad * perspective.FOV,
+                aspect,
+                perspective.ClipNear,
+                perspective.ClipFar);
 
-            return GLMPerspectiveProject(float.DegreesToRadians(perspective.FOV), aspect, perspective.ClipNear, perspective.ClipFar);
+            //return GLMPerspectiveProject(float.DegreesToRadians(perspective.FOV), aspect, perspective.ClipNear, perspective.ClipFar);
         }
 
         public static Matrix4x4 GLMPerspectiveProject(float fov, float aspect,float zNear, float zFar)
@@ -254,17 +294,30 @@ namespace VECS.ECS.Presentation
             if (look.LengthSquared() > float.Epsilon)
             {
                 Vector3 rotationInput = Vector3.Zero;
-                rotationInput.X = look.Y;
-                rotationInput.Y = -look.X;
-
-                //rotation.Value += lookSpeed * Time.DeltaTime * rotationInput;
-                var currentRotation = rotation.Value.ToEuler();
-                currentRotation.X = Math.Clamp(currentRotation.X, -1.5f, 1.5f);
-                currentRotation.Y %= MathF.Tau;
-
-                rotation.Value = Quaternion.CreateFromYawPitchRoll(currentRotation.Y, currentRotation.X, currentRotation.Z);
+                rotationInput.Y = -look.Y * lookSpeed;
+                rotationInput.X = -look.X * lookSpeed;
                 
+                var euler = rotation.Value.ToEuler().RadiansToDegrees().EulerMakePositive();
 
+                
+                
+                var rotationX = euler.X;
+                float newRotationY = euler.Y + rotationInput.X;
+
+                float newRotationX = (rotationX - rotationInput.Y);
+                if (rotationX <= 90f && newRotationX >= 0f)
+                    newRotationX = Math.Clamp(newRotationX, 0, 90f);
+                if (rotationX >= 270f)
+                    newRotationX = Math.Clamp(newRotationX, 270f, 360f);
+
+                //Console.WriteLine("<{0}, {1}>", newRotationX, newRotationY);
+                newRotationX = newRotationX;
+                newRotationY = newRotationY;
+
+                Console.WriteLine(new Vector3(newRotationX, newRotationY, euler.Z).ToString());
+                rotation.Value =  TransformExtensions.EulerUnity(newRotationX, newRotationY, euler.Z);
+                rotation.Value = Quaternion.CreateFromYawPitchRoll(TransformExtensions.Deg2Rad * newRotationY, TransformExtensions.Deg2Rad * newRotationX, TransformExtensions.Deg2Rad * euler.Z);
+                Console.WriteLine(rotation.Value.ToString());
                 entityManager.SetComponent(entity, rotation);
             }
 
@@ -293,6 +346,9 @@ namespace VECS.ECS.Presentation
                 entityManager.SetComponent(entity, translation);
             }
 
+
+            LocalToWorld cam = new() { Value = LocalToWorldSystem.ComputeLocalTRS(entityManager, entity) };
+            entityManager.SetComponent(entity, cam);
         }
     }
 }

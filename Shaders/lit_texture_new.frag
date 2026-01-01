@@ -55,11 +55,11 @@ layout (set = 0, binding = 5) readonly buffer PointLights{
 
 layout(set = 1, binding = 2) uniform sampler2D texSampler;
 
-layout(set = 2, binding = 0) uniform Colour
+layout(push_constant) uniform constants
 {
 	vec4 colour;
 	float tiling;
-} colourMul;
+} textureProperties;
 
 void main()
 {
@@ -91,10 +91,10 @@ void main()
 		specularLight += intensity * blinnTerm; 
 	}
 
-	vec4 textureColour = texture(texSampler,fragUV );
+	vec4 textureColour = texture(texSampler,fragUV* textureProperties.tiling );
 	// outColour = vec4(fragUV,0,1);
 	//outColour = vec4(1);
-	outColour = textureColour*fragColour;
+	outColour = textureColour*fragColour*textureProperties.colour;
 	//outColour = vec4(diffuseLight  * textureColour.xyz + specularLight * textureColour.xyz, 1.0);
 	//outColour = vec4(diffuseLight  * fragColour, 1.0);
 	

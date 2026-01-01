@@ -73,9 +73,9 @@ namespace VECS.GraphicsPipelines
             };
             return new()
             {
-                colourFormats = [SwapChain.Instance.RenderFormat],
-                depthFormat = SwapChain.Instance.DepthFormat,
-                stencilFormat = SwapChain.Instance.DepthFormat,
+                colourFormats = Presenter.Instance.ColourFormats,
+                depthFormat = Presenter.Instance.DepthFormat,
+                stencilFormat = VkFormat.Undefined,
                 pipelineRenderingCreateInfo = new(),
                 inputAssemblyInfo = new()
                 {
@@ -97,7 +97,7 @@ namespace VECS.GraphicsPipelines
                     rasterizerDiscardEnable = false,
                     polygonMode = VkPolygonMode.Fill,
                     lineWidth = 1,
-                    cullMode = VkCullModeFlags.None,
+                    cullMode = VkCullModeFlags.Back,
                     frontFace = VkFrontFace.CounterClockwise,
                     depthBiasEnable = false,
                     depthBiasConstantFactor = 0,
@@ -121,12 +121,12 @@ namespace VECS.GraphicsPipelines
                 {
                     colorWriteMask = VkColorComponentFlags.All,
                     blendEnable = false,
-                    srcColorBlendFactor = VkBlendFactor.One,
-                    dstColorBlendFactor = VkBlendFactor.Zero,
                     colorBlendOp = VkBlendOp.Add,
+                    alphaBlendOp = VkBlendOp.Add,
                     srcAlphaBlendFactor = VkBlendFactor.One,
                     dstAlphaBlendFactor = VkBlendFactor.Zero,
-                    alphaBlendOp = VkBlendOp.Add
+                    srcColorBlendFactor = VkBlendFactor.One,
+                    dstColorBlendFactor = VkBlendFactor.Zero,
                 },
 
                 depthStencilInfo = new()
@@ -161,14 +161,6 @@ namespace VECS.GraphicsPipelines
             return pipelineConfigInfo;
         }
 
-        public static GraphicsPipelineConfigInfo DefaultPipelineConfigInfo(VkVertexInputBindingDescription[] vkVertexInputBindings, VkVertexInputAttributeDescription[] vkVertexInputAttributes,VkRenderPass renderPass, VkPipelineLayout pipelineLayout)
-        {
-            var pipelineConfigInfo = DefaultPipelineConfigInfo(vkVertexInputBindings,vkVertexInputAttributes);
-            //EnableAlphaBlending(ref pipelineConfigInfo);
-            pipelineConfigInfo.pipelineLayout = pipelineLayout;
-
-            return pipelineConfigInfo;
-        }
         /// <summary>
         /// Modify the given configInfo to enable alpha blending of the colour channel.
         /// </summary>
@@ -177,15 +169,17 @@ namespace VECS.GraphicsPipelines
         {
             var colourBlendAttachment = configInfo.colourBlendAttachment;
 
-            colourBlendAttachment.blendEnable = true;
             colourBlendAttachment.colorWriteMask = VkColorComponentFlags.All;
+            colourBlendAttachment.blendEnable = true;
+
+            colourBlendAttachment.colorBlendOp = VkBlendOp.Add;
+            colourBlendAttachment.alphaBlendOp = VkBlendOp.Add;
 
             colourBlendAttachment.srcColorBlendFactor = VkBlendFactor.SrcAlpha;
             colourBlendAttachment.dstColorBlendFactor = VkBlendFactor.OneMinusSrcAlpha;
-            colourBlendAttachment.colorBlendOp = VkBlendOp.Add;
+
             colourBlendAttachment.srcAlphaBlendFactor = VkBlendFactor.One;
             colourBlendAttachment.dstAlphaBlendFactor = VkBlendFactor.Zero;
-            colourBlendAttachment.alphaBlendOp = VkBlendOp.Add;
 
             configInfo.colourBlendAttachment = colourBlendAttachment;
         }

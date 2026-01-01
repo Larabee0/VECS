@@ -1,6 +1,4 @@
 using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Diagnostics;
 using VECS.LowLevel;
 using Vortice.Vulkan;
@@ -9,10 +7,6 @@ namespace VECS
 {
     public abstract class Texture : DisposableAsset
     {
-        public static readonly ConcurrentDictionary<Guid, Texture> Textures = [];
-        public static readonly HashSet<Guid> DisposedTextures = [];
-
-        protected Guid _guid;
         protected int _anisoLevel;
         protected VkExtent3D _imageExtent;
         protected VkFilter _filterMode = VkFilter.Linear;
@@ -58,7 +52,6 @@ namespace VECS
         protected VkDescriptorImageInfo _imageInfo;
 
         // properties
-        public Guid GUID => _guid;
         public bool Disposed => _disposed;
         public float MaxMipLOD
         {
@@ -73,13 +66,6 @@ namespace VECS
         public VkImageLayout ImageLayout
         {
             get => _imageLayout;
-            set
-            {
-                var cmd = GraphicsDevice.BeginSingleTimeMainPipe();
-                MemoryBarrierHelper.SetImageLayout(cmd, _vkImage, _aspectFlags, _imageLayout, value, VkPipelineStageFlags2.AllGraphics, VkPipelineStageFlags2.AllGraphics);
-                GraphicsDevice.EndSingleTimeMainPipe(cmd);
-                _imageLayout = value;
-            }
         }
 
         public VkFormat Format => _imageFormat;
@@ -94,12 +80,6 @@ namespace VECS
         public int Height => (int)_imageExtent.height;
         public int Width => (int)_imageExtent.width;
         public int Depth => (int)_imageExtent.depth;
-
-        protected Texture()
-        {
-            _guid = Guid.NewGuid();
-            Textures.TryAdd(_guid, this);
-        }
 
         internal virtual void UpdateDescriptor()
         {
@@ -185,7 +165,7 @@ namespace VECS
             };
         }
 
-        public void RegenerateMipMaps()
+        public void RegenerateMipMapsNow()
         {
             var cmd = GraphicsDevice.BeginSingleTimeMainPipe();
             RegenerateMipMaps(cmd);
@@ -194,20 +174,23 @@ namespace VECS
 
         public abstract void RegenerateMipMaps(VkCommandBuffer cmd);
 
-        public void SetImageLayout(VkImageLayout newImageLayout, VkPipelineStageFlags2 srcStage = VkPipelineStageFlags2.AllGraphics, VkPipelineStageFlags2 dstStage = VkPipelineStageFlags2.AllGraphics)
+        public void SetImageLayout(VkImageLayout newImageLayout, VkPipelineStageFlags2 srcStage = VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2 dstStage = VkPipelineStageFlags2.FragmentShader)
         {
-            var cmd = GraphicsDevice.BeginSingleTimeMainPipe();
-            SetImageLayout(cmd, newImageLayout, srcStage, dstStage);
-            GraphicsDevice.EndSingleTimeMainPipe(cmd);
+            if (newImageLayout == ImageLayout) return;
+            TextureExtensions.SetImageLayout(this, newImageLayout, srcStage, dstStage);
         }
 
-        public void SetImageLayout(VkCommandBuffer cmdbuffer, VkImageLayout newImageLayout, VkPipelineStageFlags2 srcStage = VkPipelineStageFlags2.AllGraphics, VkPipelineStageFlags2 dstStage = VkPipelineStageFlags2.AllGraphics)
+        public void SetImageLayout(VkCommandBuffer cmdbuffer, VkImageLayout newImageLayout, VkPipelineStageFlags2 srcStage = VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2 dstStage = VkPipelineStageFlags2.FragmentShader)
         {
             SetImageLayout(cmdbuffer, newImageLayout, GetSubresourceRange(), srcStage, dstStage);
         }
 
-        public virtual void SetImageLayout(VkCommandBuffer cmdbuffer, VkImageLayout newImageLayout, VkImageSubresourceRange resourceRange, VkPipelineStageFlags2 srcStage = VkPipelineStageFlags2.AllGraphics, VkPipelineStageFlags2 dstStage = VkPipelineStageFlags2.AllGraphics)
+        public virtual void SetImageLayout(VkCommandBuffer cmdbuffer, VkImageLayout newImageLayout, VkImageSubresourceRange resourceRange, VkPipelineStageFlags2 srcStage = VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2 dstStage = VkPipelineStageFlags2.FragmentShader)
         {
+            if (newImageLayout == _imageLayout)
+            {
+                return;
+            }
             MemoryBarrierHelper.SetImageLayout(cmdbuffer, _vkImage, _imageLayout, newImageLayout, resourceRange, srcStage, dstStage);
             _imageLayout = newImageLayout;
             UpdateDescriptor();
@@ -246,16 +229,14 @@ namespace VECS
 
         public override unsafe void Dispose()
         {
-            GC.SuppressFinalize(this);
 
             if (_disposed)
             {
                 return;
             }
+            GC.SuppressFinalize(this);
 
             _hostBuffer?.Dispose();
-
-            Textures.Remove(_guid, out _);
 
             if (_textureSampler != VkSampler.Null)
             {
@@ -275,19 +256,6 @@ namespace VECS
             }
 
             _disposed = true;
-            DisposedTextures.Add(_guid);
-        }
-
-        public static Texture GetTexture(Guid guid)
-        {
-            Debug.Assert(!DisposedTextures.Contains(guid), string.Format("Texture {0} has been disposed!", guid));
-            Debug.Assert(Textures.ContainsKey(guid), string.Format("Texture {0} not found!", guid));
-            return Textures[guid];
-        }
-
-        public static VkDescriptorImageInfo GetTextureImageInfoAtIndex(Guid guid)
-        {
-            return GetTexture(guid).ImageInfo;
         }
     }
 }

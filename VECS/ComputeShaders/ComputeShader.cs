@@ -1,323 +1,322 @@
-using System;
-using System.Collections.Generic;
+﻿using System;
+using System.Collections.Concurrent;
+using System.Numerics;
 using System.Runtime.CompilerServices;
-using System.Threading;
+using System.Runtime.InteropServices;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
 namespace VECS
 {
-    [Obsolete("Use ComputeShaderV2")]
     public class ComputeShader : DisposableAsset
     {
-        private readonly PipelineCache _cache;
-        private readonly DescriptorBinding[] _computeBindings;
         private readonly PushConstantsHandler _pushConstantsHandler;
 
-        private readonly Dictionary<string, int> _preAllocBindings;
-        private readonly Dictionary<string, int> _unAllocBindings;
-        private int _preAllocDescriptorHandlerIndex = -1;
-        private int _unAllocDescriptorHandlerIndex = -1;
-        private readonly DescriptorHandler[] _allHandlers;
+        private readonly int _descriptorSetCount = 0;
 
-        private readonly uint _descriptorSetCount = 0;
+        private readonly ConcurrentDictionary<int, ShaderPropertyInfo> _cachedShaderProperties = new();
 
-        private VkDescriptorSetLayout _preAllocDescriptorLayout;
-        private VkDescriptorSetLayout _unAllocDescriptorLayout;
-        private VkDescriptorSetLayout[] _allLayouts;
-
+        private readonly DescriptorSetInfo[] _descriptorSetInfos;
+        private readonly VkDescriptorSetLayout[] _descriptorSetLayouts;
         private readonly VkPipelineLayout _pipelineLayout;
         private readonly VkPipeline _pipline;
 
-        private int _executionThisFrame;
-        private int _lastFrameIndex;
-        public int LastFrameIndex => _lastFrameIndex;
-        public bool HasPreAllocSet => _preAllocBindings.Count > 0;
-        public bool HasUnAllocSet => _unAllocBindings.Count > 0;
+        public PushConstantsHandler PushConstantsHandler => _pushConstantsHandler;
 
-        private DescriptorHandler PreAllocated => _allHandlers[_preAllocDescriptorHandlerIndex];
-        private DescriptorHandler UnAllocated => _allHandlers[_unAllocDescriptorHandlerIndex];
-        public PushConstantsHandler PushConstants => _pushConstantsHandler;
+        [ThreadStatic]
+        private static ComputeShader _lastBoundComputeShader;
+        [ThreadStatic]
+        private static int _frameIndex;
 
         public unsafe ComputeShader(string assetName, string shaderName)
         {
             AssetName = assetName;
             var shaderModule = AssetDataBase<ShaderModule>.GetNamed(shaderName);
             var spirShader = shaderModule.SpvShaderModule;
-            _computeBindings = GPUPipelineUtil.GenerateSharedDescriptorBindings(spirShader);
+            var descriptorSetBindings = GPUPipelineUtil.GenerateSharedDescriptorBindings(spirShader);
+            _descriptorSetCount = GPUPipelineUtil.GetSetCount(descriptorSetBindings);
+
+            _descriptorSetInfos = new DescriptorSetInfo[_descriptorSetCount];
+            _descriptorSetLayouts = new VkDescriptorSetLayout[_descriptorSetCount];
+
+            for (uint setIndex = 0; setIndex < _descriptorSetCount; setIndex++)
+            {
+                var setBindings = GPUPipelineUtil.ExtractBindingsForSetAsBindingArray(setIndex, descriptorSetBindings);
+                var layout = GPUPipelineUtil.CreateDescriptorSetLayout(setBindings, VkDescriptorSetLayoutCreateFlags.DescriptorBufferEXT);
+                _descriptorSetLayouts[setIndex] = layout;
+                _descriptorSetInfos[setIndex] = new DescriptorSetInfo(layout, setBindings, true);
+            }
+
             _pushConstantsHandler = new(spirShader);
 
-            // Descriptor Set bollocks
-            _preAllocBindings = GPUPipelineUtil.ExtractBindingsForSet(0, _computeBindings);
-            _unAllocBindings = GPUPipelineUtil.ExtractBindingsForSet(1, _computeBindings);
-
-            GenerateDescriptorSetLayouts();
-            _allHandlers = new DescriptorHandler[_allLayouts.Length];
-            _pipelineLayout = GPUPipelineUtil.CreatePipelineLayout(_allLayouts, _pushConstantsHandler);
-            _descriptorSetCount = (uint)_allLayouts.Length;
-            CreateDescriptorSetHandler();
-
-            _cache = AssetDataBase<PipelineCache>.GetNamedSilentFail(shaderName);
-            if (_cache == null)
-            {
-                _cache = new PipelineCache(shaderName, _pipelineLayout);
-                AssetDataBase<PipelineCache>.Add(_cache);
-            }
+            _pipelineLayout = GPUPipelineUtil.CreatePipelineLayout(shaderModule, _descriptorSetLayouts, _pushConstantsHandler);
 
             VkComputePipelineCreateInfo computePipelineInfo = new()
             {
                 layout = _pipelineLayout,
-                stage = shaderModule.ShaderStageCreateInfo
+                stage = shaderModule.ShaderStageCreateInfo,
+                flags = VkPipelineCreateFlags.DescriptorBufferEXT
             };
 
-            GraphicsDevice.DeviceAPI.vkCreateComputePipeline(GraphicsDevice.Device, _cache.Cache, computePipelineInfo, out _pipline);
-
+            _pipline = GPUPipelineUtil.CreateComputePipeline(shaderModule, computePipelineInfo);
         }
 
-        private void GenerateDescriptorSetLayouts()
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public DescriptorBinding[] GetDescriptorBindings(uint setIndex)
         {
-            DescriptorBinding[] workingBindings;
+            return _descriptorSetInfos[setIndex].DescriptorBindings;
+        }
 
-            int workingBindingIndex = 0;
-            _allLayouts = [];
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public SwapChainBuffer GetBuffer(uint set, uint bindingPoint)
+        {
+            return _descriptorSetInfos[set].GetBuffer(bindingPoint);
+        }
 
-            if (HasPreAllocSet)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool LookUpProperty(string property, out ShaderPropertyInfo propertyInfo)
+        {
+            return LookUpProperty(property.GetHashCode(), out propertyInfo);
+        }
+
+        public bool LookUpProperty(int propertyId, out ShaderPropertyInfo propertyInfo)
+        {
+            if (_cachedShaderProperties.TryGetValue(propertyId, out propertyInfo))
             {
-                workingBindings = new DescriptorBinding[_preAllocBindings.Count];
-                foreach (var item in _preAllocBindings)
+                return true;
+            }
+
+            for (uint setIndex = 0; setIndex < _descriptorSetCount; setIndex++)
+            {
+                var bindings = GetDescriptorBindings(setIndex);
+                for (int bindingIndex = 0; bindingIndex < bindings.Length; bindingIndex++)
                 {
-                    workingBindings[workingBindingIndex] = _computeBindings[item.Value];
-                    workingBindingIndex++;
-                }
-                _preAllocDescriptorLayout = GPUPipelineUtil.CreateDescriptorSetLayout(workingBindings);
-                _allLayouts = [.. _allLayouts, _preAllocDescriptorLayout];
-            }
-
-            if (HasUnAllocSet)
-            {
-                workingBindingIndex = 0;
-                workingBindings = new DescriptorBinding[_unAllocBindings.Count];
-                foreach (var item in _unAllocBindings)
-                {
-                    workingBindings[workingBindingIndex] = _computeBindings[item.Value];
-                    workingBindingIndex++;
-                }
-                _unAllocDescriptorLayout = GPUPipelineUtil.CreateDescriptorSetLayout(workingBindings);
-                _allLayouts = [.. _allLayouts, _unAllocDescriptorLayout];
-            }
-        }
-
-        private void CreateDescriptorSetHandler()
-        {
-            int index = 0;
-            if (HasPreAllocSet)
-            {
-                GPUPipelineUtil.CreateDescriptorSetHandler(_allHandlers, _computeBindings, _allLayouts, index, DescriptorLevel.ComputePreGen, _preAllocBindings);
-                _preAllocDescriptorHandlerIndex = index;
-                index++;
-            }
-            if (HasUnAllocSet)
-            {
-                GPUPipelineUtil.CreateDescriptorSetHandler(_allHandlers, _computeBindings, _allLayouts, index, DescriptorLevel.ComputeEmpty, _unAllocBindings);
-                _unAllocDescriptorHandlerIndex = index;
-            }
-        }
-
-        internal void Update(RendererFrameInfo frameInfo)
-        {
-            for (int i = 0; i < _allHandlers.Length; i++)
-            {
-                _allHandlers[i].Update(frameInfo);
-            }
-        }
-
-        internal void Flush(RendererFrameInfo frameInfo)
-        {
-            for (int i = 0; i < _allHandlers.Length; i++)
-            {
-                _allHandlers[i].WriteFromBuffers(frameInfo.FrameIndex);
-            }
-        }
-
-        private unsafe void UpdateSetsToWrite(VkDescriptorSet* sets, int frameIndex, int id)
-        {
-            if (HasPreAllocSet)
-            {
-                sets[_preAllocDescriptorHandlerIndex] = PreAllocated.GetOrCreateChild(id).GetDescriptorSet(frameIndex);
-            }
-            if (HasUnAllocSet)
-            {
-                sets[_unAllocDescriptorHandlerIndex] = UnAllocated.GetOrCreateChild(id).GetDescriptorSet(frameIndex);
-            }
-        }
-
-        public void SetStorageBuffer(string property, SwapChainBuffer buffer)
-        {
-            if (HasUnAllocSet)
-            {
-                UnAllocated.GetOrCreateChild(_executionThisFrame).SetStorageBuffer(property, buffer);
-            }
-        }
-
-        public void SetStorageBuffer(string property, GPUBuffer buffer)
-        {
-            var scb = SwapChainBuffer.AliasGPUBuffer(buffer);
-            SetStorageBuffer(property, scb);
-        }
-
-        public void SetUInt(string property, uint value)
-        {
-            for (int i = 0; i < _allHandlers.Length; i++)
-            {
-                if (_allHandlers[i].HasProperty(property))
-                {
-                    _allHandlers[i].GetOrCreateChild(_executionThisFrame).SetUInt(property, value);
-                }
-            }
-        }
-
-        public void SetUniform<T>(string property, T value) where T : unmanaged
-        {
-            for (int i = 0; i < _allHandlers.Length; i++)
-            {
-                if (_allHandlers[i].HasProperty(property))
-                {
-                    _allHandlers[i].GetOrCreateChild(_executionThisFrame).SetUniform(property, value);
-                }
-            }
-        }
-
-        public Span<T> GetStorageBuffer<T>(string property) where T : unmanaged
-        {
-            for (int i = 0; i < _allHandlers.Length; i++)
-            {
-                if (_allHandlers[i].HasProperty(property))
-                {
-                    var span = _allHandlers[i].GetOrCreateChild(_executionThisFrame).GetStorageBuffer<T>(property);
-                    if (span != Span<T>.Empty)
+                    var descriptorBinding = bindings[bindingIndex];
+                    if(descriptorBinding.Id == propertyId)
                     {
-                        return span;
+                        propertyInfo = new(descriptorBinding, null);
+                        _cachedShaderProperties.TryAdd(propertyId, propertyInfo);
+                        return true;
                     }
-                }
-            }
-            return null;
-        }
-
-        public void SetStorageBufferUsageSize(string property, uint instanceSize)
-        {
-            for (int i = 0; i < _allHandlers.Length; i++)
-            {
-                if (_allHandlers[i].HasProperty(property))
-                {
-                    _allHandlers[i].GetOrCreateChild(_executionThisFrame).SetStorageBufferUsageSize(property, instanceSize);
-                }
-            }
-        }
-
-        public SwapChainBuffer GetStorageSwapChainBuffer(string property)
-        {
-            for (int i = 0; i < _allHandlers.Length; i++)
-            {
-                if (_allHandlers[i].HasProperty(property))
-                {
-                    var buffer = _allHandlers[i].GetOrCreateChild(_executionThisFrame).GetStorageSwapChainBuffer(property);
-                    if (buffer != null)
+                    var property = descriptorBinding.GetProperty(propertyId);
+                    if (property != null)
                     {
-                        return buffer;
+                        propertyInfo = new(descriptorBinding, property);
+                        _cachedShaderProperties.TryAdd(propertyId, propertyInfo);
+                        return true;
                     }
                 }
             }
 
-            return null;
+            Console.WriteLine("ComputeShader '{0}' has no shader property matching propertyId: '{1}' -> '{2}'", AssetName, propertyId, propertyId.GetPropertyIdString());
+
+            propertyInfo = ShaderPropertyInfo.Invalid;
+            _cachedShaderProperties.TryAdd(propertyId, propertyInfo);
+            return false;
         }
 
-        public void UpdateSetHandlers(int frameIndex, DescriptorPool pool)
+        public void SetStorageBuffer(string property, uint variant, SwapChainBuffer buffer)
         {
-            for (int i = 0; i < _allHandlers.Length; i++)
+            if(LookUpProperty(property,out var propertyInfo) && propertyInfo.BindingInfo.StorageBuffer)
             {
-                _allHandlers[i].GetOrCreateChild(_executionThisFrame).Update(frameIndex, pool);
+                var setInfo = _descriptorSetInfos[propertyInfo.SetIndex];
+                setInfo.WriteDescriptors(Presenter.Instance.FrameIndex,propertyInfo.BindPoint, variant, buffer[Presenter.Instance.FrameIndex]);
             }
         }
 
-        public void EnsureCapacity(int calls)
+        public void SetStorageBuffer(int propertyId, uint variant, SwapChainBuffer buffer)
         {
-            for (int i = 0; i < _allHandlers.Length; i++)
+            if (LookUpProperty(propertyId, out var propertyInfo) && propertyInfo.BindingInfo.StorageBuffer)
             {
-                if (_allHandlers[i].ChildCount + 1 < calls)
-                {
-                    for (int j = 1; j < calls; j++)
-                    {
-                        _allHandlers[i].CreateChildSet(j);
-                    }
-                }
+                var setInfo = _descriptorSetInfos[propertyInfo.SetIndex];
+                setInfo.WriteDescriptors(Presenter.Instance.FrameIndex, propertyInfo.BindPoint, variant, buffer[Presenter.Instance.FrameIndex]);
             }
-            _pushConstantsHandler.EnsureCapacity(calls);
         }
 
-        public void EnsureSetsAllocated(int frameIndex, DescriptorPool pool)
+        public void SetStorageBuffer(string property, uint variant, GPUBuffer buffer)
         {
-            for (int i = 0; i < _allHandlers.Length; i++)
+            if (LookUpProperty(property, out var propertyInfo) && propertyInfo.BindingInfo.StorageBuffer)
             {
-                _allHandlers[i].AllocateAll(frameIndex, pool);
+                var setInfo = _descriptorSetInfos[propertyInfo.SetIndex];
+                setInfo.WriteDescriptors(Presenter.Instance.FrameIndex, propertyInfo.BindPoint, variant, buffer);
+            }
+        }
+
+        public void SetStorageBuffer(int propertyId, uint variant, GPUBuffer buffer)
+        {
+            if (LookUpProperty(propertyId, out var propertyInfo) && propertyInfo.BindingInfo.StorageBuffer)
+            {
+                var setInfo = _descriptorSetInfos[propertyInfo.SetIndex];
+                setInfo.WriteDescriptors(Presenter.Instance.FrameIndex, propertyInfo.BindPoint, variant, buffer);
             }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Dispatch(RendererFrameInfo frameInfo, uint workGroupCountX, uint workGroupCountY = 1, uint workGroupCountZ = 1)
+        public void SetTexture(int propertyId, uint variant, VkDescriptorImageInfo imageInfo, VkDescriptorType imageType)
         {
-            Dispatch(frameInfo.CommandBuffer, frameInfo.FrameIndex, frameInfo.ApplicationDescriptorPool, workGroupCountX, workGroupCountY, workGroupCountZ);
+            if(LookUpProperty(propertyId, out var propertyInfo) && propertyInfo.BindingInfo.Image)
+            {
+                var setInfo = _descriptorSetInfos[propertyInfo.SetIndex];
+                setInfo.WriteDescriptors(Presenter.Instance.FrameIndex, propertyInfo.BindPoint, variant, imageInfo, imageType);
+            }
         }
 
-        public unsafe void Dispatch(VkCommandBuffer commandBuffer, int frameIndex, DescriptorPool pool, uint workGroupCountX, uint workGroupCountY = 1, uint workGroupCountZ = 1)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetTexture(int propertyId, uint variant, Texture texture)
         {
-            if (_lastFrameIndex != frameIndex)
+            if (LookUpProperty(propertyId, out var propertyInfo) && propertyInfo.BindingInfo.Image)
             {
-                NextFrame();
+                var setInfo = _descriptorSetInfos[propertyInfo.SetIndex];
+                setInfo.WriteDescriptors(Presenter.Instance.FrameIndex, propertyInfo.BindPoint, variant, texture);
             }
-
-            UpdateSetHandlers(frameIndex, pool);
-
-            Dispatch(commandBuffer, frameIndex, 0, workGroupCountX, workGroupCountY, workGroupCountZ);
-            Interlocked.Increment(ref _executionThisFrame);
-            _lastFrameIndex = frameIndex;
         }
 
-        public unsafe void Dispatch(VkCommandBuffer commandBuffer, int frameIndex, int setId, uint workGroupCountX, uint workGroupCountY = 1, uint workGroupCountZ = 1)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetInt(string property, uint variant, int value)
         {
-            VkDescriptorSet* setsToBind = stackalloc VkDescriptorSet[(int)_descriptorSetCount];
-            for (int i = 0; i < _allHandlers.Length; i++)
+            WriteToBuffer(property, variant, value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetUInt(string property, uint variant, uint value)
+        {
+            WriteToBuffer(property, variant, value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetUInt(int propertyId, uint variant, uint value)
+        {
+            WriteToBuffer(propertyId, variant, value);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetFloat(string property, uint variant, float value)
+        {
+            WriteToBuffer(property, variant, value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetVector2(string property, uint variant, Vector2 value)
+        {
+            WriteToBuffer(property, variant, value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetVector4(string property, uint variant, Vector4 value)
+        {
+            WriteToBuffer(property, variant, value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetMatrix3x2( string property, uint variant, Matrix3x2 value)
+        {
+            WriteToBuffer(property, variant, value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetMatrix4x4(string property, uint variant, Matrix4x4 value)
+        {
+            WriteToBuffer(property, variant, value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetUniform<T>(string property, uint variant, T value) where T : unmanaged
+        {
+            WriteToBuffer(property, variant, value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetUniform<T>(int propertyId, uint variant, T value) where T : unmanaged
+        {
+            WriteToBuffer(propertyId, variant, value);
+        }
+
+        public void WriteToBuffer<T>(string property, uint variant, T value) where T : unmanaged
+        {
+            if(LookUpProperty(property,out var propertyInfo))
             {
-                _allHandlers[i].GetOrCreateChild(setId).UpdateDescriptorSet(frameIndex);
+                WriteToBuffer(variant, propertyInfo, value);
             }
-            UpdateSetsToWrite(setsToBind, frameIndex, setId);
+        }
+
+        public void WriteToBuffer<T>(int propertyId, uint variant, T value) where T : unmanaged
+        {
+            if (LookUpProperty(propertyId, out var propertyInfo))
+            {
+                WriteToBuffer(variant, propertyInfo, value);
+            }
+        }
+
+        public unsafe void WriteToBuffer<T>(uint variant, ShaderPropertyInfo propertyInfo, T element) where T : unmanaged
+        {
+            var maxSize = propertyInfo.Property == null ? propertyInfo.BindingInfo.BufferSize : propertyInfo.Property.Size;
+            var propertyOffset = propertyInfo.Property == null ? 0 : propertyInfo.Property.Offset;
+
+            if (sizeof(T) > propertyInfo.BindingInfo.BufferSize)
+            {
+                throw new InvalidOperationException("Cannot write property with mismatched size");
+            }
+
+            var buffer = GetBuffer(propertyInfo.SetIndex, propertyInfo.BindPoint);
+
+            uint offset = propertyOffset + (buffer.UInstanceSize32 * variant);
+
+            var hostPtr = (IntPtr)buffer.HostPtr;
+
+            hostPtr = IntPtr.Add(hostPtr, (int)offset);
+
+            NativeMemory.Copy(&element, (void*)hostPtr, maxSize);
+        }
+
+        public unsafe void WriteArrayToBuffer<T>(uint variant, ShaderPropertyInfo propertyInfo, T[] array) where T : unmanaged
+        {
+            var maxSize = propertyInfo.Property == null ? propertyInfo.BindingInfo.BufferSize : propertyInfo.Property.Size;
+            var propertyOffset = propertyInfo.Property == null ? 0 : propertyInfo.Property.Offset;
+
+            if (sizeof(T) * array.Length > maxSize)
+            {
+                throw new InvalidOperationException("Cannot write property with mismatched size");
+            }
+
+            var buffer = GetBuffer(propertyInfo.SetIndex, propertyInfo.BindPoint);
+
+            uint offset = propertyOffset + (buffer.UInstanceSize32 * variant);
+            var hostPtr = (IntPtr)buffer.HostPtr;
+
+            hostPtr = IntPtr.Add(hostPtr, (int)offset);
+            fixed (T* arrayPtr = array)
+            {
+                NativeMemory.Copy(arrayPtr, (void*)hostPtr, maxSize);
+            }
+        }
+
+        public unsafe void Dispatch(VkCommandBuffer commandBuffer, int frameIndex, uint setId, uint workGroupCountX, uint workGroupCountY = 1, uint workGroupCountZ = 1)
+        {
+            VkDescriptorBufferBindingInfoEXT* bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[_descriptorSetCount];
+            ulong* offsets = stackalloc ulong[_descriptorSetCount];
+            uint* indices = stackalloc uint[_descriptorSetCount];
+
+
+            for (uint i = 0; i < _descriptorSetCount; i++)
+            {
+                _descriptorSetInfos[i].WriteUniforms(frameIndex,setId);
+                _descriptorSetInfos[i].WriteFromBuffers(frameIndex);
+                var buffer = _descriptorSetInfos[i].DescriptorBuffers[frameIndex];
+                buffer.Flush();
+                bindingInfo[i] = buffer.BindingInfo;
+                offsets[i] = buffer.AlignedSize * setId;
+                indices[i] = i;
+            }
+            if(frameIndex != _frameIndex || this != _lastBoundComputeShader)
+            {
+                _lastBoundComputeShader = this;
+                _frameIndex = frameIndex;
+            }
             GraphicsDevice.DeviceAPI.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Compute, _pipline);
-            GraphicsDevice.DeviceAPI.vkCmdBindDescriptorSets(commandBuffer, VkPipelineBindPoint.Compute, _pipelineLayout, 0, _descriptorSetCount, setsToBind);
+            DescriptorBuffer.BindSets(commandBuffer, (uint)_descriptorSetCount, bindingInfo);
+            DescriptorBuffer.SetOffsets(commandBuffer, _pipelineLayout, VkPipelineBindPoint.Compute, 0, (uint)_descriptorSetCount, offsets, indices);
+
             _pushConstantsHandler.BindPushConstants(commandBuffer, _pipelineLayout, setId);
             GraphicsDevice.DeviceAPI.vkCmdDispatch(commandBuffer, workGroupCountX, workGroupCountY, workGroupCountZ);
-        }
-
-        public void NextFrame()
-        {
-            _executionThisFrame = 0;
-        }
-
-        public void NextFrame(int frameIndex)
-        {
-            NextFrame();
-            _lastFrameIndex = frameIndex;
-        }
-
-        public void Increment(int ammount)
-        {
-            _executionThisFrame += ammount;
-        }
-
-        public void DeallocateDescriptorSets()
-        {
-            for (int i = 0; i < _allHandlers.Length; i++)
-            {
-                _allHandlers[i].DeallocateDescriptorSets();
-            }
         }
 
         public override unsafe void Dispose()
@@ -330,25 +329,12 @@ namespace VECS
 
             _disposed = true;
 
-            for (int i = 0; i < _allHandlers.Length; i++)
-            {
-                _allHandlers[i]?.Dispose();
-            }
-
             GraphicsDevice.DeviceAPI.vkDestroyPipeline(GraphicsDevice.Device, _pipline);
-            if (_cache == null)
-            {
-                GraphicsDevice.DeviceAPI.vkDestroyPipelineLayout(GraphicsDevice.Device, _pipelineLayout);
-            }
-            
 
-            if (_preAllocDescriptorLayout != VkDescriptorSetLayout.Null)
+            for (int i = 0; i < _descriptorSetCount; i++)
             {
-                GraphicsDevice.DeviceAPI.vkDestroyDescriptorSetLayout(GraphicsDevice.Device, _preAllocDescriptorLayout, null);
-            }
-            if (_unAllocDescriptorLayout != VkDescriptorSetLayout.Null)
-            {
-                GraphicsDevice.DeviceAPI.vkDestroyDescriptorSetLayout(GraphicsDevice.Device, _unAllocDescriptorLayout, null);
+                _descriptorSetInfos[i]?.Dispose();
+                GraphicsDevice.DeviceAPI.vkDestroyDescriptorSetLayout(GraphicsDevice.Device, _descriptorSetLayouts[i], null);
             }
         }
 
@@ -363,6 +349,14 @@ namespace VECS
             }
 
             return shader;
+        }
+
+        public static Vector2UInt CompensateForWorkGroupLimits(uint totalInvocations)
+        {
+            var workGroupY = (uint)(int)MathF.Ceiling((float)totalInvocations / (float)GraphicsDevice.MaxWorkGroupX);
+            var workGroupX = (uint)Math.Min(totalInvocations, GraphicsDevice.MaxWorkGroupX);
+
+            return new(workGroupX,workGroupY);
         }
     }
 }

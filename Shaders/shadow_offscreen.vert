@@ -5,19 +5,6 @@ layout (location = 0) in vec3 inPos;
 layout (location = 0) out vec3 outPos;
 
 
-struct PointLight {
-	vec4 position; // ignore w
-	vec4 colour; // w is intensity
-};
-
-layout(set = 0, binding = 0) uniform GlobalUbo{
-	mat4 projectionMatrix;
-	mat4 viewMatrix;
-	mat4 inverseViewMatrix;
-	vec4 ambientLightColour;
-	int numLights;
-	PointLight pointLights[10];
-} ubo;
 
 struct ObjectMatrices{
 	mat4 modelMatrix; // project * view * model
@@ -45,5 +32,4 @@ void main()
 	gl_Position = cubeConstant.cubeProj * cube.viewCube * cubeConstant.cubeModel * objectMat.modelMatrix * vec4(inPos, 1.0);
 
 	outPos = (objectMat.modelMatrix * vec4(inPos, 1.0)).xyz;
-	//outPos = inPos;
 }

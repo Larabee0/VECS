@@ -4,6 +4,7 @@ using VECS.LowLevel;
 using BepuUtilities;
 using System.Runtime.CompilerServices;
 using System.Threading;
+using VECS.UI;
 
 namespace VECS
 {
@@ -32,15 +33,16 @@ namespace VECS
         public Application()
         {
             Instance = this;
+            var targetThreadCount = int.Max(1, Environment.ProcessorCount > 4 ? Environment.ProcessorCount - 2 : Environment.ProcessorCount - 1);
+            _threadDispatcher = new ThreadDispatcher(targetThreadCount);
+
             Bootstrap.subAssemblyLoadPoints.ForEach(loadPoint => loadPoint.PreApplicationConstruction());
             _appWindow = new(Width, Height, "VECS");
             GraphicsDevice.Initialise(_appWindow);
             ShaderModule.LoadAllShaders();
             _presenter = new(_appWindow);
-            
+            ULUI.Initialise();
 
-            var targetThreadCount = int.Max(1, Environment.ProcessorCount > 4 ? Environment.ProcessorCount - 2 : Environment.ProcessorCount - 1);
-            _threadDispatcher = new ThreadDispatcher(targetThreadCount);
             Time.FixedTimeStepCallback += FixedUpdate;
         }
 
@@ -61,8 +63,10 @@ namespace VECS
                 Time.Update();
                 Time.UpdateFixedTimeStep();
                 Update();
+                ULUI.UpdateUI();
                 Presentation();
                 InputManager.Instance.LateUpdate();
+                //Thread.Sleep(1000);
             }
             SwapChain.Instance.FinishTimelineWorkers(false);
             GraphicsDevice.DeviceWaitIdle();
@@ -167,7 +171,6 @@ namespace VECS
             _mainWorld.OnDestroy();
             Bootstrap.subAssemblyLoadPoints.ForEach(loadPoint => loadPoint.PostDefaultWorldDestroy());
             OnDestroy?.Invoke();
-            //_artifact.Destroy();
         }
 
         public static void ParallelFor(int count, Action<int> action)
@@ -195,6 +198,7 @@ namespace VECS
                 }
             });
         }
+
         /// <summary>
         /// Order of dispoal matters here.
         /// </summary>
@@ -214,6 +218,7 @@ namespace VECS
             }
             _mainWorld?.Dispose();
             Time.FixedTimeStepCallback -= FixedUpdate;
+            ULUI.CleanUp();
             _presenter.Dispose();
             GraphicsDevice.Dispose();
             _appWindow.Dispose();

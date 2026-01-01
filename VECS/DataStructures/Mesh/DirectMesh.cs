@@ -2,8 +2,6 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Collections.Generic;
-using VECS.ECS;
-using VECS.ECS.Presentation;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 using System.Collections.Concurrent;
@@ -18,9 +16,6 @@ namespace VECS
 #if DEBUG
         private static readonly HashSet<Type> validVertexFormats = [typeof(float), typeof(Vector2), typeof(Vector3), typeof(Vector4)];
 #endif
-
-        private readonly static List<DirectMesh> _meshes = [];
-        public static List<DirectMesh> DirectMeshes => _meshes;
 
         private ulong _allocatedVertexCount;
         private ulong _allocatedIndexCount;
@@ -58,7 +53,7 @@ namespace VECS
 
         internal GPUBuffer<Meshlet> _meshletBuffer;
 
-        internal GPUBuffer<MeshOptimizer.Bounds> _meshletBoundsBuffer;
+        internal GPUBuffer<Bounds> _meshletBoundsBuffer;
         internal uint[] _meshShaderVertexMap;
 
         #endregion
@@ -171,6 +166,7 @@ namespace VECS
             _indexBuffer = new(_allocatedIndexCount, MeshExtensions.DIRECT_MESH_INDEX_BUFFER_FLAGS, false, false, true);
 
             _indexBuffer.TryAllocHostBuffer(false);
+            _indexBuffer.SetGPUBufferChanged(false);
 
             VertexAttributeDescription[] vertexAttributes = new VertexAttributeDescription[_consumedAttributes.Values.Count];
             _attributesInOrder = new VertexAttribute[vertexAttributes.Length];
@@ -191,7 +187,6 @@ namespace VECS
             _bindingDescriptions = MeshExtensions.GetBindingDescription(vertexAttributes);
             _attributeDescriptions = MeshExtensions.GetAttributeDescriptions(vertexAttributes);
 
-            DirectMeshes.Add(this);
             AssetDataBase<DirectMesh>.Add(this);
         }
 
@@ -258,7 +253,6 @@ namespace VECS
         public unsafe GPUBuffer<T> GetBufferAtAttribute<T>(VertexAttribute attribute) where T : unmanaged
         {
 #if DEBUG
-
             if (!HasAttributeInFormat<T>(attribute))
             {
                 throw new ArgumentException(string.Format("Type {0} is of different size {1} to values stored in the buffer {2} a valid target vertex attribute", typeof(T).FullName, sizeof(T), _consumedAttributes[attribute].format.GetAttributeByteSize()));
@@ -339,6 +333,7 @@ namespace VECS
             _indexBuffer.WriteFromHostBuffer();
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void FlushVertexRegion(VertexAttribute attribute, uint offset, uint length)
         {
             if (_consumedAttributes.TryGetValue(attribute, out var attributeDescription))
@@ -392,6 +387,7 @@ namespace VECS
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void DeallocateHostData()
         {
             foreach (var buffer in _vertexBuffers.Values)
@@ -463,6 +459,7 @@ namespace VECS
             return -1;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void RecreateMeshShaderDescriptorSet()
         {
             if (!GraphicsDevice.MeshShading)
@@ -503,31 +500,6 @@ namespace VECS
             _vertexBuffers.TrimExcess();
 
             _disposed = true;
-
-
-            int index = GetIndexOfMesh(this);
-
-            if (World.DefaultWorld != null && World.DefaultWorld.EntityManager != null)
-            {
-                var entityManager = World.DefaultWorld.EntityManager;
-                var allMeshEntities = entityManager.GetAllEntitiesWithComponent<DirectSubMeshIndex>();
-                allMeshEntities?.ForEach(e =>
-                {
-                    var meshIndex = entityManager.GetComponent<DirectSubMeshIndex>(e);
-
-                    if (meshIndex.DirectMesh == index)
-                    {
-                        entityManager.RemoveComponent<DirectSubMeshIndex>(e);
-                    }
-                    else if (meshIndex.DirectMesh > index)
-                    {
-                        meshIndex.DirectMesh--;
-                        entityManager.SetComponent(e, meshIndex);
-                    }
-                });
-            }
-
-            DirectMeshes.RemoveAt(index);
 
             AssetDataBase<DirectSubMesh>.RemoveRange(_directSubMeshs);
         }
@@ -581,6 +553,7 @@ namespace VECS
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void ReallocateVertexBuffers(VkCommandBuffer cmd, int subMeshIndex, DirectSubMeshCreateInfo newBufferSizes, DirectSubMeshInfo currentData)
         {
             for (int i = 0; i < _attributesInOrder.Length; i++)
@@ -670,21 +643,6 @@ namespace VECS
         }
         #endregion
 
-        #region GetMeshes
-
-        public static DirectMesh GetMeshAtIndex(int index)
-        {
-            index = Math.Max(0, index);
-            DirectMesh mesh = index < DirectMeshes.Count ? DirectMeshes[index] : null;
-
-            return mesh;
-        }
-
-        public static int GetIndexOfMesh(DirectMesh mesh)
-        {
-            return DirectMeshes.IndexOf(mesh);
-        }
-        
         public unsafe void ReadAllBuffers()
         {
             VkCommandBuffer singleTime = GraphicsDevice.BeginSingleTimeMainPipe();
@@ -739,17 +697,12 @@ namespace VECS
             tmpReadBuffers.ForEach(buffer => buffer.Dispose());
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SoftReallocateSubMesh(int subMeshIndex, DirectSubMeshCreateInfo directSubMeshCreateData)
         {
             var currentData = _subMeshInfo[subMeshIndex];
-
             var newData = new DirectSubMeshInfo(directSubMeshCreateData.VertexCount, directSubMeshCreateData.IndexCount, currentData.FirstIndex, currentData.VertexOffset, currentData.FirstInstance);
-
-
             _subMeshInfo[subMeshIndex] = newData;
-
         }
-
-        #endregion
     }
 }

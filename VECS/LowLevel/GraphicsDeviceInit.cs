@@ -16,14 +16,11 @@ namespace VECS.LowLevel
         private readonly static string[] _requiredValidationLayers = ["VK_LAYER_KHRONOS_validation"];
 #endif
         private readonly static VkUtf8String[] _requiredDeviceExtensions = [
-
-            Vulkan.VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
+            Vulkan.VK_KHR_SWAPCHAIN_EXTENSION_NAME,
             Vulkan.VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME,
             Vulkan.VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
-            Vulkan.VK_KHR_PRESENT_WAIT_EXTENSION_NAME,
-            Vulkan.VK_KHR_PRESENT_ID_EXTENSION_NAME,
-            Vulkan.VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-
+            Vulkan.VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME,
+            Vulkan.VK_EXT_PAGEABLE_DEVICE_LOCAL_MEMORY_EXTENSION_NAME,
             Vulkan.VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME,
             Vulkan.VK_EXT_NESTED_COMMAND_BUFFER_EXTENSION_NAME,
             Vulkan.VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME
@@ -315,28 +312,20 @@ namespace VECS.LowLevel
                 index++;
             }
 
+            VkPhysicalDevicePageableDeviceLocalMemoryFeaturesEXT pageableDeviceLocalMemoryFeaturesEXT = new() { pageableDeviceLocalMemory = true };
+
+
             VkPhysicalDeviceNestedCommandBufferFeaturesEXT nestedCommandBufferFeatures = new()
             {
                 nestedCommandBuffer = true,
-                nestedCommandBufferRendering = true
-            };
-
-            VkPhysicalDevicePresentIdFeaturesKHR presentIdFeatures = new()
-            {
-                presentId = true,
-                pNext = &nestedCommandBufferFeatures
-            };
-
-            VkPhysicalDevicePresentWaitFeaturesKHR presentWaitFeatures = new()
-            {
-                presentWait = true,
-                pNext = &presentIdFeatures
+                nestedCommandBufferRendering = true,
+                pNext = &pageableDeviceLocalMemoryFeaturesEXT
             };
 
             VkPhysicalDeviceDescriptorBufferFeaturesEXT descriptorBuffers = new()
             {
                 descriptorBuffer = true,
-                pNext = &presentWaitFeatures
+                pNext = &nestedCommandBufferFeatures
             };
 
 
@@ -391,6 +380,8 @@ namespace VECS.LowLevel
                 fillModeNonSolid = true,
                 multiDrawIndirect = true,
                 drawIndirectFirstInstance = true,
+                dualSrcBlend = true,
+                fragmentStoresAndAtomics = true
             };
 
             VkPhysicalDeviceFeatures2 deviceFeatures2 = new()
@@ -492,7 +483,7 @@ namespace VECS.LowLevel
         {
             VmaAllocatorCreateInfo allocatorCreateInfo = new()
             {
-                flags = VmaAllocatorCreateFlags.KHRDedicatedAllocation | VmaAllocatorCreateFlags.KHRBindMemory2 | VmaAllocatorCreateFlags.BufferDeviceAddress,
+                flags = VmaAllocatorCreateFlags.KHRDedicatedAllocation | VmaAllocatorCreateFlags.KHRBindMemory2 | VmaAllocatorCreateFlags.BufferDeviceAddress | VmaAllocatorCreateFlags.EXTMemoryPriority,
                 instance = _instance,
                 vulkanApiVersion = VkVersion.Version_1_4,
                 physicalDevice = _physicalDevice,
@@ -637,7 +628,7 @@ namespace VECS.LowLevel
         /// Checks if our hardware can support validation layers requrested in <see cref="_requiredValidationLayers"/>
         /// </summary>
         /// <returns></returns>
-        private static bool CheckValidationLayerSupport()
+        private static unsafe bool CheckValidationLayerSupport()
         {
             Vulkan.vkEnumerateInstanceLayerProperties(out uint propertyCount).CheckResult();
             VkLayerProperties[] availableLayers = new VkLayerProperties[propertyCount];
@@ -648,7 +639,9 @@ namespace VECS.LowLevel
                 bool supportsLayer = false;
                 for (int j = 0; j < availableLayers.Length; j++)
                 {
-                    if (_requiredValidationLayers[i] == _requiredValidationLayers[j])
+                    var layer = availableLayers[j];
+                    var name = new VkUtf8String(layer.layerName, 86).ToString();
+                    if (name.Contains( _requiredValidationLayers[i]) )
                     {
                         supportsLayer = true;
                         break;

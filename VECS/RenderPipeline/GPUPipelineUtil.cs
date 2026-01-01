@@ -11,19 +11,6 @@ namespace VECS
 {
     public static class GPUPipelineUtil
     {
-        public static void CreateDescriptorSetHandler(DescriptorHandler[] handlers, DescriptorBinding[] allBindings, VkDescriptorSetLayout[] layouts, int index, DescriptorLevel level, Dictionary<string, int> bindingsDict)
-        {
-            DescriptorBinding[] bindings = new DescriptorBinding[bindingsDict.Count];
-            int i = 0;
-            foreach (var item in bindingsDict.Values)
-            {
-                bindings[i] = allBindings[item];
-                i++;
-            }
-
-            handlers[index] = new DescriptorHandler(layouts[index], level, bindings);
-        }
-
         public static bool GetVertexInputState(SpvReflectShaderModule module, out VkVertexInputBindingDescription[] bindings, out VkVertexInputAttributeDescription[] attributes)
         {
             if (module.spirv_execution_model != SpvExecutionModel.Vertex)
@@ -90,10 +77,11 @@ namespace VECS
             }
 
             PushConstantsInfo[] pushConstants = new PushConstantsInfo[constants.Count];
-
+            uint bufferOffset = 0;
             for (int i = 0; i < constants.Count; i++)
             {
-                pushConstants[i] = new(constants[i], shaderStageFlags[i]);
+                pushConstants[i] = new(constants[i], shaderStageFlags[i],bufferOffset);
+                bufferOffset = pushConstants[i].BlockSize;
             }
             
             return pushConstants;
@@ -127,10 +115,12 @@ namespace VECS
             }
 
             PushConstantsInfo[] pushConstants = new PushConstantsInfo[constants.Count];
+            uint bufferOffset = 0;
 
             for (int i = 0; i < constants.Count; i++)
             {
-                pushConstants[i] = new(constants[i], shaderStageFlags[i]);
+                pushConstants[i] = new(constants[i], shaderStageFlags[i], bufferOffset);
+                bufferOffset = pushConstants[i].BlockSize;
             }
 
             return pushConstants;
@@ -138,7 +128,7 @@ namespace VECS
 
         private static unsafe Predicate<SpvReflectBlockVariable> ComparePushBlocks(SpvReflectBlockVariable pushBlock)
         {
-            return (SpvReflectBlockVariable block) =>
+            return block =>
             {
                 if (block.Name == pushBlock.Name && block.size == pushBlock.size && pushBlock.member_count == block.member_count)
                 {
@@ -155,12 +145,6 @@ namespace VECS
             };
         }
         
-        public static VkDescriptorSetLayout CreateDescriptorSetLayout(DescriptorBinding[] bindings)
-        {
-
-            return CreateDescriptorSetLayout(bindings, VkDescriptorSetLayoutCreateFlags.None);
-        }
-
         public static VkDescriptorSetLayout CreateDescriptorSetLayout(DescriptorBinding[] bindings, VkDescriptorSetLayoutCreateFlags flags)
         {
             Array.Sort(bindings, (x, y) =>
@@ -293,19 +277,7 @@ namespace VECS
             }
             return setBindings;
         }
-        public static int[] ExtractBindingsForSetAsIntArray(uint set, DescriptorBinding[] bindings)
-        {
-            List<int> setBindings = [];
-            for (int i = 0; i < bindings.Length; i++)
-            {
-                if (bindings[i].DescriptorSetIndex == set)
-                {
-                    setBindings.Add(i);
-                }
-            }
-            return [.. setBindings];
-        }
-
+        
         public static DescriptorBinding[] ExtractBindingsForSetAsBindingArray(uint set, DescriptorBinding[] bindings)
         {
             List<DescriptorBinding> setBindings = [];
@@ -335,6 +307,19 @@ namespace VECS
             }
 
             throw new InvalidOperationException("Descriptors contained no mesh shader bindings in the expected pattern!");
+        }
+
+        public static int GetOITSetIndex(DescriptorBinding[] bindings)
+        {
+            for (int i = 0; i < bindings.Length; i++)
+            {
+                if (bindings[i].Name == "headIndexImage")
+                {
+                    return (int)bindings[i].DescriptorSetIndex;
+                }
+            }
+
+            return -1;
         }
 
         public static VkPipelineLayout CreatePipelineLayout(ShaderModule shaderModule, VkDescriptorSetLayout[] setLayouts, PushConstantsHandler pushConstants)
@@ -444,7 +429,13 @@ namespace VECS
             var rasterizationInfo = configInfo.rasterizationInfo;
 
             // Assign remaining memory pointers
-            colourBlendInfo.pAttachments = &colourBlendAttachment;
+            VkPipelineColorBlendAttachmentState* colourAttachments = stackalloc VkPipelineColorBlendAttachmentState[configInfo.colourFormats.Length];
+            for (int i = 0; i < configInfo.colourFormats.Length; i++)
+            {
+                colourAttachments[i] = colourBlendAttachment;
+            }
+            colourBlendInfo.pAttachments = colourAttachments;
+            colourBlendInfo.attachmentCount = (uint)configInfo.colourFormats.Length;
 
             VkDynamicState* pDynamicStates = stackalloc VkDynamicState[configInfo.dynamicStateEnables.Length];
 
@@ -517,7 +508,13 @@ namespace VECS
             var rasterizationInfo = configInfo.rasterizationInfo;
 
             // Assign remaining memory pointers
-            colourBlendInfo.pAttachments = &colourBlendAttachment;
+            VkPipelineColorBlendAttachmentState* colourAttachments = stackalloc VkPipelineColorBlendAttachmentState[configInfo.colourFormats.Length];
+            for (int i = 0; i < configInfo.colourFormats.Length; i++)
+            {
+                colourAttachments[i] = colourBlendAttachment;
+            }
+            colourBlendInfo.pAttachments = colourAttachments;
+            colourBlendInfo.attachmentCount = (uint)configInfo.colourFormats.Length;
 
             VkDynamicState* pDynamicStates = stackalloc VkDynamicState[configInfo.dynamicStateEnables.Length];
 
@@ -699,7 +696,6 @@ namespace VECS
         public static VertexAttributeDescription[] MeshShaderExtractVertexAttributes(Dictionary<string, int> meshShaderBindings, DescriptorBinding[] materialBindings)
         {
             List<VertexAttributeDescription> attributeDescriptions = [];
-
 
             foreach (var pair in meshShaderBindings)
             {

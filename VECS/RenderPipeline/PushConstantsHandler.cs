@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using Vortice.SPIRV.Reflect;
@@ -9,141 +8,83 @@ namespace VECS
 {
     public class PushConstantsHandler
     {
-        private PushConstantsInfo[][] _pushConstants;
-        private readonly int _pushConstantsCount = 0;
+        private readonly PushConstantsInfo[] _pushConstantsInfos;
+        internal byte[] _bufferInstances;
 
-        public PushConstantsInfo[] PrimaryPushConstants => _pushConstants[0];
+        private readonly uint _bufferInstanceSize;
 
-        public bool HasPushConstrants => PrimaryPushConstants != null && _pushConstantsCount > 0;
+        private readonly int _pushConstantsCount;
 
+        public PushConstantsInfo[] PushConstantsInfo => _pushConstantsInfos;
+
+        public bool HasPushConstrants => PushConstantsInfo != null && _pushConstantsCount > 0;
         public int Count => _pushConstantsCount;
         public uint UCount => (uint)_pushConstantsCount;
 
 
         public PushConstantsHandler(params SpvReflectShaderModule[] modules)
         {
-            _pushConstants = [GPUPipelineUtil.GetPushConstants(modules)];
-            if (PrimaryPushConstants != null)
+            _pushConstantsInfos = GPUPipelineUtil.GetPushConstants(modules);
+            if (_pushConstantsInfos != null)
             {
-                _pushConstantsCount = PrimaryPushConstants.Length;
+                _pushConstantsCount = _pushConstantsInfos.Length;
+
+                for (int i = 0; i < _pushConstantsInfos.Length; i++)
+                {
+                    _bufferInstanceSize += _pushConstantsInfos[i].BlockSize;
+                }
+
+                _bufferInstances = new byte[_bufferInstanceSize];
             }
-            EnsureCapacity(MaterialV2.MAX_VARIANTS);
         }
 
         public PushConstantsHandler(params ShaderModule[] modules)
         {
-            _pushConstants = [GPUPipelineUtil.GetPushConstants(modules)];
-            if (PrimaryPushConstants != null)
+            _pushConstantsInfos = GPUPipelineUtil.GetPushConstants(modules);
+            if (_pushConstantsInfos != null)
             {
-                _pushConstantsCount = PrimaryPushConstants.Length;
+                _pushConstantsCount = _pushConstantsInfos.Length;
+
+                for (int i = 0; i < _pushConstantsInfos.Length; i++)
+                {
+                    _bufferInstanceSize += _pushConstantsInfos[i].BlockSize;
+                }
+
+                _bufferInstances = new byte[_bufferInstanceSize];
             }
-            EnsureCapacity(MaterialV2.MAX_VARIANTS);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void EnsureCapacity(int count)
         {
-            if (_pushConstants.Length >= count)
+            if (_bufferInstances.Length >= (int)(count * _bufferInstanceSize))
             {
                 return;
             }
 
-            var currentCount = _pushConstants.Length;
-            Array.Resize(ref _pushConstants, count);
+            Array.Resize(ref _bufferInstances, (int)(count * _bufferInstanceSize));
+        }
 
-            for (int i = currentCount; i < count; i++)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public Span<byte> GetBufferInstance(int instanceIndex)
+        {
+            if (_bufferInstances.Length <= (int)(instanceIndex * _bufferInstanceSize))
             {
-                _pushConstants[i] = new PushConstantsInfo[_pushConstantsCount];
-                for (int j = 0; j < _pushConstantsCount; j++)
-                {
-                    _pushConstants[i][j] = new(PrimaryPushConstants[j]);
-                }
+                EnsureCapacity(instanceIndex + 1);
             }
+            return _bufferInstances.AsSpan((int)(instanceIndex * _bufferInstanceSize), (int)_bufferInstanceSize);
         }
 
-        public PushConstantsInfo[] GetSecondary(int id)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public Span<byte> GetPushConstantInstance(int instanceIndex, int pushConstantIndex)
         {
-            return _pushConstants[id];
-        }
-        public PushConstantsInfo[] GetSecondary(uint id)
-        {
-            return _pushConstants[id];
+            var info = _pushConstantsInfos[pushConstantIndex];
+            return GetBufferInstance(instanceIndex).Slice((int)info.BufferOffset, (int)info.BlockSize);
         }
     }
 
     public static class PushConstantsExtensions
     {
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetPushConstantInt(this Material material ,string property, int value)
-        {
-            WriteToPushConstantBuffer(material.PushConstants, property, value);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetPushConstantInt(this Material material, string property,int id, int value)
-        {
-            WriteToPushConstantBuffer(material.PushConstants, property, id, value);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetPushConstantFloat(this Material material ,string property, float value)
-        {
-            WriteToPushConstantBuffer(material.PushConstants, property, value);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetPushConstantFloat(this Material material ,string property, int id, float value)
-        {
-            WriteToPushConstantBuffer(material.PushConstants, property,id, value);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetPushConstantVector2(this Material material ,string property, Vector2 value)
-        {
-            WriteToPushConstantBuffer(material.PushConstants, property, value);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetPushConstantVector2(this Material material ,string property, int id, Vector2 value)
-        {
-            WriteToPushConstantBuffer(material.PushConstants, property,id, value);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetPushConstantVector4(this Material material ,string property, Vector4 value)
-        {
-            WriteToPushConstantBuffer(material.PushConstants, property, value);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetPushConstantVector4(this Material material ,string property,int id,  Vector4 value)
-        {
-            WriteToPushConstantBuffer(material.PushConstants, property,id, value);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetPushConstantMatrix3x2(this Material material ,string property, Matrix3x2 value)
-        {
-            WriteToPushConstantBuffer(material.PushConstants, property, value);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetPushConstantMatrix3x2(this Material material ,string property,int id,  Matrix3x2 value)
-        {
-            WriteToPushConstantBuffer(material.PushConstants, property,id, value);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetPushConstantMatrix4x4(this Material material ,string property, Matrix4x4 value)
-        {
-            WriteToPushConstantBuffer(material.PushConstants, property, value);
-        }
-        
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetPushConstantMatrix4x4(this Material material ,string property, int id, Matrix4x4 value)
-        {
-            WriteToPushConstantBuffer(material.PushConstants, property,id, value);
-        }
-        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void SetPushConstantInt(this PushConstantsHandler handler, string property, int value)
         {
@@ -151,9 +92,9 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetPushConstantInt(this PushConstantsHandler handler, string property,int id,  int value)
+        public static void SetPushConstantInt(this PushConstantsHandler handler, string property, int instanceIndex, int value)
         {
-            WriteToPushConstantBuffer(handler, property,id, value);
+            WriteToPushConstantBuffer(handler, property, instanceIndex, value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -163,9 +104,9 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetPushConstantUInt(this PushConstantsHandler handler, string property, int id, uint value)
+        public static void SetPushConstantUInt(this PushConstantsHandler handler, string property, int instanceIndex, uint value)
         {
-            WriteToPushConstantBuffer(handler, property,id, value);
+            WriteToPushConstantBuffer(handler, property, instanceIndex, value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -175,9 +116,9 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetPushConstantFloat(this PushConstantsHandler handler, string property,int id,  float value)
+        public static void SetPushConstantFloat(this PushConstantsHandler handler, string property, int instanceIndex, float value)
         {
-            WriteToPushConstantBuffer(handler, property,id, value);
+            WriteToPushConstantBuffer(handler, property, instanceIndex, value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -187,9 +128,9 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetPushConstantVector2(this PushConstantsHandler handler, string property,int id,  Vector2 value)
+        public static void SetPushConstantVector2(this PushConstantsHandler handler, string property, int instanceIndex, Vector2 value)
         {
-            WriteToPushConstantBuffer(handler, property,id, value);
+            WriteToPushConstantBuffer(handler, property, instanceIndex, value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -199,9 +140,9 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetPushConstantVector4(this PushConstantsHandler handler, string property,int id,  Vector4 value)
+        public static void SetPushConstantVector4(this PushConstantsHandler handler, string property, int instanceIndex, Vector4 value)
         {
-            WriteToPushConstantBuffer(handler, property, id, value);
+            WriteToPushConstantBuffer(handler, property, instanceIndex, value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -211,9 +152,9 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetPushConstantMatrix3x2(this PushConstantsHandler handler, string property,int id, Matrix3x2 value)
+        public static void SetPushConstantMatrix3x2(this PushConstantsHandler handler, string property, int instanceIndex, Matrix3x2 value)
         {
-            WriteToPushConstantBuffer(handler, property, id, value);
+            WriteToPushConstantBuffer(handler, property, instanceIndex, value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -223,9 +164,9 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetPushConstantMatrix4x4(this PushConstantsHandler handler, string property,int id, Matrix4x4 value)
+        public static void SetPushConstantMatrix4x4(this PushConstantsHandler handler, string property, int instanceIndex, Matrix4x4 value)
         {
-            WriteToPushConstantBuffer(handler, property,id, value);
+            WriteToPushConstantBuffer(handler, property, instanceIndex, value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -235,9 +176,9 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetPushConstantUniform<T>(this PushConstantsHandler handler, string property, int id, T value) where T : unmanaged
+        public static void SetPushConstantUniform<T>(this PushConstantsHandler handler, string property, int instanceIndex, T value) where T : unmanaged
         {
-            WriteToPushConstantBuffer(handler, property, id, value);
+            WriteToPushConstantBuffer(handler, property, instanceIndex, value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -247,11 +188,11 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static void WriteToPushConstantBuffer<T>(PushConstantsHandler handler, string property, int id, T value) where T : unmanaged
+        private static void WriteToPushConstantBuffer<T>(PushConstantsHandler handler, string property, int instanceIndex, T value) where T : unmanaged
         {
             for (int i = 0; i < handler.Count; i++)
             {
-                if (handler.GetSecondary(id)[i].WriteToPushConstantBuffer(property, value))
+                if (handler.PushConstantsInfo[i].WriteToPushConstantBuffer(handler.GetPushConstantInstance(instanceIndex, i), property, value))
                 {
                     break;
                 }
@@ -259,41 +200,23 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void BindPushConstants(this PushConstantsHandler handler, RendererFrameInfo rendererFrameInfo, VkPipelineLayout pipelineLayout)
+        public static void BindPushConstants(this PushConstantsHandler handler, RendererFrameInfo rendererFrameInfo, VkPipelineLayout pipelineLayout, int instanceIndex)
         {
-            BindPushConstants(handler, rendererFrameInfo, pipelineLayout, 0);
+            BindPushConstants(handler, rendererFrameInfo.CommandBuffer, pipelineLayout, instanceIndex);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void BindPushConstants(this PushConstantsHandler handler, RendererFrameInfo rendererFrameInfo, VkPipelineLayout pipelineLayout, int id)
+        public static void BindPushConstants(this PushConstantsHandler handler, VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, uint instanceIndex)
+        {
+            BindPushConstants(handler, commandBuffer, pipelineLayout, (int)instanceIndex);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void BindPushConstants(this PushConstantsHandler handler, VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, int instanceIndex)
         {
             for (int i = 0; i < handler.Count; i++)
             {
-                handler.GetSecondary(id)[i].PushConstants(rendererFrameInfo, pipelineLayout);
-            }
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void BindPushConstants(this PushConstantsHandler handler, VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout)
-        {
-            BindPushConstants(handler, commandBuffer, pipelineLayout, 0);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void BindPushConstants(this PushConstantsHandler handler, VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, int id)
-        {
-            for (int i = 0; i < handler.Count; i++)
-            {
-                handler.GetSecondary(id)[i].PushConstants(commandBuffer, pipelineLayout);
-            }
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void BindPushConstants(this PushConstantsHandler handler, VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, uint id)
-        {
-            for (int i = 0; i < handler.Count; i++)
-            {
-                handler.GetSecondary(id)[i].PushConstants(commandBuffer, pipelineLayout);
+                handler.PushConstantsInfo[i].PushConstants(handler.GetPushConstantInstance(instanceIndex, i), commandBuffer, pipelineLayout);
             }
         }
 
@@ -302,7 +225,7 @@ namespace VECS
         {
             for (int i = 0; i < handler.Count; i++)
             {
-                pLayouts[i] = handler.PrimaryPushConstants[i].VkPushConstantRange;
+                pLayouts[i] = handler.PushConstantsInfo[i].VkPushConstantRange;
             }
         }
     }

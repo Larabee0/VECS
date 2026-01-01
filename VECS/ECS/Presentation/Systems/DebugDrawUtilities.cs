@@ -10,12 +10,12 @@ namespace VECS.ECS.Presentation
     public class DebugDrawUtilities : PresentationSystemBase
     {
         public const int MAX_LINES = 1000;
-        private static readonly int ColourBufferId = "colourBuffer".GetHashCode();
-        private static readonly int MatricesBufferId = "matricesBuffer".GetHashCode();
+        private static readonly int ColourBufferId = "colourBuffer".GetShaderPropertyId();
+        private static readonly int MatricesBufferId = "matricesBuffer".GetShaderPropertyId();
         private EntityQuery _renderBoundsQuery;
         private EntityQuery _cameraQuery;
         private bool _drawBounds = false;
-        private bool _drawCameraFustrums = true;
+        private bool _drawCameraFustrums = false;
         private readonly Vector2 _min = new(-1, -1);
         private readonly Vector2 _max = new(1, 1);
         private readonly Vector4[] _fustrumVerts = new Vector4[16];
@@ -30,6 +30,8 @@ namespace VECS.ECS.Presentation
 
         private readonly Queue<DrawCube> _wireCubes = new();
 
+        private readonly Queue<Sphere> _wireSpheres = new();
+
         public override unsafe void OnCreate(EntityManager entityManager)
         {
             _renderBoundsQuery = new EntityQuery(entityManager)
@@ -40,19 +42,20 @@ namespace VECS.ECS.Presentation
                 .WithAll(typeof(CameraPerspective), typeof(Camera), typeof(LocalToWorld))
                 .WithNone(typeof(Prefab),typeof(MainCamera))
                 .Build();
+
             _circleBuffer = new(32, VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferDst, true, false, false);
             _frustrumBuffer = new(16 * 1000, VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferDst, true, false, false);
             _cubeBuffer = new(16, VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferDst, true, false, false);
             _lineBuffer = new(MAX_LINES, VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferDst, true, false, false);
 
-            _lineBuffer.FillBufferSingleTimeCmd(0);
+            _lineBuffer.FillBuffer(0);
 
             CreateDrawBuffers();
             CreateWireCube();
 
             var vertices = _circleBuffer.HostBuffer;
             float radians = 0;
-            float radPerStep = float.DegreesToRadians(360) / 31;
+            float radPerStep = (TransformExtensions.Deg2Rad*360f) / 31f;
 
             for (int i = 0; i < vertices.Length-1; i++)
             {
@@ -64,10 +67,10 @@ namespace VECS.ECS.Presentation
             }
             vertices[^1] = (Vector3.Zero + new Vector3(MathF.Sin(0), -MathF.Cos(0), 0)) * 1f;
             _circleBuffer.WriteFromHostBuffer();
-            MaterialV2.WireFrame.SetStorageBufferLength(MatricesBufferId, 0, 0);
+            EngineMaterials.WireFrame.SetDescriptorStorageBufferLength(0,1, 0);
         }
 
-        public override void OnFowardPass(EntityManager entityManager, RendererFrameInfo frameInfo)
+        public override void OnOpaquePass(EntityManager entityManager, RendererFrameInfo frameInfo)
         {
             if (InputManager.Instance.GetKeyUp(SDL3.SDL_Keycode.F1))
             {
@@ -86,20 +89,21 @@ namespace VECS.ECS.Presentation
             var draws = Span<VkDrawIndirectCommand>.Empty;
 
             if ((_lineQueue.Count > 0)
-                || (_wireCubes.Count > 0)
+                || (_wireCubes.Count > 0
+                ||(_wireSpheres.Count > 0))
                 || (_drawCameraFustrums && _cameraQuery.HasEntities && SwapChain.Instance != null)
                 ||( _drawBounds && _renderBoundsQuery.HasEntities))
             {
-                var drawCount = _wireCubes.Count+ _lineQueue.Count;
+                var drawCount = _wireCubes.Count+ _wireSpheres.Count+ _lineQueue.Count;
                 drawCount += _cameraQuery.HasEntities ? _cameraQuery.GetEntities().Count : 0;
                 drawCount += _renderBoundsQuery.HasEntities ? _renderBoundsQuery.GetEntities().Count*4 : 0;
 
-                MaterialV2.WireFrame.SetStorageBufferLength(MatricesBufferId, 0, (uint)drawCount);
-                MaterialV2.WireFrame.SetStorageBufferLength(ColourBufferId, 0, (uint)drawCount);
+                EngineMaterials.WireFrame.SetDescriptorStorageBufferLength( 0,1, (uint)drawCount);
+                EngineMaterials.WireFrame.SetDescriptorStorageBufferLength( 0,1, (uint)drawCount);
 
-                matrices = MaterialV2.WireFrame.GetStorageBuffer<ModelMatrices>(MatricesBufferId);
-                colours = MaterialV2.WireFrame.GetStorageBuffer<Vector4>(ColourBufferId);
-                MaterialV2.WireFrame.BindAll(frameInfo, 0);
+                matrices = EngineMaterials.WireFrame.GetStorageBuffer<ModelMatrices>(MatricesBufferId);
+                colours = EngineMaterials.WireFrame.GetStorageBuffer<Vector4>(ColourBufferId);
+                EngineMaterials.WireFrame.BindAll(frameInfo, 0);
                 draws = _drawBuffer.HostBuffer;
             }
 
@@ -128,6 +132,19 @@ namespace VECS.ECS.Presentation
                 DrawIndirect(frameInfo, 0, drawBufferIndex);
             }
 
+
+            if (_drawBounds && _renderBoundsQuery.HasEntities)
+            {
+                var entities = _renderBoundsQuery.GetEntities();
+
+                for (int i = 0; i < entities.Count; i++)
+                {
+                    var entity = entities[i];
+                    AABB bounds = entityManager.GetComponent<WorldRenderBounds>(entity).Value;
+                    DrawWireCube(bounds.Center, bounds.Size, Quaternion.Identity);
+                }
+            }
+
             if (_wireCubes.Count > 0)
             {
                 int drawOffset = drawIndex;
@@ -149,6 +166,43 @@ namespace VECS.ECS.Presentation
                 GraphicsDevice.DeviceAPI.vkCmdBindVertexBuffer(frameInfo.CommandBuffer, 0, _cubeBuffer.VkBuffer);
                 DrawIndirect(frameInfo, drawOffset, 1);
                 drawBufferIndex++;
+            }
+
+            if(_wireSpheres.Count > 0)
+            {
+                int offset = drawBufferIndex;
+                draws[drawBufferIndex] = new()
+                {
+                    vertexCount = 32,
+                    firstVertex = 0,
+                    firstInstance = (uint)drawIndex,
+                    instanceCount = (uint)_wireSpheres.Count * 4
+                };
+
+                while (_wireSpheres.Count > 0)
+                {
+                    var sphere = _wireSpheres.Dequeue();
+                    var center = sphere.Bounds.AsVector3();
+                    var radius = new Vector3(sphere.Bounds.W <= 0 ? 1 : sphere.Bounds.W);
+                    var a = TransformExtensions.TRS(center, new Vector3(), radius);
+                    var b = TransformExtensions.TRS(center, new Vector3(TransformExtensions.Deg2Rad * 90f, 0, 0), radius);
+                    var c = TransformExtensions.TRS(center, new Vector3(0, TransformExtensions.Deg2Rad * 90f, 0), radius);
+                    var d = TransformExtensions.TRS(center, new Vector3(0, 0, TransformExtensions.Deg2Rad * 90f), radius);
+
+                    matrices[drawIndex] = a;
+                    matrices[drawIndex + 1] = b;
+                    matrices[drawIndex + 2] = c;
+                    matrices[drawIndex + 3] = d;
+                    colours[drawIndex] = Vector4.One;
+                    colours[drawIndex + 1] = Vector4.One;
+                    colours[drawIndex + 2] = Vector4.One;
+                    colours[drawIndex + 3] = Vector4.One;
+
+                    drawIndex += 4;
+                }
+
+                GraphicsDevice.DeviceAPI.vkCmdBindVertexBuffer(frameInfo.CommandBuffer, 0, _circleBuffer.VkBuffer);
+                DrawIndirect(frameInfo, offset, 1);
             }
 
             if (_drawCameraFustrums && _cameraQuery.HasEntities && SwapChain.Instance != null)
@@ -226,45 +280,6 @@ namespace VECS.ECS.Presentation
                 }
             }
 
-            if (_drawBounds && _renderBoundsQuery.HasEntities)
-            {
-                var entities = _renderBoundsQuery.GetEntities();
-                int offset = drawBufferIndex;
-                draws[drawBufferIndex] = new()
-                {
-                    vertexCount = 32,
-                    firstVertex = 0,
-                    firstInstance = (uint)drawIndex,
-                    instanceCount = (uint)entities.Count * 4
-                };
-
-                for (int i = 0; i < entities.Count; i++)
-                {
-                    var entity = entities[i];
-                    var bounds = entityManager.GetComponent<WorldRenderBounds>(entity);
-                    var center = bounds.Bounds.center;
-                    var radius = (bounds.Radius == Vector3.Zero) ? Vector3.One : bounds.Radius;
-                    var a = TransformExtensions.TRS(center, new Vector3(), radius);
-                    var b = TransformExtensions.TRS(center, new Vector3(float.DegreesToRadians(90), 0, 0), radius);
-                    var c = TransformExtensions.TRS(center, new Vector3(0, float.DegreesToRadians(90), 0), radius);
-                    var d = TransformExtensions.TRS(center, new Vector3(0, 0, float.DegreesToRadians(90)), radius);
-
-                    matrices[drawIndex] = a;
-                    matrices[drawIndex + 1] = b;
-                    matrices[drawIndex + 2] = c;
-                    matrices[drawIndex + 3] = d;
-                    colours[drawIndex] = Vector4.One;
-                    colours[drawIndex + 1] = Vector4.One;
-                    colours[drawIndex + 2] = Vector4.One;
-                    colours[drawIndex + 3] = Vector4.One;
-
-                    drawIndex += 4;
-                }
-
-                GraphicsDevice.DeviceAPI.vkCmdBindVertexBuffer(frameInfo.CommandBuffer, 0, _circleBuffer.VkBuffer);
-                DrawIndirect(frameInfo, offset, 1);
-            }
-
         }
 
         private unsafe void DrawIndirect(RendererFrameInfo frameInfo,int offset, int count)
@@ -319,7 +334,7 @@ namespace VECS.ECS.Presentation
 
         public void DrawLine(Vector3 start,  Vector3 end)
         {
-            _lineQueue.Enqueue(new Line(start, end, Colour.White));
+            DrawLine(start, end, Colour.White);
         }
 
         public void DrawLine(Vector3 start, Vector3 end, Colour colour)
@@ -327,12 +342,22 @@ namespace VECS.ECS.Presentation
             _lineQueue.Enqueue(new Line(start, end, colour));
         }
 
-        public void DrawWireCube(Vector3 center, Vector3 size, Vector3 orientation)
+        public void DrawSphere(Vector3 center, float radius)
         {
-            _wireCubes.Enqueue(new DrawCube(center, size, orientation, Colour.White));
+            DrawSphere(center, radius, Colour.White);
         }
 
-        public void DrawWireCube(Vector3 center, Vector3 size, Vector3 orientation, Colour colour)
+        public void DrawSphere(Vector3 center, float radius,Colour colour)
+        {
+            _wireSpheres.Enqueue(new(new(center, radius), colour));
+        }
+
+        public void DrawWireCube(Vector3 center, Vector3 size, Quaternion orientation)
+        {
+            DrawWireCube(center, size, orientation, Colour.White);
+        }
+
+        public void DrawWireCube(Vector3 center, Vector3 size, Quaternion orientation, Colour colour)
         {
             _wireCubes.Enqueue(new DrawCube(center, size, orientation, colour));
         }
@@ -341,10 +366,10 @@ namespace VECS.ECS.Presentation
         {
             public readonly Vector3 Center;
             public readonly Vector3 Size;
-            public readonly Vector3 Orientation;
+            public readonly Quaternion Orientation;
             public readonly Colour Colour;
 
-            public DrawCube(Vector3 center, Vector3 size, Vector3 orientation, Colour colour)
+            public DrawCube(Vector3 center, Vector3 size, Quaternion orientation, Colour colour)
             {
                 Center = center;
                 Size = size;
@@ -368,5 +393,16 @@ namespace VECS.ECS.Presentation
             }
         }
 
+        private readonly struct Sphere
+        {
+            public readonly Vector4 Bounds;
+            public readonly Colour Colour;
+
+            public Sphere(Vector4 bounds, Colour colour)
+            {
+                Bounds = bounds;
+                Colour = colour;
+            }
+        }
     }
 }

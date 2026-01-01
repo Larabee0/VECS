@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Diagnostics;
 using System.Threading;
 using Vortice.Vulkan;
 
@@ -17,7 +16,7 @@ namespace VECS.LowLevel
         private CancellationTokenSource _computeCancel;
         private CancellationTokenSource _presentCancel;
 
-        public Action GraphicsCallback;
+        public Action<int> GraphicsCallback;
         public Action ComputeCallback;
 
         internal void StartTimelineWorkers()
@@ -62,27 +61,12 @@ namespace VECS.LowLevel
 #endif
                 if (!recreate)
                 {
+                    _presentCancel.Cancel();
                     _graphicsCancel.Cancel();
                     _computeCancel.Cancel();
                     Thread.SpinWait(1000);
-
                     SignalTimelineFromHost(SemaphoreStages.Submit, FrameIndex);
-
-                    while (_graphicsThread.IsAlive || _computeThread.IsAlive)
-                    {
-                        Thread.SpinWait(1000);
-                    }
-
-                    _presentCancel.Cancel();
                     Thread.SpinWait(1000);
-                    //if (_presentThread.IsAlive)
-                    //{
-                    //    WaitOnTimelineFromHost(SemaphoreStages.RenderComplete, FrameIndex);
-                    //}
-                    while (_presentThread.IsAlive)
-                    {
-                        Thread.SpinWait(1000);
-                    }
                 }
                 else
                 {
@@ -104,6 +88,9 @@ namespace VECS.LowLevel
             _graphicsCancel = null;
             _computeCancel = null;
             _presentCancel = null;
+            GraphicsDevice.DeviceAPI.vkQueueWaitIdle(GraphicsDevice._computeQueue);
+            GraphicsDevice.DeviceAPI.vkQueueWaitIdle(GraphicsDevice._mainQueue);
+            GraphicsDevice.DeviceAPI.vkQueueWaitIdle(GraphicsDevice._presentQueue);
         }
 
         private unsafe void DoComputeWork(object cancellationToken)
@@ -342,10 +329,10 @@ namespace VECS.LowLevel
 
             TransferSwapChainImageToGraphicsQueue(commandBuffer, frameIndex, imageIndex);
 
-            GraphicsCallback?.Invoke();
+            GraphicsCallback?.Invoke(imageIndex);
 
             // copy to swap chain
-            CopyRenderToSwapChain(commandBuffer, frameIndex, imageIndex);
+            // CopyRenderToSwapChain(commandBuffer, frameIndex, imageIndex);
 
 
             GraphicsDevice.DeviceAPI.vkEndCommandBuffer(commandBuffer).CheckResult("Failed to end main command buffer!");
@@ -381,9 +368,9 @@ namespace VECS.LowLevel
                     }
                 }
 
-
                 submissionImageIndex = _currentImage;
                 submissionFrameIndex = _currentFrame;
+
                 if (!token.IsCancellationRequested)
                 {
                     Interlocked.Exchange(ref _currentFrame, (_currentFrame + 1) % MAX_CONCURRENT_FRAMES);
@@ -407,11 +394,8 @@ namespace VECS.LowLevel
                 }
                 if (!token.IsCancellationRequested)
                 {
-
                     SignalNextFrame(_currentFrame);
-                    //WaitOnTimelineFromHost(SemaphoreStages.Submit, _currentFrame);
                 }
-
 
                 frameZero = false;
             }

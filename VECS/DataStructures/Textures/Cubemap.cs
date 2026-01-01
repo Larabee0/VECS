@@ -1,4 +1,5 @@
 using System;
+using TeximpNet;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
@@ -15,7 +16,6 @@ namespace VECS
             _imageExtent = new(w, w, 1);
             _useageFlags = _usageFlags;
 
-
             _imageImageViewType = VkImageViewType.ImageCube;
             _wrapModeU = wrapMode;
             _wrapModeV = wrapMode;
@@ -28,7 +28,6 @@ namespace VECS
                 _mipMapCount = TextureExtensions.CalculateMipMapLevels(w, w);
             }
 
-
             this.SetImageLayoutAndAspectFromUsage();
 
             this.CreateImage(GetImageCreateInfo());
@@ -40,7 +39,43 @@ namespace VECS
                 this.CreateSampler(GetSamplerCreateInfo());
             }
 
-            SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal);
+            UpdateDescriptor();
+
+            AssetDataBase<Cubemap>.Add(this);
+        }
+
+        public Cubemap(string name, string skyboxFolder, VkSamplerAddressMode wrapMode, bool generateMipMaps = true)
+        {
+            AssetName = name;
+
+            Surface[] surfaces = TextureLoader.GetSkyboxTextures(skyboxFolder);
+
+            _hostBuffer = TextureLoader.CopySurfacesToStagingBuffer(surfaces);
+
+            _imageExtent = new(surfaces[0].Width, surfaces[0].Height, 1);
+
+            _imageImageViewType = VkImageViewType.ImageCube;
+            _wrapModeU = wrapMode;
+            _wrapModeV = wrapMode;
+            _wrapModeW = wrapMode;
+
+            if (generateMipMaps)
+            {
+                _mipMapCount = TextureExtensions.CalculateMipMapLevels(_imageExtent.width, _imageExtent.height);
+            }
+
+            this.SetImageLayoutAndAspectFromUsage();
+
+            this.CreateImage(GetImageCreateInfo());
+            this.CopyFromBuffer(_hostBuffer);
+            this.CreateImageView(GetImageViewCreateInfo());
+            CreateFaceImageViews();
+
+            if (_useageFlags.HasFlag(VkImageUsageFlags.Sampled))
+            {
+                this.CreateSampler(GetSamplerCreateInfo());
+            }
+
             UpdateDescriptor();
 
             AssetDataBase<Cubemap>.Add(this);
@@ -93,6 +128,5 @@ namespace VECS
 
             base.Dispose();
         }
-
     }
 }

@@ -1,13 +1,13 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Numerics;
 using VECS.ECS;
 using VECS.ECS.Presentation;
 using VECS.ECS.Transforms;
 using VECS.LowLevel;
+using VECS;
 using Vortice.Vulkan;
 
 namespace VECS
@@ -20,20 +20,22 @@ namespace VECS
 
         private readonly IWindow _window;
         private SwapChain _swapChain;
-
-        private readonly List<VkBufferMemoryBarrier2> _cullReadyBarriers = [];
-        private readonly List<VkBufferMemoryBarrier2> _postCullBarriers = [];
-        private readonly List<VkBufferMemoryBarrier2> _uploadBarriers = [];
-
         private bool _isFrameStarted = false;
-        private readonly GlobalUbo _ubo = new();
-        private readonly ShadowImage _shadowCubeMap;
-        private readonly Bloom _bloom;
-        private ulong _frameCount;
+        private ForwardRenderer _forwardRenderer;
+        private ShadowImage _shadowCubeMap;
+        private Bloom _bloom;
+        private SMAA _smaa;
+        private static ulong _frameCount;
+
+        public ForwardRenderer ForwardRenderer => _forwardRenderer;
+        public VkFormat[] ColourFormats => [_forwardRenderer.MainColourAttachment.Target.Format, _forwardRenderer.BrightObjectAttachment.Target.Format];
+        public VkFormat DepthFormat => _forwardRenderer.DepthAttachment.Target.Format;
 
         internal Action PostPresentationUpdate;
+        internal Action<int> PreGraphicsPipe;
+        internal Action OnSwapChainRecreation;
 
-        public ulong FrameCount => _frameCount;
+        public static ulong FrameCount => _frameCount;
 
         private readonly List<(int, GPUBuffer)> _swapChainBufferDisposalQueue = [];
 
@@ -43,9 +45,6 @@ namespace VECS
 
         public ShadowImage ShadowImage => _shadowCubeMap;
 
-        public VkDescriptorSetLayout GlobalSetLayout => VkDescriptorSetLayout.Null;
-        internal DescriptorHandler GlobalSetHandler => null;
-
         public int FrameIndex
         {
             get
@@ -54,18 +53,20 @@ namespace VECS
             }
         }
 
+        public int NextFrameIndex
+        {
+            get
+            {
+                return _isFrameStarted ? SwapChain.NextFrame : 0;
+            }
+        }
+
         public Presenter(IWindow window)
         {
             _window = window;
-            RecreateSwapChain();
-            _shadowCubeMap = new();
             Instance = this;
-            //LoadDefaultResources();
-
-
-            //_bloom = new(ForwardRenderPass);
+            RecreateSwapChain();
         }
-
 
         private void RecreateSwapChain()
         {
@@ -81,26 +82,37 @@ namespace VECS
                 _swapChain = SwapChainInit.Create(extent);
                 GraphicsDevice.CreateCommandBuffers();
                 GraphicsDevice.DeviceWaitIdle();
+                _forwardRenderer = new ForwardRenderer();
+                _shadowCubeMap = new();
+                _bloom = new();
+                _smaa = new();
+                _forwardRenderer.SetOIT();
             }
             else
             {
                 _swapChain.FinishTimelineWorkers(true);
                 GraphicsDevice.DeviceWaitIdle();
                 var oldSwapChain = _swapChain;
-                AssetDataBase<Texture2D>.RemoveRange([..oldSwapChain._rawRenderImage,..oldSwapChain._depthImage]);
                 _swapChain = oldSwapChain.Replace(extent);
                 if (!oldSwapChain.CompareSwapFormats(_swapChain))
                 {
                     throw new Exception("Swap chain image(or depth) format has changed!");
                 }
+                _forwardRenderer.RecreateAttachments();
+                _bloom.RecreateAttachments();
+                _forwardRenderer.SetOIT();
+                _smaa.RecreateRenderTargets();
                 GraphicsDevice.FreeCommandBuffers();
                 GraphicsDevice.CreateCommandBuffers();
                 GraphicsDevice.DeviceWaitIdle();
             }
+            
+            DrawBlob.Reset();
 
             _swapChain.GraphicsCallback += GraphicsPipe;
 
             _swapChain.StartTimelineWorkers();
+            OnSwapChainRecreation?.Invoke();
             Console.WriteLine(_swapChain.ExtentAspectRatio);
         }
 
@@ -116,22 +128,18 @@ namespace VECS
         public void Start()
         {
             frameInfoEntity = World.DefaultWorld.EntityManager.CreateEntity();
-            World.DefaultWorld.EntityManager.AddComponent<FrameInfo>(frameInfoEntity);
+
+            var frameInfo = new FrameInfo()
+            {
+                screenAspect = _swapChain.ExtentAspectRatio
+            };
+
+            World.DefaultWorld.EntityManager.AddComponent(frameInfoEntity, frameInfo);
         }
 
         private unsafe RendererFrameInfo CreateRendererFrameInfo(float deltaTime, VkCommandBuffer commandBuffer)
         {
             int frameIndex = SwapChain.FrameIndex;
-
-            RendererFrameInfo frameInfo = new()
-            {
-                FrameIndex = frameIndex,
-                DeltaTime = deltaTime,
-                CommandBuffer = commandBuffer,
-                PostCullBarriers = _postCullBarriers,
-
-            };
-
             Camera camera = Camera.Identity;
             CameraOrthographic orthCam = default;
             bool orth = false;
@@ -162,44 +170,17 @@ namespace VECS
                     }
                 }
             }
-            _ubo.Projection = camera.ProjectionMatrix;
-            _ubo.View = camera.ViewMatrix;
-            _ubo.InverseView = camera.InverseViewMatrix;
-            _ubo.AmbientLightColour = new(1.0f, 1.0f, 1.0f, 0.02f);
 
-            Matrix4x4 projection = _ubo.Projection;
-            Matrix4x4 projectionT = Matrix4x4.Transpose(projection);
+            Matrix4x4 projection = camera.ViewMatrix * camera.ProjectionMatrix;
 
-            Vector4 frustrumX = (projectionT.GetMatrixRow(3) + projectionT.GetMatrixRow(0)).NormalizePlane();
-            Vector4 frustrumY = (projectionT.GetMatrixRow(3) + projectionT.GetMatrixRow(1)).NormalizePlane();
-            Vector4 frustum = new(frustrumX.X, frustrumX.Z, frustrumY.Y, frustrumY.Z);
+            CullData cullData = new(RenderLayer.All, RenderLayer.OnlyShadow, camera.fustrumCulling, camera.dstCull, camera.depthCull, clipNear, projection, camera.ViewMatrix);
 
-            frameInfo.cullData = new()
-            {
-                cullingEnabled = camera.fustrumCulling ? 1 : 0,
-                P00 = _ubo.Projection[0, 0],
-                P11 = _ubo.Projection[1, 1],
-                znear = clipNear,
-                zfar = clipFar,
-                frustum = frustum,
-                drawCount = 0,
-
-                distCull = 1,
-                viewMatrix = camera.ViewMatrix
-            };
-
-            frameInfo.Ubo = _ubo;
-            //var swapChainBuffer = _globalDescriptorSetHandler.GetBufferOfUniform("ubo");
-            //if (swapChainBuffer != null)
-            //{
-            //    _ubo.WriteToSwapChainBuffer(swapChainBuffer);
-            //}
-
-            frameInfo.CameraInfo = new(camera);
-            frameInfo.CameraInverseInfo = new(camera);
-            frameInfo.AdditionalCameraInfo = new(camera.ProjectionMatrix,clipNear,clipFar,_swapChain.ExtentAspectRatio);
-            frameInfo.OrthographicInfo = new(orth, orthCam);
-
+            CameraInfo cameraInfo = new(camera);
+            CameraInverseInfo cameraInverseInfo = new(camera);
+            AdditionalCameraInfo additionalCameraInfo = new(camera.ProjectionMatrix,clipNear,clipFar,_swapChain.ExtentAspectRatio);
+            OrthographicInfo orthographicInfo = new(orth, orthCam);
+            LightingInfo lightingInfo;
+            BufferMAXLIGHTS<PointLightUniform> pointLightBuffer = default;
             if (World.DefaultWorld != null)
             {
                 var entityManager = World.DefaultWorld.EntityManager;
@@ -208,36 +189,40 @@ namespace VECS
 
                 if (dirLights!= null && dirLights.Count > 0)
                 {
-                    frameInfo.LightingInfo = new(entityManager.GetComponent<DirectionalLight>(dirLights[0]), pointLights.Count);
+                    lightingInfo = new(entityManager.GetComponent<DirectionalLight>(dirLights[0]), dirLights.Count);
                 }
                 else
                 {
-                    frameInfo.LightingInfo = new(Vector4.Zero, Vector3.Zero, 0);
+                    lightingInfo = new(Vector4.Zero, Vector3.Zero, 0);
                 }
 
                 if (pointLights != null && pointLights.Count > 0)
                 {
-                    frameInfo.PointLights = new PointLightUniform[pointLights.Count];
+                    lightingInfo = new(Vector4.Zero, Vector3.Zero, pointLights.Count);
 
                     for (int i = 0; i < pointLights.Count; i++)
                     {
                         Vector3 position = entityManager.GetComponent<LocalToWorld>(pointLights[i]).Value.Translation;
                         Vector4 colour = entityManager.GetComponent<PointLight>(pointLights[i]).Colour;
-                        frameInfo.PointLights[i] = new(position, colour);
+                        pointLightBuffer[i] = new(position, colour);
                     }
-                }
-                else
-                {
-                    frameInfo.PointLights = [];
                 }
             }
             else
             {
-                frameInfo.LightingInfo = new(Vector4.Zero, Vector3.Zero, 0);
-                frameInfo.PointLights = [];
+                lightingInfo = new(Vector4.Zero, Vector3.Zero, 0);
             }
 
-            return frameInfo;
+            return new RendererFrameInfo(frameIndex,
+                deltaTime,
+                commandBuffer,
+                cullData,
+                cameraInfo,
+                cameraInverseInfo,
+                additionalCameraInfo,
+                orthographicInfo,
+                lightingInfo,
+                pointLightBuffer);
         }
 
         /// <summary>
@@ -254,16 +239,16 @@ namespace VECS
 
         public void Present()
         {
-
             // acquire swapchain image
             _isFrameStarted = BeginFrame();
+
+            World.DefaultWorld.OnPrePresent();
 
             UpdateEntityFrameInfo(World.DefaultWorld.EntityManager);
             if (_isFrameStarted)
             {
                 // kill off buffers
                 UpdateSwapChainBufferDisposal();
-
                 // signal workers to submit work
                 _swapChain.SignalTimelineFromHost(SemaphoreStages.Submit, SwapChain.FrameIndex);
                 //Console.WriteLine("Signaled begin Submit");
@@ -279,31 +264,74 @@ namespace VECS
             }
         }
 
-        private void GraphicsPipe()
+        private void GraphicsPipe(int imageIndex)
         {
             VkCommandBuffer commandBuffer = SwapChain.CurrentMainCommandBuffer;
+
+            GPUBufferExtensions.PlaybackFillBufferCmds(commandBuffer);
+            GPUBufferExtensions.PlaybackCopyBuffersCmds(commandBuffer);
+            TextureExtensions.PlaybackCopyCmds(commandBuffer);
+            TextureExtensions.PlaybackMipmapGenCmds(commandBuffer);
+            TextureExtensions.PlaybackSetLayoutCmds(commandBuffer);
+
+            PreGraphicsPipe?.Invoke(FrameIndex);
+
             RendererFrameInfo frameInfo = CreateRendererFrameInfo(Time.DeltaTime, commandBuffer);
 
-            MaterialV2.UpdateMaterialsParallel(frameInfo);
             // culling
-            CullScene(commandBuffer, frameInfo);
 
-            // shadows
-            World.DefaultWorld.PresentPreForwardPassUpdate(frameInfo);
+            Material.UpdateMaterials(frameInfo);
 
-            //Bloom early
-            //_bloom.BeginGlowPass(frameInfo);
-            World.DefaultWorld.PresentBloomGlow(frameInfo);
-            //EndRenderPass(commandBuffer);
-            //_bloom.BlurVertical(frameInfo);
+            // shadows pass
+            World.DefaultWorld.OnPreShadowPass(frameInfo);
 
-            // forward pass
-            _swapChain.BeginForwardRendering(commandBuffer);
-            World.DefaultWorld.PresentFowardPassUpdate(frameInfo);
+            World.DefaultWorld.OnShadowPass(frameInfo);
 
-            // bloom late
-            //_bloom.BlurHorizontal(frameInfo);
-            _swapChain.EndForwardRendering(commandBuffer);
+            World.DefaultWorld.OnPostShadowPass(frameInfo);
+
+            //_skybox.RenderSkyboxPass(frameInfo);
+
+            // Opaque pass
+            //_skybox.RenderSkyboxDepthOnly(frameInfo);
+            World.DefaultWorld.OnPreOpaquePass(frameInfo);
+
+            _forwardRenderer.BeginForwardRendering(commandBuffer,VkAttachmentLoadOp.Clear);
+
+
+            World.DefaultWorld.OnOpaquePass(frameInfo);
+            
+            Skybox.RenderSkybox(frameInfo);
+
+            _forwardRenderer.EndForwardRendering(commandBuffer);
+
+            World.DefaultWorld.OnPostOpaquePass(frameInfo);
+
+            // Transparent pass
+            World.DefaultWorld.OnPreTransparentPass(frameInfo);
+
+            _forwardRenderer.BeginForwardRendering(commandBuffer,VkAttachmentLoadOp.Load);
+
+            World.DefaultWorld.OnTransparentPass(frameInfo);
+
+            _forwardRenderer.EndForwardRendering(commandBuffer);
+
+            World.DefaultWorld.OnPostTransparentPass(frameInfo);
+
+            //Bloom
+            _bloom.RenderBloomObjects(frameInfo);
+
+            DrawBlob.IndirectToComputeMemoryBarrierByMat(frameInfo.CommandBuffer);
+
+            _smaa.ApplyAA(frameInfo);
+
+            UI.ULUI.BlitCamera(frameInfo, _forwardRenderer.MainColourAttachment.Target);
+
+            
+            var extents = _swapChain.SwapChainExtent;
+
+            _forwardRenderer.BlitFromMainColour(commandBuffer, _swapChain._swapChainImages[imageIndex], (int)extents.width, (int)extents.height, VkImageAspectFlags.Color);
+
+            _swapChain.TransferSwapChainImageToPresentQueue(commandBuffer, FrameIndex, imageIndex);
         }
 
 
@@ -328,55 +356,7 @@ namespace VECS
             }
             else
             {
-                _postCullBarriers.Clear();
-                _cullReadyBarriers.Clear();
                 return true;
-            }
-        }
-
-        private void CullScene(VkCommandBuffer commandBuffer, RendererFrameInfo frameInfo)
-        {
-            World.DefaultWorld.PresentPreCull(frameInfo);
-            EndPreCullBarrier(commandBuffer);
-
-            World.DefaultWorld.PresentOnCull(frameInfo);
-
-            PostCullBarrier(commandBuffer);
-            World.DefaultWorld.PresentPostCullUpdate(frameInfo);
-        }
-
-        public unsafe void EndPreCullBarrier(VkCommandBuffer commandBuffer)
-        {
-            if (_cullReadyBarriers.Count > 0)
-            {
-                int count = _cullReadyBarriers.Count;
-                VkBufferMemoryBarrier2* pMemoryBarrier = stackalloc VkBufferMemoryBarrier2[count];
-                _cullReadyBarriers.CopyTo(new Span<VkBufferMemoryBarrier2>(pMemoryBarrier, count));
-
-                for (int i = 0; i < count; i++)
-                {
-                    pMemoryBarrier[i].srcStageMask = VkPipelineStageFlags2.Transfer;
-                    pMemoryBarrier[i].dstStageMask = VkPipelineStageFlags2.ComputeShader;
-                }
-                MemoryBarrierHelper.BufferMemoryBarrier(commandBuffer, (uint)count, pMemoryBarrier);
-            }
-        }
-
-        public unsafe void PostCullBarrier(VkCommandBuffer commandBuffer)
-        {
-            if (_postCullBarriers.Count > 0)
-            {
-                int count = _postCullBarriers.Count;
-                VkBufferMemoryBarrier2* pMemoryBarrier = stackalloc VkBufferMemoryBarrier2[count];
-                _postCullBarriers.CopyTo(new Span<VkBufferMemoryBarrier2>(pMemoryBarrier, count));
-
-                for (int i = 0; i < count; i++)
-                {
-                    pMemoryBarrier[i].srcStageMask = VkPipelineStageFlags2.ComputeShader;
-                    pMemoryBarrier[i].dstStageMask = VkPipelineStageFlags2.DrawIndirect;
-                }
-
-                MemoryBarrierHelper.BufferMemoryBarrier(commandBuffer, (uint)count, pMemoryBarrier);
             }
         }
 
@@ -388,6 +368,8 @@ namespace VECS
         /// </summary>
         public void Dispose()
         {
+            DrawBlob.CleanUp();
+
             foreach (var assetType in typeof(DisposableAsset).AllSubclassesNonAbstract())
             {
                 IEnumerable<DisposableAsset> disposableAssets = ((IEnumerable)GenericExtensions.GetStaticPropertyOnGenericType(typeof(AssetDataBase<>), assetType, "AllAssets")).Cast<DisposableAsset>();
@@ -397,12 +379,11 @@ namespace VECS
                 }
             }
 
-            _bloom?.Dispose();
-
             _swapChainBufferDisposalQueue.ForEach(b => b.Item2?.Dispose());
             _swapChainBufferDisposalQueue.Clear();
             GraphicsDevice.FreeCommandBuffers();
             _shadowCubeMap.Dispose();
+            _forwardRenderer.Dispose();
             _swapChain.Dispose();
             Instance = null;
         }

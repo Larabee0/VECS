@@ -43,5 +43,9 @@ namespace VECS.ECS
 
         }
 
+        public virtual void OnPrePresent(EntityManager entityManager)
+        {
+
+        }
     }
 }

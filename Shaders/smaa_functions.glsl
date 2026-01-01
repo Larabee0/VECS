@@ -3,10 +3,11 @@
  * Gathers current pixel, and the top-left neighbors.
  */
 vec3 SMAAGatherNeighbours(vec2 texcoord,
+                            vec4 rtInfo,
                             vec4 offset[3],
                             sampler2D tex) {
     #ifdef SMAAGather
-    return textureGather(tex, texcoord + SMAA_RT_METRICS.xy * vec2(-0.5, -0.5)).grb;
+    return textureGather(tex, texcoord + rtInfo.xy * vec2(-0.5, -0.5)).grb;
     #else
     float P = texture(tex, texcoord).r;
     float Pleft = texture(tex, offset[0].xy).r;
@@ -19,9 +20,10 @@ vec3 SMAAGatherNeighbours(vec2 texcoord,
  * Adjusts the threshold by means of predication.
  */
 vec2 SMAACalculatePredicatedThreshold(vec2 texcoord,
+                                        vec4 rtInfo,
                                         vec4 offset[3],
                                         sampler2D predicationTex) {
-    vec3 neighbours = SMAAGatherNeighbours(texcoord, offset, predicationTex);
+    vec3 neighbours = SMAAGatherNeighbours(texcoord, rtInfo, offset, predicationTex);
     vec2 delta = abs(neighbours.xx - neighbours.yz);
     vec2 edges = step(SMAA_PREDICATION_THRESHOLD, delta);
     return SMAA_PREDICATION_SCALE * SMAA_THRESHOLD * (1.0 - SMAA_PREDICATION_STRENGTH * edges);

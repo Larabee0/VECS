@@ -35,6 +35,7 @@ namespace VECS.ECS
             _entityManager = new(this);
             _systems = [];
             _presentationSystems = [];
+            
             CreateSystem<LocalToWorldSystem>();
             CreateSystem<CameraSystem>();
             CreateSystem<WorldRenderBoundsUpdateSystem>();
@@ -92,6 +93,29 @@ namespace VECS.ECS
         /// <returns></returns>
         public T AddSystem<T>(T system) where T : SystemBase
         {
+            //List<SystemBase> updateBefores = [];
+            //List<SystemBase> updateAfters = [];
+            //foreach (var item in Attribute.GetCustomAttributes(typeof(T)))
+            //{
+            //    if (item is UpdateAfterAttribute updateAfter && updateAfter.SystemType.IsSubclassOf(typeof(SystemBase)))
+            //    {
+            //        var target = _systems.Find(f => f.GetType() == updateAfter.SystemType);
+            //        if (target != null)
+            //        {
+            //            updateAfters.Add(target);
+            //        }
+            //    }
+            //    else if(item is UpdateBeforeAttribute updateBefore && updateBefore.SystemType.IsSubclassOf(typeof(SystemBase)))
+            //    {
+            //        var target = _systems.Find(f => f.GetType() == updateBefore.SystemType);
+            //        if (target != null)
+            //        {
+            //            updateBefores.Add(target);
+            //        }
+            //    }
+            //}
+
+
             system.World = this;
             if (system is PresentationSystemBase presentationSystem)
             {
@@ -159,49 +183,56 @@ namespace VECS.ECS
             _presentationSystems.ForEach(s => s.OnPostUpdate(_entityManager));
         }
 
-        internal void PresentPreCull(RendererFrameInfo rendererFrameInfo)
+        internal void OnPrePresent()
         {
-            _presentationSystems.ForEach(s => s.OnPreCull(_entityManager, rendererFrameInfo));
+            _systems.ForEach(s => s.OnPrePresent(_entityManager));
+            _presentationSystems.ForEach(s => s.OnPrePresent(_entityManager));
         }
 
-        internal void PresentOnCull(RendererFrameInfo rendererFrameInfo)
+        internal void OnPreShadowPass(RendererFrameInfo rendererFrameInfo)
         {
-            _presentationSystems.ForEach(s => s.OnCull(_entityManager, rendererFrameInfo));
+            _presentationSystems.ForEach(s => s.OnPreShadowPass(_entityManager, rendererFrameInfo));
+        }
+        internal void OnShadowPass(RendererFrameInfo rendererFrameInfo)
+        {
+            _presentationSystems.ForEach(s => s.OnShadowPass(_entityManager, rendererFrameInfo));
+        }
+        internal void OnPostShadowPass(RendererFrameInfo rendererFrameInfo)
+        {
+            _presentationSystems.ForEach(s => s.OnPostShadowPass(_entityManager, rendererFrameInfo));
         }
 
-        internal void PresentPostCullUpdate(RendererFrameInfo rendererFrameInfo)
+        internal void OnPreOpaquePass(RendererFrameInfo rendererFrameInfo)
         {
-            _presentationSystems.ForEach(s => s.OnPostCull(_entityManager, rendererFrameInfo));
+            _presentationSystems.ForEach(s => s.OnPreOpaquePass(_entityManager, rendererFrameInfo));
+        }
+        internal void OnOpaquePass(RendererFrameInfo rendererFrameInfo)
+        {
+            _presentationSystems.ForEach(s => s.OnOpaquePass(_entityManager, rendererFrameInfo));
+        }
+        internal void OnPostOpaquePass(RendererFrameInfo rendererFrameInfo)
+        {
+            _presentationSystems.ForEach(s => s.OnPostOpaquePass(_entityManager, rendererFrameInfo));
         }
 
-        internal void PresentPreForwardPassUpdate(RendererFrameInfo rendererFrameInfo)
+        internal void OnPreTransparentPass(RendererFrameInfo rendererFrameInfo)
         {
-            _presentationSystems.ForEach(s => s.OnPreForwardPass(_entityManager, rendererFrameInfo));
+            _presentationSystems.ForEach(s => s.OnPreTransparentPass(_entityManager, rendererFrameInfo));
+        }
+        internal void OnTransparentPass(RendererFrameInfo rendererFrameInfo)
+        {
+            _presentationSystems.ForEach(s => s.OnTransparentPass(_entityManager, rendererFrameInfo));
+        }
+        internal void OnPostTransparentPass(RendererFrameInfo rendererFrameInfo)
+        {
+            _presentationSystems.ForEach(s => s.OnPostTransparentPass(_entityManager, rendererFrameInfo));
         }
 
-        internal void PresentBloomGlow(RendererFrameInfo rendererFrameInfo)
-        {
-            _presentationSystems.ForEach(s => s.OnBloomGlow(_entityManager, rendererFrameInfo));
-        }
-        /// <summary>
-        /// Called after PostUpdate
-        /// </summary>
-        internal void PresentFowardPassUpdate(RendererFrameInfo rendererFrameInfo)
-        {
-            _presentationSystems.ForEach(s => s.OnFowardPass(_entityManager, rendererFrameInfo));
-        }
-
-        /// <summary>
-        /// Called after present
-        /// </summary>
         internal void PostPresentUpdate()
         {
             _presentationSystems.ForEach(s => s.OnPostPresentation(_entityManager));
         }
 
-        /// <summary>
-        /// For destroy, presentation systems get it first this is the only time they do.
-        /// </summary>
         internal void OnDestroy()
         {
             _presentationSystems.ForEach(s => s.OnDestroy(_entityManager));
@@ -213,6 +244,5 @@ namespace VECS.ECS
         {
             _physicsSimulation?.Dispose();
         }
-
     }
 }

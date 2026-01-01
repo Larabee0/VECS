@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Numerics;
 using VECS.ECS.Presentation;
+using VECS.ECS.Transforms;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
@@ -10,8 +11,7 @@ namespace VECS
     {
         private readonly DirectMesh _directMeshBuffer;
         private readonly int _directSubMeshIndex;
-        private RenderBounds _bounds;
-        private ModelBounds _modelBounds;
+        private AABB _modelBounds;
 
         public DirectMesh DirectMeshBuffer => _directMeshBuffer;
 
@@ -19,8 +19,8 @@ namespace VECS
         public SubmeshMeshletData MeshletInfo => _directMeshBuffer.SubMeshMesletInfos[_directSubMeshIndex];
         public DirectSubMeshCreateInfo DirectSubMeshCreateInfo => new(VertexCount, IndexCount);
 
-        public VkDrawIndexedIndirectCommand IndirectCommand => DirectSubMeshInfo.IndirectDrawCmd;
-        public RenderBounds Bounds => _bounds;
+        public VECSDrawIndexIndirectCommand IndirectCommand => DirectSubMeshInfo.IndirectDrawCmd;
+        public RenderBounds Bounds => new(_modelBounds, true);
         public VertexAttributeDescription[] AttributeDescriptions => [.. _directMeshBuffer.ConsumedAttributes.Values];
         public Span<Vector3> Vertices => _directMeshBuffer.GetVertexSpan<Vector3>(VertexAttribute.Position, DirectSubMeshInfo.VertexOffset, DirectSubMeshInfo.VertexCount);
 
@@ -28,8 +28,8 @@ namespace VECS
         public Span<Vector3UInt> Faces => _directMeshBuffer.GetFaceSpan(DirectSubMeshInfo.FirstIndex, DirectSubMeshInfo.IndexCount);
         public Span<Vector3> FaceNormals => _directMeshBuffer.GetFaceNormalsSpan(DirectSubMeshInfo.FirstIndex, DirectSubMeshInfo.IndexCount);
 
-        public uint VertexCount { get => DirectSubMeshInfo.VertexCount; }
-        public uint IndexCount { get => DirectSubMeshInfo.IndexCount; }
+        public uint VertexCount => DirectSubMeshInfo.VertexCount;
+        public uint IndexCount => DirectSubMeshInfo.IndexCount;
 
         public DirectSubMesh(DirectMesh directMeshBuffer, int directSubMeshIndex)
         {
@@ -87,10 +87,13 @@ namespace VECS
             float minX = float.MaxValue;
             float minY = float.MaxValue;
             float minZ = float.MaxValue;
+
             float maxX = float.MinValue;
             float maxY = float.MinValue;
             float maxZ = float.MinValue;
+
             var vertices = Vertices;
+
             for (int i = 0; i < VertexCount; i++)
             {
                 Vector3 position = vertices[i];
@@ -106,73 +109,42 @@ namespace VECS
 
             Vector3 min = new(minX, minY, minZ);
             Vector3 max = new(maxX, maxY, maxZ);
-
-            Vector3 extents = (max - min) * 0.5f;
-            Vector3 centerAlt = (min + max) * 0.5f;
-            Vector3 center = min + extents;
-
-            float radius = float.MinValue;
-            radius = Math.Max(Vector3.Distance(center, new Vector3(min.X, min.Y, min.Z)), radius);
-            radius = Math.Max(Vector3.Distance(center, new Vector3(max.X, min.Y, min.Z)), radius);
-            radius = Math.Max(Vector3.Distance(center, new Vector3(min.X, min.Y, max.Z)), radius);
-            radius = Math.Max(Vector3.Distance(center, new Vector3(max.X, min.Y, max.Z)), radius);
-            radius = Math.Max(Vector3.Distance(center, new Vector3(min.X, max.Y, min.Z)), radius);
-            radius = Math.Max(Vector3.Distance(center, new Vector3(max.X, max.Y, min.Z)), radius);
-            radius = Math.Max(Vector3.Distance(center, new Vector3(min.X, max.Y, max.Z)), radius);
-            radius = Math.Max(Vector3.Distance(center, new Vector3(max.X, max.Y, max.Z)), radius);
-
-            _bounds = new()
+            var b = AABB.FromMinMax(min, max);
+            var size = b.Size;
+            if (MathF.Abs(size.X) < float.Epsilon)
             {
-                Bounds = new(center, extents),
-                Radius = radius,
-                Valid = true
-            };
-            _modelBounds = new(Bounds);
-            AltRecalculateRenderBounds();
+                size.X = .1f;
+            }
+            if (MathF.Abs(size.Y) < float.Epsilon)
+            {
+                size.Y = .1f;
+            }
+            if (MathF.Abs(size.Z) < float.Epsilon)
+            {
+                size.Z = .1f;
+            }
+            b.Size = size;
+            _modelBounds = b;
         }
 
-        public void AltRecalculateRenderBounds()
+        internal void SetBounds(Vector3 min, Vector3 max)
         {
-            Vector3 min = new (float.MaxValue, float.MaxValue, float.MaxValue);
-            Vector3 max = new (float.MinValue, float.MinValue, float.MinValue);
-
-            var vertices = Vertices;
-            for (int i = 0; i < VertexCount; i++)
+            var b = AABB.FromMinMax(min, max);
+            var size = b.Size;
+            if (MathF.Abs(size.X) < float.Epsilon)
             {
-                min[0] = MathF.Min(min[0], vertices[i][0]);
-                min[1] = MathF.Min(min[1], vertices[i][1]);
-                min[2] = MathF.Min(min[2], vertices[i][2]);
-
-                max[0] = MathF.Max(max[0], vertices[i][0]);
-                max[1] = MathF.Max(max[1], vertices[i][1]);
-                max[2] = MathF.Max(max[2], vertices[i][2]);
+                size.X = .1f;
             }
-
-            _bounds.Bounds.extents[0] = (max[0] - min[0]) / 2.0f;
-            _bounds.Bounds.extents[1] = (max[1] - min[1]) / 2.0f;
-            _bounds.Bounds.extents[2] = (max[2] - min[2]) / 2.0f;
-
-            _bounds.Bounds.center[0] = _bounds.Bounds.extents[0] + min[0];
-            _bounds.Bounds.center[1] = _bounds.Bounds.extents[1] + min[1];
-            _bounds.Bounds.center[2] = _bounds.Bounds.extents[2] + min[2];
-
-            //go through the vertices again to calculate the exact bounding sphere radius
-            float r2 = 0;
-            for (int i = 0; i < VertexCount; i++)
+            if (MathF.Abs(size.Y) < float.Epsilon)
             {
-
-                Vector3 offset = default;
-                offset[0] = vertices[i][0] - _bounds.Bounds.center[0];
-                offset[1] = vertices[i][1] - _bounds.Bounds.center[1];
-                offset[2] = vertices[i][2] - _bounds.Bounds.center[2];
-
-                //pithagoras
-                float distance = offset[0] * offset[0] + offset[1] * offset[1] + offset[2] * offset[2];
-                r2 = MathF.Max(r2, distance);
+                size.Y = .1f;
             }
-
-            _bounds.Radius = MathF.Sqrt(r2);
-            _modelBounds = new(Bounds);
+            if (MathF.Abs(size.Z) < float.Epsilon)
+            {
+                size.Z = .1f;
+            }
+            b.Size = size;
+            _modelBounds = b;
         }
 
         public void SimpleBindAndDraw(VkCommandBuffer cmd)
@@ -197,14 +169,14 @@ namespace VECS
             return new DirectSubMeshIndex()
             {
                 SubMesh = _directSubMeshIndex,
-                DirectMesh = DirectMesh.GetIndexOfMesh(_directMeshBuffer)
+                Hash = _directMeshBuffer.Hash
             };
         }
 
         public static DirectSubMesh GetSubMeshAtIndex(DirectSubMeshIndex directSubMeshIndex)
         {
-            var directMesh = DirectMesh.GetMeshAtIndex(directSubMeshIndex.DirectMesh);
-            return directMesh.DirectSubMeshes[directSubMeshIndex.SubMesh];
+            var directMesh = AssetDataBase<DirectMesh>.GetHashedSilentFail(directSubMeshIndex.Hash);            
+            return directMesh?.DirectSubMeshes[directSubMeshIndex.SubMesh];
         }
     }
 }

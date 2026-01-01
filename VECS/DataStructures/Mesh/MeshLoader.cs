@@ -238,8 +238,11 @@ namespace VECS.DataStructures
                         fileNames.Append(Path.GetFileName(files[i]));
                         fileNamesWithoutExtensions.Append(Path.GetFileNameWithoutExtension(files[i]));
                     }
-                    fileNames.AppendFormat(", {0}", Path.GetFileName(files[i]));
-                    fileNamesWithoutExtensions.AppendFormat(", {0}", Path.GetFileNameWithoutExtension(files[i]));
+                    else
+                    {
+                        fileNames.AppendFormat("-{0}", Path.GetFileName(files[i]));
+                        fileNamesWithoutExtensions.AppendFormat("-{0}", Path.GetFileNameWithoutExtension(files[i]));
+                    }
                 }
             }
 

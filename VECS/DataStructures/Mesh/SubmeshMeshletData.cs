@@ -8,7 +8,9 @@ namespace VECS
         public int TriangleCount;
         public int VertexOffset;
         public int TriangleOffset;
+
         public SubmeshMeshletData(){}
+
         public SubmeshMeshletData(uint meshletCount)
         {
             MeshletCount = (int)meshletCount;

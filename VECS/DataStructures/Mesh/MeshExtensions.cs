@@ -6,7 +6,6 @@ using VECS.ECS.Presentation;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 using MeshOptimizer;
-using Assimp;
 
 namespace VECS
 {
@@ -45,21 +44,21 @@ namespace VECS
             newBuffer.GetBufferAtAttribute(VertexAttribute.Position).WriteFromHostBuffer();
             newBuffer.IndexBuffer.WriteFromHostBuffer();
             //DirectMeshBuffer.RecalcualteAllNormals(newBuffer);
-            var oldIndex = DirectMesh.GetIndexOfMesh(srcMesh);
-            var newIndex = DirectMesh.GetIndexOfMesh(newBuffer);
+            var oldHash = srcMesh.Hash;
+            var newHash = newBuffer.Hash;
             var entityManager = World.DefaultWorld.EntityManager;
             var allMeshEntities = entityManager.GetAllEntitiesWithComponent<DirectSubMeshIndex>();
             allMeshEntities?.ForEach(e =>
-                {
-                    var meshIndex = entityManager.GetComponent<DirectSubMeshIndex>(e);
+            {
+                var meshIndex = entityManager.GetComponent<DirectSubMeshIndex>(e);
 
-                    if (meshIndex.DirectMesh == oldIndex)
-                    {
-                        var value = entityManager.GetComponent<DirectSubMeshIndex>(e);
-                        value.DirectMesh = newIndex;
-                        entityManager.SetComponent(e, value);
-                    }
-                });
+                if (meshIndex.Hash == oldHash)
+                {
+                    var value = entityManager.GetComponent<DirectSubMeshIndex>(e);
+                    value.Hash = newHash;
+                    entityManager.SetComponent(e, value);
+                }
+            });
             srcMesh.Dispose();
 
             for (int i = 0; i < dstSubMeshes.Length; i++)
@@ -386,7 +385,6 @@ namespace VECS
             uint[] meshletVertices,
             byte[] meshletTriangles)
         {
-            //int meshletIndexCount = meshletTriangles.Length;
             int meshletVertexCount = meshletVertices.Length;
             int meshletIndexCount = meshletTriangles.Length;
             DirectSubMeshInfo[] subMeshes = srcMesh.SubMeshInfos;
@@ -433,7 +431,6 @@ namespace VECS
             {
                 GPUBuffer.DisposalQueue.Enqueue(buffer);
             }
-
 
             buffer = new GPUBuffer(attributeStride == 12 ? 16 : attributeStride, (uint)meshletVertexCount, MESH_SHADER_VERTEX_BUFFER_FLAGS, false, false, true);
 
@@ -545,7 +542,7 @@ namespace VECS
             uint* srcIndices,
             float* srcVertices,
             Meshlet* meshlets,
-            MeshOptimizer.Bounds* meshletBounds,
+            Bounds* meshletBounds,
             uint* meshletVerts,
             byte* meshletTris
         )
@@ -652,13 +649,20 @@ namespace VECS
             var buffer = new GPUBuffer<T>(vertexCount, DIRECT_MESH_VERTEX_BUFFER_FLAGS, false, false, true);
 
             buffer.TryAllocHostBuffer(false);
+            buffer.SetGPUBufferChanged(false);
 
             return buffer;
         }
 
         public static void RecalcualteAllNormals(this DirectMesh directMesh)
         {
-            ComputeNormalsV2.DispatchSingleTimeCmd(directMesh);
+            ComputeNormals.DispatchSingleTimeCmd(directMesh);
+            directMesh.GetBufferAtAttribute(VertexAttribute.Normal).SetGPUBufferChanged(true);
+        }
+
+        public static void RecalcualteAllNormals(this DirectMesh directMesh, VkCommandBuffer commandBuffer)
+        {
+            ComputeNormals.Dispatch(commandBuffer, Presenter.Instance.FrameIndex, directMesh);
             directMesh.GetBufferAtAttribute(VertexAttribute.Normal).SetGPUBufferChanged(true);
         }
 

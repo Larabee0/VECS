@@ -1,0 +1,19 @@
+#version 460
+
+layout(set = 0, binding = 0) uniform sampler2D depthPyramid;
+
+layout (set = 0, binding = 1) writeonly buffer OutBuffer{
+    float[] depth;
+} outBuffer;
+
+
+layout(push_constant) uniform  constants{
+	vec2 uv;
+    float level;
+} samplerInfo;
+
+layout(local_size_x = 1) in;
+void main(){
+
+	outBuffer.depth[0] = textureLod(depthPyramid,samplerInfo.uv,samplerInfo.level).x;
+}

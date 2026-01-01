@@ -2,14 +2,12 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-
-
-#if LOG_BUFFER_ALLOCS
-using System.Diagnostics;
-#endif
 using System.Runtime.InteropServices;
 using VECS.LowLevel;
 using Vortice.Vulkan;
+#if LOG_BUFFER_ALLOCS
+using System.Diagnostics;
+#endif
 
 namespace VECS
 {
@@ -50,7 +48,7 @@ namespace VECS
         public unsafe void* HostPtr => _hostPtr;
         public GPUBuffer StagingBuffer => _stagingBuffer;
 
-        public virtual VkDescriptorAddressInfoEXT DeviceAddressInfo => new()
+        public VkDescriptorAddressInfoEXT DeviceAddressInfo => new()
         {
             address = _deviceBufferAddress,
             range = _vkBufferSize,
@@ -117,6 +115,7 @@ namespace VECS
             if (VkBufferSize == 0) return false;
 
             _usageFlags |= VkBufferUsageFlags.ShaderDeviceAddress;
+            
             VkBufferCreateInfo bufferInfo = new()
             {
                 size = VkBufferSize,
@@ -124,10 +123,10 @@ namespace VECS
                 sharingMode = VkSharingMode.Exclusive
             };
 
-
             VmaAllocationCreateInfo allocationInfo = new()
             {
-                usage = VmaMemoryUsage.Auto
+                usage = VmaMemoryUsage.Auto,
+                priority = 1.0f,
             };
 
             if (cpuAccessible)

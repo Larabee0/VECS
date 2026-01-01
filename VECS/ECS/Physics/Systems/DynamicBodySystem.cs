@@ -49,10 +49,10 @@ namespace VECS.ECS.Physics
                 _drawBodyDescs.GetEntities().ForEach(e =>
                 {
                     var desc = entityManager.GetComponent<DynamicBodyDescComp>(e);
-                    var shape =
-                    World.Simulation.Simulation.Shapes.GetShape<Box>(desc.Value.Collidable.Shape.Index);
-
-                    drawRenderBounds.DrawWireCube(desc.Value.Pose.Position, new(shape.Width, shape.Height, shape.Length), desc.Value.Pose.Orientation.ToEuler(), new Vector4(0, 0, 1, 1).ToVkColor());
+                    var shape = World.Simulation.Simulation.Shapes.GetShape<Box>(desc.Value.Collidable.Shape.Index);
+                    var ltw = LocalToWorldSystem.ComputeLocalTRS(entityManager, e);
+                    Matrix4x4.Decompose(ltw, out _, out var orientation, out var translation);
+                    drawRenderBounds.DrawWireCube(translation, new(shape.Width, shape.Height, shape.Length), orientation, new Vector4(0, 0, 1, 1).ToVkColor());
                 });
             }
             UpdateDynamics(entityManager);
@@ -86,8 +86,6 @@ namespace VECS.ECS.Physics
                 _updateBodyDescs.GetEntities().ForEach(e =>
                 {
                     var handle = entityManager.GetComponent<DynamicHandleComp>(e);
-                    float interpolationWeight = Time.InterpolationWeight;
-
 
                     if (World.Simulation.Simulation.Bodies.BodyExists(handle.Value))
                     {
@@ -97,6 +95,8 @@ namespace VECS.ECS.Physics
 
                         entityManager.SetComponent(e, new DynamicBodyDescComp() { Value = desc });
                         entityManager.SetComponent(e, new PrevDynamicBodyDescComp() { Value = current.Value });
+                        //entityManager.SetComponent(e, new Translation() { Value = desc.Pose.Position });
+                        //entityManager.SetComponent(e, new Rotation() { Value = desc.Pose.Orientation });
                     }
                 });
             }

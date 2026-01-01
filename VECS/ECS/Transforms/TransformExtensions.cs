@@ -11,6 +11,10 @@ namespace VECS.ECS.Transforms
     /// </summary>
     public static class TransformExtensions
     {
+        public const float Deg2Rad = (float.Pi * 2) / 360f;
+        public const float Rad2Deg = 360f/ (float.Pi * 2);
+
+
         public static Quaternion QuaternionLookRotation(Vector3 forward, Vector3 up)
         {
             forward = Vector3.Normalize( forward);
@@ -75,6 +79,7 @@ namespace VECS.ECS.Transforms
         {
             return a + (b - a) * Math.Clamp(t, 0, 1);
         }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static float InverseLerp(float a, float b, float value)
         {
@@ -103,7 +108,7 @@ namespace VECS.ECS.Transforms
             }
 
             float num2 = Math.Clamp(Vector3.Dot(from, to) / num, -1f, 1f);
-            return float.RadiansToDegrees(MathF.Acos(num2));
+            return MathF.Acos(num2) * Rad2Deg;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -203,15 +208,15 @@ namespace VECS.ECS.Transforms
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Vector3 DegreesToRadians(Vector3 euler)
+        public static Vector3 DegreesToRadians(this Vector3 euler)
         {
-            return new(float.DegreesToRadians(euler.X), float.DegreesToRadians(euler.Y), float.DegreesToRadians(euler.Z));
+            return new(Deg2Rad * euler.X, Deg2Rad * euler.Y, Deg2Rad * euler.Z);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Vector3 RadiansToDegrees(Vector3 euler)
+        public static Vector3 RadiansToDegrees(this Vector3 euler)
         {
-            return new(float.RadiansToDegrees(euler.X), float.RadiansToDegrees(euler.Y), float.RadiansToDegrees(euler.Z));
+            return new(Rad2Deg * euler.X, Rad2Deg * euler.Y, Rad2Deg * euler.Z);
         }
 
         /// <summary>
@@ -249,9 +254,9 @@ namespace VECS.ECS.Transforms
 
         public static Quaternion EulerSN(float X, float Y, float Z)
         {
-            X = float.DegreesToRadians(X);
-            Y = float.DegreesToRadians(Y);
-            Z = float.DegreesToRadians(Z);
+            X = Deg2Rad * X;
+            Y = Deg2Rad * Y;
+            Z = Deg2Rad * Z;
 
             return Quaternion.CreateFromYawPitchRoll(Y, X, Z);
         }
@@ -264,6 +269,11 @@ namespace VECS.ECS.Transforms
         public static Vector3 Sin(Vector3 x)
         {
             return new((float)Math.Sin(x.X), (float)Math.Sin(x.Y), (float)Math.Sin(x.Z));
+        }
+
+        public static Quaternion Euler(float x, float y, float z)
+        {
+            return Euler(new(x,y, z));
         }
 
         /// <summary>
@@ -320,11 +330,98 @@ namespace VECS.ECS.Transforms
             angles.Z = (float)Math.Atan2(siny_cosp, cosy_cosp);
 
             return angles;
-
-
-
-            //return RadiansToDegrees(euler);
         }
 
+        public static Vector3 ToEulerUnity(this Quaternion q)
+        {
+            Vector4 value = q.AsVector4();
+            Vector4 float5 = value * new Vector4(value.W) * new Vector4(2f);
+            Vector4 float6 = value * new Vector4(value.Y,value.Z,value.X,value.W) * new Vector4(2f);
+            Vector4 float7 = value * value;
+            Vector3 zero = Vector3.Zero;
+            float num = float6.Z - float5.Y;
+
+            if(num * num < 99999595f)
+            {
+                float y = float6.Y + float5.X;
+                float x = float7.Z + float7.W - float7.Y - float7.X;
+                float y2 = float6.X + float5.Z;
+                float x2 = float7.X + float7.W - float7.Y - float7.Z;
+                return new  Vector3(MathF.Atan2(y, x), 0f - MathF.Asin(num), MathF.Atan2(y2, x2));
+            }
+
+            num = Math.Clamp(num, -1f, 1f);
+            Vector4 float8 = new(float6.Z, float5.Y, float6.X, float5.Z);
+            float y3 = 2f * (float8.X * float8.W + float8.Y * float8.Z);
+            float x3 = Csum(float8 * float8 * new Vector4(-1f, 1f, -1f, 1f));
+            var euler = new Vector3(MathF.Atan2(y3, x3), 0f - MathF.Asin(num), 0f);
+
+            return euler * 57.29578f;
+        }
+
+        public static Quaternion EulerUnity(float x ,float y, float z)
+        {
+            Vector3 euler = new Vector3
+            {
+                X = x * (MathF.PI / 180f),
+                Y = y * (MathF.PI / 180f),
+                Z = z * (MathF.PI / 180f)
+            };
+            return EulerUnity(euler);
+        }
+
+        public static Quaternion EulerUnity(this Vector3 xyz)
+        {
+            var sinCosIn = 0.5f * xyz;
+            
+            var s = Vector3.Sin(sinCosIn);
+            var c = Vector3.Cos(sinCosIn);
+
+            var vec = new Vector4(s.X, s.Y, s.Z, c.X) * new Vector4(c.Y, c.X, c.X, c.Y) * new Vector4(c.Z, c.Z, c.Y, c.Z) + new Vector4(s.Y, s.X, s.X, s.Y) * new Vector4(s.Z, s.Z, s.Y, s.Z) * new Vector4(c.X, c.Y, c.Z, s.X) * new Vector4(-1f, 1f, -1f, 1f);
+            return new Quaternion(vec.X, vec.Y, vec.Z, vec.W);
+        }
+        public static Vector3 EulerMakePositive(this Vector3 euler)
+        {
+            float num = -0.005729578f;
+            float num2 = 360f + num;
+            if (euler.X < num)
+            {
+                euler.X += 360f;
+            }
+            else if (euler.X > num2)
+            {
+                euler.X -= 360f;
+            }
+
+            if (euler.Y < num)
+            {
+                euler.Y += 360f;
+            }
+            else if (euler.Y > num2)
+            {
+                euler.Y -= 360f;
+            }
+
+            if (euler.Z < num)
+            {
+                euler.Z += 360f;
+            }
+            else if (euler.Z > num2)
+            {
+                euler.Z -= 360f;
+            }
+
+            return euler;
+        }
+
+        public static float Csum(Vector4 x)
+        {
+            return x.X + x.Y + (x.Z + x.W);
+        }
+
+        public static Vector4 Plane(Vector3 p1, Vector3 norm)
+        {
+            return new (Vector3.Normalize(norm),Vector3.Dot(norm,p1));
+        }
     }
 }

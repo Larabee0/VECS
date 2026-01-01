@@ -5,7 +5,8 @@
         public static int ComponentId { get; set; }
         public readonly int Id => ComponentId;
 
-        public int Index;
+        public bool Transparent;
+        public int Hash;
         public int Variant;
         public int Entity;
     }

@@ -14,6 +14,8 @@
         public float ClipNear;
         public float ClipFar;
         public bool fustrumCulling;
+        public bool dstCull;
+        public bool depthCull;
 
     }
 }

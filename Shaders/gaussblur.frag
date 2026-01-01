@@ -4,21 +4,7 @@ layout (location = 0) in vec2 inUV;
 
 layout (location = 0) out vec4 outFragColor;
 
-struct PointLight {
-	vec4 position; // ignore w
-	vec4 colour; // w is intensity
-};
-
-layout(set = 0, binding = 0) uniform GlobalUbo{
-	mat4 projectionMatrix;
-	mat4 viewMatrix;
-	mat4 inverseViewMatrix;
-	vec4 ambientLightColour;
-	int numLights;
-	PointLight pointLights[10];
-} ubo;
-
-layout (set = 1, binding = 0) uniform sampler2D samplerColor;
+layout (set = 0, binding = 0) uniform sampler2D samplerColor;
 
 layout(push_constant) uniform constants
 {

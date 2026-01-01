@@ -66,6 +66,7 @@ namespace VECS.ECS
             List<Type> components = [];
             Type icomp = typeof(IComponent);
             allTypes.Remove(icomp);
+            allTypes.Remove(typeof(IRenderBuffer));
             foreach (var type in allTypes)
             {
                 if (icomp.IsAssignableFrom(type))
@@ -397,6 +398,11 @@ namespace VECS.ECS
         public T GetComponent<T>(int signature) where T : IComponent
         {
             return (T)_compSignatureToCompReference[signature];
+        }
+
+        public IComponent GetComponent(int signature)
+        {
+            return _compSignatureToCompReference[signature];
         }
 
         /// <summary>

@@ -12,45 +12,27 @@ namespace VECS
         public readonly string Name;
         public readonly DescriptorPropertyInfo[] Variables;
         public readonly VkPushConstantRange VkPushConstantRange;
-        public readonly VkShaderStageFlags ShaderStages;
-        public readonly uint Offset;
-        public readonly uint Size;
+        public readonly uint BufferOffset;
+        public VkShaderStageFlags ShaderStages => VkPushConstantRange.stageFlags;
+        public uint ShaderOffset => VkPushConstantRange.offset;
+        public uint BlockSize => VkPushConstantRange.size;
 
-        private readonly byte[] _pushConstantBuffer;
-
-        public PushConstantsInfo(SpvReflectBlockVariable pushConstantBlock, VkShaderStageFlags shaderStages)
+        public PushConstantsInfo(SpvReflectBlockVariable pushConstantBlock, VkShaderStageFlags shaderStages, uint bufferOffset)
         {
-            ShaderStages = shaderStages;
+            Name = pushConstantBlock.Name;
             Variables = [.. SPIRVReflectUtil.GetBlockMembers("",pushConstantBlock)];
-            Offset = pushConstantBlock.offset;
-            Size = pushConstantBlock.size;
+            BufferOffset = bufferOffset;
             VkPushConstantRange = new()
             {
-                stageFlags = ShaderStages,
-                offset = Offset,
-                size = Size
+                stageFlags = shaderStages,
+                offset = pushConstantBlock.offset,
+                size = pushConstantBlock.size
             };
-            _pushConstantBuffer = new byte[Size];
         }
 
-        public PushConstantsInfo(PushConstantsInfo source)
+        private DescriptorPropertyInfo GetProperty(string name)
         {
-            ShaderStages = source.ShaderStages;
-            Variables = source.Variables;
-            Offset = source.Offset;
-            Size = source.Size;            
-            VkPushConstantRange = new()
-            {
-                stageFlags = ShaderStages,
-                offset = Offset,
-                size = Size
-            };
-            _pushConstantBuffer = new byte[Size];
-        }
-
-
-        public DescriptorPropertyInfo GetProperty(string name)
-        {
+           
             string topLevelMemberName = name;
             int subPropertyIndex = name.IndexOf('.');
 
@@ -78,45 +60,38 @@ namespace VECS
             return topLevelMember;
         }
 
-        public bool WriteToPushConstantBuffer<T>(string property, T value) where T : unmanaged
+        public bool WriteToPushConstantBuffer<T>(Span<byte> buffer, string property, T value) where T : unmanaged
         {
+            if(property == Name)
+            {
+                WriteToPushConstantBuffer(buffer, 0, value);
+                return true;
+            }
             var propertyInfo = GetProperty(property);
             if (propertyInfo != null)
             {
-                WriteToPushConstantBuffer((int)propertyInfo.Offset, value);
+                WriteToPushConstantBuffer(buffer, (int)propertyInfo.Offset, value);
                 return true;
             }
             else
             {
-                Console.WriteLine("Failed to find property {0}", property);
+                Console.WriteLine("PUSH CONST Failed to find property {0}", property);
             }
             return false;
         }
 
-        public unsafe void WriteToPushConstantBuffer<T>(int offset, T value) where T : unmanaged
+        public unsafe void WriteToPushConstantBuffer<T>(Span<byte> buffer, int offset, T value) where T : unmanaged
         {
-            Debug.Assert(sizeof(T) + offset <= Size, "Push constant element is larger with offset than the buffer has capacity");
-            fixed (void* pPushConstant = &_pushConstantBuffer[0])
-            {
-                var ptr = new IntPtr(pPushConstant);
-                ptr = IntPtr.Add(ptr, offset);
-                NativeMemory.Copy(&value, (void*)ptr, (uint)sizeof(T));
-            }
+            Debug.Assert(sizeof(T) + offset <= BlockSize, "Push constant element is larger with offset than the buffer has capacity");
+            buffer = buffer.Slice(offset, sizeof(T));
+            MemoryMarshal.Write(buffer, value);
         }
 
-        internal unsafe void PushConstants(RendererFrameInfo rendererFrameInfo, VkPipelineLayout pipelineLayout)
+        internal unsafe void PushConstants(Span<byte> buffer, VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout)
         {
-            fixed (byte* pPushConstants = &_pushConstantBuffer[0])
+            fixed (byte* pPushConstants = &buffer[0])
             {
-                GraphicsDevice.DeviceAPI.vkCmdPushConstants(rendererFrameInfo.CommandBuffer, pipelineLayout, ShaderStages, Offset, Size, pPushConstants);
-            }
-        }
-
-        internal unsafe void PushConstants(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout)
-        {
-            fixed (byte* pPushConstants = &_pushConstantBuffer[0])
-            {
-                GraphicsDevice.DeviceAPI.vkCmdPushConstants(commandBuffer, pipelineLayout, ShaderStages, Offset, Size, pPushConstants);
+                GraphicsDevice.DeviceAPI.vkCmdPushConstants(commandBuffer, pipelineLayout, ShaderStages, ShaderOffset, BlockSize, pPushConstants);
             }
         }
     }

@@ -9,12 +9,12 @@ namespace VECS
         public string AssetName;
         public string Label;
         public string Description;
-        public int Hash;
+        public int _hash;
+        public int Hash => GetHashCode();
         private bool _cachedHash = false;
         public int Index = int.MaxValue;
         public string FileName;
         public bool Generated;
-
 
         public override string ToString()
         {
@@ -25,10 +25,10 @@ namespace VECS
         {
             if (_cachedHash)
             {
-                return Hash;
+                return _hash;
             }
             _cachedHash = true;
-            Hash = AssetName.GetHashCode();
+            _hash = AssetName.GetHashCode();
             return GetHashCode();
         }
         

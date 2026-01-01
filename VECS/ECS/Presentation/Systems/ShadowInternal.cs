@@ -1,15 +1,11 @@
-using System;
-using System.Collections.Generic;
 using System.Numerics;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
 namespace VECS.ECS.Presentation
 {
-    internal class ShadowInternal : RenderSystemInternal
+    internal class ShadowInternal
     {
-        private readonly ShadowRenderBlob _shadowRenderBlob;
-
         private readonly VkCommandBuffer[][] _freeBuffers = new VkCommandBuffer[SwapChain.MAX_CONCURRENT_FRAMES][];
 
         public unsafe ShadowInternal()
@@ -19,99 +15,102 @@ namespace VECS.ECS.Presentation
             {
                 _freeBuffers[i] = new VkCommandBuffer[7];
             }
-            _shadowRenderBlob = new(MaterialV2.ShadowOffscreen, GenericRenderSystem.MAX_DRAWS);
+            DrawBlob.AllInOneMats.Add(EngineMaterials.ShadowOffscreen.Hash);
         }
 
-        public override void GenerateDrawCmds(RendererFrameInfo frameInfo, EntityManager entityManager, List<Entity> entities)
+        public void RenderShadows(RendererFrameInfo frameInfo)
         {
-            if (_shadowRenderBlob.DrawCount != entities.Count)
+            Material shadowOffscreen = EngineMaterials.ShadowOffscreen;
+
+            Matrix4x4 projection = ShadowImage.CubeProjectionMatrix;
+            Matrix4x4 model = Matrix4x4.CreateTranslation(frameInfo.PointLights[0].Position.AsVector3());
+            shadowOffscreen.SetMatrix4x4("cubeConstant.cubeProj".GetShaderPropertyId(),0, projection);
+            shadowOffscreen.SetMatrix4x4("cubeConstant.cubeModel".GetShaderPropertyId(),0, model);
+
+            shadowOffscreen.PushConstants.EnsureCapacity(6);
+            Material.Update(shadowOffscreen, frameInfo);
+            Presenter.Instance.ShadowImage.SetImageLayoutWrite(frameInfo.CommandBuffer);
+#pragma warning disable CS0162
+            if (DrawBlob.MULTI_THREAD_RENDERING)
             {
-                _shadowRenderBlob.RebuildBlob(entityManager, entities);
+                VkCommandBuffer[] parallelCmdBuffers = _freeBuffers[frameInfo.FrameIndex];
+
+                for (int i = 0; i < parallelCmdBuffers.Length; i++)
+                {
+                    if (parallelCmdBuffers[i].IsNull)
+                    {
+                        unsafe
+                        {
+                            GraphicsDevice.DeviceAPI.vkAllocateCommandBuffer(GraphicsDevice.Device, GraphicsDevice.SecondaryMainPipeCommandBuffers[i], VkCommandBufferLevel.Secondary, out parallelCmdBuffers[i]).CheckResult("Failed to allocate command buffer!");
+                        }
+                    }
+                }
+
+                Application.ParallelFor(6, (i) =>
+                {
+                    RenderShadow(frameInfo, i, model, parallelCmdBuffers);
+                });
+
+                unsafe
+                {
+                    fixed (VkCommandBuffer* pCmdBuffers = &parallelCmdBuffers[0])
+                    {
+                        GraphicsDevice.DeviceAPI.vkCmdExecuteCommands(frameInfo.CommandBuffer, 6, pCmdBuffers);
+                    }
+                }
             }
             else
             {
-                _shadowRenderBlob.UpdateDrawCommands(entityManager);
-            }
-
-
-            RenderShadows(frameInfo, entities.Count);
-        }
-
-        private unsafe void RenderShadows(RendererFrameInfo frameInfo, int drawCount)
-        {
-            MaterialV2 shadowOffscreen = MaterialV2.ShadowOffscreen;
-            shadowOffscreen.SetStorageBufferLength(0, (uint)drawCount);
-
-            Matrix4x4 projection = Matrix4x4.CreatePerspectiveFieldOfView(MathF.PI * 0.5f, 1.0f, 0.1f, ShadowImage.SHADOW_IMAGE_SIZE);
-            Matrix4x4 model = Matrix4x4.CreateTranslation(frameInfo.Ubo.PointLights[0].Position.AsVector3());
-            shadowOffscreen.SetMatrix4x4("cubeConstant.cubeProj".GetHashCode(),0, projection);
-            shadowOffscreen.SetMatrix4x4("cubeConstant.cubeModel".GetHashCode(),0, model);
-
-            Matrix4x4 projectionT = Matrix4x4.Transpose(projection);
-            Vector4 frustrumX = (projectionT.GetMatrixRow(3) + projectionT.GetMatrixRow(0)).NormalizePlane();
-            Vector4 frustrumY = (projectionT.GetMatrixRow(3) + projectionT.GetMatrixRow(1)).NormalizePlane();
-            Vector4 frustum = new(frustrumX.X, frustrumX.Z, frustrumY.Y, frustrumY.Z);
-            CullData cullData = frameInfo.cullData;
-            cullData.P00 = projection[0, 0];
-            cullData.P11 = projection[1, 1];
-            cullData.znear = 0.1f;
-            cullData.zfar = ShadowImage.SHADOW_IMAGE_SIZE;
-            cullData.frustum = frustum;
-            VkCommandBuffer[] parallelCmdBuffers = _freeBuffers[frameInfo.FrameIndex];
-
-            for (int i = 0; i < parallelCmdBuffers.Length; i++)
-            {
-                if (parallelCmdBuffers[i].IsNull)
+                for (int i = 0; i < 6; i++)
                 {
-                    GraphicsDevice.DeviceAPI.vkAllocateCommandBuffer(GraphicsDevice.Device, GraphicsDevice.SecondaryMainPipeCommandBuffers[i], VkCommandBufferLevel.Secondary, out parallelCmdBuffers[i]).CheckResult("Failed to allocate command buffer!");
+                    RenderShadow(frameInfo, i, model, null);
                 }
             }
-
-            shadowOffscreen.PushConstants.EnsureCapacity(6);
-            MaterialV2.Update(shadowOffscreen, frameInfo);
-            Presenter.Instance.ShadowImage.SetImageLayoutWrite(frameInfo.CommandBuffer);
-
-            Application.ParallelFor(6, (i) =>
-            {
-                RenderShadow(frameInfo, drawCount, i, model, cullData, parallelCmdBuffers);
-            });
-
-            fixed (VkCommandBuffer* pCmdBuffers = &parallelCmdBuffers[0])
-            {
-                GraphicsDevice.DeviceAPI.vkCmdExecuteCommands(frameInfo.CommandBuffer, 6, pCmdBuffers);
-            }
+#pragma warning restore CS0162
             Presenter.Instance.ShadowImage.SetImageLayoutRead(frameInfo.CommandBuffer);
         }
 
-        private unsafe void RenderShadow(RendererFrameInfo frameInfo, int drawCount, int i, Matrix4x4 model, CullData cullData, VkCommandBuffer[] parallelCmdBuffers)
+        private static void RenderShadow(RendererFrameInfo frameInfo, int i, Matrix4x4 model, VkCommandBuffer[] parallelCmdBuffers)
         {
-            VkCommandBufferInheritanceInfo inheritanceInfo = new() { };
-            VkCommandBufferBeginInfo bufferBeginInfo = new() { pInheritanceInfo = &inheritanceInfo };
-            VkCommandBuffer internalBuffer = parallelCmdBuffers[i];
-            GraphicsDevice.DeviceAPI.vkBeginCommandBuffer(internalBuffer, &bufferBeginInfo);
-            CullData cullDataInternal = cullData;
-            var viewMatrix = ShadowImage.GetViewMatrixForFace(i);
-            cullDataInternal.viewMatrix = viewMatrix * model;
-            VkBufferMemoryBarrier2 memoryBarrier = FustrumCull.Cull(internalBuffer, frameInfo.FrameIndex, cullData, (uint)drawCount, _shadowRenderBlob.IndirectCmdBuffer, _shadowRenderBlob.ModelBoundsBuffer);
-            
-            if (!FustrumCull.CPUCulling)
+            VkCommandBuffer internalBuffer = frameInfo.CommandBuffer;
+            if (DrawBlob.MULTI_THREAD_RENDERING)
             {
-                MemoryBarrierHelper.BufferMemoryBarrier(internalBuffer, memoryBarrier, VkPipelineStageFlags2.ComputeShader, VkPipelineStageFlags2.DrawIndirect);
+#pragma warning disable CS0162
+                unsafe
+                {
+                    VkCommandBufferInheritanceInfo inheritanceInfo = new() { };
+                    VkCommandBufferBeginInfo bufferBeginInfo = new() { pInheritanceInfo = &inheritanceInfo };
+                    internalBuffer = parallelCmdBuffers[i];
+                    GraphicsDevice.DeviceAPI.vkBeginCommandBuffer(internalBuffer, &bufferBeginInfo);
+                }
+#pragma warning restore CS0162
             }
-            Presenter.Instance.ShadowImage.UpdateCubeFace(i, internalBuffer);
-            MaterialV2.ShadowOffscreen.PushConstants.SetPushConstantMatrix4x4("viewCube", i, viewMatrix);
 
-            _shadowRenderBlob.Draw(internalBuffer, frameInfo.FrameIndex, i);
+            var viewMatrix = ShadowImage.GetViewMatrixForFace(i) * model;
+            var proj = ShadowImage.CubeProjectionMatrix;
+
+            CullData cullDataInternal = new(ShadowImage.SHADOW_INCLUDE_MASK,ShadowImage.SHADOW_EXCLUDE_MASK, ShadowImage.SHADOW_CULLING, ShadowImage.SHADOW_DST_CULLING, ShadowImage.SHADOW_DEPTH_CULLING,frameInfo.CullData.zNear, viewMatrix * proj,viewMatrix);
+
+
+            EngineMaterials.ShadowOffscreen.PushConstants.SetPushConstantMatrix4x4("viewCube", i, viewMatrix);
+
+
+            DrawBlob.CullAllInOne(frameInfo, internalBuffer, cullDataInternal);
+            
+            Presenter.Instance.ShadowImage.UpdateCubeFace(i, internalBuffer);
+
+            DrawBlob.ExecuteAllInOneOpaqueDrawCmds(frameInfo, internalBuffer, EngineMaterials.ShadowOffscreen.Hash, i);
 
             Presenter.Instance.ShadowImage.EndShadowPass(internalBuffer);
-            GraphicsDevice.DeviceAPI.vkEndCommandBuffer(internalBuffer);
-        }
 
-        public override void Dispose()
-        {
-            GC.SuppressFinalize(this);
-            _shadowRenderBlob.Dispose();
-            GC.ReRegisterForFinalize(this);
+            DrawBlob.IndirectToComputeMemoryBarrierAllInOne(internalBuffer);
+
+            if (DrawBlob.MULTI_THREAD_RENDERING)
+            {
+#pragma warning disable CS0162
+                GraphicsDevice.DeviceAPI.vkEndCommandBuffer(internalBuffer);
+#pragma warning restore CS0162
+            }
         }
     }
 }
