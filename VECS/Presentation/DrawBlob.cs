@@ -438,7 +438,7 @@ namespace VECS
 
             if (!lastRenderMesh.Material.Transparent)
             {
-                _firstTransparentByMat = _drawEntitiesByMat.Length;
+                _firstTransparentByMat = _drawCommandsByMat.Length;
             }
 
             _materialBufferRegions.AddOrUpdate(lastRenderMesh.Material.Hash, storageBufferRegion, (key, value) => storageBufferRegion);

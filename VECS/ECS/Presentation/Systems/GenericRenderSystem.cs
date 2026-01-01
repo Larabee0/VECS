@@ -136,28 +136,12 @@ namespace VECS.ECS.Presentation
         public override void OnPreTransparentPass(EntityManager entityManager, RendererFrameInfo frameInfo)
         {
 
-            if (!_renderEntityQuery.HasEntities)
+            if (DrawBlob.TransparentCmdCountByMat == 0 && DrawBlob.TransparentcmdCountByMesh == 0)
             {
                 return;
             }
 
             Presenter.Instance.ForwardRenderer.OITransparencyPass(frameInfo);
-            return;
-            VkCommandBuffer commandBuffer = frameInfo.CommandBuffer;
-
-            var cullData = frameInfo.CullData;
-            cullData.depthCulling = 0;
-
-            DrawBlob.CullAllInOne(frameInfo, cullData);
-
-            DrawBlob.IndirectToComputeMemoryBarrierAllInOne(commandBuffer);
-
-
-            Presenter.Instance.ForwardRenderer.BeginForwardDepthOnlyRendering(commandBuffer,VkAttachmentLoadOp.Load);
-
-            DrawBlob.ExecuteAllInOneTransparentDrawCmds(frameInfo, commandBuffer, EngineMaterials.DepthOnly.Hash);
-
-            Presenter.Instance.ForwardRenderer.EndForwardDepthOnlyRendering(commandBuffer);
         }
 
         public override unsafe void OnTransparentPass(EntityManager entityManager, RendererFrameInfo frameInfo)

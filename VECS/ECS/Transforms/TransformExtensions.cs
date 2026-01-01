@@ -334,31 +334,75 @@ namespace VECS.ECS.Transforms
 
         public static Vector3 ToEulerUnity(this Quaternion q)
         {
-            Vector4 value = q.AsVector4();
-            Vector4 float5 = value * new Vector4(value.W) * new Vector4(2f);
-            Vector4 float6 = value * new Vector4(value.Y,value.Z,value.X,value.W) * new Vector4(2f);
-            Vector4 float7 = value * value;
-            Vector3 zero = Vector3.Zero;
-            float num = float6.Z - float5.Y;
 
-            if(num * num < 99999595f)
+            const float epsilon = 1e-6f;
+            const float cutoff = (1f - 2f * epsilon) * (1f - 2f * epsilon);
+
+            // prepare the data
+            var qv = new Vector4(q.X, q.Y, q.Z, q.W);
+            var d1 = qv * new Vector4(qv.W) * new Vector4(2f); //xw, yw, zw, ww
+            var d2 = qv * new Vector4(qv.Y, qv.Z, qv.X, qv.W) * new Vector4(2f); //xy, yz, zx, ww
+            var d3 = qv * qv;
+            var euler = Vector3.Zero;
+
+            var y1 = d2.Z - d1.Y;
+            if (y1 * y1 < cutoff)
             {
-                float y = float6.Y + float5.X;
-                float x = float7.Z + float7.W - float7.Y - float7.X;
-                float y2 = float6.X + float5.Z;
-                float x2 = float7.X + float7.W - float7.Y - float7.Z;
-                return new  Vector3(MathF.Atan2(y, x), 0f - MathF.Asin(num), MathF.Atan2(y2, x2));
+                var x1 = d2.Y + d1.X;
+                var x2 = d3.Z + d3.W - d3.Y - d3.X;
+                var z1 = d2.X + d1.Z;
+                var z2 = d3.X + d3.W - d3.Y - d3.Z;
+                euler = new Vector3(MathF.Atan2(x1, x2), -MathF.Asin(y1), MathF.Atan2(z1, z2));
             }
+            else //xzx
+            {
+                y1 = Math.Clamp(y1, -1f, 1f);
+                var abcd = new Vector4(d2.Z, d1.Y, d2.X, d1.Z);
+                var x1 = 2f * (abcd.X * abcd.W + abcd.Y * abcd.Z); //2(ad+bc)
+                var x2 = Csum(abcd * abcd * new Vector4(-1f, 1f, -1f, 1f));
+                euler = new Vector3(MathF.Atan2(x1, x2), -MathF.Asin(y1), 0f);
+            }
+            return euler;
+        }
+        public static Vector3 ToEulerDeg(this Quaternion rotation)
+        {
+            float sqw = rotation.W * rotation.W;
+            float sqx = rotation.X * rotation.X;
+            float sqy = rotation.Y * rotation.Y;
+            float sqz = rotation.Z * rotation.Z;
+            float unit = sqx + sqy + sqz + sqw; // if normalised is one, otherwise is correction factor
+            float test = rotation.X * rotation.W - rotation.Y * rotation.Z;
 
-            num = Math.Clamp(num, -1f, 1f);
-            Vector4 float8 = new(float6.Z, float5.Y, float6.X, float5.Z);
-            float y3 = 2f * (float8.X * float8.W + float8.Y * float8.Z);
-            float x3 = Csum(float8 * float8 * new Vector4(-1f, 1f, -1f, 1f));
-            var euler = new Vector3(MathF.Atan2(y3, x3), 0f - MathF.Asin(num), 0f);
-
-            return euler * 57.29578f;
+            if (test > 0.4995f * unit)
+            { // singularity at north pole
+                float Y = 2f * MathF.Atan2(rotation.Y, rotation.X);
+                float X = MathF.PI / 2;
+                float Z = 0;
+                Vector3 v = new Vector3(X, Y, Z);
+                return NormalizeAngles(Rad2Deg * v);
+            }
+            if (test < -0.4995f * unit)
+            { // singularity at south pole
+                float Y = -2f * MathF.Atan2(rotation.Y, rotation.X);
+                float X = -MathF.PI / 2;
+                float Z = 0;
+                Vector3 v = new Vector3(X, Y, Z);
+                return NormalizeAngles(Rad2Deg * v);
+            }
+            Quaternion q = new Quaternion(rotation.Y, rotation.W, rotation.Z, rotation.X);
+            float y = MathF.Atan2(2f * q.X * q.W + 2f * q.Y * q.Z, 1 - 2f * (q.Z * q.Z + q.W * q.W));     // Yaw
+            float x = MathF.Asin(2f * (q.X * q.Z - q.W * q.Y));                             // Pitch
+            float z = MathF.Atan2(2f * q.X * q.Y + 2f * q.Z * q.W, 1 - 2f * (q.Y * q.Y + q.Z * q.Z));      // Roll
+            return NormalizeAngles(Rad2Deg * new Vector3(x, y, z));
         }
 
+        private static Vector3 NormalizeAngles(Vector3 angles)
+        {
+            float X = 360f - angles.X;
+            float Y = 180f - angles.Z;
+            float Z = angles.Y;
+            return new Vector3(X, Y, Z);
+        }
         public static Quaternion EulerUnity(float x ,float y, float z)
         {
             Vector3 euler = new Vector3

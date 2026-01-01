@@ -297,7 +297,7 @@ namespace VECS.ECS.Presentation
                 rotationInput.Y = -look.Y * lookSpeed;
                 rotationInput.X = -look.X * lookSpeed;
                 
-                var euler = rotation.Value.ToEuler().RadiansToDegrees().EulerMakePositive();
+                var euler = rotation.Value.ToEulerDeg().EulerMakePositive();
 
                 
                 
@@ -305,19 +305,12 @@ namespace VECS.ECS.Presentation
                 float newRotationY = euler.Y + rotationInput.X;
 
                 float newRotationX = (rotationX - rotationInput.Y);
-                if (rotationX <= 90f && newRotationX >= 0f)
-                    newRotationX = Math.Clamp(newRotationX, 0, 90f);
+                if (rotationX <= 87f && newRotationX >= 0f)
+                    newRotationX = Math.Clamp(newRotationX, 0, 87f);
                 if (rotationX >= 270f)
-                    newRotationX = Math.Clamp(newRotationX, 270f, 360f);
+                    newRotationX = Math.Clamp(newRotationX, 273f, 360f);
 
-                //Console.WriteLine("<{0}, {1}>", newRotationX, newRotationY);
-                newRotationX = newRotationX;
-                newRotationY = newRotationY;
-
-                Console.WriteLine(new Vector3(newRotationX, newRotationY, euler.Z).ToString());
                 rotation.Value =  TransformExtensions.EulerUnity(newRotationX, newRotationY, euler.Z);
-                rotation.Value = Quaternion.CreateFromYawPitchRoll(TransformExtensions.Deg2Rad * newRotationY, TransformExtensions.Deg2Rad * newRotationX, TransformExtensions.Deg2Rad * euler.Z);
-                Console.WriteLine(rotation.Value.ToString());
                 entityManager.SetComponent(entity, rotation);
             }
 

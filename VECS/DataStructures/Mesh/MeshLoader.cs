@@ -1,4 +1,8 @@
-﻿using Assimp;
+﻿#define AssimpLogging
+
+
+using Assimp;
+using Assimp.Unmanaged;
 using Mikktspace.NET;
 using System;
 using System.Collections.Generic;
@@ -7,15 +11,85 @@ using System.Linq;
 using System.Numerics;
 using System.Text;
 
+using Material = Assimp.Material;
+
 namespace VECS.DataStructures
 {
+    public class MaterialInfo
+    {
+        public string Name;
+        public string DiffuseTexture;
+        public Vector4 DiffuseColour;
+        public List<int> appliesTo = new();
+
+        public MaterialInfo(Assimp.Material mat,string meshFileName)
+        {
+            Name = mat.Name;
+            if (mat.HasTextureDiffuse)
+            {
+                DiffuseTexture = Path.Combine(TextureLoader.DefaultTexturePath, meshFileName, Path.GetFileName(mat.TextureDiffuse.FilePath));
+            }
+            
+
+            DiffuseColour = mat.ColorDiffuse.ToColor();
+        }
+    }
+
     public static class MeshLoader
     {
+        private const bool ASSIMP_VERBOSE_LOGGING = false;
         public static string DefaultMeshPath => Path.Combine(Asset.AssetsPath, "Models");
 
         public static string GetMeshInDefaultPath(string file)
         {
             return Path.Combine(DefaultMeshPath, file);
+        }
+
+        public static void LoadModelFromFile(string filePath, out DirectSubMesh[] meshes, out MaterialInfo[] materialInfo)
+        {
+            if (!File.Exists(filePath))
+            {
+                meshes = null;
+                materialInfo = null;
+                return;
+            }
+
+            AssimpContext importer = new();
+#if AssimpLogging
+            var logger = StartAssimpLogger(ASSIMP_VERBOSE_LOGGING);
+#endif
+            Scene scene = importer.ImportFile(filePath, PostProcessSteps.JoinIdenticalVertices | PostProcessSteps.RemoveRedundantMaterials);
+
+            if (scene == null)
+            {
+                meshes = null;
+                materialInfo = null;
+                return;
+            }
+            var directMeshName = Path.GetFileNameWithoutExtension(filePath);
+            meshes = CreateMeshes(directMeshName, scene, null);
+            meshes[0].DirectMeshBuffer.FileName = Path.GetFileName(filePath);
+
+
+            materialInfo = new MaterialInfo[scene.MaterialCount];
+
+            for (int i = 0; i < scene.MaterialCount; i++)
+            {
+                var mat = scene.Materials[i];
+
+                materialInfo[i] = new MaterialInfo(mat, directMeshName);
+            }
+
+            for (int i = 0; i < scene.MeshCount; i++)
+            {
+                materialInfo[scene.Meshes[i].MaterialIndex].appliesTo.Add(i);
+            }
+
+#if AssimpLogging
+            StopAssimpLogger(logger);
+#endif
+            importer.Dispose();
+            
         }
 
         public static DirectSubMesh[] LoadModelFromFile(string filePath, VertexAttributeDescription[] additionalAttributes)
@@ -26,7 +100,11 @@ namespace VECS.DataStructures
             }
 
             AssimpContext importer = new();
+#if AssimpLogging
+            var logger = StartAssimpLogger(ASSIMP_VERBOSE_LOGGING);
+#endif
             Scene scene = importer.ImportFile(filePath, PostProcessSteps.JoinIdenticalVertices);
+
             if (scene == null)
             {
                 return null;
@@ -34,10 +112,36 @@ namespace VECS.DataStructures
             var directMeshName = Path.GetFileNameWithoutExtension(filePath);
             var meshes = CreateMeshes(directMeshName, scene, additionalAttributes);
             meshes[0].DirectMeshBuffer.FileName = Path.GetFileName(filePath);
+#if AssimpLogging
+            StopAssimpLogger(logger);
+#endif
             importer.Dispose();
             return meshes;
         }
 
+
+#if AssimpLogging
+        private static LogStream StartAssimpLogger(bool verbose)
+        {
+            var logStream = new LogStream(AssipLog);
+            AssimpLibrary.Instance.EnableVerboseLogging(verbose);
+            logStream.Attach();
+
+            return logStream;
+        }
+
+        private static void StopAssimpLogger(LogStream logStream)
+        {
+            logStream.Detach();
+            logStream.Dispose();
+        }
+
+        private static void AssipLog(string msg, string usrData)
+        {
+            Console.WriteLine("LOG: {0}\nUsrData: {1}", msg, usrData);
+        }
+
+#endif
         public static DirectSubMesh[] CreateMeshes(string directMeshName,Scene scene, VertexAttributeDescription[] additionalAttributes)
         {
             VertexAttributeDescription[] attributeDescriptions = GetAttributesFromScene(scene);

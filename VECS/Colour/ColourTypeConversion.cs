@@ -58,7 +58,7 @@ namespace VECS
 
         public static Vec4Colour ToColor(this AssimpColour c)
         {
-            return new Vec4Colour((float)(int)c.R / 255f, (float)(int)c.G / 255f, (float)(int)c.B / 255f, (float)(int)c.A / 255f);
+            return new Vec4Colour(c.R, c.G , c.B, c.A );
         }
 
         public static Vec4Colour FromHex(string hex)

@@ -93,8 +93,8 @@ void main()
 
 	vec4 textureColour = texture(texSampler,fragUV* textureProperties.tiling );
 	// outColour = vec4(fragUV,0,1);
-	//outColour = vec4(1);
-	outColour = textureColour*fragColour*textureProperties.colour;
+	outColour = textureColour * fragColour * textureProperties.colour;
+	// outColour = vec4(1);
 	//outColour = vec4(diffuseLight  * textureColour.xyz + specularLight * textureColour.xyz, 1.0);
 	//outColour = vec4(diffuseLight  * fragColour, 1.0);
 	

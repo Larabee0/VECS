@@ -369,10 +369,10 @@ namespace VECS
                 return;
             }
             length = Math.Max(1, length);
-            TryCreateVariant(variant);
 
             for (uint i = 0; i < _variantCount; i++)
             {
+                TryCreateVariant(i);
                 MaterialVariant matVariant = _matVariants[i];
                 _preBindUpdate |= matVariant.SetStorageBufferLength(descriptorIndex, length);
             }

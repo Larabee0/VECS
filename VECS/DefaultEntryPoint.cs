@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Numerics;
 using VECS.DataStructures;
 using VECS.ECS;
@@ -16,9 +17,9 @@ namespace VECS
 
         private static CameraPerspective cameraPerspective = new()
         {
-            FOV = 50,
-            ClipNear = 0.1f,
-            ClipFar = 20000f,
+            FOV = 60,
+            ClipNear = 0.3f,
+            ClipFar = 1000f,
             fustrumCulling = true
         };
 
@@ -43,7 +44,8 @@ namespace VECS
 
         private static void PreCreate()
         {
-            CreateMainCamera();
+            CreateMainCamera(); DirectionalLight();
+            Sponza();
         }
 
         private static void CreateMainCamera()
@@ -59,6 +61,78 @@ namespace VECS
             var secondCamera = entityManager.CreateEntity();
             entityManager.AddComponent(secondCamera, new LocalToWorld() { Value = TransformExtensions.TRS(initalCameraPos, initalCameraRot, Vector3.One) });
             entityManager.AddComponent(secondCamera, cameraPerspective);
+        }
+
+        private static void DirectionalLight()
+        {
+            EntityManager entityManager = World.DefaultWorld.EntityManager;
+            var dirLight = entityManager.CreateEntity();
+
+            entityManager.AddComponent(dirLight, new DirectionalLight() { Colour = Vector4.One, Intensity = 1, Direction = new Vector3(0, -0.71f, 0.71f) });
+        }
+
+        private static void Sponza()
+        {
+            MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("sponza.obj"),out var sponza,out var sponzaMatInfo);
+
+            Dictionary<int, Texture2D> matTextureMap = new(sponzaMatInfo.Length);
+            EntityManager entityManager = World.DefaultWorld.EntityManager;
+
+
+
+            var commonParent = entityManager.CreateEntity();
+
+
+            Children children = new()
+            {
+                Value = new Entity[sponza.Length]
+            };
+            Parent parent = new() { Value = commonParent };
+
+            var mat = EngineMaterials.LitTexture;
+            var texProp = "texSampler".GetShaderPropertyId();
+
+            for (int i = 0, k = 0; i < sponzaMatInfo.Length; i++)
+            {
+                var matInfo = sponzaMatInfo[i];
+                if (matInfo.DiffuseTexture != null)
+                {
+                    matTextureMap[i] = new Texture2D(matInfo.DiffuseTexture);
+                    mat.SetTexture(texProp, i, matTextureMap[i]);
+                }
+                mat.PushConstants.SetPushConstantVector4("colour", matInfo.DiffuseColour);
+                mat.PushConstants.SetPushConstantFloat("tiling", 1);
+
+                for (int j = 0; j < matInfo.appliesTo.Count; j++, k++)
+                {
+                    var meshIndex = matInfo.appliesTo[j];
+                    var entity = entityManager.CreateEntity();
+                    children.Value[k] = entity;
+                    entityManager.AddComponent(entity, parent);
+                    AddRenderMeshComponents(entity, mat, i, i, sponza[meshIndex], entityManager);
+                }
+            }
+
+            entityManager.AddComponent(commonParent,new Scale() { Value = Vector3.One*0.01f });
+            entityManager.AddComponent(commonParent, children);
+        }
+
+        public static void AddRenderMeshComponents(Entity entity, Material mat, int variant, int entityVariant, DirectSubMesh mesh, EntityManager entityManager)
+        {
+            entityManager.AddComponent<Translation>(entity);
+            entityManager.AddComponent(entity, new RenderMesh()
+            {
+                Mesh = mesh.GetSubMeshIndex(),
+                Material = new()
+                {
+                    Transparent = mat.Transparent,
+                    Hash = mat.Hash,
+                    Variant = variant,
+                    Entity = entityVariant
+                },
+            });
+
+            entityManager.AddComponent(entity, mesh.GetSubMeshIndex());
         }
     }
 }
