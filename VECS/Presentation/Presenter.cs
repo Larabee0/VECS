@@ -14,6 +14,7 @@ namespace VECS
     public sealed class Presenter : IDisposable
     {
         public const int MAX_POINT_LIGHTS = 10;
+        public const int MAX_CAMERAS = 10;
 
         public static Presenter Instance { get; private set; }
 
@@ -136,9 +137,17 @@ namespace VECS
             World.DefaultWorld.EntityManager.AddComponent(frameInfoEntity, frameInfo);
         }
 
+        private BufferMAXCAMS<CameraInfo> cameraInfo = default;
+        private BufferMAXCAMS<CameraInverseInfo> cameraInverseInfo = default;
+        private BufferMAXCAMS<AdditionalCameraInfo> additionalCameraInfo = default;
+        private BufferMAXCAMS<OrthographicInfo> orthographicInfo = default;
+        private BufferMAXLIGHTS<PointLightUniform> pointLightBuffer = default;
+
         private unsafe RendererFrameInfo CreateRendererFrameInfo(float deltaTime, VkCommandBuffer commandBuffer)
         {
             int frameIndex = SwapChain.FrameIndex;
+            int cameraCount = 0;
+            int mainCamera = 0;
             Camera camera = Camera.Identity;
             CameraOrthographic orthCam = default;
             bool orth = false;
@@ -147,43 +156,41 @@ namespace VECS
             if (World.DefaultWorld != null)
             {
                 var entityManager = World.DefaultWorld.EntityManager;
-                if (entityManager != null && entityManager.SingletonEntity<MainCamera>(out Entity mainCamera))
-                {
-                    if (entityManager.HasComponent<Camera>(mainCamera, out int signature))
-                    {
-                        camera = entityManager.GetComponent<Camera>(signature);
-                    }
 
-                    if (entityManager.HasComponent<CameraPerspective>(mainCamera, out signature))
+                var cameras = entityManager.GetAllEntitiesWithComponent<Camera>();
+                cameraCount = Math.Min(cameras.Count, MAX_CAMERAS);
+
+                for (int i = 0; i < cameraCount; i++)
+                {
+                    var entity = cameras[i];
+                    camera = entityManager.GetComponent<Camera>(entity);
+                    if(mainCamera == 0 && entityManager.HasComponent<MainCamera>(entity))
+                    {
+                        mainCamera = i;
+                    }
+                    if (entityManager.HasComponent<CameraPerspective>(entity, out var signature))
                     {
                         var per = entityManager.GetComponent<CameraPerspective>(signature);
                         clipNear = per.ClipNear;
                         clipFar = per.ClipFar;
                     }
-                    else if (entityManager.HasComponent<CameraOrthographic>(mainCamera, out signature))
+                    else if (entityManager.HasComponent<CameraOrthographic>(entity, out signature))
                     {
                         orthCam = entityManager.GetComponent<CameraOrthographic>(signature);
                         clipNear = orthCam.ClipNear;
                         clipFar = orthCam.ClipFar;
                         orth = true;
                     }
+                    cameraInfo[i] = new(camera);
+                    cameraInverseInfo[i] = new(camera);
+                    additionalCameraInfo[i] = new(camera.ProjectionMatrix, clipNear, clipFar, _swapChain.ExtentAspectRatio);
+                    orthographicInfo[i] = new(orth, orthCam);
                 }
             }
 
-            Matrix4x4 projection = camera.ViewMatrix * camera.ProjectionMatrix;
+            CullData cullData = new(RenderLayer.All, RenderLayer.OnlyShadow, camera.fustrumCulling, camera.dstCull, camera.depthCull, clipNear, cameraInfo[mainCamera]);
 
-            CullData cullData = new(RenderLayer.All, RenderLayer.OnlyShadow, camera.fustrumCulling, camera.dstCull, camera.depthCull, clipNear, projection, camera.ViewMatrix);
-
-            BufferMAXCAMS<CameraInfo> cameraInfo = default;
-            cameraInfo[0] = new(camera);
-            BufferMAXCAMS<CameraInverseInfo> cameraInverseInfo = default;
-            cameraInverseInfo[0] = new(camera);
-            BufferMAXCAMS<AdditionalCameraInfo> additionalCameraInfo = default;
-            additionalCameraInfo[0] = new(camera.ProjectionMatrix,clipNear,clipFar,_swapChain.ExtentAspectRatio);
-            BufferMAXCAMS<OrthographicInfo> orthographicInfo = default;
-            orthographicInfo[0] = new(orth, orthCam);
             LightingInfo lightingInfo;
-            BufferMAXLIGHTS<PointLightUniform> pointLightBuffer = default;
             if (World.DefaultWorld != null)
             {
                 var entityManager = World.DefaultWorld.EntityManager;
@@ -201,9 +208,10 @@ namespace VECS
 
                 if (pointLights != null && pointLights.Count > 0)
                 {
-                    lightingInfo = new(Vector4.Zero, Vector3.Zero, pointLights.Count);
+                    int pointLightCount = Math.Min(pointLights.Count, MAX_POINT_LIGHTS);
+                    lightingInfo = new(Vector4.Zero, Vector3.Zero, pointLightCount);
 
-                    for (int i = 0; i < pointLights.Count; i++)
+                    for (int i = 0; i < pointLightCount; i++)
                     {
                         Vector3 position = entityManager.GetComponent<LocalToWorld>(pointLights[i]).Value.Translation;
                         Vector4 colour = entityManager.GetComponent<PointLight>(pointLights[i]).Colour;
@@ -218,7 +226,8 @@ namespace VECS
 
             return new RendererFrameInfo(
                 frameIndex,
-                1,
+                cameraCount,
+                mainCamera,
                 deltaTime,
                 commandBuffer,
                 cullData,

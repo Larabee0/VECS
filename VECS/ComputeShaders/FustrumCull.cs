@@ -84,9 +84,11 @@ namespace VECS
             pushConstants.SetPushConstantUniform("cullData", setId, this);
         }
 
-        public CullData(RenderLayer includeMask, RenderLayer excludeMask, bool cull, bool dstCull,bool depthCull, float zNear, Matrix4x4 projection, Matrix4x4 view)
+        public CullData(RenderLayer includeMask, RenderLayer excludeMask, bool cull, bool dstCull,bool depthCull, float zNear, CameraInfo camera)
         {
-            Matrix4x4 projectionT = Matrix4x4.Transpose(projection);
+            Matrix4x4 viewProj = camera.ProjectionViewMatrix;
+
+            Matrix4x4 projectionT = Matrix4x4.Transpose(viewProj);
             near = projectionT.GetMatrixRow(3) - projectionT.GetMatrixRow(2);
             far = projectionT.GetMatrixRow(3) + projectionT.GetMatrixRow(2);
 
@@ -96,8 +98,36 @@ namespace VECS
             top = projectionT.GetMatrixRow(3) + projectionT.GetMatrixRow(1);
             bottom = projectionT.GetMatrixRow(3) - projectionT.GetMatrixRow(1);
             this.zNear = zNear;
-            P00 = projection[0, 0];
-            P11 = projection[1, 1];
+            P00 = viewProj[0, 0];
+            P11 = viewProj[1, 1];
+
+            pyramid = new(DepthReduction.DepthPryamid.Width, DepthReduction.DepthPryamid.Height);
+
+            cullingEnabled = cull ? 1 : 0;
+            dstCulling = dstCull ? 1 : 0;
+            depthCulling = depthCull ? 1 : 0;
+            drawCount = 0;
+            IncludeMask = includeMask;
+            ExcludeMask = excludeMask;
+            View = camera.ViewMatrix;
+        }
+
+        public CullData(RenderLayer includeMask, RenderLayer excludeMask, bool cull, bool dstCull, bool depthCull, float zNear, Matrix4x4 projection, Matrix4x4 view)
+        {
+            Matrix4x4 viewProj = view * projection;
+
+            Matrix4x4 projectionT = Matrix4x4.Transpose(viewProj);
+            near = projectionT.GetMatrixRow(3) - projectionT.GetMatrixRow(2);
+            far = projectionT.GetMatrixRow(3) + projectionT.GetMatrixRow(2);
+
+            right = projectionT.GetMatrixRow(3) - projectionT.GetMatrixRow(0);
+            left = projectionT.GetMatrixRow(3) + projectionT.GetMatrixRow(0);
+
+            top = projectionT.GetMatrixRow(3) + projectionT.GetMatrixRow(1);
+            bottom = projectionT.GetMatrixRow(3) - projectionT.GetMatrixRow(1);
+            this.zNear = zNear;
+            P00 = viewProj[0, 0];
+            P11 = viewProj[1, 1];
 
             pyramid = new(DepthReduction.DepthPryamid.Width, DepthReduction.DepthPryamid.Height);
 
@@ -108,42 +138,6 @@ namespace VECS
             IncludeMask = includeMask;
             ExcludeMask = excludeMask;
             View = view;
-        }
-
-        public CullData(int cull, int dstCull, int depthCull, Matrix4x4 projection)
-        {
-            Matrix4x4 projectionT = Matrix4x4.Transpose(projection);
-            near = projectionT.GetMatrixRow(3) - projectionT.GetMatrixRow(2);
-            far = projectionT.GetMatrixRow(3) + projectionT.GetMatrixRow(2);
-
-            right = projectionT.GetMatrixRow(3) - projectionT.GetMatrixRow(0);
-            left = projectionT.GetMatrixRow(3) + projectionT.GetMatrixRow(0);
-
-            top = projectionT.GetMatrixRow(3) + projectionT.GetMatrixRow(1);
-            bottom = projectionT.GetMatrixRow(3) - projectionT.GetMatrixRow(1);
-
-            cullingEnabled = cull;
-            dstCulling = dstCull;
-            depthCulling = depthCull;
-            drawCount = 0;
-        }
-
-        public CullData(bool cull, bool dstCull, bool depthCull, uint draws, Matrix4x4 projection)
-        {
-            Matrix4x4 projectionT = Matrix4x4.Transpose(projection);
-            near = projectionT.GetMatrixRow(3) - projectionT.GetMatrixRow(2);
-            far = projectionT.GetMatrixRow(3) + projectionT.GetMatrixRow(2);
-
-            right = projectionT.GetMatrixRow(3) - projectionT.GetMatrixRow(0);
-            left = projectionT.GetMatrixRow(3) + projectionT.GetMatrixRow(0);
-
-            top = projectionT.GetMatrixRow(3) + projectionT.GetMatrixRow(1);
-            bottom = projectionT.GetMatrixRow(3) - projectionT.GetMatrixRow(1);
-
-            cullingEnabled = cull ? 1 : 0;
-            dstCulling = dstCull ? 1 : 0;
-            depthCulling = depthCull ? 1 : 0;
-            drawCount = draws;
         }
     }
 

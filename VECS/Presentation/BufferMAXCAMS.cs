@@ -2,7 +2,7 @@
 
 namespace VECS
 {
-    [InlineArray(Presenter.MAX_POINT_LIGHTS)]
+    [InlineArray(Presenter.MAX_CAMERAS)]
     public struct BufferMAXCAMS<T> where T : unmanaged
     {
         private T element0;

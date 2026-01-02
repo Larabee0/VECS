@@ -93,8 +93,8 @@ namespace VECS
             var litTransparent = EngineMaterials.OIT_LitTexture;
 
             var texProp = "texSampler".GetShaderPropertyId();
-            var texColour = "colour".GetShaderPropertyId();
-            var texTiling = "tiling".GetShaderPropertyId();
+            var texColour = "texProps.colour".GetShaderPropertyId();
+            var texTiling = "texProps.tiling".GetShaderPropertyId();
 
             int litVariant = 0;
             int transVariant = 0;

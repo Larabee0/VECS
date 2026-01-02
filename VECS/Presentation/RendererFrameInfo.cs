@@ -20,6 +20,7 @@ namespace VECS
     {
         public readonly int FrameIndex;
         public readonly int CameraCount;
+        public readonly int MainCamera;
         public readonly float DeltaTime;
 
         public readonly VkCommandBuffer CommandBuffer;
@@ -35,6 +36,7 @@ namespace VECS
         public RendererFrameInfo(
             int frameIndex,
             int cameraCount,
+            int mainCamera,
             float deltaTime,
             VkCommandBuffer commandBuffer,
             CullData cullData,
@@ -47,6 +49,7 @@ namespace VECS
         {
             FrameIndex = frameIndex;
             CameraCount = cameraCount;
+            MainCamera = mainCamera;
             DeltaTime = deltaTime;
 
             CommandBuffer = commandBuffer;
