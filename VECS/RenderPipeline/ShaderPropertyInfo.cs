@@ -28,7 +28,7 @@ namespace VECS
 #if DEBUG
         public const bool LOG_MISSING_GLOBAL_SHADER_PROPERTIES = false;
 #endif
-        public static readonly int CameraInfoId = "cameraMain".GetShaderPropertyId();
+        public static readonly int CameraInfoId = "cameraInfo".GetShaderPropertyId();
         public static readonly int CameraInverseId = "cameraInverse".GetShaderPropertyId();
         public static readonly int AdditionalCameraInfoId = "cameraPlanes".GetShaderPropertyId();
         public static readonly int OrthographicInfoId = "orthographic".GetShaderPropertyId();

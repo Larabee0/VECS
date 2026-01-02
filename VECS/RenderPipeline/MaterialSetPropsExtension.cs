@@ -206,26 +206,29 @@ namespace VECS
             }
         }
 
-        public static void SetGlobalUniforms(this Material material, int variant, RendererFrameInfo frameInfo)
+        public static void SetGlobalUniforms(this Material material, int variant, in RendererFrameInfo frameInfo)
         {
             material.TryCreateVariant((uint)variant);
-            WriteToBuffer(material, ShaderPropertyInfo.CameraInfoId, variant, frameInfo.CameraInfo);
-            WriteToBuffer(material, ShaderPropertyInfo.CameraInverseId, variant, frameInfo.CameraInverseInfo);
-            WriteToBuffer(material, ShaderPropertyInfo.AdditionalCameraInfoId, variant, frameInfo.AdditionalCameraInfo);
-            WriteToBuffer(material, ShaderPropertyInfo.OrthographicInfoId, variant, frameInfo.OrthographicInfo);
             WriteToBuffer(material, ShaderPropertyInfo.LightingInfoId, variant, frameInfo.LightingInfo);
-            if (material.LookUpProperty(ShaderPropertyInfo.PointLightsBufferId, out _))
-            {
-                var pointLights = material.GetStorageBuffer<PointLightUniform>(ShaderPropertyInfo.PointLightsBufferId);
-                unsafe
-                {
-                    void* pPointLights = &frameInfo.PointLights[0];
-                    var span = new Span<PointLightUniform>(pPointLights, Presenter.MAX_LIGHTS);
-                    span.CopyTo(pointLights);
-                }
-                material._matVariants[variant].SetStorageBufferLength(0, Presenter.MAX_LIGHTS);
-            }
+
+            uint camreaCount = (uint)frameInfo.CameraCount;
+            SetUniformBuffer(material, ShaderPropertyInfo.CameraInfoId, 0, frameInfo.CameraInfo, camreaCount);
+            SetUniformBuffer(material, ShaderPropertyInfo.CameraInverseId, 0, frameInfo.CameraInverseInfo, camreaCount);
+            SetUniformBuffer(material, ShaderPropertyInfo.AdditionalCameraInfoId, 0, frameInfo.AdditionalCameraInfo, camreaCount);
+            SetUniformBuffer(material, ShaderPropertyInfo.OrthographicInfoId, 0, frameInfo.OrthographicInfo, camreaCount);
+            
+            SetUniformBuffer(material, ShaderPropertyInfo.PointLightsBufferId, 0, frameInfo.PointLights, (uint)frameInfo.LightingInfo.NumPointLights);
         }
 
+        private static void SetUniformBuffer<T>(this Material material, int bufferProperyId, int variant, T resource, uint count) where T : unmanaged
+        {
+            if (!material.LookUpProperty(bufferProperyId, out _)) return;
+            var buffer = material.GetStorageSwapChainBuffer(bufferProperyId);
+            unsafe
+            {
+                Buffer.MemoryCopy(&resource, buffer.HostPtr, buffer.HostBufferSize32, sizeof(T));
+            }
+            material._matVariants[variant].SetStorageBufferLength(0, count);
+        }
     }
 }

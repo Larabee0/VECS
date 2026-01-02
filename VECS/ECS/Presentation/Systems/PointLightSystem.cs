@@ -12,7 +12,7 @@ namespace VECS.ECS.Presentation
         private readonly static int ColourBufferId = "colourBuffer".GetShaderPropertyId();
         private readonly static int PositionBufferId = "positionBuffer".GetShaderPropertyId();
         private EntityQuery _pointLightQuery;
-        private readonly List<PointLightPushConstant> _pointLights = new(Presenter.MAX_LIGHTS);
+        private readonly List<PointLightPushConstant> _pointLights = new(Presenter.MAX_POINT_LIGHTS);
 
         public override void OnCreate(EntityManager entityManager)
         {
@@ -27,9 +27,9 @@ namespace VECS.ECS.Presentation
             if (_pointLightQuery.HasEntities && entityManager.SingletonEntity<MainCamera>(out Entity cameraEntity))
             {
                 var pointLightEntities = _pointLightQuery.GetEntities();
-                if (pointLightEntities.Count > Presenter.MAX_LIGHTS)
+                if (pointLightEntities.Count > Presenter.MAX_POINT_LIGHTS)
                 {
-                    throw new Exception(string.Format("Point light count {0}, exceeded point light max count! Max support point lights is {1}", pointLightEntities.Count,Presenter.MAX_LIGHTS));
+                    throw new Exception(string.Format("Point light count {0}, exceeded point light max count! Max support point lights is {1}", pointLightEntities.Count,Presenter.MAX_POINT_LIGHTS));
                 }
                 
                 Vector3 cameraPosition = entityManager.GetComponent<LocalToWorld>(cameraEntity).Value.Translation;                

@@ -93,6 +93,8 @@ namespace VECS
             var litTransparent = EngineMaterials.OIT_LitTexture;
 
             var texProp = "texSampler".GetShaderPropertyId();
+            var texColour = "colour".GetShaderPropertyId();
+            var texTiling = "tiling".GetShaderPropertyId();
 
             int litVariant = 0;
             int transVariant = 0;
@@ -116,13 +118,13 @@ namespace VECS
                 }
                 if (transparent)
                 {
-                    litTransparent.PushConstants.SetPushConstantVector4("colour", transVariant, matInfo.DiffuseColour);
-                    litTransparent.PushConstants.SetPushConstantFloat("tiling", transVariant, 1);
+                    litTransparent.SetVector4(texColour, transVariant, matInfo.DiffuseColour);
+                    litTransparent.SetFloat(texTiling, transVariant, 1);
                 }
                 else
                 {
-                    lit.PushConstants.SetPushConstantVector4("colour", litVariant, matInfo.DiffuseColour);
-                    lit.PushConstants.SetPushConstantFloat("tiling", litVariant, 1);
+                    lit.SetVector4(texColour, litVariant, matInfo.DiffuseColour);
+                    lit.SetFloat(texTiling, litVariant, 1);
                 }
 
 
@@ -134,11 +136,11 @@ namespace VECS
                     entityManager.AddComponent(entity, parent);
                     if (transparent)
                     {
-                        AddRenderMeshComponents(entity, litTransparent, transVariant, transVariant, sponza[meshIndex], entityManager);
+                        AddRenderMeshComponents(entity, litTransparent, transVariant, 0, sponza[meshIndex], entityManager);
                     }
                     else
                     {
-                        AddRenderMeshComponents(entity, lit, litVariant, litVariant, sponza[meshIndex], entityManager);
+                        AddRenderMeshComponents(entity, lit, litVariant, 0, sponza[meshIndex], entityManager);
                     }
                 }
                 if (transparent)

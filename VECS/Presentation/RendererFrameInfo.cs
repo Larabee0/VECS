@@ -19,28 +19,44 @@ namespace VECS
     public readonly struct RendererFrameInfo
     {
         public readonly int FrameIndex;
+        public readonly int CameraCount;
         public readonly float DeltaTime;
+
         public readonly VkCommandBuffer CommandBuffer;
         public readonly CullData CullData;
-
-        public readonly CameraInfo CameraInfo;
-        public readonly CameraInverseInfo CameraInverseInfo;
-        public readonly AdditionalCameraInfo AdditionalCameraInfo;
-        public readonly OrthographicInfo OrthographicInfo;
         public readonly LightingInfo LightingInfo;
+
+        public readonly BufferMAXCAMS<CameraInfo> CameraInfo;
+        public readonly BufferMAXCAMS<CameraInverseInfo> CameraInverseInfo;
+        public readonly BufferMAXCAMS<AdditionalCameraInfo> AdditionalCameraInfo;
+        public readonly BufferMAXCAMS<OrthographicInfo> OrthographicInfo;
         public readonly BufferMAXLIGHTS<PointLightUniform> PointLights;
 
-        public RendererFrameInfo(int frameIndex, float deltaTime, VkCommandBuffer commandBuffer, CullData cullData, CameraInfo cameraInfo, CameraInverseInfo cameraInverseInfo, AdditionalCameraInfo additionalCameraInfo, OrthographicInfo orthographicInfo, LightingInfo lightingInfo, BufferMAXLIGHTS<PointLightUniform> pointLights)
+        public RendererFrameInfo(
+            int frameIndex,
+            int cameraCount,
+            float deltaTime,
+            VkCommandBuffer commandBuffer,
+            CullData cullData,
+            LightingInfo lightingInfo,
+            BufferMAXCAMS<CameraInfo> cameraInfo,
+            BufferMAXCAMS<CameraInverseInfo> cameraInverseInfo,
+            BufferMAXCAMS<AdditionalCameraInfo> additionalCameraInfo,
+            BufferMAXCAMS<OrthographicInfo> orthographicInfo,
+            BufferMAXLIGHTS<PointLightUniform> pointLights)
         {
             FrameIndex = frameIndex;
+            CameraCount = cameraCount;
             DeltaTime = deltaTime;
+
             CommandBuffer = commandBuffer;
             CullData = cullData;
+            LightingInfo = lightingInfo;
+
             CameraInfo = cameraInfo;
             CameraInverseInfo = cameraInverseInfo;
             AdditionalCameraInfo = additionalCameraInfo;
             OrthographicInfo = orthographicInfo;
-            LightingInfo = lightingInfo;
             PointLights = pointLights;
         }
 

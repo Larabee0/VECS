@@ -7,14 +7,13 @@ using VECS.ECS;
 using VECS.ECS.Presentation;
 using VECS.ECS.Transforms;
 using VECS.LowLevel;
-using VECS;
 using Vortice.Vulkan;
 
 namespace VECS
 {
     public sealed class Presenter : IDisposable
     {
-        public const int MAX_LIGHTS = 10;
+        public const int MAX_POINT_LIGHTS = 10;
 
         public static Presenter Instance { get; private set; }
 
@@ -175,10 +174,14 @@ namespace VECS
 
             CullData cullData = new(RenderLayer.All, RenderLayer.OnlyShadow, camera.fustrumCulling, camera.dstCull, camera.depthCull, clipNear, projection, camera.ViewMatrix);
 
-            CameraInfo cameraInfo = new(camera);
-            CameraInverseInfo cameraInverseInfo = new(camera);
-            AdditionalCameraInfo additionalCameraInfo = new(camera.ProjectionMatrix,clipNear,clipFar,_swapChain.ExtentAspectRatio);
-            OrthographicInfo orthographicInfo = new(orth, orthCam);
+            BufferMAXCAMS<CameraInfo> cameraInfo = default;
+            cameraInfo[0] = new(camera);
+            BufferMAXCAMS<CameraInverseInfo> cameraInverseInfo = default;
+            cameraInverseInfo[0] = new(camera);
+            BufferMAXCAMS<AdditionalCameraInfo> additionalCameraInfo = default;
+            additionalCameraInfo[0] = new(camera.ProjectionMatrix,clipNear,clipFar,_swapChain.ExtentAspectRatio);
+            BufferMAXCAMS<OrthographicInfo> orthographicInfo = default;
+            orthographicInfo[0] = new(orth, orthCam);
             LightingInfo lightingInfo;
             BufferMAXLIGHTS<PointLightUniform> pointLightBuffer = default;
             if (World.DefaultWorld != null)
@@ -213,15 +216,17 @@ namespace VECS
                 lightingInfo = new(Vector4.Zero, Vector3.Zero, 0);
             }
 
-            return new RendererFrameInfo(frameIndex,
+            return new RendererFrameInfo(
+                frameIndex,
+                1,
                 deltaTime,
                 commandBuffer,
                 cullData,
+                lightingInfo,
                 cameraInfo,
                 cameraInverseInfo,
                 additionalCameraInfo,
                 orthographicInfo,
-                lightingInfo,
                 pointLightBuffer);
         }
 

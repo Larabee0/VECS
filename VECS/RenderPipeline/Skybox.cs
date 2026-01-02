@@ -40,21 +40,16 @@ namespace VECS
         public static void RenderSkybox(RendererFrameInfo frameInfo)
         {
             if (SkyboxTexture == null || _cube == null) return;
-            _skybox.PushConstants.SetPushConstantUniform("ubo", new UBO(frameInfo.CameraInfo));
+            _skybox.PushConstants.SetPushConstantUniform("viewProj", GetSkyboxMatrix(frameInfo.CameraInfo[0]));
             _skybox.BindAll(frameInfo, 0);
             _cube.SimpleBindAndDraw(frameInfo.CommandBuffer);
         }
 
-        private readonly struct UBO
+        public static Matrix4x4 GetSkyboxMatrix(in CameraInfo cameraInfo)
         {
-            public readonly Matrix4x4 Projection;
-            public readonly Matrix4x4 Model;
-
-            public UBO(CameraInfo cameraInfo)
-            {
-                Projection = cameraInfo.ProjectionMatrix;
-                Model = cameraInfo.ViewMatrix;
-            }
+            var view = cameraInfo.ViewMatrix;
+            view.Translation = Vector3.Zero;
+            return view * cameraInfo.ProjectionMatrix;
         }
     }
 }
