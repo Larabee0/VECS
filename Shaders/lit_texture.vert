@@ -1,4 +1,6 @@
 #version 460
+#extension GL_ARB_shading_language_include : require
+#include "common_structures.glsl"
 
 layout (location = 0) in vec3 position;
 layout (location = 1) in vec3 normal;
@@ -9,31 +11,23 @@ layout (location = 1) out vec3 fragPosWorld;
 layout (location = 2) out vec3 fragNormalWorld;
 layout (location = 3) out vec2 fragUV;
 
-layout(set = 0,binding = 0) uniform CameraInfo{
-	mat4 projectionMatrix;
-	mat4 viewMatrix;
-	mat4 projectionViewMatrix;	
-	vec4 position;
-	vec4 forward;
-} cameraMain;
+layout(set = 0,binding = 0) readonly buffer CameraInfos {
+	CameraInfo values[];
+} cameraInfo;
 
-struct ObjectMatrices{
-	mat4 modelMatrix; // project * view * model
-	mat4 normalMatrix;
-};
 
 layout(std140, set = 1, binding = 0) readonly buffer ObjectMatricesBuffer{
 	ObjectMatrices matrices[];
 }matricesBuffer;
 
-struct ObjectBounds{
-	vec4 bMin;
-	vec4 bMax;
-};
 
 layout(std140, set = 1, binding = 1) readonly buffer ObjectBoundsBuffer{
 	ObjectBounds bounds[];
 }boundsBuffer;
+
+layout(push_constant) uniform Constants{
+	uint cameraIndex;
+} constants;
 
 
 const vec3 DIRECTION_TO_LIGHT = normalize(vec3(1.0, 3.0, 1.0));
@@ -43,7 +37,7 @@ void main()
 	ObjectMatrices objectMat = matricesBuffer.matrices[gl_BaseInstance];
 
 	vec4 positionWorld =objectMat.modelMatrix * vec4(position, 1.0);
-	gl_Position = cameraMain.projectionViewMatrix * positionWorld;
+	gl_Position = cameraInfo.values[constants.cameraIndex].projectionViewMatrix * positionWorld;
 	
 	fragNormalWorld = normalize(mat3(objectMat.normalMatrix) * normal);
 	

@@ -1,4 +1,6 @@
 #version 460
+#extension GL_ARB_shading_language_include : require
+#include "common_structures.glsl"
 
 layout (location = 0) in vec4 fragColour;
 layout (location = 1) in vec3 fragPosWorld;
@@ -7,59 +9,42 @@ layout (location = 3) in vec2 fragUV;
 
 layout (location = 0) out vec4 outColour;
 
-struct PointLight {
-	vec4 position; // ignore w
-	vec4 colour; // w is intensity
-};
-
-layout(set = 0,binding = 0) uniform CameraInfo{
-	mat4 projectionMatrix;
-	mat4 viewMatrix;
-	mat4 projectionViewMatrix;	
-	vec4 position;
-	vec4 forward;
-} cameraMain;
-
-layout(set = 0,binding = 1) uniform CameraInverse{
-	mat4 inverseProjectionMatrix;
-	mat4 inverseViewMatrix;
-	mat4 inverseProjectionViewMatrix;
-} cameraInverse;
-
-layout (set = 0, binding = 2) uniform AdditionalCameraInfo
-{
-	float ratio;
- 	float p00;
- 	float p11;
- 	float nearPlane;
-	float farPlane;
- 	vec4 frustum;
-} cameraPlanes;
-
-layout (set = 0, binding = 3) uniform OrthographicInfo
-{
-	float orthographic;
-	float width;
-	float height;
-} orthographic;
-
-layout(set = 0, binding = 4) uniform LightingInfo {
+layout(set = 0, binding = 0) uniform LightingInfo {
 	vec4 ambientLightColour;
 	vec4 ambientLightDir;
 	int numPointLights;
 } lighting;
 
-layout (set = 0, binding = 5) readonly buffer PointLights{
+layout (set = 0, binding = 1) readonly buffer PointLights {
 	PointLight values[];
 } pointLightBuffer;
 
+layout(set = 0,binding = 2) readonly buffer CameraInfos {
+	CameraInfo values[];
+} cameraInfo;
+
+layout(set = 0,binding = 3) readonly buffer CameraInverses {
+	CameraInverse values[];
+} cameraInverse;
+
+layout (set = 0, binding = 4) readonly buffer AdditionalCameraInfos {
+	AdditionalCameraInfo values[];
+} cameraPlanes;
+
+layout (set = 0, binding = 5) readonly buffer OrthographicInfos {
+	OrthographicInfo values[];
+} orthographic;
+
 layout(set = 1, binding = 2) uniform sampler2D texSampler;
 
-layout(push_constant) uniform constants
-{
+layout(set = 1, binding = 3) uniform TexPorps {
 	vec4 colour;
 	float tiling;
-} textureProperties;
+} texProps;
+
+layout(push_constant) uniform Constants{
+	uint cameraIndex;
+} constants;
 
 void main()
 {
@@ -67,7 +52,7 @@ void main()
 	vec3 specularLight = vec3(0.0);
 	vec3 surfaceNormal = normalize(fragNormalWorld);
 
-	vec3 cameraPosWorld = cameraInverse.inverseViewMatrix[3].xyz;
+	vec3 cameraPosWorld = cameraInverse.values[constants.cameraIndex].inverseViewMatrix[3].xyz;
 	vec3 viewDirection =normalize(cameraPosWorld - fragPosWorld);
 
 	for(int i = 0; i < lighting.numPointLights; i++){
@@ -91,11 +76,11 @@ void main()
 		specularLight += intensity * blinnTerm; 
 	}
 
-	vec4 textureColour = texture(texSampler,fragUV* textureProperties.tiling );
+	vec4 textureColour = texture(texSampler,fragUV* texProps.tiling );
 	
 	// outColour = vec4(fragUV,0,1);
 	//outColour = textureProperties.colour;
-	outColour = textureColour * fragColour * textureProperties.colour;
+	outColour = textureColour * fragColour * texProps.colour;
 	// outColour = vec4(1);
 	//outColour = vec4(diffuseLight  * textureColour.xyz + specularLight * textureColour.xyz, 1.0);
 	//outColour = vec4(diffuseLight  * fragColour, 1.0);

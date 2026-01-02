@@ -1,4 +1,6 @@
 #version 460
+#extension GL_ARB_shading_language_include : require
+#include "common_structures.glsl"
 
 layout (early_fragment_tests) in;
 layout (location = 0) in vec4 fragColour;
@@ -6,24 +8,11 @@ layout (location = 1) in vec3 fragPosWorld;
 layout (location = 2) in vec3 fragNormalWorld;
 layout (location = 3) in vec2 fragUV;
 
-struct Node
-{
-    vec4 color;
-    float depth;
-    uint next;
-};
-struct PointLight {
-	vec4 position; // ignore w
-	vec4 colour; // w is intensity
-};
-
-layout(set = 0,binding = 1) uniform CameraInverse{
-	mat4 inverseProjectionMatrix;
-	mat4 inverseViewMatrix;
-	mat4 inverseProjectionViewMatrix;
+layout(set = 0,binding = 1) readonly buffer CameraInverses {
+	CameraInverse values[];
 } cameraInverse;
 
-layout(set = 0, binding = 2) uniform LightingInfo {
+layout(set = 0, binding = 0) uniform LightingInfo {
 	vec4 ambientLightColour;
 	vec4 ambientLightDir;
 	int numPointLights;
@@ -34,6 +23,11 @@ layout (set = 0, binding = 3) readonly buffer PointLights{
 } pointLightBuffer;
 
 layout(set = 1, binding = 2) uniform sampler2D texSampler;
+
+layout(set = 1, binding = 3) uniform TexPorps {
+	vec4 colour;
+	float tiling;
+} texProps;
 
 layout (set = 2, binding = 0) buffer GeometrySBO
 {
@@ -48,11 +42,9 @@ layout (set = 2, binding = 2) buffer LinkedListSBO
     Node nodes[];
 } linkedListSBO;
 
-layout(push_constant) uniform constants
-{
-	vec4 colour;
-	float tiling;
-} textureProperties;
+layout(push_constant) uniform Constants {
+	uint cameraIndex;
+} constants;
 
 void main()
 {
@@ -60,7 +52,7 @@ void main()
 	vec3 specularLight = vec3(0.0);
 	vec3 surfaceNormal = normalize(fragNormalWorld);
 
-	vec3 cameraPosWorld = cameraInverse.inverseViewMatrix[3].xyz;
+	vec3 cameraPosWorld = cameraInverse.values[constants.cameraIndex].inverseViewMatrix[3].xyz;
 	vec3 viewDirection =normalize(cameraPosWorld - fragPosWorld);
 
 	for(int i = 0; i < lighting.numPointLights; i++){
@@ -84,11 +76,11 @@ void main()
 		specularLight += intensity * blinnTerm; 
 	}
 
-	vec4 textureColour = texture(texSampler,fragUV* textureProperties.tiling );
+	vec4 textureColour = texture(texSampler,fragUV* texProps.tiling );
 	float w = textureColour.w;
 	// outColour = vec4(fragUV,0,1);
 	//outColour = textureProperties.colour;
-	textureColour = textureColour * fragColour * textureProperties.colour;
+	textureColour = textureColour * fragColour * texProps.colour;
 
     //textureColour.xyz = normalize(textureColour.xyz);
     textureColour.w = w;

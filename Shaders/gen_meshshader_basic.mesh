@@ -2,27 +2,13 @@
 
 #extension GL_EXT_mesh_shader : require
 #extension GL_EXT_shader_explicit_arithmetic_types_int8 : require
+#extension GL_ARB_shading_language_include : require
+#include "common_structures.glsl"
+#include "mesh_shader_structures.glsl"
 
-struct ObjectMatrices{
-	mat4 modelMatrix; // project * view * model
-	mat4 normalMatrix;
-};
-
-struct Meshlet{
-    uint vertex_offset;
-	uint triangle_offset;
-	uint vertex_count;
-	uint triangle_count;
-};
-
-
-layout(set = 0,binding = 0) uniform CameraInfo{
-	mat4 projectionMatrix;
-	mat4 viewMatrix;
-	mat4 projectionViewMatrix;	
-	vec4 position;
-	vec4 forward;
-} cameraMain;
+layout(set = 0, binding = 0) readonly buffer CameraInfos {
+	CameraInfo values[];
+} cameraInfo;
 
 layout (std140, set = 1, binding = 0) readonly buffer ObjectMatricesBuffer{
 	ObjectMatrices matrices[];
@@ -42,6 +28,11 @@ layout(std140, set = 2, binding = 3) readonly buffer VertexPositionBuffer{
 	vec4 pos[];
 } vertexPositionBuffer;
 
+layout(push_constant) uniform pushConstant{
+	uint cameraIndex;
+    uint firstMeshlet;
+    uint meshletCount;
+};
 
 layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 layout(triangles, max_vertices = 64, max_primitives = 64) out;
@@ -59,14 +50,14 @@ void main()
 	
 	SetMeshOutputsEXT(meshlet.vertex_count, meshlet.triangle_count);
 
-	mat4 mvp = cameraMain.projectionViewMatrix * matricesBuffer.matrices[0].modelMatrix;
+	mat4 mvp = cameraInfo.values[cameraIndex].projectionViewMatrix * matricesBuffer.matrices[0].modelMatrix;
     uvec3 triIndices;
     uint vertexOffset = meshlet.vertex_offset;
     uint indexOffset = meshlet.triangle_offset;
 
     for(uint i = 0; i < meshlet.vertex_count; i++)
     {
-        gl_MeshVerticesEXT[i].gl_Position = cameraMain.projectionViewMatrix * (matricesBuffer.matrices[0].modelMatrix * vec4(vertexPositionBuffer.pos[vertexOffset + i].xyz, 1.0));
+        gl_MeshVerticesEXT[i].gl_Position = cameraInfo.values[cameraIndex].projectionViewMatrix * (matricesBuffer.matrices[0].modelMatrix * vec4(vertexPositionBuffer.pos[vertexOffset + i].xyz, 1.0));
         
 	    vertexOutput[i].color = vec4(1);
     }
