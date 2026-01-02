@@ -495,11 +495,24 @@ namespace VECS
                 {
                     srcStageMask = VkPipelineStageFlags2.Transfer,
                     srcAccessMask = VkAccessFlags2.TransferWrite,
-                    dstStageMask = VkPipelineStageFlags2.Transfer|VkPipelineStageFlags2.ComputeShader|VkPipelineStageFlags2.VertexInput,
-                    dstAccessMask = VkAccessFlags2.TransferWrite|VkAccessFlags2.ShaderWrite|VkAccessFlags2.ShaderRead,
+                    dstStageMask = VkPipelineStageFlags2.Transfer | VkPipelineStageFlags2.ComputeShader,
+                    dstAccessMask = VkAccessFlags2.TransferWrite | VkAccessFlags2.ShaderWrite | VkAccessFlags2.ShaderRead,
                     buffer = cmd.DstBuffer.VkBuffer,
                     size = Vulkan.VK_WHOLE_SIZE
                 };
+
+                if (cmd.DstBuffer.UsageFlags.HasFlag(VkBufferUsageFlags.VertexBuffer))
+                {
+                    memoryBarrier.dstStageMask |= VkPipelineStageFlags2.VertexInput;
+                    memoryBarrier.dstAccessMask |= VkAccessFlags2.VertexAttributeRead;
+                }
+
+                if (cmd.DstBuffer.UsageFlags.HasFlag(VkBufferUsageFlags.IndexBuffer))
+                {
+                    memoryBarrier.dstStageMask |= VkPipelineStageFlags2.IndexInput;
+                    memoryBarrier.dstAccessMask |= VkAccessFlags2.IndexRead;
+                }
+
                 MemoryBarrierHelper.BufferMemoryBarrier(commandBuffer, memoryBarrier);
             }
         }

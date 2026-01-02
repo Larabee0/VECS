@@ -25,12 +25,12 @@ namespace VECS
         {
             var litTexture = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             //litTexture.depthStencilInfo.depthWriteEnable = true;
-            LitTexture = new("LitTexture", "lit_texture_new.vert", "lit_texture_new.frag", litTexture);
+            LitTexture = new("LitTexture", "lit_texture.vert", "lit_texture.frag", litTexture);
             var depthConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             depthConfig.colourFormats = [];
             depthConfig.depthStencilInfo.depthWriteEnable = true;
             depthConfig.depthStencilInfo.depthTestEnable = true;
-            DepthOnly = new("DepthOnly", "depth_only_new.vert", depthConfig);
+            DepthOnly = new("DepthOnly", "depth_only.vert", depthConfig);
 
             var pipelineConfigInfo = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
 
@@ -52,11 +52,6 @@ namespace VECS
             shadowConfig.rasterizationInfo.cullMode = VkCullModeFlags.None;
             ShadowOffscreen = new("ShadowOffscreen", "shadow_offscreen.vert", "shadow_offscreen.frag", shadowConfig);
 
-            var pointLightConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
-            GraphicsPipelineConfigInfo.EnableAlphaBlending(ref pointLightConfig);
-            pointLightConfig.depthStencilInfo.depthWriteEnable = true;
-            PointLight = new Material("PointLightDisplay", "point_light.vert", "point_light.frag", pointLightConfig);
-
             var alphaBlending = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             Unlit = new Material("Unlit", "unlit.vert", "unlit.frag", alphaBlending);
             GraphicsPipelineConfigInfo.EnableAlphaBlending(ref alphaBlending);
@@ -64,7 +59,7 @@ namespace VECS
 
             if (GraphicsDevice.MeshShading)
             {
-                UnlitMeshShader = new("MeshShader", "gen_meshshader_basic_new.mesh", "gen_meshshader_basic_new.task", "gen_meshshader_basic_new.frag", GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []));
+                UnlitMeshShader = new("MeshShader", "gen_meshshader_basic.mesh", "gen_meshshader_basic.task", "gen_meshshader_basic.frag", GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []));
             }
 
             Blit = new("Blitter", "fullscreen.vert", "blit.frag", alphaBlending);
@@ -82,7 +77,7 @@ namespace VECS
 
             OIT_Unlit = new("OIT_Unlit", "unlit.vert", "oit_unlit.frag", oit_unlit);
 
-            OIT_LitTexture = new("OIT_Lit_Texture", "lit_texture_new.vert", "oit_lit_texture.frag", oit_unlit);
+            OIT_LitTexture = new("OIT_Lit_Texture", "lit_texture.vert", "oit_lit_texture.frag", oit_unlit);
 
             DepthReduction.Init();
         }

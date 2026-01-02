@@ -330,10 +330,10 @@ namespace VECS
             }
             if(frameIndex != _frameIndex || this != _lastBoundComputeShader)
             {
+                GraphicsDevice.DeviceAPI.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Compute, _pipline);
                 _lastBoundComputeShader = this;
                 _frameIndex = frameIndex;
             }
-            GraphicsDevice.DeviceAPI.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Compute, _pipline);
             DescriptorBuffer.BindSets(commandBuffer, (uint)_descriptorSetCount, bindingInfo);
             DescriptorBuffer.SetOffsets(commandBuffer, _pipelineLayout, VkPipelineBindPoint.Compute, 0, (uint)_descriptorSetCount, offsets, indices);
 
