@@ -3,11 +3,6 @@
 #extension GL_EXT_mesh_shader : require
 #extension GL_EXT_shader_explicit_arithmetic_types_int8 : require
 
-struct PointLight {
-	vec4 position; // ignore w
-	vec4 colour; // w is intensity
-};
-
 struct Meshlet{
     uint vertex_offset;
 	uint triangle_offset;
@@ -27,20 +22,19 @@ struct Bounds{
     uint8_t cone_cutoff;
 };
 
-layout(set = 0, binding = 0) uniform GlobalUbo{
+layout(set = 0,binding = 0) uniform CameraInfo{
 	mat4 projectionMatrix;
 	mat4 viewMatrix;
-	mat4 inverseViewMatrix;
-	vec4 ambientLightColour;
-	int numLights;
-	PointLight pointLights[10];
-} ubo;
+	mat4 projectionViewMatrix;	
+	vec4 position;
+	vec4 forward;
+} cameraMain;
 
-layout(std140, set = 2, binding = 0) buffer MeshletBuffer{
+layout(std140, set = 2, binding = 0) readonly buffer MeshletBuffer{
 	Meshlet meshlets[];
 } meshletsBuffer;
 
-layout(std140, set = 2, binding = 1) buffer BoundsBuffer{
+layout(std140, set = 2, binding = 1) readonly buffer BoundsBuffer{
 	Bounds bounds[];
 } boundsBuffer;
 

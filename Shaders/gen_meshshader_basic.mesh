@@ -3,11 +3,6 @@
 #extension GL_EXT_mesh_shader : require
 #extension GL_EXT_shader_explicit_arithmetic_types_int8 : require
 
-struct PointLight {
-	vec4 position; // ignore w
-	vec4 colour; // w is intensity
-};
-
 struct ObjectMatrices{
 	mat4 modelMatrix; // project * view * model
 	mat4 normalMatrix;
@@ -20,30 +15,30 @@ struct Meshlet{
 	uint triangle_count;
 };
 
-layout(set = 0, binding = 0) uniform GlobalUbo{
+
+layout(set = 0,binding = 0) uniform CameraInfo{
 	mat4 projectionMatrix;
 	mat4 viewMatrix;
-	mat4 inverseViewMatrix;
-	vec4 ambientLightColour;
-	int numLights;
-	PointLight pointLights[10];
-} ubo;
+	mat4 projectionViewMatrix;	
+	vec4 position;
+	vec4 forward;
+} cameraMain;
 
-layout (std140, set = 1, binding = 0) buffer ObjectMatricesBuffer{
+layout (std140, set = 1, binding = 0) readonly buffer ObjectMatricesBuffer{
 	ObjectMatrices matrices[];
 } matricesBuffer;
 
-layout(std140, set = 2, binding = 0) buffer MeshletBuffer{
+layout(std140, set = 2, binding = 0) readonly buffer MeshletBuffer{
 	Meshlet meshlets[];
 } meshletsBuffer;
 
 // binding 1 is the bounds buffer
 
-layout(std430, set = 2, binding = 2) buffer MeshletIndexBuffer{
+layout(std430, set = 2, binding = 2) readonly buffer MeshletIndexBuffer{
 	uint8_t indices[];
 } indexBuffer;
 
-layout(std140, set = 2, binding = 3) buffer VertexPositionBuffer{
+layout(std140, set = 2, binding = 3) readonly buffer VertexPositionBuffer{
 	vec4 pos[];
 } vertexPositionBuffer;
 
@@ -64,14 +59,14 @@ void main()
 	
 	SetMeshOutputsEXT(meshlet.vertex_count, meshlet.triangle_count);
 
-	mat4 mvp = ubo.projectionMatrix * ubo.viewMatrix * matricesBuffer.matrices[0].modelMatrix;
+	mat4 mvp = cameraMain.projectionViewMatrix * matricesBuffer.matrices[0].modelMatrix;
     uvec3 triIndices;
     uint vertexOffset = meshlet.vertex_offset;
     uint indexOffset = meshlet.triangle_offset;
 
     for(uint i = 0; i < meshlet.vertex_count; i++)
     {
-        gl_MeshVerticesEXT[i].gl_Position = ubo.projectionMatrix * ubo.viewMatrix * (matricesBuffer.matrices[0].modelMatrix * vec4(vertexPositionBuffer.pos[vertexOffset + i].xyz, 1.0));
+        gl_MeshVerticesEXT[i].gl_Position = cameraMain.projectionViewMatrix * (matricesBuffer.matrices[0].modelMatrix * vec4(vertexPositionBuffer.pos[vertexOffset + i].xyz, 1.0));
         
 	    vertexOutput[i].color = vec4(1);
     }
