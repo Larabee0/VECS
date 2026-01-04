@@ -58,9 +58,9 @@ namespace VECS
             entityManager.AddComponent(MainCamera, cameraPerspective);
             entityManager.AddComponent<MainCamera>(MainCamera);
 
-            var secondCamera = entityManager.CreateEntity();
-            entityManager.AddComponent(secondCamera, new LocalToWorld() { Value = TransformExtensions.TRS(initalCameraPos, initalCameraRot, Vector3.One) });
-            entityManager.AddComponent(secondCamera, cameraPerspective);
+            //var secondCamera = entityManager.CreateEntity();
+            //entityManager.AddComponent(secondCamera, new LocalToWorld() { Value = TransformExtensions.TRS(initalCameraPos, initalCameraRot, Vector3.One) });
+            //entityManager.AddComponent(secondCamera, cameraPerspective);
         }
 
         private static void DirectionalLight()

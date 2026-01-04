@@ -21,6 +21,13 @@
             c2 = new Vector3(m02, m12, m22);
         }
 
+        public Matrix3x3(Vector3 c0, Vector3 c1, Vector3 c2)
+        {
+            this.c0 = c0;
+            this.c1 = c1;
+            this.c2 = c2;
+        }
+
         public Matrix3x3(Matrix4x4 f4x4)
         {
             c0 = f4x4.GetMatrixColumn(0).AsVector3();//.c0.xyz;

@@ -147,7 +147,7 @@ namespace VECS
         {
             int frameIndex = SwapChain.FrameIndex;
             int cameraCount = 0;
-            int mainCamera = 0;
+            int mainCamera = -1;
             Camera camera = Camera.Identity;
             CameraOrthographic orthCam = default;
             bool orth = false;
@@ -164,7 +164,7 @@ namespace VECS
                 {
                     var entity = cameras[i];
                     camera = entityManager.GetComponent<Camera>(entity);
-                    if(mainCamera == 0 && entityManager.HasComponent<MainCamera>(entity))
+                    if(mainCamera == -1 && entityManager.HasComponent<MainCamera>(entity))
                     {
                         mainCamera = i;
                     }

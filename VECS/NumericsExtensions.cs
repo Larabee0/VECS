@@ -11,6 +11,94 @@ namespace System.Numerics
     {
         public static readonly Vector3 Epsilon = new(float.Epsilon);
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static float Rsqrt(float x)
+        {
+            return 1f / MathF.Sqrt(x);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool Isfinite(float x)
+        {
+            return Math.Abs(x) < float.PositiveInfinity;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe static int asint(float x)
+        {
+            return *(int*)(&x);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe static uint asuint(float x)
+        {
+            return *(uint*)(&x);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe static Vector4UInt asuint(Vector4 x)
+        {
+            return *(Vector4UInt*)(&x);
+        }
+
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe static float asfloat(uint x)
+        {
+            return *(float*)(&x);
+        }
+
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe static Vector4 asfloat(Vector4UInt x)
+        {
+            return *(Vector4*)(&x);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static Quaternion LookRotation(Vector3 forward, Vector3 up)
+        {
+            float x = Vector3.Dot(forward, forward);
+            float num = Vector3.Dot(up, up);
+            forward *= Rsqrt(x);
+            up *= Rsqrt(num);
+            Vector3 float5 = Vector3.Cross(up, forward);
+            float num2 = Vector3.Dot(float5, float5);
+            float5 *= Rsqrt(num2);
+            float num3 = Math.Min(Math.Min(x, num), num2);
+            float num4 = Math.Max(Math.Max(x, num), num2);
+            bool test = num3 > 1E-35f && num4 < 1E+35f && Isfinite(x) && Isfinite(num) && Isfinite(num2);
+            return Select(new Vector4(0f, 0f, 0f, 1f), FromMatrix3x3(new Matrix3x3(float5, Vector3.Cross(forward, float5), forward)).AsVector4(), new(test)).AsQuaternion();
+        }
+
+        public static Quaternion FromMatrix3x3(Matrix3x3 m)
+        {
+            Vector3 c = m.c0;
+            Vector3 c2 = m.c1;
+            Vector3 c3 = m.c2;
+            uint num = asuint(c.X) & 0x80000000u;
+            float x = c2.Y + asfloat(asuint(c3.Z) ^ num);
+            Vector4UInt uint5 = new((int)num >> 31);
+            Vector4UInt uint6 = new(asint(x) >> 31);
+            float x2 = 1f + Math.Abs(c.X);
+            Vector4UInt uint7 = new Vector4UInt(0u, 2147483648u, 2147483648u, 2147483648u) ^ (uint5 & new Vector4UInt(0u, 2147483648u, 0u, 2147483648u)) ^ (uint6 & new Vector4UInt(2147483648u, 2147483648u, 2147483648u, 0u));
+            Vector4 value = new Vector4(x2, c.Y, c3.X, c2.Z) + asfloat(asuint(new Vector4(x, c2.X, c.Z, c3.Y)) ^ uint7);
+            value = asfloat((asuint(value) & ~uint5) | (asuint(value.ZWXY()) & uint5));
+            value = asfloat((asuint(value.WZYX()) & ~uint6) | (asuint(value) & uint6));
+            value = Vector4.Normalize(value);
+
+            return value.AsQuaternion();
+        }
+
+        public static Vector4 ZWXY(this Vector4 c)
+        {
+            return new Vector4(c.Z, c.W, c.X, c.Y);
+        }
+
+        public static Vector4 WZYX(this Vector4 c)
+        {
+            return new Vector4(c.W, c.Z, c.Y, c.X);
+        }
+
         public static Matrix4x4 Rotate(this Matrix4x4 m, float angle, Vector3 v)
         {
             float a = angle;
@@ -155,7 +243,7 @@ namespace System.Numerics
                                test.Z ? trueValue.Z : falseValue.Z);
         }
 
-        public static Vector4 Select(Vector4 falseValue, Vector4 trueValue, Bool4 test)
+        public static Vector4 Select(in Vector4 falseValue, in Vector4 trueValue, in Bool4 test)
         {
             return new Vector4(test.X ? trueValue.X : falseValue.X,
                                test.Y ? trueValue.Y : falseValue.Y,
@@ -240,6 +328,13 @@ namespace System.Numerics
             Y = y;
             Z = z;
             W = w;
+        }
+        public Bool4(bool value)
+        {
+            X = value;
+            Y = value;
+            Z = value;
+            W = value;
         }
     }
 }

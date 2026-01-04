@@ -11,7 +11,7 @@ namespace VECS.ECS.Presentation
     /// </summary>
     public class CameraSystem : SystemBase
     {
-        const float lookSpeed = 0.4f;
+        const float lookSpeed = 10f;
         const float moveSpeed = 3f;
 
         EntityQuery _cameraQueryPerspective; // query for persepctive cameras
@@ -290,27 +290,19 @@ namespace VECS.ECS.Presentation
                 movement.Y = -1;
             }
 
+            var ltw = entityManager.GetComponent<LocalToWorld>(entity).Value;
+
+            var forward = ltw.Forward();
+            var right = ltw.Right();
+
             // rotate camera
             if (look.LengthSquared() > float.Epsilon)
             {
-                Vector3 rotationInput = Vector3.Zero;
-                rotationInput.Y = -look.Y * lookSpeed;
-                rotationInput.X = -look.X * lookSpeed;
-                
-                var euler = rotation.Value.ToEulerDeg().EulerMakePositive();
+                look = -lookSpeed * Time.DeltaTime * look;
 
-                
-                
-                var rotationX = euler.X;
-                float newRotationY = euler.Y + rotationInput.X;
 
-                float newRotationX = (rotationX - rotationInput.Y);
-                if (rotationX <= 87f && newRotationX >= 0f)
-                    newRotationX = Math.Clamp(newRotationX, 0, 87f);
-                if (rotationX >= 270f)
-                    newRotationX = Math.Clamp(newRotationX, 273f, 360f);
-
-                rotation.Value =  TransformExtensions.EulerUnity(newRotationX, newRotationY, euler.Z);
+                var rot = NumericsExtensions.LookRotation(forward + (new Vector3(0, 1, 0) * look.Y + look.X * right) * 0.05f, new Vector3(0,1,0));
+                rotation.Value = rot;
                 entityManager.SetComponent(entity, rotation);
             }
 
@@ -319,13 +311,11 @@ namespace VECS.ECS.Presentation
             if (movement.LengthSquared() > float.Epsilon)
             {
                 // compute camera directions
-                Vector3 foward = new(MathF.Sin(rotation.Value.Y), 0f, MathF.Cos(rotation.Value.Y));
-                Vector3 right = new(foward.Z, 0f, -foward.X);
                 Vector3 up = new(0, 1, 0);
 
                 Vector3 moveDir = Vector3.Zero;
 
-                moveDir += movement.Z * foward;
+                moveDir += movement.Z * forward;
                 moveDir += movement.X * right;
                 moveDir += movement.Y * up;
 
