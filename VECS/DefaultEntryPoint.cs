@@ -75,7 +75,6 @@ namespace VECS
         {
             MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("sponza.obj"),out var sponza,out var sponzaMatInfo);
 
-            Dictionary<int, Texture2D> matTextureMap = new(sponzaMatInfo.Length);
             EntityManager entityManager = World.DefaultWorld.EntityManager;
 
 
@@ -105,16 +104,20 @@ namespace VECS
                 bool transparent = matInfo.Name == "chain" || matInfo.Name == "Material__57";
                 if (matInfo.DiffuseTexture != null)
                 {
-                    matTextureMap[i] = new Texture2D(matInfo.DiffuseTexture);
+                    var diffuseTexture = new Texture2D(matInfo.DiffuseTexture);
                     if (transparent)
                     {
                         litTransparent.SetTexture(ShaderPropertyInfo.HeadIndexImageId, 0, Presenter.Instance.ForwardRenderer._headIndex);
-                        litTransparent.SetTexture(texProp, transVariant, matTextureMap[i]);
+                        litTransparent.SetTexture(texProp, transVariant, diffuseTexture);
                     }
                     else
                     {
-                        lit.SetTexture(texProp, litVariant, matTextureMap[i]);
+                        lit.SetTexture(texProp, litVariant, diffuseTexture);
                     }
+                }
+                if(matInfo.NormalTexture != null)
+                {
+                    var normalTexture = new Texture2D(matInfo.NormalTexture);
                 }
                 if (transparent)
                 {

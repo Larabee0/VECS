@@ -41,9 +41,10 @@ namespace VECS
 
         public static Surface LoadToSurface(string filePath)
         {
+            
             if (!File.Exists(filePath))
             {
-                throw new FileNotFoundException("Texture not found",filePath);
+                throw new FileNotFoundException(string.Format("Texture not found, '{0}'",filePath));
             }
 
             Surface image = Surface.LoadFromFile(filePath);
