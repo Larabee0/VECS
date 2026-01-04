@@ -301,7 +301,7 @@ namespace VECS.ECS.Presentation
                 look = -lookSpeed * Time.DeltaTime * look;
 
 
-                var rot = NumericsExtensions.LookRotation(forward + (new Vector3(0, 1, 0) * look.Y + look.X * right) * 0.05f, new Vector3(0,1,0));
+                var rot = NumericsExtensions.LookRotation(Vector3.Normalize(forward + (new Vector3(0, 1, 0) * look.Y + look.X * right) * 0.05f), new Vector3(0, 1, 0));
                 rotation.Value = rot;
                 entityManager.SetComponent(entity, rotation);
             }
