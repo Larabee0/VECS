@@ -12,8 +12,8 @@ namespace VECS
     internal static class DefaultEntryPoint
     {
 
-        private static Vector3 initalCameraPos = new(0, 0, -20f);
-        private static Vector3 initalCameraRot = TransformExtensions.DegreesToRadians(new(0, 0, 0));
+        private static Vector3 initalCameraPos = new(-13, 1.5f, 0);
+        private static Vector3 initalCameraRot = TransformExtensions.DegreesToRadians(new(0, 90, 0));
 
         private static CameraPerspective cameraPerspective = new()
         {
@@ -77,7 +77,7 @@ namespace VECS
 
             EntityManager entityManager = World.DefaultWorld.EntityManager;
 
-
+            Dictionary<string, Texture2D> textureLibrary = [];
 
             var commonParent = entityManager.CreateEntity();
 
@@ -104,7 +104,11 @@ namespace VECS
                 bool transparent = matInfo.Name == "chain" || matInfo.Name == "Material__57";
                 if (matInfo.DiffuseTexture != null)
                 {
-                    var diffuseTexture = new Texture2D(matInfo.DiffuseTexture);
+                    if(!textureLibrary.TryGetValue(matInfo.DiffuseTexture, out var diffuseTexture))
+                    {
+                        diffuseTexture = new Texture2D(matInfo.DiffuseTexture);
+                        textureLibrary.Add(matInfo.DiffuseTexture, diffuseTexture);
+                    }
                     if (transparent)
                     {
                         litTransparent.SetTexture(ShaderPropertyInfo.HeadIndexImageId, 0, Presenter.Instance.ForwardRenderer._headIndex);
@@ -117,7 +121,11 @@ namespace VECS
                 }
                 if(matInfo.NormalTexture != null)
                 {
-                    var normalTexture = new Texture2D(matInfo.NormalTexture);
+                    if (!textureLibrary.TryGetValue(matInfo.NormalTexture, out var normalTexture))
+                    {
+                        normalTexture = new Texture2D(matInfo.NormalTexture);
+                        textureLibrary.Add(matInfo.NormalTexture, normalTexture);
+                    }
                 }
                 if (transparent)
                 {
