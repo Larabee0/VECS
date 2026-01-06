@@ -48,45 +48,18 @@ layout(push_constant) uniform Constants{
 
 void main()
 {
-	vec3 diffuseLight = lighting.ambientLightColour.xyz * lighting.ambientLightColour.w;
-	vec3 specularLight = vec3(0.0);
-	vec3 surfaceNormal = normalize(fragNormalWorld);
+	vec3 norm = normalize(fragNormalWorld);
+	vec3 lightDir = lighting.ambientLightDir.xyz;
 
-	vec3 cameraPosWorld = cameraInverse.values[constants.cameraIndex].inverseViewMatrix[3].xyz;
-	vec3 viewDirection =normalize(cameraPosWorld - fragPosWorld);
+	float diff = max(dot(norm,lightDir),0.0);
+	vec3 diffuse = diff * lighting.ambientLightColour.xyz;
 
-	for(int i = 0; i < lighting.numPointLights; i++){
-		PointLight light = pointLightBuffer.values[i];
+	float ambientStrength = lighting.ambientLightColour.w;
 
-		vec3 directionToLight = light.position.xyz - fragPosWorld;
-		float attenuation = 1.0 / dot(directionToLight, directionToLight); // distance squared
-		
-		directionToLight = normalize(directionToLight);
+	vec3 ambient = ambientStrength * lighting.ambientLightColour.xyz;
 
-		float cosAngIncidence = max(dot(surfaceNormal, directionToLight),0);
-		vec3 intensity = light.colour.xyz * light.colour.w * attenuation;
-		diffuseLight += intensity * cosAngIncidence;
-
-		// spec
-
-		vec3 halfAngle = normalize(directionToLight + viewDirection);
-		float blinnTerm = dot(surfaceNormal, halfAngle);
-		blinnTerm = clamp(blinnTerm, 0, 1);
-		blinnTerm = pow(blinnTerm, 32.0); // higher values -> sharper highlight.
-		specularLight += intensity * blinnTerm; 
-	}
-
-	vec4 textureColour = texture(texSampler,fragUV* texProps.tiling );
+	vec3 result = (ambient + diffuse) * vec3(1);
 	
-	// outColour = vec4(fragUV,0,1);
-	//outColour = textureProperties.colour;
-	outColour = textureColour * fragColour * texProps.colour;
-	// outColour = vec4(1);
-	//outColour = vec4(diffuseLight  * textureColour.xyz + specularLight * textureColour.xyz, 1.0);
-	//outColour = vec4(diffuseLight  * fragColour, 1.0);
-	
-	//PointLight light = ubo.pointLights;
-	//outColour =light.colour;
-	//outColour =vec4(ubo.numLights,0,0,1);
+	outColour = vec4(result, 1.0);
 	
 }

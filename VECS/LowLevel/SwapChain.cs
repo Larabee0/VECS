@@ -26,8 +26,6 @@ namespace VECS.LowLevel
 
         internal static VkRect2D Scissor = new();
 
-        internal VkImageBlit _copyToSwapChainBlit;
-
         internal VkExtent2D _swapChainExtent;
         internal VkSwapchainKHR _swapChain;
 

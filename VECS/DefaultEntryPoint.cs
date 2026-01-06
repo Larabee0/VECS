@@ -101,7 +101,7 @@ namespace VECS
             for (int i = 0, k = 0; i < sponzaMatInfo.Length; i++)
             {
                 var matInfo = sponzaMatInfo[i];
-                bool transparent = matInfo.Name == "chain" || matInfo.Name == "Material__57";
+                bool transparent = matInfo.Name == "chain" || matInfo.Name == "Material__57" || matInfo.Name == "leaf";
                 if (matInfo.DiffuseTexture != null)
                 {
                     if(!textureLibrary.TryGetValue(matInfo.DiffuseTexture, out var diffuseTexture))
@@ -111,7 +111,7 @@ namespace VECS
                     }
                     if (transparent)
                     {
-                        litTransparent.SetTexture(ShaderPropertyInfo.HeadIndexImageId, 0, Presenter.Instance.ForwardRenderer._headIndex);
+                        litTransparent.SetTexture(ShaderPropertyInfo.HeadIndexImageId, transVariant, Presenter.Instance.ForwardRenderer._headIndex);
                         litTransparent.SetTexture(texProp, transVariant, diffuseTexture);
                     }
                     else
