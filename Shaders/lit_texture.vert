@@ -11,7 +11,7 @@ layout (location = 1) out vec3 fragPosWorld;
 layout (location = 2) out vec3 fragNormalWorld;
 layout (location = 3) out vec2 fragUV;
 
-layout(set = 0,binding = 2) readonly buffer CameraInfos {
+layout(set = 0,binding = 3) readonly buffer CameraInfos {
 	CameraInfo values[];
 } cameraInfo;
 

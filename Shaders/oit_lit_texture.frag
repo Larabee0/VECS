@@ -1,6 +1,7 @@
 #version 460
 #extension GL_ARB_shading_language_include : require
 #include "common_structures.glsl"
+#include "lighting.glsl"
 
 layout (early_fragment_tests) in;
 layout (location = 0) in vec4 fragColour;
@@ -13,15 +14,12 @@ layout(set = 0,binding = 1) readonly buffer CameraInverses {
 } cameraInverse;
 
 layout(set = 0, binding = 0) uniform LightingInfo {
-	vec4 ambientLightColour;
-	vec4 ambientLightDir;
-	float ambientStrength;
-	float diffuseStrength;
-	float specularStrength;
+	DirectionalLight directionalLight;
 	int numPointLights;
+	int numSpotLights;
 } lighting;
 
-layout (set = 0, binding = 3) readonly buffer PointLights{
+layout (set = 0, binding = 2) readonly buffer PointLights{
 	PointLight values[];
 } pointLightBuffer;
 
@@ -51,7 +49,7 @@ layout(push_constant) uniform Constants {
 
 void main()
 {
-    vec3 diffuseLight = lighting.ambientLightColour.xyz * lighting.ambientLightColour.w;
+    vec3 diffuseLight = lighting.directionalLight.ambient.xyz * lighting.directionalLight.ambient.w;
 	vec3 specularLight = vec3(0.0);
 	vec3 surfaceNormal = normalize(fragNormalWorld);
 
@@ -67,7 +65,7 @@ void main()
 		directionToLight = normalize(directionToLight);
 
 		float cosAngIncidence = max(dot(surfaceNormal, directionToLight),0);
-		vec3 intensity = light.colour.xyz * light.colour.w * attenuation;
+		vec3 intensity = light.ambient.xyz * light.ambient.w * attenuation;
 		diffuseLight += intensity * cosAngIncidence;
 
 		// spec

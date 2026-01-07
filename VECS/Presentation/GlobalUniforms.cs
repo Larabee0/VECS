@@ -77,73 +77,84 @@ namespace VECS
             Height = camera.height;
         }
     }
+    
 
-    [StructLayout(LayoutKind.Sequential, Size = 48)]
+    [StructLayout(LayoutKind.Sequential, Size = 72)]
     public struct LightingInfo
     {
-        public Vector4 AmbientLightColour;
-        public Vector4 AmbientLightDirection;
-        public float AmbientStrength;
-        public float DiffuseStrength;
-        public float SpecularStrength;
+        public DirectionalLightInfo DirectionalLight;
+
         public int NumPointLights;
+        public int NumSpotLights;
 
-        public LightingInfo(DirectionalLight directionalLight, int pointLightCount)
+        public LightingInfo(DirectionalLight directionalLight, int pointLightCount, int spotLightCount)
         {
-            AmbientLightColour = directionalLight.Colour;
-            AmbientLightDirection = directionalLight.Direction.AsVector4();
-            AmbientStrength = directionalLight.AmbientStrength;
-            DiffuseStrength = directionalLight.DiffuseStrength;
-            SpecularStrength = directionalLight.SpecularStrength;
+            DirectionalLight = directionalLight.Value;
             NumPointLights = pointLightCount;
-        }
-
-        public LightingInfo(Vector4 colour,Vector3 direction, int pointLightCount, float ambientStrength, float diffuseStrength, float specularStrength)
-        {
-            AmbientLightColour = colour;
-            AmbientLightDirection = direction.AsVector4();
-            AmbientStrength = ambientStrength;
-            DiffuseStrength = diffuseStrength;
-            SpecularStrength = specularStrength;
-            NumPointLights = pointLightCount;
+            NumSpotLights = spotLightCount;
         }
     }
 
-    /// <summary>
-    /// Defines a single point light for shaders to access to apply point light
-    /// to their objects
-    /// </summary>
-    [StructLayout(LayoutKind.Sequential, Size = 80)]
+    [StructLayout(LayoutKind.Sequential, Size = 64)]
+    public struct DirectionalLightInfo
+    {
+        public Vector4 Direction;
+
+        public Vector4 Ambient;
+        public Vector4 Diffuse;
+        public Vector4 Specular;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Size = 76)]
     public struct PointLightUniform
     {
-        public Vector4 Position; // ignore w
-        public Vector4 Direction;
-        public Vector4 Colour; // w is intensity
+        public Vector4 Position;
+        public Vector4 Ambient;
+        public Vector4 Diffuse;
+        public Vector4 Specular;
 
-        public float CutOff;
-        public float OuterCutOff;
         public float Constant;
         public float Linear;
-
         public float Quadratic;
-        public float AmbientStrength;
-        public float DiffuseStrength;
-        public float SpecularStrength;
 
         public PointLightUniform(Vector3 position, PointLight pointLight)
         {
             Position = position.AsVector4();
-            Colour = pointLight.Colour;
-            Direction = pointLight.Direction;
-            Colour = pointLight.Colour;
-            CutOff = pointLight.CutOff;
-            OuterCutOff = pointLight.OuterCutOff;
+            Ambient = pointLight.Ambient;
+            Diffuse = pointLight.Diffuse;
+            Specular = pointLight.Specular;
             Constant = pointLight.Constant;
             Linear = pointLight.Linear;
             Quadratic = pointLight.Quadratic;
-            AmbientStrength = pointLight.AmbientStrength;
-            DiffuseStrength = pointLight.DiffuseStrength;
-            SpecularStrength = pointLight.SpecularStrength;
+        }
+    }
+
+    [StructLayout(LayoutKind.Sequential, Size = 92)]
+    public struct SpotLightUniform
+    {
+        public Vector4 Position;
+        public Vector4 Direction;
+
+        public Vector4 Ambient;
+        public Vector4 Diffuse;
+        public Vector4 Specular;
+
+        public float Constant;
+        public float Linear;
+        public float Quadratic;
+
+        public SpotLightUniform(Vector3 position, Vector3 direction, SpotLight spotLight)
+        {
+            Position = new(position, spotLight.cutOff);
+            Direction = new(direction, spotLight.outerCutOff);
+
+            Ambient = spotLight.Ambient;
+            Diffuse = spotLight.Diffuse;
+            Specular = spotLight.Specular;
+
+            Constant = spotLight.Constant;
+            Linear = spotLight.Linear;
+            Quadratic = spotLight.Quadratic;
         }
     }
 }

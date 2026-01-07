@@ -142,6 +142,7 @@ namespace VECS
         private BufferMAXCAMS<AdditionalCameraInfo> additionalCameraInfo = default;
         private BufferMAXCAMS<OrthographicInfo> orthographicInfo = default;
         private BufferMAXLIGHTS<PointLightUniform> pointLightBuffer = default;
+        private BufferMAXLIGHTS<SpotLightUniform> spotLightBuffer = default;
 
         private unsafe RendererFrameInfo CreateRendererFrameInfo(float deltaTime, VkCommandBuffer commandBuffer)
         {
@@ -196,14 +197,22 @@ namespace VECS
                 var entityManager = World.DefaultWorld.EntityManager;
                 var dirLights = entityManager.GetAllEntitiesWithComponent<DirectionalLight>();
                 var pointLights = entityManager.GetAllEntitiesWithComponent<PointLight>();
+                var spotLights = entityManager.GetAllEntitiesWithComponent<SpotLight>();
 
-                if (dirLights!= null && dirLights.Count > 0)
+                if (dirLights != null && dirLights.Count > 0)
                 {
-                    lightingInfo = new(entityManager.GetComponent<DirectionalLight>(dirLights[0]), pointLights == null ? 0 : pointLights.Count);
+                    lightingInfo = new(entityManager.GetComponent<DirectionalLight>(dirLights[0]), 0, 0);
                 }
                 else
                 {
-                    lightingInfo = new(Vector4.Zero, Vector3.Zero, 0, 0.1f, 1f, 0.5f);
+                    lightingInfo = new()
+                    {
+                        DirectionalLight = new()
+                        {
+                            Ambient = Vector4.One,
+                            Direction = new(0,-1,0, 0),
+                        }
+                    };
                 }
 
                 if (pointLights != null && pointLights.Count > 0)
@@ -217,11 +226,41 @@ namespace VECS
                         var pointLight = entityManager.GetComponent<PointLight>(pointLights[i]);
                         pointLightBuffer[i] = new(position, pointLight);
                     }
+
+                    for (int i = pointLightCount; i < MAX_POINT_LIGHTS; i++)
+                    {
+                        pointLightBuffer[i] = default;
+                    }
+                }
+
+                if(spotLights != null && spotLights.Count > 0)
+                {
+                    int spotLightCount = Math.Min(spotLights.Count, MAX_POINT_LIGHTS);
+                    lightingInfo.NumSpotLights = spotLightCount;
+
+                    for(int i = 0;i < spotLightCount; i++)
+                    {
+                        var ltw = entityManager.GetComponent<LocalToWorld>(spotLights[i]).Value;
+                        var spotLight = entityManager.GetComponent<SpotLight>(spotLights[i]);
+                        spotLightBuffer[i] = new(ltw.Translation, ltw.Forward(), spotLight);
+                    }
+
+                    for (int i = spotLightCount; i < MAX_POINT_LIGHTS; i++)
+                    {
+                        spotLightBuffer[i] = default;
+                    }
                 }
             }
             else
             {
-                lightingInfo = new(Vector4.Zero, Vector3.Zero, 0, 0.1f, 1f, 0.5f);
+                lightingInfo = new()
+                {
+                    DirectionalLight = new()
+                    {
+                        Ambient = Vector4.One,
+                        Direction = new(0, -1, 0, 0),
+                    }
+                };
             }
 
             return new RendererFrameInfo(
@@ -236,7 +275,8 @@ namespace VECS
                 cameraInverseInfo,
                 additionalCameraInfo,
                 orthographicInfo,
-                pointLightBuffer);
+                pointLightBuffer,
+                spotLightBuffer);
         }
 
         /// <summary>

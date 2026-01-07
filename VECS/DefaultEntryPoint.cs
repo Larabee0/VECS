@@ -59,6 +59,20 @@ namespace VECS
             entityManager.AddComponent(MainCamera, new Rotation() { Value = TransformExtensions.Euler(initalCameraRot) });
             entityManager.AddComponent(MainCamera, cameraPerspective);
             entityManager.AddComponent<MainCamera>(MainCamera);
+            return;
+            entityManager.AddComponent(MainCamera, new SpotLight()
+            {
+                Ambient = new(0.1f, 0.1f, 0.1f, 1f),
+                Diffuse = new(0,1,0,1),
+                Specular = new(0.5f, 0.5f, 0.5f, 1f),
+
+                Constant = 1.0f,
+                Linear = 0.7f,
+                Quadratic = 1.8f,
+
+                cutOff = 12.5f,
+                outerCutOff = 17.5f
+            });
 
             //var secondCamera = entityManager.CreateEntity();
             //entityManager.AddComponent(secondCamera, new LocalToWorld() { Value = TransformExtensions.TRS(initalCameraPos, initalCameraRot, Vector3.One) });
@@ -72,11 +86,14 @@ namespace VECS
 
             entityManager.AddComponent(dirLight, new DirectionalLight()
             {
-                Colour = Vector4.One,
-                Direction = new Vector3(0, -0.71f, 0.71f),
-                AmbientStrength = 0.1f,
-                DiffuseStrength = 1,
-                SpecularStrength = 0.5f
+                Value = new()
+                {
+                    Direction = new Vector4(0, -0.71f, 0.71f,0),
+
+                    Ambient = new(0.1f, 0.1f, 0.1f, 1f),
+                    Diffuse = Vector4.One,
+                    Specular = new(0.5f, 0.5f, 0.5f, 1f)
+                }
             });
         }
 
@@ -85,20 +102,17 @@ namespace VECS
             EntityManager entityManager = World.DefaultWorld.EntityManager;
             var pointLight = entityManager.CreateEntity();
 
-            entityManager.AddComponent(pointLight, new Translation() { Value = new Vector3(0, 5, 0) });
+            entityManager.AddComponent(pointLight, new Translation() { Value = new Vector3(0, 1, 0) });
 
             entityManager.AddComponent(pointLight, new PointLight()
             {
-                Colour = new(0,1,1,1),
-                Direction = new(0,0,1,1),
-                AmbientStrength = 0.01f,
-                DiffuseStrength = 1,
-                SpecularStrength = 0.5f,
-                CutOff = 12.5f,
-                OuterCutOff = 17.5f,
+                Ambient = new(0.1f, 0.1f, 0.1f, 1f),
+                Diffuse = new(1,0,0,1),
+                Specular = new(0.5f, 0.5f, 0.5f, 1f),
+
                 Constant = 1.0f,
-                Linear = 0.09f,
-                Quadratic = 0.032f
+                Linear = 0.7f,
+                Quadratic = 1.8f
             });
         }
 
@@ -150,7 +164,19 @@ namespace VECS
                         lit.SetTexture(texProp, litVariant, diffuseTexture);
                     }
                 }
-                if(matInfo.NormalTexture != null)
+                else
+                {
+                    if (transparent)
+                    {
+                        litTransparent.SetTexture(ShaderPropertyInfo.HeadIndexImageId, transVariant, Presenter.Instance.ForwardRenderer._headIndex);
+                        litTransparent.SetTexture(texProp, transVariant, EngineTextures.White);
+                    }
+                    else
+                    {
+                        lit.SetTexture(texProp, litVariant, EngineTextures.White);
+                    }
+                }
+                if (matInfo.NormalTexture != null)
                 {
                     if (!textureLibrary.TryGetValue(matInfo.NormalTexture, out var normalTexture))
                     {

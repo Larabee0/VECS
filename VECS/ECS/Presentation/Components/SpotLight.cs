@@ -2,7 +2,7 @@
 
 namespace VECS.ECS.Presentation
 {
-    public struct PointLight : IComponent
+    public struct SpotLight : IComponent
     {
         public static int ComponentId { get; set; }
         public readonly int Id => ComponentId;
@@ -14,5 +14,8 @@ namespace VECS.ECS.Presentation
         public float Constant;
         public float Linear;
         public float Quadratic;
+
+        public float cutOff;
+        public float outerCutOff;
     }
 }

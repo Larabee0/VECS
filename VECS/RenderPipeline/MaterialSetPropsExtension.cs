@@ -211,24 +211,27 @@ namespace VECS
             material.TryCreateVariant((uint)variant);
             WriteToBuffer(material, ShaderPropertyInfo.LightingInfoId, variant, frameInfo.LightingInfo);
 
+            if (variant != 0) return;
             uint camreaCount = (uint)frameInfo.CameraCount;
-            SetUniformBuffer(material, ShaderPropertyInfo.CameraInfoId, 0, frameInfo.CameraInfo, camreaCount);
-            SetUniformBuffer(material, ShaderPropertyInfo.CameraInverseId, 0, frameInfo.CameraInverseInfo, camreaCount);
-            SetUniformBuffer(material, ShaderPropertyInfo.AdditionalCameraInfoId, 0, frameInfo.AdditionalCameraInfo, camreaCount);
-            SetUniformBuffer(material, ShaderPropertyInfo.OrthographicInfoId, 0, frameInfo.OrthographicInfo, camreaCount);
+            SetUniformBuffer(material, ShaderPropertyInfo.CameraInfoId, frameInfo.CameraInfo, camreaCount);
+            SetUniformBuffer(material, ShaderPropertyInfo.CameraInverseId, frameInfo.CameraInverseInfo, camreaCount);
+            SetUniformBuffer(material, ShaderPropertyInfo.AdditionalCameraInfoId, frameInfo.AdditionalCameraInfo, camreaCount);
+            SetUniformBuffer(material, ShaderPropertyInfo.OrthographicInfoId, frameInfo.OrthographicInfo, camreaCount);
             
-            SetUniformBuffer(material, ShaderPropertyInfo.PointLightsBufferId, 0, frameInfo.PointLights, (uint)frameInfo.LightingInfo.NumPointLights);
+            SetUniformBuffer(material, ShaderPropertyInfo.PointLightsBufferId,  frameInfo.PointLights, (uint)frameInfo.LightingInfo.NumPointLights);
+            SetUniformBuffer(material, ShaderPropertyInfo.SpotLightsBufferId,  frameInfo.SpotLights, (uint)frameInfo.LightingInfo.NumPointLights);
         }
 
-        private static void SetUniformBuffer<T>(this Material material, int bufferProperyId, int variant, T resource, uint count) where T : unmanaged
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void SetUniformBuffer<T>(this Material material, int bufferProperyId, T resource, uint count) where T : unmanaged
         {
-            if (!material.LookUpProperty(bufferProperyId, out _)) return;
+            if (!material.LookUpProperty(bufferProperyId, out var propertyInfo)) return;
             var buffer = material.GetStorageSwapChainBuffer(bufferProperyId);
             unsafe
             {
                 Buffer.MemoryCopy(&resource, buffer.HostPtr, buffer.HostBufferSize32, sizeof(T));
             }
-            material._matVariants[variant].SetStorageBufferLength(0, count);
+            material._matVariants[0].SetStorageBufferLength(propertyInfo.SetIndex, count);
         }
     }
 }

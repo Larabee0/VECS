@@ -35,7 +35,8 @@ namespace VECS
         
         public static readonly int LightingInfoId = "lighting".GetShaderPropertyId();
         public static readonly int PointLightsBufferId = "pointLightBuffer".GetShaderPropertyId();
-        
+        public static readonly int SpotLightsBufferId = "spotLightBuffer".GetShaderPropertyId();
+
         public static readonly int BoundsBufferId = "boundsBuffer".GetShaderPropertyId();
         public static readonly int MatricesBufferId = "matricesBuffer".GetShaderPropertyId();
 
@@ -55,6 +56,7 @@ namespace VECS
                 OrthographicInfoId,
                 LightingInfoId,
                 PointLightsBufferId,
+                SpotLightsBufferId,
                 BoundsBufferId,
                 MatricesBufferId,
                 GeometrySBOId,
