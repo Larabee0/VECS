@@ -44,7 +44,9 @@ namespace VECS
 
         private static void PreCreate()
         {
-            CreateMainCamera(); DirectionalLight();
+            CreateMainCamera();
+            DirectionalLight();
+            PointLight();
             Sponza();
         }
 
@@ -68,7 +70,36 @@ namespace VECS
             EntityManager entityManager = World.DefaultWorld.EntityManager;
             var dirLight = entityManager.CreateEntity();
 
-            entityManager.AddComponent(dirLight, new DirectionalLight() { Colour = Vector4.One, Intensity = 1, Direction = new Vector3(0, -0.71f, 0.71f) });
+            entityManager.AddComponent(dirLight, new DirectionalLight()
+            {
+                Colour = Vector4.One,
+                Direction = new Vector3(0, -0.71f, 0.71f),
+                AmbientStrength = 0.1f,
+                DiffuseStrength = 1,
+                SpecularStrength = 0.5f
+            });
+        }
+
+        public static void PointLight()
+        {
+            EntityManager entityManager = World.DefaultWorld.EntityManager;
+            var pointLight = entityManager.CreateEntity();
+
+            entityManager.AddComponent(pointLight, new Translation() { Value = new Vector3(0, 5, 0) });
+
+            entityManager.AddComponent(pointLight, new PointLight()
+            {
+                Colour = new(0,1,1,1),
+                Direction = new(0,0,1,1),
+                AmbientStrength = 0.01f,
+                DiffuseStrength = 1,
+                SpecularStrength = 0.5f,
+                CutOff = 12.5f,
+                OuterCutOff = 17.5f,
+                Constant = 1.0f,
+                Linear = 0.09f,
+                Quadratic = 0.032f
+            });
         }
 
         private static void Sponza()

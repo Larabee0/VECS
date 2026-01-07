@@ -13,6 +13,9 @@ struct PointLight {
 layout(set = 0, binding = 0) uniform LightingInfo {
 	vec4 ambientLightColour;
 	vec4 ambientLightDir;
+	float ambientStrength;
+	float diffuseStrength;
+	float specularStrength;
 	int numPointLights;
 } lighting;
 

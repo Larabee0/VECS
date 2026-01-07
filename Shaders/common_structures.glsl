@@ -1,7 +1,16 @@
 
 struct PointLight {
 	vec4 position; // ignore w
+	vec4 direction;
 	vec4 colour; // w is intensity
+	float cutOff;
+	float outerCutOff;
+	float constant;
+	float linear;
+	float quadratic;
+	float ambientStrength;
+	float diffuseStrength;
+	float specularStrength;
 };
 
 struct ObjectMatrices{

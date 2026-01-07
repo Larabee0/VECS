@@ -9,10 +9,8 @@ namespace VECS.ECS.Presentation
 
         public Vector4 Colour;
         public Vector3 Direction;
-
-        public float Intensity
-        {
-            readonly get => Colour.W; set => Colour.W = value;
-        }
+        public float AmbientStrength;
+        public float DiffuseStrength;
+        public float SpecularStrength;
     }
 }

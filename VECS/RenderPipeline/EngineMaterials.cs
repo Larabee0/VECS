@@ -77,6 +77,8 @@ namespace VECS
 
             OIT_Unlit = new("OIT_Unlit", "unlit.vert", "oit_unlit.frag", oit_unlit);
 
+            oit_unlit.rasterizationInfo.cullMode = VkCullModeFlags.None;
+            oit_unlit.rasterizationInfo.frontFace = VkFrontFace.Clockwise;
             OIT_LitTexture = new("OIT_Lit_Texture", "lit_texture.vert", "oit_lit_texture.frag", oit_unlit);
 
             DepthReduction.Init();

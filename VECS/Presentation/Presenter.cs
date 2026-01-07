@@ -203,25 +203,25 @@ namespace VECS
                 }
                 else
                 {
-                    lightingInfo = new(Vector4.Zero, Vector3.Zero, 0);
+                    lightingInfo = new(Vector4.Zero, Vector3.Zero, 0, 0.1f, 1f, 0.5f);
                 }
 
                 if (pointLights != null && pointLights.Count > 0)
                 {
                     int pointLightCount = Math.Min(pointLights.Count, MAX_POINT_LIGHTS);
-                    lightingInfo = new(Vector4.Zero, Vector3.Zero, pointLightCount);
+                    lightingInfo.NumPointLights = pointLightCount;
 
                     for (int i = 0; i < pointLightCount; i++)
                     {
                         Vector3 position = entityManager.GetComponent<LocalToWorld>(pointLights[i]).Value.Translation;
-                        Vector4 colour = entityManager.GetComponent<PointLight>(pointLights[i]).Colour;
-                        pointLightBuffer[i] = new(position, colour);
+                        var pointLight = entityManager.GetComponent<PointLight>(pointLights[i]);
+                        pointLightBuffer[i] = new(position, pointLight);
                     }
                 }
             }
             else
             {
-                lightingInfo = new(Vector4.Zero, Vector3.Zero, 0);
+                lightingInfo = new(Vector4.Zero, Vector3.Zero, 0, 0.1f, 1f, 0.5f);
             }
 
             return new RendererFrameInfo(

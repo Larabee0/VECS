@@ -15,6 +15,9 @@ layout(set = 0,binding = 1) readonly buffer CameraInverses {
 layout(set = 0, binding = 0) uniform LightingInfo {
 	vec4 ambientLightColour;
 	vec4 ambientLightDir;
+	float ambientStrength;
+	float diffuseStrength;
+	float specularStrength;
 	int numPointLights;
 } lighting;
 

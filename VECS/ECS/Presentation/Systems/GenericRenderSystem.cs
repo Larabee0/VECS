@@ -1,4 +1,5 @@
-﻿using VECS.ECS.Transforms;
+﻿using System.Numerics;
+using VECS.ECS.Transforms;
 using VECS.LowLevel;
 using VECS.Presentation;
 using Vortice.Vulkan;
@@ -45,6 +46,8 @@ namespace VECS.ECS.Presentation
 
         public unsafe override void OnPreOpaquePass(EntityManager entityManager, RendererFrameInfo frameInfo)
         {
+            World.GetSystem<DebugDrawUtilities>().DrawLine(Vector3.Zero, frameInfo.LightingInfo.AmbientLightDirection.AsVector3()*10f, Colour.Red);
+
             VkCommandBuffer commandBuffer = frameInfo.CommandBuffer;
             if (!_renderEntityQuery.HasEntities)
             {

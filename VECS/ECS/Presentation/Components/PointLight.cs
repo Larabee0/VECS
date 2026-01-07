@@ -6,13 +6,16 @@ namespace VECS.ECS.Presentation
     {
         public static int ComponentId { get; set; }
         public readonly int Id => ComponentId;
-    
-        public Vector4 Colour;
-        public float Radius;
 
-        public float Intensity
-        {
-            readonly get => Colour.W; set => Colour.W = value;
-        }
+        public Vector4 Direction;
+        public Vector4 Colour;
+        public float CutOff;
+        public float OuterCutOff;
+        public float Constant;
+        public float Linear;
+        public float Quadratic;
+        public float AmbientStrength;
+        public float DiffuseStrength;
+        public float SpecularStrength;
     }
 }

@@ -78,24 +78,33 @@ namespace VECS
         }
     }
 
-    [StructLayout(LayoutKind.Sequential, Size = 36)]
+    [StructLayout(LayoutKind.Sequential, Size = 48)]
     public struct LightingInfo
     {
         public Vector4 AmbientLightColour;
         public Vector4 AmbientLightDirection;
+        public float AmbientStrength;
+        public float DiffuseStrength;
+        public float SpecularStrength;
         public int NumPointLights;
 
         public LightingInfo(DirectionalLight directionalLight, int pointLightCount)
         {
             AmbientLightColour = directionalLight.Colour;
             AmbientLightDirection = directionalLight.Direction.AsVector4();
+            AmbientStrength = directionalLight.AmbientStrength;
+            DiffuseStrength = directionalLight.DiffuseStrength;
+            SpecularStrength = directionalLight.SpecularStrength;
             NumPointLights = pointLightCount;
         }
 
-        public LightingInfo(Vector4 colour,Vector3 direction, int pointLightCount)
+        public LightingInfo(Vector4 colour,Vector3 direction, int pointLightCount, float ambientStrength, float diffuseStrength, float specularStrength)
         {
             AmbientLightColour = colour;
             AmbientLightDirection = direction.AsVector4();
+            AmbientStrength = ambientStrength;
+            DiffuseStrength = diffuseStrength;
+            SpecularStrength = specularStrength;
             NumPointLights = pointLightCount;
         }
     }
@@ -104,16 +113,37 @@ namespace VECS
     /// Defines a single point light for shaders to access to apply point light
     /// to their objects
     /// </summary>
-    [StructLayout(LayoutKind.Sequential, Size = 32)]
+    [StructLayout(LayoutKind.Sequential, Size = 80)]
     public struct PointLightUniform
     {
         public Vector4 Position; // ignore w
+        public Vector4 Direction;
         public Vector4 Colour; // w is intensity
 
-        public PointLightUniform(Vector3 position,Vector4 colour)
+        public float CutOff;
+        public float OuterCutOff;
+        public float Constant;
+        public float Linear;
+
+        public float Quadratic;
+        public float AmbientStrength;
+        public float DiffuseStrength;
+        public float SpecularStrength;
+
+        public PointLightUniform(Vector3 position, PointLight pointLight)
         {
             Position = position.AsVector4();
-            Colour = colour;
+            Colour = pointLight.Colour;
+            Direction = pointLight.Direction;
+            Colour = pointLight.Colour;
+            CutOff = pointLight.CutOff;
+            OuterCutOff = pointLight.OuterCutOff;
+            Constant = pointLight.Constant;
+            Linear = pointLight.Linear;
+            Quadratic = pointLight.Quadratic;
+            AmbientStrength = pointLight.AmbientStrength;
+            DiffuseStrength = pointLight.DiffuseStrength;
+            SpecularStrength = pointLight.SpecularStrength;
         }
     }
 }
