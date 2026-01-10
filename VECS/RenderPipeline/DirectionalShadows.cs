@@ -50,11 +50,21 @@ namespace VECS
             depthBufferCullInfo.depthCulling = 0;
 
             const float near_plane = 1.0f;
-            const float far_plane = 7.5f;
+            const float far_plane = 100f;
+
+            var camForward = frameInfo.CameraInfo[frameInfo.MainCamera].Forward.AsVector3();
+            var additionalCameraInfo = frameInfo.AdditionalCameraInfo[frameInfo.MainCamera];
+            var near = additionalCameraInfo.NearPlane;
+            var far = additionalCameraInfo.FarPlane;
+            var cameraFustrumCenter = camForward * NumericsExtensions.Lerp(near, far, 0.5f);
+
+            var lightDir = frameInfo.LightingInfo.DirectionalLight.Direction.AsVector3();
+
+            var lightPos = cameraFustrumCenter + (lightDir * 100f);
 
             Matrix4x4 lightProj = Matrix4x4.CreateOrthographic(20, 20, near_plane, far_plane);
 
-            Matrix4x4 lightView = Matrix4x4.CreateLookAt(new(-2, 4, 1), Vector3.Zero, new(0, 1, 0));
+            Matrix4x4 lightView = Matrix4x4.CreateLookAt(lightPos, cameraFustrumCenter, new(0, 1, 0));
 
             _shadowDepthOnly.PushConstants.SetPushConstantMatrix4x4("space", lightView * lightProj);
 

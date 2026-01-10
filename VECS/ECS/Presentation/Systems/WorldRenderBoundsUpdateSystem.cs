@@ -38,6 +38,8 @@ namespace VECS.ECS.Presentation
             if (_updateRenderBounds.HasEntities)
             {
                 var updateEntities = _updateRenderBounds.GetEntities();
+                bool set = true;
+                AABB sceneBounds = new();
                 updateEntities.ForEach(e =>
                 {
                     Matrix4x4 ltw = entityManager.GetComponent<LocalToWorld>(e).Value;
@@ -45,6 +47,15 @@ namespace VECS.ECS.Presentation
                     var renderBounds = DirectSubMesh.GetSubMeshAtIndex(entityManager.GetComponent<DirectSubMeshIndex>(e)).Bounds;
                     WorldRenderBounds worldBounds = new(AABB.Transform(ltw, renderBounds.Value),renderMesh.CullOverrides);
                     entityManager.SetComponent(e, worldBounds);
+                    if (set)
+                    {
+                        sceneBounds = worldBounds.Value;
+                    }
+                    else
+                    {
+                        sceneBounds.Encapsulate(worldBounds.Value);
+                    }
+                        
                 });
             }
         }
