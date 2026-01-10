@@ -41,7 +41,7 @@ namespace VECS
             shadowConfig.depthStencilInfo.depthWriteEnable = true;
             shadowConfig.depthStencilInfo.depthCompareOp = VkCompareOp.LessOrEqual;
             shadowConfig.rasterizationInfo.cullMode = VkCullModeFlags.None;
-            shadowConfig.rasterizationInfo.depthBiasEnable = true;
+            shadowConfig.rasterizationInfo.depthBiasEnable = false;
             shadowConfig.rasterizationInfo.depthBiasConstantFactor = 1.25f;
             shadowConfig.rasterizationInfo.depthBiasSlopeFactor = 1.75f;
             _shadowDepthOnly = new("ShadowDepthOnly", "shadow_depth.vert", shadowConfig);
@@ -76,9 +76,11 @@ namespace VECS
 
             var shadowFocus = sceneBounds.Center;
 
-            var lightDir = frameInfo.LightingInfo.DirectionalLight.Direction.AsVector3();
+            var lightDir = -frameInfo.LightingInfo.DirectionalLight.Direction.AsVector3();
 
             var lightPos = shadowFocus + (lightDir * far_plane);
+
+            World.DefaultWorld.GetSystem<DebugDrawUtilities>().DrawLine(lightPos,shadowFocus,Colour.Blue);
 
             Matrix4x4 lightProj = CameraSystem.OrthoLH_ZO(sceneBounds.Min.X, sceneBounds.Max.X, sceneBounds.Min.Y, sceneBounds.Max.Y, near_plane, far_plane);
 

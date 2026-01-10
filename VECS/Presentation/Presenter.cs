@@ -214,7 +214,7 @@ namespace VECS
 
                     var shadowFocus = sceneBounds.Center;
 
-                    var lightDir = lightingInfo.DirectionalLight.Direction.AsVector3();
+                    var lightDir = -lightingInfo.DirectionalLight.Direction.AsVector3();
 
                     var lightPos = shadowFocus + (lightDir * far_plane);
 
