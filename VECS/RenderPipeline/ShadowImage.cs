@@ -5,9 +5,9 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
-    public sealed class ShadowImage : IDisposable
+    public sealed class ShadowImage
     {
-        public const int SHADOW_IMAGE_SIZE = 8192;
+        public const int POINT_SHADOW_IMAGE_SIZE = 8192;
         public const VkFormat SHADOW_IMAGE_FORMAT = VkFormat.R32Sfloat;
         public const bool SHADOW_CULLING = true;
         public const bool SHADOW_DST_CULLING = true;
@@ -15,7 +15,7 @@ namespace VECS
         public const RenderLayer SHADOW_INCLUDE_MASK = RenderLayer.Default | RenderLayer.OnlyShadow;
         public const RenderLayer SHADOW_EXCLUDE_MASK = RenderLayer.NoShadow;
 
-        public static readonly Matrix4x4 CubeProjectionMatrix = Matrix4x4.CreatePerspectiveFieldOfView(MathF.PI * 0.5f, 1.0f, 0.1f, SHADOW_IMAGE_SIZE);
+        public static readonly Matrix4x4 CubeProjectionMatrix = Matrix4x4.CreatePerspectiveFieldOfView(MathF.PI * 0.5f, 1.0f, 0.1f, POINT_SHADOW_IMAGE_SIZE);
 
         private readonly VkFormat _depthFormat;
         public Cubemap CubeMap;
@@ -26,15 +26,15 @@ namespace VECS
             _depthFormat = VkFormat.D32Sfloat;
 
             CubeMap = new("ShadowCubeMap",
-                SHADOW_IMAGE_SIZE,
+                POINT_SHADOW_IMAGE_SIZE,
                 SHADOW_IMAGE_FORMAT,
                 VkSamplerAddressMode.ClampToBorder,
                 VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled | VkImageUsageFlags.ColorAttachment,
                 false
             );
             DepthImage = new("ShadowDepthImage",
-                SHADOW_IMAGE_SIZE,
-                SHADOW_IMAGE_SIZE,
+                POINT_SHADOW_IMAGE_SIZE,
+                POINT_SHADOW_IMAGE_SIZE,
                 _depthFormat,
                 VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.TransferDst,
                 false
@@ -112,7 +112,7 @@ namespace VECS
 
             VkRenderingInfo renderingInfo = new()
             {
-                renderArea = new(0, 0, SHADOW_IMAGE_SIZE, SHADOW_IMAGE_SIZE),
+                renderArea = new(0, 0, POINT_SHADOW_IMAGE_SIZE, POINT_SHADOW_IMAGE_SIZE),
                 layerCount = 1,
                 colorAttachmentCount = 1,
                 pColorAttachments = &colour,
@@ -150,23 +150,17 @@ namespace VECS
             DepthImage.SetImageLayout(commandBuffer, VkImageLayout.DepthAttachmentStencilReadOnlyOptimal, VkPipelineStageFlags2.EarlyFragmentTests | VkPipelineStageFlags2.LateFragmentTests, VkPipelineStageFlags2.EarlyFragmentTests);
         }
 
-        public unsafe void Dispose()
-        {
-            CubeMap?.Dispose();
-            DepthImage?.Dispose();
-        }
-
         internal static unsafe void SetViewPort(VkCommandBuffer commandBuffer)
         {
             VkViewport viewport = new()
             {
-                width = SHADOW_IMAGE_SIZE,
-                height = SHADOW_IMAGE_SIZE,
+                width = POINT_SHADOW_IMAGE_SIZE,
+                height = POINT_SHADOW_IMAGE_SIZE,
                 minDepth = 0.0f,
                 maxDepth = 1.0f,
             };
 
-            VkRect2D scissor = new(new(0, 0), new(SHADOW_IMAGE_SIZE, SHADOW_IMAGE_SIZE));
+            VkRect2D scissor = new(new(0, 0), new(POINT_SHADOW_IMAGE_SIZE, POINT_SHADOW_IMAGE_SIZE));
 
             GraphicsDevice.DeviceAPI.vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
             GraphicsDevice.DeviceAPI.vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
@@ -196,7 +190,6 @@ namespace VECS
             {
                 CubeMap.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.Transfer, VkPipelineStageFlags2.ColorAttachmentOutput);
             }
-            
         }
     }
 }

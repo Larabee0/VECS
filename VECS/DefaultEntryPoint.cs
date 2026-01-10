@@ -138,7 +138,9 @@ namespace VECS
 
             var texProp = "texSampler".GetShaderPropertyId();
             var texColour = "texProps.colour".GetShaderPropertyId();
+            var texSpecColour = "texProps.specularColour".GetShaderPropertyId();
             var texTiling = "texProps.tiling".GetShaderPropertyId();
+            var shininess = "texProps.shininess".GetShaderPropertyId();
 
             int litVariant = 0;
             int transVariant = 0;
@@ -192,7 +194,10 @@ namespace VECS
                 else
                 {
                     lit.SetVector4(texColour, litVariant, matInfo.DiffuseColour);
+                    lit.SetVector4(texSpecColour, litVariant, Vector4.Zero);
                     lit.SetFloat(texTiling, litVariant, 1);
+
+                    lit.SetFloat(shininess, litVariant,32);
                 }
 
 

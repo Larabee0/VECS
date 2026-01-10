@@ -22,12 +22,15 @@ namespace VECS
         private SwapChain _swapChain;
         private bool _isFrameStarted = false;
         private ForwardRenderer _forwardRenderer;
+        private DirectionalShadows _directionalShadows;
         private ShadowImage _shadowCubeMap;
         private Bloom _bloom;
         private SMAA _smaa;
         private static ulong _frameCount;
 
         public ForwardRenderer ForwardRenderer => _forwardRenderer;
+        public ShadowImage ShadowImage => _shadowCubeMap;
+        public DirectionalShadows DirShadows => _directionalShadows;
         public VkFormat[] ColourFormats => [_forwardRenderer.MainColourAttachment.Target.Format, _forwardRenderer.BrightObjectAttachment.Target.Format];
         public VkFormat DepthFormat => _forwardRenderer.DepthAttachment.Target.Format;
 
@@ -43,7 +46,6 @@ namespace VECS
 
         private Entity frameInfoEntity;
 
-        public ShadowImage ShadowImage => _shadowCubeMap;
 
         public int FrameIndex
         {
@@ -84,6 +86,7 @@ namespace VECS
                 GraphicsDevice.DeviceWaitIdle();
                 _forwardRenderer = new ForwardRenderer();
                 _shadowCubeMap = new();
+                _directionalShadows = new();
                 _bloom = new();
                 _smaa = new();
                 _forwardRenderer.SetOIT();
@@ -436,7 +439,6 @@ namespace VECS
             _swapChainBufferDisposalQueue.ForEach(b => b.Item2?.Dispose());
             _swapChainBufferDisposalQueue.Clear();
             GraphicsDevice.FreeCommandBuffers();
-            _shadowCubeMap.Dispose();
             _forwardRenderer.Dispose();
             _swapChain.Dispose();
             Instance = null;

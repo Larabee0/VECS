@@ -38,10 +38,14 @@ namespace VECS.ECS.Presentation
             if (frameInfo.LightingInfo.NumPointLights == 0 || !_renderEntityQuery.HasEntities)
             {
                 Presenter.Instance.ShadowImage.ClearImage(frameInfo);
-                return;
             }
 
-            _shadowData.RenderShadows(frameInfo);
+            if(frameInfo.LightingInfo.NumPointLights > 0)
+            {
+                _shadowData.RenderShadows(frameInfo);
+            }
+
+            Presenter.Instance.DirShadows.DirectionalShadowPass(frameInfo);
         }
 
         public unsafe override void OnPreOpaquePass(EntityManager entityManager, RendererFrameInfo frameInfo)

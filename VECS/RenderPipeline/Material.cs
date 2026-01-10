@@ -40,6 +40,11 @@ namespace VECS
         private uint _variantCount;
         private bool _preBindUpdate = false;
 
+        [ThreadStatic]
+        private static Material _lastBound;
+        [ThreadStatic]
+        private static int _lastFrameIndex;
+
         public bool Transparent => _oitDescriptorSetIndex != -1;
 
         public uint VariantCount => _variantCount;
@@ -435,6 +440,17 @@ namespace VECS
             return null;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void BindPipe(VkCommandBuffer commandBuffer, int frameIndex)
+        {
+            if(_lastFrameIndex != frameIndex || _lastBound != this)
+            {
+                _lastFrameIndex = frameIndex;
+                _lastBound = this;
+                GraphicsDevice.DeviceAPI.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Graphics, _graphicsPipeline);
+            }
+        }
+
         public unsafe void BindAll(RendererFrameInfo frameInfo,int variantIndex)
         {
             GetOrCreateVariant((uint)variantIndex, out var variant);
@@ -459,7 +475,9 @@ namespace VECS
             }
 
             var commandBuffer = frameInfo.CommandBuffer;
-            GraphicsDevice.DeviceAPI.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Graphics, _graphicsPipeline);
+
+            BindPipe(commandBuffer, frameIndex);
+
             if (_descriptorSetCount > 0)
             {
                 DescriptorBuffer.BindSets(commandBuffer, (uint)_descriptorSetCount, bindingInfo);
@@ -503,7 +521,9 @@ namespace VECS
 
 
             var commandBuffer = frameInfo.CommandBuffer;
-            GraphicsDevice.DeviceAPI.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Graphics, _graphicsPipeline);
+            
+            BindPipe(commandBuffer, frameIndex);
+
             DescriptorBuffer.BindSets(commandBuffer, (uint)_descriptorSetCount, bindingInfo);
             DescriptorBuffer.SetOffsets(commandBuffer, _pipelineLayout, VkPipelineBindPoint.Graphics, 0, (uint)_descriptorSetCount, offsets, indices);
 
@@ -514,7 +534,7 @@ namespace VECS
         {
             if (matDrawCount <= 0) return;
             var frameIndex = frameInfo.FrameIndex;
-            GraphicsDevice.DeviceAPI.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Graphics, _graphicsPipeline);
+            BindPipe(commandBuffer, frameIndex);
             var command = drawCmds[0];
             GetOrCreateVariant((uint)command.Variant, out _);
             if (_preBindUpdate)
@@ -580,7 +600,7 @@ namespace VECS
         {
             if (matDrawCount <= 0) return;
             var frameIndex = frameInfo.FrameIndex;
-            GraphicsDevice.DeviceAPI.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Graphics, _graphicsPipeline);
+            BindPipe(commandBuffer, frameIndex);
             var command = drawCmds[0];
             GetOrCreateVariant((uint)command.Variant, out _);
             if (_preBindUpdate)

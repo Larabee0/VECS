@@ -109,6 +109,7 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe void WriteDescriptor(DescriptorBufferWriteInfo writeInfo)
         {
+            Debug.Assert(writeInfo.Binding < _bindingOffsets.Length, string.Format("Check shader descriptor set binding indexes for set {0}", writeInfo.Set));
             // align for set index;
             // then align for binding index
             IntPtr ptr = new(_descriptorBuffer.HostPtr);
