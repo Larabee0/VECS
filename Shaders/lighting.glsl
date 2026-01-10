@@ -33,9 +33,11 @@ struct DirectionalLight{
     vec4 ambient;
     vec4 diffuse;
     vec4 specular;
+
+    mat4 lightSpace;
 };
 
-vec3 CalcDirLight(DirectionalLight light, vec3 normal, vec3 viewDir, float shininess, vec3 ambientCol, vec3 diffuseCol, vec3 specularCol){
+vec3 CalcDirLight(DirectionalLight light, vec3 normal, vec3 viewDir, float shininess, float shadow, vec3 ambientCol, vec3 diffuseCol, vec3 specularCol){
     vec3 lightDir = normalize(-light.direction.xyz);
     // diffuse shading
     float diff = max(dot(normal, lightDir), 0.0);
@@ -46,7 +48,7 @@ vec3 CalcDirLight(DirectionalLight light, vec3 normal, vec3 viewDir, float shini
     vec3 ambient  = light.ambient.xyz * ambientCol;
     vec3 diffuse  = light.diffuse.xyz  * diff * diffuseCol;
     vec3 specular = light.specular.xyz * spec * specularCol;
-    return (ambient + diffuse + specular);
+    return (ambient + (1.0 - shadow) * (diffuse + specular));
 }
 
 vec3 CalcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir, float shininess, vec3 ambientCol, vec3 diffuseCol, vec3 specularCol) {

@@ -748,28 +748,36 @@ namespace VECS
         public static void ExecuteAllInOneOpaqueDrawCmds(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer,int materialHash)
         {
             var mat = AssetDataBase<Material>.GetHashed(materialHash);
-
+#if DEBUG
+            CheckAllInOneMaterialRegistered(mat);
+#endif
             mat.ExecuteDrawCommands(frameInfo, commandBuffer, _drawCommandsByMesh, OpaqueCmdCountByMesh, _indirectCmdBufferByMesh);
         }
 
         public static void ExecuteAllInOneOpaqueDrawCmds(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, int materialHash, int pushConstantIndex)
         {
             var mat = AssetDataBase<Material>.GetHashed(materialHash);
-
+#if DEBUG
+            CheckAllInOneMaterialRegistered(mat);
+#endif
             mat.ExecuteDrawCommandsPushConstantOverride(frameInfo, pushConstantIndex, commandBuffer, _drawCommandsByMesh, OpaqueCmdCountByMesh, _indirectCmdBufferByMesh);
         }
 
         public static void ExecuteAllInOneTransparentDrawCmds(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, int materialHash)
         {
             var mat = AssetDataBase<Material>.GetHashed(materialHash);
-
+#if DEBUG
+            CheckAllInOneMaterialRegistered(mat);
+#endif
             mat.ExecuteDrawCommands(frameInfo, commandBuffer, _drawCommandsByMesh.AsSpan(_firstTransparentByMesh,TransparentcmdCountByMesh), TransparentcmdCountByMesh, _indirectCmdBufferByMesh);
         }
 
         public static void ExecuteAllInOneTransparentDrawCmds(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, int materialHash, int pushConstantIndex)
         {
             var mat = AssetDataBase<Material>.GetHashed(materialHash);
-
+#if DEBUG
+            CheckAllInOneMaterialRegistered(mat);
+#endif
             mat.ExecuteDrawCommandsPushConstantOverride(frameInfo, pushConstantIndex, commandBuffer, _drawCommandsByMesh.AsSpan(_firstTransparentByMesh, TransparentcmdCountByMesh), TransparentcmdCountByMesh, _indirectCmdBufferByMesh);
         }
 
@@ -830,5 +838,15 @@ namespace VECS
             }
             return null;
         }
+
+#if DEBUG
+        private static void CheckAllInOneMaterialRegistered(Material material)
+        {
+            if (!AllInOneMats.Contains(material.Hash))
+            {
+                throw new InvalidOperationException(string.Format("Material: '{0}' (HASH: '{1}' has not be registered to teh AllInOneMats list therefore will not have object matrices assigned!", material.AssetName, material.Hash));
+            }
+        }
+#endif
     }
 }

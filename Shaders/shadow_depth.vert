@@ -15,6 +15,11 @@ layout(push_constant) uniform SpaceIn {
 	mat4 space;
 } spaceIn;
  
+out gl_PerVertex 
+{
+    vec4 gl_Position;   
+};
+
 void main()
 {
 	ObjectMatrices objectMat = matricesBuffer.matrices[gl_BaseInstance];

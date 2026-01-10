@@ -9,5 +9,6 @@
         public readonly int Id => ComponentId;
 
         public float screenAspect;
+        public AABB sceneBounds;
     }
 }

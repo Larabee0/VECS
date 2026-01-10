@@ -50,13 +50,20 @@ namespace VECS.ECS.Presentation
                     if (set)
                     {
                         sceneBounds = worldBounds.Value;
+                        set = false;
                     }
                     else
                     {
                         sceneBounds.Encapsulate(worldBounds.Value);
                     }
-                        
                 });
+
+                if(entityManager.SingletonEntity<FrameInfo>(out var frameInfoEntity))
+                {
+                    var frameInfo = entityManager.GetComponent<FrameInfo>(frameInfoEntity);
+                    frameInfo.sceneBounds = sceneBounds;
+                    entityManager.SetComponent(frameInfoEntity, frameInfo);
+                }
             }
         }
     }

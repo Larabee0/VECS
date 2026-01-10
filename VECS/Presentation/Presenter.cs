@@ -90,6 +90,7 @@ namespace VECS
                 _bloom = new();
                 _smaa = new();
                 _forwardRenderer.SetOIT();
+                _directionalShadows.AssignDirShadowTexture();
             }
             else
             {
@@ -205,6 +206,22 @@ namespace VECS
                 if (dirLights != null && dirLights.Count > 0)
                 {
                     lightingInfo = new(entityManager.GetComponent<DirectionalLight>(dirLights[0]), 0, 0);
+
+                    var sceneBounds = entityManager.GetComponent<FrameInfo>(frameInfoEntity).sceneBounds;
+
+                    const float near_plane = 1.0f;
+                    const float far_plane = 7.5f;
+
+                    var shadowFocus = sceneBounds.Center;
+
+                    var lightDir = -lightingInfo.DirectionalLight.Direction.AsVector3();
+
+                    var lightPos = shadowFocus + (lightDir * far_plane);
+
+                    Matrix4x4 lightProj = CameraSystem.OrthoLH_ZO(-10, 10, -10, 10, near_plane, far_plane);
+
+                    Matrix4x4 lightView = Matrix4x4.CreateLookAt(lightPos, shadowFocus, new(0, 1, 0));
+                    lightingInfo.DirectionalLight.lightSpace = lightView * lightProj;
                 }
                 else
                 {
@@ -214,6 +231,7 @@ namespace VECS
                         {
                             Ambient = Vector4.One,
                             Direction = new(0,-1,0, 0),
+                            lightSpace = Matrix4x4.Identity
                         }
                     };
                 }
@@ -262,6 +280,7 @@ namespace VECS
                     {
                         Ambient = Vector4.One,
                         Direction = new(0, -1, 0, 0),
+                        lightSpace = Matrix4x4.Identity
                     }
                 };
             }

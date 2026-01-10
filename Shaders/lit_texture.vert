@@ -1,6 +1,7 @@
 #version 460
 #extension GL_ARB_shading_language_include : require
 #include "common_structures.glsl"
+#include "lighting.glsl"
 
 layout (location = 0) in vec3 position;
 layout (location = 1) in vec3 normal;
@@ -10,6 +11,13 @@ layout (location = 0) out vec4 fragColour;
 layout (location = 1) out vec3 fragPosWorld;
 layout (location = 2) out vec3 fragNormalWorld;
 layout (location = 3) out vec2 fragUV;
+layout (location = 4) out vec4 fragPosDirLight;
+
+layout(set = 0, binding = 0) uniform LightingInfo {
+	DirectionalLight directionalLight;
+	int numPointLights;
+	int numSpotLights;
+} lighting;
 
 layout(set = 0,binding = 3) readonly buffer CameraInfos {
 	CameraInfo values[];
@@ -44,6 +52,7 @@ void main()
 	
 	float lightIntensity = AMBIENT + max(dot(fragNormalWorld, DIRECTION_TO_LIGHT), 0);
 	fragPosWorld = positionWorld.xyz;
+	fragPosDirLight = lighting.directionalLight.lightSpace * vec4(positionWorld.xyz, 1.0);
 
 	fragColour = lightIntensity * vec4 (1);
 	fragUV = uv;

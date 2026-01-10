@@ -95,7 +95,7 @@ namespace VECS
         }
     }
 
-    [StructLayout(LayoutKind.Sequential, Size = 64)]
+    [StructLayout(LayoutKind.Sequential, Size = 128)]
     public struct DirectionalLightInfo
     {
         public Vector4 Direction;
@@ -103,6 +103,8 @@ namespace VECS
         public Vector4 Ambient;
         public Vector4 Diffuse;
         public Vector4 Specular;
+
+        public Matrix4x4 lightSpace;
     }
 
     [StructLayout(LayoutKind.Sequential, Size = 76)]

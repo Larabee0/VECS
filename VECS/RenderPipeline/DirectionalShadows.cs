@@ -1,5 +1,7 @@
 ﻿using System.Numerics;
 using System.Runtime.CompilerServices;
+using VECS.ECS;
+using VECS.ECS.Presentation;
 using VECS.GraphicsPipelines;
 using VECS.LowLevel;
 using Vortice.Vulkan;
@@ -8,9 +10,9 @@ namespace VECS
 {
     public sealed class DirectionalShadows
     {
-        public const int DIRECTIONAL_SHADOW_RESOLTION = 1024;
-        public const bool SHADOW_CULLING = true;
-        public const bool SHADOW_DST_CULLING = true;
+        public const int DIRECTIONAL_SHADOW_RESOLTION = 4096;
+        public const bool SHADOW_CULLING = false;
+        public const bool SHADOW_DST_CULLING = false;
         public const bool SHADOW_DEPTH_CULLING = false;
         public const RenderLayer SHADOW_INCLUDE_MASK = RenderLayer.Default | RenderLayer.OnlyShadow;
         public const RenderLayer SHADOW_EXCLUDE_MASK = RenderLayer.NoShadow;
@@ -39,36 +41,52 @@ namespace VECS
             shadowConfig.depthStencilInfo.depthWriteEnable = true;
             shadowConfig.depthStencilInfo.depthCompareOp = VkCompareOp.Less;
             shadowConfig.rasterizationInfo.cullMode = VkCullModeFlags.None;
+            shadowConfig.rasterizationInfo.depthBiasEnable = true;
+            shadowConfig.rasterizationInfo.depthBiasConstantFactor = 1.25f;
+            shadowConfig.rasterizationInfo.depthBiasSlopeFactor = 1.75f;
             _shadowDepthOnly = new("ShadowDepthOnly", "shadow_depth.vert", shadowConfig);
+
+            DrawBlob.AllInOneMats.Add(_shadowDepthOnly.Hash);
+        }
+
+        public void AssignDirShadowTexture()
+        {
+
+            AssetDataBase<Material>.AllAssetsListForReading.ForEach(asset =>
+            {
+                for (int i = 0; i < asset.VariantCount; i++)
+                {
+                    asset.SetTexture(ShaderPropertyInfo.DirShadowImageId, i, _shadowDepthImage.Target);
+                }
+            });
         }
 
         public unsafe void DirectionalShadowPass(in RendererFrameInfo frameInfo)
         {
             DrawBlob.IndirectToComputeMemoryBarrierByMat(frameInfo.CommandBuffer);
 
-            var depthBufferCullInfo = frameInfo.CullData;
-            depthBufferCullInfo.depthCulling = 0;
+            AABB sceneBounds = new();
+            if(World.DefaultWorld.EntityManager.SingletonComponent<FrameInfo>(out var sceneInfo))
+            {
+                sceneBounds = sceneInfo.sceneBounds;
+            }
 
             const float near_plane = 1.0f;
-            const float far_plane = 100f;
+            const float far_plane = 7.5f;
 
-            var camForward = frameInfo.CameraInfo[frameInfo.MainCamera].Forward.AsVector3();
-            var additionalCameraInfo = frameInfo.AdditionalCameraInfo[frameInfo.MainCamera];
-            var near = additionalCameraInfo.NearPlane;
-            var far = additionalCameraInfo.FarPlane;
-            var cameraFustrumCenter = camForward * NumericsExtensions.Lerp(near, far, 0.5f);
+            var shadowFocus = sceneBounds.Center;
 
-            var lightDir = frameInfo.LightingInfo.DirectionalLight.Direction.AsVector3();
+            var lightDir = -frameInfo.LightingInfo.DirectionalLight.Direction.AsVector3();
 
-            var lightPos = cameraFustrumCenter + (lightDir * 100f);
+            var lightPos = shadowFocus + (lightDir * far_plane);
 
-            Matrix4x4 lightProj = Matrix4x4.CreateOrthographic(20, 20, near_plane, far_plane);
+            Matrix4x4 lightProj = CameraSystem.OrthoLH_ZO(-10, 10, -10, 10, near_plane, far_plane);
 
-            Matrix4x4 lightView = Matrix4x4.CreateLookAt(lightPos, cameraFustrumCenter, new(0, 1, 0));
+            Matrix4x4 lightView = Matrix4x4.CreateLookAt(lightPos, shadowFocus, new(0, 1, 0));
 
             _shadowDepthOnly.PushConstants.SetPushConstantMatrix4x4("space", lightView * lightProj);
 
-            depthBufferCullInfo = new(SHADOW_INCLUDE_MASK, SHADOW_EXCLUDE_MASK, SHADOW_CULLING, SHADOW_DST_CULLING, SHADOW_DEPTH_CULLING, near_plane, lightProj, lightView);
+            CullData depthBufferCullInfo = new(SHADOW_INCLUDE_MASK, SHADOW_EXCLUDE_MASK, SHADOW_CULLING, SHADOW_DST_CULLING, SHADOW_DEPTH_CULLING, near_plane, lightProj, lightView);
 
             DrawBlob.CullAllInOne(frameInfo, depthBufferCullInfo);
 
