@@ -79,6 +79,9 @@ void main()
 
 	vec3 result = CalcDirLight(lighting.directionalLight,normal, viewDir, shininess, shadow, diffuseTextureColour, diffuseTextureColour, specularColour);
 
+	if(shadow > 0){
+		result= result * 0.1;
+	}
 	for(int i = 0; i < lighting.numPointLights; i++){
 		PointLight pl = pointLightBuffer.values[i];
 		
@@ -94,10 +97,7 @@ void main()
 
 	outColour = vec4(result, 1.0);
 
-	if(shadow > 0){
-		outColour = vec4(1);
-	}
-	else{
-		outColour = vec4(0,0,0,1);
-	}
+	// else{
+	// 	outColour = vec4(0,0,0,1);
+	// }
 }

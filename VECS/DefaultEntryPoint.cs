@@ -89,7 +89,7 @@ namespace VECS
                 Value = new()
                 {
                     Direction = new Vector4(0, -0.71f, 0.71f,0),
-                    //Direction = new Vector4(0,1,0,0),
+                    //Direction = new Vector4(0,-1,0,0),
 
                     Ambient = new(0.1f, 0.1f, 0.1f, 1f),
                     Diffuse = Vector4.One,

@@ -209,19 +209,19 @@ namespace VECS
 
                     var sceneBounds = entityManager.GetComponent<FrameInfo>(frameInfoEntity).sceneBounds;
 
-                    const float near_plane = 1.0f;
-                    const float far_plane = 7.5f;
+                    const float near_plane = 0f;
+                    float far_plane = sceneBounds.Max.Z - sceneBounds.Min.Z;
 
                     var shadowFocus = sceneBounds.Center;
 
-                    var lightDir = -lightingInfo.DirectionalLight.Direction.AsVector3();
+                    var lightDir = lightingInfo.DirectionalLight.Direction.AsVector3();
 
                     var lightPos = shadowFocus + (lightDir * far_plane);
 
-                    Matrix4x4 lightProj = CameraSystem.OrthoLH_ZO(-10, 10, -10, 10, near_plane, far_plane);
+                    Matrix4x4 lightProj = CameraSystem.OrthoLH_ZO(sceneBounds.Min.X, sceneBounds.Max.X, sceneBounds.Min.Y, sceneBounds.Max.Y, near_plane, far_plane);
 
                     Matrix4x4 lightView = Matrix4x4.CreateLookAt(lightPos, shadowFocus, new(0, 1, 0));
-                    lightingInfo.DirectionalLight.lightSpace = lightView * lightProj;
+                    lightingInfo.DirectionalLight.lightSpace = lightProj* lightView;
                 }
                 else
                 {
@@ -307,10 +307,9 @@ namespace VECS
         /// <param name="entityManager"></param>
         public void UpdateEntityFrameInfo(EntityManager entityManager)
         {
-            entityManager.SetComponent(frameInfoEntity, new FrameInfo()
-            {
-                screenAspect = _swapChain.ExtentAspectRatio
-            });
+            var info = entityManager.GetComponent<FrameInfo>(frameInfoEntity);
+            info.screenAspect = _swapChain.ExtentAspectRatio;
+            entityManager.SetComponent(frameInfoEntity, info);
         }
 
         public void Present()

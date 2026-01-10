@@ -39,7 +39,7 @@ namespace VECS
             shadowConfig.depthFormat = _shadowDepthImage.Target.Format;
             shadowConfig.stencilFormat = VkFormat.Undefined;
             shadowConfig.depthStencilInfo.depthWriteEnable = true;
-            shadowConfig.depthStencilInfo.depthCompareOp = VkCompareOp.Less;
+            shadowConfig.depthStencilInfo.depthCompareOp = VkCompareOp.LessOrEqual;
             shadowConfig.rasterizationInfo.cullMode = VkCullModeFlags.None;
             shadowConfig.rasterizationInfo.depthBiasEnable = true;
             shadowConfig.rasterizationInfo.depthBiasConstantFactor = 1.25f;
@@ -71,20 +71,20 @@ namespace VECS
                 sceneBounds = sceneInfo.sceneBounds;
             }
 
-            const float near_plane = 1.0f;
-            const float far_plane = 7.5f;
+            const float near_plane = 0f;
+            float far_plane = sceneBounds.Max.Z - sceneBounds.Min.Z;
 
             var shadowFocus = sceneBounds.Center;
 
-            var lightDir = -frameInfo.LightingInfo.DirectionalLight.Direction.AsVector3();
+            var lightDir = frameInfo.LightingInfo.DirectionalLight.Direction.AsVector3();
 
             var lightPos = shadowFocus + (lightDir * far_plane);
 
-            Matrix4x4 lightProj = CameraSystem.OrthoLH_ZO(-10, 10, -10, 10, near_plane, far_plane);
+            Matrix4x4 lightProj = CameraSystem.OrthoLH_ZO(sceneBounds.Min.X, sceneBounds.Max.X, sceneBounds.Min.Y, sceneBounds.Max.Y, near_plane, far_plane);
 
             Matrix4x4 lightView = Matrix4x4.CreateLookAt(lightPos, shadowFocus, new(0, 1, 0));
 
-            _shadowDepthOnly.PushConstants.SetPushConstantMatrix4x4("space", lightView * lightProj);
+            _shadowDepthOnly.PushConstants.SetPushConstantMatrix4x4("space", lightProj* lightView);
 
             CullData depthBufferCullInfo = new(SHADOW_INCLUDE_MASK, SHADOW_EXCLUDE_MASK, SHADOW_CULLING, SHADOW_DST_CULLING, SHADOW_DEPTH_CULLING, near_plane, lightProj, lightView);
 
