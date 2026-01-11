@@ -381,7 +381,8 @@ namespace VECS.LowLevel
                 multiDrawIndirect = true,
                 drawIndirectFirstInstance = true,
                 dualSrcBlend = true,
-                fragmentStoresAndAtomics = true
+                fragmentStoresAndAtomics = true,
+                geometryShader = true,
             };
 
             VkPhysicalDeviceFeatures2 deviceFeatures2 = new()

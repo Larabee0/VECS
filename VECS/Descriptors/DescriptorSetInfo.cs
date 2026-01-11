@@ -218,7 +218,8 @@ namespace VECS
             {
                 if (_hasOwnerShipOfBuffer[i])
                 {
-                    _descriptorSetBuffers[i].WriteFromHostToBuffer(frameIndex);
+                    //_descriptorSetBuffers[i].WriteFromHostToBuffer(frameIndex);
+                    GPUBufferExtensions.WriteFromHostDelayed(_descriptorSetBuffers[i],frameIndex);
                 }
             }
             _descriptorBuffers[frameIndex].Flush();
@@ -280,7 +281,7 @@ namespace VECS
                     else if(binding.StorageBuffer)
                     {
                         var scb = _descriptorSetBuffers[bufferIndex];
-                        if (scb != null && !scb.Disposed)
+                        if (scb != null && !scb.IsDisposed)
                         {
                             int scbIndex = scb.AlisedGPUBuffer ? 0 : Presenter.Instance.FrameIndex;
                             descriptorBuffer.SetStorageBinding(_descriptorSetBuffers[bufferIndex][scbIndex], setIndex, bindPoint);

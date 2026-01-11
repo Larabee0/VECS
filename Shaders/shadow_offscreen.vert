@@ -4,8 +4,6 @@ layout (location = 0) in vec3 inPos;
 
 layout (location = 0) out vec3 outPos;
 
-
-
 struct ObjectMatrices{
 	mat4 modelMatrix; // project * view * model
 	mat4 normalMatrix;

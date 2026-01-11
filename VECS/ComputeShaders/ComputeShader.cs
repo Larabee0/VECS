@@ -53,7 +53,7 @@ namespace VECS
 
             _pushConstantsHandler = new(spirShader);
 
-            _pipelineLayout = GPUPipelineUtil.CreatePipelineLayout(shaderModule, _descriptorSetLayouts, _pushConstantsHandler);
+            _pipelineLayout = GPUPipelineUtil.CreatePipelineLayoutVert(shaderModule, _descriptorSetLayouts, _pushConstantsHandler);
 
             VkComputePipelineCreateInfo computePipelineInfo = new()
             {
@@ -323,7 +323,6 @@ namespace VECS
                 _descriptorSetInfos[i].WriteUniforms(frameIndex,setId);
                 _descriptorSetInfos[i].WriteFromBuffers(frameIndex);
                 var buffer = _descriptorSetInfos[i].DescriptorBuffers[frameIndex];
-                buffer.Flush();
                 bindingInfo[i] = buffer.BindingInfo;
                 offsets[i] = buffer.AlignedSize * setId;
                 indices[i] = i;

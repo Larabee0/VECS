@@ -44,8 +44,8 @@ namespace VECS
             Cubemap shadowCube = AssetDataBase<Cubemap>.GetNamed("ShadowCubeMap");
             Texture2D shadowDepthStencil = AssetDataBase<Texture2D>.GetNamed("ShadowDepthImage");
 
-            shadowConfig.colourFormats = [shadowCube.Format];
-            shadowConfig.depthFormat = shadowDepthStencil.Format;
+            shadowConfig.colourFormats = [VkFormat.R32Sfloat];
+            shadowConfig.depthFormat = VkFormat.D32Sfloat;
             shadowConfig.stencilFormat = VkFormat.Undefined;
             shadowConfig.depthStencilInfo.depthWriteEnable = true;
             shadowConfig.depthStencilInfo.depthCompareOp = VkCompareOp.Less;

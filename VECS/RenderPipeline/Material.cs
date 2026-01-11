@@ -80,8 +80,8 @@ namespace VECS
 
             _materialPushConstantsHandler = new(vertex, fragment);
 
-            _pipelineLayout = GPUPipelineUtil.CreatePipelineLayout(vertex, fragment, _descriptorSetLayouts, _materialPushConstantsHandler);
-            _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipeline(vertex, fragment, _graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT);
+            _pipelineLayout = GPUPipelineUtil.CreatePipelineLayoutVertFrag(vertex, fragment, _descriptorSetLayouts, _materialPushConstantsHandler);
+            _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipelineVertFrag(vertex, fragment, _graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT);
             _matVariants = new MaterialVariant[MAX_VARIANTS];
             AssetDataBase<Material>.Add(this);
         }
@@ -109,8 +109,8 @@ namespace VECS
 
             _materialPushConstantsHandler = new(vertex);
 
-            _pipelineLayout = GPUPipelineUtil.CreatePipelineLayout(vertex, _descriptorSetLayouts, _materialPushConstantsHandler);
-            _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipeline(vertex, _graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT);
+            _pipelineLayout = GPUPipelineUtil.CreatePipelineLayoutVert(vertex, _descriptorSetLayouts, _materialPushConstantsHandler);
+            _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipelineVert(vertex, _graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT);
             _matVariants = new MaterialVariant[MAX_VARIANTS];
             AssetDataBase<Material>.Add(this);
         }
@@ -149,8 +149,38 @@ namespace VECS
 
             _materialPushConstantsHandler = new(mesh, task, fragment);
 
-            _pipelineLayout = GPUPipelineUtil.CreatePipelineLayout(mesh, task, fragment, _descriptorSetLayouts, _materialPushConstantsHandler);
-            _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipeline(mesh, task, fragment, _graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT);
+            _pipelineLayout = GPUPipelineUtil.CreatePipelineLayoutMeshTaskFrag(mesh, task, fragment, _descriptorSetLayouts, _materialPushConstantsHandler);
+            _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipelineMeshTaskFrag(mesh, task, fragment, _graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT);
+            _matVariants = new MaterialVariant[MAX_VARIANTS];
+            AssetDataBase<Material>.Add(this);
+        }
+
+        internal Material(string name, string vertexShaderName, string fragmentShaderName, GraphicsPipelineConfigInfo pipelineConfig, string geometryShaderName)
+        {
+            AssetName = name;
+
+            ShaderModule vertex = AssetDataBase<ShaderModule>.GetNamed(vertexShaderName);
+            ShaderModule geometry = AssetDataBase<ShaderModule>.GetNamed(geometryShaderName);
+            ShaderModule fragment = AssetDataBase<ShaderModule>.GetNamed(fragmentShaderName);
+
+            if (vertex.HasVertexAttributes && (pipelineConfig.BindingDescriptions.Length == 0 || pipelineConfig.AttributeDescriptions.Length == 0))
+            {
+                pipelineConfig.BindingDescriptions = vertex.VertexBindings;
+                pipelineConfig.AttributeDescriptions = vertex.VertexAttributes;
+            }
+            _graphicsPipelineConfigInfo = pipelineConfig;
+            var descriptorSetBindings = GPUPipelineUtil.GetSharedBindings(vertex, geometry, fragment);
+            _descriptorSetCount = GPUPipelineUtil.GetSetCount(descriptorSetBindings);
+            _oitDescriptorSetIndex = GPUPipelineUtil.GetOITSetIndex(descriptorSetBindings);
+
+            _descriptorSetLayouts = new VkDescriptorSetLayout[_descriptorSetCount];
+            _descriptorSetInfos = new DescriptorSetInfo[_descriptorSetCount];
+            InitialiseDescriptorSets(descriptorSetBindings);
+
+            _materialPushConstantsHandler = new(vertex, geometry, fragment);
+
+            _pipelineLayout = GPUPipelineUtil.CreatePipelineLayoutVerGeoFrag(vertex, geometry, fragment, _descriptorSetLayouts, _materialPushConstantsHandler);
+            _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipelineVertGeoFrag(vertex, geometry, fragment, _graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT);
             _matVariants = new MaterialVariant[MAX_VARIANTS];
             AssetDataBase<Material>.Add(this);
         }

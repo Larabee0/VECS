@@ -322,7 +322,7 @@ namespace VECS
             return -1;
         }
 
-        public static VkPipelineLayout CreatePipelineLayout(ShaderModule shaderModule, VkDescriptorSetLayout[] setLayouts, PushConstantsHandler pushConstants)
+        public static VkPipelineLayout CreatePipelineLayoutVert(ShaderModule shaderModule, VkDescriptorSetLayout[] setLayouts, PushConstantsHandler pushConstants)
         {
             string cacheName = shaderModule.AssetName;
             var cache = AssetDataBase<PipelineCache>.GetNamedSilentFail(cacheName);
@@ -336,7 +336,7 @@ namespace VECS
             return cache.Layout;
         }
 
-        public static VkPipelineLayout CreatePipelineLayout(ShaderModule vertex, ShaderModule fragment, VkDescriptorSetLayout[] setLayouts, PushConstantsHandler pushConstants)
+        public static VkPipelineLayout CreatePipelineLayoutVertFrag(ShaderModule vertex, ShaderModule fragment, VkDescriptorSetLayout[] setLayouts, PushConstantsHandler pushConstants)
         {
             string cacheName = vertex.AssetName + fragment.AssetName;
             var cache = AssetDataBase<PipelineCache>.GetNamedSilentFail(cacheName);
@@ -350,7 +350,21 @@ namespace VECS
             return cache.Layout;
         }
 
-        public static VkPipelineLayout CreatePipelineLayout(ShaderModule mesh, ShaderModule task, ShaderModule fragment, VkDescriptorSetLayout[] setLayouts, PushConstantsHandler pushConstants)
+        public static VkPipelineLayout CreatePipelineLayoutVerGeoFrag(ShaderModule  vertex, ShaderModule geometry, ShaderModule fragment, VkDescriptorSetLayout[] setLayouts, PushConstantsHandler pushConstants)
+        {
+            string cacheName = vertex.AssetName + geometry.AssetName+ fragment.AssetName;
+            var cache = AssetDataBase<PipelineCache>.GetNamedSilentFail(cacheName);
+
+            if (cache == null)
+            {
+                cache = new(cacheName, CreatePipelineLayout(setLayouts, pushConstants));
+                AssetDataBase<PipelineCache>.Add(cache);
+            }
+
+            return cache.Layout;
+        }
+
+        public static VkPipelineLayout CreatePipelineLayoutMeshTaskFrag(ShaderModule mesh, ShaderModule task, ShaderModule fragment, VkDescriptorSetLayout[] setLayouts, PushConstantsHandler pushConstants)
         {
             if (!GraphicsDevice.MeshShading)
             {
@@ -405,7 +419,7 @@ namespace VECS
             return _pipline;
         }
 
-        public static unsafe VkPipeline CreateGraphicsPipeline(ShaderModule mesh, ShaderModule task, ShaderModule fragment, GraphicsPipelineConfigInfo configInfo, VkPipelineCreateFlags flags = VkPipelineCreateFlags.None)
+        public static unsafe VkPipeline CreateGraphicsPipelineMeshTaskFrag(ShaderModule mesh, ShaderModule task, ShaderModule fragment, GraphicsPipelineConfigInfo configInfo, VkPipelineCreateFlags flags = VkPipelineCreateFlags.None)
         {
             if (!GraphicsDevice.MeshShading)
             {
@@ -416,17 +430,79 @@ namespace VECS
             Debug.Assert(fragment.VkShaderStage == VkShaderStageFlags.Fragment, "Provided fragement shader is at wrong stage! Name: {0} Provided Stage {1}", fragment.AssetName, fragment.VkShaderStage);
 
             string cacheName = mesh.AssetName + task.AssetName + fragment.AssetName;
+
+            // Shader stages
+            VkPipelineShaderStageCreateInfo* shaderStages = stackalloc VkPipelineShaderStageCreateInfo[] {
+             mesh.ShaderStageCreateInfo,
+             task.ShaderStageCreateInfo,
+             fragment.ShaderStageCreateInfo
+            };
+
+            return CreateGrahpicsPipeline(cacheName,configInfo,flags,3,shaderStages);
+        }
+
+        public static unsafe VkPipeline CreateGraphicsPipelineVertGeoFrag(ShaderModule vertex, ShaderModule geometry, ShaderModule fragment, GraphicsPipelineConfigInfo configInfo, VkPipelineCreateFlags flags = VkPipelineCreateFlags.None)
+        {
+            Debug.Assert(vertex.VkShaderStage == VkShaderStageFlags.Vertex, "Provided vertex shader is at wrong stage! Name: {0} Provided Stage {1}", vertex.AssetName, vertex.VkShaderStage);
+            Debug.Assert(geometry.VkShaderStage == VkShaderStageFlags.Geometry, "Provided geometry shader is at wrong stage! Name: {0} Provided Stage {1}", geometry.AssetName, geometry.VkShaderStage);
+            Debug.Assert(fragment.VkShaderStage == VkShaderStageFlags.Fragment, "Provided fragement shader is at wrong stage! Name: {0} Provided Stage {1}", fragment.AssetName, fragment.VkShaderStage);
+
+            string cacheName = vertex.AssetName + geometry.AssetName + fragment.AssetName;
+
+            // Shader stages
+            VkPipelineShaderStageCreateInfo* shaderStages = stackalloc VkPipelineShaderStageCreateInfo[]
+            {
+                vertex.ShaderStageCreateInfo,
+                geometry.ShaderStageCreateInfo,
+                fragment.ShaderStageCreateInfo
+            };
+
+            return CreateGrahpicsPipeline(cacheName, configInfo, flags, 3, shaderStages);
+        }
+
+        public static unsafe VkPipeline CreateGraphicsPipelineVertFrag(ShaderModule vertex, ShaderModule fragment, GraphicsPipelineConfigInfo configInfo, VkPipelineCreateFlags flags = VkPipelineCreateFlags.None)
+        {
+            Debug.Assert(vertex.VkShaderStage == VkShaderStageFlags.Vertex, "Provided vertex shader is at wrong stage! Name: {0} Provided Stage {1}", vertex.AssetName, vertex.VkShaderStage);
+            Debug.Assert(fragment.VkShaderStage == VkShaderStageFlags.Fragment, "Provided fragement shader is at wrong stage! Name: {0} Provided Stage {1}", fragment.AssetName, fragment.VkShaderStage);
+
+            string cacheName = vertex.AssetName + fragment.AssetName;
+
+            // Shader stages
+            VkPipelineShaderStageCreateInfo* shaderStages = stackalloc VkPipelineShaderStageCreateInfo[]
+            {
+                vertex.ShaderStageCreateInfo,
+                fragment.ShaderStageCreateInfo
+            };
+
+            return CreateGrahpicsPipeline(cacheName, configInfo, flags, 2, shaderStages);
+        }
+
+        public static unsafe VkPipeline CreateGraphicsPipelineVert(ShaderModule vertex, GraphicsPipelineConfigInfo configInfo, VkPipelineCreateFlags flags = VkPipelineCreateFlags.None)
+        {
+            Debug.Assert(vertex.VkShaderStage == VkShaderStageFlags.Vertex, "Provided vertex shader is at wrong stage! Name: {0} Provided Stage {1}", vertex.AssetName, vertex.VkShaderStage);
+            
+            string cacheName = vertex.AssetName;
+
+            // Shader stages
+            VkPipelineShaderStageCreateInfo shaderStages = vertex.ShaderStageCreateInfo;
+
+            return CreateGrahpicsPipeline(cacheName, configInfo, flags, 1, &shaderStages);
+        }
+
+        private static unsafe VkPipeline CreateGrahpicsPipeline(string cacheName, GraphicsPipelineConfigInfo configInfo, VkPipelineCreateFlags flags, uint stageCount ,VkPipelineShaderStageCreateInfo* shaderStages)
+        {
             var cache = AssetDataBase<PipelineCache>.GetNamed(cacheName);
 
+            // Fix the properties needed for Graphics Pipeline Create Info
             configInfo.pipelineLayout = cache.Layout;
             var vkDynamicInfo = configInfo.dynamicInfo;
             var depthStencilInfo = configInfo.depthStencilInfo;
             var colourBlendInfo = configInfo.colourBlendInfo;
             var colourBlendAttachment = configInfo.colourBlendAttachment;
-            var inputAssemblyInfo = configInfo.inputAssemblyInfo;
             var viewportInfo = configInfo.viewportInfo;
             var multisampleInfo = configInfo.multisampleInfo;
             var rasterizationInfo = configInfo.rasterizationInfo;
+            var inputAssemblyInfo = configInfo.inputAssemblyInfo;
 
             // Assign remaining memory pointers
             VkPipelineColorBlendAttachmentState* colourAttachments = stackalloc VkPipelineColorBlendAttachmentState[configInfo.colourFormats.Length];
@@ -445,16 +521,10 @@ namespace VECS
             }
 
             vkDynamicInfo.pDynamicStates = pDynamicStates;
-            
-            // Shader stages
-            VkPipelineShaderStageCreateInfo* shaderStages = stackalloc VkPipelineShaderStageCreateInfo[3];
-            shaderStages[0] = mesh.ShaderStageCreateInfo;
-            shaderStages[1] = task.ShaderStageCreateInfo;
-            shaderStages[2] = fragment.ShaderStageCreateInfo;
 
             VkGraphicsPipelineCreateInfo pipelineInfo = new()
             {
-                stageCount = 3,
+                stageCount = stageCount,
                 pStages = shaderStages,
                 pVertexInputState = null, // not needed for mesh shader
                 pInputAssemblyState = null, // not needed for mesh shader
@@ -470,94 +540,25 @@ namespace VECS
                 basePipelineIndex = -1,
                 basePipelineHandle = VkPipeline.Null
             };
+
+            if (configInfo.BindingDescriptions != null && configInfo.AttributeDescriptions != null)
+            {
+
+                // Vertex Input State Create Info
+                VkVertexInputBindingDescription* pBindingDescriptions = stackalloc VkVertexInputBindingDescription[configInfo.BindingDescriptions.Length];
+                VkVertexInputAttributeDescription* pAttributeDescriptions = stackalloc VkVertexInputAttributeDescription[configInfo.AttributeDescriptions.Length];
+                VkPipelineVertexInputStateCreateInfo vertexInputState = GetVertexInputState(
+                    configInfo.BindingDescriptions,
+                    configInfo.AttributeDescriptions,
+                    pBindingDescriptions,
+                    pAttributeDescriptions);
+                pipelineInfo.pVertexInputState = &vertexInputState;
+                pipelineInfo.pInputAssemblyState = &inputAssemblyInfo;
+
+            }
+
             VkPipelineRenderingCreateInfo pipelineRenderingCreateInfo = configInfo.pipelineRenderingCreateInfo;
-            fixed (VkFormat* colourFormats = &configInfo.colourFormats[0])
-            {
-                pipelineRenderingCreateInfo.colorAttachmentCount = (uint)configInfo.colourFormats.Length;
-                pipelineRenderingCreateInfo.pColorAttachmentFormats = colourFormats;
-            }
-            pipelineRenderingCreateInfo.depthAttachmentFormat = configInfo.depthFormat;
-            pipelineRenderingCreateInfo.stencilAttachmentFormat = configInfo.stencilFormat;
-            pipelineRenderingCreateInfo.viewMask = configInfo.viewMask;
 
-            pipelineInfo.pNext = &pipelineRenderingCreateInfo;
-            pipelineInfo.flags = flags;
-
-            GraphicsDevice.DeviceAPI.vkCreateGraphicsPipeline(GraphicsDevice.Device, cache.Cache, pipelineInfo, out var graphicsPipeline).CheckResult( "Failed to create graphics pipeline!");
-
-            return graphicsPipeline;
-        }
-
-        public static unsafe VkPipeline CreateGraphicsPipeline(ShaderModule vertex, ShaderModule fragment, GraphicsPipelineConfigInfo configInfo, VkPipelineCreateFlags flags = VkPipelineCreateFlags.None)
-        {
-            Debug.Assert(vertex.VkShaderStage == VkShaderStageFlags.Vertex, "Provided vertex shader is at wrong stage! Name: {0} Provided Stage {1}", vertex.AssetName, vertex.VkShaderStage);
-            Debug.Assert(fragment.VkShaderStage == VkShaderStageFlags.Fragment, "Provided fragement shader is at wrong stage! Name: {0} Provided Stage {1}", fragment.AssetName, fragment.VkShaderStage);
-            ///Debug.Assert(configInfo.renderPass != VkRenderPass.Null, "Cannot create graphics pipeline, no renderPass layout provided in config");
-
-            string cacheName = vertex.AssetName + fragment.AssetName;
-            var cache = AssetDataBase<PipelineCache>.GetNamed(cacheName);
-            // Fix the properties needed for Graphics Pipeline Create Info
-            configInfo.pipelineLayout = cache.Layout;
-            var vkDynamicInfo = configInfo.dynamicInfo;
-            var depthStencilInfo = configInfo.depthStencilInfo;
-            var colourBlendInfo = configInfo.colourBlendInfo;
-            var colourBlendAttachment = configInfo.colourBlendAttachment;
-            var inputAssemblyInfo = configInfo.inputAssemblyInfo;
-            var viewportInfo = configInfo.viewportInfo;
-            var multisampleInfo = configInfo.multisampleInfo;
-            var rasterizationInfo = configInfo.rasterizationInfo;
-
-            // Assign remaining memory pointers
-            VkPipelineColorBlendAttachmentState* colourAttachments = stackalloc VkPipelineColorBlendAttachmentState[configInfo.colourFormats.Length];
-            for (int i = 0; i < configInfo.colourFormats.Length; i++)
-            {
-                colourAttachments[i] = colourBlendAttachment;
-            }
-            colourBlendInfo.pAttachments = colourAttachments;
-            colourBlendInfo.attachmentCount = (uint)configInfo.colourFormats.Length;
-
-            VkDynamicState* pDynamicStates = stackalloc VkDynamicState[configInfo.dynamicStateEnables.Length];
-
-            for (int i = 0; i < configInfo.dynamicStateEnables.Length; i++)
-            {
-                pDynamicStates[i] = configInfo.dynamicStateEnables[i];
-            }
-
-            vkDynamicInfo.pDynamicStates = pDynamicStates;
-
-            // Vertex Input State Create Info
-            VkVertexInputBindingDescription* pBindingDescriptions = stackalloc VkVertexInputBindingDescription[configInfo.BindingDescriptions.Length];
-            VkVertexInputAttributeDescription* pAttributeDescriptions = stackalloc VkVertexInputAttributeDescription[configInfo.AttributeDescriptions.Length];
-            VkPipelineVertexInputStateCreateInfo vertexInputState = GetVertexInputState(
-                configInfo.BindingDescriptions,
-                configInfo.AttributeDescriptions,
-                pBindingDescriptions,
-                pAttributeDescriptions);
-
-            // Shader stages
-            VkPipelineShaderStageCreateInfo* shaderStages = stackalloc VkPipelineShaderStageCreateInfo[2];
-            shaderStages[0] = vertex.ShaderStageCreateInfo;
-            shaderStages[1] = fragment.ShaderStageCreateInfo;
-
-            VkGraphicsPipelineCreateInfo pipelineInfo = new()
-            {
-                stageCount = 2,
-                pStages = shaderStages,
-                pVertexInputState = &vertexInputState,
-                pInputAssemblyState = &inputAssemblyInfo,
-                pViewportState = &viewportInfo,
-                pRasterizationState = &rasterizationInfo,
-                pMultisampleState = &multisampleInfo,
-                pColorBlendState = &colourBlendInfo,
-                pDepthStencilState = &depthStencilInfo,
-                pDynamicState = &vkDynamicInfo,
-
-                layout = configInfo.pipelineLayout,
-
-                basePipelineIndex = -1,
-                basePipelineHandle = VkPipeline.Null
-            };
-            VkPipelineRenderingCreateInfo pipelineRenderingCreateInfo = configInfo.pipelineRenderingCreateInfo;
             if (configInfo.colourFormats.Length > 0)
             {
                 fixed (VkFormat* colourFormats = &configInfo.colourFormats[0])
@@ -570,82 +571,6 @@ namespace VECS
             {
                 pipelineRenderingCreateInfo.colorAttachmentCount = 0;
             }
-            pipelineRenderingCreateInfo.depthAttachmentFormat = configInfo.depthFormat;
-            pipelineRenderingCreateInfo.stencilAttachmentFormat = configInfo.stencilFormat;
-            pipelineRenderingCreateInfo.viewMask = configInfo.viewMask;
-
-            pipelineInfo.pNext = &pipelineRenderingCreateInfo;
-            pipelineInfo.flags = flags;
-
-            GraphicsDevice.DeviceAPI.vkCreateGraphicsPipeline(GraphicsDevice.Device, cache.Cache, pipelineInfo, out var graphicsPipeline).CheckResult( "Failed to create graphics pipeline!");
-
-
-            return graphicsPipeline;
-        }
-
-        public static unsafe VkPipeline CreateGraphicsPipeline(ShaderModule vertex, GraphicsPipelineConfigInfo configInfo, VkPipelineCreateFlags flags = VkPipelineCreateFlags.None)
-        {
-            Debug.Assert(vertex.VkShaderStage == VkShaderStageFlags.Vertex, "Provided vertex shader is at wrong stage! Name: {0} Provided Stage {1}", vertex.AssetName, vertex.VkShaderStage);
-            ///Debug.Assert(configInfo.renderPass != VkRenderPass.Null, "Cannot create graphics pipeline, no renderPass layout provided in config");
-
-            string cacheName = vertex.AssetName;
-            var cache = AssetDataBase<PipelineCache>.GetNamed(cacheName);
-            // Fix the properties needed for Graphics Pipeline Create Info
-            configInfo.pipelineLayout = cache.Layout;
-            var vkDynamicInfo = configInfo.dynamicInfo;
-            var depthStencilInfo = configInfo.depthStencilInfo;
-            var colourBlendInfo = configInfo.colourBlendInfo;
-            var colourBlendAttachment = configInfo.colourBlendAttachment;
-            var inputAssemblyInfo = configInfo.inputAssemblyInfo;
-            var viewportInfo = configInfo.viewportInfo;
-            var multisampleInfo = configInfo.multisampleInfo;
-            var rasterizationInfo = configInfo.rasterizationInfo;
-
-            // Assign remaining memory pointers
-            colourBlendInfo.pAttachments = &colourBlendAttachment;
-
-            VkDynamicState* pDynamicStates = stackalloc VkDynamicState[configInfo.dynamicStateEnables.Length];
-
-            for (int i = 0; i < configInfo.dynamicStateEnables.Length; i++)
-            {
-                pDynamicStates[i] = configInfo.dynamicStateEnables[i];
-            }
-
-            vkDynamicInfo.pDynamicStates = pDynamicStates;
-
-            // Vertex Input State Create Info
-            VkVertexInputBindingDescription* pBindingDescriptions = stackalloc VkVertexInputBindingDescription[configInfo.BindingDescriptions.Length];
-            VkVertexInputAttributeDescription* pAttributeDescriptions = stackalloc VkVertexInputAttributeDescription[configInfo.AttributeDescriptions.Length];
-            VkPipelineVertexInputStateCreateInfo vertexInputState = GetVertexInputState(
-                configInfo.BindingDescriptions,
-                configInfo.AttributeDescriptions,
-                pBindingDescriptions,
-                pAttributeDescriptions);
-
-            // Shader stages
-            VkPipelineShaderStageCreateInfo shaderStages = vertex.ShaderStageCreateInfo;
-
-            VkGraphicsPipelineCreateInfo pipelineInfo = new()
-            {
-                stageCount = 1,
-                pStages = &shaderStages,
-                pVertexInputState = &vertexInputState,
-                pInputAssemblyState = &inputAssemblyInfo,
-                pViewportState = &viewportInfo,
-                pRasterizationState = &rasterizationInfo,
-                pMultisampleState = &multisampleInfo,
-                pColorBlendState = &colourBlendInfo,
-                pDepthStencilState = &depthStencilInfo,
-                pDynamicState = &vkDynamicInfo,
-
-                layout = configInfo.pipelineLayout,
-
-                basePipelineIndex = -1,
-                basePipelineHandle = VkPipeline.Null
-            };
-            VkPipelineRenderingCreateInfo pipelineRenderingCreateInfo = configInfo.pipelineRenderingCreateInfo;
-            
-            pipelineRenderingCreateInfo.colorAttachmentCount = 0;
             pipelineRenderingCreateInfo.depthAttachmentFormat = configInfo.depthFormat;
             pipelineRenderingCreateInfo.stencilAttachmentFormat = configInfo.stencilFormat;
             pipelineRenderingCreateInfo.viewMask = configInfo.viewMask;

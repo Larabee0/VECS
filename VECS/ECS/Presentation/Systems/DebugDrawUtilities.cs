@@ -20,9 +20,9 @@ namespace VECS.ECS.Presentation
         private readonly Vector2 _max = new(1, 1);
         private readonly Vector4[] _fustrumVerts = new Vector4[16];
         private GPUBuffer<Vector3> _circleBuffer;
-        private GPUBuffer<Vector3> _frustrumBuffer;
+        private SwapChainBuffer<Vector3> _frustrumBuffer;
         private GPUBuffer<Vector3> _cubeBuffer;
-        private GPUBuffer<Matrix3x2> _lineBuffer;
+        private SwapChainBuffer<Matrix3x2> _lineBuffer;
 
         private SwapChainBuffer<VkDrawIndirectCommand> _drawBuffer;
 
@@ -43,12 +43,12 @@ namespace VECS.ECS.Presentation
                 .WithNone(typeof(Prefab),typeof(MainCamera))
                 .Build();
 
-            _circleBuffer = new(32, VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferDst, true, false, false);
-            _frustrumBuffer = new(16 * 1000, VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferDst, true, false, false);
-            _cubeBuffer = new(16, VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferDst, true, false, false);
-            _lineBuffer = new(MAX_LINES, VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferDst, true, false, false);
+            _circleBuffer = new(32, VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferDst, true, false,false);
+            _frustrumBuffer = new(16 * 1000, VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferDst, true, false);
+            _cubeBuffer = new(16, VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferDst, true, false, true);
+            _lineBuffer = new(MAX_LINES, VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferDst, true, false);
 
-            _lineBuffer.FillBuffer(0);
+            _lineBuffer.HostBuffer.Fill(new Matrix3x2(0,0,0,0,0,0));
 
             CreateDrawBuffers();
             CreateWireCube();
@@ -66,6 +66,7 @@ namespace VECS.ECS.Presentation
                 radians += radPerStep;
             }
             vertices[^1] = (Vector3.Zero + new Vector3(MathF.Sin(0), -MathF.Cos(0), 0)) * 1f;
+
             _circleBuffer.WriteFromHostBuffer();
             EngineMaterials.WireFrame.SetDescriptorStorageBufferLength(0,1, 0);
         }
@@ -105,6 +106,8 @@ namespace VECS.ECS.Presentation
                 colours = EngineMaterials.WireFrame.GetStorageBuffer<Vector4>(ColourBufferId);
                 EngineMaterials.WireFrame.BindAll(frameInfo, 0);
                 draws = _drawBuffer.HostBuffer;
+
+                GPUBufferExtensions.WriteFromHostDelayed(_drawBuffer, frameInfo.FrameIndex);
             }
 
             if(_lineQueue.Count > 0)
@@ -127,8 +130,8 @@ namespace VECS.ECS.Presentation
                     drawIndex++;
                     drawBufferIndex++;
                 }
-                _lineBuffer.WriteFromHostBuffer();
-                GraphicsDevice.DeviceAPI.vkCmdBindVertexBuffer(frameInfo.CommandBuffer, 0, _lineBuffer.VkBuffer);
+                GPUBufferExtensions.WriteFromHostDelayed(_lineBuffer, frameInfo.FrameIndex);
+                GraphicsDevice.DeviceAPI.vkCmdBindVertexBuffer(frameInfo.CommandBuffer, 0, _lineBuffer.ActiveVkBuffer);
                 DrawIndirect(frameInfo, 0, drawBufferIndex);
             }
 
@@ -273,9 +276,10 @@ namespace VECS.ECS.Presentation
                         drawIndex++;
                         drawBufferIndex++;
                     }
-                    _frustrumBuffer.WriteFromHostBuffer();
 
-                    GraphicsDevice.DeviceAPI.vkCmdBindVertexBuffer(frameInfo.CommandBuffer, 0, _frustrumBuffer.VkBuffer);
+                    GPUBufferExtensions.WriteFromHostDelayed(_frustrumBuffer, frameInfo.FrameIndex);
+
+                    GraphicsDevice.DeviceAPI.vkCmdBindVertexBuffer(frameInfo.CommandBuffer, 0, _frustrumBuffer.ActiveVkBuffer);
                     DrawIndirect(frameInfo, indirectStartIndex, cameras.Count);
                 }
             }

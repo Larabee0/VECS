@@ -44,14 +44,39 @@ namespace VECS
             }
         }
 
+        private class WriteFromHostBufferCmd
+        {
+            public readonly SwapChainBuffer SCBBuffer;
+            public readonly GPUBuffer GPUBuffer;
+            public readonly ulong Offset;
+            public readonly ulong Size;
+            public readonly int FrameIndex;
+
+            public WriteFromHostBufferCmd(GPUBuffer gpuBuffer, ulong offset, ulong size)
+            {
+                GPUBuffer = gpuBuffer;
+                Offset = offset;
+                Size = size;
+            }
+
+            public WriteFromHostBufferCmd(SwapChainBuffer scbBuffer, int frameIndex)
+            {
+                SCBBuffer = scbBuffer;
+                FrameIndex = frameIndex;
+            }
+        }
+
         private readonly static ConcurrentQueue<FillBufferCmd> _fillBufferQueue = new();
 
         private readonly static ConcurrentQueue<CopyBufferCmd> _copyBufferQueue = new();
+
+        private readonly static ConcurrentQueue<WriteFromHostBufferCmd> _writeBufferCmds = new();
 
         public static void Reset()
         {
             _fillBufferQueue.Clear();
             _copyBufferQueue.Clear();
+            _writeBufferCmds.Clear();
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -331,9 +356,12 @@ namespace VECS
             {
                 throw new InvalidOperationException("Cannot write host buffer to GPU as it is null");
             }
-
-            WriteToBuffer(buffer, buffer.HostPtr, size,offset);
-            buffer.SetGPUBufferChanged(false);
+            if (buffer.Dirty|| buffer.GPUDirty)
+            {
+                WriteToBuffer(buffer, buffer.HostPtr, size, offset);
+                buffer.SetGPUBufferChanged(false);
+                buffer.SetHostBufferChanged(false);
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -515,6 +543,31 @@ namespace VECS
 
                 MemoryBarrierHelper.BufferMemoryBarrier(commandBuffer, memoryBarrier);
             }
+        }
+
+        public static unsafe void PlaybackWriteBufferCmds()
+        {
+            while(_writeBufferCmds.TryDequeue(out var cmd))
+            {
+                if(cmd.GPUBuffer != null && !cmd.GPUBuffer.IsDisposed)
+                {
+                    cmd.GPUBuffer.WriteFromHostBuffer(cmd.Size, cmd.Offset);
+                }
+                if (cmd.SCBBuffer != null && !cmd.SCBBuffer.IsDisposed)
+                {
+                    cmd.SCBBuffer.WriteFromHostToBuffer(cmd.FrameIndex);
+                }
+            }
+        }
+
+        public static unsafe void WriteFromHostDelayed(GPUBuffer buffer, ulong offset, ulong size)
+        {
+            _writeBufferCmds.Enqueue(new(buffer, offset,size));
+        }
+
+        public static unsafe void WriteFromHostDelayed(SwapChainBuffer buffer, int frameIndex)
+        {
+            _writeBufferCmds.Enqueue(new(buffer, frameIndex));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

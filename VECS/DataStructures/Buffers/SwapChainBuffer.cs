@@ -26,7 +26,7 @@ namespace VECS
         protected uint _usedInstanceCount;
 
         public bool AlisedGPUBuffer => _alisedGPUBuffer;
-        public bool Disposed => _disposed;
+        public bool IsDisposed => _disposed;
 
         public ulong VkBufferSize => _vkBufferSize;
         public ulong HostBufferSize => Math.Max(_hostAlignment, _instanceSize) * _instanceCount;
@@ -46,10 +46,10 @@ namespace VECS
             get
             {
                 int frameIndex = Presenter.Instance.FrameIndex;
-                if (_CPUAccessible && _hasHostBuffer && _diryBuffers[frameIndex] && HostPtrValid)
-                {
-                    this.WriteFromHostToBuffer(frameIndex);
-                }
+                // if (_CPUAccessible && _hasHostBuffer && _diryBuffers[frameIndex] && HostPtrValid)
+                // {
+                //     this.WriteFromHostToBuffer(frameIndex);
+                // }
                 return _buffers[frameIndex];
             }
         }

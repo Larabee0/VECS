@@ -445,6 +445,11 @@ namespace VECS
 
             SliceDrawCmds();
 
+            for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
+            {
+                GPUBufferExtensions.WriteFromHostDelayed(_indirectCmdBufferByMat, i);
+            }
+
             allInOneGen.Wait();
         }
 
@@ -552,6 +557,13 @@ namespace VECS
                 {
                     _firstTransparentByMesh = _drawCommandsByMesh.Length;
                 }
+
+                for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
+                {
+                    GPUBufferExtensions.WriteFromHostDelayed(_indirectCmdBufferByMesh, i);
+                }
+
+                
             });
         }
 
@@ -570,9 +582,6 @@ namespace VECS
                     WriteToRenderBuffer(entityManager, i, entityMat, j);
                 }
             });
-
-            _drawRenderBoundsByMat.WriteFromHostToActiveBuffer();
-            _drawRenderBoundsByMesh.WriteFromHostToActiveBuffer();
         }
 
         private static unsafe void WriteToRenderBuffer(EntityManager entityManager, int i, Entity entityMat, int j)
@@ -633,6 +642,12 @@ namespace VECS
                     _drawRenderBoundsByMat.HostBuffer[..allInOneDrawCount].CopyTo(bounds);
                 }
             });
+        }
+
+        public static void FlushBounds(int frameIndex)
+        {
+            GPUBufferExtensions.WriteFromHostDelayed(_drawRenderBoundsByMat, frameIndex);
+            GPUBufferExtensions.WriteFromHostDelayed(_drawRenderBoundsByMesh, frameIndex);
         }
 
         public unsafe static void ExecuteOpaqueDrawCmds(RendererFrameInfo frameInfo, VkCommandBuffer[] commandBuffers, VkFormat* colourFormats, uint colourAttachmentCount, VkFormat depthFormat, VkFormat stencilFormat)

@@ -304,7 +304,7 @@ namespace VECS
             _isFrameStarted = BeginFrame();
 
             World.DefaultWorld.OnPrePresent();
-
+            DrawBlob.FlushBounds(FrameIndex);
             UpdateEntityFrameInfo(World.DefaultWorld.EntityManager);
             if (_isFrameStarted)
             {
@@ -312,11 +312,10 @@ namespace VECS
                 UpdateSwapChainBufferDisposal();
                 // signal workers to submit work
                 _swapChain.SignalTimelineFromHost(SemaphoreStages.Submit, SwapChain.FrameIndex);
-                //Console.WriteLine("Signaled begin Submit");
                 // wait for workers to submit
 
                 _swapChain.WaitForNextFrame(SwapChain.NextFrame);
-                //Console.WriteLine("Next frame signal");
+
                 PostPresentationUpdate?.Invoke();
 
                 _isFrameStarted = false;
@@ -339,8 +338,6 @@ namespace VECS
 
             RendererFrameInfo frameInfo = CreateRendererFrameInfo(Time.DeltaTime, commandBuffer);
 
-            // culling
-
             Material.UpdateMaterials(frameInfo);
 
             // shadows pass
@@ -350,17 +347,13 @@ namespace VECS
 
             World.DefaultWorld.OnPostShadowPass(frameInfo);
 
-            //_skybox.RenderSkyboxPass(frameInfo);
-
             // Opaque pass
-            //_skybox.RenderSkyboxDepthOnly(frameInfo);
             World.DefaultWorld.OnPreOpaquePass(frameInfo);
 
-            _forwardRenderer.BeginForwardRendering(commandBuffer,VkAttachmentLoadOp.Clear);
-
+            _forwardRenderer.BeginForwardRendering(commandBuffer, VkAttachmentLoadOp.Clear);
 
             World.DefaultWorld.OnOpaquePass(frameInfo);
-            
+            // skybox last item rendered to save fragments from any depth writes
             Skybox.RenderSkybox(frameInfo);
 
             _forwardRenderer.EndForwardRendering(commandBuffer);
@@ -370,11 +363,7 @@ namespace VECS
             // Transparent pass
             World.DefaultWorld.OnPreTransparentPass(frameInfo);
 
-            _forwardRenderer.BeginForwardRendering(commandBuffer,VkAttachmentLoadOp.Load);
-
             World.DefaultWorld.OnTransparentPass(frameInfo);
-
-            _forwardRenderer.EndForwardRendering(commandBuffer);
 
             World.DefaultWorld.OnPostTransparentPass(frameInfo);
 
@@ -383,15 +372,21 @@ namespace VECS
 
             DrawBlob.IndirectToComputeMemoryBarrierByMat(frameInfo.CommandBuffer);
 
+            // final AA pass
             _smaa.ApplyAA(frameInfo);
 
+            // UI Overlay
             UI.ULUI.BlitCamera(frameInfo, _forwardRenderer.MainColourAttachment.Target);
 
-            
-            var extents = _swapChain.SwapChainExtent;
+            // Play back Write Cmds generated during frame from CPU to GPU Buffers
+            // this is an optimisation to avoid double writes
+            GPUBufferExtensions.PlaybackWriteBufferCmds();
 
+            // blit renderImage into swapchain
+            var extents = _swapChain.SwapChainExtent;            
             _forwardRenderer.BlitFromMainColour(commandBuffer, _swapChain._swapChainImages[imageIndex], (int)extents.width, (int)extents.height, VkImageAspectFlags.Color);
 
+            // transfer swapchain image to present queue
             _swapChain.TransferSwapChainImageToPresentQueue(commandBuffer, FrameIndex, imageIndex);
         }
 

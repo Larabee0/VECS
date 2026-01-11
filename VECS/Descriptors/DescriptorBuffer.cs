@@ -17,7 +17,6 @@ namespace VECS
 
         private readonly VkDescriptorSetLayout _setLayout;
 
-        public bool _writesPending = true;
         private uint _usageLength;
 
         public uint AlignedSize => _alignedLayoutSize;
@@ -164,7 +163,7 @@ namespace VECS
             }
             GraphicsDevice.DeviceAPI.vkGetDescriptorEXT(GraphicsDevice.Device, &getInfo, writeInfo.DataSize, ptr.ToPointer());
 
-            _writesPending = true;
+            _descriptorBuffer.SetHostBufferChanged(true);
         }
 
         public void SetUsageLength(uint length)
@@ -174,9 +173,7 @@ namespace VECS
 
         public unsafe void Flush()
         {
-            if (!_writesPending) return;
-            _descriptorBuffer.WriteFromHostBuffer(_usageLength * _alignedLayoutSize);
-            _writesPending = false;
+            GPUBufferExtensions.WriteFromHostDelayed( _descriptorBuffer,0,_usageLength * _alignedLayoutSize);
         }
 
         public static unsafe void Bind(VkCommandBuffer cmd, DescriptorBuffer buffer)

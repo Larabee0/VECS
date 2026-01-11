@@ -1,5 +1,6 @@
 ﻿//#define LOG_BUFFER_ALLOCS
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -13,7 +14,7 @@ namespace VECS
 {
     public class GPUBuffer : IDisposable
     {
-        public readonly static Queue<GPUBuffer> DisposalQueue = [];
+        public readonly static ConcurrentQueue<GPUBuffer> DisposalQueue = [];
 
         private GPUBuffer _stagingBuffer;
         public VkBuffer VkBuffer;
@@ -25,16 +26,19 @@ namespace VECS
         protected ulong _hostAlignment;
         internal ulong _vkBufferSize;
         protected VkBufferUsageFlags _usageFlags;
-        protected bool _CPUAccess;
+        protected bool _cpuAccess;
         protected bool _disposed;
-        protected bool _GPUBufferChanged;
+        protected bool _gpuBufferChanged;
+        protected bool _hostBufferChanged;
         protected bool _persistentStagingBuffer;
         internal unsafe void* _hostPtr;
         public ulong VkBufferSize => _vkBufferSize;
 
         public bool IsDisposed => _disposed;
         public bool PersistentStagingBuffer => _persistentStagingBuffer;
-        public bool CPUAccess => _CPUAccess;
+        public bool CPUAccess => _cpuAccess;
+        public bool Dirty => _hostBufferChanged;
+        public bool GPUDirty => _gpuBufferChanged;
         public ulong HostAlignment => _hostAlignment;
         public uint InstanceSize => (uint)_instanceSize;
         public ulong HostBufferSize => Math.Max(_hostAlignment, _instanceSize) * _instanceCount;
@@ -131,7 +135,8 @@ namespace VECS
 
             if (cpuAccessible)
             {
-                _CPUAccess = true;
+                _cpuAccess = true;
+                _hostBufferChanged = true;
                 if (!preventHostAllocation)
                 {
                     _hostPtr = NativeMemory.AlignedAlloc((nuint)_vkBufferSize, (nuint)_hostAlignment);
@@ -165,7 +170,13 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetGPUBufferChanged(bool changed)
         {
-            _GPUBufferChanged = changed;
+            _gpuBufferChanged = changed;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetHostBufferChanged(bool changed)
+        {
+           _hostBufferChanged = changed;
         }
 
         public unsafe void Dispose()
@@ -185,9 +196,9 @@ namespace VECS
 
         public static void EmptyDisposalQueue()
         {
-            while (DisposalQueue.Count > 0)
+            while (DisposalQueue.TryDequeue(out var buffer))
             {
-                DisposalQueue.Dequeue().Dispose();
+                buffer.Dispose();
             }
         }
     }
@@ -199,7 +210,8 @@ namespace VECS
             get
             {
                 if (_hostPtr == null) { return []; }
-                if (_GPUBufferChanged) { this.ReadToHostBuffer(); }
+                if (_gpuBufferChanged) { this.ReadToHostBuffer(); }
+                _hostBufferChanged = true;
                 return new Span<T>(_hostPtr, InstanceCount32);
             }
         }
