@@ -207,21 +207,7 @@ namespace VECS
                 {
                     lightingInfo = new(entityManager.GetComponent<DirectionalLight>(dirLights[0]), 0, 0);
 
-                    var sceneBounds = entityManager.GetComponent<FrameInfo>(frameInfoEntity).sceneBounds;
-
-                    const float near_plane = 0f;
-                    float far_plane = sceneBounds.Max.Z - sceneBounds.Min.Z;
-
-                    var shadowFocus = sceneBounds.Center;
-
-                    var lightDir = -lightingInfo.DirectionalLight.Direction.AsVector3();
-
-                    var lightPos = shadowFocus + (lightDir * far_plane);
-
-                    Matrix4x4 lightProj = CameraSystem.OrthoLH_ZO(sceneBounds.Min.X, sceneBounds.Max.X, sceneBounds.Min.Y, sceneBounds.Max.Y, near_plane, far_plane);
-
-                    Matrix4x4 lightView = Matrix4x4.CreateLookAt(lightPos, shadowFocus, new(0, 1, 0));
-                    lightingInfo.DirectionalLight.lightSpace = lightProj* lightView;
+                    lightingInfo.DirectionalLight.lightSpace = _directionalShadows.GetSpaceMatrix(lightingInfo, out _, out _, out _);
                 }
                 else
                 {

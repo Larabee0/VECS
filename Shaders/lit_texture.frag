@@ -56,14 +56,37 @@ layout(push_constant) uniform Constants{
 	uint cameraIndex;
 } constants;
 
-float ShadowDirCalculation(vec4 fragPosLight, vec3 normal, vec3 lightDir){
-    vec3 projCoords = fragPosLight.xyz / fragPosLight.w;
-	projCoords = projCoords * 0.5 + 0.5;
-	float closestDepth = texture(dirShadow, projCoords.xy).r;
-	float currentDepth = projCoords.z;
-	float bias = max(0.05 * (1.0 - dot(normal, lightDir)), 0.005);
-	float shadow = currentDepth > closestDepth  ? 1.0 : 0.0;
+float ShadowDirCalculation(vec4 fragPosLight, vec2 off){
+	float shadow = 1.0;
+	
+	if(fragPosLight.z > -1.0 && fragPosLight.z < 1.0){
+		float dist = texture(dirShadow,fragPosLight.st+off).r;
+		if(fragPosLight.w > 0.0 && dist < fragPosLight.z){
+			shadow = 0.0;
+		}
+	}
+
 	return shadow;
+}
+
+float filterPCF(vec4 sc){
+	ivec2 texDim = textureSize(dirShadow, 0);
+	float scale = 1.5;
+	float dx = scale * 1.0 / float(texDim.x);
+	float dy = scale * 1.0 / float(texDim.y);
+
+	float shadowFactor = 0.0;
+	int count = 0;
+	int range = 1;
+
+	for(int x = -range; x <= range; x++){
+		for(int y = -range; y <= range; y++){
+			shadowFactor += ShadowDirCalculation(sc,vec2(dx*x,dy*y));
+			count++;
+		}
+	}
+
+	return (shadowFactor / count);
 }
 
 void main()
@@ -71,7 +94,7 @@ void main()
 	vec3 cameraPosWorld = cameraInverse.values[constants.cameraIndex].inverseViewMatrix[3].xyz;
 	vec3 normal = normalize(fragNormalWorld);
 	vec3 viewDir = normalize(cameraPosWorld - fragPosWorld);
-	float shadow = ShadowDirCalculation(fragPosDirLight,normal,lighting.directionalLight.direction.xyz);
+	float shadow = filterPCF(fragPosDirLight / fragPosDirLight.w);
 	
 	vec3 diffuseTextureColour = texture(texSampler, fragUV).rgb;
 	vec3 specularColour = texProps.specularColour.rgb;
@@ -79,9 +102,6 @@ void main()
 
 	vec3 result = CalcDirLight(lighting.directionalLight,normal, viewDir, shininess, shadow, diffuseTextureColour, diffuseTextureColour, specularColour);
 
-	if(shadow > 0){
-		result= result * 0.1;
-	}
 	for(int i = 0; i < lighting.numPointLights; i++){
 		PointLight pl = pointLightBuffer.values[i];
 		

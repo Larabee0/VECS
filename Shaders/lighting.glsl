@@ -48,7 +48,7 @@ vec3 CalcDirLight(DirectionalLight light, vec3 normal, vec3 viewDir, float shini
     vec3 ambient  = light.ambient.xyz * ambientCol;
     vec3 diffuse  = light.diffuse.xyz  * diff * diffuseCol;
     vec3 specular = light.specular.xyz * spec * specularCol;
-    return (ambient + (1.0 - shadow) * (diffuse + specular));
+    return (ambient + (shadow * (diffuse + specular)));
 }
 
 vec3 CalcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir, float shininess, vec3 ambientCol, vec3 diffuseCol, vec3 specularCol) {

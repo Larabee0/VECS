@@ -40,8 +40,8 @@ namespace VECS
             shadowConfig.stencilFormat = VkFormat.Undefined;
             shadowConfig.depthStencilInfo.depthWriteEnable = true;
             shadowConfig.depthStencilInfo.depthCompareOp = VkCompareOp.LessOrEqual;
-            shadowConfig.rasterizationInfo.cullMode = VkCullModeFlags.None;
-            shadowConfig.rasterizationInfo.depthBiasEnable = false;
+            shadowConfig.rasterizationInfo.cullMode = VkCullModeFlags.Front;
+            shadowConfig.rasterizationInfo.depthBiasEnable = true;
             shadowConfig.rasterizationInfo.depthBiasConstantFactor = 1.25f;
             shadowConfig.rasterizationInfo.depthBiasSlopeFactor = 1.75f;
             _shadowDepthOnly = new("ShadowDepthOnly", "shadow_depth.vert", shadowConfig);
@@ -59,34 +59,53 @@ namespace VECS
                     asset.SetTexture(ShaderPropertyInfo.DirShadowImageId, i, _shadowDepthImage.Target);
                 }
             });
+            var texProp = "texSampler".GetShaderPropertyId();
+
+            AssetDataBase<Material>.GetNamed("UnlitTextured")?.SetTexture(texProp, 0, _shadowDepthImage.Target);
         }
 
-        public unsafe void DirectionalShadowPass(in RendererFrameInfo frameInfo)
+        public Matrix4x4 GetSpaceMatrix(LightingInfo lightingInfo, out float nearPlane, out Matrix4x4 lightView, out Matrix4x4 lightProj)
         {
-            DrawBlob.IndirectToComputeMemoryBarrierByMat(frameInfo.CommandBuffer);
-
             AABB sceneBounds = new();
-            if(World.DefaultWorld.EntityManager.SingletonComponent<FrameInfo>(out var sceneInfo))
+            if (World.DefaultWorld.EntityManager.SingletonComponent<FrameInfo>(out var sceneInfo))
             {
                 sceneBounds = sceneInfo.sceneBounds;
             }
 
-            const float near_plane = 0f;
-            float far_plane = sceneBounds.Max.Z - sceneBounds.Min.Z;
+            const float near_plane = 0.01f;
+            float far_plane = 25;
 
             var shadowFocus = sceneBounds.Center;
+            shadowFocus.Y = -5;
+            // var shadowFocus = Vector3.Zero;
 
-            var lightDir = -frameInfo.LightingInfo.DirectionalLight.Direction.AsVector3();
+            var lightDir = -lightingInfo.DirectionalLight.Direction.AsVector3();
 
-            var lightPos = shadowFocus + (lightDir * far_plane);
+            Vector3 lightPos =  new(){
+                X = shadowFocus.X + lightDir.X * far_plane,
+                Y = shadowFocus.Y + lightDir.Y * far_plane,
+                Z = shadowFocus.Z + lightDir.Z * far_plane
+            };
+            //var lightPos = new Vector3(-2, 4, -1);
 
-            World.DefaultWorld.GetSystem<DebugDrawUtilities>().DrawLine(lightPos,shadowFocus,Colour.Blue);
+            World.DefaultWorld.GetSystem<DebugDrawUtilities>().DrawLine(lightPos, shadowFocus, Colour.Blue);
 
-            Matrix4x4 lightProj = CameraSystem.OrthoLH_ZO(sceneBounds.Min.X, sceneBounds.Max.X, sceneBounds.Min.Y, sceneBounds.Max.Y, near_plane, far_plane);
+            lightProj = Matrix4x4.CreateOrthographic(50,50, near_plane, far_plane);
+            //lightProj = CameraSystem.OrthoLH_ZO(-10,10,-10,10, near_plane, far_plane);
+            //lightProj = Matrix4x4.Transpose(lightProj);
 
-            Matrix4x4 lightView = Matrix4x4.CreateLookAt(lightPos, shadowFocus, new(0, 1, 0));
+            lightView = Matrix4x4.CreateLookAt(lightPos, shadowFocus, new(0, 1, 0));
+            nearPlane = near_plane;
+            return lightView * lightProj;
+        }
 
-            _shadowDepthOnly.PushConstants.SetPushConstantMatrix4x4("space", lightProj* lightView);
+        public unsafe void DirectionalShadowPass(in RendererFrameInfo frameInfo)
+        {
+            AssignDirShadowTexture();
+            DrawBlob.IndirectToComputeMemoryBarrierByMat(frameInfo.CommandBuffer);
+
+
+            _shadowDepthOnly.PushConstants.SetPushConstantMatrix4x4("space", GetSpaceMatrix(frameInfo.LightingInfo, out var near_plane, out var lightView, out var lightProj));
 
             CullData depthBufferCullInfo = new(SHADOW_INCLUDE_MASK, SHADOW_EXCLUDE_MASK, SHADOW_CULLING, SHADOW_DST_CULLING, SHADOW_DEPTH_CULLING, near_plane, lightProj, lightView);
 

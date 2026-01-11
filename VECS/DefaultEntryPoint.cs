@@ -5,6 +5,7 @@ using VECS.DataStructures;
 using VECS.ECS;
 using VECS.ECS.Presentation;
 using VECS.ECS.Transforms;
+using VECS.GraphicsPipelines;
 using VECS.LowLevel;
 
 namespace VECS
@@ -48,6 +49,7 @@ namespace VECS
             DirectionalLight();
             PointLight();
             Sponza();
+            ShadowDebug();
         }
 
         private static void CreateMainCamera()
@@ -88,8 +90,8 @@ namespace VECS
             {
                 Value = new()
                 {
-                    Direction = new Vector4(0, -0.71f, 0.71f,0),
-                    //Direction = new Vector4(0,-1,0,0),
+                    Direction = new Vector4(0, -0.97f, 0.24f,0),
+                    //Direction = new Vector4(0,1,0,0),
 
                     Ambient = new(0.1f, 0.1f, 0.1f, 1f),
                     Diffuse = Vector4.One,
@@ -115,6 +117,23 @@ namespace VECS
                 Linear = 0.7f,
                 Quadratic = 1.8f
             });
+        }
+
+        private static void ShadowDebug()
+        {
+            EntityManager entityManager = World.DefaultWorld.EntityManager;
+            var entity = entityManager.CreateEntity();
+
+            var mesh = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("quad.obj"),null)[0];
+
+            var unlit_Textured = new Material("UnlitTextured", "unlit_textured.vert", "unlit_textured.frag", GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []));
+
+
+            AddRenderMeshComponents(entity, unlit_Textured, 0, 0, mesh, entityManager);
+
+            entityManager.AddComponent(entity, new Translation() { Value = new Vector3(0, 2, 0) });
+
+            entityManager.AddComponent(entity, new Rotation() { Value = TransformExtensions.EulerUnity(0, 0, -90) });
         }
 
         private static void Sponza()

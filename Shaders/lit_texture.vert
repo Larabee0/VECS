@@ -38,6 +38,13 @@ layout(push_constant) uniform Constants{
 } constants;
 
 
+
+const mat4 biasMat = mat4(
+	0.5, 0.0, 0.0, 0.0,
+	0.0, 0.5, 0.0, 0.0,
+	0.0, 0.0, 1.0, 0.0, 
+	0.5, 0.5, 0.0, 1.0 );
+
 const vec3 DIRECTION_TO_LIGHT = normalize(vec3(1.0, 3.0, 1.0));
 const float AMBIENT = 0.02;
 void main()
@@ -52,8 +59,8 @@ void main()
 	
 	float lightIntensity = AMBIENT + max(dot(fragNormalWorld, DIRECTION_TO_LIGHT), 0);
 	fragPosWorld = positionWorld.xyz;
-	fragPosDirLight = lighting.directionalLight.lightSpace * vec4(positionWorld.xyz, 1.0);
+	fragPosDirLight = (biasMat * lighting.directionalLight.lightSpace * objectMat.modelMatrix) * vec4(position, 1.0);
 
-	fragColour = lightIntensity * vec4 (1);
+	fragColour = vec4 (1);
 	fragUV = uv;
 }

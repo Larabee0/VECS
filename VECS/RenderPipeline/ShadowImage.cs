@@ -7,7 +7,7 @@ namespace VECS
 {
     public sealed class ShadowImage
     {
-        public const int POINT_SHADOW_IMAGE_SIZE = 8192;
+        public const int POINT_SHADOW_IMAGE_SIZE = 1024;
         public const VkFormat SHADOW_IMAGE_FORMAT = VkFormat.R32Sfloat;
         public const bool SHADOW_CULLING = true;
         public const bool SHADOW_DST_CULLING = true;
