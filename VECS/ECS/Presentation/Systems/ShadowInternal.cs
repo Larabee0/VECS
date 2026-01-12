@@ -23,6 +23,13 @@ namespace VECS.ECS.Presentation
         {
             var mat = AssetDataBase<Material>.GetNamed("PointLightShadowCaster");
             ShadowImage.FillViewMatrices(frameInfo.PointLights[0].Position.AsVector3(), shadowMats);
+
+            for (int i = 0; i < 6; i++)
+            {
+               // shadowMats[i] = ShadowImage.GetViewMatrixForFace(i);
+            }
+            
+
             mat.SetMatrix4x4Array(matsPropertyId, 0, shadowMats);
             mat.PushConstants.SetPushConstantVector4("lightPos", frameInfo.PointLights[0].Position);
             mat.PushConstants.SetPushConstantFloat("far_plane", 25f);
