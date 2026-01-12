@@ -2,7 +2,7 @@
 layout (location = 0) in vec4 FragPos;
 layout(depth_less) out float gl_FragDepth;
 
-layout(std140, set = 0, binding = 2) readonly buffer LightInfo{
+layout(std140, set = 2, binding = 0) readonly buffer LightInfo{
     vec4 values[];
 } lightInfo;
 

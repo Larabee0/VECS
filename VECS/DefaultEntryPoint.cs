@@ -105,12 +105,28 @@ namespace VECS
             EntityManager entityManager = World.DefaultWorld.EntityManager;
             var pointLight = entityManager.CreateEntity();
 
-            entityManager.AddComponent(pointLight, new Translation() { Value = new Vector3(13, 1, 0) });
+            entityManager.AddComponent(pointLight, new Translation() { Value = new Vector3(10, 1, 0) });
 
             entityManager.AddComponent(pointLight, new PointLight()
             {
                 Ambient = new(0.1f, 0.1f, 0.1f, 1f),
                 Diffuse = new(1,0,0,1),
+                Specular = new(0.5f, 0.5f, 0.5f, 1f),
+
+                Constant = 1.0f,
+                Linear = 0.07f,
+                Quadratic = 0.017f,
+                Range = 25f
+            });
+            
+            pointLight = entityManager.CreateEntity();
+
+            entityManager.AddComponent(pointLight, new Translation() { Value = new Vector3(-10, 1, 0) });
+
+            entityManager.AddComponent(pointLight, new PointLight()
+            {
+                Ambient = new(0.1f, 0.1f, 0.1f, 1f),
+                Diffuse = new(0, 0, 1, 1),
                 Specular = new(0.5f, 0.5f, 0.5f, 1f),
 
                 Constant = 1.0f,

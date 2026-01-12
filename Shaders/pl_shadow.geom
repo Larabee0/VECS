@@ -1,9 +1,9 @@
 #version 460
 layout (triangles) in;
-layout (triangle_strip, max_vertices=18) out;
+layout (triangle_strip, max_vertices = 126) out; // 126 max works on gtx 1660 ti this should be 180 max_vertices for 10 point lights
 layout(location = 0) out vec4 FragPos; // FragPos from GS (output per emitvertex)
 
-layout(std140, set = 0, binding = 1) readonly buffer ShadowMats{
+layout(std140, set = 1, binding = 0) readonly buffer ShadowMats{
     mat4 value[];
 } shadowMats;
 
