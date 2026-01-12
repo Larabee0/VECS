@@ -133,18 +133,18 @@ void main()
 
 	vec3 result = CalcDirLight(lighting.directionalLight,normal, viewDir, shininess, shadow, diffuseTextureColour, diffuseTextureColour, specularColour);
 
-	for(int i = 0; i < lighting.numPointLights; i++){
-
-
+	for(int i = 0; i < lighting.numPointLights; i++) {
 		PointLight pl = pointLightBuffer.values[i];
+
     	float distance = length(pl.position.xyz - fragPosWorld);
+
 		if(distance <= pl.farPlane){
-			float plShadow = FilterPLPCF(fragPosWorld, cameraPosWorld, pl.position.xyz,pl.farPlane, i);
-			result += CalcPointLight(pl, normal, fragPosWorld, viewDir, shininess,plShadow, diffuseTextureColour, diffuseTextureColour, specularColour);
+		    float plShadow = FilterPLPCF(fragPosWorld, cameraPosWorld, pl.position.xyz,pl.farPlane, i);
+			result += CalcPointLight(pl, normal, fragPosWorld, viewDir, shininess, plShadow, diffuseTextureColour, diffuseTextureColour, specularColour);
 		}
 	}
 	
-	for(int i = 0; i < lighting.numSpotLights; i++){
+	for(int i = 0; i < lighting.numSpotLights; i++) {
 		SpotLight sl = spotLightBuffer.values[i];
 		
 		result += CalcSpotLight(sl, normal, fragPosWorld, viewDir, shininess, diffuseTextureColour, diffuseTextureColour, specularColour);

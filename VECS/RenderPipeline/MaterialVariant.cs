@@ -47,7 +47,7 @@ namespace VECS
                     _bufferDescriptors[i] = new(setInfo, this);
                     for (int j = 0; j < setInfo.BufferCount; j++)
                     {
-                        _bufferDescriptors[i].SetStorageBufferRegion(_variantIndex, 1);
+                        _bufferDescriptors[i].SetStorageBufferRegion(j, 1);
                         _bufferDescriptors[i].SetUniformBufferRegion(_variantIndex, 1);
                     }
                 }
@@ -131,9 +131,10 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool SetStorageBufferLength(uint setIndex, uint length)
+        public bool SetStorageBufferLength(uint setIndex,uint bindPoint, uint length)
         {
-            if(length == 0 || _bufferDescriptors[setIndex].Disposed || !_bufferDescriptors[setIndex].SetStorageBufferRegion(0, length)) return false;
+            var bufferIndex = _descriptorSetInfos[setIndex].BindingPointToBufferIndex[bindPoint];
+            if (length == 0 || _bufferDescriptors[setIndex].Disposed || !_bufferDescriptors[setIndex].SetStorageBufferRegion(bufferIndex, length)) return false;
             Array.Fill(_dirtyBufferRegions, true);
             return true;
         }
@@ -146,10 +147,11 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public uint GetStorageBufferLength(uint setIndex)
+        public unsafe uint GetStorageBufferLength(uint setIndex, uint bindPoint)
         {
+            var bufferIndex = _descriptorSetInfos[setIndex].BindingPointToBufferIndex[bindPoint];
             if (_bufferDescriptors[setIndex].Disposed) return 0;
-            return _bufferDescriptors[setIndex].StorageBufferLength;
+            return _bufferDescriptors[setIndex].StorageBufferLength[bufferIndex];
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -235,19 +237,19 @@ namespace VECS
             private readonly int BufferCount;
 
             private Vector2UInt _uniformRegion;
-            private uint _storageBufferLength;
+            private unsafe uint* _pStorageBufferLength;
 
             private bool _disposed;
             public readonly bool Disposed => _disposed;
 
-            public readonly uint StorageBufferLength => _storageBufferLength;
+            public readonly unsafe uint* StorageBufferLength => _pStorageBufferLength;
 
             public unsafe SetBufferDescriptors(DescriptorSetInfo setInfo, MaterialVariant variant)
             {
                 BufferCount = (int)setInfo.BufferCount;
 
                 _pBufferAddresses = (VkDescriptorAddressInfoEXT*)NativeMemory.AllocZeroed((uint)sizeof(VkDescriptorAddressInfoEXT) * (uint)BufferCount * SwapChain.MAX_CONCURRENT_FRAMES_UINT);
-                
+                _pStorageBufferLength = (uint*)NativeMemory.AllocZeroed(sizeof(uint) * (uint)BufferCount * SwapChain.MAX_CONCURRENT_FRAMES_UINT);
                 for (int bufferIndex = 0; bufferIndex < BufferCount; bufferIndex++)
                 {
                     var binding = setInfo.GetBindingFromBufferIndex(bufferIndex);
@@ -275,7 +277,7 @@ namespace VECS
                     var bindingInfo = setInfo.GetBindingFromBufferIndex(bufferIndex);
                     if (bindingInfo.StorageBuffer)
                     {
-                        addresses[bufferIndex] = setInfo.GetBufferAddressInfo(frameIndex, bufferIndex, 0, _storageBufferLength);
+                        addresses[bufferIndex] = setInfo.GetBufferAddressInfo(frameIndex, bufferIndex, 0, _pStorageBufferLength[bufferIndex]);
                     }
                 }
             }
@@ -296,10 +298,10 @@ namespace VECS
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public unsafe bool SetStorageBufferRegion(uint offset, uint length)
+            public unsafe bool SetStorageBufferRegion(int bufferIndex, uint length)
             {
-                if (_storageBufferLength == length) return false;
-                _storageBufferLength = length;
+                if (_pStorageBufferLength[bufferIndex] == length) return false;
+                _pStorageBufferLength[bufferIndex] = length;
                 return true;
             }
 
@@ -332,6 +334,7 @@ namespace VECS
                 if (_disposed) return;
                 _disposed = true;
                 NativeMemory.Free(_pBufferAddresses);
+                NativeMemory.Free(_pStorageBufferLength);
             }
         }
 

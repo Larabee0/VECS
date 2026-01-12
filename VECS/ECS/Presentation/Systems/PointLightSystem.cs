@@ -60,7 +60,7 @@ namespace VECS.ECS.Presentation
                 }
 
 
-                EngineMaterials.PointLight.SetDescriptorStorageBufferLength(0, 1, (uint)pointLightEntities.Count);
+                EngineMaterials.PointLight.SetDescriptorStorageBufferLength(0,0, (uint)pointLightEntities.Count);
                 EngineMaterials.PointLight.BindAll(rendererFrameInfo, 0);
                 GraphicsDevice.DeviceAPI.vkCmdDraw(rendererFrameInfo.CommandBuffer, 6, (uint)_pointLights.Count, 0, 0);
             }

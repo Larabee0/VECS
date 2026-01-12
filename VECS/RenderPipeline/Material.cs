@@ -397,9 +397,9 @@ namespace VECS
             _matVariants[variant].SetTexture(propertyInfo.SetIndex, propertyInfo.BindPoint, texture);
         }
 
-        public void SetDescriptorStorageBufferLength(uint variant, uint descriptorIndex, uint length)
+        public void SetDescriptorStorageBufferLength(uint setIndex, uint bindingIndex, uint length)
         {
-            if (descriptorIndex >= _descriptorSetCount)
+            if (setIndex >= _descriptorSetCount)
             {
                 return;
             }
@@ -409,18 +409,18 @@ namespace VECS
             {
                 TryCreateVariant(i);
                 MaterialVariant matVariant = _matVariants[i];
-                _preBindUpdate |= matVariant.SetStorageBufferLength(descriptorIndex, length);
+                _preBindUpdate |= matVariant.SetStorageBufferLength(setIndex, bindingIndex, length);
             }
         }
 
-        public void SetDescriptorStorageBufferLengthFromProperty(int propertyId, uint variant, uint length)
+        public void SetDescriptorStorageBufferLengthFromProperty(int propertyId, uint length)
         {
             if(!LookUpProperty(propertyId, out var propertyInfo))
             {
                 return;
             }
 
-            SetDescriptorStorageBufferLength(variant,propertyInfo.SetIndex,length);
+            SetDescriptorStorageBufferLength(propertyInfo.SetIndex, propertyInfo.BindPoint, length);
         }
 
         public void SetStorageBuffer(int propertyId, SwapChainBuffer buffer)
@@ -728,7 +728,6 @@ namespace VECS
         internal unsafe static void Update(Material material, RendererFrameInfo frameInfo)
         {
             if (material._variantCount == 0) return;
-            uint* accumulatedStorageBufferUsage = stackalloc uint[material.DescriptorSetCount];
             int frameIndex = frameInfo.FrameIndex;
             for (int i = 0; i < material._variantCount; i++)
             {
@@ -740,24 +739,18 @@ namespace VECS
 
             MaterialVariant lastVariant = material._matVariants[0];
 
-            for (uint j = 0; j < material.DescriptorSetCount; j++)
-            {
-                accumulatedStorageBufferUsage[j] = lastVariant.GetStorageBufferLength(j);
-            }
-
-            for (int i = 0; i < material.DescriptorSetCount; i++)
+            for (uint i = 0; i < material.DescriptorSetCount; i++)
             {
                 if (i == material._meshShaderDescriptorSetIndex|| i == material._oitDescriptorSetIndex) continue;
                 material._descriptorSetInfos[i].SetVariantLength(material.VariantCount);
                 var bindings = material.GetDescriptorBindings(i);
-                var usage = accumulatedStorageBufferUsage[i];
-                for (int j = 0; j < bindings.Length; j++)
+                for (uint j = 0; j < bindings.Length; j++)
                 {
                     if (bindings[j].StorageBuffer)
                     {
                         // this seems suspect
                         // maybe make a way to look up buffers from bindings easily
-                        material.GetBuffer(bindings[j]).SetUsedInstanceCount(usage);
+                        material.GetBuffer(bindings[j]).SetUsedInstanceCount(lastVariant.GetStorageBufferLength(i,j));
                     }
                 }
             }

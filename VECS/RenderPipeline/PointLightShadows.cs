@@ -103,12 +103,16 @@ namespace VECS
         public void RenderShadowsSinglePass(in RendererFrameInfo frameInfo)
         {
             FillViewMatrices(frameInfo, _plMat.GetStorageSwapChainBuffer(matsPropertyId));
-            _plMat.SetDescriptorStorageBufferLengthFromProperty(matsPropertyId, 0, (uint)frameInfo.LightingInfo.NumPointLights * 6u);
+            _plMat.SetDescriptorStorageBufferLengthFromProperty(matsPropertyId, (uint)frameInfo.LightingInfo.NumPointLights * 6u);
 
             FillLightInfo(frameInfo, _plMat.GetStorageSwapChainBuffer(lightInfoPropertyId));
-            _plMat.SetDescriptorStorageBufferLengthFromProperty(lightInfoPropertyId, 0, (uint)frameInfo.LightingInfo.NumPointLights);
+            _plMat.SetDescriptorStorageBufferLengthFromProperty(lightInfoPropertyId, (uint)frameInfo.LightingInfo.NumPointLights);
 
-            _plMat.PushConstants.SetPushConstantInt("lightCount", frameInfo.LightingInfo.NumPointLights);
+
+            for (int i = 0; i < frameInfo.LightingInfo.NumPointLights; i++)
+            {
+                _plMat.PushConstants.SetPushConstantInt("matrixOffset", i, i * 6);
+            }
 
             Material.Update(_plMat, frameInfo);
             SetImageLayoutWrite(frameInfo.CommandBuffer);
@@ -128,7 +132,10 @@ namespace VECS
             SetImageLayoutWrite(frameInfo.CommandBuffer);
 
             UpdateCube(frameInfo.CommandBuffer, (uint)frameInfo.LightingInfo.NumPointLights);
-            DrawBlob.ExecuteAllInOneOpaqueDrawCmds(frameInfo, frameInfo.CommandBuffer, _plMat.Hash, 0);
+            for (int i = 0; i < frameInfo.LightingInfo.NumPointLights; i++)
+            {
+                DrawBlob.ExecuteAllInOneOpaqueDrawCmds(frameInfo, frameInfo.CommandBuffer, _plMat.Hash, i);
+            }
             EndShadowPass(frameInfo.CommandBuffer);
 
             SetImageLayoutRead(frameInfo.CommandBuffer);

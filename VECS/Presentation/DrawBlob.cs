@@ -618,7 +618,7 @@ namespace VECS
             var materialBuffer = mat.GetStorageSwapChainBuffer(renderBuffer.BufferShaderPropertyId);
             if (materialBuffer != null)
             {
-                mat.SetDescriptorStorageBufferLengthFromProperty(renderBuffer.BufferShaderPropertyId, 0, (uint)region.Count);
+                mat.SetDescriptorStorageBufferLengthFromProperty(renderBuffer.BufferShaderPropertyId, (uint)region.Count);
                 renderBuffer.CopyTo(materialBuffer.HostPtr, region.StartIndex, region.Count);
             }
         }
@@ -633,12 +633,12 @@ namespace VECS
                 var bounds = mat.GetStorageBuffer<ShaderAABB>(ShaderPropertyInfo.BoundsBufferId);
                 if (!matrices.IsEmpty)
                 {
-                    mat.SetDescriptorStorageBufferLengthFromProperty(ShaderPropertyInfo.MatricesBufferId, 0, (uint)allInOneDrawCount);
+                    mat.SetDescriptorStorageBufferLengthFromProperty(ShaderPropertyInfo.MatricesBufferId, (uint)allInOneDrawCount);
                     _drawMatrixByMesh.AsSpan(0, allInOneDrawCount).CopyTo(matrices);
                 }
                 if (!bounds.IsEmpty)
                 {
-                    mat.SetDescriptorStorageBufferLengthFromProperty(ShaderPropertyInfo.BoundsBufferId, 0, (uint)allInOneDrawCount);
+                    mat.SetDescriptorStorageBufferLengthFromProperty(ShaderPropertyInfo.BoundsBufferId, (uint)allInOneDrawCount);
                     _drawRenderBoundsByMat.HostBuffer[..allInOneDrawCount].CopyTo(bounds);
                 }
             });
