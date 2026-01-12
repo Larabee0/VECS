@@ -43,6 +43,18 @@ namespace VECS
             DepthImage.SetImageLayout(VkImageLayout.DepthStencilAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.EarlyFragmentTests);
         }
 
+        public void AssignDirShadowTexture()
+        {
+
+            AssetDataBase<Material>.AllAssetsListForReading.ForEach(asset =>
+            {
+                for (int i = 0; i < asset.VariantCount; i++)
+                {
+                    asset.SetCubeMap(ShaderPropertyInfo.PLShadowImageId, i, DepthImage);
+                }
+            });
+        }
+
         public static void FillViewMatrices(Vector3 lightPos, Matrix4x4[] mats)
         {
             mats[0] = Matrix4x4.CreateLookAt(lightPos, lightPos + new Vector3(1.0f, 0.0f, 0.0f),  new Vector3(0.0f, -1.0f, 0.0f))*   CubeProjectionMatrix;
@@ -176,6 +188,7 @@ namespace VECS
         public void SetImageLayoutRead(VkCommandBuffer commandBuffer)
         {
             DepthImage.SetImageLayout(commandBuffer, VkImageLayout.DepthAttachmentStencilReadOnlyOptimal, VkPipelineStageFlags2.EarlyFragmentTests | VkPipelineStageFlags2.LateFragmentTests, VkPipelineStageFlags2.EarlyFragmentTests);
+            AssignDirShadowTexture();
         }
 
         internal static unsafe void SetViewPort(VkCommandBuffer commandBuffer)

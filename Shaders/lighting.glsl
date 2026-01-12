@@ -9,6 +9,7 @@ struct PointLight {
 	float constant;
 	float linear;
 	float quadratic;
+    float farPlane;
 };
 
 struct SpotLight{
@@ -51,7 +52,7 @@ vec3 CalcDirLight(DirectionalLight light, vec3 normal, vec3 viewDir, float shini
     return (ambient + (shadow * (diffuse + specular)));
 }
 
-vec3 CalcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir, float shininess, vec3 ambientCol, vec3 diffuseCol, vec3 specularCol) {
+vec3 CalcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir, float shininess, float shadow, vec3 ambientCol, vec3 diffuseCol, vec3 specularCol) {
     vec3 lightDir = normalize(light.position.xyz - fragPos);
     // diffuse shading
     float diff = max(dot(normal, lightDir), 0.0);
@@ -69,7 +70,7 @@ vec3 CalcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir, f
     ambient  *= attenuation;
     diffuse  *= attenuation;
     specular *= attenuation;
-    return (ambient + diffuse + specular);
+    return (ambient + ( shadow*( diffuse + specular)));
 }
 
 

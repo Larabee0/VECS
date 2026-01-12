@@ -43,7 +43,7 @@ namespace VECS.ECS.Presentation
             {
                 _shadowData.RenderShadowsSinglePass(frameInfo);
             }
-
+            
             Presenter.Instance.DirShadows.DirectionalShadowPass(frameInfo);
         }
 

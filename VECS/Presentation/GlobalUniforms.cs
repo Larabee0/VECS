@@ -118,6 +118,7 @@ namespace VECS
         public float Constant;
         public float Linear;
         public float Quadratic;
+        public float FarPlane;
 
         public PointLightUniform(Vector3 position, PointLight pointLight)
         {
@@ -128,6 +129,7 @@ namespace VECS
             Constant = pointLight.Constant;
             Linear = pointLight.Linear;
             Quadratic = pointLight.Quadratic;
+            FarPlane = pointLight.Range;
         }
     }
 

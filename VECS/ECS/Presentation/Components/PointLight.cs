@@ -14,5 +14,6 @@ namespace VECS.ECS.Presentation
         public float Constant;
         public float Linear;
         public float Quadratic;
+        public float Range;
     }
 }

@@ -51,6 +51,7 @@ layout(set = 1, binding = 3) uniform TexPorps {
 } texProps;
 
 layout(set = 1, binding = 4) uniform sampler2D dirShadow;
+layout(set = 1, binding = 5) uniform samplerCube plShadow;
 
 layout(push_constant) uniform Constants{
 	uint cameraIndex;
@@ -69,7 +70,7 @@ float ShadowDirCalculation(vec4 fragPosLight, vec2 off){
 	return shadow;
 }
 
-float filterPCF(vec4 sc){
+float FilterDirPCF(vec4 sc){
 	ivec2 texDim = textureSize(dirShadow, 0);
 	float scale = 1.5;
 	float dx = scale * 1.0 / float(texDim.x);
@@ -77,11 +78,11 @@ float filterPCF(vec4 sc){
 
 	float shadowFactor = 0.0;
 	int count = 0;
-	int range = 1;
+	int range = 4;
 
 	for(int x = -range; x <= range; x++){
 		for(int y = -range; y <= range; y++){
-			shadowFactor += ShadowDirCalculation(sc,vec2(dx*x,dy*y));
+			shadowFactor += ShadowDirCalculation(sc,vec2(dx * x, dy * y));
 			count++;
 		}
 	}
@@ -89,12 +90,41 @@ float filterPCF(vec4 sc){
 	return (shadowFactor / count);
 }
 
+const vec3 sampleOffsetDirections[20] = vec3[]
+(
+   vec3( 1,  1,  1), vec3( 1, -1,  1), vec3(-1, -1,  1), vec3(-1,  1,  1), 
+   vec3( 1,  1, -1), vec3( 1, -1, -1), vec3(-1, -1, -1), vec3(-1,  1, -1),
+   vec3( 1,  1,  0), vec3( 1, -1,  0), vec3(-1, -1,  0), vec3(-1,  1,  0),
+   vec3( 1,  0,  1), vec3(-1,  0,  1), vec3( 1,  0, -1), vec3(-1,  0, -1),
+   vec3( 0,  1,  1), vec3( 0, -1,  1), vec3( 0, -1, -1), vec3( 0,  1, -1)
+);   
+
+float FilterPLPCF(vec3 fragPos, vec3 viewPos, vec3 lightPos, float plFarPlane){
+    vec3 fragToLight = fragPos - lightPos;
+	float currentDepth = length(fragToLight);
+	float shadow = 0.0;
+	float bias   = 0.15;
+	int samples  = 20;
+	float viewDistance = length(viewPos - fragPos);
+	float diskRadius = (1.0 + (viewDistance / plFarPlane)) / plFarPlane;
+	for(int i = 0; i < samples; ++i)
+	{
+	    float closestDepth = texture(plShadow, fragToLight + sampleOffsetDirections[i] * diskRadius).r;
+	    closestDepth *= plFarPlane;   // undo mapping [0;1]
+	    if(currentDepth - bias > closestDepth)
+	        shadow += 1.0;
+	}
+	shadow /= float(samples);  
+	return (1.0-shadow);
+}
+
+
 void main()
 {
 	vec3 cameraPosWorld = cameraInverse.values[constants.cameraIndex].inverseViewMatrix[3].xyz;
 	vec3 normal = normalize(fragNormalWorld);
 	vec3 viewDir = normalize(cameraPosWorld - fragPosWorld);
-	float shadow = filterPCF(fragPosDirLight / fragPosDirLight.w);
+	float shadow = FilterDirPCF(fragPosDirLight / fragPosDirLight.w);
 	
 	vec3 diffuseTextureColour = texture(texSampler, fragUV).rgb;
 	vec3 specularColour = texProps.specularColour.rgb;
@@ -103,9 +133,14 @@ void main()
 	vec3 result = CalcDirLight(lighting.directionalLight,normal, viewDir, shininess, shadow, diffuseTextureColour, diffuseTextureColour, specularColour);
 
 	for(int i = 0; i < lighting.numPointLights; i++){
+
+
 		PointLight pl = pointLightBuffer.values[i];
-		
-		result += CalcPointLight(pl, normal, fragPosWorld, viewDir, shininess, diffuseTextureColour, diffuseTextureColour, specularColour);
+    	float distance = length(pl.position.xyz - fragPosWorld);
+		if(distance <= pl.farPlane){
+			float plShadow = FilterPLPCF(fragPosWorld, cameraPosWorld, pl.position.xyz,pl.farPlane);
+			result += CalcPointLight(pl, normal, fragPosWorld, viewDir, shininess,plShadow, diffuseTextureColour, diffuseTextureColour, specularColour);
+		}
 	}
 	
 	for(int i = 0; i < lighting.numSpotLights; i++){

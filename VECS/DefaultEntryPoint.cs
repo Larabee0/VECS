@@ -114,8 +114,9 @@ namespace VECS
                 Specular = new(0.5f, 0.5f, 0.5f, 1f),
 
                 Constant = 1.0f,
-                Linear = 0.7f,
-                Quadratic = 1.8f
+                Linear = 0.07f,
+                Quadratic = 0.017f,
+                Range = 25f
             });
         }
 

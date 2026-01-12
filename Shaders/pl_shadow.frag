@@ -1,6 +1,6 @@
 #version 460
 layout (location = 0) in vec4 FragPos;
-layout(depth_any) out float gl_FragDepth;
+layout(depth_less) out float gl_FragDepth;
 
 layout(push_constant) uniform PLLight 
 {

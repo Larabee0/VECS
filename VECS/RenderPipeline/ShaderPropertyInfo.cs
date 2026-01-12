@@ -45,6 +45,7 @@ namespace VECS
         public static readonly int HeadIndexImageId = "headIndexImage".GetShaderPropertyId();
 
         public static readonly int DirShadowImageId = "dirShadow".GetShaderPropertyId();
+        public static readonly int PLShadowImageId = "plShadow".GetShaderPropertyId();
 
         public static readonly HashSet<int> IgnoreUnFoundShaderProperties;
 
@@ -63,6 +64,7 @@ namespace VECS
                 MatricesBufferId,
                 GeometrySBOId,
                 DirShadowImageId,
+                PLShadowImageId,
             ];
         }
 
