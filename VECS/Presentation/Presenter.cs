@@ -23,13 +23,13 @@ namespace VECS
         private bool _isFrameStarted = false;
         private ForwardRenderer _forwardRenderer;
         private DirectionalShadows _directionalShadows;
-        private ShadowImage _shadowCubeMap;
+        private PointLightShadows _shadowCubeMap;
         private Bloom _bloom;
         private SMAA _smaa;
         private static ulong _frameCount;
 
         public ForwardRenderer ForwardRenderer => _forwardRenderer;
-        public ShadowImage ShadowImage => _shadowCubeMap;
+        public PointLightShadows ShadowImage => _shadowCubeMap;
         public DirectionalShadows DirShadows => _directionalShadows;
         public VkFormat[] ColourFormats => [_forwardRenderer.MainColourAttachment.Target.Format, _forwardRenderer.BrightObjectAttachment.Target.Format];
         public VkFormat DepthFormat => _forwardRenderer.DepthAttachment.Target.Format;

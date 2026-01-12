@@ -206,6 +206,15 @@ namespace VECS
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void SetCubeMapArray(this Material material, int propertyId, int variant, CubemapArray cubemap)
+        {
+            if (material.LookUpProperty(propertyId, out var propertyInfo))
+            {
+                material.SetTexture(propertyInfo, variant, cubemap);
+            }
+        }
+
         public static void SetGlobalUniforms(this Material material, int variant, in RendererFrameInfo frameInfo)
         {
             material.TryCreateVariant((uint)variant);

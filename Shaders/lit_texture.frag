@@ -51,7 +51,7 @@ layout(set = 1, binding = 3) uniform TexPorps {
 } texProps;
 
 layout(set = 1, binding = 4) uniform sampler2D dirShadow;
-layout(set = 1, binding = 5) uniform samplerCube plShadow;
+layout(set = 1, binding = 5) uniform samplerCubeArray plShadow;
 
 layout(push_constant) uniform Constants{
 	uint cameraIndex;
@@ -99,7 +99,7 @@ const vec3 sampleOffsetDirections[20] = vec3[]
    vec3( 0,  1,  1), vec3( 0, -1,  1), vec3( 0, -1, -1), vec3( 0,  1, -1)
 );   
 
-float FilterPLPCF(vec3 fragPos, vec3 viewPos, vec3 lightPos, float plFarPlane){
+float FilterPLPCF(vec3 fragPos, vec3 viewPos, vec3 lightPos, float plFarPlane, int textureIndex){
     vec3 fragToLight = fragPos - lightPos;
 	float currentDepth = length(fragToLight);
 	float shadow = 0.0;
@@ -109,7 +109,8 @@ float FilterPLPCF(vec3 fragPos, vec3 viewPos, vec3 lightPos, float plFarPlane){
 	float diskRadius = (1.0 + (viewDistance / plFarPlane)) / plFarPlane;
 	for(int i = 0; i < samples; ++i)
 	{
-	    float closestDepth = texture(plShadow, fragToLight + sampleOffsetDirections[i] * diskRadius).r;
+		vec4 coord = vec4(fragToLight + sampleOffsetDirections[i] * diskRadius, textureIndex);
+	    float closestDepth = texture(plShadow, coord).r;
 	    closestDepth *= plFarPlane;   // undo mapping [0;1]
 	    if(currentDepth - bias > closestDepth)
 	        shadow += 1.0;
@@ -138,7 +139,7 @@ void main()
 		PointLight pl = pointLightBuffer.values[i];
     	float distance = length(pl.position.xyz - fragPosWorld);
 		if(distance <= pl.farPlane){
-			float plShadow = FilterPLPCF(fragPosWorld, cameraPosWorld, pl.position.xyz,pl.farPlane);
+			float plShadow = FilterPLPCF(fragPosWorld, cameraPosWorld, pl.position.xyz,pl.farPlane, i);
 			result += CalcPointLight(pl, normal, fragPosWorld, viewDir, shininess,plShadow, diffuseTextureColour, diffuseTextureColour, specularColour);
 		}
 	}

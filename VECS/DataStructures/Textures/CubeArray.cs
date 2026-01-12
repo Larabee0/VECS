@@ -47,7 +47,6 @@ namespace VECS
                 this.CreateSampler(GetSamplerCreateInfo());
             }
 
-            SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal);
             UpdateDescriptor();
 
             AssetDataBase<CubemapArray>.Add(this);
@@ -56,6 +55,7 @@ namespace VECS
         public override VkImageCreateInfo GetImageCreateInfo()
         {
             var createInfo = base.GetImageCreateInfo();
+            createInfo.extent.depth = 1;
             createInfo.arrayLayers = _imageExtent.depth * 6;
             createInfo.flags = VkImageCreateFlags.CubeCompatible;
             return createInfo;
@@ -64,6 +64,7 @@ namespace VECS
         public override VkImageSubresourceRange GetSubresourceRange()
         {
             var range = base.GetSubresourceRange();
+            range.baseArrayLayer = 0;
             range.layerCount = _imageExtent.depth * 6;
             return range;
         }

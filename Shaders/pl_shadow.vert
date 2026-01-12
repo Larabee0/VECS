@@ -7,7 +7,7 @@ struct ObjectMatrices{
 	mat4 normalMatrix;
 };
 
-layout(std140, set = 1, binding = 0) readonly buffer ObjectMatricesBuffer{
+layout(std140, set = 0, binding = 0) readonly buffer ObjectMatricesBuffer{
 	ObjectMatrices matrices[];
 }matricesBuffer;
 

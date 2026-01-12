@@ -383,6 +383,7 @@ namespace VECS.LowLevel
                 dualSrcBlend = true,
                 fragmentStoresAndAtomics = true,
                 geometryShader = true,
+                imageCubeArray = true,
             };
 
             VkPhysicalDeviceFeatures2 deviceFeatures2 = new()

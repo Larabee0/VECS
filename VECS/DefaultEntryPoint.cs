@@ -105,7 +105,7 @@ namespace VECS
             EntityManager entityManager = World.DefaultWorld.EntityManager;
             var pointLight = entityManager.CreateEntity();
 
-            entityManager.AddComponent(pointLight, new Translation() { Value = new Vector3(0, 1, 0) });
+            entityManager.AddComponent(pointLight, new Translation() { Value = new Vector3(13, 1, 0) });
 
             entityManager.AddComponent(pointLight, new PointLight()
             {
