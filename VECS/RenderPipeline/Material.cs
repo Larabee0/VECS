@@ -746,15 +746,15 @@ namespace VECS
                 var bindings = material.GetDescriptorBindings(i);
                 for (uint j = 0; j < bindings.Length; j++)
                 {
-                    if (bindings[j].StorageBuffer)
+                    var binding = bindings[j];
+                    if (binding.StorageBuffer)
                     {
                         // this seems suspect
                         // maybe make a way to look up buffers from bindings easily
-                        material.GetBuffer(bindings[j]).SetUsedInstanceCount(lastVariant.GetStorageBufferLength(i,j));
+                        material.GetBuffer(binding).SetUsedInstanceCount(lastVariant.GetStorageBufferLength(i, binding.BindPoint));
                     }
                 }
             }
-
 
             for (int i = 0; i < material._descriptorSetInfos.Length; i++)
             {

@@ -79,7 +79,7 @@ namespace VECS
     }
     
 
-    [StructLayout(LayoutKind.Sequential, Size = 72)]
+    [StructLayout(LayoutKind.Sequential, Size = 136)]
     public struct LightingInfo
     {
         public DirectionalLightInfo DirectionalLight;

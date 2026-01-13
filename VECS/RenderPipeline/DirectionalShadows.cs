@@ -10,7 +10,7 @@ namespace VECS
 {
     public sealed class DirectionalShadows
     {
-        public const int DIRECTIONAL_SHADOW_RESOLTION = 4096;
+        public const int DIRECTIONAL_SHADOW_RESOLTION = 1024;
         public const bool SHADOW_CULLING = false;
         public const bool SHADOW_DST_CULLING = false;
         public const bool SHADOW_DEPTH_CULLING = false;

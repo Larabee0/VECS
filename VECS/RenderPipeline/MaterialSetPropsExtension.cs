@@ -215,7 +215,7 @@ namespace VECS
             }
         }
 
-        public static void SetGlobalUniforms(this Material material, int variant, in RendererFrameInfo frameInfo)
+        public unsafe static void SetGlobalUniforms(this Material material, int variant, in RendererFrameInfo frameInfo)
         {
             material.TryCreateVariant((uint)variant);
             WriteToBuffer(material, ShaderPropertyInfo.LightingInfoId, variant, frameInfo.LightingInfo);
@@ -226,15 +226,9 @@ namespace VECS
             SetUniformBuffer(material, ShaderPropertyInfo.CameraInverseId, frameInfo.CameraInverseInfo, camreaCount);
             SetUniformBuffer(material, ShaderPropertyInfo.AdditionalCameraInfoId, frameInfo.AdditionalCameraInfo, camreaCount);
             SetUniformBuffer(material, ShaderPropertyInfo.OrthographicInfoId, frameInfo.OrthographicInfo, camreaCount);
-            material.SetDescriptorStorageBufferLengthFromProperty(ShaderPropertyInfo.CameraInfoId, camreaCount);
-            material.SetDescriptorStorageBufferLengthFromProperty(ShaderPropertyInfo.CameraInverseId, camreaCount);
-            material.SetDescriptorStorageBufferLengthFromProperty(ShaderPropertyInfo.AdditionalCameraInfoId, camreaCount);
-            material.SetDescriptorStorageBufferLengthFromProperty(ShaderPropertyInfo.OrthographicInfoId, camreaCount);
 
             SetUniformBuffer(material, ShaderPropertyInfo.PointLightsBufferId,  frameInfo.PointLights, (uint)frameInfo.LightingInfo.NumPointLights);
             SetUniformBuffer(material, ShaderPropertyInfo.SpotLightsBufferId,  frameInfo.SpotLights, (uint)frameInfo.LightingInfo.NumSpotLights);
-            material.SetDescriptorStorageBufferLengthFromProperty(ShaderPropertyInfo.PointLightsBufferId, (uint)frameInfo.LightingInfo.NumPointLights);
-            material.SetDescriptorStorageBufferLengthFromProperty(ShaderPropertyInfo.SpotLightsBufferId, (uint)frameInfo.LightingInfo.NumSpotLights);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -246,7 +240,7 @@ namespace VECS
             {
                 Buffer.MemoryCopy(&resource, buffer.HostPtr, buffer.HostBufferSize32, sizeof(T));
             }
-            material._matVariants[0].SetStorageBufferLength(propertyInfo.SetIndex,  propertyInfo.BindPoint, count);
+            material.SetDescriptorStorageBufferLength(propertyInfo.SetIndex,  propertyInfo.BindPoint, count);
         }
     }
 }

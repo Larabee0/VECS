@@ -103,30 +103,35 @@ namespace VECS
         public static void PointLight()
         {
             EntityManager entityManager = World.DefaultWorld.EntityManager;
+
+            PointLight(entityManager, new(10, 1, 0), new(1, 0, 0, 1));
+            PointLight(entityManager, new(-10, 1, 0), new(1, 0, 0, 1));
+
+            PointLight(entityManager, new(8, 1, 0), new(0, 1, 0, 1));
+            PointLight(entityManager, new(-8, 1, 0), new(0, 1, 0, 1));
+
+            PointLight(entityManager, new(6, 1, 0), new(0, 0, 1, 1));
+            PointLight(entityManager, new(-6, 1, 0), new(0, 0, 1, 1));
+
+            PointLight(entityManager, new(4, 1, 0), new(1, 1, 0, 1));
+            PointLight(entityManager, new(-4, 1, 0), new(1, 1, 0, 1));
+
+            // PointLight(entityManager, new(2, 1, 0), new(0, 1, 1, 1));
+            // PointLight(entityManager, new(-2, 1, 0), new(0, 1, 1, 1));
+
+        }
+
+        private static void PointLight(EntityManager entityManager,Vector3 translation, Vector4 diffuse)
+        {
+
             var pointLight = entityManager.CreateEntity();
 
-            entityManager.AddComponent(pointLight, new Translation() { Value = new Vector3(10, 1, 0) });
+            entityManager.AddComponent(pointLight, new Translation() { Value = translation });
 
             entityManager.AddComponent(pointLight, new PointLight()
             {
                 Ambient = new(0.1f, 0.1f, 0.1f, 1f),
-                Diffuse = new(1,0,0,1),
-                Specular = new(0.5f, 0.5f, 0.5f, 1f),
-
-                Constant = 1.0f,
-                Linear = 0.07f,
-                Quadratic = 0.017f,
-                Range = 25f
-            });
-            
-            pointLight = entityManager.CreateEntity();
-
-            entityManager.AddComponent(pointLight, new Translation() { Value = new Vector3(0, 1, 0) });
-
-            entityManager.AddComponent(pointLight, new PointLight()
-            {
-                Ambient = new(0.1f, 0.1f, 0.1f, 1f),
-                Diffuse = new(0, 0, 1, 1),
+                Diffuse = diffuse,
                 Specular = new(0.5f, 0.5f, 0.5f, 1f),
 
                 Constant = 1.0f,
