@@ -38,6 +38,7 @@ namespace VECS
             pipelineConfigInfo.rasterizationInfo.polygonMode = VkPolygonMode.Line;
             pipelineConfigInfo.inputAssemblyInfo.topology = VkPrimitiveTopology.LineStrip;
             pipelineConfigInfo.rasterizationInfo.lineWidth = 1;
+            pipelineConfigInfo.depthStencilInfo.depthWriteEnable = true;
             WireFrame = new("WireFrame", "line_shader.vert", "line_shader.frag", pipelineConfigInfo);
 
             var shadowConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);

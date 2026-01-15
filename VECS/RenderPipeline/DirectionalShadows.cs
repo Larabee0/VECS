@@ -2,6 +2,7 @@
 using System.Runtime.CompilerServices;
 using VECS.ECS;
 using VECS.ECS.Presentation;
+using VECS.ECS.Transforms;
 using VECS.GraphicsPipelines;
 using VECS.LowLevel;
 using Vortice.Vulkan;
@@ -64,7 +65,7 @@ namespace VECS
             AssetDataBase<Material>.GetNamed("UnlitTextured")?.SetTexture(texProp, 0, _shadowDepthImage.Target);
         }
 
-        public Matrix4x4 GetSpaceMatrix(LightingInfo lightingInfo, out float nearPlane, out Matrix4x4 lightView, out Matrix4x4 lightProj)
+        public static Matrix4x4 GetSpaceMatrix(LightingInfo lightingInfo, out float nearPlane, out Matrix4x4 lightView, out Matrix4x4 lightProj)
         {
             AABB sceneBounds = new();
             if (World.DefaultWorld.EntityManager.SingletonComponent<FrameInfo>(out var sceneInfo))
@@ -73,28 +74,41 @@ namespace VECS
             }
 
             const float near_plane = 0.01f;
-            float far_plane = 25;
+            float far_plane = Vector3.Distance(sceneBounds.Min,sceneBounds.Max);
+            
+            var lightDir = lightingInfo.DirectionalLight.Direction.AsVector3();
 
-            var shadowFocus = sceneBounds.Center;
-            shadowFocus.Y = -5;
-            // var shadowFocus = Vector3.Zero;
+            var angleToUp = TransformExtensions.Angle(lightDir, new Vector3(0, 1, 0));
+            var angleToDown = TransformExtensions.Angle(lightDir, new Vector3(0, -1, 0));
+            var angleToRight = TransformExtensions.Angle(lightDir, new Vector3(1, 0, 0));
+            var angleToLeft = TransformExtensions.Angle(lightDir, new Vector3(-1, 0, 0));
+            var angleToFoward = TransformExtensions.Angle(lightDir, new Vector3(0, 0, 1));
+            var angleToBackward = TransformExtensions.Angle(lightDir, new Vector3(0, 0, -1));
 
-            var lightDir = -lightingInfo.DirectionalLight.Direction.AsVector3();
+            var shadowFocus = sceneBounds.Center + (lightDir* ( far_plane*0.5f));
 
+            lightDir = -lightDir;
             Vector3 lightPos =  new(){
                 X = shadowFocus.X + lightDir.X * far_plane,
                 Y = shadowFocus.Y + lightDir.Y * far_plane,
                 Z = shadowFocus.Z + lightDir.Z * far_plane
             };
-            //var lightPos = new Vector3(-2, 4, -1);
-
+            
             World.DefaultWorld.GetSystem<DebugDrawUtilities>().DrawLine(lightPos, shadowFocus, Colour.Blue);
+            World.DefaultWorld.GetSystem<DebugDrawUtilities>().DrawSphere(lightPos, 1, Colour.Red);
+            World.DefaultWorld.GetSystem<DebugDrawUtilities>().DrawSphere(shadowFocus, 1, Colour.Green);
 
-            lightProj = Matrix4x4.CreateOrthographic(50,50, near_plane, far_plane);
-            //lightProj = CameraSystem.OrthoLH_ZO(-10,10,-10,10, near_plane, far_plane);
-            //lightProj = Matrix4x4.Transpose(lightProj);
+            lightProj = Matrix4x4.CreateOrthographic(far_plane, far_plane, near_plane, far_plane);
+            
+            if(lightDir == new Vector3(0, 1, 0))
+            {
+                lightView = Matrix4x4.CreateLookAt(lightPos, shadowFocus, new(0, 0, 1));
+            }
+            else
+            {
+                lightView = Matrix4x4.CreateLookAt(lightPos, shadowFocus, new(0, 1, 0));
+            }
 
-            lightView = Matrix4x4.CreateLookAt(lightPos, shadowFocus, new(0, 1, 0));
             nearPlane = near_plane;
             return lightView * lightProj;
         }

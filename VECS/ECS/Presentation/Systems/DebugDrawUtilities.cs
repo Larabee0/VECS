@@ -105,6 +105,8 @@ namespace VECS.ECS.Presentation
 
                 matrices = EngineMaterials.WireFrame.GetStorageBuffer<ModelMatrices>(MatricesBufferId);
                 colours = EngineMaterials.WireFrame.GetStorageBuffer<Vector4>(ColourBufferId);
+                EngineMaterials.WireFrame.GetStorageSwapChainBuffer(MatricesBufferId).SetBuffersDirty(true);
+                EngineMaterials.WireFrame.GetStorageSwapChainBuffer(ColourBufferId).SetBuffersDirty(true);
                 EngineMaterials.WireFrame.BindAll(frameInfo, 0);
                 draws = _drawBuffer.HostBuffer;
 
@@ -197,10 +199,10 @@ namespace VECS.ECS.Presentation
                     matrices[drawIndex + 1] = b;
                     matrices[drawIndex + 2] = c;
                     matrices[drawIndex + 3] = d;
-                    colours[drawIndex] = Vector4.One;
-                    colours[drawIndex + 1] = Vector4.One;
-                    colours[drawIndex + 2] = Vector4.One;
-                    colours[drawIndex + 3] = Vector4.One;
+                    colours[drawIndex] = sphere.Colour.ToColour();
+                    colours[drawIndex + 1] = sphere.Colour.ToColour();
+                    colours[drawIndex + 2] = sphere.Colour.ToColour();
+                    colours[drawIndex + 3] = sphere.Colour.ToColour();
 
                     drawIndex += 4;
                 }
