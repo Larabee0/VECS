@@ -6,12 +6,11 @@
 layout (location = 0) in vec3 position;
 layout (location = 1) in vec3 normal;
 layout (location = 2) in vec2 uv;
-	   
-layout (location = 0) out vec4 fragColour;
-layout (location = 1) out vec3 fragPosWorld;
-layout (location = 2) out vec3 fragNormalWorld;
-layout (location = 3) out vec2 fragUV;
-layout (location = 4) out vec4 fragPosDirLight;
+
+layout (location = 0) out vec3 fragPosWorld;
+layout (location = 1) out vec3 fragNormalWorld;
+layout (location = 2) out vec2 fragUV;
+layout (location = 3) out vec4 fragPosDirLight;
 
 layout(set = 0, binding = 0) uniform LightingInfo {
 	DirectionalLight directionalLight;
@@ -61,6 +60,5 @@ void main()
 	fragPosWorld = positionWorld.xyz;
 	fragPosDirLight = (biasMat * lighting.directionalLight.lightSpace * objectMat.modelMatrix) * vec4(position, 1.0);
 
-	fragColour = vec4 (1);
 	fragUV = uv;
 }

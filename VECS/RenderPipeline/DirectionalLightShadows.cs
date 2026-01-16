@@ -17,7 +17,6 @@ namespace VECS
         public const RenderLayer SHADOW_INCLUDE_MASK = RenderLayer.Default | RenderLayer.OnlyShadow;
         public const RenderLayer SHADOW_EXCLUDE_MASK = RenderLayer.NoShadow;
 
-        // private readonly Material _shadowDepthOnly;
         private readonly RenderTarget _shadowDepthImage;
         private readonly  VkViewport viewport = new()
         {
@@ -34,26 +33,12 @@ namespace VECS
 
             _shadowDepthImage.Target.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.LateFragmentTests, VkPipelineStageFlags2.FragmentShader);
 
-            // var shadowConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
-            // shadowConfig.colourFormats = [];
-            // shadowConfig.depthFormat = _shadowDepthImage.Target.Format;
-            // shadowConfig.stencilFormat = VkFormat.Undefined;
-            // shadowConfig.depthStencilInfo.depthWriteEnable = true;
-            // shadowConfig.depthStencilInfo.depthCompareOp = VkCompareOp.LessOrEqual;
-            // shadowConfig.rasterizationInfo.cullMode = VkCullModeFlags.Front;
-            // shadowConfig.rasterizationInfo.depthBiasEnable = true;
-            // shadowConfig.rasterizationInfo.depthBiasConstantFactor = 1.25f;
-            // shadowConfig.rasterizationInfo.depthBiasSlopeFactor = 1.75f;
-            // _shadowDepthOnly = new("ShadowDepthOnly", "shadow_depth.vert", shadowConfig);
-
-            // DrawBlob.AllInOneMats.Add(_shadowDepthOnly.Hash);
-
             var shadowOffscreen = EngineMaterials.ShadowOffscreen;
-            shadowOffscreen.PushConstants.SetPushConstantInt("matrixOffset", 0);
-            shadowOffscreen.PushConstants.SetPushConstantInt("baseLayerOffset", 0);
-            shadowOffscreen.PushConstants.SetPushConstantInt("faceCount", 1);
-            shadowOffscreen.PushConstants.SetPushConstantInt("lightIndex", 0);
-            shadowOffscreen.PushConstants.SetPushConstantInt("writeDepth", 1);
+            shadowOffscreen.PushConstants.SetPushConstantInt("matrixOffset", 0,0);
+            shadowOffscreen.PushConstants.SetPushConstantInt("baseLayerOffset", 0, 0);
+            shadowOffscreen.PushConstants.SetPushConstantInt("faceCount", 0, 1);
+            shadowOffscreen.PushConstants.SetPushConstantInt("lightIndex", 0, 0);
+            shadowOffscreen.PushConstants.SetPushConstantInt("writeDepth", 0, 1);
         }
 
         public void AssignDirShadowTexture()
@@ -66,9 +51,7 @@ namespace VECS
                     asset.SetTexture(ShaderPropertyInfo.DirShadowImageId, i, _shadowDepthImage.Target);
                 }
             });
-            var texProp = "texSampler".GetShaderPropertyId();
 
-            AssetDataBase<Material>.GetNamed("UnlitTextured")?.SetTexture(texProp, 0, _shadowDepthImage.Target);
         }
 
         public static Matrix4x4 GetSpaceMatrix(LightingInfo lightingInfo, out float nearPlane, out float farPlane, out Matrix4x4 lightView, out Matrix4x4 lightProj, out Vector3 lightPos)
@@ -149,8 +132,6 @@ namespace VECS
             GraphicsDevice.DeviceAPI.vkCmdBeginRendering(frameInfo.CommandBuffer, &renderingInfo);
 
             SetViewPort(frameInfo.CommandBuffer);
-
-            // DrawBlob.ExecuteAllInOneOpaqueDrawCmds(frameInfo, frameInfo.CommandBuffer, _shadowDepthOnly.Hash);
 
             DrawBlob.ExecuteAllInOneOpaqueDrawCmds(frameInfo, frameInfo.CommandBuffer, shadowOffscreen.Hash,0);
 

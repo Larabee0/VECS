@@ -40,7 +40,7 @@ namespace VECS
         public static void RenderSkybox(RendererFrameInfo frameInfo)
         {
             if (SkyboxTexture == null || _cube == null) return;
-            _skybox.PushConstants.SetPushConstantUniform("viewProj", GetSkyboxMatrix(frameInfo.CameraInfo[0]));
+            _skybox.PushConstants.SetPushConstantUniform("viewProj",0, GetSkyboxMatrix(frameInfo.CameraInfo[0]));
             _skybox.BindAll(frameInfo, 0);
             _cube.SimpleBindAndDraw(frameInfo.CommandBuffer);
         }

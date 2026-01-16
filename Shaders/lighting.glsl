@@ -25,8 +25,8 @@ struct SpotLight{
 	float constant;
 	float linear;
 	float quadratic;
-    float range;
-   
+    float farPlane;
+    mat4 lightSpace;
 };
 
 struct DirectionalLight{
@@ -71,11 +71,11 @@ vec3 CalcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir, f
     ambient  *= attenuation;
     diffuse  *= attenuation;
     specular *= attenuation;
-    return (ambient + ( shadow*( diffuse + specular)));
+    return (ambient + (shadow* (diffuse + specular)));
 }
 
 
-vec3 CalcSpotLight(SpotLight light, vec3 normal, vec3 fragPos, vec3 viewDir, float shininess, vec3 ambientCol, vec3 diffuseCol, vec3 specularCol) {
+vec3 CalcSpotLight(SpotLight light, vec3 normal, vec3 fragPos, vec3 viewDir, float shininess, float shadow, vec3 ambientCol, vec3 diffuseCol, vec3 specularCol) {
     vec3 lightDir = normalize(light.position.xyz - fragPos);
     float theta = dot(lightDir, normalize(-light.direction.xyz));
     float epsilon   = light.cutOff - light.outerCutOff;
@@ -86,7 +86,7 @@ vec3 CalcSpotLight(SpotLight light, vec3 normal, vec3 fragPos, vec3 viewDir, flo
     // specular shading
     vec3 halfwayDir = normalize(lightDir + viewDir);  
     float spec = pow(max(dot(normal, halfwayDir), 0.0), shininess);
-    // attenuatio   n
+    // attenuation
     float distance    = length(light.position.xyz - fragPos);
     float attenuation = 1.0 / (light.constant + light.linear * distance + light.quadratic * (distance * distance));
     // combine results
@@ -99,5 +99,5 @@ vec3 CalcSpotLight(SpotLight light, vec3 normal, vec3 fragPos, vec3 viewDir, flo
 
     diffuse *= intensity;
     specular *= intensity;
-    return (ambient + diffuse + specular);
+    return (ambient + (shadow * ( diffuse + specular)));
 } 

@@ -254,6 +254,7 @@ namespace VECS
                         var ltw = entityManager.GetComponent<LocalToWorld>(spotLights[i]).Value;
                         var spotLight = entityManager.GetComponent<SpotLight>(spotLights[i]);
                         spotLightBuffer[i] = new(ltw.Translation, ltw.Forward(), spotLight);
+                        spotLightBuffer[i].LightSpace = SpotLightShadows.GetSpaceMatrix(spotLightBuffer[i], out _, out _, out _);
                     }
 
                     for (int i = spotLightCount; i < MAX_POINT_LIGHTS; i++)

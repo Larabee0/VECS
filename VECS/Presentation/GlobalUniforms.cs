@@ -133,7 +133,7 @@ namespace VECS
         }
     }
 
-    [StructLayout(LayoutKind.Sequential, Size = 96)]
+    [StructLayout(LayoutKind.Sequential, Size = 160)]
     public struct SpotLightUniform
     {
         public Vector4 Position;
@@ -148,6 +148,8 @@ namespace VECS
         public float Quadratic;
         public float Range;
 
+        public Matrix4x4 LightSpace;
+
         public SpotLightUniform(Vector3 position, Vector3 direction, SpotLight spotLight)
         {
             Position = new(position, spotLight.cutOff);
@@ -160,6 +162,7 @@ namespace VECS
             Constant = spotLight.Constant;
             Linear = spotLight.Linear;
             Quadratic = spotLight.Quadratic;
+            Range = spotLight.range;
         }
     }
 }

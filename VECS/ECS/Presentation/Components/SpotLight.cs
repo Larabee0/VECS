@@ -17,5 +17,6 @@ namespace VECS.ECS.Presentation
 
         public float cutOff;
         public float outerCutOff;
+        public float range;
     }
 }

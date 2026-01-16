@@ -61,19 +61,23 @@ namespace VECS
             entityManager.AddComponent(MainCamera, new Rotation() { Value = TransformExtensions.Euler(initalCameraRot) });
             entityManager.AddComponent(MainCamera, cameraPerspective);
             entityManager.AddComponent<MainCamera>(MainCamera);
-            return;
+
+            MainCamera = entityManager.CreateEntity();
+            entityManager.AddComponent(MainCamera, new Translation() { Value = initalCameraPos });
+            entityManager.AddComponent(MainCamera, new Rotation() { Value = TransformExtensions.Euler(initalCameraRot) });
             entityManager.AddComponent(MainCamera, new SpotLight()
             {
                 Ambient = new(0.1f, 0.1f, 0.1f, 1f),
-                Diffuse = new(0,1,0,1),
+                Diffuse = new(0, 1, 0, 1),
                 Specular = new(0.5f, 0.5f, 0.5f, 1f),
 
                 Constant = 1.0f,
-                Linear = 0.7f,
-                Quadratic = 1.8f,
+                Linear = 0.07f,
+                Quadratic = 0.017f,
 
                 cutOff = 12.5f,
-                outerCutOff = 17.5f
+                outerCutOff = 17.5f,
+                range = 10
             });
 
             //var secondCamera = entityManager.CreateEntity();
@@ -105,7 +109,7 @@ namespace VECS
             EntityManager entityManager = World.DefaultWorld.EntityManager;
 
             PointLight(entityManager, new(10, 1, 0), new(1, 0, 0, 1));
-            PointLight(entityManager, new(-10, 1, 0), new(1, 0, 0, 1));
+            //PointLight(entityManager, new(-10, 1, 0), new(1, 0, 0, 1));
 
             // PointLight(entityManager, new(8, 1, 0), new(0, 1, 0, 1));
             // PointLight(entityManager, new(-8, 1, 0), new(0, 1, 0, 1));

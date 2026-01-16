@@ -4,11 +4,11 @@ layout (location = 1) in vec2 fragUV;
 layout (location = 0) out vec4 outColour;
 layout (location = 1) out vec4 outBright;
 
-layout(set = 1, binding = 3) uniform sampler2D texSampler;
+layout(set = 1, binding = 3) uniform sampler2DArray texSampler;
 
 void main()
 {
-	float diffuseTextureColour = texture(texSampler, fragUV).r;
+	float diffuseTextureColour = texture(texSampler, vec3(fragUV,0)).r;
 
     outColour = vec4(diffuseTextureColour,diffuseTextureColour,diffuseTextureColour, 1);
 }

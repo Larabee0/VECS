@@ -86,21 +86,9 @@ namespace VECS
     public static class PushConstantsExtensions
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetPushConstantInt(this PushConstantsHandler handler, string property, int value)
-        {
-            WriteToPushConstantBuffer(handler, property, value);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void SetPushConstantInt(this PushConstantsHandler handler, string property, int instanceIndex, int value)
         {
             WriteToPushConstantBuffer(handler, property, instanceIndex, value);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetPushConstantUInt(this PushConstantsHandler handler, string property, uint value)
-        {
-            WriteToPushConstantBuffer(handler, property, value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -110,21 +98,9 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetPushConstantFloat(this PushConstantsHandler handler, string property, float value)
-        {
-            WriteToPushConstantBuffer(handler, property, value);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void SetPushConstantFloat(this PushConstantsHandler handler, string property, int instanceIndex, float value)
         {
             WriteToPushConstantBuffer(handler, property, instanceIndex, value);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetPushConstantVector2(this PushConstantsHandler handler, string property, Vector2 value)
-        {
-            WriteToPushConstantBuffer(handler, property, value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -134,21 +110,9 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetPushConstantVector4(this PushConstantsHandler handler, string property, Vector4 value)
-        {
-            WriteToPushConstantBuffer(handler, property, value);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void SetPushConstantVector4(this PushConstantsHandler handler, string property, int instanceIndex, Vector4 value)
         {
             WriteToPushConstantBuffer(handler, property, instanceIndex, value);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetPushConstantMatrix3x2(this PushConstantsHandler handler, string property, Matrix3x2 value)
-        {
-            WriteToPushConstantBuffer(handler, property, value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -158,33 +122,15 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetPushConstantMatrix4x4(this PushConstantsHandler handler, string property, Matrix4x4 value)
-        {
-            WriteToPushConstantBuffer(handler, property, value);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void SetPushConstantMatrix4x4(this PushConstantsHandler handler, string property, int instanceIndex, Matrix4x4 value)
         {
             WriteToPushConstantBuffer(handler, property, instanceIndex, value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetPushConstantUniform<T>(this PushConstantsHandler handler, string property, T value) where T : unmanaged
-        {
-            WriteToPushConstantBuffer(handler, property, value);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void SetPushConstantUniform<T>(this PushConstantsHandler handler, string property, int instanceIndex, T value) where T : unmanaged
         {
             WriteToPushConstantBuffer(handler, property, instanceIndex, value);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static void WriteToPushConstantBuffer<T>(PushConstantsHandler handler, string property, T value) where T : unmanaged
-        {
-            WriteToPushConstantBuffer(handler, property, 0, value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

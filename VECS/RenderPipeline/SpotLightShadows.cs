@@ -1,12 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Numerics;
+﻿using System.Numerics;
 using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading.Tasks;
 using VECS.ECS;
 using VECS.ECS.Presentation;
+using VECS.ECS.Transforms;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
@@ -57,6 +53,9 @@ namespace VECS.RenderPipeline
                     asset.SetTextureArray(ShaderPropertyInfo.SLShadowImageId, i, _shadowDepthImage);
                 }
             });
+
+            var texProp = "texSampler".GetShaderPropertyId();
+            AssetDataBase<Material>.GetNamed("UnlitTextured")?.SetTextureArray(texProp, 0, _shadowDepthImage);
         }
 
         public static Matrix4x4 GetSpaceMatrix(SpotLightUniform spotLight, out float nearPlane, out Matrix4x4 lightView, out Matrix4x4 lightProj)
@@ -70,11 +69,7 @@ namespace VECS.RenderPipeline
 
             lightDir = -lightDir;
 
-            World.DefaultWorld.GetSystem<DebugDrawUtilities>().DrawLine(lightPos, shadowFocus, Colour.Blue);
-            World.DefaultWorld.GetSystem<DebugDrawUtilities>().DrawSphere(lightPos, 1, Colour.Red);
-            World.DefaultWorld.GetSystem<DebugDrawUtilities>().DrawSphere(shadowFocus, 1, Colour.Green);
-
-            lightProj = Matrix4x4.CreatePerspectiveFieldOfView(spotLight.Direction.W, 1, near_plane, far_plane);
+            lightProj = Matrix4x4.CreatePerspectiveFieldOfView(TransformExtensions.Deg2Rad * spotLight.Direction.W, 1, near_plane, far_plane);
 
             if (lightDir == new Vector3(0, 1, 0))
             {
@@ -112,7 +107,7 @@ namespace VECS.RenderPipeline
                 lights.UnsafeSet(lightIndex, new Vector4(spotLight.Position.AsVector3(), spotLight.Range));
 
                 shadowOffscreen.PushConstants.SetPushConstantInt("matrixOffset", lightIndex, faceIndex);
-                shadowOffscreen.PushConstants.SetPushConstantInt("baseLayerOffset", i);
+                shadowOffscreen.PushConstants.SetPushConstantInt("baseLayerOffset", lightIndex, i);
                 shadowOffscreen.PushConstants.SetPushConstantInt("faceCount", lightIndex, 1);
                 shadowOffscreen.PushConstants.SetPushConstantInt("lightIndex", lightIndex, lightIndex);
                 shadowOffscreen.PushConstants.SetPushConstantInt("writeDepth", lightIndex, 1);
