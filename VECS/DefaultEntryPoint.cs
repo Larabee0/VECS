@@ -77,7 +77,7 @@ namespace VECS
 
                 cutOff = 12.5f,
                 outerCutOff = 17.5f,
-                range = 10
+                range = 25
             });
 
             //var secondCamera = entityManager.CreateEntity();

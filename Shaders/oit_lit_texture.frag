@@ -4,10 +4,9 @@
 #include "lighting.glsl"
 
 layout (early_fragment_tests) in;
-layout (location = 0) in vec4 fragColour;
-layout (location = 1) in vec3 fragPosWorld;
-layout (location = 2) in vec3 fragNormalWorld;
-layout (location = 3) in vec2 fragUV;
+layout (location = 0) in vec3 fragPosWorld;
+layout (location = 1) in vec3 fragNormalWorld;
+layout (location = 2) in vec2 fragUV;
 
 layout(set = 0,binding = 1) readonly buffer CameraInverses {
 	CameraInverse values[];
@@ -81,7 +80,7 @@ void main()
 	float w = textureColour.w;
 	// outColour = vec4(fragUV,0,1);
 	//outColour = textureProperties.colour;
-	textureColour = textureColour * fragColour * texProps.colour;
+	textureColour = textureColour *  texProps.colour;
 
     //textureColour.xyz = normalize(textureColour.xyz);
     textureColour.w = w;
