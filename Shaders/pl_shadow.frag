@@ -8,6 +8,7 @@ layout(std140, set = 0, binding = 2) readonly buffer LightInfo{
 
 layout(push_constant) uniform PLLight {
     int matrixOffset;
+    int baseLayerOffset;
     int faceCount;
     int lightIndex;
     int writeDepth;

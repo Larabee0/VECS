@@ -9,21 +9,23 @@ layout(std140, set = 0, binding = 1) readonly buffer ShadowMats{
 
 layout(push_constant) uniform PLLight {
     int matrixOffset;
+    int baseLayerOffset;
     int faceCount;
     int lightIndex;
-    bool writeDepth;
+    int writeDepth;
 } plLight;
 
 void main()
 {
     int bufferOffset = plLight.matrixOffset;
+    int baseLayerOffset = plLight.baseLayerOffset;
     int faceCount = plLight.faceCount;
     for(int face = 0; face < faceCount; ++face)
     {
-        gl_Layer = bufferOffset + face; // built-in variable that specifies to which face we render.
+        gl_Layer = baseLayerOffset + face; // built-in variable that specifies to which face we render.
         for(int i = 0; i < 3; ++i) // for each triangle vertex
         {
-            gl_Layer = bufferOffset + face; // built-in variable that specifies to which face we render.
+            gl_Layer = baseLayerOffset + face; // built-in variable that specifies to which face we render.
             FragPos = gl_in[i].gl_Position;
             gl_Position = shadowMats.value[bufferOffset + face] * FragPos;
             EmitVertex();

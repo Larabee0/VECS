@@ -211,7 +211,7 @@ namespace VECS
                 {
                     lightingInfo = new(entityManager.GetComponent<DirectionalLight>(dirLights[0]), 0, 0);
 
-                    lightingInfo.DirectionalLight.lightSpace = DirectionalLightShadows.GetSpaceMatrix(lightingInfo, out _, out _, out _);
+                    lightingInfo.DirectionalLight.lightSpace = DirectionalLightShadows.GetSpaceMatrix(lightingInfo, out _, out _, out _, out _, out _);
                 }
                 else
                 {

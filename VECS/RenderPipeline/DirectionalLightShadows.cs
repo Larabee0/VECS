@@ -49,12 +49,11 @@ namespace VECS
             // DrawBlob.AllInOneMats.Add(_shadowDepthOnly.Hash);
 
             var shadowOffscreen = EngineMaterials.ShadowOffscreen;
-            var lights = shadowOffscreen.GetStorageSwapChainBuffer(PointLightShadows.lightInfoPropertyId);
-            lights.UnsafeSet(0, Vector4.Zero);
             shadowOffscreen.PushConstants.SetPushConstantInt("matrixOffset", 0);
+            shadowOffscreen.PushConstants.SetPushConstantInt("baseLayerOffset", 0);
             shadowOffscreen.PushConstants.SetPushConstantInt("faceCount", 1);
             shadowOffscreen.PushConstants.SetPushConstantInt("lightIndex", 0);
-            shadowOffscreen.PushConstants.SetPushConstantInt("writeDepth", 0);
+            shadowOffscreen.PushConstants.SetPushConstantInt("writeDepth", 1);
         }
 
         public void AssignDirShadowTexture()
@@ -72,7 +71,7 @@ namespace VECS
             AssetDataBase<Material>.GetNamed("UnlitTextured")?.SetTexture(texProp, 0, _shadowDepthImage.Target);
         }
 
-        public static Matrix4x4 GetSpaceMatrix(LightingInfo lightingInfo, out float nearPlane, out Matrix4x4 lightView, out Matrix4x4 lightProj)
+        public static Matrix4x4 GetSpaceMatrix(LightingInfo lightingInfo, out float nearPlane, out float farPlane, out Matrix4x4 lightView, out Matrix4x4 lightProj, out Vector3 lightPos)
         {
             AABB sceneBounds = new();
             if (World.DefaultWorld.EntityManager.SingletonComponent<FrameInfo>(out var sceneInfo))
@@ -81,24 +80,24 @@ namespace VECS
             }
 
             const float near_plane = 0.01f;
-            float far_plane = Vector3.Distance(sceneBounds.Min,sceneBounds.Max);
+            farPlane = Vector3.Distance(sceneBounds.Min,sceneBounds.Max);
             
             var lightDir = lightingInfo.DirectionalLight.Direction.AsVector3();
 
-            var shadowFocus = sceneBounds.Center + (lightDir* ( far_plane*0.5f));
+            var shadowFocus = sceneBounds.Center + (lightDir* ( farPlane*0.5f));
 
             lightDir = -lightDir;
-            Vector3 lightPos =  new(){
-                X = shadowFocus.X + lightDir.X * far_plane,
-                Y = shadowFocus.Y + lightDir.Y * far_plane,
-                Z = shadowFocus.Z + lightDir.Z * far_plane
+            lightPos =  new(){
+                X = shadowFocus.X + lightDir.X * farPlane,
+                Y = shadowFocus.Y + lightDir.Y * farPlane,
+                Z = shadowFocus.Z + lightDir.Z * farPlane
             };
             
             World.DefaultWorld.GetSystem<DebugDrawUtilities>().DrawLine(lightPos, shadowFocus, Colour.Blue);
             World.DefaultWorld.GetSystem<DebugDrawUtilities>().DrawSphere(lightPos, 1, Colour.Red);
             World.DefaultWorld.GetSystem<DebugDrawUtilities>().DrawSphere(shadowFocus, 1, Colour.Green);
 
-            lightProj = Matrix4x4.CreateOrthographic(far_plane, far_plane, near_plane, far_plane);
+            lightProj = Matrix4x4.CreateOrthographic(farPlane, farPlane, near_plane, farPlane);
             
             if(lightDir == new Vector3(0, 1, 0))
             {
@@ -119,8 +118,10 @@ namespace VECS
             DrawBlob.IndirectToComputeMemoryBarrierByMat(frameInfo.CommandBuffer);
             var shadowOffscreen = EngineMaterials.ShadowOffscreen;
             var mats = shadowOffscreen.GetStorageSwapChainBuffer(PointLightShadows.matsPropertyId);
-            mats.UnsafeSet(0, GetSpaceMatrix(frameInfo.LightingInfo, out var near_plane, out var lightView, out var lightProj));
-            
+            var lights = shadowOffscreen.GetStorageSwapChainBuffer(PointLightShadows.lightInfoPropertyId);
+            mats.UnsafeSet(0, GetSpaceMatrix(frameInfo.LightingInfo, out var near_plane, out var farPlane, out var lightView, out var lightProj, out var lightPos));
+            lights.UnsafeSet(0, new Vector4(lightPos,farPlane));
+
 
             CullData depthBufferCullInfo = new(SHADOW_INCLUDE_MASK, SHADOW_EXCLUDE_MASK, SHADOW_CULLING, SHADOW_DST_CULLING, SHADOW_DEPTH_CULLING, near_plane, lightProj, lightView);
 

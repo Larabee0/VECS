@@ -91,9 +91,10 @@ namespace VECS
             for (int i = 0; i < frameInfo.LightingInfo.NumPointLights; i++)
             {
                 shadowOffscreen.PushConstants.SetPushConstantInt("matrixOffset", 1 + i, 1 + (i * 6));
+                shadowOffscreen.PushConstants.SetPushConstantInt("baseLayerOffset", i * 6);
                 shadowOffscreen.PushConstants.SetPushConstantInt("faceCount", 1 + i, 6);
                 shadowOffscreen.PushConstants.SetPushConstantInt("lightIndex", 1 + i, 1 + i);
-                shadowOffscreen.PushConstants.SetPushConstantInt("writeDepth", 1 + i, 1 );
+                shadowOffscreen.PushConstants.SetPushConstantInt("writeDepth", 1 + i, 1);
             }
 
             Material.Update(shadowOffscreen, frameInfo);

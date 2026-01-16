@@ -112,6 +112,7 @@ namespace VECS.RenderPipeline
                 lights.UnsafeSet(lightIndex, new Vector4(spotLight.Position.AsVector3(), spotLight.Range));
 
                 shadowOffscreen.PushConstants.SetPushConstantInt("matrixOffset", lightIndex, faceIndex);
+                shadowOffscreen.PushConstants.SetPushConstantInt("baseLayerOffset", i);
                 shadowOffscreen.PushConstants.SetPushConstantInt("faceCount", lightIndex, 1);
                 shadowOffscreen.PushConstants.SetPushConstantInt("lightIndex", lightIndex, lightIndex);
                 shadowOffscreen.PushConstants.SetPushConstantInt("writeDepth", lightIndex, 1);
