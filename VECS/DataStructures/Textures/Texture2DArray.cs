@@ -30,7 +30,7 @@ namespace VECS
             AssetDataBase<Texture2DArray>.Add(this);
         }
 
-        public Texture2DArray(string name,int width, int height, int arrayLayers, VkFormat textureFormat, VkImageUsageFlags usage, bool generateMipMaps = true)
+        public Texture2DArray(string name,int width, int height, int arrayLayers, VkFormat textureFormat, VkSamplerAddressMode addressMode, VkImageUsageFlags usage, bool generateMipMaps = true)
         {
             Debug.Assert(arrayLayers > 1, "Cannot create texture array with 1 element!");
             AssetName = name;
@@ -38,6 +38,9 @@ namespace VECS
             _imageImageViewType = VkImageViewType.Image2DArray;
             _imageFormat = textureFormat;
             _useageFlags = usage;
+            _wrapModeU = addressMode;
+            _wrapModeV = addressMode;
+            _wrapModeW = addressMode;
 
             if (generateMipMaps)
             {
@@ -47,15 +50,6 @@ namespace VECS
             this.CreateImage(GetImageCreateInfo());
 
             this.SetImageLayoutAndAspectFromUsage();
-
-            if (usage.HasFlag(VkImageUsageFlags.DepthStencilAttachment))
-            {
-                SetImageLayout(VkImageLayout.DepthAttachmentStencilReadOnlyOptimal);
-            }
-            else
-            {
-                SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal);
-            }
 
             this.CreateImageView(GetImageViewCreateInfo());
 
@@ -74,6 +68,7 @@ namespace VECS
             Debug.Assert(filePaths.Length > 1, "Cannot create texture array from 1 file");
             AssetName = name;
             _imageImageViewType = VkImageViewType.Image2DArray;
+            
             Surface[] surfaces = TextureLoader.LoadBulk(filePaths);
 
             _hostBuffer = TextureLoader.CopySurfacesToStagingBuffer(surfaces);

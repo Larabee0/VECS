@@ -7,6 +7,7 @@ using VECS.ECS;
 using VECS.ECS.Presentation;
 using VECS.ECS.Transforms;
 using VECS.LowLevel;
+using VECS.RenderPipeline;
 using Vortice.Vulkan;
 
 namespace VECS
@@ -22,15 +23,17 @@ namespace VECS
         private SwapChain _swapChain;
         private bool _isFrameStarted = false;
         private ForwardRenderer _forwardRenderer;
-        private DirectionalShadows _directionalShadows;
-        private PointLightShadows _shadowCubeMap;
+        private DirectionalLightShadows _directionalLightShadows;
+        private PointLightShadows _pointLightShadows;
+        private SpotLightShadows _spotLightShadows;
         private Bloom _bloom;
         private SMAA _smaa;
         private static ulong _frameCount;
 
         public ForwardRenderer ForwardRenderer => _forwardRenderer;
-        public PointLightShadows ShadowImage => _shadowCubeMap;
-        public DirectionalShadows DirShadows => _directionalShadows;
+        public DirectionalLightShadows DirShadows => _directionalLightShadows;
+        public PointLightShadows PLShadows => _pointLightShadows;
+        public SpotLightShadows SLShadows => _spotLightShadows;
         public VkFormat[] ColourFormats => [_forwardRenderer.MainColourAttachment.Target.Format, _forwardRenderer.BrightObjectAttachment.Target.Format];
         public VkFormat DepthFormat => _forwardRenderer.DepthAttachment.Target.Format;
 
@@ -85,12 +88,13 @@ namespace VECS
                 GraphicsDevice.CreateCommandBuffers();
                 GraphicsDevice.DeviceWaitIdle();
                 _forwardRenderer = new ForwardRenderer();
-                _shadowCubeMap = new();
-                _directionalShadows = new();
+                _spotLightShadows = new();
+                _pointLightShadows = new();
+                _directionalLightShadows = new();
                 _bloom = new();
                 _smaa = new();
                 _forwardRenderer.SetOIT();
-                _directionalShadows.AssignDirShadowTexture();
+                _directionalLightShadows.AssignDirShadowTexture();
             }
             else
             {
@@ -207,7 +211,7 @@ namespace VECS
                 {
                     lightingInfo = new(entityManager.GetComponent<DirectionalLight>(dirLights[0]), 0, 0);
 
-                    lightingInfo.DirectionalLight.lightSpace = DirectionalShadows.GetSpaceMatrix(lightingInfo, out _, out _, out _);
+                    lightingInfo.DirectionalLight.lightSpace = DirectionalLightShadows.GetSpaceMatrix(lightingInfo, out _, out _, out _);
                 }
                 else
                 {

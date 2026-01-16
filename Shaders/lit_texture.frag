@@ -52,6 +52,7 @@ layout(set = 1, binding = 3) uniform TexPorps {
 
 layout(set = 1, binding = 4) uniform sampler2D dirShadow;
 layout(set = 1, binding = 5) uniform samplerCubeArray plShadow;
+layout(set = 1, binding = 6) uniform samplerCubeArray slShadow;
 
 layout(push_constant) uniform Constants{
 	uint cameraIndex;

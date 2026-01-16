@@ -2,14 +2,13 @@
 using System.Runtime.CompilerServices;
 using VECS.ECS;
 using VECS.ECS.Presentation;
-using VECS.ECS.Transforms;
 using VECS.GraphicsPipelines;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
 namespace VECS
 {
-    public sealed class DirectionalShadows
+    public class DirectionalLightShadows
     {
         public const int DIRECTIONAL_SHADOW_RESOLTION = 1024;
         public const bool SHADOW_CULLING = false;
@@ -18,7 +17,7 @@ namespace VECS
         public const RenderLayer SHADOW_INCLUDE_MASK = RenderLayer.Default | RenderLayer.OnlyShadow;
         public const RenderLayer SHADOW_EXCLUDE_MASK = RenderLayer.NoShadow;
 
-        private readonly Material _shadowDepthOnly;
+        // private readonly Material _shadowDepthOnly;
         private readonly RenderTarget _shadowDepthImage;
         private readonly  VkViewport viewport = new()
         {
@@ -29,25 +28,33 @@ namespace VECS
         };
 
         private readonly  VkRect2D scissor = new(new(0, 0), new(DIRECTIONAL_SHADOW_RESOLTION, DIRECTIONAL_SHADOW_RESOLTION));
-        public DirectionalShadows()
+        public DirectionalLightShadows()
         {
             _shadowDepthImage = new("DirectionalShadowRT", DIRECTIONAL_SHADOW_RESOLTION, DIRECTIONAL_SHADOW_RESOLTION, VkFormat.D32Sfloat);
 
             _shadowDepthImage.Target.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.LateFragmentTests, VkPipelineStageFlags2.FragmentShader);
 
-            var shadowConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
-            shadowConfig.colourFormats = [];
-            shadowConfig.depthFormat = _shadowDepthImage.Target.Format;
-            shadowConfig.stencilFormat = VkFormat.Undefined;
-            shadowConfig.depthStencilInfo.depthWriteEnable = true;
-            shadowConfig.depthStencilInfo.depthCompareOp = VkCompareOp.LessOrEqual;
-            shadowConfig.rasterizationInfo.cullMode = VkCullModeFlags.Front;
-            shadowConfig.rasterizationInfo.depthBiasEnable = true;
-            shadowConfig.rasterizationInfo.depthBiasConstantFactor = 1.25f;
-            shadowConfig.rasterizationInfo.depthBiasSlopeFactor = 1.75f;
-            _shadowDepthOnly = new("ShadowDepthOnly", "shadow_depth.vert", shadowConfig);
+            // var shadowConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
+            // shadowConfig.colourFormats = [];
+            // shadowConfig.depthFormat = _shadowDepthImage.Target.Format;
+            // shadowConfig.stencilFormat = VkFormat.Undefined;
+            // shadowConfig.depthStencilInfo.depthWriteEnable = true;
+            // shadowConfig.depthStencilInfo.depthCompareOp = VkCompareOp.LessOrEqual;
+            // shadowConfig.rasterizationInfo.cullMode = VkCullModeFlags.Front;
+            // shadowConfig.rasterizationInfo.depthBiasEnable = true;
+            // shadowConfig.rasterizationInfo.depthBiasConstantFactor = 1.25f;
+            // shadowConfig.rasterizationInfo.depthBiasSlopeFactor = 1.75f;
+            // _shadowDepthOnly = new("ShadowDepthOnly", "shadow_depth.vert", shadowConfig);
 
-            DrawBlob.AllInOneMats.Add(_shadowDepthOnly.Hash);
+            // DrawBlob.AllInOneMats.Add(_shadowDepthOnly.Hash);
+
+            var shadowOffscreen = EngineMaterials.ShadowOffscreen;
+            var lights = shadowOffscreen.GetStorageSwapChainBuffer(PointLightShadows.lightInfoPropertyId);
+            lights.UnsafeSet(0, Vector4.Zero);
+            shadowOffscreen.PushConstants.SetPushConstantInt("matrixOffset", 0);
+            shadowOffscreen.PushConstants.SetPushConstantInt("faceCount", 1);
+            shadowOffscreen.PushConstants.SetPushConstantInt("lightIndex", 0);
+            shadowOffscreen.PushConstants.SetPushConstantInt("writeDepth", 0);
         }
 
         public void AssignDirShadowTexture()
@@ -77,13 +84,6 @@ namespace VECS
             float far_plane = Vector3.Distance(sceneBounds.Min,sceneBounds.Max);
             
             var lightDir = lightingInfo.DirectionalLight.Direction.AsVector3();
-
-            var angleToUp = TransformExtensions.Angle(lightDir, new Vector3(0, 1, 0));
-            var angleToDown = TransformExtensions.Angle(lightDir, new Vector3(0, -1, 0));
-            var angleToRight = TransformExtensions.Angle(lightDir, new Vector3(1, 0, 0));
-            var angleToLeft = TransformExtensions.Angle(lightDir, new Vector3(-1, 0, 0));
-            var angleToFoward = TransformExtensions.Angle(lightDir, new Vector3(0, 0, 1));
-            var angleToBackward = TransformExtensions.Angle(lightDir, new Vector3(0, 0, -1));
 
             var shadowFocus = sceneBounds.Center + (lightDir* ( far_plane*0.5f));
 
@@ -117,9 +117,10 @@ namespace VECS
         {
             AssignDirShadowTexture();
             DrawBlob.IndirectToComputeMemoryBarrierByMat(frameInfo.CommandBuffer);
-
-
-            _shadowDepthOnly.PushConstants.SetPushConstantMatrix4x4("space", GetSpaceMatrix(frameInfo.LightingInfo, out var near_plane, out var lightView, out var lightProj));
+            var shadowOffscreen = EngineMaterials.ShadowOffscreen;
+            var mats = shadowOffscreen.GetStorageSwapChainBuffer(PointLightShadows.matsPropertyId);
+            mats.UnsafeSet(0, GetSpaceMatrix(frameInfo.LightingInfo, out var near_plane, out var lightView, out var lightProj));
+            
 
             CullData depthBufferCullInfo = new(SHADOW_INCLUDE_MASK, SHADOW_EXCLUDE_MASK, SHADOW_CULLING, SHADOW_DST_CULLING, SHADOW_DEPTH_CULLING, near_plane, lightProj, lightView);
 
@@ -148,7 +149,9 @@ namespace VECS
 
             SetViewPort(frameInfo.CommandBuffer);
 
-            DrawBlob.ExecuteAllInOneOpaqueDrawCmds(frameInfo, frameInfo.CommandBuffer, _shadowDepthOnly.Hash);
+            // DrawBlob.ExecuteAllInOneOpaqueDrawCmds(frameInfo, frameInfo.CommandBuffer, _shadowDepthOnly.Hash);
+
+            DrawBlob.ExecuteAllInOneOpaqueDrawCmds(frameInfo, frameInfo.CommandBuffer, shadowOffscreen.Hash,0);
 
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
 

@@ -41,17 +41,18 @@ namespace VECS
             pipelineConfigInfo.depthStencilInfo.depthWriteEnable = true;
             WireFrame = new("WireFrame", "line_shader.vert", "line_shader.frag", pipelineConfigInfo);
 
-            var shadowConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
-            Cubemap shadowCube = AssetDataBase<Cubemap>.GetNamed("ShadowCubeMap");
-            Texture2D shadowDepthStencil = AssetDataBase<Texture2D>.GetNamed("ShadowDepthImage");
-
-            shadowConfig.colourFormats = [VkFormat.R32Sfloat];
+            GraphicsPipelineConfigInfo shadowConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
+            shadowConfig.colourFormats = [];
             shadowConfig.depthFormat = VkFormat.D32Sfloat;
             shadowConfig.stencilFormat = VkFormat.Undefined;
             shadowConfig.depthStencilInfo.depthWriteEnable = true;
-            shadowConfig.depthStencilInfo.depthCompareOp = VkCompareOp.Less;
+            shadowConfig.depthStencilInfo.depthCompareOp = VkCompareOp.LessOrEqual;
             shadowConfig.rasterizationInfo.cullMode = VkCullModeFlags.None;
-            ShadowOffscreen = new("ShadowOffscreen", "shadow_offscreen.vert", "shadow_offscreen.frag", shadowConfig);
+            shadowConfig.rasterizationInfo.cullMode = VkCullModeFlags.Front;
+            shadowConfig.rasterizationInfo.depthBiasEnable = true;
+            shadowConfig.rasterizationInfo.depthBiasConstantFactor = 1.25f;
+            shadowConfig.rasterizationInfo.depthBiasSlopeFactor = 1.75f;
+            ShadowOffscreen = new Material("PointLightShadowCaster", "pl_shadow.vert", "pl_shadow.frag", shadowConfig, "pl_shadow.geom");
 
             var alphaBlending = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             Unlit = new Material("Unlit", "unlit.vert", "unlit.frag", alphaBlending);
@@ -81,6 +82,8 @@ namespace VECS
             oit_unlit.rasterizationInfo.cullMode = VkCullModeFlags.None;
             oit_unlit.rasterizationInfo.frontFace = VkFrontFace.Clockwise;
             OIT_LitTexture = new("OIT_Lit_Texture", "lit_texture.vert", "oit_lit_texture.frag", oit_unlit);
+            
+            
 
             DepthReduction.Init();
         }

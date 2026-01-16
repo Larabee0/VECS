@@ -6,18 +6,27 @@ layout(std140, set = 0, binding = 2) readonly buffer LightInfo{
     vec4 values[];
 } lightInfo;
 
+layout(push_constant) uniform PLLight {
+    int matrixOffset;
+    int faceCount;
+    int lightIndex;
+    int writeDepth;
+} plLight;
+
 void main()
 {
-    int lightIndex = gl_Layer / 6;
-    vec3 lightPos = lightInfo.values[lightIndex].xyz;
-    float farPlane = lightInfo.values[lightIndex].w;
+    if(plLight.writeDepth != 0){
+        int lightIndex = plLight.lightIndex;
+        vec3 lightPos = lightInfo.values[lightIndex].xyz;
+        float farPlane = lightInfo.values[lightIndex].w;
 
-    // get distance between fragment and light source
-    float lightDistance = length(FragPos.xyz - lightPos.xyz);
-    
-    // map to [0;1] range by dividing by far_plane
-    lightDistance = lightDistance / farPlane;
-    
-    // write this as modified depth
-    gl_FragDepth = lightDistance;
+        // get distance between fragment and light source
+        float lightDistance = length(FragPos.xyz - lightPos.xyz);
+
+        // map to [0;1] range by dividing by far_plane
+        lightDistance = lightDistance / farPlane;
+
+        // write this as modified depth
+        gl_FragDepth = lightDistance;
+    }
 } 

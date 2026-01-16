@@ -5,13 +5,10 @@ using Vortice.Vulkan;
 
 namespace VECS.ECS.Presentation
 {
-
     public class GenericRenderSystem : PresentationSystemBase
     {
         public const uint MAX_DRAWS = 2000;
         private EntityQuery _renderEntityQuery;
-
-         private ShadowInternal _shadowData;
 
         public override void OnCreate(EntityManager entityManager)
         {
@@ -21,7 +18,7 @@ namespace VECS.ECS.Presentation
                 .Build();
 
             DrawBlob.AllInOneMats.Add(EngineMaterials.DepthOnly.Hash);
-            _shadowData = new();
+            DrawBlob.AllInOneMats.Add(EngineMaterials.ShadowOffscreen.Hash);
         }
 
         public override void OnPrePresent(EntityManager entityManager)
@@ -34,17 +31,33 @@ namespace VECS.ECS.Presentation
 
         public override void OnShadowPass(EntityManager entityManager, RendererFrameInfo frameInfo)
         {
-            if (frameInfo.LightingInfo.NumPointLights == 0 || !_renderEntityQuery.HasEntities)
+            if(frameInfo.LightingInfo.NumSpotLights == 0 || !_renderEntityQuery.HasEntities)
             {
-                Presenter.Instance.ShadowImage.ClearImage(frameInfo);
+                Presenter.Instance.SLShadows.ClearImage(frameInfo);
             }
 
-            if(frameInfo.LightingInfo.NumPointLights > 0)
+            if (frameInfo.LightingInfo.NumPointLights == 0 || !_renderEntityQuery.HasEntities)
             {
-                _shadowData.RenderShadowsSinglePass(frameInfo);
+                Presenter.Instance.PLShadows.ClearImage(frameInfo);
+            }
+
+            if (frameInfo.LightingInfo.NumSpotLights > 0)
+            {
+                Presenter.Instance.SLShadows.SpotLightShadowPass(frameInfo);
+            }
+
+            if (frameInfo.LightingInfo.NumPointLights > 0)
+            {
+                Presenter.Instance.PLShadows.PointLightShadowPass(frameInfo);
             }
             
             Presenter.Instance.DirShadows.DirectionalShadowPass(frameInfo);
+
+            uint totalMats = 1 + ((uint)frameInfo.LightingInfo.NumPointLights * 6u ) + (uint)frameInfo.LightingInfo.NumSpotLights;
+            uint totalLights = 1 + (uint)frameInfo.LightingInfo.NumPointLights + (uint)frameInfo.LightingInfo.NumSpotLights;
+
+            EngineMaterials.ShadowOffscreen.SetDescriptorStorageBufferLengthFromProperty(PointLightShadows.matsPropertyId, totalMats);
+            EngineMaterials.ShadowOffscreen.SetDescriptorStorageBufferLengthFromProperty(PointLightShadows.lightInfoPropertyId, totalLights);
         }
 
         public unsafe override void OnPreOpaquePass(EntityManager entityManager, RendererFrameInfo frameInfo)

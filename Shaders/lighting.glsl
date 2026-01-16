@@ -25,6 +25,7 @@ struct SpotLight{
 	float constant;
 	float linear;
 	float quadratic;
+    float range;
    
 };
 
