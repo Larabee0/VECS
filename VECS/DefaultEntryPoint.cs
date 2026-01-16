@@ -61,9 +61,9 @@ namespace VECS
             entityManager.AddComponent(MainCamera, new Rotation() { Value = TransformExtensions.Euler(initalCameraRot) });
             entityManager.AddComponent(MainCamera, cameraPerspective);
             entityManager.AddComponent<MainCamera>(MainCamera);
-
+            initalCameraRot.Y = -initalCameraRot.Y;
             MainCamera = entityManager.CreateEntity();
-            entityManager.AddComponent(MainCamera, new Translation() { Value = initalCameraPos });
+            entityManager.AddComponent(MainCamera, new Translation() { Value = new(-7,0.15f,-2) });
             entityManager.AddComponent(MainCamera, new Rotation() { Value = TransformExtensions.Euler(initalCameraRot) });
             entityManager.AddComponent(MainCamera, new SpotLight()
             {
@@ -75,8 +75,8 @@ namespace VECS
                 Linear = 0.07f,
                 Quadratic = 0.017f,
 
-                cutOff = 12.5f,
-                outerCutOff = 17.5f,
+                cutOff = MathF.Cos(TransformExtensions.Deg2Rad * 12.5f),
+                outerCutOff = MathF.Cos(TransformExtensions.Deg2Rad * 17.5f),
                 range = 25
             });
 

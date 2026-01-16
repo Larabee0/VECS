@@ -8,17 +8,17 @@ layout (location = 0) in vec3 fragPosWorld;
 layout (location = 1) in vec3 fragNormalWorld;
 layout (location = 2) in vec2 fragUV;
 
-layout(set = 0,binding = 1) readonly buffer CameraInverses {
-	CameraInverse values[];
-} cameraInverse;
-
 layout(set = 0, binding = 0) uniform LightingInfo {
 	DirectionalLight directionalLight;
 	int numPointLights;
 	int numSpotLights;
 } lighting;
 
-layout (set = 0, binding = 2) readonly buffer PointLights{
+layout(set = 0,binding = 1) readonly buffer CameraInverses {
+	CameraInverse values[];
+} cameraInverse;
+
+layout (set = 0, binding = 4) readonly buffer PointLights{
 	PointLight values[];
 } pointLightBuffer;
 

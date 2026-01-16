@@ -1,4 +1,5 @@
-﻿using System.Numerics;
+﻿using System;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using VECS.ECS;
 using VECS.ECS.Presentation;
@@ -69,7 +70,7 @@ namespace VECS.RenderPipeline
 
             lightDir = -lightDir;
 
-            lightProj = Matrix4x4.CreatePerspectiveFieldOfView(TransformExtensions.Deg2Rad * spotLight.Direction.W, 1, near_plane, far_plane);
+            lightProj = Matrix4x4.CreatePerspectiveFieldOfView(MathF.Acos(spotLight.Direction.W), 1, near_plane, far_plane);
 
             if (lightDir == new Vector3(0, 1, 0))
             {
@@ -106,6 +107,7 @@ namespace VECS.RenderPipeline
                 mats.UnsafeSet(faceIndex, GetSpaceMatrix(spotLight, out var _, out var _, out var _));
                 lights.UnsafeSet(lightIndex, new Vector4(spotLight.Position.AsVector3(), spotLight.Range));
 
+                World.DefaultWorld.GetSystem<DebugDrawUtilities>().DrawLine(spotLight.Position.AsVector3(), spotLight.Position.AsVector3() + (spotLight.Direction.AsVector3() * spotLight.Range), Colour.Blue);
                 shadowOffscreen.PushConstants.SetPushConstantInt("matrixOffset", lightIndex, faceIndex);
                 shadowOffscreen.PushConstants.SetPushConstantInt("baseLayerOffset", lightIndex, i);
                 shadowOffscreen.PushConstants.SetPushConstantInt("faceCount", lightIndex, 1);

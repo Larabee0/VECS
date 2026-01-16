@@ -136,6 +136,7 @@ namespace VECS
     [StructLayout(LayoutKind.Sequential, Size = 160)]
     public struct SpotLightUniform
     {
+        public Matrix4x4 LightSpace;
         public Vector4 Position;
         public Vector4 Direction;
 
@@ -148,7 +149,6 @@ namespace VECS
         public float Quadratic;
         public float Range;
 
-        public Matrix4x4 LightSpace;
 
         public SpotLightUniform(Vector3 position, Vector3 direction, SpotLight spotLight)
         {

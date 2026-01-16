@@ -13,6 +13,7 @@ struct PointLight {
 };
 
 struct SpotLight{
+    mat4 lightSpace;
 	vec3 position;
     float cutOff;
     vec3 direction;
@@ -26,7 +27,6 @@ struct SpotLight{
 	float linear;
 	float quadratic;
     float farPlane;
-    mat4 lightSpace;
 };
 
 struct DirectionalLight{

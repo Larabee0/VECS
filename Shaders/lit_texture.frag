@@ -7,6 +7,7 @@ layout (location = 0) in vec3 fragPosWorld;
 layout (location = 1) in vec3 fragNormalWorld;
 layout (location = 2) in vec2 fragUV;
 layout (location = 3) in vec4 fragPosDirLight;
+layout (location = 4) in vec4 fragPosSLLight;
 
 layout (location = 0) out vec4 outColour;
 
@@ -118,7 +119,7 @@ float FilterPLPCF(vec3 fragPos, vec3 viewPos, vec3 lightPos, float farPlane, int
 	return (1.0-shadow);
 }
 
-float ShadowSlCalculation(vec4 fragPosLight, vec2 off, int textureIndex){
+float ShadowSlCalculation(vec4 fragPosLight, vec2 off, int textureIndex, float farPlane){
 	float shadow = 1.0;
 	
 	if(fragPosLight.z > -1.0 && fragPosLight.z < 1.0){
@@ -130,12 +131,6 @@ float ShadowSlCalculation(vec4 fragPosLight, vec2 off, int textureIndex){
 
 	return shadow;
 }
-
-const mat4 biasMat = mat4(
-	0.5, 0.0, 0.0, 0.0,
-	0.0, 0.5, 0.0, 0.0,
-	0.0, 0.0, 1.0, 0.0, 
-	0.5, 0.5, 0.0, 1.0 );
 
 void main()
 {
@@ -167,10 +162,7 @@ void main()
     	float distance = length(sl.position.xyz - fragPosWorld);
 		if(distance <= sl.farPlane) {
 
-			
-			vec4 fragPosDirSpotLight = (biasMat * sl.lightSpace) * vec4(fragPosWorld, 1.0);
-
-			float slShadow = ShadowSlCalculation(fragPosDirSpotLight, vec2(0), i);
+			float slShadow = ShadowSlCalculation(fragPosSLLight, vec2(0), i, sl.farPlane);
 			result += CalcSpotLight(sl, normal, fragPosWorld, viewDir, shininess, slShadow, diffuseTextureColour, diffuseTextureColour, specularColour);
 		}
 	}
