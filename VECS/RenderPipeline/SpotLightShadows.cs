@@ -68,19 +68,22 @@ namespace VECS.RenderPipeline
             var lightPos = spotLight.Position.AsVector3();
             var shadowFocus = lightPos + (lightDir * far_plane);
 
-            lightDir = -lightDir;
+            //lightDir = -lightDir;
 
-            lightProj = Matrix4x4.CreatePerspectiveFieldOfView(MathF.Acos(spotLight.Direction.W), 1, near_plane, far_plane);
+            lightProj = Matrix4x4.CreatePerspectiveFieldOfView(MathF.Acos(spotLight.Direction.W)*2, 1, near_plane, far_plane);
+            //lightProj = Matrix4x4.CreatePerspectiveFieldOfView(TransformExtensions.Deg2Rad*90, 1, near_plane, far_plane);
+            //lightProj = Matrix4x4.CreateOrthographic(20, 20, near_plane, far_plane);
 
-            if (lightDir == new Vector3(0, 1, 0))
-            {
-                lightView = Matrix4x4.CreateLookAt(lightPos, shadowFocus, new(0, 0, 1));
-            }
-            else
+            if (lightDir == new Vector3(0, 0, 1))   
             {
                 lightView = Matrix4x4.CreateLookAt(lightPos, shadowFocus, new(0, 1, 0));
             }
+            else
+            {
+                lightView = Matrix4x4.CreateLookAt(lightPos, shadowFocus, new(0, 0, 1));
+            }
 
+            lightView = Matrix4x4.CreateLookAt(lightPos, shadowFocus, new(0, 0, 1));
             nearPlane = near_plane;
             return lightView * lightProj;
         }

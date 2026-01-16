@@ -11,16 +11,12 @@ layout (location = 0) out vec3 fragPosWorld;
 layout (location = 1) out vec3 fragNormalWorld;
 layout (location = 2) out vec2 fragUV;
 layout (location = 3) out vec4 fragPosDirLight;
-layout (location = 4) out vec4 fragPosSLLight;
 
 layout(set = 0, binding = 0) uniform LightingInfo {
 	DirectionalLight directionalLight;
 	int numPointLights;
 	int numSpotLights;
 } lighting;
-layout (set = 0, binding = 2) readonly buffer SpotLights {
-	SpotLight values[];
-} spotLightBuffer;
 
 layout(set = 0,binding = 3) readonly buffer CameraInfos {
 	CameraInfo values[];
@@ -63,7 +59,6 @@ void main()
 	float lightIntensity = AMBIENT + max(dot(fragNormalWorld, DIRECTION_TO_LIGHT), 0);
 	fragPosWorld = positionWorld.xyz;
 	fragPosDirLight = (biasMat * lighting.directionalLight.lightSpace * objectMat.modelMatrix) * vec4(position, 1.0);
-	fragPosSLLight = (biasMat * spotLightBuffer.values[0].lightSpace * objectMat.modelMatrix) * vec4(position, 1.0);
 
 	fragUV = uv;
 }

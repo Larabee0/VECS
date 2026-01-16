@@ -699,7 +699,7 @@ namespace VECS.LowLevel
             Console.WriteLine(string.Format("Validation layer trace\n {0}", trace.ToString()));
             if (BreakOnValidationError)
             {
-                Debugger.Break();
+                    Debugger.Break();
             }
             return 0;
         }

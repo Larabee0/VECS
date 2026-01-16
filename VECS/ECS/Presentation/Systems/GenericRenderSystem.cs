@@ -58,6 +58,8 @@ namespace VECS.ECS.Presentation
 
             EngineMaterials.ShadowOffscreen.SetDescriptorStorageBufferLengthFromProperty(PointLightShadows.matsPropertyId, totalMats);
             EngineMaterials.ShadowOffscreen.SetDescriptorStorageBufferLengthFromProperty(PointLightShadows.lightInfoPropertyId, totalLights);
+            EngineMaterials.ShadowOffscreen.GetStorageSwapChainBuffer(PointLightShadows.matsPropertyId).SetBuffersDirty(true);
+            EngineMaterials.ShadowOffscreen.GetStorageSwapChainBuffer(PointLightShadows.lightInfoPropertyId).SetBuffersDirty(true);
         }
 
         public unsafe override void OnPreOpaquePass(EntityManager entityManager, RendererFrameInfo frameInfo)

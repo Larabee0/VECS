@@ -64,7 +64,6 @@ namespace VECS
                 mats.UnsafeSet(offset + 4, Matrix4x4.CreateLookAt(lightPos, lightPos + new Vector3(0.0f, 0.0f, 1.0f), new Vector3(0.0f, -1.0f, 0.0f)) * CubeProjectionMatrix);
                 mats.UnsafeSet(offset + 5, Matrix4x4.CreateLookAt(lightPos, lightPos + new Vector3(0.0f, 0.0f, -1.0f), new Vector3(0.0f, -1.0f, 0.0f)) * CubeProjectionMatrix);
             }
-            mats.SetBuffersDirty(true);
         }
 
         public static void FillLightInfo(in RendererFrameInfo frameInfo, SwapChainBuffer lightInfo)
@@ -76,7 +75,6 @@ namespace VECS
                 lightPos.W = pl.FarPlane;
                 lightInfo.UnsafeSet(i + 1, lightPos);
             }
-            lightInfo.SetBuffersDirty(true);
         }
 
         public void PointLightShadowPass(in RendererFrameInfo frameInfo)

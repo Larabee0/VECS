@@ -7,7 +7,6 @@ layout (location = 0) in vec3 fragPosWorld;
 layout (location = 1) in vec3 fragNormalWorld;
 layout (location = 2) in vec2 fragUV;
 layout (location = 3) in vec4 fragPosDirLight;
-layout (location = 4) in vec4 fragPosSLLight;
 
 layout (location = 0) out vec4 outColour;
 
@@ -119,17 +118,23 @@ float FilterPLPCF(vec3 fragPos, vec3 viewPos, vec3 lightPos, float farPlane, int
 	return (1.0-shadow);
 }
 
-float ShadowSlCalculation(vec4 fragPosLight, vec2 off, int textureIndex, float farPlane){
-	float shadow = 1.0;
+float ShadowSlCalculation(vec3 fragPos, vec3 viewPos, SpotLight sl, int textureIndex){
+	float shadow = 0.0;
+	vec4 lightSpacePos = sl.lightSpace * vec4(fragPos,1);
+	vec3 lightCoords = lightSpacePos.xyz / lightSpacePos.w;
 	
-	if(fragPosLight.z > -1.0 && fragPosLight.z < 1.0){
-		float dist = texture(slShadow,vec3(fragPosLight.st+off,textureIndex)).r;
-		if(fragPosLight.w > 0.0 && dist < fragPosLight.z){
-			shadow = 0.0;
-		}
+	vec3 fragToLight = fragPos - sl.position;
+	float currentDepth = length(fragToLight);
+	
+	lightCoords = (lightCoords + 1.0) / 2.0;
+	//float currentDepth = lightCoords.z;
+	float closestDepth = texture(slShadow, vec3(lightCoords.xy,textureIndex)).r;
+	closestDepth *= sl.farPlane;
+	if (currentDepth > closestDepth+0.005){
+		shadow += 1.0;   
 	}
 
-	return shadow;
+	return (1.0-shadow);
 }
 
 void main()
@@ -153,6 +158,7 @@ void main()
 		if(distance <= pl.farPlane){
 		    float plShadow = FilterPLPCF(fragPosWorld, cameraPosWorld, pl.position.xyz,pl.farPlane, i);
 			result += CalcPointLight(pl, normal, fragPosWorld, viewDir, shininess, plShadow, diffuseTextureColour, diffuseTextureColour, specularColour);
+			//result += vec3(plShadow);
 		}
 	}
 	
@@ -162,8 +168,10 @@ void main()
     	float distance = length(sl.position.xyz - fragPosWorld);
 		if(distance <= sl.farPlane) {
 
-			float slShadow = ShadowSlCalculation(fragPosSLLight, vec2(0), i, sl.farPlane);
+			vec3 lightDirection = normalize(sl.position - fragPosWorld);
+			float slShadow = ShadowSlCalculation(fragPosWorld, cameraPosWorld, sl, i);
 			result += CalcSpotLight(sl, normal, fragPosWorld, viewDir, shininess, slShadow, diffuseTextureColour, diffuseTextureColour, specularColour);
+			//result = vec3(slShadow);
 		}
 	}
 

@@ -18,7 +18,7 @@ layout(set = 0,binding = 1) readonly buffer CameraInverses {
 	CameraInverse values[];
 } cameraInverse;
 
-layout (set = 0, binding = 4) readonly buffer PointLights{
+layout (set = 0, binding = 2) readonly buffer PointLights{
 	PointLight values[];
 } pointLightBuffer;
 
