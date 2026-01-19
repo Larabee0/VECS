@@ -176,6 +176,11 @@ namespace VECS
             GPUBufferExtensions.WriteFromHostDelayed( _descriptorBuffer,0,_usageLength * _alignedLayoutSize);
         }
 
+        public unsafe void FlushNow()
+        {
+            _descriptorBuffer.WriteFromHostBuffer(_usageLength * _alignedLayoutSize);
+        }
+
         public static unsafe void Bind(VkCommandBuffer cmd, DescriptorBuffer buffer)
         {
             buffer.Flush();

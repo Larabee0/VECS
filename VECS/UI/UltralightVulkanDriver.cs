@@ -78,6 +78,7 @@ namespace VECS.UI
                 ptr = (new UIntPtr(ptr) + vertexBuffer.size).ToPointer();
 
                 System.Buffer.MemoryCopy(indexBuffer.data, ptr, Buffer.HostBufferSize - vertexBuffer.size, indexBuffer.size);
+                Buffer.SetBuffersDirty(true);
             }
 
             public void Dispose()
@@ -463,6 +464,12 @@ namespace VECS.UI
                         mat = _ulFillPath;
                     }
                     Draw(frameInfo, command, uniformBufferId, mat);
+
+                    for (int i = 0; i < mat.DescriptorSetCount; i++)
+                    {
+                        mat.DescriptorSetInfos[i].DescriptorBuffers[frameInfo.FrameIndex].FlushNow();
+                    }
+
                     uniformBufferId++;
                 }
             }
@@ -486,6 +493,8 @@ namespace VECS.UI
             }
             mat.BindAll(frameInfo, variant);
             var geometry = _geometryLibrary[command.GeometryId];
+
+            GPUBufferExtensions.WriteFromHostDelayed(geometry.Buffer, frameInfo.FrameIndex);
             var vkBuffer = geometry.Buffer.ActiveVkBuffer;
 
             GraphicsDevice.DeviceAPI.vkCmdBindIndexBuffer(commandBuffer, vkBuffer, geometry.IndexBufferOffset, VkIndexType.Uint32);
