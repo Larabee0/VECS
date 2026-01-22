@@ -207,7 +207,6 @@ namespace VECS
                     _imageDescriptors[i].Dispose();
                 }
             }
-            AssetDataBase<Material>.Remove(this);
             GC.ReRegisterForFinalize(this);
         }
         
