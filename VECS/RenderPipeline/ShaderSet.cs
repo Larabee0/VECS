@@ -444,6 +444,8 @@ namespace VECS
 
             var internalOffset = InternalUniformBufferOffset(propertyInfo);
 
+            if (propertyInfo.Property != null) internalOffset += propertyInfo.Property.Offset;
+
             var hostPtr = (byte*)uniform + internalOffset;
 
             Buffer.MemoryCopy(&element, hostPtr, maxSize, sizeof(T));
