@@ -40,10 +40,7 @@ namespace VECS
         {
             AssetDataBase<Material>.AllAssetsListForReading.ForEach(asset =>
             {
-                for (int i = 0; i < asset.VariantCount; i++)
-                {
-                    asset.SetCubeMapArray(ShaderPropertyInfo.PLShadowImageId, i, DepthImages);
-                }
+                asset.SetCubeMapArray(ShaderPropertyInfo.PLShadowImageId, DepthImages);
             });
         }
 
@@ -79,7 +76,7 @@ namespace VECS
 
         public void PointLightShadowPass(in RendererFrameInfo frameInfo)
         {
-            var shadowOffscreen = EngineMaterials.ShadowOffscreen;
+            var shadowOffscreen = EnginePipes.ShadowOffscreen;
 
             FillViewMatrices(frameInfo, shadowOffscreen.GetStorageSwapChainBuffer(matsPropertyId));
             FillLightInfo(frameInfo, shadowOffscreen.GetStorageSwapChainBuffer(lightInfoPropertyId));
@@ -94,7 +91,7 @@ namespace VECS
                 shadowOffscreen.PushConstants.SetPushConstantInt("writeDepth", 1 + i, 1);
             }
 
-            Material.Update(shadowOffscreen, frameInfo);
+            ShaderSet.Update(shadowOffscreen, frameInfo);
             SetImageLayoutWrite(frameInfo.CommandBuffer);
             
             CullData cullDataInternal = new(

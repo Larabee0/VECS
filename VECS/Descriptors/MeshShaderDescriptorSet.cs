@@ -87,7 +87,7 @@ namespace VECS
         private readonly DirectMesh _owner;
         private readonly ConcurrentDictionary<int, MeshShaderDescriptorBuffer> _materialSets = [];
 
-        private readonly unsafe VkDescriptorAddressInfoEXT* _bufferAddress;
+        private unsafe VkDescriptorAddressInfoEXT* _bufferAddress;
 
         public unsafe MeshShaderDescriptorAsBuffer(DirectMesh owner)
         {
@@ -187,6 +187,7 @@ namespace VECS
             }
 
             NativeMemory.Free(_bufferAddress);
+            _bufferAddress = null;
             GC.ReRegisterForFinalize(this);
         }
     }

@@ -186,13 +186,19 @@ namespace VECS
 
                 if (fillCount > 0)
                 {
-                    var ptr = new IntPtr(buffer._hostPtr);
-                    ptr = IntPtr.Add(ptr, (int)fillCount);
-                    NativeMemory.Fill(ptr.ToPointer(), (nuint)fillCount, 0);
+                    var ptr = (byte*)buffer._hostPtr + (oldInstanceCount * Math.Max(buffer.HostAlignment, buffer.InstanceSize));
+                    NativeMemory.Fill(ptr, (nuint)fillCount, 0);
                 }
             }
 
             Vma.vmaCreateBuffer(GraphicsDevice.VmaAllocator, bufferInfo, allocationInfo, out buffer.VkBuffer, out buffer._allocation).CheckResult("Failed to create vma buffer!");
+            VmaAllocationInfo vmaAllocationInfo = default;
+            Vma.vmaGetAllocationInfo(GraphicsDevice.VmaAllocator, buffer._allocation, &vmaAllocationInfo);
+            VkBufferDeviceAddressInfo deviceAddressInfo = new()
+            {
+                buffer = buffer.VkBuffer
+            };
+            buffer._deviceBufferAddress = GraphicsDevice.DeviceAPI.vkGetBufferDeviceAddress(GraphicsDevice.Device, &deviceAddressInfo);
 
 #if LOG_BUFFER_ALLOCS
             StackTrace trace = new(true);
@@ -577,6 +583,17 @@ namespace VECS
 
             addressInfo.address += buffer.InstanceSize * srcOffset;
             addressInfo.range = count == Vulkan.VK_WHOLE_SIZE ? buffer.VkBufferSize : buffer.InstanceSize * count;
+
+            return addressInfo;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static VkDescriptorAddressInfoEXT GetBufferAddressRangeBytes(this GPUBuffer buffer, ulong srcOffsetBytes = 0, ulong bytes = Vulkan.VK_WHOLE_SIZE)
+        {
+            var addressInfo = buffer.DeviceAddressInfo;
+
+            addressInfo.address += srcOffsetBytes;
+            addressInfo.range = bytes == Vulkan.VK_WHOLE_SIZE ? buffer.VkBufferSize : bytes;
 
             return addressInfo;
         }

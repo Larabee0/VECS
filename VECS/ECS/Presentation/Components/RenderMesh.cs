@@ -60,7 +60,7 @@ namespace VECS.ECS.Presentation
         public readonly int MatEntity => Material.Entity;
         public readonly DirectMesh DEBUG_DirectMesh => AssetDataBase<DirectMesh>.GetHashedSilentFail(Mesh.Hash);
         public readonly DirectSubMesh DEBUG_DirectSubMesh => DirectSubMesh.GetSubMeshAtIndex(Mesh);
-        public readonly Material DEBUG_Mat => AssetDataBase<Material>.GetHashedSilentFail(MatHash);
+        public readonly ShaderSet DEBUG_Mat => AssetDataBase<ShaderSet>.GetHashedSilentFail(MatHash);
 #endif
         public static bool ShouldMakeNewDrawCmd(RenderMesh a, RenderMesh b)
         {

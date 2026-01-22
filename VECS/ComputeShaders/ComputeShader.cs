@@ -28,9 +28,8 @@ namespace VECS
         private static ComputeShader _lastBoundComputeShader;
         [ThreadStatic]
         private static int _frameIndex;
-        private static int _variantCount;
 
-        private uint _uniformLength = Material.MAX_VARIANTS;
+        private uint _uniformLength = ShaderSet.MAX_VARIANTS;
 
         public unsafe ComputeShader(string assetName, string shaderName)
         {
@@ -48,7 +47,7 @@ namespace VECS
                 var setBindings = GPUPipelineUtil.ExtractBindingsForSetAsBindingArray(setIndex, descriptorSetBindings);
                 var layout = GPUPipelineUtil.CreateDescriptorSetLayout(setBindings, VkDescriptorSetLayoutCreateFlags.DescriptorBufferEXT);
                 _descriptorSetLayouts[setIndex] = layout;
-                _descriptorSetInfos[setIndex] = new DescriptorSetInfo(layout, setBindings, true);
+                _descriptorSetInfos[setIndex] = new DescriptorSetInfo(layout, setBindings, true,0);
             }
 
             _pushConstantsHandler = new(spirShader);

@@ -46,8 +46,10 @@ vec3 CalcDirLight(DirectionalLight light, vec3 normal, vec3 viewDir, float shini
     // specular shading
     vec3 halfwayDir = normalize(lightDir + viewDir);  
     float spec = pow(max(dot(normal, halfwayDir), 0.0), shininess);
+    //halfwayDir = normalize(normal + viewDir);
+    float amb = min(1.75,max(dot(normal, viewDir),0.5)*2);
     // combine results
-    vec3 ambient  = light.ambient.xyz * ambientCol;
+    vec3 ambient  = light.ambient.xyz * amb * ambientCol;
     vec3 diffuse  = light.diffuse.xyz  * diff * diffuseCol;
     vec3 specular = light.specular.xyz * spec * specularCol;
     return (ambient + (shadow * (diffuse + specular)));

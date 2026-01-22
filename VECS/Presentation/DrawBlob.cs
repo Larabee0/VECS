@@ -599,7 +599,7 @@ namespace VECS
 
         public static void CopyDataToMaterials()
         {
-            var list = AssetDataBase<Material>.AllAssetsListForReading;
+            var list = AssetDataBase<ShaderSet>.AllAssetsListForReading;
             Application.ParallelFor(list.Count, (i) =>
             {
                 var mat = list[i];
@@ -612,7 +612,7 @@ namespace VECS
             });
         }
 
-        private static unsafe void CopyFromRenderBuffer(Material mat, BufferRegion region, int bufferIndex)
+        private static unsafe void CopyFromRenderBuffer(ShaderSet mat, BufferRegion region, int bufferIndex)
         {
             var renderBuffer = _renderBuffers[bufferIndex];
             var materialBuffer = mat.GetStorageSwapChainBuffer(renderBuffer.BufferShaderPropertyId);
@@ -628,7 +628,7 @@ namespace VECS
             int allInOneDrawCount = entityCount;
             Application.ParallelFor(AllInOneMats.Count, (i) =>
             {
-                var mat = AssetDataBase<Material>.GetHashed(AllInOneMats[i]);
+                var mat = AssetDataBase<ShaderSet>.GetHashed(AllInOneMats[i]);
                 var matrices = mat.GetStorageBuffer<ModelMatrices>(ShaderPropertyInfo.MatricesBufferId);
                 var bounds = mat.GetStorageBuffer<ShaderAABB>(ShaderPropertyInfo.BoundsBufferId);
                 if (!matrices.IsEmpty)
@@ -681,7 +681,7 @@ namespace VECS
                     for (int j = workerRegion.StartIndex; j < workerRegion.Offset; j++)
                     {
                         var region = _materialCmdRegions[j];
-                        var material = AssetDataBase<Material>.GetHashed(region.X);
+                        var material = AssetDataBase<ShaderSet>.GetHashed(region.X);
                         var cmds = _drawCommandsByMat.AsSpan(region.Y, region.Z);
                         material.ExecuteDrawCommands(frameInfo, cmdBuffer, cmds, region.Z, _indirectCmdBufferByMat);
                     }
@@ -698,7 +698,7 @@ namespace VECS
                 for (int i = 0; i < _firstTransparentCmdRegion; i++)
                 {
                     var region = _materialCmdRegions[i];
-                    var material = AssetDataBase<Material>.GetHashed(region.X);
+                    var material = AssetDataBase<ShaderSet>.GetHashed(region.X);
                     var cmds = _drawCommandsByMat.AsSpan(region.Y, region.Z);
                     material.ExecuteDrawCommands(frameInfo, frameInfo.CommandBuffer, cmds, region.Z, _indirectCmdBufferByMat);
                 }
@@ -736,7 +736,7 @@ namespace VECS
                     for (int j = workerRegion.StartIndex; j < workerRegion.Offset; j++)
                     {
                         var region = _materialCmdRegions[j];
-                        var material = AssetDataBase<Material>.GetHashed(region.X);
+                        var material = AssetDataBase<ShaderSet>.GetHashed(region.X);
                         var cmds = _drawCommandsByMat.AsSpan(region.Y, region.Z);
                         material.ExecuteDrawCommands(frameInfo, cmdBuffer, cmds, region.Z, _indirectCmdBufferByMat);
                     }
@@ -753,7 +753,7 @@ namespace VECS
                 for (int i = _firstTransparentCmdRegion; i < _materialCmdRegions.Length; i++)
                 {
                     var region = _materialCmdRegions[i];
-                    var material = AssetDataBase<Material>.GetHashed(region.X);
+                    var material = AssetDataBase<ShaderSet>.GetHashed(region.X);
                     var cmds = _drawCommandsByMat.AsSpan(region.Y, region.Z);
                     material.ExecuteDrawCommands(frameInfo, frameInfo.CommandBuffer, cmds, region.Z, _indirectCmdBufferByMat);
                 }
@@ -762,7 +762,7 @@ namespace VECS
 
         public static void ExecuteAllInOneOpaqueDrawCmds(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer,int materialHash)
         {
-            var mat = AssetDataBase<Material>.GetHashed(materialHash);
+            var mat = AssetDataBase<ShaderSet>.GetHashed(materialHash);
 #if DEBUG
             CheckAllInOneMaterialRegistered(mat);
 #endif
@@ -771,7 +771,7 @@ namespace VECS
 
         public static void ExecuteAllInOneOpaqueDrawCmds(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, int materialHash, int pushConstantIndex)
         {
-            var mat = AssetDataBase<Material>.GetHashed(materialHash);
+            var mat = AssetDataBase<ShaderSet>.GetHashed(materialHash);
 #if DEBUG
             CheckAllInOneMaterialRegistered(mat);
 #endif
@@ -780,7 +780,7 @@ namespace VECS
 
         public static void ExecuteAllInOneTransparentDrawCmds(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, int materialHash)
         {
-            var mat = AssetDataBase<Material>.GetHashed(materialHash);
+            var mat = AssetDataBase<ShaderSet>.GetHashed(materialHash);
 #if DEBUG
             CheckAllInOneMaterialRegistered(mat);
 #endif
@@ -789,7 +789,7 @@ namespace VECS
 
         public static void ExecuteAllInOneTransparentDrawCmds(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, int materialHash, int pushConstantIndex)
         {
-            var mat = AssetDataBase<Material>.GetHashed(materialHash);
+            var mat = AssetDataBase<ShaderSet>.GetHashed(materialHash);
 #if DEBUG
             CheckAllInOneMaterialRegistered(mat);
 #endif
@@ -855,11 +855,11 @@ namespace VECS
         }
 
 #if DEBUG
-        private static void CheckAllInOneMaterialRegistered(Material material)
+        private static void CheckAllInOneMaterialRegistered(ShaderSet shaders)
         {
-            if (!AllInOneMats.Contains(material.Hash))
+            if (!AllInOneMats.Contains(shaders.Hash))
             {
-                throw new InvalidOperationException(string.Format("Material: '{0}' (HASH: '{1}' has not be registered to teh AllInOneMats list therefore will not have object matrices assigned!", material.AssetName, material.Hash));
+                throw new InvalidOperationException(string.Format("Material: '{0}' (HASH: '{1}' has not be registered to teh AllInOneMats list therefore will not have object matrices assigned!", shaders.AssetName, shaders.Hash));
             }
         }
 #endif

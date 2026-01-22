@@ -342,8 +342,8 @@ namespace VECS
             PreGraphicsPipe?.Invoke(FrameIndex);
 
             RendererFrameInfo frameInfo = CreateRendererFrameInfo(Time.DeltaTime, commandBuffer);
-
-            Material.UpdateMaterials(frameInfo);
+            UI.ULUI.UpdateCommandList();
+            ShaderSet.UpdateMaterials(frameInfo);
 
             // shadows pass
             World.DefaultWorld.OnPreShadowPass(frameInfo);

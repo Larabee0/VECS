@@ -27,12 +27,22 @@ namespace VECS
         private readonly int[] _bufferDescriptorBindingIndices;
         private readonly int[] _imageDescriptorBindingIndices;
 
+        private readonly uint[] _internalUniformBufferOffsets;
+
         private readonly Dictionary<uint, int> _bindingPointToBufferIndex;
         private readonly Dictionary<uint, int> _bindingPointToImageIndex;
-        
+
+        private uint _uniformCount;
+        private uint _uniformSize;
+        private VkBufferUsageFlags _uniformBufferFlags = VkBufferUsageFlags.None;
+        private readonly uint _uniformOffset;
+
         private bool _disposed = false;
 
         public bool NoAllocStorageBuffers => _noAllocStorageBuffers;
+        public uint UnifromBufferSize => _uniformSize;
+        public VkBufferUsageFlags UniformBufferFlags => _uniformBufferFlags;
+        public uint UnifromBufferOffset => _uniformOffset;
         public int BindingCount => _bindingCount;
         public uint BufferCount => _bufferCount;
         public uint ImageCount => _imageCount;
@@ -46,6 +56,8 @@ namespace VECS
         public int[] BufferDescriptorBindingIndices => _bufferDescriptorBindingIndices;
         public int[] ImageDescriptorBindingIndices => _imageDescriptorBindingIndices;
 
+        public uint[] SetUniformBufferOffsets => _internalUniformBufferOffsets;
+
         public Dictionary<uint, int> BindingPointToBufferIndex => _bindingPointToBufferIndex;
         public Dictionary<uint, int> BindingPointToImageIndex => _bindingPointToImageIndex;
 
@@ -53,8 +65,10 @@ namespace VECS
         public SwapChainBuffer[] DescriptorSetBuffers => _descriptorSetBuffers;
         public bool[] DescriptorSetBufferIsStorage => _descriptorSetBufferIsStorage;
 
-        public DescriptorSetInfo(VkDescriptorSetLayout layout, DescriptorBinding[] bindings, bool preventStorageBuffersAllocation, bool meshShader = false)
+        public DescriptorSetInfo(VkDescriptorSetLayout layout, DescriptorBinding[] bindings, bool preventStorageBuffersAllocation, uint uniformOffset, uint intialVariantCount = ShaderSet.MAX_VARIANTS, bool meshShader = false)
         {
+            _uniformOffset = uniformOffset;
+            _uniformCount = intialVariantCount;
             _noAllocStorageBuffers = preventStorageBuffersAllocation;
             _forMeshShader = meshShader;
             _noAllocStorageBuffers |= meshShader;
@@ -77,7 +91,7 @@ namespace VECS
             {
                 return;
             }
-
+            _internalUniformBufferOffsets = new uint[_bindingCount];
             _bufferDescriptorBindingIndices = new int[_bufferCount];
             _imageDescriptorBindingIndices = new int[_imageCount];
 
@@ -85,7 +99,7 @@ namespace VECS
 
             for (int frameIndex = 0; frameIndex < SwapChain.MAX_CONCURRENT_FRAMES; frameIndex++)
             {
-                _descriptorBuffers[frameIndex] = new(layout, _bindingCount, Material.MAX_VARIANTS, _bufferCount > 0, _imageCount > 0);
+                _descriptorBuffers[frameIndex] = new(layout, _bindingCount, (int)_uniformCount, _bufferCount > 0, _imageCount > 0);
             }
 
             if (_bufferCount > 0)
@@ -101,6 +115,21 @@ namespace VECS
             {
                 _bindingPointToImageIndex = new Dictionary<uint, int>((int)_imageCount);
                 CreateBindingImages(bindings);
+            }
+        }
+
+        public void SetVariantCount(uint uniformCount)
+        {
+            for (int i = 0; i < _descriptorBuffers.Length; i++)
+            {
+                _descriptorBuffers[i].ReAllocate(uniformCount);
+            }
+
+            for (int i = 0; i < _descriptorBindings.Length; i++)
+            {
+                var binding = _descriptorBindings[i];
+                if (!binding.UniformBuffer) continue;
+                _descriptorSetBuffers[_bindingPointToBufferIndex[binding.BindPoint]].Realloc(uniformCount);
             }
         }
 
@@ -136,7 +165,7 @@ namespace VECS
                 {
                     if (!_noAllocStorageBuffers)
                     {
-                        buffer = new(binding.BufferSize, Material.DEFAULT_STORAGE_BUFFER_COUNT, binding.BufferUsageFlags, true);
+                        buffer = new(binding.BufferSize, ShaderSet.DEFAULT_STORAGE_BUFFER_COUNT, binding.BufferUsageFlags, true);
                         _hasOwnerShipOfBuffer[b] = true;
                     }
                     else
@@ -148,8 +177,11 @@ namespace VECS
                 }
                 else if (binding.Buffer)
                 {
-                    buffer = new(binding.BufferSize, Material.MAX_VARIANTS, binding.BufferUsageFlags, true);
+                    buffer = new(binding.BufferSize, _uniformCount, binding.BufferUsageFlags, true);
                     _hasOwnerShipOfBuffer[b] = true;
+                    _internalUniformBufferOffsets[i] = _uniformSize;
+                    _uniformSize += binding.BufferSize;
+                    _uniformBufferFlags |= binding.BufferUsageFlags;
                 }
                 _descriptorSetBuffers[b] = buffer;
                 _bindingPointToBufferIndex.Add(binding.BindPoint, b);
@@ -272,9 +304,11 @@ namespace VECS
                 var bindPoint = binding.BindPoint;
                 if (binding.IsAnyBuffer)
                 {
+                    if (_bindingPointToBufferIndex == null) continue;
                     var bufferIndex = _bindingPointToBufferIndex[bindPoint];
                     var hasOwnerShip = _hasOwnerShipOfBuffer[bufferIndex];
-                    if (binding.UniformBuffer || hasOwnerShip)
+                    // uniforms no longer writable from descriptor set infos, gotta dump the compute shaders??
+                    if (!binding.UniformBuffer && hasOwnerShip)
                     {
                         descriptorBuffer.SetBufferBinding(bindingBuffers[bufferIndex], binding.DescriptorType, setIndex, bindPoint);
                     }
@@ -289,7 +323,7 @@ namespace VECS
                     }
                     else
                     {
-                        throw new NotSupportedException("Buffer cannot be unowned uniform");
+                        //throw new NotSupportedException("Buffer cannot be unowned uniform");
                     }
                 }
                 else

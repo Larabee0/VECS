@@ -3,7 +3,6 @@ using System.Numerics;
 using System.Runtime.CompilerServices;
 using VECS.ECS;
 using VECS.ECS.Presentation;
-using VECS.ECS.Transforms;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
@@ -49,14 +48,8 @@ namespace VECS.RenderPipeline
 
             AssetDataBase<Material>.AllAssetsListForReading.ForEach(asset =>
             {
-                for (int i = 0; i < asset.VariantCount; i++)
-                {
-                    asset.SetTextureArray(ShaderPropertyInfo.SLShadowImageId, i, _shadowDepthImage);
-                }
+                asset.SetTextureArray(ShaderPropertyInfo.SLShadowImageId, _shadowDepthImage);
             });
-
-            var texProp = "texSampler".GetShaderPropertyId();
-            AssetDataBase<Material>.GetNamed("UnlitTextured")?.SetTextureArray(texProp, 0, _shadowDepthImage);
         }
 
         public static Matrix4x4 GetSpaceMatrix(SpotLightUniform spotLight, out float nearPlane, out Matrix4x4 lightView, out Matrix4x4 lightProj)
@@ -97,7 +90,7 @@ namespace VECS.RenderPipeline
 
             DrawBlob.CullAllInOne(frameInfo, depthBufferCullInfo);
 
-            var shadowOffscreen = EngineMaterials.ShadowOffscreen;
+            var shadowOffscreen = EnginePipes.ShadowOffscreen;
             var mats = shadowOffscreen.GetStorageSwapChainBuffer(PointLightShadows.matsPropertyId);
             var lights = shadowOffscreen.GetStorageSwapChainBuffer(PointLightShadows.lightInfoPropertyId);
 

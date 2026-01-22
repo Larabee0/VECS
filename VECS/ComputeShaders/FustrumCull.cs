@@ -183,7 +183,7 @@ namespace VECS
         {
             if (_variant > 2000)
             {
-                Console.WriteLine("Fustrum Cull Compute Shader invokations exceeded default max uniform count of {0}", Material.MAX_VARIANTS);
+                Console.WriteLine("Fustrum Cull Compute Shader invokations exceeded default max uniform count of {0}", ShaderSet.MAX_VARIANTS);
             }
 
             var discriptorIndex = Interlocked.Increment(ref _variant) - 1;

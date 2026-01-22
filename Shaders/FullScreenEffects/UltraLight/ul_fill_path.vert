@@ -1,7 +1,7 @@
 #version 420
 
 // Program Uniforms
-layout(set=0, binding=0) uniform Uniforms {
+layout(set = 0, binding = 0) uniform Uniforms {
   vec4 State;
   mat4 Transform;
   vec4 Scalar4[2];

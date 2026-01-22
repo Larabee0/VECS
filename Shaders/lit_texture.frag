@@ -7,6 +7,7 @@ layout (location = 0) in vec3 fragPosWorld;
 layout (location = 1) in vec3 fragNormalWorld;
 layout (location = 2) in vec2 fragUV;
 layout (location = 3) in vec4 fragPosDirLight;
+layout (location = 4) in mat3 TBN;
 
 layout (location = 0) out vec4 outColour;
 
@@ -52,6 +53,8 @@ layout(set = 1, binding = 3) uniform TexPorps {
 layout(set = 1, binding = 4) uniform sampler2D dirShadow;
 layout(set = 1, binding = 5) uniform samplerCubeArray plShadow;
 layout(set = 1, binding = 6) uniform sampler2DArray slShadow;
+
+layout(set = 1, binding = 7) uniform sampler2D normalSampler;
 
 layout(push_constant) uniform Constants{
 	uint cameraIndex;
@@ -144,6 +147,12 @@ void main()
 	vec3 viewDir = normalize(cameraPosWorld - fragPosWorld);
 	float shadow = FilterDirPCF(fragPosDirLight / fragPosDirLight.w);
 	
+	vec3 texNormal = TBN * normalize(texture(normalSampler, fragUV).rgb * 2.0 - vec3(1.0));
+	if(dot(texNormal, texNormal) > 0){
+		normal = texNormal;
+	}
+    
+
 	vec3 diffuseTextureColour = texture(texSampler, fragUV).rgb;
 	vec3 specularColour = texProps.specularColour.rgb;
 	float shininess = texProps.shininess;

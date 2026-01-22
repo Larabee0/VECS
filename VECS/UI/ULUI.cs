@@ -19,7 +19,7 @@ namespace VECS.UI
             IsTransparent = true,
         };
 
-        private static readonly string _defaultHTML = "";// "<h1>Hello World!<br><i>omg italics?</i></h1>";
+        private static readonly string _defaultHTML =  "<h1>Hello World!<br><i>omg italics?</i></h1>";
 
         private static Renderer _ulRenderer;
         private static View _ulView;
@@ -29,6 +29,9 @@ namespace VECS.UI
         private static Texture2D uiOutputTex;
 
         private static UltralightVulkanDriver UltralightVulkanDriver;
+
+        private static Material UIBlit;
+        private static readonly int InputTexturePropertyId = "inputTexture".GetShaderPropertyId();
 
         public static  void Initialise()
         {
@@ -47,13 +50,14 @@ namespace VECS.UI
 
             _ulView = _ulRenderer.CreateView(1280, 720, viewConfig);
             _ulView.HTML = _defaultHTML;
+            UIBlit = EnginePipes.Blit.Create("UIBlitter");
 
             //ulView.URL = "https://www.google.com/";
             if (!viewConfig.IsAccelerated)
             {
                 _bitmap = _ulView.Surface.Value.Bitmap;
-
-                EngineMaterials.Blit.SetTexture("inputTexture".GetShaderPropertyId(), 0, uiOutputTex);
+                
+                UIBlit.SetTexture(InputTexturePropertyId, uiOutputTex);
                 uiCopyBuffer = new GPUBuffer(1280 * 720, (uint)Vulkan.BlockSize(VkFormat.B8G8R8A8Unorm), VkBufferUsageFlags.TransferSrc, true, true, false);
                 uiOutputTex = new("UI_Out", 1280, 720, VkFormat.B8G8R8A8Unorm, VkImageUsageFlags.TransferDst | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.Sampled, false);
                 Console.WriteLine(_bitmap.Format.ToString());
@@ -79,6 +83,11 @@ namespace VECS.UI
             uiOutputTex.SetImageLayout(commandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.Transfer, VkPipelineStageFlags2.FragmentShader);
         }
 
+        public static void UpdateCommandList()
+        {
+            _ulRenderer.Render();
+        }
+
         public static unsafe void BlitCamera(RendererFrameInfo frameInfo, Texture2D camera)
         {
             if (!viewConfig.IsAccelerated)
@@ -87,9 +96,8 @@ namespace VECS.UI
             }
             else
             {
-                _ulRenderer.Render();
                 UltralightVulkanDriver.ExecuteCommandList(frameInfo);
-                EngineMaterials.Blit.SetTexture("inputTexture".GetShaderPropertyId(), 0, UltralightVulkanDriver.GetViewTexture(_ulView));
+                UIBlit.SetTexture(InputTexturePropertyId, UltralightVulkanDriver.GetViewTexture(_ulView));
             }
             VkRenderingAttachmentInfo* renderingAttachmentInfo = stackalloc VkRenderingAttachmentInfo[]
             {
@@ -118,7 +126,7 @@ namespace VECS.UI
                 pColorAttachments = renderingAttachmentInfo
             };
             GraphicsDevice.DeviceAPI.vkCmdBeginRendering(frameInfo.CommandBuffer, &renderingInfo);
-            EngineMaterials.Blit.BindAll(frameInfo,0);
+            UIBlit.Bind(frameInfo);
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 6, 1, 0, 0);
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
         }

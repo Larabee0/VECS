@@ -17,8 +17,8 @@ namespace VECS.ECS.Presentation
                 .WithNone(typeof(Prefab), typeof(DoNotRender))
                 .Build();
 
-            DrawBlob.AllInOneMats.Add(EngineMaterials.DepthOnly.Hash);
-            DrawBlob.AllInOneMats.Add(EngineMaterials.ShadowOffscreen.Hash);
+            DrawBlob.AllInOneMats.Add(EnginePipes.DepthOnly.Hash);
+            DrawBlob.AllInOneMats.Add(EnginePipes.ShadowOffscreen.Hash);
         }
 
         public override void OnPrePresent(EntityManager entityManager)
@@ -56,10 +56,10 @@ namespace VECS.ECS.Presentation
             uint totalMats = 1 + ((uint)frameInfo.LightingInfo.NumPointLights * 6u ) + (uint)frameInfo.LightingInfo.NumSpotLights;
             uint totalLights = 1 + (uint)frameInfo.LightingInfo.NumPointLights + (uint)frameInfo.LightingInfo.NumSpotLights;
 
-            EngineMaterials.ShadowOffscreen.SetDescriptorStorageBufferLengthFromProperty(PointLightShadows.matsPropertyId, totalMats);
-            EngineMaterials.ShadowOffscreen.SetDescriptorStorageBufferLengthFromProperty(PointLightShadows.lightInfoPropertyId, totalLights);
-            EngineMaterials.ShadowOffscreen.GetStorageSwapChainBuffer(PointLightShadows.matsPropertyId).SetBuffersDirty(true);
-            EngineMaterials.ShadowOffscreen.GetStorageSwapChainBuffer(PointLightShadows.lightInfoPropertyId).SetBuffersDirty(true);
+            EnginePipes.ShadowOffscreen.SetDescriptorStorageBufferLengthFromProperty(PointLightShadows.matsPropertyId, totalMats);
+            EnginePipes.ShadowOffscreen.SetDescriptorStorageBufferLengthFromProperty(PointLightShadows.lightInfoPropertyId, totalLights);
+            EnginePipes.ShadowOffscreen.GetStorageSwapChainBuffer(PointLightShadows.matsPropertyId).SetBuffersDirty(true);
+            EnginePipes.ShadowOffscreen.GetStorageSwapChainBuffer(PointLightShadows.lightInfoPropertyId).SetBuffersDirty(true);
         }
 
         public unsafe override void OnPreOpaquePass(EntityManager entityManager, RendererFrameInfo frameInfo)
@@ -83,7 +83,7 @@ namespace VECS.ECS.Presentation
 
             Presenter.Instance.ForwardRenderer.BeginForwardDepthOnlyRendering(commandBuffer,VkAttachmentLoadOp.Clear);
 
-            DrawBlob.ExecuteAllInOneOpaqueDrawCmds(frameInfo, commandBuffer, EngineMaterials.DepthOnly.Hash);
+            DrawBlob.ExecuteAllInOneOpaqueDrawCmds(frameInfo, commandBuffer, EnginePipes.DepthOnly.Hash);
 
             Presenter.Instance.ForwardRenderer.EndForwardDepthOnlyRendering(commandBuffer);
 

@@ -68,8 +68,8 @@ namespace VECS.ECS.Presentation
             vertices[^1] = (Vector3.Zero + new Vector3(MathF.Sin(0), -MathF.Cos(0), 0)) * 1f;
 
             _circleBuffer.WriteFromHostBuffer();
-            EngineMaterials.WireFrame.SetDescriptorStorageBufferLengthFromProperty(ShaderPropertyInfo.MatricesBufferId, 0);
-            EngineMaterials.WireFrame.SetDescriptorStorageBufferLengthFromProperty(ShaderPropertyInfo.ColourBufferId, 0);
+            EnginePipes.WireFrame.SetDescriptorStorageBufferLengthFromProperty(ShaderPropertyInfo.MatricesBufferId, 0);
+            EnginePipes.WireFrame.SetDescriptorStorageBufferLengthFromProperty(ShaderPropertyInfo.ColourBufferId, 0);
         }
 
         public override void OnOpaquePass(EntityManager entityManager, RendererFrameInfo frameInfo)
@@ -100,14 +100,14 @@ namespace VECS.ECS.Presentation
                 drawCount += _cameraQuery.HasEntities ? _cameraQuery.GetEntities().Count : 0;
                 drawCount += _renderBoundsQuery.HasEntities ? _renderBoundsQuery.GetEntities().Count*4 : 0;
 
-                EngineMaterials.WireFrame.SetDescriptorStorageBufferLengthFromProperty(ShaderPropertyInfo.MatricesBufferId, (uint)drawCount);
-                EngineMaterials.WireFrame.SetDescriptorStorageBufferLengthFromProperty(ShaderPropertyInfo.ColourBufferId, (uint)drawCount);
+                EnginePipes.WireFrame.SetDescriptorStorageBufferLengthFromProperty(ShaderPropertyInfo.MatricesBufferId, (uint)drawCount);
+                EnginePipes.WireFrame.SetDescriptorStorageBufferLengthFromProperty(ShaderPropertyInfo.ColourBufferId, (uint)drawCount);
 
-                matrices = EngineMaterials.WireFrame.GetStorageBuffer<ModelMatrices>(MatricesBufferId);
-                colours = EngineMaterials.WireFrame.GetStorageBuffer<Vector4>(ColourBufferId);
-                EngineMaterials.WireFrame.GetStorageSwapChainBuffer(MatricesBufferId).SetBuffersDirty(true);
-                EngineMaterials.WireFrame.GetStorageSwapChainBuffer(ColourBufferId).SetBuffersDirty(true);
-                EngineMaterials.WireFrame.BindAll(frameInfo, 0);
+                matrices = EnginePipes.WireFrame.GetStorageBuffer<ModelMatrices>(MatricesBufferId);
+                colours = EnginePipes.WireFrame.GetStorageBuffer<Vector4>(ColourBufferId);
+                EnginePipes.WireFrame.GetStorageSwapChainBuffer(MatricesBufferId).SetBuffersDirty(true);
+                EnginePipes.WireFrame.GetStorageSwapChainBuffer(ColourBufferId).SetBuffersDirty(true);
+                EnginePipes.WireFrame.BindAll(frameInfo, 0);
                 draws = _drawBuffer.HostBuffer;
 
                 GPUBufferExtensions.WriteFromHostDelayed(_drawBuffer, frameInfo.FrameIndex);

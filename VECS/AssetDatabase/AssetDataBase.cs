@@ -1,5 +1,8 @@
 using System;
 using System.Collections.Generic;
+#if DEBUG
+using System.Diagnostics;
+#endif
 using System.Linq;
 using System.Runtime.CompilerServices;
 
@@ -59,6 +62,11 @@ namespace VECS
                     untocuhedname,
                     asset.AssetName
                 );
+#if DEBUG
+                StackTrace trace = new(true);
+
+                Console.WriteLine(string.Format("Duplicate Asset Add trace\n {0}", trace.ToString()));
+#endif
             }
             _assetsList.Add(asset);
             _assetsByName.Add(asset.AssetName, asset);

@@ -1,6 +1,4 @@
-﻿using System;
-using VECS.GraphicsPipelines;
-using VECS.Presentation;
+﻿using VECS.GraphicsPipelines;
 using Vortice.Vulkan;
 
 namespace VECS.LowLevel
@@ -11,7 +9,9 @@ namespace VECS.LowLevel
         private int FRAME_BUFFER_DIMENTIONS_X = 256;
         private int FRAME_BUFFER_DIMENTIONS_Y = 256;
         private readonly static int SampleColourId = "samplerColor".GetShaderPropertyId();
-        private readonly Material _blurMat;
+        
+        private readonly Material _blurVertical;
+        private readonly Material _blurHorizontal;
 
         private Texture2D _glowTexture;
         private Texture2D _blurTexture;
@@ -52,15 +52,18 @@ namespace VECS.LowLevel
             blurConfig.colourBlendAttachment = blendAttachment;
             blurConfig.colourFormats[0] = VkFormat.R32G32B32A32Sfloat;
 
-            _blurMat = new Material("VerticalGaussBlur","gaussblur.vert", "gaussblur.frag", blurConfig);
+            var blurPipe = new ShaderSet("GaussBlur","gaussblur.vert", "gaussblur.frag", blurConfig);
 
-            _blurMat.PushConstants.SetPushConstantInt("blurdirection",0, 0);
-            _blurMat.PushConstants.SetPushConstantFloat("blurScale", 0, 1);
-            _blurMat.PushConstants.SetPushConstantFloat("blurStrength", 0, 1.5f);
+            _blurVertical = blurPipe.Create("VerticalBlur");
+            _blurHorizontal = blurPipe.Create("HorizontalBlur");
 
-            _blurMat.PushConstants.SetPushConstantInt("blurdirection", 1, 1);
-            _blurMat.PushConstants.SetPushConstantFloat("blurScale", 1, 1);
-            _blurMat.PushConstants.SetPushConstantFloat("blurStrength", 1, 1.5f);
+            _blurVertical.PushConstants.SetPushConstantInt("blurdirection",0, 0);
+            _blurVertical.PushConstants.SetPushConstantFloat("blurScale", 0, 1);
+            _blurVertical.PushConstants.SetPushConstantFloat("blurStrength", 0, 1.5f);
+
+            _blurHorizontal.PushConstants.SetPushConstantInt("blurdirection", 1, 1);
+            _blurHorizontal.PushConstants.SetPushConstantFloat("blurScale", 1, 1);
+            _blurHorizontal.PushConstants.SetPushConstantFloat("blurStrength", 1, 1.5f);
             
             RecreateAttachments();
         }
@@ -107,8 +110,9 @@ namespace VECS.LowLevel
 
             _depthAttachment.SetImageLayout(VkImageLayout.DepthStencilAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.EarlyFragmentTests);
 
-            _blurMat.SetTexture(SampleColourId, 0, _glowTexture);
-            _blurMat.SetTexture(SampleColourId, 1, _blurTexture);
+            _blurVertical.SetTexture(SampleColourId, _glowTexture);
+            _blurHorizontal.SetTexture(SampleColourId, _blurTexture);
+
             _depthAttachmentInfo = new()
             {
                 imageView = _depthAttachment._imageView,
@@ -145,7 +149,7 @@ namespace VECS.LowLevel
         {
             _blurTexture.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
             BeginRenderPassInternal(frameInfo, _blurTexture);
-            _blurMat.BindAll(frameInfo, 0);
+            _blurVertical.Bind(frameInfo);
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
             _blurTexture.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.FragmentShader);
@@ -153,7 +157,7 @@ namespace VECS.LowLevel
 
         public unsafe void BlurHorizontal(RendererFrameInfo frameInfo)
         {
-            _blurMat.BindAll(frameInfo,1);
+            _blurHorizontal.Bind(frameInfo);
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
         }
 

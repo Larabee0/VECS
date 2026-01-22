@@ -69,7 +69,7 @@ namespace VECS
         {
             if(_variant > 2000)
             {
-                Console.WriteLine("Mesh Normal Compute Shader invokations exceeded default single frame count of {0}", Material.MAX_VARIANTS);
+                Console.WriteLine("Mesh Normal Compute Shader invokations exceeded default single frame count of {0}", ShaderSet.MAX_VARIANTS);
             }
 
             var discriptorIndex = Interlocked.Increment(ref _variant) - 1;

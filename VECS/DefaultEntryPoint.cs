@@ -47,7 +47,7 @@ namespace VECS
         {
             CreateMainCamera();
             DirectionalLight();
-            PointLight();
+            //PointLight();
             Sponza();
             ShadowDebug();
         }
@@ -61,7 +61,7 @@ namespace VECS
             entityManager.AddComponent(MainCamera, new Rotation() { Value = TransformExtensions.Euler(initalCameraRot) });
             entityManager.AddComponent(MainCamera, cameraPerspective);
             entityManager.AddComponent<MainCamera>(MainCamera);
-            
+            return;
             MainCamera = entityManager.CreateEntity();
             entityManager.AddComponent(MainCamera, new Translation() { Value = initalCameraPos });
             entityManager.AddComponent(MainCamera, new Rotation() { Value = TransformExtensions.Euler(initalCameraRot) });
@@ -152,10 +152,10 @@ namespace VECS
 
             var mesh = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("quad.obj"),null)[0];
 
-            var unlit_Textured = new Material("UnlitTextured", "unlit_textured.vert", "unlit_textured.frag", GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []));
+            var unlit_Textured = new ShaderSet("UnlitTextured", "unlit_textured.vert", "unlit_textured.frag", GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], [])).Default();
 
 
-            AddRenderMeshComponents(entity, unlit_Textured, 0, 0, mesh, entityManager);
+            AddRenderMeshComponents(entity, unlit_Textured, 0, mesh, entityManager);
 
             entityManager.AddComponent(entity, new Translation() { Value = new Vector3(0, 2, 0) });
 
@@ -164,7 +164,9 @@ namespace VECS
 
         private static void Sponza()
         {
-            MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("sponza.obj"),out var sponza,out var sponzaMatInfo);
+            MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("sponza.obj"), [new VertexAttributeDescription(VertexAttribute.Tangent, VertexAttributeFormat.Float4)],out var sponza,out var sponzaMatInfo);
+
+            
 
             EntityManager entityManager = World.DefaultWorld.EntityManager;
 
@@ -179,10 +181,11 @@ namespace VECS
             };
             Parent parent = new() { Value = commonParent };
 
-            var lit = EngineMaterials.LitTexture;
-            var litTransparent = EngineMaterials.OIT_LitTexture;
+            var lit = EnginePipes.LitTexture;
+            var litTransparent = EnginePipes.OIT_LitTexture;
 
             var texProp = "texSampler".GetShaderPropertyId();
+            var normalProp = "normalSampler".GetShaderPropertyId();
             var texColour = "texProps.colour".GetShaderPropertyId();
             var texSpecColour = "texProps.specularColour".GetShaderPropertyId();
             var texTiling = "texProps.tiling".GetShaderPropertyId();
@@ -194,7 +197,18 @@ namespace VECS
             for (int i = 0, k = 0; i < sponzaMatInfo.Length; i++)
             {
                 var matInfo = sponzaMatInfo[i];
+                
                 bool transparent = matInfo.Name == "chain" || matInfo.Name == "Material__57" || matInfo.Name == "leaf";
+                
+                string matName = matInfo.Name;
+                if (string.IsNullOrEmpty(matName))
+                {
+                    matName = "sponzaMat_" + i;
+                }
+
+                Material material = AssetDataBase<Material>.GetNamedSilentFail(matName);
+                material ??=  transparent ? litTransparent.Create(matName) : lit.Create(matName);
+
                 if (matInfo.DiffuseTexture != null)
                 {
                     if(!textureLibrary.TryGetValue(matInfo.DiffuseTexture, out var diffuseTexture))
@@ -204,48 +218,59 @@ namespace VECS
                     }
                     if (transparent)
                     {
-                        litTransparent.SetTexture(ShaderPropertyInfo.HeadIndexImageId, transVariant, Presenter.Instance.ForwardRenderer._headIndex);
-                        litTransparent.SetTexture(texProp, transVariant, diffuseTexture);
+                        material.SetTexture(ShaderPropertyInfo.HeadIndexImageId, Presenter.Instance.ForwardRenderer._headIndex);
+                        material.SetTexture(texProp, diffuseTexture);
                     }
                     else
                     {
-                        lit.SetTexture(texProp, litVariant, diffuseTexture);
+                        material.SetTexture(texProp, diffuseTexture);
                     }
                 }
                 else
                 {
                     if (transparent)
                     {
-                        litTransparent.SetTexture(ShaderPropertyInfo.HeadIndexImageId, transVariant, Presenter.Instance.ForwardRenderer._headIndex);
-                        litTransparent.SetTexture(texProp, transVariant, EngineTextures.White);
+                        material.SetTexture(ShaderPropertyInfo.HeadIndexImageId, Presenter.Instance.ForwardRenderer._headIndex);
+                        material.SetTexture(texProp, EngineTextures.White);
                     }
                     else
                     {
-                        lit.SetTexture(texProp, litVariant, EngineTextures.White);
+                        material.SetTexture(texProp, EngineTextures.White);
                     }
                 }
                 if (matInfo.NormalTexture != null)
                 {
                     if (!textureLibrary.TryGetValue(matInfo.NormalTexture, out var normalTexture))
                     {
-                        normalTexture = new Texture2D(matInfo.NormalTexture);
+                        normalTexture = new Texture2D(matInfo.NormalTexture,true);
                         textureLibrary.Add(matInfo.NormalTexture, normalTexture);
+                    }
+
+                    if (!transparent)
+                    {
+                        material.SetTexture(normalProp, normalTexture);
+                    }
+                }
+                else
+                {
+                    if (!transparent)
+                    {
+                        material.SetTexture(normalProp, EngineTextures.Black);
                     }
                 }
                 if (transparent)
                 {
-                    litTransparent.SetVector4(texColour, transVariant, matInfo.DiffuseColour);
-                    litTransparent.SetFloat(texTiling, transVariant, 1);
+                    material.SetVector4(texColour, matInfo.DiffuseColour);
+                    material.SetFloat(texTiling, 1);
                 }
                 else
                 {
-                    lit.SetVector4(texColour, litVariant, matInfo.DiffuseColour);
-                    lit.SetVector4(texSpecColour, litVariant, Vector4.Zero);
-                    lit.SetFloat(texTiling, litVariant, 1);
+                    material.SetVector4(texColour, matInfo.DiffuseColour);
+                    material.SetVector4(texSpecColour, Vector4.Zero);
+                    material.SetFloat(texTiling, 1);
 
-                    lit.SetFloat(shininess, litVariant,32);
+                    material.SetFloat(shininess, 32);
                 }
-
 
                 for (int j = 0; j < matInfo.appliesTo.Count; j++, k++)
                 {
@@ -253,14 +278,8 @@ namespace VECS
                     var entity = entityManager.CreateEntity();
                     children.Value[k] = entity;
                     entityManager.AddComponent(entity, parent);
-                    if (transparent)
-                    {
-                        AddRenderMeshComponents(entity, litTransparent, transVariant, 0, sponza[meshIndex], entityManager);
-                    }
-                    else
-                    {
-                        AddRenderMeshComponents(entity, lit, litVariant, 0, sponza[meshIndex], entityManager);
-                    }
+
+                    AddRenderMeshComponents(entity, material, 0, sponza[meshIndex], entityManager);
                 }
                 if (transparent)
                 {
@@ -276,7 +295,7 @@ namespace VECS
             entityManager.AddComponent(commonParent, children);
         }
 
-        public static void AddRenderMeshComponents(Entity entity, Material mat, int variant, int entityVariant, DirectSubMesh mesh, EntityManager entityManager)
+        public static void AddRenderMeshComponents(Entity entity, Material mat, int entityVariant, DirectSubMesh mesh, EntityManager entityManager)
         {
             entityManager.AddComponent<Translation>(entity);
             entityManager.AddComponent(entity, new RenderMesh()
@@ -284,9 +303,9 @@ namespace VECS
                 Mesh = mesh.GetSubMeshIndex(),
                 Material = new()
                 {
-                    Transparent = mat.Transparent,
-                    Hash = mat.Hash,
-                    Variant = variant,
+                    Transparent = mat.ShaderSet.Transparent,
+                    Hash = mat.ShaderSet.Hash,
+                    Variant = (int)mat.VariantIndex,
                     Entity = entityVariant
                 },
             });

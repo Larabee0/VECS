@@ -52,6 +52,7 @@ namespace VECS
             }
 
             NativeMemory.Free(input_vars);
+            input_vars = null;
 
             return variables;
         }
@@ -81,6 +82,7 @@ namespace VECS
             }
 
             NativeMemory.Free(pPushConstants);
+            pPushConstants = null;
 
             return pushConstants;
         }
@@ -112,6 +114,7 @@ namespace VECS
             }
 
             NativeMemory.Free(pDescriptorBindings);
+            pDescriptorBindings = null;
 
             return bindings;
         }

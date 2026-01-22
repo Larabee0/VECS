@@ -5,23 +5,23 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
-    public class EngineMaterials
+    public class EnginePipes
     {
 
-        public readonly static Material LitTexture;
-        public readonly static Material DepthOnly;
-        public readonly static Material UnlitMeshShader;
-        public readonly static Material UnlitTransparent;
-        public readonly static Material Unlit;
-        public readonly static Material WireFrame;
-        public readonly static Material ShadowOffscreen;
-        public readonly static Material PointLight;
-        public readonly static Material Blit;
-        public readonly static Material OIT_Composite;
-        public readonly static Material OIT_Unlit;
-        public readonly static Material OIT_LitTexture;
+        public readonly static ShaderSet LitTexture;
+        public readonly static ShaderSet DepthOnly;
+        public readonly static ShaderSet UnlitMeshShader;
+        public readonly static ShaderSet UnlitTransparent;
+        public readonly static ShaderSet Unlit;
+        public readonly static ShaderSet WireFrame;
+        public readonly static ShaderSet ShadowOffscreen;
+        public readonly static ShaderSet PointLight;
+        public readonly static ShaderSet Blit;
+        public readonly static ShaderSet OIT_Composite;
+        public readonly static ShaderSet OIT_Unlit;
+        public readonly static ShaderSet OIT_LitTexture;
 
-        static EngineMaterials()
+        static EnginePipes()
         {
             var litTexture = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             //litTexture.depthStencilInfo.depthWriteEnable = true;
@@ -52,21 +52,23 @@ namespace VECS
             shadowConfig.rasterizationInfo.depthBiasEnable = true;
             shadowConfig.rasterizationInfo.depthBiasConstantFactor = 1.25f;
             shadowConfig.rasterizationInfo.depthBiasSlopeFactor = 1.75f;
-            ShadowOffscreen = new Material("PointLightShadowCaster", "pl_shadow.vert", "pl_shadow.frag", shadowConfig, "pl_shadow.geom");
+            ShadowOffscreen = new ShaderSet("PointLightShadowCaster", "pl_shadow.vert", "pl_shadow.frag", shadowConfig, "pl_shadow.geom");
 
             var alphaBlending = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
-            Unlit = new Material("Unlit", "unlit.vert", "unlit.frag", alphaBlending);
+            Unlit = new ShaderSet("Unlit", "unlit.vert", "unlit.frag", alphaBlending);
             GraphicsPipelineConfigInfo.EnableAlphaBlending(ref alphaBlending);
-            UnlitTransparent = new Material("Unlit Transparent", "unlit.vert", "unlit.frag", alphaBlending);
+            UnlitTransparent = new ShaderSet("Unlit Transparent", "unlit.vert", "unlit.frag", alphaBlending);
 
             if (GraphicsDevice.MeshShading)
             {
                 UnlitMeshShader = new("MeshShader", "gen_meshshader_basic.mesh", "gen_meshshader_basic.task", "gen_meshshader_basic.frag", GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []));
             }
 
-            Blit = new("Blitter", "fullscreen.vert", "blit.frag", alphaBlending);
 
             OIT_Composite = new("OIT_Composite", "fullscreen.vert", "oit_composite.frag", alphaBlending);
+            //alphaBlending.rasterizationInfo.cullMode = VkCullModeFlags.Front;
+            alphaBlending.rasterizationInfo.frontFace = VkFrontFace.CounterClockwise;
+            Blit = new("Blitter", "fullscreen.vert", "blit.frag", alphaBlending);
 
             var oit_unlit = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             

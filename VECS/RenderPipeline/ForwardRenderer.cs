@@ -60,22 +60,25 @@ namespace VECS
 
         public void SetOIT()
         {
-            EngineMaterials.OIT_Composite.SetTexture(ShaderPropertyInfo.HeadIndexImageId, 0, _headIndex);
-            EngineMaterials.OIT_Composite.SetStorageBuffer(ShaderPropertyInfo.LinkedListSBOId, _linkedList);
+            EnginePipes.OIT_Composite.Default().SetTexture(ShaderPropertyInfo.HeadIndexImageId, _headIndex);
+            EnginePipes.OIT_Composite.SetStorageBuffer(ShaderPropertyInfo.LinkedListSBOId, _linkedList);
 
-            EngineMaterials.OIT_Unlit.SetStorageBuffer(ShaderPropertyInfo.GeometrySBOId, _geometry);
-            EngineMaterials.OIT_LitTexture.SetStorageBuffer(ShaderPropertyInfo.GeometrySBOId, _geometry);
+            EnginePipes.OIT_Unlit.SetStorageBuffer(ShaderPropertyInfo.GeometrySBOId, _geometry);
+            EnginePipes.OIT_LitTexture.SetStorageBuffer(ShaderPropertyInfo.GeometrySBOId, _geometry);
 
-            AssetDataBase<Material>.AllAssetsListForReading.ForEach(asset =>
+            AssetDataBase<ShaderSet>.AllAssetsListForReading.ForEach(asset =>
             {
                 if (asset.Transparent)
                 {
-                    for (int i = 0; i < asset.VariantCount; i++)
-                    {
-                        asset.SetTexture(ShaderPropertyInfo.HeadIndexImageId, i, _headIndex);
-                    }
-
                     asset.SetStorageBuffer(ShaderPropertyInfo.LinkedListSBOId, _linkedList);
+                }
+            });
+
+            AssetDataBase<Material>.AllAssetsListForReading.ForEach(asset =>
+            {
+                if (asset.ShaderSet.Transparent)
+                {
+                    asset.SetTexture(ShaderPropertyInfo.HeadIndexImageId, _headIndex);
                 }
             });
 
@@ -262,7 +265,7 @@ namespace VECS
 
             BeginForwardRendering(commandBuffer, VkAttachmentLoadOp.Load);
 
-            EngineMaterials.OIT_Composite.BindAll(frameInfo, 0);
+            EnginePipes.OIT_Composite.BindAll(frameInfo, 0);
 
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
 

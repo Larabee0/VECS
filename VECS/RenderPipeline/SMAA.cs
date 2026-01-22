@@ -19,7 +19,9 @@ namespace VECS
         public Material EdgeDetection;
         public Material BlendWeightCalc;
         public Material NeighbourhoodBlending;
-        public Material BlitInternal;
+        public Material BlitMain;
+        public Material BlitEdgeTarget;
+        public Material BlitBlendTarget;
 
         private bool _smaaEnabled = true;
 
@@ -39,24 +41,27 @@ namespace VECS
             pipelineConfig.rasterizationInfo.cullMode = VkCullModeFlags.Front;
             pipelineConfig.rasterizationInfo.frontFace = VkFrontFace.CounterClockwise;
 
-            NeighbourhoodBlending = new("SMAA_Blending", "smaa_neighbourhood_blending.vert", "smaa_neighbourhood_blending.frag", pipelineConfig);
+            NeighbourhoodBlending = new ShaderSet("SMAA_Blending", "smaa_neighbourhood_blending.vert", "smaa_neighbourhood_blending.frag", pipelineConfig).Default();
 
             pipelineConfig.colourFormats = [VkFormat.R8G8B8A8Unorm];
             pipelineConfig.depthStencilInfo.depthTestEnable = false;
 
-            EdgeDetection = new("SMAA_Edge", "smaa_edge_detection.vert", "smaa_edge_detection.frag", pipelineConfig);
-            BlendWeightCalc = new("SMAA_BlendWeight", "smaa_blending_weight.vert", "smaa_blending_weight.frag", pipelineConfig);
+            EdgeDetection = new ShaderSet("SMAA_Edge", "smaa_edge_detection.vert", "smaa_edge_detection.frag", pipelineConfig).Default();
+            BlendWeightCalc = new ShaderSet("SMAA_BlendWeight", "smaa_blending_weight.vert", "smaa_blending_weight.frag", pipelineConfig).Default();
 
-            BlendWeightCalc.SetTexture("uAreaTexture".GetShaderPropertyId(), 0, AreaTexture);
-            BlendWeightCalc.SetTexture("uSearchTexture".GetShaderPropertyId(), 0, SearchTexture);
+            BlendWeightCalc.SetTexture("uAreaTexture".GetShaderPropertyId(), AreaTexture);
+            BlendWeightCalc.SetTexture("uSearchTexture".GetShaderPropertyId(), SearchTexture);
 
 
             var alphaBlending = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             alphaBlending.colourFormats = [VkFormat.R8G8B8A8Unorm];
             alphaBlending.depthStencilInfo.depthTestEnable = false;
             //GraphicsPipelineConfigInfo.EnableAlphaBlending(ref alphaBlending);
-            BlitInternal = new("SMAA_Blitter", "fullscreen.vert", "blit.frag", alphaBlending);
-            
+            ShaderSet smaaBlit = new("SMAA_Blitter", "fullscreen.vert", "blit.frag", alphaBlending);
+            BlitMain = smaaBlit.Default();
+            BlitEdgeTarget = smaaBlit.Create("SMAA_BlitEdgeTarget");
+            BlitBlendTarget = smaaBlit.Create("SMAA_BlitBlendTarget");
+
             RecreateRenderTargets();
         }
 
@@ -76,18 +81,18 @@ namespace VECS
             var texelSize = new Vector4(1.0f / windowExtents.width, 1.0f / windowExtents.height, windowExtents.width, windowExtents.height);
 
             EdgeDetection.PushConstants.SetPushConstantVector4("texelSize", 0, texelSize);
-            EdgeDetection.SetTexture("uColourTexture".GetShaderPropertyId(), 0, EdgeInputTarget.Target);
+            EdgeDetection.SetTexture("uColourTexture".GetShaderPropertyId(), EdgeInputTarget.Target);
 
             BlendWeightCalc.PushConstants.SetPushConstantVector4("texelSize", 0, texelSize);
-            BlendWeightCalc.SetTexture("uEdgeTexture".GetShaderPropertyId(), 0, EdgeTarget.Target);
+            BlendWeightCalc.SetTexture("uEdgeTexture".GetShaderPropertyId(), EdgeTarget.Target);
 
             NeighbourhoodBlending.PushConstants.SetPushConstantVector4("texelSize", 0, texelSize);
-            NeighbourhoodBlending.SetTexture("uBlendTexture".GetShaderPropertyId(), 0, BlendTarget.Target);
-            NeighbourhoodBlending.SetTexture("uColourTexture".GetShaderPropertyId(), 0, Presenter.Instance.ForwardRenderer.MainColourAttachment.Target);
+            NeighbourhoodBlending.SetTexture("uBlendTexture".GetShaderPropertyId(), BlendTarget.Target);
+            NeighbourhoodBlending.SetTexture("uColourTexture".GetShaderPropertyId(), Presenter.Instance.ForwardRenderer.MainColourAttachment.Target);
 
-            BlitInternal.SetTexture("inputTexture".GetShaderPropertyId(), 0, Presenter.Instance.ForwardRenderer.MainColourAttachment.Target);
-            BlitInternal.SetTexture("inputTexture".GetShaderPropertyId(), 1, EdgeTarget.Target);
-            BlitInternal.SetTexture("inputTexture".GetShaderPropertyId(), 2, BlendTarget.Target);
+            BlitMain.SetTexture("inputTexture".GetShaderPropertyId(), Presenter.Instance.ForwardRenderer.MainColourAttachment.Target);
+            BlitEdgeTarget.SetTexture("inputTexture".GetShaderPropertyId(), EdgeTarget.Target);
+            BlitBlendTarget.SetTexture("inputTexture".GetShaderPropertyId(), BlendTarget.Target);
         }
 
         public unsafe void ApplyAA(RendererFrameInfo frameInfo)
@@ -122,36 +127,36 @@ namespace VECS
         }
 
 #if DEBUG
-        private unsafe void OutputBlendWeights(RendererFrameInfo frameInfo)
+        private unsafe void OutputBlendWeights(in RendererFrameInfo frameInfo)
         {
             Presenter.Instance.ForwardRenderer.BeginForwardRendering(frameInfo.CommandBuffer, VkAttachmentLoadOp.Clear);
 
-            BlitInternal.BindAll(frameInfo, 2);
+            BlitBlendTarget.Bind(frameInfo);
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
 
             Presenter.Instance.ForwardRenderer.EndForwardRendering(frameInfo.CommandBuffer);
         }
 
-        private unsafe void OutputEdgeDetection(RendererFrameInfo frameInfo)
+        private unsafe void OutputEdgeDetection(in RendererFrameInfo frameInfo)
         {
             Presenter.Instance.ForwardRenderer.BeginForwardRendering(frameInfo.CommandBuffer, VkAttachmentLoadOp.Clear);
 
-            BlitInternal.BindAll(frameInfo, 1);
+            BlitEdgeTarget.Bind(frameInfo);
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
 
             Presenter.Instance.ForwardRenderer.EndForwardRendering(frameInfo.CommandBuffer);
         }
-#endif
 
         private unsafe void OutputBlending(RendererFrameInfo frameInfo)
         {
             Presenter.Instance.ForwardRenderer.BeginForwardRendering(frameInfo.CommandBuffer, VkAttachmentLoadOp.Load);
 
-            NeighbourhoodBlending.BindAll(frameInfo, 0);
+            NeighbourhoodBlending.Bind(frameInfo);
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
 
             Presenter.Instance.ForwardRenderer.EndForwardRendering(frameInfo.CommandBuffer);
         }
+#endif
 
         private unsafe void BlendWeightCalculation(RendererFrameInfo frameInfo)
         {
@@ -188,7 +193,7 @@ namespace VECS
                 renderArea = new(0, 0, (uint)BlendTarget.Target.Width, (uint)BlendTarget.Target.Height),
             };
             GraphicsDevice.DeviceAPI.vkCmdBeginRendering(frameInfo.CommandBuffer, &blendWeightTarget);
-            BlendWeightCalc.BindAll(frameInfo, 0);
+            BlendWeightCalc.Bind(frameInfo);
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
 
@@ -234,7 +239,7 @@ namespace VECS
             };
 
             GraphicsDevice.DeviceAPI.vkCmdBeginRendering(frameInfo.CommandBuffer, &copyedgeDetectionTarget);
-            EdgeDetection.BindAll(frameInfo, 0);
+            EdgeDetection.Bind(frameInfo);
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
 
@@ -280,7 +285,7 @@ namespace VECS
             };
 
             GraphicsDevice.DeviceAPI.vkCmdBeginRendering(frameInfo.CommandBuffer, &copyToEdgeTarget);
-            BlitInternal.BindAll(frameInfo, 0);
+            BlitMain.Bind(frameInfo);
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
 

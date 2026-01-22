@@ -33,7 +33,7 @@ namespace VECS
 
             _shadowDepthImage.Target.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.LateFragmentTests, VkPipelineStageFlags2.FragmentShader);
 
-            var shadowOffscreen = EngineMaterials.ShadowOffscreen;
+            var shadowOffscreen = EnginePipes.ShadowOffscreen;
             shadowOffscreen.PushConstants.SetPushConstantInt("matrixOffset", 0,0);
             shadowOffscreen.PushConstants.SetPushConstantInt("baseLayerOffset", 0, 0);
             shadowOffscreen.PushConstants.SetPushConstantInt("faceCount", 0, 1);
@@ -46,10 +46,7 @@ namespace VECS
 
             AssetDataBase<Material>.AllAssetsListForReading.ForEach(asset =>
             {
-                for (int i = 0; i < asset.VariantCount; i++)
-                {
-                    asset.SetTexture(ShaderPropertyInfo.DirShadowImageId, i, _shadowDepthImage.Target);
-                }
+                asset.SetTexture(ShaderPropertyInfo.DirShadowImageId, _shadowDepthImage.Target);
             });
 
         }
@@ -99,7 +96,7 @@ namespace VECS
         {
             AssignDirShadowTexture();
             DrawBlob.IndirectToComputeMemoryBarrierByMat(frameInfo.CommandBuffer);
-            var shadowOffscreen = EngineMaterials.ShadowOffscreen;
+            var shadowOffscreen = EnginePipes.ShadowOffscreen;
             var mats = shadowOffscreen.GetStorageSwapChainBuffer(PointLightShadows.matsPropertyId);
             var lights = shadowOffscreen.GetStorageSwapChainBuffer(PointLightShadows.lightInfoPropertyId);
             mats.UnsafeSet(0, GetSpaceMatrix(frameInfo.LightingInfo, out var near_plane, out var farPlane, out var lightView, out var lightProj, out var lightPos));

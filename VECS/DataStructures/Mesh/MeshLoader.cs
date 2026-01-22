@@ -64,7 +64,7 @@ namespace VECS.DataStructures
             return Path.Combine(DefaultMeshPath, file);
         }
 
-        public static void LoadModelFromFile(string filePath, out DirectSubMesh[] meshes, out MaterialInfo[] materialInfo)
+        public static void LoadModelFromFile(string filePath, VertexAttributeDescription[] additionalAttributes, out DirectSubMesh[] meshes, out MaterialInfo[] materialInfo)
         {
             if (!File.Exists(filePath))
             {
@@ -86,7 +86,7 @@ namespace VECS.DataStructures
                 return;
             }
             var directMeshName = Path.GetFileNameWithoutExtension(filePath);
-            meshes = CreateMeshes(directMeshName, scene, null);
+            meshes = CreateMeshes(directMeshName, scene, additionalAttributes);
             meshes[0].DirectMeshBuffer.FileName = Path.GetFileName(filePath);
 
 

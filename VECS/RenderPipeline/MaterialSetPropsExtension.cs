@@ -1,246 +1,267 @@
 ﻿using System;
 using System.Numerics;
-using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using Vortice.Vulkan;
 
 namespace VECS
 {
     public static class MaterialSetPropsExtension
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetInt(this Material material, int propertyId, int variant, int value)
+        public static void SetInt(this Material material, int propertyId, int value)
         {
             if (material.LookUpProperty(propertyId, out var propertyInfo))
             {
-                material.WriteToBuffer((uint)variant, propertyInfo, value);
+                material.WriteToBuffer(propertyInfo, value);
             }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetUint(this Material material, int propertyId, int variant, uint value)
+        public static void SetUint(this Material material, int propertyId, uint value)
         {
             if (material.LookUpProperty(propertyId, out var propertyInfo))
             {
-                material.WriteToBuffer((uint)variant, propertyInfo, value);
+                material.WriteToBuffer(propertyInfo, value);
             }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetFloat(this Material material, int propertyId, int variant, float value)
+        public static void SetFloat(this Material material, int propertyId, float value)
         {
             if (material.LookUpProperty(propertyId, out var propertyInfo))
             {
-                material.WriteToBuffer((uint)variant, propertyInfo, value);
+                material.WriteToBuffer(propertyInfo, value);
             }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetVector2(this Material material, int propertyId, int variant, Vector2 value)
+        public static void SetVector2(this Material material, int propertyId, Vector2 value)
         {
             if (material.LookUpProperty(propertyId, out var propertyInfo))
             {
-                material.WriteToBuffer((uint)variant, propertyInfo, value);
+                material.WriteToBuffer(propertyInfo, value);
             }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetVector4(this Material material, int propertyId, int variant, Vector4 value)
+        public static void SetVector4(this Material material, int propertyId, Vector4 value)
         {
             if (material.LookUpProperty(propertyId, out var propertyInfo))
             {
-                material.WriteToBuffer((uint)variant, propertyInfo, value);
+                material.WriteToBuffer(propertyInfo, value);
             }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetMatrix3x2(this Material material, int propertyId, int variant, Matrix3x2 value)
+        public static void SetMatrix3x2(this Material material, int propertyId, Matrix3x2 value)
         {
             if (material.LookUpProperty(propertyId, out var propertyInfo))
             {
-                material.WriteToBuffer((uint)variant, propertyInfo, value);
+                material.WriteToBuffer(propertyInfo, value);
             }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetMatrix3x3(this Material material, int propertyId, int variant, Matrix3x3 value)
+        public static void SetMatrix3x3(this Material material, int propertyId, Matrix3x3 value)
         {
             if (material.LookUpProperty(propertyId, out var propertyInfo))
             {
-                material.WriteToBuffer((uint)variant, propertyInfo, value);
+                material.WriteToBuffer(propertyInfo, value);
             }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetMatrix4x4(this Material material, int propertyId, int variant, Matrix4x4 value)
+        public static void SetMatrix4x4(this Material material, int propertyId, Matrix4x4 value)
         {
             if (material.LookUpProperty(propertyId, out var propertyInfo))
             {
-                material.WriteToBuffer((uint)variant, propertyInfo, value);
+                material.WriteToBuffer(propertyInfo, value);
             }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetUniform<T>(this Material material, int propertyId, int variant, T value) where T : unmanaged
+        public static void SetFloatArray(this Material material, int propertyId, Span<float> value)
         {
             if (material.LookUpProperty(propertyId, out var propertyInfo))
             {
-                material.WriteToBuffer((uint)variant, propertyInfo, value);
+                material.WriteArrayToBuffer( propertyInfo, value);
             }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetFloatArray(this Material material, int propertyId, int variant, float[] value)
+        public static void SetVector2Array(this Material material, int propertyId, Span<Vector2> value)
         {
             if (material.LookUpProperty(propertyId, out var propertyInfo))
             {
-                material.WriteArrayToBuffer((uint)variant, propertyInfo, value.AsSpan());
+                material.WriteArrayToBuffer( propertyInfo, value);
             }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetFloatArray(this Material material, int propertyId, int variant, Span<float> value)
+        public static void SetVector4Array(this Material material, int propertyId, Span<Vector4> value)
         {
             if (material.LookUpProperty(propertyId, out var propertyInfo))
             {
-                material.WriteArrayToBuffer((uint)variant, propertyInfo, value);
+                material.WriteArrayToBuffer(propertyInfo, value);
             }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetVector2Array(this Material material, int propertyId, int variant, Vector2[] value)
+        public static void SetMatrix3x2Array(this Material material, int propertyId, Span<Matrix3x2> value)
         {
             if (material.LookUpProperty(propertyId, out var propertyInfo))
             {
-                material.WriteArrayToBuffer((uint)variant, propertyInfo, value.AsSpan());
+                material.WriteArrayToBuffer(propertyInfo, value);
             }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetVector4Array(this Material material, int propertyId, int variant, Vector4[] value)
+        public static void SetMatrix3x3Array(this Material material, int propertyId, Span<Matrix3x3> value)
         {
             if (material.LookUpProperty(propertyId, out var propertyInfo))
             {
-                material.WriteArrayToBuffer((uint)variant, propertyInfo, value.AsSpan());
+                material.WriteArrayToBuffer(propertyInfo, value);
             }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetMatrix3x2Array(this Material material, int propertyId, int variant, Matrix3x2[] value)
+        public static void SetMatrix4x4Array(this Material material, int propertyId, Span<Matrix4x4> value)
         {
             if (material.LookUpProperty(propertyId, out var propertyInfo))
             {
-                material.WriteArrayToBuffer((uint)variant, propertyInfo, value.AsSpan());
+                material.WriteArrayToBuffer(propertyInfo, value);
             }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetMatrix3x3Array(this Material material, int propertyId, int variant, Matrix3x3[] value)
+        public static void SetArray<T>(this Material material, int propertyId, Span<T> value) where T : unmanaged
         {
             if (material.LookUpProperty(propertyId, out var propertyInfo))
             {
-                material.WriteArrayToBuffer((uint)variant, propertyInfo, value.AsSpan());
+                material.WriteArrayToBuffer(propertyInfo, value);
             }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetMatrix4x4Array(this Material material, int propertyId, int variant, Matrix4x4[] value)
+        internal static unsafe void WriteArrayToBuffer<T>(this Material material, ShaderPropertyInfo propertyInfo, Span<T> values) where T : unmanaged
+        {
+            material.ShaderSet.WriteArrayToBuffer(material.pUniformBuffer, propertyInfo, values);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static unsafe void WriteToBuffer<T>(this Material material, int propertyId, T element) where T : unmanaged
         {
             if (material.LookUpProperty(propertyId, out var propertyInfo))
             {
-                material.WriteArrayToBuffer((uint)variant, propertyInfo, value.AsSpan());
+                material.ShaderSet.WriteToUniformBuffer(material.pUniformBuffer, propertyInfo, element);
             }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetMatrix4x4Array(this Material material, int propertyId, int variant, Span<Matrix4x4> value)
+        internal static unsafe void WriteToBuffer<T>(this Material material, ShaderPropertyInfo propertyInfo, T element) where T : unmanaged
         {
-            if (material.LookUpProperty(propertyId, out var propertyInfo))
+            material.ShaderSet.WriteToUniformBuffer(material.pUniformBuffer, propertyInfo, element);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void WriteToBuffer<T>(this ShaderSet shaders, int propertyId, uint variant, T element) where T : unmanaged
+        {
+            if (shaders.LookUpProperty(propertyId, out var propertyInfo))
             {
-                material.WriteArrayToBuffer((uint)variant, propertyInfo, value);
+                shaders.WriteToUniformBuffer(variant, propertyInfo, element);
             }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static unsafe void WriteArrayToBuffer<T>(this Material material, int propertyId, int variant, T[] values) where T : unmanaged
+        public static void WriteToBufferArray<T>(this ShaderSet shaders, int propertyId, uint variant, Span<T> values) where T : unmanaged
         {
-            if (material.LookUpProperty(propertyId, out var propertyInfo))
+            if (shaders.LookUpProperty(propertyId, out var propertyInfo))
             {
-                material.WriteArrayToBuffer((uint)variant, propertyInfo, values.AsSpan());
+                shaders.WriteArrayToBuffer(variant, propertyInfo, values);
             }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static void WriteToBuffer<T>(this Material material, int propertyId, int variant, T element) where T : unmanaged
+        public static bool LookUpProperty(this Material material, int propertyId, out ShaderPropertyInfo propertyInfo)
         {
-            if (material.LookUpProperty(propertyId, out var propertyInfo))
+            return material.ShaderSet.LookUpProperty(propertyId, out propertyInfo);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void SetTexture(this Material material, ShaderPropertyInfo propertyInfo, Texture texture)
+        {
+            material.SetTexture(propertyInfo.SetIndex, propertyInfo.BindPoint, texture);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void SetTexture(this ShaderSet shaders, int propertyId, uint variant, Texture texture)
+        {
+            if(shaders.LookUpProperty(propertyId, out ShaderPropertyInfo shaderPropertyInfo))
             {
-                material.WriteToBuffer((uint)variant, propertyInfo, element);
+                shaders.SetTexture(shaderPropertyInfo, variant, texture);
             }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetTexture(this Material material, int propertyId, int variant, Texture2D texture)
+        public static void SetTexture(this Material material, int propertyId,Texture2D texture)
         {
             if (material.LookUpProperty(propertyId, out var propertyInfo))
             {
-                material.SetTexture(propertyInfo, variant, texture);
+                material.SetTexture(propertyInfo, texture);
             }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetTextureArray(this Material material, int propertyId, int variant, Texture2DArray texture)
+        public static void SetTextureArray(this Material material, int propertyId, Texture2DArray texture)
         {
             if (material.LookUpProperty(propertyId, out var propertyInfo))
             {
-                material.SetTexture(propertyInfo, variant, texture);
+                material.SetTexture(propertyInfo, texture);
             }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetCubeMap(this Material material, int propertyId, int variant, Cubemap cubemap)
+        public static void SetCubeMap(this Material material, int propertyId, Cubemap cubemap)
         {
             if (material.LookUpProperty(propertyId, out var propertyInfo))
             {
-                material.SetTexture(propertyInfo, variant, cubemap);
+                material.SetTexture(propertyInfo, cubemap);
             }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetCubeMapArray(this Material material, int propertyId, int variant, CubemapArray cubemap)
+        public static void SetCubeMapArray(this Material material, int propertyId, CubemapArray cubemap)
         {
             if (material.LookUpProperty(propertyId, out var propertyInfo))
             {
-                material.SetTexture(propertyInfo, variant, cubemap);
+                material.SetTexture(propertyInfo, cubemap);
             }
         }
 
-        public unsafe static void SetGlobalUniforms(this Material material, int variant, in RendererFrameInfo frameInfo)
+        internal unsafe static void SetGlobalUniforms(this ShaderSet shaders, uint variant, in RendererFrameInfo frameInfo)
         {
-            material.TryCreateVariant((uint)variant);
-            WriteToBuffer(material, ShaderPropertyInfo.LightingInfoId, variant, frameInfo.LightingInfo);
+            WriteToBuffer(shaders, ShaderPropertyInfo.LightingInfoId, variant, frameInfo.LightingInfo);
 
             if (variant != 0) return;
             uint camreaCount = (uint)frameInfo.CameraCount;
-            SetUniformBuffer(material, ShaderPropertyInfo.CameraInfoId, frameInfo.CameraInfo, camreaCount);
-            SetUniformBuffer(material, ShaderPropertyInfo.CameraInverseId, frameInfo.CameraInverseInfo, camreaCount);
-            SetUniformBuffer(material, ShaderPropertyInfo.AdditionalCameraInfoId, frameInfo.AdditionalCameraInfo, camreaCount);
-            SetUniformBuffer(material, ShaderPropertyInfo.OrthographicInfoId, frameInfo.OrthographicInfo, camreaCount);
+            SetUniformBuffer(shaders, ShaderPropertyInfo.CameraInfoId, frameInfo.CameraInfo, camreaCount);
+            SetUniformBuffer(shaders, ShaderPropertyInfo.CameraInverseId, frameInfo.CameraInverseInfo, camreaCount);
+            SetUniformBuffer(shaders, ShaderPropertyInfo.AdditionalCameraInfoId, frameInfo.AdditionalCameraInfo, camreaCount);
+            SetUniformBuffer(shaders, ShaderPropertyInfo.OrthographicInfoId, frameInfo.OrthographicInfo, camreaCount);
 
-            SetUniformBuffer(material, ShaderPropertyInfo.PointLightsBufferId,  frameInfo.PointLights, (uint)frameInfo.LightingInfo.NumPointLights);
-            SetUniformBuffer(material, ShaderPropertyInfo.SpotLightsBufferId,  frameInfo.SpotLights, (uint)frameInfo.LightingInfo.NumSpotLights);
+            SetUniformBuffer(shaders, ShaderPropertyInfo.PointLightsBufferId,  frameInfo.PointLights, (uint)frameInfo.LightingInfo.NumPointLights);
+            SetUniformBuffer(shaders, ShaderPropertyInfo.SpotLightsBufferId,  frameInfo.SpotLights, (uint)frameInfo.LightingInfo.NumSpotLights);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static void SetUniformBuffer<T>(this Material material, int bufferProperyId, T resource, uint count) where T : unmanaged
+        private static void SetUniformBuffer<T>(this ShaderSet shaders, int bufferProperyId, T resource, uint count) where T : unmanaged
         {
-            if (!material.LookUpProperty(bufferProperyId, out var propertyInfo)) return;
-            var buffer = material.GetStorageSwapChainBuffer(bufferProperyId);
+            if (!shaders.LookUpProperty(bufferProperyId, out var propertyInfo)) return;
+            var buffer = shaders.GetStorageSwapChainBuffer(bufferProperyId);
             unsafe
             {
                 Buffer.MemoryCopy(&resource, buffer.HostPtr, buffer.HostBufferSize32, sizeof(T));
             }
-            material.SetDescriptorStorageBufferLength(propertyInfo.SetIndex,  propertyInfo.BindPoint, count);
+            shaders.SetDescriptorStorageBufferLength(propertyInfo.SetIndex,  propertyInfo.BindPoint, count);
         }
     }
 }

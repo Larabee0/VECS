@@ -18,6 +18,7 @@ namespace VECS
         private readonly VkDescriptorSetLayout _setLayout;
 
         private uint _usageLength;
+        private uint _maxSats;
 
         public uint AlignedSize => _alignedLayoutSize;
         public bool[] HasDataBound => _hasDataBound;
@@ -63,7 +64,15 @@ namespace VECS
             }
 
             _descriptorBuffer = new(_alignedLayoutSize, (uint)maxSets, usageFlags, true, false, false);
+            _maxSats = _descriptorBuffer.UInstanceCount32;
 
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void ReAllocate(ulong instanceCount)
+        {
+            _descriptorBuffer.Reallocate(instanceCount);
+            _maxSats = (uint)instanceCount;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -169,6 +178,10 @@ namespace VECS
         public void SetUsageLength(uint length)
         {
             _usageLength = Math.Max(1,length);
+            if(length > _maxSats)
+            {
+                ReAllocate(length);
+            }
         }
 
         public unsafe void Flush()

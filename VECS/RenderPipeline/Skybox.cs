@@ -19,7 +19,7 @@ namespace VECS
             set
             {
                 _skyboxTexture = value;
-                _skybox.SetCubeMap(SkyboxTextureProperty, 0, SkyboxTexture);
+                _skybox.SetCubeMap(SkyboxTextureProperty, SkyboxTexture);
             }
         }
 
@@ -31,7 +31,7 @@ namespace VECS
             pipelineConfig.rasterizationInfo.frontFace = VkFrontFace.Clockwise;
             pipelineConfig.depthStencilInfo.depthTestEnable = true;
 
-            _skybox = new Material("Skybox", "skybox.vert", "skybox.frag", pipelineConfig);
+            _skybox = new ShaderSet("Skybox", "skybox.vert", "skybox.frag", pipelineConfig).Default();
             _cube = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("cube-UV.obj"),null)[0];
             SkyboxTexture = new Cubemap("GL_Skybox", TextureLoader.GetTextureInDefaultPath("Skyboxes/GL_Skybox"), VkSamplerAddressMode.ClampToEdge, false);
         }
@@ -41,7 +41,7 @@ namespace VECS
         {
             if (SkyboxTexture == null || _cube == null) return;
             _skybox.PushConstants.SetPushConstantUniform("viewProj",0, GetSkyboxMatrix(frameInfo.CameraInfo[0]));
-            _skybox.BindAll(frameInfo, 0);
+            _skybox.Bind(frameInfo);
             _cube.SimpleBindAndDraw(frameInfo.CommandBuffer);
         }
 

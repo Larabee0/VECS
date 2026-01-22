@@ -33,8 +33,8 @@ namespace VECS.ECS.Presentation
                 }
                 
                 Vector3 cameraPosition = entityManager.GetComponent<LocalToWorld>(cameraEntity).Value.Translation;                
-                Span<Vector4> positions = EngineMaterials.PointLight.GetStorageBuffer<Vector4>(PositionBufferId);
-                Span<Vector4> colours = EngineMaterials.PointLight.GetStorageBuffer<Vector4>(ColourBufferId);
+                Span<Vector4> positions = EnginePipes.PointLight.GetStorageBuffer<Vector4>(PositionBufferId);
+                Span<Vector4> colours = EnginePipes.PointLight.GetStorageBuffer<Vector4>(ColourBufferId);
 
                 _pointLights.Clear();
 
@@ -60,8 +60,8 @@ namespace VECS.ECS.Presentation
                 }
 
 
-                EngineMaterials.PointLight.SetDescriptorStorageBufferLength(0,0, (uint)pointLightEntities.Count);
-                EngineMaterials.PointLight.BindAll(rendererFrameInfo, 0);
+                EnginePipes.PointLight.SetDescriptorStorageBufferLength(0,0, (uint)pointLightEntities.Count);
+                EnginePipes.PointLight.BindAll(rendererFrameInfo, 0);
                 GraphicsDevice.DeviceAPI.vkCmdDraw(rendererFrameInfo.CommandBuffer, 6, (uint)_pointLights.Count, 0, 0);
             }
         }
