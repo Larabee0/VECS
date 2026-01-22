@@ -218,8 +218,10 @@ namespace VECS
                 _uniformBufferUsage |= setInfo.UniformBufferFlags;
                 _descriptorSetInfos[setIndex] = setInfo;
             }
-
-            _uniformBuffer = new SwapChainBuffer(_uniformBufferSize, 1, _uniformBufferUsage, true);
+            if (_uniformBufferSize > 0)
+            {
+                _uniformBuffer = new SwapChainBuffer(_uniformBufferSize, 1, _uniformBufferUsage, true);
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -347,12 +349,15 @@ namespace VECS
                 {
                     _descriptorSetInfos[i].SetVariantLength((uint)VariantCount);
                 }
-                _uniformBuffer = _uniformBuffer.Realloc((uint)VariantCount);
+                if (_uniformBufferSize > 0)
+                {
+                    _uniformBuffer = _uniformBuffer.Realloc((uint)VariantCount);
+                }
                 while (_variantsToAdd.TryDequeue(out var variant))
                 {
                     Debug.Assert(_matVariants[variant.VariantIndex] == null, "Attempting to replace active material!");
                     _matVariants[variant.VariantIndex] = variant;
-                    if (variant.localUniformAllocation)
+                    if (_uniformBufferSize > 0 && variant.localUniformAllocation)
                     {
                         void* localAllocation = variant.pUniformBuffer;
                         byte* shaderSetAllocation = (byte*)_uniformBuffer.HostPtr + (_uniformBufferSize * variant.VariantIndex);
@@ -369,6 +374,7 @@ namespace VECS
 
         private unsafe void WriteUniformToDescriptorBuffers(Material material)
         {
+            if (UniformBufferSize == 0) return;
             var variant = material.VariantIndex;
             var startOffset = variant * UniformBufferSize;
             for (uint i = 0; i < DescriptorSetCount; i++)
@@ -989,6 +995,11 @@ namespace VECS
             for (int i = 0; i < shaders._descriptorSetInfos.Length; i++)
             {
                 shaders._descriptorSetInfos[i].WriteFromBuffers(frameIndex);
+            }
+
+            if (shaders.UniformBufferSize > 0)
+            {
+                shaders._uniformBuffer.WriteFromHostToBuffer(frameIndex);
             }
 
             shaders._preBindUpdate = false;
