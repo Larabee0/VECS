@@ -237,6 +237,7 @@ namespace VECS
 
         public void SetVariantLength(uint length)
         {
+            if (_forMeshShader) return;
             for (int i = 0; i < _descriptorBuffers.Length; i++)
             {
                 _descriptorBuffers[i].SetUsageLength(length);

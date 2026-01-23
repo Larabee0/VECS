@@ -34,7 +34,7 @@ namespace VECS
         public ShaderSet ShaderSet => _shaderSet;
         public PushConstantsHandler PushConstants => _shaderSet.PushConstants;
 
-        internal unsafe Material(string name, ShaderSet shaders)
+        internal unsafe Material(string name, ShaderSet shaders, bool localUniformAlloc = false)
         {
             AssetName = shaders.AssetName + '.' + name;
             _variantIndex = shaders.GetNextVariantIndex();
@@ -44,9 +44,10 @@ namespace VECS
             _imageDescriptors = new SetTextureDescriptors[DescriptorSetCount];
             _textures = new Texture[DescriptorSetCount][];
 
-            if (shaders.UniformBufferSize > 0)
+            if (!localUniformAlloc && shaders.UniformBufferSize > 0)
             {
                 pUniformBuffer = NativeMemory.AlignedAlloc(shaders.UniformBufferSize, (uint)GPUBufferExtensions.GetAlignment(shaders.UniformBufferSize));
+                NativeMemory.Fill(pUniformBuffer, shaders.UniformBufferSize, 0);
                 localUniformAllocation = true;
             }
             else

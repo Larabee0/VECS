@@ -146,6 +146,7 @@ namespace VECS
 
             Presenter.Instance.ForwardRenderer.EndForwardRendering(frameInfo.CommandBuffer);
         }
+#endif
 
         private unsafe void OutputBlending(RendererFrameInfo frameInfo)
         {
@@ -156,7 +157,6 @@ namespace VECS
 
             Presenter.Instance.ForwardRenderer.EndForwardRendering(frameInfo.CommandBuffer);
         }
-#endif
 
         private unsafe void BlendWeightCalculation(RendererFrameInfo frameInfo)
         {

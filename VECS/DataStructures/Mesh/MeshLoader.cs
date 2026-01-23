@@ -1,4 +1,4 @@
-﻿#define AssimpLogging
+﻿//#define AssimpLogging
 
 
 using Assimp;

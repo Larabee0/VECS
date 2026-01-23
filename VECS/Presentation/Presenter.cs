@@ -333,6 +333,7 @@ namespace VECS
         {
             VkCommandBuffer commandBuffer = SwapChain.CurrentMainCommandBuffer;
 
+            UI.ULUI.UpdateCommandList();
             GPUBufferExtensions.PlaybackFillBufferCmds(commandBuffer);
             GPUBufferExtensions.PlaybackCopyBuffersCmds(commandBuffer);
             TextureExtensions.PlaybackCopyCmds(commandBuffer);
@@ -342,7 +343,6 @@ namespace VECS
             PreGraphicsPipe?.Invoke(FrameIndex);
 
             RendererFrameInfo frameInfo = CreateRendererFrameInfo(Time.DeltaTime, commandBuffer);
-            UI.ULUI.UpdateCommandList();
             ShaderSet.UpdateMaterials(frameInfo);
 
             // shadows pass

@@ -1,14 +1,15 @@
 ﻿using System;
-using System.Numerics;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Numerics;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using UltralightNet;
 using UltralightNet.Platform;
 using VECS.GraphicsPipelines;
 using VECS.LowLevel;
 using Vortice.Vulkan;
-using System.Collections.Generic;
 
 namespace VECS.UI
 {
@@ -74,9 +75,10 @@ namespace VECS.UI
                 var ptr = Buffer.HostPtr;
                 System.Buffer.MemoryCopy(vertexBuffer.data, ptr, Buffer.HostBufferSize, vertexBuffer.size);
 
-                ptr = (new UIntPtr(ptr) + vertexBuffer.size).ToPointer();
+                ptr = (byte*)ptr + IndexBufferOffset;
 
                 System.Buffer.MemoryCopy(indexBuffer.data, ptr, Buffer.HostBufferSize - vertexBuffer.size, indexBuffer.size);
+
                 Buffer.SetBuffersDirty(true);
             }
 
@@ -417,43 +419,57 @@ namespace VECS.UI
 
         public unsafe void UpdateCommandList(ULCommandList commandList)
         {
+            Vector3UInt variantIndices = new(0);
             var commands = commandList.AsSpan();
             _commands.EnsureCapacity(commands.Length);
-            Vector3UInt variantIndices = new(0);
             for (int i = 0; i < commands.Length; i++)
             {
-                _commands.Enqueue(commands[i]);
                 var command = commands[i];
+                _commands.Enqueue(command);
+                var gpuState = command.GPUState;
                 if (command.CommandType is ULCommandType.DrawGeometry)
                 {
-                    var gpuState = command.GPUState;
+                    Material mat;
                     if (gpuState.ShaderType == ULShaderType.Fill)
                     {
 
                         if (gpuState.EnableBlend)
                         {
-                            _ulFill.GetOrCreateVariant(variantIndices.X);
+                            mat = _ulFill.GetOrCreateVariant(variantIndices.X);
                             variantIndices.X++;
                         }
                         else
                         {
-                            _ulFillNoBlend.GetOrCreateVariant(variantIndices.Y);
+                            mat = _ulFillNoBlend.GetOrCreateVariant(variantIndices.Y);
                             variantIndices.Y++;
+                        }
+
+                        var texutre1 = _textureLibrary[gpuState.Texture1Id].Texture;
+                        mat.SetTexture(Texture1Id, texutre1);
+                        if (gpuState.Texture2Id != 0)
+                        {
+                            mat.SetTexture(Texture2Id, _textureLibrary[gpuState.Texture2Id].Texture);
+                        }
+                        else
+                        {
+                            mat.SetTexture(Texture2Id, texutre1);
                         }
                     }
                     else if (gpuState.ShaderType == ULShaderType.FillPath)
                     {
-                        _ulFillPath.GetOrCreateVariant(variantIndices.Z);
+                        mat = _ulFillPath.GetOrCreateVariant(variantIndices.Z);
                         variantIndices.Z++;
                     }
                     else
                     {
                         throw new NotImplementedException(string.Format("ShaderType {0} not implemented", gpuState.ShaderType.ToString()));
                     }
+                    SetMatProperties(command, mat);
                 }
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Texture2D GetViewTexture(View view)
         {
             var id = view.RenderTarget.TextureId;
@@ -462,8 +478,7 @@ namespace VECS.UI
 
         public unsafe void ExecuteCommandList(RendererFrameInfo frameInfo)
         {
-            if(_commands.Count == 0) return;
-            TextureExtensions.PlaybackCopyCmds(frameInfo.CommandBuffer);
+            if (_commands.Count == 0) return;
             uint currentRenderBuffer = 0;
             Vector3UInt variantIndices = new(0);
             var commandBuffer = frameInfo.CommandBuffer;
@@ -491,16 +506,7 @@ namespace VECS.UI
                             mat = _ulFillNoBlend.GetOrCreateVariant(variantIndices.Y);
                             variantIndices.Y++;
                         }
-                        var texutre1 = _textureLibrary[gpuState.Texture1Id].Texture;
-                        mat.SetTexture(Texture1Id, texutre1);
-                        if (gpuState.Texture2Id != 0)
-                        {
-                            mat.SetTexture(Texture2Id, _textureLibrary[gpuState.Texture2Id].Texture);
-                        }
-                        else
-                        {
-                            mat.SetTexture(Texture2Id, texutre1);
-                        }
+                        
                     }
                     else if (gpuState.ShaderType == ULShaderType.FillPath)
                     {
@@ -511,12 +517,8 @@ namespace VECS.UI
                     {
                         throw new NotImplementedException(string.Format("ShaderType {0} not implemented", gpuState.ShaderType.ToString()));
                     }
-                    Draw(frameInfo, command, mat);
 
-                    for (int i = 0; i < mat.DescriptorSetCount; i++)
-                    {
-                        mat.DescriptorSetInfos[i].DescriptorBuffers[frameInfo.FrameIndex].FlushNow();
-                    }
+                    Draw(frameInfo, command, mat);
 
                 }
             }
@@ -527,28 +529,40 @@ namespace VECS.UI
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private unsafe void Draw(RendererFrameInfo frameInfo, ULCommand command, Material mat)
         {
-            var gpuState = command.GPUState;
             var commandBuffer = frameInfo.CommandBuffer;
-            mat.WriteToBuffer(TransformId, gpuState.Transform.ApplyProjection(gpuState.ViewportWidth, gpuState.ViewportHeight, false));
-            mat.WriteToBuffer(ClipSizeId, gpuState.ClipSize);
-            mat.SetArray(Sclar4Id, gpuState.Scalar);
-            if (gpuState.ClipSize > 0)
-            {
-                mat.SetArray(ClipId, gpuState.Clip);
-            }
+
             mat.Bind(frameInfo);
             var geometry = _geometryLibrary[command.GeometryId];
 
-            GPUBufferExtensions.WriteFromHostDelayed(geometry.Buffer, frameInfo.FrameIndex);
-            var vkBuffer = geometry.Buffer.ActiveVkBuffer;
+            if (geometry.Buffer._diryBuffers[frameInfo.FrameIndex])
+            {
+                GPUBufferExtensions.WriteFromHostDelayed(geometry.Buffer, frameInfo.FrameIndex);
+            }
+            var vkBuffer = geometry.Buffer[frameInfo.FrameIndex].VkBuffer;
 
             GraphicsDevice.DeviceAPI.vkCmdBindIndexBuffer(commandBuffer, vkBuffer, geometry.IndexBufferOffset, VkIndexType.Uint32);
             GraphicsDevice.DeviceAPI.vkCmdBindVertexBuffer(commandBuffer, 0,vkBuffer);
             GraphicsDevice.DeviceAPI.vkCmdDrawIndexed(commandBuffer, command.IndicesCount, 1, command.IndicesOffset, 0, 0);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private unsafe void SetMatProperties(ULCommand command, Material mat)
+        {
+            var gpuState = command.GPUState;
+            var matrix = gpuState.Transform.ApplyProjection(gpuState.ViewportWidth, gpuState.ViewportHeight, false);
+            mat.WriteToBuffer(TransformId, matrix);
+            mat.WriteToBuffer(ClipSizeId, gpuState.ClipSize);
+            mat.SetArray(Sclar4Id, gpuState.Scalar);
+            if (gpuState.ClipSize > 0)
+            {
+                mat.SetArray(ClipId, gpuState.Clip);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private unsafe void BeginRenderPass(VkCommandBuffer commandBuffer, ref uint currentRenderBuffer, RenderPassInfo passInfo)
         {
             if (passInfo.Clear && currentRenderBuffer == passInfo.RenderBuffer)

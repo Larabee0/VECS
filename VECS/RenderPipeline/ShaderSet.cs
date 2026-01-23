@@ -92,8 +92,7 @@ namespace VECS
 
             _pipelineLayout = GPUPipelineUtil.CreatePipelineLayoutVertFrag(vertex, fragment, _descriptorSetLayouts, _materialPushConstantsHandler);
             _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipelineVertFrag(vertex, fragment, _graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT);
-            _matVariants = [new Material("Default", this)];
-            _variantsToAdd.TryDequeue(out _);
+            CreateDefault();
 
             AssetDataBase<ShaderSet>.Add(this);
         }
@@ -123,8 +122,7 @@ namespace VECS
 
             _pipelineLayout = GPUPipelineUtil.CreatePipelineLayoutVert(vertex, _descriptorSetLayouts, _materialPushConstantsHandler);
             _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipelineVert(vertex, _graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT);
-            _matVariants = [new Material("Default", this)];
-            _variantsToAdd.TryDequeue(out _);
+            CreateDefault();
             AssetDataBase<ShaderSet>.Add(this);
         }
 
@@ -164,8 +162,7 @@ namespace VECS
 
             _pipelineLayout = GPUPipelineUtil.CreatePipelineLayoutMeshTaskFrag(mesh, task, fragment, _descriptorSetLayouts, _materialPushConstantsHandler);
             _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipelineMeshTaskFrag(mesh, task, fragment, _graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT);
-            _matVariants = [new Material("Default", this)];
-            _variantsToAdd.TryDequeue(out _);
+            CreateDefault();
             AssetDataBase<ShaderSet>.Add(this);
         }
 
@@ -195,8 +192,7 @@ namespace VECS
 
             _pipelineLayout = GPUPipelineUtil.CreatePipelineLayoutVerGeoFrag(vertex, geometry, fragment, _descriptorSetLayouts, _materialPushConstantsHandler);
             _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipelineVertGeoFrag(vertex, geometry, fragment, _graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT);
-            _matVariants = [new Material("Default", this)];
-            _variantsToAdd.TryDequeue(out _);
+            CreateDefault();
             AssetDataBase<ShaderSet>.Add(this);
         }
 
@@ -221,6 +217,20 @@ namespace VECS
             if (_uniformBufferSize > 0)
             {
                 _uniformBuffer = new SwapChainBuffer(_uniformBufferSize, 1, _uniformBufferUsage, true);
+            }
+        }
+
+        private unsafe void CreateDefault()
+        {
+            _matVariants = [new Material("Default", this,true)];
+            _variantsToAdd.TryDequeue(out var material);
+
+            if (UniformBufferSize > 0)
+            {
+                NativeMemory.AlignedFree(material.pUniformBuffer);
+                material.pUniformBuffer = _uniformBuffer.HostPtr;
+                material.localUniformAllocation = false;
+                //WriteUniformToDescriptorBuffers(material);
             }
         }
 
@@ -344,7 +354,7 @@ namespace VECS
             if(!_variantsToAdd.IsEmpty)
             {
                 Array.Resize(ref _matVariants, (int)_variantCount);
-
+                bool reassignUniformPtrs = false;
                 for (int i = 0; i < _descriptorSetCount; i++)
                 {
                     _descriptorSetInfos[i].SetVariantLength((uint)VariantCount);
@@ -352,6 +362,7 @@ namespace VECS
                 if (_uniformBufferSize > 0)
                 {
                     _uniformBuffer = _uniformBuffer.Realloc((uint)VariantCount);
+                    reassignUniformPtrs = true;
                 }
                 while (_variantsToAdd.TryDequeue(out var variant))
                 {
@@ -365,6 +376,15 @@ namespace VECS
                         NativeMemory.AlignedFree(localAllocation);
                         variant.pUniformBuffer = shaderSetAllocation;
                         variant.localUniformAllocation = false;
+                    }
+                }
+
+                if (reassignUniformPtrs)
+                {
+                    for (int i = 0; i < VariantCount; i++)
+                    {
+                        if (_matVariants[i] == null) continue;
+                        _matVariants[i].pUniformBuffer = (byte*)_uniformBuffer.HostPtr + (_uniformBufferSize * i);
                     }
                 }
                 return true;
@@ -467,6 +487,9 @@ namespace VECS
 
             var buffer = _uniformBuffer;
             var internalOffset = InternalUniformBufferOffset(propertyInfo);
+
+            if (propertyInfo.Property != null) internalOffset += propertyInfo.Property.Offset;
+
             // internaloffset => offset of descriptor set
             // property offset => offset or shader property within set
             // variant offset => variant position
@@ -488,6 +511,9 @@ namespace VECS
             }
 
             var internalOffset = InternalUniformBufferOffset(propertyInfo);
+
+            if (propertyInfo.Property != null) internalOffset += propertyInfo.Property.Offset;
+
 
             var hostPtr = (byte*)uniform + internalOffset;
 
@@ -514,6 +540,9 @@ namespace VECS
             var buffer = _uniformBuffer;
             var internalOffset = InternalUniformBufferOffset(propertyInfo);
 
+            if (propertyInfo.Property != null) internalOffset += propertyInfo.Property.Offset;
+
+
             // internaloffset => offset of descriptor set
             // property offset => offset or shader property within set
             // variant offset => variant position
@@ -535,6 +564,9 @@ namespace VECS
             }
 
             var internalOffset = InternalUniformBufferOffset(propertyInfo);
+
+            if (propertyInfo.Property != null) internalOffset += propertyInfo.Property.Offset;
+
 
             var hostPtr = (byte*)uniform + internalOffset;
             fixed (T* arrayPtr = array)
@@ -560,6 +592,9 @@ namespace VECS
             var buffer = _uniformBuffer;
             var internalOffset = InternalUniformBufferOffset(propertyInfo);
 
+            if (propertyInfo.Property != null) internalOffset += propertyInfo.Property.Offset;
+
+
             // internaloffset => offset of descriptor set
             // property offset => offset or shader property within set
             // variant offset => variant position
@@ -584,6 +619,9 @@ namespace VECS
             }
 
             var internalOffset = InternalUniformBufferOffset(propertyInfo);
+
+            if (propertyInfo.Property != null) internalOffset += propertyInfo.Property.Offset;
+
 
             var hostPtr = (byte*)uniform + internalOffset;
 
