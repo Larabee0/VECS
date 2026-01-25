@@ -8,18 +8,18 @@ namespace VECS
     public class EnginePipes
     {
 
-        public readonly static ShaderSet LitTexture;
-        public readonly static ShaderSet DepthOnly;
-        public readonly static ShaderSet UnlitMeshShader;
-        public readonly static ShaderSet UnlitTransparent;
-        public readonly static ShaderSet Unlit;
-        public readonly static ShaderSet WireFrame;
-        public readonly static ShaderSet ShadowOffscreen;
-        public readonly static ShaderSet PointLight;
-        public readonly static ShaderSet Blit;
-        public readonly static ShaderSet OIT_Composite;
-        public readonly static ShaderSet OIT_Unlit;
-        public readonly static ShaderSet OIT_LitTexture;
+        public readonly static GraphicsPipeline LitTexture;
+        public readonly static GraphicsPipeline DepthOnly;
+        public readonly static GraphicsPipeline UnlitMeshShader;
+        public readonly static GraphicsPipeline UnlitTransparent;
+        public readonly static GraphicsPipeline Unlit;
+        public readonly static GraphicsPipeline WireFrame;
+        public readonly static GraphicsPipeline ShadowOffscreen;
+        public readonly static GraphicsPipeline PointLight;
+        public readonly static GraphicsPipeline Blit;
+        public readonly static GraphicsPipeline OIT_Composite;
+        public readonly static GraphicsPipeline OIT_Unlit;
+        public readonly static GraphicsPipeline OIT_LitTexture;
 
         static EnginePipes()
         {
@@ -52,12 +52,12 @@ namespace VECS
             shadowConfig.rasterizationInfo.depthBiasEnable = true;
             shadowConfig.rasterizationInfo.depthBiasConstantFactor = 1.25f;
             shadowConfig.rasterizationInfo.depthBiasSlopeFactor = 1.75f;
-            ShadowOffscreen = new ShaderSet("PointLightShadowCaster", "pl_shadow.vert", "pl_shadow.frag", shadowConfig, "pl_shadow.geom");
+            ShadowOffscreen = new GraphicsPipeline("PointLightShadowCaster", "pl_shadow.vert", "pl_shadow.frag", shadowConfig, "pl_shadow.geom");
 
             var alphaBlending = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
-            Unlit = new ShaderSet("Unlit", "unlit.vert", "unlit.frag", alphaBlending);
+            Unlit = new GraphicsPipeline("Unlit", "unlit.vert", "unlit.frag", alphaBlending);
             GraphicsPipelineConfigInfo.EnableAlphaBlending(ref alphaBlending);
-            UnlitTransparent = new ShaderSet("Unlit Transparent", "unlit.vert", "unlit.frag", alphaBlending);
+            UnlitTransparent = new GraphicsPipeline("Unlit Transparent", "unlit.vert", "unlit.frag", alphaBlending);
 
             if (GraphicsDevice.MeshShading)
             {

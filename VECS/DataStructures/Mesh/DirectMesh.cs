@@ -481,20 +481,20 @@ namespace VECS
             {
                 foreach (var buffer in _vertexBuffersMeshShader.Values)
                 {
-                    buffer?.Dispose();
+                    buffer?.EnqueueForDisposal();
                 }
             }
 
-            _meshletIndexBuffer?.Dispose();
-            _meshletBuffer?.Dispose();
-            _meshletBoundsBuffer?.Dispose();
+            _meshletIndexBuffer?.EnqueueForDisposal();
+            _meshletBuffer?.EnqueueForDisposal();
+            _meshletBoundsBuffer?.EnqueueForDisposal();
 
             foreach (var buffer in _vertexBuffers.Values)
             {
-                buffer.Dispose();
+                buffer.EnqueueForDisposal();
             }
-            _indexOffsetBuffer?.Dispose();
-            _indexBuffer?.Dispose();
+            _indexOffsetBuffer?.EnqueueForDisposal();
+            _indexBuffer?.EnqueueForDisposal();
 
             _vertexBuffers.Clear();
             _vertexBuffers.TrimExcess();
@@ -518,8 +518,7 @@ namespace VECS
             ReallocateVertexBuffers(cmd, subMeshIndex, newBufferSizes, currentData);
 
             GraphicsDevice.EndSingleTimeMainPipe(cmd);
-            GPUBuffer.EmptyDisposalQueue();
-            _indexOffsetBuffer?.Dispose();
+            _indexOffsetBuffer?.EnqueueForDisposal();
             _indexOffsetBuffer = null;
 
             uint indexOffsetOffset = newBufferSizes.IndexCount - currentData.IndexCount;
@@ -601,7 +600,7 @@ namespace VECS
             {
                 currentVertexBuffer.CopyTo(cmd, srcOffset, newVertexBuffer, dstOffset, copyCount * instanceSize);
             }
-            GPUBuffer.DisposalQueue.Enqueue(currentVertexBuffer);
+            currentVertexBuffer.EnqueueForDisposal();
             _vertexBuffers[vertexAttribute] = newVertexBuffer;
         }
 
@@ -638,7 +637,7 @@ namespace VECS
             {
                 _indexBuffer.CopyTo(cmd, srcOffset, newIndexBuffer, dstOffset, copyCount * sizeof(uint));
             }
-            GPUBuffer.DisposalQueue.Enqueue(_indexBuffer);
+            _indexBuffer.EnqueueForDisposal();
             _indexBuffer = newIndexBuffer;
         }
         #endregion

@@ -331,9 +331,9 @@ namespace VECS.ECS.Presentation
         public override void OnDestroy(EntityManager entityManager)
         {
 
-            _circleBuffer?.Dispose();
+            _circleBuffer?.EnqueueForDisposal();
             _frustrumBuffer?.Dispose();
-            _cubeBuffer?.Dispose();
+            _cubeBuffer?.EnqueueForDisposal();
             _lineBuffer?.Dispose();
 
             _drawBuffer?.Dispose();

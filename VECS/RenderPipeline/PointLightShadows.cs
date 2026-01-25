@@ -91,7 +91,7 @@ namespace VECS
                 shadowOffscreen.PushConstants.SetPushConstantInt("writeDepth", 1 + i, 1);
             }
 
-            ShaderSet.Update(shadowOffscreen, frameInfo);
+            GraphicsPipeline.Update(shadowOffscreen, frameInfo);
             SetImageLayoutWrite(frameInfo.CommandBuffer);
             
             CullData cullDataInternal = new(

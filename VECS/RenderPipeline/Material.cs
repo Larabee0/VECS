@@ -19,35 +19,35 @@ namespace VECS
         private readonly Texture[][] _textures;
         private readonly bool[] _dirtyTextures;
         private readonly bool _hasTextures = false;
-        private readonly ShaderSet _shaderSet;
+        private readonly GraphicsPipeline _graphicsPipeline;
 
-        /// this allocation will be an offset into <see cref="ShaderSet._uniformBuffer"> host ptr, unless the material is new, which case the allocation is temporarily local.
-        /// it will be copied into the <see cref="ShaderSet._uniformBuffer"> host ptr during the shader set variant allocation phase with the local allocation being freed
+        /// this allocation will be an offset into <see cref="GraphicsPipeline._uniformBuffer"> host ptr, unless the material is new, which case the allocation is temporarily local.
+        /// it will be copied into the <see cref="GraphicsPipeline._uniformBuffer"> host ptr during the shader set variant allocation phase with the local allocation being freed
         /// and replaced with the offset ptr.
         internal unsafe void* pUniformBuffer;
         internal bool localUniformAllocation;
 
         public uint VariantIndex => _variantIndex;
         public int TotalSets => DescriptorSetCount;
-        public int DescriptorSetCount => _shaderSet.DescriptorSetCount;
-        public DescriptorSetInfo[] DescriptorSetInfos => _shaderSet.DescriptorSetInfos;
-        public ShaderSet ShaderSet => _shaderSet;
-        public PushConstantsHandler PushConstants => _shaderSet.PushConstants;
+        public int DescriptorSetCount => _graphicsPipeline.DescriptorSetCount;
+        public DescriptorSetInfo[] DescriptorSetInfos => _graphicsPipeline.DescriptorSetInfos;
+        public GraphicsPipeline Pipeline => _graphicsPipeline;
+        public PushConstantsHandler PushConstants => _graphicsPipeline.PushConstants;
 
-        internal unsafe Material(string name, ShaderSet shaders, bool localUniformAlloc = false)
+        internal unsafe Material(string name, GraphicsPipeline pipeline, bool localUniformAlloc = true)
         {
-            AssetName = shaders.AssetName + '.' + name;
-            _variantIndex = shaders.GetNextVariantIndex();
-            _shaderSet = shaders;
+            AssetName = pipeline.AssetName + '.' + name;
+            _variantIndex = pipeline.GetNextVariantIndex();
+            _graphicsPipeline = pipeline;
 
             _bufferDescriptors = new SetBufferDescriptors[DescriptorSetCount];
             _imageDescriptors = new SetTextureDescriptors[DescriptorSetCount];
             _textures = new Texture[DescriptorSetCount][];
 
-            if (!localUniformAlloc && shaders.UniformBufferSize > 0)
+            if (localUniformAlloc && pipeline.UniformBufferSize > 0)
             {
-                pUniformBuffer = NativeMemory.AlignedAlloc(shaders.UniformBufferSize, (uint)GPUBufferExtensions.GetAlignment(shaders.UniformBufferSize));
-                NativeMemory.Fill(pUniformBuffer, shaders.UniformBufferSize, 0);
+                pUniformBuffer = NativeMemory.AlignedAlloc(pipeline.UniformBufferSize, (uint)GPUBufferExtensions.GetAlignment(pipeline.UniformBufferSize));
+                NativeMemory.Fill(pUniformBuffer, pipeline.UniformBufferSize, 0);
                 localUniformAllocation = true;
             }
             else
@@ -94,7 +94,7 @@ namespace VECS
 
             for (int i = 0; i < TotalSets; i++)
             {
-                var info = shaders.DescriptorSetInfos[i];
+                var info = pipeline.DescriptorSetInfos[i];
 
                 if (!_hasTextures)
                 {
@@ -125,7 +125,7 @@ namespace VECS
                 Array.Fill(_dirtyBufferRegions, true);
             }
 
-            _shaderSet.AddVariant(this);
+            _graphicsPipeline.AddVariant(this);
             AssetDataBase<Material>.Add(this);
 
         }
@@ -133,7 +133,7 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Bind(in RendererFrameInfo frameInfo)
         {
-            ShaderSet.BindAll(frameInfo, _variantIndex);
+            Pipeline.BindAll(frameInfo, _variantIndex);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -187,7 +187,7 @@ namespace VECS
             _disposed = true;
 
             GC.SuppressFinalize(this);
-            ShaderSet.RemoveVariant(this);
+            Pipeline.RemoveVariant(this);
             if (localUniformAllocation)
             {
                 NativeMemory.AlignedFree(pUniformBuffer);
@@ -248,7 +248,7 @@ namespace VECS
                     var info = variant.DescriptorSetInfos[i];
                     int j = frameIndex;
                     //info.WriteUniforms(j, variantIndex);
-                    ShaderSet.WriteSet(info, info.DescriptorBuffers[j], variantIndex, variant.GetBindingBuffers(j, i), variant.GetBindingTextures(j, i));
+                    GraphicsPipeline.WriteSet(info, info.DescriptorBuffers[j], variantIndex, variant.GetBindingBuffers(j, i), variant.GetBindingTextures(j, i));
                 }
             }
         }
@@ -289,7 +289,7 @@ namespace VECS
                     {
                         var addresses = GetBindingBuffers(frameIndex);
                         VkDescriptorAddressInfoEXT addressInfo = default;
-                        if (binding.IsAnyBuffer)
+                        if (binding.StorageBuffer)
                         {
                             addressInfo = setInfo.GetBufferAddressInfo(frameIndex, bufferIndex, variant._variantIndex, 1);
                         }

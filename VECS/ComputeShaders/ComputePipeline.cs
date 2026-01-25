@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -9,29 +10,43 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
-    public class ComputeShader : DisposableAsset
+    public class ComputePipeline : DisposableAsset
     {
         private readonly PushConstantsHandler _pushConstantsHandler;
 
         private readonly int _descriptorSetCount = 0;
 
+        public int DescriptorSetCount => _descriptorSetCount;
+
         private readonly ConcurrentDictionary<int, ShaderPropertyInfo> _cachedShaderProperties = new();
 
-        private readonly DescriptorSetInfo[] _descriptorSetInfos;
+        internal readonly DescriptorSetInfo[] _descriptorSetInfos;
         private readonly VkDescriptorSetLayout[] _descriptorSetLayouts;
         private readonly VkPipelineLayout _pipelineLayout;
         private readonly VkPipeline _pipline;
 
+
+        internal ComputeVariant[] _computeVariants;
+        private readonly ConcurrentQueue<uint> _freeVariantIndices = new();
+        private readonly ConcurrentQueue<ComputeVariant> _variantsToAdd = new();
+        private uint _variantCount;
+        public int VariantCount => _computeVariants.Length;
+
+        private readonly UniformBuffer _uniformBuffer;
+        private readonly uint _uniformSize = 0;
+        private readonly VkBufferUsageFlags _uniformFlags = VkBufferUsageFlags.None;
+        public uint UniformBufferSize => _uniformSize;
+        public VkBufferUsageFlags UniformFlags => _uniformFlags;
         public PushConstantsHandler PushConstantsHandler => _pushConstantsHandler;
 
         [ThreadStatic]
-        private static ComputeShader _lastBoundComputeShader;
+        private static ComputePipeline _lastBoundComputeShader;
         [ThreadStatic]
         private static int _frameIndex;
 
-        private uint _uniformLength = ShaderSet.MAX_VARIANTS;
+        private uint _uniformLength = GraphicsPipeline.MAX_VARIANTS;
 
-        public unsafe ComputeShader(string assetName, string shaderName)
+        public unsafe ComputePipeline(string assetName, string shaderName)
         {
             AssetName = assetName;
             var shaderModule = AssetDataBase<ShaderModule>.GetNamed(shaderName);
@@ -41,13 +56,20 @@ namespace VECS
 
             _descriptorSetInfos = new DescriptorSetInfo[_descriptorSetCount];
             _descriptorSetLayouts = new VkDescriptorSetLayout[_descriptorSetCount];
-
+            
             for (uint setIndex = 0; setIndex < _descriptorSetCount; setIndex++)
             {
                 var setBindings = GPUPipelineUtil.ExtractBindingsForSetAsBindingArray(setIndex, descriptorSetBindings);
                 var layout = GPUPipelineUtil.CreateDescriptorSetLayout(setBindings, VkDescriptorSetLayoutCreateFlags.DescriptorBufferEXT);
                 _descriptorSetLayouts[setIndex] = layout;
-                _descriptorSetInfos[setIndex] = new DescriptorSetInfo(layout, setBindings, true,0);
+                _descriptorSetInfos[setIndex] = new DescriptorSetInfo(layout, setBindings, true, _uniformSize, 1);
+                _uniformSize += _descriptorSetInfos[setIndex].UnifromBufferSize;
+                _uniformFlags |= _descriptorSetInfos[setIndex].UniformBufferFlags;
+            }
+            
+            if (_uniformSize > 0)
+            {
+                _uniformBuffer = new(_uniformSize, 1, _uniformFlags);
             }
 
             _pushConstantsHandler = new(spirShader);
@@ -62,24 +84,132 @@ namespace VECS
             };
 
             _pipline = GPUPipelineUtil.CreateComputePipeline(shaderModule, computePipelineInfo);
+
+            _computeVariants = [new ComputeVariant("Default", this, false)];
+            _variantsToAdd.TryDequeue(out var variant);
+
+            if (_uniformSize > 0)
+            {
+                NativeMemory.AlignedFree(variant.pUniformBuffer);
+                variant.pUniformBuffer = _uniformBuffer.Buffer.HostPtr;
+                variant.localUniformAllocation = false;
+            }
+        }
+
+        internal DescriptorSetInfo[] GetTemporaryDescriptorSetInfos()
+        {
+            DescriptorSetInfo[] result = new DescriptorSetInfo[_descriptorSetCount];
+            uint _uniformSize = 0;
+
+            for (uint setIndex = 0; setIndex < _descriptorSetCount; setIndex++)
+            {
+                result[setIndex] = new DescriptorSetInfo(_descriptorSetLayouts[setIndex], _descriptorSetInfos[setIndex].DescriptorBindings, true, _uniformSize, 1);
+                _uniformSize += result[setIndex].UnifromBufferSize;
+            }
+            return result;
+        }
+
+        public uint GetNextVariantIndex()
+        {
+            if (_freeVariantIndices.TryDequeue(out var index))
+                return index;
+            return Interlocked.Add(ref _variantCount, 1) - 1;
+        }
+
+        public void RemoveVariant(ComputeVariant variant)
+        {
+            _freeVariantIndices.Enqueue(variant.VariantIndex);
+            _computeVariants[variant.VariantIndex] = null;
+        }
+
+        public void AddVariant(ComputeVariant variant)
+        {
+            _variantsToAdd.Enqueue(variant);
+        }
+
+        public ComputeVariant GetOrCreateVariant(uint index, bool allowTmpAllocation = true)
+        {
+            if (index < _computeVariants.Length && _computeVariants[index] != null)
+            {
+                return _computeVariants[index];
+            }
+            return Create(string.Format("VARAINT_{0}", index), allowTmpAllocation);
+        }
+
+        public ComputeVariant Create(string name, bool allowTmpAllocation = false)
+        {
+            return new ComputeVariant(name, this, true, allowTmpAllocation);
+        }
+
+        public ComputeVariant Default()
+        {
+            return _computeVariants[0];
+        }
+
+        private unsafe bool AllocNewVariants()
+        {
+            if (!_variantsToAdd.IsEmpty)
+            {
+                Array.Resize(ref _computeVariants, (int)_variantCount);
+                bool reassignUniformPtrs = false;
+                for (int i = 0; i < _descriptorSetCount; i++)
+                {
+                    _descriptorSetInfos[i].SetVariantLength((uint)VariantCount);
+                }
+                if (_uniformSize > 0)
+                {
+                    _uniformBuffer.UpdateUniformCount((uint)VariantCount);
+                    reassignUniformPtrs = true;
+                }
+                while (_variantsToAdd.TryDequeue(out var variant))
+                {
+                    Debug.Assert(_computeVariants[variant.VariantIndex] == null, "Attempting to replace active material!");
+                    _computeVariants[variant.VariantIndex] = variant;
+                    if (_uniformSize > 0 && variant.localUniformAllocation)
+                    {
+                        void* pipelineAlloc = _uniformBuffer.UniformAddresses[variant.VariantIndex];
+                        if (variant._allowTmpBufferAllocation)
+                        {
+                            void* localAllocation = variant.pUniformBuffer;
+                            Buffer.MemoryCopy(localAllocation, pipelineAlloc, _uniformSize, _uniformSize);
+                            NativeMemory.AlignedFree(localAllocation);
+                        }
+                        variant.pUniformBuffer = pipelineAlloc;
+                    }
+                    variant.CopyDescriptorBindings();
+                    variant.DiposeTemporaryBuffers();
+                    variant.localUniformAllocation = false;
+                }
+
+                if (reassignUniformPtrs)
+                {
+                    for (int i = 0; i < VariantCount; i++)
+                    {
+                        if (_computeVariants[i] == null) continue;
+                        _computeVariants[i].pUniformBuffer = _uniformBuffer.UniformAddresses[i];
+                    }
+                }
+                return true;
+            }
+            return false;
         }
 
         public void SetUniformBufferLength(uint length)
         {
-            if (_uniformLength == length) return;
-            _uniformLength = Math.Max(1, length);
-            for (uint i = 0; i < _descriptorSetCount; i++)
-            {
-                _descriptorSetInfos[i].SetVariantLength(length);
-                var bindings = GetDescriptorBindings(i);
-                for (int j = 0; j < bindings.Length; j++)
-                {
-                    if (bindings[j].UniformBuffer)
-                    {
-                        GetBuffer(i, bindings[j].BindPoint).SetUsedInstanceCount(_uniformLength);
-                    }
-                }
-            }
+            // if (_uniformLength == length) return;
+            // _uniformLength = Math.Max(1, length);
+            // for (uint i = 0; i < _descriptorSetCount; i++)
+            // {
+            //     _descriptorSetInfos[i].SetVariantLength(length);
+            //     var bindings = GetDescriptorBindings(i);
+            //     for (int j = 0; j < bindings.Length; j++)
+            //     {
+            //         if (bindings[j].UniformBuffer)
+            //         {
+            //             GetBuffer(i, bindings[j].BindPoint).SetUsedInstanceCount(_uniformLength);
+            //         }
+            //     }
+            // }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -92,6 +222,19 @@ namespace VECS
         public SwapChainBuffer GetBuffer(uint set, uint bindingPoint)
         {
             return _descriptorSetInfos[set].GetBuffer(bindingPoint);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public uint InternalUniformBufferOffset(uint set, uint bindPoint)
+        {
+            var setInfo = _descriptorSetInfos[set];
+            return setInfo.UnifromBufferOffset + setInfo.SetUniformBufferOffsets[bindPoint];
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public uint InternalUniformBufferOffset(ShaderPropertyInfo propertyInfo)
+        {
+            return InternalUniformBufferOffset(propertyInfo.SetIndex, propertyInfo.BindPoint);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -154,18 +297,18 @@ namespace VECS
             }
         }
 
-        public void SetStorageBuffer(string property, uint variant, GPUBuffer buffer)
+        public void SetStorageBuffer(int propertyId, uint variant, GPUBuffer buffer)
         {
-            if (LookUpProperty(property, out var propertyInfo) && propertyInfo.BindingInfo.StorageBuffer)
+            if (LookUpProperty(propertyId, out var propertyInfo) && propertyInfo.BindingInfo.StorageBuffer)
             {
                 var setInfo = _descriptorSetInfos[propertyInfo.SetIndex];
                 setInfo.WriteDescriptors(Presenter.Instance.FrameIndex, propertyInfo.BindPoint, variant, buffer);
             }
         }
 
-        public void SetStorageBuffer(int propertyId, uint variant, GPUBuffer buffer)
+        public void SetStorageBuffer(string property, uint variant, GPUBuffer buffer)
         {
-            if (LookUpProperty(propertyId, out var propertyInfo) && propertyInfo.BindingInfo.StorageBuffer)
+            if (LookUpProperty(property, out var propertyInfo) && propertyInfo.BindingInfo.StorageBuffer)
             {
                 var setInfo = _descriptorSetInfos[propertyInfo.SetIndex];
                 setInfo.WriteDescriptors(Presenter.Instance.FrameIndex, propertyInfo.BindPoint, variant, buffer);
@@ -277,13 +420,15 @@ namespace VECS
                 throw new InvalidOperationException("Cannot write property with mismatched size");
             }
 
-            var buffer = GetBuffer(propertyInfo.SetIndex, propertyInfo.BindPoint);
+            if (variant >= VariantCount)
+            {
+                throw new InvalidOperationException("Cannot write property to uniform buffer, variant not allocated!");
+            }
 
-            uint offset = propertyOffset + (buffer.UInstanceSize32 * variant);
+            var buffer = _uniformBuffer.Buffer;
+            var internalOffset = InternalUniformBufferOffset(propertyInfo) + propertyOffset;
 
-            var hostPtr = (IntPtr)buffer.HostPtr;
-
-            hostPtr = IntPtr.Add(hostPtr, (int)offset);
+            var hostPtr = (byte*)buffer.HostPtr + (internalOffset + (buffer.UInstanceSize32 * variant));
 
             NativeMemory.Copy(&element, (void*)hostPtr, maxSize);
         }
@@ -310,23 +455,54 @@ namespace VECS
             }
         }
 
+        private unsafe void WriteUniformToDescriptorBuffers(ComputeVariant material)
+        {
+            if (UniformBufferSize == 0) return;
+            var variant = material.VariantIndex;
+            var startOffset = variant * UniformBufferSize;
+            for (uint i = 0; i < DescriptorSetCount; i++)
+            {
+                var setInfo = _descriptorSetInfos[i];
+
+                for (uint j = 0; j < setInfo.BindingCount; j++)
+                {
+                    var binding = setInfo.DescriptorBindings[j];
+
+                    if (!binding.UniformBuffer) continue;
+
+                    var internalOffset = InternalUniformBufferOffset(binding.DescriptorSetIndex, binding.BindPoint);
+
+                    for (int frameIndex = 0; frameIndex < SwapChain.MAX_CONCURRENT_FRAMES; frameIndex++)
+                    {
+                        var addressRange = _uniformBuffer.Buffer[frameIndex].GetBufferAddressRangeBytes(startOffset + internalOffset, binding.BufferSize);
+
+                        setInfo.DescriptorBuffers[frameIndex].SetBufferBinding(addressRange, binding.DescriptorType, variant, binding.BindPoint);
+                    }
+                }
+            }
+        }
+
         public unsafe void Dispatch(VkCommandBuffer commandBuffer, int frameIndex, uint setId, uint workGroupCountX, uint workGroupCountY = 1, uint workGroupCountZ = 1)
         {
             VkDescriptorBufferBindingInfoEXT* bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[_descriptorSetCount];
             ulong* offsets = stackalloc ulong[_descriptorSetCount];
             uint* indices = stackalloc uint[_descriptorSetCount];
 
-
             for (uint i = 0; i < _descriptorSetCount; i++)
             {
-                _descriptorSetInfos[i].WriteUniforms(frameIndex,setId);
-                _descriptorSetInfos[i].WriteFromBuffers(frameIndex);
                 var buffer = _descriptorSetInfos[i].DescriptorBuffers[frameIndex];
                 bindingInfo[i] = buffer.BindingInfo;
                 offsets[i] = buffer.AlignedSize * setId;
                 indices[i] = i;
             }
-            if(frameIndex != _frameIndex || this != _lastBoundComputeShader)
+
+            Dispatch(commandBuffer, frameIndex, setId, bindingInfo, offsets, indices, workGroupCountX, workGroupCountY, workGroupCountZ);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe void Dispatch(VkCommandBuffer commandBuffer, int frameIndex, uint pushConstantIndex, VkDescriptorBufferBindingInfoEXT* bindingInfo, ulong* offsets, uint* indices, uint workGroupCountX, uint workGroupCountY = 1, uint workGroupCountZ = 1)
+        {
+            if (frameIndex != _frameIndex || this != _lastBoundComputeShader)
             {
                 GraphicsDevice.DeviceAPI.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Compute, _pipline);
                 _lastBoundComputeShader = this;
@@ -335,7 +511,7 @@ namespace VECS
             DescriptorBuffer.BindSets(commandBuffer, (uint)_descriptorSetCount, bindingInfo);
             DescriptorBuffer.SetOffsets(commandBuffer, _pipelineLayout, VkPipelineBindPoint.Compute, 0, (uint)_descriptorSetCount, offsets, indices);
 
-            _pushConstantsHandler.BindPushConstants(commandBuffer, _pipelineLayout, setId);
+            _pushConstantsHandler.BindPushConstants(commandBuffer, _pipelineLayout, pushConstantIndex);
             GraphicsDevice.DeviceAPI.vkCmdDispatch(commandBuffer, workGroupCountX, workGroupCountY, workGroupCountZ);
         }
 
@@ -348,6 +524,7 @@ namespace VECS
             }
 
             _disposed = true;
+            
 
             GraphicsDevice.DeviceAPI.vkDestroyPipeline(GraphicsDevice.Device, _pipline);
 
@@ -356,16 +533,17 @@ namespace VECS
                 _descriptorSetInfos[i]?.Dispose();
                 GraphicsDevice.DeviceAPI.vkDestroyDescriptorSetLayout(GraphicsDevice.Device, _descriptorSetLayouts[i], null);
             }
+            _uniformBuffer?.Dispose();
         }
 
-        public static ComputeShader GetOrCreate(string shaderName)
+        public static ComputePipeline GetOrCreate(string shaderName)
         {
-            var shader = AssetDataBase<ComputeShader>.GetNamedSilentFail(shaderName);
+            var shader = AssetDataBase<ComputePipeline>.GetNamedSilentFail(shaderName);
 
             if (shader == null)
             {
-                shader = new ComputeShader(shaderName, shaderName);
-                AssetDataBase<ComputeShader>.Add(shader);
+                shader = new ComputePipeline(shaderName, shaderName);
+                AssetDataBase<ComputePipeline>.Add(shader);
             }
 
             return shader;
@@ -377,6 +555,41 @@ namespace VECS
             var workGroupX = (uint)Math.Min(totalInvocations, GraphicsDevice.MaxWorkGroupX);
 
             return new(workGroupX,workGroupY);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static void UpdateComputeShaders(int frameIndex)
+        {
+            var count = AssetDataBase<ComputePipeline>.AssetCount;
+            var readingList = AssetDataBase<ComputePipeline>.AllAssetsListForReading;
+            readingList.ForEach(m => Update(m, frameIndex));
+        }
+
+        private static void Update(ComputePipeline pipeline, int frameIndex)
+        {
+            if (pipeline.VariantCount == 0) return;
+
+            bool forceDescriptorWrite = pipeline.AllocNewVariants();
+            if (forceDescriptorWrite)
+            {
+                for (int i = 0; i < pipeline.VariantCount; i++)
+                {
+                    var variant = pipeline._computeVariants[i];
+                    if (variant == null) continue;
+                    pipeline.WriteUniformToDescriptorBuffers(variant);
+                }
+            }
+
+            for (int i = 0; i < pipeline._descriptorSetInfos.Length; i++)
+            {
+                pipeline._descriptorSetInfos[i].WriteFromBuffers(frameIndex);
+            }
+
+            if (pipeline.UniformBufferSize > 0)
+            {
+                pipeline._uniformBuffer.Buffer.WriteFromHostToBuffer(frameIndex);
+            }
+
         }
     }
 }

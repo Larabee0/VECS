@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
@@ -42,10 +43,6 @@ namespace VECS
         internal Action OnSwapChainRecreation;
 
         public static ulong FrameCount => _frameCount;
-
-        private readonly List<(int, GPUBuffer)> _swapChainBufferDisposalQueue = [];
-
-        internal List<(int, GPUBuffer)> SwapChainBufferDisposalQueue => _swapChainBufferDisposalQueue;
 
         private Entity frameInfoEntity;
 
@@ -307,14 +304,13 @@ namespace VECS
         {
             // acquire swapchain image
             _isFrameStarted = BeginFrame();
-
             World.DefaultWorld.OnPrePresent();
             DrawBlob.FlushBounds(FrameIndex);
             UpdateEntityFrameInfo(World.DefaultWorld.EntityManager);
             if (_isFrameStarted)
             {
                 // kill off buffers
-                UpdateSwapChainBufferDisposal();
+                GPUBufferExtensions.PlayerbackDisposeCmds(SwapChain.FrameIndex);
                 // signal workers to submit work
                 _swapChain.SignalTimelineFromHost(SemaphoreStages.Submit, SwapChain.FrameIndex);
                 // wait for workers to submit
@@ -343,7 +339,8 @@ namespace VECS
             PreGraphicsPipe?.Invoke(FrameIndex);
 
             RendererFrameInfo frameInfo = CreateRendererFrameInfo(Time.DeltaTime, commandBuffer);
-            ShaderSet.UpdateMaterials(frameInfo);
+            ComputePipeline.UpdateComputeShaders(frameInfo.FrameIndex);
+            GraphicsPipeline.UpdateMaterials(frameInfo);
 
             // shadows pass
             World.DefaultWorld.OnPreShadowPass(frameInfo);
@@ -395,19 +392,6 @@ namespace VECS
             _swapChain.TransferSwapChainImageToPresentQueue(commandBuffer, FrameIndex, imageIndex);
         }
 
-
-        private void UpdateSwapChainBufferDisposal()
-        {
-            for (int i = _swapChainBufferDisposalQueue.Count - 1; i >= 0; i--)
-            {
-                if (_swapChainBufferDisposalQueue[i].Item1 == FrameIndex)
-                {
-                    _swapChainBufferDisposalQueue[i].Item2?.Dispose();
-                    _swapChainBufferDisposalQueue.RemoveAt(i);
-                }
-            }
-        }
-
         public unsafe bool BeginFrame()
         {
             if (_swapChain.RecreateSwapChain)
@@ -440,8 +424,6 @@ namespace VECS
                 }
             }
 
-            _swapChainBufferDisposalQueue.ForEach(b => b.Item2?.Dispose());
-            _swapChainBufferDisposalQueue.Clear();
             GraphicsDevice.FreeCommandBuffers();
             _forwardRenderer.Dispose();
             _swapChain.Dispose();

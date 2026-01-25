@@ -68,7 +68,7 @@ namespace VECS.UI
         {
             UltralightVulkanDriver?.Dispose();
             uiOutputTex?.Dispose();
-            uiCopyBuffer?.Dispose();
+            uiCopyBuffer?.EnqueueForDisposal();
             _bitmap?.Dispose();
             _ulView?.Dispose();
             _ulRenderer?.Dispose();

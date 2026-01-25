@@ -40,7 +40,7 @@ namespace VECS
 
             _headIndex?.Dispose();
 
-            _linkedList?[0]?.Dispose();
+            _linkedList?[0]?.EnqueueForDisposal();
             _linkedList?.Dispose();
 
             var windowExtents = SwapChain.Instance._windowExtent;
@@ -66,7 +66,7 @@ namespace VECS
             EnginePipes.OIT_Unlit.SetStorageBuffer(ShaderPropertyInfo.GeometrySBOId, _geometry);
             EnginePipes.OIT_LitTexture.SetStorageBuffer(ShaderPropertyInfo.GeometrySBOId, _geometry);
 
-            AssetDataBase<ShaderSet>.AllAssetsListForReading.ForEach(asset =>
+            AssetDataBase<GraphicsPipeline>.AllAssetsListForReading.ForEach(asset =>
             {
                 if (asset.Transparent)
                 {
@@ -76,7 +76,7 @@ namespace VECS
 
             AssetDataBase<Material>.AllAssetsListForReading.ForEach(asset =>
             {
-                if (asset.ShaderSet.Transparent)
+                if (asset.Pipeline.Transparent)
                 {
                     asset.SetTexture(ShaderPropertyInfo.HeadIndexImageId, _headIndex);
                 }
@@ -308,8 +308,8 @@ namespace VECS
         public void Dispose()
         {
             GC.SuppressFinalize(this);
-            _linkedList?[0]?.Dispose();
-            _geometry?[0]?.Dispose();
+            _linkedList?[0]?.EnqueueForDisposal();
+            _geometry?[0]?.EnqueueForDisposal();
             _linkedList?.Dispose();
             _geometry?.Dispose();
             GC.ReRegisterForFinalize(this);

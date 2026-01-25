@@ -220,6 +220,7 @@ namespace VECS
             Time.FixedTimeStepCallback -= FixedUpdate;
             ULUI.CleanUp();
             _presenter.Dispose();
+            GPUBufferExtensions.Reset();
             GraphicsDevice.Dispose();
             _appWindow.Dispose();
         }

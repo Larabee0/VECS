@@ -1,5 +1,4 @@
-﻿using System;
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
@@ -7,10 +6,12 @@ namespace VECS.Presentation
 {
     public static class DepthReduction
     {
+        private static readonly int OutImagePropertyId = "outImage".GetShaderPropertyId();
+        private static readonly int InImagePropertyId = "inImage".GetShaderPropertyId();
 
         private static uint _depthPyramidWidth;
         private static uint _depthPyramidHeight;
-        private static ComputeShader _depthReduceShader;
+        private static ComputeVariant _depthReduceShader;
         private static Texture2D _depthPryamid;
         public static Texture2D DepthPryamid => _depthPryamid;
 
@@ -19,7 +20,7 @@ namespace VECS.Presentation
         public static void Init()
         {
 
-            _depthReduceShader = ComputeShader.GetOrCreate("depth_reduce.comp");
+            _depthReduceShader = ComputePipeline.GetOrCreate("depth_reduce.comp").Default();
             Presenter.Instance.OnSwapChainRecreation += RecreateImage;
             Application.Instance.OnDestroy += DestroyResources;
         }
@@ -122,11 +123,11 @@ namespace VECS.Presentation
                 imageLayout = VkImageLayout.ShaderReadOnlyOptimal
             };
 
-            _depthReduceShader.SetTexture("outImage".GetShaderPropertyId(), 0, destTarget, VkDescriptorType.StorageImage);
-            _depthReduceShader.SetTexture("inImage".GetShaderPropertyId(), 0, srcTarget, VkDescriptorType.CombinedImageSampler);
+            _depthReduceShader.SetTexture(OutImagePropertyId, destTarget, VkDescriptorType.StorageImage);
+            _depthReduceShader.SetTexture(InImagePropertyId, srcTarget, VkDescriptorType.CombinedImageSampler);
 
             _depthReduceShader.PushConstantsHandler.SetPushConstantVector2("imageSize", 0, new(_depthPyramidWidth, _depthPyramidHeight));
-            _depthReduceShader.Dispatch(frameInfo.CommandBuffer, frameInfo.FrameIndex, 0, GetGroupCount(_depthPyramidWidth, 32), GetGroupCount(_depthPyramidHeight, 32));
+            _depthReduceShader.Dispatch(frameInfo.CommandBuffer, frameInfo.FrameIndex, GetGroupCount(_depthPyramidWidth, 32), GetGroupCount(_depthPyramidHeight, 32));
 
             _depthPryamid.RegenerateMipMaps(frameInfo.CommandBuffer);
 

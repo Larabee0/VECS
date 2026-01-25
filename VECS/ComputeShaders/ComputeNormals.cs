@@ -38,23 +38,23 @@ namespace VECS
         private static readonly int NormalReadBufferId = "normalReadBuffer".GetShaderPropertyId();
         private static readonly int NormalWriteBufferId = "normalWriteBuffer".GetShaderPropertyId();
 
-        private static readonly ComputeShader _calcuateNormals;
-        private static readonly ComputeShader _normalizeNormals;
+        private static readonly ComputePipeline _calcuateNormals;
+        private static readonly ComputePipeline _normalizeNormals;
 
-        internal static uint _variant = 0;
+        internal static uint _invokcation = 0;
 
         static ComputeNormals()
         {
-            _calcuateNormals = ComputeShader.GetOrCreate("normal_recalculate.comp");
+            _calcuateNormals = ComputePipeline.GetOrCreate("normal_recalculate.comp");
 
-            _normalizeNormals = ComputeShader.GetOrCreate("normal_normalize.comp");
+            _normalizeNormals = ComputePipeline.GetOrCreate("normal_normalize.comp");
 
             Presenter.Instance.PostPresentationUpdate += PostPresent;
         }
 
         public static void PostPresent()
         {
-            Interlocked.Exchange(ref _variant, 0);
+            Interlocked.Exchange(ref _invokcation, 0);
         }
 
         public static unsafe void DispatchSingleTimeCmd(DirectMesh mesh)
@@ -67,17 +67,14 @@ namespace VECS
 
         public static unsafe void Dispatch(VkCommandBuffer commandBuffer, int frameIndex, DirectMesh mesh)
         {
-            if(_variant > 2000)
-            {
-                Console.WriteLine("Mesh Normal Compute Shader invokations exceeded default single frame count of {0}", ShaderSet.MAX_VARIANTS);
-            }
-
-            var discriptorIndex = Interlocked.Increment(ref _variant) - 1;
+            var variantIndex = Interlocked.Increment(ref _invokcation) - 1;
+            var calcuateNormalsVariant = _calcuateNormals.GetOrCreateVariant(variantIndex);
+            var normalizeNormalsVariant = _normalizeNormals.GetOrCreateVariant(variantIndex);
 
             var vertexNormalBuffer = mesh.GetBufferAtAttribute<Vector3>(VertexAttribute.Normal);
             var vertexPositionBuffer = mesh.GetBufferAtAttribute<Vector3>(VertexAttribute.Position);
-            PrepareNormalRecalculate(discriptorIndex, mesh.IndexBuffer, mesh.IndexOffsetBuffer, vertexPositionBuffer, vertexNormalBuffer);
-            PrepareNormalNormalize(discriptorIndex, vertexNormalBuffer);
+            PrepareNormalRecalculate(calcuateNormalsVariant, mesh.IndexBuffer, mesh.IndexOffsetBuffer, vertexPositionBuffer, vertexNormalBuffer);
+            PrepareNormalNormalize(normalizeNormalsVariant, vertexNormalBuffer);
             // clear normal buffer
             VkBufferMemoryBarrier2 memoryBarrier = new()
             {
@@ -94,7 +91,7 @@ namespace VECS
 
             uint componsatedBufferLength = (uint)(int)MathF.Ceiling(mesh.IndexBufferLength / 3f);
 
-            Vector2UInt workGroupXY = ComputeShader.CompensateForWorkGroupLimits(componsatedBufferLength);
+            Vector2UInt workGroupXY = ComputePipeline.CompensateForWorkGroupLimits(componsatedBufferLength);
 
             if (workGroupXY.Y != 1)
             {
@@ -108,7 +105,7 @@ namespace VECS
                 }
             }
 
-            _calcuateNormals.Dispatch(commandBuffer, frameIndex, discriptorIndex, workGroupXY.X, workGroupXY.Y, 1);
+            calcuateNormalsVariant.Dispatch(commandBuffer, frameIndex, workGroupXY.X, workGroupXY.Y, 1);
 
             memoryBarrier = new()
             {
@@ -122,8 +119,8 @@ namespace VECS
 
             MemoryBarrierHelper.BufferMemoryBarrier(commandBuffer, memoryBarrier);
 
-            workGroupXY = ComputeShader.CompensateForWorkGroupLimits(vertexNormalBuffer.UInstanceCount32);
-            _normalizeNormals.Dispatch(commandBuffer, frameIndex, discriptorIndex, workGroupXY.X, workGroupXY.Y, 1);
+            workGroupXY = ComputePipeline.CompensateForWorkGroupLimits(vertexNormalBuffer.UInstanceCount32);
+            normalizeNormalsVariant.Dispatch(commandBuffer, frameIndex, workGroupXY.X, workGroupXY.Y, 1);
 
             VkBufferMemoryBarrier2* barriers = stackalloc VkBufferMemoryBarrier2[2];
 
@@ -148,18 +145,18 @@ namespace VECS
             MemoryBarrierHelper.BufferMemoryBarrier(commandBuffer, 2, barriers);
         }
 
-        private static unsafe void PrepareNormalRecalculate(uint setId, GPUBuffer<uint> indexBuffer, GPUBuffer<uint> indexOffsetBuffer, GPUBuffer<Vector3> vertexBuffer, GPUBuffer<Vector3> normalBuffer)
+        private static unsafe void PrepareNormalRecalculate(ComputeVariant computeNormals, GPUBuffer<uint> indexBuffer, GPUBuffer<uint> indexOffsetBuffer, GPUBuffer<Vector3> vertexBuffer, GPUBuffer<Vector3> normalBuffer)
         {
             uint componsatedBufferLength = (uint)(int)MathF.Ceiling((float)indexBuffer.UInstanceCount32 / 3f);
             uint divider = (uint)(int)MathF.Ceiling((float)componsatedBufferLength / (float)GraphicsDevice.MaxWorkGroupX);
             uint workGroupX = (uint)Math.Min(componsatedBufferLength, GraphicsDevice.MaxWorkGroupX);
 
-            _calcuateNormals.SetUInt(ParamsBufferLengthId, setId, indexBuffer.UInstanceCount32);
-            _calcuateNormals.SetUInt(ParamsDepthId, setId, 1);
+            computeNormals.SetUInt(ParamsBufferLengthId, indexBuffer.UInstanceCount32);
+            computeNormals.SetUInt(ParamsDepthId, 1);
             if (divider == 1)
             {
-                _calcuateNormals.SetUInt(ParamsWidthId, setId, componsatedBufferLength);
-                _calcuateNormals.SetUInt(ParamsHeightId, setId, 1);
+                computeNormals.SetUInt(ParamsWidthId, componsatedBufferLength);
+                computeNormals.SetUInt(ParamsHeightId, 1);
             }
             else
             {
@@ -171,37 +168,37 @@ namespace VECS
                 {
                     workGroupX += 3 - workGroupX % 3;
                 }
-                _calcuateNormals.SetUInt(ParamsWidthId, setId, workGroupX);
-                _calcuateNormals.SetUInt(ParamsHeightId, setId, divider);
+                computeNormals.SetUInt(ParamsWidthId, workGroupX);
+                computeNormals.SetUInt(ParamsHeightId, divider);
             }
 
-            _calcuateNormals.SetStorageBuffer(VertexBufferId, setId, vertexBuffer);
-            _calcuateNormals.SetStorageBuffer(IndexBufferId, setId, indexBuffer);
-            _calcuateNormals.SetStorageBuffer(NormalBufferId, setId, normalBuffer);
-            _calcuateNormals.SetStorageBuffer(IndexOffsetId, setId, indexOffsetBuffer);
+            computeNormals.SetStorageBuffer(VertexBufferId, vertexBuffer);
+            computeNormals.SetStorageBuffer(IndexBufferId, indexBuffer);
+            computeNormals.SetStorageBuffer(NormalBufferId, normalBuffer);
+            computeNormals.SetStorageBuffer(IndexOffsetId, indexOffsetBuffer);
         }
 
-        private static unsafe void PrepareNormalNormalize(uint setId, GPUBuffer<Vector3> normalBuffer)
+        private static unsafe void PrepareNormalNormalize(ComputeVariant normalizeNormals, GPUBuffer<Vector3> normalBuffer)
         {
             uint divider = (uint)(int)MathF.Ceiling((float)normalBuffer.UInstanceCount32 / (float)GraphicsDevice.MaxWorkGroupX);
             uint workGroupX = (uint)Math.Min(normalBuffer.UInstanceCount32, GraphicsDevice.MaxWorkGroupX);
 
-            _normalizeNormals.SetUInt(ParamsBufferLengthId, setId, normalBuffer.UInstanceCount32);
-            _normalizeNormals.SetUInt(ParamsDepthId, setId, 1);
+            normalizeNormals.SetUInt(ParamsBufferLengthId, normalBuffer.UInstanceCount32);
+            normalizeNormals.SetUInt(ParamsDepthId, 1);
             if (divider == 1)
             {
-                _normalizeNormals.SetUInt(ParamsWidthId, setId, normalBuffer.UInstanceCount32);
-                _normalizeNormals.SetUInt(ParamsHeightId, setId, 1);
+                normalizeNormals.SetUInt(ParamsWidthId, normalBuffer.UInstanceCount32);
+                normalizeNormals.SetUInt(ParamsHeightId, 1);
             }
             else
             {
-                _normalizeNormals.SetUInt(ParamsWidthId, setId, workGroupX);
-                _normalizeNormals.SetUInt(ParamsHeightId, setId, divider);
+                normalizeNormals.SetUInt(ParamsWidthId, workGroupX);
+                normalizeNormals.SetUInt(ParamsHeightId, divider);
             }
 
 
-            _normalizeNormals.SetStorageBuffer(NormalReadBufferId, setId, normalBuffer);
-            _normalizeNormals.SetStorageBuffer(NormalWriteBufferId, setId, normalBuffer);
+            normalizeNormals.SetStorageBuffer(NormalReadBufferId, normalBuffer);
+            normalizeNormals.SetStorageBuffer(NormalWriteBufferId, normalBuffer);
         }
     }
 }

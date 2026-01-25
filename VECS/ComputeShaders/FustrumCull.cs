@@ -153,40 +153,38 @@ namespace VECS
         private static readonly int CullDataId = "cullData".GetShaderPropertyId();
 
 
-        private static readonly ComputeShader _computeShader;
-        private static readonly ComputeShader _textureSampler;
-
+        private static readonly ComputePipeline _computeShader;
+        private static readonly ComputePipeline _textureSampler;
+#if DEBUG
         private static readonly GPUBuffer<float> _textureResult;
+#endif
 
-        private static uint _variant = 0;
+        private static uint _invokation = 0;
 
-        public static ComputeShader Shader => _computeShader;
+        public static ComputePipeline Shader => _computeShader;
 
         static FustrumCull()
         {
-            _computeShader = ComputeShader.GetOrCreate("fustrum_cull.comp");
-            _textureSampler = ComputeShader.GetOrCreate("textureSampler.comp");
+            _computeShader = ComputePipeline.GetOrCreate("fustrum_cull.comp");
+#if DEBUG
+            _textureSampler = ComputePipeline.GetOrCreate("textureSampler.comp");
             _textureResult = new GPUBuffer<float>(1, VkBufferUsageFlags.StorageBuffer, true, false, false);
             _textureSampler.SetStorageBuffer("outBuffer".GetShaderPropertyId(), 0, _textureResult);
-            Presenter.Instance.PostPresentationUpdate += PostPresent;
             Application.Instance.OnDestroy += static () => _textureResult.Dispose();
+#endif
+            Presenter.Instance.PostPresentationUpdate += PostPresent;
         }
 
         public static void PostPresent()
         {
-            _computeShader.SetUniformBufferLength(_variant);
+            _computeShader.SetUniformBufferLength(_invokation);
 
-            Interlocked.Exchange(ref _variant, 0);
+            Interlocked.Exchange(ref _invokation, 0);
         }
 
         public static void Cull(VkCommandBuffer commandBuffer,int frameIndex, CullData cullData, uint drawCount, SwapChainBuffer<VECSDrawIndexIndirectCommand> drawIndirect, SwapChainBuffer<ShaderAABB> bounds)
         {
-            if (_variant > 2000)
-            {
-                Console.WriteLine("Fustrum Cull Compute Shader invokations exceeded default max uniform count of {0}", ShaderSet.MAX_VARIANTS);
-            }
-
-            var discriptorIndex = Interlocked.Increment(ref _variant) - 1;
+            var variantIndex = Interlocked.Increment(ref _invokation) - 1;
 #if DEBUG
 #pragma warning disable CS0162
             if (CPUCulling)
@@ -209,20 +207,22 @@ namespace VECS
 #endif
 
 
-            GPUCullInternal(commandBuffer,frameIndex, cullData, drawCount, drawIndirect, bounds, discriptorIndex);
+            GPUCullInternal(commandBuffer,frameIndex, cullData, drawCount, drawIndirect, bounds, variantIndex);
             
         }
-        private static void GPUCullInternal(VkCommandBuffer commandBuffer, int frameIndex, CullData cullData, uint drawCount, SwapChainBuffer drawIndirect, SwapChainBuffer bounds, uint setId)
+        private static void GPUCullInternal(VkCommandBuffer commandBuffer, int frameIndex, CullData cullData, uint drawCount, SwapChainBuffer drawIndirect, SwapChainBuffer bounds, uint variantIndex)
         {
             bounds.SetUsedInstanceCount(drawCount);
             drawIndirect.SetUsedInstanceCount(drawCount);
             cullData.drawCount = drawCount;
-            //cullData.SetPushConstant(_computeShader.PushConstantsHandler, (int)setId);
-            _computeShader.SetUniform(CullDataId, setId, cullData);
-            _computeShader.SetStorageBuffer(DrawBufferId, setId, drawIndirect);
-            _computeShader.SetStorageBuffer(BoundsBufferId, setId, bounds);
-            _computeShader.SetTexture(DepthPyramidId, setId, DepthReduction.DepthPryamid);
-            _computeShader.Dispatch(commandBuffer, frameIndex, setId, (drawCount / 256) + 1);
+
+            var invokeVariant = _computeShader.GetOrCreateVariant(variantIndex);
+
+            invokeVariant.SetUniform(CullDataId, cullData);
+            invokeVariant.SetStorageBuffer(DrawBufferId, drawIndirect);
+            invokeVariant.SetStorageBuffer(BoundsBufferId, bounds);
+            invokeVariant.SetTexture(DepthPyramidId, DepthReduction.DepthPryamid);
+            invokeVariant.Dispatch(commandBuffer, frameIndex, (drawCount / 256) + 1);
 
             VkBufferMemoryBarrier2 barrier = new()
             {
@@ -236,6 +236,7 @@ namespace VECS
 
             MemoryBarrierHelper.BufferMemoryBarrier(commandBuffer, barrier, VkPipelineStageFlags2.ComputeShader, VkPipelineStageFlags2.DrawIndirect | VkPipelineStageFlags2.ComputeShader);
         }
+
 
 #if DEBUG
         private static void CPUCull(CullData cullData, uint drawCount, SwapChainBuffer<VECSDrawIndexIndirectCommand> drawIndirect, SwapChainBuffer<ShaderAABB> bounds)
@@ -352,12 +353,12 @@ namespace VECS
             }
             C.Y *= -1;
 
-            Vector2 cx = new Vector2(C.X,C.Z);
+            Vector2 cx = new(C.X, C.Z);
             Vector2 vx = new(MathF.Sqrt(Vector2.Dot(cx, cx) - r * r), r);
             Vector2 minx = new Mat2(vx.X, vx.Y, -vx.Y, vx.X) * cx;
             Vector2 maxx = new Mat2(vx.X, -vx.Y, vx.Y, vx.X) * cx;
 
-            Vector2 cy = new Vector2(C.Y,C.Z);
+            Vector2 cy = new(C.Y, C.Z);
             Vector2 vy = new(MathF.Sqrt(Vector2.Dot(cy, cy) - r * r), r);
             Vector2 miny = new Mat2(vy.X, vy.Y, -vy.Y, vy.X) * cy;
             Vector2 maxy = new Mat2(vy.X, -vy.Y, vy.Y, vy.X) * cy;

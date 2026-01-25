@@ -236,7 +236,7 @@ namespace VECS
             }
             GC.SuppressFinalize(this);
 
-            _hostBuffer?.Dispose();
+            _hostBuffer?.EnqueueForDisposal();
 
             if (_textureSampler != VkSampler.Null)
             {

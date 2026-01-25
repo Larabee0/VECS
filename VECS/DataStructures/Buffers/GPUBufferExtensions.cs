@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -33,14 +34,16 @@ namespace VECS
             public readonly GPUBuffer DstBuffer;
             public readonly ulong DstOffset;
             public readonly ulong Size;
+            public readonly bool DisposeSrc;
 
-            public CopyBufferCmd(GPUBuffer srcBuffer, ulong srcOffset, GPUBuffer dstBuffer, ulong dstOffset, ulong size)
+            public CopyBufferCmd(GPUBuffer srcBuffer, ulong srcOffset, GPUBuffer dstBuffer, ulong dstOffset, ulong size, bool disposeSrc)
             {
                 SrcBuffer = srcBuffer;
                 SrcOffset = srcOffset;
                 DstBuffer = dstBuffer;
                 DstOffset = dstOffset;
                 Size = size;
+                DisposeSrc = disposeSrc;
             }
         }
 
@@ -66,17 +69,42 @@ namespace VECS
             }
         }
 
+        private class DisposeCmd
+        {
+            public GPUBuffer buffer;
+            public int frameIndex;
+
+            public DisposeCmd(GPUBuffer gpuBuffer, int i)
+            {
+                buffer = gpuBuffer;
+                frameIndex = i;
+            }
+        }
+
         private readonly static ConcurrentQueue<FillBufferCmd> _fillBufferQueue = new();
 
         private readonly static ConcurrentQueue<CopyBufferCmd> _copyBufferQueue = new();
 
         private readonly static ConcurrentQueue<WriteFromHostBufferCmd> _writeBufferCmds = new();
 
+        private readonly static ConcurrentQueue<DisposeCmd> _disposalQueue = new();
+        private readonly static List<DisposeCmd> _disposalList = [];
+
         public static void Reset()
         {
             _fillBufferQueue.Clear();
             _copyBufferQueue.Clear();
             _writeBufferCmds.Clear();
+
+            while (_disposalQueue.TryDequeue(out var cmd))
+            {
+                cmd.buffer?.Dispose();
+            }
+            for (int i = _disposalList.Count - 1; i >= 0; i--)
+            {
+                _disposalList[i].buffer?.Dispose();
+            }
+            _disposalList.Clear();
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -289,14 +317,13 @@ namespace VECS
                 if (buffer.PersistentStagingBuffer)
                 {
                     buffer.StagingBuffer.WriteToBuffer(data, size, offset);
-                    _copyBufferQueue.Enqueue(new(buffer.StagingBuffer, 0, buffer, 0, buffer.HostBufferSize));
+                    _copyBufferQueue.Enqueue(new(buffer.StagingBuffer, 0, buffer, 0, buffer.HostBufferSize,false));
                 }
                 else
                 {
                     var stagingBuffer = new GPUBuffer(buffer.UInstanceCount, buffer.InstanceSize, VkBufferUsageFlags.TransferSrc, true, false, false);
                     stagingBuffer.WriteToBuffer(data, size, offset);
-                    stagingBuffer.CopyToSingleTime(buffer);
-                    stagingBuffer.Dispose();
+                    _copyBufferQueue.Enqueue(new(buffer.StagingBuffer, 0, buffer, 0, buffer.HostBufferSize, true));
                 }
             }
             buffer.SetGPUBufferChanged(true);
@@ -546,7 +573,10 @@ namespace VECS
                     memoryBarrier.dstStageMask |= VkPipelineStageFlags2.IndexInput;
                     memoryBarrier.dstAccessMask |= VkAccessFlags2.IndexRead;
                 }
-
+                if (cmd.DisposeSrc)
+                {
+                    cmd.SrcBuffer.EnqueueForDisposal();
+                }
                 MemoryBarrierHelper.BufferMemoryBarrier(commandBuffer, memoryBarrier);
             }
         }
@@ -563,6 +593,39 @@ namespace VECS
                 {
                     cmd.SCBBuffer.WriteFromHostToBuffer(cmd.FrameIndex);
                 }
+            }
+        }
+
+        public static void EnqueueForDisposal(this GPUBuffer gpuBuffer)
+        {
+            _disposalQueue.Enqueue(new(gpuBuffer, SwapChain.MAX_CONCURRENT_FRAMES));
+        }
+
+        public static void EnqueueForDisposal(GPUBuffer gpuBuffer, int i)
+        {
+            _disposalQueue.Enqueue(new(gpuBuffer, i));
+        }
+
+        public static unsafe void PlayerbackDisposeCmds(int frameIndex)
+        {
+            for (int i = _disposalList.Count - 1; i >= 0; i--)
+            {
+                if (_disposalList[i].frameIndex == frameIndex)
+                {
+                    _disposalList[i].buffer?.Dispose();
+                    _disposalList.RemoveAt(i);
+                }
+            }
+
+            _disposalList.EnsureCapacity(_disposalQueue.Count);
+
+            while (_disposalQueue.TryDequeue(out var cmd))
+            {
+                if(cmd.frameIndex > SwapChain.MAX_CONCURRENT_FRAMES)
+                {
+                    cmd.frameIndex = frameIndex;
+                }
+                _disposalList.Add(cmd);
             }
         }
 
@@ -659,5 +722,6 @@ namespace VECS
         {
             return ActiveDescriptorInfo(buffer, 0, buffer.UInstanceCount32);
         }
+
     }
 }

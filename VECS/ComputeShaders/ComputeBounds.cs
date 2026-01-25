@@ -22,7 +22,7 @@ namespace VECS
         private static readonly int MinMaxBufferId = "minMaxBuffer".GetShaderPropertyId();
 
 
-        private static readonly ComputeShader _calculateBounds;
+        private static readonly ComputePipeline _calculateBounds;
 
         private static readonly SwapChainBuffer<int> _minMaxBuffer;
 
@@ -43,13 +43,13 @@ namespace VECS
 
         private static readonly ConcurrentQueue<BoundsRecal> _boundsResultQueue = new();
 
-        internal static uint _variant = 0;
+        internal static uint _invokcation = 0;
 
         static ComputeBounds()
         {
-            _calculateBounds = ComputeShader.GetOrCreate("calculate_mesh_bounds.comp");
+            _calculateBounds = ComputePipeline.GetOrCreate("calculate_mesh_bounds.comp");
 
-            _minMaxBuffer = new SwapChainBuffer<int>(6 * 2000, VkBufferUsageFlags.StorageBuffer, true);
+            _minMaxBuffer = new SwapChainBuffer<int>(6, VkBufferUsageFlags.StorageBuffer, true);
 
             Presenter.Instance.PostPresentationUpdate += PostPresent;
             Presenter.Instance.PreGraphicsPipe += CheckResults;
@@ -80,7 +80,7 @@ namespace VECS
 
         public static void PostPresent()
         {
-            Interlocked.Exchange(ref _variant, 0);
+            Interlocked.Exchange(ref _invokcation, 0);
         }
 
         public static void ResetMinMax(int setIndex)
@@ -127,28 +127,38 @@ namespace VECS
 
         public unsafe static void DispatchAll(VkCommandBuffer commandBuffer, int frameIndex, DirectMesh mesh)
         {
-            if (_variant > 2000)
+            if (_invokcation > 2000)
             {
                 // previously exceeded max invokcations this frame, kick it to next frame
                 DispatchAllNextFrame(mesh);
                 return;
             }
 
-            var firstDescriptor = Interlocked.Add(ref _variant, (uint)mesh.DirectSubMeshes.Length) - (uint)mesh.DirectSubMeshes.Length;
-
-            if(firstDescriptor + (uint)mesh.DirectSubMeshes.Length > 2000)
+            var firstDescriptor = Interlocked.Add(ref _invokcation, (uint)mesh.DirectSubMeshes.Length) - (uint)mesh.DirectSubMeshes.Length;
+            var totalInvokations = firstDescriptor + (uint)mesh.DirectSubMeshes.Length;
+            if (totalInvokations > 2000)
             {
                 // execution would exceeded max invokcations this frame, kick it to next frame
                 DispatchAllNextFrame(mesh);
                 return;
             }
 
+            if (_calculateBounds.VariantCount <= totalInvokations)
+            {
+                for (uint i = 0; i < totalInvokations; i++)
+                {
+                    _calculateBounds.GetOrCreateVariant(i, false);
+                }
+                // queued creation of new compute variants
+                DispatchAllNextFrame(mesh);
+                return;
+            }
             var vertexPositionBuffer = mesh.GetBufferAtAttribute<Vector3>(VertexAttribute.Position);
             VkBufferMemoryBarrier2 barrier = new(_minMaxBuffer.ActiveVkBuffer, VkPipelineStageFlags2.ComputeShader, VkAccessFlags2.ShaderWrite, VkPipelineStageFlags2.ComputeShader, VkAccessFlags2.ShaderWrite);
             for (uint i = 0; i < mesh.DirectSubMeshes.Length; i++)
             {
                 var subMesh = mesh.DirectSubMeshes[i];
-                Vector2UInt workGroupXY = ComputeShader.CompensateForWorkGroupLimits(subMesh.VertexCount);
+                Vector2UInt workGroupXY = ComputePipeline.CompensateForWorkGroupLimits(subMesh.VertexCount);
 
                 _calculateBounds.SetStorageBuffer(VertexBufferId, firstDescriptor+i, vertexPositionBuffer);
                 Prepare(firstDescriptor + i, subMesh);

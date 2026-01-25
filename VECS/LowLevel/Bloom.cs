@@ -52,9 +52,9 @@ namespace VECS.LowLevel
             blurConfig.colourBlendAttachment = blendAttachment;
             blurConfig.colourFormats[0] = VkFormat.R32G32B32A32Sfloat;
 
-            var blurPipe = new ShaderSet("GaussBlur","gaussblur.vert", "gaussblur.frag", blurConfig);
+            var blurPipe = new GraphicsPipeline("GaussBlur","gaussblur.vert", "gaussblur.frag", blurConfig);
 
-            _blurVertical = blurPipe.Create("VerticalBlur");
+            _blurVertical = blurPipe.Default();
             _blurHorizontal = blurPipe.Create("HorizontalBlur");
 
             _blurVertical.PushConstants.SetPushConstantInt("blurdirection",0, 0);

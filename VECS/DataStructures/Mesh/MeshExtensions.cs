@@ -429,7 +429,7 @@ namespace VECS
 
             if (buffer != null && !buffer.IsDisposed)
             {
-                GPUBuffer.DisposalQueue.Enqueue(buffer);
+                buffer.EnqueueForDisposal();
             }
 
             buffer = new GPUBuffer(attributeStride == 12 ? 16 : attributeStride, (uint)meshletVertexCount, MESH_SHADER_VERTEX_BUFFER_FLAGS, false, false, true);
@@ -487,7 +487,7 @@ namespace VECS
             var indexBuffer = srcMesh._meshletIndexBuffer;
             if (indexBuffer != null && !indexBuffer.IsDisposed)
             {
-                GPUBuffer.DisposalQueue.Enqueue(indexBuffer);
+                indexBuffer.EnqueueForDisposal();
             }
             indexBuffer = new((uint)meshletIndexCount, MESH_SHADER_INDEX_BUFFER_FLAGS, false, true, true);
             indexBuffer.TryAllocHostBuffer(false);
@@ -517,7 +517,7 @@ namespace VECS
             {
                 if (buffer != null && !buffer.IsDisposed)
                 {
-                    GPUBuffer.DisposalQueue.Enqueue(buffer);
+                    buffer.EnqueueForDisposal();
                 }
                 newBuffer = new GPUBuffer<T>((uint)data.Length, MESH_SHADER_INDEX_BUFFER_FLAGS, true, false, false);
             }

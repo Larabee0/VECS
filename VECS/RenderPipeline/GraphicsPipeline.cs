@@ -10,7 +10,7 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
-    public class ShaderSet : DisposableAsset
+    public class GraphicsPipeline : DisposableAsset
     {
         public const int MAX_VARIANTS = 1000;
         public const uint DEFAULT_STORAGE_BUFFER_COUNT = 10000;
@@ -50,7 +50,7 @@ namespace VECS
         private bool _preBindUpdate = false;
 
         [ThreadStatic]
-        private static ShaderSet _lastBound;
+        private static GraphicsPipeline _lastBound;
         [ThreadStatic]
         private static int _lastFrameIndex;
 
@@ -67,7 +67,7 @@ namespace VECS
         public DescriptorSetInfo[] DescriptorSetInfos => _descriptorSetInfos;
         public PushConstantsHandler PushConstants => _materialPushConstantsHandler;
 
-        public ShaderSet(string name, string vertexShaderName, string fragmentShaderName, GraphicsPipelineConfigInfo pipelineConfig)
+        public GraphicsPipeline(string name, string vertexShaderName, string fragmentShaderName, GraphicsPipelineConfigInfo pipelineConfig)
         {
             AssetName = name;
 
@@ -94,10 +94,10 @@ namespace VECS
             _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipelineVertFrag(vertex, fragment, _graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT);
             CreateDefault();
 
-            AssetDataBase<ShaderSet>.Add(this);
+            AssetDataBase<GraphicsPipeline>.Add(this);
         }
 
-        internal ShaderSet(string name, string vertexShaderName, GraphicsPipelineConfigInfo pipelineConfig)
+        internal GraphicsPipeline(string name, string vertexShaderName, GraphicsPipelineConfigInfo pipelineConfig)
         {
             AssetName = name;
 
@@ -123,10 +123,10 @@ namespace VECS
             _pipelineLayout = GPUPipelineUtil.CreatePipelineLayoutVert(vertex, _descriptorSetLayouts, _materialPushConstantsHandler);
             _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipelineVert(vertex, _graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT);
             CreateDefault();
-            AssetDataBase<ShaderSet>.Add(this);
+            AssetDataBase<GraphicsPipeline>.Add(this);
         }
 
-        internal ShaderSet(string name, string meshShaderName, string taskShaderName, string fragmentShaderName, GraphicsPipelineConfigInfo pipelineConfig)
+        internal GraphicsPipeline(string name, string meshShaderName, string taskShaderName, string fragmentShaderName, GraphicsPipelineConfigInfo pipelineConfig)
         {
             AssetName = name;
 
@@ -163,10 +163,10 @@ namespace VECS
             _pipelineLayout = GPUPipelineUtil.CreatePipelineLayoutMeshTaskFrag(mesh, task, fragment, _descriptorSetLayouts, _materialPushConstantsHandler);
             _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipelineMeshTaskFrag(mesh, task, fragment, _graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT);
             CreateDefault();
-            AssetDataBase<ShaderSet>.Add(this);
+            AssetDataBase<GraphicsPipeline>.Add(this);
         }
 
-        internal ShaderSet(string name, string vertexShaderName, string fragmentShaderName, GraphicsPipelineConfigInfo pipelineConfig, string geometryShaderName)
+        internal GraphicsPipeline(string name, string vertexShaderName, string fragmentShaderName, GraphicsPipelineConfigInfo pipelineConfig, string geometryShaderName)
         {
             AssetName = name;
 
@@ -193,7 +193,7 @@ namespace VECS
             _pipelineLayout = GPUPipelineUtil.CreatePipelineLayoutVerGeoFrag(vertex, geometry, fragment, _descriptorSetLayouts, _materialPushConstantsHandler);
             _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipelineVertGeoFrag(vertex, geometry, fragment, _graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT);
             CreateDefault();
-            AssetDataBase<ShaderSet>.Add(this);
+            AssetDataBase<GraphicsPipeline>.Add(this);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -222,7 +222,7 @@ namespace VECS
 
         private unsafe void CreateDefault()
         {
-            _matVariants = [new Material("Default", this,true)];
+            _matVariants = [new Material("Default", this,false)];
             _variantsToAdd.TryDequeue(out var material);
 
             if (UniformBufferSize > 0)
@@ -336,7 +336,7 @@ namespace VECS
             {
                 return _matVariants[index];
             }
-            return new Material(string.Format("VARAINT_{0}", index),this);
+            return Create(string.Format("VARAINT_{0}", index));
         }
 
         public Material Create(string name)
@@ -371,10 +371,10 @@ namespace VECS
                     if (_uniformBufferSize > 0 && variant.localUniformAllocation)
                     {
                         void* localAllocation = variant.pUniformBuffer;
-                        byte* shaderSetAllocation = (byte*)_uniformBuffer.HostPtr + (_uniformBufferSize * variant.VariantIndex);
-                        Buffer.MemoryCopy(localAllocation, shaderSetAllocation, _uniformBufferSize, _uniformBufferSize);
+                        byte* pipelineAlloc = (byte*)_uniformBuffer.HostPtr + (_uniformBufferSize * variant.VariantIndex);
+                        Buffer.MemoryCopy(localAllocation, pipelineAlloc, _uniformBufferSize, _uniformBufferSize);
                         NativeMemory.AlignedFree(localAllocation);
-                        variant.pUniformBuffer = shaderSetAllocation;
+                        variant.pUniformBuffer = pipelineAlloc;
                         variant.localUniformAllocation = false;
                     }
                 }
@@ -430,6 +430,7 @@ namespace VECS
         public unsafe void WriteToUniformBuffer<T>(uint variant, ShaderPropertyInfo propertyInfo, T element) where T : unmanaged
         {
             var maxSize = propertyInfo.Property == null ? propertyInfo.BindingInfo.BufferSize : propertyInfo.Property.Size;
+            var propertyOffset = propertyInfo.Property == null ? 0 : propertyInfo.Property.Offset;
 
             if (sizeof(T) > propertyInfo.BindingInfo.BufferSize)
             {
@@ -442,7 +443,7 @@ namespace VECS
             }
 
             var buffer = _uniformBuffer;
-            var internalOffset = InternalUniformBufferOffset(propertyInfo);
+            var internalOffset = InternalUniformBufferOffset(propertyInfo) + propertyOffset;
 
             // internaloffset => offset of descriptor set
             // property offset => offset or shader property within set
@@ -456,15 +457,14 @@ namespace VECS
         public unsafe void WriteToUniformBuffer<T>(void* uniform, ShaderPropertyInfo propertyInfo, T element) where T : unmanaged
         {
             var maxSize = propertyInfo.Property == null ? propertyInfo.BindingInfo.BufferSize : propertyInfo.Property.Size;
+            var propertyOffset = propertyInfo.Property == null ? 0 : propertyInfo.Property.Offset;
 
             if (sizeof(T) > propertyInfo.BindingInfo.BufferSize)
             {
                 throw new InvalidOperationException("Cannot write property with mismatched size");
             }
 
-            var internalOffset = InternalUniformBufferOffset(propertyInfo);
-
-            if (propertyInfo.Property != null) internalOffset += propertyInfo.Property.Offset;
+            var internalOffset = InternalUniformBufferOffset(propertyInfo) + propertyOffset;
 
             var hostPtr = (byte*)uniform + internalOffset;
 
@@ -474,6 +474,7 @@ namespace VECS
         public unsafe T ReadFromUniformBuffer<T>(uint variant, ShaderPropertyInfo propertyInfo) where T : unmanaged
         {
             var maxSize = propertyInfo.Property == null ? propertyInfo.BindingInfo.BufferSize : propertyInfo.Property.Size;
+            var propertyOffset = propertyInfo.Property == null ? 0 : propertyInfo.Property.Offset;
 
             if (sizeof(T) > propertyInfo.BindingInfo.BufferSize)
             {
@@ -486,9 +487,7 @@ namespace VECS
             }
 
             var buffer = _uniformBuffer;
-            var internalOffset = InternalUniformBufferOffset(propertyInfo);
-
-            if (propertyInfo.Property != null) internalOffset += propertyInfo.Property.Offset;
+            var internalOffset = InternalUniformBufferOffset(propertyInfo) + propertyOffset;
 
             // internaloffset => offset of descriptor set
             // property offset => offset or shader property within set
@@ -504,15 +503,14 @@ namespace VECS
         public unsafe T ReadFromUniformBuffer<T>(void* uniform, ShaderPropertyInfo propertyInfo) where T : unmanaged
         {
             var maxSize = propertyInfo.Property == null ? propertyInfo.BindingInfo.BufferSize : propertyInfo.Property.Size;
+            var propertyOffset = propertyInfo.Property == null ? 0 : propertyInfo.Property.Offset;
 
             if (sizeof(T) > propertyInfo.BindingInfo.BufferSize)
             {
                 throw new InvalidOperationException("Cannot read property with mismatched size");
             }
 
-            var internalOffset = InternalUniformBufferOffset(propertyInfo);
-
-            if (propertyInfo.Property != null) internalOffset += propertyInfo.Property.Offset;
+            var internalOffset = InternalUniformBufferOffset(propertyInfo) + propertyOffset;
 
 
             var hostPtr = (byte*)uniform + internalOffset;
@@ -526,6 +524,7 @@ namespace VECS
         public unsafe void WriteArrayToBuffer<T>(uint variant, ShaderPropertyInfo propertyInfo, Span<T> array) where T : unmanaged
         {
             var maxSize = propertyInfo.Property == null ? propertyInfo.BindingInfo.BufferSize : propertyInfo.Property.Size;
+            var propertyOffset = propertyInfo.Property == null ? 0 : propertyInfo.Property.Offset;
 
             if (sizeof(T) * array.Length > maxSize)
             {
@@ -538,9 +537,7 @@ namespace VECS
             }
 
             var buffer = _uniformBuffer;
-            var internalOffset = InternalUniformBufferOffset(propertyInfo);
-
-            if (propertyInfo.Property != null) internalOffset += propertyInfo.Property.Offset;
+            var internalOffset = InternalUniformBufferOffset(propertyInfo) + propertyOffset;
 
 
             // internaloffset => offset of descriptor set
@@ -557,15 +554,14 @@ namespace VECS
         public unsafe void WriteArrayToBuffer<T>(void* uniform, ShaderPropertyInfo propertyInfo, Span<T> array) where T : unmanaged
         {
             var maxSize = propertyInfo.Property == null ? propertyInfo.BindingInfo.BufferSize : propertyInfo.Property.Size;
+            var propertyOffset = propertyInfo.Property == null ? 0 : propertyInfo.Property.Offset;
 
             if (sizeof(T) * array.Length > maxSize)
             {
                 throw new InvalidOperationException("Cannot write property with mismatched size");
             }
 
-            var internalOffset = InternalUniformBufferOffset(propertyInfo);
-
-            if (propertyInfo.Property != null) internalOffset += propertyInfo.Property.Offset;
+            var internalOffset = InternalUniformBufferOffset(propertyInfo) + propertyOffset;
 
 
             var hostPtr = (byte*)uniform + internalOffset;
@@ -578,6 +574,7 @@ namespace VECS
         public unsafe T[] ReadArrayFromBuffer<T>(uint variant, ShaderPropertyInfo propertyInfo) where T : unmanaged
         {
             var maxSize = propertyInfo.Property == null ? propertyInfo.BindingInfo.BufferSize : propertyInfo.Property.Size;
+            var propertyOffset = propertyInfo.Property == null ? 0 : propertyInfo.Property.Offset;
 
             if (sizeof(T) % maxSize != 0)
             {
@@ -590,9 +587,7 @@ namespace VECS
             }
 
             var buffer = _uniformBuffer;
-            var internalOffset = InternalUniformBufferOffset(propertyInfo);
-
-            if (propertyInfo.Property != null) internalOffset += propertyInfo.Property.Offset;
+            var internalOffset = InternalUniformBufferOffset(propertyInfo) + propertyOffset;
 
 
             // internaloffset => offset of descriptor set
@@ -612,15 +607,14 @@ namespace VECS
         public unsafe T[] ReadArrayFromBuffer<T>(void* uniform, ShaderPropertyInfo propertyInfo) where T : unmanaged
         {
             var maxSize = propertyInfo.Property == null ? propertyInfo.BindingInfo.BufferSize : propertyInfo.Property.Size;
+            var propertyOffset = propertyInfo.Property == null ? 0 : propertyInfo.Property.Offset;
 
             if (sizeof(T) % maxSize != 0)
             {
                 throw new InvalidOperationException("Cannot read property with unpadded size");
             }
 
-            var internalOffset = InternalUniformBufferOffset(propertyInfo);
-
-            if (propertyInfo.Property != null) internalOffset += propertyInfo.Property.Offset;
+            var internalOffset = InternalUniformBufferOffset(propertyInfo) + propertyOffset;
 
 
             var hostPtr = (byte*)uniform + internalOffset;
@@ -996,30 +990,30 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal unsafe static void Update(ShaderSet shaders, RendererFrameInfo frameInfo)
+        internal unsafe static void Update(GraphicsPipeline pipeline, RendererFrameInfo frameInfo)
         {
-            if (shaders.VariantCount == 0) return;
+            if (pipeline.VariantCount == 0) return;
 
-            bool forceDescriptorWrite = shaders.AllocNewVariants();
+            bool forceDescriptorWrite = pipeline.AllocNewVariants();
 
             int frameIndex = frameInfo.FrameIndex;
-            for (uint i = 0; i < shaders.VariantCount; i++)
+            for (uint i = 0; i < pipeline.VariantCount; i++)
             {
-                var variant = shaders._matVariants[i];
+                var variant = pipeline._matVariants[i];
                 if (variant == null) continue;
-                shaders.SetGlobalUniforms(i, frameInfo);
+                pipeline.SetGlobalUniforms(i, frameInfo);
                 Material.UpdateVariant(variant, frameIndex, forceDescriptorWrite);
                 if (!forceDescriptorWrite) continue;
-                shaders.WriteUniformToDescriptorBuffers(variant);
+                pipeline.WriteUniformToDescriptorBuffers(variant);
             }
 
-            Material firstVariant = shaders._matVariants[0];
+            Material firstVariant = pipeline._matVariants[0];
 
-            for (uint i = 0; i < shaders.DescriptorSetCount; i++)
+            for (uint i = 0; i < pipeline.DescriptorSetCount; i++)
             {
-                if (i == shaders._meshShaderDescriptorSetIndex|| i == shaders._oitDescriptorSetIndex) continue;
-                shaders._descriptorSetInfos[i].SetVariantLength((uint)shaders.VariantCount);
-                var bindings = shaders.GetDescriptorBindings(i);
+                if (i == pipeline._meshShaderDescriptorSetIndex|| i == pipeline._oitDescriptorSetIndex) continue;
+                pipeline._descriptorSetInfos[i].SetVariantLength((uint)pipeline.VariantCount);
+                var bindings = pipeline.GetDescriptorBindings(i);
                 for (uint j = 0; j < bindings.Length; j++)
                 {
                     var binding = bindings[j];
@@ -1027,29 +1021,29 @@ namespace VECS
                     {
                         // this seems suspect
                         // maybe make a way to look up buffers from bindings easily
-                        shaders.GetBuffer(binding).SetUsedInstanceCount(firstVariant.GetStorageBufferLength(i, binding.BindPoint));
+                        pipeline.GetBuffer(binding).SetUsedInstanceCount(firstVariant.GetStorageBufferLength(i, binding.BindPoint));
                     }
                 }
             }
 
-            for (int i = 0; i < shaders._descriptorSetInfos.Length; i++)
+            for (int i = 0; i < pipeline._descriptorSetInfos.Length; i++)
             {
-                shaders._descriptorSetInfos[i].WriteFromBuffers(frameIndex);
+                pipeline._descriptorSetInfos[i].WriteFromBuffers(frameIndex);
             }
 
-            if (shaders.UniformBufferSize > 0)
+            if (pipeline.UniformBufferSize > 0)
             {
-                shaders._uniformBuffer.WriteFromHostToBuffer(frameIndex);
+                pipeline._uniformBuffer.WriteFromHostToBuffer(frameIndex);
             }
 
-            shaders._preBindUpdate = false;
+            pipeline._preBindUpdate = false;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static void UpdateMaterialsParallel(RendererFrameInfo frameInfo)
         {
-            var count = AssetDataBase<ShaderSet>.AssetCount;
-            var readingList = AssetDataBase<ShaderSet>.AllAssetsListForReading;
+            var count = AssetDataBase<GraphicsPipeline>.AssetCount;
+            var readingList = AssetDataBase<GraphicsPipeline>.AllAssetsListForReading;
             Application.ParallelFor(count, (i) =>
             {
                 Update(readingList[i], frameInfo);
@@ -1059,8 +1053,8 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static void UpdateMaterials(RendererFrameInfo frameInfo)
         {
-            var count = AssetDataBase<ShaderSet>.AssetCount;
-            var readingList = AssetDataBase<ShaderSet>.AllAssetsListForReading;
+            var count = AssetDataBase<GraphicsPipeline>.AssetCount;
+            var readingList = AssetDataBase<GraphicsPipeline>.AllAssetsListForReading;
             readingList.ForEach(m => Update(m, frameInfo));
         }
     }

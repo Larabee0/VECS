@@ -296,7 +296,8 @@ namespace VECS
 
             for (int i = 0; i < _buffers.Length; i++)
             {
-                Presenter.Instance.SwapChainBufferDisposalQueue.Add((i, _buffers[i]));
+                
+                GPUBufferExtensions.EnqueueForDisposal(_buffers[i], i);
                 _buffers[i] = null;
             }
         }

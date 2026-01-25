@@ -152,7 +152,7 @@ namespace VECS
 
             var mesh = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("quad.obj"),null)[0];
 
-            var unlit_Textured = new ShaderSet("UnlitTextured", "unlit_textured.vert", "unlit_textured.frag", GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], [])).Default();
+            var unlit_Textured = new GraphicsPipeline("UnlitTextured", "unlit_textured.vert", "unlit_textured.frag", GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], [])).Default();
 
 
             AddRenderMeshComponents(entity, unlit_Textured, 0, mesh, entityManager);
@@ -303,8 +303,8 @@ namespace VECS
                 Mesh = mesh.GetSubMeshIndex(),
                 Material = new()
                 {
-                    Transparent = mat.ShaderSet.Transparent,
-                    Hash = mat.ShaderSet.Hash,
+                    Transparent = mat.Pipeline.Transparent,
+                    Hash = mat.Pipeline.Hash,
                     Variant = (int)mat.VariantIndex,
                     Entity = entityVariant
                 },

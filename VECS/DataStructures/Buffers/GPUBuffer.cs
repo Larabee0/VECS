@@ -14,8 +14,6 @@ namespace VECS
 {
     public class GPUBuffer : IDisposable
     {
-        public readonly static ConcurrentQueue<GPUBuffer> DisposalQueue = [];
-
         private GPUBuffer _stagingBuffer;
         public VkBuffer VkBuffer;
         internal VmaAllocation _allocation;
@@ -192,14 +190,6 @@ namespace VECS
 
             _disposed = true;
             
-        }
-
-        public static void EmptyDisposalQueue()
-        {
-            while (DisposalQueue.TryDequeue(out var buffer))
-            {
-                buffer.Dispose();
-            }
         }
     }
 

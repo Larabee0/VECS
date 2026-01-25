@@ -139,9 +139,9 @@ namespace VECS.UI
         private readonly ULResourceLibrary<TextureWithStagingBuffer> _renderBufferLibrary = new();
         private readonly ULResourceLibrary<GeometryBuffer> _geometryLibrary = new();
 
-        private readonly ShaderSet _ulFill;
-        private readonly ShaderSet _ulFillNoBlend;
-        private readonly ShaderSet _ulFillPath;
+        private readonly GraphicsPipeline _ulFill;
+        private readonly GraphicsPipeline _ulFillNoBlend;
+        private readonly GraphicsPipeline _ulFillPath;
 
         private readonly Queue<ULCommand> _commands = [];
 
@@ -237,7 +237,7 @@ namespace VECS.UI
             configInfo.colourBlendAttachment.dstAlphaBlendFactor = VkBlendFactor.OneMinusSrcAlpha;
             configInfo.colourBlendAttachment.dstColorBlendFactor = VkBlendFactor.OneMinusSrcAlpha;
 
-            _ulFill = new ShaderSet("UL_Fill", "ul_fill.vert", "ul_fill.frag", configInfo);
+            _ulFill = new GraphicsPipeline("UL_Fill", "ul_fill.vert", "ul_fill.frag", configInfo);
 
             // path uses blending ig
             var pathConfigInfo = configInfo;
@@ -251,7 +251,7 @@ namespace VECS.UI
 
             configInfo.colourBlendInfo.logicOp = VkLogicOp.Clear;
 
-            _ulFillNoBlend = new ShaderSet("UL_FillNoBlend", "ul_fill.vert", "ul_fill.frag", configInfo);
+            _ulFillNoBlend = new GraphicsPipeline("UL_FillNoBlend", "ul_fill.vert", "ul_fill.frag", configInfo);
 
             pathConfigInfo.BindingDescriptions = [
                  new()
@@ -281,7 +281,7 @@ namespace VECS.UI
                 },
             ];
 
-            _ulFillPath = new ShaderSet("UL_Fill_Path", "ul_fill_path.vert", "ul_fill_path.frag", pathConfigInfo);
+            _ulFillPath = new GraphicsPipeline("UL_Fill_Path", "ul_fill_path.vert", "ul_fill_path.frag", pathConfigInfo);
         }
 
         #region RenderBuffer

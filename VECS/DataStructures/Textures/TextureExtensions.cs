@@ -219,7 +219,7 @@ namespace VECS
 
                     return;
                 }
-                texture._hostBuffer.Dispose();
+                texture._hostBuffer.EnqueueForDisposal();
                 texture._hostBuffer = null;
                 createNewBuffer = true;
             }
@@ -233,7 +233,7 @@ namespace VECS
                 }
                 else
                 {
-                    texture._hostBuffer.Dispose();
+                    texture._hostBuffer.EnqueueForDisposal();
                     texture._hostBuffer = null;
                     createNewBuffer = true;
                 }
@@ -296,7 +296,7 @@ namespace VECS
                 }
                 if (copy.DisposeBufferAfterCopy)
                 {
-                    Presenter.Instance.SwapChainBufferDisposalQueue.Add((Presenter.Instance.FrameIndex, copy.Buffer));
+                    copy.Buffer.EnqueueForDisposal();
                 }
             }
 

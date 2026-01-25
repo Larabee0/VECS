@@ -129,53 +129,53 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static unsafe T ReadFromBuffer<T>(this Material material, ShaderPropertyInfo propertyInfo) where T : unmanaged
         {
-            return material.ShaderSet.ReadFromUniformBuffer<T>(material.pUniformBuffer, propertyInfo);
+            return material.Pipeline.ReadFromUniformBuffer<T>(material.pUniformBuffer, propertyInfo);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static unsafe T[] ReadArrayFromBuffer<T>(this Material material, ShaderPropertyInfo propertyInfo) where T : unmanaged
         {
-            return material.ShaderSet.ReadArrayFromBuffer<T>(material.pUniformBuffer, propertyInfo);
+            return material.Pipeline.ReadArrayFromBuffer<T>(material.pUniformBuffer, propertyInfo);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static T ReadFromBuffer<T>(this ShaderSet shaders, int propertyId, uint variant) where T : unmanaged
+        public static T ReadFromBuffer<T>(this GraphicsPipeline pipeline, int propertyId, uint variant) where T : unmanaged
         {
-            if (shaders.LookUpProperty(propertyId, out var propertyInfo))
+            if (pipeline.LookUpProperty(propertyId, out var propertyInfo))
             {
-                return shaders.ReadFromUniformBuffer<T>(variant, propertyInfo);
+                return pipeline.ReadFromUniformBuffer<T>(variant, propertyInfo);
             }
             return default;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe T[] ReadArrayFromBuffer<T>(this ShaderSet shaders, int propertyId, uint variant) where T : unmanaged
+        public static unsafe T[] ReadArrayFromBuffer<T>(this GraphicsPipeline pipeline, int propertyId, uint variant) where T : unmanaged
         {
-            if (shaders.LookUpProperty(propertyId, out var propertyInfo))
+            if (pipeline.LookUpProperty(propertyId, out var propertyInfo))
             {
-                return shaders.ReadArrayFromBuffer<T>(variant, propertyInfo);
-            }
-
-            return default;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Span<T> GetStorageBuffer<T>(this ShaderSet shaders, int propertyId) where T : unmanaged
-        {
-            if (shaders.LookUpProperty(propertyId, out var propertyInfo))
-            {
-                return shaders.GetStorageBuffer<T>(propertyInfo);
+                return pipeline.ReadArrayFromBuffer<T>(variant, propertyInfo);
             }
 
             return default;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe static void* GetUnsafeStorageBuffer(this ShaderSet shaders, int propertyId)
+        public static Span<T> GetStorageBuffer<T>(this GraphicsPipeline pipeline, int propertyId) where T : unmanaged
         {
-            if (shaders.LookUpProperty(propertyId, out var propertyInfo))
+            if (pipeline.LookUpProperty(propertyId, out var propertyInfo))
             {
-                return shaders.GetStorageBuffer(propertyInfo);
+                return pipeline.GetStorageBuffer<T>(propertyInfo);
+            }
+
+            return default;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe static void* GetUnsafeStorageBuffer(this GraphicsPipeline pipeline, int propertyId)
+        {
+            if (pipeline.LookUpProperty(propertyId, out var propertyInfo))
+            {
+                return pipeline.GetStorageBuffer(propertyInfo);
             }
 
             return null;
@@ -184,13 +184,13 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Span<T> GetStorageBuffer<T>(this Material material, int propertyId) where T : unmanaged
         {
-            return material.ShaderSet.GetStorageBuffer<T>(propertyId);
+            return material.Pipeline.GetStorageBuffer<T>(propertyId);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe static void* GetUnsafeStorageBuffer(this Material material, int propertyId)
         {
-            return material.ShaderSet.GetUnsafeStorageBuffer(propertyId);
+            return material.Pipeline.GetUnsafeStorageBuffer(propertyId);
         }
     }
 }

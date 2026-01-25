@@ -206,6 +206,11 @@ namespace VECS
             return new Span<ulong>(_descriptorBuffer.HostPtr, (int)(_descriptorBuffer.HostBufferSize / sizeof(ulong)));
         }
 
+        public unsafe void* GetHostPtr()
+        {
+            return _descriptorBuffer.HostPtr; 
+        }
+
         public void ReadHost()
         {
             _descriptorBuffer.ReadToHostBuffer();
@@ -267,7 +272,7 @@ namespace VECS
         public unsafe void Dispose()
         {
             GC.SuppressFinalize(this);
-            _descriptorBuffer.Dispose();
+            _descriptorBuffer.EnqueueForDisposal();
             GC.ReRegisterForFinalize(this);
         }
 
