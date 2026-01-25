@@ -32,7 +32,4 @@ void main(void)
   ex_ObjectCoord = in_TexCoord;
   gl_Position = uni.Transform * vec4(in_Position, 0.0, 1.0);
   ex_Color = in_Color;
-	#if VELDRID
-	gl_Position.y = -gl_Position.y;
-	#endif
 }
