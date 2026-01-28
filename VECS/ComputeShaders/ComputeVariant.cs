@@ -95,7 +95,7 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool LookUpProperty(int propertyId, out ShaderPropertyInfo propertyInfo)
+        public bool LookUpProperty(int propertyId, out ShaderProperty propertyInfo)
         {
             return _computePipeline.LookUpProperty(propertyId, out propertyInfo);
         }
@@ -120,7 +120,7 @@ namespace VECS
                 WriteToBuffer(propertyInfo, value);
             }
         }
-        public unsafe void WriteToBuffer<T>(ShaderPropertyInfo propertyInfo, T element) where T : unmanaged
+        public unsafe void WriteToBuffer<T>(ShaderProperty propertyInfo, T element) where T : unmanaged
         {
             var maxSize = propertyInfo.Property == null ? propertyInfo.BindingInfo.BufferSize : propertyInfo.Property.Size;
             var propertyOffset = propertyInfo.Property == null ? 0 : propertyInfo.Property.Offset;

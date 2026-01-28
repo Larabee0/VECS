@@ -34,7 +34,7 @@ namespace VECS
         private uint _uniformBufferSize;
         private VkBufferUsageFlags _uniformBufferUsage;
 
-        private readonly ConcurrentDictionary<int, ShaderPropertyInfo> _cachedShaderProperties = new();
+        private readonly ConcurrentDictionary<int, ShaderProperty> _cachedShaderProperties = new();
 
         private readonly PushConstantsHandler _materialPushConstantsHandler;
         private readonly DescriptorSetInfo[] _descriptorSetInfos;
@@ -266,16 +266,16 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private uint InternalUniformBufferOffset(ShaderPropertyInfo propertyInfo)
+        private uint InternalUniformBufferOffset(ShaderProperty propertyInfo)
         {
             return InternalUniformBufferOffset(propertyInfo.SetIndex, propertyInfo.BindPoint);
         }
 
-        public bool LookUpProperty(int propertyId, out ShaderPropertyInfo propertyInfo)
+        public bool LookUpProperty(int propertyId, out ShaderProperty propertyInfo)
         {
             if (_cachedShaderProperties.TryGetValue(propertyId, out propertyInfo))
             {
-                return propertyInfo != ShaderPropertyInfo.Invalid;
+                return propertyInfo != ShaderProperties.Invalid;
             }
 
             for (uint setIndex = 0; setIndex < _descriptorSetCount; setIndex++)
@@ -301,13 +301,13 @@ namespace VECS
             }
 
 #if DEBUG
-            bool isGlobalProperty = ShaderPropertyInfo.IgnoreUnFoundShaderProperties.Contains(propertyId);
-            if (!isGlobalProperty || (ShaderPropertyInfo.LOG_MISSING_GLOBAL_SHADER_PROPERTIES && isGlobalProperty))
+            bool isGlobalProperty = ShaderProperties.IgnoreUnFoundShaderProperties.Contains(propertyId);
+            if (!isGlobalProperty || (ShaderProperties.LOG_MISSING_GLOBAL_SHADER_PROPERTIES && isGlobalProperty))
             {
                 Console.WriteLine("Material '{0}' has no shader property matching propertyId: '{1}' -> '{2}'", AssetName, propertyId, propertyId.GetPropertyIdString());
             }
 #endif
-            propertyInfo = ShaderPropertyInfo.Invalid;
+            propertyInfo = ShaderProperties.Invalid;
             _cachedShaderProperties.TryAdd(propertyId, propertyInfo);
             return false;
         }
@@ -410,10 +410,20 @@ namespace VECS
                     if (!binding.UniformBuffer) continue;
                     
                     var internalOffset = InternalUniformBufferOffset(binding.DescriptorSetIndex, binding.BindPoint);
+                    var global = GraphicsPipelineExtension.TryGetBuffer(binding.Id);
 
                     for (int frameIndex = 0; frameIndex < SwapChain.MAX_CONCURRENT_FRAMES; frameIndex++)
                     {
-                        var addressRange = _uniformBuffer[frameIndex].GetBufferAddressRangeBytes(startOffset + internalOffset, binding.BufferSize);
+                        VkDescriptorAddressInfoEXT addressRange;
+                        if (global != null)
+                        {
+                            addressRange = global[frameIndex].GetBufferAddressRangeBytes();
+                        }
+                        else
+                        {
+                            addressRange = _uniformBuffer[frameIndex].GetBufferAddressRangeBytes(startOffset + internalOffset, binding.BufferSize);
+                        }
+                            
 
                         setInfo.DescriptorBuffers[frameIndex].SetBufferBinding(addressRange, binding.DescriptorType, variant, binding.BindPoint);
                     }
@@ -427,7 +437,7 @@ namespace VECS
             setInfo.WriteDescriptors(descriptorBuffer, variant, bindingBuffers, bindingImages);
         }
 
-        public unsafe void WriteToUniformBuffer<T>(uint variant, ShaderPropertyInfo propertyInfo, T element) where T : unmanaged
+        public unsafe void WriteToUniformBuffer<T>(uint variant, ShaderProperty propertyInfo, T element) where T : unmanaged
         {
             var maxSize = propertyInfo.Property == null ? propertyInfo.BindingInfo.BufferSize : propertyInfo.Property.Size;
             var propertyOffset = propertyInfo.Property == null ? 0 : propertyInfo.Property.Offset;
@@ -454,7 +464,7 @@ namespace VECS
             Buffer.MemoryCopy(&element, hostPtr, maxSize, sizeof(T));
         }
 
-        public unsafe void WriteToUniformBuffer<T>(void* uniform, ShaderPropertyInfo propertyInfo, T element) where T : unmanaged
+        public unsafe void WriteToUniformBuffer<T>(void* uniform, ShaderProperty propertyInfo, T element) where T : unmanaged
         {
             var maxSize = propertyInfo.Property == null ? propertyInfo.BindingInfo.BufferSize : propertyInfo.Property.Size;
             var propertyOffset = propertyInfo.Property == null ? 0 : propertyInfo.Property.Offset;
@@ -471,7 +481,7 @@ namespace VECS
             Buffer.MemoryCopy(&element, hostPtr, maxSize, sizeof(T));
         }
 
-        public unsafe T ReadFromUniformBuffer<T>(uint variant, ShaderPropertyInfo propertyInfo) where T : unmanaged
+        public unsafe T ReadFromUniformBuffer<T>(uint variant, ShaderProperty propertyInfo) where T : unmanaged
         {
             var maxSize = propertyInfo.Property == null ? propertyInfo.BindingInfo.BufferSize : propertyInfo.Property.Size;
             var propertyOffset = propertyInfo.Property == null ? 0 : propertyInfo.Property.Offset;
@@ -500,7 +510,7 @@ namespace VECS
             return value;
         }
 
-        public unsafe T ReadFromUniformBuffer<T>(void* uniform, ShaderPropertyInfo propertyInfo) where T : unmanaged
+        public unsafe T ReadFromUniformBuffer<T>(void* uniform, ShaderProperty propertyInfo) where T : unmanaged
         {
             var maxSize = propertyInfo.Property == null ? propertyInfo.BindingInfo.BufferSize : propertyInfo.Property.Size;
             var propertyOffset = propertyInfo.Property == null ? 0 : propertyInfo.Property.Offset;
@@ -521,7 +531,7 @@ namespace VECS
             return value;
         }
 
-        public unsafe void WriteArrayToBuffer<T>(uint variant, ShaderPropertyInfo propertyInfo, Span<T> array) where T : unmanaged
+        public unsafe void WriteArrayToBuffer<T>(uint variant, ShaderProperty propertyInfo, Span<T> array) where T : unmanaged
         {
             var maxSize = propertyInfo.Property == null ? propertyInfo.BindingInfo.BufferSize : propertyInfo.Property.Size;
             var propertyOffset = propertyInfo.Property == null ? 0 : propertyInfo.Property.Offset;
@@ -551,7 +561,7 @@ namespace VECS
             }
         }
 
-        public unsafe void WriteArrayToBuffer<T>(void* uniform, ShaderPropertyInfo propertyInfo, Span<T> array) where T : unmanaged
+        public unsafe void WriteArrayToBuffer<T>(void* uniform, ShaderProperty propertyInfo, Span<T> array) where T : unmanaged
         {
             var maxSize = propertyInfo.Property == null ? propertyInfo.BindingInfo.BufferSize : propertyInfo.Property.Size;
             var propertyOffset = propertyInfo.Property == null ? 0 : propertyInfo.Property.Offset;
@@ -571,7 +581,7 @@ namespace VECS
             }
         }
 
-        public unsafe T[] ReadArrayFromBuffer<T>(uint variant, ShaderPropertyInfo propertyInfo) where T : unmanaged
+        public unsafe T[] ReadArrayFromBuffer<T>(uint variant, ShaderProperty propertyInfo) where T : unmanaged
         {
             var maxSize = propertyInfo.Property == null ? propertyInfo.BindingInfo.BufferSize : propertyInfo.Property.Size;
             var propertyOffset = propertyInfo.Property == null ? 0 : propertyInfo.Property.Offset;
@@ -604,7 +614,7 @@ namespace VECS
             return array;
         }
 
-        public unsafe T[] ReadArrayFromBuffer<T>(void* uniform, ShaderPropertyInfo propertyInfo) where T : unmanaged
+        public unsafe T[] ReadArrayFromBuffer<T>(void* uniform, ShaderProperty propertyInfo) where T : unmanaged
         {
             var maxSize = propertyInfo.Property == null ? propertyInfo.BindingInfo.BufferSize : propertyInfo.Property.Size;
             var propertyOffset = propertyInfo.Property == null ? 0 : propertyInfo.Property.Offset;
@@ -628,7 +638,7 @@ namespace VECS
             return array;
         }
 
-        internal void SetTexture(ShaderPropertyInfo propertyInfo, uint variant, Texture texture)
+        internal void SetTexture(ShaderProperty propertyInfo, uint variant, Texture texture)
         {
             if (_matVariants[variant] == null)
             {
@@ -681,7 +691,7 @@ namespace VECS
             return default;
         }
 
-        public unsafe Span<T> GetStorageBuffer<T>(ShaderPropertyInfo propertyInfo) where T : unmanaged
+        public unsafe Span<T> GetStorageBuffer<T>(ShaderProperty propertyInfo) where T : unmanaged
         {
             var ptr = GetStorageBuffer(propertyInfo);
             if (ptr != null)
@@ -692,7 +702,7 @@ namespace VECS
             return null;
         }
 
-        public unsafe void* GetStorageBuffer(ShaderPropertyInfo propertyInfo)
+        public unsafe void* GetStorageBuffer(ShaderProperty propertyInfo)
         {
             if (propertyInfo.BindingInfo.StorageBuffer)
             {
@@ -701,7 +711,7 @@ namespace VECS
             return null;
         }
 
-        public unsafe SwapChainBuffer GetStorageSwapChainBuffer(ShaderPropertyInfo propertyInfo)
+        public unsafe SwapChainBuffer GetStorageSwapChainBuffer(ShaderProperty propertyInfo)
         {
             if (propertyInfo.Property == null && propertyInfo.BindingInfo.StorageBuffer || propertyInfo.Property != null &&propertyInfo.Property.VariableArraySize)
             {

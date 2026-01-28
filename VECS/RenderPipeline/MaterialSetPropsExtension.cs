@@ -142,7 +142,7 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static unsafe void WriteArrayToBuffer<T>(this Material material, ShaderPropertyInfo propertyInfo, Span<T> values) where T : unmanaged
+        internal static unsafe void WriteArrayToBuffer<T>(this Material material, ShaderProperty propertyInfo, Span<T> values) where T : unmanaged
         {
             material.Pipeline.WriteArrayToBuffer(material.pUniformBuffer, propertyInfo, values);
         }
@@ -157,7 +157,7 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static unsafe void WriteToBuffer<T>(this Material material, ShaderPropertyInfo propertyInfo, T element) where T : unmanaged
+        internal static unsafe void WriteToBuffer<T>(this Material material, ShaderProperty propertyInfo, T element) where T : unmanaged
         {
             material.Pipeline.WriteToUniformBuffer(material.pUniformBuffer, propertyInfo, element);
         }
@@ -181,13 +181,13 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool LookUpProperty(this Material material, int propertyId, out ShaderPropertyInfo propertyInfo)
+        public static bool LookUpProperty(this Material material, int propertyId, out ShaderProperty propertyInfo)
         {
             return material.Pipeline.LookUpProperty(propertyId, out propertyInfo);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetTexture(this Material material, ShaderPropertyInfo propertyInfo, Texture texture)
+        public static void SetTexture(this Material material, ShaderProperty propertyInfo, Texture texture)
         {
             material.SetTexture(propertyInfo.SetIndex, propertyInfo.BindPoint, texture);
         }
@@ -195,7 +195,7 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void SetTexture(this GraphicsPipeline pipeline, int propertyId, uint variant, Texture texture)
         {
-            if(pipeline.LookUpProperty(propertyId, out ShaderPropertyInfo shaderPropertyInfo))
+            if(pipeline.LookUpProperty(propertyId, out ShaderProperty shaderPropertyInfo))
             {
                 pipeline.SetTexture(shaderPropertyInfo, variant, texture);
             }
@@ -239,17 +239,17 @@ namespace VECS
 
         internal unsafe static void SetGlobalUniforms(this GraphicsPipeline pipeline, uint variant, in RendererFrameInfo frameInfo)
         {
-            WriteToBuffer(pipeline, ShaderPropertyInfo.LightingInfoId, variant, frameInfo.LightingInfo);
+            //WriteToBuffer(pipeline, ShaderProperties.LightingInfoId, variant, frameInfo.LightingInfo);
 
-            if (variant != 0) return;
-            uint camreaCount = (uint)frameInfo.CameraCount;
-            SetUniformBuffer(pipeline, ShaderPropertyInfo.CameraInfoId, frameInfo.CameraInfo, camreaCount);
-            SetUniformBuffer(pipeline, ShaderPropertyInfo.CameraInverseId, frameInfo.CameraInverseInfo, camreaCount);
-            SetUniformBuffer(pipeline, ShaderPropertyInfo.AdditionalCameraInfoId, frameInfo.AdditionalCameraInfo, camreaCount);
-            SetUniformBuffer(pipeline, ShaderPropertyInfo.OrthographicInfoId, frameInfo.OrthographicInfo, camreaCount);
-
-            SetUniformBuffer(pipeline, ShaderPropertyInfo.PointLightsBufferId,  frameInfo.PointLights, (uint)frameInfo.LightingInfo.NumPointLights);
-            SetUniformBuffer(pipeline, ShaderPropertyInfo.SpotLightsBufferId,  frameInfo.SpotLights, (uint)frameInfo.LightingInfo.NumSpotLights);
+            // if (variant != 0) return;
+            // uint camreaCount = (uint)frameInfo.CameraCount;
+            // SetUniformBuffer(pipeline, ShaderProperties.CameraInfoId, frameInfo.CameraInfo, camreaCount);
+            // SetUniformBuffer(pipeline, ShaderProperties.CameraInverseId, frameInfo.CameraInverseInfo, camreaCount);
+            // SetUniformBuffer(pipeline, ShaderProperties.AdditionalCameraInfoId, frameInfo.AdditionalCameraInfo, camreaCount);
+            // SetUniformBuffer(pipeline, ShaderProperties.OrthographicInfoId, frameInfo.OrthographicInfo, camreaCount);
+            // 
+            // SetUniformBuffer(pipeline, ShaderProperties.PointLightsBufferId,  frameInfo.PointLights, (uint)frameInfo.LightingInfo.NumPointLights);
+            // SetUniformBuffer(pipeline, ShaderProperties.SpotLightsBufferId,  frameInfo.SpotLights, (uint)frameInfo.LightingInfo.NumSpotLights);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

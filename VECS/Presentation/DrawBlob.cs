@@ -132,7 +132,7 @@ namespace VECS
             ElementSize = BufferSource.ElementSize;
             ElementType = BufferSource.ElementType;
             BufferShaderPropertyId = BufferSource.BufferShaderPropertyId;
-            ShaderPropertyInfo.IgnoreUnFoundShaderProperties.Add(BufferShaderPropertyId);
+            ShaderProperties.IgnoreUnFoundShaderProperties.Add(BufferShaderPropertyId);
             Alignment = (uint)GPUBufferExtensions.GetAlignment(ElementSize);
 
             _buffer = (byte*)NativeMemory.AlignedAlloc(ElementSize, Alignment);
@@ -627,16 +627,16 @@ namespace VECS
             Application.ParallelFor(AllInOneMats.Count, (i) =>
             {
                 var mat = AssetDataBase<GraphicsPipeline>.GetHashed(AllInOneMats[i]);
-                var matrices = mat.GetStorageBuffer<ModelMatrices>(ShaderPropertyInfo.MatricesBufferId);
-                var bounds = mat.GetStorageBuffer<ShaderAABB>(ShaderPropertyInfo.BoundsBufferId);
+                var matrices = mat.GetStorageBuffer<ModelMatrices>(ShaderProperties.MatricesBufferId);
+                var bounds = mat.GetStorageBuffer<ShaderAABB>(ShaderProperties.BoundsBufferId);
                 if (!matrices.IsEmpty)
                 {
-                    mat.SetDescriptorStorageBufferLengthFromProperty(ShaderPropertyInfo.MatricesBufferId, (uint)allInOneDrawCount);
+                    mat.SetDescriptorStorageBufferLengthFromProperty(ShaderProperties.MatricesBufferId, (uint)allInOneDrawCount);
                     _drawMatrixByMesh.AsSpan(0, allInOneDrawCount).CopyTo(matrices);
                 }
                 if (!bounds.IsEmpty)
                 {
-                    mat.SetDescriptorStorageBufferLengthFromProperty(ShaderPropertyInfo.BoundsBufferId, (uint)allInOneDrawCount);
+                    mat.SetDescriptorStorageBufferLengthFromProperty(ShaderProperties.BoundsBufferId, (uint)allInOneDrawCount);
                     _drawRenderBoundsByMat.HostBuffer[..allInOneDrawCount].CopyTo(bounds);
                 }
             });

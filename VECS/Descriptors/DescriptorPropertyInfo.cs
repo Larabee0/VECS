@@ -101,7 +101,7 @@ namespace VECS
         {
             Name = name;
             AbsName = parentName + name;
-            Id = AbsName.GetHashCode();
+            Id = AbsName.GetShaderPropertyId();
             Type = type;
             Offset = offset;
             PaddedSize = paddedSize;
@@ -126,7 +126,7 @@ namespace VECS
         {
             Name = name;
             AbsName = parentName + name;
-            Id = AbsName.GetHashCode();
+            Id = AbsName.GetShaderPropertyId();
             Type = type;
             Offset = offset;
             PaddedSize = paddedSize;
@@ -153,7 +153,7 @@ namespace VECS
         {
             Name = member.Name;
             AbsName = parentName + member.Name;
-            Id = AbsName.GetHashCode();
+            Id = AbsName.GetShaderPropertyId();
             Type = typeDesc.op;
             Offset = member.offset;
             PaddedSize = member.padded_size;
@@ -176,7 +176,7 @@ namespace VECS
         {
             Name = name;
             AbsName = parentName + name;
-            Id = AbsName.GetHashCode();
+            Id = AbsName.GetShaderPropertyId();
             Type = type;
             Offset = offset;
             PaddedSize = paddedSize;
@@ -210,7 +210,7 @@ namespace VECS
         {
             Name = name;
             AbsName = parentName + name;
-            Id = AbsName.GetHashCode();
+            Id = AbsName.GetShaderPropertyId();
             Type = type;
             Offset = offset;
             PaddedSize = paddedSize;
@@ -230,7 +230,7 @@ namespace VECS
         {
             Name = name;
             AbsName = parentName + name;
-            Id = AbsName.GetHashCode();
+            Id = AbsName.GetShaderPropertyId();
             Type = type;
             Offset = offset;
             ImageType = imageTraits.dim switch

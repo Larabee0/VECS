@@ -170,7 +170,8 @@ namespace VECS
                 {
                     if (!_noAllocStorageBuffers)
                     {
-                        buffer = new(binding.BufferSize, GraphicsPipeline.DEFAULT_STORAGE_BUFFER_COUNT, binding.BufferUsageFlags, true);
+                        buffer = GraphicsPipelineExtension.TryGetBuffer(binding.Id);
+                        buffer ??= new(binding.BufferSize, GraphicsPipeline.DEFAULT_STORAGE_BUFFER_COUNT, binding.BufferUsageFlags, true);
                         _ownerStorageBuffer[b] = true;
                     }
                     else
@@ -185,9 +186,12 @@ namespace VECS
                 }
                 else if (binding.Buffer)
                 {
-                    _internalUniformBufferOffsets[i] = _uniformSize;
-                    _uniformSize += binding.BufferSize;
-                    _uniformBufferFlags |= binding.BufferUsageFlags;
+                    if(GraphicsPipelineExtension.TryGetBuffer(binding.Id) == null)
+                    {
+                        _internalUniformBufferOffsets[i] = _uniformSize;
+                        _uniformSize += binding.BufferSize;
+                        _uniformBufferFlags |= binding.BufferUsageFlags;
+                    }
                 }
             }
 #if DEBUG

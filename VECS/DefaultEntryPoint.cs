@@ -218,7 +218,7 @@ namespace VECS
                     }
                     if (transparent)
                     {
-                        material.SetTexture(ShaderPropertyInfo.HeadIndexImageId, Presenter.Instance.ForwardRenderer._headIndex);
+                        material.SetTexture(ShaderProperties.HeadIndexImageId, Presenter.Instance.ForwardRenderer._headIndex);
                         material.SetTexture(texProp, diffuseTexture);
                     }
                     else
@@ -230,7 +230,7 @@ namespace VECS
                 {
                     if (transparent)
                     {
-                        material.SetTexture(ShaderPropertyInfo.HeadIndexImageId, Presenter.Instance.ForwardRenderer._headIndex);
+                        material.SetTexture(ShaderProperties.HeadIndexImageId, Presenter.Instance.ForwardRenderer._headIndex);
                         material.SetTexture(texProp, EngineTextures.White);
                     }
                     else

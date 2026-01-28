@@ -60,17 +60,17 @@ namespace VECS
 
         public void SetOIT()
         {
-            EnginePipes.OIT_Composite.Default().SetTexture(ShaderPropertyInfo.HeadIndexImageId, _headIndex);
-            EnginePipes.OIT_Composite.SetStorageBuffer(ShaderPropertyInfo.LinkedListSBOId, _linkedList);
+            EnginePipes.OIT_Composite.Default().SetTexture(ShaderProperties.HeadIndexImageId, _headIndex);
+            EnginePipes.OIT_Composite.SetStorageBuffer(ShaderProperties.LinkedListSBOId, _linkedList);
 
-            EnginePipes.OIT_Unlit.SetStorageBuffer(ShaderPropertyInfo.GeometrySBOId, _geometry);
-            EnginePipes.OIT_LitTexture.SetStorageBuffer(ShaderPropertyInfo.GeometrySBOId, _geometry);
+            EnginePipes.OIT_Unlit.SetStorageBuffer(ShaderProperties.GeometrySBOId, _geometry);
+            EnginePipes.OIT_LitTexture.SetStorageBuffer(ShaderProperties.GeometrySBOId, _geometry);
 
             AssetDataBase<GraphicsPipeline>.AllAssetsListForReading.ForEach(asset =>
             {
                 if (asset.Transparent)
                 {
-                    asset.SetStorageBuffer(ShaderPropertyInfo.LinkedListSBOId, _linkedList);
+                    asset.SetStorageBuffer(ShaderProperties.LinkedListSBOId, _linkedList);
                 }
             });
 
@@ -78,7 +78,7 @@ namespace VECS
             {
                 if (asset.Pipeline.Transparent)
                 {
-                    asset.SetTexture(ShaderPropertyInfo.HeadIndexImageId, _headIndex);
+                    asset.SetTexture(ShaderProperties.HeadIndexImageId, _headIndex);
                 }
             });
 

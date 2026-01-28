@@ -40,15 +40,16 @@ namespace VECS
         {
             AssetDataBase<Material>.AllAssetsListForReading.ForEach(asset =>
             {
-                asset.SetCubeMapArray(ShaderPropertyInfo.PLShadowImageId, DepthImages);
+                asset.SetCubeMapArray(ShaderProperties.PLShadowImageId, DepthImages);
             });
         }
 
         public static void FillViewMatrices(in RendererFrameInfo frameInfo, SwapChainBuffer mats)
         {
+            var pointLights = ((SwapChainBuffer<PointLightUniform>)GraphicsPipelineExtension.TryGetBuffer(ShaderProperties.PointLightsBufferId)).HostBuffer;
             for (int i = 0; i < frameInfo.LightingInfo.NumPointLights; i++)
             {
-                var pl = frameInfo.PointLights[i];
+                var pl = pointLights[i];
                 var lightPos = pl.Position.AsVector3();
                 var offset = 1 + i * 6;
                 
@@ -65,9 +66,10 @@ namespace VECS
 
         public static void FillLightInfo(in RendererFrameInfo frameInfo, SwapChainBuffer lightInfo)
         {
+            var pointLights = ((SwapChainBuffer<PointLightUniform>)GraphicsPipelineExtension.TryGetBuffer(ShaderProperties.PointLightsBufferId)).HostBuffer;
             for (int i = 0; i < frameInfo.LightingInfo.NumPointLights; i++)
             {
-                var pl = frameInfo.PointLights[i];
+                var pl = pointLights[i];
                 var lightPos = pl.Position;
                 lightPos.W = pl.FarPlane;
                 lightInfo.UnsafeSet(i + 1, lightPos);

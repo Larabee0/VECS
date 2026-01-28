@@ -27,12 +27,12 @@ namespace VECS
         public readonly CullData CullData;
         public readonly LightingInfo LightingInfo;
 
-        public readonly BufferMAXCAMS<CameraInfo> CameraInfo;
-        public readonly BufferMAXCAMS<CameraInverseInfo> CameraInverseInfo;
-        public readonly BufferMAXCAMS<AdditionalCameraInfo> AdditionalCameraInfo;
-        public readonly BufferMAXCAMS<OrthographicInfo> OrthographicInfo;
-        public readonly BufferMAXLIGHTS<PointLightUniform> PointLights;
-        public readonly BufferMAXLIGHTS<SpotLightUniform> SpotLights;
+        // public readonly BufferMAXCAMS<CameraInfo> CameraInfo;
+        // public readonly BufferMAXCAMS<CameraInverseInfo> CameraInverseInfo;
+        // public readonly BufferMAXCAMS<AdditionalCameraInfo> AdditionalCameraInfo;
+        // public readonly BufferMAXCAMS<OrthographicInfo> OrthographicInfo;
+        // public readonly BufferMAXLIGHTS<PointLightUniform> PointLights;
+        // public readonly BufferMAXLIGHTS<SpotLightUniform> SpotLights;
 
         public RendererFrameInfo(
             int frameIndex,
@@ -41,13 +41,13 @@ namespace VECS
             float deltaTime,
             VkCommandBuffer commandBuffer,
             CullData cullData,
-            LightingInfo lightingInfo,
-            BufferMAXCAMS<CameraInfo> cameraInfo,
-            BufferMAXCAMS<CameraInverseInfo> cameraInverseInfo,
-            BufferMAXCAMS<AdditionalCameraInfo> additionalCameraInfo,
-            BufferMAXCAMS<OrthographicInfo> orthographicInfo,
-            BufferMAXLIGHTS<PointLightUniform> pointLights,
-            BufferMAXLIGHTS<SpotLightUniform> spotLights)
+            LightingInfo lightingInfo)//,
+            //BufferMAXCAMS<CameraInfo> cameraInfo,
+            //BufferMAXCAMS<CameraInverseInfo> cameraInverseInfo,
+            //BufferMAXCAMS<AdditionalCameraInfo> additionalCameraInfo,
+            //BufferMAXCAMS<OrthographicInfo> orthographicInfo,
+            //BufferMAXLIGHTS<PointLightUniform> pointLights,
+            //BufferMAXLIGHTS<SpotLightUniform> spotLights)
         {
             FrameIndex = frameIndex;
             CameraCount = cameraCount;
@@ -58,12 +58,12 @@ namespace VECS
             CullData = cullData;
             LightingInfo = lightingInfo;
 
-            CameraInfo = cameraInfo;
-            CameraInverseInfo = cameraInverseInfo;
-            AdditionalCameraInfo = additionalCameraInfo;
-            OrthographicInfo = orthographicInfo;
-            PointLights = pointLights;
-            SpotLights = spotLights;
+            //CameraInfo = cameraInfo;
+            //CameraInverseInfo = cameraInverseInfo;
+            //AdditionalCameraInfo = additionalCameraInfo;
+            //OrthographicInfo = orthographicInfo;
+            //PointLights = pointLights;
+            //SpotLights = spotLights;
         }
 
         public static bool operator ==(RendererFrameInfo left, RendererFrameInfo right)

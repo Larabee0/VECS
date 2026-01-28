@@ -31,7 +31,7 @@ namespace VECS
         public DescriptorBinding(SpvReflectDescriptorBinding descriptorBinding, VkShaderStageFlags shaderStageFlags)
         {
             Name = descriptorBinding.Name;
-            Id = Name.GetHashCode();
+            Id = Name.GetShaderPropertyId();
             BindPoint = descriptorBinding.binding;
             DescriptorSetIndex = descriptorBinding.set;
             ShaderStage = shaderStageFlags;

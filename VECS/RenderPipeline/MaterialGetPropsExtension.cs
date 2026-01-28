@@ -127,13 +127,13 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static unsafe T ReadFromBuffer<T>(this Material material, ShaderPropertyInfo propertyInfo) where T : unmanaged
+        internal static unsafe T ReadFromBuffer<T>(this Material material, ShaderProperty propertyInfo) where T : unmanaged
         {
             return material.Pipeline.ReadFromUniformBuffer<T>(material.pUniformBuffer, propertyInfo);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static unsafe T[] ReadArrayFromBuffer<T>(this Material material, ShaderPropertyInfo propertyInfo) where T : unmanaged
+        private static unsafe T[] ReadArrayFromBuffer<T>(this Material material, ShaderProperty propertyInfo) where T : unmanaged
         {
             return material.Pipeline.ReadArrayFromBuffer<T>(material.pUniformBuffer, propertyInfo);
         }

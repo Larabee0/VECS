@@ -18,7 +18,7 @@ namespace VECS
 
         public int DescriptorSetCount => _descriptorSetCount;
 
-        private readonly ConcurrentDictionary<int, ShaderPropertyInfo> _cachedShaderProperties = new();
+        private readonly ConcurrentDictionary<int, ShaderProperty> _cachedShaderProperties = new();
 
         internal readonly DescriptorSetInfo[] _descriptorSetInfos;
         private readonly VkDescriptorSetLayout[] _descriptorSetLayouts;
@@ -43,8 +43,6 @@ namespace VECS
         private static ComputePipeline _lastBoundComputeShader;
         [ThreadStatic]
         private static int _frameIndex;
-
-        private uint _uniformLength = GraphicsPipeline.MAX_VARIANTS;
 
         public unsafe ComputePipeline(string assetName, string shaderName)
         {
@@ -232,18 +230,18 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public uint InternalUniformBufferOffset(ShaderPropertyInfo propertyInfo)
+        public uint InternalUniformBufferOffset(ShaderProperty propertyInfo)
         {
             return InternalUniformBufferOffset(propertyInfo.SetIndex, propertyInfo.BindPoint);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool LookUpProperty(string property, out ShaderPropertyInfo propertyInfo)
+        public bool LookUpProperty(string property, out ShaderProperty propertyInfo)
         {
             return LookUpProperty(property.GetHashCode(), out propertyInfo);
         }
 
-        public bool LookUpProperty(int propertyId, out ShaderPropertyInfo propertyInfo)
+        public bool LookUpProperty(int propertyId, out ShaderProperty propertyInfo)
         {
             if (_cachedShaderProperties.TryGetValue(propertyId, out propertyInfo))
             {
@@ -274,7 +272,7 @@ namespace VECS
 
             Console.WriteLine("ComputeShader '{0}' has no shader property matching propertyId: '{1}' -> '{2}'", AssetName, propertyId, propertyId.GetPropertyIdString());
 
-            propertyInfo = ShaderPropertyInfo.Invalid;
+            propertyInfo = ShaderProperties.Invalid;
             _cachedShaderProperties.TryAdd(propertyId, propertyInfo);
             return false;
         }
@@ -410,7 +408,7 @@ namespace VECS
             }
         }
 
-        public unsafe void WriteToBuffer<T>(uint variant, ShaderPropertyInfo propertyInfo, T element) where T : unmanaged
+        public unsafe void WriteToBuffer<T>(uint variant, ShaderProperty propertyInfo, T element) where T : unmanaged
         {
             var maxSize = propertyInfo.Property == null ? propertyInfo.BindingInfo.BufferSize : propertyInfo.Property.Size;
             var propertyOffset = propertyInfo.Property == null ? 0 : propertyInfo.Property.Offset;
@@ -433,7 +431,7 @@ namespace VECS
             NativeMemory.Copy(&element, (void*)hostPtr, maxSize);
         }
 
-        public unsafe void WriteArrayToBuffer<T>(uint variant, ShaderPropertyInfo propertyInfo, T[] array) where T : unmanaged
+        public unsafe void WriteArrayToBuffer<T>(uint variant, ShaderProperty propertyInfo, T[] array) where T : unmanaged
         {
             var maxSize = propertyInfo.Property == null ? propertyInfo.BindingInfo.BufferSize : propertyInfo.Property.Size;
             var propertyOffset = propertyInfo.Property == null ? 0 : propertyInfo.Property.Offset;

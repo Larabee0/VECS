@@ -6,7 +6,7 @@ using VECS.ECS.Presentation;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
-namespace VECS.RenderPipeline
+namespace VECS
 {
     public class SpotLightShadows
     {
@@ -48,7 +48,7 @@ namespace VECS.RenderPipeline
 
             AssetDataBase<Material>.AllAssetsListForReading.ForEach(asset =>
             {
-                asset.SetTextureArray(ShaderPropertyInfo.SLShadowImageId, _shadowDepthImage);
+                asset.SetTextureArray(ShaderProperties.SLShadowImageId, _shadowDepthImage);
             });
         }
 
@@ -93,10 +93,10 @@ namespace VECS.RenderPipeline
             var shadowOffscreen = EnginePipes.ShadowOffscreen;
             var mats = shadowOffscreen.GetStorageSwapChainBuffer(PointLightShadows.matsPropertyId);
             var lights = shadowOffscreen.GetStorageSwapChainBuffer(PointLightShadows.lightInfoPropertyId);
-
+            var spotLights = ((SwapChainBuffer<SpotLightUniform>)GraphicsPipelineExtension.TryGetBuffer(ShaderProperties.PointLightsBufferId)).HostBuffer;
             for (int i = 0; i < frameInfo.LightingInfo.NumSpotLights; i++)
             {
-                var spotLight = frameInfo.SpotLights[i];
+                var spotLight = spotLights[i];
                 int lightIndex = 1 + i + frameInfo.LightingInfo.NumPointLights;
                 int faceIndex = 1 + (frameInfo.LightingInfo.NumPointLights * 6) + i;
                 

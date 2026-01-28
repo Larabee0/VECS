@@ -46,7 +46,7 @@ namespace VECS
 
             AssetDataBase<Material>.AllAssetsListForReading.ForEach(asset =>
             {
-                asset.SetTexture(ShaderPropertyInfo.DirShadowImageId, _shadowDepthImage.Target);
+                asset.SetTexture(ShaderProperties.DirShadowImageId, _shadowDepthImage.Target);
             });
 
         }

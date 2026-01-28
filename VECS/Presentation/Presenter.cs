@@ -8,7 +8,6 @@ using VECS.ECS;
 using VECS.ECS.Presentation;
 using VECS.ECS.Transforms;
 using VECS.LowLevel;
-using VECS.RenderPipeline;
 using Vortice.Vulkan;
 
 namespace VECS
@@ -142,26 +141,16 @@ namespace VECS
             World.DefaultWorld.EntityManager.AddComponent(frameInfoEntity, frameInfo);
         }
 
-        private BufferMAXCAMS<CameraInfo> cameraInfo = default;
-        private BufferMAXCAMS<CameraInverseInfo> cameraInverseInfo = default;
-        private BufferMAXCAMS<AdditionalCameraInfo> additionalCameraInfo = default;
-        private BufferMAXCAMS<OrthographicInfo> orthographicInfo = default;
-        private BufferMAXLIGHTS<PointLightUniform> pointLightBuffer = default;
-        private BufferMAXLIGHTS<SpotLightUniform> spotLightBuffer = default;
-
         private unsafe RendererFrameInfo CreateRendererFrameInfo(float deltaTime, VkCommandBuffer commandBuffer)
         {
             int frameIndex = SwapChain.FrameIndex;
             int cameraCount = 0;
             int mainCamera = -1;
-            Camera camera = Camera.Identity;
-            CameraOrthographic orthCam = default;
-            bool orth = false;
-            float clipNear = 0.01f;
-            float clipFar = 1000;
+            Camera camera = default;
             if (World.DefaultWorld != null)
             {
                 var entityManager = World.DefaultWorld.EntityManager;
+                GraphicsPipelineExtension.UpdateCameras(entityManager);
 
                 var cameras = entityManager.GetAllEntitiesWithComponent<Camera>();
                 cameraCount = Math.Min(cameras.Count, MAX_CAMERAS);
@@ -169,108 +158,24 @@ namespace VECS
                 for (int i = 0; i < cameraCount; i++)
                 {
                     var entity = cameras[i];
-                    camera = entityManager.GetComponent<Camera>(entity);
-                    if(mainCamera == -1 && entityManager.HasComponent<MainCamera>(entity))
+                    if (mainCamera == -1 && entityManager.HasComponent<MainCamera>(entity))
                     {
                         mainCamera = i;
+                        camera = entityManager.GetComponent<Camera>(cameras[i]);
                     }
-                    if (entityManager.HasComponent<CameraPerspective>(entity, out var signature))
-                    {
-                        var per = entityManager.GetComponent<CameraPerspective>(signature);
-                        clipNear = per.ClipNear;
-                        clipFar = per.ClipFar;
-                    }
-                    else if (entityManager.HasComponent<CameraOrthographic>(entity, out signature))
-                    {
-                        orthCam = entityManager.GetComponent<CameraOrthographic>(signature);
-                        clipNear = orthCam.ClipNear;
-                        clipFar = orthCam.ClipFar;
-                        orth = true;
-                    }
-                    cameraInfo[i] = new(camera);
-                    cameraInverseInfo[i] = new(camera);
-                    additionalCameraInfo[i] = new(camera.ProjectionMatrix, clipNear, clipFar, _swapChain.ExtentAspectRatio);
-                    orthographicInfo[i] = new(orth, orthCam);
                 }
             }
 
-            CullData cullData = new(RenderLayer.All, RenderLayer.OnlyShadow, camera.fustrumCulling, camera.dstCull, camera.depthCull, clipNear, cameraInfo[mainCamera]);
+            CameraInfo cameraInfo = ((SwapChainBuffer<CameraInfo>)GraphicsPipelineExtension.TryGetBuffer(ShaderProperties.CameraInfoId)).HostBuffer[mainCamera];
+            float clipNear = camera.ClipNear;
 
-            LightingInfo lightingInfo;
+            CullData cullData = new(RenderLayer.All, RenderLayer.OnlyShadow, camera.fustrumCulling, camera.dstCull, camera.depthCull, clipNear, cameraInfo);
+
+            LightingInfo lightingInfo = default;
             if (World.DefaultWorld != null)
             {
                 var entityManager = World.DefaultWorld.EntityManager;
-                var dirLights = entityManager.GetAllEntitiesWithComponent<DirectionalLight>();
-                var pointLights = entityManager.GetAllEntitiesWithComponent<PointLight>();
-                var spotLights = entityManager.GetAllEntitiesWithComponent<SpotLight>();
-
-                if (dirLights != null && dirLights.Count > 0)
-                {
-                    lightingInfo = new(entityManager.GetComponent<DirectionalLight>(dirLights[0]), 0, 0);
-
-                    lightingInfo.DirectionalLight.lightSpace = DirectionalLightShadows.GetSpaceMatrix(lightingInfo, out _, out _, out _, out _, out _);
-                }
-                else
-                {
-                    lightingInfo = new()
-                    {
-                        DirectionalLight = new()
-                        {
-                            Ambient = Vector4.One,
-                            Direction = new(0,-1,0, 0),
-                            lightSpace = Matrix4x4.Identity
-                        }
-                    };
-                }
-
-                if (pointLights != null && pointLights.Count > 0)
-                {
-                    int pointLightCount = Math.Min(pointLights.Count, MAX_POINT_LIGHTS);
-                    lightingInfo.NumPointLights = pointLightCount;
-
-                    for (int i = 0; i < pointLightCount; i++)
-                    {
-                        Vector3 position = entityManager.GetComponent<LocalToWorld>(pointLights[i]).Value.Translation;
-                        var pointLight = entityManager.GetComponent<PointLight>(pointLights[i]);
-                        pointLightBuffer[i] = new(position, pointLight);
-                    }
-
-                    for (int i = pointLightCount; i < MAX_POINT_LIGHTS; i++)
-                    {
-                        pointLightBuffer[i] = default;
-                    }
-                }
-
-                if(spotLights != null && spotLights.Count > 0)
-                {
-                    int spotLightCount = Math.Min(spotLights.Count, MAX_POINT_LIGHTS);
-                    lightingInfo.NumSpotLights = spotLightCount;
-
-                    for(int i = 0;i < spotLightCount; i++)
-                    {
-                        var ltw = entityManager.GetComponent<LocalToWorld>(spotLights[i]).Value;
-                        var spotLight = entityManager.GetComponent<SpotLight>(spotLights[i]);
-                        spotLightBuffer[i] = new(ltw.Translation, ltw.Forward(), spotLight);
-                        spotLightBuffer[i].LightSpace = SpotLightShadows.GetSpaceMatrix(spotLightBuffer[i], out _, out _, out _);
-                    }
-
-                    for (int i = spotLightCount; i < MAX_POINT_LIGHTS; i++)
-                    {
-                        spotLightBuffer[i] = default;
-                    }
-                }
-            }
-            else
-            {
-                lightingInfo = new()
-                {
-                    DirectionalLight = new()
-                    {
-                        Ambient = Vector4.One,
-                        Direction = new(0, -1, 0, 0),
-                        lightSpace = Matrix4x4.Identity
-                    }
-                };
+                lightingInfo = GraphicsPipelineExtension.UpdateLights(entityManager);
             }
 
             return new RendererFrameInfo(
@@ -280,13 +185,13 @@ namespace VECS
                 deltaTime,
                 commandBuffer,
                 cullData,
-                lightingInfo,
-                cameraInfo,
-                cameraInverseInfo,
-                additionalCameraInfo,
-                orthographicInfo,
-                pointLightBuffer,
-                spotLightBuffer);
+                lightingInfo);
+                // cameraInfo,
+                // cameraInverseInfo,
+                // additionalCameraInfo,
+                // orthographicInfo,
+                // pointLightBuffer,
+                // spotLightBuffer);
         }
 
         /// <summary>
@@ -414,6 +319,7 @@ namespace VECS
         public void Dispose()
         {
             DrawBlob.CleanUp();
+            GraphicsPipelineExtension.CleanUp();
 
             foreach (var assetType in typeof(DisposableAsset).AllSubclassesNonAbstract())
             {
@@ -423,7 +329,6 @@ namespace VECS
                     asset.Dispose();
                 }
             }
-
             GraphicsDevice.FreeCommandBuffers();
             _forwardRenderer.Dispose();
             _swapChain.Dispose();

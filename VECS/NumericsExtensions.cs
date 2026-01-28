@@ -35,6 +35,11 @@ namespace System.Numerics
             return *(uint*)(&x);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe static int asint(uint x)
+        {
+            return *(int*)(&x);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe static Vector4UInt asuint(Vector4 x)
         {
             return *(Vector4UInt*)(&x);

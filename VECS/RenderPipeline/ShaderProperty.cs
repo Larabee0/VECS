@@ -1,30 +1,15 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Numerics;
+using System.Runtime.CompilerServices;
 
 namespace VECS
 {
-    public static class ShaderPropertyExtention
+    public static class ShaderProperties
     {
         private static readonly ConcurrentDictionary<int, string> _propertyIdToString = new();
 
-        public static int GetShaderPropertyId(this string property)
-        {
-            var hash = property.GetHashCode();
-            _propertyIdToString.TryAdd(hash, property);
-            return hash;
-        }
-
-        public static string GetPropertyIdString(this int propertyId)
-        {
-            if(_propertyIdToString.TryGetValue(propertyId,out string value))
-                return value;
-            return "Property Not Found";
-        }
-    }
-
-    public struct ShaderPropertyInfo
-    {
 #if DEBUG
         public const bool LOG_MISSING_GLOBAL_SHADER_PROPERTIES = false;
 #endif
@@ -32,7 +17,7 @@ namespace VECS
         public static readonly int CameraInverseId = "cameraInverse".GetShaderPropertyId();
         public static readonly int AdditionalCameraInfoId = "cameraPlanes".GetShaderPropertyId();
         public static readonly int OrthographicInfoId = "orthographic".GetShaderPropertyId();
-        
+
         public static readonly int LightingInfoId = "lighting".GetShaderPropertyId();
         public static readonly int PointLightsBufferId = "pointLightBuffer".GetShaderPropertyId();
         public static readonly int SpotLightsBufferId = "spotLightBuffer".GetShaderPropertyId();
@@ -51,7 +36,7 @@ namespace VECS
 
         public static readonly HashSet<int> IgnoreUnFoundShaderProperties;
 
-        static ShaderPropertyInfo()
+        static ShaderProperties()
         {
             IgnoreUnFoundShaderProperties =
             [
@@ -72,7 +57,7 @@ namespace VECS
             ];
         }
 
-        public static readonly ShaderPropertyInfo Invalid = new()
+        public static readonly ShaderProperty Invalid = new()
         {
             SetIndex = uint.MaxValue,
             BindPoint = uint.MaxValue,
@@ -80,12 +65,58 @@ namespace VECS
             Property = null
         };
 
+        public static int GetShaderPropertyId(this string property)
+        {
+            
+            var hash = Hash(property);
+            _propertyIdToString.TryAdd(hash, property);
+            return hash;
+        }
+
+        public static string GetPropertyIdString(this int propertyId)
+        {
+            if(_propertyIdToString.TryGetValue(propertyId,out string value))
+                return value;
+            return "Property Not Found";
+        }
+
+
+        public static unsafe int Hash(string text)
+        {
+            var memory = text.AsMemory();
+            var pinned = memory.Pin();
+            var result = Hash((byte*)pinned.Pointer, sizeof(char) * (uint)memory.Length);
+            pinned.Dispose();
+            return result;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static unsafe int Hash(byte* key, ulong length)
+        {
+            ulong i = 0;
+            uint hash = 0;
+            while (i != length)
+            {
+                hash += key[i++];
+                hash += hash << 10;
+                hash ^= hash >> 6;
+            }
+            hash += hash << 3;
+            hash ^= hash >> 11;
+            hash += hash << 15;
+            return NumericsExtensions.asint(hash);
+        }
+    }
+    
+
+    public struct ShaderProperty
+    {
         public uint SetIndex;
         public uint BindPoint;
         public DescriptorBinding BindingInfo;
         public DescriptorPropertyInfo Property;
 
-        public ShaderPropertyInfo(DescriptorBinding bindingInfo, DescriptorPropertyInfo propertyInfo)
+        public ShaderProperty(DescriptorBinding bindingInfo, DescriptorPropertyInfo propertyInfo)
         {
             BindingInfo = bindingInfo;
             Property = propertyInfo;
@@ -93,19 +124,19 @@ namespace VECS
             BindPoint = bindingInfo.BindPoint;
         }
 
-        public static bool operator ==(ShaderPropertyInfo a, ShaderPropertyInfo b)
+        public static bool operator ==(ShaderProperty a, ShaderProperty b)
         {
             return a.SetIndex == b.SetIndex && a.BindPoint == b.BindPoint && a.BindingInfo == b.BindingInfo && a.Property == b.Property;
         }
 
-        public static bool operator !=(ShaderPropertyInfo a, ShaderPropertyInfo b)
+        public static bool operator !=(ShaderProperty a, ShaderProperty b)
         {
             return !(a == b);
         }
 
         public readonly override bool Equals(object obj)
         {
-            if(obj is ShaderPropertyInfo propertyInfo)
+            if(obj is ShaderProperty propertyInfo)
             {
                 return this == propertyInfo;
             }
