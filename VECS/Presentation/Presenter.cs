@@ -175,7 +175,7 @@ namespace VECS
             if (World.DefaultWorld != null)
             {
                 var entityManager = World.DefaultWorld.EntityManager;
-                lightingInfo = GraphicsPipelineExtension.UpdateLights(entityManager);
+                lightingInfo = GraphicsPipelineExtension.UpdateLights(entityManager,frameIndex);
             }
 
             return new RendererFrameInfo(

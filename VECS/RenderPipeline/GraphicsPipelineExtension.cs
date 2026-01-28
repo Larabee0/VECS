@@ -108,7 +108,7 @@ namespace VECS
 
         }
 
-        public static LightingInfo UpdateLights(EntityManager entityManager)
+        public static LightingInfo UpdateLights(EntityManager entityManager,int frameIndex)
         {
             LightingInfo lightingInfo;
             var dirLights = entityManager.GetAllEntitiesWithComponent<DirectionalLight>();
@@ -172,7 +172,8 @@ namespace VECS
             }
 
             LightingInfoBuffer.HostBuffer[0] = lightingInfo;
-
+            LightingInfoBuffer.SetBuffersDirty(true);
+            GPUBufferExtensions.WriteFromHostDelayed(LightingInfoBuffer, frameIndex);
             return lightingInfo;
         }
 
