@@ -3,6 +3,9 @@
 #include "common_structures.glsl"
 
 layout (location = 0) in vec3 position;
+layout (location = 1) in vec2 uv;
+
+layout (location = 0) out vec2 fragUV;
 
 layout(set = 0,binding = 0) readonly buffer CameraInfos {
 	CameraInfo values[];
@@ -20,4 +23,5 @@ void main()
 {
 	vec4 positionWorld = matricesBuffer.matrices[gl_BaseInstance].modelMatrix * vec4(position, 1.0);
 	gl_Position = cameraInfo.values[constants.cameraIndex].projectionViewMatrix * positionWorld;
+	fragUV = uv;
 }
