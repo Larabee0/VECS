@@ -10,6 +10,7 @@ namespace VECS
 
         public readonly static GraphicsPipeline LitTexture;
         public readonly static GraphicsPipeline DepthOnly;
+        public readonly static GraphicsPipeline DepthOnlyAlphaClipping;
         public readonly static GraphicsPipeline UnlitMeshShader;
         public readonly static GraphicsPipeline UnlitTransparent;
         public readonly static GraphicsPipeline Unlit;
@@ -31,6 +32,8 @@ namespace VECS
             depthConfig.depthStencilInfo.depthWriteEnable = true;
             depthConfig.depthStencilInfo.depthTestEnable = true;
             DepthOnly = new("DepthOnly", "depth_only.vert", depthConfig);
+
+            DepthOnlyAlphaClipping = new("DepthOnlyAlpha", "depth_only_alpha.vert", "depth_only_alpha.frag", depthConfig);
 
             var pipelineConfigInfo = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
 

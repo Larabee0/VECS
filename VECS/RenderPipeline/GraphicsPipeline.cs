@@ -47,7 +47,7 @@ namespace VECS
         private readonly ConcurrentQueue<Material> _variantsToAdd = new();
 
         private uint _variantCount;
-        private bool _preBindUpdate = false;
+        internal bool _preBindUpdate = false;
 
         [ThreadStatic]
         private static GraphicsPipeline _lastBound;
@@ -63,6 +63,8 @@ namespace VECS
         public int DescriptorSetCount => _descriptorSetCount;
         public int SetsWithTextures => _setsWithTextures;
         public int SetsWithBuffers => _setsWithBuffers;
+
+        internal VkPipelineLayout PipelineLayout => _pipelineLayout;
 
         public DescriptorSetInfo[] DescriptorSetInfos => _descriptorSetInfos;
         public PushConstantsHandler PushConstants => _materialPushConstantsHandler;
@@ -721,7 +723,7 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void BindPipe(VkCommandBuffer commandBuffer, int frameIndex)
+        internal void BindPipe(VkCommandBuffer commandBuffer, int frameIndex)
         {
             if(_lastFrameIndex != frameIndex || _lastBound != this)
             {
@@ -859,33 +861,8 @@ namespace VECS
                 {
                     continue;
                 }
-                ExecuteDrawCommand(commandBuffer, frameIndex, indirectCmdBuffer, command, offsets, indices, ref lastVariant);
+                ExecuteDrawCommand(commandBuffer, frameIndex, command.Entity, indirectCmdBuffer, command, offsets, indices, ref lastVariant);
             }
-        }
-
-        private unsafe void ExecuteDrawCommand(VkCommandBuffer commandBuffer, int frameIndex, SwapChainBuffer<VECSDrawIndexIndirectCommand> indirectCmdBuffer, MaterialDrawCommand command, ulong* offsets, uint* indices, ref int lastVariant)
-        {
-            if(lastVariant != command.Variant)
-            {
-                for (uint i = 0; i < _descriptorSetCount; i++)
-                {
-                    DescriptorSetInfo descriptorSetInfo = _descriptorSetInfos[i];
-                    DescriptorBuffer buffer = descriptorSetInfo.DescriptorBuffers[frameIndex];
-                    offsets[i] = buffer.AlignedSize * (uint)command.Variant;
-                }
-                DescriptorBuffer.SetOffsets(commandBuffer, _pipelineLayout, VkPipelineBindPoint.Graphics, 0, (uint)_descriptorSetCount, offsets, indices);
-                lastVariant = command.Variant;
-            }
-
-            _materialPushConstantsHandler.BindPushConstants(commandBuffer, _pipelineLayout, command.Entity);
-            var mesh = AssetDataBase<DirectMesh>.GetHashed(command.DirectMesh);
-            mesh.BindSpecificBuffers(commandBuffer, _graphicsPipelineConfigInfo.BindingDescriptions, _graphicsPipelineConfigInfo.AttributeDescriptions);
-
-            GraphicsDevice.DeviceAPI.vkCmdDrawIndexedIndirect(
-                commandBuffer,
-                indirectCmdBuffer.ActiveVkBuffer,
-                (uint)command.MeshSubRegion.StartIndex * (uint)sizeof(VECSDrawIndexIndirectCommand),
-                (uint)command.MeshSubRegion.Count, (uint)sizeof(VECSDrawIndexIndirectCommand));
         }
 
         public unsafe void ExecuteDrawCommandsPushConstantOverride(RendererFrameInfo frameInfo, int pushConstantOverride, VkCommandBuffer commandBuffer, Span<MaterialDrawCommand> drawCmds, int matDrawCount, SwapChainBuffer<VECSDrawIndexIndirectCommand> indirectCmdBuffer)
@@ -936,11 +913,11 @@ namespace VECS
                 {
                     continue;
                 }
-                ExecuteDrawCommandPushConstantOverride(commandBuffer, frameIndex, pushConstantOverride, indirectCmdBuffer, command, offsets, indices, ref lastVariant);
+                ExecuteDrawCommand(commandBuffer, frameIndex, pushConstantOverride, indirectCmdBuffer, command, offsets, indices, ref lastVariant);
             }
         }
 
-        private unsafe void ExecuteDrawCommandPushConstantOverride(VkCommandBuffer commandBuffer, int frameIndex,int pushConstantIndex, SwapChainBuffer<VECSDrawIndexIndirectCommand> indirectCmdBuffer, MaterialDrawCommand command, ulong* offsets, uint* indices, ref int lastVariant)
+        internal unsafe void ExecuteDrawCommand(VkCommandBuffer commandBuffer, int frameIndex,int pushConstantIndex, SwapChainBuffer<VECSDrawIndexIndirectCommand> indirectCmdBuffer, MaterialDrawCommand command, ulong* offsets, uint* indices, ref int lastVariant)
         {
             if (lastVariant != command.Variant)
             {

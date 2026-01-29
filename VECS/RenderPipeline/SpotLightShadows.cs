@@ -137,7 +137,7 @@ namespace VECS
             for (int i = 0; i < frameInfo.LightingInfo.NumSpotLights; i++)
             {
                 int lightIndex = 1 + i + frameInfo.LightingInfo.NumPointLights;
-                DrawBlob.ExecuteAllInOneOpaqueDrawCmds(frameInfo, frameInfo.CommandBuffer, shadowOffscreen.Hash, lightIndex);
+                DrawBlob.ExecuteAllInOneOpaqueDrawCmds(frameInfo, frameInfo.CommandBuffer, shadowOffscreen.Default().Hash, lightIndex);
             }
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
 

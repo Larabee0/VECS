@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
@@ -199,7 +200,7 @@ namespace VECS
 
         private static int _firstTransparentByMesh;
         public static int OpaqueCmdCountByMesh => _firstTransparentByMesh;
-        public static int TransparentcmdCountByMesh => _drawCommandsByMesh.Length - _firstTransparentByMesh;
+        public static int TransparentCmdCountByMesh => _drawCommandsByMesh.Length - _firstTransparentByMesh;
 
         private static readonly ConcurrentDictionary<Vector3Int, uint> _materialVariants = new();
         private static readonly ConcurrentDictionary<MeshHashWithTransparency, int> _directMeshDraws = new();
@@ -621,23 +622,24 @@ namespace VECS
             }
         }
 
-        public static void CopyToAllInOneMateriasl()
+        public static unsafe void CopyToAllInOneMateriasl()
         {
             int allInOneDrawCount = entityCount;
+            var matrixByMat = _renderBuffers.FirstOrDefault(e=> e.BufferShaderPropertyId == ShaderProperties.MatricesBufferId);
             Application.ParallelFor(AllInOneMats.Count, (i) =>
             {
                 var mat = AssetDataBase<GraphicsPipeline>.GetHashed(AllInOneMats[i]);
-                var matrices = mat.GetStorageBuffer<ModelMatrices>(ShaderProperties.MatricesBufferId);
+                var matrices = mat.GetUnsafeStorageBuffer(ShaderProperties.MatricesBufferId);
                 var bounds = mat.GetStorageBuffer<ShaderAABB>(ShaderProperties.BoundsBufferId);
-                if (!matrices.IsEmpty)
+                if (matrices != null)
                 {
                     mat.SetDescriptorStorageBufferLengthFromProperty(ShaderProperties.MatricesBufferId, (uint)allInOneDrawCount);
-                    _drawMatrixByMesh.AsSpan(0, allInOneDrawCount).CopyTo(matrices);
+                    matrixByMat.CopyTo(matrices,0,allInOneDrawCount);
                 }
                 if (!bounds.IsEmpty)
                 {
                     mat.SetDescriptorStorageBufferLengthFromProperty(ShaderProperties.BoundsBufferId, (uint)allInOneDrawCount);
-                    _drawRenderBoundsByMat.HostBuffer[..allInOneDrawCount].CopyTo(bounds);
+                    _drawRenderBoundsByMesh.HostBuffer[..allInOneDrawCount].CopyTo(bounds);
                 }
             });
         }
@@ -645,7 +647,7 @@ namespace VECS
         public static void FlushBounds(int frameIndex)
         {
             GPUBufferExtensions.WriteFromHostDelayed(_drawRenderBoundsByMat, frameIndex);
-            GPUBufferExtensions.WriteFromHostDelayed(_drawRenderBoundsByMesh, frameIndex);
+            //GPUBufferExtensions.WriteFromHostDelayed(_drawRenderBoundsByMesh, frameIndex);
         }
 
         public unsafe static void ExecuteOpaqueDrawCmds(RendererFrameInfo frameInfo, VkCommandBuffer[] commandBuffers, VkFormat* colourFormats, uint colourAttachmentCount, VkFormat depthFormat, VkFormat stencilFormat)
@@ -760,38 +762,38 @@ namespace VECS
 
         public static void ExecuteAllInOneOpaqueDrawCmds(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer,int materialHash)
         {
-            var mat = AssetDataBase<GraphicsPipeline>.GetHashed(materialHash);
+            var mat = AssetDataBase<Material>.GetHashed(materialHash);
 #if DEBUG
             CheckAllInOneMaterialRegistered(mat);
 #endif
-            mat.ExecuteDrawCommands(frameInfo, commandBuffer, _drawCommandsByMesh, OpaqueCmdCountByMesh, _indirectCmdBufferByMesh);
+            mat.ExecuteDrawCommands(frameInfo, commandBuffer, _drawCommandsByMat, OpaqueCmdCountByMat, _indirectCmdBufferByMat);
         }
 
         public static void ExecuteAllInOneOpaqueDrawCmds(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, int materialHash, int pushConstantIndex)
         {
-            var mat = AssetDataBase<GraphicsPipeline>.GetHashed(materialHash);
+            var mat = AssetDataBase<Material>.GetHashed(materialHash);
 #if DEBUG
             CheckAllInOneMaterialRegistered(mat);
 #endif
-            mat.ExecuteDrawCommandsPushConstantOverride(frameInfo, pushConstantIndex, commandBuffer, _drawCommandsByMesh, OpaqueCmdCountByMesh, _indirectCmdBufferByMesh);
+            mat.ExecuteDrawCommandsPushConstantOverride(frameInfo, pushConstantIndex, commandBuffer, _drawCommandsByMat, OpaqueCmdCountByMat, _indirectCmdBufferByMat);
         }
 
         public static void ExecuteAllInOneTransparentDrawCmds(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, int materialHash)
         {
-            var mat = AssetDataBase<GraphicsPipeline>.GetHashed(materialHash);
+            var mat = AssetDataBase<Material>.GetHashed(materialHash);
 #if DEBUG
             CheckAllInOneMaterialRegistered(mat);
 #endif
-            mat.ExecuteDrawCommands(frameInfo, commandBuffer, _drawCommandsByMesh.AsSpan(_firstTransparentByMesh,TransparentcmdCountByMesh), TransparentcmdCountByMesh, _indirectCmdBufferByMesh);
+            mat.ExecuteDrawCommands(frameInfo, commandBuffer, _drawCommandsByMat.AsSpan(_firstTransparentByMat,TransparentCmdCountByMat), TransparentCmdCountByMat, _indirectCmdBufferByMat);
         }
 
         public static void ExecuteAllInOneTransparentDrawCmds(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, int materialHash, int pushConstantIndex)
         {
-            var mat = AssetDataBase<GraphicsPipeline>.GetHashed(materialHash);
+            var mat = AssetDataBase<Material>.GetHashed(materialHash);
 #if DEBUG
             CheckAllInOneMaterialRegistered(mat);
 #endif
-            mat.ExecuteDrawCommandsPushConstantOverride(frameInfo, pushConstantIndex, commandBuffer, _drawCommandsByMesh.AsSpan(_firstTransparentByMesh, TransparentcmdCountByMesh), TransparentcmdCountByMesh, _indirectCmdBufferByMesh);
+            mat.ExecuteDrawCommandsPushConstantOverride(frameInfo, pushConstantIndex, commandBuffer, _drawCommandsByMat.AsSpan(_firstTransparentByMat, TransparentCmdCountByMat), TransparentCmdCountByMat, _indirectCmdBufferByMat);
         }
 
         public static void CullAllInOne(RendererFrameInfo frameInfo, CullData cullData)
@@ -801,7 +803,7 @@ namespace VECS
 
         public static void CullAllInOne(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, CullData cullData)
         {
-            FustrumCull.Cull(commandBuffer, frameInfo.FrameIndex, cullData, (uint)entityCount, _indirectCmdBufferByMesh, _drawRenderBoundsByMesh);
+            FustrumCull.Cull(commandBuffer, frameInfo.FrameIndex, cullData, (uint)entityCount, _indirectCmdBufferByMat, _drawRenderBoundsByMat);
         }
 
         public static void CullByMat(RendererFrameInfo frameInfo, CullData cullData)
@@ -811,7 +813,7 @@ namespace VECS
 
         public static void IndirectToComputeMemoryBarrierAllInOne(VkCommandBuffer commandBuffer)
         {
-            IndirectToComputeMemoryBarrier(commandBuffer, _indirectCmdBufferByMesh.ActiveVkBuffer);
+            IndirectToComputeMemoryBarrier(commandBuffer, _indirectCmdBufferByMat.ActiveVkBuffer);
         }
 
         public static void IndirectToComputeMemoryBarrierByMat(VkCommandBuffer commandBuffer)
@@ -858,6 +860,13 @@ namespace VECS
             if (!AllInOneMats.Contains(pipeline.Hash))
             {
                 throw new InvalidOperationException(string.Format("Material: '{0}' (HASH: '{1}' has not be registered to teh AllInOneMats list therefore will not have object matrices assigned!", pipeline.AssetName, pipeline.Hash));
+            }
+        }
+        private static void CheckAllInOneMaterialRegistered(Material material)
+        {
+            if (!AllInOneMats.Contains(material.Pipeline.Hash))
+            {
+                throw new InvalidOperationException(string.Format("Material: '{0}' (HASH: '{1}' has not be registered to teh AllInOneMats list therefore will not have object matrices assigned!", material.Pipeline.AssetName, material.Pipeline.Hash));
             }
         }
 #endif

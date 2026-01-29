@@ -27,6 +27,9 @@ namespace VECS
         internal unsafe void* pUniformBuffer;
         internal bool localUniformAllocation;
 
+        public bool AlphaClipping = false;
+        public float AlphaCutoff = 0.5f;
+
         public uint VariantIndex => _variantIndex;
         public int TotalSets => DescriptorSetCount;
         public int DescriptorSetCount => _graphicsPipeline.DescriptorSetCount;
@@ -179,6 +182,76 @@ namespace VECS
             var bufferIndex = DescriptorSetInfos[setIndex].BindingPointToBufferIndex[bindPoint];
             if (_bufferDescriptors[setIndex].Disposed) return 0;
             return _bufferDescriptors[setIndex].StorageBufferLength[bufferIndex];
+        }
+
+        public unsafe void ExecuteDrawCommands(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, Span<MaterialDrawCommand> drawCmds, int drawCount, SwapChainBuffer<VECSDrawIndexIndirectCommand> indirectCmdBuffer)
+        {
+            if (drawCount <= 0) return;
+            var frameIndex = frameInfo.FrameIndex;
+            var command = drawCmds[0];
+            command.Variant = (int)VariantIndex;
+            if (Pipeline._preBindUpdate)
+            {
+                GraphicsPipeline.Update(Pipeline, frameInfo);
+            }
+            VkDescriptorBufferBindingInfoEXT* bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[DescriptorSetCount];
+            ulong* offsets = stackalloc ulong[DescriptorSetCount];
+            uint* indices = stackalloc uint[DescriptorSetCount];
+            for (uint i = 0; i < DescriptorSetCount; i++)
+            {
+                DescriptorSetInfo descriptorSetInfo = DescriptorSetInfos[i];
+                DescriptorBuffer buffer = descriptorSetInfo.DescriptorBuffers[frameIndex];
+
+                bindingInfo[i] = buffer.BindingInfo;
+                offsets[i] = buffer.AlignedSize * (uint)command.Variant;
+                indices[i] = i;
+            }
+            Pipeline.BindPipe(commandBuffer, frameIndex);
+            DescriptorBuffer.BindSets(commandBuffer, (uint)DescriptorSetCount, bindingInfo);
+            DescriptorBuffer.SetOffsets(commandBuffer, Pipeline.PipelineLayout, VkPipelineBindPoint.Graphics, 0, (uint)DescriptorSetCount, offsets, indices);
+            var lastVariant = (int)VariantIndex;
+            for (int i = 0; i < drawCount; i++)
+            {
+                command = drawCmds[i];
+                command.Variant = (int)VariantIndex;
+                Pipeline.ExecuteDrawCommand(commandBuffer, frameIndex, command.Entity, indirectCmdBuffer, command, offsets, indices, ref lastVariant);
+            }
+        }
+
+        public unsafe void ExecuteDrawCommandsPushConstantOverride(RendererFrameInfo frameInfo, int pushConstantOverride, VkCommandBuffer commandBuffer, Span<MaterialDrawCommand> drawCmds, int drawCount, SwapChainBuffer<VECSDrawIndexIndirectCommand> indirectCmdBuffer)
+        {
+            if (drawCount <= 0) return;
+            var frameIndex = frameInfo.FrameIndex;
+
+            var command = drawCmds[0];
+            command.Variant = (int)VariantIndex;
+            if (Pipeline._preBindUpdate)
+            {
+                GraphicsPipeline.Update(Pipeline, frameInfo);
+            }
+            VkDescriptorBufferBindingInfoEXT* bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[DescriptorSetCount];
+            ulong* offsets = stackalloc ulong[DescriptorSetCount];
+            uint* indices = stackalloc uint[DescriptorSetCount];
+
+            for (uint i = 0; i < DescriptorSetCount; i++)
+            {
+                DescriptorSetInfo descriptorSetInfo = DescriptorSetInfos[i];
+                DescriptorBuffer buffer = descriptorSetInfo.DescriptorBuffers[frameIndex];
+
+                bindingInfo[i] = buffer.BindingInfo;
+                offsets[i] = buffer.AlignedSize * (uint)command.Variant;
+                indices[i] = i;
+            }
+            Pipeline.BindPipe(commandBuffer, frameIndex);
+            DescriptorBuffer.BindSets(commandBuffer, (uint)DescriptorSetCount, bindingInfo);
+            DescriptorBuffer.SetOffsets(commandBuffer, Pipeline.PipelineLayout, VkPipelineBindPoint.Graphics, 0, (uint)DescriptorSetCount, offsets, indices);
+            var lastVariant = (int)VariantIndex;
+            for (int i = 0; i < drawCount; i++)
+            {
+                command = drawCmds[i];
+                command.Variant = (int)VariantIndex;
+                Pipeline.ExecuteDrawCommand(commandBuffer, frameIndex, pushConstantOverride, indirectCmdBuffer, command, offsets, indices, ref lastVariant);
+            }
         }
 
         public override unsafe void Dispose()

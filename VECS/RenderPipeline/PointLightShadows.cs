@@ -113,7 +113,7 @@ namespace VECS
             UpdateCube(frameInfo.CommandBuffer, (uint)frameInfo.LightingInfo.NumPointLights);
             for (int i = 0; i < frameInfo.LightingInfo.NumPointLights; i++)
             {
-                DrawBlob.ExecuteAllInOneOpaqueDrawCmds(frameInfo, frameInfo.CommandBuffer, shadowOffscreen.Hash, 1 + i);
+                DrawBlob.ExecuteAllInOneOpaqueDrawCmds(frameInfo, frameInfo.CommandBuffer, shadowOffscreen.Default().Hash, 1 + i);
             }
             EndShadowPass(frameInfo.CommandBuffer);
 
