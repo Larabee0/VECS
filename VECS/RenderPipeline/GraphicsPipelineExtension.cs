@@ -19,7 +19,7 @@ namespace VECS
         private readonly static SwapChainBuffer<AdditionalCameraInfo> AddtionalCameraInfoBuffer;
         private readonly static SwapChainBuffer<OrthographicInfo> OrthopgrahicInfoBuffer;
 
-        private readonly static SwapChainBuffer<LightingInfo> LightingInfoBuffer;
+        private readonly static SwapChainBuffer LightingInfoBuffer;
         private readonly static SwapChainBuffer<PointLightUniform> PointLightBuffer;
         private readonly static SwapChainBuffer<SpotLightUniform> SpotLightBuffer;
 
@@ -47,14 +47,14 @@ namespace VECS
             }
         }
 
-        static GraphicsPipelineExtension()
+        static unsafe GraphicsPipelineExtension()
         {
             CameraInfoBuffer = new (Presenter.MAX_CAMERAS, BufferUsageFlags, true);
             CameraInverseInfoBuffer = new (Presenter.MAX_CAMERAS, BufferUsageFlags, true);
             AddtionalCameraInfoBuffer = new (Presenter.MAX_CAMERAS, BufferUsageFlags, true);
             OrthopgrahicInfoBuffer = new (Presenter.MAX_CAMERAS, BufferUsageFlags, true);
 
-            LightingInfoBuffer = new(1, VkBufferUsageFlags.UniformBuffer, true);
+            LightingInfoBuffer = new(GPUBufferExtensions.GetAlignment((uint)sizeof(LightingInfo), VkBufferUsageFlags.UniformBuffer),1, VkBufferUsageFlags.UniformBuffer, true);
             PointLightBuffer = new(Presenter.MAX_POINT_LIGHTS, BufferUsageFlags, true);
             SpotLightBuffer = new(Presenter.MAX_POINT_LIGHTS, BufferUsageFlags, true);
 
@@ -108,7 +108,7 @@ namespace VECS
 
         }
 
-        public static LightingInfo UpdateLights(EntityManager entityManager,int frameIndex)
+        public static unsafe LightingInfo UpdateLights(EntityManager entityManager,int frameIndex)
         {
             LightingInfo lightingInfo;
             var dirLights = entityManager.GetAllEntitiesWithComponent<DirectionalLight>();
@@ -171,7 +171,7 @@ namespace VECS
                 }
             }
 
-            LightingInfoBuffer.HostBuffer[0] = lightingInfo;
+            Buffer.MemoryCopy(&lightingInfo, LightingInfoBuffer.HostPtr, LightingInfoBuffer.InstanceSize32, sizeof(LightingInfo));
             LightingInfoBuffer.SetBuffersDirty(true);
             GPUBufferExtensions.WriteFromHostDelayed(LightingInfoBuffer, frameIndex);
             return lightingInfo;

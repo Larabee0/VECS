@@ -78,34 +78,16 @@ namespace VECS
                 BufferSize += Variables[i].PaddedSize;
             }
 
-            uint minOffset = BufferSize;
-            
             if (UniformBuffer)
             {
-                minOffset = (uint)GraphicsDevice.MinUniformBufferOffsetAlignment;
+                BufferSize = (uint)GPUBufferExtensions.GetAlignment(BufferSize, VkBufferUsageFlags.UniformBuffer);
             }
             else if (StorageBuffer)
             {
-                minOffset = (uint)GraphicsDevice.MinStorageBufferOffsetAlignment;
+                BufferSize = (uint)GPUBufferExtensions.GetAlignment(BufferSize,VkBufferUsageFlags.StorageBuffer);
             }
 
-            if (BufferSize <= minOffset)
-            {
-                BufferSize = minOffset;
-            }
-            else
-            {
-                var mul = Math.Ceiling((float)BufferSize % (float)minOffset);
-
-                if (mul > 1)
-                {
-                    BufferSize = minOffset * (uint)Math.Ceiling((float)BufferSize / (float)minOffset);
-                }
-                else
-                {
-                    BufferSize = Math.Max(BufferSize, minOffset);
-                }
-            }
+            
             Stride = BufferSize;
 
             GlobalUniformBuffer = BindPoint == 0 && DescriptorSetIndex == 0 && Name == "ubo";

@@ -151,6 +151,39 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static ulong GetAlignment(ulong instanceSize, VkBufferUsageFlags usageFlags)
+        {
+            ulong minOffset = instanceSize;
+            if (usageFlags.HasFlag(VkBufferUsageFlags.UniformBuffer))
+            {
+                minOffset = (uint)GraphicsDevice.MinUniformBufferOffsetAlignment;
+            }
+            else if (usageFlags.HasFlag(VkBufferUsageFlags.StorageBuffer))
+            {
+                minOffset = (uint)GraphicsDevice.MinStorageBufferOffsetAlignment;
+            }
+
+            if (instanceSize <= minOffset)
+            {
+                instanceSize = minOffset;
+            }
+            else
+            {
+                var mul = Math.Ceiling((float)instanceSize % (float)minOffset);
+
+                if (mul > 1)
+                {
+                    instanceSize = minOffset * (uint)Math.Ceiling((float)instanceSize / (float)minOffset);
+                }
+                else
+                {
+                    instanceSize = Math.Max(instanceSize, minOffset);
+                }
+            }
+            return instanceSize;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe static void Map<T>(this GPUBuffer<T> buffer, T** data) where T : unmanaged
         {
             MapUnsafe(buffer, (void**)data);
