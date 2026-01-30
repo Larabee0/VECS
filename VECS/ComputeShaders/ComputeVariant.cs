@@ -235,7 +235,7 @@ namespace VECS
                     _tempDescriptorSetInfos[i].WriteFromBuffers(frameIndex);
                     var buffer = _tempDescriptorSetInfos[i].DescriptorBuffers[frameIndex];
                     bindingInfo[i] = buffer.BindingInfo;
-                    offsets[i] = buffer.AlignedSize;
+                    offsets[i] = 0;
                     indices[i] = i;
                 }
 

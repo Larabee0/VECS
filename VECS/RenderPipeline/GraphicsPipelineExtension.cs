@@ -54,7 +54,7 @@ namespace VECS
             AddtionalCameraInfoBuffer = new (Presenter.MAX_CAMERAS, BufferUsageFlags, true);
             OrthopgrahicInfoBuffer = new (Presenter.MAX_CAMERAS, BufferUsageFlags, true);
 
-            LightingInfoBuffer = new(GPUBufferExtensions.GetAlignment((uint)sizeof(LightingInfo), VkBufferUsageFlags.UniformBuffer),1, VkBufferUsageFlags.UniformBuffer, true);
+            LightingInfoBuffer = new(1, GPUBufferExtensions.GetAlignment((uint)sizeof(LightingInfo), VkBufferUsageFlags.UniformBuffer), VkBufferUsageFlags.UniformBuffer, true);
             PointLightBuffer = new(Presenter.MAX_POINT_LIGHTS, BufferUsageFlags, true);
             SpotLightBuffer = new(Presenter.MAX_POINT_LIGHTS, BufferUsageFlags, true);
 
