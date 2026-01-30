@@ -46,15 +46,11 @@ namespace VECS
         {
             if (!localUniformAllocation) return;
             if (!_allowTmpBufferAllocation) return;
-            pUniformBuffer = NativeMemory.AlignedAlloc(_computePipeline.UniformBufferSize, (uint)GPUBufferExtensions.GetAlignment(_computePipeline.UniformBufferSize));
-            NativeMemory.Fill(pUniformBuffer, _computePipeline.UniformBufferSize, 0);
 
             _tempDescriptorSetInfos = _computePipeline.GetTemporaryDescriptorSetInfos();
 
-            _tempUniformBuffer = new(_computePipeline.UniformBufferSize, 1, _computePipeline.UniformFlags, true, true, false)
-            {
-                _hostPtr = pUniformBuffer
-            };
+            _tempUniformBuffer = new(_computePipeline.UniformBufferSize, 1, _computePipeline.UniformFlags, true, false, false);
+            pUniformBuffer = _tempUniformBuffer.HostPtr;
         }
 
         public unsafe void CopyDescriptorBindings()
@@ -82,7 +78,6 @@ namespace VECS
 
         public unsafe void DiposeTemporaryBuffers()
         {
-            _tempUniformBuffer._hostPtr = null;
             _tempUniformBuffer?.EnqueueForDisposal();
             if(_tempDescriptorSetInfos != null)
             {
@@ -252,8 +247,11 @@ namespace VECS
             if (_disposed) return;
             _disposed = true;
             GC.SuppressFinalize(this);
-            _tempUniformBuffer?.EnqueueForDisposal();
-            _tempUniformBuffer =null;
+            if (_tempUniformBuffer != null)
+            {
+                _tempUniformBuffer.EnqueueForDisposal();
+                _tempUniformBuffer = null;
+            }
             _computePipeline.RemoveVariant(this);
             if (localUniformAllocation)
             {

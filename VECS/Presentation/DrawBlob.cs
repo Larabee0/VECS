@@ -383,6 +383,7 @@ namespace VECS
             Array.Sort(_drawRenderMesh, _drawEntitiesByMat, MatComparerer.Comparer);
 
             var indirectCmdBuffer = _indirectCmdBufferByMat.HostBuffer;
+            var indirectCmdBufferAlt = _indirectCmdBufferByMesh.HostBuffer;
             BufferRegion meshSubRegion = default;
             BufferRegion storageBufferRegion = default;
             var materialVariantDrawIndex = 0;
@@ -430,6 +431,8 @@ namespace VECS
                 vkDraw.instanceCount = 0;
                 vkDraw.layerFlags = renderMesh.LayerFlags;
                 indirectCmdBuffer[i] = vkDraw;
+                vkDraw.firstInstance = (uint)i;
+                indirectCmdBufferAlt[i] = vkDraw;
                 meshSubRegion.Count++;
                 storageBufferRegion.Count++;
                 materialVariantDrawIndex++;
@@ -449,6 +452,7 @@ namespace VECS
             for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
             {
                 GPUBufferExtensions.WriteFromHostDelayed(_indirectCmdBufferByMat, i);
+                GPUBufferExtensions.WriteFromHostDelayed(_indirectCmdBufferByMesh, i);
             }
 
             allInOneGen.Wait();
@@ -516,6 +520,7 @@ namespace VECS
         {
             return Task.Run(() =>
             {
+                return;
                 int meshDrawCount = _directMeshDraws.Count;
                 Array.Resize(ref _drawCommandsByMesh, meshDrawCount);
                 Array.Sort(_drawDirectSubMeshIndex, _drawEntitiesByMesh, MeshComparerer.Comparer);
@@ -766,7 +771,7 @@ namespace VECS
 #if DEBUG
             CheckAllInOneMaterialRegistered(mat);
 #endif
-            mat.ExecuteDrawCommands(frameInfo, commandBuffer, _drawCommandsByMat, OpaqueCmdCountByMat, _indirectCmdBufferByMat);
+            mat.ExecuteDrawCommands(frameInfo, commandBuffer, _drawCommandsByMat, OpaqueCmdCountByMat, _indirectCmdBufferByMesh);
         }
 
         public static void ExecuteAllInOneOpaqueDrawCmds(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, int materialHash, int pushConstantIndex)
@@ -775,7 +780,7 @@ namespace VECS
 #if DEBUG
             CheckAllInOneMaterialRegistered(mat);
 #endif
-            mat.ExecuteDrawCommandsPushConstantOverride(frameInfo, pushConstantIndex, commandBuffer, _drawCommandsByMat, OpaqueCmdCountByMat, _indirectCmdBufferByMat);
+            mat.ExecuteDrawCommandsPushConstantOverride(frameInfo, pushConstantIndex, commandBuffer, _drawCommandsByMat, OpaqueCmdCountByMat, _indirectCmdBufferByMesh);
         }
 
         public static void ExecuteAllInOneTransparentDrawCmds(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, int materialHash)
@@ -784,7 +789,7 @@ namespace VECS
 #if DEBUG
             CheckAllInOneMaterialRegistered(mat);
 #endif
-            mat.ExecuteDrawCommands(frameInfo, commandBuffer, _drawCommandsByMat.AsSpan(_firstTransparentByMat,TransparentCmdCountByMat), TransparentCmdCountByMat, _indirectCmdBufferByMat);
+            mat.ExecuteDrawCommands(frameInfo, commandBuffer, _drawCommandsByMat.AsSpan(_firstTransparentByMat,TransparentCmdCountByMat), TransparentCmdCountByMat, _indirectCmdBufferByMesh);
         }
 
         public static void ExecuteAllInOneTransparentDrawCmds(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, int materialHash, int pushConstantIndex)
@@ -793,7 +798,7 @@ namespace VECS
 #if DEBUG
             CheckAllInOneMaterialRegistered(mat);
 #endif
-            mat.ExecuteDrawCommandsPushConstantOverride(frameInfo, pushConstantIndex, commandBuffer, _drawCommandsByMat.AsSpan(_firstTransparentByMat, TransparentCmdCountByMat), TransparentCmdCountByMat, _indirectCmdBufferByMat);
+            mat.ExecuteDrawCommandsPushConstantOverride(frameInfo, pushConstantIndex, commandBuffer, _drawCommandsByMat.AsSpan(_firstTransparentByMat, TransparentCmdCountByMat), TransparentCmdCountByMat, _indirectCmdBufferByMesh);
         }
 
         public static void CullAllInOne(RendererFrameInfo frameInfo, CullData cullData)
@@ -803,7 +808,7 @@ namespace VECS
 
         public static void CullAllInOne(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, CullData cullData)
         {
-            FustrumCull.Cull(commandBuffer, frameInfo.FrameIndex, cullData, (uint)entityCount, _indirectCmdBufferByMat, _drawRenderBoundsByMat);
+            FustrumCull.Cull(commandBuffer, frameInfo.FrameIndex, cullData, (uint)entityCount, _indirectCmdBufferByMesh, _drawRenderBoundsByMat);
         }
 
         public static void CullByMat(RendererFrameInfo frameInfo, CullData cullData)
@@ -813,7 +818,7 @@ namespace VECS
 
         public static void IndirectToComputeMemoryBarrierAllInOne(VkCommandBuffer commandBuffer)
         {
-            IndirectToComputeMemoryBarrier(commandBuffer, _indirectCmdBufferByMat.ActiveVkBuffer);
+            IndirectToComputeMemoryBarrier(commandBuffer, _indirectCmdBufferByMesh.ActiveVkBuffer);
         }
 
         public static void IndirectToComputeMemoryBarrierByMat(VkCommandBuffer commandBuffer)

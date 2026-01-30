@@ -170,7 +170,6 @@ namespace VECS
                         {
                             void* localAllocation = variant.pUniformBuffer;
                             Buffer.MemoryCopy(localAllocation, pipelineAlloc, _uniformSize, _uniformSize);
-                            NativeMemory.AlignedFree(localAllocation);
                         }
                         variant.pUniformBuffer = pipelineAlloc;
                     }

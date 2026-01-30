@@ -14,6 +14,12 @@ namespace VECS
 {
     public class GPUBuffer : IDisposable
     {
+
+#if LOG_BUFFER_ALLOCS
+        public string allocationTrace;
+#endif
+
+
         private GPUBuffer _stagingBuffer;
         public VkBuffer VkBuffer;
         internal VmaAllocation _allocation;
@@ -157,7 +163,7 @@ namespace VECS
 
 #if LOG_BUFFER_ALLOCS
             StackTrace trace = new(true);
-
+            allocationTrace = trace.ToString();
             Console.WriteLine(string.Format("0x{1}\nBuffer Creation trace\n {0}",trace.ToString(),VkBuffer.Handle.ToString("X16")));
 #endif
             _disposed = false;
@@ -180,7 +186,9 @@ namespace VECS
         public unsafe void Dispose()
         {
             GC.SuppressFinalize(this);
-            
+#if LOG_BUFFER_ALLOCS
+            Console.WriteLine(string.Format("0x{1}\nBuffer Disposal, create trace\n {0}", allocationTrace, VkBuffer.Handle.ToString("X16")));
+#endif
             if (VkBufferSize == 0 || _disposed) return;
             _stagingBuffer?.Dispose();
             _stagingBuffer = null;
