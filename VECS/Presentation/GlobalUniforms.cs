@@ -37,7 +37,7 @@ namespace VECS
         }
     }
 
-    [StructLayout(LayoutKind.Sequential, Size = 36)]
+    [StructLayout(LayoutKind.Sequential, Size = 48)]
     public struct AdditionalCameraInfo
     {
         public float Ratio;
@@ -63,7 +63,7 @@ namespace VECS
         }
     }
 
-    [StructLayout(LayoutKind.Sequential, Size = 12)]
+    [StructLayout(LayoutKind.Sequential, Size = 16)]
     public struct OrthographicInfo
     {
         public float Orthographic;
@@ -79,7 +79,7 @@ namespace VECS
     }
     
 
-    [StructLayout(LayoutKind.Sequential, Size = 136)]
+    [StructLayout(LayoutKind.Sequential, Size = 144)]
     public struct LightingInfo
     {
         public DirectionalLightInfo DirectionalLight;
@@ -107,7 +107,7 @@ namespace VECS
         public Matrix4x4 lightSpace;
     }
 
-    [StructLayout(LayoutKind.Sequential, Size = 76)]
+    [StructLayout(LayoutKind.Sequential, Size = 80)]
     public struct PointLightUniform
     {
         public Vector4 Position;

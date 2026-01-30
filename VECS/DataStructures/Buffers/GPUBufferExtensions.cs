@@ -211,6 +211,10 @@ namespace VECS
 
         public unsafe static void Reallocate(this GPUBuffer buffer, ulong newInstanceCount)
         {
+            // Console.WriteLine("Reallocate Buffer originally allocated from\n{0}", buffer.allocationTrace);
+            // StackTrace trace = new(true);
+            // Console.WriteLine("Reallocation Trace\n{0}", trace.ToString());
+
             if (buffer.UInstanceCount == newInstanceCount)
             {
 #if DEBUG
