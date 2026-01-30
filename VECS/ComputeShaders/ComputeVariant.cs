@@ -136,7 +136,7 @@ namespace VECS
 
             var hostPtr = (byte*)buffer + (propertyOffset + internalOffset);
 
-            NativeMemory.Copy(&element, hostPtr, maxSize);
+            Buffer.MemoryCopy(&element, hostPtr, maxSize, maxSize);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

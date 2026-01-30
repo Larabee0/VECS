@@ -334,13 +334,13 @@ namespace VECS
                 MapUnsafe(buffer, &pMappedData);
                 if (size == Vulkan.VK_WHOLE_SIZE)
                 {
-                    NativeMemory.Copy(data, pMappedData, (uint)buffer._vkBufferSize);
+                    Buffer.MemoryCopy(data, pMappedData, (uint)buffer._vkBufferSize, (uint)buffer._vkBufferSize);
                 }
                 else
                 {
                     byte* memOffset = (byte*)pMappedData;
                     memOffset += offset;
-                    NativeMemory.Copy(data, memOffset, (uint)size);
+                    Buffer.MemoryCopy(data, memOffset, (uint)size, (uint)size);
                 }
                 Unmap(buffer);
                 Flush(buffer, size, offset);
@@ -371,13 +371,13 @@ namespace VECS
 
                 if (size == Vulkan.VK_WHOLE_SIZE)
                 {
-                    NativeMemory.Copy(pMappedData, readout, (uint)buffer._vkBufferSize);
+                    Buffer.MemoryCopy(pMappedData, readout, (uint)buffer._vkBufferSize, (uint)buffer._vkBufferSize);
                 }
                 else
                 {
                     byte* memOffset = (byte*)pMappedData;
                     memOffset += offset;
-                    NativeMemory.Copy(memOffset, readout, (uint)size);
+                    Buffer.MemoryCopy(memOffset, readout, (uint)size, (uint)size);
                 }
                 Unmap(buffer);
             }

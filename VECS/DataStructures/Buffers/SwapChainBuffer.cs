@@ -269,8 +269,8 @@ namespace VECS
                 Debug.Assert(sizeof(T) == InstanceSize32, string.Format("Type T: {0} does has instance size of {1}, but swapchain buffer expects instance size of {2}", value.GetType().Name, sizeof(T), InstanceSize32));
             }
 #endif
-            var offsetPtr = IntPtr.Add(new(_hostPtr), hostBufferIndex * InstanceSize32);
-            NativeMemory.Copy(&value, offsetPtr.ToPointer(), (uint)sizeof(T));
+            var offsetPtr = (byte*)_hostPtr +( hostBufferIndex * InstanceSize32);
+            Buffer.MemoryCopy(&value, offsetPtr, (uint)sizeof(T), (uint)sizeof(T));
         }
 
         public unsafe void Dispose()

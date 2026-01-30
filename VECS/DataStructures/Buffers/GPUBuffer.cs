@@ -184,8 +184,11 @@ namespace VECS
             if (VkBufferSize == 0 || _disposed) return;
             _stagingBuffer?.Dispose();
             _stagingBuffer = null;
-            NativeMemory.AlignedFree(_hostPtr);
-            _hostPtr = null;
+            if (_hostPtr != null)
+            {
+                NativeMemory.AlignedFree(_hostPtr);
+                _hostPtr = null;
+            }
             Vma.vmaDestroyBuffer(GraphicsDevice.VmaAllocator, VkBuffer, _allocation);
 
             _disposed = true;

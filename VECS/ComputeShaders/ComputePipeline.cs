@@ -428,7 +428,7 @@ namespace VECS
 
             var hostPtr = (byte*)buffer.HostPtr + (internalOffset + (buffer.UInstanceSize32 * variant));
 
-            NativeMemory.Copy(&element, (void*)hostPtr, maxSize);
+            Buffer.MemoryCopy(&element, hostPtr, maxSize, maxSize);
         }
 
         public unsafe void WriteArrayToBuffer<T>(uint variant, ShaderProperty propertyInfo, T[] array) where T : unmanaged
@@ -444,12 +444,12 @@ namespace VECS
             var buffer = GetBuffer(propertyInfo.SetIndex, propertyInfo.BindPoint);
 
             uint offset = propertyOffset + (buffer.UInstanceSize32 * variant);
-            var hostPtr = (IntPtr)buffer.HostPtr;
+            
 
-            hostPtr = IntPtr.Add(hostPtr, (int)offset);
+            var hostPtr = (byte*)buffer.HostPtr + offset;
             fixed (T* arrayPtr = array)
             {
-                NativeMemory.Copy(arrayPtr, (void*)hostPtr, maxSize);
+                Buffer.MemoryCopy(arrayPtr, hostPtr, maxSize, maxSize);
             }
         }
 

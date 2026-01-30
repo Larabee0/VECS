@@ -672,7 +672,7 @@ namespace VECS
 
             fixed (void* pIndices = &directMesh.Indices[0])
             fixed (void* pFaces = &faces[0])
-                NativeMemory.Copy(pIndices, pFaces, (nuint)(directMesh.IndexBufferLength * sizeof(uint)));
+                Buffer.MemoryCopy(pIndices, pFaces, (nuint)(directMesh.IndexBufferLength * sizeof(uint)), (nuint)(directMesh.IndexBufferLength * sizeof(uint)));
 
             return faces;
         }
@@ -683,7 +683,7 @@ namespace VECS
 
             fixed (void* pIndexOffsets = &directMesh.IndexOffsets[0])
             fixed (void* pFaceOffsets = &faceOffsets[0])
-                NativeMemory.Copy(pIndexOffsets, pFaceOffsets, (nuint)(directMesh.IndexBufferLength * sizeof(uint)));
+                Buffer.MemoryCopy(pIndexOffsets, pFaceOffsets, (nuint)(directMesh.IndexBufferLength * sizeof(uint)), (nuint)(directMesh.IndexBufferLength * sizeof(uint)));
 
             return faceOffsets;
         }
@@ -736,9 +736,9 @@ namespace VECS
                     var srcBufferSize = src._vertexBuffers[attribute].HostBufferSize32;
                     var srcBuffer = src.GetUnsafeVertexBuffer(attribute, 0);
                     var dstBuffer = dst.GetUnsafeVertexBuffer(attribute, 0);
-                    NativeMemory.Copy(srcBuffer, dstBuffer, srcBufferSize);
+                    Buffer.MemoryCopy(srcBuffer, dstBuffer, srcBufferSize, srcBufferSize);
                 }
-                NativeMemory.Copy(src.IndexBuffer.HostPtr, dst.IndexBuffer.HostPtr, src.IndexBuffer.HostBufferSize32);
+                Buffer.MemoryCopy(src.IndexBuffer.HostPtr, dst.IndexBuffer.HostPtr, src.IndexBuffer.HostBufferSize32, src.IndexBuffer.HostBufferSize32);
                 dst.FlushAll();
             }
 
