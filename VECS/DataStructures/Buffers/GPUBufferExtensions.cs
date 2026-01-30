@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Threading;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
@@ -184,6 +185,21 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe static void* AlignedRealloc(void* oldPtr, ulong oldSize, ulong newSize, ulong alignment)
+        {
+            var newPtr = NativeMemory.AlignedAlloc((nuint)newSize, (nuint)alignment);
+            var fillSize = newSize - oldSize;
+            Buffer.MemoryCopy(oldPtr, newPtr, newSize, Math.Min(newSize,oldSize));
+            if (newSize > oldSize)
+            {
+                var ptr = (byte*)newPtr + oldSize;
+                NativeMemory.Fill(ptr, (nuint)fillSize, 0);
+            }
+            NativeMemory.AlignedFree(oldPtr);
+            return newPtr;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe static void Map<T>(this GPUBuffer<T> buffer, T** data) where T : unmanaged
         {
             MapUnsafe(buffer, (void**)data);
@@ -211,15 +227,15 @@ namespace VECS
 
         public unsafe static void Reallocate(this GPUBuffer buffer, ulong newInstanceCount)
         {
-            // Console.WriteLine("Reallocate Buffer originally allocated from\n{0}", buffer.allocationTrace);
-            // StackTrace trace = new(true);
-            // Console.WriteLine("Reallocation Trace\n{0}", trace.ToString());
+            Console.WriteLine("Reallocate Buffer originally allocated from\n{0}", buffer.allocationTrace);
+            StackTrace trace2 = new(true);
+            Console.WriteLine("Reallocation Trace\n{0}", trace2.ToString());
 
             if (buffer.UInstanceCount == newInstanceCount)
             {
 #if DEBUG
-                StackTrace trace = new(true);
-                Console.WriteLine("0x{1}\nReallocation aborted as instance count is unchanged!\nTrace\n {0}", trace.ToString(), buffer.VkBuffer.Handle.ToString("X16"));
+                StackTrace trace3 = new(true);
+                Console.WriteLine("0x{1}\nReallocation aborted as instance count is unchanged!\nTrace\n {0}", trace3.ToString(), buffer.VkBuffer.Handle.ToString("X16"));
 #endif
                 return;
             }
@@ -245,15 +261,10 @@ namespace VECS
             if (buffer.CPUAccess)
             {
                 allocationInfo.flags = VmaAllocationCreateFlags.HostAccessSequentialWrite;
+                var oldSize = oldInstanceCount * Math.Max(buffer.HostAlignment, buffer.InstanceSize);
+                var newSize = newInstanceCount * Math.Max(buffer.HostAlignment, buffer.InstanceSize);
 
-                buffer._hostPtr = NativeMemory.AlignedRealloc(buffer._hostPtr, (nuint)buffer._vkBufferSize, (nuint)buffer.HostAlignment);
-                var fillCount = (newInstanceCount - oldInstanceCount) * Math.Max(buffer.HostAlignment, buffer.InstanceSize);
-
-                if (fillCount > 0)
-                {
-                    var ptr = (byte*)buffer._hostPtr + (oldInstanceCount * Math.Max(buffer.HostAlignment, buffer.InstanceSize));
-                    NativeMemory.Fill(ptr, (nuint)fillCount, 0);
-                }
+                buffer._hostPtr = AlignedRealloc(buffer._hostPtr,oldSize,newSize,buffer.HostAlignment);
             }
 
             Vma.vmaCreateBuffer(GraphicsDevice.VmaAllocator, bufferInfo, allocationInfo, out buffer.VkBuffer, out buffer._allocation).CheckResult("Failed to create vma buffer!");
@@ -265,11 +276,17 @@ namespace VECS
             };
             buffer._deviceBufferAddress = GraphicsDevice.DeviceAPI.vkGetBufferDeviceAddress(GraphicsDevice.Device, &deviceAddressInfo);
 
-#if LOG_BUFFER_ALLOCS
-            StackTrace trace = new(true);
 
-            Console.WriteLine("0x{1}\nBuffer Creation trace\n {0}",trace.ToString(),buffer.VkBuffer.Handle.ToString("X16"));
-#endif
+            StackTrace trace = new(true);
+            buffer.allocationTrace = trace.ToString();
+            if (buffer.CPUAccess)
+            {
+                Console.WriteLine(string.Format("REALLOC VK: 0x{1} Host: 0x{2}\nBuffer Creation trace\n {0}", trace.ToString(), buffer.VkBuffer.Handle.ToString("X16"), ((ulong)buffer._hostPtr).ToString("X16")));
+            }
+            else
+            {
+                Console.WriteLine(string.Format("REALLOC 0x{1}\nBuffer Creation trace\n {0}", trace.ToString(), buffer.VkBuffer.Handle.ToString("X16")));
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -635,11 +652,13 @@ namespace VECS
 
         public static void EnqueueForDisposal(this GPUBuffer gpuBuffer)
         {
-            _disposalQueue.Enqueue(new(gpuBuffer, SwapChain.MAX_CONCURRENT_FRAMES));
+            if (gpuBuffer.IsDisposed) return;
+            _disposalQueue.Enqueue(new(gpuBuffer, (int)Presenter.FrameCount + SwapChain.MAX_CONCURRENT_FRAMES));
         }
 
         public static void EnqueueForDisposal(GPUBuffer gpuBuffer, int i)
         {
+            if (gpuBuffer.IsDisposed) return;
             _disposalQueue.Enqueue(new(gpuBuffer, i));
         }
 
@@ -647,7 +666,7 @@ namespace VECS
         {
             for (int i = _disposalList.Count - 1; i >= 0; i--)
             {
-                if (_disposalList[i].frameIndex == frameIndex)
+                if ((long)Presenter.FrameCount >_disposalList[i].frameIndex)
                 {
                     _disposalList[i].buffer?.Dispose();
                     _disposalList.RemoveAt(i);

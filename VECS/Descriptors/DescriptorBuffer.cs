@@ -13,7 +13,7 @@ namespace VECS
         private readonly uint[] _bindingOffsets;
         private readonly bool[] _hasDataBound;
 
-        private readonly GPUBuffer _descriptorBuffer;
+        private GPUBuffer _descriptorBuffer;
 
         private readonly VkDescriptorSetLayout _setLayout;
 
@@ -71,8 +71,10 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void ReAllocate(ulong instanceCount)
         {
-            _descriptorBuffer.Reallocate(instanceCount);
-            _maxSats = (uint)instanceCount;
+            var old = _descriptorBuffer;
+            _descriptorBuffer = new(_alignedLayoutSize, instanceCount, old.UsageFlags, true, false, false);
+            _maxSats = _descriptorBuffer.UInstanceCount32;
+            GPUBufferExtensions.EnqueueForDisposal(old);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

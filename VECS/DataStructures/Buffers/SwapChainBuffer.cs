@@ -154,16 +154,9 @@ namespace VECS
             {
                 _hostPtr = copyFrom._hostPtr;
                 copyFrom._hostPtr = null;
-
-                _hostPtr = NativeMemory.AlignedRealloc(_hostPtr, (uint)_vkBufferSize, (uint)_hostAlignment);
-                var fillCount = (newInstanceCount - srcInstanceCount) * _instanceSize;
-
-                if (fillCount > 0)
-                {
-                    var ptr = (byte*)_hostPtr + (srcInstanceCount * _instanceSize);
-                    
-                    NativeMemory.Fill(ptr, (uint)fillCount, 0);
-                }
+                var oldSize = srcInstanceCount * _instanceSize;
+                var newSize = newInstanceCount * _instanceSize;
+                _hostPtr = GPUBufferExtensions.AlignedRealloc(_hostPtr, oldSize, newSize, _hostAlignment);
             }
 
             copyFrom?.Dispose();
@@ -414,16 +407,9 @@ namespace VECS
             {
                 _hostPtr = copyFrom._hostPtr;
                 copyFrom._hostPtr = null;
-
-                _hostPtr = NativeMemory.AlignedRealloc(_hostPtr, (nuint)_vkBufferSize, (nuint)_hostAlignment);
-                var fillCount = (newInstanceCount - srcInstanceCount) * _instanceSize;
-
-                if (fillCount > 0)
-                {
-                    var ptr = new IntPtr(_hostPtr);
-                    ptr = IntPtr.Add(ptr, (int)fillCount);
-                    NativeMemory.Fill(ptr.ToPointer(), (nuint)fillCount, 0);
-                }
+                var oldSize = srcInstanceCount * _instanceSize;
+                var newSize = newInstanceCount * _instanceSize;
+                _hostPtr = GPUBufferExtensions.AlignedRealloc(_hostPtr, oldSize, newSize, _hostAlignment);
             }
 
             copyFrom?.Dispose();

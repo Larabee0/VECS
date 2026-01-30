@@ -141,8 +141,10 @@ namespace VECS
 
         public unsafe void Resize(int newLength)
         {
+            var oldSize = _allocationSize;
             _allocationSize = Math.Max(1, (uint)newLength) * ElementSize;
-            _buffer = (byte*)NativeMemory.AlignedRealloc(_buffer, _allocationSize , Alignment);
+
+            _buffer = (byte*)GPUBufferExtensions.AlignedRealloc(_buffer, oldSize, _allocationSize, Alignment);
         }
 
         public unsafe void Write(in int index, in IComponent component)

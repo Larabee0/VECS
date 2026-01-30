@@ -1,4 +1,4 @@
-﻿//#define LOG_BUFFER_ALLOCS
+﻿#define LOG_BUFFER_ALLOCS
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -164,7 +164,14 @@ namespace VECS
 #if LOG_BUFFER_ALLOCS
             StackTrace trace = new(true);
             allocationTrace = trace.ToString();
-            Console.WriteLine(string.Format("0x{1}\nBuffer Creation trace\n {0}",trace.ToString(),VkBuffer.Handle.ToString("X16")));
+            if (_cpuAccess)
+            {
+                Console.WriteLine(string.Format("VK: 0x{1} Host: 0x{2}\nBuffer Creation trace\n {0}", trace.ToString(), VkBuffer.Handle.ToString("X16"),((ulong)_hostPtr).ToString("X16")));
+            }
+            else
+            {
+                Console.WriteLine(string.Format("0x{1}\nBuffer Creation trace\n {0}", trace.ToString(), VkBuffer.Handle.ToString("X16")));
+            }
 #endif
             _disposed = false;
 
@@ -187,7 +194,14 @@ namespace VECS
         {
             GC.SuppressFinalize(this);
 #if LOG_BUFFER_ALLOCS
-            Console.WriteLine(string.Format("0x{1}\nBuffer Disposal, create trace\n {0}", allocationTrace, VkBuffer.Handle.ToString("X16")));
+            if (_cpuAccess)
+            {
+                Console.WriteLine(string.Format("VK: 0x{1} Host: 0x{2}\nBuffer Creation trace\n {0}", allocationTrace, VkBuffer.Handle.ToString("X16"), ((ulong)_hostPtr).ToString("X16")));
+            }
+            else
+            {
+                Console.WriteLine(string.Format("0x{1}\nBuffer Creation trace\n {0}", allocationTrace, VkBuffer.Handle.ToString("X16")));
+            }
 #endif
             if (VkBufferSize == 0 || _disposed) return;
             _stagingBuffer?.Dispose();
