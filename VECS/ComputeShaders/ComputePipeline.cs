@@ -60,7 +60,7 @@ namespace VECS
                 var setBindings = GPUPipelineUtil.ExtractBindingsForSetAsBindingArray(setIndex, descriptorSetBindings);
                 var layout = GPUPipelineUtil.CreateDescriptorSetLayout(setBindings, VkDescriptorSetLayoutCreateFlags.DescriptorBufferEXT);
                 _descriptorSetLayouts[setIndex] = layout;
-                _descriptorSetInfos[setIndex] = new DescriptorSetInfo(layout, setBindings, true, _uniformSize, 10);
+                _descriptorSetInfos[setIndex] = new DescriptorSetInfo(layout, setBindings, true, _uniformSize, 1);
                 _uniformSize += _descriptorSetInfos[setIndex].UnifromBufferSize;
                 _uniformFlags |= _descriptorSetInfos[setIndex].UniformBufferFlags;
             }
@@ -101,7 +101,7 @@ namespace VECS
 
             for (uint setIndex = 0; setIndex < _descriptorSetCount; setIndex++)
             {
-                result[setIndex] = new DescriptorSetInfo(_descriptorSetLayouts[setIndex], _descriptorSetInfos[setIndex].DescriptorBindings, true, _descriptorSetInfos[setIndex].UnifromBufferOffset, 2);
+                result[setIndex] = new DescriptorSetInfo(_descriptorSetLayouts[setIndex], _descriptorSetInfos[setIndex].DescriptorBindings, true, _descriptorSetInfos[setIndex].UnifromBufferOffset, 1);
             }
             return result;
         }

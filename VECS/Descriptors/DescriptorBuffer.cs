@@ -74,10 +74,11 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void ReAllocate(ulong instanceCount)
+        public unsafe void ReAllocate(ulong instanceCount)
         {
             var old = _descriptorBuffer;
-            _descriptorBuffer = new(_alignedLayoutSize, instanceCount, old.UsageFlags, true, true, false);
+            old._hostPtr = null;
+            _descriptorBuffer = new(instanceCount, _alignedLayoutSize, old.UsageFlags, true, true, false);
             _maxSats = _descriptorBuffer.UInstanceCount32;
             GPUBufferExtensions.EnqueueForDisposal(old);
         }
@@ -85,6 +86,7 @@ namespace VECS
         public unsafe void SetHostPtr(void* hostPtr)
         {
             _hostPtr = hostPtr;
+            _descriptorBuffer._hostPtr = _hostPtr;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -130,6 +132,9 @@ namespace VECS
         public unsafe void WriteDescriptor(DescriptorBufferWriteInfo writeInfo)
         {
             Debug.Assert(writeInfo.Binding < _bindingOffsets.Length, string.Format("Check shader descriptor set binding indexes for set {0}", writeInfo.Set));
+
+            Debug.Assert(writeInfo.Set < _maxSats, string.Format("Attempting to set {0} which is beyond current max sets {1}!", writeInfo.Set, _maxSats));
+
             // align for set index;
             // then align for binding index
             uint addressOffset = (writeInfo.Set * _alignedLayoutSize) + _bindingOffsets[writeInfo.Binding];
@@ -182,6 +187,7 @@ namespace VECS
                     throw new NotImplementedException(string.Format("Descriptor Type {0} is invalid or not implemented for VkDescriptorAddressInfoEXT!", writeInfo.Type.ToString()));
             }
             GraphicsDevice.DeviceAPI.vkGetDescriptorEXT(GraphicsDevice.Device, &getInfo, writeInfo.DataSize, ptr);
+            _descriptorBuffer.SetHostBufferChanged(true);
         }
 
         public void SetUsageLength(uint length)
@@ -195,7 +201,7 @@ namespace VECS
 
         public unsafe void Flush()
         {
-            GPUBufferExtensions.WriteToBuffer(_descriptorBuffer, _hostPtr, 0, _usageLength * _alignedLayoutSize);
+            GPUBufferExtensions.WriteFromHostDelayed(_descriptorBuffer, 0, _usageLength * _alignedLayoutSize);
         }
 
         public static unsafe void Bind(VkCommandBuffer cmd, DescriptorBuffer buffer)
@@ -207,17 +213,18 @@ namespace VECS
 
         public unsafe Span<ulong> GetHostBuffer()
         {
-            return new Span<ulong>(_descriptorBuffer.HostPtr, (int)(_descriptorBuffer.HostBufferSize / sizeof(ulong)));
+            return new Span<ulong>(_hostPtr, (int)(_usageLength * _alignedLayoutSize / sizeof(ulong)));
         }
 
         public unsafe void* GetHostPtr()
         {
-            return _descriptorBuffer.HostPtr; 
+            return _hostPtr; 
         }
 
-        public void ReadHost()
+        public unsafe void ReadHost()
         {
-            _descriptorBuffer.ReadToHostBuffer();
+            var read = GetHostBuffer();
+            _descriptorBuffer.ReadFromBuffer(_hostPtr, _usageLength * _alignedLayoutSize);
         }
 
         public static unsafe void BindSets(VkCommandBuffer cmd, DescriptorBuffer[] buffers)
@@ -276,6 +283,7 @@ namespace VECS
         public unsafe void Dispose()
         {
             GC.SuppressFinalize(this);
+            _descriptorBuffer._hostPtr = null;
             _descriptorBuffer.EnqueueForDisposal();
             _hostPtr = null;
             GC.ReRegisterForFinalize(this);

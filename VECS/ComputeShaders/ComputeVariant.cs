@@ -208,7 +208,7 @@ namespace VECS
                     {
                         var addressRange = _tempUniformBuffer.GetBufferAddressRangeBytes(internalOffset, binding.BufferSize);
 
-                        setInfo.DescriptorBuffers[frameIndex].SetBufferBinding(addressRange, binding.DescriptorType, variant, binding.BindPoint);
+                        setInfo.DescriptorBuffers[frameIndex].SetBufferBinding(addressRange, binding.DescriptorType, 0, binding.BindPoint);
                     }
                 }
             }

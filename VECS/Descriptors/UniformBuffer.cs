@@ -8,7 +8,7 @@ namespace VECS
     {
         private SwapChainBuffer _uniformBuffer;
 
-        private uint _uniformCount;
+        private uint _uniformCount = 1;
 
         private unsafe void*[] _uniformAddresses = new void*[1];
 

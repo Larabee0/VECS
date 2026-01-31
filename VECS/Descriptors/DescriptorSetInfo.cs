@@ -108,7 +108,12 @@ namespace VECS
             {
                 _descriptorBuffers[frameIndex] = new(layout, _bindingCount, (int)_uniformCount, _storageBufferCount > 0 || uniforms, _imageCount > 0);
             }
-            _descriptorHostPtr = (byte*)NativeMemory.AlignedAlloc(_descriptorBuffers[0].AllocationSize * SwapChain.MAX_CONCURRENT_FRAMES_UINT, (uint)GPUBufferExtensions.GetAlignment(_descriptorBuffers[0].AlignedSize));
+            var totalallocationSize = _descriptorBuffers[0].AllocationSize * SwapChain.MAX_CONCURRENT_FRAMES_UINT;
+            
+            _descriptorHostPtr = (byte*)NativeMemory.AlignedAlloc(totalallocationSize, (uint)GPUBufferExtensions.GetAlignment(_descriptorBuffers[0].AlignedSize));
+
+            NativeMemory.Fill(_descriptorHostPtr, totalallocationSize, 0);
+
             SetDiscriptorBufferHostPtr();
 
             if (_storageBufferCount > 0)
@@ -375,6 +380,7 @@ namespace VECS
             }
             
             NativeMemory.AlignedFree(_descriptorHostPtr);
+            _descriptorHostPtr = null;
 
             if (_ownerStorageBuffer != null)
             {

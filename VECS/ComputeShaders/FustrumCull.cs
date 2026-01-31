@@ -178,12 +178,12 @@ namespace VECS
         public static void PostPresent()
         {
             _computeShader.SetUniformBufferLength(_invokation);
-
             Interlocked.Exchange(ref _invokation, 0);
         }
 
         public static void Cull(VkCommandBuffer commandBuffer,int frameIndex, CullData cullData, uint drawCount, SwapChainBuffer<VECSDrawIndexIndirectCommand> drawIndirect, SwapChainBuffer<ShaderAABB> bounds)
         {
+            
             var variantIndex = Interlocked.Increment(ref _invokation) - 1;
 #if DEBUG
 #pragma warning disable CS0162
