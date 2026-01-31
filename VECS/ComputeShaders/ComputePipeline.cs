@@ -67,6 +67,7 @@ namespace VECS
             
             if (_uniformSize > 0)
             {
+                _uniformSize = (uint)GPUBufferExtensions.GetAlignment(_uniformSize, VkBufferUsageFlags.UniformBuffer);
                 _uniformBuffer = new(_uniformSize, 1, _uniformFlags);
             }
 
@@ -97,12 +98,10 @@ namespace VECS
         internal DescriptorSetInfo[] GetTemporaryDescriptorSetInfos()
         {
             DescriptorSetInfo[] result = new DescriptorSetInfo[_descriptorSetCount];
-            uint _uniformSize = 0;
 
             for (uint setIndex = 0; setIndex < _descriptorSetCount; setIndex++)
             {
-                result[setIndex] = new DescriptorSetInfo(_descriptorSetLayouts[setIndex], _descriptorSetInfos[setIndex].DescriptorBindings, true, _uniformSize, 1);
-                _uniformSize += result[setIndex].UnifromBufferSize;
+                result[setIndex] = new DescriptorSetInfo(_descriptorSetLayouts[setIndex], _descriptorSetInfos[setIndex].DescriptorBindings, true, _descriptorSetInfos[setIndex].UnifromBufferOffset, 2);
             }
             return result;
         }

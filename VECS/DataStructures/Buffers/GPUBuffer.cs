@@ -196,11 +196,11 @@ namespace VECS
 #if LOG_BUFFER_ALLOCS
             if (_cpuAccess)
             {
-                Console.WriteLine(string.Format("VK: 0x{1} Host: 0x{2}\nBuffer Creation trace\n {0}", allocationTrace, VkBuffer.Handle.ToString("X16"), ((ulong)_hostPtr).ToString("X16")));
+                Console.WriteLine(string.Format("VK: 0x{1} Host: 0x{2}\nDisposal trace\n {0}", allocationTrace, VkBuffer.Handle.ToString("X16"), ((ulong)_hostPtr).ToString("X16")));
             }
             else
             {
-                Console.WriteLine(string.Format("0x{1}\nBuffer Creation trace\n {0}", allocationTrace, VkBuffer.Handle.ToString("X16")));
+                Console.WriteLine(string.Format("0x{1}\nDisposal trace\n {0}", allocationTrace, VkBuffer.Handle.ToString("X16")));
             }
 #endif
             if (VkBufferSize == 0 || _disposed) return;

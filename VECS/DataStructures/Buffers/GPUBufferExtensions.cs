@@ -664,6 +664,10 @@ namespace VECS
 
         public static unsafe void PlayerbackDisposeCmds(int frameIndex)
         {
+            if(_disposalList.Count > 0)
+            {
+                Console.WriteLine("Disposal Update {0}",Presenter.FrameCount);
+            }
             for (int i = _disposalList.Count - 1; i >= 0; i--)
             {
                 if ((long)Presenter.FrameCount >_disposalList[i].frameIndex)
@@ -677,10 +681,7 @@ namespace VECS
 
             while (_disposalQueue.TryDequeue(out var cmd))
             {
-                if(cmd.frameIndex > SwapChain.MAX_CONCURRENT_FRAMES)
-                {
-                    cmd.frameIndex = frameIndex;
-                }
+                cmd.frameIndex = (int)Presenter.FrameCount + SwapChain.MAX_CONCURRENT_FRAMES;
                 _disposalList.Add(cmd);
             }
         }

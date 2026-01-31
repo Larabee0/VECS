@@ -168,7 +168,7 @@ namespace VECS
             _computeShader = ComputePipeline.GetOrCreate("fustrum_cull.comp");
 #if DEBUG
             _textureSampler = ComputePipeline.GetOrCreate("textureSampler.comp");
-            _textureResult = new GPUBuffer<float>(1, VkBufferUsageFlags.StorageBuffer, true, false, false);
+            _textureResult = new GPUBuffer<float>(16, VkBufferUsageFlags.StorageBuffer, true, false, false);
             _textureSampler.SetStorageBuffer("outBuffer".GetShaderPropertyId(), 0, _textureResult);
             Application.Instance.OnDestroy += static () => _textureResult.Dispose();
 #endif

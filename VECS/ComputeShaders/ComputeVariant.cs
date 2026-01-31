@@ -48,7 +48,6 @@ namespace VECS
             if (!_allowTmpBufferAllocation) return;
 
             _tempDescriptorSetInfos = _computePipeline.GetTemporaryDescriptorSetInfos();
-
             _tempUniformBuffer = new(_computePipeline.UniformBufferSize, 1, _computePipeline.UniformFlags, true, false, false);
             pUniformBuffer = _tempUniformBuffer.HostPtr;
         }
