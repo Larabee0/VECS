@@ -41,6 +41,7 @@ namespace VECS
         public ulong UInstanceCount => _instanceCount;
         public long InstanceCount => (long)_instanceCount;
         public uint UsedInstanceCount => _usedInstanceCount;
+        public VkBufferUsageFlags UsageFlags => _usageFlags;
 
         public GPUBuffer ActiveGPUBuffer
         {

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
@@ -22,6 +23,7 @@ namespace VECS
         private readonly bool[] _descriptorSetBufferIsStorage;
         private readonly bool[] _ownerStorageBuffer;
 
+        private unsafe byte* _descriptorHostPtr;
         private readonly DescriptorBuffer[] _descriptorBuffers = new DescriptorBuffer[SwapChain.MAX_CONCURRENT_FRAMES];
 
         private readonly int[] _bufferDescriptorBindingIndices;
@@ -65,7 +67,7 @@ namespace VECS
         public SwapChainBuffer[] StorageBuffers => _storageBuffers;
         public bool[] DescriptorSetBufferIsStorage => _descriptorSetBufferIsStorage;
 
-        public DescriptorSetInfo(VkDescriptorSetLayout layout, DescriptorBinding[] bindings, bool preventStorageBuffersAllocation, uint uniformOffset, uint intialVariantCount = GraphicsPipeline.MAX_VARIANTS, bool meshShader = false)
+        public unsafe DescriptorSetInfo(VkDescriptorSetLayout layout, DescriptorBinding[] bindings, bool preventStorageBuffersAllocation, uint uniformOffset, uint intialVariantCount = GraphicsPipeline.MAX_VARIANTS, bool meshShader = false)
         {
             _uniformOffset = uniformOffset;
             _uniformCount = intialVariantCount;
@@ -106,6 +108,8 @@ namespace VECS
             {
                 _descriptorBuffers[frameIndex] = new(layout, _bindingCount, (int)_uniformCount, _storageBufferCount > 0 || uniforms, _imageCount > 0);
             }
+            _descriptorHostPtr = (byte*)NativeMemory.AlignedAlloc(_descriptorBuffers[0].AllocationSize * SwapChain.MAX_CONCURRENT_FRAMES_UINT, (uint)GPUBufferExtensions.GetAlignment(_descriptorBuffers[0].AlignedSize));
+            SetDiscriptorBufferHostPtr();
 
             if (_storageBufferCount > 0)
             {
@@ -120,6 +124,15 @@ namespace VECS
             {
                 _bindingPointToImageIndex = new Dictionary<uint, int>((int)_imageCount);
                 CreateBindingImages(bindings);
+            }
+        }
+
+        private unsafe void SetDiscriptorBufferHostPtr()
+        {
+            var allocationSize = _descriptorBuffers[0].AllocationSize;
+            for (uint frameIndex = 0; frameIndex < SwapChain.MAX_CONCURRENT_FRAMES; frameIndex++)
+            {
+                _descriptorBuffers[frameIndex].SetHostPtr(_descriptorHostPtr + (allocationSize * frameIndex));
             }
         }
 
@@ -242,12 +255,24 @@ namespace VECS
             }
         }
 
-        public void SetVariantLength(uint length)
+        public unsafe void SetVariantLength(uint length)
         {
             if (_forMeshShader) return;
+            var needsToReallocate = _descriptorBuffers[0].MaxSets < length;
+            var oldSize = _descriptorBuffers[0].AllocationSize * (uint)_descriptorBuffers.Length;
+            var alignment = GPUBufferExtensions.GetAlignment(_descriptorBuffers[0].AlignedSize);
             for (int i = 0; i < _descriptorBuffers.Length; i++)
             {
                 _descriptorBuffers[i].SetUsageLength(length);
+            }
+
+            if (needsToReallocate)
+            {
+                var newSize = _descriptorBuffers[0].AllocationSize * (uint)_descriptorBuffers.Length;
+
+                _descriptorHostPtr = (byte*)GPUBufferExtensions.AlignedRealloc(_descriptorHostPtr, oldSize, newSize, alignment);
+
+                SetDiscriptorBufferHostPtr();
             }
         }
 
@@ -338,7 +363,7 @@ namespace VECS
             return StorageBuffers[bufferIndex][frameIndex].GetBufferAddressRange(offset, length);
         }
 
-        public void Dispose()
+        public unsafe void Dispose()
         {
             if (_disposed) return;
             _disposed = true;
@@ -348,6 +373,8 @@ namespace VECS
             {
                 _descriptorBuffers[i]?.Dispose();
             }
+            
+            NativeMemory.AlignedFree(_descriptorHostPtr);
 
             if (_ownerStorageBuffer != null)
             {

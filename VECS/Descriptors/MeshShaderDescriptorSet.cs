@@ -32,11 +32,12 @@ namespace VECS
         private bool _disposed;
         public readonly bool[] SetsDirty = new bool[SwapChain.MAX_CONCURRENT_FRAMES];
         public readonly DescriptorBuffer[] DescriptorBuffers = new DescriptorBuffer[SwapChain.MAX_CONCURRENT_FRAMES];
+        private unsafe byte* _descriptorBufferHostPtr;
         public readonly VertexBufferInfo[] Buffers;
         public readonly VkDescriptorSetLayout VkDescriptorSetLayout;
         public readonly int LayoutHash;
 
-        public MeshShaderDescriptorBuffer(VkDescriptorSetLayout layout, VertexAttributeDescription[] desired, DirectMesh mesh)
+        public unsafe MeshShaderDescriptorBuffer(VkDescriptorSetLayout layout, VertexAttributeDescription[] desired, DirectMesh mesh)
         {
             VkDescriptorSetLayout = layout;
 
@@ -63,12 +64,18 @@ namespace VECS
             {
                 DescriptorBuffers[i] = new(layout, desired.Length+3, 1, true, false);
             }
-            
+            var allocationSize = DescriptorBuffers[0].AllocationSize;
+            _descriptorBufferHostPtr = (byte*)NativeMemory.AlignedAlloc(allocationSize * SwapChain.MAX_CONCURRENT_FRAMES_UINT, (uint)GPUBufferExtensions.GetAlignment(DescriptorBuffers[0].AlignedSize));
+
+            for (uint i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
+            {
+                DescriptorBuffers[i].SetHostPtr(_descriptorBufferHostPtr + (allocationSize * i));
+            }
 
             Array.Fill(SetsDirty, true);
         }
 
-        public void Dispose()
+        public unsafe void Dispose()
         {
             if (_disposed) return;
             _disposed = true;
@@ -77,6 +84,7 @@ namespace VECS
             {
                 DescriptorBuffers[i].Dispose();
             }
+            NativeMemory.AlignedFree(_descriptorBufferHostPtr);
             GC.ReRegisterForFinalize(this);
         }
     }

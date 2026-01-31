@@ -35,7 +35,7 @@ namespace VECS
         protected bool _gpuBufferChanged;
         protected bool _hostBufferChanged;
         protected bool _persistentStagingBuffer;
-        internal unsafe void* _hostPtr;
+        internal unsafe void* _hostPtr = null;
         public ulong VkBufferSize => _vkBufferSize;
 
         public bool IsDisposed => _disposed;

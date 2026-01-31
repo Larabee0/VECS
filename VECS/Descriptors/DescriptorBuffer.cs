@@ -13,12 +13,17 @@ namespace VECS
         private readonly uint[] _bindingOffsets;
         private readonly bool[] _hasDataBound;
 
+        private unsafe void* _hostPtr;
         private GPUBuffer _descriptorBuffer;
 
         private readonly VkDescriptorSetLayout _setLayout;
 
         private uint _usageLength;
         private uint _maxSats;
+
+        public uint MaxSets => _maxSats;
+
+        public uint AllocationSize => _alignedLayoutSize * _maxSats;
 
         public uint AlignedSize => _alignedLayoutSize;
         public bool[] HasDataBound => _hasDataBound;
@@ -63,7 +68,7 @@ namespace VECS
                 usageFlags |= VkBufferUsageFlags.SamplerDescriptorBufferEXT;
             }
 
-            _descriptorBuffer = new(_alignedLayoutSize, (uint)maxSets, usageFlags, true, false, false);
+            _descriptorBuffer = new(_alignedLayoutSize, (uint)maxSets, usageFlags, true, true, false);
             _maxSats = _descriptorBuffer.UInstanceCount32;
 
         }
@@ -72,9 +77,14 @@ namespace VECS
         public void ReAllocate(ulong instanceCount)
         {
             var old = _descriptorBuffer;
-            _descriptorBuffer = new(_alignedLayoutSize, instanceCount, old.UsageFlags, true, false, false);
+            _descriptorBuffer = new(_alignedLayoutSize, instanceCount, old.UsageFlags, true, true, false);
             _maxSats = _descriptorBuffer.UInstanceCount32;
             GPUBufferExtensions.EnqueueForDisposal(old);
+        }
+
+        public unsafe void SetHostPtr(void* hostPtr)
+        {
+            _hostPtr = hostPtr;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -122,9 +132,8 @@ namespace VECS
             Debug.Assert(writeInfo.Binding < _bindingOffsets.Length, string.Format("Check shader descriptor set binding indexes for set {0}", writeInfo.Set));
             // align for set index;
             // then align for binding index
-            IntPtr ptr = new(_descriptorBuffer.HostPtr);
-            int addressOffset = (int)((writeInfo.Set * _alignedLayoutSize) + _bindingOffsets[writeInfo.Binding]);
-            ptr = IntPtr.Add(ptr, addressOffset);
+            uint addressOffset = (writeInfo.Set * _alignedLayoutSize) + _bindingOffsets[writeInfo.Binding];
+            byte* ptr = (byte*)_hostPtr + addressOffset;
 
             var getInfo = new VkDescriptorGetInfoEXT();
             var addressInfo = writeInfo.AddressInfoEXT;
@@ -172,9 +181,7 @@ namespace VECS
                 default:
                     throw new NotImplementedException(string.Format("Descriptor Type {0} is invalid or not implemented for VkDescriptorAddressInfoEXT!", writeInfo.Type.ToString()));
             }
-            GraphicsDevice.DeviceAPI.vkGetDescriptorEXT(GraphicsDevice.Device, &getInfo, writeInfo.DataSize, ptr.ToPointer());
-
-            _descriptorBuffer.SetHostBufferChanged(true);
+            GraphicsDevice.DeviceAPI.vkGetDescriptorEXT(GraphicsDevice.Device, &getInfo, writeInfo.DataSize, ptr);
         }
 
         public void SetUsageLength(uint length)
@@ -188,12 +195,7 @@ namespace VECS
 
         public unsafe void Flush()
         {
-            GPUBufferExtensions.WriteFromHostDelayed( _descriptorBuffer,0,_usageLength * _alignedLayoutSize);
-        }
-
-        public unsafe void FlushNow()
-        {
-            _descriptorBuffer.WriteFromHostBuffer(_usageLength * _alignedLayoutSize);
+            GPUBufferExtensions.WriteToBuffer(_descriptorBuffer, _hostPtr, 0, _usageLength * _alignedLayoutSize);
         }
 
         public static unsafe void Bind(VkCommandBuffer cmd, DescriptorBuffer buffer)
@@ -275,6 +277,7 @@ namespace VECS
         {
             GC.SuppressFinalize(this);
             _descriptorBuffer.EnqueueForDisposal();
+            _hostPtr = null;
             GC.ReRegisterForFinalize(this);
         }
 
