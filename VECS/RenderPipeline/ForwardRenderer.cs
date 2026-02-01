@@ -29,6 +29,7 @@ namespace VECS
         public ForwardRenderer()
         {
             _geometry = SwapChainBuffer.AliasGPUBuffer(new GPUBuffer<Vector2UInt>(1, VkBufferUsageFlags.StorageBuffer | VkBufferUsageFlags.TransferDst, false, false, true));
+            GraphicsPipelineExtension.AddOrUpdateEngineBuffer(ShaderProperties.GeometrySBOId, _geometry);
             RecreateAttachments();
         }
 
@@ -41,8 +42,7 @@ namespace VECS
             _headIndex?.Dispose();
 
             _linkedList?[0]?.EnqueueForDisposal();
-            _linkedList?.Dispose();
-
+            GraphicsPipelineExtension.RemoveEngineBuffer(ShaderProperties.LinkedListSBOId);
             var windowExtents = SwapChain.Instance._windowExtent;
 
             var _maxNodes = OIT_NODE_COUNT * windowExtents.width * windowExtents.height;
@@ -56,24 +56,11 @@ namespace VECS
             BrightObjectAttachment = new("BrightObjectAttachment", (int)windowExtents.width, (int)windowExtents.height, VkFormat.R32G32B32A32Sfloat);
             DepthAttachment = new("DepthAttacment",(int)windowExtents.width, (int)windowExtents.height, VkFormat.D32Sfloat);
 
+            GraphicsPipelineExtension.AddOrUpdateEngineBuffer(ShaderProperties.LinkedListSBOId, _linkedList);
         }
 
         public void SetOIT()
         {
-            EnginePipes.OIT_Composite.Default().SetTexture(ShaderProperties.HeadIndexImageId, _headIndex);
-            EnginePipes.OIT_Composite.SetStorageBuffer(ShaderProperties.LinkedListSBOId, _linkedList);
-
-            EnginePipes.OIT_Unlit.SetStorageBuffer(ShaderProperties.GeometrySBOId, _geometry);
-            EnginePipes.OIT_LitTexture.SetStorageBuffer(ShaderProperties.GeometrySBOId, _geometry);
-
-            AssetDataBase<GraphicsPipeline>.AllAssetsListForReading.ForEach(asset =>
-            {
-                if (asset.Transparent)
-                {
-                    asset.SetStorageBuffer(ShaderProperties.LinkedListSBOId, _linkedList);
-                }
-            });
-
             AssetDataBase<Material>.AllAssetsListForReading.ForEach(asset =>
             {
                 if (asset.Pipeline.Transparent)

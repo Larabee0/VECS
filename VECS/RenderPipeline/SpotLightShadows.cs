@@ -103,7 +103,7 @@ namespace VECS
                 mats.UnsafeSet(faceIndex, GetSpaceMatrix(spotLight, out var _, out var _, out var _));
                 lights.UnsafeSet(lightIndex, new Vector4(spotLight.Position.AsVector3(), spotLight.Range));
 
-                World.DefaultWorld.GetSystem<DebugDrawUtilities>().DrawLine(spotLight.Position.AsVector3(), spotLight.Position.AsVector3() + (spotLight.Direction.AsVector3() * spotLight.Range), Colour.Blue);
+                //World.DefaultWorld.GetSystem<DebugDrawUtilities>().DrawLine(spotLight.Position.AsVector3(), spotLight.Position.AsVector3() + (spotLight.Direction.AsVector3() * spotLight.Range), Colour.Blue);
                 shadowOffscreen.PushConstants.SetPushConstantInt("matrixOffset", lightIndex, faceIndex);
                 shadowOffscreen.PushConstants.SetPushConstantInt("baseLayerOffset", lightIndex, i);
                 shadowOffscreen.PushConstants.SetPushConstantInt("faceCount", lightIndex, 1);

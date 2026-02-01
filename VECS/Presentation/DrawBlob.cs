@@ -1,9 +1,11 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Numerics;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using VECS.ECS;
@@ -367,6 +369,49 @@ namespace VECS
                 GPUBufferExtensions.WriteFromHostDelayed(_indirectCmdBufferByMat, i);
                 GPUBufferExtensions.WriteFromHostDelayed(_indirectCmdBufferAllInOne, i);
             }
+
+            var list = AssetDataBase<GraphicsPipeline>.AllAssetsListForReading;
+
+            for (int i = 0; i < _drawCommandsByMat.Length; i++)
+            {
+                var matCmd = _drawCommandsByMat[i];
+                var mat = AssetDataBase<GraphicsPipeline>.GetHashed(matCmd.Material);
+
+
+                var offset = (uint)matCmd.MeshStart;
+                var length = (uint)matCmd.MeshCount;
+                var variant = mat.GetOrCreateVariant((uint)matCmd.Variant);
+                for (int j = 0; j < _renderBuffers.Length; j++)
+                {
+                    if(mat.LookUpProperty(_renderBuffers[j].BufferShaderPropertyId,out var propertyInfo))
+                    {
+                        variant.SetStorageBufferLength(propertyInfo.SetIndex,propertyInfo.BindPoint, offset, length);
+                    }
+                    
+                }
+            }
+
+
+            uint allInOneDrawCount = (uint)entityCount;
+            Application.ParallelFor(AllInOneMats.Count, (i) =>
+            {
+                var mat = AssetDataBase<GraphicsPipeline>.GetHashed(AllInOneMats[i]);
+
+                for (int k = 0; k < _renderBuffers.Length; k++)
+                {
+                    if (mat.LookUpProperty(_renderBuffers[k].BufferShaderPropertyId, out var propertyInfo))
+                    {
+                        for (int j = 0; j < mat._matVariants.Length; j++)
+                        {
+                            var variant = mat._matVariants[j];
+                            if (variant == null) continue;
+                            variant.SetStorageBufferLength(propertyInfo.SetIndex, propertyInfo.BindPoint, 0, allInOneDrawCount);
+
+                        }
+                    }
+                }
+
+            });
         }
 
         private static void SliceDrawCmds()
@@ -476,9 +521,10 @@ namespace VECS
         private static unsafe void CopyFromRenderBuffer(GraphicsPipeline mat, BufferRegion region, int bufferIndex)
         {
             var renderBuffer = _renderBuffers[bufferIndex];
-            var materialBuffer = mat.GetStorageSwapChainBuffer(renderBuffer.BufferShaderPropertyId);
-            if (materialBuffer != null && !materialBuffer.IsDisposed)
+            
+            if(mat.OwnersBuffer(renderBuffer.BufferShaderPropertyId))
             {
+                var materialBuffer = mat.GetStorageSwapChainBuffer(renderBuffer.BufferShaderPropertyId);
                 mat.SetDescriptorStorageBufferLengthFromProperty(renderBuffer.BufferShaderPropertyId, (uint)region.Count);
                 renderBuffer.CopyTo(materialBuffer.HostPtr, region.StartIndex, region.Count);
             }
@@ -486,23 +532,6 @@ namespace VECS
 
         public static unsafe void CopyToAllInOneMateriasl()
         {
-            int allInOneDrawCount = entityCount;
-            var matrixByMat = _renderBuffers.FirstOrDefault(e=> e.BufferShaderPropertyId == ShaderProperties.MatricesBufferId);
-            Application.ParallelFor(AllInOneMats.Count, (i) =>
-            {
-                var mat = AssetDataBase<GraphicsPipeline>.GetHashed(AllInOneMats[i]);
-                var matrices = mat.GetUnsafeStorageBuffer(ShaderProperties.MatricesBufferId);
-                var bounds = mat.GetStorageBuffer<ShaderAABB>(ShaderProperties.BoundsBufferId);
-                if (matrices != null)
-                {
-                    mat.SetDescriptorStorageBufferLengthFromProperty(ShaderProperties.MatricesBufferId, (uint)allInOneDrawCount);
-                    matrixByMat.CopyTo(matrices,0,allInOneDrawCount);
-                }
-                if (!bounds.IsEmpty)
-                {
-                    mat.SetDescriptorStorageBufferLengthFromProperty(ShaderProperties.BoundsBufferId, (uint)allInOneDrawCount);
-                }
-            });
         }
 
         public static void FlushBounds(int frameIndex)

@@ -78,6 +78,7 @@ namespace VECS
                 _window.WaitForNextWindowEvent();
             }
 
+            DrawBlob.Reset();
             if (_swapChain == null)
             {
                 _swapChain = SwapChainInit.Create(extent);
@@ -110,8 +111,6 @@ namespace VECS
                 GraphicsDevice.CreateCommandBuffers();
                 GraphicsDevice.DeviceWaitIdle();
             }
-            
-            DrawBlob.Reset();
 
             _swapChain.GraphicsCallback += GraphicsPipe;
 

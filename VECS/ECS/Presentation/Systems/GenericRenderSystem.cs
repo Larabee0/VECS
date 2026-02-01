@@ -64,7 +64,7 @@ namespace VECS.ECS.Presentation
 
         public unsafe override void OnPreOpaquePass(EntityManager entityManager, RendererFrameInfo frameInfo)
         {
-            World.GetSystem<DebugDrawUtilities>().DrawLine(Vector3.Zero, frameInfo.LightingInfo.DirectionalLight.Direction.AsVector3()*10f, Colour.Red);
+            //World.GetSystem<DebugDrawUtilities>().DrawLine(Vector3.Zero, frameInfo.LightingInfo.DirectionalLight.Direction.AsVector3()*10f, Colour.Red);
 
             VkCommandBuffer commandBuffer = frameInfo.CommandBuffer;
             if (!_renderEntityQuery.HasEntities)

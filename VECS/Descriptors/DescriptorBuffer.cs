@@ -102,6 +102,12 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe void SetStorageBinding(VkDescriptorAddressInfoEXT buffer, uint set, uint binding)
+        {
+            SetBufferBinding(buffer, VkDescriptorType.StorageBuffer, set, binding);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe void SetCombinedImageSamplerBinding(Texture texture, uint set, uint binding)
         {
             SetImageInfoBinding(texture.ImageInfo, VkDescriptorType.CombinedImageSampler, set, binding);

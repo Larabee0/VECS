@@ -184,7 +184,7 @@ namespace VECS
             _graphicsPipelineConfigInfo = pipelineConfig;
             var descriptorSetBindings = GPUPipelineUtil.GetSharedBindings(vertex, geometry, fragment);
             _descriptorSetCount = GPUPipelineUtil.GetSetCount(descriptorSetBindings);
-            _oitDescriptorSetIndex = GPUPipelineUtil.GetOITSetIndex(descriptorSetBindings);
+            //_oitDescriptorSetIndex = GPUPipelineUtil.GetOITSetIndex(descriptorSetBindings);
 
             _descriptorSetLayouts = new VkDescriptorSetLayout[_descriptorSetCount];
             _descriptorSetInfos = new DescriptorSetInfo[_descriptorSetCount];
@@ -262,7 +262,7 @@ namespace VECS
 
         public void SetBufferUsedInstanceCount(uint set, uint bindingPoint)
         {
-            if (_descriptorSetInfos[set].OwnsBuffer(bindingPoint))
+            if (_descriptorSetInfos[set].IsStorageBufferOwner(bindingPoint))
             {
                 GetBuffer(set, bindingPoint).SetUsedInstanceCount(Default().GetStorageBufferLength(set, bindingPoint));
             }
@@ -351,7 +351,13 @@ namespace VECS
 
         public Material Create(string name)
         {
-            return new Material(name, this);
+            var newMat = new Material(name, this);
+
+
+            Array.Resize(ref _matVariants, (int)_variantCount);
+
+            _matVariants[newMat.VariantIndex] = newMat;
+            return newMat;
         }
 
         public Material Default()
@@ -363,7 +369,6 @@ namespace VECS
         {
             if(!_variantsToAdd.IsEmpty)
             {
-                Array.Resize(ref _matVariants, (int)_variantCount);
                 bool reassignUniformPtrs = false;
                 for (int i = 0; i < _descriptorSetCount; i++)
                 {
@@ -376,8 +381,6 @@ namespace VECS
                 }
                 while (_variantsToAdd.TryDequeue(out var variant))
                 {
-                    Debug.Assert(_matVariants[variant.VariantIndex] == null, "Attempting to replace active material!");
-                    _matVariants[variant.VariantIndex] = variant;
                     if (_uniformBufferSize > 0 && variant.localUniformAllocation)
                     {
                         void* localAllocation = variant.pUniformBuffer;
@@ -669,7 +672,23 @@ namespace VECS
             {
                 Material matVariant = _matVariants[i];
                 if (matVariant == null) continue;
-                _preBindUpdate |= matVariant.SetStorageBufferLength(setIndex, bindingIndex, length);
+                _preBindUpdate |= matVariant.SetStorageBufferLength(setIndex, bindingIndex, 0, length);
+            }
+        }
+
+        public void SetDescriptorStorageBufferLength(uint setIndex, uint bindingIndex, uint offset, uint length)
+        {
+            if (setIndex >= _descriptorSetCount)
+            {
+                return;
+            }
+            length = Math.Max(1, length);
+
+            for (uint i = 0; i < VariantCount; i++)
+            {
+                Material matVariant = _matVariants[i];
+                if (matVariant == null) continue;
+                _preBindUpdate |= matVariant.SetStorageBufferLength(setIndex, bindingIndex, offset, length);
             }
         }
 
@@ -683,11 +702,21 @@ namespace VECS
             SetDescriptorStorageBufferLength(propertyInfo.SetIndex, propertyInfo.BindPoint, length);
         }
 
+        public void SetDescriptorStorageBufferLengthFromProperty(int propertyId, uint offset, uint length)
+        {
+            if (!LookUpProperty(propertyId, out var propertyInfo))
+            {
+                return;
+            }
+
+            SetDescriptorStorageBufferLength(propertyInfo.SetIndex, propertyInfo.BindPoint, offset, length);
+        }
+
         public void SetStorageBuffer(int propertyId, SwapChainBuffer buffer)
         {
             if(LookUpProperty(propertyId, out var propertyInfo) && propertyInfo.BindingInfo.StorageBuffer)
             {
-                _descriptorSetInfos[propertyInfo.SetIndex].SetBuffer(buffer, propertyInfo.BindPoint);
+                _descriptorSetInfos[propertyInfo.SetIndex].SetStorageBuffer(buffer, propertyInfo.BindPoint);
             }
         }
 
@@ -999,7 +1028,7 @@ namespace VECS
                     var binding = bindings[j];
                     if (binding.StorageBuffer && pipeline.GetBuffer(binding).IsDisposed)
                     {
-                        pipeline._descriptorSetInfos[i].SetBuffer(GraphicsPipelineExtension.TryGetBuffer(binding.Id), binding.BindPoint);
+                        pipeline._descriptorSetInfos[i].SetStorageBuffer(GraphicsPipelineExtension.TryGetBuffer(binding.Id), binding.BindPoint);
                     }
                 }
             }
@@ -1066,6 +1095,15 @@ namespace VECS
             var count = AssetDataBase<GraphicsPipeline>.AssetCount;
             var readingList = AssetDataBase<GraphicsPipeline>.AllAssetsListForReading;
             readingList.ForEach(m => Update(m, frameInfo));
+        }
+
+        public bool OwnersBuffer(int bufferShaderPropertyId)
+        {
+            if(LookUpProperty(bufferShaderPropertyId, out var propertyInfo)&& _descriptorSetInfos[propertyInfo.SetIndex].IsStorageBufferOwner(propertyInfo.BindPoint))
+            {
+                return true;
+            }
+            return false;
         }
     }
 }

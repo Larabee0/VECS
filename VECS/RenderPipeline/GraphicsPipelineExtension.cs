@@ -47,6 +47,26 @@ namespace VECS
             }
         }
 
+        public static void AddOrUpdateEngineBuffer(int propertyId, SwapChainBuffer buffer)
+        {
+            EngineBuffers.AddOrUpdate(propertyId,buffer,(int key, SwapChainBuffer value) =>
+            {
+                if (!value.IsDisposed)
+                {
+                    value.Dispose();
+                }
+                return buffer;
+            });
+        }
+
+        public static void RemoveEngineBuffer(int propertyId, bool disposeAfterRemove = true)
+        {
+            if(EngineBuffers.TryRemove(propertyId, out var buffer) && disposeAfterRemove)
+            {
+                buffer.Dispose();
+            }
+        }
+
         static unsafe GraphicsPipelineExtension()
         {
             CameraInfoBuffer = new (Presenter.MAX_CAMERAS, BufferUsageFlags, true);

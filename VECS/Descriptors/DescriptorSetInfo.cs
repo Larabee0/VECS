@@ -20,10 +20,10 @@ namespace VECS
         private readonly DescriptorBinding[] _descriptorBindings;
 
         private readonly SwapChainBuffer[] _storageBuffers;
-        private readonly bool[] _descriptorSetBufferIsStorage;
-        private readonly bool[] _ownerStorageBuffer;
+        //private readonly bool[] _bufferIsStorageBuffer;
+        private readonly bool[] _isStorageBufferOwner;
 
-        private unsafe byte* _descriptorHostPtr;
+        private unsafe byte* _descriptorBufferHostPtr;
         private readonly DescriptorBuffer[] _descriptorBuffers = new DescriptorBuffer[SwapChain.MAX_CONCURRENT_FRAMES];
 
         private readonly int[] _bufferDescriptorBindingIndices;
@@ -46,7 +46,7 @@ namespace VECS
         public VkBufferUsageFlags UniformBufferFlags => _uniformBufferFlags;
         public uint UnifromBufferOffset => _uniformOffset;
         public int BindingCount => _bindingCount;
-        public uint BufferCount => _storageBufferCount;
+        public uint StorageBufferCount => _storageBufferCount;
         public uint ImageCount => _imageCount;
 
         public bool HasStorageBuffers => _hasStorageBuffers;
@@ -55,9 +55,6 @@ namespace VECS
 
         public DescriptorBinding[] DescriptorBindings => _descriptorBindings;
 
-        public int[] BufferDescriptorBindingIndices => _bufferDescriptorBindingIndices;
-        public int[] ImageDescriptorBindingIndices => _imageDescriptorBindingIndices;
-
         public uint[] SetUniformBufferOffsets => _internalUniformBufferOffsets;
 
         public Dictionary<uint, int> BindingPointToBufferIndex => _bindingPointToBufferIndex;
@@ -65,7 +62,6 @@ namespace VECS
 
         public DescriptorBuffer[] DescriptorBuffers => _descriptorBuffers;
         public SwapChainBuffer[] StorageBuffers => _storageBuffers;
-        public bool[] DescriptorSetBufferIsStorage => _descriptorSetBufferIsStorage;
 
         public unsafe DescriptorSetInfo(VkDescriptorSetLayout layout, DescriptorBinding[] bindings, bool preventStorageBuffersAllocation, uint uniformOffset, uint intialVariantCount = GraphicsPipeline.MAX_VARIANTS, bool meshShader = false)
         {
@@ -108,21 +104,17 @@ namespace VECS
             {
                 _descriptorBuffers[frameIndex] = new(layout, _bindingCount, (int)_uniformCount, _storageBufferCount > 0 || uniforms, _imageCount > 0);
             }
-            var totalallocationSize = _descriptorBuffers[0].AllocationSize * SwapChain.MAX_CONCURRENT_FRAMES_UINT;
-            
-            _descriptorHostPtr = (byte*)NativeMemory.AlignedAlloc(totalallocationSize, (uint)GPUBufferExtensions.GetAlignment(_descriptorBuffers[0].AlignedSize));
 
-            NativeMemory.Fill(_descriptorHostPtr, totalallocationSize, 0);
-
-            SetDiscriptorBufferHostPtr();
+            CreateDescriptorBufferHostBuffer();
+            SetDiscriptorBufferHostBuffer();
 
             if (_storageBufferCount > 0)
             {
                 _storageBuffers = new SwapChainBuffer[_storageBufferCount];
-                _descriptorSetBufferIsStorage = new bool[_storageBufferCount];
-                _ownerStorageBuffer = new bool[_storageBufferCount];
+                _isStorageBufferOwner = new bool[_storageBufferCount];
                 _bindingPointToBufferIndex = new Dictionary<uint, int>((int)_storageBufferCount);
             }
+
             _hasStorageBuffers = CreateBindingBuffers(bindings);
 
             if (_imageCount > 0)
@@ -132,12 +124,21 @@ namespace VECS
             }
         }
 
-        private unsafe void SetDiscriptorBufferHostPtr()
+        private unsafe void CreateDescriptorBufferHostBuffer()
+        {
+            var totalallocationSize = _descriptorBuffers[0].AllocationSize * SwapChain.MAX_CONCURRENT_FRAMES_UINT;
+
+            _descriptorBufferHostPtr = (byte*)NativeMemory.AlignedAlloc(totalallocationSize, (uint)GPUBufferExtensions.GetAlignment(_descriptorBuffers[0].AlignedSize));
+
+            NativeMemory.Fill(_descriptorBufferHostPtr, totalallocationSize, 0);
+        }
+
+        private unsafe void SetDiscriptorBufferHostBuffer()
         {
             var allocationSize = _descriptorBuffers[0].AllocationSize;
             for (uint frameIndex = 0; frameIndex < SwapChain.MAX_CONCURRENT_FRAMES; frameIndex++)
             {
-                _descriptorBuffers[frameIndex].SetHostPtr(_descriptorHostPtr + (allocationSize * frameIndex));
+                _descriptorBuffers[frameIndex].SetHostPtr(_descriptorBufferHostPtr + (allocationSize * frameIndex));
             }
         }
 
@@ -183,26 +184,24 @@ namespace VECS
             {
                 var binding = bindings[i];
                 if (!binding.IsAnyBuffer) continue;
-                SwapChainBuffer buffer = null;
                 if (binding.StorageBuffer)
                 {
-                    if (!_noAllocStorageBuffers)
+                    SwapChainBuffer buffer = GraphicsPipelineExtension.TryGetBuffer(binding.Id);
+                    _isStorageBufferOwner[b] = buffer == null;
+                    if (_noAllocStorageBuffers)
                     {
-                        buffer = GraphicsPipelineExtension.TryGetBuffer(binding.Id);
-                        _ownerStorageBuffer[b] = buffer == null;
-                        buffer ??= new(binding.BufferSize, GraphicsPipeline.DEFAULT_STORAGE_BUFFER_COUNT, binding.BufferUsageFlags, true);
+                        _isStorageBufferOwner[b] = false;
                     }
                     else
                     {
-                        _ownerStorageBuffer[b] = false;
+                        buffer ??= new(binding.BufferSize, GraphicsPipeline.DEFAULT_STORAGE_BUFFER_COUNT, binding.BufferUsageFlags, true);
                     }
-                    _descriptorSetBufferIsStorage[b] = true;
                     hasStoragebuffers = true;
                     _storageBuffers[b] = buffer;
                     _bindingPointToBufferIndex.Add(binding.BindPoint, b);
                     b++;
                 }
-                else if (binding.Buffer)
+                else if (binding.UniformBuffer)
                 {
                     if(GraphicsPipelineExtension.TryGetBuffer(binding.Id) == null)
                     {
@@ -212,9 +211,7 @@ namespace VECS
                     }
                 }
             }
-#if DEBUG
-            //Debug.Assert(_bindingPointToBufferIndex== null || _bindingPointToBufferIndex.Count == _storageBufferCount, string.Format("Expected swapchain buffer allocations {0} does not much descriptor buffer count {1}", _bindingPointToBufferIndex.Count, _storageBufferCount));
-#endif
+
             return hasStoragebuffers;
         }
 
@@ -227,9 +224,6 @@ namespace VECS
                 _bindingPointToImageIndex.Add(binding.BindPoint, b);
                 b++;
             }
-#if DEBUG
-            Debug.Assert(_bindingPointToImageIndex.Count == _imageCount, string.Format("Expected swapchain buffer allocations {0} does not much descriptor image count {1}", _bindingPointToImageIndex.Count, _imageCount));
-#endif
         }
 
         public DescriptorBinding GetBindingFromBufferIndex(int bufferIndex)
@@ -237,25 +231,20 @@ namespace VECS
             return _descriptorBindings[_bufferDescriptorBindingIndices[bufferIndex]];
         }
 
-        public SwapChainBuffer GetBuffer(DescriptorBinding binding)
-        {
-            return GetBuffer(binding.BindPoint);
-        }
-
         public SwapChainBuffer GetBuffer(uint bindPoint)
         {
             return _storageBuffers[_bindingPointToBufferIndex[bindPoint]];
         }
 
-        public bool OwnsBuffer(uint bindPoint)
+        public bool IsStorageBufferOwner(uint bindPoint)
         {
-            return _ownerStorageBuffer[_bindingPointToBufferIndex[bindPoint]];
+            return _isStorageBufferOwner[_bindingPointToBufferIndex[bindPoint]];
         }
 
-        public void SetBuffer(SwapChainBuffer buffer, uint bindPoint)
+        public void SetStorageBuffer(SwapChainBuffer buffer, uint bindPoint)
         {
             int bufferIndex = _bindingPointToBufferIndex[bindPoint];
-            if (!_ownerStorageBuffer[bufferIndex])
+            if (!_isStorageBufferOwner[bufferIndex])
             {
                 _storageBuffers[bufferIndex] = buffer;
             }
@@ -280,9 +269,9 @@ namespace VECS
             {
                 var newSize = _descriptorBuffers[0].AllocationSize * (uint)_descriptorBuffers.Length;
 
-                _descriptorHostPtr = (byte*)GPUBufferExtensions.AlignedRealloc(_descriptorHostPtr, oldSize, newSize, alignment);
+                _descriptorBufferHostPtr = (byte*)GPUBufferExtensions.AlignedRealloc(_descriptorBufferHostPtr, oldSize, newSize, alignment);
 
-                SetDiscriptorBufferHostPtr();
+                SetDiscriptorBufferHostBuffer();
             }
         }
 
@@ -291,31 +280,10 @@ namespace VECS
             if (_forMeshShader) return;
             for (int i = 0; i < _storageBufferCount; i++)
             {
-                if (_ownerStorageBuffer[i])
-                {
-                    //_descriptorSetBuffers[i].WriteFromHostToBuffer(frameIndex);
-                    GPUBufferExtensions.WriteFromHostDelayed(_storageBuffers[i],frameIndex);
-                }
+                if (!_isStorageBufferOwner[i]) continue;
+                GPUBufferExtensions.WriteFromHostDelayed(_storageBuffers[i], frameIndex);
             }
             _descriptorBuffers[frameIndex].Flush();
-        }
-
-        public void WriteUniforms(int frameIndex, uint setVariant)
-        {
-            var descriptorBuffer = _descriptorBuffers[frameIndex];
-            if (_forMeshShader || descriptorBuffer.HasDataBound[setVariant]) return;
-            for (int i = 0; i < _bindingCount; i++)
-            {
-                var binding = _descriptorBindings[i];
-                var bindPoint = binding.BindPoint;
-                if (binding.UniformBuffer)
-                {
-                    var bufferIndex = _bindingPointToBufferIndex[bindPoint];
-                    var buffer = _storageBuffers[bufferIndex][frameIndex];
-                    descriptorBuffer.SetBufferBinding(buffer.GetBufferAddressRange(setVariant,1), binding.DescriptorType, setVariant, bindPoint);
-                }
-            }
-            descriptorBuffer.HasDataBound[setVariant] = true;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -347,14 +315,21 @@ namespace VECS
                 var bindPoint = binding.BindPoint;
                 if (binding.IsAnyBuffer)
                 {
-                    if (!binding.StorageBuffer) continue;
-                    if (_bindingPointToBufferIndex == null) continue;
+                    if (!binding.StorageBuffer || _bindingPointToBufferIndex == null) continue;
                     var bufferIndex = _bindingPointToBufferIndex[bindPoint];
-                    var scb = _storageBuffers[bufferIndex];
-                    if (scb != null && !scb.IsDisposed)
+
+                    if (bindingBuffers.Length > 0)
                     {
-                        int scbIndex = scb.AlisedGPUBuffer ? 0 : Presenter.Instance.FrameIndex;
-                        descriptorBuffer.SetStorageBinding(_storageBuffers[bufferIndex][scbIndex], setIndex, bindPoint);
+                        descriptorBuffer.SetStorageBinding(bindingBuffers[bufferIndex], setIndex, bindPoint);
+                    }
+                    else
+                    {
+                        var scb = _storageBuffers[bufferIndex];
+                        if (scb != null && !scb.IsDisposed)
+                        {
+                            int scbIndex = scb.AlisedGPUBuffer ? 0 : Presenter.Instance.FrameIndex;
+                            descriptorBuffer.SetStorageBinding(_storageBuffers[bufferIndex][scbIndex], setIndex, bindPoint);   
+                        }
                     }
                 }
                 else
@@ -384,14 +359,14 @@ namespace VECS
                 _descriptorBuffers[i]?.Dispose();
             }
             
-            NativeMemory.AlignedFree(_descriptorHostPtr);
-            _descriptorHostPtr = null;
+            NativeMemory.AlignedFree(_descriptorBufferHostPtr);
+            _descriptorBufferHostPtr = null;
 
-            if (_ownerStorageBuffer != null)
+            if (_isStorageBufferOwner != null)
             {
                 for (int i = 0; i < _storageBufferCount; i++)
                 {
-                    if (_ownerStorageBuffer[i])
+                    if (_isStorageBufferOwner[i])
                     {
                         _storageBuffers[i]?.Dispose();
                     }

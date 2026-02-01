@@ -62,10 +62,10 @@ namespace VECS
             for (uint i = 0; i < TotalSets; i++)
             {
                 var setInfo = DescriptorSetInfos[i];
-                if (setInfo.BufferCount > 0 && !setInfo.NoAllocStorageBuffers)
+                if (setInfo.StorageBufferCount > 0 && !setInfo.NoAllocStorageBuffers)
                 {
                     _bufferDescriptors[i] = new(setInfo, this);
-                    for (int j = 0; j < setInfo.BufferCount; j++)
+                    for (int j = 0; j < setInfo.StorageBufferCount; j++)
                     {
                         _bufferDescriptors[i].SetStorageBufferRegion(j, 1);
                         _bufferDescriptors[i].SetUniformBufferRegion(_variantIndex, 1);
@@ -161,10 +161,10 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool SetStorageBufferLength(uint setIndex,uint bindPoint, uint length)
+        public bool SetStorageBufferLength(uint setIndex, uint bindPoint, uint offset, uint length)
         {
             var bufferIndex = DescriptorSetInfos[setIndex].BindingPointToBufferIndex[bindPoint];
-            if (length == 0 || _bufferDescriptors[setIndex].Disposed || !_bufferDescriptors[setIndex].SetStorageBufferRegion(bufferIndex, length)) return false;
+            if (length == 0 || _bufferDescriptors[setIndex].Disposed || !_bufferDescriptors[setIndex].SetStorageBufferRegion(bufferIndex, offset,length)) return false;
             Array.Fill(_dirtyBufferRegions, true);
             return true;
         }
@@ -181,7 +181,8 @@ namespace VECS
         {
             var bufferIndex = DescriptorSetInfos[setIndex].BindingPointToBufferIndex[bindPoint];
             if (_bufferDescriptors[setIndex].Disposed) return 0;
-            return _bufferDescriptors[setIndex].StorageBufferLength[bufferIndex];
+            var region =  _bufferDescriptors[setIndex].StorageBufferLength[bufferIndex];
+            return region.X + region.Y;
         }
 
         public unsafe void ExecuteDrawCommands(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, Span<MaterialDrawCommand> drawCmds, int drawCount, SwapChainBuffer<VECSDrawIndexIndirectCommand> indirectCmdBuffer)
@@ -341,19 +342,26 @@ namespace VECS
             private readonly int BufferCount;
 
             private Vector2UInt _uniformRegion;
-            private unsafe uint* _pStorageBufferLength;
+            private unsafe Vector2UInt* _pStorageBufferLength;
 
             private bool _disposed;
             public readonly bool Disposed => _disposed;
 
-            public readonly unsafe uint* StorageBufferLength => _pStorageBufferLength;
+            public readonly unsafe Vector2UInt* StorageBufferLength => _pStorageBufferLength;
 
             public unsafe SetBufferDescriptors(DescriptorSetInfo setInfo, Material variant)
             {
-                BufferCount = (int)setInfo.BufferCount;
+                BufferCount = (int)setInfo.StorageBufferCount;
 
                 _pBufferAddresses = (VkDescriptorAddressInfoEXT*)NativeMemory.AllocZeroed((uint)sizeof(VkDescriptorAddressInfoEXT) * (uint)BufferCount * SwapChain.MAX_CONCURRENT_FRAMES_UINT);
-                _pStorageBufferLength = (uint*)NativeMemory.AllocZeroed(sizeof(uint) * (uint)BufferCount * SwapChain.MAX_CONCURRENT_FRAMES_UINT);
+
+                _pStorageBufferLength = (Vector2UInt*)NativeMemory.AllocZeroed((uint)sizeof(Vector2UInt) * (uint)BufferCount * SwapChain.MAX_CONCURRENT_FRAMES_UINT);
+
+                for (int i = 0; i < BufferCount * SwapChain.MAX_CONCURRENT_FRAMES_UINT; i++)
+                {
+                    _pStorageBufferLength[i] = new(0, 1);
+                }
+
                 for (int bufferIndex = 0; bufferIndex < BufferCount; bufferIndex++)
                 {
                     var binding = setInfo.GetBindingFromBufferIndex(bufferIndex);
@@ -364,7 +372,7 @@ namespace VECS
                         VkDescriptorAddressInfoEXT addressInfo = default;
                         if (binding.StorageBuffer)
                         {
-                            addressInfo = setInfo.GetBufferAddressInfo(frameIndex, bufferIndex, variant._variantIndex, 1);
+                            addressInfo = setInfo.GetBufferAddressInfo(frameIndex, bufferIndex, 0, 1);
                         }
 
                         addresses[bufferIndex] = addressInfo;
@@ -381,22 +389,8 @@ namespace VECS
                     var bindingInfo = setInfo.GetBindingFromBufferIndex(bufferIndex);
                     if (bindingInfo.StorageBuffer)
                     {
-                        addresses[bufferIndex] = setInfo.GetBufferAddressInfo(frameIndex, bufferIndex, 0, _pStorageBufferLength[bufferIndex]);
-                    }
-                }
-            }
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public unsafe readonly void UpdateUniformBufferRegion(int frameIndex, DescriptorSetInfo setInfo)
-            {
-                var addresses = GetBindingBuffers(frameIndex);
-                for (int bufferIndex = 0; bufferIndex < BufferCount; bufferIndex++)
-                {
-                    var bindingInfo = setInfo.GetBindingFromBufferIndex(bufferIndex);
-                    if (bindingInfo.UniformBuffer)
-                    {
-                        var region = _uniformRegion;
-                        addresses[bufferIndex] = setInfo.GetBufferAddressInfo(frameIndex,bufferIndex, region.X, region.Y);
+                        var region = _pStorageBufferLength[bufferIndex];
+                        addresses[bufferIndex] = setInfo.GetBufferAddressInfo(frameIndex, bufferIndex, region.X, region.Y);
                     }
                 }
             }
@@ -404,8 +398,17 @@ namespace VECS
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public unsafe bool SetStorageBufferRegion(int bufferIndex, uint length)
             {
-                if (_pStorageBufferLength[bufferIndex] == length) return false;
-                _pStorageBufferLength[bufferIndex] = length;
+                if (_pStorageBufferLength[bufferIndex].Y == length) return false;
+                _pStorageBufferLength[bufferIndex].Y = length;
+                return true;
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public unsafe bool SetStorageBufferRegion(int bufferIndex, uint offset, uint length)
+            {
+                Vector2UInt region = new(offset, length);
+                if (_pStorageBufferLength[bufferIndex] == region) return false;
+                _pStorageBufferLength[bufferIndex] = region;
                 return true;
             }
 
@@ -420,10 +423,8 @@ namespace VECS
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             private readonly unsafe VkDescriptorAddressInfoEXT* GetBindingBuffersPtr(int frameIndex)
             {
-                IntPtr ptr = new(_pBufferAddresses);
                 int offset = sizeof(VkDescriptorAddressInfoEXT) * IndexOf(frameIndex, 0, BufferCount);
-                ptr = IntPtr.Add(ptr, offset);
-                return (VkDescriptorAddressInfoEXT*)ptr.ToPointer();
+                return (VkDescriptorAddressInfoEXT*)((byte*)_pBufferAddresses + offset);
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -485,10 +486,8 @@ namespace VECS
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             private unsafe readonly VkDescriptorImageInfo* GetBindingTexturesPtr(int frameIndex)
             {
-                IntPtr ptr = new(_pBindingTextures);
                 int offset = sizeof(VkDescriptorImageInfo) * IndexOf(frameIndex, 0, TextureCount);
-                ptr = IntPtr.Add(ptr, offset);
-                return (VkDescriptorImageInfo*)ptr.ToPointer();
+                return (VkDescriptorImageInfo*)((byte*)_pBindingTextures+offset);
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
