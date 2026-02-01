@@ -150,7 +150,7 @@ namespace VECS
             if (World.DefaultWorld != null)
             {
                 var entityManager = World.DefaultWorld.EntityManager;
-                GraphicsPipelineExtension.UpdateCameras(entityManager);
+                GraphicsPipelineExtension.UpdateCameras(entityManager,frameIndex);
 
                 var cameras = entityManager.GetAllEntitiesWithComponent<Camera>();
                 cameraCount = Math.Min(cameras.Count, MAX_CAMERAS);

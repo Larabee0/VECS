@@ -69,7 +69,7 @@ namespace VECS
             AddEngineBuffer(ShaderProperties.SpotLightsBufferId, SpotLightBuffer);
         }
 
-        public unsafe static void UpdateCameras(EntityManager entityManager)
+        public unsafe static void UpdateCameras(EntityManager entityManager, int frameIndex)
         {
             var cameras = entityManager.GetAllEntitiesWithComponent<Camera>();
             var cameraCount = Math.Min(cameras.Count, Presenter.MAX_CAMERAS);
@@ -106,9 +106,17 @@ namespace VECS
                 OrthopgrahicInfoBuffer.HostBuffer[i] = new(orth, orthCam);
             }
 
+            CameraInfoBuffer.SetBuffersDirty(true);
+            CameraInverseInfoBuffer.SetBuffersDirty(true);
+            AddtionalCameraInfoBuffer.SetBuffersDirty(true);
+            OrthopgrahicInfoBuffer.SetBuffersDirty(true);
+            GPUBufferExtensions.WriteFromHostDelayed( CameraInfoBuffer, frameIndex);
+            GPUBufferExtensions.WriteFromHostDelayed(CameraInverseInfoBuffer,frameIndex);
+            GPUBufferExtensions.WriteFromHostDelayed(AddtionalCameraInfoBuffer,frameIndex);
+            GPUBufferExtensions.WriteFromHostDelayed(OrthopgrahicInfoBuffer,frameIndex);
         }
 
-        public static unsafe LightingInfo UpdateLights(EntityManager entityManager,int frameIndex)
+        public static unsafe LightingInfo UpdateLights(EntityManager entityManager, int frameIndex)
         {
             LightingInfo lightingInfo;
             var dirLights = entityManager.GetAllEntitiesWithComponent<DirectionalLight>();
@@ -150,6 +158,9 @@ namespace VECS
                 {
                     PointLightBuffer.HostBuffer[i] = default;
                 }
+
+                PointLightBuffer.SetBuffersDirty(true);
+                GPUBufferExtensions.WriteFromHostDelayed(PointLightBuffer, frameIndex);
             }
 
             if (spotLights != null && spotLights.Count > 0)
@@ -169,6 +180,10 @@ namespace VECS
                 {
                     SpotLightBuffer.HostBuffer[i] = default;
                 }
+
+                SpotLightBuffer.SetBuffersDirty(true);
+                GPUBufferExtensions.WriteFromHostDelayed(SpotLightBuffer, frameIndex);
+
             }
 
             Buffer.MemoryCopy(&lightingInfo, LightingInfoBuffer.HostPtr, LightingInfoBuffer.InstanceSize32, sizeof(LightingInfo));
