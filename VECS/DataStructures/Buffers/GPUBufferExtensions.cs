@@ -227,9 +227,9 @@ namespace VECS
 
         public unsafe static void Reallocate(this GPUBuffer buffer, ulong newInstanceCount)
         {
-            Console.WriteLine("Reallocate Buffer originally allocated from\n{0}", buffer.allocationTrace);
-            StackTrace trace2 = new(true);
-            Console.WriteLine("Reallocation Trace\n{0}", trace2.ToString());
+            // Console.WriteLine("Reallocate Buffer originally allocated from\n{0}", buffer.allocationTrace);
+            // StackTrace trace2 = new(true);
+            // Console.WriteLine("Reallocation Trace\n{0}", trace2.ToString());
 
             if (buffer.UInstanceCount == newInstanceCount)
             {
@@ -277,16 +277,16 @@ namespace VECS
             buffer._deviceBufferAddress = GraphicsDevice.DeviceAPI.vkGetBufferDeviceAddress(GraphicsDevice.Device, &deviceAddressInfo);
 
 
-            StackTrace trace = new(true);
-            buffer.allocationTrace = trace.ToString();
-            if (buffer.CPUAccess)
-            {
-                Console.WriteLine(string.Format("REALLOC VK: 0x{1} Host: 0x{2}\nBuffer Creation trace\n {0}", trace.ToString(), buffer.VkBuffer.Handle.ToString("X16"), ((ulong)buffer._hostPtr).ToString("X16")));
-            }
-            else
-            {
-                Console.WriteLine(string.Format("REALLOC 0x{1}\nBuffer Creation trace\n {0}", trace.ToString(), buffer.VkBuffer.Handle.ToString("X16")));
-            }
+            // StackTrace trace = new(true);
+            // buffer.allocationTrace = trace.ToString();
+            // if (buffer.CPUAccess)
+            // {
+            //     Console.WriteLine(string.Format("REALLOC VK: 0x{1} Host: 0x{2}\nBuffer Creation trace\n {0}", trace.ToString(), buffer.VkBuffer.Handle.ToString("X16"), ((ulong)buffer._hostPtr).ToString("X16")));
+            // }
+            // else
+            // {
+            //     Console.WriteLine(string.Format("REALLOC 0x{1}\nBuffer Creation trace\n {0}", trace.ToString(), buffer.VkBuffer.Handle.ToString("X16")));
+            // }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -664,10 +664,6 @@ namespace VECS
 
         public static unsafe void PlayerbackDisposeCmds(int frameIndex)
         {
-            if(_disposalList.Count > 0)
-            {
-                Console.WriteLine("Disposal Update {0}",Presenter.FrameCount);
-            }
             for (int i = _disposalList.Count - 1; i >= 0; i--)
             {
                 if ((long)Presenter.FrameCount >_disposalList[i].frameIndex)
@@ -677,8 +673,10 @@ namespace VECS
                 }
             }
 
-            _disposalList.EnsureCapacity(_disposalQueue.Count);
-
+            if (!_disposalQueue.IsEmpty)
+            {
+                _disposalList.EnsureCapacity(_disposalQueue.Count);
+            }
             while (_disposalQueue.TryDequeue(out var cmd))
             {
                 cmd.frameIndex = (int)Presenter.FrameCount + SwapChain.MAX_CONCURRENT_FRAMES;

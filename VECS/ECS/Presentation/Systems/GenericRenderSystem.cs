@@ -103,7 +103,7 @@ namespace VECS.ECS.Presentation
 
         public override unsafe void OnTransparentPass(EntityManager entityManager, RendererFrameInfo frameInfo)
         {
-            if (DrawBlob.TransparentCmdCountByMat == 0 && DrawBlob.TransparentCmdCountByMesh == 0)
+            if (DrawBlob.TransparentCmdCountByMat == 0)
             {
                 return;
             }

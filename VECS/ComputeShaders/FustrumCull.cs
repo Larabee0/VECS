@@ -181,7 +181,7 @@ namespace VECS
             Interlocked.Exchange(ref _invokation, 0);
         }
 
-        public static void Cull(VkCommandBuffer commandBuffer,int frameIndex, CullData cullData, uint drawCount, SwapChainBuffer<VECSDrawIndexIndirectCommand> drawIndirect, SwapChainBuffer<ShaderAABB> bounds)
+        public static void Cull(VkCommandBuffer commandBuffer,int frameIndex, CullData cullData, uint drawCount, SwapChainBuffer<VECSDrawIndexIndirectCommand> drawIndirect, SwapChainBuffer bounds)
         {
             
             var variantIndex = Interlocked.Increment(ref _invokation) - 1;
@@ -239,10 +239,10 @@ namespace VECS
 
 
 #if DEBUG
-        private static void CPUCull(CullData cullData, uint drawCount, SwapChainBuffer<VECSDrawIndexIndirectCommand> drawIndirect, SwapChainBuffer<ShaderAABB> bounds)
+        private static unsafe void CPUCull(CullData cullData, uint drawCount, SwapChainBuffer<VECSDrawIndexIndirectCommand> drawIndirect, SwapChainBuffer bounds)
         {
             Span<VECSDrawIndexIndirectCommand> drawIndirectSpan = drawIndirect.HostBuffer;
-            Span<ShaderAABB> boundsSpan = bounds.HostBuffer;
+            Span<ShaderAABB> boundsSpan = new(bounds.HostPtr,(int)bounds.HostBufferSize32 / bounds.InstanceSize32);
 
             for (int i = 0; i < drawCount; i++)
             {

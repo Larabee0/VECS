@@ -189,8 +189,8 @@ namespace VECS
                     if (!_noAllocStorageBuffers)
                     {
                         buffer = GraphicsPipelineExtension.TryGetBuffer(binding.Id);
+                        _ownerStorageBuffer[b] = buffer == null;
                         buffer ??= new(binding.BufferSize, GraphicsPipeline.DEFAULT_STORAGE_BUFFER_COUNT, binding.BufferUsageFlags, true);
-                        _ownerStorageBuffer[b] = true;
                     }
                     else
                     {
@@ -245,6 +245,11 @@ namespace VECS
         public SwapChainBuffer GetBuffer(uint bindPoint)
         {
             return _storageBuffers[_bindingPointToBufferIndex[bindPoint]];
+        }
+
+        public bool OwnsBuffer(uint bindPoint)
+        {
+            return _ownerStorageBuffer[_bindingPointToBufferIndex[bindPoint]];
         }
 
         public void SetBuffer(SwapChainBuffer buffer, uint bindPoint)

@@ -1,4 +1,4 @@
-﻿#define LOG_BUFFER_ALLOCS
+﻿//#define LOG_BUFFER_ALLOCS
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;

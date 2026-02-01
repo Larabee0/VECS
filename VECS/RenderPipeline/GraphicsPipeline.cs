@@ -260,6 +260,14 @@ namespace VECS
             return _descriptorSetInfos[set].GetBuffer(bindingPoint);
         }
 
+        public void SetBufferUsedInstanceCount(uint set, uint bindingPoint)
+        {
+            if (_descriptorSetInfos[set].OwnsBuffer(bindingPoint))
+            {
+                GetBuffer(set, bindingPoint).SetUsedInstanceCount(Default().GetStorageBufferLength(set, bindingPoint));
+            }
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private uint InternalUniformBufferOffset(uint set, uint bindPoint)
         {
@@ -981,6 +989,21 @@ namespace VECS
         {
             if (pipeline.VariantCount == 0) return;
 
+            for (uint i = 0; i < pipeline.DescriptorSetCount; i++)
+            {
+                if (i == pipeline._meshShaderDescriptorSetIndex || i == pipeline._oitDescriptorSetIndex) continue;
+                //pipeline._descriptorSetInfos[i].SetVariantLength((uint)pipeline.VariantCount);
+                var bindings = pipeline.GetDescriptorBindings(i);
+                for (uint j = 0; j < bindings.Length; j++)
+                {
+                    var binding = bindings[j];
+                    if (binding.StorageBuffer && pipeline.GetBuffer(binding).IsDisposed)
+                    {
+                        pipeline._descriptorSetInfos[i].SetBuffer(GraphicsPipelineExtension.TryGetBuffer(binding.Id), binding.BindPoint);
+                    }
+                }
+            }
+
             bool forceDescriptorWrite = pipeline.AllocNewVariants();
 
             int frameIndex = frameInfo.FrameIndex;
@@ -994,7 +1017,7 @@ namespace VECS
                 pipeline.WriteUniformToDescriptorBuffers(variant);
             }
 
-            Material firstVariant = pipeline._matVariants[0];
+            Material firstVariant = pipeline.Default();
 
             for (uint i = 0; i < pipeline.DescriptorSetCount; i++)
             {
@@ -1008,7 +1031,7 @@ namespace VECS
                     {
                         // this seems suspect
                         // maybe make a way to look up buffers from bindings easily
-                        pipeline.GetBuffer(binding).SetUsedInstanceCount(firstVariant.GetStorageBufferLength(i, binding.BindPoint));
+                        pipeline.SetBufferUsedInstanceCount(i, binding.BindPoint);
                     }
                 }
             }

@@ -138,7 +138,6 @@ namespace VECS
 
         private unsafe SwapChainBuffer(SwapChainBuffer copyFrom, ulong newInstanceCount)
         {
-            Console.WriteLine("Reallocate SCB");
             var srcInstanceCount = copyFrom.UInstanceCount;
             _instanceSize = copyFrom._instanceSize;
             _instanceCount = newInstanceCount;
@@ -390,7 +389,6 @@ namespace VECS
 
         private unsafe SwapChainBuffer(SwapChainBuffer<T> copyFrom, ulong newInstanceCount)
         {
-            Console.WriteLine("Reallocate SCB");
             var srcInstanceCount = copyFrom.UInstanceCount;
             _instanceSize = copyFrom._instanceSize;
             _instanceCount = newInstanceCount;
