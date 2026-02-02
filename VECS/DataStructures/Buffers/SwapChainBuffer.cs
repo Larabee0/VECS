@@ -24,7 +24,7 @@ namespace VECS
         protected bool _disposed;
         internal unsafe void* _hostPtr;
 
-        protected uint _usedInstanceCount;
+        protected ulong _usedInstanceCount;
 
         public bool AlisedGPUBuffer => _alisedGPUBuffer;
         public bool IsDisposed => _disposed;
@@ -40,7 +40,7 @@ namespace VECS
         public int InstanceCount32 => (int)UInstanceCount32;
         public ulong UInstanceCount => _instanceCount;
         public long InstanceCount => (long)_instanceCount;
-        public uint UsedInstanceCount => _usedInstanceCount;
+        public ulong UsedInstanceCount => _usedInstanceCount;
         public VkBufferUsageFlags UsageFlags => _usageFlags;
 
         public GPUBuffer ActiveGPUBuffer
@@ -204,9 +204,9 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void SetUsedInstanceCount(uint instanceCount)
+        public void SetUsedInstanceCount(ulong instanceCount)
         {
-            _usedInstanceCount = Math.Min(UInstanceCount32, instanceCount);
+            _usedInstanceCount = Math.Min(UInstanceCount, instanceCount);
         }
 
         public virtual unsafe void Realloc(ulong newInstanceCount)

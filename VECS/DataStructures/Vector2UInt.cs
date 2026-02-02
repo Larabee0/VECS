@@ -52,6 +52,55 @@ namespace System.Numerics
     }
 
     [StructLayout(LayoutKind.Sequential, Size = 8)]
+    public struct Vector2ULong
+    {
+        public ulong X;
+        public ulong Y;
+
+        public readonly ulong this[int i] => i switch
+        {
+            0 => X,
+            1 => Y,
+            _ => throw new IndexOutOfRangeException(),
+        };
+
+        public Vector2ULong()
+        {
+
+        }
+
+        public Vector2ULong(ulong v)
+        {
+            X = v;
+            Y = v;
+        }
+
+        public Vector2ULong(ulong x, ulong y)
+        {
+            X = x;
+            Y = y;
+        }
+
+        public override readonly bool Equals(object obj)
+        {
+            return obj is Vector2ULong vec2ulong &&
+                   X == vec2ulong.X &&
+                   Y == vec2ulong.Y;
+        }
+        public static bool operator ==(Vector2ULong left, Vector2ULong right)
+        {
+            return left.Equals(right);
+        }
+
+        public static bool operator !=(Vector2ULong left, Vector2ULong right)
+        {
+            return !(left == right);
+        }
+
+        public override readonly int GetHashCode() => HashCode.Combine(X, Y);
+    }
+
+    [StructLayout(LayoutKind.Sequential, Size = 8)]
     public struct Vector2Int : IComparable
     {
         public int X;

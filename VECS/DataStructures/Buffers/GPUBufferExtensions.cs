@@ -492,7 +492,7 @@ namespace VECS
 
             if (buffer._diryBuffers[index])
             {
-                if (buffer.UsedInstanceCount == buffer.InstanceCount32)
+                if (buffer.UsedInstanceCount == buffer.UInstanceCount)
                 {
                     buffer[index].WriteToBuffer(buffer._hostPtr);
                 }
@@ -700,7 +700,7 @@ namespace VECS
             var addressInfo = buffer.DeviceAddressInfo;
 
             addressInfo.address += buffer.InstanceSize * srcOffset;
-            addressInfo.range = count == Vulkan.VK_WHOLE_SIZE ? buffer.VkBufferSize : buffer.InstanceSize * count;
+            addressInfo.range = count >= buffer.UInstanceCount ? buffer.VkBufferSize : buffer.InstanceSize * count;
 
             return addressInfo;
         }
@@ -711,7 +711,7 @@ namespace VECS
             var addressInfo = buffer.DeviceAddressInfo;
 
             addressInfo.address += srcOffsetBytes;
-            addressInfo.range = bytes == Vulkan.VK_WHOLE_SIZE ? buffer.VkBufferSize : bytes;
+            addressInfo.range = bytes >= buffer.VkBufferSize ? buffer.VkBufferSize : bytes;
 
             return addressInfo;
         }

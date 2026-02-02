@@ -67,7 +67,7 @@ namespace VECS
                     _bufferDescriptors[i] = new(setInfo, this);
                     for (int j = 0; j < setInfo.StorageBufferCount; j++)
                     {
-                        _bufferDescriptors[i].SetStorageBufferRegion(j, 1);
+                        _bufferDescriptors[i].SetStorageBufferRegion(j, Vulkan.VK_WHOLE_SIZE);
                         _bufferDescriptors[i].SetUniformBufferRegion(_variantIndex, 1);
                     }
                 }
@@ -176,7 +176,7 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe uint GetStorageBufferLength(uint setIndex, uint bindPoint)
+        public unsafe ulong GetStorageBufferLength(uint setIndex, uint bindPoint)
         {
             var bufferIndex = DescriptorSetInfos[setIndex].BindingPointToBufferIndex[bindPoint];
             if (_bufferDescriptors[setIndex].Disposed) return 0;
@@ -340,13 +340,13 @@ namespace VECS
 
             private readonly int BufferCount;
 
-            private Vector2UInt _uniformRegion;
-            private unsafe Vector2UInt* _pStorageBufferLength;
+            private Vector2ULong _uniformRegion;
+            private unsafe Vector2ULong* _pStorageBufferLength;
 
             private bool _disposed;
             public readonly bool Disposed => _disposed;
 
-            public readonly unsafe Vector2UInt* StorageBufferLength => _pStorageBufferLength;
+            public readonly unsafe Vector2ULong* StorageBufferLength => _pStorageBufferLength;
 
             public unsafe SetBufferDescriptors(DescriptorSetInfo setInfo, Material variant)
             {
@@ -354,11 +354,11 @@ namespace VECS
 
                 _pBufferAddresses = (VkDescriptorAddressInfoEXT*)NativeMemory.AllocZeroed((uint)sizeof(VkDescriptorAddressInfoEXT) * (uint)BufferCount * SwapChain.MAX_CONCURRENT_FRAMES_UINT);
 
-                _pStorageBufferLength = (Vector2UInt*)NativeMemory.AllocZeroed((uint)sizeof(Vector2UInt) * (uint)BufferCount * SwapChain.MAX_CONCURRENT_FRAMES_UINT);
+                _pStorageBufferLength = (Vector2ULong*)NativeMemory.AllocZeroed((uint)sizeof(Vector2ULong) * (uint)BufferCount * SwapChain.MAX_CONCURRENT_FRAMES_UINT);
 
                 for (int i = 0; i < BufferCount * SwapChain.MAX_CONCURRENT_FRAMES_UINT; i++)
                 {
-                    _pStorageBufferLength[i] = new(0, 1);
+                    _pStorageBufferLength[i] = new(0, Vulkan.VK_WHOLE_SIZE);
                 }
 
                 for (int bufferIndex = 0; bufferIndex < BufferCount; bufferIndex++)
@@ -371,7 +371,7 @@ namespace VECS
                         VkDescriptorAddressInfoEXT addressInfo = default;
                         if (binding.StorageBuffer)
                         {
-                            addressInfo = setInfo.GetBufferAddressInfo(frameIndex, bufferIndex, 0, 1);
+                            addressInfo = setInfo.GetBufferAddressInfo(frameIndex, bufferIndex, 0, Vulkan.VK_WHOLE_SIZE);
                         }
 
                         addresses[bufferIndex] = addressInfo;
@@ -395,7 +395,7 @@ namespace VECS
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public unsafe bool SetStorageBufferRegion(int bufferIndex, uint length)
+            public unsafe bool SetStorageBufferRegion(int bufferIndex, ulong length)
             {
                 if (_pStorageBufferLength[bufferIndex].Y == length) return false;
                 _pStorageBufferLength[bufferIndex].Y = length;
@@ -403,9 +403,9 @@ namespace VECS
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public unsafe bool SetStorageBufferRegion(int bufferIndex, uint offset, uint length)
+            public unsafe bool SetStorageBufferRegion(int bufferIndex, ulong offset, ulong length)
             {
-                Vector2UInt region = new(offset, length);
+                Vector2ULong region = new(offset, length);
                 if (_pStorageBufferLength[bufferIndex] == region) return false;
                 _pStorageBufferLength[bufferIndex] = region;
                 return true;
@@ -414,7 +414,7 @@ namespace VECS
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public unsafe bool SetUniformBufferRegion(uint offset, uint length)
             {
-                if (_uniformRegion == new Vector2UInt(offset, length)) return false;
+                if (_uniformRegion == new Vector2ULong(offset, length)) return false;
                 _uniformRegion = new(offset, length);
                 return true;
             }
