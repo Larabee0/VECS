@@ -87,8 +87,7 @@ namespace VECS
 
         public unsafe void Resize(int newLength)
         {
-            _buffer = _buffer.Realloc((uint)newLength);
-            EngineBuffers.UpdateEngineBuffer(BufferShaderPropertyId, _buffer);
+            _buffer.Realloc((uint)newLength);
         }
 
         public unsafe void Write(in int index, in IComponent component)

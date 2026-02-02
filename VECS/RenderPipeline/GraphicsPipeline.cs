@@ -209,7 +209,7 @@ namespace VECS
                 var setBindings = GPUPipelineUtil.ExtractBindingsForSetAsBindingArray(setIndex, descriptorSetBindings);
                 var layout = GPUPipelineUtil.CreateDescriptorSetLayout(setBindings, VkDescriptorSetLayoutCreateFlags.DescriptorBufferEXT);
                 _descriptorSetLayouts[setIndex] = layout;
-                bool preventStorageBufferAllocation = _meshShaderDescriptorSetIndex == setIndex || _oitDescriptorSetIndex == setIndex;
+                bool preventStorageBufferAllocation = _meshShaderDescriptorSetIndex == setIndex; // || _oitDescriptorSetIndex == setIndex;
                 var setInfo = new DescriptorSetInfo(layout, setBindings, preventStorageBufferAllocation, _uniformBufferSize, 1, _meshShaderDescriptorSetIndex == setIndex);
                 
                 _uniformBufferSize += setInfo.UnifromBufferSize;
@@ -376,7 +376,7 @@ namespace VECS
                 }
                 if (_uniformBufferSize > 0)
                 {
-                    _uniformBuffer = _uniformBuffer.Realloc((uint)VariantCount);
+                    _uniformBuffer.Realloc((uint)VariantCount);
                     reassignUniformPtrs = true;
                 }
                 while (_variantsToAdd.TryDequeue(out var variant))

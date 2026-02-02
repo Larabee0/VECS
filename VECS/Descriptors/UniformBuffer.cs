@@ -33,7 +33,7 @@ namespace VECS
             var newArray = new void*[_uniformCount];
 
             _uniformAddresses = newArray;
-            _uniformBuffer = _uniformBuffer.Realloc(UniformCount);
+            _uniformBuffer.Realloc(UniformCount);
 
             for (int i = 0; i < UniformCount; i++)
             {

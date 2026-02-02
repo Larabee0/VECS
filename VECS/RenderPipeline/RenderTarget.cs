@@ -153,6 +153,20 @@ namespace VECS
             _image.CreateSampler(createInfo);
         }
 
+        public void Resize(int width, int height)
+        {
+            _image.Reinitialise(width, height);
+
+            if (_renderTargetType == RenderTargetType.Colour)
+            {
+                _image.SetImageLayout(VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.ColorAttachmentOutput);
+            }
+            else
+            {
+                _image.SetImageLayout(VkImageLayout.DepthStencilAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.EarlyFragmentTests);
+            }
+        }
+
         public void Dispose()
         {
             GC.SuppressFinalize(this);

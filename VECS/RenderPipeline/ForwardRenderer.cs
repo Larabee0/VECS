@@ -16,7 +16,7 @@ namespace VECS
 
         public Texture2D _headIndex;
         private readonly SwapChainBuffer _geometry;
-        private SwapChainBuffer _linkedList;
+        public SwapChainBuffer _linkedList;
 
         [StructLayout(LayoutKind.Sequential, Size = 24)]
         private struct OITNode
@@ -35,29 +35,87 @@ namespace VECS
 
         public unsafe void RecreateAttachments()
         {
-            MainColourAttachment?.Dispose();
-            BrightObjectAttachment?.Dispose();
-            DepthAttachment?.Dispose();
-
-            EngineTextures.RemoveTexture(ShaderProperties.HeadIndexImageId);
-
-            _linkedList?[0]?.EnqueueForDisposal();
             EngineBuffers.RemoveEngineBuffer(ShaderProperties.LinkedListSBOId);
             var windowExtents = SwapChain.Instance._windowExtent;
 
             var _maxNodes = OIT_NODE_COUNT * windowExtents.width * windowExtents.height;
-            _linkedList = SwapChainBuffer.AliasGPUBuffer(new GPUBuffer<OITNode>(_maxNodes, VkBufferUsageFlags.StorageBuffer, false, false, false));
-            _geometry[0].WriteToBuffer(&_maxNodes, sizeof(uint),sizeof(uint));
+            if (_linkedList == null)
+            {
+                _linkedList = SwapChainBuffer.AliasGPUBuffer(new GPUBuffer<OITNode>(_maxNodes, VkBufferUsageFlags.StorageBuffer, false, false, false));
+                EngineBuffers.AddEngineBuffer(ShaderProperties.LinkedListSBOId, _linkedList);
+            }
+            else
+            {
+                _linkedList.Realloc(_maxNodes);
+            }
+            _geometry[0].WriteToBuffer(&_maxNodes, sizeof(uint), sizeof(uint));
 
-            _headIndex = new(string.Format("OIT_HeadIndex_{0}",Presenter.FrameCount), (int)windowExtents.width, (int)windowExtents.height, VkFormat.R32Uint, VkImageUsageFlags.TransferDst | VkImageUsageFlags.Storage, false);
+            if (_headIndex == null)
+            {
+                _headIndex = new(string.Format("OIT_HeadIndex_{0}", Presenter.FrameCount), (int)windowExtents.width, (int)windowExtents.height, VkFormat.R32Uint, VkImageUsageFlags.TransferDst | VkImageUsageFlags.Storage, false);
+
+                EngineTextures.AddTexture(ShaderProperties.HeadIndexImageId, _headIndex);
+            }
+            else
+            {
+                _headIndex.Reinitialise((int)windowExtents.width, (int)windowExtents.height);
+            }
+            
             _headIndex.SetImageLayout(VkImageLayout.General, VkPipelineStageFlags2.None, VkPipelineStageFlags2.Transfer);
 
-            MainColourAttachment = new("MainColourAttachment", (int)windowExtents.width, (int)windowExtents.height, VkFormat.R32G32B32A32Sfloat);
-            BrightObjectAttachment = new("BrightObjectAttachment", (int)windowExtents.width, (int)windowExtents.height, VkFormat.R32G32B32A32Sfloat);
-            DepthAttachment = new("DepthAttacment",(int)windowExtents.width, (int)windowExtents.height, VkFormat.D32Sfloat);
+            if (MainColourAttachment == null)
+            {
+                MainColourAttachment = new("MainColourAttachment", (int)windowExtents.width, (int)windowExtents.height, VkFormat.R32G32B32A32Sfloat);
+            }
+            else
+            {
+                MainColourAttachment.Resize((int)windowExtents.width, (int)windowExtents.height);
+            }
 
-            EngineBuffers.AddOrUpdateEngineBuffer(ShaderProperties.LinkedListSBOId, _linkedList);
-            EngineTextures.AddOrUpdateTexture(ShaderProperties.HeadIndexImageId,_headIndex);
+            if (BrightObjectAttachment == null)
+            {
+                BrightObjectAttachment = new("BrightObjectAttachment", (int)windowExtents.width, (int)windowExtents.height, VkFormat.R32G32B32A32Sfloat);
+            }
+            else
+            {
+                BrightObjectAttachment.Resize((int)windowExtents.width, (int)windowExtents.height);
+            }
+
+            if (DepthAttachment == null)
+            {
+                DepthAttachment = new("DepthAttacment", (int)windowExtents.width, (int)windowExtents.height, VkFormat.D32Sfloat);
+            }
+            else
+            {
+                DepthAttachment.Resize((int)windowExtents.width, (int)windowExtents.height);
+            }
+            
+        }
+        public void SetOIT()
+        {
+            // EnginePipes.OIT_Composite.Default().SetTexture(ShaderProperties.HeadIndexImageId, _headIndex);
+            // EnginePipes.OIT_Composite.SetStorageBuffer(ShaderProperties.LinkedListSBOId, _linkedList);
+            // 
+            // EnginePipes.OIT_Unlit.SetStorageBuffer(ShaderProperties.GeometrySBOId, _geometry);
+            // EnginePipes.OIT_LitTexture.SetStorageBuffer(ShaderProperties.GeometrySBOId, _geometry);
+            
+            // AssetDataBase<GraphicsPipeline>.AllAssetsListForReading.ForEach(asset =>
+            // {
+            //     if (asset.Transparent)
+            //     {
+            //         asset.SetStorageBuffer(ShaderProperties.LinkedListSBOId, _linkedList);
+            //         //asset.SetStorageBuffer(ShaderProperties.GeometrySBOId, _geometry);
+            //     }
+            // });
+            
+            // AssetDataBase<Material>.AllAssetsListForReading.ForEach(asset =>
+            // {
+            //     if (asset.Pipeline.Transparent)
+            //     {
+            //         asset.SetTexture(ShaderProperties.HeadIndexImageId, _headIndex);
+            //     }
+            // });
+
         }
 
         public unsafe void BeginForwardRendering(VkCommandBuffer commandBuffer, VkAttachmentLoadOp colourLoad)
@@ -241,7 +299,7 @@ namespace VECS
 
             BeginForwardRendering(commandBuffer, VkAttachmentLoadOp.Load);
 
-            EnginePipes.OIT_Composite.BindAll(frameInfo, 0);
+            EnginePipes.OIT_Composite.Default().Bind(frameInfo);
 
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
 
@@ -251,8 +309,8 @@ namespace VECS
         public void BlitFromMainColour(VkCommandBuffer commandBuffer, VkImage dst, int dstWidth,int  dstHeight, VkImageAspectFlags dstAspectMask)
         {
             MainColourAttachment.Target.SetImageLayout(commandBuffer, VkImageLayout.TransferSrcOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.Blit);
-            
-            BlitGeneric(commandBuffer, VkFilter.Linear, MainColourAttachment.GetBlitCmd(dstWidth, dstHeight, dstAspectMask), MainColourAttachment.VkImage, MainColourAttachment.ImageLayout, dst, VkImageLayout.TransferDstOptimal);
+
+            TextureExtensions.BlitGeneric(commandBuffer, VkFilter.Linear, MainColourAttachment.GetBlitCmd(dstWidth, dstHeight, dstAspectMask), MainColourAttachment.VkImage, MainColourAttachment.ImageLayout, dst, VkImageLayout.TransferDstOptimal);
 
             MainColourAttachment.Target.SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.ColorAttachmentOutput);
 
@@ -262,23 +320,9 @@ namespace VECS
         {
             BrightObjectAttachment.Target.SetImageLayout(commandBuffer, VkImageLayout.TransferSrcOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.Blit);
 
-            BlitGeneric(commandBuffer, VkFilter.Linear, BrightObjectAttachment.GetBlitCmd(dstWidth, dstHeight, dstAspectMask), BrightObjectAttachment.VkImage, BrightObjectAttachment.ImageLayout, dst, VkImageLayout.TransferDstOptimal);
+            TextureExtensions.BlitGeneric(commandBuffer, VkFilter.Linear, BrightObjectAttachment.GetBlitCmd(dstWidth, dstHeight, dstAspectMask), BrightObjectAttachment.VkImage, BrightObjectAttachment.ImageLayout, dst, VkImageLayout.TransferDstOptimal);
 
             BrightObjectAttachment.Target.SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.ColorAttachmentOutput);
-        }
-
-        public static unsafe void BlitGeneric(VkCommandBuffer commandBuffer, VkFilter blitFilter, VkImageBlit blit, VkImage src, VkImageLayout srcLayout, VkImage dst, VkImageLayout dstLayout)
-        {
-            GraphicsDevice.DeviceAPI.vkCmdBlitImage(
-                commandBuffer,
-                src,
-                srcLayout,
-                dst,
-                dstLayout,
-                1,
-                &blit,
-                blitFilter
-            );
         }
 
         public void Dispose()

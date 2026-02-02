@@ -4,6 +4,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
+using System.Reflection.Metadata.Ecma335;
 using VECS.ECS;
 using VECS.ECS.Presentation;
 using VECS.ECS.Transforms;
@@ -93,6 +94,8 @@ namespace VECS
                 _bloom = new();
                 _smaa = new();
                 _directionalLightShadows.AssignDirShadowTexture();
+
+                _forwardRenderer.SetOIT();
             }
             else
             {
@@ -110,6 +113,8 @@ namespace VECS
                 GraphicsDevice.FreeCommandBuffers();
                 GraphicsDevice.CreateCommandBuffers();
                 GraphicsDevice.DeviceWaitIdle();
+
+                _forwardRenderer.SetOIT();
             }
             _framesSinceSwapChainRecreation = 0;
             _swapChain.GraphicsCallback += GraphicsPipe;
@@ -215,7 +220,8 @@ namespace VECS
             if (_isFrameStarted)
             {
                 // kill off buffers
-                GPUBufferExtensions.PlayerbackDisposeCmds(SwapChain.FrameIndex);
+                GPUBufferExtensions.PlayerbackDisposeCmds();
+                TextureExtensions.PlayerbackDisposeCmds();
                 // signal workers to submit work
                 _swapChain.SignalTimelineFromHost(SemaphoreStages.Submit, SwapChain.FrameIndex);
                 // wait for workers to submit

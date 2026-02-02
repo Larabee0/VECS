@@ -221,6 +221,7 @@ namespace VECS
             ULUI.CleanUp();
             _presenter.Dispose();
             GPUBufferExtensions.Reset();
+            TextureExtensions.Reset();
             GraphicsDevice.Dispose();
             _appWindow.Dispose();
         }

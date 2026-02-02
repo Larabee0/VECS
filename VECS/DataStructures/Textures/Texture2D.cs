@@ -1,4 +1,5 @@
 using System.IO;
+using VECS.LowLevel;
 using Vortice.Vulkan;
 
 namespace VECS
@@ -358,6 +359,21 @@ namespace VECS
         public unsafe override void RegenerateMipMaps(VkCommandBuffer cmd)
         {
             this.GenerateMipMaps(cmd);
+        }
+
+        public void Reinitialise(int width, int height)
+        {
+            _imageExtent = new(width, height, 1);
+
+            TextureExtensions.EnqueueForDisposal(_vkImage, _allocation, _imageView, VkSampler.Null);
+            _imageLayout = VkImageLayout.Undefined;
+            _vkImage = VkImage.Null;
+            _allocation = VmaAllocation.Null;
+            _imageView = VkImageView.Null;
+            this.CreateImage(GetImageCreateInfo());
+            this.CreateImageView(GetImageViewCreateInfo());
+            
+            UpdateDescriptor();
         }
     }
 }

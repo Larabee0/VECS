@@ -135,35 +135,6 @@ namespace VECS
             CreateInternal();
         }
 
-
-        private unsafe SwapChainBuffer(SwapChainBuffer copyFrom, ulong newInstanceCount)
-        {
-            var srcInstanceCount = copyFrom.UInstanceCount;
-            _instanceSize = copyFrom._instanceSize;
-            _instanceCount = newInstanceCount;
-            _hasHostBuffer = _CPUAccessible = copyFrom._CPUAccessible;
-            _usageFlags = copyFrom._usageFlags;
-
-            if (!CreateInternal(true))
-            {
-                return;
-            }
-
-            _usedInstanceCount = (uint)InstanceCount;
-            if (_CPUAccessible && _hasHostBuffer)
-            {
-                _hostPtr = copyFrom._hostPtr;
-                copyFrom._hostPtr = null;
-                var oldSize = srcInstanceCount * _instanceSize;
-                var newSize = newInstanceCount * _instanceSize;
-                _hostPtr = GPUBufferExtensions.AlignedRealloc(_hostPtr, oldSize, newSize, _hostAlignment);
-            }
-
-            copyFrom?.Dispose();
-
-            SetBuffersDirty(true);
-        }
-
         private unsafe SwapChainBuffer(GPUBuffer gpuBuffer)
         {
             _alisedGPUBuffer = true;
@@ -238,15 +209,55 @@ namespace VECS
             _usedInstanceCount = Math.Min(UInstanceCount32, instanceCount);
         }
 
-        public virtual SwapChainBuffer Realloc(ulong newInstanceCount)
+        public virtual unsafe void Realloc(ulong newInstanceCount)
         {
-            if (newInstanceCount > UInstanceCount)
+            if (AlisedGPUBuffer)
             {
-                return new SwapChainBuffer(this, newInstanceCount);
+                _instanceCount = newInstanceCount;
+                _buffers[0] = new(newInstanceCount, _instanceSize, _usageFlags, _CPUAccessible, false, false);
+                GPUBufferExtensions.EnqueueForDisposal(_buffers[1]);
+                for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
+                {
+                    _buffers[i] = _buffers[0];
+                }
+                _vkBufferSize = HostBufferSize;
+
+                _usedInstanceCount = (uint)InstanceCount;
+
+                if (_CPUAccessible)
+                {
+                    _hostPtr = _buffers[0].HostPtr;
+                }
+                SetBuffersDirty(true);
+                return;
             }
-            return this;
+            if (newInstanceCount <= UInstanceCount)
+            {
+                return;
+            }
+
+            var srcInstanceCount = UInstanceCount;
+            
+            _instanceCount = newInstanceCount;
+            
+            DisposeGPUBuffers();
+
+            if (!CreateInternal(true))
+            {
+                return;
+            }
+
+            _usedInstanceCount = (uint)InstanceCount;
+            if (_CPUAccessible && _hasHostBuffer)
+            {
+                var oldSize = srcInstanceCount * _instanceSize;
+                var newSize = newInstanceCount * _instanceSize;
+                _hostPtr = GPUBufferExtensions.AlignedRealloc(_hostPtr, oldSize, newSize, _hostAlignment);
+            }
+
+            SetBuffersDirty(true);
         }
-        
+
         /// <summary>
         /// In Debug mode this will assert T is same size as InstanceSize.
         /// In Release mode this won't check for size parity.
@@ -289,14 +300,26 @@ namespace VECS
                 _hostPtr = null;
             }
 
+            DisposeGPUBuffers();
+        }
+
+        private void DisposeGPUBuffers()
+        {
+
+            if (AlisedGPUBuffer)
+            {
+                _disposed = true;
+                return;
+            }
+
             for (int i = 0; i < _buffers.Length; i++)
             {
-                
+
                 GPUBufferExtensions.EnqueueForDisposal(_buffers[i], i);
                 _buffers[i] = null;
             }
         }
-        
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static SwapChainBuffer AliasGPUBuffer(GPUBuffer buffer)
         {
@@ -387,43 +410,5 @@ namespace VECS
             CreateInternal();
         }
 
-        private unsafe SwapChainBuffer(SwapChainBuffer<T> copyFrom, ulong newInstanceCount)
-        {
-            var srcInstanceCount = copyFrom.UInstanceCount;
-            _instanceSize = copyFrom._instanceSize;
-            _instanceCount = newInstanceCount;
-            _hasHostBuffer = _CPUAccessible = copyFrom._CPUAccessible;
-            _usageFlags = copyFrom._usageFlags;
-
-            if (!CreateInternal(true))
-            {
-                return;
-            }
-
-            _usedInstanceCount = (uint)InstanceCount;
-
-            if (_CPUAccessible && _hasHostBuffer)
-            {
-                _hostPtr = copyFrom._hostPtr;
-                copyFrom._hostPtr = null;
-                var oldSize = srcInstanceCount * _instanceSize;
-                var newSize = newInstanceCount * _instanceSize;
-                _hostPtr = GPUBufferExtensions.AlignedRealloc(_hostPtr, oldSize, newSize, _hostAlignment);
-            }
-
-            copyFrom?.Dispose();
-
-            SetBuffersDirty(true);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public override SwapChainBuffer Realloc(ulong newInstanceCount)
-        {
-            if (newInstanceCount > UInstanceCount)
-            {
-                return new SwapChainBuffer<T>(this, newInstanceCount);
-            }
-            return this;
-        }
     }
 }

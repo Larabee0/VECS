@@ -101,7 +101,7 @@ namespace VECS
                 arrayLayers = 1,
                 format = _imageFormat,
                 tiling = _imageTiling,
-                initialLayout = _imageLayout,
+                initialLayout = VkImageLayout.Undefined,
                 usage = _useageFlags,
                 samples = _sampleCountFlags,
                 sharingMode = _sharingMode,
@@ -238,22 +238,7 @@ namespace VECS
 
             _hostBuffer?.EnqueueForDisposal();
 
-            if (_textureSampler != VkSampler.Null)
-            {
-                GraphicsDevice.DeviceAPI.vkDestroySampler(GraphicsDevice.Device, _textureSampler);
-                _textureSampler = VkSampler.Null;
-            }
-
-            if (_imageView != VkImageView.Null)
-            {
-                GraphicsDevice.DeviceAPI.vkDestroyImageView(GraphicsDevice.Device, _imageView);
-                _imageView = VkImageView.Null;
-            }
-
-            if (_vkImage != VkImage.Null && _allocation != VmaAllocation.Null)
-            {
-                Vma.vmaDestroyImage(GraphicsDevice.VmaAllocator, _vkImage, _allocation);
-            }
+            TextureExtensions.EnqueueForDisposal(_vkImage, _allocation, _imageView, _textureSampler);
 
             _disposed = true;
         }

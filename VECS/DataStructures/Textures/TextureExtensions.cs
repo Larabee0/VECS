@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using VECS.LowLevel;
 using Vortice.Vulkan;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace VECS
 {
@@ -39,10 +41,50 @@ namespace VECS
             }
         }
 
+        private class DisposeTextureCmd
+        {
+            public readonly VkImage Image;
+            public readonly VmaAllocation Allocation;
+            public readonly VkImageView Imageview;
+            public readonly VkSampler Sampler;
+
+            public int frameIndex;
+            private bool Disposed;
+
+            public DisposeTextureCmd(VkImage image, VmaAllocation allocation, VkImageView imageview, VkSampler sampler)
+            {
+                Image = image;
+                Allocation = allocation;
+                Imageview = imageview;
+                Sampler = sampler;
+            }
+
+            public static void Dispose(DisposeTextureCmd cmd)
+            {
+                if (cmd.Disposed) return;
+                if (cmd.Sampler != VkSampler.Null)
+                {
+                    GraphicsDevice.DeviceAPI.vkDestroySampler(GraphicsDevice.Device, cmd.Sampler);
+                }
+                if (cmd.Imageview != VkImage.Null)
+                {
+                    GraphicsDevice.DeviceAPI.vkDestroyImageView(GraphicsDevice.Device, cmd.Imageview);
+                }
+                if (cmd.Image != VkImage.Null && cmd.Allocation != VmaAllocation.Null)
+                {
+                    Vma.vmaDestroyImage(GraphicsDevice.VmaAllocator, cmd.Image, cmd.Allocation);
+                }
+                cmd.Disposed = true;
+            }
+        }
+
         private readonly static ConcurrentQueue<TextureBufferCopyCmd> _copyBufferToTexture = [];
         private readonly static ConcurrentQueue<TextureBufferCopyCmd> _copyTextureToBuffer = [];
         private readonly static ConcurrentQueue<Texture> _regenMipMapsCmds = [];
         private readonly static ConcurrentQueue<SetTextureLayoutCmd> _setLayoutCmds = [];
+
+        private readonly static ConcurrentQueue<DisposeTextureCmd> _disposalQueue = [];
+        private readonly static List<DisposeTextureCmd> _disposalList = [];
 
         private static ConcurrentDictionary<VkFormat, byte[]> _componentBits;
 
@@ -73,7 +115,47 @@ namespace VECS
                 }
                 _componentBits.TryAdd(format, componentBitsPerPixel);
             }
+
+
+            while (_disposalQueue.TryDequeue(out var cmd))
+            {
+                DisposeTextureCmd.Dispose(cmd);
+            }
+            for (int i = _disposalList.Count - 1; i >= 0; i--)
+            {
+                DisposeTextureCmd.Dispose(_disposalList[i]);
+            }
+            _disposalList.Clear();
         }
+
+
+        public static unsafe void PlayerbackDisposeCmds()
+        {
+            for (int i = _disposalList.Count - 1; i >= 0; i--)
+            {
+                if ((long)Presenter.FrameCount > _disposalList[i].frameIndex)
+                {
+                    DisposeTextureCmd.Dispose(_disposalList[i]);
+                    _disposalList.RemoveAt(i);
+                }
+            }
+
+            if (!_disposalQueue.IsEmpty)
+            {
+                _disposalList.EnsureCapacity(_disposalQueue.Count);
+            }
+            while (_disposalQueue.TryDequeue(out var cmd))
+            {
+                cmd.frameIndex = (int)Presenter.FrameCount + SwapChain.MAX_CONCURRENT_FRAMES;
+                _disposalList.Add(cmd);
+            }
+        }
+
+        public static void EnqueueForDisposal(VkImage image, VmaAllocation allocation, VkImageView imageView, VkSampler sampler)
+        {
+            _disposalQueue.Enqueue(new(image, allocation, imageView, sampler));
+        }
+
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static byte[] GetBitsPerPixel(VkFormat format)
@@ -590,16 +672,16 @@ namespace VECS
                     queueFamily, queueFamily
                 );
 
-                GraphicsDevice.DeviceAPI.vkCmdBlitImage(
+                BlitGeneric(
                     cmd,
+                    VkFilter.Linear,
+                    imageBlit,
                     texture._vkImage,
                     VkImageLayout.TransferSrcOptimal,
                     texture._vkImage,
-                    VkImageLayout.TransferDstOptimal,
-                    1,
-                    &imageBlit,
-                    VkFilter.Linear
+                    VkImageLayout.TransferDstOptimal
                 );
+
 
                 MemoryBarrierHelper.ImageMemoryBarrier(
                     cmd,
@@ -686,17 +768,14 @@ namespace VECS
                     queueFamily, queueFamily
                 );
 
-                GraphicsDevice.DeviceAPI.vkCmdBlitImage(
+                BlitGeneric(
                     cmd,
+                    VkFilter.Linear,
+                    imageBlit,
                     texture._vkImage,
                     VkImageLayout.TransferSrcOptimal,
                     texture._vkImage,
-                    VkImageLayout.TransferDstOptimal,
-                    1,
-                    &imageBlit,
-                    VkFilter.Linear
-                );
-
+                    VkImageLayout.TransferDstOptimal);
 
                 MemoryBarrierHelper.ImageMemoryBarrier(
                     cmd,
@@ -858,15 +937,14 @@ namespace VECS
                         queueFamily, queueFamily
                     );
 
-                    GraphicsDevice.DeviceAPI.vkCmdBlitImage(
+                    BlitGeneric(
                         cmd,
+                        VkFilter.Linear,
+                        imageBlit,
                         image,
                         VkImageLayout.TransferSrcOptimal,
                         image,
-                        VkImageLayout.TransferDstOptimal,
-                        1,
-                        &imageBlit,
-                        VkFilter.Linear
+                        VkImageLayout.TransferDstOptimal
                     );
 
                     MemoryBarrierHelper.ImageMemoryBarrier(
@@ -885,6 +963,22 @@ namespace VECS
             }
         }
         #endregion
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static unsafe void BlitGeneric(VkCommandBuffer commandBuffer, VkFilter blitFilter, VkImageBlit blit, VkImage src, VkImageLayout srcLayout, VkImage dst, VkImageLayout dstLayout)
+        {
+            GraphicsDevice.DeviceAPI.vkCmdBlitImage(
+                commandBuffer,
+                src,
+                srcLayout,
+                dst,
+                dstLayout,
+                1,
+                &blit,
+                blitFilter
+            );
+        }
+
 
     }
 }

@@ -659,10 +659,10 @@ namespace VECS
         public static void EnqueueForDisposal(GPUBuffer gpuBuffer, int i)
         {
             if (gpuBuffer.IsDisposed) return;
-            _disposalQueue.Enqueue(new(gpuBuffer, i));
+            _disposalQueue.Enqueue(new(gpuBuffer, (int)Presenter.FrameCount + i));
         }
 
-        public static unsafe void PlayerbackDisposeCmds(int frameIndex)
+        public static unsafe void PlayerbackDisposeCmds()
         {
             for (int i = _disposalList.Count - 1; i >= 0; i--)
             {

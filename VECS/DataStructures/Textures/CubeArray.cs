@@ -103,7 +103,7 @@ namespace VECS
             {
                 for (int i = 0; i < 6; i++)
                 {
-                    GraphicsDevice.DeviceAPI.vkDestroyImageView(GraphicsDevice.Device, FaceImageViews[d][i]);
+                    TextureExtensions.EnqueueForDisposal(VkImage.Null, VmaAllocation.Null, FaceImageViews[d][i], VkSampler.Null);
                 }
             }
 

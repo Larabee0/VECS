@@ -57,7 +57,7 @@ namespace VECS
             MainCamera = mainCamera;
             DeltaTime = deltaTime;
 
-            newSwapchain = newSwapchain;
+            NewSwapChain = newSwapchain;
 
             CommandBuffer = commandBuffer;
             CullData = cullData;

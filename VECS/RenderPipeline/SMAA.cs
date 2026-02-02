@@ -67,16 +67,34 @@ namespace VECS
 
         public void RecreateRenderTargets()
         {
-            EdgeInputTarget?.Dispose();
-            EdgeTarget?.Dispose();
-            BlendTarget?.Dispose();
-
             var windowExtents = SwapChain.Instance._windowExtent;
 
-            EdgeInputTarget = new("SMAA_Edge_Input_Attachment", (int)windowExtents.width, (int)windowExtents.height, VkFormat.R8G8B8A8Unorm);
-            EdgeTarget = new("SMAA_Edge_Attachment", (int)windowExtents.width, (int)windowExtents.height, VkFormat.R8G8B8A8Unorm);
-            BlendTarget = new("SMAA_Blend_Attachment", (int)windowExtents.width, (int)windowExtents.height, VkFormat.R8G8B8A8Unorm);
+            if (EdgeInputTarget == null)
+            {
+                EdgeInputTarget = new("SMAA_Edge_Input_Attachment", (int)windowExtents.width, (int)windowExtents.height, VkFormat.R8G8B8A8Unorm);
+            }
+            else
+            {
+                EdgeInputTarget.Resize((int)windowExtents.width, (int)windowExtents.height);
+            }
 
+            if (EdgeTarget == null)
+            {
+                EdgeTarget = new("SMAA_Edge_Attachment", (int)windowExtents.width, (int)windowExtents.height, VkFormat.R8G8B8A8Unorm);
+            }
+            else
+            {
+                EdgeTarget.Resize((int)windowExtents.width, (int)windowExtents.height);
+            }
+
+            if (BlendTarget == null)
+            {
+                BlendTarget = new("SMAA_Blend_Attachment", (int)windowExtents.width, (int)windowExtents.height, VkFormat.R8G8B8A8Unorm);
+            }
+            else
+            {
+                BlendTarget.Resize((int)windowExtents.width, (int)windowExtents.height);
+            }
 
             var texelSize = new Vector4(1.0f / windowExtents.width, 1.0f / windowExtents.height, windowExtents.width, windowExtents.height);
 
