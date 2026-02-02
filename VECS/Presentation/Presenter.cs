@@ -30,6 +30,8 @@ namespace VECS
         private SMAA _smaa;
         private static ulong _frameCount;
 
+        private static ulong _framesSinceSwapChainRecreation = 0;
+
         public ForwardRenderer ForwardRenderer => _forwardRenderer;
         public DirectionalLightShadows DirShadows => _directionalLightShadows;
         public PointLightShadows PLShadows => _pointLightShadows;
@@ -90,7 +92,6 @@ namespace VECS
                 _directionalLightShadows = new();
                 _bloom = new();
                 _smaa = new();
-                _forwardRenderer.SetOIT();
                 _directionalLightShadows.AssignDirShadowTexture();
             }
             else
@@ -105,13 +106,12 @@ namespace VECS
                 }
                 _forwardRenderer.RecreateAttachments();
                 _bloom.RecreateAttachments();
-                _forwardRenderer.SetOIT();
                 _smaa.RecreateRenderTargets();
                 GraphicsDevice.FreeCommandBuffers();
                 GraphicsDevice.CreateCommandBuffers();
                 GraphicsDevice.DeviceWaitIdle();
             }
-
+            _framesSinceSwapChainRecreation = 0;
             _swapChain.GraphicsCallback += GraphicsPipe;
 
             _swapChain.StartTimelineWorkers();
@@ -149,7 +149,7 @@ namespace VECS
             if (World.DefaultWorld != null)
             {
                 var entityManager = World.DefaultWorld.EntityManager;
-                GraphicsPipelineExtension.UpdateCameras(entityManager,frameIndex);
+                EngineBuffers.UpdateCameras(entityManager,frameIndex);
 
                 var cameras = entityManager.GetAllEntitiesWithComponent<Camera>();
                 cameraCount = Math.Min(cameras.Count, MAX_CAMERAS);
@@ -165,7 +165,7 @@ namespace VECS
                 }
             }
 
-            CameraInfo cameraInfo = ((SwapChainBuffer<CameraInfo>)GraphicsPipelineExtension.TryGetBuffer(ShaderProperties.CameraInfoId)).HostBuffer[mainCamera];
+            CameraInfo cameraInfo = ((SwapChainBuffer<CameraInfo>)EngineBuffers.TryGetBuffer(ShaderProperties.CameraInfoId)).HostBuffer[mainCamera];
             float clipNear = camera.ClipNear;
 
             CullData cullData = new(RenderLayer.All, RenderLayer.OnlyShadow, camera.fustrumCulling, camera.dstCull, camera.depthCull, clipNear, cameraInfo);
@@ -174,7 +174,7 @@ namespace VECS
             if (World.DefaultWorld != null)
             {
                 var entityManager = World.DefaultWorld.EntityManager;
-                lightingInfo = GraphicsPipelineExtension.UpdateLights(entityManager,frameIndex);
+                lightingInfo = EngineBuffers.UpdateLights(entityManager,frameIndex);
             }
 
             return new RendererFrameInfo(
@@ -182,6 +182,7 @@ namespace VECS
                 cameraCount,
                 mainCamera,
                 deltaTime,
+                _framesSinceSwapChainRecreation < SwapChain.MAX_CONCURRENT_FRAMES_UINT,
                 commandBuffer,
                 cullData,
                 lightingInfo);
@@ -226,6 +227,7 @@ namespace VECS
                 _isFrameStarted = false;
                 World.DefaultWorld.PostPresentUpdate();
                 _frameCount++;
+                _framesSinceSwapChainRecreation++;
             }
         }
 
@@ -243,7 +245,7 @@ namespace VECS
             PreGraphicsPipe?.Invoke(FrameIndex);
 
             RendererFrameInfo frameInfo = CreateRendererFrameInfo(Time.DeltaTime, commandBuffer);
-            ComputePipeline.UpdateComputeShaders(frameInfo.FrameIndex);
+            ComputePipeline.UpdateComputeShaders(frameInfo);
             GraphicsPipeline.UpdateMaterials(frameInfo);
 
             // shadows pass
@@ -318,7 +320,7 @@ namespace VECS
         public void Dispose()
         {
             DrawBlob.CleanUp();
-            GraphicsPipelineExtension.CleanUp();
+            EngineBuffers.CleanUp();
 
             foreach (var assetType in typeof(DisposableAsset).AllSubclassesNonAbstract())
             {

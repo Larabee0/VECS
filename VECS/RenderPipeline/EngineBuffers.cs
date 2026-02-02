@@ -10,7 +10,7 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
-    public static class GraphicsPipelineExtension
+    public static class EngineBuffers
     {
         private const VkBufferUsageFlags BufferUsageFlags = VkBufferUsageFlags.StorageBuffer;
 
@@ -23,17 +23,17 @@ namespace VECS
         private readonly static SwapChainBuffer<PointLightUniform> PointLightBuffer;
         private readonly static SwapChainBuffer<SpotLightUniform> SpotLightBuffer;
 
-        private readonly static ConcurrentDictionary<int, SwapChainBuffer> EngineBuffers = new();
+        private readonly static ConcurrentDictionary<int, SwapChainBuffer> _engineBuffers = new();
 
         public static SwapChainBuffer TryGetBuffer(int propertyId)
         {
-            EngineBuffers.TryGetValue(propertyId, out var buffer);
+            _engineBuffers.TryGetValue(propertyId, out var buffer);
             return buffer;
         }
 
         public static void AddEngineBuffer(int propertyId, SwapChainBuffer buffer)
         {
-            if(!EngineBuffers.TryAdd(propertyId, buffer))
+            if(!_engineBuffers.TryAdd(propertyId, buffer))
             {
                 throw new ArgumentException(string.Format("Key {0} already exists in the enginebuffers dictionary, use UpdateEngineBuffer to replace it", propertyId));
             }
@@ -41,7 +41,7 @@ namespace VECS
 
         public static void UpdateEngineBuffer(int propertyId, SwapChainBuffer buffer)
         {
-            if(!EngineBuffers.TryGetValue(propertyId, out var existing) || !EngineBuffers.TryUpdate(propertyId, buffer, existing))
+            if(!_engineBuffers.TryGetValue(propertyId, out var existing) || !_engineBuffers.TryUpdate(propertyId, buffer, existing))
             {
                 throw new KeyNotFoundException(string.Format("Key {0} has no buffer assocaited with it, use AddEngineBuffer to add it", propertyId));
             }
@@ -49,7 +49,7 @@ namespace VECS
 
         public static void AddOrUpdateEngineBuffer(int propertyId, SwapChainBuffer buffer)
         {
-            EngineBuffers.AddOrUpdate(propertyId,buffer,(int key, SwapChainBuffer value) =>
+            _engineBuffers.AddOrUpdate(propertyId,buffer,(int key, SwapChainBuffer value) =>
             {
                 if (!value.IsDisposed)
                 {
@@ -61,13 +61,13 @@ namespace VECS
 
         public static void RemoveEngineBuffer(int propertyId, bool disposeAfterRemove = true)
         {
-            if(EngineBuffers.TryRemove(propertyId, out var buffer) && disposeAfterRemove)
+            if(_engineBuffers.TryRemove(propertyId, out var buffer) && disposeAfterRemove)
             {
                 buffer.Dispose();
             }
         }
 
-        static unsafe GraphicsPipelineExtension()
+        static unsafe EngineBuffers()
         {
             CameraInfoBuffer = new (Presenter.MAX_CAMERAS, BufferUsageFlags, true);
             CameraInverseInfoBuffer = new (Presenter.MAX_CAMERAS, BufferUsageFlags, true);
@@ -223,7 +223,7 @@ namespace VECS
             LightingInfoBuffer.Dispose();
             PointLightBuffer.Dispose();
             SpotLightBuffer.Dispose();
-            EngineBuffers.Clear();
+            _engineBuffers.Clear();
         }
     }
 }

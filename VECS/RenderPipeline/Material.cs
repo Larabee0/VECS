@@ -87,6 +87,11 @@ namespace VECS
                         {
                             _textures[i][j] = null;
                         }
+                        var texture = EngineTextures.TryGetTexture(setInfo.DescriptorBindings[j].Id);
+                        if (texture != null)
+                        {
+                            _textures[i][j] = texture;
+                        }
                     }
                 }
                 else
@@ -108,12 +113,6 @@ namespace VECS
                 {
                     _hasStorageBuffers = info.HasStorageBuffers;
                 }
-
-                // for (int j = 0; j < SwapChain.MAX_CONCURRENT_FRAMES; j++)
-                // {
-                //     info.WriteUniforms(j, _variantIndex);
-                //     GraphicsPipeline.WriteSet(info, info.DescriptorBuffers[j], _variantIndex, GetBindingBuffers(j, i), GetBindingTextures(j, i));
-                // }
             }
 
             if (_hasTextures)

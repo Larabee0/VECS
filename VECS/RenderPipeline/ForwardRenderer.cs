@@ -29,7 +29,7 @@ namespace VECS
         public ForwardRenderer()
         {
             _geometry = SwapChainBuffer.AliasGPUBuffer(new GPUBuffer<Vector2UInt>(1, VkBufferUsageFlags.StorageBuffer | VkBufferUsageFlags.TransferDst, false, false, true));
-            GraphicsPipelineExtension.AddOrUpdateEngineBuffer(ShaderProperties.GeometrySBOId, _geometry);
+            EngineBuffers.AddOrUpdateEngineBuffer(ShaderProperties.GeometrySBOId, _geometry);
             RecreateAttachments();
         }
 
@@ -39,10 +39,10 @@ namespace VECS
             BrightObjectAttachment?.Dispose();
             DepthAttachment?.Dispose();
 
-            _headIndex?.Dispose();
+            EngineTextures.RemoveTexture(ShaderProperties.HeadIndexImageId);
 
             _linkedList?[0]?.EnqueueForDisposal();
-            GraphicsPipelineExtension.RemoveEngineBuffer(ShaderProperties.LinkedListSBOId);
+            EngineBuffers.RemoveEngineBuffer(ShaderProperties.LinkedListSBOId);
             var windowExtents = SwapChain.Instance._windowExtent;
 
             var _maxNodes = OIT_NODE_COUNT * windowExtents.width * windowExtents.height;
@@ -56,19 +56,8 @@ namespace VECS
             BrightObjectAttachment = new("BrightObjectAttachment", (int)windowExtents.width, (int)windowExtents.height, VkFormat.R32G32B32A32Sfloat);
             DepthAttachment = new("DepthAttacment",(int)windowExtents.width, (int)windowExtents.height, VkFormat.D32Sfloat);
 
-            GraphicsPipelineExtension.AddOrUpdateEngineBuffer(ShaderProperties.LinkedListSBOId, _linkedList);
-        }
-
-        public void SetOIT()
-        {
-            AssetDataBase<Material>.AllAssetsListForReading.ForEach(asset =>
-            {
-                if (asset.Pipeline.Transparent)
-                {
-                    asset.SetTexture(ShaderProperties.HeadIndexImageId, _headIndex);
-                }
-            });
-
+            EngineBuffers.AddOrUpdateEngineBuffer(ShaderProperties.LinkedListSBOId, _linkedList);
+            EngineTextures.AddOrUpdateTexture(ShaderProperties.HeadIndexImageId,_headIndex);
         }
 
         public unsafe void BeginForwardRendering(VkCommandBuffer commandBuffer, VkAttachmentLoadOp colourLoad)

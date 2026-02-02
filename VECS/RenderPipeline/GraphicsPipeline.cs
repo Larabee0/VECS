@@ -423,7 +423,7 @@ namespace VECS
                     if (!binding.UniformBuffer) continue;
                     
                     var internalOffset = InternalUniformBufferOffset(binding.DescriptorSetIndex, binding.BindPoint);
-                    var global = GraphicsPipelineExtension.TryGetBuffer(binding.Id);
+                    var global = EngineBuffers.TryGetBuffer(binding.Id);
 
                     for (int frameIndex = 0; frameIndex < SwapChain.MAX_CONCURRENT_FRAMES; frameIndex++)
                     {
@@ -1028,12 +1028,14 @@ namespace VECS
                     var binding = bindings[j];
                     if (binding.StorageBuffer && pipeline.GetBuffer(binding).IsDisposed)
                     {
-                        pipeline._descriptorSetInfos[i].SetStorageBuffer(GraphicsPipelineExtension.TryGetBuffer(binding.Id), binding.BindPoint);
+                        pipeline._descriptorSetInfos[i].SetStorageBuffer(EngineBuffers.TryGetBuffer(binding.Id), binding.BindPoint);
                     }
                 }
             }
 
             bool forceDescriptorWrite = pipeline.AllocNewVariants();
+
+            forceDescriptorWrite |= frameInfo.NewSwapChain;
 
             int frameIndex = frameInfo.FrameIndex;
             for (uint i = 0; i < pipeline.VariantCount; i++)

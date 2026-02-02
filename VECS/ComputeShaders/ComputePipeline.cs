@@ -554,18 +554,19 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static void UpdateComputeShaders(int frameIndex)
+        internal static void UpdateComputeShaders(RendererFrameInfo frameInfo)
         {
             var count = AssetDataBase<ComputePipeline>.AssetCount;
             var readingList = AssetDataBase<ComputePipeline>.AllAssetsListForReading;
-            readingList.ForEach(m => Update(m, frameIndex));
+            readingList.ForEach(m => Update(m, frameInfo));
         }
 
-        private static void Update(ComputePipeline pipeline, int frameIndex)
+        private static void Update(ComputePipeline pipeline, RendererFrameInfo frameInfo)
         {
             if (pipeline.VariantCount == 0) return;
 
             bool forceDescriptorWrite = pipeline.AllocNewVariants();
+            forceDescriptorWrite |= frameInfo.NewSwapChain;
             if (forceDescriptorWrite)
             {
                 for (int i = 0; i < pipeline.VariantCount; i++)
@@ -578,12 +579,12 @@ namespace VECS
 
             for (int i = 0; i < pipeline._descriptorSetInfos.Length; i++)
             {
-                pipeline._descriptorSetInfos[i].WriteFromBuffers(frameIndex);
+                pipeline._descriptorSetInfos[i].WriteFromBuffers(frameInfo.FrameIndex);
             }
 
             if (pipeline.UniformBufferSize > 0)
             {
-                pipeline._uniformBuffer.Buffer.WriteFromHostToBuffer(frameIndex);
+                pipeline._uniformBuffer.Buffer.WriteFromHostToBuffer(frameInfo.FrameIndex);
             }
 
         }

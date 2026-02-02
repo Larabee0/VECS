@@ -82,13 +82,13 @@ namespace VECS
             ShaderProperties.IgnoreUnFoundShaderProperties.Add(BufferShaderPropertyId);
 
             _buffer = new(ElementSize, 1, VkBufferUsageFlags.StorageBuffer, true);
-            GraphicsPipelineExtension.AddEngineBuffer(BufferShaderPropertyId, _buffer);
+            EngineBuffers.AddOrUpdateEngineBuffer(BufferShaderPropertyId, _buffer);
         }
 
         public unsafe void Resize(int newLength)
         {
             _buffer = _buffer.Realloc((uint)newLength);
-            GraphicsPipelineExtension.UpdateEngineBuffer(BufferShaderPropertyId, _buffer);
+            EngineBuffers.UpdateEngineBuffer(BufferShaderPropertyId, _buffer);
         }
 
         public unsafe void Write(in int index, in IComponent component)
@@ -692,12 +692,12 @@ namespace VECS
 
         public static void CullAllInOne(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, CullData cullData)
         {
-            FustrumCull.Cull(commandBuffer, frameInfo.FrameIndex, cullData, (uint)entityCount, _indirectCmdBufferAllInOne,GraphicsPipelineExtension.TryGetBuffer(ShaderProperties.BoundsBufferId));
+            FustrumCull.Cull(commandBuffer, frameInfo.FrameIndex, cullData, (uint)entityCount, _indirectCmdBufferAllInOne,EngineBuffers.TryGetBuffer(ShaderProperties.BoundsBufferId));
         }
 
         public static void CullByMat(RendererFrameInfo frameInfo, CullData cullData)
         {
-            FustrumCull.Cull(frameInfo.CommandBuffer, frameInfo.FrameIndex, cullData, (uint)entityCount, _indirectCmdBufferByMat, GraphicsPipelineExtension.TryGetBuffer(ShaderProperties.BoundsBufferId));
+            FustrumCull.Cull(frameInfo.CommandBuffer, frameInfo.FrameIndex, cullData, (uint)entityCount, _indirectCmdBufferByMat, EngineBuffers.TryGetBuffer(ShaderProperties.BoundsBufferId));
         }
 
         public static void IndirectToComputeMemoryBarrierAllInOne(VkCommandBuffer commandBuffer)

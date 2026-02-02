@@ -46,7 +46,7 @@ namespace VECS
 
         public static void FillViewMatrices(in RendererFrameInfo frameInfo, SwapChainBuffer mats)
         {
-            var pointLights = ((SwapChainBuffer<PointLightUniform>)GraphicsPipelineExtension.TryGetBuffer(ShaderProperties.PointLightsBufferId)).HostBuffer;
+            var pointLights = ((SwapChainBuffer<PointLightUniform>)EngineBuffers.TryGetBuffer(ShaderProperties.PointLightsBufferId)).HostBuffer;
             for (int i = 0; i < frameInfo.LightingInfo.NumPointLights; i++)
             {
                 var pl = pointLights[i];
@@ -66,7 +66,7 @@ namespace VECS
 
         public static void FillLightInfo(in RendererFrameInfo frameInfo, SwapChainBuffer lightInfo)
         {
-            var pointLights = ((SwapChainBuffer<PointLightUniform>)GraphicsPipelineExtension.TryGetBuffer(ShaderProperties.PointLightsBufferId)).HostBuffer;
+            var pointLights = ((SwapChainBuffer<PointLightUniform>)EngineBuffers.TryGetBuffer(ShaderProperties.PointLightsBufferId)).HostBuffer;
             for (int i = 0; i < frameInfo.LightingInfo.NumPointLights; i++)
             {
                 var pl = pointLights[i];

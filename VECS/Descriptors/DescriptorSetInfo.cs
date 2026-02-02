@@ -186,7 +186,7 @@ namespace VECS
                 if (!binding.IsAnyBuffer) continue;
                 if (binding.StorageBuffer)
                 {
-                    SwapChainBuffer buffer = GraphicsPipelineExtension.TryGetBuffer(binding.Id);
+                    SwapChainBuffer buffer = EngineBuffers.TryGetBuffer(binding.Id);
                     _isStorageBufferOwner[b] = buffer == null;
                     if (_noAllocStorageBuffers)
                     {
@@ -203,7 +203,7 @@ namespace VECS
                 }
                 else if (binding.UniformBuffer)
                 {
-                    if(GraphicsPipelineExtension.TryGetBuffer(binding.Id) == null)
+                    if(EngineBuffers.TryGetBuffer(binding.Id) == null)
                     {
                         _internalUniformBufferOffsets[i] = _uniformSize;
                         _uniformSize += binding.BufferSize;

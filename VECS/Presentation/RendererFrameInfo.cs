@@ -23,6 +23,8 @@ namespace VECS
         public readonly int MainCamera;
         public readonly float DeltaTime;
 
+        public readonly bool NewSwapChain;
+
         public readonly VkCommandBuffer CommandBuffer;
         public readonly CullData CullData;
         public readonly LightingInfo LightingInfo;
@@ -39,6 +41,7 @@ namespace VECS
             int cameraCount,
             int mainCamera,
             float deltaTime,
+            bool newSwapchain,
             VkCommandBuffer commandBuffer,
             CullData cullData,
             LightingInfo lightingInfo)//,
@@ -53,6 +56,8 @@ namespace VECS
             CameraCount = cameraCount;
             MainCamera = mainCamera;
             DeltaTime = deltaTime;
+
+            newSwapchain = newSwapchain;
 
             CommandBuffer = commandBuffer;
             CullData = cullData;

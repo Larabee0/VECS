@@ -93,7 +93,7 @@ namespace VECS
             var shadowOffscreen = EnginePipes.ShadowOffscreen;
             var mats = shadowOffscreen.GetStorageSwapChainBuffer(PointLightShadows.matsPropertyId);
             var lights = shadowOffscreen.GetStorageSwapChainBuffer(PointLightShadows.lightInfoPropertyId);
-            var spotLights = ((SwapChainBuffer<SpotLightUniform>)GraphicsPipelineExtension.TryGetBuffer(ShaderProperties.PointLightsBufferId)).HostBuffer;
+            var spotLights = ((SwapChainBuffer<SpotLightUniform>)EngineBuffers.TryGetBuffer(ShaderProperties.PointLightsBufferId)).HostBuffer;
             for (int i = 0; i < frameInfo.LightingInfo.NumSpotLights; i++)
             {
                 var spotLight = spotLights[i];
