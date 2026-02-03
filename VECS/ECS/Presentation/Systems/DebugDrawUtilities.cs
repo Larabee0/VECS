@@ -23,6 +23,8 @@ namespace VECS.ECS.Presentation
         private SwapChainBuffer<Vector3> _frustrumBuffer;
         private GPUBuffer<Vector3> _cubeBuffer;
         private SwapChainBuffer<Matrix3x2> _lineBuffer;
+        private SwapChainBuffer<ModelMatrices> _lineMatrices;
+        private SwapChainBuffer<Vector4> _lineColours;
 
         private SwapChainBuffer<VkDrawIndirectCommand> _drawBuffer;
 
@@ -68,8 +70,31 @@ namespace VECS.ECS.Presentation
             vertices[^1] = (Vector3.Zero + new Vector3(MathF.Sin(0), -MathF.Cos(0), 0)) * 1f;
 
             _circleBuffer.WriteFromHostBuffer();
-            EnginePipes.WireFrame.SetDescriptorStorageBufferLengthFromProperty(ShaderProperties.MatricesBufferId, 0);
-            EnginePipes.WireFrame.SetDescriptorStorageBufferLengthFromProperty(ShaderProperties.ColourBufferId, 0);
+            _lineMatrices = new(32, VkBufferUsageFlags.StorageBuffer, true);
+            _lineColours = new(32, VkBufferUsageFlags.StorageBuffer, true);
+            EnginePipes.WireFrame.SetStorageBuffer(ShaderProperties.MatricesBufferId, _lineMatrices);
+            EnginePipes.WireFrame.SetStorageBuffer(ShaderProperties.ColourBufferId, _lineColours);
+        }
+
+        public override void OnPrePresent(EntityManager entityManager)
+        {
+            if ((_lineQueue.Count > 0)
+                || (_wireCubes.Count > 0
+                || (_wireSpheres.Count > 0))
+                || (_drawCameraFustrums && _cameraQuery.HasEntities && SwapChain.Instance != null)
+                || (_drawBounds && _renderBoundsQuery.HasEntities))
+            {
+                var drawCount = _wireCubes.Count + _wireSpheres.Count + _lineQueue.Count;
+                drawCount += _cameraQuery.HasEntities ? _cameraQuery.GetEntities().Count : 0;
+                drawCount += _renderBoundsQuery.HasEntities ? _renderBoundsQuery.GetEntities().Count * 4 : 0;
+
+                if(_lineMatrices.InstanceCount32 < drawCount)
+                {
+                    _lineMatrices.Realloc((uint)drawCount);
+                    _lineColours.Realloc((uint)drawCount);
+                    EnginePipes.WireFrame.Default().DirtyBufferRegions();
+                }
+            }
         }
 
         public override void OnOpaquePass(EntityManager entityManager, RendererFrameInfo frameInfo)
@@ -111,6 +136,8 @@ namespace VECS.ECS.Presentation
                 draws = _drawBuffer.HostBuffer;
 
                 GPUBufferExtensions.WriteFromHostDelayed(_drawBuffer, frameInfo.FrameIndex);
+                GPUBufferExtensions.WriteFromHostDelayed(_lineMatrices, frameInfo.FrameIndex);
+                GPUBufferExtensions.WriteFromHostDelayed(_lineColours, frameInfo.FrameIndex);
             }
 
             if(_lineQueue.Count > 0)
@@ -335,6 +362,9 @@ namespace VECS.ECS.Presentation
             _frustrumBuffer?.Dispose();
             _cubeBuffer?.EnqueueForDisposal();
             _lineBuffer?.Dispose();
+
+            _lineMatrices?.Dispose();
+            _lineColours?.Dispose();
 
             _drawBuffer?.Dispose();
         }

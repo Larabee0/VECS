@@ -124,7 +124,7 @@ namespace VECS
             if (_hasStorageBuffers)
             {
                 _dirtyBufferRegions = new bool[SwapChain.MAX_CONCURRENT_FRAMES];
-                Array.Fill(_dirtyBufferRegions, true);
+                DirtyBufferRegions();
             }
 
             _graphicsPipeline.AddVariant(this);
@@ -164,7 +164,7 @@ namespace VECS
         {
             var bufferIndex = DescriptorSetInfos[setIndex].BindingPointToBufferIndex[bindPoint];
             if (length == 0 || _bufferDescriptors[setIndex].Disposed || !_bufferDescriptors[setIndex].SetStorageBufferRegion(bufferIndex, offset,length)) return false;
-            Array.Fill(_dirtyBufferRegions, true);
+            DirtyBufferRegions();
             return true;
         }
 
@@ -172,6 +172,12 @@ namespace VECS
         public void SetUniformBufferRegion(int setIndex, uint offset, uint length)
         {
             if (length == 0 || _bufferDescriptors[setIndex].Disposed || !_bufferDescriptors[setIndex].SetUniformBufferRegion(offset, length)) return;
+            DirtyBufferRegions();
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void DirtyBufferRegions()
+        {
             Array.Fill(_dirtyBufferRegions, true);
         }
 
