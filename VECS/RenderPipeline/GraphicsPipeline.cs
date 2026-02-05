@@ -46,6 +46,7 @@ namespace VECS
         private readonly ConcurrentQueue<uint> _freeVariantIndices = new();
         private readonly ConcurrentQueue<Material> _variantsToAdd = new();
 
+        private bool _forceDescriptorWrite = false;
         private uint _variantCount;
         internal bool _preBindUpdate = false;
 
@@ -1036,6 +1037,7 @@ namespace VECS
             bool forceDescriptorWrite = pipeline.AllocNewVariants();
 
             forceDescriptorWrite |= frameInfo.NewSwapChain;
+            forceDescriptorWrite |= pipeline._forceDescriptorWrite;
 
             int frameIndex = frameInfo.FrameIndex;
             for (uint i = 0; i < pipeline.VariantCount; i++)
@@ -1047,8 +1049,6 @@ namespace VECS
                 if (!forceDescriptorWrite) continue;
                 pipeline.WriteUniformToDescriptorBuffers(variant);
             }
-
-            Material firstVariant = pipeline.Default();
 
             for (uint i = 0; i < pipeline.DescriptorSetCount; i++)
             {
