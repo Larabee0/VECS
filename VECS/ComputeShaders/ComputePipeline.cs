@@ -584,7 +584,8 @@ namespace VECS
 
             if (pipeline.UniformBufferSize > 0)
             {
-                pipeline._uniformBuffer.Buffer.WriteFromHostToBuffer(frameInfo.FrameIndex);
+                pipeline._uniformBuffer.Buffer.SetBuffersDirty(true);
+                GPUBufferExtensions.WriteFromHostDelayed(pipeline._uniformBuffer.Buffer, frameInfo.FrameIndex);
             }
 
         }
