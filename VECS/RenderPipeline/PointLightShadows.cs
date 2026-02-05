@@ -19,11 +19,10 @@ namespace VECS
         public static readonly int lightInfoPropertyId = "lightInfo".GetShaderPropertyId();
         
         public CubemapArray DepthImages;
+        private bool _clearedImage;
 
         public unsafe PointLightShadows()
         {
-            
-            
             DepthImages = new("ShadowDepthImage",
                 POINT_SHADOW_IMAGE_SIZE,
                 Presenter.MAX_POINT_LIGHTS,
@@ -118,6 +117,8 @@ namespace VECS
             EndShadowPass(frameInfo.CommandBuffer);
 
             SetImageLayoutRead(frameInfo.CommandBuffer);
+
+            _clearedImage = false;
         }
 
         public unsafe void UpdateCube(VkCommandBuffer commandBuffer, uint plCount)
@@ -178,6 +179,7 @@ namespace VECS
 
         internal unsafe void ClearImage(RendererFrameInfo frameInfo)
         {
+            if (_clearedImage) return;
             VkClearDepthStencilValue clearValue = new(1, 0);
             VkImageSubresourceRange subresourceRange = DepthImages.GetSubresourceRange();
 
@@ -201,6 +203,7 @@ namespace VECS
             {
                 DepthImages.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.DepthAttachmentOptimal, VkPipelineStageFlags2.Transfer, VkPipelineStageFlags2.EarlyFragmentTests);
             }
+            _clearedImage = true;
         }
     }
 }

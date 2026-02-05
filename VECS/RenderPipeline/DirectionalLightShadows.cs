@@ -2,7 +2,6 @@
 using System.Runtime.CompilerServices;
 using VECS.ECS;
 using VECS.ECS.Presentation;
-using VECS.GraphicsPipelines;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
@@ -27,6 +26,9 @@ namespace VECS
         };
 
         private readonly  VkRect2D scissor = new(new(0, 0), new(DIRECTIONAL_SHADOW_RESOLTION, DIRECTIONAL_SHADOW_RESOLTION));
+
+        private bool _clearedImage;
+
         public DirectionalLightShadows()
         {
             _shadowDepthImage = new("DirectionalShadowRT", DIRECTIONAL_SHADOW_RESOLTION, DIRECTIONAL_SHADOW_RESOLTION, VkFormat.D32Sfloat);
@@ -136,6 +138,7 @@ namespace VECS
 
             _shadowDepthImage.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.LateFragmentTests, VkPipelineStageFlags2.FragmentShader);
 
+            _clearedImage = false;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -149,6 +152,35 @@ namespace VECS
             {
                 GraphicsDevice.DeviceAPI.vkCmdSetScissor(commandBuffer, 0, 1, pScissor);
             }
+        }
+
+        internal unsafe void ClearImage(RendererFrameInfo frameInfo)
+        {
+            if (_clearedImage) return;
+            VkClearDepthStencilValue clearValue = new(1, 0);
+            VkImageSubresourceRange subresourceRange = _shadowDepthImage.Target.GetSubresourceRange();
+
+            var existing = _shadowDepthImage.ImageLayout;
+            if (existing == VkImageLayout.ShaderReadOnlyOptimal)
+            {
+                _shadowDepthImage.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.TransferDstOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.Transfer);
+            }
+            else
+            {
+                _shadowDepthImage.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.TransferDstOptimal, VkPipelineStageFlags2.LateFragmentTests, VkPipelineStageFlags2.Transfer);
+            }
+
+            GraphicsDevice.DeviceAPI.vkCmdClearDepthStencilImage(frameInfo.CommandBuffer, _shadowDepthImage.VkImage, VkImageLayout.TransferDstOptimal, &clearValue, 1, &subresourceRange);
+
+            if (existing == VkImageLayout.ShaderReadOnlyOptimal)
+            {
+                _shadowDepthImage.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.Transfer, VkPipelineStageFlags2.FragmentShader);
+            }
+            else
+            {
+                _shadowDepthImage.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.DepthAttachmentOptimal, VkPipelineStageFlags2.Transfer, VkPipelineStageFlags2.EarlyFragmentTests);
+            }
+            _clearedImage = true;
         }
     }
 }

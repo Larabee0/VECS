@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Numerics;
 using System.Runtime.CompilerServices;
-using VECS.ECS;
-using VECS.ECS.Presentation;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
@@ -27,6 +25,9 @@ namespace VECS
         };
 
         private readonly VkRect2D scissor = new(new(0, 0), new(DIRECTIONAL_SHADOW_RESOLTION, DIRECTIONAL_SHADOW_RESOLTION));
+
+        private bool _imageCleared;
+
         public SpotLightShadows()
         {
             _shadowDepthImage = new(
@@ -61,11 +62,7 @@ namespace VECS
             var lightPos = spotLight.Position.AsVector3();
             var shadowFocus = lightPos + (lightDir * far_plane);
 
-            //lightDir = -lightDir;
-
             lightProj = Matrix4x4.CreatePerspectiveFieldOfView(MathF.Acos(spotLight.Direction.W)*2, 1, near_plane, far_plane);
-            //lightProj = Matrix4x4.CreatePerspectiveFieldOfView(TransformExtensions.Deg2Rad*90, 1, near_plane, far_plane);
-            //lightProj = Matrix4x4.CreateOrthographic(20, 20, near_plane, far_plane);
 
             if (lightDir == new Vector3(0, 0, 1))   
             {
@@ -76,7 +73,6 @@ namespace VECS
                 lightView = Matrix4x4.CreateLookAt(lightPos, shadowFocus, new(0, 0, 1));
             }
 
-            lightView = Matrix4x4.CreateLookAt(lightPos, shadowFocus, new(0, 0, 1));
             nearPlane = near_plane;
             return lightView * lightProj;
         }
@@ -142,7 +138,7 @@ namespace VECS
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
 
             _shadowDepthImage.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.LateFragmentTests, VkPipelineStageFlags2.FragmentShader);
-
+            _imageCleared = false;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -161,6 +157,7 @@ namespace VECS
 
         internal unsafe void ClearImage(RendererFrameInfo frameInfo)
         {
+            if(_imageCleared) return;
             VkClearDepthStencilValue clearValue = new(1, 0);
             VkImageSubresourceRange subresourceRange = _shadowDepthImage.GetSubresourceRange();
 
@@ -184,6 +181,7 @@ namespace VECS
             {
                 _shadowDepthImage.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.DepthAttachmentOptimal, VkPipelineStageFlags2.Transfer, VkPipelineStageFlags2.EarlyFragmentTests);
             }
+            _imageCleared = true;
         }
     }
 }
