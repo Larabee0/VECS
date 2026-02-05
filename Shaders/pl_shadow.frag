@@ -30,4 +30,7 @@ void main()
         // write this as modified depth
         gl_FragDepth = lightDistance;
     }
+    else{
+        gl_FragDepth = gl_FragCoord.z;
+    }
 } 

@@ -65,7 +65,8 @@ float ShadowDirCalculation(vec4 fragPosLight, vec2 off){
 	
 	if(fragPosLight.z > -1.0 && fragPosLight.z < 1.0){
 		float dist = texture(dirShadow,fragPosLight.st+off).r;
-		if(fragPosLight.w > 0.0 && dist < fragPosLight.z){
+		float bias = 0.0035;
+		if(fragPosLight.w > 0.0 && dist < fragPosLight.z-bias){
 			shadow = 0.0;
 		}
 	}
@@ -184,10 +185,14 @@ void main()
 		}
 	}
 
-
 	outColour = vec4(result, 1.0);
-
-	// else{
+	// if(shadow > 0)
+	// {
+	// 		outColour = vec4(result, 1.0);
+	// }
+	// else
+	// {
 	// 	outColour = vec4(0,0,0,1);
 	// }
+	// outColour = vec4(vec3(shadow), 1.0);
 }

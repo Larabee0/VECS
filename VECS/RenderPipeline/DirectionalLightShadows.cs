@@ -40,17 +40,15 @@ namespace VECS
             shadowOffscreen.PushConstants.SetPushConstantInt("baseLayerOffset", 0, 0);
             shadowOffscreen.PushConstants.SetPushConstantInt("faceCount", 0, 1);
             shadowOffscreen.PushConstants.SetPushConstantInt("lightIndex", 0, 0);
-            shadowOffscreen.PushConstants.SetPushConstantInt("writeDepth", 0, 1);
+            shadowOffscreen.PushConstants.SetPushConstantInt("writeDepth", 0, 0);
         }
 
         public void AssignDirShadowTexture()
         {
-
             AssetDataBase<Material>.AllAssetsListForReading.ForEach(asset =>
             {
                 asset.SetTexture(ShaderProperties.DirShadowImageId, _shadowDepthImage.Target);
             });
-
         }
 
         public static Matrix4x4 GetSpaceMatrix(LightingInfo lightingInfo, out float nearPlane, out float farPlane, out Matrix4x4 lightView, out Matrix4x4 lightProj, out Vector3 lightPos)
