@@ -74,13 +74,17 @@ namespace VECS.LowLevel
             VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo = PopulateDebugMessengerCreateInfo();
             createInfo.pNext = &debugCreateInfo;
 
+            bool validationLayerBreak = BreakOnValidationError;
+            BreakOnValidationError = false;
+
 #else
             createInfo.enabledLayerCount = 0;
             createInfo.pNext = null;
 #endif
-
             Vulkan.vkCreateInstance(&createInfo, null, out _instance).CheckResult("Failed to create vulkan instance!");
-
+#if DEBUG
+            BreakOnValidationError = validationLayerBreak;
+#endif
             _instanceApi = Vulkan.GetApi(_instance);
             //Vulkan.vkLoadInstanceOnly(_instance);
 
