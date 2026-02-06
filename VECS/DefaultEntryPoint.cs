@@ -6,7 +6,6 @@ using VECS.ECS;
 using VECS.ECS.Presentation;
 using VECS.ECS.Transforms;
 using VECS.GraphicsPipelines;
-using VECS.LowLevel;
 
 namespace VECS
 {
@@ -182,7 +181,7 @@ namespace VECS
             Parent parent = new() { Value = commonParent };
 
             var lit = EnginePipes.LitTexture;
-            var litTransparent = EnginePipes.OIT_LitTexture;
+            //var litTransparent = EnginePipes.OIT_LitTexture;
 
             var texProp = "texSampler".GetShaderPropertyId();
             var normalProp = "normalSampler".GetShaderPropertyId();
@@ -192,7 +191,6 @@ namespace VECS
             var shininess = "texProps.shininess".GetShaderPropertyId();
 
             int litVariant = 0;
-            int transVariant = 0;
 
             for (int i = 0, k = 0; i < sponzaMatInfo.Length; i++)
             {
@@ -207,7 +205,7 @@ namespace VECS
                 }
 
                 Material material = AssetDataBase<Material>.GetNamedSilentFail(matName);
-                material ??=  transparent ? litTransparent.Create(matName) : lit.Create(matName);
+                material ??=  lit.Create(matName);
 
                 if (matInfo.DiffuseTexture != null)
                 {
@@ -218,8 +216,12 @@ namespace VECS
                     }
                     if (transparent)
                     {
-                        material.SetTexture(ShaderProperties.HeadIndexImageId, Presenter.Instance.ForwardRenderer._headIndex);
+                        //material.SetTexture(ShaderProperties.HeadIndexImageId, Presenter.Instance.ForwardRenderer._headIndex);
+                        material.AlphaClipping = true;
+                        material.OverrideCullMode = true;
+                        material.CullMode = Vortice.Vulkan.VkCullModeFlags.None;
                         material.SetTexture(texProp, diffuseTexture);
+                        material.AlphaTexture = diffuseTexture;
                     }
                     else
                     {
@@ -228,15 +230,7 @@ namespace VECS
                 }
                 else
                 {
-                    if (transparent)
-                    {
-                        material.SetTexture(ShaderProperties.HeadIndexImageId, Presenter.Instance.ForwardRenderer._headIndex);
-                        material.SetTexture(texProp, EngineTextures.White);
-                    }
-                    else
-                    {
-                        material.SetTexture(texProp, EngineTextures.White);
-                    }
+                    material.SetTexture(texProp, EngineTextures.White);
                 }
                 if (matInfo.NormalTexture != null)
                 {
@@ -246,31 +240,18 @@ namespace VECS
                         textureLibrary.Add(matInfo.NormalTexture, normalTexture);
                     }
 
-                    if (!transparent)
-                    {
-                        material.SetTexture(normalProp, normalTexture);
-                    }
+                    material.SetTexture(normalProp, normalTexture);
                 }
                 else
                 {
-                    if (!transparent)
-                    {
-                        material.SetTexture(normalProp, EngineTextures.Black);
-                    }
+                    material.SetTexture(normalProp, EngineTextures.Black);
                 }
-                if (transparent)
-                {
-                    material.SetVector4(texColour, matInfo.DiffuseColour);
-                    material.SetFloat(texTiling, 1);
-                }
-                else
-                {
-                    material.SetVector4(texColour, matInfo.DiffuseColour);
-                    material.SetVector4(texSpecColour, Vector4.Zero);
-                    material.SetFloat(texTiling, 1);
 
-                    material.SetFloat(shininess, 32);
-                }
+                material.SetVector4(texColour, matInfo.DiffuseColour);
+                material.SetVector4(texSpecColour, Vector4.Zero);
+                material.SetFloat(texTiling, 1);
+
+                material.SetFloat(shininess, 32);
 
                 for (int j = 0; j < matInfo.appliesTo.Count; j++, k++)
                 {
@@ -281,14 +262,7 @@ namespace VECS
 
                     AddRenderMeshComponents(entity, material, 0, sponza[meshIndex], entityManager);
                 }
-                if (transparent)
-                {
-                    transVariant++;
-                }
-                else
-                {
-                    litVariant++;
-                }
+                litVariant++;
             }
 
             entityManager.AddComponent(commonParent,new Scale() { Value = Vector3.One*0.01f });

@@ -769,6 +769,8 @@ namespace VECS
                 _lastBound = this;
                 GraphicsDevice.DeviceAPI.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Graphics, _graphicsPipeline);
             }
+
+            GraphicsDevice.DeviceAPI.vkCmdSetCullMode(commandBuffer,_graphicsPipelineConfigInfo.rasterizationInfo.cullMode);
         }
 
         public unsafe void BindAll(RendererFrameInfo frameInfo, uint variantIndex)
@@ -802,6 +804,10 @@ namespace VECS
             {
                 DescriptorBuffer.BindSets(commandBuffer, (uint)_descriptorSetCount, bindingInfo);
                 DescriptorBuffer.SetOffsets(commandBuffer, _pipelineLayout, VkPipelineBindPoint.Graphics, 0, (uint)_descriptorSetCount, offsets, indices);
+            }
+            if (_matVariants[variantIndex].OverrideCullMode)
+            {
+                GraphicsDevice.DeviceAPI.vkCmdSetCullMode(commandBuffer, _matVariants[variantIndex].CullMode);
             }
             _materialPushConstantsHandler.BindPushConstants(commandBuffer, _pipelineLayout, variantIndex);
         }
@@ -848,6 +854,10 @@ namespace VECS
             DescriptorBuffer.BindSets(commandBuffer, (uint)_descriptorSetCount, bindingInfo);
             DescriptorBuffer.SetOffsets(commandBuffer, _pipelineLayout, VkPipelineBindPoint.Graphics, 0, (uint)_descriptorSetCount, offsets, indices);
 
+            if (_matVariants[variantIndex].OverrideCullMode)
+            {
+                GraphicsDevice.DeviceAPI.vkCmdSetCullMode(commandBuffer, _matVariants[variantIndex].CullMode);
+            }
             _materialPushConstantsHandler.BindPushConstants(commandBuffer, _pipelineLayout, variantIndex);
         }
 
@@ -890,7 +900,11 @@ namespace VECS
             DescriptorBuffer.SetOffsets(commandBuffer, _pipelineLayout, VkPipelineBindPoint.Graphics, 0, (uint)_descriptorSetCount, offsets, indices);
             
             int lastVariant = command.Variant;
-            
+            if (_matVariants[lastVariant].OverrideCullMode)
+            {
+                GraphicsDevice.DeviceAPI.vkCmdSetCullMode(commandBuffer, _matVariants[lastVariant].CullMode);
+            }
+
             for (int i = firstCommand; i < matDrawCount; i++)
             {
                 command = drawCmds[i];
@@ -943,7 +957,10 @@ namespace VECS
             DescriptorBuffer.SetOffsets(commandBuffer, _pipelineLayout, VkPipelineBindPoint.Graphics, 0, (uint)_descriptorSetCount, offsets, indices);
 
             int lastVariant = command.Variant;
-
+            if (_matVariants[lastVariant].OverrideCullMode)
+            {
+                GraphicsDevice.DeviceAPI.vkCmdSetCullMode(commandBuffer, _matVariants[lastVariant].CullMode);
+            }
             for (int i = 0; i < matDrawCount; i++)
             {
                 command = drawCmds[i];
@@ -951,6 +968,7 @@ namespace VECS
                 {
                     continue;
                 }
+                
                 ExecuteDrawCommand(commandBuffer, frameIndex, pushConstantOverride, indirectCmdBuffer, command, offsets, indices, ref lastVariant);
             }
         }
@@ -968,6 +986,10 @@ namespace VECS
                 }
                 DescriptorBuffer.SetOffsets(commandBuffer, _pipelineLayout, VkPipelineBindPoint.Graphics, 0, (uint)_descriptorSetCount, offsets, indices);
                 lastVariant = command.Variant;
+                if (_matVariants[lastVariant].OverrideCullMode)
+                {
+                    GraphicsDevice.DeviceAPI.vkCmdSetCullMode(commandBuffer, _matVariants[lastVariant].CullMode);
+                }
             }
 
             _materialPushConstantsHandler.BindPushConstants(commandBuffer, _pipelineLayout, pushConstantIndex);

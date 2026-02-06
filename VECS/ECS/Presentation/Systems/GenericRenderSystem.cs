@@ -1,5 +1,4 @@
-﻿using System.Numerics;
-using VECS.ECS.Transforms;
+﻿using VECS.ECS.Transforms;
 using VECS.Presentation;
 using Vortice.Vulkan;
 
@@ -7,8 +6,10 @@ namespace VECS.ECS.Presentation
 {
     public class GenericRenderSystem : PresentationSystemBase
     {
-        public const uint MAX_DRAWS = 2000;
+        const int DepthIndex = Presenter.MAX_POINT_LIGHTS + Presenter.MAX_POINT_LIGHTS + 1;
         private EntityQuery _renderEntityQuery;
+
+        private Material _depthMat;
 
         public override void OnCreate(EntityManager entityManager)
         {
@@ -17,8 +18,12 @@ namespace VECS.ECS.Presentation
                 .WithNone(typeof(Prefab), typeof(DoNotRender))
                 .Build();
 
-            DrawBlob.AllInOneMats.Add(EnginePipes.DepthOnly.Hash);
+            // DrawBlob.AllInOneMats.Add(EnginePipes.DepthOnly.Hash);
             DrawBlob.AllInOneMats.Add(EnginePipes.ShadowOffscreen.Hash);
+
+            EnginePipes.ShadowOffscreen.PushConstants.SetPushConstantInt("faceCount", DepthIndex, 1);
+            EnginePipes.ShadowOffscreen.PushConstants.SetPushConstantInt("camera", DepthIndex, 1);
+            _depthMat = EnginePipes.ShadowOffscreen.Default();
         }
 
         public override void OnPrePresent(EntityManager entityManager)
@@ -64,8 +69,6 @@ namespace VECS.ECS.Presentation
 
         public unsafe override void OnPreOpaquePass(EntityManager entityManager, RendererFrameInfo frameInfo)
         {
-            //World.GetSystem<DebugDrawUtilities>().DrawLine(Vector3.Zero, frameInfo.LightingInfo.DirectionalLight.Direction.AsVector3()*10f, Colour.Red);
-
             VkCommandBuffer commandBuffer = frameInfo.CommandBuffer;
             if (!_renderEntityQuery.HasEntities)
             {
@@ -74,6 +77,7 @@ namespace VECS.ECS.Presentation
 
                 return;
             }
+            EnginePipes.ShadowOffscreen.PushConstants.SetPushConstantInt("matrixOffset", DepthIndex, frameInfo.MainCamera);
 
             var depthBufferCullInfo = frameInfo.CullData;
             depthBufferCullInfo.depthCulling = 0;
@@ -83,7 +87,8 @@ namespace VECS.ECS.Presentation
 
             Presenter.Instance.ForwardRenderer.BeginForwardDepthOnlyRendering(commandBuffer,VkAttachmentLoadOp.Clear);
 
-            DrawBlob.ExecuteAllInOneOpaqueDrawCmds(frameInfo, commandBuffer, EnginePipes.DepthOnly.Default().Hash);
+            // DrawBlob.ExecuteAllInOneOpaqueDrawCmds(frameInfo, commandBuffer, _depthMat.Hash, DepthIndex);
+            DrawBlob.ExecutateDepthOnly(frameInfo, commandBuffer, DepthIndex);
 
             Presenter.Instance.ForwardRenderer.EndForwardDepthOnlyRendering(commandBuffer);
 

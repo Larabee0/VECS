@@ -1,25 +1,22 @@
-﻿namespace VECS
+﻿using Vortice.Vulkan;
+
+namespace VECS
 {
     public struct MaterialDrawCommand
     {
         public int Material;
         public int Variant;
-        public BufferRegion StorageBufferRegion;
         public int Entity;
         public int DirectMesh;
         public BufferRegion MeshSubRegion;
 
-        public readonly int BufferStart => StorageBufferRegion.StartIndex;
-        public readonly int BufferCount => StorageBufferRegion.Count;
-
         public readonly int MeshStart => MeshSubRegion.StartIndex;
         public readonly int MeshCount => MeshSubRegion.Count;
 
-        public MaterialDrawCommand(int material, int variant, BufferRegion storageBufferRegion, int entity, int directMesh, BufferRegion meshSubRegion)
+        public MaterialDrawCommand(int material, int variant, int entity, int directMesh, BufferRegion meshSubRegion)
         {
             Material = material;
             Variant = variant;
-            StorageBufferRegion = storageBufferRegion;
             Entity = entity;
             DirectMesh = directMesh;
             MeshSubRegion = meshSubRegion;
@@ -31,9 +28,7 @@
                 a.Material == b.Material
                 && a.Entity == b.Entity
                 && a.MeshSubRegion.StartIndex == b.MeshSubRegion.StartIndex
-                && a.MeshSubRegion.Count == b.MeshSubRegion.Count
-                && a.StorageBufferRegion.StartIndex == b.StorageBufferRegion.StartIndex
-                && a.StorageBufferRegion.Count == b.StorageBufferRegion.Count;
+                && a.MeshSubRegion.Count == b.MeshSubRegion.Count;
         }
     }
 }

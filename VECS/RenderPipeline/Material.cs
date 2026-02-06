@@ -27,8 +27,11 @@ namespace VECS
         internal unsafe void* pUniformBuffer;
         internal bool localUniformAllocation;
 
+        public VkCullModeFlags CullMode = VkCullModeFlags.None;
+        public bool OverrideCullMode = false;
         public bool AlphaClipping = false;
         public float AlphaCutoff = 0.5f;
+        public Texture2D AlphaTexture;
 
         public uint VariantIndex => _variantIndex;
         public int TotalSets => DescriptorSetCount;
@@ -190,6 +193,12 @@ namespace VECS
             return region.X + region.Y;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public SwapChainBuffer GetStorageSwapChainBuffer(int propertyId)
+        {
+            return _graphicsPipeline.GetStorageSwapChainBuffer(propertyId);
+        }
+
         public unsafe void ExecuteDrawCommands(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, Span<MaterialDrawCommand> drawCmds, int drawCount, SwapChainBuffer<VECSDrawIndexIndirectCommand> indirectCmdBuffer)
         {
             if (drawCount <= 0) return;
@@ -213,6 +222,12 @@ namespace VECS
                 indices[i] = i;
             }
             Pipeline.BindPipe(commandBuffer, frameIndex);
+            
+            if (OverrideCullMode)
+            {
+                GraphicsDevice.DeviceAPI.vkCmdSetCullMode(commandBuffer, CullMode);
+            }
+
             DescriptorBuffer.BindSets(commandBuffer, (uint)DescriptorSetCount, bindingInfo);
             DescriptorBuffer.SetOffsets(commandBuffer, Pipeline.PipelineLayout, VkPipelineBindPoint.Graphics, 0, (uint)DescriptorSetCount, offsets, indices);
             var lastVariant = (int)VariantIndex;
@@ -251,6 +266,12 @@ namespace VECS
             Pipeline.BindPipe(commandBuffer, frameIndex);
             DescriptorBuffer.BindSets(commandBuffer, (uint)DescriptorSetCount, bindingInfo);
             DescriptorBuffer.SetOffsets(commandBuffer, Pipeline.PipelineLayout, VkPipelineBindPoint.Graphics, 0, (uint)DescriptorSetCount, offsets, indices);
+
+            if (OverrideCullMode)
+            {
+                GraphicsDevice.DeviceAPI.vkCmdSetCullMode(commandBuffer, CullMode);
+            }
+
             var lastVariant = (int)VariantIndex;
             for (int i = 0; i < drawCount; i++)
             {

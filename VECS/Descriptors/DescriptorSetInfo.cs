@@ -20,7 +20,7 @@ namespace VECS
         private readonly DescriptorBinding[] _descriptorBindings;
 
         private readonly SwapChainBuffer[] _storageBuffers;
-        //private readonly bool[] _bufferIsStorageBuffer;
+        
         private readonly bool[] _isStorageBufferOwner;
 
         private unsafe byte* _descriptorBufferHostPtr;

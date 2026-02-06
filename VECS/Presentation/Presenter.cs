@@ -94,8 +94,6 @@ namespace VECS
                 _bloom = new();
                 _smaa = new();
                 _directionalLightShadows.AssignDirShadowTexture();
-
-                _forwardRenderer.SetOIT();
             }
             else
             {
@@ -113,8 +111,6 @@ namespace VECS
                 GraphicsDevice.FreeCommandBuffers();
                 GraphicsDevice.CreateCommandBuffers();
                 GraphicsDevice.DeviceWaitIdle();
-
-                _forwardRenderer.SetOIT();
             }
             _framesSinceSwapChainRecreation = 0;
             _swapChain.GraphicsCallback += GraphicsPipe;

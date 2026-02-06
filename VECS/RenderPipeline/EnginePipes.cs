@@ -9,8 +9,8 @@ namespace VECS
     {
 
         public readonly static GraphicsPipeline LitTexture;
-        public readonly static GraphicsPipeline DepthOnly;
-        public readonly static GraphicsPipeline DepthOnlyAlphaClipping;
+        // public readonly static GraphicsPipeline DepthOnly;
+        // public readonly static GraphicsPipeline DepthOnlyAlphaClipping;
         public readonly static GraphicsPipeline UnlitMeshShader;
         public readonly static GraphicsPipeline UnlitTransparent;
         public readonly static GraphicsPipeline Unlit;
@@ -27,13 +27,13 @@ namespace VECS
             var litTexture = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             //litTexture.depthStencilInfo.depthWriteEnable = true;
             LitTexture = new("LitTexture", "lit_texture.vert", "lit_texture.frag", litTexture);
-            var depthConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
-            depthConfig.colourFormats = [];
-            depthConfig.depthStencilInfo.depthWriteEnable = true;
-            depthConfig.depthStencilInfo.depthTestEnable = true;
-            DepthOnly = new("DepthOnly", "depth_only.vert", depthConfig);
-
-            DepthOnlyAlphaClipping = new("DepthOnlyAlpha", "depth_only_alpha.vert", "depth_only_alpha.frag", depthConfig);
+            // var depthConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
+            // depthConfig.colourFormats = [];
+            // depthConfig.depthStencilInfo.depthWriteEnable = true;
+            // depthConfig.depthStencilInfo.depthTestEnable = true;
+            // DepthOnly = new("DepthOnly", "depth_only.vert", depthConfig);
+            // 
+            // DepthOnlyAlphaClipping = new("DepthOnlyAlpha", "depth_only_alpha.vert", "depth_only_alpha.frag", depthConfig);
 
             var pipelineConfigInfo = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
 
@@ -51,12 +51,11 @@ namespace VECS
             shadowConfig.depthStencilInfo.depthWriteEnable = true;
             shadowConfig.depthStencilInfo.depthCompareOp = VkCompareOp.LessOrEqual;
             shadowConfig.rasterizationInfo.cullMode = VkCullModeFlags.None;
-            shadowConfig.rasterizationInfo.cullMode = VkCullModeFlags.Front;
-            shadowConfig.rasterizationInfo.depthBiasEnable = true;
+            shadowConfig.rasterizationInfo.depthBiasEnable = false;
             shadowConfig.rasterizationInfo.depthBiasConstantFactor = 1.25f;
             shadowConfig.rasterizationInfo.depthBiasSlopeFactor = 1.75f;
             ShadowOffscreen = new GraphicsPipeline("PointLightShadowCaster", "pl_shadow.vert", "pl_shadow.frag", shadowConfig, "pl_shadow.geom");
-
+            
             var alphaBlending = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             Unlit = new GraphicsPipeline("Unlit", "unlit.vert", "unlit.frag", alphaBlending);
             GraphicsPipelineConfigInfo.EnableAlphaBlending(ref alphaBlending);

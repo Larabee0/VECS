@@ -352,7 +352,7 @@ namespace VECS.ECS.Presentation
 
         private void CreateDrawBuffers()
         {
-            _drawBuffer = new(GenericRenderSystem.MAX_DRAWS, VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.IndirectBuffer, true);
+            _drawBuffer = new(GraphicsPipeline.MAX_VARIANTS, VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.IndirectBuffer, true);
         }
 
         public override void OnDestroy(EntityManager entityManager)

@@ -60,7 +60,7 @@ namespace VECS.GraphicsPipelines
             colourBlendInfo.blendConstants[2] = 0;
             colourBlendInfo.blendConstants[3] = 0;
 
-            VkDynamicState[] dynamicStateEnables = [VkDynamicState.Viewport, VkDynamicState.Scissor];
+            VkDynamicState[] dynamicStateEnables = [VkDynamicState.Viewport, VkDynamicState.Scissor, VkDynamicState.CullMode];
             VkPipelineDynamicStateCreateInfo dynamicInfo = new()
             {
                 dynamicStateCount = (uint)dynamicStateEnables.Length,

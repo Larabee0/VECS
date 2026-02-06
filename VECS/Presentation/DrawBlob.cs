@@ -1,16 +1,10 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
 using System.Numerics;
-using System.Reflection;
-using System.Runtime.InteropServices;
-using System.Threading.Tasks;
 using VECS.ECS;
 using VECS.ECS.Presentation;
-using VECS.ECS.Transforms;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
@@ -134,6 +128,7 @@ namespace VECS
         //private static SwapChainBuffer<ShaderAABB> _drawRenderBoundsByMat;
 
         private static MaterialDrawCommand[] _drawCommandsByMat = [];
+        private static MaterialDrawCommand[] _depthCommands = [];
 
         private static SwapChainBuffer<VECSDrawIndexIndirectCommand> _indirectCmdBufferByMat;
         private static SwapChainBuffer<VECSDrawIndexIndirectCommand> _indirectCmdBufferAllInOne;
@@ -201,14 +196,11 @@ namespace VECS
 
             _drawCommandsByMat = [];
 
-
-            //_drawRenderBoundsByMat?.Dispose();
-
             _indirectCmdBufferByMat?.Dispose();
             _indirectCmdBufferAllInOne?.Dispose();
             _indirectCmdBufferByMat = null;
             _indirectCmdBufferAllInOne = null;
-            //_drawRenderBoundsByMat = null;
+
             entityCount = 0;
             Array.Clear(_workerRegionsOpaqueQueue);
             GC.Collect();
@@ -294,6 +286,7 @@ namespace VECS
             });
 
             Array.Resize(ref _drawCommandsByMat, _materialVariants.Count);
+            Array.Resize(ref _depthCommands, _materialVariants.Count);
             Array.Sort(_drawRenderMesh, _drawEntitiesByMat, MatComparerer.Comparer);
 
             var indirectCmdBuffer = _indirectCmdBufferByMat.HostBuffer;
@@ -314,7 +307,7 @@ namespace VECS
 
                 if (RenderMesh.ShouldMakeNewDrawCmd(lastRenderMesh, renderMesh))
                 {
-                    _drawCommandsByMat[drawCmd] = new(lastRenderMesh.Material.Hash, lastRenderMesh.Material.Variant, new(0, 0), lastRenderMesh.Material.Entity, lastRenderMesh.Mesh.Hash, meshSubRegion);
+                    _drawCommandsByMat[drawCmd] = new(lastRenderMesh.Material.Hash, lastRenderMesh.Material.Variant, lastRenderMesh.Material.Entity, lastRenderMesh.Mesh.Hash, meshSubRegion);
                     drawCmd++;
 
                     if (lastRenderMesh.Material.Hash != renderMesh.Material.Hash)
@@ -326,6 +319,7 @@ namespace VECS
                     else if (lastRenderMesh.Material.Variant != renderMesh.Material.Variant)
                     {
                         materialVariantDrawIndex = 0;
+
                     }
 
                     if (lastRenderMesh.Mesh.Hash != renderMesh.Mesh.Hash || lastRenderMesh.Material.Hash != renderMesh.Material.Hash || (lastRenderMesh.Mesh.SubMesh != renderMesh.Mesh.SubMesh && (lastRenderMesh.Material.Variant != renderMesh.Material.Variant || lastRenderMesh.Material.Entity != renderMesh.Material.Entity)))
@@ -352,7 +346,7 @@ namespace VECS
                 materialVariantDrawIndex++;
 
             }
-            _drawCommandsByMat[^1] = new(lastRenderMesh.Material.Hash, lastRenderMesh.Material.Variant, new(0, 0), lastRenderMesh.Material.Entity, lastRenderMesh.Mesh.Hash, meshSubRegion);
+            _drawCommandsByMat[^1] = new(lastRenderMesh.Material.Hash, lastRenderMesh.Material.Variant, lastRenderMesh.Material.Entity, lastRenderMesh.Mesh.Hash, meshSubRegion);
 
             if (!lastRenderMesh.Material.Transparent)
             {
@@ -369,17 +363,37 @@ namespace VECS
                 GPUBufferExtensions.WriteFromHostDelayed(_indirectCmdBufferAllInOne, i);
             }
 
-            var list = AssetDataBase<GraphicsPipeline>.AllAssetsListForReading;
+            Array.Copy(_drawCommandsByMat, _depthCommands, _drawCommandsByMat.Length);
 
+            uint alphaClippingDepthVariant = 1;
+            int depthHash = EnginePipes.ShadowOffscreen.Hash;
             for (int i = 0; i < _drawCommandsByMat.Length; i++)
             {
                 var matCmd = _drawCommandsByMat[i];
                 var mat = AssetDataBase<GraphicsPipeline>.GetHashed(matCmd.Material);
 
-
                 var offset = (uint)matCmd.MeshStart;
                 var length = (uint)matCmd.MeshCount;
                 var variant = mat.GetOrCreateVariant((uint)matCmd.Variant);
+                
+                if (variant.AlphaClipping)
+                {
+                    var alphaClipping = EnginePipes.ShadowOffscreen.GetOrCreateVariant(alphaClippingDepthVariant);
+                    var tex = variant.AlphaTexture ?? EngineTextures.White;
+                    // tex = EngineTextures.Zeroed;
+                    alphaClipping.SetTexture("alphaSampler".GetShaderPropertyId(), tex);
+                    alphaClipping.SetFloat("alphaProps.alphaThreshold".GetShaderPropertyId(),variant.AlphaCutoff);
+                    alphaClipping.SetFloat("alphaProps.alphaTiling".GetShaderPropertyId(), 1);
+                    _depthCommands[i].Variant = (int)alphaClippingDepthVariant;
+                    alphaClippingDepthVariant++;
+                }
+                else
+                {
+                    _depthCommands[i].Variant = 0;
+                }
+                _depthCommands[i].Material = depthHash;
+                _depthCommands[i].Entity = 0;
+
                 for (int j = 0; j < _renderBuffers.Length; j++)
                 {
                     if(mat.LookUpProperty(_renderBuffers[j].BufferShaderPropertyId,out var propertyInfo))
@@ -682,6 +696,11 @@ namespace VECS
             CheckAllInOneMaterialRegistered(mat);
 #endif
             mat.ExecuteDrawCommandsPushConstantOverride(frameInfo, pushConstantIndex, commandBuffer, _drawCommandsByMat.AsSpan(_firstTransparentByMat, TransparentCmdCountByMat), TransparentCmdCountByMat, _indirectCmdBufferAllInOne);
+        }
+
+        public static void ExecutateDepthOnly(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, int pushConstantIndex)
+        {
+            EnginePipes.ShadowOffscreen.ExecuteDrawCommandsPushConstantOverride(frameInfo, pushConstantIndex, commandBuffer, _depthCommands, OpaqueCmdCountByMat, _indirectCmdBufferAllInOne);
         }
 
         public static void CullAllInOne(RendererFrameInfo frameInfo, CullData cullData)

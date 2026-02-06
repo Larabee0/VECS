@@ -1,23 +1,42 @@
 #version 460
 layout (location = 0) in vec4 FragPos;
+layout (location = 1) in vec2 UV;
 layout(depth_less) out float gl_FragDepth;
 
-layout(std140, set = 0, binding = 2) readonly buffer LightInfo{
+layout(std140, set = 0, binding = 3) readonly buffer LightInfo{
     vec4 values[];
 } lightInfo;
 
-layout(push_constant) uniform PLLight {
+layout(set = 0, binding = 4) uniform sampler2D alphaSampler;
+
+layout(set = 0, binding = 5) uniform TexProps{
+    float alphaThreshold;
+    float alphaTiling;
+} alphaProps;
+
+
+layout(push_constant) uniform Constants {
     int matrixOffset;
     int baseLayerOffset;
     int faceCount;
-    int lightIndex;
+    int lightIndex;    
     int writeDepth;
-} plLight;
+
+    int camera;
+} constants;
 
 void main()
 {
-    if(plLight.writeDepth != 0){
-        int lightIndex = plLight.lightIndex;
+    float alphaThreshold = alphaProps.alphaThreshold ;
+    if(alphaThreshold > 0){
+	    float alpha = texture(alphaSampler, UV * alphaProps.alphaTiling).a;
+        if(alpha < alphaThreshold) {
+            discard;
+        }
+    }
+
+    if(constants.writeDepth != 0){
+        int lightIndex = constants.lightIndex;
         vec3 lightPos = lightInfo.values[lightIndex].xyz;
         float farPlane = lightInfo.values[lightIndex].w;
 

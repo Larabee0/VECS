@@ -17,7 +17,10 @@ namespace VECS
 
         public static readonly int matsPropertyId = "shadowMats".GetShaderPropertyId();
         public static readonly int lightInfoPropertyId = "lightInfo".GetShaderPropertyId();
-        
+
+        private readonly Material _shadowDepth;
+        private readonly int _matHash;
+
         public CubemapArray DepthImages;
         private bool _clearedImage;
 
@@ -33,6 +36,9 @@ namespace VECS
             );
 
             DepthImages.SetImageLayout(VkImageLayout.DepthStencilAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.EarlyFragmentTests);
+
+            _shadowDepth = EnginePipes.ShadowOffscreen.Default();
+            _matHash = _shadowDepth.Hash;
         }
 
         public void AssignDirShadowTexture()
@@ -77,22 +83,19 @@ namespace VECS
 
         public void PointLightShadowPass(in RendererFrameInfo frameInfo)
         {
-            var shadowOffscreen = EnginePipes.ShadowOffscreen;
-
-            FillViewMatrices(frameInfo, shadowOffscreen.GetStorageSwapChainBuffer(matsPropertyId));
-            FillLightInfo(frameInfo, shadowOffscreen.GetStorageSwapChainBuffer(lightInfoPropertyId));
+            FillViewMatrices(frameInfo, _shadowDepth.GetStorageSwapChainBuffer(matsPropertyId));
+            FillLightInfo(frameInfo, _shadowDepth.GetStorageSwapChainBuffer(lightInfoPropertyId));
 
 
             for (int i = 0; i < frameInfo.LightingInfo.NumPointLights; i++)
             {
-                shadowOffscreen.PushConstants.SetPushConstantInt("matrixOffset", 1 + i, 1 + (i * 6));
-                shadowOffscreen.PushConstants.SetPushConstantInt("baseLayerOffset", 1 + i, i * 6);
-                shadowOffscreen.PushConstants.SetPushConstantInt("faceCount", 1 + i, 6);
-                shadowOffscreen.PushConstants.SetPushConstantInt("lightIndex", 1 + i, 1 + i);
-                shadowOffscreen.PushConstants.SetPushConstantInt("writeDepth", 1 + i, 1);
+                _shadowDepth.PushConstants.SetPushConstantInt("matrixOffset", 1 + i, 1 + (i * 6));
+                _shadowDepth.PushConstants.SetPushConstantInt("baseLayerOffset", 1 + i, i * 6);
+                _shadowDepth.PushConstants.SetPushConstantInt("faceCount", 1 + i, 6);
+                _shadowDepth.PushConstants.SetPushConstantInt("lightIndex", 1 + i, 1 + i);
+                _shadowDepth.PushConstants.SetPushConstantInt("writeDepth", 1 + i, 1);
             }
 
-            GraphicsPipeline.Update(shadowOffscreen, frameInfo);
             SetImageLayoutWrite(frameInfo.CommandBuffer);
             
             CullData cullDataInternal = new(
@@ -112,7 +115,7 @@ namespace VECS
             UpdateCube(frameInfo.CommandBuffer, (uint)frameInfo.LightingInfo.NumPointLights);
             for (int i = 0; i < frameInfo.LightingInfo.NumPointLights; i++)
             {
-                DrawBlob.ExecuteAllInOneOpaqueDrawCmds(frameInfo, frameInfo.CommandBuffer, shadowOffscreen.Default().Hash, 1 + i);
+                DrawBlob.ExecuteAllInOneOpaqueDrawCmds(frameInfo, frameInfo.CommandBuffer, _matHash, 1 + i);
             }
             EndShadowPass(frameInfo.CommandBuffer);
 

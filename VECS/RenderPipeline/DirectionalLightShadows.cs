@@ -27,6 +27,9 @@ namespace VECS
 
         private readonly  VkRect2D scissor = new(new(0, 0), new(DIRECTIONAL_SHADOW_RESOLTION, DIRECTIONAL_SHADOW_RESOLTION));
 
+        private readonly Material _shadowDepth;
+        private readonly int _matHash;
+
         private bool _clearedImage;
 
         public DirectionalLightShadows()
@@ -35,12 +38,14 @@ namespace VECS
 
             _shadowDepthImage.Target.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.LateFragmentTests, VkPipelineStageFlags2.FragmentShader);
 
-            var shadowOffscreen = EnginePipes.ShadowOffscreen;
-            shadowOffscreen.PushConstants.SetPushConstantInt("matrixOffset", 0,0);
-            shadowOffscreen.PushConstants.SetPushConstantInt("baseLayerOffset", 0, 0);
-            shadowOffscreen.PushConstants.SetPushConstantInt("faceCount", 0, 1);
-            shadowOffscreen.PushConstants.SetPushConstantInt("lightIndex", 0, 0);
-            shadowOffscreen.PushConstants.SetPushConstantInt("writeDepth", 0, 0);
+            _shadowDepth = EnginePipes.ShadowOffscreen.Default();
+            _matHash = _shadowDepth.Hash;
+
+            _shadowDepth.PushConstants.SetPushConstantInt("matrixOffset", 0,0);
+            _shadowDepth.PushConstants.SetPushConstantInt("baseLayerOffset", 0, 0);
+            _shadowDepth.PushConstants.SetPushConstantInt("faceCount", 0, 1);
+            _shadowDepth.PushConstants.SetPushConstantInt("lightIndex", 0, 0);
+            _shadowDepth.PushConstants.SetPushConstantInt("writeDepth", 0, 0);
         }
 
         public void AssignDirShadowTexture()
@@ -96,9 +101,8 @@ namespace VECS
         {
             AssignDirShadowTexture();
             DrawBlob.IndirectToComputeMemoryBarrierByMat(frameInfo.CommandBuffer);
-            var shadowOffscreen = EnginePipes.ShadowOffscreen;
-            var mats = shadowOffscreen.GetStorageSwapChainBuffer(PointLightShadows.matsPropertyId);
-            var lights = shadowOffscreen.GetStorageSwapChainBuffer(PointLightShadows.lightInfoPropertyId);
+            var mats = _shadowDepth.GetStorageSwapChainBuffer(PointLightShadows.matsPropertyId);
+            var lights = _shadowDepth.GetStorageSwapChainBuffer(PointLightShadows.lightInfoPropertyId);
             mats.UnsafeSet(0, GetSpaceMatrix(frameInfo.LightingInfo, out var near_plane, out var farPlane, out var lightView, out var lightProj, out var lightPos));
             lights.UnsafeSet(0, new Vector4(lightPos,farPlane));
 
@@ -130,7 +134,7 @@ namespace VECS
 
             SetViewPort(frameInfo.CommandBuffer);
 
-            DrawBlob.ExecuteAllInOneOpaqueDrawCmds(frameInfo, frameInfo.CommandBuffer, shadowOffscreen.Default().Hash,0);
+            DrawBlob.ExecuteAllInOneOpaqueDrawCmds(frameInfo, frameInfo.CommandBuffer, _matHash, 0);
 
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
 

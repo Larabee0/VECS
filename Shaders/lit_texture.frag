@@ -153,8 +153,8 @@ void main()
 		normal = texNormal;
 	}
     
-
-	vec3 diffuseTextureColour = texture(texSampler, fragUV).rgb;
+	vec4 diff = texture(texSampler, fragUV);
+	vec3 diffuseTextureColour = diff.rgb;
 	vec3 specularColour = texProps.specularColour.rgb;
 	float shininess = texProps.shininess;
 
@@ -185,7 +185,7 @@ void main()
 		}
 	}
 
-	outColour = vec4(result, 1.0);
+	outColour = vec4(result, diff.w);
 	// if(shadow > 0)
 	// {
 	// 		outColour = vec4(result, 1.0);
