@@ -41,8 +41,11 @@ struct DirectionalLight{
 
 vec3 CalcDirLight(DirectionalLight light, vec3 normal, vec3 viewDir, float shininess, float shadow, vec3 ambientCol, vec3 diffuseCol, vec3 specularCol){
     vec3 lightDir = normalize(-light.direction.xyz);
+    
+    float NdotL = max(0.0, dot(normal, lightDir));
     // diffuse shading
     float diff = max(dot(normal, lightDir), 0.0);
+    diff = abs(dot(normal, lightDir));
     // specular shading
     vec3 halfwayDir = normalize(lightDir + viewDir);  
     float spec = pow(max(dot(normal, halfwayDir), 0.0), shininess);

@@ -9,7 +9,7 @@ namespace VECS
 {
     public class DirectionalLightShadows
     {
-        public const int DIRECTIONAL_SHADOW_RESOLTION = 1024;
+        public const int DIRECTIONAL_SHADOW_RESOLTION = 4096;
         public const bool SHADOW_CULLING = false;
         public const bool SHADOW_DST_CULLING = false;
         public const bool SHADOW_DEPTH_CULLING = false;
@@ -134,7 +134,8 @@ namespace VECS
 
             SetViewPort(frameInfo.CommandBuffer);
 
-            DrawBlob.ExecuteAllInOneOpaqueDrawCmds(frameInfo, frameInfo.CommandBuffer, _matHash, 0);
+            //DrawBlob.ExecuteAllInOneOpaqueDrawCmds(frameInfo, frameInfo.CommandBuffer, _matHash, 0);
+            DrawBlob.ExecutateDepthOnly(frameInfo, frameInfo.CommandBuffer, 0, VkCullModeFlags.Back);
 
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
 

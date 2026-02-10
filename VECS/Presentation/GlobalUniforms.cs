@@ -1,6 +1,7 @@
 ﻿using System.Numerics;
 using System.Runtime.InteropServices;
 using VECS.ECS.Presentation;
+using VECS.ECS.Transforms;
 
 namespace VECS
 {
@@ -17,6 +18,8 @@ namespace VECS
         {
             ProjectionMatrix = camera.ProjectionMatrix;
             ViewMatrix = camera.ViewMatrix;
+            Position = new(camera.ViewMatrix.Translation,1);
+            Forward = new(camera.ViewMatrix.Forward(),1);
 
             ProjectionViewMatrix = ViewMatrix * ProjectionMatrix;
         }

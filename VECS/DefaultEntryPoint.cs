@@ -6,6 +6,7 @@ using VECS.ECS;
 using VECS.ECS.Presentation;
 using VECS.ECS.Transforms;
 using VECS.GraphicsPipelines;
+using Vortice.Vulkan;
 
 namespace VECS
 {
@@ -47,7 +48,8 @@ namespace VECS
             CreateMainCamera();
             DirectionalLight();
             //PointLight();
-            Sponza();
+            //SponzaOld();
+            SponzaNew();
             ShadowDebug();
         }
 
@@ -161,7 +163,7 @@ namespace VECS
             entityManager.AddComponent(entity, new Rotation() { Value = TransformExtensions.EulerUnity(0, 0, -90) });
         }
 
-        private static void Sponza()
+        private static void SponzaOld()
         {
             MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("sponza.obj"), [new VertexAttributeDescription(VertexAttribute.Tangent, VertexAttributeFormat.Float4)],out var sponza,out var sponzaMatInfo);
 
@@ -267,6 +269,110 @@ namespace VECS
 
             entityManager.AddComponent(commonParent,new Scale() { Value = Vector3.One*0.01f });
             entityManager.AddComponent(commonParent, children);
+        }
+
+        private static void SponzaNew()
+        {
+            MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("Sponza-New.obj"), [new VertexAttributeDescription(VertexAttribute.Tangent, VertexAttributeFormat.Float4)], out var sponza, out var sponzaMatInfo);
+
+            EntityManager entityManager = World.DefaultWorld.EntityManager;
+
+            Dictionary<string, Texture2D> textureLibrary = [];
+
+            var commonParent = entityManager.CreateEntity();
+
+
+            Children children = new()
+            {
+                Value = new Entity[sponza.Length]
+            };
+            Parent parent = new() { Value = commonParent };
+
+            var lit = EnginePipes.LitTexture;
+            //var litTransparent = EnginePipes.OIT_LitTexture;
+
+            var texProp = "texSampler".GetShaderPropertyId();
+            var normalProp = "normalSampler".GetShaderPropertyId();
+            var texColour = "texProps.colour".GetShaderPropertyId();
+            var texSpecColour = "texProps.specularColour".GetShaderPropertyId();
+            var texTiling = "texProps.tiling".GetShaderPropertyId();
+            var shininess = "texProps.shininess".GetShaderPropertyId();
+
+            int litVariant = 0;
+
+            for (int i = 0, k = 0; i < sponzaMatInfo.Length; i++)
+            {
+                var matInfo = sponzaMatInfo[i];
+
+                string matName = "sponza_new_" + matInfo.Name;
+                if (string.IsNullOrEmpty(matName))
+                {
+                    matName = "sponza_new_Mat_" + i;
+                }
+
+                Material material = AssetDataBase<Material>.GetNamedSilentFail(matName);
+                material ??= lit.Create(matName);
+
+                if (matInfo.DiffuseTexture != null)
+                {
+                    if (!textureLibrary.TryGetValue(matInfo.DiffuseTexture, out var diffuseTexture))
+                    {
+                        diffuseTexture = new Texture2D(matInfo.DiffuseTexture);
+                        textureLibrary.Add(matInfo.DiffuseTexture, diffuseTexture);
+                    }
+                    if (matInfo.AlphaClipping)
+                    {
+                        //material.SetTexture(ShaderProperties.HeadIndexImageId, Presenter.Instance.ForwardRenderer._headIndex);
+                        material.AlphaClipping = true;
+                        material.OverrideCullMode = true;
+                        material.CullMode = Vortice.Vulkan.VkCullModeFlags.None;
+                        material.AlphaTexture = diffuseTexture;
+                    }
+                    material.SetTexture(texProp, diffuseTexture);
+                }
+                else
+                {
+                    material.SetTexture(texProp, EngineTextures.White);
+                }
+                if (matInfo.NormalTexture != null)
+                {
+                    if (!textureLibrary.TryGetValue(matInfo.NormalTexture, out var normalTexture))
+                    {
+                        normalTexture = new Texture2D(matInfo.NormalTexture, false);
+                        //normalTexture.Reinitialise(new VkComponentMapping(VkComponentSwizzle.A, VkComponentSwizzle.G, VkComponentSwizzle.B, VkComponentSwizzle.R));
+
+                        textureLibrary.Add(matInfo.NormalTexture, normalTexture);
+                    }
+
+                    material.SetTexture(normalProp, normalTexture);
+                }
+                else
+                {
+                    material.SetTexture(normalProp, EngineTextures.Black);
+                }
+
+                material.SetVector4(texColour, matInfo.DiffuseColour);
+                material.SetVector4(texSpecColour, Vector4.Zero);
+                material.SetFloat(texTiling, 1);
+
+                material.SetFloat(shininess, 32);
+
+                for (int j = 0; j < matInfo.appliesTo.Count; j++, k++)
+                {
+                    var meshIndex = matInfo.appliesTo[j];
+                    var entity = entityManager.CreateEntity();
+                    children.Value[k] = entity;
+                    entityManager.AddComponent(entity, parent);
+
+                    AddRenderMeshComponents(entity, material, 0, sponza[meshIndex], entityManager);
+                }
+                litVariant++;
+            }
+
+            entityManager.AddComponent(commonParent, new Rotation() { Value = TransformExtensions.EulerUnity(00,90,0) });
+            entityManager.AddComponent(commonParent, new Scale() { Value = Vector3.One });
+            entityManager.AddComponent(commonParent, children);
+
         }
 
         public static void AddRenderMeshComponents(Entity entity, Material mat, int entityVariant, DirectSubMesh mesh, EntityManager entityManager)

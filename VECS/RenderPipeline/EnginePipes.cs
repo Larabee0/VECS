@@ -25,7 +25,8 @@ namespace VECS
         static EnginePipes()
         {
             var litTexture = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
-            //litTexture.depthStencilInfo.depthWriteEnable = true;
+            litTexture.depthStencilInfo.depthCompareOp = VkCompareOp.Equal;
+            //litTexture.rasterizationInfo.frontFace = VkFrontFace.Clockwise;
             LitTexture = new("LitTexture", "lit_texture.vert", "lit_texture.frag", litTexture);
             // var depthConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             // depthConfig.colourFormats = [];

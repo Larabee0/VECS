@@ -16,13 +16,15 @@ layout(set = 0, binding = 5) uniform TexProps{
 
 
 layout(push_constant) uniform Constants {
-    int matrixOffset;
-    int baseLayerOffset;
-    int faceCount;
-    int lightIndex;    
-    int writeDepth;
+    //int matrixStartIndex;
+    //int layerOffset;
+    //int faceCount;
+    //int bufferSelect;
 
-    int camera;
+    //int writeDepth;
+    //int lightIndex;
+    layout(offset = 16 )int writeDepth;
+    layout(offset = 20) int lightIndex;
 } constants;
 
 void main()
@@ -37,14 +39,13 @@ void main()
 
     if(constants.writeDepth != 0){
         int lightIndex = constants.lightIndex;
-        vec3 lightPos = lightInfo.values[lightIndex].xyz;
-        float farPlane = lightInfo.values[lightIndex].w;
+        vec4 light = lightInfo.values[lightIndex];
 
         // get distance between fragment and light source
-        float lightDistance = length(FragPos.xyz - lightPos.xyz);
+        float lightDistance = length(FragPos.xyz - light.xyz);
 
         // map to [0;1] range by dividing by far_plane
-        lightDistance = lightDistance / farPlane;
+        lightDistance = lightDistance / light.w;
 
         // write this as modified depth
         gl_FragDepth = lightDistance;

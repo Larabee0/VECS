@@ -32,7 +32,7 @@ namespace VECS
 
         // image view
         protected VkImageViewCreateFlags _imageViewCreateFlags = VkImageViewCreateFlags.None;
-        protected VkComponentMapping _swizzle = VkComponentMapping.Identity;
+        internal VkComponentMapping _swizzle = VkComponentMapping.Identity;
         internal VkImageAspectFlags _aspectFlags = VkImageAspectFlags.Color;
         internal VkImageView _imageView;
 

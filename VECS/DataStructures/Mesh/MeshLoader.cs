@@ -10,7 +10,7 @@ using System.IO;
 using System.Linq;
 using System.Numerics;
 using System.Text;
-
+using System.Text.Json;
 using Material = Assimp.Material;
 
 namespace VECS.DataStructures
@@ -21,10 +21,11 @@ namespace VECS.DataStructures
         public string DiffuseTexture;
         public string NormalTexture;
         public Vector4 DiffuseColour;
-        public List<int> appliesTo = new();
+        public List<int> appliesTo = [];
         public bool TrasnparencyHint;
+        public bool AlphaClipping;
 
-        public MaterialInfo(Assimp.Material mat,string meshFileName)
+        public MaterialInfo(Assimp.Material mat, string meshFileName)
         {
             Name = mat.Name;
             if (mat.HasTextureDiffuse)
@@ -52,7 +53,46 @@ namespace VECS.DataStructures
 
             DiffuseColour = mat.ColorDiffuse.ToColor();
         }
+
+        public MaterialInfo(MaterialTemplate template, string meshFileName)
+        {
+            Name = template.Name;
+            AlphaClipping = template.AlphaClipping;
+            DiffuseTexture = Path.Combine(TextureLoader.DefaultTexturePath, meshFileName, Path.GetFileName(template.Diffuse));
+            if (!File.Exists(DiffuseTexture))
+            {
+                DiffuseTexture = null;
+            }
+            NormalTexture = Path.Combine(TextureLoader.DefaultTexturePath, meshFileName, Path.GetFileName(template.Normal));
+            if (!File.Exists(NormalTexture))
+            {
+                NormalTexture = null;
+            }
+            DiffuseColour = Vector4.One;
+        }
     }
+
+    public class MaterialTemplate
+    {
+        public string Name { get; set; }
+        public string AmbientOcculsion { get; set; }
+        public string Curvature { get; set; }
+        public string Diffuse { get; set; }
+        public string Height { get; set; }
+        public string MaskMap { get; set; }
+        public string Metallic { get; set; }
+        public string MetallicSmoothness { get; set; }
+        public string Normal { get; set; }
+        public string Smoothness { get; set; }
+        public bool AlphaClipping { get; set; }
+    }
+
+
+    public class MaterialSet
+    {
+        public MaterialTemplate[] Materials { get; set; }
+    }
+
 
     public static class MeshLoader
     {
@@ -72,7 +112,15 @@ namespace VECS.DataStructures
                 materialInfo = null;
                 return;
             }
-
+            FileInfo directory = new(filePath);
+            
+            var matInfoPath = Path.Combine(directory.Directory.FullName, Path.GetFileNameWithoutExtension(filePath) + ".json");
+            MaterialSet template = null;
+            if (File.Exists(matInfoPath))
+            {
+                string text = File.ReadAllText(matInfoPath);
+                template = JsonSerializer.Deserialize<MaterialSet>(text);
+            }
             AssimpContext importer = new();
 #if AssimpLogging
             var logger = StartAssimpLogger(ASSIMP_VERBOSE_LOGGING);
@@ -90,19 +138,40 @@ namespace VECS.DataStructures
             meshes[0].DirectMeshBuffer.FileName = Path.GetFileName(filePath);
 
 
-            materialInfo = new MaterialInfo[scene.MaterialCount];
-
-            for (int i = 0; i < scene.MaterialCount; i++)
+            if (template == null)
             {
-                var mat = scene.Materials[i];
+                materialInfo = new MaterialInfo[scene.MaterialCount];
 
-                materialInfo[i] = new MaterialInfo(mat, directMeshName);
+                for (int i = 0; i < scene.MaterialCount; i++)
+                {
+                    var mat = scene.Materials[i];
+
+                    materialInfo[i] = new MaterialInfo(mat, directMeshName);
+                }
+
+                for (int i = 0; i < scene.MeshCount; i++)
+                {
+                    materialInfo[scene.Meshes[i].MaterialIndex].appliesTo.Add(i);
+                }
+            }
+            else
+            {
+                materialInfo = new MaterialInfo[template.Materials.Length];
+                for (int i = 0; i < materialInfo.Length; i++)
+                {
+                    materialInfo[i] = new MaterialInfo(template.Materials[i], directMeshName);
+                }
+
+                for (int i = 0; i < scene.MeshCount; i++)
+                {
+                    var assimpMapIndex = scene.Meshes[i].MaterialIndex;
+
+                    var assimpMatName = scene.Materials[assimpMapIndex].Name;
+
+                    materialInfo.FirstOrDefault(e=>e.Name == assimpMatName)?.appliesTo.Add(i);
+                }
             }
 
-            for (int i = 0; i < scene.MeshCount; i++)
-            {
-                materialInfo[scene.Meshes[i].MaterialIndex].appliesTo.Add(i);
-            }
 
 #if AssimpLogging
             StopAssimpLogger(logger);

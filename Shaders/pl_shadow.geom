@@ -8,45 +8,69 @@ layout(location = 0) out vec4 FragPos; // FragPos from GS (output per emitvertex
 layout(location = 0) in vec2 gs_in_uv[];
 layout(location = 1) out vec2 gs_out_uv;
 
-layout(std140, set = 0, binding = 1) readonly buffer ShadowMats{
-    mat4 value[];
-} shadowMats;
-
-layout(set = 0,binding = 2) readonly buffer CameraInfos {
+layout(set = 0,binding = 1) readonly buffer CameraInfos {
 	CameraInfo values[];
 } cameraInfo;
 
-layout(push_constant) uniform Constants {
-    int matrixOffset;
-    int baseLayerOffset;
-    int faceCount;
-    int lightIndex;    
-    int writeDepth;
+layout(std140, set = 0, binding = 2) readonly buffer DirectionalShadowMats{
+    mat4 value[];
+} directionalShadows;
 
-    int camera;
+layout(std140, set = 0, binding = 3) readonly buffer PointShadowMats{
+    mat4 value[];
+} pointShadows;
+
+layout(std140, set = 0, binding = 4) readonly buffer SpotShadowMats{
+    mat4 value[];
+} spotShadows;
+
+layout(push_constant) uniform Constants {
+    int matrixStartIndex;
+    int layerOffset;
+    int faceCount;
+    int bufferSelect;
+
+    //int writeDepth;
+    //int lightIndex;
 } constants;
 
-void main()
-{
-    bool camera = constants.camera != 0;
-    int baseLayerOffset = constants.baseLayerOffset;
+mat4 getTransform(int bufferSelect, int bufferOffset, int face) {
+    switch(bufferSelect){
+        case 0:
+            return cameraInfo.values[bufferOffset].projectionViewMatrix ;
+        case 1:
+            return directionalShadows.value[bufferOffset + face];
+        case 2:
+            return pointShadows.value[bufferOffset + face];
+        case 3:
+            return spotShadows.value[bufferOffset + face];
+        default:
+            return mat4(1.0);
+    }
+}
+
+void emitPrimative(mat4 transformMatrix, int glLayer) {
+    for(int i = 0; i < 3; ++i){
+        gl_Layer = glLayer;
+        FragPos = gl_in[i].gl_Position;
+        gs_out_uv = gs_in_uv[i];
+        gl_Position = transformMatrix * FragPos;
+        EmitVertex();
+    }
+    EndPrimitive();
+}
+
+void main() {
+
+    int bufferSelect = constants.bufferSelect;
+    int layerOffset = constants.layerOffset;
     int faceCount = constants.faceCount;
-    int bufferOffset = constants.matrixOffset;
+    int bufferOffset = constants.matrixStartIndex;
     mat4 transformMatrix;
 
     for(int face = 0; face < faceCount; ++face)
     {
-        transformMatrix = camera ? cameraInfo.values[bufferOffset].projectionViewMatrix : shadowMats.value[bufferOffset + face];
-
-        gl_Layer = baseLayerOffset + face; // built-in variable that specifies to which face we render.
-        for(int i = 0; i < 3; ++i) // for each triangle vertex
-        {
-            gl_Layer = baseLayerOffset + face; // built-in variable that specifies to which face we render.
-            FragPos = gl_in[i].gl_Position;
-            gs_out_uv = gs_in_uv[i];
-            gl_Position = transformMatrix * FragPos;
-            EmitVertex();
-        }    
-        EndPrimitive();
+        transformMatrix = getTransform(bufferSelect, bufferOffset, face);
+        emitPrimative(transformMatrix, layerOffset + face);
     }
 } 

@@ -380,12 +380,13 @@ namespace VECS
                 {
                     var alphaClipping = EnginePipes.ShadowOffscreen.GetOrCreateVariant(alphaClippingDepthVariant);
                     var tex = variant.AlphaTexture ?? EngineTextures.White;
-                    // tex = EngineTextures.Zeroed;
                     alphaClipping.SetTexture("alphaSampler".GetShaderPropertyId(), tex);
                     alphaClipping.SetFloat("alphaProps.alphaThreshold".GetShaderPropertyId(),variant.AlphaCutoff);
                     alphaClipping.SetFloat("alphaProps.alphaTiling".GetShaderPropertyId(), 1);
                     _depthCommands[i].Variant = (int)alphaClippingDepthVariant;
                     alphaClippingDepthVariant++;
+                    alphaClipping.CullMode = VkCullModeFlags.None;
+                    alphaClipping.OverrideCullMode = true;
                 }
                 else
                 {
@@ -701,6 +702,11 @@ namespace VECS
         public static void ExecutateDepthOnly(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, int pushConstantIndex)
         {
             EnginePipes.ShadowOffscreen.ExecuteDrawCommandsPushConstantOverride(frameInfo, pushConstantIndex, commandBuffer, _depthCommands, OpaqueCmdCountByMat, _indirectCmdBufferAllInOne);
+        }
+
+        public static void ExecutateDepthOnly(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, int pushConstantIndex, VkCullModeFlags cullMode)
+        {
+            EnginePipes.ShadowOffscreen.ExecuteDrawCommandsPushConstantOverride(frameInfo, pushConstantIndex, commandBuffer, _depthCommands, OpaqueCmdCountByMat, _indirectCmdBufferAllInOne,cullMode);
         }
 
         public static void CullAllInOne(RendererFrameInfo frameInfo, CullData cullData)
