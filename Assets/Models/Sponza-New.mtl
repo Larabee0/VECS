@@ -1,0 +1,269 @@
+# Blender MTL File: 'None'
+# Material Count: 24
+
+newmtl Arches
+Ns 20.000006
+Ka 1.000000 1.000000 1.000000
+Kd 0.588235 0.588235 0.588235
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 1
+map_Kd H:\\GitFork\\Unity\\Projects\\SponzaHDRP\\Assets\\Art\\Sponza\\Textures\\Arches\\Arches_Diffuse.tif
+
+newmtl Bricks
+Ns 20.000006
+Ka 1.000000 1.000000 1.000000
+Kd 0.588235 0.588235 0.588235
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 1
+map_Kd H:\\GitFork\\Unity\\Projects\\SponzaHDRP\\Assets\\Art\\Sponza\\Textures\\Bricks\\Bricks_Diffuse.tif
+
+newmtl Ceiling
+Ns 20.000006
+Ka 1.000000 1.000000 1.000000
+Kd 0.588235 0.588235 0.588235
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 1
+map_Kd H:\\GitFork\\Unity\\Projects\\SponzaHDRP\\Assets\\Art\\Sponza\\Textures\\Ceiling\\Ceiling_Diffuse.tif
+
+newmtl Column_A
+Ns 20.000006
+Ka 1.000000 1.000000 1.000000
+Kd 0.588235 0.588235 0.588235
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 1
+map_Kd H:\\GitFork\\Unity\\Projects\\SponzaHDRP\\Assets\\Art\\Sponza\\Textures\\Column_A\\Column_A_Diffuse_B.tif
+
+newmtl Column_B
+Ns 20.000006
+Ka 1.000000 1.000000 1.000000
+Kd 0.588235 0.588235 0.588235
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 1
+map_Kd H:\\GitFork\\Unity\\Projects\\SponzaHDRP\\Assets\\Art\\Sponza\\Textures\\Column_B\\Column_B_Diffuse.tif
+
+newmtl Column_C
+Ns 20.000006
+Ka 1.000000 1.000000 1.000000
+Kd 0.588235 0.588235 0.588235
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 1
+map_Kd H:\\GitFork\\Unity\\Projects\\SponzaHDRP\\Assets\\Art\\Sponza\\Textures\\Column_C\\Column_C_Diffuse.tif
+
+newmtl Curtain_Blue
+Ns 20.000006
+Ka 1.000000 1.000000 1.000000
+Kd 1.000000 1.000000 1.000000
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 1
+map_Kd H:\\GitFork\\Unity\\Projects\\SponzaHDRP\\Assets\\Art\\Sponza\\Textures\\Fabrics\\Fabric_Curtain_Diffuse_Blue.tif
+
+newmtl Curtain_Green
+Ns 20.000006
+Ka 1.000000 1.000000 1.000000
+Kd 1.000000 1.000000 1.000000
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 1
+map_Kd H:\\GitFork\\Unity\\Projects\\SponzaHDRP\\Assets\\Art\\Sponza\\Textures\\Fabrics\\Fabric_Curtain_Diffuse_Green.tif
+
+newmtl Curtain_Red
+Ns 20.000006
+Ka 1.000000 1.000000 1.000000
+Kd 1.000000 1.000000 1.000000
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 1
+map_Kd H:\\GitFork\\Unity\\Projects\\SponzaHDRP\\Assets\\Art\\Sponza\\Textures\\Fabrics\\Fabric_Curtain_Diffuse_Red.tif
+
+newmtl Details
+Ns 20.000006
+Ka 1.000000 1.000000 1.000000
+Kd 0.588235 0.588235 0.588235
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 1
+map_Kd H:\\GitFork\\Unity\\Projects\\SponzaHDRP\\Assets\\Art\\Sponza\\Textures\\Details\\Details_Diffuse.tif
+
+newmtl Fabric_Round_Blue
+Ns 20.000006
+Ka 1.000000 1.000000 1.000000
+Kd 1.000000 1.000000 1.000000
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 1
+map_Kd H:\\GitFork\\Unity\\Projects\\SponzaHDRP\\Assets\\Art\\Sponza\\Textures\\Fabrics\\Fabric_Round_Diffuse_Blue.tif
+
+newmtl Fabric_Round_Green
+Ns 20.000006
+Ka 1.000000 1.000000 1.000000
+Kd 1.000000 1.000000 1.000000
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 1
+map_Kd H:\\GitFork\\Unity\\Projects\\SponzaHDRP\\Assets\\Art\\Sponza\\Textures\\Fabrics\\Fabric_Round_Diffuse_Green.tif
+
+newmtl Fabric_Round_Red
+Ns 20.000006
+Ka 1.000000 1.000000 1.000000
+Kd 1.000000 1.000000 1.000000
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 1
+map_Kd H:\\GitFork\\Unity\\Projects\\SponzaHDRP\\Assets\\Art\\Sponza\\Textures\\Fabrics\\Fabric_Round_Diffuse_Red.tif
+
+newmtl Flagpoles
+Ns 20.000006
+Ka 1.000000 1.000000 1.000000
+Kd 0.588235 0.588235 0.588235
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 1
+map_Kd H:\\GitFork\\Unity\\Projects\\SponzaHDRP\\Assets\\Art\\Sponza\\Textures\\Flagpoles\\Flagpoles_Diffuse.tif
+
+newmtl Floor
+Ns 20.000006
+Ka 1.000000 1.000000 1.000000
+Kd 0.588235 0.588235 0.588235
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 1
+map_Kd H:\\GitFork\\Unity\\Projects\\SponzaHDRP\\Assets\\Art\\Sponza\\Textures\\Floor\\Floor_Diffuse.tif
+
+newmtl Ivy
+Ns 20.000006
+Ka 1.000000 1.000000 1.000000
+Kd 0.588235 0.588235 0.588235
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 1
+map_Kd H:\\GitFork\\Unity\\Projects\\SponzaHDRP\\Assets\\Art\\Sponza\\Textures\\Ivy\\Ivy_Diffuse.tif
+map_d H:\\GitFork\\Unity\\Projects\\SponzaHDRP\\Assets\\Art\\Sponza\\Textures\\Ivy\\Ivy_Diffuse.tif
+
+newmtl Lion_Head
+Ns 20.000006
+Ka 1.000000 1.000000 1.000000
+Kd 0.588235 0.588235 0.588235
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 3
+map_Kd H:\\GitFork\\Unity\\Projects\\SponzaHDRP\\Assets\\Art\\Sponza\\Textures\\Lion_Head\\Lion_Head_Diffuse.tif
+
+newmtl Lion_Shield
+Ns 20.000006
+Ka 1.000000 1.000000 1.000000
+Kd 0.588235 0.588235 0.588235
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 3
+map_Kd H:\\GitFork\\Unity\\Projects\\SponzaHDRP\\Assets\\Art\\Sponza\\Textures\\Lion_Shield\\Lion_Shield_Diffuse.tif
+
+newmtl Roof
+Ns 20.000006
+Ka 1.000000 1.000000 1.000000
+Kd 0.588235 0.588235 0.588235
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 1
+map_Kd H:\\GitFork\\Unity\\Projects\\SponzaHDRP\\Assets\\Art\\Sponza\\Textures\\Roof\\Roof_Diffuse.tif
+
+newmtl Vase_Hanging
+Ns 20.000006
+Ka 1.000000 1.000000 1.000000
+Kd 0.588235 0.588235 0.588235
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 1
+map_Kd H:\\GitFork\\Unity\\Projects\\SponzaHDRP\\Assets\\Art\\Sponza\\Textures\\Vase_Hanging\\Vase_Hanging_Diffuse.tif
+
+newmtl Vase_Hanging_Chain
+Ns 20.000006
+Ka 1.000000 1.000000 1.000000
+Kd 0.588235 0.588235 0.588235
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 1
+map_Kd H:\\GitFork\\Unity\\Projects\\SponzaHDRP\\Assets\\Art\\Sponza\\Textures\\Vase_Hanging_Chain\\Vase_Hanging_Chain_Diffuse.tif
+map_d H:\\GitFork\\Unity\\Projects\\SponzaHDRP\\Assets\\Art\\Sponza\\Textures\\Vase_Hanging_Chain\\Vase_Hanging_Chain_Diffuse.tif
+
+newmtl Vase_Octagonal
+Ns 20.000006
+Ka 1.000000 1.000000 1.000000
+Kd 0.588235 0.588235 0.588235
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 1
+map_Kd H:\\GitFork\\Unity\\Projects\\SponzaHDRP\\Assets\\Art\\Sponza\\Textures\\Vase_Octagonal\\Vase_Octagonal_Diffuse.tif
+
+newmtl Vase_Round
+Ns 20.000006
+Ka 1.000000 1.000000 1.000000
+Kd 0.588235 0.588235 0.588235
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 1
+map_Kd H:\\GitFork\\Unity\\Projects\\SponzaHDRP\\Assets\\Art\\Sponza\\Textures\\Vase_Round\\Vase_Round_Diffuse.tif
+
+newmtl Vase_Round_Plants
+Ns 20.000006
+Ka 1.000000 1.000000 1.000000
+Kd 0.588235 0.588235 0.588235
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 1
+map_Kd H:\\GitFork\\Unity\\Projects\\SponzaHDRP\\Assets\\Art\\Sponza\\Textures\\Vase_Round_Plants\\Vase_Round_Plants_Diffuse.tif
+map_d H:\\GitFork\\Unity\\Projects\\SponzaHDRP\\Assets\\Art\\Sponza\\Textures\\Vase_Round_Plants\\Vase_Round_Plants_Diffuse.tif
