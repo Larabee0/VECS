@@ -70,7 +70,7 @@ namespace VECS
             _spvStage = _spvShaderModule.shader_stage;            
             _vkStage = (VkShaderStageFlags)_spvStage;
 
-            GraphicsDevice.DeviceAPI.vkCreateShaderModule(GraphicsDevice.Device, shaderCode, null, out _vkShaderModule).CheckResult("Failed to Create Shader Module!");
+            GraphicsDevice.DeviceAPI.vkCreateShaderModule(shaderCode, null, out _vkShaderModule).CheckResult("Failed to Create Shader Module!");
 
             if (_vkStage.HasFlag(VkShaderStageFlags.Vertex) && GPUPipelineUtil.GetVertexInputState(_spvShaderModule, out _vertexBindings, out _vertexAttributes))
             {
@@ -94,7 +94,7 @@ namespace VECS
             _spvStage = _spvShaderModule.shader_stage;
             _vkStage = (VkShaderStageFlags)_spvStage;
 
-            GraphicsDevice.DeviceAPI.vkCreateShaderModule(GraphicsDevice.Device, shaderCode, null, out _vkShaderModule).CheckResult("Failed to Create Shader Module!");
+            GraphicsDevice.DeviceAPI.vkCreateShaderModule(shaderCode, null, out _vkShaderModule).CheckResult("Failed to Create Shader Module!");
         }
 
         public unsafe override void Dispose()
@@ -108,7 +108,7 @@ namespace VECS
             _disposed = true;
 
             SPIRVReflectUtil.DestroyReflectShaderModule(_spvShaderModule);
-            GraphicsDevice.DeviceAPI.vkDestroyShaderModule(GraphicsDevice.Device, _vkShaderModule);
+            GraphicsDevice.DeviceAPI.vkDestroyShaderModule(_vkShaderModule);
             GC.ReRegisterForFinalize(this);
         }
 

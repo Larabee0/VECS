@@ -64,11 +64,11 @@ namespace VECS
                 if (cmd.Disposed) return;
                 if (cmd.Sampler != VkSampler.Null)
                 {
-                    GraphicsDevice.DeviceAPI.vkDestroySampler(GraphicsDevice.Device, cmd.Sampler);
+                    GraphicsDevice.DeviceAPI.vkDestroySampler(cmd.Sampler);
                 }
                 if (cmd.Imageview != VkImage.Null)
                 {
-                    GraphicsDevice.DeviceAPI.vkDestroyImageView(GraphicsDevice.Device, cmd.Imageview);
+                    GraphicsDevice.DeviceAPI.vkDestroyImageView(cmd.Imageview);
                 }
                 if (cmd.Image != VkImage.Null && cmd.Allocation != VmaAllocation.Null)
                 {
@@ -181,11 +181,11 @@ namespace VECS
         {
             if (texture._textureSampler != VkSampler.Null)
             {
-                GraphicsDevice.DeviceAPI.vkDestroySampler(GraphicsDevice.Device, texture._textureSampler);
+                GraphicsDevice.DeviceAPI.vkDestroySampler(texture._textureSampler);
                 texture._textureSampler = VkSampler.Null;
             }
 
-            GraphicsDevice.DeviceAPI.vkCreateSampler(GraphicsDevice.Device, createInfo, null, out texture._textureSampler).CheckResult("Create Sampler failed");            
+            GraphicsDevice.DeviceAPI.vkCreateSampler(createInfo, null, out texture._textureSampler).CheckResult("Create Sampler failed");            
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -209,11 +209,11 @@ namespace VECS
         {
             if (texture._imageView != VkImageView.Null)
             {
-                GraphicsDevice.DeviceAPI.vkDestroyImageView(GraphicsDevice.Device, texture._imageView);
+                GraphicsDevice.DeviceAPI.vkDestroyImageView(texture._imageView);
                 texture._imageView = VkImageView.Null;
             }
 
-            GraphicsDevice.DeviceAPI.vkCreateImageView(GraphicsDevice.Device, createInfo, null, out texture._imageView).CheckResult( "Create Image View failed!");
+            GraphicsDevice.DeviceAPI.vkCreateImageView(createInfo, null, out texture._imageView).CheckResult( "Create Image View failed!");
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -234,7 +234,7 @@ namespace VECS
 
             Vma.vmaCreateImage(GraphicsDevice.VmaAllocator, imageCreateInfo, allocationCreateInfo, out texture._vkImage, out texture._allocation).CheckResult( "Create Image View failed!");
 
-            GraphicsDevice.DeviceAPI.vkGetImageMemoryRequirements(GraphicsDevice.Device, texture._vkImage, out var requirements);
+            GraphicsDevice.DeviceAPI.vkGetImageMemoryRequirements(texture._vkImage, out var requirements);
             texture._vkBufferSizeRequirement = requirements.size;
         }
         #endregion

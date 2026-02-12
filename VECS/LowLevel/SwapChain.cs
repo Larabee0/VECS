@@ -91,7 +91,7 @@ namespace VECS.LowLevel
                 semaphore = _timelineSemaphores[frameIndex].Semaphore,
                 value = signalValue
             };
-            GraphicsDevice.DeviceAPI.vkSignalSemaphoreKHR(GraphicsDevice.Device, &signalInfo);
+            GraphicsDevice.DeviceAPI.vkSignalSemaphoreKHR(&signalInfo);
         }
 
         [MethodImpl(MethodImplOptions.NoOptimization)]
@@ -105,7 +105,7 @@ namespace VECS.LowLevel
             };
             var semaphore = _timelineSemaphores[frameIndex].Semaphore;
             waitInfo.pSemaphores = &semaphore;
-            GraphicsDevice.DeviceAPI.vkWaitSemaphoresKHR(GraphicsDevice.Device, &waitInfo, ulong.MaxValue);
+            GraphicsDevice.DeviceAPI.vkWaitSemaphoresKHR(&waitInfo, ulong.MaxValue);
 
         }
         
@@ -119,7 +119,7 @@ namespace VECS.LowLevel
 
             Interlocked.Increment(ref _timelineSemaphores[frameIndex].SemaphoreValue);
 
-            GraphicsDevice.DeviceAPI.vkSignalSemaphoreKHR(GraphicsDevice.Device, &signalInfo);
+            GraphicsDevice.DeviceAPI.vkSignalSemaphoreKHR(&signalInfo);
         }
 
         
@@ -135,7 +135,7 @@ namespace VECS.LowLevel
 
             var semaphore = _timelineSemaphores[frameIndex].Semaphore;
             waitInfo.pSemaphores = &semaphore;
-           GraphicsDevice.DeviceAPI.vkWaitSemaphoresKHR(GraphicsDevice.Device, &waitInfo, ulong.MaxValue);
+           GraphicsDevice.DeviceAPI.vkWaitSemaphoresKHR(&waitInfo, ulong.MaxValue);
         }
         #endregion
 
@@ -150,7 +150,7 @@ namespace VECS.LowLevel
                 deviceMask = 0 | (1 << /* 1st subdevice index*/0)
             };
 
-            var result = GraphicsDevice.DeviceAPI.vkAcquireNextImage2KHR(GraphicsDevice.Device, &acquireInfo, out _currentImage);
+            var result = GraphicsDevice.DeviceAPI.vkAcquireNextImage2KHR(&acquireInfo, out _currentImage);
             
             if (result == VkResult.ErrorOutOfDateKHR)
             {
@@ -167,8 +167,8 @@ namespace VECS.LowLevel
 
         public static void WaitAndResetFence(VkFence fence)
         {
-            GraphicsDevice.DeviceAPI.vkWaitForFences(GraphicsDevice.Device, fence, true, ulong.MaxValue);
-            GraphicsDevice.DeviceAPI.vkResetFences(GraphicsDevice.Device, fence).CheckResult( "Failed to reset fence ");
+            GraphicsDevice.DeviceAPI.vkWaitForFences(fence, true, ulong.MaxValue);
+            GraphicsDevice.DeviceAPI.vkResetFences(fence).CheckResult( "Failed to reset fence ");
         }
 
         public static void SetViewPort(VkCommandBuffer commandBuffer)
@@ -289,29 +289,29 @@ namespace VECS.LowLevel
 
             foreach (var item in _swapChainImageViews)
             {
-                GraphicsDevice.DeviceAPI.vkDestroyImageView(GraphicsDevice.Device, item);
+                GraphicsDevice.DeviceAPI.vkDestroyImageView(item);
             }
 
             _swapChainImageViews = null;
 
             if (_swapChain != VkSwapchainKHR.Null)
             {
-                GraphicsDevice.DeviceAPI.vkDestroySwapchainKHR(GraphicsDevice.Device, _swapChain);
+                GraphicsDevice.DeviceAPI.vkDestroySwapchainKHR(_swapChain);
                 _swapChain = VkSwapchainKHR.Null;
             }
 
             for (int i = 0; i < SWAP_CHAIN_IMAGE_COUNT; i++)
             {
-                GraphicsDevice.DeviceAPI.vkDestroySemaphore(GraphicsDevice.Device, _renderCompleteSemaphores[i]);
-                GraphicsDevice.DeviceAPI.vkDestroySemaphore(GraphicsDevice.Device, _prePresentCompleteSemahpores[i]);
+                GraphicsDevice.DeviceAPI.vkDestroySemaphore(_renderCompleteSemaphores[i]);
+                GraphicsDevice.DeviceAPI.vkDestroySemaphore(_prePresentCompleteSemahpores[i]);
             }
 
             for (int i = 0; i < MAX_CONCURRENT_FRAMES; i++)
             {
-                GraphicsDevice.DeviceAPI.vkDestroySemaphore(GraphicsDevice.Device, _timelineSemaphores[i].Semaphore);
-                GraphicsDevice.DeviceAPI.vkDestroySemaphore(GraphicsDevice.Device, _acquiredImageReadySemaphores[i]);
-                GraphicsDevice.DeviceAPI.vkDestroyFence(GraphicsDevice.Device, _waitPresentBufferFences[i]);
-                GraphicsDevice.DeviceAPI.vkDestroyFence(GraphicsDevice.Device, _waitAcquireFences[i]);
+                GraphicsDevice.DeviceAPI.vkDestroySemaphore(_timelineSemaphores[i].Semaphore);
+                GraphicsDevice.DeviceAPI.vkDestroySemaphore(_acquiredImageReadySemaphores[i]);
+                GraphicsDevice.DeviceAPI.vkDestroyFence(_waitPresentBufferFences[i]);
+                GraphicsDevice.DeviceAPI.vkDestroyFence(_waitAcquireFences[i]);
             }
 
             Instance = null;

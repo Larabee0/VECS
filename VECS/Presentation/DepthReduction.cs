@@ -30,7 +30,7 @@ namespace VECS.Presentation
             _depthPryamid.Dispose();
             for (int i = 0; i < _additionalViews.Length; i++)
             {
-                GraphicsDevice.DeviceAPI.vkDestroyImageView(GraphicsDevice.Device, _additionalViews[i]);
+                GraphicsDevice.DeviceAPI.vkDestroyImageView(_additionalViews[i]);
             }
             _depthReduceShader.Dispose();
         }
@@ -60,7 +60,7 @@ namespace VECS.Presentation
                 var createInfo = _depthPryamid.GetImageViewCreateInfo();
                 createInfo.subresourceRange.levelCount = 1;
                 createInfo.subresourceRange.baseMipLevel = i;
-                GraphicsDevice.DeviceAPI.vkCreateImageView(GraphicsDevice.Device, createInfo, out _additionalViews[i]);
+                GraphicsDevice.DeviceAPI.vkCreateImageView(createInfo, out _additionalViews[i]);
             }
         }
 

@@ -159,7 +159,7 @@ namespace VECS
             {
                 buffer = VkBuffer
             };
-            _deviceBufferAddress = GraphicsDevice.DeviceAPI.vkGetBufferDeviceAddress(GraphicsDevice.Device, &deviceAddressInfo);
+            _deviceBufferAddress = GraphicsDevice.DeviceAPI.vkGetBufferDeviceAddress(&deviceAddressInfo);
 
 #if LOG_BUFFER_ALLOCS
             StackTrace trace = new(true);

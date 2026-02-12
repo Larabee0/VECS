@@ -7,32 +7,33 @@ layout(location = 0) out vec4 FragPos; // FragPos from GS (output per emitvertex
 
 layout(location = 0) in vec2 gs_in_uv[];
 layout(location = 1) out vec2 gs_out_uv;
+layout(location = 2) out int gs_out_lightIndex;
 
-layout(set = 0,binding = 1) readonly buffer CameraInfos {
+
+layout(set = 0, binding = 1) readonly buffer InstanceInfo {
+    int matrixStartIndex;
+    int layerOffset;
+    int layerCount;
+    int bufferSelect;
+    int useLightPos;
+    int lightIndex;
+} instanceInfo;
+
+layout(std140, set = 1, binding = 0) readonly buffer CameraInfos {
 	CameraInfo values[];
 } cameraInfo;
 
-layout(std140, set = 0, binding = 2) readonly buffer DirectionalShadowMats{
+layout(std140, set = 1, binding = 1) readonly buffer DirectionalShadowMats{
     mat4 value[];
 } directionalShadows;
 
-layout(std140, set = 0, binding = 3) readonly buffer PointShadowMats{
+layout(std140, set = 1, binding = 2) readonly buffer PointShadowMats{
     mat4 value[];
 } pointShadows;
 
-layout(std140, set = 0, binding = 4) readonly buffer SpotShadowMats{
+layout(std140, set = 1, binding = 3) readonly buffer SpotShadowMats{
     mat4 value[];
 } spotShadows;
-
-layout(push_constant) uniform Constants {
-    int matrixStartIndex;
-    int layerOffset;
-    int faceCount;
-    int bufferSelect;
-
-    //int writeDepth;
-    //int lightIndex;
-} constants;
 
 mat4 getTransform(int bufferSelect, int bufferOffset, int face) {
     switch(bufferSelect){
@@ -62,13 +63,13 @@ void emitPrimative(mat4 transformMatrix, int glLayer) {
 
 void main() {
 
-    int bufferSelect = constants.bufferSelect;
-    int layerOffset = constants.layerOffset;
-    int faceCount = constants.faceCount;
-    int bufferOffset = constants.matrixStartIndex;
+    int bufferSelect = instanceInfo.bufferSelect;
+    int layerOffset = instanceInfo.layerOffset;
+    int layerCount = instanceInfo.layerCount;
+    int bufferOffset = instanceInfo.matrixStartIndex;
     mat4 transformMatrix;
 
-    for(int face = 0; face < faceCount; ++face)
+    for(int face = 0; face < layerCount; ++face)
     {
         transformMatrix = getTransform(bufferSelect, bufferOffset, face);
         emitPrimative(transformMatrix, layerOffset + face);

@@ -1113,7 +1113,7 @@ namespace VECS
             {
                 _matVariants[i]?.Dispose();
             }
-            GraphicsDevice.DeviceAPI.vkDestroyPipeline(GraphicsDevice.Device, _graphicsPipeline);
+            GraphicsDevice.DeviceAPI.vkDestroyPipeline(_graphicsPipeline);
 
             for (int i = 0; i < _descriptorSetCount; i++)
             {
@@ -1124,7 +1124,7 @@ namespace VECS
 
             for (int i = 0; i < _descriptorSetLayouts.Length; i++)
             {
-                GraphicsDevice.DeviceAPI.vkDestroyDescriptorSetLayout(GraphicsDevice.Device, _descriptorSetLayouts[i], null);
+                GraphicsDevice.DeviceAPI.vkDestroyDescriptorSetLayout(_descriptorSetLayouts[i], null);
             }
 
             GC.ReRegisterForFinalize(this);

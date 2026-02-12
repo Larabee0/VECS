@@ -151,20 +151,20 @@ namespace VECS.LowLevel
 
             fixed (VkCommandBuffer* pCommandBuffers = &_mainPipeCommandBuffers[0])
             {
-                _deviceApi.vkAllocateCommandBuffers(Device, &allocInfo, pCommandBuffers).CheckResult("Failed to allocate main command buffers");
+                _deviceApi.vkAllocateCommandBuffers(&allocInfo, pCommandBuffers).CheckResult("Failed to allocate main command buffers");
             }
 
             allocInfo.commandPool = ComputeCommandPool;
             fixed (VkCommandBuffer* pCommandBuffers = &_computeCommandBuffers[0])
             {
-                _deviceApi.vkAllocateCommandBuffers(Device, &allocInfo, pCommandBuffers).CheckResult("Failed to allocate compute command buffers");
+                _deviceApi.vkAllocateCommandBuffers(&allocInfo, pCommandBuffers).CheckResult("Failed to allocate compute command buffers");
             }
 
             allocInfo.commandPool = PresentCommandPool;
 
             fixed (VkCommandBuffer* pCommandBuffers = &_presentCommandBuffers[0])
             {
-                _deviceApi.vkAllocateCommandBuffers(Device, &allocInfo, pCommandBuffers).CheckResult("Failed to allocate present command buffers");
+                _deviceApi.vkAllocateCommandBuffers(&allocInfo, pCommandBuffers).CheckResult("Failed to allocate present command buffers");
             }
         }
 
@@ -174,12 +174,12 @@ namespace VECS.LowLevel
             {
                 for (int i = 0; i < _secondaryMainPipeCommandBuffers.Length; i++)
                 {
-                    _deviceApi.vkResetCommandPool(Device, _secondaryMainPipeCommandBuffers[i], VkCommandPoolResetFlags.ReleaseResources);
+                    _deviceApi.vkResetCommandPool(_secondaryMainPipeCommandBuffers[i], VkCommandPoolResetFlags.ReleaseResources);
                 }
 
                 fixed (VkCommandBuffer* pCommandBuffers = &_mainPipeCommandBuffers[0])
                 {
-                    _deviceApi.vkFreeCommandBuffers(Device, MainCommandPool, (uint)_mainPipeCommandBuffers.Length, pCommandBuffers);
+                    _deviceApi.vkFreeCommandBuffers(MainCommandPool, (uint)_mainPipeCommandBuffers.Length, pCommandBuffers);
                 }
 
                 _mainPipeCommandBuffers = null;
@@ -189,12 +189,12 @@ namespace VECS.LowLevel
             {
                 for (int i = 0; i < _secondaryComputePipeCommandBuffers.Length; i++)
                 {
-                    _deviceApi.vkResetCommandPool(Device, _secondaryComputePipeCommandBuffers[i], VkCommandPoolResetFlags.ReleaseResources);
+                    _deviceApi.vkResetCommandPool(_secondaryComputePipeCommandBuffers[i], VkCommandPoolResetFlags.ReleaseResources);
                 }
 
                 fixed (VkCommandBuffer* pCommandBuffers = &_computeCommandBuffers[0])
                 {
-                    _deviceApi.vkFreeCommandBuffers(Device, ComputeCommandPool, (uint)_computeCommandBuffers.Length, pCommandBuffers);
+                    _deviceApi.vkFreeCommandBuffers(ComputeCommandPool, (uint)_computeCommandBuffers.Length, pCommandBuffers);
                 }
 
                 _computeCommandBuffers = null;
@@ -204,7 +204,7 @@ namespace VECS.LowLevel
             {
                 fixed (VkCommandBuffer* pCommandBuffers = &_presentCommandBuffers[0])
                 {
-                    _deviceApi.vkFreeCommandBuffers(Device, PresentCommandPool, (uint)_presentCommandBuffers.Length, pCommandBuffers);
+                    _deviceApi.vkFreeCommandBuffers(PresentCommandPool, (uint)_presentCommandBuffers.Length, pCommandBuffers);
                 }
 
                 _presentCommandBuffers = null;
@@ -285,7 +285,7 @@ namespace VECS.LowLevel
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static VkCommandBuffer BeginSingleTime(VkCommandPool commandPool)
         {
-            _deviceApi.vkAllocateCommandBuffer(Device, commandPool, VkCommandBufferLevel.Primary, out VkCommandBuffer commandBuffer).CheckResult("Failed to allocate command buffer!");
+            _deviceApi.vkAllocateCommandBuffer(commandPool, VkCommandBufferLevel.Primary, out VkCommandBuffer commandBuffer).CheckResult("Failed to allocate command buffer!");
             _deviceApi.vkBeginCommandBuffer(commandBuffer, VkCommandBufferUsageFlags.OneTimeSubmit).CheckResult("Failed to begin command buffer!");
             return commandBuffer;
         }
@@ -300,13 +300,13 @@ namespace VECS.LowLevel
             };
             _deviceApi.vkQueueSubmit(queue, submitInfo, VkFence.Null);
             _deviceApi.vkQueueWaitIdle(queue);
-            _deviceApi.vkFreeCommandBuffers(Device, commandPool, commandBuffer);
+            _deviceApi.vkFreeCommandBuffers(commandPool, commandBuffer);
         }
         #endregion
 
         public static void DeviceWaitIdle()
         {
-            _deviceApi.vkDeviceWaitIdle(Device);
+            _deviceApi.vkDeviceWaitIdle();
         }
 
         /// <summary>
@@ -320,26 +320,26 @@ namespace VECS.LowLevel
 
             for (int i = 0; i < _secondaryMainPipeCommandBuffers.Length; i++)
             {
-                _deviceApi.vkDestroyCommandPool(Device, _secondaryMainPipeCommandBuffers[i]);
+                _deviceApi.vkDestroyCommandPool(_secondaryMainPipeCommandBuffers[i]);
             }
 
             for (int i = 0; i < _secondaryComputePipeCommandBuffers.Length; i++)
             {
-                _deviceApi.vkDestroyCommandPool(Device, _secondaryComputePipeCommandBuffers[i]);
+                _deviceApi.vkDestroyCommandPool(_secondaryComputePipeCommandBuffers[i]);
             }
 
-            _deviceApi.vkDestroyCommandPool(_device, _commandPoolPresent);
-            _deviceApi.vkDestroyCommandPool(_device, _commandPoolCompute);
-            _deviceApi.vkDestroyCommandPool(_device, _commandPoolMain);
+            _deviceApi.vkDestroyCommandPool(_commandPoolPresent);
+            _deviceApi.vkDestroyCommandPool(_commandPoolCompute);
+            _deviceApi.vkDestroyCommandPool(_commandPoolMain);
             Vma.vmaDestroyAllocator(_allocator);
-            _deviceApi.vkDestroyDevice(_device);
+            _deviceApi.vkDestroyDevice();
 
 #if DEBUG
             GraphicsDeviceInit.DestroyDebugUtilsMessengerEXT(_instance, GraphicsDeviceInit._debugMessenger, null);
 #endif
 
-            _instanceApi.vkDestroySurfaceKHR(_instance, _surface);
-            _instanceApi.vkDestroyInstance(_instance);
+            _instanceApi.vkDestroySurfaceKHR(_surface);
+            _instanceApi.vkDestroyInstance();
         }
     }
 }

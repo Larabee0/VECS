@@ -15,7 +15,7 @@ namespace VECS
         public readonly static GraphicsPipeline UnlitTransparent;
         public readonly static GraphicsPipeline Unlit;
         public readonly static GraphicsPipeline WireFrame;
-        public readonly static GraphicsPipeline ShadowOffscreen;
+        public readonly static GraphicsPipeline DepthOnly;
         public readonly static GraphicsPipeline PointLight;
         public readonly static GraphicsPipeline Blit;
         public readonly static GraphicsPipeline OIT_Composite;
@@ -28,13 +28,6 @@ namespace VECS
             litTexture.depthStencilInfo.depthCompareOp = VkCompareOp.Equal;
             //litTexture.rasterizationInfo.frontFace = VkFrontFace.Clockwise;
             LitTexture = new("LitTexture", "lit_texture.vert", "lit_texture.frag", litTexture);
-            // var depthConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
-            // depthConfig.colourFormats = [];
-            // depthConfig.depthStencilInfo.depthWriteEnable = true;
-            // depthConfig.depthStencilInfo.depthTestEnable = true;
-            // DepthOnly = new("DepthOnly", "depth_only.vert", depthConfig);
-            // 
-            // DepthOnlyAlphaClipping = new("DepthOnlyAlpha", "depth_only_alpha.vert", "depth_only_alpha.frag", depthConfig);
 
             var pipelineConfigInfo = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
 
@@ -55,7 +48,7 @@ namespace VECS
             shadowConfig.rasterizationInfo.depthBiasEnable = false;
             shadowConfig.rasterizationInfo.depthBiasConstantFactor = 1.25f;
             shadowConfig.rasterizationInfo.depthBiasSlopeFactor = 1.75f;
-            ShadowOffscreen = new GraphicsPipeline("PointLightShadowCaster", "pl_shadow.vert", "pl_shadow.frag", shadowConfig, "pl_shadow.geom");
+            DepthOnly = new GraphicsPipeline("DepthOnly", "depth_only.vert", "depth_only.frag", shadowConfig, "depth_only.geom");
             
             var alphaBlending = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             Unlit = new GraphicsPipeline("Unlit", "unlit.vert", "unlit.frag", alphaBlending);

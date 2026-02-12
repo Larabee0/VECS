@@ -190,9 +190,9 @@ namespace VECS.LowLevel
         /// <exception cref="Exception"></exception>
         internal static unsafe void PickPhysicalDevice()
         {
-            _instanceApi.vkEnumeratePhysicalDevices(_instance, out uint deviceCount).CheckResult("Failed to find GPUs with Vulkan Support!");
+            _instanceApi.vkEnumeratePhysicalDevices(out uint deviceCount).CheckResult("Failed to find GPUs with Vulkan Support!");
             VkPhysicalDevice[] devices = new VkPhysicalDevice[deviceCount];
-            _instanceApi.vkEnumeratePhysicalDevices(_instance, devices).CheckResult("Failed to find GPUs with Vulkan Support!");
+            _instanceApi.vkEnumeratePhysicalDevices(devices).CheckResult("Failed to find GPUs with Vulkan Support!");
 
             if (devices.Length == 0)
             {
@@ -434,9 +434,9 @@ namespace VECS.LowLevel
 
             _deviceApi = Vulkan.GetApi(_instance, _device);
 
-            _deviceApi.vkGetDeviceQueue(_device, (uint)indices.graphicsFamily, 0, out _mainQueue);
-            _deviceApi.vkGetDeviceQueue(_device, (uint)indices.computeFamily, (uint)indices.computeIndex, out _computeQueue);
-            _deviceApi.vkGetDeviceQueue(_device, (uint)indices.presentFamily, (uint)indices.presentIndex, out _presentQueue);
+            _deviceApi.vkGetDeviceQueue(indices.graphicsFamily, 0, out _mainQueue);
+            _deviceApi.vkGetDeviceQueue(indices.computeFamily, (uint)indices.computeIndex, out _computeQueue);
+            _deviceApi.vkGetDeviceQueue(indices.presentFamily, (uint)indices.presentIndex, out _presentQueue);
         }
 
         #endregion
@@ -458,25 +458,25 @@ namespace VECS.LowLevel
 
             _secondaryMainPipeCommandBuffers = new VkCommandPool[Environment.ProcessorCount * 2];
             _secondaryComputePipeCommandBuffers = new VkCommandPool[Environment.ProcessorCount];
-            _deviceApi.vkCreateCommandPool(_device, poolInfo, null, out _commandPoolMain).CheckResult("Failed to create main command pool!");
+            _deviceApi.vkCreateCommandPool(poolInfo, null, out _commandPoolMain).CheckResult("Failed to create main command pool!");
 
             for (int i = 0; i < _secondaryMainPipeCommandBuffers.Length; i++)
             {
-                _deviceApi.vkCreateCommandPool(_device, poolInfo, null, out _secondaryMainPipeCommandBuffers[i]).CheckResult("Failed to create secondary main command pool!");
+                _deviceApi.vkCreateCommandPool(poolInfo, null, out _secondaryMainPipeCommandBuffers[i]).CheckResult("Failed to create secondary main command pool!");
             }
 
 
             poolInfo.queueFamilyIndex = queueFamilyIndices.computeFamily;
-            _deviceApi.vkCreateCommandPool(_device, poolInfo, null, out _commandPoolCompute).CheckResult("Failed to create compute command pool!");
+            _deviceApi.vkCreateCommandPool(poolInfo, null, out _commandPoolCompute).CheckResult("Failed to create compute command pool!");
 
             for (int i = 0; i < _secondaryComputePipeCommandBuffers.Length; i++)
             {
-                _deviceApi.vkCreateCommandPool(_device, poolInfo, null, out _secondaryComputePipeCommandBuffers[i]).CheckResult("Failed to create secondary main compute pool!");
+                _deviceApi.vkCreateCommandPool(poolInfo, null, out _secondaryComputePipeCommandBuffers[i]).CheckResult("Failed to create secondary main compute pool!");
             }
 
             poolInfo.queueFamilyIndex = queueFamilyIndices.presentFamily;
 
-            _deviceApi.vkCreateCommandPool(_device, poolInfo, null, out _commandPoolPresent).CheckResult("Failed to create present command pool!");
+            _deviceApi.vkCreateCommandPool(poolInfo, null, out _commandPoolPresent).CheckResult("Failed to create present command pool!");
         }
 
         #endregion

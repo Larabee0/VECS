@@ -522,12 +522,12 @@ namespace VECS
             _disposed = true;
             
 
-            GraphicsDevice.DeviceAPI.vkDestroyPipeline(GraphicsDevice.Device, _pipline);
+            GraphicsDevice.DeviceAPI.vkDestroyPipeline(_pipline);
 
             for (int i = 0; i < _descriptorSetCount; i++)
             {
                 _descriptorSetInfos[i]?.Dispose();
-                GraphicsDevice.DeviceAPI.vkDestroyDescriptorSetLayout(GraphicsDevice.Device, _descriptorSetLayouts[i], null);
+                GraphicsDevice.DeviceAPI.vkDestroyDescriptorSetLayout(_descriptorSetLayouts[i], null);
             }
             _uniformBuffer?.Dispose();
         }

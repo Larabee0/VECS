@@ -27,7 +27,7 @@ namespace VECS
 
         private readonly  VkRect2D scissor = new(new(0, 0), new(DIRECTIONAL_SHADOW_RESOLTION, DIRECTIONAL_SHADOW_RESOLTION));
 
-        private readonly Material _shadowDepth;
+        private readonly Material _dirDepthOnly;
         private readonly int _matHash;
 
         private bool _clearedImage;
@@ -38,14 +38,14 @@ namespace VECS
 
             _shadowDepthImage.Target.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.LateFragmentTests, VkPipelineStageFlags2.FragmentShader);
 
-            _shadowDepth = EnginePipes.ShadowOffscreen.Default();
-            _matHash = _shadowDepth.Hash;
+            _dirDepthOnly = EnginePipes.DepthOnly.Create("DIR_DepthOnly");
+            _matHash = _dirDepthOnly.Hash;
 
-            _shadowDepth.PushConstants.SetPushConstantInt("matrixOffset", 0,0);
-            _shadowDepth.PushConstants.SetPushConstantInt("baseLayerOffset", 0, 0);
-            _shadowDepth.PushConstants.SetPushConstantInt("faceCount", 0, 1);
-            _shadowDepth.PushConstants.SetPushConstantInt("lightIndex", 0, 0);
-            _shadowDepth.PushConstants.SetPushConstantInt("writeDepth", 0, 0);
+            _dirDepthOnly.PushConstants.SetPushConstantInt("matrixStartIndex", 0,0);
+            _dirDepthOnly.PushConstants.SetPushConstantInt("bufferSelect", 0, 1);
+            _dirDepthOnly.PushConstants.SetPushConstantInt("baseLayerOffset", 0, 0);
+            _dirDepthOnly.PushConstants.SetPushConstantInt("layerCount", 0, 1);
+            _dirDepthOnly.PushConstants.SetPushConstantInt("useLightPos", 0, 0);
         }
 
         public void AssignDirShadowTexture()
@@ -101,8 +101,8 @@ namespace VECS
         {
             AssignDirShadowTexture();
             DrawBlob.IndirectToComputeMemoryBarrierByMat(frameInfo.CommandBuffer);
-            var mats = _shadowDepth.GetStorageSwapChainBuffer(PointLightShadows.matsPropertyId);
-            var lights = _shadowDepth.GetStorageSwapChainBuffer(PointLightShadows.lightInfoPropertyId);
+            var mats = _dirDepthOnly.GetStorageSwapChainBuffer(PointLightShadows.matsPropertyId);
+            var lights = _dirDepthOnly.GetStorageSwapChainBuffer(PointLightShadows.lightInfoPropertyId);
             mats.UnsafeSet(0, GetSpaceMatrix(frameInfo.LightingInfo, out var near_plane, out var farPlane, out var lightView, out var lightProj, out var lightPos));
             lights.UnsafeSet(0, new Vector4(lightPos,farPlane));
 

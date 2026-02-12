@@ -41,7 +41,7 @@ namespace VECS
             _usageLength = (uint)maxSets;
             _setLayout = setLayout;
             ulong unalignedLayoutSize;
-            GraphicsDevice.DeviceAPI.vkGetDescriptorSetLayoutSizeEXT(GraphicsDevice.Device, _setLayout, &unalignedLayoutSize);
+            GraphicsDevice.DeviceAPI.vkGetDescriptorSetLayoutSizeEXT(_setLayout, &unalignedLayoutSize);
             _alignedLayoutSize = (uint)GetAlignedSize(unalignedLayoutSize);
             Debug.Assert(_alignedLayoutSize > 0, "Descriptor Buffer Aligned layout size must be greater than 0 bytes");
             Debug.Assert(_alignedLayoutSize % 2 == 0, string.Format("Descriptor Buffer Aligned layout size ({0}) must divisible by 2!", _alignedLayoutSize));
@@ -52,7 +52,7 @@ namespace VECS
             ulong offset = 0;
             for (int i = 0; i < bindingCount; i++)
             {
-                GraphicsDevice.DeviceAPI.vkGetDescriptorSetLayoutBindingOffsetEXT(GraphicsDevice.Device, _setLayout, (uint)i, &offset);
+                GraphicsDevice.DeviceAPI.vkGetDescriptorSetLayoutBindingOffsetEXT(_setLayout, (uint)i, &offset);
                 _bindingOffsets[i] = (uint)offset;
             }
 
@@ -192,7 +192,7 @@ namespace VECS
                 default:
                     throw new NotImplementedException(string.Format("Descriptor Type {0} is invalid or not implemented for VkDescriptorAddressInfoEXT!", writeInfo.Type.ToString()));
             }
-            GraphicsDevice.DeviceAPI.vkGetDescriptorEXT(GraphicsDevice.Device, &getInfo, writeInfo.DataSize, ptr);
+            GraphicsDevice.DeviceAPI.vkGetDescriptorEXT(&getInfo, (uint)writeInfo.DataSize, ptr);
             _descriptorBuffer.SetHostBufferChanged(true);
         }
 

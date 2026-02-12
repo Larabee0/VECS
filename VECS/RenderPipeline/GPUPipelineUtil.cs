@@ -173,7 +173,7 @@ namespace VECS
                     flags = flags
                 };
 
-                GraphicsDevice.DeviceAPI.vkCreateDescriptorSetLayout(GraphicsDevice.Device, descriptorSetLayoutInfo, null, out layout).CheckResult( "Failed to create descriptor set layout!");                
+                GraphicsDevice.DeviceAPI.vkCreateDescriptorSetLayout(descriptorSetLayoutInfo, null, out layout).CheckResult( "Failed to create descriptor set layout!");                
             }
 
             return layout;
@@ -406,7 +406,7 @@ namespace VECS
                 layoutCreateInfo.pPushConstantRanges = pLayouts;
             }
 
-            GraphicsDevice.DeviceAPI.vkCreatePipelineLayout(GraphicsDevice.Device, layoutCreateInfo, null, out VkPipelineLayout pipelineLayout).CheckResult("Failed to create pipeline layout!");
+            GraphicsDevice.DeviceAPI.vkCreatePipelineLayout(layoutCreateInfo, null, out VkPipelineLayout pipelineLayout).CheckResult("Failed to create pipeline layout!");
             
             return pipelineLayout;
         }
@@ -415,7 +415,7 @@ namespace VECS
         {
             string cacheName = computeShader.AssetName;
             var cache = AssetDataBase<PipelineCache>.GetNamed(cacheName);
-            GraphicsDevice.DeviceAPI.vkCreateComputePipeline(GraphicsDevice.Device, cache.Cache, createInfo, out var _pipline).CheckResult("Failed to create Compute Pipeline");
+            GraphicsDevice.DeviceAPI.vkCreateComputePipeline(cache.Cache, createInfo, out var _pipline).CheckResult("Failed to create Compute Pipeline");
             return _pipline;
         }
 
@@ -578,7 +578,7 @@ namespace VECS
             pipelineInfo.pNext = &pipelineRenderingCreateInfo;
             pipelineInfo.flags = flags;
 
-            GraphicsDevice.DeviceAPI.vkCreateGraphicsPipeline(GraphicsDevice.Device, cache.Cache, pipelineInfo, out var graphicsPipeline).CheckResult("Failed to create graphics pipeline!");
+            GraphicsDevice.DeviceAPI.vkCreateGraphicsPipeline(cache.Cache, pipelineInfo, out var graphicsPipeline).CheckResult("Failed to create graphics pipeline!");
 
 
             return graphicsPipeline;

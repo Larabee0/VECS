@@ -107,7 +107,7 @@ namespace VECS
             {
                 createInfo.subresourceRange.baseArrayLayer = i;
                 fixed (VkImageView* pView = &FaceImageViews[i])
-                    GraphicsDevice.DeviceAPI.vkCreateImageView(GraphicsDevice.Device, createInfo, null, pView);
+                    GraphicsDevice.DeviceAPI.vkCreateImageView(createInfo, null, pView);
             }
         }
 

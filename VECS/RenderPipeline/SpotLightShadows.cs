@@ -26,7 +26,7 @@ namespace VECS
 
         private readonly VkRect2D scissor = new(new(0, 0), new(DIRECTIONAL_SHADOW_RESOLTION, DIRECTIONAL_SHADOW_RESOLTION));
 
-        private readonly Material _shadowDepth;
+        private readonly Material _slDepthOnly;
         private readonly int _matHash;
 
         private bool _imageCleared;
@@ -45,8 +45,8 @@ namespace VECS
 
             _shadowDepthImage.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.LateFragmentTests, VkPipelineStageFlags2.FragmentShader);
 
-            _shadowDepth = EnginePipes.ShadowOffscreen.Default();
-            _matHash = _shadowDepth.Hash;
+            _slDepthOnly = EnginePipes.DepthOnly.Create("SL_DepthOnly");
+            _matHash = _slDepthOnly.Hash;
         }
 
         public void AssignDirShadowTexture()
@@ -91,8 +91,8 @@ namespace VECS
 
             DrawBlob.CullAllInOne(frameInfo, depthBufferCullInfo);
 
-            var mats = _shadowDepth.GetStorageSwapChainBuffer(PointLightShadows.matsPropertyId);
-            var lights = _shadowDepth.GetStorageSwapChainBuffer(PointLightShadows.lightInfoPropertyId);
+            var mats = _slDepthOnly.GetStorageSwapChainBuffer(PointLightShadows.matsPropertyId);
+            var lights = _slDepthOnly.GetStorageSwapChainBuffer(PointLightShadows.lightInfoPropertyId);
             var spotLights = ((SwapChainBuffer<SpotLightUniform>)EngineBuffers.TryGetBuffer(ShaderProperties.PointLightsBufferId)).HostBuffer;
             for (int i = 0; i < frameInfo.LightingInfo.NumSpotLights; i++)
             {
@@ -104,11 +104,12 @@ namespace VECS
                 lights.UnsafeSet(lightIndex, new Vector4(spotLight.Position.AsVector3(), spotLight.Range));
 
                 //World.DefaultWorld.GetSystem<DebugDrawUtilities>().DrawLine(spotLight.Position.AsVector3(), spotLight.Position.AsVector3() + (spotLight.Direction.AsVector3() * spotLight.Range), Colour.Blue);
-                _shadowDepth.PushConstants.SetPushConstantInt("matrixOffset", lightIndex, faceIndex);
-                _shadowDepth.PushConstants.SetPushConstantInt("baseLayerOffset", lightIndex, i);
-                _shadowDepth.PushConstants.SetPushConstantInt("faceCount", lightIndex, 1);
-                _shadowDepth.PushConstants.SetPushConstantInt("lightIndex", lightIndex, lightIndex);
-                _shadowDepth.PushConstants.SetPushConstantInt("writeDepth", lightIndex, 1);
+                _slDepthOnly.PushConstants.SetPushConstantInt("matrixStartIndex", lightIndex, faceIndex);
+                _slDepthOnly.PushConstants.SetPushConstantInt("matrixStartIndex", lightIndex, 3);
+                _slDepthOnly.PushConstants.SetPushConstantInt("layerOffset", lightIndex, i);
+                _slDepthOnly.PushConstants.SetPushConstantInt("layerCount", lightIndex, 1);
+                _slDepthOnly.PushConstants.SetPushConstantInt("lightIndex", lightIndex, lightIndex);
+                _slDepthOnly.PushConstants.SetPushConstantInt("useLightPos", lightIndex, 1);
             }
 
             _shadowDepthImage.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.DepthAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.EarlyFragmentTests);

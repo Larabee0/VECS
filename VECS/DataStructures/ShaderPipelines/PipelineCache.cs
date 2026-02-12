@@ -16,7 +16,7 @@ namespace VECS
             AssetName = name;
             _pipelineLayout = layout;
             Generated = true;
-            GraphicsDevice.DeviceAPI.vkCreatePipelineCache(GraphicsDevice.Device, new VkPipelineCacheCreateInfo(), null, out _cache);
+            GraphicsDevice.DeviceAPI.vkCreatePipelineCache(new VkPipelineCacheCreateInfo(), null, out _cache);
         }
 
         public unsafe override void Dispose()
@@ -27,11 +27,11 @@ namespace VECS
                 return;
             }
             _disposed = true;
-            GraphicsDevice.DeviceAPI.vkDestroyPipelineCache(GraphicsDevice.Device, _cache);
+            GraphicsDevice.DeviceAPI.vkDestroyPipelineCache(_cache);
             
             if (_pipelineLayout.IsNotNull)
             {
-                GraphicsDevice.DeviceAPI.vkDestroyPipelineLayout(GraphicsDevice.Device, _pipelineLayout);
+                GraphicsDevice.DeviceAPI.vkDestroyPipelineLayout(_pipelineLayout);
                 _pipelineLayout = VkPipelineLayout.Null;
             }
         }

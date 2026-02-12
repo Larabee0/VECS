@@ -18,7 +18,7 @@ namespace VECS
         public static readonly int matsPropertyId = "shadowMats".GetShaderPropertyId();
         public static readonly int lightInfoPropertyId = "lightInfo".GetShaderPropertyId();
 
-        private readonly Material _shadowDepth;
+        private readonly Material _plDepthOnly;
         private readonly int _matHash;
 
         public CubemapArray DepthImages;
@@ -37,8 +37,8 @@ namespace VECS
 
             DepthImages.SetImageLayout(VkImageLayout.DepthStencilAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.EarlyFragmentTests);
 
-            _shadowDepth = EnginePipes.ShadowOffscreen.Default();
-            _matHash = _shadowDepth.Hash;
+            _plDepthOnly = EnginePipes.DepthOnly.Create("PL_DepthOnly");
+            _matHash = _plDepthOnly.Hash;
         }
 
         public void AssignDirShadowTexture()
@@ -83,17 +83,19 @@ namespace VECS
 
         public void PointLightShadowPass(in RendererFrameInfo frameInfo)
         {
-            FillViewMatrices(frameInfo, _shadowDepth.GetStorageSwapChainBuffer(matsPropertyId));
-            FillLightInfo(frameInfo, _shadowDepth.GetStorageSwapChainBuffer(lightInfoPropertyId));
+            FillViewMatrices(frameInfo, _plDepthOnly.GetStorageSwapChainBuffer(matsPropertyId));
+            FillLightInfo(frameInfo, _plDepthOnly.GetStorageSwapChainBuffer(lightInfoPropertyId));
 
 
             for (int i = 0; i < frameInfo.LightingInfo.NumPointLights; i++)
             {
-                _shadowDepth.PushConstants.SetPushConstantInt("matrixOffset", 1 + i, 1 + (i * 6));
-                _shadowDepth.PushConstants.SetPushConstantInt("baseLayerOffset", 1 + i, i * 6);
-                _shadowDepth.PushConstants.SetPushConstantInt("faceCount", 1 + i, 6);
-                _shadowDepth.PushConstants.SetPushConstantInt("lightIndex", 1 + i, 1 + i);
-                _shadowDepth.PushConstants.SetPushConstantInt("writeDepth", 1 + i, 1);
+                int lightIndex = 1 + i;
+                _plDepthOnly.PushConstants.SetPushConstantInt("matrixStartIndex", lightIndex, 1 + (i * 6));
+                _plDepthOnly.PushConstants.SetPushConstantInt("bufferSelect", lightIndex, 2);
+                _plDepthOnly.PushConstants.SetPushConstantInt("layerOffset", lightIndex, i * 6);
+                _plDepthOnly.PushConstants.SetPushConstantInt("layerCount", lightIndex, 6);
+                _plDepthOnly.PushConstants.SetPushConstantInt("lightIndex", lightIndex, lightIndex);
+                _plDepthOnly.PushConstants.SetPushConstantInt("useLightPos", lightIndex, 1);
             }
 
             SetImageLayoutWrite(frameInfo.CommandBuffer);

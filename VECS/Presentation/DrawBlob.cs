@@ -366,7 +366,7 @@ namespace VECS
             Array.Copy(_drawCommandsByMat, _depthCommands, _drawCommandsByMat.Length);
 
             uint alphaClippingDepthVariant = 1;
-            int depthHash = EnginePipes.ShadowOffscreen.Hash;
+            int depthHash = EnginePipes.DepthOnly.Hash;
             for (int i = 0; i < _drawCommandsByMat.Length; i++)
             {
                 var matCmd = _drawCommandsByMat[i];
@@ -378,7 +378,7 @@ namespace VECS
                 
                 if (variant.AlphaClipping)
                 {
-                    var alphaClipping = EnginePipes.ShadowOffscreen.GetOrCreateVariant(alphaClippingDepthVariant);
+                    var alphaClipping = EnginePipes.DepthOnly.GetOrCreateVariant(alphaClippingDepthVariant);
                     var tex = variant.AlphaTexture ?? EngineTextures.White;
                     alphaClipping.SetTexture("alphaSampler".GetShaderPropertyId(), tex);
                     alphaClipping.SetFloat("alphaProps.alphaThreshold".GetShaderPropertyId(),variant.AlphaCutoff);
@@ -701,12 +701,12 @@ namespace VECS
 
         public static void ExecutateDepthOnly(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, int pushConstantIndex)
         {
-            EnginePipes.ShadowOffscreen.ExecuteDrawCommandsPushConstantOverride(frameInfo, pushConstantIndex, commandBuffer, _depthCommands, OpaqueCmdCountByMat, _indirectCmdBufferAllInOne);
+            EnginePipes.DepthOnly.ExecuteDrawCommandsPushConstantOverride(frameInfo, pushConstantIndex, commandBuffer, _depthCommands, OpaqueCmdCountByMat, _indirectCmdBufferAllInOne);
         }
 
         public static void ExecutateDepthOnly(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, int pushConstantIndex, VkCullModeFlags cullMode)
         {
-            EnginePipes.ShadowOffscreen.ExecuteDrawCommandsPushConstantOverride(frameInfo, pushConstantIndex, commandBuffer, _depthCommands, OpaqueCmdCountByMat, _indirectCmdBufferAllInOne,cullMode);
+            EnginePipes.DepthOnly.ExecuteDrawCommandsPushConstantOverride(frameInfo, pushConstantIndex, commandBuffer, _depthCommands, OpaqueCmdCountByMat, _indirectCmdBufferAllInOne,cullMode);
         }
 
         public static void CullAllInOne(RendererFrameInfo frameInfo, CullData cullData)

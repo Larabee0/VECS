@@ -19,11 +19,11 @@ namespace VECS.ECS.Presentation
                 .Build();
 
             // DrawBlob.AllInOneMats.Add(EnginePipes.DepthOnly.Hash);
-            DrawBlob.AllInOneMats.Add(EnginePipes.ShadowOffscreen.Hash);
+            DrawBlob.AllInOneMats.Add(EnginePipes.DepthOnly.Hash);
 
-            EnginePipes.ShadowOffscreen.PushConstants.SetPushConstantInt("faceCount", DepthIndex, 1);
-            EnginePipes.ShadowOffscreen.PushConstants.SetPushConstantInt("camera", DepthIndex, 1);
-            _depthMat = EnginePipes.ShadowOffscreen.Default();
+            EnginePipes.DepthOnly.PushConstants.SetPushConstantInt("layerCount", DepthIndex, 1);
+            EnginePipes.DepthOnly.PushConstants.SetPushConstantInt("bufferSelect", DepthIndex, 0);
+            _depthMat = EnginePipes.DepthOnly.Default();
         }
 
         public override void OnPrePresent(EntityManager entityManager)
@@ -61,10 +61,10 @@ namespace VECS.ECS.Presentation
             uint totalMats = 1 + ((uint)frameInfo.LightingInfo.NumPointLights * 6u ) + (uint)frameInfo.LightingInfo.NumSpotLights;
             uint totalLights = 1 + (uint)frameInfo.LightingInfo.NumPointLights + (uint)frameInfo.LightingInfo.NumSpotLights;
 
-            EnginePipes.ShadowOffscreen.SetDescriptorStorageBufferLengthFromProperty(PointLightShadows.matsPropertyId, totalMats);
-            EnginePipes.ShadowOffscreen.SetDescriptorStorageBufferLengthFromProperty(PointLightShadows.lightInfoPropertyId, totalLights);
-            EnginePipes.ShadowOffscreen.GetStorageSwapChainBuffer(PointLightShadows.matsPropertyId).SetBuffersDirty(true);
-            EnginePipes.ShadowOffscreen.GetStorageSwapChainBuffer(PointLightShadows.lightInfoPropertyId).SetBuffersDirty(true);
+            EnginePipes.DepthOnly.SetDescriptorStorageBufferLengthFromProperty(PointLightShadows.matsPropertyId, totalMats);
+            EnginePipes.DepthOnly.SetDescriptorStorageBufferLengthFromProperty(PointLightShadows.lightInfoPropertyId, totalLights);
+            EnginePipes.DepthOnly.GetStorageSwapChainBuffer(PointLightShadows.matsPropertyId).SetBuffersDirty(true);
+            EnginePipes.DepthOnly.GetStorageSwapChainBuffer(PointLightShadows.lightInfoPropertyId).SetBuffersDirty(true);
         }
 
         public unsafe override void OnPreOpaquePass(EntityManager entityManager, RendererFrameInfo frameInfo)
@@ -77,7 +77,7 @@ namespace VECS.ECS.Presentation
 
                 return;
             }
-            EnginePipes.ShadowOffscreen.PushConstants.SetPushConstantInt("matrixOffset", DepthIndex, frameInfo.MainCamera);
+            EnginePipes.DepthOnly.PushConstants.SetPushConstantInt("matrixOffset", DepthIndex, frameInfo.MainCamera);
 
             var depthBufferCullInfo = frameInfo.CullData;
             depthBufferCullInfo.depthCulling = 0;
