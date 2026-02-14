@@ -4,15 +4,6 @@ layout (location = 1) in vec2 UV;
 layout (location = 2) in flat int lightIndex;
 layout(depth_less) out float gl_FragDepth;
 
-layout(set = 0, binding = 1) readonly buffer InstanceInfo {
-    int matrixStartIndex;
-    int layerOffset;
-    int layerCount;
-    int bufferSelect;
-    int useLightPos;
-    int lightIndex;
-} instanceInfo;
-
 layout(std140, set = 2, binding = 0) readonly buffer PointLights{
     vec4 values[];
 } pointLights;
@@ -27,6 +18,15 @@ layout(set = 2, binding = 3) uniform TexProps{
     float alphaThreshold;
     float alphaTiling;
 } alphaProps;
+
+layout(push_constant) uniform InstanceInfo {
+    int matrixStartIndex;
+    int layerOffset;
+    int layerCount;
+    int bufferSelect;
+    int useLightPos;
+    int lightIndex;
+} instanceInfo;
 
 vec4 getPosition(int bufferSelect, int bufferOffset) {
     switch(bufferSelect){

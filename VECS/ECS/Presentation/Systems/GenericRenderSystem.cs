@@ -6,7 +6,7 @@ namespace VECS.ECS.Presentation
 {
     public class GenericRenderSystem : PresentationSystemBase
     {
-        const int DepthIndex = Presenter.MAX_POINT_LIGHTS + Presenter.MAX_POINT_LIGHTS + 1;
+        const int DEPTH_ONLY_PUSH_CONSTANT_INDEX = 0;
         private EntityQuery _renderEntityQuery;
 
         private Material _depthMat;
@@ -21,8 +21,8 @@ namespace VECS.ECS.Presentation
             // DrawBlob.AllInOneMats.Add(EnginePipes.DepthOnly.Hash);
             DrawBlob.AllInOneMats.Add(EnginePipes.DepthOnly.Hash);
 
-            EnginePipes.DepthOnly.PushConstants.SetPushConstantInt("layerCount", DepthIndex, 1);
-            EnginePipes.DepthOnly.PushConstants.SetPushConstantInt("bufferSelect", DepthIndex, 0);
+            EnginePipes.DepthOnly.PushConstants.SetPushConstantInt("layerCount", DEPTH_ONLY_PUSH_CONSTANT_INDEX, 1);
+            EnginePipes.DepthOnly.PushConstants.SetPushConstantInt("bufferSelect", DEPTH_ONLY_PUSH_CONSTANT_INDEX, 0);
             _depthMat = EnginePipes.DepthOnly.Default();
         }
 
@@ -58,13 +58,11 @@ namespace VECS.ECS.Presentation
             
             Presenter.Instance.DirShadows.DirectionalShadowPass(frameInfo);
 
-            uint totalMats = 1 + ((uint)frameInfo.LightingInfo.NumPointLights * 6u ) + (uint)frameInfo.LightingInfo.NumSpotLights;
-            uint totalLights = 1 + (uint)frameInfo.LightingInfo.NumPointLights + (uint)frameInfo.LightingInfo.NumSpotLights;
+            // uint totalMats = 1 + ((uint)frameInfo.LightingInfo.NumPointLights * 6u ) + (uint)frameInfo.LightingInfo.NumSpotLights;
+            // uint totalLights = 1 + (uint)frameInfo.LightingInfo.NumPointLights + (uint)frameInfo.LightingInfo.NumSpotLights;
 
-            EnginePipes.DepthOnly.SetDescriptorStorageBufferLengthFromProperty(PointLightShadows.matsPropertyId, totalMats);
-            EnginePipes.DepthOnly.SetDescriptorStorageBufferLengthFromProperty(PointLightShadows.lightInfoPropertyId, totalLights);
-            EnginePipes.DepthOnly.GetStorageSwapChainBuffer(PointLightShadows.matsPropertyId).SetBuffersDirty(true);
-            EnginePipes.DepthOnly.GetStorageSwapChainBuffer(PointLightShadows.lightInfoPropertyId).SetBuffersDirty(true);
+            // EnginePipes.DepthOnly.SetDescriptorStorageBufferLengthFromProperty(PointLightShadows.matsPropertyId, totalMats);
+            // EnginePipes.DepthOnly.SetDescriptorStorageBufferLengthFromProperty(PointLightShadows.lightInfoPropertyId, totalLights);
         }
 
         public unsafe override void OnPreOpaquePass(EntityManager entityManager, RendererFrameInfo frameInfo)
@@ -77,7 +75,7 @@ namespace VECS.ECS.Presentation
 
                 return;
             }
-            EnginePipes.DepthOnly.PushConstants.SetPushConstantInt("matrixOffset", DepthIndex, frameInfo.MainCamera);
+            EnginePipes.DepthOnly.PushConstants.SetPushConstantInt("matrixStartIndex", DEPTH_ONLY_PUSH_CONSTANT_INDEX, frameInfo.MainCamera);
 
             var depthBufferCullInfo = frameInfo.CullData;
             depthBufferCullInfo.depthCulling = 0;
@@ -88,7 +86,7 @@ namespace VECS.ECS.Presentation
             Presenter.Instance.ForwardRenderer.BeginForwardDepthOnlyRendering(commandBuffer,VkAttachmentLoadOp.Clear);
 
             // DrawBlob.ExecuteAllInOneOpaqueDrawCmds(frameInfo, commandBuffer, _depthMat.Hash, DepthIndex);
-            DrawBlob.ExecutateDepthOnly(frameInfo, commandBuffer, DepthIndex);
+            DrawBlob.ExecutateDepthOnly(frameInfo, commandBuffer, DEPTH_ONLY_PUSH_CONSTANT_INDEX);
 
             Presenter.Instance.ForwardRenderer.EndForwardDepthOnlyRendering(commandBuffer);
 

@@ -31,12 +31,15 @@ struct SpotLight{
 
 struct DirectionalLight{
     vec4 direction;
+    
+    vec4 cascadeSplits;
 
     vec4 ambient;
     vec4 diffuse;
     vec4 specular;
 
-    mat4 lightSpace;
+    mat4 lightSpace[4];
+    int cascadeCount;
 };
 
 vec3 CalcDirLight(DirectionalLight light, vec3 normal, vec3 viewDir, float shininess, float shadow, vec3 ambientCol, vec3 diffuseCol, vec3 specularCol){

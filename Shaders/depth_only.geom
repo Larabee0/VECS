@@ -9,16 +9,6 @@ layout(location = 0) in vec2 gs_in_uv[];
 layout(location = 1) out vec2 gs_out_uv;
 layout(location = 2) out int gs_out_lightIndex;
 
-
-layout(set = 0, binding = 1) readonly buffer InstanceInfo {
-    int matrixStartIndex;
-    int layerOffset;
-    int layerCount;
-    int bufferSelect;
-    int useLightPos;
-    int lightIndex;
-} instanceInfo;
-
 layout(std140, set = 1, binding = 0) readonly buffer CameraInfos {
 	CameraInfo values[];
 } cameraInfo;
@@ -35,10 +25,19 @@ layout(std140, set = 1, binding = 3) readonly buffer SpotShadowMats{
     mat4 value[];
 } spotShadows;
 
+layout(push_constant) uniform InstanceInfo {
+    int matrixStartIndex;
+    int layerOffset;
+    int layerCount;
+    int bufferSelect;
+    int useLightPos;
+    int lightIndex;
+} instanceInfo;
+
 mat4 getTransform(int bufferSelect, int bufferOffset, int face) {
     switch(bufferSelect){
         case 0:
-            return cameraInfo.values[bufferOffset].projectionViewMatrix ;
+            return cameraInfo.values[bufferOffset].projectionViewMatrix;
         case 1:
             return directionalShadows.value[bufferOffset + face];
         case 2:

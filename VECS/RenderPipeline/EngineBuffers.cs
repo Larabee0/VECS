@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Net.Http.Headers;
 using System.Numerics;
 using VECS.ECS;
 using VECS.ECS.Presentation;
@@ -146,8 +147,14 @@ namespace VECS
             if (dirLights != null && dirLights.Count > 0)
             {
                 lightingInfo = new(entityManager.GetComponent<DirectionalLight>(dirLights[0]), 0, 0);
+                if(entityManager.SingletonEntity<MainCamera>(out Entity mainCameraEntity))
+                {
 
-                lightingInfo.DirectionalLight.lightSpace = DirectionalLightShadows.GetSpaceMatrix(lightingInfo, out _, out _, out _, out _, out _);
+                    Camera camera = entityManager.GetComponent<Camera>(mainCameraEntity);
+
+                    lightingInfo.DirectionalLight = DirectionalLightShadows.GetDirectionalLight(lightingInfo.DirectionalLight, new(camera), new(camera), new(camera.ProjectionMatrix, camera.ClipNear, camera.ClipFar, 0));
+                }
+                
             }
             else
             {
@@ -157,7 +164,12 @@ namespace VECS
                     {
                         Ambient = Vector4.One,
                         Direction = new(0, -1, 0, 0),
-                        lightSpace = Matrix4x4.Identity
+                        CascadeSplits = Vector4.Zero,
+                        LightSpaceA = Matrix4x4.Identity,
+                        LightSpaceB = Matrix4x4.Identity,
+                        LightSpaceC = Matrix4x4.Identity,
+                        LightSpaceD = Matrix4x4.Identity,
+                        CascadeCount = 0
                     }
                 };
             }

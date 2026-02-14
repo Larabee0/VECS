@@ -8,6 +8,7 @@ namespace VECS
 {
     public class SpotLightShadows
     {
+        const int SPOT_SHADOWS_PUSH_CONSTANT_INDEX = 3;
         public const int DIRECTIONAL_SHADOW_RESOLTION = 1024;
         public const bool SHADOW_CULLING = false;
         public const bool SHADOW_DST_CULLING = false;
@@ -45,8 +46,11 @@ namespace VECS
 
             _shadowDepthImage.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.LateFragmentTests, VkPipelineStageFlags2.FragmentShader);
 
-            _slDepthOnly = EnginePipes.DepthOnly.Create("SL_DepthOnly");
+            _slDepthOnly = EnginePipes.DepthOnly.Default();
             _matHash = _slDepthOnly.Hash;
+            _slDepthOnly.PushConstants.SetPushConstantInt("layerCount", SPOT_SHADOWS_PUSH_CONSTANT_INDEX, 1);
+            _slDepthOnly.PushConstants.SetPushConstantInt("useLightPos", SPOT_SHADOWS_PUSH_CONSTANT_INDEX, 1);
+            _slDepthOnly.PushConstants.SetPushConstantInt("bufferSelect", SPOT_SHADOWS_PUSH_CONSTANT_INDEX, 3);
         }
 
         public void AssignDirShadowTexture()
@@ -104,12 +108,7 @@ namespace VECS
                 lights.UnsafeSet(lightIndex, new Vector4(spotLight.Position.AsVector3(), spotLight.Range));
 
                 //World.DefaultWorld.GetSystem<DebugDrawUtilities>().DrawLine(spotLight.Position.AsVector3(), spotLight.Position.AsVector3() + (spotLight.Direction.AsVector3() * spotLight.Range), Colour.Blue);
-                _slDepthOnly.PushConstants.SetPushConstantInt("matrixStartIndex", lightIndex, faceIndex);
-                _slDepthOnly.PushConstants.SetPushConstantInt("matrixStartIndex", lightIndex, 3);
-                _slDepthOnly.PushConstants.SetPushConstantInt("layerOffset", lightIndex, i);
-                _slDepthOnly.PushConstants.SetPushConstantInt("layerCount", lightIndex, 1);
-                _slDepthOnly.PushConstants.SetPushConstantInt("lightIndex", lightIndex, lightIndex);
-                _slDepthOnly.PushConstants.SetPushConstantInt("useLightPos", lightIndex, 1);
+                
             }
 
             _shadowDepthImage.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.DepthAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.EarlyFragmentTests);
@@ -137,8 +136,10 @@ namespace VECS
 
             for (int i = 0; i < frameInfo.LightingInfo.NumSpotLights; i++)
             {
-                int lightIndex = 1 + i + frameInfo.LightingInfo.NumPointLights;
-                DrawBlob.ExecuteAllInOneOpaqueDrawCmds(frameInfo, frameInfo.CommandBuffer, _matHash, lightIndex);
+                _slDepthOnly.PushConstants.SetPushConstantInt("matrixStartIndex", SPOT_SHADOWS_PUSH_CONSTANT_INDEX, i);
+                _slDepthOnly.PushConstants.SetPushConstantInt("layerOffset", SPOT_SHADOWS_PUSH_CONSTANT_INDEX, i);
+                _slDepthOnly.PushConstants.SetPushConstantInt("lightIndex", SPOT_SHADOWS_PUSH_CONSTANT_INDEX, i);
+                DrawBlob.ExecuteAllInOneOpaqueDrawCmds(frameInfo, frameInfo.CommandBuffer, _matHash, SPOT_SHADOWS_PUSH_CONSTANT_INDEX);
             }
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
 

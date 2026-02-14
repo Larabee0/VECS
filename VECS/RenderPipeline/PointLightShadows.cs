@@ -7,6 +7,7 @@ namespace VECS
 {
     public sealed class PointLightShadows
     {
+        const int POINT_SHADOWS_PUSH_CONSTANT_INDEX = 2;
         public const int POINT_SHADOW_IMAGE_SIZE = 1024;
         public const VkFormat SHADOW_FORMAT = VkFormat.D32Sfloat;
         public const bool SHADOW_CULLING = false;
@@ -37,8 +38,11 @@ namespace VECS
 
             DepthImages.SetImageLayout(VkImageLayout.DepthStencilAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.EarlyFragmentTests);
 
-            _plDepthOnly = EnginePipes.DepthOnly.Create("PL_DepthOnly");
+            _plDepthOnly = EnginePipes.DepthOnly.Default();
             _matHash = _plDepthOnly.Hash;
+            _plDepthOnly.PushConstants.SetPushConstantInt("layerCount", POINT_SHADOWS_PUSH_CONSTANT_INDEX, 6);
+            _plDepthOnly.PushConstants.SetPushConstantInt("useLightPos", POINT_SHADOWS_PUSH_CONSTANT_INDEX, 1);
+            _plDepthOnly.PushConstants.SetPushConstantInt("bufferSelect", POINT_SHADOWS_PUSH_CONSTANT_INDEX, 2);
         }
 
         public void AssignDirShadowTexture()
@@ -86,18 +90,6 @@ namespace VECS
             FillViewMatrices(frameInfo, _plDepthOnly.GetStorageSwapChainBuffer(matsPropertyId));
             FillLightInfo(frameInfo, _plDepthOnly.GetStorageSwapChainBuffer(lightInfoPropertyId));
 
-
-            for (int i = 0; i < frameInfo.LightingInfo.NumPointLights; i++)
-            {
-                int lightIndex = 1 + i;
-                _plDepthOnly.PushConstants.SetPushConstantInt("matrixStartIndex", lightIndex, 1 + (i * 6));
-                _plDepthOnly.PushConstants.SetPushConstantInt("bufferSelect", lightIndex, 2);
-                _plDepthOnly.PushConstants.SetPushConstantInt("layerOffset", lightIndex, i * 6);
-                _plDepthOnly.PushConstants.SetPushConstantInt("layerCount", lightIndex, 6);
-                _plDepthOnly.PushConstants.SetPushConstantInt("lightIndex", lightIndex, lightIndex);
-                _plDepthOnly.PushConstants.SetPushConstantInt("useLightPos", lightIndex, 1);
-            }
-
             SetImageLayoutWrite(frameInfo.CommandBuffer);
             
             CullData cullDataInternal = new(
@@ -117,7 +109,10 @@ namespace VECS
             UpdateCube(frameInfo.CommandBuffer, (uint)frameInfo.LightingInfo.NumPointLights);
             for (int i = 0; i < frameInfo.LightingInfo.NumPointLights; i++)
             {
-                DrawBlob.ExecuteAllInOneOpaqueDrawCmds(frameInfo, frameInfo.CommandBuffer, _matHash, 1 + i);
+                _plDepthOnly.PushConstants.SetPushConstantInt("matrixStartIndex", POINT_SHADOWS_PUSH_CONSTANT_INDEX, (i * 6));
+                _plDepthOnly.PushConstants.SetPushConstantInt("layerOffset", POINT_SHADOWS_PUSH_CONSTANT_INDEX, i * 6);
+                _plDepthOnly.PushConstants.SetPushConstantInt("lightIndex", POINT_SHADOWS_PUSH_CONSTANT_INDEX, i);
+                DrawBlob.ExecuteAllInOneOpaqueDrawCmds(frameInfo, frameInfo.CommandBuffer, _matHash, POINT_SHADOWS_PUSH_CONSTANT_INDEX);
             }
             EndShadowPass(frameInfo.CommandBuffer);
 

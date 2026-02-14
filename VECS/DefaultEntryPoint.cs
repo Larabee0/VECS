@@ -13,14 +13,14 @@ namespace VECS
     internal static class DefaultEntryPoint
     {
 
-        private static Vector3 initalCameraPos = new(-13, 1.5f, 0);
-        private static Vector3 initalCameraRot = TransformExtensions.DegreesToRadians(new(0, 90, 0));
+        private static Vector3 initalCameraPos = new(-0.12f, 1.14f, -2.25f);
+        private static Vector3 initalCameraRot = TransformExtensions.DegreesToRadians(new (17.0f, 7.0f, 0.0f));// TransformExtensions.DegreesToRadians(new(0, 90, 0));
 
         private static CameraPerspective cameraPerspective = new()
         {
-            FOV = 60,
-            ClipNear = 0.3f,
-            ClipFar = 1000f,
+            FOV = 45,
+            ClipNear = 0.5f,
+            ClipFar = 500f,
             fustrumCulling = true
         };
 

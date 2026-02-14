@@ -9,8 +9,6 @@ namespace VECS
     {
 
         public readonly static GraphicsPipeline LitTexture;
-        // public readonly static GraphicsPipeline DepthOnly;
-        // public readonly static GraphicsPipeline DepthOnlyAlphaClipping;
         public readonly static GraphicsPipeline UnlitMeshShader;
         public readonly static GraphicsPipeline UnlitTransparent;
         public readonly static GraphicsPipeline Unlit;

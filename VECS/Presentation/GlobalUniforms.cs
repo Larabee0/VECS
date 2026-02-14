@@ -1,4 +1,6 @@
-﻿using System.Numerics;
+﻿using System;
+using System.Collections;
+using System.Numerics;
 using System.Runtime.InteropServices;
 using VECS.ECS.Presentation;
 using VECS.ECS.Transforms;
@@ -82,7 +84,7 @@ namespace VECS
     }
     
 
-    [StructLayout(LayoutKind.Sequential, Size = 144)]
+    [StructLayout(LayoutKind.Sequential, Size = 364)]
     public struct LightingInfo
     {
         public DirectionalLightInfo DirectionalLight;
@@ -98,16 +100,59 @@ namespace VECS
         }
     }
 
-    [StructLayout(LayoutKind.Sequential, Size = 128)]
+    [StructLayout(LayoutKind.Sequential, Size = 356)]
     public struct DirectionalLightInfo
     {
         public Vector4 Direction;
+
+        public Vector4 CascadeSplits;
 
         public Vector4 Ambient;
         public Vector4 Diffuse;
         public Vector4 Specular;
 
-        public Matrix4x4 lightSpace;
+        public Matrix4x4 LightSpaceA;
+        public Matrix4x4 LightSpaceB;
+        public Matrix4x4 LightSpaceC;
+        public Matrix4x4 LightSpaceD;
+
+        public int CascadeCount;
+
+
+        public Matrix4x4 this[int index]
+        {
+            readonly get
+            {
+                return index switch
+                {
+                    0 => LightSpaceA,
+                    1 => LightSpaceB,
+                    2 => LightSpaceC,
+                    3 => LightSpaceD,
+                    _ => throw new IndexOutOfRangeException()
+                };
+            }
+            set
+            {
+                switch (index)
+                {
+                    case 0:
+                        LightSpaceA = value;
+                        break;
+                    case 1:
+                        LightSpaceB = value;
+                        break;
+                    case 2:
+                        LightSpaceC = value;
+                        break;
+                    case 3:
+                        LightSpaceD = value;
+                        break;
+                    default:
+                        throw new IndexOutOfRangeException();
+                }
+            }
+        }
     }
 
     [StructLayout(LayoutKind.Sequential, Size = 80)]

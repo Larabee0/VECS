@@ -6,7 +6,7 @@
 layout (location = 0) in vec3 fragPosWorld;
 layout (location = 1) in vec3 fragNormalWorld;
 layout (location = 2) in vec2 fragUV;
-layout (location = 3) in vec4 fragPosDirLight;
+layout (location = 3) in vec3 fragViewPos;
 layout (location = 4) in mat3 TBN;
 
 layout (location = 0) out vec4 outColour;
@@ -50,7 +50,7 @@ layout(set = 1, binding = 3) uniform TexPorps {
 	float shininess;
 } texProps;
 
-layout(set = 1, binding = 4) uniform sampler2D dirShadow;
+layout(set = 1, binding = 4) uniform sampler2DArray dirShadow;
 layout(set = 1, binding = 5) uniform samplerCubeArray plShadow;
 layout(set = 1, binding = 6) uniform sampler2DArray slShadow;
 
@@ -60,38 +60,65 @@ layout(push_constant) uniform Constants{
 	uint cameraIndex;
 } constants;
 
-float ShadowDirCalculation(vec4 fragPosLight, vec2 off){
+#define ambient 0.3
+
+float textureProj(vec4 shadowCoord, vec2 offset, uint cascadeIndex)
+{
 	float shadow = 1.0;
-	
-	if(fragPosLight.z > -1.0 && fragPosLight.z < 1.0){
-		float dist = texture(dirShadow,fragPosLight.st+off).r;
-		float bias = 0.0035;
-		if(fragPosLight.w > 0.0 && dist < fragPosLight.z-bias){
-			shadow = 0.0;
+	float bias = 0.005;
+
+	if ( shadowCoord.z > -1.0 && shadowCoord.z < 1.0 ) {
+		float dist = texture(dirShadow, vec3(shadowCoord.st + offset, cascadeIndex)).r;
+		if (shadowCoord.w > 0 && dist < shadowCoord.z - bias) {
+			shadow = ambient;
 		}
 	}
-
 	return shadow;
+
 }
 
-float FilterDirPCF(vec4 sc){
-	ivec2 texDim = textureSize(dirShadow, 0);
-	float scale = 1.5;
+float filterPCF(vec4 sc, uint cascadeIndex)
+{
+	ivec2 texDim = textureSize(dirShadow, 0).xy;
+	float scale = 0.75;
 	float dx = scale * 1.0 / float(texDim.x);
 	float dy = scale * 1.0 / float(texDim.y);
 
 	float shadowFactor = 0.0;
 	int count = 0;
 	int range = 1;
-
-	for(int x = -range; x <= range; x++){
-		for(int y = -range; y <= range; y++){
-			shadowFactor += ShadowDirCalculation(sc,vec2(dx * x, dy * y));
+	
+	for (int x = -range; x <= range; x++) {
+		for (int y = -range; y <= range; y++) {
+			shadowFactor += textureProj(sc, vec2(dx*x, dy*y), cascadeIndex);
 			count++;
 		}
 	}
-
-	return (shadowFactor / count);
+	return shadowFactor / count;
+}
+const mat4 biasMat = mat4( 
+	0.5, 0.0, 0.0, 0.0,
+	0.0, 0.5, 0.0, 0.0,
+	0.0, 0.0, 1.0, 0.0,
+	0.5, 0.5, 0.0, 1.0 
+);
+float DirShadows(DirectionalLight directionalLight, out int cascadeIndex  ){
+	cascadeIndex = 0;
+	vec3 inViewPos =( cameraInfo.values[constants.cameraIndex].viewMatrix * vec4(fragPosWorld,0.0)).xyz;
+	for(int i = 0; i < directionalLight.cascadeCount - 1; ++i) {
+		if(fragViewPos.z < directionalLight.cascadeSplits[i]) {	
+			cascadeIndex = i + 1;
+		}
+	}
+	vec4 shadowCoord = (biasMat * directionalLight.lightSpace[cascadeIndex]) * vec4(fragPosWorld, 1.0);
+	
+	float shadow = 0;
+	if (0 == 1) {
+		shadow = filterPCF(shadowCoord / shadowCoord.w, cascadeIndex);
+	} else {
+		shadow = textureProj(shadowCoord / shadowCoord.w, vec2(0.0), cascadeIndex);
+	}
+	return shadow;
 }
 
 const vec3 sampleOffsetDirections[20] = vec3[]
@@ -146,7 +173,8 @@ void main()
 	vec3 cameraPosWorld = cameraInverse.values[constants.cameraIndex].inverseViewMatrix[3].xyz;
 	vec3 normal = normalize(fragNormalWorld);
 	vec3 viewDir = normalize(cameraPosWorld - fragPosWorld);
-	float shadow = FilterDirPCF(fragPosDirLight / fragPosDirLight.w);
+	int cascadeIndex = 0;
+	float shadow = DirShadows(lighting.directionalLight, cascadeIndex);
 	
 	vec3 texNormal = TBN * normalize(texture(normalSampler, fragUV).rgb * 2.0 - vec3(1.0));
 	if(dot(texNormal, texNormal) > 0){
@@ -195,4 +223,21 @@ void main()
 	// 	outColour = vec4(0,0,0,1);
 	// }
 	// outColour = vec4(vec3(shadow), 1.0);
+
+	// outColour = diff;
+
+	// switch(cascadeIndex) {
+	// 		case 0 : 
+	// 			outColour.rgb *= vec3(1.0f, 0.25f, 0.25f);
+	// 			break;
+	// 		case 1 : 
+	// 			outColour.rgb *= vec3(0.25f, 1.0f, 0.25f);
+	// 			break;
+	// 		case 2 : 
+	// 			outColour.rgb *= vec3(0.25f, 0.25f, 1.0f);
+	// 			break;
+	// 		case 3 : 
+	// 			outColour.rgb *= vec3(1.0f, 1.0f, 0.25f);
+	// 			break;
+	// 	}
 }
