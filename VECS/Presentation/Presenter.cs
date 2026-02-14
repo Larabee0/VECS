@@ -208,6 +208,11 @@ namespace VECS
 
         public void Present()
         {
+            if (InputManager.Instance.GetKeyUp(SDL3.SDL_Keycode.F10))
+            {
+                SwapChain.PresentMode = SwapChain.PresentMode == VkPresentModeKHR.Immediate ? VkPresentModeKHR.Mailbox : VkPresentModeKHR.Immediate;
+                _swapChain.RecreateSwapChain = true;
+            }
             // acquire swapchain image
             _isFrameStarted = BeginFrame();
             World.DefaultWorld.OnPrePresent();

@@ -12,7 +12,7 @@ namespace VECS.LowLevel
 
         public static int MAX_CONCURRENT_FRAMES => 2;
         public static uint MAX_CONCURRENT_FRAMES_UINT => (uint)MAX_CONCURRENT_FRAMES;
-
+        public static VkPresentModeKHR PresentMode = VkPresentModeKHR.Mailbox;
         internal static SwapChain Instance { get; set; }
         private static int _currentFrame = 0;
         private static uint _currentImage = 0;

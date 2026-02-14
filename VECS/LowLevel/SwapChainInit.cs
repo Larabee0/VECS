@@ -239,9 +239,9 @@ namespace VECS.LowLevel
             for (int i = 0; i < presentModes.Length; i++)
             {
                 var availablePresentMode = presentModes[i];
-                if (availablePresentMode == VkPresentModeKHR.Immediate)
+                if (availablePresentMode == SwapChain.PresentMode)
                 {
-                    Console.WriteLine("Present mode: Immediate");
+                    Console.WriteLine("Present mode: {0}", availablePresentMode.ToString());
                     return availablePresentMode;
                 }
             }
