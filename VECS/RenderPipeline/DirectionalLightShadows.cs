@@ -347,7 +347,8 @@ namespace VECS
 
             var sceneBounds = GetSceneBounds(null);
 
-            var height = sceneBounds.Max.Y - sceneBounds.Min.Y;
+            //var height = sceneBounds.Max.Y - sceneBounds.Min.Y;
+            var height = Vector3.Distance(sceneBounds.Min, sceneBounds.Max);
 
             Vector3[] frustumCorners = new Vector3[8];
             for (int i = 0; i < CASCADE_COUNT; i++)
@@ -381,24 +382,31 @@ namespace VECS
                 Vector3 maxExtents = new(radius);
                 Vector3 minExtents = -maxExtents;
 
-                float zMult = height;
-                if (minExtents.Z < 0)
+                if (MathF.Abs(maxExtents.Z - minExtents.Z) < height)
                 {
-                    minExtents.Z *= zMult;
-                }
-                else
-                {
-                    minExtents.Z /= zMult;
-                }
-                if (maxExtents.Z < 0)
-                {
-                    maxExtents.Z /= zMult;
-                }
-                else
-                {
-                    maxExtents.Z *= zMult;
-                }
+                    float range = MathF.Abs(maxExtents.Z - minExtents.Z);
 
+                    float diff = height - range;
+                    float half = diff * 0.5f;
+
+                    if (minExtents.Z < 0)
+                    {
+                        minExtents.Z -= half;
+                    }
+                    else
+                    {
+                        minExtents.Z += half;
+                    }
+                    if (maxExtents.Z < 0)
+                    {
+                        maxExtents.Z -= half;
+                    }
+                    else
+                    {
+                        maxExtents.Z += half;
+                    }
+                    range = MathF.Abs(maxExtents.Z - minExtents.Z);
+                }
                 Vector3 lightDir = frustumCenter - src.Direction.AsVector3() * -minExtents.Z;
                 
                 Matrix4x4 lightViewMatrix = Matrix4x4.CreateLookAt(lightDir, frustumCenter, new Vector3(0.0f, 1.0f, 0.0f));
