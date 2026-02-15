@@ -265,7 +265,7 @@ void main()
 
 		if(distance <= pl.farPlane){
 		    float plShadow = FilterPLPCF(fragPosWorld, cameraPosWorld, pl.position.xyz,pl.farPlane, i);
-			result += CalcPointLight(pl, normal, fragPosWorld, viewDir, shininess, plShadow, diffuseTextureColour, diffuseTextureColour, specularColour);
+			result += CalcPointLight(pl, normalize(fragNormalWorld), fragPosWorld, viewDir, shininess, plShadow, diffuseTextureColour, diffuseTextureColour, specularColour);
 			//result += vec3(plShadow);
 		}
 	}
@@ -278,7 +278,7 @@ void main()
 
 			vec3 lightDirection = normalize(sl.position - fragPosWorld);
 			float slShadow = ShadowSlCalculation(fragPosWorld, cameraPosWorld, sl, i);
-			result += CalcSpotLight(sl, normal, fragPosWorld, viewDir, shininess, slShadow, diffuseTextureColour, diffuseTextureColour, specularColour);
+			result += CalcSpotLight(sl, normalize(fragNormalWorld), fragPosWorld, viewDir, shininess, slShadow, diffuseTextureColour, diffuseTextureColour, specularColour);
 			//result = vec3(slShadow);
 		}
 	}

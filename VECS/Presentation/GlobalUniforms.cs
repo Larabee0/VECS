@@ -84,7 +84,7 @@ namespace VECS
     }
     
 
-    [StructLayout(LayoutKind.Sequential, Size = 364)]
+    [StructLayout(LayoutKind.Sequential, Size = 360)]
     public struct LightingInfo
     {
         public DirectionalLightInfo DirectionalLight;
@@ -100,7 +100,7 @@ namespace VECS
         }
     }
 
-    [StructLayout(LayoutKind.Sequential, Size = 356)]
+    [StructLayout(LayoutKind.Sequential, Size = 352)]
     public struct DirectionalLightInfo
     {
         public Vector4 Direction;
@@ -117,6 +117,9 @@ namespace VECS
         public Matrix4x4 LightSpaceD;
 
         public int CascadeCount;
+        public int _padA;
+        public int _padB;
+        public int _padC;
 
 
         public Matrix4x4 this[int index]

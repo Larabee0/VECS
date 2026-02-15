@@ -40,6 +40,9 @@ struct DirectionalLight{
 
     mat4 lightSpace[4];
     int cascadeCount;
+    int _padA;
+    int _padB;
+    int _padC;
 };
 
 vec3 CalcDirLight(DirectionalLight light, vec3 normal, vec3 viewDir, float shininess, float shadow, vec3 ambientCol, vec3 diffuseCol, vec3 specularCol){

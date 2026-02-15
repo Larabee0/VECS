@@ -60,7 +60,7 @@ namespace VECS
             {
                 var pl = pointLights[i];
                 var lightPos = pl.Position.AsVector3();
-                var offset = 1 + i * 6;
+                var offset = i * 6;
                 
                 Matrix4x4 CubeProjectionMatrix = Matrix4x4.CreatePerspectiveFieldOfView(MathF.PI * 0.5f, 1.0f, 0.1f, pl.FarPlane);
 
@@ -81,14 +81,18 @@ namespace VECS
                 var pl = pointLights[i];
                 var lightPos = pl.Position;
                 lightPos.W = pl.FarPlane;
-                lightInfo.UnsafeSet(i + 1, lightPos);
+                lightInfo.UnsafeSet(i, lightPos);
             }
         }
 
         public void PointLightShadowPass(in RendererFrameInfo frameInfo)
         {
-            FillViewMatrices(frameInfo, _plDepthOnly.GetStorageSwapChainBuffer(matsPropertyId));
-            FillLightInfo(frameInfo, _plDepthOnly.GetStorageSwapChainBuffer(lightInfoPropertyId));
+            EnginePipes.DepthOnly.SetDescriptorStorageBufferLengthFromProperty("pointShadows".GetShaderPropertyId(), (uint)frameInfo.LightingInfo.NumPointLights * 6u);
+            EnginePipes.DepthOnly.SetDescriptorStorageBufferLengthFromProperty("pointLights".GetShaderPropertyId(), (uint)frameInfo.LightingInfo.NumPointLights);
+            EnginePipes.DepthOnly.GetStorageSwapChainBuffer("pointShadows".GetShaderPropertyId()).SetBuffersDirty(true);
+            EnginePipes.DepthOnly.GetStorageSwapChainBuffer("pointLights".GetShaderPropertyId()).SetBuffersDirty(true);
+            FillViewMatrices(frameInfo, _plDepthOnly.GetStorageSwapChainBuffer("pointShadows".GetShaderPropertyId()));
+            FillLightInfo(frameInfo, _plDepthOnly.GetStorageSwapChainBuffer("pointLights".GetShaderPropertyId()));
 
             SetImageLayoutWrite(frameInfo.CommandBuffer);
             
@@ -109,10 +113,10 @@ namespace VECS
             UpdateCube(frameInfo.CommandBuffer, (uint)frameInfo.LightingInfo.NumPointLights);
             for (int i = 0; i < frameInfo.LightingInfo.NumPointLights; i++)
             {
-                _plDepthOnly.PushConstants.SetPushConstantInt("matrixStartIndex", POINT_SHADOWS_PUSH_CONSTANT_INDEX, (i * 6));
+                _plDepthOnly.PushConstants.SetPushConstantInt("matrixStartIndex", POINT_SHADOWS_PUSH_CONSTANT_INDEX, i * 6);
                 _plDepthOnly.PushConstants.SetPushConstantInt("layerOffset", POINT_SHADOWS_PUSH_CONSTANT_INDEX, i * 6);
                 _plDepthOnly.PushConstants.SetPushConstantInt("lightIndex", POINT_SHADOWS_PUSH_CONSTANT_INDEX, i);
-                DrawBlob.ExecuteAllInOneOpaqueDrawCmds(frameInfo, frameInfo.CommandBuffer, _matHash, POINT_SHADOWS_PUSH_CONSTANT_INDEX);
+                DrawBlob.ExecutateDepthOnly(frameInfo, frameInfo.CommandBuffer, POINT_SHADOWS_PUSH_CONSTANT_INDEX, VkCullModeFlags.Front);
             }
             EndShadowPass(frameInfo.CommandBuffer);
 

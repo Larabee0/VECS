@@ -63,8 +63,9 @@ namespace VECS
             entityManager.AddComponent(MainCamera, cameraPerspective);
             entityManager.AddComponent<MainCamera>(MainCamera);
             return;
+            var subMesh = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("UV-Sphere.obj"), null)[0];
             MainCamera = entityManager.CreateEntity();
-            entityManager.AddComponent(MainCamera, new Translation() { Value = initalCameraPos });
+            entityManager.AddComponent(MainCamera, new Translation() { Value = new Vector3(0,1,0) });
             entityManager.AddComponent(MainCamera, new Rotation() { Value = TransformExtensions.Euler(initalCameraRot) });
             entityManager.AddComponent(MainCamera, new SpotLight()
             {
@@ -80,6 +81,9 @@ namespace VECS
                 outerCutOff = MathF.Cos(TransformExtensions.Deg2Rad * 37.5f),
                 range = 25
             });
+            entityManager.AddComponent(MainCamera, new Scale() { Value = new Vector3(0.25f, 0.25f, 0.25f) });
+
+            AddRenderMeshComponents(MainCamera, EnginePipes.Unlit.Default(), 0, subMesh, entityManager, RenderLayer.Default | RenderLayer.NoShadow);
 
             //var secondCamera = entityManager.CreateEntity();
             //entityManager.AddComponent(secondCamera, new LocalToWorld() { Value = TransformExtensions.TRS(initalCameraPos, initalCameraRot, Vector3.One) });
@@ -109,7 +113,7 @@ namespace VECS
         {
             EntityManager entityManager = World.DefaultWorld.EntityManager;
 
-            PointLight(entityManager, new(10, 1, 0), new(1, 0, 0, 1));
+            PointLight(entityManager, new(2, 0.25f, 0), new(1, 0, 0, 1));
             //PointLight(entityManager, new(-10, 1, 0), new(1, 0, 0, 1));
 
             // PointLight(entityManager, new(8, 1, 0), new(0, 1, 0, 1));
@@ -128,7 +132,7 @@ namespace VECS
 
         private static void PointLight(EntityManager entityManager,Vector3 translation, Vector4 diffuse)
         {
-
+            var subMesh = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("UV-Sphere.obj"), null)[0];
             var pointLight = entityManager.CreateEntity();
 
             entityManager.AddComponent(pointLight, new Translation() { Value = translation });
@@ -144,6 +148,10 @@ namespace VECS
                 Quadratic = 0.017f,
                 Range = 25f
             });
+
+            entityManager.AddComponent(pointLight, new Scale() { Value = new Vector3(0.25f, 0.25f, 0.25f) });
+
+            AddRenderMeshComponents(pointLight,EnginePipes.Unlit.Default(), 0, subMesh, entityManager,RenderLayer.Default | RenderLayer.NoShadow);
         }
 
         private static void ShadowDebug()
@@ -375,7 +383,7 @@ namespace VECS
 
         }
 
-        public static void AddRenderMeshComponents(Entity entity, Material mat, int entityVariant, DirectSubMesh mesh, EntityManager entityManager)
+        public static void AddRenderMeshComponents(Entity entity, Material mat, int entityVariant, DirectSubMesh mesh, EntityManager entityManager, RenderLayer layerFlags = RenderLayer.Default)
         {
             entityManager.AddComponent<Translation>(entity);
             entityManager.AddComponent(entity, new RenderMesh()
@@ -388,6 +396,7 @@ namespace VECS
                     Variant = (int)mat.VariantIndex,
                     Entity = entityVariant
                 },
+                LayerFlags = layerFlags
             });
 
             entityManager.AddComponent(entity, mesh.GetSubMeshIndex());

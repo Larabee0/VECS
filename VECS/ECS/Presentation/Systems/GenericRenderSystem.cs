@@ -86,7 +86,7 @@ namespace VECS.ECS.Presentation
             Presenter.Instance.ForwardRenderer.BeginForwardDepthOnlyRendering(commandBuffer,VkAttachmentLoadOp.Clear);
 
             // DrawBlob.ExecuteAllInOneOpaqueDrawCmds(frameInfo, commandBuffer, _depthMat.Hash, DepthIndex);
-            DrawBlob.ExecutateDepthOnly(frameInfo, commandBuffer, DEPTH_ONLY_PUSH_CONSTANT_INDEX);
+            DrawBlob.ExecutateDepthOnly(frameInfo, commandBuffer, DEPTH_ONLY_PUSH_CONSTANT_INDEX,VkCullModeFlags.Back);
 
             Presenter.Instance.ForwardRenderer.EndForwardDepthOnlyRendering(commandBuffer);
 

@@ -95,14 +95,19 @@ namespace VECS
 
             DrawBlob.CullAllInOne(frameInfo, depthBufferCullInfo);
 
-            var mats = _slDepthOnly.GetStorageSwapChainBuffer(PointLightShadows.matsPropertyId);
-            var lights = _slDepthOnly.GetStorageSwapChainBuffer(PointLightShadows.lightInfoPropertyId);
-            var spotLights = ((SwapChainBuffer<SpotLightUniform>)EngineBuffers.TryGetBuffer(ShaderProperties.PointLightsBufferId)).HostBuffer;
+            EnginePipes.DepthOnly.SetDescriptorStorageBufferLengthFromProperty("spotShadows".GetShaderPropertyId(), (uint)frameInfo.LightingInfo.NumSpotLights);
+            EnginePipes.DepthOnly.SetDescriptorStorageBufferLengthFromProperty("spotLights".GetShaderPropertyId(), (uint)frameInfo.LightingInfo.NumSpotLights);
+            EnginePipes.DepthOnly.GetStorageSwapChainBuffer("spotShadows".GetShaderPropertyId()).SetBuffersDirty(true);
+            EnginePipes.DepthOnly.GetStorageSwapChainBuffer("spotLights".GetShaderPropertyId()).SetBuffersDirty(true);
+
+            var mats = _slDepthOnly.GetStorageSwapChainBuffer("spotShadows".GetShaderPropertyId());
+            var lights = _slDepthOnly.GetStorageSwapChainBuffer("spotLights".GetShaderPropertyId());
+            var spotLights = ((SwapChainBuffer<SpotLightUniform>)EngineBuffers.TryGetBuffer(ShaderProperties.SpotLightsBufferId)).HostBuffer;
             for (int i = 0; i < frameInfo.LightingInfo.NumSpotLights; i++)
             {
                 var spotLight = spotLights[i];
-                int lightIndex = 1 + i + frameInfo.LightingInfo.NumPointLights;
-                int faceIndex = 1 + (frameInfo.LightingInfo.NumPointLights * 6) + i;
+                int lightIndex = i;
+                int faceIndex = i;
                 
                 mats.UnsafeSet(faceIndex, GetSpaceMatrix(spotLight, out var _, out var _, out var _));
                 lights.UnsafeSet(lightIndex, new Vector4(spotLight.Position.AsVector3(), spotLight.Range));
@@ -139,7 +144,7 @@ namespace VECS
                 _slDepthOnly.PushConstants.SetPushConstantInt("matrixStartIndex", SPOT_SHADOWS_PUSH_CONSTANT_INDEX, i);
                 _slDepthOnly.PushConstants.SetPushConstantInt("layerOffset", SPOT_SHADOWS_PUSH_CONSTANT_INDEX, i);
                 _slDepthOnly.PushConstants.SetPushConstantInt("lightIndex", SPOT_SHADOWS_PUSH_CONSTANT_INDEX, i);
-                DrawBlob.ExecuteAllInOneOpaqueDrawCmds(frameInfo, frameInfo.CommandBuffer, _matHash, SPOT_SHADOWS_PUSH_CONSTANT_INDEX);
+                DrawBlob.ExecutateDepthOnly(frameInfo, frameInfo.CommandBuffer, SPOT_SHADOWS_PUSH_CONSTANT_INDEX, VkCullModeFlags.Front);
             }
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
 
