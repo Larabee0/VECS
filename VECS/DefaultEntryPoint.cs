@@ -20,7 +20,7 @@ namespace VECS
         {
             FOV = 45,
             ClipNear = 0.5f,
-            ClipFar = 500f,
+            ClipFar = 50f,
             fustrumCulling = true
         };
 
@@ -95,7 +95,7 @@ namespace VECS
             {
                 Value = new()
                 {
-                    Direction = new Vector4(0, -0.97f, 0.24f,0),
+                    Direction = new Vector4(Vector3.Normalize(new(-0.5f,-1, 0.0000000000025f)),0),
                     // Direction = new Vector4(0,-1,0,0),
 
                     Ambient = new(0.1f, 0.1f, 0.1f, 1f),

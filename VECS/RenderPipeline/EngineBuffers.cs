@@ -152,7 +152,7 @@ namespace VECS
 
                     Camera camera = entityManager.GetComponent<Camera>(mainCameraEntity);
 
-                    lightingInfo.DirectionalLight = DirectionalLightShadows.GetDirectionalLight(lightingInfo.DirectionalLight, new(camera), new(camera), new(camera.ProjectionMatrix, camera.ClipNear, camera.ClipFar, 0));
+                    lightingInfo.DirectionalLight = DirectionalLightShadows.GetDirectionalLight(lightingInfo.DirectionalLight, new(camera), new(camera.ProjectionMatrix, camera.ClipNear, camera.ClipFar, 0));
                 }
                 
             }

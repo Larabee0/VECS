@@ -60,12 +60,13 @@ layout(push_constant) uniform Constants{
 	uint cameraIndex;
 } constants;
 
-#define ambient 0.3
+#define ambient 0.03
 
-float textureProj(vec4 shadowCoord, vec2 offset, uint cascadeIndex)
+float textureProj(vec4 shadowCoord, vec2 offset, uint cascadeIndex, vec3 lightDir, vec3 normal)
 {
 	float shadow = 1.0;
-	float bias = 0.005;
+	float bias =  0.001;
+	//bias = max(0.05 * (1.0 - dot(normal, lightDir)), 0.005);
 
 	if ( shadowCoord.z > -1.0 && shadowCoord.z < 1.0 ) {
 		float dist = texture(dirShadow, vec3(shadowCoord.st + offset, cascadeIndex)).r;
@@ -77,7 +78,7 @@ float textureProj(vec4 shadowCoord, vec2 offset, uint cascadeIndex)
 
 }
 
-float filterPCF(vec4 sc, uint cascadeIndex)
+float filterPCF(vec4 sc, uint cascadeIndex, vec3 lightDir, vec3 normal)
 {
 	ivec2 texDim = textureSize(dirShadow, 0).xy;
 	float scale = 0.75;
@@ -90,7 +91,7 @@ float filterPCF(vec4 sc, uint cascadeIndex)
 	
 	for (int x = -range; x <= range; x++) {
 		for (int y = -range; y <= range; y++) {
-			shadowFactor += textureProj(sc, vec2(dx*x, dy*y), cascadeIndex);
+			shadowFactor += textureProj(sc, vec2(dx*x, dy*y), cascadeIndex,lightDir,normal);
 			count++;
 		}
 	}
@@ -102,7 +103,7 @@ const mat4 biasMat = mat4(
 	0.0, 0.0, 1.0, 0.0,
 	0.5, 0.5, 0.0, 1.0 
 );
-float DirShadows(DirectionalLight directionalLight, out int cascadeIndex  ){
+float DirShadows(DirectionalLight directionalLight, vec3 normal, out int cascadeIndex  ){
 	cascadeIndex = 0;
 	vec3 inViewPos =( cameraInfo.values[constants.cameraIndex].viewMatrix * vec4(fragPosWorld,0.0)).xyz;
 	for(int i = 0; i < directionalLight.cascadeCount - 1; ++i) {
@@ -113,11 +114,79 @@ float DirShadows(DirectionalLight directionalLight, out int cascadeIndex  ){
 	vec4 shadowCoord = (biasMat * directionalLight.lightSpace[cascadeIndex]) * vec4(fragPosWorld, 1.0);
 	
 	float shadow = 0;
-	if (0 == 1) {
-		shadow = filterPCF(shadowCoord / shadowCoord.w, cascadeIndex);
+	if (1 == 1) {
+		shadow = filterPCF(shadowCoord / shadowCoord.w, cascadeIndex, directionalLight.direction.xyz, normal);
 	} else {
-		shadow = textureProj(shadowCoord / shadowCoord.w, vec2(0.0), cascadeIndex);
+		shadow = textureProj(shadowCoord / shadowCoord.w, vec2(0.0), cascadeIndex, directionalLight.direction.xyz, normal);
 	}
+	return shadow;
+}
+
+
+float DirShadowsGL(DirectionalLight directionalLight, vec3 normal, out int layer){
+	vec4 fragPosViewSpace  =( cameraInfo.values[constants.cameraIndex].viewMatrix * vec4(fragPosWorld,1.0));
+	float depthValue = abs(fragPosViewSpace.z);
+	
+	layer = -1;
+	for (int i = 0; i <  directionalLight.cascadeCount; ++i)
+	{
+	    if (depthValue < directionalLight.cascadeSplits[i])
+	    {
+	        layer = i;
+	        break;
+	    }
+	}
+	if (layer == -1)
+	{
+	    layer = directionalLight.cascadeCount;
+	}
+	
+	vec4 fragPosLightSpace = directionalLight.lightSpace[layer] * vec4(fragPosWorld, 1.0);
+
+	// perform perspective divide
+	vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+	// transform to [0,1] range
+	projCoords = projCoords * 0.5 + 0.5;
+	
+	// get depth of current fragment from light's perspective
+	float currentDepth = projCoords.z;
+	if (currentDepth  > 1.0)
+	{
+	    return 0.0;
+	}
+	// calculate bias (based on depth map resolution and slope)
+	float bias = max(0.05 * (1.0 - dot(normal, directionalLight.direction.xyz)), 0.005);
+	if (layer == directionalLight.cascadeCount)
+	{
+	    bias *= 1 / ( cameraPlanes.values[constants.cameraIndex].farPlane * 0.5f);
+	}
+	else
+	{
+	    bias *= 1 / (directionalLight.cascadeSplits[layer] * 0.5f);
+	}
+	// PCF
+	float shadow = 0.0;
+	vec2 texelSize = 1.0 / vec2(textureSize(dirShadow, 0));
+	for(int x = -1; x <= 1; ++x)
+	{
+	    for(int y = -1; y <= 1; ++y)
+	    {
+	        float pcfDepth = texture(
+	                    dirShadow,
+	                    vec3(projCoords.xy + vec2(x, y) * texelSize,
+	                    layer)
+	                    ).r; 
+	        shadow += (currentDepth - bias) > pcfDepth ? 1.0 : 0.0;        
+	    }    
+	}
+	shadow /= 9.0;
+	
+	// keep the shadow at 0.0 when outside the far_plane region of the light's frustum.
+	if(projCoords.z > 1.0)
+	{
+	    shadow = 0.0;
+	}
+	
 	return shadow;
 }
 
@@ -174,7 +243,8 @@ void main()
 	vec3 normal = normalize(fragNormalWorld);
 	vec3 viewDir = normalize(cameraPosWorld - fragPosWorld);
 	int cascadeIndex = 0;
-	float shadow = DirShadows(lighting.directionalLight, cascadeIndex);
+	float shadow = DirShadows(lighting.directionalLight, normal, cascadeIndex);
+	//float shadow = DirShadowsGL(lighting.directionalLight, normal, cascadeIndex);
 	
 	vec3 texNormal = TBN * normalize(texture(normalSampler, fragUV).rgb * 2.0 - vec3(1.0));
 	if(dot(texNormal, texNormal) > 0){

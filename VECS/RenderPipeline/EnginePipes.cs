@@ -43,9 +43,9 @@ namespace VECS
             shadowConfig.depthStencilInfo.depthWriteEnable = true;
             shadowConfig.depthStencilInfo.depthCompareOp = VkCompareOp.LessOrEqual;
             shadowConfig.rasterizationInfo.cullMode = VkCullModeFlags.None;
-            shadowConfig.rasterizationInfo.depthBiasEnable = false;
-            shadowConfig.rasterizationInfo.depthBiasConstantFactor = 1.25f;
-            shadowConfig.rasterizationInfo.depthBiasSlopeFactor = 1.75f;
+            //shadowConfig.rasterizationInfo.depthBiasEnable = false;
+            //shadowConfig.rasterizationInfo.depthBiasConstantFactor = 1.25f;
+            //shadowConfig.rasterizationInfo.depthBiasSlopeFactor = 1.75f;
             DepthOnly = new GraphicsPipeline("DepthOnly", "depth_only.vert", "depth_only.frag", shadowConfig, "depth_only.geom");
             
             var alphaBlending = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
