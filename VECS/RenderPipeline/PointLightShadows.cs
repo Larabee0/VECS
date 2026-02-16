@@ -16,8 +16,8 @@ namespace VECS
         public const RenderLayer SHADOW_INCLUDE_MASK = RenderLayer.Default | RenderLayer.OnlyShadow;
         public const RenderLayer SHADOW_EXCLUDE_MASK = RenderLayer.NoShadow;
 
-        public static readonly int matsPropertyId = "shadowMats".GetShaderPropertyId();
-        public static readonly int lightInfoPropertyId = "lightInfo".GetShaderPropertyId();
+        public static readonly int matsPropertyId = "pointShadows".GetShaderPropertyId();
+        public static readonly int lightInfoPropertyId = "pointLights".GetShaderPropertyId();
 
         private readonly Material _plDepthOnly;
         private readonly int _matHash;
@@ -87,12 +87,12 @@ namespace VECS
 
         public void PointLightShadowPass(in RendererFrameInfo frameInfo)
         {
-            EnginePipes.DepthOnly.SetDescriptorStorageBufferLengthFromProperty("pointShadows".GetShaderPropertyId(), (uint)frameInfo.LightingInfo.NumPointLights * 6u);
-            EnginePipes.DepthOnly.SetDescriptorStorageBufferLengthFromProperty("pointLights".GetShaderPropertyId(), (uint)frameInfo.LightingInfo.NumPointLights);
-            EnginePipes.DepthOnly.GetStorageSwapChainBuffer("pointShadows".GetShaderPropertyId()).SetBuffersDirty(true);
-            EnginePipes.DepthOnly.GetStorageSwapChainBuffer("pointLights".GetShaderPropertyId()).SetBuffersDirty(true);
-            FillViewMatrices(frameInfo, _plDepthOnly.GetStorageSwapChainBuffer("pointShadows".GetShaderPropertyId()));
-            FillLightInfo(frameInfo, _plDepthOnly.GetStorageSwapChainBuffer("pointLights".GetShaderPropertyId()));
+            EnginePipes.DepthOnly.SetDescriptorStorageBufferLengthFromProperty(matsPropertyId, (uint)frameInfo.LightingInfo.NumPointLights * 6u);
+            EnginePipes.DepthOnly.SetDescriptorStorageBufferLengthFromProperty(lightInfoPropertyId, (uint)frameInfo.LightingInfo.NumPointLights);
+            _plDepthOnly.GetStorageSwapChainBuffer(matsPropertyId).SetBuffersDirty(true);
+            _plDepthOnly.GetStorageSwapChainBuffer(lightInfoPropertyId).SetBuffersDirty(true);
+            FillViewMatrices(frameInfo, _plDepthOnly.GetStorageSwapChainBuffer(matsPropertyId));
+            FillLightInfo(frameInfo, _plDepthOnly.GetStorageSwapChainBuffer(lightInfoPropertyId));
 
             SetImageLayoutWrite(frameInfo.CommandBuffer);
             

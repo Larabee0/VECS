@@ -21,6 +21,8 @@ namespace VECS
         public const RenderLayer SHADOW_INCLUDE_MASK = RenderLayer.Default | RenderLayer.OnlyShadow;
         public const RenderLayer SHADOW_EXCLUDE_MASK = RenderLayer.NoShadow;
 
+        public static readonly int matsPropertyId = "directionalShadows".GetShaderPropertyId();
+
         private readonly Texture2DArray _shadowDepthImage;
         private readonly  VkViewport viewport = new()
         {
@@ -101,9 +103,9 @@ namespace VECS
 
         private static Span<Matrix4x4> GetLightSpaceMatrixBuffer()
         {
-            var directionalShadowsBuffer = EnginePipes.DepthOnly.Default().GetStorageBuffer<Matrix4x4>("directionalShadows".GetShaderPropertyId());
-            EnginePipes.DepthOnly.SetDescriptorStorageBufferLengthFromProperty("directionalShadows".GetShaderPropertyId(), CASCADE_COUNT);
-            EnginePipes.DepthOnly.GetStorageSwapChainBuffer("directionalShadows".GetShaderPropertyId()).SetBuffersDirty(true);
+            var directionalShadowsBuffer = EnginePipes.DepthOnly.Default().GetStorageBuffer<Matrix4x4>(matsPropertyId);
+            EnginePipes.DepthOnly.SetDescriptorStorageBufferLengthFromProperty(matsPropertyId, CASCADE_COUNT);
+            EnginePipes.DepthOnly.GetStorageSwapChainBuffer(matsPropertyId).SetBuffersDirty(true);
             return directionalShadowsBuffer;
         }
 
@@ -165,8 +167,6 @@ namespace VECS
             offsetZ = -cropBB.Min.Z * scaleZ;
             Matrix4x4 cropMatrix = new(scaleX, 0.0f, 0.0f, 0.0f, 0.0f, scaleY, 0.0f, 0.0f, 0.0f, 0.0f,
                           scaleZ, 0.0f, offsetX, offsetY, offsetZ, 1.0f);
-
-            //cropMatrix = Matrix4x4.Transpose(cropMatrix);
 
             return cropMatrix;
         }
@@ -497,7 +497,6 @@ namespace VECS
             SetViewPort(frameInfo.CommandBuffer);
 
             _dirDepthOnly.PushConstants.SetPushConstantInt("bufferSelect", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, 1);
-            //DrawBlob.ExecuteAllInOneOpaqueDrawCmds(frameInfo, frameInfo.CommandBuffer, _matHash, 0);
             DrawBlob.ExecutateDepthOnly(frameInfo, frameInfo.CommandBuffer, DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, VkCullModeFlags.Front);
 
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);

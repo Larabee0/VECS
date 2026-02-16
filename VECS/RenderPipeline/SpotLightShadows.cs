@@ -16,6 +16,9 @@ namespace VECS
         public const RenderLayer SHADOW_INCLUDE_MASK = RenderLayer.Default | RenderLayer.OnlyShadow;
         public const RenderLayer SHADOW_EXCLUDE_MASK = RenderLayer.NoShadow;
 
+        public static readonly int matsPropertyId = "spotShadows".GetShaderPropertyId();
+        public static readonly int lightInfoPropertyId = "spotLights".GetShaderPropertyId();
+
         private readonly Texture2DArray _shadowDepthImage;
         private readonly VkViewport viewport = new()
         {
@@ -95,13 +98,13 @@ namespace VECS
 
             DrawBlob.CullAllInOne(frameInfo, depthBufferCullInfo);
 
-            EnginePipes.DepthOnly.SetDescriptorStorageBufferLengthFromProperty("spotShadows".GetShaderPropertyId(), (uint)frameInfo.LightingInfo.NumSpotLights);
-            EnginePipes.DepthOnly.SetDescriptorStorageBufferLengthFromProperty("spotLights".GetShaderPropertyId(), (uint)frameInfo.LightingInfo.NumSpotLights);
-            EnginePipes.DepthOnly.GetStorageSwapChainBuffer("spotShadows".GetShaderPropertyId()).SetBuffersDirty(true);
-            EnginePipes.DepthOnly.GetStorageSwapChainBuffer("spotLights".GetShaderPropertyId()).SetBuffersDirty(true);
+            EnginePipes.DepthOnly.SetDescriptorStorageBufferLengthFromProperty(matsPropertyId, (uint)frameInfo.LightingInfo.NumSpotLights);
+            EnginePipes.DepthOnly.SetDescriptorStorageBufferLengthFromProperty(lightInfoPropertyId, (uint)frameInfo.LightingInfo.NumSpotLights);
+            _slDepthOnly.GetStorageSwapChainBuffer(matsPropertyId).SetBuffersDirty(true);
+            _slDepthOnly.GetStorageSwapChainBuffer(lightInfoPropertyId).SetBuffersDirty(true);
 
-            var mats = _slDepthOnly.GetStorageSwapChainBuffer("spotShadows".GetShaderPropertyId());
-            var lights = _slDepthOnly.GetStorageSwapChainBuffer("spotLights".GetShaderPropertyId());
+            var mats = _slDepthOnly.GetStorageSwapChainBuffer(matsPropertyId);
+            var lights = _slDepthOnly.GetStorageSwapChainBuffer(lightInfoPropertyId);
             var spotLights = ((SwapChainBuffer<SpotLightUniform>)EngineBuffers.TryGetBuffer(ShaderProperties.SpotLightsBufferId)).HostBuffer;
             for (int i = 0; i < frameInfo.LightingInfo.NumSpotLights; i++)
             {
@@ -111,8 +114,6 @@ namespace VECS
                 
                 mats.UnsafeSet(faceIndex, GetSpaceMatrix(spotLight, out var _, out var _, out var _));
                 lights.UnsafeSet(lightIndex, new Vector4(spotLight.Position.AsVector3(), spotLight.Range));
-
-                //World.DefaultWorld.GetSystem<DebugDrawUtilities>().DrawLine(spotLight.Position.AsVector3(), spotLight.Position.AsVector3() + (spotLight.Direction.AsVector3() * spotLight.Range), Colour.Blue);
                 
             }
 
