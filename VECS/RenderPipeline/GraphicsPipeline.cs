@@ -1097,6 +1097,15 @@ namespace VECS
                 (uint)command.MeshSubRegion.Count, (uint)sizeof(VECSDrawIndexIndirectCommand));
         }
 
+        internal VkPipeline ReplacePipeline(VkPipeline pipeline)
+        {
+            var old = _graphicsPipeline;
+
+            _graphicsPipeline = pipeline;
+
+            return old;
+        }
+
         public override void ClearCachedData()
         {
             base.ClearCachedData();
