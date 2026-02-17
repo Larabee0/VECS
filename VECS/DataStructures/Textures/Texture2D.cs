@@ -271,7 +271,7 @@ namespace VECS
             _imageImageViewType = VkImageViewType.Image2D;
             _imageFormat = textureFormat;
             _useageFlags = usage;
-            _sharingMode = VkSharingMode.Concurrent;
+            //_sharingMode = VkSharingMode.Concurrent;
             _wrapModeU = addressMode;
             _wrapModeV = addressMode;
             _wrapModeW = addressMode;

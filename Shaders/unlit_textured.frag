@@ -10,9 +10,9 @@ layout(set = 1, binding = 4) uniform sampler2D samplers[8];
 
 void main()
 {
-	float diffuseTextureColour = texture(texSampler, vec3(fragUV,0)).r;
+	vec2 diffuseTextureColour = texture(texSampler, vec3(fragUV,0)).rg;
 
     float val = texture(samplers[0],fragUV).r;
 
-    outColour = vec4(diffuseTextureColour,diffuseTextureColour,diffuseTextureColour, 1);
+    outColour = vec4(diffuseTextureColour,0, 1);
 }

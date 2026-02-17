@@ -255,6 +255,12 @@ namespace VECS
             ComputePipeline.UpdateComputeShaders(frameInfo);
             GraphicsPipeline.UpdateMaterials(frameInfo);
 
+            if (FrameCount == 3)
+            {
+                //PBR.Generate_BRDFLUT(frameInfo);
+                PBR.Generate_Irradiance(frameInfo);
+            }
+
             // shadows pass
             World.DefaultWorld.OnPreShadowPass(frameInfo);
 

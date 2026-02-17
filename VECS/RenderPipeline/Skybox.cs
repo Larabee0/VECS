@@ -9,7 +9,7 @@ namespace VECS
     public static class Skybox
     {
         private readonly static int SkyboxTextureProperty = "samplerCubeMap".GetShaderPropertyId();        
-        private readonly static DirectSubMesh _cube;
+        public readonly static DirectSubMesh _cube;
         private readonly static Material _skybox;
 
         private static Cubemap _skyboxTexture;

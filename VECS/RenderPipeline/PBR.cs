@@ -1,0 +1,179 @@
+﻿using System;
+using System.Numerics;
+using VECS.ECS.Transforms;
+using VECS.GraphicsPipelines;
+using VECS.LowLevel;
+using Vortice.Vulkan;
+
+namespace VECS
+{
+    public static class PBR
+    {
+        public const VkFormat BRDFLUT_FORMAT = VkFormat.R16G16Sfloat;
+        public const VkFormat IRRADIANCE_FORMAT = VkFormat.R32G32B32A32Sfloat;
+        public const VkImageUsageFlags BRDFLUT_USAGE_FLAGS = VkImageUsageFlags.Sampled | VkImageUsageFlags.ColorAttachment;
+        public const VkImageUsageFlags IRRADIANCE_USAGE_FLAGS = VkImageUsageFlags.Sampled | VkImageUsageFlags.ColorAttachment;
+        public const int BRDFLUT_DIMENTIONS = 512;
+        public const int IRRADIANCE_DIMENTIONS = 512;
+
+        private static Texture2D BRDFLUT_Texture;
+        private static Cubemap Irradiance_Cubemap;
+
+        private static GraphicsPipeline BRDFLUT_Generator;
+        private static GraphicsPipeline Irradiance_Generator;
+        static PBR()
+        {
+            CreateAssets();
+
+            AssetDataBase<GraphicsPipeline>.GetNamed("UnlitTextured").SetTexture("texSampler".GetShaderPropertyId(), 0,BRDFLUT_Texture);
+        }
+
+
+        public static void CreateAssets()
+        {
+            BRDFLUT_Texture = new(
+                "BRDFLUT",
+                BRDFLUT_DIMENTIONS,
+                BRDFLUT_DIMENTIONS,
+                BRDFLUT_FORMAT,
+                BRDFLUT_USAGE_FLAGS,
+                VkSamplerAddressMode.ClampToEdge,
+                0,
+                false,
+                VkCompareOp.Never,
+                VkBorderColor.FloatOpaqueWhite,
+                false);
+            
+            BRDFLUT_Texture.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.FragmentShader);
+
+            Irradiance_Cubemap = new(
+                "Irradiance",
+                IRRADIANCE_DIMENTIONS,
+                IRRADIANCE_FORMAT,
+                VkSamplerAddressMode.ClampToEdge,
+                IRRADIANCE_USAGE_FLAGS,
+                true);
+
+            Irradiance_Cubemap.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.FragmentShader);
+
+            GraphicsPipelineConfigInfo brdflut_gen_config = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
+            brdflut_gen_config.rasterizationInfo.cullMode = VkCullModeFlags.None;
+            brdflut_gen_config.rasterizationInfo.polygonMode = VkPolygonMode.Fill;
+            brdflut_gen_config.rasterizationInfo.frontFace = VkFrontFace.CounterClockwise;
+            brdflut_gen_config.depthStencilInfo.depthWriteEnable = false;
+            brdflut_gen_config.depthStencilInfo.depthTestEnable = false;
+            brdflut_gen_config.depthStencilInfo.depthCompareOp = VkCompareOp.LessOrEqual;
+            brdflut_gen_config.colourFormats = [BRDFLUT_FORMAT];
+            BRDFLUT_Generator = new("BRDFLUT_Generator", "fullscreen.vert", "genbrdflut.frag", brdflut_gen_config);
+
+
+            GraphicsPipelineConfigInfo irradiance_gen_config = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
+            irradiance_gen_config.rasterizationInfo.cullMode = VkCullModeFlags.None;
+            irradiance_gen_config.rasterizationInfo.polygonMode = VkPolygonMode.Fill;
+            irradiance_gen_config.rasterizationInfo.frontFace = VkFrontFace.CounterClockwise;
+            irradiance_gen_config.depthStencilInfo.depthWriteEnable = false;
+            irradiance_gen_config.depthStencilInfo.depthTestEnable = false;
+            irradiance_gen_config.depthStencilInfo.depthCompareOp = VkCompareOp.LessOrEqual;
+            irradiance_gen_config.colourFormats = [IRRADIANCE_FORMAT];
+            Irradiance_Generator = new("Irradiance_Generator", "filtercube.vert", "irradiancecube.frag", irradiance_gen_config);
+        }
+
+        public static unsafe void Generate_BRDFLUT(RendererFrameInfo frameInfo)
+        {
+            BRDFLUT_Texture.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
+
+            VkRenderingAttachmentInfo colourAttachments = new()
+            {
+                imageView = BRDFLUT_Texture._imageView,
+                imageLayout = BRDFLUT_Texture._imageLayout,
+                loadOp = VkAttachmentLoadOp.Clear,
+                storeOp = VkAttachmentStoreOp.Store,
+                clearValue = new(0, 0, 0, 1)
+            };
+
+            VkRenderingInfo renderingInfo = new()
+            {
+                renderArea = new(0, 0, (uint)BRDFLUT_Texture.Width, (uint)BRDFLUT_Texture.Height),
+                layerCount = 1,
+                colorAttachmentCount = 1,
+                pColorAttachments = &colourAttachments,
+                flags = VkRenderingFlags.ContentsInlineKHR | VkRenderingFlags.ContentsSecondaryCommandBuffers
+            };
+            VkViewport viewport = new(0,0,BRDFLUT_DIMENTIONS, BRDFLUT_DIMENTIONS, 0.0f, 1.0f);
+            VkRect2D scissor = new(0, 0,BRDFLUT_DIMENTIONS, BRDFLUT_DIMENTIONS);
+
+            GraphicsDevice.DeviceAPI.vkCmdBeginRendering(frameInfo.CommandBuffer, &renderingInfo);
+
+
+            GraphicsDevice.DeviceAPI.vkCmdSetViewport(frameInfo.CommandBuffer, 0, viewport);
+            GraphicsDevice.DeviceAPI.vkCmdSetScissor(frameInfo.CommandBuffer, 0, scissor);
+
+            BRDFLUT_Generator.Default().Bind(frameInfo);
+            GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
+
+            GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
+            BRDFLUT_Texture.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.FragmentShader);
+        }
+
+        public static unsafe void Generate_Irradiance(RendererFrameInfo frameInfo)
+        {
+            Irradiance_Cubemap.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
+
+            VkRenderingAttachmentInfo colourAttachments = new()
+            {
+                imageView = Irradiance_Cubemap._imageView,
+                imageLayout = Irradiance_Cubemap._imageLayout,
+                loadOp = VkAttachmentLoadOp.Clear,
+                storeOp = VkAttachmentStoreOp.Store,
+                clearValue = new(0.0f, 0.0f, 0.2f, 0.0f)
+            };
+
+            VkRenderingInfo renderingInfo = new()
+            {
+                renderArea = new(0, 0, (uint)Irradiance_Cubemap.Width, (uint)Irradiance_Cubemap.Height),
+                layerCount = 1,
+                colorAttachmentCount = 1,
+                pColorAttachments = &colourAttachments,
+                flags = VkRenderingFlags.ContentsInlineKHR | VkRenderingFlags.ContentsSecondaryCommandBuffers
+            };
+
+
+            Matrix4x4* matrices = stackalloc Matrix4x4[] {
+			    // POSITIVE_X
+                Matrix4x4.CreateRotationY( TransformExtensions.Deg2Rad * 90.0f)* Matrix4x4.CreateRotationX(TransformExtensions.Deg2Rad * 180.0f),
+			    // NEGATIVE_X
+                Matrix4x4.CreateRotationY( TransformExtensions.Deg2Rad * -90.0f)* Matrix4x4.CreateRotationX(TransformExtensions.Deg2Rad * 180.0f),
+			    // POSITIVE_Y
+			    Matrix4x4.CreateRotationY(TransformExtensions.Deg2Rad *-90.0f),
+			    // NEGATIVE_Y
+                Matrix4x4.CreateRotationY(TransformExtensions.Deg2Rad *90.0f),
+			    // POSITIVE_Z
+			    Matrix4x4.CreateRotationZ(TransformExtensions.Deg2Rad *180.0f),
+			    // NEGATIVE_Z
+			    Matrix4x4.CreateRotationZ(TransformExtensions.Deg2Rad *180.0f),
+            };
+
+            VkViewport viewport = new(0,0,IRRADIANCE_DIMENTIONS, IRRADIANCE_DIMENTIONS, 0.0f, 1.0f);
+            VkRect2D scissor = new(0, 0, IRRADIANCE_DIMENTIONS, IRRADIANCE_DIMENTIONS);
+            var persectve = Matrix4x4.CreatePerspectiveFieldOfView(MathF.PI * 0.5f, 1.0f, 0.1f, IRRADIANCE_DIMENTIONS);
+
+            Irradiance_Generator.PushConstants.SetPushConstantFloat("deltaPhi", 0, (2.0f * MathF.PI) / 180.0f);
+            Irradiance_Generator.PushConstants.SetPushConstantFloat("deltaTheta", 0, (0.5f * MathF.PI) / 64.0f);
+
+            for (int i = 0; i < 6; i++)
+            {
+                colourAttachments.imageView = Irradiance_Cubemap.FaceImageViews[i];
+                GraphicsDevice.DeviceAPI.vkCmdBeginRendering(frameInfo.CommandBuffer, &renderingInfo);
+                GraphicsDevice.DeviceAPI.vkCmdSetViewport(frameInfo.CommandBuffer, 0, viewport);
+                GraphicsDevice.DeviceAPI.vkCmdSetScissor(frameInfo.CommandBuffer, 0, scissor);
+
+                Irradiance_Generator.PushConstants.SetPushConstantMatrix4x4("mvp", 0, matrices[i] * persectve);
+                Irradiance_Generator.BindAll(frameInfo, 0);
+                Skybox._cube.SimpleBindAndDraw(frameInfo.CommandBuffer);
+
+                GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
+            }
+            Irradiance_Cubemap.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.FragmentShader);
+        }
+    }
+}
