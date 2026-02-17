@@ -254,7 +254,7 @@ namespace VECS
             RendererFrameInfo frameInfo = CreateRendererFrameInfo(Time.DeltaTime, commandBuffer);
             ComputePipeline.UpdateComputeShaders(frameInfo);
             GraphicsPipeline.UpdateMaterials(frameInfo);
-
+            Console.WriteLine(FrameCount);
             if (FrameCount == 3)
             {
                 //PBR.Generate_BRDFLUT(frameInfo);

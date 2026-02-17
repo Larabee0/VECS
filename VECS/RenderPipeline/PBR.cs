@@ -21,11 +21,13 @@ namespace VECS
 
         private static GraphicsPipeline BRDFLUT_Generator;
         private static GraphicsPipeline Irradiance_Generator;
-        static PBR()
+        public static void Reset()
         {
             CreateAssets();
 
             AssetDataBase<GraphicsPipeline>.GetNamed("UnlitTextured").SetTexture("texSampler".GetShaderPropertyId(), 0,BRDFLUT_Texture);
+
+            Irradiance_Generator.SetTexture("samplerEnv".GetShaderPropertyId(), 0, Skybox.SkyboxTexture);
         }
 
 
@@ -76,6 +78,7 @@ namespace VECS
             irradiance_gen_config.depthStencilInfo.depthCompareOp = VkCompareOp.LessOrEqual;
             irradiance_gen_config.colourFormats = [IRRADIANCE_FORMAT];
             Irradiance_Generator = new("Irradiance_Generator", "filtercube.vert", "irradiancecube.frag", irradiance_gen_config);
+            
         }
 
         public static unsafe void Generate_BRDFLUT(RendererFrameInfo frameInfo)
@@ -159,6 +162,7 @@ namespace VECS
 
             Irradiance_Generator.PushConstants.SetPushConstantFloat("deltaPhi", 0, (2.0f * MathF.PI) / 180.0f);
             Irradiance_Generator.PushConstants.SetPushConstantFloat("deltaTheta", 0, (0.5f * MathF.PI) / 64.0f);
+
 
             for (int i = 0; i < 6; i++)
             {
