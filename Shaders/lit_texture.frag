@@ -2,6 +2,7 @@
 #extension GL_ARB_shading_language_include : require
 #include "common_structures.glsl"
 #include "lighting.glsl"
+#include "shadows.glsl"
 
 layout (location = 0) in vec3 fragPosWorld;
 layout (location = 1) in vec3 fragNormalWorld;
@@ -60,67 +61,6 @@ layout(push_constant) uniform Constants{
 	uint cameraIndex;
 } constants;
 
-#define ambient 0.03
-
-float textureProj(vec4 shadowCoord, vec2 offset, uint cascadeIndex, vec3 lightDir, vec3 normal)
-{
-	float shadow = 1.0;
-	float bias =  0.001;
-	//bias = max(0.05 * (1.0 - dot(normal, lightDir)), 0.005);
-
-	if ( shadowCoord.z > -1.0 && shadowCoord.z < 1.0 ) {
-		float dist = texture(dirShadow, vec3(shadowCoord.st + offset, cascadeIndex)).r;
-		if (shadowCoord.w > 0 && dist < shadowCoord.z - bias) {
-			shadow = ambient;
-		}
-	}
-	return shadow;
-
-}
-
-float filterPCF(vec4 sc, uint cascadeIndex, vec3 lightDir, vec3 normal)
-{
-	ivec2 texDim = textureSize(dirShadow, 0).xy;
-	float scale = 0.75;
-	float dx = scale * 1.0 / float(texDim.x);
-	float dy = scale * 1.0 / float(texDim.y);
-
-	float shadowFactor = 0.0;
-	int count = 0;
-	int range = 1;
-	
-	for (int x = -range; x <= range; x++) {
-		for (int y = -range; y <= range; y++) {
-			shadowFactor += textureProj(sc, vec2(dx*x, dy*y), cascadeIndex,lightDir,normal);
-			count++;
-		}
-	}
-	return shadowFactor / count;
-}
-const mat4 biasMat = mat4( 
-	0.5, 0.0, 0.0, 0.0,
-	0.0, 0.5, 0.0, 0.0,
-	0.0, 0.0, 1.0, 0.0,
-	0.5, 0.5, 0.0, 1.0 
-);
-float DirShadows(DirectionalLight directionalLight, vec3 normal, out int cascadeIndex  ){
-	cascadeIndex = 0;
-	vec3 inViewPos =( cameraInfo.values[constants.cameraIndex].viewMatrix * vec4(fragPosWorld,0.0)).xyz;
-	for(int i = 0; i < directionalLight.cascadeCount - 1; ++i) {
-		if(fragViewPos.z < directionalLight.cascadeSplits[i]) {	
-			cascadeIndex = i + 1;
-		}
-	}
-	vec4 shadowCoord = (biasMat * directionalLight.lightSpace[cascadeIndex]) * vec4(fragPosWorld, 1.0);
-	
-	float shadow = 0;
-	if (1 == 1) {
-		shadow = filterPCF(shadowCoord / shadowCoord.w, cascadeIndex, directionalLight.direction.xyz, normal);
-	} else {
-		shadow = textureProj(shadowCoord / shadowCoord.w, vec2(0.0), cascadeIndex, directionalLight.direction.xyz, normal);
-	}
-	return shadow;
-}
 
 
 float DirShadowsGL(DirectionalLight directionalLight, vec3 normal, out int layer){
@@ -190,60 +130,24 @@ float DirShadowsGL(DirectionalLight directionalLight, vec3 normal, out int layer
 	return shadow;
 }
 
-const vec3 sampleOffsetDirections[20] = vec3[]
-(
-   vec3( 1,  1,  1), vec3( 1, -1,  1), vec3(-1, -1,  1), vec3(-1,  1,  1), 
-   vec3( 1,  1, -1), vec3( 1, -1, -1), vec3(-1, -1, -1), vec3(-1,  1, -1),
-   vec3( 1,  1,  0), vec3( 1, -1,  0), vec3(-1, -1,  0), vec3(-1,  1,  0),
-   vec3( 1,  0,  1), vec3(-1,  0,  1), vec3( 1,  0, -1), vec3(-1,  0, -1),
-   vec3( 0,  1,  1), vec3( 0, -1,  1), vec3( 0, -1, -1), vec3( 0,  1, -1)
-);   
-
-float FilterPLPCF(vec3 fragPos, vec3 viewPos, vec3 lightPos, float farPlane, int textureIndex){
-    vec3 fragToLight = fragPos - lightPos;
-	float currentDepth = length(fragToLight);
-	float shadow = 0.0;
-	int samples  = 20;
-	float viewDistance = length(viewPos - fragPos);
-	float diskRadius = (1.0 + (viewDistance / farPlane)) / farPlane;
-	for(int i = 0; i < samples; ++i)
-	{
-		vec4 coord = vec4(fragToLight + sampleOffsetDirections[i] * diskRadius, textureIndex);
-	    float closestDepth = texture(plShadow, coord).r;
-	    closestDepth *= farPlane;   // undo mapping [0;1]
-	    if(currentDepth > closestDepth)
-	        shadow += 1.0;
-	}
-	shadow /= float(samples);  
-	return (1.0-shadow);
-}
-
-float ShadowSlCalculation(vec3 fragPos, vec3 viewPos, SpotLight sl, int textureIndex){
-	float shadow = 0.0;
-	vec4 lightSpacePos = sl.lightSpace * vec4(fragPos,1);
-	vec3 lightCoords = lightSpacePos.xyz / lightSpacePos.w;
-	
-	vec3 fragToLight = fragPos - sl.position;
-	float currentDepth = length(fragToLight);
-	
-	lightCoords = (lightCoords + 1.0) / 2.0;
-	//float currentDepth = lightCoords.z;
-	float closestDepth = texture(slShadow, vec3(lightCoords.xy,textureIndex)).r;
-	closestDepth *= sl.farPlane;
-	if (currentDepth > closestDepth+0.005){
-		shadow += 1.0;   
-	}
-
-	return (1.0-shadow);
-}
-
 void main()
 {
 	vec3 cameraPosWorld = cameraInverse.values[constants.cameraIndex].inverseViewMatrix[3].xyz;
 	vec3 normal = normalize(fragNormalWorld);
 	vec3 viewDir = normalize(cameraPosWorld - fragPosWorld);
 	int cascadeIndex = 0;
-	float shadow = DirShadows(lighting.directionalLight, normal, cascadeIndex);
+	//float shadow = DirShadows(lighting.directionalLight, normal, cascadeIndex);
+	float shadow = DirShadows(
+		dirShadow,
+		lighting.directionalLight.lightSpace,
+		lighting.directionalLight.cascadeSplits,
+		lighting.directionalLight.cascadeCount,
+		lighting.directionalLight.direction.xyz,
+		cameraInfo.values[constants.cameraIndex].viewMatrix,
+		fragPosWorld,
+		fragViewPos,
+		normal,
+		cascadeIndex);
 	//float shadow = DirShadowsGL(lighting.directionalLight, normal, cascadeIndex);
 	
 	vec3 texNormal = TBN * normalize(texture(normalSampler, fragUV).rgb * 2.0 - vec3(1.0));
@@ -264,7 +168,7 @@ void main()
     	float distance = length(pl.position.xyz - fragPosWorld);
 
 		if(distance <= pl.farPlane){
-		    float plShadow = FilterPLPCF(fragPosWorld, cameraPosWorld, pl.position.xyz,pl.farPlane, i);
+		    float plShadow = FilterPLPCF(plShadow, fragPosWorld, cameraPosWorld, pl.position.xyz,pl.farPlane, i);
 			result += CalcPointLight(pl, normalize(fragNormalWorld), fragPosWorld, viewDir, shininess, plShadow, diffuseTextureColour, diffuseTextureColour, specularColour);
 			//result += vec3(plShadow);
 		}
@@ -277,7 +181,7 @@ void main()
 		if(distance <= sl.farPlane) {
 
 			vec3 lightDirection = normalize(sl.position - fragPosWorld);
-			float slShadow = ShadowSlCalculation(fragPosWorld, cameraPosWorld, sl, i);
+			float slShadow = ShadowSlCalculation(slShadow, fragPosWorld, cameraPosWorld, sl, i);
 			result += CalcSpotLight(sl, normalize(fragNormalWorld), fragPosWorld, viewDir, shininess, slShadow, diffuseTextureColour, diffuseTextureColour, specularColour);
 			//result = vec3(slShadow);
 		}
