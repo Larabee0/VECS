@@ -20,8 +20,10 @@ struct CameraInfo {
 	mat4 projectionMatrix;
 	mat4 viewMatrix;
 	mat4 projectionViewMatrix;	
-	vec4 position;
-	vec4 forward;
+	vec3 position;
+	float _pad1;
+	vec3 forward;
+	float _pad2;
 };
 
 struct CameraInverse {

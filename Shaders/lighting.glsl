@@ -85,6 +85,12 @@ vec3 CalcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir, f
     return (ambient + (shadow* (diffuse + specular)));
 }
 
+float CalcSpotLightIntensity(SpotLight light, vec3 fragPos){
+    vec3 lightDir = normalize(light.position.xyz - fragPos);
+    float theta = dot(lightDir, normalize(-light.direction.xyz));
+    float epsilon   = light.cutOff - light.outerCutOff;
+    return clamp((theta - light.outerCutOff) / epsilon, 0.0, 1.0);
+}
 
 vec3 CalcSpotLight(SpotLight light, vec3 normal, vec3 fragPos, vec3 viewDir, float shininess, float shadow, vec3 ambientCol, vec3 diffuseCol, vec3 specularCol) {
     vec3 lightDir = normalize(light.position.xyz - fragPos);
