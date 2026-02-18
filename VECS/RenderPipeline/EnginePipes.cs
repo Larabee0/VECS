@@ -9,6 +9,7 @@ namespace VECS
     {
 
         public readonly static GraphicsPipeline LitTexture;
+        public readonly static GraphicsPipeline PBRTexture;
         public readonly static GraphicsPipeline UnlitMeshShader;
         public readonly static GraphicsPipeline UnlitTransparent;
         public readonly static GraphicsPipeline Unlit;
@@ -26,6 +27,9 @@ namespace VECS
             litTexture.depthStencilInfo.depthCompareOp = VkCompareOp.Equal;
             //litTexture.rasterizationInfo.frontFace = VkFrontFace.Clockwise;
             LitTexture = new("LitTexture", "lit_texture.vert", "lit_texture.frag", litTexture);
+            var pbrTexture = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
+            pbrTexture.depthStencilInfo.depthCompareOp = VkCompareOp.Equal;
+            PBRTexture = new("PBRTexture", "lit_texture.vert", "pbr.frag", pbrTexture);
 
             var pipelineConfigInfo = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
 

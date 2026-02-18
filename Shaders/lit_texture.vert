@@ -13,6 +13,7 @@ layout (location = 1) out vec3 fragNormalWorld;
 layout (location = 2) out vec2 fragUV;
 layout (location = 3) out vec3 fragViewPos;
 layout (location = 4) out mat3 TBN;
+layout (location = 7) out vec4 fragTangentWorld;
 
 layout(set = 0, binding = 0) uniform LightingInfo {
 	DirectionalLight directionalLight;
@@ -63,7 +64,7 @@ void main()
 	//fragPosDirLight = (biasMat * lighting.directionalLight.lightSpace * objectMat.modelMatrix) * vec4(position, 1.0);
 
 	fragViewPos = (cameraInfo.values[constants.cameraIndex].viewMatrix * positionWorld).xyz;
-
+	fragTangentWorld = vec4(normalize(mat3(objectMat.normalMatrix) * tangent.xyz), tangent.w);
 	vec3 T = normalize(vec3(objectMat.normalMatrix * vec4(tangent.xyz,0)));
 	vec3 N = normalize(vec3(objectMat.normalMatrix * vec4(normal,0)));
 	T = normalize(T - dot(T,N) * N);

@@ -49,7 +49,8 @@ namespace VECS
             DirectionalLight();
             //PointLight();
             //SponzaOld();
-            SponzaNew();
+            //SponzaNew();
+            SponzaNewPBR();
             ShadowDebug();
         }
 
@@ -378,6 +379,158 @@ namespace VECS
             }
 
             entityManager.AddComponent(commonParent, new Rotation() { Value = TransformExtensions.EulerUnity(00,90,0) });
+            entityManager.AddComponent(commonParent, new Scale() { Value = Vector3.One });
+            entityManager.AddComponent(commonParent, children);
+
+        }
+
+        private static void SponzaNewPBR()
+        {
+            MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("Sponza-New.obj"), [new VertexAttributeDescription(VertexAttribute.Tangent, VertexAttributeFormat.Float4)], out var sponza, out var sponzaMatInfo);
+
+            EntityManager entityManager = World.DefaultWorld.EntityManager;
+
+            Dictionary<string, Texture2D> textureLibrary = [];
+
+            var commonParent = entityManager.CreateEntity();
+
+
+            Children children = new()
+            {
+                Value = new Entity[sponza.Length]
+            };
+            Parent parent = new() { Value = commonParent };
+
+            var lit = EnginePipes.PBRTexture;
+            //var litTransparent = EnginePipes.OIT_LitTexture;
+
+            var texProp = "albedoMap".GetShaderPropertyId();
+            var normalProp = "normalMap".GetShaderPropertyId();
+            
+            var aoProp = "aoMap".GetShaderPropertyId();
+            var metallicProp = "metallicMap".GetShaderPropertyId();
+            var smoothnessProp = "smoothnessMap".GetShaderPropertyId();
+
+            var texColour = "texProps.colour".GetShaderPropertyId();
+            var texTiling = "texProps.tiling".GetShaderPropertyId();
+
+            var exposureProp = "texProps.exposure".GetShaderPropertyId();
+            var gammaProp = "texProps.gamma".GetShaderPropertyId();
+
+            int litVariant = 0;
+
+            for (int i = 0, k = 0; i < sponzaMatInfo.Length; i++)
+            {
+                var matInfo = sponzaMatInfo[i];
+
+                string matName = "sponza_new_" + matInfo.Name;
+                if (string.IsNullOrEmpty(matName))
+                {
+                    matName = "sponza_new_Mat_" + i;
+                }
+
+                Material material = AssetDataBase<Material>.GetNamedSilentFail(matName);
+                material ??= lit.Create(matName);
+
+                if (matInfo.DiffuseTexture != null)
+                {
+                    if (!textureLibrary.TryGetValue(matInfo.DiffuseTexture, out var diffuseTexture))
+                    {
+                        diffuseTexture = new Texture2D(matInfo.DiffuseTexture);
+                        textureLibrary.Add(matInfo.DiffuseTexture, diffuseTexture);
+                    }
+                    if (matInfo.AlphaClipping)
+                    {
+                        //material.SetTexture(ShaderProperties.HeadIndexImageId, Presenter.Instance.ForwardRenderer._headIndex);
+                        material.AlphaClipping = true;
+                        material.OverrideCullMode = true;
+                        material.CullMode = Vortice.Vulkan.VkCullModeFlags.None;
+                        material.AlphaTexture = diffuseTexture;
+                    }
+                    material.SetTexture(texProp, diffuseTexture);
+                }
+                else
+                {
+                    material.SetTexture(texProp, EngineTextures.White);
+                }
+
+                if (matInfo.NormalTexture != null)
+                {
+                    if (!textureLibrary.TryGetValue(matInfo.NormalTexture, out var normalTexture))
+                    {
+                        normalTexture = new Texture2D(matInfo.NormalTexture, false);                        
+                        textureLibrary.Add(matInfo.NormalTexture, normalTexture);
+                    }
+
+                    material.SetTexture(normalProp, normalTexture);
+                }
+                else
+                {
+                    material.SetTexture(normalProp, EngineTextures.Black);
+                }
+
+                if(matInfo.AOTexture != null)
+                {
+                    if(!textureLibrary.TryGetValue(matInfo.AOTexture, out var aoTexture))
+                    {
+                        aoTexture = new Texture2D(matInfo.AOTexture);
+                        textureLibrary.Add(matInfo.AOTexture, aoTexture);
+                    }
+                    material.SetTexture(aoProp, aoTexture);
+                }
+                else
+                {
+                    material.SetTexture(aoProp, EngineTextures.White);
+                }
+
+                if (matInfo.MetallicTexture != null)
+                {
+                    if (!textureLibrary.TryGetValue(matInfo.MetallicTexture, out var metallicTexture))
+                    {
+                        metallicTexture = new Texture2D(matInfo.MetallicTexture);
+                        textureLibrary.Add(matInfo.MetallicTexture, metallicTexture);
+                    }
+                    material.SetTexture(metallicProp, metallicTexture);
+                }
+                else
+                {
+                    material.SetTexture(metallicProp, EngineTextures.White);
+                }
+
+                if (matInfo.SmoothnessTexture != null)
+                {
+                    if (!textureLibrary.TryGetValue(matInfo.SmoothnessTexture, out var smoothnessTexture))
+                    {
+                        smoothnessTexture = new Texture2D(matInfo.SmoothnessTexture);
+                        textureLibrary.Add(matInfo.SmoothnessTexture, smoothnessTexture);
+                    }
+                    material.SetTexture(smoothnessProp, smoothnessTexture);
+                }
+                else
+                {
+                    material.SetTexture(smoothnessProp, EngineTextures.White);
+                }
+
+                material.SetVector4(texColour, matInfo.DiffuseColour);
+                material.SetFloat(texTiling, 1);
+
+                material.SetFloat(exposureProp, 4.5f);
+                material.SetFloat(gammaProp, 2.2f);
+
+
+                for (int j = 0; j < matInfo.appliesTo.Count; j++, k++)
+                {
+                    var meshIndex = matInfo.appliesTo[j];
+                    var entity = entityManager.CreateEntity();
+                    children.Value[k] = entity;
+                    entityManager.AddComponent(entity, parent);
+
+                    AddRenderMeshComponents(entity, material, 0, sponza[meshIndex], entityManager);
+                }
+                litVariant++;
+            }
+
+            entityManager.AddComponent(commonParent, new Rotation() { Value = TransformExtensions.EulerUnity(00, 90, 0) });
             entityManager.AddComponent(commonParent, new Scale() { Value = Vector3.One });
             entityManager.AddComponent(commonParent, children);
 

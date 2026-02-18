@@ -34,9 +34,9 @@ layout (set = 1, binding = 2) uniform sampler2DArray dirShadow;
 layout (set = 1, binding = 3) uniform samplerCubeArray plShadow;
 layout (set = 1, binding = 4) uniform sampler2DArray slShadow;
 
-layout (set = 1, binding = 2) uniform samplerCube samplerIrradiance;
-layout (set = 1, binding = 3) uniform sampler2D samplerBRDFLUT;
-layout (set = 1, binding = 4) uniform samplerCube prefilteredMap;
+layout (set = 1, binding = 5) uniform samplerCube samplerIrradiance;
+layout (set = 1, binding = 6) uniform sampler2D samplerBRDFLUT;
+layout (set = 1, binding = 7) uniform samplerCube prefilteredMap;
 
 layout(set = 2, binding = 0) uniform TexPorps {
 	vec4 colour;
@@ -49,7 +49,7 @@ layout (set = 2, binding = 1) uniform sampler2D albedoMap;
 layout (set = 2, binding = 2) uniform sampler2D normalMap;
 layout (set = 2, binding = 3) uniform sampler2D aoMap;
 layout (set = 2, binding = 4) uniform sampler2D metallicMap;
-layout (set = 2, binding = 5) uniform sampler2D roughnessMap;
+layout (set = 2, binding = 5) uniform sampler2D smoothnessMap;
 
 layout(push_constant) uniform Constants{
 	uint cameraIndex;
@@ -150,7 +150,7 @@ void main() {
 	vec3 R = reflect(-V, N);
 
 	float metallic = texture(metallicMap, TILED_UV).r;
-	float roughness = texture(roughnessMap, TILED_UV).r;
+	float roughness = texture(smoothnessMap, TILED_UV).r;
     vec3 ambient = texture(aoMap, TILED_UV).rrr;
     
 	vec3 F0 = vec3(0.04); 

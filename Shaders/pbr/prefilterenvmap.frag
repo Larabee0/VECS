@@ -7,7 +7,8 @@ layout (binding = 0) uniform samplerCube samplerEnv;
 
 layout(push_constant) uniform PushConsts {
 	mat4 mvp;
-	float roughness;
+	float floatA;
+	float floatB;
 	uint numSamples;
 } pushConsts;
 
@@ -35,9 +36,9 @@ vec2 hammersley2d(uint i, uint N) {
 }
 
 // Based on http://blog.selfshadow.com/publications/s2013-shading-course/karis/s2013_pbs_epic_slides.pdf
-vec3 importanceSample_GGX(vec2 Xi, float roughness, vec3 normal) {
-	// Maps a 2D point to a hemisphere with spread based on roughness
-	float alpha = roughness * roughness;
+vec3 importanceSample_GGX(vec2 Xi, float floatA, vec3 normal) {
+	// Maps a 2D point to a hemisphere with spread based on floatA
+	float alpha = floatA * floatA;
 	float phi = 2.0 * PI * Xi.x + random(normal.xz) * 0.1;
 	float cosTheta = sqrt((1.0 - Xi.y) / (1.0 + (alpha*alpha - 1.0) * Xi.y));
 	float sinTheta = sqrt(1.0 - cosTheta * cosTheta);
@@ -53,14 +54,14 @@ vec3 importanceSample_GGX(vec2 Xi, float roughness, vec3 normal) {
 }
 
 // Normal Distribution function
-float D_GGX(float dotNH, float roughness) {
-	float alpha = roughness * roughness;
+float D_GGX(float dotNH, float floatA) {
+	float alpha = floatA * floatA;
 	float alpha2 = alpha * alpha;
 	float denom = dotNH * dotNH * (alpha2 - 1.0) + 1.0;
 	return (alpha2)/(PI * denom*denom); 
 }
 
-vec3 prefilterEnvMap(vec3 R, float roughness) {
+vec3 prefilterEnvMap(vec3 R, float floatA) {
 	vec3 N = R;
 	vec3 V = R;
 	vec3 color = vec3(0.0);
@@ -68,7 +69,7 @@ vec3 prefilterEnvMap(vec3 R, float roughness) {
 	float envMapDim = float(textureSize(samplerEnv, 0).s);
 	for(uint i = 0u; i < pushConsts.numSamples; i++) {
 		vec2 Xi = hammersley2d(i, pushConsts.numSamples);
-		vec3 H = importanceSample_GGX(Xi, roughness, N);
+		vec3 H = importanceSample_GGX(Xi, floatA, N);
 		vec3 L = 2.0 * dot(V, H) * H - V;
 		float dotNL = clamp(dot(N, L), 0.0, 1.0);
 		if(dotNL > 0.0) {
@@ -78,13 +79,13 @@ vec3 prefilterEnvMap(vec3 R, float roughness) {
 			float dotVH = clamp(dot(V, H), 0.0, 1.0);
 
 			// Probability Distribution Function
-			float pdf = D_GGX(dotNH, roughness) * dotNH / (4.0 * dotVH) + 0.0001;
+			float pdf = D_GGX(dotNH, floatA) * dotNH / (4.0 * dotVH) + 0.0001;
 			// Slid angle of current smple
 			float omegaS = 1.0 / (float(pushConsts.numSamples) * pdf);
 			// Solid angle of 1 pixel across all cube faces
 			float omegaP = 4.0 * PI / (6.0 * envMapDim * envMapDim);
 			// Biased (+1.0) mip level for better result
-			float mipLevel = roughness == 0.0 ? 0.0 : max(0.5 * log2(omegaS / omegaP) + 1.0, 0.0f);
+			float mipLevel = floatA == 0.0 ? 0.0 : max(0.5 * log2(omegaS / omegaP) + 1.0, 0.0f);
 			color += textureLod(samplerEnv, L, mipLevel).rgb * dotNL;
 			totalWeight += dotNL;
 
@@ -96,5 +97,5 @@ vec3 prefilterEnvMap(vec3 R, float roughness) {
 
 void main() {		
 	vec3 N = normalize(inPos);
-	outColor = vec4(prefilterEnvMap(N, pushConsts.roughness), 1.0);
+	outColor = vec4(prefilterEnvMap(N, pushConsts.floatA), 1.0);
 }

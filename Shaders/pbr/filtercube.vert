@@ -7,8 +7,9 @@ layout (location = 0) out vec3 outUVW;
 
 layout(push_constant) uniform PushConsts {
 	mat4 mvp;
-	float deltaPhi;
-	float deltaTheta;
+	float floatA;
+	float floatB;
+	uint numSamples;
 } pushConsts;
 
 out gl_PerVertex {

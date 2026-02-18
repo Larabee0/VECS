@@ -20,6 +20,9 @@ namespace VECS.DataStructures
         public string Name;
         public string DiffuseTexture;
         public string NormalTexture;
+        public string AOTexture;
+        public string MetallicTexture;
+        public string SmoothnessTexture;
         public Vector4 DiffuseColour;
         public List<int> appliesTo = [];
         public bool TrasnparencyHint;
@@ -68,6 +71,22 @@ namespace VECS.DataStructures
             {
                 NormalTexture = null;
             }
+            AOTexture = Path.Combine(TextureLoader.DefaultTexturePath, meshFileName, Path.GetFileName(template.AmbientOcculsion));
+            if (!File.Exists(AOTexture))
+            {
+                AOTexture = null;
+            }
+            MetallicTexture = Path.Combine(TextureLoader.DefaultTexturePath, meshFileName, Path.GetFileName(template.Metallic));
+            if (!File.Exists(MetallicTexture))
+            {
+                MetallicTexture = null;
+            }
+            SmoothnessTexture = Path.Combine(TextureLoader.DefaultTexturePath, meshFileName, Path.GetFileName(template.Smoothness));
+            if (!File.Exists(SmoothnessTexture))
+            {
+                SmoothnessTexture = null;
+            }
+
             DiffuseColour = Vector4.One;
         }
     }

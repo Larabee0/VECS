@@ -8,8 +8,9 @@ layout (set = 0, binding = 0) uniform samplerCube samplerEnv;
 
 layout(push_constant) uniform PushConsts {
 	mat4 mvp;
-	float deltaPhi;
-	float deltaTheta;
+	float floatA;
+	float floatB;
+	uint numSamples;
 } pushConsts;
 
 #define PI 3.1415926535897932384626433832795
@@ -26,8 +27,8 @@ void main()
 
 	vec3 color = vec3(0.0);
 	uint sampleCount = 0u;
-	for (float phi = 0.0; phi < TWO_PI; phi += pushConsts.deltaPhi) {
-		for (float theta = 0.0; theta < HALF_PI; theta += pushConsts.deltaTheta) {
+	for (float phi = 0.0; phi < TWO_PI; phi += pushConsts.floatA) {
+		for (float theta = 0.0; theta < HALF_PI; theta += pushConsts.floatB) {
 			vec3 tempVec = cos(phi) * right + sin(phi) * up;
 			vec3 sampleVector = cos(theta) * N + sin(theta) * tempVec;
 			color += texture(samplerEnv, sampleVector).rgb * cos(theta) * sin(theta);

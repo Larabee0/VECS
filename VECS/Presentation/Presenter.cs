@@ -257,8 +257,9 @@ namespace VECS
             Console.WriteLine(FrameCount);
             if (FrameCount == 3)
             {
-                //PBR.Generate_BRDFLUT(frameInfo);
+                PBR.Generate_BRDFLUT(frameInfo);
                 PBR.Generate_Irradiance(frameInfo);
+                PBR.Generate_Prefiltered_Cubemap(frameInfo);
             }
 
             // shadows pass
