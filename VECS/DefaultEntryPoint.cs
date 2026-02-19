@@ -6,7 +6,6 @@ using VECS.ECS;
 using VECS.ECS.Presentation;
 using VECS.ECS.Transforms;
 using VECS.GraphicsPipelines;
-using Vortice.Vulkan;
 
 namespace VECS
 {
@@ -47,10 +46,10 @@ namespace VECS
         {
             CreateMainCamera();
             DirectionalLight();
-            //PointLight();
+            PointLight();
             //SponzaOld();
-            //SponzaNew();
-            SponzaNewPBR();
+            SponzaNew();
+            //SponzaNewPBR();
             ShadowDebug();
         }
 
@@ -113,27 +112,41 @@ namespace VECS
         public static void PointLight()
         {
             EntityManager entityManager = World.DefaultWorld.EntityManager;
+            var subMesh = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("UV-Sphere.obj"), null)[0];
 
-            PointLight(entityManager, new(2, 0.25f, 0), new(1, 0, 0, 1));
-            //PointLight(entityManager, new(-10, 1, 0), new(1, 0, 0, 1));
+            PointLight(entityManager, new(10, 1f, 0), new(1, 0, 0, 1), subMesh);
+            PointLight(entityManager, new(-10, 1, 0), new(1, 0, 0, 1), subMesh);
 
-            // PointLight(entityManager, new(8, 1, 0), new(0, 1, 0, 1));
-            // PointLight(entityManager, new(-8, 1, 0), new(0, 1, 0, 1));
+            PointLight(entityManager, new(8, 1, 0), new(0, 1, 0, 1), subMesh);
+            PointLight(entityManager, new(-8, 1, 0), new(0, 1, 0, 1), subMesh);
 
-            // PointLight(entityManager, new(6, 1, 0), new(0, 0, 1, 1));
-            // PointLight(entityManager, new(-6, 1, 0), new(0, 0, 1, 1));
+            PointLight(entityManager, new(6, 1, 0), new(0, 0, 1, 1), subMesh);
+            PointLight(entityManager, new(-6, 1, 0), new(0, 0, 1, 1), subMesh);
 
-            // PointLight(entityManager, new(4, 1, 0), new(1, 1, 0, 1));
-            // PointLight(entityManager, new(-4, 1, 0), new(1, 1, 0, 1));
+            PointLight(entityManager, new(4, 1, 0), new(1, 1, 0, 1), subMesh);
+            PointLight(entityManager, new(-4, 1, 0), new(1, 1, 0, 1), subMesh);
 
-            // PointLight(entityManager, new(2, 1, 0), new(0, 1, 1, 1));
-            // PointLight(entityManager, new(-2, 1, 0), new(0, 1, 1, 1));
+            PointLight(entityManager, new(2, 1, 0), new(0, 1, 1, 1), subMesh);
+            PointLight(entityManager, new(-2, 1, 0), new(0, 1, 1, 1), subMesh);
 
+            var colourBuffer = EnginePipes.Unlit.Default().GetStorageBuffer<Vector4>(ShaderProperties.ColourBufferId);
+
+            colourBuffer[0] =  new(1, 0, 0, 1);
+            colourBuffer[1] =  new(1, 0, 0, 1);
+            colourBuffer[2] = new(0, 1, 0, 1);
+            colourBuffer[3] =  new(0, 1, 0, 1);
+            colourBuffer[4] = new(0, 0, 1, 1);
+            colourBuffer[5] =  new(0, 0, 1, 1);
+            colourBuffer[6] = new(1, 1, 0, 1);
+            colourBuffer[7] =  new(1, 1, 0, 1);
+            colourBuffer[8] = new(0, 1, 1, 1);
+            colourBuffer[9] =  new(0, 1, 1, 1);
+            EnginePipes.Unlit.SetDescriptorStorageBufferLengthFromProperty(ShaderProperties.ColourBufferId, 10);
+            EnginePipes.Unlit.GetStorageSwapChainBuffer(ShaderProperties.ColourBufferId).SetBuffersDirty(true);
         }
 
-        private static void PointLight(EntityManager entityManager,Vector3 translation, Vector4 diffuse)
+        private static void PointLight(EntityManager entityManager,Vector3 translation, Vector4 diffuse, DirectSubMesh subMesh)
         {
-            var subMesh = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("UV-Sphere.obj"), null)[0];
             var pointLight = entityManager.CreateEntity();
 
             entityManager.AddComponent(pointLight, new Translation() { Value = translation });

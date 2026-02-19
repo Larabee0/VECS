@@ -290,7 +290,7 @@ namespace VECS
             World.DefaultWorld.OnPostTransparentPass(frameInfo);
 
             //Bloom
-            // _bloom.RenderBloomObjects(frameInfo);
+             _bloom.RenderBloomObjects(frameInfo);
 
             DrawBlob.IndirectToComputeMemoryBarrierByMat(frameInfo.CommandBuffer);
 
