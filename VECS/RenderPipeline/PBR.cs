@@ -33,10 +33,21 @@ namespace VECS
             Irradiance_Generator.SetTexture("samplerEnv".GetShaderPropertyId(), 0, Skybox.SkyboxTexture);
             Prefiltered_Generator.SetTexture("samplerEnv".GetShaderPropertyId(), 0, Skybox.SkyboxTexture);
 
+            var irradianceProp ="samplerIrradiance".GetShaderPropertyId();
+            var prefilteredProp ="prefilteredMap".GetShaderPropertyId();
+            var brdflutProp ="samplerBRDFLUT".GetShaderPropertyId();
 
-            EngineTextures.AddTexture("samplerIrradiance".GetShaderPropertyId(),Irradiance_Cubemap);
-            EngineTextures.AddTexture("prefilteredMap".GetShaderPropertyId(), Prefiltered_Cubemap);
-            EngineTextures.AddTexture("samplerBRDFLUT".GetShaderPropertyId(), BRDFLUT_Texture);
+            EngineTextures.AddTexture(irradianceProp, Irradiance_Cubemap);
+            EngineTextures.AddTexture(prefilteredProp, Prefiltered_Cubemap);
+            EngineTextures.AddTexture(brdflutProp, BRDFLUT_Texture);
+
+
+            AssetDataBase<Material>.AllAssetsListForReading.ForEach(asset =>
+            {
+                asset.SetCubeMap(irradianceProp, Irradiance_Cubemap);
+                asset.SetCubeMap(prefilteredProp, Prefiltered_Cubemap);
+                asset.SetTexture(brdflutProp, BRDFLUT_Texture);
+            });
         }
 
 

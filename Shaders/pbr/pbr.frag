@@ -9,6 +9,7 @@ layout (location = 2) in vec2 fragUV;
 layout (location = 3) in vec3 fragViewPos;
 layout (location = 4) in mat3 TBN;
 layout (location = 7) in vec4 fragTangentWorld;
+layout (location = 8) in vec3 fragNormalAlt;
 
 layout (location = 0) out vec4 outColour;
 
@@ -134,7 +135,7 @@ vec3 specularContribution(vec3 L, vec3 V, vec3 N, vec3 F0, float metallic, float
 vec3 calculateNormal() {
 	vec3 tangentNormal = texture(normalMap, TILED_UV).xyz * 2.0 - 1.0;
 
-	vec3 N = normalize(fragNormalWorld);
+	vec3 N = normalize(fragNormalAlt);
 	vec3 T = normalize(fragTangentWorld.xyz);
 	vec3 B = normalize(cross(N, T));
 	mat3 TBN = mat3(T, B, N);

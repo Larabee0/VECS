@@ -494,7 +494,7 @@ namespace VECS
                 }
                 else
                 {
-                    material.SetTexture(metallicProp, EngineTextures.White);
+                    material.SetTexture(metallicProp, EngineTextures.Black);
                 }
 
                 if (matInfo.SmoothnessTexture != null)
@@ -514,8 +514,8 @@ namespace VECS
                 material.SetVector4(texColour, matInfo.DiffuseColour);
                 material.SetFloat(texTiling, 1);
 
-                material.SetFloat(exposureProp, 4.5f);
-                material.SetFloat(gammaProp, 2.2f);
+                material.SetFloat(exposureProp, 0.9f);
+                material.SetFloat(gammaProp, 1.0f);
 
 
                 for (int j = 0; j < matInfo.appliesTo.Count; j++, k++)
