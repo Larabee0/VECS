@@ -87,6 +87,7 @@ namespace VECS
 
         public void PointLightShadowPass(in RendererFrameInfo frameInfo)
         {
+            if (Presenter.FrameCount > 4) return;
             EnginePipes.DepthOnly.SetDescriptorStorageBufferLengthFromProperty(matsPropertyId, (uint)frameInfo.LightingInfo.NumPointLights * 6u);
             EnginePipes.DepthOnly.SetDescriptorStorageBufferLengthFromProperty(lightInfoPropertyId, (uint)frameInfo.LightingInfo.NumPointLights);
             _plDepthOnly.GetStorageSwapChainBuffer(matsPropertyId).SetBuffersDirty(true);
