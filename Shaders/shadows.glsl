@@ -17,7 +17,7 @@ const vec3 sampleOffsetDirections[20] = vec3[]
 );   
 
 
-#define ambient 0.03
+#define ambientDIRShadow 0.03
 
 float textureProj(sampler2DArray dirShadow, vec4 shadowCoord, vec2 offset, uint cascadeIndex, vec3 lightDir, vec3 normal)
 {
@@ -28,7 +28,7 @@ float textureProj(sampler2DArray dirShadow, vec4 shadowCoord, vec2 offset, uint 
 	if ( shadowCoord.z > -1.0 && shadowCoord.z < 1.0 ) {
 		float dist = texture(dirShadow, vec3(shadowCoord.st + offset, cascadeIndex)).r;
 		if (shadowCoord.w > 0 && dist < shadowCoord.z - bias) {
-			shadow = ambient;
+			shadow = ambientDIRShadow;
 		}
 	}
 	return shadow;

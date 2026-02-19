@@ -105,7 +105,7 @@ namespace VECS
 
                     Ambient = new(0.1f, 0.1f, 0.1f, 1f),
                     Diffuse = Vector4.One,
-                    Specular = new(0.5f, 0.5f, 0.5f, 1f)
+                    Specular = new(1f, 1f, 1f, 1f)
                 }
             });
         }
@@ -514,8 +514,8 @@ namespace VECS
                 material.SetVector4(texColour, matInfo.DiffuseColour);
                 material.SetFloat(texTiling, 1);
 
-                material.SetFloat(exposureProp, 0.9f);
-                material.SetFloat(gammaProp, 1.0f);
+                material.SetFloat(exposureProp, 3.0f);
+                material.SetFloat(gammaProp, 1f);
 
 
                 for (int j = 0; j < matInfo.appliesTo.Count; j++, k++)

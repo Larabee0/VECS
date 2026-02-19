@@ -2,6 +2,7 @@
 #extension GL_ARB_shading_language_include : require
 #include "../common_structures.glsl"
 #include "../lighting.glsl"
+#include "../shadows.glsl"
 
 layout (location = 0) in vec3 fragPosWorld;
 layout (location = 1) in vec3 fragNormalWorld;
@@ -30,6 +31,10 @@ layout (set = 0, binding = 2) readonly buffer SpotLights {
 layout(set = 0,binding = 3) readonly buffer CameraInfos {
 	CameraInfo values[];
 } cameraInfo;
+
+layout(set = 0,binding = 4) readonly buffer CameraInverses {
+	CameraInverse values[];
+} cameraInverse;
 
 layout (set = 1, binding = 2) uniform sampler2DArray dirShadow;
 layout (set = 1, binding = 3) uniform samplerCubeArray plShadow;
@@ -91,10 +96,10 @@ float G_SchlicksmithGGX(float dotNL, float dotNV, float roughness) {
 
 // Fresnel function ----------------------------------------------------
 vec3 F_Schlick(float cosTheta, vec3 F0) {
-	return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
+	return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
 }
 vec3 F_SchlickR(float cosTheta, vec3 F0, float roughness) {
-	return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(1.0 - cosTheta, 5.0);
+	return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
 }
 
 vec3 prefilteredReflection(vec3 R, float roughness) {
@@ -135,7 +140,7 @@ vec3 specularContribution(vec3 L, vec3 V, vec3 N, vec3 F0, float metallic, float
 vec3 calculateNormal() {
 	vec3 tangentNormal = texture(normalMap, TILED_UV).xyz * 2.0 - 1.0;
 
-	vec3 N = normalize(fragNormalAlt);
+	vec3 N = normalize(fragNormalWorld);
 	vec3 T = normalize(fragTangentWorld.xyz);
 	vec3 B = normalize(cross(N, T));
 	mat3 TBN = mat3(T, B, N);
@@ -145,7 +150,8 @@ vec3 calculateNormal() {
 void main() {
 	vec3 N = calculateNormal();
 
-	vec3 cameraPosWorld = cameraInfo.values[constants.cameraIndex].position;
+	//vec3 cameraPosWorld = cameraInfo.values[constants.cameraIndex].position;// * -1.0;
+	vec3 cameraPosWorld = cameraInverse.values[constants.cameraIndex].inverseViewMatrix[3].xyz;
 
 	vec3 V = normalize(cameraPosWorld - fragPosWorld);
 	vec3 R = reflect(-V, N);
@@ -157,7 +163,23 @@ void main() {
 	vec3 F0 = vec3(0.04); 
 	F0 = mix(F0, ALBEDO, metallic);
     
+	int cascadeIndex = 0;
 	vec3 Lo = specularContribution(lighting.directionalLight.direction.xyz, V, N, F0, metallic, roughness, lighting.directionalLight.specular.rgb);
+	//Lo = specularContribution(normalize(vec3(-15,-7.5,15)), V, N, F0, metallic, roughness, lighting.directionalLight.specular.rgb);
+	float shadow = DirShadows(
+		dirShadow,
+		lighting.directionalLight.lightSpace,
+		lighting.directionalLight.cascadeSplits,
+		lighting.directionalLight.cascadeCount,
+		lighting.directionalLight.direction.xyz,
+		cameraInfo.values[constants.cameraIndex].viewMatrix,
+		fragPosWorld,
+		fragViewPos,
+		N,
+		cascadeIndex
+	);
+
+	
 
     for(int i = 0; i < lighting.numPointLights; i++) {
 		PointLight pl = pointLightBuffer.values[i];
@@ -172,11 +194,12 @@ void main() {
     }
 
 	vec2 brdf = texture(samplerBRDFLUT, vec2(max(dot(N, V), 0.0), roughness)).rg;
-	vec3 reflection = prefilteredReflection(R, roughness).rgb;	
+	vec3 reflection = prefilteredReflection(R, roughness).rgb * shadow;	
 	vec3 irradiance = texture(samplerIrradiance, N).rgb;
     
 	// Diffuse based on irradiance
 	vec3 diffuse = irradiance * ALBEDO;
+	//diffuse = ALBEDO;
 
 	vec3 F = F_SchlickR(max(dot(N, V), 0.0), F0, roughness);
     
@@ -188,13 +211,16 @@ void main() {
 	kD *= 1.0 - metallic;	  
 	ambient *= (kD * diffuse + specular);
 
-	vec3 color = ambient + Lo;
+	vec3 color = (ambient + Lo)*shadow;
     
 	// Tone mapping
-	color = Uncharted2Tonemap(color * texProps.exposure);
+	//color = Uncharted2Tonemap(color * texProps.exposure);
+	color = Uncharted2Tonemap(color * 1.5);
 	color = color * (1.0 / Uncharted2Tonemap(vec3(11.2)));	
-	// Gamma correction
-	color = pow(color, vec3(1.0 / texProps.gamma));
-
+	// // Gamma correction
+	//color = pow(color, vec3(1.0 / texProps.gamma));
+	//color = pow(color, vec3(1.0 / 1));
+	
 	outColour = vec4(color, 1.0);
+	//outColour = vec4(brdf,0.0, 1.0);
 }
