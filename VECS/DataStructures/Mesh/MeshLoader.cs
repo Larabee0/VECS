@@ -1,11 +1,12 @@
 ﻿//#define AssimpLogging
-
+#define MULTI_THREADED_MESH_FILL
 
 using Assimp;
 using Assimp.Unmanaged;
 using Mikktspace.NET;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Numerics;
@@ -141,6 +142,7 @@ namespace VECS.DataStructures
                 template = JsonSerializer.Deserialize<MaterialSet>(text);
             }
             AssimpContext importer = new();
+            
 #if AssimpLogging
             var logger = StartAssimpLogger(ASSIMP_VERBOSE_LOGGING);
 #endif
@@ -275,13 +277,26 @@ namespace VECS.DataStructures
             var directMeshBuffer = new DirectMesh(directMeshName, attributeDescriptions, directMeshCreateInfo);
 
             DirectSubMesh[] sceneMeshes = directMeshBuffer.DirectSubMeshes;
+            
+            Stopwatch sw = Stopwatch.StartNew();
 
+#if MULTI_THREADED_MESH_FILL
+            Application.ParallelFor(scene.MeshCount, (i) =>
+            {
+                sceneMeshes[i].AssetName = directMeshName + "." + scene.Meshes[i].Name;
+                FillSubMesh(sceneMeshes[i], scene.Meshes[i]);
+            });
+#else
             for (int i = 0; i < scene.MeshCount; i++)
             {
                 sceneMeshes[i].AssetName = directMeshName + "." + scene.Meshes[i].Name;
                 FillSubMesh(sceneMeshes[i], scene.Meshes[i]);
             }
-            
+#endif
+            sw.Stop();
+
+            Console.WriteLine("Mesh import time {0}ms (DirectMesh {2} | Imported {1} Meshes)", sw.ElapsedMilliseconds, scene.MeshCount, directMeshName);
+
             directMeshBuffer.FlushAll();
 
             return sceneMeshes;

@@ -91,7 +91,7 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static unsafe int Hash(byte* key, ulong length)
+        public static unsafe int Hash(byte* key, ulong length)
         {
             ulong i = 0;
             uint hash = 0;

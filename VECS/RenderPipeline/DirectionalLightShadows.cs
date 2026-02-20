@@ -57,7 +57,6 @@ namespace VECS
 
             _dirDepthOnly.PushConstants.SetPushConstantInt("matrixStartIndex", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, 0);
             _dirDepthOnly.PushConstants.SetPushConstantInt("bufferSelect", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, 1);
-            _dirDepthOnly.PushConstants.SetPushConstantInt("baseLayerOffset", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, 0);
             _dirDepthOnly.PushConstants.SetPushConstantInt("layerCount", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, CASCADE_COUNT);
             _dirDepthOnly.PushConstants.SetPushConstantInt("useLightPos", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, 0);
         }

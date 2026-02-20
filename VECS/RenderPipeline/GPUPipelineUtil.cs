@@ -324,44 +324,44 @@ namespace VECS
 
         public static VkPipelineLayout CreatePipelineLayoutVert(ShaderModule shaderModule, VkDescriptorSetLayout[] setLayouts, PushConstantsHandler pushConstants)
         {
-            string cacheName = shaderModule.AssetName;
-            var cache = AssetDataBase<PipelineCache>.GetNamedSilentFail(cacheName);
+            string layoutName = shaderModule.AssetName;
+            var layout = AssetDataBase<ShaderPipelineLayout>.GetNamedSilentFail(layoutName);
 
-            if (cache == null)
+            if (layout == null)
             {
-                cache = new(cacheName, CreatePipelineLayout(setLayouts, pushConstants));
-                AssetDataBase<PipelineCache>.Add(cache);
+                layout = new(layoutName, CreatePipelineLayout(setLayouts, pushConstants));
+                AssetDataBase<ShaderPipelineLayout>.Add(layout);
             }
 
-            return cache.Layout;
+            return layout.Layout;
         }
 
         public static VkPipelineLayout CreatePipelineLayoutVertFrag(ShaderModule vertex, ShaderModule fragment, VkDescriptorSetLayout[] setLayouts, PushConstantsHandler pushConstants)
         {
-            string cacheName = vertex.AssetName + fragment.AssetName;
-            var cache = AssetDataBase<PipelineCache>.GetNamedSilentFail(cacheName);
+            string layoutName = vertex.AssetName + fragment.AssetName;
+            var layout = AssetDataBase<ShaderPipelineLayout>.GetNamedSilentFail(layoutName);
 
-            if (cache == null)
+            if (layout == null)
             {
-                cache = new(cacheName, CreatePipelineLayout(setLayouts, pushConstants));
-                AssetDataBase<PipelineCache>.Add(cache);
+                layout = new(layoutName, CreatePipelineLayout(setLayouts, pushConstants));
+                AssetDataBase<ShaderPipelineLayout>.Add(layout);
             }
 
-            return cache.Layout;
+            return layout.Layout;
         }
 
         public static VkPipelineLayout CreatePipelineLayoutVerGeoFrag(ShaderModule  vertex, ShaderModule geometry, ShaderModule fragment, VkDescriptorSetLayout[] setLayouts, PushConstantsHandler pushConstants)
         {
-            string cacheName = vertex.AssetName + geometry.AssetName+ fragment.AssetName;
-            var cache = AssetDataBase<PipelineCache>.GetNamedSilentFail(cacheName);
+            string layoutName = vertex.AssetName + geometry.AssetName+ fragment.AssetName;
+            var layout = AssetDataBase<ShaderPipelineLayout>.GetNamedSilentFail(layoutName);
 
-            if (cache == null)
+            if (layout == null)
             {
-                cache = new(cacheName, CreatePipelineLayout(setLayouts, pushConstants));
-                AssetDataBase<PipelineCache>.Add(cache);
+                layout = new(layoutName, CreatePipelineLayout(setLayouts, pushConstants));
+                AssetDataBase<ShaderPipelineLayout>.Add(layout);
             }
 
-            return cache.Layout;
+            return layout.Layout;
         }
 
         public static VkPipelineLayout CreatePipelineLayoutMeshTaskFrag(ShaderModule mesh, ShaderModule task, ShaderModule fragment, VkDescriptorSetLayout[] setLayouts, PushConstantsHandler pushConstants)
@@ -370,16 +370,16 @@ namespace VECS
             {
                 throw new InvalidOperationException("Mesh shading is not enabled for this runtime instance!");
             }
-            string cacheName = mesh.AssetName + task.AssetName + fragment.AssetName;
-            var cache = AssetDataBase<PipelineCache>.GetNamedSilentFail(cacheName);
+            string layoutName = mesh.AssetName + task.AssetName + fragment.AssetName;
+            var layout = AssetDataBase<ShaderPipelineLayout>.GetNamedSilentFail(layoutName);
 
-            if (cache == null)
+            if (layout == null)
             {
-                cache = new(cacheName, CreatePipelineLayout(setLayouts, pushConstants));
-                AssetDataBase<PipelineCache>.Add(cache);
+                layout = new(layoutName, CreatePipelineLayout(setLayouts, pushConstants));
+                AssetDataBase<ShaderPipelineLayout>.Add(layout);
             }
 
-            return cache.Layout;
+            return layout.Layout;
         }
 
         public static unsafe VkPipelineLayout CreatePipelineLayout(VkDescriptorSetLayout[] setLayouts, PushConstantsHandler pushConstants)
@@ -411,11 +411,9 @@ namespace VECS
             return pipelineLayout;
         }
 
-        public static unsafe VkPipeline CreateComputePipeline(ShaderModule computeShader,VkComputePipelineCreateInfo createInfo)
+        public static VkPipeline CreateComputePipeline(VkComputePipelineCreateInfo createInfo)
         {
-            string cacheName = computeShader.AssetName;
-            var cache = AssetDataBase<PipelineCache>.GetNamed(cacheName);
-            GraphicsDevice.DeviceAPI.vkCreateComputePipeline(cache.Cache, createInfo, out var _pipline).CheckResult("Failed to create Compute Pipeline");
+            GraphicsDevice.DeviceAPI.vkCreateComputePipeline(ShaderCache.Cache, createInfo, out var _pipline).CheckResult("Failed to create Compute Pipeline");
             return _pipline;
         }
 
@@ -491,7 +489,7 @@ namespace VECS
 
         private static unsafe VkPipeline CreateGrahpicsPipeline(string cacheName, GraphicsPipelineConfigInfo configInfo, VkPipelineCreateFlags flags, uint stageCount ,VkPipelineShaderStageCreateInfo* shaderStages)
         {
-            var cache = AssetDataBase<PipelineCache>.GetNamed(cacheName);
+            var cache = AssetDataBase<ShaderPipelineLayout>.GetNamed(cacheName);
 
             // Fix the properties needed for Graphics Pipeline Create Info
             configInfo.pipelineLayout = cache.Layout;
@@ -578,7 +576,7 @@ namespace VECS
             pipelineInfo.pNext = &pipelineRenderingCreateInfo;
             pipelineInfo.flags = flags;
 
-            GraphicsDevice.DeviceAPI.vkCreateGraphicsPipeline(cache.Cache, pipelineInfo, out var graphicsPipeline).CheckResult("Failed to create graphics pipeline!");
+            GraphicsDevice.DeviceAPI.vkCreateGraphicsPipeline(ShaderCache.Cache, pipelineInfo, out var graphicsPipeline).CheckResult("Failed to create graphics pipeline!");
 
 
             return graphicsPipeline;

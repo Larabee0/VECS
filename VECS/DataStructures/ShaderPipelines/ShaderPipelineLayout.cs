@@ -1,25 +1,22 @@
-using System;
+﻿using System;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
 namespace VECS
 {
-    public class PipelineCache : DisposableAsset
+    public class ShaderPipelineLayout : DisposableAsset
     {
-        private readonly VkPipelineCache _cache;
         private VkPipelineLayout _pipelineLayout;
-        public VkPipelineCache Cache => _cache;
         public VkPipelineLayout Layout => _pipelineLayout;
 
-        internal unsafe PipelineCache(string name, VkPipelineLayout layout)
+        internal ShaderPipelineLayout(string name, VkPipelineLayout layout)
         {
             AssetName = name;
             _pipelineLayout = layout;
             Generated = true;
-            GraphicsDevice.DeviceAPI.vkCreatePipelineCache(new VkPipelineCacheCreateInfo(), null, out _cache);
         }
 
-        public unsafe override void Dispose()
+        public override void Dispose()
         {
             GC.SuppressFinalize(this);
             if (_disposed)
@@ -27,8 +24,7 @@ namespace VECS
                 return;
             }
             _disposed = true;
-            GraphicsDevice.DeviceAPI.vkDestroyPipelineCache(_cache);
-            
+
             if (_pipelineLayout.IsNotNull)
             {
                 GraphicsDevice.DeviceAPI.vkDestroyPipelineLayout(_pipelineLayout);
@@ -36,14 +32,14 @@ namespace VECS
             }
         }
 
-        public static PipelineCache Create(string name, VkPipelineLayout layout)
+        public static ShaderPipelineLayout Create(string name, VkPipelineLayout layout)
         {
-            var cache = new PipelineCache(name, layout)
+            var cache = new ShaderPipelineLayout(name, layout)
             {
                 Generated = false
             };
 
-            AssetDataBase<PipelineCache>.Add(cache);
+            AssetDataBase<ShaderPipelineLayout>.Add(cache);
 
             return cache;
         }

@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Numerics;
 using VECS.DataStructures;
 using VECS.ECS;
@@ -11,7 +13,7 @@ namespace VECS
 {
     internal static class DefaultEntryPoint
     {
-
+        public static readonly string ProjectName = "Sponza-Renderer-Testing";
         private static Vector3 initalCameraPos = new(-0.12f, 1.14f, -2.25f);
         private static Vector3 initalCameraRot = TransformExtensions.DegreesToRadians(new (17.0f, 7.0f, 0.0f));// TransformExtensions.DegreesToRadians(new(0, 90, 0));
 
@@ -387,11 +389,65 @@ namespace VECS
 
         private static void SponzaNewPBR()
         {
+
+            Stopwatch sw = Stopwatch.StartNew();
             MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("Sponza-New.obj"), [new VertexAttributeDescription(VertexAttribute.Tangent, VertexAttributeFormat.Float4)], out var sponza, out var sponzaMatInfo);
+            sw.Stop();
+            Console.WriteLine("Sponza Mesh Import time: {0}ms", sw.ElapsedMilliseconds);
+
+            sw.Restart();
+            HashSet<string> texturesSets = new HashSet<string>();
+            for (int i = 0; i < sponzaMatInfo.Length; i++)
+            {
+                var matInfo = sponzaMatInfo[i];
+                if (matInfo.DiffuseTexture != null)
+                {
+                    texturesSets.Add(matInfo.DiffuseTexture);
+                }
+
+                if (matInfo.NormalTexture != null)
+                {
+                    texturesSets.Add(matInfo.NormalTexture);
+                }
+
+                if (matInfo.AOTexture != null)
+                {
+                    texturesSets.Add(matInfo.AOTexture);
+                }
+
+                if (matInfo.MetallicTexture != null)
+                {
+                    texturesSets.Add(matInfo.MetallicTexture);
+                }
+                if (matInfo.SmoothnessTexture != null)
+                {
+                    texturesSets.Add(matInfo.SmoothnessTexture);
+                }
+            }
+
+            string[] textureNames = [..texturesSets];
+
+            ConcurrentDictionary<string, Texture2D> textureLibrary = new();
+
+            Application.ParallelFor(textureNames.Length, (i)=>
+            {
+                var texture = new Texture2D(textureNames[i], true, true);
+                textureLibrary.TryAdd(textureNames[i], texture);
+            });
+            sw.Stop();
+
+            for (int i = 0; i < textureNames.Length; i++)
+            {
+                if(textureLibrary.TryGetValue(textureNames[i], out var texture))
+                {
+                    AssetDataBase<Texture2D>.Add(texture);
+                }
+            }
+
+            Console.WriteLine("Sponza Texture Import time: {0}ms", sw.ElapsedMilliseconds);
 
             EntityManager entityManager = World.DefaultWorld.EntityManager;
 
-            Dictionary<string, Texture2D> textureLibrary = [];
 
             var commonParent = entityManager.CreateEntity();
 
@@ -419,7 +475,6 @@ namespace VECS
             var gammaProp = "texProps.gamma".GetShaderPropertyId();
 
             int litVariant = 0;
-
             for (int i = 0, k = 0; i < sponzaMatInfo.Length; i++)
             {
                 var matInfo = sponzaMatInfo[i];
@@ -433,13 +488,8 @@ namespace VECS
                 Material material = AssetDataBase<Material>.GetNamedSilentFail(matName);
                 material ??= lit.Create(matName);
 
-                if (matInfo.DiffuseTexture != null)
+                if (matInfo.DiffuseTexture != null && textureLibrary.TryGetValue(matInfo.DiffuseTexture, out var diffuseTexture))
                 {
-                    if (!textureLibrary.TryGetValue(matInfo.DiffuseTexture, out var diffuseTexture))
-                    {
-                        diffuseTexture = new Texture2D(matInfo.DiffuseTexture);
-                        textureLibrary.Add(matInfo.DiffuseTexture, diffuseTexture);
-                    }
                     if (matInfo.AlphaClipping)
                     {
                         //material.SetTexture(ShaderProperties.HeadIndexImageId, Presenter.Instance.ForwardRenderer._headIndex);
@@ -455,14 +505,8 @@ namespace VECS
                     material.SetTexture(texProp, EngineTextures.White);
                 }
 
-                if (matInfo.NormalTexture != null)
+                if (matInfo.NormalTexture != null && textureLibrary.TryGetValue(matInfo.NormalTexture, out var normalTexture))
                 {
-                    if (!textureLibrary.TryGetValue(matInfo.NormalTexture, out var normalTexture))
-                    {
-                        normalTexture = new Texture2D(matInfo.NormalTexture, false);                        
-                        textureLibrary.Add(matInfo.NormalTexture, normalTexture);
-                    }
-
                     material.SetTexture(normalProp, normalTexture);
                 }
                 else
@@ -470,13 +514,8 @@ namespace VECS
                     material.SetTexture(normalProp, EngineTextures.Black);
                 }
 
-                if(matInfo.AOTexture != null)
+                if(matInfo.AOTexture != null && textureLibrary.TryGetValue(matInfo.AOTexture, out var aoTexture))
                 {
-                    if(!textureLibrary.TryGetValue(matInfo.AOTexture, out var aoTexture))
-                    {
-                        aoTexture = new Texture2D(matInfo.AOTexture);
-                        textureLibrary.Add(matInfo.AOTexture, aoTexture);
-                    }
                     material.SetTexture(aoProp, aoTexture);
                 }
                 else
@@ -484,13 +523,8 @@ namespace VECS
                     material.SetTexture(aoProp, EngineTextures.White);
                 }
 
-                if (matInfo.MetallicTexture != null)
+                if (matInfo.MetallicTexture != null && textureLibrary.TryGetValue(matInfo.MetallicTexture, out var metallicTexture))
                 {
-                    if (!textureLibrary.TryGetValue(matInfo.MetallicTexture, out var metallicTexture))
-                    {
-                        metallicTexture = new Texture2D(matInfo.MetallicTexture);
-                        textureLibrary.Add(matInfo.MetallicTexture, metallicTexture);
-                    }
                     material.SetTexture(metallicProp, metallicTexture);
                 }
                 else
@@ -498,13 +532,8 @@ namespace VECS
                     material.SetTexture(metallicProp, EngineTextures.Black);
                 }
 
-                if (matInfo.SmoothnessTexture != null)
+                if (matInfo.SmoothnessTexture != null && textureLibrary.TryGetValue(matInfo.SmoothnessTexture, out var smoothnessTexture))
                 {
-                    if (!textureLibrary.TryGetValue(matInfo.SmoothnessTexture, out var smoothnessTexture))
-                    {
-                        smoothnessTexture = new Texture2D(matInfo.SmoothnessTexture);
-                        textureLibrary.Add(matInfo.SmoothnessTexture, smoothnessTexture);
-                    }
                     material.SetTexture(smoothnessProp, smoothnessTexture);
                 }
                 else
@@ -530,7 +559,6 @@ namespace VECS
                 }
                 litVariant++;
             }
-
             entityManager.AddComponent(commonParent, new Rotation() { Value = TransformExtensions.EulerUnity(00, 90, 0) });
             entityManager.AddComponent(commonParent, new Scale() { Value = Vector3.One });
             entityManager.AddComponent(commonParent, children);

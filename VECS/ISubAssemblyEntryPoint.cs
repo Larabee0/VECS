@@ -12,6 +12,7 @@
     /// </summary>
     public interface ISubAssemblyEntryPoint
     {
+        public string ProjectName { get; }
         public int Main(string[] args);
     }
 }

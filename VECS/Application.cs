@@ -5,6 +5,8 @@ using BepuUtilities;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using VECS.UI;
+using System.Diagnostics;
+using System.IO;
 
 namespace VECS
 {
@@ -28,10 +30,22 @@ namespace VECS
         public Action PostOnCreate;
         public Action OnDestroy;
 
+        private static string _persistentDataPath;
+
         public static string ExecutingDirectory => AppDomain.CurrentDomain.BaseDirectory;
+        public static string ProjectName => Bootstrap.ProjectName;
+        public static string PersistentDataPath => _persistentDataPath;
 
         public Application()
         {
+            _persistentDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            _persistentDataPath = Path.Combine(_persistentDataPath, Bootstrap.ProjectName);
+            if (!Directory.Exists(_persistentDataPath))
+            {
+                Directory.CreateDirectory(_persistentDataPath);
+            }
+            Console.WriteLine("PersistentDataPath: {0}", PersistentDataPath);
+            var sw = Stopwatch.StartNew();
             Instance = this;
             var targetThreadCount = int.Max(1, Environment.ProcessorCount > 4 ? Environment.ProcessorCount - 2 : Environment.ProcessorCount - 1);
             _threadDispatcher = new ThreadDispatcher(targetThreadCount);
@@ -44,6 +58,8 @@ namespace VECS
             ULUI.Initialise();
 
             Time.FixedTimeStepCallback += FixedUpdate;
+            sw.Stop();
+            Console.WriteLine("Application.Constructor time: {0}ms", sw.ElapsedMilliseconds);
         }
 
         /// <summary>
@@ -51,7 +67,6 @@ namespace VECS
         /// </summary>
         public void Run()
         {
-            Bootstrap.subAssemblyLoadPoints.ForEach(loadPoint => loadPoint.PreApplicationStart());
             Start();
             while (running)
             {
@@ -86,6 +101,8 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void Start()
         {
+            Stopwatch sw = Stopwatch.StartNew();
+            Bootstrap.subAssemblyLoadPoints.ForEach(loadPoint => loadPoint.PreApplicationStart());
             running = true;
 
             Bootstrap.subAssemblyLoadPoints.ForEach(loadPoint => loadPoint.PreDefaultWorldCreation());
@@ -98,7 +115,6 @@ namespace VECS
 
             Bootstrap.subAssemblyLoadPoints.ForEach(loadPoint => loadPoint.PostDefaultWorldCreation());
             PostOnCreate?.Invoke();
-            Console.WriteLine("Start completed, Engine is Running!");
             if (Bootstrap.LogAssetDataBaseCountsOnStart)
             {
                 LogAssetCounts();
@@ -111,6 +127,9 @@ namespace VECS
                 Console.WriteLine("Purging Disposed Assets...");
                 LogAssetCounts();
             }
+            sw.Stop();
+            Console.WriteLine("Application.Start time: {0}ms", sw.ElapsedMilliseconds);
+            Console.WriteLine("Start completed, Engine is Running!");
         }
 
         private static void LogAssetCounts()
@@ -222,6 +241,7 @@ namespace VECS
             _presenter.Dispose();
             GPUBufferExtensions.Reset();
             TextureExtensions.Reset();
+            ShaderCache.Dispose();
             GraphicsDevice.Dispose();
             _appWindow.Dispose();
         }

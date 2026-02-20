@@ -47,8 +47,8 @@ namespace VECS.UI
             AppCoreMethods.SetPlatformFontLoader();
 
             _ulRenderer = ULPlatform.CreateRenderer(config);
-
-            _ulView = _ulRenderer.CreateView(1280, 720, viewConfig);
+            
+            _ulView = _ulRenderer.CreateView(SwapChain.Instance.SwapChainExtent.width, SwapChain.Instance.SwapChainExtent.height, viewConfig);
             _ulView.HTML = _defaultHTML;
             UIBlit = EnginePipes.Blit.Create("UIBlitter");
 
@@ -62,6 +62,8 @@ namespace VECS.UI
                 uiOutputTex = new("UI_Out", 1280, 720, VkFormat.B8G8R8A8Unorm, VkImageUsageFlags.TransferDst | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.Sampled, false);
                 Console.WriteLine(_bitmap.Format.ToString());
             }
+
+            
         }
 
         public static void CleanUp()

@@ -20,9 +20,12 @@ namespace VECS
 
         public static List<ISubAssemblyLoadPoint> subAssemblyLoadPoints = [];
 
+        public static string ProjectName { get; private set; }
+
 
         static int Main(string[] args)
         {
+            Stopwatch swMain = Stopwatch.StartNew();
             var assembliesConfig = Path.Combine(Asset.AssetsPath, "AdditionalAssemblies.config");
             if (File.Exists(assembliesConfig))
             {
@@ -94,8 +97,14 @@ namespace VECS
             if (overrideEntryPoint != null)
             {
                 var subEntryPoint = (ISubAssemblyEntryPoint)Activator.CreateInstance(overrideEntryPoint);
+                ProjectName = subEntryPoint.ProjectName;
                 return subEntryPoint.Main(args);
             }
+            swMain.Stop();
+
+            Console.WriteLine("Pre Start time: {0}ms", swMain.ElapsedMilliseconds);
+
+            ProjectName = DefaultEntryPoint.ProjectName;
 
             return DefaultEntryPoint.Main(args);
         }

@@ -301,7 +301,7 @@ namespace VECS
             AssetDataBase<Texture2D>.Add(this);
         }
 
-        public Texture2D(string filePath, bool generateMipMaps = true)
+        public Texture2D(string filePath, bool generateMipMaps = true, bool dontAddToDataBase = false)
         {
             var surface = TextureLoader.LoadToSurface(filePath);
             _hostBuffer = TextureLoader.CopySurfaceToStagingBuffer(surface);
@@ -324,6 +324,7 @@ namespace VECS
 
             FileName = Path.GetFileName(filePath);
             AssetName = Path.GetFileNameWithoutExtension(filePath);
+            if (dontAddToDataBase) return;
             AssetDataBase<Texture2D>.Add(this);
         }
 

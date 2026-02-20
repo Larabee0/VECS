@@ -1,5 +1,9 @@
 ﻿using SDL3;
 using System;
+using System.IO;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using Vortice.Vulkan;
 using SDL = SDL3.SDL3;
 
@@ -12,6 +16,9 @@ namespace VECS.LowLevel
     /// </summary>
     public sealed class SDL3Window : IWindow
     {
+        private const string WINDOW_CONFIG_FILE_NAME = "WindowConfig.json";
+        public static string WindowConfigFilePath => Path.Combine(Application.PersistentDataPath, WINDOW_CONFIG_FILE_NAME);
+
         private readonly static SDL_InitFlags _sdl_Init_Flags = SDL_InitFlags.Video | SDL_InitFlags.Events;
         private readonly static SDL_WindowFlags _sdl_Window_Flags = SDL_WindowFlags.HighPixelDensity | SDL_WindowFlags.Vulkan | SDL_WindowFlags.Resizable;
 
@@ -34,6 +41,25 @@ namespace VECS.LowLevel
 
         public SDL3Window(int width, int height, string name)
         {
+            try
+            {
+                if (File.Exists(WindowConfigFilePath))
+                {
+                    var configText = File.ReadAllText(WindowConfigFilePath);
+                    var config= JsonSerializer.Deserialize<WindowSettings>(configText);
+                    if (config != null)
+                    {
+                        width = config.Width;
+                        height = config.Height;
+                        _screenSaverAllowed = config.ScreenSaverAllowed;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error loading window config: {0}", ex.Message);
+                Console.WriteLine(ex.StackTrace);
+            }
             Screen.Width = _width = width;
             Screen.Height = _height = height;
             _windowName = name;
@@ -174,6 +200,20 @@ namespace VECS.LowLevel
 
         public void Dispose()
         {
+            try
+            {
+                if (File.Exists(WindowConfigFilePath))
+                {
+                    File.Delete(WindowConfigFilePath);
+                }
+                string windowConfig = JsonSerializer.Serialize(new WindowSettings() { Height = _height, Width = _width, ScreenSaverAllowed = _screenSaverAllowed });
+                File.WriteAllText(WindowConfigFilePath, windowConfig);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error writing window config: {0}", ex.Message);
+                Console.WriteLine(ex.StackTrace);
+            }
             _inputManager.Destroy();
             SDL.SDL_DestroyWindow(_window);
             SDL.SDL_Vulkan_UnloadLibrary();
@@ -196,5 +236,13 @@ namespace VECS.LowLevel
                 Console.WriteLine(string.Format("[{0}] SDL: {1}", priority, message));
             }
         }
+
+        private class WindowSettings
+        {
+            public int Width {get; set;}
+            public int Height { get; set; }
+            public bool ScreenSaverAllowed { get; set; }
+        }
+
     }
 }

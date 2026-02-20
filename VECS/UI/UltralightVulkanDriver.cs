@@ -359,7 +359,7 @@ namespace VECS.UI
         #region Geometry
         public void CreateGeometry(uint geometryId, ULVertexBuffer vertexBuffer, ULIndexBuffer indexBuffer)
         {
-            SwapChainBuffer geometryBuffer = new SwapChainBuffer(
+            SwapChainBuffer geometryBuffer = new(
                 vertexBuffer.size + indexBuffer.size,
                 1,
                 VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.IndexBuffer | VkBufferUsageFlags.TransferDst,

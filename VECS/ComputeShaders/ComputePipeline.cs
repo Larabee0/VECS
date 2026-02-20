@@ -82,7 +82,7 @@ namespace VECS
                 flags = VkPipelineCreateFlags.DescriptorBufferEXT
             };
 
-            _pipline = GPUPipelineUtil.CreateComputePipeline(shaderModule, computePipelineInfo);
+            _pipline = GPUPipelineUtil.CreateComputePipeline(computePipelineInfo);
 
             _computeVariants = [new ComputeVariant("Default", this, false)];
             _variantsToAdd.TryDequeue(out var variant);
