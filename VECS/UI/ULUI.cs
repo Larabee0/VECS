@@ -62,8 +62,6 @@ namespace VECS.UI
                 uiOutputTex = new("UI_Out", 1280, 720, VkFormat.B8G8R8A8Unorm, VkImageUsageFlags.TransferDst | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.Sampled, false);
                 Console.WriteLine(_bitmap.Format.ToString());
             }
-
-            
         }
 
         public static void CleanUp()

@@ -27,13 +27,12 @@
     <PackageReference Include="System.Net.Http" Version="4.3.4" />
     <PackageReference Include="System.Text.RegularExpressions" Version="4.3.1" />
     <PackageReference Include="TeximpNet" Version="1.4.3" />
-    <PackageReference Include="UltralightNet.AppCore" Version="1.3.0" />
     <PackageReference Include="Vortice.SPIRV" Version="1.0.5" />
     <PackageReference Include="Vortice.SPIRV.Reflect" Version="1.0.6" />
     <PackageReference Include="Vortice.Vulkan" Version="3.2.1" />
     <PackageReference Include="Vortice.VulkanMemoryAllocator" Version="1.7.0" />
     <PackageReference Include="YellowDogMan.Mikktspace.Net" Version="0.1.4" />
-    <PackageReference Include="Alimer.Bindings.MeshOptimizer" Version="1.2.0" />
+    <PackageReference Include="Alimer.Bindings.MeshOptimizer" Version="1.2.1" />
   </ItemGroup>
   
   <ItemGroup>
@@ -42,6 +41,11 @@
 
   <ItemGroup>
     <None Include="$(SolutionDir)\VECS\.editorconfig" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\UltralightNet.AppCore\UltralightNet.AppCore.csproj" />
+    <ProjectReference Include="..\UltralightNet\UltralightNet.csproj" />
   </ItemGroup>
 	
   <Target Name="PreBuild" BeforeTargets="PreBuildEvent" Condition="'$(BuildAll)' != 'false'">
@@ -94,9 +98,11 @@
 
 	<Target Name="BuildAssemblies" AfterTargets="CopyShaders" Condition="'$(BuildAll)' != 'false'">
 		<ItemGroup>
-			<ProjectFile Include="$(SolutionDir)/**/*.csproj" Exclude="$(SolutionDir)/VECS/VECS.csproj" />
+			<ProjectFile Include="$(SolutionDir)/**/*.csproj"			
+				 Exclude="$(SolutionDir)/UltralightNet.Binaries/UltralightNet.Binaries.csproj;$(SolutionDir)/UltralightNet/UltralightNet.csproj;$(SolutionDir)/VECS/VECS.csproj;$(SolutionDir)/UltralightNet.AppCore/UltralightNet.AppCore.csproj;$(SolutionDir)/UltralightNet.AppCore.Binaries/UltralightNet.AppCore.Binaries.csproj"/>
 		</ItemGroup>
 		<Message Importance="high" text="Compiling subassemblies" />
+		<Message Importance="high" text="Text %(ProjectFile.Identity)" />
 		<Exec command="dotnet build %(ProjectFile.Identity) --configuration $(Configuration) --property:BuildAll=false" />
 	</Target>
 
