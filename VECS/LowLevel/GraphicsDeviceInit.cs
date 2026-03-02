@@ -699,8 +699,11 @@ namespace VECS.LowLevel
 
             Console.WriteLine(string.Format("[{0}] Vulkan: Validation Layer: {1}", messageSeverity, Encoding.UTF8.GetString(message.Span)));
             StackTrace trace = new(true);
+            var traceString = trace.ToString();
 
-            Console.WriteLine(string.Format("Validation layer trace\n {0}", trace.ToString()));
+            var index = traceString.IndexOf("\r")+1;
+
+            Console.WriteLine(string.Format("Validation layer trace\n {0}", traceString.Substring(index)));
             if (BreakOnValidationError)
             {
                 Debugger.Break();

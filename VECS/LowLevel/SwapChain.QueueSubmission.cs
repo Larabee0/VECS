@@ -58,7 +58,7 @@ namespace VECS.LowLevel
             if (((_graphicsThread != null && _graphicsThread.IsAlive) || (_graphicsThread != null && _computeThread.IsAlive)))
             {
 #if DEBUG
-                GraphicsDeviceInit.BreakOnValidationError = true;
+                GraphicsDeviceInit.BreakOnValidationError = false;
 #endif
                 if (!recreate)
                 {
@@ -89,6 +89,9 @@ namespace VECS.LowLevel
             _graphicsCancel = null;
             _computeCancel = null;
             _presentCancel = null;
+#if DEBUG
+            GraphicsDeviceInit.BreakOnValidationError = true;
+#endif
             GraphicsDevice.DeviceAPI.vkQueueWaitIdle(GraphicsDevice._computeQueue);
             GraphicsDevice.DeviceAPI.vkQueueWaitIdle(GraphicsDevice._mainQueue);
             GraphicsDevice.DeviceAPI.vkQueueWaitIdle(GraphicsDevice._presentQueue);

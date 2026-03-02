@@ -18,6 +18,21 @@ namespace VECS
         public static Application Instance { get; private set; }
         private static bool running = true;
 
+        private static uint _targetFrameRate = uint.MaxValue;
+        private static double _targetFrameTime;
+
+        public static uint TargetFrameRate
+        {
+            get => _targetFrameRate;
+            set
+            {
+                value = Math.Max(value, 10);
+                value = value > 20000 ? uint.MaxValue : value;
+                _targetFrameRate = value;
+                _targetFrameTime = 1000 / (double)_targetFrameRate;
+            }
+        }
+
         private readonly SDL3Window _appWindow;
         private readonly Presenter _presenter;
 
@@ -60,6 +75,7 @@ namespace VECS
             Time.FixedTimeStepCallback += FixedUpdate;
             sw.Stop();
             Console.WriteLine("Application.Constructor time: {0}ms", sw.ElapsedMilliseconds);
+            TargetFrameRate = _targetFrameRate;
         }
 
         /// <summary>
@@ -76,16 +92,35 @@ namespace VECS
                     break;
                 }
                 Time.Update();
+                frameStart = Time.TimeSinceStartUpAsDouble * 1000.0;
                 Time.UpdateFixedTimeStep();
                 Update();
                 ULUI.UpdateUI();
                 Presentation();
                 InputManager.Instance.LateUpdate();
                 //Thread.Sleep(1000);
+                TargetFrameRateUpdate();
             }
             SwapChain.Instance.FinishTimelineWorkers(false);
             GraphicsDevice.DeviceWaitIdle();
             Destroy();
+        }
+        private double frameStart;
+        private void TargetFrameRateUpdate()
+        {
+            if (_targetFrameRate == uint.MaxValue) return;
+            double frameEnd = Time.TimeSinceStartUpAsDouble * 1000.0;
+
+            double duration = frameEnd - frameStart;
+            double remaining = _targetFrameTime - duration;
+
+            while (remaining > 0)
+            {
+                Thread.SpinWait(5);
+                frameEnd = Time.TimeSinceStartUpAsDouble * 1000.0;
+                duration = frameEnd - frameStart;
+                remaining = _targetFrameTime - duration;
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
