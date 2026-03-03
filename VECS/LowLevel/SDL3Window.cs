@@ -1,9 +1,7 @@
 ﻿using SDL3;
 using System;
 using System.IO;
-using System.Text;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using Vortice.Vulkan;
 using SDL = SDL3.SDL3;
 

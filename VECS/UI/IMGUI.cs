@@ -11,7 +11,14 @@ namespace VECS.UI
 {
     public class IMGUI : IDisposable
     {
+        private class TextureVariant
+        {
+            public Texture2D Texture;
+            public Material Variant;
+        }
+
         private const float FONT_SCALE = 1.0f;
+        private static readonly int fontSamplerId = "fontSampler".GetShaderPropertyId();
         private ImGuiContextPtr _context;
         private ImGuiStylePtr _vulkanStyle;
 
@@ -20,8 +27,8 @@ namespace VECS.UI
         private SwapChainBuffer _vertexBuffer;
         private SwapChainBuffer _indexBuffer;
 
-        private readonly Dictionary<ImTextureID, Texture2D> _textures = [];
-        private int _nextTexId = 1;
+        private readonly Dictionary<ImTextureID, TextureVariant> _textureVariants = [];
+        private readonly Queue<Material> _freeVariants = [];
 
         public IMGUI()
         {
@@ -39,6 +46,7 @@ namespace VECS.UI
             Init();
             //VKExampleIniti();
             CreatePipeline();
+            _context = ImGui.GetCurrentContext();
         }
 
         private void Init()
@@ -102,10 +110,10 @@ namespace VECS.UI
             }
         }
 
-        private unsafe void CreateTexture(ImTextureDataPtr textureData)
+        private void CreateTexture(ImTextureDataPtr textureData)
         {
             VkFormat format = textureData.Format == ImTextureFormat.Rgba32 ? VkFormat.R8G8B8A8Unorm : VkFormat.A8Unorm;                      
-            _textures[textureData.TexID] = new Texture2D(
+            var texture = new Texture2D(
                 textureData.UniqueID.ToString(),
                 textureData.Width,
                 textureData.Height,
@@ -116,20 +124,37 @@ namespace VECS.UI
                 false,
                 VkCompareOp.Never,
                 false);
+
+            _freeVariants.TryDequeue(out var variant);
+
+            variant ??= _imgui.Create(string.Format("IMGUI_VAR_{0}", textureData.UniqueID.ToString()));
+
+            _textureVariants[textureData.TexID] = new()
+            {
+                Texture = texture,
+                Variant = variant
+            };
+
+            
+            variant.SetTexture(fontSamplerId, texture);
             UpdateTextureData(textureData);
         }
 
         private unsafe void UpdateTextureData(ImTextureDataPtr textureData)
         {
             IntPtr texId = textureData.GetTexID();
-            if (!_textures.TryGetValue(texId, out var texture))
+            if (!_textureVariants.TryGetValue(texId, out var textureVariant))
             {
                 return;
             }
 
+            var texture = textureVariant.Texture;
+
             VkFormat newFormat = textureData.Format == ImTextureFormat.Rgba32 ? VkFormat.R8G8B8A8Unorm : VkFormat.A8Unorm;
             if (texture.Width != textureData.Width || texture.Height != textureData.Height || texture.Format != newFormat)
             {
+                _textureVariants.Remove(texId);
+                _freeVariants.Enqueue(textureVariant.Variant);
                 texture.Dispose();
                 CreateTexture(textureData);
                 return;
@@ -145,7 +170,6 @@ namespace VECS.UI
                 //GPUBufferExtensions.WriteFromHostDelayed(stagingBuffer, 0, Vulkan.VK_WHOLE_SIZE);
                 stagingBuffer.WriteFromHostBuffer();
                 texture.CopyFromBuffer(stagingBuffer,true);
-                //stagingBuffer.Dispose();
             }
             textureData.SetStatus(ImTextureStatus.Ok);
         }
@@ -153,10 +177,11 @@ namespace VECS.UI
         private void DestroyTexture(ImTextureDataPtr textureData)
         {
             IntPtr texId = textureData.GetTexID();
-            if (_textures.TryGetValue(texId, out var texture))
+            if (_textureVariants.TryGetValue(texId, out var textureVariant))
             {
-                texture.Dispose();
-                _textures.Remove(texId);
+                _freeVariants.Enqueue(textureVariant.Variant);
+                textureVariant.Texture.Dispose();
+                _textureVariants.Remove(texId);
             }
         }
 
@@ -225,6 +250,8 @@ namespace VECS.UI
             ];
 
             _imgui = new("IMGUI_Pipe", "imgui.vert", "imgui.frag", configInfo);
+
+            _freeVariants.Enqueue(_imgui.Default());
         }
 
         private void NewFrame()
@@ -291,6 +318,7 @@ namespace VECS.UI
 
         public unsafe void Draw(RendererFrameInfo frameInfo)
         {
+            ImGui.SetCurrentContext(_context);
             Update();
             NewFrame();
             var imDrawData = ImGui.GetDrawData();
@@ -308,7 +336,7 @@ namespace VECS.UI
             uint indexOffset = 0;
             var vertexBuffer = _vertexBuffer[frameInfo.FrameIndex].VkBuffer;
             ulong offset = 0;
-            var mat = _imgui.Default();
+            Material mat;
 
 
 
@@ -318,8 +346,7 @@ namespace VECS.UI
             GraphicsDevice.DeviceAPI.vkCmdSetViewport(frameInfo.CommandBuffer, 0, 0, io.DisplaySize.X, io.DisplaySize.Y);
             GraphicsDevice.DeviceAPI.vkCmdBindVertexBuffers(frameInfo.CommandBuffer, 0, 1, &vertexBuffer, &offset);
             GraphicsDevice.DeviceAPI.vkCmdBindIndexBuffer(frameInfo.CommandBuffer, _indexBuffer[frameInfo.FrameIndex].VkBuffer, 0, VkIndexType.Uint16);
-            ImTextureID texId = ImTextureID.Null;
-            uint variantIndex = 0;
+            
             for (int i = 0; i < imDrawData.CmdListsCount; i++)
             {
                 var cmd_list = imDrawData.CmdLists[i];
@@ -332,22 +359,16 @@ namespace VECS.UI
                         continue;
                     }
                     ImTextureRef textureRef = pcmd.TexRef;
-                    var nextTexId = textureRef.GetTexID();
-                    if (!_textures.TryGetValue(nextTexId, out var texture))
+                    var texId = textureRef.GetTexID();
+                    if (!_textureVariants.TryGetValue(texId, out var textureVariant))
                     {
                         throw new InvalidOperationException($"Could not find a texture with id '{texId}', please check your bindings");
                     }
+                    mat = textureVariant.Variant;
+                    var variantIndex = (int)mat.VariantIndex;
 
-                    if( nextTexId != texId  && texId != ImTextureID.Null)
-                    {
-                        variantIndex++;
-                    }
-                    texId = nextTexId;
-                    mat = _imgui.GetOrCreateVariant(variantIndex);
-                    mat.SetTexture("fontSampler".GetShaderPropertyId(), texture);
-
-                    mat.PushConstants.SetPushConstantVector2("scale", 0, scale);
-                    mat.PushConstants.SetPushConstantVector2("translate", 0, translate);
+                    mat.PushConstants.SetPushConstantVector2("scale", variantIndex, scale);
+                    mat.PushConstants.SetPushConstantVector2("translate", variantIndex, translate);
                     mat.Bind(frameInfo);
 
 
@@ -363,6 +384,7 @@ namespace VECS.UI
                 vertexOffset += cmd_list.VtxBuffer.Size;
 
             }
+            _context = ImGui.GetCurrentContext();
         }
 
         public void Dispose()
