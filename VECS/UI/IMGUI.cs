@@ -109,7 +109,17 @@ namespace VECS.UI
         private unsafe void CreateTexture(ImTextureDataPtr textureData)
         {
             VkFormat format = textureData.Format == ImTextureFormat.Rgba32 ? VkFormat.R8G8B8A8Unorm : VkFormat.A8Unorm;                      
-            _textures[textureData.TexID] = new Texture2D(textureData.UniqueID.ToString(), textureData.Width, textureData.Height, format, VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled, false);
+            _textures[textureData.TexID] = new Texture2D(
+                textureData.UniqueID.ToString(),
+                textureData.Width,
+                textureData.Height,
+                format,
+                VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled,
+                VkSamplerAddressMode.ClampToEdge,
+                0,
+                false,
+                VkCompareOp.Never,
+                false);
             UpdateTextureData(textureData);
         }
 
@@ -136,8 +146,10 @@ namespace VECS.UI
                 uint dataSize = pixelCount * bytesPerPixel;
                 GPUBuffer stagingBuffer = new(bytesPerPixel, pixelCount, VkBufferUsageFlags.TransferSrc, true, false, false);
                 Buffer.MemoryCopy(textureData.Pixels, stagingBuffer.HostPtr, dataSize, dataSize);
-                texture.CopyFrombufferNow(stagingBuffer);
-                stagingBuffer.Dispose();
+                //GPUBufferExtensions.WriteFromHostDelayed(stagingBuffer, 0, Vulkan.VK_WHOLE_SIZE);
+                stagingBuffer.WriteFromHostBuffer();
+                texture.CopyFromBuffer(stagingBuffer,true);
+                //stagingBuffer.Dispose();
             }
             textureData.SetStatus(ImTextureStatus.Ok);
         }
@@ -181,6 +193,8 @@ namespace VECS.UI
         {
             GraphicsPipelineConfigInfo configInfo = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             GraphicsPipelineConfigInfo.EnableAlphaBlending(ref configInfo);
+            configInfo.rasterizationInfo.cullMode = VkCullModeFlags.None;
+
             configInfo.depthStencilInfo.depthTestEnable = false;
             configInfo.depthStencilInfo.depthWriteEnable = false;
             configInfo.depthStencilInfo.depthCompareOp = VkCompareOp.LessOrEqual;
@@ -209,7 +223,7 @@ namespace VECS.UI
                 }, new(){
                     binding = 0,
                     location = 2,
-                    format = VkFormat.R32G32B32A32Sfloat,
+                    format = VkFormat.R8G8B8A8Unorm,
                     offset = 16
                 }
             ];
@@ -270,8 +284,8 @@ namespace VECS.UI
             {
                 var cmdList = drawData.CmdLists[i];
 
-                Buffer.MemoryCopy(ptr_vertex, cmdList.VtxBuffer.Data, cmdList.VtxBuffer.Size * sizeof(ImDrawVert), cmdList.VtxBuffer.Size * sizeof(ImDrawVert));
-                Buffer.MemoryCopy(ptr_index, cmdList.IdxBuffer.Data, cmdList.IdxBuffer.Size * sizeof(ushort), cmdList.IdxBuffer.Size * sizeof(ushort));
+                Buffer.MemoryCopy(cmdList.VtxBuffer.Data, ptr_vertex,  cmdList.VtxBuffer.Size * sizeof(ImDrawVert), cmdList.VtxBuffer.Size * sizeof(ImDrawVert));
+                Buffer.MemoryCopy(cmdList.IdxBuffer.Data, ptr_index,  cmdList.IdxBuffer.Size * sizeof(ushort), cmdList.IdxBuffer.Size * sizeof(ushort));
                 ptr_vertex += cmdList.VtxBuffer.Size;
                 ptr_index += cmdList.IdxBuffer.Size;
             }
