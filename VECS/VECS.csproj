@@ -24,6 +24,9 @@
     <PackageReference Include="Alimer.Bindings.SDL" Version="3.9.8" />
     <PackageReference Include="AssimpNet" Version="4.1.0" />
     <PackageReference Include="BepuPhysics" Version="2.4.0" />
+    <PackageReference Include="Hexa.NET.ImGui" Version="2.2.9" />
+    <PackageReference Include="Hexa.NET.ImGui.Backends" Version="1.0.18" />
+    <PackageReference Include="LiteHtmlSharp" Version="2.0.5" />
     <PackageReference Include="System.Net.Http" Version="4.3.4" />
     <PackageReference Include="System.Text.RegularExpressions" Version="4.3.1" />
     <PackageReference Include="TeximpNet" Version="1.4.3" />
@@ -98,8 +101,7 @@
 
 	<Target Name="BuildAssemblies" AfterTargets="CopyShaders" Condition="'$(BuildAll)' != 'false'">
 		<ItemGroup>
-			<ProjectFile Include="$(SolutionDir)/**/*.csproj"			
-				 Exclude="$(SolutionDir)/UltralightNet.Binaries/UltralightNet.Binaries.csproj;$(SolutionDir)/UltralightNet/UltralightNet.csproj;$(SolutionDir)/VECS/VECS.csproj;$(SolutionDir)/UltralightNet.AppCore/UltralightNet.AppCore.csproj;$(SolutionDir)/UltralightNet.AppCore.Binaries/UltralightNet.AppCore.Binaries.csproj"/>
+			<ProjectFile Include="$(SolutionDir)/**/*.csproj" Exclude="$(SolutionDir)/UltralightNet.Binaries/UltralightNet.Binaries.csproj;$(SolutionDir)/UltralightNet/UltralightNet.csproj;$(SolutionDir)/VECS/VECS.csproj;$(SolutionDir)/UltralightNet.AppCore/UltralightNet.AppCore.csproj;$(SolutionDir)/UltralightNet.AppCore.Binaries/UltralightNet.AppCore.Binaries.csproj" />
 		</ItemGroup>
 		<Message Importance="high" text="Compiling subassemblies" />
 		<Message Importance="high" text="Text %(ProjectFile.Identity)" />

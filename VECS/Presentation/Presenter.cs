@@ -9,6 +9,7 @@ using VECS.ECS;
 using VECS.ECS.Presentation;
 using VECS.ECS.Transforms;
 using VECS.LowLevel;
+using VECS.UI;
 using Vortice.Vulkan;
 
 namespace VECS
@@ -29,6 +30,7 @@ namespace VECS
         private SpotLightShadows _spotLightShadows;
         private Bloom _bloom;
         private SMAA _smaa;
+        private IMGUI _imgui;
         private static ulong _frameCount;
 
         private static ulong _framesSinceSwapChainRecreation = 0;
@@ -93,6 +95,7 @@ namespace VECS
                 _directionalLightShadows = new();
                 _bloom = new();
                 _smaa = new();
+                _imgui = new();
                 _directionalLightShadows.AssignDirShadowTexture();
             }
             else
@@ -300,6 +303,10 @@ namespace VECS
             // UI Overlay
             UI.ULUI.BlitCamera(frameInfo, _forwardRenderer.MainColourAttachment.Target);
 
+            _forwardRenderer.BeginForwardRendering(commandBuffer,VkAttachmentLoadOp.Load);
+            _imgui.Draw(frameInfo);
+            _forwardRenderer.EndForwardRendering(commandBuffer);
+
             // Play back Write Cmds generated during frame from CPU to GPU Buffers
             // this is an optimisation to avoid double writes
             GPUBufferExtensions.PlaybackWriteBufferCmds();
@@ -345,6 +352,7 @@ namespace VECS
                 }
             }
             GraphicsDevice.FreeCommandBuffers();
+            _imgui.Dispose();
             _forwardRenderer.Dispose();
             _swapChain.Dispose();
             Instance = null;

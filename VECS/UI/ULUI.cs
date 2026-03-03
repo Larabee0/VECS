@@ -1,25 +1,30 @@
 ﻿using System;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using System.Text;
 using UltralightNet;
 using UltralightNet.AppCore;
+using UltralightNet.JavaScript;
+using UltralightNet.JavaScript.Low;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
 namespace VECS.UI
 {
-    
+
     public static class ULUI
     {
         private static readonly ULConfig config = new()
         {
-            UserStylesheet = "body { background: blue; color: white; } h1 {color: white; background: blue; }"
+            UserStylesheet = "body { background: blue; color: white; } h1 {color: white; background: blue; }",
         };
         private static readonly ULViewConfig viewConfig = new()
         {
             IsAccelerated = true,
-            IsTransparent = true,
+            IsTransparent = true
         };
 
-        private static readonly string _defaultHTML =  "<h1>Hello World!<br><i>omg italics?</i></h1>";
+        private static readonly string _defaultHTML = "<html><head><script>function ShowMessage(message){document.getElementById('msg').innerHTML = message;}</script></head><body><div id=\"msg\"></div></body></html>"; //"<html>\r\n  <head>\r\n  </head>\r\n  <body>\r\n    <button onclick=\"OnButtonClick();\">Click Me</button>\r\n    <div id=\"result\"></div>\r\n  </body>\r\n</html>";// "<h1>Hello World!<br><i>omg italics?</i></h1><button onclick=\"OnButtonClick();\">Click Me</button>";
 
         private static Renderer _ulRenderer;
         private static View _ulView;
@@ -33,13 +38,12 @@ namespace VECS.UI
         private static Material UIBlit;
         private static readonly int InputTexturePropertyId = "inputTexture".GetShaderPropertyId();
 
-        public static  void Initialise()
+        public static void Initialise()
         {
-            if(viewConfig.IsAccelerated)
+            if (viewConfig.IsAccelerated)
             {
                 ULPlatform.GPUDriver = UltralightVulkanDriver = new UltralightVulkanDriver();
             }
-
             ULPlatform.SetDefaultFontLoader = true;
             ULPlatform.SetDefaultFileSystem = true;
             ULPlatform.EnableDefaultLogger = true;
@@ -56,7 +60,7 @@ namespace VECS.UI
             if (!viewConfig.IsAccelerated)
             {
                 _bitmap = _ulView.Surface.Value.Bitmap;
-                
+
                 UIBlit.SetTexture(InputTexturePropertyId, uiOutputTex);
                 uiCopyBuffer = new GPUBuffer(1280 * 720, (uint)Vulkan.BlockSize(VkFormat.B8G8R8A8Unorm), VkBufferUsageFlags.TransferSrc, true, true, false);
                 uiOutputTex = new("UI_Out", 1280, 720, VkFormat.B8G8R8A8Unorm, VkImageUsageFlags.TransferDst | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.Sampled, false);
@@ -137,7 +141,6 @@ namespace VECS.UI
             if (!viewConfig.IsAccelerated)
             {
                 _ulRenderer.Render();
-                //_ulView.Surface.Value.Bitmap.SwapRedBlueChannels();
                 var pixels = _ulView.Surface.Value.Bitmap.RawPixels;
                 uiCopyBuffer.WriteToBuffer(pixels, _ulView.Surface.Value.Size);
             }

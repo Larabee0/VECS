@@ -31,7 +31,7 @@ namespace UltralightNet.JavaScript
 
 			[LibraryImport(LibWebCore)]
 			public static partial void JSGarbageCollect(JSContextRef context);
-		}
+        }
 	}
 	namespace LowStuff
 	{
