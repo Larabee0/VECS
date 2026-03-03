@@ -25,7 +25,6 @@
     <PackageReference Include="AssimpNet" Version="4.1.0" />
     <PackageReference Include="BepuPhysics" Version="2.4.0" />
     <PackageReference Include="Hexa.NET.ImGui" Version="2.2.9" />
-    <PackageReference Include="Hexa.NET.ImGui.Backends" Version="1.0.18" />
     <PackageReference Include="LiteHtmlSharp" Version="2.0.5" />
     <PackageReference Include="System.Net.Http" Version="4.3.4" />
     <PackageReference Include="System.Text.RegularExpressions" Version="4.3.1" />
@@ -44,11 +43,6 @@
 
   <ItemGroup>
     <None Include="$(SolutionDir)\VECS\.editorconfig" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\UltralightNet.AppCore\UltralightNet.AppCore.csproj" />
-    <ProjectReference Include="..\UltralightNet\UltralightNet.csproj" />
   </ItemGroup>
 	
   <Target Name="PreBuild" BeforeTargets="PreBuildEvent" Condition="'$(BuildAll)' != 'false'">

@@ -245,7 +245,6 @@ namespace VECS
         {
             VkCommandBuffer commandBuffer = SwapChain.CurrentMainCommandBuffer;
 
-            UI.ULUI.UpdateCommandList();
             GPUBufferExtensions.PlaybackFillBufferCmds(commandBuffer);
             GPUBufferExtensions.PlaybackCopyBuffersCmds(commandBuffer);
             TextureExtensions.PlaybackCopyCmds(commandBuffer);
@@ -301,8 +300,6 @@ namespace VECS
             _smaa.ApplyAA(frameInfo);
 
             // UI Overlay
-            UI.ULUI.BlitCamera(frameInfo, _forwardRenderer.MainColourAttachment.Target);
-
             _forwardRenderer.BeginForwardRendering(commandBuffer,VkAttachmentLoadOp.Load);
             _imgui.Draw(frameInfo);
             _forwardRenderer.EndForwardRendering(commandBuffer);

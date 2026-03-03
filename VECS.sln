@@ -5,14 +5,6 @@ VisualStudioVersion = 18.3.11512.155 d18.3
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VECS", "VECS\VECS.csproj", "{AFDAC6A0-C037-4592-BD76-0C6E6E4F2620}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UltralightNet", "UltralightNet\UltralightNet.csproj", "{5F14674F-94F3-0391-3F8B-C2DD357D8DD3}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UltralightNet.AppCore", "UltralightNet.AppCore\UltralightNet.AppCore.csproj", "{49A519CA-2BFC-2BD8-4DFF-EAEBC306667C}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UltralightNet.AppCore.Binaries", "UltralightNet.AppCore.Binaries\UltralightNet.AppCore.Binaries.csproj", "{2B3D5E9B-6D76-C902-A061-FED269D6F10C}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UltralightNet.Binaries", "UltralightNet.Binaries\UltralightNet.Binaries.csproj", "{E8471CC6-08B6-7A5A-774B-F87C4CAB49AB}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU

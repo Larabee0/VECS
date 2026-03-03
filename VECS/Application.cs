@@ -70,7 +70,6 @@ namespace VECS
             GraphicsDevice.Initialise(_appWindow);
             ShaderModule.LoadAllShaders();
             _presenter = new(_appWindow);
-            ULUI.Initialise();
 
             Time.FixedTimeStepCallback += FixedUpdate;
             sw.Stop();
@@ -95,7 +94,6 @@ namespace VECS
                 frameStart = Time.TimeSinceStartUpAsDouble * 1000.0;
                 Time.UpdateFixedTimeStep();
                 Update();
-                ULUI.UpdateUI();
                 Presentation();
                 InputManager.Instance.LateUpdate();
                 //Thread.Sleep(1000);
@@ -272,7 +270,6 @@ namespace VECS
             }
             _mainWorld?.Dispose();
             Time.FixedTimeStepCallback -= FixedUpdate;
-            ULUI.CleanUp();
             _presenter.Dispose();
             GPUBufferExtensions.Reset();
             TextureExtensions.Reset();

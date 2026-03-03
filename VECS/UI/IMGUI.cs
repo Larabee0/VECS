@@ -1,12 +1,8 @@
-﻿using Assimp;
-using BepuPhysics.Trees;
-using Hexa.NET.ImGui;
-using Hexa.NET.ImGui.Backends.Vulkan;
+﻿using Hexa.NET.ImGui;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Numerics;
-using System.Runtime.InteropServices;
 using VECS.GraphicsPipelines;
 using VECS.LowLevel;
 using Vortice.Vulkan;
@@ -356,8 +352,8 @@ namespace VECS.UI
 
 
                     VkRect2D scissorRect = new();
-                    scissorRect.offset.x = Math.Max((int)(pcmd.ClipRect.X), 0);
-                    scissorRect.offset.y = Math.Max((int)(pcmd.ClipRect.Y), 0);
+                    scissorRect.offset.x = Math.Max((int)pcmd.ClipRect.X, 0);
+                    scissorRect.offset.y = Math.Max((int)pcmd.ClipRect.Y, 0);
                     scissorRect.extent.width = (uint)(pcmd.ClipRect.Z - pcmd.ClipRect.X);
                     scissorRect.extent.height = (uint)(pcmd.ClipRect.W - pcmd.ClipRect.Y);
                     GraphicsDevice.DeviceAPI.vkCmdSetScissor(frameInfo.CommandBuffer, 0, 1, &scissorRect);
