@@ -18,7 +18,7 @@ namespace VECS
         public static Application Instance { get; private set; }
         private static bool running = true;
 
-        private static uint _targetFrameRate = 24;
+        private static uint _targetFrameRate = 24;//uint.MaxValue;
         private static double _targetFrameTime;
 
         public static uint TargetFrameRate
@@ -66,6 +66,7 @@ namespace VECS
             _threadDispatcher = new ThreadDispatcher(targetThreadCount);
 
             Bootstrap.subAssemblyLoadPoints.ForEach(loadPoint => loadPoint.PreApplicationConstruction());
+            SDL3Window.Init();
             _appWindow = new(Width, Height, "VECS");
             GraphicsDevice.Initialise(_appWindow);
             ShaderModule.LoadAllShaders();
@@ -276,6 +277,7 @@ namespace VECS
             ShaderCache.Dispose();
             GraphicsDevice.Dispose();
             _appWindow.Dispose();
+            SDL3Window.CleanUp();
         }
     }
 }

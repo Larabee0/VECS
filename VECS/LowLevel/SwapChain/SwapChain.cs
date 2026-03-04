@@ -22,16 +22,11 @@ namespace VECS.LowLevel
         public static int NextFrame => (_currentFrame + 1) % MAX_CONCURRENT_FRAMES;
         public static uint ImageIndex => _currentImage;
 
-        internal static VkViewport Viewport = new();
+        internal static VkViewport MainViewport => Instance._swapChainData.Viewport;
 
-        internal static VkRect2D Scissor = new();
+        internal static VkRect2D MainScissor => Instance._swapChainData.Scissor;
 
-        internal VkExtent2D _swapChainExtent;
-        internal VkSwapchainKHR _swapChain;
-
-        internal VkFormat _swapChainImageFormat;
-        internal VkImage[] _swapChainImages;
-        internal VkImageView[] _swapChainImageViews;
+        internal SwapChainData _swapChainData;
 
         internal VkSemaphore[] _acquiredImageReadySemaphores; /// <see cref="SwapChain.MAX_CONCURRENT_FRAMES"/>>
         internal VkFence[] _waitPresentBufferFences; /// <see cref="SwapChain.MAX_CONCURRENT_FRAMES"/> 
@@ -41,7 +36,7 @@ namespace VECS.LowLevel
 
         internal TimelineSemaphore[] _timelineSemaphores;
 
-        internal VkExtent2D SwapChainExtent => _swapChainExtent;
+        internal VkExtent2D SwapChainExtent => _swapChainData.SwapChainExtent;
 
         internal float ExtentAspectRatio => (float)SwapChainExtent.width / (float)SwapChainExtent.height;
 
@@ -143,7 +138,7 @@ namespace VECS.LowLevel
         {
             VkAcquireNextImageInfoKHR acquireInfo = new()
             {
-                swapchain = _swapChain,
+                swapchain = _swapChainData.SwapChain,
                 timeout = ulong.MaxValue - ushort.MaxValue,
                 semaphore = _acquiredImageReadySemaphores[_currentFrame],
                 fence = _waitAcquireFences[_currentFrame],
@@ -173,8 +168,8 @@ namespace VECS.LowLevel
 
         public static void SetViewPort(VkCommandBuffer commandBuffer)
         {
-            GraphicsDevice.DeviceAPI.vkCmdSetViewport(commandBuffer, 0, Viewport);
-            GraphicsDevice.DeviceAPI.vkCmdSetScissor(commandBuffer, 0, Scissor);
+            GraphicsDevice.DeviceAPI.vkCmdSetViewport(commandBuffer, 0, MainViewport);
+            GraphicsDevice.DeviceAPI.vkCmdSetScissor(commandBuffer, 0, MainScissor);
         }
 
         // should be called from graphics queue
@@ -182,7 +177,7 @@ namespace VECS.LowLevel
         {
 
             VkImageSubresourceRange subResourceRange = new(VkImageAspectFlags.Color);
-            VkImage image = _swapChainImages[imageIndex];
+            VkImage image = _swapChainData.SwapChainImages[imageIndex];
 
             MemoryBarrierHelper.ImageMemoryBarrier(
                 commandBuffer,
@@ -201,7 +196,7 @@ namespace VECS.LowLevel
         internal unsafe void TransferSwapChainImageToPresentQueue(VkCommandBuffer commandBuffer, int frameIndex, int imageIndex)
         {
             VkImageSubresourceRange subResourceRange = new(VkImageAspectFlags.Color);
-            VkImage image = _swapChainImages[imageIndex];
+            VkImage image = _swapChainData.SwapChainImages[imageIndex];
 
             MemoryBarrierHelper.ImageMemoryBarrier(
                 commandBuffer,
@@ -226,7 +221,7 @@ namespace VECS.LowLevel
             WaitAndResetFence(_waitPresentBufferFences[frameIndex]);
 
             VkImageSubresourceRange subresourceRange = new(VkImageAspectFlags.Color);
-            VkImage image = _swapChainImages[imageIndex];
+            VkImage image = _swapChainData.SwapChainImages[imageIndex];
             GraphicsDevice.DeviceAPI.vkBeginCommandBuffer(presentCommandBuffer, VkCommandBufferUsageFlags.None);
             
             MemoryBarrierHelper.ImageMemoryBarrier(presentCommandBuffer,
@@ -264,7 +259,7 @@ namespace VECS.LowLevel
 
             GraphicsDevice.DeviceAPI.vkQueueSubmit2KHR(GraphicsDevice.PresentQueue, 1, &prePresentSubmitInfo, _waitPresentBufferFences[frameIndex]);
 
-            VkSwapchainKHR swapchain = _swapChain;
+            VkSwapchainKHR swapchain = _swapChainData.SwapChain;
             VkPresentInfoKHR presentInfo = new()
             {
                 waitSemaphoreCount = 1,
@@ -286,19 +281,7 @@ namespace VECS.LowLevel
 
         public unsafe void Dispose()
         {
-
-            foreach (var item in _swapChainImageViews)
-            {
-                GraphicsDevice.DeviceAPI.vkDestroyImageView(item);
-            }
-
-            _swapChainImageViews = null;
-
-            if (_swapChain != VkSwapchainKHR.Null)
-            {
-                GraphicsDevice.DeviceAPI.vkDestroySwapchainKHR(_swapChain);
-                _swapChain = VkSwapchainKHR.Null;
-            }
+            _swapChainData.Dispose();
 
             for (int i = 0; i < SWAP_CHAIN_IMAGE_COUNT; i++)
             {
@@ -319,7 +302,7 @@ namespace VECS.LowLevel
 
         internal bool CompareSwapFormats(SwapChain swapChain)
         {
-            return swapChain._swapChainImageFormat == _swapChainImageFormat;
+            return swapChain._swapChainData.SwapChainImageFormat == _swapChainData.SwapChainImageFormat;
         }
     }
 }

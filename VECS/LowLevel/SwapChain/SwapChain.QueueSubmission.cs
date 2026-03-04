@@ -65,18 +65,18 @@ namespace VECS.LowLevel
                     _presentCancel.Cancel();
                     _graphicsCancel.Cancel();
                     _computeCancel.Cancel();
-                    Thread.SpinWait(1000);
+                    Thread.Sleep(250);
                     SignalTimelineFromHost(SemaphoreStages.Submit, FrameIndex);
-                    Thread.SpinWait(1000);
+                    Thread.Sleep(250);
                 }
                 else
                 {
                     _presentCancel.Cancel();
                     _graphicsCancel.Cancel();
                     _computeCancel.Cancel();
-                    Thread.SpinWait(1000);
+                    Thread.Sleep(250);
                     SignalTimelineFromHost(SemaphoreStages.Submit, FrameIndex);
-                    Thread.SpinWait(1000);
+                    Thread.Sleep(250);
                 }
             }
             
@@ -357,7 +357,10 @@ namespace VECS.LowLevel
                 if (!waitForCompute && !RecreateSwapChain)
                 {
                     WaitOnTimelineFromHost(SemaphoreStages.QueuePresentEarly, _currentFrame);
-                    SignalTimelineFromHost(SemaphoreStages.StartCompute, _currentFrame);
+                    if (!token.IsCancellationRequested)// &&_timelineSemaphores[_currentFrame].Stage < SemaphoreStages.StartCompute)
+                    {
+                        SignalTimelineFromHost(SemaphoreStages.StartCompute, _currentFrame);
+                    }
                 }
                 else
                 {

@@ -241,7 +241,7 @@ namespace VECS
             }
         }
 
-        private void GraphicsPipe(int imageIndex)
+        private unsafe void GraphicsPipe(int imageIndex)
         {
             VkCommandBuffer commandBuffer = SwapChain.CurrentMainCommandBuffer;
 
@@ -310,7 +310,7 @@ namespace VECS
 
             // blit renderImage into swapchain
             var extents = _swapChain.SwapChainExtent;            
-            _forwardRenderer.BlitFromMainColour(commandBuffer, _swapChain._swapChainImages[imageIndex], (int)extents.width, (int)extents.height, VkImageAspectFlags.Color);
+            _forwardRenderer.BlitFromMainColour(commandBuffer, _swapChain._swapChainData.SwapChainImages[imageIndex], (int)extents.width, (int)extents.height, VkImageAspectFlags.Color);
 
             // transfer swapchain image to present queue
             _swapChain.TransferSwapChainImageToPresentQueue(commandBuffer, FrameIndex, imageIndex);

@@ -24,10 +24,10 @@ namespace VECS.LowLevel
         private int _width;
         private int _height;
         private bool _framebufferResized = false;
-        private bool _screenSaverAllowed = true;
+        private static bool _screenSaverAllowed = true;
 
         private SDL_Window _window;
-        private readonly InputManager _inputManager;
+        private static InputManager _inputManager;
 
         private SDL_WindowID Id { get; set; }
 
@@ -35,7 +35,7 @@ namespace VECS.LowLevel
         public VkExtent2D WindowExtend => new(_width, _height);
 
         public bool WasWindowResized => _framebufferResized;
-        public bool ScreenSaverAllowed => _screenSaverAllowed;
+        public static bool ScreenSaverAllowed => _screenSaverAllowed;
 
         public SDL3Window(int width, int height, string name)
         {
@@ -63,29 +63,14 @@ namespace VECS.LowLevel
             _windowName = name;
             InitWindow();
 
-            _inputManager =new InputManager();
         }
 
         /// <summary>
         /// initalise sdl3 and then load the vulkan library & initalise the vulkan library
         /// </summary>
         /// <exception cref="Exception"></exception>
-        private unsafe void InitWindow()
+        private void InitWindow()
         {
-            if (!SDL.SDL_Init(_sdl_Init_Flags))
-            {
-                throw new Exception("Failed to initialise SDL3");
-            }
-
-            SDL.SDL_SetLogOutputFunction(SDL3Log);
-            
-            if (!SDL.SDL_Vulkan_LoadLibrary())
-            {
-                throw new Exception("SDL failed to load Vulkan");
-            }
-
-            Vulkan.vkInitialize().CheckResult("Failed Initialise vulkan!");
-            
             _window = SDL.SDL_CreateWindow(_windowName, _width, _height, _sdl_Window_Flags);
             Id = SDL.SDL_GetWindowID(_window);
         }
@@ -184,15 +169,15 @@ namespace VECS.LowLevel
             }
         }
 
-        public void SetSleepAllowed(bool allowed)
+        public static void SetSleepAllowed(bool allowed)
         {
             if (allowed)
             {
-                _framebufferResized = SDL.SDL_DisableScreenSaver();
+                _screenSaverAllowed = !SDL.SDL_DisableScreenSaver();
             }
             else
             {
-                _framebufferResized = !SDL.SDL_EnableScreenSaver();
+                _screenSaverAllowed = SDL.SDL_EnableScreenSaver();
             }
         }
 
@@ -212,14 +197,37 @@ namespace VECS.LowLevel
                 Console.WriteLine("Error writing window config: {0}", ex.Message);
                 Console.WriteLine(ex.StackTrace);
             }
-            _inputManager.Destroy();
             SDL.SDL_DestroyWindow(_window);
+        }
+
+        public static void Init()
+        {
+            if (!SDL.SDL_Init(_sdl_Init_Flags))
+            {
+                throw new Exception("Failed to initialise SDL3");
+            }
+
+            SDL.SDL_SetLogOutputFunction(SDL3Log);
+
+            if (!SDL.SDL_Vulkan_LoadLibrary())
+            {
+                throw new Exception("SDL failed to load Vulkan");
+            }
+
+            Vulkan.vkInitialize().CheckResult("Failed Initialise vulkan!");
+            _inputManager = new InputManager();
+        }
+
+        public static void CleanUp()
+        {
+
+            _inputManager.Destroy();
             SDL.SDL_Vulkan_UnloadLibrary();
             SDL.SDL_Quit();
             string sdlErrors = SDL.SDL_GetError();
             if (!string.IsNullOrEmpty(sdlErrors))
             {
-                Console.WriteLine("Cleaned up SDL with errors:\n{0}",sdlErrors);
+                Console.WriteLine("Cleaned up SDL with errors:\n{0}", sdlErrors);
             }
         }
 
