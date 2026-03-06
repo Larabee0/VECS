@@ -29,6 +29,7 @@ namespace VECS.LowLevel
 
         public bool IsDisposed;
 
+        internal unsafe uint* CurrentImageIndex;
 
 
         public unsafe SwapChainData(VkSwapchainKHR oldSwapChain, VkExtent2D windowExtent, VkSurfaceKHR surface)
@@ -136,6 +137,8 @@ namespace VECS.LowLevel
             }
 
             GraphicsDevice.DeviceAPI.vkResetFences(LowLevel.SwapChain.MAX_CONCURRENT_FRAMES_UINT, WaitAcquireFences);
+
+            CurrentImageIndex = (uint*)NativeMemory.AllocZeroed(sizeof(uint));
         }
 
         public unsafe void SetImageLayouts(VkCommandBuffer commandBuffer)
@@ -168,6 +171,7 @@ namespace VECS.LowLevel
             NativeMemory.Free(WaitAcquireFences);
             NativeMemory.Free(SwapChainImageViews);
             NativeMemory.Free(SwapChainImages);
+            NativeMemory.Free(CurrentImageIndex);
             AcquiredImageReadySemaphores = null;
             WaitAcquireFences = null;
             SwapChainImageViews = null;

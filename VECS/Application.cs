@@ -33,7 +33,7 @@ namespace VECS
             }
         }
 
-        private readonly SDL3Window _appWindow;
+        private readonly SDL3Window _mainAppWindow;
         private readonly Presenter _presenter;
 
         private static World _mainWorld;
@@ -45,7 +45,7 @@ namespace VECS
         public Action PostOnCreate;
         public Action OnDestroy;
 
-        public static IWindow MainWindow => Instance._appWindow;
+        public static IWindow MainWindow => Instance._mainAppWindow;
 
         private static string _persistentDataPath;
 
@@ -69,10 +69,11 @@ namespace VECS
 
             Bootstrap.subAssemblyLoadPoints.ForEach(loadPoint => loadPoint.PreApplicationConstruction());
             SDL3WindowManager.Init();
-            _appWindow = SDL3WindowManager.CreateNewWindow("VECS", Width, Height);
-            GraphicsDevice.Initialise(_appWindow);
+            _mainAppWindow = SDL3WindowManager.CreateNewWindow("VECS", Width, Height);
+            GraphicsDevice.Initialise(_mainAppWindow);
+            SDL3WindowManager.CheckLoadedPresentMode();
             ShaderModule.LoadAllShaders();
-            _presenter = new(_appWindow);
+            _presenter = new();
 
             Time.FixedTimeStepCallback += FixedUpdate;
             sw.Stop();
@@ -102,7 +103,7 @@ namespace VECS
                 //Thread.Sleep(1000);
                 TargetFrameRateUpdate();
             }
-            SwapChain.Instance.FinishTimelineWorkers(false);
+            SwapChain.FinishTimelineWorkers(false);
             GraphicsDevice.DeviceWaitIdle();
             Destroy();
         }

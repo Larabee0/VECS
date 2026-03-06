@@ -81,7 +81,7 @@ namespace VECS.ECS.Presentation
             if ((_lineQueue.Count > 0)
                 || (_wireCubes.Count > 0
                 || (_wireSpheres.Count > 0))
-                || (_drawCameraFustrums && _cameraQuery.HasEntities && SwapChain.Instance != null)
+                || (_drawCameraFustrums && _cameraQuery.HasEntities && SwapChain.SwapChainInitialised)
                 || (_drawBounds && _renderBoundsQuery.HasEntities))
             {
                 var drawCount = _wireCubes.Count + _wireSpheres.Count + _lineQueue.Count;
@@ -118,7 +118,7 @@ namespace VECS.ECS.Presentation
             if ((_lineQueue.Count > 0)
                 || (_wireCubes.Count > 0
                 ||(_wireSpheres.Count > 0))
-                || (_drawCameraFustrums && _cameraQuery.HasEntities && SwapChain.Instance != null)
+                || (_drawCameraFustrums && _cameraQuery.HasEntities && SwapChain.SwapChainInitialised)
                 ||( _drawBounds && _renderBoundsQuery.HasEntities))
             {
                 var drawCount = _wireCubes.Count+ _wireSpheres.Count+ _lineQueue.Count;
@@ -238,7 +238,7 @@ namespace VECS.ECS.Presentation
                 DrawIndirect(frameInfo, offset, 1);
             }
 
-            if (_drawCameraFustrums && _cameraQuery.HasEntities && SwapChain.Instance != null)
+            if (_drawCameraFustrums && _cameraQuery.HasEntities && SwapChain.SwapChainInitialised)
             {
                 if (entityManager.SingletonComponent(out FrameInfo screenAspect))
                 {

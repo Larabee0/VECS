@@ -5,87 +5,61 @@ using Vortice.Vulkan;
 
 namespace VECS.LowLevel
 {
-    public sealed partial class SwapChain : IDisposable
+    public static partial class SwapChain
     {
         public static int SWAP_CHAIN_IMAGE_COUNT { get; internal set; }
         public static uint SWAP_CHAIN_IMAGE_COUNT_UINT => (uint)SWAP_CHAIN_IMAGE_COUNT;
 
         public static int MAX_CONCURRENT_FRAMES => 2;
         public static uint MAX_CONCURRENT_FRAMES_UINT => (uint)MAX_CONCURRENT_FRAMES;
-        public static VkPresentModeKHR PresentMode = VkPresentModeKHR.Mailbox;
-        internal static SwapChain Instance { get; set; }
+        public static VkPresentModeKHR PresentMode => SDL3WindowManager.PresentMode;
+
         private static int _currentFrame = 0;
-        private static uint _currentImage = 0;
-        //internal VkExtent2D _windowExtent;
 
         public static int FrameIndex => _currentFrame;
         public static int NextFrame => (_currentFrame + 1) % MAX_CONCURRENT_FRAMES;
-        public static uint ImageIndex => _currentImage;
 
-        internal static VkViewport MainViewport => Instance.MainSwapChainData.Viewport;
+        public static bool SwapChainInitialised { get; internal set; }
 
-        internal static VkRect2D MainScissor => Instance.MainSwapChainData.Scissor;
+        internal static VkViewport MainViewport => MainSwapChainData.Viewport;
 
-        internal SwapChainData MainSwapChainData => Application.MainWindow.SwapChainData;
+        internal static VkRect2D MainScissor => MainSwapChainData.Scissor;
 
-        // per surface
-        // internal VkSemaphore[] _acquiredImageReadySemaphores; /// <see cref="SwapChain.MAX_CONCURRENT_FRAMES"/>>
-        // per surface
-        // internal VkFence[] _waitAcquireFences; /// <see cref="SwapChain.MAX_CONCURRENT_FRAMES"/> 
+        internal static SwapChainData[] SwapChainsForPresent;
+        internal static SwapChainData MainSwapChainData => Application.MainWindow.SwapChainData;
 
-        // per present queue submit
-        internal VkFence[] _waitPresentBufferFences; /// <see cref="SwapChain.MAX_CONCURRENT_FRAMES"/> 
-        // per present queue
-        internal VkSemaphore[] _renderCompleteSemaphores; /// <see cref="SwapChain.SWAP_CHAIN_IMAGE_COUNT"/>>
-        // per present queue
-        internal VkSemaphore[] _prePresentCompleteSemahpores; /// <see cref="SwapChain.SWAP_CHAIN_IMAGE_COUNT"/>>
+        internal static VkFence[] _waitPresentBufferFences; /// <see cref="SwapChain.MAX_CONCURRENT_FRAMES"/> 
+        internal static VkSemaphore[] _renderCompleteSemaphores; /// <see cref="SwapChain.SWAP_CHAIN_IMAGE_COUNT"/>>
+        internal static VkSemaphore[] _prePresentCompleteSemahpores; /// <see cref="SwapChain.SWAP_CHAIN_IMAGE_COUNT"/>>
 
-        internal TimelineSemaphore[] _timelineSemaphores;
+        internal static TimelineSemaphore[] _timelineSemaphores;
 
-        internal VkExtent2D SwapChainExtent => MainSwapChainData.SwapChainExtent;
+        internal static VkExtent2D SwapChainExtent => MainSwapChainData.SwapChainExtent;
 
-        internal float ExtentAspectRatio => (float)SwapChainExtent.width / (float)SwapChainExtent.height;
+        internal static float ExtentAspectRatio => (float)SwapChainExtent.width / (float)SwapChainExtent.height;
 
 
-        internal static VkCommandBuffer CurrentMainCommandBuffer
-        {
-            get
-            {
-                return GraphicsDevice.MainPipeCommandBuffers[_currentFrame];
-            }
-        }
+        internal static VkCommandBuffer CurrentMainCommandBuffer => GraphicsDevice.MainPipeCommandBuffers[_currentFrame];
 
-        internal static VkCommandBuffer CurrentComputeCommandBuffer
-        {
-            get
-            {
-                return GraphicsDevice.ComputePipeCommandBuffers[_currentFrame];
-            }
-        }
+        internal static VkCommandBuffer CurrentComputeCommandBuffer => GraphicsDevice.ComputePipeCommandBuffers[_currentFrame];
 
-        internal static VkCommandBuffer CurrentPresentCommandBuffer
-        {
-            get
-            {
-                return GraphicsDevice.PresentPipeCommandBuffers[_currentFrame];
-            }
-        }
+        internal static VkCommandBuffer CurrentPresentCommandBuffer => GraphicsDevice.PresentPipeCommandBuffers[_currentFrame];
 
 
         internal static void Reset()
         {
+            SwapChainInitialised = true;
             _currentFrame = 0;
-            _currentImage = 0;
         }
 
         #region  TimelineSemaphore
 
-        public ulong GetTimelineStageValue(SemaphoreStages stage, int frameIndex)
+        public static ulong GetTimelineStageValue(SemaphoreStages stage, int frameIndex)
         {
             return (_timelineSemaphores[frameIndex].SemaphoreValue * (ulong)SemaphoreStages.MAX_STAGES) + (ulong)stage;
         }
 
-        public unsafe void SignalTimelineFromHost(SemaphoreStages stage, int frameIndex)
+        public static unsafe void SignalTimelineFromHost(SemaphoreStages stage, int frameIndex)
         {
             ulong signalValue = GetTimelineStageValue(stage, frameIndex);
             VkSemaphoreSignalInfo signalInfo = new()
@@ -97,7 +71,7 @@ namespace VECS.LowLevel
         }
 
         [MethodImpl(MethodImplOptions.NoOptimization)]
-        public unsafe void WaitOnTimelineFromHost(SemaphoreStages stage, int frameIndex)
+        public static unsafe void WaitOnTimelineFromHost(SemaphoreStages stage, int frameIndex)
         {
             ulong waitValue = GetTimelineStageValue(stage, frameIndex);
             VkSemaphoreWaitInfo waitInfo = new()
@@ -111,7 +85,7 @@ namespace VECS.LowLevel
 
         }
         
-        public unsafe void SignalNextFrame(int frameIndex)
+        public static unsafe void SignalNextFrame(int frameIndex)
         {
             VkSemaphoreSignalInfo signalInfo = new()
             {
@@ -125,7 +99,7 @@ namespace VECS.LowLevel
         }
 
         
-        public unsafe void WaitForNextFrame(int frameIndex)
+        public static unsafe void WaitForNextFrame(int frameIndex)
         {
             ulong waitValue = (_timelineSemaphores[frameIndex].SemaphoreValue + 1) * (ulong)SemaphoreStages.MAX_STAGES;
 
@@ -141,18 +115,18 @@ namespace VECS.LowLevel
         }
         #endregion
 
-        public unsafe bool AcquireNextImage()
+        public static unsafe bool AcquireNextImage(SwapChainData swapChain)
         {
             VkAcquireNextImageInfoKHR acquireInfo = new()
             {
-                swapchain = MainSwapChainData.SwapChain,
+                swapchain = swapChain.SwapChain,
                 timeout = ulong.MaxValue - ushort.MaxValue,
-                semaphore = MainSwapChainData.AcquiredImageReadySemaphores[_currentFrame],
-                fence = MainSwapChainData.WaitAcquireFences[_currentFrame],
+                semaphore = swapChain.AcquiredImageReadySemaphores[_currentFrame],
+                fence = swapChain.WaitAcquireFences[_currentFrame],
                 deviceMask = 0 | (1 << /* 1st subdevice index*/0)
             };
 
-            var result = GraphicsDevice.DeviceAPI.vkAcquireNextImage2KHR(&acquireInfo, out _currentImage);
+            var result = GraphicsDevice.DeviceAPI.vkAcquireNextImage2KHR(&acquireInfo, swapChain.CurrentImageIndex);
             
             if (result == VkResult.ErrorOutOfDateKHR)
             {
@@ -180,7 +154,7 @@ namespace VECS.LowLevel
         }
 
         // should be called from graphics queue
-        internal unsafe void TransferSwapChainImageToGraphicsQueue(VkCommandBuffer commandBuffer, int frameIndex, int imageIndex)
+        internal static unsafe void TransferSwapChainImageToGraphicsQueue(VkCommandBuffer commandBuffer, int frameIndex, int imageIndex)
         {
 
             VkImageSubresourceRange subResourceRange = new(VkImageAspectFlags.Color);
@@ -200,7 +174,7 @@ namespace VECS.LowLevel
         }
 
         // should be called from graphics queue
-        internal unsafe void TransferSwapChainImageToPresentQueue(VkCommandBuffer commandBuffer, int frameIndex, int imageIndex)
+        internal static unsafe void TransferSwapChainImageToPresentQueue(VkCommandBuffer commandBuffer, int frameIndex, int imageIndex)
         {
             VkImageSubresourceRange subResourceRange = new(VkImageAspectFlags.Color);
             VkImage image = MainSwapChainData.SwapChainImages[imageIndex];
@@ -218,7 +192,7 @@ namespace VECS.LowLevel
                 GraphicsDevice.PhysicalQueueFamilies.graphicsFamily, GraphicsDevice.PhysicalQueueFamilies.presentFamily);
         }
 
-        public unsafe bool PresentMain(int frameIndex, uint imageIndex)
+        public static unsafe bool PresentMain(int frameIndex, uint imageIndex)
         {
             VkSemaphore renderComplete = _renderCompleteSemaphores[imageIndex];
             VkSemaphore prePresentComplete = _prePresentCompleteSemahpores[imageIndex];
@@ -286,10 +260,8 @@ namespace VECS.LowLevel
             return true;
         }
 
-        public unsafe void Dispose()
+        public static void CleanUp()
         {
-            MainSwapChainData.Dispose();
-
             for (int i = 0; i < SWAP_CHAIN_IMAGE_COUNT; i++)
             {
                 GraphicsDevice.DeviceAPI.vkDestroySemaphore(_renderCompleteSemaphores[i]);
@@ -301,13 +273,11 @@ namespace VECS.LowLevel
                 GraphicsDevice.DeviceAPI.vkDestroySemaphore(_timelineSemaphores[i].Semaphore);
                 GraphicsDevice.DeviceAPI.vkDestroyFence(_waitPresentBufferFences[i]);
             }
-
-            Instance = null;
         }
 
-        internal bool CompareSwapFormats(SwapChain swapChain)
+        internal static bool CompareSwapFormats(SwapChainData swapChain)
         {
-            return swapChain.MainSwapChainData.SwapChainImageFormat == MainSwapChainData.SwapChainImageFormat;
+            return swapChain.SwapChainImageFormat == MainSwapChainData.SwapChainImageFormat;
         }
     }
 }

@@ -123,7 +123,7 @@ namespace VECS
                 }
                 CameraInfoBuffer.HostBuffer[i] = new(camera);
                 CameraInverseInfoBuffer.HostBuffer[i] = new(camera);
-                AddtionalCameraInfoBuffer.HostBuffer[i] = new(camera.ProjectionMatrix, clipNear, clipFar, SwapChain.Instance.ExtentAspectRatio);
+                AddtionalCameraInfoBuffer.HostBuffer[i] = new(camera.ProjectionMatrix, clipNear, clipFar, SwapChain.ExtentAspectRatio);
                 OrthopgrahicInfoBuffer.HostBuffer[i] = new(orth, orthCam);
             }
 

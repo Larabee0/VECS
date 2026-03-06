@@ -3,6 +3,7 @@ using SDL3;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using Vortice.Vulkan;
 using SDL = SDL3.SDL3;
@@ -29,6 +30,7 @@ namespace VECS.LowLevel
 
         public static string WindowConfigFilePath => Path.Combine(Application.PersistentDataPath, WINDOW_CONFIG_FILE_NAME);
         public static bool ScreenSaverAllowed => _windowSettings.ScreenSaverAllowed;
+        public static VkPresentModeKHR PresentMode => _windowSettings.PresentMode;
 
         public static void Init()
         {
@@ -71,6 +73,7 @@ namespace VECS.LowLevel
                 Console.WriteLine("Error loading window config: {0}", ex.Message);
                 Console.WriteLine(ex.StackTrace);
             }
+
         }
 
         public static void DestroyAllWindows()
@@ -129,6 +132,11 @@ namespace VECS.LowLevel
             {
                 _windowSettings.ScreenSaverAllowed = SDL.SDL_EnableScreenSaver();
             }
+        }
+
+        public static void UpdatePresentMode(VkPresentModeKHR presentMode)
+        {
+            _windowSettings.PresentMode = presentMode;
         }
 
         /// <summary>
@@ -192,9 +200,21 @@ namespace VECS.LowLevel
             {
                 Screen.Width = (int)window.WindowExtent.width;
                 Screen.Height = (int)window.WindowExtent.height;
+
+                
             }
             _windows.Add(window.Id, window);
             return window;
+        }
+
+        public static void CheckLoadedPresentMode()
+        {
+            GraphicsDevice.SwapChainSupport = GraphicsDeviceInit.QuerySwapChainSupport(GraphicsDevice.PhysicalDevice);
+            var swapChainSupport = GraphicsDevice.SwapChainSupport;
+            if (swapChainSupport.presentModes.Contains(PresentMode))
+            {
+                UpdatePresentMode(VkPresentModeKHR.Fifo);
+            }
         }
 
         public static void UpdateWindowSize(string name, int newWidth, int newHeight)
@@ -206,6 +226,19 @@ namespace VECS.LowLevel
             }
         }
 
+        internal static void NotifySwapChainRecreated()
+        {
+            SwapChainData[] swapChainsForPresent = new SwapChainData[_windows.Count];
+            int i = 0;
+            foreach (var window in _windows.Values)
+            {
+                swapChainsForPresent[i] = window.SwapChainData;
+                i++;
+            }
+
+            SwapChain.SwapChainsForPresent = swapChainsForPresent;
+        }
+
         private class WindowSettings
         {
             public string WindowName { get; set; }
@@ -215,6 +248,7 @@ namespace VECS.LowLevel
 
         private class GlobalWindowSettings
         {
+            public VkPresentModeKHR PresentMode { get; set; }
             public bool ScreenSaverAllowed { get; set; }
             public Dictionary<string,WindowSettings> WindowSettings { get; set; }
         }

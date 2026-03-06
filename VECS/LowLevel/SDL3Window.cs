@@ -144,13 +144,13 @@ namespace VECS.LowLevel
         {
             if (IsDisposed) return;
             IsDisposed = true;
+            SwapChainData.Dispose();
             GraphicsDevice.InstanceAPI.vkDestroySurfaceKHR(_surface);
             SDL.SDL_DestroyWindow(_window);
         }
 
         public void RecreateSwapChain()
         {
-
             var oldSwapChain = _swapChainData;
             _swapChainData = new(
                 oldSwapChain.IsDisposed
@@ -160,6 +160,8 @@ namespace VECS.LowLevel
                 Application.MainWindow.Surface);
 
             oldSwapChain.Dispose();
+
+            SDL3WindowManager.NotifySwapChainRecreated();
         }
     }
 }

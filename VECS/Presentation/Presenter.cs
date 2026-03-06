@@ -1,13 +1,9 @@
 ﻿using System;
 using System.Collections;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Numerics;
-using System.Reflection.Metadata.Ecma335;
 using VECS.ECS;
 using VECS.ECS.Presentation;
-using VECS.ECS.Transforms;
 using VECS.LowLevel;
 using VECS.UI;
 using Vortice.Vulkan;
@@ -21,8 +17,6 @@ namespace VECS
 
         public static Presenter Instance { get; private set; }
 
-        private readonly IWindow _window;
-        private SwapChain _swapChain;
         private bool _isFrameStarted = false;
         private ForwardRenderer _forwardRenderer;
         private DirectionalLightShadows _directionalLightShadows;
@@ -67,26 +61,25 @@ namespace VECS
             }
         }
 
-        public Presenter(IWindow window)
+        public Presenter()
         {
-            _window = window;
             Instance = this;
             RecreateSwapChain();
         }
 
         private void RecreateSwapChain()
         {
-            var extent = _window.WindowExtent;
+            var extent = Application.MainWindow.WindowExtent;
             while (extent.width == 0 || extent.height == 0)
             {
-                extent = _window.WindowExtent;
-                _window.WaitForNextWindowEvent();
+                extent = Application.MainWindow.WindowExtent;
+                Application.MainWindow.WaitForNextWindowEvent();
             }
 
             DrawBlob.Reset();
-            if (_swapChain == null)
+            if (!SwapChain.SwapChainInitialised)
             {
-                _swapChain = SwapChainInit.Create();
+                SwapChainInit.Init();
                 GraphicsDevice.CreateCommandBuffers();
                 GraphicsDevice.DeviceWaitIdle();
                 _forwardRenderer = new ForwardRenderer();
@@ -97,15 +90,15 @@ namespace VECS
                 _smaa = new();
                 _imgui = new();
                 _directionalLightShadows.AssignDirShadowTexture();
-                _swapChain.GraphicsCallback += GraphicsPipe;
+                SwapChain.GraphicsCallback += GraphicsPipe;
             }
             else
             {
-                _swapChain.FinishTimelineWorkers(true);
+                SwapChain.FinishTimelineWorkers(true);
                 GraphicsDevice.DeviceWaitIdle();
-                var oldSwapChain = _swapChain;
-                oldSwapChain.Replace();
-                if (!oldSwapChain.CompareSwapFormats(_swapChain))
+                var oldSwapChain = SwapChain.MainSwapChainData;
+                SwapChainInit.Replace();
+                if (!SwapChain.CompareSwapFormats(oldSwapChain))
                 {
                     throw new Exception("Swap chain image(or depth) format has changed!");
                 }
@@ -118,9 +111,9 @@ namespace VECS
             }
             _framesSinceSwapChainRecreation = 0;
 
-            _swapChain.StartTimelineWorkers();
+            SwapChain.StartTimelineWorkers();
             OnSwapChainRecreation?.Invoke();
-            Console.WriteLine(_swapChain.ExtentAspectRatio);
+            Console.WriteLine(SwapChain.ExtentAspectRatio);
         }
 
         /// <summary>
@@ -138,7 +131,7 @@ namespace VECS
 
             var frameInfo = new FrameInfo()
             {
-                screenAspect = _swapChain.ExtentAspectRatio
+                screenAspect = SwapChain.ExtentAspectRatio
             };
 
             World.DefaultWorld.EntityManager.AddComponent(frameInfoEntity, frameInfo);
@@ -205,7 +198,7 @@ namespace VECS
         public void UpdateEntityFrameInfo(EntityManager entityManager)
         {
             var info = entityManager.GetComponent<FrameInfo>(frameInfoEntity);
-            info.screenAspect = _swapChain.ExtentAspectRatio;
+            info.screenAspect = SwapChain.ExtentAspectRatio;
             entityManager.SetComponent(frameInfoEntity, info);
         }
 
@@ -213,8 +206,8 @@ namespace VECS
         {
             if (InputManager.Instance.GetKeyUp(SDL3.SDL_Keycode.F10))
             {
-                SwapChain.PresentMode = SwapChain.PresentMode == VkPresentModeKHR.Immediate ? VkPresentModeKHR.Mailbox : VkPresentModeKHR.Immediate;
-                _swapChain.RecreateSwapChain = true;
+                SDL3WindowManager.UpdatePresentMode( SwapChain.PresentMode == VkPresentModeKHR.Immediate ? VkPresentModeKHR.Mailbox : VkPresentModeKHR.Immediate);
+                SwapChain.RecreateSwapChain = true;
             }
             // acquire swapchain image
             _isFrameStarted = BeginFrame();
@@ -227,10 +220,10 @@ namespace VECS
                 GPUBufferExtensions.PlayerbackDisposeCmds();
                 TextureExtensions.PlayerbackDisposeCmds();
                 // signal workers to submit work
-                _swapChain.SignalTimelineFromHost(SemaphoreStages.Submit, SwapChain.FrameIndex);
+                SwapChain.SignalTimelineFromHost(SemaphoreStages.Submit, SwapChain.FrameIndex);
                 // wait for workers to submit
 
-                _swapChain.WaitForNextFrame(SwapChain.NextFrame);
+                SwapChain.WaitForNextFrame(SwapChain.NextFrame);
 
                 PostPresentationUpdate?.Invoke();
 
@@ -309,16 +302,16 @@ namespace VECS
             GPUBufferExtensions.PlaybackWriteBufferCmds();
 
             // blit renderImage into swapchain
-            var extents = _swapChain.SwapChainExtent;            
-            _forwardRenderer.BlitFromMainColour(commandBuffer, _swapChain.MainSwapChainData.SwapChainImages[imageIndex], (int)extents.width, (int)extents.height, VkImageAspectFlags.Color);
+            var extents = SwapChain.SwapChainExtent;
+            _forwardRenderer.BlitFromMainColour(commandBuffer, SwapChain.MainSwapChainData.SwapChainImages[imageIndex], (int)extents.width, (int)extents.height, VkImageAspectFlags.Color);
 
             // transfer swapchain image to present queue
-            _swapChain.TransferSwapChainImageToPresentQueue(commandBuffer, FrameIndex, imageIndex);
+            SwapChain.TransferSwapChainImageToPresentQueue(commandBuffer, FrameIndex, imageIndex);
         }
 
         public unsafe bool BeginFrame()
         {
-            if (_swapChain.RecreateSwapChain)
+            if (SwapChain.RecreateSwapChain)
             {
                 RecreateSwapChain();
                 return false;
@@ -351,7 +344,7 @@ namespace VECS
             GraphicsDevice.FreeCommandBuffers();
             _imgui.Dispose();
             _forwardRenderer.Dispose();
-            _swapChain.Dispose();
+            SwapChain.CleanUp();
             Instance = null;
         }
     }
