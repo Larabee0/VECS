@@ -16,9 +16,20 @@ namespace VECS.LowLevel
         private readonly uint _imageCount = 0;
 
 
+        // per surface
+        public unsafe VkSemaphore* AcquiredImageReadySemaphores; /// <see cref="SwapChain.MAX_CONCURRENT_FRAMES"/>>
+        public unsafe VkFence* WaitAcquireFences; /// <see cref="SwapChain.MAX_CONCURRENT_FRAMES"/> 
+
         public VkViewport Viewport;
 
         public VkRect2D Scissor;
+
+        public int SWAP_CHAIN_IMAGE_COUNT { get; internal set; }
+        public readonly uint SWAP_CHAIN_IMAGE_COUNT_UINT => (uint)SWAP_CHAIN_IMAGE_COUNT;
+
+        public bool IsDisposed;
+
+
 
         public unsafe SwapChainData(VkSwapchainKHR oldSwapChain, VkExtent2D windowExtent, VkSurfaceKHR surface)
         {
@@ -111,6 +122,20 @@ namespace VECS.LowLevel
 
                 GraphicsDevice.DeviceAPI.vkCreateImageView(viewInfo, null, out SwapChainImageViews[i]).CheckResult("Failed to create texture image view!");
             }
+
+
+            AcquiredImageReadySemaphores = (VkSemaphore*)NativeMemory.Alloc((uint)sizeof(VkSemaphore) * LowLevel.SwapChain.MAX_CONCURRENT_FRAMES_UINT);
+            WaitAcquireFences = (VkFence*)NativeMemory.Alloc((uint)sizeof(VkFence) * LowLevel.SwapChain.MAX_CONCURRENT_FRAMES_UINT);
+
+            VkSemaphoreCreateInfo semaphoreInfo = new();
+            VkFenceCreateInfo fenceInfo = new(VkFenceCreateFlags.Signaled);
+            for (int i = 0; i < LowLevel.SwapChain.MAX_CONCURRENT_FRAMES; i++)
+            {
+                GraphicsDevice.DeviceAPI.vkCreateFence(fenceInfo, null, out WaitAcquireFences[i]).CheckResult("Failed to create in acquire fence!");
+                GraphicsDevice.DeviceAPI.vkCreateSemaphore(semaphoreInfo, null, out AcquiredImageReadySemaphores[i]).CheckResult("Failed to create present semaphore!");
+            }
+
+            GraphicsDevice.DeviceAPI.vkResetFences(LowLevel.SwapChain.MAX_CONCURRENT_FRAMES_UINT, WaitAcquireFences);
         }
 
         public unsafe void SetImageLayouts(VkCommandBuffer commandBuffer)
@@ -123,15 +148,28 @@ namespace VECS.LowLevel
 
         public unsafe void Dispose()
         {
+            if (IsDisposed) return;
             GC.SuppressFinalize (this);
+            IsDisposed = true;
+
+
+            for (int i = 0; i < LowLevel.SwapChain.MAX_CONCURRENT_FRAMES; i++)
+            {
+                GraphicsDevice.DeviceAPI.vkDestroySemaphore(AcquiredImageReadySemaphores[i]);
+                GraphicsDevice.DeviceAPI.vkDestroyFence(WaitAcquireFences[i]);
+            }
 
             for (int i = 0; i < _imageCount; i++)
             {
                 GraphicsDevice.DeviceAPI.vkDestroyImageView(SwapChainImageViews[i]);
             }
 
+            NativeMemory.Free(AcquiredImageReadySemaphores);
+            NativeMemory.Free(WaitAcquireFences);
             NativeMemory.Free(SwapChainImageViews);
             NativeMemory.Free(SwapChainImages);
+            AcquiredImageReadySemaphores = null;
+            WaitAcquireFences = null;
             SwapChainImageViews = null;
             SwapChainImages = null;
 
@@ -140,6 +178,7 @@ namespace VECS.LowLevel
                 GraphicsDevice.DeviceAPI.vkDestroySwapchainKHR(SwapChain);
                 SwapChain = VkSwapchainKHR.Null;
             }
+
             GC.ReRegisterForFinalize(this);
         }
     }

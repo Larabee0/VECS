@@ -75,7 +75,7 @@ namespace VECS.LowLevel
             _depthAttachment?.Dispose();
 
 
-            var winbdowExtents = SwapChain.Instance._windowExtent;
+            var winbdowExtents = Application.MainWindow.WindowExtent;
 
             FRAME_BUFFER_DIMENTIONS_X = FRAME_BUFFER_MAX_RES;
             FRAME_BUFFER_DIMENTIONS_Y = FRAME_BUFFER_MAX_RES;

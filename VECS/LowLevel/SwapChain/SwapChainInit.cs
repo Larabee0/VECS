@@ -5,29 +5,35 @@ namespace VECS.LowLevel
 {
     internal static class SwapChainInit
     {
-        public static SwapChain Create(VkExtent2D extent)
+        public static SwapChain Create()
         {
-            var swapChain = new SwapChain(extent);
-            Init(null, swapChain);
+            var swapChain = new SwapChain();
+            Init(swapChain);
 
             SwapChain.Instance = swapChain;
             return swapChain;
         }
 
-        public static SwapChain Replace(this SwapChain old, VkExtent2D extent)
+        public static void Replace(this SwapChain swapchainInstance)
         {
-            var swapChain = new SwapChain(extent);
-            Init(old, swapChain);
-            old.Dispose();
-            SwapChain.Instance = swapChain;
-            return swapChain;
+            SwapChain.Reset();
+
+            DisposeSwapChainTimelineSemaphores(swapchainInstance);
+
+            Application.MainWindow.RecreateSwapChain();
+
+            SetImageLayouts(swapchainInstance.MainSwapChainData);
+
+            CreateSyncObjects(swapchainInstance);
+
+            CreateTimelineSemaphores(swapchainInstance);
         }
 
-        private static void Init(SwapChain oldSwapChain, SwapChain newSwapChain)
+        private static void Init(SwapChain newSwapChain)
         {
-            CreateSwapChain(oldSwapChain, newSwapChain);
+            Application.MainWindow.RecreateSwapChain();
 
-            SetImageLayouts(newSwapChain._swapChainData);
+            SetImageLayouts(newSwapChain.MainSwapChainData);
 
             CreateSyncObjects(newSwapChain);
 
@@ -35,16 +41,25 @@ namespace VECS.LowLevel
 
         }
 
-        private static void CreateSwapChain(SwapChain oldSwapChain, SwapChain newSwapChain)
+        private static void DisposeSwapChainTimelineSemaphores(SwapChain swapChain)
         {
-            newSwapChain._swapChainData = new(
-                oldSwapChain == null 
-                ? VkSwapchainKHR.Null 
-                : oldSwapChain._swapChainData.SwapChain,
-                newSwapChain._windowExtent,
-                GraphicsDevice.Surface);
+
+            for (int i = 0; i < SwapChain.SWAP_CHAIN_IMAGE_COUNT; i++)
+            {
+                GraphicsDevice.DeviceAPI.vkDestroySemaphore(swapChain._renderCompleteSemaphores[i]);
+                GraphicsDevice.DeviceAPI.vkDestroySemaphore(swapChain._prePresentCompleteSemahpores[i]);
+            }
+
+            for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
+            {
+                GraphicsDevice.DeviceAPI.vkDestroySemaphore(swapChain._timelineSemaphores[i].Semaphore);
+                // GraphicsDevice.DeviceAPI.vkDestroySemaphore(swapChain._acquiredImageReadySemaphores[i]);
+                GraphicsDevice.DeviceAPI.vkDestroyFence(swapChain._waitPresentBufferFences[i]);
+                // GraphicsDevice.DeviceAPI.vkDestroyFence(swapChain._waitAcquireFences[i]);
+            }
+
         }
-        
+
         private static void SetImageLayouts(SwapChainData swapChainData)
         {
             var commandBuffer = GraphicsDevice.BeginSingleTimeMainPipe();
@@ -58,21 +73,23 @@ namespace VECS.LowLevel
 
         private static unsafe void CreateSyncObjects(SwapChain swapChain)
         {
-            swapChain._acquiredImageReadySemaphores = new VkSemaphore[SwapChain.MAX_CONCURRENT_FRAMES];
+            // swapChain._acquiredImageReadySemaphores = new VkSemaphore[SwapChain.MAX_CONCURRENT_FRAMES];
+            // swapChain._waitAcquireFences = new VkFence[SwapChain.MAX_CONCURRENT_FRAMES];
+
             swapChain._waitPresentBufferFences = new VkFence[SwapChain.MAX_CONCURRENT_FRAMES];
-            swapChain._waitAcquireFences = new VkFence[SwapChain.MAX_CONCURRENT_FRAMES];
 
             VkSemaphoreCreateInfo semaphoreInfo = new();
             VkFenceCreateInfo fenceInfo = new(VkFenceCreateFlags.Signaled);
             for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
             {
                 GraphicsDevice.DeviceAPI.vkCreateFence(fenceInfo, null, out swapChain._waitPresentBufferFences[i]).CheckResult("Failed to create in present fence!");
-                GraphicsDevice.DeviceAPI.vkCreateFence(fenceInfo, null, out swapChain._waitAcquireFences[i]).CheckResult("Failed to create in acquire fence!");
-                GraphicsDevice.DeviceAPI.vkCreateSemaphore(semaphoreInfo, null, out swapChain._acquiredImageReadySemaphores[i]).CheckResult("Failed to create present semaphore!");
+
+                // GraphicsDevice.DeviceAPI.vkCreateFence(fenceInfo, null, out swapChain._waitAcquireFences[i]).CheckResult("Failed to create in acquire fence!");
+                // GraphicsDevice.DeviceAPI.vkCreateSemaphore(semaphoreInfo, null, out swapChain._acquiredImageReadySemaphores[i]).CheckResult("Failed to create present semaphore!");
 
             }
             
-            GraphicsDevice.DeviceAPI.vkResetFences(swapChain._waitAcquireFences);
+            // GraphicsDevice.DeviceAPI.vkResetFences(swapChain._waitAcquireFences);
 
             swapChain._renderCompleteSemaphores = new VkSemaphore[SwapChain.SWAP_CHAIN_IMAGE_COUNT];
             swapChain._prePresentCompleteSemahpores = new VkSemaphore[SwapChain.SWAP_CHAIN_IMAGE_COUNT];
@@ -100,7 +117,9 @@ namespace VECS.LowLevel
                 {
                     SemaphoreValue = 0
                 };
-                GraphicsDevice.DeviceAPI.vkCreateSemaphore(createInfo, null, out swapChain._timelineSemaphores[i].Semaphore).CheckResult("Failed to create timeline semaphore!");                
+                GraphicsDevice.DeviceAPI.vkCreateSemaphore(createInfo, null, out swapChain._timelineSemaphores[i].Semaphore).CheckResult("Failed to create timeline semaphore!");
+
+                
             }
         }
 

@@ -43,9 +43,9 @@ namespace VECS.Presentation
 
                 DestroyResources();
             }
-
-            _depthPyramidWidth = PreviousPow2( SwapChain.Instance._windowExtent.width);
-            _depthPyramidHeight = PreviousPow2(SwapChain.Instance._windowExtent.height);
+            var windowExtent = Application.MainWindow.WindowExtent;
+            _depthPyramidWidth = PreviousPow2(windowExtent.width);
+            _depthPyramidHeight = PreviousPow2(windowExtent.height);
             VkFormat depthFormat = VkFormat.R32Sfloat;
             _depthPryamid = new Texture2D(
                     string.Format("DepthPryamid {0}", Presenter.FrameCount),

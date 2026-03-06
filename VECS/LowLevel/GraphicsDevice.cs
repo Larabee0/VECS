@@ -45,7 +45,7 @@ namespace VECS.LowLevel
 
         internal static VkDeviceApi _deviceApi;
 
-        private static VkSurfaceKHR _surface;
+        // private static VkSurfaceKHR _surface;
 
         internal static VmaAllocator _allocator;
 
@@ -76,7 +76,7 @@ namespace VECS.LowLevel
         public static VkDevice Device => _device;
         public static VkDeviceApi DeviceAPI => _deviceApi;
         public static VkInstanceApi InstanceAPI => _instanceApi;
-        public static VkSurfaceKHR Surface => _surface;
+        
 
         public static VmaAllocator VmaAllocator => _allocator;
        
@@ -126,7 +126,8 @@ namespace VECS.LowLevel
 #if DEBUG
             GraphicsDeviceInit.SetUpDebugMessenger();
 #endif
-            _surface = GraphicsDeviceInit.CreateSurface();
+            window.CreateWindowSurface();
+
             GraphicsDeviceInit.PickPhysicalDevice();
             GraphicsDeviceInit.CreateLogicalDevice();
             GraphicsDeviceInit.CreateCommandPools();
@@ -338,7 +339,6 @@ namespace VECS.LowLevel
             GraphicsDeviceInit.DestroyDebugUtilsMessengerEXT(_instance, GraphicsDeviceInit._debugMessenger, null);
 #endif
 
-            _instanceApi.vkDestroySurfaceKHR(_surface);
             _instanceApi.vkDestroyInstance();
         }
     }

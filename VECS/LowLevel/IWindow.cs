@@ -1,4 +1,5 @@
-﻿using System;
+﻿using SDL3;
+using System;
 using Vortice.Vulkan;
 
 namespace VECS.LowLevel
@@ -9,13 +10,20 @@ namespace VECS.LowLevel
     /// </summary>
     public interface IWindow : IDisposable
     {
+        public SDL_WindowID Id { get; set; }
+        public IWindow MainWindow { get; }
         public string WindowName { get; }
-        public VkExtent2D WindowExtend { get; }
+        public VkExtent2D WindowExtent { get; }
         public bool WasWindowResized { get; }
-        public VkSurfaceKHR CreateWindowSurface(VkInstance instance);
+        public bool IsMainWindow { get; }
+        public bool IsDisposed { get; }
+        public VkSurfaceKHR Surface { get; }
+        public SwapChainData SwapChainData { get; }
+        public VkSurfaceKHR CreateWindowSurface();
         void ResetWindowResizedFlag();
         void WaitForNextWindowEvent();
         string[] GetWindowExtensionRequirements();
-        bool UpdateWindowEvents();
+        bool UpdateWindowEvents(SDL_Event sdlEvent);
+        public void RecreateSwapChain();
     }
 }

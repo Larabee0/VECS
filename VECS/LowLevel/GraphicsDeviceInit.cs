@@ -173,13 +173,6 @@ namespace VECS.LowLevel
         }
         #endregion
 
-        /// <summary>
-        /// creates the VK surface to output to
-        /// </summary>
-        internal static VkSurfaceKHR CreateSurface()
-        {
-            return _window.CreateWindowSurface(GraphicsDevice.VkInstance);
-        }
 
         #region Pick Physical Device
         /// <summary>
@@ -560,7 +553,7 @@ namespace VECS.LowLevel
             {
                 var family = queueFamilies[(int)i];
 
-                _instanceApi.vkGetPhysicalDeviceSurfaceSupportKHR(device, i, Surface, out VkBool32 presentSupport);
+                _instanceApi.vkGetPhysicalDeviceSurfaceSupportKHR(device, i, Application.MainWindow.Surface, out VkBool32 presentSupport);
 
                 if (family.queueCount > 0 && family.queueFlags.HasFlag(VkQueueFlags.Graphics) && family.queueFlags.HasFlag(VkQueueFlags.Compute))
                 {
@@ -596,14 +589,15 @@ namespace VECS.LowLevel
         internal static SwapChainSupportDetails QuerySwapChainSupport(VkPhysicalDevice device)
         {
             SwapChainSupportDetails details = default;
-            _instanceApi.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, Surface, out details.capabilities).CheckResult("Device has no surface capabilities!");
-            _instanceApi.vkGetPhysicalDeviceSurfaceFormatsKHR(device, Surface, out uint surfaceFormatCount).CheckResult("Device has no surface formats!");
+            var surface = Application.MainWindow.Surface;
+            _instanceApi.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, out details.capabilities).CheckResult("Device has no surface capabilities!");
+            _instanceApi.vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, out uint surfaceFormatCount).CheckResult("Device has no surface formats!");
             details.formats = new VkSurfaceFormatKHR[surfaceFormatCount];
-            _instanceApi.vkGetPhysicalDeviceSurfaceFormatsKHR(device, Surface, details.formats);
+            _instanceApi.vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, details.formats);
 
-            _instanceApi.vkGetPhysicalDeviceSurfacePresentModesKHR(device, Surface,out uint presentModeCount).CheckResult("Device has not present modes!");
+            _instanceApi.vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, out uint presentModeCount).CheckResult("Device has not present modes!");
             details.presentModes = new VkPresentModeKHR[presentModeCount];
-            _instanceApi.vkGetPhysicalDeviceSurfacePresentModesKHR(device, Surface,details.presentModes);
+            _instanceApi.vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, details.presentModes);
 
 
             return details;

@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Concurrent;
 using System.Threading;
 using Vortice.Vulkan;
 
@@ -95,6 +94,8 @@ namespace VECS.LowLevel
             GraphicsDevice.DeviceAPI.vkQueueWaitIdle(GraphicsDevice._computeQueue);
             GraphicsDevice.DeviceAPI.vkQueueWaitIdle(GraphicsDevice._mainQueue);
             GraphicsDevice.DeviceAPI.vkQueueWaitIdle(GraphicsDevice._presentQueue);
+             
+
         }
 
         private unsafe void DoComputeWork(object cancellationToken)
@@ -246,7 +247,7 @@ namespace VECS.LowLevel
 
                 acquireCompleteInfo[0].semaphore = _timelineSemaphores[currentFrame].Semaphore;
                 acquireCompleteInfo[0].value = GetTimelineStageValue(SemaphoreStages.ComputeComplete, currentFrame);
-                acquireCompleteInfo[1].semaphore = _acquiredImageReadySemaphores[currentFrame];
+                acquireCompleteInfo[1].semaphore = MainSwapChainData.AcquiredImageReadySemaphores[currentFrame];
 
                 renderingCompleteInfo[0].semaphore = _timelineSemaphores[currentFrame].Semaphore;
                 renderingCompleteInfo[0].value = GetTimelineStageValue(SemaphoreStages.RenderComplete, currentFrame);

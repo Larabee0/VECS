@@ -45,6 +45,8 @@ namespace VECS
         public Action PostOnCreate;
         public Action OnDestroy;
 
+        public static IWindow MainWindow => Instance._appWindow;
+
         private static string _persistentDataPath;
 
         public static string ExecutingDirectory => AppDomain.CurrentDomain.BaseDirectory;
@@ -66,8 +68,8 @@ namespace VECS
             _threadDispatcher = new ThreadDispatcher(targetThreadCount);
 
             Bootstrap.subAssemblyLoadPoints.ForEach(loadPoint => loadPoint.PreApplicationConstruction());
-            SDL3Window.Init();
-            _appWindow = new(Width, Height, "VECS");
+            SDL3WindowManager.Init();
+            _appWindow = SDL3WindowManager.CreateNewWindow("VECS", Width, Height);
             GraphicsDevice.Initialise(_appWindow);
             ShaderModule.LoadAllShaders();
             _presenter = new(_appWindow);
@@ -86,7 +88,7 @@ namespace VECS
             Start();
             while (running)
             {
-                running = !_appWindow.UpdateWindowEvents();
+                running = !SDL3WindowManager.UpdateWindowEvents();
                 if (!running)
                 {
                     break;
@@ -275,9 +277,9 @@ namespace VECS
             GPUBufferExtensions.Reset();
             TextureExtensions.Reset();
             ShaderCache.Dispose();
+            SDL3WindowManager.DestroyAllWindows();
             GraphicsDevice.Dispose();
-            _appWindow.Dispose();
-            SDL3Window.CleanUp();
+            SDL3WindowManager.CleanUp();
         }
     }
 }

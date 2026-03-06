@@ -67,7 +67,7 @@ namespace VECS
 
         public void RecreateRenderTargets()
         {
-            var windowExtents = SwapChain.Instance._windowExtent;
+            var windowExtents = Application.MainWindow.WindowExtent;
 
             if (EdgeInputTarget == null)
             {

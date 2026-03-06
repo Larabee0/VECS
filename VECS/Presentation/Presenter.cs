@@ -76,17 +76,17 @@ namespace VECS
 
         private void RecreateSwapChain()
         {
-            var extent = _window.WindowExtend;
+            var extent = _window.WindowExtent;
             while (extent.width == 0 || extent.height == 0)
             {
-                extent = _window.WindowExtend;
+                extent = _window.WindowExtent;
                 _window.WaitForNextWindowEvent();
             }
 
             DrawBlob.Reset();
             if (_swapChain == null)
             {
-                _swapChain = SwapChainInit.Create(extent);
+                _swapChain = SwapChainInit.Create();
                 GraphicsDevice.CreateCommandBuffers();
                 GraphicsDevice.DeviceWaitIdle();
                 _forwardRenderer = new ForwardRenderer();
@@ -97,13 +97,14 @@ namespace VECS
                 _smaa = new();
                 _imgui = new();
                 _directionalLightShadows.AssignDirShadowTexture();
+                _swapChain.GraphicsCallback += GraphicsPipe;
             }
             else
             {
                 _swapChain.FinishTimelineWorkers(true);
                 GraphicsDevice.DeviceWaitIdle();
                 var oldSwapChain = _swapChain;
-                _swapChain = oldSwapChain.Replace(extent);
+                oldSwapChain.Replace();
                 if (!oldSwapChain.CompareSwapFormats(_swapChain))
                 {
                     throw new Exception("Swap chain image(or depth) format has changed!");
@@ -116,7 +117,6 @@ namespace VECS
                 GraphicsDevice.DeviceWaitIdle();
             }
             _framesSinceSwapChainRecreation = 0;
-            _swapChain.GraphicsCallback += GraphicsPipe;
 
             _swapChain.StartTimelineWorkers();
             OnSwapChainRecreation?.Invoke();
@@ -310,7 +310,7 @@ namespace VECS
 
             // blit renderImage into swapchain
             var extents = _swapChain.SwapChainExtent;            
-            _forwardRenderer.BlitFromMainColour(commandBuffer, _swapChain._swapChainData.SwapChainImages[imageIndex], (int)extents.width, (int)extents.height, VkImageAspectFlags.Color);
+            _forwardRenderer.BlitFromMainColour(commandBuffer, _swapChain.MainSwapChainData.SwapChainImages[imageIndex], (int)extents.width, (int)extents.height, VkImageAspectFlags.Color);
 
             // transfer swapchain image to present queue
             _swapChain.TransferSwapChainImageToPresentQueue(commandBuffer, FrameIndex, imageIndex);

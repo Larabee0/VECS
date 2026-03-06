@@ -35,7 +35,7 @@ namespace VECS
         public unsafe void RecreateAttachments()
         {
             EngineBuffers.RemoveEngineBuffer(ShaderProperties.LinkedListSBOId);
-            var windowExtents = SwapChain.Instance._windowExtent;
+            var windowExtents = Application.MainWindow.WindowExtent;
 
             var _maxNodes = OIT_NODE_COUNT * windowExtents.width * windowExtents.height;
             if (_linkedList == null)

@@ -202,6 +202,9 @@ namespace VECS
             _indirectCmdBufferAllInOne = null;
 
             entityCount = 0;
+            _firstTransparentByMat = 0;
+            _firstTransparentCmdRegion = 0;
+
             Array.Clear(_workerRegionsOpaqueQueue);
             GC.Collect();
 
