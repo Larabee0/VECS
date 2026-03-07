@@ -239,6 +239,14 @@ namespace VECS.LowLevel
             SwapChain.SwapChainsForPresent = swapChainsForPresent;
         }
 
+        public static void RecreateSwapChains()
+        {
+            foreach (var window in _windows.Values)
+            {
+                window.RecreateSwapChain();
+            }
+        }
+
         private class WindowSettings
         {
             public string WindowName { get; set; }
