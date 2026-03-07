@@ -22,7 +22,7 @@ namespace VECS.LowLevel
 
         internal static void StartTimelineWorkers()
         {
-            _currentFrame = 0;
+            //_currentFrame = 0;
             _graphicsCancel = new();
             _computeCancel = new();
             _presentCancel = new();
@@ -216,14 +216,15 @@ namespace VECS.LowLevel
 
             int currentFrame = _currentFrame;
             int nextFrame = NextFrame;
-            uint currentImage = *MainSwapChainData.CurrentImageIndex;
             bool flagGraphicsQueued = false;
 
 
-            uint waitSempahoreCount = 1;
+            uint imageCount = 1;
+            uint acquireSemaphoreCount = 1;
             VkSemaphoreSubmitInfo* acquireCompleteInfo = (VkSemaphoreSubmitInfo*)NativeMemory.AllocZeroed((uint)sizeof(VkSemaphoreSubmitInfo));
-
-            submitInfo.waitSemaphoreInfoCount = waitSempahoreCount;
+            uint* imageIndices = (uint*)NativeMemory.AllocZeroed(sizeof(uint));
+            imageIndices[0] = 0;
+            submitInfo.waitSemaphoreInfoCount = acquireSemaphoreCount;
             submitInfo.pWaitSemaphoreInfos = acquireCompleteInfo;
 
             while (!token.IsCancellationRequested)
@@ -231,21 +232,34 @@ namespace VECS.LowLevel
                 flagGraphicsQueued = false;
                 WaitOnTimelineFromHost(SemaphoreStages.Submit, currentFrame);
 
+                lock (SwapChainsForPresent)
+                {
+                    if (imageCount != SwapChainsForPresent.Length)
+                    {
+                        imageCount = (uint)SwapChainsForPresent.Length;
+                        imageIndices = (uint*)NativeMemory.Realloc(imageIndices, sizeof(uint) * acquireSemaphoreCount);
+                    }
+                    for (int i = 0; i < SwapChainsForPresent.Length; i++)
+                    {
+                        imageIndices[i] = *SwapChainsForPresent[i].CurrentImageIndex;
+                    }
+                }
+
                 if (!token.IsCancellationRequested)
                 {
-                    BuildGraphicsCommands(currentFrame, (int)currentImage);
+                    BuildGraphicsCommands(currentFrame, imageCount, imageIndices);
                 }
 
                 lock (SwapChainsForPresent)
                 {
-                    if(waitSempahoreCount != SwapChainsForPresent.Length + 1)
+                    if(acquireSemaphoreCount != SwapChainsForPresent.Length + 1)
                     {
-                        waitSempahoreCount = (uint)SwapChainsForPresent.Length + 1;
-                        NativeMemory.Free(acquireCompleteInfo);
-                        acquireCompleteInfo = null;
-                        acquireCompleteInfo = (VkSemaphoreSubmitInfo*)NativeMemory.AllocZeroed((uint)sizeof(VkSemaphoreSubmitInfo) * waitSempahoreCount);
-                        submitInfo.waitSemaphoreInfoCount = waitSempahoreCount;
+                        acquireSemaphoreCount = (uint)SwapChainsForPresent.Length + 1;
+                        
+                        acquireCompleteInfo = (VkSemaphoreSubmitInfo*)NativeMemory.Realloc(acquireCompleteInfo, (uint)sizeof(VkSemaphoreSubmitInfo) * acquireSemaphoreCount);
+                        submitInfo.waitSemaphoreInfoCount = acquireSemaphoreCount;
                         submitInfo.pWaitSemaphoreInfos = acquireCompleteInfo;
+
                         for (int i = 0; i < SwapChainsForPresent.Length; i++)
                         {
                             acquireCompleteInfo[i] = new()
@@ -254,7 +268,8 @@ namespace VECS.LowLevel
                                 value = 0
                             };
                         }
-                        acquireCompleteInfo[waitSempahoreCount - 1] = new()
+
+                        acquireCompleteInfo[acquireSemaphoreCount - 1] = new()
                         {
                             stageMask = VkPipelineStageFlags2.ColorAttachmentOutput
                         };
@@ -266,12 +281,12 @@ namespace VECS.LowLevel
                     }
                 }
 
-                acquireCompleteInfo[waitSempahoreCount-1].semaphore = _timelineSemaphores[currentFrame].Semaphore;
-                acquireCompleteInfo[waitSempahoreCount-1].value = GetTimelineStageValue(SemaphoreStages.ComputeComplete, currentFrame);
+                acquireCompleteInfo[acquireSemaphoreCount-1].semaphore = _timelineSemaphores[currentFrame].Semaphore;
+                acquireCompleteInfo[acquireSemaphoreCount-1].value = GetTimelineStageValue(SemaphoreStages.ComputeComplete, currentFrame);
 
                 renderingCompleteInfo[0].semaphore = _timelineSemaphores[currentFrame].Semaphore;
                 renderingCompleteInfo[0].value = GetTimelineStageValue(SemaphoreStages.RenderComplete, currentFrame);
-                renderingCompleteInfo[1].semaphore = _renderCompleteSemaphores[currentImage];
+                renderingCompleteInfo[1].semaphore = _renderCompleteSemaphores[imageIndices[0]];
 
                 commandBufferSubmitInfo.commandBuffer = CurrentMainCommandBuffer;
                 
@@ -310,7 +325,11 @@ namespace VECS.LowLevel
                     WaitForNextFrame(nextFrame);
                     currentFrame = _currentFrame;
                     nextFrame = NextFrame;
-                    currentImage = *MainSwapChainData.CurrentImageIndex;
+
+                    for (int i = 0; i < SwapChainsForPresent.Length; i++)
+                    {
+                        imageIndices[i] = *SwapChainsForPresent[i].CurrentImageIndex;
+                    }
                 }
             }
 
@@ -345,22 +364,23 @@ namespace VECS.LowLevel
 
             }
             NativeMemory.Free(acquireCompleteInfo);
+            NativeMemory.Free(imageIndices);
             acquireCompleteInfo = null;
+            imageIndices = null;
         }
 
-        public static unsafe VkCommandBuffer BuildGraphicsCommands(int frameIndex, int imageIndex)
+        public static unsafe VkCommandBuffer BuildGraphicsCommands(int frameIndex, uint imageCount, uint* imageIndices)
         {
             VkCommandBufferBeginInfo beginInfo = new();
             VkCommandBuffer commandBuffer = CurrentMainCommandBuffer;
             GraphicsDevice.DeviceAPI.vkBeginCommandBuffer(commandBuffer, &beginInfo).CheckResult("Failed to begin recording main command buffer");
 
-            TransferSwapChainImageToGraphicsQueue(commandBuffer, frameIndex, imageIndex);
+            TransferSwapChainImageToGraphicsQueue(commandBuffer, frameIndex, imageCount, imageIndices);
 
-            GraphicsCallback?.Invoke(imageIndex);
+            GraphicsCallback?.Invoke((int)imageIndices[0]);
 
-            // copy to swap chain
-            // CopyRenderToSwapChain(commandBuffer, frameIndex, imageIndex);
-
+            // transfer swapchain image to present queue
+            TransferSwapChainImageToPresentQueue(commandBuffer, FrameIndex, imageCount, imageIndices);
 
             GraphicsDevice.DeviceAPI.vkEndCommandBuffer(commandBuffer).CheckResult("Failed to end main command buffer!");
 
@@ -370,7 +390,8 @@ namespace VECS.LowLevel
         private static unsafe void DoPresentWork(object cancellationToken)
         {
             bool waitForCompute = GraphicsDevice.ComputeQueue == GraphicsDevice.MainQueue;
-            uint submissionImageIndex;
+            uint numSubmissionImages = 1;
+            uint* submissionImageIndices = (uint*)NativeMemory.AllocZeroed(sizeof(uint));
             int submissionFrameIndex;
             CancellationTokenSource token = (CancellationTokenSource)cancellationToken;
             bool frameZero = true;
@@ -398,7 +419,20 @@ namespace VECS.LowLevel
                     }
                 }
 
-                submissionImageIndex = *MainSwapChainData.CurrentImageIndex;
+                lock (SwapChainsForPresent)
+                {
+                    if(numSubmissionImages != SwapChainsForPresent.Length)
+                    {
+                        numSubmissionImages = (uint)SwapChainsForPresent.Length;
+                        NativeMemory.Free(submissionImageIndices);
+                        submissionImageIndices = null;
+                        submissionImageIndices = (uint*)NativeMemory.AllocZeroed(sizeof(uint) * numSubmissionImages);
+                    }
+                    for (int i = 0; i < SwapChainsForPresent.Length; i++)
+                    {
+                        submissionImageIndices[i] = *SwapChainsForPresent[i].CurrentImageIndex;
+                    }
+                }
                 submissionFrameIndex = _currentFrame;
 
                 if (!token.IsCancellationRequested)
@@ -411,13 +445,20 @@ namespace VECS.LowLevel
                     WaitOnTimelineFromHost(SemaphoreStages.RenderComplete, _currentFrame);
                 }
 
-                if (!token.IsCancellationRequested && !RecreateSwapChain && !AcquireNextImage(MainSwapChainData))
+                lock (SwapChainsForPresent)
                 {
-                    Console.WriteLine("Cancel on Acquire next image");
-                    RecreateSwapChain = true;
+                    for (int i = 0; i < SwapChainsForPresent.Length; i++)
+                    {
+                        if (!token.IsCancellationRequested && !RecreateSwapChain && !AcquireNextImage(SwapChainsForPresent[i]))
+                        {
+                            Console.WriteLine("Cancel on Acquire next image");
+                            RecreateSwapChain = true;
+                            break;
+                        }
+                    }
                 }
 
-                if (!token.IsCancellationRequested && !RecreateSwapChain && !PresentMain(submissionFrameIndex,submissionImageIndex))
+                if (!token.IsCancellationRequested && !RecreateSwapChain && !PresentMain(submissionFrameIndex,numSubmissionImages, submissionImageIndices))
                 {
                     Console.WriteLine("Cancel on Present current image");
                     RecreateSwapChain = true;
@@ -429,6 +470,9 @@ namespace VECS.LowLevel
 
                 frameZero = false;
             }
+
+            NativeMemory.Free(submissionImageIndices);
+            submissionImageIndices = null;
         }
     }
 }

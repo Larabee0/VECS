@@ -154,66 +154,113 @@ namespace VECS.LowLevel
         }
 
         // should be called from graphics queue
-        internal static unsafe void TransferSwapChainImageToGraphicsQueue(VkCommandBuffer commandBuffer, int frameIndex, int imageIndex)
+        internal static unsafe void TransferSwapChainImageToGraphicsQueue(VkCommandBuffer commandBuffer, int frameIndex, uint imageCount, uint* imageIndices)
         {
+            VkImageMemoryBarrier2* barriers = stackalloc VkImageMemoryBarrier2[(int)imageCount];
+            VkImageMemoryBarrier2 barrier = new()
+            {
+                subresourceRange = new VkImageSubresourceRange(VkImageAspectFlags.Color),
+                srcStageMask = VkPipelineStageFlags2.ColorAttachmentOutput,
+                srcAccessMask = VkAccessFlags2.None,
+                dstStageMask = VkPipelineStageFlags2.Transfer,
+                dstAccessMask = VkAccessFlags2.TransferWrite,
+                oldLayout = VkImageLayout.PresentSrcKHR,
+                newLayout = VkImageLayout.TransferDstOptimal,
+                srcQueueFamilyIndex = Vulkan.VK_QUEUE_FAMILY_IGNORED,
+                dstQueueFamilyIndex = Vulkan.VK_QUEUE_FAMILY_IGNORED
+            };
+            VkDependencyInfo info = new()
+            {
+                imageMemoryBarrierCount = imageCount,
+                pImageMemoryBarriers = barriers
+            };
 
-            VkImageSubresourceRange subResourceRange = new(VkImageAspectFlags.Color);
-            VkImage image = MainSwapChainData.SwapChainImages[imageIndex];
+            for (int i = 0; i < SwapChainsForPresent.Length; i++)
+            {
+                SwapChainData swapChainData = SwapChainsForPresent[i];
+                barrier.image = swapChainData.SwapChainImages[imageIndices[i]];
+                barriers[i] = barrier;
+            }
 
-            MemoryBarrierHelper.ImageMemoryBarrier(
-                commandBuffer,
-                image,
-                subResourceRange,
-                VkPipelineStageFlags2.ColorAttachmentOutput,
-                VkAccessFlags2.None,
-                VkPipelineStageFlags2.Transfer,
-                VkAccessFlags2.TransferWrite,
-                VkImageLayout.PresentSrcKHR,
-                VkImageLayout.TransferDstOptimal,
-                Vulkan.VK_QUEUE_FAMILY_IGNORED, Vulkan.VK_QUEUE_FAMILY_IGNORED);
+            GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier2(commandBuffer, &info);
         }
 
         // should be called from graphics queue
-        internal static unsafe void TransferSwapChainImageToPresentQueue(VkCommandBuffer commandBuffer, int frameIndex, int imageIndex)
+        internal static unsafe void TransferSwapChainImageToPresentQueue(VkCommandBuffer commandBuffer, int frameIndex, uint imageCount, uint* imageIndices)
         {
-            VkImageSubresourceRange subResourceRange = new(VkImageAspectFlags.Color);
-            VkImage image = MainSwapChainData.SwapChainImages[imageIndex];
+            VkImageMemoryBarrier2* barriers = stackalloc VkImageMemoryBarrier2[(int)imageCount];
+            VkImageMemoryBarrier2 barrier = new()
+            {
+                subresourceRange = new VkImageSubresourceRange(VkImageAspectFlags.Color),
+                srcStageMask = VkPipelineStageFlags2.Transfer,
+                srcAccessMask = VkAccessFlags2.TransferWrite,
+                dstStageMask = VkPipelineStageFlags2.None,
+                dstAccessMask = VkAccessFlags2.None,
+                oldLayout = VkImageLayout.TransferDstOptimal,
+                newLayout = VkImageLayout.PresentSrcKHR,
+                srcQueueFamilyIndex = GraphicsDevice.PhysicalQueueFamilies.graphicsFamily,
+                dstQueueFamilyIndex = GraphicsDevice.PhysicalQueueFamilies.presentFamily
+            };
+            VkDependencyInfo info = new()
+            {
+                imageMemoryBarrierCount = imageCount,
+                pImageMemoryBarriers = barriers
+            };
 
-            MemoryBarrierHelper.ImageMemoryBarrier(
-                commandBuffer,
-                image,
-                subResourceRange,
-                VkPipelineStageFlags2.Transfer,
-                VkAccessFlags2.TransferWrite,
-                VkPipelineStageFlags2.None,
-                VkAccessFlags2.None,
-                VkImageLayout.TransferDstOptimal,
-                VkImageLayout.PresentSrcKHR,
-                GraphicsDevice.PhysicalQueueFamilies.graphicsFamily, GraphicsDevice.PhysicalQueueFamilies.presentFamily);
+            for (int i = 0; i < SwapChainsForPresent.Length; i++)
+            {
+                SwapChainData swapChainData = SwapChainsForPresent[i];
+                barrier.image = swapChainData.SwapChainImages[imageIndices[i]];
+                barriers[i] = barrier;
+            }
+
+            GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier2(commandBuffer, &info);
         }
 
-        public static unsafe bool PresentMain(int frameIndex, uint imageIndex)
+        public static unsafe bool PresentMain(int frameIndex, uint submitImageCount, uint* imageIndices)
         {
-            VkSemaphore renderComplete = _renderCompleteSemaphores[imageIndex];
-            VkSemaphore prePresentComplete = _prePresentCompleteSemahpores[imageIndex];
+            VkSemaphore renderComplete = _renderCompleteSemaphores[imageIndices[0]];
+            VkSemaphore prePresentComplete = _prePresentCompleteSemahpores[imageIndices[0]];
             VkCommandBuffer presentCommandBuffer = GraphicsDevice.PresentPipeCommandBuffers[frameIndex];
 
-            WaitAndResetFence(MainSwapChainData.WaitAcquireFences[frameIndex]);
+            for (int i = 0; i < SwapChainsForPresent.Length; i++)
+            {
+                WaitAndResetFence(SwapChainsForPresent[i].WaitAcquireFences[frameIndex]);
+            }
             WaitAndResetFence(_waitPresentBufferFences[frameIndex]);
 
-            VkImageSubresourceRange subresourceRange = new(VkImageAspectFlags.Color);
-            VkImage image = MainSwapChainData.SwapChainImages[imageIndex];
+            VkImageMemoryBarrier2* barriers = stackalloc VkImageMemoryBarrier2[(int)submitImageCount];
+            VkSwapchainKHR* swapchains = stackalloc VkSwapchainKHR[(int)submitImageCount];
+
+            VkDependencyInfo info = new()
+            {
+                imageMemoryBarrierCount = submitImageCount,
+                pImageMemoryBarriers = barriers
+            };
+            VkImageMemoryBarrier2 barrier = new()
+            {
+                subresourceRange = new(VkImageAspectFlags.Color),
+                srcStageMask = VkPipelineStageFlags2.Transfer,
+                srcAccessMask = VkAccessFlags2.TransferWrite,
+                dstStageMask = VkPipelineStageFlags2.None,
+                dstAccessMask = VkAccessFlags2.None,
+                oldLayout = VkImageLayout.TransferDstOptimal,
+                newLayout = VkImageLayout.PresentSrcKHR,
+                srcQueueFamilyIndex = GraphicsDevice.PhysicalQueueFamilies.graphicsFamily,
+                dstQueueFamilyIndex = GraphicsDevice.PhysicalQueueFamilies.presentFamily
+            };
+
+
+            for (int i = 0; i < SwapChainsForPresent.Length; i++)
+            {
+                SwapChainData swapChainData = SwapChainsForPresent[i];
+                barrier.image = swapChainData.SwapChainImages[imageIndices[i]];
+                barriers[i] = barrier;
+                swapchains[i] = swapChainData.SwapChain;
+            }
+
             GraphicsDevice.DeviceAPI.vkBeginCommandBuffer(presentCommandBuffer, VkCommandBufferUsageFlags.None);
-            
-            MemoryBarrierHelper.ImageMemoryBarrier(presentCommandBuffer,
-                image,
-                subresourceRange,
-                VkPipelineStageFlags2.Transfer, VkAccessFlags2.TransferWrite,
-                VkPipelineStageFlags2.None, VkAccessFlags2.None,
-                VkImageLayout.TransferDstOptimal,
-                VkImageLayout.PresentSrcKHR,
-                GraphicsDevice.PhysicalQueueFamilies.graphicsFamily,
-                GraphicsDevice.PhysicalQueueFamilies.presentFamily);
+            GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier2(presentCommandBuffer, &info);
             GraphicsDevice.DeviceAPI.vkEndCommandBuffer(presentCommandBuffer);
 
             VkSemaphoreSubmitInfo prePresentWaitInfo =  new() {
@@ -240,14 +287,13 @@ namespace VECS.LowLevel
 
             GraphicsDevice.DeviceAPI.vkQueueSubmit2KHR(GraphicsDevice.PresentQueue, 1, &prePresentSubmitInfo, _waitPresentBufferFences[frameIndex]);
 
-            VkSwapchainKHR swapchain = MainSwapChainData.SwapChain;
             VkPresentInfoKHR presentInfo = new()
             {
                 waitSemaphoreCount = 1,
                 pWaitSemaphores = &prePresentComplete,
                 swapchainCount = 1,
-                pSwapchains = &swapchain,
-                pImageIndices = &imageIndex
+                pSwapchains = swapchains,
+                pImageIndices = imageIndices
             };
 
             var result = GraphicsDevice.DeviceAPI.vkQueuePresentKHR(GraphicsDevice.PresentQueue, &presentInfo);

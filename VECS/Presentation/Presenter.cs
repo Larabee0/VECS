@@ -305,8 +305,6 @@ namespace VECS
             var extents = SwapChain.SwapChainExtent;
             _forwardRenderer.BlitFromMainColour(commandBuffer, SwapChain.MainSwapChainData.SwapChainImages[imageIndex], (int)extents.width, (int)extents.height, VkImageAspectFlags.Color);
 
-            // transfer swapchain image to present queue
-            SwapChain.TransferSwapChainImageToPresentQueue(commandBuffer, FrameIndex, imageIndex);
         }
 
         public unsafe bool BeginFrame()
