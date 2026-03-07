@@ -44,12 +44,10 @@ namespace VECS.LowLevel
                 Name = "Present Queue Thread",
                 IsBackground = true
             };
-
+            
             _graphicsThread.Start(_graphicsCancel);
             _computeThread.Start(_computeCancel);
             _presentThread.Start(_presentCancel);
-
-            RecreateSwapChain = !AcquireNextImage(MainSwapChainData);
         }
 
         internal static void FinishTimelineWorkers(bool recreate)
@@ -59,24 +57,12 @@ namespace VECS.LowLevel
 #if DEBUG
                 GraphicsDeviceInit.BreakOnValidationError = false;
 #endif
-                if (!recreate)
-                {
-                    _presentCancel.Cancel();
-                    _graphicsCancel.Cancel();
-                    _computeCancel.Cancel();
-                    Thread.Sleep(250);
-                    SignalTimelineFromHost(SemaphoreStages.Submit, FrameIndex);
-                    Thread.Sleep(250);
-                }
-                else
-                {
-                    _presentCancel.Cancel();
-                    _graphicsCancel.Cancel();
-                    _computeCancel.Cancel();
-                    Thread.Sleep(250);
-                    SignalTimelineFromHost(SemaphoreStages.Submit, FrameIndex);
-                    Thread.Sleep(250);
-                }
+
+                _presentCancel.Cancel();
+                _graphicsCancel.Cancel();
+                _computeCancel.Cancel();
+                //Thread.Sleep(50);
+                SignalTimelineFromHost(SemaphoreStages.Submit, FrameIndex);
             }
             
             _graphicsThread.Join();
@@ -395,6 +381,27 @@ namespace VECS.LowLevel
             int submissionFrameIndex;
             CancellationTokenSource token = (CancellationTokenSource)cancellationToken;
             bool frameZero = true;
+
+            //RecreateSwapChain = !AcquireNextImage(SwapChainsForPresent[0]);
+            bool recreateOnStart = false;
+            lock (SwapChainsForPresent)
+            {
+                for (int i = 0; i < SwapChainsForPresent.Length; i++)
+                {
+                    if (!recreateOnStart && !AcquireNextImage(SwapChainsForPresent[i]))
+                    {
+                        Console.WriteLine("Cancel on Acquire next image");
+                        recreateOnStart = true;
+                        break;
+                    }
+                    else
+                    {
+                        recreateOnStart = false;
+                    }
+                }
+            }
+            RecreateSwapChain = recreateOnStart;
+
 
             while (!token.IsCancellationRequested)
             {
