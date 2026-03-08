@@ -157,7 +157,7 @@ namespace VECS.LowLevel
                 ? VkSwapchainKHR.Null
                 : oldSwapChain.SwapChain,
                 WindowExtent,
-                Application.MainWindow.Surface);
+                _surface);
 
             oldSwapChain.Dispose();
 

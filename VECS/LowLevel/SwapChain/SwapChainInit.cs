@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using Vortice.Vulkan;
 
 namespace VECS.LowLevel
@@ -11,11 +12,7 @@ namespace VECS.LowLevel
 
             DisposeSwapChainTimelineSemaphores();
 
-            for (int i = 0; i < SwapChain.SwapChainsForPresent.Length; i++)
-            {
-                SDL3WindowManager.RecreateSwapChains();
-            }
-            
+            SDL3WindowManager.RecreateSwapChains();
 
             SetImageLayouts();
 
@@ -27,7 +24,7 @@ namespace VECS.LowLevel
         public static void Init()
         {
             SwapChain.Reset();
-            Application.MainWindow.RecreateSwapChain();
+            SDL3WindowManager.RecreateSwapChains();
 
             SetImageLayouts();
 

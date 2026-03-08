@@ -1,6 +1,7 @@
 ﻿using Assimp;
 using SDL3;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -31,6 +32,11 @@ namespace VECS.LowLevel
         public static string WindowConfigFilePath => Path.Combine(Application.PersistentDataPath, WINDOW_CONFIG_FILE_NAME);
         public static bool ScreenSaverAllowed => _windowSettings.ScreenSaverAllowed;
         public static VkPresentModeKHR PresentMode => _windowSettings.PresentMode;
+
+        public static bool WindowResized { get; private set; }
+
+        private readonly static ConcurrentQueue<DisposeWindow> _disposalQueue = [];
+        private readonly static List<DisposeWindow> _disposalList = [];
 
         public static void Init()
         {
@@ -146,6 +152,7 @@ namespace VECS.LowLevel
         /// <returns></returns>
         public static bool UpdateWindowEvents()
         {
+            UpdateDisposalQueue();
             while (SDL.SDL_PollEvent(out SDL_Event sdlEvent))
             {
                 if(_windows.TryGetValue(sdlEvent.window.windowID, out var window))
@@ -183,6 +190,24 @@ namespace VECS.LowLevel
             return false;
         }
 
+        private static void UpdateDisposalQueue()
+        {
+            var frameCount = Presenter.FrameCount;
+            for (int i = _disposalList.Count - 1; i >= 0; i--)
+            {
+                if(_disposalList[i].DisposeInFrame <= frameCount)
+                {
+                    _disposalList[i].Window.Dispose();
+                    _disposalList.RemoveAt(i);
+                }
+            }
+
+            while (_disposalQueue.TryDequeue(out var disposal))
+            {
+                _disposalList.Add(disposal);
+            }
+        }
+
         public static SDL3Window CreateNewWindow(string name, int fallbackWidth, int fallbackHeight)
         {
             if(_windowSettings.WindowSettings.TryGetValue(name, out var windowSettings))
@@ -201,7 +226,12 @@ namespace VECS.LowLevel
                 Screen.Width = (int)window.WindowExtent.width;
                 Screen.Height = (int)window.WindowExtent.height;
 
-                
+                MainWindow = window;
+            }
+            else
+            {
+                window.CreateWindowSurface();
+                WindowResized = true;
             }
             _windows.Add(window.Id, window);
             return window;
@@ -209,7 +239,7 @@ namespace VECS.LowLevel
 
         public static void CheckLoadedPresentMode()
         {
-            GraphicsDevice.SwapChainSupport = GraphicsDeviceInit.QuerySwapChainSupport(GraphicsDevice.PhysicalDevice);
+            GraphicsDevice.SwapChainSupport = GraphicsDeviceInit.QuerySwapChainSupport(GraphicsDevice.PhysicalDevice, MainWindow.Surface);
             var swapChainSupport = GraphicsDevice.SwapChainSupport;
             if (swapChainSupport.presentModes.Contains(PresentMode))
             {
@@ -224,6 +254,18 @@ namespace VECS.LowLevel
                 windowSettings.Width = newWidth;
                 windowSettings.Height = newHeight;
             }
+
+            WindowResized = true;
+        }
+
+        public static void ResetWindowResized()
+        {
+            foreach (var window in _windows.Values)
+            {
+                window.ResetWindowResizedFlag();
+            }
+
+            WindowResized = false;
         }
 
         internal static void NotifySwapChainRecreated()
@@ -244,6 +286,41 @@ namespace VECS.LowLevel
             foreach (var window in _windows.Values)
             {
                 window.RecreateSwapChain();
+            }
+        }
+
+        public static void WaitForResizeEvents()
+        {
+            foreach (var window in _windows.Values)
+            {
+                var extent = window.WindowExtent;
+                while (extent.width == 0 || extent.height == 0)
+                {
+                    extent = window.WindowExtent;
+                    window.WaitForNextWindowEvent();
+                }
+            }
+        }
+
+        public static void DestroyWindow(SDL3Window window)
+        {
+            if(_windows.TryGetValue(window.Id, out window))
+            {
+                _windows.Remove(window.Id);
+                WindowResized = true;
+                _disposalQueue.Enqueue(new(window));
+            }
+        }
+
+        private class DisposeWindow
+        {
+            public SDL3Window Window;
+            public ulong DisposeInFrame;
+
+            public DisposeWindow(SDL3Window window)
+            {
+                Window = window;
+                DisposeInFrame = Presenter.FrameCount + SwapChain.MAX_CONCURRENT_FRAMES_UINT;
             }
         }
 

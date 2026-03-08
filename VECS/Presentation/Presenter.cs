@@ -69,13 +69,7 @@ namespace VECS
 
         private void RecreateSwapChain()
         {
-            var extent = Application.MainWindow.WindowExtent;
-            while (extent.width == 0 || extent.height == 0)
-            {
-                extent = Application.MainWindow.WindowExtent;
-                Application.MainWindow.WaitForNextWindowEvent();
-            }
-
+            SDL3WindowManager.WaitForResizeEvents();
             DrawBlob.Reset();
             if (!SwapChain.SwapChainInitialised)
             {
@@ -110,7 +104,7 @@ namespace VECS
                 GraphicsDevice.DeviceWaitIdle();
             }
             _framesSinceSwapChainRecreation = 0;
-
+            SDL3WindowManager.ResetWindowResized();
             SwapChain.StartTimelineWorkers();
             OnSwapChainRecreation?.Invoke();
             Console.WriteLine(SwapChain.ExtentAspectRatio);
@@ -137,7 +131,7 @@ namespace VECS
             World.DefaultWorld.EntityManager.AddComponent(frameInfoEntity, frameInfo);
         }
 
-        private unsafe RendererFrameInfo CreateRendererFrameInfo(float deltaTime, VkCommandBuffer commandBuffer)
+        private RendererFrameInfo CreateRendererFrameInfo(float deltaTime, VkCommandBuffer commandBuffer)
         {
             int frameIndex = SwapChain.FrameIndex;
             int cameraCount = 0;
@@ -309,7 +303,7 @@ namespace VECS
 
         public unsafe bool BeginFrame()
         {
-            if (SwapChain.RecreateSwapChain)
+            if (SwapChain.RecreateSwapChain|| SDL3WindowManager.WindowResized)
             {
                 RecreateSwapChain();
                 return false;

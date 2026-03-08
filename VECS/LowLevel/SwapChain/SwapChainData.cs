@@ -35,7 +35,7 @@ namespace VECS.LowLevel
         public unsafe SwapChainData(VkSwapchainKHR oldSwapChain, VkExtent2D windowExtent, VkSurfaceKHR surface)
         {
 
-            GraphicsDevice.SwapChainSupport = GraphicsDeviceInit.QuerySwapChainSupport(GraphicsDevice.PhysicalDevice);
+            GraphicsDevice.SwapChainSupport = GraphicsDeviceInit.QuerySwapChainSupport(GraphicsDevice.PhysicalDevice, surface);
             var swapChainSupport = GraphicsDevice.SwapChainSupport;
             VkSurfaceFormatKHR surfaceFormat = SwapChainInit.ChooseSwapSurfaceFormat(swapChainSupport.formats);
             VkPresentModeKHR presentMode = SwapChainInit.ChooseSwapPresentMode(swapChainSupport.presentModes);

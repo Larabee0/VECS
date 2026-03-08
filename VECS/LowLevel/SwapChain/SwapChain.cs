@@ -291,12 +291,13 @@ namespace VECS.LowLevel
             {
                 waitSemaphoreCount = 1,
                 pWaitSemaphores = &prePresentComplete,
-                swapchainCount = 1,
+                swapchainCount = submitImageCount,
                 pSwapchains = swapchains,
                 pImageIndices = imageIndices
             };
 
             var result = GraphicsDevice.DeviceAPI.vkQueuePresentKHR(GraphicsDevice.PresentQueue, &presentInfo);
+            
             if (result == VkResult.ErrorOutOfDateKHR || result == VkResult.SuboptimalKHR)
             {
                 return false;

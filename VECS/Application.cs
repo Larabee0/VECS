@@ -86,6 +86,7 @@ namespace VECS
         /// </summary>
         public void Run()
         {
+            SDL3Window window = null;
             Start();
             while (running)
             {

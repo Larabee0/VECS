@@ -244,7 +244,7 @@ namespace VECS.LowLevel
             GetDeviceProperties(_physicalDevice);
 
 
-            var swapChainSupport = QuerySwapChainSupport(_physicalDevice);
+            var swapChainSupport = QuerySwapChainSupport(_physicalDevice, Application.MainWindow.Surface);
             if (swapChainSupport.capabilities.maxImageCount > 0)
             {
                 Debug.Assert(swapChainSupport.capabilities.maxImageCount >= swapChainSupport.capabilities.minImageCount, string.Format("Max Swapchain image count ({0}) is less than min image count ({1}). Cannot compute valid swapchain image count.", swapChainSupport.capabilities.maxImageCount, swapChainSupport.capabilities.minImageCount));
@@ -507,7 +507,7 @@ namespace VECS.LowLevel
 
             if (requiredExtensionsSupported)
             {
-                SwapChainSupportDetails swapChainSupport = QuerySwapChainSupport(device);
+                SwapChainSupportDetails swapChainSupport = QuerySwapChainSupport(device, Application.MainWindow.Surface);
                 swapChainAdequate = swapChainSupport.formats.Length > 0 && swapChainSupport.presentModes.Length > 0;
             }
 
@@ -586,10 +586,10 @@ namespace VECS.LowLevel
         /// </summary>
         /// <param name="device"></param>
         /// <returns></returns>
-        internal static SwapChainSupportDetails QuerySwapChainSupport(VkPhysicalDevice device)
+        internal static SwapChainSupportDetails QuerySwapChainSupport(VkPhysicalDevice device, VkSurfaceKHR surface)
         {
             SwapChainSupportDetails details = default;
-            var surface = Application.MainWindow.Surface;
+            //var surface = Application.MainWindow.Surface;
             _instanceApi.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, out details.capabilities).CheckResult("Device has no surface capabilities!");
             _instanceApi.vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, out uint surfaceFormatCount).CheckResult("Device has no surface formats!");
             details.formats = new VkSurfaceFormatKHR[surfaceFormatCount];
