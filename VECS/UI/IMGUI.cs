@@ -57,7 +57,7 @@ namespace VECS.UI
             CreatePipeline();
             _context = ImGui.GetCurrentContext();
 
-            _outputTarget = new(_outputWindow.WindowName, (int)_outputWindow.WindowExtent.width, (int)_outputWindow.WindowExtent.height,VkFormat.R32G32B32A32Sfloat,VkSamplerAddressMode.ClampToEdge);
+            _outputTarget = new(_outputWindow.WindowName, (int)_outputWindow.WindowExtent.width, (int)_outputWindow.WindowExtent.height,VkFormat.R8G8B8A8Unorm, VkSamplerAddressMode.ClampToEdge);
 
             _blitVariant = EnginePipes.Blit.Create(string.Format("{0}_Blit", _outputWindow.WindowName));
 
@@ -200,14 +200,16 @@ namespace VECS.UI
             if (_imgui != null) return;
             GraphicsPipelineConfigInfo configInfo = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             GraphicsPipelineConfigInfo.EnableAlphaBlending(ref configInfo);
-            configInfo.colourFormats = [VkFormat.R32G32B32A32Sfloat];
+            configInfo.colourFormats = [VkFormat.R8G8B8A8Unorm];
             configInfo.rasterizationInfo.cullMode = VkCullModeFlags.None;
 
             configInfo.depthStencilInfo.depthTestEnable = false;
             configInfo.depthStencilInfo.depthWriteEnable = false;
             configInfo.depthStencilInfo.depthCompareOp = VkCompareOp.LessOrEqual;
 
-            configInfo.colourBlendAttachment.srcAlphaBlendFactor = VkBlendFactor.OneMinusSrcAlpha;
+            //configInfo.colourBlendAttachment.srcAlphaBlendFactor = VkBlendFactor.SrcAlpha;
+            //configInfo.colourBlendAttachment.srcAlphaBlendFactor = VkBlendFactor.One;
+            configInfo.colourBlendAttachment.dstAlphaBlendFactor = VkBlendFactor.One;
 
             configInfo.BindingDescriptions = [
                 new()

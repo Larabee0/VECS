@@ -72,6 +72,8 @@ namespace VECS
             blit.rasterizationInfo.cullMode = VkCullModeFlags.None;
             blit.colourFormats = [VkFormat.R32G32B32A32Sfloat];
             blit.depthStencilInfo.depthTestEnable = false;
+            //blit.colourBlendAttachment.srcColorBlendFactor = VkBlendFactor.SrcAlpha;
+            //blit.colourBlendAttachment.dstColorBlendFactor = VkBlendFactor.DstAlpha;
             Blit = new("Blitter", "fullscreen.vert", "blit.frag", blit);
 
             var oit_unlit = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
