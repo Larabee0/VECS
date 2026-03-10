@@ -82,7 +82,7 @@ namespace VECS
                 _directionalLightShadows = new();
                 _bloom = new();
                 _smaa = new();
-                _imgui = new();
+                _imgui = new(SDL3WindowManager.MainWindow);
                 _directionalLightShadows.AssignDirShadowTexture();
                 SwapChain.GraphicsCallback += GraphicsPipe;
             }
@@ -287,17 +287,24 @@ namespace VECS
             _smaa.ApplyAA(frameInfo);
 
             // UI Overlay
-            _forwardRenderer.BeginForwardRendering(commandBuffer,VkAttachmentLoadOp.Load);
             _imgui.Draw(frameInfo);
-            _forwardRenderer.EndForwardRendering(commandBuffer);
+
+            ;
+            _imgui.BlitToActiveTarget(frameInfo, _forwardRenderer.MainColourAttachment);
 
             // Play back Write Cmds generated during frame from CPU to GPU Buffers
             // this is an optimisation to avoid double writes
             GPUBufferExtensions.PlaybackWriteBufferCmds();
 
+            for (int i = 0; i < SwapChain.SwapChainsForPresent.Length; i++)
+            {
+                var extents = SwapChain.SwapChainsForPresent[i].SwapChainExtent;
+                _forwardRenderer.BlitFromMainColour(commandBuffer, SwapChain.SwapChainsForPresent[i].SwapChainImages[imageIndex], (int)extents.width, (int)extents.height, VkImageAspectFlags.Color);
+            }
+
             // blit renderImage into swapchain
-            var extents = SwapChain.SwapChainExtent;
-            _forwardRenderer.BlitFromMainColour(commandBuffer, SwapChain.MainSwapChainData.SwapChainImages[imageIndex], (int)extents.width, (int)extents.height, VkImageAspectFlags.Color);
+            // var extents = SwapChain.SwapChainExtent;
+            // _forwardRenderer.BlitFromMainColour(commandBuffer, SwapChain.MainSwapChainData.SwapChainImages[imageIndex], (int)extents.width, (int)extents.height, VkImageAspectFlags.Color);
 
         }
 

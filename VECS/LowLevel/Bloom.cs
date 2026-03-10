@@ -70,9 +70,9 @@ namespace VECS.LowLevel
 
         public void RecreateAttachments()
         {
-            _glowTexture?.Dispose();
-            _blurTexture?.Dispose();
-            _depthAttachment?.Dispose();
+            // _glowTexture?.Dispose();
+            // _blurTexture?.Dispose();
+            // _depthAttachment?.Dispose();
 
 
             var winbdowExtents = Application.MainWindow.WindowExtent;
@@ -89,21 +89,40 @@ namespace VECS.LowLevel
                 FRAME_BUFFER_DIMENTIONS_Y = (int)(((float)winbdowExtents.height / (float)winbdowExtents.width) * FRAME_BUFFER_MAX_RES);
             }
 
+            if (_glowTexture == null)
+            {
+                _glowTexture = new(string.Format("Bloom_Glow_{0}", Presenter.FrameCount),
+                        FRAME_BUFFER_DIMENTIONS_X, FRAME_BUFFER_DIMENTIONS_Y,
+                        VkFormat.R32G32B32A32Sfloat,
+                        VkSamplerAddressMode.ClampToEdge);
+            }
+            else
+            {
+                _glowTexture.Resize(FRAME_BUFFER_DIMENTIONS_X, FRAME_BUFFER_DIMENTIONS_Y);
+            }
 
-            _glowTexture = new(string.Format("Bloom_Glow_{0}", Presenter.FrameCount),
-                    FRAME_BUFFER_DIMENTIONS_X, FRAME_BUFFER_DIMENTIONS_Y,
-                    VkFormat.R32G32B32A32Sfloat,
-                    VkSamplerAddressMode.ClampToEdge);
+            if (_blurTexture == null)
+            {
+                _blurTexture = new(string.Format("Bloom_Blur_{0}", Presenter.FrameCount),
+                        FRAME_BUFFER_DIMENTIONS_X, FRAME_BUFFER_DIMENTIONS_Y,
+                        VkFormat.R32G32B32A32Sfloat,
+                        VkSamplerAddressMode.ClampToEdge);
+            }
+            else
+            {
+                _blurTexture.Resize(FRAME_BUFFER_DIMENTIONS_X, FRAME_BUFFER_DIMENTIONS_Y);
+            }
 
-            _blurTexture = new(string.Format("Bloom_Blur_{0}", Presenter.FrameCount),
-                    FRAME_BUFFER_DIMENTIONS_X, FRAME_BUFFER_DIMENTIONS_Y,
-                    VkFormat.R32G32B32A32Sfloat,
-                    VkSamplerAddressMode.ClampToEdge);
-
-            _depthAttachment = new(string.Format("Bloom_Depth_{0}", Presenter.FrameCount),
-                    FRAME_BUFFER_DIMENTIONS_X, FRAME_BUFFER_DIMENTIONS_Y,
-                    VkFormat.D32Sfloat);
-
+            if (_depthAttachment == null)
+            {
+                _depthAttachment = new(string.Format("Bloom_Depth_{0}", Presenter.FrameCount),
+                        FRAME_BUFFER_DIMENTIONS_X, FRAME_BUFFER_DIMENTIONS_Y,
+                        VkFormat.D32Sfloat);
+            }
+            else
+            {
+                _depthAttachment.Resize(FRAME_BUFFER_DIMENTIONS_X, FRAME_BUFFER_DIMENTIONS_Y);
+            }
             
             _blurVertical.SetTexture(SampleColourId, _glowTexture.Target);
             _blurHorizontal.SetTexture(SampleColourId, _blurTexture.Target);

@@ -72,6 +72,7 @@ namespace VECS
             _mainAppWindow = SDL3WindowManager.CreateNewWindow("VECS", Width, Height);
             GraphicsDevice.Initialise(_mainAppWindow);
             SDL3WindowManager.CheckLoadedPresentMode();
+            SDL3WindowManager.CreateNewWindow("VECS-2",Width, Height);
             ShaderModule.LoadAllShaders();
             _presenter = new();
 
@@ -100,8 +101,7 @@ namespace VECS
                 Time.UpdateFixedTimeStep();
                 Update();
                 Presentation();
-                InputManager.Instance.LateUpdate();
-                //Thread.Sleep(1000);
+                SDL3WindowManager.LateInputUpdate();
                 TargetFrameRateUpdate();
             }
             SwapChain.FinishTimelineWorkers(false);

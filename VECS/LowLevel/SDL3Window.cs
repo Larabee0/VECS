@@ -38,6 +38,8 @@ namespace VECS.LowLevel
 
         public bool IsDisposed { get; private set; }
 
+        public InputManager InputManager { get; private set; }
+
         internal SDL3Window(int width, int height, string name, bool mainWindow)
         {
             _width = width;
@@ -45,7 +47,7 @@ namespace VECS.LowLevel
             _windowName = name;
             _mainWindow = mainWindow;
             InitWindow();
-
+            InputManager = new(mainWindow);
         }
 
         /// <summary>

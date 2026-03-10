@@ -19,49 +19,59 @@ namespace VECS.UI
 
         private const float FONT_SCALE = 1.0f;
         private static readonly int fontSamplerId = "fontSampler".GetShaderPropertyId();
+        private static readonly int inputTextureId = "inputTexture".GetShaderPropertyId();
+
+        private readonly SDL3Window _outputWindow;
+
         private ImGuiContextPtr _context;
         private ImGuiStylePtr _vulkanStyle;
 
-        private GraphicsPipeline _imgui;
+        private static GraphicsPipeline _imgui;
         private Texture2D _fontAtlas_VK_EXAMPLE;
         private SwapChainBuffer _vertexBuffer;
         private SwapChainBuffer _indexBuffer;
 
-        private readonly Dictionary<ImTextureID, TextureVariant> _textureVariants = [];
-        private readonly Queue<Material> _freeVariants = [];
+        private RenderTarget _outputTarget;
 
-        public IMGUI()
+        private Material _blitVariant;
+
+        private readonly Dictionary<ImTextureID, TextureVariant> _textureVariants = [];
+        private static readonly Queue<Material> _freeVariants = [];
+        
+        public IMGUI(SDL3Window targetWindow)
         {
+            _outputWindow = targetWindow;
             _context = ImGui.CreateContext();
             
             ImGui.SetCurrentContext(_context);
 
+            ImGui.GetPlatformIO().RendererTextureMaxHeight = 4096;
+            ImGui.GetPlatformIO().RendererTextureMaxWidth = 4096;
             ImGui.GetIO().ConfigDpiScaleFonts = true;
 
             ImGui.GetIO().BackendFlags = ImGuiBackendFlags.RendererHasTextures;
 
-            ImGui.GetPlatformIO().RendererTextureMaxHeight = 4096;
-            ImGui.GetPlatformIO().RendererTextureMaxWidth = 4096;
+            SetStyle(0);
+            Resize(_outputWindow.WindowExtent.width, _outputWindow.WindowExtent.height);
 
-            Init();
-            //VKExampleIniti();
             CreatePipeline();
             _context = ImGui.GetCurrentContext();
+
+            _outputTarget = new(_outputWindow.WindowName, (int)_outputWindow.WindowExtent.width, (int)_outputWindow.WindowExtent.height,VkFormat.R32G32B32A32Sfloat,VkSamplerAddressMode.ClampToEdge);
+
+            _blitVariant = EnginePipes.Blit.Create(string.Format("{0}_Blit", _outputWindow.WindowName));
+
+            _blitVariant.SetTexture(inputTextureId, _outputTarget.Target);
+
         }
 
-        private void Init()
+        private static void Resize(uint width, uint height)
         {
-            SetStyle(0);
-            Resize();
-        }
-
-        private void Resize()
-        {
-            ImGui.GetIO().DisplaySize = new(Screen.Width, Screen.Height);
+            ImGui.GetIO().DisplaySize = new(width, height);
             ImGui.GetIO().DisplayFramebufferScale = new(1.0f);
         }
 
-        private void SetStyle(int index)
+        private static void SetStyle(int index)
         {
             switch (index)
             {
@@ -185,35 +195,12 @@ namespace VECS.UI
             }
         }
 
-        private unsafe void VKExampleIniti()
+        private static void CreatePipeline()
         {
-            var io = ImGui.GetIO();
-            var textData = io.Fonts.TexData;
-
-            int texWidth = textData.Width;
-            int texHeight = textData.Height;
-            var pixels = textData.Pixels;
-            var format = textData.Format switch
-            {
-                ImTextureFormat.Rgba32 => VkFormat.R32G32B32A32Sfloat,
-                ImTextureFormat.Alpha8 => VkFormat.A8Unorm,
-                _ => throw new NotImplementedException(),
-            };
-            _fontAtlas_VK_EXAMPLE = new("IMGUI_FontAtlas", texWidth, texHeight, format, VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferDst, false);
-            GPUBuffer stagingBuffer = new((uint)Vulkan.BlockSize(format), (uint)(texWidth * texHeight), VkBufferUsageFlags.TransferSrc, true, false, false);
-            Debug.Assert((int)stagingBuffer.HostBufferSize32 == textData.GetSizeInBytes());
-            Buffer.MemoryCopy(pixels, stagingBuffer.HostPtr, stagingBuffer.HostBufferSize32, textData.GetSizeInBytes());
-            TextureExtensions.CopyFromBuffer(_fontAtlas_VK_EXAMPLE, stagingBuffer, true);
-
-            CreatePipeline();
-
-            _imgui.Default().SetTexture("fontSampler".GetShaderPropertyId(), _fontAtlas_VK_EXAMPLE);
-        }
-
-        private unsafe void CreatePipeline()
-        {
+            if (_imgui != null) return;
             GraphicsPipelineConfigInfo configInfo = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             GraphicsPipelineConfigInfo.EnableAlphaBlending(ref configInfo);
+            configInfo.colourFormats = [VkFormat.R32G32B32A32Sfloat];
             configInfo.rasterizationInfo.cullMode = VkCullModeFlags.None;
 
             configInfo.depthStencilInfo.depthTestEnable = false;
@@ -267,13 +254,20 @@ namespace VECS.UI
         {
 
             var io = ImGui.GetIO();
-            io.DisplaySize = new(Screen.Width, Screen.Height);
+
+            if(_outputWindow.WindowExtent.width != _outputTarget.Target.Width && _outputWindow.WindowExtent.height != _outputTarget.Target.Height)
+            {
+                io.DisplaySize = new(_outputWindow.WindowExtent.width, _outputWindow.WindowExtent.height);
+                _outputTarget.Resize((int)_outputWindow.WindowExtent.width, (int)_outputWindow.WindowExtent.height);
+                _blitVariant.SetTexture(inputTextureId, _outputTarget.Target);
+            }
+
             io.DeltaTime = Time.DeltaTime;
-            io.MousePos = InputManager.Instance.MousePos;
+            io.MousePos = _outputWindow.InputManager.MousePos;
             
-            io.MouseDown[0] =InputManager.Instance.GetMouseButton(0);
-            io.MouseDown[1] =InputManager.Instance.GetMouseButton(1);
-            io.MouseDown[2] = InputManager.Instance.GetMouseButton(2);
+            io.MouseDown[0] = _outputWindow.InputManager.GetMouseButton(0);
+            io.MouseDown[1] = _outputWindow.InputManager.GetMouseButton(1);
+            io.MouseDown[2] = _outputWindow.InputManager.GetMouseButton(2);
         }
 
         private unsafe void UpdateBuffers()
@@ -338,11 +332,40 @@ namespace VECS.UI
             ulong offset = 0;
             Material mat;
 
-
-
             GPUBufferExtensions.WriteFromHostDelayed(_vertexBuffer, frameInfo.FrameIndex);
             GPUBufferExtensions.WriteFromHostDelayed(_indexBuffer, frameInfo.FrameIndex);
 
+
+
+            if (_outputTarget.ImageLayout == VkImageLayout.ShaderReadOnlyOptimal)
+            {
+                _outputTarget.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
+            }
+            else if (_outputTarget.ImageLayout == VkImageLayout.TransferSrcOptimal)
+            {
+                _outputTarget.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.ColorAttachmentOutput);
+            }
+
+            VkRenderingAttachmentInfo colourAttachments = new VkRenderingAttachmentInfo()
+            {
+                imageView = _outputTarget.VkImageView,
+                imageLayout = _outputTarget.ImageLayout,
+                loadOp = VkAttachmentLoadOp.Clear,
+                storeOp = VkAttachmentStoreOp.Store,
+                clearValue = new(0, 0, 0, 0)
+            };
+
+            VkRenderingInfo renderingInfo = new()
+            {
+                renderArea = new(0, 0, (uint)_outputTarget.Target.Width, (uint)_outputTarget.Target.Height),
+                layerCount = 1,
+                colorAttachmentCount = 1,
+                pColorAttachments = &colourAttachments,
+                flags = VkRenderingFlags.ContentsInlineKHR | VkRenderingFlags.ContentsSecondaryCommandBuffers
+            };
+            GraphicsDevice.DeviceAPI.vkCmdBeginRendering(frameInfo.CommandBuffer, &renderingInfo);
+
+            GraphicsDevice.DeviceAPI.vkCmdSetScissor(frameInfo.CommandBuffer, 0, new VkRect2D(new VkOffset2D(0, 0), new VkExtent2D(_outputTarget.Target.Width, _outputTarget.Target.Height)));
             GraphicsDevice.DeviceAPI.vkCmdSetViewport(frameInfo.CommandBuffer, 0, 0, io.DisplaySize.X, io.DisplaySize.Y);
             GraphicsDevice.DeviceAPI.vkCmdBindVertexBuffers(frameInfo.CommandBuffer, 0, 1, &vertexBuffer, &offset);
             GraphicsDevice.DeviceAPI.vkCmdBindIndexBuffer(frameInfo.CommandBuffer, _indexBuffer[frameInfo.FrameIndex].VkBuffer, 0, VkIndexType.Uint16);
@@ -382,9 +405,89 @@ namespace VECS.UI
                     indexOffset += pcmd.ElemCount;
                 }
                 vertexOffset += cmd_list.VtxBuffer.Size;
-
             }
+            GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
             _context = ImGui.GetCurrentContext();
+        }
+
+        public unsafe void BlitToActiveTarget(RendererFrameInfo frameInfo, RenderTarget renderTarget)
+        {
+            if (_outputTarget.ImageLayout == VkImageLayout.ColorAttachmentOptimal)
+            {
+                _outputTarget.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.FragmentShader);
+            }
+            else if (_outputTarget.ImageLayout == VkImageLayout.TransferSrcOptimal)
+            {
+                _outputTarget.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.FragmentShader);
+            }
+
+            var targetLayout = renderTarget.ImageLayout;
+
+
+            if(targetLayout != VkImageLayout.ColorAttachmentOptimal)
+            {
+                if (renderTarget.ImageLayout == VkImageLayout.ShaderReadOnlyOptimal)
+                {
+                    renderTarget.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
+                }
+                else if (renderTarget.ImageLayout == VkImageLayout.TransferSrcOptimal)
+                {
+                    renderTarget.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.ColorAttachmentOutput);
+                }
+            }
+
+
+            VkRenderingAttachmentInfo colourAttachments = new()
+            {
+                imageView = renderTarget.VkImageView,
+                imageLayout = renderTarget.ImageLayout,
+                loadOp = VkAttachmentLoadOp.Load,
+                storeOp = VkAttachmentStoreOp.Store,
+                clearValue = new(0, 0, 0, 0)
+            };
+
+            VkRenderingInfo renderingInfo = new()
+            {
+                renderArea = new(0, 0, (uint)renderTarget.Target.Width, (uint)renderTarget.Target.Height),
+                layerCount = 1,
+                colorAttachmentCount = 1,
+                pColorAttachments = &colourAttachments,
+                flags = VkRenderingFlags.ContentsInlineKHR | VkRenderingFlags.ContentsSecondaryCommandBuffers
+            };
+            GraphicsDevice.DeviceAPI.vkCmdBeginRendering(frameInfo.CommandBuffer, &renderingInfo);
+            
+            GraphicsDevice.DeviceAPI.vkCmdSetViewport(frameInfo.CommandBuffer, 0, renderTarget.Target.Height, renderTarget.Target.Width, -renderTarget.Target.Height);
+            GraphicsDevice.DeviceAPI.vkCmdSetScissor(frameInfo.CommandBuffer, 0, new VkRect2D(new VkOffset2D(0, 0), new VkExtent2D(renderTarget.Target.Width, renderTarget.Target.Height)));
+
+            _blitVariant.Bind(frameInfo);
+            GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
+            GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
+
+            if (targetLayout != VkImageLayout.ColorAttachmentOptimal)
+            {
+                if (targetLayout == VkImageLayout.ShaderReadOnlyOptimal)
+                {
+                    renderTarget.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
+                }
+                else if (targetLayout == VkImageLayout.TransferSrcOptimal)
+                {
+                    renderTarget.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.TransferSrcOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.Blit);
+                }
+            }
+        }
+
+        public void BlitToImage(VkCommandBuffer commandBuffer, VkImage dst, int dstWidth, int dstHeight, VkImageAspectFlags dstAspectMask)
+        {
+            if (_outputTarget.ImageLayout == VkImageLayout.ColorAttachmentOptimal)
+            {
+                _outputTarget.Target.SetImageLayout(commandBuffer, VkImageLayout.TransferSrcOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.Blit);
+            }
+            else if (_outputTarget.ImageLayout == VkImageLayout.ShaderReadOnlyOptimal)
+            {
+                _outputTarget.Target.SetImageLayout(commandBuffer, VkImageLayout.TransferSrcOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.Blit);
+            }
+
+            TextureExtensions.BlitGeneric(commandBuffer, VkFilter.Linear, _outputTarget.GetBlitCmd(dstWidth, dstHeight, dstAspectMask), _outputTarget.VkImage, _outputTarget.ImageLayout, dst, VkImageLayout.TransferDstOptimal);
         }
 
         public void Dispose()

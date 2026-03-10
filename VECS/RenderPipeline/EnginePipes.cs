@@ -8,18 +8,18 @@ namespace VECS
     public class EnginePipes
     {
 
-        public readonly static GraphicsPipeline LitTexture;
-        public readonly static GraphicsPipeline PBRTexture;
-        public readonly static GraphicsPipeline UnlitMeshShader;
-        public readonly static GraphicsPipeline UnlitTransparent;
-        public readonly static GraphicsPipeline Unlit;
-        public readonly static GraphicsPipeline WireFrame;
-        public readonly static GraphicsPipeline DepthOnly;
-        public readonly static GraphicsPipeline PointLight;
-        public readonly static GraphicsPipeline Blit;
-        public readonly static GraphicsPipeline OIT_Composite;
-        public readonly static GraphicsPipeline OIT_Unlit;
-        public readonly static GraphicsPipeline OIT_LitTexture;
+        public static GraphicsPipeline LitTexture{get; private set;}
+        public static GraphicsPipeline PBRTexture{get; private set;}
+        public static GraphicsPipeline UnlitMeshShader{get; private set;}
+        public static GraphicsPipeline UnlitTransparent{get; private set;}
+        public static GraphicsPipeline Unlit{get; private set;}
+        public static GraphicsPipeline WireFrame{get; private set;}
+        public static GraphicsPipeline DepthOnly{get; private set;}
+        public static GraphicsPipeline PointLight{get; private set;}
+        public static GraphicsPipeline Blit{get; private set;}
+        public static GraphicsPipeline OIT_Composite{get; private set;}
+        public static GraphicsPipeline OIT_Unlit{get; private set;}
+        public static GraphicsPipeline OIT_LitTexture { get; private set; }
 
         static EnginePipes()
         {
@@ -64,9 +64,15 @@ namespace VECS
 
 
             OIT_Composite = new("OIT_Composite", "fullscreen.vert", "oit_composite.frag", alphaBlending);
+
             //alphaBlending.rasterizationInfo.cullMode = VkCullModeFlags.Front;
-            alphaBlending.rasterizationInfo.frontFace = VkFrontFace.CounterClockwise;
-            Blit = new("Blitter", "fullscreen.vert", "blit.frag", alphaBlending);
+            var blit = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
+            GraphicsPipelineConfigInfo.EnableAlphaBlending(ref blit);
+            blit.rasterizationInfo.frontFace = VkFrontFace.Clockwise;
+            blit.rasterizationInfo.cullMode = VkCullModeFlags.None;
+            blit.colourFormats = [VkFormat.R32G32B32A32Sfloat];
+            blit.depthStencilInfo.depthTestEnable = false;
+            Blit = new("Blitter", "fullscreen.vert", "blit.frag", blit);
 
             var oit_unlit = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             
