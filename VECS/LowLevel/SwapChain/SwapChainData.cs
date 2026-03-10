@@ -44,7 +44,7 @@ namespace VECS.LowLevel
             VkSwapchainCreateInfoKHR createInfo = new()
             {
                 surface = surface,
-                minImageCount = swapChainSupport.capabilities.minImageCount,
+                minImageCount = LowLevel.SwapChain.SWAP_CHAIN_IMAGE_COUNT_UINT,
                 imageFormat = surfaceFormat.format,
                 imageColorSpace = surfaceFormat.colorSpace,
                 imageExtent = extent,
