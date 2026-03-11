@@ -231,7 +231,7 @@ namespace VECS
         private unsafe void GraphicsPipe(int imageIndex)
         {
             VkCommandBuffer commandBuffer = SwapChain.CurrentMainCommandBuffer;
-
+            _imgui.Update();
             GPUBufferExtensions.PlaybackFillBufferCmds(commandBuffer);
             GPUBufferExtensions.PlaybackCopyBuffersCmds(commandBuffer);
             TextureExtensions.PlaybackCopyCmds(commandBuffer);

@@ -315,7 +315,7 @@ namespace VECS.UI
         public unsafe void Draw(RendererFrameInfo frameInfo)
         {
             ImGui.SetCurrentContext(_context);
-            Update();
+            
             NewFrame();
             var imDrawData = ImGui.GetDrawData();
             ProcessTextureUpdates(imDrawData);
