@@ -119,6 +119,14 @@ namespace VECS.LowLevel
                     viewType = VkImageViewType.Image2D,
                     format = SwapChainImageFormat,
                     subresourceRange = subresourceRange,
+                    components = new()
+                    {
+                        r = VkComponentSwizzle.R,
+                        g = VkComponentSwizzle.G,
+                        b = VkComponentSwizzle.B,
+                        a = VkComponentSwizzle.A,
+
+                    }
                 };
 
                 GraphicsDevice.DeviceAPI.vkCreateImageView(viewInfo, null, out SwapChainImageViews[i]).CheckResult("Failed to create texture image view!");

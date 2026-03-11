@@ -138,7 +138,7 @@ namespace VECS
             };
             GraphicsDevice.DeviceAPI.vkCmdBeginRendering(commandBuffer, &renderingInfo);
 
-            SwapChain.SetViewPort(commandBuffer);
+            SwapChain.SetViewPortScissor(commandBuffer);
         }
 
         public void EndForwardRendering(VkCommandBuffer commandBuffer)
@@ -178,7 +178,7 @@ namespace VECS
             };
             GraphicsDevice.DeviceAPI.vkCmdBeginRendering(commandBuffer, &renderingInfo);
 
-            SwapChain.SetViewPort(commandBuffer);
+            SwapChain.SetViewPortScissor(commandBuffer);
         }
 
         public void EndForwardDepthOnlyRendering(VkCommandBuffer commandBuffer)
@@ -249,7 +249,7 @@ namespace VECS
 
             GraphicsDevice.DeviceAPI.vkCmdBeginRendering(commandBuffer, &renderingInfo);
 
-            SwapChain.SetViewPort(commandBuffer);
+            SwapChain.SetViewPortScissor(commandBuffer);
 
             DrawBlob.ExecuteTransparentDrawCmds(frameInfo, null, null, 0, default, default);
 

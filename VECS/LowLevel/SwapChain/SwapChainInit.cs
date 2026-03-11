@@ -110,7 +110,7 @@ namespace VECS.LowLevel
             for (int i = 0; i < formats.Length; i++)
             {
                 var availableFormat = formats[i];
-                if (availableFormat.format == VkFormat.B8G8R8A8Srgb && availableFormat.colorSpace == VkColorSpaceKHR.SrgbNonLinear)
+                if (availableFormat.format == VkFormat.B8G8R8A8Unorm && availableFormat.colorSpace == VkColorSpaceKHR.SrgbNonLinear)
                 {
                     return availableFormat;
                 }

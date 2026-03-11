@@ -582,7 +582,7 @@ namespace VECS
                     var workerRegion = _workerRegionsOpaqueQueue[i];
                     var cmdBuffer = commandBuffers[t];
                     GraphicsDevice.DeviceAPI.vkBeginCommandBuffer(cmdBuffer, &bufferBeginInfo);
-                    SwapChain.SetViewPort(cmdBuffer);
+                    SwapChain.SetViewPortScissor(cmdBuffer);
 
                     for (int j = workerRegion.StartIndex; j < workerRegion.Offset; j++)
                     {
@@ -637,7 +637,7 @@ namespace VECS
                     var workerRegion = _workerRegionsTransparentQueue[i];
                     var cmdBuffer = commandBuffers[t];
                     GraphicsDevice.DeviceAPI.vkBeginCommandBuffer(cmdBuffer, &bufferBeginInfo);
-                    SwapChain.SetViewPort(cmdBuffer);
+                    SwapChain.SetViewPortScissor(cmdBuffer);
 
                     for (int j = workerRegion.StartIndex; j < workerRegion.Offset; j++)
                     {

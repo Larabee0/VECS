@@ -147,7 +147,7 @@ namespace VECS.LowLevel
             GraphicsDevice.DeviceAPI.vkResetFences(fence).CheckResult( "Failed to reset fence ");
         }
 
-        public static void SetViewPort(VkCommandBuffer commandBuffer)
+        public static void SetViewPortScissor(VkCommandBuffer commandBuffer)
         {
             GraphicsDevice.DeviceAPI.vkCmdSetViewport(commandBuffer, 0, MainViewport);
             GraphicsDevice.DeviceAPI.vkCmdSetScissor(commandBuffer, 0, MainScissor);
