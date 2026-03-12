@@ -33,13 +33,13 @@ namespace VECS
         public DirectionalLightShadows DirShadows => _directionalLightShadows;
         public PointLightShadows PLShadows => _pointLightShadows;
         public SpotLightShadows SLShadows => _spotLightShadows;
-        public VkFormat[] ColourFormats => [_forwardRenderer.MainColourAttachment.Target.Format, _forwardRenderer.BrightObjectAttachment.Target.Format];
-        public VkFormat DepthFormat => _forwardRenderer.DepthAttachment.Target.Format;
+        public static VkFormat[] ColourFormats => ForwardRenderer.ColourFormats;
+        public static VkFormat DepthFormat => ForwardRenderer.DepthFormat;
 
         internal Action PostPresentationUpdate;
         internal Action<int> PreGraphicsPipe;
-        internal Action OnSwapChainRecreation;
-
+        internal static Action OnSwapChainRecreation;
+        internal static Action<RendererFrameInfo> RenderCallback;
         public static ulong FrameCount => _frameCount;
 
         private Entity frameInfoEntity;
@@ -82,7 +82,7 @@ namespace VECS
                 _directionalLightShadows = new();
                 _bloom = new();
                 _smaa = new();
-                _imgui = new();
+                _imgui = new(SDL3WindowManager.MainWindow);
                 _directionalLightShadows.AssignDirShadowTexture();
                 SwapChain.GraphicsCallback += GraphicsPipe;
             }
@@ -131,7 +131,7 @@ namespace VECS
             World.DefaultWorld.EntityManager.AddComponent(frameInfoEntity, frameInfo);
         }
 
-        private RendererFrameInfo CreateRendererFrameInfo(float deltaTime, VkCommandBuffer commandBuffer)
+        private static RendererFrameInfo  CreateRendererFrameInfo(float deltaTime, VkCommandBuffer commandBuffer)
         {
             int frameIndex = SwapChain.FrameIndex;
             int cameraCount = 0;
@@ -177,12 +177,6 @@ namespace VECS
                 commandBuffer,
                 cullData,
                 lightingInfo);
-                // cameraInfo,
-                // cameraInverseInfo,
-                // additionalCameraInfo,
-                // orthographicInfo,
-                // pointLightBuffer,
-                // spotLightBuffer);
         }
 
         /// <summary>
@@ -198,6 +192,7 @@ namespace VECS
 
         public void Present()
         {
+            _imgui.Update();
             if (InputManager.Instance.GetKeyUp(SDL3.SDL_Keycode.F10))
             {
                 SDL3WindowManager.UpdatePresentMode( SwapChain.PresentMode == VkPresentModeKHR.Immediate ? VkPresentModeKHR.Mailbox : VkPresentModeKHR.Immediate);
@@ -205,11 +200,11 @@ namespace VECS
             }
             // acquire swapchain image
             _isFrameStarted = BeginFrame();
-            World.DefaultWorld.OnPrePresent();
-            DrawBlob.FlushBounds(FrameIndex);
-            UpdateEntityFrameInfo(World.DefaultWorld.EntityManager);
             if (_isFrameStarted)
             {
+                World.DefaultWorld.OnPrePresent();
+                DrawBlob.FlushBounds(FrameIndex);
+                UpdateEntityFrameInfo(World.DefaultWorld.EntityManager);
                 // kill off buffers
                 GPUBufferExtensions.PlayerbackDisposeCmds();
                 TextureExtensions.PlayerbackDisposeCmds();
@@ -231,7 +226,6 @@ namespace VECS
         private unsafe void GraphicsPipe(int imageIndex)
         {
             VkCommandBuffer commandBuffer = SwapChain.CurrentMainCommandBuffer;
-
             GPUBufferExtensions.PlaybackFillBufferCmds(commandBuffer);
             GPUBufferExtensions.PlaybackCopyBuffersCmds(commandBuffer);
             TextureExtensions.PlaybackCopyCmds(commandBuffer);
@@ -287,13 +281,21 @@ namespace VECS
             _smaa.ApplyAA(frameInfo);
 
             // UI Overlay
-            _forwardRenderer.BeginForwardRendering(commandBuffer,VkAttachmentLoadOp.Load);
             _imgui.Draw(frameInfo);
-            _forwardRenderer.EndForwardRendering(commandBuffer);
+            //var otherSwapchain = SwapChain.SwapChainsForPresent[1].SwapChainExtent;
+            _imgui.OverlayToActiveTarget(frameInfo, _forwardRenderer.MainColourAttachment);
+            
+            RenderCallback?.Invoke(frameInfo);
 
             // Play back Write Cmds generated during frame from CPU to GPU Buffers
             // this is an optimisation to avoid double writes
             GPUBufferExtensions.PlaybackWriteBufferCmds();
+
+            //for (int i = 0; i < SwapChain.SwapChainsForPresent.Length; i++)
+            //{
+            //    var extents = SwapChain.SwapChainsForPresent[i].SwapChainExtent;
+            //    _forwardRenderer.BlitFromMainColour(commandBuffer, SwapChain.SwapChainsForPresent[i].SwapChainImages[imageIndex], (int)extents.width, (int)extents.height, VkImageAspectFlags.Color);
+            //}
 
             // blit renderImage into swapchain
             var extents = SwapChain.SwapChainExtent;

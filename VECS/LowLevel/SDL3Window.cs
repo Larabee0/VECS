@@ -10,17 +10,17 @@ namespace VECS.LowLevel
     /// Handles the SDL3 window instance and inputs.
     /// This is also responsible for loading and initalising vulkan library
     /// </summary>
-    public sealed class SDL3Window : IWindow
+    public class SDL3Window : IWindow
     {
-        private readonly string _windowName;
-        private int _width;
-        private int _height;
-        private bool _framebufferResized = false;
-        private readonly bool _mainWindow;
+        protected readonly string _windowName;
+        protected int _width;
+        protected int _height;
+        protected bool _framebufferResized = false;
+        protected readonly bool _mainWindow;
 
-        private VkSurfaceKHR _surface;
-        private SwapChainData _swapChainData = new() { IsDisposed = true };
-        private SDL_Window _window;
+        protected VkSurfaceKHR _surface;
+        protected SwapChainData _swapChainData = new() { IsDisposed = true };
+        protected SDL_Window _window;
 
         public SDL_WindowID Id { get; set; }
 
@@ -38,6 +38,8 @@ namespace VECS.LowLevel
 
         public bool IsDisposed { get; private set; }
 
+        public InputManager InputManager { get; private set; }
+
         internal SDL3Window(int width, int height, string name, bool mainWindow)
         {
             _width = width;
@@ -45,7 +47,7 @@ namespace VECS.LowLevel
             _windowName = name;
             _mainWindow = mainWindow;
             InitWindow();
-
+            InputManager = new(mainWindow);
         }
 
         /// <summary>
@@ -121,7 +123,7 @@ namespace VECS.LowLevel
         /// checks to see if the window has been resized and taht the resize requires a swapchain recreation due to frame buffer resize
         /// </summary>
         /// <param name="window"></param>
-        private void FrameBufferResizeCallback(SDL_WindowEvent window)
+        protected virtual void FrameBufferResizeCallback(SDL_WindowEvent window)
         {
             int newWidth = window.data1;
             int newHeight = window.data2;
@@ -140,13 +142,15 @@ namespace VECS.LowLevel
         }
 
 
-        public void Dispose()
+        public virtual void Dispose()
         {
             if (IsDisposed) return;
+            GC.SuppressFinalize(this);
             IsDisposed = true;
             SwapChainData.Dispose();
             GraphicsDevice.InstanceAPI.vkDestroySurfaceKHR(_surface);
             SDL.SDL_DestroyWindow(_window);
+            GC.ReRegisterForFinalize(this);
         }
 
         public void RecreateSwapChain()

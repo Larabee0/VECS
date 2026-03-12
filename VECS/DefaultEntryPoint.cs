@@ -48,10 +48,10 @@ namespace VECS
         {
             CreateMainCamera();
             DirectionalLight();
-            PointLight();
+            //PointLight();
             //SponzaOld();
-            //SponzaNew();
-            SponzaNewPBR();
+            SponzaNew();
+            //SponzaNewPBR();
             //ShadowDebug();
         }
 
@@ -350,7 +350,7 @@ namespace VECS
                 {
                     if (!textureLibrary.TryGetValue(matInfo.NormalTexture, out var normalTexture))
                     {
-                        normalTexture = new Texture2D(matInfo.NormalTexture, false);
+                        normalTexture = new Texture2D(matInfo.NormalTexture, true);
                         //normalTexture.Reinitialise(new VkComponentMapping(VkComponentSwizzle.A, VkComponentSwizzle.G, VkComponentSwizzle.B, VkComponentSwizzle.R));
 
                         textureLibrary.Add(matInfo.NormalTexture, normalTexture);

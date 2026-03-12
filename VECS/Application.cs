@@ -44,7 +44,7 @@ namespace VECS
         public Action PreOnCreate;
         public Action PostOnCreate;
         public Action OnDestroy;
-
+        public Action UpdateCallback;
         public static IWindow MainWindow => Instance._mainAppWindow;
 
         private static string _persistentDataPath;
@@ -73,6 +73,7 @@ namespace VECS
             GraphicsDevice.Initialise(_mainAppWindow);
             SDL3WindowManager.CheckLoadedPresentMode();
             ShaderModule.LoadAllShaders();
+            SDL3WindowManager.CreateNewEditorWindow("VECS-Editor", Width, Height);
             _presenter = new();
 
             Time.FixedTimeStepCallback += FixedUpdate;
@@ -86,7 +87,6 @@ namespace VECS
         /// </summary>
         public void Run()
         {
-            SDL3Window window = null;
             Start();
             while (running)
             {
@@ -100,8 +100,7 @@ namespace VECS
                 Time.UpdateFixedTimeStep();
                 Update();
                 Presentation();
-                InputManager.Instance.LateUpdate();
-                //Thread.Sleep(1000);
+                SDL3WindowManager.LateInputUpdate();
                 TargetFrameRateUpdate();
             }
             SwapChain.FinishTimelineWorkers(false);
@@ -193,6 +192,7 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void Update()
         {
+            Instance.UpdateCallback?.Invoke();
             _mainWorld.OnUpdate();
             _mainWorld.OnPostUpdate();
         }
@@ -276,10 +276,10 @@ namespace VECS
             _mainWorld?.Dispose();
             Time.FixedTimeStepCallback -= FixedUpdate;
             _presenter.Dispose();
+            SDL3WindowManager.DestroyAllWindows();
             GPUBufferExtensions.Reset();
             TextureExtensions.Reset();
             ShaderCache.Dispose();
-            SDL3WindowManager.DestroyAllWindows();
             GraphicsDevice.Dispose();
             SDL3WindowManager.CleanUp();
         }

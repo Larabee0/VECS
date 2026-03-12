@@ -157,7 +157,7 @@ void main() {
 	vec3 R = reflect(-V, N);
 
 	float metallic = texture(metallicMap, TILED_UV).r;
-	float roughness = texture(smoothnessMap, TILED_UV).r;
+	float roughness = 1- texture(smoothnessMap, TILED_UV).r;
     vec3 ambient = texture(aoMap, TILED_UV).rrr;
     
 	vec3 F0 = vec3(0.04); 
@@ -222,5 +222,5 @@ void main() {
 	//color = pow(color, vec3(1.0 / 1));
 	
 	outColour = vec4(color, 1.0);
-	//outColour = vec4(brdf,0.0, 1.0);
+	//outColour = vec4((vec3(1) * brdf.x + brdf.y), 1.0);
 }

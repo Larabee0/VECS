@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using VECS.LowLevel;
 
 namespace VECS
 {
@@ -41,10 +42,8 @@ namespace VECS
 
         public static InputManager Instance { get; private set; }
 
-        public unsafe InputManager()
+        public unsafe InputManager(bool mainInputManager)
         {
-            Instance = this;
-
             var keys = Enum.GetValues<SDL_Keycode>();
             var mouseButtons = Enum.GetValues<SDL_Button>();
             for (int i = 0; i < keys.Length; i++)
@@ -56,8 +55,10 @@ namespace VECS
                 _mouseButtonStates.Add(mouseButtons[i], (false, false));
             }
 
-            RegisterWatcher(&KeyboardButtonEvents);
-            RegisterWatcher(&MouseButtonEvents);
+            if (mainInputManager)
+            {
+                Instance = this;
+            }
         }
 
         public static unsafe void RegisterWatcher(delegate* unmanaged[Cdecl]<nint, SDL_Event*, SDLBool> filter)
@@ -72,19 +73,23 @@ namespace VECS
         /// <param name="eventPtr"></param>
         /// <returns></returns>
         [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-        private static unsafe SDLBool MouseButtonEvents(nint n, SDL_Event* eventPtr)
+        public static unsafe SDLBool MouseButtonEvents(nint n, SDL_Event* eventPtr)
         {
+            InputManager inputHandler = SDL3WindowManager.GetWindowInputManager(eventPtr->window.windowID);
+
+            if (inputHandler == null) return false;
+
             var button = eventPtr->button.Button;
             var type = eventPtr->type;
-            if (type == SDL_EventType.MouseButtonDown && !Instance._mouseButtonStates[button].Item1)
+            if (type == SDL_EventType.MouseButtonDown && !inputHandler._mouseButtonStates[button].Item1)
             {
-                Instance._mouseButtonStates[button] = (true, true);
-                Instance._mouseButtonsChangedState.Enqueue(button);
+                inputHandler._mouseButtonStates[button] = (true, true);
+                inputHandler._mouseButtonsChangedState.Enqueue(button);
             }
-            else if (type == SDL_EventType.MouseButtonUp && Instance._mouseButtonStates[button].Item1)
+            else if (type == SDL_EventType.MouseButtonUp && inputHandler._mouseButtonStates[button].Item1)
             {
-                Instance._mouseButtonStates[button] = (false, true);
-                Instance._mouseButtonsChangedState.Enqueue(button);
+                inputHandler._mouseButtonStates[button] = (false, true);
+                inputHandler._mouseButtonsChangedState.Enqueue(button);
             }
 
             return false;
@@ -97,21 +102,24 @@ namespace VECS
         /// <param name="eventPtr"></param>
         /// <returns></returns>
         [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-        private static unsafe SDLBool KeyboardButtonEvents(nint n, SDL_Event* eventPtr)
+        public static unsafe SDLBool KeyboardButtonEvents(nint n, SDL_Event* eventPtr)
         {
-            if(Instance == null) return false;
+            InputManager inputHandler = SDL3WindowManager.GetWindowInputManager(eventPtr->window.windowID);
+
+            if (inputHandler == null) return false;
+
             var keyCode = eventPtr->key.key;
             var type = eventPtr->type;
 
-            if (type==SDL_EventType.KeyDown && !Instance._keyStates[keyCode].Item1)
+            if (type == SDL_EventType.KeyDown && !inputHandler._keyStates[keyCode].Item1)
             {
-                Instance._keyStates[keyCode] = (true, true);
-                Instance._keysChangedState.Enqueue(keyCode);
+                inputHandler._keyStates[keyCode] = (true, true);
+                inputHandler._keysChangedState.Enqueue(keyCode);
             }
-            else if (type == SDL_EventType.KeyUp && Instance._keyStates[keyCode].Item1)
+            else if (type == SDL_EventType.KeyUp && inputHandler._keyStates[keyCode].Item1)
             {
-                Instance._keyStates[keyCode] = (false, true);
-                Instance._keysChangedState.Enqueue(keyCode);
+                inputHandler._keyStates[keyCode] = (false, true);
+                inputHandler._keysChangedState.Enqueue(keyCode);
             }
 
             return false;
@@ -189,11 +197,6 @@ namespace VECS
             _mouseDelta.Y = sdlEvent.motion.yrel;
         }
 
-        public void Update()
-        {
-
-        }
-
         /// <summary>
         /// sets mouse  delta to zero ready for next frame.
         /// </summary>
@@ -203,10 +206,10 @@ namespace VECS
             {
                 var key = _keysChangedState.Dequeue();
                 (bool, bool) val = _keyStates[key];
-                val.Item2= false;
+                val.Item2 = false;
                 _keyStates[key] = val;
             }
-            while(_mouseButtonsChangedState.Count > 0)
+            while (_mouseButtonsChangedState.Count > 0)
             {
                 var mouseButton = _mouseButtonsChangedState.Dequeue();
                 (bool, bool) val = _mouseButtonStates[mouseButton];

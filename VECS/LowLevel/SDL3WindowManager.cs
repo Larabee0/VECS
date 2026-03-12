@@ -20,8 +20,6 @@ namespace VECS.LowLevel
         
         private const string WINDOW_CONFIG_FILE_NAME = "WindowConfig.json";
 
-        private static InputManager _inputManager;
-
         private readonly static Dictionary<SDL_WindowID, SDL3Window> _windows = [];
         public static SDL3Window MainWindow { get; private set; }
 
@@ -38,7 +36,7 @@ namespace VECS.LowLevel
         private readonly static ConcurrentQueue<DisposeWindow> _disposalQueue = [];
         private readonly static List<DisposeWindow> _disposalList = [];
 
-        public static void Init()
+        public unsafe static void Init()
         {
             if (!SDL.SDL_Init(SDL_INIT_FLAGS))
             {
@@ -53,7 +51,7 @@ namespace VECS.LowLevel
             }
 
             Vulkan.vkInitialize().CheckResult("Failed Initialise vulkan!");
-            _inputManager = new InputManager();
+
             try
             {
                 if (File.Exists(WindowConfigFilePath))
@@ -80,6 +78,8 @@ namespace VECS.LowLevel
                 Console.WriteLine(ex.StackTrace);
             }
 
+            InputManager.RegisterWatcher(&InputManager.KeyboardButtonEvents);
+            InputManager.RegisterWatcher(&InputManager.MouseButtonEvents);
         }
 
         public static void DestroyAllWindows()
@@ -106,7 +106,7 @@ namespace VECS.LowLevel
                 Console.WriteLine("Error writing window config: {0}", ex.Message);
                 Console.WriteLine(ex.StackTrace);
             }
-            _inputManager.Destroy();
+            InputManager.Instance.Destroy();
             SDL.SDL_Vulkan_UnloadLibrary();
             SDL.SDL_Quit();
             string sdlErrors = SDL.SDL_GetError();
@@ -171,20 +171,19 @@ namespace VECS.LowLevel
                     case SDL_EventType.KeyDown when sdlEvent.key.key == SDL_Keycode.Escape:
                         return true;
                     case SDL_EventType.MouseMotion:
-                        _inputManager.OnMouseMotion(sdlEvent);
+                        window.InputManager.OnMouseMotion(sdlEvent);
                         break;
                 }
             }
 
-            _inputManager.Update();
             var focusWindow = SDL.SDL_GetMouseFocus();
             
             if (focusWindow.IsNotNull)
             {
                 var windowId = SDL.SDL_GetWindowID(focusWindow);
-                if (_windows.ContainsKey(windowId))
+                if (_windows.TryGetValue(windowId, out var window))
                 {
-                    SDL.SDL_SetWindowRelativeMouseMode(focusWindow, _inputManager.GetMouseButton(1));
+                    SDL.SDL_SetWindowRelativeMouseMode(focusWindow, window.InputManager.GetMouseButton(1));
                 }
             }
             return false;
@@ -240,6 +239,28 @@ namespace VECS.LowLevel
             return window;
         }
 
+        public static SDL3Window CreateNewEditorWindow(string name, int fallbackWidth, int fallbackHeight)
+        {
+            if (_windowSettings.WindowSettings.TryGetValue(name, out var windowSettings))
+            {
+                fallbackWidth = windowSettings.Width;
+                fallbackHeight = windowSettings.Height;
+            }
+            else
+            {
+                _windowSettings.WindowSettings.Add(name, new() { WindowName = name, Height = fallbackHeight, Width = fallbackWidth });
+            }
+
+            var window = new EditorWindow(fallbackWidth, fallbackHeight, name, false);
+            if (_windows.Count != 0)
+            {
+                window.CreateWindowSurface();
+                WindowResized = true;
+            }
+            _windows.Add(window.Id, window);
+            return window;
+        }
+
         public static void CheckLoadedPresentMode()
         {
             GraphicsDevice.SwapChainSupport = GraphicsDeviceInit.QuerySwapChainSupport(GraphicsDevice.PhysicalDevice, MainWindow.Surface);
@@ -259,6 +280,14 @@ namespace VECS.LowLevel
             }
 
             WindowResized = true;
+        }
+
+        public static void LateInputUpdate()
+        {
+            foreach (var window in _windows.Values)
+            {
+                window.InputManager.LateUpdate();
+            }
         }
 
         public static void ResetWindowResized()
@@ -313,6 +342,24 @@ namespace VECS.LowLevel
                 WindowResized = true;
                 _disposalQueue.Enqueue(new(window));
             }
+        }
+
+        public static SDL3Window GetWindow(SDL_WindowID windowId)
+        {
+            if (_windows.TryGetValue(windowId, out var window))
+            {
+                return window;
+            }
+            return null;
+        }
+
+        public static InputManager GetWindowInputManager(SDL_WindowID windowId)
+        {
+            if (_windows.TryGetValue(windowId, out var window))
+            {
+                return window.InputManager;
+            }
+            return null;
         }
 
         private class DisposeWindow

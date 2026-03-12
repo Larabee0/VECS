@@ -17,6 +17,9 @@ namespace VECS
         private readonly SwapChainBuffer _geometry;
         public SwapChainBuffer _linkedList;
 
+        public static readonly VkFormat[] ColourFormats = [VkFormat.R32G32B32A32Sfloat, VkFormat.R32G32B32A32Sfloat];
+        public static readonly VkFormat DepthFormat = VkFormat.D32Sfloat;
+
         [StructLayout(LayoutKind.Sequential, Size = 24)]
         private struct OITNode
         {
@@ -64,7 +67,7 @@ namespace VECS
 
             if (MainColourAttachment == null)
             {
-                MainColourAttachment = new("MainColourAttachment", (int)windowExtents.width, (int)windowExtents.height, VkFormat.R32G32B32A32Sfloat);
+                MainColourAttachment = new("MainColourAttachment", (int)windowExtents.width, (int)windowExtents.height, ColourFormats[0]);
             }
             else
             {
@@ -73,7 +76,7 @@ namespace VECS
 
             if (BrightObjectAttachment == null)
             {
-                BrightObjectAttachment = new("BrightObjectAttachment", (int)windowExtents.width, (int)windowExtents.height, VkFormat.R32G32B32A32Sfloat);
+                BrightObjectAttachment = new("BrightObjectAttachment", (int)windowExtents.width, (int)windowExtents.height, ColourFormats[0]);
             }
             else
             {
@@ -82,7 +85,7 @@ namespace VECS
 
             if (DepthAttachment == null)
             {
-                DepthAttachment = new("DepthAttacment", (int)windowExtents.width, (int)windowExtents.height, VkFormat.D32Sfloat);
+                DepthAttachment = new("DepthAttacment", (int)windowExtents.width, (int)windowExtents.height, DepthFormat);
             }
             else
             {
@@ -138,7 +141,7 @@ namespace VECS
             };
             GraphicsDevice.DeviceAPI.vkCmdBeginRendering(commandBuffer, &renderingInfo);
 
-            SwapChain.SetViewPort(commandBuffer);
+            SwapChain.SetViewPortScissor(commandBuffer);
         }
 
         public void EndForwardRendering(VkCommandBuffer commandBuffer)
@@ -178,7 +181,7 @@ namespace VECS
             };
             GraphicsDevice.DeviceAPI.vkCmdBeginRendering(commandBuffer, &renderingInfo);
 
-            SwapChain.SetViewPort(commandBuffer);
+            SwapChain.SetViewPortScissor(commandBuffer);
         }
 
         public void EndForwardDepthOnlyRendering(VkCommandBuffer commandBuffer)
@@ -249,7 +252,7 @@ namespace VECS
 
             GraphicsDevice.DeviceAPI.vkCmdBeginRendering(commandBuffer, &renderingInfo);
 
-            SwapChain.SetViewPort(commandBuffer);
+            SwapChain.SetViewPortScissor(commandBuffer);
 
             DrawBlob.ExecuteTransparentDrawCmds(frameInfo, null, null, 0, default, default);
 

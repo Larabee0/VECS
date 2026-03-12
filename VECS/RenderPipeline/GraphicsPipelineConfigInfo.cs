@@ -73,8 +73,8 @@ namespace VECS.GraphicsPipelines
             };
             return new()
             {
-                colourFormats = Presenter.Instance.ColourFormats,
-                depthFormat = Presenter.Instance.DepthFormat,
+                colourFormats = Presenter.ColourFormats,
+                depthFormat = Presenter.DepthFormat,
                 stencilFormat = VkFormat.Undefined,
                 pipelineRenderingCreateInfo = new(),
                 inputAssemblyInfo = new()

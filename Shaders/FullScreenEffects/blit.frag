@@ -8,4 +8,5 @@ layout(location = 0) out vec4 outColour;
 void main(){
     vec2 uv = vec2(inUV.x, 1.0 - inUV.y);
     outColour = texture(inputTexture,uv);
+    //outColour.a = 1.0;
 }

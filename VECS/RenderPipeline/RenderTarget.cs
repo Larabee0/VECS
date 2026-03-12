@@ -53,11 +53,11 @@ namespace VECS
 
             if (GraphicsDevice.PresentQueue != GraphicsDevice.MainQueue)
             {
-                _image = new(string.Format("_RT_{0}_{2}_{1}", name, Presenter.FrameCount, _renderTargetType.ToString()), width, height, format, samplerMode, usageFlags, queueIndices, false);
+                _image = new(string.Format("_RT_{0}_{2}_{1}", name, Presenter.FrameCount, _renderTargetType.ToString()), width, height, format, usageFlags, samplerMode, 0,false,VkCompareOp.Never,VkBorderColor.FloatTransparentBlack, queueIndices, false);
             }
             else
             {
-                _image = new(string.Format("_RT_{0}_{2}_{1}", name, Presenter.FrameCount, _renderTargetType.ToString()), width, height, format, usageFlags,samplerMode, false);
+                _image = new(string.Format("_RT_{0}_{2}_{1}", name, Presenter.FrameCount, _renderTargetType.ToString()), width, height, format, usageFlags,samplerMode,0,false,VkCompareOp.Never, false);
             }
 
             if(_renderTargetType == RenderTargetType.Colour)
