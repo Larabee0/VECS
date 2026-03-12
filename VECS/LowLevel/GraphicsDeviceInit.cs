@@ -249,10 +249,10 @@ namespace VECS.LowLevel
             {
                 Debug.Assert(swapChainSupport.capabilities.maxImageCount >= swapChainSupport.capabilities.minImageCount, string.Format("Max Swapchain image count ({0}) is less than min image count ({1}). Cannot compute valid swapchain image count.", swapChainSupport.capabilities.maxImageCount, swapChainSupport.capabilities.minImageCount));
 
-                SwapChain.SWAP_CHAIN_IMAGE_COUNT = Math.Max(3, (int)swapChainSupport.capabilities.minImageCount);
+                SwapChain.SWAP_CHAIN_IMAGE_COUNT = Math.Max(SwapChain.MAX_CONCURRENT_FRAMES + 1, (int)swapChainSupport.capabilities.minImageCount);
             }
 
-            SwapChain.SWAP_CHAIN_IMAGE_COUNT = Math.Max(3, (int)swapChainSupport.capabilities.minImageCount);
+            SwapChain.SWAP_CHAIN_IMAGE_COUNT = Math.Max(SwapChain.MAX_CONCURRENT_FRAMES + 1, (int)swapChainSupport.capabilities.minImageCount);
             SwapChainSupport = swapChainSupport;
             var propertiesVK10 = PropertiesVK10;
             var str = new VkUtf8String(propertiesVK10.deviceName);

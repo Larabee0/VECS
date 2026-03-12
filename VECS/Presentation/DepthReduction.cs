@@ -21,7 +21,7 @@ namespace VECS.Presentation
         {
 
             _depthReduceShader = ComputePipeline.GetOrCreate("depth_reduce.comp").Default();
-            Presenter.Instance.OnSwapChainRecreation += RecreateImage;
+            Presenter.OnSwapChainRecreation += RecreateImage;
             Application.Instance.OnDestroy += DestroyResources;
         }
 
@@ -37,23 +37,32 @@ namespace VECS.Presentation
 
         private static void RecreateImage()
         {
-            if (_depthPryamid != null)
-            {
-                // should delay this like swapchain disposal queue
-
-                DestroyResources();
-            }
             var windowExtent = Application.MainWindow.WindowExtent;
             _depthPyramidWidth = PreviousPow2(windowExtent.width);
             _depthPyramidHeight = PreviousPow2(windowExtent.height);
             VkFormat depthFormat = VkFormat.R32Sfloat;
-            _depthPryamid = new Texture2D(
-                    string.Format("DepthPryamid {0}", Presenter.FrameCount),
-                    (int)_depthPyramidWidth,
-                    (int)_depthPyramidHeight,
-                    depthFormat,
-                    VkImageUsageFlags.Storage | VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferDst | VkImageUsageFlags.TransferSrc,
-                    VkSamplerAddressMode.ClampToEdge, 0, false, VkCompareOp.Never, VkSamplerMipmapMode.Nearest,VkBorderColor.FloatTransparentBlack);
+
+            if (_depthPryamid == null)
+            {
+                _depthPryamid = new Texture2D(
+                        string.Format("DepthPryamid {0}", Presenter.FrameCount),
+                        (int)_depthPyramidWidth,
+                        (int)_depthPyramidHeight,
+                        depthFormat,
+                        VkImageUsageFlags.Storage | VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferDst | VkImageUsageFlags.TransferSrc,
+                        VkSamplerAddressMode.ClampToEdge, 0, false, VkCompareOp.Never, VkSamplerMipmapMode.Nearest, VkBorderColor.FloatTransparentBlack);
+
+
+            }
+            else
+            {
+                for (int i = 0; i < _additionalViews.Length; i++)
+                {
+                    TextureExtensions.EnqueueForDisposal(VkImage.Null, VmaAllocation.Null, _additionalViews[i], VkSampler.Null);
+                }
+
+                _depthPryamid.Reinitialise((int)_depthPyramidWidth, (int)_depthPyramidHeight);
+            }
             _additionalViews = new VkImageView[_depthPryamid.MipMapCount];
             for (uint i = 0; i < _additionalViews.Length; i++)
             {

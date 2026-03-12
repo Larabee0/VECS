@@ -236,6 +236,28 @@ namespace VECS.LowLevel
             return window;
         }
 
+        public static SDL3Window CreateNewEditorWindow(string name, int fallbackWidth, int fallbackHeight)
+        {
+            if (_windowSettings.WindowSettings.TryGetValue(name, out var windowSettings))
+            {
+                fallbackWidth = windowSettings.Width;
+                fallbackHeight = windowSettings.Height;
+            }
+            else
+            {
+                _windowSettings.WindowSettings.Add(name, new() { WindowName = name, Height = fallbackHeight, Width = fallbackWidth });
+            }
+
+            var window = new EditorWindow(fallbackWidth, fallbackHeight, name, false);
+            if (_windows.Count != 0)
+            {
+                window.CreateWindowSurface();
+                WindowResized = true;
+            }
+            _windows.Add(window.Id, window);
+            return window;
+        }
+
         public static void CheckLoadedPresentMode()
         {
             GraphicsDevice.SwapChainSupport = GraphicsDeviceInit.QuerySwapChainSupport(GraphicsDevice.PhysicalDevice, MainWindow.Surface);

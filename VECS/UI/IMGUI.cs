@@ -1,7 +1,6 @@
 ﻿using Hexa.NET.ImGui;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Numerics;
 using VECS.GraphicsPipelines;
 using VECS.LowLevel;
@@ -20,23 +19,21 @@ namespace VECS.UI
         private const float FONT_SCALE = 1.0f;
         private static readonly int fontSamplerId = "fontSampler".GetShaderPropertyId();
         private static readonly int inputTextureId = "inputTexture".GetShaderPropertyId();
+        private static GraphicsPipeline _imgui;
+        private static readonly Queue<Material> _freeVariants = [];
 
         private readonly SDL3Window _outputWindow;
 
         private ImGuiContextPtr _context;
-        private ImGuiStylePtr _vulkanStyle;
 
-        private static GraphicsPipeline _imgui;
-        private Texture2D _fontAtlas_VK_EXAMPLE;
         private SwapChainBuffer _vertexBuffer;
         private SwapChainBuffer _indexBuffer;
 
-        private RenderTarget _outputTarget;
+        private readonly RenderTarget _outputTarget;
 
         private Material _blitVariant;
 
         private readonly Dictionary<ImTextureID, TextureVariant> _textureVariants = [];
-        private static readonly Queue<Material> _freeVariants = [];
         
         public IMGUI(SDL3Window targetWindow)
         {
@@ -54,14 +51,10 @@ namespace VECS.UI
             SetStyle(0);
             Resize(_outputWindow.WindowExtent.width, _outputWindow.WindowExtent.height);
 
-            CreatePipeline();
             _context = ImGui.GetCurrentContext();
 
             _outputTarget = new(_outputWindow.WindowName, (int)_outputWindow.WindowExtent.width, (int)_outputWindow.WindowExtent.height,VkFormat.R8G8B8A8Unorm, VkSamplerAddressMode.ClampToEdge);
 
-            _blitVariant = EnginePipes.Blit.Create(string.Format("{0}_Blit", _outputWindow.WindowName));
-
-            _blitVariant.SetTexture(inputTextureId, _outputTarget.Target);
 
         }
 
@@ -124,7 +117,7 @@ namespace VECS.UI
         {
             VkFormat format = textureData.Format == ImTextureFormat.Rgba32 ? VkFormat.R8G8B8A8Unorm : VkFormat.A8Unorm;                      
             var texture = new Texture2D(
-                textureData.UniqueID.ToString(),
+                string.Format("IMGUI_{1}_{0}",textureData.UniqueID.ToString(),_outputWindow.WindowName),
                 textureData.Width,
                 textureData.Height,
                 format,
@@ -243,25 +236,22 @@ namespace VECS.UI
             _freeVariants.Enqueue(_imgui.Default());
         }
 
-        private void NewFrame()
+        private static void NewFrame()
         {
-            ImGui.NewFrame();
-            ImGui.ShowDemoWindow();
-
-            // This does not render the UI to the screen, but gathers the draw data for the UI frame that we'll use to render it
-            ImGui.Render();
+            //ImGui.ShowDemoWindow();
         }
 
         public void Update()
         {
-
+            ImGui.SetCurrentContext(_context);
             var io = ImGui.GetIO();
 
-            if(_outputWindow.WindowExtent.width != _outputTarget.Target.Width && _outputWindow.WindowExtent.height != _outputTarget.Target.Height)
+            if(_outputWindow.WindowExtent.width != _outputTarget.Target.Width || _outputWindow.WindowExtent.height != _outputTarget.Target.Height)
             {
                 io.DisplaySize = new(_outputWindow.WindowExtent.width, _outputWindow.WindowExtent.height);
                 _outputTarget.Resize((int)_outputWindow.WindowExtent.width, (int)_outputWindow.WindowExtent.height);
-                _blitVariant.SetTexture(inputTextureId, _outputTarget.Target);
+
+                _blitVariant?.SetTexture(inputTextureId, _outputTarget.Target);
             }
 
             io.DeltaTime = Time.DeltaTime;
@@ -270,6 +260,9 @@ namespace VECS.UI
             io.MouseDown[0] = _outputWindow.InputManager.GetMouseButton(0);
             io.MouseDown[1] = _outputWindow.InputManager.GetMouseButton(1);
             io.MouseDown[2] = _outputWindow.InputManager.GetMouseButton(2);
+
+            ImGui.NewFrame();
+            _context = ImGui.GetCurrentContext();
         }
 
         private unsafe void UpdateBuffers()
@@ -284,8 +277,8 @@ namespace VECS.UI
                 return;
             }
             
-            _vertexBuffer ??= new SwapChainBuffer<ImDrawVert>(vertexCount, VkBufferUsageFlags.VertexBuffer, true);
-            _indexBuffer ??= new SwapChainBuffer<ushort>(indexCount, VkBufferUsageFlags.IndexBuffer, true);
+            _vertexBuffer ??= new SwapChainBuffer((uint)sizeof(ImDrawVert), vertexCount, VkBufferUsageFlags.VertexBuffer, true);
+            _indexBuffer ??= new SwapChainBuffer(sizeof(ushort), indexCount, VkBufferUsageFlags.IndexBuffer, true);
 
             if(_vertexBuffer.InstanceCount < vertexCount)
             {
@@ -314,9 +307,19 @@ namespace VECS.UI
 
         public unsafe void Draw(RendererFrameInfo frameInfo)
         {
+            if (_imgui == null)
+            {
+                CreatePipeline();
+            }
+            if (_blitVariant == null)
+            {
+                _blitVariant = EnginePipes.Blit.Create(string.Format("{0}_Blit", _outputWindow.WindowName));
+                _blitVariant.SetTexture(inputTextureId, _outputTarget.Target);
+            }
+
             ImGui.SetCurrentContext(_context);
-            
-            NewFrame();
+
+            ImGui.Render();
             var imDrawData = ImGui.GetDrawData();
             ProcessTextureUpdates(imDrawData);
             UpdateBuffers();
@@ -348,7 +351,7 @@ namespace VECS.UI
                 _outputTarget.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.ColorAttachmentOutput);
             }
 
-            VkRenderingAttachmentInfo colourAttachments = new VkRenderingAttachmentInfo()
+            VkRenderingAttachmentInfo colourAttachments = new()
             {
                 imageView = _outputTarget.VkImageView,
                 imageLayout = _outputTarget.ImageLayout,
@@ -412,7 +415,7 @@ namespace VECS.UI
             _context = ImGui.GetCurrentContext();
         }
 
-        public unsafe void BlitToActiveTarget(RendererFrameInfo frameInfo, RenderTarget renderTarget)
+        public unsafe void OverlayToActiveTarget(RendererFrameInfo frameInfo, RenderTarget renderTarget)
         {
             if (_outputTarget.ImageLayout == VkImageLayout.ColorAttachmentOptimal)
             {
@@ -495,7 +498,7 @@ namespace VECS.UI
         public void Dispose()
         {
             GC.SuppressFinalize(this);
-            ImGui.DestroyContext(ImGui.GetCurrentContext());
+            ImGui.DestroyContext(_context);
             _vertexBuffer?.Dispose();
             _indexBuffer?.Dispose();
             GC.ReRegisterForFinalize(this);
