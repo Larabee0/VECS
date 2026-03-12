@@ -231,7 +231,10 @@ namespace VECS.LowLevel
             else
             {
                 window.CreateWindowSurface();
-                WindowResized = true;
+                if (Presenter.FrameCount != 0)
+                {
+                    WindowResized = true;
+                }
             }
             _windows.Add(window.Id, window);
             return window;

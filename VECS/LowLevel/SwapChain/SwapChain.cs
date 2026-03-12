@@ -154,7 +154,7 @@ namespace VECS.LowLevel
         }
 
         // should be called from graphics queue
-        internal static unsafe void TransferSwapChainImageToGraphicsQueue(VkCommandBuffer commandBuffer, int frameIndex, uint imageCount, uint* imageIndices)
+        internal static unsafe void TransferSwapChainImagesToGraphicsQueue(VkCommandBuffer commandBuffer, int frameIndex, uint imageCount, uint* imageIndices)
         {
             VkImageMemoryBarrier2* barriers = stackalloc VkImageMemoryBarrier2[(int)imageCount];
             VkImageMemoryBarrier2 barrier = new()
@@ -186,7 +186,7 @@ namespace VECS.LowLevel
         }
 
         // should be called from graphics queue
-        internal static unsafe void TransferSwapChainImageToPresentQueue(VkCommandBuffer commandBuffer, int frameIndex, uint imageCount, uint* imageIndices)
+        internal static unsafe void TransferSwapChainImagesToPresentQueue(VkCommandBuffer commandBuffer, int frameIndex, uint imageCount, uint* imageIndices)
         {
             VkImageMemoryBarrier2* barriers = stackalloc VkImageMemoryBarrier2[(int)imageCount];
             VkImageMemoryBarrier2 barrier = new()

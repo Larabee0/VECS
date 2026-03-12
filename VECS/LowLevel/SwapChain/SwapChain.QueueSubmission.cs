@@ -361,12 +361,12 @@ namespace VECS.LowLevel
             VkCommandBuffer commandBuffer = CurrentMainCommandBuffer;
             GraphicsDevice.DeviceAPI.vkBeginCommandBuffer(commandBuffer, &beginInfo).CheckResult("Failed to begin recording main command buffer");
 
-            TransferSwapChainImageToGraphicsQueue(commandBuffer, frameIndex, imageCount, imageIndices);
-
+            TransferSwapChainImagesToGraphicsQueue(commandBuffer, frameIndex, imageCount, imageIndices);
+            
             GraphicsCallback?.Invoke((int)imageIndices[0]);
 
             // transfer swapchain image to present queue
-            TransferSwapChainImageToPresentQueue(commandBuffer, FrameIndex, imageCount, imageIndices);
+            TransferSwapChainImagesToPresentQueue(commandBuffer, frameIndex, imageCount, imageIndices);
 
             GraphicsDevice.DeviceAPI.vkEndCommandBuffer(commandBuffer).CheckResult("Failed to end main command buffer!");
 
