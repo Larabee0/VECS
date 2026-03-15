@@ -40,7 +40,13 @@
   <ItemGroup>
     <EditorConfigFiles Remove="$(SolutionDir)\VECS\.editorconfig" />
   </ItemGroup>
-
+  <ItemGroup>
+	  <Content Include="path/to/LiteHTMLSharp/runtimes/**/*.dll;path/to/LiteHTMLSharp/runtimes/**/*.dylib">
+		  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		  <Link>runtimes/%(RecursiveDir)%(Filename)%(Extension)</Link>
+		  <TargetPath>runtimes/%(RecursiveDir)%(Filename)%(Extension)</TargetPath>
+	</Content>
+  </ItemGroup>
   <ItemGroup>
     <None Include="$(SolutionDir)\VECS\.editorconfig" />
   </ItemGroup>

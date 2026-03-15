@@ -34,6 +34,8 @@ namespace VECS.UI
         private Material _blitVariant;
 
         private readonly Dictionary<ImTextureID, TextureVariant> _textureVariants = [];
+
+        public Vector4 ClearColour;
         
         public IMGUI(SDL3Window targetWindow)
         {
@@ -360,7 +362,7 @@ namespace VECS.UI
                 imageLayout = _outputTarget.ImageLayout,
                 loadOp = VkAttachmentLoadOp.Clear,
                 storeOp = VkAttachmentStoreOp.Store,
-                clearValue = new(0, 0, 0, 0)
+                clearValue = new(ClearColour.X, ClearColour.Y, ClearColour.Z, ClearColour.W)
             };
 
             VkRenderingInfo renderingInfo = new()
