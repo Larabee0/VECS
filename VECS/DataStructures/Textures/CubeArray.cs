@@ -25,15 +25,15 @@ namespace VECS
             }
 
             _imageImageViewType = VkImageViewType.ImageCubeArray;
-            _wrapModeU = wrapMode;
-            _wrapModeV = wrapMode;
-            _wrapModeW = wrapMode;
-            _compareOp = VkCompareOp.Never;
-            _borderColour = VkBorderColor.FloatOpaqueWhite;
+            WrapModeU = wrapMode;
+            WrapModeV = wrapMode;
+            WrapModeW = wrapMode;
+            CompareOp = VkCompareOp.Never;
+            BorderColour = VkBorderColor.FloatOpaqueWhite;
 
             if (generateMipMaps)
             {
-                _mipMapCount = TextureExtensions.CalculateMipMapLevels(w, w);
+                MipMapCount = TextureExtensions.CalculateMipMapLevels(w, w);
             }
 
             this.SetImageLayoutAndAspectFromUsage();
@@ -44,7 +44,7 @@ namespace VECS
 
             if (_useageFlags.HasFlag(VkImageUsageFlags.Sampled))
             {
-                this.CreateSampler(GetSamplerCreateInfo());
+                this.CreateSampler();
             }
 
             UpdateDescriptor();

@@ -5,7 +5,6 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using VECS.LowLevel;
 using Vortice.Vulkan;
-using static System.Net.Mime.MediaTypeNames;
 
 namespace VECS
 {
@@ -86,6 +85,10 @@ namespace VECS
         private readonly static ConcurrentQueue<DisposeTextureCmd> _disposalQueue = [];
         private readonly static List<DisposeTextureCmd> _disposalList = [];
 
+        private readonly static ConcurrentQueue<Texture> _recreateSamplerQueue = [];
+
+        private readonly static ConcurrentDictionary<int, TextureSampler> _samplers = [];
+
         private static ConcurrentDictionary<VkFormat, byte[]> _componentBits;
 
         private static readonly VmaAllocationCreateInfo _allocationCreateInfo = new()
@@ -149,6 +152,16 @@ namespace VECS
                 cmd.frameIndex = (int)Presenter.FrameCount + SwapChain.MAX_CONCURRENT_FRAMES;
                 _disposalList.Add(cmd);
             }
+
+            while(_recreateSamplerQueue.TryDequeue(out var recreate))
+            {
+                if(!_samplers.TryGetValue( recreate.GetSamplerId(), out var sampler))
+                {
+                    _samplers[sampler.SamplerId] = sampler = new(recreate.GetSamplerCreateInfo());
+                }
+                recreate._textureSampler = sampler;
+                recreate.UpdateDescriptor();
+            }
         }
 
         public static void EnqueueForDisposal(VkImage image, VmaAllocation allocation, VkImageView imageView, VkSampler sampler)
@@ -177,15 +190,32 @@ namespace VECS
 
         #region Image, View & Sampler Creation
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static unsafe void CreateSampler(this Texture texture, VkSamplerCreateInfo createInfo)
+        internal static void CreateSampler(this Texture texture)
         {
-            if (texture._textureSampler != VkSampler.Null)
+            if (!_samplers.TryGetValue( texture.GetSamplerId(), out var sampler))
             {
-                GraphicsDevice.DeviceAPI.vkDestroySampler(texture._textureSampler);
-                texture._textureSampler = VkSampler.Null;
+                sampler = new(texture.GetSamplerCreateInfo());
+                _samplers.TryAdd(sampler.SamplerId, sampler);
             }
 
-            GraphicsDevice.DeviceAPI.vkCreateSampler(createInfo, null, out texture._textureSampler).CheckResult("Create Sampler failed");            
+            texture._textureSampler = sampler;
+        }
+
+        public unsafe static int GetSamplerId(VkSamplerCreateInfo samplerCreateInfo)
+        {
+            return ShaderProperties.Hash((byte*)&samplerCreateInfo, (uint)sizeof(VkSamplerCreateInfo));
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static unsafe void CreateSampler(this Texture texture, VkSamplerCreateInfo createInfo)
+        {
+            if (!_samplers.TryGetValue(GetSamplerId(createInfo), out var sampler))
+            {
+                sampler = new(createInfo);
+                _samplers.TryAdd(sampler.SamplerId, sampler);
+            }
+
+            texture._textureSampler = sampler;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

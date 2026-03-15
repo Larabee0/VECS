@@ -7,19 +7,14 @@ namespace VECS
 {
     public abstract class Texture : DisposableAsset
     {
-        protected int _anisoLevel;
+        private int _anisoLevel;
         protected VkExtent3D _imageExtent;
-        protected VkFilter _filterMode = VkFilter.Linear;
         protected VkFormat _imageFormat = VkFormat.R8G8B8A8Unorm;
         internal VkImage _vkImage = VkImage.Null;
         protected bool _readable = false;
-        protected float _mipMapBias;
-        protected uint _mipMapCount = 1;
+        private uint _mipMapCount = 1;
         protected uint _baseMipMapLevel = 0;
         internal ulong _vkBufferSizeRequirement;
-        protected VkSamplerAddressMode _wrapModeU = VkSamplerAddressMode.Repeat;
-        protected VkSamplerAddressMode _wrapModeV = VkSamplerAddressMode.Repeat;
-        protected VkSamplerAddressMode _wrapModeW = VkSamplerAddressMode.Repeat;
 
         internal VkImageLayout _imageLayout = VkImageLayout.Undefined;
         protected VkImageViewType _imageImageViewType;
@@ -38,28 +33,259 @@ namespace VECS
 
         protected internal GPUBuffer _hostBuffer;
 
-        // sampler
-        protected VkBorderColor _borderColour = VkBorderColor.IntOpaqueBlack;
-        protected bool _unnormalisedCoordinates = false;
-        protected bool _compareEnable = true;
-        protected VkCompareOp _compareOp = VkCompareOp.Always;
-        protected VkSamplerMipmapMode _mipMapMode = VkSamplerMipmapMode.Linear;
-        protected float _minMipLOD = 0;
-        protected float _maxMipLOD = float.MinValue;
-        internal VkSampler _textureSampler;
-
-        // descriptor
         protected VkDescriptorImageInfo _imageInfo;
 
-        // properties
-        public bool Disposed => _disposed;
-        public float MaxMipLOD
+        // sampler
+
+        internal TextureSampler _textureSampler;
+        internal bool _regenerateSampler;
+
+        public uint MipMapCount
         {
-            get => _maxMipLOD == float.MinValue ? _mipMapCount : _maxMipLOD;
-            set => _maxMipLOD = value;
+            get => _mipMapCount;
+            protected set
+            {
+                _mipMapCount = value;
+                MaxMipLOD = _mipMapCount;
+            }
         }
 
-        public uint MipMapCount => _mipMapCount;
+        public int AnisoLevel
+        {
+            get => _anisoLevel;
+            protected set
+            {
+                _anisoLevel = value;
+                AnisotropyEnable = _anisoLevel > 0; 
+            }
+        }
+
+
+        public VkSampler TextureSampler
+        {
+            get
+            {
+                if (_textureSampler == null)
+                {
+                    return VkSampler.Null;
+                }
+                return _textureSampler.VkSampler;
+            }
+        }
+
+
+        // descriptor
+
+        // properties
+
+        protected VkSamplerCreateInfo _samplerCreateInfo = new()
+        {
+            minFilter = VkFilter.Linear,
+            magFilter = VkFilter.Linear,
+            addressModeU = VkSamplerAddressMode.Repeat,
+            addressModeV = VkSamplerAddressMode.Repeat,
+            addressModeW = VkSamplerAddressMode.Repeat,
+            borderColor = VkBorderColor.IntOpaqueBlack,
+            unnormalizedCoordinates = false,
+            compareEnable = true,
+            compareOp = VkCompareOp.Always,
+            mipmapMode = VkSamplerMipmapMode.Linear
+        };
+
+        public VkFilter MinFilter
+        {
+            get => _samplerCreateInfo.minFilter;
+            set
+            {
+                if (_samplerCreateInfo.minFilter != value)
+                {
+                    _samplerCreateInfo.minFilter = value;
+                    _regenerateSampler = true;
+                }
+            }
+        }
+        public VkFilter MagFilter
+        {
+            get => _samplerCreateInfo.magFilter;
+            set
+            {
+                if (_samplerCreateInfo.magFilter != value)
+                {
+                    _samplerCreateInfo.magFilter = value;
+                    _regenerateSampler = true;
+                }
+            }
+        }
+        public VkSamplerAddressMode WrapModeU
+        {
+            get => _samplerCreateInfo.addressModeU;
+            set
+            {
+                if (_samplerCreateInfo.addressModeU != value)
+                {
+                    _samplerCreateInfo.addressModeU = value;
+                    _regenerateSampler = true;
+                }
+            }
+        }
+        public VkSamplerAddressMode WrapModeV
+        {
+            get => _samplerCreateInfo.addressModeV;
+            set
+            {
+                if (_samplerCreateInfo.addressModeV != value)
+                {
+                    _samplerCreateInfo.addressModeV = value;
+                    _regenerateSampler = true;
+                }
+            }
+        }
+        public VkSamplerAddressMode WrapModeW
+        {
+            get => _samplerCreateInfo.addressModeW;
+            set
+            {
+                if (_samplerCreateInfo.addressModeW != value)
+                {
+                    _samplerCreateInfo.addressModeW = value;
+                    _regenerateSampler = true;
+                }
+            }
+        }
+        public bool AnisotropyEnable
+        {
+            get => _samplerCreateInfo.anisotropyEnable;
+            set
+            {
+                if (_samplerCreateInfo.anisotropyEnable != value)
+                {
+                    _samplerCreateInfo.anisotropyEnable = value;
+                    _regenerateSampler = true;
+                }
+            }
+        }
+        public float MaxAnisotropy
+        {
+            get => _samplerCreateInfo.maxAnisotropy;
+            set
+            {
+                value = Math.Max(1, Math.Max(_samplerCreateInfo.maxAnisotropy, Math.Min(GraphicsDevice.PropertiesVK10.limits.maxSamplerAnisotropy, value)));
+                if (_samplerCreateInfo.maxAnisotropy != value)
+                {
+                    _samplerCreateInfo.maxAnisotropy = value;
+                    _regenerateSampler = true;
+                }
+            }
+        }
+        public VkBorderColor BorderColour
+        {
+            get => _samplerCreateInfo.borderColor;
+            set
+            {
+                if (_samplerCreateInfo.borderColor != value)
+                {
+                    _samplerCreateInfo.borderColor = value;
+                    _regenerateSampler = true;
+                }
+            }
+        }
+        public bool UnnormalisedCoordinates
+        {
+            get => _samplerCreateInfo.unnormalizedCoordinates;
+            set
+            {
+                if (_samplerCreateInfo.unnormalizedCoordinates != value)
+                {
+                    _samplerCreateInfo.unnormalizedCoordinates = value;
+                    if (value)
+                    {
+                        MinMipLOD = 0;
+                        MaxMipLOD = 0;
+                        MipMapMode = VkSamplerMipmapMode.Nearest;
+                        MinFilter = MagFilter;
+                        WrapModeU = VkSamplerAddressMode.ClampToEdge;
+                        WrapModeV = VkSamplerAddressMode.ClampToEdge;
+                        WrapModeW = VkSamplerAddressMode.ClampToEdge;
+                        CompareEnable = false;
+                    }
+                    _regenerateSampler = true;
+                }
+            }
+        }
+        public bool CompareEnable
+        {
+            get => _samplerCreateInfo.compareEnable;
+            set
+            {
+                if (_samplerCreateInfo.compareEnable != value)
+                {
+                    _samplerCreateInfo.compareEnable = value;
+                    _regenerateSampler = true;
+                }
+            }
+        }
+        public VkCompareOp CompareOp
+        {
+            get => _samplerCreateInfo.compareOp;
+            set
+            {
+                if (_samplerCreateInfo.compareOp != value)
+                {
+                    _samplerCreateInfo.compareOp = value;
+                    _regenerateSampler = true;
+                }
+            }
+        }
+        public VkSamplerMipmapMode MipMapMode
+        {
+            get => _samplerCreateInfo.mipmapMode;
+            set
+            {
+                if (_samplerCreateInfo.mipmapMode != value)
+                {
+                    _samplerCreateInfo.mipmapMode = value;
+                    _regenerateSampler = true;
+                }
+            }
+        }
+        public float MipMapBias
+        {
+            get => _samplerCreateInfo.mipLodBias;
+            set
+            {
+                value = Math.Min(GraphicsDevice.PropertiesVK10.limits.maxSamplerLodBias, value);
+                if (_samplerCreateInfo.mipLodBias != value)
+                {
+                    _samplerCreateInfo.mipLodBias = value;
+                    _regenerateSampler = true;
+                }
+            }
+        }
+        public float MinMipLOD
+        {
+            get => _samplerCreateInfo.minLod;
+            set
+            {
+                if (_samplerCreateInfo.minLod != value)
+                {
+                    _samplerCreateInfo.minLod = Math.Max(0, value);
+                    _regenerateSampler = true;
+                }
+            }
+        }
+        public float MaxMipLOD
+        {
+            get => _samplerCreateInfo.maxLod;
+            set
+            {
+                value = Math.Max(MinMipLOD, value);
+                if (_samplerCreateInfo.maxLod != value)
+                {
+                    _samplerCreateInfo.maxLod = Math.Max(0, value);
+                    _regenerateSampler = true;
+                }
+            }
+        }
 
         public VkImageType ImageType => TextureExtensions.GetImageTypeFromViewType(_imageImageViewType);
 
@@ -87,7 +313,7 @@ namespace VECS
             {
                 imageLayout = _imageLayout,
                 imageView = _imageView,
-                sampler = _textureSampler
+                sampler = TextureSampler
             };
         }
 
@@ -144,26 +370,15 @@ namespace VECS
 
         public virtual VkSamplerCreateInfo GetSamplerCreateInfo()
         {
-            return new VkSamplerCreateInfo()
-            {
-                magFilter = _filterMode,
-                minFilter = _filterMode,
-
-                addressModeU = _wrapModeU,
-                addressModeV = _wrapModeV,
-                addressModeW = _wrapModeW,
-                anisotropyEnable = _anisoLevel > 0,
-                maxAnisotropy = Math.Max(1,Math.Min(GraphicsDevice.PropertiesVK10.limits.maxSamplerAnisotropy, _anisoLevel)),
-                borderColor = _borderColour,
-                unnormalizedCoordinates = _unnormalisedCoordinates,
-                compareEnable = _compareEnable,
-                compareOp = _compareOp,
-                mipmapMode = _mipMapMode,
-                mipLodBias = _mipMapBias,
-                minLod = _minMipLOD,
-                maxLod = MaxMipLOD
-            };
+            return _samplerCreateInfo;
         }
+
+        public unsafe int GetSamplerId()
+        {
+            var createInfo = _samplerCreateInfo;
+            return ShaderProperties.Hash((byte*)&createInfo, (uint)sizeof(VkSamplerCreateInfo));
+        }
+
 
         public void RegenerateMipMapsNow()
         {
@@ -227,7 +442,7 @@ namespace VECS
             );
         }
 
-        public override unsafe void Dispose()
+        public override void Dispose()
         {
 
             if (_disposed)
@@ -238,7 +453,7 @@ namespace VECS
 
             _hostBuffer?.EnqueueForDisposal();
 
-            TextureExtensions.EnqueueForDisposal(_vkImage, _allocation, _imageView, _textureSampler);
+            TextureExtensions.EnqueueForDisposal(_vkImage, _allocation, _imageView, VkSampler.Null);
 
             _disposed = true;
         }

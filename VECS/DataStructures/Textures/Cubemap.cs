@@ -17,15 +17,15 @@ namespace VECS
             _useageFlags = _usageFlags;
 
             _imageImageViewType = VkImageViewType.ImageCube;
-            _wrapModeU = wrapMode;
-            _wrapModeV = wrapMode;
-            _wrapModeW = wrapMode;
-            _compareOp = VkCompareOp.Never;
-            _borderColour = VkBorderColor.FloatOpaqueWhite;
+            WrapModeU = wrapMode;
+            WrapModeV = wrapMode;
+            WrapModeW = wrapMode;
+            CompareOp = VkCompareOp.Never;
+            BorderColour = VkBorderColor.FloatOpaqueWhite;
 
             if (generateMipMaps)
             {
-                _mipMapCount = TextureExtensions.CalculateMipMapLevels(w, w);
+                MipMapCount = TextureExtensions.CalculateMipMapLevels(w, w);
             }
 
             this.SetImageLayoutAndAspectFromUsage();
@@ -36,7 +36,7 @@ namespace VECS
 
             if (_useageFlags.HasFlag(VkImageUsageFlags.Sampled))
             {
-                this.CreateSampler(GetSamplerCreateInfo());
+                this.CreateSampler();
             }
 
             UpdateDescriptor();
@@ -55,13 +55,13 @@ namespace VECS
             _imageExtent = new(surfaces[0].Width, surfaces[0].Height, 1);
 
             _imageImageViewType = VkImageViewType.ImageCube;
-            _wrapModeU = wrapMode;
-            _wrapModeV = wrapMode;
-            _wrapModeW = wrapMode;
+            WrapModeU = wrapMode;
+            WrapModeV = wrapMode;
+            WrapModeW = wrapMode;
 
             if (generateMipMaps)
             {
-                _mipMapCount = TextureExtensions.CalculateMipMapLevels(_imageExtent.width, _imageExtent.height);
+                MipMapCount = TextureExtensions.CalculateMipMapLevels(_imageExtent.width, _imageExtent.height);
             }
 
             this.SetImageLayoutAndAspectFromUsage();
@@ -73,7 +73,7 @@ namespace VECS
 
             if (_useageFlags.HasFlag(VkImageUsageFlags.Sampled))
             {
-                this.CreateSampler(GetSamplerCreateInfo());
+                this.CreateSampler();
             }
 
             UpdateDescriptor();

@@ -260,7 +260,10 @@ namespace VECS.UI
             io.MouseDown[0] = _outputWindow.InputManager.GetMouseButton(0);
             io.MouseDown[1] = _outputWindow.InputManager.GetMouseButton(1);
             io.MouseDown[2] = _outputWindow.InputManager.GetMouseButton(2);
-
+            if(_context.FrameCount  != 0 && _context.FrameCount != _context.FrameCountEnded)
+            {
+                ImGui.EndFrame();
+            }
             ImGui.NewFrame();
             _context = ImGui.GetCurrentContext();
         }

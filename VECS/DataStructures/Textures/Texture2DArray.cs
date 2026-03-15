@@ -17,12 +17,12 @@ namespace VECS
 
             if (generateMipMaps)
             {
-                _mipMapCount = TextureExtensions.CalculateMipMapLevels(width, height);
+                MipMapCount = TextureExtensions.CalculateMipMapLevels(width, height);
             }
 
             this.CreateImage(GetImageCreateInfo());
             this.CreateImageView(GetImageViewCreateInfo());
-            this.CreateSampler(GetSamplerCreateInfo());
+            this.CreateSampler();
 
             SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal);
             UpdateDescriptor();
@@ -38,13 +38,13 @@ namespace VECS
             _imageImageViewType = VkImageViewType.Image2DArray;
             _imageFormat = textureFormat;
             _useageFlags = usage;
-            _wrapModeU = addressMode;
-            _wrapModeV = addressMode;
-            _wrapModeW = addressMode;
+            WrapModeU = addressMode;
+            WrapModeV = addressMode;
+            WrapModeW = addressMode;
 
             if (generateMipMaps)
             {
-                _mipMapCount = TextureExtensions.CalculateMipMapLevels(width, height);
+                MipMapCount = TextureExtensions.CalculateMipMapLevels(width, height);
             }
 
             this.CreateImage(GetImageCreateInfo());
@@ -55,7 +55,7 @@ namespace VECS
 
             if (_useageFlags.HasFlag(VkImageUsageFlags.Sampled))
             {
-                this.CreateSampler(GetSamplerCreateInfo());
+                this.CreateSampler();
             }
 
             UpdateDescriptor();
@@ -77,7 +77,7 @@ namespace VECS
 
             if (generateMipMaps)
             {
-                _mipMapCount = TextureExtensions.CalculateMipMapLevels(_imageExtent.width, _imageExtent.height);
+                MipMapCount = TextureExtensions.CalculateMipMapLevels(_imageExtent.width, _imageExtent.height);
             }
 
             this.CreateImage(GetImageCreateInfo());
@@ -85,7 +85,7 @@ namespace VECS
             this.CopyFromBuffer(_hostBuffer);
 
             this.CreateImageView(GetImageViewCreateInfo());
-            this.CreateSampler(GetSamplerCreateInfo());
+            this.CreateSampler();
 
             UpdateDescriptor();
 

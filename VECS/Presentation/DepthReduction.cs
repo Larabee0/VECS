@@ -120,7 +120,7 @@ namespace VECS.Presentation
 
             VkDescriptorImageInfo destTarget = new()
             {
-                sampler = _depthPryamid._textureSampler,
+                sampler = _depthPryamid.TextureSampler,
                 imageView = _additionalViews[0],
                 imageLayout = VkImageLayout.General
             };

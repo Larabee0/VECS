@@ -14,12 +14,12 @@ namespace VECS
 
             if (generateMipMaps)
             {
-                _mipMapCount = TextureExtensions.CalculateMipMapLevels(width, height);
+                MipMapCount = TextureExtensions.CalculateMipMapLevels(width, height);
             }
 
             this.CreateImage(GetImageCreateInfo());
             this.CreateImageView(GetImageViewCreateInfo());
-            this.CreateSampler(GetSamplerCreateInfo());
+            this.CreateSampler();
 
             UpdateDescriptor();
             AssetDataBase<Texture2D>.Add(this);
@@ -35,7 +35,7 @@ namespace VECS
 
             if (generateMipMaps)
             {
-                _mipMapCount = TextureExtensions.CalculateMipMapLevels(width, height);
+                MipMapCount = TextureExtensions.CalculateMipMapLevels(width, height);
             }
 
             this.CreateImage(GetImageCreateInfo());
@@ -46,7 +46,7 @@ namespace VECS
 
             if (_useageFlags.HasFlag(VkImageUsageFlags.Sampled))
             {
-                this.CreateSampler(GetSamplerCreateInfo());
+                this.CreateSampler();
             }
 
             UpdateDescriptor();
@@ -60,13 +60,13 @@ namespace VECS
             _imageImageViewType = VkImageViewType.Image2D;
             _imageFormat = textureFormat;
             _useageFlags = usage;
-            _wrapModeU = addressMode;
-            _wrapModeV = addressMode;
-            _wrapModeW = addressMode;
+            WrapModeU = addressMode;
+            WrapModeV = addressMode;
+            WrapModeW = addressMode;
 
             if (generateMipMaps)
             {
-                _mipMapCount = TextureExtensions.CalculateMipMapLevels(width, height);
+                MipMapCount = TextureExtensions.CalculateMipMapLevels(width, height);
             }
 
             this.CreateImage(GetImageCreateInfo());
@@ -77,7 +77,7 @@ namespace VECS
 
             if (_useageFlags.HasFlag(VkImageUsageFlags.Sampled))
             {
-                this.CreateSampler(GetSamplerCreateInfo());
+                this.CreateSampler();
             }
 
             UpdateDescriptor();
@@ -91,16 +91,16 @@ namespace VECS
             _imageImageViewType = VkImageViewType.Image2D;
             _imageFormat = textureFormat;
             _useageFlags = usage;
-            _wrapModeU = addressMode;
-            _wrapModeV = addressMode;
+            WrapModeU = addressMode;
+            WrapModeV = addressMode;
 
-            _anisoLevel = anisoLevel;
-            _compareEnable = compareEnabled;
-            _compareOp = compareOp;
+            AnisoLevel = anisoLevel;
+            CompareEnable = compareEnabled;
+            CompareOp = compareOp;
 
             if (generateMipMaps)
             {
-                _mipMapCount = TextureExtensions.CalculateMipMapLevels(width, height);
+                MipMapCount = TextureExtensions.CalculateMipMapLevels(width, height);
             }
 
             this.CreateImage(GetImageCreateInfo());
@@ -111,7 +111,7 @@ namespace VECS
 
             if (_useageFlags.HasFlag(VkImageUsageFlags.Sampled))
             {
-                this.CreateSampler(GetSamplerCreateInfo());
+                this.CreateSampler();
             }
 
             UpdateDescriptor();
@@ -125,19 +125,19 @@ namespace VECS
             _imageImageViewType = VkImageViewType.Image2D;
             _imageFormat = textureFormat;
             _useageFlags = usage;
-            _wrapModeU = addressMode;
-            _wrapModeV = addressMode;
-            _wrapModeW = addressMode;
+            WrapModeU = addressMode;
+            WrapModeV = addressMode;
+            WrapModeW = addressMode;
 
-            _anisoLevel = anisoLevel;
-            _compareEnable = compareEnabled;
-            _compareOp = compareOp;
-            _mipMapMode = mipmapMode;
-            _borderColour = borderColor;
+            AnisoLevel = anisoLevel;
+            CompareEnable = compareEnabled;
+            CompareOp = compareOp;
+            MipMapMode = mipmapMode;
+            BorderColour = borderColor;
 
             if (generateMipMaps)
             {
-                _mipMapCount = TextureExtensions.CalculateMipMapLevels(width, height);
+                MipMapCount = TextureExtensions.CalculateMipMapLevels(width, height);
             }
 
             this.CreateImage(GetImageCreateInfo());
@@ -148,7 +148,7 @@ namespace VECS
 
             if (_useageFlags.HasFlag(VkImageUsageFlags.Sampled))
             {
-                this.CreateSampler(GetSamplerCreateInfo());
+                this.CreateSampler();
             }
 
             UpdateDescriptor();
@@ -172,7 +172,7 @@ namespace VECS
 
             if (generateMipMaps)
             {
-                _mipMapCount = TextureExtensions.CalculateMipMapLevels(width, height);
+                MipMapCount = TextureExtensions.CalculateMipMapLevels(width, height);
             }
 
             this.CreateImage(GetImageCreateInfo());
@@ -183,7 +183,7 @@ namespace VECS
 
             if (_useageFlags.HasFlag(VkImageUsageFlags.Sampled))
             {
-                this.CreateSampler(GetSamplerCreateInfo());
+                this.CreateSampler();
             }
 
             UpdateDescriptor();
@@ -198,16 +198,16 @@ namespace VECS
             _imageFormat = textureFormat;
             _useageFlags = usage;
             _sharingMode = VkSharingMode.Concurrent;
-            _wrapModeU = samplerMode;
-            _wrapModeV = samplerMode;
-            _wrapModeW = samplerMode;
+            WrapModeU = samplerMode;
+            WrapModeV = samplerMode;
+            WrapModeW = samplerMode;
 
 
             _queueFamilyIndices = [.. queueIndices];
 
             if (generateMipMaps)
             {
-                _mipMapCount = TextureExtensions.CalculateMipMapLevels(width, height);
+                MipMapCount = TextureExtensions.CalculateMipMapLevels(width, height);
             }
 
             this.CreateImage(GetImageCreateInfo());
@@ -218,7 +218,7 @@ namespace VECS
 
             if (_useageFlags.HasFlag(VkImageUsageFlags.Sampled))
             {
-                this.CreateSampler(GetSamplerCreateInfo());
+                this.CreateSampler();
             }
 
             UpdateDescriptor();
@@ -233,20 +233,20 @@ namespace VECS
             _imageFormat = textureFormat;
             _useageFlags = usage;
             _sharingMode = VkSharingMode.Concurrent;
-            _wrapModeU = addressMode;
-            _wrapModeV = addressMode;
-            _wrapModeW = addressMode;
+            WrapModeU = addressMode;
+            WrapModeV = addressMode;
+            WrapModeW = addressMode;
 
-            _anisoLevel = anisoLevel;
-            _compareEnable = compareEnabled;
-            _compareOp = compareOp;
-            _borderColour = borderColor;
+            AnisoLevel = anisoLevel;
+            CompareEnable = compareEnabled;
+            CompareOp = compareOp;
+            BorderColour = borderColor;
 
             _queueFamilyIndices = [.. queueIndices];
 
             if (generateMipMaps)
             {
-                _mipMapCount = TextureExtensions.CalculateMipMapLevels(width, height);
+                MipMapCount = TextureExtensions.CalculateMipMapLevels(width, height);
             }
 
             this.CreateImage(GetImageCreateInfo());
@@ -257,7 +257,7 @@ namespace VECS
 
             if (_useageFlags.HasFlag(VkImageUsageFlags.Sampled))
             {
-                this.CreateSampler(GetSamplerCreateInfo());
+                this.CreateSampler();
             }
 
             UpdateDescriptor();
@@ -272,18 +272,18 @@ namespace VECS
             _imageFormat = textureFormat;
             _useageFlags = usage;
             //_sharingMode = VkSharingMode.Concurrent;
-            _wrapModeU = addressMode;
-            _wrapModeV = addressMode;
-            _wrapModeW = addressMode;
+            WrapModeU = addressMode;
+            WrapModeV = addressMode;
+            WrapModeW = addressMode;
 
-            _anisoLevel = anisoLevel;
-            _compareEnable = compareEnabled;
-            _compareOp = compareOp;
-            _borderColour = borderColor;
+            AnisoLevel = anisoLevel;
+            CompareEnable = compareEnabled;
+            CompareOp = compareOp;
+            BorderColour = borderColor;
 
             if (generateMipMaps)
             {
-                _mipMapCount = TextureExtensions.CalculateMipMapLevels(width, height);
+                MipMapCount = TextureExtensions.CalculateMipMapLevels(width, height);
             }
 
             this.CreateImage(GetImageCreateInfo());
@@ -294,7 +294,7 @@ namespace VECS
 
             if (_useageFlags.HasFlag(VkImageUsageFlags.Sampled))
             {
-                this.CreateSampler(GetSamplerCreateInfo());
+                this.CreateSampler();
             }
 
             UpdateDescriptor();
@@ -310,7 +310,7 @@ namespace VECS
 
             if (generateMipMaps)
             {
-                _mipMapCount = TextureExtensions.CalculateMipMapLevels(_imageExtent.width, _imageExtent.height);
+                MipMapCount = TextureExtensions.CalculateMipMapLevels(_imageExtent.width, _imageExtent.height);
             }
 
             this.CreateImage(GetImageCreateInfo());
@@ -318,7 +318,7 @@ namespace VECS
             this.CopyFromBuffer(_hostBuffer);
 
             this.CreateImageView(GetImageViewCreateInfo());
-            this.CreateSampler(GetSamplerCreateInfo());
+            this.CreateSampler();
 
             UpdateDescriptor();
 
@@ -334,13 +334,13 @@ namespace VECS
             _hostBuffer = TextureLoader.CopySurfaceToStagingBuffer(surface);
             _imageExtent = new(surface.Width, surface.Height, 1);
             _imageImageViewType = VkImageViewType.Image2D;
-            _wrapModeU = samplerMode;
-            _wrapModeV = samplerMode;
-            _wrapModeW = samplerMode;
+            WrapModeU = samplerMode;
+            WrapModeV = samplerMode;
+            WrapModeW = samplerMode;
 
             if (generateMipMaps)
             {
-                _mipMapCount = TextureExtensions.CalculateMipMapLevels(_imageExtent.width, _imageExtent.height);
+                MipMapCount = TextureExtensions.CalculateMipMapLevels(_imageExtent.width, _imageExtent.height);
             }
 
             this.CreateImage(GetImageCreateInfo());
@@ -348,7 +348,7 @@ namespace VECS
             this.CopyFromBuffer(_hostBuffer);
 
             this.CreateImageView(GetImageViewCreateInfo());
-            this.CreateSampler(GetSamplerCreateInfo());
+            this.CreateSampler();
 
             UpdateDescriptor();
 
