@@ -2,11 +2,14 @@
 using Hexa.NET.ImGui;
 using System;
 using System.Numerics;
+using System.IO;
+using System.Collections.Generic;
 
 namespace VECS.UI
 {
     public static class LiteHtmlExtentions
     {
+        public static string DefaultHtmlPath => Path.Combine(Asset.AssetsPath, "Html");
         public static ImRect GetImRect(this position pos)
         {
             var center = new Vector2(pos.x, pos.y);
@@ -32,18 +35,19 @@ namespace VECS.UI
     public class LiteHtml
     {
         private VkViewportContainer vkViewportContainer;
-        
+
         public LiteHtml(IMGUI imGUi)
         {
-            vkViewportContainer = new("html {\r\n    display: block;\r\n    height:100%;\r\n    width:100%;\r\n\tposition: relative;\r\n}\r\n\r\nhead {\r\n    display: none\r\n}\r\n\r\nmeta {\r\n    display: none\r\n}\r\n\r\ntitle {\r\n    display: none\r\n}\r\n\r\nlink {\r\n    display: none\r\n}\r\n\r\nstyle {\r\n    display: none\r\n}\r\n\r\nscript {\r\n    display: none\r\n}\r\n\r\nbody {\r\n\tdisplay:block; \r\n\tmargin:8px; \r\n    height:100%;\r\n    width:100%;\r\n}\r\n\r\np {\r\n\tdisplay:block; \r\n\tmargin-top:1em; \r\n\tmargin-bottom:1em;\r\n}\r\n\r\nb, strong {\r\n\tdisplay:inline; \r\n\tfont-weight:bold;\r\n}\r\n\r\ni, em {\r\n\tdisplay:inline; \r\n\tfont-style:italic;\r\n}\r\n\r\ncenter \r\n{\r\n\ttext-align:center;\r\n\tdisplay:block;\r\n}\r\n\r\na:link\r\n{\r\n\ttext-decoration: underline;\r\n\tcolor: #00f;\r\n\tcursor: pointer;\r\n}\r\n\r\nh1, h2, h3, h4, h5, h6, div {\r\n\tdisplay:block;\r\n}\r\n\r\nh1 {\r\n\tfont-weight:bold; \r\n\tmargin-top:0.67em; \r\n\tmargin-bottom:0.67em; \r\n\tfont-size: 2em;\r\n}\r\n\r\nh2 {\r\n\tfont-weight:bold; \r\n\tmargin-top:0.83em; \r\n\tmargin-bottom:0.83em; \r\n\tfont-size: 1.5em;\r\n}\r\n\r\nh3 {\r\n\tfont-weight:bold; \r\n\tmargin-top:1em; \r\n\tmargin-bottom:1em; \r\n\tfont-size:1.17em;\r\n}\r\n\r\nh4 {\r\n\tfont-weight:bold; \r\n\tmargin-top:1.33em; \r\n\tmargin-bottom:1.33em\r\n}\r\n\r\nh5 {\r\n\tfont-weight:bold; \r\n\tmargin-top:1.67em; \r\n\tmargin-bottom:1.67em;\r\n\tfont-size:.83em;\r\n}\r\n\r\nh6 {\r\n\tfont-weight:bold; \r\n\tmargin-top:2.33em; \r\n\tmargin-bottom:2.33em;\r\n\tfont-size:.67em;\r\n} \r\n\r\nbr {\r\n\tdisplay:inline-block;\r\n}\r\n\r\nbr[clear=\"all\"]\r\n{\r\n\tclear:both;\r\n}\r\n\r\nbr[clear=\"left\"]\r\n{\r\n\tclear:left;\r\n}\r\n\r\nbr[clear=\"right\"]\r\n{\r\n\tclear:right;\r\n}\r\n\r\nspan {\r\n\tdisplay:inline\r\n}\r\n\r\nimg {\r\n\tdisplay: inline-block;\r\n}\r\n\r\nimg[align=\"right\"]\r\n{\r\n\tfloat: right;\r\n}\r\n\r\nimg[align=\"left\"]\r\n{\r\n\tfloat: left;\r\n}\r\n\r\nhr {\r\n    display: block;\r\n    margin-top: 0.5em;\r\n    margin-bottom: 0.5em;\r\n    margin-left: auto;\r\n    margin-right: auto;\r\n    border-style: inset;\r\n    border-width: 1px\r\n}\r\n\r\n\r\n/***************** TABLES ********************/\r\n\r\ntable {\r\n    display: table;\r\n    border-collapse: separate;\r\n    border-spacing: 2px;\r\n    border-top-color:gray;\r\n    border-left-color:gray;\r\n    border-bottom-color:black;\r\n    border-right-color:black;\r\n}\r\n\r\ntbody, tfoot, thead {\r\n\tdisplay:table-row-group;\r\n\tvertical-align:middle;\r\n}\r\n\r\ntr {\r\n    display: table-row;\r\n    vertical-align: inherit;\r\n    border-color: inherit;\r\n}\r\n\r\ntd, th {\r\n    display: table-cell;\r\n    vertical-align: inherit;\r\n    border-width:1px;\r\n    padding:1px;\r\n}\r\n\r\nth {\r\n\tfont-weight: bold;\r\n}\r\n\r\ntable[border] {\r\n    border-style:solid;\r\n}\r\n\r\ntable[border|=0] {\r\n    border-style:none;\r\n}\r\n\r\ntable[border] td, table[border] th {\r\n    border-style:solid;\r\n    border-top-color:black;\r\n    border-left-color:black;\r\n    border-bottom-color:gray;\r\n    border-right-color:gray;\r\n}\r\n\r\ntable[border|=0] td, table[border|=0] th {\r\n    border-style:none;\r\n}\r\n\r\ncaption {\r\n\tdisplay: table-caption;\r\n}\r\n\r\ntd[nowrap], th[nowrap] {\r\n\twhite-space:nowrap;\r\n}\r\n\r\ntt, code, kbd, samp {\r\n    font-family: monospace\r\n}\r\n\r\npre, xmp, plaintext, listing {\r\n    display: block;\r\n    font-family: monospace;\r\n    white-space: pre;\r\n    margin: 1em 0\r\n}\r\n\r\n/***************** LISTS ********************/\r\n\r\nul, menu, dir {\r\n    display: block;\r\n    list-style-type: disc;\r\n    margin-top: 1em;\r\n    margin-bottom: 1em;\r\n    margin-left: 0;\r\n    margin-right: 0;\r\n    padding-left: 40px\r\n}\r\n\r\nol {\r\n    display: block;\r\n    list-style-type: decimal;\r\n    margin-top: 1em;\r\n    margin-bottom: 1em;\r\n    margin-left: 0;\r\n    margin-right: 0;\r\n    padding-left: 40px\r\n}\r\n\r\nli {\r\n    display: list-item;\r\n}\r\n\r\nul ul, ol ul {\r\n    list-style-type: circle;\r\n}\r\n\r\nol ol ul, ol ul ul, ul ol ul, ul ul ul {\r\n    list-style-type: square;\r\n}\r\n\r\ndd {\r\n    display: block;\r\n    margin-left: 40px;\r\n}\r\n\r\ndl {\r\n    display: block;\r\n    margin-top: 1em;\r\n    margin-bottom: 1em;\r\n    margin-left: 0;\r\n    margin-right: 0;\r\n}\r\n\r\ndt {\r\n    display: block;\r\n}\r\n\r\nol ul, ul ol, ul ul, ol ol {\r\n    margin-top: 0;\r\n    margin-bottom: 0\r\n}\r\n\r\nblockquote {\r\n\tdisplay: block;\r\n\tmargin-top: 1em;\r\n\tmargin-bottom: 1em;\r\n\tmargin-left: 40px;\r\n\tmargin-left: 40px;\r\n}\r\n\r\n/*********** FORM ELEMENTS ************/\r\n\r\nform {\r\n\tdisplay: block;\r\n\tmargin-top: 0em;\r\n}\r\n\r\noption {\r\n\tdisplay: none;\r\n}\r\n\r\ninput, textarea, keygen, select, button, isindex {\r\n\tmargin: 0em;\r\n\tcolor: initial;\r\n\tline-height: normal;\r\n\ttext-transform: none;\r\n\ttext-indent: 0;\r\n\ttext-shadow: none;\r\n\tdisplay: inline-block;\r\n}\r\ninput[type=\"hidden\"] {\r\n\tdisplay: none;\r\n}\r\n\r\n\r\narticle, aside, footer, header, hgroup, nav, section \r\n{\r\n\tdisplay: block;\r\n}\r\n\r\n",null);
+            string css = File.ReadAllText(Path.Combine(LiteHtmlExtentions.DefaultHtmlPath, "master.css"));
+            vkViewportContainer = new(css,imGUi, null);
             imGUi.ClearColour = Vector4.One;
             vkViewportContainer.RenderHtmlRequested += Container_RenderHtmlRequested;
         }
 
 
-        public void LoadHtml(string html)
+        public void LoadHtml(string htmlFile)
         {
-            vkViewportContainer.Document.CreateFromString(html);
+            vkViewportContainer?.LoadHtml(htmlFile);
         }
 
         public void Render()
@@ -69,13 +73,19 @@ namespace VECS.UI
     public class VkViewportContainer : ViewportContainer
     {
         public static string BaseURL;
+        private FileInfo _fileInfo;
+        private DirectoryInfo _directoryInfo;
         public event Action<string> RenderHtmlRequested;
+        private readonly IMGUI _imgui;
 
-        public VkViewportContainer(string masterCssData, ILibInterop libInterop) : base(masterCssData, LibInterop.Instance)
+        private Dictionary<int, ImTextureID> _textureLibrary = [];
+
+        public VkViewportContainer(string masterCssData, IMGUI imgui, ILibInterop libInterop) : base(masterCssData, LibInterop.Instance)
         {
+            _imgui = imgui;
         }
 
-        protected override nuint CreateFont(
+        protected unsafe override nuint CreateFont(
             string faceName,
             int size,
             int weight,
@@ -83,12 +93,14 @@ namespace VECS.UI
             font_decoration decoration,
             ref font_metrics fm)
         {
+            var fontId = _imgui.AddFontTTF(Path.Combine(LiteHtmlExtentions.DefaultHtmlPath, "arial.ttf"),size);
+
             fm.x_height = 8;
             fm.ascent = 11;
             fm.descent = 3;
             fm.height = 14;
             fm.draw_spaces = true;
-            return 0;
+            return fontId;
         }
 
         protected override void DrawBackground(nuint hdc,
@@ -139,20 +151,60 @@ namespace VECS.UI
             }
         }
 
-        private void DrawImage(string image, ImRect rect)
+        private unsafe void DrawImage(string image, ImRect rect)
         {
             var bitmap = LoadImage(image);
             if (bitmap == null)
             {
                 return;
             }
-            Vector2 Extents = (rect.Max - rect.Min) * 0.5f;
-            // new ImTextureData(,)
-            // ImGui.Image(, Extents);
+            
+            var viewPort = ImGui.GetMainViewport();
+
+            var backgroundDrawList = ImGui.GetBackgroundDrawList(viewPort);
+
+            var id = GetTexture(image);
+
+            ImGui.AddImage(backgroundDrawList, new ImTextureRef(null, id), new(rect.Min.X,rect.Max.Y), new(rect.Max.X,rect.Min.Y));
+        }
+
+        private ImTextureID GetTexture(string image)
+        {
+            int originalTextureHash = ShaderProperties.Hash(image);
+            if (_textureLibrary.TryGetValue(originalTextureHash, out var id))
+            {
+                return id;
+            }
+            return default;
         }
 
         private Texture2D LoadImage(string image)
         {
+            int originalTextureHash = ShaderProperties.Hash(image);
+            if(_textureLibrary.TryGetValue(originalTextureHash, out ImTextureID textureId))
+            {
+                return _imgui.GetTexture(textureId);
+            }
+            DirectoryInfo baseDirectory = new(_directoryInfo.FullName);
+            while (image.StartsWith("../"))
+            {
+                baseDirectory = baseDirectory.Parent;
+                image = image.Substring(3);
+            }
+
+            var textureInfo = new FileInfo(Path.Combine(baseDirectory.FullName, image));
+
+
+            if (textureInfo.Exists)
+            {
+                var loadedTexture = AssetDataBase<Texture2D>.GetNamedSilentFail( Path.GetFileNameWithoutExtension(textureInfo.Name));
+
+
+                loadedTexture ??=  new Texture2D(textureInfo.FullName, false);
+                _textureLibrary.TryAdd(originalTextureHash, loadedTexture.Hash);
+                _imgui.AddTexture(loadedTexture.Hash, loadedTexture);
+            }
+
             return null;
         }
 
@@ -223,10 +275,14 @@ namespace VECS.UI
 
         protected override void DrawText(string text, nuint font, ref web_color color, ref position pos)
         {
+            text = text.Replace(' ', (char)160);
             var viewPort = ImGui.GetMainViewport();
             var backgroundDrawList = ImGui.GetBackgroundDrawList(viewPort);
-            text = text.Replace(' ', (char)160);
+            var fontVal = _imgui.GetFont((uint)font);
+            ImGui.PushFont(ref fontVal, 0.0f);
+            
             ImGui.AddText(backgroundDrawList, new(pos.x, pos.y), color.GetUintColour(), text);
+            ImGui.PopFont();
         }
 
         protected override string GetDefaultFontName()
@@ -244,15 +300,21 @@ namespace VECS.UI
             var bmp = LoadImage(image);
             if (bmp != null)
             {
-                //size.width = bmp.PixelWidth;
-                //size.height = bmp.PixelHeight;
+                size.width = bmp.Width;
+                size.height = bmp.Height;
             }
         }
 
         protected override int GetTextWidth(string text, nuint font)
         {
             text = text.Replace(' ', (char)160);
-            return text.Length * (GetDefaultFontSize());
+            var fontVal = _imgui.GetFont((uint)font);
+
+            //ImGui.PushFont(ref fontVal, 0.0f);
+            var textSize = ImGui.CalcTextSize(text);
+
+            //ImGui.PopFont();
+            return (int)Math.Ceiling(textSize.X);
         }
 
 
@@ -282,6 +344,22 @@ namespace VECS.UI
             RenderHtmlRequested?.Invoke(html);
         }
 
+
+        public void LoadHtml(string htmlFile)
+        {
+
+            _fileInfo = new FileInfo( Path.Combine(LiteHtmlExtentions.DefaultHtmlPath, htmlFile));
+            if (_fileInfo.Exists)
+            {
+                _directoryInfo = _fileInfo.Directory;
+                string html = File.ReadAllText(_fileInfo.FullName);
+                Document.CreateFromString(html);
+            }
+            else
+            {
+                Console.WriteLine("HTML File not found at {0}", _fileInfo.FullName);
+            }
+        }
     }
 
 }

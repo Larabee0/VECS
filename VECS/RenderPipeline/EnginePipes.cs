@@ -1,6 +1,7 @@
 ﻿using VECS.GraphicsPipelines;
 using VECS.LowLevel;
 using VECS.Presentation;
+using VECS.UI;
 using Vortice.Vulkan;
 
 namespace VECS
@@ -20,6 +21,9 @@ namespace VECS
         public static GraphicsPipeline OIT_Composite{get; private set;}
         public static GraphicsPipeline OIT_Unlit{get; private set;}
         public static GraphicsPipeline OIT_LitTexture { get; private set; }
+
+
+        public static GraphicsPipeline IMGUI { get; private set; }
 
         static EnginePipes()
         {
@@ -90,8 +94,50 @@ namespace VECS
             oit_unlit.rasterizationInfo.cullMode = VkCullModeFlags.None;
             oit_unlit.rasterizationInfo.frontFace = VkFrontFace.Clockwise;
             OIT_LitTexture = new("OIT_Lit_Texture", "lit_texture.vert", "oit_lit_texture.frag", oit_unlit);
-            
-            
+
+            GraphicsPipelineConfigInfo configInfo = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
+            GraphicsPipelineConfigInfo.EnableAlphaBlending(ref configInfo);
+            configInfo.colourFormats = [VkFormat.R8G8B8A8Unorm];
+            configInfo.rasterizationInfo.cullMode = VkCullModeFlags.None;
+
+            configInfo.depthStencilInfo.depthTestEnable = false;
+            configInfo.depthStencilInfo.depthWriteEnable = false;
+            configInfo.depthStencilInfo.depthCompareOp = VkCompareOp.LessOrEqual;
+
+            //configInfo.colourBlendAttachment.srcAlphaBlendFactor = VkBlendFactor.SrcAlpha;
+            //configInfo.colourBlendAttachment.srcAlphaBlendFactor = VkBlendFactor.One;
+            configInfo.colourBlendAttachment.dstAlphaBlendFactor = VkBlendFactor.One;
+
+            configInfo.BindingDescriptions = [
+                new()
+                {
+                    binding = 0,
+                    stride = 20,
+                    inputRate = VkVertexInputRate.Vertex
+                }
+            ];
+            configInfo.AttributeDescriptions = [
+                new (){
+                    binding = 0,
+                    location = 0,
+                    format = VkFormat.R32G32Sfloat,
+                    offset = 0
+                }, new(){
+                    binding = 0,
+                    location = 1,
+                    format = VkFormat.R32G32Sfloat,
+                    offset = 8
+                }, new(){
+                    binding = 0,
+                    location = 2,
+                    format = VkFormat.R8G8B8A8Unorm,
+                    offset = 16
+                }
+            ];
+
+            IMGUI = new("IMGUI_Pipe", "imgui.vert", "imgui.frag", configInfo);
+
+            UI.IMGUI._freeVariants.Enqueue(IMGUI.Default());
 
             DepthReduction.Init();
         }

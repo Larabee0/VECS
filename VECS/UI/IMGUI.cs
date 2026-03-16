@@ -1,6 +1,8 @@
 ﻿using Hexa.NET.ImGui;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 using System.Numerics;
 using VECS.GraphicsPipelines;
 using VECS.LowLevel;
@@ -19,8 +21,7 @@ namespace VECS.UI
         private const float FONT_SCALE = 1.0f;
         private static readonly int fontSamplerId = "fontSampler".GetShaderPropertyId();
         private static readonly int inputTextureId = "inputTexture".GetShaderPropertyId();
-        private static GraphicsPipeline _imgui;
-        private static readonly Queue<Material> _freeVariants = [];
+        internal static readonly Queue<Material> _freeVariants = [];
 
         private readonly SDL3Window _outputWindow;
 
@@ -34,10 +35,11 @@ namespace VECS.UI
         private Material _blitVariant;
 
         private readonly Dictionary<ImTextureID, TextureVariant> _textureVariants = [];
+        private unsafe readonly Dictionary<uint, ImFont> _fonts = [];
 
         public Vector4 ClearColour;
         
-        public IMGUI(SDL3Window targetWindow)
+        public unsafe IMGUI(SDL3Window targetWindow)
         {
             _outputWindow = targetWindow;
             _context = ImGui.CreateContext();
@@ -46,11 +48,14 @@ namespace VECS.UI
 
             ImGui.GetPlatformIO().RendererTextureMaxHeight = 4096;
             ImGui.GetPlatformIO().RendererTextureMaxWidth = 4096;
+            ImGui.GetIO().FontAllowUserScaling = true;
             ImGui.GetIO().ConfigDpiScaleFonts = true;
-
             ImGui.GetIO().BackendFlags = ImGuiBackendFlags.RendererHasTextures;
-
+            
             SetStyle(0);
+            ImGui.GetStyle().FontSizeBase = 20.0f;
+            ImGui.GetIO().Fonts.AddFontDefault();
+            //ImGui.GetIO().Fonts.AddFontDefault();  // Load embedded scalable font.
             Resize(_outputWindow.WindowExtent.width, _outputWindow.WindowExtent.height);
 
             _context = ImGui.GetCurrentContext();
@@ -58,6 +63,53 @@ namespace VECS.UI
             _outputTarget = new(_outputWindow.WindowName, (int)_outputWindow.WindowExtent.width, (int)_outputWindow.WindowExtent.height,VkFormat.R8G8B8A8Unorm, VkSamplerAddressMode.ClampToEdge);
 
 
+        }
+
+        public unsafe uint AddFontTTF(string fontPath, int size)
+        {
+            Debug.Assert(Path.Exists(fontPath));
+            ImGui.SetCurrentContext(_context);
+            ImFont* imFont = ImGui.GetIO().Fonts.AddFontFromFileTTF(fontPath,size);
+            _fonts[imFont->FontId] = *imFont;
+            _context = ImGui.GetCurrentContext();
+
+            return imFont->FontId;
+        }
+
+        public ImFont GetFont(uint fontId)
+        {
+            return _fonts[fontId];
+        }
+
+        public void AddTexture(ImTextureID textureID, Texture2D texture)
+        {
+            ImGui.SetCurrentContext(_context);
+            if (!_freeVariants.TryDequeue(out var variant))
+            {
+                variant = EnginePipes.IMGUI.Create(string.Format("IMGUI_VAR_{0}", textureID.ToString()));
+            }
+            _textureVariants[textureID] = new()
+            {
+                Texture = texture,
+                Variant = variant
+            };
+            variant.SetTexture(fontSamplerId, texture);
+
+            _context = ImGui.GetCurrentContext();
+        }
+
+        public Texture2D GetTexture(ImTextureID imTextureID)
+        {
+            if(_textureVariants.TryGetValue(imTextureID, out TextureVariant value))
+            {
+                return value.Texture;
+            }
+            return null;
+        }
+
+        public bool HasTexture(ImTextureID imTextureID)
+        {
+            return _textureVariants.ContainsKey(imTextureID);
         }
 
         private static void Resize(uint width, uint height)
@@ -93,7 +145,7 @@ namespace VECS.UI
             }
         }
 
-        public virtual void UpdateTexture(ImTextureDataPtr textureData)
+        protected virtual void UpdateTexture(ImTextureDataPtr textureData)
         {
             switch (textureData.Status)
             {
@@ -130,9 +182,12 @@ namespace VECS.UI
                 VkCompareOp.Never,
                 false);
 
-            _freeVariants.TryDequeue(out var variant);
+            if(!_freeVariants.TryDequeue(out var variant))
+            {
+                variant = EnginePipes.IMGUI.Create(string.Format("IMGUI_VAR_{1}_{0}", textureData.TexID.Handle.ToString(), _outputWindow.WindowName));
+            }
 
-            variant ??= _imgui.Create(string.Format("IMGUI_VAR_{0}", textureData.UniqueID.ToString()));
+            
 
             _textureVariants[textureData.TexID] = new()
             {
@@ -188,54 +243,6 @@ namespace VECS.UI
                 textureVariant.Texture.Dispose();
                 _textureVariants.Remove(texId);
             }
-        }
-
-        private static void CreatePipeline()
-        {
-            if (_imgui != null) return;
-            GraphicsPipelineConfigInfo configInfo = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
-            GraphicsPipelineConfigInfo.EnableAlphaBlending(ref configInfo);
-            configInfo.colourFormats = [VkFormat.R8G8B8A8Unorm];
-            configInfo.rasterizationInfo.cullMode = VkCullModeFlags.None;
-
-            configInfo.depthStencilInfo.depthTestEnable = false;
-            configInfo.depthStencilInfo.depthWriteEnable = false;
-            configInfo.depthStencilInfo.depthCompareOp = VkCompareOp.LessOrEqual;
-
-            //configInfo.colourBlendAttachment.srcAlphaBlendFactor = VkBlendFactor.SrcAlpha;
-            //configInfo.colourBlendAttachment.srcAlphaBlendFactor = VkBlendFactor.One;
-            configInfo.colourBlendAttachment.dstAlphaBlendFactor = VkBlendFactor.One;
-
-            configInfo.BindingDescriptions = [
-                new()
-                {
-                    binding = 0,
-                    stride = 20,
-                    inputRate = VkVertexInputRate.Vertex
-                }
-            ];
-            configInfo.AttributeDescriptions = [
-                new (){
-                    binding = 0,
-                    location = 0,
-                    format = VkFormat.R32G32Sfloat,
-                    offset = 0
-                }, new(){
-                    binding = 0,
-                    location = 1,
-                    format = VkFormat.R32G32Sfloat,
-                    offset = 8
-                }, new(){
-                    binding = 0,
-                    location = 2,
-                    format = VkFormat.R8G8B8A8Unorm,
-                    offset = 16
-                }
-            ];
-
-            _imgui = new("IMGUI_Pipe", "imgui.vert", "imgui.frag", configInfo);
-
-            _freeVariants.Enqueue(_imgui.Default());
         }
 
         private static void NewFrame()
@@ -312,10 +319,6 @@ namespace VECS.UI
 
         public unsafe void Draw(RendererFrameInfo frameInfo)
         {
-            if (_imgui == null)
-            {
-                CreatePipeline();
-            }
             if (_blitVariant == null)
             {
                 _blitVariant = EnginePipes.Blit.Create(string.Format("{0}_Blit", _outputWindow.WindowName));
