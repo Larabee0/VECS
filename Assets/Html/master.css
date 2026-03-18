@@ -1,7 +1,9 @@
 html {
-    display: block;
+    display: flex;
     height:100%;
     width:100%;
+    background-color:white;
+    overflow: scroll;
 	position: relative;
 }
 
@@ -30,7 +32,7 @@ script {
 }
 
 body {
-	display:block; 
+	display:flex; 
 	margin:8px; 
     height:100%;
     width:100%;

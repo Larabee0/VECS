@@ -1,9 +1,9 @@
-﻿using LiteHtmlSharp;
-using Hexa.NET.ImGui;
+﻿using Hexa.NET.ImGui;
+using LiteHtmlSharp;
 using System;
-using System.Numerics;
-using System.IO;
 using System.Collections.Generic;
+using System.IO;
+using System.Numerics;
 
 namespace VECS.UI
 {
@@ -40,7 +40,7 @@ namespace VECS.UI
         {
             string css = File.ReadAllText(Path.Combine(LiteHtmlExtentions.DefaultHtmlPath, "master.css"));
             vkViewportContainer = new(css,imGUi, null);
-            imGUi.ClearColour = Vector4.One;
+            //imGUi.ClearColour = Vector4.One;
             vkViewportContainer.RenderHtmlRequested += Container_RenderHtmlRequested;
         }
 
@@ -48,13 +48,16 @@ namespace VECS.UI
         public void LoadHtml(string htmlFile)
         {
             vkViewportContainer?.LoadHtml(htmlFile);
+            ImGui.ShowDemoWindow();
         }
 
         public void Render()
         {
-
             vkViewportContainer.CheckViewportChange(forceRender: true);
+            
             vkViewportContainer.Draw();
+            
+            //Console.WriteLine(new Vector2((float)vkViewportContainer.Size.Width, (float)vkViewportContainer.Size.Width));
         }
         private void Container_RenderHtmlRequested(string html)
         {
@@ -65,6 +68,7 @@ namespace VECS.UI
         {
             vkViewportContainer.ResetViewport();
             vkViewportContainer.SetViewport(new(),new(width,height));
+            //Console.WriteLine(new Vector2(width,height));
         }
 
     }
@@ -94,12 +98,21 @@ namespace VECS.UI
             ref font_metrics fm)
         {
             var fontId = _imgui.AddFontTTF(Path.Combine(LiteHtmlExtentions.DefaultHtmlPath, "arial.ttf"),size);
+            var font = _imgui.GetFont(fontId);
+            
+            var baked = font->GetFontBaked(size);
+            ImGui.PushFont(font, size);
+            float x_height = ImGui.CalcTextSize("x").Y;
+            float ascent = baked->Ascent;
+            float descent = baked->Descent;
+            float height = ImGui.CalcTextSize("|").Y;
 
-            fm.x_height = 8;
-            fm.ascent = 11;
-            fm.descent = 3;
-            fm.height = 14;
+            fm.x_height = (int)x_height;
+            fm.ascent = (int)ascent;
+            fm.descent = (int)descent;
+            fm.height = (int)height;
             fm.draw_spaces = true;
+            ImGui.PopFont();
             return fontId;
         }
 
@@ -273,13 +286,13 @@ namespace VECS.UI
             ImGui.AddRectFilled(backgroundDrawList, rect.Min, rect.Max, color.GetUintColour());
         }
 
-        protected override void DrawText(string text, nuint font, ref web_color color, ref position pos)
+        protected unsafe override void DrawText(string text, nuint font, ref web_color color, ref position pos)
         {
             text = text.Replace(' ', (char)160);
             var viewPort = ImGui.GetMainViewport();
             var backgroundDrawList = ImGui.GetBackgroundDrawList(viewPort);
             var fontVal = _imgui.GetFont((uint)font);
-            ImGui.PushFont(ref fontVal, 0.0f);
+            ImGui.PushFont(fontVal, GetDefaultFontSize());
             
             ImGui.AddText(backgroundDrawList, new(pos.x, pos.y), color.GetUintColour(), text);
             ImGui.PopFont();
@@ -292,7 +305,7 @@ namespace VECS.UI
 
         protected override int GetDefaultFontSize()
         {
-            return 12;
+            return 45;
         }
 
         protected override void GetImageSize(string image, ref size size)
@@ -305,12 +318,12 @@ namespace VECS.UI
             }
         }
 
-        protected override int GetTextWidth(string text, nuint font)
+        protected unsafe override int GetTextWidth(string text, nuint font)
         {
             text = text.Replace(' ', (char)160);
             var fontVal = _imgui.GetFont((uint)font);
 
-            //ImGui.PushFont(ref fontVal, 0.0f);
+            ImGui.PushFont(fontVal, GetDefaultFontSize());
             var textSize = ImGui.CalcTextSize(text);
 
             //ImGui.PopFont();

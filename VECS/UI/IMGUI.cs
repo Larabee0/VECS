@@ -35,9 +35,14 @@ namespace VECS.UI
         private Material _blitVariant;
 
         private readonly Dictionary<ImTextureID, TextureVariant> _textureVariants = [];
-        private unsafe readonly Dictionary<uint, ImFont> _fonts = [];
+        private unsafe readonly Dictionary<uint, FontPtr> _fonts = [];
 
         public Vector4 ClearColour;
+
+        private struct FontPtr
+        {
+            public unsafe ImFont* Font;
+        }
         
         public unsafe IMGUI(SDL3Window targetWindow)
         {
@@ -52,8 +57,8 @@ namespace VECS.UI
             ImGui.GetIO().ConfigDpiScaleFonts = true;
             ImGui.GetIO().BackendFlags = ImGuiBackendFlags.RendererHasTextures;
             
-            SetStyle(0);
-            ImGui.GetStyle().FontSizeBase = 20.0f;
+            //SetStyle(0);
+            //ImGui.GetStyle().FontSizeBase = 20.0f;
             ImGui.GetIO().Fonts.AddFontDefault();
             //ImGui.GetIO().Fonts.AddFontDefault();  // Load embedded scalable font.
             Resize(_outputWindow.WindowExtent.width, _outputWindow.WindowExtent.height);
@@ -69,16 +74,18 @@ namespace VECS.UI
         {
             Debug.Assert(Path.Exists(fontPath));
             ImGui.SetCurrentContext(_context);
-            ImFont* imFont = ImGui.GetIO().Fonts.AddFontFromFileTTF(fontPath,size);
-            _fonts[imFont->FontId] = *imFont;
+                        
+            ImFont* imFont = ImGui.GetIO().Fonts.AddFontFromFileTTF(fontPath, size);
+
+            _fonts[imFont->FontId] = new() { Font = imFont };
             _context = ImGui.GetCurrentContext();
 
             return imFont->FontId;
         }
 
-        public ImFont GetFont(uint fontId)
+        public unsafe ImFont* GetFont(uint fontId)
         {
-            return _fonts[fontId];
+            return _fonts[fontId].Font;
         }
 
         public void AddTexture(ImTextureID textureID, Texture2D texture)
