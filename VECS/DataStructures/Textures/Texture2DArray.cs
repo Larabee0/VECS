@@ -75,6 +75,11 @@ namespace VECS
 
             _imageExtent = new(surfaces[0].Width, surfaces[0].Height, surfaces.Length);
 
+            for (int i = 0; i < surfaces.Length; i++)
+            {
+                surfaces[i].Dispose();
+            }
+
             if (generateMipMaps)
             {
                 MipMapCount = TextureExtensions.CalculateMipMapLevels(_imageExtent.width, _imageExtent.height);

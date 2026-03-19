@@ -15,12 +15,14 @@ namespace VECS
             public readonly Texture Texture;
             public readonly GPUBuffer Buffer;
             public readonly bool DisposeBufferAfterCopy;
+            public readonly bool DisallowMipMapRegen;
 
-            public TextureBufferCopyCmd(Texture target, GPUBuffer source, bool disposeBufferAfterCopy)
+            public TextureBufferCopyCmd(Texture target, GPUBuffer source, bool disposeBufferAfterCopy, bool disallowMipMapRegen)
             {
                 Texture = target;
                 Buffer = source;
                 DisposeBufferAfterCopy = disposeBufferAfterCopy;
+                DisallowMipMapRegen = disallowMipMapRegen;
             }
         }
 
@@ -261,7 +263,7 @@ namespace VECS
                 texture._vkImage = VkImage.Null;
                 texture._allocation = VmaAllocation.Null;
             }
-
+            
             Vma.vmaCreateImage(GraphicsDevice.VmaAllocator, imageCreateInfo, allocationCreateInfo, out texture._vkImage, out texture._allocation).CheckResult( "Create Image View failed!");
 
             GraphicsDevice.DeviceAPI.vkGetImageMemoryRequirements(texture._vkImage, out var requirements);
@@ -285,12 +287,20 @@ namespace VECS
             }
             if (texture._useageFlags.HasFlag(VkImageUsageFlags.DepthStencilAttachment))
             {
-                texture._aspectFlags = VkImageAspectFlags.Depth;
+                if (texture.Format == VkFormat.S8Uint)
+                {
+                    texture._aspectFlags = VkImageAspectFlags.Stencil;
+                }
+                else
+                {
+                    texture._aspectFlags = VkImageAspectFlags.Depth;
+                }
             }
             if (texture.Format == VkFormat.D16UnormS8Uint || texture.Format == VkFormat.D32SfloatS8Uint || texture.Format == VkFormat.D24UnormS8Uint)
             {
                 texture._aspectFlags |= VkImageAspectFlags.Stencil;
             }
+
             return layout;
         }
 
@@ -374,9 +384,9 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static void CopyFromBuffer(this Texture texture, GPUBuffer buffer, bool disposeBufferAfterCopy = false)
+        internal static void CopyFromBuffer(this Texture texture, GPUBuffer buffer, bool disposeBufferAfterCopy = false, bool disallowMipMapRegen = false)
         {
-            _copyBufferToTexture.Enqueue(new(texture, buffer, disposeBufferAfterCopy));
+            _copyBufferToTexture.Enqueue(new(texture, buffer, disposeBufferAfterCopy, disallowMipMapRegen));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -402,7 +412,7 @@ namespace VECS
             {
                 if (copy.Buffer.IsDisposed || copy.Texture.IsDisposed) continue;
                 bool hintRegenerateMipMaps = CopyFromBuffer(copy.Texture, cmd, copy.Buffer);
-                if (hintRegenerateMipMaps && copy.Texture.MipMapCount > 1)
+                if (!copy.DisallowMipMapRegen && hintRegenerateMipMaps && copy.Texture.MipMapCount > 1)
                 {
                     _regenMipMapsCmds.Enqueue(copy.Texture);
                 }
@@ -564,7 +574,7 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static void CopyToBuffer(this Texture texture, GPUBuffer buffer)
         {
-            _copyTextureToBuffer.Enqueue(new(texture, buffer, false));
+            _copyTextureToBuffer.Enqueue(new(texture, buffer, false,false));
         }
 
         internal static unsafe void CopyToBuffer(this Texture texture, VkCommandBuffer cmdBuffer, GPUBuffer buffer)

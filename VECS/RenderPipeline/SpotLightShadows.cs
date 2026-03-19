@@ -42,7 +42,7 @@ namespace VECS
                 DIRECTIONAL_SHADOW_RESOLTION,
                 DIRECTIONAL_SHADOW_RESOLTION,
                 Presenter.MAX_POINT_LIGHTS,
-                VkFormat.D32Sfloat,
+                PreferredFormats.LOW_PRECISION_DEPTH_ONLY,
                 VkSamplerAddressMode.ClampToBorder,
                 VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled,
                 false);

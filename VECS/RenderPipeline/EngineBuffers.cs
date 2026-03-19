@@ -24,7 +24,7 @@ namespace VECS
         private readonly static SwapChainBuffer<PointLightUniform> PointLightBuffer;
         private readonly static SwapChainBuffer<SpotLightUniform> SpotLightBuffer;
 
-        private readonly static ConcurrentDictionary<int, SwapChainBuffer> _engineBuffers = new();
+        internal readonly static ConcurrentDictionary<int, SwapChainBuffer> _engineBuffers = new();
 
         public static SwapChainBuffer TryGetBuffer(int propertyId)
         {

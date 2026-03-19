@@ -350,7 +350,7 @@ namespace VECS
                 {
                     if (!textureLibrary.TryGetValue(matInfo.NormalTexture, out var normalTexture))
                     {
-                        normalTexture = new Texture2D(matInfo.NormalTexture, true);
+                        normalTexture = new Texture2D(matInfo.NormalTexture, true,false,false);
                         //normalTexture.Reinitialise(new VkComponentMapping(VkComponentSwizzle.A, VkComponentSwizzle.G, VkComponentSwizzle.B, VkComponentSwizzle.R));
 
                         textureLibrary.Add(matInfo.NormalTexture, normalTexture);
@@ -396,7 +396,7 @@ namespace VECS
             Console.WriteLine("Sponza Mesh Import time: {0}ms", sw.ElapsedMilliseconds);
 
             sw.Restart();
-            HashSet<string> texturesSets = new HashSet<string>();
+            HashSet<string> texturesSets = [];
             for (int i = 0; i < sponzaMatInfo.Length; i++)
             {
                 var matInfo = sponzaMatInfo[i];

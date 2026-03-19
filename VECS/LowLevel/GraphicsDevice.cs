@@ -132,7 +132,9 @@ namespace VECS.LowLevel
             GraphicsDeviceInit.CreateLogicalDevice();
             GraphicsDeviceInit.CreateCommandPools();
             GraphicsDeviceInit.CreateVmaAllocator();
+            PreferredFormats.UpdateDepthFormatPreferences();
             Initialised = true;
+
         }
 
         #region For Extneral use
@@ -238,11 +240,6 @@ namespace VECS.LowLevel
             }
 
             throw new Exception("Failed to find support image format");
-        }
-
-        public static bool HasStencil(VkFormat format)
-        {
-            return _stencilFormats.Contains(format);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

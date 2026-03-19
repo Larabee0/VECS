@@ -46,7 +46,7 @@ namespace VECS
 
             GraphicsPipelineConfigInfo shadowConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             shadowConfig.colourFormats = [];
-            shadowConfig.depthFormat = VkFormat.D32Sfloat;
+            shadowConfig.depthFormat = PreferredFormats.LOW_PRECISION_DEPTH_ONLY;
             shadowConfig.stencilFormat = VkFormat.Undefined;
             shadowConfig.depthStencilInfo.depthWriteEnable = true;
             shadowConfig.depthStencilInfo.depthCompareOp = VkCompareOp.LessOrEqual;

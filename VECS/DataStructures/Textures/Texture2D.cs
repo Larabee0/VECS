@@ -25,6 +25,8 @@ namespace VECS
             AssetDataBase<Texture2D>.Add(this);
         }
 
+        
+
         public Texture2D(string name, int width, int height, VkFormat textureFormat, VkImageUsageFlags usage, bool generateMipMaps = true)
         {
             AssetName = name;
@@ -301,11 +303,20 @@ namespace VECS
             AssetDataBase<Texture2D>.Add(this);
         }
 
-        public Texture2D(string filePath, bool generateMipMaps = true, bool dontAddToDataBase = false)
+        public Texture2D(string filePath, bool generateMipMaps = true, bool dontAddToDataBase = false, bool compression = true)
         {
             var surface = TextureLoader.LoadToSurface(filePath);
-            _hostBuffer = TextureLoader.CopySurfaceToStagingBuffer(surface);
+            if (compression)
+            {
+                var compressedContainer = TextureLoader.CompressedLoader(surface,true,false,generateMipMaps,false);
+                _hostBuffer = TextureLoader.CopyCompressedTextureToBuffer(compressedContainer, out _imageFormat);
+            }
+            else
+            {
+                _hostBuffer = TextureLoader.CopySurfaceToStagingBuffer(surface);
+            }
             _imageExtent = new(surface.Width, surface.Height, 1);
+            surface.Dispose();
             _imageImageViewType = VkImageViewType.Image2D;
 
             if (generateMipMaps)
@@ -315,7 +326,7 @@ namespace VECS
 
             this.CreateImage(GetImageCreateInfo());
             this.SetImageLayoutAndAspectFromUsage();
-            this.CopyFromBuffer(_hostBuffer);
+            this.CopyFromBuffer(_hostBuffer,false,compression && generateMipMaps);
 
             this.CreateImageView(GetImageViewCreateInfo());
             this.CreateSampler();
@@ -333,6 +344,7 @@ namespace VECS
             var surface = TextureLoader.LoadToSurface(filePath);
             _hostBuffer = TextureLoader.CopySurfaceToStagingBuffer(surface);
             _imageExtent = new(surface.Width, surface.Height, 1);
+            surface.Dispose();
             _imageImageViewType = VkImageViewType.Image2D;
             WrapModeU = samplerMode;
             WrapModeV = samplerMode;

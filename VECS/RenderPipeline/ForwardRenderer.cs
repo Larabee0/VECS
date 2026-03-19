@@ -18,7 +18,7 @@ namespace VECS
         public SwapChainBuffer _linkedList;
 
         public static readonly VkFormat[] ColourFormats = [VkFormat.R32G32B32A32Sfloat, VkFormat.R32G32B32A32Sfloat];
-        public static readonly VkFormat DepthFormat = VkFormat.D32Sfloat;
+        public static VkFormat DepthFormat => PreferredFormats.LOW_PRECISION_DEPTH_ONLY;
 
         [StructLayout(LayoutKind.Sequential, Size = 24)]
         private struct OITNode

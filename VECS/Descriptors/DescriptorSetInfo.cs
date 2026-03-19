@@ -241,6 +241,11 @@ namespace VECS
             return _isStorageBufferOwner[_bindingPointToBufferIndex[bindPoint]];
         }
 
+        public bool IsStorageBufferOwnerBufferIndex(int index)
+        {
+            return _isStorageBufferOwner[index];
+        }
+
         public void SetStorageBuffer(SwapChainBuffer buffer, uint bindPoint)
         {
             int bufferIndex = _bindingPointToBufferIndex[bindPoint];

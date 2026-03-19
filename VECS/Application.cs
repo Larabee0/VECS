@@ -1,12 +1,14 @@
-﻿using System;
-using VECS.ECS;
-using VECS.LowLevel;
-using BepuUtilities;
-using System.Runtime.CompilerServices;
-using System.Threading;
-using VECS.UI;
+﻿using BepuUtilities;
+using System;
 using System.Diagnostics;
 using System.IO;
+using System.Reflection.Metadata.Ecma335;
+using System.Runtime.CompilerServices;
+using System.Threading;
+using VECS.ECS;
+using VECS.LowLevel;
+using VECS.UI;
+using Vortice.Vulkan;
 
 namespace VECS
 {
@@ -18,7 +20,7 @@ namespace VECS
         public static Application Instance { get; private set; }
         private static bool running = true;
 
-        private static uint _targetFrameRate = 24;//uint.MaxValue;
+        private static uint _targetFrameRate = uint.MaxValue; // 24;//
         private static double _targetFrameTime;
 
         public static uint TargetFrameRate
@@ -73,7 +75,7 @@ namespace VECS
             GraphicsDevice.Initialise(_mainAppWindow);
             SDL3WindowManager.CheckLoadedPresentMode();
             ShaderModule.LoadAllShaders();
-            SDL3WindowManager.CreateNewEditorWindow("VECS-Editor", Width, Height);
+            //SDL3WindowManager.CreateNewEditorWindow("VECS-Editor", Width, Height);
             _presenter = new();
 
             Time.FixedTimeStepCallback += FixedUpdate;
@@ -169,6 +171,119 @@ namespace VECS
             Console.WriteLine("Start completed, Engine is Running!");
         }
 
+        private static unsafe void LogMemoryUsage()
+        {
+            VmaBudget* budgets = stackalloc VmaBudget[(int)Vulkan.VK_MAX_MEMORY_HEAPS];
+
+            Vma.vmaGetHeapBudgets(GraphicsDevice.VmaAllocator, budgets);
+            Console.WriteLine("\nLogging Vulkan Memory Usage");
+
+            Vma.vmaCalculateStatistics(GraphicsDevice.VmaAllocator, out VmaTotalStatistics stats);
+            Console.WriteLine("Totaly Bytes: {0}", stats.total.statistics.allocationBytes);
+            Console.WriteLine("Unused Bytes: {0} Min {1} Max", stats.total.unusedRangeSizeMin, stats.total.unusedRangeSizeMax);
+            Console.WriteLine("\nLogging Per Asset Memory Usage");
+            GetTextureMemoryUsage<Texture2D>();
+            GetTextureMemoryUsage<Texture2DArray>();
+            GetTextureMemoryUsage<Texture3D>();
+            GetTextureMemoryUsage<Cubemap>();
+            GetTextureMemoryUsage<CubemapArray>();
+
+            ulong meshBytes = 0;
+
+            for (int i = 0; i < AssetDataBase<DirectMesh>.AllAssetsListForReading.Count; i++)
+            {
+                var mesh = AssetDataBase<DirectMesh>.AllAssetsListForReading[i];
+                foreach (var vertexBuffer in mesh._vertexBuffers)
+                {
+                    meshBytes += vertexBuffer.Value.VkBufferSize;
+                }
+                meshBytes += mesh.IndexBuffer.VkBufferSize;
+            }
+            Console.WriteLine("Mesh memory usage {0} bytes", meshBytes);
+
+            ulong computePipe = 0;
+
+            for (int i = 0; i < AssetDataBase<ComputePipeline>.AllAssetsListForReading.Count; i++)
+            {
+                var pipe = AssetDataBase<ComputePipeline>.AllAssetsListForReading[i];
+                computePipe += pipe.UniformBufferSize * SwapChain.MAX_CONCURRENT_FRAMES_UINT;
+
+                for (int j = 0; j < pipe._descriptorSetInfos.Length; j++)
+                {
+                    var setInfo = pipe._descriptorSetInfos[j];
+                    for (int k = 0; k < setInfo.DescriptorBuffers.Length; k++)
+                    {
+                        computePipe += setInfo.DescriptorBuffers[k].AllocationSize;
+                    }
+                    if (setInfo.StorageBuffers == null) continue;
+                    for (int k = 0; k < setInfo.StorageBuffers.Length; k++)
+                    {
+                        if (setInfo.IsStorageBufferOwnerBufferIndex(k))
+                        {
+                            computePipe += setInfo.StorageBuffers[k].VkBufferSize * SwapChain.MAX_CONCURRENT_FRAMES_UINT;
+                        }
+                    }
+                }
+            }
+
+            Console.WriteLine("Compute Pipeline memory usage {0} bytes", computePipe);
+
+            ulong graphicsPipes = 0;
+
+            for (int i = 0; i < AssetDataBase<GraphicsPipeline>.AllAssetsListForReading.Count; i++)
+            {
+                var pipe = AssetDataBase<GraphicsPipeline>.AllAssetsListForReading[i];
+                graphicsPipes += pipe.UniformBufferSize * SwapChain.MAX_CONCURRENT_FRAMES_UINT;
+
+                for (int j = 0; j < pipe.DescriptorSetInfos.Length; j++)
+                {
+                    var setInfo = pipe.DescriptorSetInfos[j];
+                    for (int k = 0; k < setInfo.DescriptorBuffers.Length; k++)
+                    {
+                        if (setInfo.DescriptorBuffers[k] == null) continue;
+                        graphicsPipes += setInfo.DescriptorBuffers[k].AllocationSize;
+                    }
+                    if (setInfo.StorageBuffers == null) continue;
+                    for (int k = 0; k < setInfo.StorageBuffers.Length; k++)
+                    {
+                        if (setInfo.IsStorageBufferOwnerBufferIndex(k))
+                        {
+                            graphicsPipes += setInfo.StorageBuffers[k].VkBufferSize * SwapChain.MAX_CONCURRENT_FRAMES_UINT;
+                        }
+                    }
+                }
+            }
+
+            Console.WriteLine("Graphics Pipeline memory usage {0} bytes", graphicsPipes);
+
+            ulong engineBuffers = 0;
+            foreach (var item in EngineBuffers._engineBuffers)
+            {
+                engineBuffers += item.Value.VkBufferSize * SwapChain.MAX_CONCURRENT_FRAMES_UINT;
+            }
+
+            Console.WriteLine("Engine Buffer memory usage {0} bytes", graphicsPipes);
+        }
+
+        private static void GetTextureMemoryUsage<T>() where T :Texture
+        {
+            ulong sizeBytes = 0;
+
+            for (int i = 0; i < AssetDataBase<T>.AllAssetsListForReading.Count; i++)
+            {
+                var texture = AssetDataBase<T>.AllAssetsListForReading[i];
+
+                sizeBytes += texture._vkBufferSizeRequirement;
+
+                if(texture._hostBuffer  != null)
+                {
+                    sizeBytes += texture._hostBuffer.VkBufferSize;
+                }
+            }
+
+            Console.WriteLine("{0} memory usage {1} bytes", typeof(T).Name, sizeBytes);
+        }
+
         private static void LogAssetCounts()
         {
             Console.WriteLine("Logging Assets Counts...");
@@ -177,6 +292,7 @@ namespace VECS
                 var assetCount = (int)GenericExtensions.GetStaticPropertyOnGenericType(typeof(AssetDataBase<>), assetType, "AssetCount");
                 Console.WriteLine("{0}: {1}", assetType.Name, assetCount);
             }
+            LogMemoryUsage();
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -195,6 +311,10 @@ namespace VECS
             Instance.UpdateCallback?.Invoke();
             _mainWorld.OnUpdate();
             _mainWorld.OnPostUpdate();
+            if (InputManager.Instance.GetKeyUp(SDL3.SDL_Keycode.Y))
+            {
+                LogMemoryUsage();
+            }
         }
 
         /// <summary>

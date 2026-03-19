@@ -2,11 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using TeximpNet;
+using TeximpNet.Compression;
 using TeximpNet.DDS;
-using TeximpNet.Unmanaged;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
@@ -46,6 +46,8 @@ namespace VECS
             {
                 throw new FileNotFoundException(string.Format("Texture not found, '{0}'",filePath));
             }
+            
+            
 
             Surface image = Surface.LoadFromFile(filePath);
 
@@ -61,6 +63,90 @@ namespace VECS
 
             return image;
             
+        }
+
+        public static DDSContainer CompressedLoader(Surface surface, bool alphaIsTransparency, bool normalMap, bool mipMaps, bool hdr)
+        {
+            var compressor = new Compressor();
+
+            bool setSuccess = compressor.Input.SetData(surface);
+            //compressor.Input.AlphaMode = alphaIsTransparency ? AlphaMode.Transparency : AlphaMode.None;
+            //compressor.Input.IsNormalMap = normalMap;
+            compressor.Input.GenerateMipmaps = mipMaps;
+            //compressor.Input.WrapMode = WrapMode.Repeat;
+            //compressor.Input.MipmapFilter = MipmapFilter.Kaiser;
+            //compressor.Input.RoundMode = RoundMode.ToNearestPowerOfTwo;
+            //compressor.Compression.Format = normalMap ? CompressionFormat.BC5 : hdr ? CompressionFormat.BC6 : CompressionFormat.BC7;
+            compressor.Compression.Quality = CompressionQuality.Normal;
+            compressor.Compression.Format = CompressionFormat.BC3;
+            
+            // if (!normalMap && !hdr)
+            // {
+            //     compressor.Compression.SetQuantization(true, true, false);
+            // }
+            // else
+            // {
+            compressor.Compression.SetQuantization(false, false, false);
+            // }
+            
+            compressor.Output.OutputFileFormat = OutputFileFormat.DDS;
+            var success = compressor.Process(out DDSContainer compressedImage);
+            if (compressor.HasLastError)
+            {
+                Console.Write(compressor.LastErrorString);
+            }
+            compressor.Input.ClearTextureLayout();
+            compressor.Dispose();
+            
+            if (success)
+            {
+                return compressedImage;
+            }
+            return null;
+        }
+
+        public unsafe static GPUBuffer CopyCompressedTextureToBuffer(DDSContainer ddsContainer, out VkFormat imageFormat)
+        {
+            uint blockSize = 0;
+            imageFormat = ddsContainer.Format switch
+            {
+                DXGIFormat.BC3_UNorm_SRGB => VkFormat.Bc3SrgbBlock,
+                DXGIFormat.BC3_UNorm => VkFormat.Bc3UnormBlock,
+                DXGIFormat.BC4_UNorm => VkFormat.Bc4UnormBlock,
+                DXGIFormat.BC5_UNorm => VkFormat.Bc5UnormBlock,
+                DXGIFormat.BC5_SNorm => VkFormat.Bc5SnormBlock,
+                DXGIFormat.BC6H_UF16 => VkFormat.Bc6hUfloatBlock,
+                DXGIFormat.BC6H_SF16 => VkFormat.Bc6hSfloatBlock,
+                DXGIFormat.BC7_UNorm => VkFormat.Bc7UnormBlock,
+                DXGIFormat.BC7_UNorm_SRGB => VkFormat.Bc7SrgbBlock,
+                _ => throw new NotImplementedException(string.Format("DXGIFormat {0} not implemented", ddsContainer.Format.ToString())),
+            };
+            blockSize = (uint)Vulkan.BlockSize(imageFormat);
+            ulong totalBytes = 0;
+            for (int i = 0; i < ddsContainer.MipChains.Count; i++)
+            {
+                var chain = ddsContainer.MipChains[i];
+                for (int j = 0; j < chain.Count; j++)
+                {
+                    var mip = chain[j];
+                    totalBytes += (uint)mip.Width * (uint)mip.Height * blockSize;
+                }
+            }
+
+
+
+            MemoryStream ddsStream = new();
+            ddsContainer.Write(ddsStream);
+
+            GPUBuffer buffer = new((ulong)ddsStream.Length, blockSize, VkBufferUsageFlags.TransferSrc, true, true, false);
+            fixed (void* pbytes = ddsStream.ToArray())
+            {
+                buffer.WriteToBuffer(pbytes, (ulong)ddsStream.Length);
+            }
+
+            ddsContainer.Dispose();
+
+            return buffer;
         }
 
         public static unsafe GPUBuffer<Colour> CopySurfaceToStagingBuffer(Surface surface)

@@ -53,7 +53,10 @@ namespace VECS
             _hostBuffer = TextureLoader.CopySurfacesToStagingBuffer(surfaces);
 
             _imageExtent = new(surfaces[0].Width, surfaces[0].Height, 1);
-
+            for (int i = 0; i < surfaces.Length; i++)
+            {
+                surfaces[i].Dispose();
+            }
             _imageImageViewType = VkImageViewType.ImageCube;
             WrapModeU = wrapMode;
             WrapModeV = wrapMode;

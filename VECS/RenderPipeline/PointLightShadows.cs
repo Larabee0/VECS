@@ -9,7 +9,7 @@ namespace VECS
     {
         const int POINT_SHADOWS_PUSH_CONSTANT_INDEX = 2;
         public const int POINT_SHADOW_IMAGE_SIZE = 1024;
-        public const VkFormat SHADOW_FORMAT = VkFormat.D32Sfloat;
+        public static VkFormat SHADOW_FORMAT => PreferredFormats.LOW_PRECISION_DEPTH_ONLY;
         public const bool SHADOW_CULLING = false;
         public const bool SHADOW_DST_CULLING = false;
         public const bool SHADOW_DEPTH_CULLING = false;

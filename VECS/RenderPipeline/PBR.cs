@@ -9,9 +9,9 @@ namespace VECS
 {
     public static class PBR
     {
-        public const VkFormat BRDFLUT_FORMAT = VkFormat.R16G16Sfloat;
-        public const VkFormat IRRADIANCE_FORMAT = VkFormat.R32G32B32A32Sfloat;
-        public const VkFormat PREFILTERED_CUBE_FORMAT = VkFormat.R16G16B16A16Sfloat;
+        public const VkFormat BRDFLUT_FORMAT = VkFormat.R8G8Unorm;
+        public const VkFormat IRRADIANCE_FORMAT = VkFormat.R8G8B8A8Unorm;
+        public const VkFormat PREFILTERED_CUBE_FORMAT = VkFormat.R8G8B8A8Unorm;
         public const VkImageUsageFlags BRDFLUT_USAGE_FLAGS = VkImageUsageFlags.Sampled | VkImageUsageFlags.ColorAttachment;
         public const VkImageUsageFlags IRRADIANCE_USAGE_FLAGS = VkImageUsageFlags.Sampled | VkImageUsageFlags.ColorAttachment|VkImageUsageFlags.TransferDst|VkImageUsageFlags.TransferSrc;
         public const VkImageUsageFlags PREFILTERED_CUBE_USAGE_FLAGS = VkImageUsageFlags.Sampled | VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.TransferDst | VkImageUsageFlags.TransferSrc;

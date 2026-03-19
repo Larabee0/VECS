@@ -13,6 +13,7 @@ namespace VECS
     {
         const int DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX = 1;
         public const int DIRECTIONAL_SHADOW_RESOLTION = 4096;
+        public static VkFormat DIRECTIONAL_SHADOW_FORMAT => PreferredFormats.LOW_PRECISION_DEPTH_ONLY;
         public const int CASCADE_COUNT = 4;
         public const float CASCADE_SPLIT_LAMBDA = 0.95f;
         public const bool SHADOW_CULLING = false;
@@ -45,7 +46,7 @@ namespace VECS
                 DIRECTIONAL_SHADOW_RESOLTION,
                 DIRECTIONAL_SHADOW_RESOLTION,
                 CASCADE_COUNT,
-                VkFormat.D32Sfloat,
+                DIRECTIONAL_SHADOW_FORMAT,
                 VkSamplerAddressMode.ClampToBorder,
                 VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.Sampled,
                 false);

@@ -117,7 +117,7 @@ namespace VECS.LowLevel
             {
                 _depthAttachment = new(string.Format("Bloom_Depth_{0}", Presenter.FrameCount),
                         FRAME_BUFFER_DIMENTIONS_X, FRAME_BUFFER_DIMENTIONS_Y,
-                        VkFormat.D32Sfloat);
+                        PreferredFormats.LOW_PRECISION_DEPTH_ONLY);
             }
             else
             {
