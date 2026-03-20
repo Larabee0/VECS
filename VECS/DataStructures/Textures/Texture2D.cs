@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO;
 using VECS.LowLevel;
 using Vortice.Vulkan;
@@ -303,13 +304,16 @@ namespace VECS
             AssetDataBase<Texture2D>.Add(this);
         }
 
-        public Texture2D(string filePath, bool generateMipMaps = true, bool dontAddToDataBase = false, bool compression = true)
+        public Texture2D(string filePath, bool generateMipMaps = true, bool dontAddToDataBase = false, bool compression = false)
         {
             var surface = TextureLoader.LoadToSurface(filePath);
+
+            ulong[] offsets = null;
+            VkExtent3D[] extents = null;
             if (compression)
             {
                 var compressedContainer = TextureLoader.CompressedLoader(surface,true,false,generateMipMaps,false);
-                _hostBuffer = TextureLoader.CopyCompressedTextureToBuffer(compressedContainer, out _imageFormat);
+                _hostBuffer = TextureLoader.CopyCompressedTextureToBuffer(compressedContainer, out _imageFormat, out offsets, out extents);
             }
             else
             {
@@ -326,7 +330,15 @@ namespace VECS
 
             this.CreateImage(GetImageCreateInfo());
             this.SetImageLayoutAndAspectFromUsage();
-            this.CopyFromBuffer(_hostBuffer,false,compression && generateMipMaps);
+            if (!compression)
+            {
+                this.CopyFromBuffer(_hostBuffer, false);
+            }
+            else
+            {
+                Debug.Assert(offsets != null && extents != null);
+                this.CopyFromBuffer(_hostBuffer, offsets,extents,false);
+            }
 
             this.CreateImageView(GetImageViewCreateInfo());
             this.CreateSampler();

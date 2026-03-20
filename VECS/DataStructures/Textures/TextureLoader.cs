@@ -90,6 +90,7 @@ namespace VECS
             // }
             
             compressor.Output.OutputFileFormat = OutputFileFormat.DDS;
+            compressor.Output.OutputHeader = false;
             var success = compressor.Process(out DDSContainer compressedImage);
             if (compressor.HasLastError)
             {
@@ -105,7 +106,7 @@ namespace VECS
             return null;
         }
 
-        public unsafe static GPUBuffer CopyCompressedTextureToBuffer(DDSContainer ddsContainer, out VkFormat imageFormat)
+        public unsafe static GPUBuffer CopyCompressedTextureToBuffer(DDSContainer ddsContainer, out VkFormat imageFormat, out ulong[] offsets, out VkExtent3D[] extents)
         {
             uint blockSize = 0;
             imageFormat = ddsContainer.Format switch
@@ -123,17 +124,19 @@ namespace VECS
             };
             blockSize = (uint)Vulkan.BlockSize(imageFormat);
             ulong totalBytes = 0;
+            offsets = new ulong[ddsContainer.MipChains[0].Count];
+            extents = new VkExtent3D[ddsContainer.MipChains[0].Count];
             for (int i = 0; i < ddsContainer.MipChains.Count; i++)
             {
                 var chain = ddsContainer.MipChains[i];
                 for (int j = 0; j < chain.Count; j++)
                 {
                     var mip = chain[j];
+                    offsets[j] = totalBytes;
+                    extents[j] = new((uint)mip.Width , (uint)mip.Height,1);
                     totalBytes += (uint)mip.Width * (uint)mip.Height * blockSize;
                 }
             }
-
-
 
             MemoryStream ddsStream = new();
             ddsContainer.Write(ddsStream);

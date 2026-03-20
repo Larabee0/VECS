@@ -14,6 +14,8 @@ namespace VECS
         {
             public readonly Texture Texture;
             public readonly GPUBuffer Buffer;
+            public readonly ulong[] Offsets;
+            public readonly VkExtent3D[] Extents;
             public readonly bool DisposeBufferAfterCopy;
             public readonly bool DisallowMipMapRegen;
 
@@ -23,6 +25,15 @@ namespace VECS
                 Buffer = source;
                 DisposeBufferAfterCopy = disposeBufferAfterCopy;
                 DisallowMipMapRegen = disallowMipMapRegen;
+            }
+            public TextureBufferCopyCmd(Texture target, GPUBuffer source, bool disposeBufferAfterCopy, ulong[] offsets, VkExtent3D[] extents)
+            {
+                Texture = target;
+                Buffer = source;
+                DisposeBufferAfterCopy = disposeBufferAfterCopy;
+                DisallowMipMapRegen = true;
+                Offsets = offsets;
+                Extents = extents;
             }
         }
 
@@ -390,6 +401,12 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static void CopyFromBuffer(this Texture texture, GPUBuffer buffer, ulong[] offsets, VkExtent3D[] extents, bool disposeBufferAfterCopy = false)
+        {
+            _copyBufferToTexture.Enqueue(new(texture, buffer, disposeBufferAfterCopy, offsets,extents));
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static void CopyFrombufferNow(this Texture texture, GPUBuffer buffer)
         {
             var cmd = GraphicsDevice.BeginSingleTimeMainPipe();
@@ -411,7 +428,7 @@ namespace VECS
             while (_copyBufferToTexture.TryDequeue(out var copy))
             {
                 if (copy.Buffer.IsDisposed || copy.Texture.IsDisposed) continue;
-                bool hintRegenerateMipMaps = CopyFromBuffer(copy.Texture, cmd, copy.Buffer);
+                bool hintRegenerateMipMaps = CopyFromBuffer(copy.Texture, cmd, copy.Buffer, copy.Offsets,copy.Extents);
                 if (!copy.DisallowMipMapRegen && hintRegenerateMipMaps && copy.Texture.MipMapCount > 1)
                 {
                     _regenMipMapsCmds.Enqueue(copy.Texture);
@@ -429,7 +446,7 @@ namespace VECS
             }
         }
 
-        internal static unsafe bool CopyFromBuffer(this Texture texture, VkCommandBuffer cmdBuffer, GPUBuffer buffer)
+        internal static unsafe bool CopyFromBuffer(this Texture texture, VkCommandBuffer cmdBuffer, GPUBuffer buffer, ulong[] offsets = null, VkExtent3D[] extents = null)
         {
             var imageLayout = texture.ImageLayout;
             bool changeLayout = false;
@@ -508,17 +525,30 @@ namespace VECS
             else if (texture is Texture2D texture2D)
             {
                 uint copyCount = texture.MipMapCount;
-                if (buffer.VkBufferSize <= baseImageSize)
+                bool copyingMipMaps = false;
+                if (offsets != null && copyCount != offsets.Length)
+                {
+                    offsets = null;
+                    extents = null;
+                    
+                }
+                else
+                {
+                    copyingMipMaps = offsets != null;
+                }
+
+                if (buffer.VkBufferSize <= baseImageSize && !copyingMipMaps)
                 {
                     copyCount = 1;
                     hintRegenerateMipMaps = true;
                 }
+
                 VkBufferImageCopy* bufferCopyRegions = stackalloc VkBufferImageCopy[(int)copyCount];
                 for (uint i = 0; i < copyCount; i++)
                 {
                     bufferCopyRegions[i] = new()
                     {
-                        bufferOffset = offset,
+                        bufferOffset = offsets == null ? offset : offsets[i],
                         bufferRowLength = 0,
                         bufferImageHeight = 0,
                         imageSubresource = new()
@@ -533,11 +563,9 @@ namespace VECS
                             0,
                             0
                         ),
-                        imageExtent = new(
-                            (int)(texture.ImageExtent.width >> (int)i),
-                            (int)(texture.ImageExtent.height >> (int)i),
-                            1
-                        )
+                        imageExtent = extents == null 
+                        ? new((int)(texture.ImageExtent.width >> (int)i), (int)(texture.ImageExtent.height >> (int)i), 1)
+                        : extents[i]
                     };
 
                     baseImageSize = bufferCopyRegions[i].imageExtent.width * bufferCopyRegions[i].imageExtent.height * formatSize;
