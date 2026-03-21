@@ -149,8 +149,9 @@ void main()
 		normal,
 		cascadeIndex);
 	//float shadow = DirShadowsGL(lighting.directionalLight, normal, cascadeIndex);
-	
-	vec3 texNormal = TBN * normalize(texture(normalSampler, fragUV).rgb * 2.0 - vec3(1.0));
+	vec3 texNormal = vec3(texture(normalSampler, fragUV).xy, 0.0);
+	texNormal.z = sqrt(1 - texNormal.x * texNormal.x - texNormal.y * texNormal.y);
+	texNormal = TBN * normalize(texNormal * 2.0 - vec3(1.0));
 	if(dot(texNormal, texNormal) > 0){
 		normal = texNormal;
 	}

@@ -138,7 +138,11 @@ vec3 specularContribution(vec3 L, vec3 V, vec3 N, vec3 F0, float metallic, float
 }
 
 vec3 calculateNormal() {
-	vec3 tangentNormal = texture(normalMap, TILED_UV).xyz * 2.0 - 1.0;
+
+	vec3 texNormal = vec3(texture(normalMap, TILED_UV).rg, 0.0);
+	texNormal.b = sqrt(1 - texNormal.x * texNormal.x - texNormal.y * texNormal.y);
+
+	vec3 tangentNormal = texNormal * 2.0 - 1.0;
 
 	vec3 N = normalize(fragNormalWorld);
 	vec3 T = normalize(fragTangentWorld.xyz);

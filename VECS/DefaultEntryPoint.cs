@@ -8,6 +8,7 @@ using VECS.ECS;
 using VECS.ECS.Presentation;
 using VECS.ECS.Transforms;
 using VECS.GraphicsPipelines;
+using Vortice.Vulkan;
 
 namespace VECS
 {
@@ -329,7 +330,7 @@ namespace VECS
                 {
                     if (!textureLibrary.TryGetValue(matInfo.DiffuseTexture, out var diffuseTexture))
                     {
-                        diffuseTexture = new Texture2D(matInfo.DiffuseTexture);//TextureLoader.Load(matInfo.DiffuseTexture); //
+                        diffuseTexture = TextureLoader.Load(matInfo.DiffuseTexture,VkFormat.Bc7UnormBlock); //new Texture2D(matInfo.DiffuseTexture);
                         textureLibrary.Add(matInfo.DiffuseTexture, diffuseTexture);
                     }
                     if (matInfo.AlphaClipping)
@@ -350,7 +351,7 @@ namespace VECS
                 {
                     if (!textureLibrary.TryGetValue(matInfo.NormalTexture, out var normalTexture))
                     {
-                        normalTexture = new Texture2D(matInfo.NormalTexture, true,false,false);
+                        normalTexture = TextureLoader.Load(matInfo.NormalTexture, VkFormat.Bc5UnormBlock); // new Texture2D(matInfo.NormalTexture, true,false,false);
                         //normalTexture.Reinitialise(new VkComponentMapping(VkComponentSwizzle.A, VkComponentSwizzle.G, VkComponentSwizzle.B, VkComponentSwizzle.R));
 
                         textureLibrary.Add(matInfo.NormalTexture, normalTexture);
