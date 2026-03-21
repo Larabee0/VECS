@@ -340,6 +340,8 @@ namespace VECS.LowLevel
             VkPhysicalDeviceVulkan11Features deviceFeatures11 = new()
             {
                 shaderDrawParameters = true,
+                multiviewGeometryShader = true,
+                multiview = true,
                 pNext = &descriptorBuffers
             };
 

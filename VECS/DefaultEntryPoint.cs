@@ -329,7 +329,7 @@ namespace VECS
                 {
                     if (!textureLibrary.TryGetValue(matInfo.DiffuseTexture, out var diffuseTexture))
                     {
-                        diffuseTexture = new Texture2D(matInfo.DiffuseTexture);
+                        diffuseTexture = new Texture2D(matInfo.DiffuseTexture);//TextureLoader.Load(matInfo.DiffuseTexture); //
                         textureLibrary.Add(matInfo.DiffuseTexture, diffuseTexture);
                     }
                     if (matInfo.AlphaClipping)

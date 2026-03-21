@@ -12,7 +12,7 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
-    public static class TextureLoader
+    public static partial class TextureLoader
     {
         public static string DefaultTexturePath => Path.Combine(Asset.AssetsPath, "Textures");
         

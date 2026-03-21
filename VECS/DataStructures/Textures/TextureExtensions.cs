@@ -572,7 +572,7 @@ namespace VECS
                     offset += baseImageSize;
                 }
 
-                CopyBufferToTexture(texture, cmdBuffer, buffer,1u, bufferCopyRegions);
+                CopyBufferToTexture(texture, cmdBuffer, buffer,copyCount, bufferCopyRegions);
             }
             else
             {
