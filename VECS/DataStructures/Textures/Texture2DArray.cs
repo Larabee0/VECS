@@ -1,7 +1,4 @@
 using System.Diagnostics;
-using System.IO;
-using System.Text;
-using TeximpNet;
 using Vortice.Vulkan;
 
 namespace VECS
@@ -60,50 +57,6 @@ namespace VECS
 
             UpdateDescriptor();
 
-            AssetDataBase<Texture2DArray>.Add(this);
-        }
-
-        public Texture2DArray(string name, bool generateMipMaps, params string[] filePaths)
-        {
-            Debug.Assert(filePaths.Length > 1, "Cannot create texture array from 1 file");
-            AssetName = name;
-            _imageImageViewType = VkImageViewType.Image2DArray;
-            
-            Surface[] surfaces = TextureLoader.LoadBulk(filePaths);
-
-            _hostBuffer = TextureLoader.CopySurfacesToStagingBuffer(surfaces);
-
-            _imageExtent = new(surfaces[0].Width, surfaces[0].Height, surfaces.Length);
-
-            for (int i = 0; i < surfaces.Length; i++)
-            {
-                surfaces[i].Dispose();
-            }
-
-            if (generateMipMaps)
-            {
-                MipMapCount = TextureExtensions.CalculateMipMapLevels(_imageExtent.width, _imageExtent.height);
-            }
-
-            this.CreateImage(GetImageCreateInfo());
-            this.SetImageLayoutAndAspectFromUsage();
-            this.CopyFromBuffer(_hostBuffer);
-
-            this.CreateImageView(GetImageViewCreateInfo());
-            this.CreateSampler();
-
-            UpdateDescriptor();
-
-            StringBuilder stringBuilder = new(Path.GetFileName(filePaths[0]));
-            for (int i = 1; i < filePaths.Length; i++)
-            {
-                var fileName = Path.GetFileName(filePaths[i]);
-                stringBuilder.Append(", ");
-                stringBuilder.Append(fileName);
-            }
-            FileName = stringBuilder.ToString();
-
-            
             AssetDataBase<Texture2DArray>.Add(this);
         }
 

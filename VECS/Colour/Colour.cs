@@ -1,12 +1,11 @@
-﻿using TeximpNet;
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 
 namespace VECS
 {
     [StructLayout(LayoutKind.Sequential, Size = 4)]
     public struct Colour
     {
-        public static int SizeInBytes => MemoryHelper.SizeOf<Colour>();
+        public static unsafe int SizeInBytes => sizeof(Colour);
 
         public byte R;
         public byte G;

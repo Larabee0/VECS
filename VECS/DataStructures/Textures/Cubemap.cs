@@ -1,5 +1,4 @@
 using System;
-using TeximpNet;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
@@ -44,23 +43,19 @@ namespace VECS
             AssetDataBase<Cubemap>.Add(this);
         }
 
-        public Cubemap(string name, string skyboxFolder, VkSamplerAddressMode wrapMode, bool generateMipMaps = true)
+        public Cubemap(string name, int w, int h, VkFormat format, VkSamplerAddressMode wrapMode = VkSamplerAddressMode.ClampToEdge, VkImageUsageFlags _usageFlags = VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled, bool generateMipMaps = true)
         {
             AssetName = name;
+            _imageFormat = format;
+            _imageExtent = new(w, h, 1);
+            _useageFlags = _usageFlags;
 
-            Surface[] surfaces = TextureLoader.GetSkyboxTextures(skyboxFolder);
-
-            _hostBuffer = TextureLoader.CopySurfacesToStagingBuffer(surfaces);
-
-            _imageExtent = new(surfaces[0].Width, surfaces[0].Height, 1);
-            for (int i = 0; i < surfaces.Length; i++)
-            {
-                surfaces[i].Dispose();
-            }
             _imageImageViewType = VkImageViewType.ImageCube;
             WrapModeU = wrapMode;
             WrapModeV = wrapMode;
             WrapModeW = wrapMode;
+            CompareOp = VkCompareOp.Never;
+            BorderColour = VkBorderColor.FloatOpaqueWhite;
 
             if (generateMipMaps)
             {
@@ -70,7 +65,6 @@ namespace VECS
             this.SetImageLayoutAndAspectFromUsage();
 
             this.CreateImage(GetImageCreateInfo());
-            this.CopyFromBuffer(_hostBuffer);
             this.CreateImageView(GetImageViewCreateInfo());
             CreateFaceImageViews();
 

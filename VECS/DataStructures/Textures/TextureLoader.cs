@@ -1,13 +1,15 @@
+using BCnEncoder.Encoder;
+using BCnEncoder.ImageSharp;
+using BCnEncoder.Shared;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp.Processing;
+using SixLabors.ImageSharp.Processing.Processors.Transforms;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Runtime.InteropServices;
 using System.Text;
-using TeximpNet;
-using TeximpNet.Compression;
-using TeximpNet.DDS;
-using VECS.LowLevel;
 using Vortice.Vulkan;
 
 namespace VECS
@@ -21,239 +23,244 @@ namespace VECS
             return Path.Combine(DefaultTexturePath, file);
         }
 
-        public static Surface[] LoadBulk(string[] filePaths)
+        private static readonly HashSet<string> SkyboxTextures = ["right", "left", "bottom", "top", "front", "back"];
+        private static readonly string[] InOrderSkybox = ["right", "left", "bottom", "top", "front", "back"];
+        public static string CompressedTextureBinaryPath => Path.Combine(Application.PersistentDataPath, "TextureBlob.bin");
+
+        private static List<CompressedTextureBinary> CompressedBinaryTextures = null;
+
+        public static VkFormat GetVkFormat(this CompressionFormat compressionFormat)
         {
-            Surface[] surfaces = new Surface[filePaths.Length];
-
-            for (int i = 0; i < filePaths.Length; i++)
+            return compressionFormat switch
             {
-                var surface = LoadToSurface(filePaths[i]);
-                Debug.Assert(surface != null, string.Format("Texture loader returned null for: {0}", filePaths[i]));
+                CompressionFormat.R => VkFormat.R8Unorm,
+                CompressionFormat.Rg => VkFormat.R8G8Unorm,
+                CompressionFormat.Rgb => VkFormat.R8G8B8Unorm,
+                CompressionFormat.Rgba => VkFormat.R8G8B8A8Unorm,
+                CompressionFormat.Bgra => VkFormat.B8G8R8A8Unorm,
+                CompressionFormat.Bc1 => VkFormat.Bc1RgbUnormBlock,
+                CompressionFormat.Bc1WithAlpha => VkFormat.Bc1RgbaUnormBlock,
+                CompressionFormat.Bc2 => VkFormat.Bc2UnormBlock,
+                CompressionFormat.Bc3 => VkFormat.Bc3UnormBlock,
+                CompressionFormat.Bc4 => VkFormat.Bc4UnormBlock,
+                CompressionFormat.Bc5 => VkFormat.Bc5UnormBlock,
+                CompressionFormat.Bc6U => VkFormat.Bc6hUfloatBlock,
+                CompressionFormat.Bc6S => VkFormat.Bc6hSfloatBlock,
+                CompressionFormat.Bc7 => VkFormat.Bc7UnormBlock,
+                _ => throw new NotImplementedException(string.Format("Texture format {0} not supported by vulkan!", compressionFormat))
 
-                if (surface.ImageType != ImageType.Bitmap || surface.BitsPerPixel != 32)
-                {
-                    throw new Exception("Provided image surface is not in the right format");
-                }
-                surfaces[i] = surface;
-            }
-            return surfaces;
-        }
-
-        public static Surface LoadToSurface(string filePath)
-        {
-            
-            if (!File.Exists(filePath))
-            {
-                throw new FileNotFoundException(string.Format("Texture not found, '{0}'",filePath));
-            }
-            
-            
-
-            Surface image = Surface.LoadFromFile(filePath);
-
-            if (image == null)
-            {
-                
-                return null;
-            }
-
-
-            if (image.ImageType != ImageType.Bitmap || image.BitsPerPixel != 32)
-                image.ConvertTo(ImageConversion.To32Bits);
-
-            return image;
-            
-        }
-
-        public static DDSContainer CompressedLoader(Surface surface, bool alphaIsTransparency, bool normalMap, bool mipMaps, bool hdr)
-        {
-            var compressor = new Compressor();
-
-            bool setSuccess = compressor.Input.SetData(surface);
-            //compressor.Input.AlphaMode = alphaIsTransparency ? AlphaMode.Transparency : AlphaMode.None;
-            //compressor.Input.IsNormalMap = normalMap;
-            compressor.Input.GenerateMipmaps = mipMaps;
-            //compressor.Input.WrapMode = WrapMode.Repeat;
-            //compressor.Input.MipmapFilter = MipmapFilter.Kaiser;
-            //compressor.Input.RoundMode = RoundMode.ToNearestPowerOfTwo;
-            //compressor.Compression.Format = normalMap ? CompressionFormat.BC5 : hdr ? CompressionFormat.BC6 : CompressionFormat.BC7;
-            compressor.Compression.Quality = CompressionQuality.Normal;
-            compressor.Compression.Format = CompressionFormat.BC3;
-            
-            // if (!normalMap && !hdr)
-            // {
-            //     compressor.Compression.SetQuantization(true, true, false);
-            // }
-            // else
-            // {
-            compressor.Compression.SetQuantization(false, false, false);
-            // }
-            
-            compressor.Output.OutputFileFormat = OutputFileFormat.DDS;
-            compressor.Output.OutputHeader = false;
-            var success = compressor.Process(out DDSContainer compressedImage);
-            if (compressor.HasLastError)
-            {
-                Console.Write(compressor.LastErrorString);
-            }
-            compressor.Input.ClearTextureLayout();
-            compressor.Dispose();
-            
-            if (success)
-            {
-                return compressedImage;
-            }
-            return null;
-        }
-
-        public unsafe static GPUBuffer CopyCompressedTextureToBuffer(DDSContainer ddsContainer, out VkFormat imageFormat, out ulong[] offsets, out VkExtent3D[] extents)
-        {
-            uint blockSize = 0;
-            imageFormat = ddsContainer.Format switch
-            {
-                DXGIFormat.BC3_UNorm_SRGB => VkFormat.Bc3SrgbBlock,
-                DXGIFormat.BC3_UNorm => VkFormat.Bc3UnormBlock,
-                DXGIFormat.BC4_UNorm => VkFormat.Bc4UnormBlock,
-                DXGIFormat.BC5_UNorm => VkFormat.Bc5UnormBlock,
-                DXGIFormat.BC5_SNorm => VkFormat.Bc5SnormBlock,
-                DXGIFormat.BC6H_UF16 => VkFormat.Bc6hUfloatBlock,
-                DXGIFormat.BC6H_SF16 => VkFormat.Bc6hSfloatBlock,
-                DXGIFormat.BC7_UNorm => VkFormat.Bc7UnormBlock,
-                DXGIFormat.BC7_UNorm_SRGB => VkFormat.Bc7SrgbBlock,
-                _ => throw new NotImplementedException(string.Format("DXGIFormat {0} not implemented", ddsContainer.Format.ToString())),
             };
-            blockSize = (uint)Vulkan.BlockSize(imageFormat);
-            ulong totalBytes = 0;
-            offsets = new ulong[ddsContainer.MipChains[0].Count];
-            extents = new VkExtent3D[ddsContainer.MipChains[0].Count];
-            for (int i = 0; i < ddsContainer.MipChains.Count; i++)
-            {
-                var chain = ddsContainer.MipChains[i];
-                for (int j = 0; j < chain.Count; j++)
-                {
-                    var mip = chain[j];
-                    offsets[j] = totalBytes;
-                    extents[j] = new((uint)mip.Width , (uint)mip.Height,1);
-                    totalBytes += (uint)mip.Width * (uint)mip.Height * blockSize;
-                }
-            }
-
-            MemoryStream ddsStream = new();
-            ddsContainer.Write(ddsStream);
-
-            GPUBuffer buffer = new((ulong)ddsStream.Length, blockSize, VkBufferUsageFlags.TransferSrc, true, true, false);
-            fixed (void* pbytes = ddsStream.ToArray())
-            {
-                buffer.WriteToBuffer(pbytes, (ulong)ddsStream.Length);
-            }
-
-            ddsContainer.Dispose();
-
-            return buffer;
         }
 
-        public static unsafe GPUBuffer<Colour> CopySurfaceToStagingBuffer(Surface surface)
+        public static CompressionFormat GetCompressionFormat(this VkFormat vkFormat)
         {
-            if (surface.ImageType != ImageType.Bitmap || surface.BitsPerPixel != 32 || !GraphicsDevice.Initialised)
+            return vkFormat switch
             {
-                throw new Exception("Provided image surface is not in the right format, or device is null");
-            }
-
-            var stagingBuffer = new GPUBuffer<Colour>((uint)surface.Width * (uint)surface.Height, VkBufferUsageFlags.TransferSrc, true,false,false);
-
-            Colour* pMappedData;
-
-            stagingBuffer.Map(&pMappedData);
-
-            CopyColor(new IntPtr(pMappedData), surface);
-
-            stagingBuffer.Unmap();
-
-
-            return stagingBuffer;
+                VkFormat.R8Unorm => CompressionFormat.R,
+                VkFormat.R8G8Unorm => CompressionFormat.Rg,
+                VkFormat.R8G8B8Unorm => CompressionFormat.Rgb,
+                VkFormat.R8G8B8A8Unorm => CompressionFormat.Rgba,
+                VkFormat.B8G8R8A8Unorm => CompressionFormat.Bgra,
+                VkFormat.Bc1RgbUnormBlock => CompressionFormat.Bc1,
+                VkFormat.Bc1RgbaUnormBlock => CompressionFormat.Bc1WithAlpha,
+                VkFormat.Bc2UnormBlock => CompressionFormat.Bc2,
+                VkFormat.Bc3UnormBlock => CompressionFormat.Bc3,
+                VkFormat.Bc4UnormBlock => CompressionFormat.Bc4,
+                VkFormat.Bc5UnormBlock => CompressionFormat.Bc5,
+                VkFormat.Bc6hUfloatBlock => CompressionFormat.Bc6U,
+                VkFormat.Bc6hSfloatBlock => CompressionFormat.Bc6S,
+                VkFormat.Bc7UnormBlock => CompressionFormat.Bc7,
+                _ => throw new NotImplementedException(string.Format("Texture format {0} not supported by vulkan!", vkFormat))
+            };
         }
 
-        public static unsafe GPUBuffer<Colour> CopySurfacesToStagingBuffer(Surface[] surfaces)
+        public static void CalculateMipLevelSize(int width, int height, int mipIdx, out int mipWidth, out int mipHeight)
         {
-            // validate texture dimentions are uniform
-            uint width = (uint)surfaces[0].Width;
-            uint height = (uint)surfaces[0].Height;
-            for (int i = 1; i < surfaces.Length; i++)
-            {
-                if (surfaces[i].Width != width || surfaces[i].Height != height)
-                {
-                    throw new Exception("Texture array Texture dimention mismatch! All textures in the array must have the same dimentions!");
-                }
-            }
-
-            var stagingBuffer = new GPUBuffer<Colour>((uint)surfaces[0].Width * (uint)surfaces[0].Height * (uint)surfaces.Length, VkBufferUsageFlags.TransferSrc, true, false, false);
-            Colour[] singleImageColourData = new Colour[(int)(width * height)];
-            uint singleImageSize = (uint)(width * height * sizeof(Colour));
-            ulong copyStartOffset = 0;
-            for (int i = 0; i < surfaces.Length; i++)
-            {
-                fixed (Colour* pSingleImageColourData = singleImageColourData)
-                {
-                    CopyColor(new IntPtr(pSingleImageColourData), surfaces[i]);
-                    stagingBuffer.WriteToBuffer(pSingleImageColourData, singleImageSize, copyStartOffset);
-                }
-                copyStartOffset += singleImageSize;
-            }
-
-            return stagingBuffer;
+            mipWidth = Math.Max(1, width >> mipIdx);
+            mipHeight = Math.Max(1, height >> mipIdx);
         }
-        
-        private static unsafe void CopyColor(IntPtr dstPtr, Surface src)
+
+        private static CompressedTextureBinary LoadOrCompressTexture(string path, VkFormat format, bool mipMaps, bool allowParallel)
         {
-            int texelSize = Colour.SizeInBytes;
-
-            int width = src.Width;
-            int height = src.Height;
-            int dstPitch = width * texelSize;
-            bool swizzle = Surface.IsBGRAOrder;
-
-            int pitch = Math.Min(src.Pitch, dstPitch);
-
-            if (swizzle)
+            if (CompressedBinaryTextures == null)
             {
-                //For each scanline...
-                for (int row = 0; row < height; row++)
-                {
-                    Colour* dPtr = (Colour*)dstPtr.ToPointer();
-                    Colour* sPtr = (Colour*)src.GetScanLine(row).ToPointer();
+                LoadBinaryTextureBlob();
+            }
 
-                    //Copy each pixel, swizzle components...
-                    for (int count = 0; count < pitch; count += texelSize)
+            CompressedTextureBinary compressedTexture = null;
+            var executingPathLength = Application.ExecutingDirectory.Length;
+            if (CompressedBinaryTextures != null)
+            {
+                var relativePath = path[executingPathLength..];
+                for (int i = 0; i < CompressedBinaryTextures.Count; i++)
+                {
+                    if (CompressedBinaryTextures[i].PathText == relativePath)
                     {
-                        Colour v = *sPtr++;
-                        (v.B, v.R) = (v.R, v.B);
-                        *dPtr++ = v;
+                        if (CompressedBinaryTextures[i].Format != format)
+                        {
+                            CompressedBinaryTextures.RemoveAt(i);
+                            compressedTexture = null;
+                            break;
+                        }
+                        compressedTexture = CompressedBinaryTextures[i];
+                        break;
                     }
-
-                    //Advance to next scanline...
-                    dstPtr += dstPitch;
                 }
+            }
+
+            BcEncoder encoder = new();
+            encoder.OutputOptions.GenerateMipMaps = mipMaps;
+            encoder.OutputOptions.Quality = CompressionQuality.Balanced;
+            encoder.OutputOptions.Format = format.GetCompressionFormat();
+            encoder.Options.IsParallel = allowParallel;
+            encoder.OutputOptions.FileFormat = OutputFileFormat.Ktx; //Change to Dds for a dds file.
+
+            ulong totalMipMapBytes = 0;
+            if (compressedTexture == null)
+            {
+                Console.WriteLine("Compressing Texture {0}...", Path.GetFileNameWithoutExtension(path));
+                using Image<Rgba32> image = Image.Load<Rgba32>(path);
+                var flipProcessor = new FlipProcessor(FlipMode.Vertical);
+                image.Mutate(flipProcessor);
+
+                var mipmapsData = encoder.EncodeToRawBytes(image);
+
+                compressedTexture = new()
+                {
+                    PathText = path[executingPathLength..],
+                    Width = image.Width,
+                    Height = image.Height,
+                    Depth = 1,
+                    MipMapCount = mipmapsData.Length,
+                    MipMapOffsets = new ulong[mipmapsData.Length],
+                    Format = format
+                };
+
+
+                for (int j = 0; j < mipmapsData.Length; j++)
+                {
+                    var mipMap = mipmapsData[j];
+                    compressedTexture.MipMapOffsets[j] = totalMipMapBytes;
+                    totalMipMapBytes += (uint)mipMap.Length;
+                }
+
+                compressedTexture.MipMaps = new byte[totalMipMapBytes];
+
+                for (int j = 0; j < compressedTexture.MipMapCount; j++)
+                {
+                    var mipMap = mipmapsData[j];
+                    var offset = compressedTexture.MipMapOffsets[j];
+                    Array.Copy(mipMap, 0, compressedTexture.MipMaps, (int)offset, mipMap.Length);
+                }
+
+                compressedTexture.RelativePath = Encoding.UTF8.GetBytes(compressedTexture.PathText);
+                compressedTexture.RelativePathLength = compressedTexture.RelativePath.Length;
+                Console.WriteLine("Compressed Texture {0}", Path.GetFileNameWithoutExtension(path));
+                compressedTexture.CalculateTotalSize();
+                CompressedBinaryTextures.Add(compressedTexture);
             }
             else
             {
-                //For each scanline...
-                for (int row = 0; row < height; row++)
-                {
-                    IntPtr sPtr = src.GetScanLine(row);
-
-                    //Copy entirely...
-                    MemoryHelper.CopyMemory(dstPtr, sPtr, pitch);
-
-                    //Advance to next scanline...
-                    dstPtr += dstPitch;
-                }
+                Console.WriteLine("Loaded Compressed Texture {0}", Path.GetFileNameWithoutExtension(path));
             }
+            return compressedTexture;
         }
 
-        private static readonly HashSet<string> SkyboxTextures = ["right", "left", "bottom", "top", "front", "back"];
-        private static readonly string[] InOrderSkybox = ["right", "left", "bottom", "top", "front", "back"];
+        public static unsafe Texture2D Load2D(string path, VkFormat format, bool mipMaps = true, bool allowParallel = true)
+        {
+            CompressedTextureBinary compressedTexture = LoadOrCompressTexture(path, format, mipMaps, allowParallel);
 
-        public static Surface[] GetSkyboxTextures(string skyboxFolder)
+            ulong totalMipMapBytes = (ulong)compressedTexture.MipMaps.LongLength;
+
+            Debug.Assert(totalMipMapBytes > 0);
+            GPUBuffer gpuBuffer = new(1, totalMipMapBytes, VkBufferUsageFlags.TransferSrc, true, true, false);
+
+            fixed (void* ptr = compressedTexture.MipMaps)
+            {
+                gpuBuffer.WriteToBuffer(ptr, totalMipMapBytes);
+            }
+            VkExtent3D[] extents = new VkExtent3D[compressedTexture.MipMapCount];
+
+            for (int i = 0; i < compressedTexture.MipMapCount; i++)
+            {
+                CalculateMipLevelSize(compressedTexture.Width, compressedTexture.Height, i, out int width, out int height);
+                extents[i] = new(width, height, 1);
+            }
+
+            Texture2D texture = new(Path.GetFileNameWithoutExtension(path), compressedTexture.Width, compressedTexture.Height, format, VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled, mipMaps);
+
+            texture.CopyFromBuffer(gpuBuffer, compressedTexture.MipMapOffsets, extents, true);
+
+            return texture;
+        }
+
+        public static unsafe Texture2DArray Load2DArray(string name, string[] paths, VkFormat format, bool mipMaps = true, bool allowParallel = true)
+        {
+            GPUBuffer gpuBuffer = LoadBulkSameFormatExtent(paths, format, mipMaps, allowParallel, out CompressedTextureBinary[] loadedTextures, out ulong[] offsets, out VkExtent3D[] extents);
+
+            Texture2DArray texture = new(name, loadedTextures[0].Width, loadedTextures[0].Height, loadedTextures.Length, format, VkSamplerAddressMode.Repeat, VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled, mipMaps);
+
+            texture.CopyFromBuffer(gpuBuffer, offsets, extents, true);
+
+            return texture;
+        }
+
+        private static unsafe GPUBuffer LoadBulkSameFormatExtent(string[] paths, VkFormat format, bool mipMaps, bool allowParallel, out CompressedTextureBinary[] loadedTextures, out ulong[] offsets, out VkExtent3D[] extents)
+        {
+            loadedTextures = new CompressedTextureBinary[paths.Length];
+            for (int i = 0; i < loadedTextures.Length; i++)
+            {
+                loadedTextures[i] = LoadOrCompressTexture(paths[i], format, mipMaps, allowParallel);
+            }
+
+            ulong bufferSize = 0;
+            offsets = new ulong[loadedTextures[0].MipMapCount * loadedTextures.Length];
+            for (int i = 0, k = 0; i < loadedTextures.Length; i++)
+            {
+                Debug.Assert(loadedTextures[0].Width == loadedTextures[i].Width && loadedTextures[0].Height == loadedTextures[i].Height);
+
+                for (int j = 0; j < loadedTextures[i].MipMapCount; j++, k++)
+                {
+                    offsets[k] = bufferSize + loadedTextures[i].MipMapOffsets[j];
+                }
+                bufferSize += (ulong)loadedTextures[i].MipMaps.LongLength;
+            }
+
+            extents = new VkExtent3D[loadedTextures[0].MipMapCount];
+            for (int j = 0; j < loadedTextures[0].MipMapCount; j++)
+            {
+                CalculateMipLevelSize(loadedTextures[0].Width, loadedTextures[0].Height, j, out var mipWidth, out var mipHeight);
+                extents[j] = new(mipWidth, mipHeight, loadedTextures.Length);
+            }
+
+            GPUBuffer gpuBuffer = new(1, bufferSize, VkBufferUsageFlags.TransferSrc, true, true, false);
+            ulong offset = 0;
+
+            for (int i = 0; i < loadedTextures.Length; i++)
+            {
+                fixed (void* ptr = loadedTextures[i].MipMaps)
+                {
+                    gpuBuffer.WriteToBuffer(ptr, (ulong)loadedTextures[i].MipMaps.LongLength, offset);
+                }
+                offset += (ulong)loadedTextures[i].MipMaps.LongLength;
+            }
+
+            return gpuBuffer;
+        }
+
+        public static unsafe Cubemap LoadSkyboxCubeMap(string name, string skyboxFolder, VkFormat format, VkSamplerAddressMode wrapMode, bool mipMaps = true, bool allowParallel = true)
+        {
+            var skyBoxFolders = GetSkyboxTextures(skyboxFolder);
+            GPUBuffer gpuBuffer = LoadBulkSameFormatExtent(skyBoxFolders, format, mipMaps, allowParallel, out CompressedTextureBinary[] loadedTextures, out ulong[] offsets, out VkExtent3D[] extents);
+
+
+            Cubemap texture = new(name, loadedTextures[0].Width, loadedTextures[0].Height, format, VkSamplerAddressMode.Repeat, VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled, mipMaps);
+
+            texture.CopyFromBuffer(gpuBuffer, offsets, extents, true);
+
+            return texture;
+        }
+        public static string[] GetSkyboxTextures(string skyboxFolder)
         {
             if (!Directory.Exists(skyboxFolder))
             {
@@ -273,7 +280,7 @@ namespace VECS
                 if (SkyboxTextures.Contains(filename))
                 {
                     names.Add(filename);
-                    order[Array.IndexOf(InOrderSkybox, filename)]=j;
+                    order[Array.IndexOf(InOrderSkybox, filename)] = j;
                 }
             }
 
@@ -301,7 +308,230 @@ namespace VECS
             }
 
 
-            return LoadBulk(filesToLoad);
+            return filesToLoad;
         }
+        public static void SaveTextureCache()
+        {
+            SaveBinaryTextureBlob();
+        }
+
+        private static unsafe void SaveBinaryTextureBlob()
+        {
+            if (CompressedBinaryTextures == null) return;
+
+            int textureCount = CompressedBinaryTextures.Count;
+
+            ulong binaryBlobSize = 0;
+            for (int i = 0; i < textureCount; i++)
+            {
+                var texture = CompressedBinaryTextures[i];
+                texture.CalculateTotalSize();
+                binaryBlobSize += CompressedBinaryTextures[i].TotalSize;
+            }
+
+            byte[] blobBytes = new byte[binaryBlobSize];
+            ulong blobOffset = 0;
+
+            for (int i = 0; i < textureCount; i++)
+            {
+                var binaryTexture = CompressedBinaryTextures[i];
+
+                fixed (byte* ptr = &blobBytes[blobOffset])
+                {
+                    binaryTexture.WriteHeader(ptr);
+                }
+
+                blobOffset += CompressedTextureBinary.HeaderSize;
+
+                fixed (byte* ptr = &blobBytes[blobOffset])
+                {
+                    fixed (byte* pPath = &binaryTexture.RelativePath[0])
+                    {
+                        Buffer.MemoryCopy(pPath, ptr, binaryTexture.RelativePath.Length, binaryTexture.RelativePath.Length);
+                    }
+                }
+
+                blobOffset += (uint)binaryTexture.RelativePath.Length;
+
+                fixed (byte* ptr = &blobBytes[blobOffset])
+                {
+                    fixed (ulong* pMipOff = &binaryTexture.MipMapOffsets[0])
+                    {
+                        Buffer.MemoryCopy(pMipOff, ptr, binaryTexture.MipMapOffsets.Length * sizeof(ulong), binaryTexture.MipMapOffsets.Length * sizeof(ulong));
+                    }
+                }
+
+                blobOffset += (uint)binaryTexture.MipMapOffsets.Length * sizeof(ulong);
+
+                fixed (byte* ptr = &blobBytes[blobOffset])
+                {
+                    fixed (byte* pMip = &binaryTexture.MipMaps[0])
+                    {
+                        Buffer.MemoryCopy(pMip, ptr, binaryTexture.MipMaps.Length, binaryTexture.MipMaps.Length);
+                    }
+                }
+
+                blobOffset += (uint)binaryTexture.MipMaps.Length;
+            }
+
+            if (File.Exists(CompressedTextureBinaryPath))
+            {
+                File.Delete(CompressedTextureBinaryPath);
+            }
+
+            File.WriteAllBytes(CompressedTextureBinaryPath, blobBytes);
+        }
+
+        public static unsafe void LoadBinaryTextureBlob()
+        {
+            CompressedBinaryTextures ??= [];
+
+            if (!File.Exists(CompressedTextureBinaryPath))
+            {
+                return;
+            }
+
+            var blobBytes = File.ReadAllBytes(CompressedTextureBinaryPath);
+
+            if (blobBytes.Length < CompressedTextureBinary.HeaderSize) return;
+
+            ulong blobOffset = 0;
+            while (blobOffset < (ulong)blobBytes.Length)
+            {
+                CompressedTextureBinary binaryTexture = null;
+                fixed (byte* ptr = &blobBytes[blobOffset])
+                {
+                    binaryTexture = CompressedTextureBinary.ReadHeader(ptr);
+                }
+
+                blobOffset += CompressedTextureBinary.HeaderSize;
+
+
+                fixed (byte* ptr = &blobBytes[blobOffset])
+                {
+                    fixed (byte* pPath = &binaryTexture.RelativePath[0])
+                    {
+                        Buffer.MemoryCopy(ptr, pPath, binaryTexture.RelativePath.Length, binaryTexture.RelativePath.Length);
+                    }
+                }
+
+                blobOffset += (uint)binaryTexture.RelativePath.Length;
+
+                fixed (byte* ptr = &blobBytes[blobOffset])
+                {
+                    fixed (ulong* pMipOff = &binaryTexture.MipMapOffsets[0])
+                    {
+                        Buffer.MemoryCopy(ptr, pMipOff, binaryTexture.MipMapOffsets.Length * sizeof(ulong), binaryTexture.MipMapOffsets.Length * sizeof(ulong));
+                    }
+                }
+
+                blobOffset += (uint)binaryTexture.MipMapOffsets.Length * sizeof(ulong);
+
+                fixed (byte* ptr = &blobBytes[blobOffset])
+                {
+                    fixed (byte* pMip = &binaryTexture.MipMaps[0])
+                    {
+                        Buffer.MemoryCopy(ptr, pMip, binaryTexture.MipMaps.Length, binaryTexture.MipMaps.Length);
+                    }
+                }
+
+                blobOffset += (uint)binaryTexture.MipMaps.Length;
+                binaryTexture.GetPathText();
+                CompressedBinaryTextures.Add(binaryTexture);
+            }
+            Console.WriteLine("Loaded {0} Compressed Textures from binary blob", CompressedBinaryTextures.Count);
+        }
+
+        private class CompressedTextureBinary
+        {
+            public const uint HeaderSize = sizeof(ulong) + sizeof(int) + sizeof(int) + sizeof(int) + sizeof(int) + sizeof(VkFormat) + sizeof(int);
+
+            public ulong TotalSize = HeaderSize;
+            public int RelativePathLength;
+            public int Width;
+            public int Height;
+            public int Depth;
+            public VkFormat Format;
+            public int MipMapCount;
+
+            public byte[] RelativePath;
+            public ulong[] MipMapOffsets;
+            public byte[] MipMaps;
+
+            public string PathText;
+
+            public void GetPathText()
+            {
+                PathText = Encoding.UTF8.GetString(RelativePath);
+            }
+
+            public void CalculateTotalSize()
+            {
+                TotalSize = HeaderSize + (uint)RelativePath.Length + (uint)MipMapOffsets.Length * sizeof(ulong) + (uint)MipMaps.Length;
+            }
+
+            public unsafe void WriteHeader(byte* ptr)
+            {
+                ulong totalSize = TotalSize;
+                int relativePathLength = RelativePathLength;
+                int width = Width;
+                int height = Height;
+                int depth = Depth;
+                VkFormat format = Format;
+                int mipMapCount = MipMapCount;
+                Buffer.MemoryCopy(&totalSize, ptr, sizeof(ulong), sizeof(ulong));
+                ptr += sizeof(ulong);
+                Buffer.MemoryCopy(&relativePathLength, ptr, sizeof(int), sizeof(int));
+                ptr += sizeof(int);
+                Buffer.MemoryCopy(&width, ptr, sizeof(int), sizeof(int));
+                ptr += sizeof(int);
+                Buffer.MemoryCopy(&height, ptr, sizeof(int), sizeof(int));
+                ptr += sizeof(int);
+                Buffer.MemoryCopy(&depth, ptr, sizeof(int), sizeof(int));
+                ptr += sizeof(int);
+                Buffer.MemoryCopy(&format, ptr, sizeof(VkFormat), sizeof(VkFormat));
+                ptr += sizeof(VkFormat);
+                Buffer.MemoryCopy(&mipMapCount, ptr, sizeof(int), sizeof(int));
+            }
+
+            public unsafe static CompressedTextureBinary ReadHeader(byte* ptr)
+            {
+                ulong totalSize;
+                int relativePathLength;
+                int width;
+                int height;
+                int depth;
+                VkFormat format;
+                int mipMapCount;
+                Buffer.MemoryCopy(ptr, &totalSize, sizeof(ulong), sizeof(ulong));
+                ptr += sizeof(ulong);
+                Buffer.MemoryCopy(ptr, &relativePathLength, sizeof(int), sizeof(int));
+                ptr += sizeof(int);
+                Buffer.MemoryCopy(ptr, &width, sizeof(int), sizeof(int));
+                ptr += sizeof(int);
+                Buffer.MemoryCopy(ptr, &height, sizeof(int), sizeof(int));
+                ptr += sizeof(int);
+                Buffer.MemoryCopy(ptr, &depth, sizeof(int), sizeof(int));
+                ptr += sizeof(int);
+                Buffer.MemoryCopy(ptr, &format, sizeof(VkFormat), sizeof(VkFormat));
+                ptr += sizeof(VkFormat);
+                Buffer.MemoryCopy(ptr, &mipMapCount, sizeof(int), sizeof(int));
+                ulong mipMapSize = totalSize - CompressedTextureBinary.HeaderSize - (uint)relativePathLength - sizeof(ulong) * (uint)mipMapCount;
+                return new CompressedTextureBinary()
+                {
+                    TotalSize = totalSize,
+                    RelativePathLength = relativePathLength,
+                    Width = width,
+                    Height = height,
+                    Depth = depth,
+                    Format = format,
+                    MipMapCount = mipMapCount,
+                    MipMapOffsets = new ulong[mipMapCount],
+                    RelativePath = new byte[relativePathLength],
+                    MipMaps = new byte[mipMapSize]
+                };
+            }
+        }
+        
     }
 }

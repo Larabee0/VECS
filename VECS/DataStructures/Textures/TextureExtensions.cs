@@ -474,53 +474,100 @@ namespace VECS
 
             if(texture is Cubemap cubemap)
             {
-                VkBufferImageCopy* bufferCopyRegions = stackalloc VkBufferImageCopy[6];
-                for (uint i = 0; i < 6; i++)
+                uint copyCount = texture.MipMapCount*6;
+                bool copyingMipMaps = false;
+                if (offsets != null && copyCount != offsets.Length)
                 {
-                    bufferCopyRegions[i] = new()
-                    {
-                        bufferOffset = offset,
-                        bufferRowLength = 0,
-                        bufferImageHeight = 0,
-                        imageSubresource = new()
-                        {
-                            aspectMask = subresourceRange.aspectMask,
-                            mipLevel = 0,
-                            baseArrayLayer = i,
-                            layerCount = 1
-                        },
-                        imageOffset = new(0, 0, 0),
-                        imageExtent = new(texture.ImageExtent.width, texture.ImageExtent.height, 1)
-                    };
-                    offset += baseImageSize;
+                    offsets = null;
+                    extents = null;
+
                 }
-                CopyBufferToTexture(texture, cmdBuffer, buffer,6u, bufferCopyRegions);
-                hintRegenerateMipMaps = true;
+                else
+                {
+                    copyingMipMaps = offsets != null;
+                }
+
+                if (buffer.VkBufferSize <= baseImageSize && !copyingMipMaps)
+                {
+                    copyCount = 6;
+                    hintRegenerateMipMaps = true;
+                }
+
+                VkBufferImageCopy* bufferCopyRegions = stackalloc VkBufferImageCopy[(int)copyCount];
+                for (uint i = 0, k = 0; i < copyCount; i++)
+                {
+                    for (uint j = 0; j < texture.MipMapCount; j++, k++)
+                    {
+                        bufferCopyRegions[i] = new()
+                        {
+                            bufferOffset = offsets == null ? offset : offsets[k],
+                            bufferRowLength = 0,
+                            bufferImageHeight = 0,
+                            imageSubresource = new()
+                            {
+                                aspectMask = subresourceRange.aspectMask,
+                                mipLevel = j,
+                                baseArrayLayer = i,
+                                layerCount = 1
+                            },
+                            imageOffset = new(0, 0, 0),
+                            imageExtent = extents == null
+                            ? new(texture.ImageExtent.width, texture.ImageExtent.height, 1)
+                            : new(extents[0].width, extents[0].height, 1)
+                        };
+                        offset += baseImageSize;
+                    }
+                }
+                CopyBufferToTexture(texture, cmdBuffer, buffer,copyCount, bufferCopyRegions);
             }
             else if (texture is Texture2DArray textureArray)
             {
-                VkBufferImageCopy* bufferCopyRegions = stackalloc VkBufferImageCopy[(int)texture.ImageExtent.depth];
-                for (uint i = 0; i < texture.ImageExtent.depth; i++)
+                uint copyCount = texture.MipMapCount;
+                bool copyingMipMaps = false;
+                if (offsets != null && copyCount * textureArray.Depth != offsets.Length)
                 {
-                    bufferCopyRegions[i] = new()
-                    {
-                        bufferOffset = offset,
-                        bufferRowLength = 0,
-                        bufferImageHeight = 0,
-                        imageSubresource = new()
-                        {
-                            aspectMask = subresourceRange.aspectMask,
-                            mipLevel = 0,
-                            baseArrayLayer = i,
-                            layerCount = 1
-                        },
-                        imageOffset = new(0, 0, 0),
-                        imageExtent = new(texture.ImageExtent.width, texture.ImageExtent.height, 1)
-                    };
-                    offset += baseImageSize;
+                    offsets = null;
+                    extents = null;
+
                 }
-                CopyBufferToTexture(texture, cmdBuffer, buffer, texture.ImageExtent.depth, bufferCopyRegions);
-                hintRegenerateMipMaps = true;
+                else
+                {
+                    copyingMipMaps = offsets != null;
+                }
+
+                if (buffer.VkBufferSize <= baseImageSize && !copyingMipMaps)
+                {
+                    copyCount = 1;
+                    hintRegenerateMipMaps = true;
+                }
+
+                VkBufferImageCopy* bufferCopyRegions = stackalloc VkBufferImageCopy[(int)texture.ImageExtent.depth * (int)texture.MipMapCount];
+                for (uint i = 0, k = 0; i < texture.ImageExtent.depth; i++)
+                {
+                    for (uint j = 0; j < texture.MipMapCount; j++, k++)
+                    {
+                        bufferCopyRegions[k] = new()
+                        {
+                            bufferOffset = offsets == null ? offset : offsets[k],
+                            bufferRowLength = 0,
+                            bufferImageHeight = 0,
+                            imageSubresource = new()
+                            {
+                                aspectMask = subresourceRange.aspectMask,
+                                mipLevel = j,
+                                baseArrayLayer = i,
+                                layerCount = 1
+                            },
+                            imageOffset = new(0, 0, 0),
+                            imageExtent = extents == null 
+                            ? new(texture.ImageExtent.width, texture.ImageExtent.height, 1)
+                            : new(extents[i].width,extents[i].height, 1)
+                        };
+                        offset += baseImageSize;
+                    }
+                }
+                CopyBufferToTexture(texture, cmdBuffer, buffer, texture.ImageExtent.depth * texture.MipMapCount, bufferCopyRegions);
+                
             }
             else if (texture is Texture2D texture2D)
             {

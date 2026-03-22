@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Numerics;
+using Vortice.Vulkan;
 
 namespace VECS.UI
 {
@@ -213,7 +214,7 @@ namespace VECS.UI
                 var loadedTexture = AssetDataBase<Texture2D>.GetNamedSilentFail( Path.GetFileNameWithoutExtension(textureInfo.Name));
 
 
-                loadedTexture ??=  new Texture2D(textureInfo.FullName, false);
+                loadedTexture ??= TextureLoader.Load2D(textureInfo.FullName, VkFormat.Bc7UnormBlock);
                 _textureLibrary.TryAdd(originalTextureHash, loadedTexture.Hash);
                 _imgui.AddTexture(loadedTexture.Hash, loadedTexture);
             }
