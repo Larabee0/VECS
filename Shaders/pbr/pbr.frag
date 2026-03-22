@@ -56,6 +56,7 @@ layout (set = 2, binding = 2) uniform sampler2D normalMap;
 layout (set = 2, binding = 3) uniform sampler2D aoMap;
 layout (set = 2, binding = 4) uniform sampler2D metallicMap;
 layout (set = 2, binding = 5) uniform sampler2D smoothnessMap;
+layout (set = 2, binding = 6) uniform sampler2D maskMap;
 
 layout(push_constant) uniform Constants{
 	uint cameraIndex;
@@ -159,10 +160,11 @@ void main() {
 
 	vec3 V = normalize(cameraPosWorld - fragPosWorld);
 	vec3 R = reflect(-V, N);
+	vec4 mashVal = texture(maskMap,TILED_UV).rgba;
 
-	float metallic = texture(metallicMap, TILED_UV).r;
-	float roughness = 1- texture(smoothnessMap, TILED_UV).r;
-    vec3 ambient = texture(aoMap, TILED_UV).rrr;
+	float metallic = mashVal.r;
+	float roughness = 1- mashVal.a;
+    vec3 ambient = mashVal.ggg;
     
 	vec3 F0 = vec3(0.04); 
 	F0 = mix(F0, ALBEDO, metallic);

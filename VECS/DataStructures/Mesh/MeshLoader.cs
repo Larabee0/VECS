@@ -24,6 +24,7 @@ namespace VECS.DataStructures
         public string AOTexture;
         public string MetallicTexture;
         public string SmoothnessTexture;
+        public string MaskTexture;
         public Vector4 DiffuseColour;
         public List<int> appliesTo = [];
         public bool TrasnparencyHint;
@@ -87,7 +88,11 @@ namespace VECS.DataStructures
             {
                 SmoothnessTexture = null;
             }
-
+            MaskTexture = Path.Combine(TextureLoader.DefaultTexturePath, meshFileName, Path.GetFileName(template.MaskMap));
+            if (!File.Exists(MaskTexture))
+            {
+                MaskTexture = null;
+            }
             DiffuseColour = Vector4.One;
         }
     }

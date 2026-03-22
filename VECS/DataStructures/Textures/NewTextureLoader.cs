@@ -10,9 +10,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
-using System.Text.Json;
 using Vortice.Vulkan;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 namespace VECS
 {
     public static partial class TextureLoader
@@ -68,7 +66,7 @@ namespace VECS
             };
         }
 
-        public static unsafe Texture2D Load(string path, VkFormat format)
+        public static unsafe Texture2D Load(string path, VkFormat format, bool allowParallel = true)
         {
             if (CompressedBinaryTextures == null)
             {
@@ -101,7 +99,7 @@ namespace VECS
             encoder.OutputOptions.GenerateMipMaps = true;
             encoder.OutputOptions.Quality = CompressionQuality.Balanced;
             encoder.OutputOptions.Format = format.GetCompressionFormat();
-
+            encoder.Options.IsParallel = allowParallel;
             encoder.OutputOptions.FileFormat = OutputFileFormat.Ktx; //Change to Dds for a dds file.
 
             ulong totalMipMapBytes = 0;
@@ -138,12 +136,13 @@ namespace VECS
                 {
                     var mipMap = mipmapsData[j];
                     var offset = compressedTexture.MipMapOffsets[j];
-                    Array.Copy(mipMap, 0, mipMap, (int)offset, mipMap.Length);
+                    Array.Copy(mipMap, 0, compressedTexture.MipMaps, (int)offset, mipMap.Length);
                 }
 
                 compressedTexture.RelativePath = Encoding.UTF8.GetBytes(compressedTexture.PathText);
                 compressedTexture.RelativePathLength = compressedTexture.RelativePath.Length;
                 Console.WriteLine("Compressed Texture {0}", Path.GetFileNameWithoutExtension(path));
+                compressedTexture.CalculateTotalSize();
                 CompressedBinaryTextures.Add(compressedTexture);
             }
             else
@@ -188,6 +187,7 @@ namespace VECS
             for (int i = 0; i < textureCount; i++)
             {
                 var texture = CompressedBinaryTextures[i];
+                texture.CalculateTotalSize();
                 binaryBlobSize += CompressedBinaryTextures[i].TotalSize;
             }
 
@@ -335,6 +335,11 @@ namespace VECS
             public void GetPathText()
             {
                 PathText = Encoding.UTF8.GetString(RelativePath);
+            }
+
+            public void CalculateTotalSize()
+            {
+                TotalSize = HeaderSize + (uint)RelativePath.Length + (uint)MipMapOffsets.Length * sizeof(ulong) + (uint)MipMaps.Length;
             }
 
             public unsafe void WriteHeader(byte* ptr)
