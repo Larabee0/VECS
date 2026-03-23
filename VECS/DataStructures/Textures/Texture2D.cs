@@ -304,6 +304,23 @@ namespace VECS
             AssetDataBase<Texture2D>.Add(this);
         }
 
+        public Texture2D(string label, int width, int height, VkFormat format, VkSampleCountFlags sampleCountFlags, VkImageUsageFlags usage, bool generateMipMaps = true)
+        {
+            AssetName = label;
+            _imageExtent = new(width, height, 1);
+            _imageImageViewType = VkImageViewType.Image2D;
+            _sampleCountFlags = sampleCountFlags;
+            _imageFormat = format;
+            _useageFlags = usage;
+
+            if (generateMipMaps)
+            {
+                MipMapCount = TextureExtensions.CalculateMipMapLevels(width, height);
+            }
+
+            AssetDataBase<Texture2D>.Add(this);
+        }
+
         public unsafe override void RegenerateMipMaps(VkCommandBuffer cmd)
         {
             this.GenerateMipMaps(cmd);

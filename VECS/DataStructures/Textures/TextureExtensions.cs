@@ -18,6 +18,8 @@ namespace VECS
             public readonly VkExtent3D[] Extents;
             public readonly bool DisposeBufferAfterCopy;
             public readonly bool DisallowMipMapRegen;
+            public readonly bool DirectCopyCmd;
+            public readonly VkBufferImageCopy CopyCmd;
 
             public TextureBufferCopyCmd(Texture target, GPUBuffer source, bool disposeBufferAfterCopy, bool disallowMipMapRegen)
             {
@@ -26,6 +28,7 @@ namespace VECS
                 DisposeBufferAfterCopy = disposeBufferAfterCopy;
                 DisallowMipMapRegen = disallowMipMapRegen;
             }
+
             public TextureBufferCopyCmd(Texture target, GPUBuffer source, bool disposeBufferAfterCopy, ulong[] offsets, VkExtent3D[] extents)
             {
                 Texture = target;
@@ -34,6 +37,15 @@ namespace VECS
                 DisallowMipMapRegen = true;
                 Offsets = offsets;
                 Extents = extents;
+            }
+
+            public TextureBufferCopyCmd(Texture target, GPUBuffer source, VkBufferImageCopy copyCmd,bool disposeBufferAfterCopy)
+            {
+                Texture = target;
+                Buffer = source;
+                DisposeBufferAfterCopy = disposeBufferAfterCopy;
+                CopyCmd = copyCmd;
+                DirectCopyCmd = true;
             }
         }
 
@@ -407,6 +419,12 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static void CopyFromBuffer(this Texture texture, GPUBuffer buffer, VkBufferImageCopy copyRegion, bool disposeBufferAfterCopy = false)
+        {
+            _copyBufferToTexture.Enqueue(new(texture, buffer, copyRegion, disposeBufferAfterCopy));
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static void CopyFrombufferNow(this Texture texture, GPUBuffer buffer)
         {
             var cmd = GraphicsDevice.BeginSingleTimeMainPipe();
@@ -423,12 +441,23 @@ namespace VECS
             GraphicsDevice.EndSingleTimeMainPipe(cmd);
         }
 
-        internal static void PlaybackCopyCmds(VkCommandBuffer cmd)
+        internal static unsafe void PlaybackCopyCmds(VkCommandBuffer cmd)
         {
+            VkBufferImageCopy copyCmd;
             while (_copyBufferToTexture.TryDequeue(out var copy))
             {
                 if (copy.Buffer.IsDisposed || copy.Texture.IsDisposed) continue;
-                bool hintRegenerateMipMaps = CopyFromBuffer(copy.Texture, cmd, copy.Buffer, copy.Offsets,copy.Extents);
+                bool hintRegenerateMipMaps = false;
+                if (copy.DirectCopyCmd)
+                {
+                    copyCmd = copy.CopyCmd;
+                    CopyBufferToTexture(copy.Texture, cmd, copy.Buffer, 1, &copyCmd);
+                }
+                else
+                {
+                    hintRegenerateMipMaps = CopyFromBuffer(copy.Texture, cmd, copy.Buffer, copy.Offsets, copy.Extents);
+                }
+                
                 if (!copy.DisallowMipMapRegen && hintRegenerateMipMaps && copy.Texture.MipMapCount > 1)
                 {
                     _regenMipMapsCmds.Enqueue(copy.Texture);

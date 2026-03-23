@@ -80,6 +80,12 @@ namespace VECS
             mipHeight = Math.Max(1, height >> mipIdx);
         }
 
+        public static void CalculateMipLevelSize(uint width, uint height, uint mipIdx, out int mipWidth, out int mipHeight)
+        {
+            mipWidth = Math.Max(1, (int)width >> (int)mipIdx);
+            mipHeight = Math.Max(1, (int)height >> (int)mipIdx);
+        }
+
         private static CompressedTextureBinary LoadOrCompressTexture(string path, VkFormat format, bool mipMaps, bool allowParallel)
         {
             if (CompressedBinaryTextures == null)
