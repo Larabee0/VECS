@@ -5,11 +5,19 @@ namespace VECS.UI
 {
     public struct ShaderPS
     {
-        public string label;
+        public string Label;
         public uint Start;
         public uint Size;
         public uint Signature;
     };
+
+    public struct ShaderVS
+    {
+        public string Label;
+        public uint Start;
+        public uint Size;
+    };
+
     internal static  class NoesisShaders
     {
         // Root signature flags
@@ -30,7 +38,7 @@ namespace VECS.UI
                 case Shader.Enum.RGBA:
                     return new ShaderPS()
                     {
-                        label = shader.ToString(),
+                        Label = shader.ToString(),
                         Start = RGBA_PS_Start,
                         Size = RGBA_PS_Size,
                         Signature = VS_CB0 | PS_CB0,
@@ -38,7 +46,7 @@ namespace VECS.UI
                 case Shader.Enum.Mask:
                     return new ShaderPS()
                     {
-                        label = shader.ToString(),
+                        Label = shader.ToString(),
                         Start = Mask_PS_Start,
                         Size = Mask_PS_Size,
                         Signature = VS_CB0,
@@ -46,7 +54,7 @@ namespace VECS.UI
                 case Shader.Enum.Clear:
                     return new ShaderPS()
                     {
-                        label = shader.ToString(),
+                        Label = shader.ToString(),
                         Start = Clear_PS_Start,
                         Size = Clear_PS_Size,
                         Signature = VS_CB0,
@@ -54,7 +62,7 @@ namespace VECS.UI
                 case Shader.Enum.Path_Solid:
                     return new ShaderPS()
                     {
-                        label = shader.ToString(),
+                        Label = shader.ToString(),
                         Start = Path_Solid_PS_Start,
                         Size = Path_Solid_PS_Size,
                         Signature = VS_CB0,
@@ -62,7 +70,7 @@ namespace VECS.UI
                 case Shader.Enum.Path_Linear:
                     return new ShaderPS()
                     {
-                        label = shader.ToString(),
+                        Label = shader.ToString(),
                         Start = Path_Linear_PS_Start,
                         Size = Path_Linear_PS_Size,
                         Signature = VS_CB0 | PS_CB0 | PS_T1,
@@ -70,7 +78,7 @@ namespace VECS.UI
                 case Shader.Enum.Path_Radial:
                     return new ShaderPS()
                     {
-                        label = shader.ToString(),
+                        Label = shader.ToString(),
                         Start = Path_Radial_PS_Start,
                         Size = Path_Radial_PS_Size,
                         Signature = VS_CB0 | PS_CB0 | PS_T1,
@@ -78,7 +86,7 @@ namespace VECS.UI
                 case Shader.Enum.Path_Pattern:
                     return new ShaderPS()
                     {
-                        label = shader.ToString(),
+                        Label = shader.ToString(),
                         Start = Path_Pattern_PS_Start,
                         Size = Path_Pattern_PS_Size,
                         Signature = VS_CB0 | PS_CB0 | PS_T0,
@@ -86,7 +94,7 @@ namespace VECS.UI
                 case Shader.Enum.Path_Pattern_Clamp:
                     return new ShaderPS()
                     {
-                        label = shader.ToString(),
+                        Label = shader.ToString(),
                         Start = Path_Pattern_Clamp_PS_Start,
                         Size = Path_Pattern_Clamp_PS_Size,
                         Signature = VS_CB0 | PS_CB0 | PS_T0,
@@ -94,7 +102,7 @@ namespace VECS.UI
                 case Shader.Enum.Path_Pattern_Repeat:
                     return new ShaderPS()
                     {
-                        label = shader.ToString(),
+                        Label = shader.ToString(),
                         Start = Path_Pattern_Repeat_PS_Start,
                         Size = Path_Pattern_Repeat_PS_Size,
                         Signature = VS_CB0 | PS_CB0 | PS_T0,
@@ -102,7 +110,7 @@ namespace VECS.UI
                 case Shader.Enum.Path_Pattern_MirrorU:
                     return new ShaderPS()
                     {
-                        label = shader.ToString(),
+                        Label = shader.ToString(),
                         Start = Path_Pattern_MirrorU_PS_Start,
                         Size = Path_Pattern_MirrorU_PS_Size,
                         Signature = VS_CB0 | PS_CB0 | PS_T0,
@@ -110,7 +118,7 @@ namespace VECS.UI
                 case Shader.Enum.Path_Pattern_MirrorV:
                     return new ShaderPS()
                     {
-                        label = shader.ToString(),
+                        Label = shader.ToString(),
                         Start = Path_Pattern_MirrorV_PS_Start,
                         Size = Path_Pattern_MirrorV_PS_Size,
                         Signature = VS_CB0 | PS_CB0 | PS_T0,
@@ -118,7 +126,7 @@ namespace VECS.UI
                 case Shader.Enum.Path_Pattern_Mirror:
                     return new ShaderPS()
                     {
-                        label = shader.ToString(),
+                        Label = shader.ToString(),
                         Start = Path_Pattern_Mirror_PS_Start,
                         Size = Path_Pattern_Mirror_PS_Size,
                         Signature = VS_CB0 | PS_CB0 | PS_T0,
@@ -126,7 +134,7 @@ namespace VECS.UI
                 case Shader.Enum.Path_AA_Solid:
                     return new ShaderPS()
                     {
-                        label = shader.ToString(),
+                        Label = shader.ToString(),
                         Start = Path_AA_Solid_PS_Start,
                         Size = Path_AA_Solid_PS_Size,
                         Signature = VS_CB0,
@@ -134,7 +142,7 @@ namespace VECS.UI
                 case Shader.Enum.Path_AA_Linear:
                     return new ShaderPS()
                     {
-                        label = shader.ToString(),
+                        Label = shader.ToString(),
                         Start = Path_AA_Linear_PS_Start,
                         Size = Path_AA_Linear_PS_Size,
                         Signature = VS_CB0 | PS_CB0 | PS_T1,
@@ -142,7 +150,7 @@ namespace VECS.UI
                 case Shader.Enum.Path_AA_Radial:
                     return new ShaderPS()
                     {
-                        label = shader.ToString(),
+                        Label = shader.ToString(),
                         Start = Path_AA_Radial_PS_Start,
                         Size = Path_AA_Radial_PS_Size,
                         Signature = VS_CB0 | PS_CB0 | PS_T1,
@@ -150,7 +158,7 @@ namespace VECS.UI
                 case Shader.Enum.Path_AA_Pattern:
                     return new ShaderPS()
                     {
-                        label = shader.ToString(),
+                        Label = shader.ToString(),
                         Start = Path_AA_Pattern_PS_Start,
                         Size = Path_AA_Pattern_PS_Size,
                         Signature = VS_CB0 | PS_CB0 | PS_T0,
@@ -158,7 +166,7 @@ namespace VECS.UI
                 case Shader.Enum.Path_AA_Pattern_Clamp:
                     return new ShaderPS()
                     {
-                        label = shader.ToString(),
+                        Label = shader.ToString(),
                         Start = Path_AA_Pattern_Clamp_PS_Start,
                         Size = Path_AA_Pattern_Clamp_PS_Size,
                         Signature = VS_CB0 | PS_CB0 | PS_T0,
@@ -166,7 +174,7 @@ namespace VECS.UI
                 case Shader.Enum.Path_AA_Pattern_Repeat:
                     return new ShaderPS()
                     {
-                        label = shader.ToString(),
+                        Label = shader.ToString(),
                         Start = Path_AA_Pattern_Repeat_PS_Start,
                         Size = Path_AA_Pattern_Repeat_PS_Size,
                         Signature = VS_CB0 | PS_CB0 | PS_T0,
@@ -174,7 +182,7 @@ namespace VECS.UI
                 case Shader.Enum.Path_AA_Pattern_MirrorU:
                     return new ShaderPS()
                     {
-                        label = shader.ToString(),
+                        Label = shader.ToString(),
                         Start = Path_AA_Pattern_MirrorU_PS_Start,
                         Size = Path_AA_Pattern_MirrorU_PS_Size,
                         Signature = VS_CB0 | PS_CB0 | PS_T0,
@@ -182,7 +190,7 @@ namespace VECS.UI
                 case Shader.Enum.Path_AA_Pattern_MirrorV:
                     return new ShaderPS()
                     {
-                        label = shader.ToString(),
+                        Label = shader.ToString(),
                         Start = Path_AA_Pattern_MirrorV_PS_Start,
                         Size = Path_AA_Pattern_MirrorV_PS_Size,
                         Signature = VS_CB0 | PS_CB0 | PS_T0,
@@ -190,7 +198,7 @@ namespace VECS.UI
                 case Shader.Enum.Path_AA_Pattern_Mirror:
                     return new ShaderPS()
                     {
-                        label = shader.ToString(),
+                        Label = shader.ToString(),
                         Start = Path_AA_Pattern_Mirror_PS_Start,
                         Size = Path_AA_Pattern_Mirror_PS_Size,
                         Signature = VS_CB0 | PS_CB0 | PS_T0,
@@ -198,7 +206,7 @@ namespace VECS.UI
                 case Shader.Enum.SDF_Solid:
                     return new ShaderPS()
                     {
-                        label = shader.ToString(),
+                        Label = shader.ToString(),
                         Start = SDF_Solid_PS_Start,
                         Size = SDF_Solid_PS_Size,
                         Signature = VS_CB0 | VS_CB1 | PS_T3,
@@ -206,7 +214,7 @@ namespace VECS.UI
                 case Shader.Enum.SDF_Linear:
                     return new ShaderPS()
                     {
-                        label = shader.ToString(),
+                        Label = shader.ToString(),
                         Start = SDF_Linear_PS_Start,
                         Size = SDF_Linear_PS_Size,
                         Signature = VS_CB0 | VS_CB1 | PS_CB0 | PS_T1 | PS_T3,
@@ -214,7 +222,7 @@ namespace VECS.UI
                 case Shader.Enum.SDF_Radial:
                     return new ShaderPS()
                     {
-                        label = shader.ToString(),
+                        Label = shader.ToString(),
                         Start = SDF_Radial_PS_Start,
                         Size = SDF_Radial_PS_Size,
                         Signature = VS_CB0 | VS_CB1 | PS_CB0 | PS_T1 | PS_T3,
@@ -222,7 +230,7 @@ namespace VECS.UI
                 case Shader.Enum.SDF_Pattern:
                     return new ShaderPS()
                     {
-                        label = shader.ToString(),
+                        Label = shader.ToString(),
                         Start = SDF_Pattern_PS_Start,
                         Size = SDF_Pattern_PS_Size,
                         Signature = VS_CB0 | VS_CB1 | PS_CB0 | PS_T0 | PS_T3,
@@ -230,7 +238,7 @@ namespace VECS.UI
                 case Shader.Enum.SDF_Pattern_Clamp:
                     return new ShaderPS()
                     {
-                        label = shader.ToString(),
+                        Label = shader.ToString(),
                         Start = SDF_Pattern_PS_Start,
                         Size = SDF_Pattern_PS_Size,
                         Signature = VS_CB0 | VS_CB1 | PS_CB0 | PS_T0 | PS_T3,
@@ -238,7 +246,7 @@ namespace VECS.UI
                 case Shader.Enum.SDF_Pattern_Repeat:
                     return new ShaderPS()
                     {
-                        label = shader.ToString(),
+                        Label = shader.ToString(),
                         Start = SDF_Pattern_Repeat_PS_Start,
                         Size = SDF_Pattern_Repeat_PS_Size,
                         Signature = VS_CB0 | VS_CB1 | PS_CB0 | PS_T0 | PS_T3,
@@ -246,7 +254,7 @@ namespace VECS.UI
                 case Shader.Enum.SDF_Pattern_MirrorU:
                     return new ShaderPS()
                     {
-                        label = shader.ToString(),
+                        Label = shader.ToString(),
                         Start = SDF_Pattern_MirrorU_PS_Start,
                         Size = SDF_Pattern_MirrorU_PS_Size,
                         Signature = VS_CB0 | VS_CB1 | PS_CB0 | PS_T0 | PS_T3,
@@ -254,7 +262,7 @@ namespace VECS.UI
                 case Shader.Enum.SDF_Pattern_MirrorV:
                     return new ShaderPS()
                     {
-                        label = shader.ToString(),
+                        Label = shader.ToString(),
                         Start = SDF_Pattern_MirrorV_PS_Start,
                         Size = SDF_Pattern_MirrorV_PS_Size,
                         Signature = VS_CB0 | VS_CB1 | PS_CB0 | PS_T0 | PS_T3,
@@ -262,7 +270,7 @@ namespace VECS.UI
                 case Shader.Enum.SDF_Pattern_Mirror:
                     return new ShaderPS()
                     {
-                        label = shader.ToString(),
+                        Label = shader.ToString(),
                         Start = SDF_Pattern_Mirror_PS_Start,
                         Size = SDF_Pattern_Mirror_PS_Size,
                         Signature = VS_CB0 | VS_CB1 | PS_CB0 | PS_T0 | PS_T3,
@@ -342,7 +350,7 @@ namespace VECS.UI
                 case Shader.Enum.Opacity_Solid:
                     return new ShaderPS()
                     {
-                        label = shader.ToString(),
+                        Label = shader.ToString(),
                         Start =Opacity_Solid_PS_Start ,
                         Size = Opacity_Solid_PS_Size,
                         Signature = VS_CB0 | PS_T2,
@@ -350,7 +358,7 @@ namespace VECS.UI
                 case Shader.Enum.Opacity_Linear:
                     return new ShaderPS()
                     {
-                        label = shader.ToString(),
+                        Label = shader.ToString(),
                         Start = Opacity_Linear_PS_Start,
                         Size = Opacity_Linear_PS_Size,
                         Signature = VS_CB0 | PS_CB0 | PS_T1 | PS_T2,
@@ -358,7 +366,7 @@ namespace VECS.UI
                 case Shader.Enum.Opacity_Radial:
                     return new ShaderPS()
                     {
-                        label = shader.ToString(),
+                        Label = shader.ToString(),
                         Start = Opacity_Radial_PS_Start,
                         Size = Opacity_Radial_PS_Size,
                         Signature = VS_CB0 | PS_CB0 | PS_T1 | PS_T2,
@@ -366,7 +374,7 @@ namespace VECS.UI
                 case Shader.Enum.Opacity_Pattern:
                     return new ShaderPS()
                     {
-                        label = shader.ToString(),
+                        Label = shader.ToString(),
                         Start = Opacity_Pattern_PS_Start,
                         Size = Opacity_Pattern_PS_Size,
                         Signature = VS_CB0 | PS_CB0 | PS_T0 | PS_T2,
@@ -374,7 +382,7 @@ namespace VECS.UI
                 case Shader.Enum.Opacity_Pattern_Clamp:
                     return new ShaderPS()
                     {
-                        label = shader.ToString(),
+                        Label = shader.ToString(),
                         Start = Opacity_Pattern_Clamp_PS_Start,
                         Size = Opacity_Pattern_Clamp_PS_Size,
                         Signature = VS_CB0 | PS_CB0 | PS_T0 | PS_T2,
@@ -382,7 +390,7 @@ namespace VECS.UI
                 case Shader.Enum.Opacity_Pattern_Repeat:
                     return new ShaderPS()
                     {
-                        label = shader.ToString(),
+                        Label = shader.ToString(),
                         Start = Opacity_Pattern_Repeat_PS_Start,
                         Size = Opacity_Pattern_Repeat_PS_Size,
                         Signature = VS_CB0 | PS_CB0 | PS_T0 | PS_T2,
@@ -390,7 +398,7 @@ namespace VECS.UI
                 case Shader.Enum.Opacity_Pattern_MirrorU:
                     return new ShaderPS()
                     {
-                        label = shader.ToString(),
+                        Label = shader.ToString(),
                         Start = Opacity_Pattern_MirrorU_PS_Start,
                         Size = Opacity_Pattern_MirrorU_PS_Size,
                         Signature = VS_CB0 | PS_CB0 | PS_T0 | PS_T2,
@@ -398,7 +406,7 @@ namespace VECS.UI
                 case Shader.Enum.Opacity_Pattern_MirrorV:
                     return new ShaderPS()
                     {
-                        label = shader.ToString(),
+                        Label = shader.ToString(),
                         Start = Opacity_Pattern_MirrorV_PS_Start,
                         Size = Opacity_Pattern_MirrorV_PS_Size,
                         Signature = VS_CB0 | PS_CB0 | PS_T0 | PS_T2,
@@ -406,7 +414,7 @@ namespace VECS.UI
                 case Shader.Enum.Opacity_Pattern_Mirror:
                     return new ShaderPS()
                     {
-                        label = shader.ToString(),
+                        Label = shader.ToString(),
                         Start = Opacity_Pattern_Mirror_PS_Start,
                         Size = Opacity_Pattern_Mirror_PS_Size,
                         Signature = VS_CB0 | PS_CB0 | PS_T0 | PS_T2,
@@ -414,7 +422,7 @@ namespace VECS.UI
                 case Shader.Enum.Upsample:
                     return new ShaderPS()
                     {
-                        label = shader.ToString(),
+                        Label = shader.ToString(),
                         Start = Upsample_PS_Start,
                         Size = Upsample_PS_Size,
                         Signature = VS_CB0 | PS_T0 | PS_T2,
@@ -422,7 +430,7 @@ namespace VECS.UI
                 case Shader.Enum.Downsample:
                     return new ShaderPS()
                     {
-                        label = shader.ToString(),
+                        Label = shader.ToString(),
                         Start = Downsample_PS_Start,
                         Size = Downsample_PS_Size,
                         Signature = VS_CB0 | PS_T0,
@@ -430,7 +438,7 @@ namespace VECS.UI
                 case Shader.Enum.Shadow:
                     return new ShaderPS()
                     {
-                        label = shader.ToString(),
+                        Label = shader.ToString(),
                         Start = Shadow_PS_Start,
                         Size = Shadow_PS_Size,
                         Signature = VS_CB0 | PS_CB1 | PS_T2 | PS_T4,
@@ -438,7 +446,7 @@ namespace VECS.UI
                 case Shader.Enum.Blur:
                     return new ShaderPS()
                     {
-                        label = shader.ToString(),
+                        Label = shader.ToString(),
                         Start = Blur_PS_Start,
                         Size = Blur_PS_Size,
                         Signature = VS_CB0 | PS_CB1 | PS_T2 | PS_T4,
@@ -500,6 +508,434 @@ namespace VECS.UI
 
         default: return ShaderPS{ };
                 */
+        }
+
+        internal static ShaderVS ShadersVS(Shader.Vertex.Enum shader, bool sRGB, bool stereo)
+        {
+            if (stereo)
+            {
+                if (sRGB)
+                {
+                    switch (shader)
+                    {
+                        case Shader.Vertex.Enum.Pos:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = Pos_Layer_VS_Start,
+                                Size = Pos_Layer_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosColor:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosColor_Layer_VS_Start,
+                                Size = PosColor_Layer_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosTex0:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosTex0_Layer_VS_Start,
+                                Size = PosTex0_Layer_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosTex0Rect:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosTex0Rect_Layer_VS_Start,
+                                Size = PosTex0Rect_Layer_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosTex0RectTile:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosTex0RectTile_Layer_VS_Start,
+                                Size = PosTex0RectTile_Layer_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosColorCoverage:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosColorCoverage_Layer_VS_Start,
+                                Size = PosColorCoverage_Layer_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosTex0Coverage:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosTex0Coverage_Layer_VS_Start,
+                                Size = PosTex0Coverage_Layer_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosTex0CoverageRect:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosTex0CoverageRect_Layer_VS_Start,
+                                Size = PosTex0CoverageRect_Layer_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosTex0CoverageRectTile:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosTex0CoverageRectTile_Layer_VS_Start,
+                                Size = PosTex0CoverageRectTile_Layer_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosColorTex1_SDF:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosColorTex1_SDF_Layer_VS_Start,
+                                Size = PosColorTex1_SDF_Layer_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosTex0Tex1_SDF:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosTex0Tex1_SDF_Layer_VS_Start,
+                                Size = PosTex0Tex1_SDF_Layer_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosTex0Tex1Rect_SDF:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosTex0Tex1Rect_SDF_Layer_VS_Start,
+                                Size = PosTex0Tex1Rect_SDF_Layer_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosTex0Tex1RectTile_SDF:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosTex0Tex1RectTile_SDF_Layer_VS_Start,
+                                Size = PosTex0Tex1RectTile_SDF_Layer_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosColorTex1:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosColorTex1_Layer_VS_Start,
+                                Size = PosColorTex1_Layer_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosTex0Tex1:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosTex0Tex1_Layer_VS_Start,
+                                Size = PosTex0Tex1_Layer_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosTex0Tex1Rect:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosTex0Tex1Rect_Layer_VS_Start,
+                                Size = PosTex0Tex1Rect_Layer_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosTex0Tex1RectTile:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosTex0Tex1RectTile_Layer_VS_Start,
+                                Size = PosTex0Tex1RectTile_Layer_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosColorTex0Tex1:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosColorTex0Tex1_Layer_VS_Start,
+                                Size = PosColorTex0Tex1_Layer_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosTex0Tex1_Downsample:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosTex0Tex1_Downsample_Layer_VS_Start,
+                                Size = PosTex0Tex1_Downsample_Layer_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosColorTex1Rect:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosColorTex1Rect_Layer_VS_Start,
+                                Size = PosColorTex1Rect_Layer_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosColorTex0RectImagePos:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosColorTex0RectImagePos_Layer_VS_Start,
+                                Size = PosColorTex0RectImagePos_Layer_VS_Size,
+                            };
+                    }
+                }
+                else
+                {
+                    switch (shader)
+                    {
+                        case Shader.Vertex.Enum.PosColor:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosColor_SRGB_Layer_VS_Start,
+                                Size = PosColor_SRGB_Layer_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosColorCoverage:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosColorCoverage_SRGB_Layer_VS_Start,
+                                Size = PosColorCoverage_SRGB_Layer_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosColorTex1_SDF:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosColorTex1_SDF_SRGB_Layer_VS_Start,
+                                Size = PosColorTex1_SDF_SRGB_Layer_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosColorTex1:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosColorTex1_SRGB_Layer_VS_Start,
+                                Size = PosColorTex1_SRGB_Layer_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosColorTex0Tex1:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosColorTex0Tex1_SRGB_Layer_VS_Start,
+                                Size = PosColorTex0Tex1_SRGB_Layer_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosColorTex1Rect:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosColorTex1Rect_SRGB_Layer_VS_Start,
+                                Size = PosColorTex1Rect_SRGB_Layer_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosColorTex0RectImagePos:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosColorTex0RectImagePos_SRGB_Layer_VS_Start,
+                                Size = PosColorTex0RectImagePos_SRGB_Layer_VS_Size,
+                            };
+                    }
+                }
+            }
+            else
+            {
+                if (sRGB)
+                {
+                    switch (shader)
+                    {
+                        case Shader.Vertex.Enum.Pos:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = Pos_VS_Start,
+                                Size = Pos_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosColor:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosColor_VS_Start,
+                                Size = PosColor_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosTex0:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosTex0_VS_Start,
+                                Size = PosTex0_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosTex0Rect:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosTex0Rect_VS_Start,
+                                Size = PosTex0Rect_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosTex0RectTile:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosTex0RectTile_VS_Start,
+                                Size = PosTex0RectTile_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosColorCoverage:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosColorCoverage_VS_Start,
+                                Size = PosColorCoverage_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosTex0Coverage:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosTex0Coverage_VS_Start,
+                                Size = PosTex0Coverage_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosTex0CoverageRect:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosTex0CoverageRect_VS_Start,
+                                Size = PosTex0CoverageRect_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosTex0CoverageRectTile:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosTex0CoverageRectTile_VS_Start,
+                                Size = PosTex0CoverageRectTile_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosColorTex1_SDF:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosColorTex1_SDF_VS_Start,
+                                Size = PosColorTex1_SDF_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosTex0Tex1_SDF:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosTex0Tex1_SDF_VS_Start,
+                                Size = PosTex0Tex1_SDF_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosTex0Tex1Rect_SDF:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosTex0Tex1Rect_SDF_VS_Start,
+                                Size = PosTex0Tex1Rect_SDF_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosTex0Tex1RectTile_SDF:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosTex0Tex1RectTile_SDF_VS_Start,
+                                Size = PosTex0Tex1RectTile_SDF_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosColorTex1:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosColorTex1_VS_Start,
+                                Size = PosColorTex1_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosTex0Tex1:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosTex0Tex1_VS_Start,
+                                Size = PosTex0Tex1_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosTex0Tex1Rect:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosTex0Tex1Rect_VS_Start,
+                                Size = PosTex0Tex1Rect_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosTex0Tex1RectTile:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosTex0Tex1RectTile_VS_Start,
+                                Size = PosTex0Tex1RectTile_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosColorTex0Tex1:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosColorTex0Tex1_VS_Start,
+                                Size = PosColorTex0Tex1_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosTex0Tex1_Downsample:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosTex0Tex1_Downsample_VS_Start,
+                                Size = PosTex0Tex1_Downsample_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosColorTex1Rect:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosColorTex1Rect_VS_Start,
+                                Size = PosColorTex1Rect_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosColorTex0RectImagePos:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosColorTex0RectImagePos_VS_Start,
+                                Size = PosColorTex0RectImagePos_VS_Size,
+                            };
+                    }
+                }
+                else
+                {
+                    switch (shader)
+                    {
+                        case Shader.Vertex.Enum.PosColor:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosColor_SRGB_VS_Start,
+                                Size = PosColor_SRGB_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosColorCoverage:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosColorCoverage_SRGB_VS_Start,
+                                Size = PosColorCoverage_SRGB_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosColorTex1_SDF:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosColorTex1_SDF_SRGB_VS_Start,
+                                Size = PosColorTex1_SDF_SRGB_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosColorTex1:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosColorTex1_SRGB_VS_Start,
+                                Size = PosColorTex1_SRGB_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosColorTex0Tex1:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosColorTex0Tex1_SRGB_VS_Start,
+                                Size = PosColorTex0Tex1_SRGB_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosColorTex1Rect:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosColorTex1Rect_SRGB_VS_Start,
+                                Size = PosColorTex1Rect_SRGB_VS_Size,
+                            };
+                        case Shader.Vertex.Enum.PosColorTex0RectImagePos:
+                            return new()
+                            {
+                                Label = shader.ToString(),
+                                Start = PosColorTex0RectImagePos_SRGB_VS_Start,
+                                Size = PosColorTex0RectImagePos_SRGB_VS_Size,
+                            };
+                    }
+                }
+            }
+
+            return default;
         }
 
         /* Pos_VS */

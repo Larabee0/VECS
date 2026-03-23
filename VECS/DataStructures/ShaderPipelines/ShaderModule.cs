@@ -121,12 +121,12 @@ namespace VECS
             return module;
         }
 
-        public static ShaderModule Create(string name, byte[] shaderBytes)
+        public static ShaderModule CreateNoAdd(string name, byte[] shaderBytes)
         {
             var module = new ShaderModule(name, shaderBytes);
 
             AssetDataBase<ShaderModule>.Add(module);
-            
+
             return module;
         }
 
