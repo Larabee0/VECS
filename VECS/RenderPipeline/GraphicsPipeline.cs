@@ -18,7 +18,7 @@ namespace VECS
         private GraphicsPipelineConfigInfo _graphicsPipelineConfigInfo;
 
         private readonly VkPipelineLayout _pipelineLayout;
-        private VkPipeline _graphicsPipeline;
+        internal VkPipeline _graphicsPipeline;
 
         private readonly VkDescriptorSetLayout[] _descriptorSetLayouts;
         private readonly VertexAttributeDescription[] _meshShaderVertexAttributes;

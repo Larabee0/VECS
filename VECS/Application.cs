@@ -169,6 +169,10 @@ namespace VECS
             sw.Stop();
             Console.WriteLine("Application.Start time: {0}ms", sw.ElapsedMilliseconds);
             Console.WriteLine("Start completed, Engine is Running!");
+
+            Noesis.GUI.Init();
+
+            new NoesisDriver().CleanUpMeshData();
         }
 
         private static unsafe void LogMemoryUsage()
@@ -397,6 +401,7 @@ namespace VECS
             Time.FixedTimeStepCallback -= FixedUpdate;
             _presenter.Dispose();
             SDL3WindowManager.DestroyAllWindows();
+            
             GPUBufferExtensions.Reset();
             TextureExtensions.Reset();
             TextureLoader.SaveTextureCache();

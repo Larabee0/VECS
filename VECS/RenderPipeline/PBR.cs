@@ -36,7 +36,9 @@ namespace VECS
             var irradianceProp ="samplerIrradiance".GetShaderPropertyId();
             var prefilteredProp ="prefilteredMap".GetShaderPropertyId();
             var brdflutProp ="samplerBRDFLUT".GetShaderPropertyId();
-
+            ShaderProperties.IgnoreUnFoundShaderProperties.Add(irradianceProp);
+            ShaderProperties.IgnoreUnFoundShaderProperties.Add(prefilteredProp);
+            ShaderProperties.IgnoreUnFoundShaderProperties.Add(brdflutProp);
             EngineTextures.AddTexture(irradianceProp, Irradiance_Cubemap);
             EngineTextures.AddTexture(prefilteredProp, Prefiltered_Cubemap);
             EngineTextures.AddTexture(brdflutProp, BRDFLUT_Texture);

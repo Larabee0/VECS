@@ -536,8 +536,14 @@ namespace VECS
                 layout = configInfo.pipelineLayout,
 
                 basePipelineIndex = -1,
-                basePipelineHandle = VkPipeline.Null
+                basePipelineHandle = configInfo.BasePipeline == null ? VkPipeline.Null : configInfo.BasePipeline._graphicsPipeline
             };
+
+            flags |= ((configInfo.BasePipeline != null)
+                    ? VkPipelineCreateFlags.Derivative
+                    : (configInfo.AllowDerivative
+                        ? VkPipelineCreateFlags.AllowDerivatives
+                        : VkPipelineCreateFlags.None));
 
             if (configInfo.BindingDescriptions != null && configInfo.AttributeDescriptions != null)
             {

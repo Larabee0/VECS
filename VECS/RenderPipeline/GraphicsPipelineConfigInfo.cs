@@ -28,7 +28,8 @@ namespace VECS.GraphicsPipelines
         public VkFormat depthFormat;
         public VkFormat stencilFormat;
         public uint viewMask;
-
+        public GraphicsPipeline BasePipeline;
+        public bool AllowDerivative;
         /// <summary>
         /// Default graphics pipeline configuration. Because of course vulkan doesn't have a default.
         /// </summary>

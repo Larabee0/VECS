@@ -23,7 +23,8 @@ namespace VECS.LowLevel
             Vulkan.VK_EXT_PAGEABLE_DEVICE_LOCAL_MEMORY_EXTENSION_NAME,
             Vulkan.VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME,
             Vulkan.VK_EXT_NESTED_COMMAND_BUFFER_EXTENSION_NAME,
-            Vulkan.VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME
+            Vulkan.VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME,
+            Vulkan.VK_EXT_SHADER_VIEWPORT_INDEX_LAYER_EXTENSION_NAME
         ];
 
         private const bool ForceMeshShadingOff = false;
@@ -319,6 +320,8 @@ namespace VECS.LowLevel
                 pNext = &pageableDeviceLocalMemoryFeaturesEXT
             };
 
+            
+
             VkPhysicalDeviceDescriptorBufferFeaturesEXT descriptorBuffers = new()
             {
                 descriptorBuffer = true,
@@ -342,6 +345,7 @@ namespace VECS.LowLevel
                 shaderDrawParameters = true,
                 multiviewGeometryShader = true,
                 multiview = true,
+
                 pNext = &descriptorBuffers
             };
 
@@ -353,6 +357,8 @@ namespace VECS.LowLevel
                 samplerFilterMinmax = true,
                 timelineSemaphore = true,
                 storageBuffer8BitAccess = true,
+                shaderOutputViewportIndex = true,
+                shaderOutputLayer = true,
                 pNext = &deviceFeatures11
             };
 

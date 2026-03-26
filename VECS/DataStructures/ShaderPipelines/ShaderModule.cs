@@ -89,12 +89,12 @@ namespace VECS
 
             AssetName = name;
 
+            GraphicsDevice.DeviceAPI.vkCreateShaderModule(shaderCode, null, out _vkShaderModule).CheckResult("Failed to Create Shader Module!");
             _spvShaderModule = SPIRVReflectUtil.CreateReflectShaderModule(shaderCode);
 
             _spvStage = _spvShaderModule.shader_stage;
             _vkStage = (VkShaderStageFlags)_spvStage;
 
-            GraphicsDevice.DeviceAPI.vkCreateShaderModule(shaderCode, null, out _vkShaderModule).CheckResult("Failed to Create Shader Module!");
         }
 
         public unsafe override void Dispose()

@@ -1,56 +1,13 @@
-﻿using Assimp.Unmanaged;
-using BepuPhysics.Collidables;
-using BepuUtilities.Memory;
-using Noesis;
+﻿using Noesis;
 using System;
 using System.Collections.Generic;
-using System.Reflection;
-using System.Reflection.Emit;
-using System.Reflection.PortableExecutable;
-using System.Runtime.InteropServices;
-using System.Threading.Tasks;
+using System.Diagnostics;
 using VECS.GraphicsPipelines;
 using VECS.LowLevel;
 using Vortice.Vulkan;
-using static Noesis.Shader.Vertex.Format;
 
 namespace VECS.UI
 {
-    public class NoesisTexture : Noesis.Texture
-    {
-        public Texture2D Texture;
-        public bool TextureInverted;
-        public bool AlphaComponent;
-
-        public override uint Width => (uint)Texture.Width;
-
-        public override uint Height => (uint)Texture.Height;
-
-        public override bool HasMipMaps => Texture.MipMapCount > 1;
-
-        public override bool IsInverted => TextureInverted;
-
-        public override bool HasAlpha => AlphaComponent;
-
-        public NoesisTexture(Texture2D texture, bool inverted, bool alphaComponent)
-        {
-            Texture = texture;
-            TextureInverted = inverted;
-            AlphaComponent = alphaComponent;
-        }
-    }
-
-    public class NoesisRenderTarget : Noesis.RenderTarget
-    {
-        public NoesisTexture Colour;
-        public NoesisTexture ColourAA;
-        public NoesisTexture Stencil;
-                public uint ColourAttachmentCount => Stencil == null ? 1u : 2u;
-
-        public VkSampleCountFlags samples = VkSampleCountFlags.Count1;
-
-        public override Noesis.Texture Texture => Colour;
-    }
 
     public class NoesisDriver : RenderDevice
     {
@@ -86,48 +43,20 @@ namespace VECS.UI
 
             LoadShaderModules();
             CreateSamplers();
+            var renderTarget = (NoesisRenderTarget)CreateRenderTarget("TEST", (uint)Screen.Width, (uint)Screen.Height, 1, true);
+            CreatePipeline(renderTarget,VkSampleCountFlags.Count1);
         }
 
         private unsafe void LoadShaderModules()
         {
-            uint size = 0;
-
-            fixed(byte* pSize = NoesisShaders.Shaders)
+            for (Shader.Vertex.Enum i = 0; i < Shader.Vertex.Enum.Count; i++)
             {
-                size = *(uint*)(pSize + 4);
+                _vertexShaders[(int)i] = AssetDataBase<ShaderModule>.GetNamed(string.Format("{0}_VS", i.ToString()));
             }
 
-            byte[] decompressedShaders = new byte[size];
-
-            DotFastLZ.Compression.FastLZ.Decompress(NoesisShaders.Shaders, NoesisShaders.Shaders.Length, decompressedShaders, size);
-
-
-            Application.ParallelFor((int)Shader.Vertex.Enum.Count, (i) =>
+            for (Shader.Enum i = 0; i < Shader.Enum.Count; i++)
             {
-                ShaderVS vShader = NoesisShaders.ShadersVS((Shader.Vertex.Enum)i, Caps.LinearRendering, mStereoSupport);
-                byte[] shaderCode = new byte[vShader.Size];
-                Array.Copy(decompressedShaders, vShader.Start, shaderCode, 0, vShader.Size);
-                _vertexShaders[i] = new ShaderModule(vShader.Label, shaderCode);
-            });
-
-            var pixelCreateTask = Task.Run(()=> Application.ParallelFor((int)Shader.Enum.Count, (i) =>
-            {
-                ShaderPS pShader = NoesisShaders.ShadersPS((Shader.Enum)i);
-                byte[] shaderCode = new byte[pShader.Size];
-                Array.Copy(decompressedShaders,pShader.Start,shaderCode,0, pShader.Size);
-                _pixelShaders[i] = new ShaderModule(pShader.Label, shaderCode);
-            }));
-
-            for (int i = 0; i < _vertexShaders.Length; i++)
-            {
-                AssetDataBase<ShaderModule>.Add(_vertexShaders[i]);
-            }
-
-            pixelCreateTask.Wait();
-
-            for (int i = 0; i < _pixelShaders.Length; i++)
-            {
-                AssetDataBase<ShaderModule>.Add(_pixelShaders[i]);
+                _pixelShaders[(int)i] = AssetDataBase<ShaderModule>.GetNamed(string.Format("{0}_PS", i.ToString()));
             }
         }
 
@@ -141,9 +70,9 @@ namespace VECS.UI
                 mipLodBias = -0.75f
             };
 
-            string[] MinMagStr = ["Nearest", "Linear"];
-            string[] MipStr = ["Disabled", "Nearest", "Linear"];
-            string[] WrapStr = ["ClampToEdge", "ClampToZero", "Repeat", "MirrorU", "MirrorV", "Mirror"];
+            // string[] MinMagStr = ["Nearest", "Linear"];
+            // string[] MipStr = ["Disabled", "Nearest", "Linear"];
+            // string[] WrapStr = ["ClampToEdge", "ClampToZero", "Repeat", "MirrorU", "MirrorV", "Mirror"];
             int samplerIndex = 0;
             for(MinMagFilter minmag = MinMagFilter.Nearest; minmag <= MinMagFilter.Linear; minmag++)
             {
@@ -771,7 +700,7 @@ namespace VECS.UI
             _ => throw new NotImplementedException(string.Format("Format {0} not implemented", type.ToString())),
         };
 
-        private static void FillVertexAttributes(Shader.Vertex.Format.Enum format, VkVertexInputAttributeDescription[] v)
+        private static void FillVertexAttributes(Shader.Vertex.Format.Enum format, List<VkVertexInputAttributeDescription> v)
         {
             var attributes = Shader.AttributesForFormat(format);
             uint offset = 0;
@@ -787,7 +716,8 @@ namespace VECS.UI
                         format = Format(Shader.TypeForAttr(i)),
                         offset = offset
                     };
-                    v[(int)i] = attr;
+                    v.Add(attr);
+                    offset += (uint)Shader.SizeForType(Shader.TypeForAttr(i));
                 }
             }
         }
@@ -797,11 +727,11 @@ namespace VECS.UI
 
             for (Shader.Enum i = 0; i < Shader.Enum.Count; i++)
             {
-                ShaderPS pShader = NoesisShaders.ShadersPS(i);
+                var pShader = _pixelShaders[(int)i];
 
-                if (!string.IsNullOrEmpty( pShader.Label))
+                if (pShader != null)
                 {
-                    CreatePipelines(pShader.Label,  renderTarget, i, _pixelShaders[(int)i], sampleCountFlags, 0);
+                    CreatePipelines(i.ToString(),  renderTarget, i, pShader, sampleCountFlags, 0);
                 }
             }
 
@@ -831,11 +761,11 @@ namespace VECS.UI
             configInfo.depthFormat = VkFormat.Undefined;
 
             // Vertex Input State
-            VkVertexInputAttributeDescription[] attrs = new VkVertexInputAttributeDescription[(int)Shader.Vertex.Format.Attr.Enum.Count];
+            List<VkVertexInputAttributeDescription> attrs = new();
 
             FillVertexAttributes(format, attrs);
 
-            configInfo.AttributeDescriptions = attrs;
+            configInfo.AttributeDescriptions = attrs.ToArray();
 
             VkVertexInputBindingDescription bindingDescription = new()
             {
@@ -898,7 +828,7 @@ namespace VECS.UI
             }
         }
         
-        private static unsafe void BlendInfo(VkPipelineColorBlendAttachmentState* info, RenderState state, string label)
+        private static unsafe bool BlendInfo(VkPipelineColorBlendAttachmentState* info, RenderState state, string label)
         {
             if (state.ColorEnable)
             {
@@ -945,12 +875,14 @@ namespace VECS.UI
                         info->dstAlphaBlendFactor = VkBlendFactor.OneMinusSrcAlpha;
                         break;
                     default:
-                        throw new NotImplementedException(string.Format("BlendMode {0} unsupported", state.BlendMode.ToString()));
+                        return false;
+                        //throw new NotImplementedException(string.Format("BlendMode {0} unsupported", state.BlendMode.ToString()));
                 }
             }
+            return true;
         }
         
-        private static unsafe void DepthStencilInfo(VkPipelineDepthStencilStateCreateInfo* info, RenderState state, string label)
+        private static unsafe bool DepthStencilInfo(VkPipelineDepthStencilStateCreateInfo* info, RenderState state, string label)
         {
             info->depthWriteEnable = false;
             info->depthBoundsTestEnable = false;
@@ -1031,29 +963,34 @@ namespace VECS.UI
                     info->back.passOp = VkStencilOp.Keep;
                     break;
                 default:
-                    throw new NotImplementedException(string.Format("StencilMode {0} not implemented", state.StencilMode.ToString()));
+                    return false;
+                    //throw new NotImplementedException(string.Format("StencilMode {0} not implemented", state.StencilMode.ToString()));
             }
+            return true;
         }
 
 
         private unsafe void CreatePipelines(string label, Shader.Enum shader_, string vertexShader, string pixelShader, GraphicsPipelineConfigInfo configInfo, uint custom)
         {
-            GraphicsDevice.InstanceAPI.vkGetPhysicalDeviceFeatures(GraphicsDevice.PhysicalDevice,out var features);
-
+            GraphicsDevice.InstanceAPI.vkGetPhysicalDeviceFeatures(GraphicsDevice.PhysicalDevice, out var features);
+            GraphicsPipeline parent = null;
             byte shaderEnum = (byte)shader_;
-            for (byte i = 0; i <= byte.MaxValue; i++)
+            Shader shader = new();
+            Buffer.MemoryCopy(&shaderEnum, &shader, 1, 1);
+            for (uint i = 0; i < 256; i++)
             {
-                Shader shader = new();
-                Buffer.MemoryCopy(&shaderEnum, &shader, 1, 1);
-
                 RenderState state = new();
-                Buffer.MemoryCopy(&i, &shader, 1, 1);
+                byte v = (byte)i;
+                Buffer.MemoryCopy(&v, &state, 1, 1);
 
                 // if (!IsValidBlendMode(shader, (BlendMode.Enum)state.BlendMode)) continue;
                 // if (!IsValidColorEnable(shader, state.ColorEnable > 0)) continue;
                 // if (!IsValidWireframe(shader, state.BlendMode > 0)) continue;
                 // 
-                // pipelineInfo.basePipelineHandle = parent;
+                configInfo.BasePipeline = parent;
+
+                configInfo.AllowDerivative = parent == null;
+
                 // pipelineInfo.flags = (parent != VK_NULL_HANDLE) ? VK_PIPELINE_CREATE_DERIVATIVE_BIT :
                 //     VK_PIPELINE_CREATE_ALLOW_DERIVATIVES_BIT;
 
@@ -1062,11 +999,17 @@ namespace VECS.UI
                 configInfo.rasterizationInfo = rasterizer;
 
                 VkPipelineDepthStencilStateCreateInfo depthStencil = new();
-                DepthStencilInfo(&depthStencil, state, label);
+                if(!DepthStencilInfo(&depthStencil, state, label))
+                {
+                    continue;
+                }
                 configInfo.depthStencilInfo = depthStencil;
 
                 VkPipelineColorBlendAttachmentState colorBlendAttachment = new();
-                BlendInfo(&colorBlendAttachment, state, label);
+                if (!BlendInfo(&colorBlendAttachment, state, label))
+                {
+                    continue;
+                }
                 configInfo.colourBlendAttachment = colorBlendAttachment;
 
                 VkPipelineColorBlendStateCreateInfo colorBlending = new()
@@ -1079,13 +1022,14 @@ namespace VECS.UI
                 // pipelineInfo.pDepthStencilState = &depthStencil;
                 // pipelineInfo.pColorBlendState = &colorBlending;
 
-                var pipeline = new GraphicsPipeline(label, vertexShader, pixelShader, configInfo);
+                var pipeline = new GraphicsPipeline(string.Format("NOESIS_{0}_{1}", label, i), vertexShader, pixelShader, configInfo);
                 Pipelines.Add(pipeline.Hash, pipeline);
 
                 // VkPipeline pipeline;
                 // V(vkCreateGraphicsPipelines(mDevice, mPipelineCache, 1, &pipelineInfo, 0, &pipeline));
                 // VK_NAME(pipeline, PIPELINE, "Noesis_%s", label.Str());
                 // 
+                parent ??= pipeline;
                 // parent = (parent == VK_NULL_HANDLE) ? pipeline : parent;
                 // 
                 // uint32_t hash = HashPipeline(renderPass, shader_, (uint8_t)i, custom);
