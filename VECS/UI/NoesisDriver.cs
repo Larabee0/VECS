@@ -1,10 +1,14 @@
 ﻿using Noesis;
+using SDL3;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Numerics;
+using VECS.ECS;
 using VECS.GraphicsPipelines;
 using VECS.LowLevel;
 using Vortice.Vulkan;
+using Vector4 = System.Numerics.Vector4;
 
 namespace VECS.UI
 {
@@ -23,28 +27,52 @@ namespace VECS.UI
         private readonly ShaderModule[] _vertexShaders = new ShaderModule[(int)Shader.Vertex.Enum.Count];
         private readonly ShaderModule[] _pixelShaders = new ShaderModule[(int)Shader.Enum.Count];
 
+        private readonly HashSet<int> ShaderSets = [];
         private readonly Dictionary<int, GraphicsPipeline> Pipelines = [];
+        private readonly Dictionary<int, Material> Materials = [];
+        private readonly Dictionary<int, uint> PipelineVariantCounts = [];
 
         private readonly SwapChainBuffer _indexBuffer;
         private readonly SwapChainBuffer _vertexBuffer;
 
-        private VkCommandBuffer _currentCommandBuffer;
+        private VkCommandBuffer _currentCommandBuffer => _currentFrameInfo.CommandBuffer;
+        public RendererFrameInfo _currentFrameInfo;
         private bool mCachedDepthTestEnable;
         private bool mCachedStencilTestEnable;
         private uint mCachedStencilOp;
         private uint mCachedStencilRef;
         private bool mStereoSupport;
+        private bool mFillModeNonSolid;
+
+
+
+        private readonly int patternId = "pattern".GetShaderPropertyId();
+        private readonly int rampsId = "ramps".GetShaderPropertyId();
+        private readonly int imageId = "image".GetShaderPropertyId();
+        private readonly int glyphsId = "glyphs".GetShaderPropertyId();
+        private readonly int shadowId = "shadow".GetShaderPropertyId();
 
         public NoesisDriver()
         {
+
             _indexBuffer = new SwapChainBuffer(sizeof(ushort), 100, VkBufferUsageFlags.IndexBuffer, true);
             _vertexBuffer = new SwapChainBuffer(sizeof(byte), 100, VkBufferUsageFlags.VertexBuffer, true);
 
+            GraphicsDevice.InstanceAPI.vkGetPhysicalDeviceFeatures(GraphicsDevice.PhysicalDevice, out var features);
+            mFillModeNonSolid = features.fillModeNonSolid;
 
             LoadShaderModules();
             CreateSamplers();
-            var renderTarget = (NoesisRenderTarget)CreateRenderTarget("TEST", (uint)Screen.Width, (uint)Screen.Height, 1, true);
-            CreatePipeline(renderTarget,VkSampleCountFlags.Count1);
+        }
+
+        public static void ErrorCallback(Exception exception)
+        {
+            throw exception;
+        }
+
+        public static void LoggerCallback(LogLevel level, string channel, string message)
+        {
+            Console.WriteLine("{0} {1} {2}",level.ToString(),channel,message);
         }
 
         private unsafe void LoadShaderModules()
@@ -74,17 +102,17 @@ namespace VECS.UI
             // string[] MipStr = ["Disabled", "Nearest", "Linear"];
             // string[] WrapStr = ["ClampToEdge", "ClampToZero", "Repeat", "MirrorU", "MirrorV", "Mirror"];
             int samplerIndex = 0;
-            for(MinMagFilter minmag = MinMagFilter.Nearest; minmag <= MinMagFilter.Linear; minmag++)
+            for (MinMagFilter minmag = MinMagFilter.Nearest; minmag <= MinMagFilter.Linear; minmag++)
             {
                 for (MipFilter mip = MipFilter.Disabled; mip <= MipFilter.Linear; mip++)
                 {
                     SetMinMagFilter(minmag, &samplerInfo);
                     SetMipFilter(mip, &samplerInfo);
 
-                    for (WrapMode uv = WrapMode.ClampToEdge; uv <= WrapMode.Mirror; uv++,samplerIndex++)
+                    for (WrapMode uv = WrapMode.ClampToEdge; uv <= WrapMode.Mirror; uv++, samplerIndex++)
                     {
                         SetAddress(uv, &samplerInfo);
-                        mSamplers[samplerIndex] = new("NOESIS",samplerInfo);
+                        mSamplers[samplerIndex] = new("NOESIS", samplerInfo);
                     }
                 }
             }
@@ -139,16 +167,16 @@ namespace VECS.UI
         {
             switch (minmag)
             {
-                case MinMagFilter.Nearest:                    
+                case MinMagFilter.Nearest:
                     samplerInfo->minFilter = VkFilter.Nearest;
                     samplerInfo->magFilter = VkFilter.Nearest;
-                    break;                    
-                case MinMagFilter.Linear:                    
+                    break;
+                case MinMagFilter.Linear:
                     samplerInfo->minFilter = VkFilter.Linear;
                     samplerInfo->magFilter = VkFilter.Linear;
-                    break;                    
+                    break;
                 default:
-                    throw new InvalidOperationException(string.Format("MinMagFilter {0} not supported",minmag.ToString()));
+                    throw new InvalidOperationException(string.Format("MinMagFilter {0} not supported", minmag.ToString()));
             }
         }
 
@@ -181,7 +209,7 @@ namespace VECS.UI
 
         public unsafe override void BeginTile(Noesis.RenderTarget surface, Tile tile)
         {
-            if(surface is  NoesisRenderTarget renderTarget)
+            if (surface is NoesisRenderTarget renderTarget)
             {
 
                 VkRect2D renderArea;
@@ -191,8 +219,7 @@ namespace VECS.UI
                 renderArea.extent.height = tile.Height;
                 VkRenderingAttachmentInfo stencil = default;
 
-                VkRenderingAttachmentInfo colour = default;
-
+                VkRenderingAttachmentInfo colour;
                 if (renderTarget.ColourAA != null)
                 {
                     colour = new()
@@ -205,7 +232,7 @@ namespace VECS.UI
                         resolveImageView = renderTarget.Colour.Texture._imageView,
                         resolveMode = VkResolveModeFlags.None
                     };
-
+                    
                     renderTarget.ColourAA.Texture.SetImageLayout(_currentCommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.Transfer, VkPipelineStageFlags2.ColorAttachmentOutput);
                 }
                 else
@@ -238,15 +265,16 @@ namespace VECS.UI
                 {
                     colorAttachmentCount = 1,
                     pColorAttachments = &colour,
-                    pStencilAttachment = renderTarget.Stencil != null  ? &stencil : null,
+                    pStencilAttachment = renderTarget.Stencil != null ? &stencil : null,
                     renderArea = renderArea,
                     layerCount = 1,
                     flags = VkRenderingFlags.ContentsInlineKHR
                 };
 
-                GraphicsDevice.DeviceAPI.vkCmdBeginRendering(_currentCommandBuffer,&renderingInfo);
+                GraphicsDevice.DeviceAPI.vkCmdBeginRendering(_currentCommandBuffer, &renderingInfo);
 
                 GraphicsDevice.DeviceAPI.vkCmdSetScissor(_currentCommandBuffer, 0, renderArea);
+                GraphicsDevice.DeviceAPI.vkCmdSetRasterizationSamplesEXT(_currentCommandBuffer, renderTarget.samples);
             }
         }
 
@@ -274,7 +302,7 @@ namespace VECS.UI
                 renderTarget.Stencil.Texture.SetImageLayout(VkImageLayout.DepthStencilAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.EarlyFragmentTests);
             }
 
-            if(renderTarget.samples > VkSampleCountFlags.Count1)
+            if (renderTarget.samples > VkSampleCountFlags.Count1)
             {
                 renderTarget.ColourAA = CreateTexture(string.Format("NOESIS_{0}_COLOUR_AA", label),
                     width,
@@ -309,12 +337,14 @@ namespace VECS.UI
                 renderTarget.Colour.Texture.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.FragmentShader);
             }
 
+            CreatePipeline(renderTarget);
+
             return renderTarget;
         }
 
         public override Noesis.RenderTarget CloneRenderTarget(string label, Noesis.RenderTarget surface)
         {
-            if(surface is NoesisRenderTarget renderTarget)
+            if (surface is NoesisRenderTarget renderTarget)
             {
                 var clonedTarget = new NoesisRenderTarget
                 {
@@ -484,7 +514,7 @@ namespace VECS.UI
                 _ => throw new NotImplementedException(string.Format("Noesis TextureFormat: {0} not implemented", format.ToString()))
             };
             Texture2D texture = new(label, (int)width, (int)height, vkFormat, VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled, numLevels > 1);
-
+            //texture.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.FragmentShader);
             if ((void*)data != null)
             {
                 ulong blockSize = (uint)vkFormat.BlockSize();
@@ -536,19 +566,34 @@ namespace VECS.UI
             }
         }
 
-        public override void DrawBatch(ref Batch batch)
+        public unsafe override void DrawBatch(ref Batch batch)
         {
             var state = batch.RenderState;
             var stateV = state.GetHashCode();
             var shaderV = batch.Shader.Index;
-            var pixelShader = (int)batch.PixelShader;
+            var pixelShader = (uint)batch.PixelShader;
 
-            var shaderHash = HashCode.Combine(stateV,shaderV, pixelShader);
+            var shaderHash = HashPipeline((byte)shaderV, stateV, pixelShader);
+            if (!Pipelines.TryGetValue(shaderHash, out var pipeline))
+            {
+                Debugger.Break();
+            }
+            //var pipeline = Pipelines[shaderHash];
+
+            var mat = GetMaterial(ref batch, pipeline);
+
+            //mat.Pipeline._uniformBuffer.WriteFromHostToBuffer(_currentFrameInfo.FrameIndex);
+            mat.Bind(_currentFrameInfo);
+            SetDescriptors(ref batch, mat);
 
             SetStencilMode(state.StencilMode);
             SetStencilRef(batch.StencilRef);
+            SetRasterizerInfo(_currentCommandBuffer, state.Wireframe);
+            SetBlendInfo(_currentCommandBuffer, state.ColorEnable, state.BlendMode);
 
-            GraphicsDevice.DeviceAPI.vkCmdBindVertexBuffer(_currentCommandBuffer, 0, _vertexBuffer.ActiveVkBuffer, batch.VertexOffset);
+            var vertexOffset = (ulong)batch.VertexOffset;
+            var buffer = _vertexBuffer.ActiveVkBuffer;
+            GraphicsDevice.DeviceAPI.vkCmdBindVertexBuffers(_currentCommandBuffer, 0, 1,&buffer, &vertexOffset);
             GraphicsDevice.DeviceAPI.vkCmdBindIndexBuffer(_currentCommandBuffer, _indexBuffer.ActiveVkBuffer, 0, VkIndexType.Uint16);
 
             uint firstIndex = batch.StartIndex;
@@ -561,6 +606,231 @@ namespace VECS.UI
                 GraphicsDevice.DeviceAPI.vkCmdDrawIndexed(_currentCommandBuffer, batch.NumIndices, 1, firstIndex, 0, 0);
             }
         }
+
+        private Material GetMaterial(ref Batch batch, GraphicsPipeline pipeline)
+        {
+            NoesisTexture pattern = (NoesisTexture)batch.Pattern;
+            NoesisTexture ramps = (NoesisTexture)batch.Ramps;
+            NoesisTexture image = (NoesisTexture)batch.Image;
+            NoesisTexture glyphs = (NoesisTexture)batch.Glyphs;
+            NoesisTexture shadow = (NoesisTexture)batch.Shadow;
+
+            int patternHash = pattern == null ? 0 : pattern.Texture.Hash;
+            int rampsHash = ramps == null ? 0 : ramps.Texture.Hash;
+            int imageHash = image == null ? 0 : image.Texture.Hash;
+            int glyphsHash = glyphs == null ? 0 : glyphs.Texture.Hash;
+            int shadowHash = shadow == null ? 0 : shadow.Texture.Hash;
+
+
+            var textureHash = HashCode.Combine(patternHash, rampsHash, imageHash, glyphsHash, shadowHash);
+
+            var u0 = batch.VertexUniform0;
+            var u1 = batch.VertexUniform1;
+            var u2 = batch.PixelUniform0;
+            var u3 = batch.PixelUniform1;
+
+            var uniformHash = HashCode.Combine(u0.Hash, u1.Hash, u2.Hash, u3.Hash);
+
+            var combinedHashCode = HashCode.Combine(pipeline.Hash, textureHash, uniformHash);
+
+            if (Materials.TryGetValue(combinedHashCode, out var material))
+            {
+                return material;
+            }
+            else
+            {
+                if (PipelineVariantCounts.TryGetValue(pipeline.Hash, out var currentMax))
+                {
+                    material = pipeline.GetOrCreateVariant(currentMax);
+                    PipelineVariantCounts[pipeline.Hash]++;
+                }
+                else
+                {
+                    material = pipeline.Default();
+                    PipelineVariantCounts[pipeline.Hash] = 1;
+                }
+
+                Materials.Add(combinedHashCode, material);
+                return material;
+            }
+        }
+
+        private unsafe void SetDescriptors(ref Batch batch, Material mat)
+        {
+            NoesisTexture pattern = (NoesisTexture)batch.Pattern;
+            NoesisTexture ramps = (NoesisTexture)batch.Ramps;
+            NoesisTexture image = (NoesisTexture)batch.Image;
+            NoesisTexture glyphs = (NoesisTexture)batch.Glyphs;
+            NoesisTexture shadow = (NoesisTexture)batch.Shadow;
+
+            if (pattern != null)
+            {
+                mat.SetTexture(patternId, pattern.Texture);
+            }
+            if (ramps != null)
+            {
+                mat.SetTexture(rampsId, ramps.Texture);
+            }
+            if (image != null)
+            {
+                mat.SetTexture(imageId, image.Texture);
+            }
+            if (glyphs != null)
+            {
+                mat.SetTexture(glyphsId, glyphs.Texture);
+            }
+            if (shadow != null)
+            {
+                mat.SetTexture(shadowId, shadow.Texture);
+            }
+
+            var u0 = batch.VertexUniform0;
+            var u1 = batch.VertexUniform1;
+            var u2 = batch.PixelUniform0;
+            var u3 = batch.PixelUniform1;
+
+
+            #region u0
+            if (u0.NumWords == 16)
+            {
+                Matrix4x4 matrix = default;
+                Buffer.MemoryCopy(u0.Values.ToPointer(), &matrix, sizeof(Matrix4x4), sizeof(Matrix4x4));
+                mat.SetMatrix4x4("buffer0.projectionMtx".GetShaderPropertyId(), matrix);
+            }
+            else if (u0.NumWords == 32)
+            {
+                Matrix4x4* matrices = stackalloc Matrix4x4[2];
+                Buffer.MemoryCopy(u0.Values.ToPointer(), matrices, sizeof(Matrix4x4) * 2, sizeof(Matrix4x4) * 2);
+
+                mat.SetMatrix4x4Array("buffer0.projectionMtx".GetShaderPropertyId(), new Span<Matrix4x4>(matrices, 2));
+            }
+            else if (u0.NumWords != 0)
+            {
+                throw new NotSupportedException(string.Format("{0} words not supported!", u0.NumWords));
+            }
+            #endregion
+
+            #region u1
+            if (u1.NumWords == 2)
+            {
+                Vector2 textureDimensions = default;
+                Buffer.MemoryCopy(u1.Values.ToPointer(), &textureDimensions, sizeof(Vector2), sizeof(Vector2));
+                mat.SetVector2("buffer1.textureDimensions".GetShaderPropertyId(), textureDimensions);
+            }
+            else if (u1.NumWords != 0)
+            {
+                throw new NotSupportedException(string.Format("{0} words not supported!", u0.NumWords));
+            }
+            #endregion
+
+            #region u2
+            if (u2.NumWords == 4)
+            {
+                Vector4 rgba = default;
+                Buffer.MemoryCopy(u2.Values.ToPointer(), &rgba, sizeof(Vector4), sizeof(Vector4));
+                mat.SetVector4("buffer2.rgba".GetShaderPropertyId(), rgba);
+            }
+            else if (u2.NumWords == 1)
+            {
+                float opacity = default;
+                Buffer.MemoryCopy(u2.Values.ToPointer(), &opacity, sizeof(float), sizeof(float));
+                mat.SetFloat("buffer2.opacity".GetShaderPropertyId(), opacity);
+            }
+
+            else if (u2.NumWords == 5)
+            {
+                Vector4 rgba = default;
+                float opacity = default;
+                Buffer.MemoryCopy(u2.Values.ToPointer(), &rgba, sizeof(Vector4), sizeof(Vector4));
+                Buffer.MemoryCopy((byte*)u2.Values.ToPointer() + sizeof(Vector4), &opacity, sizeof(float), sizeof(float));
+                mat.SetVector4("buffer2.rgba".GetShaderPropertyId(), rgba);
+                mat.SetFloat("buffer2.opacity".GetShaderPropertyId(), opacity);
+            }
+            else if (u2.NumWords == 7)
+            {
+                Vector4 radialGrad0 = default;
+                Vector4 radialGrad1 = default;
+                Buffer.MemoryCopy(u2.Values.ToPointer(), &radialGrad0, sizeof(Vector4), sizeof(Vector4));
+                Buffer.MemoryCopy((byte*)u2.Values.ToPointer() + sizeof(Vector4), &radialGrad1, sizeof(Vector3), sizeof(Vector3));
+                radialGrad1.W = 0;
+                mat.SetVector4("buffer2.radialGrad0".GetShaderPropertyId(), radialGrad0);
+                mat.SetVector4("buffer2.radialGrad1".GetShaderPropertyId(), radialGrad1);
+            }
+
+            else if (u2.NumWords == 8)
+            {
+                float opacity = default;
+                Vector4 radialGrad0 = default;
+                Vector4 radialGrad1 = default;
+                Buffer.MemoryCopy((byte*)u2.Values.ToPointer() + sizeof(float), &radialGrad0, sizeof(Vector4), sizeof(Vector4));
+                Buffer.MemoryCopy((byte*)u2.Values.ToPointer() + sizeof(Vector4) + sizeof(float), &radialGrad1, sizeof(Vector3), sizeof(Vector3));
+                Buffer.MemoryCopy(u2.Values.ToPointer(), &opacity, sizeof(float), sizeof(float));
+                radialGrad1.W = 0;
+                mat.SetFloat("buffer2.opacity".GetShaderPropertyId(), opacity);
+                mat.SetVector4("buffer2.radialGrad0".GetShaderPropertyId(), radialGrad0);
+                mat.SetVector4("buffer2.radialGrad1".GetShaderPropertyId(), radialGrad1);
+            }
+            else if (u2.NumWords == 11)
+            {
+                Vector4 radialGrad0 = default;
+                Vector4 radialGrad1 = default;
+                Vector4 rgba = default;
+                Buffer.MemoryCopy(u2.Values.ToPointer(), &rgba, sizeof(Vector4), sizeof(Vector4));
+                Buffer.MemoryCopy((byte*)u2.Values.ToPointer() + sizeof(Vector4), &radialGrad0, sizeof(Vector4), sizeof(Vector4));
+                Buffer.MemoryCopy((byte*)u2.Values.ToPointer() + sizeof(Vector4) + sizeof(Vector4), &radialGrad1, sizeof(Vector3), sizeof(Vector3));
+                radialGrad1.W = 0;
+                mat.SetVector4("buffer2.rgba".GetShaderPropertyId(), rgba);
+                mat.SetVector4("buffer2.radialGrad0".GetShaderPropertyId(), radialGrad0);
+                mat.SetVector4("buffer2.radialGrad1".GetShaderPropertyId(), radialGrad1);
+            }
+            else if (u2.NumWords == 12)
+            {
+                Vector4 radialGrad0 = default;
+                Vector4 radialGrad1 = default;
+                Vector4 rgba = default;
+                float opacity = default;
+                Buffer.MemoryCopy(u2.Values.ToPointer(), &rgba, sizeof(Vector4), sizeof(Vector4));
+                Buffer.MemoryCopy((byte*)u2.Values.ToPointer() + sizeof(Vector4), &opacity, sizeof(float), sizeof(float));
+                Buffer.MemoryCopy((byte*)u2.Values.ToPointer() + sizeof(float) + sizeof(Vector4), &radialGrad0, sizeof(Vector4), sizeof(Vector4));
+                Buffer.MemoryCopy((byte*)u2.Values.ToPointer() + sizeof(float) + sizeof(Vector4) + sizeof(Vector4), &radialGrad1, sizeof(Vector3), sizeof(Vector3));
+                radialGrad1.W = 0;
+                mat.SetVector4("buffer2.rgba".GetShaderPropertyId(), rgba);
+                mat.SetFloat("buffer2.opacity".GetShaderPropertyId(), opacity);
+                mat.SetVector4("buffer2.radialGrad0".GetShaderPropertyId(), radialGrad0);
+                mat.SetVector4("buffer2.radialGrad1".GetShaderPropertyId(), radialGrad1);
+            }
+            else if (u2.NumWords != 0)
+            {
+                throw new NotSupportedException(string.Format("{0} words not supported!", u2.NumWords));
+            }
+            #endregion
+
+            #region u3
+            if (u3.NumWords == 1)
+            {
+                float blend = default;
+                Buffer.MemoryCopy(u2.Values.ToPointer(), &blend, sizeof(float), sizeof(float));
+                mat.SetFloat("buffer3.blend".GetShaderPropertyId(), blend);
+            }
+            else if (u3.NumWords == 7)
+            {
+                Vector4 shadowColor = default;
+                Vector2 shadowOffset = default;
+                float blend = default;
+                Buffer.MemoryCopy(u2.Values.ToPointer(), &shadowColor, sizeof(Vector4), sizeof(Vector4));
+                Buffer.MemoryCopy((byte*)u2.Values.ToPointer() + sizeof(Vector4), &shadowOffset, sizeof(Vector2), sizeof(Vector2));
+                Buffer.MemoryCopy((byte*)u2.Values.ToPointer() + sizeof(Vector4) + sizeof(Vector2), &blend, sizeof(float), sizeof(float));
+                mat.SetVector4("buffer3.shadowColor".GetShaderPropertyId(), shadowColor);
+                mat.SetVector2("buffer3.shadowOffset".GetShaderPropertyId(), shadowOffset);
+                mat.SetFloat("buffer3.blend".GetShaderPropertyId(), blend);
+            }
+            else if (u3.NumWords != 0)
+            {
+                throw new NotSupportedException(string.Format("{0} words not supported!", u3.NumWords));
+            }
+            #endregion
+        }
+
         private void SetStencilRef(uint stencilRef)
         {
             if (mCachedStencilRef != stencilRef)
@@ -569,78 +839,10 @@ namespace VECS.UI
                 mCachedStencilRef = stencilRef;
             }
         }
+
         private void SetStencilMode(StencilMode mode)
         {
-            switch (mode)
-            {
-                case StencilMode.Disabled:
-                    SetDepthTestEnable(false);
-                    SetStencilTestEnable(false);
-                    break;
-                case StencilMode.Equal_Keep:
-                    SetDepthTestEnable(false);
-                    SetStencilTestEnable(true);
-                    SetStencilOp(VkStencilOp.Keep, VkCompareOp.Equal);
-                    break;
-                case StencilMode.Equal_Incr:
-
-                    SetDepthTestEnable(false);
-                    SetStencilTestEnable(true);
-                    SetStencilOp(VkStencilOp.IncrementAndWrap, VkCompareOp.Equal);
-                    break;
-                case StencilMode.Equal_Decr:
-                    SetDepthTestEnable(false);
-                    SetStencilTestEnable(true);
-                    SetStencilOp(VkStencilOp.DecrementAndWrap, VkCompareOp.Equal);
-                    break;
-                case StencilMode.Clear:
-                    SetDepthTestEnable(false);
-                    SetStencilTestEnable(true);
-                    SetStencilOp(VkStencilOp.Zero, VkCompareOp.Always);
-                    break;
-                case StencilMode.Disabled_ZTest:
-                    SetDepthTestEnable(true);
-                    SetStencilTestEnable(false);
-                    break;
-                case StencilMode.Equal_Keep_ZTest:
-                    SetDepthTestEnable(true);
-                    SetStencilTestEnable(true);
-                    SetStencilOp(VkStencilOp.Keep, VkCompareOp.Equal);
-                    break;
-                default:
-                    throw new NotImplementedException(string.Format("Stencil Mode {0} not supported!", mode.ToString()));
-            }
-        }
-
-        private void SetDepthTestEnable(bool depthTestEnable)
-        {
-            if (mCachedDepthTestEnable != depthTestEnable)
-            {
-               GraphicsDevice.DeviceAPI.vkCmdSetDepthTestEnableEXT(_currentCommandBuffer, depthTestEnable);
-                mCachedDepthTestEnable = depthTestEnable;
-            }
-        }
-
-
-        private void SetStencilTestEnable(bool stencilTestEnable)
-        {
-            if (mCachedStencilTestEnable != stencilTestEnable)
-            {
-                GraphicsDevice.DeviceAPI.vkCmdSetStencilTestEnableEXT(_currentCommandBuffer, stencilTestEnable);
-                mCachedStencilTestEnable = stencilTestEnable;
-            }
-        }
-
-        private void SetStencilOp(VkStencilOp passOp, VkCompareOp compareOp)
-        {
-            uint stencilOp = ((uint)passOp << 8) | (uint)(compareOp);
-
-            if (mCachedStencilOp != stencilOp)
-            {
-                GraphicsDevice.DeviceAPI.vkCmdSetStencilOpEXT(_currentCommandBuffer,VkStencilFaceFlags.FrontAndBack,VkStencilOp.Keep,
-                    passOp, VkStencilOp.Keep, compareOp);
-                mCachedStencilOp = stencilOp;
-            }
+            SetDepthStencilInfo(_currentCommandBuffer, mode);
         }
 
         public override void BeginOffscreenRender()
@@ -707,7 +909,7 @@ namespace VECS.UI
 
             for (Shader.Vertex.Format.Attr.Enum i = 0; i < Shader.Vertex.Format.Attr.Enum.Count; i++)
             {
-                if ((attributes & (1 << (int)i)) == attributes)
+                if ((attributes & (1 << (int)i)) != 0)
                 {
                     VkVertexInputAttributeDescription attr = new()
                     {
@@ -722,8 +924,31 @@ namespace VECS.UI
             }
         }
 
-        public void CreatePipeline(NoesisRenderTarget renderTarget,VkSampleCountFlags sampleCountFlags)
+        public void CreatePipeline(NoesisRenderTarget renderTarget)
         {
+            VkFormat stencilFormat = VkFormat.Undefined;
+            VkFormat colourFormat;
+            if (renderTarget.ColourAA != null)
+            {
+                colourFormat = renderTarget.ColourAA.Texture.Format;
+            }
+            else
+            {
+                colourFormat = renderTarget.Colour.Texture.Format;
+            }
+
+            if (renderTarget.Stencil != null)
+            {
+                stencilFormat = renderTarget.Stencil.Texture.Format;
+            }
+
+            var shaderSetHashCode = HashCode.Combine(colourFormat, stencilFormat);
+
+            if (!ShaderSets.Add(shaderSetHashCode))
+            {
+                return;
+            }
+
 
             for (Shader.Enum i = 0; i < Shader.Enum.Count; i++)
             {
@@ -731,33 +956,42 @@ namespace VECS.UI
 
                 if (pShader != null)
                 {
-                    CreatePipelines(i.ToString(),  renderTarget, i, pShader, sampleCountFlags, 0);
+                    CreatePipelines(i.ToString(), colourFormat,stencilFormat, i, pShader, 0);
                 }
             }
 
         }
 
-        private void CreatePipelines(string label, NoesisRenderTarget renderTarget, Shader.Enum shader, ShaderModule psModule, VkSampleCountFlags sampleCount, uint custom)
+        public void CreatePipelines(VkFormat colourFormat, VkFormat stencilFormat)
+        {
+            var shaderSetHashCode = HashCode.Combine(colourFormat, stencilFormat);
+
+            if (!ShaderSets.Add(shaderSetHashCode))
+            {
+                return;
+            }
+
+
+            for (Shader.Enum i = 0; i < Shader.Enum.Count; i++)
+            {
+                var pShader = _pixelShaders[(int)i];
+
+                if (pShader != null)
+                {
+                    CreatePipelines(i.ToString(), colourFormat, stencilFormat, i, pShader, 0);
+                }
+            }
+        }
+
+        private void CreatePipelines(string label, VkFormat colour, VkFormat stencil, Shader.Enum shader, ShaderModule psModule, uint custom)
         {
             var vsIndex = Shader.VertexForShader(shader);
             var format = Shader.FormatForVertex(vsIndex);
             var vertexShaderModule = _vertexShaders[(int)vsIndex];
             GraphicsPipelineConfigInfo configInfo = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
 
-            if (renderTarget.ColourAA != null)
-            {
-                configInfo.colourFormats = [renderTarget.ColourAA.Texture.Format];
-            }
-            else
-            {
-                configInfo.colourFormats = [renderTarget.Colour.Texture.Format];
-            }
-
-            if(renderTarget.Stencil != null)
-            {
-                configInfo.stencilFormat = renderTarget.Stencil.Texture.Format;
-            }
-
+            configInfo.colourFormats = [colour];
+            configInfo.stencilFormat = stencil;
             configInfo.depthFormat = VkFormat.Undefined;
 
             // Vertex Input State
@@ -780,7 +1014,7 @@ namespace VECS.UI
             configInfo.multisampleInfo = new()
             {
                 sampleShadingEnable = false,
-                rasterizationSamples = sampleCount,
+                rasterizationSamples = VkSampleCountFlags.Count1,
                 minSampleShading = 1.0f,
                 alphaToCoverageEnable = false,
                 alphaToOneEnable = false
@@ -788,24 +1022,29 @@ namespace VECS.UI
 
             // Dynamic State
             configInfo.dynamicStateEnables = [
-                VkDynamicState.StencilReference,
                 VkDynamicState.Scissor,
                 VkDynamicState.Viewport,
+                VkDynamicState.CullMode,
                 VkDynamicState.DepthTestEnable,
                 VkDynamicState.StencilTestEnable,
                 VkDynamicState.StencilOp,
-                VkDynamicState.StencilCompareMask,
-                VkDynamicState.StencilWriteMask,
-                //VkDynamicState.PolygonModeEXT,
+                //VkDynamicState.StencilCompareMask,
+                //VkDynamicState.StencilWriteMask,
+                VkDynamicState.RasterizationSamplesEXT,
+                VkDynamicState.StencilReference,
+                VkDynamicState.ColorBlendEquationEXT,
+                VkDynamicState.ColorBlendEnableEXT,
+                VkDynamicState.PolygonModeEXT,
             ];
 
             configInfo.inputAssemblyInfo.topology = VkPrimitiveTopology.TriangleList;
             configInfo.inputAssemblyInfo.primitiveRestartEnable = false;
 
-          
+
             CreatePipelines(label, shader, vertexShaderModule.AssetName, psModule.AssetName, configInfo, custom);
         }
-        private unsafe static void RasterizerInfo(VkPipelineRasterizationStateCreateInfo* info, RenderState state, VkPhysicalDeviceFeatures features, string label)
+
+        private unsafe void RasterizerInfo(VkPipelineRasterizationStateCreateInfo* info, RenderState state, string label)
         {
 
             info->depthClampEnable = false;
@@ -816,18 +1055,30 @@ namespace VECS.UI
             info->depthBiasConstantFactor = 0.0f;
             info->depthBiasClamp = 0.0f;
             info->depthBiasSlopeFactor = 0.0f;
-
-            if (state.Wireframe && features.fillModeNonSolid)
+            
+            if (state.Wireframe && mFillModeNonSolid)
             {
                 label += "_Wire";
-                info->polygonMode = VkPolygonMode.Line;
+                //  info->polygonMode = VkPolygonMode.Line;
             }
             else
             {
-                info->polygonMode = VkPolygonMode.Fill;
+                //    info->polygonMode = VkPolygonMode.Fill;
             }
         }
-        
+
+        public unsafe void SetRasterizerInfo(VkCommandBuffer commandBuffer, bool wireframe)
+        {
+            if (wireframe && mFillModeNonSolid)
+            {
+                GraphicsDevice.DeviceAPI.vkCmdSetPolygonModeEXT(commandBuffer, VkPolygonMode.Line);
+            }
+            else
+            {
+                GraphicsDevice.DeviceAPI.vkCmdSetPolygonModeEXT(commandBuffer, VkPolygonMode.Fill);
+            }
+        }
+
         private static unsafe bool BlendInfo(VkPipelineColorBlendAttachmentState* info, RenderState state, string label)
         {
             if (state.ColorEnable)
@@ -840,39 +1091,22 @@ namespace VECS.UI
                 switch (state.BlendMode)
                 {
                     case BlendMode.Src:
-                        info->blendEnable = false;
                         break;
                     case BlendMode.SrcOver:
                         label += "_SrcOver";
-                        info->blendEnable = true;
-                        info->srcColorBlendFactor = VkBlendFactor.One;
-                        info->dstColorBlendFactor = VkBlendFactor.OneMinusSrcAlpha;
-                        info->srcAlphaBlendFactor = VkBlendFactor.One;
-                        info->dstAlphaBlendFactor = VkBlendFactor.OneMinusSrcAlpha;
                         break;
                     case BlendMode.SrcOver_Multiply:
                         label += "_SrcOver_Multiply";
-                        info->blendEnable = true;
-                        info->srcColorBlendFactor = VkBlendFactor.DstColor;
-                        info->dstColorBlendFactor = VkBlendFactor.OneMinusSrcAlpha;
-                        info->srcAlphaBlendFactor = VkBlendFactor.One;
-                        info->dstAlphaBlendFactor = VkBlendFactor.OneMinusSrcAlpha;
                         break;
                     case BlendMode.SrcOver_Screen:
                         label += "_SrcOver_Screen";
-                        info->blendEnable = true;
-                        info->srcColorBlendFactor = VkBlendFactor.One;
-                        info->dstColorBlendFactor = VkBlendFactor.OneMinusSrcColor;
-                        info->srcAlphaBlendFactor = VkBlendFactor.One;
-                        info->dstAlphaBlendFactor = VkBlendFactor.OneMinusSrcAlpha;
                         break;
                     case BlendMode.SrcOver_Additive:
                         label += "_SrcOver_Additive";
-                        info->blendEnable = true;
-                        info->srcColorBlendFactor = VkBlendFactor.One;
-                        info->dstColorBlendFactor = VkBlendFactor.One;
-                        info->srcAlphaBlendFactor = VkBlendFactor.One;
-                        info->dstAlphaBlendFactor = VkBlendFactor.OneMinusSrcAlpha;
+                        break;
+
+                    case BlendMode.SrcOver_Dual:
+                        label += "_SrcOver_Dual";
                         break;
                     default:
                         return false;
@@ -881,7 +1115,66 @@ namespace VECS.UI
             }
             return true;
         }
-        
+
+        private static unsafe void SetBlendInfo(VkCommandBuffer commandBuffer, bool colourEnable, BlendMode blendMode)
+        {
+            VkBool32 blendEnabled = colourEnable;
+            if (colourEnable)
+            {
+                VkColorBlendEquationEXT blendEquation = new()
+                {
+                    colorBlendOp = VkBlendOp.Add,
+                    alphaBlendOp = VkBlendOp.Add
+                };
+
+                switch (blendMode)
+                {
+                    case BlendMode.Src:
+                        blendEnabled = false;
+                        break;
+                    case BlendMode.SrcOver:
+                        blendEnabled = true;
+                        blendEquation.srcColorBlendFactor = VkBlendFactor.One;
+                        blendEquation.dstColorBlendFactor = VkBlendFactor.OneMinusSrcAlpha;
+                        blendEquation.srcAlphaBlendFactor = VkBlendFactor.One;
+                        blendEquation.dstAlphaBlendFactor = VkBlendFactor.OneMinusSrcAlpha;
+                        break;
+                    case BlendMode.SrcOver_Multiply:
+                        blendEquation.srcColorBlendFactor = VkBlendFactor.DstColor;
+                        blendEquation.dstColorBlendFactor = VkBlendFactor.OneMinusSrcAlpha;
+                        blendEquation.srcAlphaBlendFactor = VkBlendFactor.One;
+                        blendEquation.dstAlphaBlendFactor = VkBlendFactor.OneMinusSrcAlpha;
+                        break;
+                    case BlendMode.SrcOver_Screen:
+                        blendEnabled = true;
+                        blendEquation.srcColorBlendFactor = VkBlendFactor.One;
+                        blendEquation.dstColorBlendFactor = VkBlendFactor.OneMinusSrcColor;
+                        blendEquation.srcAlphaBlendFactor = VkBlendFactor.One;
+                        blendEquation.dstAlphaBlendFactor = VkBlendFactor.OneMinusSrcAlpha;
+                        break;
+                    case BlendMode.SrcOver_Additive:
+                        blendEnabled = true;
+                        blendEquation.srcColorBlendFactor = VkBlendFactor.One;
+                        blendEquation.dstColorBlendFactor = VkBlendFactor.One;
+                        blendEquation.srcAlphaBlendFactor = VkBlendFactor.One;
+                        blendEquation.dstAlphaBlendFactor = VkBlendFactor.OneMinusSrcAlpha;
+                        break;
+                    case BlendMode.SrcOver_Dual:
+                        blendEnabled = true;
+                        blendEquation.srcColorBlendFactor = VkBlendFactor.One;
+                        blendEquation.dstColorBlendFactor = VkBlendFactor.OneMinusSrcAlpha;
+                        blendEquation.srcAlphaBlendFactor = VkBlendFactor.One;
+                        blendEquation.dstAlphaBlendFactor = VkBlendFactor.OneMinusSrcAlpha;
+                        break;
+                    default:
+                        throw new NotImplementedException(string.Format("Cannot set dynamic BlendMode {0}", blendMode.ToString()));
+                }
+
+                GraphicsDevice.DeviceAPI.vkCmdSetColorBlendEquationEXT(commandBuffer, 0, 1, &blendEquation);
+            }
+            GraphicsDevice.DeviceAPI.vkCmdSetColorBlendEnableEXT(commandBuffer, 0, 1, &blendEnabled);
+        }
+
         private static unsafe bool DepthStencilInfo(VkPipelineDepthStencilStateCreateInfo* info, RenderState state, string label)
         {
             info->depthWriteEnable = false;
@@ -901,74 +1194,91 @@ namespace VECS.UI
             switch (state.StencilMode)
             {
                 case StencilMode.Disabled:
-                    info->depthTestEnable = false;
-                    info->stencilTestEnable = false;
-                    info->front.compareOp =  VkCompareOp.Equal;
-                    info->back.compareOp =  VkCompareOp.Equal;
-                    info->front.passOp = VkStencilOp.Keep;
-                    info->back.passOp = VkStencilOp.Keep;
                     break;
                 case StencilMode.Equal_Keep:
                     label += "_Equal_Keep";
-                    info->depthTestEnable = false;
-                    info->stencilTestEnable = true;
-                    info->front.compareOp = VkCompareOp.Equal;
-                    info->back.compareOp = VkCompareOp.Equal;
-                    info->front.passOp = VkStencilOp.Keep;
-                    info->back.passOp = VkStencilOp.Keep;
                     break;
                 case StencilMode.Equal_Incr:
                     label += "_Equal_Incr";
-                    info->depthTestEnable = false;
-                    info->stencilTestEnable = true;
-                    info->front.compareOp = VkCompareOp.Equal;
-                    info->back.compareOp = VkCompareOp.Equal;
-                    info->front.passOp = VkStencilOp.IncrementAndWrap;
-                    info->back.passOp = VkStencilOp.IncrementAndWrap;
                     break;
                 case StencilMode.Equal_Decr:
                     label += "_Equal_Decr";
-                    info->depthTestEnable = false;
-                    info->stencilTestEnable = true;
-                    info->front.compareOp = VkCompareOp.Equal;
-                    info->back.compareOp = VkCompareOp.Equal;
-                    info->front.passOp = VkStencilOp.DecrementAndWrap;
-                    info->back.passOp = VkStencilOp.DecrementAndWrap;
                     break;
                 case StencilMode.Clear:
                     label += "_Clear";
-                    info->depthTestEnable = false;
-                    info->stencilTestEnable = true;
-                    info->front.compareOp = VkCompareOp.Always;
-                    info->back.compareOp = VkCompareOp.Always;
-                    info->front.passOp = VkStencilOp.Zero;
-                    info->back.passOp = VkStencilOp.Zero;
                     break;
                 case StencilMode.Disabled_ZTest:
                     label += "_ZTest";
-                    info->depthTestEnable = true;
-                    info->stencilTestEnable = false;
-                    info->front.compareOp = VkCompareOp.Equal;
-                    info->back.compareOp = VkCompareOp.Equal;
-                    info->front.passOp = VkStencilOp.Keep;
-                    info->back.passOp = VkStencilOp.Keep;
                     break;
                 case StencilMode.Equal_Keep_ZTest:
                     label += "_Equal_Keep_ZTest";
-                    info->depthTestEnable = true;
-                    info->stencilTestEnable = true;
-                    info->front.compareOp = VkCompareOp.Equal;
-                    info->back.compareOp = VkCompareOp.Equal;
-                    info->front.passOp = VkStencilOp.Keep;
-                    info->back.passOp = VkStencilOp.Keep;
                     break;
                 default:
                     return false;
                     //throw new NotImplementedException(string.Format("StencilMode {0} not implemented", state.StencilMode.ToString()));
             }
+
             return true;
         }
 
+        private static unsafe void SetDepthStencilInfo(VkCommandBuffer commandBuffer, StencilMode mode)
+        {
+            VkBool32 depthTestEnable;
+            VkBool32 stencilTestEnable;
+            VkCompareOp stencilCompareOp;
+            VkStencilOp passOp;
+            switch (mode)
+            {
+                case StencilMode.Disabled:
+                    depthTestEnable = false;
+                    stencilTestEnable = false;
+                    stencilCompareOp = VkCompareOp.Equal;
+                    passOp = VkStencilOp.Keep;
+                    break;
+                case StencilMode.Equal_Keep:
+                    depthTestEnable = false;
+                    stencilTestEnable = true;
+                    stencilCompareOp = VkCompareOp.Equal;
+                    passOp = VkStencilOp.Keep;
+                    break;
+                case StencilMode.Equal_Incr:
+                    depthTestEnable = false;
+                    stencilTestEnable = true;
+                    stencilCompareOp = VkCompareOp.Equal;
+                    passOp = VkStencilOp.IncrementAndWrap;
+                    break;
+                case StencilMode.Equal_Decr:
+                    depthTestEnable = false;
+                    stencilTestEnable = true;
+                    stencilCompareOp = VkCompareOp.Equal;
+                    passOp = VkStencilOp.DecrementAndWrap;
+                    break;
+                case StencilMode.Clear:
+                    depthTestEnable = false;
+                    stencilTestEnable = true;
+                    stencilCompareOp = VkCompareOp.Always;
+                    passOp = VkStencilOp.Zero;
+                    break;
+                case StencilMode.Disabled_ZTest:
+                    depthTestEnable = true;
+                    stencilTestEnable = false;
+                    stencilCompareOp = VkCompareOp.Equal;
+                    passOp = VkStencilOp.Keep;
+                    break;
+                case StencilMode.Equal_Keep_ZTest:
+                    depthTestEnable = true;
+                    stencilTestEnable = true;
+                    stencilCompareOp = VkCompareOp.Equal;
+                    passOp = VkStencilOp.Keep;
+                    break;
+                default:
+                    throw new NotImplementedException(string.Format("Cannot set Dynamic StencilMode {0}", mode.ToString()));
+            }
+
+            GraphicsDevice.DeviceAPI.vkCmdSetDepthTestEnable(commandBuffer, depthTestEnable);
+            GraphicsDevice.DeviceAPI.vkCmdSetStencilTestEnable(commandBuffer, stencilTestEnable);
+            GraphicsDevice.DeviceAPI.vkCmdSetStencilOp(commandBuffer, VkStencilFaceFlags.Front, VkStencilOp.Keep, passOp, VkStencilOp.Keep, stencilCompareOp);
+        }
 
         private unsafe void CreatePipelines(string label, Shader.Enum shader_, string vertexShader, string pixelShader, GraphicsPipelineConfigInfo configInfo, uint custom)
         {
@@ -995,11 +1305,11 @@ namespace VECS.UI
                 //     VK_PIPELINE_CREATE_ALLOW_DERIVATIVES_BIT;
 
                 VkPipelineRasterizationStateCreateInfo rasterizer = new();
-                RasterizerInfo(&rasterizer, state, features, label);
+                RasterizerInfo(&rasterizer, state, label);
                 configInfo.rasterizationInfo = rasterizer;
 
                 VkPipelineDepthStencilStateCreateInfo depthStencil = new();
-                if(!DepthStencilInfo(&depthStencil, state, label))
+                if (!DepthStencilInfo(&depthStencil, state, label))
                 {
                     continue;
                 }
@@ -1023,7 +1333,8 @@ namespace VECS.UI
                 // pipelineInfo.pColorBlendState = &colorBlending;
 
                 var pipeline = new GraphicsPipeline(string.Format("NOESIS_{0}_{1}", label, i), vertexShader, pixelShader, configInfo);
-                Pipelines.Add(pipeline.Hash, pipeline);
+                var pipelineHash = HashPipeline(shaderEnum, state.GetHashCode(), custom);
+                Pipelines.Add(pipelineHash, pipeline);
 
                 // VkPipeline pipeline;
                 // V(vkCreateGraphicsPipelines(mDevice, mPipelineCache, 1, &pipelineInfo, 0, &pipeline));
@@ -1037,6 +1348,10 @@ namespace VECS.UI
                 // mPipelines.PushBack(pipeline);
             }
         }
-
+        
+        private static int HashPipeline(byte id, int state, uint custom)
+        {
+            return HashCode.Combine(custom, id,state);
+        }
     }
 }

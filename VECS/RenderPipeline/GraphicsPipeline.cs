@@ -39,7 +39,7 @@ namespace VECS
         private readonly PushConstantsHandler _materialPushConstantsHandler;
         private readonly DescriptorSetInfo[] _descriptorSetInfos;
 
-        private SwapChainBuffer _uniformBuffer;
+        internal SwapChainBuffer _uniformBuffer;
 
         internal Material[] _matVariants;
 

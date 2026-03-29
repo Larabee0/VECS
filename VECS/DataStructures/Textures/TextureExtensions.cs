@@ -672,7 +672,17 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static unsafe void CopyBufferToTexture(Texture texture, VkCommandBuffer cmdBuffer, GPUBuffer buffer, uint copyCount, VkBufferImageCopy* bufferCopyRegions)
         {
+            VkImageLayout setBackLayout = VkImageLayout.Undefined;
+            if(texture.ImageLayout != VkImageLayout.TransferDstOptimal)
+            {
+                setBackLayout = texture.ImageLayout;
+                texture.SetImageLayout(cmdBuffer,VkImageLayout.TransferDstOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.Transfer);
+            }
             GraphicsDevice.DeviceAPI.vkCmdCopyBufferToImage(cmdBuffer, buffer.VkBuffer, texture._vkImage, VkImageLayout.TransferDstOptimal, copyCount, bufferCopyRegions);
+            if(setBackLayout != VkImageLayout.Undefined)
+            {
+                texture.SetImageLayout(cmdBuffer, setBackLayout, VkPipelineStageFlags2.Transfer, VkPipelineStageFlags2.FragmentShader);
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

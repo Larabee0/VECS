@@ -24,7 +24,8 @@ namespace VECS.LowLevel
             Vulkan.VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME,
             Vulkan.VK_EXT_NESTED_COMMAND_BUFFER_EXTENSION_NAME,
             Vulkan.VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME,
-            Vulkan.VK_EXT_SHADER_VIEWPORT_INDEX_LAYER_EXTENSION_NAME
+            Vulkan.VK_EXT_SHADER_VIEWPORT_INDEX_LAYER_EXTENSION_NAME,
+            Vulkan.VK_EXT_EXTENDED_DYNAMIC_STATE_3_EXTENSION_NAME
         ];
 
         private const bool ForceMeshShadingOff = false;
@@ -312,12 +313,20 @@ namespace VECS.LowLevel
 
             VkPhysicalDevicePageableDeviceLocalMemoryFeaturesEXT pageableDeviceLocalMemoryFeaturesEXT = new() { pageableDeviceLocalMemory = true };
 
+            VkPhysicalDeviceExtendedDynamicState3FeaturesEXT extendedDynamicState3Features = new()
+            {
+                extendedDynamicState3PolygonMode = true,
+                extendedDynamicState3ColorBlendEquation = true,
+                extendedDynamicState3ColorBlendEnable = true,
+                extendedDynamicState3RasterizationSamples = true
+            };
+
 
             VkPhysicalDeviceNestedCommandBufferFeaturesEXT nestedCommandBufferFeatures = new()
             {
                 nestedCommandBuffer = true,
                 nestedCommandBufferRendering = true,
-                pNext = &pageableDeviceLocalMemoryFeaturesEXT
+                pNext = &extendedDynamicState3Features
             };
 
             
@@ -337,7 +346,7 @@ namespace VECS.LowLevel
 
             if (MeshShading)
             {
-                nestedCommandBufferFeatures.pNext = &meshShaderFeatures;
+                extendedDynamicState3Features.pNext = &meshShaderFeatures;
             }
 
             VkPhysicalDeviceVulkan11Features deviceFeatures11 = new()

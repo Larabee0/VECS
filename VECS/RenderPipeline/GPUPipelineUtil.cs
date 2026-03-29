@@ -519,7 +519,7 @@ namespace VECS
             }
 
             vkDynamicInfo.pDynamicStates = pDynamicStates;
-
+            vkDynamicInfo.dynamicStateCount = (uint)configInfo.dynamicStateEnables.Length;
             VkGraphicsPipelineCreateInfo pipelineInfo = new()
             {
                 stageCount = stageCount,

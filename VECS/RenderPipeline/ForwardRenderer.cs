@@ -94,7 +94,7 @@ namespace VECS
             
         }
 
-        public unsafe void BeginForwardRendering(VkCommandBuffer commandBuffer, VkAttachmentLoadOp colourLoad)
+        public unsafe void BeginForwardRendering(VkCommandBuffer commandBuffer, VkAttachmentLoadOp colourLoad, bool onlyMainAttachment = false, bool noDepth = false)
         {
             MainColourAttachment.Target.SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.ColorAttachmentOutput);
             BrightObjectAttachment.Target.SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.ColorAttachmentOutput);
@@ -134,9 +134,9 @@ namespace VECS
             {
                 renderArea = new(0, 0, (uint)MainColourAttachment.Target.Width, (uint)MainColourAttachment.Target.Height),
                 layerCount = 1,
-                colorAttachmentCount = 2,
+                colorAttachmentCount = onlyMainAttachment ? 1u : 2u,
                 pColorAttachments = colourAttachments,
-                pDepthAttachment = &depth,
+                pDepthAttachment = noDepth ? null : &depth,
                 flags = VkRenderingFlags.ContentsInlineKHR | VkRenderingFlags.ContentsSecondaryCommandBuffers
             };
             GraphicsDevice.DeviceAPI.vkCmdBeginRendering(commandBuffer, &renderingInfo);

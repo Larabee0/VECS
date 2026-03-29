@@ -1,4 +1,6 @@
 ﻿using BepuUtilities;
+using Hexa.NET.ImGui;
+using Noesis;
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -36,6 +38,7 @@ namespace VECS
         }
 
         private readonly SDL3Window _mainAppWindow;
+        private NoesisDriver _noesisDriver;
         private readonly Presenter _presenter;
 
         private static World _mainWorld;
@@ -55,10 +58,12 @@ namespace VECS
         public static string ProjectName => Bootstrap.ProjectName;
         public static string PersistentDataPath => _persistentDataPath;
 
+        public NoesisDriver NoesisDriver => _noesisDriver;
+
         public Application()
         {
             _persistentDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            _persistentDataPath = Path.Combine(_persistentDataPath, Bootstrap.ProjectName);
+            _persistentDataPath = System.IO.Path.Combine(_persistentDataPath, Bootstrap.ProjectName);
             if (!Directory.Exists(_persistentDataPath))
             {
                 Directory.CreateDirectory(_persistentDataPath);
@@ -148,6 +153,17 @@ namespace VECS
             _mainWorld = new World();
 
             _presenter.Start(); // presenter depends on the main entity world existing right away
+
+            Log.SetLogCallback(NoesisDriver.LoggerCallback);
+            Error.SetUnhandledCallback(NoesisDriver.ErrorCallback);
+
+            GUI.Init();
+            GUI.SetFontProvider(new NoesisFontProvider());
+            GUI.SetTextureProvider(new NoesisTextureProvider());
+            GUI.SetXamlProvider(new NoesisXamlProvider());
+
+            _noesisDriver = new NoesisDriver();
+            World.DefaultWorld.CreateSystem<NoesisSystem>();
             PreOnCreate?.Invoke();
 
             World.OnCreate();
@@ -158,7 +174,7 @@ namespace VECS
             {
                 LogAssetCounts();
             }
-            
+
             DisposableAsset.RemoveDisposedFromAssetDataBase();
 
             if (Bootstrap.LogAssetDataBaseCountsOnStart)
@@ -170,9 +186,6 @@ namespace VECS
             Console.WriteLine("Application.Start time: {0}ms", sw.ElapsedMilliseconds);
             Console.WriteLine("Start completed, Engine is Running!");
 
-            Noesis.GUI.Init();
-
-            new NoesisDriver().CleanUpMeshData();
         }
 
         private static unsafe void LogMemoryUsage()
@@ -399,9 +412,9 @@ namespace VECS
             }
             _mainWorld?.Dispose();
             Time.FixedTimeStepCallback -= FixedUpdate;
+            _noesisDriver.CleanUpMeshData();
             _presenter.Dispose();
             SDL3WindowManager.DestroyAllWindows();
-            
             GPUBufferExtensions.Reset();
             TextureExtensions.Reset();
             TextureLoader.SaveTextureCache();
