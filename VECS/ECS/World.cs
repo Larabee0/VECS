@@ -228,6 +228,11 @@ namespace VECS.ECS
             _presentationSystems.ForEach(s => s.OnPostTransparentPass(_entityManager, rendererFrameInfo));
         }
 
+        internal void OnPostAA(RendererFrameInfo rendererFrameInfo)
+        {
+            _presentationSystems.ForEach(s => s.OnPostAA(_entityManager, rendererFrameInfo));
+        }
+
         internal void PostPresentUpdate()
         {
             _presentationSystems.ForEach(s => s.OnPostPresentation(_entityManager));

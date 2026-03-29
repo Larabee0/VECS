@@ -60,9 +60,9 @@ namespace VECS.UI
             View.Renderer.Init(renderDevice);
         }
 
-        public void PreRender()
+        public bool PreRender()
         {
-            View.Renderer.RenderOffscreen();
+            return View.Renderer.RenderOffscreen();
         }
 
         public void Render()

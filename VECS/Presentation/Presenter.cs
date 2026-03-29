@@ -280,6 +280,7 @@ namespace VECS
             // final AA pass
             _smaa.ApplyAA(frameInfo);
 
+            World.DefaultWorld.OnPostAA(frameInfo);
             // UI Overlay
             _imgui.Draw(frameInfo);
             //var otherSwapchain = SwapChain.SwapChainsForPresent[1].SwapChainExtent;

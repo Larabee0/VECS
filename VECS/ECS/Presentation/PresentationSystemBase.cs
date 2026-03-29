@@ -29,6 +29,8 @@ namespace VECS.ECS.Presentation
         public virtual void OnTransparentPass(EntityManager entityManager, RendererFrameInfo frameInfo) { }
         public virtual void OnPostTransparentPass(EntityManager entityManager, RendererFrameInfo frameInfo) { }
 
+        public virtual void OnPostAA(EntityManager entityManager, RendererFrameInfo frameInfo) { }
+
         public virtual void OnPostPresentation(EntityManager entityManager) { }
 
     }
