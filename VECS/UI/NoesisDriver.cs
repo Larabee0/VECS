@@ -220,13 +220,14 @@ namespace VECS.UI
                 renderArea.extent.width = tile.Width;
                 renderArea.extent.height = tile.Height;
                 VkRenderingAttachmentInfo stencil = default;
-
+                VkFormat colourFormat = VkFormat.Undefined;
+                VkFormat stencilFormat = VkFormat.Undefined;
                 VkRenderingAttachmentInfo colour;
                 if (renderTarget.ColourAA != null)
                 {
                     colour = new()
                     {
-                        imageLayout = renderTarget.ColourAA.Texture.ImageLayout,
+                        imageLayout = VkImageLayout.ColorAttachmentOptimal,
                         loadOp = VkAttachmentLoadOp.DontCare,
                         storeOp = VkAttachmentStoreOp.Store,
                         imageView = renderTarget.ColourAA.Texture._imageView,
@@ -234,20 +235,28 @@ namespace VECS.UI
                         resolveImageView = renderTarget.Colour.Texture._imageView,
                         resolveMode = VkResolveModeFlags.None
                     };
-                    
+                    colourFormat = renderTarget.ColourAA.Texture.Format;
                     renderTarget.ColourAA.Texture.SetImageLayout(CurrentCommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.Transfer, VkPipelineStageFlags2.ColorAttachmentOutput);
                 }
                 else
                 {
                     colour = new()
                     {
-                        imageLayout = renderTarget.Colour.Texture.ImageLayout,
+                        imageLayout = VkImageLayout.ColorAttachmentOptimal,
                         loadOp = VkAttachmentLoadOp.DontCare,
                         storeOp = VkAttachmentStoreOp.Store,
                         imageView = renderTarget.Colour.Texture._imageView
                     };
 
-                    renderTarget.ColourAA.Texture.SetImageLayout(CurrentCommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.Transfer, VkPipelineStageFlags2.ColorAttachmentOutput);
+                    if (renderTarget.Colour.Texture.ImageLayout == VkImageLayout.Undefined)
+                    {
+                        renderTarget.Colour.Texture.SetImageLayout(CurrentCommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.ColorAttachmentOutput);
+                    }
+                    else
+                    {
+                        renderTarget.Colour.Texture.SetImageLayout(CurrentCommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.Transfer, VkPipelineStageFlags2.ColorAttachmentOutput);
+                    }
+                    colourFormat = renderTarget.Colour.Texture.Format;
                 }
 
                 if (renderTarget.Stencil != null)
@@ -256,13 +265,23 @@ namespace VECS.UI
                     {
                         loadOp = VkAttachmentLoadOp.DontCare,
                         storeOp = VkAttachmentStoreOp.DontCare,
-                        imageLayout = renderTarget.Stencil.Texture.ImageLayout,
+                        imageLayout = VkImageLayout.StencilAttachmentOptimal,
                         imageView = renderTarget.Stencil.Texture._imageView
                     };
 
-                    renderTarget.Stencil.Texture.SetImageLayout(CurrentCommandBuffer, VkImageLayout.StencilAttachmentOptimal, VkPipelineStageFlags2.Transfer, VkPipelineStageFlags2.EarlyFragmentTests);
+                    if (renderTarget.Stencil.Texture.ImageLayout == VkImageLayout.Undefined)
+                    {
+                        renderTarget.Stencil.Texture.SetImageLayout(CurrentCommandBuffer, VkImageLayout.StencilAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.EarlyFragmentTests);
+                    }
+                    else
+                    {
+                        renderTarget.Stencil.Texture.SetImageLayout(CurrentCommandBuffer, VkImageLayout.StencilAttachmentOptimal, VkPipelineStageFlags2.Transfer, VkPipelineStageFlags2.EarlyFragmentTests);
+                    }
+
+                    stencilFormat = renderTarget.Stencil.Texture.Format;
                 }
 
+                FormatHash = HashCode.Combine(colourFormat, stencilFormat);
                 VkRenderingInfo renderingInfo = new()
                 {
                     colorAttachmentCount = 1,
@@ -301,7 +320,7 @@ namespace VECS.UI
                     VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.TransientAttachment,
                     VkImageAspectFlags.Stencil);
 
-                renderTarget.Stencil.Texture.SetImageLayout(VkImageLayout.DepthStencilAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.EarlyFragmentTests);
+                //renderTarget.Stencil.Texture.SetImageLayout(VkImageLayout.DepthStencilAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.EarlyFragmentTests);
             }
 
             if (renderTarget.samples > VkSampleCountFlags.Count1)
@@ -322,9 +341,9 @@ namespace VECS.UI
                     VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferDst,
                     VkImageAspectFlags.Color);
 
-                renderTarget.Colour.Texture.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.FragmentShader);
+                //renderTarget.Colour.Texture.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.FragmentShader);
 
-                renderTarget.ColourAA.Texture.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.FragmentShader);
+                //renderTarget.ColourAA.Texture.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.FragmentShader);
             }
             else
             {
@@ -336,7 +355,7 @@ namespace VECS.UI
                     VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferSrc,
                     VkImageAspectFlags.Color);
 
-                renderTarget.Colour.Texture.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.FragmentShader);
+             //   renderTarget.Colour.Texture.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.FragmentShader);
             }
 
             CreatePipeline(renderTarget);
@@ -808,7 +827,7 @@ namespace VECS.UI
             if (u3.NumWords == 1)
             {
                 float blend = default;
-                Buffer.MemoryCopy(u2.Values.ToPointer(), &blend, sizeof(float), sizeof(float));
+                Buffer.MemoryCopy(u3.Values.ToPointer(), &blend, sizeof(float), sizeof(float));
                 mat.SetFloat("buffer3.blend".GetShaderPropertyId(), blend);
             }
             else if (u3.NumWords == 7)
@@ -816,9 +835,9 @@ namespace VECS.UI
                 Vector4 shadowColor = default;
                 Vector2 shadowOffset = default;
                 float blend = default;
-                Buffer.MemoryCopy(u2.Values.ToPointer(), &shadowColor, sizeof(Vector4), sizeof(Vector4));
-                Buffer.MemoryCopy((byte*)u2.Values.ToPointer() + sizeof(Vector4), &shadowOffset, sizeof(Vector2), sizeof(Vector2));
-                Buffer.MemoryCopy((byte*)u2.Values.ToPointer() + sizeof(Vector4) + sizeof(Vector2), &blend, sizeof(float), sizeof(float));
+                Buffer.MemoryCopy(u3.Values.ToPointer(), &shadowColor, sizeof(Vector4), sizeof(Vector4));
+                Buffer.MemoryCopy((byte*)u3.Values.ToPointer() + sizeof(Vector4), &shadowOffset, sizeof(Vector2), sizeof(Vector2));
+                Buffer.MemoryCopy((byte*)u3.Values.ToPointer() + sizeof(Vector4) + sizeof(Vector2), &blend, sizeof(float), sizeof(float));
                 mat.SetVector4("buffer3.shadowColor".GetShaderPropertyId(), shadowColor);
                 mat.SetVector2("buffer3.shadowOffset".GetShaderPropertyId(), shadowOffset);
                 mat.SetFloat("buffer3.blend".GetShaderPropertyId(), blend);
@@ -832,11 +851,7 @@ namespace VECS.UI
 
         private void SetStencilRef(uint stencilRef)
         {
-            if (mCachedStencilRef != stencilRef)
-            {
-                GraphicsDevice.DeviceAPI.vkCmdSetStencilReference(CurrentCommandBuffer, VkStencilFaceFlags.FrontAndBack, stencilRef);
-                mCachedStencilRef = stencilRef;
-            }
+            GraphicsDevice.DeviceAPI.vkCmdSetStencilReference(CurrentCommandBuffer, VkStencilFaceFlags.FrontAndBack, stencilRef);
         }
 
         private void SetStencilMode(StencilMode mode)

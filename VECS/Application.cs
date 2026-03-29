@@ -158,6 +158,7 @@ namespace VECS
             Error.SetUnhandledCallback(NoesisDriver.ErrorCallback);
 
             GUI.Init();
+            GUI.GetApplicationResources().Source = new(System.IO.Path.Combine(Asset.AssetsPath, "GUI"));
             GUI.SetFontProvider(new NoesisFontProvider());
             GUI.SetTextureProvider(new NoesisTextureProvider());
             GUI.SetXamlProvider(new NoesisXamlProvider());

@@ -41,6 +41,7 @@ namespace VECS
                 VkImageLayout.DepthAttachmentOptimal => VkAccessFlags2.DepthStencilAttachmentWrite | VkAccessFlags2.DepthStencilAttachmentRead,
                 VkImageLayout.DepthStencilAttachmentOptimal => VkAccessFlags2.DepthStencilAttachmentWrite | VkAccessFlags2.DepthStencilAttachmentRead,
                 VkImageLayout.DepthAttachmentStencilReadOnlyOptimal => VkAccessFlags2.DepthStencilAttachmentRead | VkAccessFlags2.DepthStencilAttachmentWrite,
+                VkImageLayout.StencilAttachmentOptimal => VkAccessFlags2.DepthStencilAttachmentWrite | VkAccessFlags2.DepthStencilAttachmentRead,
                 VkImageLayout.TransferSrcOptimal => VkAccessFlags2.TransferRead,
                 VkImageLayout.TransferDstOptimal => VkAccessFlags2.TransferWrite,
                 VkImageLayout.ShaderReadOnlyOptimal => VkAccessFlags2.ShaderRead,
@@ -81,6 +82,9 @@ namespace VECS
                     break;
                 case VkImageLayout.PresentSrcKHR:
                     dstAccessMask = VkAccessFlags2.None;
+                    break;
+                case VkImageLayout.StencilAttachmentOptimal:
+                    dstAccessMask = VkAccessFlags2.DepthStencilAttachmentRead | VkAccessFlags2.DepthStencilAttachmentWrite;
                     break;
                 default:
                     throw new InvalidOperationException(string.Format("Unhandled Image transition to image layout {0}", newLayout.ToString()));

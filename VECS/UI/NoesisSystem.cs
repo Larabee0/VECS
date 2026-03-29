@@ -1,5 +1,6 @@
 ﻿using Noesis;
 using System;
+using System.Numerics;
 using VECS.ECS;
 using VECS.ECS.Presentation;
 using VECS.LowLevel;
@@ -22,7 +23,7 @@ namespace VECS.UI
 
         public override void OnCreate(EntityManager entityManager)
         {
-            FrameworkElement controlTreeRoot = (FrameworkElement)GUI.LoadXaml(System.IO.Path.Combine(Asset.AssetsPath,"GUI","Text.xaml"));
+            FrameworkElement controlTreeRoot = (FrameworkElement)GUI.LoadXaml(System.IO.Path.Combine(Asset.AssetsPath,"GUI", "ThemePreview.xaml"));
 
             MainView = new NoesisViewWrapper(controlTreeRoot, Application.Instance.NoesisDriver)
             {
@@ -39,26 +40,59 @@ namespace VECS.UI
 
         public override void OnUpdate(EntityManager entityManager)
         {
+            UpdateInputs();
+
             MainView.Update(Time.DeltaTime);
         }
+
+        private void UpdateInputs()
+        {
+            var view = MainView.View;
+            var mousePos = new Vector2Int((int)InputManager.Instance.MousePos.X, (int)InputManager.Instance.MousePos.Y);
+
+            for (MouseButton i = 0; i <= MouseButton.XButton2; i++)
+            {
+                MouseButtonDown(mousePos.X, mousePos.Y, i, view);
+                MouseButtonUp(mousePos.X,mousePos.Y, i, view);
+            }
+
+        }
+
+        private static void MouseButtonDown(int x, int y, MouseButton button, View view)
+        {
+            if (InputManager.Instance.GetMouseButtonDown((int)button))
+            {
+                view.MouseButtonDown(x,y, MouseButton.XButton2);
+            }
+        }
+
+        private static void MouseButtonUp(int x, int y, MouseButton button, View view)
+        {
+            if (InputManager.Instance.GetMouseButtonUp((int)button))
+            {
+                view.MouseButtonDown(x, y, MouseButton.XButton2);
+            }
+        }
+
+
 
         public override void OnPrePresent(EntityManager entityManager)
         {
             Application.Instance.NoesisDriver.CurrentFrameInfo = default;
             
-            if (MainView.PreRender() || ALWAYS_RE_RENDER)
-            {
-                _framesSinceLastRender = 0;
-            }
         }
 
         public unsafe override void OnPostAA(EntityManager entityManager, RendererFrameInfo frameInfo)
         {
+            Application.Instance.NoesisDriver.CurrentFrameInfo = frameInfo;
+            if (MainView.PreRender() || ALWAYS_RE_RENDER)
+            {
+                _framesSinceLastRender = 0;
+            }
             if (_framesSinceLastRender < SwapChain.MAX_CONCURRENT_FRAMES + 1)
             {
-                _framesSinceLastRender++;
                 Application.Instance.NoesisDriver.FormatHash = HashCode.Combine(RenderTarget.Target.Format, VkFormat.Undefined);
-                Application.Instance.NoesisDriver.CurrentFrameInfo = frameInfo;
+                _framesSinceLastRender++;
                 StartUIRendering(frameInfo);
                 SwapChain.SetViewPortScissor(frameInfo.CommandBuffer);
                 GraphicsDevice.DeviceAPI.vkCmdSetRasterizationSamplesEXT(frameInfo.CommandBuffer, VkSampleCountFlags.Count1);

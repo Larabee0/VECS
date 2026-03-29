@@ -24,7 +24,7 @@
 
         <ContentControl Grid.Column="0" Grid.Row="0" BorderThickness="1" BorderBrush="Gray">
             <ContentControl.Resources>
-                <ResourceDictionary Source="/Noesis.GUI.Extensions;component/Theme/NoesisTheme.Brushes.LightBlue.xaml"/>
+                <ResourceDictionary Source="/Theme/NoesisTheme.Brushes.LightBlue.xaml"/>
             </ContentControl.Resources>
             <Grid Background="{StaticResource Brush.Window.Background}">
               <Viewbox>
