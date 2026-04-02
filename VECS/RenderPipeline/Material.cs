@@ -16,7 +16,7 @@ namespace VECS
         private readonly bool _hasStorageBuffers = false;
 
         private readonly SetTextureDescriptors[] _imageDescriptors;
-        private readonly Texture[][] _textures;
+        private readonly ITextureProvider[][] _textures;
         private readonly bool[] _dirtyTextures;
         private readonly bool _hasTextures = false;
         private readonly GraphicsPipeline _graphicsPipeline;
@@ -48,7 +48,7 @@ namespace VECS
 
             _bufferDescriptors = new SetBufferDescriptors[DescriptorSetCount];
             _imageDescriptors = new SetTextureDescriptors[DescriptorSetCount];
-            _textures = new Texture[DescriptorSetCount][];
+            _textures = new ITextureProvider[DescriptorSetCount][];
 
             if (localUniformAlloc && pipeline.UniformBufferSize > 0)
             {
@@ -81,19 +81,41 @@ namespace VECS
                 if (setInfo.ImageCount > 0)
                 {
                     _imageDescriptors[i] = new(setInfo);
-                    _textures[i] = new Texture[setInfo.BindingCount];
-                    Array.Fill(_textures[i], EngineTextures.MissingTexture);
+                    _textures[i] = new ITextureProvider[setInfo.BindingCount];
+                    //Array.Fill(_textures[i], EngineTextures.MissingTexture);
 
                     for (int j = 0; j < setInfo.BindingCount; j++)
                     {
-                        if(setInfo.DescriptorBindings[j].Image && setInfo.DescriptorBindings[j].DescriptorType == VkDescriptorType.StorageImage)
+                        DescriptorBinding binding = setInfo.DescriptorBindings[j];
+                        var engineTexture = EngineTextures.TryGetTexture(binding.Id);
+                        if (engineTexture != null)
                         {
-                            _textures[i][j] = null;
+                            _textures[i][j] = engineTexture;
                         }
-                        var texture = EngineTextures.TryGetTexture(setInfo.DescriptorBindings[j].Id);
-                        if (texture != null)
+                        else if (binding.Image && binding.DescriptorType == VkDescriptorType.StorageImage)
                         {
-                            _textures[i][j] = texture;
+                            if (binding.VkSetLayoutBinding.descriptorCount > 1)
+                            {
+                                _textures[i][j] = new BindingArrayTexture((int)binding.VkSetLayoutBinding.descriptorCount);
+                            }
+                            else
+                            {
+                                _textures[i][j] = new SingleTexture(null);
+                            }
+                                
+                        }
+                        else if(binding.VkSetLayoutBinding.descriptorCount > 1)
+                        {
+                            var fill = _textures[i][j] = new BindingArrayTexture((int)binding.VkSetLayoutBinding.descriptorCount);
+
+                            for (int k = 0; k < fill.ImageCount; k++)
+                            {
+                                fill.SetTexture(EngineTextures.MissingTexture, k);
+                            }
+                        }
+                        else
+                        {
+                            _textures[i][j] = (SingleTexture)EngineTextures.MissingTexture;
                         }
                     }
                 }
@@ -142,11 +164,11 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void SetTexture(uint setIndex, uint bindingIndex, Texture texture)
+        public void SetTexture(uint setIndex, uint bindingIndex, Texture texture, int index = 0)
         {
             int imageIndex = DescriptorSetInfos[setIndex].BindingPointToImageIndex[bindingIndex];
             if (_textures[setIndex][imageIndex] == texture) return;
-            _textures[setIndex][imageIndex] = texture;
+            _textures[setIndex][imageIndex].SetTexture(texture,index);
             Array.Fill(_dirtyTextures, true);
         }
 
@@ -160,6 +182,12 @@ namespace VECS
         public Span<VkDescriptorImageInfo> GetBindingTextures(int frameIndex, int setIndex)
         {
             return !_imageDescriptors[setIndex].Disposed ? _imageDescriptors[setIndex].GetBindingTextures(frameIndex) : null;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe VkDescriptorImageInfo** GetBindingTextures(int setIndex)
+        {
+            return !_imageDescriptors[setIndex].Disposed ? _imageDescriptors[setIndex].GetBindingTexturesPtr() : null;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -323,6 +351,7 @@ namespace VECS
                 {
                     if (variant._imageDescriptors[setIndex].Disposed) continue;
                     variant._imageDescriptors[setIndex].UpdateTextureBindings(frameIndex, textures[setIndex]);
+                    variant._imageDescriptors[setIndex].UpdateTextureBindings(textures[setIndex]);
                 }
                 variant._dirtyTextures[frameIndex] = false;
                 overwriteSet = true;
@@ -347,8 +376,10 @@ namespace VECS
                 {
                     var info = variant.DescriptorSetInfos[i];
                     int j = frameIndex;
-                    //info.WriteUniforms(j, variantIndex);
-                    GraphicsPipeline.WriteSet(info, info.DescriptorBuffers[j], variantIndex, variant.GetBindingBuffers(j, i), variant.GetBindingTextures(j, i));
+                    
+                    //info.WriteDescriptors(info.DescriptorBuffers[j], variantIndex, variant.GetBindingBuffers(j, i), variant.GetBindingTextures(j, i));
+
+                    info.WriteDescriptors(info.DescriptorBuffers[j], variantIndex, variant.GetBindingBuffers(j, i), variant.GetBindingTextures(i));
                 }
             }
         }
@@ -477,6 +508,10 @@ namespace VECS
 
             private unsafe VkDescriptorImageInfo* _pBindingTextures;
 
+            private unsafe VkDescriptorImageInfo** _ppBindingTextures;
+
+            //private unsafe uint* _pTexturesPerBinding;
+
             private readonly int TextureCount;
 
             private bool _disposed;
@@ -487,8 +522,26 @@ namespace VECS
                 TextureCount = (int)setInfo.ImageCount;
 
                 _pBindingTextures = (VkDescriptorImageInfo*)NativeMemory.AllocZeroed((uint)sizeof(VkDescriptorImageInfo) * (uint)TextureCount * SwapChain.MAX_CONCURRENT_FRAMES_UINT);
-                
+
+                _ppBindingTextures = (VkDescriptorImageInfo**)NativeMemory.AllocZeroed((uint)sizeof(VkDescriptorImageInfo*) * (uint)TextureCount);
+
                 var missingInfo = EngineTextures.MissingTexture.ImageInfo;
+
+                for (int i = 0; i < setInfo.BindingCount; i++)
+                {
+                    if (!setInfo.DescriptorBindings[i].Image) continue;
+                    var index = setInfo.BindingPointToImageIndex[setInfo.DescriptorBindings[i].BindPoint];
+                    var capacity = setInfo.DescriptorBindings[i].VkSetLayoutBinding.descriptorCount;
+
+                    _ppBindingTextures[index] = (VkDescriptorImageInfo*)NativeMemory.AllocZeroed((uint)sizeof(VkDescriptorImageInfo) * capacity);
+
+                    for (int bindingIndex = 0; bindingIndex < capacity; bindingIndex++)
+                    {
+                        _ppBindingTextures[index][bindingIndex] = missingInfo;
+                    }
+                }
+
+
                 for (int frameIndex = 0; frameIndex < SwapChain.MAX_CONCURRENT_FRAMES; frameIndex++)
                 {
                     var textures = GetBindingTextures(frameIndex);
@@ -497,15 +550,38 @@ namespace VECS
                         textures[textureIndex] = missingInfo;
                     }
                 }
+
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public unsafe readonly void UpdateTextureBindings(int frameIndex, Texture[] textures)
+            public unsafe readonly void UpdateTextureBindings(ITextureProvider[] textures)
+            {
+                for (int textureIndex = 0; textureIndex < TextureCount; textureIndex++)
+                {
+                    var bindingTextures = _ppBindingTextures[textureIndex];
+                    var textureProvider = textures[textureIndex];
+
+                    for (int i = 0; i < textureProvider.ImageCount; i++)
+                    {
+                        bindingTextures[i] = textureProvider.GetTexture(i).ImageInfo;
+                    }
+                }
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public unsafe readonly VkDescriptorImageInfo** GetBindingTexturesPtr()
+            {
+                return _ppBindingTextures;
+            }
+
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public unsafe readonly void UpdateTextureBindings(int frameIndex, ITextureProvider[] textures)
             {
                 var bindingTextures = GetBindingTextures(frameIndex);
                 for (int textureIndex = 0; textureIndex < TextureCount; textureIndex++)
                 {
-                    bindingTextures[textureIndex] = textures[textureIndex].ImageInfo;
+                    bindingTextures[textureIndex] = textures[textureIndex].First.ImageInfo;
                 }
             }
 
@@ -530,6 +606,15 @@ namespace VECS
 
                 NativeMemory.Free(_pBindingTextures);
                 _pBindingTextures = null;
+
+                for (int i = 0; i < TextureCount; i++)
+                {
+                    NativeMemory.Free(_ppBindingTextures[i]);
+                    _ppBindingTextures[i] = null;
+                }
+
+                NativeMemory.Free(_ppBindingTextures);
+                _ppBindingTextures = null;
             }
         }
     }

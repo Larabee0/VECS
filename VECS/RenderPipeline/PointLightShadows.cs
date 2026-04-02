@@ -8,6 +8,7 @@ namespace VECS
     public sealed class PointLightShadows
     {
         const int POINT_SHADOWS_PUSH_CONSTANT_INDEX = 2;
+        public const uint MAX_POINT_LIGHTS_SHADOW_CASTERS = 1;
         public const int POINT_SHADOW_IMAGE_SIZE = 1024;
         public static VkFormat SHADOW_FORMAT => PreferredFormats.LOW_PRECISION_DEPTH_ONLY;
         public const bool SHADOW_CULLING = false;

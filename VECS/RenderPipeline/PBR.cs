@@ -39,9 +39,9 @@ namespace VECS
             ShaderProperties.IgnoreUnFoundShaderProperties.Add(irradianceProp);
             ShaderProperties.IgnoreUnFoundShaderProperties.Add(prefilteredProp);
             ShaderProperties.IgnoreUnFoundShaderProperties.Add(brdflutProp);
-            EngineTextures.AddTexture(irradianceProp, Irradiance_Cubemap);
-            EngineTextures.AddTexture(prefilteredProp, Prefiltered_Cubemap);
-            EngineTextures.AddTexture(brdflutProp, BRDFLUT_Texture);
+            EngineTextures.AddTexture(irradianceProp, Irradiance_Cubemap.AsSingleTexture());
+            EngineTextures.AddTexture(prefilteredProp, Prefiltered_Cubemap.AsSingleTexture());
+            EngineTextures.AddTexture(brdflutProp, BRDFLUT_Texture.AsSingleTexture());
 
 
             AssetDataBase<Material>.AllAssetsListForReading.ForEach(asset =>

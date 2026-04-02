@@ -25,7 +25,7 @@ namespace VECS.UI
         {
             FrameworkElement controlTreeRoot = (FrameworkElement)GUI.LoadXaml(System.IO.Path.Combine(Asset.AssetsPath,"GUI", "ThemePreview.xaml"));
 
-            MainView = new NoesisViewWrapper(controlTreeRoot, Application.Instance.NoesisDriver)
+            MainView = new NoesisViewWrapper(controlTreeRoot, Application.NoesisDriver)
             {
                 RenderFlags = RenderFlags.PPAA | RenderFlags.FlipY
             };
@@ -35,7 +35,7 @@ namespace VECS.UI
 
             _blitVariant = EnginePipes.Blit.Create("Noesis_Blitter");
             _blitVariant.SetTexture(inputTextureId, RenderTarget.Target);
-            Application.Instance.NoesisDriver.CreatePipelines(VkFormat.R8G8B8A8Unorm, VkFormat.Undefined);
+            Application.NoesisDriver.CreatePipelines(VkFormat.R8G8B8A8Unorm, VkFormat.Undefined);
         }
 
         public override void OnUpdate(EntityManager entityManager)
@@ -78,20 +78,20 @@ namespace VECS.UI
 
         public override void OnPrePresent(EntityManager entityManager)
         {
-            Application.Instance.NoesisDriver.CurrentFrameInfo = default;
+            Application.NoesisDriver.CurrentFrameInfo = default;
             
         }
 
         public unsafe override void OnPostAA(EntityManager entityManager, RendererFrameInfo frameInfo)
         {
-            Application.Instance.NoesisDriver.CurrentFrameInfo = frameInfo;
+            Application.NoesisDriver.CurrentFrameInfo = frameInfo;
             if (MainView.PreRender() || ALWAYS_RE_RENDER)
             {
                 _framesSinceLastRender = 0;
             }
             if (_framesSinceLastRender < SwapChain.MAX_CONCURRENT_FRAMES + 1)
             {
-                Application.Instance.NoesisDriver.FormatHash = HashCode.Combine(RenderTarget.Target.Format, VkFormat.Undefined);
+                Application.NoesisDriver.FormatHash = HashCode.Combine(RenderTarget.Target.Format, VkFormat.Undefined);
                 _framesSinceLastRender++;
                 StartUIRendering(frameInfo);
                 SwapChain.SetViewPortScissor(frameInfo.CommandBuffer);
@@ -197,7 +197,6 @@ namespace VECS.UI
         {
             MainView.View.Renderer.Shutdown();
             MainView.View.Dispose();
-            GUI.Shutdown();
         }
     }
 }

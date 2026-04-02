@@ -38,7 +38,7 @@ namespace VECS
         }
 
         private readonly SDL3Window _mainAppWindow;
-        private NoesisDriver _noesisDriver;
+
         private readonly Presenter _presenter;
 
         private static World _mainWorld;
@@ -58,7 +58,7 @@ namespace VECS
         public static string ProjectName => Bootstrap.ProjectName;
         public static string PersistentDataPath => _persistentDataPath;
 
-        public NoesisDriver NoesisDriver => _noesisDriver;
+        public static NoesisDriver NoesisDriver => NoesisHandler.NoesisDriver;
 
         public Application()
         {
@@ -154,17 +154,6 @@ namespace VECS
 
             _presenter.Start(); // presenter depends on the main entity world existing right away
 
-            Log.SetLogCallback(NoesisDriver.LoggerCallback);
-            Error.SetUnhandledCallback(NoesisDriver.ErrorCallback);
-
-            GUI.Init();
-            GUI.GetApplicationResources().Source = new(System.IO.Path.Combine(Asset.AssetsPath, "GUI"));
-            GUI.SetFontProvider(new NoesisFontProvider());
-            GUI.SetTextureProvider(new NoesisTextureProvider());
-            GUI.SetXamlProvider(new NoesisXamlProvider());
-
-            _noesisDriver = new NoesisDriver();
-            World.DefaultWorld.CreateSystem<NoesisSystem>();
             PreOnCreate?.Invoke();
 
             World.OnCreate();
@@ -413,7 +402,7 @@ namespace VECS
             }
             _mainWorld?.Dispose();
             Time.FixedTimeStepCallback -= FixedUpdate;
-            _noesisDriver.CleanUpMeshData();
+            NoesisHandler.Dispose();
             _presenter.Dispose();
             SDL3WindowManager.DestroyAllWindows();
             GPUBufferExtensions.Reset();

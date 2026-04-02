@@ -56,7 +56,7 @@ namespace VECS
             {
                 _headIndex = new(string.Format("OIT_HeadIndex_{0}", Presenter.FrameCount), (int)windowExtents.width, (int)windowExtents.height, VkFormat.R32Uint, VkImageUsageFlags.TransferDst | VkImageUsageFlags.Storage, false);
 
-                EngineTextures.AddTexture(ShaderProperties.HeadIndexImageId, _headIndex);
+                EngineTextures.AddTexture(ShaderProperties.HeadIndexImageId, _headIndex.AsSingleTexture());
             }
             else
             {

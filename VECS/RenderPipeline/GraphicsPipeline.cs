@@ -445,12 +445,6 @@ namespace VECS
             }
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe void WriteSet(DescriptorSetInfo setInfo, DescriptorBuffer descriptorBuffer, uint variant, Span<VkDescriptorAddressInfoEXT> bindingBuffers, Span<VkDescriptorImageInfo> bindingImages)
-        {
-            setInfo.WriteDescriptors(descriptorBuffer, variant, bindingBuffers, bindingImages);
-        }
-
         public unsafe void WriteToUniformBuffer<T>(uint variant, ShaderProperty propertyInfo, T element) where T : unmanaged
         {
             var maxSize = propertyInfo.Property == null ? propertyInfo.BindingInfo.BufferSize : propertyInfo.Property.Size;

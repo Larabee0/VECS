@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Numerics;
+using VECS.ECS;
 using VECS.GraphicsPipelines;
 using VECS.LowLevel;
 using Vortice.Vulkan;
@@ -10,7 +11,34 @@ using Vector4 = System.Numerics.Vector4;
 
 namespace VECS.UI
 {
+    public static class NoesisHandler
+    {
+        private static NoesisDriver _noesisDriver;
 
+        public static NoesisDriver NoesisDriver => _noesisDriver;
+
+        internal static void Init()
+        {
+            GUI.Init();
+            GUI.GetApplicationResources().Source = new(System.IO.Path.Combine(Asset.AssetsPath, "GUI"));
+            GUI.SetFontProvider(new NoesisFontProvider());
+            GUI.SetTextureProvider(new NoesisTextureProvider());
+            GUI.SetXamlProvider(new NoesisXamlProvider());
+
+            _noesisDriver = new NoesisDriver();
+            Log.SetLogCallback(UI.NoesisDriver.LoggerCallback);
+            Error.SetUnhandledCallback(UI.NoesisDriver.ErrorCallback);
+
+            World.DefaultWorld.CreateSystem<NoesisSystem>();
+        }
+
+        internal static void Dispose()
+        {
+            _noesisDriver?.CleanUpMeshData();
+            _noesisDriver = null;
+            GUI.Shutdown();
+        }
+    }
     public class NoesisDriver : RenderDevice
     {
         public override DeviceCaps Caps => new()

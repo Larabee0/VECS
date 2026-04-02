@@ -17,7 +17,7 @@ namespace VECS
         public readonly static Texture2D Red;
         public readonly static Texture2D White;
 
-        private readonly static ConcurrentDictionary<int, Texture> _engineTextures = new();
+        private readonly static ConcurrentDictionary<int, ITextureProvider> _engineTextures = new();
 
         static EngineTextures()
         {
@@ -67,37 +67,36 @@ namespace VECS
         }
 
 
-        public static Texture TryGetTexture(int propertyId)
+        public static ITextureProvider TryGetTexture(int propertyId)
         {
             _engineTextures.TryGetValue(propertyId, out var texture);
             return texture;
         }
 
-        public static void AddTexture(int propertyId, Texture buffer)
+        public static void AddTexture(int propertyId, ITextureProvider texture)
         {
-            if (!_engineTextures.TryAdd(propertyId, buffer))
+            if (!_engineTextures.TryAdd(propertyId, texture))
             {
                 throw new ArgumentException(string.Format("Key {0} already exists in the enginetexture dictionary, use Updatetexture to replace it", propertyId));
             }
         }
 
-        public static void UpdateTexture(int propertyId, Texture buffer)
+        public static void UpdateTexture(int propertyId, Texture texture, int index = 0)
         {
-            if (!_engineTextures.TryGetValue(propertyId, out var existing) || !_engineTextures.TryUpdate(propertyId, buffer, existing))
+            if (_engineTextures.TryGetValue(propertyId, out var existing))
             {
-                throw new KeyNotFoundException(string.Format("Key {0} has no texture assocaited with it, use Addtexture to add it", propertyId));
+                existing.SetTexture(texture, index);
+                return;
             }
+            throw new KeyNotFoundException(string.Format("Key {0} has no texture assocaited with it, use Addtexture to add it", propertyId));
         }
 
-        public static void AddOrUpdateTexture(int propertyId, Texture buffer)
+        public static void AddOrUpdateTexture(int propertyId, ITextureProvider texture)
         {
-            _engineTextures.AddOrUpdate(propertyId, buffer, (int key, Texture value) =>
+            _engineTextures.AddOrUpdate(propertyId, texture, (key, value) =>
             {
-                if (!value.IsDisposed)
-                {
-                    value.Dispose();
-                }
-                return buffer;
+                value.Dispose();
+                return texture;
             });
         }
 
@@ -108,7 +107,5 @@ namespace VECS
                 buffer.Dispose();
             }
         }
-
-
     }
 }

@@ -269,10 +269,10 @@ namespace VECS
                 }
             }
 
-            if (imageTraits.depth != 0)
-            {
-                throw new NotImplementedException(string.Format("Image Depth = {0} unhandled", imageTraits.depth));
-            }
+            //if (imageTraits.depth != 0)
+            //{
+            //    throw new NotImplementedException(string.Format("Image Depth = {0} unhandled", imageTraits.depth));
+            //}
 
             if (imageTraits.ms != 0)
             {

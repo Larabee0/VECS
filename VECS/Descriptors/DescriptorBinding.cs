@@ -14,6 +14,7 @@ namespace VECS
         public readonly uint BindPoint;
         public readonly DescriptorPropertyInfo[] Variables;
         public readonly bool Image;
+        public readonly bool ImageBindingArray;
         public readonly bool Buffer;
         public readonly bool DynamicBuffer;
         public readonly uint BufferSize;
@@ -28,7 +29,7 @@ namespace VECS
         public bool IsAnyBuffer => Buffer || DynamicBuffer;
         public bool StorageBuffer => !UniformBuffer && IsAnyBuffer;
 
-        public DescriptorBinding(SpvReflectDescriptorBinding descriptorBinding, VkShaderStageFlags shaderStageFlags)
+        public unsafe DescriptorBinding(SpvReflectDescriptorBinding descriptorBinding, VkShaderStageFlags shaderStageFlags)
         {
             Name = descriptorBinding.Name;
             Id = Name.GetShaderPropertyId();
@@ -39,6 +40,7 @@ namespace VECS
             {
                 case SpvReflectDescriptorType.CombinedImageSampler:
                     Image = true;
+                    ImageBindingArray = descriptorBinding.array.dims_count != 0;
                     break;
                 case SpvReflectDescriptorType.UniformBuffer:
                     BufferUsageFlags = VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.TransferSrc | VkBufferUsageFlags.UniformBuffer;
@@ -58,6 +60,7 @@ namespace VECS
                     break;
                 case SpvReflectDescriptorType.StorageImage:
                     Image = true;
+                    ImageBindingArray = descriptorBinding.array.dims_count != 0;
                     break;
                 default:
                     throw new NotImplementedException(string.Format("Descriptor type not implemented {0}", descriptorBinding.descriptor_type.ToString()));
@@ -70,6 +73,23 @@ namespace VECS
                 descriptorType = DescriptorType=(VkDescriptorType)descriptorBinding.descriptor_type,
                 stageFlags = shaderStageFlags
             };
+
+            if(Image && ImageBindingArray)
+            {
+                var imageArrayInfo = descriptorBinding.array;
+
+                var count = this.GetImageBindingArraySize();
+
+                if (descriptorBinding.array.dims[0] == 1 && count != 0)
+                {
+                    VkSetLayoutBinding.descriptorCount = count;
+                }
+                else
+                {
+                    VkSetLayoutBinding.descriptorCount = imageArrayInfo.dims[0];
+                }
+            }
+            
 
             Variables = [.. SPIRVReflectUtil.GetBindingMembers(descriptorBinding, Name)];
 

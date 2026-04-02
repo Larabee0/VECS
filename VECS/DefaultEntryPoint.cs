@@ -49,7 +49,7 @@ namespace VECS
         {
             CreateMainCamera();
             DirectionalLight();
-            //PointLight();
+            PointLight();
             //SponzaOld();
             SponzaNew();
             //SponzaNewPBR();
@@ -120,17 +120,17 @@ namespace VECS
             PointLight(entityManager, new(10, 1f, 0), new(1, 0, 0, 1), subMesh);
             PointLight(entityManager, new(-10, 1, 0), new(1, 0, 0, 1), subMesh);
 
-            PointLight(entityManager, new(8, 1, 0), new(0, 1, 0, 1), subMesh);
-            PointLight(entityManager, new(-8, 1, 0), new(0, 1, 0, 1), subMesh);
-
-            PointLight(entityManager, new(6, 1, 0), new(0, 0, 1, 1), subMesh);
-            PointLight(entityManager, new(-6, 1, 0), new(0, 0, 1, 1), subMesh);
-
-            PointLight(entityManager, new(4, 1, 0), new(1, 1, 0, 1), subMesh);
-            PointLight(entityManager, new(-4, 1, 0), new(1, 1, 0, 1), subMesh);
-
-            PointLight(entityManager, new(2, 1, 0), new(0, 1, 1, 1), subMesh);
-            PointLight(entityManager, new(-2, 1, 0), new(0, 1, 1, 1), subMesh);
+            // PointLight(entityManager, new(8, 1, 0), new(0, 1, 0, 1), subMesh);
+            // PointLight(entityManager, new(-8, 1, 0), new(0, 1, 0, 1), subMesh);
+            // 
+            // PointLight(entityManager, new(6, 1, 0), new(0, 0, 1, 1), subMesh);
+            // PointLight(entityManager, new(-6, 1, 0), new(0, 0, 1, 1), subMesh);
+            // 
+            // PointLight(entityManager, new(4, 1, 0), new(1, 1, 0, 1), subMesh);
+            // PointLight(entityManager, new(-4, 1, 0), new(1, 1, 0, 1), subMesh);
+            // 
+            // PointLight(entityManager, new(2, 1, 0), new(0, 1, 1, 1), subMesh);
+            // PointLight(entityManager, new(-2, 1, 0), new(0, 1, 1, 1), subMesh);
 
         }
 

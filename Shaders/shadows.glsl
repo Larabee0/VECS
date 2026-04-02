@@ -89,6 +89,7 @@ float FilterPLPCF(samplerCubeArray plShadow, vec3 fragPos, vec3 viewPos, vec3 li
 	    closestDepth *= farPlane;   // undo mapping [0;1]
 	    if(currentDepth > closestDepth)
 	        shadow += 1.0;
+		//shadow+=closestDepth;
 	}
 	shadow /= float(samples);  
 	return (1.0-shadow);

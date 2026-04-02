@@ -36,6 +36,8 @@ namespace VECS
 
         public static readonly HashSet<int> IgnoreUnFoundShaderProperties;
 
+        private static readonly Dictionary<int, uint> ImageBindingArrayCounts;
+
         static ShaderProperties()
         {
             IgnoreUnFoundShaderProperties =
@@ -55,6 +57,11 @@ namespace VECS
                 SLShadowImageId,
                 ColourBufferId
             ];
+
+            ImageBindingArrayCounts = new()
+            {
+                { PLShadowImageId, PointLightShadows.MAX_POINT_LIGHTS_SHADOW_CASTERS }
+            };
         }
 
         public static readonly ShaderProperty Invalid = new()
@@ -105,6 +112,22 @@ namespace VECS
             hash ^= hash >> 11;
             hash += hash << 15;
             return NumericsExtensions.asint(hash);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static uint GetImageBindingArraySize(this DescriptorBinding binding)
+        {
+            return GetImageBindingArraySize(binding.Id);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static uint GetImageBindingArraySize(int property)
+        {
+            if (ImageBindingArrayCounts.TryGetValue(property, out var count))
+            {
+                return count;
+            }
+            return 0;
         }
     }
     

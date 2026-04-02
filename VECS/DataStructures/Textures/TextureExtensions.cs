@@ -1133,6 +1133,10 @@ namespace VECS
             );
         }
 
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static SingleTexture AsSingleTexture(this Texture texture)
+        {
+            return (SingleTexture)texture;
+        }
     }
 }

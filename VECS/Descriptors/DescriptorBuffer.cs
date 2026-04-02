@@ -110,7 +110,8 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe void SetCombinedImageSamplerBinding(Texture texture, uint set, uint binding)
         {
-            SetImageInfoBinding(texture.ImageInfo, VkDescriptorType.CombinedImageSampler, set, binding);
+            var imageInfo = texture.ImageInfo;
+            SetImageInfoBinding(&imageInfo,1, VkDescriptorType.CombinedImageSampler, set, binding);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -121,9 +122,9 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe void SetImageInfoBinding(VkDescriptorImageInfo imageInfo, VkDescriptorType type, uint set, uint binding)
+        public unsafe void SetImageInfoBinding(VkDescriptorImageInfo* imageInfo,uint imageCount, VkDescriptorType type, uint set, uint binding)
         {
-            DescriptorBufferWriteInfo info = new(imageInfo, type, set, binding);
+            DescriptorBufferWriteInfo info = new(imageInfo, imageCount,type, set, binding);
             WriteDescriptor(info);
         }
 
@@ -148,7 +149,6 @@ namespace VECS
 
             var getInfo = new VkDescriptorGetInfoEXT();
             var addressInfo = writeInfo.AddressInfoEXT;
-            var imageInfo = writeInfo.ImageInfo;
             var sampler = writeInfo.Sampler;
             getInfo.type = writeInfo.Type;
             switch (writeInfo.Type)
@@ -175,24 +175,52 @@ namespace VECS
                     getInfo.data.pUniformBuffer = &addressInfo;
                     break;
                 case VkDescriptorType.CombinedImageSampler:
-                    getInfo.data.pCombinedImageSampler = &imageInfo;
+                    getInfo.data.pCombinedImageSampler = writeInfo.ImageInfo;
                     break;
                 case VkDescriptorType.SampledImage:
-                    getInfo.data.pSampledImage = &imageInfo;
+                    getInfo.data.pSampledImage = writeInfo.ImageInfo;
                     break;
                 case VkDescriptorType.Sampler:
                     getInfo.data.pSampler = &sampler;
                     break;
                 case VkDescriptorType.StorageImage:
-                    getInfo.data.pStorageImage = &imageInfo;
+                    getInfo.data.pStorageImage = writeInfo.ImageInfo;
                     break;
                 case VkDescriptorType.InputAttachment:
-                    getInfo.data.pInputAttachmentImage = &imageInfo;
+                    getInfo.data.pInputAttachmentImage = writeInfo.ImageInfo;
                     break;
                 default:
                     throw new NotImplementedException(string.Format("Descriptor Type {0} is invalid or not implemented for VkDescriptorAddressInfoEXT!", writeInfo.Type.ToString()));
             }
+
+
             GraphicsDevice.DeviceAPI.vkGetDescriptorEXT(&getInfo, (uint)writeInfo.DataSize, ptr);
+            
+            if (writeInfo.ImageCount > 1)
+            {
+                for (int i = 1; i < writeInfo.ImageCount; i++)
+                {
+                    ptr += writeInfo.DataSize;
+                    switch (writeInfo.Type)
+                    {
+                        case VkDescriptorType.CombinedImageSampler:
+                            getInfo.data.pCombinedImageSampler += 1;
+                            break;
+                        case VkDescriptorType.SampledImage:
+                            getInfo.data.pSampledImage += 1;
+                            break;
+                        case VkDescriptorType.StorageImage:
+                            getInfo.data.pStorageImage += 1;
+                            break;
+                        case VkDescriptorType.InputAttachment:
+                            getInfo.data.pInputAttachmentImage += 1;
+                            break;
+                    }
+                    GraphicsDevice.DeviceAPI.vkGetDescriptorEXT(&getInfo, (uint)writeInfo.DataSize, ptr);
+                }
+            }
+
+            
             _descriptorBuffer.SetHostBufferChanged(true);
         }
 
@@ -305,7 +333,8 @@ namespace VECS
 
     public struct DescriptorBufferWriteInfo
     {
-        public VkDescriptorImageInfo ImageInfo;
+        public unsafe VkDescriptorImageInfo* ImageInfo;
+        public uint ImageCount;
         public VkSampler Sampler;
         public VkDescriptorAddressInfoEXT AddressInfoEXT;
         public ulong DataSize;
@@ -322,12 +351,13 @@ namespace VECS
             DataSize = GraphicsDevice.PropertiesDescriptorBuffer.samplerDescriptorSize;
         }
 
-        public unsafe DescriptorBufferWriteInfo(VkDescriptorImageInfo imageInfo, VkDescriptorType type, uint set, uint binding)
+        public unsafe DescriptorBufferWriteInfo(VkDescriptorImageInfo* imageInfo, uint imageCount, VkDescriptorType type, uint set, uint binding)
         {
             Set = set;
             Binding = binding;
             Type = type;
             ImageInfo = imageInfo;
+            ImageCount = imageCount;
             var properties = GraphicsDevice.PropertiesDescriptorBuffer;
             DataSize = type switch
             {
@@ -337,6 +367,7 @@ namespace VECS
                 VkDescriptorType.InputAttachment => properties.inputAttachmentDescriptorSize,
                 _ => throw new NotImplementedException(string.Format("Descriptor Type {0} is invalid or not implemented for VkDescriptorImageInfo!", type.ToString())),
             };
+            //DataSize *= imageCount;
         }
 
         public unsafe DescriptorBufferWriteInfo(VkDescriptorAddressInfoEXT addressInfo, VkDescriptorType type, uint set, uint binding)
