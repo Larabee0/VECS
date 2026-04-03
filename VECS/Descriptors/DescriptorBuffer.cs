@@ -195,34 +195,29 @@ namespace VECS
 
 
             GraphicsDevice.DeviceAPI.vkGetDescriptorEXT(&getInfo, (uint)writeInfo.DataSize, ptr);
-            
-            if (writeInfo.ImageCount > 1)
+
+            for (int i = 1; i < writeInfo.ImageCount; i++)
             {
-                var images = writeInfo.ImageInfo;
-                for (int i = 1; i < writeInfo.ImageCount; i++)
+                ptr += (int)writeInfo.DataSize * i;
+                switch (writeInfo.Type)
                 {
-                    var ptr2 = ptr + ((int)writeInfo.DataSize * i);
-                    var image = images[i];
-                    switch (writeInfo.Type)
-                    {
-                        case VkDescriptorType.CombinedImageSampler:
-                            getInfo.data.pCombinedImageSampler = &image;
-                            break;
-                        case VkDescriptorType.SampledImage:
-                            getInfo.data.pSampledImage = &image;
-                            break;
-                        case VkDescriptorType.StorageImage:
-                            getInfo.data.pStorageImage = &image;
-                            break;
-                        case VkDescriptorType.InputAttachment:
-                            getInfo.data.pInputAttachmentImage = &image;
-                            break;
-                    }
-                    GraphicsDevice.DeviceAPI.vkGetDescriptorEXT(&getInfo, (uint)writeInfo.DataSize, ptr2);
+                    case VkDescriptorType.CombinedImageSampler:
+                        getInfo.data.pCombinedImageSampler += 1;
+                        break;
+                    case VkDescriptorType.SampledImage:
+                        getInfo.data.pSampledImage += 1;
+                        break;
+                    case VkDescriptorType.StorageImage:
+                        getInfo.data.pStorageImage += 1;
+                        break;
+                    case VkDescriptorType.InputAttachment:
+                        getInfo.data.pInputAttachmentImage += 1;
+                        break;
                 }
+                GraphicsDevice.DeviceAPI.vkGetDescriptorEXT(&getInfo, (uint)writeInfo.DataSize, ptr);
             }
 
-            
+
             _descriptorBuffer.SetHostBufferChanged(true);
         }
 
