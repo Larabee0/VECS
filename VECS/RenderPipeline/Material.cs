@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -361,7 +362,7 @@ namespace VECS
                 for (int setIndex = 0; setIndex < variant.TotalSets; setIndex++)
                 {
                     if (variant._imageDescriptors[setIndex].Disposed) continue;
-                    variant._imageDescriptors[setIndex].UpdateTextureBindings(frameIndex, textures[setIndex]);
+                    //variant._imageDescriptors[setIndex].UpdateTextureBindings(frameIndex, textures[setIndex]);
                     variant._imageDescriptors[setIndex].UpdateTextureBindings(textures[setIndex]);
                 }
                 variant._dirtyTextures[frameIndex] = false;
@@ -521,8 +522,9 @@ namespace VECS
 
             private unsafe VkDescriptorImageInfo** _ppBindingTextures;
 
-            //private unsafe uint* _pTexturesPerBinding;
-
+#if DEBUG
+            private unsafe uint[] _pTexturesPerBinding;
+#endif
             private readonly int TextureCount;
 
             private bool _disposed;
@@ -535,6 +537,7 @@ namespace VECS
                 _pBindingTextures = (VkDescriptorImageInfo*)NativeMemory.AllocZeroed((uint)sizeof(VkDescriptorImageInfo) * (uint)TextureCount * SwapChain.MAX_CONCURRENT_FRAMES_UINT);
 
                 _ppBindingTextures = (VkDescriptorImageInfo**)NativeMemory.AllocZeroed((uint)sizeof(VkDescriptorImageInfo*) * (uint)TextureCount);
+                _pTexturesPerBinding = new uint[TextureCount];
 
                 var missingInfo = EngineTextures.MissingTexture.ImageInfo;
 
@@ -545,7 +548,9 @@ namespace VECS
                     var capacity = setInfo.DescriptorBindings[i].VkSetLayoutBinding.descriptorCount;
 
                     _ppBindingTextures[index] = (VkDescriptorImageInfo*)NativeMemory.AllocZeroed((uint)sizeof(VkDescriptorImageInfo) * capacity);
-
+#if DEBUG
+                    _pTexturesPerBinding[index] = capacity;
+#endif
                     for (int bindingIndex = 0; bindingIndex < capacity; bindingIndex++)
                     {
                         _ppBindingTextures[index][bindingIndex] = missingInfo;
@@ -571,7 +576,9 @@ namespace VECS
                 {
                     var bindingTextures = _ppBindingTextures[textureIndex];
                     var textureProvider = textures[textureIndex];
-
+#if DEBUG
+                    Debug.Assert(textureProvider.ImageCount == _pTexturesPerBinding[textureIndex]);
+#endif
                     for (int i = 0; i < textureProvider.ImageCount; i++)
                     {
                         bindingTextures[i] = textureProvider.GetTexture(i).ImageInfo;
