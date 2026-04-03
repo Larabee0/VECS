@@ -116,9 +116,10 @@ namespace VECS
         {
             EntityManager entityManager = World.DefaultWorld.EntityManager;
             var subMesh = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("UV-Sphere.obj"), null)[0];
-
-            PointLight(entityManager, new(10, 1f, 0), new(1, 0, 0, 1), subMesh);
+            
             PointLight(entityManager, new(-10, 1, 0), new(1, 0, 0, 1), subMesh);
+            PointLight(entityManager, new(10, 1f, 0), new(1, 0, 0, 1), subMesh);
+            
 
             // PointLight(entityManager, new(8, 1, 0), new(0, 1, 0, 1), subMesh);
             // PointLight(entityManager, new(-8, 1, 0), new(0, 1, 0, 1), subMesh);

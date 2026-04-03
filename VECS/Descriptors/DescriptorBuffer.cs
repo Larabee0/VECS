@@ -198,25 +198,27 @@ namespace VECS
             
             if (writeInfo.ImageCount > 1)
             {
+                var images = writeInfo.ImageInfo;
                 for (int i = 1; i < writeInfo.ImageCount; i++)
                 {
-                    ptr += writeInfo.DataSize;
+                    var ptr2 = ptr + ((int)writeInfo.DataSize * i);
+                    var image = images[i];
                     switch (writeInfo.Type)
                     {
                         case VkDescriptorType.CombinedImageSampler:
-                            getInfo.data.pCombinedImageSampler += 1;
+                            getInfo.data.pCombinedImageSampler = &image;
                             break;
                         case VkDescriptorType.SampledImage:
-                            getInfo.data.pSampledImage += 1;
+                            getInfo.data.pSampledImage = &image;
                             break;
                         case VkDescriptorType.StorageImage:
-                            getInfo.data.pStorageImage += 1;
+                            getInfo.data.pStorageImage = &image;
                             break;
                         case VkDescriptorType.InputAttachment:
-                            getInfo.data.pInputAttachmentImage += 1;
+                            getInfo.data.pInputAttachmentImage = &image;
                             break;
                     }
-                    GraphicsDevice.DeviceAPI.vkGetDescriptorEXT(&getInfo, (uint)writeInfo.DataSize, ptr);
+                    GraphicsDevice.DeviceAPI.vkGetDescriptorEXT(&getInfo, (uint)writeInfo.DataSize, ptr2);
                 }
             }
 

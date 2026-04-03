@@ -259,8 +259,8 @@ namespace VECS
             var skyBoxFolders = GetSkyboxTextures(skyboxFolder);
             GPUBuffer gpuBuffer = LoadBulkSameFormatExtent(skyBoxFolders, format, mipMaps, allowParallel, out CompressedTextureBinary[] loadedTextures, out ulong[] offsets, out VkExtent3D[] extents);
 
-
-            Cubemap texture = new(name, loadedTextures[0].Width, loadedTextures[0].Height, format, VkSamplerAddressMode.Repeat, VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled, mipMaps);
+            Debug.Assert(loadedTextures[0].Width == loadedTextures[0].Height);
+            Cubemap texture = new(name, loadedTextures[0].Width, format, VkSamplerAddressMode.Repeat, VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled, mipMaps);
 
             texture.CopyFromBuffer(gpuBuffer, offsets, extents, true);
 

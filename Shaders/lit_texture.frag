@@ -1,5 +1,6 @@
 #version 460
 #extension GL_ARB_shading_language_include : require
+#extension GL_EXT_nonuniform_qualifier : require
 #include "common_structures.glsl"
 #include "lighting.glsl"
 #include "shadows.glsl"
@@ -52,7 +53,7 @@ layout(set = 1, binding = 3) uniform TexPorps {
 } texProps;
 
 layout(set = 1, binding = 4) uniform sampler2DArray dirShadow;
-layout(set = 1, binding = 5) uniform samplerCubeArray plShadow[];
+layout(set = 1, binding = 5) uniform samplerCube plShadow[];
 layout(set = 1, binding = 6) uniform sampler2DArray slShadow;
 
 layout(set = 1, binding = 7) uniform sampler2D normalSampler;
@@ -169,7 +170,7 @@ void main()
     	float distance = length(pl.position.xyz - fragPosWorld);
 
 		if(distance <= pl.farPlane){
-		    float plShadow = FilterPLPCF(plShadow[0], fragPosWorld, cameraPosWorld, pl.position.xyz,pl.farPlane, i);
+		    float plShadow = FilterPLPCF(plShadow[i], fragPosWorld, cameraPosWorld, pl.position.xyz,pl.farPlane, i);
 			result += CalcPointLight(pl, normalize(fragNormalWorld), fragPosWorld, viewDir, shininess, plShadow, diffuseTextureColour, diffuseTextureColour, specularColour);
 			//result += vec3(plShadow);
 		}

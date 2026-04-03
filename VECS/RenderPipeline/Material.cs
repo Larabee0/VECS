@@ -81,32 +81,34 @@ namespace VECS
                 if (setInfo.ImageCount > 0)
                 {
                     _imageDescriptors[i] = new(setInfo);
-                    _textures[i] = new ITextureProvider[setInfo.BindingCount];
+                    _textures[i] = new ITextureProvider[setInfo.ImageCount];
                     //Array.Fill(_textures[i], EngineTextures.MissingTexture);
 
                     for (int j = 0; j < setInfo.BindingCount; j++)
                     {
                         DescriptorBinding binding = setInfo.DescriptorBindings[j];
+                        if (!binding.Image) continue;
+                        var imageIndex = setInfo.BindingPointToImageIndex[binding.BindPoint];
                         var engineTexture = EngineTextures.TryGetTexture(binding.Id);
                         if (engineTexture != null)
                         {
-                            _textures[i][j] = engineTexture;
+                            _textures[i][imageIndex] = engineTexture;
                         }
-                        else if (binding.Image && binding.DescriptorType == VkDescriptorType.StorageImage)
+                        else if (binding.DescriptorType == VkDescriptorType.StorageImage)
                         {
                             if (binding.VkSetLayoutBinding.descriptorCount > 1)
                             {
-                                _textures[i][j] = new BindingArrayTexture((int)binding.VkSetLayoutBinding.descriptorCount);
+                                _textures[i][imageIndex] = new BindingArrayTexture((int)binding.VkSetLayoutBinding.descriptorCount);
                             }
                             else
                             {
-                                _textures[i][j] = new SingleTexture(null);
+                                _textures[i][imageIndex] = new SingleTexture(null);
                             }
                                 
                         }
                         else if(binding.VkSetLayoutBinding.descriptorCount > 1)
                         {
-                            var fill = _textures[i][j] = new BindingArrayTexture((int)binding.VkSetLayoutBinding.descriptorCount);
+                            var fill = _textures[i][imageIndex] = new BindingArrayTexture((int)binding.VkSetLayoutBinding.descriptorCount);
 
                             for (int k = 0; k < fill.ImageCount; k++)
                             {
@@ -115,7 +117,7 @@ namespace VECS
                         }
                         else
                         {
-                            _textures[i][j] = (SingleTexture)EngineTextures.MissingTexture;
+                            _textures[i][imageIndex] = (SingleTexture)EngineTextures.MissingTexture;
                         }
                     }
                 }
@@ -167,8 +169,17 @@ namespace VECS
         public void SetTexture(uint setIndex, uint bindingIndex, Texture texture, int index = 0)
         {
             int imageIndex = DescriptorSetInfos[setIndex].BindingPointToImageIndex[bindingIndex];
-            if (_textures[setIndex][imageIndex] == texture) return;
+            if (_textures[setIndex][imageIndex].First == texture) return;
             _textures[setIndex][imageIndex].SetTexture(texture,index);
+            Array.Fill(_dirtyTextures, true);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetTexture(uint setIndex, uint bindingIndex, BindingArrayTexture textures)
+        {
+            int imageIndex = DescriptorSetInfos[setIndex].BindingPointToImageIndex[bindingIndex];
+            if (_textures[setIndex][imageIndex] == textures) return;
+            _textures[setIndex][imageIndex] = textures;
             Array.Fill(_dirtyTextures, true);
         }
 

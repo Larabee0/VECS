@@ -75,7 +75,7 @@ float DirShadows(sampler2DArray dirShadowMap, mat4[4]lightSpace, vec4 cascadeSpl
 	return shadow;
 }
 
-float FilterPLPCF(samplerCubeArray plShadow, vec3 fragPos, vec3 viewPos, vec3 lightPos, float farPlane, int textureIndex){
+float FilterPLPCF(samplerCube plShadow, vec3 fragPos, vec3 viewPos, vec3 lightPos, float farPlane, int textureIndex){
     vec3 fragToLight = fragPos - lightPos;
 	float currentDepth = length(fragToLight);
 	float shadow = 0.0;
@@ -84,7 +84,7 @@ float FilterPLPCF(samplerCubeArray plShadow, vec3 fragPos, vec3 viewPos, vec3 li
 	float diskRadius = (1.0 + (viewDistance / farPlane)) / farPlane;
 	for(int i = 0; i < samples; ++i)
 	{
-		vec4 coord = vec4(fragToLight + sampleOffsetDirections[i] * diskRadius, textureIndex);
+		vec3 coord = vec3(fragToLight + sampleOffsetDirections[i] * diskRadius);
 	    float closestDepth = texture(plShadow, coord).r;
 	    closestDepth *= farPlane;   // undo mapping [0;1]
 	    if(currentDepth > closestDepth)

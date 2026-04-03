@@ -368,6 +368,7 @@ namespace VECS.LowLevel
                 storageBuffer8BitAccess = true,
                 shaderOutputViewportIndex = true,
                 shaderOutputLayer = true,
+                runtimeDescriptorArray = true,
                 pNext = &deviceFeatures11
             };
 

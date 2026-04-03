@@ -193,6 +193,12 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void SetTexture(this Material material, ShaderProperty propertyInfo, BindingArrayTexture texture)
+        {
+            material.SetTexture(propertyInfo.SetIndex, propertyInfo.BindPoint, texture);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void SetTexture(this GraphicsPipeline pipeline, int propertyId, uint variant, Texture texture)
         {
             if(pipeline.LookUpProperty(propertyId, out ShaderProperty shaderPropertyInfo))
@@ -234,6 +240,14 @@ namespace VECS
             if (material.LookUpProperty(propertyId, out var propertyInfo))
             {
                 material.SetTexture(propertyInfo, cubemap);
+            }
+        }
+
+        public static void SetCubeMap(this Material material, int propertyId, BindingArrayTexture cubemaps)
+        {
+            if (material.LookUpProperty(propertyId, out var propertyInfo))
+            {
+                material.SetTexture(propertyInfo, cubemaps);
             }
         }
 

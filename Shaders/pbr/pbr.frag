@@ -37,7 +37,7 @@ layout(set = 0,binding = 4) readonly buffer CameraInverses {
 } cameraInverse;
 
 layout (set = 1, binding = 2) uniform sampler2DArray dirShadow;
-layout (set = 1, binding = 3) uniform samplerCubeArray plShadow;
+layout (set = 1, binding = 3) uniform samplerCube plShadow;
 layout (set = 1, binding = 4) uniform sampler2DArray slShadow;
 
 layout (set = 1, binding = 5) uniform samplerCube samplerIrradiance;

@@ -43,41 +43,6 @@ namespace VECS
             AssetDataBase<Cubemap>.Add(this);
         }
 
-        public Cubemap(string name, int w, int h, VkFormat format, VkSamplerAddressMode wrapMode = VkSamplerAddressMode.ClampToEdge, VkImageUsageFlags _usageFlags = VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled, bool generateMipMaps = true)
-        {
-            AssetName = name;
-            _imageFormat = format;
-            _imageExtent = new(w, h, 1);
-            _useageFlags = _usageFlags;
-
-            _imageImageViewType = VkImageViewType.ImageCube;
-            WrapModeU = wrapMode;
-            WrapModeV = wrapMode;
-            WrapModeW = wrapMode;
-            CompareOp = VkCompareOp.Never;
-            BorderColour = VkBorderColor.FloatOpaqueWhite;
-
-            if (generateMipMaps)
-            {
-                MipMapCount = TextureExtensions.CalculateMipMapLevels(_imageExtent.width, _imageExtent.height);
-            }
-
-            this.SetImageLayoutAndAspectFromUsage();
-
-            this.CreateImage(GetImageCreateInfo());
-            this.CreateImageView(GetImageViewCreateInfo());
-            CreateFaceImageViews();
-
-            if (_useageFlags.HasFlag(VkImageUsageFlags.Sampled))
-            {
-                this.CreateSampler();
-            }
-
-            UpdateDescriptor();
-
-            AssetDataBase<Cubemap>.Add(this);
-        }
-
         public override VkImageCreateInfo GetImageCreateInfo()
         {
             var createInfo = base.GetImageCreateInfo();

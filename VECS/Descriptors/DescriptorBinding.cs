@@ -80,9 +80,9 @@ namespace VECS
 
                 var count = this.GetImageBindingArraySize();
 
-                if (descriptorBinding.array.dims[0] == 1 && count != 0)
+                if (descriptorBinding.array.dims[0] <= 1 && count != 0)
                 {
-                    VkSetLayoutBinding.descriptorCount = count;
+                    VkSetLayoutBinding.descriptorCount = Math.Max(1, count);
                 }
                 else
                 {
