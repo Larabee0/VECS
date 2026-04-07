@@ -11,7 +11,9 @@ layout (location = 2) in vec2 fragUV;
 layout(set = 0, binding = 0) uniform LightingInfo {
 	DirectionalLight directionalLight;
 	int numPointLights;
+	int numPointLightShadows;
 	int numSpotLights;
+	int numSpotLightShadows;
 } lighting;
 
 layout(set = 0,binding = 1) readonly buffer CameraInverses {

@@ -17,7 +17,9 @@ layout (location = 0) out vec4 outColour;
 layout(set = 0, binding = 0) uniform LightingInfo {
 	DirectionalLight directionalLight;
 	int numPointLights;
+	int numPointLightShadows;
 	int numSpotLights;
+	int numSpotLightShadows;
 } lighting;
 
 layout (set = 0, binding = 1) readonly buffer PointLights {

@@ -78,6 +78,22 @@ namespace VECS
             this.GenerateMipMaps(cmd);
         }
 
+        public void Reinitialise(int size)
+        {
+            _imageExtent = new(size, size, 1);
+            Reinitialise();
+        }
+
+        protected override void Reinitialise()
+        {
+            for (int i = 0; i < 6; i++)
+            {
+                TextureExtensions.EnqueueForDisposal(VkImage.Null, VmaAllocation.Null, FaceImageViews[i], VkSampler.Null);
+            }
+            base.Reinitialise();
+            CreateFaceImageViews();
+        }
+
         public unsafe override void Dispose()
         {
             if (_disposed) return;

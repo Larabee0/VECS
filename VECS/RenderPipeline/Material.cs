@@ -179,7 +179,7 @@ namespace VECS
         public void SetTexture(uint setIndex, uint bindingIndex, BindingArrayTexture textures)
         {
             int imageIndex = DescriptorSetInfos[setIndex].BindingPointToImageIndex[bindingIndex];
-            if (_textures[setIndex][imageIndex] == textures) return;
+            //if (_textures[setIndex][imageIndex] == textures) return;
             _textures[setIndex][imageIndex] = textures;
             Array.Fill(_dirtyTextures, true);
         }

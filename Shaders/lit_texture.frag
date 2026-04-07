@@ -16,7 +16,9 @@ layout (location = 0) out vec4 outColour;
 layout(set = 0, binding = 0) uniform LightingInfo {
 	DirectionalLight directionalLight;
 	int numPointLights;
+	int numPointLightShadows;
 	int numSpotLights;
+	int numSpotLightShadows;
 } lighting;
 
 layout (set = 0, binding = 1) readonly buffer PointLights {
@@ -170,7 +172,7 @@ void main()
     	float distance = length(pl.position.xyz - fragPosWorld);
 
 		if(distance <= pl.farPlane){
-		    float plShadow = FilterPLPCF(plShadow[i], fragPosWorld, cameraPosWorld, pl.position.xyz,pl.farPlane, i);
+		    float plShadow = i < lighting.numPointLightShadows ? FilterPLPCF(plShadow[pl.shadowIndex], fragPosWorld, cameraPosWorld, pl.position.xyz,pl.farPlane, i) : 1.0;
 			result += CalcPointLight(pl, normalize(fragNormalWorld), fragPosWorld, viewDir, shininess, plShadow, diffuseTextureColour, diffuseTextureColour, specularColour);
 			//result += vec3(plShadow);
 		}

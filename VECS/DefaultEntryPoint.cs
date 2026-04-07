@@ -153,6 +153,12 @@ namespace VECS
                 Range = 25f
             });
 
+            // entityManager.AddComponent(pointLight, new ShadowInfo()
+            // {
+            //     UpdateBehaviour = ShadowUpdate.Always,
+            //     Resolution = ShadowMapResolution.TwentyFourtyEight.GetResolution(),
+            // });
+
             entityManager.AddComponent(pointLight, new Scale() { Value = new Vector3(0.05f, 0.05f, 0.05f) });
 
             entityManager.AddComponent<MainColour>(pointLight, new() { Value = diffuse });

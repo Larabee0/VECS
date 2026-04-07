@@ -17,6 +17,7 @@ namespace VECS
         public static double TimeSinceStartUpAsDouble => (DateTime.UtcNow - startTime).TotalSeconds;
         public static float TimeSinceStartUp => (float)TimeSinceStartUpAsDouble;
         public static float InterpolationWeight { get; private set; }
+        
 
         internal static Action FixedTimeStepCallback;
 

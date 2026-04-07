@@ -331,29 +331,5 @@ namespace VECS
             _imageExtent = new(width, height, 1);
             Reinitialise();
         }
-
-        public void Reinitialise(VkComponentMapping mapping)
-        {
-            _swizzle = mapping;
-            TextureExtensions.EnqueueForDisposal(VkImage.Null, VmaAllocation.Null, _imageView, VkSampler.Null);
-            _imageLayout = VkImageLayout.Undefined;
-            _imageView = VkImageView.Null;
-            this.CreateImageView(GetImageViewCreateInfo());
-
-            UpdateDescriptor();
-        }
-
-        private void Reinitialise()
-        {
-            TextureExtensions.EnqueueForDisposal(_vkImage, _allocation, _imageView, VkSampler.Null);
-            _imageLayout = VkImageLayout.Undefined;
-            _vkImage = VkImage.Null;
-            _allocation = VmaAllocation.Null;
-            _imageView = VkImageView.Null;
-            this.CreateImage(GetImageCreateInfo());
-            this.CreateImageView(GetImageViewCreateInfo());
-
-            UpdateDescriptor();
-        }
     }
 }

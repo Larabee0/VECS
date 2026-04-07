@@ -41,21 +41,11 @@ namespace VECS.ECS.Presentation
                 Presenter.Instance.SLShadows.ClearImage(frameInfo);
             }
 
-            if (frameInfo.LightingInfo.NumPointLights == 0 || !_renderEntityQuery.HasEntities)
-            {
-                Presenter.Instance.PLShadows.ClearImage(frameInfo);
-            }
-
             if (frameInfo.LightingInfo.NumSpotLights > 0)
             {
                 Presenter.Instance.SLShadows.SpotLightShadowPass(frameInfo);
             }
 
-            if (frameInfo.LightingInfo.NumPointLights > 0)
-            {
-                Presenter.Instance.PLShadows.PointLightShadowPass(frameInfo);
-            }
-            
             Presenter.Instance.DirShadows.DirectionalShadowPass(frameInfo);
 
             // uint totalMats = 1 + ((uint)frameInfo.LightingInfo.NumPointLights * 6u ) + (uint)frameInfo.LightingInfo.NumSpotLights;

@@ -84,13 +84,15 @@ namespace VECS
     }
     
 
-    [StructLayout(LayoutKind.Sequential, Size = 360)]
+    [StructLayout(LayoutKind.Sequential, Size = 368)]
     public struct LightingInfo
     {
         public DirectionalLightInfo DirectionalLight;
 
         public int NumPointLights;
+        public int NumPointLightShadows;
         public int NumSpotLights;
+        public int NumSpotLightShadows;
 
         public LightingInfo(DirectionalLight directionalLight, int pointLightCount, int spotLightCount)
         {
@@ -161,7 +163,8 @@ namespace VECS
     [StructLayout(LayoutKind.Sequential, Size = 80)]
     public struct PointLightUniform
     {
-        public Vector4 Position;
+        public Vector3 Position;
+        public int ShadowIndex;
         public Vector4 Ambient;
         public Vector4 Diffuse;
         public Vector4 Specular;
@@ -173,7 +176,7 @@ namespace VECS
 
         public PointLightUniform(Vector3 position, PointLight pointLight)
         {
-            Position = position.AsVector4();
+            Position = position;
             Ambient = pointLight.Ambient;
             Diffuse = pointLight.Diffuse;
             Specular = pointLight.Specular;

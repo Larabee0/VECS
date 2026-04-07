@@ -13,7 +13,7 @@ namespace VECS
         public Texture GetTexture(int index);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void SetTexture(Texture texture, int index);
+        public bool SetTexture(Texture texture, int index);
 
         public void Dispose();
     }
@@ -36,14 +36,17 @@ namespace VECS
         };
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void SetTexture(Texture texture, int index)
+        public bool SetTexture(Texture texture, int index)
         {
+            bool alreadySet = First != texture;
             First = index switch
             {
                 0 => texture,
                 _ => throw new IndexOutOfRangeException(),
             };
+            return alreadySet;
         }
+
 
         public void Dispose()
         {
@@ -82,9 +85,11 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void SetTexture(Texture texture, int index)
+        public bool SetTexture(Texture texture, int index)
         {
+            bool alreadySet = ArrayTextures[index] != texture;
             ArrayTextures[index] = texture;
+            return alreadySet;
         }
 
         public void Dispose()

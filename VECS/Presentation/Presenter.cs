@@ -42,7 +42,7 @@ namespace VECS
         internal static Action<RendererFrameInfo> RenderCallback;
         public static ulong FrameCount => _frameCount;
 
-        private Entity frameInfoEntity;
+        public Entity FrameInfoEntity;
 
 
         public int FrameIndex
@@ -121,17 +121,17 @@ namespace VECS
         /// </summary>
         public void Start()
         {
-            frameInfoEntity = World.DefaultWorld.EntityManager.CreateEntity();
+            FrameInfoEntity = World.DefaultWorld.EntityManager.CreateEntity();
 
             var frameInfo = new FrameInfo()
             {
                 screenAspect = SwapChain.ExtentAspectRatio
             };
 
-            World.DefaultWorld.EntityManager.AddComponent(frameInfoEntity, frameInfo);
+            World.DefaultWorld.EntityManager.AddComponent(FrameInfoEntity, frameInfo);
         }
 
-        private static RendererFrameInfo  CreateRendererFrameInfo(float deltaTime, VkCommandBuffer commandBuffer)
+        private RendererFrameInfo  CreateRendererFrameInfo(float deltaTime, VkCommandBuffer commandBuffer)
         {
             int frameIndex = SwapChain.FrameIndex;
             int cameraCount = 0;
@@ -185,9 +185,9 @@ namespace VECS
         /// <param name="entityManager"></param>
         public void UpdateEntityFrameInfo(EntityManager entityManager)
         {
-            var info = entityManager.GetComponent<FrameInfo>(frameInfoEntity);
+            var info = entityManager.GetComponent<FrameInfo>(FrameInfoEntity);
             info.screenAspect = SwapChain.ExtentAspectRatio;
-            entityManager.SetComponent(frameInfoEntity, info);
+            entityManager.SetComponent(FrameInfoEntity, info);
         }
 
         public void Present()

@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Net.Http.Headers;
 using System.Numerics;
 using VECS.ECS;
 using VECS.ECS.Presentation;
@@ -21,8 +20,8 @@ namespace VECS
         private readonly static SwapChainBuffer<OrthographicInfo> OrthopgrahicInfoBuffer;
 
         private readonly static SwapChainBuffer LightingInfoBuffer;
-        private readonly static SwapChainBuffer<PointLightUniform> PointLightBuffer;
-        private readonly static SwapChainBuffer<SpotLightUniform> SpotLightBuffer;
+        internal readonly static SwapChainBuffer<PointLightUniform> PointLightBuffer;
+        internal readonly static SwapChainBuffer<SpotLightUniform> SpotLightBuffer;
 
         internal readonly static ConcurrentDictionary<int, SwapChainBuffer> _engineBuffers = new();
 
@@ -137,11 +136,21 @@ namespace VECS
             GPUBufferExtensions.WriteFromHostDelayed(OrthopgrahicInfoBuffer,frameIndex);
         }
 
+        public struct PointLightWrapper
+        {
+            public Entity Entity;
+            public PointLight PointLight;
+            public Vector3 Position;
+        }
+
+        private static PointLightWrapper[] _sortedPointLights = [];
+        public static PointLightWrapper[] SortedPointLights => _sortedPointLights;
+
         public static unsafe LightingInfo UpdateLights(EntityManager entityManager, int frameIndex)
         {
             LightingInfo lightingInfo;
             var dirLights = entityManager.GetAllEntitiesWithComponent<DirectionalLight>();
-            var pointLights = entityManager.GetAllEntitiesWithComponent<PointLight>();
+
             var spotLights = entityManager.GetAllEntitiesWithComponent<SpotLight>();
 
             if (dirLights != null && dirLights.Count > 0)
@@ -174,27 +183,6 @@ namespace VECS
                 };
             }
 
-            if (pointLights != null && pointLights.Count > 0)
-            {
-                int pointLightCount = Math.Min(pointLights.Count, Presenter.MAX_POINT_LIGHTS);
-                lightingInfo.NumPointLights = pointLightCount;
-
-                for (int i = 0; i < pointLightCount; i++)
-                {
-                    Vector3 position = entityManager.GetComponent<LocalToWorld>(pointLights[i]).Value.Translation;
-                    var pointLight = entityManager.GetComponent<PointLight>(pointLights[i]);
-                    PointLightBuffer.HostBuffer[i] = new(position, pointLight);
-                }
-
-                for (int i = pointLightCount; i < Presenter.MAX_POINT_LIGHTS; i++)
-                {
-                    PointLightBuffer.HostBuffer[i] = default;
-                }
-
-                PointLightBuffer.SetBuffersDirty(true);
-                GPUBufferExtensions.WriteFromHostDelayed(PointLightBuffer, frameIndex);
-            }
-
             if (spotLights != null && spotLights.Count > 0)
             {
                 int spotLightCount = Math.Min(spotLights.Count, Presenter.MAX_POINT_LIGHTS);
@@ -216,6 +204,12 @@ namespace VECS
                 SpotLightBuffer.SetBuffersDirty(true);
                 GPUBufferExtensions.WriteFromHostDelayed(SpotLightBuffer, frameIndex);
 
+            }
+
+            if (entityManager.GetComponent(Presenter.Instance.FrameInfoEntity, out PointLightFrameInfo plFrameInfo))
+            {
+                lightingInfo.NumPointLights = plFrameInfo.PointLightCount;
+                lightingInfo.NumPointLightShadows = plFrameInfo.PointLightShadowCount;
             }
 
             Buffer.MemoryCopy(&lightingInfo, LightingInfoBuffer.HostPtr, LightingInfoBuffer.InstanceSize32, sizeof(LightingInfo));

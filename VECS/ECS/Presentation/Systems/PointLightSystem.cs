@@ -1,93 +1,176 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Numerics;
-using System.Runtime.InteropServices;
+using System.Diagnostics;
 using VECS.ECS.Transforms;
-using VECS.LowLevel;
 
 namespace VECS.ECS.Presentation
 {
     public class PointLightSystem : PresentationSystemBase
     {
-        private readonly static int ColourBufferId = "colourBuffer".GetShaderPropertyId();
-        private readonly static int PositionBufferId = "positionBuffer".GetShaderPropertyId();
-        private EntityQuery _pointLightQuery;
-        private readonly List<PointLightPushConstant> _pointLights = new(Presenter.MAX_POINT_LIGHTS);
+        private EntityQuery _pointLightCreateQuery;
+        private EntityQuery _pointLightUpdateQuery;
+        private EntityQuery _pointLightShadowQuery;
+
+        bool reassignTextures = false;
 
         public override void OnCreate(EntityManager entityManager)
         {
-            _pointLightQuery = new EntityQuery(entityManager)
-                .WithAll(typeof(PointLight),typeof(PointLightDrawer), typeof(LocalToWorld))
+            _pointLightCreateQuery = new EntityQuery(entityManager)
+                .WithAll(typeof(PointLight),typeof(LocalToWorld))
+                .WithNone(typeof(Prefab),typeof(UpdateShadow), typeof(ShadowImage), typeof(UpdatePointLight))
+                .Build();
+
+            _pointLightUpdateQuery = new EntityQuery(entityManager)
+                .WithAll(typeof(PointLight), typeof(LocalToWorld), typeof(UpdatePointLight))
+                .WithNone(typeof(Prefab), typeof(DoNotRender),typeof(ShadowImage))
+                .Build();
+
+            _pointLightShadowQuery = new EntityQuery(entityManager)
+                .WithAll(typeof(PointLight), typeof(LocalToWorld), typeof(ShadowImage), typeof(ShadowInfo))
+                .WithNone(typeof(Prefab), typeof(DoNotRender))
+                .Build();
+
+            _pointLightShadowQuery = new EntityQuery(entityManager)
+                .WithAll(typeof(PointLight), typeof(LocalToWorld), typeof(ShadowImage), typeof(ShadowInfo), typeof(UpdateShadow))
                 .WithNone(typeof(Prefab), typeof(DoNotRender))
                 .Build();
         }
 
-        public unsafe override void OnOpaquePass(EntityManager entityManager, RendererFrameInfo rendererFrameInfo)
+        public override void OnUpdate(EntityManager entityManager)
         {
-            if (_pointLightQuery.HasEntities && entityManager.SingletonEntity<MainCamera>(out Entity cameraEntity))
+            CreatePointLights(entityManager);
+            UpdatePointLights(entityManager);
+        }
+
+        private void CreatePointLights(EntityManager entityManager)
+        {
+            if (!_pointLightCreateQuery.HasEntities) return;
+
+            var entities = _pointLightCreateQuery.GetEntities();
+
+            for (int i = 0; i < entities.Count; i++)
             {
-                var pointLightEntities = _pointLightQuery.GetEntities();
-                if (pointLightEntities.Count > Presenter.MAX_POINT_LIGHTS)
+                if(!entityManager.HasComponent<PointLight>(entities[i])) continue;
+
+                entityManager.AddComponent<UpdatePointLight>(entities[i]);
+
+                if (entityManager.GetComponent(entities[i], out ShadowInfo shadowInfo))
                 {
-                    throw new Exception(string.Format("Point light count {0}, exceeded point light max count! Max support point lights is {1}", pointLightEntities.Count,Presenter.MAX_POINT_LIGHTS));
+                    Debug.Assert(shadowInfo.Resolution > 2);
+                    ShadowImage shadowImage = new()
+                    {
+                        ShadowTextureId = PointLightShadows.CreateShadowMap(entities[i], shadowInfo.Resolution).Hash
+                    };
+
+                    entityManager.AddComponent<UpdateShadow>(entities[i]);
+                    entityManager.AddComponent(entities[i], shadowImage);
                 }
-                
-                Vector3 cameraPosition = entityManager.GetComponent<LocalToWorld>(cameraEntity).Value.Translation;                
-                Span<Vector4> positions = EnginePipes.PointLight.GetStorageBuffer<Vector4>(PositionBufferId);
-                Span<Vector4> colours = EnginePipes.PointLight.GetStorageBuffer<Vector4>(ColourBufferId);
+            }
+            _pointLightUpdateQuery.MarkStaleNow();
+        }
 
-                _pointLights.Clear();
-
-                for (int i = 0; i < pointLightEntities.Count; i++)
+        private void UpdatePointLights(EntityManager entityManager)
+        {
+            PointLightFrameInfo frameInfo = new();
+            if (_pointLightShadowQuery.HasEntities || _pointLightUpdateQuery.HasEntities)
+            {
+                int plCount = 0;
+                var hostBuffer = (SwapChainBuffer<PointLightUniform>)EngineBuffers.TryGetBuffer(ShaderProperties.PointLightsBufferId);
+                if (_pointLightShadowQuery.HasEntities)
                 {
-                    Entity pointLightEntity = pointLightEntities[i];
+                    var entities = _pointLightShadowQuery.GetEntities();
 
-                    var ltw = entityManager.GetComponent<LocalToWorld>(pointLightEntity).Value;
-                    var pointLightDrawer = entityManager.GetComponent<PointLightDrawer>(pointLightEntity);
-                    PointLightPushConstant pointLightData = new(ltw, pointLightDrawer, cameraPosition);
-                    positions[i] = pointLightData.position;
-                    colours[i] = pointLightData.colour;
-                    _pointLights.Add(pointLightData);
+                    frameInfo.PointLightShadowCount = entities.Count;
+                    UpdatePLBuffer(entityManager, ref plCount, entities, hostBuffer.HostBuffer);
                 }
-
-                _pointLights.Sort(new PointLightPushConstant());
-
-                for (int i = 0; i < pointLightEntities.Count; i++)
+                if (_pointLightUpdateQuery.HasEntities)
                 {
-                    PointLightPushConstant pointLightData = _pointLights[i];
-                    positions[i] = pointLightData.position;
-                    colours[i] = pointLightData.colour;
+                    var entities = _pointLightUpdateQuery.GetEntities();
+                    frameInfo.PointLightCount = entities.Count;
+                    UpdatePLBuffer(entityManager, ref plCount, entities, hostBuffer.HostBuffer);
                 }
 
+                frameInfo.PointLightCount += frameInfo.PointLightShadowCount;
 
-                EnginePipes.PointLight.SetDescriptorStorageBufferLength(0,0, (uint)pointLightEntities.Count);
-                EnginePipes.PointLight.BindAll(rendererFrameInfo, 0);
-                GraphicsDevice.DeviceAPI.vkCmdDraw(rendererFrameInfo.CommandBuffer, 6, (uint)_pointLights.Count, 0, 0);
+                hostBuffer.SetBuffersDirty(true);
+            }
+            entityManager.AddComponent(Presenter.Instance.FrameInfoEntity, frameInfo);
+        }
+
+        private static void UpdatePLBuffer(EntityManager entityManager, ref int plCount, List<Entity> entities, Span<PointLightUniform> hostBuffer)
+        {
+            for (int i = 0; i < entities.Count; i++, plCount++)
+            {
+                if (entityManager.GetComponent(entities[i], out LocalToWorld ltw) && entityManager.GetComponent(entities[i], out PointLight pointLight))
+                {
+                    hostBuffer[plCount] = new(ltw.Value.Translation,pointLight);
+                }
             }
         }
 
-        [StructLayout(LayoutKind.Sequential, Size = 36)]
-        private struct PointLightPushConstant : IComparer<PointLightPushConstant>
+        public override void OnPrePresent(EntityManager entityManager)
         {
-            public Vector4 position;
-            public Vector4 colour;
-            public float dstSqrd;
+            if (!_pointLightShadowQuery.HasEntities) return;
+            reassignTextures = false;
+            var entities = _pointLightShadowQuery.GetEntities();
+            int i = 0;
+            for (; i < Math.Min(PointLightShadows.MAX_POINT_LIGHTS_SHADOW_CASTERS,entities.Count); i++)
+            {
+                entityManager.GetComponent(entities[i], out ShadowImage image);
+                entityManager.GetComponent(entities[i], out ShadowInfo shadowInfo);
+                
+                Debug.Assert(shadowInfo.Resolution > 2);
+                var cubemap = AssetDataBase<Cubemap>.GetHashedSilentFail(image.ShadowTextureId);
+                if (cubemap == null)
+                {
+                    cubemap = PointLightShadows.CreateShadowMap(entities[i], shadowInfo.Resolution);
+                    image.ShadowTextureId = cubemap.Hash;
+                    entityManager.SetComponent(entities[i], image);
+                    reassignTextures |= true;
+                }
+                else if (cubemap.Width != shadowInfo.Resolution)
+                {
+                    cubemap.Reinitialise(shadowInfo.Resolution);
+                    reassignTextures |= true;
+                }
 
-            public PointLightPushConstant(Matrix4x4 ltw, PointLightDrawer pointLightDraw, Vector3 cameraPos)
-            {   
-                Matrix4x4.Decompose(ltw, out Vector3 scale, out _, out _);
 
-                position = new(ltw.Translation, 0);
-                colour = pointLightDraw.DrawColour;
-                colour.W = scale.X * pointLightDraw.Radius;
-
-                var offset = cameraPos - ltw.Translation;
-                dstSqrd = Vector3.Dot(offset, offset);
+                reassignTextures |= Presenter.Instance.PLShadows.SetShadowTexture(i, cubemap);
             }
 
-            public readonly int Compare(PointLightPushConstant x, PointLightPushConstant y)
+            for (; i < PointLightShadows.MAX_POINT_LIGHTS_SHADOW_CASTERS; i++)
             {
-                return x.dstSqrd.CompareTo(y.dstSqrd);
+                reassignTextures |= Presenter.Instance.PLShadows.SetShadowTexture(i, EngineTextures.PointLightShadowEmpty);
+            }
+        }
+
+        public override void OnShadowPass(EntityManager entityManager, RendererFrameInfo frameInfo)
+        {
+            if (!_pointLightUpdateQuery.HasEntities && !_pointLightShadowQuery.HasEntities) return;
+            var hostBuffer = (SwapChainBuffer<PointLightUniform>)EngineBuffers.TryGetBuffer(ShaderProperties.PointLightsBufferId);
+            GPUBufferExtensions.WriteFromHostDelayed(hostBuffer, frameInfo.FrameIndex);
+            
+
+            var entities = _pointLightShadowQuery.GetEntities();
+            var plShadows = Presenter.Instance.PLShadows;
+
+            if (reassignTextures)
+            {
+                plShadows.AssignDirShadowTexture();
+            }
+
+            plShadows.PrePointLightShadowPass(frameInfo);
+            for (int i = 0; i < entities.Count; i++)
+            {
+                if (!entityManager.HasComponent<UpdateShadow>(entities[i])
+                    || !entityManager.GetComponent(entities[i], out ShadowInfo shadowInfo)
+                    || !entityManager.GetComponent(entities[i], out ShadowImage shadowImage)) continue;
+
+                var cubemap = AssetDataBase<Cubemap>.GetHashedSilentFail(shadowImage.ShadowTextureId);
+                if (cubemap == null) continue;
+
+                plShadows.PointLightShadowPass(frameInfo, i, cubemap);
+
             }
         }
     }
