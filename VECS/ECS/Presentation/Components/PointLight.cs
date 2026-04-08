@@ -20,8 +20,7 @@ namespace VECS.ECS.Presentation
     public enum ShadowUpdate
     {
         Always,
-        OnDemand,
-        Never
+        OnDemand
     }
 
     public enum ShadowMapResolution
@@ -53,7 +52,7 @@ namespace VECS.ECS.Presentation
         public readonly int Id => ComponentId;
     }
 
-    public struct UpdatePointLight : IComponent
+    public struct UpdateLight : IComponent
     {
         public static int ComponentId { get; set; }
         public readonly int Id => ComponentId;
@@ -66,14 +65,6 @@ namespace VECS.ECS.Presentation
 
         public ShadowUpdate UpdateBehaviour;
         public int Resolution;
-    }
-
-    public struct ShadowImage : IComponent
-    {
-        public static int ComponentId { get; set; }
-        public readonly int Id => ComponentId;
-
-        public int ShadowTextureId;
     }
 
     public struct PointLightFrameInfo : IComponent

@@ -36,23 +36,7 @@ namespace VECS.ECS.Presentation
 
         public override void OnShadowPass(EntityManager entityManager, RendererFrameInfo frameInfo)
         {
-            if(frameInfo.LightingInfo.NumSpotLights == 0 || !_renderEntityQuery.HasEntities)
-            {
-                Presenter.Instance.SLShadows.ClearImage(frameInfo);
-            }
-
-            if (frameInfo.LightingInfo.NumSpotLights > 0)
-            {
-                Presenter.Instance.SLShadows.SpotLightShadowPass(frameInfo);
-            }
-
             Presenter.Instance.DirShadows.DirectionalShadowPass(frameInfo);
-
-            // uint totalMats = 1 + ((uint)frameInfo.LightingInfo.NumPointLights * 6u ) + (uint)frameInfo.LightingInfo.NumSpotLights;
-            // uint totalLights = 1 + (uint)frameInfo.LightingInfo.NumPointLights + (uint)frameInfo.LightingInfo.NumSpotLights;
-
-            // EnginePipes.DepthOnly.SetDescriptorStorageBufferLengthFromProperty(PointLightShadows.matsPropertyId, totalMats);
-            // EnginePipes.DepthOnly.SetDescriptorStorageBufferLengthFromProperty(PointLightShadows.lightInfoPropertyId, totalLights);
         }
 
         public unsafe override void OnPreOpaquePass(EntityManager entityManager, RendererFrameInfo frameInfo)

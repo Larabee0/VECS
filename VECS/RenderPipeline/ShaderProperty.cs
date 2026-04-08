@@ -60,7 +60,8 @@ namespace VECS
 
             ImageBindingArrayCounts = new()
             {
-                { PLShadowImageId, PointLightShadows.MAX_POINT_LIGHTS_SHADOW_CASTERS }
+                { PLShadowImageId, PointLightShadows.MAX_POINT_LIGHT_SHADOW_CASTERS },
+                { SLShadowImageId, SpotLightShadows.MAX_SPOT_LIGHT_SHADOW_CASTERS }
             };
         }
 

@@ -56,7 +56,7 @@ layout(set = 1, binding = 3) uniform TexPorps {
 
 layout(set = 1, binding = 4) uniform sampler2DArray dirShadow;
 layout(set = 1, binding = 5) uniform samplerCube plShadow[];
-layout(set = 1, binding = 6) uniform sampler2DArray slShadow;
+layout(set = 1, binding = 6) uniform sampler2D slShadow[];
 
 layout(set = 1, binding = 7) uniform sampler2D normalSampler;
 
@@ -172,7 +172,7 @@ void main()
     	float distance = length(pl.position.xyz - fragPosWorld);
 
 		if(distance <= pl.farPlane){
-		    float plShadow = i < lighting.numPointLightShadows ? FilterPLPCF(plShadow[pl.shadowIndex], fragPosWorld, cameraPosWorld, pl.position.xyz,pl.farPlane, i) : 1.0;
+		    float plShadow = i < lighting.numPointLightShadows ? FilterPLPCF(plShadow[i], fragPosWorld, cameraPosWorld, pl.position.xyz,pl.farPlane) : 1.0;
 			result += CalcPointLight(pl, normalize(fragNormalWorld), fragPosWorld, viewDir, shininess, plShadow, diffuseTextureColour, diffuseTextureColour, specularColour);
 			//result += vec3(plShadow);
 		}
@@ -185,7 +185,7 @@ void main()
 		if(distance <= sl.farPlane) {
 
 			vec3 lightDirection = normalize(sl.position - fragPosWorld);
-			float slShadow = ShadowSlCalculation(slShadow, fragPosWorld, cameraPosWorld, sl, i);
+			float slShadow = i < lighting.numSpotLightShadows ? ShadowSlCalculation(slShadow[i], fragPosWorld, cameraPosWorld, sl) : 1.0;
 			result += CalcSpotLight(sl, normalize(fragNormalWorld), fragPosWorld, viewDir, shininess, slShadow, diffuseTextureColour, diffuseTextureColour, specularColour);
 			//result = vec3(slShadow);
 		}

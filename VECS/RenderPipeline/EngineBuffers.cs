@@ -75,8 +75,8 @@ namespace VECS
             OrthopgrahicInfoBuffer = new (Presenter.MAX_CAMERAS, BufferUsageFlags, true);
 
             LightingInfoBuffer = new(1, GPUBufferExtensions.GetAlignment((uint)sizeof(LightingInfo), VkBufferUsageFlags.UniformBuffer), VkBufferUsageFlags.UniformBuffer, true);
-            PointLightBuffer = new(Presenter.MAX_POINT_LIGHTS, BufferUsageFlags, true);
-            SpotLightBuffer = new(Presenter.MAX_POINT_LIGHTS, BufferUsageFlags, true);
+            PointLightBuffer = new(PointLightShadows.MAX_POINT_LIGHT_SHADOW_CASTERS, BufferUsageFlags, true);
+            SpotLightBuffer = new(SpotLightShadows.MAX_SPOT_LIGHT_SHADOW_CASTERS, BufferUsageFlags, true);
 
 
             AddEngineBuffer(ShaderProperties.CameraInfoId, CameraInfoBuffer);
@@ -151,8 +151,6 @@ namespace VECS
             LightingInfo lightingInfo;
             var dirLights = entityManager.GetAllEntitiesWithComponent<DirectionalLight>();
 
-            var spotLights = entityManager.GetAllEntitiesWithComponent<SpotLight>();
-
             if (dirLights != null && dirLights.Count > 0)
             {
                 lightingInfo = new(entityManager.GetComponent<DirectionalLight>(dirLights[0]), 0, 0);
@@ -183,33 +181,21 @@ namespace VECS
                 };
             }
 
-            if (spotLights != null && spotLights.Count > 0)
             {
-                int spotLightCount = Math.Min(spotLights.Count, Presenter.MAX_POINT_LIGHTS);
-                lightingInfo.NumSpotLights = spotLightCount;
-
-                for (int i = 0; i < spotLightCount; i++)
-                {
-                    var ltw = entityManager.GetComponent<LocalToWorld>(spotLights[i]).Value;
-                    var spotLight = entityManager.GetComponent<SpotLight>(spotLights[i]);
-                    SpotLightBuffer.HostBuffer[i] = new(ltw.Translation, ltw.Forward(), spotLight);
-                    SpotLightBuffer.HostBuffer[i].LightSpace = SpotLightShadows.GetSpaceMatrix(SpotLightBuffer.HostBuffer[i], out _, out _, out _);
-                }
-
-                for (int i = spotLightCount; i < Presenter.MAX_POINT_LIGHTS; i++)
-                {
-                    SpotLightBuffer.HostBuffer[i] = default;
-                }
-
                 SpotLightBuffer.SetBuffersDirty(true);
                 GPUBufferExtensions.WriteFromHostDelayed(SpotLightBuffer, frameIndex);
-
             }
 
             if (entityManager.GetComponent(Presenter.Instance.FrameInfoEntity, out PointLightFrameInfo plFrameInfo))
             {
                 lightingInfo.NumPointLights = plFrameInfo.PointLightCount;
                 lightingInfo.NumPointLightShadows = plFrameInfo.PointLightShadowCount;
+            }
+
+            if(entityManager.GetComponent(Presenter.Instance.FrameInfoEntity, out SpotLightFrameInfo slFrameInfo))
+            {
+                lightingInfo.NumSpotLightShadows = slFrameInfo.SpotLightShadowCount;
+                lightingInfo.NumSpotLights = slFrameInfo.SpotLightCount;
             }
 
             Buffer.MemoryCopy(&lightingInfo, LightingInfoBuffer.HostPtr, LightingInfoBuffer.InstanceSize32, sizeof(LightingInfo));

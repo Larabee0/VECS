@@ -216,6 +216,15 @@ namespace VECS
             }
         }
 
+        public static void SetTextures(this Material material, int propertyId, BindingArrayTexture textures)
+        {
+            if (material.LookUpProperty(propertyId, out var propertyInfo))
+            {
+                material.SetTexture(propertyInfo, textures);
+            }
+        }
+
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void SetTextureArray(this Material material, int propertyId, Texture2DArray texture)
         {

@@ -75,7 +75,7 @@ float DirShadows(sampler2DArray dirShadowMap, mat4[4]lightSpace, vec4 cascadeSpl
 	return shadow;
 }
 
-float FilterPLPCF(samplerCube plShadow, vec3 fragPos, vec3 viewPos, vec3 lightPos, float farPlane, int textureIndex){
+float FilterPLPCF(samplerCube plShadow, vec3 fragPos, vec3 viewPos, vec3 lightPos, float farPlane){
     vec3 fragToLight = fragPos - lightPos;
 	float currentDepth = length(fragToLight);
 	float shadow = 0.0;
@@ -95,7 +95,7 @@ float FilterPLPCF(samplerCube plShadow, vec3 fragPos, vec3 viewPos, vec3 lightPo
 	return (1.0-shadow);
 }
 
-float ShadowSlCalculation(sampler2DArray slShadow, vec3 fragPos, vec3 viewPos, SpotLight sl, int textureIndex){
+float ShadowSlCalculation(sampler2D slShadow, vec3 fragPos, vec3 viewPos, SpotLight sl){
 	float shadow = 0.0;
 	vec4 lightSpacePos = sl.lightSpace * vec4(fragPos,1);
 	vec3 lightCoords = lightSpacePos.xyz / lightSpacePos.w;
@@ -105,7 +105,7 @@ float ShadowSlCalculation(sampler2DArray slShadow, vec3 fragPos, vec3 viewPos, S
 	
 	lightCoords = (lightCoords + 1.0) / 2.0;
 	
-	float closestDepth = texture(slShadow, vec3(lightCoords.xy,textureIndex)).r;
+	float closestDepth = texture(slShadow, lightCoords.xy).r;
 	closestDepth *= sl.farPlane;
 	if (currentDepth > closestDepth+0.005){
 		shadow += 1.0;   

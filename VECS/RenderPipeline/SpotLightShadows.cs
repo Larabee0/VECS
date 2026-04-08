@@ -8,8 +8,10 @@ namespace VECS
 {
     public class SpotLightShadows
     {
+        public const uint MAX_SPOT_LIGHT_SHADOW_CASTERS = 10;
+
         const int SPOT_SHADOWS_PUSH_CONSTANT_INDEX = 3;
-        public const int DIRECTIONAL_SHADOW_RESOLTION = 1024;
+
         public const bool SHADOW_CULLING = false;
         public const bool SHADOW_DST_CULLING = false;
         public const bool SHADOW_DEPTH_CULLING = false;
@@ -18,53 +20,71 @@ namespace VECS
 
         public static readonly int matsPropertyId = "spotShadows".GetShaderPropertyId();
         public static readonly int lightInfoPropertyId = "spotLights".GetShaderPropertyId();
+        public static VkFormat SHADOW_FORMAT => PreferredFormats.LOW_PRECISION_DEPTH_ONLY;
 
-        private readonly Texture2DArray _shadowDepthImage;
-        private readonly VkViewport viewport = new()
-        {
-            width = DIRECTIONAL_SHADOW_RESOLTION,
-            height = DIRECTIONAL_SHADOW_RESOLTION,
-            minDepth = 0.0f,
-            maxDepth = 1.0f,
-        };
-
-        private readonly VkRect2D scissor = new(new(0, 0), new(DIRECTIONAL_SHADOW_RESOLTION, DIRECTIONAL_SHADOW_RESOLTION));
+        private readonly BindingArrayTexture _shadowDepthTextures;
+        private readonly bool[] _clearImages;
 
         private readonly Material _slDepthOnly;
-        private readonly int _matHash;
-
-        private bool _imageCleared;
 
         public SpotLightShadows()
         {
-            _shadowDepthImage = new(
-                "PointLightShadows",
-                DIRECTIONAL_SHADOW_RESOLTION,
-                DIRECTIONAL_SHADOW_RESOLTION,
-                Presenter.MAX_POINT_LIGHTS,
-                PreferredFormats.LOW_PRECISION_DEPTH_ONLY,
-                VkSamplerAddressMode.ClampToBorder,
-                VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled,
-                false);
+            _shadowDepthTextures = new BindingArrayTexture((int)MAX_SPOT_LIGHT_SHADOW_CASTERS);
+            _clearImages = new bool[(int)MAX_SPOT_LIGHT_SHADOW_CASTERS];
 
-            _shadowDepthImage.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.LateFragmentTests, VkPipelineStageFlags2.FragmentShader);
+            for (int i = 0; i < MAX_SPOT_LIGHT_SHADOW_CASTERS; i++)
+            {
+                _shadowDepthTextures.SetTexture(CreateShadowMap(i, 8), i);
+            }
+
+            EngineTextures.AddOrUpdateTexture(ShaderProperties.SLShadowImageId, _shadowDepthTextures);
 
             _slDepthOnly = EnginePipes.DepthOnly.Default();
-            _matHash = _slDepthOnly.Hash;
             _slDepthOnly.PushConstants.SetPushConstantInt("layerCount", SPOT_SHADOWS_PUSH_CONSTANT_INDEX, 1);
             _slDepthOnly.PushConstants.SetPushConstantInt("useLightPos", SPOT_SHADOWS_PUSH_CONSTANT_INDEX, 1);
             _slDepthOnly.PushConstants.SetPushConstantInt("bufferSelect", SPOT_SHADOWS_PUSH_CONSTANT_INDEX, 3);
         }
 
+        private static Texture2D CreateShadowMap(int index, int size)
+        {
+            Texture2D depthImage = new(
+                string.Format("SpotShadowDepthImage_{0}", index),
+                size,
+                size,
+                SHADOW_FORMAT,
+                VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled,
+                VkSamplerAddressMode.ClampToBorder,
+                false
+            );
+
+            depthImage.SetImageLayout(VkImageLayout.DepthStencilAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.EarlyFragmentTests);
+
+            return depthImage;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool SetShadowTexture(int i, int resolution)
+        {
+            var texture = (Texture2D)_shadowDepthTextures.GetTexture(i);
+            if (texture.Width != resolution)
+            {
+                texture.Reinitialise(resolution,resolution);
+                return true;
+            }
+            return false;
+        }
+
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void AssignDirShadowTexture()
         {
-
             AssetDataBase<Material>.AllAssetsListForReading.ForEach(asset =>
             {
-                asset.SetTextureArray(ShaderProperties.SLShadowImageId, _shadowDepthImage);
+                asset.SetTextures(ShaderProperties.SLShadowImageId, _shadowDepthTextures);
             });
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Matrix4x4 GetSpaceMatrix(SpotLightUniform spotLight, out float nearPlane, out Matrix4x4 lightView, out Matrix4x4 lightProj)
         {
             const float near_plane = 0.01f;
@@ -89,40 +109,42 @@ namespace VECS
             return lightView * lightProj;
         }
 
-        public unsafe void SpotLightShadowPass(in RendererFrameInfo frameInfo)
+        public void PreSpotLightShadowPass(in RendererFrameInfo frameInfo)
         {
-            AssignDirShadowTexture();
+            if (Presenter.FrameCount == 0)
+            {
+                AssignDirShadowTexture();
+            }
+
             DrawBlob.IndirectToComputeMemoryBarrierByMat(frameInfo.CommandBuffer);
 
             CullData depthBufferCullInfo = new(SHADOW_INCLUDE_MASK, SHADOW_EXCLUDE_MASK, SHADOW_CULLING, SHADOW_DST_CULLING, SHADOW_DEPTH_CULLING, 1, Matrix4x4.Identity, Matrix4x4.Identity);
 
             DrawBlob.CullAllInOne(frameInfo, depthBufferCullInfo);
 
-            EnginePipes.DepthOnly.SetDescriptorStorageBufferLengthFromProperty(matsPropertyId, (uint)frameInfo.LightingInfo.NumSpotLights);
-            EnginePipes.DepthOnly.SetDescriptorStorageBufferLengthFromProperty(lightInfoPropertyId, (uint)frameInfo.LightingInfo.NumSpotLights);
+            EnginePipes.DepthOnly.SetDescriptorStorageBufferLengthFromProperty(matsPropertyId, MAX_SPOT_LIGHT_SHADOW_CASTERS);
+            EnginePipes.DepthOnly.SetDescriptorStorageBufferLengthFromProperty(lightInfoPropertyId, MAX_SPOT_LIGHT_SHADOW_CASTERS);
             _slDepthOnly.GetStorageSwapChainBuffer(matsPropertyId).SetBuffersDirty(true);
             _slDepthOnly.GetStorageSwapChainBuffer(lightInfoPropertyId).SetBuffersDirty(true);
 
+        }
+
+        public unsafe void SpotLightShadowPass(in RendererFrameInfo frameInfo, int textureIndex, SpotLightUniform spotLight)
+        {
+            Texture texture = _shadowDepthTextures.GetTexture(textureIndex);
+
             var mats = _slDepthOnly.GetStorageSwapChainBuffer(matsPropertyId);
             var lights = _slDepthOnly.GetStorageSwapChainBuffer(lightInfoPropertyId);
-            var spotLights = ((SwapChainBuffer<SpotLightUniform>)EngineBuffers.TryGetBuffer(ShaderProperties.SpotLightsBufferId)).HostBuffer;
-            for (int i = 0; i < frameInfo.LightingInfo.NumSpotLights; i++)
-            {
-                var spotLight = spotLights[i];
-                int lightIndex = i;
-                int faceIndex = i;
-                
-                mats.UnsafeSet(faceIndex, GetSpaceMatrix(spotLight, out var _, out var _, out var _));
-                lights.UnsafeSet(lightIndex, new Vector4(spotLight.Position.AsVector3(), spotLight.Range));
-                
-            }
 
-            _shadowDepthImage.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.DepthAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.EarlyFragmentTests);
+            mats.UnsafeSet(textureIndex, GetSpaceMatrix(spotLight, out var _, out var _, out var _));
+            lights.UnsafeSet(textureIndex, new Vector4(spotLight.Position.AsVector3(), spotLight.Range));
+
+            SetImageLayoutWrite(frameInfo.CommandBuffer, texture);
 
             VkRenderingAttachmentInfo depth = new()
             {
-                imageView = _shadowDepthImage._imageView,
-                imageLayout = _shadowDepthImage.ImageLayout,
+                imageView = texture._imageView,
+                imageLayout = texture.ImageLayout,
                 loadOp = VkAttachmentLoadOp.Clear,
                 storeOp = VkAttachmentStoreOp.Store,
                 clearValue = new(1, 0)
@@ -130,70 +152,79 @@ namespace VECS
 
             VkRenderingInfo renderingInfo = new()
             {
-                renderArea = new(0, 0, DIRECTIONAL_SHADOW_RESOLTION, DIRECTIONAL_SHADOW_RESOLTION),
-                layerCount = (uint)frameInfo.LightingInfo.NumSpotLights,
+                renderArea = new(0, 0, (uint)texture.Width, (uint)texture.Height),
+                layerCount = 1,
                 colorAttachmentCount = 0,
                 pDepthAttachment = &depth,
                 flags = VkRenderingFlags.ContentsInlineKHR | VkRenderingFlags.ContentsSecondaryCommandBuffers
             };
+
             GraphicsDevice.DeviceAPI.vkCmdBeginRendering(frameInfo.CommandBuffer, &renderingInfo);
 
-            SetViewPort(frameInfo.CommandBuffer);
+            SetViewPort(frameInfo.CommandBuffer, texture);
 
-            for (int i = 0; i < frameInfo.LightingInfo.NumSpotLights; i++)
-            {
-                _slDepthOnly.PushConstants.SetPushConstantInt("matrixStartIndex", SPOT_SHADOWS_PUSH_CONSTANT_INDEX, i);
-                _slDepthOnly.PushConstants.SetPushConstantInt("layerOffset", SPOT_SHADOWS_PUSH_CONSTANT_INDEX, i);
-                _slDepthOnly.PushConstants.SetPushConstantInt("lightIndex", SPOT_SHADOWS_PUSH_CONSTANT_INDEX, i);
-                DrawBlob.ExecutateDepthOnly(frameInfo, frameInfo.CommandBuffer, SPOT_SHADOWS_PUSH_CONSTANT_INDEX, VkCullModeFlags.Front);
-            }
+            _slDepthOnly.PushConstants.SetPushConstantInt("matrixStartIndex", SPOT_SHADOWS_PUSH_CONSTANT_INDEX, textureIndex);
+            _slDepthOnly.PushConstants.SetPushConstantInt("layerOffset", SPOT_SHADOWS_PUSH_CONSTANT_INDEX, 0);
+            _slDepthOnly.PushConstants.SetPushConstantInt("lightIndex", SPOT_SHADOWS_PUSH_CONSTANT_INDEX, textureIndex);
+
+            DrawBlob.ExecutateDepthOnly(frameInfo, frameInfo.CommandBuffer, SPOT_SHADOWS_PUSH_CONSTANT_INDEX, VkCullModeFlags.Front);
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
 
-            _shadowDepthImage.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.LateFragmentTests, VkPipelineStageFlags2.FragmentShader);
-            _imageCleared = false;
+            SetImageLayoutRead(frameInfo.CommandBuffer, texture);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private unsafe void SetViewPort(VkCommandBuffer commandBuffer)
+        private static void SetViewPort(VkCommandBuffer commandBuffer, Texture texture)
         {
-            fixed (VkViewport* pViewport = &viewport)
-            {
-                GraphicsDevice.DeviceAPI.vkCmdSetViewport(commandBuffer, 0, 1, pViewport);
-            }
-            fixed (VkRect2D* pScissor = &scissor)
-            {
-                GraphicsDevice.DeviceAPI.vkCmdSetScissor(commandBuffer, 0, 1, pScissor);
-            }
+            VkViewport viewport = new(0, 0, texture.Width, texture.Height, 0, 1);
+            VkRect2D scissor = new(new(0, 0),new( (uint)texture.Width, (uint)texture.Height));
+            GraphicsDevice.DeviceAPI.vkCmdSetViewport(commandBuffer, 0, viewport);
+            GraphicsDevice.DeviceAPI.vkCmdSetScissor(commandBuffer, 0, scissor);
         }
 
-
-        internal unsafe void ClearImage(RendererFrameInfo frameInfo)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void SetImageLayoutWrite(VkCommandBuffer commandBuffer, Texture texture)
         {
-            if(_imageCleared) return;
+            texture.SetImageLayout(commandBuffer, VkImageLayout.DepthStencilAttachmentOptimal, VkPipelineStageFlags2.EarlyFragmentTests, VkPipelineStageFlags2.EarlyFragmentTests);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void SetImageLayoutRead(VkCommandBuffer commandBuffer, Texture texture)
+        {
+            texture.SetImageLayout(commandBuffer, VkImageLayout.DepthAttachmentStencilReadOnlyOptimal, VkPipelineStageFlags2.EarlyFragmentTests | VkPipelineStageFlags2.LateFragmentTests, VkPipelineStageFlags2.EarlyFragmentTests);
+        }
+
+        internal unsafe void ClearImage(RendererFrameInfo frameInfo, int textureIndex)
+        {
+            if (_clearImages[textureIndex]) return;
+
+            _clearImages[textureIndex] = true;
+
+            Texture texture = _shadowDepthTextures.GetTexture(textureIndex);
+
             VkClearDepthStencilValue clearValue = new(1, 0);
-            VkImageSubresourceRange subresourceRange = _shadowDepthImage.GetSubresourceRange();
+            VkImageSubresourceRange subresourceRange = texture.GetSubresourceRange();
 
-            var existing = _shadowDepthImage.ImageLayout;
+            var existing = texture.ImageLayout;
             if (existing == VkImageLayout.ShaderReadOnlyOptimal)
             {
-                _shadowDepthImage.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.TransferDstOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.Transfer);
+                texture.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.TransferDstOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.Transfer);
             }
             else
             {
-                _shadowDepthImage.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.TransferDstOptimal, VkPipelineStageFlags2.LateFragmentTests, VkPipelineStageFlags2.Transfer);
+                texture.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.TransferDstOptimal, VkPipelineStageFlags2.LateFragmentTests, VkPipelineStageFlags2.Transfer);
             }
 
-            GraphicsDevice.DeviceAPI.vkCmdClearDepthStencilImage(frameInfo.CommandBuffer, _shadowDepthImage._vkImage, VkImageLayout.TransferDstOptimal, &clearValue, 1, &subresourceRange);
+            GraphicsDevice.DeviceAPI.vkCmdClearDepthStencilImage(frameInfo.CommandBuffer, texture._vkImage, VkImageLayout.TransferDstOptimal, &clearValue, 1, &subresourceRange);
 
             if (existing == VkImageLayout.ShaderReadOnlyOptimal)
             {
-                _shadowDepthImage.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.Transfer, VkPipelineStageFlags2.FragmentShader);
+                texture.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.Transfer, VkPipelineStageFlags2.FragmentShader);
             }
             else
             {
-                _shadowDepthImage.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.DepthAttachmentOptimal, VkPipelineStageFlags2.Transfer, VkPipelineStageFlags2.EarlyFragmentTests);
+                texture.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.DepthAttachmentOptimal, VkPipelineStageFlags2.Transfer, VkPipelineStageFlags2.EarlyFragmentTests);
             }
-            _imageCleared = true;
         }
     }
 }

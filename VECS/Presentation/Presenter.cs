@@ -12,7 +12,6 @@ namespace VECS
 {
     public sealed class Presenter : IDisposable
     {
-        public const int MAX_POINT_LIGHTS = 2;
         public const int MAX_CAMERAS = 10;
 
         public static Presenter Instance { get; private set; }

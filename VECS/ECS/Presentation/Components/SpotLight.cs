@@ -19,4 +19,13 @@ namespace VECS.ECS.Presentation
         public float outerCutOff;
         public float range;
     }
+
+    public struct SpotLightFrameInfo : IComponent
+    {
+        public static int ComponentId { get; set; }
+        public readonly int Id => ComponentId;
+
+        public int SpotLightCount;
+        public int SpotLightShadowCount;
+    }
 }

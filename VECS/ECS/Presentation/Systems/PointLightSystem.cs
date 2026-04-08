@@ -17,21 +17,21 @@ namespace VECS.ECS.Presentation
         {
             _pointLightCreateQuery = new EntityQuery(entityManager)
                 .WithAll(typeof(PointLight),typeof(LocalToWorld))
-                .WithNone(typeof(Prefab),typeof(UpdateShadow), typeof(ShadowImage), typeof(UpdatePointLight))
+                .WithNone(typeof(Prefab),typeof(UpdateShadow),  typeof(UpdateLight))
                 .Build();
 
             _pointLightUpdateQuery = new EntityQuery(entityManager)
-                .WithAll(typeof(PointLight), typeof(LocalToWorld), typeof(UpdatePointLight))
-                .WithNone(typeof(Prefab), typeof(DoNotRender),typeof(ShadowImage))
+                .WithAll(typeof(PointLight), typeof(LocalToWorld), typeof(UpdateLight))
+                .WithNone(typeof(Prefab), typeof(DoNotRender),typeof(ShadowInfo))
                 .Build();
 
             _pointLightShadowQuery = new EntityQuery(entityManager)
-                .WithAll(typeof(PointLight), typeof(LocalToWorld), typeof(ShadowImage), typeof(ShadowInfo))
+                .WithAll(typeof(PointLight), typeof(LocalToWorld), typeof(ShadowInfo))
                 .WithNone(typeof(Prefab), typeof(DoNotRender))
                 .Build();
 
             _pointLightShadowQuery = new EntityQuery(entityManager)
-                .WithAll(typeof(PointLight), typeof(LocalToWorld), typeof(ShadowImage), typeof(ShadowInfo), typeof(UpdateShadow))
+                .WithAll(typeof(PointLight), typeof(LocalToWorld),  typeof(ShadowInfo), typeof(UpdateShadow))
                 .WithNone(typeof(Prefab), typeof(DoNotRender))
                 .Build();
         }
@@ -52,18 +52,11 @@ namespace VECS.ECS.Presentation
             {
                 if(!entityManager.HasComponent<PointLight>(entities[i])) continue;
 
-                entityManager.AddComponent<UpdatePointLight>(entities[i]);
+                entityManager.AddComponent<UpdateLight>(entities[i]);
 
-                if (entityManager.GetComponent(entities[i], out ShadowInfo shadowInfo))
+                if (entityManager.HasComponent<ShadowInfo>(entities[i]))
                 {
-                    Debug.Assert(shadowInfo.Resolution > 2);
-                    ShadowImage shadowImage = new()
-                    {
-                        ShadowTextureId = PointLightShadows.CreateShadowMap(entities[i], shadowInfo.Resolution).Hash
-                    };
-
                     entityManager.AddComponent<UpdateShadow>(entities[i]);
-                    entityManager.AddComponent(entities[i], shadowImage);
                 }
             }
             _pointLightUpdateQuery.MarkStaleNow();
@@ -76,6 +69,7 @@ namespace VECS.ECS.Presentation
             {
                 int plCount = 0;
                 var hostBuffer = (SwapChainBuffer<PointLightUniform>)EngineBuffers.TryGetBuffer(ShaderProperties.PointLightsBufferId);
+                
                 if (_pointLightShadowQuery.HasEntities)
                 {
                     var entities = _pointLightShadowQuery.GetEntities();
@@ -86,6 +80,9 @@ namespace VECS.ECS.Presentation
                 if (_pointLightUpdateQuery.HasEntities)
                 {
                     var entities = _pointLightUpdateQuery.GetEntities();
+                    
+                    hostBuffer.Realloc((uint)(frameInfo.PointLightShadowCount + entities.Count));
+
                     frameInfo.PointLightCount = entities.Count;
                     UpdatePLBuffer(entityManager, ref plCount, entities, hostBuffer.HostBuffer);
                 }
@@ -114,43 +111,32 @@ namespace VECS.ECS.Presentation
             reassignTextures = false;
             var entities = _pointLightShadowQuery.GetEntities();
             int i = 0;
-            for (; i < Math.Min(PointLightShadows.MAX_POINT_LIGHTS_SHADOW_CASTERS,entities.Count); i++)
+            for (; i < Math.Min(PointLightShadows.MAX_POINT_LIGHT_SHADOW_CASTERS,entities.Count); i++)
             {
-                entityManager.GetComponent(entities[i], out ShadowImage image);
                 entityManager.GetComponent(entities[i], out ShadowInfo shadowInfo);
                 
                 Debug.Assert(shadowInfo.Resolution > 2);
-                var cubemap = AssetDataBase<Cubemap>.GetHashedSilentFail(image.ShadowTextureId);
-                if (cubemap == null)
+                bool textureChanged = Presenter.Instance.PLShadows.SetShadowTexture(i, shadowInfo.Resolution);
+                if (textureChanged)
                 {
-                    cubemap = PointLightShadows.CreateShadowMap(entities[i], shadowInfo.Resolution);
-                    image.ShadowTextureId = cubemap.Hash;
-                    entityManager.SetComponent(entities[i], image);
-                    reassignTextures |= true;
+                    entityManager.AddComponent<UpdateShadow>(entities[i]);
                 }
-                else if (cubemap.Width != shadowInfo.Resolution)
-                {
-                    cubemap.Reinitialise(shadowInfo.Resolution);
-                    reassignTextures |= true;
-                }
-
-
-                reassignTextures |= Presenter.Instance.PLShadows.SetShadowTexture(i, cubemap);
+                reassignTextures |= textureChanged;
             }
 
-            for (; i < PointLightShadows.MAX_POINT_LIGHTS_SHADOW_CASTERS; i++)
+            for (; i < PointLightShadows.MAX_POINT_LIGHT_SHADOW_CASTERS; i++)
             {
-                reassignTextures |= Presenter.Instance.PLShadows.SetShadowTexture(i, EngineTextures.PointLightShadowEmpty);
+                reassignTextures |= Presenter.Instance.PLShadows.SetShadowTexture(i, 8);
             }
         }
 
         public override void OnShadowPass(EntityManager entityManager, RendererFrameInfo frameInfo)
         {
             if (!_pointLightUpdateQuery.HasEntities && !_pointLightShadowQuery.HasEntities) return;
+
             var hostBuffer = (SwapChainBuffer<PointLightUniform>)EngineBuffers.TryGetBuffer(ShaderProperties.PointLightsBufferId);
             GPUBufferExtensions.WriteFromHostDelayed(hostBuffer, frameInfo.FrameIndex);
             
-
             var entities = _pointLightShadowQuery.GetEntities();
             var plShadows = Presenter.Instance.PLShadows;
 
@@ -160,17 +146,25 @@ namespace VECS.ECS.Presentation
             }
 
             plShadows.PrePointLightShadowPass(frameInfo);
-            for (int i = 0; i < entities.Count; i++)
+            int i = 0;
+
+            for (; i < Math.Min(PointLightShadows.MAX_POINT_LIGHT_SHADOW_CASTERS, entities.Count); i++)
             {
                 if (!entityManager.HasComponent<UpdateShadow>(entities[i])
-                    || !entityManager.GetComponent(entities[i], out ShadowInfo shadowInfo)
-                    || !entityManager.GetComponent(entities[i], out ShadowImage shadowImage)) continue;
+                    || !entityManager.GetComponent(entities[i], out ShadowInfo shadowInfo)) continue;
 
-                var cubemap = AssetDataBase<Cubemap>.GetHashedSilentFail(shadowImage.ShadowTextureId);
-                if (cubemap == null) continue;
+                if(shadowInfo.UpdateBehaviour == ShadowUpdate.OnDemand)
+                {
+                    entityManager.RemoveComponent<UpdateShadow>(entities[i]);
+                }
 
-                plShadows.PointLightShadowPass(frameInfo, i, cubemap);
+                plShadows.PointLightShadowPass(frameInfo, i, hostBuffer.HostBuffer[i]);
 
+            }
+
+            for (; i < PointLightShadows.MAX_POINT_LIGHT_SHADOW_CASTERS; i++)
+            {
+                plShadows.ClearImage(frameInfo,i);
             }
         }
     }

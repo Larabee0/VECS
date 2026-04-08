@@ -17,8 +17,6 @@ namespace VECS
         public readonly static Texture2D Red;
         public readonly static Texture2D White;
 
-        public readonly static Cubemap PointLightShadowEmpty;
-
         private readonly static ConcurrentDictionary<int, ITextureProvider> _engineTextures = new();
 
         static EngineTextures()
@@ -67,9 +65,6 @@ namespace VECS
             White.CopyFromArray(copyFrom);
             Console.WriteLine("Created Default Textures");
 
-            PointLightShadowEmpty = new("POINT_SHADOW_EMPTY", 1, PreferredFormats.LOW_PRECISION_DEPTH_ONLY, VkSamplerAddressMode.ClampToBorder, VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled, false);
-
-            PointLightShadowEmpty.SetImageLayout(VkImageLayout.DepthStencilAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.EarlyFragmentTests);
         }
 
 
