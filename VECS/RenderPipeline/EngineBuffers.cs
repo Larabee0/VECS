@@ -78,6 +78,8 @@ namespace VECS
             PointLightBuffer = new(PointLightShadows.MAX_POINT_LIGHT_SHADOW_CASTERS, BufferUsageFlags, true);
             SpotLightBuffer = new(SpotLightShadows.MAX_SPOT_LIGHT_SHADOW_CASTERS, BufferUsageFlags, true);
 
+            GPUBufferExtensions.WriteFromHostDelayed(PointLightBuffer, 0);
+            GPUBufferExtensions.WriteFromHostDelayed(SpotLightBuffer, 0);
 
             AddEngineBuffer(ShaderProperties.CameraInfoId, CameraInfoBuffer);
             AddEngineBuffer(ShaderProperties.CameraInverseId, CameraInverseInfoBuffer);

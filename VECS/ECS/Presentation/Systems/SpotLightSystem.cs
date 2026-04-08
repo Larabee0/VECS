@@ -143,10 +143,10 @@ namespace VECS.ECS.Presentation
 
             if (reassignTextures)
             {
-                slShadows.AssignDirShadowTexture();
+                slShadows.AssignDirShadowTexture(ShaderProperties.SLShadowImageId);
             }
 
-            slShadows.PreSpotLightShadowPass(frameInfo);
+            slShadows.PreShadowPass(frameInfo);
             int i = 0;
 
             for (; i < Math.Min(SpotLightShadows.MAX_SPOT_LIGHT_SHADOW_CASTERS, entities.Count); i++)

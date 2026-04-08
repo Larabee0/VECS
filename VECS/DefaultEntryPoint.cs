@@ -49,7 +49,7 @@ namespace VECS
         {
             CreateMainCamera();
             DirectionalLight();
-            //PointLight();
+            PointLight();
             //SponzaOld();
             SponzaNew();
             //SponzaNewPBR();
@@ -65,7 +65,7 @@ namespace VECS
             entityManager.AddComponent(MainCamera, new Rotation() { Value = TransformExtensions.Euler(initalCameraRot) });
             entityManager.AddComponent(MainCamera, cameraPerspective);
             entityManager.AddComponent<MainCamera>(MainCamera);
-            
+            //return;
             var subMesh = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("UV-Sphere.obj"), null)[0];
             MainCamera = entityManager.CreateEntity();
             entityManager.AddComponent(MainCamera, new Translation() { Value = new Vector3(0,1,0) });
