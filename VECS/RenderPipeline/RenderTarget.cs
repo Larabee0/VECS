@@ -53,7 +53,7 @@ namespace VECS
 
             if (GraphicsDevice.PresentQueue != GraphicsDevice.MainQueue)
             {
-                _image = new(string.Format("_RT_{0}_{2}_{1}", name, Presenter.FrameCount, _renderTargetType.ToString()), width, height, format, usageFlags, samplerMode, 0,false,VkCompareOp.Never,VkBorderColor.FloatTransparentBlack, queueIndices, false);
+                _image = new(string.Format("_RT_{0}_{2}_{1}", name, Presenter.FrameCount, _renderTargetType.ToString()), width, height, format, usageFlags, samplerMode, 0,false,VkCompareOp.Never,VkBorderColor.FloatOpaqueBlack, queueIndices, false);
             }
             else
             {
@@ -109,27 +109,10 @@ namespace VECS
 
         private unsafe void CreateAdditionalSamplers()
         {
-            VkSamplerCreateInfo createInfo;
 
-            VkSamplerReductionModeCreateInfo createInfoReduction = new();
-
-            if(_renderTargetType == RenderTargetType.Colour)
+            if (_renderTargetType != RenderTargetType.Colour)
             {
-                createInfo = new()
-                {
-                    mipmapMode = VkSamplerMipmapMode.Linear,
-                    magFilter = VkFilter.Linear,
-                    minFilter = VkFilter.Linear,
-                    addressModeU = VkSamplerAddressMode.Repeat,
-                    addressModeV = VkSamplerAddressMode.Repeat,
-                    addressModeW = VkSamplerAddressMode.Repeat,
-
-                };
-            }
-            else
-            {
-                var reductionMode = VkSamplerReductionMode.Min;
-                createInfo = new()
+                VkSamplerCreateInfo createInfo = new()
                 {
                     magFilter = VkFilter.Linear,
                     minFilter = VkFilter.Linear,
@@ -142,15 +125,18 @@ namespace VECS
                 };
 
 
-                if (reductionMode != VkSamplerReductionMode.WeightedAverage)
+                if (VkSamplerReductionMode.Min != VkSamplerReductionMode.WeightedAverage)
                 {
-                    createInfoReduction.reductionMode = reductionMode;
+                    VkSamplerReductionModeCreateInfo createInfoReduction = new()
+                    {
+                        reductionMode = VkSamplerReductionMode.Min
+                    };
 
                     createInfo.pNext = &createInfoReduction;
                 }
+                _image.CreateSampler(createInfo);
             }
 
-            _image.CreateSampler(createInfo);
         }
 
         public void Resize(int width, int height)

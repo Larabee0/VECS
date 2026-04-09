@@ -1,7 +1,8 @@
 ﻿using VECS.GraphicsPipelines;
+using VECS.LowLevel;
 using Vortice.Vulkan;
 
-namespace VECS.LowLevel
+namespace VECS
 {
     public sealed class Bloom
     {
@@ -70,11 +71,6 @@ namespace VECS.LowLevel
 
         public void RecreateAttachments()
         {
-            // _glowTexture?.Dispose();
-            // _blurTexture?.Dispose();
-            // _depthAttachment?.Dispose();
-
-
             var winbdowExtents = Application.MainWindow.WindowExtent;
 
             FRAME_BUFFER_DIMENTIONS_X = FRAME_BUFFER_MAX_RES;
@@ -94,7 +90,7 @@ namespace VECS.LowLevel
                 _glowTexture = new(string.Format("Bloom_Glow_{0}", Presenter.FrameCount),
                         FRAME_BUFFER_DIMENTIONS_X, FRAME_BUFFER_DIMENTIONS_Y,
                         VkFormat.R32G32B32A32Sfloat,
-                        VkSamplerAddressMode.ClampToEdge);
+                        VkSamplerAddressMode.ClampToBorder);
             }
             else
             {
@@ -106,7 +102,7 @@ namespace VECS.LowLevel
                 _blurTexture = new(string.Format("Bloom_Blur_{0}", Presenter.FrameCount),
                         FRAME_BUFFER_DIMENTIONS_X, FRAME_BUFFER_DIMENTIONS_Y,
                         VkFormat.R32G32B32A32Sfloat,
-                        VkSamplerAddressMode.ClampToEdge);
+                        VkSamplerAddressMode.ClampToBorder);
             }
             else
             {
