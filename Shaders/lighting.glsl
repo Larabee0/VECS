@@ -1,7 +1,6 @@
 
 struct PointLight {
-	vec3 position;
-    int shadowIndex;
+	vec4 position;
     
 	vec4 ambient;
 	vec4 diffuse;

@@ -58,7 +58,7 @@ namespace VECS
 
         private static void FillViewMatrix(SwapChainBuffer mats, int index, PointLightUniform pl)
         {
-            var lightPos = pl.Position;
+            var lightPos = pl.Position.AsVector3();
             var offset = index * 6;
 
             Matrix4x4 CubeProjectionMatrix = Matrix4x4.CreatePerspectiveFieldOfView(MathF.PI * 0.5f, 1.0f, 0.1f, pl.FarPlane);
@@ -74,7 +74,7 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void FillLightInfo(SwapChainBuffer lightInfo, int index, PointLightUniform pl)
         {
-            var lightPos = new Vector4(pl.Position, pl.FarPlane);
+            var lightPos = new Vector4(pl.Position.AsVector3(), pl.FarPlane);
             lightInfo.UnsafeSet(index, lightPos);
         }
 

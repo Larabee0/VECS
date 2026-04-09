@@ -163,8 +163,7 @@ namespace VECS
     [StructLayout(LayoutKind.Sequential, Size = 80)]
     public struct PointLightUniform
     {
-        public Vector3 Position;
-        public int ShadowIndex;
+        public Vector4 Position;
         public Vector4 Ambient;
         public Vector4 Diffuse;
         public Vector4 Specular;
@@ -176,7 +175,7 @@ namespace VECS
 
         public PointLightUniform(Vector3 position, PointLight pointLight)
         {
-            Position = position;
+            Position = position.AsVector4();
             Ambient = pointLight.Ambient;
             Diffuse = pointLight.Diffuse;
             Specular = pointLight.Specular;
