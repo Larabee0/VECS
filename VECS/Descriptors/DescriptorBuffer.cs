@@ -198,7 +198,7 @@ namespace VECS
 
             for (int i = 1; i < writeInfo.ImageCount; i++)
             {
-                ptr += (int)writeInfo.DataSize * i;
+                ptr += (int)writeInfo.DataSize;
                 switch (writeInfo.Type)
                 {
                     case VkDescriptorType.CombinedImageSampler:
