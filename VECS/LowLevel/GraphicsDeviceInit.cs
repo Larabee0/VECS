@@ -20,7 +20,6 @@ namespace VECS.LowLevel
             Vulkan.VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME,
             Vulkan.VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
             Vulkan.VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME,
-            Vulkan.VK_EXT_PAGEABLE_DEVICE_LOCAL_MEMORY_EXTENSION_NAME,
             Vulkan.VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME,
             Vulkan.VK_EXT_NESTED_COMMAND_BUFFER_EXTENSION_NAME,
             Vulkan.VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME,
@@ -28,7 +27,7 @@ namespace VECS.LowLevel
             Vulkan.VK_EXT_EXTENDED_DYNAMIC_STATE_3_EXTENSION_NAME
         ];
 
-        private const bool ForceMeshShadingOff = false;
+        private const bool ForceMeshShadingOff = true;
         private readonly static VkUtf8String[] _meshShaderExtensions = [
             Vulkan.VK_EXT_MESH_SHADER_EXTENSION_NAME,
         ];
@@ -310,8 +309,6 @@ namespace VECS.LowLevel
                 };
                 index++;
             }
-
-            VkPhysicalDevicePageableDeviceLocalMemoryFeaturesEXT pageableDeviceLocalMemoryFeaturesEXT = new() { pageableDeviceLocalMemory = true };
 
             VkPhysicalDeviceExtendedDynamicState3FeaturesEXT extendedDynamicState3Features = new()
             {

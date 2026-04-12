@@ -69,6 +69,27 @@ namespace VECS
             
             _spvStage = _spvShaderModule.shader_stage;            
             _vkStage = (VkShaderStageFlags)_spvStage;
+            bool disposeNow = false;
+            if (!GraphicsDevice.MeshShading)
+            {
+                switch (_vkStage)
+                {
+                    case VkShaderStageFlags.MeshEXT:
+                        disposeNow = true;
+                        break;
+                    case VkShaderStageFlags.TaskEXT:
+                        disposeNow = true;
+                        break;
+                }
+
+            }
+
+            if (disposeNow) { 
+                _disposed = true;
+                SPIRVReflectUtil.DestroyReflectShaderModule(_spvShaderModule);
+                return;
+            }
+
 
             GraphicsDevice.DeviceAPI.vkCreateShaderModule(shaderCode, null, out _vkShaderModule).CheckResult("Failed to Create Shader Module!");
 
@@ -89,12 +110,32 @@ namespace VECS
 
             AssetName = name;
 
-            GraphicsDevice.DeviceAPI.vkCreateShaderModule(shaderCode, null, out _vkShaderModule).CheckResult("Failed to Create Shader Module!");
             _spvShaderModule = SPIRVReflectUtil.CreateReflectShaderModule(shaderCode);
 
             _spvStage = _spvShaderModule.shader_stage;
             _vkStage = (VkShaderStageFlags)_spvStage;
+            bool disposeNow = false;
+            if (!GraphicsDevice.MeshShading)
+            {
+                switch (_vkStage)
+                {
+                    case VkShaderStageFlags.MeshEXT:
+                        disposeNow = true;
+                        break;
+                    case VkShaderStageFlags.TaskEXT:
+                        disposeNow = true;
+                        break;
+                }
 
+            }
+
+            if (disposeNow)
+            {
+                _disposed = true;
+                SPIRVReflectUtil.DestroyReflectShaderModule(_spvShaderModule);
+                return;
+            }
+            GraphicsDevice.DeviceAPI.vkCreateShaderModule(shaderCode, null, out _vkShaderModule).CheckResult("Failed to Create Shader Module!");
         }
 
         public unsafe override void Dispose()
@@ -115,7 +156,10 @@ namespace VECS
         public static ShaderModule Create(string filePath)
         {
             var module = new ShaderModule(filePath);
-
+            if (module.IsDisposed)
+            {
+                return null;
+            }
             AssetDataBase<ShaderModule>.Add(module);
 
             return module;
@@ -124,6 +168,10 @@ namespace VECS
         public static ShaderModule CreateNoAdd(string name, byte[] shaderBytes)
         {
             var module = new ShaderModule(name, shaderBytes);
+            if (module.IsDisposed)
+            {
+                return null;
+            }
 
             AssetDataBase<ShaderModule>.Add(module);
 
@@ -157,6 +205,7 @@ namespace VECS
 #endif
             for (int i = 0; i < shaderModules.Length; i++)
             {
+                if (shaderModules[i].IsDisposed) continue;
                 AssetDataBase<ShaderModule>.Add(shaderModules[i]);
             }
             stopwatch.Stop();

@@ -217,6 +217,7 @@ namespace VECS
 
                 _isFrameStarted = false;
                 World.DefaultWorld.PostPresentUpdate();
+                Console.WriteLine("Frame {0}", FrameCount);
                 _frameCount++;
                 _framesSinceSwapChainRecreation++;
             }

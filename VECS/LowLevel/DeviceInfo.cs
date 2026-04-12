@@ -23,7 +23,7 @@ namespace VECS.LowLevel
         {
             if (obj is DeviceInfo other)
             {
-                return other.AvaliableMemory.CompareTo(AvaliableMemory);
+                return -other.AvaliableMemory.CompareTo(AvaliableMemory);
             }
             throw new ArgumentException(string.Format("Object is not a {0}", typeof(DeviceInfo)));
         }
