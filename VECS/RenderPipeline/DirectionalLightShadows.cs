@@ -60,7 +60,8 @@ namespace VECS
             _dirDepthOnly = EnginePipes.DepthOnly.Default();
             _matHash = _dirDepthOnly.Hash;
 
-            _dirDepthOnly.PushConstants.SetPushConstantInt("matrixStartIndex", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, 0);
+            //_dirDepthOnly.PushConstants.SetPushConstantInt("matrixStartIndex", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, 0);
+            _dirDepthOnly.PushConstants.SetPushConstantInt("layerOffset", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, 0);
             _dirDepthOnly.PushConstants.SetPushConstantInt("bufferSelect", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, 1);
             _dirDepthOnly.PushConstants.SetPushConstantInt("useLightPos", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, 0);
         }
@@ -498,7 +499,7 @@ namespace VECS
                 {
                     imageView = _shadowDepthImage.ReductiveImageViews[i],
                     imageLayout = _shadowDepthImage.ImageLayout,
-                    loadOp = VkAttachmentLoadOp.Clear,
+                    loadOp = i > 0 ? VkAttachmentLoadOp.Load :VkAttachmentLoadOp.Clear,
                     storeOp = VkAttachmentStoreOp.Store,
                     clearValue = new(1, 0)
                 };
@@ -506,7 +507,7 @@ namespace VECS
                 VkRenderingInfo renderingInfo = new()
                 {
                     renderArea = new(0, 0, DIRECTIONAL_SHADOW_RESOLTION, DIRECTIONAL_SHADOW_RESOLTION),
-                    layerCount = 1,
+                    layerCount = CASCADE_COUNT - (uint)i,
                     colorAttachmentCount = 0,
                     pDepthAttachment = &depth,
                     flags = VkRenderingFlags.ContentsInlineKHR | VkRenderingFlags.ContentsSecondaryCommandBuffers
@@ -516,7 +517,7 @@ namespace VECS
                 SetViewPort(frameInfo.CommandBuffer);
 
                 _dirDepthOnly.PushConstants.SetPushConstantInt("layerCount", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, CASCADE_COUNT - i);
-                _dirDepthOnly.PushConstants.SetPushConstantInt("layerOffset", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, i);
+                
                 _dirDepthOnly.PushConstants.SetPushConstantInt("matrixStartIndex", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, i);
                 DrawBlob.ExecutateDepthOnly(frameInfo, frameInfo.CommandBuffer, DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, VkCullModeFlags.Front);
 
