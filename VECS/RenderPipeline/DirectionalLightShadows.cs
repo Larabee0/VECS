@@ -470,7 +470,6 @@ namespace VECS
         public unsafe void DirectionalShadowPass(in RendererFrameInfo frameInfo)
         {
             AssignDirShadowTexture();
-            DrawBlob.IndirectToComputeMemoryBarrierByMat(frameInfo.CommandBuffer);
 
             
             CullData depthBufferCullInfo;
@@ -493,6 +492,7 @@ namespace VECS
                 {
                     DrawnActionCommand = i == 0 ? DrawnFlag.ResetAddOne : DrawnFlag.AddOne
                 };
+                DrawBlob.IndirectToComputeMemoryBarrierByMat(frameInfo.CommandBuffer);
                 DrawBlob.CullAllInOne(frameInfo, depthBufferCullInfo);
                 VkRenderingAttachmentInfo depth = new()
                 {
