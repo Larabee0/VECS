@@ -537,7 +537,9 @@ namespace VECS
                 _pBindingTextures = (VkDescriptorImageInfo*)NativeMemory.AllocZeroed((uint)sizeof(VkDescriptorImageInfo) * (uint)TextureCount * SwapChain.MAX_CONCURRENT_FRAMES_UINT);
 
                 _ppBindingTextures = (VkDescriptorImageInfo**)NativeMemory.AllocZeroed((uint)sizeof(VkDescriptorImageInfo*) * (uint)TextureCount);
+#if DEBUG
                 _pTexturesPerBinding = new uint[TextureCount];
+#endif
 
                 var missingInfo = EngineTextures.MissingTexture.ImageInfo;
 

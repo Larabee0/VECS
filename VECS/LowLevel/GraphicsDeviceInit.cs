@@ -19,12 +19,13 @@ namespace VECS.LowLevel
             Vulkan.VK_KHR_SWAPCHAIN_EXTENSION_NAME,
             Vulkan.VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME,
             Vulkan.VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
+            Vulkan.VK_KHR_8BIT_STORAGE_EXTENSION_NAME,
             Vulkan.VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME,
             Vulkan.VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME,
             Vulkan.VK_EXT_NESTED_COMMAND_BUFFER_EXTENSION_NAME,
             Vulkan.VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME,
             Vulkan.VK_EXT_SHADER_VIEWPORT_INDEX_LAYER_EXTENSION_NAME,
-            Vulkan.VK_EXT_EXTENDED_DYNAMIC_STATE_3_EXTENSION_NAME
+            Vulkan.VK_EXT_EXTENDED_DYNAMIC_STATE_3_EXTENSION_NAME,
         ];
 
         private const bool ForceMeshShadingOff = true;
@@ -366,6 +367,8 @@ namespace VECS.LowLevel
                 shaderOutputViewportIndex = true,
                 shaderOutputLayer = true,
                 runtimeDescriptorArray = true,
+                uniformAndStorageBuffer8BitAccess = true,
+                shaderInt8 = true,
                 pNext = &deviceFeatures11
             };
 

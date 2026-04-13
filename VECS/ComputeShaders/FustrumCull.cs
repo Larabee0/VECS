@@ -13,7 +13,7 @@ using Vortice.Vulkan;
 namespace VECS
 {
     [Flags]
-    public enum RenderLayer : uint
+    public enum RenderLayer : byte
     {
         None = 0,
         Default = 1,
@@ -21,6 +21,14 @@ namespace VECS
         OnlyShadow = 4,
         All = Default | NoShadow | OnlyShadow
     }
+
+    public enum DrawnFlag : byte
+    {
+        Zero,
+        AddOne,
+        ResetAddOne
+    }
+
 
     [StructLayout(LayoutKind.Sequential, Size = 24)]
     public struct VECSDrawIndexIndirectCommand
@@ -31,6 +39,9 @@ namespace VECS
         public int vertexOffset;
         public uint firstInstance;
         public RenderLayer layerFlags;
+        public byte drawnFlag;
+        public byte pad1;
+        public byte pad2;
 
         public VECSDrawIndexIndirectCommand()
         {
@@ -61,6 +72,8 @@ namespace VECS
         public float P11; // 104
         public RenderLayer IncludeMask;
         public RenderLayer ExcludeMask;
+        public DrawnFlag DrawnActionCommand;
+        public byte pad1;
         public uint drawCount;
         public int cullingEnabled;
         public int dstCulling;
