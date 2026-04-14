@@ -16,8 +16,8 @@ namespace VECS
         public static VkFormat DIRECTIONAL_SHADOW_FORMAT => PreferredFormats.LOW_PRECISION_DEPTH_ONLY;
         public const int CASCADE_COUNT = 4;
         public const float CASCADE_SPLIT_LAMBDA = 0.95f;
-        public const bool SHADOW_CULLING = false;
-        public const bool SHADOW_DST_CULLING = false;
+        public const bool SHADOW_CULLING = true;
+        public const bool SHADOW_DST_CULLING = true;
         public const bool SHADOW_DEPTH_CULLING = false;
         public const RenderLayer SHADOW_INCLUDE_MASK = RenderLayer.Default | RenderLayer.OnlyShadow;
         public const RenderLayer SHADOW_EXCLUDE_MASK = RenderLayer.NoShadow;
@@ -502,24 +502,29 @@ namespace VECS
                 pDepthAttachment = &depth,
                 flags = VkRenderingFlags.ContentsInlineKHR | VkRenderingFlags.ContentsSecondaryCommandBuffers
             };
-            depthBufferCullInfo = new(
+            
+
+            for (int i = 0; i < CASCADE_COUNT; i++)
+            {
+                if(i > 0)
+                {
+                    depth.loadOp = VkAttachmentLoadOp.Load;
+                }
+                depthBufferCullInfo = new(
             SHADOW_INCLUDE_MASK,
             SHADOW_EXCLUDE_MASK,
             SHADOW_CULLING,
             SHADOW_DST_CULLING,
             SHADOW_DEPTH_CULLING,
             0,
-            _projMatrices[0],
-            _viewMatrices[0])
-            {
-                DrawnActionCommand = DrawnFlag.Zero //i == 0 ? DrawnFlag.ResetAddOne : DrawnFlag.AddOne
-            };
-            DrawBlob.IndirectToComputeMemoryBarrierByMat(frameInfo.CommandBuffer);
-            DrawBlob.CullAllInOne(frameInfo, depthBufferCullInfo);
-            GraphicsDevice.DeviceAPI.vkCmdBeginRendering(frameInfo.CommandBuffer, &renderingInfo);
-
-            for (int i = 0; i < CASCADE_COUNT; i++)
-            {
+            _projMatrices[i],
+            _viewMatrices[i])
+                {
+                    DrawnActionCommand = DrawnFlag.Zero //i == 0 ? DrawnFlag.ResetAddOne : DrawnFlag.AddOne
+                };
+                DrawBlob.IndirectToComputeMemoryBarrierByMat(frameInfo.CommandBuffer);
+                DrawBlob.CullAllInOne(frameInfo, depthBufferCullInfo);
+                GraphicsDevice.DeviceAPI.vkCmdBeginRendering(frameInfo.CommandBuffer, &renderingInfo);
 
 
                 SetViewPort(frameInfo.CommandBuffer, i);
@@ -530,10 +535,10 @@ namespace VECS
 
                 _dirDepthOnly.PushConstants.SetPushConstantInt("matrixStartIndex", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, i);
                 DrawBlob.ExecutateDepthOnly(frameInfo, frameInfo.CommandBuffer, DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, VkCullModeFlags.Front);
+                GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
             }
 
 
-            GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
             _shadowSingleImage.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.LateFragmentTests, VkPipelineStageFlags2.FragmentShader);
 
             _clearedImage = false;
