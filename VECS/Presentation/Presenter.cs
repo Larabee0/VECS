@@ -107,6 +107,7 @@ namespace VECS
             SwapChain.StartTimelineWorkers();
             OnSwapChainRecreation?.Invoke();
             Console.WriteLine(SwapChain.ExtentAspectRatio);
+            
         }
 
         /// <summary>
@@ -188,7 +189,7 @@ namespace VECS
             info.screenAspect = SwapChain.ExtentAspectRatio;
             entityManager.SetComponent(FrameInfoEntity, info);
         }
-
+        int frameToWaitOn = 0;
         public void Present()
         {
             _imgui.Update();
@@ -208,16 +209,21 @@ namespace VECS
                 GPUBufferExtensions.PlayerbackDisposeCmds();
                 TextureExtensions.PlayerbackDisposeCmds();
                 // signal workers to submit work
-                SwapChain.SignalTimelineFromHost(SemaphoreStages.Submit, SwapChain.FrameIndex);
+                //SwapChain.SignalTimelineFromHost(SemaphoreStages.Submit, SwapChain.FrameIndex);
                 // wait for workers to submit
 
-                SwapChain.WaitForNextFrame(SwapChain.NextFrame);
+                //BasicSubmission.WaitForCommandBuffer(SwapChain.MainSwapChainData);
+                
+                frameToWaitOn = SwapChain.NextFrame;
+                BasicSubmission.SubmitGraphicsQueue();
+                SwapChain.WaitForNextFrame(frameToWaitOn);
+
 
                 PostPresentationUpdate?.Invoke();
 
                 _isFrameStarted = false;
                 World.DefaultWorld.PostPresentUpdate();
-                Console.WriteLine("Frame {0}", FrameCount);
+                //Console.WriteLine("Frame {0}", FrameCount);
                 _frameCount++;
                 _framesSinceSwapChainRecreation++;
             }

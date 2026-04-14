@@ -277,7 +277,7 @@ namespace VECS.LowLevel
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static unsafe void EndSingleTimePresentPipe(VkCommandBuffer commandBuffer)
         {
-            EndSingleTime(commandBuffer, _presentQueue, _commandPoolPresent);
+            //EndSingleTime(commandBuffer, _presentQueue, _commandPoolPresent);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

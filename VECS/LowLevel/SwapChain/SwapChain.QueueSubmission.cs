@@ -22,6 +22,8 @@ namespace VECS.LowLevel
 
         internal static void StartTimelineWorkers()
         {
+            BasicSubmission.StartSubmitThread();
+            return;
             //_currentFrame = 0;
             _graphicsCancel = new();
             _computeCancel = new();
@@ -52,6 +54,8 @@ namespace VECS.LowLevel
 
         internal static void FinishTimelineWorkers(bool recreate)
         {
+            BasicSubmission.StopSubmitThread();
+            return;
             if (((_graphicsThread != null && _graphicsThread.IsAlive) || (_graphicsThread != null && _computeThread.IsAlive)))
             {
 #if DEBUG
@@ -79,7 +83,7 @@ namespace VECS.LowLevel
 #endif
             GraphicsDevice.DeviceAPI.vkQueueWaitIdle(GraphicsDevice._computeQueue);
             GraphicsDevice.DeviceAPI.vkQueueWaitIdle(GraphicsDevice._mainQueue);
-            GraphicsDevice.DeviceAPI.vkQueueWaitIdle(GraphicsDevice._presentQueue);
+            //GraphicsDevice.DeviceAPI.vkQueueWaitIdle(GraphicsDevice._presentQueue);
              
 
         }
@@ -361,12 +365,15 @@ namespace VECS.LowLevel
             VkCommandBuffer commandBuffer = CurrentMainCommandBuffer;
             GraphicsDevice.DeviceAPI.vkBeginCommandBuffer(commandBuffer, &beginInfo).CheckResult("Failed to begin recording main command buffer");
 
-            TransferSwapChainImagesToGraphicsQueue(commandBuffer, frameIndex, imageCount, imageIndices);
+            SetSwapChainImageLayoutTransferDST(commandBuffer, frameIndex, imageCount, imageIndices);
+
+            // TransferSwapChainImagesToGraphicsQueue(commandBuffer, frameIndex, imageCount, imageIndices);
             
             GraphicsCallback?.Invoke((int)imageIndices[0]);
 
             // transfer swapchain image to present queue
-            TransferSwapChainImagesToPresentQueue(commandBuffer, frameIndex, imageCount, imageIndices);
+            // TransferSwapChainImagesToPresentQueue(commandBuffer, frameIndex, imageCount, imageIndices);
+            SetSwapChainLayoutPresent(commandBuffer, frameIndex, imageCount, imageIndices);
 
             GraphicsDevice.DeviceAPI.vkEndCommandBuffer(commandBuffer).CheckResult("Failed to end main command buffer!");
 

@@ -51,16 +51,18 @@ namespace VECS
             }
 
 
-            if (GraphicsDevice.PresentQueue != GraphicsDevice.MainQueue)
-            {
-                _image = new(string.Format("_RT_{0}_{2}_{1}", name, Presenter.FrameCount, _renderTargetType.ToString()), width, height, format, usageFlags, samplerMode, 0,false,VkCompareOp.Never,VkBorderColor.FloatOpaqueBlack, queueIndices, false);
-            }
-            else
-            {
-                _image = new(string.Format("_RT_{0}_{2}_{1}", name, Presenter.FrameCount, _renderTargetType.ToString()), width, height, format, usageFlags,samplerMode,0,false,VkCompareOp.Never, false);
-            }
+            // if (GraphicsDevice.PresentQueue != GraphicsDevice.MainQueue)
+            // {
+            //     _image = new(string.Format("_RT_{0}_{2}_{1}", name, Presenter.FrameCount, _renderTargetType.ToString()), width, height, format, usageFlags, samplerMode, 0,false,VkCompareOp.Never,VkBorderColor.FloatOpaqueBlack, queueIndices, false);
+            // }
+            // else
+            // {
+            //     _image = new(string.Format("_RT_{0}_{2}_{1}", name, Presenter.FrameCount, _renderTargetType.ToString()), width, height, format, usageFlags, samplerMode, 0, false, VkCompareOp.Never, false);
+            // }
 
-            if(_renderTargetType == RenderTargetType.Colour)
+            _image = new(string.Format("_RT_{0}_{2}_{1}", name, Presenter.FrameCount, _renderTargetType.ToString()), width, height, format, usageFlags, samplerMode, 0, false, VkCompareOp.Never, false);
+
+            if (_renderTargetType == RenderTargetType.Colour)
             {
                 _image.SetImageLayout(VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.ColorAttachmentOutput);
             }
