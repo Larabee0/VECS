@@ -382,14 +382,13 @@ namespace VECS
                 if (variant.AlphaClipping)
                 {
                     var alphaClipping = EnginePipes.DepthOnly.GetOrCreateVariant(alphaClippingDepthVariant);
-                    var tex = variant.AlphaTexture ?? EngineTextures.White;
-                    alphaClipping.SetTexture("alphaSampler".GetShaderPropertyId(), tex);
-                    alphaClipping.SetFloat("alphaProps.alphaThreshold".GetShaderPropertyId(),variant.AlphaCutoff);
-                    alphaClipping.SetFloat("alphaProps.alphaTiling".GetShaderPropertyId(), 1);
+                    
+                    SetAlphaClipping(variant, alphaClipping);
+                    alphaClipping = DirectionalLightShadows.DirDepthOnly.GetOrCreateVariant(alphaClippingDepthVariant);
+                    SetAlphaClipping(variant, alphaClipping);
+
                     _depthCommands[i].Variant = (int)alphaClippingDepthVariant;
                     alphaClippingDepthVariant++;
-                    alphaClipping.CullMode = VkCullModeFlags.None;
-                    alphaClipping.OverrideCullMode = true;
                 }
                 else
                 {
@@ -429,6 +428,17 @@ namespace VECS
                 }
 
             });
+        }
+
+        private static void SetAlphaClipping(Material variant, Material alphaClipping)
+        {
+            var tex = variant.AlphaTexture ?? EngineTextures.White;
+            alphaClipping.SetTexture("alphaSampler".GetShaderPropertyId(), tex);
+            alphaClipping.SetFloat("alphaProps.alphaThreshold".GetShaderPropertyId(), variant.AlphaCutoff);
+            alphaClipping.SetFloat("alphaProps.alphaTiling".GetShaderPropertyId(), 1);
+
+            alphaClipping.CullMode = VkCullModeFlags.None;
+            alphaClipping.OverrideCullMode = true;
         }
 
         private static void SliceDrawCmds()
@@ -712,6 +722,10 @@ namespace VECS
             EnginePipes.DepthOnly.ExecuteDrawCommandsPushConstantOverride(frameInfo, pushConstantIndex, commandBuffer, _depthCommands, OpaqueCmdCountByMat, _indirectCmdBufferAllInOne,cullMode);
         }
 
+        public static void ExecutateDepthOnly(GraphicsPipeline depthonlyOverride, RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, int pushConstantIndex, VkCullModeFlags cullMode)
+        {
+            depthonlyOverride.ExecuteDrawCommandsPushConstantOverride(frameInfo, pushConstantIndex, commandBuffer, _depthCommands, OpaqueCmdCountByMat, _indirectCmdBufferAllInOne, cullMode);
+        }
         public static void CullAllInOne(RendererFrameInfo frameInfo, CullData cullData)
         {
             CullAllInOne(frameInfo,frameInfo.CommandBuffer,cullData);

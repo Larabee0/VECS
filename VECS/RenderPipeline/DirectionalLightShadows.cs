@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 using VECS.ECS;
 using VECS.ECS.Presentation;
 using VECS.ECS.Transforms;
+using VECS.GraphicsPipelines;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
@@ -44,6 +45,8 @@ namespace VECS
 
         private bool _clearedImage;
 
+        public static GraphicsPipeline DirDepthOnly;
+
         public DirectionalLightShadows()
         {
             _shadowDepthImage = new("DirectionalShadowRT",
@@ -62,8 +65,17 @@ namespace VECS
                 DIRECTIONAL_SHADOW_FORMAT, VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.Sampled, false);
 
             _shadowSingleImage.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.LateFragmentTests, VkPipelineStageFlags2.FragmentShader);
+            var createInfo = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
 
-            _dirDepthOnly = EnginePipes.DepthOnly.Default();
+            createInfo.colourFormats = [];
+            createInfo.depthFormat = PreferredFormats.LOW_PRECISION_DEPTH_ONLY;
+            createInfo.stencilFormat = VkFormat.Undefined;
+            createInfo.depthStencilInfo.depthWriteEnable = true;
+            createInfo.depthStencilInfo.depthCompareOp = VkCompareOp.LessOrEqual;
+            createInfo.rasterizationInfo.cullMode = VkCullModeFlags.None;
+            DirDepthOnly = new GraphicsPipeline("NoGeoDepthOnly", "DepthOnlyNoGeom.vert", createInfo);
+            DrawBlob.AllInOneMats.Add(DirDepthOnly.Hash);
+            _dirDepthOnly = DirDepthOnly.Default();
             _matHash = _dirDepthOnly.Hash;
 
             //_dirDepthOnly.PushConstants.SetPushConstantInt("matrixStartIndex", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, 0);
@@ -113,9 +125,9 @@ namespace VECS
 
         private static Span<Matrix4x4> GetLightSpaceMatrixBuffer()
         {
-            var directionalShadowsBuffer = EnginePipes.DepthOnly.Default().GetStorageBuffer<Matrix4x4>(matsPropertyId);
-            EnginePipes.DepthOnly.SetDescriptorStorageBufferLengthFromProperty(matsPropertyId, CASCADE_COUNT);
-            EnginePipes.DepthOnly.GetStorageSwapChainBuffer(matsPropertyId).SetBuffersDirty(true);
+            var directionalShadowsBuffer = DirDepthOnly.Default().GetStorageBuffer<Matrix4x4>(matsPropertyId);
+            DirDepthOnly.SetDescriptorStorageBufferLengthFromProperty(matsPropertyId, CASCADE_COUNT);
+            DirDepthOnly.GetStorageSwapChainBuffer(matsPropertyId).SetBuffersDirty(true);
             return directionalShadowsBuffer;
         }
 
@@ -478,12 +490,79 @@ namespace VECS
         {
             AssignDirShadowTexture();
 
-            
+
+
+
+            //SingleImageSinglePassNoCull(frameInfo);
+            //SingleImageMultiPass(frameInfo);
+            ArrayImageMultiPass(frameInfo);
+
+            _clearedImage = false;
+        }
+
+        private unsafe void ArrayImageMultiPass(RendererFrameInfo frameInfo)
+        {
+            _shadowDepthImage.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.DepthAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.EarlyFragmentTests);
+
             CullData depthBufferCullInfo;
+            _dirDepthOnly.PushConstants.SetPushConstantInt("bufferSelect", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, 1);
+            VkRenderingAttachmentInfo depth = new()
+            {
+                imageView = _shadowDepthImage._imageView,
+                imageLayout = _shadowDepthImage.ImageLayout,
+                loadOp = VkAttachmentLoadOp.Clear,// i > 0 ? VkAttachmentLoadOp.Load :
+                storeOp = VkAttachmentStoreOp.Store,
+                clearValue = new(1, 0)
+            };
+
+            VkRenderingInfo renderingInfo = new()
+            {
+                renderArea = new(0, 0, (uint)_shadowDepthImage.Width, (uint)_shadowDepthImage.Height),
+                layerCount = 1,// - (uint)i,
+                colorAttachmentCount = 0,
+                pDepthAttachment = &depth,
+                flags = VkRenderingFlags.ContentsInlineKHR | VkRenderingFlags.ContentsSecondaryCommandBuffers
+            };
+
+            for (int i = 0; i < CASCADE_COUNT; i++)
+            {
+                depth.imageView = _shadowDepthImage.AdditionalImageViews[i];
+                depthBufferCullInfo = new(
+                    SHADOW_INCLUDE_MASK,
+                    SHADOW_EXCLUDE_MASK,
+                    SHADOW_CULLING,
+                    SHADOW_DST_CULLING,
+                    SHADOW_DEPTH_CULLING,
+                    0,
+                    _projMatrices[i],
+                    _viewMatrices[i])
+                {
+                    DrawnActionCommand = DrawnFlag.Zero //i == 0 ? DrawnFlag.ResetAddOne : DrawnFlag.AddOne
+                };
+                DrawBlob.IndirectToComputeMemoryBarrierByMat(frameInfo.CommandBuffer);
+                DrawBlob.CullAllInOne(frameInfo, depthBufferCullInfo);
+                GraphicsDevice.DeviceAPI.vkCmdBeginRendering(frameInfo.CommandBuffer, &renderingInfo);
 
 
+                SetViewPort(frameInfo.CommandBuffer);
+
+                _dirDepthOnly.PushConstants.SetPushConstantInt("layerCount", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, 1);
+                _dirDepthOnly.PushConstants.SetPushConstantInt("layerOffset", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, 0);
+                //_dirDepthOnly.PushConstants.SetPushConstantInt("layerCount", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, CASCADE_COUNT);
+
+                _dirDepthOnly.PushConstants.SetPushConstantInt("matrixStartIndex", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, i);
+                DrawBlob.ExecutateDepthOnly(_dirDepthOnly.Pipeline, frameInfo, frameInfo.CommandBuffer, DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, VkCullModeFlags.Front);
+                GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
+            }
+            _shadowDepthImage.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.LateFragmentTests, VkPipelineStageFlags2.FragmentShader);
+
+        }
+
+
+        private unsafe void SingleImageSinglePassNoCull(RendererFrameInfo frameInfo)
+        {
             _shadowSingleImage.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.DepthAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.EarlyFragmentTests);
-
+            CullData depthBufferCullInfo;
             _dirDepthOnly.PushConstants.SetPushConstantInt("bufferSelect", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, 1);
             VkRenderingAttachmentInfo depth = new()
             {
@@ -502,11 +581,69 @@ namespace VECS
                 pDepthAttachment = &depth,
                 flags = VkRenderingFlags.ContentsInlineKHR | VkRenderingFlags.ContentsSecondaryCommandBuffers
             };
+
+
+            depthBufferCullInfo = new(
+        SHADOW_INCLUDE_MASK,
+        SHADOW_EXCLUDE_MASK,
+        false,
+        false,
+        SHADOW_DEPTH_CULLING,
+        0,
+        _projMatrices[0],
+        _viewMatrices[0])
+            {
+                DrawnActionCommand = DrawnFlag.Zero //i == 0 ? DrawnFlag.ResetAddOne : DrawnFlag.AddOne
+            };
+            DrawBlob.IndirectToComputeMemoryBarrierByMat(frameInfo.CommandBuffer);
+            DrawBlob.CullAllInOne(frameInfo, depthBufferCullInfo);
             
+            GraphicsDevice.DeviceAPI.vkCmdBeginRendering(frameInfo.CommandBuffer, &renderingInfo);
+            for (int i = 0; i < CASCADE_COUNT; i++)
+            {
+
+
+                SetViewPort(frameInfo.CommandBuffer, i);
+
+                _dirDepthOnly.PushConstants.SetPushConstantInt("layerCount", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, 1);
+                _dirDepthOnly.PushConstants.SetPushConstantInt("layerOffset", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, 0);
+                //_dirDepthOnly.PushConstants.SetPushConstantInt("layerCount", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, CASCADE_COUNT);
+
+                _dirDepthOnly.PushConstants.SetPushConstantInt("matrixStartIndex", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, i);
+                DrawBlob.ExecutateDepthOnly(_dirDepthOnly.Pipeline,frameInfo, frameInfo.CommandBuffer, DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, VkCullModeFlags.Front);
+                
+            }
+            GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
+            _shadowSingleImage.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.LateFragmentTests, VkPipelineStageFlags2.FragmentShader);
+        }
+
+        private unsafe void SingleImageMultiPass(RendererFrameInfo frameInfo)
+        {
+            _shadowSingleImage.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.DepthAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.EarlyFragmentTests);
+            CullData depthBufferCullInfo;
+            _dirDepthOnly.PushConstants.SetPushConstantInt("bufferSelect", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, 1);
+            VkRenderingAttachmentInfo depth = new()
+            {
+                imageView = _shadowSingleImage._imageView,
+                imageLayout = _shadowSingleImage.ImageLayout,
+                loadOp = VkAttachmentLoadOp.Clear,// i > 0 ? VkAttachmentLoadOp.Load :
+                storeOp = VkAttachmentStoreOp.Store,
+                clearValue = new(1, 0)
+            };
+
+            VkRenderingInfo renderingInfo = new()
+            {
+                renderArea = new(0, 0, (uint)_shadowSingleImage.Width, (uint)_shadowSingleImage.Height),
+                layerCount = 1,// - (uint)i,
+                colorAttachmentCount = 0,
+                pDepthAttachment = &depth,
+                flags = VkRenderingFlags.ContentsInlineKHR | VkRenderingFlags.ContentsSecondaryCommandBuffers
+            };
+
 
             for (int i = 0; i < CASCADE_COUNT; i++)
             {
-                if(i > 0)
+                if (i > 0)
                 {
                     depth.loadOp = VkAttachmentLoadOp.Load;
                 }
@@ -534,15 +671,15 @@ namespace VECS
                 //_dirDepthOnly.PushConstants.SetPushConstantInt("layerCount", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, CASCADE_COUNT);
 
                 _dirDepthOnly.PushConstants.SetPushConstantInt("matrixStartIndex", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, i);
-                DrawBlob.ExecutateDepthOnly(frameInfo, frameInfo.CommandBuffer, DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, VkCullModeFlags.Front);
+                DrawBlob.ExecutateDepthOnly(_dirDepthOnly.Pipeline, frameInfo, frameInfo.CommandBuffer, DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, VkCullModeFlags.Front);
                 GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
             }
 
-
             _shadowSingleImage.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.LateFragmentTests, VkPipelineStageFlags2.FragmentShader);
-
-            _clearedImage = false;
         }
+
+
+
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private unsafe void SetViewPort(VkCommandBuffer commandBuffer)

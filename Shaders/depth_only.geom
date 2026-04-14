@@ -7,7 +7,6 @@ layout(location = 0) out vec4 FragPos; // FragPos from GS (output per emitvertex
 
 layout(location = 0) in vec2 gs_in_uv[];
 layout(location = 1) out vec2 gs_out_uv;
-layout(location = 2) out int gs_out_lightIndex;
 
 layout(std140, set = 1, binding = 0) readonly buffer CameraInfos {
 	CameraInfo values[];

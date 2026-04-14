@@ -1,7 +1,6 @@
 #version 460
 layout (location = 0) in vec4 FragPos;
 layout (location = 1) in vec2 UV;
-layout (location = 2) in flat int lightIndex;
 layout(depth_less) out float gl_FragDepth;
 
 layout(std140, set = 2, binding = 0) readonly buffer PointLights{
