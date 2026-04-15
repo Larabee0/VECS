@@ -1,10 +1,4 @@
-
-const mat4 biasMat = mat4( 
-	0.5, 0.0, 0.0, 0.0,
-	0.0, 0.5, 0.0, 0.0,
-	0.0, 0.0, 1.0, 0.0,
-	0.5, 0.5, 0.0, 1.0 
-);
+#define AMBIENT_DIR_SHADOW_FACTOR 0.03
 
 #define CUBEMAPFACE_POSITIVE_X 0
 #define CUBEMAPFACE_NEGATIVE_X 1
@@ -33,65 +27,45 @@ int CubeMapFaceID(vec3 dir)
     return faceID;
 }
 
-const vec3 sampleOffsetDirections[20] = vec3[]
-(
-   vec3( 1,  1,  1), vec3( 1, -1,  1), vec3(-1, -1,  1), vec3(-1,  1,  1), 
-   vec3( 1,  1, -1), vec3( 1, -1, -1), vec3(-1, -1, -1), vec3(-1,  1, -1),
-   vec3( 1,  1,  0), vec3( 1, -1,  0), vec3(-1, -1,  0), vec3(-1,  1,  0),
-   vec3( 1,  0,  1), vec3(-1,  0,  1), vec3( 1,  0, -1), vec3(-1,  0, -1),
-   vec3( 0,  1,  1), vec3( 0, -1,  1), vec3( 0, -1, -1), vec3( 0,  1, -1)
-);   
+const mat4 biasMat = mat4( 
+	0.5, 0.0, 0.0, 0.0,
+	0.0, 0.5, 0.0, 0.0,
+	0.0, 0.0, 1.0, 0.0,
+	0.5, 0.5, 0.0, 1.0 
+);
 
 
-#define ambientDIRShadow 0.03
-
-float textureProj(samplerCube plShadow, vec4 shadowCoord, vec2 offset) {
+float textureProj(sampler2D shadowTex, vec4 shadowCoord, vec2 offset, float ambientFactor) {
 	float shadow = 1.0;
 	float bias =  0.001;
 
 	if ( shadowCoord.z > -1.0 && shadowCoord.z < 1.0 ) {
-	}
-		float dist = texture(plShadow, vec3(shadowCoord.xyz)).r;
+		float dist = texture(shadowTex, vec2(shadowCoord.st + offset)).r;
 		if (shadowCoord.w > 0 && dist < shadowCoord.z - bias) {
-			shadow = 0;
-		}
-
-	return shadow;
-}
-
-float textureProj(sampler2D slShadow, vec4 shadowCoord, vec2 offset) {
-	float shadow = 1.0;
-	float bias =  0.001;
-
-	if ( shadowCoord.z > -1.0 && shadowCoord.z < 1.0 ) {
-		float dist = texture(slShadow, vec2(shadowCoord.st + offset)).r;
-		if (shadowCoord.w > 0 && dist < shadowCoord.z - bias) {
-			shadow = 0;
+			shadow = ambientFactor;
 		}
 	}
 
 	return shadow;
 }
 
-float textureProj(sampler2DArray dirShadow, vec4 shadowCoord, vec2 offset, uint cascadeIndex)
+float textureProj(sampler2DArray dirShadowTex, vec4 shadowCoord, vec2 offset, uint cascadeIndex, float ambientFactor)
 {
 	float shadow = 1.0;
 	float bias =  0.001;
-	//bias = max(0.05 * (1.0 - dot(normal, lightDir)), 0.005);
-
+	
 	if ( shadowCoord.z > -1.0 && shadowCoord.z < 1.0 ) {
-		float dist = texture(dirShadow, vec3(shadowCoord.st + offset, cascadeIndex)).r;
+		float dist = texture(dirShadowTex, vec3(shadowCoord.st + offset, cascadeIndex)).r;
 		if (shadowCoord.w > 0 && dist < shadowCoord.z - bias) {
-			shadow = ambientDIRShadow;
+			shadow = ambientFactor;
 		}
 	}
 	return shadow;
 
 }
 
-float filterPCF(sampler2DArray dirShadow, vec4 sc, uint cascadeIndex)
-{
-	ivec2 texDim = textureSize(dirShadow, 0).xy;
+float filterPCF(sampler2D shadowTex, vec4 sc, float ambientFactor) {
+	ivec2 texDim = textureSize(shadowTex,0);
 	float scale = 0.75;
 	float dx = scale * 1.0 / float(texDim.x);
 	float dy = scale * 1.0 / float(texDim.y);
@@ -102,7 +76,27 @@ float filterPCF(sampler2DArray dirShadow, vec4 sc, uint cascadeIndex)
 	
 	for (int x = -range; x <= range; x++) {
 		for (int y = -range; y <= range; y++) {
-			shadowFactor += textureProj(dirShadow, sc, vec2(dx*x, dy*y), cascadeIndex);
+			shadowFactor += textureProj(shadowTex, sc, vec2(dx*x, dy*y),ambientFactor);
+			count++;
+		}
+	}
+	return shadowFactor / count;
+}
+
+float filterPCF(sampler2DArray shadowTex, vec4 sc, uint textureIndex, float ambientFactor)
+{
+	ivec2 texDim = textureSize(shadowTex, 0).xy;
+	float scale = 0.75;
+	float dx = scale * 1.0 / float(texDim.x);
+	float dy = scale * 1.0 / float(texDim.y);
+
+	float shadowFactor = 0.0;
+	int count = 0;
+	int range = 1;
+	
+	for (int x = -range; x <= range; x++) {
+		for (int y = -range; y <= range; y++) {
+			shadowFactor += textureProj(shadowTex, sc, vec2(dx*x, dy*y), textureIndex, ambientFactor);
 			count++;
 		}
 	}
@@ -122,68 +116,39 @@ float DirShadows(sampler2DArray dirShadowMap, mat4[4]lightSpace, vec4 cascadeSpl
 	
 	float shadow = 0;
 	if (1 == 1) {
-		shadow = filterPCF(dirShadowMap, shadowCoord / shadowCoord.w, cascadeIndex);
+		shadow = filterPCF(dirShadowMap, shadowCoord / shadowCoord.w, cascadeIndex, AMBIENT_DIR_SHADOW_FACTOR);
 	} else {
-		shadow = textureProj(dirShadowMap, shadowCoord / shadowCoord.w, vec2(0.0), cascadeIndex);
+		shadow = textureProj(dirShadowMap, shadowCoord / shadowCoord.w, vec2(0.0), cascadeIndex,AMBIENT_DIR_SHADOW_FACTOR);
 	}
 	return shadow;
 }
 
-float ShadowSlCalculationAlt(sampler2D slShadow, vec3 fragPos, vec3 viewPos, SpotLight sl){
+float ShadowSlCalculationAlt(sampler2D slShadowTex, vec3 fragPos, vec3 viewPos, SpotLight sl){
 	float shadow = 0.0;
-	vec4 lightCoords = (biasMat * sl.lightSpace) * vec4(fragPos, 1.0);
-	shadow = textureProj(slShadow, lightCoords/lightCoords.w, vec2(0.0));
+	vec4 shadowCoord = (biasMat * sl.lightSpace) * vec4(fragPos, 1.0);
+	if (1 == 1) {
+		shadow = filterPCF(slShadowTex, shadowCoord /  shadowCoord.w,0);
+	}
+	else {
+		shadow = textureProj(slShadowTex, shadowCoord/shadowCoord.w, vec2(0.0),0);
+	}
 	return shadow;
 }
 
-float ShadowPlCalculationAlt(sampler2DArray plShadow, vec3 fragPos, vec3 viewPos, PointLight pl){
+float ShadowPlCalculationAlt(sampler2DArray plShadowTex, vec3 fragPos, vec3 viewPos, PointLight pl){
    float shadow = 0.0;
 
 	vec3 plDir = normalize(fragPos - pl.position.xyz);
 
 	int faceId = CubeMapFaceID(plDir);
 
-	vec4 lightCoords = (biasMat * pl.plLightSpace[faceId]) * vec4(fragPos, 1.0);
+	vec4 shadowCoord = (biasMat * pl.plLightSpace[faceId]) * vec4(fragPos, 1.0);
 	
-	shadow = textureProj(plShadow, lightCoords/lightCoords.w, vec2(0.0),faceId);
+	if (1 == 1) {
+		shadow = filterPCF(plShadowTex, shadowCoord /  shadowCoord.w, faceId,0);
+	}
+	else {
+		shadow = textureProj(plShadowTex, shadowCoord /  shadowCoord.w, vec2(0.0),faceId,0);
+	}
 	return shadow;
-}
-
-float FilterPLPCF(samplerCube plShadow, vec3 fragPos, vec3 viewPos, vec3 lightPos, float farPlane){
-    vec3 fragToLight = fragPos - lightPos;
-	float currentDepth = length(fragToLight);
-	float shadow = 0.0;
-	int samples  = 20;
-	float viewDistance = length(viewPos - fragPos);
-	float diskRadius = (1.0 + (viewDistance /farPlane)) / farPlane;
-	for(int i = 0; i < samples; ++i)
-	{
-		vec3 coord = vec3(fragToLight + sampleOffsetDirections[i] * diskRadius);
-	    float closestDepth =1.0- texture(plShadow, coord).r;
-	    closestDepth *= farPlane;   // undo mapping [0;1]
-	    if(currentDepth > closestDepth)
-	        shadow += 1.0;
-		//shadow+=closestDepth;
-	}
-	shadow /= float(samples);  
-	return (1.0-shadow);
-}
-
-float ShadowSlCalculation(sampler2D slShadow, vec3 fragPos, vec3 viewPos, SpotLight sl){
-	float shadow = 0.0;
-	vec4 lightSpacePos = sl.lightSpace * vec4(fragPos,1);
-	vec3 lightCoords = lightSpacePos.xyz / lightSpacePos.w;
-	
-	vec3 fragToLight = fragPos - sl.position;
-	float currentDepth = length(fragToLight);
-	
-	lightCoords = (lightCoords + 1.0) / 2.0;
-	
-	float closestDepth = texture(slShadow, lightCoords.xy).r;
-	closestDepth *= sl.farPlane;
-	if (currentDepth > closestDepth+0.005){
-		shadow += 1.0;   
-	}
-
-	return (1.0-shadow);
 }

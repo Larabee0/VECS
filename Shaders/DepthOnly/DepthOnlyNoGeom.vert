@@ -57,7 +57,7 @@ void main()
     int bufferOffset = instanceInfo.matrixStartIndex;
     mat4 transformMatrix = getTransform(bufferSelect, bufferOffset);
     
-    gl_Position = transformMatrix *objectMat.modelMatrix * vec4(inPos, 1.0);
+    gl_Position = transformMatrix *(objectMat.modelMatrix * vec4(inPos, 1.0));
     fragUV = uv;
 }  
 

@@ -68,7 +68,7 @@ namespace VECS
             entityManager.AddComponent(MainCamera, new Rotation() { Value = TransformExtensions.Euler(initalCameraRot) });
             entityManager.AddComponent(MainCamera, cameraPerspective);
             entityManager.AddComponent<MainCamera>(MainCamera);
-            
+            return;
             MainCamera = entityManager.CreateEntity();
             entityManager.AddComponent(MainCamera, new Translation() { Value = new Vector3(0,1,0) });
             entityManager.AddComponent(MainCamera, new Rotation() { Value = TransformExtensions.Euler(initalCameraRot) });
@@ -164,7 +164,7 @@ namespace VECS
             entityManager.AddComponent(pointLight, new ShadowInfo()
             {
                 UpdateBehaviour = ShadowUpdate.Always,
-                Resolution = ShadowMapResolution.TenTwentyFour.GetResolution(),
+                Resolution = ShadowMapResolution.FouryNinteySix.GetResolution(),
             });
 
             entityManager.AddComponent(pointLight, new Scale() { Value = new Vector3(0.05f, 0.05f, 0.05f) });

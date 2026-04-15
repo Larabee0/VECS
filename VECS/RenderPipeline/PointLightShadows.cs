@@ -35,7 +35,7 @@ namespace VECS
                 size,
                 6,
                 SHADOW_FORMAT,
-                VkSamplerAddressMode.ClampToBorder,
+                VkSamplerAddressMode.ClampToEdge,
                 VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled,
                 false
             );
