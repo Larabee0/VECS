@@ -10,7 +10,7 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
-    internal readonly struct MatComparerer : IComparer<RenderMesh>
+    internal readonly struct MatComparerer : IComparer<RenderMesh>, IComparer<MaterialDrawCommand>
     {
         public readonly static MatComparerer Comparer = new();
 
@@ -33,6 +33,17 @@ namespace VECS
             if (comp != 0) return comp;
             return meshX.SubMesh.CompareTo(meshY.SubMesh);
 
+        }
+
+        public int Compare(MaterialDrawCommand x, MaterialDrawCommand y)
+        {
+            var comp = x.Material.CompareTo(y.Material);
+            if(comp != 0) return comp;
+            comp =  x.Variant.CompareTo(y.Variant);
+            if (comp != 0) return comp;
+            comp = x.Entity.CompareTo(y.Entity);
+            if (comp != 0) return comp;
+            return x.DirectMesh.CompareTo(y.DirectMesh);
         }
     }
 
@@ -134,6 +145,12 @@ namespace VECS
         private static SwapChainBuffer<VECSDrawIndexIndirectCommand> _indirectCmdBufferAllInOne;
 
         private static int _firstTransparentByMat;
+        private static int _alphaClippingDepthStart;
+        private static int _alphaClippingDepthCount;
+
+        public static int SimpleDepthStart => _alphaClippingDepthCount > 0 && _alphaClippingDepthStart > 0 ? 0 : _alphaClippingDepthCount;
+        public static int SimpleDepthCount => _depthCommands.Length - _alphaClippingDepthCount;
+
         public static int OpaqueCmdCountByMat => _firstTransparentByMat;
         public static int TransparentCmdCountByMat => _drawCommandsByMat.Length - _firstTransparentByMat;
 
@@ -368,8 +385,9 @@ namespace VECS
 
             Array.Copy(_drawCommandsByMat, _depthCommands, _drawCommandsByMat.Length);
 
-            uint alphaClippingDepthVariant = 1;
+            uint alphaClippingDepthVariant = 0;
             int depthHash = EnginePipes.DepthOnly.Hash;
+            int depthAlphaHash = EnginePipes.DepthOnlyAlphaClipping.Hash;
             for (int i = 0; i < _drawCommandsByMat.Length; i++)
             {
                 var matCmd = _drawCommandsByMat[i];
@@ -381,20 +399,19 @@ namespace VECS
                 
                 if (variant.AlphaClipping)
                 {
-                    var alphaClipping = EnginePipes.DepthOnly.GetOrCreateVariant(alphaClippingDepthVariant);
+                    var alphaClipping = EnginePipes.DepthOnlyAlphaClipping.GetOrCreateVariant(alphaClippingDepthVariant);
                     
-                    SetAlphaClipping(variant, alphaClipping);
-                    alphaClipping = DirectionalLightShadows.DirDepthOnly.GetOrCreateVariant(alphaClippingDepthVariant);
                     SetAlphaClipping(variant, alphaClipping);
 
                     _depthCommands[i].Variant = (int)alphaClippingDepthVariant;
                     alphaClippingDepthVariant++;
+                    _depthCommands[i].Material = depthAlphaHash;
                 }
                 else
                 {
                     _depthCommands[i].Variant = 0;
+                    _depthCommands[i].Material = depthHash;
                 }
-                _depthCommands[i].Material = depthHash;
                 _depthCommands[i].Entity = 0;
 
                 for (int j = 0; j < _renderBuffers.Length; j++)
@@ -407,6 +424,10 @@ namespace VECS
                 }
             }
 
+            Array.Sort(_depthCommands,MatComparerer.Comparer);
+
+            _alphaClippingDepthCount = (int)alphaClippingDepthVariant;
+            _alphaClippingDepthStart = _depthCommands[0].Material == depthAlphaHash ? 0 : SimpleDepthCount;
 
             uint allInOneDrawCount = (uint)entityCount;
             Application.ParallelFor(AllInOneMats.Count, (i) =>
@@ -714,18 +735,30 @@ namespace VECS
 
         public static void ExecutateDepthOnly(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, int pushConstantIndex)
         {
-            EnginePipes.DepthOnly.ExecuteDrawCommandsPushConstantOverride(frameInfo, pushConstantIndex, commandBuffer, _depthCommands, OpaqueCmdCountByMat, _indirectCmdBufferAllInOne);
+            if(SimpleDepthCount > 0)
+            {
+                EnginePipes.DepthOnly.ExecuteDrawCommandsPushConstantOverride(frameInfo, pushConstantIndex, commandBuffer, _depthCommands.AsSpan(SimpleDepthStart, SimpleDepthCount), OpaqueCmdCountByMat, _indirectCmdBufferAllInOne);
+            }
+
+            if (_alphaClippingDepthCount > 0)
+            {
+                EnginePipes.DepthOnlyAlphaClipping.ExecuteDrawCommandsPushConstantOverride(frameInfo, pushConstantIndex, commandBuffer, _depthCommands.AsSpan(_alphaClippingDepthStart, _alphaClippingDepthCount), OpaqueCmdCountByMat, _indirectCmdBufferAllInOne);
+            }
         }
 
         public static void ExecutateDepthOnly(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, int pushConstantIndex, VkCullModeFlags cullMode)
         {
-            EnginePipes.DepthOnly.ExecuteDrawCommandsPushConstantOverride(frameInfo, pushConstantIndex, commandBuffer, _depthCommands, OpaqueCmdCountByMat, _indirectCmdBufferAllInOne,cullMode);
+            if (SimpleDepthCount > 0)
+            {
+                EnginePipes.DepthOnly.ExecuteDrawCommandsPushConstantOverride(frameInfo, pushConstantIndex, commandBuffer, _depthCommands.AsSpan(SimpleDepthStart, SimpleDepthCount), SimpleDepthCount, _indirectCmdBufferAllInOne, cullMode);
+            }
+
+            if (_alphaClippingDepthCount > 0)
+            {
+                EnginePipes.DepthOnlyAlphaClipping.ExecuteDrawCommandsPushConstantOverride(frameInfo, pushConstantIndex, commandBuffer, _depthCommands.AsSpan(_alphaClippingDepthStart, _alphaClippingDepthCount), _alphaClippingDepthCount, _indirectCmdBufferAllInOne, cullMode);
+            }
         }
 
-        public static void ExecutateDepthOnly(GraphicsPipeline depthonlyOverride, RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, int pushConstantIndex, VkCullModeFlags cullMode)
-        {
-            depthonlyOverride.ExecuteDrawCommandsPushConstantOverride(frameInfo, pushConstantIndex, commandBuffer, _depthCommands, OpaqueCmdCountByMat, _indirectCmdBufferAllInOne, cullMode);
-        }
         public static void CullAllInOne(RendererFrameInfo frameInfo, CullData cullData)
         {
             CullAllInOne(frameInfo,frameInfo.CommandBuffer,cullData);

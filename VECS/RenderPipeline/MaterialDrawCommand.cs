@@ -1,6 +1,4 @@
-﻿using Vortice.Vulkan;
-
-namespace VECS
+﻿namespace VECS
 {
     public struct MaterialDrawCommand
     {

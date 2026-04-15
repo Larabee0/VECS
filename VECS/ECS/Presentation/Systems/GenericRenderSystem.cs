@@ -20,6 +20,7 @@ namespace VECS.ECS.Presentation
 
             // DrawBlob.AllInOneMats.Add(EnginePipes.DepthOnly.Hash);
             DrawBlob.AllInOneMats.Add(EnginePipes.DepthOnly.Hash);
+            DrawBlob.AllInOneMats.Add(EnginePipes.DepthOnlyAlphaClipping.Hash);
 
             EnginePipes.DepthOnly.PushConstants.SetPushConstantInt("layerCount", DEPTH_ONLY_PUSH_CONSTANT_INDEX, 1);
             EnginePipes.DepthOnly.PushConstants.SetPushConstantInt("bufferSelect", DEPTH_ONLY_PUSH_CONSTANT_INDEX, 0);

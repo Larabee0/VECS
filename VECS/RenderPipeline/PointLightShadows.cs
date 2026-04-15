@@ -11,8 +11,7 @@ namespace VECS
         public const uint MAX_POINT_LIGHT_SHADOW_CASTERS = 10;
         private const int POINT_SHADOWS_PUSH_CONSTANT_INDEX = 2;        
 
-        private static readonly int matsPropertyId = "pointShadows".GetShaderPropertyId();
-        private static readonly int lightInfoPropertyId = "pointLights".GetShaderPropertyId();
+        private static readonly int matsPropertyId = ShaderProperties.PLShadowMatsId;
 
         public PointLightShadows() : base((int)MAX_POINT_LIGHT_SHADOW_CASTERS)
         {
@@ -23,15 +22,18 @@ namespace VECS
 
             EngineTextures.AddOrUpdateTexture(ShaderProperties.PLShadowImageId, _shadowDepthTextures);
 
-            _depthOnly.PushConstants.SetPushConstantInt("layerCount", POINT_SHADOWS_PUSH_CONSTANT_INDEX, 6);
-            _depthOnly.PushConstants.SetPushConstantInt("useLightPos", POINT_SHADOWS_PUSH_CONSTANT_INDEX, 1);
+            _depthOnly.PushConstants.SetPushConstantInt("layerCount", POINT_SHADOWS_PUSH_CONSTANT_INDEX, 1);
             _depthOnly.PushConstants.SetPushConstantInt("bufferSelect", POINT_SHADOWS_PUSH_CONSTANT_INDEX, 2);
+            _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("layerCount", POINT_SHADOWS_PUSH_CONSTANT_INDEX, 1);
+            _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("bufferSelect", POINT_SHADOWS_PUSH_CONSTANT_INDEX, 2);
         }
 
-        private static Cubemap CreateShadowMap(int index, int size)
+        private static Texture2DArray CreateShadowMap(int index, int size)
         {
-            Cubemap depthImage = new(string.Format("PointShadowDepthImage_{0}", index),
+            Texture2DArray depthImage = new(string.Format("PointShadowDepthImage_{0}", index),
                 size,
+                size,
+                6,
                 SHADOW_FORMAT,
                 VkSamplerAddressMode.ClampToBorder,
                 VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled,
@@ -46,7 +48,7 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public override bool SetShadowTexture(int i, int resolution)
         {
-            var cubemap = (Cubemap)_shadowDepthTextures.GetTexture(i);
+            var cubemap = (Texture2DArray)_shadowDepthTextures.GetTexture(i);
             if (cubemap.Width != resolution)
             {
                 cubemap.Reinitialise(resolution);
@@ -58,24 +60,14 @@ namespace VECS
 
         private static void FillViewMatrix(SwapChainBuffer mats, int index, PointLightUniform pl)
         {
-            var lightPos = pl.Position.AsVector3();
             var offset = index * 6;
 
-            Matrix4x4 CubeProjectionMatrix = Matrix4x4.CreatePerspectiveFieldOfView(MathF.PI * 0.5f, 1.0f, 0.1f, pl.FarPlane);
-
-            mats.UnsafeSet(offset + 0, Matrix4x4.CreateLookAt(lightPos, lightPos + new Vector3(1.0f, 0.0f, 0.0f), new Vector3(0.0f, -1.0f, 0.0f)) * CubeProjectionMatrix);
-            mats.UnsafeSet(offset + 1, Matrix4x4.CreateLookAt(lightPos, lightPos + new Vector3(-1.0f, 0.0f, 0.0f), new Vector3(0.0f, -1.0f, 0.0f)) * CubeProjectionMatrix);
-            mats.UnsafeSet(offset + 2, Matrix4x4.CreateLookAt(lightPos, lightPos + new Vector3(0.0f, 1.0f, 0.0f), new Vector3(0.0f, 0.0f, 1.0f)) * CubeProjectionMatrix);
-            mats.UnsafeSet(offset + 3, Matrix4x4.CreateLookAt(lightPos, lightPos + new Vector3(0.0f, -1.0f, 0.0f), new Vector3(0.0f, 0.0f, -1.0f)) * CubeProjectionMatrix);
-            mats.UnsafeSet(offset + 4, Matrix4x4.CreateLookAt(lightPos, lightPos + new Vector3(0.0f, 0.0f, 1.0f), new Vector3(0.0f, -1.0f, 0.0f)) * CubeProjectionMatrix);
-            mats.UnsafeSet(offset + 5, Matrix4x4.CreateLookAt(lightPos, lightPos + new Vector3(0.0f, 0.0f, -1.0f), new Vector3(0.0f, -1.0f, 0.0f)) * CubeProjectionMatrix);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static void FillLightInfo(SwapChainBuffer lightInfo, int index, PointLightUniform pl)
-        {
-            var lightPos = new Vector4(pl.Position.AsVector3(), pl.FarPlane);
-            lightInfo.UnsafeSet(index, lightPos);
+            mats.UnsafeSet(offset + 0, pl.PositiveX);
+            mats.UnsafeSet(offset + 1, pl.NegativeX);
+            mats.UnsafeSet(offset + 2, pl.PositiveY);
+            mats.UnsafeSet(offset + 3, pl.NegativeY);
+            mats.UnsafeSet(offset + 4, pl.PositiveZ);
+            mats.UnsafeSet(offset + 5, pl.NegativeZ);
         }
 
         public override void PreShadowPass(in RendererFrameInfo frameInfo)
@@ -84,35 +76,62 @@ namespace VECS
             {
                 AssignDirShadowTexture(ShaderProperties.PLShadowImageId);
             }
-            base.PreShadowPass(frameInfo);
+            //base.PreShadowPass(frameInfo);
 
-            EnginePipes.DepthOnly.SetDescriptorStorageBufferLengthFromProperty(matsPropertyId, MAX_POINT_LIGHT_SHADOW_CASTERS * 6u);
-            EnginePipes.DepthOnly.SetDescriptorStorageBufferLengthFromProperty(lightInfoPropertyId, MAX_POINT_LIGHT_SHADOW_CASTERS);
+            if (frameInfo.LightingInfo.NumPointLightShadows > 0)
+            {
+                var mats = EngineBuffers.TryGetBuffer(matsPropertyId);
+                mats.SetBuffersDirty(true);
+                GPUBufferExtensions.WriteFromHostDelayed(mats, frameInfo.FrameIndex);
+            }
+        }
 
-
-            _depthOnly.GetStorageSwapChainBuffer(matsPropertyId).SetBuffersDirty(true);
-            _depthOnly.GetStorageSwapChainBuffer(lightInfoPropertyId).SetBuffersDirty(true);
+        public Matrix4x4 GetViewMatrix(int faceId, Vector3 position)
+        {
+            return faceId switch
+            {
+                0 => Matrix4x4.CreateLookAt(position, position + new Vector3(1.0f, 0.0f, 0.0f), new Vector3(0.0f, -1.0f, 0.0f)),
+                1 => Matrix4x4.CreateLookAt(position, position + new Vector3(-1.0f, 0.0f, 0.0f), new Vector3(0.0f, -1.0f, 0.0f)),
+                2 => Matrix4x4.CreateLookAt(position, position + new Vector3(0.0f, 1.0f, 0.0f), new Vector3(0.0f, 0.0f, 1.0f)),
+                3 => Matrix4x4.CreateLookAt(position, position + new Vector3(0.0f, -1.0f, 0.0f), new Vector3(0.0f, 0.0f, -1.0f)),
+                4 => Matrix4x4.CreateLookAt(position, position + new Vector3(0.0f, 0.0f, 1.0f), new Vector3(0.0f, -1.0f, 0.0f)),
+                5 => Matrix4x4.CreateLookAt(position, position + new Vector3(0.0f, 0.0f, -1.0f), new Vector3(0.0f, -1.0f, 0.0f)),
+                _ => Matrix4x4.Identity,
+            };
         }
 
         public void PointLightShadowPass(in RendererFrameInfo frameInfo, int index, PointLightUniform pointLight)
         {
-            Texture cubemap = _shadowDepthTextures.GetTexture(index);
+            Texture2DArray arrayTex = (Texture2DArray)_shadowDepthTextures.GetTexture(index);
 
-            FillViewMatrix(_depthOnly.GetStorageSwapChainBuffer(matsPropertyId), index, pointLight);
-            FillLightInfo(_depthOnly.GetStorageSwapChainBuffer(lightInfoPropertyId),index, pointLight);
+            FillViewMatrix(EngineBuffers.TryGetBuffer(matsPropertyId), index, pointLight);
 
-            SetImageLayoutWrite(frameInfo.CommandBuffer, cubemap);
-            BeginShadowPass(frameInfo.CommandBuffer, cubemap);
-
-            _depthOnly.PushConstants.SetPushConstantInt("matrixStartIndex", POINT_SHADOWS_PUSH_CONSTANT_INDEX, index * 6);
+            SetImageLayoutWrite(frameInfo.CommandBuffer, arrayTex);
             _depthOnly.PushConstants.SetPushConstantInt("layerOffset", POINT_SHADOWS_PUSH_CONSTANT_INDEX, 0);
-            _depthOnly.PushConstants.SetPushConstantInt("lightIndex", POINT_SHADOWS_PUSH_CONSTANT_INDEX, index);
+            _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("layerOffset", POINT_SHADOWS_PUSH_CONSTANT_INDEX, 0);
+            CullData depthBufferCullInfo;
+            Matrix4x4 CubeProjectionMatrix = Matrix4x4.CreatePerspectiveFieldOfView(MathF.PI * 0.5f, 1.0f, 0.1f, pointLight.FarPlane);
 
-            DrawBlob.ExecutateDepthOnly(frameInfo, frameInfo.CommandBuffer, POINT_SHADOWS_PUSH_CONSTANT_INDEX, VkCullModeFlags.Front);
+            for (int i = 0; i < 6; i++)
+            {
+                DrawBlob.IndirectToComputeMemoryBarrierByMat(frameInfo.CommandBuffer);
 
-            GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
+                depthBufferCullInfo = new(SHADOW_INCLUDE_MASK, SHADOW_EXCLUDE_MASK, SHADOW_CULLING, SHADOW_DST_CULLING, SHADOW_DEPTH_CULLING,
+                     0.1f, CubeProjectionMatrix, GetViewMatrix(i,pointLight.Position.AsVector3()));
 
-            SetImageLayoutRead(frameInfo.CommandBuffer, cubemap);
+                DrawBlob.CullAllInOne(frameInfo, depthBufferCullInfo);
+                BeginShadowPass(frameInfo.CommandBuffer, arrayTex.AdditionalImageViews[i], (uint)arrayTex.Width);
+
+                _depthOnly.PushConstants.SetPushConstantInt("matrixStartIndex", POINT_SHADOWS_PUSH_CONSTANT_INDEX, (index * 6)+i);
+                _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("matrixStartIndex", POINT_SHADOWS_PUSH_CONSTANT_INDEX, (index * 6) + i);
+
+                DrawBlob.ExecutateDepthOnly(frameInfo, frameInfo.CommandBuffer, POINT_SHADOWS_PUSH_CONSTANT_INDEX, VkCullModeFlags.Front);
+
+                GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
+            }
+
+
+            SetImageLayoutRead(frameInfo.CommandBuffer, arrayTex);
 
         }
     }

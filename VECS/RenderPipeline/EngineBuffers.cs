@@ -23,6 +23,10 @@ namespace VECS
         internal readonly static SwapChainBuffer<PointLightUniform> PointLightBuffer;
         internal readonly static SwapChainBuffer<SpotLightUniform> SpotLightBuffer;
 
+        internal readonly static SwapChainBuffer<Matrix4x4> DirectionalLightMatsBuffer;
+        internal readonly static SwapChainBuffer<Matrix4x4> PointLightMatsBuffer;
+        internal readonly static SwapChainBuffer<Matrix4x4> SpotLightMatsBuffer;
+
         internal readonly static ConcurrentDictionary<int, SwapChainBuffer> _engineBuffers = new();
 
         public static SwapChainBuffer TryGetBuffer(int propertyId)
@@ -78,8 +82,11 @@ namespace VECS
             PointLightBuffer = new(PointLightShadows.MAX_POINT_LIGHT_SHADOW_CASTERS, BufferUsageFlags, true);
             SpotLightBuffer = new(SpotLightShadows.MAX_SPOT_LIGHT_SHADOW_CASTERS, BufferUsageFlags, true);
 
-            GPUBufferExtensions.WriteFromHostDelayed(PointLightBuffer, 0);
-            GPUBufferExtensions.WriteFromHostDelayed(SpotLightBuffer, 0);
+
+
+            DirectionalLightMatsBuffer = new(DirectionalLightShadows.CASCADE_COUNT, BufferUsageFlags, true);
+            PointLightMatsBuffer = new(PointLightShadows.MAX_POINT_LIGHT_SHADOW_CASTERS*6, BufferUsageFlags, true);
+            SpotLightMatsBuffer = new(SpotLightShadows.MAX_SPOT_LIGHT_SHADOW_CASTERS, BufferUsageFlags, true);
 
             AddEngineBuffer(ShaderProperties.CameraInfoId, CameraInfoBuffer);
             AddEngineBuffer(ShaderProperties.CameraInverseId, CameraInverseInfoBuffer);
@@ -89,6 +96,10 @@ namespace VECS
             AddEngineBuffer(ShaderProperties.LightingInfoId, LightingInfoBuffer);
             AddEngineBuffer(ShaderProperties.PointLightsBufferId, PointLightBuffer);
             AddEngineBuffer(ShaderProperties.SpotLightsBufferId, SpotLightBuffer);
+
+            AddEngineBuffer(ShaderProperties.DirShadowMatsId, DirectionalLightMatsBuffer);
+            AddEngineBuffer(ShaderProperties.PLShadowMatsId, PointLightMatsBuffer);
+            AddEngineBuffer(ShaderProperties.SLShadowMatsId, SpotLightMatsBuffer);
         }
 
         public unsafe static void UpdateCameras(EntityManager entityManager, int frameIndex)
@@ -132,7 +143,7 @@ namespace VECS
             CameraInverseInfoBuffer.SetBuffersDirty(true);
             AddtionalCameraInfoBuffer.SetBuffersDirty(true);
             OrthopgrahicInfoBuffer.SetBuffersDirty(true);
-            GPUBufferExtensions.WriteFromHostDelayed( CameraInfoBuffer, frameIndex);
+            GPUBufferExtensions.WriteFromHostDelayed(CameraInfoBuffer, frameIndex);
             GPUBufferExtensions.WriteFromHostDelayed(CameraInverseInfoBuffer,frameIndex);
             GPUBufferExtensions.WriteFromHostDelayed(AddtionalCameraInfoBuffer,frameIndex);
             GPUBufferExtensions.WriteFromHostDelayed(OrthopgrahicInfoBuffer,frameIndex);
@@ -217,6 +228,11 @@ namespace VECS
             LightingInfoBuffer.Dispose();
             PointLightBuffer.Dispose();
             SpotLightBuffer.Dispose();
+
+            DirectionalLightMatsBuffer.Dispose();
+            PointLightMatsBuffer.Dispose();
+            SpotLightMatsBuffer.Dispose();
+
             _engineBuffers.Clear();
         }
     }

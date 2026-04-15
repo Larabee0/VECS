@@ -34,6 +34,10 @@ namespace VECS
         public static readonly int PLShadowImageId = "plShadow".GetShaderPropertyId();
         public static readonly int SLShadowImageId = "slShadow".GetShaderPropertyId();
 
+        public static readonly int DirShadowMatsId = "directionalShadowsMats".GetShaderPropertyId();
+        public static readonly int PLShadowMatsId = "pointShadowsMats".GetShaderPropertyId();
+        public static readonly int SLShadowMatsId = "spotShadowsMats".GetShaderPropertyId();
+
         public static readonly HashSet<int> IgnoreUnFoundShaderProperties;
 
         private static readonly Dictionary<int, uint> ImageBindingArrayCounts;

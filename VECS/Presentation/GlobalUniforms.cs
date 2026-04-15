@@ -160,9 +160,16 @@ namespace VECS
         }
     }
 
-    [StructLayout(LayoutKind.Sequential, Size = 80)]
+    [StructLayout(LayoutKind.Sequential, Size = 464)]
     public struct PointLightUniform
     {
+        public Matrix4x4 PositiveX;
+        public Matrix4x4 NegativeX;
+        public Matrix4x4 PositiveY;
+        public Matrix4x4 NegativeY;
+        public Matrix4x4 PositiveZ;
+        public Matrix4x4 NegativeZ;
+
         public Vector4 Position;
         public Vector4 Ambient;
         public Vector4 Diffuse;
@@ -172,6 +179,7 @@ namespace VECS
         public float Linear;
         public float Quadratic;
         public float FarPlane;
+
 
         public PointLightUniform(Vector3 position, PointLight pointLight)
         {
@@ -183,6 +191,15 @@ namespace VECS
             Linear = pointLight.Linear;
             Quadratic = pointLight.Quadratic;
             FarPlane = pointLight.Range;
+
+            Matrix4x4 CubeProjectionMatrix = Matrix4x4.CreatePerspectiveFieldOfView(MathF.PI * 0.5f, 1.0f, 0.1f, FarPlane);
+
+            PositiveX = Matrix4x4.CreateLookAt(position, position + new Vector3(1.0f, 0.0f, 0.0f), new Vector3(0.0f, -1.0f, 0.0f)) * CubeProjectionMatrix;
+            NegativeX = Matrix4x4.CreateLookAt(position, position + new Vector3(-1.0f, 0.0f, 0.0f), new Vector3(0.0f, -1.0f, 0.0f)) * CubeProjectionMatrix;
+            PositiveY = Matrix4x4.CreateLookAt(position, position + new Vector3(0.0f, 1.0f, 0.0f), new Vector3(0.0f, 0.0f, 1.0f)) * CubeProjectionMatrix;
+            NegativeY = Matrix4x4.CreateLookAt(position, position + new Vector3(0.0f, -1.0f, 0.0f), new Vector3(0.0f, 0.0f, -1.0f)) * CubeProjectionMatrix;
+            PositiveZ = Matrix4x4.CreateLookAt(position, position + new Vector3(0.0f, 0.0f, 1.0f), new Vector3(0.0f, -1.0f, 0.0f)) * CubeProjectionMatrix;
+            NegativeZ = Matrix4x4.CreateLookAt(position, position + new Vector3(0.0f, 0.0f, -1.0f), new Vector3(0.0f, -1.0f, 0.0f)) * CubeProjectionMatrix;
         }
     }
 

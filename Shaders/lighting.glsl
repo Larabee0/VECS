@@ -1,5 +1,7 @@
 
 struct PointLight {
+    mat4[6] plLightSpace;
+    
 	vec4 position;
     
 	vec4 ambient;

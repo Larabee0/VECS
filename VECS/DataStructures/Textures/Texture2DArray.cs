@@ -150,6 +150,12 @@ namespace VECS
             }
         }
 
+        public void Reinitialise(int size)
+        {
+            _imageExtent = new((uint)size, (uint)size, _imageExtent.depth);
+            Reinitialise();
+        }
+        
         public unsafe override void Dispose()
         {
             if (_disposed) return;

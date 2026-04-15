@@ -15,7 +15,8 @@ namespace VECS
         public static GraphicsPipeline UnlitTransparent{get; private set;}
         public static GraphicsPipeline Unlit{get; private set;}
         public static GraphicsPipeline WireFrame{get; private set;}
-        public static GraphicsPipeline DepthOnly{get; private set;}
+        public static GraphicsPipeline DepthOnly { get; private set; }
+        public static GraphicsPipeline DepthOnlyAlphaClipping { get; private set; }
         public static GraphicsPipeline PointLight{get; private set;}
         public static GraphicsPipeline Blit{get; private set;}
         public static GraphicsPipeline OIT_Composite{get; private set;}
@@ -54,8 +55,9 @@ namespace VECS
             //shadowConfig.rasterizationInfo.depthBiasEnable = false;
             //shadowConfig.rasterizationInfo.depthBiasConstantFactor = 1.25f;
             //shadowConfig.rasterizationInfo.depthBiasSlopeFactor = 1.75f;
-            DepthOnly = new GraphicsPipeline("DepthOnly", "depth_only.vert", "depth_only.frag", shadowConfig, "depth_only.geom");
-            
+            DepthOnly = new GraphicsPipeline("DepthOnly", "DepthOnlyNoGeom.vert",shadowConfig);
+            DepthOnlyAlphaClipping = new GraphicsPipeline("DepthOnlyAlphaClipping", "DepthOnlyNoGeom.vert", "depth_only_alpha.frag", shadowConfig);
+
             var alphaBlending = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             Unlit = new GraphicsPipeline("Unlit", "unlit.vert", "unlit.frag", alphaBlending);
             GraphicsPipelineConfigInfo.EnableAlphaBlending(ref alphaBlending);

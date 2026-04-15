@@ -52,7 +52,7 @@ namespace VECS
             _sphere = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("UV-Sphere.obj"), null)[0];
             CreateMainCamera();
             DirectionalLight();
-            //PointLight();
+            PointLight();
             //SponzaOld();
             SponzaNew();
             //SponzaNewPBR();
@@ -68,8 +68,7 @@ namespace VECS
             entityManager.AddComponent(MainCamera, new Rotation() { Value = TransformExtensions.Euler(initalCameraRot) });
             entityManager.AddComponent(MainCamera, cameraPerspective);
             entityManager.AddComponent<MainCamera>(MainCamera);
-            return;
-
+            
             MainCamera = entityManager.CreateEntity();
             entityManager.AddComponent(MainCamera, new Translation() { Value = new Vector3(0,1,0) });
             entityManager.AddComponent(MainCamera, new Rotation() { Value = TransformExtensions.Euler(initalCameraRot) });
@@ -127,20 +126,20 @@ namespace VECS
             
             
             PointLight(entityManager, new(-10, 1, 0), new(1, 0, 0, 1), _sphere);
-            PointLight(entityManager, new(10, 1f, 0), new(1, 0, 0, 1), _sphere);
-            
-
-            PointLight(entityManager, new(8, 1, 0), new(0, 1, 0, 1), _sphere);
-            PointLight(entityManager, new(-8, 1, 0), new(0, 1, 0, 1), _sphere);
-            
-            PointLight(entityManager, new(6, 1, 0), new(0, 0, 1, 1), _sphere);
-            PointLight(entityManager, new(-6, 1, 0), new(0, 0, 1, 1), _sphere);
-            
-            PointLight(entityManager, new(4, 1, 0), new(1, 1, 0, 1), _sphere);
-            PointLight(entityManager, new(-4, 1, 0), new(1, 1, 0, 1), _sphere);
-            
-            PointLight(entityManager, new(2, 1, 0), new(0, 1, 1, 1), _sphere);
-            PointLight(entityManager, new(-2, 1, 0), new(0, 1, 1, 1), _sphere);
+            //PointLight(entityManager, new(10, 1f, 0), new(1, 0, 0, 1), _sphere);
+            // 
+            // 
+            // PointLight(entityManager, new(8, 1, 0), new(0, 1, 0, 1), _sphere);
+            // PointLight(entityManager, new(-8, 1, 0), new(0, 1, 0, 1), _sphere);
+            // 
+            // PointLight(entityManager, new(6, 1, 0), new(0, 0, 1, 1), _sphere);
+            // PointLight(entityManager, new(-6, 1, 0), new(0, 0, 1, 1), _sphere);
+            // 
+            // PointLight(entityManager, new(4, 1, 0), new(1, 1, 0, 1), _sphere);
+            // PointLight(entityManager, new(-4, 1, 0), new(1, 1, 0, 1), _sphere);
+            // 
+            // PointLight(entityManager, new(2, 1, 0), new(0, 1, 1, 1), _sphere);
+            // PointLight(entityManager, new(-2, 1, 0), new(0, 1, 1, 1), _sphere);
 
         }
 
@@ -165,7 +164,7 @@ namespace VECS
             entityManager.AddComponent(pointLight, new ShadowInfo()
             {
                 UpdateBehaviour = ShadowUpdate.Always,
-                Resolution = ShadowMapResolution.TwentyFourtyEight.GetResolution(),
+                Resolution = ShadowMapResolution.TenTwentyFour.GetResolution(),
             });
 
             entityManager.AddComponent(pointLight, new Scale() { Value = new Vector3(0.05f, 0.05f, 0.05f) });

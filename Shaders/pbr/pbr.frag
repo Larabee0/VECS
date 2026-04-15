@@ -39,7 +39,7 @@ layout(set = 0,binding = 4) readonly buffer CameraInverses {
 } cameraInverse;
 
 layout (set = 1, binding = 2) uniform sampler2DArray dirShadow;
-layout (set = 1, binding = 3) uniform samplerCube[] plShadow;
+layout (set = 1, binding = 3) uniform sampler2DArray[] plShadow;
 layout (set = 1, binding = 4) uniform sampler2D[] slShadow;
 
 layout (set = 1, binding = 5) uniform samplerCube samplerIrradiance;
@@ -179,11 +179,8 @@ void main() {
 		lighting.directionalLight.lightSpace,
 		lighting.directionalLight.cascadeSplits,
 		lighting.directionalLight.cascadeCount,
-		lighting.directionalLight.direction.xyz,
-		cameraInfo.values[constants.cameraIndex].viewMatrix,
 		fragPosWorld,
 		fragViewPos,
-		N,
 		cascadeIndex
 	);
 

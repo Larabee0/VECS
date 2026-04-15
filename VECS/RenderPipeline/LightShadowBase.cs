@@ -7,8 +7,8 @@ namespace VECS
 {
     public abstract class LightShadowBase
     {
-        public const bool SHADOW_CULLING = false;
-        public const bool SHADOW_DST_CULLING = false;
+        public const bool SHADOW_CULLING = true;
+        public const bool SHADOW_DST_CULLING = true;
         public const bool SHADOW_DEPTH_CULLING = false;
         public const RenderLayer SHADOW_INCLUDE_MASK = RenderLayer.Default | RenderLayer.OnlyShadow;
         public const RenderLayer SHADOW_EXCLUDE_MASK = RenderLayer.NoShadow;
@@ -20,6 +20,7 @@ namespace VECS
         protected readonly bool[] _clearImages;
 
         protected readonly Material _depthOnly;
+        protected readonly Material _depthOnlyAlphaClipping;
 
         public LightShadowBase(int numLights)
         {
@@ -27,6 +28,7 @@ namespace VECS
             _shadowDepthTextures = new BindingArrayTexture(numLights);
             _clearImages = new bool[numLights];
             _depthOnly = EnginePipes.DepthOnly.Default();
+            _depthOnlyAlphaClipping = EnginePipes.DepthOnlyAlphaClipping.Default();
         }
 
         public abstract bool SetShadowTexture(int i, int resolution);
@@ -107,23 +109,23 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected static unsafe void BeginShadowPass(VkCommandBuffer commandBuffer, Texture image)
+        protected static unsafe void BeginShadowPass(VkCommandBuffer commandBuffer, VkImageView imageView,uint imageSize)
         {
             VkClearValue clearValues = new(1.0f, 0);
             VkRenderingAttachmentInfo depth = new()
             {
-                imageView = image._imageView,
-                imageLayout = image.ImageLayout,
+                imageView = imageView,
+                imageLayout = VkImageLayout.DepthStencilAttachmentOptimal,
                 loadOp = VkAttachmentLoadOp.Clear,
                 storeOp = VkAttachmentStoreOp.Store,
                 clearValue = clearValues,
             };
-            uint imageSize = (uint)image.Width;
+
             
             VkRenderingInfo renderingInfo = new()
             {
                 renderArea = new(0, 0, imageSize, imageSize),
-                layerCount = (image is Cubemap) ? 6u : 1,
+                layerCount = 1,
                 colorAttachmentCount = 0,
                 pDepthAttachment = &depth
             };

@@ -162,7 +162,7 @@ namespace VECS.ECS.Presentation
                 slShadows.SpotLightShadowPass(frameInfo, i, hostBuffer.HostBuffer[i]);
 
             }
-
+            
             for (; i < SpotLightShadows.MAX_SPOT_LIGHT_SHADOW_CASTERS; i++)
             {
                 slShadows.ClearImage(frameInfo, i);

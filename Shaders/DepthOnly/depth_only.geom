@@ -1,12 +1,12 @@
 #version 460
 #extension GL_ARB_shading_language_include : require
-#include "common_structures.glsl"
+#include "../common_structures.glsl"
 layout (triangles) in;
 layout (triangle_strip, max_vertices = 18) out; // 126 max works on gtx 1660 ti this should be 180 max_vertices for 10 point lights
-layout(location = 0) out vec4 FragPos; // FragPos from GS (output per emitvertex)
+
 
 layout(location = 0) in vec2 gs_in_uv[];
-layout(location = 1) out vec2 gs_out_uv;
+layout(location = 0) out vec2 gs_out_uv;
 
 layout(std140, set = 1, binding = 0) readonly buffer CameraInfos {
 	CameraInfo values[];
@@ -29,8 +29,6 @@ layout(push_constant) uniform InstanceInfo {
     int layerOffset;
     int layerCount;
     int bufferSelect;
-    int useLightPos;
-    int lightIndex;
 } instanceInfo;
 
 mat4 getTransform(int bufferSelect, int bufferOffset, int face) {
@@ -51,9 +49,8 @@ mat4 getTransform(int bufferSelect, int bufferOffset, int face) {
 void emitPrimative(mat4 transformMatrix, int glLayer) {
     for(int i = 0; i < 3; ++i){
         gl_Layer = glLayer;
-        FragPos = gl_in[i].gl_Position;
         gs_out_uv = gs_in_uv[i];
-        gl_Position = transformMatrix * FragPos;
+        gl_Position = transformMatrix * gl_in[i].gl_Position;
         EmitVertex();
     }
     EndPrimitive();
