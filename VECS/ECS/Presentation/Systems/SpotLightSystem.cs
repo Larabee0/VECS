@@ -74,6 +74,7 @@ namespace VECS.ECS.Presentation
                 {
                     var entities = _spotLightShadowQuery.GetEntities();
 
+                    hostBuffer.Realloc((uint)entities.Count);
                     frameInfo.SpotLightShadowCount = entities.Count;
                     UpdateSLBuffer(entityManager, ref slCount, entities, hostBuffer.HostBuffer);
                 }
@@ -88,6 +89,7 @@ namespace VECS.ECS.Presentation
                 }
 
                 frameInfo.SpotLightCount += frameInfo.SpotLightShadowCount;
+                frameInfo.SpotLightShadowCount = Math.Min((int)SpotLightShadows.MAX_SPOT_LIGHT_SHADOW_CASTERS, frameInfo.SpotLightShadowCount);
 
                 hostBuffer.SetBuffersDirty(true);
             }
@@ -101,7 +103,7 @@ namespace VECS.ECS.Presentation
                 if (entityManager.GetComponent(entities[i], out LocalToWorld ltw) && entityManager.GetComponent(entities[i], out SpotLight spotLight))
                 {
                     hostBuffer[slCount] = new(ltw.Value.Translation,ltw.Value.Forward(), spotLight);
-                    hostBuffer[i].LightSpace = SpotLightShadows.GetSpaceMatrix(hostBuffer[i], out _, out _, out _);
+                    hostBuffer[slCount].LightSpace = SpotLightShadows.GetSpaceMatrix(hostBuffer[slCount], out _, out _, out _);
                 }
             }
         }
@@ -143,7 +145,7 @@ namespace VECS.ECS.Presentation
 
             if (reassignTextures)
             {
-                slShadows.AssignDirShadowTexture(ShaderProperties.SLShadowImageId);
+                slShadows.AssignShadowTextures(ShaderProperties.SLShadowImageId);
             }
 
             slShadows.PreShadowPass(frameInfo);

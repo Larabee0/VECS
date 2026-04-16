@@ -12,11 +12,12 @@ namespace VECS
         public const bool SHADOW_DEPTH_CULLING = false;
         public const RenderLayer SHADOW_INCLUDE_MASK = RenderLayer.Default | RenderLayer.OnlyShadow;
         public const RenderLayer SHADOW_EXCLUDE_MASK = RenderLayer.NoShadow;
+        public const CullModeFlags SHADOW_CULL_MODE = CullModeFlags.Distance | CullModeFlags.Fustrum;
 
 
         public static VkFormat SHADOW_FORMAT => PreferredFormats.LOW_PRECISION_DEPTH_ONLY;
 
-        protected readonly BindingArrayTexture _shadowDepthTextures;
+        protected readonly ITextureProvider _shadowDepthTextures;
         protected readonly bool[] _clearImages;
 
         protected readonly Material _depthOnly;
@@ -24,8 +25,14 @@ namespace VECS
 
         public LightShadowBase(int numLights)
         {
-
-            _shadowDepthTextures = new BindingArrayTexture(numLights);
+            if (numLights > 1)
+            {
+                _shadowDepthTextures = new BindingArrayTexture(numLights);
+            }
+            else
+            {
+                _shadowDepthTextures = new SingleTexture(null);
+            }
             _clearImages = new bool[numLights];
             _depthOnly = EnginePipes.DepthOnly.Default();
             _depthOnlyAlphaClipping = EnginePipes.DepthOnlyAlphaClipping.Default();
@@ -89,7 +96,7 @@ namespace VECS
 
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void AssignDirShadowTexture(int shaderProperty)
+        public void AssignShadowTextures(int shaderProperty)
         {
             AssetDataBase<Material>.AllAssetsListForReading.ForEach(asset =>
             {
@@ -97,16 +104,7 @@ namespace VECS
             });
         }
 
-        public virtual void PreShadowPass(in RendererFrameInfo frameInfo)
-        {
-            DrawBlob.IndirectToComputeMemoryBarrierByMat(frameInfo.CommandBuffer);
-
-            CullData depthBufferCullInfo = new(SHADOW_INCLUDE_MASK, SHADOW_EXCLUDE_MASK, SHADOW_CULLING, SHADOW_DST_CULLING, SHADOW_DEPTH_CULLING,
-                1, Matrix4x4.Identity, Matrix4x4.Identity);
-
-            DrawBlob.CullAllInOne(frameInfo, depthBufferCullInfo);
-
-        }
+        public abstract void PreShadowPass(in RendererFrameInfo frameInfo);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected static unsafe void BeginShadowPass(VkCommandBuffer commandBuffer, VkImageView imageView,uint imageSize)

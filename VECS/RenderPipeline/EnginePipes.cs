@@ -55,8 +55,8 @@ namespace VECS
             //shadowConfig.rasterizationInfo.depthBiasEnable = false;
             //shadowConfig.rasterizationInfo.depthBiasConstantFactor = 1.25f;
             //shadowConfig.rasterizationInfo.depthBiasSlopeFactor = 1.75f;
-            DepthOnly = new GraphicsPipeline("DepthOnly", "DepthOnlyNoGeom.vert",shadowConfig);
-            DepthOnlyAlphaClipping = new GraphicsPipeline("DepthOnlyAlphaClipping", "DepthOnlyNoGeom.vert", "depth_only_alpha.frag", shadowConfig);
+            DepthOnly = new GraphicsPipeline("DepthOnly", "depth_only.vert", shadowConfig);
+            DepthOnlyAlphaClipping = new GraphicsPipeline("DepthOnlyAlphaClipping", "depth_only.vert", "depth_only_alpha.frag", shadowConfig);
 
             var alphaBlending = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             Unlit = new GraphicsPipeline("Unlit", "unlit.vert", "unlit.frag", alphaBlending);

@@ -176,7 +176,7 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void SetTexture(uint setIndex, uint bindingIndex, BindingArrayTexture textures)
+        public void SetTexture(uint setIndex, uint bindingIndex, ITextureProvider textures)
         {
             int imageIndex = DescriptorSetInfos[setIndex].BindingPointToImageIndex[bindingIndex];
             //if (_textures[setIndex][imageIndex] == textures) return;

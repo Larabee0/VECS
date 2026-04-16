@@ -17,14 +17,15 @@ layout (location = 7) out vec4 fragTangentWorld;
 layout (location = 8) out vec3 fragNormalAlt;
 
 layout(set = 0, binding = 0) uniform LightingInfo {
-	DirectionalLight directionalLight;
+	int numDirLights;
+	int numDirLightsShadows;
 	int numPointLights;
 	int numPointLightShadows;
 	int numSpotLights;
 	int numSpotLightShadows;
 } lighting;
 
-layout(set = 0,binding = 3) readonly buffer CameraInfos {
+layout(set = 0,binding = 4) readonly buffer CameraInfos {
 	CameraInfo values[];
 } cameraInfo;
 

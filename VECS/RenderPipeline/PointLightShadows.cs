@@ -21,11 +21,13 @@ namespace VECS
             }
 
             EngineTextures.AddOrUpdateTexture(ShaderProperties.PLShadowImageId, _shadowDepthTextures);
+            AssignShadowTextures(ShaderProperties.PLShadowImageId);
 
             _depthOnly.PushConstants.SetPushConstantInt("layerCount", POINT_SHADOWS_PUSH_CONSTANT_INDEX, 1);
             _depthOnly.PushConstants.SetPushConstantInt("bufferSelect", POINT_SHADOWS_PUSH_CONSTANT_INDEX, 2);
             _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("layerCount", POINT_SHADOWS_PUSH_CONSTANT_INDEX, 1);
             _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("bufferSelect", POINT_SHADOWS_PUSH_CONSTANT_INDEX, 2);
+            
         }
 
         private static Texture2DArray CreateShadowMap(int index, int size)
@@ -48,10 +50,10 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public override bool SetShadowTexture(int i, int resolution)
         {
-            var cubemap = (Texture2DArray)_shadowDepthTextures.GetTexture(i);
-            if (cubemap.Width != resolution)
+            var texureArray = (Texture2DArray)_shadowDepthTextures.GetTexture(i);
+            if (texureArray.Width != resolution)
             {
-                cubemap.Reinitialise(resolution);
+                texureArray.Reinitialise(resolution);
                 return true;
             }
             return false;
@@ -72,12 +74,6 @@ namespace VECS
 
         public override void PreShadowPass(in RendererFrameInfo frameInfo)
         {
-            if (Presenter.FrameCount == 0)
-            {
-                AssignDirShadowTexture(ShaderProperties.PLShadowImageId);
-            }
-            //base.PreShadowPass(frameInfo);
-
             if (frameInfo.LightingInfo.NumPointLightShadows > 0)
             {
                 var mats = EngineBuffers.TryGetBuffer(matsPropertyId);
@@ -86,7 +82,7 @@ namespace VECS
             }
         }
 
-        public Matrix4x4 GetViewMatrix(int faceId, Vector3 position)
+        public static Matrix4x4 GetViewMatrix(int faceId, Vector3 position)
         {
             return faceId switch
             {
@@ -116,7 +112,7 @@ namespace VECS
             {
                 DrawBlob.IndirectToComputeMemoryBarrierByMat(frameInfo.CommandBuffer);
 
-                depthBufferCullInfo = new(SHADOW_INCLUDE_MASK, SHADOW_EXCLUDE_MASK, SHADOW_CULLING, SHADOW_DST_CULLING, SHADOW_DEPTH_CULLING,
+                depthBufferCullInfo = new(SHADOW_INCLUDE_MASK, SHADOW_EXCLUDE_MASK, SHADOW_CULL_MODE,
                      0.1f, CubeProjectionMatrix, GetViewMatrix(i,pointLight.Position.AsVector3()));
 
                 DrawBlob.CullAllInOne(frameInfo, depthBufferCullInfo);
@@ -130,9 +126,7 @@ namespace VECS
                 GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
             }
 
-
             SetImageLayoutRead(frameInfo.CommandBuffer, arrayTex);
-
         }
     }
 }

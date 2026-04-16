@@ -20,6 +20,7 @@ namespace VECS
         private readonly static SwapChainBuffer<OrthographicInfo> OrthopgrahicInfoBuffer;
 
         private readonly static SwapChainBuffer LightingInfoBuffer;
+        internal readonly static SwapChainBuffer<DirectionalLightUniform> DirectionalLightBuffer;
         internal readonly static SwapChainBuffer<PointLightUniform> PointLightBuffer;
         internal readonly static SwapChainBuffer<SpotLightUniform> SpotLightBuffer;
 
@@ -79,12 +80,13 @@ namespace VECS
             OrthopgrahicInfoBuffer = new (Presenter.MAX_CAMERAS, BufferUsageFlags, true);
 
             LightingInfoBuffer = new(1, GPUBufferExtensions.GetAlignment((uint)sizeof(LightingInfo), VkBufferUsageFlags.UniformBuffer), VkBufferUsageFlags.UniformBuffer, true);
+            DirectionalLightBuffer = new(1, BufferUsageFlags, true);
             PointLightBuffer = new(PointLightShadows.MAX_POINT_LIGHT_SHADOW_CASTERS, BufferUsageFlags, true);
             SpotLightBuffer = new(SpotLightShadows.MAX_SPOT_LIGHT_SHADOW_CASTERS, BufferUsageFlags, true);
 
 
 
-            DirectionalLightMatsBuffer = new(DirectionalLightShadows.CASCADE_COUNT, BufferUsageFlags, true);
+            DirectionalLightMatsBuffer = new(DirectionalLightShadows.MAX_CASCADE_COUNT, BufferUsageFlags, true);
             PointLightMatsBuffer = new(PointLightShadows.MAX_POINT_LIGHT_SHADOW_CASTERS*6, BufferUsageFlags, true);
             SpotLightMatsBuffer = new(SpotLightShadows.MAX_SPOT_LIGHT_SHADOW_CASTERS, BufferUsageFlags, true);
 
@@ -94,6 +96,7 @@ namespace VECS
             AddEngineBuffer(ShaderProperties.OrthographicInfoId, OrthopgrahicInfoBuffer);
 
             AddEngineBuffer(ShaderProperties.LightingInfoId, LightingInfoBuffer);
+            AddEngineBuffer(ShaderProperties.DirectionalLightsBufferId, DirectionalLightBuffer);
             AddEngineBuffer(ShaderProperties.PointLightsBufferId, PointLightBuffer);
             AddEngineBuffer(ShaderProperties.SpotLightsBufferId, SpotLightBuffer);
 
@@ -161,42 +164,12 @@ namespace VECS
 
         public static unsafe LightingInfo UpdateLights(EntityManager entityManager, int frameIndex)
         {
-            LightingInfo lightingInfo;
-            var dirLights = entityManager.GetAllEntitiesWithComponent<DirectionalLight>();
-
-            if (dirLights != null && dirLights.Count > 0)
+            LightingInfo lightingInfo = default;
+            
+            if(entityManager.GetComponent(Presenter.Instance.FrameInfoEntity, out DirectionalLightFrameInfo dirFrameInfo))
             {
-                lightingInfo = new(entityManager.GetComponent<DirectionalLight>(dirLights[0]), 0, 0);
-                if(entityManager.SingletonEntity<MainCamera>(out Entity mainCameraEntity))
-                {
-
-                    Camera camera = entityManager.GetComponent<Camera>(mainCameraEntity);
-
-                    lightingInfo.DirectionalLight = DirectionalLightShadows.GetDirectionalLight(lightingInfo.DirectionalLight, new(camera), new(camera.ProjectionMatrix, camera.ClipNear, camera.ClipFar, 0));
-                }
-                
-            }
-            else
-            {
-                lightingInfo = new()
-                {
-                    DirectionalLight = new()
-                    {
-                        Ambient = Vector4.One,
-                        Direction = new(0, -1, 0, 0),
-                        CascadeSplits = Vector4.Zero,
-                        LightSpaceA = Matrix4x4.Identity,
-                        LightSpaceB = Matrix4x4.Identity,
-                        LightSpaceC = Matrix4x4.Identity,
-                        LightSpaceD = Matrix4x4.Identity,
-                        CascadeCount = 0
-                    }
-                };
-            }
-
-            {
-                SpotLightBuffer.SetBuffersDirty(true);
-                GPUBufferExtensions.WriteFromHostDelayed(SpotLightBuffer, frameIndex);
+                lightingInfo.NumDirectionalLights = dirFrameInfo.DirectionalLightCount;
+                lightingInfo.NumDirectionalLightShadows = dirFrameInfo.DirectionalLightShadowCount;
             }
 
             if (entityManager.GetComponent(Presenter.Instance.FrameInfoEntity, out PointLightFrameInfo plFrameInfo))
@@ -226,6 +199,7 @@ namespace VECS
             OrthopgrahicInfoBuffer.Dispose();
 
             LightingInfoBuffer.Dispose();
+            DirectionalLightBuffer.Dispose();
             PointLightBuffer.Dispose();
             SpotLightBuffer.Dispose();
 

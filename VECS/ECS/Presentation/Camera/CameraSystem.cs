@@ -114,17 +114,23 @@ namespace VECS.ECS.Presentation
             var perCam = entityManager.GetComponent<CameraPerspective>(entity);
             if (InputManager.Instance.GetKeyDown(SDL_Keycode.F7))
             {
-                perCam.depthCull = !perCam.depthCull;
-                Console.WriteLine("Depth culling {0} {1}", perCam.depthCull, entity.Id);
+                if (perCam.CullMode.HasFlag(CullModeFlags.Depth))
+                {
+                    perCam.CullMode &= ~CullModeFlags.Depth;
+                    Console.WriteLine("Depth culling {0} {1}", false, entity.Id);
+                }
+                else
+                {
+                    perCam.CullMode |=CullModeFlags.Depth;
+                    Console.WriteLine("Depth culling {0} {1}", true, entity.Id);
+                }
                 entityManager.SetComponent(entity, perCam);
             }
             var camera = new Camera()
             {
                 ProjectionMatrix = GetPerspectiveProject(perCam, aspect),
                 ViewMatrix = GetViewMatrix(entityManager.GetComponent<LocalToWorld>(entity).Value),
-                fustrumCulling = perCam.fustrumCulling,
-                dstCull = perCam.dstCull,
-                depthCull = perCam.depthCull,
+                CullMode = perCam.CullMode,
                 ClipNear = perCam.ClipNear,
                 ClipFar = perCam.ClipFar,
             };
@@ -154,9 +160,7 @@ namespace VECS.ECS.Presentation
             {
                 ProjectionMatrix = GetOrthographicProject(orthCam),
                 ViewMatrix = GetViewMatrix(entityManager.GetComponent<LocalToWorld>(entity).Value),
-                fustrumCulling = orthCam.fustrumCulling,
-                dstCull = orthCam.dstCull,
-                depthCull = orthCam.depthCull,
+                CullMode = orthCam.CullMode,
                 ClipNear = orthCam.ClipNear,
                 ClipFar = orthCam.ClipFar,
             };

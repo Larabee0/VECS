@@ -210,7 +210,7 @@ namespace VECS
             VkCommandBuffer commandBuffer = frameInfo.CommandBuffer;
 
             var cullData = frameInfo.CullData;
-            cullData.depthCulling = 0;
+            cullData.cullMode &= ~CullModeFlags.Depth;
 
             DrawBlob.CullByMat(frameInfo, cullData);
 

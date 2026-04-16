@@ -25,7 +25,7 @@ namespace VECS
             FOV = 45,
             ClipNear = 0.5f,
             ClipFar = 50f,
-            fustrumCulling = true
+            CullMode = CullModeFlags.Fustrum | CullModeFlags.Distance
         };
 
         internal static int Main(string[] args)
@@ -118,6 +118,12 @@ namespace VECS
                     Specular = new(1f, 1f, 1f, 1f)
                 }
             });
+
+            entityManager.AddComponent(dirLight, new ShadowInfo()
+            {
+                UpdateBehaviour = ShadowUpdate.Always,
+                Resolution = ShadowMapResolution.TwentyFourtyEight.GetResolution(),
+            });
         }
 
         public static void PointLight()
@@ -164,7 +170,7 @@ namespace VECS
             entityManager.AddComponent(pointLight, new ShadowInfo()
             {
                 UpdateBehaviour = ShadowUpdate.Always,
-                Resolution = ShadowMapResolution.FouryNinteySix.GetResolution(),
+                Resolution = 1365,
             });
 
             entityManager.AddComponent(pointLight, new Scale() { Value = new Vector3(0.05f, 0.05f, 0.05f) });

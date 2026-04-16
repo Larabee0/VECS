@@ -74,6 +74,7 @@ namespace VECS.ECS.Presentation
                 {
                     var entities = _pointLightShadowQuery.GetEntities();
 
+                    hostBuffer.Realloc((uint)entities.Count);
                     frameInfo.PointLightShadowCount = entities.Count;
                     UpdatePLBuffer(entityManager, ref plCount, entities, hostBuffer.HostBuffer);
                 }
@@ -88,6 +89,7 @@ namespace VECS.ECS.Presentation
                 }
 
                 frameInfo.PointLightCount += frameInfo.PointLightShadowCount;
+                frameInfo.PointLightShadowCount = Math.Min((int)SpotLightShadows.MAX_SPOT_LIGHT_SHADOW_CASTERS, frameInfo.PointLightShadowCount);
 
                 hostBuffer.SetBuffersDirty(true);
             }
@@ -142,7 +144,7 @@ namespace VECS.ECS.Presentation
 
             if (reassignTextures)
             {
-                plShadows.AssignDirShadowTexture(ShaderProperties.PLShadowImageId);
+                plShadows.AssignShadowTextures(ShaderProperties.PLShadowImageId);
             }
 
             plShadows.PreShadowPass(frameInfo);

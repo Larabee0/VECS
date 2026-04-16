@@ -27,6 +27,7 @@ namespace VECS
             _depthOnly.PushConstants.SetPushConstantInt("bufferSelect", SPOT_SHADOWS_PUSH_CONSTANT_INDEX, 3);
             _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("layerCount", SPOT_SHADOWS_PUSH_CONSTANT_INDEX, 1);
             _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("bufferSelect", SPOT_SHADOWS_PUSH_CONSTANT_INDEX, 3);
+            AssignShadowTextures(ShaderProperties.SLShadowImageId);
         }
 
         private static Texture2D CreateShadowMap(int index, int size)
@@ -85,13 +86,6 @@ namespace VECS
 
         public override void PreShadowPass(in RendererFrameInfo frameInfo)
         {
-            if (Presenter.FrameCount == 0)
-            {
-                AssignDirShadowTexture(ShaderProperties.SLShadowImageId);
-            }
-
-            //base.PreShadowPass(frameInfo);
-
             if (frameInfo.LightingInfo.NumSpotLightShadows > 0)
             {
                 var mats = EngineBuffers.TryGetBuffer(matsPropertyId);
@@ -100,7 +94,7 @@ namespace VECS
             }
         }
 
-        public unsafe void SpotLightShadowPass(in RendererFrameInfo frameInfo, int textureIndex, SpotLightUniform spotLight)
+        public void SpotLightShadowPass(in RendererFrameInfo frameInfo, int textureIndex, SpotLightUniform spotLight)
         {
             Texture2D texture = (Texture2D)_shadowDepthTextures.GetTexture(textureIndex);
 
@@ -112,8 +106,7 @@ namespace VECS
 
             DrawBlob.IndirectToComputeMemoryBarrierByMat(frameInfo.CommandBuffer);
             GetSpaceMatrix(spotLight, out var near, out var view, out var proj);
-            CullData depthBufferCullInfo = new(SHADOW_INCLUDE_MASK, SHADOW_EXCLUDE_MASK, SHADOW_CULLING, SHADOW_DST_CULLING, SHADOW_DEPTH_CULLING,
-                near, proj, view);
+            CullData depthBufferCullInfo = new(SHADOW_INCLUDE_MASK, SHADOW_EXCLUDE_MASK, SHADOW_CULL_MODE, near, proj, view);
 
             DrawBlob.CullAllInOne(frameInfo, depthBufferCullInfo);
             BeginShadowPass(frameInfo.CommandBuffer, texture._imageView,(uint)texture.Width);

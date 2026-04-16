@@ -82,7 +82,6 @@ namespace VECS
                 _bloom = new();
                 _smaa = new();
                 _imgui = new(SDL3WindowManager.MainWindow);
-                _directionalLightShadows.AssignDirShadowTexture();
                 SwapChain.GraphicsCallback += GraphicsPipe;
             }
             else
@@ -159,7 +158,7 @@ namespace VECS
             CameraInfo cameraInfo = ((SwapChainBuffer<CameraInfo>)EngineBuffers.TryGetBuffer(ShaderProperties.CameraInfoId)).HostBuffer[mainCamera];
             float clipNear = camera.ClipNear;
 
-            CullData cullData = new(RenderLayer.All, RenderLayer.OnlyShadow, camera.fustrumCulling, camera.dstCull, camera.depthCull, clipNear, cameraInfo);
+            CullData cullData = new(RenderLayer.All, RenderLayer.OnlyShadow, camera.CullMode, clipNear, cameraInfo);
 
             LightingInfo lightingInfo = default;
             if (World.DefaultWorld != null)

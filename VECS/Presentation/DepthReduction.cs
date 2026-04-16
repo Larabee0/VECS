@@ -93,7 +93,7 @@ namespace VECS.Presentation
 
         private static unsafe void ComputeShaderTransfer(RendererFrameInfo frameInfo)
         {
-            if (frameInfo.CullData.depthCulling == 0) return;
+            if (!frameInfo.CullData.cullMode.HasFlag(CullModeFlags.Depth)) return;
 
             var depthTexture = Presenter.Instance.ForwardRenderer.DepthAttachment.Target;
 

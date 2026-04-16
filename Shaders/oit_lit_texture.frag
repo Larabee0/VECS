@@ -9,7 +9,8 @@ layout (location = 1) in vec3 fragNormalWorld;
 layout (location = 2) in vec2 fragUV;
 
 layout(set = 0, binding = 0) uniform LightingInfo {
-	DirectionalLight directionalLight;
+	int numDirLights;
+	int numDirLightsShadows;
 	int numPointLights;
 	int numPointLightShadows;
 	int numSpotLights;
@@ -20,7 +21,11 @@ layout(set = 0,binding = 1) readonly buffer CameraInverses {
 	CameraInverse values[];
 } cameraInverse;
 
-layout (set = 0, binding = 2) readonly buffer PointLights{
+layout(set = 0, binding = 2) readonly buffer DirectionalLights {
+	DirectionalLight values[];
+} directionalLightBuffer;
+
+layout (set = 0, binding = 3) readonly buffer PointLights{
 	PointLight values[];
 } pointLightBuffer;
 
@@ -50,7 +55,8 @@ layout(push_constant) uniform Constants {
 
 void main()
 {
-    vec3 diffuseLight = lighting.directionalLight.ambient.xyz * lighting.directionalLight.ambient.w;
+	DirectionalLight directionalLight = directionalLightBuffer.values[0];
+    vec3 diffuseLight = directionalLight.ambient.xyz * directionalLight.ambient.w;
 	vec3 specularLight = vec3(0.0);
 	vec3 surfaceNormal = normalize(fragNormalWorld);
 

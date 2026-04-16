@@ -35,12 +35,7 @@ namespace VECS.ECS.Presentation
             DrawBlob.RebuildOrUpdate(entityManager, entities);
         }
 
-        public override void OnShadowPass(EntityManager entityManager, RendererFrameInfo frameInfo)
-        {
-            Presenter.Instance.DirShadows.DirectionalShadowPass(frameInfo);
-        }
-
-        public unsafe override void OnPreOpaquePass(EntityManager entityManager, RendererFrameInfo frameInfo)
+        public override void OnPreOpaquePass(EntityManager entityManager, RendererFrameInfo frameInfo)
         {
             VkCommandBuffer commandBuffer = frameInfo.CommandBuffer;
             if (!_renderEntityQuery.HasEntities)
@@ -53,7 +48,7 @@ namespace VECS.ECS.Presentation
             EnginePipes.DepthOnly.PushConstants.SetPushConstantInt("matrixStartIndex", DEPTH_ONLY_PUSH_CONSTANT_INDEX, frameInfo.MainCamera);
 
             var depthBufferCullInfo = frameInfo.CullData;
-            depthBufferCullInfo.depthCulling = 0;
+            depthBufferCullInfo.cullMode &= ~CullModeFlags.Depth;
             DrawBlob.IndirectToComputeMemoryBarrierByMat(commandBuffer);
 
             DrawBlob.CullAllInOne(frameInfo, depthBufferCullInfo);

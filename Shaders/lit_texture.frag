@@ -14,34 +14,39 @@ layout (location = 4) in mat3 TBN;
 layout (location = 0) out vec4 outColour;
 
 layout(set = 0, binding = 0) uniform LightingInfo {
-	DirectionalLight directionalLight;
+	int numDirLights;
+	int numDirLightsShadows;
 	int numPointLights;
 	int numPointLightShadows;
 	int numSpotLights;
 	int numSpotLightShadows;
 } lighting;
 
-layout (set = 0, binding = 1) readonly buffer PointLights {
+layout(set = 0, binding = 1) readonly buffer DirectionalLights {
+	DirectionalLight values[];
+} directionalLightBuffer;
+
+layout (set = 0, binding = 2) readonly buffer PointLights {
 	PointLight values[];
 } pointLightBuffer;
 
-layout (set = 0, binding = 2) readonly buffer SpotLights {
+layout (set = 0, binding = 3) readonly buffer SpotLights {
 	SpotLight values[];
 } spotLightBuffer;
 
-layout(set = 0,binding = 3) readonly buffer CameraInfos {
+layout(set = 0,binding = 4) readonly buffer CameraInfos {
 	CameraInfo values[];
 } cameraInfo;
 
-layout(set = 0,binding = 4) readonly buffer CameraInverses {
+layout(set = 0,binding = 5) readonly buffer CameraInverses {
 	CameraInverse values[];
 } cameraInverse;
 
-layout (set = 0, binding = 5) readonly buffer AdditionalCameraInfos {
+layout (set = 0, binding = 6) readonly buffer AdditionalCameraInfos {
 	AdditionalCameraInfo values[];
 } cameraPlanes;
 
-layout (set = 0, binding = 6) readonly buffer OrthographicInfos {
+layout (set = 0, binding = 7) readonly buffer OrthographicInfos {
 	OrthographicInfo values[];
 } orthographic;
 
@@ -69,17 +74,8 @@ void main()
 	vec3 cameraPosWorld = cameraInverse.values[constants.cameraIndex].inverseViewMatrix[3].xyz;
 	vec3 normal = normalize(fragNormalWorld);
 	vec3 viewDir = normalize(cameraPosWorld - fragPosWorld);
-	int cascadeIndex = 0;
-	//float shadow = DirShadows(lighting.directionalLight, normal, cascadeIndex);
-	float shadow = DirShadows(
-		dirShadow,
-		lighting.directionalLight.lightSpace,
-		lighting.directionalLight.cascadeSplits,
-		lighting.directionalLight.cascadeCount,
-		fragPosWorld,
-		fragViewPos,
-		cascadeIndex);
-	//float shadow = DirShadowsGL(lighting.directionalLight, normal, cascadeIndex);
+	
+		
 	vec3 texNormal = vec3(texture(normalSampler, fragUV).xy, 0.0);
 	texNormal.z = sqrt(1 - texNormal.x * texNormal.x - texNormal.y * texNormal.y);
 	texNormal = TBN * normalize(texNormal * 2.0 - vec3(1.0));
@@ -92,8 +88,19 @@ void main()
 	vec3 specularColour = texProps.specularColour.rgb;
 	float shininess = texProps.shininess;
 
-	vec3 result = CalcDirLight(lighting.directionalLight,normal, viewDir, shininess, shadow, diffuseTextureColour, diffuseTextureColour, specularColour);
-
+	vec3 result = vec3(0);
+	int cascadeIndex = 0;
+	for(int i = 0; i < lighting.numDirLights; i++) {
+		DirectionalLight directionalLight = directionalLightBuffer.values[i];
+		
+		float shadow = i < lighting.numDirLightsShadows ? DirShadows(
+			dirShadow,
+			directionalLight,
+			fragPosWorld,
+			fragViewPos,
+			cascadeIndex) : 1.0;
+		result += CalcDirLight(directionalLight, normal, viewDir, shininess, shadow, diffuseTextureColour, diffuseTextureColour, specularColour);
+	}
 	for(int i = 0; i < lighting.numPointLights; i++) {
 		PointLight pl = pointLightBuffer.values[i];
 

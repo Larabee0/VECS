@@ -104,15 +104,15 @@ float filterPCF(sampler2DArray shadowTex, vec4 sc, uint textureIndex, float ambi
 }
 
 
-float DirShadows(sampler2DArray dirShadowMap, mat4[4]lightSpace, vec4 cascadeSplits, int cascadeCount, vec3 fragPosWorld,vec3 fragViewPos, out int cascadeIndex){
+float DirShadows(sampler2DArray dirShadowMap, DirectionalLight directionalLight, vec3 fragPosWorld,vec3 fragViewPos, out int cascadeIndex){
 	cascadeIndex = 0;
-	for(int i = 0; i < cascadeCount - 1; ++i) {
-		if(fragViewPos.z < cascadeSplits[i]) {	
+	for(int i = 0; i < directionalLight.cascadeCount - 1; ++i) {
+		if(fragViewPos.z < directionalLight.cascadeSplits[i]) {	
 			cascadeIndex = i + 1;
 		}
 	}
 
-	vec4 shadowCoord = (biasMat * lightSpace[cascadeIndex]) * vec4(fragPosWorld, 1.0);
+	vec4 shadowCoord = (biasMat * directionalLight.lightSpace[cascadeIndex]) * vec4(fragPosWorld, 1.0);
 	
 	float shadow = 0;
 	if (1 == 1) {

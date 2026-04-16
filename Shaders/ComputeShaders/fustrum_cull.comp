@@ -13,7 +13,6 @@ struct DrawCommand {
     int vertexOffset;
     uint firstInstance;
 	uint8_t layerFlags;
-	uint8_t drawnFlag;
 };
 
 layout(std140, set = 0, binding = 0) readonly buffer ObjectBoundsBuffer {
@@ -28,19 +27,16 @@ layout(set = 0, binding = 2) uniform sampler2D depthPyramid;
 
 layout(set = 0, binding = 3) uniform CullData{
 	vec4 frustum[6]; // data for left/right/top/bottom frustum planes
+	mat4 viewMatrix;
 	vec2 pyramid;
 	float zNear;
 	float P00;
 	float P11;
+	uint drawCount;
 	uint8_t includeMask;
 	uint8_t excludeMask;
-	uint8_t drawnFlag;
+	uint8_t cullMode;
 	uint8_t padding;
-	uint drawCount;
-	int cullingEnabled;
-	int distCull;
-	int depthCulling;
-	mat4 viewMatrix;
 } cullData;
 
 // 2D Polyhedral Bounds of a Clipped, Perspective-Projected 3D Sphere. Michael Mara, Morgan McGuire. 2013
@@ -102,7 +98,7 @@ bool IsDepthVisible(uint objectIndex){
 	return true;
 }
 
-bool IsVisible(uint objectIndex)
+bool IsVisible(uint objectIndex, int planeCount)
 {
 	ObjectBounds bounds = boundsBuffer.bounds[objectIndex];
 
@@ -113,8 +109,7 @@ bool IsVisible(uint objectIndex)
 	vec4 bmax = bounds.bMax;
 	bmin.w = 1;
 	bmax.w = 1;
-	int planeCount = cullData.distCull == 1 ? 6 : 4;
-	for (int i = 0; i < 6; i++)
+	for (int i = 0; i < planeCount; i++)
 	{
 	    vec4 g = cullData.frustum[i];
 	    bool visible =
@@ -136,22 +131,12 @@ bool IsVisible(uint objectIndex)
 	return true;
 }
 
-#define zero  0
-
 layout(local_size_x = 256) in;
 void main()
 {
 	uint gID = gl_GlobalInvocationID.x;
 	if(gID < cullData.drawCount)
 	{
-		uint8_t drawn = drawBuffer.Draws[gID].drawnFlag;
-
-		uint8_t drawnCommand =  cullData.drawnFlag;
-
-		if(drawnCommand == 1 && drawn >= drawnCommand){
-			return;
-		}
-		
 		uint8_t flags = drawBuffer.Draws[gID].layerFlags;
 		
 		bool includeMask = (flags | cullData.includeMask) == cullData.includeMask;
@@ -159,19 +144,19 @@ void main()
 
 		bool visible = includeMask && !excludeMask;
 
-		if(visible && cullData.cullingEnabled != 0){
-			visible = IsVisible(gID);
+		bool fustrumCulling = (uint8_t(1) | cullData.cullMode) == cullData.cullMode;
+		bool distanceCulling = (uint8_t(2) | cullData.cullMode) == cullData.cullMode;
+		bool depthCulling = (uint8_t(4) | cullData.cullMode) == cullData.cullMode;
+
+		if(visible && fustrumCulling){
+			visible = IsVisible(gID, distanceCulling ? 6 : 4);
 		}
-		if(visible && cullData.depthCulling != 0){
+		if(visible && depthCulling){
 			visible = IsDepthVisible(gID);
 		}
 		
-		if(drawnCommand == 0 || drawnCommand == 2){
-			drawBuffer.Draws[gID].drawnFlag = cullData.padding;
-		}
 		if(visible){
 			drawBuffer.Draws[gID].instanceCount = 1;
-			drawBuffer.Draws[gID].drawnFlag++;
 		}
 		else{
 			drawBuffer.Draws[gID].instanceCount = 0;

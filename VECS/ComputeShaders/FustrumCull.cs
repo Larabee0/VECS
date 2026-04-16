@@ -22,12 +22,16 @@ namespace VECS
         All = Default | NoShadow | OnlyShadow
     }
 
-    public enum DrawnFlag : byte
+    [Flags]
+    public enum CullModeFlags : byte
     {
-        Zero,
-        AddOne,
-        ResetAddOne
+        None = 0,
+        Fustrum = 1,
+        Distance = 2,
+        Depth = 4,
+        All = Fustrum | Distance | Depth
     }
+
 
 
     [StructLayout(LayoutKind.Sequential, Size = 24)]
@@ -57,7 +61,7 @@ namespace VECS
         }
     }
 
-    [StructLayout(LayoutKind.Sequential, Size = 208)]
+    [StructLayout(LayoutKind.Sequential, Size = 188)]
     public struct CullData
     {
         public Vector4 left;
@@ -66,20 +70,17 @@ namespace VECS
         public Vector4 top;
         public Vector4 near;
         public Vector4 far;
+        public Matrix4x4 View;
         public Vector2 pyramid;
-        public float zNear;// 96
-        public float P00; // 100
-        public float P11; // 104
+        public float zNear;
+        public float P00;
+        public float P11;
+        public uint drawCount;
         public RenderLayer IncludeMask;
         public RenderLayer ExcludeMask;
-        public DrawnFlag DrawnActionCommand;
-        public byte pad1;
-        public uint drawCount;
-        public int cullingEnabled;
-        public int dstCulling;
-        public int depthCulling;
+        public CullModeFlags cullMode;
+        private readonly byte Padding;
 
-        public Matrix4x4 View;
 
         public readonly Vector4 this[int i] => i switch
         {
@@ -97,7 +98,7 @@ namespace VECS
             pushConstants.SetPushConstantUniform("cullData", setId, this);
         }
 
-        public CullData(RenderLayer includeMask, RenderLayer excludeMask, bool cull, bool dstCull,bool depthCull, float zNear, CameraInfo camera)
+        public CullData(RenderLayer includeMask, RenderLayer excludeMask, CullModeFlags cullMode, float zNear, CameraInfo camera)
         {
             Matrix4x4 viewProj = camera.ProjectionViewMatrix;
 
@@ -116,16 +117,14 @@ namespace VECS
 
             pyramid = new(DepthReduction.DepthPryamid.Width, DepthReduction.DepthPryamid.Height);
 
-            cullingEnabled = cull ? 1 : 0;
-            dstCulling = dstCull ? 1 : 0;
-            depthCulling = depthCull ? 1 : 0;
+            this.cullMode = cullMode;
             drawCount = 0;
             IncludeMask = includeMask;
             ExcludeMask = excludeMask;
             View = camera.ViewMatrix;
         }
 
-        public CullData(RenderLayer includeMask, RenderLayer excludeMask, bool cull, bool dstCull, bool depthCull, float zNear, Matrix4x4 projection, Matrix4x4 view)
+        public CullData(RenderLayer includeMask, RenderLayer excludeMask, CullModeFlags cullMode, float zNear, Matrix4x4 projection, Matrix4x4 view)
         {
             Matrix4x4 viewProj = view * projection;
 
@@ -144,9 +143,7 @@ namespace VECS
 
             pyramid = new(DepthReduction.DepthPryamid.Width, DepthReduction.DepthPryamid.Height);
 
-            cullingEnabled = cull ? 1 : 0;
-            dstCulling = dstCull ? 1 : 0;
-            depthCulling = depthCull ? 1 : 0;
+            this.cullMode = cullMode;
             drawCount = 0;
             IncludeMask = includeMask;
             ExcludeMask = excludeMask;
@@ -216,6 +213,11 @@ namespace VECS
                 var visible = include && !exclude;
             }
 
+
+            bool fustrumCulling = (1 | (byte)cullData.cullMode) == (byte)cullData.cullMode;
+            bool distanceCulling = (2 | (byte)cullData.cullMode) == (byte)cullData.cullMode;
+            bool depthCulling = (4 | (byte)cullData.cullMode) == (byte)cullData.cullMode;
+
 #pragma warning restore CS0162
 #endif
 
@@ -261,10 +263,10 @@ namespace VECS
             {
                 AABB boundsInternal = boundsSpan[i];
 
-                if (cullData.cullingEnabled == 0 || IsVisibleAABB(boundsSpan[i], cullData))
+                if (cullData.cullMode == 0 || IsVisibleAABB(boundsSpan[i], cullData))
                 {
 
-                    if (cullData.depthCulling != 0 && DepthProj(boundsSpan[i], cullData.View, cullData.zNear, cullData.P00, cullData.P11, out var aabb, out float radius))
+                    if (cullData.cullMode.HasFlag(CullModeFlags.Depth) && DepthProj(boundsSpan[i], cullData.View, cullData.zNear, cullData.P00, cullData.P11, out var aabb, out float radius))
                     {
                         var center = Vector3.Transform(boundsInternal.Center, cullData.View);
                         float width = MathF.Abs((aabb.Z - aabb.X) * cullData.pyramid.X);
@@ -315,7 +317,7 @@ namespace VECS
             var max = bounds.Max;
             min.W = 1f;
             max.W = 1f;
-            int planeCount = cullData.dstCulling == 1 ? 6 : 4;
+            int planeCount = cullData.cullMode.HasFlag(CullModeFlags.Distance) ? 6 : 4;
             for (int i = 0; i < planeCount; i++)
             {
                 var g = cullData[i];

@@ -7,6 +7,14 @@ namespace VECS.ECS.Presentation
         public static int ComponentId { get; set; }
         public readonly int Id => ComponentId;
 
-        public DirectionalLightInfo Value;
+        public DirectionalLightUniform Value;
+    }
+    public struct DirectionalLightFrameInfo : IComponent
+    {
+        public static int ComponentId { get; set; }
+        public readonly int Id => ComponentId;
+
+        public int DirectionalLightCount;
+        public int DirectionalLightShadowCount;
     }
 }
