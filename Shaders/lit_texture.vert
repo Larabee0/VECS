@@ -57,7 +57,7 @@ void main()
 {
 	ObjectMatrices objectMat = matricesBuffer.matrices[gl_BaseInstance];
 
-	vec4 positionWorld =objectMat.modelMatrix * vec4(position, 1.0);
+	vec4 positionWorld = objectMat.modelMatrix * vec4(position, 1.0);
 	gl_Position = cameraInfo.values[constants.cameraIndex].projectionViewMatrix * positionWorld;
 	
 	fragNormalWorld = normalize(mat3(objectMat.normalMatrix) * normal);

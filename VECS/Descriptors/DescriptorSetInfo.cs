@@ -315,6 +315,13 @@ namespace VECS
             descriptorBuffer.SetImageInfoBinding(&imageInfo, 1, imageType, setVariant, bindingPoint);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe void WriteDescriptors(int frameIndex, uint bindingPoint, uint setVariant, VkDescriptorImageInfo* imageInfo, uint imageCount, VkDescriptorType imageType)
+        {
+            var descriptorBuffer = _descriptorBuffers[frameIndex];
+            descriptorBuffer.SetImageInfoBinding(imageInfo, imageCount, imageType, setVariant, bindingPoint);
+        }
+
         public unsafe void WriteDescriptors(DescriptorBuffer descriptorBuffer, uint setIndex, Span<VkDescriptorAddressInfoEXT> bindingBuffers, Span<VkDescriptorImageInfo> bindingTextures)
         {
             for (int i = 0; i < _bindingCount; i++)

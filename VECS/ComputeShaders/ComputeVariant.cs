@@ -188,6 +188,17 @@ namespace VECS
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe void SetTextures(int propertyId, VkDescriptorImageInfo* imageInfos, uint imageCount, VkDescriptorType imageType)
+        {
+            if (LookUpProperty(propertyId, out var propertyInfo) && propertyInfo.BindingInfo.Image)
+            {
+                var setInfo = GetDescriptorInfo(propertyInfo.SetIndex);
+                uint variant = localUniformAllocation ? 0 : VariantIndex;
+                setInfo.WriteDescriptors(Presenter.Instance.FrameIndex, propertyInfo.BindPoint, variant, imageInfos,imageCount, imageType);
+            }
+        }
+
         private unsafe void WriteUniformToDescriptorBuffers()
         {
             if (_computePipeline.UniformBufferSize == 0) return;
