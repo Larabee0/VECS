@@ -1,5 +1,4 @@
 ﻿using VECS.ECS.Transforms;
-using VECS.Presentation;
 using Vortice.Vulkan;
 
 namespace VECS.ECS.Presentation

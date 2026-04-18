@@ -1,7 +1,5 @@
 ﻿using System.Numerics;
 using System.Runtime.CompilerServices;
-using VECS.DataStructures;
-using VECS.GraphicsPipelines;
 using Vortice.Vulkan;
 
 namespace VECS

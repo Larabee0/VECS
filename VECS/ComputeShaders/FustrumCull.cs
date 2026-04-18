@@ -7,7 +7,6 @@ using VECS.ECS;
 using VECS.ECS.Presentation;
 #endif
 using VECS.LowLevel;
-using VECS.Presentation;
 using Vortice.Vulkan;
 
 namespace VECS

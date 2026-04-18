@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
-namespace VECS.Presentation
+namespace VECS
 {
     public static class DepthReduction
     {

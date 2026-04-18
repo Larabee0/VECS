@@ -1,5 +1,4 @@
-﻿using VECS.GraphicsPipelines;
-using VECS.LowLevel;
+﻿using VECS.LowLevel;
 using Vortice.Vulkan;
 
 namespace VECS

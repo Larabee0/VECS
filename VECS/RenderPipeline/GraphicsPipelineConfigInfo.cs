@@ -1,7 +1,6 @@
-﻿using VECS.LowLevel;
-using Vortice.Vulkan;
+﻿using Vortice.Vulkan;
 
-namespace VECS.GraphicsPipelines
+namespace VECS
 {
     /// <summary>
     /// Managed none-pointer struct used in the creation and configuration of a <see cref="VkGraphicsPipelineCreateInfo"/>

@@ -2,7 +2,6 @@
 #define MULTI_THREADED_MESH_FILL
 
 using Assimp;
-using Assimp.Unmanaged;
 using Mikktspace.NET;
 using System;
 using System.Collections.Generic;
@@ -14,7 +13,7 @@ using System.Text;
 using System.Text.Json;
 using Material = Assimp.Material;
 
-namespace VECS.DataStructures
+namespace VECS
 {
     public class MaterialInfo
     {

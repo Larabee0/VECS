@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using VECS.GraphicsPipelines;
 using VECS.LowLevel;
 using Vortice.SPIRV;
 using Vortice.SPIRV.Reflect;

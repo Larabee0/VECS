@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Numerics;
 using VECS.ECS;
-using VECS.GraphicsPipelines;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 using Vector4 = System.Numerics.Vector4;

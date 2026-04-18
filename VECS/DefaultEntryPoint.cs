@@ -3,11 +3,9 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Numerics;
-using VECS.DataStructures;
 using VECS.ECS;
 using VECS.ECS.Presentation;
 using VECS.ECS.Transforms;
-using VECS.GraphicsPipelines;
 using Vortice.Vulkan;
 
 namespace VECS
@@ -52,7 +50,7 @@ namespace VECS
             _sphere = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("UV-Sphere.obj"), null)[0];
             CreateMainCamera();
             DirectionalLight();
-            PointLight();
+            //PointLight();
             //SponzaOld();
             SponzaNew();
             //SponzaNewPBR();
@@ -122,7 +120,7 @@ namespace VECS
             entityManager.AddComponent(dirLight, new ShadowInfo()
             {
                 UpdateBehaviour = ShadowUpdate.Always,
-                Resolution = ShadowMapResolution.TwentyFourtyEight.GetResolution(),
+                Resolution = ShadowMapResolution.FouryNinteySix.GetResolution(),
             });
         }
 
