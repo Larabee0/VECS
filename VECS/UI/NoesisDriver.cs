@@ -507,7 +507,7 @@ namespace VECS.UI
             {
                 _indexBuffer.Realloc(bytes);
             }
-            GPUBufferExtensions.WriteFromHostDelayed(_indexBuffer, Presenter.Instance.FrameIndex);
+            GPUBufferExtensions.WriteFromHostDelayed(_indexBuffer, Presenter.FrameIndex);
             return (nint)_indexBuffer.HostPtr;
         }
 
@@ -517,7 +517,7 @@ namespace VECS.UI
             {
                 _vertexBuffer.Realloc(bytes * 2);
             }
-            GPUBufferExtensions.WriteFromHostDelayed(_vertexBuffer, Presenter.Instance.FrameIndex);
+            GPUBufferExtensions.WriteFromHostDelayed(_vertexBuffer, Presenter.FrameIndex);
             return (nint)_vertexBuffer.HostPtr;
         }
 

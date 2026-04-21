@@ -280,7 +280,7 @@ namespace VECS
             if(LookUpProperty(property,out var propertyInfo) && propertyInfo.BindingInfo.StorageBuffer)
             {
                 var setInfo = _descriptorSetInfos[propertyInfo.SetIndex];
-                setInfo.WriteDescriptors(Presenter.Instance.FrameIndex,propertyInfo.BindPoint, variant, buffer[Presenter.Instance.FrameIndex]);
+                setInfo.WriteDescriptors(Presenter.FrameIndex,propertyInfo.BindPoint, variant, buffer[Presenter.FrameIndex]);
             }
         }
 
@@ -289,7 +289,7 @@ namespace VECS
             if (LookUpProperty(propertyId, out var propertyInfo) && propertyInfo.BindingInfo.StorageBuffer)
             {
                 var setInfo = _descriptorSetInfos[propertyInfo.SetIndex];
-                setInfo.WriteDescriptors(Presenter.Instance.FrameIndex, propertyInfo.BindPoint, variant, buffer[Presenter.Instance.FrameIndex]);
+                setInfo.WriteDescriptors(Presenter.FrameIndex, propertyInfo.BindPoint, variant, buffer[Presenter.FrameIndex]);
             }
         }
 
@@ -298,7 +298,7 @@ namespace VECS
             if (LookUpProperty(propertyId, out var propertyInfo) && propertyInfo.BindingInfo.StorageBuffer)
             {
                 var setInfo = _descriptorSetInfos[propertyInfo.SetIndex];
-                setInfo.WriteDescriptors(Presenter.Instance.FrameIndex, propertyInfo.BindPoint, variant, buffer);
+                setInfo.WriteDescriptors(Presenter.FrameIndex, propertyInfo.BindPoint, variant, buffer);
             }
         }
 
@@ -307,7 +307,7 @@ namespace VECS
             if (LookUpProperty(property, out var propertyInfo) && propertyInfo.BindingInfo.StorageBuffer)
             {
                 var setInfo = _descriptorSetInfos[propertyInfo.SetIndex];
-                setInfo.WriteDescriptors(Presenter.Instance.FrameIndex, propertyInfo.BindPoint, variant, buffer);
+                setInfo.WriteDescriptors(Presenter.FrameIndex, propertyInfo.BindPoint, variant, buffer);
             }
         }
 
@@ -317,7 +317,7 @@ namespace VECS
             if(LookUpProperty(propertyId, out var propertyInfo) && propertyInfo.BindingInfo.Image)
             {
                 var setInfo = _descriptorSetInfos[propertyInfo.SetIndex];
-                setInfo.WriteDescriptors(Presenter.Instance.FrameIndex, propertyInfo.BindPoint, variant, imageInfo, imageType);
+                setInfo.WriteDescriptors(Presenter.FrameIndex, propertyInfo.BindPoint, variant, imageInfo, imageType);
             }
         }
 
@@ -327,7 +327,7 @@ namespace VECS
             if (LookUpProperty(propertyId, out var propertyInfo) && propertyInfo.BindingInfo.Image)
             {
                 var setInfo = _descriptorSetInfos[propertyInfo.SetIndex];
-                setInfo.WriteDescriptors(Presenter.Instance.FrameIndex, propertyInfo.BindPoint, variant, texture);
+                setInfo.WriteDescriptors(Presenter.FrameIndex, propertyInfo.BindPoint, variant, texture);
             }
         }
 

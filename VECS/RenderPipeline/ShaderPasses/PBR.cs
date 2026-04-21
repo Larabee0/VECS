@@ -12,7 +12,7 @@ namespace VECS
         public const VkFormat IRRADIANCE_FORMAT = VkFormat.R8G8B8A8Unorm;
         public const VkFormat PREFILTERED_CUBE_FORMAT = VkFormat.R8G8B8A8Unorm;
         public const VkImageUsageFlags BRDFLUT_USAGE_FLAGS = VkImageUsageFlags.Sampled | VkImageUsageFlags.ColorAttachment;
-        public const VkImageUsageFlags IRRADIANCE_USAGE_FLAGS = VkImageUsageFlags.Sampled | VkImageUsageFlags.ColorAttachment|VkImageUsageFlags.TransferDst|VkImageUsageFlags.TransferSrc;
+        public const VkImageUsageFlags IRRADIANCE_USAGE_FLAGS = VkImageUsageFlags.Sampled | VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.TransferDst | VkImageUsageFlags.TransferSrc;
         public const VkImageUsageFlags PREFILTERED_CUBE_USAGE_FLAGS = VkImageUsageFlags.Sampled | VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.TransferDst | VkImageUsageFlags.TransferSrc;
         public const int BRDFLUT_DIMENTIONS = 512;
         public const int IRRADIANCE_DIMENTIONS = 512;
@@ -25,6 +25,7 @@ namespace VECS
         private static GraphicsPipeline BRDFLUT_Generator;
         private static GraphicsPipeline Irradiance_Generator;
         private static GraphicsPipeline Prefiltered_Generator;
+
         public static void Reset()
         {
             CreateAssets();
@@ -32,9 +33,9 @@ namespace VECS
             Irradiance_Generator.SetTexture("samplerEnv".GetShaderPropertyId(), 0, Skybox.SkyboxTexture);
             Prefiltered_Generator.SetTexture("samplerEnv".GetShaderPropertyId(), 0, Skybox.SkyboxTexture);
 
-            var irradianceProp ="samplerIrradiance".GetShaderPropertyId();
-            var prefilteredProp ="prefilteredMap".GetShaderPropertyId();
-            var brdflutProp ="samplerBRDFLUT".GetShaderPropertyId();
+            var irradianceProp = "samplerIrradiance".GetShaderPropertyId();
+            var prefilteredProp = "prefilteredMap".GetShaderPropertyId();
+            var brdflutProp = "samplerBRDFLUT".GetShaderPropertyId();
             ShaderProperties.IgnoreUnFoundShaderProperties.Add(irradianceProp);
             ShaderProperties.IgnoreUnFoundShaderProperties.Add(prefilteredProp);
             ShaderProperties.IgnoreUnFoundShaderProperties.Add(brdflutProp);
@@ -66,7 +67,7 @@ namespace VECS
                 VkCompareOp.Never,
                 VkBorderColor.FloatOpaqueWhite,
                 false);
-            
+
             BRDFLUT_Texture.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.FragmentShader);
 
             Irradiance_Cubemap = new(
@@ -143,8 +144,8 @@ namespace VECS
                 pColorAttachments = &colourAttachments,
                 flags = VkRenderingFlags.ContentsInlineKHR | VkRenderingFlags.ContentsSecondaryCommandBuffers
             };
-            VkViewport viewport = new(0,0,BRDFLUT_DIMENTIONS, BRDFLUT_DIMENTIONS, 0.0f, 1.0f);
-            VkRect2D scissor = new(0, 0,BRDFLUT_DIMENTIONS, BRDFLUT_DIMENTIONS);
+            VkViewport viewport = new(0, 0, BRDFLUT_DIMENTIONS, BRDFLUT_DIMENTIONS, 0.0f, 1.0f);
+            VkRect2D scissor = new(0, 0, BRDFLUT_DIMENTIONS, BRDFLUT_DIMENTIONS);
 
             GraphicsDevice.DeviceAPI.vkCmdBeginRendering(frameInfo.CommandBuffer, &renderingInfo);
 
@@ -197,7 +198,7 @@ namespace VECS
 			    Matrix4x4.CreateRotationZ(TransformExtensions.Deg2Rad *180.0f),
             };
 
-            VkViewport viewport = new(0,0,IRRADIANCE_DIMENTIONS, IRRADIANCE_DIMENTIONS, 0.0f, 1.0f);
+            VkViewport viewport = new(0, 0, IRRADIANCE_DIMENTIONS, IRRADIANCE_DIMENTIONS, 0.0f, 1.0f);
             VkRect2D scissor = new(0, 0, IRRADIANCE_DIMENTIONS, IRRADIANCE_DIMENTIONS);
             var persectve = Matrix4x4.CreatePerspectiveFieldOfView(MathF.PI * 0.5f, 1.0f, 0.1f, IRRADIANCE_DIMENTIONS);
 

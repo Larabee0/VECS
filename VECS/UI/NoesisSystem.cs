@@ -23,7 +23,7 @@ namespace VECS.UI
 
         public override void OnCreate(EntityManager entityManager)
         {
-            FrameworkElement controlTreeRoot = (FrameworkElement)GUI.LoadXaml(System.IO.Path.Combine(Asset.AssetsPath,"GUI", "ThemePreview.xaml"));
+            FrameworkElement controlTreeRoot = (FrameworkElement)GUI.LoadXaml(System.IO.Path.Combine(Asset.AssetsPath,"GUI", "CarHud.xaml"));
 
             MainView = new NoesisViewWrapper(controlTreeRoot, Application.NoesisDriver)
             {
@@ -129,7 +129,7 @@ namespace VECS.UI
 
         public unsafe void BlitToMain(RendererFrameInfo frameInfo)
         {
-            var _outputTarget = Presenter.Instance.ForwardRenderer.MainColourAttachment;
+            var _outputTarget = EngineTextures.TryGetTexture(ShaderProperties.MainColourAttachmentId).First;
             if (RenderTarget.ImageLayout == VkImageLayout.ColorAttachmentOptimal)
             {
                 RenderTarget.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.FragmentShader);
@@ -145,18 +145,18 @@ namespace VECS.UI
             {
                 if (_outputTarget.ImageLayout == VkImageLayout.ShaderReadOnlyOptimal)
                 {
-                    _outputTarget.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
+                    _outputTarget.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
                 }
                 else if (_outputTarget.ImageLayout == VkImageLayout.TransferSrcOptimal)
                 {
-                    _outputTarget.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.ColorAttachmentOutput);
+                    _outputTarget.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.ColorAttachmentOutput);
                 }
             }
 
 
             VkRenderingAttachmentInfo colourAttachments = new()
             {
-                imageView = _outputTarget.VkImageView,
+                imageView = _outputTarget._imageView,
                 imageLayout = _outputTarget.ImageLayout,
                 loadOp = VkAttachmentLoadOp.Load,
                 storeOp = VkAttachmentStoreOp.Store,
@@ -165,7 +165,7 @@ namespace VECS.UI
 
             VkRenderingInfo renderingInfo = new()
             {
-                renderArea = new(0, 0, (uint)_outputTarget.Target.Width, (uint)_outputTarget.Target.Height),
+                renderArea = new(0, 0, (uint)_outputTarget.Width, (uint)_outputTarget.Height),
                 layerCount = 1,
                 colorAttachmentCount = 1,
                 pColorAttachments = &colourAttachments,
@@ -173,8 +173,8 @@ namespace VECS.UI
             };
             GraphicsDevice.DeviceAPI.vkCmdBeginRendering(frameInfo.CommandBuffer, &renderingInfo);
 
-            GraphicsDevice.DeviceAPI.vkCmdSetViewport(frameInfo.CommandBuffer, 0, _outputTarget.Target.Height, _outputTarget.Target.Width, -_outputTarget.Target.Height);
-            GraphicsDevice.DeviceAPI.vkCmdSetScissor(frameInfo.CommandBuffer, 0, new VkRect2D(new VkOffset2D(0, 0), new VkExtent2D(_outputTarget.Target.Width, _outputTarget.Target.Height)));
+            GraphicsDevice.DeviceAPI.vkCmdSetViewport(frameInfo.CommandBuffer, 0, _outputTarget.Height, _outputTarget.Width, -_outputTarget.Height);
+            GraphicsDevice.DeviceAPI.vkCmdSetScissor(frameInfo.CommandBuffer, 0, new VkRect2D(new VkOffset2D(0, 0), new VkExtent2D(_outputTarget.Width, _outputTarget.Height)));
 
             _blitVariant.Bind(frameInfo);
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);

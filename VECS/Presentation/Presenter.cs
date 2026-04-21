@@ -10,30 +10,45 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
-    public sealed class Presenter : IDisposable
+    public class Presenter<T> : Presenter where T : IRenderer
+    {
+        public T Renderer => (T)_renderer;
+
+        public Presenter() : base()
+        {
+        }
+
+        public override void Dispose()
+        {
+            GC.SuppressFinalize(this);
+            _renderer.Dispose();
+            base.Dispose();
+            GC.ReRegisterForFinalize(this);
+        }
+
+        protected override IRenderer CreateRenderer()
+        {
+            return Activator.CreateInstance<T>();
+            
+        }
+    }
+
+
+    public abstract class Presenter : IDisposable 
     {
         public const int MAX_CAMERAS = 10;
 
         public static Presenter Instance { get; private set; }
 
         private bool _isFrameStarted = false;
-        private ForwardRenderer _forwardRenderer;
-        private DirectionalLightShadows _directionalLightShadows;
-        private PointLightShadows _pointLightShadows;
-        private SpotLightShadows _spotLightShadows;
-        private Bloom _bloom;
-        private SMAA _smaa;
+        protected IRenderer _renderer;
         private IMGUI _imgui;
         private static ulong _frameCount;
 
         private static ulong _framesSinceSwapChainRecreation = 0;
 
-        public ForwardRenderer ForwardRenderer => _forwardRenderer;
-        public DirectionalLightShadows DirShadows => _directionalLightShadows;
-        public PointLightShadows PLShadows => _pointLightShadows;
-        public SpotLightShadows SLShadows => _spotLightShadows;
-        public static VkFormat[] ColourFormats => ForwardRenderer.ColourFormats;
-        public static VkFormat DepthFormat => ForwardRenderer.DepthFormat;
+        public static VkFormat[] ColourFormats => Instance._renderer.ColourFormats;
+        public static VkFormat DepthFormat => Instance._renderer.DepthFormat;
 
         internal Action PostPresentationUpdate;
         internal Action<int> PreGraphicsPipe;
@@ -44,19 +59,19 @@ namespace VECS
         public Entity FrameInfoEntity;
 
 
-        public int FrameIndex
+        public static int FrameIndex
         {
             get
             {
-                return _isFrameStarted ? SwapChain.FrameIndex : 0;
+                return Instance._isFrameStarted ? SwapChain.FrameIndex : 0;
             }
         }
 
-        public int NextFrameIndex
+        public static int NextFrameIndex
         {
             get
             {
-                return _isFrameStarted ? SwapChain.NextFrame : 0;
+                return Instance._isFrameStarted ? SwapChain.NextFrame : 0;
             }
         }
 
@@ -65,6 +80,8 @@ namespace VECS
             Instance = this;
             RecreateSwapChain();
         }
+
+        protected abstract IRenderer CreateRenderer();
 
         private void RecreateSwapChain()
         {
@@ -75,12 +92,8 @@ namespace VECS
                 SwapChainInit.Init();
                 GraphicsDevice.CreateCommandBuffers();
                 GraphicsDevice.DeviceWaitIdle();
-                _forwardRenderer = new ForwardRenderer();
-                _spotLightShadows = new();
-                _pointLightShadows = new();
-                _directionalLightShadows = new();
-                _bloom = new();
-                _smaa = new();
+                _renderer = CreateRenderer();
+                _renderer.PostCreate();
                 _imgui = new(SDL3WindowManager.MainWindow);
                 SwapChain.GraphicsCallback += GraphicsPipe;
             }
@@ -94,9 +107,7 @@ namespace VECS
                 {
                     throw new Exception("Swap chain image(or depth) format has changed!");
                 }
-                _forwardRenderer.RecreateAttachments();
-                _bloom.RecreateAttachments();
-                _smaa.RecreateRenderTargets();
+                _renderer.ScreenSizeChanged();
                 GraphicsDevice.FreeCommandBuffers();
                 GraphicsDevice.CreateCommandBuffers();
                 GraphicsDevice.DeviceWaitIdle();
@@ -130,8 +141,8 @@ namespace VECS
             World.DefaultWorld.EntityManager.AddComponent(FrameInfoEntity, frameInfo);
         }
 
-        private RendererFrameInfo  CreateRendererFrameInfo(float deltaTime, VkCommandBuffer commandBuffer)
-        {
+        private  static RendererFrameInfo  CreateRendererFrameInfo(float deltaTime, VkCommandBuffer commandBuffer)
+        { 
             int frameIndex = SwapChain.FrameIndex;
             int cameraCount = 0;
             int mainCamera = -1;
@@ -202,7 +213,8 @@ namespace VECS
             if (_isFrameStarted)
             {
                 World.DefaultWorld.OnPrePresent();
-                DrawBlob.FlushBounds(FrameIndex);
+                _renderer.PreRender();
+
                 UpdateEntityFrameInfo(World.DefaultWorld.EntityManager);
                 // kill off buffers
                 GPUBufferExtensions.PlayerbackDisposeCmds();
@@ -221,6 +233,7 @@ namespace VECS
                 PostPresentationUpdate?.Invoke();
 
                 _isFrameStarted = false;
+                _renderer.PostRender();
                 World.DefaultWorld.PostPresentUpdate();
                 //Console.WriteLine("Frame {0}", FrameCount);
                 _frameCount++;
@@ -242,74 +255,22 @@ namespace VECS
             RendererFrameInfo frameInfo = CreateRendererFrameInfo(Time.DeltaTime, commandBuffer);
             ComputePipeline.UpdateComputeShaders(frameInfo);
             GraphicsPipeline.UpdateMaterials(frameInfo);
-            //Console.WriteLine(FrameCount);
-            if (FrameCount == 1)
-            {
-                // PBR.Generate_BRDFLUT(frameInfo);
-                // PBR.Generate_Irradiance(frameInfo);
-                // PBR.Generate_Prefiltered_Cubemap(frameInfo);
-            }
 
-            // shadows pass
-            World.DefaultWorld.OnPreShadowPass(frameInfo);
+            _renderer.Render(frameInfo, imageIndex);
 
-            World.DefaultWorld.OnShadowPass(frameInfo);
-
-            World.DefaultWorld.OnPostShadowPass(frameInfo);
-
-            // Opaque pass
-            World.DefaultWorld.OnPreOpaquePass(frameInfo);
-
-            _forwardRenderer.BeginForwardRendering(commandBuffer, VkAttachmentLoadOp.Clear);
-
-            World.DefaultWorld.OnOpaquePass(frameInfo);
-            // skybox last item rendered to save fragments from any depth writes
-            Skybox.RenderSkybox(frameInfo);
-
-            _forwardRenderer.EndForwardRendering(commandBuffer);
-
-            World.DefaultWorld.OnPostOpaquePass(frameInfo);
-
-            // Transparent pass
-            World.DefaultWorld.OnPreTransparentPass(frameInfo);
-
-            World.DefaultWorld.OnTransparentPass(frameInfo);
-
-            World.DefaultWorld.OnPostTransparentPass(frameInfo);
-
-            //Bloom
-             _bloom.RenderBloomObjects(frameInfo);
-
-            DrawBlob.IndirectToComputeMemoryBarrierByMat(frameInfo.CommandBuffer);
-
-            // final AA pass
-            _smaa.ApplyAA(frameInfo);
-
-            World.DefaultWorld.OnPostAA(frameInfo);
             // UI Overlay
             _imgui.Draw(frameInfo);
-            //var otherSwapchain = SwapChain.SwapChainsForPresent[1].SwapChainExtent;
-            _imgui.OverlayToActiveTarget(frameInfo, _forwardRenderer.MainColourAttachment);
+
+            _imgui.OverlayToActiveTarget(frameInfo,_renderer.MainColourAttachment);
             
             RenderCallback?.Invoke(frameInfo);
 
             // Play back Write Cmds generated during frame from CPU to GPU Buffers
             // this is an optimisation to avoid double writes
             GPUBufferExtensions.PlaybackWriteBufferCmds();
-
-            //for (int i = 0; i < SwapChain.SwapChainsForPresent.Length; i++)
-            //{
-            //    var extents = SwapChain.SwapChainsForPresent[i].SwapChainExtent;
-            //    _forwardRenderer.BlitFromMainColour(commandBuffer, SwapChain.SwapChainsForPresent[i].SwapChainImages[imageIndex], (int)extents.width, (int)extents.height, VkImageAspectFlags.Color);
-            //}
-
-            // blit renderImage into swapchain
-            var extents = SwapChain.SwapChainExtent;
-            _forwardRenderer.BlitFromMainColour(commandBuffer, SwapChain.MainSwapChainData.SwapChainImages[imageIndex], (int)extents.width, (int)extents.height, VkImageAspectFlags.Color);
-
         }
 
-        public unsafe bool BeginFrame()
+        public bool BeginFrame()
         {
             if (SwapChain.RecreateSwapChain|| SDL3WindowManager.WindowResized)
             {
@@ -328,7 +289,7 @@ namespace VECS
         /// The presenter is also responsible for cleaning up the global descriptor set,
         /// the swapChainFrameDescriptorPools & the renderer
         /// </summary>
-        public void Dispose()
+        public virtual void Dispose()
         {
             DrawBlob.CleanUp();
             EngineBuffers.CleanUp();
@@ -343,9 +304,9 @@ namespace VECS
             }
             GraphicsDevice.FreeCommandBuffers();
             _imgui.Dispose();
-            _forwardRenderer.Dispose();
             SwapChain.CleanUp();
             Instance = null;
+
         }
     }
 }

@@ -7,25 +7,26 @@ namespace VECS
 {
     public class SMAA
     {
-        public RenderTarget EdgeInputTarget;
-        public RenderTarget EdgeTarget;
-        public RenderTarget BlendTarget;
+        private readonly Texture2D AreaTexture;
+        private readonly Texture2D SearchTexture;
 
-        
-        public Texture2D AreaTexture;
-        public Texture2D SearchTexture;
+        private readonly Material EdgeDetection;
+        private readonly Material BlendWeightCalc;
+        private readonly Material NeighbourhoodBlending;
+        private readonly Material BlitMain;
+        private readonly Material BlitEdgeTarget;
+        private readonly Material BlitBlendTarget;
+        private readonly IRenderer ActiveRenderer;
 
-        public Material EdgeDetection;
-        public Material BlendWeightCalc;
-        public Material NeighbourhoodBlending;
-        public Material BlitMain;
-        public Material BlitEdgeTarget;
-        public Material BlitBlendTarget;
+        private RenderTarget EdgeInputTarget;
+        private RenderTarget EdgeTarget;
+        private RenderTarget BlendTarget;
 
         private bool _smaaEnabled = true;
 
-        public SMAA()
+        public SMAA(IRenderer activeRenderer)
         {
+            ActiveRenderer = activeRenderer;
             SearchTexture = new Texture2D("SMAA_Search", SMAASearchTexture.SEARCHTEX_WIDTH, SMAASearchTexture.SEARCHTEX_HEIGHT, SMAASearchTexture.SEARCHTEX_FORMAT, VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled, false);
             AreaTexture = new Texture2D("SMAA_Area", SMAAAreaTexture.AREATEX_WIDTH, SMAAAreaTexture.AREATEX_HEIGHT, SMAAAreaTexture.AREATEX_FORMAT, VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled, false);
 
@@ -55,7 +56,7 @@ namespace VECS
             var alphaBlending = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             alphaBlending.colourFormats = [VkFormat.R8G8B8A8Unorm];
             alphaBlending.depthStencilInfo.depthTestEnable = false;
-            //GraphicsPipelineConfigInfo.EnableAlphaBlending(ref alphaBlending);
+
             GraphicsPipeline smaaBlit = new("SMAA_Blitter", "fullscreen.vert", "blit.frag", alphaBlending);
             BlitMain = smaaBlit.Default();
             BlitEdgeTarget = smaaBlit.Create("SMAA_BlitEdgeTarget");
@@ -105,9 +106,9 @@ namespace VECS
 
             NeighbourhoodBlending.PushConstants.SetPushConstantVector4("texelSize", 0, texelSize);
             NeighbourhoodBlending.SetTexture("uBlendTexture".GetShaderPropertyId(), BlendTarget.Target);
-            NeighbourhoodBlending.SetTexture("uColourTexture".GetShaderPropertyId(), Presenter.Instance.ForwardRenderer.MainColourAttachment.Target);
+            NeighbourhoodBlending.SetTexture("uColourTexture".GetShaderPropertyId(), EngineTextures.TryGetTexture(ShaderProperties.MainColourAttachmentId));
 
-            BlitMain.SetTexture("inputTexture".GetShaderPropertyId(), Presenter.Instance.ForwardRenderer.MainColourAttachment.Target);
+            BlitMain.SetTexture("inputTexture".GetShaderPropertyId(), EngineTextures.TryGetTexture(ShaderProperties.MainColourAttachmentId));
             BlitEdgeTarget.SetTexture("inputTexture".GetShaderPropertyId(), EdgeTarget.Target);
             BlitBlendTarget.SetTexture("inputTexture".GetShaderPropertyId(), BlendTarget.Target);
         }
@@ -118,9 +119,9 @@ namespace VECS
 
             if (!_smaaEnabled) return;
 
-            var mainTarget = Presenter.Instance.ForwardRenderer.MainColourAttachment.Target;
+            var mainTarget = EngineTextures.TryGetTexture(ShaderProperties.MainColourAttachmentId);
 
-            mainTarget.SetImageLayout(frameInfo.CommandBuffer,
+            mainTarget.First.SetImageLayout(frameInfo.CommandBuffer,
                 VkImageLayout.ShaderReadOnlyOptimal,
                 VkPipelineStageFlags2.ColorAttachmentOutput,
                 VkPipelineStageFlags2.FragmentShader);
@@ -131,7 +132,7 @@ namespace VECS
 
             BlendWeightCalculation(frameInfo);
 
-            mainTarget.SetImageLayout(frameInfo.CommandBuffer,
+            mainTarget.First.SetImageLayout(frameInfo.CommandBuffer,
                 VkImageLayout.ColorAttachmentOptimal,
                 VkPipelineStageFlags2.FragmentShader,
                 VkPipelineStageFlags2.ColorAttachmentOutput);
@@ -146,33 +147,34 @@ namespace VECS
 #if DEBUG
         private unsafe void OutputBlendWeights(in RendererFrameInfo frameInfo)
         {
-            Presenter.Instance.ForwardRenderer.BeginForwardRendering(frameInfo.CommandBuffer, VkAttachmentLoadOp.Clear);
+            ActiveRenderer.StartMainColourRendering(frameInfo, VkAttachmentLoadOp.Clear);
 
             BlitBlendTarget.Bind(frameInfo);
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
 
-            Presenter.Instance.ForwardRenderer.EndForwardRendering(frameInfo.CommandBuffer);
+            ActiveRenderer.EndMainColourRendering(frameInfo);
         }
 
         private unsafe void OutputEdgeDetection(in RendererFrameInfo frameInfo)
         {
-            Presenter.Instance.ForwardRenderer.BeginForwardRendering(frameInfo.CommandBuffer, VkAttachmentLoadOp.Clear);
+            ActiveRenderer.StartMainColourRendering(frameInfo, VkAttachmentLoadOp.Clear);
 
             BlitEdgeTarget.Bind(frameInfo);
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
 
-            Presenter.Instance.ForwardRenderer.EndForwardRendering(frameInfo.CommandBuffer);
+            ActiveRenderer.EndMainColourRendering(frameInfo);
         }
 #endif
 
         private unsafe void OutputBlending(RendererFrameInfo frameInfo)
         {
-            Presenter.Instance.ForwardRenderer.BeginForwardRendering(frameInfo.CommandBuffer, VkAttachmentLoadOp.Load);
+            ActiveRenderer.StartMainColourRendering(frameInfo, VkAttachmentLoadOp.Load);
 
             NeighbourhoodBlending.Bind(frameInfo);
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
 
-            Presenter.Instance.ForwardRenderer.EndForwardRendering(frameInfo.CommandBuffer);
+            ActiveRenderer.EndMainColourRendering(frameInfo);
+            
         }
 
         private unsafe void BlendWeightCalculation(RendererFrameInfo frameInfo)

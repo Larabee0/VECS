@@ -1138,5 +1138,50 @@ namespace VECS
         {
             return (SingleTexture)texture;
         }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static VkImageBlit GetBlitCmd(this Texture texture, int dstWidth, int dstHeight, VkImageAspectFlags dstAspectMask)
+        {
+            VkImageBlit imageBlit = new()
+            {
+                srcSubresource = new()
+                {
+                    aspectMask = dstAspectMask,
+                    layerCount = 1,
+                    mipLevel = 0,
+
+                },
+                dstSubresource = new()
+                {
+                    layerCount = 1,
+                    mipLevel = 0
+                }
+            };
+            if (texture._aspectFlags.HasFlag(VkImageAspectFlags.Color))
+            {
+                imageBlit.dstSubresource.aspectMask = VkImageAspectFlags.Color;
+            }
+            else if (texture._aspectFlags.HasFlag(VkImageAspectFlags.Depth) && texture._aspectFlags.HasFlag(VkImageAspectFlags.Stencil))
+            {
+                imageBlit.dstSubresource.aspectMask = VkImageAspectFlags.Depth | VkImageAspectFlags.Stencil;
+            }
+            else if (texture._aspectFlags.HasFlag(VkImageAspectFlags.Depth))
+            {
+                imageBlit.dstSubresource.aspectMask = VkImageAspectFlags.Depth;
+            }
+            else if (texture._aspectFlags.HasFlag(VkImageAspectFlags.Stencil))
+            {
+                imageBlit.dstSubresource.aspectMask = VkImageAspectFlags.Stencil;
+            }
+            imageBlit.srcOffsets[1].x = texture.Width;
+            imageBlit.srcOffsets[1].y = texture.Height;
+            imageBlit.srcOffsets[1].z = 1;
+
+            imageBlit.dstOffsets[1].x = dstWidth;
+            imageBlit.dstOffsets[1].y = dstHeight;
+            imageBlit.dstOffsets[1].z = 1;
+
+            return imageBlit;
+        }
     }
 }

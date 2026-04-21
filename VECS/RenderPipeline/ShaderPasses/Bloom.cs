@@ -17,6 +17,8 @@ namespace VECS
         private RenderTarget _blurTexture;
         private RenderTarget _depthAttachment;
 
+        private readonly IRenderer _activeRenderer;
+
         private VkRect2D Scissor => new()
         {
             offset = new VkOffset2D(0, 0),
@@ -37,8 +39,9 @@ namespace VECS
         
         private VkRenderingAttachmentInfo _depthAttachmentInfo;
 
-        public unsafe Bloom()
+        public unsafe Bloom(IRenderer renderer)
         {
+            _activeRenderer = renderer;
             var blurConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             var blendAttachment = blurConfig.colourBlendAttachment;
             blendAttachment.colorWriteMask = VkColorComponentFlags.All;
@@ -135,11 +138,10 @@ namespace VECS
         public unsafe void RenderBloomObjects(RendererFrameInfo frameInfo)
         {
             // copy forward output into glow texture
-            var forwardRenderer = Presenter.Instance.ForwardRenderer;
 
             _glowTexture.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.TransferDstOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.Blit);
 
-            forwardRenderer.BlitFromBrightObjects(frameInfo.CommandBuffer, _glowTexture.VkImage, FRAME_BUFFER_DIMENTIONS_X, FRAME_BUFFER_DIMENTIONS_Y, VkImageAspectFlags.Color);
+            BlitFromBrightObjects(frameInfo.CommandBuffer, _glowTexture.VkImage, FRAME_BUFFER_DIMENTIONS_X, FRAME_BUFFER_DIMENTIONS_Y, VkImageAspectFlags.Color);
 
             _glowTexture.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.ColorAttachmentOutput);
 
@@ -147,11 +149,11 @@ namespace VECS
             BlurVertical(frameInfo);
 
             // blur horizontal store in forward output
-            forwardRenderer.BeginForwardRendering(frameInfo.CommandBuffer, VkAttachmentLoadOp.Load);
+            _activeRenderer.StartMainColourRendering(frameInfo, VkAttachmentLoadOp.Load);
 
             BlurHorizontal(frameInfo);
 
-            forwardRenderer.EndForwardRendering(frameInfo.CommandBuffer);
+            _activeRenderer.EndMainColourRendering(frameInfo);
         }
 
         private unsafe void BlurVertical(RendererFrameInfo frameInfo)
@@ -207,6 +209,17 @@ namespace VECS
             GraphicsDevice.DeviceAPI.vkCmdBeginRendering(frameInfo.CommandBuffer, &renderingInfo);
             GraphicsDevice.DeviceAPI.vkCmdSetViewport(frameInfo.CommandBuffer, 0, ViewPort);
             GraphicsDevice.DeviceAPI.vkCmdSetScissor(frameInfo.CommandBuffer, 0, Scissor);
+        }
+
+        public static void BlitFromBrightObjects(VkCommandBuffer commandBuffer, VkImage dst, int dstWidth, int dstHeight, VkImageAspectFlags dstAspectMask)
+        {
+            var brightObjects = EngineTextures.TryGetTexture(ShaderProperties.BrightColourAttachmentId).First;
+            
+            brightObjects.SetImageLayout(commandBuffer, VkImageLayout.TransferSrcOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.Blit);
+
+            TextureExtensions.BlitGeneric(commandBuffer, VkFilter.Linear, brightObjects.GetBlitCmd(dstWidth, dstHeight, dstAspectMask), brightObjects._vkImage, brightObjects.ImageLayout, dst, VkImageLayout.TransferDstOptimal);
+
+            brightObjects.SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.ColorAttachmentOutput);
         }
     }
 }

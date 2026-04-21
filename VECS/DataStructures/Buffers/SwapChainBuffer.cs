@@ -47,7 +47,7 @@ namespace VECS
         {
             get
             {
-                int frameIndex = Presenter.Instance.FrameIndex;
+                int frameIndex = Presenter.FrameIndex;
                 // if (_CPUAccessible && _hasHostBuffer && _diryBuffers[frameIndex] && HostPtrValid)
                 // {
                 //     this.WriteFromHostToBuffer(frameIndex);

@@ -91,7 +91,7 @@ namespace VECS
                         RenderTargetType.Colour => VkImageAspectFlags.Color,
                         RenderTargetType.Depth => VkImageAspectFlags.Depth,
                         RenderTargetType.Stencil => VkImageAspectFlags.Stencil,
-                        RenderTargetType.DepthStencil => VkImageAspectFlags.Depth|VkImageAspectFlags.Stencil,
+                        RenderTargetType.DepthStencil => VkImageAspectFlags.Depth | VkImageAspectFlags.Stencil,
                         _=> VkImageAspectFlags.None
                     },
                     layerCount = 1,

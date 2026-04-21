@@ -23,13 +23,16 @@ namespace VECS
         public DirectionalLightShadows() : base(1)
         {
             _shadowDepthTextures.First = new Texture2DArray("DirectionalShadowRT",
-                8,
-                8,
+                1,
+                1,
                 MAX_CASCADE_COUNT,
                 DIRECTIONAL_SHADOW_FORMAT,
                 VkSamplerAddressMode.ClampToBorder,
                 VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.Sampled,
                 false);
+
+            EngineTextures.AddOrUpdateTexture(ShaderProperties.DirShadowImageId, _shadowDepthTextures);
+            AssignShadowTextures(ShaderProperties.DirShadowImageId);
 
             _shadowDepthTextures.First.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.LateFragmentTests, VkPipelineStageFlags2.FragmentShader);
             
@@ -41,7 +44,6 @@ namespace VECS
             _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("layerCount", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, 1);
             _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("layerOffset", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, 0);
 
-            AssignShadowTextures(ShaderProperties.DirShadowImageId);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

@@ -519,13 +519,13 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe static void WriteFromHostToActiveBuffer(this SwapChainBuffer buffer)
         {
-            WriteFromHostToBuffer(buffer, Presenter.Instance.FrameIndex);
+            WriteFromHostToBuffer(buffer, Presenter.FrameIndex);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe static void ReadToHostFromActiveBuffer(this SwapChainBuffer buffer)
         {
-            ReadToHostFromBuffer(buffer, Presenter.Instance.FrameIndex);
+            ReadToHostFromBuffer(buffer, Presenter.FrameIndex);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -725,7 +725,7 @@ namespace VECS
                 NativeMemory.Fill(buffer._hostPtr, (nuint)buffer.VkBufferSize, (byte)data);
             }
             buffer.SetBuffersDirty(true);
-            buffer._diryBuffers[Presenter.Instance.FrameIndex] = false;
+            buffer._diryBuffers[Presenter.FrameIndex] = false;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

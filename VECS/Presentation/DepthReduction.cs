@@ -129,7 +129,7 @@ namespace VECS
         {
             if (!frameInfo.CullData.cullMode.HasFlag(CullModeFlags.Depth)) return;
 
-            var depthTexture = Presenter.Instance.ForwardRenderer.DepthAttachment.Target;
+            var depthTexture = EngineTextures.TryGetTexture(ShaderProperties.MainDepthAttachmentId).First;
             
 
             VkImageMemoryBarrier2 depthReadBarrier = new()

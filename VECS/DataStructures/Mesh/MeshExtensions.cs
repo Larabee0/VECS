@@ -662,7 +662,7 @@ namespace VECS
 
         public static void RecalcualteAllNormals(this DirectMesh directMesh, VkCommandBuffer commandBuffer)
         {
-            ComputeNormals.Dispatch(commandBuffer, Presenter.Instance.FrameIndex, directMesh);
+            ComputeNormals.Dispatch(commandBuffer, Presenter.FrameIndex, directMesh);
             directMesh.GetBufferAtAttribute(VertexAttribute.Normal).SetGPUBufferChanged(true);
         }
 

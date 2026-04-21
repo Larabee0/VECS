@@ -18,6 +18,11 @@ namespace VECS
         public static readonly int AdditionalCameraInfoId = "cameraPlanes".GetShaderPropertyId();
         public static readonly int OrthographicInfoId = "orthographic".GetShaderPropertyId();
 
+        public static readonly int MainColourAttachmentId = "mainColour".GetShaderPropertyId();
+        public static readonly int BrightColourAttachmentId = "brightColour".GetShaderPropertyId();
+        public static readonly int MainDepthAttachmentId = "mainDepth".GetShaderPropertyId();
+        public static readonly int MainStencilAttachmentId = "mainStencil".GetShaderPropertyId();
+
         public static readonly int LightingInfoId = "lighting".GetShaderPropertyId();
         public static readonly int DirectionalLightsBufferId = "directionalLightBuffer".GetShaderPropertyId();
         public static readonly int PointLightsBufferId = "pointLightBuffer".GetShaderPropertyId();

@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using VECS.ECS.Transforms;
 using VECS.LowLevel;
 
 namespace VECS.ECS.Presentation
@@ -11,6 +10,8 @@ namespace VECS.ECS.Presentation
         private EntityQuery _directionalLightCreateQuery;
         private EntityQuery _directionalLightUpdateQuery;
         private EntityQuery _directionalLightShadowQuery;
+
+        private DirectionalLightShadows _directionalLightShadows;
 
         bool reassignTextures = false;
 
@@ -35,6 +36,8 @@ namespace VECS.ECS.Presentation
                 .WithAll(typeof(DirectionalLight), typeof(ShadowInfo), typeof(UpdateShadow))
                 .WithNone(typeof(Prefab), typeof(DoNotRender))
                 .Build();
+
+            _directionalLightShadows = new();
         }
 
         public override void OnUpdate(EntityManager entityManager)
@@ -124,7 +127,7 @@ namespace VECS.ECS.Presentation
                 entityManager.GetComponent(entities[i], out ShadowInfo shadowInfo);
 
                 Debug.Assert(shadowInfo.Resolution > 2);
-                bool textureChanged = Presenter.Instance.DirShadows.SetShadowTexture(i, shadowInfo.Resolution);
+                bool textureChanged = _directionalLightShadows.SetShadowTexture(i, shadowInfo.Resolution);
                 if (textureChanged)
                 {
                     entityManager.AddComponent<UpdateShadow>(entities[i]);
@@ -134,7 +137,7 @@ namespace VECS.ECS.Presentation
 
             for (; i < 1; i++)
             {
-                reassignTextures |= Presenter.Instance.DirShadows.SetShadowTexture(i, 8);
+                reassignTextures |= _directionalLightShadows.SetShadowTexture(i, 8);
             }
         }
 
@@ -146,14 +149,13 @@ namespace VECS.ECS.Presentation
             GPUBufferExtensions.WriteFromHostDelayed(hostBuffer, frameInfo.FrameIndex);
 
             var entities = _directionalLightShadowQuery.GetEntities();
-            var dirShadows = Presenter.Instance.DirShadows;
 
             if (reassignTextures)
             {
-                dirShadows.AssignShadowTextures(ShaderProperties.DirShadowImageId);
+                _directionalLightShadows.AssignShadowTextures(ShaderProperties.DirShadowImageId);
             }
 
-            dirShadows.PreShadowPass(frameInfo);
+            _directionalLightShadows.PreShadowPass(frameInfo);
             int i = 0;
 
             for (; i < Math.Min(1, entities.Count); i++)
@@ -166,13 +168,13 @@ namespace VECS.ECS.Presentation
                     entityManager.RemoveComponent<UpdateShadow>(entities[i]);
                 }
 
-                dirShadows.DirectionalShadowPass(frameInfo, hostBuffer.HostBuffer[i]);
+                _directionalLightShadows.DirectionalShadowPass(frameInfo, hostBuffer.HostBuffer[i]);
 
             }
 
             for (; i < 1; i++)
             {
-                dirShadows.ClearImage(frameInfo, i);
+                _directionalLightShadows.ClearImage(frameInfo, i);
             }
         }
     }

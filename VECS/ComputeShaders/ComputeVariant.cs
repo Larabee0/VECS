@@ -152,7 +152,7 @@ namespace VECS
             {
                 var setInfo = GetDescriptorInfo(propertyInfo.SetIndex);
                 uint variant = localUniformAllocation ? 0 : VariantIndex;
-                setInfo.WriteDescriptors(Presenter.Instance.FrameIndex, propertyInfo.BindPoint, variant, buffer[Presenter.Instance.FrameIndex]);
+                setInfo.WriteDescriptors(Presenter.FrameIndex, propertyInfo.BindPoint, variant, buffer[Presenter.FrameIndex]);
             }
         }
 
@@ -162,7 +162,7 @@ namespace VECS
             {
                 var setInfo = GetDescriptorInfo(propertyInfo.SetIndex);
                 uint variant = localUniformAllocation ? 0 : VariantIndex;
-                setInfo.WriteDescriptors(Presenter.Instance.FrameIndex, propertyInfo.BindPoint, variant, buffer);
+                setInfo.WriteDescriptors(Presenter.FrameIndex, propertyInfo.BindPoint, variant, buffer);
             }
         }
 
@@ -173,7 +173,7 @@ namespace VECS
             {
                 var setInfo = GetDescriptorInfo(propertyInfo.SetIndex);
                 uint variant = localUniformAllocation ? 0 : VariantIndex;
-                setInfo.WriteDescriptors(Presenter.Instance.FrameIndex, propertyInfo.BindPoint, variant, texture);
+                setInfo.WriteDescriptors(Presenter.FrameIndex, propertyInfo.BindPoint, variant, texture);
             }
         }
 
@@ -184,7 +184,7 @@ namespace VECS
             {
                 var setInfo = GetDescriptorInfo(propertyInfo.SetIndex);
                 uint variant = localUniformAllocation ? 0 : VariantIndex;
-                setInfo.WriteDescriptors(Presenter.Instance.FrameIndex, propertyInfo.BindPoint, variant, imageInfo, imageType);
+                setInfo.WriteDescriptors(Presenter.FrameIndex, propertyInfo.BindPoint, variant, imageInfo, imageType);
             }
         }
 
@@ -195,7 +195,7 @@ namespace VECS
             {
                 var setInfo = GetDescriptorInfo(propertyInfo.SetIndex);
                 uint variant = localUniformAllocation ? 0 : VariantIndex;
-                setInfo.WriteDescriptors(Presenter.Instance.FrameIndex, propertyInfo.BindPoint, variant, imageInfos,imageCount, imageType);
+                setInfo.WriteDescriptors(Presenter.FrameIndex, propertyInfo.BindPoint, variant, imageInfos,imageCount, imageType);
             }
         }
 

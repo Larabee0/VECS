@@ -108,12 +108,12 @@ namespace VECS
 
         public static void DispatchAll(DirectMesh mesh)
         {
-            _boundsRecalQueue[Presenter.Instance.FrameIndex].Enqueue(mesh);
+            _boundsRecalQueue[Presenter.FrameIndex].Enqueue(mesh);
         }
 
         private static void DispatchAllNextFrame(DirectMesh mesh)
         {
-            _boundsRecalQueue[Presenter.Instance.NextFrameIndex].Enqueue(mesh);
+            _boundsRecalQueue[Presenter.NextFrameIndex].Enqueue(mesh);
         }
 
         public static void DispatchAll(VkCommandBuffer commandBuffer, int frameIndex)

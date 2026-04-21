@@ -81,7 +81,7 @@ namespace VECS
             SDL3WindowManager.CheckLoadedPresentMode();
             ShaderModule.LoadAllShaders();
             //SDL3WindowManager.CreateNewEditorWindow("VECS-Editor", Width, Height);
-            _presenter = new();
+            _presenter = new Presenter<ForwardRenderer>();
 
             Time.FixedTimeStepCallback += FixedUpdate;
             sw.Stop();
@@ -153,7 +153,7 @@ namespace VECS
             _mainWorld = new World();
 
             _presenter.Start(); // presenter depends on the main entity world existing right away
-
+            //NoesisHandler.Init();
             PreOnCreate?.Invoke();
 
             World.OnCreate();

@@ -61,7 +61,7 @@ namespace VECS
         {
             var commandBuffer = GraphicsDevice.BeginSingleTimeMainPipe();
             GPUBufferExtensions.PlaybackCopyBuffersCmds(commandBuffer);
-            Dispatch(commandBuffer, Presenter.Instance.FrameIndex, mesh);
+            Dispatch(commandBuffer, Presenter.FrameIndex, mesh);
             GraphicsDevice.EndSingleTimeMainPipe(commandBuffer);
         }
 

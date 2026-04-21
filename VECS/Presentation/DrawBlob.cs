@@ -67,7 +67,7 @@ namespace VECS
         public readonly uint ElementSize = 0;
         public readonly uint Alignment = 0;
 
-        private SwapChainBuffer _buffer;
+        private readonly SwapChainBuffer _buffer;
 
         private uint AllocationSize => _buffer.HostBufferSize32;
         public int SourceTypeComponentId => BufferSource.ComponentId;
@@ -163,6 +163,9 @@ namespace VECS
         private static int _firstTransparentCmdRegion;
         private static readonly BufferRegion[] _workerRegionsOpaqueQueue = new BufferRegion[Application.ThreadDispatcher.ThreadCount];
         private static readonly BufferRegion[] _workerRegionsTransparentQueue = new BufferRegion[Application.ThreadDispatcher.ThreadCount];
+
+        public static bool HasDrawables => OpaqueCmdCountByMat > 0 || TransparentCmdCountByMat > 0;
+        public static bool HasDrawablesInclDepth => OpaqueCmdCountByMat > 0 || TransparentCmdCountByMat > 0|| SimpleDepthCount > 0 || _alphaClippingDepthCount > 0;
 
         public static void Reset()
         {
@@ -582,11 +585,6 @@ namespace VECS
         {
         }
 
-        public static void FlushBounds(int frameIndex)
-        {
-            //GPUBufferExtensions.WriteFromHostDelayed(_drawRenderBoundsByMat, frameIndex);
-        }
-
         public unsafe static void ExecuteOpaqueDrawCmds(RendererFrameInfo frameInfo, VkCommandBuffer[] commandBuffers, VkFormat* colourFormats, uint colourAttachmentCount, VkFormat depthFormat, VkFormat stencilFormat)
         {
             if (MULTI_THREAD_RENDERING && commandBuffers != null)
@@ -805,15 +803,6 @@ namespace VECS
             {
                 return _drawCommandsByMat.AsSpan(region.StartIndex, region.Count);
             }
-            return null;
-        }
-
-        public static Span<ShaderAABB> GetShaderAABBForMat(int hash)
-        {
-            //if (_materialBufferRegions.TryGetValue(hash, out var region))
-            //{
-            //    return _drawRenderBoundsByMat.HostBuffer.Slice(region.StartIndex, region.Count);
-            //}
             return null;
         }
 

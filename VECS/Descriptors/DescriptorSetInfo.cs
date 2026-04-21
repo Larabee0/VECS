@@ -342,7 +342,7 @@ namespace VECS
                         var scb = _storageBuffers[bufferIndex];
                         if (scb != null && !scb.IsDisposed)
                         {
-                            int scbIndex = scb.AlisedGPUBuffer ? 0 : Presenter.Instance.FrameIndex;
+                            int scbIndex = scb.AlisedGPUBuffer ? 0 : Presenter.FrameIndex;
                             descriptorBuffer.SetStorageBinding(_storageBuffers[bufferIndex][scbIndex], setIndex, bindPoint);   
                         }
                     }
@@ -377,7 +377,7 @@ namespace VECS
                         var scb = _storageBuffers[bufferIndex];
                         if (scb != null && !scb.IsDisposed)
                         {
-                            int scbIndex = scb.AlisedGPUBuffer ? 0 : Presenter.Instance.FrameIndex;
+                            int scbIndex = scb.AlisedGPUBuffer ? 0 : Presenter.FrameIndex;
                             descriptorBuffer.SetStorageBinding(_storageBuffers[bufferIndex][scbIndex], setIndex, bindPoint);
                         }
                     }

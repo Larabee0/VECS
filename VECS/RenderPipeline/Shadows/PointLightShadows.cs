@@ -17,7 +17,7 @@ namespace VECS
         {
             for (int i = 0; i < MAX_POINT_LIGHT_SHADOW_CASTERS; i++)
             {
-                _shadowDepthTextures.SetTexture(CreateShadowMap(i, 8), i);
+                _shadowDepthTextures.SetTexture(CreateShadowMap(i, 1), i);
             }
 
             EngineTextures.AddOrUpdateTexture(ShaderProperties.PLShadowImageId, _shadowDepthTextures);

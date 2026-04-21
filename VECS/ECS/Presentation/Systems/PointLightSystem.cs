@@ -11,6 +11,8 @@ namespace VECS.ECS.Presentation
         private EntityQuery _pointLightUpdateQuery;
         private EntityQuery _pointLightShadowQuery;
 
+        private PointLightShadows _pointLightShadows;
+
         bool reassignTextures = false;
 
         public override void OnCreate(EntityManager entityManager)
@@ -34,6 +36,8 @@ namespace VECS.ECS.Presentation
                 .WithAll(typeof(PointLight), typeof(LocalToWorld),  typeof(ShadowInfo), typeof(UpdateShadow))
                 .WithNone(typeof(Prefab), typeof(DoNotRender))
                 .Build();
+
+            _pointLightShadows = new();
         }
 
         public override void OnUpdate(EntityManager entityManager)
@@ -118,7 +122,7 @@ namespace VECS.ECS.Presentation
                 entityManager.GetComponent(entities[i], out ShadowInfo shadowInfo);
                 
                 Debug.Assert(shadowInfo.Resolution > 2);
-                bool textureChanged = Presenter.Instance.PLShadows.SetShadowTexture(i, shadowInfo.Resolution);
+                bool textureChanged = _pointLightShadows.SetShadowTexture(i, shadowInfo.Resolution);
                 if (textureChanged)
                 {
                     entityManager.AddComponent<UpdateShadow>(entities[i]);
@@ -128,7 +132,7 @@ namespace VECS.ECS.Presentation
 
             for (; i < PointLightShadows.MAX_POINT_LIGHT_SHADOW_CASTERS; i++)
             {
-                reassignTextures |= Presenter.Instance.PLShadows.SetShadowTexture(i, 8);
+                reassignTextures |= _pointLightShadows.SetShadowTexture(i, 8);
             }
         }
 
@@ -140,14 +144,14 @@ namespace VECS.ECS.Presentation
             GPUBufferExtensions.WriteFromHostDelayed(hostBuffer, frameInfo.FrameIndex);
             
             var entities = _pointLightShadowQuery.GetEntities();
-            var plShadows = Presenter.Instance.PLShadows;
 
             if (reassignTextures)
             {
-                plShadows.AssignShadowTextures(ShaderProperties.PLShadowImageId);
+                _pointLightShadows.AssignShadowTextures(ShaderProperties.PLShadowImageId);
             }
 
-            plShadows.PreShadowPass(frameInfo);
+            _pointLightShadows.PreShadowPass(frameInfo);
+
             int i = 0;
 
             for (; i < Math.Min(PointLightShadows.MAX_POINT_LIGHT_SHADOW_CASTERS, entities.Count); i++)
@@ -160,13 +164,13 @@ namespace VECS.ECS.Presentation
                     entityManager.RemoveComponent<UpdateShadow>(entities[i]);
                 }
 
-                plShadows.PointLightShadowPass(frameInfo, i, hostBuffer.HostBuffer[i]);
+                _pointLightShadows.PointLightShadowPass(frameInfo, i, hostBuffer.HostBuffer[i]);
 
             }
 
             for (; i < PointLightShadows.MAX_POINT_LIGHT_SHADOW_CASTERS; i++)
             {
-                plShadows.ClearImage(frameInfo,i);
+                _pointLightShadows.ClearImage(frameInfo,i);
             }
         }
     }

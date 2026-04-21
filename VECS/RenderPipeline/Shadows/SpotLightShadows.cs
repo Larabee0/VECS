@@ -18,16 +18,16 @@ namespace VECS
 
             for (int i = 0; i < MAX_SPOT_LIGHT_SHADOW_CASTERS; i++)
             {
-                _shadowDepthTextures.SetTexture(CreateShadowMap(i, 8), i);
+                _shadowDepthTextures.SetTexture(CreateShadowMap(i, 1), i);
             }
 
             EngineTextures.AddOrUpdateTexture(ShaderProperties.SLShadowImageId, _shadowDepthTextures);
+            AssignShadowTextures(ShaderProperties.SLShadowImageId);
 
             _depthOnly.PushConstants.SetPushConstantInt("layerCount", SPOT_SHADOWS_PUSH_CONSTANT_INDEX, 1);
             _depthOnly.PushConstants.SetPushConstantInt("bufferSelect", SPOT_SHADOWS_PUSH_CONSTANT_INDEX, 3);
             _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("layerCount", SPOT_SHADOWS_PUSH_CONSTANT_INDEX, 1);
             _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("bufferSelect", SPOT_SHADOWS_PUSH_CONSTANT_INDEX, 3);
-            AssignShadowTextures(ShaderProperties.SLShadowImageId);
         }
 
         private static Texture2D CreateShadowMap(int index, int size)
