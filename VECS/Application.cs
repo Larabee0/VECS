@@ -153,7 +153,7 @@ namespace VECS
             _mainWorld = new World();
 
             _presenter.Start(); // presenter depends on the main entity world existing right away
-            //NoesisHandler.Init();
+            NoesisHandler.Init();
             PreOnCreate?.Invoke();
 
             World.OnCreate();

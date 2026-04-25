@@ -24,7 +24,7 @@
 
         <ContentControl Grid.Column="0" Grid.Row="0" BorderThickness="1" BorderBrush="Gray">
             <ContentControl.Resources>
-                <ResourceDictionary Source="/Theme/NoesisTheme.Brushes.LightBlue.xaml"/>
+                <ResourceDictionary Source="./Theme/NoesisTheme.LightBlue.xaml"/>
             </ContentControl.Resources>
             <Grid Background="{StaticResource Brush.Window.Background}">
               <Viewbox>
@@ -121,7 +121,7 @@
         </ContentControl>
         <ContentControl Grid.Column="1" Grid.Row="0" BorderThickness="1" BorderBrush="Gray" Margin="-1,0,0,0">
             <ContentControl.Resources>
-                <ResourceDictionary Source="/Noesis.GUI.Extensions;component/Theme/NoesisTheme.Brushes.LightEmerald.xaml"/>
+                <ResourceDictionary Source="./Theme/NoesisTheme.LightEmerald.xaml"/>
             </ContentControl.Resources>
             <Grid Background="{StaticResource Brush.Window.Background}">
               <Viewbox>
@@ -219,7 +219,7 @@
         
         <Border Grid.Column="0" Grid.Row="1" BorderThickness="1" BorderBrush="Gray" Margin="0,-1,0,0">
             <Border.Resources>
-                <ResourceDictionary Source="/Noesis.GUI.Extensions;component/Theme/NoesisTheme.Brushes.DarkBlue.xaml"/>
+                <ResourceDictionary Source="./Theme/NoesisTheme.DarkBlue.xaml"/>
             </Border.Resources>
             <Grid Background="{StaticResource Brush.Window.Background}">
               <Viewbox>
@@ -316,7 +316,7 @@
         </Border>
         <Border Grid.Column="1" Grid.Row="1" BorderThickness="1" BorderBrush="Gray" Margin="-1,-1,0,0">
             <Border.Resources>
-                <ResourceDictionary Source="/Noesis.GUI.Extensions;component/Theme/NoesisTheme.Brushes.DarkPurple.xaml"/>
+                <ResourceDictionary Source="./Theme/NoesisTheme.DarkPurple.xaml"/>
             </Border.Resources>
             <Grid Background="{StaticResource Brush.Window.Background}">
               <Viewbox>

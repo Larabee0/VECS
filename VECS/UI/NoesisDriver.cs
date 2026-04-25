@@ -25,8 +25,10 @@ namespace VECS.UI
             GUI.SetXamlProvider(new NoesisXamlProvider());
 
             _noesisDriver = new NoesisDriver();
-            Log.SetLogCallback(UI.NoesisDriver.LoggerCallback);
-            Error.SetUnhandledCallback(UI.NoesisDriver.ErrorCallback);
+            
+            Log.SetLogCallback(NoesisDriver.LoggerCallback);
+            GUI.SetFontFallbacks(["Bitter"]);
+            Error.SetUnhandledCallback(NoesisDriver.ErrorCallback);
 
             World.DefaultWorld.CreateSystem<NoesisSystem>();
         }
@@ -46,7 +48,8 @@ namespace VECS.UI
             DepthRangeZeroToOne = true,
             ClipSpaceYInverted = true,
             SubpixelRendering = true,
-            CenterPixelOffset = 0
+            CenterPixelOffset = 0,
+            
         };
 
         private readonly ShaderModule[] _vertexShaders = new ShaderModule[(int)Shader.Vertex.Enum.Count];
@@ -281,7 +284,7 @@ namespace VECS.UI
                     }
                     else
                     {
-                        renderTarget.Colour.Texture.SetImageLayout(CurrentCommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.Transfer, VkPipelineStageFlags2.ColorAttachmentOutput);
+                        renderTarget.Colour.Texture.SetImageLayout(CurrentCommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
                     }
                     colourFormat = renderTarget.Colour.Texture.Format;
                 }
@@ -290,7 +293,7 @@ namespace VECS.UI
                 {
                     stencil = new()
                     {
-                        loadOp = VkAttachmentLoadOp.DontCare,
+                        loadOp = VkAttachmentLoadOp.Clear,
                         storeOp = VkAttachmentStoreOp.DontCare,
                         imageLayout = VkImageLayout.StencilAttachmentOptimal,
                         imageView = renderTarget.Stencil.Texture._imageView
@@ -1073,6 +1076,7 @@ namespace VECS.UI
                 VkDynamicState.StencilReference,
                 VkDynamicState.ColorBlendEquationEXT,
                 VkDynamicState.ColorBlendEnableEXT,
+                VkDynamicState.ColorWriteEnableEXT,
                 VkDynamicState.PolygonModeEXT,
             ];
 
@@ -1173,7 +1177,9 @@ namespace VECS.UI
                 }
 
                 GraphicsDevice.DeviceAPI.vkCmdSetColorBlendEquationEXT(commandBuffer, 0, 1, &blendEquation);
+                
             }
+            GraphicsDevice.DeviceAPI.vkCmdSetColorWriteEnableEXT(commandBuffer, 1, &blendEnabled);
             GraphicsDevice.DeviceAPI.vkCmdSetColorBlendEnableEXT(commandBuffer, 0, 1, &blendEnabled);
         }
 
@@ -1207,32 +1213,32 @@ namespace VECS.UI
                 case StencilMode.Disabled:
                     depthTestEnable = false;
                     stencilTestEnable = false;
-                    stencilCompareOp = VkCompareOp.Equal;
                     passOp = VkStencilOp.Keep;
+                    stencilCompareOp = VkCompareOp.Equal;
                     break;
                 case StencilMode.Equal_Keep:
                     depthTestEnable = false;
                     stencilTestEnable = true;
-                    stencilCompareOp = VkCompareOp.Equal;
                     passOp = VkStencilOp.Keep;
+                    stencilCompareOp = VkCompareOp.Equal;
                     break;
                 case StencilMode.Equal_Incr:
                     depthTestEnable = false;
                     stencilTestEnable = true;
-                    stencilCompareOp = VkCompareOp.Equal;
                     passOp = VkStencilOp.IncrementAndWrap;
+                    stencilCompareOp = VkCompareOp.Equal;
                     break;
                 case StencilMode.Equal_Decr:
                     depthTestEnable = false;
                     stencilTestEnable = true;
-                    stencilCompareOp = VkCompareOp.Equal;
                     passOp = VkStencilOp.DecrementAndWrap;
+                    stencilCompareOp = VkCompareOp.Equal;
                     break;
                 case StencilMode.Clear:
                     depthTestEnable = false;
                     stencilTestEnable = true;
-                    stencilCompareOp = VkCompareOp.Always;
                     passOp = VkStencilOp.Zero;
+                    stencilCompareOp = VkCompareOp.Always;
                     break;
                 case StencilMode.Disabled_ZTest:
                     depthTestEnable = true;
@@ -1252,7 +1258,7 @@ namespace VECS.UI
 
             GraphicsDevice.DeviceAPI.vkCmdSetDepthTestEnable(commandBuffer, depthTestEnable);
             GraphicsDevice.DeviceAPI.vkCmdSetStencilTestEnable(commandBuffer, stencilTestEnable);
-            GraphicsDevice.DeviceAPI.vkCmdSetStencilOp(commandBuffer, VkStencilFaceFlags.Front, VkStencilOp.Keep, passOp, VkStencilOp.Keep, stencilCompareOp);
+            GraphicsDevice.DeviceAPI.vkCmdSetStencilOp(commandBuffer, VkStencilFaceFlags.FrontAndBack, VkStencilOp.Keep, passOp, VkStencilOp.Keep, stencilCompareOp);
         }
 
         private unsafe void CreatePipelines(string label, Shader.Enum shader_, string vertexShader, string pixelShader, GraphicsPipelineConfigInfo configInfo, uint custom, int formatHash)

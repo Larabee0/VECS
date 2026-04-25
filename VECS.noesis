@@ -1,0 +1,4 @@
+<Project>
+  <Assembly>VECS</Assembly>
+  <DefaultDataNamespace>VECS</DefaultDataNamespace>
+</Project>

@@ -10,12 +10,14 @@ namespace VECS.UI
 {
     public class NoesisSystem : PresentationSystemBase
     {
-        private const bool ALWAYS_RE_RENDER = false;
+        private const bool ALWAYS_RE_RENDER = true;
         private static readonly int inputTextureId = "inputTexture".GetShaderPropertyId();
 
         private NoesisViewWrapper MainView;
 
-        private RenderTarget RenderTarget;
+        private NoesisRenderTarget RenderTarget;
+
+        private Texture2D RenderTargetTex2D => ((NoesisTexture)RenderTarget.Texture).Texture;
 
         private Material _blitVariant;
 
@@ -31,18 +33,18 @@ namespace VECS.UI
             };
 
             MainView.SetSize(Screen.Width, Screen.Height);
-            RenderTarget = new("Noesis_RT", Screen.Width, Screen.Height, VkFormat.R8G8B8A8Unorm);
+            RenderTarget = (NoesisRenderTarget)NoesisHandler.NoesisDriver.CreateRenderTarget("Noesis_RT", (uint)Screen.Width, (uint)Screen.Height, 1, true);
 
             _blitVariant = EnginePipes.Blit.Create("Noesis_Blitter");
-            _blitVariant.SetTexture(inputTextureId, RenderTarget.Target);
-            Application.NoesisDriver.CreatePipelines(VkFormat.R8G8B8A8Unorm, VkFormat.Undefined);
+            _blitVariant.SetTexture(inputTextureId, RenderTargetTex2D);
+            Application.NoesisDriver.CreatePipelines(VkFormat.R8G8B8A8Unorm, VkFormat.S8Uint);
         }
 
         public override void OnUpdate(EntityManager entityManager)
         {
+            MainView.Update(Time.DeltaTime);
             UpdateInputs();
 
-            MainView.Update(Time.DeltaTime);
         }
 
         private void UpdateInputs()
@@ -55,14 +57,14 @@ namespace VECS.UI
                 MouseButtonDown(mousePos.X, mousePos.Y, i, view);
                 MouseButtonUp(mousePos.X,mousePos.Y, i, view);
             }
-
+            view.MouseMove(mousePos.X, mousePos.Y);
         }
 
         private static void MouseButtonDown(int x, int y, MouseButton button, View view)
         {
             if (InputManager.Instance.GetMouseButtonDown((int)button))
             {
-                view.MouseButtonDown(x,y, MouseButton.XButton2);
+                view.MouseButtonDown(x,y, button);
             }
         }
 
@@ -70,7 +72,7 @@ namespace VECS.UI
         {
             if (InputManager.Instance.GetMouseButtonUp((int)button))
             {
-                view.MouseButtonDown(x, y, MouseButton.XButton2);
+                view.MouseButtonUp(x, y, button);
             }
         }
 
@@ -89,28 +91,33 @@ namespace VECS.UI
             {
                 _framesSinceLastRender = 0;
             }
-            if (_framesSinceLastRender < SwapChain.MAX_CONCURRENT_FRAMES + 1)
+             if (_framesSinceLastRender < SwapChain.MAX_CONCURRENT_FRAMES + 1)
             {
-                Application.NoesisDriver.FormatHash = HashCode.Combine(RenderTarget.Target.Format, VkFormat.Undefined);
+                Application.NoesisDriver.FormatHash = HashCode.Combine(RenderTargetTex2D.Format, VkFormat.Undefined);
                 _framesSinceLastRender++;
-                StartUIRendering(frameInfo);
-                SwapChain.SetViewPortScissor(frameInfo.CommandBuffer);
+                //StartUIRendering(frameInfo);
+                //SwapChain.SetViewPortScissor(frameInfo.CommandBuffer);
+                NoesisHandler.NoesisDriver.BeginTile(RenderTarget, new() { Y = 0, X = 0, Height = (uint)Screen.Height, Width = (uint)Screen.Width});
                 GraphicsDevice.DeviceAPI.vkCmdSetRasterizationSamplesEXT(frameInfo.CommandBuffer, VkSampleCountFlags.Count1);
                 MainView.Render();
-                GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
-                RenderTarget.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.FragmentShader);
+                
+                //GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
+                NoesisHandler.NoesisDriver.EndTile(RenderTarget);
+                RenderTargetTex2D.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.FragmentShader);
             }
             BlitToMain(frameInfo);
         }
 
         public unsafe void StartUIRendering(RendererFrameInfo frameInfo)
         {
-            RenderTarget.Target.SetImageLayout(frameInfo.CommandBuffer,VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
+            NoesisHandler.NoesisDriver.BeginOffscreenRender();
+            return;
+            RenderTargetTex2D.SetImageLayout(frameInfo.CommandBuffer,VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
             VkRenderingAttachmentInfo renderingAttachmentInfo = new()
             {
                 clearValue = new(0,0,0,0),
-                imageLayout = RenderTarget.ImageLayout,
-                imageView = RenderTarget.VkImageView,
+                imageLayout = RenderTargetTex2D.ImageLayout,
+                imageView = RenderTargetTex2D._imageView,
                 loadOp = VkAttachmentLoadOp.Clear,
                 storeOp = VkAttachmentStoreOp.Store,
             };
@@ -130,13 +137,16 @@ namespace VECS.UI
         public unsafe void BlitToMain(RendererFrameInfo frameInfo)
         {
             var _outputTarget = EngineTextures.TryGetTexture(ShaderProperties.MainColourAttachmentId).First;
-            if (RenderTarget.ImageLayout == VkImageLayout.ColorAttachmentOptimal)
+
+            var inputTargetLayout = RenderTargetTex2D.ImageLayout;
+
+            if (RenderTargetTex2D.ImageLayout == VkImageLayout.ColorAttachmentOptimal)
             {
-                RenderTarget.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.FragmentShader);
+                RenderTargetTex2D.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.FragmentShader);
             }
-            else if (RenderTarget.ImageLayout == VkImageLayout.TransferSrcOptimal)
+            else if (RenderTargetTex2D.ImageLayout == VkImageLayout.TransferSrcOptimal)
             {
-                RenderTarget.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.FragmentShader);
+                RenderTargetTex2D.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.FragmentShader);
             }
 
             var targetLayout = _outputTarget.ImageLayout;
@@ -162,7 +172,7 @@ namespace VECS.UI
                 storeOp = VkAttachmentStoreOp.Store,
                 clearValue = new(0, 0, 0, 0)
             };
-
+            VkRenderingAttachmentInfo stencilAttachment = new();
             VkRenderingInfo renderingInfo = new()
             {
                 renderArea = new(0, 0, (uint)_outputTarget.Width, (uint)_outputTarget.Height),
@@ -184,13 +194,14 @@ namespace VECS.UI
             {
                 if (targetLayout == VkImageLayout.ShaderReadOnlyOptimal)
                 {
-                    RenderTarget.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
+                    _outputTarget.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
                 }
                 else if (targetLayout == VkImageLayout.TransferSrcOptimal)
                 {
-                    RenderTarget.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.TransferSrcOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.Blit);
+                    _outputTarget.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.TransferSrcOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.Blit);
                 }
             }
+
         }
 
         public override void OnDestroy(EntityManager entityManager)
