@@ -10,6 +10,35 @@ namespace VECS
 {
     public class Material : DisposableAsset
     {
+        internal class TemporaryDescriptor : IDisposable
+        {
+            public DescriptorBuffer DescriptorBuffer;
+            public unsafe byte* _hostBuffer;
+
+            public unsafe TemporaryDescriptor(DescriptorSetInfo setInfo)
+            {
+                DescriptorBuffer = new(setInfo.DescriptorBuffers[0].Layout, setInfo.BindingCount, (int)setInfo._uniformCount, setInfo.StorageBufferCount > 0 || setInfo.UnifromBufferSize > 0, setInfo.ImageCount > 0);
+
+
+                var totalallocationSize = DescriptorBuffer.AllocationSize;
+
+                _hostBuffer = (byte*)NativeMemory.AlignedAlloc(totalallocationSize, (uint)GPUBufferExtensions.GetAlignment(DescriptorBuffer.AlignedSize));
+
+                NativeMemory.Fill(_hostBuffer, totalallocationSize, 0);
+                DescriptorBuffer.SetHostPtr(_hostBuffer);
+            }
+
+            public unsafe void Dispose()
+            {
+                GC.SuppressFinalize(this);
+                DescriptorBuffer.Dispose();
+                NativeMemory.AlignedFree(_hostBuffer);
+                _hostBuffer = null;
+                GC.ReRegisterForFinalize(this);
+            }
+        }
+
+
         private readonly uint _variantIndex;
 
         private readonly SetBufferDescriptors[] _bufferDescriptors;
@@ -27,6 +56,8 @@ namespace VECS
         /// and replaced with the offset ptr.
         internal unsafe void* pUniformBuffer;
         internal bool localUniformAllocation;
+        internal TemporaryDescriptor[] localDescriptors;
+        internal GPUBuffer localUniformBuffer;
 
         public VkCullModeFlags CullMode = VkCullModeFlags.None;
         public bool OverrideCullMode = false;
@@ -53,14 +84,19 @@ namespace VECS
 
             if (localUniformAlloc && pipeline.UniformBufferSize > 0)
             {
-                pUniformBuffer = NativeMemory.AlignedAlloc(pipeline.UniformBufferSize, (uint)GPUBufferExtensions.GetAlignment(pipeline.UniformBufferSize));
-                NativeMemory.Fill(pUniformBuffer, pipeline.UniformBufferSize, 0);
                 localUniformAllocation = true;
+                localUniformBuffer = new(pipeline.UniformBufferSize, 1, VkBufferUsageFlags.UniformBuffer, true, false, false);
+                pUniformBuffer = localUniformBuffer._hostPtr;
             }
             else
             {
                 pUniformBuffer = null;
                 localUniformAllocation = false;
+            }
+
+            if(_variantIndex > 0)
+            {
+                CreateTemporaryDescriptor();
             }
 
             for (uint i = 0; i < TotalSets; i++)
@@ -160,10 +196,116 @@ namespace VECS
 
         }
 
+        private void CreateTemporaryDescriptor()
+        {
+            localDescriptors = new TemporaryDescriptor[TotalSets];
+
+            for (int i = 0; i < TotalSets; i++)
+            {
+                DescriptorSetInfo setInfo = DescriptorSetInfos[i];
+                localDescriptors[i] = new(setInfo);
+            }
+
+            WriteUniformToDescriptorBuffers();
+        }
+
+        private void WriteUniformToDescriptorBuffers()
+        {
+            if (Pipeline.UniformBufferSize == 0) return;
+
+            for (uint i = 0; i < DescriptorSetCount; i++)
+            {
+                var setInfo = DescriptorSetInfos[i];
+                var descriptorBuffer = localDescriptors[i].DescriptorBuffer;
+                if (Pipeline.MeshShaderDescriptorSetIndex == i) continue;
+
+                for (uint j = 0; j < setInfo.BindingCount; j++)
+                {
+                    var binding = setInfo.DescriptorBindings[j];
+
+                    if (!binding.UniformBuffer) continue;
+
+                    var internalOffset = Pipeline.InternalUniformBufferOffset(binding.DescriptorSetIndex, binding.BindPoint);
+                    var global = EngineBuffers.TryGetBuffer(binding.Id);
+
+                    VkDescriptorAddressInfoEXT addressRange;
+                    if (global != null)
+                    {
+                        addressRange = global[0].GetBufferAddressRangeBytes();
+                    }
+                    else
+                    {
+                        addressRange = localUniformBuffer.GetBufferAddressRangeBytes(internalOffset, binding.BufferSize);
+                    }
+
+                    descriptorBuffer.SetBufferBinding(addressRange, binding.DescriptorType, 0, binding.BindPoint);
+                }
+            }
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Bind(in RendererFrameInfo frameInfo)
         {
             Pipeline.BindAll(frameInfo, _variantIndex);
+        }
+
+        public unsafe void BindCareful(in RendererFrameInfo frameInfo)
+        {
+            int frameIndex = frameInfo.FrameIndex;
+            VkDescriptorBufferBindingInfoEXT* bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[DescriptorSetCount];
+            ulong* offsets = stackalloc ulong[DescriptorSetCount];
+            uint* indices = stackalloc uint[DescriptorSetCount];
+
+            if (localDescriptors == null)
+            {
+                for (uint i = 0; i < DescriptorSetCount; i++)
+                {
+                    DescriptorSetInfo descriptorSetInfo = DescriptorSetInfos[i];
+                    DescriptorBuffer buffer = descriptorSetInfo.DescriptorBuffers[frameIndex];
+
+                    bindingInfo[i] = buffer.BindingInfo;
+                    offsets[i] = buffer.AlignedSize * VariantIndex;
+                    indices[i] = i;
+                }
+            }
+            else
+            {
+                if (_hasTextures && (_dirtyTextures[frameIndex]))
+                {
+                    var textures = _textures;
+                    for (int setIndex = 0; setIndex < TotalSets; setIndex++)
+                    {
+                        if (_imageDescriptors[setIndex].Disposed) continue;
+                        //variant._imageDescriptors[setIndex].UpdateTextureBindings(frameIndex, textures[setIndex]);
+                        _imageDescriptors[setIndex].UpdateTextureBindings(textures[setIndex]);
+                    }
+                    //_dirtyTextures[frameIndex] = false;
+                }
+                if (localUniformAllocation)
+                {
+                    GPUBufferExtensions.WriteFromHostDelayed(localUniformBuffer, 0, Vulkan.VK_WHOLE_SIZE);
+                }
+                for (int i = 0; i < DescriptorSetCount; i++)
+                {
+                    DescriptorSetInfo descriptorSetInfo = DescriptorSetInfos[i];
+                    
+                    DescriptorBuffer buffer = localDescriptors[i].DescriptorBuffer;
+                    buffer.Flush();
+                    
+                    descriptorSetInfo.WriteDescriptors(buffer, 0, GetBindingBuffers(frameIndex, i), GetBindingTextures(i));
+                    bindingInfo[i] = buffer.BindingInfo;
+                    offsets[i] = 0;
+                    indices[i] = (uint)i;
+                }
+            }
+            Pipeline.BindPipe(frameInfo.CommandBuffer, frameInfo.FrameIndex);
+            if (OverrideCullMode)
+            {
+                GraphicsDevice.DeviceAPI.vkCmdSetCullMode(frameInfo.CommandBuffer, CullMode);
+            }
+
+            DescriptorBuffer.BindSets(frameInfo.CommandBuffer, (uint)DescriptorSetCount, bindingInfo);
+            DescriptorBuffer.SetOffsets(frameInfo.CommandBuffer, Pipeline.PipelineLayout, VkPipelineBindPoint.Graphics, 0, (uint)DescriptorSetCount, offsets, indices);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -261,6 +403,7 @@ namespace VECS
                 offsets[i] = buffer.AlignedSize * (uint)command.Variant;
                 indices[i] = i;
             }
+
             Pipeline.BindPipe(commandBuffer, frameIndex);
             
             if (OverrideCullMode)
@@ -330,8 +473,17 @@ namespace VECS
             Pipeline.RemoveVariant(this);
             if (localUniformAllocation)
             {
-                NativeMemory.AlignedFree(pUniformBuffer);
+                localUniformBuffer.Dispose();
+                localUniformBuffer = null;
                 localUniformAllocation = false;
+            }
+            if (localDescriptors != null)
+            {
+                for (int i = 0; i < localDescriptors.Length; i++)
+                {
+                    localDescriptors[i]?.Dispose();
+                }
+                localDescriptors = null;
             }
             pUniformBuffer = null;
             for (int i = 0; i < _bufferDescriptors.Length; i++)
@@ -400,6 +552,11 @@ namespace VECS
         private static int IndexOf(int frameIndex, int bufferIndex, int bindingCount)
         {
             return frameIndex * bindingCount + bufferIndex;
+        }
+
+        internal void DirtyTextures()
+        {
+            Array.Fill(_dirtyTextures, true);
         }
 
         private struct SetBufferDescriptors : IDisposable

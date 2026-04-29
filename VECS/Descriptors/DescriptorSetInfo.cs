@@ -35,7 +35,7 @@ namespace VECS
         private readonly Dictionary<uint, int> _bindingPointToBufferIndex;
         private readonly Dictionary<uint, int> _bindingPointToImageIndex;
 
-        private readonly uint _uniformCount;
+        internal readonly uint _uniformCount;
         private uint _uniformSize;
         private VkBufferUsageFlags _uniformBufferFlags = VkBufferUsageFlags.None;
         private readonly uint _uniformOffset;

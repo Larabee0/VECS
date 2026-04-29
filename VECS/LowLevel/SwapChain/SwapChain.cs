@@ -12,7 +12,7 @@ namespace VECS.LowLevel
 
         public static int MAX_CONCURRENT_FRAMES => 2;
         public static uint MAX_CONCURRENT_FRAMES_UINT => (uint)MAX_CONCURRENT_FRAMES;
-        public static VkPresentModeKHR PresentMode => VkPresentModeKHR.Immediate;
+        public static VkPresentModeKHR PresentMode => VkPresentModeKHR.Fifo;
 
         internal static int _currentFrame = 0;
 

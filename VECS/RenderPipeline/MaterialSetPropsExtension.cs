@@ -217,6 +217,15 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void SetTexture(this Material material, int propertyId, Texture texture)
+        {
+            if (material.LookUpProperty(propertyId, out var propertyInfo))
+            {
+                material.SetTexture(propertyInfo, texture);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void SetTexture(this Material material, int propertyId,Texture2D texture)
         {
             if (material.LookUpProperty(propertyId, out var propertyInfo))

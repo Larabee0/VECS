@@ -229,10 +229,10 @@ namespace VECS
 
             if (UniformBufferSize > 0)
             {
-                NativeMemory.AlignedFree(material.pUniformBuffer);
+                material.localUniformBuffer?.Dispose();
+                material.localUniformBuffer = null;
                 material.pUniformBuffer = _uniformBuffer.HostPtr;
-                material.localUniformAllocation = false;
-                //WriteUniformToDescriptorBuffers(material);
+                material.localUniformAllocation = false;                
             }
         }
 
@@ -269,7 +269,7 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private uint InternalUniformBufferOffset(uint set, uint bindPoint)
+        internal uint InternalUniformBufferOffset(uint set, uint bindPoint)
         {
             var setInfo = _descriptorSetInfos[set];
             return setInfo.UnifromBufferOffset + setInfo.SetUniformBufferOffsets[bindPoint];
@@ -386,10 +386,20 @@ namespace VECS
                         void* localAllocation = variant.pUniformBuffer;
                         byte* pipelineAlloc = (byte*)_uniformBuffer.HostPtr + (_uniformBufferSize * variant.VariantIndex);
                         Buffer.MemoryCopy(localAllocation, pipelineAlloc, _uniformBufferSize, _uniformBufferSize);
-                        NativeMemory.AlignedFree(localAllocation);
+                        variant.localUniformBuffer.Dispose();
+                        variant.localUniformBuffer = null;
                         variant.pUniformBuffer = pipelineAlloc;
                         variant.localUniformAllocation = false;
+
                     }
+                    if (variant.localDescriptors != null)
+                    {
+                        for (int i = 0; i < variant.localDescriptors.Length; i++)
+                        {
+                            variant.localDescriptors[i]?.Dispose();
+                        }
+                    }
+                    variant.localDescriptors = null;
                 }
 
                 if (reassignUniformPtrs)
@@ -436,7 +446,6 @@ namespace VECS
                         {
                             addressRange = _uniformBuffer[frameIndex].GetBufferAddressRangeBytes(startOffset + internalOffset, binding.BufferSize);
                         }
-                            
 
                         setInfo.DescriptorBuffers[frameIndex].SetBufferBinding(addressRange, binding.DescriptorType, variant, binding.BindPoint);
                     }

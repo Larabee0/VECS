@@ -299,7 +299,7 @@ namespace VECS
         public int BufferInstanceSize => Vulkan.BlockSize(_imageFormat);
         public ulong BufferInstanceCount => _vkBufferSizeRequirement / (uint)BufferInstanceSize;
 
-        public VkDescriptorImageInfo ImageInfo => _imageInfo;
+        public virtual VkDescriptorImageInfo ImageInfo => _imageInfo;
 
         public VkExtent3D ImageExtent => _imageExtent;
 

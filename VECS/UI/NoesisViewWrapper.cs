@@ -56,7 +56,7 @@ namespace VECS.UI
         public NoesisViewWrapper(FrameworkElement rootElement, RenderDevice renderDevice)
         {
             View = GUI.CreateView(rootElement);
-
+            
             View.Renderer.Init(renderDevice);
         }
 
@@ -75,13 +75,13 @@ namespace VECS.UI
             View.SetSize(width, height);
 
             View.Update(0);
-
+            View.Renderer.SetRenderRegion(0, 0, width, height);
             View.Renderer.UpdateRenderTree();
         }
 
         public void Update(float deltaTime)
         {
-            View.Update(deltaTime);
+            View.Update(Time.TimeSinceStartUpAsDouble);
 
             View.Renderer.UpdateRenderTree();
         }

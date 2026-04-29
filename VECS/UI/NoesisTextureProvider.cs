@@ -37,7 +37,7 @@ namespace VECS.UI
             string fullPath = System.IO.Path.Combine(Asset.AssetsPath, filename);
 
             
-            Texture2D texture = TextureLoader.Load2D(fullPath,Vortice.Vulkan.VkFormat.R8G8B8A8Unorm);
+            Texture2D texture = TextureLoader.Load2D(fullPath,Vortice.Vulkan.VkFormat.R8G8B8A8Unorm,true,true,false);
 
             _cache[filename] = new WeakReference<Texture2D>(texture);
 

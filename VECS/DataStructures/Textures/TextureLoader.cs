@@ -86,7 +86,7 @@ namespace VECS
             mipHeight = Math.Max(1, (int)height >> (int)mipIdx);
         }
 
-        private static CompressedTextureBinary LoadOrCompressTexture(string path, VkFormat format, bool mipMaps, bool allowParallel)
+        private static CompressedTextureBinary LoadOrCompressTexture(string path, VkFormat format, bool mipMaps, bool allowParallel, bool flipVertical)
         {
             if (CompressedBinaryTextures == null)
             {
@@ -126,9 +126,11 @@ namespace VECS
             {
                 Console.WriteLine("Compressing Texture {0}...", Path.GetFileNameWithoutExtension(path));
                 using Image<Rgba32> image = Image.Load<Rgba32>(path);
-                var flipProcessor = new FlipProcessor(FlipMode.Vertical);
-                image.Mutate(flipProcessor);
-
+                if (flipVertical)
+                {
+                    var flipProcessor = new FlipProcessor(FlipMode.Vertical);
+                    image.Mutate(flipProcessor);
+                }
                 var mipmapsData = encoder.EncodeToRawBytes(image);
 
                 compressedTexture = new()
@@ -172,9 +174,9 @@ namespace VECS
             return compressedTexture;
         }
 
-        public static unsafe Texture2D Load2D(string path, VkFormat format, bool mipMaps = true, bool allowParallel = true)
+        public static unsafe Texture2D Load2D(string path, VkFormat format, bool mipMaps = true, bool allowParallel = true, bool flipVertical = true)
         {
-            CompressedTextureBinary compressedTexture = LoadOrCompressTexture(path, format, mipMaps, allowParallel);
+            CompressedTextureBinary compressedTexture = LoadOrCompressTexture(path, format, mipMaps, allowParallel,flipVertical);
 
             ulong totalMipMapBytes = (ulong)compressedTexture.MipMaps.LongLength;
 
@@ -216,7 +218,7 @@ namespace VECS
             loadedTextures = new CompressedTextureBinary[paths.Length];
             for (int i = 0; i < loadedTextures.Length; i++)
             {
-                loadedTextures[i] = LoadOrCompressTexture(paths[i], format, mipMaps, allowParallel);
+                loadedTextures[i] = LoadOrCompressTexture(paths[i], format, mipMaps, allowParallel,true);
             }
 
             ulong bufferSize = 0;

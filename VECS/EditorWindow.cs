@@ -14,17 +14,13 @@ namespace VECS
 
         private readonly RenderTarget _outputTexture;
 
-        private LiteHtml _liteHtml;
-
         public EditorWindow(int width, int height, string name, bool mainWindow) : base(width, height, name, mainWindow)
         {
             _ui = new(this);
 
             _outputTexture = new(string.Format("{0}_Window_RT", name), width, height, VkFormat.R8G8B8A8Unorm);
-            _liteHtml = new(_ui);
             _ui.Update();
             ImGui.EndFrame();
-            _liteHtml.LoadHtml("MainHtml.html");
             //ImGui.EndFrame();
             Application.Instance.UpdateCallback += Update;
             Presenter.RenderCallback += Render;
@@ -33,8 +29,6 @@ namespace VECS
         private void Update()
         {
             _ui.Update();
-            _liteHtml.SetViewport(_width, _height);
-            _liteHtml.Render();
             //ImGui.ShowDemoWindow();
         }
 

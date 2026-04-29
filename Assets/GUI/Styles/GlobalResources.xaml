@@ -1,0 +1,478 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:b="http://schemas.microsoft.com/xaml/behaviors"
+    xmlns:noesis="clr-namespace:NoesisGUIExtensions">
+    <Color x:Key="Color.001">#FFF37A11</Color>
+    <SolidColorBrush x:Key="0B0B0B" Color="#FF0B0B0B" />
+    <SolidColorBrush x:Key="7D7D7D" Color="#FF7D7D7D" />
+    <SolidColorBrush x:Key="C1C1C3" Color="#FFC1C1C3" />
+    <SolidColorBrush x:Key="FFFFFF" Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="F6BE8D" Color="#FFF6BE8D" />
+    <SolidColorBrush x:Key="DE941A" Color="#FFDE941A" />
+    <SolidColorBrush x:Key="F37A11" Color="#FFF37A11" />
+    <SolidColorBrush x:Key="3E1A04" Color="#FF3E1A04" />
+    <SolidColorBrush x:Key="SolidColorBrush.DarkBackground" Color="#FF000000" />
+    <SolidColorBrush x:Key="SolidColorBrush.001" Color="#FF699700" />
+    <SolidColorBrush x:Key="SolidColorBrush.002" Color="#C00B0B0B" />
+    <DataTemplate x:Key="DataTemplate.001">
+        <DataTemplate.Resources>
+            <Storyboard x:Key="Storyboard.MouseEnter">
+                <DoubleAnimationUsingKeyFrames Storyboard.TargetName="AvatarImage" Storyboard.TargetProperty="(UIElement.Effect).(NoesisGUIExtensions.SaturationEffect.Saturation)">
+                    <EasingDoubleKeyFrame KeyTime="00:00:00" Value="1" />
+                </DoubleAnimationUsingKeyFrames>
+                <DoubleAnimationUsingKeyFrames Storyboard.TargetName="SelectGrid" Storyboard.TargetProperty="(UIElement.Opacity)">
+                    <EasingDoubleKeyFrame KeyTime="00:00:00" Value="0" />
+                    <EasingDoubleKeyFrame KeyTime="00:00:00.2000000" Value="1" />
+                </DoubleAnimationUsingKeyFrames>
+                <DoubleAnimationUsingKeyFrames Storyboard.TargetName="SelectGrid" Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[3].(TranslateTransform.Y)">
+                    <EasingDoubleKeyFrame KeyTime="00:00:00" Value="20" />
+                    <EasingDoubleKeyFrame KeyTime="00:00:00.2000000" Value="0" />
+                </DoubleAnimationUsingKeyFrames>
+            </Storyboard>
+            <Storyboard x:Key="Storyboard.MouseLeave">
+                <DoubleAnimationUsingKeyFrames Storyboard.TargetName="SelectGrid" Storyboard.TargetProperty="(UIElement.Opacity)">
+                    <EasingDoubleKeyFrame KeyTime="00:00:00" Value="0" />
+                </DoubleAnimationUsingKeyFrames>
+                <DoubleAnimationUsingKeyFrames Storyboard.TargetName="SelectGrid" Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[3].(TranslateTransform.Y)">
+                    <EasingDoubleKeyFrame KeyTime="00:00:00" Value="20" />
+                </DoubleAnimationUsingKeyFrames>
+                <DoubleAnimationUsingKeyFrames Storyboard.TargetName="AvatarImage" Storyboard.TargetProperty="(UIElement.Effect).(NoesisGUIExtensions.SaturationEffect.Saturation)">
+                    <EasingDoubleKeyFrame KeyTime="00:00:00" Value="0" />
+                </DoubleAnimationUsingKeyFrames>
+            </Storyboard>
+            <Storyboard x:Key="Storyboard.Selected">
+                <DoubleAnimationUsingKeyFrames Storyboard.TargetName="SelectedBorder" Storyboard.TargetProperty="(UIElement.Opacity)">
+                    <EasingDoubleKeyFrame KeyTime="0:0:0" Value="0" />
+                    <EasingDoubleKeyFrame KeyTime="0:0:0.2000000" Value="1" />
+                </DoubleAnimationUsingKeyFrames>
+                <ThicknessAnimationUsingKeyFrames Storyboard.TargetName="SelectedBorder" Storyboard.TargetProperty="(Border.BorderThickness)">
+                    <EasingThicknessKeyFrame KeyTime="0:0:0" Value="1,0,0,0" />
+                    <EasingThicknessKeyFrame KeyTime="0:0:0.2000000" Value="10,0,0,0" />
+                </ThicknessAnimationUsingKeyFrames>
+            </Storyboard>
+        </DataTemplate.Resources>
+        <Grid
+            x:Name="LayoutRoot"
+            Background="{DynamicResource SolidColorBrush.DarkBackground}"
+            Opacity="0.9000023"
+            RenderTransformOrigin="0.5,0.5">
+            <b:Interaction.Triggers>
+                <b:KeyTrigger x:Name="Enter key to fire command" Key="Enter">
+                    <b:Interaction.Behaviors>
+                        <b:ConditionBehavior>
+                            <b:ConditionalExpression ForwardChaining="And">
+                                <b:ComparisonCondition LeftOperand="{Binding Path=IsFocused, RelativeSource={RelativeSource AncestorType={x:Type ListBoxItem}}}" RightOperand="True"/>
+                            </b:ConditionalExpression>
+                        </b:ConditionBehavior>
+                    </b:Interaction.Behaviors>
+                    <b:InvokeCommandAction Command="{Binding Path=Command}"/>
+                </b:KeyTrigger>
+            </b:Interaction.Triggers>
+            <Grid.RenderTransform>
+                <TransformGroup>
+                    <ScaleTransform />
+                    <SkewTransform />
+                    <RotateTransform />
+                    <TranslateTransform />
+                </TransformGroup>
+            </Grid.RenderTransform>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="1*" />
+                <RowDefinition Height="1*" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="160" />
+                <ColumnDefinition Width="1*" />
+            </Grid.ColumnDefinitions>
+            <Image
+                x:Name="AvatarImage"
+                Grid.RowSpan="2"
+                Grid.ColumnSpan="2"
+                Width="160"
+                Height="160"
+                Margin="0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                Source="{Binding Path=Avatar}">
+                <Image.Effect>
+                    <noesis:SaturationEffect Saturation="0" />
+                </Image.Effect>
+            </Image>
+            <TextBlock
+                x:Name="SoldierName"
+                Grid.Column="1"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Bottom"
+                FontSize="30"
+                Text="{Binding Path=Name}"
+                TextWrapping="Wrap">
+                <TextBlock.Foreground>
+                    <SolidColorBrush Color="#FFF5F5F5" />
+                </TextBlock.Foreground>
+            </TextBlock>
+            <TextBlock
+                x:Name="SoldierRank"
+                Grid.Row="1"
+                Grid.Column="1"
+                Padding="0,5,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                FontSize="23"
+                Text="{Binding Path=Rank}"
+                TextWrapping="Wrap">
+                <TextBlock.Foreground>
+                    <SolidColorBrush Color="#FFCACACA" />
+                </TextBlock.Foreground>
+            </TextBlock>
+            <Grid
+                x:Name="SelectGrid"
+                Grid.Row="1"
+                Grid.Column="1"
+                Height="39"
+                VerticalAlignment="Bottom"
+                RenderTransformOrigin="0.5,0.5">
+                <Grid.RenderTransform>
+                    <TransformGroup>
+                        <ScaleTransform />
+                        <SkewTransform />
+                        <RotateTransform />
+                        <TranslateTransform Y="20" />
+                    </TransformGroup>
+                </Grid.RenderTransform>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="75*" />
+                    <ColumnDefinition Width="163*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock
+                    Grid.Column="1"
+                    Margin="0,3,0,0"
+                    FontSize="18"
+                    Text="Add to squad"
+                    TextWrapping="Wrap" />
+                <Grid
+                    x:Name="AButton"
+                    Width="25.5"
+                    Height="25.5"
+                    Margin="0,0,5.705,12.296"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Center">
+                    <Ellipse
+                        Width="23"
+                        Height="23"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Fill="#FF000000"
+                        Stroke="{DynamicResource SolidColorBrush.001}"
+                        StrokeThickness="1.5" />
+                    <TextBlock
+                        Width="14"
+                        Height="17"
+                        Margin="0,1,0.23200001,5.4670005"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        FontSize="18"
+                        Foreground="{DynamicResource SolidColorBrush.001}"
+                        Text="A"
+                        TextAlignment="Center"
+                        TextWrapping="Wrap" />
+                </Grid>
+            </Grid>
+            <Border
+                x:Name="SelectedBorder"
+                Grid.RowSpan="2"
+                Grid.ColumnSpan="2"
+                Opacity="0">
+                <b:Interaction.Triggers>
+                    <b:DataTrigger Binding="{Binding Path=IsSelected, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ListBoxItem}}}" Value="True">
+                        <b:GoToStateAction StateName="IsSelected" />
+                    </b:DataTrigger>
+                    <b:DataTrigger Binding="{Binding Path=IsSelected, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ListBoxItem}}}" Value="False">
+                        <b:GoToStateAction StateName="Normal" />
+                    </b:DataTrigger>
+                </b:Interaction.Triggers>
+                <Border.BorderBrush>
+                    <SolidColorBrush Color="{DynamicResource Color.001}" />
+                </Border.BorderBrush>
+            </Border>
+            <VisualStateManager.VisualStateGroups>
+                <VisualStateGroup x:Name="Standard">
+                    <VisualStateGroup.Transitions>
+                        <VisualTransition GeneratedDuration="0:0:0.2000000" To="IsSelected" />
+                        <VisualTransition GeneratedDuration="0:0:0.2000000" To="Normal" />
+                    </VisualStateGroup.Transitions>
+                    <VisualState x:Name="Normal" />
+                    <VisualState x:Name="IsSelected">
+                        <Storyboard>
+                            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="SelectedBorder" Storyboard.TargetProperty="(UIElement.Opacity)">
+                                <EasingDoubleKeyFrame KeyTime="0:0:0" Value="1" />
+                            </DoubleAnimationUsingKeyFrames>
+                            <ThicknessAnimationUsingKeyFrames Storyboard.TargetName="SelectedBorder" Storyboard.TargetProperty="(Border.BorderThickness)">
+                                <EasingThicknessKeyFrame KeyTime="0:0:0" Value="10,0,0,0" />
+                            </ThicknessAnimationUsingKeyFrames>
+                        </Storyboard>
+                    </VisualState>
+                </VisualStateGroup>
+            </VisualStateManager.VisualStateGroups>
+        </Grid>
+        <DataTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Trigger.EnterActions>
+                    <BeginStoryboard x:Name="Storyboard.MouseEnter_Begin" Storyboard="{StaticResource Storyboard.MouseEnter}" />
+                </Trigger.EnterActions>
+            </Trigger>
+            <Trigger Property="IsMouseOver" Value="False">
+                <Trigger.EnterActions>
+                    <BeginStoryboard x:Name="Storyboard.MouseLeave_Begin" Storyboard="{StaticResource Storyboard.MouseLeave}" />
+                </Trigger.EnterActions>
+            </Trigger>
+        </DataTemplate.Triggers>
+    </DataTemplate>
+    <ItemsPanelTemplate x:Key="ItemsPanelTemplate.001">
+        <StackPanel />
+    </ItemsPanelTemplate>
+    <Style
+        x:Key="ListBox.Style.001"
+        BasedOn="{StaticResource {x:Type ListBoxItem}}"
+        TargetType="{x:Type ListBoxItem}">
+        <Setter Property="Padding" Value="0,0,0,0" />
+        <Setter Property="VerticalContentAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="Margin" Value="0,0,0,16" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="noesis:StyleInteraction.Triggers">
+            <Setter.Value>
+                <noesis:StyleTriggerCollection/>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <ControlTemplate x:Key="ListBox.ControlTemplate.001" TargetType="ListBox">
+        <Grid>
+            <ItemsPresenter />
+        </Grid>
+    </ControlTemplate>
+    <Style
+        x:Key="ListBox.Style.002"
+        BasedOn="{StaticResource {x:Type ListBox}}"
+        TargetType="{x:Type ListBox}" />
+    <DataTemplate x:Key="Weapons.DataTemplate">
+        <Grid x:Name="WeaponsItem">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="17*" />
+                <ColumnDefinition Width="459*" />
+                <ColumnDefinition Width="111*" />
+            </Grid.ColumnDefinitions>
+            <Rectangle Width="60" Fill="#58000000" />
+            <Rectangle
+                Grid.ColumnSpan="4"
+                Width="646"
+                Height="60"
+                Margin="0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Fill="#52000000" />
+            <TextBlock
+                Grid.Column="2"
+                Height="36"
+                VerticalAlignment="Center"
+                FontSize="35"
+                Foreground="{DynamicResource C1C1C3}"
+                Text="{Binding Path=WeaponName}"
+                TextWrapping="Wrap" />
+            <StackPanel
+                Grid.Column="3"
+                Width="92"
+                Height="36"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                Orientation="Horizontal">
+                <TextBlock
+                    Height="36"
+                    FontSize="35"
+                    Foreground="{DynamicResource FFFFFF}"
+                    Text="+"
+                    TextWrapping="Wrap" />
+                <TextBlock
+                    Height="36"
+                    Margin="3,0,0,0"
+                    FontSize="35"
+                    Foreground="{DynamicResource FFFFFF}"
+                    Text="{Binding Path=Modifier, StringFormat=F0}"
+                    TextWrapping="Wrap" />
+            </StackPanel>
+            <Image
+                Width="45"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Source="{Binding Path=Icon}" />
+        </Grid>
+    </DataTemplate>
+    <DataTemplate x:Key="Skills.DataTemplate">
+        <Grid x:Name="SkillsItem">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="17*" />
+                <ColumnDefinition Width="459*" />
+                <ColumnDefinition Width="111*" />
+            </Grid.ColumnDefinitions>
+            <Rectangle Width="60" Fill="#58000000" />
+            <Rectangle
+                Grid.ColumnSpan="4"
+                Width="646"
+                Height="60"
+                Margin="0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Fill="#52000000" />
+            <TextBlock
+                Grid.Column="2"
+                VerticalAlignment="Center"
+                FontSize="35"
+                Foreground="{DynamicResource C1C1C3}"
+                Text="{Binding Path=SkillName}"
+                TextWrapping="Wrap" />
+            <StackPanel
+                Grid.Column="3"
+                Width="101"
+                Height="36"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                Orientation="Horizontal">
+                <TextBlock
+                    Height="36"
+                    FontSize="35"
+                    Foreground="{DynamicResource FFFFFF}"
+                    Text="{Binding Path=Percentage, StringFormat=F0}"
+                    TextWrapping="Wrap" />
+                <TextBlock
+                    Height="36"
+                    Margin="3,0,0,0"
+                    FontSize="35"
+                    Foreground="{DynamicResource FFFFFF}"
+                    Text="%"
+                    TextWrapping="Wrap" />
+            </StackPanel>
+            <Image
+                Width="45"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Source="{Binding Path=Icon}" />
+        </Grid>
+    </DataTemplate>
+    <Style x:Key="ItemsControl.Style.001" TargetType="{x:Type ContentPresenter}">
+        <Setter Property="Margin" Value="0,0,0,15" />
+    </Style>
+    <Style
+        x:Key="ListBox.Style.003"
+        BasedOn="{StaticResource {x:Type ListBox}}"
+        TargetType="{x:Type ListBox}" />
+    <ControlTemplate x:Key="Button.ControlTemplate.001" TargetType="Button">
+        <Grid
+            x:Name="Grid0"
+            Grid.Row="1"
+            Grid.Column="1"
+            Width="86"
+            RenderTransformOrigin="0.5,1.0">
+            <Grid.RenderTransform>
+                <TransformGroup>
+                    <ScaleTransform />
+                    <SkewTransform />
+                    <RotateTransform />
+                    <TranslateTransform />
+                </TransformGroup>
+            </Grid.RenderTransform>
+            <Rectangle
+                x:Name="Rectangle0"
+                Width="86"
+                HorizontalAlignment="Center"
+                Opacity="0.90000224"
+                RenderTransformOrigin="0.5,0.5">
+                <Rectangle.Fill>
+                    <SolidColorBrush Color="#E4000000" />
+                </Rectangle.Fill>
+                <Rectangle.RenderTransform>
+                    <TransformGroup>
+                        <ScaleTransform />
+                        <SkewTransform />
+                        <RotateTransform />
+                        <TranslateTransform />
+                    </TransformGroup>
+                </Rectangle.RenderTransform>
+            </Rectangle>
+            <TextBlock
+                x:Name="TextBlock0"
+                Width="286.77298"
+                Height="61.2"
+                Margin="0,102,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                FontFamily="Assets/#Eurostile"
+                FontSize="51"
+                Text="MAIN MENU"
+                TextWrapping="Wrap">
+                <TextBlock.Foreground>
+                    <SolidColorBrush Color="#FFD77724" />
+                </TextBlock.Foreground>
+                <TextBlock.LayoutTransform>
+                    <TransformGroup>
+                        <ScaleTransform />
+                        <SkewTransform />
+                        <RotateTransform Angle="90" />
+                        <TranslateTransform />
+                    </TransformGroup>
+                </TextBlock.LayoutTransform>
+            </TextBlock>
+            <Image
+                x:Name="Image0"
+                Width="32"
+                Height="64"
+                Margin="27,24,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                Opacity="0.82554084">
+                <Image.RenderTransform>
+                    <TransformGroup>
+                        <ScaleTransform />
+                        <SkewTransform />
+                        <RotateTransform />
+                        <TranslateTransform />
+                    </TransformGroup>
+                </Image.RenderTransform>
+                <Image.Source>
+                    <BitmapImage UriSource="/Root;component/Assets/Chevron.png" />
+                </Image.Source>
+            </Image>
+            <VisualStateManager.VisualStateGroups>
+                <VisualStateGroup x:Name="CommonStates">
+                    <VisualStateGroup.Transitions>
+                        <VisualTransition GeneratedDuration="00:00:00.1000000" To="Storyboard.Load" />
+                        <VisualTransition GeneratedDuration="00:00:00.2000000" From="Storyboard.Load" />
+                    </VisualStateGroup.Transitions>
+                    <VisualState x:Name="Normal" />
+                    <VisualState x:Name="Storyboard.Load">
+                        <Storyboard>
+                            <ColorAnimationUsingKeyFrames Storyboard.TargetName="Rectangle0" Storyboard.TargetProperty="(Shape.Fill).(SolidColorBrush.Color)">
+                                <EasingColorKeyFrame KeyTime="00:00:00" Value="#FF000000" />
+                            </ColorAnimationUsingKeyFrames>
+                            <ColorAnimationUsingKeyFrames Storyboard.TargetName="TextBlock0" Storyboard.TargetProperty="(TextElement.Foreground).(SolidColorBrush.Color)">
+                                <EasingColorKeyFrame KeyTime="00:00:00" Value="#FFF37A11" />
+                            </ColorAnimationUsingKeyFrames>
+                            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="Grid0" Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[3].(TranslateTransform.X)">
+                                <EasingDoubleKeyFrame KeyTime="00:00:00" Value="-7" />
+                            </DoubleAnimationUsingKeyFrames>
+                            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="Image0" Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[3].(TranslateTransform.X)">
+                                <EasingDoubleKeyFrame KeyTime="00:00:00" Value="-6" />
+                            </DoubleAnimationUsingKeyFrames>
+                            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="Image0" Storyboard.TargetProperty="(UIElement.Opacity)">
+                                <EasingDoubleKeyFrame KeyTime="00:00:00" Value="1" />
+                            </DoubleAnimationUsingKeyFrames>
+                        </Storyboard>
+                    </VisualState>
+                    <VisualState x:Name="Pressed" />
+                    <VisualState x:Name="Disabled" />
+                </VisualStateGroup>
+            </VisualStateManager.VisualStateGroups>
+        </Grid>
+    </ControlTemplate>
+</ResourceDictionary>

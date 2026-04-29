@@ -25,19 +25,30 @@ namespace VECS.UI
 
         public override void OnCreate(EntityManager entityManager)
         {
-            FrameworkElement controlTreeRoot = (FrameworkElement)GUI.LoadXaml(System.IO.Path.Combine(Asset.AssetsPath,"GUI", "CarHud.xaml"));
-
+            //GUI.LoadApplicationResources("Assets/GUI/Editor/GlobalResources.xaml");
+            //GUI.LoadApplicationResources("Assets/GUI/Theme/NoesisTheme.DarkBlue.xaml");
+            FrameworkElement controlTreeRoot = (FrameworkElement)GUI.LoadXaml(System.IO.Path.Combine(Asset.AssetsPath,"GUI", "effects.xaml"));
+            
             MainView = new NoesisViewWrapper(controlTreeRoot, Application.NoesisDriver)
             {
-                RenderFlags = RenderFlags.PPAA | RenderFlags.FlipY
+                RenderFlags = RenderFlags.PPAA
             };
-
+            
             MainView.SetSize(Screen.Width, Screen.Height);
+            //((Visual)controlTreeRoot.FindName("HierarchyStack")).AddLayer((Visual)GUI.LoadXaml(System.IO.Path.Combine(Asset.AssetsPath, "GUI", "Editor/VectorPage.xaml")));
+
+
+            controlTreeRoot.UpdateLayout();
             RenderTarget = (NoesisRenderTarget)NoesisHandler.NoesisDriver.CreateRenderTarget("Noesis_RT", (uint)Screen.Width, (uint)Screen.Height, 1, true);
 
             _blitVariant = EnginePipes.Blit.Create("Noesis_Blitter");
             _blitVariant.SetTexture(inputTextureId, RenderTargetTex2D);
             Application.NoesisDriver.CreatePipelines(VkFormat.R8G8B8A8Unorm, VkFormat.S8Uint);
+        }
+
+        private void Button_Click(object sender, RoutedEventArgs args)
+        {
+            Console.WriteLine("Clicked!");
         }
 
         public override void OnUpdate(EntityManager entityManager)
@@ -51,7 +62,8 @@ namespace VECS.UI
         {
             var view = MainView.View;
             var mousePos = new Vector2Int((int)InputManager.Instance.MousePos.X, (int)InputManager.Instance.MousePos.Y);
-
+            mousePos.X = Math.Clamp(mousePos.X, 0, Screen.Width);
+            mousePos.Y = Math.Clamp(mousePos.Y, 0, Screen.Height);
             for (MouseButton i = 0; i <= MouseButton.XButton2; i++)
             {
                 MouseButtonDown(mousePos.X, mousePos.Y, i, view);
@@ -76,8 +88,6 @@ namespace VECS.UI
             }
         }
 
-
-
         public override void OnPrePresent(EntityManager entityManager)
         {
             Application.NoesisDriver.CurrentFrameInfo = default;
@@ -93,45 +103,17 @@ namespace VECS.UI
             }
              if (_framesSinceLastRender < SwapChain.MAX_CONCURRENT_FRAMES + 1)
             {
-                Application.NoesisDriver.FormatHash = HashCode.Combine(RenderTargetTex2D.Format, VkFormat.Undefined);
+                Application.NoesisDriver.FormatHash = HashCode.Combine(RenderTargetTex2D.Format, VkFormat.S8Uint);
                 _framesSinceLastRender++;
-                //StartUIRendering(frameInfo);
-                //SwapChain.SetViewPortScissor(frameInfo.CommandBuffer);
+                NoesisHandler.NoesisDriver.SetRenderTarget(RenderTarget);
                 NoesisHandler.NoesisDriver.BeginTile(RenderTarget, new() { Y = 0, X = 0, Height = (uint)Screen.Height, Width = (uint)Screen.Width});
                 GraphicsDevice.DeviceAPI.vkCmdSetRasterizationSamplesEXT(frameInfo.CommandBuffer, VkSampleCountFlags.Count1);
                 MainView.Render();
                 
-                //GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
                 NoesisHandler.NoesisDriver.EndTile(RenderTarget);
                 RenderTargetTex2D.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.FragmentShader);
             }
             BlitToMain(frameInfo);
-        }
-
-        public unsafe void StartUIRendering(RendererFrameInfo frameInfo)
-        {
-            NoesisHandler.NoesisDriver.BeginOffscreenRender();
-            return;
-            RenderTargetTex2D.SetImageLayout(frameInfo.CommandBuffer,VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
-            VkRenderingAttachmentInfo renderingAttachmentInfo = new()
-            {
-                clearValue = new(0,0,0,0),
-                imageLayout = RenderTargetTex2D.ImageLayout,
-                imageView = RenderTargetTex2D._imageView,
-                loadOp = VkAttachmentLoadOp.Clear,
-                storeOp = VkAttachmentStoreOp.Store,
-            };
-
-
-            VkRenderingInfo renderingInfo = new()
-            {
-                colorAttachmentCount = 1,
-                pColorAttachments = &renderingAttachmentInfo,
-                layerCount = 1,
-                renderArea = new(0,0,(uint)Screen.Width, (uint)Screen.Height),
-            };
-
-            GraphicsDevice.DeviceAPI.vkCmdBeginRendering(frameInfo.CommandBuffer, &renderingInfo);
         }
 
         public unsafe void BlitToMain(RendererFrameInfo frameInfo)
