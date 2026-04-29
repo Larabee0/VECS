@@ -245,7 +245,7 @@ namespace VECS.UI
                         clearValue = new VkClearValue(0, 0, 0, 1)
                     };
                     colourFormat = renderTarget.ColourAA.Texture.Format;
-                    renderTarget.ColourAA.Texture.SetImageLayout(CurrentCommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.Transfer, VkPipelineStageFlags2.ColorAttachmentOutput);
+                    renderTarget.ColourAA.Texture.SetImageLayout(CurrentCommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
                 }
                 else
                 {
@@ -286,7 +286,7 @@ namespace VECS.UI
                     }
                     else
                     {
-                        renderTarget.Stencil.Texture.SetImageLayout(CurrentCommandBuffer, VkImageLayout.StencilAttachmentOptimal, VkPipelineStageFlags2.Transfer, VkPipelineStageFlags2.EarlyFragmentTests);
+                        renderTarget.Stencil.Texture.SetImageLayout(CurrentCommandBuffer, VkImageLayout.StencilAttachmentOptimal, VkPipelineStageFlags2.LateFragmentTests, VkPipelineStageFlags2.EarlyFragmentTests);
                     }
 
                     stencilFormat = renderTarget.Stencil.Texture.Format;
@@ -332,7 +332,7 @@ namespace VECS.UI
                     VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.TransientAttachment,
                     VkImageAspectFlags.Stencil);
 
-                //renderTarget.Stencil.Texture.SetImageLayout(VkImageLayout.DepthStencilAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.EarlyFragmentTests);
+                renderTarget.Stencil.Texture.SetImageLayout(VkImageLayout.DepthStencilAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.EarlyFragmentTests);
             }
 
             if (renderTarget.samples > VkSampleCountFlags.Count1)
@@ -355,7 +355,7 @@ namespace VECS.UI
 
                 //renderTarget.Colour.Texture.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.FragmentShader);
 
-                //renderTarget.ColourAA.Texture.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.FragmentShader);
+                renderTarget.ColourAA.Texture.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.FragmentShader);
             }
             else
             {
@@ -367,7 +367,7 @@ namespace VECS.UI
                     VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferSrc,
                     VkImageAspectFlags.Color);
 
-             //   renderTarget.Colour.Texture.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.FragmentShader);
+                renderTarget.Colour.Texture.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.FragmentShader);
             }
 
             CreatePipeline(renderTarget);
@@ -746,9 +746,13 @@ namespace VECS.UI
                 }
                 mat.SetTexture(shaderPropertyId, variant);
 
-                if(texture.ImageLayout != VkImageLayout.ShaderReadOnlyOptimal && texture.ImageLayout != VkImageLayout.Undefined)
+                if(texture.ImageLayout == VkImageLayout.ColorAttachmentOptimal)
                 {
                     texture.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.ColorAttachmentOutput);
+                }
+                if (texture.ImageLayout == VkImageLayout.TransferDstOptimal)
+                {
+                    texture.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.Transfer);
                 }
             }
         }
