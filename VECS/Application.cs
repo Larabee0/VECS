@@ -22,7 +22,7 @@ namespace VECS
         public static Application Instance { get; private set; }
         private static bool running = true;
 
-        private static uint _targetFrameRate = 24;//uint.MaxValue; // 
+        private static uint _targetFrameRate = uint.MaxValue; // 24;//
         private static double _targetFrameTime;
 
         public static uint TargetFrameRate

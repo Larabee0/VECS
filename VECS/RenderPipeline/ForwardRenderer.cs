@@ -134,46 +134,68 @@ namespace VECS
                 // PBR.Generate_Irradiance(frameInfo);
                 // PBR.Generate_Prefiltered_Cubemap(frameInfo);
             }
-
+            GraphicsDeviceInit.BeginLabelCmd(frameInfo.CommandBuffer, "Shadows");
             ShadowPass(frameInfo);
-
+            GraphicsDeviceInit.EndLabelCmd(frameInfo.CommandBuffer);
             // Opaque pass
+            GraphicsDeviceInit.BeginLabelCmd(frameInfo.CommandBuffer, "Pre-Opaque Pass");
             World.DefaultWorld.OnPreOpaquePass(frameInfo);
+            GraphicsDeviceInit.EndLabelCmd(frameInfo.CommandBuffer);
 
+            GraphicsDeviceInit.BeginLabelCmd(frameInfo.CommandBuffer, "Opaque Pass");
             OpaquePass(frameInfo);
-            
+            GraphicsDeviceInit.EndLabelCmd(frameInfo.CommandBuffer);
+
+            GraphicsDeviceInit.BeginLabelCmd(frameInfo.CommandBuffer, "Post-Opaque Pass");
             World.DefaultWorld.OnPostOpaquePass(frameInfo);
+            GraphicsDeviceInit.EndLabelCmd(frameInfo.CommandBuffer);
 
             // Transparent pass
+            GraphicsDeviceInit.BeginLabelCmd(frameInfo.CommandBuffer, "Pre-Transparent Pass");
             World.DefaultWorld.OnPreTransparentPass(frameInfo);
-
+            GraphicsDeviceInit.EndLabelCmd(frameInfo.CommandBuffer);
+            
+            GraphicsDeviceInit.BeginLabelCmd(frameInfo.CommandBuffer, "Transparent Pass");
             BeginOITTransparentPass(frameInfo);
             World.DefaultWorld.OnTransparentPass(frameInfo);
             EndOITTransparentPass(frameInfo, frameInfo.CommandBuffer);
+            GraphicsDeviceInit.EndLabelCmd(frameInfo.CommandBuffer);
 
+            GraphicsDeviceInit.BeginLabelCmd(frameInfo.CommandBuffer, "Post-Transparent Pass");
             World.DefaultWorld.OnPostTransparentPass(frameInfo);
+            GraphicsDeviceInit.EndLabelCmd(frameInfo.CommandBuffer);
 
             //Bloom
+            GraphicsDeviceInit.BeginLabelCmd(frameInfo.CommandBuffer, "Bloom Pass");
             _bloom.RenderBloomObjects(frameInfo);
+            GraphicsDeviceInit.EndLabelCmd(frameInfo.CommandBuffer);
 
             DrawBlob.IndirectToComputeMemoryBarrierByMat(frameInfo.CommandBuffer);
 
             // final AA pass
+            GraphicsDeviceInit.BeginLabelCmd(frameInfo.CommandBuffer, "SMAA Pass");
             _smaa.ApplyAA(frameInfo);
+            GraphicsDeviceInit.EndLabelCmd(frameInfo.CommandBuffer);
 
             // anti anslising
+            GraphicsDeviceInit.BeginLabelCmd(frameInfo.CommandBuffer, "Post-SMAA Pass");
             World.DefaultWorld.OnPostAA(frameInfo);
+            GraphicsDeviceInit.EndLabelCmd(frameInfo.CommandBuffer);
 
             // blit renderImage into swapchain
             var extents = SwapChain.SwapChainExtent;
+            GraphicsDeviceInit.BeginLabelCmd(frameInfo.CommandBuffer, "SwapChain Blit");
             BlitFromMainColour(frameInfo.CommandBuffer, SwapChain.MainSwapChainData.SwapChainImages[imageIndex], (int)extents.width, (int)extents.height, VkImageAspectFlags.Color);
+            GraphicsDeviceInit.EndLabelCmd(frameInfo.CommandBuffer);
         }
 
         private void OpaquePass(RendererFrameInfo frameInfo)
         {
             var commandBuffer = frameInfo.CommandBuffer;
+
             if (DrawBlob.HasDrawablesInclDepth)
             {
+                GraphicsDeviceInit.BeginLabelCmd(frameInfo.CommandBuffer, "Main Depth Only");
                 EnginePipes.DepthOnly.PushConstants.SetPushConstantInt("matrixStartIndex", DEPTH_ONLY_PUSH_CONSTANT_INDEX, frameInfo.MainCamera);
 
                 var depthBufferCullInfo = frameInfo.CullData;
@@ -187,37 +209,56 @@ namespace VECS
                 DrawBlob.ExecutateDepthOnly(frameInfo, commandBuffer, DEPTH_ONLY_PUSH_CONSTANT_INDEX, VkCullModeFlags.Back);
 
                 EndForwardDepthOnlyRendering(commandBuffer);
+                GraphicsDeviceInit.EndLabelCmd(frameInfo.CommandBuffer);
 
+                GraphicsDeviceInit.BeginLabelCmd(frameInfo.CommandBuffer, "Main Depth Reduction");
                 DepthReduction.ReduceDepth(frameInfo);
             }
             else
             {
+                GraphicsDeviceInit.BeginLabelCmd(frameInfo.CommandBuffer, "Clear Main Depth Only");
                 ClearForwardDepthAttachment(commandBuffer);
+                GraphicsDeviceInit.EndLabelCmd(frameInfo.CommandBuffer);
+
+                GraphicsDeviceInit.BeginLabelCmd(frameInfo.CommandBuffer, "Clear Main Depth Reduction");
                 DepthReduction.ClearPyramid(frameInfo);
             }
+            GraphicsDeviceInit.EndLabelCmd(frameInfo.CommandBuffer);
 
+            GraphicsDeviceInit.BeginLabelCmd(frameInfo.CommandBuffer, "Main Colour Pass");
             DrawBlob.CullByMat(frameInfo, frameInfo.CullData);
 
             DrawBlob.IndirectToComputeMemoryBarrierByMat(commandBuffer);
 
             StartMainColourRendering(frameInfo, VkAttachmentLoadOp.Clear);
 
+            GraphicsDeviceInit.BeginLabelCmd(frameInfo.CommandBuffer, "Entities");
             World.DefaultWorld.OnOpaquePass(frameInfo);
+            GraphicsDeviceInit.EndLabelCmd(frameInfo.CommandBuffer);
 
             // skybox last item rendered to save fragments from any depth writes
+            GraphicsDeviceInit.BeginLabelCmd(frameInfo.CommandBuffer, "Skybox");
             Skybox.RenderSkybox(frameInfo);
+            GraphicsDeviceInit.EndLabelCmd(frameInfo.CommandBuffer);
 
             EndMainColourRendering(frameInfo);
+            GraphicsDeviceInit.EndLabelCmd(frameInfo.CommandBuffer);
         }
 
         private static unsafe void ShadowPass(RendererFrameInfo frameInfo)
         {
             // shadows pass
+            GraphicsDeviceInit.BeginLabelCmd(frameInfo.CommandBuffer, "Pre-Shadow Pass");
             World.DefaultWorld.OnPreShadowPass(frameInfo);
+            GraphicsDeviceInit.EndLabelCmd(frameInfo.CommandBuffer);
 
+            GraphicsDeviceInit.BeginLabelCmd(frameInfo.CommandBuffer, "Shadow Pass");
             World.DefaultWorld.OnShadowPass(frameInfo);
+            GraphicsDeviceInit.EndLabelCmd(frameInfo.CommandBuffer);
 
+            GraphicsDeviceInit.BeginLabelCmd(frameInfo.CommandBuffer, "Post-Shadow");
             World.DefaultWorld.OnPostShadowPass(frameInfo);
+            GraphicsDeviceInit.EndLabelCmd(frameInfo.CommandBuffer);
         }
 
         public void PostRender()
@@ -232,7 +273,14 @@ namespace VECS
 
         public unsafe void StartMainColourRendering(VkCommandBuffer commandBuffer, VkAttachmentLoadOp colourLoad, bool onlyMainAttachment = false, bool noDepth = false)
         {
-            MainColourAttachment.Target.SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.ColorAttachmentOutput);
+            if (MainColourAttachment.ImageLayout == VkImageLayout.TransferSrcOptimal)
+            {
+                MainColourAttachment.Target.SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.ColorAttachmentOutput);
+            }
+            if (MainColourAttachment.ImageLayout == VkImageLayout.ShaderReadOnlyOptimal)
+            {
+                MainColourAttachment.Target.SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
+            }
             BrightObjectAttachment.Target.SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.ColorAttachmentOutput);
 
             VkRenderingAttachmentInfo* colourAttachments = stackalloc VkRenderingAttachmentInfo[]
@@ -342,6 +390,7 @@ namespace VECS
 
         public unsafe void BeginOITTransparentPass(RendererFrameInfo frameInfo)
         {
+            GraphicsDeviceInit.BeginLabelCmd(frameInfo.CommandBuffer, "Transparent Pre-Rendering");
             VkCommandBuffer commandBuffer = frameInfo.CommandBuffer;
 
             var cullData = frameInfo.CullData;
@@ -384,7 +433,9 @@ namespace VECS
             };
 
             MemoryBarrierHelper.MemoryBarrier(commandBuffer, barrier);
+            GraphicsDeviceInit.EndLabelCmd(commandBuffer);
 
+            GraphicsDeviceInit.BeginLabelCmd(frameInfo.CommandBuffer, "Transparent Rendering");
             GraphicsDevice.DeviceAPI.vkCmdBeginRendering(commandBuffer, &renderingInfo);
 
             SwapChain.SetViewPortScissor(commandBuffer);
@@ -399,7 +450,9 @@ namespace VECS
 
             GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier(commandBuffer, VkPipelineStageFlags.ColorAttachmentOutput, VkPipelineStageFlags.FragmentShader, VkDependencyFlags.None, 0, null, 0, null, 0, null);
 
+            GraphicsDeviceInit.EndLabelCmd(commandBuffer);
 
+            GraphicsDeviceInit.BeginLabelCmd(frameInfo.CommandBuffer, "Transparent Composite");
             barrier = new()
             {
                 srcAccessMask = VkAccessFlags2.ShaderRead | VkAccessFlags2.ShaderWrite,
@@ -419,6 +472,7 @@ namespace VECS
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
 
             EndMainColourRendering(frameInfo);
+            GraphicsDeviceInit.EndLabelCmd(commandBuffer);
         }
 
         public void BlitFromMainColour(VkCommandBuffer commandBuffer, VkImage dst, int dstWidth,int  dstHeight, VkImageAspectFlags dstAspectMask)

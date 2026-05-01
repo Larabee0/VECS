@@ -77,6 +77,8 @@ namespace VECS.LowLevel
             VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo = PopulateDebugMessengerCreateInfo();
             createInfo.pNext = &debugCreateInfo;
 
+            
+
             bool validationLayerBreak = BreakOnValidationError;
             BreakOnValidationError = false;
 
@@ -647,6 +649,28 @@ namespace VECS.LowLevel
 
         #endregion
 
+        #region Labels Events
+
+        public static unsafe void BeginLabelCmd(VkCommandBuffer commandBuffer,string label)
+        {
+            var bytes = Encoding.UTF8.GetBytes(label);
+
+            VkUtf8ReadOnlyString vkString = new(bytes);
+
+            VkDebugUtilsLabelEXT labelInfo = new()
+            {
+                pLabelName = vkString
+            };
+
+            GraphicsDevice.InstanceAPI.vkCmdBeginDebugUtilsLabelEXT(commandBuffer, &labelInfo);
+        }
+
+        public static void EndLabelCmd(VkCommandBuffer commandBuffer)
+        {
+            GraphicsDevice.InstanceAPI.vkCmdEndDebugUtilsLabelEXT(commandBuffer);
+        }
+
+        #endregion
 
         #region Validation and Debugging statics
         /// <summary>

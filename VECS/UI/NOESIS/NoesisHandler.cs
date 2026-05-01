@@ -9,7 +9,6 @@ namespace VECS.UI
         private static NoesisDriver _noesisDriver;
 
         public static NoesisDriver NoesisDriver => _noesisDriver;
-
         internal static void Init()
         {
 
@@ -17,7 +16,7 @@ namespace VECS.UI
             Error.SetUnhandledCallback(NoesisDriver.ErrorCallback);
 
             GUI.Init();
-
+            GUI.RegisterType(typeof(VectorField));
             var xamlProvider = new LocalXamlProvider(System.IO.Path.Combine(Asset.AssetsPath, "GUI"));
             GUI.SetXamlProvider(xamlProvider);
             var fontProvider = new LocalFontProvider(System.IO.Path.Combine(Asset.AssetsPath, "GUI"));
@@ -32,8 +31,6 @@ namespace VECS.UI
             GUI.LoadApplicationResources("Theme/NoesisTheme.DarkBlue.xaml");
             _noesisDriver = new NoesisDriver();
 
-            
-            
             World.DefaultWorld.CreateSystem<NoesisSystem>();
         }
 

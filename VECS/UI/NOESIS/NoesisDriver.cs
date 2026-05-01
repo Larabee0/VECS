@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Numerics;
+using System.Text;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 using Vector4 = System.Numerics.Vector4;
@@ -221,7 +222,7 @@ namespace VECS.UI
         {
             if (surface is NoesisRenderTarget renderTarget)
             {
-
+                GraphicsDeviceInit.BeginLabelCmd(CurrentCommandBuffer,string.Format("Render Tile {0}",renderTarget.Colour.Texture.AssetName));
                 VkRect2D renderArea;
                 renderArea.offset.x = (int)tile.X;
                 renderArea.offset.y = (int)renderTarget.Colour.Height - ((int)tile.Y + (int)tile.Height);
@@ -236,13 +237,13 @@ namespace VECS.UI
                     colour = new()
                     {
                         imageLayout = VkImageLayout.ColorAttachmentOptimal,
-                        loadOp = VkAttachmentLoadOp.DontCare,
+                        loadOp = VkAttachmentLoadOp.Clear,
                         storeOp = VkAttachmentStoreOp.Store,
                         imageView = renderTarget.ColourAA.Texture._imageView,
                         resolveImageLayout = renderTarget.Colour.Texture._imageLayout,
                         resolveImageView = renderTarget.Colour.Texture._imageView,
                         resolveMode = VkResolveModeFlags.None,
-                        clearValue = new VkClearValue(0, 0, 0, 1)
+                        clearValue = new VkClearValue(0, 0, 0, 0)
                     };
                     colourFormat = renderTarget.ColourAA.Texture.Format;
                     renderTarget.ColourAA.Texture.SetImageLayout(CurrentCommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
@@ -252,10 +253,10 @@ namespace VECS.UI
                     colour = new()
                     {
                         imageLayout = VkImageLayout.ColorAttachmentOptimal,
-                        loadOp = VkAttachmentLoadOp.DontCare,
+                        loadOp = VkAttachmentLoadOp.Clear,
                         storeOp = VkAttachmentStoreOp.Store,
                         imageView = renderTarget.Colour.Texture._imageView,
-                        clearValue = new VkClearValue(0,0,0,1)
+                        clearValue = new VkClearValue(0,0,0,0)
                     };
 
                     if (renderTarget.Colour.Texture.ImageLayout == VkImageLayout.Undefined)
@@ -273,7 +274,7 @@ namespace VECS.UI
                 {
                     stencil = new()
                     {
-                        loadOp = VkAttachmentLoadOp.Clear,
+                        loadOp = VkAttachmentLoadOp.DontCare,
                         storeOp = VkAttachmentStoreOp.DontCare,
                         imageLayout = VkImageLayout.StencilAttachmentOptimal,
                         imageView = renderTarget.Stencil.Texture._imageView,
@@ -313,11 +314,13 @@ namespace VECS.UI
         public override void EndTile(Noesis.RenderTarget surface)
         {
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(CurrentCommandBuffer);
+            GraphicsDeviceInit.EndLabelCmd(CurrentCommandBuffer);
             
         }
 
         public override Noesis.RenderTarget CreateRenderTarget(string label, uint width, uint height, uint sampleCount, bool needsStencil)
         {
+            Console.WriteLine("NOESIS Create RT");
             NoesisRenderTarget renderTarget = new()
             {
                 samples = GetSampleCount(sampleCount, GraphicsDevice.PropertiesVK10.limits)
@@ -332,7 +335,7 @@ namespace VECS.UI
                     VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.TransientAttachment,
                     VkImageAspectFlags.Stencil);
 
-                renderTarget.Stencil.Texture.SetImageLayout(VkImageLayout.DepthStencilAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.EarlyFragmentTests);
+                //renderTarget.Stencil.Texture.SetImageLayout(VkImageLayout.DepthStencilAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.EarlyFragmentTests);
             }
 
             if (renderTarget.samples > VkSampleCountFlags.Count1)
@@ -355,7 +358,7 @@ namespace VECS.UI
 
                 //renderTarget.Colour.Texture.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.FragmentShader);
 
-                renderTarget.ColourAA.Texture.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.FragmentShader);
+                //renderTarget.ColourAA.Texture.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.FragmentShader);
             }
             else
             {
@@ -367,7 +370,7 @@ namespace VECS.UI
                     VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferSrc,
                     VkImageAspectFlags.Color);
 
-                renderTarget.Colour.Texture.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.FragmentShader);
+                //renderTarget.Colour.Texture.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.FragmentShader);
             }
 
             CreatePipeline(renderTarget);
@@ -381,6 +384,7 @@ namespace VECS.UI
         {
             if (surface is NoesisRenderTarget renderTarget)
             {
+                Console.WriteLine("NOESIS Clone RT");
                 var clonedTarget = new NoesisRenderTarget
                 {
                     Stencil = renderTarget.Stencil,
@@ -401,7 +405,7 @@ namespace VECS.UI
                         VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferDst,
                         VkImageAspectFlags.Color);
 
-                    clonedTarget.Colour.Texture.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.FragmentShader);
+                    //clonedTarget.Colour.Texture.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.FragmentShader);
                 }
                 else
                 {
@@ -413,7 +417,7 @@ namespace VECS.UI
                         VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferSrc,
                         VkImageAspectFlags.Color);
 
-                    clonedTarget.Colour.Texture.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.FragmentShader);
+                    //clonedTarget.Colour.Texture.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.FragmentShader);
                 }
 
                 return clonedTarget;
@@ -569,6 +573,7 @@ namespace VECS.UI
 
         public unsafe override Noesis.Texture CreateTexture(string label, uint width, uint height, uint numLevels, TextureFormat format, nint data)
         {
+            Console.WriteLine("NOESIS Create Tex");
             VkFormat vkFormat = format switch
             {
                 TextureFormat.RGBA8 => VkFormat.R8G8B8A8Unorm,
@@ -921,19 +926,19 @@ namespace VECS.UI
             SetDepthStencilInfo(CurrentCommandBuffer, mode);
         }
 
-        public override void BeginOffscreenRender()
+        public override unsafe void BeginOffscreenRender()
         {
-            //throw new NotImplementedException();
+            GraphicsDeviceInit.BeginLabelCmd(CurrentCommandBuffer, "NOESIS Begin Off-Screen Render");
         }
 
         public override void BeginOnscreenRender()
         {
-            //throw new NotImplementedException();
         }
 
         public override void EndOffscreenRender()
         {
             drawPos++;
+            GraphicsDeviceInit.EndLabelCmd(CurrentCommandBuffer);
         }
 
         public override void EndOnscreenRender()
@@ -1161,7 +1166,6 @@ namespace VECS.UI
         private static unsafe void SetBlendInfo(VkCommandBuffer commandBuffer, bool colourEnable, BlendMode blendMode)
         {
             VkBool32 blendEnabled = colourEnable;
-            VkBool32 colourEnabled = true;
             if (colourEnable)
             {
                 VkColorBlendEquationEXT blendEquation = new()
@@ -1216,7 +1220,7 @@ namespace VECS.UI
                 GraphicsDevice.DeviceAPI.vkCmdSetColorBlendEquationEXT(commandBuffer, 0, 1, &blendEquation);
                 
             }
-            GraphicsDevice.DeviceAPI.vkCmdSetColorWriteEnableEXT(commandBuffer, 1, &colourEnabled);
+            GraphicsDevice.DeviceAPI.vkCmdSetColorWriteEnableEXT(commandBuffer, 1, &blendEnabled);
             GraphicsDevice.DeviceAPI.vkCmdSetColorBlendEnableEXT(commandBuffer, 0, 1, &blendEnabled);
         }
 

@@ -1,6 +1,8 @@
 ﻿using Noesis;
+using SDL3;
 using System;
 using System.Numerics;
+using System.Text;
 using VECS.ECS;
 using VECS.ECS.Presentation;
 using VECS.LowLevel;
@@ -27,7 +29,7 @@ namespace VECS.UI
         {
             //GUI.LoadApplicationResources("Assets/GUI/Editor/GlobalResources.xaml");
             //GUI.LoadApplicationResources("Assets/GUI/Theme/NoesisTheme.DarkBlue.xaml");
-            FrameworkElement controlTreeRoot = (FrameworkElement)GUI.LoadXaml(System.IO.Path.Combine(Asset.AssetsPath,"GUI", "effects.xaml"));
+            FrameworkElement controlTreeRoot = (FrameworkElement)GUI.LoadXaml(System.IO.Path.Combine(Asset.AssetsPath,"GUI", "ThemePreview.xaml"));
             
             MainView = new NoesisViewWrapper(controlTreeRoot, Application.NoesisDriver)
             {
@@ -35,7 +37,20 @@ namespace VECS.UI
             };
             
             MainView.SetSize(Screen.Width, Screen.Height);
-            //((Visual)controlTreeRoot.FindName("HierarchyStack")).AddLayer((Visual)GUI.LoadXaml(System.IO.Path.Combine(Asset.AssetsPath, "GUI", "Editor/VectorPage.xaml")));
+            // var expander = ((ItemsControl)controlTreeRoot.FindName("RightSideBarExpanderInternal"));
+            // var page = new VectorField();//((Visual)GUI.LoadXaml(System.IO.Path.Combine(Asset.AssetsPath, "GUI", "Editor/VectorPage.xaml")));
+            // expander.Items.Clear();
+            // expander.Items.Add(page);
+            // 
+            // var gameview = (Image)controlTreeRoot.FindName("GameView");
+            // var fowardRenderer = (Presenter<ForwardRenderer>)Presenter.Instance;
+            // var colourTarget = fowardRenderer.Renderer.MainColourAttachment.Target;
+            // var textureSource = new TextureSource(new NoesisTexture(colourTarget,false,true));
+            // gameview.Source = textureSource;
+
+            InputManager.Instance.OnKeyDown += ViewKeyDown;
+            InputManager.Instance.OnKeyUp += ViewKeyUp;
+
 
 
             controlTreeRoot.UpdateLayout();
@@ -44,6 +59,20 @@ namespace VECS.UI
             _blitVariant = EnginePipes.Blit.Create("Noesis_Blitter");
             _blitVariant.SetTexture(inputTextureId, RenderTargetTex2D);
             Application.NoesisDriver.CreatePipelines(VkFormat.R8G8B8A8Unorm, VkFormat.S8Uint);
+        }
+
+        private void ViewKeyDown(SDL_Keycode keycode)
+        {
+            MainView.View.KeyDown(keycode.ToNoesis());
+        }
+
+        private void ViewKeyUp(SDL_Keycode keycode)
+        {
+            if (char.IsLetterOrDigit((char)keycode) || char.IsSymbol((char)keycode))
+            {
+                MainView.View.Char((uint)keycode);
+            }
+            MainView.View.KeyUp(keycode.ToNoesis());
         }
 
         private void Button_Click(object sender, RoutedEventArgs args)
@@ -61,6 +90,7 @@ namespace VECS.UI
         private void UpdateInputs()
         {
             var view = MainView.View;
+            
             var mousePos = new Vector2Int((int)InputManager.Instance.MousePos.X, (int)InputManager.Instance.MousePos.Y);
             mousePos.X = Math.Clamp(mousePos.X, 0, Screen.Width);
             mousePos.Y = Math.Clamp(mousePos.Y, 0, Screen.Height);
@@ -70,6 +100,19 @@ namespace VECS.UI
                 MouseButtonUp(mousePos.X,mousePos.Y, i, view);
             }
             view.MouseMove(mousePos.X, mousePos.Y);
+
+            // if (InputManager.Instance.GetKeyUp(SDL_Keycode.A))
+            // {
+            //     view.KeyUp(Key.A);
+            // }
+            // if (InputManager.Instance.GetKeyDown(SDL_Keycode.A))
+            // {
+            //     view.KeyDown(Key.A);
+            // }
+            // if (InputManager.Instance.GetKey(SDL_Keycode.A))
+            // {
+            //     view.Char((uint)SDL_Keycode.A);
+            // }
         }
 
         private static void MouseButtonDown(int x, int y, MouseButton button, View view)
@@ -94,30 +137,34 @@ namespace VECS.UI
             
         }
 
-        public unsafe override void OnPostAA(EntityManager entityManager, RendererFrameInfo frameInfo)
+        public override void OnPostAA(EntityManager entityManager, RendererFrameInfo frameInfo)
         {
             Application.NoesisDriver.CurrentFrameInfo = frameInfo;
             if (MainView.PreRender() || ALWAYS_RE_RENDER)
             {
                 _framesSinceLastRender = 0;
             }
-             if (_framesSinceLastRender < SwapChain.MAX_CONCURRENT_FRAMES + 1)
+            if (_framesSinceLastRender < SwapChain.MAX_CONCURRENT_FRAMES + 1)
             {
+                GraphicsDeviceInit.BeginLabelCmd(frameInfo.CommandBuffer, "NOESIS Begin On-Screen Render");
                 Application.NoesisDriver.FormatHash = HashCode.Combine(RenderTargetTex2D.Format, VkFormat.S8Uint);
                 _framesSinceLastRender++;
                 NoesisHandler.NoesisDriver.SetRenderTarget(RenderTarget);
+
                 NoesisHandler.NoesisDriver.BeginTile(RenderTarget, new() { Y = 0, X = 0, Height = (uint)Screen.Height, Width = (uint)Screen.Width});
                 GraphicsDevice.DeviceAPI.vkCmdSetRasterizationSamplesEXT(frameInfo.CommandBuffer, VkSampleCountFlags.Count1);
                 MainView.Render();
                 
                 NoesisHandler.NoesisDriver.EndTile(RenderTarget);
                 RenderTargetTex2D.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.FragmentShader);
+                GraphicsDeviceInit.EndLabelCmd(frameInfo.CommandBuffer);
             }
             BlitToMain(frameInfo);
         }
 
         public unsafe void BlitToMain(RendererFrameInfo frameInfo)
         {
+            GraphicsDeviceInit.BeginLabelCmd(frameInfo.CommandBuffer, "NOESIS Blit to Main");
             var _outputTarget = EngineTextures.TryGetTexture(ShaderProperties.MainColourAttachmentId).First;
 
             var inputTargetLayout = RenderTargetTex2D.ImageLayout;
@@ -184,10 +231,13 @@ namespace VECS.UI
                 }
             }
 
+            GraphicsDeviceInit.EndLabelCmd(frameInfo.CommandBuffer);
         }
 
         public override void OnDestroy(EntityManager entityManager)
         {
+            InputManager.Instance.OnKeyDown -= ViewKeyDown;
+            InputManager.Instance.OnKeyUp -= ViewKeyUp;
             MainView.View.Renderer.Shutdown();
             MainView.View.Dispose();
         }

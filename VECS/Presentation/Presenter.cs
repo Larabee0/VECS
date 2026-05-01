@@ -244,11 +244,25 @@ namespace VECS
         private unsafe void GraphicsPipe(int imageIndex)
         {
             VkCommandBuffer commandBuffer = SwapChain.CurrentMainCommandBuffer;
+            GraphicsDeviceInit.BeginLabelCmd(commandBuffer, "Start Frame Buffer Fill Cmds");
             GPUBufferExtensions.PlaybackFillBufferCmds(commandBuffer);
+            GraphicsDeviceInit.EndLabelCmd(commandBuffer);
+
+            GraphicsDeviceInit.BeginLabelCmd(commandBuffer, "Start Frame Buffer Copy Cmds");
             GPUBufferExtensions.PlaybackCopyBuffersCmds(commandBuffer);
+            GraphicsDeviceInit.EndLabelCmd(commandBuffer);
+
+            GraphicsDeviceInit.BeginLabelCmd(commandBuffer, "Start Frame Image Copy Cmds");
             TextureExtensions.PlaybackCopyCmds(commandBuffer);
+            GraphicsDeviceInit.EndLabelCmd(commandBuffer);
+
+            GraphicsDeviceInit.BeginLabelCmd(commandBuffer, "Start Frame Mip Map Generation");
             TextureExtensions.PlaybackMipmapGenCmds(commandBuffer);
+            GraphicsDeviceInit.EndLabelCmd(commandBuffer);
+
+            GraphicsDeviceInit.BeginLabelCmd(commandBuffer, "Start Frame Image Layouts");
             TextureExtensions.PlaybackSetLayoutCmds(commandBuffer);
+            GraphicsDeviceInit.EndLabelCmd(commandBuffer);
 
             PreGraphicsPipe?.Invoke(FrameIndex);
 
@@ -259,15 +273,19 @@ namespace VECS
             _renderer.Render(frameInfo, imageIndex);
 
             // UI Overlay
+            GraphicsDeviceInit.BeginLabelCmd(commandBuffer, "IMGUI Pass");
             _imgui.Draw(frameInfo);
 
             _imgui.OverlayToActiveTarget(frameInfo,_renderer.MainColourAttachment);
-            
+            GraphicsDeviceInit.EndLabelCmd(commandBuffer);
+
             RenderCallback?.Invoke(frameInfo);
 
             // Play back Write Cmds generated during frame from CPU to GPU Buffers
             // this is an optimisation to avoid double writes
+            GraphicsDeviceInit.BeginLabelCmd(commandBuffer, "End Frame Buffer Writes");
             GPUBufferExtensions.PlaybackWriteBufferCmds();
+            GraphicsDeviceInit.EndLabelCmd(commandBuffer);
         }
 
         public bool BeginFrame()

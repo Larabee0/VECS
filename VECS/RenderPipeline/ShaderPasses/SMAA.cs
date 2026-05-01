@@ -147,38 +147,44 @@ namespace VECS
 #if DEBUG
         private unsafe void OutputBlendWeights(in RendererFrameInfo frameInfo)
         {
+            GraphicsDeviceInit.BeginLabelCmd(frameInfo.CommandBuffer, "Output Blend Weights");
             ActiveRenderer.StartMainColourRendering(frameInfo, VkAttachmentLoadOp.Clear);
 
             BlitBlendTarget.Bind(frameInfo);
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
 
             ActiveRenderer.EndMainColourRendering(frameInfo);
+            GraphicsDeviceInit.EndLabelCmd(frameInfo.CommandBuffer);
         }
 
         private unsafe void OutputEdgeDetection(in RendererFrameInfo frameInfo)
         {
+            GraphicsDeviceInit.BeginLabelCmd(frameInfo.CommandBuffer, "Output Edge Detection");
             ActiveRenderer.StartMainColourRendering(frameInfo, VkAttachmentLoadOp.Clear);
 
             BlitEdgeTarget.Bind(frameInfo);
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
 
             ActiveRenderer.EndMainColourRendering(frameInfo);
+            GraphicsDeviceInit.EndLabelCmd(frameInfo.CommandBuffer);
         }
 #endif
 
         private unsafe void OutputBlending(RendererFrameInfo frameInfo)
         {
+            GraphicsDeviceInit.BeginLabelCmd(frameInfo.CommandBuffer, "Output Blending");
             ActiveRenderer.StartMainColourRendering(frameInfo, VkAttachmentLoadOp.Load);
 
             NeighbourhoodBlending.Bind(frameInfo);
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
 
             ActiveRenderer.EndMainColourRendering(frameInfo);
-            
+            GraphicsDeviceInit.EndLabelCmd(frameInfo.CommandBuffer);
         }
 
         private unsafe void BlendWeightCalculation(RendererFrameInfo frameInfo)
         {
+            GraphicsDeviceInit.BeginLabelCmd(frameInfo.CommandBuffer, "Blend Weight Calculation");
             BlendTarget.Target.SetImageLayout(frameInfo.CommandBuffer,
                 VkImageLayout.ColorAttachmentOptimal,
                 VkPipelineStageFlags2.FragmentShader,
@@ -220,10 +226,12 @@ namespace VECS
                 VkImageLayout.ShaderReadOnlyOptimal,
                 VkPipelineStageFlags2.ColorAttachmentOutput,
                 VkPipelineStageFlags2.FragmentShader);
+            GraphicsDeviceInit.EndLabelCmd(frameInfo.CommandBuffer);
         }
 
         private unsafe void EdgeDetectionPass(RendererFrameInfo frameInfo)
         {
+            GraphicsDeviceInit.BeginLabelCmd(frameInfo.CommandBuffer, "Edge Detection");
             EdgeTarget.Target.SetImageLayout(frameInfo.CommandBuffer,
                 VkImageLayout.ColorAttachmentOptimal,
                 VkPipelineStageFlags2.FragmentShader,
@@ -266,10 +274,12 @@ namespace VECS
                 VkImageLayout.ShaderReadOnlyOptimal,
                 VkPipelineStageFlags2.ColorAttachmentOutput,
                 VkPipelineStageFlags2.FragmentShader);
+            GraphicsDeviceInit.EndLabelCmd(frameInfo.CommandBuffer);
         }
 
         private unsafe void CopyMainOutputToEdgeInput(RendererFrameInfo frameInfo)
         {
+            GraphicsDeviceInit.BeginLabelCmd(frameInfo.CommandBuffer, "Copy to Edge Input");
             EdgeInputTarget.Target.SetImageLayout(frameInfo.CommandBuffer,
                 VkImageLayout.ColorAttachmentOptimal,
                 VkPipelineStageFlags2.FragmentShader,
@@ -312,6 +322,7 @@ namespace VECS
                 VkImageLayout.ShaderReadOnlyOptimal,
                 VkPipelineStageFlags2.ColorAttachmentOutput,
                 VkPipelineStageFlags2.FragmentShader);
+            GraphicsDeviceInit.EndLabelCmd(frameInfo.CommandBuffer);
         }
     }
 }

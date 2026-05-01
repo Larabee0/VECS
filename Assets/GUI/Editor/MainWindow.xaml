@@ -3,6 +3,7 @@
   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
   xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
   xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+  xmlns:system="clr-namespace:System"
   mc:Ignorable="d"
   Background="#FF4D5052" d:DesignWidth="1920" d:DesignHeight="1080">
   <Grid.Resources>
@@ -28,15 +29,15 @@
           
         </StackPanel>
       </ScrollViewer>
-      <Rectangle x:Name="ViewPortBG" Grid.Column="1" Grid.ColumnSpan="2" Fill="#FF1FC200" Stroke="#FF000000"/>
+      <Rectangle x:Name="ViewPortBG" Grid.Column="1" Fill="#FF1FC200" Stroke="#FF000000"/>
+      <Image x:Name="GameView" Grid.Column="1"/>
     </Grid>
     <Rectangle x:Name="RightSideBarBG" Grid.Column="1" Grid.ColumnSpan="2" Grid.RowSpan="2" Fill="#FFFFF45B" Stroke="#FF000000"/>
     <ScrollViewer x:Name="RightSideBarScroller" ScrollViewer.PanningMode="VerticalOnly" ScrollViewer.CanContentScroll="True" Grid.Column="1" Grid.RowSpan="2">
       <StackPanel x:Name="RightSideBarStack">
-        <Expander Header="Expander" FontFamily="Consolas">
-          <Grid Background="#FFE5E5E5">
-            
-          </Grid>
+        <Expander Header="Expander" IsExpanded="True" FontFamily="Consolas">
+          <ItemsControl x:Name="RightSideBarExpanderInternal">
+          </ItemsControl>
         </Expander>
       </StackPanel>
     </ScrollViewer>

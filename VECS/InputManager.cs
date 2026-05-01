@@ -40,6 +40,9 @@ namespace VECS
         private readonly Dictionary<SDL_Button, (bool, bool)> _mouseButtonStates = new(Enum.GetNames<SDL_Button>().Length);
         private readonly Queue<SDL_Button> _mouseButtonsChangedState = new();
 
+        public Action<SDL_Keycode> OnKeyUp;
+        public Action<SDL_Keycode> OnKeyDown;
+
         public static InputManager Instance { get; private set; }
 
         public unsafe InputManager(bool mainInputManager)
@@ -59,70 +62,6 @@ namespace VECS
             {
                 Instance = this;
             }
-        }
-
-        public static unsafe void RegisterWatcher(delegate* unmanaged[Cdecl]<nint, SDL_Event*, SDLBool> filter)
-        {
-            SDL3.SDL3.SDL_AddEventWatch(filter, IntPtr.Zero);
-        }
-
-        /// <summary>
-        /// defines a pointable function for handling a right click event.
-        /// </summary>
-        /// <param name="n"></param>
-        /// <param name="eventPtr"></param>
-        /// <returns></returns>
-        [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-        public static unsafe SDLBool MouseButtonEvents(nint n, SDL_Event* eventPtr)
-        {
-            InputManager inputHandler = SDL3WindowManager.GetWindowInputManager(eventPtr->window.windowID);
-
-            if (inputHandler == null) return false;
-
-            var button = eventPtr->button.Button;
-            var type = eventPtr->type;
-            if (type == SDL_EventType.MouseButtonDown && !inputHandler._mouseButtonStates[button].Item1)
-            {
-                inputHandler._mouseButtonStates[button] = (true, true);
-                inputHandler._mouseButtonsChangedState.Enqueue(button);
-            }
-            else if (type == SDL_EventType.MouseButtonUp && inputHandler._mouseButtonStates[button].Item1)
-            {
-                inputHandler._mouseButtonStates[button] = (false, true);
-                inputHandler._mouseButtonsChangedState.Enqueue(button);
-            }
-
-            return false;
-        }
-
-        /// <summary>
-        /// defines a pointale function for handling wasd input events
-        /// </summary>
-        /// <param name="n"></param>
-        /// <param name="eventPtr"></param>
-        /// <returns></returns>
-        [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-        public static unsafe SDLBool KeyboardButtonEvents(nint n, SDL_Event* eventPtr)
-        {
-            InputManager inputHandler = SDL3WindowManager.GetWindowInputManager(eventPtr->window.windowID);
-
-            if (inputHandler == null) return false;
-
-            var keyCode = eventPtr->key.key;
-            var type = eventPtr->type;
-
-            if (type == SDL_EventType.KeyDown && !inputHandler._keyStates[keyCode].Item1)
-            {
-                inputHandler._keyStates[keyCode] = (true, true);
-                inputHandler._keysChangedState.Enqueue(keyCode);
-            }
-            else if (type == SDL_EventType.KeyUp && inputHandler._keyStates[keyCode].Item1)
-            {
-                inputHandler._keyStates[keyCode] = (false, true);
-                inputHandler._keysChangedState.Enqueue(keyCode);
-            }
-
-            return false;
         }
 
         public bool GetKey(SDL_Keycode keycode)
@@ -208,6 +147,8 @@ namespace VECS
                 (bool, bool) val = _keyStates[key];
                 val.Item2 = false;
                 _keyStates[key] = val;
+
+
             }
             while (_mouseButtonsChangedState.Count > 0)
             {
@@ -224,6 +165,74 @@ namespace VECS
         public void Destroy()
         {
             Instance = null;
+        }
+
+
+        public static unsafe void RegisterWatcher(delegate* unmanaged[Cdecl]<nint, SDL_Event*, SDLBool> filter)
+        {
+            SDL3.SDL3.SDL_AddEventWatch(filter, IntPtr.Zero);
+        }
+
+        /// <summary>
+        /// defines a pointable function for handling a right click event.
+        /// </summary>
+        /// <param name="n"></param>
+        /// <param name="eventPtr"></param>
+        /// <returns></returns>
+        [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+        public static unsafe SDLBool MouseButtonEvents(nint n, SDL_Event* eventPtr)
+        {
+            InputManager inputHandler = SDL3WindowManager.GetWindowInputManager(eventPtr->window.windowID);
+
+            if (inputHandler == null) return false;
+
+            var button = eventPtr->button.Button;
+            var type = eventPtr->type;
+            if (type == SDL_EventType.MouseButtonDown && !inputHandler._mouseButtonStates[button].Item1)
+            {
+                inputHandler._mouseButtonStates[button] = (true, true);
+                inputHandler._mouseButtonsChangedState.Enqueue(button);
+            }
+            else if (type == SDL_EventType.MouseButtonUp && inputHandler._mouseButtonStates[button].Item1)
+            {
+                inputHandler._mouseButtonStates[button] = (false, true);
+                inputHandler._mouseButtonsChangedState.Enqueue(button);
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// defines a pointale function for handling wasd input events
+        /// </summary>
+        /// <param name="n"></param>
+        /// <param name="eventPtr"></param>
+        /// <returns></returns>
+        [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+        public static unsafe SDLBool KeyboardButtonEvents(nint n, SDL_Event* eventPtr)
+        {
+            InputManager inputHandler = SDL3WindowManager.GetWindowInputManager(eventPtr->window.windowID);
+
+            if (inputHandler == null) return false;
+
+            var keyCode = eventPtr->key.key;
+            var type = eventPtr->type;
+            
+            if (type == SDL_EventType.KeyDown && !inputHandler._keyStates[keyCode].Item1)
+            {
+                inputHandler._keyStates[keyCode] = (true, true);
+                inputHandler._keysChangedState.Enqueue(keyCode);
+                inputHandler.OnKeyDown?.Invoke(keyCode);
+            }
+            else if (type == SDL_EventType.KeyUp && inputHandler._keyStates[keyCode].Item1)
+            {
+                inputHandler._keyStates[keyCode] = (false, true);
+                inputHandler._keysChangedState.Enqueue(keyCode);
+                inputHandler.OnKeyUp?.Invoke(keyCode);
+
+            }
+
+            return false;
         }
     }
 }
