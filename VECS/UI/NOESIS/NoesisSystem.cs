@@ -24,33 +24,39 @@ namespace VECS.UI
         private Material _blitVariant;
 
         private int _framesSinceLastRender = 0;
-
+        private FrameworkElement controlTreeRoot;
         public override void OnCreate(EntityManager entityManager)
         {
             //GUI.LoadApplicationResources("Assets/GUI/Editor/GlobalResources.xaml");
             //GUI.LoadApplicationResources("Assets/GUI/Theme/NoesisTheme.DarkBlue.xaml");
-            FrameworkElement controlTreeRoot = (FrameworkElement)GUI.LoadXaml(System.IO.Path.Combine(Asset.AssetsPath,"GUI", "ThemePreview.xaml"));
+             controlTreeRoot = (FrameworkElement)GUI.LoadXaml(System.IO.Path.Combine(Asset.AssetsPath,"GUI", "Editor/MainWindow.xaml"));
             
             MainView = new NoesisViewWrapper(controlTreeRoot, Application.NoesisDriver)
             {
                 RenderFlags = RenderFlags.PPAA
             };
-            
+
+
+            MainView.View.Content.GotKeyboardFocus += GotKeyboardFocus;
+            MainView.View.Content.LostKeyboardFocus += LostKeyboardFocus;
+
             MainView.SetSize(Screen.Width, Screen.Height);
-            // var expander = ((ItemsControl)controlTreeRoot.FindName("RightSideBarExpanderInternal"));
-            // var page = new VectorField();//((Visual)GUI.LoadXaml(System.IO.Path.Combine(Asset.AssetsPath, "GUI", "Editor/VectorPage.xaml")));
-            // expander.Items.Clear();
-            // expander.Items.Add(page);
-            // 
-            // var gameview = (Image)controlTreeRoot.FindName("GameView");
-            // var fowardRenderer = (Presenter<ForwardRenderer>)Presenter.Instance;
-            // var colourTarget = fowardRenderer.Renderer.MainColourAttachment.Target;
-            // var textureSource = new TextureSource(new NoesisTexture(colourTarget,false,true));
-            // gameview.Source = textureSource;
+            var expander = ((ItemsControl)controlTreeRoot.FindName("RightSideBarExpanderInternal"));
+            var page = new VectorField();//((Visual)GUI.LoadXaml(System.IO.Path.Combine(Asset.AssetsPath, "GUI", "Editor/VectorPage.xaml")));
+            expander.Items.Clear();
+            expander.Items.Add(page);
+
+            //MainView.View.Content.Cursor;
+            var gameview = (Image)controlTreeRoot.FindName("GameView");
+            var fowardRenderer = (Presenter<ForwardRenderer>)Presenter.Instance;
+            var colourTarget = fowardRenderer.Renderer.MainColourAttachment.Target;
+            var textureSource = new TextureSource(new NoesisTexture(colourTarget,false,true));
+            gameview.Source = textureSource;
 
             InputManager.Instance.OnKeyDown += ViewKeyDown;
             InputManager.Instance.OnKeyUp += ViewKeyUp;
 
+            
 
 
             controlTreeRoot.UpdateLayout();
@@ -61,6 +67,27 @@ namespace VECS.UI
             Application.NoesisDriver.CreatePipelines(VkFormat.R8G8B8A8Unorm, VkFormat.S8Uint);
         }
 
+        private void GotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs args)
+        {
+            Console.WriteLine("Keyboard Focus Gained");
+            if(args.NewFocus is TextBoxBase || args.NewFocus is PasswordBox)
+            {
+                Console.WriteLine("Textbox derived Gained Keyboard Focus");
+                SDL3WindowManager.MainWindow.BeginText();
+                //MainView.View.Content.ForceCursor = true;
+
+            }
+
+            
+        }
+
+
+        private void LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs args)
+        {
+            SDL3WindowManager.MainWindow.EndText();
+            //MainView.View.Content.ForceCursor = false;
+        }
+
         private void ViewKeyDown(SDL_Keycode keycode)
         {
             MainView.View.KeyDown(keycode.ToNoesis());
@@ -68,10 +95,6 @@ namespace VECS.UI
 
         private void ViewKeyUp(SDL_Keycode keycode)
         {
-            if (char.IsLetterOrDigit((char)keycode) || char.IsSymbol((char)keycode))
-            {
-                MainView.View.Char((uint)keycode);
-            }
             MainView.View.KeyUp(keycode.ToNoesis());
         }
 
@@ -100,7 +123,13 @@ namespace VECS.UI
                 MouseButtonUp(mousePos.X,mousePos.Y, i, view);
             }
             view.MouseMove(mousePos.X, mousePos.Y);
-
+            if (!string.IsNullOrEmpty(InputManager.Instance.Text))
+            {
+                for (int i = 0; i < InputManager.Instance.Text.Length; i++)
+                {
+                    view.Char(InputManager.Instance.Text[i]);
+                }
+            }
             // if (InputManager.Instance.GetKeyUp(SDL_Keycode.A))
             // {
             //     view.KeyUp(Key.A);
@@ -236,6 +265,9 @@ namespace VECS.UI
 
         public override void OnDestroy(EntityManager entityManager)
         {
+            SDL3WindowManager.MainWindow.EndText();
+            MainView.View.Content.GotKeyboardFocus -= GotKeyboardFocus;
+            MainView.View.Content.LostKeyboardFocus -= LostKeyboardFocus;
             InputManager.Instance.OnKeyDown -= ViewKeyDown;
             InputManager.Instance.OnKeyUp -= ViewKeyUp;
             MainView.View.Renderer.Shutdown();

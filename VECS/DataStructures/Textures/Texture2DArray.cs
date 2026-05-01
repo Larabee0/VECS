@@ -102,6 +102,7 @@ namespace VECS
                 createInfo.subresourceRange.baseArrayLayer = i;
                 fixed (VkImageView* pView = &AdditionalImageViews[i])
                     GraphicsDevice.DeviceAPI.vkCreateImageView(createInfo, null, pView);
+                GraphicsDeviceInit.SetObjectName(VkObjectType.ImageView, AdditionalImageViews[i].Handle, string.Format("TEX2D_ARRAY_{0}_{1}", AssetName, i));
             }
         }
 
@@ -122,6 +123,7 @@ namespace VECS
                 }
                 fixed (VkImageView* pView = &ReductiveImageViews[i])
                     GraphicsDevice.DeviceAPI.vkCreateImageView(createInfo, null, pView);
+                GraphicsDeviceInit.SetObjectName(VkObjectType.ImageView, ReductiveImageViews[i].Handle, string.Format("TEX2D_ARRAY_REDUCT_{0}_{1}", AssetName, i));
             }
         }
 

@@ -34,7 +34,9 @@ namespace VECS
         public bool MouseMotion => _mouseMotion;
 
         private readonly Dictionary<SDL_Keycode, (bool, bool)> _keyStates = new(Enum.GetNames<SDL_Keycode>().Length);
+        private readonly Dictionary<SDL_Scancode, (bool, bool)> _scanStates = new(Enum.GetNames<SDL_Scancode>().Length);
         private readonly Queue<SDL_Keycode> _keysChangedState = new();
+        private readonly Queue<SDL_Scancode> _scanCodeChangedState = new();
 
 
         private readonly Dictionary<SDL_Button, (bool, bool)> _mouseButtonStates = new(Enum.GetNames<SDL_Button>().Length);
@@ -43,15 +45,25 @@ namespace VECS
         public Action<SDL_Keycode> OnKeyUp;
         public Action<SDL_Keycode> OnKeyDown;
 
+        public Action<SDL_Scancode> OnScanCodeUp;
+        public Action<SDL_Scancode> OnScanCodeDown;
+
+        public string Text { get; private set;  }
+
         public static InputManager Instance { get; private set; }
 
         public unsafe InputManager(bool mainInputManager)
         {
             var keys = Enum.GetValues<SDL_Keycode>();
+            var scanCodes = Enum.GetValues<SDL_Scancode>();
             var mouseButtons = Enum.GetValues<SDL_Button>();
             for (int i = 0; i < keys.Length; i++)
             {
                 _keyStates.Add(keys[i], (false, false));
+            }
+            for (int i = 0; i < scanCodes.Length; i++)
+            {
+                _scanStates.Add(scanCodes[i], (false, false));
             }
             for (int i = 0; i < mouseButtons.Length; i++)
             {
@@ -160,6 +172,7 @@ namespace VECS
             _mouseDelta = Vector2.Zero;
             _mouseMotion = false;
             _mousePosOld = _mousePos;
+            Text = "";
         }
 
         public void Destroy()
@@ -216,23 +229,50 @@ namespace VECS
             if (inputHandler == null) return false;
 
             var keyCode = eventPtr->key.key;
+            var scanCode = eventPtr->key.scancode;
             var type = eventPtr->type;
-            
-            if (type == SDL_EventType.KeyDown && !inputHandler._keyStates[keyCode].Item1)
+
+            if (type == SDL_EventType.TextInput)
             {
-                inputHandler._keyStates[keyCode] = (true, true);
-                inputHandler._keysChangedState.Enqueue(keyCode);
-                inputHandler.OnKeyDown?.Invoke(keyCode);
+                //Console.WriteLine("TextInput ");
+                inputHandler.Text = eventPtr->text.GetText();
+                
+            }
+            if (type == SDL_EventType.KeyDown)
+            {
+                if (!inputHandler._keyStates[keyCode].Item1)
+                {
+                    inputHandler._keyStates[keyCode] = (true, true);
+                    inputHandler._keysChangedState.Enqueue(keyCode);
+                    inputHandler.OnKeyDown?.Invoke(keyCode);
+                }
+
+                if (!inputHandler._scanStates[scanCode].Item1)
+                {
+                    inputHandler._scanStates[scanCode] = (true, true);
+                    inputHandler._scanCodeChangedState.Enqueue(scanCode);
+                    inputHandler.OnScanCodeDown?.Invoke(scanCode);
+                }
             }
             else if (type == SDL_EventType.KeyUp && inputHandler._keyStates[keyCode].Item1)
             {
-                inputHandler._keyStates[keyCode] = (false, true);
-                inputHandler._keysChangedState.Enqueue(keyCode);
-                inputHandler.OnKeyUp?.Invoke(keyCode);
+                if (inputHandler._keyStates[keyCode].Item1)
+                {
+                    inputHandler._keyStates[keyCode] = (false, true);
+                    inputHandler._keysChangedState.Enqueue(keyCode);
+                    inputHandler.OnKeyUp?.Invoke(keyCode);
+                }
 
+                if (inputHandler._scanStates[scanCode].Item1)
+                {
+                    inputHandler._scanStates[scanCode] = (false, true);
+                    inputHandler._scanCodeChangedState.Enqueue(scanCode);
+                    inputHandler.OnScanCodeUp?.Invoke(scanCode);
+                }
             }
 
             return false;
         }
+
     }
 }

@@ -59,6 +59,7 @@ namespace VECS
             {
                 var setBindings = GPUPipelineUtil.ExtractBindingsForSetAsBindingArray(setIndex, descriptorSetBindings);
                 var layout = GPUPipelineUtil.CreateDescriptorSetLayout(setBindings, VkDescriptorSetLayoutCreateFlags.DescriptorBufferEXT);
+                GraphicsDeviceInit.SetObjectName(VkObjectType.DescriptorSetLayout, layout.Handle, string.Format("{0}_Set_{1}", AssetName, setIndex));
                 _descriptorSetLayouts[setIndex] = layout;
                 _descriptorSetInfos[setIndex] = new DescriptorSetInfo(layout, setBindings, true, _uniformSize, 1);
                 _uniformSize += _descriptorSetInfos[setIndex].UnifromBufferSize;
@@ -69,6 +70,7 @@ namespace VECS
             {
                 _uniformSize = (uint)GPUBufferExtensions.GetAlignment(_uniformSize, VkBufferUsageFlags.UniformBuffer);
                 _uniformBuffer = new(_uniformSize, 1, _uniformFlags);
+                _uniformBuffer.SetDebugName(string.Format("{0}_UniformBuffer",AssetName));
             }
 
             _pushConstantsHandler = new(spirShader);
@@ -83,7 +85,7 @@ namespace VECS
             };
 
             _pipline = GPUPipelineUtil.CreateComputePipeline(computePipelineInfo);
-
+            GraphicsDeviceInit.SetObjectName(VkObjectType.Pipeline, _pipline.Handle, AssetName);
             _computeVariants = [new ComputeVariant("Default", this, false)];
             _variantsToAdd.TryDequeue(out var variant);
 
@@ -156,6 +158,8 @@ namespace VECS
                 if (_uniformSize > 0)
                 {
                     _uniformBuffer.UpdateUniformCount((uint)VariantCount);
+                    _uniformBuffer.SetDebugName(string.Format("{0}_UniformBuffer", AssetName));
+
                     reassignUniformPtrs = true;
                 }
                 while (_variantsToAdd.TryDequeue(out var variant))

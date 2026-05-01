@@ -190,6 +190,12 @@ namespace VECS
            _hostBufferChanged = changed;
         }
 
+
+        public void SetDebugName(string name)
+        {
+            GraphicsDeviceInit.SetObjectName(VkObjectType.Buffer,VkBuffer.Handle, name);
+        }
+
         public unsafe void Dispose()
         {
             GC.SuppressFinalize(this);

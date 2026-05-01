@@ -87,12 +87,15 @@ namespace VECS
             ShaderProperties.IgnoreUnFoundShaderProperties.Add(BufferShaderPropertyId);
 
             _buffer = new(ElementSize, 1, VkBufferUsageFlags.StorageBuffer, true);
+
+            _buffer.SetDebugName(string.Format("RB_{0}_{1}",BufferSource.ElementType.Name, BufferShaderPropertyId.GetPropertyIdString()));
             EngineBuffers.AddOrUpdateEngineBuffer(BufferShaderPropertyId, _buffer);
         }
 
         public unsafe void Resize(int newLength)
         {
             _buffer.Realloc((uint)newLength);
+            _buffer.SetDebugName(string.Format("RB_{0}_{1}", BufferSource.ElementType.Name, BufferShaderPropertyId.GetPropertyIdString()));
         }
 
         public unsafe void Write(in int index, in IComponent component)
@@ -245,7 +248,8 @@ namespace VECS
             //        VkBufferUsageFlags.TransferSrc |
             //        VkBufferUsageFlags.StorageBuffer,
             //        true);
-
+            _indirectCmdBufferByMat.SetDebugName("IndirectCmdBufferByMat");
+            _indirectCmdBufferAllInOne.SetDebugName("IndirectCmdBufferAllInOne");
             _indirectCmdBufferByMat.SetBuffersDirty(true);
             _indirectCmdBufferAllInOne.SetBuffersDirty(true);
             //_drawRenderBoundsByMat.SetBuffersDirty(true);
@@ -295,6 +299,8 @@ namespace VECS
 
             _indirectCmdBufferByMat.Realloc((uint)entityCount);
             _indirectCmdBufferAllInOne.Realloc((uint)entityCount);
+            _indirectCmdBufferByMat.SetDebugName("IndirectCmdBufferByMat");
+            _indirectCmdBufferAllInOne.SetDebugName("IndirectCmdBufferAllInOne");
 
             //_drawRenderBoundsByMat.SetUsedInstanceCount((uint)entityCount);
             _indirectCmdBufferByMat.SetUsedInstanceCount((uint)entityCount);

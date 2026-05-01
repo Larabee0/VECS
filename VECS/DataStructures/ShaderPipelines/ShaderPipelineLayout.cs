@@ -14,6 +14,7 @@ namespace VECS
             AssetName = name;
             _pipelineLayout = layout;
             Generated = true;
+            GraphicsDeviceInit.SetObjectName(VkObjectType.PipelineLayout, _pipelineLayout.Handle, AssetName);
         }
 
         public override void Dispose()

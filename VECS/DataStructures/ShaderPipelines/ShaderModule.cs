@@ -92,7 +92,7 @@ namespace VECS
 
 
             GraphicsDevice.DeviceAPI.vkCreateShaderModule(shaderCode, null, out _vkShaderModule).CheckResult("Failed to Create Shader Module!");
-
+            GraphicsDeviceInit.SetObjectName(VkObjectType.ShaderModule, _vkShaderModule.Handle, AssetName);
             if (_vkStage.HasFlag(VkShaderStageFlags.Vertex) && GPUPipelineUtil.GetVertexInputState(_spvShaderModule, out _vertexBindings, out _vertexAttributes))
             {
                 _hasVertexAttributes = true;
@@ -136,6 +136,7 @@ namespace VECS
                 return;
             }
             GraphicsDevice.DeviceAPI.vkCreateShaderModule(shaderCode, null, out _vkShaderModule).CheckResult("Failed to Create Shader Module!");
+            GraphicsDeviceInit.SetObjectName(VkObjectType.ShaderModule, _vkShaderModule.Handle, AssetName);
         }
 
         public unsafe override void Dispose()

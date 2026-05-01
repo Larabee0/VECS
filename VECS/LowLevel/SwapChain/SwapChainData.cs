@@ -130,6 +130,7 @@ namespace VECS.LowLevel
                 };
 
                 GraphicsDevice.DeviceAPI.vkCreateImageView(viewInfo, null, out SwapChainImageViews[i]).CheckResult("Failed to create texture image view!");
+                GraphicsDeviceInit.SetObjectName(VkObjectType.ImageView, SwapChainImageViews[i], string.Format("SwapChain_{0}", i));
             }
 
 
@@ -142,6 +143,8 @@ namespace VECS.LowLevel
             {
                 GraphicsDevice.DeviceAPI.vkCreateFence(fenceInfo, null, out WaitAcquireFences[i]).CheckResult("Failed to create in acquire fence!");
                 GraphicsDevice.DeviceAPI.vkCreateSemaphore(semaphoreInfo, null, out AcquiredImageReadySemaphores[i]).CheckResult("Failed to create present semaphore!");
+                GraphicsDeviceInit.SetObjectName(VkObjectType.Fence, WaitAcquireFences[i], string.Format("WaitAcquire_{0}", i));
+                GraphicsDeviceInit.SetObjectName(VkObjectType.Semaphore, AcquiredImageReadySemaphores[i], string.Format("AcquiredImageReady_{0}", i));
             }
 
             GraphicsDevice.DeviceAPI.vkResetFences(LowLevel.SwapChain.MAX_CONCURRENT_FRAMES_UINT, WaitAcquireFences);

@@ -167,5 +167,26 @@ namespace VECS.LowLevel
 
             SDL3WindowManager.NotifySwapChainRecreated();
         }
+
+        private bool TextInput = false;
+
+        public void BeginText()
+        {
+            if (!TextInput)
+            {
+                SDL.SDL_StartTextInput(_window);
+                TextInput = true;
+                Console.WriteLine("StartTextInput");
+            }
+        }
+        public void EndText()
+        {
+            if (TextInput)
+            {
+                SDL.SDL_StopTextInput(_window);
+                TextInput = false;
+                Console.WriteLine("StopTextInput");
+            }
+        }
     }
 }

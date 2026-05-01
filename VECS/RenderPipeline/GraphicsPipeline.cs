@@ -208,6 +208,8 @@ namespace VECS
             {
                 var setBindings = GPUPipelineUtil.ExtractBindingsForSetAsBindingArray(setIndex, descriptorSetBindings);
                 var layout = GPUPipelineUtil.CreateDescriptorSetLayout(setBindings, VkDescriptorSetLayoutCreateFlags.DescriptorBufferEXT);
+
+                GraphicsDeviceInit.SetObjectName(VkObjectType.DescriptorSetLayout, layout.Handle, string.Format("{0}_Set_{1}", AssetName, setIndex));
                 _descriptorSetLayouts[setIndex] = layout;
                 bool preventStorageBufferAllocation = _meshShaderDescriptorSetIndex == setIndex; // || _oitDescriptorSetIndex == setIndex;
                 var setInfo = new DescriptorSetInfo(layout, setBindings, preventStorageBufferAllocation, _uniformBufferSize, 1, _meshShaderDescriptorSetIndex == setIndex);
@@ -219,11 +221,13 @@ namespace VECS
             if (_uniformBufferSize > 0)
             {
                 _uniformBuffer = new SwapChainBuffer(_uniformBufferSize, 1, _uniformBufferUsage, true);
+                _uniformBuffer.SetDebugName(string.Format("{0}_UniformBuffer", AssetName));
             }
         }
 
         private unsafe void CreateDefault()
         {
+            GraphicsDeviceInit.SetObjectName(VkObjectType.Pipeline, _graphicsPipeline.Handle, AssetName);
             _matVariants = [new Material("Default", this,false)];
             _variantsToAdd.TryDequeue(out var material);
 
@@ -377,6 +381,7 @@ namespace VECS
                 if (_uniformBufferSize > 0)
                 {
                     _uniformBuffer.Realloc((uint)VariantCount);
+                    _uniformBuffer.SetDebugName(string.Format("{0}_UniformBuffer", AssetName));
                     reassignUniformPtrs = true;
                 }
                 while (_variantsToAdd.TryDequeue(out var variant))

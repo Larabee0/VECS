@@ -269,6 +269,36 @@ namespace VECS
             }
 
             GraphicsDevice.DeviceAPI.vkCreateImageView(createInfo, null, out texture._imageView).CheckResult( "Create Image View failed!");
+            GraphicsDeviceInit.SetObjectName(VkObjectType.ImageView, texture._imageView.Handle, string.Format("{0}_{1}",texture.GetTextureTypeName(), texture.AssetName));
+        }
+
+        public static string GetTextureTypeName(this Texture texture)
+        {
+            if (texture is Texture2D)
+            {
+                return "TEX2D";
+            }
+            else if (texture is Texture2DArray)
+            {
+                return "TEX2D_ARRAY";
+            }
+            else if (texture is Texture3D)
+            {
+                return "TEX3D";
+            }
+            else if (texture is Cubemap)
+            {
+                return "CUBE";
+            }
+            else if (texture is CubemapArray)
+            {
+                return "CUBE_ARRAY";
+            }
+            else
+            {
+                return "TEX";
+            }
+
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -291,6 +321,7 @@ namespace VECS
 
             GraphicsDevice.DeviceAPI.vkGetImageMemoryRequirements(texture._vkImage, out var requirements);
             texture._vkBufferSizeRequirement = requirements.size;
+            GraphicsDeviceInit.SetObjectName(VkObjectType.Image, texture._vkImage.Handle, texture.AssetName);
         }
         #endregion
         

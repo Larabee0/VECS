@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Numerics;
 using VECS.ECS;
 using VECS.ECS.Presentation;
-using VECS.ECS.Transforms;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
@@ -89,6 +88,20 @@ namespace VECS
             DirectionalLightMatsBuffer = new(DirectionalLightShadows.MAX_CASCADE_COUNT, BufferUsageFlags, true);
             PointLightMatsBuffer = new(PointLightShadows.MAX_POINT_LIGHT_SHADOW_CASTERS*6, BufferUsageFlags, true);
             SpotLightMatsBuffer = new(SpotLightShadows.MAX_SPOT_LIGHT_SHADOW_CASTERS, BufferUsageFlags, true);
+
+            CameraInfoBuffer.SetDebugName("CameraInfoBuffer");
+            CameraInverseInfoBuffer.SetDebugName("CameraInverseInfoBuffer");
+            AddtionalCameraInfoBuffer.SetDebugName("AddtionalCameraInfoBuffer");
+            OrthopgrahicInfoBuffer.SetDebugName("OrthopgrahicInfoBuffer");
+
+            LightingInfoBuffer.SetDebugName("LightingInfoBuffer");
+            DirectionalLightBuffer.SetDebugName("DirectionalLightBuffer");
+            PointLightBuffer.SetDebugName("PointLightBuffer");
+            SpotLightBuffer.SetDebugName("SpotLightBuffer");
+
+            DirectionalLightMatsBuffer.SetDebugName("DirectionalLightMatsBuffer");
+            PointLightMatsBuffer.SetDebugName("PointLightMatsBuffer");
+            SpotLightMatsBuffer.SetDebugName("SpotLightMatsBuffer");
 
             AddEngineBuffer(ShaderProperties.CameraInfoId, CameraInfoBuffer);
             AddEngineBuffer(ShaderProperties.CameraInverseId, CameraInverseInfoBuffer);

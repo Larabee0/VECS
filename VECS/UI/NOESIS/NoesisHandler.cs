@@ -24,6 +24,7 @@ namespace VECS.UI
             var textureProvider = new NoesisTextureProvider();
             GUI.SetTextureProvider(textureProvider);
 
+            GUI.SetSoftwareKeyboardCallback(KeyboardCallback);
             string[] fonts = { "Fonts/PT Root UI_Regular", "Arial", "Segoe UI Emoji" };
             GUI.SetFontFallbacks(fonts);
             GUI.SetFontDefaultProperties(15.0f, FontWeight.Normal, FontStretch.Normal, FontStyle.Normal);
@@ -34,6 +35,10 @@ namespace VECS.UI
             World.DefaultWorld.CreateSystem<NoesisSystem>();
         }
 
+        private static void KeyboardCallback(UIElement focused, bool open)
+        {
+            
+        }
         internal static void Dispose()
         {
             _noesisDriver?.CleanUpMeshData();

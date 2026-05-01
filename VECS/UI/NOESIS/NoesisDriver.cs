@@ -1165,62 +1165,59 @@ namespace VECS.UI
 
         private static unsafe void SetBlendInfo(VkCommandBuffer commandBuffer, bool colourEnable, BlendMode blendMode)
         {
-            VkBool32 blendEnabled = colourEnable;
-            if (colourEnable)
+            VkBool32 blendEnabled = blendMode != BlendMode.Src;
+            VkBool32 colorEnabled = colourEnable;
+
+            VkColorBlendEquationEXT blendEquation = new()
             {
-                VkColorBlendEquationEXT blendEquation = new()
-                {
-                    colorBlendOp = VkBlendOp.Add,
-                    alphaBlendOp = VkBlendOp.Add
-                };
+                colorBlendOp = VkBlendOp.Add,
+                alphaBlendOp = VkBlendOp.Add
+            };
 
-                switch (blendMode)
-                {
-                    case BlendMode.Src:
-                        blendEnabled = false;
-                        break;
-                    case BlendMode.SrcOver:
-                        blendEnabled = true;
-                        blendEquation.srcColorBlendFactor = VkBlendFactor.One;
-                        blendEquation.dstColorBlendFactor = VkBlendFactor.OneMinusSrcAlpha;
-                        blendEquation.srcAlphaBlendFactor = VkBlendFactor.One;
-                        blendEquation.dstAlphaBlendFactor = VkBlendFactor.OneMinusSrcAlpha;
-                        break;
-                    case BlendMode.SrcOver_Multiply:
-                        blendEquation.srcColorBlendFactor = VkBlendFactor.DstColor;
-                        blendEquation.dstColorBlendFactor = VkBlendFactor.OneMinusSrcAlpha;
-                        blendEquation.srcAlphaBlendFactor = VkBlendFactor.One;
-                        blendEquation.dstAlphaBlendFactor = VkBlendFactor.OneMinusSrcAlpha;
-                        break;
-                    case BlendMode.SrcOver_Screen:
-                        blendEnabled = true;
-                        blendEquation.srcColorBlendFactor = VkBlendFactor.One;
-                        blendEquation.dstColorBlendFactor = VkBlendFactor.OneMinusSrcColor;
-                        blendEquation.srcAlphaBlendFactor = VkBlendFactor.One;
-                        blendEquation.dstAlphaBlendFactor = VkBlendFactor.OneMinusSrcAlpha;
-                        break;
-                    case BlendMode.SrcOver_Additive:
-                        blendEnabled = true;
-                        blendEquation.srcColorBlendFactor = VkBlendFactor.One;
-                        blendEquation.dstColorBlendFactor = VkBlendFactor.One;
-                        blendEquation.srcAlphaBlendFactor = VkBlendFactor.One;
-                        blendEquation.dstAlphaBlendFactor = VkBlendFactor.OneMinusSrcAlpha;
-                        break;
-                    case BlendMode.SrcOver_Dual:
-                        blendEnabled = true;
-                        blendEquation.srcColorBlendFactor = VkBlendFactor.One;
-                        blendEquation.dstColorBlendFactor = VkBlendFactor.OneMinusSrc1Color;
-                        blendEquation.srcAlphaBlendFactor = VkBlendFactor.One;
-                        blendEquation.dstAlphaBlendFactor = VkBlendFactor.OneMinusSrc1Alpha;
-                        break;
-                    default:
-                        throw new NotImplementedException(string.Format("Cannot set dynamic BlendMode {0}", blendMode.ToString()));
-                }
-
-                GraphicsDevice.DeviceAPI.vkCmdSetColorBlendEquationEXT(commandBuffer, 0, 1, &blendEquation);
-                
+            switch (blendMode)
+            {
+                case BlendMode.Src:
+                    break;
+                case BlendMode.SrcOver:
+                    blendEquation.srcColorBlendFactor = VkBlendFactor.One;
+                    blendEquation.dstColorBlendFactor = VkBlendFactor.OneMinusSrcAlpha;
+                    blendEquation.srcAlphaBlendFactor = VkBlendFactor.One;
+                    blendEquation.dstAlphaBlendFactor = VkBlendFactor.OneMinusSrcAlpha;
+                    break;
+                case BlendMode.SrcOver_Multiply:
+                    blendEquation.srcColorBlendFactor = VkBlendFactor.DstColor;
+                    blendEquation.dstColorBlendFactor = VkBlendFactor.OneMinusSrcAlpha;
+                    blendEquation.srcAlphaBlendFactor = VkBlendFactor.One;
+                    blendEquation.dstAlphaBlendFactor = VkBlendFactor.OneMinusSrcAlpha;
+                    break;
+                case BlendMode.SrcOver_Screen:
+                    blendEquation.srcColorBlendFactor = VkBlendFactor.One;
+                    blendEquation.dstColorBlendFactor = VkBlendFactor.OneMinusSrcColor;
+                    blendEquation.srcAlphaBlendFactor = VkBlendFactor.One;
+                    blendEquation.dstAlphaBlendFactor = VkBlendFactor.OneMinusSrcAlpha;
+                    break;
+                case BlendMode.SrcOver_Additive:
+                    blendEquation.srcColorBlendFactor = VkBlendFactor.One;
+                    blendEquation.dstColorBlendFactor = VkBlendFactor.One;
+                    blendEquation.srcAlphaBlendFactor = VkBlendFactor.One;
+                    blendEquation.dstAlphaBlendFactor = VkBlendFactor.OneMinusSrcAlpha;
+                    break;
+                case BlendMode.SrcOver_Dual:
+                    blendEquation.srcColorBlendFactor = VkBlendFactor.One;
+                    blendEquation.dstColorBlendFactor = VkBlendFactor.OneMinusSrc1Color;
+                    blendEquation.srcAlphaBlendFactor = VkBlendFactor.One;
+                    blendEquation.dstAlphaBlendFactor = VkBlendFactor.OneMinusSrc1Alpha;
+                    break;
+                default:
+                    throw new NotImplementedException(string.Format("Cannot set dynamic BlendMode {0}", blendMode.ToString()));
             }
-            GraphicsDevice.DeviceAPI.vkCmdSetColorWriteEnableEXT(commandBuffer, 1, &blendEnabled);
+
+            if (blendEnabled)
+            {
+                GraphicsDevice.DeviceAPI.vkCmdSetColorBlendEquationEXT(commandBuffer, 0, 1, &blendEquation);
+            }
+
+            GraphicsDevice.DeviceAPI.vkCmdSetColorWriteEnableEXT(commandBuffer, 1, &colorEnabled);
             GraphicsDevice.DeviceAPI.vkCmdSetColorBlendEnableEXT(commandBuffer, 0, 1, &blendEnabled);
         }
 

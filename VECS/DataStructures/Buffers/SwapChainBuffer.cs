@@ -325,6 +325,15 @@ namespace VECS
         {
             return new SwapChainBuffer(buffer);
         }
+
+
+        public void SetDebugName(string name)
+        {
+            for (int i = 0; i < _buffers.Length; i++)
+            {
+                _buffers[i].SetDebugName(string.Format("SWP_{0}_{1}", name, i));
+            }
+        }
     }
 
     public sealed class SwapChainBuffer<T> : SwapChainBuffer where T : unmanaged

@@ -337,12 +337,13 @@ namespace VECS
 
         public static VkPipelineLayout CreatePipelineLayoutVertFrag(ShaderModule vertex, ShaderModule fragment, VkDescriptorSetLayout[] setLayouts, PushConstantsHandler pushConstants)
         {
-            string layoutName = vertex.AssetName + fragment.AssetName;
+            string layoutName = vertex.AssetName + "_" + fragment.AssetName;
             var layout = AssetDataBase<ShaderPipelineLayout>.GetNamedSilentFail(layoutName);
 
             if (layout == null)
             {
                 layout = new(layoutName, CreatePipelineLayout(setLayouts, pushConstants));
+                
                 AssetDataBase<ShaderPipelineLayout>.Add(layout);
             }
 
@@ -351,7 +352,7 @@ namespace VECS
 
         public static VkPipelineLayout CreatePipelineLayoutVerGeoFrag(ShaderModule  vertex, ShaderModule geometry, ShaderModule fragment, VkDescriptorSetLayout[] setLayouts, PushConstantsHandler pushConstants)
         {
-            string layoutName = vertex.AssetName + geometry.AssetName+ fragment.AssetName;
+            string layoutName = vertex.AssetName + "_" + geometry.AssetName+ "_" + fragment.AssetName;
             var layout = AssetDataBase<ShaderPipelineLayout>.GetNamedSilentFail(layoutName);
 
             if (layout == null)
@@ -369,7 +370,7 @@ namespace VECS
             {
                 throw new InvalidOperationException("Mesh shading is not enabled for this runtime instance!");
             }
-            string layoutName = mesh.AssetName + task.AssetName + fragment.AssetName;
+            string layoutName = mesh.AssetName + "_" + task.AssetName + "_" + fragment.AssetName;
             var layout = AssetDataBase<ShaderPipelineLayout>.GetNamedSilentFail(layoutName);
 
             if (layout == null)
@@ -426,7 +427,7 @@ namespace VECS
             Debug.Assert(task.VkShaderStage == VkShaderStageFlags.TaskEXT, "Provided task shader is at the wrong stage! Name: {0} Provided Stage {1}", task.AssetName, task.VkShaderStage);
             Debug.Assert(fragment.VkShaderStage == VkShaderStageFlags.Fragment, "Provided fragement shader is at wrong stage! Name: {0} Provided Stage {1}", fragment.AssetName, fragment.VkShaderStage);
 
-            string cacheName = mesh.AssetName + task.AssetName + fragment.AssetName;
+            string cacheName = mesh.AssetName + "_" + task.AssetName + "_" + fragment.AssetName;
 
             // Shader stages
             VkPipelineShaderStageCreateInfo* shaderStages = stackalloc VkPipelineShaderStageCreateInfo[] {
@@ -444,7 +445,7 @@ namespace VECS
             Debug.Assert(geometry.VkShaderStage == VkShaderStageFlags.Geometry, "Provided geometry shader is at wrong stage! Name: {0} Provided Stage {1}", geometry.AssetName, geometry.VkShaderStage);
             Debug.Assert(fragment.VkShaderStage == VkShaderStageFlags.Fragment, "Provided fragement shader is at wrong stage! Name: {0} Provided Stage {1}", fragment.AssetName, fragment.VkShaderStage);
 
-            string cacheName = vertex.AssetName + geometry.AssetName + fragment.AssetName;
+            string cacheName = vertex.AssetName + "_" + geometry.AssetName + "_" + fragment.AssetName;
 
             // Shader stages
             VkPipelineShaderStageCreateInfo* shaderStages = stackalloc VkPipelineShaderStageCreateInfo[]
@@ -462,7 +463,7 @@ namespace VECS
             Debug.Assert(vertex.VkShaderStage == VkShaderStageFlags.Vertex, "Provided vertex shader is at wrong stage! Name: {0} Provided Stage {1}", vertex.AssetName, vertex.VkShaderStage);
             Debug.Assert(fragment.VkShaderStage == VkShaderStageFlags.Fragment, "Provided fragement shader is at wrong stage! Name: {0} Provided Stage {1}", fragment.AssetName, fragment.VkShaderStage);
 
-            string cacheName = vertex.AssetName + fragment.AssetName;
+            string cacheName = vertex.AssetName + "_" + fragment.AssetName;
 
             // Shader stages
             VkPipelineShaderStageCreateInfo* shaderStages = stackalloc VkPipelineShaderStageCreateInfo[]

@@ -43,6 +43,11 @@ namespace VECS
             return false;
         }
 
+        public void SetDebugName(string name)
+        {
+            _uniformBuffer.SetDebugName(name);
+        }
+
         public void Dispose()
         {
             if (_disposed) return;

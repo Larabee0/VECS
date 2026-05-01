@@ -651,6 +651,11 @@ namespace VECS.LowLevel
 
         #region Labels Events
 
+        public static void SetObjectName(VkObjectType objectType,ulong handle, string name)
+        {
+            InstanceAPI.vkSetDebugUtilsObjectNameEXT(Device, objectType, handle,string.Format("VK_{0}_{1}",objectType.ToString().ToUpper(), name));
+        }
+
         public static unsafe void BeginLabelCmd(VkCommandBuffer commandBuffer,string label)
         {
             var bytes = Encoding.UTF8.GetBytes(label);
