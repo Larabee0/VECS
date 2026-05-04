@@ -1,6 +1,3 @@
-using System.Diagnostics;
-using System.IO;
-using VECS.LowLevel;
 using Vortice.Vulkan;
 
 namespace VECS

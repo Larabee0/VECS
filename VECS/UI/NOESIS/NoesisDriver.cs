@@ -1301,15 +1301,7 @@ namespace VECS.UI
 
         private unsafe void CreatePipelines(string label, Shader.Enum shader_, string vertexShader, string pixelShader, GraphicsPipelineConfigInfo configInfo, uint custom, int formatHash)
         {
-            GraphicsDevice.InstanceAPI.vkGetPhysicalDeviceFeatures(GraphicsDevice.PhysicalDevice, out var features);
-//            GraphicsPipeline parent = null;
             byte shaderEnum = (byte)shader_;
-            //Shader shader = new();
-            //Buffer.MemoryCopy(&shaderEnum, &shader, 1, 1);
-
-            //configInfo.BasePipeline = parent;
-
-            //configInfo.AllowDerivative = parent == null;
 
             VkPipelineRasterizationStateCreateInfo rasterizer = new();
             RasterizerInfo(&rasterizer);
@@ -1326,8 +1318,6 @@ namespace VECS.UI
             var pipeline = new GraphicsPipeline(string.Format("NOESIS_{0}_{1}_{2}", label, formatHash, custom), vertexShader, pixelShader, configInfo);
             var pipelineHash = HashPipeline(shaderEnum, formatHash, custom);
             Pipelines.Add(pipelineHash, pipeline);
-
-            //parent ??= pipeline;
         }
         
         private static int HashPipeline(byte id, int state, uint custom)
