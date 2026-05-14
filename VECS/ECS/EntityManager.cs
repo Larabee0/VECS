@@ -34,6 +34,7 @@ namespace VECS.ECS
         public int TotalComponentTypes => _totalComponentTypes;
 
         private readonly Dictionary<uint, Entity> _entityIdToEntity = []; // quick entity look up just given an entity id.
+        private readonly Dictionary<uint, string> _entityIdToEntityName = [];
         private readonly ConcurrentDictionary<int, IComponent> _compSignatureToCompReference = []; // component storage, keys are component sigantures.
 
         private readonly Dictionary<int, HashSet<Entity>> _archetypeIdsToEntities = []; // archetype ids to a hashset of entities that are members of archetype.
@@ -616,6 +617,23 @@ namespace VECS.ECS
             return componentIds;
         }
 
+        public void SetEntityName(Entity entity, string name)
+        {
+            _entityIdToEntityName[entity.Id] = name;
+        }
+
+        public string GetEntityName(Entity entity)
+        {
+            if(_entityIdToEntityName.TryGetValue(entity.Id, out string name))
+            {
+                return name;
+            }
+            else
+            {
+                return string.Format("{0}.{1}", entity.Id, entity.Version);
+            }
+        }
+
         /// <summary>
         /// Creates a new entity
         /// </summary>
@@ -631,6 +649,14 @@ namespace VECS.ECS
             _entityToComponentIds.Add(id, []);
             _entityIdToArchetypeIdLookup.Add(id, 0);
             return newEntity;
+        }
+
+        public Entity CreateEntity(string name)
+        {
+
+            var entity = CreateEntity();
+            SetEntityName (entity, name);
+            return entity;
         }
 
         /// <summary>
@@ -662,6 +688,7 @@ namespace VECS.ECS
 
                 _idsToRecyle.Enqueue(entity);
                 _entityIdToEntity.Remove(entity.Id);
+                _entityIdToEntityName.Remove(entity.Id);
                 _entityToComponentIds.Remove(entity.Id);
 
                 return true;

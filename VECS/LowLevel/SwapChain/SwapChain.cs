@@ -180,7 +180,9 @@ namespace VECS.LowLevel
             {
                 SwapChainData swapChainData = SwapChainsForPresent[i];
                 barrier.image = swapChainData.SwapChainImages[imageIndices[i]];
+                barrier.oldLayout = swapChainData.SwapChainImageLayouts[imageIndices[i]];
                 barriers[i] = barrier;
+                swapChainData.SwapChainImageLayouts[imageIndices[i]] = barrier.newLayout;
             }
 
             GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier2(commandBuffer, &info);
@@ -211,7 +213,9 @@ namespace VECS.LowLevel
             {
                 SwapChainData swapChainData = SwapChainsForPresent[i];
                 barrier.image = swapChainData.SwapChainImages[imageIndices[i]];
+                barrier.oldLayout = swapChainData.SwapChainImageLayouts[imageIndices[i]];
                 barriers[i] = barrier;
+                swapChainData.SwapChainImageLayouts[imageIndices[i]] = barrier.newLayout;
             }
 
             GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier2(commandBuffer, &info);

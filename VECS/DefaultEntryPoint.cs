@@ -60,14 +60,14 @@ namespace VECS
         private static void CreateMainCamera()
         {
             EntityManager entityManager = World.DefaultWorld.EntityManager;
-            Entity MainCamera = entityManager.CreateEntity();
+            Entity MainCamera = entityManager.CreateEntity("Main Camera");
             entityManager.AddComponent<FreeCamera>(MainCamera);
             entityManager.AddComponent(MainCamera, new Translation() { Value = initalCameraPos });
             entityManager.AddComponent(MainCamera, new Rotation() { Value = TransformExtensions.Euler(initalCameraRot) });
             entityManager.AddComponent(MainCamera, cameraPerspective);
             entityManager.AddComponent<MainCamera>(MainCamera);
             return;
-            MainCamera = entityManager.CreateEntity();
+            MainCamera = entityManager.CreateEntity("Spot Light");
             entityManager.AddComponent(MainCamera, new Translation() { Value = new Vector3(0,1,0) });
             entityManager.AddComponent(MainCamera, new Rotation() { Value = TransformExtensions.Euler(initalCameraRot) });
             entityManager.AddComponent(MainCamera, new SpotLight()
@@ -102,7 +102,7 @@ namespace VECS
         private static void DirectionalLight()
         {
             EntityManager entityManager = World.DefaultWorld.EntityManager;
-            var dirLight = entityManager.CreateEntity();
+            var dirLight = entityManager.CreateEntity("Directional Light");
 
             entityManager.AddComponent(dirLight, new DirectionalLight()
             {
@@ -149,7 +149,7 @@ namespace VECS
 
         private static void PointLight(EntityManager entityManager,Vector3 translation, Vector4 diffuse, DirectSubMesh subMesh)
         {
-            var pointLight = entityManager.CreateEntity();
+            var pointLight = entityManager.CreateEntity("Point Light");
 
             entityManager.AddComponent(pointLight, new Translation() { Value = translation });
 
@@ -203,7 +203,7 @@ namespace VECS
 
             Dictionary<string, Texture2D> textureLibrary = [];
 
-            var commonParent = entityManager.CreateEntity();
+            var commonParent = entityManager.CreateEntity("Sponza-New");
 
 
             Children children = new()
@@ -284,7 +284,7 @@ namespace VECS
                 for (int j = 0; j < matInfo.appliesTo.Count; j++, k++)
                 {
                     var meshIndex = matInfo.appliesTo[j];
-                    var entity = entityManager.CreateEntity();
+                    var entity = entityManager.CreateEntity(string.Format("Sponza Component {0}",k));
                     children.Value[k] = entity;
                     entityManager.AddComponent(entity, parent);
 

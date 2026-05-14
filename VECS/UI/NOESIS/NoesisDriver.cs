@@ -3,7 +3,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Numerics;
-using System.Text;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 using Vector4 = System.Numerics.Vector4;
@@ -103,7 +102,7 @@ namespace VECS.UI
                 mipLodBias = -0.75f
             };
 
-            int samplerHash = 0;
+            int samplerHash;
             for (MinMagFilter minmagFilter = MinMagFilter.Nearest; minmagFilter <= MinMagFilter.Linear; minmagFilter++)
             {
                 for (MipFilter mipFilter = MipFilter.Disabled; mipFilter <= MipFilter.Linear; mipFilter++)
@@ -948,7 +947,7 @@ namespace VECS.UI
 
         public static VkSampleCountFlags GetSampleCount(uint samples, VkPhysicalDeviceLimits limits)
         {
-            var sampleCounts = limits.framebufferColorSampleCounts & limits.framebufferStencilSampleCounts;
+            // var sampleCounts = limits.framebufferColorSampleCounts & limits.framebufferStencilSampleCounts;
 
             // for (VkSampleCountFlags bits = VkSampleCountFlags.Count64; bits > VkSampleCountFlags.Count1; bits++)
             // {

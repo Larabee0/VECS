@@ -47,6 +47,7 @@ namespace VECS.LowLevel
 
             if (!SDL.SDL_Vulkan_LoadLibrary())
             {
+                Console.WriteLine(SDL.SDL_GetError());
                 throw new Exception("SDL failed to load Vulkan");
             }
 
@@ -172,6 +173,9 @@ namespace VECS.LowLevel
                         return true;
                     case SDL_EventType.MouseMotion:
                         window.InputManager.OnMouseMotion(sdlEvent);
+                        break;
+                    case SDL_EventType.MouseWheel:
+                        window.InputManager.OnMouseWheelEvent(sdlEvent.wheel);
                         break;
                 }
             }

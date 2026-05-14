@@ -436,14 +436,16 @@ namespace VECS.LowLevel
                 pEnabledFeatures = null,
                 enabledExtensionCount = (uint)loadExtensions.Length,
                 ppEnabledExtensionNames = deviceExtensionNames,
+
+                enabledLayerCount = 0,
                 pNext = &deviceFeatures2,
             };
 
 #if DEBUG
 
-            using VkStringArray enabledValidationlayers = new(_requiredValidationLayers);
-            createInfo.enabledLayerCount = (uint)_requiredValidationLayers.Length;
-            createInfo.ppEnabledLayerNames = enabledValidationlayers;
+            //using VkStringArray enabledValidationlayers = new(_requiredValidationLayers);
+            //createInfo.enabledLayerCount = (uint)_requiredValidationLayers.Length;
+            //createInfo.ppEnabledLayerNames = enabledValidationlayers;
 
 #else
             

@@ -48,6 +48,12 @@ namespace VECS
         public Action<SDL_Scancode> OnScanCodeUp;
         public Action<SDL_Scancode> OnScanCodeDown;
 
+        public Action<float> OnMouseWheel;
+        public Action<float> OnMouseWheelH;
+        
+        public float MouseWheel { get; private set;  }
+        public float MouseWheelH { get; private set; }
+
         public string Text { get; private set;  }
 
         public static InputManager Instance { get; private set; }
@@ -272,6 +278,14 @@ namespace VECS
             }
 
             return false;
+        }
+
+        public void OnMouseWheelEvent(SDL_MouseWheelEvent wheel)
+        {
+            MouseWheel = wheel.y;
+            MouseWheelH = wheel.x;
+            OnMouseWheel?.Invoke(wheel.y);
+            OnMouseWheelH?.Invoke(wheel.x);
         }
 
     }

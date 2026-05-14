@@ -12,6 +12,7 @@ namespace VECS.LowLevel
 
         public VkFormat SwapChainImageFormat;
         public unsafe VkImage* SwapChainImages;
+        public unsafe VkImageLayout* SwapChainImageLayouts;
         public unsafe VkImageView* SwapChainImageViews;
         private readonly uint _imageCount = 0;
 
@@ -80,6 +81,7 @@ namespace VECS.LowLevel
             GraphicsDevice.DeviceAPI.vkGetSwapchainImagesKHR(SwapChain, out _imageCount);
 
             SwapChainImages = (VkImage*)NativeMemory.Alloc((uint)sizeof(VkImage) * _imageCount);
+            SwapChainImageLayouts = (VkImageLayout*)NativeMemory.AllocZeroed((uint)sizeof(VkImageLayout) * _imageCount);
             var imageCount = _imageCount;
             GraphicsDevice.DeviceAPI.vkGetSwapchainImagesKHR(SwapChain, &imageCount, SwapChainImages);
 
@@ -150,14 +152,6 @@ namespace VECS.LowLevel
             GraphicsDevice.DeviceAPI.vkResetFences(LowLevel.SwapChain.MAX_CONCURRENT_FRAMES_UINT, WaitAcquireFences);
 
             CurrentImageIndex = (uint*)NativeMemory.AllocZeroed(sizeof(uint));
-        }
-
-        public unsafe void SetImageLayouts(VkCommandBuffer commandBuffer)
-        {
-            for (int i = 0; i < _imageCount; i++)
-            {
-                MemoryBarrierHelper.SetImageLayout(commandBuffer, SwapChainImages[i], VkImageAspectFlags.Color, VkImageLayout.Undefined, VkImageLayout.PresentSrcKHR, VkPipelineStageFlags2.TopOfPipe, VkPipelineStageFlags2.Blit);
-            }
         }
 
         public unsafe void Dispose()

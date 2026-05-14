@@ -131,7 +131,7 @@ namespace VECS
         /// </summary>
         public void Start()
         {
-            FrameInfoEntity = World.DefaultWorld.EntityManager.CreateEntity();
+            FrameInfoEntity = World.DefaultWorld.EntityManager.CreateEntity("FrameInfo");
 
             var frameInfo = new FrameInfo()
             {
@@ -264,6 +264,8 @@ namespace VECS
             TextureExtensions.PlaybackSetLayoutCmds(commandBuffer);
             GraphicsDeviceInit.EndLabelCmd(commandBuffer);
 
+            //SwapChain.MainSwapChainData.SetImageLayout(commandBuffer, imageIndex, VkImageLayout.TransferDstOptimal);
+
             PreGraphicsPipe?.Invoke(FrameIndex);
 
             RendererFrameInfo frameInfo = CreateRendererFrameInfo(Time.DeltaTime, commandBuffer);
@@ -286,6 +288,7 @@ namespace VECS
             GraphicsDeviceInit.BeginLabelCmd(commandBuffer, "End Frame Buffer Writes");
             GPUBufferExtensions.PlaybackWriteBufferCmds();
             GraphicsDeviceInit.EndLabelCmd(commandBuffer);
+            //SwapChain.MainSwapChainData.SetImageLayout(commandBuffer, imageIndex, VkImageLayout.PresentSrcKHR);
         }
 
         public bool BeginFrame()

@@ -1,19 +1,27 @@
 ﻿using Noesis;
 using SDL3;
 using System;
+using System.Collections.Generic;
 using System.Numerics;
-using System.Text;
 using VECS.ECS;
 using VECS.ECS.Presentation;
+using VECS.ECS.Transforms;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
 namespace VECS.UI
 {
-    public class NoesisSystem : PresentationSystemBase
+    public class NoesisEditorView : PresentationSystemBase
     {
         private const bool ALWAYS_RE_RENDER = true;
         private static readonly int inputTextureId = "inputTexture".GetShaderPropertyId();
+
+        private EntityQuery _hierarchyEntities;
+        private EntityQuery _singleEntities;
+
+        private ItemsControl _hierarchyContainer;
+        private List<EntityHierarchyTree> _hierarchyTrees = [];
+
 
         private NoesisViewWrapper MainView;
 
@@ -25,39 +33,38 @@ namespace VECS.UI
 
         private int _framesSinceLastRender = 0;
         private FrameworkElement controlTreeRoot;
+
         public override void OnCreate(EntityManager entityManager)
         {
-            //GUI.LoadApplicationResources("Assets/GUI/Editor/GlobalResources.xaml");
-            //GUI.LoadApplicationResources("Assets/GUI/Theme/NoesisTheme.DarkBlue.xaml");
-             controlTreeRoot = (FrameworkElement)GUI.LoadXaml(System.IO.Path.Combine(Asset.AssetsPath,"GUI", "Editor/MainWindow.xaml"));
-            
+            _hierarchyEntities = new EntityQuery(entityManager)
+                .WithAll(typeof(Children))
+                .WithNone(typeof(Parent))
+                .Build();
+
+            _singleEntities = new EntityQuery(entityManager)
+                .WithNone(typeof(Children), typeof(Parent))
+                .Build();
+
+            controlTreeRoot = (FrameworkElement)GUI.LoadXaml(System.IO.Path.Combine(Asset.AssetsPath, "GUI", "Editor/MainWindow.xaml"));
+
             MainView = new NoesisViewWrapper(controlTreeRoot, Application.NoesisDriver)
             {
                 RenderFlags = RenderFlags.PPAA
             };
-
+            MainView.SetSize(Screen.Width, Screen.Height);
 
             MainView.View.Content.GotKeyboardFocus += GotKeyboardFocus;
             MainView.View.Content.LostKeyboardFocus += LostKeyboardFocus;
-
-            MainView.SetSize(Screen.Width, Screen.Height);
-            var expander = ((ItemsControl)controlTreeRoot.FindName("RightSideBarExpanderInternal"));
-            var page = new VectorField();//((Visual)GUI.LoadXaml(System.IO.Path.Combine(Asset.AssetsPath, "GUI", "Editor/VectorPage.xaml")));
-            expander.Items.Clear();
-            expander.Items.Add(page);
-
-            //MainView.View.Content.Cursor;
+            _hierarchyContainer = (ItemsControl)controlTreeRoot.FindName("HierarchyContainer");
+            _hierarchyContainer.Items.Clear();
             var gameview = (Image)controlTreeRoot.FindName("GameView");
             var fowardRenderer = (Presenter<ForwardRenderer>)Presenter.Instance;
             var colourTarget = fowardRenderer.Renderer.MainColourAttachment.Target;
-            var textureSource = new TextureSource(new NoesisTexture(colourTarget,false,true));
+            var textureSource = new TextureSource(new NoesisTexture(colourTarget, false, true));
             gameview.Source = textureSource;
 
             InputManager.Instance.OnKeyDown += ViewKeyDown;
             InputManager.Instance.OnKeyUp += ViewKeyUp;
-
-            
-
 
             controlTreeRoot.UpdateLayout();
             RenderTarget = (NoesisRenderTarget)NoesisHandler.NoesisDriver.CreateRenderTarget("Noesis_RT", (uint)Screen.Width, (uint)Screen.Height, 1, true);
@@ -69,23 +76,16 @@ namespace VECS.UI
 
         private void GotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs args)
         {
-            Console.WriteLine("Keyboard Focus Gained");
             if(args.NewFocus is TextBoxBase || args.NewFocus is PasswordBox)
             {
-                Console.WriteLine("Textbox derived Gained Keyboard Focus");
                 SDL3WindowManager.MainWindow.BeginText();
-                //MainView.View.Content.ForceCursor = true;
-
             }
-
-            
         }
 
 
         private void LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs args)
         {
             SDL3WindowManager.MainWindow.EndText();
-            //MainView.View.Content.ForceCursor = false;
         }
 
         private void ViewKeyDown(SDL_Keycode keycode)
@@ -98,23 +98,60 @@ namespace VECS.UI
             MainView.View.KeyUp(keycode.ToNoesis());
         }
 
-        private void Button_Click(object sender, RoutedEventArgs args)
-        {
-            Console.WriteLine("Clicked!");
-        }
-
         public override void OnUpdate(EntityManager entityManager)
         {
-            MainView.Update(Time.DeltaTime);
-            UpdateInputs();
+            UpdateHierarchy(entityManager);
 
+            MainView.Update();
+            UpdateInputs();
+        }
+
+        private void UpdateHierarchy(EntityManager entityManager)
+        {
+
+            if (_hierarchyEntities.HasEntities)
+            {
+                var hierarchyEntities = _hierarchyEntities.GetEntities();
+                if(_hierarchyTrees.Count != hierarchyEntities.Count)
+                {
+                    RebuildHierarchies(hierarchyEntities, entityManager);
+                    controlTreeRoot.UpdateLayout();
+                }
+            }
+
+            if (_singleEntities.HasEntities)
+            {
+                var  singleEntities = _singleEntities.GetEntities();
+
+            }
+        }
+
+        private void RebuildHierarchies(List<Entity> hierarchyEntities, EntityManager entityManager)
+        {
+            while (hierarchyEntities.Count < _hierarchyTrees.Count)
+            {
+                var last = _hierarchyTrees[^1];
+                last.DestroyTree();
+                _hierarchyTrees.RemoveAt(_hierarchyTrees.Count - 1);
+            }
+
+            while (hierarchyEntities.Count > _hierarchyTrees.Count)
+            {
+                _hierarchyTrees.Add(new(_hierarchyContainer));
+            }
+
+            for (int i = 0; i < hierarchyEntities.Count; i++)
+            {
+                _hierarchyTrees[i].SetEntities(entityManager, hierarchyEntities[i], null);
+            }
         }
 
         private void UpdateInputs()
         {
             var view = MainView.View;
-            
-            var mousePos = new Vector2Int((int)InputManager.Instance.MousePos.X, (int)InputManager.Instance.MousePos.Y);
+
+            InputManager input = InputManager.Instance;
+            var mousePos = new Vector2Int((int)input.MousePos.X, (int)input.MousePos.Y);
             mousePos.X = Math.Clamp(mousePos.X, 0, Screen.Width);
             mousePos.Y = Math.Clamp(mousePos.Y, 0, Screen.Height);
             for (MouseButton i = 0; i <= MouseButton.XButton2; i++)
@@ -123,25 +160,17 @@ namespace VECS.UI
                 MouseButtonUp(mousePos.X,mousePos.Y, i, view);
             }
             view.MouseMove(mousePos.X, mousePos.Y);
-            if (!string.IsNullOrEmpty(InputManager.Instance.Text))
+            if (!string.IsNullOrEmpty(input.Text))
             {
-                for (int i = 0; i < InputManager.Instance.Text.Length; i++)
+                for (int i = 0; i < input.Text.Length; i++)
                 {
-                    view.Char(InputManager.Instance.Text[i]);
+                    view.Char(input.Text[i]);
                 }
             }
-            // if (InputManager.Instance.GetKeyUp(SDL_Keycode.A))
-            // {
-            //     view.KeyUp(Key.A);
-            // }
-            // if (InputManager.Instance.GetKeyDown(SDL_Keycode.A))
-            // {
-            //     view.KeyDown(Key.A);
-            // }
-            // if (InputManager.Instance.GetKey(SDL_Keycode.A))
-            // {
-            //     view.Char((uint)SDL_Keycode.A);
-            // }
+            int xDir = Math.Clamp((int)input.MouseWheelH, -1, 1);
+            int yDir = Math.Clamp((int)input.MouseWheel, -1, 1);
+            view.MouseWheel(xDir, 0, (int)Math.Abs(input.MouseWheelH));
+            view.MouseWheel(0, yDir, (int)Math.Abs(input.MouseWheel));
         }
 
         private static void MouseButtonDown(int x, int y, MouseButton button, View view)
@@ -163,16 +192,17 @@ namespace VECS.UI
         public override void OnPrePresent(EntityManager entityManager)
         {
             Application.NoesisDriver.CurrentFrameInfo = default;
-            
         }
 
         public override void OnPostAA(EntityManager entityManager, RendererFrameInfo frameInfo)
         {
             Application.NoesisDriver.CurrentFrameInfo = frameInfo;
+
             if (MainView.PreRender() || ALWAYS_RE_RENDER)
             {
                 _framesSinceLastRender = 0;
             }
+
             if (_framesSinceLastRender < SwapChain.MAX_CONCURRENT_FRAMES + 1)
             {
                 GraphicsDeviceInit.BeginLabelCmd(frameInfo.CommandBuffer, "NOESIS Begin On-Screen Render");
@@ -188,6 +218,7 @@ namespace VECS.UI
                 RenderTargetTex2D.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.FragmentShader);
                 GraphicsDeviceInit.EndLabelCmd(frameInfo.CommandBuffer);
             }
+
             BlitToMain(frameInfo);
         }
 
@@ -195,8 +226,6 @@ namespace VECS.UI
         {
             GraphicsDeviceInit.BeginLabelCmd(frameInfo.CommandBuffer, "NOESIS Blit to Main");
             var _outputTarget = EngineTextures.TryGetTexture(ShaderProperties.MainColourAttachmentId).First;
-
-            var inputTargetLayout = RenderTargetTex2D.ImageLayout;
 
             if (RenderTargetTex2D.ImageLayout == VkImageLayout.ColorAttachmentOptimal)
             {
@@ -221,7 +250,6 @@ namespace VECS.UI
                 }
             }
 
-
             VkRenderingAttachmentInfo colourAttachments = new()
             {
                 imageView = _outputTarget._imageView,
@@ -230,7 +258,7 @@ namespace VECS.UI
                 storeOp = VkAttachmentStoreOp.Store,
                 clearValue = new(0, 0, 0, 0)
             };
-            VkRenderingAttachmentInfo stencilAttachment = new();
+
             VkRenderingInfo renderingInfo = new()
             {
                 renderArea = new(0, 0, (uint)_outputTarget.Width, (uint)_outputTarget.Height),
@@ -245,6 +273,7 @@ namespace VECS.UI
             GraphicsDevice.DeviceAPI.vkCmdSetScissor(frameInfo.CommandBuffer, 0, new VkRect2D(new VkOffset2D(0, 0), new VkExtent2D(_outputTarget.Width, _outputTarget.Height)));
 
             _blitVariant.Bind(frameInfo);
+
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
 
@@ -272,6 +301,51 @@ namespace VECS.UI
             InputManager.Instance.OnKeyUp -= ViewKeyUp;
             MainView.View.Renderer.Shutdown();
             MainView.View.Dispose();
+        }
+
+        private class EntityHierarchyTree
+        {
+            public TreeView TreeView;
+            private readonly ItemsControl HierarchyContainer;
+
+            public EntityHierarchyTree(ItemsControl hierarchyContainer)
+            {
+                TreeView = new TreeView();
+                hierarchyContainer.Items.Add(TreeView);
+                HierarchyContainer = hierarchyContainer;
+            }
+
+            public void DestroyTree()
+            {
+                HierarchyContainer.Items.Remove(TreeView);
+            }
+
+            public void SetEntities(EntityManager entityManager, Entity entity, TreeViewItem parent)
+            {
+                var entityName = entityManager.GetEntityName(entity);
+                
+                TreeViewItem item = new()
+                {
+                    Header = entityName
+                };
+
+                if (parent == null)
+                {
+                    TreeView.Items.Clear();
+                    TreeView.Items.Add(item);
+                }
+                else
+                {
+                    parent.Items.Add(item);
+                }
+                if (entityManager.GetComponent(entity, out Children children))
+                {
+                    for (int i = 0; i < children.Value.Length; i++)
+                    {
+                        SetEntities(entityManager, children.Value[i], item);
+                    }
+                }
+            }
         }
     }
 }

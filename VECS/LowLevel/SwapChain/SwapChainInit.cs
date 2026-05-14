@@ -14,8 +14,6 @@ namespace VECS.LowLevel
 
             SDL3WindowManager.RecreateSwapChains();
 
-            SetImageLayouts();
-
             CreateSyncObjects();
 
             CreateTimelineSemaphores();
@@ -25,8 +23,6 @@ namespace VECS.LowLevel
         {
             SwapChain.Reset();
             SDL3WindowManager.RecreateSwapChains();
-
-            SetImageLayouts();
 
             CreateSyncObjects();
 
@@ -47,20 +43,6 @@ namespace VECS.LowLevel
                 GraphicsDevice.DeviceAPI.vkDestroySemaphore(SwapChain._timelineSemaphores[i].Semaphore);
                 GraphicsDevice.DeviceAPI.vkDestroyFence(SwapChain._waitPresentBufferFences[i]);
             }
-        }
-
-        private static void SetImageLayouts()
-        {
-            var commandBuffer = GraphicsDevice.BeginSingleTimeMainPipe();
-
-            for (int i = 0; i < SwapChain.SwapChainsForPresent.Length; i++)
-            {
-                SwapChain.SwapChainsForPresent[i].SetImageLayouts(commandBuffer);
-            }
-
-            GraphicsDevice.EndSingleTimeMainPipe(commandBuffer);
-
-            GraphicsDevice.DeviceWaitIdle();
         }
 
         private static unsafe void CreateSyncObjects()

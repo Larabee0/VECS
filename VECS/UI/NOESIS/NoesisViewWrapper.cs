@@ -79,7 +79,7 @@ namespace VECS.UI
             View.Renderer.UpdateRenderTree();
         }
 
-        public void Update(float deltaTime)
+        public void Update()
         {
             View.Update(Time.TimeSinceStartUpAsDouble);
 
