@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
@@ -93,6 +94,63 @@ namespace VECS
             }
             base.Reinitialise();
             CreateFaceImageViews();
+        }
+
+
+        public unsafe override void Reload()
+        {
+            if (_metaFiles == null) return;
+
+            var metaFile = _metaFiles[0];
+
+            Debug.Assert(metaFile.ImageInfo.Width == metaFile.ImageInfo.Height);
+            _imageExtent.width = (uint)metaFile.ImageInfo.Width;
+            _imageExtent.height = (uint)metaFile.ImageInfo.Width;
+            _imageFormat = metaFile.VkFormat;
+            MipMapCount = metaFile.MipMaps ? TextureExtensions.CalculateMipMapLevels(Width, Height) : 1;
+
+            ulong[] offsets = new ulong[MipMapCount * _imageExtent.depth];
+
+            ulong totalMipMapBytes = 0;
+
+            for (int i = 0, k = 0; i < _metaFiles.Length; i++)
+            {
+                for (int j = 0; j < MipMapCount; j++, k++)
+                {
+                    var byteCount = _metaFiles[i].KtxFile.MipMaps[i].SizeInBytes;
+                    offsets[k] = totalMipMapBytes + _metaFiles[i].KtxFile.MipMaps[i].SizeInBytes;
+                    totalMipMapBytes += byteCount;
+                }
+            }
+            Debug.Assert(totalMipMapBytes > 0);
+
+
+            VkExtent3D[] extents = new VkExtent3D[MipMapCount];
+            for (int j = 0; j < MipMapCount; j++)
+            {
+                TextureLoader.CalculateMipLevelSize(Width, Height, j, out var mipWidth, out var mipHeight);
+                extents[j] = new(mipWidth, mipHeight, (int)_imageExtent.depth);
+            }
+            GPUBuffer gpuBuffer = new(1, totalMipMapBytes, VkBufferUsageFlags.TransferSrc, true, true, false);
+            ulong offset = 0;
+            for (int i = 0; i < _metaFiles.Length; i++)
+            {
+                metaFile = _metaFiles[i];
+                uint size = (uint)metaFile.KtxFile.GetTotalSize();
+                fixed (byte* pMipMap = metaFile.KtxFile.GetAllTextureDataMipMajor())
+                    gpuBuffer.WriteToBuffer(pMipMap, size, offset);
+
+                offset += size;
+            }
+
+            Reinitialise();
+            this.CopyFromBuffer(gpuBuffer, offsets, extents, true);
+
+            for (int i = 0; i < _metaFiles.Length; i++)
+            {
+                _metaFiles[i].KtxFile = null;
+            }
+
         }
 
         public unsafe override void Dispose()

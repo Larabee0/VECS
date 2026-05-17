@@ -24,14 +24,22 @@
         <ColumnDefinition/>
       </Grid.ColumnDefinitions>
       <Rectangle x:Name="HierarchyViewBG" Grid.ColumnSpan="2" Fill="#FF0303FF" Stroke="#FF000000"/>
-      <ScrollViewer Height="635">
-        <ItemsControl x:Name="HierarchyContainer" Height="635"/>
-      </ScrollViewer>
+        <ListBox x:Name="HierarchyContainer" Height="635" MaxHeight="635">
+          <TreeView>
+            <TreeViewItem Header="Something">
+              <TreeViewItem Header="Something Else">
+                <TreeViewItem Header="Something Else else">
+
+                </TreeViewItem>
+              </TreeViewItem>
+            </TreeViewItem>
+          </TreeView>
+        </ListBox>
       <Rectangle x:Name="ViewPortBG" Grid.Column="1" Fill="#FF1FC200" Stroke="#FF000000"/>
       <Image x:Name="GameView" Grid.Column="1"/>
     </Grid>
     <Rectangle x:Name="RightSideBarBG" Grid.Column="1" Grid.ColumnSpan="2" Grid.RowSpan="2" Fill="#FFFFF45B" Stroke="#FF000000"/>
-    <ItemsControl x:Name="RightSideBarItems" ScrollViewer.PanningMode="VerticalOnly" Grid.Column="1" Grid.RowSpan="2">
+    <ListBox x:Name="RightSideBarItems" ScrollViewer.PanningMode="VerticalOnly" Grid.Column="1" Grid.RowSpan="2">
       <system:String>Item #1</system:String>
       <system:String>Item #2</system:String>
       <system:String>Item #3</system:String>
@@ -42,7 +50,7 @@
       <system:String>Item #8</system:String>
       <system:String>Item #9</system:String>
       <system:String>Item #10</system:String>
-    </ItemsControl>
+    </ListBox>
     <Rectangle x:Name="BottomProjectAreaBG" Grid.Row="1" Fill="#FFF4F4F5" Stroke="#FF000000"/>
     <Grid x:Name="BottomProjectAreaGrid" Grid.Row="1">
       <Grid.ColumnDefinitions>

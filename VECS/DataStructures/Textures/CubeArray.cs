@@ -94,6 +94,11 @@ namespace VECS
             this.GenerateMipMaps(cmd);
         }
 
+        public override void Reload()
+        {
+            throw new NotImplementedException();
+        }
+
         public override unsafe void Dispose()
         {
             if (_disposed) return;

@@ -556,6 +556,7 @@ namespace VECS
 
         internal void DirtyTextures()
         {
+            if (_dirtyTextures == null) return;
             Array.Fill(_dirtyTextures, true);
         }
 

@@ -108,6 +108,7 @@ namespace VECS
                 Update();
                 Presentation();
                 SDL3WindowManager.LateInputUpdate();
+                TextureLoader.UpdateCompression();
                 TargetFrameRateUpdate();
             }
             SwapChain.FinishTimelineWorkers(false);

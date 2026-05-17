@@ -67,5 +67,10 @@ namespace VECS
         {
             this.GenerateMipMaps(cmd);
         }
+
+        public override void Reload()
+        {
+            throw new System.NotImplementedException();
+        }
     }
 }

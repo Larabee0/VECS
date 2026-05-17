@@ -33,6 +33,11 @@ namespace VECS
             return;
         }
 
+        public override void Reload()
+        {
+            throw new NotImplementedException();
+        }
+
         public override void Dispose()
         {
             GC.SuppressFinalize(this);

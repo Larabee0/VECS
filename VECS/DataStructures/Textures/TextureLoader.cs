@@ -1,15 +1,20 @@
 using BCnEncoder.Encoder;
 using BCnEncoder.ImageSharp;
 using BCnEncoder.Shared;
+using BCnEncoder.Shared.ImageFiles;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 using SixLabors.ImageSharp.Processing.Processors.Transforms;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Threading.Tasks;
 using Vortice.Vulkan;
 
 namespace VECS
@@ -17,7 +22,8 @@ namespace VECS
     public static partial class TextureLoader
     {
         public static string DefaultTexturePath => Path.Combine(Asset.AssetsPath, "Textures");
-        
+        public static string CompressedTexturePath => Path.Combine(Asset.AssetsPath, DefaultTexturePath, "Compressed");
+
         public static string GetTextureInDefaultPath(string file)
         {
             return Path.Combine(DefaultTexturePath, file);
@@ -28,6 +34,35 @@ namespace VECS
         public static string CompressedTextureBinaryPath => Path.Combine(Application.PersistentDataPath, "TextureBlob.bin");
 
         private static List<CompressedTextureBinary> CompressedBinaryTextures = null;
+
+        private static readonly ConcurrentQueue<TextureCompressionItem> CompressQueue = [];
+        private static readonly List<TextureCompressionItem> CompressNext = [];
+        private static TextureCompressionItem WorkingItem;
+        
+        static TextureLoader()
+        {
+            if (!Directory.Exists(CompressedTexturePath))
+            {
+                Directory.CreateDirectory(CompressedTexturePath);
+            }
+        }
+
+        public static VkFormat GetUncompressedFormat(this VkFormat format)
+        {
+            return format switch
+            {
+                VkFormat.Bc1RgbUnormBlock => VkFormat.R8G8B8Unorm,
+                VkFormat.Bc1RgbaUnormBlock => VkFormat.R8G8B8A8Unorm,
+                VkFormat.Bc2UnormBlock => VkFormat.R8G8B8A8Unorm,
+                VkFormat.Bc3UnormBlock => VkFormat.R8G8B8A8Unorm,
+                VkFormat.Bc4UnormBlock => VkFormat.R8Unorm,
+                VkFormat.Bc5UnormBlock => VkFormat.R8G8Unorm,
+                VkFormat.Bc6hUfloatBlock => VkFormat.R8G8B8Unorm,
+                VkFormat.Bc6hSfloatBlock => VkFormat.R8G8B8Snorm,
+                VkFormat.Bc7UnormBlock => VkFormat.R8G8B8A8Unorm,
+                _ => format
+            };
+        }
 
         public static VkFormat GetVkFormat(this CompressionFormat compressionFormat)
         {
@@ -84,6 +119,89 @@ namespace VECS
         {
             mipWidth = Math.Max(1, (int)width >> (int)mipIdx);
             mipHeight = Math.Max(1, (int)height >> (int)mipIdx);
+        }
+
+        public static void UpdateCompression()
+        {
+            bool resort = !CompressQueue.IsEmpty;
+            while (CompressQueue.TryDequeue(out var newCompresse))
+            {
+                CompressNext.Add(newCompresse);
+            }
+
+            if (resort)
+            {
+                CompressNext.Sort();
+            }
+
+            if (WorkingItem != null && WorkingItem.CompressionComplete)
+            {
+                WorkingItem.SaveFile();
+                WorkingItem = null;
+                AssetDataBase<Material>.AllAssetsListForReading.ForEach(m => m.DirtyTextures());
+            }
+
+            if (WorkingItem == null && CompressNext.Count > 0)
+            {
+                WorkingItem = CompressNext[0];
+                CompressNext.RemoveAt(0);
+                WorkingItem.Run(Environment.ProcessorCount - 3);
+                Console.WriteLine("{0} Textures still to compress", CompressNext.Count);
+            }
+        }
+
+        private static TextureMetaFile LoadOrCompressTexture(string path, bool disableParallel)
+        {
+            var metaFile = new TextureMetaFile(path, TextureShape.TwoD);
+            metaFile.LoadTexture(disableParallel ? 0 : Environment.ProcessorCount - 3, false);
+
+            if (metaFile.Compress && !File.Exists(metaFile.CompressedFileName))
+            {
+                CompressQueue.Enqueue(new(metaFile));
+            }
+
+            return metaFile;
+        }
+
+        private static TextureMetaFile[] LoadMultiSameExtent(string[] paths, bool disableParallel)
+        {
+            TextureMetaFile[] textureInfo = new TextureMetaFile[paths.Length];
+            for (int i = 0; i < paths.Length; i++)
+            {
+                textureInfo[i] = new TextureMetaFile(paths[i], TextureShape.TwoDArray);
+            }
+            var size = textureInfo[0].ImageInfo.Size;
+            var format = textureInfo[0].VkFormat;
+            bool anyUncompressed = !File.Exists(textureInfo[0].CompressedFileName);
+            bool shouldCompress = textureInfo[0].Compress;
+            for (int i = 1; i < textureInfo.Length; i++)
+            {
+                anyUncompressed |= !File.Exists(textureInfo[i].CompressedFileName);
+                shouldCompress |= textureInfo[i].Compress;
+                Debug.Assert(size != textureInfo[i].ImageInfo.Size, "Image Extents must be equal!");
+                Debug.Assert(format != textureInfo[i].VkFormat, "Image Extents must be equal!");
+            }
+
+            for (int i = 0; i < textureInfo.Length; i++)
+            {
+                textureInfo[i].Compress = shouldCompress;
+            }
+
+            int threadCount = disableParallel ? 0 : (Environment.ProcessorCount - 3) / textureInfo.Length;
+
+            
+            for (int i = 0; i < textureInfo.Length; i++)
+            {
+                textureInfo[i].LoadTexture(threadCount, anyUncompressed);
+            }
+
+            if (shouldCompress && anyUncompressed)
+            {
+                CompressQueue.Enqueue(new MultiTextureCompressionItem(textureInfo));
+            }
+
+
+            return textureInfo;
         }
 
         private static CompressedTextureBinary LoadOrCompressTexture(string path, VkFormat format, bool mipMaps, bool allowParallel, bool flipVertical)
@@ -144,7 +262,6 @@ namespace VECS
                     Format = format
                 };
 
-
                 for (int j = 0; j < mipmapsData.Length; j++)
                 {
                     var mipMap = mipmapsData[j];
@@ -176,7 +293,8 @@ namespace VECS
 
         public static unsafe Texture2D Load2D(string path, VkFormat format, bool mipMaps = true, bool allowParallel = true, bool flipVertical = true)
         {
-            CompressedTextureBinary compressedTexture = LoadOrCompressTexture(path, format, mipMaps, allowParallel,flipVertical);
+            LoadOrCompressTexture(path, !allowParallel);
+            CompressedTextureBinary compressedTexture = LoadOrCompressTexture(path, format, mipMaps, allowParallel, flipVertical);
 
             ulong totalMipMapBytes = (ulong)compressedTexture.MipMaps.LongLength;
 
@@ -218,7 +336,7 @@ namespace VECS
             loadedTextures = new CompressedTextureBinary[paths.Length];
             for (int i = 0; i < loadedTextures.Length; i++)
             {
-                loadedTextures[i] = LoadOrCompressTexture(paths[i], format, mipMaps, allowParallel,true);
+                loadedTextures[i] = LoadOrCompressTexture(paths[i], format, mipMaps, allowParallel, true);
             }
 
             ulong bufferSize = 0;
@@ -268,8 +386,10 @@ namespace VECS
 
             return texture;
         }
+
         public static string[] GetSkyboxTextures(string skyboxFolder)
         {
+
             if (!Directory.Exists(skyboxFolder))
             {
                 throw new FileNotFoundException("Skybox folder not found", skyboxFolder);
@@ -318,6 +438,7 @@ namespace VECS
 
             return filesToLoad;
         }
+
         public static void SaveTextureCache()
         {
             SaveBinaryTextureBlob();
@@ -450,6 +571,102 @@ namespace VECS
             Console.WriteLine("Loaded {0} Compressed Textures from binary blob", CompressedBinaryTextures.Count);
         }
 
+        private class MultiTextureCompressionItem : TextureCompressionItem
+        {
+            bool started = false;
+            public Task<KtxFile>[] CompressTasks;
+            public TextureMetaFile[] MetaFiles;
+            public override bool Started => started;
+
+            public override bool CompressionComplete
+            {
+                get
+                {
+                    for (int i = 0; i < CompressTasks.Length; i++)
+                    {
+                        if (CompressTasks[i] == null) continue;
+                        if (!CompressTasks[i].IsCompleted) return false;
+                    }
+                    return true;
+                }
+            }
+
+            public MultiTextureCompressionItem(TextureMetaFile[] textures)
+            {
+                MetaFiles = textures;
+                CompressTasks = new Task<KtxFile>[textures.Length];
+            }
+
+            public override void Run(int compressionThreadCount)
+            {
+                started = true;
+            }
+
+            public override void SaveFile()
+            {
+                Application.ParallelFor(CompressTasks.Length, (i) =>
+                {
+                    if (CompressTasks[i] == null) return;
+                    SaveFile(MetaFiles[i], CompressTasks[i]);
+                });
+            }
+        }
+
+        public class TextureCompressionItem : IComparable<TextureCompressionItem>
+        {
+            public Task<KtxFile> CompressTask;
+            public TextureMetaFile MetaFile;
+
+            public virtual bool Started => CompressTask != null;
+            public virtual bool CompressionComplete => CompressTask.IsCompleted;
+
+            public TextureCompressionItem()
+            {
+
+            }
+
+            public TextureCompressionItem(TextureMetaFile metaFile)
+            {
+                MetaFile = metaFile;
+            }
+
+            public virtual void Run(int compressionThreadCount)
+            {
+                BcEncoder encoder = new();
+                encoder.OutputOptions.GenerateMipMaps = MetaFile.MipMaps;
+                encoder.OutputOptions.Quality = CompressionQuality.Balanced;
+                encoder.OutputOptions.Format = MetaFile.VkFormat.GetCompressionFormat();
+                encoder.Options.IsParallel = compressionThreadCount > 0;
+                encoder.Options.TaskCount = Math.Max(1, compressionThreadCount);
+                encoder.OutputOptions.FileFormat = OutputFileFormat.Ktx; //Change to Dds for a dds file.
+
+                using Image<Rgba32> image = Image.Load<Rgba32>(MetaFile.SrcFileName);
+
+                CompressTask = encoder.EncodeToKtxAsync(image);
+            }
+
+            public virtual void SaveFile()
+            {
+                SaveFile(MetaFile, CompressTask);
+            }
+
+            protected static void SaveFile(TextureMetaFile metaFile, Task<KtxFile> ktxFile)
+            {
+                var fileName = Path.Combine(metaFile.CompressedFileName);
+                var fileStream = File.Create(fileName);
+                ktxFile.Result.Write(fileStream);
+                fileStream.Close();
+                metaFile.SaveMetaFile();
+                Console.WriteLine("Saved Compressed Texture at {0}", fileName);
+                metaFile.LoadTexture(Environment.ProcessorCount - 3, false);
+            }
+
+            public int CompareTo(TextureCompressionItem other)
+            {
+                return MetaFile.VkFormat.CompareTo(other.MetaFile.VkFormat);
+            }
+        }
+
         private class CompressedTextureBinary
         {
             public const uint HeaderSize = sizeof(ulong) + sizeof(int) + sizeof(int) + sizeof(int) + sizeof(int) + sizeof(VkFormat) + sizeof(int);
@@ -462,11 +679,11 @@ namespace VECS
             public VkFormat Format;
             public int MipMapCount;
 
-            public byte[] RelativePath;
             public ulong[] MipMapOffsets;
             public byte[] MipMaps;
 
             public string PathText;
+            public byte[] RelativePath;
 
             public void GetPathText()
             {
@@ -477,6 +694,43 @@ namespace VECS
             {
                 TotalSize = HeaderSize + (uint)RelativePath.Length + (uint)MipMapOffsets.Length * sizeof(ulong) + (uint)MipMaps.Length;
             }
+
+            public unsafe void WriteBinary(BinaryWriter binaryWriter)
+            {
+                binaryWriter.Write(PathText);
+                binaryWriter.Write(TotalSize);
+                binaryWriter.Write(RelativePathLength);
+                binaryWriter.Write(Width);
+                binaryWriter.Write(Height);
+                binaryWriter.Write(Depth);
+                binaryWriter.Write((int)Format);
+                binaryWriter.Write(MipMapCount);
+                fixed (ulong* pOffsets = MipMapOffsets)
+                {
+                    binaryWriter.Write(new Span<byte>(pOffsets, MipMapOffsets.Length * sizeof(ulong)));
+                }
+                binaryWriter.Write(MipMaps);
+            }
+
+            public void ReadBinary(BinaryReader binaryReader)
+            {
+                PathText = binaryReader.ReadString();
+                TotalSize = binaryReader.ReadUInt64();
+                RelativePathLength = binaryReader.ReadInt32();
+                Width = binaryReader.ReadInt32();
+                Height = binaryReader.ReadInt32();
+                Depth = binaryReader.ReadInt32();
+                Format = (VkFormat)binaryReader.ReadInt32();
+                MipMapCount = binaryReader.ReadInt32();
+                MipMapOffsets = new ulong[MipMapCount];
+                var bytes = binaryReader.ReadBytes(MipMapCount * sizeof(ulong));
+                Buffer.BlockCopy(bytes, 0, MipMapOffsets, 0, MipMapCount * sizeof(ulong));
+                ulong mipMapSize = TotalSize - HeaderSize - (uint)RelativePathLength - sizeof(ulong) * (uint)MipMapCount;
+                MipMaps = new byte[mipMapSize];
+                bytes = binaryReader.ReadBytes((int)mipMapSize);
+                Buffer.BlockCopy(bytes, 0, MipMapOffsets, 0, (int)mipMapSize);
+            }
+
 
             public unsafe void WriteHeader(byte* ptr)
             {
@@ -540,6 +794,241 @@ namespace VECS
                 };
             }
         }
-        
+
+
+
     }
+
+    public enum TextureType
+    {
+        Default,
+        Normal
+    }
+
+    public enum TextureShape
+    {
+        TwoD,
+        TwoDArray,
+        Cube,
+        CubeArray,
+        ThreeD
+    }
+
+    public class TextureMetaFile : AssetMetaFile
+    {
+        [JsonIgnore]
+        public string SrcFileName;
+        [JsonIgnore]
+        public ImageInfo ImageInfo;
+        [JsonIgnore]
+        public VkFormat LoadedFormat;
+        [JsonIgnore]
+        public string MetaFileName => string.Format("{0}.meta", SrcFileName);
+        [JsonIgnore]
+        public string CompressedFileName => Path.Combine(TextureLoader.CompressedTexturePath, string.Format("{0}.ktx", Path.GetFileName(SrcFileName)));
+
+        [JsonIgnore]
+        public KtxFile KtxFile;
+        [JsonIgnore]
+        public Texture DstTexture;
+
+        public TextureType TextureType { get; set; }
+        public TextureShape TextureShape { get; set; }
+        public VkFormat VkFormat { get; set; }
+        public bool FlipVertical { get; set; }
+        public bool FlipHorizontal { get; set; }
+        public bool SRGB { get; set; }
+        public bool MipMaps { get; set; }
+        public bool ReadWrite { get; set; }
+        public bool Compress { get; set; }
+        public int BitsPerPixel { get; set; }
+
+        public TextureMetaFile(string srcFile, TextureShape shape)
+        {
+            GUID = Guid.NewGuid();
+            Version = 0;
+            Type = typeof(TextureMetaFile).FullName;
+            bool loaded = CreateInternal(srcFile);
+            TextureShape = shape;
+        }
+
+        public void SetVKFormat()
+        {
+            if (SRGB && TextureType == TextureType.Normal)
+            {
+                SRGB = false;
+            }
+
+            if (Compress)
+            {
+                if (TextureType == TextureType.Normal)
+                {
+                    VkFormat = VkFormat.Bc5UnormBlock;
+                }
+                else
+                {
+                    if (SRGB)
+                    {
+                        VkFormat = VkFormat.Bc7SrgbBlock;
+                    }
+                    else
+                    {
+                        VkFormat = VkFormat.Bc7UnormBlock;
+                    }
+                }
+            }
+            else
+            {
+                if (SRGB)
+                {
+                    VkFormat = BitsPerPixel switch
+                    {
+                        8 => VkFormat.R8Srgb,
+                        16 => VkFormat.R8G8Srgb,
+                        24 => VkFormat.R8G8B8Srgb,
+                        _ => VkFormat.R8G8B8A8Srgb
+                    };
+                }
+                else
+                {
+                    VkFormat = BitsPerPixel switch
+                    {
+                        8 => VkFormat.R8Unorm,
+                        16 => VkFormat.R8G8Unorm,
+                        24 => VkFormat.R8G8B8Unorm,
+                        _ => VkFormat.R8G8B8A8Unorm
+                    };
+                }
+            }
+        }
+
+        private bool CreateInternal(string srcFile)
+        {
+            SrcFileName = srcFile;
+            ImageInfo = Image.Identify(srcFile);
+            if (MetaFileExists(srcFile))
+            {
+                LoadMetaFile();
+                return true;
+            }
+            else
+            {
+                CreateDefaultMetaFile(srcFile);
+                SaveMetaFile();
+                return false;
+            }
+        }
+
+        public override void CreateDefaultMetaFile(string filePath)
+        {
+            SrcFileName = filePath;
+
+            var imageInfo = Image.Identify(filePath);
+
+            TextureShape = TextureShape.TwoD;
+            TextureType = filePath.Contains("normal",StringComparison.CurrentCultureIgnoreCase) ? TextureType.Normal : TextureType.Default;
+            Compress = imageInfo.Width % 2 == 0 && imageInfo.Height % 2 == 0;
+            BitsPerPixel = imageInfo.PixelType.BitsPerPixel;
+
+            SetVKFormat();
+        }
+
+        public override void LoadMetaFile()
+        {
+            var metaFile = File.ReadAllText(MetaFileName);
+
+            var loadedFile = JsonSerializer.Deserialize<TextureMetaFile>(metaFile);
+            GUID = loadedFile.GUID;
+            Type = loadedFile.Type;
+            Version = loadedFile.Version;
+            TextureType = loadedFile.TextureType;
+            TextureShape = loadedFile.TextureShape;
+            VkFormat = loadedFile.VkFormat;
+            FlipVertical = loadedFile.FlipVertical;
+            FlipHorizontal = loadedFile.FlipHorizontal;
+            SRGB = loadedFile.SRGB;
+            MipMaps = loadedFile.MipMaps;
+            ReadWrite = loadedFile.ReadWrite;
+            Compress = loadedFile.Compress;
+            BitsPerPixel = loadedFile.BitsPerPixel;
+        }
+
+        public override void SaveMetaFile()
+        {
+            var serialized = JsonSerializer.Serialize(this);
+            File.WriteAllText(MetaFileName, serialized);
+        }
+
+        public override void LoadAsset()
+        {
+            if (Compress)
+            {
+                if (File.Exists(CompressedFileName))
+                {
+                    // load compressed texture
+
+                }
+                else
+                {
+                    // load and queue texture for compression
+                }
+            }
+            else
+            {
+                // load uncompressed  texture
+            }
+        }
+
+        public void LoadTexture(int compressionThreadCount, bool forceUncompressed)
+        {
+            BcEncoder encoder = new();
+            encoder.OutputOptions.GenerateMipMaps = MipMaps;
+            encoder.OutputOptions.Quality = CompressionQuality.Balanced;
+            encoder.OutputOptions.Format = VkFormat.GetUncompressedFormat().GetCompressionFormat();
+            encoder.Options.IsParallel = compressionThreadCount > 0;
+            encoder.Options.TaskCount = Math.Max(1, compressionThreadCount);
+            encoder.OutputOptions.FileFormat = OutputFileFormat.Ktx; //Change to Dds for a dds file.
+
+            forceUncompressed |= !File.Exists(CompressedFileName);
+
+            if (Compress && !forceUncompressed)
+            {
+                encoder.OutputOptions.Format = VkFormat.GetCompressionFormat();
+            }
+
+            string file;
+            if (Compress && !forceUncompressed)
+            {
+                file = CompressedFileName;
+                var fileStream = File.OpenRead(file);
+                KtxFile = KtxFile.Load(fileStream);
+                fileStream.Close();
+            }
+            else
+            {
+                file = SrcFileName;
+
+                using Image<Rgba32> image = Image.Load<Rgba32>(file);
+                if (FlipVertical)
+                {
+                    var flipProcessor = new FlipProcessor(FlipMode.Vertical);
+                    image.Mutate(flipProcessor);
+                }
+                if (FlipHorizontal)
+                {
+                    var flipProcessor = new FlipProcessor(FlipMode.Horizontal);
+                    image.Mutate(flipProcessor);
+                }
+                KtxFile = encoder.EncodeToKtx(image);
+            }
+
+            
+            LoadedFormat = encoder.OutputOptions.Format.GetVkFormat();
+        }
+        public void Reload()
+        {
+            DstTexture.Reload();
+        }
+    }
+
 }

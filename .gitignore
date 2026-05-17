@@ -22,3 +22,4 @@ x64/
 
 /CompiledShaders/
 Performance
+*.lscache

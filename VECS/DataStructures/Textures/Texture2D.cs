@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Vortice.Vulkan;
 
 namespace VECS
@@ -22,8 +23,6 @@ namespace VECS
             UpdateDescriptor();
             AssetDataBase<Texture2D>.Add(this);
         }
-
-        
 
         public Texture2D(string name, int width, int height, VkFormat textureFormat, VkImageUsageFlags usage, bool generateMipMaps = true)
         {
@@ -156,10 +155,6 @@ namespace VECS
             UpdateDescriptor();
             AssetDataBase<Texture2D>.Add(this);
         }
-
-
-
-
 
         public Texture2D(string name, int width, int height, VkFormat textureFormat, VkImageUsageFlags usage, uint[] queueIndices, bool generateMipMaps = true)
         {
@@ -329,6 +324,45 @@ namespace VECS
         {
             _imageExtent = new(width, height, 1);
             Reinitialise();
+        }
+
+        public unsafe override void Reload()
+        {
+            if (_metaFiles == null) return;
+            
+            var metaFile = _metaFiles[0];
+
+            _imageExtent.width = (uint)metaFile.ImageInfo.Width;
+            _imageExtent.height = (uint)metaFile.ImageInfo.Height;
+            _imageFormat = metaFile.VkFormat;
+
+            MipMapCount = metaFile.MipMaps ? TextureExtensions.CalculateMipMapLevels(Width,Height) : 1;
+
+            ulong[] offsets = new ulong[MipMapCount];
+            VkExtent3D[] extents = new VkExtent3D[MipMapCount];
+            ulong totalMipMapBytes = 0;
+
+            for (int i = 0; i < MipMapCount; i++)
+            {
+                TextureLoader.CalculateMipLevelSize(Width, Height, i, out int width, out int height);
+                extents[i] = new(width, height, 1);
+                offsets[i] = totalMipMapBytes;
+                totalMipMapBytes += metaFile.KtxFile.MipMaps[i].SizeInBytes;
+            }
+
+            Debug.Assert(totalMipMapBytes > 0);
+
+            GPUBuffer gpuBuffer = new(1, totalMipMapBytes, VkBufferUsageFlags.TransferSrc, true, true, false);
+
+            fixed(byte* pData = metaFile.KtxFile.GetAllTextureDataMipMajor())
+            {
+                gpuBuffer.WriteToBuffer(pData);
+            }
+
+            Reinitialise();
+            this.CopyFromBuffer(gpuBuffer, offsets, extents, true);
+
+            metaFile.KtxFile = null;
         }
     }
 }

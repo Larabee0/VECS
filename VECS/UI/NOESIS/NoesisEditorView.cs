@@ -19,8 +19,9 @@ namespace VECS.UI
         private EntityQuery _hierarchyEntities;
         private EntityQuery _singleEntities;
 
-        private ItemsControl _hierarchyContainer;
+        private ListBox _hierarchyContainer;
         private List<EntityHierarchyTree> _hierarchyTrees = [];
+        private List<EntityHierarchyTree> _singleEntityItems = [];
 
 
         private NoesisViewWrapper MainView;
@@ -53,9 +54,12 @@ namespace VECS.UI
             };
             MainView.SetSize(Screen.Width, Screen.Height);
 
+            MainView.View.Content.GotFocus += GotFocus;
+            MainView.View.Content.LostFocus += LostFocus;
+            MainView.View.Content.FocusableChanged += FocusChanged;
             MainView.View.Content.GotKeyboardFocus += GotKeyboardFocus;
             MainView.View.Content.LostKeyboardFocus += LostKeyboardFocus;
-            _hierarchyContainer = (ItemsControl)controlTreeRoot.FindName("HierarchyContainer");
+            _hierarchyContainer = (ListBox)controlTreeRoot.FindName("HierarchyContainer");
             _hierarchyContainer.Items.Clear();
             var gameview = (Image)controlTreeRoot.FindName("GameView");
             var fowardRenderer = (Presenter<ForwardRenderer>)Presenter.Instance;
@@ -72,6 +76,38 @@ namespace VECS.UI
             _blitVariant = EnginePipes.Blit.Create("Noesis_Blitter");
             _blitVariant.SetTexture(inputTextureId, RenderTargetTex2D);
             Application.NoesisDriver.CreatePipelines(VkFormat.R8G8B8A8Unorm, VkFormat.S8Uint);
+        }
+
+        private void FocusChanged(object sender, DependencyPropertyChangedEventArgs args)
+        {
+            var newValue = args.NewValue;
+            if(newValue != null && newValue is TreeViewItem view)
+            {
+                Console.WriteLine(newValue.ToString());
+                Console.WriteLine(view.Header);
+            }
+            Console.WriteLine("Focus Changed");
+        }
+
+        private void GotFocus(object sender, RoutedEventArgs args)
+        {
+            Console.WriteLine(args.Source.ToString());
+
+            if (args.Source is ListBoxItem item && item.Content != null && item.Content is TreeView treeItem)
+            {
+               
+                Console.WriteLine(treeItem.ToString());
+            }
+        }
+
+        private void LostFocus(object sender, RoutedEventArgs args)
+        {
+            Console.WriteLine(args.Source.ToString());
+            if (args.Source is TreeViewItem)
+            {
+                //Console.WriteLine("TreeView");
+            }
+            
         }
 
         private void GotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs args)
@@ -101,28 +137,36 @@ namespace VECS.UI
         public override void OnUpdate(EntityManager entityManager)
         {
             UpdateHierarchy(entityManager);
-
             MainView.Update();
             UpdateInputs();
         }
 
         private void UpdateHierarchy(EntityManager entityManager)
         {
-
+            bool updateLayout = false;
             if (_hierarchyEntities.HasEntities)
             {
                 var hierarchyEntities = _hierarchyEntities.GetEntities();
                 if(_hierarchyTrees.Count != hierarchyEntities.Count)
                 {
                     RebuildHierarchies(hierarchyEntities, entityManager);
-                    controlTreeRoot.UpdateLayout();
+                    updateLayout = true;
                 }
             }
 
             if (_singleEntities.HasEntities)
             {
                 var  singleEntities = _singleEntities.GetEntities();
+                if (_hierarchyTrees.Count != singleEntities.Count)
+                {
+                    RebuildSingleTrees(singleEntities, entityManager);
+                    updateLayout = true;
+                }
+            }
 
+            if (updateLayout)
+            {
+                controlTreeRoot.UpdateLayout();
             }
         }
 
@@ -143,6 +187,26 @@ namespace VECS.UI
             for (int i = 0; i < hierarchyEntities.Count; i++)
             {
                 _hierarchyTrees[i].SetEntities(entityManager, hierarchyEntities[i], null);
+            }
+        }
+
+        private void RebuildSingleTrees(List<Entity> singleEntities, EntityManager entityManager)
+        {
+            while (singleEntities.Count < _singleEntityItems.Count)
+            {
+                var last = _singleEntityItems[^1];
+                last.DestroyTree();
+                _singleEntityItems.RemoveAt(_singleEntityItems.Count - 1);
+            }
+
+            while (singleEntities.Count > _singleEntityItems.Count)
+            {
+                _singleEntityItems.Add(new(_hierarchyContainer));
+            }
+
+            for (int i = 0; i < singleEntities.Count; i++)
+            {
+                _singleEntityItems[i].SetEntities(entityManager, singleEntities[i], null);
             }
         }
 
@@ -297,6 +361,9 @@ namespace VECS.UI
             SDL3WindowManager.MainWindow.EndText();
             MainView.View.Content.GotKeyboardFocus -= GotKeyboardFocus;
             MainView.View.Content.LostKeyboardFocus -= LostKeyboardFocus;
+            MainView.View.Content.GotFocus -= GotFocus;
+            MainView.View.Content.LostFocus -= LostFocus;
+            MainView.View.Content.FocusableChanged -= FocusChanged;
             InputManager.Instance.OnKeyDown -= ViewKeyDown;
             InputManager.Instance.OnKeyUp -= ViewKeyUp;
             MainView.View.Renderer.Shutdown();
@@ -306,9 +373,9 @@ namespace VECS.UI
         private class EntityHierarchyTree
         {
             public TreeView TreeView;
-            private readonly ItemsControl HierarchyContainer;
+            private readonly ListBox HierarchyContainer;
 
-            public EntityHierarchyTree(ItemsControl hierarchyContainer)
+            public EntityHierarchyTree(ListBox hierarchyContainer)
             {
                 TreeView = new TreeView();
                 hierarchyContainer.Items.Add(TreeView);
