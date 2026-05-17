@@ -68,6 +68,42 @@ namespace VECS
             AssetDataBase<Texture2DArray>.Add(this);
         }
 
+        public Texture2DArray(string name, TextureMetaFile[] metaFiles, VkSamplerAddressMode addressMode, VkImageUsageFlags usage)
+        {
+            Debug.Assert(metaFiles.Length > 1, "Cannot create texture array with 1 element!");
+            _metaFiles = metaFiles;
+            AssetName = name;
+
+            _imageExtent = new(metaFiles[0].Width, metaFiles[0].Height, metaFiles.Length);
+            _imageImageViewType = VkImageViewType.Image2DArray;
+            
+            _useageFlags = usage;
+            WrapModeU = addressMode;
+            WrapModeV = addressMode;
+            WrapModeW = addressMode;
+            AdditionalImageViews = new VkImageView[metaFiles.Length];
+
+            if (metaFiles[0].MipMaps)
+            {
+                MipMapCount = TextureExtensions.CalculateMipMapLevels(Width, Height);
+            }
+
+            
+
+            this.SetImageLayoutAndAspectFromUsage();
+
+            Reload();
+
+            if (_useageFlags.HasFlag(VkImageUsageFlags.Sampled))
+            {
+                this.CreateSampler();
+            }
+
+            UpdateDescriptor();
+
+            AssetDataBase<Texture2DArray>.Add(this);
+        }
+
         public override VkImageCreateInfo GetImageCreateInfo()
         {
             var createInfo = base.GetImageCreateInfo();
@@ -164,10 +200,10 @@ namespace VECS
 
             var metaFile = _metaFiles[0];
 
-            _imageExtent.width = (uint)metaFile.ImageInfo.Width;
-            _imageExtent.height = (uint)metaFile.ImageInfo.Height;
+            _imageExtent.width = metaFile.KtxFile.header.PixelWidth;
+            _imageExtent.height = metaFile.KtxFile.header.PixelWidth;
             _imageExtent.depth = (uint)_metaFiles.Length;
-            _imageFormat = metaFile.VkFormat;
+            _imageFormat = metaFile.LoadedFormat;
             MipMapCount = metaFile.MipMaps ? TextureExtensions.CalculateMipMapLevels(Width, Height) : 1;
 
             ulong[] offsets = new ulong[MipMapCount*_imageExtent.depth];
@@ -178,9 +214,8 @@ namespace VECS
             {
                 for (int j = 0; j < MipMapCount; j++, k++)
                 {
-                    var byteCount = _metaFiles[i].KtxFile.MipMaps[i].SizeInBytes;
-                    offsets[k] = totalMipMapBytes + _metaFiles[i].KtxFile.MipMaps[i].SizeInBytes;
-                    totalMipMapBytes += byteCount;
+                    offsets[k] = totalMipMapBytes;
+                    totalMipMapBytes += _metaFiles[i].KtxFile.MipMaps[j].SizeInBytes;
                 }
             }
             Debug.Assert(totalMipMapBytes > 0);

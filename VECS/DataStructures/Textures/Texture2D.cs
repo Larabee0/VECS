@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.IO;
 using Vortice.Vulkan;
 
 namespace VECS
@@ -315,6 +316,37 @@ namespace VECS
             AssetDataBase<Texture2D>.Add(this);
         }
 
+        public Texture2D(TextureMetaFile metaFile, VkImageUsageFlags usage)
+        {
+            _metaFiles = [metaFile];
+            AssetName = Path.GetFileNameWithoutExtension(metaFile.SrcFileName);
+            _imageExtent = new(metaFile.KtxFile.header.PixelWidth, metaFile.KtxFile.header.PixelHeight, 1);
+            _imageImageViewType = VkImageViewType.Image2D;
+            _imageFormat = metaFile.LoadedFormat;
+            _useageFlags = usage;
+
+            if (metaFile.MipMaps)
+            {
+                MipMapCount = TextureExtensions.CalculateMipMapLevels(Width, Height);
+            }
+            Reload();
+
+            //this.CreateImage(GetImageCreateInfo());
+
+            this.SetImageLayoutAndAspectFromUsage();
+
+            //this.CreateImageView(GetImageViewCreateInfo());
+
+            if (_useageFlags.HasFlag(VkImageUsageFlags.Sampled))
+            {
+                this.CreateSampler();
+            }
+            metaFile.DstTexture = this;
+            //UpdateDescriptor();
+            AssetDataBase<Texture2D>.Add(this);
+
+        }
+
         public unsafe override void RegenerateMipMaps(VkCommandBuffer cmd)
         {
             this.GenerateMipMaps(cmd);
@@ -332,9 +364,9 @@ namespace VECS
             
             var metaFile = _metaFiles[0];
 
-            _imageExtent.width = (uint)metaFile.ImageInfo.Width;
-            _imageExtent.height = (uint)metaFile.ImageInfo.Height;
-            _imageFormat = metaFile.VkFormat;
+            _imageExtent.width = metaFile.KtxFile.header.PixelWidth;
+            _imageExtent.height = metaFile.KtxFile.header.PixelHeight;
+            _imageFormat = metaFile.LoadedFormat;
 
             MipMapCount = metaFile.MipMaps ? TextureExtensions.CalculateMipMapLevels(Width,Height) : 1;
 

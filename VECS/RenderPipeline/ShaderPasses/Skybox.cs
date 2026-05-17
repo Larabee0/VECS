@@ -32,7 +32,6 @@ namespace VECS
             _skybox = new GraphicsPipeline("Skybox", "skybox.vert", "skybox.frag", pipelineConfig).Default();
             _cube = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("cube-UV.obj"),null)[0];
             SkyboxTexture = TextureLoader.LoadSkyboxCubeMap("GL_Skybox", TextureLoader.GetTextureInDefaultPath("Skyboxes/GL_Skybox"), VkFormat.Bc7UnormBlock, VkSamplerAddressMode.ClampToEdge, false);
-            TextureLoader.SaveTextureCache();
             PBR.Reset();
         }
 
