@@ -98,7 +98,7 @@ namespace VECS
 
         public void PointLightShadowPass(in RendererFrameInfo frameInfo, int index, PointLightUniform pointLight)
         {
-            GraphicsDeviceInit.BeginLabelCmd(frameInfo.CommandBuffer, string.Format("Point {0} Light Shadow Pass", index));
+            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, string.Format("Point {0} Light Shadow Pass", index));
             Texture2DArray arrayTex = (Texture2DArray)_shadowDepthTextures.GetTexture(index);
 
             FillViewMatrix(EngineBuffers.TryGetBuffer(matsPropertyId), index, pointLight);
@@ -129,7 +129,7 @@ namespace VECS
 
             SetImageLayoutRead(frameInfo.CommandBuffer, arrayTex);
 
-            GraphicsDeviceInit.EndLabelCmd(frameInfo.CommandBuffer);
+            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
         }
     }
 }

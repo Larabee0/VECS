@@ -244,25 +244,25 @@ namespace VECS
         private unsafe void GraphicsPipe(int imageIndex)
         {
             VkCommandBuffer commandBuffer = SwapChain.CurrentMainCommandBuffer;
-            GraphicsDeviceInit.BeginLabelCmd(commandBuffer, "Start Frame Buffer Fill Cmds");
+            GraphicsDevice.BeginLabelCmd(commandBuffer, "Start Frame Buffer Fill Cmds");
             GPUBufferExtensions.PlaybackFillBufferCmds(commandBuffer);
-            GraphicsDeviceInit.EndLabelCmd(commandBuffer);
+            GraphicsDevice.EndLabelCmd(commandBuffer);
 
-            GraphicsDeviceInit.BeginLabelCmd(commandBuffer, "Start Frame Buffer Copy Cmds");
+            GraphicsDevice.BeginLabelCmd(commandBuffer, "Start Frame Buffer Copy Cmds");
             GPUBufferExtensions.PlaybackCopyBuffersCmds(commandBuffer);
-            GraphicsDeviceInit.EndLabelCmd(commandBuffer);
+            GraphicsDevice.EndLabelCmd(commandBuffer);
 
-            GraphicsDeviceInit.BeginLabelCmd(commandBuffer, "Start Frame Image Copy Cmds");
+            GraphicsDevice.BeginLabelCmd(commandBuffer, "Start Frame Image Copy Cmds");
             TextureExtensions.PlaybackCopyCmds(commandBuffer);
-            GraphicsDeviceInit.EndLabelCmd(commandBuffer);
+            GraphicsDevice.EndLabelCmd(commandBuffer);
 
-            GraphicsDeviceInit.BeginLabelCmd(commandBuffer, "Start Frame Mip Map Generation");
+            GraphicsDevice.BeginLabelCmd(commandBuffer, "Start Frame Mip Map Generation");
             TextureExtensions.PlaybackMipmapGenCmds(commandBuffer);
-            GraphicsDeviceInit.EndLabelCmd(commandBuffer);
+            GraphicsDevice.EndLabelCmd(commandBuffer);
 
-            GraphicsDeviceInit.BeginLabelCmd(commandBuffer, "Start Frame Image Layouts");
+            GraphicsDevice.BeginLabelCmd(commandBuffer, "Start Frame Image Layouts");
             TextureExtensions.PlaybackSetLayoutCmds(commandBuffer);
-            GraphicsDeviceInit.EndLabelCmd(commandBuffer);
+            GraphicsDevice.EndLabelCmd(commandBuffer);
 
             //SwapChain.MainSwapChainData.SetImageLayout(commandBuffer, imageIndex, VkImageLayout.TransferDstOptimal);
 
@@ -271,23 +271,25 @@ namespace VECS
             RendererFrameInfo frameInfo = CreateRendererFrameInfo(Time.DeltaTime, commandBuffer);
             ComputePipeline.UpdateComputeShaders(frameInfo);
             GraphicsPipeline.UpdateMaterials(frameInfo);
+            
+            AuxiliaryCommandBufferManager.Update();
 
             _renderer.Render(frameInfo, imageIndex);
 
             // UI Overlay
-            GraphicsDeviceInit.BeginLabelCmd(commandBuffer, "IMGUI Pass");
+            GraphicsDevice.BeginLabelCmd(commandBuffer, "IMGUI Pass");
             _imgui.Draw(frameInfo);
 
             _imgui.OverlayToActiveTarget(frameInfo,_renderer.MainColourAttachment);
-            GraphicsDeviceInit.EndLabelCmd(commandBuffer);
+            GraphicsDevice.EndLabelCmd(commandBuffer);
 
             RenderCallback?.Invoke(frameInfo);
 
             // Play back Write Cmds generated during frame from CPU to GPU Buffers
             // this is an optimisation to avoid double writes
-            GraphicsDeviceInit.BeginLabelCmd(commandBuffer, "End Frame Buffer Writes");
+            GraphicsDevice.BeginLabelCmd(commandBuffer, "End Frame Buffer Writes");
             GPUBufferExtensions.PlaybackWriteBufferCmds();
-            GraphicsDeviceInit.EndLabelCmd(commandBuffer);
+            GraphicsDevice.EndLabelCmd(commandBuffer);
             //SwapChain.MainSwapChainData.SetImageLayout(commandBuffer, imageIndex, VkImageLayout.PresentSrcKHR);
         }
 

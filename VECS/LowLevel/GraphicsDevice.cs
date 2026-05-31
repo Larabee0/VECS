@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using System.Text;
 using Vortice.Vulkan;
 
 namespace VECS.LowLevel
@@ -304,6 +305,39 @@ namespace VECS.LowLevel
             _deviceApi.vkDeviceWaitIdle();
         }
 
+        #region Labels Events
+
+        public static void SetObjectName(VkObjectType objectType, ulong handle, string name)
+        {
+#if DEBUG
+            _instanceApi.vkSetDebugUtilsObjectNameEXT(Device, objectType, handle, string.Format("VK_{0}_{1}", objectType.ToString().ToUpper(), name));
+#endif
+        }
+
+        public static unsafe void BeginLabelCmd(VkCommandBuffer commandBuffer, string label)
+        {
+#if DEBUG
+            var bytes = Encoding.UTF8.GetBytes(label);
+
+            VkUtf8ReadOnlyString vkString = new(bytes);
+
+            VkDebugUtilsLabelEXT labelInfo = new()
+            {
+                pLabelName = vkString
+            };
+
+            _instanceApi.vkCmdBeginDebugUtilsLabelEXT(commandBuffer, &labelInfo);
+#endif
+        }
+
+        public static void EndLabelCmd(VkCommandBuffer commandBuffer)
+        {
+#if DEBUG
+            _instanceApi.vkCmdEndDebugUtilsLabelEXT(commandBuffer);
+#endif
+        }
+
+        #endregion
         /// <summary>
         /// Cleans up the vulkan device and vulkan instance and Vma Allocator.
         /// </summary>

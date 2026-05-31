@@ -651,33 +651,6 @@ namespace VECS.LowLevel
 
         #endregion
 
-        #region Labels Events
-
-        public static void SetObjectName(VkObjectType objectType,ulong handle, string name)
-        {
-            InstanceAPI.vkSetDebugUtilsObjectNameEXT(Device, objectType, handle,string.Format("VK_{0}_{1}",objectType.ToString().ToUpper(), name));
-        }
-
-        public static unsafe void BeginLabelCmd(VkCommandBuffer commandBuffer,string label)
-        {
-            var bytes = Encoding.UTF8.GetBytes(label);
-
-            VkUtf8ReadOnlyString vkString = new(bytes);
-
-            VkDebugUtilsLabelEXT labelInfo = new()
-            {
-                pLabelName = vkString
-            };
-
-            GraphicsDevice.InstanceAPI.vkCmdBeginDebugUtilsLabelEXT(commandBuffer, &labelInfo);
-        }
-
-        public static void EndLabelCmd(VkCommandBuffer commandBuffer)
-        {
-            GraphicsDevice.InstanceAPI.vkCmdEndDebugUtilsLabelEXT(commandBuffer);
-        }
-
-        #endregion
 
         #region Validation and Debugging statics
         /// <summary>

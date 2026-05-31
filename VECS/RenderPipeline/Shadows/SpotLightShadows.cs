@@ -96,7 +96,7 @@ namespace VECS
 
         public void SpotLightShadowPass(in RendererFrameInfo frameInfo, int textureIndex, SpotLightUniform spotLight)
         {
-            GraphicsDeviceInit.BeginLabelCmd(frameInfo.CommandBuffer, string.Format("Spot {0} Light Shadow Pass", textureIndex));
+            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, string.Format("Spot {0} Light Shadow Pass", textureIndex));
             Texture2D texture = (Texture2D)_shadowDepthTextures.GetTexture(textureIndex);
 
             var mats = EngineBuffers.TryGetBuffer(matsPropertyId);
@@ -121,7 +121,7 @@ namespace VECS
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
 
             SetImageLayoutRead(frameInfo.CommandBuffer, texture);
-            GraphicsDeviceInit.EndLabelCmd(frameInfo.CommandBuffer);
+            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
         }
     }
 }

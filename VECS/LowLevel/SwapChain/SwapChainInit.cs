@@ -65,25 +65,13 @@ namespace VECS.LowLevel
             }
         }
 
-        private static unsafe void CreateTimelineSemaphores()
+        private static void CreateTimelineSemaphores()
         {
             SwapChain._timelineSemaphores = new TimelineSemaphore[SwapChain.MAX_CONCURRENT_FRAMES];
             
-            VkSemaphoreCreateInfo createInfo = new();
-            VkSemaphoreTypeCreateInfo typeCreateInfo = new()
-            {
-                semaphoreType = VkSemaphoreType.Timeline,
-                initialValue = 0
-            };
-            createInfo.pNext = &typeCreateInfo;
             for (int i = 0; i < SwapChain._timelineSemaphores.Length; i++)
             {
-                SwapChain._timelineSemaphores[i] = new()
-                {
-                    SemaphoreValue = 0
-                };
-
-                GraphicsDevice.DeviceAPI.vkCreateSemaphore(createInfo, null, out SwapChain._timelineSemaphores[i].Semaphore).CheckResult("Failed to create timeline semaphore!");
+                SwapChain._timelineSemaphores[i] = new(0);
             }
         }
 

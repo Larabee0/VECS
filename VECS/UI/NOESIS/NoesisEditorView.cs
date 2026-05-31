@@ -269,7 +269,7 @@ namespace VECS.UI
 
             if (_framesSinceLastRender < SwapChain.MAX_CONCURRENT_FRAMES + 1)
             {
-                GraphicsDeviceInit.BeginLabelCmd(frameInfo.CommandBuffer, "NOESIS Begin On-Screen Render");
+                GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "NOESIS Begin On-Screen Render");
                 Application.NoesisDriver.FormatHash = HashCode.Combine(RenderTargetTex2D.Format, VkFormat.S8Uint);
                 _framesSinceLastRender++;
                 NoesisHandler.NoesisDriver.SetRenderTarget(RenderTarget);
@@ -280,7 +280,7 @@ namespace VECS.UI
                 
                 NoesisHandler.NoesisDriver.EndTile(RenderTarget);
                 RenderTargetTex2D.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.FragmentShader);
-                GraphicsDeviceInit.EndLabelCmd(frameInfo.CommandBuffer);
+                GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
             }
 
             BlitToMain(frameInfo);
@@ -288,7 +288,7 @@ namespace VECS.UI
 
         public unsafe void BlitToMain(RendererFrameInfo frameInfo)
         {
-            GraphicsDeviceInit.BeginLabelCmd(frameInfo.CommandBuffer, "NOESIS Blit to Main");
+            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "NOESIS Blit to Main");
             var _outputTarget = EngineTextures.TryGetTexture(ShaderProperties.MainColourAttachmentId).First;
 
             if (RenderTargetTex2D.ImageLayout == VkImageLayout.ColorAttachmentOptimal)
@@ -353,7 +353,7 @@ namespace VECS.UI
                 }
             }
 
-            GraphicsDeviceInit.EndLabelCmd(frameInfo.CommandBuffer);
+            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
         }
 
         public override void OnDestroy(EntityManager entityManager)

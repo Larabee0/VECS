@@ -214,7 +214,7 @@ namespace VECS
 
         public unsafe void DirectionalShadowPass(in RendererFrameInfo frameInfo, DirectionalLightUniform dirUniform)
         {
-            GraphicsDeviceInit.BeginLabelCmd(frameInfo.CommandBuffer, "Directional Light Shadow Pass");
+            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Directional Light Shadow Pass");
             Texture2DArray arrayTex = (Texture2DArray)_shadowDepthTextures.First;
             arrayTex.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.DepthAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.EarlyFragmentTests);
 
@@ -239,7 +239,7 @@ namespace VECS
 
             for (int i = 0; i < Math.Min(MAX_CASCADE_COUNT,dirUniform.CascadeCount); i++)
             {
-                GraphicsDeviceInit.BeginLabelCmd(frameInfo.CommandBuffer, string.Format("Cascade {0}", i));
+                GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, string.Format("Cascade {0}", i));
                 depth.imageView = arrayTex.AdditionalImageViews[i];
                 depthBufferCullInfo = new(
                     SHADOW_INCLUDE_MASK,
@@ -261,10 +261,10 @@ namespace VECS
 
                 DrawBlob.ExecutateDepthOnly(frameInfo, frameInfo.CommandBuffer, DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, VkCullModeFlags.Front);
                 GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
-                GraphicsDeviceInit.EndLabelCmd(frameInfo.CommandBuffer);
+                GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
             }
             arrayTex.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.LateFragmentTests, VkPipelineStageFlags2.FragmentShader);
-            GraphicsDeviceInit.EndLabelCmd(frameInfo.CommandBuffer);
+            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
         }
     }
 }

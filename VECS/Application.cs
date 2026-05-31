@@ -409,6 +409,7 @@ namespace VECS
             GPUBufferExtensions.Reset();
             TextureExtensions.Reset();
             ShaderCache.Dispose();
+            AuxiliaryCommandBufferManager.CleanUp();
             GraphicsDevice.Dispose();
             SDL3WindowManager.CleanUp();
         }

@@ -44,13 +44,7 @@ namespace VECS
             bool newSwapchain,
             VkCommandBuffer commandBuffer,
             CullData cullData,
-            LightingInfo lightingInfo)//,
-            //BufferMAXCAMS<CameraInfo> cameraInfo,
-            //BufferMAXCAMS<CameraInverseInfo> cameraInverseInfo,
-            //BufferMAXCAMS<AdditionalCameraInfo> additionalCameraInfo,
-            //BufferMAXCAMS<OrthographicInfo> orthographicInfo,
-            //BufferMAXLIGHTS<PointLightUniform> pointLights,
-            //BufferMAXLIGHTS<SpotLightUniform> spotLights)
+            LightingInfo lightingInfo)
         {
             FrameIndex = frameIndex;
             CameraCount = cameraCount;
@@ -62,13 +56,6 @@ namespace VECS
             CommandBuffer = commandBuffer;
             CullData = cullData;
             LightingInfo = lightingInfo;
-
-            //CameraInfo = cameraInfo;
-            //CameraInverseInfo = cameraInverseInfo;
-            //AdditionalCameraInfo = additionalCameraInfo;
-            //OrthographicInfo = orthographicInfo;
-            //PointLights = pointLights;
-            //SpotLights = spotLights;
         }
 
         public static bool operator ==(RendererFrameInfo left, RendererFrameInfo right)

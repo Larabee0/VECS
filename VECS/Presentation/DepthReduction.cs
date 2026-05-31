@@ -87,7 +87,7 @@ namespace VECS
                 createInfo.subresourceRange.levelCount = 1;
                 createInfo.subresourceRange.baseMipLevel = i;
                 GraphicsDevice.DeviceAPI.vkCreateImageView(createInfo, out _additionalViews[i]);
-                GraphicsDeviceInit.SetObjectName(VkObjectType.ImageView, _additionalViews[i].Handle,string.Format("DepthReductionAdd_{0}",i));
+                GraphicsDevice.SetObjectName(VkObjectType.ImageView, _additionalViews[i].Handle,string.Format("DepthReductionAdd_{0}",i));
                 _dstImages[i] = new VkDescriptorImageInfo()
                 {
                     imageLayout = VkImageLayout.General,

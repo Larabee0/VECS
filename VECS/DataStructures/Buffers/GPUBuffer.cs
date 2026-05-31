@@ -191,7 +191,7 @@ namespace VECS
 
         public void SetDebugName(string name)
         {
-            GraphicsDeviceInit.SetObjectName(VkObjectType.Buffer,VkBuffer.Handle, name);
+            GraphicsDevice.SetObjectName(VkObjectType.Buffer,VkBuffer.Handle, name);
         }
 
         public unsafe void Dispose()

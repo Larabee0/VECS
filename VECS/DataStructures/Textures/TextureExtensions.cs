@@ -269,7 +269,7 @@ namespace VECS
             }
 
             GraphicsDevice.DeviceAPI.vkCreateImageView(createInfo, null, out texture._imageView).CheckResult( "Create Image View failed!");
-            GraphicsDeviceInit.SetObjectName(VkObjectType.ImageView, texture._imageView.Handle, string.Format("{0}_{1}",texture.GetTextureTypeName(), texture.AssetName));
+            GraphicsDevice.SetObjectName(VkObjectType.ImageView, texture._imageView.Handle, string.Format("{0}_{1}",texture.GetTextureTypeName(), texture.AssetName));
         }
 
         public static string GetTextureTypeName(this Texture texture)
@@ -321,7 +321,7 @@ namespace VECS
 
             GraphicsDevice.DeviceAPI.vkGetImageMemoryRequirements(texture._vkImage, out var requirements);
             texture._vkBufferSizeRequirement = requirements.size;
-            GraphicsDeviceInit.SetObjectName(VkObjectType.Image, texture._vkImage.Handle, texture.AssetName);
+            GraphicsDevice.SetObjectName(VkObjectType.Image, texture._vkImage.Handle, texture.AssetName);
         }
         #endregion
         

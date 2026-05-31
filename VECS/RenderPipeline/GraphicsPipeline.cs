@@ -208,7 +208,7 @@ namespace VECS
                 var setBindings = GPUPipelineUtil.ExtractBindingsForSetAsBindingArray(setIndex, descriptorSetBindings);
                 var layout = GPUPipelineUtil.CreateDescriptorSetLayout(setBindings, VkDescriptorSetLayoutCreateFlags.DescriptorBufferEXT);
 
-                GraphicsDeviceInit.SetObjectName(VkObjectType.DescriptorSetLayout, layout.Handle, string.Format("{0}_Set_{1}", AssetName, setIndex));
+                GraphicsDevice.SetObjectName(VkObjectType.DescriptorSetLayout, layout.Handle, string.Format("{0}_Set_{1}", AssetName, setIndex));
                 _descriptorSetLayouts[setIndex] = layout;
                 bool preventStorageBufferAllocation = _meshShaderDescriptorSetIndex == setIndex; // || _oitDescriptorSetIndex == setIndex;
                 var setInfo = new DescriptorSetInfo(layout, setBindings, preventStorageBufferAllocation, _uniformBufferSize, 1, _meshShaderDescriptorSetIndex == setIndex);
@@ -226,7 +226,7 @@ namespace VECS
 
         private unsafe void CreateDefault()
         {
-            GraphicsDeviceInit.SetObjectName(VkObjectType.Pipeline, _graphicsPipeline.Handle, AssetName);
+            GraphicsDevice.SetObjectName(VkObjectType.Pipeline, _graphicsPipeline.Handle, AssetName);
             _matVariants = [new Material("Default", this,false)];
             _variantsToAdd.TryDequeue(out var material);
 

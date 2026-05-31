@@ -221,7 +221,7 @@ namespace VECS.UI
         {
             if (surface is NoesisRenderTarget renderTarget)
             {
-                GraphicsDeviceInit.BeginLabelCmd(CurrentCommandBuffer,string.Format("Render Tile {0}",renderTarget.Colour.Texture.AssetName));
+                GraphicsDevice.BeginLabelCmd(CurrentCommandBuffer,string.Format("Render Tile {0}",renderTarget.Colour.Texture.AssetName));
                 VkRect2D renderArea;
                 renderArea.offset.x = (int)tile.X;
                 renderArea.offset.y = (int)renderTarget.Colour.Height - ((int)tile.Y + (int)tile.Height);
@@ -313,7 +313,7 @@ namespace VECS.UI
         public override void EndTile(Noesis.RenderTarget surface)
         {
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(CurrentCommandBuffer);
-            GraphicsDeviceInit.EndLabelCmd(CurrentCommandBuffer);
+            GraphicsDevice.EndLabelCmd(CurrentCommandBuffer);
             
         }
 
@@ -927,7 +927,7 @@ namespace VECS.UI
 
         public override unsafe void BeginOffscreenRender()
         {
-            GraphicsDeviceInit.BeginLabelCmd(CurrentCommandBuffer, "NOESIS Begin Off-Screen Render");
+            GraphicsDevice.BeginLabelCmd(CurrentCommandBuffer, "NOESIS Begin Off-Screen Render");
         }
 
         public override void BeginOnscreenRender()
@@ -937,7 +937,7 @@ namespace VECS.UI
         public override void EndOffscreenRender()
         {
             drawPos++;
-            GraphicsDeviceInit.EndLabelCmd(CurrentCommandBuffer);
+            GraphicsDevice.EndLabelCmd(CurrentCommandBuffer);
         }
 
         public override void EndOnscreenRender()

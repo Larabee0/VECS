@@ -138,28 +138,28 @@ namespace VECS
         public unsafe void RenderBloomObjects(RendererFrameInfo frameInfo)
         {
             // copy forward output into glow texture
-            GraphicsDeviceInit.BeginLabelCmd(frameInfo.CommandBuffer, "Blit From Bright Objects");
+            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Blit From Bright Objects");
             _glowTexture.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.TransferDstOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.Blit);
 
             BlitFromBrightObjects(frameInfo.CommandBuffer, _glowTexture.VkImage, FRAME_BUFFER_DIMENTIONS_X, FRAME_BUFFER_DIMENTIONS_Y, VkImageAspectFlags.Color);
 
             _glowTexture.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.ColorAttachmentOutput);
-            GraphicsDeviceInit.EndLabelCmd(frameInfo.CommandBuffer);
+            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
 
 
             //blur glow, store in blur texture
-            GraphicsDeviceInit.BeginLabelCmd(frameInfo.CommandBuffer, "Blur Vertical");
+            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Blur Vertical");
             BlurVertical(frameInfo);
-            GraphicsDeviceInit.EndLabelCmd(frameInfo.CommandBuffer);
+            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
 
-            GraphicsDeviceInit.BeginLabelCmd(frameInfo.CommandBuffer, "Blur Horizontal & Output");
+            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Blur Horizontal & Output");
             // blur horizontal store in forward output
             _activeRenderer.StartMainColourRendering(frameInfo, VkAttachmentLoadOp.Load);
 
             BlurHorizontal(frameInfo);
 
             _activeRenderer.EndMainColourRendering(frameInfo);
-            GraphicsDeviceInit.EndLabelCmd(frameInfo.CommandBuffer);
+            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
         }
 
         private unsafe void BlurVertical(RendererFrameInfo frameInfo)

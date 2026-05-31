@@ -125,7 +125,9 @@ namespace VECS
 
         public static unsafe void Generate_BRDFLUT(RendererFrameInfo frameInfo)
         {
-            BRDFLUT_Texture.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
+            var commandBuffer = AuxiliaryCommandBufferManager.Record();
+            
+            BRDFLUT_Texture.SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
 
             VkRenderingAttachmentInfo colourAttachments = new()
             {
@@ -147,22 +149,28 @@ namespace VECS
             VkViewport viewport = new(0, 0, BRDFLUT_DIMENTIONS, BRDFLUT_DIMENTIONS, 0.0f, 1.0f);
             VkRect2D scissor = new(0, 0, BRDFLUT_DIMENTIONS, BRDFLUT_DIMENTIONS);
 
-            GraphicsDevice.DeviceAPI.vkCmdBeginRendering(frameInfo.CommandBuffer, &renderingInfo);
+            GraphicsDevice.DeviceAPI.vkCmdBeginRendering(commandBuffer, &renderingInfo);
 
 
-            GraphicsDevice.DeviceAPI.vkCmdSetViewport(frameInfo.CommandBuffer, 0, viewport);
-            GraphicsDevice.DeviceAPI.vkCmdSetScissor(frameInfo.CommandBuffer, 0, scissor);
+            GraphicsDevice.DeviceAPI.vkCmdSetViewport(commandBuffer, 0, viewport);
+            GraphicsDevice.DeviceAPI.vkCmdSetScissor(commandBuffer, 0, scissor);
 
-            BRDFLUT_Generator.Default().Bind(frameInfo);
-            GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
+            BRDFLUT_Generator.Default().Bind(new(frameInfo.FrameIndex, frameInfo.CameraCount, frameInfo.MainCamera, frameInfo.DeltaTime, frameInfo.NewSwapChain, commandBuffer, frameInfo.CullData, frameInfo.LightingInfo));
+            GraphicsDevice.DeviceAPI.vkCmdDraw(commandBuffer, 3, 1, 0, 0);
 
-            GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
-            BRDFLUT_Texture.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.FragmentShader);
+            GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
+            BRDFLUT_Texture.SetImageLayout(commandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.FragmentShader);
+
+            AuxiliaryCommandBufferManager.Submit();
         }
 
         public static unsafe void Generate_Irradiance(RendererFrameInfo frameInfo)
         {
-            Irradiance_Cubemap.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
+            var commandBuffer = AuxiliaryCommandBufferManager.Record();
+
+            frameInfo = new(frameInfo.FrameIndex, frameInfo.CameraCount, frameInfo.MainCamera, frameInfo.DeltaTime, frameInfo.NewSwapChain, commandBuffer, frameInfo.CullData, frameInfo.LightingInfo);
+
+            Irradiance_Cubemap.SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
 
             VkRenderingAttachmentInfo colourAttachments = new()
             {
@@ -209,24 +217,27 @@ namespace VECS
             for (int i = 0; i < 6; i++)
             {
                 colourAttachments.imageView = Irradiance_Cubemap.FaceImageViews[i];
-                GraphicsDevice.DeviceAPI.vkCmdBeginRendering(frameInfo.CommandBuffer, &renderingInfo);
-                GraphicsDevice.DeviceAPI.vkCmdSetViewport(frameInfo.CommandBuffer, 0, viewport);
-                GraphicsDevice.DeviceAPI.vkCmdSetScissor(frameInfo.CommandBuffer, 0, scissor);
+                GraphicsDevice.DeviceAPI.vkCmdBeginRendering(commandBuffer, &renderingInfo);
+                GraphicsDevice.DeviceAPI.vkCmdSetViewport(commandBuffer, 0, viewport);
+                GraphicsDevice.DeviceAPI.vkCmdSetScissor(commandBuffer, 0, scissor);
 
                 Irradiance_Generator.PushConstants.SetPushConstantMatrix4x4("mvp", 0, matrices[i] * persectve);
                 Irradiance_Generator.BindAll(frameInfo, 0);
-                Skybox._cube.SimpleBindAndDraw(frameInfo.CommandBuffer);
+                Skybox._cube.SimpleBindAndDraw(commandBuffer);
 
-                GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
+                GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
             }
-            Irradiance_Cubemap.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.FragmentShader);
+            Irradiance_Cubemap.SetImageLayout(commandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.FragmentShader);
 
-            Irradiance_Cubemap.RegenerateMipMaps(frameInfo.CommandBuffer);
+            Irradiance_Cubemap.RegenerateMipMaps(commandBuffer);
+            AuxiliaryCommandBufferManager.Submit();
         }
 
         public static unsafe void Generate_Prefiltered_Cubemap(RendererFrameInfo frameInfo)
         {
-            Prefiltered_Cubemap.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
+            var commandBuffer = AuxiliaryCommandBufferManager.Record();
+            frameInfo = new(frameInfo.FrameIndex, frameInfo.CameraCount, frameInfo.MainCamera, frameInfo.DeltaTime, frameInfo.NewSwapChain, commandBuffer, frameInfo.CullData, frameInfo.LightingInfo);
+            Prefiltered_Cubemap.SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
 
             VkRenderingAttachmentInfo colourAttachments = new()
             {
@@ -273,19 +284,20 @@ namespace VECS
             for (int i = 0; i < 6; i++)
             {
                 colourAttachments.imageView = Prefiltered_Cubemap.FaceImageViews[i];
-                GraphicsDevice.DeviceAPI.vkCmdBeginRendering(frameInfo.CommandBuffer, &renderingInfo);
-                GraphicsDevice.DeviceAPI.vkCmdSetViewport(frameInfo.CommandBuffer, 0, viewport);
-                GraphicsDevice.DeviceAPI.vkCmdSetScissor(frameInfo.CommandBuffer, 0, scissor);
+                GraphicsDevice.DeviceAPI.vkCmdBeginRendering(commandBuffer, &renderingInfo);
+                GraphicsDevice.DeviceAPI.vkCmdSetViewport(commandBuffer, 0, viewport);
+                GraphicsDevice.DeviceAPI.vkCmdSetScissor(commandBuffer, 0, scissor);
 
                 Prefiltered_Generator.PushConstants.SetPushConstantMatrix4x4("mvp", 0, matrices[i] * persectve);
                 Prefiltered_Generator.BindAll(frameInfo, 0);
-                Skybox._cube.SimpleBindAndDraw(frameInfo.CommandBuffer);
+                Skybox._cube.SimpleBindAndDraw(commandBuffer);
 
-                GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
+                GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
             }
-            Prefiltered_Cubemap.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.FragmentShader);
+            Prefiltered_Cubemap.SetImageLayout(commandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.FragmentShader);
 
-            Prefiltered_Cubemap.RegenerateMipMaps(frameInfo.CommandBuffer);
+            Prefiltered_Cubemap.RegenerateMipMaps(commandBuffer);
+            AuxiliaryCommandBufferManager.Submit();
         }
     }
 }
