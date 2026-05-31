@@ -1,6 +1,7 @@
-﻿using System.Numerics;
+﻿using BCnEncoder.Shared.ImageFiles;
+using System.IO;
+using System.Numerics;
 using VECS.LowLevel;
-using VECS.SMAATextures;
 using Vortice.Vulkan;
 
 namespace VECS
@@ -24,14 +25,30 @@ namespace VECS
 
         private bool _smaaEnabled = true;
 
+        private static Texture2D DirectKTXLoad(string filePath)
+        {
+            if (!File.Exists(filePath))
+            {
+                return null;
+            }
+
+            var fileStream = File.OpenRead(filePath);
+            var ktxFile = KtxFile.Load(fileStream);
+            fileStream.Close();
+
+            var tex = new Texture2D(Path.GetFileNameWithoutExtension(filePath), (int)ktxFile.header.PixelWidth, (int)ktxFile.header.PixelHeight, ktxFile.header.GlInternalFormat.GetVkFormat(), VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled, false);
+
+            tex.CopyFromArray(ktxFile.MipMaps[0].Faces[0].Data);
+
+            return tex;
+        }
+
         public SMAA(IRenderer activeRenderer)
         {
             ActiveRenderer = activeRenderer;
-            SearchTexture = new Texture2D("SMAA_Search", SMAASearchTexture.SEARCHTEX_WIDTH, SMAASearchTexture.SEARCHTEX_HEIGHT, SMAASearchTexture.SEARCHTEX_FORMAT, VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled, false);
-            AreaTexture = new Texture2D("SMAA_Area", SMAAAreaTexture.AREATEX_WIDTH, SMAAAreaTexture.AREATEX_HEIGHT, SMAAAreaTexture.AREATEX_FORMAT, VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled, false);
 
-            SearchTexture.CopyFromArray(SMAASearchTexture.SearchTexBytes);
-            AreaTexture.CopyFromArray(SMAAAreaTexture.AreaTexBytes);
+            SearchTexture = DirectKTXLoad(Path.Combine(TextureLoader.DefaultTexturePath, "SearchTex.ktx"));
+            AreaTexture = DirectKTXLoad(Path.Combine(TextureLoader.DefaultTexturePath, "AreaTex.ktx"));
 
             SearchTexture.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.Transfer, VkPipelineStageFlags2.FragmentShader);
             AreaTexture.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.Transfer, VkPipelineStageFlags2.FragmentShader);

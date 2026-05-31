@@ -46,228 +46,6 @@ namespace VECS
             }
         }
 
-        public static bool IsCompressedFormat(this VkFormat format)
-        {
-            return format switch
-            {
-                VkFormat.Bc1RgbUnormBlock => true,
-                VkFormat.Bc1RgbaUnormBlock => true,
-                VkFormat.Bc2UnormBlock => true,
-                VkFormat.Bc3UnormBlock => true,
-                VkFormat.Bc4UnormBlock => true,
-                VkFormat.Bc5UnormBlock => true,
-                VkFormat.Bc6hUfloatBlock => true,
-                VkFormat.Bc6hSfloatBlock => true,
-                VkFormat.Bc7UnormBlock => true,
-                _ => false
-            };
-        }
-
-        public static VkFormat GetUncompressedFormat(this VkFormat format)
-        {
-            return format switch
-            {
-                VkFormat.Bc1RgbUnormBlock => VkFormat.R8G8B8Unorm,
-                VkFormat.Bc1RgbaUnormBlock => VkFormat.R8G8B8A8Unorm,
-                VkFormat.Bc2UnormBlock => VkFormat.R8G8B8A8Unorm,
-                VkFormat.Bc3UnormBlock => VkFormat.R8G8B8A8Unorm,
-                VkFormat.Bc4UnormBlock => VkFormat.R8Unorm,
-                VkFormat.Bc5UnormBlock => VkFormat.R8G8Unorm,
-                VkFormat.Bc6hUfloatBlock => VkFormat.R8G8B8Unorm,
-                VkFormat.Bc6hSfloatBlock => VkFormat.R8G8B8Snorm,
-                VkFormat.Bc7UnormBlock => VkFormat.R8G8B8A8Unorm,
-                _ => format
-            };
-        }
-
-        public static VkFormat GetVkFormat(this CompressionFormat compressionFormat)
-        {
-            return compressionFormat switch
-            {
-                CompressionFormat.R => VkFormat.R8Unorm,
-                CompressionFormat.Rg => VkFormat.R8G8Unorm,
-                CompressionFormat.Rgb => VkFormat.R8G8B8Unorm,
-                CompressionFormat.Rgba => VkFormat.R8G8B8A8Unorm,
-                CompressionFormat.Bgra => VkFormat.B8G8R8A8Unorm,
-                CompressionFormat.Bc1 => VkFormat.Bc1RgbUnormBlock,
-                CompressionFormat.Bc1WithAlpha => VkFormat.Bc1RgbaUnormBlock,
-                CompressionFormat.Bc2 => VkFormat.Bc2UnormBlock,
-                CompressionFormat.Bc3 => VkFormat.Bc3UnormBlock,
-                CompressionFormat.Bc4 => VkFormat.Bc4UnormBlock,
-                CompressionFormat.Bc5 => VkFormat.Bc5UnormBlock,
-                CompressionFormat.Bc6U => VkFormat.Bc6hUfloatBlock,
-                CompressionFormat.Bc6S => VkFormat.Bc6hSfloatBlock,
-                CompressionFormat.Bc7 => VkFormat.Bc7UnormBlock,
-                _ => throw new NotImplementedException(string.Format("Texture format {0} not supported by vulkan!", compressionFormat))
-
-            };
-        }
-
-        public static CompressionFormat GetCompressionFormat(this VkFormat vkFormat)
-        {
-            return vkFormat switch
-            {
-                VkFormat.R8Unorm => CompressionFormat.R,
-                VkFormat.R8G8Unorm => CompressionFormat.Rg,
-                VkFormat.R8G8B8Unorm => CompressionFormat.Rgb,
-                VkFormat.R8G8B8A8Unorm => CompressionFormat.Rgba,
-                VkFormat.B8G8R8A8Unorm => CompressionFormat.Bgra,
-                VkFormat.Bc1RgbUnormBlock => CompressionFormat.Bc1,
-                VkFormat.Bc1RgbaUnormBlock => CompressionFormat.Bc1WithAlpha,
-                VkFormat.Bc2UnormBlock => CompressionFormat.Bc2,
-                VkFormat.Bc3UnormBlock => CompressionFormat.Bc3,
-                VkFormat.Bc4UnormBlock => CompressionFormat.Bc4,
-                VkFormat.Bc5UnormBlock => CompressionFormat.Bc5,
-                VkFormat.Bc6hUfloatBlock => CompressionFormat.Bc6U,
-                VkFormat.Bc6hSfloatBlock => CompressionFormat.Bc6S,
-                VkFormat.Bc7UnormBlock => CompressionFormat.Bc7,
-                _ => throw new NotImplementedException(string.Format("Texture format {0} not supported by vulkan!", vkFormat))
-            };
-        }
-
-        public static VkFormat GetVkFormat(this GlInternalFormat glInternalFormat)
-        {
-            return glInternalFormat switch
-            {
-                // Colour
-                GlInternalFormat.GlRgba4 => VkFormat.R4G4B4A4UnormPack16,
-                GlInternalFormat.GlRgb5 => throw new NotImplementedException("Format not supported by Vulkan"),
-                GlInternalFormat.GlRgb565 => VkFormat.R5G6B5UnormPack16,
-                GlInternalFormat.GlRgba8 => VkFormat.R8G8B8A8Unorm,
-                GlInternalFormat.GlRgb5A1 => VkFormat.R5G5B5A1UnormPack16,
-                GlInternalFormat.GlRgba16 => VkFormat.R16G16B16A16Unorm,
-                GlInternalFormat.GlR8 => VkFormat.R8Unorm,
-                GlInternalFormat.GlRg8 => VkFormat.R8G8Unorm,
-                GlInternalFormat.GlRg16 => VkFormat.R16G16Unorm,
-                GlInternalFormat.GlR16F => VkFormat.R16Sfloat,
-                GlInternalFormat.GlR32F => VkFormat.R32Sfloat,
-                GlInternalFormat.GlRg16F => VkFormat.R16G16Sfloat,
-                GlInternalFormat.GlRg32F => VkFormat.R32G32Sfloat,
-                GlInternalFormat.GlRgba32F => VkFormat.R32G32B32A32Sfloat,
-                GlInternalFormat.GlRgba16F => VkFormat.R16G16B16A16Sfloat,
-                GlInternalFormat.GlR8Ui => VkFormat.R8Uint,
-                GlInternalFormat.GlR8I => VkFormat.R8Sint,
-                GlInternalFormat.GlR16 => VkFormat.R16Unorm,
-                GlInternalFormat.GlR16I => VkFormat.R16Sint,
-                GlInternalFormat.GlR16Ui => VkFormat.R16Uint,
-                GlInternalFormat.GlR32I => VkFormat.R32Sint,
-                GlInternalFormat.GlR32Ui => VkFormat.R32Uint,
-                GlInternalFormat.GlRg8I => VkFormat.R8G8Sint,
-                GlInternalFormat.GlRg8Ui => VkFormat.R8G8Uint,
-                GlInternalFormat.GlRg16I => VkFormat.R16G16Sint,
-                GlInternalFormat.GlRg16Ui => VkFormat.R16G16Uint,
-                GlInternalFormat.GlRg32I => VkFormat.R32G32Sint,
-                GlInternalFormat.GlRg32Ui => VkFormat.R32G32Uint,
-                GlInternalFormat.GlRgb8 => VkFormat.R8G8B8Unorm,
-                GlInternalFormat.GlRgb8I => VkFormat.R8G8B8Sint,
-                GlInternalFormat.GlRgb8Ui => VkFormat.R8G8B8Uint,
-                GlInternalFormat.GlRgba12 => VkFormat.R12X4G12X4B12X4A12X4Unorm4Pack16,
-                GlInternalFormat.GlRgba2 => VkFormat.R14X2G14X2B14X2A14X2Unorm4Pack16ARM,
-                GlInternalFormat.GlRgba8I => VkFormat.R8G8B8A8Sint,
-                GlInternalFormat.GlRgba8Ui => VkFormat.R8G8B8A8Uint,
-                GlInternalFormat.GlRgba16I => VkFormat.R16G16B16A16Sint,
-                GlInternalFormat.GlRgba16Ui => VkFormat.R16G16B16A16Uint,
-                GlInternalFormat.GlRgba32I => VkFormat.R32G32B32A32Sint,
-                GlInternalFormat.GlRgba32Ui => VkFormat.R32G32B32A32Uint,
-                GlInternalFormat.GlR8Snorm => VkFormat.R8Snorm,
-                GlInternalFormat.GlRg8Snorm => VkFormat.R8G8Snorm,
-                GlInternalFormat.GlRgb8Snorm => VkFormat.R8G8B8Snorm,
-                GlInternalFormat.GlRgba8Snorm => VkFormat.R8G8B8A8Snorm,
-                GlInternalFormat.GlR16Snorm => VkFormat.R16Snorm,
-                GlInternalFormat.GlRg16Snorm => VkFormat.R16G16Snorm,
-                GlInternalFormat.GlRgb16Snorm => VkFormat.R16G16B16Snorm,
-                GlInternalFormat.GlRgba16Snorm => VkFormat.R16G16B16A16Snorm,
-                GlInternalFormat.GlRgb10A2 => VkFormat.A2R10G10B10UnormPack32,
-                GlInternalFormat.GlRgb10A2Ui => VkFormat.A2R10G10B10UintPack32,
-                GlInternalFormat.GlRgb16 => VkFormat.R16G16B16Unorm,
-                GlInternalFormat.GlRgb16F => VkFormat.R16G16B16Sfloat,
-                GlInternalFormat.GlRgb16I => VkFormat.R16G16B16Sint,
-                GlInternalFormat.GlRgb16Ui => VkFormat.R16G16B16Uint,
-                GlInternalFormat.GlRgb32F => VkFormat.R32G32B32Sfloat,
-                GlInternalFormat.GlRgb32I => VkFormat.R32G32B32Sint,
-                GlInternalFormat.GlRgb32Ui => VkFormat.R32G32B32Uint,
-                // apple??
-                GlInternalFormat.GlBgra8Extension => VkFormat.B8G8R8A8Unorm,
-                // BCn
-                GlInternalFormat.GlCompressedRgbS3TcDxt1Ext => VkFormat.Bc1RgbUnormBlock, // BC1
-                GlInternalFormat.GlCompressedSrgbS3TcDxt1Ext => VkFormat.Bc1RgbSrgbBlock, // BC1
-                GlInternalFormat.GlCompressedRgbaS3TcDxt1Ext => VkFormat.Bc1RgbaUnormBlock, // BC1
-                GlInternalFormat.GlCompressedSrgbAlphaS3TcDxt1Ext => VkFormat.Bc1RgbaSrgbBlock, // BC1
-                GlInternalFormat.GlCompressedRgbaS3TcDxt3Ext => VkFormat.Bc2UnormBlock, // BC2
-                GlInternalFormat.GlCompressedSrgbAlphaS3TcDxt3Ext => VkFormat.Bc2SrgbBlock, // BC2
-                GlInternalFormat.GlCompressedRgbaS3TcDxt5Ext => VkFormat.Bc3UnormBlock, // BC3
-                GlInternalFormat.GlCompressedSrgbAlphaS3TcDxt5Ext => VkFormat.Bc3SrgbBlock, // BC3
-                GlInternalFormat.GlCompressedRedGreenRgtc2Ext => VkFormat.Bc5UnormBlock, // BC5
-                GlInternalFormat.GlCompressedRedRgtc1Ext => VkFormat.Bc4UnormBlock, // BC4
-                GlInternalFormat.GlCompressedSignedRedGreenRgtc2Ext => VkFormat.Bc5SnormBlock, //  BC5
-                GlInternalFormat.GlCompressedSignedRedRgtc1Ext => VkFormat.Bc4SnormBlock, // BC4
-                GlInternalFormat.GlCompressedRgbBptcSignedFloatArb => VkFormat.Bc6hSfloatBlock, // BC6 Sfloat
-                GlInternalFormat.GlCompressedRgbBptcUnsignedFloatArb => VkFormat.Bc6hUfloatBlock, // BC6 Ufloat
-                GlInternalFormat.GlCompressedRgbaBptcUnormArb => VkFormat.Bc7UnormBlock, // BC7 rgba Unorm
-                GlInternalFormat.GlCompressedSrgbAlphaBptcUnormArb => VkFormat.Bc7SrgbBlock, // BC7 SRGBa
-                
-                // Depth/Stencil
-                GlInternalFormat.GlDepthComponent16 => VkFormat.D16Unorm,
-                GlInternalFormat.GlDepthComponent24 => VkFormat.X8D24UnormPack32,
-                GlInternalFormat.GlDepthComponent32F => VkFormat.D32Sfloat,
-                GlInternalFormat.GlStencilIndex8 => VkFormat.S8Uint,
-                GlInternalFormat.GlDepth24Stencil8 => VkFormat.D24UnormS8Uint,
-                GlInternalFormat.GlDepth32FStencil8 => VkFormat.D32SfloatS8Uint,
-
-                // ATC
-                GlInternalFormat.GlCompressedRgbAtc => throw new NotImplementedException("Format not supported by Vulkan"),
-                GlInternalFormat.GlCompressedRgbaAtcExplicitAlpha => throw new NotImplementedException("Format not supported by Vulkan"),
-                GlInternalFormat.GlCompressedRgbaAtcInterpolatedAlpha => throw new NotImplementedException("Format not supported by Vulkan"),
-
-                // Eac
-                GlInternalFormat.GlCompressedR11Eac => VkFormat.EacR11UnormBlock,
-                GlInternalFormat.GlCompressedSignedR11Eac => VkFormat.EacR11SnormBlock,
-                GlInternalFormat.GlCompressedRg11Eac => VkFormat.EacR11G11UnormBlock,
-                GlInternalFormat.GlCompressedSignedRg11Eac => VkFormat.EacR11G11SnormBlock,
-
-                // ETC2
-                GlInternalFormat.GlCompressedRgb8Etc2 => VkFormat.Etc2R8G8B8UnormBlock,
-                GlInternalFormat.GlCompressedSrgb8Etc2 => VkFormat.Etc2R8G8B8SrgbBlock,
-                GlInternalFormat.GlCompressedRgb8PunchthroughAlpha1Etc2 => VkFormat.Etc2R8G8B8A1UnormBlock,
-                GlInternalFormat.GlCompressedSrgb8PunchthroughAlpha1Etc2 => VkFormat.Etc2R8G8B8A1SrgbBlock,
-                GlInternalFormat.GlCompressedRgba8Etc2Eac => VkFormat.Etc2R8G8B8A8UnormBlock,
-                GlInternalFormat.GlCompressedSrgb8Alpha8Etc2Eac => VkFormat.Etc2R8G8B8A8SrgbBlock,
-                
-                // Astc Unorm??
-                GlInternalFormat.GlCompressedRgbaAstc4X4Khr => VkFormat.Astc4x4UnormBlock,
-                GlInternalFormat.GlCompressedRgbaAstc5X4Khr => VkFormat.Astc5x4UnormBlock,
-                GlInternalFormat.GlCompressedRgbaAstc5X5Khr => VkFormat.Astc5x5UnormBlock,
-                GlInternalFormat.GlCompressedRgbaAstc6X5Khr => VkFormat.Astc6x5UnormBlock,
-                GlInternalFormat.GlCompressedRgbaAstc6X6Khr => VkFormat.Astc6x6UnormBlock,
-                GlInternalFormat.GlCompressedRgbaAstc8X5Khr => VkFormat.Astc8x5UnormBlock,
-                GlInternalFormat.GlCompressedRgbaAstc8X6Khr => VkFormat.Astc8x6UnormBlock,
-                GlInternalFormat.GlCompressedRgbaAstc8X8Khr => VkFormat.Astc8x8UnormBlock,
-                GlInternalFormat.GlCompressedRgbaAstc10X5Khr => VkFormat.Astc10x5UnormBlock,
-                GlInternalFormat.GlCompressedRgbaAstc10X6Khr => VkFormat.Astc10x6UnormBlock,
-                GlInternalFormat.GlCompressedRgbaAstc10X8Khr => VkFormat.Astc10x8UnormBlock,
-                GlInternalFormat.GlCompressedRgbaAstc10X10Khr => VkFormat.Astc10x10UnormBlock,
-                GlInternalFormat.GlCompressedRgbaAstc12X10Khr => VkFormat.Astc12x10UnormBlock,
-                GlInternalFormat.GlCompressedRgbaAstc12X12Khr => VkFormat.Astc12x12UnormBlock,
-
-                // Astc sRGB
-                GlInternalFormat.GlCompressedSrgb8Alpha8Astc4X4Khr => VkFormat.Astc4x4SrgbBlock,
-                GlInternalFormat.GlCompressedSrgb8Alpha8Astc5X4Khr => VkFormat.Astc5x4SrgbBlock,
-                GlInternalFormat.GlCompressedSrgb8Alpha8Astc5X5Khr => VkFormat.Astc5x5SrgbBlock,
-                GlInternalFormat.GlCompressedSrgb8Alpha8Astc6X5Khr => VkFormat.Astc6x5SrgbBlock,
-                GlInternalFormat.GlCompressedSrgb8Alpha8Astc6X6Khr => VkFormat.Astc6x6SrgbBlock,
-                GlInternalFormat.GlCompressedSrgb8Alpha8Astc8X5Khr => VkFormat.Astc8x5SrgbBlock,
-                GlInternalFormat.GlCompressedSrgb8Alpha8Astc8X6Khr => VkFormat.Astc8x6SrgbBlock,
-                GlInternalFormat.GlCompressedSrgb8Alpha8Astc8X8Khr => VkFormat.Astc8x8SrgbBlock,
-                GlInternalFormat.GlCompressedSrgb8Alpha8Astc10X5Khr => VkFormat.Astc10x5SrgbBlock,
-                GlInternalFormat.GlCompressedSrgb8Alpha8Astc10X6Khr => VkFormat.Astc10x6SrgbBlock,
-                GlInternalFormat.GlCompressedSrgb8Alpha8Astc10X8Khr => VkFormat.Astc10x8SrgbBlock,
-                GlInternalFormat.GlCompressedSrgb8Alpha8Astc10X10Khr => VkFormat.Astc10x10SrgbBlock,
-                GlInternalFormat.GlCompressedSrgb8Alpha8Astc12X10Khr => VkFormat.Astc12x10SrgbBlock,
-                GlInternalFormat.GlCompressedSrgb8Alpha8Astc12X12Khr => VkFormat.Astc12x12SrgbBlock,
-                _ => throw new NotImplementedException("Format not supported by VECS"),
-            };
-        }
-
         public static void CalculateMipLevelSize(int width, int height, int mipIdx, out int mipWidth, out int mipHeight)
         {
             mipWidth = Math.Max(1, width >> mipIdx);
@@ -699,14 +477,21 @@ namespace VECS
         public override void CreateDefaultMetaFile(string filePath)
         {
             SrcFileName = filePath;
-
-            var imageInfo = Image.Identify(filePath);
             FlipVertical = true;
-            MipMaps= true;
+            MipMaps = true;
             TextureShape = TextureShape.TwoD;
-            TextureType = filePath.Contains("normal",StringComparison.CurrentCultureIgnoreCase) ? TextureType.Normal : TextureType.Default;
-            Compress = imageInfo.Width % 2 == 0 && imageInfo.Height % 2 == 0;
-            BitsPerPixel = imageInfo.PixelType.BitsPerPixel;
+            TextureType = filePath.Contains("normal", StringComparison.CurrentCultureIgnoreCase) ? TextureType.Normal : TextureType.Default;
+            try
+            {
+                var imageInfo = Image.Identify(filePath);
+                Compress = imageInfo.Width % 2 == 0 && imageInfo.Height % 2 == 0;
+                BitsPerPixel = imageInfo.PixelType.BitsPerPixel;
+            }
+            catch
+            {
+                FlipVertical = false;
+                MipMaps = false;
+            }
 
             SetVKFormat();
         }
@@ -786,27 +571,62 @@ namespace VECS
             }
 
             file = SrcFileName;
+            var extension = Path.GetExtension(SrcFileName).ToLower();
+            if (extension == ".dds")
+            {
+                var fileStream = File.OpenRead(file);
+                var ddsFile = DdsFile.Load(fileStream);
+                fileStream.Close();
 
-            using Image<Rgba32> image = Image.Load<Rgba32>(file);
-            if (FlipVertical)
-            {
-                var flipProcessor = new FlipProcessor(FlipMode.Vertical);
-                image.Mutate(flipProcessor);
-            }
-            if (FlipHorizontal)
-            {
-                var flipProcessor = new FlipProcessor(FlipMode.Horizontal);
-                image.Mutate(flipProcessor);
-            }
-            KtxFile = encoder.EncodeToKtx(image);
+                var decoder = new BCnEncoder.Decoder.BcDecoder();
+                decoder.Options.IsParallel = compressionThreadCount > 0;
+                decoder.Options.TaskCount = Math.Max(1, compressionThreadCount);
+                //ddsFile.header.ddsPixelFormat.DxgiFormat
+                var decoded = decoder.Decode(ddsFile);
+                encoder.OutputOptions.Format = CompressionFormat.Bc5;
+                KtxFile = encoder.EncodeToKtx(new CommunityToolkit.HighPerformance.ReadOnlyMemory2D<ColorRgba32>(decoded,(int)ddsFile.header.dwHeight,(int)ddsFile.header.dwWidth));
 
-            Width = (int)KtxFile.header.PixelWidth;
-            Height = (int)KtxFile.header.PixelHeight;
-            if (!ktxExists)
-            {
-                TextureLoader.TextureCompressionItem.SaveFile(this, KtxFile);
+                Width = (int)KtxFile.header.PixelWidth;
+                Height = (int)KtxFile.header.PixelHeight;
+                if (!ktxExists)
+                {
+                    TextureLoader.TextureCompressionItem.SaveFile(this, KtxFile);
+                }
+                LoadedFormat = encoder.OutputOptions.Format.GetVkFormat();
+
             }
-            LoadedFormat = encoder.OutputOptions.Format.GetVkFormat();
+            else if (extension == ".ktx")
+            {
+                var fileStream = File.OpenRead(file);
+                KtxFile = KtxFile.Load(fileStream);
+                fileStream.Close();
+                Width = (int)KtxFile.header.PixelWidth;
+                Height = (int)KtxFile.header.PixelHeight;
+                LoadedFormat = KtxFile.header.GlInternalFormat.GetVkFormat();
+            }
+            else
+            {
+                using Image<Rgba32> image = Image.Load<Rgba32>(file);
+                if (FlipVertical)
+                {
+                    var flipProcessor = new FlipProcessor(FlipMode.Vertical);
+                    image.Mutate(flipProcessor);
+                }
+                if (FlipHorizontal)
+                {
+                    var flipProcessor = new FlipProcessor(FlipMode.Horizontal);
+                    image.Mutate(flipProcessor);
+                }
+                KtxFile = encoder.EncodeToKtx(image);
+
+                Width = (int)KtxFile.header.PixelWidth;
+                Height = (int)KtxFile.header.PixelHeight;
+                if (!ktxExists)
+                {
+                    TextureLoader.TextureCompressionItem.SaveFile(this, KtxFile);
+                }
+                LoadedFormat = encoder.OutputOptions.Format.GetVkFormat();
+            }
             SaveMetaFile();
         }
         public void Reload()
