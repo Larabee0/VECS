@@ -50,10 +50,10 @@ namespace VECS
             _sphere = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("UV-Sphere.obj"), null)[0];
             CreateMainCamera();
             DirectionalLight();
-            //PointLight();
+            PointLight();
             //SponzaOld();
-            SponzaNew();
-            //SponzaNewPBR();
+            //SponzaNew();
+            SponzaNewPBR();
             //ShadowDebug();
         }
 
@@ -66,7 +66,7 @@ namespace VECS
             entityManager.AddComponent(MainCamera, new Rotation() { Value = TransformExtensions.Euler(initalCameraRot) });
             entityManager.AddComponent(MainCamera, cameraPerspective);
             entityManager.AddComponent<MainCamera>(MainCamera);
-            return;
+            
             MainCamera = entityManager.CreateEntity("Spot Light");
             entityManager.AddComponent(MainCamera, new Translation() { Value = new Vector3(0,1,0) });
             entityManager.AddComponent(MainCamera, new Rotation() { Value = TransformExtensions.Euler(initalCameraRot) });
@@ -74,7 +74,7 @@ namespace VECS
             {
                 Ambient = new(0.1f, 0.1f, 0.1f, 1f),
                 Diffuse = new(0, 1, 0, 1),
-                Specular = new(0.5f, 0.5f, 0.5f, 1f),
+                Specular = new(0.5f,4f, 0.5f, 1f),
 
                 Constant = 1.0f,
                 Linear = 0.07f,
@@ -113,7 +113,7 @@ namespace VECS
 
                     Ambient = new(0.1f, 0.1f, 0.1f, 1f),
                     Diffuse = Vector4.One,
-                    Specular = new(1f, 1f, 1f, 1f)
+                    Specular = new(4f, 4f, 4f, 1f)
                 }
             });
 
@@ -129,7 +129,7 @@ namespace VECS
             EntityManager entityManager = World.DefaultWorld.EntityManager;
             
             
-            PointLight(entityManager, new(-10, 1, 0), new(1, 0, 0, 1), _sphere);
+            PointLight(entityManager, new(-10, 1, 0), new(4, 0, 0, 1), _sphere);
             //PointLight(entityManager, new(10, 1f, 0), new(1, 0, 0, 1), _sphere);
             // 
             // 
@@ -157,7 +157,7 @@ namespace VECS
             {
                 Ambient = new(0.1f, 0.1f, 0.1f, 1f),
                 Diffuse = diffuse,
-                Specular = new(0.5f, 0.5f, 0.5f, 1f),
+                Specular = diffuse,
 
                 Constant = 1.0f,
                 Linear = 0.07f,
@@ -307,69 +307,9 @@ namespace VECS
             sw.Stop();
             Console.WriteLine("Sponza Mesh Import time: {0}ms", sw.ElapsedMilliseconds);
 
-            sw.Restart();
-            HashSet<(string, VkFormat)> texturesSets = [];
-            for (int i = 0; i < sponzaMatInfo.Length; i++)
-            {
-                var matInfo = sponzaMatInfo[i];
-                if (matInfo.DiffuseTexture != null)
-                {
-                    texturesSets.Add((matInfo.DiffuseTexture,VkFormat.Bc7UnormBlock));
-                }
-
-                if (matInfo.NormalTexture != null)
-                {
-                    texturesSets.Add((matInfo.NormalTexture, VkFormat.Bc5UnormBlock));
-                }
-
-                // if (matInfo.AOTexture != null)
-                // {
-                //     texturesSets.Add((matInfo.AOTexture, VkFormat.Bc4UnormBlock));
-                // }
-                // if (matInfo.MetallicTexture != null)
-                // {
-                //     texturesSets.Add((matInfo.MetallicTexture, VkFormat.Bc4UnormBlock));
-                // }
-                // if (matInfo.SmoothnessTexture != null)
-                // {
-                //     texturesSets.Add((matInfo.SmoothnessTexture, VkFormat.Bc4UnormBlock));
-                // }
-
-                if(matInfo.MaskTexture != null)
-                {
-                    texturesSets.Add((matInfo.MaskTexture, VkFormat.Bc7UnormBlock));
-                }
-            }
-
-            (string,VkFormat)[] textureNames = [..texturesSets];
-
-            ConcurrentDictionary<string, Texture2D> textureLibrary = new();
+            Dictionary<string, Texture2D> textureLibrary = [];
             
-            for (int i = 0; i < textureNames.Length; i++)
-            {
-                var texture = TextureLoader.Load2D(textureNames[i].Item1, textureNames[i].Item2, true);
-                textureLibrary.TryAdd(textureNames[i].Item1, texture);
-            }
-
-            //Application.ParallelFor(textureNames.Length, (i)=>
-            //{
-            //    var texture = TextureLoader.Load(textureNames[i].Item1, textureNames[i].Item2, false);
-            //    textureLibrary.TryAdd(textureNames[i].Item1, texture);
-            //});
-            sw.Stop();
-
-            //for (int i = 0; i < textureNames.Length; i++)
-            //{
-            //    if(textureLibrary.TryGetValue(textureNames[i].Item1, out var texture))
-            //    {
-            //        AssetDataBase<Texture2D>.Add(texture);
-            //    }
-            //}
-
-            Console.WriteLine("Sponza Texture Import time: {0}ms", sw.ElapsedMilliseconds);
-
             EntityManager entityManager = World.DefaultWorld.EntityManager;
-
 
             var commonParent = entityManager.CreateEntity();
 
@@ -386,9 +326,6 @@ namespace VECS
             var texProp = "albedoMap".GetShaderPropertyId();
             var normalProp = "normalMap".GetShaderPropertyId();
             
-            var aoProp = "aoMap".GetShaderPropertyId();
-            var metallicProp = "metallicMap".GetShaderPropertyId();
-            var smoothnessProp = "smoothnessMap".GetShaderPropertyId();
             var maskProp = "maskMap".GetShaderPropertyId();
 
             var texColour = "texProps.colour".GetShaderPropertyId();
@@ -411,8 +348,13 @@ namespace VECS
                 Material material = AssetDataBase<Material>.GetNamedSilentFail(matName);
                 material ??= lit.Create(matName);
 
-                if (matInfo.DiffuseTexture != null && textureLibrary.TryGetValue(matInfo.DiffuseTexture, out var diffuseTexture))
+                if (matInfo.DiffuseTexture != null)
                 {
+                    if (!textureLibrary.TryGetValue(matInfo.DiffuseTexture, out var diffuseTexture))
+                    {
+                        diffuseTexture = TextureLoader.Load2D(matInfo.DiffuseTexture,VkFormat.Bc7UnormBlock);
+                        textureLibrary.Add(matInfo.DiffuseTexture, diffuseTexture);
+                    }
                     if (matInfo.AlphaClipping)
                     {
                         //material.SetTexture(ShaderProperties.HeadIndexImageId, Presenter.Instance.ForwardRenderer._headIndex);
@@ -428,8 +370,13 @@ namespace VECS
                     material.SetTexture(texProp, EngineTextures.White);
                 }
 
-                if (matInfo.NormalTexture != null && textureLibrary.TryGetValue(matInfo.NormalTexture, out var normalTexture))
-                {
+                if (matInfo.NormalTexture != null)
+                { 
+                    if (!textureLibrary.TryGetValue(matInfo.NormalTexture, out var normalTexture))
+                    {
+                        normalTexture = TextureLoader.Load2D(matInfo.NormalTexture, VkFormat.Bc5UnormBlock);
+                        textureLibrary.Add(matInfo.NormalTexture, normalTexture);
+                    }
                     material.SetTexture(normalProp, normalTexture);
                 }
                 else
@@ -437,35 +384,13 @@ namespace VECS
                     material.SetTexture(normalProp, EngineTextures.Black);
                 }
 
-                if(matInfo.AOTexture != null && textureLibrary.TryGetValue(matInfo.AOTexture, out var aoTexture))
+                if(matInfo.MaskTexture != null)
                 {
-                    material.SetTexture(aoProp, aoTexture);
-                }
-                else
-                {
-                    material.SetTexture(aoProp, EngineTextures.White);
-                }
-
-                if (matInfo.MetallicTexture != null && textureLibrary.TryGetValue(matInfo.MetallicTexture, out var metallicTexture))
-                {
-                    material.SetTexture(metallicProp, metallicTexture);
-                }
-                else
-                {
-                    material.SetTexture(metallicProp, EngineTextures.Black);
-                }
-
-                if (matInfo.SmoothnessTexture != null && textureLibrary.TryGetValue(matInfo.SmoothnessTexture, out var smoothnessTexture))
-                {
-                    material.SetTexture(smoothnessProp, smoothnessTexture);
-                }
-                else
-                {
-                    material.SetTexture(smoothnessProp, EngineTextures.White);
-                }
-
-                if(matInfo.MaskTexture != null && textureLibrary.TryGetValue(matInfo.MaskTexture, out var maskTexture))
-                {
+                    if (!textureLibrary.TryGetValue(matInfo.MaskTexture, out var maskTexture))
+                    {
+                        maskTexture = TextureLoader.Load2D(matInfo.MaskTexture, VkFormat.Bc3UnormBlock);
+                        textureLibrary.Add(matInfo.MaskTexture, maskTexture);
+                    }
                     material.SetTexture(maskProp, maskTexture);
                 }
                 else
@@ -476,8 +401,8 @@ namespace VECS
                 material.SetVector4(texColour, matInfo.DiffuseColour);
                 material.SetFloat(texTiling, 1);
 
-                material.SetFloat(exposureProp, 3.0f);
-                material.SetFloat(gammaProp, 1f);
+                material.SetFloat(exposureProp, 2.0f);
+                material.SetFloat(gammaProp, 1.0f);
 
 
                 for (int j = 0; j < matInfo.appliesTo.Count; j++, k++)

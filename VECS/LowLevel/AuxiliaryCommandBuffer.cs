@@ -88,6 +88,9 @@ namespace VECS.LowLevel
 
         private ulong _completeValue = 0;
 
+        private double _submitTime;
+        private int _frameCount;
+
         public Action OnComplete;
 
         internal AuxiliaryCommandBuffer(TimelineSemaphore signalSemaphore)
@@ -128,14 +131,17 @@ namespace VECS.LowLevel
             _signalSemaphore.SemaphoreValue = _completeValue;
 
             GraphicsDevice.DeviceAPI.vkQueueSubmit2(GraphicsDevice.MainQueue, submitInfo, VkFence.Null);
+            _submitTime = Time.TimeSinceStartUpAsDouble;
         }
 
         public bool CheckFinished()
         {
             if (_signalSemaphore.CounterValue < _completeValue)
             {
+                _frameCount++;
                 return false;
             }
+            Console.WriteLine("Auxiliary Command buffer GPU Time: {0}ms {1} frames", (Time.TimeSinceStartUpAsDouble - _submitTime) * 1000,_frameCount);
             OnComplete?.Invoke();
 
             GraphicsDevice.DeviceAPI.vkFreeCommandBuffers(GraphicsDevice.MainCommandPool, _vkCommandBuffer);

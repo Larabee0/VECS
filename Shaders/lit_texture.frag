@@ -100,6 +100,7 @@ void main()
 			fragViewPos,
 			cascadeIndex) : 1.0;
 		result += CalcDirLight(directionalLight, normal, viewDir, shininess, shadow, diffuseTextureColour, diffuseTextureColour, specularColour);
+		//result = vec3(shadow);
 	}
 	for(int i = 0; i < lighting.numPointLights; i++) {
 		PointLight pl = pointLightBuffer.values[i];

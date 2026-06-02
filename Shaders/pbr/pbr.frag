@@ -1,5 +1,6 @@
 #version 460
 #extension GL_ARB_shading_language_include : require
+#extension GL_EXT_nonuniform_qualifier : require
 #include "../common_structures.glsl"
 #include "../lighting.glsl"
 #include "../shadows.glsl"
@@ -60,10 +61,7 @@ layout(set = 2, binding = 0) uniform TexPorps {
 
 layout (set = 2, binding = 1) uniform sampler2D albedoMap;
 layout (set = 2, binding = 2) uniform sampler2D normalMap;
-layout (set = 2, binding = 3) uniform sampler2D aoMap;
-layout (set = 2, binding = 4) uniform sampler2D metallicMap;
-layout (set = 2, binding = 5) uniform sampler2D smoothnessMap;
-layout (set = 2, binding = 6) uniform sampler2D maskMap;
+layout (set = 2, binding = 3) uniform sampler2D maskMap;
 
 layout(push_constant) uniform Constants{
 	uint cameraIndex;
@@ -142,7 +140,7 @@ vec3 specularContribution(vec3 L, vec3 V, vec3 N, vec3 F0, float metallic, float
 		color += (kD * ALBEDO / PI + spec) * dotNL;
 	}
 
-	return color;
+	return color *lightColor;
 }
 
 vec3 calculateNormal() {
@@ -190,34 +188,48 @@ void main() {
 	for(int i = 0; i < lighting.numDirLights; i++) {
 		DirectionalLight directionalLight = directionalLightBuffer.values[i];
 		
-		float shadow = i < lighting.numDirLightsShadows ? DirShadows(
+		shadow = i < lighting.numDirLightsShadows ? DirShadows(
 			dirShadow,
 			directionalLight,
 			fragPosWorld,
 			fragViewPos,
 			cascadeIndex) : 1.0;
-		Lo += specularContribution(directionalLight.direction.xyz, V, N, F0, metallic, roughness, directionalLight.specular.rgb);
+		Lo += specularContribution(-directionalLight.direction.xyz, V, N, F0, metallic, roughness, directionalLight.specular.rgb)*shadow;
 	}
 	
 
     for(int i = 0; i < lighting.numPointLights; i++) {
 		PointLight pl = pointLightBuffer.values[i];
-	    vec3 L = normalize(pl.position.xyz - fragPosWorld);
-	    Lo += specularContribution(L, V, N, F0, metallic, roughness, pl.specular.rgb);
+		
+    	float distance = length(pl.position.xyz - fragPosWorld);
+
+		if(distance <= pl.farPlane){
+			shadow= i < lighting.numPointLightShadows ? ShadowPlCalculationAlt(plShadow[i], fragPosWorld, cameraPosWorld, pl) : 1.0;
+	    	vec3 L = normalize(pl.position.xyz - fragPosWorld);
+	    	Lo += specularContribution(L, V, N, F0, metallic, roughness, pl.specular.rgb) * shadow;
+			
+		}
+
     }
     
     for(int i = 0; i < lighting.numSpotLights; i++) {
 		SpotLight sl = spotLightBuffer.values[i];
-	    vec3 L = normalize(sl.position.xyz - fragPosWorld);
-	    Lo += specularContribution(L, V, N, F0, metallic, roughness, sl.specular.rgb * CalcSpotLightIntensity(sl, fragPosWorld));
+		
+    	float distance = length(sl.position.xyz - fragPosWorld);
+		if(distance <= sl.farPlane) {
+
+			float slShadow = i < lighting.numSpotLightShadows ? ShadowSlCalculationAlt(slShadow[i], fragPosWorld, cameraPosWorld, sl) : 1.0;			
+	    	vec3 L = normalize(sl.position.xyz - fragPosWorld);
+	    	Lo += specularContribution(L, V, N, F0, metallic, roughness, sl.specular.rgb * CalcSpotLightIntensity(sl, fragPosWorld)) * shadow;
+		}
     }
 
 	vec2 brdf = texture(samplerBRDFLUT, vec2(max(dot(N, V), 0.0), roughness)).rg;
-	vec3 reflection = prefilteredReflection(R, roughness).rgb * shadow;	
+	vec3 reflection = prefilteredReflection(R, roughness).rgb ;	
 	vec3 irradiance = texture(samplerIrradiance, N).rgb;
     
 	// Diffuse based on irradiance
-	vec3 diffuse = irradiance * ALBEDO;
+	vec3 diffuse = irradiance * ALBEDO ;
 	//diffuse = ALBEDO;
 
 	vec3 F = F_SchlickR(max(dot(N, V), 0.0), F0, roughness);
@@ -228,18 +240,19 @@ void main() {
 	// Ambient part
 	vec3 kD = 1.0 - F;
 	kD *= 1.0 - metallic;	  
-	ambient *= (kD * diffuse + specular);
+	ambient *= (kD * (diffuse) + specular);
 
-	vec3 color = (ambient + Lo)*shadow;
+	vec3 color = (ambient + (Lo));
     
 	// Tone mapping
-	//color = Uncharted2Tonemap(color * texProps.exposure);
-	color = Uncharted2Tonemap(color * 1.5);
+	color = Uncharted2Tonemap(color * texProps.exposure);
+	//color = Uncharted2Tonemap(color * 1.5);
 	color = color * (1.0 / Uncharted2Tonemap(vec3(11.2)));	
 	// // Gamma correction
-	//color = pow(color, vec3(1.0 / texProps.gamma));
+	color = pow(color, vec3(1.0 / texProps.gamma));
 	//color = pow(color, vec3(1.0 / 1));
 	
 	outColour = vec4(color, 1.0);
+	//outColour = vec4(Lo,1.0);
 	//outColour = vec4((vec3(1) * brdf.x + brdf.y), 1.0);
 }
