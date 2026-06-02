@@ -20,6 +20,9 @@ namespace VECS
         public static GraphicsPipeline OIT_Unlit{get; private set;}
         public static GraphicsPipeline OIT_LitTexture { get; private set; }
 
+        public static GraphicsPipeline PBR_Deferred { get; private set; }
+        public static GraphicsPipeline PBR_Deferred_Composite { get; private set; }
+
 
         public static GraphicsPipeline IMGUI { get; private set; }
 
@@ -137,6 +140,19 @@ namespace VECS
             IMGUI = new("IMGUI_Pipe", "imgui.vert", "imgui.frag", configInfo);
 
             UI.IMGUI._freeVariants.Enqueue(IMGUI.Default());
+
+
+            GraphicsPipelineConfigInfo pbr_deferredConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
+
+            pbr_deferredConfig.colourFormats = [VkFormat.R32G32B32A32Sfloat, VkFormat.R16G16Sfloat, VkFormat.R8G8B8A8Unorm, VkFormat.R8G8B8A8Unorm];
+            pbr_deferredConfig.depthStencilInfo.depthCompareOp = VkCompareOp.Equal;
+
+            PBR_Deferred = new("PBR_Deferred", "pbr_deferred.vert", "pbr_deferred.frag", pbr_deferredConfig);
+            GraphicsPipelineConfigInfo pbr_deferred_compositeConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
+
+            pbr_deferred_compositeConfig.depthStencilInfo.depthTestEnable = false;
+            PBR_Deferred_Composite = new("PBR_Deferred_Composite", "fullscreen.vert", "pbr_composit.frag", pbr_deferred_compositeConfig);
+
 
             DepthReduction.Init();
         }

@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Numerics;
@@ -66,7 +65,7 @@ namespace VECS
             entityManager.AddComponent(MainCamera, new Rotation() { Value = TransformExtensions.Euler(initalCameraRot) });
             entityManager.AddComponent(MainCamera, cameraPerspective);
             entityManager.AddComponent<MainCamera>(MainCamera);
-            
+            return;
             MainCamera = entityManager.CreateEntity("Spot Light");
             entityManager.AddComponent(MainCamera, new Translation() { Value = new Vector3(0,1,0) });
             entityManager.AddComponent(MainCamera, new Rotation() { Value = TransformExtensions.Euler(initalCameraRot) });
@@ -130,20 +129,19 @@ namespace VECS
             
             
             PointLight(entityManager, new(-10, 1, 0), new(4, 0, 0, 1), _sphere);
-            //PointLight(entityManager, new(10, 1f, 0), new(1, 0, 0, 1), _sphere);
-            // 
-            // 
-            // PointLight(entityManager, new(8, 1, 0), new(0, 1, 0, 1), _sphere);
-            // PointLight(entityManager, new(-8, 1, 0), new(0, 1, 0, 1), _sphere);
-            // 
-            // PointLight(entityManager, new(6, 1, 0), new(0, 0, 1, 1), _sphere);
-            // PointLight(entityManager, new(-6, 1, 0), new(0, 0, 1, 1), _sphere);
-            // 
-            // PointLight(entityManager, new(4, 1, 0), new(1, 1, 0, 1), _sphere);
-            // PointLight(entityManager, new(-4, 1, 0), new(1, 1, 0, 1), _sphere);
-            // 
-            // PointLight(entityManager, new(2, 1, 0), new(0, 1, 1, 1), _sphere);
-            // PointLight(entityManager, new(-2, 1, 0), new(0, 1, 1, 1), _sphere);
+            PointLight(entityManager, new(10, 1f, 0), new(1, 0, 0, 1), _sphere);
+            
+            PointLight(entityManager, new(8, 1, 0), new(0, 1, 0, 1), _sphere);
+            PointLight(entityManager, new(-8, 1, 0), new(0, 1, 0, 1), _sphere);
+            
+            PointLight(entityManager, new(6, 1, 0), new(0, 0, 1, 1), _sphere);
+            PointLight(entityManager, new(-6, 1, 0), new(0, 0, 1, 1), _sphere);
+            
+            PointLight(entityManager, new(4, 1, 0), new(1, 1, 0, 1), _sphere);
+            PointLight(entityManager, new(-4, 1, 0), new(1, 1, 0, 1), _sphere);
+            
+            PointLight(entityManager, new(2, 1, 0), new(0, 1, 1, 1), _sphere);
+            PointLight(entityManager, new(-2, 1, 0), new(0, 1, 1, 1), _sphere);
 
         }
 
@@ -321,6 +319,7 @@ namespace VECS
             Parent parent = new() { Value = commonParent };
 
             var lit = EnginePipes.PBRTexture;
+            lit = EnginePipes.PBR_Deferred;
             //var litTransparent = EnginePipes.OIT_LitTexture;
 
             var texProp = "albedoMap".GetShaderPropertyId();
@@ -420,6 +419,8 @@ namespace VECS
             entityManager.AddComponent(commonParent, new Scale() { Value = Vector3.One });
             entityManager.AddComponent(commonParent, children);
 
+            EnginePipes.PBR_Deferred_Composite.Default().SetFloat("pbrProps.exposure".GetShaderPropertyId(), 2.0f);
+            EnginePipes.PBR_Deferred_Composite.Default().SetFloat("pbrProps.gamma".GetShaderPropertyId(), 1.0f);
         }
 
         public static void AddRenderMeshComponents(Entity entity, Material mat, int entityVariant, DirectSubMesh mesh, EntityManager entityManager, RenderLayer layerFlags = RenderLayer.Default)

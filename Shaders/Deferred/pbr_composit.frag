@@ -5,14 +5,7 @@
 #include "../lighting.glsl"
 #include "../shadows.glsl"
 
-layout (location = 0) in vec3 fragPosWorld;
-layout (location = 1) in vec3 fragNormalWorld;
-layout (location = 2) in vec2 fragUV;
-layout (location = 3) in vec3 fragViewPos;
-layout (location = 4) in mat3 TBN;
-layout (location = 7) in vec4 fragTangentWorld;
-layout (location = 8) in vec3 fragNormalAlt;
-
+layout (location = 0) in vec2 inUV;
 layout (location = 0) out vec4 outColour;
 
 layout(set = 0, binding = 0) uniform LightingInfo {
@@ -44,33 +37,31 @@ layout(set = 0, binding = 5) readonly buffer CameraInverses {
 	CameraInverse values[];
 } cameraInverse;
 
-layout (set = 1, binding = 2) uniform sampler2DArray dirShadow;
-layout (set = 1, binding = 3) uniform sampler2DArray[] plShadow;
-layout (set = 1, binding = 4) uniform sampler2D[] slShadow;
+layout (set = 1, binding = 0) uniform sampler2DArray dirShadow;
+layout (set = 1, binding = 1) uniform sampler2DArray[] plShadow;
+layout (set = 1, binding = 2) uniform sampler2D[] slShadow;
 
-layout (set = 1, binding = 5) uniform samplerCube samplerIrradiance;
-layout (set = 1, binding = 6) uniform sampler2D samplerBRDFLUT;
-layout (set = 1, binding = 7) uniform samplerCube prefilteredMap;
+layout (set = 1, binding = 3) uniform samplerCube samplerIrradiance;
+layout (set = 1, binding = 4) uniform sampler2D samplerBRDFLUT;
+layout (set = 1, binding = 5) uniform samplerCube prefilteredMap;
 
-layout(set = 2, binding = 0) uniform TexPorps {
-	vec4 colour;
-	float tiling;
+layout(set = 2, binding = 0) uniform PBRProps {
     float exposure;
     float gamma;
-} texProps;
+} pbrProps;
 
-layout (set = 2, binding = 1) uniform sampler2D albedoMap;
-layout (set = 2, binding = 2) uniform sampler2D normalMap;
-layout (set = 2, binding = 3) uniform sampler2D maskMap;
+layout (set = 2, binding = 1) uniform sampler2D g_PositionIn;
+layout (set = 2, binding = 2) uniform sampler2D g_NormalsIn;
+layout (set = 2, binding = 3) uniform sampler2D g_AlbedoIn;
+layout (set = 2, binding = 4) uniform sampler2D g_MaskIn;
 
 layout(push_constant) uniform Constants{
 	uint cameraIndex;
 } constants;
 
-
 #define PI 3.1415926535897932384626433832795
-#define TILED_UV fragUV * texProps.tiling
-#define ALBEDO pow(texture(albedoMap, TILED_UV).rgb, vec3(2.2))
+#define ALBEDO pow(texture(g_AlbedoIn, UV).rgb, vec3(2.2))
+#define UV vec2(inUV.x,1-inUV.y)
 
 // From http://filmicgames.com/archives/75
 vec3 Uncharted2Tonemap(vec3 x) {
@@ -144,30 +135,21 @@ vec3 specularContribution(vec3 L, vec3 V, vec3 N, vec3 F0, float metallic, float
 	return color *lightColor;
 }
 
-vec3 calculateNormal() {
-
-	vec3 texNormal = vec3(texture(normalMap, TILED_UV).rg, 0.0);
-	texNormal.b = sqrt(1 - texNormal.x * texNormal.x - texNormal.y * texNormal.y);
-
-	vec3 tangentNormal = texNormal * 2.0 - 1.0;
-
-	vec3 N = normalize(fragNormalWorld);
-	vec3 T = normalize(fragTangentWorld.xyz);
-	vec3 B = normalize(cross(N, T));
-	mat3 TBN = mat3(T, B, N);
-	return normalize(TBN * tangentNormal);
-}
-
-void main() {
-	vec3 N = calculateNormal();
-
-	//vec3 cameraPosWorld = cameraInfo.values[constants.cameraIndex].position;// * -1.0;
+void main(){
+    
+    vec4 positionWorld = texture(g_PositionIn,UV).rgba;
+    vec3 N = vec3(texture(g_NormalsIn,UV).rg, positionWorld.w);
+    //N.b = sqrt(1 - N.x * N.x - N.y * N.y);
+    vec4 maskValue = texture(g_MaskIn,UV).rgba;
+    
+    
 	vec3 cameraPosWorld = cameraInverse.values[constants.cameraIndex].inverseViewMatrix[3].xyz;
-
-	vec3 V = normalize(cameraPosWorld - fragPosWorld);
+    
+    vec3 viewPos = (cameraInfo.values[constants.cameraIndex].viewMatrix *  vec4(positionWorld.xyz,1.0)).xyz;
+    
+	vec3 V = normalize(cameraPosWorld - positionWorld.xyz);
 	vec3 R = reflect(-V, N);
-	vec4 maskValue = texture(maskMap,TILED_UV).rgba;
-
+    
 	float metallic = maskValue.r;
 	float roughness = 1- maskValue.a;
     vec3 ambient = maskValue.ggg;
@@ -178,27 +160,27 @@ void main() {
 	vec3 Lo = vec3(0);
 	int cascadeIndex = 0;
 	float shadow= 1.0;
-	for(int i = 0; i < lighting.numDirLights; i++) {
+
+    for(int i = 0; i < lighting.numDirLights; i++) {
 		DirectionalLight directionalLight = directionalLightBuffer.values[i];
 		
 		shadow = i < lighting.numDirLightsShadows ? DirShadows(
 			dirShadow,
 			directionalLight,
-			fragPosWorld,
-			fragViewPos,
+			positionWorld.xyz,
+			viewPos,
 			cascadeIndex) : 1.0;
 		Lo += specularContribution(-directionalLight.direction.xyz, V, N, F0, metallic, roughness, directionalLight.specular.rgb)*shadow;
 	}
-	
-
+    
     for(int i = 0; i < lighting.numPointLights; i++) {
 		PointLight pl = pointLightBuffer.values[i];
 		
-    	float distance = length(pl.position.xyz - fragPosWorld);
+    	float distance = length(pl.position.xyz - positionWorld.xyz);
 
 		if(distance <= pl.farPlane){
-			shadow= i < lighting.numPointLightShadows ? ShadowPlCalculationAlt(plShadow[i], fragPosWorld, cameraPosWorld, pl) : 1.0;
-	    	vec3 L = normalize(pl.position.xyz - fragPosWorld);
+			shadow= i < lighting.numPointLightShadows ? ShadowPlCalculationAlt(plShadow[i], positionWorld.xyz, cameraPosWorld, pl) : 1.0;
+	    	vec3 L = normalize(pl.position.xyz - positionWorld.xyz);
 	    	Lo += specularContribution(L, V, N, F0, metallic, roughness, pl.specular.rgb) * shadow;
 			
 		}
@@ -208,12 +190,12 @@ void main() {
     for(int i = 0; i < lighting.numSpotLights; i++) {
 		SpotLight sl = spotLightBuffer.values[i];
 		
-    	float distance = length(sl.position.xyz - fragPosWorld);
+    	float distance = length(sl.position.xyz - positionWorld.xyz);
 		if(distance <= sl.farPlane) {
 
-			float slShadow = i < lighting.numSpotLightShadows ? ShadowSlCalculationAlt(slShadow[i], fragPosWorld, cameraPosWorld, sl) : 1.0;			
-	    	vec3 L = normalize(sl.position.xyz - fragPosWorld);
-	    	Lo += specularContribution(L, V, N, F0, metallic, roughness, sl.specular.rgb * CalcSpotLightIntensity(sl, fragPosWorld)) * shadow;
+			float slShadow = i < lighting.numSpotLightShadows ? ShadowSlCalculationAlt(slShadow[i], positionWorld.xyz, cameraPosWorld, sl) : 1.0;			
+	    	vec3 L = normalize(sl.position.xyz - positionWorld.xyz);
+	    	Lo += specularContribution(L, V, N, F0, metallic, roughness, sl.specular.rgb * CalcSpotLightIntensity(sl, positionWorld.xyz)) * shadow;
 		}
     }
 
@@ -222,9 +204,8 @@ void main() {
 	vec3 irradiance = texture(samplerIrradiance, N).rgb;
     
 	// Diffuse based on irradiance
-	vec3 diffuse = irradiance * ALBEDO ;
-	//diffuse = ALBEDO;
-
+	vec3 diffuse = irradiance * ALBEDO;
+    
 	vec3 F = F_SchlickR(max(dot(N, V), 0.0), F0, roughness);
     
 	// Specular reflectance
@@ -238,14 +219,13 @@ void main() {
 	vec3 color = (ambient + (Lo));
     
 	// Tone mapping
-	color = Uncharted2Tonemap(color * texProps.exposure);
-	//color = Uncharted2Tonemap(color * 1.5);
-	color = color * (1.0 / Uncharted2Tonemap(vec3(11.2)));	
-	// // Gamma correction
-	color = pow(color, vec3(1.0 / texProps.gamma));
-	//color = pow(color, vec3(1.0 / 1));
-	
+	color = Uncharted2Tonemap(color * pbrProps.exposure);
+    
+	color = color * (1.0 / Uncharted2Tonemap(vec3(11.2)));
+
+	// Gamma correction
+	color = pow(color, vec3(1.0 / pbrProps.gamma));
+    
 	outColour = vec4(color, 1.0);
-	//outColour = vec4(Lo,1.0);
-	//outColour = vec4((vec3(1) * brdf.x + brdf.y), 1.0);
+	//outColour = vec4(ALBEDO,1.0);
 }

@@ -18,5 +18,19 @@ namespace VECS
 
         public void StartMainColourRendering(RendererFrameInfo frameInfo, VkAttachmentLoadOp loadOp);
         public void EndMainColourRendering(RendererFrameInfo frameInfo);
+
+        public static RenderTarget CreateOrUpdateRT(RenderTarget target, string name, int shaderPropertyId, VkExtent2D extent, VkFormat format)
+        {
+            if (target == null)
+            {
+                target = new(name, (int)extent.width, (int)extent.height, format);
+                EngineTextures.AddOrUpdateTexture(shaderPropertyId, (SingleTexture)target.Target);
+            }
+            else
+            {
+                target.Resize((int)extent.width, (int)extent.height);
+            }
+            return target;
+        }
     }
 }
