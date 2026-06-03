@@ -100,6 +100,19 @@ namespace VECS
             return metaFile;
         }
 
+        private static TextureMetaFile LoadOrCompressTexture(string path, VkFormat format, bool disableParallel)
+        {
+            var metaFile = new TextureMetaFile(path, TextureShape.TwoD, format);
+            metaFile.LoadTexture(disableParallel ? 0 : Environment.ProcessorCount - 3, false);
+
+            if (metaFile.Compress && !metaFile.LoadedFormat.IsCompressedFormat())
+            {
+                CompressQueue.Enqueue(new(metaFile));
+            }
+
+            return metaFile;
+        }
+
         private static TextureMetaFile[] LoadMultiSameExtent(string[] paths, bool disableParallel, TextureShape shape)
         {
             TextureMetaFile[] textureInfo = new TextureMetaFile[paths.Length];
@@ -141,9 +154,16 @@ namespace VECS
             return textureInfo;
         }
 
-        public static Texture2D Load2D(string path, VkFormat format, bool mipMaps = true, bool allowParallel = true, bool flipVertical = true)
+        public static Texture2D Load2D(string path, bool allowParallel = true)
         {
             var metaFile = LoadOrCompressTexture(path, !allowParallel);
+
+            return new(metaFile, VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled);
+        }
+
+        public static Texture2D Load2D(string path, VkFormat format, bool allowParallel = true)
+        {
+            var metaFile = LoadOrCompressTexture(path,format, !allowParallel);
             
             return new(metaFile, VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled);
         }
@@ -408,6 +428,19 @@ namespace VECS
             }
         }
 
+        public TextureMetaFile(string srcFile, TextureShape shape, VkFormat format)
+        {
+            GUID = Guid.NewGuid();
+            Version = 0;
+            Type = typeof(TextureMetaFile).FullName;
+            CreateInternal(srcFile, format);
+            TextureShape = shape;
+            if (shape == TextureShape.Cube)
+            {
+                MipMaps = false;
+            }
+        }
+
         public void SetVKFormat()
         {
             if (SRGB && TextureType == TextureType.Normal)
@@ -474,6 +507,23 @@ namespace VECS
             }
         }
 
+        private bool CreateInternal(string srcFile, VkFormat format)
+        {
+            SrcFileName = srcFile;
+            if (MetaFileExists(srcFile))
+            {
+                LoadMetaFile();
+                VkFormat = format;
+                return true;
+            }
+            else
+            {
+                CreateDefaultMetaFile(srcFile,format);
+                SaveMetaFile();
+                return false;
+            }
+        }
+
         public override void CreateDefaultMetaFile(string filePath)
         {
             SrcFileName = filePath;
@@ -494,6 +544,29 @@ namespace VECS
             }
 
             SetVKFormat();
+        }
+
+        public void CreateDefaultMetaFile(string filePath, VkFormat format)
+        {
+            SrcFileName = filePath;
+            FlipVertical = true;
+            MipMaps = true;
+            TextureShape = TextureShape.TwoD;
+            TextureType = filePath.Contains("normal", StringComparison.CurrentCultureIgnoreCase) ? TextureType.Normal : TextureType.Default;
+            try
+            {
+                var imageInfo = Image.Identify(filePath);
+                Compress = imageInfo.Width % 2 == 0 && imageInfo.Height % 2 == 0;
+                BitsPerPixel = imageInfo.PixelType.BitsPerPixel;
+            }
+            catch
+            {
+                FlipVertical = false;
+                MipMaps = false;
+            }
+
+            VkFormat = format;
+            Compress = VkFormat.IsCompressedFormat();
         }
 
         public override void LoadMetaFile()
