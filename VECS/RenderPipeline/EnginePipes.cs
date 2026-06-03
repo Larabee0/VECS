@@ -22,6 +22,7 @@ namespace VECS
 
         public static GraphicsPipeline PBR_Deferred { get; private set; }
         public static GraphicsPipeline PBR_Deferred_Composite { get; private set; }
+        public static GraphicsPipeline PBR_Post_Process { get; private set; }
 
 
         public static GraphicsPipeline IMGUI { get; private set; }
@@ -144,14 +145,16 @@ namespace VECS
 
             GraphicsPipelineConfigInfo pbr_deferredConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
 
-            pbr_deferredConfig.colourFormats = [VkFormat.R32G32B32A32Sfloat, VkFormat.R16G16Sfloat, VkFormat.R8G8B8A8Unorm, VkFormat.R8G8B8A8Unorm];
+            pbr_deferredConfig.colourFormats = [VkFormat.R16G16B16A16Sfloat, VkFormat.R16G16Sfloat, VkFormat.R8G8B8A8Unorm, VkFormat.R8G8B8A8Unorm];
             pbr_deferredConfig.depthStencilInfo.depthCompareOp = VkCompareOp.Equal;
 
             PBR_Deferred = new("PBR_Deferred", "pbr_deferred.vert", "pbr_deferred.frag", pbr_deferredConfig);
             GraphicsPipelineConfigInfo pbr_deferred_compositeConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
-
+            pbr_deferred_compositeConfig.colourFormats = [VkFormat.R32G32B32A32Sfloat];
             pbr_deferred_compositeConfig.depthStencilInfo.depthTestEnable = false;
             PBR_Deferred_Composite = new("PBR_Deferred_Composite", "fullscreen.vert", "pbr_composit.frag", pbr_deferred_compositeConfig);
+            pbr_deferred_compositeConfig.colourFormats = Presenter.ColourFormats;
+            PBR_Post_Process = new("PBR_Post_Process", "fullscreen.vert", "pbr_post_process.frag", pbr_deferred_compositeConfig);
 
 
             DepthReduction.Init();

@@ -278,21 +278,6 @@ namespace VECS
             }
         }
 
-        internal unsafe static void SetGlobalUniforms(this GraphicsPipeline pipeline, uint variant, in RendererFrameInfo frameInfo)
-        {
-            //WriteToBuffer(pipeline, ShaderProperties.LightingInfoId, variant, frameInfo.LightingInfo);
-
-            // if (variant != 0) return;
-            // uint camreaCount = (uint)frameInfo.CameraCount;
-            // SetUniformBuffer(pipeline, ShaderProperties.CameraInfoId, frameInfo.CameraInfo, camreaCount);
-            // SetUniformBuffer(pipeline, ShaderProperties.CameraInverseId, frameInfo.CameraInverseInfo, camreaCount);
-            // SetUniformBuffer(pipeline, ShaderProperties.AdditionalCameraInfoId, frameInfo.AdditionalCameraInfo, camreaCount);
-            // SetUniformBuffer(pipeline, ShaderProperties.OrthographicInfoId, frameInfo.OrthographicInfo, camreaCount);
-            // 
-            // SetUniformBuffer(pipeline, ShaderProperties.PointLightsBufferId,  frameInfo.PointLights, (uint)frameInfo.LightingInfo.NumPointLights);
-            // SetUniformBuffer(pipeline, ShaderProperties.SpotLightsBufferId,  frameInfo.SpotLights, (uint)frameInfo.LightingInfo.NumSpotLights);
-        }
-
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void SetUniformBuffer<T>(this GraphicsPipeline pipeline, int bufferProperyId, T resource, uint count) where T : unmanaged
         {

@@ -47,7 +47,7 @@ namespace VECS
         private bool _forceDescriptorWrite = false;
         private uint _variantCount;
         internal bool _preBindUpdate = false;
-
+        private bool _hasUniforms = false;
         [ThreadStatic]
         private static GraphicsPipeline _lastBound;
         [ThreadStatic]
@@ -57,6 +57,7 @@ namespace VECS
 
         public int VariantCount => _matVariants.Length;
         public uint UniformBufferSize => _uniformBufferSize;
+        public bool HasUniforms => _hasUniforms;
 
         public int MeshShaderDescriptorSetIndex => _meshShaderDescriptorSetIndex;
         public int DescriptorSetCount => _descriptorSetCount;
@@ -215,6 +216,7 @@ namespace VECS
                 
                 _uniformBufferSize += setInfo.UnifromBufferSize;
                 _uniformBufferUsage |= setInfo.UniformBufferFlags;
+                _hasUniforms |= setInfo._uniformCount > 0;
                 _descriptorSetInfos[setIndex] = setInfo;
             }
             if (_uniformBufferSize > 0)
@@ -421,7 +423,7 @@ namespace VECS
 
         private unsafe void WriteUniformToDescriptorBuffers(Material material)
         {
-            if (UniformBufferSize == 0) return;
+            if (!_hasUniforms) return;
             var variant = material.VariantIndex;
             var startOffset = variant * UniformBufferSize;
             for (uint i = 0; i < DescriptorSetCount; i++)
@@ -1175,7 +1177,6 @@ namespace VECS
             {
                 var variant = pipeline._matVariants[i];
                 if (variant == null) continue;
-                pipeline.SetGlobalUniforms(i, frameInfo);
                 Material.UpdateVariant(variant, frameIndex, forceDescriptorWrite);
                 if (!forceDescriptorWrite) continue;
                 pipeline.WriteUniformToDescriptorBuffers(variant);

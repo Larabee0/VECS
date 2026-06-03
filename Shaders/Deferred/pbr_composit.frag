@@ -45,15 +45,10 @@ layout (set = 1, binding = 3) uniform samplerCube samplerIrradiance;
 layout (set = 1, binding = 4) uniform sampler2D samplerBRDFLUT;
 layout (set = 1, binding = 5) uniform samplerCube prefilteredMap;
 
-layout(set = 2, binding = 0) uniform PBRProps {
-    float exposure;
-    float gamma;
-} pbrProps;
-
-layout (set = 2, binding = 1) uniform sampler2D g_PositionIn;
-layout (set = 2, binding = 2) uniform sampler2D g_NormalsIn;
-layout (set = 2, binding = 3) uniform sampler2D g_AlbedoIn;
-layout (set = 2, binding = 4) uniform sampler2D g_MaskIn;
+layout (set = 2, binding = 0) uniform sampler2D g_PositionIn;
+layout (set = 2, binding = 1) uniform sampler2D g_NormalsIn;
+layout (set = 2, binding = 2) uniform sampler2D g_AlbedoIn;
+layout (set = 2, binding = 3) uniform sampler2D g_MaskIn;
 
 layout(push_constant) uniform Constants{
 	uint cameraIndex;
@@ -62,17 +57,6 @@ layout(push_constant) uniform Constants{
 #define PI 3.1415926535897932384626433832795
 #define ALBEDO pow(texture(g_AlbedoIn, UV).rgb, vec3(2.2))
 #define UV vec2(inUV.x,1-inUV.y)
-
-// From http://filmicgames.com/archives/75
-vec3 Uncharted2Tonemap(vec3 x) {
-	float A = 0.15;
-	float B = 0.50;
-	float C = 0.10;
-	float D = 0.20;
-	float E = 0.02;
-	float F = 0.30;
-	return ((x*(A*x+C*B)+D*E)/(x*(A*x+B)+D*F))-E/F;
-}
 
 // Normal Distribution function --------------------------------------
 float D_GGX(float dotNH, float roughness) {
@@ -219,12 +203,12 @@ void main(){
 	vec3 color = (ambient + (Lo));
     
 	// Tone mapping
-	color = Uncharted2Tonemap(color * pbrProps.exposure);
+	//color = Uncharted2Tonemap(color * pbrProps.exposure);
     
-	color = color * (1.0 / Uncharted2Tonemap(vec3(11.2)));
+	//color = color * (1.0 / Uncharted2Tonemap(vec3(11.2)));
 
 	// Gamma correction
-	color = pow(color, vec3(1.0 / pbrProps.gamma));
+	//color = pow(color, vec3(1.0 / pbrProps.gamma));
     
 	outColour = vec4(color, 1.0);
 	//outColour = vec4(ALBEDO,1.0);

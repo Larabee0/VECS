@@ -96,13 +96,13 @@ namespace VECS.UI
             if (args.Source is ListBoxItem item && item.Content != null && item.Content is TreeView treeItem)
             {
                
-                Console.WriteLine(treeItem.ToString());
+                Console.WriteLine(((TreeViewItem)treeItem.Items.CurrentItem).Header.ToString());
             }
         }
 
         private void LostFocus(object sender, RoutedEventArgs args)
         {
-            Console.WriteLine(args.Source.ToString());
+            //Console.WriteLine(args.Source.ToString());
             if (args.Source is TreeViewItem)
             {
                 //Console.WriteLine("TreeView");
@@ -395,7 +395,7 @@ namespace VECS.UI
                 {
                     Header = entityName
                 };
-
+                
                 if (parent == null)
                 {
                     TreeView.Items.Clear();

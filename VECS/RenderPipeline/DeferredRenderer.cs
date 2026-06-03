@@ -25,11 +25,13 @@ namespace VECS
         public static readonly int G_NormalsPropertyId = "g_NormalsIn".GetShaderPropertyId();
         public static readonly int G_AlbedoPropertyId = "g_AlbedoIn".GetShaderPropertyId();
         public static readonly int G_MaskPropertyId = "g_MaskIn".GetShaderPropertyId();
+        public static readonly int IntermediateColourPropertyId = "colourIn".GetShaderPropertyId();
 
         public RenderTarget G_PositionAttachment;
         public RenderTarget G_NormalAttachment;
         public RenderTarget G_AlbedoAttachment;
         public RenderTarget G_MaskAttachment;
+        public RenderTarget IntermediateColourAttachment;
 
         private Bloom _bloom;
         private SMAA _smaa;
@@ -103,6 +105,8 @@ namespace VECS
             G_NormalAttachment = IRenderer.CreateOrUpdateRT(G_NormalAttachment, "G_NormalAttachment", G_NormalsPropertyId, windowExtents, VkFormat.R16G16Sfloat);
             G_AlbedoAttachment  = IRenderer.CreateOrUpdateRT(G_AlbedoAttachment, "G_AlbedoAttachment", G_AlbedoPropertyId, windowExtents, VkFormat.R8G8B8A8Unorm);
             G_MaskAttachment  = IRenderer.CreateOrUpdateRT(G_MaskAttachment, "G_MaskAttachment", G_MaskPropertyId, windowExtents, VkFormat.R8G8B8A8Unorm);
+
+            IntermediateColourAttachment = IRenderer.CreateOrUpdateRT(IntermediateColourAttachment, "IntermediateColourAttachment", IntermediateColourPropertyId, windowExtents, VkFormat.R32G32B32A32Sfloat);
 
             _bloom?.RecreateAttachments();
             _smaa?.RecreateRenderTargets();
@@ -233,15 +237,26 @@ namespace VECS
 
             DrawBlob.IndirectToComputeMemoryBarrierByMat(commandBuffer);
 
+            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Defferred Pass");
             StartDeferredRendering(frameInfo);
             GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Entities");
             World.DefaultWorld.OnOpaquePass(frameInfo);
             GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
             EndDeferredRendering(frameInfo);
+            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
 
-            StartMainColourRendering(frameInfo, VkAttachmentLoadOp.Clear);
             GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Deferred Composite");
+            StartIMPass(frameInfo);
             EnginePipes.PBR_Deferred_Composite.Default().Bind(frameInfo);
+            GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
+            EndIMPass(frameInfo);
+            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
+
+            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Forward Composite");
+            StartMainColourRendering(frameInfo, VkAttachmentLoadOp.Clear);
+
+            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Deferred Post Process");
+            EnginePipes.PBR_Post_Process.Default().Bind(frameInfo);
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
             GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
 
@@ -253,6 +268,7 @@ namespace VECS
 
             EndMainColourRendering(frameInfo);
             GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
+            //GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
         }
 
         private static void SetRTOutput(RenderTarget target, VkCommandBuffer commandBuffer)
@@ -502,6 +518,45 @@ namespace VECS
         public void PostRender()
         {
 
+        }
+
+        public unsafe void StartIMPass(RendererFrameInfo frameInfo)
+        {
+            VkCommandBuffer commandBuffer = frameInfo.CommandBuffer;
+            if (IntermediateColourAttachment.ImageLayout == VkImageLayout.TransferSrcOptimal)
+            {
+                IntermediateColourAttachment.Target.SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.ColorAttachmentOutput);
+            }
+            if (IntermediateColourAttachment.ImageLayout == VkImageLayout.ShaderReadOnlyOptimal)
+            {
+                IntermediateColourAttachment.Target.SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
+            }
+            VkRenderingAttachmentInfo colourAttachments = new()
+            {
+                imageView = IntermediateColourAttachment.VkImageView,
+                imageLayout = IntermediateColourAttachment.ImageLayout,
+                loadOp = VkAttachmentLoadOp.Clear,
+                storeOp = VkAttachmentStoreOp.Store,
+                clearValue = new(0, 0, 0, 1)
+            };
+
+            VkRenderingInfo renderingInfo = new()
+            {
+                renderArea = new(0, 0, (uint)MainColourAttachment.Target.Width, (uint)MainColourAttachment.Target.Height),
+                layerCount = 1,
+                colorAttachmentCount = 1,
+                pColorAttachments = &colourAttachments,
+                flags = VkRenderingFlags.ContentsInlineKHR | VkRenderingFlags.ContentsSecondaryCommandBuffers
+            };
+            GraphicsDevice.DeviceAPI.vkCmdBeginRendering(commandBuffer, &renderingInfo);
+
+            SwapChain.SetViewPortScissor(commandBuffer);
+        }
+
+        private void EndIMPass(RendererFrameInfo frameInfo)
+        {
+            GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
+            SetRTShaderReadOnly(IntermediateColourAttachment, frameInfo.CommandBuffer);
         }
 
         public void StartMainColourRendering(RendererFrameInfo frameInfo, VkAttachmentLoadOp colourLoad)

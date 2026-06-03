@@ -211,7 +211,7 @@ namespace VECS
 
         private void WriteUniformToDescriptorBuffers()
         {
-            if (Pipeline.UniformBufferSize == 0) return;
+            if (!Pipeline.HasUniforms) return;
 
             for (uint i = 0; i < DescriptorSetCount; i++)
             {

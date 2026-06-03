@@ -178,7 +178,7 @@ namespace VECS
                 imageLayout = Irradiance_Cubemap._imageLayout,
                 loadOp = VkAttachmentLoadOp.Clear,
                 storeOp = VkAttachmentStoreOp.Store,
-                clearValue = new(0.0f, 0.0f, 0.2f, 0.0f)
+                clearValue = new(0.0f, 0.0f, 0.0f, 0.0f)
             };
 
             VkRenderingInfo renderingInfo = new()
@@ -245,7 +245,7 @@ namespace VECS
                 imageLayout = Prefiltered_Cubemap._imageLayout,
                 loadOp = VkAttachmentLoadOp.Clear,
                 storeOp = VkAttachmentStoreOp.Store,
-                clearValue = new(0.0f, 0.0f, 0.2f, 0.0f)
+                clearValue = new(0.0f, 0.0f, 0.0f, 0.0f)
             };
 
             VkRenderingInfo renderingInfo = new()
