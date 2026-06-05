@@ -88,7 +88,7 @@ namespace VECS
             var oit_unlit = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             
             oit_unlit.colourFormats = [];
-            oit_unlit.rasterizationInfo.cullMode = VkCullModeFlags.Back;
+            oit_unlit.rasterizationInfo.cullMode = VkCullModeFlags.None;
             oit_unlit.rasterizationInfo.frontFace = VkFrontFace.CounterClockwise;
             oit_unlit.depthStencilInfo.depthTestEnable = true;
             oit_unlit.depthStencilInfo.depthWriteEnable = false;

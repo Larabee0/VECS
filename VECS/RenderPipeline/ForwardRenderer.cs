@@ -174,6 +174,7 @@ namespace VECS
 
                 var depthBufferCullInfo = frameInfo.CullData;
                 depthBufferCullInfo.cullMode &= ~CullModeFlags.Depth;
+                depthBufferCullInfo.ExcludeMask |= RenderLayer.Transparent;
                 DrawBlob.IndirectToComputeMemoryBarrierByMat(commandBuffer);
 
                 DrawBlob.CullAllInOne(frameInfo, depthBufferCullInfo);

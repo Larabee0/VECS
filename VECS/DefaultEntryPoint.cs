@@ -53,7 +53,7 @@ namespace VECS
             //SponzaOld();
             //SponzaNew();
             SponzaNewPBR();
-            //ShadowDebug();
+            ShadowDebug();
         }
 
         private static void CreateMainCamera()
@@ -173,22 +173,38 @@ namespace VECS
 
             entityManager.AddComponent<MainColour>(pointLight, new() { Value = diffuse });
 
-            //AddRenderMeshComponents(pointLight,EnginePipes.Unlit.Default(), 0, subMesh, entityManager,RenderLayer.Default | RenderLayer.NoShadow);
+            AddRenderMeshComponents(pointLight,EnginePipes.Unlit.Default(), 0, subMesh, entityManager,RenderLayer.Default | RenderLayer.NoShadow);
         }
 
         private static void ShadowDebug()
         {
             EntityManager entityManager = World.DefaultWorld.EntityManager;
-            var entity = entityManager.CreateEntity();
 
             var mesh = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("quad.obj"),null)[0];
 
-            var unlit_Textured = new GraphicsPipeline("UnlitTextured", "unlit_textured.vert", "unlit_textured.frag", GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], [])).Default();
+            var litTransparent = EnginePipes.OIT_Unlit.Default();
+
+            var entity = entityManager.CreateEntity();
+            AddRenderMeshComponents(entity, litTransparent, 0, mesh, entityManager);
+            var flags = RenderLayer.NoShadow | RenderLayer.Transparent;
+            var include = RenderLayer.All;
+            var exclude =  RenderLayer.OnlyShadow | RenderLayer.Transparent;
+            bool includeMask = (flags | include) == include;
+
+            bool excludeMask = (flags & ~exclude) == flags;
 
 
-            AddRenderMeshComponents(entity, unlit_Textured, 0, mesh, entityManager);
+            bool visible = includeMask && excludeMask;
 
-            entityManager.AddComponent(entity, new Translation() { Value = new Vector3(0, 2, 0) });
+            entityManager.AddComponent(entity, new Translation() { Value = new Vector3(0, 2, 1) });
+            entityManager.AddComponent<MainColour>(entity, new() { Value = new Vector4(1,1,1,0.5f) });
+
+            entityManager.AddComponent(entity, new Rotation() { Value = TransformExtensions.EulerUnity(0, 0, -180) });
+            entity = entityManager.CreateEntity();
+            AddRenderMeshComponents(entity, litTransparent, 0, mesh, entityManager);
+
+            entityManager.AddComponent(entity, new Translation() { Value = new Vector3(0.5f, 2, 0) });
+            entityManager.AddComponent<MainColour>(entity, new() { Value = new Vector4(0, 1, 1, 0.33f) });
 
             entityManager.AddComponent(entity, new Rotation() { Value = TransformExtensions.EulerUnity(0, 0, -90) });
         }
@@ -319,7 +335,7 @@ namespace VECS
             Parent parent = new() { Value = commonParent };
 
             var lit = EnginePipes.PBRTexture;
-            lit = EnginePipes.PBR_Deferred;
+            //lit = EnginePipes.PBR_Deferred;
             //var litTransparent = EnginePipes.OIT_LitTexture;
 
             var texProp = "albedoMap".GetShaderPropertyId();
@@ -436,7 +452,7 @@ namespace VECS
                     Variant = (int)mat.VariantIndex,
                     Entity = entityVariant
                 },
-                LayerFlags = layerFlags
+                LayerFlags = mat.Pipeline.Transparent ?  layerFlags | RenderLayer.Transparent : layerFlags
             });
 
             entityManager.AddComponent(entity, mesh.GetSubMeshIndex());

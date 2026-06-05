@@ -9,7 +9,7 @@ namespace VECS
         public const bool SHADOW_CULLING = true;
         public const bool SHADOW_DST_CULLING = true;
         public const bool SHADOW_DEPTH_CULLING = false;
-        public const RenderLayer SHADOW_INCLUDE_MASK = RenderLayer.Default | RenderLayer.OnlyShadow;
+        public const RenderLayer SHADOW_INCLUDE_MASK = RenderLayer.Default | RenderLayer.OnlyShadow | RenderLayer.Transparent;
         public const RenderLayer SHADOW_EXCLUDE_MASK = RenderLayer.NoShadow;
         public const CullModeFlags SHADOW_CULL_MODE = CullModeFlags.Distance | CullModeFlags.Fustrum;
 

@@ -81,8 +81,8 @@ namespace VECS
             SDL3WindowManager.CheckLoadedPresentMode();
             ShaderModule.LoadAllShaders();
             //SDL3WindowManager.CreateNewEditorWindow("VECS-Editor", Width, Height);
-            //_presenter = new Presenter<ForwardRenderer>();
-            _presenter = new Presenter<DeferredRenderer>();
+            _presenter = new Presenter<ForwardRenderer>();
+            //_presenter = new Presenter<DeferredRenderer>();
 
             Time.FixedTimeStepCallback += FixedUpdate;
             sw.Stop();

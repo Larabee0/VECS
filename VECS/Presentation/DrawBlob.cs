@@ -315,7 +315,6 @@ namespace VECS
             });
 
             Array.Resize(ref _drawCommandsByMat, _materialVariants.Count);
-            Array.Resize(ref _depthCommands, _materialVariants.Count);
             Array.Sort(_drawRenderMesh, _drawEntitiesByMat, MatComparerer.Comparer);
 
             var indirectCmdBuffer = _indirectCmdBufferByMat.HostBuffer;
@@ -392,7 +391,8 @@ namespace VECS
                 GPUBufferExtensions.WriteFromHostDelayed(_indirectCmdBufferAllInOne, i);
             }
 
-            Array.Copy(_drawCommandsByMat, _depthCommands, _drawCommandsByMat.Length);
+            Array.Resize(ref _depthCommands, _drawCommandsByMat.Length);// - TransparentCmdCountByMat);
+            Array.Copy(_drawCommandsByMat, _depthCommands, _drawCommandsByMat.Length);// -TransparentCmdCountByMat);
 
             uint alphaClippingDepthVariant = 0;
             int depthHash = EnginePipes.DepthOnly.Hash;
@@ -405,24 +405,26 @@ namespace VECS
                 var offset = (uint)matCmd.MeshStart;
                 var length = (uint)matCmd.MeshCount;
                 var variant = mat.GetOrCreateVariant((uint)matCmd.Variant);
-                
-                if (variant.AlphaClipping)
-                {
-                    var alphaClipping = EnginePipes.DepthOnlyAlphaClipping.GetOrCreateVariant(alphaClippingDepthVariant);
-                    
-                    SetAlphaClipping(variant, alphaClipping);
 
-                    _depthCommands[i].Variant = (int)alphaClippingDepthVariant;
-                    alphaClippingDepthVariant++;
-                    _depthCommands[i].Material = depthAlphaHash;
-                }
-                else
+                //if (!mat.Transparent)
                 {
-                    _depthCommands[i].Variant = 0;
-                    _depthCommands[i].Material = depthHash;
-                }
-                _depthCommands[i].Entity = 0;
+                    if (variant.AlphaClipping)
+                    {
+                        var alphaClipping = EnginePipes.DepthOnlyAlphaClipping.GetOrCreateVariant(alphaClippingDepthVariant);
 
+                        SetAlphaClipping(variant, alphaClipping);
+
+                        _depthCommands[i].Variant = (int)alphaClippingDepthVariant;
+                        alphaClippingDepthVariant++;
+                        _depthCommands[i].Material = depthAlphaHash;
+                    }
+                    else
+                    {
+                        _depthCommands[i].Variant = 0;
+                        _depthCommands[i].Material = depthHash;
+                    }
+                    _depthCommands[i].Entity = 0;
+                }
                 for (int j = 0; j < _renderBuffers.Length; j++)
                 {
                     if(mat.LookUpProperty(_renderBuffers[j].BufferShaderPropertyId,out var propertyInfo))

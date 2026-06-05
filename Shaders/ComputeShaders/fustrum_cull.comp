@@ -141,9 +141,9 @@ void main()
 		uint8_t flags = drawBuffer.Draws[gID].layerFlags;
 		
 		bool includeMask = (flags | cullData.includeMask) == cullData.includeMask;
-		bool excludeMask = (flags | cullData.excludeMask) == cullData.excludeMask;
+		bool excludeMask = (flags & ~cullData.excludeMask) == flags;
 
-		bool visible = includeMask && !excludeMask;
+		bool visible = includeMask && excludeMask;
 
 		bool fustrumCulling = (uint8_t(1) | cullData.cullMode) == cullData.cullMode;
 		bool distanceCulling = (uint8_t(2) | cullData.cullMode) == cullData.cullMode;

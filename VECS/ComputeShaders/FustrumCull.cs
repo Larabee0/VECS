@@ -18,7 +18,8 @@ namespace VECS
         Default = 1,
         NoShadow = 2,
         OnlyShadow = 4,
-        All = Default | NoShadow | OnlyShadow
+        Transparent = 8,
+        All = Default | NoShadow | OnlyShadow | Transparent
     }
 
     [Flags]
