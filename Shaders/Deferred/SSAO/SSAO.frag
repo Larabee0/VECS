@@ -1,0 +1,66 @@
+#version 460
+#extension GL_ARB_shading_language_include : require
+#include "../../common_structures.glsl"
+
+layout (location = 0) in vec2 inUV;
+layout (location = 0) out float ssaoOut;
+
+layout(set = 0, binding = 0) readonly buffer SSAOKernels {
+	vec4 values[];
+} ssaoKernels;
+
+layout(set = 0, binding = 1) uniform SSAOUniform {
+	vec2 noiseScale;
+    float radius;
+    float bias;
+    int kernelSize;
+} ssaoUniform;
+
+layout(set = 0,binding = 2) readonly buffer CameraInfos {
+	CameraInfo values[];
+} cameraInfo;
+
+layout (set = 0, binding = 3) uniform sampler2D ssaoNoise;
+layout (set = 0, binding = 4) uniform sampler2D g_PositionIn;
+layout (set = 0, binding = 5) uniform sampler2D g_NormalsIn;
+
+layout(push_constant) uniform Constants{
+	uint cameraIndex;
+} constants;
+
+#define UV vec2(inUV.x,1-inUV.y)
+
+void main(){
+    vec4 positionWorld = texture(g_PositionIn,UV).rgba;
+    // src normal vector
+    vec3 N = normalize(texture(g_NormalsIn,UV).rgb);
+
+    // transform world post to view pos
+    vec3 viewPos = (cameraInfo.values[constants.cameraIndex].viewMatrix * vec4(positionWorld.xyz,1.0)).xyz;
+
+    vec3 randomVec = normalize(vec3(texture(ssaoNoise, UV * ssaoUniform.noiseScale).xy,0));
+    vec3 tangent = normalize(randomVec - N * dot(randomVec, N));
+    vec3 bitangent = cross(N,  tangent );
+    mat3 TBN = mat3(tangent, bitangent, N);
+    
+    float occlusion = 0.0;    
+    for(int i = 0; i < ssaoUniform.kernelSize; ++i){
+
+        // get sample position
+        vec3 samplePos = TBN * ssaoKernels.values[i].xyz; // from tangent to view-space
+        samplePos = viewPos + samplePos * ssaoUniform.radius;
+
+        vec4 offset = vec4(samplePos, 1.0);
+        offset = cameraInfo.values[constants.cameraIndex].projectionMatrix * offset;    // from view to clip-space
+        offset.xyz /= offset.w;               // perspective divide
+        offset.xyz = offset.xyz * 0.5 + 0.5; // transform to range 0.0 - 1.0
+
+        float sampleDepth = -texture(g_PositionIn, vec2(offset.x,1-offset.y)).w;
+
+        float rangeCheck = smoothstep(0.0, 1.0, ssaoUniform.radius / abs(viewPos.z - sampleDepth));
+        occlusion += (sampleDepth >= samplePos.z + ssaoUniform.bias ? 1.0 : 0.0) * rangeCheck;  
+    }
+
+    occlusion = 1.0 - (occlusion / ssaoUniform.kernelSize);
+    ssaoOut = occlusion;
+}

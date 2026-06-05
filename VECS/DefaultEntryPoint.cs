@@ -160,7 +160,7 @@ namespace VECS
                 Constant = 1.0f,
                 Linear = 0.07f,
                 Quadratic = 0.017f,
-                Range = 25f
+                Range = 7f
             });
 
             entityManager.AddComponent(pointLight, new ShadowInfo()
@@ -173,7 +173,7 @@ namespace VECS
 
             entityManager.AddComponent<MainColour>(pointLight, new() { Value = diffuse });
 
-            AddRenderMeshComponents(pointLight,EnginePipes.Unlit.Default(), 0, subMesh, entityManager,RenderLayer.Default | RenderLayer.NoShadow);
+            //AddRenderMeshComponents(pointLight,EnginePipes.Unlit.Default(), 0, subMesh, entityManager,RenderLayer.Default | RenderLayer.NoShadow);
         }
 
         private static void ShadowDebug()

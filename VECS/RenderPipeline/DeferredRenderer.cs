@@ -6,6 +6,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using VECS.ECS;
+using VECS.ECS.Transforms;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
@@ -35,6 +36,7 @@ namespace VECS
 
         private Bloom _bloom;
         private SMAA _smaa;
+        private SSAO _ssao;
 
         public Texture2D _headIndex;
         private readonly SwapChainBuffer _geometry;
@@ -64,6 +66,7 @@ namespace VECS
             EnginePipes.DepthOnly.PushConstants.SetPushConstantInt("bufferSelect", DEPTH_ONLY_PUSH_CONSTANT_INDEX, 0);
             _bloom = new(this);
             _smaa = new(this);
+            _ssao = new(this);
         }
 
         public unsafe void ScreenSizeChanged()
@@ -102,14 +105,15 @@ namespace VECS
 
 
             G_PositionAttachment = IRenderer.CreateOrUpdateRT(G_PositionAttachment, "G_PositionAttachment", G_PositionPropertyId, windowExtents, VkFormat.R16G16B16A16Sfloat);
-            G_NormalAttachment = IRenderer.CreateOrUpdateRT(G_NormalAttachment, "G_NormalAttachment", G_NormalsPropertyId, windowExtents, VkFormat.R16G16Sfloat);
+            G_NormalAttachment = IRenderer.CreateOrUpdateRT(G_NormalAttachment, "G_NormalAttachment", G_NormalsPropertyId, windowExtents, VkFormat.R16G16B16A16Sfloat);
             G_AlbedoAttachment  = IRenderer.CreateOrUpdateRT(G_AlbedoAttachment, "G_AlbedoAttachment", G_AlbedoPropertyId, windowExtents, VkFormat.R8G8B8A8Unorm);
             G_MaskAttachment  = IRenderer.CreateOrUpdateRT(G_MaskAttachment, "G_MaskAttachment", G_MaskPropertyId, windowExtents, VkFormat.R8G8B8A8Unorm);
 
             IntermediateColourAttachment = IRenderer.CreateOrUpdateRT(IntermediateColourAttachment, "IntermediateColourAttachment", IntermediateColourPropertyId, windowExtents, VkFormat.R32G32B32A32Sfloat);
-
+            EnginePipes.PBR_Deferred_DirectionalLight.Default().SetVector2("screenSize.value".GetShaderPropertyId(), new(windowExtents.width, windowExtents.height));
             _bloom?.RecreateAttachments();
             _smaa?.RecreateRenderTargets();
+            _ssao?.RecreateRenderTargets();
         }
 
         public void PreRender()
@@ -244,11 +248,14 @@ namespace VECS
             GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
             EndDeferredRendering(frameInfo);
             GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
+            
+            _ssao.SSAOPass(frameInfo);
 
             GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Deferred Composite");
             StartIMPass(frameInfo);
             EnginePipes.PBR_Deferred_Composite.Default().Bind(frameInfo);
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
+            LightingPass(frameInfo);
             EndIMPass(frameInfo);
             GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
 
@@ -269,6 +276,70 @@ namespace VECS
             EndMainColourRendering(frameInfo);
             GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
             //GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
+        }
+
+        private static void LightingPass(RendererFrameInfo frameInfo)
+        {
+            EnginePipes.PBR_Deferred_DirectionalLight.Default().Bind(frameInfo);
+            GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
+
+            if (frameInfo.LightingInfo.NumPointLights > 0)
+            {
+                var sphere = AssetDataBase<DirectSubMesh>.GetNamed("UV-Sphere.0");
+                var plP = EnginePipes.PBR_Deferred_PointLight;
+                var plBuffer = (SwapChainBuffer<PointLightUniform>)EngineBuffers.TryGetBuffer(ShaderProperties.PointLightsBufferId);
+
+                for (int i = 0; i < frameInfo.LightingInfo.NumPointLights; i++)
+                {
+                    var pl = plBuffer.HostBuffer[i];
+                    if (!IsVisibleAABB(new(AABB.FromCenterExtents(pl.Position.AsVector3(),new(pl.FarPlane)),CullOverrides.None), frameInfo.CullData))  continue;
+                    var transformMatrix = TransformExtensions.TRS(pl.Position.AsVector3(), Quaternion.Identity, new(pl.FarPlane));
+
+                    var variant = plP.GetOrCreateVariant((uint)i);
+                    variant.SetMatrix4x4("lightUniform.lightMatrix".GetShaderPropertyId(), transformMatrix);
+                    variant.SetVector2("lightUniform.screenSize".GetShaderPropertyId(), new(Screen.Width,Screen.Height));
+                    variant.SetUint("lightUniform.lightIndex".GetShaderPropertyId(), (uint)i);
+                    variant.SetUint("lightUniform.shadow".GetShaderPropertyId(), i < frameInfo.LightingInfo.NumPointLightShadows ? 1u : 0);
+                    variant.BindCareful(frameInfo);
+                    sphere.SimpleBindAndDraw(frameInfo.CommandBuffer);
+                }
+            }
+        }
+
+        public static bool IsVisibleAABB(ShaderAABB bounds, CullData cullData)
+        {
+            var min = bounds.Min;
+            var max = bounds.Max;
+            min.W = 1f;
+            max.W = 1f;
+            int planeCount =  6;
+            for (int i = 0; i < planeCount; i++)
+            {
+                var g = cullData[i];
+                float d0 = Vector4.Dot(g, min);
+                float d1 = Vector4.Dot(g, new Vector4(max.X, min.Y, min.Z, 1f));
+                float d2 = Vector4.Dot(g, new Vector4(min.X, max.Y, min.Z, 1f));
+                float d3 = Vector4.Dot(g, new Vector4(max.X, max.Y, min.Z, 1f));
+
+                float d4 = Vector4.Dot(g, new Vector4(min.X, min.Y, max.Z, 1f));
+                float d5 = Vector4.Dot(g, new Vector4(max.X, min.Y, max.Z, 1f));
+                float d6 = Vector4.Dot(g, new Vector4(min.X, max.Y, max.Z, 1f));
+                float d7 = Vector4.Dot(g, max);
+
+                if (d0 < 0.0f &&
+                    d1 < 0.0f &&
+                    d2 < 0.0f &&
+                    d3 < 0.0f &&
+                    d4 < 0.0f &&
+                    d5 < 0.0f &&
+                    d6 < 0.0f &&
+                    d7 < 0.0f)
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private static void SetRTOutput(RenderTarget target, VkCommandBuffer commandBuffer)
@@ -540,12 +611,21 @@ namespace VECS
                 clearValue = new(0, 0, 0, 1)
             };
 
+            VkRenderingAttachmentInfo depth = new()
+            {
+                imageView = DepthAttachment.VkImageView,
+                imageLayout = DepthAttachment.ImageLayout,
+                loadOp = VkAttachmentLoadOp.Load,
+                storeOp = VkAttachmentStoreOp.Store,
+                //clearValue = new(0, 0)
+            };
             VkRenderingInfo renderingInfo = new()
             {
                 renderArea = new(0, 0, (uint)MainColourAttachment.Target.Width, (uint)MainColourAttachment.Target.Height),
                 layerCount = 1,
                 colorAttachmentCount = 1,
                 pColorAttachments = &colourAttachments,
+                pDepthAttachment = &depth,
                 flags = VkRenderingFlags.ContentsInlineKHR | VkRenderingFlags.ContentsSecondaryCommandBuffers
             };
             GraphicsDevice.DeviceAPI.vkCmdBeginRendering(commandBuffer, &renderingInfo);

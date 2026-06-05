@@ -50,5 +50,6 @@ void main()
 	fragUV = uv;
 	fragPosWorld = positionWorld.xyz;
 	fragNormalWorld = normalize(mat3(objectMat.normalMatrix) * normal);	
+	//fragNormalWorld = normal;
 	fragTangentWorld = vec4(mat3(objectMat.modelMatrix) * tangent.xyz, tangent.w);
 }

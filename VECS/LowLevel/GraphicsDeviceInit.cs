@@ -394,7 +394,7 @@ namespace VECS.LowLevel
 
             VkPhysicalDeviceVulkan14Features deviceFeatures14 = new()
             {
-                hostImageCopy = false,
+                dynamicRenderingLocalRead = true,
                 pNext = & deviceFeatures13
             };
 

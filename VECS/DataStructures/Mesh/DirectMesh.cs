@@ -703,5 +703,10 @@ namespace VECS
             var newData = new DirectSubMeshInfo(directSubMeshCreateData.VertexCount, directSubMeshCreateData.IndexCount, currentData.FirstIndex, currentData.VertexOffset, currentData.FirstInstance);
             _subMeshInfo[subMeshIndex] = newData;
         }
+
+        public static void DrawTriangle(VkCommandBuffer commandBuffer)
+        {
+            GraphicsDevice.DeviceAPI.vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+        }
     }
 }

@@ -81,6 +81,7 @@ namespace VECS
                     break;
                 }
             }
+            //LOW_PRECISION_DEPTH_ONLY = VkFormat.D32Sfloat;
         }
 
         private static bool QueryFormat(VkFormat format, VkFormatFeatureFlags featureFlags)
