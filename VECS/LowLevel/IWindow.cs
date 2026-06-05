@@ -24,6 +24,6 @@ namespace VECS.LowLevel
         void WaitForNextWindowEvent();
         string[] GetWindowExtensionRequirements();
         bool UpdateWindowEvents(SDL_Event sdlEvent);
-        public void RecreateSwapChain();
+        public bool RecreateSwapChain();
     }
 }

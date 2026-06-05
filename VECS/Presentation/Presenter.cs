@@ -82,11 +82,14 @@ namespace VECS
         }
 
         protected abstract IRenderer CreateRenderer();
-
+        private bool minimisedState = false;
         private void RecreateSwapChain()
         {
-            SDL3WindowManager.WaitForResizeEvents();
-            DrawBlob.Reset();
+            if (!minimisedState)
+            {
+                SDL3WindowManager.WaitForResizeEvents();
+                DrawBlob.Reset();
+            }
             if (!SwapChain.SwapChainInitialised)
             {
                 SwapChainInit.Init();
@@ -99,10 +102,22 @@ namespace VECS
             }
             else
             {
-                SwapChain.FinishTimelineWorkers(true);
-                GraphicsDevice.DeviceWaitIdle();
+                if (!minimisedState)
+                {
+                    SwapChain.FinishTimelineWorkers(true);
+                    GraphicsDevice.DeviceWaitIdle();
+                }
                 var oldSwapChain = SwapChain.MainSwapChainData;
-                SwapChainInit.Replace();
+                if (!SwapChainInit.Replace(minimisedState))
+                {
+                    minimisedState = true;
+                    return;
+                }
+                else
+                {
+                    minimisedState = false;
+                    SwapChain.RecreateSwapChain = false;
+                }
                 if (!SwapChain.CompareSwapFormats(oldSwapChain))
                 {
                     throw new Exception("Swap chain image(or depth) format has changed!");
@@ -111,6 +126,7 @@ namespace VECS
                 GraphicsDevice.FreeCommandBuffers();
                 GraphicsDevice.CreateCommandBuffers();
                 GraphicsDevice.DeviceWaitIdle();
+
             }
             _framesSinceSwapChainRecreation = 0;
             SDL3WindowManager.ResetWindowResized();

@@ -75,6 +75,54 @@ namespace System.Numerics
             return Select(new Vector4(0f, 0f, 0f, 1f), FromMatrix3x3(new Matrix3x3(float5, Vector3.Cross(forward, float5), forward)).AsVector4(), new(test)).AsQuaternion();
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static Quaternion CameraRotation(Vector3 target, Vector3 up)
+        {
+            return Quaternion.CreateFromRotationMatrix(CameraRotationMatrix(target, up));
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static Matrix4x4 CameraRotationMatrix(Vector3 target, Vector3 up)
+        {
+            Vector3 N = Vector3.Normalize(target);
+
+            Vector3 UpNorm = Vector3.Normalize(up);
+
+            Vector3 U  = Vector3.Normalize(Vector3.Cross(UpNorm, N));
+
+            Vector3 V = Vector3.Cross(N, U);
+
+            return new Matrix4x4(U.X, U.Y, U.Z, 0f, V.X, V.Y, V.Z, 0, N.X, N.Y, N.Z, 0, 0, 0, 0, 1);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static Vector3 Rotate(this Vector3 dir, float angle, Vector3 v)
+        {
+            Quaternion RotationQ = FromAngleVector(angle, v);
+            Quaternion ConjugateQ = Quaternion.Conjugate(RotationQ);
+            Quaternion W = Quaternion.Multiply(Multiply(RotationQ, dir), ConjugateQ);
+            return new Vector3(W.X, W.Y, W.Z);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static Vector3 Normalize(this Vector3 v)
+        {
+            return Vector3.Normalize(v);
+        }
+
+        public static Quaternion CameraRotation(float angleX, float AngleY)
+        {
+            Vector3 yAxis = new(0, 1, 0);
+
+            Vector3 view = new Vector3(1, 0, 0).Rotate(AngleY, yAxis).Normalize();
+
+            Vector3 U = Vector3.Cross(yAxis, view).Normalize();
+            var target = view.Rotate(angleX, U).Normalize();
+            var up = Vector3.Cross(target, U).Normalize();
+
+            return CameraRotation(target, up);
+        }
+
         public static Quaternion FromMatrix3x3(Matrix3x3 m)
         {
             Vector3 c = m.c0;
@@ -92,6 +140,29 @@ namespace System.Numerics
             value = Vector4.Normalize(value);
 
             return value.AsQuaternion();
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static Quaternion Multiply(Quaternion q, Vector3 v)
+        {
+            float w = -(q.X * v.X) - (q.Y * v.Y) - (q.Z * v.Z);
+            float x = (q.W * v.X) + (q.Y * v.Z) - (q.Z * v.Y);
+            float y = (q.W * v.Y) + (q.Z * v.X) - (q.X * v.Z);
+            float z = (q.W * v.Z) + (q.X * v.Y) - (q.Y * v.X);
+
+            Quaternion ret = new(x, y, z, w);
+
+            return ret;
+        }
+
+        public static Quaternion FromAngleVector(float angle, Vector3 v)
+        {
+            float HalfAngleInRadians = TransformExtensions.Deg2Rad * (angle / 2);
+
+            float SineHalfAngle = MathF.Sin(HalfAngleInRadians);
+            float CosHalfAngle = MathF.Cos(HalfAngleInRadians);
+
+            return new(v.X * SineHalfAngle, v.Y * SineHalfAngle, v.Z * SineHalfAngle, CosHalfAngle);
         }
 
         public static Vector4 ZWXY(this Vector4 c)

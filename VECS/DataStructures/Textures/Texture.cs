@@ -462,6 +462,10 @@ namespace VECS
         protected virtual void Reinitialise()
         {
             TextureExtensions.EnqueueForDisposal(_vkImage, _allocation, _imageView, VkSampler.Null);
+            if(MipMapCount > 1)
+            {
+                MipMapCount = TextureExtensions.CalculateMipMapLevels(Width, Height);
+            }
             _imageLayout = VkImageLayout.Undefined;
             _vkImage = VkImage.Null;
             _allocation = VmaAllocation.Null;

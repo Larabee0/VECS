@@ -41,7 +41,10 @@ namespace VECS.LowLevel
             VkSurfaceFormatKHR surfaceFormat = SwapChainInit.ChooseSwapSurfaceFormat(swapChainSupport.formats);
             VkPresentModeKHR presentMode = SwapChainInit.ChooseSwapPresentMode(swapChainSupport.presentModes);
             VkExtent2D extent = SwapChainInit.ChooseSwapExtent(swapChainSupport.capabilities, windowExtent);
-
+            if (extent.height == 0 || extent.width == 0)
+            {
+                return;
+            }
             VkSwapchainCreateInfoKHR createInfo = new()
             {
                 surface = surface,
@@ -55,21 +58,11 @@ namespace VECS.LowLevel
 
             var indices = GraphicsDevice.PhysicalQueueFamilies;
 
-            uint* queueFamilyIndices = stackalloc uint[2] { indices.graphicsFamily, indices.presentFamily };
+            uint queueFamilyIndices = indices.graphicsFamily;
 
-            if (indices.graphicsFamily != indices.presentFamily)
-            {
-                createInfo.imageSharingMode = VkSharingMode.Concurrent;
-                createInfo.queueFamilyIndexCount = 2;
-                createInfo.pQueueFamilyIndices = queueFamilyIndices;
-            }
-            else
-            {
-                createInfo.imageSharingMode = VkSharingMode.Exclusive;
-                createInfo.queueFamilyIndexCount = 0;
-                createInfo.pQueueFamilyIndices = null;
-            }
-
+            createInfo.imageSharingMode = VkSharingMode.Exclusive;
+            createInfo.queueFamilyIndexCount = 1;
+            createInfo.pQueueFamilyIndices = &queueFamilyIndices;
             createInfo.preTransform = swapChainSupport.capabilities.currentTransform;
             createInfo.compositeAlpha = VkCompositeAlphaFlagsKHR.Opaque;
             createInfo.presentMode = presentMode;

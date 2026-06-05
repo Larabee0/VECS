@@ -280,18 +280,6 @@ namespace VECS.LowLevel
                 { indices.graphicsFamily, 1 }
             };
 
-            if (!uniqueQueueFamilies.TryAdd(indices.computeFamily, 1))
-            {
-                indices.presentIndex = uniqueQueueFamilies[indices.computeFamily];
-                uniqueQueueFamilies[indices.computeFamily]++;
-            }
-
-            if (!uniqueQueueFamilies.TryAdd(indices.presentFamily, 1))
-            {
-                indices.presentIndex = uniqueQueueFamilies[indices.presentFamily];
-                uniqueQueueFamilies[indices.presentFamily]++;
-            }
-
             PhysicalQueueFamilies = indices;
 
             VkDeviceQueueCreateInfo* pQueueCreateInfos = stackalloc VkDeviceQueueCreateInfo[uniqueQueueFamilies.Count];
@@ -457,8 +445,6 @@ namespace VECS.LowLevel
             _deviceApi = Vulkan.GetApi(_instance, _device);
 
             _deviceApi.vkGetDeviceQueue(indices.graphicsFamily, 0, out _mainQueue);
-            _deviceApi.vkGetDeviceQueue(indices.computeFamily, (uint)indices.computeIndex, out _computeQueue);
-            _deviceApi.vkGetDeviceQueue(indices.presentFamily, (uint)indices.presentIndex, out _presentQueue);
         }
 
         #endregion
@@ -479,26 +465,12 @@ namespace VECS.LowLevel
             };
 
             _secondaryMainPipeCommandBuffers = new VkCommandPool[Environment.ProcessorCount * 2];
-            _secondaryComputePipeCommandBuffers = new VkCommandPool[Environment.ProcessorCount];
             _deviceApi.vkCreateCommandPool(poolInfo, null, out _commandPoolMain).CheckResult("Failed to create main command pool!");
 
             for (int i = 0; i < _secondaryMainPipeCommandBuffers.Length; i++)
             {
                 _deviceApi.vkCreateCommandPool(poolInfo, null, out _secondaryMainPipeCommandBuffers[i]).CheckResult("Failed to create secondary main command pool!");
             }
-
-
-            poolInfo.queueFamilyIndex = queueFamilyIndices.computeFamily;
-            _deviceApi.vkCreateCommandPool(poolInfo, null, out _commandPoolCompute).CheckResult("Failed to create compute command pool!");
-
-            for (int i = 0; i < _secondaryComputePipeCommandBuffers.Length; i++)
-            {
-                _deviceApi.vkCreateCommandPool(poolInfo, null, out _secondaryComputePipeCommandBuffers[i]).CheckResult("Failed to create secondary main compute pool!");
-            }
-
-            poolInfo.queueFamilyIndex = queueFamilyIndices.presentFamily;
-
-            _deviceApi.vkCreateCommandPool(poolInfo, null, out _commandPoolPresent).CheckResult("Failed to create present command pool!");
         }
 
         #endregion
@@ -584,21 +556,10 @@ namespace VECS.LowLevel
 
                 _instanceApi.vkGetPhysicalDeviceSurfaceSupportKHR(device, i, Application.MainWindow.Surface, out VkBool32 presentSupport);
 
-                if (family.queueCount > 0 && family.queueFlags.HasFlag(VkQueueFlags.Graphics) && family.queueFlags.HasFlag(VkQueueFlags.Compute))
+                if (family.queueCount > 0 && presentSupport && family.queueFlags.HasFlag(VkQueueFlags.Graphics) && family.queueFlags.HasFlag(VkQueueFlags.Compute))
                 {
                     indices.graphicsFamily = i;
                     indices.graphicsFamilyHasValue = true;
-                }
-
-                else if (family.queueCount > 1 && family.queueFlags.HasFlag(VkQueueFlags.Compute) && !family.queueFlags.HasFlag(VkQueueFlags.Graphics))
-                {
-                    indices.computeFamily = i;
-                    indices.computeFamilyHasValue = true;
-                    if (presentSupport)
-                    {
-                        indices.presentFamily = i;
-                        indices.presentFamilyHasValue = true;
-                    }
                 }
 
                 if (indices.IsComplete)

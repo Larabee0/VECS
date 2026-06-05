@@ -138,6 +138,7 @@ namespace VECS.LowLevel
                 }
                 _framebufferResized = true;
                 SDL3WindowManager.UpdateWindowSize(_windowName, _width, _height);
+                Console.WriteLine("window Resize {0}, {1}", _width, _height);
             }
         }
 
@@ -153,8 +154,12 @@ namespace VECS.LowLevel
             GC.ReRegisterForFinalize(this);
         }
 
-        public void RecreateSwapChain()
+        public bool RecreateSwapChain()
         {
+            while (SDL.SDL_GetWindowFlags(_window).HasFlag(SDL_WindowFlags.Minimized))
+            {
+                return false;
+            }
             var oldSwapChain = _swapChainData;
             _swapChainData = new(
                 oldSwapChain.IsDisposed
@@ -166,6 +171,7 @@ namespace VECS.LowLevel
             oldSwapChain.Dispose();
 
             SDL3WindowManager.NotifySwapChainRecreated();
+            return true;
         }
 
         private bool TextInput = false;

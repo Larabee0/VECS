@@ -317,12 +317,14 @@ namespace VECS.LowLevel
             SwapChain.SwapChainsForPresent = swapChainsForPresent;
         }
 
-        public static void RecreateSwapChains()
+        public static bool RecreateSwapChains()
         {
+            bool anyFalse = false;
             foreach (var window in _windows.Values)
             {
-                window.RecreateSwapChain();
+                anyFalse |= !window.RecreateSwapChain();
             }
+            return !anyFalse;
         }
 
         public static void WaitForResizeEvents()

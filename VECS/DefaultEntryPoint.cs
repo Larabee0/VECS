@@ -53,16 +53,16 @@ namespace VECS
             //SponzaOld();
             //SponzaNew();
             SponzaNewPBR();
-            ShadowDebug();
+            //ShadowDebug();
         }
 
         private static void CreateMainCamera()
         {
             EntityManager entityManager = World.DefaultWorld.EntityManager;
             Entity MainCamera = entityManager.CreateEntity("Main Camera");
-            entityManager.AddComponent<FreeCamera>(MainCamera);
+            entityManager.AddComponent<FreeCamera>(MainCamera, new() { AngleX = TransformExtensions.Rad2Deg * initalCameraRot.X, AngleY = TransformExtensions.Rad2Deg * initalCameraRot.Y });
             entityManager.AddComponent(MainCamera, new Translation() { Value = initalCameraPos });
-            entityManager.AddComponent(MainCamera, new Rotation() { Value = TransformExtensions.Euler(initalCameraRot) });
+            entityManager.AddComponent<Rotation>(MainCamera, new() { Value = NumericsExtensions.CameraRotation(TransformExtensions.Rad2Deg * initalCameraRot.X,TransformExtensions.Rad2Deg * initalCameraRot.Y) });
             entityManager.AddComponent(MainCamera, cameraPerspective);
             entityManager.AddComponent<MainCamera>(MainCamera);
             return;

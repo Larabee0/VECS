@@ -48,19 +48,12 @@ namespace VECS.LowLevel
         internal static VmaAllocator _allocator;
 
         internal static VkQueue _mainQueue;
-        internal static VkQueue _computeQueue;
-        internal static VkQueue _presentQueue;
 
         internal static VkCommandPool _commandPoolMain;
-        internal static VkCommandPool _commandPoolCompute;
-        internal static VkCommandPool _commandPoolPresent;
 
         private static VkCommandBuffer[] _mainPipeCommandBuffers;
-        private static VkCommandBuffer[] _computeCommandBuffers;
-        private static VkCommandBuffer[] _presentCommandBuffers;
 
         internal static VkCommandPool[] _secondaryMainPipeCommandBuffers;
-        internal static VkCommandPool[] _secondaryComputePipeCommandBuffers;
 
 
         public static VkPhysicalDeviceProperties PropertiesVK10 { get; internal set; }
@@ -80,20 +73,11 @@ namespace VECS.LowLevel
        
 
         public static VkQueue MainQueue => _mainQueue;
-        public static VkQueue ComputeQueue => _computeQueue;
-        public static VkQueue PresentQueue => _presentQueue;
 
         public static VkCommandPool MainCommandPool => _commandPoolMain;
-        public static VkCommandPool ComputeCommandPool => _commandPoolCompute;
-        public static VkCommandPool PresentCommandPool => _commandPoolPresent;
 
         public static VkCommandBuffer[] MainPipeCommandBuffers => _mainPipeCommandBuffers;
         public static VkCommandPool[] SecondaryMainPipeCommandBuffers => _secondaryMainPipeCommandBuffers;
-        public static VkCommandBuffer[] ComputePipeCommandBuffers => _computeCommandBuffers;
-        public static VkCommandPool[] SecondaryComputePipeCommandBuffers => _secondaryComputePipeCommandBuffers;
-        public static VkCommandBuffer[] PresentPipeCommandBuffers => _presentCommandBuffers;
-
-
 
         public static VkInstance VkInstance => _instance;
         public static SwapChainSupportDetails SwapChainSupport  { get; internal set; }
@@ -140,8 +124,6 @@ namespace VECS.LowLevel
         internal static unsafe void CreateCommandBuffers()
         {
             _mainPipeCommandBuffers = new VkCommandBuffer[SwapChain.MAX_CONCURRENT_FRAMES];
-            _computeCommandBuffers = new VkCommandBuffer[SwapChain.MAX_CONCURRENT_FRAMES];
-            _presentCommandBuffers = new VkCommandBuffer[SwapChain.MAX_CONCURRENT_FRAMES];
 
             VkCommandBufferAllocateInfo allocInfo = new()
             {
@@ -153,19 +135,6 @@ namespace VECS.LowLevel
             fixed (VkCommandBuffer* pCommandBuffers = &_mainPipeCommandBuffers[0])
             {
                 _deviceApi.vkAllocateCommandBuffers(&allocInfo, pCommandBuffers).CheckResult("Failed to allocate main command buffers");
-            }
-
-            allocInfo.commandPool = ComputeCommandPool;
-            fixed (VkCommandBuffer* pCommandBuffers = &_computeCommandBuffers[0])
-            {
-                _deviceApi.vkAllocateCommandBuffers(&allocInfo, pCommandBuffers).CheckResult("Failed to allocate compute command buffers");
-            }
-
-            allocInfo.commandPool = PresentCommandPool;
-
-            fixed (VkCommandBuffer* pCommandBuffers = &_presentCommandBuffers[0])
-            {
-                _deviceApi.vkAllocateCommandBuffers(&allocInfo, pCommandBuffers).CheckResult("Failed to allocate present command buffers");
             }
         }
 
@@ -184,31 +153,6 @@ namespace VECS.LowLevel
                 }
 
                 _mainPipeCommandBuffers = null;
-            }
-
-            if (_computeCommandBuffers != null)
-            {
-                for (int i = 0; i < _secondaryComputePipeCommandBuffers.Length; i++)
-                {
-                    _deviceApi.vkResetCommandPool(_secondaryComputePipeCommandBuffers[i], VkCommandPoolResetFlags.ReleaseResources);
-                }
-
-                fixed (VkCommandBuffer* pCommandBuffers = &_computeCommandBuffers[0])
-                {
-                    _deviceApi.vkFreeCommandBuffers(ComputeCommandPool, (uint)_computeCommandBuffers.Length, pCommandBuffers);
-                }
-
-                _computeCommandBuffers = null;
-            }
-
-            if (_presentCommandBuffers != null)
-            {
-                fixed (VkCommandBuffer* pCommandBuffers = &_presentCommandBuffers[0])
-                {
-                    _deviceApi.vkFreeCommandBuffers(PresentCommandPool, (uint)_presentCommandBuffers.Length, pCommandBuffers);
-                }
-
-                _presentCommandBuffers = null;
             }
         }
 
@@ -246,17 +190,6 @@ namespace VECS.LowLevel
             return BeginSingleTime(_commandPoolMain);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static VkCommandBuffer BeginSingleTimeComputePipe()
-        {
-            return BeginSingleTime(_commandPoolCompute);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static VkCommandBuffer BeginSingleTimePresentPipe()
-        {
-            return BeginSingleTime(_commandPoolPresent);
-        }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static unsafe void EndSingleTimeMainPipe(VkCommandBuffer commandBuffer)
@@ -264,18 +197,6 @@ namespace VECS.LowLevel
             //StackTrace trace = new(true);
             //Console.WriteLine(string.Format("End Single Time Main Pipe\nTrace\n {0}", trace.ToString()));
             EndSingleTime(commandBuffer, _mainQueue, _commandPoolMain);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe void EndSingleTimeComputePipe(VkCommandBuffer commandBuffer)
-        {
-            EndSingleTime(commandBuffer, _computeQueue, _commandPoolCompute);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe void EndSingleTimePresentPipe(VkCommandBuffer commandBuffer)
-        {
-            //EndSingleTime(commandBuffer, _presentQueue, _commandPoolPresent);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -352,13 +273,6 @@ namespace VECS.LowLevel
                 _deviceApi.vkDestroyCommandPool(_secondaryMainPipeCommandBuffers[i]);
             }
 
-            for (int i = 0; i < _secondaryComputePipeCommandBuffers.Length; i++)
-            {
-                _deviceApi.vkDestroyCommandPool(_secondaryComputePipeCommandBuffers[i]);
-            }
-
-            _deviceApi.vkDestroyCommandPool(_commandPoolPresent);
-            _deviceApi.vkDestroyCommandPool(_commandPoolCompute);
             _deviceApi.vkDestroyCommandPool(_commandPoolMain);
             Vma.vmaDestroyAllocator(_allocator);
             _deviceApi.vkDestroyDevice();

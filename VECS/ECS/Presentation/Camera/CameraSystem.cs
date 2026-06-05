@@ -303,11 +303,13 @@ namespace VECS.ECS.Presentation
             if (look.LengthSquared() > float.Epsilon)
             {
                 look = -lookSpeed * Time.DeltaTime * look;
+                var freeCam = entityManager.GetComponent<FreeCamera>(entity);
 
-
-                var rot = NumericsExtensions.LookRotation(Vector3.Normalize(forward + (new Vector3(0, 1, 0) * look.Y + look.X * right) * 0.05f), new Vector3(0, 1, 0));
-                rotation.Value = rot;
+                freeCam.AngleX -= look.Y;
+                freeCam.AngleY += look.X;
+                rotation.Value = NumericsExtensions.CameraRotation(freeCam.AngleX, freeCam.AngleY);
                 entityManager.SetComponent(entity, rotation);
+                entityManager.SetComponent(entity,freeCam);
             }
 
 

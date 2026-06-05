@@ -6,17 +6,23 @@ namespace VECS.LowLevel
 {
     internal static class SwapChainInit
     {
-        public static void Replace()
+        public static bool Replace(bool isMinimised)
         {
             SwapChain.Reset();
+            if (!isMinimised)
+            {
 
-            DisposeSwapChainTimelineSemaphores();
-
-            SDL3WindowManager.RecreateSwapChains();
+                DisposeSwapChainTimelineSemaphores();
+            }
+            if (!SDL3WindowManager.RecreateSwapChains())
+            {
+                return false;
+            }
 
             CreateSyncObjects();
 
             CreateTimelineSemaphores();
+            return true;
         }
 
         public static void Init()
@@ -91,7 +97,7 @@ namespace VECS.LowLevel
 
         internal static VkExtent2D ChooseSwapExtent(VkSurfaceCapabilitiesKHR capabilities, VkExtent2D windowExtent)
         {
-            if (capabilities.currentExtent.width != uint.MaxValue)
+            if (capabilities.currentExtent.width != uint.MaxValue && capabilities.currentExtent.height != uint.MaxValue)
             {
                 return capabilities.currentExtent;
             }

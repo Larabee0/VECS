@@ -4,5 +4,8 @@
     {
         public static int ComponentId { get; set; }
         public readonly int Id => ComponentId;
+
+        public float AngleX;
+        public float AngleY;
     }
 }

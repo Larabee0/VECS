@@ -23,8 +23,6 @@ namespace VECS
 
         public RenderTarget(string name, int width, int height, VkFormat format,  VkSamplerAddressMode samplerMode = VkSamplerAddressMode.ClampToEdge)
         {
-            uint[] queueIndices = [GraphicsDevice.PhysicalQueueFamilies.presentFamily, GraphicsDevice.PhysicalQueueFamilies.graphicsFamily];
-
             VkImageUsageFlags usageFlags;
             var hasDepthFormat = GraphicsDevice.DepthStencilFormats.Contains(format);
             var hasStencilFormat = GraphicsDevice.StencilFormats.Contains(format);
@@ -49,16 +47,6 @@ namespace VECS
                 usageFlags = VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled;
                 _renderTargetType = RenderTargetType.Colour;
             }
-
-
-            // if (GraphicsDevice.PresentQueue != GraphicsDevice.MainQueue)
-            // {
-            //     _image = new(string.Format("_RT_{0}_{2}_{1}", name, Presenter.FrameCount, _renderTargetType.ToString()), width, height, format, usageFlags, samplerMode, 0,false,VkCompareOp.Never,VkBorderColor.FloatOpaqueBlack, queueIndices, false);
-            // }
-            // else
-            // {
-            //     _image = new(string.Format("_RT_{0}_{2}_{1}", name, Presenter.FrameCount, _renderTargetType.ToString()), width, height, format, usageFlags, samplerMode, 0, false, VkCompareOp.Never, false);
-            // }
 
             _image = new(string.Format("_RT_{0}_{2}_{1}", name, Presenter.FrameCount, _renderTargetType.ToString()), width, height, format, usageFlags, samplerMode, 0, false, VkCompareOp.Never, false);
 

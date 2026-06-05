@@ -6,7 +6,7 @@ namespace VECS.LowLevel
 {
     public static class BasicSubmission
     {
-        public static int _currentFrame => SwapChain.FrameIndex;
+        private static int _currentFrame => SwapChain.FrameIndex;
 
         private static Thread _submitThread;
 
@@ -44,16 +44,13 @@ namespace VECS.LowLevel
 #if DEBUG
             GraphicsDeviceInit.BreakOnValidationError = true;
 #endif
-            GraphicsDevice.DeviceAPI.vkQueueWaitIdle(GraphicsDevice._computeQueue);
             GraphicsDevice.DeviceAPI.vkQueueWaitIdle(GraphicsDevice._mainQueue);
-            //GraphicsDevice.DeviceAPI.vkQueueWaitIdle(GraphicsDevice._presentQueue);
         }
 
         public unsafe static void SubmitThread(object cancellationToken)
         {
             CancellationTokenSource cancel = (CancellationTokenSource)cancellationToken;
             AcquireFrame(SwapChain.MainSwapChainData, _currentFrame);
-            //SwapChain.SignalNextFrame(_currentFrame);1
             VkSemaphoreSubmitInfo* renderingCompleteInfo = stackalloc VkSemaphoreSubmitInfo[2]
             {
                 new()
@@ -80,6 +77,7 @@ namespace VECS.LowLevel
             };
             int submitFrame;
             int lastFrame = 0;
+            bool submittedAnyFrames = false;
             while (!cancel.IsCancellationRequested)
             {
                 submitFrame = _currentFrame;
@@ -108,13 +106,14 @@ namespace VECS.LowLevel
 
                 commandBufferSubmitInfo.commandBuffer = SwapChain.CurrentMainCommandBuffer;
                 SwapChain.WaitOnTimelineFromHost(SemaphoreStages.QueuePresentLate, submitFrame);
-
+                if (cancel.IsCancellationRequested) break;
                 Interlocked.Exchange(ref SwapChain._currentFrame, (_currentFrame + 1) % SwapChain.MAX_CONCURRENT_FRAMES);
-                
-                if(Presenter.FrameCount > 0)
+
+                if (submittedAnyFrames)
                 {
                     SwapChain.WaitOnTimelineFromHost(SemaphoreStages.RenderComplete, lastFrame);
                 }
+                if (cancel.IsCancellationRequested) break;
                 AcquireFrame(SwapChain.MainSwapChainData, _currentFrame);
                 SwapChain.SignalNextFrame(_currentFrame);
                 while(AuxiliaryCommandBufferManager._pendingCommandBuffers.TryDequeue(out var auxiliaryCommandBuffer))
@@ -122,10 +121,13 @@ namespace VECS.LowLevel
                     auxiliaryCommandBuffer.Submit();
                     AuxiliaryCommandBufferManager._submittedCommandBuffers.Enqueue(auxiliaryCommandBuffer);
                 }
+                if (cancel.IsCancellationRequested) break;
                 GraphicsDevice.DeviceAPI.vkQueueSubmit2KHR(GraphicsDevice.MainQueue, 1, &submitInfo, VkFence.Null).CheckResult("Failed to submit graphics queue!");
 
                 Present(SwapChain.MainSwapChainData, submitFrame, imageIndex);
+                submittedAnyFrames = true;
                 lastFrame = submitFrame;
+                if (cancel.IsCancellationRequested) break;
             }
         }
 
@@ -143,6 +145,16 @@ namespace VECS.LowLevel
             };
 
             var result = GraphicsDevice.DeviceAPI.vkAcquireNextImage2KHR(&acquireInfo, swapChain.CurrentImageIndex);
+
+            if (result == VkResult.ErrorOutOfDateKHR)
+            {
+                SwapChain.RecreateSwapChain = true;
+            }
+            else if (result != VkResult.Success && result != VkResult.SuboptimalKHR)
+            {
+                result.CheckResult("Failed to acquire next swap chain image!");
+                SwapChain.RecreateSwapChain = true;
+            }
         }
 
         public static unsafe void WaitForCommandBuffer(SwapChainData swapChain)
@@ -180,6 +192,8 @@ namespace VECS.LowLevel
 
             if (result == VkResult.ErrorOutOfDateKHR || result == VkResult.SuboptimalKHR)
             {
+                Console.WriteLine("Cancel on Present current image");
+                SwapChain.RecreateSwapChain = true;
                 return false;
             }
 
