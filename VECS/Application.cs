@@ -1,10 +1,7 @@
 ﻿using BepuUtilities;
-using Hexa.NET.ImGui;
-using Noesis;
 using System;
 using System.Diagnostics;
 using System.IO;
-using System.Reflection.Metadata.Ecma335;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using VECS.ECS;
@@ -22,7 +19,7 @@ namespace VECS
         public static Application Instance { get; private set; }
         private static bool running = true;
 
-        private static uint _targetFrameRate = uint.MaxValue; // 24;//
+        private static uint _targetFrameRate = uint.MaxValue; //10;// 
         private static double _targetFrameTime;
 
         public static uint TargetFrameRate
@@ -81,8 +78,8 @@ namespace VECS
             SDL3WindowManager.CheckLoadedPresentMode();
             ShaderModule.LoadAllShaders();
             //SDL3WindowManager.CreateNewEditorWindow("VECS-Editor", Width, Height);
-            _presenter = new Presenter<ForwardRenderer>();
-            //_presenter = new Presenter<DeferredRenderer>();
+            //_presenter = new Presenter<ForwardRenderer>();
+            _presenter = new Presenter<DeferredRenderer>();
 
             Time.FixedTimeStepCallback += FixedUpdate;
             sw.Stop();

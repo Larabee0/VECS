@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using VECS.LowLevel;
@@ -101,6 +102,24 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetInt(int propertyId, int value)
+        {
+            WriteToBuffer(propertyId, value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetFloat(int propertyId, float value)
+        {
+            WriteToBuffer(propertyId, value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetVector2(int propertyId, Vector2 value)
+        {
+            WriteToBuffer(propertyId, value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetUniform<T>(int propertyId, T value) where T : unmanaged
         {
             WriteToBuffer(propertyId, value);
@@ -152,7 +171,11 @@ namespace VECS
             {
                 var setInfo = GetDescriptorInfo(propertyInfo.SetIndex);
                 uint variant = localUniformAllocation ? 0 : VariantIndex;
-                setInfo.WriteDescriptors(Presenter.FrameIndex, propertyInfo.BindPoint, variant, buffer[Presenter.FrameIndex]);
+                for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
+                {
+                    setInfo.WriteDescriptors(i, propertyInfo.BindPoint, variant, buffer[i]);
+                }
+                
             }
         }
 
@@ -162,7 +185,10 @@ namespace VECS
             {
                 var setInfo = GetDescriptorInfo(propertyInfo.SetIndex);
                 uint variant = localUniformAllocation ? 0 : VariantIndex;
-                setInfo.WriteDescriptors(Presenter.FrameIndex, propertyInfo.BindPoint, variant, buffer);
+                for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
+                {
+                    setInfo.WriteDescriptors(i, propertyInfo.BindPoint, variant, buffer);
+                }
             }
         }
 
@@ -173,7 +199,10 @@ namespace VECS
             {
                 var setInfo = GetDescriptorInfo(propertyInfo.SetIndex);
                 uint variant = localUniformAllocation ? 0 : VariantIndex;
-                setInfo.WriteDescriptors(Presenter.FrameIndex, propertyInfo.BindPoint, variant, texture);
+                for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
+                {
+                    setInfo.WriteDescriptors(i, propertyInfo.BindPoint, variant, texture);
+                }
             }
         }
 
@@ -184,7 +213,10 @@ namespace VECS
             {
                 var setInfo = GetDescriptorInfo(propertyInfo.SetIndex);
                 uint variant = localUniformAllocation ? 0 : VariantIndex;
-                setInfo.WriteDescriptors(Presenter.FrameIndex, propertyInfo.BindPoint, variant, imageInfo, imageType);
+                for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
+                {
+                    setInfo.WriteDescriptors(i, propertyInfo.BindPoint, variant, imageInfo, imageType);
+                }
             }
         }
 
@@ -195,14 +227,33 @@ namespace VECS
             {
                 var setInfo = GetDescriptorInfo(propertyInfo.SetIndex);
                 uint variant = localUniformAllocation ? 0 : VariantIndex;
-                setInfo.WriteDescriptors(Presenter.FrameIndex, propertyInfo.BindPoint, variant, imageInfos,imageCount, imageType);
+                for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
+                {
+                    setInfo.WriteDescriptors(i, propertyInfo.BindPoint, variant, imageInfos, imageCount, imageType);
+                }
             }
         }
 
-        private unsafe void WriteUniformToDescriptorBuffers()
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe void SetTextures(int propertyId, ITextureProvider textureProvider, VkDescriptorType imageType)
         {
-            if (_computePipeline.UniformBufferSize == 0) return;
-            var variant = VariantIndex;
+            if (textureProvider == null) return;
+            if (LookUpProperty(propertyId, out var propertyInfo) && propertyInfo.BindingInfo.Image)
+            {
+                VkDescriptorImageInfo* images = stackalloc VkDescriptorImageInfo[textureProvider.ImageCount];
+
+                for (int i = 0; i < textureProvider.ImageCount; i++)
+                {
+                    images[i] = textureProvider.GetTexture(i).ImageInfo;
+                }
+
+                SetTextures(propertyId, images, (uint)textureProvider.ImageCount, imageType);
+            }
+        }
+
+        private void WriteUniformToDescriptorBuffers()
+        {
+            if (!_computePipeline.HasUniforms) return;
             for (uint i = 0; i < _computePipeline.DescriptorSetCount; i++)
             {
                 var setInfo = _tempDescriptorSetInfos[i];
@@ -214,11 +265,19 @@ namespace VECS
                     if (!binding.UniformBuffer) continue;
 
                     var internalOffset = _computePipeline.InternalUniformBufferOffset(binding.DescriptorSetIndex, binding.BindPoint);
+                    var global = EngineBuffers.TryGetBuffer(binding.Id);
+                    VkDescriptorAddressInfoEXT addressRange;
+                    if (global != null)
+                    {
+                        addressRange = global[0].GetBufferAddressRangeBytes();
+                    }
+                    else
+                    {
+                        addressRange = _tempUniformBuffer.GetBufferAddressRangeBytes(internalOffset, binding.BufferSize);
+                    }
 
                     for (int frameIndex = 0; frameIndex < SwapChain.MAX_CONCURRENT_FRAMES; frameIndex++)
                     {
-                        var addressRange = _tempUniformBuffer.GetBufferAddressRangeBytes(internalOffset, binding.BufferSize);
-
                         setInfo.DescriptorBuffers[frameIndex].SetBufferBinding(addressRange, binding.DescriptorType, 0, binding.BindPoint);
                     }
                 }

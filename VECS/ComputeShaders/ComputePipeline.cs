@@ -34,8 +34,10 @@ namespace VECS
 
         private readonly UniformBuffer _uniformBuffer;
         private readonly uint _uniformSize = 0;
+        private readonly bool _hasUniforms = false;
         private readonly VkBufferUsageFlags _uniformFlags = VkBufferUsageFlags.None;
         public uint UniformBufferSize => _uniformSize;
+        public bool HasUniforms => _hasUniforms;
         public VkBufferUsageFlags UniformFlags => _uniformFlags;
         public PushConstantsHandler PushConstantsHandler => _pushConstantsHandler;
 
@@ -64,6 +66,7 @@ namespace VECS
                 _descriptorSetInfos[setIndex] = new DescriptorSetInfo(layout, setBindings, true, _uniformSize, 1);
                 _uniformSize += _descriptorSetInfos[setIndex].UnifromBufferSize;
                 _uniformFlags |= _descriptorSetInfos[setIndex].UniformBufferFlags;
+                _hasUniforms |= _descriptorSetInfos[setIndex]._uniformCount > 0;
             }
             
             if (_uniformSize > 0)
@@ -455,10 +458,10 @@ namespace VECS
             }
         }
 
-        private unsafe void WriteUniformToDescriptorBuffers(ComputeVariant material)
+        private void WriteUniformToDescriptorBuffers(ComputeVariant computeVariant)
         {
-            if (UniformBufferSize == 0) return;
-            var variant = material.VariantIndex;
+            if (!HasUniforms) return;
+            var variant = computeVariant.VariantIndex;
             var startOffset = variant * UniformBufferSize;
             for (uint i = 0; i < DescriptorSetCount; i++)
             {
@@ -471,10 +474,19 @@ namespace VECS
                     if (!binding.UniformBuffer) continue;
 
                     var internalOffset = InternalUniformBufferOffset(binding.DescriptorSetIndex, binding.BindPoint);
+                    var global = EngineBuffers.TryGetBuffer(binding.Id);
 
                     for (int frameIndex = 0; frameIndex < SwapChain.MAX_CONCURRENT_FRAMES; frameIndex++)
                     {
-                        var addressRange = _uniformBuffer.Buffer[frameIndex].GetBufferAddressRangeBytes(startOffset + internalOffset, binding.BufferSize);
+                        VkDescriptorAddressInfoEXT addressRange;
+                        if (global != null)
+                        {
+                            addressRange = global[frameIndex].GetBufferAddressRangeBytes();
+                        }
+                        else
+                        {
+                            addressRange = _uniformBuffer.Buffer[frameIndex].GetBufferAddressRangeBytes(startOffset + internalOffset, binding.BufferSize);
+                        }
 
                         setInfo.DescriptorBuffers[frameIndex].SetBufferBinding(addressRange, binding.DescriptorType, variant, binding.BindPoint);
                     }
@@ -502,9 +514,9 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe void Dispatch(VkCommandBuffer commandBuffer, int frameIndex, uint pushConstantIndex, VkDescriptorBufferBindingInfoEXT* bindingInfo, ulong* offsets, uint* indices, uint workGroupCountX, uint workGroupCountY = 1, uint workGroupCountZ = 1)
         {
-            GraphicsDevice.DeviceAPI.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Compute, _pipline);
             if (frameIndex != _frameIndex || this != _lastBoundComputeShader)
             {
+                GraphicsDevice.DeviceAPI.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Compute, _pipline);
                 _lastBoundComputeShader = this;
                 _frameIndex = frameIndex;
             }
@@ -565,12 +577,32 @@ namespace VECS
             readingList.ForEach(m => Update(m, frameInfo));
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private SwapChainBuffer GetBuffer(DescriptorBinding descriptorBinding)
+        {
+            return GetBuffer(descriptorBinding.DescriptorSetIndex, descriptorBinding.BindPoint);
+        }
         private static void Update(ComputePipeline pipeline, RendererFrameInfo frameInfo)
         {
             if (pipeline.VariantCount == 0) return;
 
+            for (uint i = 0; i < pipeline.DescriptorSetCount; i++)
+            {
+                //pipeline._descriptorSetInfos[i].SetVariantLength((uint)pipeline.VariantCount);
+                var bindings = pipeline.GetDescriptorBindings(i);
+                for (uint j = 0; j < bindings.Length; j++)
+                {
+                    var binding = bindings[j];
+                    if (binding.StorageBuffer && (pipeline.GetBuffer(binding) == null || pipeline.GetBuffer(binding).IsDisposed))
+                    {
+                        pipeline._descriptorSetInfos[i].SetStorageBuffer(EngineBuffers.TryGetBuffer(binding.Id), binding.BindPoint);
+                    }
+                }
+            }
+
             bool forceDescriptorWrite = pipeline.AllocNewVariants();
             forceDescriptorWrite |= frameInfo.NewSwapChain;
+            forceDescriptorWrite = true;
             if (forceDescriptorWrite)
             {
                 for (int i = 0; i < pipeline.VariantCount; i++)

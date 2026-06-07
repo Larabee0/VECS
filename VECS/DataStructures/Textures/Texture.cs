@@ -457,6 +457,7 @@ namespace VECS
             TextureExtensions.EnqueueForDisposal(_vkImage, _allocation, _imageView, VkSampler.Null);
 
             _disposed = true;
+            GC.ReRegisterForFinalize(this);
         }
 
         protected virtual void Reinitialise()

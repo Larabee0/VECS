@@ -3,7 +3,7 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
-    public interface IRenderer : IDisposable
+    public interface IRenderer
     {
         public VkFormat[] ColourFormats { get; }
         public VkFormat DepthFormat { get; }
@@ -24,6 +24,19 @@ namespace VECS
             if (target == null)
             {
                 target = new(name, (int)extent.width, (int)extent.height, format);
+                EngineTextures.AddOrUpdateTexture(shaderPropertyId, (SingleTexture)target.Target);
+            }
+            else
+            {
+                target.Resize((int)extent.width, (int)extent.height);
+            }
+            return target;
+        }
+        public static RenderTarget CreateOrUpdateRT(RenderTarget target, string name, int shaderPropertyId, VkExtent2D extent, VkFormat format, VkImageUsageFlags additionalFlags)
+        {
+            if (target == null)
+            {
+                target = new(name, (int)extent.width, (int)extent.height, format, additionalFlags);
                 EngineTextures.AddOrUpdateTexture(shaderPropertyId, (SingleTexture)target.Target);
             }
             else

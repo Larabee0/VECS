@@ -69,6 +69,9 @@ namespace VECS
                 case VkImageLayout.DepthAttachmentStencilReadOnlyOptimal:
                     dstAccessMask = VkAccessFlags2.DepthStencilAttachmentWrite | VkAccessFlags2.DepthStencilAttachmentRead;
                     break;
+                case VkImageLayout.General when(dstStage == VkPipelineStageFlags2.ComputeShader):
+                    dstAccessMask = VkAccessFlags2.ShaderRead | VkAccessFlags2.ShaderWrite;
+                    break;
                 case VkImageLayout.General:
                     dstAccessMask = VkAccessFlags2.TransferRead | VkAccessFlags2.TransferWrite; //dstAccessMask = VkAccessFlags2.DepthStencilAttachmentRead | VkAccessFlags2.DepthStencilAttachmentWrite;
                     break;
@@ -179,6 +182,34 @@ namespace VECS
                 pMemoryBarriers = &barriers
             };
             GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier2(cmdBuffer, &info);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static VkPipelineStageFlags2 GetStageFlagFromLayout(this VkImageLayout layout)
+        {
+            return layout switch
+            {
+                VkImageLayout.Undefined => VkPipelineStageFlags2.None,
+                VkImageLayout.General => VkPipelineStageFlags2.ComputeShader,
+                VkImageLayout.ColorAttachmentOptimal => VkPipelineStageFlags2.ColorAttachmentOutput,
+                VkImageLayout.DepthStencilAttachmentOptimal => VkPipelineStageFlags2.EarlyFragmentTests | VkPipelineStageFlags2.LateFragmentTests,
+                VkImageLayout.DepthStencilReadOnlyOptimal => VkPipelineStageFlags2.EarlyFragmentTests | VkPipelineStageFlags2.LateFragmentTests,
+                VkImageLayout.ShaderReadOnlyOptimal => VkPipelineStageFlags2.FragmentShader,
+                VkImageLayout.TransferSrcOptimal => VkPipelineStageFlags2.Transfer,
+                VkImageLayout.TransferDstOptimal => VkPipelineStageFlags2.Transfer,
+                VkImageLayout.Preinitialized => VkPipelineStageFlags2.None,
+                VkImageLayout.DepthReadOnlyStencilAttachmentOptimal => VkPipelineStageFlags2.EarlyFragmentTests | VkPipelineStageFlags2.LateFragmentTests,
+                VkImageLayout.DepthAttachmentStencilReadOnlyOptimal => VkPipelineStageFlags2.EarlyFragmentTests | VkPipelineStageFlags2.LateFragmentTests,
+                VkImageLayout.DepthAttachmentOptimal => VkPipelineStageFlags2.EarlyFragmentTests | VkPipelineStageFlags2.LateFragmentTests,
+                VkImageLayout.DepthReadOnlyOptimal => VkPipelineStageFlags2.EarlyFragmentTests | VkPipelineStageFlags2.LateFragmentTests,
+                VkImageLayout.StencilAttachmentOptimal => VkPipelineStageFlags2.EarlyFragmentTests | VkPipelineStageFlags2.LateFragmentTests,
+                VkImageLayout.StencilReadOnlyOptimal => VkPipelineStageFlags2.EarlyFragmentTests | VkPipelineStageFlags2.LateFragmentTests,
+                VkImageLayout.ReadOnlyOptimal => VkPipelineStageFlags2.FragmentShader,
+                VkImageLayout.AttachmentOptimal => VkPipelineStageFlags2.ColorAttachmentOutput | VkPipelineStageFlags2.EarlyFragmentTests | VkPipelineStageFlags2.LateFragmentTests,
+                VkImageLayout.RenderingLocalRead => VkPipelineStageFlags2.ColorAttachmentOutput,
+                VkImageLayout.PresentSrcKHR => VkPipelineStageFlags2.None,
+                _ => throw new NotImplementedException()
+            };
         }
     }
 }

@@ -21,7 +21,6 @@ namespace VECS
         public override void Dispose()
         {
             GC.SuppressFinalize(this);
-            _renderer.Dispose();
             base.Dispose();
             GC.ReRegisterForFinalize(this);
         }
@@ -330,6 +329,7 @@ namespace VECS
         /// </summary>
         public virtual void Dispose()
         {
+            GC.SuppressFinalize(this);
             DrawBlob.CleanUp();
             EngineBuffers.CleanUp();
 
@@ -345,7 +345,7 @@ namespace VECS
             _imgui.Dispose();
             SwapChain.CleanUp();
             Instance = null;
-
+            GC.ReRegisterForFinalize(this);
         }
     }
 }

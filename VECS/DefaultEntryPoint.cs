@@ -49,7 +49,7 @@ namespace VECS
             _sphere = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("UV-Sphere.obj"), null)[0];
             CreateMainCamera();
             DirectionalLight();
-            //PointLight();
+            PointLight();
             //SponzaOld();
             //SponzaNew();
             SponzaNewPBR();
@@ -335,7 +335,7 @@ namespace VECS
             Parent parent = new() { Value = commonParent };
 
             var lit = EnginePipes.PBRTexture;
-            //lit = EnginePipes.PBR_Deferred;
+            lit = EnginePipes.PBR_Deferred;
             //var litTransparent = EnginePipes.OIT_LitTexture;
 
             var texProp = "albedoMap".GetShaderPropertyId();

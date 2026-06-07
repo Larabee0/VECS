@@ -1,5 +1,4 @@
-﻿using System;
-using System.Numerics;
+﻿using System.Numerics;
 using System.Runtime.InteropServices;
 using VECS.ECS;
 using VECS.LowLevel;
@@ -19,8 +18,8 @@ namespace VECS
         private SMAA _smaa;
 
         public Texture2D _headIndex;
-        private readonly SwapChainBuffer _geometry;
-        public SwapChainBuffer _linkedList;
+        private readonly SwapChainBufferAsset _geometry;
+        private SwapChainBufferAsset _linkedList;
 
         public static readonly VkFormat[] Colours = [VkFormat.R32G32B32A32Sfloat, VkFormat.R32G32B32A32Sfloat];
 
@@ -39,7 +38,9 @@ namespace VECS
 
         public ForwardRenderer()
         {
-            _geometry = SwapChainBuffer.AliasGPUBuffer(new GPUBuffer<Vector2UInt>(1, VkBufferUsageFlags.StorageBuffer | VkBufferUsageFlags.TransferDst, false, false, true));
+            var geometryBuffer = new GPUBuffer<Vector2UInt>(1, VkBufferUsageFlags.StorageBuffer | VkBufferUsageFlags.TransferDst, false, false, true);
+            _ = new GPUBufferAsset("OIT_Geometry", geometryBuffer);
+            _geometry = new("OIT_Geometry", SwapChainBuffer.AliasGPUBuffer(geometryBuffer));
             EngineBuffers.AddOrUpdateEngineBuffer(ShaderProperties.GeometrySBOId, _geometry);
 
         }
@@ -64,14 +65,16 @@ namespace VECS
             var _maxNodes = OIT_NODE_COUNT * windowExtents.width * windowExtents.height;
             if (_linkedList == null)
             {
-                _linkedList = SwapChainBuffer.AliasGPUBuffer(new GPUBuffer<OITNode>(_maxNodes, VkBufferUsageFlags.StorageBuffer, false, false, false));
+                var nodeLL = new GPUBuffer<OITNode>(_maxNodes, VkBufferUsageFlags.StorageBuffer, false, false, false);
+                _ = new GPUBufferAsset("OIT_Node_Linked_List", nodeLL);
+                _linkedList = new("OIT_Node_Linked_List", SwapChainBuffer.AliasGPUBuffer(nodeLL));
                 EngineBuffers.AddEngineBuffer(ShaderProperties.LinkedListSBOId, _linkedList);
             }
             else
             {
-                _linkedList.Realloc(_maxNodes);
+                _linkedList.Buffer.Realloc(_maxNodes);
             }
-            _geometry[0].WriteToBuffer(&_maxNodes, sizeof(uint), sizeof(uint));
+            _geometry.Buffer[0].WriteToBuffer(&_maxNodes, sizeof(uint), sizeof(uint));
 
             if (_headIndex == null)
             {
@@ -397,7 +400,7 @@ namespace VECS
             VkImageSubresourceRange imageSubresource = _headIndex.GetSubresourceRange();
 
             GraphicsDevice.DeviceAPI.vkCmdClearColorImage(commandBuffer, _headIndex._vkImage, VkImageLayout.General, &clearColor, 1, &imageSubresource);
-            GraphicsDevice.DeviceAPI.vkCmdFillBuffer(commandBuffer, _geometry[0].VkBuffer, 0, sizeof(uint), 0);
+            GraphicsDevice.DeviceAPI.vkCmdFillBuffer(commandBuffer, _geometry.Buffer[0].VkBuffer, 0, sizeof(uint), 0);
 
             VkMemoryBarrier2 barrier = new()
             {
@@ -467,16 +470,6 @@ namespace VECS
             TextureExtensions.BlitGeneric(commandBuffer, VkFilter.Linear, BrightObjectAttachment.GetBlitCmd(dstWidth, dstHeight, dstAspectMask), BrightObjectAttachment.VkImage, BrightObjectAttachment.ImageLayout, dst, VkImageLayout.TransferDstOptimal);
 
             BrightObjectAttachment.Target.SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.ColorAttachmentOutput);
-        }
-
-        public void Dispose()
-        {
-            GC.SuppressFinalize(this);
-            _linkedList?[0]?.EnqueueForDisposal();
-            _geometry?[0]?.EnqueueForDisposal();
-            _linkedList?.Dispose();
-            _geometry?.Dispose();
-            GC.ReRegisterForFinalize(this);
         }
     }
 }

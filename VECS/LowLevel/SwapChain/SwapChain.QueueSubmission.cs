@@ -8,14 +8,6 @@ namespace VECS.LowLevel
     {
         internal static bool RecreateSwapChain { get; set; }
 
-        private static Thread _computeThread;
-        private static Thread _graphicsThread;
-        private static Thread _presentThread;
-
-        private static CancellationTokenSource _graphicsCancel;
-        private static CancellationTokenSource _computeCancel;
-        private static CancellationTokenSource _presentCancel;
-
         public static Action<int> GraphicsCallback;
 
         internal static void StartTimelineWorkers()
