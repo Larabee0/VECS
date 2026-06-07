@@ -49,7 +49,7 @@ namespace VECS
             _sphere = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("UV-Sphere.obj"), null)[0];
             CreateMainCamera();
             DirectionalLight();
-            PointLight();
+            //PointLight();
             //SponzaOld();
             //SponzaNew();
             SponzaNewPBR();

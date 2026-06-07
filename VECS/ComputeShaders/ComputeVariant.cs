@@ -197,6 +197,11 @@ namespace VECS
         {
             if (LookUpProperty(propertyId, out var propertyInfo) && propertyInfo.BindingInfo.Image)
             {
+                if(propertyInfo.BindingInfo.DescriptorType == VkDescriptorType.StorageImage)
+                {
+                    SetTexture(propertyId, texture.ImageInfo, VkDescriptorType.StorageImage);
+                    return;
+                }
                 var setInfo = GetDescriptorInfo(propertyInfo.SetIndex);
                 uint variant = localUniformAllocation ? 0 : VariantIndex;
                 for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)

@@ -20,8 +20,8 @@ layout(set = 0,binding = 2) readonly buffer CameraInfos {
 
 layout (set = 0, binding = 3) uniform sampler2D ssaoNoise;
 layout (set = 0, binding = 4) uniform sampler2D g_PositionIn;
-layout (set = 0, binding = 5) uniform sampler2D g_NormalsIn;
-layout (set = 1, binding = 0, r8) uniform writeonly image2D outImage;
+layout (set = 1, binding = 0, rgba16f) uniform readonly image2D g_NormalsIn;
+layout (set = 1, binding = 1, r8) uniform writeonly image2D outImage;
 
 layout(push_constant) uniform Constants{
 	uint cameraIndex;
@@ -47,7 +47,7 @@ void main(){
 
     vec4 positionWorld = texture(g_PositionIn,UV).rgba;
     // src normal vector
-    vec3 N = normalize(texture(g_NormalsIn,UV).rgb);
+    vec3 N = normalize(imageLoad(g_NormalsIn,outPosI).rgb);
 
     // transform world post to view pos
     vec3 viewPos = (cameraInfo.values[constants.cameraIndex].viewMatrix * vec4(positionWorld.xyz,1.0)).xyz;

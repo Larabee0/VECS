@@ -22,7 +22,7 @@ namespace VECS
         private readonly GraphicsPipeline _ssao;
         private readonly GraphicsPipeline _ssaoBlur;
         private bool SSAO_Enabled = true;
-        private bool SSAO_Compute = true;
+        private bool SSAO_Compute = false;
 
         public SSAO(IRenderer activeRenderer)
         {
@@ -37,14 +37,14 @@ namespace VECS
             _ssao.Default().SetFloat("ssaoUniform.radius".GetShaderPropertyId(), 0.5f);
             _ssao.Default().SetFloat("ssaoUniform.bias".GetShaderPropertyId(), 0.025f);
             _ssao.Default().SetInt("ssaoUniform.kernelSize".GetShaderPropertyId(), 64);
-            _computeSSAO.SetFloat("ssaoUniform.radius".GetShaderPropertyId(), 0.5f);
-            _computeSSAO.SetFloat("ssaoUniform.bias".GetShaderPropertyId(), 0.025f);
-            _computeSSAO.SetInt("ssaoUniform.kernelSize".GetShaderPropertyId(), 64);
-            _computeSSAO.SetTexture(SSAO_Noise_PropertyId, EngineTextures.TryGetTexture(SSAO_Noise_PropertyId).First);
-            _computeSSAO.SetTexture("g_PositionIn".GetShaderPropertyId(), EngineTextures.TryGetTexture("g_PositionIn".GetShaderPropertyId()).First);
-            _computeSSAO.SetTexture("g_NormalsIn".GetShaderPropertyId(), EngineTextures.TryGetTexture("g_NormalsIn".GetShaderPropertyId()).First);
-            _computeSSAO.SetStorageBuffer(ShaderProperties.CameraInfoId, EngineBuffers.TryGetBuffer(ShaderProperties.CameraInfoId));
-            _computeSSAO.SetStorageBuffer(SSAO_Kernals_PropertyId, EngineBuffers.TryGetBuffer(SSAO_Kernals_PropertyId));
+            _computeSSAO?.SetFloat("ssaoUniform.radius".GetShaderPropertyId(), 0.5f);
+            _computeSSAO?.SetFloat("ssaoUniform.bias".GetShaderPropertyId(), 0.025f);
+            _computeSSAO?.SetInt("ssaoUniform.kernelSize".GetShaderPropertyId(), 64);
+            _computeSSAO?.SetTexture(SSAO_Noise_PropertyId, EngineTextures.TryGetTexture(SSAO_Noise_PropertyId).First);
+            _computeSSAO?.SetTexture("g_PositionIn".GetShaderPropertyId(), EngineTextures.TryGetTexture("g_PositionIn".GetShaderPropertyId()).First);
+            _computeSSAO?.SetTexture("g_NormalsIn".GetShaderPropertyId(), EngineTextures.TryGetTexture("g_NormalsIn".GetShaderPropertyId()).First.ImageInfo,VkDescriptorType.StorageImage);
+            _computeSSAO?.SetStorageBuffer(ShaderProperties.CameraInfoId, EngineBuffers.TryGetBuffer(ShaderProperties.CameraInfoId));
+            _computeSSAO?.SetStorageBuffer(SSAO_Kernals_PropertyId, EngineBuffers.TryGetBuffer(SSAO_Kernals_PropertyId));
 
             RecreateRenderTargets();
             _ssaoBlur = new GraphicsPipeline("SSAO", "fullscreen.vert", "ssao_blur.frag", configInfo);
@@ -160,9 +160,9 @@ namespace VECS
             _ssaoRT = IRenderer.CreateOrUpdateRT(_ssaoRT, "SSAO", SSAO_RT_PropertyId, windowExtents, VkFormat.R8Unorm, VkImageUsageFlags.Storage);
             _ssao.Default().SetVector2("ssaoUniform.noiseScale".GetShaderPropertyId(), new(windowExtents.width / 4f, windowExtents.height / 4f));
             _ssaoBlurRt = IRenderer.CreateOrUpdateRT(_ssaoBlurRt, "SSAO_Blur", SSAO_Blur_RT_PropertyId, windowExtents, VkFormat.R8Unorm, VkImageUsageFlags.Storage);
-            _computeSSAO.SetTexture("outImage".GetShaderPropertyId(), _ssaoRT.Target);
-            _computeSSAO.SetVector2("ssaoUniform.noiseScale".GetShaderPropertyId(), new(windowExtents.width / 4f, windowExtents.height / 4f));
-            _computeSSAO.SetVector2("ssaoUniform.outputImageSize".GetShaderPropertyId(), new(windowExtents.width, windowExtents.height));
+            _computeSSAO?.SetTexture("outImage".GetShaderPropertyId(), _ssaoRT.Target.ImageInfo,VkDescriptorType.StorageImage);
+            _computeSSAO?.SetVector2("ssaoUniform.noiseScale".GetShaderPropertyId(), new(windowExtents.width / 4f, windowExtents.height / 4f));
+            _computeSSAO?.SetVector2("ssaoUniform.outputImageSize".GetShaderPropertyId(), new(windowExtents.width, windowExtents.height));
         }
 
         private static void GenerateResources()
