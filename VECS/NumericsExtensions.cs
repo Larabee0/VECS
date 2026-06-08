@@ -24,37 +24,37 @@ namespace System.Numerics
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe static int asint(float x)
+        public unsafe static int Asint(float x)
         {
             return *(int*)(&x);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe static uint asuint(float x)
+        public unsafe static uint Asuint(float x)
         {
             return *(uint*)(&x);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe static int asint(uint x)
+        public unsafe static int Asint(uint x)
         {
             return *(int*)(&x);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe static Vector4UInt asuint(Vector4 x)
+        public unsafe static Vector4UInt Asuint(Vector4 x)
         {
             return *(Vector4UInt*)(&x);
         }
 
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe static float asfloat(uint x)
+        public unsafe static float Asfloat(uint x)
         {
             return *(float*)(&x);
         }
 
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe static Vector4 asfloat(Vector4UInt x)
+        public unsafe static Vector4 Asfloat(Vector4UInt x)
         {
             return *(Vector4*)(&x);
         }
@@ -128,15 +128,15 @@ namespace System.Numerics
             Vector3 c = m.c0;
             Vector3 c2 = m.c1;
             Vector3 c3 = m.c2;
-            uint num = asuint(c.X) & 0x80000000u;
-            float x = c2.Y + asfloat(asuint(c3.Z) ^ num);
+            uint num = Asuint(c.X) & 0x80000000u;
+            float x = c2.Y + Asfloat(Asuint(c3.Z) ^ num);
             Vector4UInt uint5 = new((int)num >> 31);
-            Vector4UInt uint6 = new(asint(x) >> 31);
+            Vector4UInt uint6 = new(Asint(x) >> 31);
             float x2 = 1f + Math.Abs(c.X);
             Vector4UInt uint7 = new Vector4UInt(0u, 2147483648u, 2147483648u, 2147483648u) ^ (uint5 & new Vector4UInt(0u, 2147483648u, 0u, 2147483648u)) ^ (uint6 & new Vector4UInt(2147483648u, 2147483648u, 2147483648u, 0u));
-            Vector4 value = new Vector4(x2, c.Y, c3.X, c2.Z) + asfloat(asuint(new Vector4(x, c2.X, c.Z, c3.Y)) ^ uint7);
-            value = asfloat((asuint(value) & ~uint5) | (asuint(value.ZWXY()) & uint5));
-            value = asfloat((asuint(value.WZYX()) & ~uint6) | (asuint(value) & uint6));
+            Vector4 value = new Vector4(x2, c.Y, c3.X, c2.Z) + Asfloat(Asuint(new Vector4(x, c2.X, c.Z, c3.Y)) ^ uint7);
+            value = Asfloat((Asuint(value) & ~uint5) | (Asuint(value.ZWXY()) & uint5));
+            value = Asfloat((Asuint(value.WZYX()) & ~uint6) | (Asuint(value) & uint6));
             value = Vector4.Normalize(value);
 
             return value.AsQuaternion();

@@ -79,7 +79,7 @@ namespace VECS
             BlitEdgeTarget = smaaBlit.Create("SMAA_BlitEdgeTarget");
             BlitBlendTarget = smaaBlit.Create("SMAA_BlitBlendTarget");
 
-            RecreateRenderTargets();
+            //RecreateRenderTargets();
         }
 
         public void RecreateRenderTargets()

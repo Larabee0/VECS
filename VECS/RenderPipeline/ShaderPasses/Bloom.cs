@@ -68,10 +68,10 @@ namespace VECS
             _blurHorizontal.PushConstants.SetPushConstantFloat("blurScale", 1, 1);
             _blurHorizontal.PushConstants.SetPushConstantFloat("blurStrength", 1, 1.5f);
             
-            RecreateAttachments();
+            //RecreateAttachments();
         }
 
-        public void RecreateAttachments()
+        public void RecreateRenderTargets()
         {
             var winbdowExtents = Application.MainWindow.WindowExtent;
 

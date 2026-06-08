@@ -32,7 +32,7 @@ namespace VECS
         private bool _disposed;
         public readonly bool[] SetsDirty = new bool[SwapChain.MAX_CONCURRENT_FRAMES];
         public readonly DescriptorBuffer[] DescriptorBuffers = new DescriptorBuffer[SwapChain.MAX_CONCURRENT_FRAMES];
-        private unsafe byte* _descriptorBufferHostPtr;
+        private readonly unsafe byte* _descriptorBufferHostPtr;
         public readonly VertexBufferInfo[] Buffers;
         public readonly VkDescriptorSetLayout VkDescriptorSetLayout;
         public readonly int LayoutHash;

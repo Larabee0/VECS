@@ -25,7 +25,7 @@ namespace VECS.UI
             GUI.SetTextureProvider(textureProvider);
 
             GUI.SetSoftwareKeyboardCallback(KeyboardCallback);
-            string[] fonts = { "Fonts/PT Root UI_Regular", "Arial", "Segoe UI Emoji" };
+            string[] fonts = ["Fonts/PT Root UI_Regular", "Arial", "Segoe UI Emoji"];
             GUI.SetFontFallbacks(fonts);
             GUI.SetFontDefaultProperties(15.0f, FontWeight.Normal, FontStretch.Normal, FontStyle.Normal);
             NoesisApp.Application.SetThemeProviders(xamlProvider, fontProvider, textureProvider);

@@ -685,9 +685,9 @@ namespace VECS.LowLevel
             StackTrace trace = new(true);
             var traceString = trace.ToString();
 
-            var index = traceString.IndexOf("\r")+1;
+            var index = traceString.IndexOf('\r') + 1;
 
-            Console.WriteLine(string.Format("Validation layer trace\n {0}", traceString.Substring(index)));
+            Console.WriteLine(string.Format("Validation layer trace\n {0}", traceString[index..]));
             if (BreakOnValidationError)
             {
                 Debugger.Break();

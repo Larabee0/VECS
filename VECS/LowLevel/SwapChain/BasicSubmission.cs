@@ -6,7 +6,7 @@ namespace VECS.LowLevel
 {
     public static class BasicSubmission
     {
-        private static int _currentFrame => SwapChain.FrameIndex;
+        private static int CurrentFrame => SwapChain.FrameIndex;
 
         private static Thread _submitThread;
 
@@ -50,7 +50,7 @@ namespace VECS.LowLevel
         public unsafe static void SubmitThread(object cancellationToken)
         {
             CancellationTokenSource cancel = (CancellationTokenSource)cancellationToken;
-            AcquireFrame(SwapChain.MainSwapChainData, _currentFrame);
+            AcquireFrame(SwapChain.MainSwapChainData, CurrentFrame);
             VkSemaphoreSubmitInfo* renderingCompleteInfo = stackalloc VkSemaphoreSubmitInfo[2]
             {
                 new()
@@ -80,7 +80,7 @@ namespace VECS.LowLevel
             bool submittedAnyFrames = false;
             while (!cancel.IsCancellationRequested)
             {
-                submitFrame = _currentFrame;
+                submitFrame = CurrentFrame;
                 uint imageIndex = *SwapChain.MainSwapChainData.CurrentImageIndex;
                 VkCommandBufferSubmitInfo commandBufferSubmitInfo = new();
 
@@ -107,15 +107,15 @@ namespace VECS.LowLevel
                 commandBufferSubmitInfo.commandBuffer = SwapChain.CurrentMainCommandBuffer;
                 SwapChain.WaitOnTimelineFromHost(SemaphoreStages.QueuePresentLate, submitFrame);
                 if (cancel.IsCancellationRequested) break;
-                Interlocked.Exchange(ref SwapChain._currentFrame, (_currentFrame + 1) % SwapChain.MAX_CONCURRENT_FRAMES);
+                Interlocked.Exchange(ref SwapChain._currentFrame, (CurrentFrame + 1) % SwapChain.MAX_CONCURRENT_FRAMES);
 
                 if (submittedAnyFrames)
                 {
                     SwapChain.WaitOnTimelineFromHost(SemaphoreStages.RenderComplete, lastFrame);
                 }
                 if (cancel.IsCancellationRequested) break;
-                AcquireFrame(SwapChain.MainSwapChainData, _currentFrame);
-                SwapChain.SignalNextFrame(_currentFrame);
+                AcquireFrame(SwapChain.MainSwapChainData, CurrentFrame);
+                SwapChain.SignalNextFrame(CurrentFrame);
                 while(AuxiliaryCommandBufferManager._pendingCommandBuffers.TryDequeue(out var auxiliaryCommandBuffer))
                 {
                     auxiliaryCommandBuffer.Submit();
@@ -160,15 +160,15 @@ namespace VECS.LowLevel
         public static unsafe void WaitForCommandBuffer(SwapChainData swapChain)
         {
             //SwapChain.WaitOnTimelineFromHost(SemaphoreStages.Submit, _currentFrame);
-            SwapChain.WaitAndResetFence(swapChain.WaitAcquireFences[_currentFrame]);
+            SwapChain.WaitAndResetFence(swapChain.WaitAcquireFences[CurrentFrame]);
         }
 
         public static unsafe void SubmitGraphicsQueue()
         {
             WaitForCommandBuffer(SwapChain.MainSwapChainData);
-            SwapChain.BuildGraphicsCommands(_currentFrame, 1, SwapChain.MainSwapChainData.CurrentImageIndex);
+            SwapChain.BuildGraphicsCommands(CurrentFrame, 1, SwapChain.MainSwapChainData.CurrentImageIndex);
 
-            SwapChain.SignalTimelineFromHost(SemaphoreStages.QueuePresentLate,_currentFrame);
+            SwapChain.SignalTimelineFromHost(SemaphoreStages.QueuePresentLate,CurrentFrame);
         }
 
         public static unsafe bool Present(SwapChainData swapChain, int frameIndex, uint imageIndex)

@@ -53,7 +53,7 @@ namespace VECS
 
         public static void AddOrUpdateEngineBuffer(int propertyId, SwapChainBuffer buffer)
         {
-            _engineBuffers.AddOrUpdate(propertyId,buffer,(int key, SwapChainBuffer value) =>
+            _engineBuffers.AddOrUpdate(propertyId,buffer, (key, value) =>
             {
                 if (!value.IsDisposed)
                 {
@@ -164,16 +164,6 @@ namespace VECS
             GPUBufferExtensions.WriteFromHostDelayed(AddtionalCameraInfoBuffer,frameIndex);
             GPUBufferExtensions.WriteFromHostDelayed(OrthopgrahicInfoBuffer,frameIndex);
         }
-
-        public struct PointLightWrapper
-        {
-            public Entity Entity;
-            public PointLight PointLight;
-            public Vector3 Position;
-        }
-
-        private static PointLightWrapper[] _sortedPointLights = [];
-        public static PointLightWrapper[] SortedPointLights => _sortedPointLights;
 
         public static unsafe LightingInfo UpdateLights(EntityManager entityManager, int frameIndex)
         {

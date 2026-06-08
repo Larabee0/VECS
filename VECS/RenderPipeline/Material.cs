@@ -38,7 +38,6 @@ namespace VECS
             }
         }
 
-
         private readonly uint _variantIndex;
 
         private readonly SetBufferDescriptors[] _bufferDescriptors;
@@ -119,7 +118,6 @@ namespace VECS
                 {
                     _imageDescriptors[i] = new(setInfo);
                     _textures[i] = new ITextureProvider[setInfo.ImageCount];
-                    //Array.Fill(_textures[i], EngineTextures.MissingTexture);
 
                     for (int j = 0; j < setInfo.BindingCount; j++)
                     {
@@ -130,18 +128,6 @@ namespace VECS
                         if (engineTexture != null)
                         {
                             _textures[i][imageIndex] = engineTexture;
-                        }
-                        else if (binding.DescriptorType == VkDescriptorType.StorageImage)
-                        {
-                            if (binding.VkSetLayoutBinding.descriptorCount > 1)
-                            {
-                                _textures[i][imageIndex] = new BindingArrayTexture((int)binding.VkSetLayoutBinding.descriptorCount);
-                            }
-                            else
-                            {
-                                _textures[i][imageIndex] = new SingleTexture(null);
-                            }
-                                
                         }
                         else if(binding.VkSetLayoutBinding.descriptorCount > 1)
                         {
@@ -193,7 +179,6 @@ namespace VECS
 
             _graphicsPipeline.AddVariant(this);
             AssetDataBase<Material>.Add(this);
-
         }
 
         private void CreateTemporaryDescriptor()
@@ -276,10 +261,8 @@ namespace VECS
                     for (int setIndex = 0; setIndex < TotalSets; setIndex++)
                     {
                         if (_imageDescriptors[setIndex].Disposed) continue;
-                        //variant._imageDescriptors[setIndex].UpdateTextureBindings(frameIndex, textures[setIndex]);
                         _imageDescriptors[setIndex].UpdateTextureBindings(textures[setIndex]);
                     }
-                    //_dirtyTextures[frameIndex] = false;
                 }
                 if (localUniformAllocation)
                 {
@@ -298,7 +281,9 @@ namespace VECS
                     indices[i] = (uint)i;
                 }
             }
-            Pipeline.BindPipe(frameInfo.CommandBuffer, frameInfo.FrameIndex);
+
+            Pipeline.BindPipe(frameInfo.CommandBuffer);
+
             if (OverrideCullMode)
             {
                 GraphicsDevice.DeviceAPI.vkCmdSetCullMode(frameInfo.CommandBuffer, CullMode);
@@ -321,7 +306,7 @@ namespace VECS
         public void SetTexture(uint setIndex, uint bindingIndex, ITextureProvider textures)
         {
             int imageIndex = DescriptorSetInfos[setIndex].BindingPointToImageIndex[bindingIndex];
-            //if (_textures[setIndex][imageIndex] == textures) return;
+
             _textures[setIndex][imageIndex] = textures;
             Array.Fill(_dirtyTextures, true);
         }
@@ -404,7 +389,7 @@ namespace VECS
                 indices[i] = i;
             }
 
-            Pipeline.BindPipe(commandBuffer, frameIndex);
+            Pipeline.BindPipe(commandBuffer);
             
             if (OverrideCullMode)
             {
@@ -446,7 +431,7 @@ namespace VECS
                 offsets[i] = buffer.AlignedSize * (uint)command.Variant;
                 indices[i] = i;
             }
-            Pipeline.BindPipe(commandBuffer, frameIndex);
+            Pipeline.BindPipe(commandBuffer);
             DescriptorBuffer.BindSets(commandBuffer, (uint)DescriptorSetCount, bindingInfo);
             DescriptorBuffer.SetOffsets(commandBuffer, Pipeline.PipelineLayout, VkPipelineBindPoint.Graphics, 0, (uint)DescriptorSetCount, offsets, indices);
 
@@ -514,7 +499,6 @@ namespace VECS
                 for (int setIndex = 0; setIndex < variant.TotalSets; setIndex++)
                 {
                     if (variant._imageDescriptors[setIndex].Disposed) continue;
-                    //variant._imageDescriptors[setIndex].UpdateTextureBindings(frameIndex, textures[setIndex]);
                     variant._imageDescriptors[setIndex].UpdateTextureBindings(textures[setIndex]);
                 }
                 variant._dirtyTextures[frameIndex] = false;
@@ -541,8 +525,6 @@ namespace VECS
                     var info = variant.DescriptorSetInfos[i];
                     int j = frameIndex;
                     
-                    //info.WriteDescriptors(info.DescriptorBuffers[j], variantIndex, variant.GetBindingBuffers(j, i), variant.GetBindingTextures(j, i));
-
                     info.WriteDescriptors(info.DescriptorBuffers[j], variantIndex, variant.GetBindingBuffers(j, i), variant.GetBindingTextures(i));
                 }
             }
@@ -562,7 +544,7 @@ namespace VECS
 
         private struct SetBufferDescriptors : IDisposable
         {
-            public unsafe static readonly SetBufferDescriptors Null = new() { _disposed = true };
+            public static readonly SetBufferDescriptors Null = new() { _disposed = true };
 
             private unsafe VkDescriptorAddressInfoEXT* _pBufferAddresses;
 
@@ -640,7 +622,7 @@ namespace VECS
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public unsafe bool SetUniformBufferRegion(uint offset, uint length)
+            public bool SetUniformBufferRegion(uint offset, uint length)
             {
                 if (_uniformRegion == new Vector2ULong(offset, length)) return false;
                 _uniformRegion = new(offset, length);
@@ -674,14 +656,14 @@ namespace VECS
 
         private struct SetTextureDescriptors : IDisposable
         {
-            public unsafe static readonly SetTextureDescriptors Null = new() { _disposed = true };
+            public static readonly SetTextureDescriptors Null = new() { _disposed = true };
 
             private unsafe VkDescriptorImageInfo* _pBindingTextures;
 
             private unsafe VkDescriptorImageInfo** _ppBindingTextures;
 
 #if DEBUG
-            private unsafe uint[] _pTexturesPerBinding;
+            private readonly uint[] _pTexturesPerBinding;
 #endif
             private readonly int TextureCount;
 
@@ -698,7 +680,6 @@ namespace VECS
 #if DEBUG
                 _pTexturesPerBinding = new uint[TextureCount];
 #endif
-
                 var missingInfo = EngineTextures.MissingTexture.ImageInfo;
 
                 for (int i = 0; i < setInfo.BindingCount; i++)
@@ -717,7 +698,6 @@ namespace VECS
                     }
                 }
 
-
                 for (int frameIndex = 0; frameIndex < SwapChain.MAX_CONCURRENT_FRAMES; frameIndex++)
                 {
                     var textures = GetBindingTextures(frameIndex);
@@ -726,7 +706,6 @@ namespace VECS
                         textures[textureIndex] = missingInfo;
                     }
                 }
-
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -754,7 +733,7 @@ namespace VECS
 
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public unsafe readonly void UpdateTextureBindings(int frameIndex, ITextureProvider[] textures)
+            public readonly void UpdateTextureBindings(int frameIndex, ITextureProvider[] textures)
             {
                 var bindingTextures = GetBindingTextures(frameIndex);
                 for (int textureIndex = 0; textureIndex < TextureCount; textureIndex++)

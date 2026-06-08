@@ -101,6 +101,10 @@ namespace VECS
             {
                 asset.SetTextures(shaderProperty, _shadowDepthTextures);
             });
+            AssetDataBase<ComputeVariant>.AllAssetsListForReading.ForEach(asset =>
+            {
+                asset.SetTextures(shaderProperty, _shadowDepthTextures,VkDescriptorType.CombinedImageSampler);
+            });
         }
 
         public abstract void PreShadowPass(in RendererFrameInfo frameInfo);

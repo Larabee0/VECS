@@ -378,7 +378,7 @@ namespace VECS.ECS.Transforms
                 float Y = 2f * MathF.Atan2(rotation.Y, rotation.X);
                 float X = MathF.PI / 2;
                 float Z = 0;
-                Vector3 v = new Vector3(X, Y, Z);
+                Vector3 v = new(X, Y, Z);
                 return NormalizeAngles(Rad2Deg * v);
             }
             if (test < -0.4995f * unit)
@@ -386,10 +386,10 @@ namespace VECS.ECS.Transforms
                 float Y = -2f * MathF.Atan2(rotation.Y, rotation.X);
                 float X = -MathF.PI / 2;
                 float Z = 0;
-                Vector3 v = new Vector3(X, Y, Z);
+                Vector3 v = new(X, Y, Z);
                 return NormalizeAngles(Rad2Deg * v);
             }
-            Quaternion q = new Quaternion(rotation.Y, rotation.W, rotation.Z, rotation.X);
+            Quaternion q = new(rotation.Y, rotation.W, rotation.Z, rotation.X);
             float y = MathF.Atan2(2f * q.X * q.W + 2f * q.Y * q.Z, 1 - 2f * (q.Z * q.Z + q.W * q.W));     // Yaw
             float x = MathF.Asin(2f * (q.X * q.Z - q.W * q.Y));                             // Pitch
             float z = MathF.Atan2(2f * q.X * q.Y + 2f * q.Z * q.W, 1 - 2f * (q.Y * q.Y + q.Z * q.Z));      // Roll

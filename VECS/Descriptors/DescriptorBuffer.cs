@@ -252,11 +252,13 @@ namespace VECS
             return _hostPtr; 
         }
 
+#if DEBUG
         public unsafe void ReadHost()
         {
             var read = GetHostBuffer();
             _descriptorBuffer.ReadFromBuffer(_hostPtr, _usageLength * _alignedLayoutSize);
         }
+#endif
 
         public static unsafe void BindSets(VkCommandBuffer cmd, DescriptorBuffer[] buffers)
         {

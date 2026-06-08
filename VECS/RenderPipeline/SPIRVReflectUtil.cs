@@ -121,27 +121,20 @@ namespace VECS
 
         public unsafe static DescriptorPropertyInfo[] GetBindingMembers(SpvReflectDescriptorBinding binding, string bindingParentName)
         {
-            switch (binding.descriptor_type)
+            return binding.descriptor_type switch
             {
                 // case SpvReflectDescriptorType.Sampler:
                 //     break;
-                case SpvReflectDescriptorType.CombinedImageSampler:
-                    return [GetBlockImage(bindingParentName, binding, binding.image)];
+                SpvReflectDescriptorType.CombinedImageSampler => [GetBlockImage(bindingParentName, binding, binding.image)],
                 // case SpvReflectDescriptorType.SampledImage:
                 //     break;
-                case SpvReflectDescriptorType.StorageImage:
-                     return [GetBlockImage(bindingParentName,binding, binding.image)];
-                case SpvReflectDescriptorType.UniformBuffer:
-                    return [.. GetBlockMembers(bindingParentName, binding.block)];
-                case SpvReflectDescriptorType.StorageBuffer:
-                    return [.. GetBlockMembers(bindingParentName, binding.block)];
-                case SpvReflectDescriptorType.UniformBufferDynamic:
-                    return [.. GetBlockMembers(bindingParentName, binding.block)];
-                case SpvReflectDescriptorType.StorageBufferDynamic:
-                    return [.. GetBlockMembers(bindingParentName, binding.block)];
-                default:
-                    throw new NotImplementedException(string.Format("Descriptor type not implemented {0}", binding.descriptor_type.ToString()));
-            }
+                SpvReflectDescriptorType.StorageImage => [GetBlockImage(bindingParentName, binding, binding.image)],
+                SpvReflectDescriptorType.UniformBuffer => [.. GetBlockMembers(bindingParentName, binding.block)],
+                SpvReflectDescriptorType.StorageBuffer => [.. GetBlockMembers(bindingParentName, binding.block)],
+                SpvReflectDescriptorType.UniformBufferDynamic => [.. GetBlockMembers(bindingParentName, binding.block)],
+                SpvReflectDescriptorType.StorageBufferDynamic => [.. GetBlockMembers(bindingParentName, binding.block)],
+                _ => throw new NotImplementedException(string.Format("Descriptor type not implemented {0}", binding.descriptor_type.ToString())),
+            };
         }
 
         public unsafe static List<DescriptorPropertyInfo> GetBlockMembers(string bindingParentName, SpvReflectBlockVariable variable)

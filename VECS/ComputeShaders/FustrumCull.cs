@@ -187,7 +187,6 @@ namespace VECS
 
         public static void PostPresent()
         {
-            _computeShader.SetUniformBufferLength(_invokation);
             Interlocked.Exchange(ref _invokation, 0);
         }
 

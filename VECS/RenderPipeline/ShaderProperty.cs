@@ -122,7 +122,7 @@ namespace VECS
             hash += hash << 3;
             hash ^= hash >> 11;
             hash += hash << 15;
-            return NumericsExtensions.asint(hash);
+            return NumericsExtensions.Asint(hash);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

@@ -33,7 +33,7 @@ namespace VECS.UI
         private readonly Dictionary<int, TextureVariant> Variants = [];
         private readonly Dictionary<int,TextureSampler> Samplers = new (64);
 
-        private HashSet<Material> UsedMats = new();
+        private readonly HashSet<Material> UsedMats = [];
 
         private readonly SwapChainBuffer _indexBuffer;
         private readonly SwapChainBuffer _vertexBuffer;
@@ -50,8 +50,7 @@ namespace VECS.UI
 
         public RendererFrameInfo CurrentFrameInfo;
         
-        private bool mStereoSupport;
-        private bool mFillModeNonSolid;
+        private readonly bool mFillModeNonSolid;
 
         private readonly int patternId = "pattern".GetShaderPropertyId();
         private readonly int rampsId = "ramps".GetShaderPropertyId();
@@ -228,7 +227,7 @@ namespace VECS.UI
                 renderArea.extent.width = tile.Width;
                 renderArea.extent.height = tile.Height;
                 VkRenderingAttachmentInfo stencil = default;
-                VkFormat colourFormat = VkFormat.Undefined;
+                VkFormat colourFormat;
                 VkFormat stencilFormat = VkFormat.Undefined;
                 VkRenderingAttachmentInfo colour;
                 if (renderTarget.ColourAA != null)
@@ -650,7 +649,7 @@ namespace VECS.UI
             
             UsedMats.Add(mat);
 
-            mat.Pipeline._uniformBuffer.SetBuffersDirty(true);
+            mat.Pipeline._uniformBuffer.Buffer.SetBuffersDirty(true);
             SetDescriptors(ref batch, mat);
             //Material.UpdateVariant(mat, CurrentFrameInfo.FrameIndex, true);
             mat.BindCareful(CurrentFrameInfo);
@@ -1079,11 +1078,11 @@ namespace VECS.UI
             configInfo.depthFormat = VkFormat.Undefined;
 
             // Vertex Input State
-            List<VkVertexInputAttributeDescription> attrs = new();
+            List<VkVertexInputAttributeDescription> attrs = [];
 
             FillVertexAttributes(format, attrs);
 
-            configInfo.AttributeDescriptions = attrs.ToArray();
+            configInfo.AttributeDescriptions = [.. attrs];
 
             VkVertexInputBindingDescription bindingDescription = new()
             {

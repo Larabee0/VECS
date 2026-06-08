@@ -22,14 +22,14 @@ namespace VECS
 
         public DirectionalLightShadows() : base(1)
         {
-            _shadowDepthTextures.First = new Texture2DArray("DirectionalShadowRT",
+            _shadowDepthTextures.SetTexture( new Texture2DArray("DirectionalShadowRT",
                 1,
                 1,
                 MAX_CASCADE_COUNT,
                 DIRECTIONAL_SHADOW_FORMAT,
                 VkSamplerAddressMode.ClampToBorder,
                 VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.Sampled,
-                false);
+                false),0);
 
             EngineTextures.AddOrUpdateTexture(ShaderProperties.DirShadowImageId, _shadowDepthTextures);
             AssignShadowTextures(ShaderProperties.DirShadowImageId);

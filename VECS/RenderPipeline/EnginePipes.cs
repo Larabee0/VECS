@@ -16,7 +16,7 @@ namespace VECS
         public static GraphicsPipeline DepthOnlyAlphaClipping { get; private set; }
         public static GraphicsPipeline PointLight{get; private set;}
         public static GraphicsPipeline Blit{get; private set;}
-        public static GraphicsPipeline OIT_Composite{get; private set;}
+        //public static GraphicsPipeline OIT_Composite{get; private set;}
         public static GraphicsPipeline OIT_Unlit{get; private set;}
         public static GraphicsPipeline OIT_LitTexture { get; private set; }
 
@@ -72,7 +72,7 @@ namespace VECS
             }
 
 
-            OIT_Composite = new("OIT_Composite", "fullscreen.vert", "oit_composite.frag", alphaBlending);
+            //OIT_Composite = new("OIT_Composite", "fullscreen.vert", "oit_composite.frag", alphaBlending);
 
             //alphaBlending.rasterizationInfo.cullMode = VkCullModeFlags.Front;
             var blit = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);

@@ -53,30 +53,30 @@ namespace VECS
             pUniformBuffer = _tempUniformBuffer.HostPtr;
         }
 
-        public unsafe void CopyDescriptorBindings()
-        {
-            if (!localUniformAllocation || _tempDescriptorSetInfos == null) return;
+        // public unsafe void CopyDescriptorBindings()
+        // {
+        //     if (!localUniformAllocation || _tempDescriptorSetInfos == null) return;
+        // 
+        //     for (int i = 0; i < _tempDescriptorSetInfos.Length; i++)
+        //     {
+        //         var srcDescriptor = _tempDescriptorSetInfos[i];
+        //         var dstDescriptor = _computePipeline._descriptorSetInfos[i];
+        // 
+        //         for (int j = 0; j < SwapChain.MAX_CONCURRENT_FRAMES; j++)
+        //         {
+        //             var srcDescriptorBuffer = srcDescriptor.DescriptorBuffers[j];
+        //             var dstDescriptorBuffer = dstDescriptor.DescriptorBuffers[j];
+        // 
+        //             var dstPtr = dstDescriptorBuffer.GetHostPtr();
+        // 
+        //             dstPtr = (byte*)dstPtr + VariantIndex * dstDescriptorBuffer.AlignedSize;
+        // 
+        //             Buffer.MemoryCopy(srcDescriptorBuffer.GetHostPtr(), dstPtr, dstDescriptorBuffer.AlignedSize, dstDescriptorBuffer.AlignedSize);
+        //         }
+        //     }
+        // }
 
-            for (int i = 0; i < _tempDescriptorSetInfos.Length; i++)
-            {
-                var srcDescriptor = _tempDescriptorSetInfos[i];
-                var dstDescriptor = _computePipeline._descriptorSetInfos[i];
-
-                for (int j = 0; j < SwapChain.MAX_CONCURRENT_FRAMES; j++)
-                {
-                    var srcDescriptorBuffer = srcDescriptor.DescriptorBuffers[j];
-                    var dstDescriptorBuffer = dstDescriptor.DescriptorBuffers[j];
-
-                    var dstPtr = dstDescriptorBuffer.GetHostPtr();
-
-                    dstPtr = (byte*)dstPtr + VariantIndex * dstDescriptorBuffer.AlignedSize;
-
-                    Buffer.MemoryCopy(srcDescriptorBuffer.GetHostPtr(), dstPtr, dstDescriptorBuffer.AlignedSize, dstDescriptorBuffer.AlignedSize);
-                }
-            }
-        }
-
-        public unsafe void DiposeTemporaryBuffers()
+        public void DiposeTemporaryBuffers()
         {
             _tempUniformBuffer?.EnqueueForDisposal();
             if(_tempDescriptorSetInfos != null)
@@ -135,21 +135,7 @@ namespace VECS
         }
         public unsafe void WriteToBuffer<T>(ShaderProperty propertyInfo, T element) where T : unmanaged
         {
-            var maxSize = propertyInfo.Property == null ? propertyInfo.BindingInfo.BufferSize : propertyInfo.Property.Size;
-            var propertyOffset = propertyInfo.Property == null ? 0 : propertyInfo.Property.Offset;
-
-            if (sizeof(T) > propertyInfo.BindingInfo.BufferSize)
-            {
-                throw new InvalidOperationException("Cannot write property with mismatched size");
-            }
-
-            var internalOffset = _computePipeline.InternalUniformBufferOffset(propertyInfo);
-
-            var buffer = pUniformBuffer;
-
-            var hostPtr = (byte*)buffer + (propertyOffset + internalOffset);
-
-            Buffer.MemoryCopy(&element, hostPtr, maxSize, maxSize);
+            _computePipeline.WriteToUniformBuffer(pUniformBuffer, propertyInfo,element);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -308,7 +294,7 @@ namespace VECS
                     indices[i] = i;
                 }
 
-                _computePipeline.Dispatch(commandBuffer, frameIndex, VariantIndex, bindingInfo, offsets, indices, workGroupCountX, workGroupCountY, workGroupCountZ);
+                _computePipeline.Dispatch(commandBuffer, VariantIndex, bindingInfo, offsets, indices, workGroupCountX, workGroupCountY, workGroupCountZ);
             }
             else
             {
@@ -321,11 +307,8 @@ namespace VECS
             if (_disposed) return;
             _disposed = true;
             GC.SuppressFinalize(this);
-            if (_tempUniformBuffer != null)
-            {
-                _tempUniformBuffer.EnqueueForDisposal();
-                _tempUniformBuffer = null;
-            }
+            _tempUniformBuffer?.EnqueueForDisposal();
+            _tempUniformBuffer = null;
             _computePipeline.RemoveVariant(this);
             if (localUniformAllocation)
             {

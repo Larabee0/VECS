@@ -11,7 +11,7 @@ namespace VECS
 
         public static string ShaderCacheFileDirectory => Path.Combine(Application.PersistentDataPath, SHADER_CACHE_FILE_NAME);
 
-        private static VkPipelineCache _cache;
+        private static readonly VkPipelineCache _cache;
         public static VkPipelineCache Cache => _cache;
 
         static unsafe ShaderCache()

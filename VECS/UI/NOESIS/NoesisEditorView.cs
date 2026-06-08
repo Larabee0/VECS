@@ -20,8 +20,8 @@ namespace VECS.UI
         private EntityQuery _singleEntities;
 
         private ListBox _hierarchyContainer;
-        private List<EntityHierarchyTree> _hierarchyTrees = [];
-        private List<EntityHierarchyTree> _singleEntityItems = [];
+        private readonly List<EntityHierarchyTree> _hierarchyTrees = [];
+        private readonly List<EntityHierarchyTree> _singleEntityItems = [];
 
 
         private NoesisViewWrapper MainView;
