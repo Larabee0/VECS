@@ -98,9 +98,9 @@ namespace VECS
             _deferredComposite?.SetStorageBuffer(ShaderProperties.CameraInfoId, EngineBuffers.TryGetBuffer(ShaderProperties.CameraInfoId));
             _deferredComposite?.SetStorageBuffer(ShaderProperties.CameraInverseId, EngineBuffers.TryGetBuffer(ShaderProperties.CameraInverseId));
 
-            _deferredComposite?.SetTextures(ShaderProperties.DirShadowImageId, EngineTextures.TryGetTexture(ShaderProperties.DirShadowImageId), VkDescriptorType.CombinedImageSampler);
-            _deferredComposite?.SetTextures(ShaderProperties.PLShadowImageId, EngineTextures.TryGetTexture(ShaderProperties.PLShadowImageId), VkDescriptorType.CombinedImageSampler);
-            _deferredComposite?.SetTextures(ShaderProperties.SLShadowImageId, EngineTextures.TryGetTexture(ShaderProperties.SLShadowImageId), VkDescriptorType.CombinedImageSampler);
+            _deferredComposite?.SetTextures(ShaderProperties.DirShadowImageId, EngineTextures.TryGetTexture(ShaderProperties.DirShadowImageId));
+            _deferredComposite?.SetTextures(ShaderProperties.PLShadowImageId, EngineTextures.TryGetTexture(ShaderProperties.PLShadowImageId));
+            _deferredComposite?.SetTextures(ShaderProperties.SLShadowImageId, EngineTextures.TryGetTexture(ShaderProperties.SLShadowImageId));
 
             EnginePipes.PBR_Deferred_Composite?.Default()?.SetTextures(G_PositionPropertyId, EngineTextures.TryGetTexture(G_PositionPropertyId));
             EnginePipes.PBR_Deferred_Composite?.Default()?.SetTextures(G_NormalsPropertyId, EngineTextures.TryGetTexture(G_NormalsPropertyId));
@@ -117,13 +117,13 @@ namespace VECS
             EnginePipes.PBR_Deferred_DirectionalLight?.Default()?.SetTextures(G_AlbedoPropertyId, EngineTextures.TryGetTexture(G_AlbedoPropertyId));
             EnginePipes.PBR_Deferred_DirectionalLight?.Default()?.SetTextures(G_MaskPropertyId, EngineTextures.TryGetTexture(G_MaskPropertyId));
 
-            _deferredComposite?.SetTexture(G_PositionPropertyId, EngineTextures.TryGetTexture(G_PositionPropertyId).First.ImageInfo, VkDescriptorType.StorageImage);
-            _deferredComposite?.SetTexture(G_NormalsPropertyId, EngineTextures.TryGetTexture(G_NormalsPropertyId).First.ImageInfo, VkDescriptorType.StorageImage);
-            _deferredComposite?.SetTexture(G_AlbedoPropertyId, EngineTextures.TryGetTexture(G_AlbedoPropertyId).First.ImageInfo, VkDescriptorType.StorageImage);
-            _deferredComposite?.SetTexture(G_MaskPropertyId, EngineTextures.TryGetTexture(G_MaskPropertyId).First.ImageInfo, VkDescriptorType.StorageImage);
-            _deferredComposite?.SetTexture(SSAO.SSAO_Blur_RT_PropertyId, EngineTextures.TryGetTexture(SSAO.SSAO_Blur_RT_PropertyId).First.ImageInfo, VkDescriptorType.StorageImage);
+            _deferredComposite?.SetTextures(G_PositionPropertyId, EngineTextures.TryGetTexture(G_PositionPropertyId));
+            _deferredComposite?.SetTextures(G_NormalsPropertyId, EngineTextures.TryGetTexture(G_NormalsPropertyId));
+            _deferredComposite?.SetTextures(G_AlbedoPropertyId, EngineTextures.TryGetTexture(G_AlbedoPropertyId));
+            _deferredComposite?.SetTextures(G_MaskPropertyId, EngineTextures.TryGetTexture(G_MaskPropertyId));
+            _deferredComposite?.SetTextures(SSAO.SSAO_Blur_RT_PropertyId, EngineTextures.TryGetTexture(SSAO.SSAO_Blur_RT_PropertyId));
 
-            _deferredComposite?.SetTexture("outImage".GetShaderPropertyId(), IntermediateColourAttachment.Target.ImageInfo, VkDescriptorType.StorageImage);
+            _deferredComposite?.SetTexture("outImage".GetShaderPropertyId(), IntermediateColourAttachment.Target);
             _deferredComposite?.PushConstantsHandler.SetPushConstantVector2("outputImageSize", 0, new(windowExtents.width, windowExtents.height));
         }
 

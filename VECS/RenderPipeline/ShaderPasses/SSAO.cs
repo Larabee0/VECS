@@ -157,9 +157,9 @@ namespace VECS
             _ssaoRT = IRenderer.CreateOrUpdateRT(_ssaoRT, "SSAO", SSAO_RT_PropertyId, windowExtents, VkFormat.R8Unorm, VkImageUsageFlags.Storage);
             _ssao.Default().SetVector2("ssaoUniform.noiseScale".GetShaderPropertyId(), new(windowExtents.width / 4f, windowExtents.height / 4f));
             _ssaoBlurRt = IRenderer.CreateOrUpdateRT(_ssaoBlurRt, "SSAO_Blur", SSAO_Blur_RT_PropertyId, windowExtents, VkFormat.R8Unorm, VkImageUsageFlags.Storage);
-            _computeSSAO?.SetTexture("outImage".GetShaderPropertyId(), _ssaoRT.Target.ImageInfo,VkDescriptorType.StorageImage);
-            _computeSSAO?.SetTexture("g_PositionIn".GetShaderPropertyId(), EngineTextures.TryGetTexture("g_PositionIn".GetShaderPropertyId()).First);
-            _computeSSAO?.SetTexture("g_NormalsIn".GetShaderPropertyId(), EngineTextures.TryGetTexture("g_NormalsIn".GetShaderPropertyId()).First.ImageInfo, VkDescriptorType.StorageImage);
+            _computeSSAO?.SetTexture("outImage".GetShaderPropertyId(), _ssaoRT.Target);
+            _computeSSAO?.SetTextures("g_PositionIn".GetShaderPropertyId(), EngineTextures.TryGetTexture("g_PositionIn".GetShaderPropertyId()));
+            _computeSSAO?.SetTextures("g_NormalsIn".GetShaderPropertyId(), EngineTextures.TryGetTexture("g_NormalsIn".GetShaderPropertyId()));
             _computeSSAO?.SetVector2("ssaoUniform.noiseScale".GetShaderPropertyId(), new(windowExtents.width / 4f, windowExtents.height / 4f));
             _computeSSAO?.SetVector2("ssaoUniform.outputImageSize".GetShaderPropertyId(), new(windowExtents.width, windowExtents.height));
             EnginePipes.PBR_Deferred_Composite.Default().SetTexture(SSAO_Blur_RT_PropertyId, _ssaoBlurRt.Target);

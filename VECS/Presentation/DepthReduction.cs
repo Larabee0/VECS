@@ -173,8 +173,8 @@ namespace VECS
                 imageLayout = VkImageLayout.ShaderReadOnlyOptimal
             };
 
-            _depthReduceShader.SetTextures(InImagePropertyId, _srcImages,_depthPryamid.MipMapCount, VkDescriptorType.CombinedImageSampler);
-            _depthReduceShader.SetTextures(OutImagePropertyId, _dstImages, _depthPryamid.MipMapCount, VkDescriptorType.StorageImage);
+            _depthReduceShader.SetTexturesUnsafe(InImagePropertyId, _srcImages,_depthPryamid.MipMapCount);
+            _depthReduceShader.SetTexturesUnsafe(OutImagePropertyId, _dstImages, _depthPryamid.MipMapCount);
 
             for (int i = 0; i < _depthPryamid.MipMapCount; i++)
             {

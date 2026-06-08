@@ -181,7 +181,6 @@ namespace VECS
             _graphicsPipelineConfigInfo = pipelineConfig;
             var descriptorSetBindings = GPUPipelineUtil.GetSharedBindings(vertex, geometry, fragment);
             _descriptorSetCount = GPUPipelineUtil.GetSetCount(descriptorSetBindings);
-            //_oitDescriptorSetIndex = GPUPipelineUtil.GetOITSetIndex(descriptorSetBindings);
 
             _descriptorSetLayouts = new VkDescriptorSetLayout[_descriptorSetCount];
             _descriptorSetInfos = new DescriptorSetInfo[_descriptorSetCount];
@@ -419,7 +418,7 @@ namespace VECS
             return false;
         }
 
-        private unsafe void WriteUniformToDescriptorBuffers(Material material)
+        private void WriteUniformToDescriptorBuffers(Material material)
         {
             if (!_hasUniforms) return;
             var variant = material.VariantIndex;
@@ -604,7 +603,7 @@ namespace VECS
             return null;
         }
 
-        public unsafe SwapChainBuffer GetStorageSwapChainBuffer(ShaderProperty propertyInfo)
+        public SwapChainBuffer GetStorageSwapChainBuffer(ShaderProperty propertyInfo)
         {
             if (propertyInfo.Property == null && propertyInfo.BindingInfo.StorageBuffer || propertyInfo.Property != null &&propertyInfo.Property.VariableArraySize)
             {
@@ -995,14 +994,13 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal unsafe static void Update(GraphicsPipeline pipeline, RendererFrameInfo frameInfo)
+        internal static void Update(GraphicsPipeline pipeline, RendererFrameInfo frameInfo)
         {
             if (pipeline.VariantCount == 0) return;
 
             for (uint i = 0; i < pipeline.DescriptorSetCount; i++)
             {
                 if (i == pipeline._meshShaderDescriptorSetIndex || i == pipeline._oitDescriptorSetIndex) continue;
-                //pipeline._descriptorSetInfos[i].SetVariantLength((uint)pipeline.VariantCount);
                 var bindings = pipeline.GetDescriptorBindings(i);
                 for (uint j = 0; j < bindings.Length; j++)
                 {

@@ -103,7 +103,7 @@ namespace VECS
             });
             AssetDataBase<ComputeVariant>.AllAssetsListForReading.ForEach(asset =>
             {
-                asset.SetTextures(shaderProperty, _shadowDepthTextures,VkDescriptorType.CombinedImageSampler);
+                asset.SetTextures(shaderProperty, _shadowDepthTextures);
             });
         }
 

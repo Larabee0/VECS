@@ -30,7 +30,7 @@ namespace VECS
 
         public VkDescriptorSetLayout Layout => _setLayout;
 
-        public unsafe VkDescriptorBufferBindingInfoEXT BindingInfo => new()
+        public VkDescriptorBufferBindingInfoEXT BindingInfo => new()
         {
             address = _descriptorBuffer.DeviceAddress,
             usage = _descriptorBuffer.UsageFlags
@@ -90,19 +90,19 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe void SetUniformBinding(GPUBuffer buffer, uint set, uint binding)
+        public void SetUniformBinding(GPUBuffer buffer, uint set, uint binding)
         {
             SetBufferBinding(buffer.DeviceAddressInfo, VkDescriptorType.UniformBuffer, set, binding);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe void SetStorageBinding(GPUBuffer buffer, uint set, uint binding)
+        public void SetStorageBinding(GPUBuffer buffer, uint set, uint binding)
         {
             SetBufferBinding(buffer.DeviceAddressInfo, VkDescriptorType.StorageBuffer, set, binding);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe void SetStorageBinding(VkDescriptorAddressInfoEXT buffer, uint set, uint binding)
+        public void SetStorageBinding(VkDescriptorAddressInfoEXT buffer, uint set, uint binding)
         {
             SetBufferBinding(buffer, VkDescriptorType.StorageBuffer, set, binding);
         }
@@ -115,7 +115,7 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe void SetBufferBinding(VkDescriptorAddressInfoEXT addressInfo, VkDescriptorType type, uint set, uint binding)
+        public void SetBufferBinding(VkDescriptorAddressInfoEXT addressInfo, VkDescriptorType type, uint set, uint binding)
         {
             DescriptorBufferWriteInfo info = new(addressInfo, type, set, binding);
             WriteDescriptor(info);
@@ -129,7 +129,7 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe void SetSamplerBinding(VkSampler sampler, uint set, uint binding)
+        public void SetSamplerBinding(VkSampler sampler, uint set, uint binding)
         {
             DescriptorBufferWriteInfo info = new(sampler, set, binding);
             WriteDescriptor(info);
@@ -230,7 +230,7 @@ namespace VECS
             }
         }
 
-        public unsafe void Flush()
+        public void Flush()
         {
             GPUBufferExtensions.WriteFromHostDelayed(_descriptorBuffer, 0, _usageLength * _alignedLayoutSize);
         }
@@ -366,7 +366,6 @@ namespace VECS
                 VkDescriptorType.InputAttachment => properties.inputAttachmentDescriptorSize,
                 _ => throw new NotImplementedException(string.Format("Descriptor Type {0} is invalid or not implemented for VkDescriptorImageInfo!", type.ToString())),
             };
-            //DataSize *= imageCount;
         }
 
         public unsafe DescriptorBufferWriteInfo(VkDescriptorAddressInfoEXT addressInfo, VkDescriptorType type, uint set, uint binding)

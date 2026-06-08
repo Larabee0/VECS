@@ -176,7 +176,7 @@ namespace VECS
                         }
                         variant.pUniformBuffer = pipelineAlloc;
                     }
-                    //variant.CopyDescriptorBindings();
+
                     variant.DiposeTemporaryBuffers();
                     variant.localUniformAllocation = false;
                 }
@@ -548,7 +548,6 @@ namespace VECS
 
             for (uint i = 0; i < pipeline.DescriptorSetCount; i++)
             {
-                //pipeline._descriptorSetInfos[i].SetVariantLength((uint)pipeline.VariantCount);
                 var bindings = pipeline.GetDescriptorBindings(i);
                 for (uint j = 0; j < bindings.Length; j++)
                 {
@@ -562,7 +561,6 @@ namespace VECS
 
             bool forceDescriptorWrite = pipeline.AllocNewVariants();
             forceDescriptorWrite |= frameInfo.NewSwapChain;
-            forceDescriptorWrite = true;
             if (forceDescriptorWrite)
             {
                 for (int i = 0; i < pipeline.VariantCount; i++)
