@@ -55,7 +55,7 @@ namespace VECS
                 TrasnparencyHint = true;
             }
 
-            DiffuseColour = mat.ColorDiffuse.ToColor();
+            DiffuseColour = mat.ColorDiffuse;
         }
 
         public MaterialInfo(MaterialTemplate template, string meshFileName)
@@ -275,7 +275,7 @@ namespace VECS
             for (int i = 0; i < scene.MeshCount; i++)
             {
                 directMeshCreateInfo[i] = new DirectSubMeshCreateInfo((uint)scene.Meshes[i].VertexCount,
-                    (uint)scene.Meshes[i].GetUnsignedIndices().Length);
+                    (uint)scene.Meshes[i].GetUnsignedIndices().Count());
             }
 
             var directMeshBuffer = new DirectMesh(directMeshName, attributeDescriptions, directMeshCreateInfo);
@@ -308,18 +308,18 @@ namespace VECS
 
         private static void FillSubMesh(DirectSubMesh dstMesh, Mesh srcMesh)
         {
-            List<Vector3D> srcVertices = srcMesh.Vertices;
-            List<Vector3D> srcNormals = srcMesh.HasNormals ? srcMesh.Normals : null;
-            List<Vector3D> srcTangents = srcMesh.HasTangentBasis ? srcMesh.Tangents : null;
-            List<Color4D> srcColours = srcMesh.HasVertexColors(0) ? srcMesh.VertexColorChannels[0] : null;
-            List<Vector3D> srcUV0 = srcMesh.HasTextureCoords(0) ? srcMesh.TextureCoordinateChannels[0] : null;
-            List<Vector3D> srcUV1 = srcMesh.HasTextureCoords(1) ? srcMesh.TextureCoordinateChannels[1] : null;
-            List<Vector3D> srcUV2 = srcMesh.HasTextureCoords(2) ? srcMesh.TextureCoordinateChannels[2] : null;
-            List<Vector3D> srcUV3 = srcMesh.HasTextureCoords(3) ? srcMesh.TextureCoordinateChannels[3] : null;
-            List<Vector3D> srcUV4 = srcMesh.HasTextureCoords(4) ? srcMesh.TextureCoordinateChannels[4] : null;
-            List<Vector3D> srcUV5 = srcMesh.HasTextureCoords(5) ? srcMesh.TextureCoordinateChannels[5] : null;
-            List<Vector3D> srcUV6 = srcMesh.HasTextureCoords(6) ? srcMesh.TextureCoordinateChannels[6] : null;
-            List<Vector3D> srcUV7 = srcMesh.HasTextureCoords(7) ? srcMesh.TextureCoordinateChannels[7] : null;
+            List<Vector3> srcVertices = srcMesh.Vertices;
+            List<Vector3> srcNormals = srcMesh.HasNormals ? srcMesh.Normals : null;
+            List<Vector3> srcTangents = srcMesh.HasTangentBasis ? srcMesh.Tangents : null;
+            List<Vector4> srcColours = srcMesh.HasVertexColors(0) ? srcMesh.VertexColorChannels[0] : null;
+            List<Vector3> srcUV0 = srcMesh.HasTextureCoords(0) ? srcMesh.TextureCoordinateChannels[0] : null;
+            List<Vector3> srcUV1 = srcMesh.HasTextureCoords(1) ? srcMesh.TextureCoordinateChannels[1] : null;
+            List<Vector3> srcUV2 = srcMesh.HasTextureCoords(2) ? srcMesh.TextureCoordinateChannels[2] : null;
+            List<Vector3> srcUV3 = srcMesh.HasTextureCoords(3) ? srcMesh.TextureCoordinateChannels[3] : null;
+            List<Vector3> srcUV4 = srcMesh.HasTextureCoords(4) ? srcMesh.TextureCoordinateChannels[4] : null;
+            List<Vector3> srcUV5 = srcMesh.HasTextureCoords(5) ? srcMesh.TextureCoordinateChannels[5] : null;
+            List<Vector3> srcUV6 = srcMesh.HasTextureCoords(6) ? srcMesh.TextureCoordinateChannels[6] : null;
+            List<Vector3> srcUV7 = srcMesh.HasTextureCoords(7) ? srcMesh.TextureCoordinateChannels[7] : null;
 
             Span<Vector3> dstVertices = dstMesh.Vertices;
             Span<Vector3> dstNormals = dstMesh.TryGetVertexDataSpan<Vector3>(VertexAttribute.Normal);
@@ -334,12 +334,19 @@ namespace VECS
             Span<Vector2> dstUV6 = dstMesh.TryGetVertexDataSpan<Vector2>(VertexAttribute.TexCoord6);
             Span<Vector2> dstUV7 = dstMesh.TryGetVertexDataSpan<Vector2>(VertexAttribute.TexCoord7);
 
+            srcVertices.CopyTo(dstVertices);
+            if (!dstNormals.IsEmpty && srcNormals != null)
+            {
+                srcNormals.CopyTo(dstNormals);
+            }
+            if (!dstColours.IsEmpty && srcColours != null)
+            {
+                srcColours.CopyTo(dstColours);
+            }
+
             for (int i = 0; i < srcMesh.VertexCount; i++)
             {
-                dstVertices[i] = srcVertices[i].ToVector3();
-                if (!dstNormals.IsEmpty && srcNormals != null) { dstNormals[i] = srcNormals[i].ToVector3(); }
-                if (!dstTangents.IsEmpty && srcTangents != null) { dstTangents[i] = srcTangents[i].ToVector3().AsVector4(); }
-                if (!dstColours.IsEmpty && srcColours != null) { dstColours[i] = ColourTypeConversion.ToColor(srcColours[i]); }
+                if (!dstTangents.IsEmpty && srcTangents != null) { dstTangents[i] = srcTangents[i].AsVector4(); }
                 if (!dstUV0.IsEmpty && srcUV0 != null) { dstUV0[i] = srcUV0[i].ToVector2(); }
                 if (!dstUV1.IsEmpty && srcUV1 != null) { dstUV1[i] = srcUV1[i].ToVector2(); }
                 if (!dstUV2.IsEmpty && srcUV2 != null) { dstUV2[i] = srcUV2[i].ToVector2(); }
@@ -350,13 +357,20 @@ namespace VECS
                 if (!dstUV7.IsEmpty && srcUV7 != null) { dstUV7[i] = srcUV7[i].ToVector2(); }
             }
 
-            srcMesh.GetUnsignedIndices().CopyTo(dstMesh.Indicies);
+
+            
+            var counter = 0;
+            foreach(var index in srcMesh.GetUnsignedIndices())
+            {
+                dstMesh.Indicies[counter] = index;
+                counter++;
+            }
 
 
             if(dstTangents != Span<Vector4>.Empty && !srcMesh.HasTangentBasis)
             {
                 Vector4[] generatedTangents = new Vector4[dstVertices.Length];
-                int[] indices = srcMesh.GetIndices();
+                int[] indices = [..srcMesh.GetIndices()];
                 // calculate tangents
                 var context = new MikktspaceContext(srcMesh.FaceCount,
                     face => 3,
@@ -527,7 +541,7 @@ namespace VECS
             for (int i = 0; i < sceneMeshes.Count; i++)
             {
                 directMeshCreateInfo[i] = new DirectSubMeshCreateInfo((uint)sceneMeshes[i].VertexCount,
-                    (uint)sceneMeshes[i].GetUnsignedIndices().Length);
+                    (uint)sceneMeshes[i].GetUnsignedIndices().Count());
             }
 
             var directMeshBuffer = new DirectMesh(fileNamesWithoutExtensions.ToString(), [.. attributeDescriptions], directMeshCreateInfo)

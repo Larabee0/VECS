@@ -371,7 +371,7 @@ namespace VECS
                 float d5 = Vector4.Dot(g, new Vector4(max.X, min.Y, max.Z, 1f));
                 float d6 = Vector4.Dot(g, new Vector4(min.X, max.Y, max.Z, 1f));
                 float d7 = Vector4.Dot(g, max);
-
+                
                 if (d0 < 0.0f &&
                     d1 < 0.0f &&
                     d2 < 0.0f &&

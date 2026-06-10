@@ -206,17 +206,9 @@ namespace System.Numerics
             return Result;
         }
 
-        public static Vector2 ToVector2(this Assimp.Vector3D vector)
+        public static Vector2 ToVector2(this Vector3 vector)
         {
             return new(vector.X, vector.Y);
-        }
-        public static Vector2 ToVector2(this Assimp.Vector2D vector)
-        {
-            return new(vector.X, vector.Y);
-        }
-        public static Vector3 ToVector3(this Assimp.Vector3D vector)
-        {
-            return new(vector.X, vector.Y, vector.Z);
         }
 
         public static Vector4 GetMatrixRow(this Matrix4x4 mat,int row)

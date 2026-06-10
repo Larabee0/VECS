@@ -162,6 +162,7 @@ namespace VECS
             _computeSSAO?.SetTextures("g_NormalsIn".GetShaderPropertyId(), EngineTextures.TryGetTexture("g_NormalsIn".GetShaderPropertyId()));
             _computeSSAO?.SetVector2("ssaoUniform.noiseScale".GetShaderPropertyId(), new(windowExtents.width / 4f, windowExtents.height / 4f));
             _computeSSAO?.SetVector2("ssaoUniform.outputImageSize".GetShaderPropertyId(), new(windowExtents.width, windowExtents.height));
+            _ssaoBlur?.Default().SetTexture(SSAO_RT_PropertyId, _ssaoRT.Target);
             EnginePipes.PBR_Deferred_Composite.Default().SetTexture(SSAO_Blur_RT_PropertyId, _ssaoBlurRt.Target);
         }
 
