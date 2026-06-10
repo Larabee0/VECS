@@ -767,7 +767,7 @@ namespace VECS.UI
             SetTexture(mat, imageId, batch.ImageSampler, batch.Image);
             SetTexture(mat, glyphsId, batch.GlyphsSampler, batch.Glyphs);
             SetTexture(mat, shadowId, batch.ShadowSampler, batch.Shadow);
-            mat.DirtyTextures();
+            //mat.DirtyTextures();
             var u0 = batch.VertexUniform0;
             var u1 = batch.VertexUniform1;
             var u2 = batch.PixelUniform0;

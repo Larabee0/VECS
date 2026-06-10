@@ -31,6 +31,7 @@ namespace VECS
         private readonly ConcurrentQueue<ComputeVariant> _variantsToAdd = new();
         private uint _variantCount;
         public int VariantCount => _computeVariants.Length;
+        internal static bool _descriptorReWrite = false;
 
         private readonly UniformBuffer _uniformBuffer;
         private readonly uint _uniformSize = 0;
@@ -535,6 +536,7 @@ namespace VECS
             var count = AssetDataBase<ComputePipeline>.AssetCount;
             var readingList = AssetDataBase<ComputePipeline>.AllAssetsListForReading;
             readingList.ForEach(m => Update(m, frameInfo));
+            _descriptorReWrite = false;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -556,17 +558,30 @@ namespace VECS
                     {
                         pipeline._descriptorSetInfos[i].SetStorageBuffer(EngineBuffers.TryGetBuffer(binding.Id), binding.BindPoint);
                     }
+                    if ((_descriptorReWrite || frameInfo.NewSwapChain) && binding.Image)
+                    {
+                        var texture = EngineTextures.TryGetTexture(binding.Id);
+                        if (texture == null) continue;
+                        for (int k = 0; k < pipeline.VariantCount; k++)
+                        {
+                            var variant = pipeline._computeVariants[k];
+                            if (variant == null) continue;
+                            variant.SetTextures(binding.DescriptorSetIndex, binding.BindPoint, texture);
+                        }
+                    }
                 }
             }
 
             bool forceDescriptorWrite = pipeline.AllocNewVariants();
             forceDescriptorWrite |= frameInfo.NewSwapChain;
+            forceDescriptorWrite |= _descriptorReWrite;
             if (forceDescriptorWrite)
             {
                 for (int i = 0; i < pipeline.VariantCount; i++)
                 {
                     var variant = pipeline._computeVariants[i];
                     if (variant == null) continue;
+                    ComputeVariant.UpdateVariant(variant);
                     pipeline.WriteUniformToDescriptorBuffers(variant);
                 }
             }

@@ -92,7 +92,7 @@ namespace VECS.ECS.Presentation
                 {
                     _lineMatrices.Realloc((uint)drawCount);
                     _lineColours.Realloc((uint)drawCount);
-                    EnginePipes.WireFrame.Default().DirtyBufferRegions();
+                    //EnginePipes.WireFrame.Default().DirtyBufferRegions();
                 }
             }
         }

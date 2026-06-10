@@ -38,13 +38,13 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool SetTexture(Texture texture, int index)
         {
-            bool alreadySet = First != texture;
+            bool updated = First != texture;
             First = index switch
             {
                 0 => texture,
                 _ => throw new IndexOutOfRangeException(),
             };
-            return alreadySet;
+            return updated;
         }
 
 
@@ -87,9 +87,9 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool SetTexture(Texture texture, int index)
         {
-            bool alreadySet = ArrayTextures[index] != texture;
+            bool updated = ArrayTextures[index] != texture;
             ArrayTextures[index] = texture;
-            return alreadySet;
+            return updated;
         }
 
         public void Dispose()

@@ -342,7 +342,7 @@ namespace VECS
                 this.CreateSampler();
             }
             metaFile.DstTexture = this;
-            //UpdateDescriptor();
+            UpdateDescriptor();
             AssetDataBase<Texture2D>.Add(this);
 
         }

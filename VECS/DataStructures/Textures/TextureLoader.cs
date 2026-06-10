@@ -75,7 +75,9 @@ namespace VECS
             {
                 WorkingItem.SaveFile();
                 WorkingItem = null;
-                AssetDataBase<Material>.AllAssetsListForReading.ForEach(m => m.DirtyTextures());
+
+                GraphicsPipeline._descriptorReWrite = true;
+                ComputePipeline._descriptorReWrite = true;
             }
 
             if (WorkingItem == null && CompressNext.Count > 0)

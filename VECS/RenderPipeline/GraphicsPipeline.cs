@@ -47,6 +47,7 @@ namespace VECS
         private uint _variantCount;
         internal bool _preBindUpdate = false;
         private bool _hasUniforms = false;
+        internal static bool _descriptorReWrite = false;
 
         private readonly static ConcurrentDictionary<int, int> _lastBoundGraphicsPipeline = new(Environment.ProcessorCount, Environment.ProcessorCount * 2);
 
@@ -1009,23 +1010,35 @@ namespace VECS
                     {
                         pipeline._descriptorSetInfos[i].SetStorageBuffer(EngineBuffers.TryGetBuffer(binding.Id), binding.BindPoint);
                     }
+                    if ((_descriptorReWrite || frameInfo.NewSwapChain )&& binding.Image)
+                    {
+                        var texture = EngineTextures.TryGetTexture(binding.Id);
+                        if (texture == null) continue;
+                        for (int k = 0; k < pipeline.VariantCount; k++)
+                        {
+                            var variant = pipeline._matVariants[k];
+                            if (variant == null) continue;
+                            variant.SetTexture(binding.DescriptorSetIndex, binding.BindPoint, texture);
+                        }
+                    }
                 }
             }
 
             bool forceDescriptorWrite = pipeline.AllocNewVariants();
 
             forceDescriptorWrite |= frameInfo.NewSwapChain;
+            forceDescriptorWrite |= _descriptorReWrite;
 
-            int frameIndex = frameInfo.FrameIndex;
-            for (uint i = 0; i < pipeline.VariantCount; i++)
+            if (forceDescriptorWrite)
             {
-                var variant = pipeline._matVariants[i];
-                if (variant == null) continue;
-                Material.UpdateVariant(variant, frameIndex, forceDescriptorWrite);
-                if (!forceDescriptorWrite) continue;
-                pipeline.WriteUniformToDescriptorBuffers(variant);
+                for (uint i = 0; i < pipeline.VariantCount; i++)
+                {
+                    var variant = pipeline._matVariants[i];
+                    if (variant == null) continue;
+                    Material.UpdateVariant(variant);
+                    pipeline.WriteUniformToDescriptorBuffers(variant);
+                }
             }
-
             for (uint i = 0; i < pipeline.DescriptorSetCount; i++)
             {
                 if (i == pipeline._meshShaderDescriptorSetIndex|| i == pipeline._oitDescriptorSetIndex) continue;
@@ -1045,7 +1058,7 @@ namespace VECS
 
             for (int i = 0; i < pipeline._descriptorSetInfos.Length; i++)
             {
-                pipeline._descriptorSetInfos[i].WriteFromBuffers(frameIndex);
+                pipeline._descriptorSetInfos[i].WriteFromBuffers(frameInfo.FrameIndex);
             }
 
             pipeline._uniformBuffer?.WriteToGPU(frameInfo.FrameIndex);
@@ -1066,6 +1079,7 @@ namespace VECS
             {
                 Update(readingList[i], frameInfo);
             });
+            _descriptorReWrite = false;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -1078,6 +1092,7 @@ namespace VECS
             var count = AssetDataBase<GraphicsPipeline>.AssetCount;
             var readingList = AssetDataBase<GraphicsPipeline>.AllAssetsListForReading;
             readingList.ForEach(m => Update(m, frameInfo));
+            _descriptorReWrite = false;
         }
 
         public bool OwnersBuffer(int bufferShaderPropertyId)
