@@ -69,7 +69,16 @@ namespace VECS
                         var engineTexture = EngineTextures.TryGetTexture(binding.Id);
                         if (engineTexture != null)
                         {
-                            _textures[i][imageIndex] = engineTexture;
+                            if (binding.VkSetLayoutBinding.descriptorCount > 1)
+                            {
+                                _textures[i][imageIndex] = new BindingArrayTexture((int)binding.VkSetLayoutBinding.descriptorCount);
+                            }
+                            else
+                            {
+                                _textures[i][imageIndex] = new SingleTexture(null);
+                            }
+                            SetTextures(binding.DescriptorSetIndex, binding.BindPoint, engineTexture);
+                            //_textures[i][imageIndex] = engineTexture;
                         }
                         else if (binding.VkSetLayoutBinding.descriptorCount > 1)
                         {

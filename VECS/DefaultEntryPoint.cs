@@ -435,8 +435,8 @@ namespace VECS
             entityManager.AddComponent(commonParent, new Scale() { Value = Vector3.One });
             entityManager.AddComponent(commonParent, children);
 
-            EnginePipes.PBR_Post_Process.Default().SetFloat("pbrProps.exposure".GetShaderPropertyId(), 2.0f);
-            EnginePipes.PBR_Post_Process.Default().SetFloat("pbrProps.gamma".GetShaderPropertyId(), 1.0f);
+           DeferredRenderer.SetExposure(2.0f);
+           DeferredRenderer.SetGamma(1.0f);
         }
 
         public static void AddRenderMeshComponents(Entity entity, Material mat, int entityVariant, DirectSubMesh mesh, EntityManager entityManager, RenderLayer layerFlags = RenderLayer.Default)

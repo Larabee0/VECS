@@ -21,10 +21,7 @@ namespace VECS
         public static GraphicsPipeline OIT_LitTexture { get; private set; }
 
         public static GraphicsPipeline PBR_Deferred { get; private set; }
-        public static GraphicsPipeline PBR_Deferred_Composite { get; private set; }
-        public static GraphicsPipeline PBR_Deferred_DirectionalLight { get; private set; }
-        public static GraphicsPipeline PBR_Deferred_PointLight { get; private set; }
-        public static GraphicsPipeline PBR_Post_Process { get; private set; }
+
 
 
         public static GraphicsPipeline IMGUI { get; private set; }
@@ -151,35 +148,6 @@ namespace VECS
             pbr_deferredConfig.depthStencilInfo.depthCompareOp = VkCompareOp.Equal;
 
             PBR_Deferred = new("PBR_Deferred", "pbr_deferred.vert", "pbr_deferred.frag", pbr_deferredConfig);
-            GraphicsPipelineConfigInfo pbr_deferred_compositeConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
-            pbr_deferred_compositeConfig.colourFormats = [VkFormat.R32G32B32A32Sfloat];
-            pbr_deferred_compositeConfig.depthStencilInfo.depthTestEnable = false;
-            PBR_Deferred_Composite = new("PBR_Deferred_Composite", "fullscreen.vert", "pbr_composit.frag", pbr_deferred_compositeConfig);
-
-            pbr_deferred_compositeConfig.colourBlendAttachment.colorWriteMask = VkColorComponentFlags.R | VkColorComponentFlags.G | VkColorComponentFlags.B;
-            pbr_deferred_compositeConfig.colourBlendAttachment.colorBlendOp = VkBlendOp.Add;
-            pbr_deferred_compositeConfig.colourBlendAttachment.alphaBlendOp = VkBlendOp.Add;
-            pbr_deferred_compositeConfig.colourBlendAttachment.srcColorBlendFactor = VkBlendFactor.One;
-            pbr_deferred_compositeConfig.colourBlendAttachment.dstColorBlendFactor = VkBlendFactor.One;
-            pbr_deferred_compositeConfig.colourBlendAttachment.srcAlphaBlendFactor = VkBlendFactor.Zero;
-            pbr_deferred_compositeConfig.colourBlendAttachment.dstAlphaBlendFactor = VkBlendFactor.Zero;
-            pbr_deferred_compositeConfig.colourBlendAttachment.blendEnable = true;
-
-            PBR_Deferred_DirectionalLight = new("PBR_Deferred_Dir_Light", "fullscreen.vert", "pbr_light.frag", pbr_deferred_compositeConfig);
-            pbr_deferred_compositeConfig.depthStencilInfo.depthTestEnable = false;
-            pbr_deferred_compositeConfig.colourFormats = Presenter.ColourFormats;
-            PBR_Post_Process = new("PBR_Post_Process", "fullscreen.vert", "pbr_post_process.frag", pbr_deferred_compositeConfig);
-            pbr_deferred_compositeConfig.colourFormats = [VkFormat.R32G32B32A32Sfloat];
-            //pbr_deferred_compositeConfig.colourBlendAttachment.blendEnable = false;
-            pbr_deferred_compositeConfig.rasterizationInfo.cullMode = VkCullModeFlags.Front;
-            pbr_deferred_compositeConfig.colourBlendAttachment.blendEnable = true   ;
-            pbr_deferred_compositeConfig.depthStencilInfo.depthTestEnable = true;
-            pbr_deferred_compositeConfig.depthStencilInfo.depthCompareOp = VkCompareOp.GreaterOrEqual;
-            PBR_Deferred_PointLight = new("PBR_Deferred_Point_Light", "pbr_light.vert", "pbr_point_light.frag", pbr_deferred_compositeConfig);
-
-
-
-
 
             DepthReduction.Init();
         }
