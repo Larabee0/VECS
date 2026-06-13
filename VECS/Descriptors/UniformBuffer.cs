@@ -88,6 +88,32 @@ namespace VECS
 
         #region Generic Value Write
 
+        public unsafe void WriteToUniformBuffer(uint variant, ShaderProperty propertyInfo, byte[] value)
+        {
+            var maxSize = propertyInfo.Property == null ? propertyInfo.BindingInfo.BufferSize : propertyInfo.Property.Size;
+            var propertyOffset = propertyInfo.Property == null ? 0 : propertyInfo.Property.Offset;
+
+            if (value .Length> propertyInfo.BindingInfo.BufferSize)
+            {
+                throw new InvalidOperationException("Cannot write property with mismatched size");
+            }
+
+            if (variant >= UniformCount)
+            {
+                throw new InvalidOperationException("Cannot write property to uniform buffer, variant not allocated!");
+            }
+
+            var buffer = Buffer;
+            var internalOffset = InternalUniformBufferOffset(propertyInfo) + propertyOffset;
+
+            // internaloffset => offset of descriptor set
+            // property offset => offset or shader property within set
+            // variant offset => variant position
+
+            var hostPtr = ((byte*)buffer.HostPtr + (internalOffset + (buffer.UInstanceSize32 * variant)));
+            WriteUniform(maxSize, hostPtr, value);
+        }
+
         public unsafe void WriteToUniformBuffer<T>(uint variant, ShaderProperty propertyInfo, T value) where T : unmanaged
         {
             var maxSize = propertyInfo.Property == null ? propertyInfo.BindingInfo.BufferSize : propertyInfo.Property.Size;
@@ -145,9 +171,44 @@ namespace VECS
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private unsafe void WriteUniform(uint maxSize, byte* hostPtr, byte[] values)
+        {
+            _uniformBuffer.SetBuffersDirty(true);
+            fixed (byte* pValues = values) {
+                System.Buffer.MemoryCopy(pValues, hostPtr, maxSize, values.Length);
+            }
+        }
+
         #endregion
 
         #region Generic Value Read
+
+        public unsafe void ReadFromUniformBuffer(uint variant, ShaderProperty propertyInfo, ref byte[] dst)
+        {
+            var maxSize = propertyInfo.Property == null ? propertyInfo.BindingInfo.BufferSize : propertyInfo.Property.Size;
+            var propertyOffset = propertyInfo.Property == null ? 0 : propertyInfo.Property.Offset;
+
+            if (dst.Length > propertyInfo.BindingInfo.BufferSize)
+            {
+                throw new InvalidOperationException("Cannot read property with mismatched size");
+            }
+
+            if (variant >= UniformCount)
+            {
+                throw new InvalidOperationException("Cannot read property from uniform buffer, variant not allocated!");
+            }
+
+            var buffer = Buffer;
+            var internalOffset = InternalUniformBufferOffset(propertyInfo) + propertyOffset;
+
+            // internaloffset => offset of descriptor set
+            // property offset => offset or shader property within set
+            // variant offset => variant position
+
+            var hostPtr = (byte*)buffer.HostPtr + (internalOffset + (buffer.UInstanceSize32 * variant));
+            ReadUniform(maxSize, hostPtr, ref dst);
+        }
 
         public unsafe T ReadFromUniformBuffer<T>(uint variant, ShaderProperty propertyInfo) where T : unmanaged
         {
@@ -200,6 +261,16 @@ namespace VECS
             System.Buffer.MemoryCopy(hostPtr, &value, maxSize, sizeof(T));
 
             return value;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static unsafe void ReadUniform(uint maxSize, byte* hostPtr, ref byte[] dst)
+        {
+            fixed (byte* pDst = dst)
+            {
+                System.Buffer.MemoryCopy(hostPtr, pDst, maxSize, dst.Length);
+            }
+            
         }
 
         #endregion

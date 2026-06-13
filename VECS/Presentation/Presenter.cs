@@ -77,6 +77,7 @@ namespace VECS
         public Presenter()
         {
             Instance = this;
+            GraphicsPipelineRecreation.Reset();
             RecreateSwapChain();
         }
 
@@ -223,6 +224,7 @@ namespace VECS
                 SDL3WindowManager.UpdatePresentMode( SwapChain.PresentMode == VkPresentModeKHR.Immediate ? VkPresentModeKHR.Mailbox : VkPresentModeKHR.Immediate);
                 SwapChain.RecreateSwapChain = true;
             }
+            ShaderCompiler.PlaybackRecompileCmds();
             // acquire swapchain image
             _isFrameStarted = BeginFrame();
             if (_isFrameStarted)
@@ -232,6 +234,9 @@ namespace VECS
 
                 UpdateEntityFrameInfo(World.DefaultWorld.EntityManager);
                 // kill off buffers
+                ShaderPipelineLayout.PlayBackDisposalCmds();
+                ShaderModule.PlayBackDisposalCmds();
+
                 GPUBufferExtensions.PlayerbackDisposeCmds();
                 TextureExtensions.PlayerbackDisposeCmds();
                 // signal workers to submit work
@@ -286,6 +291,11 @@ namespace VECS
             RendererFrameInfo frameInfo = CreateRendererFrameInfo(Time.DeltaTime, commandBuffer);
             ComputePipeline.UpdateComputeShaders(frameInfo);
             GraphicsPipeline.UpdateMaterials(frameInfo);
+
+            if (GraphicsPipelineRecreation.PlaybackShaderChangeCommands())
+            {
+                GraphicsPipeline.UpdateMaterials(frameInfo);
+            }
             
             AuxiliaryCommandBufferManager.Update();
 
@@ -330,6 +340,8 @@ namespace VECS
         public virtual void Dispose()
         {
             GC.SuppressFinalize(this);
+
+            GraphicsPipelineRecreation.Reset(true);
             DrawBlob.CleanUp();
             EngineBuffers.CleanUp();
 

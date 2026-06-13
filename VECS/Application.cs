@@ -147,7 +147,7 @@ namespace VECS
             Stopwatch sw = Stopwatch.StartNew();
             Bootstrap.subAssemblyLoadPoints.ForEach(loadPoint => loadPoint.PreApplicationStart());
             running = true;
-
+            AssetManager.FileWatcherStart();
             Bootstrap.subAssemblyLoadPoints.ForEach(loadPoint => loadPoint.PreDefaultWorldCreation());
             _mainWorld = new World();
 
@@ -387,6 +387,7 @@ namespace VECS
         /// </summary>
         public void Dispose()
         {
+            AssetManager.CleanUp();
             try
             {
                 Bootstrap.subAssemblyLoadPoints.ForEach(loadPoint => loadPoint.PreApplicationDispose());
@@ -406,6 +407,7 @@ namespace VECS
             SDL3WindowManager.DestroyAllWindows();
             GPUBufferExtensions.Reset();
             TextureExtensions.Reset();
+            ShaderModule.CleanUp();
             ShaderCache.Dispose();
             AuxiliaryCommandBufferManager.CleanUp();
             GraphicsDevice.Dispose();

@@ -39,16 +39,14 @@ namespace VECS
         }
 
         private readonly uint _variantIndex;
-
-        private readonly Vector2ULong[][] _storageBufferRegions;
-        private Vector2ULong _uniformRegion;
-
-        private readonly bool _hasStorageBuffers = false;
-
-        private readonly ITextureProvider[][] _textures;
-
-        private readonly bool _hasTextures = false;
         private readonly GraphicsPipeline _graphicsPipeline;
+        private Vector2ULong[][] _storageBufferRegions;
+
+        private bool _hasStorageBuffers = false;
+
+        private ITextureProvider[][] _textures;
+
+        private bool _hasTextures = false;
 
         /// this allocation will be an offset into <see cref="GraphicsPipeline._uniformBuffer"> host ptr, unless the material is new, which case the allocation is temporarily local.
         /// it will be copied into the <see cref="GraphicsPipeline._uniformBuffer"> host ptr during the shader set variant allocation phase with the local allocation being freed
@@ -450,6 +448,107 @@ namespace VECS
                 command = drawCmds[i];
                 command.Variant = (int)VariantIndex;
                 Pipeline.ExecuteDrawCommand(commandBuffer, frameIndex, pushConstantOverride, indirectCmdBuffer, command, offsets, indices, ref lastVariant);
+            }
+        }
+
+        public void Reinitialise(Vector2UInt[][] textureRemap,  Vector2UInt[][] storageRemap)
+        {
+            var existingImages = _textures;
+            var existingRegions = _storageBufferRegions;
+
+            _textures = new ITextureProvider[DescriptorSetCount][];
+            _storageBufferRegions = new Vector2ULong[DescriptorSetCount][];
+            for (uint i = 0; i < TotalSets; i++)
+            {
+                var setInfo = DescriptorSetInfos[i];
+                if (setInfo.StorageBufferCount > 0 && !setInfo.NoAllocStorageBuffers)
+                {
+                    _storageBufferRegions[i] = new Vector2ULong[setInfo.StorageBufferCount];
+
+                    for (uint j = 0; j < setInfo.StorageBufferCount; j++)
+                    {
+                        _storageBufferRegions[i][j] = new(0, Vulkan.VK_WHOLE_SIZE);
+                    }
+                }
+                if (setInfo.ImageCount > 0)
+                {
+                    _textures[i] = new ITextureProvider[setInfo.ImageCount];
+
+                    for (int j = 0; j < setInfo.BindingCount; j++)
+                    {
+                        DescriptorBinding binding = setInfo.DescriptorBindings[j];
+                        if (!binding.Image) continue;
+                        var imageIndex = setInfo.BindingPointToImageIndex[binding.BindPoint];
+                        var engineTexture = EngineTextures.TryGetTexture(binding.Id);
+                        if (engineTexture != null)
+                        {
+                            _textures[i][imageIndex] = engineTexture;
+                        }
+                        else if (binding.VkSetLayoutBinding.descriptorCount > 1)
+                        {
+                            var fill = _textures[i][imageIndex] = new BindingArrayTexture((int)binding.VkSetLayoutBinding.descriptorCount);
+
+                            for (int k = 0; k < fill.ImageCount; k++)
+                            {
+                                fill.SetTexture(EngineTextures.MissingTexture, k);
+                            }
+                        }
+                        else
+                        {
+                            _textures[i][imageIndex] = (SingleTexture)EngineTextures.MissingTexture;
+                        }
+                        WriteTexturesToDescriptorBuffer(binding.DescriptorSetIndex, binding.BindPoint);
+                    }
+                }
+            }
+
+            for (int i = 0; i < existingRegions.Length; i++)
+            {
+                var setRegion = existingRegions[i];
+
+                for (int j = 0; j < setRegion.Length; j++)
+                {
+                    var bindingRegion = setRegion[j];
+
+                    var dst = storageRemap[i][j];
+
+                    if (dst.X == uint.MaxValue || dst.Y == uint.MaxValue) continue;
+
+                    _storageBufferRegions[dst.X][dst.Y] = bindingRegion;
+                }
+            }
+
+            for (int i = 0; i < existingImages.Length; i++)
+            {
+                var setImages = existingImages[i];
+
+                for (int j = 0; j < setImages.Length; j++)
+                {
+                    var bindingImage = setImages[j];
+
+                    var dst = textureRemap[i][j];
+                    if (dst.X == uint.MaxValue || dst.Y == uint.MaxValue) continue;
+
+                    if (_textures[dst.X][dst.Y].ImageCount == bindingImage.ImageCount)
+                    {
+                        _textures[dst.X][dst.Y] = bindingImage;
+                    }
+                }
+            }
+
+            for (int i = 0; i < TotalSets; i++)
+            {
+                var info = DescriptorSetInfos[i];
+
+                if (!_hasTextures)
+                {
+                    _hasTextures = info.HasImages;
+                }
+
+                if (!_hasStorageBuffers)
+                {
+                    _hasStorageBuffers = info.HasStorageBuffers;
+                }
             }
         }
 

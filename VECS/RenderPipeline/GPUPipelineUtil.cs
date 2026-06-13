@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using VECS.LowLevel;
 using Vortice.SPIRV;
 using Vortice.SPIRV.Reflect;
@@ -329,6 +330,7 @@ namespace VECS
             if (layout == null)
             {
                 layout = new(layoutName, CreatePipelineLayout(setLayouts, pushConstants));
+                shaderModule.RegisterLayout(layout);
                 AssetDataBase<ShaderPipelineLayout>.Add(layout);
             }
 
@@ -343,7 +345,8 @@ namespace VECS
             if (layout == null)
             {
                 layout = new(layoutName, CreatePipelineLayout(setLayouts, pushConstants));
-                
+                vertex.RegisterLayout(layout);
+                fragment.RegisterLayout(layout);
                 AssetDataBase<ShaderPipelineLayout>.Add(layout);
             }
 
@@ -358,6 +361,9 @@ namespace VECS
             if (layout == null)
             {
                 layout = new(layoutName, CreatePipelineLayout(setLayouts, pushConstants));
+                vertex.RegisterLayout(layout);
+                geometry.RegisterLayout(layout);
+                fragment.RegisterLayout(layout);
                 AssetDataBase<ShaderPipelineLayout>.Add(layout);
             }
 
@@ -376,6 +382,37 @@ namespace VECS
             if (layout == null)
             {
                 layout = new(layoutName, CreatePipelineLayout(setLayouts, pushConstants));
+                mesh.RegisterLayout(layout);
+                task.RegisterLayout(layout);
+                fragment.RegisterLayout(layout);
+                AssetDataBase<ShaderPipelineLayout>.Add(layout);
+            }
+
+            return layout.Layout;
+        }
+
+        public static VkPipelineLayout CreatePipelineLayout(VkDescriptorSetLayout[] setLayouts, PushConstantsHandler pushConstants,params ShaderModule[] shaders)
+        {
+            Array.Sort(shaders);
+
+            string layoutName = shaders[0].AssetName;
+
+            for (int i = 1; i < shaders.Length; i++)
+            {
+                layoutName += "_" + shaders[i].AssetName;
+            }
+
+            var layout = AssetDataBase<ShaderPipelineLayout>.GetNamedSilentFail(layoutName);
+
+            if (layout == null)
+            {
+                layout = new(layoutName, CreatePipelineLayout(setLayouts, pushConstants));
+
+                for (int i = 0; i < shaders.Length; i++)
+                {
+                    shaders[i].RegisterLayout(layout);
+                }
+
                 AssetDataBase<ShaderPipelineLayout>.Add(layout);
             }
 
@@ -411,13 +448,15 @@ namespace VECS
             return pipelineLayout;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static VkPipeline CreateComputePipeline(VkComputePipelineCreateInfo createInfo)
         {
             GraphicsDevice.DeviceAPI.vkCreateComputePipeline(ShaderCache.Cache, createInfo, out var _pipline).CheckResult("Failed to create Compute Pipeline");
             return _pipline;
         }
 
-        public static unsafe VkPipeline CreateGraphicsPipelineMeshTaskFrag(ShaderModule mesh, ShaderModule task, ShaderModule fragment, GraphicsPipelineConfigInfo configInfo, VkPipelineCreateFlags flags = VkPipelineCreateFlags.None)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static VkPipeline CreateGraphicsPipelineMeshTaskFrag(ShaderModule mesh, ShaderModule task, ShaderModule fragment, GraphicsPipelineConfigInfo configInfo, VkPipelineCreateFlags flags = VkPipelineCreateFlags.None)
         {
             if (!GraphicsDevice.MeshShading)
             {
@@ -427,67 +466,60 @@ namespace VECS
             Debug.Assert(task.VkShaderStage == VkShaderStageFlags.TaskEXT, "Provided task shader is at the wrong stage! Name: {0} Provided Stage {1}", task.AssetName, task.VkShaderStage);
             Debug.Assert(fragment.VkShaderStage == VkShaderStageFlags.Fragment, "Provided fragement shader is at wrong stage! Name: {0} Provided Stage {1}", fragment.AssetName, fragment.VkShaderStage);
 
-            string cacheName = mesh.AssetName + "_" + task.AssetName + "_" + fragment.AssetName;
-
-            // Shader stages
-            VkPipelineShaderStageCreateInfo* shaderStages = stackalloc VkPipelineShaderStageCreateInfo[] {
-             mesh.ShaderStageCreateInfo,
-             task.ShaderStageCreateInfo,
-             fragment.ShaderStageCreateInfo
-            };
-
-            return CreateGrahpicsPipeline(cacheName,configInfo,flags,3,shaderStages);
+            return CreateGraphicsPipeline(configInfo, flags, mesh, task, fragment);
         }
 
-        public static unsafe VkPipeline CreateGraphicsPipelineVertGeoFrag(ShaderModule vertex, ShaderModule geometry, ShaderModule fragment, GraphicsPipelineConfigInfo configInfo, VkPipelineCreateFlags flags = VkPipelineCreateFlags.None)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static VkPipeline CreateGraphicsPipelineVertGeoFrag(ShaderModule vertex, ShaderModule geometry, ShaderModule fragment, GraphicsPipelineConfigInfo configInfo, VkPipelineCreateFlags flags = VkPipelineCreateFlags.None)
         {
             Debug.Assert(vertex.VkShaderStage == VkShaderStageFlags.Vertex, "Provided vertex shader is at wrong stage! Name: {0} Provided Stage {1}", vertex.AssetName, vertex.VkShaderStage);
             Debug.Assert(geometry.VkShaderStage == VkShaderStageFlags.Geometry, "Provided geometry shader is at wrong stage! Name: {0} Provided Stage {1}", geometry.AssetName, geometry.VkShaderStage);
             Debug.Assert(fragment.VkShaderStage == VkShaderStageFlags.Fragment, "Provided fragement shader is at wrong stage! Name: {0} Provided Stage {1}", fragment.AssetName, fragment.VkShaderStage);
 
-            string cacheName = vertex.AssetName + "_" + geometry.AssetName + "_" + fragment.AssetName;
-
-            // Shader stages
-            VkPipelineShaderStageCreateInfo* shaderStages = stackalloc VkPipelineShaderStageCreateInfo[]
-            {
-                vertex.ShaderStageCreateInfo,
-                geometry.ShaderStageCreateInfo,
-                fragment.ShaderStageCreateInfo
-            };
-
-            return CreateGrahpicsPipeline(cacheName, configInfo, flags, 3, shaderStages);
+            return CreateGraphicsPipeline(configInfo, flags, vertex, geometry, fragment);
         }
 
-        public static unsafe VkPipeline CreateGraphicsPipelineVertFrag(ShaderModule vertex, ShaderModule fragment, GraphicsPipelineConfigInfo configInfo, VkPipelineCreateFlags flags = VkPipelineCreateFlags.None)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static VkPipeline CreateGraphicsPipelineVertFrag(ShaderModule vertex, ShaderModule fragment, GraphicsPipelineConfigInfo configInfo, VkPipelineCreateFlags flags = VkPipelineCreateFlags.None)
         {
             Debug.Assert(vertex.VkShaderStage == VkShaderStageFlags.Vertex, "Provided vertex shader is at wrong stage! Name: {0} Provided Stage {1}", vertex.AssetName, vertex.VkShaderStage);
             Debug.Assert(fragment.VkShaderStage == VkShaderStageFlags.Fragment, "Provided fragement shader is at wrong stage! Name: {0} Provided Stage {1}", fragment.AssetName, fragment.VkShaderStage);
 
-            string cacheName = vertex.AssetName + "_" + fragment.AssetName;
-
-            // Shader stages
-            VkPipelineShaderStageCreateInfo* shaderStages = stackalloc VkPipelineShaderStageCreateInfo[]
-            {
-                vertex.ShaderStageCreateInfo,
-                fragment.ShaderStageCreateInfo
-            };
-
-            return CreateGrahpicsPipeline(cacheName, configInfo, flags, 2, shaderStages);
+            return CreateGraphicsPipeline(configInfo, flags, vertex,fragment);
         }
 
-        public static unsafe VkPipeline CreateGraphicsPipelineVert(ShaderModule vertex, GraphicsPipelineConfigInfo configInfo, VkPipelineCreateFlags flags = VkPipelineCreateFlags.None)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static VkPipeline CreateGraphicsPipelineVert(ShaderModule vertex, GraphicsPipelineConfigInfo configInfo, VkPipelineCreateFlags flags = VkPipelineCreateFlags.None)
         {
             Debug.Assert(vertex.VkShaderStage == VkShaderStageFlags.Vertex, "Provided vertex shader is at wrong stage! Name: {0} Provided Stage {1}", vertex.AssetName, vertex.VkShaderStage);
             
-            string cacheName = vertex.AssetName;
-
-            // Shader stages
-            VkPipelineShaderStageCreateInfo shaderStages = vertex.ShaderStageCreateInfo;
-
-            return CreateGrahpicsPipeline(cacheName, configInfo, flags, 1, &shaderStages);
+            return CreateGraphicsPipeline(configInfo, flags, vertex);
         }
 
-        private static unsafe VkPipeline CreateGrahpicsPipeline(string cacheName, GraphicsPipelineConfigInfo configInfo, VkPipelineCreateFlags flags, uint stageCount ,VkPipelineShaderStageCreateInfo* shaderStages)
+        
+        public static unsafe VkPipeline CreateGraphicsPipeline(GraphicsPipelineConfigInfo configInfo,VkPipelineCreateFlags flags, params ShaderModule[] shaders)
+        {
+            Array.Sort(shaders);
+            var firstStage = shaders[0].VkShaderStage;
+
+            string cacheName = shaders[0].AssetName;
+            for (int i = 1; i < shaders.Length; i++)
+            {
+                cacheName += "_" + shaders[i].AssetName;
+                Debug.Assert(firstStage != shaders[i].VkShaderStage);
+            }
+
+
+            VkPipelineShaderStageCreateInfo* shaderStages = stackalloc VkPipelineShaderStageCreateInfo[shaders.Length];
+            for (int i = 0; i < shaders.Length; i++)
+            {
+                shaderStages[i] = shaders[i].ShaderStageCreateInfo;
+            }
+
+            return CreateGraphicsPipeline(cacheName, configInfo, flags, (uint)shaders.Length, shaderStages);
+        }
+
+        private static unsafe VkPipeline CreateGraphicsPipeline(string cacheName, GraphicsPipelineConfigInfo configInfo, VkPipelineCreateFlags flags, uint stageCount ,VkPipelineShaderStageCreateInfo* shaderStages)
         {
             var cache = AssetDataBase<ShaderPipelineLayout>.GetNamed(cacheName);
 

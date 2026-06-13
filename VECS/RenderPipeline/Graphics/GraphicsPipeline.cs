@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using VECS.LowLevel;
@@ -8,48 +10,52 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
-    public class GraphicsPipeline : DisposableAsset
+    public partial class GraphicsPipeline : DisposableAsset
     {
         public const int MAX_VARIANTS = 1000;
         public const uint DEFAULT_STORAGE_BUFFER_COUNT = 10000;
 
+        internal static bool _descriptorReWrite = false;
+
+        private readonly static ConcurrentDictionary<int, int> _lastBoundGraphicsPipeline = new(Environment.ProcessorCount, Environment.ProcessorCount * 2);
+
+        private readonly int[] _shaderHashes;
+
+#if DEBUG
+        private ShaderModule[] _shaders;
+#endif
+
         private GraphicsPipelineConfigInfo _graphicsPipelineConfigInfo;
 
-        private readonly VkPipelineLayout _pipelineLayout;
+        private VkPipelineLayout _pipelineLayout;
         internal VkPipeline _graphicsPipeline;
 
-        private readonly VkDescriptorSetLayout[] _descriptorSetLayouts;
-        private readonly VertexAttributeDescription[] _meshShaderVertexAttributes;
+        private VkDescriptorSetLayout[] _descriptorSetLayouts;
+        private VertexAttributeDescription[] _meshShaderVertexAttributes;
 
-        private readonly int _descriptorSetCount = 0;
-        private readonly int _oitDescriptorSetIndex = -1;
-        private readonly int _meshShaderDescriptorSetIndex = -1;
-        private readonly int _meshShaderDescriptorHash = 0;
-
-        private readonly int _setsWithTextures = 0;
-        private readonly int _setsWithBuffers = 0;
+        private int _descriptorSetCount = 0;
+        private int _oitDescriptorSetIndex = -1;
+        private int _meshShaderDescriptorSetIndex = -1;
+        private int _meshShaderDescriptorHash = 0;
 
         private uint _uniformBufferSize;
         private VkBufferUsageFlags _uniformBufferUsage;
 
-        private readonly ConcurrentDictionary<int, ShaderProperty> _cachedShaderProperties = new();
+        private ConcurrentDictionary<int, ShaderProperty> _cachedShaderProperties = new();
 
-        private readonly PushConstantsHandler _materialPushConstantsHandler;
-        private readonly DescriptorSetInfo[] _descriptorSetInfos;
+        private PushConstantsHandler _materialPushConstantsHandler;
+        private DescriptorSetInfo[] _descriptorSetInfos;
 
         internal UniformBuffer _uniformBuffer;
 
         internal Material[] _matVariants;
 
-        private readonly ConcurrentQueue<uint> _freeVariantIndices = new();
-        private readonly ConcurrentQueue<Material> _variantsToAdd = new();
+        private ConcurrentQueue<uint> _freeVariantIndices = new();
+        private ConcurrentQueue<Material> _variantsToAdd = new();
 
         private uint _variantCount;
         internal bool _preBindUpdate = false;
         private bool _hasUniforms = false;
-        internal static bool _descriptorReWrite = false;
-
-        private readonly static ConcurrentDictionary<int, int> _lastBoundGraphicsPipeline = new(Environment.ProcessorCount, Environment.ProcessorCount * 2);
 
         public bool Transparent => _oitDescriptorSetIndex != -1;
 
@@ -59,170 +65,11 @@ namespace VECS
 
         public int MeshShaderDescriptorSetIndex => _meshShaderDescriptorSetIndex;
         public int DescriptorSetCount => _descriptorSetCount;
-        public int SetsWithTextures => _setsWithTextures;
-        public int SetsWithBuffers => _setsWithBuffers;
 
         internal VkPipelineLayout PipelineLayout => _pipelineLayout;
 
         public DescriptorSetInfo[] DescriptorSetInfos => _descriptorSetInfos;
         public PushConstantsHandler PushConstants => _materialPushConstantsHandler;
-
-        public GraphicsPipeline(string name, string vertexShaderName, string fragmentShaderName, GraphicsPipelineConfigInfo pipelineConfig)
-        {
-            AssetName = name;
-
-            ShaderModule vertex = AssetDataBase<ShaderModule>.GetNamed(vertexShaderName);
-            ShaderModule fragment = AssetDataBase<ShaderModule>.GetNamed(fragmentShaderName);
-
-            if (vertex.HasVertexAttributes && (pipelineConfig.BindingDescriptions.Length == 0 || pipelineConfig.AttributeDescriptions.Length == 0))
-            {
-                pipelineConfig.BindingDescriptions = vertex.VertexBindings;
-                pipelineConfig.AttributeDescriptions = vertex.VertexAttributes;
-            }
-            _graphicsPipelineConfigInfo = pipelineConfig;
-            var descriptorSetBindings = GPUPipelineUtil.GetSharedBindings(vertex, fragment);
-            _descriptorSetCount = GPUPipelineUtil.GetSetCount(descriptorSetBindings);
-            _oitDescriptorSetIndex = GPUPipelineUtil.GetOITSetIndex(descriptorSetBindings);
-
-            _descriptorSetLayouts = new VkDescriptorSetLayout[_descriptorSetCount];
-            _descriptorSetInfos = new DescriptorSetInfo[_descriptorSetCount];
-            InitialiseDescriptorSets(descriptorSetBindings);
-
-            _materialPushConstantsHandler = new(vertex, fragment);
-
-            _pipelineLayout = GPUPipelineUtil.CreatePipelineLayoutVertFrag(vertex, fragment, _descriptorSetLayouts, _materialPushConstantsHandler);
-            _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipelineVertFrag(vertex, fragment, _graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT);
-            CreateDefault();
-
-            AssetDataBase<GraphicsPipeline>.Add(this);
-        }
-
-        internal GraphicsPipeline(string name, string vertexShaderName, GraphicsPipelineConfigInfo pipelineConfig)
-        {
-            AssetName = name;
-
-            ShaderModule vertex = AssetDataBase<ShaderModule>.GetNamed(vertexShaderName);
-
-            if (vertex.HasVertexAttributes)
-            {
-                pipelineConfig.BindingDescriptions = vertex.VertexBindings;
-                pipelineConfig.AttributeDescriptions = vertex.VertexAttributes;
-            }
-            pipelineConfig.rasterizationInfo.cullMode = VkCullModeFlags.Back;
-            _graphicsPipelineConfigInfo = pipelineConfig;
-            var descriptorSetBindings = GPUPipelineUtil.GetSharedBindings(vertex);
-            _descriptorSetCount = GPUPipelineUtil.GetSetCount(descriptorSetBindings);
-            _oitDescriptorSetIndex = GPUPipelineUtil.GetOITSetIndex(descriptorSetBindings);
-
-            _descriptorSetLayouts = new VkDescriptorSetLayout[_descriptorSetCount];
-            _descriptorSetInfos = new DescriptorSetInfo[_descriptorSetCount];
-            InitialiseDescriptorSets(descriptorSetBindings);
-
-            _materialPushConstantsHandler = new(vertex);
-
-            _pipelineLayout = GPUPipelineUtil.CreatePipelineLayoutVert(vertex, _descriptorSetLayouts, _materialPushConstantsHandler);
-            _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipelineVert(vertex, _graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT);
-            CreateDefault();
-            AssetDataBase<GraphicsPipeline>.Add(this);
-        }
-
-        internal GraphicsPipeline(string name, string meshShaderName, string taskShaderName, string fragmentShaderName, GraphicsPipelineConfigInfo pipelineConfig)
-        {
-            AssetName = name;
-
-            ShaderModule mesh = AssetDataBase<ShaderModule>.GetNamed(meshShaderName);
-            ShaderModule task = AssetDataBase<ShaderModule>.GetNamed(taskShaderName);
-            ShaderModule fragment = AssetDataBase<ShaderModule>.GetNamed(fragmentShaderName);
-
-            pipelineConfig.BindingDescriptions = null;
-            pipelineConfig.AttributeDescriptions = null;
-
-            pipelineConfig.rasterizationInfo.cullMode = VkCullModeFlags.Back;
-            _graphicsPipelineConfigInfo = pipelineConfig;
-            var descriptorSetBindings = GPUPipelineUtil.GetSharedBindings(mesh, task, fragment);
-            _descriptorSetCount = GPUPipelineUtil.GetSetCount(descriptorSetBindings);
-            _oitDescriptorSetIndex = GPUPipelineUtil.GetOITSetIndex(descriptorSetBindings);
-            _meshShaderDescriptorSetIndex = GPUPipelineUtil.GetMeshDataSetIndex(descriptorSetBindings);
-
-            _meshShaderVertexAttributes = GPUPipelineUtil.MeshShaderExtractVertexAttributes(GPUPipelineUtil.ExtractBindingsForSet((uint)_meshShaderDescriptorSetIndex,descriptorSetBindings), descriptorSetBindings);
-
-            _meshShaderDescriptorHash = HashCode.Combine((byte)_meshShaderVertexAttributes[0].attribute, (byte)_meshShaderVertexAttributes[0].format);
-
-            for (int i = 1; i < _meshShaderVertexAttributes.Length; i++)
-            {
-                var attributeDesc = _meshShaderVertexAttributes[i];
-                _meshShaderDescriptorHash = HashCode.Combine(_meshShaderDescriptorHash, HashCode.Combine((byte)attributeDesc.attribute, (byte)attributeDesc.format));
-            }
-
-            _descriptorSetLayouts = new VkDescriptorSetLayout[_descriptorSetCount];
-            _descriptorSetInfos = new DescriptorSetInfo[_descriptorSetCount];
-            InitialiseDescriptorSets(descriptorSetBindings);
-
-            _materialPushConstantsHandler = new(mesh, task, fragment);
-
-            _pipelineLayout = GPUPipelineUtil.CreatePipelineLayoutMeshTaskFrag(mesh, task, fragment, _descriptorSetLayouts, _materialPushConstantsHandler);
-            _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipelineMeshTaskFrag(mesh, task, fragment, _graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT);
-            CreateDefault();
-            AssetDataBase<GraphicsPipeline>.Add(this);
-        }
-
-        internal GraphicsPipeline(string name, string vertexShaderName, string fragmentShaderName, GraphicsPipelineConfigInfo pipelineConfig, string geometryShaderName)
-        {
-            AssetName = name;
-
-            ShaderModule vertex = AssetDataBase<ShaderModule>.GetNamed(vertexShaderName);
-            ShaderModule geometry = AssetDataBase<ShaderModule>.GetNamed(geometryShaderName);
-            ShaderModule fragment = AssetDataBase<ShaderModule>.GetNamed(fragmentShaderName);
-
-            if (vertex.HasVertexAttributes && (pipelineConfig.BindingDescriptions.Length == 0 || pipelineConfig.AttributeDescriptions.Length == 0))
-            {
-                pipelineConfig.BindingDescriptions = vertex.VertexBindings;
-                pipelineConfig.AttributeDescriptions = vertex.VertexAttributes;
-            }
-            _graphicsPipelineConfigInfo = pipelineConfig;
-            var descriptorSetBindings = GPUPipelineUtil.GetSharedBindings(vertex, geometry, fragment);
-            _descriptorSetCount = GPUPipelineUtil.GetSetCount(descriptorSetBindings);
-
-            _descriptorSetLayouts = new VkDescriptorSetLayout[_descriptorSetCount];
-            _descriptorSetInfos = new DescriptorSetInfo[_descriptorSetCount];
-            InitialiseDescriptorSets(descriptorSetBindings);
-
-            _materialPushConstantsHandler = new(vertex, geometry, fragment);
-
-            _pipelineLayout = GPUPipelineUtil.CreatePipelineLayoutVerGeoFrag(vertex, geometry, fragment, _descriptorSetLayouts, _materialPushConstantsHandler);
-            _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipelineVertGeoFrag(vertex, geometry, fragment, _graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT);
-            CreateDefault();
-            AssetDataBase<GraphicsPipeline>.Add(this);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void InitialiseDescriptorSets(DescriptorBinding[] descriptorSetBindings)
-        {
-            _uniformBufferSize = 0;
-            _uniformBufferUsage = VkBufferUsageFlags.None;
-
-            for (uint setIndex = 0; setIndex < _descriptorSetCount; setIndex++)
-            {
-                var setBindings = GPUPipelineUtil.ExtractBindingsForSetAsBindingArray(setIndex, descriptorSetBindings);
-                var layout = GPUPipelineUtil.CreateDescriptorSetLayout(setBindings, VkDescriptorSetLayoutCreateFlags.DescriptorBufferEXT);
-
-                GraphicsDevice.SetObjectName(VkObjectType.DescriptorSetLayout, layout.Handle, string.Format("{0}_Set_{1}", AssetName, setIndex));
-                _descriptorSetLayouts[setIndex] = layout;
-                bool preventStorageBufferAllocation = _meshShaderDescriptorSetIndex == setIndex; // || _oitDescriptorSetIndex == setIndex;
-                var setInfo = new DescriptorSetInfo(layout, setBindings, preventStorageBufferAllocation, _uniformBufferSize, 1, _meshShaderDescriptorSetIndex == setIndex);
-                
-                _uniformBufferSize += setInfo.UnifromBufferSize;
-                _uniformBufferUsage |= setInfo.UniformBufferFlags;
-                _hasUniforms |= setInfo._uniformCount > 0;
-                _descriptorSetInfos[setIndex] = setInfo;
-            }
-            if (_uniformBufferSize > 0)
-            {
-                _uniformBufferSize = (uint)GPUBufferExtensions.GetAlignment(_uniformBufferSize, VkBufferUsageFlags.UniformBuffer);
-                _uniformBuffer = new(_uniformBufferSize, 1, _uniformBufferUsage, _descriptorSetInfos);
-                _uniformBuffer.SetDebugName(string.Format("{0}_UniformBuffer", AssetName));
-            }
-        }
 
         private unsafe void CreateDefault()
         {
@@ -1102,6 +949,135 @@ namespace VECS
                 return true;
             }
             return false;
+        }
+
+        /// <summary>
+        /// Should only be used for change in graphics pipeline config
+        /// Changes in shaders requires alot more complexity
+        /// </summary>
+        /// <returns></returns>
+        internal VkPipeline Recreate()
+        {
+            ShaderModule[] shaders = new ShaderModule[_shaderHashes.Length];
+            for (int i = 0; i < _shaderHashes.Length; i++)
+            {
+                shaders[i] = AssetDataBase<ShaderModule>.GetHashed(_shaderHashes[i]);
+            }
+            
+            return GPUPipelineUtil.CreateGraphicsPipeline(_graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT, shaders);
+        }
+
+
+        /// <summary>
+        /// Used to a deep reload of the pipeline after a shader has been modified
+        /// </summary>
+        /// <exception cref="NotImplementedException"></exception>
+        internal unsafe void Reinitialise()
+        {
+            _descriptorReWrite = true;
+            uint usedVariantCount = (uint)VariantCount;
+
+            ShaderModule[] shaders = new ShaderModule[_shaderHashes.Length];
+
+            for (int i = 0; i < _shaderHashes.Length; i++)
+            {
+                shaders[i] = AssetDataBase<ShaderModule>.GetHashed(_shaderHashes[i]);
+            }
+
+            UniformBuffer existingUniformBuffer = _uniformBuffer;
+            var oldShaderProperties = new System.Collections.Generic.Dictionary<int,ShaderProperty>(_cachedShaderProperties);
+            var existingDescriptorSets = _descriptorSetInfos;
+
+            var descriptorSetBindings = GPUPipelineUtil.GetSharedBindings(shaders);
+
+            InitialiseDescriptorSets(descriptorSetBindings, usedVariantCount);
+
+            ClearCachedData();
+            // descriptor set data matching
+            byte[] bytes;
+
+            Vector2UInt[][] textureRemap = new Vector2UInt[existingDescriptorSets.Length][];
+            Vector2UInt[][] storageRemap = new Vector2UInt[existingDescriptorSets.Length][];
+
+            for (int i = 0; i < existingDescriptorSets.Length; i++)
+            {
+                if (existingDescriptorSets[i].HasImages)
+                {
+                    textureRemap[i] = new Vector2UInt[existingDescriptorSets[i].ImageCount];
+                    Array.Fill(textureRemap[i], new Vector2UInt(uint.MaxValue, uint.MaxValue));
+                }
+                if (existingDescriptorSets[i].HasStorageBuffers)
+                {
+                    storageRemap[i] = new Vector2UInt[existingDescriptorSets[i].StorageBufferCount];
+                    Array.Fill(storageRemap[i], new Vector2UInt(uint.MaxValue, uint.MaxValue));
+                }
+            }
+
+            // remapping for textures and storage buffer regions doesnt work bc lookuprpoperty will return false for global properties
+            // it needs complete remap even for global properties
+
+            foreach (var oldProperty in oldShaderProperties)
+            {
+                if(LookUpProperty(oldProperty.Key,out var newProperty))
+                {
+                    var oldShaderProperty = oldProperty.Value;
+                    if (newProperty.BindingInfo.Image)
+                    {
+                        var oldSet = existingDescriptorSets[oldShaderProperty.SetIndex];
+                        var index = oldSet.BindingPointToImageIndex[oldShaderProperty.BindPoint];
+                        textureRemap[oldShaderProperty.SetIndex][index] = new(newProperty.SetIndex, (uint)_descriptorSetInfos[newProperty.SetIndex].BindingPointToImageIndex[newProperty.BindPoint]);
+                    }
+
+                    if (newProperty.BindingInfo.StorageBuffer && newProperty.BindingInfo.BufferSize == oldShaderProperty.BindingInfo.BufferSize)
+                    {
+                        var oldSet = existingDescriptorSets[oldShaderProperty.SetIndex];
+                        var newSet = _descriptorSetInfos[newProperty.SetIndex];
+                        
+                        var oldBuffer = oldSet.GetBuffer(oldShaderProperty.BindPoint);
+                        var newBuffer = newSet.GetBuffer(newProperty.BindPoint);
+
+                        var index = oldSet.BindingPointToBufferIndex[oldShaderProperty.BindPoint];
+
+                        storageRemap[oldShaderProperty.SetIndex][index] = new(newProperty.SetIndex, (uint)_descriptorSetInfos[newProperty.SetIndex].BindingPointToBufferIndex[newProperty.BindPoint]);
+
+                        Buffer.MemoryCopy(oldBuffer.HostPtr,newBuffer.HostPtr,newBuffer.HostBufferSize,Math.Min(oldBuffer.HostBufferSize,newBuffer.HostBufferSize));
+                    }
+
+                    if (existingUniformBuffer == null || _uniformBuffer == null) continue;
+
+                    if( newProperty.Property != null && oldShaderProperty.Property != null && newProperty.Property.Size == oldShaderProperty.Property.Size)
+                    {
+                        bytes = new byte[newProperty.Property.Size];
+                        
+                        for (uint i = 0; i < VariantCount; i++)
+                        {
+                            existingUniformBuffer.ReadFromUniformBuffer(i, oldShaderProperty, ref bytes);
+                            _uniformBuffer.WriteToUniformBuffer(i, newProperty, bytes);
+                        }
+                    }
+                }
+            }
+
+            for (int i = 0; i < _matVariants.Length; i++)
+            {
+                _matVariants[i]?.Reinitialise(textureRemap, storageRemap);
+                if (_uniformBuffer != null)
+                {
+                    _matVariants[i].pUniformBuffer = _uniformBuffer.UniformAddresses[i];
+                }
+            }
+
+            _materialPushConstantsHandler = new(shaders);
+
+            _pipelineLayout = GPUPipelineUtil.CreatePipelineLayout(_descriptorSetLayouts, _materialPushConstantsHandler, shaders);
+            _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipeline(_graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT, shaders);
+
+            for (int i = 0; i < existingDescriptorSets.Length; i++)
+            {
+                existingDescriptorSets[i].Dispose();
+            }
+            existingUniformBuffer?.Dispose();
+
         }
     }
 }

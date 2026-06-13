@@ -52,6 +52,9 @@ namespace VECS
             }
         }
 
+
+        private readonly static ConcurrentQueue<GraphicsPipeline> _shaderChanged = new();
+
         private readonly static ConcurrentQueue<GraphicsPipeline> _recreationQueue = new();
 
         private readonly static ConcurrentQueue<NewPipeline> _newPipelines = new();
@@ -72,6 +75,7 @@ namespace VECS
             {
                 PipelineThreadCancel.Cancel();
                 PipelineThread.Join();
+                PipelineThread = null;
             }
 
             if (!stop)
@@ -124,7 +128,7 @@ namespace VECS
 
         private static void RecreatePipeline(GraphicsPipeline recreate)
         {
-            throw new NotImplementedException();
+            recreate.Recreate();
         }
         
         private static unsafe void DoPipelineWork(object cancellationToken)
@@ -147,6 +151,37 @@ namespace VECS
         public static void EnqueueForDisposal(GraphicsPipeline graphicsPipeline)
         {
             _srcDisposalQueue.Enqueue(new(graphicsPipeline, 0));
+        }
+
+        public static void EnqueueForDisposal(VkPipeline pipeline)
+        {
+            _srcDisposalQueue.Enqueue(new(pipeline, 0));
+        }
+
+        public static void EnqueueForRecreation(GraphicsPipeline graphicsPipeline)
+        {
+            _recreationQueue.Enqueue(graphicsPipeline);
+        }
+
+        public static void EnqueueShaderChanged(GraphicsPipeline graphicsPipeline)
+        {
+            _shaderChanged.Enqueue(graphicsPipeline);
+        }
+
+        public static bool PlaybackShaderChangeCommands()
+        {
+            if (_shaderChanged.IsEmpty) return false;
+            HashSet<GraphicsPipeline> pipelines = [];
+            while (_shaderChanged.TryDequeue(out var pipeline))
+            {
+                pipelines.Add(pipeline);
+            }
+
+            foreach (var pipeline in pipelines)
+            {
+                pipeline.Reinitialise();
+            }
+            return true;
         }
 
         public static void PlaybackDisposalCommands()
