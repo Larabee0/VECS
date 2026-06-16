@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -562,7 +561,7 @@ namespace VECS
         }
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void UpdateVariant(Material variant)
+        public static void RewriteDescriptors(Material variant)
         {
             for (uint setIndex = 0; setIndex < variant.TotalSets; setIndex++)
             {

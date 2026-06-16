@@ -49,7 +49,7 @@ namespace VECS
             return true;
         }
 
-        public static unsafe PushConstantsInfo[] GetPushConstants(params SpvReflectShaderModule[] modules)
+        public static PushConstantsInfo[] GetPushConstants(params SpvReflectShaderModule[] modules)
         {
             List<VkShaderStageFlags> shaderStageFlags = [];
             List<SpvReflectBlockVariable> constants = [];
@@ -87,7 +87,7 @@ namespace VECS
             return pushConstants;
         }
 
-        public static unsafe PushConstantsInfo[] GetPushConstants(params ShaderModule[] modules)
+        public static PushConstantsInfo[] GetPushConstants(params ShaderModule[] modules)
         {
             List<VkShaderStageFlags> shaderStageFlags = [];
             List<SpvReflectBlockVariable> constants = [];
@@ -224,7 +224,7 @@ namespace VECS
             return [.. descriptorBindingsCombined.Values];
         }
 
-        public static unsafe DescriptorBinding[] GenerateSharedDescriptorBindings(params SpvReflectShaderModule[] modules)
+        public static DescriptorBinding[] GenerateSharedDescriptorBindings(params SpvReflectShaderModule[] modules)
         {
             List<DescriptorBinding> descriptorBindings = [];
 
@@ -322,75 +322,6 @@ namespace VECS
             return -1;
         }
 
-        public static VkPipelineLayout CreatePipelineLayoutVert(ShaderModule shaderModule, VkDescriptorSetLayout[] setLayouts, PushConstantsHandler pushConstants)
-        {
-            string layoutName = shaderModule.AssetName;
-            var layout = AssetDataBase<ShaderPipelineLayout>.GetNamedSilentFail(layoutName);
-
-            if (layout == null)
-            {
-                layout = new(layoutName, CreatePipelineLayout(setLayouts, pushConstants));
-                shaderModule.RegisterLayout(layout);
-                AssetDataBase<ShaderPipelineLayout>.Add(layout);
-            }
-
-            return layout.Layout;
-        }
-
-        public static VkPipelineLayout CreatePipelineLayoutVertFrag(ShaderModule vertex, ShaderModule fragment, VkDescriptorSetLayout[] setLayouts, PushConstantsHandler pushConstants)
-        {
-            string layoutName = vertex.AssetName + "_" + fragment.AssetName;
-            var layout = AssetDataBase<ShaderPipelineLayout>.GetNamedSilentFail(layoutName);
-
-            if (layout == null)
-            {
-                layout = new(layoutName, CreatePipelineLayout(setLayouts, pushConstants));
-                vertex.RegisterLayout(layout);
-                fragment.RegisterLayout(layout);
-                AssetDataBase<ShaderPipelineLayout>.Add(layout);
-            }
-
-            return layout.Layout;
-        }
-
-        public static VkPipelineLayout CreatePipelineLayoutVerGeoFrag(ShaderModule  vertex, ShaderModule geometry, ShaderModule fragment, VkDescriptorSetLayout[] setLayouts, PushConstantsHandler pushConstants)
-        {
-            string layoutName = vertex.AssetName + "_" + geometry.AssetName+ "_" + fragment.AssetName;
-            var layout = AssetDataBase<ShaderPipelineLayout>.GetNamedSilentFail(layoutName);
-
-            if (layout == null)
-            {
-                layout = new(layoutName, CreatePipelineLayout(setLayouts, pushConstants));
-                vertex.RegisterLayout(layout);
-                geometry.RegisterLayout(layout);
-                fragment.RegisterLayout(layout);
-                AssetDataBase<ShaderPipelineLayout>.Add(layout);
-            }
-
-            return layout.Layout;
-        }
-
-        public static VkPipelineLayout CreatePipelineLayoutMeshTaskFrag(ShaderModule mesh, ShaderModule task, ShaderModule fragment, VkDescriptorSetLayout[] setLayouts, PushConstantsHandler pushConstants)
-        {
-            if (!GraphicsDevice.MeshShading)
-            {
-                throw new InvalidOperationException("Mesh shading is not enabled for this runtime instance!");
-            }
-            string layoutName = mesh.AssetName + "_" + task.AssetName + "_" + fragment.AssetName;
-            var layout = AssetDataBase<ShaderPipelineLayout>.GetNamedSilentFail(layoutName);
-
-            if (layout == null)
-            {
-                layout = new(layoutName, CreatePipelineLayout(setLayouts, pushConstants));
-                mesh.RegisterLayout(layout);
-                task.RegisterLayout(layout);
-                fragment.RegisterLayout(layout);
-                AssetDataBase<ShaderPipelineLayout>.Add(layout);
-            }
-
-            return layout.Layout;
-        }
-
         public static VkPipelineLayout CreatePipelineLayout(VkDescriptorSetLayout[] setLayouts, PushConstantsHandler pushConstants,params ShaderModule[] shaders)
         {
             Array.Sort(shaders);
@@ -419,7 +350,7 @@ namespace VECS
             return layout.Layout;
         }
 
-        public static unsafe VkPipelineLayout CreatePipelineLayout(VkDescriptorSetLayout[] setLayouts, PushConstantsHandler pushConstants)
+        internal static unsafe VkPipelineLayout CreatePipelineLayout(VkDescriptorSetLayout[] setLayouts, PushConstantsHandler pushConstants)
         {
             VkPipelineLayoutCreateInfo layoutCreateInfo = new()
             {
@@ -455,48 +386,6 @@ namespace VECS
             return _pipline;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static VkPipeline CreateGraphicsPipelineMeshTaskFrag(ShaderModule mesh, ShaderModule task, ShaderModule fragment, GraphicsPipelineConfigInfo configInfo, VkPipelineCreateFlags flags = VkPipelineCreateFlags.None)
-        {
-            if (!GraphicsDevice.MeshShading)
-            {
-                throw new InvalidOperationException("Mesh shading is not enabled for this runtime instance!");
-            }
-            Debug.Assert(mesh.VkShaderStage == VkShaderStageFlags.MeshEXT, "Provided mesh shader is at the wrong stage! Name: {0} Provided Stage {1}", mesh.AssetName, mesh.VkShaderStage);
-            Debug.Assert(task.VkShaderStage == VkShaderStageFlags.TaskEXT, "Provided task shader is at the wrong stage! Name: {0} Provided Stage {1}", task.AssetName, task.VkShaderStage);
-            Debug.Assert(fragment.VkShaderStage == VkShaderStageFlags.Fragment, "Provided fragement shader is at wrong stage! Name: {0} Provided Stage {1}", fragment.AssetName, fragment.VkShaderStage);
-
-            return CreateGraphicsPipeline(configInfo, flags, mesh, task, fragment);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static VkPipeline CreateGraphicsPipelineVertGeoFrag(ShaderModule vertex, ShaderModule geometry, ShaderModule fragment, GraphicsPipelineConfigInfo configInfo, VkPipelineCreateFlags flags = VkPipelineCreateFlags.None)
-        {
-            Debug.Assert(vertex.VkShaderStage == VkShaderStageFlags.Vertex, "Provided vertex shader is at wrong stage! Name: {0} Provided Stage {1}", vertex.AssetName, vertex.VkShaderStage);
-            Debug.Assert(geometry.VkShaderStage == VkShaderStageFlags.Geometry, "Provided geometry shader is at wrong stage! Name: {0} Provided Stage {1}", geometry.AssetName, geometry.VkShaderStage);
-            Debug.Assert(fragment.VkShaderStage == VkShaderStageFlags.Fragment, "Provided fragement shader is at wrong stage! Name: {0} Provided Stage {1}", fragment.AssetName, fragment.VkShaderStage);
-
-            return CreateGraphicsPipeline(configInfo, flags, vertex, geometry, fragment);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static VkPipeline CreateGraphicsPipelineVertFrag(ShaderModule vertex, ShaderModule fragment, GraphicsPipelineConfigInfo configInfo, VkPipelineCreateFlags flags = VkPipelineCreateFlags.None)
-        {
-            Debug.Assert(vertex.VkShaderStage == VkShaderStageFlags.Vertex, "Provided vertex shader is at wrong stage! Name: {0} Provided Stage {1}", vertex.AssetName, vertex.VkShaderStage);
-            Debug.Assert(fragment.VkShaderStage == VkShaderStageFlags.Fragment, "Provided fragement shader is at wrong stage! Name: {0} Provided Stage {1}", fragment.AssetName, fragment.VkShaderStage);
-
-            return CreateGraphicsPipeline(configInfo, flags, vertex,fragment);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static VkPipeline CreateGraphicsPipelineVert(ShaderModule vertex, GraphicsPipelineConfigInfo configInfo, VkPipelineCreateFlags flags = VkPipelineCreateFlags.None)
-        {
-            Debug.Assert(vertex.VkShaderStage == VkShaderStageFlags.Vertex, "Provided vertex shader is at wrong stage! Name: {0} Provided Stage {1}", vertex.AssetName, vertex.VkShaderStage);
-            
-            return CreateGraphicsPipeline(configInfo, flags, vertex);
-        }
-
-        
         public static unsafe VkPipeline CreateGraphicsPipeline(GraphicsPipelineConfigInfo configInfo,VkPipelineCreateFlags flags, params ShaderModule[] shaders)
         {
             Array.Sort(shaders);

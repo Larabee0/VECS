@@ -1,5 +1,4 @@
-﻿using System;
-using Vortice.Vulkan;
+﻿using Vortice.Vulkan;
 
 namespace VECS
 {

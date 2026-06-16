@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using VECS.LowLevel;
 using Vortice.Vulkan;
@@ -13,6 +14,9 @@ namespace VECS
 
             ShaderModule vertex = AssetDataBase<ShaderModule>.GetNamed(vertexShaderName);
             ShaderModule fragment = AssetDataBase<ShaderModule>.GetNamed(fragmentShaderName);
+            Debug.Assert(vertex.VkShaderStage == VkShaderStageFlags.Vertex, "Provided vertex shader is at wrong stage! Name: {0} Provided Stage {1}", vertex.AssetName, vertex.VkShaderStage);
+            Debug.Assert(fragment.VkShaderStage == VkShaderStageFlags.Fragment, "Provided fragement shader is at wrong stage! Name: {0} Provided Stage {1}", fragment.AssetName, fragment.VkShaderStage);
+
             _shaderHashes = [vertex.Hash, fragment.Hash];
 #if DEBUG
             _shaders = [vertex, fragment];
@@ -29,8 +33,8 @@ namespace VECS
 
             _materialPushConstantsHandler = new(vertex, fragment);
 
-            _pipelineLayout = GPUPipelineUtil.CreatePipelineLayoutVertFrag(vertex, fragment, _descriptorSetLayouts, _materialPushConstantsHandler);
-            _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipelineVertFrag(vertex, fragment, _graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT);
+            _pipelineLayout = GPUPipelineUtil.CreatePipelineLayout(_descriptorSetLayouts, _materialPushConstantsHandler, vertex, fragment);
+            _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipeline(_graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT, vertex, fragment);
             CreateDefault();
             vertex.RegisterGraphicsPipeline(this);
             fragment.RegisterGraphicsPipeline(this);
@@ -43,6 +47,8 @@ namespace VECS
             AssetName = name;
 
             ShaderModule vertex = AssetDataBase<ShaderModule>.GetNamed(vertexShaderName);
+            Debug.Assert(vertex.VkShaderStage == VkShaderStageFlags.Vertex, "Provided vertex shader is at wrong stage! Name: {0} Provided Stage {1}", vertex.AssetName, vertex.VkShaderStage);
+
             _shaderHashes = [vertex.Hash];
 #if DEBUG
             _shaders = [vertex];
@@ -59,8 +65,8 @@ namespace VECS
 
             _materialPushConstantsHandler = new(vertex);
 
-            _pipelineLayout = GPUPipelineUtil.CreatePipelineLayoutVert(vertex, _descriptorSetLayouts, _materialPushConstantsHandler);
-            _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipelineVert(vertex, _graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT);
+            _pipelineLayout = GPUPipelineUtil.CreatePipelineLayout(_descriptorSetLayouts, _materialPushConstantsHandler, vertex);
+            _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipeline(_graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT, vertex);
             CreateDefault();
             vertex.RegisterGraphicsPipeline(this);
             AssetDataBase<GraphicsPipeline>.Add(this);
@@ -73,6 +79,14 @@ namespace VECS
             ShaderModule mesh = AssetDataBase<ShaderModule>.GetNamed(meshShaderName);
             ShaderModule task = AssetDataBase<ShaderModule>.GetNamed(taskShaderName);
             ShaderModule fragment = AssetDataBase<ShaderModule>.GetNamed(fragmentShaderName);
+            if (!GraphicsDevice.MeshShading)
+            {
+                throw new InvalidOperationException("Mesh shading is not enabled for this runtime instance!");
+            }
+            Debug.Assert(mesh.VkShaderStage == VkShaderStageFlags.MeshEXT, "Provided mesh shader is at the wrong stage! Name: {0} Provided Stage {1}", mesh.AssetName, mesh.VkShaderStage);
+            Debug.Assert(task.VkShaderStage == VkShaderStageFlags.TaskEXT, "Provided task shader is at the wrong stage! Name: {0} Provided Stage {1}", task.AssetName, task.VkShaderStage);
+            Debug.Assert(fragment.VkShaderStage == VkShaderStageFlags.Fragment, "Provided fragement shader is at wrong stage! Name: {0} Provided Stage {1}", fragment.AssetName, fragment.VkShaderStage);
+
             _shaderHashes = [mesh.Hash, task.Hash, fragment.Hash];
 #if DEBUG
             _shaders = [mesh, task, fragment];
@@ -100,8 +114,8 @@ namespace VECS
 
             _materialPushConstantsHandler = new(mesh, task, fragment);
 
-            _pipelineLayout = GPUPipelineUtil.CreatePipelineLayoutMeshTaskFrag(mesh, task, fragment, _descriptorSetLayouts, _materialPushConstantsHandler);
-            _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipelineMeshTaskFrag(mesh, task, fragment, _graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT);
+            _pipelineLayout = GPUPipelineUtil.CreatePipelineLayout(_descriptorSetLayouts, _materialPushConstantsHandler, mesh, task, fragment);
+            _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipeline(_graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT, mesh, task, fragment);
             CreateDefault();
             mesh.RegisterGraphicsPipeline(this);
             task.RegisterGraphicsPipeline(this);
@@ -116,6 +130,10 @@ namespace VECS
             ShaderModule vertex = AssetDataBase<ShaderModule>.GetNamed(vertexShaderName);
             ShaderModule geometry = AssetDataBase<ShaderModule>.GetNamed(geometryShaderName);
             ShaderModule fragment = AssetDataBase<ShaderModule>.GetNamed(fragmentShaderName);
+            Debug.Assert(vertex.VkShaderStage == VkShaderStageFlags.Vertex, "Provided vertex shader is at wrong stage! Name: {0} Provided Stage {1}", vertex.AssetName, vertex.VkShaderStage);
+            Debug.Assert(geometry.VkShaderStage == VkShaderStageFlags.Geometry, "Provided geometry shader is at wrong stage! Name: {0} Provided Stage {1}", geometry.AssetName, geometry.VkShaderStage);
+            Debug.Assert(fragment.VkShaderStage == VkShaderStageFlags.Fragment, "Provided fragement shader is at wrong stage! Name: {0} Provided Stage {1}", fragment.AssetName, fragment.VkShaderStage);
+
             _shaderHashes = [vertex.Hash,geometry.Hash, fragment.Hash];
 #if DEBUG
             _shaders = [vertex, geometry, fragment];
@@ -131,8 +149,8 @@ namespace VECS
 
             _materialPushConstantsHandler = new(vertex, geometry, fragment);
 
-            _pipelineLayout = GPUPipelineUtil.CreatePipelineLayoutVerGeoFrag(vertex, geometry, fragment, _descriptorSetLayouts, _materialPushConstantsHandler);
-            _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipelineVertGeoFrag(vertex, geometry, fragment, _graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT);
+            _pipelineLayout = GPUPipelineUtil.CreatePipelineLayout( _descriptorSetLayouts, _materialPushConstantsHandler, vertex, geometry, fragment);
+            _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipeline(_graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT, vertex, geometry, fragment);
             CreateDefault();
             vertex.RegisterGraphicsPipeline(this);
             geometry.RegisterGraphicsPipeline(this);

@@ -139,27 +139,6 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static T ReadFromBuffer<T>(this GraphicsPipeline pipeline, int propertyId, uint variant) where T : unmanaged
-        {
-            if (pipeline.LookUpProperty(propertyId, out var propertyInfo))
-            {
-                return pipeline.ReadFromUniformBuffer<T>(variant, propertyInfo);
-            }
-            return default;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe T[] ReadArrayFromBuffer<T>(this GraphicsPipeline pipeline, int propertyId, uint variant) where T : unmanaged
-        {
-            if (pipeline.LookUpProperty(propertyId, out var propertyInfo))
-            {
-                return pipeline.ReadArrayFromBuffer<T>(variant, propertyInfo);
-            }
-
-            return default;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Span<T> GetStorageBuffer<T>(this GraphicsPipeline pipeline, int propertyId) where T : unmanaged
         {
             if (pipeline.LookUpProperty(propertyId, out var propertyInfo))

@@ -119,7 +119,7 @@ namespace VECS
             return bindings;
         }
 
-        public unsafe static DescriptorPropertyInfo[] GetBindingMembers(SpvReflectDescriptorBinding binding, string bindingParentName)
+        public static DescriptorPropertyInfo[] GetBindingMembers(SpvReflectDescriptorBinding binding, string bindingParentName)
         {
             return binding.descriptor_type switch
             {
@@ -229,7 +229,7 @@ namespace VECS
             return properties;
         }
 
-        public unsafe static DescriptorPropertyInfo GetBlockImage(string bindingParentName, SpvReflectDescriptorBinding bindings, SpvReflectImageTraits traits)
+        public static DescriptorPropertyInfo GetBlockImage(string bindingParentName, SpvReflectDescriptorBinding bindings, SpvReflectImageTraits traits)
         {
             if(traits.sampled == 1)
             {

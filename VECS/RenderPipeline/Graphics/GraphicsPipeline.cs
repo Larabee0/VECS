@@ -10,7 +10,7 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
-    public partial class GraphicsPipeline : DisposableAsset
+    public partial class GraphicsPipeline : DisposableAsset, IPipeline
     {
         public const int MAX_VARIANTS = 1000;
         public const uint DEFAULT_STORAGE_BUFFER_COUNT = 10000;
@@ -87,12 +87,6 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public DescriptorBinding[] GetDescriptorBindings(int setIndex)
-        {
-            return _descriptorSetInfos[setIndex].DescriptorBindings;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public DescriptorBinding[] GetDescriptorBindings(uint setIndex)
         {
             return _descriptorSetInfos[setIndex].DescriptorBindings;
@@ -123,12 +117,6 @@ namespace VECS
         {
             var setInfo = _descriptorSetInfos[set];
             return setInfo.UnifromBufferOffset + setInfo.SetUniformBufferOffsets[bindPoint];
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private uint InternalUniformBufferOffset(ShaderProperty propertyInfo)
-        {
-            return InternalUniformBufferOffset(propertyInfo.SetIndex, propertyInfo.BindPoint);
         }
 
         public bool LookUpProperty(int propertyId, out ShaderProperty propertyInfo)
@@ -210,6 +198,7 @@ namespace VECS
             return newMat;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Material Default()
         {
             return _matVariants[0];
@@ -799,7 +788,7 @@ namespace VECS
                 (uint)command.MeshSubRegion.Count, (uint)sizeof(VECSDrawIndexIndirectCommand));
         }
 
-        internal VkPipeline ReplacePipeline(VkPipeline pipeline)
+        public VkPipeline ReplacePipeline(VkPipeline pipeline)
         {
             var old = _graphicsPipeline;
 
@@ -882,7 +871,7 @@ namespace VECS
                 {
                     var variant = pipeline._matVariants[i];
                     if (variant == null) continue;
-                    Material.UpdateVariant(variant);
+                    Material.RewriteDescriptors(variant);
                     pipeline.WriteUniformToDescriptorBuffers(variant);
                 }
             }
@@ -956,7 +945,7 @@ namespace VECS
         /// Changes in shaders requires alot more complexity
         /// </summary>
         /// <returns></returns>
-        internal VkPipeline Recreate()
+        public VkPipeline Recreate()
         {
             ShaderModule[] shaders = new ShaderModule[_shaderHashes.Length];
             for (int i = 0; i < _shaderHashes.Length; i++)
@@ -972,7 +961,7 @@ namespace VECS
         /// Used to a deep reload of the pipeline after a shader has been modified
         /// </summary>
         /// <exception cref="NotImplementedException"></exception>
-        internal unsafe void Reinitialise()
+        public unsafe void Reinitialise()
         {
             _descriptorReWrite = true;
             uint usedVariantCount = (uint)VariantCount;
@@ -990,7 +979,7 @@ namespace VECS
 
             var descriptorSetBindings = GPUPipelineUtil.GetSharedBindings(shaders);
 
-            GraphicsPipelineRecreation.EnqueueForDisposal(_graphicsPipeline, _descriptorSetLayouts);
+            PipelineRecreation.EnqueueForDisposal(_graphicsPipeline, _descriptorSetLayouts);
 
             InitialiseDescriptorSets(descriptorSetBindings, usedVariantCount);
 

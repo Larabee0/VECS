@@ -1,5 +1,4 @@
-﻿using System;
-using VECS.LowLevel;
+﻿using VECS.LowLevel;
 using Vortice.Vulkan;
 
 namespace VECS
@@ -100,6 +99,7 @@ namespace VECS
             }
             CreateAdditionalSamplers();
         }
+        
         public VkImageBlit GetBlitCmd(int dstWidth, int dstHeight, VkImageAspectFlags dstAspectMask)
         {
             VkImageBlit imageBlit = new()

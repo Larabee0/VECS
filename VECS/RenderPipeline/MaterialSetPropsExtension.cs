@@ -270,24 +270,13 @@ namespace VECS
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void SetCubeMap(this Material material, int propertyId, BindingArrayTexture cubemaps)
         {
             if (material.LookUpProperty(propertyId, out var propertyInfo))
             {
                 material.SetTexture(propertyInfo, cubemaps);
             }
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static void SetUniformBuffer<T>(this GraphicsPipeline pipeline, int bufferProperyId, T resource, uint count) where T : unmanaged
-        {
-            if (!pipeline.LookUpProperty(bufferProperyId, out var propertyInfo)) return;
-            var buffer = pipeline.GetStorageSwapChainBuffer(bufferProperyId);
-            unsafe
-            {
-                Buffer.MemoryCopy(&resource, buffer.HostPtr, buffer.HostBufferSize32, sizeof(T));
-            }
-            pipeline.SetDescriptorStorageBufferLength(propertyInfo.SetIndex,  propertyInfo.BindPoint, count);
         }
     }
 }
