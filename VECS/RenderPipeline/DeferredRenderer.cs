@@ -490,8 +490,7 @@ namespace VECS
                 imageView = DepthAttachment.VkImageView,
                 imageLayout = DepthAttachment.ImageLayout,
                 loadOp = VkAttachmentLoadOp.Load,
-                storeOp = VkAttachmentStoreOp.Store,
-                //clearValue = new(0, 0)
+                storeOp = VkAttachmentStoreOp.Store
             };
 
 

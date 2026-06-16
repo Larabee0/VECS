@@ -33,7 +33,7 @@ namespace VECS
         /// Default graphics pipeline configuration. Because of course vulkan doesn't have a default.
         /// </summary>
         /// <returns></returns>
-        public static unsafe GraphicsPipelineConfigInfo DefaultPipelineConfigInfo()
+        public static GraphicsPipelineConfigInfo DefaultPipelineConfigInfo()
         {
 
             var attributes = new VertexAttributeDescription[]
@@ -155,7 +155,6 @@ namespace VECS
         public static GraphicsPipelineConfigInfo DefaultPipelineConfigInfo(VkPipelineLayout pipelineLayout)
         {
             var pipelineConfigInfo = DefaultPipelineConfigInfo();
-            //EnableAlphaBlending(ref pipelineConfigInfo);
             pipelineConfigInfo.pipelineLayout = pipelineLayout;
 
             return pipelineConfigInfo;

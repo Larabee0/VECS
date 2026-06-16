@@ -159,7 +159,15 @@ namespace VECS
 
                 if (graphicsPipeline != null)
                 {
-                    GraphicsPipelineRecreation.EnqueueShaderChanged(graphicsPipeline);
+                    PipelineRecreation.EnqueueShaderChanged(graphicsPipeline);
+                    continue;
+                }
+
+                var computePipeline = AssetDataBase<ComputePipeline>.GetNamedSilentFail(item);
+
+                if(computePipeline!= null)
+                {
+                    PipelineRecreation.EnqueueShaderChanged(computePipeline);
                 }
             }
 

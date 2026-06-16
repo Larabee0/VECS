@@ -46,7 +46,7 @@ namespace VECS
                     shaderFiles.RemoveAt(i);
                 }
             }
-
+            
             ShaderModule[] shaderModules = new ShaderModule[shaderFiles.Count];
 
             Application.ParallelFor(shaderModules.Length, (i) =>

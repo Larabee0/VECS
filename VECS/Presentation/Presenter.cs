@@ -77,7 +77,7 @@ namespace VECS
         public Presenter()
         {
             Instance = this;
-            GraphicsPipelineRecreation.Reset();
+            PipelineRecreation.Reset();
             RecreateSwapChain();
         }
 
@@ -292,7 +292,7 @@ namespace VECS
             ComputePipeline.UpdateComputeShaders(frameInfo);
             GraphicsPipeline.UpdateMaterials(frameInfo);
 
-            if (GraphicsPipelineRecreation.PlaybackShaderChangeCommands())
+            if (PipelineRecreation.PlaybackShaderChangeCommands())
             {
                 GraphicsPipeline.UpdateMaterials(frameInfo);
             }
@@ -341,7 +341,7 @@ namespace VECS
         {
             GC.SuppressFinalize(this);
 
-            GraphicsPipelineRecreation.Reset(true);
+            PipelineRecreation.Reset(true);
             DrawBlob.CleanUp();
             EngineBuffers.CleanUp();
 

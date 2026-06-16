@@ -118,7 +118,7 @@ namespace VECS
             AddEngineBuffer(ShaderProperties.SLShadowMatsId, SpotLightMatsBuffer);
         }
 
-        public unsafe static void UpdateCameras(EntityManager entityManager, int frameIndex)
+        public static void UpdateCameras(EntityManager entityManager, int frameIndex)
         {
             var cameras = entityManager.GetAllEntitiesWithComponent<Camera>();
             var cameraCount = Math.Min(cameras.Count, Presenter.MAX_CAMERAS);

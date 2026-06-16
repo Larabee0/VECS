@@ -10,7 +10,7 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
-    public class ComputePipeline : DisposableAsset
+    public class ComputePipeline : DisposableAsset, IPipeline
     {
         private readonly PushConstantsHandler _pushConstantsHandler;
 
@@ -20,10 +20,14 @@ namespace VECS
 
         private readonly ConcurrentDictionary<int, ShaderProperty> _cachedShaderProperties = new();
 
+        private int _computeShaderModuleHash;
+#if DEBUG
+        private string _computeShaderModuleName;
+#endif
         internal readonly DescriptorSetInfo[] _descriptorSetInfos;
         private readonly VkDescriptorSetLayout[] _descriptorSetLayouts;
         private readonly VkPipelineLayout _pipelineLayout;
-        private readonly VkPipeline _computePipline;
+        private VkPipeline _computePipline;
 
 
         internal ComputeVariant[] _computeVariants;
@@ -48,6 +52,11 @@ namespace VECS
         {
             AssetName = assetName;
             var shaderModule = AssetDataBase<ShaderModule>.GetNamed(shaderName);
+            _computeShaderModuleHash= shaderModule.Hash;
+#if DEBUG
+            _computeShaderModuleName = shaderModule.AssetName;
+#endif
+
             var spirShader = shaderModule.SpvShaderModule;
             var descriptorSetBindings = GPUPipelineUtil.GenerateSharedDescriptorBindings(spirShader);
             _descriptorSetCount = GPUPipelineUtil.GetSetCount(descriptorSetBindings);
@@ -76,7 +85,7 @@ namespace VECS
 
             _pushConstantsHandler = new(spirShader);
 
-            _pipelineLayout = GPUPipelineUtil.CreatePipelineLayoutVert(shaderModule, _descriptorSetLayouts, _pushConstantsHandler);
+            _pipelineLayout = GPUPipelineUtil.CreatePipelineLayout(_descriptorSetLayouts, _pushConstantsHandler, shaderModule);
 
             VkComputePipelineCreateInfo computePipelineInfo = new()
             {
@@ -96,6 +105,7 @@ namespace VECS
                 variant.pUniformBuffer = _uniformBuffer.Buffer.HostPtr;
                 variant.localUniformAllocation = false;
             }
+            shaderModule.RegisterComputePipeline(this);
         }
 
         internal DescriptorSetInfo[] GetTemporaryDescriptorSetInfos()
@@ -592,6 +602,33 @@ namespace VECS
             }
 
             pipeline._uniformBuffer?.WriteToGPU(frameInfo.FrameIndex);
+        }
+
+        public VkPipeline ReplacePipeline(VkPipeline pipeline)
+        {
+            var old = _computePipline;
+
+            _computePipline = pipeline;
+
+            return old;
+        }
+
+        public VkPipeline Recreate()
+        {
+            ShaderModule shaderModule = AssetDataBase<ShaderModule>.GetHashed(_computeShaderModuleHash);
+            VkComputePipelineCreateInfo computePipelineInfo = new()
+            {
+                layout = _pipelineLayout,
+                stage = shaderModule.ShaderStageCreateInfo,
+                flags = VkPipelineCreateFlags.DescriptorBufferEXT
+            };
+
+            return GPUPipelineUtil.CreateComputePipeline(computePipelineInfo);
+        }
+
+        public void Reinitialise()
+        {
+            throw new NotImplementedException();
         }
     }
 }

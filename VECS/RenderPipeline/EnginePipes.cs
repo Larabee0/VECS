@@ -5,32 +5,25 @@ namespace VECS
 {
     public class EnginePipes
     {
-
-        public static GraphicsPipeline LitTexture{get; private set;}
-        public static GraphicsPipeline PBRTexture{get; private set;}
-        public static GraphicsPipeline UnlitMeshShader{get; private set;}
-        public static GraphicsPipeline UnlitTransparent{get; private set;}
-        public static GraphicsPipeline Unlit{get; private set;}
-        public static GraphicsPipeline WireFrame{get; private set;}
+        public static GraphicsPipeline LitTexture { get; private set; }
+        public static GraphicsPipeline PBRTexture { get; private set; }
+        public static GraphicsPipeline UnlitMeshShader { get; private set; }
+        public static GraphicsPipeline UnlitTransparent { get; private set; }
+        public static GraphicsPipeline Unlit { get; private set; }
+        public static GraphicsPipeline WireFrame { get; private set; }
         public static GraphicsPipeline DepthOnly { get; private set; }
         public static GraphicsPipeline DepthOnlyAlphaClipping { get; private set; }
-        public static GraphicsPipeline PointLight{get; private set;}
-        public static GraphicsPipeline Blit{get; private set;}
-        //public static GraphicsPipeline OIT_Composite{get; private set;}
-        public static GraphicsPipeline OIT_Unlit{get; private set;}
+        public static GraphicsPipeline Blit { get; private set; }
+        public static GraphicsPipeline OIT_Unlit { get; private set; }
         public static GraphicsPipeline OIT_LitTexture { get; private set; }
-
         public static GraphicsPipeline PBR_Deferred { get; private set; }
-
-
-
         public static GraphicsPipeline IMGUI { get; private set; }
 
         static EnginePipes()
         {
             var litTexture = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             litTexture.depthStencilInfo.depthCompareOp = VkCompareOp.Equal;
-            //litTexture.rasterizationInfo.frontFace = VkFrontFace.Clockwise;
+
             LitTexture = new("LitTexture", "lit_texture.vert", "lit_texture.frag", litTexture);
             var pbrTexture = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             pbrTexture.depthStencilInfo.depthCompareOp = VkCompareOp.Equal;
@@ -52,9 +45,7 @@ namespace VECS
             shadowConfig.depthStencilInfo.depthWriteEnable = true;
             shadowConfig.depthStencilInfo.depthCompareOp = VkCompareOp.LessOrEqual;
             shadowConfig.rasterizationInfo.cullMode = VkCullModeFlags.None;
-            //shadowConfig.rasterizationInfo.depthBiasEnable = false;
-            //shadowConfig.rasterizationInfo.depthBiasConstantFactor = 1.25f;
-            //shadowConfig.rasterizationInfo.depthBiasSlopeFactor = 1.75f;
+
             DepthOnly = new GraphicsPipeline("DepthOnly", "depth_only.vert", shadowConfig);
             DepthOnlyAlphaClipping = new GraphicsPipeline("DepthOnlyAlphaClipping", "depth_only.vert", "depth_only_alpha.frag", shadowConfig);
 
@@ -68,22 +59,17 @@ namespace VECS
                 UnlitMeshShader = new("MeshShader", "gen_meshshader_basic.mesh", "gen_meshshader_basic.task", "gen_meshshader_basic.frag", GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []));
             }
 
-
-            //OIT_Composite = new("OIT_Composite", "fullscreen.vert", "oit_composite.frag", alphaBlending);
-
-            //alphaBlending.rasterizationInfo.cullMode = VkCullModeFlags.Front;
             var blit = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             GraphicsPipelineConfigInfo.EnableAlphaBlending(ref blit);
             blit.rasterizationInfo.frontFace = VkFrontFace.Clockwise;
             blit.rasterizationInfo.cullMode = VkCullModeFlags.None;
             blit.colourFormats = [VkFormat.R32G32B32A32Sfloat];
             blit.depthStencilInfo.depthTestEnable = false;
-            //blit.colourBlendAttachment.srcColorBlendFactor = VkBlendFactor.SrcAlpha;
-            //blit.colourBlendAttachment.dstColorBlendFactor = VkBlendFactor.DstAlpha;
+
             Blit = new("Blitter", "fullscreen.vert", "blit.frag", blit);
 
             var oit_unlit = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
-            
+
             oit_unlit.colourFormats = [];
             oit_unlit.rasterizationInfo.cullMode = VkCullModeFlags.None;
             oit_unlit.rasterizationInfo.frontFace = VkFrontFace.CounterClockwise;
@@ -106,8 +92,6 @@ namespace VECS
             configInfo.depthStencilInfo.depthWriteEnable = false;
             configInfo.depthStencilInfo.depthCompareOp = VkCompareOp.LessOrEqual;
 
-            //configInfo.colourBlendAttachment.srcAlphaBlendFactor = VkBlendFactor.SrcAlpha;
-            //configInfo.colourBlendAttachment.srcAlphaBlendFactor = VkBlendFactor.One;
             configInfo.colourBlendAttachment.dstAlphaBlendFactor = VkBlendFactor.One;
 
             configInfo.BindingDescriptions = [

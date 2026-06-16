@@ -342,7 +342,7 @@ namespace VECS
                     {
                         materialVariantDrawIndex = 0;
                         _materialBufferRegions.AddOrUpdate(lastRenderMesh.Material.Hash, storageBufferRegion, (key, value) => storageBufferRegion);
-                        storageBufferRegion.IncrementAlt();
+                        storageBufferRegion.Increment();
                     }
                     else if (lastRenderMesh.Material.Variant != renderMesh.Material.Variant)
                     {
@@ -352,7 +352,7 @@ namespace VECS
 
                     if (lastRenderMesh.Mesh.Hash != renderMesh.Mesh.Hash || lastRenderMesh.Material.Hash != renderMesh.Material.Hash || (lastRenderMesh.Mesh.SubMesh != renderMesh.Mesh.SubMesh && (lastRenderMesh.Material.Variant != renderMesh.Material.Variant || lastRenderMesh.Material.Entity != renderMesh.Material.Entity)))
                     {
-                        meshSubRegion.IncrementAlt();
+                        meshSubRegion.Increment();
                     }
 
                     if(renderMesh.Material.Transparent && !lastRenderMesh.Material.Transparent)
@@ -488,7 +488,7 @@ namespace VECS
                 if (lastCmd.Material != cmd.Material)
                 {
                     _materialCmdRegions[j] = new Vector3Int(lastCmd.Material, cmdRegion.StartIndex, cmdRegion.Count);
-                    cmdRegion.IncrementAlt();
+                    cmdRegion.Increment();
                     j++;
                     lastCmd = cmd;
                 }
@@ -514,7 +514,7 @@ namespace VECS
             {
                 cmdRegion.Count = i < reminderBlobs ? blobsPerWorker + 1 : blobsPerWorker;
                 _workerRegionsOpaqueQueue[i] = cmdRegion;
-                cmdRegion.IncrementAlt();
+                cmdRegion.Increment();
             }
 
             var transparentLength = _materialCmdRegions.Length - _firstTransparentCmdRegion;
@@ -527,7 +527,7 @@ namespace VECS
             {
                 cmdRegion.Count = i < reminderBlobs ? blobsPerWorker + 1 : blobsPerWorker;
                 _workerRegionsTransparentQueue[i] = cmdRegion;
-                cmdRegion.IncrementAlt();
+                cmdRegion.Increment();
             }
         }
 

@@ -22,21 +22,7 @@ namespace VECS
 
         public readonly int Offset => StartIndex + Count;
 
-
-
-        public void Reset()
-        {
-            StartIndex = 0;
-            Count = 0;
-        }
-
         public void Increment()
-        {
-            StartIndex = Count;
-            Count = 0;
-        }
-
-        public void IncrementAlt()
         {
             StartIndex += Count;
             Count = 0;

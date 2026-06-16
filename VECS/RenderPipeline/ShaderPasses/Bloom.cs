@@ -9,7 +9,7 @@ namespace VECS
         private int FRAME_BUFFER_DIMENTIONS_X = 256;
         private int FRAME_BUFFER_DIMENTIONS_Y = 256;
         private readonly static int SampleColourId = "samplerColor".GetShaderPropertyId();
-        
+
         private readonly Material _blurVertical;
         private readonly Material _blurHorizontal;
 
@@ -36,10 +36,10 @@ namespace VECS
 
         private readonly VkClearValue _depthClear = new(1, 0);
         private readonly VkClearValue _colourClear = new(0, 0, 0, 1);
-        
+
         private VkRenderingAttachmentInfo _depthAttachmentInfo;
 
-        public unsafe Bloom(IRenderer renderer)
+        public Bloom(IRenderer renderer)
         {
             _activeRenderer = renderer;
             var blurConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
@@ -55,20 +55,18 @@ namespace VECS
             blurConfig.colourBlendAttachment = blendAttachment;
             blurConfig.colourFormats[0] = VkFormat.R32G32B32A32Sfloat;
 
-            var blurPipe = new GraphicsPipeline("GaussBlur","gaussblur.vert", "gaussblur.frag", blurConfig);
+            var blurPipe = new GraphicsPipeline("GaussBlur", "gaussblur.vert", "gaussblur.frag", blurConfig);
 
             _blurVertical = blurPipe.Default();
             _blurHorizontal = blurPipe.Create("HorizontalBlur");
 
-            _blurVertical.PushConstants.SetPushConstantInt("blurdirection",0, 0);
+            _blurVertical.PushConstants.SetPushConstantInt("blurdirection", 0, 0);
             _blurVertical.PushConstants.SetPushConstantFloat("blurScale", 0, 1);
             _blurVertical.PushConstants.SetPushConstantFloat("blurStrength", 0, 1.5f);
 
             _blurHorizontal.PushConstants.SetPushConstantInt("blurdirection", 1, 1);
             _blurHorizontal.PushConstants.SetPushConstantFloat("blurScale", 1, 1);
             _blurHorizontal.PushConstants.SetPushConstantFloat("blurStrength", 1, 1.5f);
-            
-            //RecreateAttachments();
         }
 
         public void RecreateRenderTargets()
@@ -121,7 +119,7 @@ namespace VECS
             {
                 _depthAttachment.Resize(FRAME_BUFFER_DIMENTIONS_X, FRAME_BUFFER_DIMENTIONS_Y);
             }
-            
+
             _blurVertical.SetTexture(SampleColourId, _glowTexture.Target);
             _blurHorizontal.SetTexture(SampleColourId, _blurTexture.Target);
 
@@ -135,7 +133,7 @@ namespace VECS
             };
         }
 
-        public unsafe void RenderBloomObjects(RendererFrameInfo frameInfo)
+        public void RenderBloomObjects(RendererFrameInfo frameInfo)
         {
             // copy forward output into glow texture
             GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Blit From Bright Objects");
@@ -162,7 +160,7 @@ namespace VECS
             GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
         }
 
-        private unsafe void BlurVertical(RendererFrameInfo frameInfo)
+        private void BlurVertical(RendererFrameInfo frameInfo)
         {
             _blurTexture.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
             BeginRenderPassInternal(frameInfo, _blurTexture.Target);
@@ -172,7 +170,7 @@ namespace VECS
             _blurTexture.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.FragmentShader);
         }
 
-        public unsafe void BlurHorizontal(RendererFrameInfo frameInfo)
+        public void BlurHorizontal(RendererFrameInfo frameInfo)
         {
             _blurHorizontal.Bind(frameInfo);
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
@@ -180,7 +178,7 @@ namespace VECS
 
         private unsafe void BeginRenderPassInternal(RendererFrameInfo frameInfo, Texture2D colourAttachments)
         {
-            VkRenderingAttachmentInfo* colourAttachmentInfo =  stackalloc VkRenderingAttachmentInfo[]
+            VkRenderingAttachmentInfo* colourAttachmentInfo = stackalloc VkRenderingAttachmentInfo[]
             {
                 new()
                 {
@@ -208,7 +206,7 @@ namespace VECS
                 pDepthAttachment = &depthAttachment,
                 pColorAttachments = colourAttachmentInfo,
                 layerCount = 1,
-                renderArea = new(0,0, (uint)FRAME_BUFFER_DIMENTIONS_X, (uint)FRAME_BUFFER_DIMENTIONS_Y),
+                renderArea = new(0, 0, (uint)FRAME_BUFFER_DIMENTIONS_X, (uint)FRAME_BUFFER_DIMENTIONS_Y),
                 flags = VkRenderingFlags.ContentsInlineKHR
             };
 
@@ -220,7 +218,7 @@ namespace VECS
         public static void BlitFromBrightObjects(VkCommandBuffer commandBuffer, VkImage dst, int dstWidth, int dstHeight, VkImageAspectFlags dstAspectMask)
         {
             var brightObjects = EngineTextures.TryGetTexture(ShaderProperties.BrightColourAttachmentId).First;
-            
+
             brightObjects.SetImageLayout(commandBuffer, VkImageLayout.TransferSrcOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.Blit);
 
             TextureExtensions.BlitGeneric(commandBuffer, VkFilter.Linear, brightObjects.GetBlitCmd(dstWidth, dstHeight, dstAspectMask), brightObjects._vkImage, brightObjects.ImageLayout, dst, VkImageLayout.TransferDstOptimal);

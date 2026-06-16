@@ -1,4 +1,5 @@
-﻿using System.Collections.Concurrent;
+﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using VECS.LowLevel;
@@ -6,14 +7,23 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
-    public static class GraphicsPipelineRecreation
+    public interface IPipeline : IDisposable
+    {
+        public VkPipeline ReplacePipeline(VkPipeline pipeline);
+
+        public VkPipeline Recreate();
+
+        public unsafe void Reinitialise();
+    }
+
+    public static class PipelineRecreation
     {
         private class NewPipeline
         {
             public readonly VkPipeline VkPipeline;
-            public readonly GraphicsPipeline Target;
+            public readonly IPipeline Target;
 
-            public NewPipeline(VkPipeline newVkPipeline, GraphicsPipeline target)
+            public NewPipeline(VkPipeline newVkPipeline, IPipeline target)
             {
                 VkPipeline = newVkPipeline;
                 Target = target;
@@ -22,12 +32,12 @@ namespace VECS
 
         private class DisposePipeline
         {
-            public readonly GraphicsPipeline Pipeline;
+            public readonly IPipeline Pipeline;
             public readonly VkPipeline VkPipeline;
             public readonly VkDescriptorSetLayout[] DescriptorSetLayouts;
             public ulong FrameIndex;
 
-            public DisposePipeline(GraphicsPipeline pipeline, ulong i)
+            public DisposePipeline(IPipeline pipeline, ulong i)
             {
                 Pipeline = pipeline;
                 VkPipeline = VkPipeline.Null;
@@ -64,9 +74,9 @@ namespace VECS
         }
 
 
-        private readonly static ConcurrentQueue<GraphicsPipeline> _shaderChanged = new();
+        private readonly static ConcurrentQueue<IPipeline> _shaderChanged = new();
 
-        private readonly static ConcurrentQueue<GraphicsPipeline> _recreationQueue = new();
+        private readonly static ConcurrentQueue<IPipeline> _recreationQueue = new();
 
         private readonly static ConcurrentQueue<NewPipeline> _newPipelines = new();
 
@@ -137,7 +147,7 @@ namespace VECS
             _srcDisposalQueue.Enqueue(new(oldPipeline, null, 0));
         }
 
-        private static void RecreatePipeline(GraphicsPipeline recreate)
+        private static void RecreatePipeline(IPipeline recreate)
         {
 
             ReplacePipeline(new(recreate.Recreate(), recreate));
@@ -160,7 +170,7 @@ namespace VECS
             }
         }
 
-        public static void EnqueueForDisposal(GraphicsPipeline graphicsPipeline)
+        public static void EnqueueForDisposal(IPipeline graphicsPipeline)
         {
             _srcDisposalQueue.Enqueue(new(graphicsPipeline, 0));
         }
@@ -170,12 +180,12 @@ namespace VECS
             _srcDisposalQueue.Enqueue(new(pipeline, descriptorSetLayouts, 0));
         }
 
-        public static void EnqueueForRecreation(GraphicsPipeline graphicsPipeline)
+        public static void EnqueueForRecreation(IPipeline graphicsPipeline)
         {
             _recreationQueue.Enqueue(graphicsPipeline);
         }
 
-        public static void EnqueueShaderChanged(GraphicsPipeline graphicsPipeline)
+        public static void EnqueueShaderChanged(IPipeline graphicsPipeline)
         {
             _shaderChanged.Enqueue(graphicsPipeline);
         }
@@ -183,7 +193,7 @@ namespace VECS
         public static bool PlaybackShaderChangeCommands()
         {
             if (_shaderChanged.IsEmpty) return false;
-            HashSet<GraphicsPipeline> pipelines = [];
+            HashSet<IPipeline> pipelines = [];
             while (_shaderChanged.TryDequeue(out var pipeline))
             {
                 pipelines.Add(pipeline);
