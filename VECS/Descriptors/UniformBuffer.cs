@@ -11,7 +11,7 @@ namespace VECS
 
         private uint _uniformCount = 1;
 
-        private unsafe void*[] _uniformAddresses = new void*[1];
+        private unsafe void*[] _uniformAddresses;
 
         public SwapChainBuffer Buffer => _uniformBuffer;
 
@@ -23,10 +23,11 @@ namespace VECS
         private bool _disposed;
         public bool IsDisposed => _disposed;
 
-        public UniformBuffer(uint instanceSize, uint initalInstanceCount, VkBufferUsageFlags usageFlags, DescriptorSetInfo[] descriptorSets)
+        public unsafe UniformBuffer(uint instanceSize, uint initalInstanceCount, VkBufferUsageFlags usageFlags, DescriptorSetInfo[] descriptorSets)
         {
             _uniformBuffer = new(instanceSize, initalInstanceCount, usageFlags, true);
-
+            _uniformCount = initalInstanceCount;
+            _uniformAddresses = new void*[initalInstanceCount];
             _setOffsets = new uint[descriptorSets.Length][];
             for (int i = 0; i < descriptorSets.Length; i++)
             {
@@ -36,6 +37,12 @@ namespace VECS
                     _setOffsets[i][j] = descriptorSets[i].UnifromBufferOffset + descriptorSets[i].SetUniformBufferOffsets[j];
                 }
             }
+
+            for (int i = 0; i < UniformCount; i++)
+            {
+                _uniformAddresses[i] = (byte*)_uniformBuffer.HostPtr + (_uniformBuffer.UInstanceSize32 * i);
+            }
+
         }
 
         public unsafe bool UpdateUniformCount(uint count)

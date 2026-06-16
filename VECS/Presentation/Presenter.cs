@@ -353,6 +353,7 @@ namespace VECS
                     asset.Dispose();
                 }
             }
+            ShaderPipelineLayout.CleanUp();
             GraphicsDevice.FreeCommandBuffers();
             _imgui.Dispose();
             SwapChain.CleanUp();

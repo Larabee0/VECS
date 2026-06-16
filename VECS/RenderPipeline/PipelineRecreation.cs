@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using VECS.LowLevel;
@@ -25,6 +24,7 @@ namespace VECS
         {
             public readonly GraphicsPipeline Pipeline;
             public readonly VkPipeline VkPipeline;
+            public readonly VkDescriptorSetLayout[] DescriptorSetLayouts;
             public ulong FrameIndex;
 
             public DisposePipeline(GraphicsPipeline pipeline, ulong i)
@@ -34,10 +34,11 @@ namespace VECS
                 FrameIndex = i;
             }
 
-            public DisposePipeline(VkPipeline pipeline, ulong i)
+            public DisposePipeline(VkPipeline pipeline, VkDescriptorSetLayout[] descriptorSetLayouts, ulong i)
             {
                 Pipeline = null;
                 VkPipeline = pipeline;
+                DescriptorSetLayouts = descriptorSetLayouts;
                 FrameIndex = i;
             }
 
@@ -48,6 +49,16 @@ namespace VECS
                 if (VkPipeline.IsNotNull)
                 {
                     GraphicsDevice.DeviceAPI.vkDestroyPipeline(VkPipeline);
+                }
+                if(DescriptorSetLayouts != null)
+                {
+                    for (int i = 0; i < DescriptorSetLayouts.Length; i++)
+                    {
+                        if(DescriptorSetLayouts[i] != VkDescriptorSetLayout.Null)
+                        {
+                            GraphicsDevice.DeviceAPI.vkDestroyDescriptorSetLayout(DescriptorSetLayouts[i]);
+                        }
+                    }
                 }
             }
         }
@@ -123,12 +134,13 @@ namespace VECS
         private static void ReplacePipeline(NewPipeline newPipes)
         {
             var oldPipeline = newPipes.Target.ReplacePipeline(newPipes.VkPipeline);
-            _srcDisposalQueue.Enqueue(new(oldPipeline, 0));
+            _srcDisposalQueue.Enqueue(new(oldPipeline, null, 0));
         }
 
         private static void RecreatePipeline(GraphicsPipeline recreate)
         {
-            recreate.Recreate();
+
+            ReplacePipeline(new(recreate.Recreate(), recreate));
         }
         
         private static unsafe void DoPipelineWork(object cancellationToken)
@@ -153,9 +165,9 @@ namespace VECS
             _srcDisposalQueue.Enqueue(new(graphicsPipeline, 0));
         }
 
-        public static void EnqueueForDisposal(VkPipeline pipeline)
+        public static void EnqueueForDisposal(VkPipeline pipeline, VkDescriptorSetLayout[] descriptorSetLayouts)
         {
-            _srcDisposalQueue.Enqueue(new(pipeline, 0));
+            _srcDisposalQueue.Enqueue(new(pipeline, descriptorSetLayouts, 0));
         }
 
         public static void EnqueueForRecreation(GraphicsPipeline graphicsPipeline)

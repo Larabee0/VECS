@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Numerics;
 using System.Runtime.CompilerServices;
@@ -451,7 +452,7 @@ namespace VECS
             }
         }
 
-        public void Reinitialise(Vector2UInt[][] textureRemap,  Vector2UInt[][] storageRemap)
+        public void Reinitialise(Dictionary<int, Vector4UInt> textureRemap, Dictionary<int, Vector4UInt> storageRemap)
         {
             var existingImages = _textures;
             var existingRegions = _storageBufferRegions;
@@ -478,6 +479,14 @@ namespace VECS
                     {
                         DescriptorBinding binding = setInfo.DescriptorBindings[j];
                         if (!binding.Image) continue;
+
+                        if(textureRemap.TryGetValue(binding.Id,out var remapIndices))
+                        {
+                            _textures[remapIndices.Z][remapIndices.W] = existingImages[remapIndices.X][remapIndices.Y];
+                            WriteTexturesToDescriptorBuffer(binding.DescriptorSetIndex, binding.BindPoint);
+                            continue;
+                        }
+
                         var imageIndex = setInfo.BindingPointToImageIndex[binding.BindPoint];
                         var engineTexture = EngineTextures.TryGetTexture(binding.Id);
                         if (engineTexture != null)
@@ -502,52 +511,26 @@ namespace VECS
                 }
             }
 
-            for (int i = 0; i < existingRegions.Length; i++)
-            {
-                var setRegion = existingRegions[i];
-
-                for (int j = 0; j < setRegion.Length; j++)
-                {
-                    var bindingRegion = setRegion[j];
-
-                    var dst = storageRemap[i][j];
-
-                    if (dst.X == uint.MaxValue || dst.Y == uint.MaxValue) continue;
-
-                    _storageBufferRegions[dst.X][dst.Y] = bindingRegion;
-                }
-            }
-
-            for (int i = 0; i < existingImages.Length; i++)
-            {
-                var setImages = existingImages[i];
-
-                for (int j = 0; j < setImages.Length; j++)
-                {
-                    var bindingImage = setImages[j];
-
-                    var dst = textureRemap[i][j];
-                    if (dst.X == uint.MaxValue || dst.Y == uint.MaxValue) continue;
-
-                    if (_textures[dst.X][dst.Y].ImageCount == bindingImage.ImageCount)
-                    {
-                        _textures[dst.X][dst.Y] = bindingImage;
-                    }
-                }
-            }
-
             for (int i = 0; i < TotalSets; i++)
             {
-                var info = DescriptorSetInfos[i];
+                var setInfo = DescriptorSetInfos[i];
 
                 if (!_hasTextures)
                 {
-                    _hasTextures = info.HasImages;
+                    _hasTextures = setInfo.HasImages;
                 }
 
                 if (!_hasStorageBuffers)
                 {
-                    _hasStorageBuffers = info.HasStorageBuffers;
+                    _hasStorageBuffers = setInfo.HasStorageBuffers;
+                }
+
+                for (int j = 0; j < setInfo.BindingCount; j++)
+                {
+                    if (storageRemap.TryGetValue(setInfo.DescriptorBindings[j].Id, out var remapIndices))
+                    {
+                        _storageBufferRegions[remapIndices.Z][remapIndices.W] = existingRegions[remapIndices.X][remapIndices.Y];
+                    }
                 }
             }
         }

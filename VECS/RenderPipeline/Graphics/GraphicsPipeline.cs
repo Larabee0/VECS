@@ -985,31 +985,57 @@ namespace VECS
             }
 
             UniformBuffer existingUniformBuffer = _uniformBuffer;
-            var oldShaderProperties = new System.Collections.Generic.Dictionary<int,ShaderProperty>(_cachedShaderProperties);
+            var oldShaderProperties = new Dictionary<int,ShaderProperty>(_cachedShaderProperties);
             var existingDescriptorSets = _descriptorSetInfos;
 
             var descriptorSetBindings = GPUPipelineUtil.GetSharedBindings(shaders);
+
+            GraphicsPipelineRecreation.EnqueueForDisposal(_graphicsPipeline, _descriptorSetLayouts);
 
             InitialiseDescriptorSets(descriptorSetBindings, usedVariantCount);
 
             ClearCachedData();
             // descriptor set data matching
             byte[] bytes;
-
-            Vector2UInt[][] textureRemap = new Vector2UInt[existingDescriptorSets.Length][];
-            Vector2UInt[][] storageRemap = new Vector2UInt[existingDescriptorSets.Length][];
+            Dictionary<int,Vector4UInt> textureRemap = [];
+            Dictionary<int,Vector4UInt> storageRemap = [];
 
             for (int i = 0; i < existingDescriptorSets.Length; i++)
             {
-                if (existingDescriptorSets[i].HasImages)
+                for (int j = 0; j < existingDescriptorSets[i].BindingCount; j++)
                 {
-                    textureRemap[i] = new Vector2UInt[existingDescriptorSets[i].ImageCount];
-                    Array.Fill(textureRemap[i], new Vector2UInt(uint.MaxValue, uint.MaxValue));
+                    var binding = existingDescriptorSets[i].DescriptorBindings[j];
+
+                    if (binding.StorageBuffer)
+                    {
+                        storageRemap.Add(binding.Id, new(binding.DescriptorSetIndex, (uint)existingDescriptorSets[i].BindingPointToBufferIndex[binding.BindPoint], uint.MaxValue, uint.MaxValue));
+                    }
+                    if (binding.Image)
+                    {
+                        textureRemap.Add(binding.Id, new(binding.DescriptorSetIndex, (uint)existingDescriptorSets[i].BindingPointToImageIndex[binding.BindPoint], uint.MaxValue, uint.MaxValue));
+                    }
                 }
-                if (existingDescriptorSets[i].HasStorageBuffers)
+            }
+
+            for (int i = 0; i < DescriptorSetCount; i++)
+            {
+                for (int j = 0; j < DescriptorSetInfos[i].BindingCount; j++)
                 {
-                    storageRemap[i] = new Vector2UInt[existingDescriptorSets[i].StorageBufferCount];
-                    Array.Fill(storageRemap[i], new Vector2UInt(uint.MaxValue, uint.MaxValue));
+                    var binding = DescriptorSetInfos[i].DescriptorBindings[j];
+
+                    if (binding.StorageBuffer && storageRemap.TryGetValue(binding.Id, out var remap))
+                    {
+                        remap.Z = binding.DescriptorSetIndex;
+                        remap.W = (uint)existingDescriptorSets[i].BindingPointToBufferIndex[binding.BindPoint];
+                        storageRemap[binding.Id] = remap;
+                    }
+
+                    if (binding.Image && textureRemap.TryGetValue(binding.Id, out remap))
+                    {
+                        remap.Z = binding.DescriptorSetIndex;
+                        remap.W = (uint)existingDescriptorSets[i].BindingPointToImageIndex[binding.BindPoint];
+                        textureRemap[binding.Id] = remap;
+                    }
                 }
             }
 
@@ -1021,12 +1047,6 @@ namespace VECS
                 if(LookUpProperty(oldProperty.Key,out var newProperty))
                 {
                     var oldShaderProperty = oldProperty.Value;
-                    if (newProperty.BindingInfo.Image)
-                    {
-                        var oldSet = existingDescriptorSets[oldShaderProperty.SetIndex];
-                        var index = oldSet.BindingPointToImageIndex[oldShaderProperty.BindPoint];
-                        textureRemap[oldShaderProperty.SetIndex][index] = new(newProperty.SetIndex, (uint)_descriptorSetInfos[newProperty.SetIndex].BindingPointToImageIndex[newProperty.BindPoint]);
-                    }
 
                     if (newProperty.BindingInfo.StorageBuffer && newProperty.BindingInfo.BufferSize == oldShaderProperty.BindingInfo.BufferSize)
                     {
@@ -1037,8 +1057,6 @@ namespace VECS
                         var newBuffer = newSet.GetBuffer(newProperty.BindPoint);
 
                         var index = oldSet.BindingPointToBufferIndex[oldShaderProperty.BindPoint];
-
-                        storageRemap[oldShaderProperty.SetIndex][index] = new(newProperty.SetIndex, (uint)_descriptorSetInfos[newProperty.SetIndex].BindingPointToBufferIndex[newProperty.BindPoint]);
 
                         Buffer.MemoryCopy(oldBuffer.HostPtr,newBuffer.HostPtr,newBuffer.HostBufferSize,Math.Min(oldBuffer.HostBufferSize,newBuffer.HostBufferSize));
                     }
@@ -1072,6 +1090,7 @@ namespace VECS
             _pipelineLayout = GPUPipelineUtil.CreatePipelineLayout(_descriptorSetLayouts, _materialPushConstantsHandler, shaders);
             _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipeline(_graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT, shaders);
 
+            GraphicsDevice.SetObjectName(VkObjectType.Pipeline, _graphicsPipeline.Handle, AssetName+ "_Reinitialised");
             for (int i = 0; i < existingDescriptorSets.Length; i++)
             {
                 existingDescriptorSets[i].Dispose();

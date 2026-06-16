@@ -91,6 +91,13 @@ namespace VECS
             _disposalQueue.Enqueue(layout);
         }
 
+        public static void CleanUp()
+        {
+            PlayBackDisposalCmds();
+
+            _disposalList.ForEach(layout=>layout.Item2.Dispose());
+        }
+
         public static void PlayBackDisposalCmds()
         {
             while (_disposalQueue.TryDequeue(out var layout))

@@ -440,6 +440,7 @@ namespace VECS
         {
             if (buffer.HostPtr == null)
             {
+                return;
                 throw new InvalidOperationException("Cannot write host buffer to GPU as it is null");
             }
             if (buffer.Dirty|| buffer.GPUDirty)
