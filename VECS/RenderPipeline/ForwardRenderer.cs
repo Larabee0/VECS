@@ -38,6 +38,8 @@ namespace VECS
             _orderIndpTransparency = new(this);
             _bloom = new(this);
             _smaa = new(this);
+            Skybox.StartSkybox();
+            PBR.StartPBR();
         }
 
         public void ScreenSizeChanged()

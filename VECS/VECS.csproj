@@ -10,6 +10,7 @@
     <StartupObject>VECS.Bootstrap</StartupObject>
     <RunPostBuildEvent>Always</RunPostBuildEvent>
     <BaseOutputPath>../bin</BaseOutputPath>
+    <PlatformTarget>x64</PlatformTarget>
   </PropertyGroup>
   
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">

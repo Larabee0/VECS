@@ -496,7 +496,7 @@ namespace VECS
 
                 for (int j = 0; j < setInfo.BindingCount; j++)
                 {
-                    if (storageRemap.TryGetValue(setInfo.DescriptorBindings[j].Id, out var remapIndices))
+                    if (storageRemap.TryGetValue(setInfo.DescriptorBindings[j].Id, out var remapIndices) && remapIndices.Z != uint.MaxValue && remapIndices.W != uint.MaxValue)
                     {
                         _storageBufferRegions[remapIndices.Z][remapIndices.W] = existingRegions[remapIndices.X][remapIndices.Y];
                     }

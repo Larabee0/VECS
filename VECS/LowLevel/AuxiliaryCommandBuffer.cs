@@ -109,7 +109,7 @@ namespace VECS.LowLevel
             GraphicsDevice.DeviceAPI.vkEndCommandBuffer(_vkCommandBuffer);
         }
 
-        public unsafe void Submit()
+        public unsafe void Submit(VkSemaphoreSubmitInfo waitSemaphore)
         {
             VkCommandBufferSubmitInfo commandBufferSubmitInfo = new()
             {
@@ -126,6 +126,8 @@ namespace VECS.LowLevel
                 pCommandBufferInfos = &commandBufferSubmitInfo,
                 signalSemaphoreInfoCount = 1,
                 pSignalSemaphoreInfos = &signalSemaphoreSubmitInfo,
+                waitSemaphoreInfoCount =  1,
+                pWaitSemaphoreInfos = &waitSemaphore
             };
 
             _signalSemaphore.SemaphoreValue = _completeValue;

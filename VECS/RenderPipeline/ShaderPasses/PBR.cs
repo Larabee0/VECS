@@ -26,7 +26,7 @@ namespace VECS
         private static GraphicsPipeline Irradiance_Generator;
         private static GraphicsPipeline Prefiltered_Generator;
 
-        public static void Reset()
+        public static void StartPBR()
         {
             CreateAssets();
 
@@ -223,7 +223,7 @@ namespace VECS
 
                 Irradiance_Generator.PushConstants.SetPushConstantMatrix4x4("mvp", 0, matrices[i] * persectve);
                 Irradiance_Generator.BindAll(frameInfo, 0);
-                Skybox._cube.SimpleBindAndDraw(commandBuffer);
+                Skybox.Cube.SimpleBindAndDraw(commandBuffer);
 
                 GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
             }
@@ -290,7 +290,7 @@ namespace VECS
 
                 Prefiltered_Generator.PushConstants.SetPushConstantMatrix4x4("mvp", 0, matrices[i] * persectve);
                 Prefiltered_Generator.BindAll(frameInfo, 0);
-                Skybox._cube.SimpleBindAndDraw(commandBuffer);
+                Skybox.Cube.SimpleBindAndDraw(commandBuffer);
 
                 GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
             }

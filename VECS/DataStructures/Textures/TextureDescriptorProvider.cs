@@ -8,6 +8,8 @@ namespace VECS
     {
         public int ImageCount { get; }
         public Texture First { get; set; }
+        public bool AnyEmpty { get; }
+        public bool AnyDisposed { get; }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Texture GetTexture(int index);
@@ -22,6 +24,9 @@ namespace VECS
     {
         public int ImageCount => 1;
         public Texture First { get; set; }
+
+        public bool AnyEmpty => First == null;
+        public bool AnyDisposed => First == null || First.IsDisposed;
 
         public SingleTexture(Texture texture)
         {
@@ -67,6 +72,48 @@ namespace VECS
     public class BindingArrayTexture : ITextureProvider
     {
         public int ImageCount => ArrayTextures.Length;
+        public bool AnyEmpty
+        {
+            get
+            {
+                if (ArrayTextures.Length == 0)
+                {
+                    return true;
+                }
+
+                for (int i = 0; i < ArrayTextures.Length; i++)
+                {
+                    if (ArrayTextures[i] == null)
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+        }
+
+        public bool AnyDisposed
+        {
+            get
+            {
+
+                if (ArrayTextures.Length == 0)
+                {
+                    return true;
+                }
+
+                for (int i = 0; i < ArrayTextures.Length; i++)
+                {
+                    if (ArrayTextures[i] == null || ArrayTextures[i].IsDisposed)
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+        }
 
         public Texture First { get { return ArrayTextures[0]; } set { ArrayTextures[0] = value; } }
 

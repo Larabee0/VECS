@@ -7,8 +7,8 @@ namespace VECS
     public static class Skybox
     {
         private readonly static int SkyboxTextureProperty = "samplerCubeMap".GetShaderPropertyId();        
-        public readonly static DirectSubMesh _cube;
-        private readonly static Material _skybox;
+        public static DirectSubMesh Cube { get; private set;  }
+        private static Material _skybox;
 
         private static Cubemap _skyboxTexture;
         public static Cubemap SkyboxTexture
@@ -21,7 +21,7 @@ namespace VECS
             }
         }
 
-        static Skybox()
+        public static void StartSkybox()
         {
             var pipelineConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
 
@@ -30,19 +30,18 @@ namespace VECS
             pipelineConfig.depthStencilInfo.depthTestEnable = true;
 
             _skybox = new GraphicsPipeline("Skybox", "skybox.vert", "skybox.frag", pipelineConfig).Default();
-            _cube = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("cube-UV.obj"),null)[0];
+            Cube = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("cube-UV.obj"),null)[0];
             SkyboxTexture = TextureLoader.LoadSkyboxCubeMap("GL_Skybox", TextureLoader.GetTextureInDefaultPath("Skyboxes/GL_Skybox"), VkFormat.Bc7UnormBlock, VkSamplerAddressMode.ClampToEdge, false);
-            PBR.Reset();
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void RenderSkybox(RendererFrameInfo frameInfo)
         {
-            if (SkyboxTexture == null || _cube == null) return;
+            if (SkyboxTexture == null || Cube == null) return;
             var camera = ((SwapChainBuffer<CameraInfo>)EngineBuffers.TryGetBuffer(ShaderProperties.CameraInfoId)).HostBuffer[frameInfo.MainCamera];
             _skybox.PushConstants.SetPushConstantUniform("viewProj",0, GetSkyboxMatrix(camera));
             _skybox.Bind(frameInfo);
-            _cube.SimpleBindAndDraw(frameInfo.CommandBuffer);
+            Cube.SimpleBindAndDraw(frameInfo.CommandBuffer);
         }
 
         public static Matrix4x4 GetSkyboxMatrix(in CameraInfo cameraInfo)

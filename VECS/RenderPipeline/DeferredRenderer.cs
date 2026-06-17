@@ -66,6 +66,8 @@ namespace VECS
             _bloom = new(this);
             _smaa = new(this);
             _ssao = new(this);
+            Skybox.StartSkybox();
+            PBR.StartPBR();
             ScreenSizeChanged();
         }
 
@@ -120,7 +122,7 @@ namespace VECS
 
         public unsafe void Render(RendererFrameInfo frameInfo, int imageIndex)
         {
-            if (Presenter.FrameCount == 2)
+            if (Presenter.FrameCount == 0)
             {
                 PBR.Generate_BRDFLUT(frameInfo);
                 PBR.Generate_Irradiance(frameInfo);

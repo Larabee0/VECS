@@ -116,13 +116,13 @@ namespace VECS.LowLevel
                 if (cancel.IsCancellationRequested) break;
                 AcquireFrame(SwapChain.MainSwapChainData, CurrentFrame);
                 SwapChain.SignalNextFrame(CurrentFrame);
-                while(AuxiliaryCommandBufferManager._pendingCommandBuffers.TryDequeue(out var auxiliaryCommandBuffer))
-                {
-                    auxiliaryCommandBuffer.Submit();
-                    AuxiliaryCommandBufferManager._submittedCommandBuffers.Enqueue(auxiliaryCommandBuffer);
-                }
                 if (cancel.IsCancellationRequested) break;
                 GraphicsDevice.DeviceAPI.vkQueueSubmit2KHR(GraphicsDevice.MainQueue, 1, &submitInfo, VkFence.Null).CheckResult("Failed to submit graphics queue!");
+                while (AuxiliaryCommandBufferManager._pendingCommandBuffers.TryDequeue(out var auxiliaryCommandBuffer))
+                {
+                    auxiliaryCommandBuffer.Submit(renderingCompleteInfo[0]);
+                    AuxiliaryCommandBufferManager._submittedCommandBuffers.Enqueue(auxiliaryCommandBuffer);
+                }
 
                 Present(SwapChain.MainSwapChainData, submitFrame, imageIndex);
                 submittedAnyFrames = true;
