@@ -41,12 +41,7 @@ namespace VECS
         private readonly uint _variantIndex;
         private readonly GraphicsPipeline _graphicsPipeline;
         private Vector2ULong[][] _storageBufferRegions;
-
-        private bool _hasStorageBuffers = false;
-
         private ITextureProvider[][] _textures;
-
-        private bool _hasTextures = false;
 
         /// this allocation will be an offset into <see cref="GraphicsPipeline._uniformBuffer"> host ptr, unless the material is new, which case the allocation is temporarily local.
         /// it will be copied into the <see cref="GraphicsPipeline._uniformBuffer"> host ptr during the shader set variant allocation phase with the local allocation being freed
@@ -136,21 +131,6 @@ namespace VECS
                         }
                         WriteTexturesToDescriptorBuffer(binding.DescriptorSetIndex, binding.BindPoint);
                     }
-                }
-            }
-
-            for (int i = 0; i < TotalSets; i++)
-            {
-                var info = pipeline.DescriptorSetInfos[i];
-
-                if (!_hasTextures)
-                {
-                    _hasTextures = info.HasImages;
-                }
-
-                if (!_hasStorageBuffers)
-                {
-                    _hasStorageBuffers = info.HasStorageBuffers;
                 }
             }
 
@@ -513,16 +493,6 @@ namespace VECS
             for (int i = 0; i < TotalSets; i++)
             {
                 var setInfo = DescriptorSetInfos[i];
-
-                if (!_hasTextures)
-                {
-                    _hasTextures = setInfo.HasImages;
-                }
-
-                if (!_hasStorageBuffers)
-                {
-                    _hasStorageBuffers = setInfo.HasStorageBuffers;
-                }
 
                 for (int j = 0; j < setInfo.BindingCount; j++)
                 {

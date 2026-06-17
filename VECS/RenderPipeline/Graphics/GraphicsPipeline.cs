@@ -18,7 +18,7 @@ namespace VECS
         internal static bool _descriptorReWrite = false;
 
         private readonly static ConcurrentDictionary<int, int> _lastBoundGraphicsPipeline = new(Environment.ProcessorCount, Environment.ProcessorCount * 2);
-
+        private uint _version;
         private readonly int[] _shaderHashes;
 
 #if DEBUG
@@ -73,7 +73,7 @@ namespace VECS
 
         private unsafe void CreateDefault()
         {
-            GraphicsDevice.SetObjectName(VkObjectType.Pipeline, _graphicsPipeline.Handle, AssetName);
+            GraphicsDevice.SetObjectName(VkObjectType.Pipeline, _graphicsPipeline.Handle, AssetName + "_v" + _version);
             _matVariants = [new Material("Default", this,false)];
             _variantsToAdd.TryDequeue(out var material);
 
@@ -1079,7 +1079,7 @@ namespace VECS
             _pipelineLayout = GPUPipelineUtil.CreatePipelineLayout(_descriptorSetLayouts, _materialPushConstantsHandler, shaders);
             _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipeline(_graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT, shaders);
 
-            GraphicsDevice.SetObjectName(VkObjectType.Pipeline, _graphicsPipeline.Handle, AssetName+ "_Reinitialised");
+            GraphicsDevice.SetObjectName(VkObjectType.Pipeline, _graphicsPipeline.Handle, AssetName+"_v"+ _version);
             for (int i = 0; i < existingDescriptorSets.Length; i++)
             {
                 existingDescriptorSets[i].Dispose();

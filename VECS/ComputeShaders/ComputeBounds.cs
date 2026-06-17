@@ -32,10 +32,10 @@ namespace VECS
             public uint DescriptorIndex;
             public int SubmittedFrameIndex;
 
-            public BoundsRecal(DirectSubMesh subMesh, uint descriptorIndex, int submittedFrameIndex)
+            public BoundsRecal(DirectSubMesh subMesh, uint variantIndex, int submittedFrameIndex)
             {
                 SubMesh = subMesh;
-                DescriptorIndex = descriptorIndex;
+                DescriptorIndex = variantIndex;
                 SubmittedFrameIndex = submittedFrameIndex;
             }
         }
@@ -157,12 +157,13 @@ namespace VECS
             VkBufferMemoryBarrier2 barrier = new(_minMaxBuffer.ActiveVkBuffer, VkPipelineStageFlags2.ComputeShader, VkAccessFlags2.ShaderWrite, VkPipelineStageFlags2.ComputeShader, VkAccessFlags2.ShaderWrite);
             for (uint i = 0; i < mesh.DirectSubMeshes.Length; i++)
             {
+                var variant = _calculateBounds.GetOrCreateVariant(firstDescriptor + i);
                 var subMesh = mesh.DirectSubMeshes[i];
                 Vector2UInt workGroupXY = ComputePipeline.CompensateForWorkGroupLimits(subMesh.VertexCount);
 
-                _calculateBounds.SetStorageBuffer(VertexBufferId, firstDescriptor+i, vertexPositionBuffer);
-                Prepare(firstDescriptor + i, subMesh);
-                _calculateBounds.Dispatch(commandBuffer, frameIndex, firstDescriptor + i, workGroupXY.X, workGroupXY.Y, 1);
+                variant.SetStorageBuffer(VertexBufferId, vertexPositionBuffer);
+                Prepare(variant, subMesh);
+                variant.Dispatch(commandBuffer, frameIndex, workGroupXY.X, workGroupXY.Y, 1);
                 
                 MemoryBarrierHelper.BufferMemoryBarrier(commandBuffer, barrier);
                 _boundsResultQueue.Enqueue(new(subMesh, firstDescriptor + i, frameIndex));
@@ -172,30 +173,31 @@ namespace VECS
             MemoryBarrierHelper.BufferMemoryBarrier(commandBuffer, barrier);
         }
 
-        private static unsafe void Prepare(uint setId,DirectSubMesh subMesh)
+        private static unsafe void Prepare(ComputeVariant variant, DirectSubMesh subMesh)
         {
-            ResetMinMax((int)setId);
+            int variantIndex = (int)variant.VariantIndex;
+            ResetMinMax(variantIndex);
             uint componsatedBufferLength = subMesh.VertexCount;
             uint divider = (uint)(int)MathF.Ceiling((float)componsatedBufferLength / (float)GraphicsDevice.MaxWorkGroupX);
             uint workGroupX = (uint)Math.Min(componsatedBufferLength, GraphicsDevice.MaxWorkGroupX);
 
-            _calculateBounds.PushConstantsHandler.SetPushConstantUInt(ParamsBufferLengthId, (int)setId, subMesh.VertexCount);
-            _calculateBounds.PushConstantsHandler.SetPushConstantUInt(ParamsDepthId, (int)setId, 1);
+            _calculateBounds.PushConstantsHandler.SetPushConstantUInt(ParamsBufferLengthId, variantIndex, subMesh.VertexCount);
+            _calculateBounds.PushConstantsHandler.SetPushConstantUInt(ParamsDepthId, variantIndex, 1);
             if (divider == 1)
             {
-                _calculateBounds.PushConstantsHandler.SetPushConstantUInt(ParamsWidthId, (int)setId, componsatedBufferLength);
-                _calculateBounds.PushConstantsHandler.SetPushConstantUInt(ParamsHeightId, (int)setId, 1);
+                _calculateBounds.PushConstantsHandler.SetPushConstantUInt(ParamsWidthId, variantIndex, componsatedBufferLength);
+                _calculateBounds.PushConstantsHandler.SetPushConstantUInt(ParamsHeightId, variantIndex, 1);
             }
             else
             {
-                _calculateBounds.PushConstantsHandler.SetPushConstantUInt(ParamsWidthId, (int)setId, workGroupX);
-                _calculateBounds.PushConstantsHandler.SetPushConstantUInt(ParamsHeightId, (int)setId, divider);
+                _calculateBounds.PushConstantsHandler.SetPushConstantUInt(ParamsWidthId, variantIndex, workGroupX);
+                _calculateBounds.PushConstantsHandler.SetPushConstantUInt(ParamsHeightId, variantIndex, divider);
             }
 
-            _calculateBounds.PushConstantsHandler.SetPushConstantUInt(ParamsSetIndexId, (int)setId, (uint)(setId * 6));
-            _calculateBounds.PushConstantsHandler.SetPushConstantUInt(ParamsVertexOffsetId, (int)setId, (uint)subMesh.IndirectCommand.vertexOffset);
+            _calculateBounds.PushConstantsHandler.SetPushConstantUInt(ParamsSetIndexId, variantIndex, (uint)(variantIndex * 6));
+            _calculateBounds.PushConstantsHandler.SetPushConstantUInt(ParamsVertexOffsetId, variantIndex, (uint)subMesh.IndirectCommand.vertexOffset);
 
-            _calculateBounds.SetStorageBuffer(MinMaxBufferId, setId, _minMaxBuffer);
+            variant.SetStorageBuffer(MinMaxBufferId, _minMaxBuffer);
         }
     }
 }

@@ -179,7 +179,7 @@ namespace VECS
 #if DEBUG
             _textureSampler = ComputePipeline.GetOrCreate("textureSampler.comp");
             _textureResult = new GPUBuffer<float>(16, VkBufferUsageFlags.StorageBuffer, true, false, false);
-            _textureSampler.SetStorageBuffer("outBuffer".GetShaderPropertyId(), 0, _textureResult);
+            _textureSampler.Default().SetStorageBuffer("outBuffer".GetShaderPropertyId(), _textureResult);
             Application.Instance.OnDestroy += static () => _textureResult.Dispose();
 #endif
             Presenter.Instance.PostPresentationUpdate += PostPresent;
@@ -273,7 +273,7 @@ namespace VECS
                         float level = Math.Min(9, MathF.Floor(MathF.Log2(Math.Max(width, height))));
                         Vector2 uv = (new Vector2(aabb.X, aabb.Y) + new Vector2(aabb.Z, aabb.W)) * 0.5f;
                         uv.X = 1.0f - uv.X;
-                        _textureSampler.SetTexture("depthPyramid".GetShaderPropertyId(), 0, DepthReduction.DepthPryamid);
+                        _textureSampler.Default().SetTexture("depthPyramid".GetShaderPropertyId(), DepthReduction.DepthPryamid);
                         _textureSampler.PushConstantsHandler.SetPushConstantVector2("uv", 0, uv);
                         _textureSampler.PushConstantsHandler.SetPushConstantFloat("level", 0, level);
                         var computeCommandBuffer = GraphicsDevice.BeginSingleTimeMainPipe();

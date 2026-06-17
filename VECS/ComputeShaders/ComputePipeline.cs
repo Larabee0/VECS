@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Numerics;
 using System.Runtime.CompilerServices;
@@ -12,9 +13,9 @@ namespace VECS
 {
     public class ComputePipeline : DisposableAsset, IPipeline
     {
-        private readonly PushConstantsHandler _pushConstantsHandler;
+        private PushConstantsHandler _pushConstantsHandler;
 
-        private readonly int _descriptorSetCount = 0;
+        private int _descriptorSetCount = 0;
 
         public int DescriptorSetCount => _descriptorSetCount;
 
@@ -24,9 +25,9 @@ namespace VECS
 #if DEBUG
         private string _computeShaderModuleName;
 #endif
-        internal readonly DescriptorSetInfo[] _descriptorSetInfos;
-        private readonly VkDescriptorSetLayout[] _descriptorSetLayouts;
-        private readonly VkPipelineLayout _pipelineLayout;
+        internal DescriptorSetInfo[] _descriptorSetInfos;
+        private VkDescriptorSetLayout[] _descriptorSetLayouts;
+        private VkPipelineLayout _pipelineLayout;
         private VkPipeline _computePipline;
 
 
@@ -37,13 +38,15 @@ namespace VECS
         public int VariantCount => _computeVariants.Length;
         internal static bool _descriptorReWrite = false;
 
-        private readonly UniformBuffer _uniformBuffer;
-        private readonly uint _uniformSize = 0;
-        private readonly bool _hasUniforms = false;
-        private readonly VkBufferUsageFlags _uniformFlags = VkBufferUsageFlags.None;
+        private uint _version;
+        private UniformBuffer _uniformBuffer;
+        private uint _uniformSize = 0;
+        private bool _hasUniforms = false;
+        private VkBufferUsageFlags _uniformFlags = VkBufferUsageFlags.None;
         public uint UniformBufferSize => _uniformSize;
         public bool HasUniforms => _hasUniforms;
         public VkBufferUsageFlags UniformFlags => _uniformFlags;
+        public DescriptorSetInfo[] DescriptorSetInfos => _descriptorSetInfos;
         public PushConstantsHandler PushConstantsHandler => _pushConstantsHandler;
 
         private readonly static ConcurrentDictionary<int, int> _lastBoundComputePipeline = new(Environment.ProcessorCount, Environment.ProcessorCount * 2);
@@ -60,31 +63,8 @@ namespace VECS
             var spirShader = shaderModule.SpvShaderModule;
             var descriptorSetBindings = GPUPipelineUtil.GenerateSharedDescriptorBindings(spirShader);
             _descriptorSetCount = GPUPipelineUtil.GetSetCount(descriptorSetBindings);
-
-            _descriptorSetInfos = new DescriptorSetInfo[_descriptorSetCount];
-            _descriptorSetLayouts = new VkDescriptorSetLayout[_descriptorSetCount];
-            
-            for (uint setIndex = 0; setIndex < _descriptorSetCount; setIndex++)
-            {
-                var setBindings = GPUPipelineUtil.ExtractBindingsForSetAsBindingArray(setIndex, descriptorSetBindings);
-                var layout = GPUPipelineUtil.CreateDescriptorSetLayout(setBindings, VkDescriptorSetLayoutCreateFlags.DescriptorBufferEXT);
-                GraphicsDevice.SetObjectName(VkObjectType.DescriptorSetLayout, layout.Handle, string.Format("{0}_Set_{1}", AssetName, setIndex));
-                _descriptorSetLayouts[setIndex] = layout;
-                _descriptorSetInfos[setIndex] = new DescriptorSetInfo(layout, setBindings, true, _uniformSize, 1);
-                _uniformSize += _descriptorSetInfos[setIndex].UnifromBufferSize;
-                _uniformFlags |= _descriptorSetInfos[setIndex].UniformBufferFlags;
-                _hasUniforms |= _descriptorSetInfos[setIndex]._uniformCount > 0;
-            }
-            
-            if (_uniformSize > 0)
-            {
-                _uniformSize = (uint)GPUBufferExtensions.GetAlignment(_uniformSize, VkBufferUsageFlags.UniformBuffer);
-                _uniformBuffer = new(_uniformSize, 1, _uniformFlags,_descriptorSetInfos);
-                _uniformBuffer.SetDebugName(string.Format("{0}_UniformBuffer",AssetName));
-            }
-
+            InitialiseDescriptorSets(descriptorSetBindings, 1);
             _pushConstantsHandler = new(spirShader);
-
             _pipelineLayout = GPUPipelineUtil.CreatePipelineLayout(_descriptorSetLayouts, _pushConstantsHandler, shaderModule);
 
             VkComputePipelineCreateInfo computePipelineInfo = new()
@@ -95,7 +75,7 @@ namespace VECS
             };
 
             _computePipline = GPUPipelineUtil.CreateComputePipeline(computePipelineInfo);
-            GraphicsDevice.SetObjectName(VkObjectType.Pipeline, _computePipline.Handle, AssetName);
+            GraphicsDevice.SetObjectName(VkObjectType.Pipeline, _computePipline.Handle, AssetName + "_v" + _version);
             _computeVariants = [new ComputeVariant("Default", this, false)];
             _variantsToAdd.TryDequeue(out var variant);
 
@@ -106,6 +86,34 @@ namespace VECS
                 variant.localUniformAllocation = false;
             }
             shaderModule.RegisterComputePipeline(this);
+        }
+
+        private void InitialiseDescriptorSets(DescriptorBinding[] descriptorSetBindings, uint variantCount)
+        {
+            variantCount = Math.Max(1, variantCount);
+            _descriptorSetInfos = new DescriptorSetInfo[_descriptorSetCount];
+            _descriptorSetLayouts = new VkDescriptorSetLayout[_descriptorSetCount];
+
+            for (uint setIndex = 0; setIndex < _descriptorSetCount; setIndex++)
+            {
+                var setBindings = GPUPipelineUtil.ExtractBindingsForSetAsBindingArray(setIndex, descriptorSetBindings);
+                var layout = GPUPipelineUtil.CreateDescriptorSetLayout(setBindings, VkDescriptorSetLayoutCreateFlags.DescriptorBufferEXT);
+
+                GraphicsDevice.SetObjectName(VkObjectType.DescriptorSetLayout, layout.Handle, string.Format("{0}_Set_{1}", AssetName, setIndex));
+                _descriptorSetLayouts[setIndex] = layout;
+                _descriptorSetInfos[setIndex] = new DescriptorSetInfo(layout, setBindings, true, _uniformSize, variantCount);
+
+                _uniformSize += _descriptorSetInfos[setIndex].UnifromBufferSize;
+                _uniformFlags |= _descriptorSetInfos[setIndex].UniformBufferFlags;
+                _hasUniforms |= _descriptorSetInfos[setIndex]._uniformCount > 0;
+            }
+
+            if (_uniformSize > 0)
+            {
+                _uniformSize = (uint)GPUBufferExtensions.GetAlignment(_uniformSize, VkBufferUsageFlags.UniformBuffer);
+                _uniformBuffer = new(_uniformSize, variantCount, _uniformFlags, _descriptorSetInfos);
+                _uniformBuffer.SetDebugName(string.Format("{0}_UniformBuffer", AssetName));
+            }
         }
 
         internal DescriptorSetInfo[] GetTemporaryDescriptorSetInfos()
@@ -272,62 +280,6 @@ namespace VECS
             return false;
         }
 
-        public void SetStorageBuffer(string property, uint variant, SwapChainBuffer buffer)
-        {
-            if(LookUpProperty(property,out var propertyInfo) && propertyInfo.BindingInfo.StorageBuffer)
-            {
-                var setInfo = _descriptorSetInfos[propertyInfo.SetIndex];
-                setInfo.WriteDescriptors(Presenter.FrameIndex,propertyInfo.BindPoint, variant, buffer[Presenter.FrameIndex]);
-            }
-        }
-
-        public void SetStorageBuffer(int propertyId, uint variant, SwapChainBuffer buffer)
-        {
-            if (LookUpProperty(propertyId, out var propertyInfo) && propertyInfo.BindingInfo.StorageBuffer)
-            {
-                var setInfo = _descriptorSetInfos[propertyInfo.SetIndex];
-                setInfo.WriteDescriptors(Presenter.FrameIndex, propertyInfo.BindPoint, variant, buffer[Presenter.FrameIndex]);
-            }
-        }
-
-        public void SetStorageBuffer(int propertyId, uint variant, GPUBuffer buffer)
-        {
-            if (LookUpProperty(propertyId, out var propertyInfo) && propertyInfo.BindingInfo.StorageBuffer)
-            {
-                var setInfo = _descriptorSetInfos[propertyInfo.SetIndex];
-                setInfo.WriteDescriptors(Presenter.FrameIndex, propertyInfo.BindPoint, variant, buffer);
-            }
-        }
-
-        public void SetStorageBuffer(string property, uint variant, GPUBuffer buffer)
-        {
-            if (LookUpProperty(property, out var propertyInfo) && propertyInfo.BindingInfo.StorageBuffer)
-            {
-                var setInfo = _descriptorSetInfos[propertyInfo.SetIndex];
-                setInfo.WriteDescriptors(Presenter.FrameIndex, propertyInfo.BindPoint, variant, buffer);
-            }
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void SetTexture(int propertyId, uint variant, VkDescriptorImageInfo imageInfo, VkDescriptorType imageType)
-        {
-            if(LookUpProperty(propertyId, out var propertyInfo) && propertyInfo.BindingInfo.Image)
-            {
-                var setInfo = _descriptorSetInfos[propertyInfo.SetIndex];
-                setInfo.WriteDescriptors(Presenter.FrameIndex, propertyInfo.BindPoint, variant, imageInfo, imageType);
-            }
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void SetTexture(int propertyId, uint variant, Texture texture)
-        {
-            if (LookUpProperty(propertyId, out var propertyInfo) && propertyInfo.BindingInfo.Image)
-            {
-                var setInfo = _descriptorSetInfos[propertyInfo.SetIndex];
-                setInfo.WriteDescriptors(Presenter.FrameIndex, propertyInfo.BindPoint, variant, texture);
-            }
-        }
-
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetInt(string property, uint variant, int value)
         {
@@ -458,7 +410,7 @@ namespace VECS
             }
         }
 
-        public unsafe void Dispatch(VkCommandBuffer commandBuffer, int frameIndex, uint setId, uint workGroupCountX, uint workGroupCountY = 1, uint workGroupCountZ = 1)
+        public unsafe void Dispatch(VkCommandBuffer commandBuffer, int frameIndex, uint variantIndex, uint workGroupCountX, uint workGroupCountY = 1, uint workGroupCountZ = 1)
         {
             VkDescriptorBufferBindingInfoEXT* bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[_descriptorSetCount];
             ulong* offsets = stackalloc ulong[_descriptorSetCount];
@@ -468,11 +420,11 @@ namespace VECS
             {
                 var buffer = _descriptorSetInfos[i].DescriptorBuffers[frameIndex];
                 bindingInfo[i] = buffer.BindingInfo;
-                offsets[i] = buffer.AlignedSize * setId;
+                offsets[i] = buffer.AlignedSize * variantIndex;
                 indices[i] = i;
             }
 
-            Dispatch(commandBuffer, setId, bindingInfo, offsets, indices, workGroupCountX, workGroupCountY, workGroupCountZ);
+            Dispatch(commandBuffer, variantIndex, bindingInfo, offsets, indices, workGroupCountX, workGroupCountY, workGroupCountZ);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -626,9 +578,132 @@ namespace VECS
             return GPUPipelineUtil.CreateComputePipeline(computePipelineInfo);
         }
 
-        public void Reinitialise()
+        public unsafe void Reinitialise()
         {
-            throw new NotImplementedException();
+            _descriptorReWrite = true;
+            uint usedVariantCount = (uint)VariantCount;
+
+            ShaderModule shaders = AssetDataBase<ShaderModule>.GetHashed(_computeShaderModuleHash);
+
+            UniformBuffer existingUniformBuffer = _uniformBuffer;
+            var oldShaderProperties = new Dictionary<int, ShaderProperty>(_cachedShaderProperties);
+            var existingDescriptorSets = _descriptorSetInfos;
+
+            var descriptorSetBindings = GPUPipelineUtil.GetSharedBindings(shaders);
+
+            PipelineRecreation.EnqueueForDisposal(_computePipline, _descriptorSetLayouts);
+
+            InitialiseDescriptorSets(descriptorSetBindings, usedVariantCount);
+
+            ClearCachedData();
+            // descriptor set data matching
+            byte[] bytes;
+            Dictionary<int, Vector4UInt> textureRemap = [];
+            Dictionary<int, Vector4UInt> storageRemap = [];
+
+            for (int i = 0; i < existingDescriptorSets.Length; i++)
+            {
+                for (int j = 0; j < existingDescriptorSets[i].BindingCount; j++)
+                {
+                    var binding = existingDescriptorSets[i].DescriptorBindings[j];
+
+                    if (binding.StorageBuffer)
+                    {
+                        storageRemap.Add(binding.Id, new(binding.DescriptorSetIndex, (uint)existingDescriptorSets[i].BindingPointToBufferIndex[binding.BindPoint], uint.MaxValue, uint.MaxValue));
+                    }
+                    if (binding.Image)
+                    {
+                        textureRemap.Add(binding.Id, new(binding.DescriptorSetIndex, (uint)existingDescriptorSets[i].BindingPointToImageIndex[binding.BindPoint], uint.MaxValue, uint.MaxValue));
+                    }
+                }
+            }
+
+            for (int i = 0; i < DescriptorSetCount; i++)
+            {
+                for (int j = 0; j < DescriptorSetInfos[i].BindingCount; j++)
+                {
+                    var binding = DescriptorSetInfos[i].DescriptorBindings[j];
+
+                    if (binding.StorageBuffer && storageRemap.TryGetValue(binding.Id, out var remap))
+                    {
+                        remap.Z = binding.DescriptorSetIndex;
+                        remap.W = (uint)existingDescriptorSets[i].BindingPointToBufferIndex[binding.BindPoint];
+                        storageRemap[binding.Id] = remap;
+                    }
+
+                    if (binding.Image && textureRemap.TryGetValue(binding.Id, out remap))
+                    {
+                        remap.Z = binding.DescriptorSetIndex;
+                        remap.W = (uint)existingDescriptorSets[i].BindingPointToImageIndex[binding.BindPoint];
+                        textureRemap[binding.Id] = remap;
+                    }
+                }
+            }
+
+            // remapping for textures and storage buffer regions doesnt work bc lookuprpoperty will return false for global properties
+            // it needs complete remap even for global properties
+
+            foreach (var oldProperty in oldShaderProperties)
+            {
+                if (LookUpProperty(oldProperty.Key, out var newProperty))
+                {
+                    var oldShaderProperty = oldProperty.Value;
+
+                    if (newProperty.BindingInfo.StorageBuffer && newProperty.BindingInfo.BufferSize == oldShaderProperty.BindingInfo.BufferSize)
+                    {
+                        var oldSet = existingDescriptorSets[oldShaderProperty.SetIndex];
+                        var newSet = _descriptorSetInfos[newProperty.SetIndex];
+
+                        var oldBuffer = oldSet.GetBuffer(oldShaderProperty.BindPoint);
+                        var newBuffer = newSet.GetBuffer(newProperty.BindPoint);
+
+                        var index = oldSet.BindingPointToBufferIndex[oldShaderProperty.BindPoint];
+
+                        Buffer.MemoryCopy(oldBuffer.HostPtr, newBuffer.HostPtr, newBuffer.HostBufferSize, Math.Min(oldBuffer.HostBufferSize, newBuffer.HostBufferSize));
+                    }
+
+                    if (existingUniformBuffer == null || _uniformBuffer == null) continue;
+
+                    if (newProperty.Property != null && oldShaderProperty.Property != null && newProperty.Property.Size == oldShaderProperty.Property.Size)
+                    {
+                        bytes = new byte[newProperty.Property.Size];
+
+                        for (uint i = 0; i < VariantCount; i++)
+                        {
+                            existingUniformBuffer.ReadFromUniformBuffer(i, oldShaderProperty, ref bytes);
+                            _uniformBuffer.WriteToUniformBuffer(i, newProperty, bytes);
+                        }
+                    }
+                }
+            }
+
+            for (int i = 0; i < _computeVariants.Length; i++)
+            {
+                _computeVariants[i]?.Reinitialise(textureRemap, storageRemap);
+                if (_uniformBuffer != null)
+                {
+                    _computeVariants[i].pUniformBuffer = _uniformBuffer.UniformAddresses[i];
+                }
+            }
+
+            _pushConstantsHandler = new(shaders);
+
+            VkComputePipelineCreateInfo computePipelineInfo = new()
+            {
+                layout = _pipelineLayout,
+                stage = shaders.ShaderStageCreateInfo,
+                flags = VkPipelineCreateFlags.DescriptorBufferEXT
+            };
+
+            _pipelineLayout = GPUPipelineUtil.CreatePipelineLayout(_descriptorSetLayouts, _pushConstantsHandler, shaders);
+            _computePipline = GPUPipelineUtil.CreateComputePipeline(computePipelineInfo);
+
+            GraphicsDevice.SetObjectName(VkObjectType.Pipeline, _computePipline.Handle, AssetName + "_v" + _version);
+            for (int i = 0; i < existingDescriptorSets.Length; i++)
+            {
+                existingDescriptorSets[i].Dispose();
+            }
+            existingUniformBuffer?.Dispose();
         }
     }
 }
