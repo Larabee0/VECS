@@ -214,9 +214,9 @@ namespace VECS
                 var pipe = AssetDataBase<ComputePipeline>.AllAssetsListForReading[i];
                 computePipe += pipe.UniformBufferSize * SwapChain.MAX_CONCURRENT_FRAMES_UINT;
 
-                for (int j = 0; j < pipe._descriptorSetInfos.Length; j++)
+                for (int j = 0; j < pipe.DescriptorSetInfos.Length; j++)
                 {
-                    var setInfo = pipe._descriptorSetInfos[j];
+                    var setInfo = pipe.DescriptorSetInfos[j];
                     for (int k = 0; k < setInfo.DescriptorBuffers.Length; k++)
                     {
                         computePipe += setInfo.DescriptorBuffers[k].AllocationSize;

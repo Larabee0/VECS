@@ -457,7 +457,7 @@ namespace VECS
                 layout = configInfo.pipelineLayout,
 
                 basePipelineIndex = -1,
-                basePipelineHandle = configInfo.BasePipeline == null ? VkPipeline.Null : configInfo.BasePipeline._graphicsPipeline
+                basePipelineHandle = configInfo.BasePipeline == null ? VkPipeline.Null : configInfo.BasePipeline._pipeline
             };
 
             flags |= ((configInfo.BasePipeline != null)

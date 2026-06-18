@@ -181,21 +181,21 @@ namespace VECS
             uint divider = (uint)(int)MathF.Ceiling((float)componsatedBufferLength / (float)GraphicsDevice.MaxWorkGroupX);
             uint workGroupX = (uint)Math.Min(componsatedBufferLength, GraphicsDevice.MaxWorkGroupX);
 
-            _calculateBounds.PushConstantsHandler.SetPushConstantUInt(ParamsBufferLengthId, variantIndex, subMesh.VertexCount);
-            _calculateBounds.PushConstantsHandler.SetPushConstantUInt(ParamsDepthId, variantIndex, 1);
+            _calculateBounds.PushConstants.SetPushConstantUInt(ParamsBufferLengthId, variantIndex, subMesh.VertexCount);
+            _calculateBounds.PushConstants.SetPushConstantUInt(ParamsDepthId, variantIndex, 1);
             if (divider == 1)
             {
-                _calculateBounds.PushConstantsHandler.SetPushConstantUInt(ParamsWidthId, variantIndex, componsatedBufferLength);
-                _calculateBounds.PushConstantsHandler.SetPushConstantUInt(ParamsHeightId, variantIndex, 1);
+                _calculateBounds.PushConstants.SetPushConstantUInt(ParamsWidthId, variantIndex, componsatedBufferLength);
+                _calculateBounds.PushConstants.SetPushConstantUInt(ParamsHeightId, variantIndex, 1);
             }
             else
             {
-                _calculateBounds.PushConstantsHandler.SetPushConstantUInt(ParamsWidthId, variantIndex, workGroupX);
-                _calculateBounds.PushConstantsHandler.SetPushConstantUInt(ParamsHeightId, variantIndex, divider);
+                _calculateBounds.PushConstants.SetPushConstantUInt(ParamsWidthId, variantIndex, workGroupX);
+                _calculateBounds.PushConstants.SetPushConstantUInt(ParamsHeightId, variantIndex, divider);
             }
 
-            _calculateBounds.PushConstantsHandler.SetPushConstantUInt(ParamsSetIndexId, variantIndex, (uint)(variantIndex * 6));
-            _calculateBounds.PushConstantsHandler.SetPushConstantUInt(ParamsVertexOffsetId, variantIndex, (uint)subMesh.IndirectCommand.vertexOffset);
+            _calculateBounds.PushConstants.SetPushConstantUInt(ParamsSetIndexId, variantIndex, (uint)(variantIndex * 6));
+            _calculateBounds.PushConstants.SetPushConstantUInt(ParamsVertexOffsetId, variantIndex, (uint)subMesh.IndirectCommand.vertexOffset);
 
             variant.SetStorageBuffer(MinMaxBufferId, _minMaxBuffer);
         }

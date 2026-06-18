@@ -27,7 +27,7 @@ namespace VECS
         public int DescriptorSetCount => _computePipeline.DescriptorSetCount;
         public DescriptorSetInfo[] DescriptorSetInfos => _computePipeline.DescriptorSetInfos;
         public ComputePipeline Pipeline => _computePipeline;
-        public PushConstantsHandler PushConstantsHandler => _computePipeline.PushConstantsHandler;
+        public PushConstantsHandler PushConstantsHandler => _computePipeline.PushConstants;
 
         internal unsafe ComputeVariant(string name, ComputePipeline pipeline, bool localUniformAlloc = true, bool allowTmpBufferAllocation = true)
         {

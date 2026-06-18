@@ -274,8 +274,8 @@ namespace VECS
                         Vector2 uv = (new Vector2(aabb.X, aabb.Y) + new Vector2(aabb.Z, aabb.W)) * 0.5f;
                         uv.X = 1.0f - uv.X;
                         _textureSampler.Default().SetTexture("depthPyramid".GetShaderPropertyId(), DepthReduction.DepthPryamid);
-                        _textureSampler.PushConstantsHandler.SetPushConstantVector2("uv", 0, uv);
-                        _textureSampler.PushConstantsHandler.SetPushConstantFloat("level", 0, level);
+                        _textureSampler.PushConstants.SetPushConstantVector2("uv", 0, uv);
+                        _textureSampler.PushConstants.SetPushConstantFloat("level", 0, level);
                         var computeCommandBuffer = GraphicsDevice.BeginSingleTimeMainPipe();
 
                         _textureSampler.Dispatch(computeCommandBuffer, 0, 0, 1);

@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
@@ -29,12 +28,14 @@ namespace VECS
             }
             _graphicsPipelineConfigInfo = pipelineConfig;
             var descriptorSetBindings = GPUPipelineUtil.GetSharedBindings(vertex, fragment);
-            InitialiseDescriptorSets(descriptorSetBindings);
 
-            _materialPushConstantsHandler = new(vertex, fragment);
+            _oitDescriptorSetIndex = GPUPipelineUtil.GetOITSetIndex(descriptorSetBindings);
+            InitialiseDescriptorSets(descriptorSetBindings, 1, _meshShaderDescriptorSetIndex, false);
 
-            _pipelineLayout = GPUPipelineUtil.CreatePipelineLayout(_descriptorSetLayouts, _materialPushConstantsHandler, vertex, fragment);
-            _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipeline(_graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT, vertex, fragment);
+            _pushConstantsHandler = new(vertex, fragment);
+
+            _pipelineLayout = GPUPipelineUtil.CreatePipelineLayout(_descriptorSetLayouts, _pushConstantsHandler, vertex, fragment);
+            _pipeline = GPUPipelineUtil.CreateGraphicsPipeline(_graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT, vertex, fragment);
             CreateDefault();
             vertex.RegisterGraphicsPipeline(this);
             fragment.RegisterGraphicsPipeline(this);
@@ -61,12 +62,14 @@ namespace VECS
             pipelineConfig.rasterizationInfo.cullMode = VkCullModeFlags.Back;
             _graphicsPipelineConfigInfo = pipelineConfig;
             var descriptorSetBindings = GPUPipelineUtil.GetSharedBindings(vertex);
-            InitialiseDescriptorSets(descriptorSetBindings);
 
-            _materialPushConstantsHandler = new(vertex);
+            _oitDescriptorSetIndex = GPUPipelineUtil.GetOITSetIndex(descriptorSetBindings);
+            InitialiseDescriptorSets(descriptorSetBindings, 1, _meshShaderDescriptorSetIndex, false);
 
-            _pipelineLayout = GPUPipelineUtil.CreatePipelineLayout(_descriptorSetLayouts, _materialPushConstantsHandler, vertex);
-            _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipeline(_graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT, vertex);
+            _pushConstantsHandler = new(vertex);
+
+            _pipelineLayout = GPUPipelineUtil.CreatePipelineLayout(_descriptorSetLayouts, _pushConstantsHandler, vertex);
+            _pipeline = GPUPipelineUtil.CreateGraphicsPipeline(_graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT, vertex);
             CreateDefault();
             vertex.RegisterGraphicsPipeline(this);
             AssetDataBase<GraphicsPipeline>.Add(this);
@@ -110,12 +113,13 @@ namespace VECS
                 _meshShaderDescriptorHash = HashCode.Combine(_meshShaderDescriptorHash, HashCode.Combine((byte)attributeDesc.attribute, (byte)attributeDesc.format));
             }
 
-            InitialiseDescriptorSets(descriptorSetBindings);
+            _oitDescriptorSetIndex = GPUPipelineUtil.GetOITSetIndex(descriptorSetBindings);
+            InitialiseDescriptorSets(descriptorSetBindings, 1, _meshShaderDescriptorSetIndex, false);
 
-            _materialPushConstantsHandler = new(mesh, task, fragment);
+            _pushConstantsHandler = new(mesh, task, fragment);
 
-            _pipelineLayout = GPUPipelineUtil.CreatePipelineLayout(_descriptorSetLayouts, _materialPushConstantsHandler, mesh, task, fragment);
-            _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipeline(_graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT, mesh, task, fragment);
+            _pipelineLayout = GPUPipelineUtil.CreatePipelineLayout(_descriptorSetLayouts, _pushConstantsHandler, mesh, task, fragment);
+            _pipeline = GPUPipelineUtil.CreateGraphicsPipeline(_graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT, mesh, task, fragment);
             CreateDefault();
             mesh.RegisterGraphicsPipeline(this);
             task.RegisterGraphicsPipeline(this);
@@ -145,54 +149,18 @@ namespace VECS
             }
             _graphicsPipelineConfigInfo = pipelineConfig;
             var descriptorSetBindings = GPUPipelineUtil.GetSharedBindings(vertex, geometry, fragment);
-            InitialiseDescriptorSets(descriptorSetBindings);
+            _oitDescriptorSetIndex = GPUPipelineUtil.GetOITSetIndex(descriptorSetBindings);
+            InitialiseDescriptorSets(descriptorSetBindings, 1, _meshShaderDescriptorSetIndex, false);
 
-            _materialPushConstantsHandler = new(vertex, geometry, fragment);
+            _pushConstantsHandler = new(vertex, geometry, fragment);
 
-            _pipelineLayout = GPUPipelineUtil.CreatePipelineLayout( _descriptorSetLayouts, _materialPushConstantsHandler, vertex, geometry, fragment);
-            _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipeline(_graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT, vertex, geometry, fragment);
+            _pipelineLayout = GPUPipelineUtil.CreatePipelineLayout( _descriptorSetLayouts, _pushConstantsHandler, vertex, geometry, fragment);
+            _pipeline = GPUPipelineUtil.CreateGraphicsPipeline(_graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT, vertex, geometry, fragment);
             CreateDefault();
             vertex.RegisterGraphicsPipeline(this);
             geometry.RegisterGraphicsPipeline(this);
             fragment.RegisterGraphicsPipeline(this);
             AssetDataBase<GraphicsPipeline>.Add(this);
         }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void InitialiseDescriptorSets(DescriptorBinding[] descriptorSetBindings, uint variantCount = 1)
-        {
-            variantCount = Math.Max(1,variantCount);
-            _descriptorSetCount = GPUPipelineUtil.GetSetCount(descriptorSetBindings);
-            _oitDescriptorSetIndex = GPUPipelineUtil.GetOITSetIndex(descriptorSetBindings);
-
-            _descriptorSetLayouts = new VkDescriptorSetLayout[_descriptorSetCount];
-            _descriptorSetInfos = new DescriptorSetInfo[_descriptorSetCount];
-            _uniformBufferSize = 0;
-            _uniformBufferUsage = VkBufferUsageFlags.None;
-            _hasUniforms = false;
-
-            for (uint setIndex = 0; setIndex < _descriptorSetCount; setIndex++)
-            {
-                var setBindings = GPUPipelineUtil.ExtractBindingsForSetAsBindingArray(setIndex, descriptorSetBindings);
-                var layout = GPUPipelineUtil.CreateDescriptorSetLayout(setBindings, VkDescriptorSetLayoutCreateFlags.DescriptorBufferEXT);
-
-                GraphicsDevice.SetObjectName(VkObjectType.DescriptorSetLayout, layout.Handle, string.Format("{0}_Set_{1}", AssetName, setIndex));
-                _descriptorSetLayouts[setIndex] = layout;
-                bool preventStorageBufferAllocation = _meshShaderDescriptorSetIndex == setIndex; // || _oitDescriptorSetIndex == setIndex;
-                var setInfo = new DescriptorSetInfo(layout, setBindings, preventStorageBufferAllocation, _uniformBufferSize, variantCount, _meshShaderDescriptorSetIndex == setIndex);
-
-                _uniformBufferSize += setInfo.UnifromBufferSize;
-                _uniformBufferUsage |= setInfo.UniformBufferFlags;
-                _hasUniforms |= setInfo._uniformCount > 0;
-                _descriptorSetInfos[setIndex] = setInfo;
-            }
-            if (_uniformBufferSize > 0)
-            {
-                _uniformBufferSize = (uint)GPUBufferExtensions.GetAlignment(_uniformBufferSize, VkBufferUsageFlags.UniformBuffer);
-                _uniformBuffer = new(_uniformBufferSize, variantCount, _uniformBufferUsage, _descriptorSetInfos);
-                _uniformBuffer.SetDebugName(string.Format("{0}_UniformBuffer", AssetName));
-            }
-        }
-
     }
 }

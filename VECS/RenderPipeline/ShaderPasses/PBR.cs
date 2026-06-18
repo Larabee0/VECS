@@ -30,8 +30,8 @@ namespace VECS
         {
             CreateAssets();
 
-            Irradiance_Generator.SetTexture("samplerEnv".GetShaderPropertyId(), 0, Skybox.SkyboxTexture);
-            Prefiltered_Generator.SetTexture("samplerEnv".GetShaderPropertyId(), 0, Skybox.SkyboxTexture);
+            Irradiance_Generator.Default().SetTexture("samplerEnv".GetShaderPropertyId(), Skybox.SkyboxTexture);
+            Prefiltered_Generator.Default().SetTexture("samplerEnv".GetShaderPropertyId(), Skybox.SkyboxTexture);
 
             var irradianceProp = "samplerIrradiance".GetShaderPropertyId();
             var prefilteredProp = "prefilteredMap".GetShaderPropertyId();

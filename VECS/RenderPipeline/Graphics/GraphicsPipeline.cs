@@ -10,70 +10,31 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
-    public partial class GraphicsPipeline : DisposableAsset, IPipeline
+    public partial class GraphicsPipeline : Pipeline
     {
-        public const int MAX_VARIANTS = 1000;
-        public const uint DEFAULT_STORAGE_BUFFER_COUNT = 10000;
-
-        internal static bool _descriptorReWrite = false;
-
         private readonly static ConcurrentDictionary<int, int> _lastBoundGraphicsPipeline = new(Environment.ProcessorCount, Environment.ProcessorCount * 2);
-        private uint _version;
-        private readonly int[] _shaderHashes;
-
-#if DEBUG
-        private ShaderModule[] _shaders;
-#endif
-
+       
         private GraphicsPipelineConfigInfo _graphicsPipelineConfigInfo;
 
-        private VkPipelineLayout _pipelineLayout;
-        internal VkPipeline _graphicsPipeline;
-
-        private VkDescriptorSetLayout[] _descriptorSetLayouts;
         private VertexAttributeDescription[] _meshShaderVertexAttributes;
 
-        private int _descriptorSetCount = 0;
         private int _oitDescriptorSetIndex = -1;
         private int _meshShaderDescriptorSetIndex = -1;
         private int _meshShaderDescriptorHash = 0;
 
-        private uint _uniformBufferSize;
-        private VkBufferUsageFlags _uniformBufferUsage;
-
-        private ConcurrentDictionary<int, ShaderProperty> _cachedShaderProperties = new();
-
-        private PushConstantsHandler _materialPushConstantsHandler;
-        private DescriptorSetInfo[] _descriptorSetInfos;
-
-        internal UniformBuffer _uniformBuffer;
-
         internal Material[] _matVariants;
 
-        private ConcurrentQueue<uint> _freeVariantIndices = new();
         private ConcurrentQueue<Material> _variantsToAdd = new();
 
-        private uint _variantCount;
         internal bool _preBindUpdate = false;
-        private bool _hasUniforms = false;
+        public override int VariantCount => _matVariants.Length;
 
         public bool Transparent => _oitDescriptorSetIndex != -1;
-
-        public int VariantCount => _matVariants.Length;
-        public uint UniformBufferSize => _uniformBufferSize;
-        public bool HasUniforms => _hasUniforms;
-
         public int MeshShaderDescriptorSetIndex => _meshShaderDescriptorSetIndex;
-        public int DescriptorSetCount => _descriptorSetCount;
-
-        internal VkPipelineLayout PipelineLayout => _pipelineLayout;
-
-        public DescriptorSetInfo[] DescriptorSetInfos => _descriptorSetInfos;
-        public PushConstantsHandler PushConstants => _materialPushConstantsHandler;
 
         private unsafe void CreateDefault()
         {
-            GraphicsDevice.SetObjectName(VkObjectType.Pipeline, _graphicsPipeline.Handle, AssetName + "_v" + _version);
+            GraphicsDevice.SetObjectName(VkObjectType.Pipeline, _pipeline.Handle, AssetName + "_v" + _version);
             _matVariants = [new Material("Default", this,false)];
             _variantsToAdd.TryDequeue(out var material);
 
@@ -87,21 +48,9 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public DescriptorBinding[] GetDescriptorBindings(uint setIndex)
-        {
-            return _descriptorSetInfos[setIndex].DescriptorBindings;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private SwapChainBuffer GetBuffer(DescriptorBinding descriptorBinding)
         {
             return GetBuffer(descriptorBinding.DescriptorSetIndex, descriptorBinding.BindPoint);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private SwapChainBuffer GetBuffer(uint set, uint bindingPoint)
-        {
-            return _descriptorSetInfos[set].GetBuffer(bindingPoint);
         }
 
         public void SetBufferUsedInstanceCount(uint set, uint bindingPoint)
@@ -110,61 +59,6 @@ namespace VECS
             {
                 GetBuffer(set, bindingPoint).SetUsedInstanceCount(Default().GetStorageBufferLength(set, bindingPoint));
             }
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal uint InternalUniformBufferOffset(uint set, uint bindPoint)
-        {
-            var setInfo = _descriptorSetInfos[set];
-            return setInfo.UnifromBufferOffset + setInfo.SetUniformBufferOffsets[bindPoint];
-        }
-
-        public bool LookUpProperty(int propertyId, out ShaderProperty propertyInfo)
-        {
-            if (_cachedShaderProperties.TryGetValue(propertyId, out propertyInfo))
-            {
-                return propertyInfo != ShaderProperties.Invalid;
-            }
-
-            for (uint setIndex = 0; setIndex < _descriptorSetCount; setIndex++)
-            {
-                var bindings = GetDescriptorBindings(setIndex);
-                for (int bindingIndex = 0; bindingIndex < bindings.Length; bindingIndex++)
-                {
-                    var descriptorBinding = bindings[bindingIndex];
-                    if (descriptorBinding.Id == propertyId)
-                    {
-                        propertyInfo = new(descriptorBinding, null);
-                        _cachedShaderProperties.TryAdd(propertyId, propertyInfo);
-                        return true;
-                    }
-                    var property = descriptorBinding.GetProperty(propertyId);
-                    if (property != null)
-                    {
-                        propertyInfo = new(descriptorBinding, property);
-                        _cachedShaderProperties.TryAdd(propertyId, propertyInfo);
-                        return true;
-                    }
-                }
-            }
-
-#if DEBUG
-            bool isGlobalProperty = ShaderProperties.IgnoreUnFoundShaderProperties.Contains(propertyId);
-            if (!isGlobalProperty || (ShaderProperties.LOG_MISSING_GLOBAL_SHADER_PROPERTIES && isGlobalProperty))
-            {
-                Console.WriteLine("Material '{0}' has no shader property matching propertyId: '{1}' -> '{2}'", AssetName, propertyId, propertyId.GetPropertyIdString());
-            }
-#endif
-            propertyInfo = ShaderProperties.Invalid;
-            _cachedShaderProperties.TryAdd(propertyId, propertyInfo);
-            return false;
-        }
-
-        public uint GetNextVariantIndex()
-        {
-            if (_freeVariantIndices.TryDequeue(out var index))
-                return index;
-            return Interlocked.Add(ref _variantCount, 1) - 1;
         }
 
         public void RemoveVariant(Material material)
@@ -204,7 +98,7 @@ namespace VECS
             return _matVariants[0];
         }
 
-        private unsafe bool AllocNewVariants()
+        protected override unsafe bool AllocNewVariants()
         {
             if(!_variantsToAdd.IsEmpty)
             {
@@ -291,63 +185,6 @@ namespace VECS
                     }
                 }
             }
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void WriteToUniformBuffer<T>(uint variant, ShaderProperty propertyInfo, T element) where T : unmanaged
-        {
-            _uniformBuffer.WriteToUniformBuffer(variant, propertyInfo, element);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe void WriteToUniformBuffer<T>(void* uniform, ShaderProperty propertyInfo, T element) where T : unmanaged
-        {
-            _uniformBuffer.WriteToUniformBuffer(uniform, propertyInfo, element);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public T ReadFromUniformBuffer<T>(uint variant, ShaderProperty propertyInfo) where T : unmanaged
-        {
-            return _uniformBuffer.ReadFromUniformBuffer<T>(variant, propertyInfo);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe T ReadFromUniformBuffer<T>(void* uniform, ShaderProperty propertyInfo) where T : unmanaged
-        {
-            return _uniformBuffer.ReadFromUniformBuffer<T>(uniform, propertyInfo);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void WriteArrayToBuffer<T>(uint variant, ShaderProperty propertyInfo, Span<T> array) where T : unmanaged
-        {
-            _uniformBuffer.WriteArrayToBuffer(variant, propertyInfo, array);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe void WriteArrayToBuffer<T>(void* uniform, ShaderProperty propertyInfo, Span<T> array) where T : unmanaged
-        {
-            _uniformBuffer.WriteArrayToBuffer(uniform, propertyInfo, array);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public T[] ReadArrayFromBuffer<T>(uint variant, ShaderProperty propertyInfo) where T : unmanaged
-        {
-            return _uniformBuffer.ReadArrayFromBuffer<T>(variant,propertyInfo);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe T[] ReadArrayFromBuffer<T>(void* uniform, ShaderProperty propertyInfo) where T : unmanaged
-        {
-            return _uniformBuffer.ReadArrayFromBuffer<T>(uniform, propertyInfo);
-        }
-
-        internal void SetTexture(ShaderProperty propertyInfo, uint variant, Texture texture)
-        {
-            if (_matVariants[variant] == null)
-            {
-                throw new InvalidOperationException("Variant not yet created, cannot set texture!");
-            }
-            _matVariants[variant].SetTexture(propertyInfo.SetIndex, propertyInfo.BindPoint, texture);
         }
 
         public void SetDescriptorStorageBufferLength(uint setIndex, uint bindingIndex, uint length)
@@ -457,7 +294,7 @@ namespace VECS
 
             if (!init || shaderHash != Hash || shaderHash == int.MaxValue)
             {
-                GraphicsDevice.DeviceAPI.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Graphics, _graphicsPipeline);
+                GraphicsDevice.DeviceAPI.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Graphics, _pipeline);
                 _lastBoundGraphicsPipeline.AddOrUpdate(threadID, Hash, (a, b) => Hash);
             }
 
@@ -500,7 +337,7 @@ namespace VECS
             {
                 GraphicsDevice.DeviceAPI.vkCmdSetCullMode(commandBuffer, _matVariants[variantIndex].CullMode);
             }
-            _materialPushConstantsHandler.BindPushConstants(commandBuffer, _pipelineLayout, variantIndex);
+            _pushConstantsHandler.BindPushConstants(commandBuffer, _pipelineLayout, variantIndex);
         }
 
         public unsafe void BindAllMesh(RendererFrameInfo frameInfo,uint variantIndex, DirectMesh mesh)
@@ -549,7 +386,7 @@ namespace VECS
             {
                 GraphicsDevice.DeviceAPI.vkCmdSetCullMode(commandBuffer, _matVariants[variantIndex].CullMode);
             }
-            _materialPushConstantsHandler.BindPushConstants(commandBuffer, _pipelineLayout, variantIndex);
+            _pushConstantsHandler.BindPushConstants(commandBuffer, _pipelineLayout, variantIndex);
         }
 
         public unsafe void ExecuteDrawCommands(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, Span<MaterialDrawCommand> drawCmds, int matDrawCount, SwapChainBuffer<VECSDrawIndexIndirectCommand> indirectCmdBuffer)
@@ -747,7 +584,7 @@ namespace VECS
                 }
             }
 
-            _materialPushConstantsHandler.BindPushConstants(commandBuffer, _pipelineLayout, pushConstantIndex);
+            _pushConstantsHandler.BindPushConstants(commandBuffer, _pipelineLayout, pushConstantIndex);
             var mesh = AssetDataBase<DirectMesh>.GetHashed(command.DirectMesh);
             mesh.BindSpecificBuffers(commandBuffer, _graphicsPipelineConfigInfo.BindingDescriptions, _graphicsPipelineConfigInfo.AttributeDescriptions);
 
@@ -777,7 +614,7 @@ namespace VECS
                 }
             }
 
-            _materialPushConstantsHandler.BindPushConstants(commandBuffer, _pipelineLayout, pushConstantIndex);
+            _pushConstantsHandler.BindPushConstants(commandBuffer, _pipelineLayout, pushConstantIndex);
             var mesh = AssetDataBase<DirectMesh>.GetHashed(command.DirectMesh);
             mesh.BindSpecificBuffers(commandBuffer, _graphicsPipelineConfigInfo.BindingDescriptions, _graphicsPipelineConfigInfo.AttributeDescriptions);
 
@@ -788,11 +625,11 @@ namespace VECS
                 (uint)command.MeshSubRegion.Count, (uint)sizeof(VECSDrawIndexIndirectCommand));
         }
 
-        public VkPipeline ReplacePipeline(VkPipeline pipeline)
+        public override VkPipeline ReplacePipeline(VkPipeline pipeline)
         {
-            var old = _graphicsPipeline;
+            var old = _pipeline;
 
-            _graphicsPipeline = pipeline;
+            _pipeline = pipeline;
 
             return old;
         }
@@ -803,30 +640,17 @@ namespace VECS
             _cachedShaderProperties.Clear();
         }
 
-        public unsafe override void Dispose()
+        public override void Dispose()
         {
             if (_disposed) return;
-            _disposed = true;
+
 
             GC.SuppressFinalize(this);
             for (int i = 0; i < _matVariants.Length; i++)
             {
                 _matVariants[i]?.Dispose();
             }
-            GraphicsDevice.DeviceAPI.vkDestroyPipeline(_graphicsPipeline);
-
-            for (int i = 0; i < _descriptorSetCount; i++)
-            {
-                _descriptorSetInfos[i].Dispose();
-            }
-
-            _uniformBuffer?.Dispose();
-
-            for (int i = 0; i < _descriptorSetLayouts.Length; i++)
-            {
-                GraphicsDevice.DeviceAPI.vkDestroyDescriptorSetLayout(_descriptorSetLayouts[i], null);
-            }
-
+            base.Dispose();
             GC.ReRegisterForFinalize(this);
         }
 
@@ -945,7 +769,7 @@ namespace VECS
         /// Changes in shaders requires alot more complexity
         /// </summary>
         /// <returns></returns>
-        public VkPipeline Recreate()
+        public override VkPipeline Recreate()
         {
             ShaderModule[] shaders = new ShaderModule[_shaderHashes.Length];
             for (int i = 0; i < _shaderHashes.Length; i++)
@@ -961,7 +785,7 @@ namespace VECS
         /// Used to a deep reload of the pipeline after a shader has been modified
         /// </summary>
         /// <exception cref="NotImplementedException"></exception>
-        public unsafe void Reinitialise()
+        public override unsafe void Reinitialise()
         {
             _descriptorReWrite = true;
             uint usedVariantCount = (uint)VariantCount;
@@ -979,9 +803,10 @@ namespace VECS
 
             var descriptorSetBindings = GPUPipelineUtil.GetSharedBindings(shaders);
 
-            PipelineRecreation.EnqueueForDisposal(_graphicsPipeline, _descriptorSetLayouts);
-
-            InitialiseDescriptorSets(descriptorSetBindings, usedVariantCount);
+            PipelineRecreation.EnqueueForDisposal(_pipeline, _descriptorSetLayouts);
+            
+            _oitDescriptorSetIndex = GPUPipelineUtil.GetOITSetIndex(descriptorSetBindings);
+            InitialiseDescriptorSets(descriptorSetBindings, usedVariantCount, _meshShaderDescriptorSetIndex, false);
 
             ClearCachedData();
             // descriptor set data matching
@@ -1074,12 +899,12 @@ namespace VECS
                 }
             }
 
-            _materialPushConstantsHandler = new(shaders);
+            _pushConstantsHandler = new(shaders);
 
-            _pipelineLayout = GPUPipelineUtil.CreatePipelineLayout(_descriptorSetLayouts, _materialPushConstantsHandler, shaders);
-            _graphicsPipeline = GPUPipelineUtil.CreateGraphicsPipeline(_graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT, shaders);
+            _pipelineLayout = GPUPipelineUtil.CreatePipelineLayout(_descriptorSetLayouts, _pushConstantsHandler, shaders);
+            _pipeline = GPUPipelineUtil.CreateGraphicsPipeline(_graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT, shaders);
 
-            GraphicsDevice.SetObjectName(VkObjectType.Pipeline, _graphicsPipeline.Handle, AssetName+"_v"+ _version);
+            GraphicsDevice.SetObjectName(VkObjectType.Pipeline, _pipeline.Handle, AssetName+"_v"+ _version);
             for (int i = 0; i < existingDescriptorSets.Length; i++)
             {
                 existingDescriptorSets[i].Dispose();

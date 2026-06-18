@@ -163,24 +163,6 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void WriteToBuffer<T>(this GraphicsPipeline pipeline, int propertyId, uint variant, T element) where T : unmanaged
-        {
-            if (pipeline.LookUpProperty(propertyId, out var propertyInfo))
-            {
-                pipeline.WriteToUniformBuffer(variant, propertyInfo, element);
-            }
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void WriteToBufferArray<T>(this GraphicsPipeline pipeline, int propertyId, uint variant, Span<T> values) where T : unmanaged
-        {
-            if (pipeline.LookUpProperty(propertyId, out var propertyInfo))
-            {
-                pipeline.WriteArrayToBuffer(variant, propertyInfo, values);
-            }
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool LookUpProperty(this Material material, int propertyId, out ShaderProperty propertyInfo)
         {
             return material.Pipeline.LookUpProperty(propertyId, out propertyInfo);
@@ -205,15 +187,6 @@ namespace VECS
         public static void SetTexture(this Material material, ShaderProperty propertyInfo, ITextureProvider texture)
         {
             material.SetTexture(propertyInfo.SetIndex, propertyInfo.BindPoint, texture);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetTexture(this GraphicsPipeline pipeline, int propertyId, uint variant, Texture texture)
-        {
-            if(pipeline.LookUpProperty(propertyId, out ShaderProperty shaderPropertyInfo))
-            {
-                pipeline.SetTexture(shaderPropertyInfo, variant, texture);
-            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

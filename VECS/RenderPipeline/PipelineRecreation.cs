@@ -7,23 +7,14 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
-    public interface IPipeline : IDisposable
-    {
-        public VkPipeline ReplacePipeline(VkPipeline pipeline);
-
-        public VkPipeline Recreate();
-
-        public unsafe void Reinitialise();
-    }
-
     public static class PipelineRecreation
     {
         private class NewPipeline
         {
             public readonly VkPipeline VkPipeline;
-            public readonly IPipeline Target;
+            public readonly Pipeline Target;
 
-            public NewPipeline(VkPipeline newVkPipeline, IPipeline target)
+            public NewPipeline(VkPipeline newVkPipeline, Pipeline target)
             {
                 VkPipeline = newVkPipeline;
                 Target = target;
@@ -32,12 +23,12 @@ namespace VECS
 
         private class DisposePipeline
         {
-            public readonly IPipeline Pipeline;
+            public readonly Pipeline Pipeline;
             public readonly VkPipeline VkPipeline;
             public readonly VkDescriptorSetLayout[] DescriptorSetLayouts;
             public ulong FrameIndex;
 
-            public DisposePipeline(IPipeline pipeline, ulong i)
+            public DisposePipeline(Pipeline pipeline, ulong i)
             {
                 Pipeline = pipeline;
                 VkPipeline = VkPipeline.Null;
@@ -74,9 +65,9 @@ namespace VECS
         }
 
 
-        private readonly static ConcurrentQueue<IPipeline> _shaderChanged = new();
+        private readonly static ConcurrentQueue<Pipeline> _shaderChanged = new();
 
-        private readonly static ConcurrentQueue<IPipeline> _recreationQueue = new();
+        private readonly static ConcurrentQueue<Pipeline> _recreationQueue = new();
 
         private readonly static ConcurrentQueue<NewPipeline> _newPipelines = new();
 
@@ -147,7 +138,7 @@ namespace VECS
             _srcDisposalQueue.Enqueue(new(oldPipeline, null, 0));
         }
 
-        private static void RecreatePipeline(IPipeline recreate)
+        private static void RecreatePipeline(Pipeline recreate)
         {
 
             ReplacePipeline(new(recreate.Recreate(), recreate));
@@ -170,7 +161,7 @@ namespace VECS
             }
         }
 
-        public static void EnqueueForDisposal(IPipeline graphicsPipeline)
+        public static void EnqueueForDisposal(Pipeline graphicsPipeline)
         {
             _srcDisposalQueue.Enqueue(new(graphicsPipeline, 0));
         }
@@ -180,12 +171,12 @@ namespace VECS
             _srcDisposalQueue.Enqueue(new(pipeline, descriptorSetLayouts, 0));
         }
 
-        public static void EnqueueForRecreation(IPipeline graphicsPipeline)
+        public static void EnqueueForRecreation(Pipeline graphicsPipeline)
         {
             _recreationQueue.Enqueue(graphicsPipeline);
         }
 
-        public static void EnqueueShaderChanged(IPipeline graphicsPipeline)
+        public static void EnqueueShaderChanged(Pipeline graphicsPipeline)
         {
             _shaderChanged.Enqueue(graphicsPipeline);
         }
@@ -193,7 +184,7 @@ namespace VECS
         public static bool PlaybackShaderChangeCommands()
         {
             if (_shaderChanged.IsEmpty) return false;
-            HashSet<IPipeline> pipelines = [];
+            HashSet<Pipeline> pipelines = [];
             while (_shaderChanged.TryDequeue(out var pipeline))
             {
                 pipelines.Add(pipeline);
