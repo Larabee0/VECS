@@ -26,7 +26,7 @@
       <Rectangle x:Name="HierarchyViewBG" Grid.ColumnSpan="2" Fill="#FF0303FF" Stroke="#FF000000"/>
       <Viewbox>
         <StackPanel x:Name="HierarchyContainer" Height="635" MaxHeight="635">
-          <TreeView x:Name="HierarchyTreeView" BorderBrush="{StaticResource Brush.Border.Normal}" BorderThickness="1">
+          <TreeView x:Name="HierarchyTreeView" BorderBrush="{StaticResource Brush.Border.Normal}" BorderThickness="1" MaxHeight="635">
             
           </TreeView>
         </StackPanel>

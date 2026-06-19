@@ -10,6 +10,7 @@ namespace VECS.UI
     public class NoesisViewWrapper : IDisposable
     {
         private const bool ALWAYS_RE_RENDER = true;
+        private const int MOUSE_WHEEL_MULTIPLIER = 50;
         private static readonly int inputTextureId = "inputTexture".GetShaderPropertyId();
         
         public FrameworkElement ControlTreeRoot;
@@ -179,10 +180,9 @@ namespace VECS.UI
                     view.Char(input.Text[i]);
                 }
             }
-            int xDir = Math.Clamp((int)input.MouseWheelH, -1, 1);
-            int yDir = Math.Clamp((int)input.MouseWheel, -1, 1);
-            view.MouseWheel(xDir, 0, (int)Math.Abs(input.MouseWheelH));
-            view.MouseWheel(0, yDir, (int)Math.Abs(input.MouseWheel));
+            
+            view.MouseHWheel(mousePos.X, mousePos.Y, (int)input.MouseWheelH * MOUSE_WHEEL_MULTIPLIER);
+            view.MouseWheel(mousePos.X, mousePos.Y, (int)input.MouseWheel * MOUSE_WHEEL_MULTIPLIER);
         }
 
         private static void MouseButtonDown(int x, int y, MouseButton button, View view)

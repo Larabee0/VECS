@@ -178,6 +178,8 @@ namespace VECS
             _mouseDelta = Vector2.Zero;
             _mouseMotion = false;
             _mousePosOld = _mousePos;
+            MouseWheel = 0;
+            MouseWheelH = 0;
             Text = "";
         }
 

@@ -34,12 +34,13 @@ namespace VECS.UI
 
 
             MainView = new NoesisViewWrapper("Editor/MainWindow.xaml");
-
-            MainView.View.Content.GotFocus += GotFocus;
-            MainView.View.Content.LostFocus += LostFocus;
-            MainView.View.Content.FocusableChanged += FocusChanged;
+            
+            // MainView.View.Content.GotFocus += GotFocus;
+            // MainView.View.Content.LostFocus += LostFocus;
+            // MainView.View.Content.FocusableChanged += FocusChanged;
             _hierarchyTreeView = (TreeView)ControlTreeRoot.FindName("HierarchyTreeView");
-            //_hierarchyTreeView.Items.Clear();
+            _hierarchyTreeView.SelectedItemChanged += TreeViewItemChanged;
+            
             var gameview = (Image)ControlTreeRoot.FindName("GameView");
             var fowardRenderer = Presenter.Instance.Renderer;
             var colourTarget = fowardRenderer.MainColourAttachment.Target;
@@ -60,26 +61,19 @@ namespace VECS.UI
             Console.WriteLine("Focus Changed");
         }
 
-        private void GotFocus(object sender, RoutedEventArgs args)
+        private void TreeViewItemChanged(object sender, RoutedEventArgs args)
         {
-            Console.WriteLine("Got Focus");
-            Console.WriteLine(args.Source.ToString());
-            if (args.Source is TreeViewItem treeItem)
+            Console.WriteLine("TreeViewItemChanged"); 
+            if(_hierarchyTreeView.SelectedItem is TreeViewItem treeView)
             {
-                Console.WriteLine(treeItem.Header);
+                Console.WriteLine("Selected TreeView Item {0}",treeView.Header);
+            }
+            else
+            {
+                Console.WriteLine("De selected Item");
             }
         }
 
-        private void LostFocus(object sender, RoutedEventArgs args)
-        {
-            Console.WriteLine("Lost Focus");
-            Console.WriteLine(args.Source.ToString());
-            if (args.Source is TreeViewItem treeView)
-            {
-                Console.WriteLine(treeView.Header);
-            }
-        }
-        
         public override void OnUpdate(EntityManager entityManager)
         {
             UpdateHierarchy(entityManager);
@@ -168,9 +162,10 @@ namespace VECS.UI
 
         public override void OnDestroy(EntityManager entityManager)
         {
-            MainView.View.Content.GotFocus -= GotFocus;
-            MainView.View.Content.LostFocus -= LostFocus;
-            MainView.View.Content.FocusableChanged -= FocusChanged;
+            // MainView.View.Content.GotFocus -= GotFocus;
+            // MainView.View.Content.LostFocus -= LostFocus;
+            // MainView.View.Content.FocusableChanged -= FocusChanged;
+            _hierarchyTreeView.SelectedItemChanged -= TreeViewItemChanged;
             MainView.Dispose();
         }
 
@@ -197,7 +192,8 @@ namespace VECS.UI
                 {
                     Header = entityName
                 };
-                item.GotFocus+= GotFocus;
+                
+                //item.Selected+= GotFocus;
                 if (parent == null)
                 {
                     rootItem = item;
@@ -216,17 +212,15 @@ namespace VECS.UI
                 }
             }
 
-        private void GotFocus(object sender, RoutedEventArgs args)
-        {
-            Console.WriteLine("Got Focus");
-            Console.WriteLine(args.Source.ToString());
-            if (args.Source is TreeViewItem treeItem)
+            private void GotFocus(object sender, RoutedEventArgs args)
             {
-                Console.WriteLine(treeItem.Header);
+                Console.WriteLine("Selected");
+                Console.WriteLine(args.Source.ToString());
+                if (args.Source is TreeViewItem treeItem)
+                {
+                    Console.WriteLine(treeItem.Header);
+                }
             }
-        }
-
-
         }
     }
 }
