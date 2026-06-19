@@ -772,12 +772,12 @@ namespace VECS
 
         public static void CullAllInOne(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, CullData cullData)
         {
-            FustrumCull.Cull(commandBuffer, frameInfo.FrameIndex, cullData, (uint)entityCount, _indirectCmdBufferAllInOne,EngineBuffers.TryGetBuffer(ShaderProperties.BoundsBufferId));
+            FustrumCull.Cull(commandBuffer, Presenter.FrameIndex, cullData, (uint)entityCount, _indirectCmdBufferAllInOne,EngineBuffers.TryGetBuffer(ShaderProperties.BoundsBufferId));
         }
 
         public static void CullByMat(RendererFrameInfo frameInfo, CullData cullData)
         {
-            FustrumCull.Cull(frameInfo.CommandBuffer, frameInfo.FrameIndex, cullData, (uint)entityCount, _indirectCmdBufferByMat, EngineBuffers.TryGetBuffer(ShaderProperties.BoundsBufferId));
+            FustrumCull.Cull(frameInfo.CommandBuffer, Presenter.FrameIndex, cullData, (uint)entityCount, _indirectCmdBufferByMat, EngineBuffers.TryGetBuffer(ShaderProperties.BoundsBufferId));
         }
 
         public static void IndirectToComputeMemoryBarrierAllInOne(VkCommandBuffer commandBuffer)

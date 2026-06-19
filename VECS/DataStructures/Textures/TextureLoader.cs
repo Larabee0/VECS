@@ -269,7 +269,7 @@ namespace VECS
             public override void Run(int compressionThreadCount)
             {
                 started = true;
-                int threadsPerTex = Math.Max(1, (compressionThreadCount) / CompressTasks.Length);
+                int threadsPerTex = Math.Max(1, compressionThreadCount / CompressTasks.Length);
 
                 for (int i = 0; i < MetaFiles.Length; i++)
                 {
@@ -693,7 +693,7 @@ namespace VECS
                     image.Mutate(flipProcessor);
                 }
                 KtxFile = encoder.EncodeToKtx(image);
-
+                
                 Width = (int)KtxFile.header.PixelWidth;
                 Height = (int)KtxFile.header.PixelHeight;
                 if (!ktxExists)

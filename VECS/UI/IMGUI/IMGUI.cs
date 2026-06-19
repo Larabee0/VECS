@@ -347,12 +347,12 @@ namespace VECS.UI
             Vector2 translate = new(-1);
             int vertexOffset = 0;
             uint indexOffset = 0;
-            var vertexBuffer = _vertexBuffer[frameInfo.FrameIndex].VkBuffer;
+            var vertexBuffer = _vertexBuffer[Presenter.FrameIndex].VkBuffer;
             ulong offset = 0;
             Material mat;
 
-            GPUBufferExtensions.WriteFromHostDelayed(_vertexBuffer, frameInfo.FrameIndex);
-            GPUBufferExtensions.WriteFromHostDelayed(_indexBuffer, frameInfo.FrameIndex);
+            GPUBufferExtensions.WriteFromHostDelayed(_vertexBuffer, Presenter.FrameIndex);
+            GPUBufferExtensions.WriteFromHostDelayed(_indexBuffer, Presenter.FrameIndex);
 
 
 
@@ -387,7 +387,7 @@ namespace VECS.UI
             GraphicsDevice.DeviceAPI.vkCmdSetScissor(frameInfo.CommandBuffer, 0, new VkRect2D(new VkOffset2D(0, 0), new VkExtent2D(_outputTarget.Target.Width, _outputTarget.Target.Height)));
             GraphicsDevice.DeviceAPI.vkCmdSetViewport(frameInfo.CommandBuffer, 0, 0, io.DisplaySize.X, io.DisplaySize.Y);
             GraphicsDevice.DeviceAPI.vkCmdBindVertexBuffers(frameInfo.CommandBuffer, 0, 1, &vertexBuffer, &offset);
-            GraphicsDevice.DeviceAPI.vkCmdBindIndexBuffer(frameInfo.CommandBuffer, _indexBuffer[frameInfo.FrameIndex].VkBuffer, 0, VkIndexType.Uint16);
+            GraphicsDevice.DeviceAPI.vkCmdBindIndexBuffer(frameInfo.CommandBuffer, _indexBuffer[Presenter.FrameIndex].VkBuffer, 0, VkIndexType.Uint16);
             
             for (int i = 0; i < imDrawData.CmdListsCount; i++)
             {

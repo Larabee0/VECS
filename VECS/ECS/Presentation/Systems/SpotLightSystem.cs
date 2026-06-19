@@ -142,7 +142,7 @@ namespace VECS.ECS.Presentation
             if (!_spotLightUpdateQuery.HasEntities && !_spotLightShadowQuery.HasEntities) return;
 
             var hostBuffer = (SwapChainBuffer<SpotLightUniform>)EngineBuffers.TryGetBuffer(ShaderProperties.SpotLightsBufferId);
-            GPUBufferExtensions.WriteFromHostDelayed(hostBuffer, frameInfo.FrameIndex);
+            GPUBufferExtensions.WriteFromHostDelayed(hostBuffer, Presenter.FrameIndex);
 
             var entities = _spotLightShadowQuery.GetEntities();
 

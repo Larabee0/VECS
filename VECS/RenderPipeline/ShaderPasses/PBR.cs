@@ -155,7 +155,7 @@ namespace VECS
             GraphicsDevice.DeviceAPI.vkCmdSetViewport(commandBuffer, 0, viewport);
             GraphicsDevice.DeviceAPI.vkCmdSetScissor(commandBuffer, 0, scissor);
 
-            BRDFLUT_Generator.Default().Bind(new(frameInfo.FrameIndex, frameInfo.CameraCount, frameInfo.MainCamera, frameInfo.DeltaTime, frameInfo.NewSwapChain, commandBuffer, frameInfo.CullData, frameInfo.LightingInfo));
+            BRDFLUT_Generator.Default().Bind(new(frameInfo.CameraCount, frameInfo.MainCamera, frameInfo.DeltaTime, commandBuffer, frameInfo.CullData, frameInfo.LightingInfo));
             GraphicsDevice.DeviceAPI.vkCmdDraw(commandBuffer, 3, 1, 0, 0);
 
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
@@ -168,7 +168,7 @@ namespace VECS
         {
             var commandBuffer = AuxiliaryCommandBufferManager.Record();
 
-            frameInfo = new(frameInfo.FrameIndex, frameInfo.CameraCount, frameInfo.MainCamera, frameInfo.DeltaTime, frameInfo.NewSwapChain, commandBuffer, frameInfo.CullData, frameInfo.LightingInfo);
+            frameInfo = new(frameInfo.CameraCount, frameInfo.MainCamera, frameInfo.DeltaTime, commandBuffer, frameInfo.CullData, frameInfo.LightingInfo);
 
             Irradiance_Cubemap.SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
 
@@ -236,7 +236,7 @@ namespace VECS
         public static unsafe void Generate_Prefiltered_Cubemap(RendererFrameInfo frameInfo)
         {
             var commandBuffer = AuxiliaryCommandBufferManager.Record();
-            frameInfo = new(frameInfo.FrameIndex, frameInfo.CameraCount, frameInfo.MainCamera, frameInfo.DeltaTime, frameInfo.NewSwapChain, commandBuffer, frameInfo.CullData, frameInfo.LightingInfo);
+            frameInfo = new(frameInfo.CameraCount, frameInfo.MainCamera, frameInfo.DeltaTime, commandBuffer, frameInfo.CullData, frameInfo.LightingInfo);
             Prefiltered_Cubemap.SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
 
             VkRenderingAttachmentInfo colourAttachments = new()

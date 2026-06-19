@@ -275,7 +275,7 @@ namespace VECS
             MainColourAttachment.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.General, srcStage, VkPipelineStageFlags2.ComputeShader);
             _deferredComposite.PushConstantsHandler.SetPushConstantUInt("cameraIndex", 0,(uint)frameInfo.MainCamera);
 
-            _deferredComposite.Dispatch(frameInfo.CommandBuffer, frameInfo.FrameIndex, GetGroupCount((uint)MainColourAttachment.Target.Width, 32), GetGroupCount((uint)MainColourAttachment.Target.Height, 32));
+            _deferredComposite.Dispatch(frameInfo.CommandBuffer, Presenter.FrameIndex, GetGroupCount((uint)MainColourAttachment.Target.Width, 32), GetGroupCount((uint)MainColourAttachment.Target.Height, 32));
 
             MainColourAttachment.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.ComputeShader, VkPipelineStageFlags2.ColorAttachmentOutput);
 

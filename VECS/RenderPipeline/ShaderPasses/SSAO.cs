@@ -129,7 +129,7 @@ namespace VECS
             _ssaoRT.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.General, srcStage, VkPipelineStageFlags2.ComputeShader);
 
             _computeSSAOGenerate.PushConstantsHandler.SetPushConstantUInt("cameraIndex", 0, 0);
-            _computeSSAOGenerate.Dispatch(frameInfo.CommandBuffer, frameInfo.FrameIndex, GetGroupCount((uint)_ssaoRT.Target.Width, 32), GetGroupCount((uint)_ssaoRT.Target.Height, 32));
+            _computeSSAOGenerate.Dispatch(frameInfo.CommandBuffer, Presenter.FrameIndex, GetGroupCount((uint)_ssaoRT.Target.Width, 32), GetGroupCount((uint)_ssaoRT.Target.Height, 32));
             
             _ssaoRT.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.ComputeShader, VkPipelineStageFlags2.ComputeShader);
 
@@ -140,7 +140,7 @@ namespace VECS
             srcStage = _ssaoBlurRt.ImageLayout.GetStageFlagFromLayout();
             _ssaoBlurRt.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.General, srcStage, VkPipelineStageFlags2.ComputeShader);
 
-            _computeSSAOBlur.Dispatch(frameInfo.CommandBuffer, frameInfo.FrameIndex, GetGroupCount((uint)_ssaoBlurRt.Target.Width, 32), GetGroupCount((uint)_ssaoBlurRt.Target.Height, 32));
+            _computeSSAOBlur.Dispatch(frameInfo.CommandBuffer, Presenter.FrameIndex, GetGroupCount((uint)_ssaoBlurRt.Target.Width, 32), GetGroupCount((uint)_ssaoBlurRt.Target.Height, 32));
 
             _ssaoBlurRt.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.ComputeShader, VkPipelineStageFlags2.ComputeShader);
 

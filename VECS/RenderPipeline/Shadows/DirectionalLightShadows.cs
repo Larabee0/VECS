@@ -209,7 +209,7 @@ namespace VECS
         {
             var mats = EngineBuffers.TryGetBuffer(matsPropertyId);
             mats.SetBuffersDirty(true);
-            GPUBufferExtensions.WriteFromHostDelayed(mats, frameInfo.FrameIndex);
+            GPUBufferExtensions.WriteFromHostDelayed(mats, Presenter.FrameIndex);
         }
 
         public unsafe void DirectionalShadowPass(in RendererFrameInfo frameInfo, DirectionalLightUniform dirUniform)

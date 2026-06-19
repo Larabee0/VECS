@@ -135,9 +135,9 @@ namespace VECS.ECS.Presentation
                 EnginePipes.WireFrame.BindAll(frameInfo, 0);
                 draws = _drawBuffer.HostBuffer;
 
-                GPUBufferExtensions.WriteFromHostDelayed(_drawBuffer, frameInfo.FrameIndex);
-                GPUBufferExtensions.WriteFromHostDelayed(_lineMatrices, frameInfo.FrameIndex);
-                GPUBufferExtensions.WriteFromHostDelayed(_lineColours, frameInfo.FrameIndex);
+                GPUBufferExtensions.WriteFromHostDelayed(_drawBuffer, Presenter.FrameIndex);
+                GPUBufferExtensions.WriteFromHostDelayed(_lineMatrices, Presenter.FrameIndex);
+                GPUBufferExtensions.WriteFromHostDelayed(_lineColours, Presenter.FrameIndex);
             }
 
             if(_lineQueue.Count > 0)
@@ -160,7 +160,7 @@ namespace VECS.ECS.Presentation
                     drawIndex++;
                     drawBufferIndex++;
                 }
-                GPUBufferExtensions.WriteFromHostDelayed(_lineBuffer, frameInfo.FrameIndex);
+                GPUBufferExtensions.WriteFromHostDelayed(_lineBuffer, Presenter.FrameIndex);
                 GraphicsDevice.DeviceAPI.vkCmdBindVertexBuffer(frameInfo.CommandBuffer, 0, _lineBuffer.ActiveVkBuffer);
                 DrawIndirect(frameInfo, 0, drawBufferIndex);
             }
@@ -307,7 +307,7 @@ namespace VECS.ECS.Presentation
                         drawBufferIndex++;
                     }
 
-                    GPUBufferExtensions.WriteFromHostDelayed(_frustrumBuffer, frameInfo.FrameIndex);
+                    GPUBufferExtensions.WriteFromHostDelayed(_frustrumBuffer, Presenter.FrameIndex);
 
                     GraphicsDevice.DeviceAPI.vkCmdBindVertexBuffer(frameInfo.CommandBuffer, 0, _frustrumBuffer.ActiveVkBuffer);
                     DrawIndirect(frameInfo, indirectStartIndex, cameras.Count);

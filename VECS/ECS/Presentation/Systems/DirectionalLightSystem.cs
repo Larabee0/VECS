@@ -146,7 +146,7 @@ namespace VECS.ECS.Presentation
             if (!_directionalLightUpdateQuery.HasEntities && !_directionalLightShadowQuery.HasEntities) return;
 
             var hostBuffer = (SwapChainBuffer<DirectionalLightUniform>)EngineBuffers.TryGetBuffer(ShaderProperties.DirectionalLightsBufferId);
-            GPUBufferExtensions.WriteFromHostDelayed(hostBuffer, frameInfo.FrameIndex);
+            GPUBufferExtensions.WriteFromHostDelayed(hostBuffer, Presenter.FrameIndex);
 
             var entities = _directionalLightShadowQuery.GetEntities();
 

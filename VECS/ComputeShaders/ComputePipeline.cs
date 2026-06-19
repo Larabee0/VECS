@@ -203,7 +203,7 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static void UpdateComputeShaders(RendererFrameInfo frameInfo)
+        internal static void UpdateComputeShaders()
         {
             foreach (var item in _lastBoundComputePipeline)
             {
@@ -211,7 +211,7 @@ namespace VECS
             }
             var count = AssetDataBase<ComputePipeline>.AssetCount;
             var readingList = AssetDataBase<ComputePipeline>.AllAssetsListForReading;
-            readingList.ForEach(m => Update(m, frameInfo));
+            readingList.ForEach(m => Update(m));
             _descriptorReWrite = false;
         }
 
@@ -220,7 +220,7 @@ namespace VECS
         {
             return GetBuffer(descriptorBinding.DescriptorSetIndex, descriptorBinding.BindPoint);
         }
-        private static void Update(ComputePipeline pipeline, RendererFrameInfo frameInfo)
+        private static void Update(ComputePipeline pipeline)
         {
             if (pipeline.VariantCount == 0) return;
 
@@ -234,7 +234,7 @@ namespace VECS
                     {
                         pipeline._descriptorSetInfos[i].SetStorageBuffer(EngineBuffers.TryGetBuffer(binding.Id), binding.BindPoint);
                     }
-                    if ((_descriptorReWrite || frameInfo.NewSwapChain) && binding.Image)
+                    if ((_descriptorReWrite || Presenter.NewSwapChain) && binding.Image)
                     {
                         var texture = EngineTextures.TryGetTexture(binding.Id);
                         if (texture == null) continue;
@@ -249,7 +249,7 @@ namespace VECS
             }
 
             bool forceDescriptorWrite = pipeline.AllocNewVariants();
-            forceDescriptorWrite |= frameInfo.NewSwapChain;
+            forceDescriptorWrite |= Presenter.NewSwapChain;
             forceDescriptorWrite |= _descriptorReWrite;
             if (forceDescriptorWrite)
             {
@@ -264,10 +264,10 @@ namespace VECS
 
             for (int i = 0; i < pipeline._descriptorSetInfos.Length; i++)
             {
-                pipeline._descriptorSetInfos[i].WriteFromBuffers(frameInfo.FrameIndex);
+                pipeline._descriptorSetInfos[i].WriteFromBuffers(Presenter.FrameIndex);
             }
 
-            pipeline._uniformBuffer?.WriteToGPU(frameInfo.FrameIndex);
+            pipeline._uniformBuffer?.WriteToGPU(Presenter.FrameIndex);
         }
 
         public override VkPipeline ReplacePipeline(VkPipeline pipeline)

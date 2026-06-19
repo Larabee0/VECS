@@ -18,12 +18,9 @@ namespace VECS
     /// </summary>
     public readonly struct RendererFrameInfo
     {
-        public readonly int FrameIndex;
         public readonly int CameraCount;
         public readonly int MainCamera;
         public readonly float DeltaTime;
-
-        public readonly bool NewSwapChain;
 
         public readonly VkCommandBuffer CommandBuffer;
         public readonly CullData CullData;
@@ -37,21 +34,16 @@ namespace VECS
         // public readonly BufferMAXLIGHTS<SpotLightUniform> SpotLights;
 
         public RendererFrameInfo(
-            int frameIndex,
             int cameraCount,
             int mainCamera,
             float deltaTime,
-            bool newSwapchain,
             VkCommandBuffer commandBuffer,
             CullData cullData,
             LightingInfo lightingInfo)
         {
-            FrameIndex = frameIndex;
             CameraCount = cameraCount;
             MainCamera = mainCamera;
             DeltaTime = deltaTime;
-
-            NewSwapChain = newSwapchain;
 
             CommandBuffer = commandBuffer;
             CullData = cullData;
@@ -60,7 +52,7 @@ namespace VECS
 
         public static bool operator ==(RendererFrameInfo left, RendererFrameInfo right)
         {
-            return left.FrameIndex == right.FrameIndex && left.DeltaTime == right.DeltaTime;
+            return left.DeltaTime == right.DeltaTime;
         }
 
         public static bool operator !=(RendererFrameInfo left, RendererFrameInfo right) => !(left == right);
@@ -77,7 +69,7 @@ namespace VECS
 
         public readonly override int GetHashCode()
         {
-            return HashCode.Combine(FrameIndex, DeltaTime);
+            return HashCode.Combine(DeltaTime);
         }
     }
 }

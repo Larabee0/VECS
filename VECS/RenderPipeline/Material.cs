@@ -193,7 +193,7 @@ namespace VECS
 
         public unsafe void BindCareful(in RendererFrameInfo frameInfo)
         {
-            int frameIndex = frameInfo.FrameIndex;
+            int frameIndex = Presenter.FrameIndex;
             VkDescriptorBufferBindingInfoEXT* bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[DescriptorSetCount];
             ulong* offsets = stackalloc ulong[DescriptorSetCount];
             uint* indices = stackalloc uint[DescriptorSetCount];
@@ -351,12 +351,12 @@ namespace VECS
         public unsafe void ExecuteDrawCommands(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, Span<MaterialDrawCommand> drawCmds, int drawCount, SwapChainBuffer<VECSDrawIndexIndirectCommand> indirectCmdBuffer)
         {
             if (drawCount <= 0) return;
-            var frameIndex = frameInfo.FrameIndex;
+            var frameIndex = Presenter.FrameIndex;
             var command = drawCmds[0];
             command.Variant = (int)VariantIndex;
             if (Pipeline._preBindUpdate)
             {
-                GraphicsPipeline.Update(Pipeline, frameInfo);
+                GraphicsPipeline.Update(Pipeline);
             }
             VkDescriptorBufferBindingInfoEXT* bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[DescriptorSetCount];
             ulong* offsets = stackalloc ulong[DescriptorSetCount];
@@ -392,13 +392,13 @@ namespace VECS
         public unsafe void ExecuteDrawCommandsPushConstantOverride(RendererFrameInfo frameInfo, int pushConstantOverride, VkCommandBuffer commandBuffer, Span<MaterialDrawCommand> drawCmds, int drawCount, SwapChainBuffer<VECSDrawIndexIndirectCommand> indirectCmdBuffer)
         {
             if (drawCount <= 0) return;
-            var frameIndex = frameInfo.FrameIndex;
+            var frameIndex = Presenter.FrameIndex;
 
             var command = drawCmds[0];
             command.Variant = (int)VariantIndex;
             if (Pipeline._preBindUpdate)
             {
-                GraphicsPipeline.Update(Pipeline, frameInfo);
+                GraphicsPipeline.Update(Pipeline);
             }
             VkDescriptorBufferBindingInfoEXT* bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[DescriptorSetCount];
             ulong* offsets = stackalloc ulong[DescriptorSetCount];

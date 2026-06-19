@@ -138,7 +138,7 @@ namespace VECS.LowLevel
             VkAcquireNextImageInfoKHR acquireInfo = new()
             {
                 swapchain = swapChain.SwapChain,
-                timeout = ulong.MaxValue,
+                timeout = ulong.MaxValue-ushort.MaxValue,
                 semaphore = swapChain.AcquiredImageReadySemaphores[frameIndex],
                 fence = swapChain.WaitAcquireFences[frameIndex],
                 deviceMask = 0 | (1 << /* 1st subdevice index*/0)

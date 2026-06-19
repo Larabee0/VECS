@@ -57,22 +57,12 @@ namespace VECS
 
         public Entity FrameInfoEntity;
 
+        public IRenderer Renderer =>_renderer;
+        public static int FrameIndex => Instance._isFrameStarted ? SwapChain.FrameIndex : 0;
 
-        public static int FrameIndex
-        {
-            get
-            {
-                return Instance._isFrameStarted ? SwapChain.FrameIndex : 0;
-            }
-        }
+        public static int NextFrameIndex => Instance._isFrameStarted ? SwapChain.NextFrame : 0;
 
-        public static int NextFrameIndex
-        {
-            get
-            {
-                return Instance._isFrameStarted ? SwapChain.NextFrame : 0;
-            }
-        }
+        public static bool NewSwapChain { get; private set; }
 
         public Presenter()
         {
@@ -193,13 +183,12 @@ namespace VECS
                 var entityManager = World.DefaultWorld.EntityManager;
                 lightingInfo = EngineBuffers.UpdateLights(entityManager,frameIndex);
             }
+            NewSwapChain =  _framesSinceSwapChainRecreation < SwapChain.MAX_CONCURRENT_FRAMES_UINT;
 
             return new RendererFrameInfo(
-                frameIndex,
                 cameraCount,
                 mainCamera,
                 deltaTime,
-                _framesSinceSwapChainRecreation < SwapChain.MAX_CONCURRENT_FRAMES_UINT,
                 commandBuffer,
                 cullData,
                 lightingInfo);
@@ -289,12 +278,12 @@ namespace VECS
             PreGraphicsPipe?.Invoke(FrameIndex);
 
             RendererFrameInfo frameInfo = CreateRendererFrameInfo(Time.DeltaTime, commandBuffer);
-            ComputePipeline.UpdateComputeShaders(frameInfo);
-            GraphicsPipeline.UpdateMaterials(frameInfo);
+            ComputePipeline.UpdateComputeShaders();
+            GraphicsPipeline.UpdateMaterials();
 
             if (PipelineRecreation.PlaybackShaderChangeCommands())
             {
-                GraphicsPipeline.UpdateMaterials(frameInfo);
+                GraphicsPipeline.UpdateMaterials();
             }
             
             AuxiliaryCommandBufferManager.Update();

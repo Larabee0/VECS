@@ -184,7 +184,7 @@ namespace VECS
                 _depthReduceShader.PushConstantsHandler.SetPushConstantVector2("imageSize", 0, new(x, y));
                 _depthReduceShader.PushConstantsHandler.SetPushConstantInt("srcIndex", 0, i);
                 _depthReduceShader.PushConstantsHandler.SetPushConstantInt("dstIndex", 0, i);
-                _depthReduceShader.Dispatch(frameInfo.CommandBuffer, frameInfo.FrameIndex, GetGroupCount(x, 32), GetGroupCount(y, 32));
+                _depthReduceShader.Dispatch(frameInfo.CommandBuffer, Presenter.FrameIndex, GetGroupCount(x, 32), GetGroupCount(y, 32));
 
                 GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier2(frameInfo.CommandBuffer, &dependencyInfo);
             }
