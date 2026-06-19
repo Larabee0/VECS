@@ -14,51 +14,44 @@
       <ColumnDefinition/>
       <ColumnDefinition Width="0.33*"/>
     </Grid.ColumnDefinitions>
+    
     <Grid.RowDefinitions>
       <RowDefinition/>
       <RowDefinition Height="0.7*"/>
     </Grid.RowDefinitions>
+    
     <Grid>
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="0.43*"/>
         <ColumnDefinition/>
       </Grid.ColumnDefinitions>
-      <Rectangle x:Name="HierarchyViewBG" Grid.ColumnSpan="2" Fill="#FF0303FF" Stroke="#FF000000"/>
-      <Viewbox>
-        <StackPanel x:Name="HierarchyContainer" Height="635" MaxHeight="635">
-          <TreeView x:Name="HierarchyTreeView" BorderBrush="{StaticResource Brush.Border.Normal}" BorderThickness="1" MaxHeight="635">
-            
-          </TreeView>
-        </StackPanel>
-      </Viewbox>
+      <Rectangle x:Name="HierarchyViewBG" Grid.ColumnSpan="2" Fill="#FF0303FF" Stroke="#FF000000"/>      
+      <StackPanel x:Name="HierarchyContainer" Height="635" MaxHeight="635">
+        <TreeView x:Name="HierarchyTreeView" MaxHeight="635"/>
+      </StackPanel>        
       <Rectangle x:Name="ViewPortBG" Grid.Column="1" Fill="#FF1FC200" Stroke="#FF000000"/>
       <Image x:Name="GameView" Grid.Column="1"/>
     </Grid>
-    <Rectangle x:Name="RightSideBarBG" Grid.Column="1" Grid.ColumnSpan="2" Grid.RowSpan="2" Fill="#FFFFF45B" Stroke="#FF000000"/>
-    <ListBox x:Name="RightSideBarItems" ScrollViewer.PanningMode="VerticalOnly" Grid.Column="1" Grid.RowSpan="2">
-      <system:String>Item #1</system:String>
-      <system:String>Item #2</system:String>
-      <system:String>Item #3</system:String>
-      <system:String>Item #4</system:String>
-      <system:String>Item #5</system:String>
-      <system:String>Item #6</system:String>
-      <system:String>Item #7</system:String>
-      <system:String>Item #8</system:String>
-      <system:String>Item #9</system:String>
-      <system:String>Item #10</system:String>
-    </ListBox>
+
+    <Rectangle x:Name="RightSideBarBG" Grid.Column="1" Grid.ColumnSpan="2" Grid.RowSpan="2" Fill="#494d4a" Stroke="#FF000000"/>
+    <StackPanel x:Name="RightSideBarStackPanel" Grid.Column="1" Grid.RowSpan="2">
+      <TreeView x:Name="RightSideBarTreeView" ScrollViewer.PanningMode="VerticalOnly" Grid.Column="1" Grid.RowSpan="2"/>
+    </StackPanel>
+
     <Rectangle x:Name="BottomProjectAreaBG" Grid.Row="1" Fill="#FFF4F4F5" Stroke="#FF000000"/>
     <Grid x:Name="BottomProjectAreaGrid" Grid.Row="1">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="0.35*"/>
         <ColumnDefinition/>
       </Grid.ColumnDefinitions>
-      <ScrollViewer x:Name="OutlineScrollView" ScrollViewer.PanningMode="VerticalFirst">
-        <StackPanel x:Name="OutlineStack"/>
-      </ScrollViewer>
-      <ScrollViewer x:Name="DirectoryScrollView" ScrollViewer.PanningMode="VerticalOnly" Grid.Column="1">
-        <StackPanel x:Name="DirectoryStack"/>
-      </ScrollViewer>
+      <StackPanel x:Name="OutlineStack">
+        <TreeView x:Name="OutlineTreeView" ScrollViewer.PanningMode="VerticalOnly"/>
+
+      <StackPanel/>
+
+      <StackPanel x:Name="DirectoryStack"  Grid.Column="1">
+        <TreeView x:Name="DirectoryTreeView" ScrollViewer.PanningMode="VerticalOnly"/>
+      <StackPanel/>
     </Grid>
   </Grid>
 </Grid>

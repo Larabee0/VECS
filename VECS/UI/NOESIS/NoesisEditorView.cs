@@ -1,4 +1,5 @@
-﻿using Noesis;
+﻿using MeshOptimizer;
+using Noesis;
 using System;
 using System.Collections.Generic;
 using VECS.ECS;
@@ -16,6 +17,10 @@ namespace VECS.UI
         private readonly List<EntityHierarchyTree> _hierarchyTrees = [];
         private readonly List<EntityHierarchyTree> _singleEntityItems = [];
 
+        private TreeView _inspectorTreeView;
+
+        private uint SelectedEntityId;
+        private uint LastSelectedEntityId;
 
         private NoesisViewWrapper MainView;
 
@@ -35,11 +40,11 @@ namespace VECS.UI
 
             MainView = new NoesisViewWrapper("Editor/MainWindow.xaml");
             
-            // MainView.View.Content.GotFocus += GotFocus;
-            // MainView.View.Content.LostFocus += LostFocus;
             // MainView.View.Content.FocusableChanged += FocusChanged;
             _hierarchyTreeView = (TreeView)ControlTreeRoot.FindName("HierarchyTreeView");
-            _hierarchyTreeView.SelectedItemChanged += TreeViewItemChanged;
+            _hierarchyTreeView.SelectedItemChanged += EntityItemChanged;
+
+            _inspectorTreeView = (TreeView)ControlTreeRoot.FindName("RightSideBarTreeView");
             
             var gameview = (Image)ControlTreeRoot.FindName("GameView");
             var fowardRenderer = Presenter.Instance.Renderer;
@@ -50,23 +55,22 @@ namespace VECS.UI
             ControlTreeRoot.UpdateLayout();
         }
 
-        private void FocusChanged(object sender, DependencyPropertyChangedEventArgs args)
-        {
-            var newValue = args.NewValue;
-            if(newValue != null && newValue is TreeViewItem view)
-            {
-                Console.WriteLine(newValue.ToString());
-                Console.WriteLine(view.Header);
-            }
-            Console.WriteLine("Focus Changed");
-        }
-
-        private void TreeViewItemChanged(object sender, RoutedEventArgs args)
+        private void EntityItemChanged(object sender, RoutedEventArgs args)
         {
             Console.WriteLine("TreeViewItemChanged"); 
             if(_hierarchyTreeView.SelectedItem is TreeViewItem treeView)
             {
                 Console.WriteLine("Selected TreeView Item {0}",treeView.Header);
+                if(treeView.Tag is uint entityId)
+                {
+                    SelectedEntityId = entityId;
+                }
+                else
+                {
+                    SelectedEntityId = Entity.Null.Id;
+                }
+                
+
             }
             else
             {
@@ -76,9 +80,57 @@ namespace VECS.UI
 
         public override void OnUpdate(EntityManager entityManager)
         {
+            UpdateInspectorEntity(entityManager);
             UpdateHierarchy(entityManager);
             MainView.Update();
         }
+
+        private void UpdateInspectorEntity(EntityManager entityManager)
+        {
+            if(SelectedEntityId != LastSelectedEntityId)
+            {
+                _inspectorTreeView.Items.Clear();
+                AddEntityInspectorComponents(entityManager);
+                LastSelectedEntityId = SelectedEntityId;
+            }
+        }
+
+        private void AddEntityInspectorComponents(EntityManager entityManager)
+        {
+            var selectedEntity = entityManager.GetEntityFromId(SelectedEntityId);
+            if(selectedEntity == Entity.Null) return;
+            string entityName = entityManager.GetEntityName(selectedEntity);
+            var item = new TreeViewItem()
+            {
+                Header = entityName,
+                IsExpanded = true
+            };
+            _inspectorTreeView.Items.Add(item);
+            var arcehtypeId = entityManager.ComputeArchetypeHash(selectedEntity);
+
+            var componentIds = entityManager._archetypeIdsToComponentIds[arcehtypeId];
+            
+            foreach(var componentId in componentIds)
+            {
+                var componentType = entityManager.GetComponentType(componentId);
+
+                var fields = componentType.GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                var componentField = new TreeViewItem()
+                {
+                    Header = componentType.Name,
+                    IsExpanded = true
+                };
+                item.Items.Add(componentField);
+                Console.WriteLine(componentType.Name);
+                for(int i = 0; i < fields.Length; i++)
+                {
+                    Console.WriteLine(fields[i].Name);
+                }
+                    Console.WriteLine();
+            }
+
+        }
+
 
         private void UpdateHierarchy(EntityManager entityManager)
         {
@@ -165,7 +217,7 @@ namespace VECS.UI
             // MainView.View.Content.GotFocus -= GotFocus;
             // MainView.View.Content.LostFocus -= LostFocus;
             // MainView.View.Content.FocusableChanged -= FocusChanged;
-            _hierarchyTreeView.SelectedItemChanged -= TreeViewItemChanged;
+            _hierarchyTreeView.SelectedItemChanged -= EntityItemChanged;
             MainView.Dispose();
         }
 
@@ -187,13 +239,15 @@ namespace VECS.UI
             public void SetEntities(EntityManager entityManager, Entity entity, TreeViewItem parent)
             {
                 var entityName = entityManager.GetEntityName(entity);
-                
+
+
                 TreeViewItem item = new()
                 {
-                    Header = entityName
+
+                    Header = entityName,
+                    Tag = entity.Id
+
                 };
-                
-                //item.Selected+= GotFocus;
                 if (parent == null)
                 {
                     rootItem = item;
@@ -209,16 +263,6 @@ namespace VECS.UI
                     {
                         SetEntities(entityManager, children.Value[i], item);
                     }
-                }
-            }
-
-            private void GotFocus(object sender, RoutedEventArgs args)
-            {
-                Console.WriteLine("Selected");
-                Console.WriteLine(args.Source.ToString());
-                if (args.Source is TreeViewItem treeItem)
-                {
-                    Console.WriteLine(treeItem.Header);
                 }
             }
         }

@@ -552,6 +552,15 @@ namespace VECS.ECS
             return [.. allEntities];
         }
 
+        public Type GetComponentType(int componentId)
+        {
+            if(_componentIdToTypeLookup.TryGetValue(componentId,out var type))
+            {
+                return type;
+            }
+            return null;
+        }
+
         /// <summary>
         /// Computes the archetype signature of the given set of components.
         /// </summary>
@@ -632,6 +641,21 @@ namespace VECS.ECS
             {
                 return string.Format("{0}.{1}", entity.Id, entity.Version);
             }
+        }
+
+        public Entity GetEntityFromId(uint entityId)
+        {
+            if( entityId == Entity.Null.Id)
+            {
+                Console.WriteLine("Entity Id \"{0}\" is Entity.Null",entityId);
+                return Entity.Null;
+            }
+            if(_entityIdToEntity.TryGetValue(entityId,out Entity entity))
+            {
+                return entity;
+            }
+            Console.WriteLine("Not entity with Id \"{0}\" currently in circulation",entityId);
+            return Entity.Null;
         }
 
         /// <summary>
