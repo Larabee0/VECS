@@ -1,39 +1,25 @@
 ﻿using Noesis;
-using SDL3;
 using System;
 using System.Collections.Generic;
-using System.Numerics;
 using VECS.ECS;
 using VECS.ECS.Presentation;
 using VECS.ECS.Transforms;
-using VECS.LowLevel;
-using Vortice.Vulkan;
 
 namespace VECS.UI
 {
     public class NoesisEditorView : PresentationSystemBase
     {
-        private const bool ALWAYS_RE_RENDER = true;
-        private static readonly int inputTextureId = "inputTexture".GetShaderPropertyId();
-
         private EntityQuery _hierarchyEntities;
         private EntityQuery _singleEntities;
 
-        private ListBox _hierarchyContainer;
+        private StackPanel _hierarchyContainer;
         private readonly List<EntityHierarchyTree> _hierarchyTrees = [];
         private readonly List<EntityHierarchyTree> _singleEntityItems = [];
 
 
         private NoesisViewWrapper MainView;
 
-        private NoesisRenderTarget RenderTarget;
-
-        private Texture2D RenderTargetTex2D => ((NoesisTexture)RenderTarget.Texture).Texture;
-
-        private Material _blitVariant;
-
-        private int _framesSinceLastRender = 0;
-        private FrameworkElement controlTreeRoot;
+        private FrameworkElement ControlTreeRoot => MainView.ControlTreeRoot;
 
         public override void OnCreate(EntityManager entityManager)
         {
@@ -46,36 +32,21 @@ namespace VECS.UI
                 .WithNone(typeof(Children), typeof(Parent))
                 .Build();
 
-            controlTreeRoot = (FrameworkElement)GUI.LoadXaml(System.IO.Path.Combine(Asset.AssetsPath, "GUI", "Editor/MainWindow.xaml"));
 
-            MainView = new NoesisViewWrapper(controlTreeRoot, Application.NoesisDriver)
-            {
-                RenderFlags = RenderFlags.PPAA
-            };
-            MainView.SetSize(Screen.Width, Screen.Height);
+            MainView = new NoesisViewWrapper("Editor/MainWindow.xaml");
 
             MainView.View.Content.GotFocus += GotFocus;
             MainView.View.Content.LostFocus += LostFocus;
             MainView.View.Content.FocusableChanged += FocusChanged;
-            MainView.View.Content.GotKeyboardFocus += GotKeyboardFocus;
-            MainView.View.Content.LostKeyboardFocus += LostKeyboardFocus;
-            _hierarchyContainer = (ListBox)controlTreeRoot.FindName("HierarchyContainer");
-            _hierarchyContainer.Items.Clear();
-            var gameview = (Image)controlTreeRoot.FindName("GameView");
-            var fowardRenderer = (Presenter<ForwardRenderer>)Presenter.Instance;
-            var colourTarget = fowardRenderer.Renderer.MainColourAttachment.Target;
+            _hierarchyContainer = (StackPanel)ControlTreeRoot.FindName("HierarchyContainer");
+            _hierarchyContainer.Children.Clear();
+            var gameview = (Image)ControlTreeRoot.FindName("GameView");
+            var fowardRenderer = Presenter.Instance.Renderer;
+            var colourTarget = fowardRenderer.MainColourAttachment.Target;
             var textureSource = new TextureSource(new NoesisTexture(colourTarget, false, true));
             gameview.Source = textureSource;
 
-            InputManager.Instance.OnKeyDown += ViewKeyDown;
-            InputManager.Instance.OnKeyUp += ViewKeyUp;
-
-            controlTreeRoot.UpdateLayout();
-            RenderTarget = (NoesisRenderTarget)NoesisHandler.NoesisDriver.CreateRenderTarget("Noesis_RT", (uint)Screen.Width, (uint)Screen.Height, 1, true);
-
-            _blitVariant = EnginePipes.Blit.Create("Noesis_Blitter");
-            _blitVariant.SetTexture(inputTextureId, RenderTargetTex2D);
-            Application.NoesisDriver.CreatePipelines(VkFormat.R8G8B8A8Unorm, VkFormat.S8Uint);
+            ControlTreeRoot.UpdateLayout();
         }
 
         private void FocusChanged(object sender, DependencyPropertyChangedEventArgs args)
@@ -109,36 +80,11 @@ namespace VECS.UI
             }
             
         }
-
-        private void GotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs args)
-        {
-            if(args.NewFocus is TextBoxBase || args.NewFocus is PasswordBox)
-            {
-                SDL3WindowManager.MainWindow.BeginText();
-            }
-        }
-
-
-        private void LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs args)
-        {
-            SDL3WindowManager.MainWindow.EndText();
-        }
-
-        private void ViewKeyDown(SDL_Keycode keycode)
-        {
-            MainView.View.KeyDown(keycode.ToNoesis());
-        }
-
-        private void ViewKeyUp(SDL_Keycode keycode)
-        {
-            MainView.View.KeyUp(keycode.ToNoesis());
-        }
-
+        
         public override void OnUpdate(EntityManager entityManager)
         {
             UpdateHierarchy(entityManager);
             MainView.Update();
-            UpdateInputs();
         }
 
         private void UpdateHierarchy(EntityManager entityManager)
@@ -166,7 +112,7 @@ namespace VECS.UI
 
             if (updateLayout)
             {
-                controlTreeRoot.UpdateLayout();
+                ControlTreeRoot.UpdateLayout();
             }
         }
 
@@ -210,49 +156,6 @@ namespace VECS.UI
             }
         }
 
-        private void UpdateInputs()
-        {
-            var view = MainView.View;
-
-            InputManager input = InputManager.Instance;
-            var mousePos = new Vector2Int((int)input.MousePos.X, (int)input.MousePos.Y);
-            mousePos.X = Math.Clamp(mousePos.X, 0, Screen.Width);
-            mousePos.Y = Math.Clamp(mousePos.Y, 0, Screen.Height);
-            for (MouseButton i = 0; i <= MouseButton.XButton2; i++)
-            {
-                MouseButtonDown(mousePos.X, mousePos.Y, i, view);
-                MouseButtonUp(mousePos.X,mousePos.Y, i, view);
-            }
-            view.MouseMove(mousePos.X, mousePos.Y);
-            if (!string.IsNullOrEmpty(input.Text))
-            {
-                for (int i = 0; i < input.Text.Length; i++)
-                {
-                    view.Char(input.Text[i]);
-                }
-            }
-            int xDir = Math.Clamp((int)input.MouseWheelH, -1, 1);
-            int yDir = Math.Clamp((int)input.MouseWheel, -1, 1);
-            view.MouseWheel(xDir, 0, (int)Math.Abs(input.MouseWheelH));
-            view.MouseWheel(0, yDir, (int)Math.Abs(input.MouseWheel));
-        }
-
-        private static void MouseButtonDown(int x, int y, MouseButton button, View view)
-        {
-            if (InputManager.Instance.GetMouseButtonDown((int)button))
-            {
-                view.MouseButtonDown(x,y, button);
-            }
-        }
-
-        private static void MouseButtonUp(int x, int y, MouseButton button, View view)
-        {
-            if (InputManager.Instance.GetMouseButtonUp((int)button))
-            {
-                view.MouseButtonUp(x, y, button);
-            }
-        }
-
         public override void OnPrePresent(EntityManager entityManager)
         {
             Application.NoesisDriver.CurrentFrameInfo = default;
@@ -260,131 +163,32 @@ namespace VECS.UI
 
         public override void OnPostAA(EntityManager entityManager, RendererFrameInfo frameInfo)
         {
-            Application.NoesisDriver.CurrentFrameInfo = frameInfo;
-
-            if (MainView.PreRender() || ALWAYS_RE_RENDER)
-            {
-                _framesSinceLastRender = 0;
-            }
-
-            if (_framesSinceLastRender < SwapChain.MAX_CONCURRENT_FRAMES + 1)
-            {
-                GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "NOESIS Begin On-Screen Render");
-                Application.NoesisDriver.FormatHash = HashCode.Combine(RenderTargetTex2D.Format, VkFormat.S8Uint);
-                _framesSinceLastRender++;
-                NoesisHandler.NoesisDriver.SetRenderTarget(RenderTarget);
-
-                NoesisHandler.NoesisDriver.BeginTile(RenderTarget, new() { Y = 0, X = 0, Height = (uint)Screen.Height, Width = (uint)Screen.Width});
-                GraphicsDevice.DeviceAPI.vkCmdSetRasterizationSamplesEXT(frameInfo.CommandBuffer, VkSampleCountFlags.Count1);
-                MainView.Render();
-                
-                NoesisHandler.NoesisDriver.EndTile(RenderTarget);
-                RenderTargetTex2D.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.FragmentShader);
-                GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
-            }
-
-            BlitToMain(frameInfo);
-        }
-
-        public unsafe void BlitToMain(RendererFrameInfo frameInfo)
-        {
-            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "NOESIS Blit to Main");
-            var _outputTarget = EngineTextures.TryGetTexture(ShaderProperties.MainColourAttachmentId).First;
-
-            if (RenderTargetTex2D.ImageLayout == VkImageLayout.ColorAttachmentOptimal)
-            {
-                RenderTargetTex2D.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.FragmentShader);
-            }
-            else if (RenderTargetTex2D.ImageLayout == VkImageLayout.TransferSrcOptimal)
-            {
-                RenderTargetTex2D.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.FragmentShader);
-            }
-
-            var targetLayout = _outputTarget.ImageLayout;
-
-            if (targetLayout != VkImageLayout.ColorAttachmentOptimal)
-            {
-                if (_outputTarget.ImageLayout == VkImageLayout.ShaderReadOnlyOptimal)
-                {
-                    _outputTarget.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
-                }
-                else if (_outputTarget.ImageLayout == VkImageLayout.TransferSrcOptimal)
-                {
-                    _outputTarget.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.ColorAttachmentOutput);
-                }
-            }
-
-            VkRenderingAttachmentInfo colourAttachments = new()
-            {
-                imageView = _outputTarget._imageView,
-                imageLayout = _outputTarget.ImageLayout,
-                loadOp = VkAttachmentLoadOp.Load,
-                storeOp = VkAttachmentStoreOp.Store,
-                clearValue = new(0, 0, 0, 0)
-            };
-
-            VkRenderingInfo renderingInfo = new()
-            {
-                renderArea = new(0, 0, (uint)_outputTarget.Width, (uint)_outputTarget.Height),
-                layerCount = 1,
-                colorAttachmentCount = 1,
-                pColorAttachments = &colourAttachments,
-                flags = VkRenderingFlags.ContentsInlineKHR | VkRenderingFlags.ContentsSecondaryCommandBuffers
-            };
-            GraphicsDevice.DeviceAPI.vkCmdBeginRendering(frameInfo.CommandBuffer, &renderingInfo);
-
-            GraphicsDevice.DeviceAPI.vkCmdSetViewport(frameInfo.CommandBuffer, 0, _outputTarget.Height, _outputTarget.Width, -_outputTarget.Height);
-            GraphicsDevice.DeviceAPI.vkCmdSetScissor(frameInfo.CommandBuffer, 0, new VkRect2D(new VkOffset2D(0, 0), new VkExtent2D(_outputTarget.Width, _outputTarget.Height)));
-
-            _blitVariant.Bind(frameInfo);
-
-            GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
-            GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
-
-            if (targetLayout != VkImageLayout.ColorAttachmentOptimal)
-            {
-                if (targetLayout == VkImageLayout.ShaderReadOnlyOptimal)
-                {
-                    _outputTarget.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
-                }
-                else if (targetLayout == VkImageLayout.TransferSrcOptimal)
-                {
-                    _outputTarget.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.TransferSrcOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.Blit);
-                }
-            }
-
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
+            MainView.Render(frameInfo);
         }
 
         public override void OnDestroy(EntityManager entityManager)
         {
-            SDL3WindowManager.MainWindow.EndText();
-            MainView.View.Content.GotKeyboardFocus -= GotKeyboardFocus;
-            MainView.View.Content.LostKeyboardFocus -= LostKeyboardFocus;
             MainView.View.Content.GotFocus -= GotFocus;
             MainView.View.Content.LostFocus -= LostFocus;
             MainView.View.Content.FocusableChanged -= FocusChanged;
-            InputManager.Instance.OnKeyDown -= ViewKeyDown;
-            InputManager.Instance.OnKeyUp -= ViewKeyUp;
-            MainView.View.Renderer.Shutdown();
-            MainView.View.Dispose();
+            MainView.Dispose();
         }
 
         private class EntityHierarchyTree
         {
             public TreeView TreeView;
-            private readonly ListBox HierarchyContainer;
+            private readonly StackPanel HierarchyContainer;
 
-            public EntityHierarchyTree(ListBox hierarchyContainer)
+            public EntityHierarchyTree(StackPanel hierarchyContainer)
             {
                 TreeView = new TreeView();
-                hierarchyContainer.Items.Add(TreeView);
+                hierarchyContainer.Children.Add(TreeView);
                 HierarchyContainer = hierarchyContainer;
             }
 
             public void DestroyTree()
             {
-                HierarchyContainer.Items.Remove(TreeView);
+                HierarchyContainer.Children.Remove(TreeView);
             }
 
             public void SetEntities(EntityManager entityManager, Entity entity, TreeViewItem parent)

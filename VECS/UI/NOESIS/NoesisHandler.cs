@@ -32,7 +32,7 @@ namespace VECS.UI
             GUI.LoadApplicationResources("Theme/NoesisTheme.DarkBlue.xaml");
             _noesisDriver = new NoesisDriver();
 
-            //World.DefaultWorld.CreateSystem<NoesisEditorView>();
+            World.DefaultWorld.CreateSystem<NoesisEditorView>();
         }
 
         private static void KeyboardCallback(UIElement focused, bool open)

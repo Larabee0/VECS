@@ -103,7 +103,10 @@
                                 <TextBlock Text="TreeView" FontSize="18" TextAlignment="Center" Margin="0,0,0,10"/>
                                 <TreeView BorderBrush="{StaticResource Brush.Border.Normal}" BorderThickness="1">
                                     <TreeViewItem Header="Expanded" IsExpanded="True">
-                                        <TreeViewItem Header="Child"/>
+                                        <TreeViewItem Header="Child-1">
+                                            <TreeViewItem Header="Child-2">
+                                            </TreeViewItem>
+                                        </TreeViewItem>
                                     </TreeViewItem>
                                     <TreeViewItem Header="Collapsed">
                                         <TreeViewItem Header="Child"/>

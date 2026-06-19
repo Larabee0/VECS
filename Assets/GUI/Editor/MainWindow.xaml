@@ -24,17 +24,18 @@
         <ColumnDefinition/>
       </Grid.ColumnDefinitions>
       <Rectangle x:Name="HierarchyViewBG" Grid.ColumnSpan="2" Fill="#FF0303FF" Stroke="#FF000000"/>
-        <ListBox x:Name="HierarchyContainer" Height="635" MaxHeight="635">
-          <TreeView>
+      <Viewbox>
+        <StackPanel x:Name="HierarchyContainer" Height="635" MaxHeight="635">
+          <TreeView BorderBrush="{StaticResource Brush.Border.Normal}" BorderThickness="1">
             <TreeViewItem Header="Something">
               <TreeViewItem Header="Something Else">
                 <TreeViewItem Header="Something Else else">
-
                 </TreeViewItem>
               </TreeViewItem>
             </TreeViewItem>
           </TreeView>
-        </ListBox>
+        </StackPanel>
+      </Viewbox>
       <Rectangle x:Name="ViewPortBG" Grid.Column="1" Fill="#FF1FC200" Stroke="#FF000000"/>
       <Image x:Name="GameView" Grid.Column="1"/>
     </Grid>

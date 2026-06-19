@@ -651,7 +651,7 @@ namespace VECS.UI
 
             mat.Pipeline._uniformBuffer.Buffer.SetBuffersDirty(true);
             SetDescriptors(ref batch, mat);
-            //Material.UpdateVariant(mat, CurrentFrameInfo.FrameIndex, true);
+            //Material.UpdateVariant(mat, CurrentPresenter.FrameIndex, true);
             mat.BindCareful(CurrentFrameInfo);
 
             SetStencilMode(state.StencilMode);
