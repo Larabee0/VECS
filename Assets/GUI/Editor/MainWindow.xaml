@@ -44,14 +44,15 @@
         <ColumnDefinition Width="0.35*"/>
         <ColumnDefinition/>
       </Grid.ColumnDefinitions>
+      
       <StackPanel x:Name="OutlineStack">
         <TreeView x:Name="OutlineTreeView" ScrollViewer.PanningMode="VerticalOnly"/>
 
-      <StackPanel/>
+      </StackPanel>
 
       <StackPanel x:Name="DirectoryStack"  Grid.Column="1">
         <TreeView x:Name="DirectoryTreeView" ScrollViewer.PanningMode="VerticalOnly"/>
-      <StackPanel/>
+      </StackPanel>
     </Grid>
   </Grid>
 </Grid>
