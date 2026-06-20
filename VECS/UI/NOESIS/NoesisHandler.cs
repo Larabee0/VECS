@@ -16,7 +16,20 @@ namespace VECS.UI
             Error.SetUnhandledCallback(NoesisDriver.ErrorCallback);
 
             GUI.Init();
-            GUI.RegisterType(typeof(VectorField));
+            
+            GUI.RegisterType(typeof(Vector1Field));
+            GUI.RegisterType(typeof(Vector2Field));
+            GUI.RegisterType(typeof(Vector3Field));
+            GUI.RegisterType(typeof(Vector4Field));
+
+            GUI.RegisterType(typeof(Bool2Field));
+            GUI.RegisterType(typeof(Bool3Field));
+            GUI.RegisterType(typeof(Bool4Field));
+
+            GUI.RegisterType(typeof(Matrix3x2Field));
+            GUI.RegisterType(typeof(Matrix3x3Field));
+            GUI.RegisterType(typeof(Matrix4x4Field));
+
             var xamlProvider = new LocalXamlProvider(System.IO.Path.Combine(Asset.AssetsPath, "GUI"));
             GUI.SetXamlProvider(xamlProvider);
             var fontProvider = new LocalFontProvider(System.IO.Path.Combine(Asset.AssetsPath, "GUI"));

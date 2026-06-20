@@ -1,5 +1,4 @@
-﻿using MeshOptimizer;
-using Noesis;
+﻿using Noesis;
 using System;
 using System.Collections.Generic;
 using VECS.ECS;
@@ -114,19 +113,9 @@ namespace VECS.UI
             {
                 var componentType = entityManager.GetComponentType(componentId);
 
-                var fields = componentType.GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                var componentField = new TreeViewItem()
-                {
-                    Header = componentType.Name,
-                    IsExpanded = true
-                };
-                item.Items.Add(componentField);
-                Console.WriteLine(componentType.Name);
-                for(int i = 0; i < fields.Length; i++)
-                {
-                    Console.WriteLine(fields[i].Name);
-                }
-                    Console.WriteLine();
+                var types = NoesisTypeToField.GetTypeFields(componentType);
+                var treeViewItem = NoesisTypeToField.ConstructTree(types);
+                item.Items.Add(treeViewItem);
             }
 
         }

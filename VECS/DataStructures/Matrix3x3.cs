@@ -9,6 +9,43 @@
         /// <summary>Column 2 of the matrix.</summary>
         public Vector3 c2;
 
+        //
+        // Summary:
+        //     The first element of the first row.
+        public float M11 {  readonly get => c0.X; set => c0.X = value; }
+        //
+        // Summary:
+        //     The second element of the first row.
+        public float M12 {  readonly get => c1.X; set => c1.X = value; }
+        //
+        // Summary:
+        //     The third element of the first row.
+        public float M13 {  readonly get => c2.X; set => c2.X = value; }
+        //
+        // Summary:
+        //     The first element of the second row.
+        public float M21 {  readonly get => c0.Y; set => c0.Y = value; }
+        //
+        // Summary:
+        //     The second element of the second row.
+        public float M22 {  readonly get => c1.Y; set => c1.Y = value; }
+        //
+        // Summary:
+        //     The third element of the second row.
+        public float M23 {  readonly get => c2.Y; set => c2.Y = value; }
+        //
+        // Summary:
+        //     The first element of the third row.
+        public float M31 {  readonly get => c0.Z; set => c0.Z = value; }
+        //
+        // Summary:
+        //     The second element of the third row.
+        public float M32 {  readonly get => c1.Z; set => c1.Z = value; }
+        //
+        // Summary:
+        //     The third element of the third row.
+        public float M33 {  readonly get => c2.Z; set => c2.Z = value; }
+
         public static readonly Matrix3x3 identity = new(1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f);
 
         public Matrix3x3(float m00, float m01, float m02,
