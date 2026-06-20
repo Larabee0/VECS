@@ -129,6 +129,7 @@ namespace VECS
         {
             var name = e.Name;
             var path = e.FullPath;
+            if (!File.Exists(path)) return;
             var type = GetTypeFromExtension(name);
             Console.WriteLine("File \"{0}\" ({1}) Changed", name, type);
             // reload file
