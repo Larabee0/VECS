@@ -39,9 +39,11 @@ namespace VECS.UI
         private readonly SwapChainBuffer _indexBuffer;
         private readonly SwapChainBuffer _vertexBuffer;
 
-        private int drawPos = 0;
-        private int indicesFrameIndex = -1;
-        private int verticesFrameIndex = -1;
+
+        private ulong _draws = 0;
+        private int _drawPos = 0;
+        private int _indicesFrameIndex = -1;
+        private int _verticesFrameIndex = -1;
         private uint _indexCount = 0;
         private readonly List<uint> _drawStackIndices = [];
         private readonly List<uint> _drawStackVertices = [];
@@ -73,13 +75,22 @@ namespace VECS.UI
             CreateSamplers();
 
             Presenter.OnSwapChainRecreation += NewSwapChain;
+            Presenter.Instance.PreGraphicsPipe += PreGraphicsPipe;
         }
+
+        private void PreGraphicsPipe(int obj)
+        {
+            _drawPos = 0;
+            _draws = 0;
+        }
+
 
         private void NewSwapChain()
         {
-            drawPos = 0;
-            indicesFrameIndex = -1;
-            verticesFrameIndex = -1;
+            Console.WriteLine("Noesis SWPCRC");
+            _drawPos = 0;
+            _indicesFrameIndex = -1;
+            _verticesFrameIndex = -1;
             _indexCount = 0;
         }
 
@@ -219,13 +230,11 @@ namespace VECS.UI
 
         public void CleanUpMeshData()
         {
+
+            Presenter.OnSwapChainRecreation -= NewSwapChain;
+            Presenter.Instance.PreGraphicsPipe -= PreGraphicsPipe;
             _indexBuffer.Dispose();
             _vertexBuffer.Dispose();
-
-            foreach (var item in UsedMats)
-            {
-                Console.WriteLine(item.AssetName);
-            }
         }
 
         public unsafe override void BeginTile(Noesis.RenderTarget surface, Tile tile)
@@ -505,14 +514,14 @@ namespace VECS.UI
         public unsafe override nint MapIndices(uint bytes)
         {
             var frameIndex = Presenter.FrameIndex;
-            if (indicesFrameIndex != frameIndex)
+            if (_indicesFrameIndex != frameIndex)
             {
                 _drawStackIndices.Clear();
                 _drawStackIndices.Add(0);
                 _indexCount = 0;
                 NativeMemory.Clear(_indexBuffer.HostPtr,_indexBuffer.HostBufferSize32);
             }
-            indicesFrameIndex = frameIndex;
+            _indicesFrameIndex = frameIndex;
             uint offset = 0;
             if (_drawStackIndices.Count > 0)
             {
@@ -521,8 +530,7 @@ namespace VECS.UI
 
             if (_indexBuffer.HostBufferSize32 < offset + bytes)
             {
-                _indexBuffer.Realloc((offset + bytes) * 2);
-                Console.WriteLine("IndexBuffer Realloc");
+                _indexBuffer.Realloc((offset + bytes)*2);
             }
             _drawStackIndices.Add(offset + bytes);
             GPUBufferExtensions.WriteFromHostDelayed(_indexBuffer, Presenter.FrameIndex);
@@ -532,13 +540,13 @@ namespace VECS.UI
         public unsafe override nint MapVertices(uint bytes)
         {
             var frameIndex = Presenter.FrameIndex;
-            if(verticesFrameIndex != frameIndex)
+            if(_verticesFrameIndex != frameIndex)
             {
                 _drawStackVertices.Clear();
                 _drawStackVertices.Add(0);
                 NativeMemory.Clear(_vertexBuffer.HostPtr,_vertexBuffer.HostBufferSize32);
             }
-            verticesFrameIndex  = frameIndex;
+            _verticesFrameIndex  = frameIndex;
             uint offset = 0;
             if (_drawStackVertices.Count > 0)
             {
@@ -547,8 +555,7 @@ namespace VECS.UI
 
             if (_vertexBuffer.HostBufferSize32 < offset + bytes)
             {
-                _vertexBuffer.Realloc((offset + bytes) * 2);
-                Console.WriteLine("VertexBuffer Realloc");
+                _vertexBuffer.Realloc((offset + bytes)*2);
             }
             _drawStackVertices.Add(offset + bytes);
             GPUBufferExtensions.WriteFromHostDelayed(_vertexBuffer, frameIndex);
@@ -675,14 +682,23 @@ namespace VECS.UI
             SetStencilRef(batch.StencilRef);
             SetRasterizerInfo(CurrentCommandBuffer, state.Wireframe);
             SetBlendInfo(CurrentCommandBuffer, state.ColorEnable, state.BlendMode);
-
-            uint vertexOffset = _drawStackVertices[drawPos] ;
-            uint indexOffset = _drawStackIndices[drawPos] ;/// 2;
-            _indexCount += batch.NumIndices * 2;
-
-            Console.WriteLine("drawPos {0}.{1}",_drawStackIndices.Count ,_drawStackVertices.Count);
             
-            GraphicsDevice.DeviceAPI.vkCmdBindVertexBuffer(CurrentCommandBuffer, 0, _vertexBuffer.ActiveVkBuffer, vertexOffset +(ulong)batch.VertexOffset);
+            uint vertexOffset = _drawStackVertices[_drawPos] ;
+            uint indexOffset = _drawStackIndices[_drawPos] / 2;
+            _indexCount += batch.NumIndices * 2;
+            //Console.WriteLine("{1} batch vOffset {0}",batch.VertexOffset,Presenter.FrameCount);
+            //if(_drawPos > 0)
+            //{
+            //    Console.WriteLine("drawPos {0}.{2}.{1}",_drawPos, Presenter.FrameCount,_drawStackVertices.Count);   
+            //}
+            var vertexBufferOffset = vertexOffset +(ulong)batch.VertexOffset ;
+
+            Debug.Assert(vertexBufferOffset <= _vertexBuffer.VkBufferSize);
+            //{
+            //    Console.WriteLine("Access violation {0}",Presenter.FrameCount);    
+            //    Debugger.Break();
+            //}
+                GraphicsDevice.DeviceAPI.vkCmdBindVertexBuffer(CurrentCommandBuffer, 0, _vertexBuffer.ActiveVkBuffer, vertexOffset+(ulong)batch.VertexOffset);
             GraphicsDevice.DeviceAPI.vkCmdBindIndexBuffer(CurrentCommandBuffer, _indexBuffer.ActiveVkBuffer, 0, VkIndexType.Uint16);
 
             uint firstIndex = batch.StartIndex + indexOffset;
@@ -694,6 +710,7 @@ namespace VECS.UI
             {
                 GraphicsDevice.DeviceAPI.vkCmdDrawIndexed(CurrentCommandBuffer, batch.NumIndices, 1, firstIndex, 0, 0);
             }
+            _draws++;
         }
 
         private Material GetMaterial(ref Batch batch, GraphicsPipeline pipeline)
@@ -954,13 +971,21 @@ namespace VECS.UI
 
         public override void EndOffscreenRender()
         {
-            drawPos++;
+            if(_draws > 0)
+            {
+                _drawPos++;
+            }
+            _draws = 0;
             GraphicsDevice.EndLabelCmd(CurrentCommandBuffer);
         }
 
         public override void EndOnscreenRender()
         {
-            drawPos = 0;
+            if(_draws > 0)
+            {
+                _drawPos++;
+            }
+            _draws = 0;
         }
 
         public static VkSampleCountFlags GetSampleCount(uint samples, VkPhysicalDeviceLimits limits)
