@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Numerics;
+using System.Runtime.InteropServices;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 using Vector4 = System.Numerics.Vector4;
@@ -222,8 +223,8 @@ namespace VECS.UI
             {
                 GraphicsDevice.BeginLabelCmd(CurrentCommandBuffer,string.Format("Render Tile {0}",renderTarget.Colour.Texture.AssetName));
                 VkRect2D renderArea;
-                renderArea.offset.x = (int)tile.X;
-                renderArea.offset.y = (int)renderTarget.Colour.Height - ((int)tile.Y + (int)tile.Height);
+                renderArea.offset.x = Math.Max(0, (int)tile.X);
+                renderArea.offset.y = Math.Max(0, (int)renderTarget.Colour.Height - ((int)tile.Y + (int)tile.Height));
                 renderArea.extent.width = tile.Width;
                 renderArea.extent.height = tile.Height;
                 VkRenderingAttachmentInfo stencil = default;
@@ -497,6 +498,7 @@ namespace VECS.UI
             {
                 _drawStackIndices.Clear();
                 _drawStackIndices.Add(0);
+                NativeMemory.Clear(_indexBuffer.HostPtr,_indexBuffer.HostBufferSize32);
             }
             indicesFrameIndex = frameIndex;
             uint offset = 0;
@@ -508,6 +510,7 @@ namespace VECS.UI
             if (_indexBuffer.HostBufferSize32 < offset + bytes)
             {
                 _indexBuffer.Realloc((offset + bytes) * 2);
+                Console.WriteLine("IndexBuffer Realloc");
             }
             _drawStackIndices.Add(offset + bytes);
             GPUBufferExtensions.WriteFromHostDelayed(_indexBuffer, Presenter.FrameIndex);
@@ -521,6 +524,7 @@ namespace VECS.UI
             {
                 _drawStackVertices.Clear();
                 _drawStackVertices.Add(0);
+                NativeMemory.Clear(_vertexBuffer.HostPtr,_vertexBuffer.HostBufferSize32);
             }
             verticesFrameIndex  = frameIndex;
             uint offset = 0;
@@ -532,6 +536,7 @@ namespace VECS.UI
             if (_vertexBuffer.HostBufferSize32 < offset + bytes)
             {
                 _vertexBuffer.Realloc((offset + bytes) * 2);
+                Console.WriteLine("VertexBuffer Realloc");
             }
             _drawStackVertices.Add(offset + bytes);
             GPUBufferExtensions.WriteFromHostDelayed(_vertexBuffer, frameIndex);
@@ -660,9 +665,11 @@ namespace VECS.UI
             SetBlendInfo(CurrentCommandBuffer, state.ColorEnable, state.BlendMode);
 
             uint vertexOffset = _drawStackVertices[drawPos] ;
-            uint indexOffset = _drawStackIndices[drawPos] / 2;
+            uint indexOffset = _drawStackIndices[drawPos] ;/// 2;
 
 
+            Console.WriteLine("drawPos {0}.{1}",_drawStackIndices.Count ,_drawStackVertices.Count);
+            
             GraphicsDevice.DeviceAPI.vkCmdBindVertexBuffer(CurrentCommandBuffer, 0, _vertexBuffer.ActiveVkBuffer, vertexOffset +(ulong)batch.VertexOffset);
             GraphicsDevice.DeviceAPI.vkCmdBindIndexBuffer(CurrentCommandBuffer, _indexBuffer.ActiveVkBuffer, 0, VkIndexType.Uint16);
 
