@@ -93,7 +93,19 @@ namespace VECS.UI
             View.Content.LostKeyboardFocus += LostKeyboardFocus;
             InputManager.Instance.OnKeyDown += ViewKeyDown;
             InputManager.Instance.OnKeyUp += ViewKeyUp;
+            Presenter.OnSwapChainRecreation += ResizeRT;
         }
+
+        private void ResizeRT()
+        {
+            View.SetSize(Screen.Width, Screen.Height);
+            RenderTargetTex2D.Reinitialise(Screen.Width, Screen.Height);
+            ((NoesisTexture)RenderTarget.Stencil).Texture.Reinitialise(Screen.Width,Screen.Height);
+            _blitVariant.SetTexture(inputTextureId, RenderTargetTex2D);
+            View.Renderer.SetRenderRegion(0, 0,Screen.Width, Screen.Height);
+            View.Renderer.UpdateRenderTree();
+        }
+
 
         public bool PreRender()
         {
@@ -113,6 +125,7 @@ namespace VECS.UI
             View.Content.LostKeyboardFocus -= LostKeyboardFocus;
             InputManager.Instance.OnKeyDown -= ViewKeyDown;
             InputManager.Instance.OnKeyUp -= ViewKeyUp;
+            Presenter.OnSwapChainRecreation -= ResizeRT;
             View.Renderer.Shutdown();
             View.Dispose();
             GC.ReRegisterForFinalize(this);
@@ -203,7 +216,6 @@ namespace VECS.UI
 
         public void Render(RendererFrameInfo frameInfo)
         {
-            
             Application.NoesisDriver.CurrentFrameInfo = frameInfo;
 
             if (PreRender() || ALWAYS_RE_RENDER)

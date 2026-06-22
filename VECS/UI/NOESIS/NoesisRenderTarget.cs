@@ -7,7 +7,7 @@ namespace VECS.UI
         public NoesisTexture Colour;
         public NoesisTexture ColourAA;
         public NoesisTexture Stencil;
-                public uint ColourAttachmentCount => Stencil == null ? 1u : 2u;
+        public uint ColourAttachmentCount => Stencil == null ? 1u : 2u;
 
         public VkSampleCountFlags samples = VkSampleCountFlags.Count1;
 

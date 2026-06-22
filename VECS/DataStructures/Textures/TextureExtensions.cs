@@ -368,7 +368,8 @@ namespace VECS
         {
             while(_setLayoutCmds.TryDequeue(out var layout))
             {
-                layout.Texture.SetImageLayout(cmd, layout.NewImageLayout, layout.SrcStage, layout.DstStage);
+                var srcStage = layout.Texture.ImageLayout.GetStageFlagFromLayout();
+                layout.Texture.SetImageLayout(cmd, layout.NewImageLayout, srcStage, layout.DstStage);
             }
         }
         #endregion

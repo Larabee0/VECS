@@ -1,4 +1,5 @@
-﻿using VECS.ECS;
+﻿using System;
+using VECS.ECS;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
@@ -21,6 +22,8 @@ namespace VECS
 
         public VkFormat DepthFormat => PreferredFormats.LOW_PRECISION_DEPTH_ONLY;
         public VkFormat StencilFormat => VkFormat.Undefined;
+        private Action _onScreenSizeChanged;
+        public Action OnScreenSizeChanged{get=> _onScreenSizeChanged;set => _onScreenSizeChanged = value;}
 
         public ForwardRenderer()
         {
@@ -53,6 +56,7 @@ namespace VECS
 
             _bloom?.RecreateRenderTargets();
             _smaa?.RecreateRenderTargets();
+            _onScreenSizeChanged?.Invoke();
         }
 
         public void PreRender()

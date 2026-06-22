@@ -12,7 +12,7 @@ namespace VECS
 {
     public class Presenter<T> : Presenter where T : IRenderer
     {
-        public T Renderer => (T)_renderer;
+        public T ImplementingRenderer => (T)_renderer;
 
         public Presenter() : base()
         {

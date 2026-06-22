@@ -1,4 +1,5 @@
-﻿using Vortice.Vulkan;
+﻿using System;
+using Vortice.Vulkan;
 
 namespace VECS
 {
@@ -9,6 +10,7 @@ namespace VECS
         public VkFormat StencilFormat { get; }
 
         public RenderTarget MainColourAttachment { get; }
+        
         public void PostCreate();
         public void ScreenSizeChanged();
         public void PreRender();
