@@ -41,6 +41,7 @@ namespace VECS.UI
         private int drawPos = 0;
         private int indicesFrameIndex = -1;
         private int verticesFrameIndex = -1;
+        private uint _indexCount = 0;
         private readonly List<uint> _drawStackIndices = [];
         private readonly List<uint> _drawStackVertices = [];
 
@@ -69,6 +70,16 @@ namespace VECS.UI
 
             LoadShaderModules();
             CreateSamplers();
+
+            Presenter.OnSwapChainRecreation += NewSwapChain;
+        }
+
+        private void NewSwapChain()
+        {
+            drawPos = 0;
+            indicesFrameIndex = -1;
+            verticesFrameIndex = -1;
+            _indexCount = 0;
         }
 
         public static void ErrorCallback(Exception exception)
@@ -272,7 +283,7 @@ namespace VECS.UI
                 {
                     stencil = new()
                     {
-                        loadOp = VkAttachmentLoadOp.DontCare,
+                        loadOp = VkAttachmentLoadOp.Clear,
                         storeOp = VkAttachmentStoreOp.DontCare,
                         imageLayout = VkImageLayout.StencilAttachmentOptimal,
                         imageView = renderTarget.Stencil.Texture._imageView,
@@ -497,6 +508,7 @@ namespace VECS.UI
             {
                 _drawStackIndices.Clear();
                 _drawStackIndices.Add(0);
+                _indexCount = 0;
             }
             indicesFrameIndex = frameIndex;
             uint offset = 0;
@@ -661,7 +673,7 @@ namespace VECS.UI
 
             uint vertexOffset = _drawStackVertices[drawPos] ;
             uint indexOffset = _drawStackIndices[drawPos] / 2;
-
+            _indexCount += batch.NumIndices * 2;
 
             GraphicsDevice.DeviceAPI.vkCmdBindVertexBuffer(CurrentCommandBuffer, 0, _vertexBuffer.ActiveVkBuffer, vertexOffset +(ulong)batch.VertexOffset);
             GraphicsDevice.DeviceAPI.vkCmdBindIndexBuffer(CurrentCommandBuffer, _indexBuffer.ActiveVkBuffer, 0, VkIndexType.Uint16);
