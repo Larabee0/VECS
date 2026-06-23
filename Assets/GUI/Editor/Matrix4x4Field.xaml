@@ -4,13 +4,13 @@
   xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
   xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
   mc:Ignorable="d"
-  x:Class="Matrix4x4Field"
+  x:Class="VECS.UI.Matrix4x4Field"
   x:Name="Matrix4x4FieldControl"
-  Height="200" Background="#004D5052">
+  Height="400" Background="#004D5052">
   <UserControl.Resources>
     <ResourceDictionary Source="./EditorTheme.xaml"/>
   </UserControl.Resources>
-  <Grid Height="200">
+  <Grid Height="400">
     <Grid.ColumnDefinitions>
       <ColumnDefinition/>
     </Grid.ColumnDefinitions>
@@ -29,16 +29,16 @@
       </Grid.ColumnDefinitions>
       <Grid.RowDefinitions>
         <RowDefinition/>
-        <RowDefinition Width="0.2*"/>
+        <RowDefinition Height="0.2*"/>
         <RowDefinition/>
-        <RowDefinition Width="0.2*"/>
+        <RowDefinition Height="0.2*"/>
         <RowDefinition/>
-        <RowDefinition Width="0.2*"/>
+        <RowDefinition Height="0.2*"/>
         <RowDefinition/>
-        <RowDefinition Width="0.2*"/>
+        <RowDefinition Height="0.2*"/>
         <RowDefinition/>
       </Grid.RowDefinitions>
-      <TextBlock x:Name="LabelM4x4" Text="{Binding LabelM4x4, ElementName=Matrix4x4FieldControl}" HorizontalAlignment="Left" Foreground="#FFFFFFFF" Style="{DynamicResource VectorLabel}"/>
+      <TextBlock x:Name="M44Label" Text="{Binding Label, ElementName=Matrix4x4FieldControl}" HorizontalAlignment="Left" Foreground="#FFFFFFFF" Style="{DynamicResource VectorLabel}"/>
       <TextBlock Text="M11" Grid.Column="1" TextWrapping="Wrap" Style="{DynamicResource VectorLabel}"/>
       <TextBox x:Name="M11Comp" Text="{Binding ValueM11, ElementName=Matrix4x4FieldControl}" Margin="0,0,2,0" Grid.Column="2" Style="{DynamicResource VectorStyle}"/>
       <TextBlock Text="M12" Grid.Column="3" TextWrapping="Wrap" Style="{DynamicResource VectorLabel}"/>

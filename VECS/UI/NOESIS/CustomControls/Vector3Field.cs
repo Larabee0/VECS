@@ -1,20 +1,15 @@
 ﻿using Noesis;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace VECS.UI
 {
-    public class Vector3Field : UserControl
+    public class Vector3Field : UserControl, IEditorField
     {
 
-        public static readonly DependencyProperty _Label = DependencyProperty.Register("Label", typeof(string), typeof(TextBlock), new PropertyMetadata("Label"));
-        public static readonly DependencyProperty _ValueX = DependencyProperty.Register("ValueX", typeof(string), typeof(TextBox), new PropertyMetadata("0"));
-        public static readonly DependencyProperty _ValueY = DependencyProperty.Register("ValueY", typeof(string), typeof(TextBox), new PropertyMetadata("0"));
-        public static readonly DependencyProperty _ValueZ = DependencyProperty.Register("ValueZ", typeof(string), typeof(TextBox), new PropertyMetadata("0"));
+        public static readonly DependencyProperty _Label = DependencyProperty.Register("Label", typeof(string), typeof(Vector3Field), new PropertyMetadata("Label"));
+        public static readonly DependencyProperty _ValueX = DependencyProperty.Register("ValueX", typeof(string), typeof(Vector3Field), new PropertyMetadata("0"));
+        public static readonly DependencyProperty _ValueY = DependencyProperty.Register("ValueY", typeof(string), typeof(Vector3Field), new PropertyMetadata("0"));
+        public static readonly DependencyProperty _ValueZ = DependencyProperty.Register("ValueZ", typeof(string), typeof(Vector3Field), new PropertyMetadata("0"));
 
         public string Label
         {
@@ -48,6 +43,22 @@ namespace VECS.UI
         void InitializeComponent()
         {
             GUI.LoadComponent(this, "Editor/Vector3Field.xaml");
+        }
+
+        public void SetValue(object value)
+        {
+            if(value is Vector3 vector3)
+            {
+                SetVector3(vector3);
+            }
+            else if(value is Vector3Int vector3Int)
+            {
+                SetVector3Int(vector3Int);
+            }
+            else if(value is Vector3UInt vector3UInt)
+            {
+                SetVector3Uint(vector3UInt);
+            }
         }
 
         public Vector3 GetVector3(Vector3 value)
@@ -94,5 +105,6 @@ namespace VECS.UI
             ValueY = value.Y.ToString();
             ValueZ = value.Z.ToString();
         }
+
     }
 }

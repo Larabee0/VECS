@@ -1,8 +1,8 @@
 <UserControl
   xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-  x:Class="VECS.UI.Vector1Field"
-  x:Name="Vector1FieldControl"
+  x:Class="VECS.UI.DropDownField"
+  x:Name="DropDownFieldControl"
   Height="50" Background="#004D5052">
   <UserControl.Resources>
     <ResourceDictionary Source="./EditorTheme.xaml"/>
@@ -16,17 +16,11 @@
       <Grid.ColumnDefinitions>
         <ColumnDefinition/>
         <ColumnDefinition Width="0.2*"/>
-        <ColumnDefinition/>
-        <ColumnDefinition Width="0.2*"/>
-        <ColumnDefinition/>
-        <ColumnDefinition Width="0.2*"/>
-        <ColumnDefinition/>
-        <ColumnDefinition Width="0.2*"/>
-        <ColumnDefinition/>
+        
       </Grid.ColumnDefinitions>
-      <TextBlock Text="{Binding Label, ElementName=Vector1FieldControl}" HorizontalAlignment="Left" Foreground="#FFFFFFFF" Style="{DynamicResource VectorLabel}"/>
+      <TextBlock Text="{Binding Label, ElementName=DropDownFieldControl}" HorizontalAlignment="Left" Foreground="#FFFFFFFF" Style="{DynamicResource VectorLabel}"/>
       
-      <TextBox Text="{Binding ValueX, ElementName=Vector1FieldControl}" Margin="0,0,2,0" Grid.Column="1" Style="{DynamicResource VectorStyle}"/>
+      <ComboBox x:Name="ComboBox" Margin="0,0,2,0" Grid.Column="1"/>
       
     </Grid>
   </Grid>

@@ -3,14 +3,14 @@ using  System.Numerics;
 using Vector4 = System.Numerics.Vector4;
 namespace VECS.UI
 {
-    public class Vector4Field : UserControl
+    public class Vector4Field : UserControl, IEditorField
     {
 
-        public static readonly DependencyProperty _Label = DependencyProperty.Register("Label", typeof(string), typeof(TextBlock), new PropertyMetadata("Label"));
-        public static readonly DependencyProperty _ValueX = DependencyProperty.Register("ValueX", typeof(string), typeof(TextBox), new PropertyMetadata("0"));
-        public static readonly DependencyProperty _ValueY = DependencyProperty.Register("ValueY", typeof(string), typeof(TextBox), new PropertyMetadata("0"));
-        public static readonly DependencyProperty _ValueZ = DependencyProperty.Register("ValueZ", typeof(string), typeof(TextBox), new PropertyMetadata("0"));
-        public static readonly DependencyProperty _ValueW = DependencyProperty.Register("ValueW", typeof(string), typeof(TextBox), new PropertyMetadata("0"));
+        public static readonly DependencyProperty _Label = DependencyProperty.Register("Label", typeof(string), typeof(Vector4Field), new PropertyMetadata("Label"));
+        public static readonly DependencyProperty _ValueX = DependencyProperty.Register("ValueX", typeof(string), typeof(Vector4Field), new PropertyMetadata("0"));
+        public static readonly DependencyProperty _ValueY = DependencyProperty.Register("ValueY", typeof(string), typeof(Vector4Field), new PropertyMetadata("0"));
+        public static readonly DependencyProperty _ValueZ = DependencyProperty.Register("ValueZ", typeof(string), typeof(Vector4Field), new PropertyMetadata("0"));
+        public static readonly DependencyProperty _ValueW = DependencyProperty.Register("ValueW", typeof(string), typeof(Vector4Field), new PropertyMetadata("0"));
 
         public string Label
         {
@@ -50,6 +50,26 @@ namespace VECS.UI
         void InitializeComponent()
         {
             GUI.LoadComponent(this, "Editor/Vector4Field.xaml");
+        }
+
+        public void SetValue(object value)
+        {
+            if(value is Vector4 vector4)
+            {
+                SetVector4(vector4);
+            }
+            else if(value is Vector4Int vector4Int)
+            {
+                SetVector4Int(vector4Int);
+            }
+            else if(value is Vector4UInt vector4UInt)
+            {
+                SetVector4Uint(vector4UInt);
+            }
+            else if(value is Quaternion quaternion)
+            {
+                SetQuaternion(quaternion);
+            }
         }
 
         public Vector4 GetVector4(Vector4 value)
@@ -113,5 +133,6 @@ namespace VECS.UI
             ValueZ = value.Z.ToString();
             ValueW = value.W.ToString();
         }
+
     }
 }

@@ -141,10 +141,10 @@ namespace VECS.ECS
             if (HasComponent<Children>(entity, out int signature))
             {
                 var children = (Children)_compSignatureToCompReference[signature];
-                var childCount = children.Value != null ? children.Value.Length : 0;
+                var childCount = children.Values != null ? children.Values.Length : 0;
                 for (int i = 0; i < childCount; i++)
                 {
-                    AddComponentToHierarchy(children.Value[i], component);
+                    AddComponentToHierarchy(children.Values[i], component);
                 }
             }
             AddComponent(entity, component);
@@ -156,10 +156,10 @@ namespace VECS.ECS
             if (HasComponent<Children>(entity, out int signature))
             {
                 var children = (Children)_compSignatureToCompReference[signature];
-                var childCount = children.Value != null ? children.Value.Length : 0;
+                var childCount = children.Values != null ? children.Values.Length : 0;
                 for (int i = 0; i < childCount; i++)
                 {
-                    AddComponentToHierarchy<T>(children.Value[i]);
+                    AddComponentToHierarchy<T>(children.Values[i]);
                 }
             }
             AddComponent<T>(entity);
@@ -218,10 +218,10 @@ namespace VECS.ECS
             if (HasComponent<Children>(entity, out int signature))
             {
                 var children = (Children)_compSignatureToCompReference[signature];
-                var childCount = children.Value != null ? children.Value.Length : 0;
+                var childCount = children.Values != null ? children.Values.Length : 0;
                 for (int i = 0; i < childCount; i++)
                 {
-                    RemoveComponentFromHierarchy<T>(children.Value[i]);
+                    RemoveComponentFromHierarchy<T>(children.Values[i]);
                 }
             }
             RemoveComponent<T>(entity);
@@ -345,7 +345,7 @@ namespace VECS.ECS
             return hasComponent;
         }
 
-        private IComponent GetComponent(Entity entity, int compId)
+        public IComponent GetComponent(Entity entity, int compId)
         {
             int signature = GetEntityComponentSigature(entity,compId);
             _compSignatureToCompReference.TryGetValue(signature, out IComponent comp);
@@ -378,10 +378,10 @@ namespace VECS.ECS
             if (HasComponent<Children>(entity,out signature))
             {
                 var children = (Children)_compSignatureToCompReference[signature];
-                var childCount = children.Value != null ? children.Value.Length : 0;
+                var childCount = children.Values != null ? children.Values.Length : 0;
                 for (int i = 0; i < childCount; i++)
                 {
-                    components = [.. components, .. GetComponentsInHierarchy<T>(children.Value[i])];
+                    components = [.. components, .. GetComponentsInHierarchy<T>(children.Values[i])];
                 }
             }
 
@@ -886,10 +886,10 @@ namespace VECS.ECS
         private void InstantiateChildren(Entity entity, bool instantiateNewMeshes, Entity instance)
         {
             Children children = GetComponent<Children>(entity);
-            Children instanceChildren = new() { Value = new Entity[children.Value.Length] };
-            for (int i = 0; i < children.Value.Length; i++)
+            Children instanceChildren = new() { Values = new Entity[children.Values.Length] };
+            for (int i = 0; i < children.Values.Length; i++)
             {
-                instanceChildren.Value[i] = Instantiate(children.Value[i], instantiateNewMeshes, instance);
+                instanceChildren.Values[i] = Instantiate(children.Values[i], instantiateNewMeshes, instance);
             }
             AddComponent(instance, instanceChildren);
         }
@@ -918,10 +918,10 @@ namespace VECS.ECS
             if (HasComponent<Children>(entity, out int signature))
             {
                 var children = (Children)_compSignatureToCompReference[signature];
-                var childCount = children.Value != null ? children.Value.Length : 0;
+                var childCount = children.Values != null ? children.Values.Length : 0;
                 for (int i = 0; i < childCount; i++)
                 {
-                    DestroyEntityHierarchy(children.Value[i]);
+                    DestroyEntityHierarchy(children.Values[i]);
                 }
             }
             DestroyEntity(entity);

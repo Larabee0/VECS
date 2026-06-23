@@ -12,6 +12,22 @@ namespace VECS.UI
 {
     public class NoesisDriver : RenderDevice
     {
+        private static readonly int patternId = "pattern".GetShaderPropertyId();
+        private static readonly int rampsId = "ramps".GetShaderPropertyId();
+        private static readonly int imageId = "image".GetShaderPropertyId();
+        private static readonly int glyphsId = "glyphs".GetShaderPropertyId();
+        private static readonly int shadowId = "shadow".GetShaderPropertyId();
+
+        private static readonly int _buffer0ProjMat = "buffer0.projectionMtx".GetShaderPropertyId();
+        private static readonly int _buffer1TextDim = "buffer1.textureDimensions".GetShaderPropertyId();
+        private static readonly int _buffer2RGBA = "buffer2.rgba".GetShaderPropertyId();
+        private static readonly int _buffer2Opac = "buffer2.opacity".GetShaderPropertyId();
+        private static readonly int _buffer2RadGrad0 = "buffer2.radialGrad0".GetShaderPropertyId();
+        private static readonly int _buffer2RadGrad1 = "buffer2.radialGrad1".GetShaderPropertyId();
+        private static readonly int _buffer3Blend = "buffer3.blend".GetShaderPropertyId();
+        private static readonly int _buffer3ShadCol = "buffer3.shadowColor".GetShaderPropertyId();
+        private static readonly int _buffer3ShadOff = "buffer3.shadowOffset".GetShaderPropertyId();
+
         public override DeviceCaps Caps => new()
         {
             LinearRendering = false,
@@ -56,11 +72,6 @@ namespace VECS.UI
         
         private readonly bool mFillModeNonSolid;
 
-        private readonly int patternId = "pattern".GetShaderPropertyId();
-        private readonly int rampsId = "ramps".GetShaderPropertyId();
-        private readonly int imageId = "image".GetShaderPropertyId();
-        private readonly int glyphsId = "glyphs".GetShaderPropertyId();
-        private readonly int shadowId = "shadow".GetShaderPropertyId();
 
         public NoesisDriver()
         {
@@ -87,7 +98,6 @@ namespace VECS.UI
 
         private void NewSwapChain()
         {
-            Console.WriteLine("Noesis SWPCRC");
             _drawPos = 0;
             _indicesFrameIndex = -1;
             _verticesFrameIndex = -1;
@@ -104,7 +114,7 @@ namespace VECS.UI
             Console.WriteLine("{0} {1} {2}",level.ToString(),channel,message);
         }
 
-        private unsafe void LoadShaderModules()
+        private void LoadShaderModules()
         {
             for (Shader.Vertex.Enum i = 0; i < Shader.Vertex.Enum.Count; i++)
             {
@@ -339,27 +349,25 @@ namespace VECS.UI
 
         public override Noesis.RenderTarget CreateRenderTarget(string label, uint width, uint height, uint sampleCount, bool needsStencil)
         {
-            Console.WriteLine("NOESIS Create RT");
+            
             NoesisRenderTarget renderTarget = new()
             {
                 samples = GetSampleCount(sampleCount, GraphicsDevice.PropertiesVK10.limits)
             };
             if (needsStencil)
             {
-                renderTarget.Stencil = CreateTexture(string.Format("NOESIS_{0}_STENCIL", label),
+                renderTarget.Stencil = CreateTexture(string.Format("NOESIS_{0}_STENCIL_{1}", label, Presenter.FrameCount),
                     width,
                     height,
                     PreferredFormats.STENCIL_ONLY,
                     VkSampleCountFlags.Count1,
                     VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.TransientAttachment,
                     VkImageAspectFlags.Stencil);
-
-                //renderTarget.Stencil.Texture.SetImageLayout(VkImageLayout.DepthStencilAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.EarlyFragmentTests);
             }
 
             if (renderTarget.samples > VkSampleCountFlags.Count1)
             {
-                renderTarget.ColourAA = CreateTexture(string.Format("NOESIS_{0}_COLOUR_AA", label),
+                renderTarget.ColourAA = CreateTexture(string.Format("NOESIS_{0}_COLOUR_AA_{1}", label, Presenter.FrameCount),
                     width,
                     height,
                     VkFormat.R8G8B8A8Unorm,
@@ -367,29 +375,23 @@ namespace VECS.UI
                     VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.TransferSrc,
                     VkImageAspectFlags.Color);
 
-                renderTarget.Colour = CreateTexture(string.Format("NOESIS_{0}_COLOUR", label),
+                renderTarget.Colour = CreateTexture(string.Format("NOESIS_{0}_COLOUR_{1}", label,Presenter.FrameCount),
                     width,
                     height,
                     VkFormat.R8G8B8A8Unorm,
                     VkSampleCountFlags.Count1,
                     VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferDst,
                     VkImageAspectFlags.Color);
-
-                //renderTarget.Colour.Texture.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.FragmentShader);
-
-                //renderTarget.ColourAA.Texture.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.FragmentShader);
             }
             else
             {
-                renderTarget.Colour = CreateTexture(string.Format("NOESIS_{0}_COLOUR", label),
+                renderTarget.Colour = CreateTexture(string.Format("NOESIS_{0}_COLOUR_{1}", label,Presenter.FrameCount),
                     width,
                     height,
                     VkFormat.R8G8B8A8Unorm,
                     VkSampleCountFlags.Count1,
                     VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferSrc,
                     VkImageAspectFlags.Color);
-
-                //renderTarget.Colour.Texture.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.FragmentShader);
             }
 
             CreatePipeline(renderTarget);
@@ -403,7 +405,6 @@ namespace VECS.UI
         {
             if (surface is NoesisRenderTarget renderTarget)
             {
-                Console.WriteLine("NOESIS Clone RT");
                 var clonedTarget = new NoesisRenderTarget
                 {
                     Stencil = renderTarget.Stencil,
@@ -416,27 +417,23 @@ namespace VECS.UI
 
                 if (clonedTarget.samples > VkSampleCountFlags.Count1)
                 {
-                    clonedTarget.Colour = CreateTexture(string.Format("NOESIS_{0}_COLOUR_AA", label),
+                    clonedTarget.Colour = CreateTexture(string.Format("NOESIS_{0}_COLOUR_AA_{1}", label,Presenter.FrameCount),
                         width,
                         height,
                         VkFormat.R8G8B8A8Unorm,
                         VkSampleCountFlags.Count1,
                         VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferDst,
                         VkImageAspectFlags.Color);
-
-                    //clonedTarget.Colour.Texture.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.FragmentShader);
                 }
                 else
                 {
-                    clonedTarget.Colour = CreateTexture(string.Format("NOESIS_{0}_COLOUR", label),
+                    clonedTarget.Colour = CreateTexture(string.Format("NOESIS_{0}_COLOUR_{1}", label,Presenter.FrameCount),
                         width,
                         height,
                         VkFormat.R8G8B8A8Unorm,
                         VkSampleCountFlags.Count1,
                         VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferSrc,
                         VkImageAspectFlags.Color);
-
-                    //clonedTarget.Colour.Texture.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.FragmentShader);
                 }
 
                 return clonedTarget;
@@ -595,7 +592,6 @@ namespace VECS.UI
 
         public unsafe override Noesis.Texture CreateTexture(string label, uint width, uint height, uint numLevels, TextureFormat format, nint data)
         {
-            Console.WriteLine("NOESIS Create Tex");
             VkFormat vkFormat = format switch
             {
                 TextureFormat.RGBA8 => VkFormat.R8G8B8A8Unorm,
@@ -603,8 +599,8 @@ namespace VECS.UI
                 TextureFormat.R8 => VkFormat.R8Unorm,
                 _ => throw new NotImplementedException(string.Format("Noesis TextureFormat: {0} not implemented", format.ToString()))
             };
-            Texture2D texture = new(label, (int)width, (int)height, vkFormat, VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled, numLevels > 1);
-            //texture.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.FragmentShader);
+            Texture2D texture = new(string.Format("NOESIS_{0}_{1}",label,Presenter.FrameCount), (int)width, (int)height, vkFormat, VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled, numLevels > 1);
+            
             if ((void*)data != null)
             {
                 ulong blockSize = (uint)vkFormat.BlockSize();
@@ -656,7 +652,7 @@ namespace VECS.UI
             }
         }
 
-        public unsafe override void DrawBatch(ref Batch batch)
+        public override void DrawBatch(ref Batch batch)
         {
             var state = batch.RenderState;
             var shaderV = batch.Shader.Index;
@@ -675,7 +671,7 @@ namespace VECS.UI
 
             mat.Pipeline._uniformBuffer.Buffer.SetBuffersDirty(true);
             SetDescriptors(ref batch, mat);
-            //Material.UpdateVariant(mat, CurrentPresenter.FrameIndex, true);
+            
             mat.BindCareful(CurrentFrameInfo);
 
             SetStencilMode(state.StencilMode);
@@ -686,19 +682,12 @@ namespace VECS.UI
             uint vertexOffset = _drawStackVertices[_drawPos] ;
             uint indexOffset = _drawStackIndices[_drawPos] / 2;
             _indexCount += batch.NumIndices * 2;
-            //Console.WriteLine("{1} batch vOffset {0}",batch.VertexOffset,Presenter.FrameCount);
-            //if(_drawPos > 0)
-            //{
-            //    Console.WriteLine("drawPos {0}.{2}.{1}",_drawPos, Presenter.FrameCount,_drawStackVertices.Count);   
-            //}
+            
             var vertexBufferOffset = vertexOffset +(ulong)batch.VertexOffset ;
 
             Debug.Assert(vertexBufferOffset <= _vertexBuffer.VkBufferSize);
-            //{
-            //    Console.WriteLine("Access violation {0}",Presenter.FrameCount);    
-            //    Debugger.Break();
-            //}
-                GraphicsDevice.DeviceAPI.vkCmdBindVertexBuffer(CurrentCommandBuffer, 0, _vertexBuffer.ActiveVkBuffer, vertexOffset+(ulong)batch.VertexOffset);
+            
+            GraphicsDevice.DeviceAPI.vkCmdBindVertexBuffer(CurrentCommandBuffer, 0, _vertexBuffer.ActiveVkBuffer, vertexOffset+(ulong)batch.VertexOffset);
             GraphicsDevice.DeviceAPI.vkCmdBindIndexBuffer(CurrentCommandBuffer, _indexBuffer.ActiveVkBuffer, 0, VkIndexType.Uint16);
 
             uint firstIndex = batch.StartIndex + indexOffset;
@@ -769,31 +758,23 @@ namespace VECS.UI
 
         private void SetTexture(Material mat, int shaderPropertyId,SamplerState samplerState, Noesis.Texture noesisTex)
         {
-            if (noesisTex != null)
+            if (noesisTex == null) return;
+            var texture = ((NoesisTexture)noesisTex).Texture;
+            var sampler = GetSampler(samplerState, out var samplerHash);
+            var texSamplerHash = HashCode.Combine(texture.Hash, samplerHash);
+
+            if (!Variants.TryGetValue(texSamplerHash, out var variant))
             {
-                var texture = ((NoesisTexture)noesisTex).Texture;
-                var sampler = GetSampler(samplerState, out var samplerHash);
-                var texSamplerHash = HashCode.Combine(texture.Hash, samplerHash);
-
-                if(!Variants.TryGetValue(texSamplerHash,out var variant))
-                {
-                    Variants[texSamplerHash] = variant = new(texture, sampler);
-                }
-                else
-                {
-                    variant.UpdateDescriptor();
-                }
-                mat.SetTexture(shaderPropertyId, variant);
-
-                if(texture.ImageLayout == VkImageLayout.ColorAttachmentOptimal)
-                {
-                    texture.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.ColorAttachmentOutput);
-                }
-                if (texture.ImageLayout == VkImageLayout.TransferDstOptimal)
-                {
-                    texture.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.Transfer);
-                }
+                Variants[texSamplerHash] = variant = new(texture, sampler);
             }
+            else
+            {
+                variant.UpdateDescriptor();
+            }
+            mat.SetTexture(shaderPropertyId, variant);
+
+            var srcStage = texture.ImageLayout.GetStageFlagFromLayout();
+            texture.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, srcStage);
         }
 
         private unsafe void SetDescriptors(ref Batch batch, Material mat)
@@ -803,149 +784,131 @@ namespace VECS.UI
             SetTexture(mat, imageId, batch.ImageSampler, batch.Image);
             SetTexture(mat, glyphsId, batch.GlyphsSampler, batch.Glyphs);
             SetTexture(mat, shadowId, batch.ShadowSampler, batch.Shadow);
-            //mat.DirtyTextures();
-            var u0 = batch.VertexUniform0;
-            var u1 = batch.VertexUniform1;
-            var u2 = batch.PixelUniform0;
-            var u3 = batch.PixelUniform1;
+            
 
             #region u0
-            if (u0.NumWords == 16)
+            var u0 = batch.VertexUniform0;
+            Matrix4x4* matrices = stackalloc Matrix4x4[2];
+            switch (u0.NumWords)
             {
-                Matrix4x4 matrix = default;
-                Buffer.MemoryCopy(u0.Values.ToPointer(), &matrix, sizeof(Matrix4x4), sizeof(Matrix4x4));
-                mat.SetMatrix4x4("buffer0.projectionMtx".GetShaderPropertyId(), matrix);
-            }
-            else if (u0.NumWords == 32)
-            {
-                Matrix4x4* matrices = stackalloc Matrix4x4[2];
-                Buffer.MemoryCopy(u0.Values.ToPointer(), matrices, sizeof(Matrix4x4) * 2, sizeof(Matrix4x4) * 2);
-
-                mat.SetMatrix4x4Array("buffer0.projectionMtx".GetShaderPropertyId(), new Span<Matrix4x4>(matrices, 2));
-            }
-            else if (u0.NumWords != 0)
-            {
-                throw new NotSupportedException(string.Format("{0} words not supported!", u0.NumWords));
+                case 16:
+                    Buffer.MemoryCopy(u0.Values.ToPointer(), matrices, sizeof(Matrix4x4)*2, sizeof(Matrix4x4));
+                    mat.SetMatrix4x4(_buffer0ProjMat, matrices[0]);
+                    break;
+                case 32:
+                    Buffer.MemoryCopy(u0.Values.ToPointer(), matrices, sizeof(Matrix4x4) * 2, sizeof(Matrix4x4) * 2);
+                    mat.SetMatrix4x4Array(_buffer0ProjMat, new Span<Matrix4x4>(matrices, 2));
+                    break;
+                    case 0:
+                    break;
+                default:
+                    throw new NotSupportedException(string.Format("{0} words not supported!", u0.NumWords));
             }
             #endregion
 
             #region u1
+            var u1 = batch.VertexUniform1;
+            Vector2 textureDimensions = default;
             if (u1.NumWords == 2)
             {
-                Vector2 textureDimensions = default;
                 Buffer.MemoryCopy(u1.Values.ToPointer(), &textureDimensions, sizeof(Vector2), sizeof(Vector2));
-                mat.SetVector2("buffer1.textureDimensions".GetShaderPropertyId(), textureDimensions);
+                mat.SetVector2(_buffer1TextDim, textureDimensions);
             }
-            else if (u1.NumWords != 0)
+            else if(u1.NumWords != 0)
             {
                 throw new NotSupportedException(string.Format("{0} words not supported!", u0.NumWords));
             }
             #endregion
 
             #region u2
-            if (u2.NumWords == 4)
+            var u2 = batch.PixelUniform0;
+            Vector4 rgba = default;
+            float opacity = default;
+            Vector4 radialGrad0 = default;
+            Vector4 radialGrad1 = default;
+            switch (u2.NumWords)
             {
-                Vector4 rgba = default;
-                Buffer.MemoryCopy(u2.Values.ToPointer(), &rgba, sizeof(Vector4), sizeof(Vector4));
-                mat.SetVector4("buffer2.rgba".GetShaderPropertyId(), rgba);
-            }
-            else if (u2.NumWords == 1)
-            {
-                float opacity = default;
-                Buffer.MemoryCopy(u2.Values.ToPointer(), &opacity, sizeof(float), sizeof(float));
-                mat.SetFloat("buffer2.opacity".GetShaderPropertyId(), opacity);
-            }
-
-            else if (u2.NumWords == 5)
-            {
-                Vector4 rgba = default;
-                float opacity = default;
-                Buffer.MemoryCopy(u2.Values.ToPointer(), &rgba, sizeof(Vector4), sizeof(Vector4));
-                Buffer.MemoryCopy((byte*)u2.Values.ToPointer() + sizeof(Vector4), &opacity, sizeof(float), sizeof(float));
-                mat.SetVector4("buffer2.rgba".GetShaderPropertyId(), rgba);
-                mat.SetFloat("buffer2.opacity".GetShaderPropertyId(), opacity);
-            }
-            else if (u2.NumWords == 7)
-            {
-                Vector4 radialGrad0 = default;
-                Vector4 radialGrad1 = default;
-                Buffer.MemoryCopy(u2.Values.ToPointer(), &radialGrad0, sizeof(Vector4), sizeof(Vector4));
-                Buffer.MemoryCopy((byte*)u2.Values.ToPointer() + sizeof(Vector4), &radialGrad1, sizeof(Vector3), sizeof(Vector3));
-                radialGrad1.W = 0;
-                mat.SetVector4("buffer2.radialGrad0".GetShaderPropertyId(), radialGrad0);
-                mat.SetVector4("buffer2.radialGrad1".GetShaderPropertyId(), radialGrad1);
-            }
-
-            else if (u2.NumWords == 8)
-            {
-                float opacity = default;
-                Vector4 radialGrad0 = default;
-                Vector4 radialGrad1 = default;
-                Buffer.MemoryCopy((byte*)u2.Values.ToPointer() + sizeof(float), &radialGrad0, sizeof(Vector4), sizeof(Vector4));
-                Buffer.MemoryCopy((byte*)u2.Values.ToPointer() + sizeof(Vector4) + sizeof(float), &radialGrad1, sizeof(Vector3), sizeof(Vector3));
-                Buffer.MemoryCopy(u2.Values.ToPointer(), &opacity, sizeof(float), sizeof(float));
-                radialGrad1.W = 0;
-                mat.SetFloat("buffer2.opacity".GetShaderPropertyId(), opacity);
-                mat.SetVector4("buffer2.radialGrad0".GetShaderPropertyId(), radialGrad0);
-                mat.SetVector4("buffer2.radialGrad1".GetShaderPropertyId(), radialGrad1);
-            }
-            else if (u2.NumWords == 11)
-            {
-                Vector4 radialGrad0 = default;
-                Vector4 radialGrad1 = default;
-                Vector4 rgba = default;
-                Buffer.MemoryCopy(u2.Values.ToPointer(), &rgba, sizeof(Vector4), sizeof(Vector4));
-                Buffer.MemoryCopy((byte*)u2.Values.ToPointer() + sizeof(Vector4), &radialGrad0, sizeof(Vector4), sizeof(Vector4));
-                Buffer.MemoryCopy((byte*)u2.Values.ToPointer() + sizeof(Vector4) + sizeof(Vector4), &radialGrad1, sizeof(Vector3), sizeof(Vector3));
-                radialGrad1.W = 0;
-                mat.SetVector4("buffer2.rgba".GetShaderPropertyId(), rgba);
-                mat.SetVector4("buffer2.radialGrad0".GetShaderPropertyId(), radialGrad0);
-                mat.SetVector4("buffer2.radialGrad1".GetShaderPropertyId(), radialGrad1);
-            }
-            else if (u2.NumWords == 12)
-            {
-                Vector4 radialGrad0 = default;
-                Vector4 radialGrad1 = default;
-                Vector4 rgba = default;
-                float opacity = default;
-                Buffer.MemoryCopy(u2.Values.ToPointer(), &rgba, sizeof(Vector4), sizeof(Vector4));
-                Buffer.MemoryCopy((byte*)u2.Values.ToPointer() + sizeof(Vector4), &opacity, sizeof(float), sizeof(float));
-                Buffer.MemoryCopy((byte*)u2.Values.ToPointer() + sizeof(float) + sizeof(Vector4), &radialGrad0, sizeof(Vector4), sizeof(Vector4));
-                Buffer.MemoryCopy((byte*)u2.Values.ToPointer() + sizeof(float) + sizeof(Vector4) + sizeof(Vector4), &radialGrad1, sizeof(Vector3), sizeof(Vector3));
-                radialGrad1.W = 0;
-                mat.SetVector4("buffer2.rgba".GetShaderPropertyId(), rgba);
-                mat.SetFloat("buffer2.opacity".GetShaderPropertyId(), opacity);
-                mat.SetVector4("buffer2.radialGrad0".GetShaderPropertyId(), radialGrad0);
-                mat.SetVector4("buffer2.radialGrad1".GetShaderPropertyId(), radialGrad1);
-            }
-            else if (u2.NumWords != 0)
-            {
-                throw new NotSupportedException(string.Format("{0} words not supported!", u2.NumWords));
+                case 4:
+                        Buffer.MemoryCopy(u2.Values.ToPointer(), &rgba, sizeof(Vector4), sizeof(Vector4));
+                        mat.SetVector4(_buffer2RGBA, rgba);
+                        break;
+                case 1:
+                        Buffer.MemoryCopy(u2.Values.ToPointer(), &opacity, sizeof(float), sizeof(float));
+                        mat.SetFloat(_buffer2Opac, opacity);
+                        break;
+                case 5:
+                        Buffer.MemoryCopy(u2.Values.ToPointer(), &rgba, sizeof(Vector4), sizeof(Vector4));
+                        Buffer.MemoryCopy((byte*)u2.Values.ToPointer() + sizeof(Vector4), &opacity, sizeof(float), sizeof(float));
+                        mat.SetVector4(_buffer2RGBA, rgba);
+                        mat.SetFloat(_buffer2Opac, opacity);
+                        break;
+                case 7:
+                        Buffer.MemoryCopy(u2.Values.ToPointer(), &radialGrad0, sizeof(Vector4), sizeof(Vector4));
+                        Buffer.MemoryCopy((byte*)u2.Values.ToPointer() + sizeof(Vector4), &radialGrad1, sizeof(Vector3), sizeof(Vector3));
+                        radialGrad1.W = 0;
+                        mat.SetVector4(_buffer2RadGrad0, radialGrad0);
+                        mat.SetVector4(_buffer2RadGrad1, radialGrad1);
+                        break;
+                case 8:
+                        Buffer.MemoryCopy((byte*)u2.Values.ToPointer() + sizeof(float), &radialGrad0, sizeof(Vector4), sizeof(Vector4));
+                        Buffer.MemoryCopy((byte*)u2.Values.ToPointer() + sizeof(Vector4) + sizeof(float), &radialGrad1, sizeof(Vector3), sizeof(Vector3));
+                        Buffer.MemoryCopy(u2.Values.ToPointer(), &opacity, sizeof(float), sizeof(float));
+                        radialGrad1.W = 0;
+                        mat.SetFloat(_buffer2Opac, opacity);
+                        mat.SetVector4(_buffer2RadGrad0, radialGrad0);
+                        mat.SetVector4(_buffer2RadGrad1, radialGrad1);
+                        break;
+                case 11:
+                        Buffer.MemoryCopy(u2.Values.ToPointer(), &rgba, sizeof(Vector4), sizeof(Vector4));
+                        Buffer.MemoryCopy((byte*)u2.Values.ToPointer() + sizeof(Vector4), &radialGrad0, sizeof(Vector4), sizeof(Vector4));
+                        Buffer.MemoryCopy((byte*)u2.Values.ToPointer() + sizeof(Vector4) + sizeof(Vector4), &radialGrad1, sizeof(Vector3), sizeof(Vector3));
+                        radialGrad1.W = 0;
+                        mat.SetVector4(_buffer2RGBA, rgba);
+                        mat.SetVector4(_buffer2RadGrad0, radialGrad0);
+                        mat.SetVector4(_buffer2RadGrad1, radialGrad1);
+                        break;
+                case 12:
+                        Buffer.MemoryCopy(u2.Values.ToPointer(), &rgba, sizeof(Vector4), sizeof(Vector4));
+                        Buffer.MemoryCopy((byte*)u2.Values.ToPointer() + sizeof(Vector4), &opacity, sizeof(float), sizeof(float));
+                        Buffer.MemoryCopy((byte*)u2.Values.ToPointer() + sizeof(float) + sizeof(Vector4), &radialGrad0, sizeof(Vector4), sizeof(Vector4));
+                        Buffer.MemoryCopy((byte*)u2.Values.ToPointer() + sizeof(float) + sizeof(Vector4) + sizeof(Vector4), &radialGrad1, sizeof(Vector3), sizeof(Vector3));
+                        radialGrad1.W = 0;
+                        mat.SetVector4(_buffer2RGBA, rgba);
+                        mat.SetFloat(_buffer2Opac, opacity);
+                        mat.SetVector4(_buffer2RadGrad0, radialGrad0);
+                        mat.SetVector4(_buffer2RadGrad1, radialGrad1);
+                        break;
+                case 0:
+                    break;
+                default:
+                    throw new NotSupportedException(string.Format("{0} words not supported!", u2.NumWords));
             }
             #endregion
 
             #region u3
-            if (u3.NumWords == 1)
+            var u3 = batch.PixelUniform1;
+            float blend = default;
+            Vector4 shadowColor = default;
+            Vector2 shadowOffset = default;
+            switch (u3.NumWords)
             {
-                float blend = default;
-                Buffer.MemoryCopy(u3.Values.ToPointer(), &blend, sizeof(float), sizeof(float));
-                mat.SetFloat("buffer3.blend".GetShaderPropertyId(), blend);
-            }
-            else if (u3.NumWords == 7)
-            {
-                Vector4 shadowColor = default;
-                Vector2 shadowOffset = default;
-                float blend = default;
-                Buffer.MemoryCopy(u3.Values.ToPointer(), &shadowColor, sizeof(Vector4), sizeof(Vector4));
-                Buffer.MemoryCopy((byte*)u3.Values.ToPointer() + sizeof(Vector4), &shadowOffset, sizeof(Vector2), sizeof(Vector2));
-                Buffer.MemoryCopy((byte*)u3.Values.ToPointer() + sizeof(Vector4) + sizeof(Vector2), &blend, sizeof(float), sizeof(float));
-                mat.SetVector4("buffer3.shadowColor".GetShaderPropertyId(), shadowColor);
-                mat.SetVector2("buffer3.shadowOffset".GetShaderPropertyId(), shadowOffset);
-                mat.SetFloat("buffer3.blend".GetShaderPropertyId(), blend);
-            }
-            else if (u3.NumWords != 0)
-            {
-                throw new NotSupportedException(string.Format("{0} words not supported!", u3.NumWords));
+                case 1:
+                        Buffer.MemoryCopy(u3.Values.ToPointer(), &blend, sizeof(float), sizeof(float));
+                        mat.SetFloat(_buffer3Blend, blend);
+                        break;
+                case 7:
+                        Buffer.MemoryCopy(u3.Values.ToPointer(), &shadowColor, sizeof(Vector4), sizeof(Vector4));
+                        Buffer.MemoryCopy((byte*)u3.Values.ToPointer() + sizeof(Vector4), &shadowOffset, sizeof(Vector2), sizeof(Vector2));
+                        Buffer.MemoryCopy((byte*)u3.Values.ToPointer() + sizeof(Vector4) + sizeof(Vector2), &blend, sizeof(float), sizeof(float));
+                        mat.SetVector4(_buffer3ShadCol, shadowColor);
+                        mat.SetVector2(_buffer3ShadOff, shadowOffset);
+                        mat.SetFloat(_buffer3Blend, blend);
+                        break;
+                case 0:
+                    break;
+                default:
+                    throw new NotSupportedException(string.Format("{0} words not supported!", u3.NumWords));
+
             }
             #endregion
         }
@@ -960,7 +923,7 @@ namespace VECS.UI
             SetDepthStencilInfo(CurrentCommandBuffer, mode);
         }
 
-        public override unsafe void BeginOffscreenRender()
+        public override void BeginOffscreenRender()
         {
             GraphicsDevice.BeginLabelCmd(CurrentCommandBuffer, "NOESIS Begin Off-Screen Render");
         }
@@ -1184,7 +1147,7 @@ namespace VECS.UI
             info->depthBiasSlopeFactor = 0.0f;
         }
 
-        public unsafe void SetRasterizerInfo(VkCommandBuffer commandBuffer, bool wireframe)
+        public void SetRasterizerInfo(VkCommandBuffer commandBuffer, bool wireframe)
         {
             if (wireframe && mFillModeNonSolid)
             {
@@ -1282,7 +1245,7 @@ namespace VECS.UI
             return true;
         }
 
-        private static unsafe void SetDepthStencilInfo(VkCommandBuffer commandBuffer, StencilMode mode)
+        private static void SetDepthStencilInfo(VkCommandBuffer commandBuffer, StencilMode mode)
         {
             VkBool32 depthTestEnable;
             VkBool32 stencilTestEnable;

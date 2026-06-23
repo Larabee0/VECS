@@ -3,14 +3,14 @@ using System.Numerics;
 
 namespace VECS.UI
 {
-    public class Bool4Field : UserControl
+    public class Bool4Field : UserControl, IEditorField
     {
 
-        public static readonly DependencyProperty _Label = DependencyProperty.Register("Label", typeof(string), typeof(TextBlock), new PropertyMetadata("Label"));
-        public static readonly DependencyProperty _ValueX = DependencyProperty.Register("ValueX", typeof(bool), typeof(CheckBox), new PropertyMetadata(false));
-        public static readonly DependencyProperty _ValueY = DependencyProperty.Register("ValueY", typeof(bool), typeof(CheckBox), new PropertyMetadata(false));
-        public static readonly DependencyProperty _ValueZ = DependencyProperty.Register("ValueZ", typeof(bool), typeof(CheckBox), new PropertyMetadata(false));
-        public static readonly DependencyProperty _ValueW = DependencyProperty.Register("ValueW", typeof(bool), typeof(CheckBox), new PropertyMetadata(false));
+        public static readonly DependencyProperty _Label = DependencyProperty.Register("Label", typeof(string), typeof(Bool4Field), new PropertyMetadata("Label"));
+        public static readonly DependencyProperty _ValueX = DependencyProperty.Register("ValueX", typeof(bool), typeof(Bool4Field), new PropertyMetadata(false));
+        public static readonly DependencyProperty _ValueY = DependencyProperty.Register("ValueY", typeof(bool), typeof(Bool4Field), new PropertyMetadata(false));
+        public static readonly DependencyProperty _ValueZ = DependencyProperty.Register("ValueZ", typeof(bool), typeof(Bool4Field), new PropertyMetadata(false));
+        public static readonly DependencyProperty _ValueW = DependencyProperty.Register("ValueW", typeof(bool), typeof(Bool4Field), new PropertyMetadata(false));
 
         public string Label
         {
@@ -63,6 +63,14 @@ namespace VECS.UI
             ValueY = value.Y;
             ValueZ = value.Z;
             ValueW = value.W;
+        }
+
+        public void SetValue(object value)
+        {
+            if(value is Bool4 bool4)
+            {
+                SetBool4(bool4);
+            }
         }
     }
 }

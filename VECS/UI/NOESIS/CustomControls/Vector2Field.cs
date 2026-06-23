@@ -1,19 +1,14 @@
 ﻿using Noesis;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace VECS.UI
 {
-    public class Vector2Field : UserControl
+    public class Vector2Field : UserControl, IEditorField
     {
 
-        public static readonly DependencyProperty _Label = DependencyProperty.Register("Label", typeof(string), typeof(TextBlock), new PropertyMetadata("Label"));
-        public static readonly DependencyProperty _ValueX = DependencyProperty.Register("ValueX", typeof(string), typeof(TextBox), new PropertyMetadata("0"));
-        public static readonly DependencyProperty _ValueY = DependencyProperty.Register("ValueY", typeof(string), typeof(TextBox), new PropertyMetadata("0"));
+        public static readonly DependencyProperty _Label = DependencyProperty.Register("Label", typeof(string), typeof(Vector2Field), new PropertyMetadata("Label"));
+        public static readonly DependencyProperty _ValueX = DependencyProperty.Register("ValueX", typeof(string), typeof(Vector2Field), new PropertyMetadata("0"));
+        public static readonly DependencyProperty _ValueY = DependencyProperty.Register("ValueY", typeof(string), typeof(Vector2Field), new PropertyMetadata("0"));
 
         public string Label
         {
@@ -79,5 +74,22 @@ namespace VECS.UI
             ValueX = value.X.ToString();
             ValueY = value.Y.ToString();
         }
+
+        public void SetValue(object value)
+        {
+            if(value is Vector2 vector2)
+            {
+                SetVector2(vector2);
+            }
+            else if(value is Vector2Int vector2Int)
+            {
+                SetVector2Int(vector2Int);
+            }
+            else if(value is Vector2UInt vector2UInt)
+            {
+                SetVector2Uint(vector2UInt);
+            }
+        }
+
     }
 }

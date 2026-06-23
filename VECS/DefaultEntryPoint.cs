@@ -222,7 +222,7 @@ namespace VECS
 
             Children children = new()
             {
-                Value = new Entity[sponza.Length]
+                Values = new Entity[sponza.Length]
             };
             Parent parent = new() { Value = commonParent };
 
@@ -299,7 +299,7 @@ namespace VECS
                 {
                     var meshIndex = matInfo.appliesTo[j];
                     var entity = entityManager.CreateEntity(string.Format("Sponza Component {0}",k));
-                    children.Value[k] = entity;
+                    children.Values[k] = entity;
                     entityManager.AddComponent(entity, parent);
 
                     AddRenderMeshComponents(entity, material, 0, sponza[meshIndex], entityManager);
@@ -330,7 +330,7 @@ namespace VECS
 
             Children children = new()
             {
-                Value = new Entity[sponza.Length]
+                Values = new Entity[sponza.Length]
             };
             Parent parent = new() { Value = commonParent };
 
@@ -424,7 +424,7 @@ namespace VECS
                 {
                     var meshIndex = matInfo.appliesTo[j];
                     var entity = entityManager.CreateEntity();
-                    children.Value[k] = entity;
+                    children.Values[k] = entity;
                     entityManager.AddComponent(entity, parent);
 
                     AddRenderMeshComponents(entity, material, 0, sponza[meshIndex], entityManager);
