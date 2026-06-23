@@ -15,14 +15,15 @@ namespace VECS.UI
             set { SetValue(_label, value); }
         }
 
-        public ComboBox ComboBox
+        public TreeViewItem RadioContainer
         {
             get 
             { 
-                return (ComboBox)FindName("ComboBox");
+                return (TreeViewItem)FindName("RadioContainer");
             }
-            
         }
+
+        public bool IsFlagsEnum { get; set; }
 
         public DropDownField()
         {
@@ -37,8 +38,26 @@ namespace VECS.UI
         public void SetValue(object value)
         {
             var values = Enum.GetNames(value.GetType());
-            var index = Array.IndexOf(values,value);
-            ComboBox.SelectedIndex = index;
+            var items = RadioContainer.Items;
+
+            string valueAsString =value.ToString();
+            
+            if (IsFlagsEnum)
+            {
+                for (int i = 0; i < values.Length; i++)
+                {
+                    bool isChecked = valueAsString.Contains(values[i]);
+                    if (isChecked != ((RadioButton)items[i]).IsChecked)
+                    {
+                        ((RadioButton)items[i]).IsChecked = isChecked;                        
+                    }
+                }
+            }
+            else
+            {
+                var index = Array.IndexOf(values, valueAsString);
+                ((RadioButton)items[index]).IsChecked = true;
+            }
         }
 
     }

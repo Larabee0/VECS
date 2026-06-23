@@ -145,14 +145,25 @@ namespace VECS.UI
                     {
                         var dropDown = new DropDownField();
                         var enumComponents = typeToBuild.FieldType.GetEnumNames();
-
+                        bool flagsEnum = typeToBuild.FieldType.GetCustomAttributes<FlagsAttribute>() != null;
+                        dropDown.IsFlagsEnum = flagsEnum;
                         for (int j = 0; j < enumComponents.Length; j++)
                         {
-                            dropDown.ComboBox.Items.Add(new ComboBoxItem(){Content = enumComponents[j]});
+                            var button = new RadioButton()
+                            {
+                                Content = enumComponents[j],
+                                GroupName = flagsEnum ? Random.Shared.Next().ToString(): null,
+                                Tag = enumComponents[j]
+                            };
+                            dropDown.RadioContainer.Items.Add(button);
+                            if(j == 0)
+                            {
+                                button.IsChecked = true;   
+                            }
                         }
 
-                        dropDown.ComboBox.SelectedIndex = 0;
-                        dropDown.ComboBox.Placeholder = "PlaceHold";
+
+                        
                         instance = dropDown;
                     }
                     else if (typeToBuild.FieldType.IsArray)
