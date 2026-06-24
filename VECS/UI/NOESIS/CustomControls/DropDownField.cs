@@ -41,6 +41,7 @@ namespace VECS.UI
             var items = RadioContainer.Items;
 
             string valueAsString =value.ToString();
+            RadioContainer.Header = valueAsString;
             
             if (IsFlagsEnum)
             {

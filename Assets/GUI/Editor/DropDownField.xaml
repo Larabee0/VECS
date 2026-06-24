@@ -3,11 +3,11 @@
   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
   x:Class="VECS.UI.DropDownField"
   x:Name="DropDownFieldControl"
-  Height="220" Background="#004D5052">
+  MaxHeight="220" Background="#004D5052">
   <UserControl.Resources>
     <ResourceDictionary Source="./EditorTheme.xaml"/>
   </UserControl.Resources>
-  <Grid Height="220">
+  <Grid MaxHeight="220">
     <Grid.ColumnDefinitions>
       <ColumnDefinition/>
     </Grid.ColumnDefinitions>
@@ -20,7 +20,7 @@
       </Grid.ColumnDefinitions>
       <TextBlock Text="{Binding Label, ElementName=DropDownFieldControl}" HorizontalAlignment="Left" Foreground="#FFFFFFFF" Style="{DynamicResource VectorLabel}"/>
       
-      <TreeViewItem x:Name="RadioContainer"  ScrollViewer.PanningMode="VerticalOnly" Margin="0,0,2,0" Grid.Column="1"  MaxHeight="200"/>
+      <TreeViewItem x:Name="RadioContainer"  ScrollViewer.PanningMode="VerticalOnly" Margin="0,0,2,0" Grid.Column="1" MaxHeight="200"/>
       
     </Grid>
   </Grid>
