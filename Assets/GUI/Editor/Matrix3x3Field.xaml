@@ -5,12 +5,12 @@
   xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
   mc:Ignorable="d"
   x:Class="Matrix4x4Field"
-  x:Name="Matrix4x4FieldControl"
-  Height="200" Background="#004D5052">
+  x:Name="Matrix4x4FieldControl" Height="125"
+  Background="#004D5052">
   <UserControl.Resources>
     <ResourceDictionary Source="./EditorTheme.xaml"/>
   </UserControl.Resources>
-  <Grid Height="200">
+  <Grid Height="125">
     <Grid.ColumnDefinitions>
       <ColumnDefinition/>
     </Grid.ColumnDefinitions>

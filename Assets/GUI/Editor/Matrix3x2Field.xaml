@@ -5,12 +5,11 @@
   xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
   mc:Ignorable="d"
   x:Class="VECS.UI.Matrix3x2Field"
-  x:Name="Matrix3x2FieldControl"
-  Height="200" Background="#004D5052">
+  x:Name="Matrix3x2FieldControl" Height="80" Background="#004D5052">
   <UserControl.Resources>
     <ResourceDictionary Source="./EditorTheme.xaml"/>
   </UserControl.Resources>
-  <Grid Height="200">
+  <Grid Height="80">
     <Grid.ColumnDefinitions>
       <ColumnDefinition/>
     </Grid.ColumnDefinitions>

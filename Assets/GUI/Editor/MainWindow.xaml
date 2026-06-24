@@ -37,10 +37,6 @@
     <Rectangle x:Name="RightSideBarBG" Grid.Column="1" Grid.ColumnSpan="2" Grid.RowSpan="2" Fill="#494d4a" Stroke="#FF000000"/>
     <StackPanel x:Name="RightSideBarStackPanel" Grid.Column="1" Grid.RowSpan="2"  MaxWidth="476" MaxHeight="1080">
       <TreeView x:Name="RightSideBarTreeView" ScrollViewer.PanningMode="VerticalOnly" Grid.Column="1" Grid.RowSpan="2" MaxWidth="476" MaxHeight="1080">
-        <ComboBox Text="Enum">
-          <ComboBoxItem Content="itemA" Width="80"/>
-          <ComboBoxItem Content="ItemB" Width="80"/>
-        </ComboBox>
       </TreeView>
     </StackPanel>
 

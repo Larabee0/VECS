@@ -8,7 +8,7 @@
     <Setter Property="Opacity" Value="1"/>
     <Setter Property="Height" Value="30"/>
     <Setter Property="TextWrapping" Value="NoWrap"/>
-    <Setter Property="Width" Value="100"/>
+    <Setter Property="Width" Value="180"/>
   </Style>
   <Style x:Key="VectorLabel" TargetType="TextBlock">
     <Setter Property="VerticalAlignment" Value="Center"/>
