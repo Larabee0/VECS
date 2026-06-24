@@ -29,6 +29,7 @@ namespace VECS.UI
             GUI.RegisterType(typeof(Matrix3x2Field));
             GUI.RegisterType(typeof(Matrix3x3Field));
             GUI.RegisterType(typeof(Matrix4x4Field));
+            GUI.RegisterType(typeof(DropDownField));
 
             var xamlProvider = new LocalXamlProvider(System.IO.Path.Combine(Asset.AssetsPath, "GUI"));
             GUI.SetXamlProvider(xamlProvider);

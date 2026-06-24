@@ -188,21 +188,21 @@ namespace VECS.ECS.Transforms
                 ? entityManager.GetComponent<Children>(signature)
                 : entityManager.AddComponent<Children>(parent);
 
-            children.Value ??= [];
+            children.Values ??= [];
 
-            List<Entity> toAdd = [.. children.Value];
+            List<Entity> toAdd = [.. children.Values];
             for (int i = 0; i < newChildren.Length; i++)
             {
                 Entity newChild = newChildren[i];
 
-                if (!children.Value.Contains(newChild))
+                if (!children.Values.Contains(newChild))
                 {
                     toAdd.Add(newChild);
                     entityManager.AddComponent(newChild, parentComp);
                 }
             }
 
-            children.Value = [.. toAdd];
+            children.Values = [.. toAdd];
 
             entityManager.SetComponent(parent,children);
         }

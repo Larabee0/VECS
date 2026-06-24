@@ -1,4 +1,5 @@
-﻿using BepuUtilities;
+﻿#define VERY_LOW_FRAME_RATES
+using BepuUtilities;
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -19,7 +20,7 @@ namespace VECS
         public static Application Instance { get; private set; }
         private static bool running = true;
 
-        private static uint _targetFrameRate = uint.MaxValue; //10;// 
+        private static uint _targetFrameRate =20;//  uint.MaxValue; //
         private static double _targetFrameTime;
 
         public static uint TargetFrameRate
@@ -27,7 +28,11 @@ namespace VECS
             get => _targetFrameRate;
             set
             {
+#if DEBUG
+                value = Math.Max(value,1);
+#else
                 value = Math.Max(value, 10);
+#endif
                 value = value > 20000 ? uint.MaxValue : value;
                 _targetFrameRate = value;
                 _targetFrameTime = 1000 / (double)_targetFrameRate;

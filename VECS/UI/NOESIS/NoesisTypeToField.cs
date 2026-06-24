@@ -88,7 +88,8 @@ namespace VECS.UI
 
             {typeof(Matrix3x2), typeof(Matrix3x2Field)},
             {typeof(Matrix3x3), typeof(Matrix3x3Field)},
-            {typeof(Matrix4x4), typeof(Matrix4x4Field)}
+            {typeof(Matrix4x4), typeof(Matrix4x4Field)},
+            {typeof(Enum),typeof(DropDownField)}
         };
 
         public readonly static HashSet<Type> BaseFieldTypesSet = [.. BaseFieldTypes];
@@ -109,7 +110,8 @@ namespace VECS.UI
             {
                 Console.WriteLine("{0}.{1}",fields[i].Name,fields[i].FieldType.Name);
                 var fieldType = fields[i].FieldType;
-                if (!BaseFieldTypesSet.Contains(fieldType))
+                
+                if (!BaseFieldTypesSet.Contains(fieldType) && !fieldType.IsEnum && !fieldType.IsArray)
                 {
                     main.Order.Add(new(1, main.Children.Count));
                     GetTypeFields(fieldType, main.Children);
@@ -137,8 +139,50 @@ namespace VECS.UI
                 var orderIndices = hierarhcy.Order[i];
                 if(orderIndices.X == 0)
                 {
-                    var typeToBuild = hierarhcy.Types[orderIndices.Y];
-                    var instance = (UIElement)Activator.CreateInstance(TypesToControl[typeToBuild.FieldType]);
+                    FieldInfo typeToBuild = hierarhcy.Types[orderIndices.Y];
+                    FrameworkElement instance;
+                    if (typeToBuild.FieldType.IsEnum)
+                    {
+                        var dropDown = new DropDownField();
+                        var enumComponents = typeToBuild.FieldType.GetEnumNames();
+                        bool flagsEnum = typeToBuild.FieldType.GetCustomAttributes<FlagsAttribute>() != null;
+                        dropDown.IsFlagsEnum = flagsEnum;
+                        for (int j = 0; j < enumComponents.Length; j++)
+                        {
+                            var button = new RadioButton()
+                            {
+                                Content = enumComponents[j],
+                                GroupName = flagsEnum ? Random.Shared.Next().ToString(): null,
+                                Tag = enumComponents[j]
+                            };
+                            dropDown.RadioContainer.Items.Add(button);
+                            if(j == 0)
+                            {
+                                button.IsChecked = true;   
+                            }
+                        }
+
+
+                        
+                        instance = dropDown;
+                    }
+                    else if (typeToBuild.FieldType.IsArray)
+                    {
+                        var arrayTree = new TreeViewItem(){Header = typeToBuild.Name};
+                        Type array = typeToBuild.FieldType;
+                        var elementType = array.GetElementType();
+                        var arrayTypeFields = GetTypeFields(elementType);
+                        
+                        var arrayTreeItem = ConstructTree(arrayTypeFields);;
+                        arrayTree.Items.Add(arrayTreeItem);
+                        instance = arrayTree;
+                    }
+                    else
+                    {
+                       
+                       instance = (FrameworkElement)Activator.CreateInstance(TypesToControl[typeToBuild.FieldType]);
+                    }
+                    instance.Tag = string.Format("{0}.{1}",typeToBuild.Name,typeToBuild.FieldType.Name);
                     treeViewItem.Items.Add(instance);
                     NameFieldInstance(typeToBuild, instance);
                 }
@@ -153,51 +197,82 @@ namespace VECS.UI
 
         private static void NameFieldInstance(FieldInfo typeToBuild, UIElement instance)
         {
-            if (instance is Vector1Field vector1Field)
+            if (instance is IEditorField customEditorField)
             {
-                vector1Field.Label = typeToBuild.Name;
+                customEditorField.Label = typeToBuild.Name;
             }
             else if (instance is CheckBox checkBox)
             {
                 checkBox.Content = typeToBuild.Name;
             }
-            else if (instance is Bool2Field bool2Field)
+        }
+
+
+        public static void UpdateValues(EntityManager entityManager, TreeViewItem tree, int componentId, Entity entity)
+        {
+            IComponent component = entityManager.GetComponent(entity,componentId);
+
+            var type = component.GetType();
+
+            var hierarhcy = GetTypeFields(type);
+            for (int i = 0; i < hierarhcy.Order.Count; i++)
             {
-                bool2Field.Label = typeToBuild.Name;
-            }
-            else if (instance is Bool3Field bool3Field)
-            {
-                bool3Field.Label = typeToBuild.Name;
-            }
-            else if (instance is Bool4Field bool4Field)
-            {
-                bool4Field.Label = typeToBuild.Name;
-            }
-            else if(instance is Vector2Field vector2Field)
-            {
-                vector2Field.Label = typeToBuild.Name;
-            }
-            else if(instance is Vector3Field vector3Field)
-            {
-                vector3Field.Label = typeToBuild.Name;
-            }
-            else if(instance is Vector4Field vector4Field)
-            {
-                vector4Field.Label = typeToBuild.Name;
-            }
-            else if(instance is Matrix3x2Field matrix3X2Field)
-            {
-                matrix3X2Field.Label = typeToBuild.Name;
-            }
-            else if(instance is Matrix3x3Field matrix3X3Field)
-            {
-                matrix3X3Field.Label = typeToBuild.Name;
-            }
-            else if(instance is Matrix4x4Field matrix4X4Field)
-            {
-                matrix4X4Field.Label = typeToBuild.Name;
+                var orderIndices = hierarhcy.Order[i];
+                
+                if(orderIndices.X == 0)
+                {
+                    UpdateValues((FrameworkElement)tree.Items[i],hierarhcy.Types[orderIndices.Y].GetValue(component));
+                }
+                else
+                {
+                    UpdateValues(hierarhcy.Children[orderIndices.Y],(TreeViewItem)tree.Items[i],component);
+                }
             }
         }
+
+        private static void UpdateValues(FieldHierarhcy hierarhcy, TreeViewItem node, object instance)
+        {
+            
+            for (int i = 0; i < hierarhcy.Order.Count; i++)
+            {
+                var orderIndices = hierarhcy.Order[i];
+                
+                if(orderIndices.X == 0)
+                {
+                    UpdateValues((FrameworkElement)node.Items[i],hierarhcy.Types[orderIndices.X].GetValue(instance));
+                }
+                else
+                {
+                    UpdateValues(hierarhcy.Children[orderIndices.Y],(TreeViewItem)node.Items[i],instance);
+                }
+            }
+        }
+
+        private static void UpdateValues(FrameworkElement frameworkElement, object v)
+        {
+            if(!TypesToControl.TryGetValue(v.GetType(), out var controlType) && !v.GetType().IsEnum)
+            {
+                Console.WriteLine("Invalid Control type {0} for frameworkElement {1}",v.GetType().Name,frameworkElement.GetType().Name);
+                return;
+            }
+
+            if(frameworkElement.GetType() != controlType && !v.GetType().IsEnum)
+            {
+                Console.WriteLine("Unexpected framework element type  {0} for control type {1}",frameworkElement.GetType().Name,controlType.Name);
+                return;
+            }
+            if(frameworkElement is IEditorField editorField)
+            {
+                editorField.SetValue(v);
+                //Console.WriteLine("Set {0} to {1}",controlType.Name, v);
+            }
+            else
+            {
+                Console.WriteLine("Valid control element type does not implement IEditorField");
+            }
+            // set value somehow
+        }
+
 
     }
 

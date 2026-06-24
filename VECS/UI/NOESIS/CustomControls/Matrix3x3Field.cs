@@ -1,22 +1,23 @@
 using Noesis;
+using System.Numerics;
 
 namespace VECS.UI
 {
-    public class Matrix3x3Field : UserControl
+    public class Matrix3x3Field : UserControl, IEditorField
     {
 
-        public static readonly DependencyProperty _Label = DependencyProperty.Register("Label", typeof(string), typeof(TextBlock), new PropertyMetadata("Label"));
-        public static readonly DependencyProperty _ValueM11 = DependencyProperty.Register("ValueM11", typeof(string), typeof(TextBox), new PropertyMetadata("0"));
-        public static readonly DependencyProperty _ValueM12 = DependencyProperty.Register("ValueM12", typeof(string), typeof(TextBox), new PropertyMetadata("0"));
-        public static readonly DependencyProperty _ValueM13 = DependencyProperty.Register("ValueM13", typeof(string), typeof(TextBox), new PropertyMetadata("0"));
+        public static readonly DependencyProperty _Label = DependencyProperty.Register("Label", typeof(string), typeof(Matrix3x3Field), new PropertyMetadata("Label"));
+        public static readonly DependencyProperty _ValueM11 = DependencyProperty.Register("ValueM11", typeof(string), typeof(Matrix3x3Field), new PropertyMetadata("0"));
+        public static readonly DependencyProperty _ValueM12 = DependencyProperty.Register("ValueM12", typeof(string), typeof(Matrix3x3Field), new PropertyMetadata("0"));
+        public static readonly DependencyProperty _ValueM13 = DependencyProperty.Register("ValueM13", typeof(string), typeof(Matrix3x3Field), new PropertyMetadata("0"));
 
-        public static readonly DependencyProperty _ValueM21 = DependencyProperty.Register("ValueM21", typeof(string), typeof(TextBox), new PropertyMetadata("0"));
-        public static readonly DependencyProperty _ValueM22 = DependencyProperty.Register("ValueM22", typeof(string), typeof(TextBox), new PropertyMetadata("0"));
-        public static readonly DependencyProperty _ValueM23 = DependencyProperty.Register("ValueM23", typeof(string), typeof(TextBox), new PropertyMetadata("0"));
+        public static readonly DependencyProperty _ValueM21 = DependencyProperty.Register("ValueM21", typeof(string), typeof(Matrix3x3Field), new PropertyMetadata("0"));
+        public static readonly DependencyProperty _ValueM22 = DependencyProperty.Register("ValueM22", typeof(string), typeof(Matrix3x3Field), new PropertyMetadata("0"));
+        public static readonly DependencyProperty _ValueM23 = DependencyProperty.Register("ValueM23", typeof(string), typeof(Matrix3x3Field), new PropertyMetadata("0"));
 
-        public static readonly DependencyProperty _ValueM31 = DependencyProperty.Register("ValueM31", typeof(string), typeof(TextBox), new PropertyMetadata("0"));
-        public static readonly DependencyProperty _ValueM32 = DependencyProperty.Register("ValueM32", typeof(string), typeof(TextBox), new PropertyMetadata("0"));
-        public static readonly DependencyProperty _ValueM33 = DependencyProperty.Register("ValueM33", typeof(string), typeof(TextBox), new PropertyMetadata("0"));
+        public static readonly DependencyProperty _ValueM31 = DependencyProperty.Register("ValueM31", typeof(string), typeof(Matrix3x3Field), new PropertyMetadata("0"));
+        public static readonly DependencyProperty _ValueM32 = DependencyProperty.Register("ValueM32", typeof(string), typeof(Matrix3x3Field), new PropertyMetadata("0"));
+        public static readonly DependencyProperty _ValueM33 = DependencyProperty.Register("ValueM33", typeof(string), typeof(Matrix3x3Field), new PropertyMetadata("0"));
 
         public string Label
         {
@@ -90,7 +91,7 @@ namespace VECS.UI
             GUI.LoadComponent(this, "Editor/Matrix3x3Field.xaml");
         }
 
-        public void FromMatrix4x4(System.Numerics.Matrix3x3 matrix)
+        public void FromMatrix3x3(Matrix3x3 matrix)
         {
             ValueM11 = matrix.M11.ToString();
             ValueM12 = matrix.M12.ToString();
@@ -106,7 +107,7 @@ namespace VECS.UI
         }
 
 
-        public System.Numerics.Matrix3x3 ToMatrix4x4(System.Numerics.Matrix3x3 matrix)
+        public Matrix3x3 ToMatrix3x3(Matrix3x3 matrix)
         {
             
             matrix.M11 = float.TryParse(ValueM11, out var value) ? value : matrix.M11;
@@ -123,5 +124,14 @@ namespace VECS.UI
 
             return matrix;
         }
+
+        public void SetValue(object value)
+        {
+            if(value is Matrix3x3 mat3x3)
+            {
+                FromMatrix3x3(mat3x3);
+            }
+        }
+
     }
 }

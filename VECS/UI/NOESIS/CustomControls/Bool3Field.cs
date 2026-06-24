@@ -3,13 +3,13 @@ using System.Numerics;
 
 namespace VECS.UI
 {
-    public class Bool3Field : UserControl
+    public class Bool3Field : UserControl, IEditorField
     {
 
-        public static readonly DependencyProperty _Label = DependencyProperty.Register("Label", typeof(string), typeof(TextBlock), new PropertyMetadata("Label"));
-        public static readonly DependencyProperty _ValueX = DependencyProperty.Register("ValueX", typeof(bool), typeof(CheckBox), new PropertyMetadata(false));
-        public static readonly DependencyProperty _ValueY = DependencyProperty.Register("ValueY", typeof(bool), typeof(CheckBox), new PropertyMetadata(false));
-        public static readonly DependencyProperty _ValueZ = DependencyProperty.Register("ValueZ", typeof(bool), typeof(CheckBox), new PropertyMetadata(false));
+        public static readonly DependencyProperty _Label = DependencyProperty.Register("Label", typeof(string), typeof(Bool3Field), new PropertyMetadata("Label"));
+        public static readonly DependencyProperty _ValueX = DependencyProperty.Register("ValueX", typeof(bool), typeof(Bool3Field), new PropertyMetadata(false));
+        public static readonly DependencyProperty _ValueY = DependencyProperty.Register("ValueY", typeof(bool), typeof(Bool3Field), new PropertyMetadata(false));
+        public static readonly DependencyProperty _ValueZ = DependencyProperty.Register("ValueZ", typeof(bool), typeof(Bool3Field), new PropertyMetadata(false));
 
         public string Label
         {
@@ -56,5 +56,14 @@ namespace VECS.UI
             ValueY = value.Y;
             ValueZ = value.Z;
         }
+
+        public void SetValue(object value)
+        {
+            if(value is Bool3 bool3)
+            {
+                SetBool3(bool3);
+            }
+        }
+
     }
 }

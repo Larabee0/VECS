@@ -78,7 +78,7 @@ namespace VECS.ECS.Transforms
         {
             if(entityManager.HasComponent<Children>(root,out var sig))
             {
-                var children = entityManager.GetComponent<Children>(sig).Value;
+                var children = entityManager.GetComponent<Children>(sig).Values;
                 var ltw = entityManager.GetComponent<LocalToWorld>(root).Value;
                 if (children != null)
                 {

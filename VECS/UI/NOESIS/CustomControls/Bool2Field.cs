@@ -2,12 +2,12 @@
 
 namespace VECS.UI
 {
-    public class Bool2Field : UserControl
+    public class Bool2Field : UserControl, IEditorField
     {
 
-        public static readonly DependencyProperty _Label = DependencyProperty.Register("Label", typeof(string), typeof(TextBlock), new PropertyMetadata("Label"));
-        public static readonly DependencyProperty _ValueX = DependencyProperty.Register("ValueX", typeof(bool), typeof(CheckBox), new PropertyMetadata(false));
-        public static readonly DependencyProperty _ValueY = DependencyProperty.Register("ValueY", typeof(bool), typeof(CheckBox), new PropertyMetadata(false));
+        public static readonly DependencyProperty _Label = DependencyProperty.Register("Label", typeof(string), typeof(Bool2Field), new PropertyMetadata("Label"));
+        public static readonly DependencyProperty _ValueX = DependencyProperty.Register("ValueX", typeof(bool), typeof(Bool2Field), new PropertyMetadata(false));
+        public static readonly DependencyProperty _ValueY = DependencyProperty.Register("ValueY", typeof(bool), typeof(Bool2Field), new PropertyMetadata(false));
 
         public string Label
         {
@@ -36,5 +36,11 @@ namespace VECS.UI
         {
             GUI.LoadComponent(this, "Editor/Bool2Field.xaml");
         }
+
+        public void SetValue(object value)
+        {
+            throw new System.NotImplementedException();
+        }
+
     }
 }

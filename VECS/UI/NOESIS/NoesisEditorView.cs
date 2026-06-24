@@ -112,11 +112,15 @@ namespace VECS.UI
             foreach(var componentId in componentIds)
             {
                 var componentType = entityManager.GetComponentType(componentId);
-
+                
                 var types = NoesisTypeToField.GetTypeFields(componentType);
                 var treeViewItem = NoesisTypeToField.ConstructTree(types);
                 item.Items.Add(treeViewItem);
+
+                NoesisTypeToField.UpdateValues(entityManager,treeViewItem,componentId,selectedEntity);
             }
+
+
 
         }
 
@@ -248,9 +252,9 @@ namespace VECS.UI
                 }
                 if (entityManager.GetComponent(entity, out Children children))
                 {
-                    for (int i = 0; i < children.Value.Length; i++)
+                    for (int i = 0; i < children.Values.Length; i++)
                     {
-                        SetEntities(entityManager, children.Value[i], item);
+                        SetEntities(entityManager, children.Values[i], item);
                     }
                 }
             }

@@ -1,28 +1,23 @@
 ﻿using Noesis;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace VECS.UI
 {
-    public class Vector1Field : UserControl
+    public class Vector1Field : UserControl, IEditorField
     {
 
-        public static readonly DependencyProperty _Label = DependencyProperty.Register("LabelV1", typeof(string), typeof(TextBlock), new PropertyMetadata("Label"));
-        public static readonly DependencyProperty _ValueX = DependencyProperty.Register("ValueXV1", typeof(string), typeof(TextBox), new PropertyMetadata("0"));
+        public static readonly DependencyProperty _LabelV1 = DependencyProperty.Register("Label", typeof(string), typeof(Vector1Field), new PropertyMetadata("Label"));
+        public static readonly DependencyProperty _ValueXV1 = DependencyProperty.Register("ValueX", typeof(string), typeof(Vector1Field), new PropertyMetadata("0"));
 
         public string Label
         {
-            get { return (string)GetValue(_Label); }
-            set { SetValue(_Label, value); }
+            get { return (string)GetValue(_LabelV1); }
+            set { SetValue(_LabelV1, value); }
         }
 
         public string ValueX
         {
-            get { return (string)GetValue(_ValueX); }
-            set { SetValue(_ValueX, value); }
+            get { return (string)GetValue(_ValueXV1); }
+            set { SetValue(_ValueXV1, value); }
         }
 
         public Vector1Field()
@@ -33,6 +28,11 @@ namespace VECS.UI
         void InitializeComponent()
         {
             GUI.LoadComponent(this, "Editor/Vector1Field.xaml");
+        }
+
+        public void SetValue(object value)
+        {
+            ValueX = value.ToString();
         }
 
 #region Floating Point Types
@@ -107,6 +107,7 @@ namespace VECS.UI
         {   
             return ulong.TryParse(ValueX, out var valueOut) ? valueOut : value;
         }
+
         #endregion
     }
 }

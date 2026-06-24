@@ -4,7 +4,7 @@
   xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
   xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
   mc:Ignorable="d"
-  x:Class="Vector4Field"
+  x:Class="VECS.UI.Vector4Field"
   x:Name="Vector4FieldControl"
   Height="50" Background="#004D5052">
   <UserControl.Resources>
