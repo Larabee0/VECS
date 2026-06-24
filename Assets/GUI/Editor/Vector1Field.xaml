@@ -17,15 +17,8 @@
     <Rectangle Grid.ColumnSpan="1" Fill="#FF262E35" Stroke="#FF000000"/>
     <Grid Margin="4,4,4,4" ColumnSpan="1">
       <Grid.ColumnDefinitions>
-        <ColumnDefinition/>
-        <ColumnDefinition Width="0.2*"/>
-        <ColumnDefinition/>
-        <ColumnDefinition Width="0.2*"/>
-        <ColumnDefinition/>
-        <ColumnDefinition Width="0.2*"/>
-        <ColumnDefinition/>
-        <ColumnDefinition Width="0.2*"/>
-        <ColumnDefinition/>
+        <ColumnDefinition Width="0.25*"/>
+        <ColumnDefinition Width="0.75*"/>
       </Grid.ColumnDefinitions>
       <TextBlock x:Name="LabelV1" Text="{Binding LabelV1, ElementName=Vector1FieldControl}" HorizontalAlignment="Left" Foreground="#FFFFFFFF" Style="{DynamicResource VectorLabel}"/>
       

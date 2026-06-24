@@ -22,6 +22,8 @@
         <ColumnDefinition/>
         <ColumnDefinition Width="0.2*"/>
         <ColumnDefinition/>
+        <ColumnDefinition Width="0.2*"/>
+        <ColumnDefinition/>
       </Grid.ColumnDefinitions>
       <TextBlock x:Name="Label" Text="{Binding Label, ElementName=Bool3FieldControl}" HorizontalAlignment="Left" Foreground="#FFFFFFFF" Style="{DynamicResource VectorLabel}"/>
       <TextBlock Text="X" Grid.Column="1" TextWrapping="Wrap" Style="{DynamicResource VectorLabel}"/>

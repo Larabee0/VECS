@@ -4,6 +4,7 @@
   xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
   xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
   xmlns:system="clr-namespace:System"
+  xmlns:system1="clr-namespace:System;assembly=mscorlib"
   mc:Ignorable="d"
   Background="#FF4D5052" d:DesignWidth="1920" d:DesignHeight="1080">
   <Grid.Resources>
@@ -35,7 +36,12 @@
 
     <Rectangle x:Name="RightSideBarBG" Grid.Column="1" Grid.ColumnSpan="2" Grid.RowSpan="2" Fill="#494d4a" Stroke="#FF000000"/>
     <StackPanel x:Name="RightSideBarStackPanel" Grid.Column="1" Grid.RowSpan="2"  MaxWidth="476" MaxHeight="1080">
-      <TreeView x:Name="RightSideBarTreeView" ScrollViewer.PanningMode="VerticalOnly" Grid.Column="1" Grid.RowSpan="2" MaxWidth="476" MaxHeight="1080"/>
+      <TreeView x:Name="RightSideBarTreeView" ScrollViewer.PanningMode="VerticalOnly" Grid.Column="1" Grid.RowSpan="2" MaxWidth="476" MaxHeight="1080">
+        <ComboBox Text="Enum">
+          <ComboBoxItem Content="itemA" Width="80"/>
+          <ComboBoxItem Content="ItemB" Width="80"/>
+        </ComboBox>
+      </TreeView>
     </StackPanel>
 
     <Rectangle x:Name="BottomProjectAreaBG" Grid.Row="1" Fill="#FFF4F4F5" Stroke="#FF000000"/>
