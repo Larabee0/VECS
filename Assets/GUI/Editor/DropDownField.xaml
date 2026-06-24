@@ -14,8 +14,8 @@
     <Rectangle Grid.ColumnSpan="1" Fill="#FF262E35" Stroke="#FF000000"/>
     <Grid Margin="4,4,4,4" ColumnSpan="1">
       <Grid.ColumnDefinitions>
-        <ColumnDefinition/>
-        <ColumnDefinition Width="0.2*"/>
+        <ColumnDefinition Width="0.25*"/>
+        <ColumnDefinition Width="0.75*"/>
         
       </Grid.ColumnDefinitions>
       <TextBlock Text="{Binding Label, ElementName=DropDownFieldControl}" HorizontalAlignment="Left" Foreground="#FFFFFFFF" Style="{DynamicResource VectorLabel}"/>
