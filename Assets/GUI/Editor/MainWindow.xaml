@@ -6,55 +6,49 @@
   xmlns:system="clr-namespace:System"
   xmlns:system1="clr-namespace:System;assembly=mscorlib"
   mc:Ignorable="d"
-  Background="#FF4D5052" d:DesignWidth="1920" d:DesignHeight="1080">
+  Background="#FF4D5052" d:DesignWidth="1280" d:DesignHeight="720">
   <Grid.Resources>
     <ResourceDictionary Source="./EditorTheme.xaml"/>
   </Grid.Resources>
-  <Grid>
-    <Grid.ColumnDefinitions>
-      <ColumnDefinition/>
-      <ColumnDefinition Width="0.33*"/>
-    </Grid.ColumnDefinitions>
-    
-    <Grid.RowDefinitions>
-      <RowDefinition/>
-      <RowDefinition Height="0.7*"/>
-    </Grid.RowDefinitions>
-    
-    <Grid>
+  <Viewbox>
+    <Grid Width="1920" Height="1080">
       <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="0.43*"/>
         <ColumnDefinition/>
+        <ColumnDefinition Width="0.33*"/>
       </Grid.ColumnDefinitions>
-      <Rectangle x:Name="HierarchyViewBG" Grid.ColumnSpan="2" Fill="#FF0303FF" Stroke="#FF000000"/>      
-      <StackPanel x:Name="HierarchyContainer" Height="635" MaxHeight="635">
-        <TreeView x:Name="HierarchyTreeView" MaxHeight="635"/>
-      </StackPanel>        
-      <Rectangle x:Name="ViewPortBG" Grid.Column="1" Fill="#FF1FC200" Stroke="#FF000000"/>
-      <Image x:Name="GameView" Grid.Column="1"/>
-    </Grid>
-
-    <Rectangle x:Name="RightSideBarBG" Grid.Column="1" Grid.ColumnSpan="2" Grid.RowSpan="2" Fill="#494d4a" Stroke="#FF000000"/>
-    <StackPanel x:Name="RightSideBarStackPanel" Grid.Column="1" Grid.RowSpan="2"  MaxWidth="476" MaxHeight="1080">
-      <TreeView x:Name="RightSideBarTreeView" ScrollViewer.PanningMode="VerticalOnly" Grid.Column="1" Grid.RowSpan="2" MaxWidth="476" MaxHeight="1080">
-      </TreeView>
-    </StackPanel>
-
-    <Rectangle x:Name="BottomProjectAreaBG" Grid.Row="1" Fill="#FFF4F4F5" Stroke="#FF000000"/>
-    <Grid x:Name="BottomProjectAreaGrid" Grid.Row="1">
-      <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="0.35*"/>
-        <ColumnDefinition/>
-      </Grid.ColumnDefinitions>
-      
-      <StackPanel x:Name="OutlineStack">
-        <TreeView x:Name="OutlineTreeView" ScrollViewer.PanningMode="VerticalOnly"/>
-
+      <Grid.RowDefinitions>
+        <RowDefinition/>
+        <RowDefinition Height="0.7*"/>
+      </Grid.RowDefinitions>
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="0.43*"/>
+          <ColumnDefinition/>
+        </Grid.ColumnDefinitions>
+        <Rectangle x:Name="HierarchyViewBG" Grid.ColumnSpan="2" Fill="#FF0303FF" Stroke="#FF000000"/>
+        <StackPanel x:Name="HierarchyContainer" Height="635" MaxHeight="635">
+          <TreeView x:Name="HierarchyTreeView" MaxHeight="635"/>
+        </StackPanel>
+        <Rectangle x:Name="ViewPortBG" Grid.Column="1" Fill="#FF1FC200" Stroke="#FF000000"/>
+        <Image x:Name="GameView" Grid.Column="1"/>
+      </Grid>
+      <Rectangle x:Name="RightSideBarBG" Grid.Column="1" Fill="#494d4a" Stroke="#FF000000" Grid.ColumnSpan="2" Grid.RowSpan="2"/>
+      <StackPanel x:Name="RightSideBarStackPanel" Grid.Column="1" Grid.RowSpan="2" MaxWidth="476" MaxHeight="1080">
+        <TreeView x:Name="RightSideBarTreeView" ScrollViewer.PanningMode="VerticalOnly" Grid.Column="1" Grid.RowSpan="2" MaxWidth="476" MaxHeight="1080"/>
       </StackPanel>
-
-      <StackPanel x:Name="DirectoryStack"  Grid.Column="1">
-        <TreeView x:Name="DirectoryTreeView" ScrollViewer.PanningMode="VerticalOnly"/>
-      </StackPanel>
+      <Rectangle x:Name="BottomProjectAreaBG" Grid.Row="1" Fill="#FFF4F4F5" Stroke="#FF000000"/>
+      <Grid x:Name="BottomProjectAreaGrid" Grid.Row="1">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="0.35*"/>
+          <ColumnDefinition/>
+        </Grid.ColumnDefinitions>
+        <StackPanel x:Name="OutlineStack">
+          <TreeView x:Name="OutlineTreeView" ScrollViewer.PanningMode="VerticalOnly"/>
+        </StackPanel>
+        <StackPanel x:Name="DirectoryStack" Grid.Column="1">
+          <TreeView x:Name="DirectoryTreeView" ScrollViewer.PanningMode="VerticalOnly"/>
+        </StackPanel>
+      </Grid>
     </Grid>
-  </Grid>
+  </Viewbox>
 </Grid>
