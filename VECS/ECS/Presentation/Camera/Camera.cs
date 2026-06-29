@@ -19,12 +19,18 @@ namespace VECS.ECS.Presentation
         public static int ComponentId { get; set; }
 
         public readonly int Id => ComponentId;
-
+        
+        [ReadOnlyInspector]
         public Matrix4x4 ProjectionMatrix;
+        [ReadOnlyInspector]
         public Matrix4x4 ViewMatrix;
+        [ReadOnlyInspector]
         public Matrix4x4 InverseViewMatrix;
+        [ReadOnlyInspector]
         public CullModeFlags CullMode;
+        [ReadOnlyInspector]
         public float ClipNear;
+        [ReadOnlyInspector]
         public float ClipFar;
     }
 

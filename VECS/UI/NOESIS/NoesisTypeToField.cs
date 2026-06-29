@@ -94,11 +94,12 @@ namespace VECS.UI
 
         public readonly static HashSet<Type> BaseFieldTypesSet = [.. BaseFieldTypes];
 
-        public static FieldHierarhcy GetTypeFields(Type targetType, List<FieldHierarhcy> hierarchy = null)
+        public static FieldHierarhcy GetTypeFields(Type targetType, FieldInfo targetSrc = null, List<FieldHierarhcy> hierarchy = null)
         {
             FieldHierarhcy main = new()
             {
-              Target = targetType  
+              Target = targetType,
+              TargetSrc = targetSrc
             };
 
             hierarchy?.Add(main);
@@ -108,13 +109,14 @@ namespace VECS.UI
             var fields = targetType.GetFields(BindingFlags.Public | BindingFlags.Instance);
             for(int i = 0; i < fields.Length; i++)
             {
+                if(fields[i].GetCustomAttribute(typeof(HideInInspectorAttribute)) != null) continue;
                 Console.WriteLine("{0}.{1}",fields[i].Name,fields[i].FieldType.Name);
                 var fieldType = fields[i].FieldType;
                 
                 if (!BaseFieldTypesSet.Contains(fieldType) && !fieldType.IsEnum && !fieldType.IsArray)
                 {
                     main.Order.Add(new(1, main.Children.Count));
-                    GetTypeFields(fieldType, main.Children);
+                    GetTypeFields(fieldType, fields[i],main.Children);
                 }
                 else
                 {
@@ -140,6 +142,7 @@ namespace VECS.UI
                 if(orderIndices.X == 0)
                 {
                     FieldInfo typeToBuild = hierarhcy.Types[orderIndices.Y];
+                    bool readonlyAttribute = typeToBuild.GetCustomAttribute(typeof(ReadOnlyInspectorAttribute)) == null;
                     FrameworkElement instance;
                     if (typeToBuild.FieldType.IsEnum)
                     {
@@ -182,6 +185,7 @@ namespace VECS.UI
                        
                        instance = (FrameworkElement)Activator.CreateInstance(TypesToControl[typeToBuild.FieldType]);
                     }
+                    instance.IsEnabled = readonlyAttribute;
                     instance.Tag = string.Format("{0}.{1}",typeToBuild.Name,typeToBuild.FieldType.Name);
                     treeViewItem.Items.Add(instance);
                     NameFieldInstance(typeToBuild, instance);
@@ -225,7 +229,8 @@ namespace VECS.UI
                 }
                 else
                 {
-                    UpdateValues(hierarhcy.Children[orderIndices.Y],(TreeViewItem)tree.Items[i],component);
+                    var child = hierarhcy.Children[orderIndices.Y];
+                    UpdateValues(child,(TreeViewItem)tree.Items[i], child.TargetSrc.GetValue(component));
                 }
             }
         }
@@ -243,7 +248,8 @@ namespace VECS.UI
                 }
                 else
                 {
-                    UpdateValues(hierarhcy.Children[orderIndices.Y],(TreeViewItem)node.Items[i],instance);
+                    var child = hierarhcy.Children[orderIndices.Y];
+                    UpdateValues(child,(TreeViewItem)node.Items[i], child.TargetSrc.GetValue(instance));
                 }
             }
         }
@@ -279,6 +285,7 @@ namespace VECS.UI
     public class FieldHierarhcy
     {
         public Type Target;
+        public FieldInfo TargetSrc;
         public List<FieldHierarhcy> Children = [];
         public List<FieldInfo> Types = [];
 

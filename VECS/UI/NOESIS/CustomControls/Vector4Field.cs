@@ -1,4 +1,5 @@
 ﻿using Noesis;
+using System;
 using  System.Numerics;
 using Vector4 = System.Numerics.Vector4;
 namespace VECS.UI
@@ -69,6 +70,22 @@ namespace VECS.UI
             else if(value is Quaternion quaternion)
             {
                 SetQuaternion(quaternion);
+            }
+        }
+
+        public object TryParse(Type targetType, int propertyIndex)
+        {
+            if(targetType == typeof(Vector4Int))
+            {
+                return GetVector4Int(default);
+            }
+            else if(targetType == typeof(Vector4UInt))
+            {
+                return GetVector4Uint(default);
+            }
+            else
+            {
+                return GetVector4(default);
             }
         }
 

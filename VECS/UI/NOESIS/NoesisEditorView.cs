@@ -42,6 +42,7 @@ namespace VECS.UI
             // MainView.View.Content.FocusableChanged += FocusChanged;
             _hierarchyTreeView = (TreeView)ControlTreeRoot.FindName("HierarchyTreeView");
             _hierarchyTreeView.SelectedItemChanged += EntityItemChanged;
+            _hierarchyTreeView.LostFocus += ClearInspector;
 
             _inspectorTreeView = (TreeView)ControlTreeRoot.FindName("RightSideBarTreeView");
             
@@ -53,6 +54,12 @@ namespace VECS.UI
 
             ControlTreeRoot.UpdateLayout();
         }
+
+        private void ClearInspector(object sender, RoutedEventArgs args)
+        {
+            SelectedEntityId = Entity.Null.Id;
+        }
+
 
         private void EntityItemChanged(object sender, RoutedEventArgs args)
         {
@@ -68,11 +75,10 @@ namespace VECS.UI
                 {
                     SelectedEntityId = Entity.Null.Id;
                 }
-                
-
             }
             else
             {
+                SelectedEntityId = Entity.Null.Id;
                 Console.WriteLine("De selected Item");
             }
         }
@@ -211,6 +217,7 @@ namespace VECS.UI
             // MainView.View.Content.LostFocus -= LostFocus;
             // MainView.View.Content.FocusableChanged -= FocusChanged;
             _hierarchyTreeView.SelectedItemChanged -= EntityItemChanged;
+            _hierarchyTreeView.LostFocus -= ClearInspector;
             MainView.Dispose();
         }
 
