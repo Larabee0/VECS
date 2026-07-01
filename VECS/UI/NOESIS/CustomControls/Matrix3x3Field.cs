@@ -1,9 +1,10 @@
 using Noesis;
+using System;
 using System.Numerics;
 
 namespace VECS.UI
 {
-    public class Matrix3x3Field : UserControl, IEditorField
+    public class Matrix3x3Field : VECSEditorControl
     {
 
         public static readonly DependencyProperty _Label = DependencyProperty.Register("Label", typeof(string), typeof(Matrix3x3Field), new PropertyMetadata("Label"));
@@ -19,7 +20,7 @@ namespace VECS.UI
         public static readonly DependencyProperty _ValueM32 = DependencyProperty.Register("ValueM32", typeof(string), typeof(Matrix3x3Field), new PropertyMetadata("0"));
         public static readonly DependencyProperty _ValueM33 = DependencyProperty.Register("ValueM33", typeof(string), typeof(Matrix3x3Field), new PropertyMetadata("0"));
 
-        public string Label
+        public override string Label
         {
             get { return (string)GetValue(_Label); }
             set { SetValue(_Label, value); }
@@ -27,63 +28,165 @@ namespace VECS.UI
 
         public string ValueM11
         {
-            get { return (string)GetValue(_ValueM11); }
-            set { SetValue(_ValueM11, value); }
+            get { return M11; }
+            set { SetValue(_ValueM11, value); M11 = value; }
         }
 
         public string ValueM12
         {
-            get { return (string)GetValue(_ValueM12); }
-            set { SetValue(_ValueM12, value); }
+            get { return M12; }
+            set { SetValue(_ValueM12, value); M12 = value; }
         }
 
         public string ValueM13
         {
-            get { return (string)GetValue(_ValueM13); }
-            set { SetValue(_ValueM13, value); }
+            get { return M13; }
+            set { SetValue(_ValueM13, value); M13 = value; }
         }
 
 
         public string ValueM21
         {
-            get { return (string)GetValue(_ValueM21); }
-            set { SetValue(_ValueM21, value); }
+            get { return M21; }
+            set { SetValue(_ValueM21, value); M21 = value; }
         }
 
         public string ValueM22
         {
-            get { return (string)GetValue(_ValueM22); }
-            set { SetValue(_ValueM22, value); }
+            get { return M22; }
+            set { SetValue(_ValueM22, value); M22 = value; }
         }
 
         public string ValueM23
         {
-            get { return (string)GetValue(_ValueM23); }
-            set { SetValue(_ValueM23, value); }
+            get { return M23; }
+            set { SetValue(_ValueM23, value); M23 = value; }
         }
 
         public string ValueM31
         {
-            get { return (string)GetValue(_ValueM31); }
-            set { SetValue(_ValueM31, value); }
+            get { return M31; }
+            set { SetValue(_ValueM31, value); M31 = value; }
         }
 
         public string ValueM32
         {
-            get { return (string)GetValue(_ValueM32); }
-            set { SetValue(_ValueM32, value); }
+            get { return M32; }
+            set { SetValue(_ValueM32, value); M32 = value; }
         }
 
         public string ValueM33
         {
-            get { return (string)GetValue(_ValueM33); }
-            set { SetValue(_ValueM33, value); }
+            get { return M33; }
+            set { SetValue(_ValueM33, value); M33 = value; }
         }
 
+        private string M11;
+        private string M12;
+        private string M13;
+        private string M21;
+        private string M22;
+        private string M23;
+        private string M31;
+        private string M32;
+        private string M33;
 
         public Matrix3x3Field()
         {
             InitializeComponent();
+            var valueM11 = (TextBox)FindName("M11Comp");
+            var valueM12 = (TextBox)FindName("M12Comp");
+            var valueM13 = (TextBox)FindName("M13Comp");
+            var valueM21 = (TextBox)FindName("M21Comp");
+            var valueM22 = (TextBox)FindName("M22Comp");
+            var valueM23 = (TextBox)FindName("M23Comp");
+            var valueM31 = (TextBox)FindName("M31Comp");
+            var valueM32 = (TextBox)FindName("M32Comp");
+            var valueM33 = (TextBox)FindName("M33Comp");
+
+            WeakReference weak = new(this);
+
+            valueM11.TextChanged += (s, e) =>
+            {
+                var weakRef = (Matrix3x3Field)weak.Target;
+                if (weakRef != null)
+                {
+                    weakRef.M11 = ((TextBox)s).Text;
+                    weakRef.InternalValueChanged(s, e);
+                }
+            };
+            valueM12.TextChanged += (s, e) =>
+            {
+                var weakRef = (Matrix3x3Field)weak.Target;
+                if (weakRef != null)
+                {
+                    weakRef.M12 = ((TextBox)s).Text;
+                    weakRef.InternalValueChanged(s, e);
+                }
+            };
+            valueM13.TextChanged += (s, e) =>
+            {
+                var weakRef = (Matrix3x3Field)weak.Target;
+                if (weakRef != null)
+                {
+                    weakRef.M13 = ((TextBox)s).Text;
+                    weakRef.InternalValueChanged(s, e);
+                }
+            };
+            valueM21.TextChanged += (s, e) =>
+            {
+                var weakRef = (Matrix3x3Field)weak.Target;
+                if (weakRef != null)
+                {
+                    weakRef.M21 = ((TextBox)s).Text;
+                    weakRef.InternalValueChanged(s, e);
+                }
+            };
+            valueM22.TextChanged += (s, e) =>
+            {
+                var weakRef = (Matrix3x3Field)weak.Target;
+                if (weakRef != null)
+                {
+                    weakRef.M22 = ((TextBox)s).Text;
+                    weakRef.InternalValueChanged(s, e);
+                }
+            };
+            valueM23.TextChanged += (s, e) =>
+            {
+                var weakRef = (Matrix3x3Field)weak.Target;
+                if (weakRef != null)
+                {
+                    weakRef.M23 = ((TextBox)s).Text;
+                    weakRef.InternalValueChanged(s, e);
+                }
+            };
+            valueM31.TextChanged += (s, e) =>
+            {
+                var weakRef = (Matrix3x3Field)weak.Target;
+                if (weakRef != null)
+                {
+                    weakRef.M31 = ((TextBox)s).Text;
+                    weakRef.InternalValueChanged(s, e);
+                }
+            };
+            valueM32.TextChanged += (s, e) =>
+            {
+                var weakRef = (Matrix3x3Field)weak.Target;
+                if (weakRef != null)
+                {
+                    weakRef.M32 = ((TextBox)s).Text;
+                    weakRef.InternalValueChanged(s, e);
+                }
+            };
+            valueM33.TextChanged += (s, e) =>
+            {
+                var weakRef = (Matrix3x3Field)weak.Target;
+                if (weakRef != null)
+                {
+                    weakRef.M33 = ((TextBox)s).Text;
+                    weakRef.InternalValueChanged(s, e);
+                }
+            };
         }
 
         void InitializeComponent()
@@ -125,13 +228,26 @@ namespace VECS.UI
             return matrix;
         }
 
-        public void SetValue(object value)
+        public override void SetValue(object value)
         {
+            _internalSet = true;
             if(value is Matrix3x3 mat3x3)
             {
                 FromMatrix3x3(mat3x3);
             }
+            _internalSet = false;
         }
 
+        public override object TryParse(object currentValue)
+        {
+            if (currentValue is Matrix3x3 mat3x3)
+            {
+                return ToMatrix3x3(mat3x3);
+            }
+            else
+            {
+                return currentValue;
+            }
+        }
     }
 }

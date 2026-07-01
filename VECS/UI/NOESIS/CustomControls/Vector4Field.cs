@@ -4,7 +4,7 @@ using  System.Numerics;
 using Vector4 = System.Numerics.Vector4;
 namespace VECS.UI
 {
-    public class Vector4Field : UserControl, IEditorField
+    public class Vector4Field : VECSEditorControl
     {
 
         public static readonly DependencyProperty _Label = DependencyProperty.Register("Label", typeof(string), typeof(Vector4Field), new PropertyMetadata("Label"));
@@ -13,7 +13,7 @@ namespace VECS.UI
         public static readonly DependencyProperty _ValueZ = DependencyProperty.Register("ValueZ", typeof(string), typeof(Vector4Field), new PropertyMetadata("0"));
         public static readonly DependencyProperty _ValueW = DependencyProperty.Register("ValueW", typeof(string), typeof(Vector4Field), new PropertyMetadata("0"));
 
-        public string Label
+        public override string Label
         {
             get { return (string)GetValue(_Label); }
             set { SetValue(_Label, value); }
@@ -21,31 +21,80 @@ namespace VECS.UI
 
         public string ValueX
         {
-            get { return (string)GetValue(_ValueX); }
-            set { SetValue(_ValueX, value); }
+            get { return X; }
+            set { SetValue(_ValueX, value); X = value; }
         }
 
         public string ValueY
         {
-            get { return (string)GetValue(_ValueY); }
-            set { SetValue(_ValueY, value); }
+            get { return Y; }
+            set { SetValue(_ValueY, value); Y = value; }
         }
 
         public string ValueZ
         {
-            get { return (string)GetValue(_ValueZ); }
-            set { SetValue(_ValueZ, value); }
+            get { return Z; }
+            set { SetValue(_ValueZ, value); Z = value; }
         }
 
         public string ValueW
         {
-            get { return (string)GetValue(_ValueW); }
-            set { SetValue(_ValueW, value); }
+            get { return W; }
+            set { SetValue(_ValueW, value); W = value; }
         }
+
+        private string X;
+        private string Y;
+        private string Z;
+        private string W;
 
         public Vector4Field()
         {
             InitializeComponent();
+
+            var valueX = (TextBox)FindName("XComp");
+            var valueY = (TextBox)FindName("YComp");
+            var valueZ = (TextBox)FindName("ZComp");
+            var valueW = (TextBox)FindName("WComp");
+
+            WeakReference weak = new(this);
+
+            valueX.TextChanged += (s, e) =>
+            {
+                var weakRef = (Vector4Field)weak.Target;
+                if (weakRef != null)
+                {
+                    weakRef.X = ((TextBox)s).Text;
+                    weakRef.InternalValueChanged(s, e);
+                }
+            };
+            valueY.TextChanged += (s, e) =>
+            {
+                var weakRef = (Vector4Field)weak.Target;
+                if (weakRef != null)
+                {
+                    weakRef.Y = ((TextBox)s).Text;
+                    weakRef.InternalValueChanged(s, e);
+                }
+            };
+            valueZ.TextChanged += (s, e) =>
+            {
+                var weakRef = (Vector4Field)weak.Target;
+                if (weakRef != null)
+                {
+                    weakRef.Z = ((TextBox)s).Text;
+                    weakRef.InternalValueChanged(s, e);
+                }
+            };
+            valueW.TextChanged += (s, e) =>
+            {
+                var weakRef = (Vector4Field)weak.Target;
+                if (weakRef != null)
+                {
+                    weakRef.W = ((TextBox)s).Text;
+                    weakRef.InternalValueChanged(s, e);
+                }
+            };
         }
 
         void InitializeComponent()
@@ -53,8 +102,9 @@ namespace VECS.UI
             GUI.LoadComponent(this, "Editor/Vector4Field.xaml");
         }
 
-        public void SetValue(object value)
+        public override void SetValue(object value)
         {
+            _internalSet = true;
             if(value is Vector4 vector4)
             {
                 SetVector4(vector4);
@@ -71,21 +121,30 @@ namespace VECS.UI
             {
                 SetQuaternion(quaternion);
             }
+            _internalSet = false;
         }
 
-        public object TryParse(Type targetType, int propertyIndex)
+        public override object TryParse(object currentValue)
         {
-            if(targetType == typeof(Vector4Int))
+            if (currentValue is Vector4 vec4Val)
             {
-                return GetVector4Int(default);
+                return GetVector4(vec4Val);
             }
-            else if(targetType == typeof(Vector4UInt))
+            if (currentValue is Vector4Int vec4IntVal)
             {
-                return GetVector4Uint(default);
+                return GetVector4Int(vec4IntVal);
+            }
+            else if(currentValue is Vector4UInt vec4uintVal)
+            {
+                return GetVector4Uint(vec4uintVal);
+            }
+            else if(currentValue is Quaternion quaternion)
+            {
+                return GetQuaternion(quaternion);
             }
             else
             {
-                return GetVector4(default);
+                return currentValue;
             }
         }
 

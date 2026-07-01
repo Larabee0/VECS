@@ -57,7 +57,7 @@ namespace VECS.UI
 
         private void ClearInspector(object sender, RoutedEventArgs args)
         {
-            SelectedEntityId = Entity.Null.Id;
+            //SelectedEntityId = Entity.Null.Id;
         }
 
 
@@ -120,13 +120,14 @@ namespace VECS.UI
                 var componentType = entityManager.GetComponentType(componentId);
                 
                 var types = NoesisTypeToField.GetTypeFields(componentType);
-                var treeViewItem = NoesisTypeToField.ConstructTree(types);
+                var treeViewItem = NoesisTypeToField.ConstructTree(types,null);
                 item.Items.Add(treeViewItem);
 
                 NoesisTypeToField.UpdateValues(entityManager,treeViewItem,componentId,selectedEntity);
             }
 
 
+            NoesisTypeToField.SelectedEntity = SelectedEntityId;
 
         }
 

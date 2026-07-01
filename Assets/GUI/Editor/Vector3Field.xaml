@@ -31,7 +31,7 @@
       <TextBlock Text="Y" Grid.Column="3" TextWrapping="Wrap" Style="{DynamicResource VectorLabel}"/>
       <TextBox x:Name="YComp" Text="{Binding ValueY, ElementName=Vector3FieldControl}" Margin="2,0,2,0" Grid.Column="4" TextWrapping="Wrap" Style="{DynamicResource VectorStyle}"/>
       <TextBlock Text="Z" Grid.Column="5" TextWrapping="Wrap" Style="{DynamicResource VectorLabel}"/>
-      <TextBox x:Name="ZComp" Text="{Binding ValueZ, ElementName=Vector3FieldControl}" Margin="2,0,2,0" Grid.Column="6" TextWrapping="Wrap" Style="{DynamicResource VectorStyle}"/>
+      <TextBox x:Name="ZComp" TextChanged="Text_Changed" Text="{Binding ValueZ, ElementName=Vector3FieldControl}" Margin="2,0,2,0" Grid.Column="6" TextWrapping="Wrap" Style="{DynamicResource VectorStyle}"/>
     </Grid>
   </Grid>
 </UserControl>

@@ -1,9 +1,10 @@
 ﻿using Noesis;
+using System;
 using System.Numerics;
 
 namespace VECS.UI
 {
-    public class Bool4Field : UserControl, IEditorField
+    public class Bool4Field : VECSEditorControl
     {
 
         public static readonly DependencyProperty _Label = DependencyProperty.Register("Label", typeof(string), typeof(Bool4Field), new PropertyMetadata("Label"));
@@ -12,7 +13,7 @@ namespace VECS.UI
         public static readonly DependencyProperty _ValueZ = DependencyProperty.Register("ValueZ", typeof(bool), typeof(Bool4Field), new PropertyMetadata(false));
         public static readonly DependencyProperty _ValueW = DependencyProperty.Register("ValueW", typeof(bool), typeof(Bool4Field), new PropertyMetadata(false));
 
-        public string Label
+        public override string Label
         {
             get { return (string)GetValue(_Label); }
             set { SetValue(_Label, value); }
@@ -20,31 +21,117 @@ namespace VECS.UI
 
         public bool ValueX
         {
-            get { return (bool)GetValue(_ValueX); }
-            set { SetValue(_ValueX, value); }
+            get => X;
+            set { SetValue(_ValueX, value); X = value; }
         }
 
         public bool ValueY
         {
-            get { return (bool)GetValue(_ValueY); }
-            set { SetValue(_ValueY, value); }
+            get => Y;
+            set { SetValue(_ValueY, value); Y = value; }
         }
 
         public bool ValueZ
         {
-            get { return (bool)GetValue(_ValueZ); }
-            set { SetValue(_ValueZ, value); }
+            get => Z;
+            set { SetValue(_ValueZ, value); Z = value; }
         }
 
         public bool ValueW
         {
-            get { return (bool)GetValue(_ValueW); }
-            set { SetValue(_ValueW, value); }
+            get => W;
+            set { SetValue(_ValueW, value); W = value; }
         }
+
+        private bool X;
+        private bool Y;
+        private bool Z;
+        private bool W;
 
         public Bool4Field()
         {
             InitializeComponent();
+            var valueX = (CheckBox)FindName("XComp");
+            var valueY = (CheckBox)FindName("YComp");
+            var valueZ = (CheckBox)FindName("ZComp");
+            var valueW = (CheckBox)FindName("WComp");
+
+            WeakReference weak = new(this);
+
+            valueX.Checked += (s, e) =>
+            {
+                var weakRef = (Bool4Field)weak.Target;
+                if (weakRef != null)
+                {
+                    weakRef.X = (bool)((CheckBox)s).IsChecked;
+                    weakRef.InternalValueChanged(s, e);
+                }
+            };
+            valueY.Checked += (s, e) =>
+            {
+                var weakRef = (Bool4Field)weak.Target;
+                if (weakRef != null)
+                {
+                    weakRef.Y = (bool)((CheckBox)s).IsChecked;
+                    weakRef.InternalValueChanged(s, e);
+                }
+            };
+            valueZ.Checked += (s, e) =>
+            {
+                var weakRef = (Bool4Field)weak.Target;
+                if (weakRef != null)
+                {
+                    weakRef.Z = (bool)((CheckBox)s).IsChecked;
+                    weakRef.InternalValueChanged(s, e);
+                }
+            };
+            valueW.Checked += (s, e) =>
+            {
+                var weakRef = (Bool4Field)weak.Target;
+                if (weakRef != null)
+                {
+                    weakRef.W = (bool)((CheckBox)s).IsChecked;
+                    weakRef.InternalValueChanged(s, e);
+                }
+            };
+
+
+            valueX.Unchecked += (s, e) =>
+            {
+                var weakRef = (Bool4Field)weak.Target;
+                if (weakRef != null)
+                {
+                    weakRef.X = (bool)((CheckBox)s).IsChecked;
+                    weakRef.InternalValueChanged(s, e);
+                }
+            };
+            valueY.Unchecked += (s, e) =>
+            {
+                var weakRef = (Bool4Field)weak.Target;
+                if (weakRef != null)
+                {
+                    weakRef.Y = (bool)((CheckBox)s).IsChecked;
+                    weakRef.InternalValueChanged(s, e);
+                }
+            };
+            valueZ.Unchecked += (s, e) =>
+            {
+                var weakRef = (Bool4Field)weak.Target;
+                if (weakRef != null)
+                {
+                    weakRef.Z = (bool)((CheckBox)s).IsChecked;
+                    weakRef.InternalValueChanged(s, e);
+                }
+            };
+            valueW.Unchecked += (s, e) =>
+            {
+                var weakRef = (Bool4Field)weak.Target;
+                if (weakRef != null)
+                {
+                    weakRef.W = (bool)((CheckBox)s).IsChecked;
+                    weakRef.InternalValueChanged(s, e);
+                }
+            };
         }
 
         void InitializeComponent()
@@ -65,11 +152,24 @@ namespace VECS.UI
             ValueW = value.W;
         }
 
-        public void SetValue(object value)
+        public override void SetValue(object value)
         {
+            _internalSet = true;
             if(value is Bool4 bool4)
             {
                 SetBool4(bool4);
+            }
+            _internalSet = false;
+        }
+        public override object TryParse(object currentValue)
+        {
+            if (currentValue is Bool4)
+            {
+                return GetBool4();
+            }
+            else
+            {
+                return currentValue;
             }
         }
     }

@@ -1,16 +1,17 @@
 ﻿using Noesis;
+using System;
 using System.Numerics;
 
 namespace VECS.UI
 {
-    public class Vector2Field : UserControl, IEditorField
+    public class Vector2Field : VECSEditorControl
     {
 
         public static readonly DependencyProperty _Label = DependencyProperty.Register("Label", typeof(string), typeof(Vector2Field), new PropertyMetadata("Label"));
         public static readonly DependencyProperty _ValueX = DependencyProperty.Register("ValueX", typeof(string), typeof(Vector2Field), new PropertyMetadata("0"));
         public static readonly DependencyProperty _ValueY = DependencyProperty.Register("ValueY", typeof(string), typeof(Vector2Field), new PropertyMetadata("0"));
 
-        public string Label
+        public override string Label
         {
             get { return (string)GetValue(_Label); }
             set { SetValue(_Label, value); }
@@ -18,19 +19,46 @@ namespace VECS.UI
 
         public string ValueX
         {
-            get { return (string)GetValue(_ValueX); }
-            set { SetValue(_ValueX, value); }
+            get { return X; }
+            set { SetValue(_ValueX, value); X = value; }
         }
 
         public string ValueY
         {
-            get { return (string)GetValue(_ValueY); }
-            set { SetValue(_ValueY, value); }
+            get { return Y; }
+            set { SetValue(_ValueY, value); Y = value; }
         }
+
+        private string X;
+        private string Y;
 
         public Vector2Field()
         {
             InitializeComponent();
+            var valueX = (TextBox)FindName("XComp");
+            var valueY = (TextBox)FindName("YComp");
+
+            WeakReference weak = new(this);
+
+            valueX.TextChanged += (s, e) =>
+            {
+                var weakRef = (Vector2Field)weak.Target;
+                if (weakRef != null)
+                {
+                    weakRef.X = ((TextBox)s).Text;
+                    weakRef.InternalValueChanged(s, e);
+                }
+            };
+            valueY.TextChanged += (s, e) =>
+            {
+                var weakRef = (Vector2Field)weak.Target;
+                if (weakRef != null)
+                {
+                    weakRef.Y = ((TextBox)s).Text;
+                    weakRef.InternalValueChanged(s, e);
+                }
+            };
+
         }
 
         void InitializeComponent()
@@ -75,9 +103,10 @@ namespace VECS.UI
             ValueY = value.Y.ToString();
         }
 
-        public void SetValue(object value)
+        public override void SetValue(object value)
         {
-            if(value is Vector2 vector2)
+            _internalSet = true;
+            if (value is Vector2 vector2)
             {
                 SetVector2(vector2);
             }
@@ -89,7 +118,27 @@ namespace VECS.UI
             {
                 SetVector2Uint(vector2UInt);
             }
+            _internalSet = false;
         }
 
+        public override object TryParse(object currentValue)
+        {
+            if (currentValue is Vector2 vector2)
+            {
+                return GetVector2(vector2);
+            }
+            else if (currentValue is Vector2Int vector2Int)
+            {
+                return GetVector2Int(vector2Int);
+            }
+            else if (currentValue is Vector2UInt vector2UInt)
+            {
+                return GetVector2Uint(vector2UInt);
+            }
+            else
+            {
+                return currentValue;
+            }
+        }
     }
 }

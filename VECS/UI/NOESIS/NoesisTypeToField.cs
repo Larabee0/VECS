@@ -94,7 +94,42 @@ namespace VECS.UI
 
         public readonly static HashSet<Type> BaseFieldTypesSet = [.. BaseFieldTypes];
 
-        public static FieldHierarhcy GetTypeFields(Type targetType, FieldInfo targetSrc = null, List<FieldHierarhcy> hierarchy = null)
+        public static FieldHierarhcy GetTypeFields(Type targetType)
+        {
+            var hierarchy = GetTypeFields(targetType, null, null);
+
+            List<List<FieldInfo>> bindingPaths = new(hierarchy.Order.Count);
+
+            ExtractBindingPath(hierarchy, null, ref bindingPaths);
+            hierarchy.BindingPaths= bindingPaths;
+            return hierarchy;
+        }
+
+        private static void ExtractBindingPath(FieldHierarhcy hierarchy, List<FieldInfo> bindingPath, ref List<List<FieldInfo>> bindingPaths)
+        {
+            for (int i = 0; i < hierarchy.Order.Count; i++)
+            {
+                List<FieldInfo> binding = bindingPath == null ? [] : [.. bindingPath];
+                if (hierarchy.TargetSrc != null)
+                {
+                    binding.Add(hierarchy.TargetSrc);
+                }
+                var index = hierarchy.Order[i].Y;
+                if (hierarchy.Order[i].X != 0)
+                {
+                    var child = hierarchy.Children[index];
+                    ExtractBindingPath(child, binding,ref bindingPaths);
+                }
+                else
+                {
+                    var type = hierarchy.Types[index];
+                    binding.Add(type);
+                    bindingPaths.Add(binding);
+                }
+            }
+        }
+
+        private static FieldHierarhcy GetTypeFields(Type targetType, FieldInfo targetSrc, List<FieldHierarhcy> hierarchy)
         {
             FieldHierarhcy main = new()
             {
@@ -127,9 +162,11 @@ namespace VECS.UI
             Console.WriteLine();
             return main;
         }
-
-        public static TreeViewItem ConstructTree(FieldHierarhcy hierarhcy)
+        private static bool _treeConstruction = false;
+        public static uint SelectedEntity;
+        public static TreeViewItem ConstructTree(FieldHierarhcy hierarhcy, List<FieldInfo> bindingPath)
         {
+            _treeConstruction = true;
             TreeViewItem treeViewItem = new()
             {
                 Header = hierarhcy.Target.Name,
@@ -139,6 +176,7 @@ namespace VECS.UI
             for (int i = 0; i < hierarhcy.Order.Count; i++)
             {
                 var orderIndices = hierarhcy.Order[i];
+                bindingPath = hierarhcy.BindingPaths != null ? hierarhcy.BindingPaths[i] : bindingPath;
                 if(orderIndices.X == 0)
                 {
                     FieldInfo typeToBuild = hierarhcy.Types[orderIndices.Y];
@@ -149,25 +187,17 @@ namespace VECS.UI
                         var dropDown = new DropDownField();
                         var enumComponents = typeToBuild.FieldType.GetEnumNames();
                         bool flagsEnum = typeToBuild.FieldType.GetCustomAttributes<FlagsAttribute>() != null;
-                        dropDown.IsFlagsEnum = flagsEnum;
+                        dropDown.IsFlagsEnum = !flagsEnum;
                         for (int j = 0; j < enumComponents.Length; j++)
                         {
-                            var button = new RadioButton()
-                            {
-                                Content = enumComponents[j],
-                                GroupName = flagsEnum ? Random.Shared.Next().ToString(): null,
-                                Tag = enumComponents[j]
-                            };
-                            dropDown.RadioContainer.Items.Add(button);
-                            if(j == 0)
-                            {
-                                button.IsChecked = true;   
-                            }
+                            dropDown.AddRadioButton(enumComponents[j], !flagsEnum, enumComponents[j], j == 0);
                         }
-
-
-                        
                         instance = dropDown;
+                        List<FieldInfo> localBindingPath = [.. bindingPath];
+                        if (instance is IEditorField editorField)
+                        {
+                            editorField.ValueChanged += (s, e) => BindingFieldValueChanged(s, e, localBindingPath);
+                        }
                     }
                     else if (typeToBuild.FieldType.IsArray)
                     {
@@ -176,14 +206,24 @@ namespace VECS.UI
                         var elementType = array.GetElementType();
                         var arrayTypeFields = GetTypeFields(elementType);
                         
-                        var arrayTreeItem = ConstructTree(arrayTypeFields);;
+                        var arrayTreeItem = ConstructTree(arrayTypeFields, null); ;
+                        _treeConstruction = true;
                         arrayTree.Items.Add(arrayTreeItem);
                         instance = arrayTree;
+                        List<FieldInfo> localBindingPath = [.. bindingPath];
+                        if (instance is IEditorField editorField)
+                        {
+                            editorField.ValueChanged += (s, e) => BindingFieldValueChanged(s, e, bindingPath);
+                        }
                     }
                     else
                     {
-                       
                        instance = (FrameworkElement)Activator.CreateInstance(TypesToControl[typeToBuild.FieldType]);
+                        List<FieldInfo> localBindingPath = [.. bindingPath];
+                        if (instance is IEditorField editorField)
+                        {
+                            editorField.ValueChanged += (s, e) => BindingFieldValueChanged(s, e, bindingPath);
+                        }
                     }
                     instance.IsEnabled = readonlyAttribute;
                     instance.Tag = string.Format("{0}.{1}",typeToBuild.Name,typeToBuild.FieldType.Name);
@@ -192,11 +232,54 @@ namespace VECS.UI
                 }
                 else
                 {
-                    treeViewItem.Items.Add(ConstructTree(hierarhcy.Children[orderIndices.Y]));
+                    treeViewItem.Items.Add(ConstructTree(hierarhcy.Children[orderIndices.Y], bindingPath));
+                    _treeConstruction = true;
                 }
             }
-
+            _treeConstruction = false;
             return treeViewItem;
+        }
+
+        private static void BindingFieldValueChanged(object s, RoutedEventArgs e, List<FieldInfo> bindingPath)
+        {
+            if (_treeConstruction) return;
+            
+            // the event raised by textbox.textchanged has the new value as accessed directly from textbox.text
+            // accessing textbox.text from anywhere also has the new value - its not exclusively the event
+            // hover, vector3field._valueX does not update until keyboard focus lost
+            if (bindingPath[0].ReflectedType.IsAssignableTo(typeof(IComponent)))
+            {
+                // component type binding
+
+                var entityManager = World.DefaultWorld.EntityManager;
+                var targetEntity = entityManager.GetEntityFromId(SelectedEntity);
+                if (targetEntity == Entity.Null) return;
+                
+                var componentInstance = (IComponent)Activator.CreateInstance(bindingPath[0].ReflectedType);
+                componentInstance = entityManager.GetComponent(targetEntity, componentInstance.Id);
+                object parent = componentInstance;
+                for (int i = 0; i < bindingPath.Count-1; i++)
+                {
+                    parent = bindingPath[i].GetValue(parent);
+                }
+                
+                object current = bindingPath[^1].GetValue(parent);
+                current = ((VECSEditorControl)s).TryParse(current);
+                bindingPath[^1].SetValue(parent, current);
+
+                for (int i = bindingPath.Count - 1; i >= 0; i--)
+                {
+                    object setter = componentInstance;
+                    for (int j = 0; j < i; j++)
+                    {
+                        setter = bindingPath[j].GetValue(setter);
+                    }
+                    bindingPath[i].SetValue(setter,current);
+                    current = setter;
+                }
+
+                entityManager.SetComponent(targetEntity, componentInstance);
+            }
         }
 
         private static void NameFieldInstance(FieldInfo typeToBuild, UIElement instance)
@@ -290,5 +373,7 @@ namespace VECS.UI
         public List<FieldInfo> Types = [];
 
         public List<Vector2Int> Order = [];
+
+        public List<List<FieldInfo>> BindingPaths;
     }
 }

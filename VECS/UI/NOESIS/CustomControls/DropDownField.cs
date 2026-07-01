@@ -3,25 +3,18 @@ using System;
 
 namespace VECS.UI
 {
-    public class DropDownField : UserControl, IEditorField
+    public class DropDownField : VECSEditorControl
     {
 
         public static readonly DependencyProperty _label = DependencyProperty.Register("Label", typeof(string), typeof(DropDownField), new PropertyMetadata("Label"));
-        //public static readonly DependencyProperty _combBox = DependencyProperty.Register("CombBox", typeof(ComboBox), typeof(DropDownField), new PropertyMetadata(new ComboBox()));
 
-        public string Label
+        public override string Label
         {
             get { return (string)GetValue(_label); }
             set { SetValue(_label, value); }
         }
 
-        public TreeViewItem RadioContainer
-        {
-            get 
-            { 
-                return (TreeViewItem)FindName("RadioContainer");
-            }
-        }
+        public TreeViewItem RadioContainer => (TreeViewItem)FindName("RadioContainer");
 
         public bool IsFlagsEnum { get; set; }
 
@@ -35,8 +28,26 @@ namespace VECS.UI
             GUI.LoadComponent(this, "Editor/DropDownField.xaml");
         }
 
-        public void SetValue(object value)
+        public void AddRadioButton(string name, bool randomGroupName, string tag, bool isChecked)
         {
+
+            var button = new RadioButton()
+            {
+                Content = name,
+                GroupName = randomGroupName ? Random.Shared.Next().ToString() : "0",
+                Tag = tag,
+                IsChecked = isChecked
+            };
+            RadioContainer.Items.Add(button);
+
+            WeakReference weak = new(this);
+            button.Checked += (s, e) => ((DropDownField)weak.Target)?.InternalValueChanged(s, e);
+            button.Unchecked += (s, e) => ((DropDownField)weak.Target)?.InternalValueChanged(s, e);
+        }
+
+        public override void SetValue(object value)
+        {
+            _internalSet = true;
             var values = Enum.GetNames(value.GetType());
             var items = RadioContainer.Items;
 
@@ -59,7 +70,44 @@ namespace VECS.UI
                 var index = Array.IndexOf(values, valueAsString);
                 ((RadioButton)items[index]).IsChecked = true;
             }
+            _internalSet = false;
         }
 
+        public override object TryParse(object currentValue)
+        {
+            var type = currentValue.GetType();
+            
+            if (!type.IsEnum) return currentValue;
+
+            var values = Enum.GetValues(type);
+            var items = RadioContainer.Items;
+
+            if (values.Length != items.Count) return currentValue;
+
+            if (IsFlagsEnum)
+            {
+                string newValue = Activator.CreateInstance(type).ToString();
+                 
+                for (int i = 0; i < items.Count; i++)
+                {
+                    if ((bool)((RadioButton)items[i]).IsChecked)
+                    {
+                        newValue += "|" + values.GetValue(i).ToString();
+                    }
+                }
+                return Enum.Parse(type,newValue);
+            }
+            else
+            {
+                for (int i = 0; i < items.Count; i++)
+                {
+                    if ((bool)((RadioButton)items[i]).IsChecked)
+                    {
+                        return values.GetValue(i);
+                    }
+                }
+                return values.GetValue(0);
+            }
+        }
     }
 }

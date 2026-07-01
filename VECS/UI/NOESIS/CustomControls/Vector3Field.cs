@@ -1,9 +1,10 @@
 ﻿using Noesis;
+using System;
 using System.Numerics;
 
 namespace VECS.UI
 {
-    public class Vector3Field : UserControl, IEditorField
+    public class Vector3Field : VECSEditorControl
     {
 
         public static readonly DependencyProperty _Label = DependencyProperty.Register("Label", typeof(string), typeof(Vector3Field), new PropertyMetadata("Label"));
@@ -11,7 +12,7 @@ namespace VECS.UI
         public static readonly DependencyProperty _ValueY = DependencyProperty.Register("ValueY", typeof(string), typeof(Vector3Field), new PropertyMetadata("0"));
         public static readonly DependencyProperty _ValueZ = DependencyProperty.Register("ValueZ", typeof(string), typeof(Vector3Field), new PropertyMetadata("0"));
 
-        public string Label
+        public override string Label
         {
             get { return (string)GetValue(_Label); }
             set { SetValue(_Label, value); }
@@ -19,25 +20,63 @@ namespace VECS.UI
 
         public string ValueX
         {
-            get { return (string)GetValue(_ValueX); }
-            set { SetValue(_ValueX, value); }
+            get { return X; }
+            set { SetValue(_ValueX, value); X = value; }
         }
 
         public string ValueY
         {
-            get { return (string)GetValue(_ValueY); }
-            set { SetValue(_ValueY, value); }
+            get { return Y; }
+            set { SetValue(_ValueY, value); Y = value; }
         }
 
         public string ValueZ
         {
-            get { return (string)GetValue(_ValueZ); }
-            set { SetValue(_ValueZ, value); }
+            get { return Z; }
+            set { SetValue(_ValueZ, value); Z = value; }
         }
+
+        private string X;
+        private string Y;
+        private string Z;
 
         public Vector3Field()
         {
             InitializeComponent();
+
+            var valueX = (TextBox)FindName("XComp");
+            var valueY = (TextBox)FindName("YComp");
+            var valueZ = (TextBox)FindName("ZComp");
+
+            WeakReference weak = new(this);
+
+            valueX.TextChanged += (s, e) =>
+            {
+                var weakRef = (Vector3Field)weak.Target;
+                if (weakRef != null)
+                {
+                    weakRef.X = ((TextBox)s).Text;
+                    weakRef.InternalValueChanged(s, e);
+                }
+            };
+            valueY.TextChanged += (s, e) =>
+            {
+                var weakRef = (Vector3Field)weak.Target;
+                if (weakRef != null)
+                {
+                    weakRef.Y = ((TextBox)s).Text;
+                    weakRef.InternalValueChanged(s, e);
+                }
+            };
+            valueZ.TextChanged += (s, e) =>
+            {
+                var weakRef = (Vector3Field)weak.Target;
+                if (weakRef != null)
+                {
+                    weakRef.Z = ((TextBox)s).Text;
+                    weakRef.InternalValueChanged(s, e);
+                }
+            };
         }
 
         void InitializeComponent()
@@ -45,9 +84,10 @@ namespace VECS.UI
             GUI.LoadComponent(this, "Editor/Vector3Field.xaml");
         }
 
-        public void SetValue(object value)
+        public override void SetValue(object value)
         {
-            if(value is Vector3 vector3)
+            _internalSet = true;
+            if (value is Vector3 vector3)
             {
                 SetVector3(vector3);
             }
@@ -58,6 +98,27 @@ namespace VECS.UI
             else if(value is Vector3UInt vector3UInt)
             {
                 SetVector3Uint(vector3UInt);
+            }
+            _internalSet = false;
+        }
+
+        public override object TryParse(object currentValue)
+        {
+            if (currentValue is Vector3 vector3)
+            {
+                return GetVector3(vector3);
+            }
+            else if (currentValue is Vector3Int vector3Int)
+            {
+                return GetVector3Int(vector3Int);
+            }
+            else if (currentValue is Vector3UInt vector3UInt)
+            {
+                return GetVector3Uint(vector3UInt);
+            }
+            else
+            {
+                return currentValue;
             }
         }
 
@@ -108,3 +169,4 @@ namespace VECS.UI
 
     }
 }
+
