@@ -39,6 +39,7 @@ namespace VECS.ECS
             CreateSystem<LocalToWorldSystem>();
             CreateSystem<CameraSystem>();
             CreateSystem<WorldRenderBoundsUpdateSystem>();
+            CreateSystem<LightUpdateSystem>();
             CreateSystem<DirectionalLightSystem>();
             CreateSystem<PointLightSystem>();
             CreateSystem<SpotLightSystem>();

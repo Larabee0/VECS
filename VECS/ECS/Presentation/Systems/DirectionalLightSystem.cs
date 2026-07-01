@@ -27,10 +27,10 @@ namespace VECS.ECS.Presentation
                 .WithNone(typeof(Prefab), typeof(DoNotRender), typeof(ShadowInfo))
                 .Build();
 
-            _directionalLightShadowQuery = new EntityQuery(entityManager)
-                .WithAll(typeof(DirectionalLight), typeof(ShadowInfo))
-                .WithNone(typeof(Prefab), typeof(DoNotRender))
-                .Build();
+            //_directionalLightShadowQuery = new EntityQuery(entityManager)
+            //    .WithAll(typeof(DirectionalLight), typeof(ShadowInfo))
+            //    .WithNone(typeof(Prefab), typeof(DoNotRender))
+            //    .Build();
 
             _directionalLightShadowQuery = new EntityQuery(entityManager)
                 .WithAll(typeof(DirectionalLight), typeof(ShadowInfo), typeof(UpdateShadow))
