@@ -78,8 +78,8 @@ namespace VECS
                 OptimizationLevel = OptimizationLevel.Zero,
                 GeneratedDebug = true,
 #else
-                OptimizationLevel = OptimizationLevel.Performance;
-                GeneratedDebug= false;
+                OptimizationLevel = OptimizationLevel.Performance,
+                GeneratedDebug= true,
 #endif
 
                 ShaderStage = GetShaderKindFromFileExtention(filePath)

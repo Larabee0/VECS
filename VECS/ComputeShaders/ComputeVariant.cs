@@ -57,9 +57,9 @@ namespace VECS
                     
                     for (int j = 0; j < DescriptorSetInfos[i].BindingCount; j++)
                     {
-                        var binding = DescriptorSetInfos[i].DescriptorBindings[j];
+                        var binding = DescriptorSetInfos[i]._descriptorBindings[j];
                         if (!binding.StorageBuffer) continue;
-                        var bufferIndex = DescriptorSetInfos[i].BindingPointToBufferIndex[binding.BindPoint];
+                        var bufferIndex = DescriptorSetInfos[i].BindPointToBufferIndex[binding.BindPoint];
                         _storageBuffers[i][bufferIndex] = new GPUBuffer[SwapChain.MAX_CONCURRENT_FRAMES];
                         var engineBuffer = EngineBuffers.TryGetBuffer(binding.Id);
                         if(engineBuffer != null)
@@ -78,9 +78,9 @@ namespace VECS
                     _textures[i] = new ITextureProvider[DescriptorSetInfos[i].ImageCount];
                     for (int j = 0; j < DescriptorSetInfos[i].BindingCount; j++)
                     {
-                        var binding = DescriptorSetInfos[i].DescriptorBindings[j];
+                        var binding = DescriptorSetInfos[i]._descriptorBindings[j];
                         if (!binding.Image) continue;
-                        var imageIndex = DescriptorSetInfos[i].BindingPointToImageIndex[binding.BindPoint];
+                        var imageIndex = DescriptorSetInfos[i].BindPointToImageIndex[binding.BindPoint];
                         var engineTexture = EngineTextures.TryGetTexture(binding.Id);
                         if (engineTexture != null)
                         {
@@ -214,7 +214,7 @@ namespace VECS
         {
             var setInfo = GetDescriptorInfo(setIndex);
             uint variant = localUniformAllocation ? 0 : VariantIndex;
-            var bufferArray = _storageBuffers[setIndex][setInfo.BindingPointToBufferIndex[bindPoint]];
+            var bufferArray = _storageBuffers[setIndex][setInfo.BindPointToBufferIndex[bindPoint]];
             for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
             {
                 bufferArray[i] = buffer[i];
@@ -229,7 +229,7 @@ namespace VECS
             {
                 var setInfo = GetDescriptorInfo(propertyInfo.SetIndex);
                 uint variant = localUniformAllocation ? 0 : VariantIndex;
-                var bufferArray = _storageBuffers[propertyInfo.SetIndex][setInfo.BindingPointToBufferIndex[propertyInfo.BindPoint]];
+                var bufferArray = _storageBuffers[propertyInfo.SetIndex][setInfo.BindPointToBufferIndex[propertyInfo.BindPoint]];
                 for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
                 {
                     bufferArray[i] = buffer;
@@ -240,7 +240,7 @@ namespace VECS
 
         private void WriteStorageBuffersToDescriptorBuffer(uint setIndex, uint bindingIndex)
         {
-            int bufferIndex = DescriptorSetInfos[setIndex].BindingPointToBufferIndex[bindingIndex];
+            int bufferIndex = DescriptorSetInfos[setIndex].BindPointToBufferIndex[bindingIndex];
             var buffers = _storageBuffers[setIndex][bufferIndex];
             
             var setInfo = GetDescriptorInfo(setIndex);
@@ -253,9 +253,9 @@ namespace VECS
             }
         }
 
-        private unsafe void WriteTexturesToDescriptorBuffer(uint setIndex, uint bindingIndex)
+        private unsafe void WriteTexturesToDescriptorBuffer(uint setIndex, uint bindPoint)
         {
-            int imageIndex = DescriptorSetInfos[setIndex].BindingPointToImageIndex[bindingIndex];
+            int imageIndex = DescriptorSetInfos[setIndex].BindPointToImageIndex[bindPoint];
             ITextureProvider textures = _textures[setIndex][imageIndex];
             if (textures.AnyDisposed) return;
             var setInfo = GetDescriptorInfo(setIndex);
@@ -268,15 +268,15 @@ namespace VECS
                 imageInfos[i] = textures.GetTexture(i).ImageInfo;
             }
 
-            SetTextures(bindingIndex, setInfo, variant, imageInfos, (uint)textures.ImageCount);
+            SetTextures(bindPoint, setInfo, variant, imageInfos, (uint)textures.ImageCount);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static unsafe void SetTextures(uint bindingIndex, DescriptorSetInfo setInfo, uint variant, VkDescriptorImageInfo* imageInfos, uint imageCount)
+        private static unsafe void SetTextures(uint bindPoint, DescriptorSetInfo setInfo, uint variant, VkDescriptorImageInfo* imageInfos, uint imageCount)
         {
             for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
             {
-                setInfo.WriteDescriptors(i, bindingIndex, variant, imageInfos, imageCount, setInfo.DescriptorBindings[bindingIndex].DescriptorType);
+                setInfo.WriteDescriptors(i, bindPoint, variant, imageInfos, imageCount, setInfo.GetBinding(bindPoint).DescriptorType);
             }
         }
 
@@ -303,10 +303,10 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void SetTextures(uint setIndex, uint bindingIndex, ITextureProvider textures)
+        public void SetTextures(uint setIndex, uint bindPoint, ITextureProvider textures)
         {
             if (textures == null) return;
-            int imageIndex = DescriptorSetInfos[setIndex].BindingPointToImageIndex[bindingIndex];
+            int imageIndex = DescriptorSetInfos[setIndex].BindPointToImageIndex[bindPoint];
 
             bool writeDescriptorNow = false;
             for (int i = 0; i < textures.ImageCount; i++)
@@ -316,7 +316,7 @@ namespace VECS
 
             if (writeDescriptorNow)
             {
-                WriteTexturesToDescriptorBuffer(setIndex, bindingIndex);
+                WriteTexturesToDescriptorBuffer(setIndex, bindPoint);
             }
         }
 
@@ -331,14 +331,14 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void SetTexture(uint setIndex, uint bindingIndex, Texture texture, int index = 0)
+        public void SetTexture(uint setIndex, uint bindPoint, Texture texture, int index = 0)
         {
-            int imageIndex = DescriptorSetInfos[setIndex].BindingPointToImageIndex[bindingIndex];
+            int imageIndex = DescriptorSetInfos[setIndex].BindPointToImageIndex[bindPoint];
 
             if (_textures[setIndex][imageIndex].First == texture) return;
             if(_textures[setIndex][imageIndex].SetTexture(texture, index))
             {
-                WriteTexturesToDescriptorBuffer(setIndex, bindingIndex);
+                WriteTexturesToDescriptorBuffer(setIndex, bindPoint);
             }
         }
 
@@ -351,7 +351,7 @@ namespace VECS
 
                 for (uint j = 0; j < setInfo.BindingCount; j++)
                 {
-                    var binding = setInfo.DescriptorBindings[j];
+                    var binding = setInfo._descriptorBindings[j];
 
                     if (!binding.UniformBuffer) continue;
 
@@ -427,7 +427,7 @@ namespace VECS
 
                     for (int j = 0; j < setInfo.BindingCount; j++)
                     {
-                        DescriptorBinding binding = setInfo.DescriptorBindings[j];
+                        DescriptorBinding binding = setInfo._descriptorBindings[j];
                         if (!binding.Image) continue;
 
                         if (textureRemap.TryGetValue(binding.Id, out var remapIndices))
@@ -437,7 +437,7 @@ namespace VECS
                             continue;
                         }
 
-                        var imageIndex = setInfo.BindingPointToImageIndex[binding.BindPoint];
+                        var imageIndex = setInfo.BindPointToImageIndex[binding.BindPoint];
                         var engineTexture = EngineTextures.TryGetTexture(binding.Id);
                         if (engineTexture != null)
                         {
@@ -466,10 +466,10 @@ namespace VECS
                 var setInfo = DescriptorSetInfos[i];
                 for (int j = 0; j < setInfo.BindingCount; j++)
                 {
-                    if (storageRemap.TryGetValue(setInfo.DescriptorBindings[j].Id, out var remapIndices) && remapIndices.Z != uint.MaxValue && remapIndices.W != uint.MaxValue)
+                    if (storageRemap.TryGetValue(setInfo._descriptorBindings[j].Id, out var remapIndices) && remapIndices.Z != uint.MaxValue && remapIndices.W != uint.MaxValue)
                     {
                         _storageBuffers[remapIndices.Z][remapIndices.W] = existingRegions[remapIndices.X][remapIndices.Y];
-                        WriteStorageBuffersToDescriptorBuffer(i, setInfo.DescriptorBindings[j].BindPoint);
+                        WriteStorageBuffersToDescriptorBuffer(i, setInfo._descriptorBindings[j].BindPoint);
                     }
                 }
             }
@@ -500,7 +500,7 @@ namespace VECS
             {
                 for (int i = 0; i < variant.DescriptorSetInfos[setIndex].BindingCount; i++)
                 {
-                    var binding = variant.DescriptorSetInfos[setIndex].DescriptorBindings[i];
+                    var binding = variant.DescriptorSetInfos[setIndex]._descriptorBindings[i];
                     if (binding.Image)
                     {
                         variant.WriteTexturesToDescriptorBuffer(setIndex, binding.BindPoint);
