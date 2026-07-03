@@ -164,14 +164,22 @@ namespace VECS.UI
         }
         private static bool _treeConstruction = false;
         public static uint SelectedEntity;
-        public static TreeViewItem ConstructTree(FieldHierarhcy hierarhcy, List<FieldInfo> bindingPath)
+        public static Expander ConstructTree(FieldHierarhcy hierarhcy, List<FieldInfo> bindingPath)
         {
             _treeConstruction = true;
-            TreeViewItem treeViewItem = new()
+            Expander expander = new()
             {
                 Header = hierarhcy.Target.Name,
-                IsExpanded = true
+                IsExpanded = hierarhcy.Order.Count > 0,
+                IsEnabled = hierarhcy.Order.Count > 0
             };
+            if(hierarhcy.Target.IsAssignableTo(typeof( IComponent)))
+            {
+                expander.Header = string.Format("{0} : IComponent",expander.Header);
+            }
+
+            StackPanel childContainer = new();
+            expander.Content = childContainer;
 
             for (int i = 0; i < hierarhcy.Order.Count; i++)
             {
@@ -187,10 +195,10 @@ namespace VECS.UI
                         var dropDown = new DropDownField();
                         var enumComponents = typeToBuild.FieldType.GetEnumNames();
                         bool flagsEnum = typeToBuild.FieldType.GetCustomAttributes<FlagsAttribute>() != null;
-                        dropDown.IsFlagsEnum = !flagsEnum;
+                        dropDown.IsFlagsEnum = flagsEnum;
                         for (int j = 0; j < enumComponents.Length; j++)
                         {
-                            dropDown.AddRadioButton(enumComponents[j], !flagsEnum, enumComponents[j], j == 0);
+                            dropDown.AddRadioButton(enumComponents[j], flagsEnum, enumComponents[j], j == 0);
                         }
                         instance = dropDown;
                         List<FieldInfo> localBindingPath = [.. bindingPath];
@@ -227,17 +235,17 @@ namespace VECS.UI
                     }
                     instance.IsEnabled = readonlyAttribute;
                     instance.Tag = string.Format("{0}.{1}",typeToBuild.Name,typeToBuild.FieldType.Name);
-                    treeViewItem.Items.Add(instance);
+                    childContainer.Children.Add(instance);
                     NameFieldInstance(typeToBuild, instance);
                 }
                 else
                 {
-                    treeViewItem.Items.Add(ConstructTree(hierarhcy.Children[orderIndices.Y], bindingPath));
+                    childContainer.Children.Add(ConstructTree(hierarhcy.Children[orderIndices.Y], bindingPath));
                     _treeConstruction = true;
                 }
             }
             _treeConstruction = false;
-            return treeViewItem;
+            return expander;
         }
 
         private static void BindingFieldValueChanged(object s, RoutedEventArgs e, List<FieldInfo> bindingPath)
@@ -295,7 +303,7 @@ namespace VECS.UI
         }
 
 
-        public static void UpdateValues(EntityManager entityManager, TreeViewItem tree, int componentId, Entity entity)
+        public static void UpdateValues(EntityManager entityManager, Expander tree, int componentId, Entity entity)
         {
             IComponent component = entityManager.GetComponent(entity,componentId);
 
@@ -308,17 +316,17 @@ namespace VECS.UI
                 
                 if(orderIndices.X == 0)
                 {
-                    UpdateValues((FrameworkElement)tree.Items[i],hierarhcy.Types[orderIndices.Y].GetValue(component));
+                    UpdateValues((FrameworkElement)((StackPanel)tree.Content).Children[i],hierarhcy.Types[orderIndices.Y].GetValue(component));
                 }
                 else
                 {
                     var child = hierarhcy.Children[orderIndices.Y];
-                    UpdateValues(child,(TreeViewItem)tree.Items[i], child.TargetSrc.GetValue(component));
+                    UpdateValues(child,(Expander)((StackPanel)tree.Content).Children[i], child.TargetSrc.GetValue(component));
                 }
             }
         }
 
-        private static void UpdateValues(FieldHierarhcy hierarhcy, TreeViewItem node, object instance)
+        private static void UpdateValues(FieldHierarhcy hierarhcy, Expander node, object instance)
         {
             
             for (int i = 0; i < hierarhcy.Order.Count; i++)
@@ -327,12 +335,12 @@ namespace VECS.UI
                 
                 if(orderIndices.X == 0)
                 {
-                    UpdateValues((FrameworkElement)node.Items[i],hierarhcy.Types[orderIndices.X].GetValue(instance));
+                    UpdateValues((FrameworkElement)((StackPanel)node.Content).Children[i], hierarhcy.Types[orderIndices.X].GetValue(instance));
                 }
                 else
                 {
                     var child = hierarhcy.Children[orderIndices.Y];
-                    UpdateValues(child,(TreeViewItem)node.Items[i], child.TargetSrc.GetValue(instance));
+                    UpdateValues(child,(Expander)((StackPanel)node.Content).Children[i], child.TargetSrc.GetValue(instance));
                 }
             }
         }

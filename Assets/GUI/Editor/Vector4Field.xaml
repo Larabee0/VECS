@@ -5,12 +5,11 @@
   xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
   mc:Ignorable="d"
   x:Class="VECS.UI.Vector4Field"
-  x:Name="Vector4FieldControl" Width="580"
-  Height="50" Background="#004D5052">
+  x:Name="Vector4FieldControl" Width="580" Height="50" Background="#004D5052">
   <UserControl.Resources>
     <ResourceDictionary Source="./EditorTheme.xaml"/>
   </UserControl.Resources>
-  <Grid Height="50">
+  <Grid>
     <Grid.ColumnDefinitions>
       <ColumnDefinition/>
     </Grid.ColumnDefinitions>

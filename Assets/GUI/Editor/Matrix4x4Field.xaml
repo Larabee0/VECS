@@ -5,7 +5,7 @@
   xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
   mc:Ignorable="d"
   x:Class="VECS.UI.Matrix4x4Field"
-  x:Name="Matrix4x4FieldControl" Width="580" Height="155" MinWidth="580" Background="#004D5052">
+  x:Name="Matrix4x4FieldControl" Width="580" Height="185" MinWidth="580" Background="#004D5052">
   <UserControl.Resources>
     <ResourceDictionary Source="./EditorTheme.xaml"/>
   </UserControl.Resources>

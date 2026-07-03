@@ -16,7 +16,7 @@ namespace VECS.UI
         private readonly List<EntityHierarchyTree> _hierarchyTrees = [];
         private readonly List<EntityHierarchyTree> _singleEntityItems = [];
 
-        private TreeView _inspectorTreeView;
+        private StackPanel _inspectorTreeView;
 
         private uint SelectedEntityId;
         private uint LastSelectedEntityId;
@@ -44,7 +44,7 @@ namespace VECS.UI
             _hierarchyTreeView.SelectedItemChanged += EntityItemChanged;
             _hierarchyTreeView.LostFocus += ClearInspector;
 
-            _inspectorTreeView = (TreeView)ControlTreeRoot.FindName("RightSideBarTreeView");
+            _inspectorTreeView = (StackPanel)ControlTreeRoot.FindName("InspectorStackPanel");
             
             var gameview = (Image)ControlTreeRoot.FindName("GameView");
             var fowardRenderer = Presenter.Instance.Renderer;
@@ -94,7 +94,7 @@ namespace VECS.UI
         {
             if(SelectedEntityId != LastSelectedEntityId)
             {
-                _inspectorTreeView.Items.Clear();
+                _inspectorTreeView.Children.Clear();
                 AddEntityInspectorComponents(entityManager);
                 LastSelectedEntityId = SelectedEntityId;
             }
@@ -104,13 +104,17 @@ namespace VECS.UI
         {
             var selectedEntity = entityManager.GetEntityFromId(SelectedEntityId);
             if(selectedEntity == Entity.Null) return;
-            string entityName = entityManager.GetEntityName(selectedEntity);
-            var item = new TreeViewItem()
+            string entityName = string.Format("Entity: {0}", entityManager.GetEntityName(selectedEntity));
+            var item = new Expander()
             {
                 Header = entityName,
                 IsExpanded = true
             };
-            _inspectorTreeView.Items.Add(item);
+
+            StackPanel children = new();
+            item.Content = children;
+
+            _inspectorTreeView.Children.Add(item);
             var arcehtypeId = entityManager.ComputeArchetypeHash(selectedEntity);
 
             var componentIds = entityManager._archetypeIdsToComponentIds[arcehtypeId];
@@ -121,7 +125,7 @@ namespace VECS.UI
                 
                 var types = NoesisTypeToField.GetTypeFields(componentType);
                 var treeViewItem = NoesisTypeToField.ConstructTree(types,null);
-                item.Items.Add(treeViewItem);
+                children.Children.Add(treeViewItem);
 
                 NoesisTypeToField.UpdateValues(entityManager,treeViewItem,componentId,selectedEntity);
             }

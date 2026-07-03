@@ -19,9 +19,9 @@
         
       </Grid.ColumnDefinitions>
       <TextBlock Text="{Binding Label, ElementName=DropDownFieldControl}" HorizontalAlignment="Left" Foreground="#FFFFFFFF" Style="{DynamicResource VectorLabel}"/>
-      
-      <TreeViewItem x:Name="RadioContainer"  ScrollViewer.PanningMode="VerticalOnly" Margin="0,0,2,0" Grid.Column="1" MaxHeight="200"/>
-      
+      <TreeView Grid.Column="1" >
+        <TreeViewItem x:Name="RadioContainer"  ScrollViewer.PanningMode="VerticalOnly" Margin="0,0,2,0" MaxHeight="200"/>
+      </TreeView>
     </Grid>
   </Grid>
 </UserControl>

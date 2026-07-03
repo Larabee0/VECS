@@ -34,9 +34,9 @@
       </Grid>
 
       <Rectangle x:Name="RightSideBarBG" Grid.Column="1" Fill="#494d4a" Stroke="#FF000000" Grid.ColumnSpan="2" Grid.RowSpan="2"/>
-      <StackPanel x:Name="RightSideBarStackPanel" Grid.Column="1" Grid.RowSpan="2">
-        <TreeView x:Name="RightSideBarTreeView" ScrollViewer.PanningRatio="0"/>
-      </StackPanel>
+      <ScrollViewer Height="1440" Grid.Column="1" Grid.RowSpan="2">
+        <StackPanel x:Name="InspectorStackPanel"/>
+      </ScrollViewer>
 
       <Rectangle x:Name="BottomProjectAreaBG" Grid.Row="1" Fill="#FFF4F4F5" Stroke="#FF000000"/>
       <Grid x:Name="BottomProjectAreaGrid" Grid.Row="1">
