@@ -1,6 +1,7 @@
 ﻿using Noesis;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using VECS.ECS;
 using VECS.ECS.Presentation;
 using VECS.ECS.Transforms;
@@ -118,7 +119,7 @@ namespace VECS.UI
             var arcehtypeId = entityManager.ComputeArchetypeHash(selectedEntity);
 
             var componentIds = entityManager._archetypeIdsToComponentIds[arcehtypeId];
-            
+            Stopwatch stopwatch = Stopwatch.StartNew();
             foreach(var componentId in componentIds)
             {
                 var componentType = entityManager.GetComponentType(componentId);
@@ -127,9 +128,11 @@ namespace VECS.UI
                 var treeViewItem = NoesisTypeToField.ConstructTree(types,null);
                 children.Children.Add(treeViewItem);
 
-                NoesisTypeToField.UpdateValues(entityManager,treeViewItem,componentId,selectedEntity);
+                NoesisTypeToField.UpdateValues(entityManager, treeViewItem, types, componentId, selectedEntity);
             }
 
+            stopwatch.Stop();
+            Console.WriteLine(stopwatch.ToString());
 
             NoesisTypeToField.SelectedEntity = SelectedEntityId;
 

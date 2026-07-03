@@ -41,8 +41,9 @@ namespace VECS.UI
             RadioContainer.Items.Add(button);
 
             WeakReference weak = new(this);
-            button.Checked += (s, e) => ((DropDownField)weak.Target)?.InternalValueChanged(s, e);
-            button.Unchecked += (s, e) => ((DropDownField)weak.Target)?.InternalValueChanged(s, e);
+            WeakReference weakButton = new(button);
+            ((RadioButton)weakButton.Target).Checked += (s, e) => ((DropDownField)weak.Target)?.InternalValueChanged(s, e);
+            ((RadioButton)weakButton.Target).Unchecked += (s, e) => ((DropDownField)weak.Target)?.InternalValueChanged(s, e);
         }
 
         public override void SetValue(object value)

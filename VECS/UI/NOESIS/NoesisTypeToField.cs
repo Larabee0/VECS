@@ -139,13 +139,13 @@ namespace VECS.UI
 
             hierarchy?.Add(main);
 
-            Console.WriteLine(targetType.Name);
+            //Console.WriteLine(targetType.Name);
         
             var fields = targetType.GetFields(BindingFlags.Public | BindingFlags.Instance);
             for(int i = 0; i < fields.Length; i++)
             {
                 if(fields[i].GetCustomAttribute(typeof(HideInInspectorAttribute)) != null) continue;
-                Console.WriteLine("{0}.{1}",fields[i].Name,fields[i].FieldType.Name);
+                //Console.WriteLine("{0}.{1}",fields[i].Name,fields[i].FieldType.Name);
                 var fieldType = fields[i].FieldType;
                 
                 if (!BaseFieldTypesSet.Contains(fieldType) && !fieldType.IsEnum && !fieldType.IsArray)
@@ -159,7 +159,7 @@ namespace VECS.UI
                     main.Types.Add(fields[i]);
                 }
             }
-            Console.WriteLine();
+            //Console.WriteLine();
             return main;
         }
         private static bool _treeConstruction = false;
@@ -204,7 +204,10 @@ namespace VECS.UI
                         List<FieldInfo> localBindingPath = [.. bindingPath];
                         if (instance is IEditorField editorField)
                         {
-                            editorField.ValueChanged += (s, e) => BindingFieldValueChanged(s, e, localBindingPath);
+                            editorField.LocalBindingPath = localBindingPath;
+                            WeakReference weakRef = new(editorField);
+                            
+                            ((IEditorField)weakRef.Target).ValueChanged += BindingFieldValueChanged;
                         }
                     }
                     else if (typeToBuild.FieldType.IsArray)
@@ -221,7 +224,7 @@ namespace VECS.UI
                         List<FieldInfo> localBindingPath = [.. bindingPath];
                         if (instance is IEditorField editorField)
                         {
-                            editorField.ValueChanged += (s, e) => BindingFieldValueChanged(s, e, bindingPath);
+                            //editorField.ValueChanged += (s, e) => BindingFieldValueChanged(s, e, bindingPath);
                         }
                     }
                     else
@@ -230,7 +233,9 @@ namespace VECS.UI
                         List<FieldInfo> localBindingPath = [.. bindingPath];
                         if (instance is IEditorField editorField)
                         {
-                            editorField.ValueChanged += (s, e) => BindingFieldValueChanged(s, e, bindingPath);
+                            editorField.LocalBindingPath = localBindingPath;
+                            WeakReference weakRef = new(editorField);
+                            ((IEditorField)weakRef.Target).ValueChanged += BindingFieldValueChanged;
                         }
                     }
                     instance.IsEnabled = readonlyAttribute;
@@ -248,10 +253,10 @@ namespace VECS.UI
             return expander;
         }
 
-        private static void BindingFieldValueChanged(object s, RoutedEventArgs e, List<FieldInfo> bindingPath)
+        private static void BindingFieldValueChanged(object s, RoutedEventArgs e)
         {
-            if (_treeConstruction) return;
-            
+            if (s == null) return;
+            var bindingPath = ((IEditorField)s).LocalBindingPath;
             // the event raised by textbox.textchanged has the new value as accessed directly from textbox.text
             // accessing textbox.text from anywhere also has the new value - its not exclusively the event
             // hover, vector3field._valueX does not update until keyboard focus lost
@@ -265,6 +270,10 @@ namespace VECS.UI
                 
                 var componentInstance = (IComponent)Activator.CreateInstance(bindingPath[0].ReflectedType);
                 componentInstance = entityManager.GetComponent(targetEntity, componentInstance.Id);
+                if(componentInstance == null)
+                {
+                    return;
+                }
                 object parent = componentInstance;
                 for (int i = 0; i < bindingPath.Count-1; i++)
                 {
@@ -309,19 +318,25 @@ namespace VECS.UI
 
             var type = component.GetType();
 
-            var hierarhcy = GetTypeFields(type);
+            UpdateValues(entityManager, tree, GetTypeFields(type), componentId, entity);
+        }
+
+        public static void UpdateValues(EntityManager entityManager, Expander tree, FieldHierarhcy hierarhcy, int componentId, Entity entity)
+        {
+            IComponent component = entityManager.GetComponent(entity, componentId);
+
             for (int i = 0; i < hierarhcy.Order.Count; i++)
             {
                 var orderIndices = hierarhcy.Order[i];
-                
-                if(orderIndices.X == 0)
+
+                if (orderIndices.X == 0)
                 {
-                    UpdateValues((FrameworkElement)((StackPanel)tree.Content).Children[i],hierarhcy.Types[orderIndices.Y].GetValue(component));
+                    UpdateValues((FrameworkElement)((StackPanel)tree.Content).Children[i], hierarhcy.Types[orderIndices.Y].GetValue(component));
                 }
                 else
                 {
                     var child = hierarhcy.Children[orderIndices.Y];
-                    UpdateValues(child,(Expander)((StackPanel)tree.Content).Children[i], child.TargetSrc.GetValue(component));
+                    UpdateValues(child, (Expander)((StackPanel)tree.Content).Children[i], child.TargetSrc.GetValue(component));
                 }
             }
         }
