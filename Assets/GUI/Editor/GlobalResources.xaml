@@ -6,14 +6,15 @@
     <Setter Property="TextAlignment" Value="Left"/>
     <Setter Property="FontFamily" Value="./#LCDMono2"/>
     <Setter Property="Opacity" Value="1"/>
-    <Setter Property="Height" Value="30"/>
+    <Setter Property="Height" Value="27"/>
     <Setter Property="TextWrapping" Value="NoWrap"/>
-    <Setter Property="Width" Value="180"/>
+    <Setter Property="Width" Value="87"/>
+    <Setter Property="FontSize" Value="13"/>
   </Style>
   <Style x:Key="VectorLabel" TargetType="TextBlock">
     <Setter Property="VerticalAlignment" Value="Center"/>
     <Setter Property="HorizontalAlignment" Value="Center"/>
     <Setter Property="FontFamily" Value="Consolas"/>
-    <Setter Property="FontSize" Value="16"/>
+    <Setter Property="FontSize" Value="14"/>
   </Style>
 </ResourceDictionary>

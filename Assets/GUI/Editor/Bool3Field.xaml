@@ -5,8 +5,8 @@
   xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
   mc:Ignorable="d"
   x:Class="Bool3Field"
-  x:Name="Bool3FieldControl"
-  Height="50" Background="#004D5052">
+  x:Name="Bool3FieldControl" Width="580"
+  Height="50" MinWidth="580" Background="#004D5052">
   <UserControl.Resources>
     <ResourceDictionary Source="./EditorTheme.xaml"/>
   </UserControl.Resources>
@@ -17,21 +17,21 @@
     <Rectangle Grid.ColumnSpan="1" Fill="#FF262E35" Stroke="#FF000000"/>
     <Grid Margin="4,4,4,4" ColumnSpan="1">
       <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="245"/>
+        <ColumnDefinition Width="15"/>
         <ColumnDefinition/>
-        <ColumnDefinition Width="0.2*"/>
+        <ColumnDefinition Width="15"/>
         <ColumnDefinition/>
-        <ColumnDefinition Width="0.2*"/>
-        <ColumnDefinition/>
-        <ColumnDefinition Width="0.2*"/>
+        <ColumnDefinition Width="15"/>
         <ColumnDefinition/>
       </Grid.ColumnDefinitions>
       <TextBlock x:Name="Label" Text="{Binding Label, ElementName=Bool3FieldControl}" HorizontalAlignment="Left" Foreground="#FFFFFFFF" Style="{DynamicResource VectorLabel}"/>
       <TextBlock Text="X" Grid.Column="1" TextWrapping="Wrap" Style="{DynamicResource VectorLabel}"/>
-      <CheckBox x:Name="XComp" Text="{Binding ValueX, ElementName=Bool3FieldControl}" Margin="0,0,2,0" Grid.Column="2" Style="{DynamicResource VectorStyle}"/>
       <TextBlock Text="Y" Grid.Column="3" TextWrapping="Wrap" Style="{DynamicResource VectorLabel}"/>
-      <CheckBox x:Name="YComp" Text="{Binding ValueY, ElementName=Bool3FieldControl}" Margin="2,0,2,0" Grid.Column="4" TextWrapping="Wrap" Style="{DynamicResource VectorStyle}"/>
       <TextBlock Text="Z" Grid.Column="5" TextWrapping="Wrap" Style="{DynamicResource VectorLabel}"/>
-      <CheckBox x:Name="ZComp" Text="{Binding ValueZ, ElementName=Bool3FieldControl}" Margin="2,0,2,0" Grid.Column="6" TextWrapping="Wrap" Style="{DynamicResource VectorStyle}"/>
+      <CheckBox x:Name="XComp" Text="{Binding ValueX, ElementName=Bool3FieldControl}" Margin="2,0,2,0" Grid.Column="2"/>
+      <CheckBox x:Name="YComp" Text="{Binding ValueY, ElementName=Bool3FieldControl}" Margin="2,0,2,0" Grid.Column="4" TextWrapping="Wrap"/>
+      <CheckBox x:Name="ZComp" Text="{Binding ValueZ, ElementName=Bool3FieldControl}" Margin="2,0,2,0" Grid.Column="6" TextWrapping="Wrap"/>
       
     </Grid>
   </Grid>

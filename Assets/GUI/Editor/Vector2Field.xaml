@@ -5,8 +5,8 @@
   xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
   mc:Ignorable="d"
   x:Class="Vector2Field"
-  x:Name="Vector2FieldControl"
-  Height="50" Background="#004D5052">
+  x:Name="Vector2FieldControl" Width="580."
+  Height="50" MinWidth="580" Background="#004D5052">
   <UserControl.Resources>
     <ResourceDictionary Source="./EditorTheme.xaml"/>
   </UserControl.Resources>
@@ -17,16 +17,16 @@
     <Rectangle Grid.ColumnSpan="1" Fill="#FF262E35" Stroke="#FF000000"/>
     <Grid Margin="4,4,4,4" ColumnSpan="1">
       <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="200" MaxWidth="200"/>
+        <ColumnDefinition Width="245" MaxWidth="245"/>
         <ColumnDefinition Width="15" MaxWidth="15"/>
-        <ColumnDefinition Width="200" MaxWidth="200"/>
+        <ColumnDefinition Width="95" MaxWidth="95"/>
         <ColumnDefinition Width="15" MaxWidth="15"/>
-        <ColumnDefinition Width="200" MaxWidth="200"/>
+        <ColumnDefinition Width="95" MaxWidth="95"/>
       </Grid.ColumnDefinitions>
       <TextBlock x:Name="Label" Text="{Binding Label, ElementName=Vector2FieldControl}" HorizontalAlignment="Left" Foreground="#FFFFFFFF" Style="{DynamicResource VectorLabel}"/>
       <TextBlock Text="X" Grid.Column="1" TextWrapping="Wrap" Style="{DynamicResource VectorLabel}"/>
-      <TextBox x:Name="XComp" Text="{Binding ValueX, ElementName=Vector2FieldControl}" Margin="0,0,2,0" Grid.Column="2" HorizontalAlignment="Left" Style="{DynamicResource VectorStyle}"/>
       <TextBlock Text="Y" Grid.Column="3" TextWrapping="Wrap" Style="{DynamicResource VectorLabel}"/>
+      <TextBox x:Name="XComp" Text="{Binding ValueX, ElementName=Vector2FieldControl}" Margin="0,0,2,0" Grid.Column="2" HorizontalAlignment="Left" Style="{DynamicResource VectorStyle}"/>
       <TextBox x:Name="YComp" Text="{Binding ValueY, ElementName=Vector2FieldControl}" Margin="2,0,2,0" Grid.Column="4" HorizontalAlignment="Left" TextWrapping="Wrap" Style="{DynamicResource VectorStyle}"/>
     </Grid>
   </Grid>
