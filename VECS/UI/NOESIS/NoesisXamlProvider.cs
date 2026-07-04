@@ -1,24 +1,33 @@
 ﻿using Noesis;
+using NoesisApp;
 using System;
 using System.IO;
 
 namespace VECS.UI
 {
-    public class NoesisXamlProvider : XamlProvider
+    public class NoesisXamlProvider : LocalXamlProvider
     {
+        private string _basePath;
+
+        public NoesisXamlProvider()
+            : this("")
+        {
+        }
+
+        public NoesisXamlProvider(string basePath)
+        {
+            _basePath = basePath;
+        }
+
         public override Stream LoadXaml(Uri uri)
         {
-            if (uri.IsAbsoluteUri && File.OpenRead(uri.AbsolutePath) is Stream stream)
+            string path = System.IO.Path.Combine(_basePath, uri.GetPath());
+            if (File.Exists(path))
             {
-                return stream;
+                return File.OpenRead(path);
             }
 
-            if (File.OpenRead(uri.OriginalString) is Stream originalStream)
-            {
-                return originalStream;
-            }
-
-            throw new FileNotFoundException("File not found", uri.OriginalString);
+            return null;
         }
     }
 }

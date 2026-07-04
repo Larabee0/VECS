@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using VECS.ECS.Transforms;
 
 namespace VECS.ECS
@@ -295,6 +296,7 @@ namespace VECS.ECS
         /// <typeparam name="T">Component type</typeparam>
         /// <param name="entity"></param>
         /// <returns></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool HasComponent<T>(Entity entity) where T : IComponent
         {
             return HasComponent<T>(entity, out _);
@@ -448,6 +450,7 @@ namespace VECS.ECS
         /// <typeparam name="T">Component type</typeparam>
         /// <param name="entity"></param>
         /// <returns></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int GetEntityComponentSigature<T>(in Entity entity) where T : IComponent
         {
             //return HashCode.Combine(entity.GetHashCode(), GetComponentId<T>());
@@ -460,6 +463,7 @@ namespace VECS.ECS
         /// <param name="entity"></param>
         /// <param name="compId">Component id</param>
         /// <returns></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int GetEntityComponentSigature(Entity entity, int compId)
         {
             return HashCode.Combine(entity.GetHashCode(), compId);
@@ -470,6 +474,7 @@ namespace VECS.ECS
         /// </summary>
         /// <typeparam name="T">Component type</typeparam>
         /// <returns></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int GetComponentId<T>() where T : IComponent
         {
             return default(T).Id;
@@ -686,7 +691,6 @@ namespace VECS.ECS
 
         public Entity CreateEntity(string name)
         {
-
             var entity = CreateEntity();
             SetEntityName (entity, name);
             return entity;
@@ -925,7 +929,6 @@ namespace VECS.ECS
         {
             _queries.ForEach(q => q.AutoStale());
         }
-
 
         public void DestroyEntityHierarchy(Entity entity)
         {
