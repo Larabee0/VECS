@@ -24,7 +24,6 @@ namespace VECS
     public static partial class TextureLoader
     {
         public static string DefaultTexturePath => Path.Combine(Asset.AssetsPath, "Textures");
-        public static string KtxTexturePath => Path.Combine(Asset.AssetsPath, DefaultTexturePath, "Ktx");
 
         public static string GetTextureInDefaultPath(string file)
         {
@@ -38,14 +37,6 @@ namespace VECS
         private static readonly List<TextureCompressionItem> CompressNext = [];
         private static TextureCompressionItem WorkingItem;
         
-        static TextureLoader()
-        {
-            if (!Directory.Exists(KtxTexturePath))
-            {
-                Directory.CreateDirectory(KtxTexturePath);
-            }
-        }
-
         public static void CalculateMipLevelSize(int width, int height, int mipIdx, out int mipWidth, out int mipHeight)
         {
             mipWidth = Math.Max(1, width >> mipIdx);
@@ -194,7 +185,7 @@ namespace VECS
                 throw new FileNotFoundException("Skybox folder not found", skyboxFolder);
             }
 
-            var files = Directory.GetFiles(skyboxFolder).Where(name=> !name.EndsWith(".meta")).ToArray();
+            var files = Directory.GetFiles(skyboxFolder).Where(name=> !name.EndsWith(".meta")).Where(name => !name.EndsWith(".ktx")).ToArray();
             
             if (files.Length != 6)
             {
@@ -393,7 +384,7 @@ namespace VECS
         [JsonIgnore]
         public string MetaFileName => string.Format("{0}.meta", SrcFileName);
         [JsonIgnore]
-        public string KtxFileName => Path.Combine(TextureLoader.KtxTexturePath, string.Format("{0}.ktx", Path.GetFileName(SrcFileName)));
+        public string KtxFileName => string.Format("{0}.ktx", SrcFileName);
 
         [JsonIgnore]
         public KtxFile KtxFile;
