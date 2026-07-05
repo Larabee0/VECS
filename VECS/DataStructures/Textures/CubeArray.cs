@@ -54,7 +54,7 @@ namespace VECS
 
         public CubemapArray(string name, TextureMetaFile metaFile)
         {
-            _metaFiles = [metaFile];
+            _metaFile = metaFile;
             AssetName = name;
             _imageFormat = metaFile.LoadedFormat;
             _imageExtent = new(metaFile.Width, metaFile.Width, metaFile.KtxFiles.Length);
@@ -139,9 +139,9 @@ namespace VECS
         }
         public unsafe override void Reload()
         {
-            if (_metaFiles == null) return;
+            if (_metaFile == null) return;
 
-            var metaFile = _metaFiles[0];
+            var metaFile = _metaFile;
 
             Debug.Assert(metaFile.KtxFiles[0].header.PixelWidth == metaFile.KtxFiles[0].header.PixelHeight);
             _imageExtent.width = metaFile.KtxFiles[0].header.PixelWidth;
@@ -196,10 +196,10 @@ namespace VECS
             }
             Reinitialise();
             this.CopyFromBuffer(gpuBuffer, copyCmds, true);
-            metaFile.KtxFile = null;
+            metaFile.KtxFiles = null;
         }
 
-        public override unsafe void Dispose()
+        public override void Dispose()
         {
             if (_disposed) return;
 

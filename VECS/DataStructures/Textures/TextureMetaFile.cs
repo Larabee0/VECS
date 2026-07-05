@@ -40,8 +40,6 @@ namespace VECS
         }
 
         [JsonIgnore]
-        public KtxFile KtxFile;
-        [JsonIgnore]
         public KtxFile[] KtxFiles;
         [JsonIgnore]
         public Texture DstTexture;
@@ -281,13 +279,6 @@ namespace VECS
 
         public void LoadTexture(int compressionThreadCount, bool forceUncompressed)
         {
-            BcEncoder encoder = new();
-            encoder.OutputOptions.GenerateMipMaps = MipMaps;
-            encoder.OutputOptions.Quality = CompressionQuality.Balanced;
-            encoder.OutputOptions.Format = VkFormat.GetUncompressedVkFormat().GetBcEncoderFormat();
-            encoder.Options.IsParallel = compressionThreadCount > 0;
-            encoder.Options.TaskCount = Math.Max(1, compressionThreadCount);
-            encoder.OutputOptions.FileFormat = OutputFileFormat.Ktx;
 
             string file;
             bool ktxExists = File.Exists(KtxFileName);
@@ -295,14 +286,14 @@ namespace VECS
             {
                 file = KtxFileName;
                 var fileStream = File.OpenRead(file);
-                KtxFile = KtxFile.Load(fileStream);
+                KtxFiles = [KtxFile.Load(fileStream)];
                 fileStream.Close();
-                var ktxFormat = KtxFile.header.GlInternalFormat.GetVkFormat();
+                var ktxFormat = KtxFiles[0].header.GlInternalFormat.GetVkFormat();
 
                 if(ktxFormat == VkFormat)
                 {
-                    Width = (int)KtxFile.header.PixelWidth;
-                    Height = (int)KtxFile.header.PixelHeight;
+                    Width = (int)KtxFiles[0].header.PixelWidth;
+                    Height = (int)KtxFiles[0].header.PixelHeight;
                     VkFormat = LoadedFormat = ktxFormat;
                     return;
                 }
@@ -313,14 +304,21 @@ namespace VECS
             if (extension == ".ktx")
             {
                 var fileStream = File.OpenRead(file);
-                KtxFile = KtxFile.Load(fileStream);
+                KtxFiles = [KtxFile.Load(fileStream)];
                 fileStream.Close();
-                Width = (int)KtxFile.header.PixelWidth;
-                Height = (int)KtxFile.header.PixelHeight;
-                LoadedFormat = KtxFile.header.GlInternalFormat.GetVkFormat();
+                Width = (int)KtxFiles[0].header.PixelWidth;
+                Height = (int)KtxFiles[0].header.PixelHeight;
+                LoadedFormat = KtxFiles[0].header.GlInternalFormat.GetVkFormat();
             }
             else
             {
+                BcEncoder encoder = new();
+                encoder.OutputOptions.GenerateMipMaps = MipMaps;
+                encoder.OutputOptions.Quality = CompressionQuality.Balanced;
+                encoder.OutputOptions.Format = VkFormat.GetUncompressedVkFormat().GetBcEncoderFormat();
+                encoder.Options.IsParallel = compressionThreadCount > 0;
+                encoder.Options.TaskCount = Math.Max(1, compressionThreadCount);
+                encoder.OutputOptions.FileFormat = OutputFileFormat.Ktx;
                 using Image<Rgba32> image = Image.Load<Rgba32>(file);
 
                 if (FlipVertical)
@@ -335,14 +333,14 @@ namespace VECS
                     image.Mutate(flipProcessor);
                 }
 
-                KtxFile = encoder.EncodeToKtx(image);
+                KtxFiles = [encoder.EncodeToKtx(image)];
                 
-                Width = (int)KtxFile.header.PixelWidth;
-                Height = (int)KtxFile.header.PixelHeight;
+                Width = (int)KtxFiles[0].header.PixelWidth;
+                Height = (int)KtxFiles[0].header.PixelHeight;
 
                 if (!ktxExists)
                 {
-                    TextureLoader.TextureCompressionItem.SaveFile(this, KtxFile);
+                    TextureLoader.TextureCompressionItem.SaveFile(this, KtxFiles[0]);
                 }
 
                 LoadedFormat = encoder.OutputOptions.Format.GetVkFormat();
