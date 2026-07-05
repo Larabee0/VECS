@@ -1,0 +1,15 @@
+{
+	"Type":2,
+	"Files":
+	[
+		[
+		"Textures/Skyboxes/GL_Skybox/right.jpg",
+		"Textures/Skyboxes/GL_Skybox/left.jpg",
+		"Textures/Skyboxes/GL_Skybox/bottom.jpg",
+		"Textures/Skyboxes/GL_Skybox/top.jpg",
+		"Textures/Skyboxes/GL_Skybox/front.jpg",
+		"Textures/Skyboxes/GL_Skybox/back.jpg"
+		]
+	],
+	"Name":"GL_Skybox"
+}

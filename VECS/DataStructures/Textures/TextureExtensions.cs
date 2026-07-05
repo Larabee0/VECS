@@ -20,6 +20,7 @@ namespace VECS
             public readonly bool DisallowMipMapRegen;
             public readonly bool DirectCopyCmd;
             public readonly VkBufferImageCopy CopyCmd;
+            public readonly VkBufferImageCopy[] CopyCmds;
 
             public TextureBufferCopyCmd(Texture target, GPUBuffer source, bool disposeBufferAfterCopy, bool disallowMipMapRegen)
             {
@@ -45,6 +46,15 @@ namespace VECS
                 Buffer = source;
                 DisposeBufferAfterCopy = disposeBufferAfterCopy;
                 CopyCmd = copyCmd;
+                DirectCopyCmd = true;
+            }
+
+            public TextureBufferCopyCmd(Texture target, GPUBuffer source, VkBufferImageCopy[] copyCmds, bool disposeBufferAfterCopy)
+            {
+                Texture = target;
+                Buffer = source;
+                DisposeBufferAfterCopy = disposeBufferAfterCopy;
+                CopyCmds = copyCmds;
                 DirectCopyCmd = true;
             }
         }
@@ -457,6 +467,12 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static void CopyFromBuffer(this Texture texture, GPUBuffer buffer, VkBufferImageCopy[] copyCmds, bool disposeBufferAfterCopy = false)
+        {
+            _copyBufferToTexture.Enqueue(new(texture, buffer, copyCmds, disposeBufferAfterCopy));
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static void CopyFrombufferNow(this Texture texture, GPUBuffer buffer)
         {
             var cmd = GraphicsDevice.BeginSingleTimeMainPipe();
@@ -482,8 +498,19 @@ namespace VECS
                 bool hintRegenerateMipMaps = false;
                 if (copy.DirectCopyCmd)
                 {
-                    copyCmd = copy.CopyCmd;
-                    CopyBufferToTexture(copy.Texture, cmd, copy.Buffer, 1, &copyCmd);
+                    if (copy.CopyCmds != null)
+                    {
+                        fixed(VkBufferImageCopy* copyCmds = copy.CopyCmds)
+                        {
+                            CopyBufferToTexture(copy.Texture, cmd, copy.Buffer, (uint)copy.CopyCmds.Length, copyCmds);
+                        }
+                    }
+                    else
+                    {
+                        copyCmd = copy.CopyCmd;
+                        CopyBufferToTexture(copy.Texture, cmd, copy.Buffer, 1, &copyCmd);
+                    }
+                    
                 }
                 else
                 {
@@ -535,7 +562,7 @@ namespace VECS
 
             if(texture is Cubemap cubemap)
             {
-                uint copyCount = texture.MipMapCount*6;
+                uint copyCount = texture.MipMapCount * 6;
                 bool copyingMipMaps = false;
                 if (offsets != null && copyCount != offsets.Length)
                 {

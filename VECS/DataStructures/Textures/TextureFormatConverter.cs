@@ -25,7 +25,7 @@ namespace VECS
             };
         }
 
-        public static VkFormat GetUncompressedFormat(this VkFormat format)
+        public static VkFormat GetUncompressedVkFormat(this VkFormat format)
         {
             return format switch
             {
@@ -65,7 +65,7 @@ namespace VECS
             };
         }
 
-        public static CompressionFormat GetCompressionFormat(this VkFormat vkFormat)
+        public static CompressionFormat GetBcEncoderFormat(this VkFormat vkFormat)
         {
             return vkFormat switch
             {

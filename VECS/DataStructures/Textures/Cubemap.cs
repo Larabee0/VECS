@@ -44,13 +44,13 @@ namespace VECS
             AssetDataBase<Cubemap>.Add(this);
         }
 
-        public Cubemap(string name,TextureMetaFile[] metaFiles, VkSamplerAddressMode wrapMode, VkImageUsageFlags _usageFlags)
+        public Cubemap(string name,TextureMetaFile[] metaFiles, VkSamplerAddressMode wrapMode, VkImageUsageFlags usageFlags)
         {
             _metaFiles = metaFiles;
             AssetName = name;
             _imageFormat = metaFiles[0].LoadedFormat;
             _imageExtent = new(metaFiles[0].Width, metaFiles[0].Width, 1);
-            _useageFlags = _usageFlags;
+            _useageFlags = usageFlags;
 
             _imageImageViewType = VkImageViewType.ImageCube;
             WrapModeU = wrapMode;
@@ -60,6 +60,35 @@ namespace VECS
             BorderColour = VkBorderColor.FloatOpaqueWhite;
 
             if (metaFiles[0].MipMaps)
+            {
+                MipMapCount = TextureExtensions.CalculateMipMapLevels(Width, Width);
+            }
+
+            this.SetImageLayoutAndAspectFromUsage();
+
+            Reload();
+
+            if (_useageFlags.HasFlag(VkImageUsageFlags.Sampled))
+            {
+                this.CreateSampler();
+            }
+
+            UpdateDescriptor();
+
+            AssetDataBase<Cubemap>.Add(this);
+        }
+
+        public Cubemap(string name, TextureMetaFile metaFile)
+        {
+            _metaFiles = [metaFile];
+            AssetName = name;
+            _imageFormat = metaFile.LoadedFormat;
+            _imageExtent = new(metaFile.Width, metaFile.Width, 1);
+            _imageImageViewType = VkImageViewType.ImageCube;
+            CompareOp = VkCompareOp.Never;
+            BorderColour = VkBorderColor.FloatOpaqueWhite;
+
+            if (metaFile.MipMaps)
             {
                 MipMapCount = TextureExtensions.CalculateMipMapLevels(Width, Width);
             }
@@ -131,7 +160,7 @@ namespace VECS
         }
 
 
-        public unsafe override void Reload()
+        public override void Reload()
         {
             if (_metaFiles == null) return;
 
@@ -142,7 +171,63 @@ namespace VECS
             _imageExtent.height = _imageExtent.width;
             _imageFormat = metaFile.LoadedFormat;
             MipMapCount = metaFile.MipMaps ? TextureExtensions.CalculateMipMapLevels(Width, Height) : 1;
+            if (_metaFiles.Length == 1)
+            {
+                LoadSingleMetaFile();
+            }
+            else
+            {
+                LoadMultiMetaFiles();
+            }
+        }
 
+        private unsafe void LoadSingleMetaFile()
+        {
+            var metaFile = _metaFiles[0];
+            ulong totalSize = metaFile.KtxFile.GetTotalSize();
+
+            GPUBuffer gpuBuffer = new(1, totalSize, VkBufferUsageFlags.TransferSrc, true, true, false);
+
+            fixed (byte* data = metaFile.KtxFile.GetAllTextureDataMipMajor())
+            {
+                gpuBuffer.WriteToBuffer(data);
+            }
+
+            VkBufferImageCopy[] copyCmds = new VkBufferImageCopy[MipMapCount * 6];
+            ulong offset = 0;
+            for (int j = 0, k = 0; j < MipMapCount; j++)
+            {
+                var mipmap = metaFile.KtxFile.MipMaps[j];
+                var extent = new VkExtent3D(mipmap.Width, mipmap.Height, 1);
+                for (int i = 0; i < mipmap.NumberOfFaces; i++, k++)
+                {
+                    copyCmds[k] = new()
+                    {
+                        bufferOffset = offset,
+                        bufferRowLength = 0,
+                        bufferImageHeight = 0,
+                        imageSubresource = new()
+                        {
+                            aspectMask = _aspectFlags,
+                            mipLevel = (uint)j,
+                            baseArrayLayer = (uint)i,
+                            layerCount = 1
+                        },
+                        imageOffset = new(0,0,0),
+                        imageExtent = extent,
+                    };
+                    offset += mipmap.Faces[i].SizeInBytes;
+                }
+            }
+
+            Reinitialise();
+            this.CopyFromBuffer(gpuBuffer, copyCmds, true);
+            metaFile.KtxFile = null;
+        }
+
+        private unsafe void LoadMultiMetaFiles()
+        {
+            var metaFile = _metaFiles[0];
             ulong[] offsets = new ulong[MipMapCount * 6];
 
             ulong totalMipMapBytes = 0;
@@ -183,10 +268,9 @@ namespace VECS
             {
                 _metaFiles[i].KtxFile = null;
             }
-
         }
 
-        public unsafe override void Dispose()
+        public override void Dispose()
         {
             if (_disposed) return;
             GC.SuppressFinalize(this);
