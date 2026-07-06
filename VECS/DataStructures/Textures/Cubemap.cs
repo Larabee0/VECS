@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.IO;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
@@ -44,10 +45,10 @@ namespace VECS
             AssetDataBase<Cubemap>.Add(this);
         }
 
-        public Cubemap(string name, TextureMetaFile metaFile)
+        public Cubemap(TextureMetaFile metaFile)
         {
             _metaFile = metaFile;
-            AssetName = name;
+            AssetName = Path.GetFileNameWithoutExtension(metaFile.SrcFileName);
             _imageFormat = metaFile.LoadedFormat;
             _imageExtent = new(metaFile.Width, metaFile.Width, 1);
             _imageImageViewType = VkImageViewType.ImageCube;
