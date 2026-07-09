@@ -1,0 +1,93 @@
+#version 460
+#extension GL_ARB_shading_language_include : require
+#include "../common_structures.glsl"
+
+layout(set = 0, binding = 0) readonly buffer SSAOKernels {
+	vec4 values[];
+} ssaoKernels;
+
+layout(set = 0,binding = 1) readonly buffer CameraInfos {
+	CameraInfo values[];
+} cameraInfo;
+
+layout (set = 0, binding = 2) readonly buffer AdditionalCameraInfos {
+	AdditionalCameraInfo values[];
+} cameraPlanes;
+
+layout (set = 0, binding = 3) uniform sampler2D ssaoNoise;
+layout (set = 0, binding = 4) uniform sampler2D mainDepth;
+layout (set = 1, binding = 0) uniform sampler2D g_PositionIn;
+layout (set = 1, binding = 1) uniform sampler2D g_NormalsIn;
+layout (set = 1, binding = 2, r8) uniform writeonly image2D ssao_Source;
+
+layout(push_constant) uniform Constants{
+    vec2 outputImageSize;
+    float radius;
+    float bias;
+	uint cameraIndex;
+    int kernelSize;
+} constants;
+
+float inverseLerp(float a, float b, float value)
+{
+    return a != b ? (value - a) / (b - a) : 0;
+}
+
+float glLinearDepth(float depth){
+    float near = cameraPlanes.values[constants.cameraIndex].nearPlane;
+    float far = cameraPlanes.values[constants.cameraIndex].farPlane;
+    float ndc = depth * 2.0 - 1.0;
+    float linearDepth = (2.0 * near * far) / (far + near - ndc * (far - near));
+    return linearDepth;
+}
+
+#define noiseScale vec2(constants.outputImageSize.x / 4.0, constants.outputImageSize.y / 4.0)
+
+layout(local_size_x = 32, local_size_y = 32) in;
+void main(){
+	uvec2 outPos = gl_GlobalInvocationID.xy;
+	if(outPos.x > constants.outputImageSize.x || outPos.y > constants.outputImageSize.y){
+        return;
+    }
+    vec2 outPosF = vec2(outPos);
+    ivec2 outPosI = ivec2(outPos);
+    vec2 UV = vec2(0);
+    UV.x = inverseLerp(0, constants.outputImageSize.x, outPosF.x);
+    UV.y = inverseLerp(0, constants.outputImageSize.y, outPosF.y);
+
+
+    vec4 positionWorld = texture(g_PositionIn,UV).rgba;
+    // transform world post to view pos
+    vec3 viewPos = (cameraInfo.values[constants.cameraIndex].viewMatrix * vec4(positionWorld.xyz,1.0)).xyz;
+    // src normal vector
+    vec3 N = normalize(texture(g_NormalsIn,UV).rgb);
+
+
+    vec3 randomVec = normalize(vec3(texture(ssaoNoise, UV * noiseScale).xy,0));
+    vec3 tangent = normalize(randomVec - N * dot(randomVec, N));
+    vec3 bitangent = cross(N,  tangent );
+    mat3 TBN = mat3(tangent, bitangent, N);
+    
+    float occlusion = 0.0;    
+    for(int i = 0; i < constants.kernelSize; ++i){
+
+        // get sample position
+        vec3 samplePos = TBN * ssaoKernels.values[i].xyz; // from tangent to view-space
+        samplePos = viewPos + samplePos * constants.radius;
+
+        vec4 offset = vec4(samplePos, 1.0);
+        offset = cameraInfo.values[constants.cameraIndex].projectionMatrix * offset;    // from view to clip-space
+        offset.xyz /= offset.w;               // perspective divide
+        offset.xyz = offset.xyz * 0.5 + 0.5; // transform to range 0.0 - 1.0
+
+        float sampleDepth = -glLinearDepth(texture(mainDepth, vec2(offset.x,1-offset.y)).r);
+        //float sampleDepth = -texture(g_PositionIn, vec2(offset.x,1-offset.y)).w;
+
+        float rangeCheck = smoothstep(0.0, 1.0, constants.radius / abs(viewPos.z - sampleDepth));
+        occlusion += (sampleDepth >= samplePos.z + constants.bias ? 1.0 : 0.0) * rangeCheck;  
+    }
+
+    occlusion = 1.0 - (occlusion / constants.kernelSize);
+    //ssaoOut = occlusion;
+	imageStore(ssao_Source, outPosI, vec4(occlusion));
+}

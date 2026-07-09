@@ -30,8 +30,7 @@ namespace VECS.UI
             GUI.RegisterType(typeof(Matrix3x3Field));
             GUI.RegisterType(typeof(Matrix4x4Field));
             GUI.RegisterType(typeof(DropDownField));
-
-            var xamlProvider = new LocalXamlProvider(System.IO.Path.Combine(Asset.AssetsPath, "GUI"));
+            var xamlProvider = new NoesisXamlProvider(System.IO.Path.Combine(Asset.AssetsPath, "GUI"));
             GUI.SetXamlProvider(xamlProvider);
             var fontProvider = new LocalFontProvider(System.IO.Path.Combine(Asset.AssetsPath, "GUI"));
             GUI.SetFontProvider(fontProvider);
@@ -43,6 +42,7 @@ namespace VECS.UI
             GUI.SetFontFallbacks(fonts);
             GUI.SetFontDefaultProperties(15.0f, FontWeight.Normal, FontStretch.Normal, FontStyle.Normal);
             NoesisApp.Application.SetThemeProviders(xamlProvider, fontProvider, textureProvider);
+            
             GUI.LoadApplicationResources("Theme/NoesisTheme.DarkBlue.xaml");
             _noesisDriver = new NoesisDriver();
 

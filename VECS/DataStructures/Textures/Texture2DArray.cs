@@ -1,3 +1,4 @@
+using BCnEncoder.Shared.ImageFiles;
 using System;
 using System.Diagnostics;
 using VECS.LowLevel;
@@ -68,27 +69,20 @@ namespace VECS
             AssetDataBase<Texture2DArray>.Add(this);
         }
 
-        public Texture2DArray(string name, TextureMetaFile[] metaFiles, VkSamplerAddressMode addressMode, VkImageUsageFlags usage)
+        public Texture2DArray(string name, TextureMetaFile metaFile)
         {
-            Debug.Assert(metaFiles.Length > 1, "Cannot create texture array with 1 element!");
-            _metaFiles = metaFiles;
+            _metaFile = metaFile;
             AssetName = name;
 
-            _imageExtent = new(metaFiles[0].Width, metaFiles[0].Height, metaFiles.Length);
+            _imageExtent = new(metaFile.Width, metaFile.Height, metaFile.KtxFiles.Length);
             _imageImageViewType = VkImageViewType.Image2DArray;
-            
-            _useageFlags = usage;
-            WrapModeU = addressMode;
-            WrapModeV = addressMode;
-            WrapModeW = addressMode;
-            AdditionalImageViews = new VkImageView[metaFiles.Length];
 
-            if (metaFiles[0].MipMaps)
+            AdditionalImageViews = new VkImageView[_imageExtent.depth];
+
+            if (metaFile.MipMaps)
             {
                 MipMapCount = TextureExtensions.CalculateMipMapLevels(Width, Height);
             }
-
-            
 
             this.SetImageLayoutAndAspectFromUsage();
 
@@ -196,60 +190,64 @@ namespace VECS
 
         public unsafe override void Reload()
         {
-            if (_metaFiles == null) return;
+            if (_metaFile == null) return;
 
-            var metaFile = _metaFiles[0];
+            var metaFile = _metaFile;
 
-            _imageExtent.width = metaFile.KtxFile.header.PixelWidth;
-            _imageExtent.height = metaFile.KtxFile.header.PixelWidth;
-            _imageExtent.depth = (uint)_metaFiles.Length;
             _imageFormat = metaFile.LoadedFormat;
+            
+            _imageExtent.width = metaFile.KtxFiles[0].header.PixelWidth;
+            _imageExtent.height = metaFile.KtxFiles[0].header.PixelWidth;
+            _imageExtent.depth = (uint)metaFile.KtxFiles.Length;
             MipMapCount = metaFile.MipMaps ? TextureExtensions.CalculateMipMapLevels(Width, Height) : 1;
+            ulong totalSize = 0;
 
-            ulong[] offsets = new ulong[MipMapCount*_imageExtent.depth];
-
-            ulong totalMipMapBytes = 0;
-
-            for (int i = 0, k = 0; i < _metaFiles.Length; i++)
+            for (int i = 0; i < metaFile.KtxFiles.Length; i++)
             {
+                totalSize += metaFile.KtxFiles[i].GetTotalSize();
+            }
+
+            GPUBuffer gpuBuffer = new(1, totalSize, VkBufferUsageFlags.TransferSrc, true, true, false);
+
+            VkBufferImageCopy[] copyCmds = new VkBufferImageCopy[MipMapCount * _imageExtent.depth];
+            ulong offset = 0;
+
+            for (int i = 0, k = 0; i < _imageExtent.depth; i++)
+            {
+                var ktx = metaFile.KtxFiles[i];
+                fixed (byte* data = ktx.GetAllTextureDataMipMajor())
+                {
+                    gpuBuffer.WriteToBuffer(data, ktx.GetTotalSize(), offset);
+                }
                 for (int j = 0; j < MipMapCount; j++, k++)
                 {
-                    offsets[k] = totalMipMapBytes;
-                    totalMipMapBytes += _metaFiles[i].KtxFile.MipMaps[j].SizeInBytes;
+                    var mipmap = ktx.MipMaps[j].Faces[0];
+                    var extent = new VkExtent3D(mipmap.Width, mipmap.Height, 1);
+                    copyCmds[k] = new()
+                    {
+                        bufferOffset = offset,
+                        bufferRowLength = 0,
+                        bufferImageHeight = 0,
+                        imageSubresource = new()
+                        {
+                            aspectMask = _aspectFlags,
+                            mipLevel = (uint)j,
+                            baseArrayLayer = (uint)i,
+                            layerCount = 1
+                        },
+                        imageOffset = new(0, 0, 0),
+                        imageExtent = extent,
+                    };
+                    offset += mipmap.SizeInBytes;
                 }
             }
-            Debug.Assert(totalMipMapBytes > 0);
-
-
-            VkExtent3D[] extents = new VkExtent3D[MipMapCount];
-            for (int j = 0; j < MipMapCount; j++)
-            {
-                TextureLoader.CalculateMipLevelSize(Width, Height, j, out var mipWidth, out var mipHeight);
-                extents[j] = new(mipWidth, mipHeight, (int)_imageExtent.depth);
-            }
-            GPUBuffer gpuBuffer = new(1, totalMipMapBytes, VkBufferUsageFlags.TransferSrc, true, true, false);
-            ulong offset = 0;
-            for (int i = 0; i < _metaFiles.Length; i++)
-            {
-                metaFile = _metaFiles[i];
-                uint size = (uint)metaFile.KtxFile.GetTotalSize();
-                fixed (byte* pMipMap = metaFile.KtxFile.GetAllTextureDataMipMajor())
-                    gpuBuffer.WriteToBuffer(pMipMap, size, offset);
-
-                offset += size;
-            }
-
             Reinitialise();
-            this.CopyFromBuffer(gpuBuffer, offsets, extents, true);
+            this.CopyFromBuffer(gpuBuffer, copyCmds, true);
 
-            for (int i = 0; i < _metaFiles.Length; i++)
-            {
-                _metaFiles[i].KtxFile = null;
-            }
-
+            _metaFile.KtxFiles = null;
         }
 
-        public unsafe override void Dispose()
+        public override void Dispose()
         {
             if (_disposed) return;
             GC.SuppressFinalize(this);

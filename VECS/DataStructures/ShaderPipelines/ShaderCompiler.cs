@@ -13,7 +13,7 @@ namespace VECS
     {
         private static readonly ConcurrentQueue<string> _recompileQueue = [];
 
-        public static string ShaderFilePath => Path.Combine(Asset.AssetsPath, "ShadersRaw");
+        public static string ShaderFilePath => Path.Combine(Asset.AssetsPath, "Shaders");
         public static readonly string[] _compileTags = [".frag", ".vert", ".comp", ".mesh", ".task"];
 
         private static ShaderKind GetShaderKindFromFileExtention(string filePath)
@@ -78,8 +78,8 @@ namespace VECS
                 OptimizationLevel = OptimizationLevel.Zero,
                 GeneratedDebug = true,
 #else
-                OptimizationLevel = OptimizationLevel.Performance;
-                GeneratedDebug= false;
+                OptimizationLevel = OptimizationLevel.Performance,
+                GeneratedDebug= true,
 #endif
 
                 ShaderStage = GetShaderKindFromFileExtention(filePath)

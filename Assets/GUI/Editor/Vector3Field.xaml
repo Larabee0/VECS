@@ -4,9 +4,9 @@
   xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
   xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
   mc:Ignorable="d"
-  x:Class="Vector3Field"
-  x:Name="Vector3FieldControl"
-  Height="50" Background="#004D5052">
+  x:Class="VECS.UI.Vector3Field"
+  x:Name="Vector3FieldControl" Width="580"
+  Height="50" MinWidth="580" Background="#004D5052">
   <UserControl.Resources>
     <ResourceDictionary Source="./EditorTheme.xaml"/>
   </UserControl.Resources>
@@ -17,21 +17,21 @@
     <Rectangle Grid.ColumnSpan="3" Fill="#FF262E35" Stroke="#FF000000"/>
     <Grid Margin="4,4,4,4" ColumnSpan="3">
       <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="200" MaxWidth="200"/>
+        <ColumnDefinition Width="245" MaxWidth="245"/>
         <ColumnDefinition Width="15" MaxWidth="15"/>
-        <ColumnDefinition Width="200" MaxWidth="200"/>
+        <ColumnDefinition Width="95" MaxWidth="95"/>
         <ColumnDefinition Width="15" MaxWidth="15"/>
-        <ColumnDefinition Width="200" MaxWidth="200"/>
+        <ColumnDefinition Width="95" MaxWidth="95"/>
         <ColumnDefinition Width="15" MaxWidth="15"/>
-        <ColumnDefinition Width="200" MaxWidth="200"/>
+        <ColumnDefinition Width="95" MaxWidth="95"/>
       </Grid.ColumnDefinitions>
       <TextBlock x:Name="Label" Text="{Binding Label, ElementName=Vector3FieldControl}" HorizontalAlignment="Left" Foreground="#FFFFFFFF" Style="{DynamicResource VectorLabel}"/>
       <TextBlock Text="X" Grid.Column="1" TextWrapping="Wrap" Style="{DynamicResource VectorLabel}"/>
-      <TextBox x:Name="XComp" Text="{Binding ValueX, ElementName=Vector3FieldControl}" Margin="0,0,2,0" Grid.Column="2" Style="{DynamicResource VectorStyle}"/>
       <TextBlock Text="Y" Grid.Column="3" TextWrapping="Wrap" Style="{DynamicResource VectorLabel}"/>
-      <TextBox x:Name="YComp" Text="{Binding ValueY, ElementName=Vector3FieldControl}" Margin="2,0,2,0" Grid.Column="4" TextWrapping="Wrap" Style="{DynamicResource VectorStyle}"/>
       <TextBlock Text="Z" Grid.Column="5" TextWrapping="Wrap" Style="{DynamicResource VectorLabel}"/>
-      <TextBox x:Name="ZComp" Text="{Binding ValueZ, ElementName=Vector3FieldControl}" Margin="2,0,2,0" Grid.Column="6" TextWrapping="Wrap" Style="{DynamicResource VectorStyle}"/>
+      <TextBox x:Name="XComp" Text="{Binding ValueX, ElementName=Vector3FieldControl}" Margin="0,0,2,0" Grid.Column="2" Style="{DynamicResource VectorStyle}"/>
+      <TextBox x:Name="YComp" Text="{Binding ValueY, ElementName=Vector3FieldControl}" Margin="2,0,2,0" Grid.Column="4" TextWrapping="Wrap" Style="{DynamicResource VectorStyle}"/>
+      <TextBox x:Name="ZComp" TextChanged="Text_Changed" Text="{Binding ValueZ, ElementName=Vector3FieldControl}" Margin="2,0,2,0" Grid.Column="6" TextWrapping="Wrap" Style="{DynamicResource VectorStyle}"/>
     </Grid>
   </Grid>
 </UserControl>

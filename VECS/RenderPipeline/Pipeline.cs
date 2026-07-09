@@ -62,7 +62,7 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public DescriptorBinding[] GetDescriptorBindings(uint setIndex)
         {
-            return _descriptorSetInfos[setIndex].DescriptorBindings;
+            return _descriptorSetInfos[setIndex]._descriptorBindings;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -75,7 +75,7 @@ namespace VECS
         public uint InternalUniformBufferOffset(uint set, uint bindPoint)
         {
             var setInfo = _descriptorSetInfos[set];
-            return setInfo.UnifromBufferOffset + setInfo.SetUniformBufferOffsets[bindPoint];
+            return setInfo.UnifromBufferOffset + setInfo.GetUniformOffset(bindPoint);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -145,7 +145,7 @@ namespace VECS
 
                 for (uint j = 0; j < setInfo.BindingCount; j++)
                 {
-                    var binding = setInfo.DescriptorBindings[j];
+                    var binding = setInfo._descriptorBindings[j];
 
                     if (!binding.UniformBuffer) continue;
 

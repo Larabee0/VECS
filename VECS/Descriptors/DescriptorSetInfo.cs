@@ -16,7 +16,7 @@ namespace VECS
         private readonly uint _storageBufferCount;
         private readonly uint _imageCount;
 
-        private readonly DescriptorBinding[] _descriptorBindings;
+        internal readonly DescriptorBinding[] _descriptorBindings;
 
         private readonly SwapChainBuffer[] _storageBuffers;
         
@@ -31,8 +31,9 @@ namespace VECS
 
         private readonly uint[] _internalUniformBufferOffsets;
 
-        private readonly Dictionary<uint, int> _bindingPointToBufferIndex;
-        private readonly Dictionary<uint, int> _bindingPointToImageIndex;
+        private readonly Dictionary<uint, int> _bindPointToBindingIndex;
+        private readonly Dictionary<uint, int> _bindPointToBufferIndex;
+        private readonly Dictionary<uint, int> _bindPointToImageIndex;
 
         internal readonly uint _uniformCount;
         private uint _uniformSize;
@@ -53,12 +54,13 @@ namespace VECS
         public bool HasImages => _imageCount > 0;
 
 
-        public DescriptorBinding[] DescriptorBindings => _descriptorBindings;
+        //public DescriptorBinding[] DescriptorBindings => _descriptorBindings;
 
-        public uint[] SetUniformBufferOffsets => _internalUniformBufferOffsets;
+        internal uint[] SetUniformBufferOffsets => _internalUniformBufferOffsets;
 
-        public Dictionary<uint, int> BindingPointToBufferIndex => _bindingPointToBufferIndex;
-        public Dictionary<uint, int> BindingPointToImageIndex => _bindingPointToImageIndex;
+        public Dictionary<uint, int> BindPointToBindingIndex => _bindPointToBindingIndex;
+        public Dictionary<uint, int> BindPointToBufferIndex => _bindPointToBufferIndex;
+        public Dictionary<uint, int> BindPointToImageIndex => _bindPointToImageIndex;
 
         public DescriptorBuffer[] DescriptorBuffers => _descriptorBuffers;
         public SwapChainBuffer[] StorageBuffers => _storageBuffers;
@@ -72,10 +74,12 @@ namespace VECS
             _noAllocStorageBuffers |= meshShader;
             _bindingCount = bindings.Length;
             _descriptorBindings = bindings;
+            _bindPointToBindingIndex = new Dictionary<uint, int>(bindings.Length);
             bool uniforms = false;
             for (int i = 0; i < bindings.Length; i++)
             {
                 var binding = bindings[i];
+                _bindPointToBindingIndex.Add(binding.BindPoint, i);
                 if (binding.StorageBuffer)
                 {
                     _storageBufferCount++;
@@ -103,7 +107,7 @@ namespace VECS
 
             for (int frameIndex = 0; frameIndex < SwapChain.MAX_CONCURRENT_FRAMES; frameIndex++)
             {
-                _descriptorBuffers[frameIndex] = new(layout, _bindingCount, (int)_uniformCount, _storageBufferCount > 0 || uniforms, _imageCount > 0);
+                _descriptorBuffers[frameIndex] = new(layout, bindings, (int)_uniformCount, _storageBufferCount > 0 || uniforms, _imageCount > 0);
             }
 
             CreateDescriptorBufferHostBuffer();
@@ -113,16 +117,28 @@ namespace VECS
             {
                 _storageBuffers = new SwapChainBuffer[_storageBufferCount];
                 _isStorageBufferOwner = new bool[_storageBufferCount];
-                _bindingPointToBufferIndex = new Dictionary<uint, int>((int)_storageBufferCount);
+                _bindPointToBufferIndex = new Dictionary<uint, int>((int)_storageBufferCount);
             }
 
             _hasStorageBuffers = CreateBindingBuffers(bindings);
 
             if (_imageCount > 0)
             {
-                _bindingPointToImageIndex = new Dictionary<uint, int>((int)_imageCount);
+                _bindPointToImageIndex = new Dictionary<uint, int>((int)_imageCount);
                 CreateBindingImages(bindings);
             }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public DescriptorBinding GetBinding(uint bindPoint)
+        {
+            return _descriptorBindings[_bindPointToBindingIndex[bindPoint]];
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public uint GetUniformOffset(uint bindPoint)
+        {
+            return SetUniformBufferOffsets[_bindPointToBindingIndex[bindPoint]];
         }
 
         private unsafe void CreateDescriptorBufferHostBuffer()
@@ -185,7 +201,7 @@ namespace VECS
                     }
                     hasStoragebuffers = true;
                     _storageBuffers[b] = buffer;
-                    _bindingPointToBufferIndex.Add(binding.BindPoint, b);
+                    _bindPointToBufferIndex.Add(binding.BindPoint, b);
                     b++;
                 }
                 else if (binding.UniformBuffer)
@@ -208,7 +224,7 @@ namespace VECS
             {
                 var binding = bindings[i];
                 if (!binding.Image) continue;
-                _bindingPointToImageIndex.Add(binding.BindPoint, b);
+                _bindPointToImageIndex.Add(binding.BindPoint, b);
                 b++;
             }
         }
@@ -220,12 +236,12 @@ namespace VECS
 
         public SwapChainBuffer GetBuffer(uint bindPoint)
         {
-            return _storageBuffers[_bindingPointToBufferIndex[bindPoint]];
+            return _storageBuffers[_bindPointToBufferIndex[bindPoint]];
         }
 
         public bool IsStorageBufferOwner(uint bindPoint)
         {
-            return _isStorageBufferOwner[_bindingPointToBufferIndex[bindPoint]];
+            return _isStorageBufferOwner[_bindPointToBufferIndex[bindPoint]];
         }
 
         public bool IsStorageBufferOwnerBufferIndex(int index)
@@ -235,7 +251,7 @@ namespace VECS
 
         public void SetStorageBuffer(SwapChainBuffer buffer, uint bindPoint)
         {
-            int bufferIndex = _bindingPointToBufferIndex[bindPoint];
+            int bufferIndex = _bindPointToBufferIndex[bindPoint];
             if (!_isStorageBufferOwner[bufferIndex])
             {
                 _storageBuffers[bufferIndex] = buffer;

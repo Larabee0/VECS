@@ -20,7 +20,7 @@ namespace VECS
     {
         private static FileSystemWatcher _watcher;
 
-        private static readonly HashSet<string> TextureTypes = [".png", ".jpg", ".jpeg",];
+        private static readonly HashSet<string> TextureTypes = [".png", ".jpg", ".jpeg",".ktx", ".TexDef"];
         private static readonly HashSet<string> NoesisTypes = [".xaml","ttf","otf"];
 
         private static readonly HashSet<string> MeshTypes = [".obj",".fbx"];

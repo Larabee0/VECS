@@ -1,9 +1,10 @@
 using Noesis;
+using System;
 using System.Numerics;
 
 namespace VECS.UI
 {
-    public class Matrix4x4Field : UserControl, IEditorField
+    public class Matrix4x4Field : VECSEditorControl
     {
 
         public static readonly DependencyProperty _Label = DependencyProperty.Register("Label", typeof(string), typeof(Matrix4x4Field), new PropertyMetadata("Label"));
@@ -26,7 +27,7 @@ namespace VECS.UI
         public static readonly DependencyProperty _ValueM42 = DependencyProperty.Register("ValueM42", typeof(string), typeof(Matrix4x4Field), new PropertyMetadata("0"));
         public static readonly DependencyProperty _ValueM43 = DependencyProperty.Register("ValueM43", typeof(string), typeof(Matrix4x4Field), new PropertyMetadata("0"));
         public static readonly DependencyProperty _ValueM44 = DependencyProperty.Register("ValueM44", typeof(string), typeof(Matrix4x4Field), new PropertyMetadata("0"));
-        public string Label
+        public override string Label
         {
             get { return (string)GetValue(_Label); }
             set { SetValue(_Label, value); }
@@ -34,106 +35,286 @@ namespace VECS.UI
 
         public string ValueM11
         {
-            get { return (string)GetValue(_ValueM11); }
-            set { SetValue(_ValueM11, value); }
+            get { return M11; }
+            set { SetValue(_ValueM11, value); M11 = value; }
         }
 
         public string ValueM12
         {
-            get { return (string)GetValue(_ValueM12); }
-            set { SetValue(_ValueM12, value); }
+            get { return M12; }
+            set { SetValue(_ValueM12, value); M12 = value; }
         }
 
         public string ValueM13
         {
-            get { return (string)GetValue(_ValueM13); }
-            set { SetValue(_ValueM13, value); }
+            get { return M13; }
+            set { SetValue(_ValueM13, value); M13 = value; }
         }
 
         public string ValueM14
         {
-            get { return (string)GetValue(_ValueM14); }
-            set { SetValue(_ValueM14, value); }
+            get { return M14; }
+            set { SetValue(_ValueM14, value); M14 = value; }
         }
 
 
         public string ValueM21
         {
-            get { return (string)GetValue(_ValueM21); }
-            set { SetValue(_ValueM21, value); }
+            get { return M21; }
+            set { SetValue(_ValueM21, value); M21 = value; }
         }
 
         public string ValueM22
         {
-            get { return (string)GetValue(_ValueM22); }
-            set { SetValue(_ValueM22, value); }
+            get { return M22; }
+            set { SetValue(_ValueM22, value); M22 = value; }
         }
 
         public string ValueM23
         {
-            get { return (string)GetValue(_ValueM23); }
-            set { SetValue(_ValueM23, value); }
+            get { return M23; }
+            set { SetValue(_ValueM23, value); M23 = value; }
         }
 
         public string ValueM24
         {
-            get { return (string)GetValue(_ValueM24); }
-            set { SetValue(_ValueM24, value); }
+            get { return M24; }
+            set { SetValue(_ValueM24, value); M24 = value; }
         }
-
 
         public string ValueM31
         {
-            get { return (string)GetValue(_ValueM31); }
-            set { SetValue(_ValueM31, value); }
+            get { return M31; }
+            set { SetValue(_ValueM31, value); M31 = value; }
         }
 
         public string ValueM32
         {
-            get { return (string)GetValue(_ValueM32); }
-            set { SetValue(_ValueM32, value); }
+            get { return M32; }
+            set { SetValue(_ValueM32, value); M32 = value; }
         }
 
         public string ValueM33
         {
-            get { return (string)GetValue(_ValueM33); }
-            set { SetValue(_ValueM33, value); }
+            get { return M33; }
+            set { SetValue(_ValueM33, value); M33 = value; }
         }
 
         public string ValueM34
         {
-            get { return (string)GetValue(_ValueM34); }
-            set { SetValue(_ValueM34, value); }
+            get { return M34; }
+            set { SetValue(_ValueM34, value); M34 = value; }
         }
 
 
         public string ValueM41
         {
-            get { return (string)GetValue(_ValueM41); }
-            set { SetValue(_ValueM41, value); }
+            get { return M41; }
+            set { SetValue(_ValueM41, value); M41 = value; }
         }
 
         public string ValueM42
         {
-            get { return (string)GetValue(_ValueM42); }
-            set { SetValue(_ValueM42, value); }
+            get { return M42; }
+            set { SetValue(_ValueM42, value); M42 = value; }
         }
 
         public string ValueM43
         {
-            get { return (string)GetValue(_ValueM43); }
-            set { SetValue(_ValueM43, value); }
+            get { return M43; }
+            set { SetValue(_ValueM43, value); M43 = value; }
         }
 
         public string ValueM44
         {
-            get { return (string)GetValue(_ValueM44); }
-            set { SetValue(_ValueM44, value); }
+            get { return M44; }
+            set { SetValue(_ValueM44, value); M44 = value; }
         }
+
+        private string M11;
+        private string M12;
+        private string M13;
+        private string M14;
+        private string M21;
+        private string M22;
+        private string M23;
+        private string M24;
+        private string M31;
+        private string M32;
+        private string M33;
+        private string M34;
+        private string M41;
+        private string M42;
+        private string M43;
+        private string M44;
+
 
         public Matrix4x4Field()
         {
             InitializeComponent();
+            var valueM11 = (TextBox)FindName("M11Comp");
+            var valueM12 = (TextBox)FindName("M12Comp");
+            var valueM13 = (TextBox)FindName("M13Comp");
+            var valueM14 = (TextBox)FindName("M14Comp");
+            var valueM21 = (TextBox)FindName("M21Comp");
+            var valueM22 = (TextBox)FindName("M22Comp");
+            var valueM23 = (TextBox)FindName("M23Comp");
+            var valueM24 = (TextBox)FindName("M24Comp");
+            var valueM31 = (TextBox)FindName("M31Comp");
+            var valueM32 = (TextBox)FindName("M32Comp");
+            var valueM33 = (TextBox)FindName("M33Comp");
+            var valueM34 = (TextBox)FindName("M34Comp");
+            var valueM41 = (TextBox)FindName("M41Comp");
+            var valueM42 = (TextBox)FindName("M42Comp");
+            var valueM43 = (TextBox)FindName("M43Comp");
+            var valueM44 = (TextBox)FindName("M44Comp");
+
+            WeakReference weak = new(this);
+
+            valueM11.TextChanged += (s, e) =>
+            {
+                var weakRef = (Matrix4x4Field)weak.Target;
+                if (weakRef != null)
+                {
+                    weakRef.M11 = ((TextBox)s).Text;
+                    weakRef.InternalValueChanged(s, e);
+                }
+            };
+            valueM12.TextChanged += (s, e) =>
+            {
+                var weakRef = (Matrix4x4Field)weak.Target;
+                if (weakRef != null)
+                {
+                    weakRef.M12 = ((TextBox)s).Text;
+                    weakRef.InternalValueChanged(s, e);
+                }
+            };
+            valueM13.TextChanged += (s, e) =>
+            {
+                var weakRef = (Matrix4x4Field)weak.Target;
+                if (weakRef != null)
+                {
+                    weakRef.M13 = ((TextBox)s).Text;
+                    weakRef.InternalValueChanged(s, e);
+                }
+            };
+            valueM14.TextChanged += (s, e) =>
+            {
+                var weakRef = (Matrix4x4Field)weak.Target;
+                if (weakRef != null)
+                {
+                    weakRef.M14 = ((TextBox)s).Text;
+                    weakRef.InternalValueChanged(s, e);
+                }
+            };
+            valueM21.TextChanged += (s, e) =>
+            {
+                var weakRef = (Matrix4x4Field)weak.Target;
+                if (weakRef != null)
+                {
+                    weakRef.M21 = ((TextBox)s).Text;
+                    weakRef.InternalValueChanged(s, e);
+                }
+            };
+            valueM22.TextChanged += (s, e) =>
+            {
+                var weakRef = (Matrix4x4Field)weak.Target;
+                if (weakRef != null)
+                {
+                    weakRef.M22 = ((TextBox)s).Text;
+                    weakRef.InternalValueChanged(s, e);
+                }
+            };
+            valueM23.TextChanged += (s, e) =>
+            {
+                var weakRef = (Matrix4x4Field)weak.Target;
+                if (weakRef != null)
+                {
+                    weakRef.M23 = ((TextBox)s).Text;
+                    weakRef.InternalValueChanged(s, e);
+                }
+            };
+            valueM24.TextChanged += (s, e) =>
+            {
+                var weakRef = (Matrix4x4Field)weak.Target;
+                if (weakRef != null)
+                {
+                    weakRef.M24 = ((TextBox)s).Text;
+                    weakRef.InternalValueChanged(s, e);
+                }
+            };
+            valueM31.TextChanged += (s, e) =>
+            {
+                var weakRef = (Matrix4x4Field)weak.Target;
+                if (weakRef != null)
+                {
+                    weakRef.M31 = ((TextBox)s).Text;
+                    weakRef.InternalValueChanged(s, e);
+                }
+            };
+            valueM32.TextChanged += (s, e) =>
+            {
+                var weakRef = (Matrix4x4Field)weak.Target;
+                if (weakRef != null)
+                {
+                    weakRef.M32 = ((TextBox)s).Text;
+                    weakRef.InternalValueChanged(s, e);
+                }
+            };
+            valueM33.TextChanged += (s, e) =>
+            {
+                var weakRef = (Matrix4x4Field)weak.Target;
+                if (weakRef != null)
+                {
+                    weakRef.M33 = ((TextBox)s).Text;
+                    weakRef.InternalValueChanged(s, e);
+                }
+            };
+            valueM34.TextChanged += (s, e) =>
+            {
+                var weakRef = (Matrix4x4Field)weak.Target;
+                if (weakRef != null)
+                {
+                    weakRef.M34 = ((TextBox)s).Text;
+                    weakRef.InternalValueChanged(s, e);
+                }
+            };
+            valueM41.TextChanged += (s, e) =>
+            {
+                var weakRef = (Matrix4x4Field)weak.Target;
+                if (weakRef != null)
+                {
+                    weakRef.M41 = ((TextBox)s).Text;
+                    weakRef.InternalValueChanged(s, e);
+                }
+            };
+            valueM42.TextChanged += (s, e) =>
+            {
+                var weakRef = (Matrix4x4Field)weak.Target;
+                if (weakRef != null)
+                {
+                    weakRef.M42 = ((TextBox)s).Text;
+                    weakRef.InternalValueChanged(s, e);
+                }
+            };
+            valueM43.TextChanged += (s, e) =>
+            {
+                var weakRef = (Matrix4x4Field)weak.Target;
+                if (weakRef != null)
+                {
+                    weakRef.M43 = ((TextBox)s).Text;
+                    weakRef.InternalValueChanged(s, e);
+                }
+            };
+            valueM44.TextChanged += (s, e) =>
+            {
+                var weakRef = (Matrix4x4Field)weak.Target;
+                if (weakRef != null)
+                {
+                    weakRef.M44 = ((TextBox)s).Text;
+                    weakRef.InternalValueChanged(s, e);
+                }
+            };
         }
 
         void InitializeComponent()
@@ -191,13 +372,26 @@ namespace VECS.UI
             return matrix;
         }
 
-        public void SetValue(object value)
+        public override void SetValue(object value)
         {
+            _internalSet = true;
             if(value is Matrix4x4 mat4x4)
             {
                 FromMatrix4x4(mat4x4);
             }
+            _internalSet = false;
         }
 
+        public override object TryParse(object currentValue)
+        {
+            if(currentValue is Matrix4x4 mat4x4)
+            {
+                return ToMatrix4x4(mat4x4);
+            }
+            else
+            {
+                return currentValue;
+            }
+        }
     }
 }

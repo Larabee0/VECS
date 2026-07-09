@@ -1,6 +1,7 @@
 ﻿using Noesis;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using VECS.ECS;
 using VECS.ECS.Presentation;
 using VECS.ECS.Transforms;
@@ -16,7 +17,7 @@ namespace VECS.UI
         private readonly List<EntityHierarchyTree> _hierarchyTrees = [];
         private readonly List<EntityHierarchyTree> _singleEntityItems = [];
 
-        private TreeView _inspectorTreeView;
+        private StackPanel _inspectorTreeView;
 
         private uint SelectedEntityId;
         private uint LastSelectedEntityId;
@@ -42,8 +43,9 @@ namespace VECS.UI
             // MainView.View.Content.FocusableChanged += FocusChanged;
             _hierarchyTreeView = (TreeView)ControlTreeRoot.FindName("HierarchyTreeView");
             _hierarchyTreeView.SelectedItemChanged += EntityItemChanged;
+            _hierarchyTreeView.LostFocus += ClearInspector;
 
-            _inspectorTreeView = (TreeView)ControlTreeRoot.FindName("RightSideBarTreeView");
+            _inspectorTreeView = (StackPanel)ControlTreeRoot.FindName("InspectorStackPanel");
             
             var gameview = (Image)ControlTreeRoot.FindName("GameView");
             var fowardRenderer = Presenter.Instance.Renderer;
@@ -53,6 +55,12 @@ namespace VECS.UI
 
             ControlTreeRoot.UpdateLayout();
         }
+
+        private void ClearInspector(object sender, RoutedEventArgs args)
+        {
+            //SelectedEntityId = Entity.Null.Id;
+        }
+
 
         private void EntityItemChanged(object sender, RoutedEventArgs args)
         {
@@ -68,11 +76,10 @@ namespace VECS.UI
                 {
                     SelectedEntityId = Entity.Null.Id;
                 }
-                
-
             }
             else
             {
+                SelectedEntityId = Entity.Null.Id;
                 Console.WriteLine("De selected Item");
             }
         }
@@ -88,7 +95,7 @@ namespace VECS.UI
         {
             if(SelectedEntityId != LastSelectedEntityId)
             {
-                _inspectorTreeView.Items.Clear();
+                _inspectorTreeView.Children.Clear();
                 AddEntityInspectorComponents(entityManager);
                 LastSelectedEntityId = SelectedEntityId;
             }
@@ -98,29 +105,36 @@ namespace VECS.UI
         {
             var selectedEntity = entityManager.GetEntityFromId(SelectedEntityId);
             if(selectedEntity == Entity.Null) return;
-            string entityName = entityManager.GetEntityName(selectedEntity);
-            var item = new TreeViewItem()
+            string entityName = string.Format("Entity: {0}", entityManager.GetEntityName(selectedEntity));
+            var item = new Expander()
             {
                 Header = entityName,
                 IsExpanded = true
             };
-            _inspectorTreeView.Items.Add(item);
+
+            StackPanel children = new();
+            item.Content = children;
+
+            _inspectorTreeView.Children.Add(item);
             var arcehtypeId = entityManager.ComputeArchetypeHash(selectedEntity);
 
             var componentIds = entityManager._archetypeIdsToComponentIds[arcehtypeId];
-            
+            Stopwatch stopwatch = Stopwatch.StartNew();
             foreach(var componentId in componentIds)
             {
                 var componentType = entityManager.GetComponentType(componentId);
                 
                 var types = NoesisTypeToField.GetTypeFields(componentType);
-                var treeViewItem = NoesisTypeToField.ConstructTree(types);
-                item.Items.Add(treeViewItem);
+                var treeViewItem = NoesisTypeToField.ConstructTree(types,null);
+                children.Children.Add(treeViewItem);
 
-                NoesisTypeToField.UpdateValues(entityManager,treeViewItem,componentId,selectedEntity);
+                NoesisTypeToField.UpdateValues(entityManager, treeViewItem, types, componentId, selectedEntity);
             }
 
+            stopwatch.Stop();
+            Console.WriteLine(stopwatch.ToString());
 
+            NoesisTypeToField.SelectedEntity = SelectedEntityId;
 
         }
 
@@ -211,6 +225,7 @@ namespace VECS.UI
             // MainView.View.Content.LostFocus -= LostFocus;
             // MainView.View.Content.FocusableChanged -= FocusChanged;
             _hierarchyTreeView.SelectedItemChanged -= EntityItemChanged;
+            _hierarchyTreeView.LostFocus -= ClearInspector;
             MainView.Dispose();
         }
 

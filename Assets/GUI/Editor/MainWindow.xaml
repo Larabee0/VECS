@@ -11,7 +11,7 @@
     <ResourceDictionary Source="./EditorTheme.xaml"/>
   </Grid.Resources>
   <Viewbox>
-    <Grid Width="1920" Height="1080">
+    <Grid Width="2560" Height="1440">
       <Grid.ColumnDefinitions>
         <ColumnDefinition/>
         <ColumnDefinition Width="0.33*"/>
@@ -25,33 +25,29 @@
           <ColumnDefinition Width="0.43*"/>
           <ColumnDefinition/>
         </Grid.ColumnDefinitions>
-        <Rectangle x:Name="HierarchyViewBG" Grid.ColumnSpan="2" Fill="#FF0303FF" Stroke="#FF000000"/>
-        <StackPanel x:Name="HierarchyContainer" Height="635" MaxHeight="635">
-          <TreeView x:Name="HierarchyTreeView" MaxHeight="635"/>
+        <Rectangle x:Name="HierarchyViewBG" Grid.ColumnSpan="2" Fill="#FF494D4A" Stroke="#FF000000"/>
+        <StackPanel x:Name="HierarchyContainer">
+          <TreeView x:Name="HierarchyTreeView" Height="846"/>
         </StackPanel>
-        <Rectangle x:Name="ViewPortBG" Grid.Column="1" Fill="#FF1FC200" Stroke="#FF000000"/>
+        <Rectangle x:Name="ViewPortBG" Grid.Column="1" Fill="#FF494D4A" Stroke="#FF000000"/>
         <Image x:Name="GameView" Grid.Column="1"/>
       </Grid>
 
       <Rectangle x:Name="RightSideBarBG" Grid.Column="1" Fill="#494d4a" Stroke="#FF000000" Grid.ColumnSpan="2" Grid.RowSpan="2"/>
-      <StackPanel x:Name="RightSideBarStackPanel" Grid.Column="1" Grid.RowSpan="2" MaxWidth="476" MaxHeight="1080">
-          <Viewbox>
-            <TreeView x:Name="RightSideBarTreeView">
-            </TreeView>
-        </Viewbox>
-      </StackPanel>
+      <ScrollViewer Height="1440" Grid.Column="1" Grid.RowSpan="2">
+        <StackPanel x:Name="InspectorStackPanel"/>
+      </ScrollViewer>
 
-      <Rectangle x:Name="BottomProjectAreaBG" Grid.Row="1" Fill="#FFF4F4F5" Stroke="#FF000000"/>
+      <Rectangle x:Name="BottomProjectAreaBG" Grid.Row="1" Fill="#FF494D4A" Stroke="#FF000000"/>
       <Grid x:Name="BottomProjectAreaGrid" Grid.Row="1">
         <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="0.35*"/>
+          <ColumnDefinition Width="0.25*"/>
           <ColumnDefinition/>
         </Grid.ColumnDefinitions>
         <StackPanel x:Name="OutlineStack">
           <TreeView x:Name="OutlineTreeView" ScrollViewer.PanningMode="VerticalOnly"/>
         </StackPanel>
-        <TextBlock x:Name="DirectoryDisplay" Text="TextBlock" Height="20" Grid.Column="1" VerticalAlignment="Top" TextWrapping="Wrap"/>
-        <ScrollViewer Height="425" Grid.Column="1" VerticalAlignment="Bottom">
+        <ScrollViewer Grid.Column="1">
           <StackPanel x:Name="DirectoryStack"/>
         </ScrollViewer>
       </Grid>

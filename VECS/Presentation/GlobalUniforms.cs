@@ -106,17 +106,23 @@ namespace VECS
     {
         public Vector4 Direction;
 
+        [HideInInspector]
         public Vector4 CascadeSplits;
 
         public Vector4 Ambient;
         public Vector4 Diffuse;
         public Vector4 Specular;
 
+        [HideInInspector]
         public Matrix4x4 LightSpaceA;
+        [HideInInspector]
         public Matrix4x4 LightSpaceB;
+        [HideInInspector]
         public Matrix4x4 LightSpaceC;
+        [HideInInspector]
         public Matrix4x4 LightSpaceD;
 
+        [HideInInspector]
         public int CascadeCount;
 
 

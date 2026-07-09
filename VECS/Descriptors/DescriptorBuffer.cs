@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using VECS.LowLevel;
@@ -10,6 +11,7 @@ namespace VECS
     {
         private readonly uint _alignedLayoutSize;
 
+        private readonly Dictionary<uint, int> _bindPointToBindingIndex;
         private readonly uint[] _bindingOffsets;
         private readonly bool[] _hasDataBound;
 
@@ -36,6 +38,44 @@ namespace VECS
             usage = _descriptorBuffer.UsageFlags
         };
 
+        public unsafe DescriptorBuffer(VkDescriptorSetLayout setLayout, DescriptorBinding[] bindings, int maxSets, bool uniformOrBuffer, bool image)
+        {
+            _usageLength = (uint)maxSets;
+            _setLayout = setLayout;
+            ulong unalignedLayoutSize;
+            GraphicsDevice.DeviceAPI.vkGetDescriptorSetLayoutSizeEXT(_setLayout, &unalignedLayoutSize);
+            _alignedLayoutSize = (uint)GetAlignedSize(unalignedLayoutSize);
+            Debug.Assert(_alignedLayoutSize > 0, "Descriptor Buffer Aligned layout size must be greater than 0 bytes");
+            Debug.Assert(_alignedLayoutSize % 2 == 0, string.Format("Descriptor Buffer Aligned layout size ({0}) must divisible by 2!", _alignedLayoutSize));
+
+            _bindingOffsets = new uint[bindings.Length];
+            _hasDataBound = new bool[maxSets];
+            _bindPointToBindingIndex = new(bindings.Length);
+            ulong offset = 0;
+            for (int i = 0; i < bindings.Length; i++)
+            {
+                _bindPointToBindingIndex.Add(bindings[i].BindPoint, i);
+                GraphicsDevice.DeviceAPI.vkGetDescriptorSetLayoutBindingOffsetEXT(_setLayout, bindings[i].BindPoint, &offset);
+                _bindingOffsets[i] = (uint)offset;
+            }
+
+            VkBufferUsageFlags usageFlags = VkBufferUsageFlags.None;
+
+            if (uniformOrBuffer)
+            {
+                usageFlags |= VkBufferUsageFlags.ResourceDescriptorBufferEXT;
+            }
+
+            if (image)
+            {
+                usageFlags |= VkBufferUsageFlags.SamplerDescriptorBufferEXT;
+            }
+
+            _descriptorBuffer = new(_alignedLayoutSize, (uint)maxSets, usageFlags, true, true, false);
+            _maxSats = _descriptorBuffer.UInstanceCount32;
+
+        }
+
         public unsafe DescriptorBuffer(VkDescriptorSetLayout setLayout, int bindingCount, int maxSets, bool uniformOrBuffer, bool image)
         {
             _usageLength = (uint)maxSets;
@@ -48,11 +88,12 @@ namespace VECS
 
             _bindingOffsets = new uint[bindingCount];
             _hasDataBound = new bool[maxSets];
-
+            _bindPointToBindingIndex = new(bindingCount);
             ulong offset = 0;
-            for (int i = 0; i < bindingCount; i++)
+            for (uint i = 0; i < bindingCount; i++)
             {
-                GraphicsDevice.DeviceAPI.vkGetDescriptorSetLayoutBindingOffsetEXT(_setLayout, (uint)i, &offset);
+                _bindPointToBindingIndex.Add(i, (int)i);
+                GraphicsDevice.DeviceAPI.vkGetDescriptorSetLayoutBindingOffsetEXT(_setLayout, i, &offset);
                 _bindingOffsets[i] = (uint)offset;
             }
 
@@ -138,13 +179,13 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe void WriteDescriptor(DescriptorBufferWriteInfo writeInfo)
         {
-            Debug.Assert(writeInfo.Binding < _bindingOffsets.Length, string.Format("Check shader descriptor set binding indexes for set {0}", writeInfo.Set));
+            //Debug.Assert(writeInfo.Binding < _bindingOffsets.Length, string.Format("Check shader descriptor set binding indexes for set {0}", writeInfo.Set));
 
             Debug.Assert(writeInfo.Set < _maxSats, string.Format("Attempting to set {0} which is beyond current max sets {1}!", writeInfo.Set, _maxSats));
 
             // align for set index;
             // then align for binding index
-            uint addressOffset = (writeInfo.Set * _alignedLayoutSize) + _bindingOffsets[writeInfo.Binding];
+            uint addressOffset = (writeInfo.Set * _alignedLayoutSize) + _bindingOffsets[_bindPointToBindingIndex[writeInfo.Binding]];
             byte* ptr = (byte*)_hostPtr + addressOffset;
 
             var getInfo = new VkDescriptorGetInfoEXT();

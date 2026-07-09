@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Numerics;
 using VECS.ECS;
 using VECS.ECS.Presentation;
@@ -182,31 +183,56 @@ namespace VECS
 
             var mesh = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("quad.obj"),null)[0];
 
-            var litTransparent = EnginePipes.OIT_Unlit.Default();
+            var litTransparent = EnginePipes.Unlit_Tex_Deferred.Default();
 
+
+            // var arraydef =new TextureDefintion("TestArray", Path.Combine(Asset.AssetsPath, "Textures", "Skyboxes", "GL_Skybox", "front.jpg"), Path.Combine(Asset.AssetsPath, "Textures", "Skyboxes", "GL_Skybox", "back.jpg"));
+            // arraydef.FullFileName = Path.Combine(Asset.AssetsPath, "Textures", "ArrayTexture.TexDef");
+            // arraydef.SaveJson();
+            // arraydef = TextureDefintion.Load(arraydef.FullFileName);
+            // var array = (Texture2DArray)arraydef.LoadTexture();
+
+            var cubearray = new TextureDefintion("TestCubeArray",
+                [
+                    Path.Combine(Asset.AssetsPath, "Textures", "Skyboxes", "GL_Skybox", "front.jpg"),
+                    Path.Combine(Asset.AssetsPath, "Textures", "Skyboxes", "GL_Skybox", "front.jpg"),
+                ],
+                [
+                    Path.Combine(Asset.AssetsPath, "Textures", "Skyboxes", "GL_Skybox", "back.jpg"),
+                    Path.Combine(Asset.AssetsPath, "Textures", "Skyboxes", "GL_Skybox", "back.jpg"),
+                ],
+                [
+                    Path.Combine(Asset.AssetsPath, "Textures", "Skyboxes", "GL_Skybox", "left.jpg"),
+                    Path.Combine(Asset.AssetsPath, "Textures", "Skyboxes", "GL_Skybox", "left.jpg"),
+                ],
+                [
+                    Path.Combine(Asset.AssetsPath, "Textures", "Skyboxes", "GL_Skybox", "right.jpg"),
+                    Path.Combine(Asset.AssetsPath, "Textures", "Skyboxes", "GL_Skybox", "right.jpg"),
+                ],
+                [
+                    Path.Combine(Asset.AssetsPath, "Textures", "Skyboxes", "GL_Skybox", "top.jpg"),
+                    Path.Combine(Asset.AssetsPath, "Textures", "Skyboxes", "GL_Skybox", "top.jpg"),
+                ],
+                [
+                    Path.Combine(Asset.AssetsPath, "Textures", "Skyboxes", "GL_Skybox", "bottom.jpg"),
+                    Path.Combine(Asset.AssetsPath, "Textures", "Skyboxes", "GL_Skybox", "bottom.jpg"),
+                ]
+            )
+            {
+                FullFileName = Path.Combine(Asset.AssetsPath, "Textures", "TestCubeArray.TexDef")
+            };
+            cubearray.SaveJson();
+            cubearray = TextureDefintion.Load(cubearray.FullFileName);
+            var cube = (CubemapArray)cubearray.LoadTexture();
+            litTransparent.SetTexture("texSampler".GetShaderPropertyId(), cube);
             var entity = entityManager.CreateEntity();
             AddRenderMeshComponents(entity, litTransparent, 0, mesh, entityManager);
-            var flags = RenderLayer.NoShadow | RenderLayer.Transparent;
-            var include = RenderLayer.All;
-            var exclude =  RenderLayer.OnlyShadow | RenderLayer.Transparent;
-            bool includeMask = (flags | include) == include;
 
-            bool excludeMask = (flags & ~exclude) == flags;
-
-
-            bool visible = includeMask && excludeMask;
 
             entityManager.AddComponent(entity, new Translation() { Value = new Vector3(0, 2, 1) });
             entityManager.AddComponent<MainColour>(entity, new() { Value = new Vector4(1,1,1,0.5f) });
 
             entityManager.AddComponent(entity, new Rotation() { Value = TransformExtensions.EulerUnity(0, 0, -180) });
-            entity = entityManager.CreateEntity();
-            AddRenderMeshComponents(entity, litTransparent, 0, mesh, entityManager);
-
-            entityManager.AddComponent(entity, new Translation() { Value = new Vector3(0.5f, 2, 0) });
-            entityManager.AddComponent<MainColour>(entity, new() { Value = new Vector4(0, 1, 1, 0.33f) });
-
-            entityManager.AddComponent(entity, new Rotation() { Value = TransformExtensions.EulerUnity(0, 0, -90) });
         }
 
         private static void SponzaNew()

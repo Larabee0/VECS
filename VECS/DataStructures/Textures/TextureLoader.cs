@@ -1,7 +1,9 @@
+using BCnEncoder.Decoder;
 using BCnEncoder.Encoder;
 using BCnEncoder.ImageSharp;
 using BCnEncoder.Shared;
 using BCnEncoder.Shared.ImageFiles;
+using CommunityToolkit.HighPerformance;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
@@ -12,7 +14,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Numerics;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -24,28 +25,16 @@ namespace VECS
     public static partial class TextureLoader
     {
         public static string DefaultTexturePath => Path.Combine(Asset.AssetsPath, "Textures");
-        public static string KtxTexturePath => Path.Combine(Asset.AssetsPath, DefaultTexturePath, "Ktx");
 
         public static string GetTextureInDefaultPath(string file)
         {
             return Path.Combine(DefaultTexturePath, file);
         }
 
-        private static readonly string[] InOrderSkybox = ["right", "left", "bottom", "top", "front", "back"];
-        private static readonly HashSet<string> SkyboxTextures = [.. InOrderSkybox];
+        private static readonly ConcurrentQueue<CompressOp> CompressQueue = [];
+        private static readonly List<CompressOp> CompressNext = [];
+        private static CompressOp WorkingItem;
         
-        private static readonly ConcurrentQueue<TextureCompressionItem> CompressQueue = [];
-        private static readonly List<TextureCompressionItem> CompressNext = [];
-        private static TextureCompressionItem WorkingItem;
-        
-        static TextureLoader()
-        {
-            if (!Directory.Exists(KtxTexturePath))
-            {
-                Directory.CreateDirectory(KtxTexturePath);
-            }
-        }
-
         public static void CalculateMipLevelSize(int width, int height, int mipIdx, out int mipWidth, out int mipHeight)
         {
             mipWidth = Math.Max(1, width >> mipIdx);
@@ -76,8 +65,7 @@ namespace VECS
                 WorkingItem.SaveFile();
                 WorkingItem = null;
 
-                GraphicsPipeline._descriptorReWrite = true;
-                ComputePipeline._descriptorReWrite = true;
+                Pipeline._descriptorReWrite = true;
             }
 
             if (WorkingItem == null && CompressNext.Count > 0)
@@ -89,10 +77,10 @@ namespace VECS
             }
         }
 
-        private static TextureMetaFile LoadOrCompressTexture(string path, bool disableParallel)
+        private static TextureMetaFile LoadOrCompressTexture(string path)
         {
             var metaFile = new TextureMetaFile(path, TextureShape.TwoD);
-            metaFile.LoadTexture(disableParallel ? 0 : Environment.ProcessorCount - 3, false);
+            metaFile.LoadKtxFile();
 
             if (metaFile.Compress && !metaFile.LoadedFormat.IsCompressedFormat())
             {
@@ -102,10 +90,11 @@ namespace VECS
             return metaFile;
         }
 
-        private static TextureMetaFile LoadOrCompressTexture(string path, VkFormat format, bool disableParallel)
+        private static TextureMetaFile LoadOrCompressTexture(string path, VkFormat format, TextureShape shape)
         {
-            var metaFile = new TextureMetaFile(path, TextureShape.TwoD, format);
-            metaFile.LoadTexture(disableParallel ? 0 : Environment.ProcessorCount - 3, false);
+            
+            var metaFile = new TextureMetaFile(path, shape, format);
+            metaFile.LoadKtxFile();
 
             if (metaFile.Compress && !metaFile.LoadedFormat.IsCompressedFormat())
             {
@@ -115,258 +104,485 @@ namespace VECS
             return metaFile;
         }
 
-        private static TextureMetaFile[] LoadMultiSameExtent(string[] paths, bool disableParallel, TextureShape shape)
+        public static Texture2D Load2D(string path)
         {
-            TextureMetaFile[] textureInfo = new TextureMetaFile[paths.Length];
-            int threadCount = disableParallel ? 1 : Math.Max(1, (Environment.ProcessorCount - 3) / textureInfo.Length);
-            for (int i = 0; i < paths.Length; i++)
-            {
-                textureInfo[i] = new TextureMetaFile(paths[i], shape);
-                textureInfo[i].LoadTexture(threadCount, false);
-            }
-            var size = new Vector2Int(textureInfo[0].Width, textureInfo[0].Height);
-            var format = textureInfo[0].VkFormat;
-            bool anyUncompressed = textureInfo[0].Compress && textureInfo[0].VkFormat != textureInfo[0].LoadedFormat;
-            bool shouldCompress = textureInfo[0].Compress;
-            for (int i = 1; i < textureInfo.Length; i++)
-            {
-                anyUncompressed |= format != textureInfo[0].LoadedFormat;
-                shouldCompress |= textureInfo[i].Compress;
-                Debug.Assert(size == new Vector2Int(textureInfo[i].Width, textureInfo[i].Height), "Image Extents must be equal!");
-                Debug.Assert(format == textureInfo[i].VkFormat, "Image Extents must be equal!");
-            }
-
-            for (int i = 0; i < textureInfo.Length; i++)
-            {
-                textureInfo[i].Compress = shouldCompress;
-            }
-
-
-            for (int i = 0; i < textureInfo.Length; i++)
-            {
-                textureInfo[i].LoadTexture(threadCount, anyUncompressed);
-            }
-
-            if (shouldCompress && anyUncompressed)
-            {
-                CompressQueue.Enqueue(new MultiTextureCompressionItem(textureInfo));
-            }
-
-
-            return textureInfo;
-        }
-
-        public static Texture2D Load2D(string path, bool allowParallel = true)
-        {
-            var metaFile = LoadOrCompressTexture(path, !allowParallel);
+            var metaFile = LoadOrCompressTexture(path);
 
             return new(metaFile, VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled);
         }
 
-        public static Texture2D Load2D(string path, VkFormat format, bool allowParallel = true)
+        public static Texture2D Load2D(string path, VkFormat format)
         {
-            var metaFile = LoadOrCompressTexture(path,format, !allowParallel);
+            var metaFile = LoadOrCompressTexture(path,format, TextureShape.TwoD);
             
             return new(metaFile, VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled);
         }
 
-        public static Texture2DArray Load2DArray(string name, string[] paths, VkFormat format, bool mipMaps = true, bool allowParallel = true)
+        public static Cubemap LoadCubemap(string path, VkFormat format)
         {
-            var metaFiles = LoadMultiSameExtent(paths, !allowParallel, TextureShape.TwoDArray);
-
-            return new(name, metaFiles, VkSamplerAddressMode.Repeat, VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled);
-        }
-
-        public static Cubemap LoadSkyboxCubeMap(string name, string skyboxFolder, VkFormat format, VkSamplerAddressMode wrapMode, bool mipMaps = true, bool allowParallel = true)
-        {
-            var skyBoxFolders = GetSkyboxTextures(skyboxFolder);
-
-            var metaFiles = LoadMultiSameExtent(skyBoxFolders, !allowParallel, TextureShape.Cube);
-
-            return new(name, metaFiles, VkSamplerAddressMode.Repeat, VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled);
-        }
-
-        public static string[] GetSkyboxTextures(string skyboxFolder)
-        {
-
-            if (!Directory.Exists(skyboxFolder))
-            {
-                throw new FileNotFoundException("Skybox folder not found", skyboxFolder);
-            }
-
-            var files = Directory.GetFiles(skyboxFolder).Where(name=> !name.EndsWith(".meta")).ToArray();
+            var metaFile = LoadOrCompressTexture(path,format, TextureShape.Cube);
             
-            if (files.Length != 6)
-            {
-                throw new FileLoadException(string.Format("Skybox folder: {0} contains incorrect number of files: {1}\nMust be 6 files.", skyboxFolder, files.Length));
-            }
-            HashSet<string> names = [];
-            int[] order = new int[6];
-            for (int j = 0; j < files.Length; j++)
-            {
-                var filename = Path.GetFileNameWithoutExtension(files[j]).ToLower();
-                if (SkyboxTextures.Contains(filename))
-                {
-                    names.Add(filename);
-                    order[Array.IndexOf(InOrderSkybox, filename)] = j;
-                }
-            }
-
-            if (names.Count != 6)
-            {
-                StringBuilder stringBuilder = new(string.Format("Skybox folder: {0} contains insufficient cubemap names.\n", skyboxFolder));
-                HashSet<string> tempSkyboxes = [.. SkyboxTextures];
-                tempSkyboxes.ExceptWith(names);
-
-                foreach (var name in tempSkyboxes)
-                {
-                    stringBuilder.AppendLine("Missing file for: ");
-                    stringBuilder.Append(name);
-                    stringBuilder.Append(" face");
-                }
-
-                throw new FileLoadException(stringBuilder.ToString());
-            }
-
-            var filesToLoad = new string[6];
-
-            for (int i = 0; i < 6; i++)
-            {
-                filesToLoad[i] = files[order[i]];
-            }
-
-
-            return filesToLoad;
+            return new(metaFile);
         }
 
-        private class MultiTextureCompressionItem : TextureCompressionItem
+        internal static unsafe KtxFile[] LoadKtxFile(string filePath)
         {
-            bool started = false;
-            public override TextureMetaFile MetaFile { get => MetaFiles[0]; set => MetaFiles[0] = value; }
+            if (!File.Exists(filePath))
+            {
+                throw new FileNotFoundException("Ktx File not Found",filePath);
+            }
+            KtxFile[] ktxFiles ;
+            var fileStream = File.OpenRead(filePath);
+            byte[] extraHeader = new byte[4];
+            fileStream.ReadExactly(extraHeader, 0, 4);
+            bool arrayKtx = true;
+            for (int i = 0; i < 4; i++)
+            {
+                if(extraHeader[i] != 255)
+                {
+                    arrayKtx = false;
+                    break;
+                }
+            }
+            if (!arrayKtx)
+            {
+                fileStream.Position = 0;
+                ktxFiles = [KtxFile.Load(fileStream)];
+            }
+            else
+            {
+                List<KtxFile> files = [];
+                while (fileStream.Position < fileStream.Length)
+                {
+                    long offset = default;
+                    var ptr = (byte*)&offset;
+                    bool endofFile = false;
+                    for (int j = 0; j < sizeof(long); j++)
+                    {
+                       var data = fileStream.ReadByte();
+                        if(data == -1)
+                        {
+                            endofFile = true;
+                            break;
+                        }
+                        ptr[j] = (byte)data;
+                    }
+
+                    if (endofFile)
+                    {
+                        break;
+                    }
+                    files.Add(KtxFile.Load(fileStream));
+                }
+                ktxFiles = [.. files];
+            }
+
+            fileStream.Close();
+            return ktxFiles;
+        }
+
+        internal static unsafe void SaveKtxFile(KtxFile[] ktxFiles, bool array, string ktxFileName)
+        {
+            var stream = File.Create(ktxFileName);
+            if (array)
+            {
+                stream.WriteByte(255);
+                stream.WriteByte(255);
+                stream.WriteByte(255);
+                stream.WriteByte(255);
+                long offset;
+                for (int i = 0; i < ktxFiles.Length; i++)
+                {
+                    offset = stream.Position;
+                    var ptr = ((byte*)&offset);
+                    for (int j = 0; j < sizeof(long); j++)
+                    {
+                        stream.WriteByte(ptr[j]);
+                    }
+                    ktxFiles[i].Write(stream);
+                }
+            }
+            else
+            {
+                ktxFiles[0].Write(stream);
+            }
+            stream.Close();
+        }
+
+        private class CompressOp : IComparable<CompressOp>
+        {
             public Task<KtxFile>[] CompressTasks;
-            public TextureMetaFile[] MetaFiles;
-            public override bool Started => started;
+            public TextureMetaFile MetaFile;
+            private bool _completed = false;
 
-            public override bool CompressionComplete
+            public bool Started => CompressTasks != null;
+            public bool CompressionComplete
             {
                 get
                 {
-                    for (int i = 0; i < CompressTasks.Length; i++)
+                    if (!_completed)
                     {
-                        if (CompressTasks[i] == null) continue;
-                        if (!CompressTasks[i].IsCompleted) return false;
+                        for (int i = 0; i < CompressTasks.Length; i++)
+                        {
+                            if (!CompressTasks[i].IsCompleted)
+                            {
+                                return false;
+                            }
+                        }
                     }
+                    _completed = true;
                     return true;
                 }
             }
-
-            public MultiTextureCompressionItem(TextureMetaFile[] textures)
-            {
-                MetaFiles = textures;
-                CompressTasks = new Task<KtxFile>[textures.Length];
-            }
-
-            public override void Run(int compressionThreadCount)
-            {
-                started = true;
-                int threadsPerTex = Math.Max(1, compressionThreadCount / CompressTasks.Length);
-
-                for (int i = 0; i < MetaFiles.Length; i++)
-                {
-                    var file = MetaFiles[i];
-                    if(file.LoadedFormat != file.VkFormat)
-                    {
-                        CompressTasks[i] = Compress(file, threadsPerTex);
-                    }
-                }
-            }
-
-            public override void SaveFile()
-            {
-                Application.ParallelFor(CompressTasks.Length, (i) =>
-                {
-                    if (CompressTasks[i] == null) return;
-                    SaveFile(MetaFiles[i], CompressTasks[i].Result);
-                    MetaFiles[i].LoadTexture(Environment.ProcessorCount - 3, false);
-                });
-                MetaFile.Reload();
-            }
-        }
-
-        public class TextureCompressionItem : IComparable<TextureCompressionItem>
-        {
-            public Task<KtxFile> CompressTask;
-            public virtual TextureMetaFile MetaFile { get; set; }
-
-            public virtual bool Started => CompressTask != null;
-            public virtual bool CompressionComplete => CompressTask.IsCompleted;
-
-            public TextureCompressionItem()
-            {
-
-            }
-
-            public TextureCompressionItem(TextureMetaFile metaFile)
+            public CompressOp(TextureMetaFile metaFile)
             {
                 MetaFile = metaFile;
             }
 
-            public virtual void Run(int compressionThreadCount)
+            public void Run(int compressionThreadCount)
             {
-                CompressTask = Compress(MetaFile,compressionThreadCount);
+                if(MetaFile.KtxFiles == null)
+                {
+                    MetaFile.LoadKtxFile();
+                }
+                CompressTasks = new Task<KtxFile>[MetaFile.KtxFiles.Length];
+
+                compressionThreadCount = Math.Max(1,compressionThreadCount / MetaFile.KtxFiles.Length);
+
+                Console.WriteLine("Compressing: {0}",Path.GetFileName( MetaFile.SrcFileName));
+
+                for (int i = 0; i < MetaFile.KtxFiles.Length; i++)
+                {
+                    CompressTasks[i] = Compress(MetaFile, MetaFile.KtxFiles[i], compressionThreadCount);
+                }
             }
 
-            protected static Task<KtxFile> Compress(TextureMetaFile metaFile ,int compressionThreadCount)
+            private static Task<KtxFile> Compress(TextureMetaFile metaFile, KtxFile src, int compressionThreadCount)
             {
                 BcEncoder encoder = new();
                 encoder.OutputOptions.GenerateMipMaps = metaFile.MipMaps;
                 encoder.OutputOptions.Quality = CompressionQuality.Balanced;
-                encoder.OutputOptions.Format = metaFile.VkFormat.GetCompressionFormat();
+                encoder.OutputOptions.Format = metaFile.VkFormat.GetBcEncoderFormat();
                 encoder.Options.IsParallel = compressionThreadCount > 0;
                 encoder.Options.TaskCount = Math.Max(1, compressionThreadCount);
                 encoder.OutputOptions.FileFormat = OutputFileFormat.Ktx; //Change to Dds for a dds file.
 
-                using Image<Rgba32> image = Image.Load<Rgba32>(metaFile.SrcFileName);
-                if (metaFile.FlipVertical)
+                if (metaFile.TextureShape == TextureShape.Cube || metaFile.TextureShape == TextureShape.CubeArray)
                 {
-                    var flipProcessor = new FlipProcessor(FlipMode.Vertical);
-                    image.Mutate(flipProcessor);
+                    return CubeMapByteArray(encoder,src);
                 }
-                if (metaFile.FlipHorizontal)
+                else
                 {
-                    var flipProcessor = new FlipProcessor(FlipMode.Horizontal);
-                    image.Mutate(flipProcessor);
+                    return Task.Run(() =>
+                    {
+                        BcDecoder decoder = new();
+                        decoder.Options.TaskCount = encoder.Options.TaskCount;
+                        decoder.Options.IsParallel = encoder.Options.IsParallel;
+                        var face = src.MipMaps[0].Faces[0];
+                        var srcFormat = src.header.GlInternalFormat.GetVkFormat().GetBcEncoderFormat();
+                        var decoded = decoder.DecodeRaw2D(face.Data, (int)face.Width, (int)face.Height, srcFormat);
+                        return encoder.EncodeToKtx(decoded);
+                    });
+                    
                 }
-                Console.WriteLine("Compressing: {0}, {1}", Path.GetFileNameWithoutExtension(metaFile.SrcFileName), image.Size);
-                return encoder.EncodeToKtxAsync(image);
             }
 
-            public virtual void SaveFile()
+            private static Task<KtxFile> CubeMapByteArray(BcEncoder encoder,KtxFile src)
             {
-                SaveFile(MetaFile, CompressTask.Result);
-                MetaFile.LoadTexture(Environment.ProcessorCount - 3, false);
-                MetaFile.Reload();
+                return Task.Run(() =>
+                {
+                    var srcFormat = src.header.GlInternalFormat.GetVkFormat().GetBcEncoderFormat();
+                    BcDecoder decoder = new();
+                    decoder.Options.TaskCount = encoder.Options.TaskCount;
+                    decoder.Options.IsParallel = encoder.Options.IsParallel;
+                    Memory2D<ColorRgba32>[] faces = new Memory2D<ColorRgba32>[6];
+                    for (int i = 0; i < 6; i++)
+                    {
+                        var face = src.MipMaps[0].Faces[i];
+                        faces[i] = decoder.DecodeRaw2D(face.Data, (int)face.Width, (int)face.Height, srcFormat);
+                    }
+
+                    return encoder.EncodeCubeMapToKtx(
+                        faces[0],
+                        faces[1],
+                        faces[2],
+                        faces[3],
+                        faces[4],
+                        faces[5]);
+                });
             }
 
-            public static void SaveFile(TextureMetaFile metaFile, KtxFile ktxFile)
+            public void SaveFile()
             {
-                var fileName = Path.Combine(metaFile.KtxFileName);
-                var fileStream = File.Create(fileName);
-                ktxFile.Write(fileStream);
-                fileStream.Close();
-                metaFile.SaveMetaFile();
+                KtxFile[] ktxFiles = new KtxFile[CompressTasks.Length];
 
-                Console.WriteLine("Saved Compressed Texture at {0}", fileName);
+                for (int i = 0; i < CompressTasks.Length; i++)
+                {
+                    ktxFiles[i] = CompressTasks[i].Result;
+                }
+
+                bool array = MetaFile.TextureShape == TextureShape.TwoDArray || MetaFile.TextureShape == TextureShape.CubeArray;
+
+                SaveKtxFile(ktxFiles, array, MetaFile.KtxFileName);
+                MetaFile.LoadedFormat = ktxFiles[0].header.GlInternalFormat.GetVkFormat();
+                MetaFile.VkFormat = MetaFile.LoadedFormat;
+                MetaFile.SaveMetaFile();
+                MetaFile.Reload(ktxFiles);
             }
 
-            public int CompareTo(TextureCompressionItem other)
+            public int CompareTo(CompressOp other)
             {
                 var comparison = MetaFile.VkFormat.CompareTo(other.MetaFile.VkFormat);
-                if(comparison != 0) return comparison;
+                if (comparison != 0) return comparison;
                 return (MetaFile.Width * MetaFile.Height).CompareTo(other.MetaFile.Width * other.MetaFile.Height);
             }
         }
     }
+
+    /// <summary>
+    /// This is used to Create Cubemaps, CubemapArrays and Texture2DArrays
+    /// </summary>
+    public class TextureDefintion
+    {
+        public TextureShape Type { get; set; }
+
+        public string[][] Files { get; set; }
+
+        public string Name { get; set; }
+
+        [JsonIgnore]
+        public string FullFileName;
+        [JsonIgnore]
+        public TextureMetaFile MetaFile;
+        [JsonIgnore]
+        public string KtxFileName => string.Format("{0}.ktx", FullFileName);
+        [JsonIgnore]
+        public string MetaFileName => string.Format("{0}.ktx.meta", FullFileName);
+
+        public TextureDefintion()
+        {
+            
+        }
+
+        public TextureDefintion(string name, params string[] textures)
+        {
+            Type = TextureShape.TwoDArray;
+            Name = name;
+
+            Files = new string[1][];
+            Files[0] = new string[textures.Length];
+
+            for (int i = 0; i < textures.Length; i++)
+            {
+                Files[0][i] = textures[i];
+            }
+
+            GetOrCreateMetaFile();
+        }
+
+        public TextureDefintion(string name, string front, string back, string left, string right, string top, string bottom)
+        {
+            Type = TextureShape.Cube;
+            Name = name;
+            Files = new string[1][];
+            Files[0] = new string[6];
+            Files[0][0] = right;
+            Files[0][1] = left;
+            Files[0][2] = bottom;
+            Files[0][3] = top;
+            Files[0][4] = front;
+            Files[0][5] = back;
+
+            GetOrCreateMetaFile();
+        }
+
+        public TextureDefintion(string name, string[] front, string[] back, string[] left, string[] right, string[] top, string[] bottom)
+        {
+            Debug.Assert(front.Length == back.Length,"Array Cubemap back has differnet number of textures to front");
+            Debug.Assert(front.Length == left.Length,"Array Cubemap left has differnet number of textures to front");
+            Debug.Assert(front.Length == right.Length,"Array Cubemap right has differnet number of textures to front");
+            Debug.Assert(front.Length == top.Length,"Array Cubemap up has differnet number of textures to front");
+            Debug.Assert(front.Length == bottom.Length,"Array Cubemap down has differnet number of textures to front");
+
+
+            Type = TextureShape.CubeArray;
+            Name = name;
+
+            Files = new string[front.Length][];
+
+            for (int i = 0; i < front.Length; i++)
+            {
+                Files[i] = new string[6];
+
+                Files[i][0] = right[i];
+                Files[i][1] = left[i];
+                Files[i][2] = bottom[i];
+                Files[i][3] = top[i];
+                Files[i][4] = front[i];
+                Files[i][5] = back[i];
+            }
+
+            GetOrCreateMetaFile();
+        }
+
+        public void GetOrCreateMetaFile()
+        {
+            if (File.Exists(MetaFileName))
+            {
+                MetaFile = (TextureMetaFile)AssetMetaFile.LoadMetaFileAsDeclaredType(MetaFileName);
+            }
+            else
+            {
+                MetaFile = new TextureMetaFile(this);
+            }
+            MetaFile.SrcFileName = KtxFileName;
+            MetaFile.SaveMetaFile();
+        }
+
+        public void SaveJson()
+        {
+            var serialized = JsonSerializer.Serialize(this);
+            File.WriteAllText(FullFileName, serialized);
+        }
+
+        public static TextureDefintion Load(string path)
+        {
+            Debug.Assert(Path.GetExtension(path) == ".TexDef");
+            Debug.Assert(File.Exists(path));
+            
+            var def = JsonSerializer.Deserialize<TextureDefintion>(File.ReadAllText(path));
+            def.FullFileName = path;
+            def.GetOrCreateMetaFile();
+            def.CreateKtxFile();
+            def.MetaFile.SaveMetaFile();
+            def.MetaFile.LoadedFormat = def.MetaFile.VkFormat;
+            return def;
+        }
+
+        public Texture LoadTexture()
+        {
+            MetaFile.KtxFiles = TextureLoader.LoadKtxFile(MetaFile.KtxFileName);
+
+            if (Type == TextureShape.Cube)
+            {
+                return new Cubemap(MetaFile);
+            }
+            else if (Type == TextureShape.CubeArray)
+            {
+                return new CubemapArray(Name, MetaFile);
+            }
+            else if(Type == TextureShape.TwoDArray)
+            {
+                return new Texture2DArray(Name, MetaFile);
+            }
+
+            return null;
+        }
+
+        public void CreateKtxFile()
+        {
+            if (File.Exists(KtxFileName))
+            {
+                return;
+            }
+
+            var metaFiles = new TextureMetaFile[Files.Length][];
+
+            for (int i = 0; i < Files.Length; i++)
+            {
+                metaFiles[i] = new TextureMetaFile[Files[i].Length];
+                for (int j = 0; j < Files[i].Length; j++)
+                {
+
+                    string filepath = Path.Combine(Asset.AssetsPath, Files[i][j]);
+                    Debug.Assert(File.Exists(filepath), "Src file not found");
+                    filepath = Path.Combine(Asset.AssetsPath, string.Format("{0}.meta", Files[i][j]));
+                    Debug.Assert(File.Exists(filepath), "Src meta file not found");
+                    metaFiles[i][j] = (TextureMetaFile)AssetMetaFile.LoadMetaFileAsDeclaredType(filepath);
+                    metaFiles[i][j].SrcFileName = Path.Combine(Asset.AssetsPath, Files[i][j]);
+                }
+            }
+
+            int width = metaFiles[0][0].Width;
+            int height = metaFiles[0][0].Height;
+            VkFormat format = metaFiles[0][0].VkFormat;
+            for (int i = 0; i < metaFiles.Length; i++)
+            {
+                for (int j = 0; j < metaFiles[i].Length; j++)
+                {
+                    var metaFile = metaFiles[i][j];
+                    Debug.Assert(metaFile.Width == width, "Texture has mismatched dimention");
+                    Debug.Assert(metaFile.Height == height, "Texture has mismatched dimention");
+                }
+            }
+            BcEncoder encoder = new();
+            encoder.OutputOptions.GenerateMipMaps = metaFiles[0][0].MipMaps;
+            encoder.OutputOptions.Quality = CompressionQuality.Balanced;
+            encoder.OutputOptions.Format = format.GetUncompressedVkFormat().GetBcEncoderFormat();
+            encoder.OutputOptions.FileFormat = OutputFileFormat.Ktx;
+            MetaFile.VkFormat = format.GetUncompressedVkFormat();
+            KtxFile[] ktxFiles;
+            if (Type == TextureShape.TwoDArray)
+            {
+
+                ktxFiles = new KtxFile[metaFiles[0].Length];
+            }
+            else
+            {
+                ktxFiles = new KtxFile[metaFiles.Length];
+            }
+
+            for (int i = 0, k = 0; i < metaFiles.Length; i++)
+            {
+                Image<Rgba32>[] images = new Image<Rgba32>[metaFiles[i].Length];
+
+                for (int j = 0; j < metaFiles[i].Length; j++)
+                {
+                    images[j] = Image.Load<Rgba32>(metaFiles[i][j].SrcFileName);
+
+                    if (metaFiles[i][j].FlipVertical)
+                    {
+                        var flipProcessor = new FlipProcessor(FlipMode.Vertical);
+                        images[j].Mutate(flipProcessor);
+                    }
+
+                    if (metaFiles[i][j].FlipHorizontal)
+                    {
+                        var flipProcessor = new FlipProcessor(FlipMode.Horizontal);
+                        images[j].Mutate(flipProcessor);
+                    }
+                }
+
+                if (images.Length == 6 && (Type == TextureShape.Cube || Type == TextureShape.CubeArray))
+                {
+                    ktxFiles[i] = encoder.EncodeCubeMapToKtx(
+                        images[0],
+                        images[1],
+                        images[2],
+                        images[3],
+                        images[4],
+                        images[5]);
+                }
+                else
+                {
+                    for (int j = 0; j < images.Length; j++, k++)
+                    {
+                        ktxFiles[k] = encoder.EncodeToKtx(images[j]);
+                    }
+                }
+
+                for (int j = 0; j < images.Length; j++)
+                {
+                    images[j].Dispose();
+                }
+            }
+
+            bool array = Type != TextureShape.Cube;
+            TextureLoader.SaveKtxFile(ktxFiles, array, KtxFileName);
+        }
+
+    }
+
 
     public enum TextureType
     {
@@ -382,332 +598,4 @@ namespace VECS
         CubeArray,
         ThreeD
     }
-
-    public class TextureMetaFile : AssetMetaFile
-    {
-        [JsonIgnore]
-        public string SrcFileName;
-
-        [JsonIgnore]
-        public VkFormat LoadedFormat;
-        [JsonIgnore]
-        public string MetaFileName => string.Format("{0}.meta", SrcFileName);
-        [JsonIgnore]
-        public string KtxFileName => Path.Combine(TextureLoader.KtxTexturePath, string.Format("{0}.ktx", Path.GetFileName(SrcFileName)));
-
-        [JsonIgnore]
-        public KtxFile KtxFile;
-        [JsonIgnore]
-        public Texture DstTexture;
-        [JsonIgnore]
-        public int Width;
-        [JsonIgnore]
-        public int Height;
-
-        public TextureType TextureType { get; set; }
-        public TextureShape TextureShape { get; set; }
-        public VkFormat VkFormat { get; set; }
-        public bool FlipVertical { get; set; }
-        public bool FlipHorizontal { get; set; }
-        public bool SRGB { get; set; }
-        public bool MipMaps { get; set; }
-        public bool ReadWrite { get; set; }
-        public bool Compress { get; set; }
-        public int BitsPerPixel { get; set; }
-
-        public TextureMetaFile() { }
-
-        public TextureMetaFile(string srcFile, TextureShape shape)
-        {
-            GUID = Guid.NewGuid();
-            Version = 0;
-            Type = typeof(TextureMetaFile).FullName;
-            CreateInternal(srcFile);
-            TextureShape = shape;
-            if (shape == TextureShape.Cube)
-            {
-                MipMaps = false;
-            }
-        }
-
-        public TextureMetaFile(string srcFile, TextureShape shape, VkFormat format)
-        {
-            GUID = Guid.NewGuid();
-            Version = 0;
-            Type = typeof(TextureMetaFile).FullName;
-            CreateInternal(srcFile, format);
-            TextureShape = shape;
-            if (shape == TextureShape.Cube)
-            {
-                MipMaps = false;
-            }
-        }
-
-        public void SetVKFormat()
-        {
-            if (SRGB && TextureType == TextureType.Normal)
-            {
-                SRGB = false;
-            }
-
-            if (Compress)
-            {
-                if (TextureType == TextureType.Normal)
-                {
-                    VkFormat = VkFormat.Bc5UnormBlock;
-                }
-                else
-                {
-                    if (SRGB)
-                    {
-                        VkFormat = VkFormat.Bc7SrgbBlock;
-                    }
-                    else
-                    {
-                        VkFormat = VkFormat.Bc7UnormBlock;
-                    }
-                }
-            }
-            else
-            {
-                if (SRGB)
-                {
-                    VkFormat = BitsPerPixel switch
-                    {
-                        8 => VkFormat.R8Srgb,
-                        16 => VkFormat.R8G8Srgb,
-                        24 => VkFormat.R8G8B8Srgb,
-                        _ => VkFormat.R8G8B8A8Srgb
-                    };
-                }
-                else
-                {
-                    VkFormat = BitsPerPixel switch
-                    {
-                        8 => VkFormat.R8Unorm,
-                        16 => VkFormat.R8G8Unorm,
-                        24 => VkFormat.R8G8B8Unorm,
-                        _ => VkFormat.R8G8B8A8Unorm
-                    };
-                }
-            }
-        }
-
-        private bool CreateInternal(string srcFile)
-        {
-            SrcFileName = srcFile;
-            if (MetaFileExists(srcFile))
-            {
-                LoadMetaFile();
-                return true;
-            }
-            else
-            {
-                CreateDefaultMetaFile(srcFile);
-                SaveMetaFile();
-                return false;
-            }
-        }
-
-        private bool CreateInternal(string srcFile, VkFormat format)
-        {
-            SrcFileName = srcFile;
-            if (MetaFileExists(srcFile))
-            {
-                LoadMetaFile();
-                VkFormat = format;
-                return true;
-            }
-            else
-            {
-                CreateDefaultMetaFile(srcFile,format);
-                SaveMetaFile();
-                return false;
-            }
-        }
-
-        public override void CreateDefaultMetaFile(string filePath)
-        {
-            SrcFileName = filePath;
-            FlipVertical = true;
-            MipMaps = true;
-            TextureShape = TextureShape.TwoD;
-            TextureType = filePath.Contains("normal", StringComparison.CurrentCultureIgnoreCase) ? TextureType.Normal : TextureType.Default;
-            try
-            {
-                var imageInfo = Image.Identify(filePath);
-                Compress = imageInfo.Width % 2 == 0 && imageInfo.Height % 2 == 0;
-                BitsPerPixel = imageInfo.PixelType.BitsPerPixel;
-            }
-            catch
-            {
-                FlipVertical = false;
-                MipMaps = false;
-            }
-
-            SetVKFormat();
-        }
-
-        public void CreateDefaultMetaFile(string filePath, VkFormat format)
-        {
-            SrcFileName = filePath;
-            FlipVertical = true;
-            MipMaps = true;
-            TextureShape = TextureShape.TwoD;
-            TextureType = filePath.Contains("normal", StringComparison.CurrentCultureIgnoreCase) ? TextureType.Normal : TextureType.Default;
-            try
-            {
-                var imageInfo = Image.Identify(filePath);
-                Compress = imageInfo.Width % 2 == 0 && imageInfo.Height % 2 == 0;
-                BitsPerPixel = imageInfo.PixelType.BitsPerPixel;
-            }
-            catch
-            {
-                FlipVertical = false;
-                MipMaps = false;
-            }
-
-            VkFormat = format;
-            Compress = VkFormat.IsCompressedFormat();
-        }
-
-        public override void LoadMetaFile()
-        {
-            var metaFile = File.ReadAllText(MetaFileName);
-
-            var loadedFile = JsonSerializer.Deserialize<TextureMetaFile>(metaFile);
-            GUID = loadedFile.GUID;
-            Type = loadedFile.Type;
-            Version = loadedFile.Version;
-            TextureType = loadedFile.TextureType;
-            TextureShape = loadedFile.TextureShape;
-            VkFormat = loadedFile.VkFormat;
-            FlipVertical = loadedFile.FlipVertical;
-            FlipHorizontal = loadedFile.FlipHorizontal;
-            SRGB = loadedFile.SRGB;
-            MipMaps = loadedFile.MipMaps;
-            ReadWrite = loadedFile.ReadWrite;
-            Compress = loadedFile.Compress;
-            BitsPerPixel = loadedFile.BitsPerPixel;
-        }
-
-        public override void SaveMetaFile()
-        {
-            var serialized = JsonSerializer.Serialize(this);
-            File.WriteAllText(MetaFileName, serialized);
-        }
-
-        public override void LoadAsset()
-        {
-            if (Compress)
-            {
-                if (File.Exists(KtxFileName))
-                {
-                    // load compressed texture
-
-                }
-                else
-                {
-                    // load and queue texture for compression
-                }
-            }
-            else
-            {
-                // load uncompressed  texture
-            }
-        }
-
-        public void LoadTexture(int compressionThreadCount, bool forceUncompressed)
-        {
-            BcEncoder encoder = new();
-            encoder.OutputOptions.GenerateMipMaps = MipMaps;
-            encoder.OutputOptions.Quality = CompressionQuality.Balanced;
-            encoder.OutputOptions.Format = VkFormat.GetUncompressedFormat().GetCompressionFormat();
-            encoder.Options.IsParallel = compressionThreadCount > 0;
-            encoder.Options.TaskCount = Math.Max(1, compressionThreadCount);
-            encoder.OutputOptions.FileFormat = OutputFileFormat.Ktx; //Change to Dds for a dds file.
-
-            string file;
-            bool ktxExists = File.Exists(KtxFileName);
-            if (!forceUncompressed && ktxExists)
-            {
-                file = KtxFileName;
-                var fileStream = File.OpenRead(file);
-                KtxFile = KtxFile.Load(fileStream);
-                fileStream.Close();
-                var ktxFormat = KtxFile.header.GlInternalFormat.GetVkFormat();
-                if(ktxFormat == VkFormat)
-                {
-                    Width = (int)KtxFile.header.PixelWidth;
-                    Height = (int)KtxFile.header.PixelHeight;
-                    VkFormat = LoadedFormat = ktxFormat;
-                    return;
-                }
-            }
-
-            file = SrcFileName;
-            var extension = Path.GetExtension(SrcFileName).ToLower();
-            if (extension == ".dds")
-            {
-                var fileStream = File.OpenRead(file);
-                var ddsFile = DdsFile.Load(fileStream);
-                fileStream.Close();
-
-                var decoder = new BCnEncoder.Decoder.BcDecoder();
-                decoder.Options.IsParallel = compressionThreadCount > 0;
-                decoder.Options.TaskCount = Math.Max(1, compressionThreadCount);
-                //ddsFile.header.ddsPixelFormat.DxgiFormat
-                var decoded = decoder.Decode(ddsFile);
-                encoder.OutputOptions.Format = CompressionFormat.Bc5;
-                KtxFile = encoder.EncodeToKtx(new CommunityToolkit.HighPerformance.ReadOnlyMemory2D<ColorRgba32>(decoded,(int)ddsFile.header.dwHeight,(int)ddsFile.header.dwWidth));
-
-                Width = (int)KtxFile.header.PixelWidth;
-                Height = (int)KtxFile.header.PixelHeight;
-                if (!ktxExists)
-                {
-                    TextureLoader.TextureCompressionItem.SaveFile(this, KtxFile);
-                }
-                LoadedFormat = encoder.OutputOptions.Format.GetVkFormat();
-
-            }
-            else if (extension == ".ktx")
-            {
-                var fileStream = File.OpenRead(file);
-                KtxFile = KtxFile.Load(fileStream);
-                fileStream.Close();
-                Width = (int)KtxFile.header.PixelWidth;
-                Height = (int)KtxFile.header.PixelHeight;
-                LoadedFormat = KtxFile.header.GlInternalFormat.GetVkFormat();
-            }
-            else
-            {
-                using Image<Rgba32> image = Image.Load<Rgba32>(file);
-                if (FlipVertical)
-                {
-                    var flipProcessor = new FlipProcessor(FlipMode.Vertical);
-                    image.Mutate(flipProcessor);
-                }
-                if (FlipHorizontal)
-                {
-                    var flipProcessor = new FlipProcessor(FlipMode.Horizontal);
-                    image.Mutate(flipProcessor);
-                }
-                KtxFile = encoder.EncodeToKtx(image);
-                
-                Width = (int)KtxFile.header.PixelWidth;
-                Height = (int)KtxFile.header.PixelHeight;
-                if (!ktxExists)
-                {
-                    TextureLoader.TextureCompressionItem.SaveFile(this, KtxFile);
-                }
-                LoadedFormat = encoder.OutputOptions.Format.GetVkFormat();
-            }
-            SaveMetaFile();
-        }
-        public void Reload()
-        {
-            DstTexture?.Reload();
-        }
-    }
-
 }

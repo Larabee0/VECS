@@ -38,7 +38,7 @@ namespace VECS
         // sampler
 
         internal TextureSampler _textureSampler;
-        internal TextureMetaFile[] _metaFiles;
+        internal TextureMetaFile _metaFile;
         internal bool _regenerateSampler;
 
         public uint MipMapCount

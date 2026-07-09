@@ -56,6 +56,11 @@ namespace VECS.ECS
             entityManager.AddQuery(this);
         }
 
+        ~EntityQuery()
+        {
+            _entityManager.RemoveQuery(this);
+        }
+
         /// <summary>
         /// Adds the given component types to the query's WithAll list.
         /// If a given component type exists in WithNone an exception is raised.

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using VECS.ECS.Transforms;
 
 namespace VECS.ECS
@@ -205,9 +206,9 @@ namespace VECS.ECS
                 }
 
                 if (archetypeRefresh)
-                    {
-                        UpdateEntityArchetype(entity);
-                    }
+                {
+                    UpdateEntityArchetype(entity);
+                }
                 AutoMarkQueriesStale(compId);
             }
         }
@@ -260,23 +261,32 @@ namespace VECS.ECS
         /// <param name="entity">entity that has changed</param>
         private void UpdateEntityArchetype(Entity entity)
         {
-            if (_entityIdToArchetypeIdLookup.TryGetValue(entity.Id, out int oldArcetype))
+            if (_entityIdToArchetypeIdLookup.TryGetValue(entity.Id, out int oldArcetype) && _archetypeIdsToEntities.TryGetValue(oldArcetype, out HashSet<Entity> value))
             {
-                _archetypeIdsToEntities[oldArcetype].Remove(entity);
-
-                _archetypeIdsToComponentIds.Remove(oldArcetype);
+                value.Remove(entity);
+                if (_archetypeIdsToEntities[oldArcetype].Count == 0)
+                {
+                    _archetypeIdsToEntities.Remove(oldArcetype);
+                }
             }
 
             int archetype = ComputeArchetypeHash(entity);
             _entityIdToArchetypeIdLookup[entity.Id] = archetype;
             if (_archetypeIdsToEntities.TryGetValue(archetype, out HashSet<Entity> entities))
             {
+                if (entities.Count == 0)
+                {
+                    _archetypeIdsToComponentIds.Add(archetype, _entityToComponentIds[entity.Id]);
+                }
                 entities.Add(entity);
             }
             else
             {
                 _archetypeIdsToEntities[archetype] = [entity];
-                _archetypeIdsToComponentIds.Add(archetype, _entityToComponentIds[entity.Id]);
+                if (!_archetypeIdsToComponentIds.ContainsKey(archetype))
+                {
+                    _archetypeIdsToComponentIds.Add(archetype, _entityToComponentIds[entity.Id]);
+                }
             }
         }
 
@@ -286,6 +296,7 @@ namespace VECS.ECS
         /// <typeparam name="T">Component type</typeparam>
         /// <param name="entity"></param>
         /// <returns></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool HasComponent<T>(Entity entity) where T : IComponent
         {
             return HasComponent<T>(entity, out _);
@@ -415,7 +426,7 @@ namespace VECS.ECS
         /// <returns>True if the component was set</returns>
         public bool SetComponent<T>(in Entity entity, in T component) where T : IComponent
         {
-            if (HasComponent<T>(entity, out int signature))
+            if (HasComponent(entity,component.Id, out int signature))
             {
                 _compSignatureToCompReference[signature] = component;
                 return true;
@@ -439,6 +450,7 @@ namespace VECS.ECS
         /// <typeparam name="T">Component type</typeparam>
         /// <param name="entity"></param>
         /// <returns></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int GetEntityComponentSigature<T>(in Entity entity) where T : IComponent
         {
             //return HashCode.Combine(entity.GetHashCode(), GetComponentId<T>());
@@ -451,6 +463,7 @@ namespace VECS.ECS
         /// <param name="entity"></param>
         /// <param name="compId">Component id</param>
         /// <returns></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int GetEntityComponentSigature(Entity entity, int compId)
         {
             return HashCode.Combine(entity.GetHashCode(), compId);
@@ -461,6 +474,7 @@ namespace VECS.ECS
         /// </summary>
         /// <typeparam name="T">Component type</typeparam>
         /// <returns></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int GetComponentId<T>() where T : IComponent
         {
             return default(T).Id;
@@ -677,7 +691,6 @@ namespace VECS.ECS
 
         public Entity CreateEntity(string name)
         {
-
             var entity = CreateEntity();
             SetEntityName (entity, name);
             return entity;
@@ -902,6 +915,11 @@ namespace VECS.ECS
             }
         }
 
+        internal void RemoveQuery(EntityQuery query)
+        {
+            _queries.Remove(query);
+        }
+
         private void AutoMarkQueriesStale(int componentId)
         {
             _queries.ForEach(q => q.AutoStale(componentId));
@@ -911,7 +929,6 @@ namespace VECS.ECS
         {
             _queries.ForEach(q => q.AutoStale());
         }
-
 
         public void DestroyEntityHierarchy(Entity entity)
         {
@@ -926,5 +943,6 @@ namespace VECS.ECS
             }
             DestroyEntity(entity);
         }
+
     }
 }

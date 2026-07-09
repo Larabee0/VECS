@@ -5,7 +5,7 @@ using System.Text.Json;
 
 namespace VECS
 {
-    public abstract class AssetMetaFile
+    public class AssetMetaFile
     {
         public Guid GUID { get; set; }
         public string Type { get; set; }

@@ -17,6 +17,7 @@ namespace VECS
         public static GraphicsPipeline OIT_Unlit { get; private set; }
         public static GraphicsPipeline OIT_LitTexture { get; private set; }
         public static GraphicsPipeline PBR_Deferred { get; private set; }
+        public static GraphicsPipeline Unlit_Tex_Deferred { get; private set; }
         public static GraphicsPipeline IMGUI { get; private set; }
 
         static EnginePipes()
@@ -132,6 +133,8 @@ namespace VECS
             pbr_deferredConfig.depthStencilInfo.depthCompareOp = VkCompareOp.Equal;
 
             PBR_Deferred = new("PBR_Deferred", "pbr_deferred.vert", "pbr_deferred.frag", pbr_deferredConfig);
+
+            Unlit_Tex_Deferred = new("Unlit_Tex_Deferred", "pbr_deferred.vert", "unlit_textured.frag", pbr_deferredConfig);
 
             DepthReduction.Init();
         }

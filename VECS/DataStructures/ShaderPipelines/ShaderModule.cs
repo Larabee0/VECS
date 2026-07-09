@@ -1,4 +1,4 @@
-//#define PARALLEL_SHADER_LOADING
+#define PARALLEL_SHADER_LOADING
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -41,7 +41,7 @@ namespace VECS
 
         private static readonly List<(ulong, DisposeShader)> _shaderDisposalList = [];
 
-        public static string ShaderFilePath => Path.Combine(AssetsPath, "Shaders");
+        public static string PreCompiledShaders => Path.Combine(ShaderCompiler.ShaderFilePath, "PreCompiled");
 
 
         private readonly ConcurrentBag<string> _registedPipelines = [];
@@ -260,11 +260,11 @@ namespace VECS
         public static void LoadAllShaders()
         {
             ShaderCompiler.LoadAllShaders();
-            Console.WriteLine("Loading Shader Files..");
+            Console.WriteLine("Loading Pre Compiled Shader Files..");
             Stopwatch stopwatch = new();
             stopwatch.Start();
-            var dir = new DirectoryInfo(ShaderFilePath);
-            var shaderFiles = dir.GetFiles("*.spv");
+            var dir = new DirectoryInfo(PreCompiledShaders);
+            var shaderFiles = dir.GetFiles("*.spv", SearchOption.AllDirectories);
             ShaderModule[] shaderModules = new ShaderModule[shaderFiles.Length];
 #if PARALLEL_SHADER_LOADING
             Parallel.ForEach(shaderFiles, (shaderFile, state, index) =>
