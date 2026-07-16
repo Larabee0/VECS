@@ -10,7 +10,7 @@ using Vector4 = System.Numerics.Vector4;
 
 namespace VECS.UI
 {
-    public static class NoesisTypeToField
+    public static class NoesisInspectorHelper
     {
         public readonly static Type[] BaseFieldTypes = [
             typeof(char),

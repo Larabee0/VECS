@@ -14,6 +14,7 @@ namespace VECS.UI
         private EntityQuery _singleEntities;
 
         private TreeView _hierarchyTreeView;
+        private TreeView _directoryTreeView;
         private readonly List<EntityHierarchyTree> _hierarchyTrees = [];
         private readonly List<EntityHierarchyTree> _singleEntityItems = [];
 
@@ -43,7 +44,7 @@ namespace VECS.UI
             // MainView.View.Content.FocusableChanged += FocusChanged;
             _hierarchyTreeView = (TreeView)ControlTreeRoot.FindName("HierarchyTreeView");
             _hierarchyTreeView.SelectedItemChanged += EntityItemChanged;
-            _hierarchyTreeView.LostFocus += ClearInspector;
+            //_hierarchyTreeView.LostFocus += ClearInspector;
 
             _inspectorTreeView = (StackPanel)ControlTreeRoot.FindName("InspectorStackPanel");
             
@@ -52,6 +53,15 @@ namespace VECS.UI
             var colourTarget = fowardRenderer.MainColourAttachment.Target;
             var textureSource = new TextureSource(new NoesisTexture(colourTarget, false, true));
             gameview.Source = textureSource;
+
+
+            NoesisDirectoryHelper.DirectoryNameOut = (TextBlock)ControlTreeRoot.FindName("CurrentPath");
+            NoesisDirectoryHelper.DirectoryStackPanel = (StackPanel)ControlTreeRoot.FindName("DirectoryStack");
+            _directoryTreeView= (TreeView)ControlTreeRoot.FindName("OutlineTreeView");
+            _directoryTreeView.SelectedItemChanged += NoesisDirectoryHelper.DirectoryTreeViewItemSelected;
+            _directoryTreeView.Items.Add(NoesisDirectoryHelper.GetDirectoryTree());
+
+            NoesisDirectoryHelper.SelectInternal(Asset.AssetsPath);
 
             ControlTreeRoot.UpdateLayout();
         }
@@ -124,17 +134,17 @@ namespace VECS.UI
             {
                 var componentType = entityManager.GetComponentType(componentId);
                 
-                var types = NoesisTypeToField.GetTypeFields(componentType);
-                var treeViewItem = NoesisTypeToField.ConstructTree(types,null);
+                var types = NoesisInspectorHelper.GetTypeFields(componentType);
+                var treeViewItem = NoesisInspectorHelper.ConstructTree(types,null);
                 children.Children.Add(treeViewItem);
 
-                NoesisTypeToField.UpdateValues(entityManager, treeViewItem, types, componentId, selectedEntity);
+                NoesisInspectorHelper.UpdateValues(entityManager, treeViewItem, types, componentId, selectedEntity);
             }
 
             stopwatch.Stop();
             Console.WriteLine(stopwatch.ToString());
 
-            NoesisTypeToField.SelectedEntity = SelectedEntityId;
+            NoesisInspectorHelper.SelectedEntity = SelectedEntityId;
 
         }
 
@@ -225,6 +235,7 @@ namespace VECS.UI
             // MainView.View.Content.LostFocus -= LostFocus;
             // MainView.View.Content.FocusableChanged -= FocusChanged;
             _hierarchyTreeView.SelectedItemChanged -= EntityItemChanged;
+            _directoryTreeView.SelectedItemChanged -= NoesisDirectoryHelper.DirectoryTreeViewItemSelected;
             _hierarchyTreeView.LostFocus -= ClearInspector;
             MainView.Dispose();
         }

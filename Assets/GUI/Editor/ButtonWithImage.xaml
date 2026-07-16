@@ -21,7 +21,7 @@
       </Grid.ColumnDefinitions>
       <TextBlock x:Name="Label" Text="{Binding Label, ElementName=Bool2FieldControl}" Grid.Column="1" HorizontalAlignment="Left" Foreground="#FFFFFFFF" Style="{DynamicResource VectorLabel}"/>
       
-      <Image Width="50" Height="50" />
+      <Image x:Name="Icon" Width="50" Height="50" />
       
     </Grid>
   </Grid>
