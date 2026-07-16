@@ -18,6 +18,7 @@ namespace VECS.UI
         private readonly List<EntityHierarchyTree> _singleEntityItems = [];
 
         private StackPanel _inspectorTreeView;
+        private Image _gameView;
 
         private uint SelectedEntityId;
         private uint LastSelectedEntityId;
@@ -46,14 +47,18 @@ namespace VECS.UI
             _hierarchyTreeView.LostFocus += ClearInspector;
 
             _inspectorTreeView = (StackPanel)ControlTreeRoot.FindName("InspectorStackPanel");
-            
-            var gameview = (Image)ControlTreeRoot.FindName("GameView");
-            var fowardRenderer = Presenter.Instance.Renderer;
-            var colourTarget = fowardRenderer.MainColourAttachment.Target;
-            var textureSource = new TextureSource(new NoesisTexture(colourTarget, false, true));
-            gameview.Source = textureSource;
 
+            _gameView = (Image)ControlTreeRoot.FindName("GameView");
+            //UpdateGameView();
             ControlTreeRoot.UpdateLayout();
+        }
+
+        private void UpdateGameView()
+        {
+            var renderer = Presenter.Instance.Renderer;
+            var colourTarget = renderer.MainColourAttachment.Target;
+            var textureSource = new TextureSource(new NoesisTexture(colourTarget, false, true));
+            _gameView.Source = textureSource;
         }
 
         private void ClearInspector(object sender, RoutedEventArgs args)
@@ -216,6 +221,10 @@ namespace VECS.UI
 
         public override void OnPostAA(EntityManager entityManager, RendererFrameInfo frameInfo)
         {
+            if (Presenter.NewSwapChain)
+            {
+                UpdateGameView();
+            }
             MainView.Render(frameInfo);
         }
 
