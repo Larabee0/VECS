@@ -132,6 +132,10 @@ namespace VECS
 
         internal static void Recompile(string name, string path)
         {
+            if(Path.GetExtension(path) == ".glsl")
+            {
+                return;
+            }
             _recompileQueue.Enqueue(path);
             
         }

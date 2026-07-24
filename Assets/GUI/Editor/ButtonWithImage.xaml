@@ -5,11 +5,11 @@
   xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
   mc:Ignorable="d"
   x:Class="VECS.UI.ButtonWithImage"
-  x:Name="ButtonWithImageFieldControl" Height="50" MinWidth="580" Background="#004D5052">
+  x:Name="ButtonWithImageFieldControl" Height="55" MinWidth="580" Background="#004D5052">
   <UserControl.Resources>
     <ResourceDictionary Source="./EditorTheme.xaml"/>
   </UserControl.Resources>
-  <Grid Height="50">
+  <Grid Height="55">
     <Grid.ColumnDefinitions>
       <ColumnDefinition/>
     </Grid.ColumnDefinitions>
@@ -19,7 +19,7 @@
         <ColumnDefinition Width="55"/>
         <ColumnDefinition/>
       </Grid.ColumnDefinitions>
-      <TextBlock x:Name="Label" Text="{Binding Label, ElementName=Bool2FieldControl}" Grid.Column="1" HorizontalAlignment="Left" Foreground="#FFFFFFFF" Style="{DynamicResource VectorLabel}"/>
+      <TextBlock x:Name="Label" Text="{Binding Label, ElementName=ButtonWithImageFieldControl}" Grid.Column="1" HorizontalAlignment="Left" Foreground="#FFFFFFFF" Style="{DynamicResource VectorLabel}"/>
       
       <Image x:Name="Icon" Width="50" Height="50" />
       

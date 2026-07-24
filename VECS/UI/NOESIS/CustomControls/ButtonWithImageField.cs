@@ -14,13 +14,26 @@ namespace VECS.UI
             set { SetValue(_Label, value); }
         }
 
+        public Action<object,MouseButtonEventArgs> OnDoubleClick;
+
+        private readonly Image _iconImage;
+
+        public Image IconImage => _iconImage;
+
         public ButtonWithImage()
         {
             InitializeComponent();
             
             WeakReference weak = new(this);
 
+            _iconImage = (Image)FindName("Icon");
 
+            this.MouseDoubleClick += (s, e) => { ((ButtonWithImage)weak.Target)?.OnMouseDoubleClick(s, e); };
+        }
+
+        private void OnMouseDoubleClick(object s, MouseButtonEventArgs e)
+        {
+            OnDoubleClick?.Invoke(s,e);
         }
 
         void InitializeComponent()

@@ -26,9 +26,9 @@ namespace VECS
         private static readonly HashSet<string> MeshTypes = [".obj",".fbx"];
 
         private static readonly HashSet<string> CompiledShaderTypes = [".spv"];
-        private static readonly HashSet<string> UnCompiledShaderTypes = [.. ShaderCompiler._compileTags];
+        private static readonly HashSet<string> UnCompiledShaderTypes = [.. ShaderCompiler._compileTags, ".glsl"];
 
-        private static AssetType GetTypeFromExtension(string fileName)
+        public static AssetType GetTypeFromExtension(string fileName)
         {
             var extension = Path.GetExtension(fileName);
 
