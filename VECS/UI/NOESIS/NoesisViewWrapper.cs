@@ -184,6 +184,7 @@ namespace VECS.UI
             {
                 MouseButtonDown(mousePos.X, mousePos.Y, i, view);
                 MouseButtonUp(mousePos.X,mousePos.Y, i, view);
+                MouseButtonDoubleclick(mousePos.X, mousePos.Y, i, view);
             }
             view.MouseMove(mousePos.X, mousePos.Y);
             if (!string.IsNullOrEmpty(input.Text))
@@ -193,9 +194,16 @@ namespace VECS.UI
                     view.Char(input.Text[i]);
                 }
             }
-            
             view.MouseHWheel(mousePos.X, mousePos.Y, (int)input.MouseWheelH * MOUSE_WHEEL_MULTIPLIER);
             view.MouseWheel(mousePos.X, mousePos.Y, (int)input.MouseWheel * MOUSE_WHEEL_MULTIPLIER);
+        }
+
+        private static void MouseButtonDoubleclick(int x, int y, MouseButton button, View view)
+        {
+            if (InputManager.Instance.GetMouseButtonDoubleClicked((int)button))
+            {
+                view.MouseDoubleClick(x, y, button);
+            }
         }
 
         private static void MouseButtonDown(int x, int y, MouseButton button, View view)

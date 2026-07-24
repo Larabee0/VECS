@@ -39,6 +39,7 @@ namespace VECS
         private readonly Queue<SDL_Scancode> _scanCodeChangedState = new();
 
 
+        private readonly Dictionary<SDL_Button, (float,bool)> _wasMouseDoubleClicked = new(Enum.GetNames<SDL_Button>().Length);
         private readonly Dictionary<SDL_Button, (bool, bool)> _mouseButtonStates = new(Enum.GetNames<SDL_Button>().Length);
         private readonly Queue<SDL_Button> _mouseButtonsChangedState = new();
 
@@ -74,6 +75,7 @@ namespace VECS
             for (int i = 0; i < mouseButtons.Length; i++)
             {
                 _mouseButtonStates.Add(mouseButtons[i], (false, false));
+                _wasMouseDoubleClicked.Add(mouseButtons[i], (-1, false));
             }
 
             if (mainInputManager)
@@ -141,6 +143,20 @@ namespace VECS
             return !val.Item1 && val.Item2;
         }
 
+        public bool GetMouseButtonDoubleClicked(int button)
+        {
+            var val = button switch
+            {
+                0 => _wasMouseDoubleClicked[SDL_Button.Left],
+                1 => _wasMouseDoubleClicked[SDL_Button.Right],
+                2 => _wasMouseDoubleClicked[SDL_Button.Middle],
+                3 => _wasMouseDoubleClicked[SDL_Button.X1],
+                4 => _wasMouseDoubleClicked[SDL_Button.X2],
+                _ => throw new IndexOutOfRangeException(),
+            };
+            return val.Item2;
+        }
+
         /// <summary>
         /// processes a mouse input event
         /// </summary>
@@ -174,6 +190,11 @@ namespace VECS
                 (bool, bool) val = _mouseButtonStates[mouseButton];
                 val.Item2 = false;
                 _mouseButtonStates[mouseButton] = val;
+                var current = _wasMouseDoubleClicked[mouseButton];
+                if (Time.TimeSinceStartUp - current.Item1 > 0.5f || current.Item2)
+                {
+                    _wasMouseDoubleClicked[mouseButton] = new(-1, false);
+                }
             }
             _mouseDelta = Vector2.Zero;
             _mouseMotion = false;
@@ -218,6 +239,16 @@ namespace VECS
             {
                 inputHandler._mouseButtonStates[button] = (false, true);
                 inputHandler._mouseButtonsChangedState.Enqueue(button);
+                var current = inputHandler._wasMouseDoubleClicked[button];
+                if (current.Item1 < 0)
+                {
+                    current.Item1 = Time.TimeSinceStartUp;
+                }
+                else if (Time.TimeSinceStartUp - current.Item1 <= 0.5f)
+                {
+                    current.Item2 = true;
+                }
+                inputHandler._wasMouseDoubleClicked[button] = current;
             }
 
             return false;
