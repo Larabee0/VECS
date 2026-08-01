@@ -39,6 +39,7 @@ namespace VECS
             catch (Exception ex)
             {
                 Console.WriteLine(string.Format("{0},\n{1}", ex.Message, ex.StackTrace));
+                Console.WriteLine(string.Format("{0},\n{1}", ex.InnerException.ToString(), ex.InnerException.StackTrace));
                 Console.ReadLine();
                 return 1;
             }

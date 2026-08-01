@@ -1,5 +1,5 @@
-﻿using VECS.LowLevel;
-using Vortice.Vulkan;
+﻿using System.IO;
+using VECS.LowLevel;
 
 namespace VECS
 {
@@ -22,119 +22,34 @@ namespace VECS
 
         static EnginePipes()
         {
-            var litTexture = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
-            litTexture.depthStencilInfo.depthCompareOp = VkCompareOp.Equal;
+            LitTexture = GraphicsShaderDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "LitTexture.sp"));
+            PBRTexture = GraphicsShaderDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "PBRTexture.sp"));
 
-            LitTexture = new("LitTexture", "lit_texture.vert", "lit_texture.frag", litTexture);
-            var pbrTexture = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
-            pbrTexture.depthStencilInfo.depthCompareOp = VkCompareOp.Equal;
-            PBRTexture = new("PBRTexture", "lit_texture.vert", "pbr.frag", pbrTexture);
+            WireFrame = GraphicsShaderDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "WireFrame.sp"));
 
-            var pipelineConfigInfo = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
 
-            pipelineConfigInfo.rasterizationInfo.cullMode = VkCullModeFlags.None;
-            pipelineConfigInfo.rasterizationInfo.polygonMode = VkPolygonMode.Line;
-            pipelineConfigInfo.inputAssemblyInfo.topology = VkPrimitiveTopology.LineStrip;
-            pipelineConfigInfo.rasterizationInfo.lineWidth = 1;
-            pipelineConfigInfo.depthStencilInfo.depthWriteEnable = true;
-            WireFrame = new("WireFrame", "line_shader.vert", "line_shader.frag", pipelineConfigInfo);
+            DepthOnly = GraphicsShaderDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "DepthOnly.sp"));
+            DepthOnlyAlphaClipping = GraphicsShaderDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "DepthOnlyAlphaClipping.sp"));
 
-            GraphicsPipelineConfigInfo shadowConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
-            shadowConfig.colourFormats = [];
-            shadowConfig.depthFormat = PreferredFormats.LOW_PRECISION_DEPTH_ONLY;
-            shadowConfig.stencilFormat = VkFormat.Undefined;
-            shadowConfig.depthStencilInfo.depthWriteEnable = true;
-            shadowConfig.depthStencilInfo.depthCompareOp = VkCompareOp.LessOrEqual;
-            shadowConfig.rasterizationInfo.cullMode = VkCullModeFlags.None;
-
-            DepthOnly = new GraphicsPipeline("DepthOnly", "depth_only.vert", shadowConfig);
-            DepthOnlyAlphaClipping = new GraphicsPipeline("DepthOnlyAlphaClipping", "depth_only.vert", "depth_only_alpha.frag", shadowConfig);
-
-            var alphaBlending = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
-            Unlit = new GraphicsPipeline("Unlit", "unlit.vert", "unlit.frag", alphaBlending);
-            GraphicsPipelineConfigInfo.EnableAlphaBlending(ref alphaBlending);
-            UnlitTransparent = new GraphicsPipeline("Unlit Transparent", "unlit.vert", "unlit.frag", alphaBlending);
+            Unlit = GraphicsShaderDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "Unlit.sp"));
+            UnlitTransparent = GraphicsShaderDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "Unlit Transparent.sp"));
 
             if (GraphicsDevice.MeshShading)
             {
-                UnlitMeshShader = new("MeshShader", "gen_meshshader_basic.mesh", "gen_meshshader_basic.task", "gen_meshshader_basic.frag", GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []));
+                UnlitMeshShader = GraphicsShaderDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "MeshShader.sp"));
             }
 
-            var blit = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
-            GraphicsPipelineConfigInfo.EnableAlphaBlending(ref blit);
-            blit.rasterizationInfo.frontFace = VkFrontFace.Clockwise;
-            blit.rasterizationInfo.cullMode = VkCullModeFlags.None;
-            blit.colourFormats = [VkFormat.R32G32B32A32Sfloat];
-            blit.depthStencilInfo.depthTestEnable = false;
+            Blit = GraphicsShaderDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "Blitter.sp"));
 
-            Blit = new("Blitter", "fullscreen.vert", "blit.frag", blit);
+            OIT_Unlit = GraphicsShaderDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "OIT_Unlit.sp"));
+            OIT_LitTexture = GraphicsShaderDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "OIT_Lit_Texture.sp"));
 
-            var oit_unlit = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
-
-            oit_unlit.colourFormats = [];
-            oit_unlit.rasterizationInfo.cullMode = VkCullModeFlags.None;
-            oit_unlit.rasterizationInfo.frontFace = VkFrontFace.CounterClockwise;
-            oit_unlit.depthStencilInfo.depthTestEnable = true;
-            oit_unlit.depthStencilInfo.depthWriteEnable = false;
-            oit_unlit.depthStencilInfo.depthCompareOp = VkCompareOp.LessOrEqual;
-
-            OIT_Unlit = new("OIT_Unlit", "unlit.vert", "oit_unlit.frag", oit_unlit);
-
-            oit_unlit.rasterizationInfo.cullMode = VkCullModeFlags.None;
-            oit_unlit.rasterizationInfo.frontFace = VkFrontFace.Clockwise;
-            OIT_LitTexture = new("OIT_Lit_Texture", "lit_texture.vert", "oit_lit_texture.frag", oit_unlit);
-
-            GraphicsPipelineConfigInfo configInfo = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
-            GraphicsPipelineConfigInfo.EnableAlphaBlending(ref configInfo);
-            configInfo.colourFormats = [VkFormat.R8G8B8A8Unorm];
-            configInfo.rasterizationInfo.cullMode = VkCullModeFlags.None;
-
-            configInfo.depthStencilInfo.depthTestEnable = false;
-            configInfo.depthStencilInfo.depthWriteEnable = false;
-            configInfo.depthStencilInfo.depthCompareOp = VkCompareOp.LessOrEqual;
-
-            configInfo.colourBlendAttachment.dstAlphaBlendFactor = VkBlendFactor.One;
-
-            configInfo.BindingDescriptions = [
-                new()
-                {
-                    binding = 0,
-                    stride = 20,
-                    inputRate = VkVertexInputRate.Vertex
-                }
-            ];
-            configInfo.AttributeDescriptions = [
-                new (){
-                    binding = 0,
-                    location = 0,
-                    format = VkFormat.R32G32Sfloat,
-                    offset = 0
-                }, new(){
-                    binding = 0,
-                    location = 1,
-                    format = VkFormat.R32G32Sfloat,
-                    offset = 8
-                }, new(){
-                    binding = 0,
-                    location = 2,
-                    format = VkFormat.R8G8B8A8Unorm,
-                    offset = 16
-                }
-            ];
-
-            IMGUI = new("IMGUI_Pipe", "imgui.vert", "imgui.frag", configInfo);
+            IMGUI = GraphicsShaderDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "IMGUI_Pipe.sp"));
 
             UI.IMGUI._freeVariants.Enqueue(IMGUI.Default());
 
-
-            GraphicsPipelineConfigInfo pbr_deferredConfig = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
-
-            pbr_deferredConfig.colourFormats = [VkFormat.R16G16B16A16Sfloat, VkFormat.R16G16B16A16Sfloat, VkFormat.R8G8B8A8Unorm, VkFormat.R8G8B8A8Unorm];
-            pbr_deferredConfig.depthStencilInfo.depthCompareOp = VkCompareOp.Equal;
-
-            PBR_Deferred = new("PBR_Deferred", "pbr_deferred.vert", "pbr_deferred.frag", pbr_deferredConfig);
-
-            Unlit_Tex_Deferred = new("Unlit_Tex_Deferred", "pbr_deferred.vert", "unlit_textured.frag", pbr_deferredConfig);
+            PBR_Deferred = GraphicsShaderDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "PBR_Deferred.sp"));
+            Unlit_Tex_Deferred = GraphicsShaderDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "Unlit_Tex_Deferred.sp"));
 
             DepthReduction.Init();
         }

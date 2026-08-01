@@ -58,13 +58,13 @@ namespace VECS
             pipelineConfig.rasterizationInfo.cullMode = VkCullModeFlags.Front;
             pipelineConfig.rasterizationInfo.frontFace = VkFrontFace.CounterClockwise;
 
-            NeighbourhoodBlending = new GraphicsPipeline("SMAA_Blending", "smaa_neighbourhood_blending.vert", "smaa_neighbourhood_blending.frag", pipelineConfig).Default();
+            NeighbourhoodBlending = GraphicsPipeline.VertexFragmentPipeline("SMAA_Blending", "smaa_neighbourhood_blending.vert", "smaa_neighbourhood_blending.frag", pipelineConfig).Default();
 
             pipelineConfig.colourFormats = [VkFormat.R8G8B8A8Unorm];
             pipelineConfig.depthStencilInfo.depthTestEnable = false;
 
-            EdgeDetection = new GraphicsPipeline("SMAA_Edge", "smaa_edge_detection.vert", "smaa_edge_detection.frag", pipelineConfig).Default();
-            BlendWeightCalc = new GraphicsPipeline("SMAA_BlendWeight", "smaa_blending_weight.vert", "smaa_blending_weight.frag", pipelineConfig).Default();
+            EdgeDetection = GraphicsPipeline.VertexFragmentPipeline("SMAA_Edge", "smaa_edge_detection.vert", "smaa_edge_detection.frag", pipelineConfig).Default();
+            BlendWeightCalc = GraphicsPipeline.VertexFragmentPipeline("SMAA_BlendWeight", "smaa_blending_weight.vert", "smaa_blending_weight.frag", pipelineConfig).Default();
 
             BlendWeightCalc.SetTexture("uAreaTexture".GetShaderPropertyId(), AreaTexture);
             BlendWeightCalc.SetTexture("uSearchTexture".GetShaderPropertyId(), SearchTexture);
@@ -74,7 +74,7 @@ namespace VECS
             alphaBlending.colourFormats = [VkFormat.R8G8B8A8Unorm];
             alphaBlending.depthStencilInfo.depthTestEnable = false;
 
-            GraphicsPipeline smaaBlit = new("SMAA_Blitter", "fullscreen.vert", "blit.frag", alphaBlending);
+            GraphicsPipeline smaaBlit = GraphicsPipeline.VertexFragmentPipeline("SMAA_Blitter", "fullscreen.vert", "blit.frag", alphaBlending);
             BlitMain = smaaBlit.Default();
             BlitEdgeTarget = smaaBlit.Create("SMAA_BlitEdgeTarget");
             BlitBlendTarget = smaaBlit.Create("SMAA_BlitBlendTarget");

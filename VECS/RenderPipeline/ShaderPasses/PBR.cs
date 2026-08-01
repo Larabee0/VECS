@@ -99,7 +99,7 @@ namespace VECS
             brdflut_gen_config.depthStencilInfo.depthTestEnable = false;
             brdflut_gen_config.depthStencilInfo.depthCompareOp = VkCompareOp.LessOrEqual;
             brdflut_gen_config.colourFormats = [BRDFLUT_FORMAT];
-            BRDFLUT_Generator = new("BRDFLUT_Generator", "fullscreen.vert", "genbrdflut.frag", brdflut_gen_config);
+            BRDFLUT_Generator = GraphicsPipeline.VertexFragmentPipeline("BRDFLUT_Generator", "fullscreen.vert", "genbrdflut.frag", brdflut_gen_config);
 
 
             GraphicsPipelineConfigInfo irradiance_gen_config = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
@@ -110,7 +110,7 @@ namespace VECS
             irradiance_gen_config.depthStencilInfo.depthTestEnable = false;
             irradiance_gen_config.depthStencilInfo.depthCompareOp = VkCompareOp.LessOrEqual;
             irradiance_gen_config.colourFormats = [IRRADIANCE_FORMAT];
-            Irradiance_Generator = new("Irradiance_Generator", "filtercube.vert", "irradiancecube.frag", irradiance_gen_config);
+            Irradiance_Generator = GraphicsPipeline.VertexFragmentPipeline("Irradiance_Generator", "filtercube.vert", "irradiancecube.frag", irradiance_gen_config);
 
             GraphicsPipelineConfigInfo prefiltered_cube_gen_config = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             prefiltered_cube_gen_config.rasterizationInfo.cullMode = VkCullModeFlags.None;
@@ -120,7 +120,7 @@ namespace VECS
             prefiltered_cube_gen_config.depthStencilInfo.depthTestEnable = false;
             prefiltered_cube_gen_config.depthStencilInfo.depthCompareOp = VkCompareOp.LessOrEqual;
             prefiltered_cube_gen_config.colourFormats = [PREFILTERED_CUBE_FORMAT];
-            Prefiltered_Generator = new("Prefiltered_Cube_Generator", "filtercube.vert", "prefilterenvmap.frag", prefiltered_cube_gen_config);
+            Prefiltered_Generator = GraphicsPipeline.VertexFragmentPipeline("Prefiltered_Cube_Generator", "filtercube.vert", "prefilterenvmap.frag", prefiltered_cube_gen_config);
         }
 
         public static unsafe void Generate_BRDFLUT(RendererFrameInfo frameInfo)

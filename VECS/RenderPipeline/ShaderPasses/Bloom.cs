@@ -55,7 +55,7 @@ namespace VECS
             blurConfig.colourBlendAttachment = blendAttachment;
             blurConfig.colourFormats[0] = VkFormat.R32G32B32A32Sfloat;
 
-            var blurPipe = new GraphicsPipeline("GaussBlur", "gaussblur.vert", "gaussblur.frag", blurConfig);
+            var blurPipe = GraphicsPipeline.VertexFragmentPipeline("GaussBlur", "gaussblur.vert", "gaussblur.frag", blurConfig);
 
             _blurVertical = blurPipe.Default();
             _blurHorizontal = blurPipe.Create("HorizontalBlur");

@@ -30,7 +30,7 @@ namespace VECS
             pipelineConfig.rasterizationInfo.frontFace = VkFrontFace.Clockwise;
             pipelineConfig.depthStencilInfo.depthTestEnable = true;
 
-            _skybox = new GraphicsPipeline("Skybox", "skybox.vert", "skybox.frag", pipelineConfig).Default();
+            _skybox = GraphicsPipeline.VertexFragmentPipeline("Skybox", "skybox.vert", "skybox.frag", pipelineConfig).Default();
             Cube = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("cube-UV.obj"),null)[0];
 
             SkyboxTexture = TextureLoader.LoadCubemap(Path.Combine(TextureLoader.DefaultTexturePath, "Skyboxes", "GL_Skybox", "GL_Skybox.TexDef.ktx"), VkFormat.Bc7UnormBlock);

@@ -34,7 +34,7 @@ namespace VECS
 
             var alphaBlending = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             GraphicsPipelineConfigInfo.EnableAlphaBlending(ref alphaBlending);
-            OIT_Composite = new("OIT_Composite", "fullscreen.vert", "oit_composite.frag", alphaBlending);
+            OIT_Composite = GraphicsPipeline.VertexFragmentPipeline("OIT_Composite", "fullscreen.vert", "oit_composite.frag", alphaBlending);
         }
 
         public unsafe void RecreateRenderTargets()
@@ -103,7 +103,7 @@ namespace VECS
             };
 
 
-            VkClearColorValue clearColor;
+            VkClearColorValue clearColor = default;
             clearColor.uint32[0] = uint.MaxValue;
             VkImageSubresourceRange imageSubresource = _headIndex.GetSubresourceRange();
 
