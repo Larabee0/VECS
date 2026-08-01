@@ -52,7 +52,7 @@ namespace VECS.UI
             _gameView = (Image)ControlTreeRoot.FindName("GameView");
             //UpdateGameView();
 
-            NoesisDirectoryHelper.DirectoryNameOut = (TextBlock)ControlTreeRoot.FindName("CurrentPath");
+            NoesisDirectoryHelper.DirectoryPath = (StackPanel)ControlTreeRoot.FindName("DirectoryPath");
             NoesisDirectoryHelper.DirectoryStackPanel = (StackPanel)ControlTreeRoot.FindName("DirectoryStack");
             _directoryTreeView= (TreeView)ControlTreeRoot.FindName("OutlineTreeView");
             _directoryTreeView.SelectedItemChanged += NoesisDirectoryHelper.DirectoryTreeViewItemSelected;

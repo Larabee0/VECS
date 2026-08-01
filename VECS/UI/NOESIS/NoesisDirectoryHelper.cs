@@ -1,5 +1,6 @@
 using Noesis;
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
@@ -9,7 +10,7 @@ namespace VECS.UI
 {
     public static class NoesisDirectoryHelper
     {
-        public static TextBlock DirectoryNameOut;
+        public static StackPanel DirectoryPath;
         public static StackPanel DirectoryStackPanel;
 
         private static TextureSource _folderIcon;
@@ -107,6 +108,98 @@ namespace VECS.UI
             
         }
 
+        private static void SetDirectoryPath(string path)
+        {
+            DirectoryPath.Children.Clear();
+            var assetPathInfo = new DirectoryInfo(Asset.AssetsPath);
+            var relativePath = Path.GetRelativePath(Asset.AssetsPath, path);
+
+            var directoriesSplit = relativePath.Split('\\');
+
+            var directoryNameTextBlock = new TextBlock(Path.GetFileName(Asset.AssetsPath))
+            {
+                Tag = Asset.AssetsPath,
+                FontSize = 20
+            };
+            ((SolidColorBrush)directoryNameTextBlock.Foreground).Color = Color.FromRgb(255, 255, 255);
+            WeakReference weakReference = new(directoryNameTextBlock);
+            ((TextBlock)weakReference.Target).MouseLeftButtonUp += (s, a) => SelectInternal((string)((TextBlock)s).Tag);
+
+            DirectoryPath.Children.Add(directoryNameTextBlock);
+
+
+            if (path == Asset.AssetsPath)
+            {
+                directoryNameTextBlock.FontWeight = FontWeight.Bold;
+                return;
+            }
+
+
+            string buildUpPath = Asset.AssetsPath;
+
+            for (int i = 0; i < directoriesSplit.Length; i++)
+            {
+                directoryNameTextBlock = new TextBlock(directoriesSplit[i])
+                {
+                    FontSize = 20,
+                    
+                };
+                ((SolidColorBrush)directoryNameTextBlock.Foreground).Color = Color.FromRgb(255,255,255);
+                if(i == directoriesSplit.Length - 1)
+                {
+                    directoryNameTextBlock.FontWeight = FontWeight.Bold;
+                }
+                var directorySeperator = new TextBlock(">")
+                {
+                    Tag = buildUpPath,
+                    FontSize = 20
+                };
+                ((SolidColorBrush)directorySeperator.Foreground).Color = Color.FromRgb(255, 255, 255);
+                buildUpPath = Path.Combine(buildUpPath, directoriesSplit[i]);
+                directoryNameTextBlock.Tag = buildUpPath;
+                DirectoryPath.Children.Add(directorySeperator);
+                DirectoryPath.Children.Add(directoryNameTextBlock); 
+                weakReference = new(directoryNameTextBlock);
+                ((TextBlock)weakReference.Target).MouseLeftButtonUp += (s, a) => SelectInternal((string)((TextBlock)s).Tag);
+                weakReference = new(directorySeperator);
+                ((TextBlock)weakReference.Target).MouseLeftButtonUp += (s, a) => ListDirectoryContextMenu((TextBlock)s);
+            }
+        }
+
+        private static void ListDirectoryContextMenu(TextBlock target)
+        {
+            if(target.ContextMenu != null)
+            {
+                target.ContextMenu.IsOpen = true;
+                return;
+            }
+            var path = (string)target.Tag;
+            
+            if (!Directory.Exists(path)) return;
+            DirectoryInfo info = new(path);
+
+            var directories = info.GetDirectories();
+
+            List<MenuItem> items = new(directories.Length);
+            for (int i = 0; i < directories.Length; i++)
+            {
+                MenuItem menuItem = new()
+                {
+                    Header = directories[i].Name,
+                    Tag = directories[i].FullName
+                };
+                WeakReference weakMenuItem = new(menuItem);
+                ((MenuItem)weakMenuItem.Target).Click += (s, a) => SelectInternal((string)((MenuItem)s).Tag);
+                items.Add(menuItem);
+            }
+            var contextmenu = new ContextMenu
+            {
+                ItemsSource = items
+            };
+            target.ContextMenu = contextmenu;
+            contextmenu.IsOpen = true;
+        }
+
         public static TreeViewItem GetDirectoryTree()
         {
             TreeViewItem rootAssets = new()
@@ -116,7 +209,8 @@ namespace VECS.UI
                 Tag = Asset.AssetsPath
             };
 
-            DirectoryNameOut.Text = Asset.AssetsPath;
+
+            //DirectoryNameOut.Text = Asset.AssetsPath;
 
             var directories = Directory.GetDirectories( Asset.AssetsPath);
             
@@ -158,8 +252,8 @@ namespace VECS.UI
 
         public static void SelectInternal(string path)
         {
-            DirectoryNameOut.Text = path;
-            
+            SetDirectoryPath(path);
+
             DirectoryStackPanel.Children.Clear();
             
             DirectoryInfo info = new(path);

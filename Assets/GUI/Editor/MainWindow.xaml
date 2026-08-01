@@ -49,8 +49,8 @@
             <TreeView x:Name="OutlineTreeView" ScrollViewer.PanningMode="VerticalOnly"/>
           </StackPanel>
         </ScrollViewer>
-        <TextBlock x:Name="CurrentPath" Text="TextBlock" Height="20" Grid.Column="1" VerticalAlignment="Top" Foreground="#FFFFFFFF" TextWrapping="Wrap"/>
-        <ScrollViewer Height="573" Grid.Column="1" VerticalAlignment="Bottom">
+        <StackPanel x:Name="DirectoryPath" Orientation="Horizontal" Height="40" Grid.Column="1" VerticalAlignment="Top"/>
+        <ScrollViewer Height="569" Grid.Column="1" VerticalAlignment="Bottom">
           <StackPanel x:Name="DirectoryStack"/>
         </ScrollViewer>
       </Grid>

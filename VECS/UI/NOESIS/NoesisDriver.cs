@@ -1320,7 +1320,7 @@ namespace VECS.UI
             BlendInfo(&colorBlendAttachment);
             configInfo.colourBlendAttachment = colorBlendAttachment;
 
-            var pipeline = new GraphicsPipeline(string.Format("NOESIS_{0}_{1}_{2}", label, formatHash, custom), vertexShader, pixelShader, configInfo);
+            var pipeline = GraphicsPipeline.VertexFragmentPipeline(string.Format("NOESIS_{0}_{1}_{2}", label, formatHash, custom), vertexShader, pixelShader, configInfo);
             var pipelineHash = HashPipeline(shaderEnum, formatHash, custom);
             Pipelines.Add(pipelineHash, pipeline);
         }
