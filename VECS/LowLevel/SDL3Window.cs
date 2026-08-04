@@ -57,6 +57,7 @@ namespace VECS.LowLevel
         private void InitWindow()
         {
             _window = SDL.SDL_CreateWindow(_windowName, _width, _height, SDL3WindowManager.SDL_WINDOW_FLAGS);
+            
             Id = SDL.SDL_GetWindowID(_window);
         }
 
@@ -116,8 +117,19 @@ namespace VECS.LowLevel
                 case SDL_EventType.WindowResized:
                     FrameBufferResizeCallback(sdlEvent.window);
                     break;
+                case SDL_EventType.WindowMoved:
+                    WindowMovedCallback(sdlEvent.window);
+                    break;
             }
         }
+
+        private void WindowMovedCallback(SDL_WindowEvent window)
+        {
+            SDL.SDL_GetWindowPosition(_window, out int x, out int y);
+
+            SDL3WindowManager.UpdateWindowPosition(_windowName,x,y);
+        }
+
 
         /// <summary>
         /// checks to see if the window has been resized and taht the resize requires a swapchain recreation due to frame buffer resize
@@ -194,5 +206,12 @@ namespace VECS.LowLevel
                 Console.WriteLine("StopTextInput");
             }
         }
+
+        public void SetWindowPosition(int x, int y)
+        {
+            SDL.SDL_SetWindowPosition(_window, x, y);
+            SDL.SDL_SyncWindow(_window);
+        }
+
     }
 }

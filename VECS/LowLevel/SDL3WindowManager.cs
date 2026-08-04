@@ -224,6 +224,9 @@ namespace VECS.LowLevel
             }
 
             var window = new SDL3Window(fallbackWidth, fallbackHeight, name, _windows.Count == 0);
+            
+            window.SetWindowPosition(windowSettings.XPos,windowSettings.YPos);
+            
             if(_windows.Count == 0)
             {
                 Screen.Width = (int)window.WindowExtent.width;
@@ -368,6 +371,16 @@ namespace VECS.LowLevel
             return null;
         }
 
+        internal static void UpdateWindowPosition(string name, int x, int y)
+        {
+            if (_windowSettings.WindowSettings.TryGetValue(name, out var windowSettings))
+            {
+                windowSettings.XPos = x;
+                windowSettings.YPos = y;
+            }
+        }
+
+
         private class DisposeWindow
         {
             public SDL3Window Window;
@@ -385,6 +398,8 @@ namespace VECS.LowLevel
             public string WindowName { get; set; }
             public int Width { get; set; }
             public int Height { get; set; }
+            public int XPos { get; set; }
+            public int YPos { get; set; }
         }
 
         private class GlobalWindowSettings
