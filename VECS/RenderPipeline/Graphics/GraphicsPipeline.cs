@@ -13,7 +13,7 @@ namespace VECS
     public partial class GraphicsPipeline : Pipeline
     {
         private readonly static ConcurrentDictionary<int, int> _lastBoundGraphicsPipeline = new(Environment.ProcessorCount, Environment.ProcessorCount * 2);
-       
+        private GraphicsPipelineDefinition _definition;
         private GraphicsPipelineConfigInfo _graphicsPipelineConfigInfo;
 
         private VertexAttributeDescription[] _meshShaderVertexAttributes;
@@ -27,6 +27,9 @@ namespace VECS
         private ConcurrentQueue<Material> _variantsToAdd = new();
 
         internal bool _preBindUpdate = false;
+
+        public GraphicsPipelineDefinition Definition => _definition;
+
         public override int VariantCount => _matVariants.Length;
 
         public bool Transparent => _oitDescriptorSetIndex != -1;
@@ -762,6 +765,20 @@ namespace VECS
                 return true;
             }
             return false;
+        }
+
+        public bool SetDefinition(GraphicsPipelineDefinition definition)
+        {
+            if (_definition != null && _definition.EqualFull(definition)) return false;
+
+            if(_definition != null && !_definition.SameShaderPrograms(definition))
+            {
+
+            }
+
+            _definition = new GraphicsPipelineDefinition(definition);
+            _graphicsPipelineConfigInfo = _definition.ToGraphicsPipelineConfigInfo();
+            return true;
         }
 
         /// <summary>

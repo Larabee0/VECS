@@ -3,6 +3,25 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
+    public enum DepthFormat
+    {
+        Undefined = 0,
+        D16Unorm = 124,
+        D32Sfloat = 126,
+        D16UnormS8Uint = 128,
+        D24UnormS8Uint = 129,
+        D32SfloatS8Uint = 130
+    }
+
+    public enum StencilFormat
+    {
+        Undefined = 0,
+        S8Uint = 127,
+        D16UnormS8Uint = 128,
+        D24UnormS8Uint = 129,
+        D32SfloatS8Uint = 130
+    }
+
     public static class PreferredFormats
     {
         private readonly static VkFormat[] DEPTH_FORMATS =
@@ -41,8 +60,6 @@ namespace VECS
             {
                 DEPTH_FORMATS_SUPPORTED[i] = QueryFormat(DEPTH_FORMATS[i], VkFormatFeatureFlags.DepthStencilAttachment);
             }
-
-
 
             for (int i = 0; i < DEPTH_STENCIL_FORMATS.Length; i++)
             {

@@ -18,7 +18,7 @@ namespace VECS.UI
         private readonly List<EntityHierarchyTree> _hierarchyTrees = [];
         private readonly List<EntityHierarchyTree> _singleEntityItems = [];
 
-        private StackPanel _inspectorTreeView;
+        private StackPanel _inspectorStackPanel;
         private Image _gameView;
 
         private uint SelectedEntityId;
@@ -47,14 +47,15 @@ namespace VECS.UI
             _hierarchyTreeView.SelectedItemChanged += EntityItemChanged;
             //_hierarchyTreeView.LostFocus += ClearInspector;
 
-            _inspectorTreeView = (StackPanel)ControlTreeRoot.FindName("InspectorStackPanel");
+            _inspectorStackPanel = (StackPanel)ControlTreeRoot.FindName("InspectorStackPanel");
 
             _gameView = (Image)ControlTreeRoot.FindName("GameView");
             //UpdateGameView();
 
             NoesisDirectoryHelper.DirectoryPath = (StackPanel)ControlTreeRoot.FindName("DirectoryPath");
             NoesisDirectoryHelper.DirectoryStackPanel = (StackPanel)ControlTreeRoot.FindName("DirectoryStack");
-            _directoryTreeView= (TreeView)ControlTreeRoot.FindName("OutlineTreeView");
+            NoesisDirectoryHelper.InspectorStackPanel = _inspectorStackPanel;
+            _directoryTreeView = (TreeView)ControlTreeRoot.FindName("OutlineTreeView");
             _directoryTreeView.SelectedItemChanged += NoesisDirectoryHelper.DirectoryTreeViewItemSelected;
             _directoryTreeView.Items.Add(NoesisDirectoryHelper.GetDirectoryTree());
 
@@ -110,7 +111,7 @@ namespace VECS.UI
         {
             if(SelectedEntityId != LastSelectedEntityId)
             {
-                _inspectorTreeView.Children.Clear();
+                _inspectorStackPanel.Children.Clear();
                 AddEntityInspectorComponents(entityManager);
                 LastSelectedEntityId = SelectedEntityId;
             }
@@ -130,7 +131,7 @@ namespace VECS.UI
             StackPanel children = new();
             item.Content = children;
 
-            _inspectorTreeView.Children.Add(item);
+            _inspectorStackPanel.Children.Add(item);
             var arcehtypeId = entityManager.ComputeArchetypeHash(selectedEntity);
 
             var componentIds = entityManager._archetypeIdsToComponentIds[arcehtypeId];

@@ -22,34 +22,34 @@ namespace VECS
 
         static EnginePipes()
         {
-            LitTexture = GraphicsShaderDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "LitTexture.sp"));
-            PBRTexture = GraphicsShaderDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "PBRTexture.sp"));
+            LitTexture = GraphicsPipelineDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "LitTexture.sp"));
+            PBRTexture = GraphicsPipelineDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "PBRTexture.sp"));
 
-            WireFrame = GraphicsShaderDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "WireFrame.sp"));
+            WireFrame = GraphicsPipelineDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "WireFrame.sp"));
 
 
-            DepthOnly = GraphicsShaderDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "DepthOnly.sp"));
-            DepthOnlyAlphaClipping = GraphicsShaderDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "DepthOnlyAlphaClipping.sp"));
+            DepthOnly = GraphicsPipelineDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "DepthOnly.sp"));
+            DepthOnlyAlphaClipping = GraphicsPipelineDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "DepthOnlyAlphaClipping.sp"));
 
-            Unlit = GraphicsShaderDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "Unlit.sp"));
-            UnlitTransparent = GraphicsShaderDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "Unlit Transparent.sp"));
+            Unlit = GraphicsPipelineDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "Unlit.sp"));
+            UnlitTransparent = GraphicsPipelineDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "Unlit Transparent.sp"));
 
             if (GraphicsDevice.MeshShading)
             {
-                UnlitMeshShader = GraphicsShaderDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "MeshShader.sp"));
+                UnlitMeshShader = GraphicsPipelineDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "MeshShader.sp"));
             }
 
-            Blit = GraphicsShaderDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "Blitter.sp"));
+            Blit = GraphicsPipelineDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "Blitter.sp"));
 
-            OIT_Unlit = GraphicsShaderDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "OIT_Unlit.sp"));
-            OIT_LitTexture = GraphicsShaderDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "OIT_Lit_Texture.sp"));
+            OIT_Unlit = GraphicsPipelineDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "OIT_Unlit.sp"));
+            OIT_LitTexture = GraphicsPipelineDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "OIT_Lit_Texture.sp"));
 
-            IMGUI = GraphicsShaderDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "IMGUI_Pipe.sp"));
+            IMGUI = GraphicsPipelineDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "IMGUI_Pipe.sp"));
 
             UI.IMGUI._freeVariants.Enqueue(IMGUI.Default());
 
-            PBR_Deferred = GraphicsShaderDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "PBR_Deferred.sp"));
-            Unlit_Tex_Deferred = GraphicsShaderDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "Unlit_Tex_Deferred.sp"));
+            PBR_Deferred = GraphicsPipelineDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "PBR_Deferred.sp"));
+            Unlit_Tex_Deferred = GraphicsPipelineDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "Unlit_Tex_Deferred.sp"));
 
             DepthReduction.Init();
         }

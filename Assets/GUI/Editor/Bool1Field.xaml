@@ -4,13 +4,13 @@
   xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
   xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
   mc:Ignorable="d"
-  x:Class="VECS.UI.DropDownField"
-  x:Name="DropDownFieldControl" Width="580" MinWidth="580"
-  MaxHeight="220" Background="#004D5052">
+  x:Class="VECS.UI.Bool1Field"
+  x:Name="Bool1FieldControl" Width="580"
+  Height="50" MinWidth="580" Background="#004D5052">
   <UserControl.Resources>
     <ResourceDictionary Source="./EditorTheme.xaml"/>
   </UserControl.Resources>
-  <Grid MaxHeight="220">
+  <Grid Height="50">
     <Grid.ColumnDefinitions>
       <ColumnDefinition/>
     </Grid.ColumnDefinitions>
@@ -19,14 +19,10 @@
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="245"/>
         <ColumnDefinition/>
-        
       </Grid.ColumnDefinitions>
-      <TextBlock Text="{Binding Label, ElementName=DropDownFieldControl}" HorizontalAlignment="Left" Foreground="#FFFFFFFF" Style="{DynamicResource VectorLabel}"/>
-      <ScrollViewer ScrollViewer.CanContentScroll="True" Grid.Column="1">
-        <TreeView ScrollViewer.CanContentScroll="True">
-          <TreeViewItem x:Name="RadioContainer" Header="header" ScrollViewer.CanContentScroll="True" ScrollViewer.HorizontalScrollBarVisibility="Visible" Margin="0,0,2,0"/>
-        </TreeView>
-      </ScrollViewer>
+      <TextBlock x:Name="Label" Text="{Binding Label, ElementName=Bool1FieldControl}" HorizontalAlignment="Left" Foreground="#FFFFFFFF" Style="{DynamicResource VectorLabel}"/>
+      
+      <CheckBox x:Name="XComp" Text="{Binding ValueX, ElementName=Bool1FieldControl}" Margin="2,0,2,0" Grid.Column="1" HorizontalAlignment="Left"/>
     </Grid>
   </Grid>
 </UserControl>

@@ -106,6 +106,7 @@ namespace VECS.UI
 
         public static void ErrorCallback(Exception exception)
         {
+            Console.WriteLine(exception.InnerException.ToString(), exception.InnerException.StackTrace);
             throw exception;
         }
 

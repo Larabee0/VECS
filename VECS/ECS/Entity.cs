@@ -25,7 +25,7 @@ namespace VECS.ECS
 
         public override readonly string ToString()
         {
-            return string.Format("{0}.{1}", Id, Version);
+            return string.Format("Entity {0}.{1}", Id, Version);
         }
 
         public override readonly int GetHashCode()

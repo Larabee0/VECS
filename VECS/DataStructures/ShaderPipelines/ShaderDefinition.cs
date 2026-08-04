@@ -1,72 +1,68 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Numerics;
-using System.Text;
 using System.Text.Json;
-using System.Threading.Tasks;
-using VECS.ECS;
 using Vortice.Vulkan;
 
 namespace VECS
 {
-    public class GraphicsShaderDefinition
+    public class GraphicsPipelineDefinition
     {
-        public bool Hidden { get; set;  }
-        public string[] ShaderPrograms { get; set; }
+        [HideInInspector]
+        public bool Hidden;
+        public string[] ShaderPrograms;
 
-        public VkFormat[] ColourFormats {  get; set; }
+        public VkFormat[] ColourFormats;
 
-        public VkFormat DepthFormat { get; set; }
-        public VkFormat StencilFormat { get; set; }
+        public DepthFormat DepthFormat;
+        public StencilFormat StencilFormat;
 
         // Vertex Bindings/Attributes
 
-        public VertexInputBindingDesc[] BindingDescriptions { get; set; }
-        public VertexAttributeDesc[] AttributeDescriptions { get; set; }
+        public VertexInputBindingDesc[] BindingDescriptions;
+        public VertexAttributeDesc[] AttributeDescriptions;
 
         // InputAssemblyState
-        public VkPrimitiveTopology PrimativeTopology { get; set; }
-        public bool PrimitiveRestartEnabled { get; set; }
+        public VkPrimitiveTopology PrimativeTopology;
+        public bool PrimitiveRestartEnabled;
 
         // Rasterizer
-        public bool DepthClampEnabled { get; set;  }
-        public bool RasterizerDiscardEnabled { get; set; }
-        public VkPolygonMode PolygonMode { get; set; }
-        public float LineWidth { get; set; }
-        public VkCullModeFlags CullMode { get; set; }
-        public VkFrontFace Widing { get; set; }
-        public bool DepthBaisEnabled { get; set; }
-        public float DepthBiasConstantFactor { get; set; }
-        public float DepthBiasClamp { get; set; }
-        public float DepthBiasSlopeFactor { get; set; }
+        public bool DepthClampEnabled;
+        public bool RasterizerDiscardEnabled;
+        public VkPolygonMode PolygonMode;
+        public float LineWidth;
+        public VkCullModeFlags CullMode;
+        public VkFrontFace Widing;
+        public bool DepthBaisEnabled;
+        public float DepthBiasConstantFactor;
+        public float DepthBiasClamp;
+        public float DepthBiasSlopeFactor;
 
         // Colour Blend Info
-        public bool ColourBlendLogicOpEnabled { get; set; }
-        public VkLogicOp ColourLogicOp { get; set; }
-        public Vector4 BlendConstants { get; set; }
+        public bool ColourBlendLogicOpEnabled;
+        public VkLogicOp ColourLogicOp;
+        public Vector4 BlendConstants;
 
         // Colour Blend Attachment State
-        public bool ColourBlendEnabled { get; set; }
-        public VkColorComponentFlags ColourWriteMask { get; set; }
-        public VkBlendOp ColourBlendOp { get; set; }
-        public VkBlendFactor SrcColorBlendFactor { get; set; }
-        public VkBlendFactor DstColorBlendFactor { get; set; }
-        public VkBlendOp AlphaBlendOp { get; set; }
-        public VkBlendFactor SrcAlphaBlendFactor { get; set; }
-        public VkBlendFactor DstAlphaBlendFactor { get; set; }
+        public bool ColourBlendEnabled;
+        public VkColorComponentFlags ColourWriteMask;
+        public VkBlendOp ColourBlendOp;
+        public VkBlendFactor SrcColorBlendFactor;
+        public VkBlendFactor DstColorBlendFactor;
+        public VkBlendOp AlphaBlendOp;
+        public VkBlendFactor SrcAlphaBlendFactor;
+        public VkBlendFactor DstAlphaBlendFactor;
 
         // Depth Stencil Info
-        public bool DepthTestEnabled { get; set; }
-        public bool DepthWriteEnabled { get; set; }
-        public VkCompareOp DepthCompareOp { get; set; }
-        public bool DepthBoundsTestEnabled { get; set; }
-        public float MinDepthBounds { get; set; }
-        public float MaxDepthBounds { get; set; }
-        public bool StencilTestEnabled { get; set; }
+        public bool DepthTestEnabled;
+        public bool DepthWriteEnabled;
+        public VkCompareOp DepthCompareOp;
+        public bool DepthBoundsTestEnabled;
+        public float MinDepthBounds;
+        public float MaxDepthBounds;
+        public bool StencilTestEnabled;
 
-        public unsafe GraphicsShaderDefinition(GraphicsPipelineConfigInfo configInfo)
+        public unsafe GraphicsPipelineDefinition(GraphicsPipelineConfigInfo configInfo)
         {
             BindingDescriptions = new VertexInputBindingDesc[configInfo.BindingDescriptions.Length];
             for (int i = 0; i < BindingDescriptions.Length; i++)
@@ -81,8 +77,8 @@ namespace VECS
 
             ColourFormats = configInfo.colourFormats;
 
-            DepthFormat = configInfo.depthFormat;
-            StencilFormat = configInfo.stencilFormat;
+            DepthFormat = (DepthFormat)configInfo.depthFormat;
+            StencilFormat = (StencilFormat)configInfo.stencilFormat;
 
             PrimativeTopology = configInfo.inputAssemblyInfo.topology;
             PrimitiveRestartEnabled = configInfo.inputAssemblyInfo.primitiveRestartEnable;
@@ -120,9 +116,57 @@ namespace VECS
             StencilTestEnabled = configInfo.depthStencilInfo.stencilTestEnable;
         }
 
-        public GraphicsShaderDefinition() : this(GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []))
+        public GraphicsPipelineDefinition() : this(GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []))
         {
 
+        }
+
+        public GraphicsPipelineDefinition(GraphicsPipelineDefinition src)
+        {
+            Hidden = src.Hidden;
+            ShaderPrograms = [.. src.ShaderPrograms];
+            ColourFormats = [.. src.ColourFormats];
+
+            BindingDescriptions =[.. src.BindingDescriptions];
+            AttributeDescriptions = [..src.AttributeDescriptions];
+
+            DepthFormat = src.DepthFormat;
+            StencilFormat = src.StencilFormat;
+
+            PrimativeTopology = src.PrimativeTopology;
+            PrimitiveRestartEnabled = src.PrimitiveRestartEnabled;
+
+            CullMode = src.CullMode;
+            DepthClampEnabled = src.DepthClampEnabled;
+            RasterizerDiscardEnabled = src.RasterizerDiscardEnabled;
+            PolygonMode = src.PolygonMode;
+            LineWidth = src.LineWidth;
+            Widing = src.Widing;
+            DepthBaisEnabled = src.DepthBaisEnabled;
+            DepthBiasConstantFactor = src.DepthBiasConstantFactor;
+            DepthBiasClamp = src.DepthBiasClamp;
+            DepthBiasSlopeFactor = src.DepthBiasSlopeFactor;
+
+            ColourBlendLogicOpEnabled = src.ColourBlendLogicOpEnabled;
+            ColourLogicOp = src.ColourLogicOp;
+            BlendConstants = src.BlendConstants;
+
+            ColourBlendEnabled = src.ColourBlendEnabled;
+            ColourWriteMask = src.ColourWriteMask;
+            ColourBlendOp = src.ColourBlendOp;
+            SrcColorBlendFactor = src.SrcColorBlendFactor;
+            DstColorBlendFactor = src.DstColorBlendFactor;
+            AlphaBlendOp = src.AlphaBlendOp;
+            SrcAlphaBlendFactor = src.SrcAlphaBlendFactor;
+            DstAlphaBlendFactor = src.DstAlphaBlendFactor;
+
+            DepthTestEnabled = src.DepthTestEnabled;
+            DepthWriteEnabled = src.DepthWriteEnabled;
+            DepthCompareOp = src.DepthCompareOp;
+            DepthBoundsTestEnabled = src.DepthBoundsTestEnabled;
+            MinDepthBounds = src.MinDepthBounds;
+            MaxDepthBounds = src.MaxDepthBounds;
+            StencilTestEnabled = src.StencilTestEnabled;
         }
 
         public unsafe GraphicsPipelineConfigInfo ToGraphicsPipelineConfigInfo()
@@ -143,8 +187,8 @@ namespace VECS
 
             configInfo.colourFormats = ColourFormats;
 
-            configInfo.depthFormat = DepthFormat;
-            configInfo.stencilFormat = StencilFormat;
+            configInfo.depthFormat = (VkFormat)DepthFormat;
+            configInfo.stencilFormat = (VkFormat)StencilFormat;
 
             configInfo.inputAssemblyInfo.topology = PrimativeTopology;
             configInfo.inputAssemblyInfo.primitiveRestartEnable = PrimitiveRestartEnabled;
@@ -190,23 +234,138 @@ namespace VECS
 
         public static GraphicsPipeline MakePipeline(string defintionPath)
         {
+            GraphicsPipelineDefinition definition = LoadDefinitionFromFile(defintionPath);
+
+            return new GraphicsPipeline(Path.GetFileNameWithoutExtension(defintionPath), definition);
+        }
+
+        public static GraphicsPipelineDefinition LoadDefinitionFromFile(string defintionPath)
+        {
             if (!File.Exists(defintionPath))
             {
-                throw new FileNotFoundException("GraphicsPipeline Definition file not found",Path.GetFileName(defintionPath));
+                throw new FileNotFoundException("GraphicsPipeline Definition file not found", Path.GetFileName(defintionPath));
             }
 
             string defintionRawJson = File.ReadAllText(defintionPath);
 
-            var definition = JsonSerializer.Deserialize<GraphicsShaderDefinition>(defintionRawJson);
+            var definition = JsonSerializer.Deserialize<GraphicsPipelineDefinition>(defintionRawJson, JsonHelper.IncludeFields);
+            return definition;
+        }
 
-            return new GraphicsPipeline(Path.GetFileNameWithoutExtension(defintionPath), definition.ToGraphicsPipelineConfigInfo(), definition.ShaderPrograms);
+        public void Save(string selectedPath)
+        {
+            var json = JsonSerializer.Serialize(this, JsonHelper.IncludeFields);
+
+            File.WriteAllText(selectedPath, json);
+        }
+
+        public bool EqualFull(GraphicsPipelineDefinition other)
+        {
+            return SameSettings(other) && SameShaderPrograms(other);
+        }
+
+        public bool ShameShadersDifferentSettings(GraphicsPipelineDefinition other)
+        {
+            return !SameSettings(other) && SameShaderPrograms(other);
+        }
+
+        public bool SameSettings(GraphicsPipelineDefinition other)
+        {
+            bool equal = Hidden == other.Hidden &&
+
+            DepthFormat == other.DepthFormat &&
+            StencilFormat == other.StencilFormat &&
+
+            PrimativeTopology == other.PrimativeTopology &&
+            PrimitiveRestartEnabled == other.PrimitiveRestartEnabled &&
+
+            CullMode == other.CullMode &&
+            DepthClampEnabled == other.DepthClampEnabled &&
+            RasterizerDiscardEnabled == other.RasterizerDiscardEnabled &&
+            PolygonMode == other.PolygonMode &&
+            LineWidth == other.LineWidth &&
+            Widing == other.Widing &&
+            DepthBaisEnabled == other.DepthBaisEnabled &&
+            DepthBiasConstantFactor == other.DepthBiasConstantFactor &&
+            DepthBiasClamp == other.DepthBiasClamp &&
+            DepthBiasSlopeFactor == other.DepthBiasSlopeFactor &&
+
+            ColourBlendLogicOpEnabled == other.ColourBlendLogicOpEnabled &&
+            ColourLogicOp == other.ColourLogicOp &&
+            BlendConstants == other.BlendConstants &&
+
+            ColourBlendEnabled == other.ColourBlendEnabled &&
+            ColourWriteMask == other.ColourWriteMask &&
+            ColourBlendOp == other.ColourBlendOp &&
+            SrcColorBlendFactor == other.SrcColorBlendFactor &&
+            DstColorBlendFactor == other.DstColorBlendFactor &&
+            AlphaBlendOp == other.AlphaBlendOp &&
+            SrcAlphaBlendFactor == other.SrcAlphaBlendFactor &&
+            DstAlphaBlendFactor == other.DstAlphaBlendFactor &&
+
+            DepthTestEnabled == other.DepthTestEnabled &&
+            DepthWriteEnabled == other.DepthWriteEnabled &&
+            DepthCompareOp == other.DepthCompareOp &&
+            DepthBoundsTestEnabled == other.DepthBoundsTestEnabled &&
+            MinDepthBounds == other.MinDepthBounds &&
+            MaxDepthBounds == other.MaxDepthBounds &&
+            StencilTestEnabled == other.StencilTestEnabled;
+
+            if (!equal) return false;
+
+            if (ColourFormats.Length != other.ColourFormats.Length) return false;
+
+            for (int i = 0; i < ColourFormats.Length; i++)
+            {
+                if (ColourFormats[i] != other.ColourFormats[i])
+                {
+                    return false;
+                }
+            }
+
+            if (BindingDescriptions.Length != other.BindingDescriptions.Length) return false;
+
+            for (int i = 0; i < BindingDescriptions.Length; i++)
+            {
+                if (BindingDescriptions[i].Equals(other.BindingDescriptions[i]))
+                {
+                    return false;
+                }
+            }
+
+            if (AttributeDescriptions.Length != other.AttributeDescriptions.Length) return false;
+
+            for (int i = 0; i < AttributeDescriptions.Length; i++)
+            {
+                if (AttributeDescriptions[i].Equals(other.AttributeDescriptions[i]))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        public bool SameShaderPrograms(GraphicsPipelineDefinition other)
+        {
+            if (ShaderPrograms.Length != other.ShaderPrograms.Length) return false;
+
+            for (int i = 0; i < ShaderPrograms.Length; i++)
+            {
+                if (ShaderPrograms[i] != other.ShaderPrograms[i])
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         public class VertexInputBindingDesc
         {
-            public uint Binding { get; set;  }
-            public uint Stride { get; set; }
-            public VkVertexInputRate InputRate { get; set; }
+            public uint Binding;
+            public uint Stride;
+            public VkVertexInputRate InputRate;
 
             public VertexInputBindingDesc()
             {
@@ -224,14 +383,28 @@ namespace VECS
             {
                 return new(Stride, InputRate, Binding);
             }
+
+            public override bool Equals(object obj)
+            {
+                if(obj is VertexInputBindingDesc other)
+                {
+                    return other.GetHashCode() == GetHashCode();
+                }
+                return false;
+            }
+
+            public override int GetHashCode()
+            {
+                return HashCode.Combine(Binding, Stride, InputRate);
+            }
         }
 
         public class VertexAttributeDesc
         {
-            public uint Location { get; set; }
-            public uint Binding { get; set; }
-            public VkFormat Format { get; set; }
-            public uint Offset { get; set; }
+            public uint Location;
+            public uint Binding;
+            public VkFormat Format;
+            public uint Offset;
 
             public VertexAttributeDesc()
             {
@@ -249,6 +422,21 @@ namespace VECS
             public VkVertexInputAttributeDescription ToVkVertexInputAttributeDescription()
             {
                 return new(Location, Format, Offset, Binding);
+            }
+
+
+            public override bool Equals(object obj)
+            {
+                if (obj is VertexAttributeDesc other)
+                {
+                    return other.GetHashCode() == GetHashCode();
+                }
+                return false;
+            }
+
+            public override int GetHashCode()
+            {
+                return HashCode.Combine(Binding, Location, Format, Offset);
             }
         }
     }

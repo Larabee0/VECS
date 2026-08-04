@@ -9,6 +9,11 @@ namespace VECS
 {
     public partial class GraphicsPipeline
     {
+        public GraphicsPipeline(string name, GraphicsPipelineDefinition definition) : this(name, definition.ToGraphicsPipelineConfigInfo(), definition.ShaderPrograms)
+        {
+            _definition = definition;
+        }
+
         public GraphicsPipeline(string name, GraphicsPipelineConfigInfo pipelineConfig, params string[] shaderPrograms)
         {
             AssetName = name;

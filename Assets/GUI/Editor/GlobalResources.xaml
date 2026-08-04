@@ -11,6 +11,12 @@
     <Setter Property="Width" Value="87"/>
     <Setter Property="FontSize" Value="13"/>
   </Style>
+  <Style x:Key="TextLabel" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+    <Setter Property="VerticalAlignment" Value="Center"/>
+    <Setter Property="HorizontalAlignment" Value="Center"/>
+    <Setter Property="FontFamily" Value="Consolas"/>
+    <Setter Property="FontSize" Value="14"/>
+  </Style>
   <Style x:Key="VectorLabel" TargetType="TextBlock">
     <Setter Property="VerticalAlignment" Value="Center"/>
     <Setter Property="HorizontalAlignment" Value="Center"/>

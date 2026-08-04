@@ -53,8 +53,8 @@ namespace VECS.UI
 
         public static readonly Dictionary<Type, Type> TypesToControl = new (){
             
-            {typeof(char), typeof(TextBlock)},
-            {typeof(string),typeof(TextBlock)},
+            {typeof(char), typeof(TextField)},
+            {typeof(string),typeof(TextField)},
 
             {typeof(sbyte), typeof(Vector1Field) },
             {typeof(byte), typeof(Vector1Field) },
@@ -69,7 +69,7 @@ namespace VECS.UI
             {typeof(double), typeof(Vector1Field)},
             {typeof(decimal), typeof(Vector1Field)},
 
-            {typeof(bool), typeof(CheckBox)},
+            {typeof(bool), typeof(Bool1Field)},
             {typeof(Bool3), typeof(Bool3Field)},
             {typeof(Bool4), typeof(Bool4Field)},
 
@@ -93,6 +93,9 @@ namespace VECS.UI
         };
 
         public readonly static HashSet<Type> BaseFieldTypesSet = [.. BaseFieldTypes];
+
+        public static object InspectorTargetObj = null;
+        public static Action InspectorTargetObjUpdated;
 
         public static FieldHierarhcy GetTypeFields(Type targetType)
         {
@@ -139,8 +142,6 @@ namespace VECS.UI
 
             hierarchy?.Add(main);
 
-            //Console.WriteLine(targetType.Name);
-        
             var fields = targetType.GetFields(BindingFlags.Public | BindingFlags.Instance);
             for(int i = 0; i < fields.Length; i++)
             {
@@ -192,56 +193,29 @@ namespace VECS.UI
                     FrameworkElement instance;
                     if (typeToBuild.FieldType.IsEnum)
                     {
-                        var dropDown = new DropDownField();
-                        var enumComponents = typeToBuild.FieldType.GetEnumNames();
-                        bool flagsEnum = typeToBuild.FieldType.GetCustomAttributes<FlagsAttribute>() != null;
-                        dropDown.IsFlagsEnum = flagsEnum;
-                        for (int j = 0; j < enumComponents.Length; j++)
-                        {
-                            dropDown.AddRadioButton(enumComponents[j], flagsEnum, enumComponents[j], j == 0);
-                        }
-                        instance = dropDown;
-                        List<FieldInfo> localBindingPath = [.. bindingPath];
-                        if (instance is IEditorField editorField)
-                        {
-                            editorField.LocalBindingPath = localBindingPath;
-                            WeakReference weakRef = new(editorField);
-                            
-                            ((IEditorField)weakRef.Target).ValueChanged += BindingFieldValueChanged;
-                        }
+                        instance = ConstructEnum(bindingPath, typeToBuild.FieldType);
                     }
                     else if (typeToBuild.FieldType.IsArray)
                     {
-                        var arrayTree = new TreeViewItem(){Header = typeToBuild.Name};
+                        var arrayExpander = new Expander(){Header = typeToBuild.Name};
                         Type array = typeToBuild.FieldType;
                         var elementType = array.GetElementType();
                         var arrayTypeFields = GetTypeFields(elementType);
                         
-                        var arrayTreeItem = ConstructTree(arrayTypeFields, null); ;
-                        _treeConstruction = true;
-                        arrayTree.Items.Add(arrayTreeItem);
-                        instance = arrayTree;
+                        var arrayStackPanel = new StackPanel();
+                        arrayExpander.Content = arrayStackPanel;
+                        instance = arrayExpander;
                         List<FieldInfo> localBindingPath = [.. bindingPath];
-                        if (instance is IEditorField editorField)
-                        {
-                            //editorField.ValueChanged += (s, e) => BindingFieldValueChanged(s, e, bindingPath);
-                        }
+                        arrayStackPanel.Tag = localBindingPath;
                     }
                     else
                     {
-                       instance = (FrameworkElement)Activator.CreateInstance(TypesToControl[typeToBuild.FieldType]);
-                        List<FieldInfo> localBindingPath = [.. bindingPath];
-                        if (instance is IEditorField editorField)
-                        {
-                            editorField.LocalBindingPath = localBindingPath;
-                            WeakReference weakRef = new(editorField);
-                            ((IEditorField)weakRef.Target).ValueChanged += BindingFieldValueChanged;
-                        }
+                        instance = ConstructBaseType(bindingPath, typeToBuild.FieldType);
                     }
                     instance.IsEnabled = readonlyAttribute;
                     instance.Tag = string.Format("{0}.{1}",typeToBuild.Name,typeToBuild.FieldType.Name);
                     childContainer.Children.Add(instance);
-                    NameFieldInstance(typeToBuild, instance);
+                    NameFieldInstance(typeToBuild.Name, instance);
                 }
                 else
                 {
@@ -253,6 +227,44 @@ namespace VECS.UI
             return expander;
         }
 
+        private static FrameworkElement ConstructEnum(List<FieldInfo> bindingPath, Type typeToBuild)
+        {
+            FrameworkElement instance;
+            var dropDown = new DropDownField();
+            var enumComponents = typeToBuild.GetEnumNames();
+            bool flagsEnum = typeToBuild.GetCustomAttributes<FlagsAttribute>() != null;
+            dropDown.IsFlagsEnum = flagsEnum;
+            for (int j = 0; j < enumComponents.Length; j++)
+            {
+                dropDown.AddRadioButton(enumComponents[j], flagsEnum, enumComponents[j], j == 0);
+            }
+            instance = dropDown;
+            List<FieldInfo> localBindingPath = [.. bindingPath];
+            if (instance is IEditorField editorField)
+            {
+                editorField.LocalBindingPath = localBindingPath;
+                WeakReference weakRef = new(editorField);
+
+                ((IEditorField)weakRef.Target).ValueChanged += BindingFieldValueChanged;
+            }
+
+            return instance;
+        }
+
+        private static FrameworkElement ConstructBaseType(List<FieldInfo> bindingPath, Type typeToBuild)
+        {
+            FrameworkElement instance = (FrameworkElement)Activator.CreateInstance(TypesToControl[typeToBuild]);
+            List<FieldInfo> localBindingPath = [.. bindingPath];
+            if (instance is IEditorField editorField)
+            {
+                editorField.LocalBindingPath = localBindingPath;
+                WeakReference weakRef = new(editorField);
+                ((IEditorField)weakRef.Target).ValueChanged += BindingFieldValueChanged;
+            }
+
+            return instance;
+        }
+
         private static void BindingFieldValueChanged(object s, RoutedEventArgs e)
         {
             if (s == null) return;
@@ -262,52 +274,99 @@ namespace VECS.UI
             // hover, vector3field._valueX does not update until keyboard focus lost
             if (bindingPath[0].ReflectedType.IsAssignableTo(typeof(IComponent)))
             {
-                // component type binding
-
                 var entityManager = World.DefaultWorld.EntityManager;
                 var targetEntity = entityManager.GetEntityFromId(SelectedEntity);
                 if (targetEntity == Entity.Null) return;
-                
+
                 var componentInstance = (IComponent)Activator.CreateInstance(bindingPath[0].ReflectedType);
                 componentInstance = entityManager.GetComponent(targetEntity, componentInstance.Id);
-                if(componentInstance == null)
+                if (componentInstance == null)
                 {
                     return;
                 }
-                object parent = componentInstance;
-                for (int i = 0; i < bindingPath.Count-1; i++)
-                {
-                    parent = bindingPath[i].GetValue(parent);
-                }
-                
-                object current = bindingPath[^1].GetValue(parent);
-                current = ((VECSEditorControl)s).TryParse(current);
-                bindingPath[^1].SetValue(parent, current);
 
-                for (int i = bindingPath.Count - 1; i >= 0; i--)
+                if (bindingPath[^1].FieldType.IsArray)
                 {
-                    object setter = componentInstance;
-                    for (int j = 0; j < i; j++)
-                    {
-                        setter = bindingPath[j].GetValue(setter);
-                    }
-                    bindingPath[i].SetValue(setter,current);
-                    current = setter;
+                    SetValueArray(s, bindingPath, componentInstance);
                 }
-
+                else
+                {
+                    SetValue(s, bindingPath, componentInstance);
+                }
                 entityManager.SetComponent(targetEntity, componentInstance);
+            }
+            else if (InspectorTargetObj != null)
+            {
+                if (bindingPath[^1].FieldType.IsArray)
+                {
+                    SetValueArray(s, bindingPath, InspectorTargetObj);
+                }
+                else
+                {
+                    SetValue(s,bindingPath, InspectorTargetObj);
+                }
+                InspectorTargetObjUpdated?.Invoke();
             }
         }
 
-        private static void NameFieldInstance(FieldInfo typeToBuild, UIElement instance)
+        private static void SetValue(object s, List<FieldInfo> bindingPath, object instance)
+        {
+            object parent = instance;
+            for (int i = 0; i < bindingPath.Count - 1; i++)
+            {
+                parent = bindingPath[i].GetValue(parent);
+            }
+
+            object current = bindingPath[^1].GetValue(parent);
+            current = ((VECSEditorControl)s).TryParse(current);
+            bindingPath[^1].SetValue(parent, current);
+
+            for (int i = bindingPath.Count - 1; i >= 0; i--)
+            {
+                object setter = instance;
+                for (int j = 0; j < i; j++)
+                {
+                    setter = bindingPath[j].GetValue(setter);
+                }
+                bindingPath[i].SetValue(setter, current);
+                current = setter;
+            }
+        }
+
+        private static void SetValueArray(object s, List<FieldInfo> bindingPath, object instance)
+        {
+            var index = (int)((VECSEditorControl)s).Tag;
+            var elementType = bindingPath[^1].FieldType.GetElementType();
+
+            FieldHierarhcy elementHierarchy = null;
+            if (!BaseFieldTypesSet.Contains(elementType) && !elementType.IsEnum)
+            {
+                elementHierarchy = GetTypeFields(elementType);
+                throw new NotImplementedException();
+            }
+
+            object parent = instance;
+
+            for (int i = 0; i < bindingPath.Count; i++)
+            {
+                parent = bindingPath[i].GetValue(parent);
+            }
+            if (elementHierarchy == null)
+            {
+                var array = (Array)parent;
+                var current = array.GetValue(index);
+
+                current = ((VECSEditorControl)s).TryParse(current);
+
+                array.SetValue(current, index);
+            }
+        }
+
+        private static void NameFieldInstance(string name, UIElement instance)
         {
             if (instance is IEditorField customEditorField)
             {
-                customEditorField.Label = typeToBuild.Name;
-            }
-            else if (instance is CheckBox checkBox)
-            {
-                checkBox.Content = typeToBuild.Name;
+                customEditorField.Label = name;
             }
         }
 
@@ -325,21 +384,34 @@ namespace VECS.UI
         {
             IComponent component = entityManager.GetComponent(entity, componentId);
 
+            UpdateValues(component, tree, hierarhcy);
+        }
+
+        public static void UpdateValues(object valueSrc, Expander expander)
+        {
+            var type = valueSrc.GetType();
+
+            UpdateValues(valueSrc, expander, GetTypeFields(type));
+        }
+
+        public static void UpdateValues(object valueSrc, Expander tree, FieldHierarhcy hierarhcy)
+        {
             for (int i = 0; i < hierarhcy.Order.Count; i++)
             {
                 var orderIndices = hierarhcy.Order[i];
 
                 if (orderIndices.X == 0)
                 {
-                    UpdateValues((FrameworkElement)((StackPanel)tree.Content).Children[i], hierarhcy.Types[orderIndices.Y].GetValue(component));
+                    UpdateValues((FrameworkElement)((StackPanel)tree.Content).Children[i], hierarhcy.Types[orderIndices.Y].GetValue(valueSrc));
                 }
                 else
                 {
                     var child = hierarhcy.Children[orderIndices.Y];
-                    UpdateValues(child, (Expander)((StackPanel)tree.Content).Children[i], child.TargetSrc.GetValue(component));
+                    UpdateValues(child, (Expander)((StackPanel)tree.Content).Children[i], child.TargetSrc.GetValue(valueSrc));
                 }
             }
         }
+
 
         private static void UpdateValues(FieldHierarhcy hierarhcy, Expander node, object instance)
         {
@@ -362,13 +434,14 @@ namespace VECS.UI
 
         private static void UpdateValues(FrameworkElement frameworkElement, object v)
         {
-            if(!TypesToControl.TryGetValue(v.GetType(), out var controlType) && !v.GetType().IsEnum)
+            Type vType = v.GetType();
+            if (!TypesToControl.TryGetValue(vType, out var controlType) && !vType.IsEnum && !vType.IsArray)
             {
-                Console.WriteLine("Invalid Control type {0} for frameworkElement {1}",v.GetType().Name,frameworkElement.GetType().Name);
+                Console.WriteLine("Invalid Control type {0} for frameworkElement {1}",vType.Name,frameworkElement.GetType().Name);
                 return;
             }
 
-            if(frameworkElement.GetType() != controlType && !v.GetType().IsEnum)
+            if(frameworkElement.GetType() != controlType && !vType.IsEnum && !vType.IsArray)
             {
                 Console.WriteLine("Unexpected framework element type  {0} for control type {1}",frameworkElement.GetType().Name,controlType.Name);
                 return;
@@ -376,11 +449,79 @@ namespace VECS.UI
             if(frameworkElement is IEditorField editorField)
             {
                 editorField.SetValue(v);
-                //Console.WriteLine("Set {0} to {1}",controlType.Name, v);
+            }
+
+            else if (vType.IsArray)
+            {
+                var arrayExpander = (Expander)frameworkElement;
+                var arrayStackPanel = (StackPanel)arrayExpander.Content;
+                var childCount = arrayStackPanel.Children.Count;
+                var localBindingPath = (List<FieldInfo>)arrayStackPanel.Tag;
+                var elementType = vType.GetElementType();
+                FieldHierarhcy elementHierarchy = null;
+                if (!BaseFieldTypesSet.Contains(elementType) && !elementType.IsEnum)
+                {
+                    elementHierarchy = GetTypeFields(elementType);
+                }
+
+                var array = (Array)v;
+                if(array.Length != childCount - 1)
+                {
+                    arrayStackPanel.Children.Clear();
+                    var countDisplay = new TextField
+                    {
+                        Label = "Count",
+                        ValueX = array.Length.ToString(),
+                        IsEnabled = false
+                    };
+                    arrayStackPanel.Children.Add(countDisplay);
+                    for (int i = 0; i < array.Length; i++)
+                    {
+                        if (elementHierarchy != null)
+                        {
+                            var expander = ConstructTree(elementHierarchy, null);
+                            expander.Tag = i;
+                            expander.IsExpanded = false;
+                            arrayStackPanel.Children.Add(expander);
+                            NameFieldInstance(i.ToString(), expander);
+                        }
+                        else
+                        {
+                            FrameworkElement element;
+                            if (elementType.IsEnum)
+                            {
+                                element = ConstructEnum(localBindingPath, elementType);
+                            }
+                            else
+                            {
+                                element = ConstructBaseType(localBindingPath, elementType);
+                            }
+                            element.Tag = i;
+                            arrayStackPanel.Children.Add(element);
+                            NameFieldInstance(i.ToString(), element);
+                        }
+                    }
+                }
+
+                for (int i = 0; i < array.Length; i++)
+                {
+                    var value = array.GetValue(i);
+                    if (elementHierarchy != null)
+                    {
+                        var child = (Expander)arrayStackPanel.Children[i + 1];
+                        child.Header = value.ToString();
+                        UpdateValues(elementHierarchy, child, value);
+                    }
+                    else if (elementHierarchy == null)
+                    {
+                        UpdateValues((FrameworkElement)arrayStackPanel.Children[i + 1], value);
+                    }
+                }
             }
             else
             {
-                Console.WriteLine("Valid control element type does not implement IEditorField");
+                Console.WriteLine("Valid control element type '{0}' does not implement IEditorField", frameworkElement.GetType().Name);
+                
             }
             // set value somehow
         }

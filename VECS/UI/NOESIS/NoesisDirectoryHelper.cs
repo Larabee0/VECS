@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using Path = System.IO.Path;
 
 namespace VECS.UI
@@ -12,6 +13,7 @@ namespace VECS.UI
     {
         public static StackPanel DirectoryPath;
         public static StackPanel DirectoryStackPanel;
+        public static StackPanel InspectorStackPanel;
 
         private static TextureSource _folderIcon;
         private static TextureSource _imageIcon;
@@ -279,11 +281,14 @@ namespace VECS.UI
                 ((ButtonWithImage)weak.Target).OnDoubleClick += DirectoryDoubleClick;
             }
 
+            
+
             for (int i = 0; i < files.Length; i++)
             {
                 var lineItem = new ButtonWithImage
                 {
-                    Label = Path.GetFileNameWithoutExtension(files[i].Name)
+                    Label = Path.GetFileNameWithoutExtension(files[i].Name),
+                    Tag = files[i].FullName
                 };
 
                 var type = AssetManager.GetTypeFromExtension(files[i].Name);
@@ -313,15 +318,92 @@ namespace VECS.UI
                 }
 
                 DirectoryStackPanel.Children.Add(lineItem);
+                WeakReference weak = new(lineItem);
+                ((ButtonWithImage)weak.Target).MouseLeftButtonDown += LineItemSelect;
+                ((ButtonWithImage)weak.Target).MouseRightButtonDown += LineItemSelect;
             }
         }
 
-        private static void DirectoryDoubleClick(object arg1, MouseButtonEventArgs args)
+        private static void DirectoryDoubleClick(object sender, MouseButtonEventArgs args)
         {
-            if (arg1 == null) return;
-            string path = (string)((ButtonWithImage)arg1).Tag;
+            if (sender == null) return;
+            string path = (string)((ButtonWithImage)sender).Tag;
             SelectInternal(path);
         }
 
+        private static void LineItemSelect(object sender, MouseButtonEventArgs args)
+        {
+            if (sender == null) return;
+            string path = (string)((ButtonWithImage)sender).Tag;
+            PaintInspector(path);
+        }
+
+        private static string _selectedPath = string.Empty;
+        
+        private static void PaintInspector(string path)
+        {
+            if (!File.Exists(path)) return;
+            _selectedPath = path;
+            var extension = Path.GetExtension(path);
+            InspectorStackPanel.Children.Clear();
+            if (extension == ".sp")
+            {
+
+                GraphicsPipelineDefinition graphicsDefinition = null;
+
+                var loadShader = Task.Run(() =>
+                {
+                    graphicsDefinition = GraphicsPipelineDefinition.LoadDefinitionFromFile(path);
+                });
+
+                var fieldHierarchy = NoesisInspectorHelper.GetTypeFields(typeof(GraphicsPipelineDefinition));
+                var expander = NoesisInspectorHelper.ConstructTree(fieldHierarchy, null);
+
+                var item = new Expander()
+                {
+                    Header = Path.GetFileName(path),
+                    IsExpanded = true
+                };
+                StackPanel children = new();
+                item.Content = children;
+                InspectorStackPanel.Children.Add(item);
+
+                children.Children.Add(expander);
+                loadShader.Wait();
+                NoesisInspectorHelper.InspectorTargetObj = graphicsDefinition;
+                NoesisInspectorHelper.UpdateValues(graphicsDefinition, expander,fieldHierarchy);
+                NoesisInspectorHelper.InspectorTargetObjUpdated += OnInspector;
+                
+            }
+        }
+
+        private static void OnInspector()
+        {
+            var target = NoesisInspectorHelper.InspectorTargetObj;
+
+            var extension = Path.GetExtension(_selectedPath);
+            if(extension == ".sp" && target is GraphicsPipelineDefinition graphicsDefinition)
+            {
+                graphicsDefinition.Save(_selectedPath);
+
+                var pipelineName = Path.GetFileName(_selectedPath);
+
+                var pipeline = AssetDataBase<GraphicsPipeline>.GetNamedSilentFail(pipelineName);
+                if(pipeline != null && pipeline.Definition != null)
+                {
+                    if (pipeline.Definition.ShameShadersDifferentSettings(graphicsDefinition))
+                    {
+                        pipeline.SetDefinition(graphicsDefinition);
+                        PipelineRecreation.EnqueueForRecreation(pipeline);
+                    }
+                    else if(!pipeline.Definition.SameShaderPrograms(graphicsDefinition))
+                    {
+                        pipeline.SetDefinition(graphicsDefinition);
+                        PipelineRecreation.EnqueueShaderChanged(pipeline);
+                    }
+                }
+
+            }
+        }
     }
 }
