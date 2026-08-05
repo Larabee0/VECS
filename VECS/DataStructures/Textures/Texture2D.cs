@@ -318,7 +318,7 @@ namespace VECS
 
         public Texture2D(TextureMetaFile metaFile, VkImageUsageFlags usage)
         {
-            _metaFile = metaFile;
+            MetaFile = metaFile;
             AssetName = Path.GetFileNameWithoutExtension(metaFile.SrcFileName);
             _imageExtent = new(metaFile.KtxFiles[0].header.PixelWidth, metaFile.KtxFiles[0].header.PixelHeight, 1);
             _imageImageViewType = VkImageViewType.Image2D;
@@ -360,11 +360,11 @@ namespace VECS
 
         public unsafe override void Reload()
         {
-            if (_metaFile == null) return;
+            if (TextureMetaFile == null) return;
             
-            var metaFile = _metaFile;
+            var metaFile = TextureMetaFile;
             
-            var ktxFile = _metaFile.KtxFiles[0];
+            var ktxFile = TextureMetaFile.KtxFiles[0];
             _imageExtent.width = ktxFile.header.PixelWidth;
             _imageExtent.height = ktxFile.header.PixelHeight;
             _imageFormat = metaFile.LoadedFormat;

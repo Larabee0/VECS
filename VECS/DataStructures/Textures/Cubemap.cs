@@ -47,7 +47,7 @@ namespace VECS
 
         public Cubemap(TextureMetaFile metaFile)
         {
-            _metaFile = metaFile;
+            MetaFile = metaFile;
             AssetName = Path.GetFileNameWithoutExtension(metaFile.SrcFileName);
             _imageFormat = metaFile.LoadedFormat;
             _imageExtent = new(metaFile.Width, metaFile.Width, 1);
@@ -129,9 +129,9 @@ namespace VECS
 
         public unsafe override void Reload()
         {
-            if (_metaFile == null) return;
+            if (TextureMetaFile == null) return;
 
-            var metaFile = _metaFile;
+            var metaFile = TextureMetaFile;
 
             Debug.Assert(metaFile.KtxFiles[0].header.PixelWidth == metaFile.KtxFiles[0].header.PixelHeight);
             _imageExtent.width = metaFile.KtxFiles[0].header.PixelWidth;

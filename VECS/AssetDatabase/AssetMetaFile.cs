@@ -1,12 +1,19 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 
 namespace VECS
 {
+    public static class AssetMetaFileDataBase
+    {
+        public static ConcurrentDictionary<Guid, AssetMetaFile> MetaFileDataBase = [];
+    }
+
     public class AssetMetaFile
     {
+
         public Guid GUID { get; set; }
         public string Type { get; set; }
         public uint Version { get; set; }
@@ -50,6 +57,26 @@ namespace VECS
                 metaFile.IsAssignableFrom(item);
                 MetaFileTypes.Add(item.FullName, item);
             }
+        }
+
+        public static T TryLoad<T>(string path) where T : AssetMetaFile
+        {
+            
+            if (Path.HasExtension(".meta"))
+            {
+                path = string.Format("{0}.meta",path);
+            }
+
+            if (!File.Exists(path))
+            {
+                return null;
+            }
+            
+            var metaFile = LoadMetaFileAsDeclaredType(path);
+
+            AssetMetaFileDataBase.MetaFileDataBase.AddOrUpdate(metaFile.GUID,metaFile,(key, old) => metaFile);
+
+            return (T)metaFile;
         }
 
         public static AssetMetaFile LoadMetaFileAsDeclaredType(string path)

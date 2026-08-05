@@ -37,6 +37,9 @@ namespace VECS
         public string FileName;
         public bool Generated;
 
+        public AssetMetaFile MetaFile;
+
+
         public override string ToString()
         {
             return AssetName;
@@ -49,7 +52,8 @@ namespace VECS
                 return _hash;
             }
             _cachedHash = true;
-            _hash = AssetName.GetHashCode();
+            _hash = ShaderProperties.Hash(AssetName);
+            
             return GetHashCode();
         }
         

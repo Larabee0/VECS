@@ -2,15 +2,21 @@
 using System.IO;
 using System.Numerics;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Vortice.Vulkan;
 
 namespace VECS
 {
     public class GraphicsPipelineDefinition
     {
+        [JsonIgnore]
+        public ShaderModule[] ShaderModules;
+        [JsonIgnore]
+
         [HideInInspector]
         public bool Hidden;
-        public string[] ShaderPrograms;
+        public Guid[] ShaderPrograms;
+        
 
         public VkFormat[] ColourFormats;
 
@@ -249,11 +255,35 @@ namespace VECS
             string defintionRawJson = File.ReadAllText(defintionPath);
 
             var definition = JsonSerializer.Deserialize<GraphicsPipelineDefinition>(defintionRawJson, JsonHelper.IncludeFields);
+
+
+            
+            definition.ShaderModules = new ShaderModule[definition.ShaderPrograms.Length];
+            for (int i = 0; i < definition.ShaderPrograms.Length; i++)
+            {
+                if(AssetMetaFileDataBase.MetaFileDataBase.TryGetValue(definition.ShaderPrograms[i], out var metaFile) && metaFile is ShaderModuleMetaFile shaderModuleMeta)
+                {
+                    if(shaderModuleMeta.TargetInstance != null)
+                    {
+                       definition.ShaderModules[i] = shaderModuleMeta.TargetInstance; 
+                    }
+                }
+            }
+            
+
+
             return definition;
         }
 
         public void Save(string selectedPath)
         {
+            ShaderPrograms = new Guid[ShaderModules.Length];
+            for (int i = 0; i < ShaderModules.Length; i++)
+            {
+                ShaderPrograms[i] = ShaderModules[i].MetaFile.GUID;
+            }
+
+
             var json = JsonSerializer.Serialize(this, JsonHelper.IncludeFields);
 
             File.WriteAllText(selectedPath, json);

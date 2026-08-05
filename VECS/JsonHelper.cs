@@ -11,7 +11,7 @@ namespace VECS
     {
         public static readonly JsonSerializerOptions IncludeFields = new()
         {
-            IncludeFields = true
+            IncludeFields = true,
         };
     }
 }

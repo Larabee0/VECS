@@ -9,22 +9,20 @@ namespace VECS
 {
     public partial class GraphicsPipeline
     {
-        public GraphicsPipeline(string name, GraphicsPipelineDefinition definition) : this(name, definition.ToGraphicsPipelineConfigInfo(), definition.ShaderPrograms)
+        public GraphicsPipeline(string name, GraphicsPipelineDefinition definition) : this(name, definition.ToGraphicsPipelineConfigInfo(), definition.ShaderModules)
         {
             _definition = definition;
         }
 
-        public GraphicsPipeline(string name, GraphicsPipelineConfigInfo pipelineConfig, params string[] shaderPrograms)
+        public GraphicsPipeline(string name, GraphicsPipelineConfigInfo pipelineConfig, params ShaderModule[] shaderModules)
         {
             AssetName = name;
-            ShaderModule[] shaderModules = new ShaderModule[shaderPrograms.Length];
             HashSet<VkShaderStageFlags> vkShaderStages = [];
-            for (int i = 0; i < shaderPrograms.Length; i++)
+            for (int i = 0; i < shaderModules.Length; i++)
             {
-                shaderModules[i] = AssetDataBase<ShaderModule>.GetNamed(shaderPrograms[i]);
                 if(vkShaderStages.Contains(shaderModules[i].VkShaderStage))
                 {
-                    throw new ArgumentException(string.Format("More than one shader program has the same stage as another! Duplicate Stage {0}, Excepted on {1}", shaderModules[i].VkShaderStage, shaderPrograms[i]), nameof(shaderPrograms));
+                    throw new ArgumentException(string.Format("More than one shader program has the same stage as another! Duplicate Stage {0}, Excepted on {1}", shaderModules[i].VkShaderStage, shaderModules[i]), nameof(shaderModules));
                 }
 
                 vkShaderStages.Add(shaderModules[i].VkShaderStage);
@@ -34,11 +32,11 @@ namespace VECS
 
             if (vkShaderStages.Count == 0)
             {
-                throw new ArgumentException("No shader programs found/provided", nameof(shaderPrograms));
+                throw new ArgumentException("No shader programs found/provided", nameof(shaderModules));
             }
             else if(vkShaderStages.Count == 1 && !vkShaderStages.Contains(VkShaderStageFlags.Vertex))
             {
-                throw new ArgumentException(string.Format("Only Vertex (.vert) shader programs can make pipelines of one shader stage, {0} is invalid", shaderModules[0].VkShaderStage), nameof(shaderPrograms));
+                throw new ArgumentException(string.Format("Only Vertex (.vert) shader programs can make pipelines of one shader stage, {0} is invalid", shaderModules[0].VkShaderStage), nameof(shaderModules));
             }
             else if(vkShaderStages.Count == 2)
             {
@@ -56,7 +54,7 @@ namespace VECS
                 }
                 else
                 {
-                    throw new ArgumentException(string.Format("Invalid Shader stage combination {0} {1}", shaderModules[0].VkShaderStage, shaderModules[1].VkShaderStage), nameof(shaderPrograms));
+                    throw new ArgumentException(string.Format("Invalid Shader stage combination {0} {1}", shaderModules[0].VkShaderStage, shaderModules[1].VkShaderStage), nameof(shaderModules));
                 }
             }
             else if(vkShaderStages.Count == 3)
@@ -71,7 +69,7 @@ namespace VECS
                 }
                 else
                 {
-                    throw new ArgumentException(string.Format("Invalid Shader stage combination {0} {1} {2}", shaderModules[0].VkShaderStage, shaderModules[1].VkShaderStage, shaderModules[2].VkShaderStage), nameof(shaderPrograms));
+                    throw new ArgumentException(string.Format("Invalid Shader stage combination {0} {1} {2}", shaderModules[0].VkShaderStage, shaderModules[1].VkShaderStage, shaderModules[2].VkShaderStage), nameof(shaderModules));
                 }
             }
 
@@ -142,7 +140,7 @@ namespace VECS
 
         public static GraphicsPipeline VertexFragmentPipeline(string name, string vertexShaderName, string fragmentShaderName, GraphicsPipelineConfigInfo pipelineConfig)
         {
-            return new(name, pipelineConfig, vertexShaderName, fragmentShaderName);
+            return new(name, pipelineConfig, AssetDataBase<ShaderModule>.GetNamed(vertexShaderName), AssetDataBase<ShaderModule>.GetNamed(fragmentShaderName));
             /*
             AssetName = name;
 
@@ -181,7 +179,7 @@ namespace VECS
 
         internal static GraphicsPipeline VertexPipeline(string name, string vertexShaderName, GraphicsPipelineConfigInfo pipelineConfig)
         {
-            return new(name, pipelineConfig, vertexShaderName);
+            return new(name, pipelineConfig, AssetDataBase<ShaderModule>.GetNamed(vertexShaderName));
             /*
             AssetName = name;
 
@@ -216,7 +214,7 @@ namespace VECS
 
         internal static GraphicsPipeline MeshTaskFragmentPipeline(string name, string meshShaderName, string taskShaderName, string fragmentShaderName, GraphicsPipelineConfigInfo pipelineConfig)
         {
-            return new(name, pipelineConfig, meshShaderName, taskShaderName, fragmentShaderName);
+            return new(name, pipelineConfig, AssetDataBase<ShaderModule>.GetNamed(meshShaderName), AssetDataBase<ShaderModule>.GetNamed(taskShaderName), AssetDataBase<ShaderModule>.GetNamed(fragmentShaderName));
             /*
             AssetName = name;
 
@@ -271,7 +269,7 @@ namespace VECS
 
         internal static GraphicsPipeline VertexGeometryFragmentPipeline(string name, string vertexShaderName, string fragmentShaderName, GraphicsPipelineConfigInfo pipelineConfig, string geometryShaderName)
         {
-            return new(name, pipelineConfig, vertexShaderName, geometryShaderName, fragmentShaderName);
+            return new(name, pipelineConfig, AssetDataBase<ShaderModule>.GetNamed(vertexShaderName), AssetDataBase<ShaderModule>.GetNamed(geometryShaderName), AssetDataBase<ShaderModule>.GetNamed(fragmentShaderName));
             /*
             AssetName = name;
 

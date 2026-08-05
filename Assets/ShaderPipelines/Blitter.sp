@@ -1,8 +1,8 @@
 {
 	"Hidden" : true,
 	"ShaderPrograms" :[
-		"fullscreen.vert",
-		"blit.frag"
+		"aa2ad9b5-c0e1-45ff-874c-5f539e82a399",
+		"4d66b48c-0ea9-4e34-88c0-383f046d2453"
 	],
 	"ColourFormats" : [109],
 	"ColourWriteMask" : 15,

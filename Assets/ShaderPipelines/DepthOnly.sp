@@ -1,7 +1,7 @@
 {
 	"Hidden" : true,
 	"ShaderPrograms" :[
-	"depth_only.vert"
+	"e61b61c3-a290-4a71-b598-3bc3fe458f75"
 	],
 	"ColourFormats": [],
 	"DepthFormat" : 124,

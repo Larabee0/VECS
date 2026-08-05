@@ -71,7 +71,7 @@ namespace VECS
 
         public Texture2DArray(string name, TextureMetaFile metaFile)
         {
-            _metaFile = metaFile;
+            MetaFile = metaFile;
             AssetName = name;
 
             _imageExtent = new(metaFile.Width, metaFile.Height, metaFile.KtxFiles.Length);
@@ -190,9 +190,9 @@ namespace VECS
 
         public unsafe override void Reload()
         {
-            if (_metaFile == null) return;
+            if (TextureMetaFile == null) return;
 
-            var metaFile = _metaFile;
+            var metaFile = TextureMetaFile;
 
             _imageFormat = metaFile.LoadedFormat;
             
@@ -244,7 +244,7 @@ namespace VECS
             Reinitialise();
             this.CopyFromBuffer(gpuBuffer, copyCmds, true);
 
-            _metaFile.KtxFiles = null;
+            TextureMetaFile.KtxFiles = null;
         }
 
         public override void Dispose()

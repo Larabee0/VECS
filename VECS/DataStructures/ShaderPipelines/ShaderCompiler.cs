@@ -113,7 +113,25 @@ namespace VECS
 
                     if (existingModule == null)
                     {
-                        return new ShaderModule(fileName, compileResult.Bytecode);
+                        ShaderModuleMetaFile metaFile;
+                        
+                        if (AssetMetaFile.MetaFileExists(filePath))
+                        {
+                            metaFile = AssetMetaFile.TryLoad<ShaderModuleMetaFile>(filePath);
+                        }
+                        else
+                        {
+                            metaFile = new(filePath,null);
+                            metaFile.SaveMetaFile();
+                        }
+                        
+                        ShaderModule  module = new(fileName, compileResult.Bytecode)
+                        {
+                            MetaFile = metaFile
+                        };
+                        
+                        metaFile.TargetInstance = module;
+                        return module;
                     }
                     else
                     {
