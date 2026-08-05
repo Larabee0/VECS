@@ -16,6 +16,8 @@ namespace VECS
         [JsonIgnore]
         public ShaderModule TargetInstance;
 
+        public ShaderModuleMetaFile() { }
+
         public ShaderModuleMetaFile(string srcFile, ShaderModule targetInstance)
         {
             GUID = Guid.NewGuid();
