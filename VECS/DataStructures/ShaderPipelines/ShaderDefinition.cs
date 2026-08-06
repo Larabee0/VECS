@@ -15,6 +15,7 @@ namespace VECS
 
         [HideInInspector]
         public bool Hidden;
+        [HideInInspector]
         public Guid[] ShaderPrograms;
         
 

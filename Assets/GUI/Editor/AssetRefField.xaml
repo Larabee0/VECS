@@ -1,0 +1,36 @@
+<UserControl
+  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+  xmlns:noesis="clr-namespace:NoesisGUIExtensions"
+  mc:Ignorable="d"
+  x:Class="VECS.UI.AssetRefField"
+  x:Name="AssetRefFieldControl" Width="580"
+  Height="50" MinWidth="580" Background="#004D5052">
+  <UserControl.Resources>
+    <ResourceDictionary Source="./EditorTheme.xaml"/>
+  </UserControl.Resources>
+  <Grid Height="50">
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition/>
+    </Grid.ColumnDefinitions>
+    <Rectangle Grid.ColumnSpan="1" Fill="#FF262E35" Stroke="#FF000000"/>
+    <Grid Margin="4,4,4,4" ColumnSpan="1">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="245"/>
+        <ColumnDefinition Width="280"/>
+        <ColumnDefinition Width="50"/>
+      </Grid.ColumnDefinitions>
+      <TextBlock x:Name="Label" Text="{Binding Path=Label, ElementName=AssetRefFieldControl}" HorizontalAlignment="Left" Foreground="#FFFFFFFF" Style="{DynamicResource VectorLabel}"/>
+      <TextBlock x:Name="AssetName" Text="{Binding Path=AssetName, ElementName=AssetRefFieldControl, FallbackValue=None}" Width="280" Grid.Column="1" Padding="5,10,5,10" Background="#FF11161B" TextWrapping="Wrap" Style="{DynamicResource VectorLabel}"/>
+      <Button x:Name="ChangeAssetButton" Width="40" Height="40" Grid.Column="2" Padding="0,0,0,0" Click="ChangeAssetClick">
+        <Path Stretch="Uniform" Width="30" Height="30" Fill="#FFF4F4F5" Stroke="#FF262E35" StrokeThickness="5" StrokeLineJoin="Bevel" StrokeMiterLimit="15" StrokeStartLineCap="Triangle" StrokeEndLineCap="Round" StrokeDashCap="Triangle">
+          <Path.Data>
+            <EllipseGeometry RadiusY="15" Center="15,15" RadiusX="15"/>
+          </Path.Data>
+        </Path>
+      </Button>
+    </Grid>
+  </Grid>
+</UserControl>

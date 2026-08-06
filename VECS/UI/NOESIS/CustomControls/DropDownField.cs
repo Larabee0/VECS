@@ -14,6 +14,8 @@ namespace VECS.UI
             set { SetValue(_label, value); }
         }
 
+        private bool _hasValueEverBeenSet;
+
         public TreeViewItem RadioContainer => (TreeViewItem)FindName("RadioContainer");
 
         public bool IsFlagsEnum { get; set; }
@@ -72,10 +74,12 @@ namespace VECS.UI
                 ((RadioButton)items[index]).IsChecked = true;
             }
             _internalSet = false;
+            _hasValueEverBeenSet = true;
         }
 
         public override object TryParse(object currentValue)
         {
+            if (!_hasValueEverBeenSet) return currentValue;
             var type = currentValue.GetType();
             
             if (!type.IsEnum) return currentValue;
@@ -107,7 +111,8 @@ namespace VECS.UI
                         return values.GetValue(i);
                     }
                 }
-                return values.GetValue(0);
+                SetValue(currentValue);
+                return currentValue;
             }
         }
     }

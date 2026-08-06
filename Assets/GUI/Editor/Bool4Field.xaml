@@ -32,10 +32,10 @@
       <TextBlock Text="Y" Grid.Column="3" TextWrapping="Wrap" Style="{DynamicResource VectorLabel}"/>
       <TextBlock Text="Z" Grid.Column="5" TextWrapping="Wrap" Style="{DynamicResource VectorLabel}"/>
       <TextBlock Text="W" Grid.Column="7" TextWrapping="Wrap" Style="{DynamicResource VectorLabel}"/>
-      <CheckBox x:Name="XComp" Text="{Binding ValueX, ElementName=Bool4FieldControl}" Margin="2,0,2,0" Grid.Column="2"/>
-      <CheckBox x:Name="YComp" Text="{Binding ValueY, ElementName=Bool4FieldControl}" Margin="2,0,2,0" Grid.Column="4" TextWrapping="Wrap"/>
-      <CheckBox x:Name="ZComp" Text="{Binding ValueZ, ElementName=Bool4FieldControl}" Margin="2,0,2,0" Grid.Column="6" TextWrapping="Wrap"/>
-      <CheckBox x:Name="WComp" Text="{Binding ValueW, ElementName=Bool4FieldControl}" Margin="2,0,2,0" Grid.Column="8" TextWrapping="Wrap"/>
+      <CheckBox x:Name="XComp" IsChecked="{Binding ValueX, ElementName=Bool4FieldControl}" Margin="2,0,2,0" Grid.Column="2"/>
+      <CheckBox x:Name="YComp" IsChecked="{Binding ValueY, ElementName=Bool4FieldControl}" Margin="2,0,2,0" Grid.Column="4" TextWrapping="Wrap"/>
+      <CheckBox x:Name="ZComp" IsChecked="{Binding ValueZ, ElementName=Bool4FieldControl}" Margin="2,0,2,0" Grid.Column="6" TextWrapping="Wrap"/>
+      <CheckBox x:Name="WComp" IsChecked="{Binding ValueW, ElementName=Bool4FieldControl}" Margin="2,0,2,0" Grid.Column="8" TextWrapping="Wrap"/>
     </Grid>
   </Grid>
 </UserControl>

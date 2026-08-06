@@ -1,4 +1,3 @@
-//using Noesis;
 using System;
 using System.Numerics;
 using System.Reflection;
@@ -149,7 +148,7 @@ namespace VECS.UI
                 //Console.WriteLine("{0}.{1}",fields[i].Name,fields[i].FieldType.Name);
                 var fieldType = fields[i].FieldType;
                 
-                if (!BaseFieldTypesSet.Contains(fieldType) && !fieldType.IsEnum && !fieldType.IsArray)
+                if (!BaseFieldTypesSet.Contains(fieldType) && !fieldType.IsEnum && !fieldType.IsArray && fieldType.IsSubclassOf(typeof(Asset)))
                 {
                     main.Order.Add(new(1, main.Children.Count));
                     GetTypeFields(fieldType, fields[i],main.Children);
@@ -195,13 +194,13 @@ namespace VECS.UI
                     {
                         instance = ConstructEnum(bindingPath, typeToBuild.FieldType);
                     }
+                    else if (typeToBuild.FieldType.IsSubclassOf(typeof(Asset)))
+                    {
+                        instance = ConstructAssetRef(bindingPath, typeToBuild.FieldType);
+                    }
                     else if (typeToBuild.FieldType.IsArray)
                     {
                         var arrayExpander = new Expander(){Header = typeToBuild.Name};
-                        Type array = typeToBuild.FieldType;
-                        var elementType = array.GetElementType();
-                        var arrayTypeFields = GetTypeFields(elementType);
-                        
                         var arrayStackPanel = new StackPanel();
                         arrayExpander.Content = arrayStackPanel;
                         instance = arrayExpander;
@@ -227,12 +226,31 @@ namespace VECS.UI
             return expander;
         }
 
+        private static FrameworkElement ConstructAssetRef(List<FieldInfo> bindingPath, Type typeToBuild)
+        {
+            FrameworkElement instance;
+            var assetRef = new AssetRefField();
+            assetRef.SetAssetType(typeToBuild);
+
+            instance = assetRef;
+            List<FieldInfo> localBindingPath = [.. bindingPath];
+            if (instance is IEditorField editorField)
+            {
+                editorField.LocalBindingPath = localBindingPath;
+                WeakReference weakRef = new(editorField);
+
+                ((IEditorField)weakRef.Target).ValueChanged += BindingFieldValueChanged;
+            }
+            return instance;
+        }
+
         private static FrameworkElement ConstructEnum(List<FieldInfo> bindingPath, Type typeToBuild)
         {
             FrameworkElement instance;
             var dropDown = new DropDownField();
             var enumComponents = typeToBuild.GetEnumNames();
-            bool flagsEnum = typeToBuild.GetCustomAttributes<FlagsAttribute>() != null;
+            FlagsAttribute[] customAttributes = [.. typeToBuild.GetCustomAttributes<FlagsAttribute>()];
+            bool flagsEnum = customAttributes != null && customAttributes.Length > 0;
             dropDown.IsFlagsEnum = flagsEnum;
             for (int j = 0; j < enumComponents.Length; j++)
             {
@@ -285,19 +303,19 @@ namespace VECS.UI
                     return;
                 }
 
-                if (bindingPath[^1].FieldType.IsArray)
+                if (bindingPath.Any(e => e.FieldType.IsArray))
                 {
                     SetValueArray(s, bindingPath, componentInstance);
                 }
                 else
                 {
-                    SetValue(s, bindingPath, componentInstance);
+                    componentInstance = (IComponent)SetValue(s, bindingPath, componentInstance);
                 }
                 entityManager.SetComponent(targetEntity, componentInstance);
             }
             else if (InspectorTargetObj != null)
             {
-                if (bindingPath[^1].FieldType.IsArray)
+                if (bindingPath.Any(e => e.FieldType.IsArray))
                 {
                     SetValueArray(s, bindingPath, InspectorTargetObj);
                 }
@@ -309,7 +327,7 @@ namespace VECS.UI
             }
         }
 
-        private static void SetValue(object s, List<FieldInfo> bindingPath, object instance)
+        private static object SetValue(object s, List<FieldInfo> bindingPath, object instance)
         {
             object parent = instance;
             for (int i = 0; i < bindingPath.Count - 1; i++)
@@ -331,35 +349,82 @@ namespace VECS.UI
                 bindingPath[i].SetValue(setter, current);
                 current = setter;
             }
+            return current;
         }
 
-        private static void SetValueArray(object s, List<FieldInfo> bindingPath, object instance)
+        private static object SetValueArray(object s, List<FieldInfo> bindingPath, object instance)
         {
-            var index = (int)((VECSEditorControl)s).Tag;
-            var elementType = bindingPath[^1].FieldType.GetElementType();
-
             FieldHierarhcy elementHierarchy = null;
+            var elementType = bindingPath[0].FieldType.GetElementType();
             if (!BaseFieldTypesSet.Contains(elementType) && !elementType.IsEnum)
             {
                 elementHierarchy = GetTypeFields(elementType);
-                throw new NotImplementedException();
+                
             }
+            var parentElement = (FrameworkElement)s;
+            var index = -1;
+            int i = bindingPath.Count - 1;
+            for (; i >= 0; i--)
+            {
+                if (bindingPath[i].FieldType.IsArray)
+                {
+                    if(elementHierarchy != null)
+                    {
+                        parentElement = parentElement.Parent;
+                    }
+                    index = (int)parentElement.Tag;
+                }
+                else
+                {
+                    parentElement = parentElement.Parent;
+                }
+            }
+
+            if (index == -1) return instance;
 
             object parent = instance;
-
-            for (int i = 0; i < bindingPath.Count; i++)
+            
+            for (i = 0; i < bindingPath.Count; i++)
             {
                 parent = bindingPath[i].GetValue(parent);
+                if (bindingPath[i].FieldType.IsArray)
+                {
+                    i++;
+                    break;
+                }
             }
-            if (elementHierarchy == null)
+            var array = (Array)parent;
+            var current = array.GetValue(index);
+            if (elementHierarchy != null)
             {
-                var array = (Array)parent;
-                var current = array.GetValue(index);
-
-                current = ((VECSEditorControl)s).TryParse(current);
-
-                array.SetValue(current, index);
+                var internalPath = bindingPath.GetRange(i, bindingPath.Count - i);
+                if (internalPath.Any(e => e.FieldType.IsArray))
+                {
+                    current = SetValueArray(s, internalPath, current);
+                }
+                else
+                {
+                    current = SetValue(s, internalPath, current);
+                }
             }
+            else
+            {
+                current = ((VECSEditorControl)s).TryParse(current);
+            }
+            array.SetValue(current, index);
+
+            for (i -= 2; i >= 0; i--)
+            {
+                object setter = instance;
+                for (int j = 0; j < i; j++)
+                {
+                    setter = bindingPath[j].GetValue(setter);
+                }
+                bindingPath[i].SetValue(setter, current);
+                current = setter;
+            }
+
+            return instance;
         }
 
         private static void NameFieldInstance(string name, UIElement instance)
@@ -422,7 +487,7 @@ namespace VECS.UI
                 
                 if(orderIndices.X == 0)
                 {
-                    UpdateValues((FrameworkElement)((StackPanel)node.Content).Children[i], hierarhcy.Types[orderIndices.X].GetValue(instance));
+                    UpdateValues((FrameworkElement)((StackPanel)node.Content).Children[i], hierarhcy.Types[orderIndices.Y].GetValue(instance));
                 }
                 else
                 {
@@ -435,13 +500,13 @@ namespace VECS.UI
         private static void UpdateValues(FrameworkElement frameworkElement, object v)
         {
             Type vType = v.GetType();
-            if (!TypesToControl.TryGetValue(vType, out var controlType) && !vType.IsEnum && !vType.IsArray)
+            if (!TypesToControl.TryGetValue(vType, out var controlType) && !vType.IsEnum && !vType.IsArray && !vType.IsSubclassOf(typeof(Asset)))
             {
                 Console.WriteLine("Invalid Control type {0} for frameworkElement {1}",vType.Name,frameworkElement.GetType().Name);
                 return;
             }
 
-            if(frameworkElement.GetType() != controlType && !vType.IsEnum && !vType.IsArray)
+            if(frameworkElement.GetType() != controlType && !vType.IsEnum && !vType.IsArray && !vType.IsSubclassOf(typeof(Asset)))
             {
                 Console.WriteLine("Unexpected framework element type  {0} for control type {1}",frameworkElement.GetType().Name,controlType.Name);
                 return;
@@ -459,9 +524,13 @@ namespace VECS.UI
                 var localBindingPath = (List<FieldInfo>)arrayStackPanel.Tag;
                 var elementType = vType.GetElementType();
                 FieldHierarhcy elementHierarchy = null;
-                if (!BaseFieldTypesSet.Contains(elementType) && !elementType.IsEnum)
+                if (!BaseFieldTypesSet.Contains(elementType) && !elementType.IsEnum && !elementType.IsSubclassOf(typeof(Asset)))
                 {
                     elementHierarchy = GetTypeFields(elementType);
+                    for (int i = 0; i < elementHierarchy.BindingPaths.Count; i++)
+                    {
+                        elementHierarchy.BindingPaths[i] = [.. localBindingPath, .. elementHierarchy.BindingPaths[i]];
+                    }
                 }
 
                 var array = (Array)v;
@@ -479,16 +548,22 @@ namespace VECS.UI
                     {
                         if (elementHierarchy != null)
                         {
-                            var expander = ConstructTree(elementHierarchy, null);
-                            expander.Tag = i;
+                            var expander = ConstructTree(elementHierarchy, localBindingPath);
                             expander.IsExpanded = false;
+                            expander.Tag = -1;
                             arrayStackPanel.Children.Add(expander);
+                            expander.Tag = i;
+                            expander.Header = i.ToString();
                             NameFieldInstance(i.ToString(), expander);
                         }
                         else
                         {
                             FrameworkElement element;
-                            if (elementType.IsEnum)
+                            if (elementType.IsSubclassOf(typeof(Asset)))
+                            {
+                                element = ConstructAssetRef(localBindingPath,elementType);
+                            }
+                            else if (elementType.IsEnum)
                             {
                                 element = ConstructEnum(localBindingPath, elementType);
                             }
@@ -509,7 +584,7 @@ namespace VECS.UI
                     if (elementHierarchy != null)
                     {
                         var child = (Expander)arrayStackPanel.Children[i + 1];
-                        child.Header = value.ToString();
+                        //child.Header = value.GetType().Name;
                         UpdateValues(elementHierarchy, child, value);
                     }
                     else if (elementHierarchy == null)

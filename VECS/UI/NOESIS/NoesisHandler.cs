@@ -22,6 +22,7 @@ namespace VECS.UI
             GUI.RegisterType(typeof(Vector3Field));
             GUI.RegisterType(typeof(Vector4Field));
 
+            GUI.RegisterType(typeof(AssetRefField));
             GUI.RegisterType(typeof(TextField));
 
             GUI.RegisterType(typeof(Bool1Field));

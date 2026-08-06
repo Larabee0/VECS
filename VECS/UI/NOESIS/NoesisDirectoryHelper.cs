@@ -347,7 +347,6 @@ namespace VECS.UI
             InspectorStackPanel.Children.Clear();
             if (extension == ".sp")
             {
-
                 GraphicsPipelineDefinition graphicsDefinition = null;
 
                 var loadShader = Task.Run(() =>
@@ -372,7 +371,6 @@ namespace VECS.UI
                 NoesisInspectorHelper.InspectorTargetObj = graphicsDefinition;
                 NoesisInspectorHelper.UpdateValues(graphicsDefinition, expander,fieldHierarchy);
                 NoesisInspectorHelper.InspectorTargetObjUpdated += OnInspector;
-                
             }
         }
 

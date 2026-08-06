@@ -22,7 +22,7 @@
       </Grid.ColumnDefinitions>
       <TextBlock x:Name="Label" Text="{Binding Label, ElementName=Bool1FieldControl}" HorizontalAlignment="Left" Foreground="#FFFFFFFF" Style="{DynamicResource VectorLabel}"/>
       
-      <CheckBox x:Name="XComp" Text="{Binding ValueX, ElementName=Bool1FieldControl}" Margin="2,0,2,0" Grid.Column="1" HorizontalAlignment="Left"/>
+      <CheckBox x:Name="XComp" IsChecked="{Binding ValueX, ElementName=Bool1FieldControl}" Margin="2,0,2,0" Grid.Column="1" HorizontalAlignment="Left"/>
     </Grid>
   </Grid>
 </UserControl>
