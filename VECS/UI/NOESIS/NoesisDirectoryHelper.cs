@@ -341,6 +341,7 @@ namespace VECS.UI
         
         private static void PaintInspector(string path)
         {
+            NoesisInspectorHelper.InspectorTargetObjUpdated -= OnInspector;
             if (!File.Exists(path)) return;
             _selectedPath = path;
             var extension = Path.GetExtension(path);
@@ -383,7 +384,7 @@ namespace VECS.UI
             {
                 graphicsDefinition.Save(_selectedPath);
 
-                var pipelineName = Path.GetFileName(_selectedPath);
+                var pipelineName = Path.GetFileNameWithoutExtension(_selectedPath);
 
                 var pipeline = AssetDataBase<GraphicsPipeline>.GetNamedSilentFail(pipelineName);
                 if(pipeline != null && pipeline.Definition != null)

@@ -35,6 +35,8 @@ namespace VECS
         public bool Transparent => _oitDescriptorSetIndex != -1;
         public int MeshShaderDescriptorSetIndex => _meshShaderDescriptorSetIndex;
 
+        public bool IsMeshShader => _meshShaderDescriptorSetIndex != -1;
+
         private unsafe void CreateDefault()
         {
             GraphicsDevice.SetObjectName(VkObjectType.Pipeline, _pipeline.Handle, AssetName + "_v" + _version);
@@ -778,7 +780,36 @@ namespace VECS
 
             _definition = new GraphicsPipelineDefinition(definition);
             _graphicsPipelineConfigInfo = _definition.ToGraphicsPipelineConfigInfo();
+            if (IsMeshShader)
+            {
+                _graphicsPipelineConfigInfo.BindingDescriptions = null;
+                _graphicsPipelineConfigInfo.AttributeDescriptions = null;
+            }
+            else
+            {
+                ShaderModule vertex = GetVertexShader();
+                Debug.Assert(vertex != null);
+                if (vertex.HasVertexAttributes && (_graphicsPipelineConfigInfo.BindingDescriptions.Length == 0 || _graphicsPipelineConfigInfo.AttributeDescriptions.Length == 0))
+                {
+                    _graphicsPipelineConfigInfo.BindingDescriptions = vertex.VertexBindings;
+                    _graphicsPipelineConfigInfo.AttributeDescriptions = vertex.VertexAttributes;
+                }
+            }
             return true;
+        }
+
+        private ShaderModule GetVertexShader()
+        {
+            for (int i = 0; i < _shaderHashes.Length; i++)
+            {
+                var module = AssetDataBase<ShaderModule>.GetHashedSilentFail(_shaderHashes[i]);
+                if (module != null && module.VkShaderStage == VkShaderStageFlags.Vertex)
+                {
+                    return module;
+                }
+
+            }
+            return null;
         }
 
         /// <summary>

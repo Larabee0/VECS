@@ -158,7 +158,8 @@ namespace VECS
                 case AssetType.Meta:
                     break;
                 default:
-                    throw new ArgumentException("Invalid AssetType",nameof(type));
+                    Console.WriteLine("Invalid AssetType");
+                    break;
             }
         }
 
