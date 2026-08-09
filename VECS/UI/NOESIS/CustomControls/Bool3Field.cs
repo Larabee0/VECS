@@ -42,6 +42,12 @@ namespace VECS.UI
 
         public Bool3Field()
         {
+
+        }
+
+        public override void OnApplyTemplate()
+        {
+            base.OnApplyTemplate();
             InitializeComponent();
             var valueX = (CheckBox)FindName("XComp");
             var valueY = (CheckBox)FindName("YComp");

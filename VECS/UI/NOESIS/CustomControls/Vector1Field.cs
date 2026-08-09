@@ -23,11 +23,17 @@ namespace VECS.UI
 
         private string X;
 
+
         public Vector1Field()
         {
-            InitializeComponent();
+
+        }
+
+        public override void OnApplyTemplate()
+        {
+            base.OnApplyTemplate();
             WeakReference weak = new(this);
-            var valueX = (TextBox)FindName("XComp");
+            var valueX = (TextBox)GetTemplateChild("XComp");
             valueX.TextChanged += (s, e) =>
             {
                 var weakRef = (Vector1Field)weak.Target;
@@ -37,11 +43,6 @@ namespace VECS.UI
                     weakRef.InternalValueChanged(s, e);
                 }
             };
-        }
-
-        void InitializeComponent()
-        {
-            GUI.LoadComponent(this, "Editor/Vector1Field.xaml");
         }
 
         public override void SetValue(object value)

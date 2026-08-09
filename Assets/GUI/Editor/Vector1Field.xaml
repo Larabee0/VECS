@@ -1,26 +1,27 @@
-<UserControl
+
+<ResourceDictionary
   xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-  x:Class="VECS.UI.Vector1Field"
-  x:Name="Vector1FieldControl" Width="580"
-  Height="50" Background="#004D5052">
-  <UserControl.Resources>
-    <ResourceDictionary Source="./EditorTheme.xaml"/>
-  </UserControl.Resources>
-  <Grid Height="50">
-    <Grid.ColumnDefinitions>
-      <ColumnDefinition/>
-    </Grid.ColumnDefinitions>
-    <Rectangle Grid.ColumnSpan="1" Fill="#FF262E35" Stroke="#FF000000"/>
-    <Grid Margin="4,4,4,4" ColumnSpan="1">
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <ControlTemplate x:Key="Vector1FieldTemplate" TargetType="{x:Type VECS.UI.Vector1Field}">
+    <Grid Height="50" Width="575" Background="#004D5052">
       <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="245"/>
-        <ColumnDefinition Width="330"/>
+        <ColumnDefinition/>
       </Grid.ColumnDefinitions>
-      <TextBlock Text="{Binding Path=Label, ElementName=Vector1FieldControl}" HorizontalAlignment="Left" Foreground="#FFFFFFFF" Style="{DynamicResource VectorLabel}"/>
-      
-      <TextBox x:Name="XComp" Text="{Binding Path=ValueX, ElementName=Vector1FieldControl}" Width="327" Margin="0,0,2,0" Grid.Column="1" HorizontalAlignment="Left" Style="{DynamicResource VectorStyle}"/>
-      
+      <Rectangle Grid.ColumnSpan="1" Fill="#FF262E35" Stroke="#FF000000"/>
+      <Grid Margin="4,4,4,4" ColumnSpan="1">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="245"/>
+          <ColumnDefinition Width="330"/>
+        </Grid.ColumnDefinitions>
+        <TextBlock Text="{Binding Path=Label, RelativeSource={RelativeSource TemplatedParent}}" HorizontalAlignment="Left" Foreground="#FFFFFFFF" Style="{DynamicResource VectorLabel}"/>
+        
+        <TextBox x:Name="XComp" Text="{Binding Path=ValueX, RelativeSource={RelativeSource TemplatedParent}}" Width="327" Margin="0,0,2,0" Grid.Column="1" HorizontalAlignment="Left" Style="{DynamicResource VectorStyle}"/>
+        
+      </Grid>
     </Grid>
-  </Grid>
-</UserControl>
+  </ControlTemplate>
+  
+  <Style x:Key="VECS.UI.Vector1Field"   TargetType="{x:Type VECS.UI.Vector1Field}">
+    <Setter Property="Template" Value="{StaticResource Vector1FieldTemplate}"/>
+  </Style>
+</ResourceDictionary>

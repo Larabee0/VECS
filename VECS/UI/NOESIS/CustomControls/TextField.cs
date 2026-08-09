@@ -25,7 +25,13 @@ namespace VECS.UI
 
         public TextField()
         {
-            InitializeComponent();
+
+        }
+
+        public override void OnApplyTemplate()
+        {
+            base.OnApplyTemplate();
+
             WeakReference weak = new(this);
             var valueX = (TextBox)FindName("XComp");
             valueX.TextChanged += (s, e) =>
@@ -37,11 +43,6 @@ namespace VECS.UI
                     weakRef.InternalValueChanged(s, e);
                 }
             };
-        }
-
-        void InitializeComponent()
-        {
-            GUI.LoadComponent(this, "Editor/TextField.xaml");
         }
 
         public override void SetValue(object value)

@@ -4,8 +4,28 @@
     xmlns:sys="clr-namespace:System;assembly=mscorlib">
 
     <ResourceDictionary.MergedDictionaries>
-        <ResourceDictionary Source="GlobalResources.xaml" />
         <ResourceDictionary Source="../Theme/NoesisTheme.DarkBlue.xaml" />
+        <ResourceDictionary Source="GlobalResources.xaml" />
+
+        <ResourceDictionary Source="AssetRefField.xaml" />
+        <ResourceDictionary Source="ButtonWithImage.xaml" />
+        <ResourceDictionary Source="DropDownField.xaml" />
+        <ResourceDictionary Source="TextField.xaml" />
+
+        <ResourceDictionary Source="Vector1Field.xaml" />
+        <ResourceDictionary Source="Vector2Field.xaml" />
+        <ResourceDictionary Source="Vector3Field.xaml" />
+        <ResourceDictionary Source="Vector4Field.xaml" />
+
+        <ResourceDictionary Source="Bool1Field.xaml" />
+        <ResourceDictionary Source="Bool2Field.xaml" />
+        <ResourceDictionary Source="Bool3Field.xaml" />
+        <ResourceDictionary Source="Bool4Field.xaml" />
+
+        <ResourceDictionary Source="Matrix3x2Field.xaml" />
+        <ResourceDictionary Source="Matrix3x3Field.xaml" />
+        <ResourceDictionary Source="Matrix4x4Field.xaml" />
+
     </ResourceDictionary.MergedDictionaries>
 
 </ResourceDictionary>

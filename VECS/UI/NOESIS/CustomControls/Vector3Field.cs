@@ -42,11 +42,16 @@ namespace VECS.UI
 
         public Vector3Field()
         {
-            InitializeComponent();
 
-            var valueX = (TextBox)FindName("XComp");
-            var valueY = (TextBox)FindName("YComp");
-            var valueZ = (TextBox)FindName("ZComp");
+        }
+
+        public override void OnApplyTemplate()
+        {
+            base.OnApplyTemplate();
+
+            var valueX = (TextBox)GetTemplateChild("XComp");
+            var valueY = (TextBox)GetTemplateChild("YComp");
+            var valueZ = (TextBox)GetTemplateChild("ZComp");
 
             WeakReference weak = new(this);
 
@@ -77,11 +82,6 @@ namespace VECS.UI
                     weakRef.InternalValueChanged(s, e);
                 }
             };
-        }
-
-        void InitializeComponent()
-        {
-            GUI.LoadComponent(this, "Editor/Vector3Field.xaml");
         }
 
         public override void SetValue(object value)

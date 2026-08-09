@@ -13,6 +13,7 @@ namespace VECS.UI
         {
 
             Log.SetLogCallback(NoesisDriver.LoggerCallback);
+            
             Error.SetUnhandledCallback(NoesisDriver.ErrorCallback);
 
             GUI.Init();
@@ -24,12 +25,13 @@ namespace VECS.UI
 
             GUI.RegisterType(typeof(AssetRefField));
             GUI.RegisterType(typeof(TextField));
-
+            
+            
             GUI.RegisterType(typeof(Bool1Field));
             GUI.RegisterType(typeof(Bool2Field));
             GUI.RegisterType(typeof(Bool3Field));
             GUI.RegisterType(typeof(Bool4Field));
-
+            
             GUI.RegisterType(typeof(Matrix3x2Field));
             GUI.RegisterType(typeof(Matrix3x3Field));
             GUI.RegisterType(typeof(Matrix4x4Field));
@@ -50,6 +52,7 @@ namespace VECS.UI
             GUI.LoadApplicationResources("Theme/NoesisTheme.DarkBlue.xaml");
             _noesisDriver = new NoesisDriver();
 
+            
             World.DefaultWorld.CreateSystem<NoesisEditorView>();
         }
 

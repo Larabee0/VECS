@@ -27,12 +27,7 @@ namespace VECS.UI
 
         public AssetRefField()
         {
-            InitializeComponent();
-        }
 
-        void InitializeComponent()
-        {
-            GUI.LoadComponent(this, "Editor/AssetRefField.xaml");
         }
 
         public void SetAssetType(Type type)
@@ -58,14 +53,11 @@ namespace VECS.UI
             return currentValue;
         }
 
-        protected override bool ConnectEvent(object source, string eventName, string handlerName)
+        public override void OnApplyTemplate()
         {
-            if(eventName == "Click" && handlerName == "ChangeAssetClick")
-            {
-                ((Button)source).Click += OnChangeAssetClick;
-                return true;
-            }
-            return false;
+            base.OnApplyTemplate();
+            var source = GetTemplateChild("ChangeAssetButton");
+            ((Button)source).Click += OnChangeAssetClick;
         }
 
         private void OnChangeAssetClick(object sender, RoutedEventArgs args)

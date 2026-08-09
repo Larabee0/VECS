@@ -104,10 +104,13 @@ namespace VECS.UI
             _indexCount = 0;
         }
 
-        public static void ErrorCallback(Exception exception)
+        public static void ErrorCallback(Exception ex)
         {
-            Console.WriteLine(exception.InnerException.ToString(), exception.InnerException.StackTrace);
-            throw exception;
+            if (ex.InnerException != null)
+            {
+                Console.WriteLine(string.Format("{0},\n{1}", ex.InnerException.ToString(), ex.InnerException.StackTrace));
+            }
+            throw ex;
         }
 
         public static void LoggerCallback(LogLevel level, string channel, string message)

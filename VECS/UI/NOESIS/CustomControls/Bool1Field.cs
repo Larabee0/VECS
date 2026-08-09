@@ -22,15 +22,43 @@ namespace VECS.UI
         }
 
         private bool X;
-        private bool Y;
 
         public Bool1Field()
         {
-            InitializeComponent();
-            var valueX = (CheckBox)FindName("XComp");
 
+        }
+
+        public override void SetValue(object value)
+        {
+            _internalSet = true;
+            if(value is bool boolean)
+            {
+                ValueX = boolean;
+            }
+            _internalSet = false;
+            ApplyTemplate();
+        }
+
+        public override object TryParse(object currentValue)
+        {
+            if(currentValue is bool)
+            {
+                return ValueX;
+            }
+            else
+            {
+                return currentValue;
+            }
+        }
+
+        public override void OnApplyTemplate()
+        {
+
+            base.OnApplyTemplate();
+            
+            var valueX = (CheckBox)GetTemplateChild("XComp");
             WeakReference weak = new(this);
-
+            
             valueX.Checked += (s, e) =>
             {
                 var weakRef = (Bool1Field)weak.Target;
@@ -51,31 +79,5 @@ namespace VECS.UI
             };
         }
 
-        void InitializeComponent()
-        {
-            GUI.LoadComponent(this, "Editor/Bool1Field.xaml");
-        }
-
-        public override void SetValue(object value)
-        {
-            _internalSet = true;
-            if(value is bool boolean)
-            {
-                ValueX = boolean;
-            }
-            _internalSet = false;
-        }
-
-        public override object TryParse(object currentValue)
-        {
-            if(currentValue is bool)
-            {
-                return ValueX;
-            }
-            else
-            {
-                return currentValue;
-            }
-        }
     }
 }

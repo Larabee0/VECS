@@ -50,12 +50,16 @@ namespace VECS.UI
 
         public Vector4Field()
         {
-            InitializeComponent();
+            
+        }
 
-            var valueX = (TextBox)FindName("XComp");
-            var valueY = (TextBox)FindName("YComp");
-            var valueZ = (TextBox)FindName("ZComp");
-            var valueW = (TextBox)FindName("WComp");
+        public override void OnApplyTemplate()
+        {
+            base.OnApplyTemplate();
+            var valueX = (TextBox)GetTemplateChild("XComp");
+            var valueY = (TextBox)GetTemplateChild("YComp");
+            var valueZ = (TextBox)GetTemplateChild("ZComp");
+            var valueW = (TextBox)GetTemplateChild("WComp");
 
             WeakReference weak = new(this);
 
@@ -95,11 +99,6 @@ namespace VECS.UI
                     weakRef.InternalValueChanged(s, e);
                 }
             };
-        }
-
-        void InitializeComponent()
-        {
-            GUI.LoadComponent(this, "Editor/Vector4Field.xaml");
         }
 
         public override void SetValue(object value)

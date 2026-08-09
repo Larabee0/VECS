@@ -1,32 +1,28 @@
-<UserControl
+<ResourceDictionary
   xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-  mc:Ignorable="d"
-  x:Class="VECS.UI.DropDownField"
-  x:Name="DropDownFieldControl" Width="580" MinWidth="580"
-  MaxHeight="220" Background="#004D5052">
-  <UserControl.Resources>
-    <ResourceDictionary Source="./EditorTheme.xaml"/>
-  </UserControl.Resources>
-  <Grid MaxHeight="220">
-    <Grid.ColumnDefinitions>
-      <ColumnDefinition/>
-    </Grid.ColumnDefinitions>
-    <Rectangle Grid.ColumnSpan="1" Fill="#FF262E35" Stroke="#FF000000"/>
-    <Grid Margin="4,4,4,4" ColumnSpan="1">
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <ControlTemplate x:Key="DropDownFieldTemplate"  TargetType="{x:Type VECS.UI.DropDownField}">
+    <Grid Width="580" MinWidth="580" MaxHeight="220" Background="#004D5052">
       <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="245"/>
         <ColumnDefinition/>
-        
       </Grid.ColumnDefinitions>
-      <TextBlock Text="{Binding Label, ElementName=DropDownFieldControl}" HorizontalAlignment="Left" Foreground="#FFFFFFFF" Style="{DynamicResource VectorLabel}"/>
-      <ScrollViewer ScrollViewer.CanContentScroll="True" Grid.Column="1">
-        <TreeView ScrollViewer.CanContentScroll="True">
-          <TreeViewItem x:Name="RadioContainer" Header="header" ScrollViewer.CanContentScroll="True" ScrollViewer.HorizontalScrollBarVisibility="Visible" Margin="0,0,2,0"/>
-        </TreeView>
-      </ScrollViewer>
+      <Rectangle Grid.ColumnSpan="1" Fill="#FF262E35" Stroke="#FF000000"/>
+      <Grid Margin="4,4,4,4" ColumnSpan="1">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="245"/>
+          <ColumnDefinition/>
+
+        </Grid.ColumnDefinitions>
+        <TextBlock Text="{Binding Label, RelativeSource={RelativeSource TemplatedParent}}" HorizontalAlignment="Left" Foreground="#FFFFFFFF" Style="{DynamicResource VectorLabel}"/>
+        <ScrollViewer ScrollViewer.CanContentScroll="True" Grid.Column="1">
+          <TreeView ScrollViewer.CanContentScroll="True">
+            <TreeViewItem x:Name="RadioContainer" Header="{Binding Header, RelativeSource={RelativeSource TemplatedParent}}" ScrollViewer.CanContentScroll="True" ScrollViewer.HorizontalScrollBarVisibility="Visible" Margin="0,0,2,0"/>
+          </TreeView>
+        </ScrollViewer>
+      </Grid>
     </Grid>
-  </Grid>
-</UserControl>
+  </ControlTemplate>
+  <Style x:Key="VECS.UI.DropDownField"  TargetType="{x:Type VECS.UI.DropDownField}">
+    <Setter Property="Template" Value="{StaticResource DropDownFieldTemplate}"/>
+  </Style>
+</ResourceDictionary>

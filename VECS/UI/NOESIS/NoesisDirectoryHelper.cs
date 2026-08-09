@@ -1,6 +1,7 @@
 using Noesis;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -274,8 +275,8 @@ namespace VECS.UI
                     Label = subDirectories[i].Name,
                     Tag = subDirectories[i].FullName
                 };
-                lineItem.IconImage.Source = FolderIcon;
                 DirectoryStackPanel.Children.Add(lineItem);
+                lineItem.IconImage = FolderIcon;
                 WeakReference weak = new(lineItem);
                 ((ButtonWithImage)weak.Target).OnDoubleClick += DirectoryDoubleClick;
             }
@@ -294,25 +295,25 @@ namespace VECS.UI
 
                 if (type == AssetType.Texture)
                 {
-                    lineItem.IconImage.Source = ImageIcon;
+                    lineItem.IconImage = ImageIcon;
                 }
                 else if(type == AssetType.Mesh)
                 {
-                    lineItem.IconImage.Source = MeshIcon;
+                    lineItem.IconImage = MeshIcon;
                 }
                 else if(type == AssetType.Shader)
                 {
-                    lineItem.IconImage.Source = ShaderIcon;
+                    lineItem.IconImage = ShaderIcon;
                     lineItem.ToolTip = string.Format("plain text shader file ({0})", files[i].Extension);
                 }
                 else if ( type == AssetType.ShaderPreCompiled)
                 {
-                    lineItem.IconImage.Source = PreCompiledShaderIcon;
+                    lineItem.IconImage = PreCompiledShaderIcon;
                     lineItem.ToolTip = "Pre-compiled shader";
                 }
                 else
                 {
-                    lineItem.IconImage.Source = UnknownTypeIcon;
+                    lineItem.IconImage = UnknownTypeIcon;
                     lineItem.ToolTip = string.Format("Unknown File type ({0})", files[i].Extension);
                 }
 
@@ -354,7 +355,7 @@ namespace VECS.UI
                 {
                     graphicsDefinition = GraphicsPipelineDefinition.LoadDefinitionFromFile(path);
                 });
-
+                Stopwatch sw = Stopwatch.StartNew();
                 var fieldHierarchy = NoesisInspectorHelper.GetTypeFields(typeof(GraphicsPipelineDefinition));
                 var expander = NoesisInspectorHelper.ConstructTree(fieldHierarchy, null);
 
@@ -368,6 +369,8 @@ namespace VECS.UI
                 InspectorStackPanel.Children.Add(item);
 
                 children.Children.Add(expander);
+                sw.Stop();
+                Console.WriteLine("{0}ms",sw.ElapsedMilliseconds);
                 loadShader.Wait();
                 NoesisInspectorHelper.InspectorTargetObj = graphicsDefinition;
                 NoesisInspectorHelper.UpdateValues(graphicsDefinition, expander,fieldHierarchy);
@@ -382,7 +385,6 @@ namespace VECS.UI
             var extension = Path.GetExtension(_selectedPath);
             if(extension == ".sp" && target is GraphicsPipelineDefinition graphicsDefinition)
             {
-                graphicsDefinition.Save(_selectedPath);
 
                 var pipelineName = Path.GetFileNameWithoutExtension(_selectedPath);
 
@@ -391,11 +393,13 @@ namespace VECS.UI
                 {
                     if (pipeline.Definition.ShameShadersDifferentSettings(graphicsDefinition))
                     {
+                        graphicsDefinition.Save(_selectedPath);
                         pipeline.SetDefinition(graphicsDefinition);
                         PipelineRecreation.EnqueueForRecreation(pipeline);
                     }
                     else if(!pipeline.Definition.SameShaderPrograms(graphicsDefinition))
                     {
+                        graphicsDefinition.Save(_selectedPath);
                         pipeline.SetDefinition(graphicsDefinition);
                         PipelineRecreation.EnqueueShaderChanged(pipeline);
                     }

@@ -6,7 +6,8 @@ namespace VECS.UI
     public class ButtonWithImage : VECSEditorControl
     {
 
-        public static readonly DependencyProperty _Label = DependencyProperty.Register("Label", typeof(string), typeof(Bool2Field), new PropertyMetadata("Label"));
+        public static readonly DependencyProperty _Label = DependencyProperty.Register("Label", typeof(string), typeof(ButtonWithImage), new PropertyMetadata("Label"));
+        public static readonly DependencyProperty _Image = DependencyProperty.Register("Image", typeof(TextureSource), typeof(ButtonWithImage), new PropertyMetadata(null));
 
         public override string Label
         {
@@ -14,31 +15,31 @@ namespace VECS.UI
             set { SetValue(_Label, value); }
         }
 
+        public TextureSource IconImage
+        {
+            get { return (TextureSource)GetValue(_Image); }
+            set { SetValue(_Image, value); }
+        }
+
         public Action<object,MouseButtonEventArgs> OnDoubleClick;
 
-        private readonly Image _iconImage;
-
-        public Image IconImage => _iconImage;
 
         public ButtonWithImage()
         {
-            InitializeComponent();
-            
+        }
+
+        public override void OnApplyTemplate()
+        {
+            base.OnApplyTemplate();
             WeakReference weak = new(this);
 
-            _iconImage = (Image)FindName("Icon");
+            MouseDoubleClick += (s, e) => { ((ButtonWithImage)weak.Target)?.OnMouseDoubleClick(s, e); };
 
-            this.MouseDoubleClick += (s, e) => { ((ButtonWithImage)weak.Target)?.OnMouseDoubleClick(s, e); };
         }
 
         private void OnMouseDoubleClick(object s, MouseButtonEventArgs e)
         {
             OnDoubleClick?.Invoke(s,e);
-        }
-
-        void InitializeComponent()
-        {
-            GUI.LoadComponent(this, "Editor/ButtonWithImage.xaml");
         }
 
         public override void SetValue(object value)

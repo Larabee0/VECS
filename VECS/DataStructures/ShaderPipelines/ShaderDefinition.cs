@@ -358,7 +358,7 @@ namespace VECS
 
             for (int i = 0; i < BindingDescriptions.Length; i++)
             {
-                if (BindingDescriptions[i].Equals(other.BindingDescriptions[i]))
+                if (!BindingDescriptions[i].Equals(other.BindingDescriptions[i]))
                 {
                     return false;
                 }
@@ -368,7 +368,7 @@ namespace VECS
 
             for (int i = 0; i < AttributeDescriptions.Length; i++)
             {
-                if (AttributeDescriptions[i].Equals(other.AttributeDescriptions[i]))
+                if (!AttributeDescriptions[i].Equals(other.AttributeDescriptions[i]))
                 {
                     return false;
                 }

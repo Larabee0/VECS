@@ -50,7 +50,12 @@ namespace VECS.UI
 
         public Bool4Field()
         {
-            InitializeComponent();
+
+        }
+
+        public override void OnApplyTemplate()
+        {
+            base.OnApplyTemplate();
             var valueX = (CheckBox)FindName("XComp");
             var valueY = (CheckBox)FindName("YComp");
             var valueZ = (CheckBox)FindName("ZComp");
@@ -132,11 +137,6 @@ namespace VECS.UI
                     weakRef.InternalValueChanged(s, e);
                 }
             };
-        }
-
-        void InitializeComponent()
-        {
-            GUI.LoadComponent(this, "Editor/Bool4Field.xaml");
         }
 
         public Bool4 GetBool4()

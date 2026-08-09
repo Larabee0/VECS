@@ -93,16 +93,19 @@ namespace VECS.UI
 
         public Matrix3x3Field()
         {
-            InitializeComponent();
-            var valueM11 = (TextBox)FindName("M11Comp");
-            var valueM12 = (TextBox)FindName("M12Comp");
-            var valueM13 = (TextBox)FindName("M13Comp");
-            var valueM21 = (TextBox)FindName("M21Comp");
-            var valueM22 = (TextBox)FindName("M22Comp");
-            var valueM23 = (TextBox)FindName("M23Comp");
-            var valueM31 = (TextBox)FindName("M31Comp");
-            var valueM32 = (TextBox)FindName("M32Comp");
-            var valueM33 = (TextBox)FindName("M33Comp");
+        }
+        public override void OnApplyTemplate()
+        {
+            base.OnApplyTemplate();
+            var valueM11 = (TextBox)GetTemplateChild("M11Comp");
+            var valueM12 = (TextBox)GetTemplateChild("M12Comp");
+            var valueM13 = (TextBox)GetTemplateChild("M13Comp");
+            var valueM21 = (TextBox)GetTemplateChild("M21Comp");
+            var valueM22 = (TextBox)GetTemplateChild("M22Comp");
+            var valueM23 = (TextBox)GetTemplateChild("M23Comp");
+            var valueM31 = (TextBox)GetTemplateChild("M31Comp");
+            var valueM32 = (TextBox)GetTemplateChild("M32Comp");
+            var valueM33 = (TextBox)GetTemplateChild("M33Comp");
 
             WeakReference weak = new(this);
 

@@ -50,45 +50,45 @@ namespace VECS.UI
             typeof(Matrix4x4),
         ];
 
-        public static readonly Dictionary<Type, Type> TypesToControl = new (){
-            
-            {typeof(char), typeof(TextField)},
-            {typeof(string),typeof(TextField)},
+        public static readonly Dictionary<Type, Type> TypesToControl = new(){
 
-            {typeof(sbyte), typeof(Vector1Field) },
-            {typeof(byte), typeof(Vector1Field) },
-            {typeof(int), typeof(Vector1Field) },
-            {typeof(uint), typeof(Vector1Field) },
-            {typeof(long), typeof(Vector1Field) },
-            {typeof(ulong), typeof(Vector1Field) },
-            {typeof(short), typeof(Vector1Field) },
-            {typeof(ushort), typeof(Vector1Field) },
+            { typeof(char), typeof(TextField) },
+            { typeof(string), typeof(TextField) },
 
-            {typeof(float), typeof(Vector1Field)},
-            {typeof(double), typeof(Vector1Field)},
-            {typeof(decimal), typeof(Vector1Field)},
+            { typeof(sbyte), typeof(Vector1Field) },
+            { typeof(byte), typeof(Vector1Field) },
+            { typeof(int), typeof(Vector1Field) },
+            { typeof(uint), typeof(Vector1Field) },
+            { typeof(long), typeof(Vector1Field) },
+            { typeof(ulong), typeof(Vector1Field) },
+            { typeof(short), typeof(Vector1Field) },
+            { typeof(ushort), typeof(Vector1Field) },
 
-            {typeof(bool), typeof(Bool1Field)},
-            {typeof(Bool3), typeof(Bool3Field)},
-            {typeof(Bool4), typeof(Bool4Field)},
+            { typeof(float), typeof(Vector1Field) },
+            { typeof(double), typeof(Vector1Field) },
+            { typeof(decimal), typeof(Vector1Field) },
 
-            {typeof(Vector2), typeof(Vector2Field) },
-            {typeof(Vector2Int), typeof(Vector2Field) },
-            {typeof(Vector2UInt), typeof(Vector2Field) },
+            { typeof(bool), typeof(Bool1Field) },
+            { typeof(Bool3), typeof(Bool3Field) },
+            { typeof(Bool4), typeof(Bool4Field) },
 
-            {typeof(Vector3),typeof(Vector3Field) },
-            {typeof(Vector3Int),typeof(Vector3Field) },
-            {typeof(Vector3UInt),typeof(Vector3Field) },
+            { typeof(Vector2), typeof(Vector2Field) },
+            { typeof(Vector2Int), typeof(Vector2Field) },
+            { typeof(Vector2UInt), typeof(Vector2Field) },
 
-            {typeof(Vector4), typeof(Vector4Field)},
-            {typeof(Vector4Int), typeof(Vector4Field)},
-            {typeof(Vector4UInt), typeof(Vector4Field)},
-            {typeof(Quaternion), typeof(Vector4Field)},
+            { typeof(Vector3), typeof(Vector3Field) },
+            { typeof(Vector3Int), typeof(Vector3Field) },
+            { typeof(Vector3UInt), typeof(Vector3Field) },
 
-            {typeof(Matrix3x2), typeof(Matrix3x2Field)},
-            {typeof(Matrix3x3), typeof(Matrix3x3Field)},
-            {typeof(Matrix4x4), typeof(Matrix4x4Field)},
-            {typeof(Enum),typeof(DropDownField)}
+            { typeof(Vector4), typeof(Vector4Field) },
+            { typeof(Vector4Int), typeof(Vector4Field) },
+            { typeof(Vector4UInt), typeof(Vector4Field) },
+            { typeof(Quaternion), typeof(Vector4Field) },
+
+            { typeof(Matrix3x2), typeof(Matrix3x2Field) },
+            { typeof(Matrix3x3), typeof(Matrix3x3Field) },
+            { typeof(Matrix4x4), typeof(Matrix4x4Field) },
+            { typeof(Enum), typeof(DropDownField) }
         };
 
         public readonly static HashSet<Type> BaseFieldTypesSet = [.. BaseFieldTypes];
@@ -269,9 +269,50 @@ namespace VECS.UI
             return instance;
         }
 
+        private static FrameworkElement ConstructBaseType(Type typeToBuild)
+        {
+            if(typeToBuild == typeof(char) || typeToBuild ==  typeof(string)) return new TextField();
+
+            else if (typeToBuild == typeof(sbyte)
+                || typeToBuild == typeof(byte)
+                || typeToBuild == typeof(int)
+                || typeToBuild == typeof(uint)
+                || typeToBuild == typeof(long)
+                || typeToBuild == typeof(ulong)
+                || typeToBuild == typeof(short)
+                || typeToBuild == typeof(ushort)
+                ||typeToBuild == typeof(float)
+                || typeToBuild == typeof(double)
+                || typeToBuild == typeof(decimal)) return new Vector1Field();
+
+            else if (typeToBuild == typeof(bool)) return new Bool1Field();
+            else if(typeToBuild == typeof(Bool3)) return new Bool3Field();
+            else if(typeToBuild == typeof(Bool4)) return new Bool4Field();
+
+            else if (typeToBuild == typeof(Vector2)
+                || typeToBuild == typeof(Vector2Int)
+                || typeToBuild == typeof(Vector2UInt)) return new Vector2Field();
+
+            else if (typeToBuild == typeof(Vector3)
+                || typeToBuild == typeof(Vector3Int)
+                || typeToBuild == typeof(Vector3UInt)) return new Vector3Field();
+
+            else if (typeToBuild == typeof(Vector4)
+                || typeToBuild == typeof(Vector4Int)
+                || typeToBuild == typeof(Vector4UInt)
+                || typeToBuild == typeof(Quaternion)) return new Vector4Field();
+            
+            else if(typeToBuild == typeof(Matrix3x2)) return new Matrix3x2Field();
+            else if(typeToBuild == typeof(Matrix3x3)) return new Matrix3x3Field();
+            else if(typeToBuild == typeof(Matrix4x4)) return new Matrix4x4Field();
+
+            return null;
+        }
+
         private static FrameworkElement ConstructBaseType(List<FieldInfo> bindingPath, Type typeToBuild)
         {
-            FrameworkElement instance = (FrameworkElement)Activator.CreateInstance(TypesToControl[typeToBuild]);
+            // FrameworkElement instance = (FrameworkElement)Activator.CreateInstance(TypesToControl[typeToBuild]);
+            FrameworkElement instance = ConstructBaseType(typeToBuild);
             List<FieldInfo> localBindingPath = [.. bindingPath];
             if (instance is IEditorField editorField)
             {
@@ -336,7 +377,7 @@ namespace VECS.UI
             }
 
             object current = bindingPath[^1].GetValue(parent);
-            current = ((VECSEditorControl)s).TryParse(current);
+            current = ((IEditorField)s).TryParse(current);
             bindingPath[^1].SetValue(parent, current);
 
             for (int i = bindingPath.Count - 1; i >= 0; i--)
@@ -409,7 +450,7 @@ namespace VECS.UI
             }
             else
             {
-                current = ((VECSEditorControl)s).TryParse(current);
+                current = ((IEditorField)s).TryParse(current);
             }
             array.SetValue(current, index);
 

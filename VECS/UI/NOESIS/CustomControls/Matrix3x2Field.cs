@@ -69,8 +69,12 @@ namespace VECS.UI
 
         public Matrix3x2Field()
         {
-            InitializeComponent();
 
+        }
+
+        public override void OnApplyTemplate()
+        {
+            base.OnApplyTemplate();
             var valueM11 = (TextBox)FindName("M11Comp");
             var valueM12 = (TextBox)FindName("M12Comp");
             var valueM21 = (TextBox)FindName("M21Comp");

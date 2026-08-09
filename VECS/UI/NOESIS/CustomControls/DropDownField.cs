@@ -1,5 +1,6 @@
 using Noesis;
 using System;
+using System.Collections.Generic;
 
 namespace VECS.UI
 {
@@ -7,6 +8,7 @@ namespace VECS.UI
     {
 
         public static readonly DependencyProperty _label = DependencyProperty.Register("Label", typeof(string), typeof(DropDownField), new PropertyMetadata("Label"));
+        public static readonly DependencyProperty _header = DependencyProperty.Register("Header", typeof(string), typeof(DropDownField), new PropertyMetadata(""));
 
         public override string Label
         {
@@ -14,20 +16,43 @@ namespace VECS.UI
             set { SetValue(_label, value); }
         }
 
+        public string Header
+        {
+            get { return (string)GetValue(_header); }
+            set { SetValue(_header, value); }
+        }
+
         private bool _hasValueEverBeenSet;
 
-        public TreeViewItem RadioContainer => (TreeViewItem)FindName("RadioContainer");
+        public TreeViewItem RadioContainer => (TreeViewItem)GetTemplateChild("RadioContainer");
 
         public bool IsFlagsEnum { get; set; }
 
+        public List<RadioButton> RadioButtons = [];
+
+        private bool _appliedTemplate;
+
         public DropDownField()
         {
-            InitializeComponent();
+            ApplyTemplate();
         }
 
-        void InitializeComponent()
+        public override void OnApplyTemplate()
         {
-            GUI.LoadComponent(this, "Editor/DropDownField.xaml");
+            base.OnApplyTemplate();
+            if (_appliedTemplate) return;
+            _internalSet = true;
+            //WeakReference weak = new(this);
+            for (int i = 0; i < RadioButtons.Count; i++)
+            {
+                RadioContainer.Items.Add(RadioButtons[i]);
+                WeakReference weakButton = new(RadioButtons[i]);
+                ((RadioButton)weakButton.Target).Checked += (s, e) => (this)?.InternalValueChanged(s, e);
+                ((RadioButton)weakButton.Target).Unchecked += (s, e) => (this)?.InternalValueChanged(s, e);
+            }
+
+            _internalSet = false;
+            _appliedTemplate = true;
         }
 
         public void AddRadioButton(string name, bool randomGroupName, string tag, bool isChecked)
@@ -40,22 +65,28 @@ namespace VECS.UI
                 Tag = tag,
                 IsChecked = isChecked
             };
-            RadioContainer.Items.Add(button);
-
-            WeakReference weak = new(this);
-            WeakReference weakButton = new(button);
-            ((RadioButton)weakButton.Target).Checked += (s, e) => ((DropDownField)weak.Target)?.InternalValueChanged(s, e);
-            ((RadioButton)weakButton.Target).Unchecked += (s, e) => ((DropDownField)weak.Target)?.InternalValueChanged(s, e);
+            if (RadioContainer == null)
+            {
+                RadioButtons.Add(button);
+            }
+            else
+            {
+                RadioContainer.Items.Add(button);
+                WeakReference weak = new(this);
+                WeakReference weakButton = new(button);
+                ((RadioButton)weakButton.Target).Checked += (s, e) => ((DropDownField)weak.Target)?.InternalValueChanged(s, e);
+                ((RadioButton)weakButton.Target).Unchecked += (s, e) => ((DropDownField)weak.Target)?.InternalValueChanged(s, e);
+            }
         }
 
         public override void SetValue(object value)
         {
             _internalSet = true;
             var values = Enum.GetNames(value.GetType());
-            var items = RadioContainer.Items;
+            var items = RadioButtons;
 
             string valueAsString =value.ToString();
-            RadioContainer.Header = valueAsString;
+            Header = valueAsString;
             
             if (IsFlagsEnum)
             {
@@ -85,20 +116,32 @@ namespace VECS.UI
             if (!type.IsEnum) return currentValue;
 
             var values = Enum.GetValues(type);
-            var items = RadioContainer.Items;
+            var items = RadioButtons;
 
             if (values.Length != items.Count) return currentValue;
 
             if (IsFlagsEnum)
             {
-                string newValue = Activator.CreateInstance(type).ToString();
+                string newValue = "";
                  
                 for (int i = 0; i < items.Count; i++)
                 {
                     if ((bool)((RadioButton)items[i]).IsChecked)
                     {
-                        newValue += "|" + values.GetValue(i).ToString();
+                        if (newValue == "")
+                        {
+                            newValue = values.GetValue(i).ToString();
+                        }
+                        else
+                        {
+                            newValue += "|" +values.GetValue(i).ToString();
+                        }
+
                     }
+                }
+                if (newValue == "")
+                {
+                    newValue = Activator.CreateInstance(type).ToString();
                 }
                 return Enum.Parse(type,newValue);
             }

@@ -34,9 +34,16 @@ namespace VECS.UI
 
         public Vector2Field()
         {
-            InitializeComponent();
-            var valueX = (TextBox)FindName("XComp");
-            var valueY = (TextBox)FindName("YComp");
+
+
+        }
+
+        public override void OnApplyTemplate()
+        {
+            base.OnApplyTemplate();
+
+            var valueX = (TextBox)GetTemplateChild("XComp");
+            var valueY = (TextBox)GetTemplateChild("YComp");
 
             WeakReference weak = new(this);
 
@@ -58,12 +65,6 @@ namespace VECS.UI
                     weakRef.InternalValueChanged(s, e);
                 }
             };
-
-        }
-
-        void InitializeComponent()
-        {
-            GUI.LoadComponent(this, "Editor/Vector2Field.xaml");
         }
 
         public Vector2 GetVector2(Vector2 value)
