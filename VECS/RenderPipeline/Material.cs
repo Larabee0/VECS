@@ -64,6 +64,8 @@ namespace VECS
         public GraphicsPipeline Pipeline => _graphicsPipeline;
         public PushConstantsHandler PushConstants => _graphicsPipeline.PushConstants;
 
+        public ulong CombinedHash => CombineMaterial(_graphicsPipeline.Hash, (int)_variantIndex);
+
         internal unsafe Material(string name, GraphicsPipeline pipeline, bool localUniformAlloc = true)
         {
             AssetName = pipeline.AssetName + '.' + name;
@@ -547,6 +549,43 @@ namespace VECS
                         variant.WriteTexturesToDescriptorBuffer(setIndex, binding.BindPoint);
                     }
                 }
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static ulong CombineMaterial(int pipelineHash, int materialHash)
+        {
+            unchecked
+            {
+                ulong output = (uint)pipelineHash;
+                return (output << 32) + (uint)materialHash;
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void DecomposeHash(ulong combined, out int pipelineHash, out int materialHash)
+        {
+            unchecked
+            {
+                pipelineHash = (int)(uint)(combined >> 32);
+                materialHash = (int)(uint)(combined + (0 << 32));
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int DecodeIndex(ulong combined)
+        {
+            unchecked
+            {
+                return (int)(uint)(combined + (0 << 32));
+            }
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int DecodePipelineHash(ulong combined)
+        {
+            unchecked
+            {
+                return (int)(uint)(combined >> 32);
             }
         }
     }

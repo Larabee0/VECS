@@ -159,7 +159,7 @@ namespace VECS
 
 
         private static readonly ConcurrentDictionary<Vector3Int, uint> _materialVariants = new();
-        private static readonly ConcurrentDictionary<int, BufferRegion> _materialBufferRegions = new();
+        private static readonly ConcurrentDictionary<int, BufferRegion> _pipelineBufferRegions = new();
 
         public static readonly List<int> AllInOneMats = [];
         private static Vector3Int[] _materialCmdRegions = [];
@@ -210,7 +210,7 @@ namespace VECS
 
             //AllInOneMats.Clear();
             //AllInOneMats.TrimExcess();
-            _materialBufferRegions.Clear();
+            _pipelineBufferRegions.Clear();
             _materialVariants.Clear();
 
             _drawRenderMesh = [];
@@ -341,7 +341,7 @@ namespace VECS
                     if (lastRenderMesh.Material.Hash != renderMesh.Material.Hash)
                     {
                         materialVariantDrawIndex = 0;
-                        _materialBufferRegions.AddOrUpdate(lastRenderMesh.Material.Hash, storageBufferRegion, (key, value) => storageBufferRegion);
+                        _pipelineBufferRegions.AddOrUpdate(lastRenderMesh.Material.Hash, storageBufferRegion, (key, value) => storageBufferRegion);
                         storageBufferRegion.Increment();
                     }
                     else if (lastRenderMesh.Material.Variant != renderMesh.Material.Variant)
@@ -350,7 +350,16 @@ namespace VECS
 
                     }
 
-                    if (lastRenderMesh.Mesh.Hash != renderMesh.Mesh.Hash || lastRenderMesh.Material.Hash != renderMesh.Material.Hash || (lastRenderMesh.Mesh.SubMesh != renderMesh.Mesh.SubMesh && (lastRenderMesh.Material.Variant != renderMesh.Material.Variant || lastRenderMesh.Material.Entity != renderMesh.Material.Entity)))
+                    if (lastRenderMesh.Mesh.Hash != renderMesh.Mesh.Hash // direct mesh different OR
+                        || lastRenderMesh.Material.Hash != renderMesh.Material.Hash // pipeline different OR
+                        || (
+                                lastRenderMesh.Mesh.SubMesh != renderMesh.Mesh.SubMesh // sub mesh different AND
+                                && (
+                                        lastRenderMesh.Material.Variant != renderMesh.Material.Variant // material variant different OR
+                                        || lastRenderMesh.Material.Entity != renderMesh.Material.Entity // entity (pushconstant) different
+                                   )
+                           )
+                    )
                     {
                         meshSubRegion.Increment();
                     }
@@ -381,7 +390,7 @@ namespace VECS
                 _firstTransparentByMat = _drawCommandsByMat.Length;
             }
 
-            _materialBufferRegions.AddOrUpdate(lastRenderMesh.Material.Hash, storageBufferRegion, (key, value) => storageBufferRegion);
+            _pipelineBufferRegions.AddOrUpdate(lastRenderMesh.Material.Hash, storageBufferRegion, (key, value) => storageBufferRegion);
 
             SliceDrawCmds();
 
@@ -475,7 +484,7 @@ namespace VECS
 
         private static void SliceDrawCmds()
         {
-            Array.Resize(ref _materialCmdRegions, _materialBufferRegions.Count);
+            Array.Resize(ref _materialCmdRegions, _pipelineBufferRegions.Count);
 
             BufferRegion cmdRegion = default;
             var lastCmd = _drawCommandsByMat[0];
@@ -568,7 +577,7 @@ namespace VECS
             Application.ParallelFor(list.Count, (i) =>
             {
                 var mat = list[i];
-                if (!_materialBufferRegions.TryGetValue(mat.Hash, out var region)) return;
+                if (!_pipelineBufferRegions.TryGetValue(mat.Hash, out var region)) return;
 
                 for (int j = 0; j < _renderBuffers.Length; j++)
                 {
@@ -577,14 +586,14 @@ namespace VECS
             });
         }
 
-        private static unsafe void CopyFromRenderBuffer(GraphicsPipeline mat, BufferRegion region, int bufferIndex)
+        private static unsafe void CopyFromRenderBuffer(GraphicsPipeline pipeline, BufferRegion region, int bufferIndex)
         {
             var renderBuffer = _renderBuffers[bufferIndex];
             
-            if(mat.OwnersBuffer(renderBuffer.BufferShaderPropertyId))
+            if(pipeline.OwnersBuffer(renderBuffer.BufferShaderPropertyId))
             {
-                var materialBuffer = mat.GetStorageSwapChainBuffer(renderBuffer.BufferShaderPropertyId);
-                mat.SetDescriptorStorageBufferLengthFromProperty(renderBuffer.BufferShaderPropertyId, (uint)region.Count);
+                var materialBuffer = pipeline.GetStorageSwapChainBuffer(renderBuffer.BufferShaderPropertyId);
+                pipeline.SetDescriptorStorageBufferLengthFromProperty(renderBuffer.BufferShaderPropertyId, (uint)region.Count);
                 renderBuffer.CopyTo(materialBuffer.HostPtr, region.StartIndex, region.Count);
             }
         }
@@ -807,7 +816,7 @@ namespace VECS
     
         public static Span<MaterialDrawCommand> GetMaterialDrawCmds(int hash)
         {
-            if (_materialBufferRegions.TryGetValue(hash, out var region))
+            if (_pipelineBufferRegions.TryGetValue(hash, out var region))
             {
                 return _drawCommandsByMat.AsSpan(region.StartIndex, region.Count);
             }

@@ -10,8 +10,22 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
+    public enum PipelineType
+    {
+        Unknown = 0,
+
+        Forward,
+        
+        Deferred,
+        
+        DepthOnly,
+
+        Transparent
+    }
+
     public partial class GraphicsPipeline : Pipeline
     {
+        private PipelineType _pipelineType;
         private readonly static ConcurrentDictionary<int, int> _lastBoundGraphicsPipeline = new(Environment.ProcessorCount, Environment.ProcessorCount * 2);
         private GraphicsPipelineDefinition _definition;
         private GraphicsPipelineConfigInfo _graphicsPipelineConfigInfo;
@@ -36,6 +50,8 @@ namespace VECS
         public int MeshShaderDescriptorSetIndex => _meshShaderDescriptorSetIndex;
 
         public bool IsMeshShader => _meshShaderDescriptorSetIndex != -1;
+
+        public PipelineType PipelineType => _pipelineType;
 
         private unsafe void CreateDefault()
         {

@@ -1,24 +1,8 @@
-using Noesis;
-using System;
 using System.Collections.Generic;
 
 namespace VECS
 {
-    public readonly struct SortByDepthPipeline : IComparer<MaterialProvider>, IComparer<MaterialProviderFrozen>
-    {
-        public readonly int Compare(MaterialProvider x, MaterialProvider y)
-        {
-            return x.DepthOnlyPipelineHash.CompareTo(y.DepthOnlyPipelineHash);
-        }
-
-        public readonly int Compare(MaterialProviderFrozen x, MaterialProviderFrozen y)
-        {
-            return x.DepthOnlyPipelineHash.CompareTo(y.DepthOnlyPipelineHash);
-        }
-
-    }
-
-    public readonly struct SortByDepthMaterial : IComparer<MaterialProvider>, IComparer<MaterialProviderFrozen>
+    public readonly struct SortByDepthOnly : IComparer<MaterialProvider>, IComparer<MaterialProviderFrozen>
     {
         public readonly int Compare(MaterialProvider x, MaterialProvider y)
         {
@@ -27,112 +11,48 @@ namespace VECS
 
         public readonly int Compare(MaterialProviderFrozen x, MaterialProviderFrozen y)
         {
-            return x.DepthOnlyHash.CompareTo(y.DepthOnlyHash);
+            var val = x.DepthOnlyHash.CompareTo(y.DepthOnlyHash);
+            if(val != 0) return val;
+            return x.MeshHash.CompareTo(y.MeshHash);
         }
-
     }
 
-    public readonly struct SortByForwardPipeline : IComparer<MaterialProvider>, IComparer<MaterialProviderFrozen>
+    public readonly struct SortByColour : IComparer<MaterialProvider>, IComparer<MaterialProviderFrozen>
     {
         public readonly int Compare(MaterialProvider x, MaterialProvider y)
         {
-            return x.ForwardPipelineHash.CompareTo(y.ForwardPipelineHash);
+            return x.ColourHash.CompareTo(y.ColourHash);
         }
 
         public readonly int Compare(MaterialProviderFrozen x, MaterialProviderFrozen y)
         {
-            return x.ForwardPipelineHash.CompareTo(y.ForwardPipelineHash);
+            var val = x.ColourHash.CompareTo(y.ColourHash);
+            if (val != 0) return val;
+            return x.MeshHash.CompareTo(y.MeshHash);
         }
-
-    }
-
-    public readonly struct SortByForwardMaterial : IComparer<MaterialProvider>, IComparer<MaterialProviderFrozen>
-    {
-        public readonly int Compare(MaterialProvider x, MaterialProvider y)
-        {
-            return x.ForwardHash.CompareTo(y.ForwardHash);
-        }
-
-        public readonly int Compare(MaterialProviderFrozen x, MaterialProviderFrozen y)
-        {
-            return x.ForwardHash.CompareTo(y.ForwardHash);
-        }
-
-    }
-
-    public readonly struct SortByDeferredPipeline : IComparer<MaterialProvider>, IComparer<MaterialProviderFrozen>
-    {
-        public readonly int Compare(MaterialProvider x, MaterialProvider y)
-        {
-            return x.DeferredPipelineHash.CompareTo(y.DeferredPipelineHash);
-        }
-
-        public readonly int Compare(MaterialProviderFrozen x, MaterialProviderFrozen y)
-        {
-            return x.DeferredPipelineHash.CompareTo(y.DeferredPipelineHash);
-        }
-
-    }
-
-    public readonly struct SortByDeferredMaterial : IComparer<MaterialProvider>, IComparer<MaterialProviderFrozen>
-    {
-        public readonly int Compare(MaterialProvider x, MaterialProvider y)
-        {
-            return x.DeferredHash.CompareTo(y.DeferredHash);
-        }
-
-        public readonly int Compare(MaterialProviderFrozen x, MaterialProviderFrozen y)
-        {
-            return x.DeferredHash.CompareTo(y.DeferredHash);
-        }
-
-    }
-
-    public readonly struct SortByTransparent : IComparer<MaterialProvider>, IComparer<MaterialProviderFrozen>
-    {
-        public readonly int Compare(MaterialProvider x, MaterialProvider y)
-        {
-            return x.IsTransparent.CompareTo(y.IsTransparent);
-        }
-
-        public readonly int Compare(MaterialProviderFrozen x, MaterialProviderFrozen y)
-        {
-            return x.IsTransparent.CompareTo(y.IsTransparent);
-        }
-
     }
 
     public readonly struct MaterialProviderFrozen
     {
-        public readonly int DepthOnlyPipelineHash;
-        public readonly int DepthOnlyHash;
+        public readonly ulong DepthOnlyHash;
 
-        public readonly int ForwardPipelineHash;
-        public readonly int ForwardHash;
+        public readonly ulong ColourHash;
 
-        public readonly int DeferredPipelineHash;
-        public readonly int DeferredHash;
+        public readonly ulong MeshHash;
 
         public readonly int EntityIndex;
 
+        public readonly bool HasDepthOnly => DepthOnlyHash != 0;
 
-        public readonly bool IsTransparent;
-        public readonly bool IsDepthOnly => DeferredPipelineHash == 0 && ForwardPipelineHash == 0 && DepthOnlyHash != 0 && DepthOnlyPipelineHash != 0; 
-        public readonly bool IsDeferred => DeferredPipelineHash != 0 && DeferredHash != 0;
-        public readonly bool IsForward => !IsTransparent && !IsDeferred && ForwardPipelineHash != 0 && ForwardHash != 0;
+        public readonly bool IsValid => EntityIndex != 0 && (DepthOnlyHash != 0 || ColourHash != 0);
 
-        public MaterialProviderFrozen(MaterialProvider provider, int entityIndex)
+        public MaterialProviderFrozen(MaterialProvider provider, int entityIndex, ulong meshHash)
         {
-            DepthOnlyPipelineHash = provider.DepthOnlyPipelineHash;
             DepthOnlyHash = provider.DepthOnlyHash;
 
-            ForwardPipelineHash = provider.ForwardPipelineHash;
-            ForwardHash = provider.ForwardHash;
+            ColourHash = provider.ColourHash;
 
-            DeferredPipelineHash = provider.DeferredPipelineHash;
-            DeferredHash = provider.DeferredHash;
-
-            IsTransparent = provider.IsTransparent;
+            MeshHash = meshHash;
 
             EntityIndex = entityIndex;
         }
@@ -144,54 +64,30 @@ namespace VECS
         public Material DepthOnly;
         public Material DepthOnly_Mesh;
 
-        public Material Forward;
-        public Material Deferred;
+        public Material Colour;
 
-        public Material Forward_Mesh;
-        public Material Deferred_Mesh;
-
-        public bool IsTransparent => (Forward != null && Forward.Pipeline.Transparent) || (Forward_Mesh != null && Forward_Mesh.Pipeline.Transparent);
+        public Material Colour_Mesh;
 
         public bool HasDepthOnly => DepthOnly != null || DepthOnly_Mesh != null;
-        public bool HasAnyForward => Forward != null || Forward_Mesh != null;
-        public bool HasAnyDeferred => Deferred != null || Deferred_Mesh != null;
+        public bool HasAnyColour => Colour != null || Colour_Mesh != null;
 
-        public bool IsValid => HasDepthOnly || HasAnyForward || HasAnyDeferred;
+        public bool IsValid => HasDepthOnly || HasAnyColour;
 
         public bool DepthMeshShaderFallback => (DepthOnly_Mesh != null && DepthOnly != null) || DepthOnly != null;
-        public bool ForwardMeshShaderFallback => (Forward_Mesh != null && Forward != null) || Forward != null || (Forward == null && Forward_Mesh != null);
-        public bool DeferredMeshShaderFallback => (Deferred_Mesh != null && Deferred != null) || Deferred != null || (Deferred == null && Deferred_Mesh != null);
+        public bool ColourMeshShaderFallback => (Colour_Mesh != null && Colour != null) || Colour != null || (Colour == null && Colour_Mesh != null);
         
-        public bool HasRequiredMeshShaderFallbacks => (HasDepthOnly && DepthMeshShaderFallback) || (HasAnyForward && ForwardMeshShaderFallback) || (HasAnyDeferred && DeferredMeshShaderFallback);
-
-        public int DepthOnlyPipelineHash => DepthOnly == null ? 0 : DepthOnly.Pipeline.Hash;
-        public int MeshDepthOnlyPipelineHash => DepthOnly_Mesh == null ? 0 : DepthOnly_Mesh.Pipeline.Hash;
-
-        public int ForwardPipelineHash => Forward == null ? 0 : Forward.Pipeline.Hash;
-        public int MeshForwardPipelineHash => Forward_Mesh == null ? 0 : Forward_Mesh.Pipeline.Hash;
-
-        public int DeferredPipelineHash => Deferred == null ? 0 : Deferred.Pipeline.Hash;
-        public int MeshDeferredPipelineHash => Deferred_Mesh == null ? 0 : Deferred_Mesh.Pipeline.Hash;
-
-        public int DeferredForwardPipelineHash => HashCode.Combine(Deferred.Pipeline.Hash, Forward.Pipeline.Hash);
-        public int MeshDeferredForwardPipelineHash => HashCode.Combine(Deferred_Mesh.Pipeline.Hash, Forward_Mesh.Pipeline.Hash);
+        public bool HasRequiredMeshShaderFallbacks => (HasDepthOnly && DepthMeshShaderFallback) || (HasAnyColour && ColourMeshShaderFallback);
 
 
-        public int DepthOnlyHash => DepthOnly.Hash;
-        public int MeshDepthOnlyHash => DepthOnly_Mesh.Hash;
+        public ulong DepthOnlyHash => DepthOnly.CombinedHash;
+        public ulong MeshDepthOnlyHash => DepthOnly_Mesh.CombinedHash;
 
-        public int ForwardHash => Forward.Hash;
-        public int MeshForwardHash => Forward_Mesh.Hash;
+        public ulong ColourHash => Colour.CombinedHash;
+        public ulong MeshColourHash => Colour_Mesh.CombinedHash;
 
-        public int DeferredHash => Deferred.Hash;
-        public int MeshDeferredHash => Deferred_Mesh.Hash;
-
-        public int DeferredForwardHash => HashCode.Combine(Deferred.Hash, Forward.Hash);
-        public int MeshDeferredForwardHash => HashCode.Combine(Deferred_Mesh.Hash, Forward_Mesh.Hash);
-
-        public MaterialProviderFrozen GetFrozen(int entityIndex)
+        public MaterialProviderFrozen GetFrozen(int entityIndex, ulong meshData)
         {
-            return new(this,entityIndex);
+            return new(this,entityIndex, meshData);
         }
 
 
@@ -205,9 +101,9 @@ namespace VECS
             AssetName = name;
         }
 
-        public MaterialProvider(string name, Material forward) : this(name)
+        public MaterialProvider(string name, Material colour) : this(name)
         {
-            Forward = forward;
+            Colour = colour;
         }
 
         public MaterialProvider(Material depthOnly, string name) : this(name)
@@ -215,17 +111,10 @@ namespace VECS
             DepthOnly = depthOnly;
         }
 
-        public MaterialProvider(string name,  Material depthOnly, Material forward) : this(name)
+        public MaterialProvider(string name,  Material depthOnly, Material colour) : this(name)
         {
             DepthOnly = depthOnly;
-            Forward = forward;
-        }
-
-        public MaterialProvider(string name, Material depthOnly, Material deferred, Material forward) : this(name)
-        {
-            DepthOnly = depthOnly;
-            Forward = forward;
-            Deferred = deferred;
+            Colour = colour;
         }
 
     }
