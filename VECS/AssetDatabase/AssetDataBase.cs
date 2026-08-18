@@ -18,6 +18,29 @@ namespace VECS
         public static List<T> AllAssetsListForReading => _assetsList;
         public static IEnumerable<T> AllAssets => _assetsList;
 
+        private static Action<T> OnAdded;
+        private static Action<T> OnRemoved;
+
+        public static void AddOnAddedListener(Action<T> callback)
+        {
+            OnAdded += callback;
+        }
+
+        public static void RemoveOnAddedListener(Action<T> callback)
+        {
+            OnAdded -= callback;
+        }
+
+        public static void AddOnRemovedListener(Action<T> callback)
+        {
+            OnRemoved += callback;
+        }
+
+        public static void RemoveOnRemovedListener(Action<T> callback)
+        {
+            OnRemoved -= callback;
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void SetIndices()
         {
@@ -76,6 +99,7 @@ namespace VECS
                 Console.WriteLine("Too many {0}; over {1}", typeof(T), ushort.MaxValue);
             }
             asset.Index = _assetsList.Count - 1;
+            OnAdded?.Invoke(asset);
         }
 
 
@@ -86,6 +110,7 @@ namespace VECS
             _assetsList.Remove(asset);
             _assetsByHash.Remove(asset.Hash);
             SetIndices();
+            OnRemoved?.Invoke(asset);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -104,6 +129,11 @@ namespace VECS
                 _assetsByHash.Remove(asset.Hash);
             }
             SetIndices();
+
+            for (int i = 0; i < assets.Length; i++)
+            {
+                OnRemoved?.Invoke(assets[i]);
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -129,6 +159,11 @@ namespace VECS
             }
 
             SetIndices();
+
+            foreach (var asset in assetsAsT)
+            {
+                OnRemoved?.Invoke(asset);
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
