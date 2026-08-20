@@ -1,4 +1,5 @@
 ﻿using System.Numerics;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using VECS.LowLevel;
 using Vortice.Vulkan;
@@ -23,6 +24,8 @@ namespace VECS
         private readonly SwapChainBufferAsset _geometry;
         private SwapChainBufferAsset _linkedList;
 
+        private TransparentQueue _transparentQueue;
+
         public OIT(IRenderer activeRenderer)
         {
             ActiveRenderer = activeRenderer;
@@ -35,6 +38,8 @@ namespace VECS
             var alphaBlending = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             GraphicsPipelineConfigInfo.EnableAlphaBlending(ref alphaBlending);
             OIT_Composite = GraphicsPipeline.VertexFragmentPipeline("OIT_Composite", "fullscreen.vert", "oit_composite.frag", alphaBlending);
+
+            _transparentQueue = new("Transparent");
         }
 
         public unsafe void RecreateRenderTargets()
@@ -82,7 +87,7 @@ namespace VECS
             var cullData = frameInfo.CullData;
             cullData.cullMode &= ~CullModeFlags.Depth;
 
-            DrawBlob.CullByMat(frameInfo, cullData);
+            DrawBlob.Cull(_transparentQueue, frameInfo, cullData);
 
             VkRenderingAttachmentInfo depthAttachment = new()
             {
@@ -125,6 +130,8 @@ namespace VECS
             GraphicsDevice.DeviceAPI.vkCmdBeginRendering(commandBuffer, &renderingInfo);
 
             SwapChain.SetViewPortScissor(commandBuffer);
+
+            DrawOITs(frameInfo);
         }
 
         public unsafe void EndOITTransparentPass(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer)
@@ -147,8 +154,6 @@ namespace VECS
 
             MemoryBarrierHelper.MemoryBarrier(commandBuffer, barrier);
 
-            DrawBlob.IndirectToComputeMemoryBarrierByMat(commandBuffer);
-
             ActiveRenderer.StartMainColourRendering(frameInfo, VkAttachmentLoadOp.Load);
 
             DrawOIT_Compites(frameInfo);
@@ -156,11 +161,18 @@ namespace VECS
             GraphicsDevice.EndLabelCmd(commandBuffer);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void DrawOIT_Compites(RendererFrameInfo frameInfo)
         {
             OIT_Composite.Default().Bind(frameInfo);
 
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void DrawOITs(RendererFrameInfo frameInfo)
+        {
+            DrawBlob.Execute(_transparentQueue, frameInfo, 0, VkCullModeFlags.None);
         }
     }
 }

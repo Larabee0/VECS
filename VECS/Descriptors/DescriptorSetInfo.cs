@@ -302,6 +302,14 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void WriteDescriptors(int frameIndex, uint bindingPoint, uint setVariant, GPUBuffer buffer, ulong offset, ulong count)
+        {
+            var descriptorBuffer = _descriptorBuffers[frameIndex];
+            var range = buffer.GetBufferAddressRange(offset, count);
+            descriptorBuffer.SetBufferBinding(range,VkDescriptorType.StorageBuffer, setVariant, bindingPoint);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void WriteDescriptors(int frameIndex, uint bindingPoint, uint setVariant, Texture texture)
         {
             var descriptorBuffer = _descriptorBuffers[frameIndex];

@@ -393,20 +393,33 @@ namespace VECS
                 Material material = AssetDataBase<Material>.GetNamedSilentFail(matName);
                 material ??= lit.Create(matName);
 
+                MaterialProvider materialProvider = AssetDataBase<MaterialProvider>.GetNamedSilentFail(matName);
+
+                if(materialProvider == null)
+                {
+                    materialProvider = new MaterialProvider(matName, material);
+                    AssetDataBase<MaterialProvider>.Add(materialProvider);
+                }
+                
+
                 if (matInfo.DiffuseTexture != null)
                 {
                     if (!textureLibrary.TryGetValue(matInfo.DiffuseTexture, out var diffuseTexture))
                     {
                         diffuseTexture = TextureLoader.Load2D(matInfo.DiffuseTexture,VkFormat.Bc7UnormBlock);
                         textureLibrary.Add(matInfo.DiffuseTexture, diffuseTexture);
+                        materialProvider.DepthOnly = EnginePipes.DepthOnly.Default();
                     }
                     if (matInfo.AlphaClipping)
                     {
                         //material.SetTexture(ShaderProperties.HeadIndexImageId, Presenter.Instance.ForwardRenderer._headIndex);
                         material.AlphaClipping = true;
                         material.OverrideCullMode = true;
-                        material.CullMode = Vortice.Vulkan.VkCullModeFlags.None;
+                        material.CullMode = VkCullModeFlags.None;
                         material.AlphaTexture = diffuseTexture;
+                        var alphaClippingDepthVariant = EnginePipes.DepthOnlyAlphaClipping.Create(matName);
+                        DrawBlob.SetAlphaClipping(material,alphaClippingDepthVariant);
+                        materialProvider.DepthOnly = alphaClippingDepthVariant;
                     }
                     material.SetTexture(texProp, diffuseTexture);
                 }
@@ -458,6 +471,7 @@ namespace VECS
                     entityManager.AddComponent(entity, parent);
 
                     AddRenderMeshComponents(entity, material, 0, sponza[meshIndex], entityManager);
+                    entityManager.AddComponent(entity, new MaterialProviderComponent() { Value = materialProvider.Hash, LayerFlags = material.Pipeline.Transparent ? RenderLayer.Default | RenderLayer.Transparent : RenderLayer.Default });
                 }
                 litVariant++;
             }

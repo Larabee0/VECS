@@ -42,6 +42,7 @@ namespace VECS
         public uint firstIndex;
         public int vertexOffset;
         public uint firstInstance;
+        public uint absMatrixIndex;
         public RenderLayer layerFlags;
         public byte drawnFlag;
         public byte pad1;
@@ -194,6 +195,7 @@ namespace VECS
         {
             
             var variantIndex = Interlocked.Increment(ref _invokation) - 1;
+            /*
 #if DEBUG
 #pragma warning disable CS0162
             if (CPUCulling)
@@ -219,21 +221,56 @@ namespace VECS
 
 #pragma warning restore CS0162
 #endif
+            */
 
+            GPUCullInternal(commandBuffer,frameIndex, cullData,0, drawCount, drawIndirect, bounds, variantIndex);
 
-            GPUCullInternal(commandBuffer,frameIndex, cullData, drawCount, drawIndirect, bounds, variantIndex);
-            
         }
-        private static void GPUCullInternal(VkCommandBuffer commandBuffer, int frameIndex, CullData cullData, uint drawCount, SwapChainBuffer drawIndirect, SwapChainBuffer bounds, uint variantIndex)
+        public static void Cull(VkCommandBuffer commandBuffer, int frameIndex, CullData cullData, uint indirectOffset, uint drawCount, SwapChainBuffer<VECSDrawIndexIndirectCommand> drawIndirect, SwapChainBuffer bounds)
+        {
+
+            var variantIndex = Interlocked.Increment(ref _invokation) - 1;
+            /*
+#if DEBUG
+#pragma warning disable CS0162
+            if (CPUCulling)
+            {
+                CPUCull(cullData, drawCount, drawIndirect, bounds);
+                return;
+            }
+
+            var includeMask = cullData.IncludeMask;
+            var excludeMask = cullData.ExcludeMask;
+            for (int i = 0; i < drawCount; i++)
+            {
+                var flags = drawIndirect.HostBuffer[i].layerFlags;
+                var include = (includeMask & flags) == flags;
+                var exclude = (excludeMask & flags) == flags;
+                var visible = include && !exclude;
+            }
+
+
+            bool fustrumCulling = (1 | (byte)cullData.cullMode) == (byte)cullData.cullMode;
+            bool distanceCulling = (2 | (byte)cullData.cullMode) == (byte)cullData.cullMode;
+            bool depthCulling = (4 | (byte)cullData.cullMode) == (byte)cullData.cullMode;
+
+#pragma warning restore CS0162
+#endif
+            */
+
+            GPUCullInternal(commandBuffer, frameIndex, cullData, indirectOffset, drawCount, drawIndirect, bounds, variantIndex);
+
+        }
+        private static void GPUCullInternal(VkCommandBuffer commandBuffer, int frameIndex, CullData cullData, uint indirectCmdOffset, uint drawCount, SwapChainBuffer drawIndirect, SwapChainBuffer bounds, uint variantIndex)
         {
             bounds.SetUsedInstanceCount(drawCount);
-            drawIndirect.SetUsedInstanceCount(drawCount);
+            drawIndirect.SetUsedInstanceCount(indirectCmdOffset+drawCount);
             cullData.drawCount = drawCount;
 
             var invokeVariant = _computeShader.GetOrCreateVariant(variantIndex);
 
             invokeVariant.SetUniform(CullDataId, cullData);
-            invokeVariant.SetStorageBuffer(DrawBufferId, drawIndirect);
+            invokeVariant.SetStorageBuffer(DrawBufferId, drawIndirect, indirectCmdOffset, drawCount);
             invokeVariant.SetStorageBuffer(BoundsBufferId, bounds);
             invokeVariant.SetTexture(DepthPyramidId, DepthReduction.DepthPryamid);
             invokeVariant.Dispatch(commandBuffer, frameIndex, (drawCount / 256) + 1);

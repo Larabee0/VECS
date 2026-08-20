@@ -12,6 +12,9 @@ namespace VECS
         public RenderTarget BrightObjectAttachment;
         public RenderTarget DepthAttachment;
 
+        private DepthOnlyQueue _depthOnlyQueue;
+        private ForwardQueue _forwardQueue;
+
         private OIT _orderIndpTransparency;
         private Bloom _bloom;
         private SMAA _smaa;
@@ -33,8 +36,9 @@ namespace VECS
         public void PostCreate()
         {
             ScreenSizeChanged();
-            DrawBlob.AllInOneMats.Add(EnginePipes.DepthOnly.Hash);
-            DrawBlob.AllInOneMats.Add(EnginePipes.DepthOnlyAlphaClipping.Hash);
+
+            _depthOnlyQueue = new DepthOnlyQueue("DepthOnly");
+            _forwardQueue = new ForwardQueue("Forward");
 
             EnginePipes.DepthOnly.PushConstants.SetPushConstantInt("layerCount", DEPTH_ONLY_PUSH_CONSTANT_INDEX, 1);
             EnginePipes.DepthOnly.PushConstants.SetPushConstantInt("bufferSelect", DEPTH_ONLY_PUSH_CONSTANT_INDEX, 0);
@@ -109,8 +113,6 @@ namespace VECS
             _bloom.RenderBloomObjects(frameInfo);
             GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
 
-            DrawBlob.IndirectToComputeMemoryBarrierByMat(frameInfo.CommandBuffer);
-
             // final AA pass
             GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "SMAA Pass");
             _smaa.ApplyAA(frameInfo);
@@ -132,7 +134,7 @@ namespace VECS
         {
             var commandBuffer = frameInfo.CommandBuffer;
 
-            if (DrawBlob.HasDrawablesInclDepth)
+            if (_depthOnlyQueue.CommandCount > 0)
             {
                 GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Main Depth Only");
                 EnginePipes.DepthOnly.PushConstants.SetPushConstantInt("matrixStartIndex", DEPTH_ONLY_PUSH_CONSTANT_INDEX, frameInfo.MainCamera);
@@ -140,13 +142,12 @@ namespace VECS
                 var depthBufferCullInfo = frameInfo.CullData;
                 depthBufferCullInfo.cullMode &= ~CullModeFlags.Depth;
                 depthBufferCullInfo.ExcludeMask |= RenderLayer.Transparent;
-                DrawBlob.IndirectToComputeMemoryBarrierByMat(commandBuffer);
 
-                DrawBlob.CullAllInOne(frameInfo, depthBufferCullInfo);
+                DrawBlob.Cull(_depthOnlyQueue, frameInfo,depthBufferCullInfo);
 
                 BeginForwardDepthOnlyRendering(commandBuffer, VkAttachmentLoadOp.Clear);
 
-                DrawBlob.ExecutateDepthOnly(frameInfo, commandBuffer, DEPTH_ONLY_PUSH_CONSTANT_INDEX, VkCullModeFlags.Back);
+                DrawBlob.Execute(_depthOnlyQueue,frameInfo,DEPTH_ONLY_PUSH_CONSTANT_INDEX,VkCullModeFlags.Back);
 
                 EndForwardDepthOnlyRendering(commandBuffer);
                 GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
@@ -166,15 +167,12 @@ namespace VECS
             GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
 
             GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Main Colour Pass");
-            DrawBlob.CullByMat(frameInfo, frameInfo.CullData);
 
-            DrawBlob.IndirectToComputeMemoryBarrierByMat(commandBuffer);
+            DrawBlob.Cull(_forwardQueue, frameInfo, frameInfo.CullData);
 
             StartMainColourRendering(frameInfo, VkAttachmentLoadOp.Clear);
 
-            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Entities");
-            World.DefaultWorld.OnOpaquePass(frameInfo);
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
+            DrawBlob.Execute(_forwardQueue, frameInfo, 0, VkCullModeFlags.Back);
 
             // skybox last item rendered to save fragments from any depth writes
             GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Skybox");

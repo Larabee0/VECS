@@ -105,11 +105,11 @@ namespace VECS
 
             SetImageLayoutWrite(frameInfo.CommandBuffer, texture);
 
-            DrawBlob.IndirectToComputeMemoryBarrierByMat(frameInfo.CommandBuffer);
             GetSpaceMatrix(spotLight, out var near, out var view, out var proj);
             CullData depthBufferCullInfo = new(SHADOW_INCLUDE_MASK, SHADOW_EXCLUDE_MASK, SHADOW_CULL_MODE, near, proj, view);
 
-            DrawBlob.CullAllInOne(frameInfo, depthBufferCullInfo);
+            CullShadow(frameInfo, depthBufferCullInfo);
+            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Depth Pass");
             BeginShadowPass(frameInfo.CommandBuffer, texture._imageView,(uint)texture.Width);
 
             _depthOnly.PushConstants.SetPushConstantInt("matrixStartIndex", SPOT_SHADOWS_PUSH_CONSTANT_INDEX, textureIndex);
@@ -117,8 +117,10 @@ namespace VECS
             _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("matrixStartIndex", SPOT_SHADOWS_PUSH_CONSTANT_INDEX, textureIndex);
             _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("layerOffset", SPOT_SHADOWS_PUSH_CONSTANT_INDEX, 0);
 
-            DrawBlob.ExecutateDepthOnly(frameInfo, frameInfo.CommandBuffer, SPOT_SHADOWS_PUSH_CONSTANT_INDEX, VkCullModeFlags.Front);
+            DrawDepthOnly(frameInfo,SPOT_SHADOWS_PUSH_CONSTANT_INDEX,VkCullModeFlags.Front);
+
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
+            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
 
             SetImageLayoutRead(frameInfo.CommandBuffer, texture);
             GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);

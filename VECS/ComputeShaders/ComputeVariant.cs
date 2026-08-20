@@ -201,16 +201,24 @@ namespace VECS
             }
         }
 
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetStorageBuffer(int propertyId, SwapChainBuffer buffer)
+        {
+            SetStorageBuffer(propertyId, buffer, 0, Vulkan.VK_WHOLE_SIZE);
+        }
+
+        public void SetStorageBuffer(int propertyId, SwapChainBuffer buffer, ulong offset, ulong count)
         {
             if (buffer == null || buffer.IsDisposed) return;
             if (LookUpProperty(propertyId, out var propertyInfo) && propertyInfo.BindingInfo.StorageBuffer)
             {
-                SetStorageBuffer(buffer, propertyInfo.SetIndex, propertyInfo.BindPoint);
+                SetStorageBuffer(offset, count, buffer, propertyInfo.SetIndex, propertyInfo.BindPoint);
             }
         }
 
-        private void SetStorageBuffer(SwapChainBuffer buffer, uint setIndex, uint bindPoint)
+
+        private void SetStorageBuffer(ulong offset, ulong count, SwapChainBuffer buffer, uint setIndex, uint bindPoint)
         {
             var setInfo = GetDescriptorInfo(setIndex);
             uint variant = localUniformAllocation ? 0 : VariantIndex;
@@ -218,11 +226,16 @@ namespace VECS
             for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
             {
                 bufferArray[i] = buffer[i];
-                setInfo.WriteDescriptors(i, bindPoint, variant, buffer[i]);
+                setInfo.WriteDescriptors(i, bindPoint, variant, buffer[i], offset, count);
             }
         }
 
         public void SetStorageBuffer(int propertyId, GPUBuffer buffer)
+        {
+            SetStorageBuffer(propertyId, buffer, 0, Vulkan.VK_WHOLE_SIZE);
+        }
+
+        public void SetStorageBuffer(int propertyId, GPUBuffer buffer, ulong offset, ulong count)
         {
             if (buffer == null || buffer.IsDisposed) return;
             if (LookUpProperty(propertyId, out var propertyInfo) && propertyInfo.BindingInfo.StorageBuffer)
@@ -233,7 +246,7 @@ namespace VECS
                 for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
                 {
                     bufferArray[i] = buffer;
-                    setInfo.WriteDescriptors(i, propertyInfo.BindPoint, variant, buffer);
+                    setInfo.WriteDescriptors(i, propertyInfo.BindPoint, variant, buffer,offset,count);
                 }
             }
         }

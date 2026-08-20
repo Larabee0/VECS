@@ -12,6 +12,7 @@ struct DrawCommand {
     uint firstIndex;
     int vertexOffset;
     uint firstInstance;
+    uint absMatrixIndex;
 	uint8_t layerFlags;
 };
 
@@ -150,10 +151,10 @@ void main()
 		bool depthCulling = (uint8_t(4) | cullData.cullMode) == cullData.cullMode;
 
 		if(visible && fustrumCulling){
-			visible = IsVisible(gID, distanceCulling ? 6 : 4);
+			visible = IsVisible(drawBuffer.Draws[gID].absMatrixIndex, distanceCulling ? 6 : 4);
 		}
 		if(visible && depthCulling){
-			visible = IsDepthVisible(gID);
+			visible = IsDepthVisible(drawBuffer.Draws[gID].absMatrixIndex);
 		}
 		
 		if(visible){

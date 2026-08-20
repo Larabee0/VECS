@@ -22,19 +22,5 @@ namespace VECS.ECS.Presentation
 
             DrawBlob.RebuildOrUpdate(entityManager, entities);
         }
-
-        public override unsafe void OnOpaquePass(EntityManager entityManager, RendererFrameInfo frameInfo)
-        {
-            if (DrawBlob.OpaqueCmdCountByMat == 0) return;
-
-            DrawBlob.ExecuteOpaqueDrawCmds(frameInfo, null, null, 0, default, default);
-        }
-
-        public override unsafe void OnTransparentPass(EntityManager entityManager, RendererFrameInfo frameInfo)
-        {
-            if (DrawBlob.TransparentCmdCountByMat == 0) return;
-
-            DrawBlob.ExecuteTransparentDrawCmds(frameInfo, null, null, 0, default, default);
-        }
     }
 }

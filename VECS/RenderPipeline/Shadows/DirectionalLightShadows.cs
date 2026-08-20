@@ -249,8 +249,10 @@ namespace VECS
                     _projMatrices[i],
                     _viewMatrices[i]
                 );
-                DrawBlob.IndirectToComputeMemoryBarrierByMat(frameInfo.CommandBuffer);
-                DrawBlob.CullAllInOne(frameInfo, depthBufferCullInfo);
+                
+                CullShadow(frameInfo, depthBufferCullInfo);
+
+                GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Depth Pass");
                 GraphicsDevice.DeviceAPI.vkCmdBeginRendering(frameInfo.CommandBuffer, &renderingInfo);
 
 
@@ -259,8 +261,10 @@ namespace VECS
                 _depthOnly.PushConstants.SetPushConstantInt("matrixStartIndex", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, i);
                 _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("matrixStartIndex", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, i);
 
-                DrawBlob.ExecutateDepthOnly(frameInfo, frameInfo.CommandBuffer, DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, VkCullModeFlags.Front);
+                DrawDepthOnly(frameInfo, DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, VkCullModeFlags.Front);
+
                 GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
+                GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
                 GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
             }
             arrayTex.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.LateFragmentTests, VkPipelineStageFlags2.FragmentShader);

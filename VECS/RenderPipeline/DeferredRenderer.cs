@@ -31,6 +31,9 @@ namespace VECS
         private SMAA _smaa;
         private SSAO _ssao;
 
+        private DepthOnlyQueue _depthOnlyQueue;
+        private DeferredQueue _deferredQueue;
+
         private static ComputeVariant _deferredComposite;
 
         public static readonly VkFormat[] Colours = [VkFormat.R32G32B32A32Sfloat, VkFormat.R32G32B32A32Sfloat];
@@ -59,9 +62,6 @@ namespace VECS
 
         public void PostCreate()
         {
-            DrawBlob.AllInOneMats.Add(EnginePipes.DepthOnly.Hash);
-            DrawBlob.AllInOneMats.Add(EnginePipes.DepthOnlyAlphaClipping.Hash);
-
             EnginePipes.DepthOnly.PushConstants.SetPushConstantInt("layerCount", DEPTH_ONLY_PUSH_CONSTANT_INDEX, 1);
             EnginePipes.DepthOnly.PushConstants.SetPushConstantInt("bufferSelect", DEPTH_ONLY_PUSH_CONSTANT_INDEX, 0);
             _orderIndpTransparency = new(this);
@@ -71,6 +71,10 @@ namespace VECS
             Skybox.StartSkybox();
             PBR.StartPBR();
             ScreenSizeChanged();
+            _depthOnlyQueue = new DepthOnlyQueue("DepthOnly");
+            _deferredQueue = new DeferredQueue("Deferred");
+            DrawBlob.AddQueue(_depthOnlyQueue);
+            DrawBlob.AddQueue(_deferredQueue);
         }
 
         public void ScreenSizeChanged()
@@ -170,8 +174,6 @@ namespace VECS
             _bloom.RenderBloomObjects(frameInfo);
             GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
 
-            DrawBlob.IndirectToComputeMemoryBarrierByMat(frameInfo.CommandBuffer);
-
             // final AA pass
             GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "SMAA Pass");
             _smaa.ApplyAA(frameInfo);
@@ -209,22 +211,23 @@ namespace VECS
         {
             var commandBuffer = frameInfo.CommandBuffer;
 
-            if (DrawBlob.HasDrawablesInclDepth)
+            if (_depthOnlyQueue.CommandCount > 0)
             {
-                GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Main Depth Only");
                 EnginePipes.DepthOnly.PushConstants.SetPushConstantInt("matrixStartIndex", DEPTH_ONLY_PUSH_CONSTANT_INDEX, frameInfo.MainCamera);
 
                 var depthBufferCullInfo = frameInfo.CullData;
                 depthBufferCullInfo.cullMode &= ~CullModeFlags.Depth;
-                DrawBlob.IndirectToComputeMemoryBarrierByMat(commandBuffer);
 
-                DrawBlob.CullAllInOne(frameInfo, depthBufferCullInfo);
+                GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Main Depth Only");
+                
+                DrawBlob.Cull(_depthOnlyQueue, frameInfo, depthBufferCullInfo);
+                
+                BeginDeferredDepthOnlyRendering(commandBuffer,VkAttachmentLoadOp.Clear);
 
-                BeginDeferredDepthOnlyRendering(commandBuffer, VkAttachmentLoadOp.Clear);
-
-                DrawBlob.ExecutateDepthOnly(frameInfo, commandBuffer, DEPTH_ONLY_PUSH_CONSTANT_INDEX, VkCullModeFlags.Back);
+                DrawBlob.Execute(_depthOnlyQueue,frameInfo, DEPTH_ONLY_PUSH_CONSTANT_INDEX, VkCullModeFlags.Back);
 
                 EndDeferredDepthOnlyRendering(commandBuffer);
+
                 GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
 
                 GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Main Depth Reduction");
@@ -241,17 +244,16 @@ namespace VECS
             }
             GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
 
-            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Main Colour Pass");
-            DrawBlob.CullByMat(frameInfo, frameInfo.CullData);
-
-            DrawBlob.IndirectToComputeMemoryBarrierByMat(commandBuffer);
-
             GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Defferred Pass");
+
+            DrawBlob.Cull(_deferredQueue, frameInfo, frameInfo.CullData);
+
             StartDeferredRendering(frameInfo);
-            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Entities");
-            World.DefaultWorld.OnOpaquePass(frameInfo);
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
+
+            DrawBlob.Execute(_deferredQueue, frameInfo, DEPTH_ONLY_PUSH_CONSTANT_INDEX, VkCullModeFlags.Back);
+
             EndDeferredRendering(frameInfo);
+
             GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
 
             _ssao.SSAOPass(frameInfo);
@@ -266,7 +268,6 @@ namespace VECS
             GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
 
             EndMainColourRendering(frameInfo);
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
             GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
         }
 

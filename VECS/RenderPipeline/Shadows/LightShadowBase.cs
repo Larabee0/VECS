@@ -16,6 +16,8 @@ namespace VECS
 
         public static VkFormat SHADOW_FORMAT => PreferredFormats.LOW_PRECISION_DEPTH_ONLY;
 
+        public static readonly int Depth_Only_Queue_Name = "DepthOnly".GetShaderPropertyId();
+
         protected readonly ITextureProvider _shadowDepthTextures;
         protected readonly bool[] _clearImages;
 
@@ -35,6 +37,18 @@ namespace VECS
             _clearImages = new bool[numLights];
             _depthOnly = EnginePipes.DepthOnly.Default();
             _depthOnlyAlphaClipping = EnginePipes.DepthOnlyAlphaClipping.Default();
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void CullShadow(RendererFrameInfo frameInfo, CullData cullData)
+        {
+            DrawBlob.Cull(Depth_Only_Queue_Name, frameInfo, cullData);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void DrawDepthOnly(RendererFrameInfo frameInfo, int pushConstantIndex, VkCullModeFlags cullMode)
+        {
+            DrawBlob.Execute(Depth_Only_Queue_Name,frameInfo, pushConstantIndex, cullMode);
         }
 
         public abstract bool SetShadowTexture(int i, int resolution);

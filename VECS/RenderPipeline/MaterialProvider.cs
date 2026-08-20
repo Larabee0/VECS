@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using VECS.ECS;
 
 namespace VECS
 {
@@ -118,4 +119,15 @@ namespace VECS
         }
 
     }
+    public struct MaterialProviderComponent : IComponent
+    {
+        public static int ComponentId { get; set; }
+        public readonly int Id => ComponentId;
+
+        public int Value;
+
+        public CullOverrides CullOverrides;
+        public RenderLayer LayerFlags;
+    }
+
 }

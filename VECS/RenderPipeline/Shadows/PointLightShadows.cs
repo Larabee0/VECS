@@ -111,20 +111,21 @@ namespace VECS
 
             for (int i = 0; i < 6; i++)
             {
-                DrawBlob.IndirectToComputeMemoryBarrierByMat(frameInfo.CommandBuffer);
-
                 depthBufferCullInfo = new(SHADOW_INCLUDE_MASK, SHADOW_EXCLUDE_MASK, SHADOW_CULL_MODE,
                      0.1f, CubeProjectionMatrix, GetViewMatrix(i,pointLight.Position.AsVector3()));
 
-                DrawBlob.CullAllInOne(frameInfo, depthBufferCullInfo);
+                CullShadow(frameInfo, depthBufferCullInfo);
+
+                GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Depth Pass");
                 BeginShadowPass(frameInfo.CommandBuffer, arrayTex.AdditionalImageViews[i], (uint)arrayTex.Width);
 
                 _depthOnly.PushConstants.SetPushConstantInt("matrixStartIndex", POINT_SHADOWS_PUSH_CONSTANT_INDEX, (index * 6)+i);
                 _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("matrixStartIndex", POINT_SHADOWS_PUSH_CONSTANT_INDEX, (index * 6) + i);
 
-                DrawBlob.ExecutateDepthOnly(frameInfo, frameInfo.CommandBuffer, POINT_SHADOWS_PUSH_CONSTANT_INDEX, VkCullModeFlags.Front);
+                DrawDepthOnly(frameInfo,POINT_SHADOWS_PUSH_CONSTANT_INDEX,VkCullModeFlags.Front);
 
                 GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
+                GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
             }
 
             SetImageLayoutRead(frameInfo.CommandBuffer, arrayTex);

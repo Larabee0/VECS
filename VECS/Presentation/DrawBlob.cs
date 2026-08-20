@@ -1,8 +1,7 @@
 ﻿using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Numerics;
+using System.Runtime.CompilerServices;
 using VECS.ECS;
 using VECS.ECS.Presentation;
 using VECS.LowLevel;
@@ -130,46 +129,23 @@ namespace VECS
         }
     }
 
-    public static class DrawBlob
+    public static partial class DrawBlob
     {
-        public const bool MULTI_THREAD_RENDERING = false;
-        
-        private static int entityCount;
-        private static RenderMesh[] _drawRenderMesh = [];
-
-        private static Entity[] _drawEntitiesByMat = [];
         private static RenderBuffer[] _renderBuffers = [];
-        //private static SwapChainBuffer<ShaderAABB> _drawRenderBoundsByMat;
 
-        private static MaterialDrawCommand[] _drawCommandsByMat = [];
-        private static MaterialDrawCommand[] _depthCommands = [];
+        public static RenderBuffer[] RenderBuffers => _renderBuffers;
 
-        private static SwapChainBuffer<VECSDrawIndexIndirectCommand> _indirectCmdBufferByMat;
-        private static SwapChainBuffer<VECSDrawIndexIndirectCommand> _indirectCmdBufferAllInOne;
+        private static Entity[] _entities = [];
+        private static MaterialProviderFrozen[] _materialInfo = [];
+        private static VECSDrawIndexIndirectCommand[] _indirectCmdSrc = [];
 
-        private static int _firstTransparentByMat;
-        private static int _alphaClippingDepthStart;
-        private static int _alphaClippingDepthCount;
+        private static SwapChainBuffer<VECSDrawIndexIndirectCommand> _indirectCmdBuffer;
 
-        public static int SimpleDepthStart => _alphaClippingDepthCount > 0 && _alphaClippingDepthStart > 0 ? 0 : _alphaClippingDepthCount;
-        public static int SimpleDepthCount => _depthCommands.Length - _alphaClippingDepthCount;
+        private static QueueBase[] _queues = [];
 
-        public static int OpaqueCmdCountByMat => _firstTransparentByMat;
-        public static int TransparentCmdCountByMat => _drawCommandsByMat.Length - _firstTransparentByMat;
+        private readonly static Dictionary<int, QueueBase> _queueLookup = [];
 
-
-        private static readonly ConcurrentDictionary<Vector3Int, uint> _materialVariants = new();
-        private static readonly ConcurrentDictionary<int, BufferRegion> _pipelineBufferRegions = new();
-
-        public static readonly List<int> AllInOneMats = [];
-        private static Vector3Int[] _materialCmdRegions = [];
-        private static int _firstTransparentCmdRegion;
-        private static readonly BufferRegion[] _workerRegionsOpaqueQueue = new BufferRegion[Application.ThreadDispatcher.ThreadCount];
-        private static readonly BufferRegion[] _workerRegionsTransparentQueue = new BufferRegion[Application.ThreadDispatcher.ThreadCount];
-
-        public static bool HasDrawables => OpaqueCmdCountByMat > 0 || TransparentCmdCountByMat > 0;
-        public static bool HasDrawablesInclDepth => OpaqueCmdCountByMat > 0 || TransparentCmdCountByMat > 0|| SimpleDepthCount > 0 || _alphaClippingDepthCount > 0;
-
+        private static int _entityCount;
         public static void Reset()
         {
             var assemblies = AppDomain.CurrentDomain.GetAssemblies();
@@ -208,51 +184,7 @@ namespace VECS
                 _renderBuffers[i] = new(renderBufferTypes[i]);
             }
 
-            //AllInOneMats.Clear();
-            //AllInOneMats.TrimExcess();
-            _pipelineBufferRegions.Clear();
-            _materialVariants.Clear();
-
-            _drawRenderMesh = [];
-
-            _drawEntitiesByMat = [];
-
-            _drawCommandsByMat = [];
-
-            _indirectCmdBufferByMat?.Dispose();
-            _indirectCmdBufferAllInOne?.Dispose();
-            _indirectCmdBufferByMat = null;
-            _indirectCmdBufferAllInOne = null;
-
-            entityCount = 0;
-            _firstTransparentByMat = 0;
-            _firstTransparentCmdRegion = 0;
-
-            Array.Clear(_workerRegionsOpaqueQueue);
             GC.Collect();
-
-            _indirectCmdBufferByMat = new(400,
-                    VkBufferUsageFlags.TransferDst |
-                    VkBufferUsageFlags.TransferSrc |
-                    VkBufferUsageFlags.IndirectBuffer |
-                    VkBufferUsageFlags.StorageBuffer,
-                    true);
-            _indirectCmdBufferAllInOne = new(400,
-                    VkBufferUsageFlags.TransferDst |
-                    VkBufferUsageFlags.TransferSrc |
-                    VkBufferUsageFlags.IndirectBuffer |
-                    VkBufferUsageFlags.StorageBuffer,
-                    true);
-            //_drawRenderBoundsByMat = new(400,
-            //        VkBufferUsageFlags.TransferDst |
-            //        VkBufferUsageFlags.TransferSrc |
-            //        VkBufferUsageFlags.StorageBuffer,
-            //        true);
-            _indirectCmdBufferByMat.SetDebugName("IndirectCmdBufferByMat");
-            _indirectCmdBufferAllInOne.SetDebugName("IndirectCmdBufferAllInOne");
-            _indirectCmdBufferByMat.SetBuffersDirty(true);
-            _indirectCmdBufferAllInOne.SetBuffersDirty(true);
-            //_drawRenderBoundsByMat.SetBuffersDirty(true);
         }
 
         public static void CleanUp()
@@ -264,214 +196,172 @@ namespace VECS
                     _renderBuffers[i].Dispose();
                 }
             }
+        }
 
-            _indirectCmdBufferByMat.Dispose();
-            _indirectCmdBufferAllInOne.Dispose();
-            //_drawRenderBoundsByMat.Dispose();
+        internal static void AddQueue(QueueBase queue)
+        {
+            if (_queueLookup.ContainsKey(queue.Hash)) return;
+
+            _queueLookup.Add(queue.Hash, queue);
+
+            Array.Resize(ref _queues, _queues.Length + 1);
+
+            _queues[^1] = queue;
+        }
+
+        internal static void RemoveQueue(QueueBase queue)
+        {
+            if (!_queueLookup.ContainsKey(queue.Hash)) return;
+
+            _queueLookup.Remove(queue.Hash);
+
+            _queues = new QueueBase[_queueLookup.Count];
+
+            int i = 0;
+            foreach (var item in _queueLookup.Values)
+            {
+                _queues[i] = item;
+                i++;
+            }
         }
 
         public static void RebuildOrUpdate(EntityManager entityManager, List<Entity> entities)
         {
-            if(entityCount != entities.Count)
+            if(_entityCount != entities.Count)
             {
                 RebuildStructure(entityManager, entities);
             }
             
             UpdateDynamicData(entityManager);
-            CopyDataToMaterials();
-            CopyToAllInOneMateriasl();
         }
 
         public static void RebuildStructure(EntityManager entityManager, List<Entity> entities)
         {
-            entityCount = entities.Count;
-            _materialVariants.Clear();
-
+            if (_queues.Length == 0) return;
+            _entityCount = entities.Count;
             for (int i = 0; i < _renderBuffers.Length; i++)
             {
-                _renderBuffers[i].Resize(entityCount);
+                _renderBuffers[i].Resize(_entityCount);
             }
 
-            Array.Resize(ref _drawRenderMesh, entityCount);
-            Array.Resize(ref _drawEntitiesByMat, entityCount);
+            Array.Resize(ref _entities, _entityCount);
+            Array.Resize(ref _materialInfo, _entityCount);
+            Array.Resize(ref _indirectCmdSrc, _entityCount);
 
-            //_drawRenderBoundsByMat.Realloc((uint)entityCount);
-
-            _indirectCmdBufferByMat.Realloc((uint)entityCount);
-            _indirectCmdBufferAllInOne.Realloc((uint)entityCount);
-            _indirectCmdBufferByMat.SetDebugName("IndirectCmdBufferByMat");
-            _indirectCmdBufferAllInOne.SetDebugName("IndirectCmdBufferAllInOne");
-
-            //_drawRenderBoundsByMat.SetUsedInstanceCount((uint)entityCount);
-            _indirectCmdBufferByMat.SetUsedInstanceCount((uint)entityCount);
-            _indirectCmdBufferAllInOne.SetUsedInstanceCount((uint)entityCount);
-
-            entities.CopyTo(_drawEntitiesByMat);
-            Application.ParallelFor(entityCount, i =>
+            for (int j = 0; j < _queues.Length; j++)
             {
-                Entity entity = _drawEntitiesByMat[i];
-                var renderMesh = _drawRenderMesh[i] = entityManager.GetComponent<RenderMesh>(entity);
-                _materialVariants.AddOrUpdate(new(renderMesh.Material.Hash, renderMesh.Material.Variant, renderMesh.Material.Entity), 1, (key, value) => value + 1);
+                _queues[j].Reset();
+            }
+#if DEBUG
+            for (int i = 0; i < _entityCount; i++)
+            {
+                CopyEntityData(entityManager, entities, i);
+            }
+#else
+            Application.ParallelFor(_entityCount, (i) =>
+            {
+
+                CopyEntityData(entityManager, entities, i);
             });
+#endif
+            int totalDraws = 0;
 
-            Array.Resize(ref _drawCommandsByMat, _materialVariants.Count);
-            Array.Sort(_drawRenderMesh, _drawEntitiesByMat, MatComparerer.Comparer);
-
-            var indirectCmdBuffer = _indirectCmdBufferByMat.HostBuffer;
-            var indirectCmdBufferAlt = _indirectCmdBufferAllInOne.HostBuffer;
-            BufferRegion meshSubRegion = default;
-            BufferRegion storageBufferRegion = default;
-            var materialVariantDrawIndex = 0;
-            var lastRenderMesh = _drawRenderMesh[0];
-            
-            if (lastRenderMesh.Material.Transparent)
+            for (int j = 0; j < _queues.Length; j++)
             {
-                _firstTransparentByMat = 0;
+                totalDraws += _queues[j].ResizeQueue(totalDraws);
             }
 
-            for (int i = 0, drawCmd = 0; i < entityCount; i++)
-            {
-                var renderMesh = _drawRenderMesh[i];
+            if (totalDraws == 0) return;
 
-                if (RenderMesh.ShouldMakeNewDrawCmd(lastRenderMesh, renderMesh))
+            if (_indirectCmdBuffer == null)
+            {
+                _indirectCmdBuffer = new((uint)totalDraws,
+                        VkBufferUsageFlags.TransferDst |
+                        VkBufferUsageFlags.TransferSrc |
+                        VkBufferUsageFlags.IndirectBuffer |
+                        VkBufferUsageFlags.StorageBuffer,
+                        true);
+                _ = new SwapChainBufferAsset("IndirectCommandBuffer", _indirectCmdBuffer);
+            }
+            else
+            {
+                _indirectCmdBuffer.Realloc((uint)totalDraws);
+            }
+
+
+
+#if DEBUG
+
+            for (int i = 0; i < _entityCount; i++)
+            {
+                var frozenData = _materialInfo[i];
+
+                for (int j = 0; j < _queues.Length; j++)
                 {
-                    _drawCommandsByMat[drawCmd] = new(lastRenderMesh.Material.Hash, lastRenderMesh.Material.Variant, lastRenderMesh.Material.Entity, lastRenderMesh.Mesh.Hash, meshSubRegion);
-                    drawCmd++;
-
-                    if (lastRenderMesh.Material.Hash != renderMesh.Material.Hash)
-                    {
-                        materialVariantDrawIndex = 0;
-                        _pipelineBufferRegions.AddOrUpdate(lastRenderMesh.Material.Hash, storageBufferRegion, (key, value) => storageBufferRegion);
-                        storageBufferRegion.Increment();
-                    }
-                    else if (lastRenderMesh.Material.Variant != renderMesh.Material.Variant)
-                    {
-                        materialVariantDrawIndex = 0;
-
-                    }
-
-                    if (lastRenderMesh.Mesh.Hash != renderMesh.Mesh.Hash // direct mesh different OR
-                        || lastRenderMesh.Material.Hash != renderMesh.Material.Hash // pipeline different OR
-                        || (
-                                lastRenderMesh.Mesh.SubMesh != renderMesh.Mesh.SubMesh // sub mesh different AND
-                                && (
-                                        lastRenderMesh.Material.Variant != renderMesh.Material.Variant // material variant different OR
-                                        || lastRenderMesh.Material.Entity != renderMesh.Material.Entity // entity (pushconstant) different
-                                   )
-                           )
-                    )
-                    {
-                        meshSubRegion.Increment();
-                    }
-
-                    if(renderMesh.Material.Transparent && !lastRenderMesh.Material.Transparent)
-                    {
-                        _firstTransparentByMat = drawCmd;
-                    }
-
-                    lastRenderMesh = renderMesh;
+                    _queues[j].AddToQueue(in frozenData);
                 }
-                var vkDraw = DirectSubMesh.GetSubMeshAtIndex(renderMesh.Mesh).IndirectCommand;
-                vkDraw.firstInstance = (uint)materialVariantDrawIndex;
-                vkDraw.instanceCount = 0;
-                vkDraw.layerFlags = renderMesh.LayerFlags;
-                indirectCmdBuffer[i] = vkDraw;
-                vkDraw.firstInstance = (uint)i;
-                indirectCmdBufferAlt[i] = vkDraw;
-                meshSubRegion.Count++;
-                storageBufferRegion.Count++;
-                materialVariantDrawIndex++;
-
             }
-            _drawCommandsByMat[^1] = new(lastRenderMesh.Material.Hash, lastRenderMesh.Material.Variant, lastRenderMesh.Material.Entity, lastRenderMesh.Mesh.Hash, meshSubRegion);
-
-            if (!lastRenderMesh.Material.Transparent)
+#else
+            Application.ParallelFor(_entityCount, (i) =>
             {
-                _firstTransparentByMat = _drawCommandsByMat.Length;
+                var frozenData = _materialInfo[i];
+
+                for (int j = 0; j < _queues.Length; j++)
+                {
+                    _queues[j].AddToQueue(in frozenData);
+                }
+            });
+#endif
+
+#if DEBUG
+            var hostBuffer = _indirectCmdBuffer.HostBuffer;
+            for (int j = 0; j < _queues.Length; j++)
+            {
+                SortAndBuild(hostBuffer, j);
             }
-
-            _pipelineBufferRegions.AddOrUpdate(lastRenderMesh.Material.Hash, storageBufferRegion, (key, value) => storageBufferRegion);
-
-            SliceDrawCmds();
+#else
+            Application.ParallelFor(_queues.Length, (i) =>
+            {
+                SortAndBuild( _indirectCmdBuffer.HostBuffer, i);
+            });
+#endif
 
             for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
             {
-                GPUBufferExtensions.WriteFromHostDelayed(_indirectCmdBufferByMat, i);
-                GPUBufferExtensions.WriteFromHostDelayed(_indirectCmdBufferAllInOne, i);
+                GPUBufferExtensions.WriteFromHostDelayed(_indirectCmdBuffer, i);
             }
-
-            Array.Resize(ref _depthCommands, _drawCommandsByMat.Length);// - TransparentCmdCountByMat);
-            Array.Copy(_drawCommandsByMat, _depthCommands, _drawCommandsByMat.Length);// -TransparentCmdCountByMat);
-
-            uint alphaClippingDepthVariant = 0;
-            int depthHash = EnginePipes.DepthOnly.Hash;
-            int depthAlphaHash = EnginePipes.DepthOnlyAlphaClipping.Hash;
-            for (int i = 0; i < _drawCommandsByMat.Length; i++)
-            {
-                var matCmd = _drawCommandsByMat[i];
-                var mat = AssetDataBase<GraphicsPipeline>.GetHashed(matCmd.Material);
-
-                var offset = (uint)matCmd.MeshStart;
-                var length = (uint)matCmd.MeshCount;
-                var variant = mat.GetOrCreateVariant((uint)matCmd.Variant);
-
-                //if (!mat.Transparent)
-                {
-                    if (variant.AlphaClipping)
-                    {
-                        var alphaClipping = EnginePipes.DepthOnlyAlphaClipping.GetOrCreateVariant(alphaClippingDepthVariant);
-
-                        SetAlphaClipping(variant, alphaClipping);
-
-                        _depthCommands[i].Variant = (int)alphaClippingDepthVariant;
-                        alphaClippingDepthVariant++;
-                        _depthCommands[i].Material = depthAlphaHash;
-                    }
-                    else
-                    {
-                        _depthCommands[i].Variant = 0;
-                        _depthCommands[i].Material = depthHash;
-                    }
-                    _depthCommands[i].Entity = 0;
-                }
-                for (int j = 0; j < _renderBuffers.Length; j++)
-                {
-                    if(mat.LookUpProperty(_renderBuffers[j].BufferShaderPropertyId,out var propertyInfo))
-                    {
-                        variant.SetStorageBufferLength(propertyInfo.SetIndex,propertyInfo.BindPoint, offset, length);
-                    }
-                    
-                }
-            }
-
-            Array.Sort(_depthCommands,MatComparerer.Comparer);
-
-            _alphaClippingDepthCount = (int)alphaClippingDepthVariant;
-            _alphaClippingDepthStart = _depthCommands[0].Material == depthAlphaHash ? 0 : SimpleDepthCount;
-
-            uint allInOneDrawCount = (uint)entityCount;
-            Application.ParallelFor(AllInOneMats.Count, (i) =>
-            {
-                var mat = AssetDataBase<GraphicsPipeline>.GetHashed(AllInOneMats[i]);
-
-                for (int k = 0; k < _renderBuffers.Length; k++)
-                {
-                    if (mat.LookUpProperty(_renderBuffers[k].BufferShaderPropertyId, out var propertyInfo))
-                    {
-                        for (int j = 0; j < mat._matVariants.Length; j++)
-                        {
-                            var variant = mat._matVariants[j];
-                            if (variant == null) continue;
-                            variant.SetStorageBufferLength(propertyInfo.SetIndex, propertyInfo.BindPoint, 0, allInOneDrawCount);
-
-                        }
-                    }
-                }
-
-            });
         }
 
-        private static void SetAlphaClipping(Material variant, Material alphaClipping)
+        private static void SortAndBuild(Span<VECSDrawIndexIndirectCommand> hostBuffer, int i)
+        {
+            var queue = _queues[i];
+            queue.SortQueuePhaseOne();
+            queue.BuildCommandBuffers(_indirectCmdSrc, hostBuffer.Slice(queue.CommandOffset, queue.CommandCount));
+            queue.SetMaterialBufferRegions();
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void CopyEntityData(EntityManager entityManager, List<Entity> entities, int i)
+        {
+            var entity = entities[i];
+            var meshData = entityManager.GetComponent<DirectSubMeshIndex>(entity);
+            var matProvider = entityManager.GetComponent<MaterialProviderComponent>(entity);
+            var frozenData = AssetDataBase<MaterialProvider>.GetHashed(matProvider.Value).GetFrozen(i, meshData.Combined);
+            _indirectCmdSrc[i] = AssetDataBase<DirectMesh>.GetHashed(meshData.Hash).SubMeshInfos[meshData.SubMesh].IndirectDrawCmd;
+            _indirectCmdSrc[i].firstInstance = (uint)i;
+            _indirectCmdSrc[i].absMatrixIndex = (uint)i;
+            _indirectCmdSrc[i].layerFlags = matProvider.LayerFlags;
+            _entities[i] = entity;
+            _materialInfo[i] = frozenData;
+
+            for (int j = 0; j < _queues.Length; j++)
+            {
+                _queues[j].IncrementQueueCount(in frozenData);
+            }
+        }
+
+
+        internal static void SetAlphaClipping(Material variant, Material alphaClipping)
         {
             var tex = variant.AlphaTexture ?? EngineTextures.White;
             alphaClipping.SetTexture("alphaSampler".GetShaderPropertyId(), tex);
@@ -482,70 +372,12 @@ namespace VECS
             alphaClipping.OverrideCullMode = true;
         }
 
-        private static void SliceDrawCmds()
-        {
-            Array.Resize(ref _materialCmdRegions, _pipelineBufferRegions.Count);
-
-            BufferRegion cmdRegion = default;
-            var lastCmd = _drawCommandsByMat[0];
-
-            _firstTransparentCmdRegion = 0;
-
-            for (int i = 0, j = 0; i < _drawCommandsByMat.Length; i++)
-            {
-                var cmd = _drawCommandsByMat[i];
-                if (lastCmd.Material != cmd.Material)
-                {
-                    _materialCmdRegions[j] = new Vector3Int(lastCmd.Material, cmdRegion.StartIndex, cmdRegion.Count);
-                    cmdRegion.Increment();
-                    j++;
-                    lastCmd = cmd;
-                }
-                if(i == _firstTransparentByMat)
-                {
-                    _firstTransparentCmdRegion = j;
-                }
-                cmdRegion.Count++;
-            }
-            _materialCmdRegions[^1] = new Vector3Int(lastCmd.Material, cmdRegion.StartIndex, cmdRegion.Count);
-
-            if(TransparentCmdCountByMat == 0)
-            {
-                _firstTransparentCmdRegion = _materialCmdRegions.Length;
-            }
-            
-
-            int length = Math.Min(_firstTransparentCmdRegion, _workerRegionsOpaqueQueue.Length);
-            int blobsPerWorker = _firstTransparentCmdRegion / _workerRegionsOpaqueQueue.Length;
-            int reminderBlobs = _firstTransparentCmdRegion % _workerRegionsOpaqueQueue.Length;
-            cmdRegion = default;
-            for (int i = 0; i < length; i++)
-            {
-                cmdRegion.Count = i < reminderBlobs ? blobsPerWorker + 1 : blobsPerWorker;
-                _workerRegionsOpaqueQueue[i] = cmdRegion;
-                cmdRegion.Increment();
-            }
-
-            var transparentLength = _materialCmdRegions.Length - _firstTransparentCmdRegion;
-
-            length = Math.Min(transparentLength, _workerRegionsTransparentQueue.Length);
-            blobsPerWorker = transparentLength / _workerRegionsTransparentQueue.Length;
-            reminderBlobs = transparentLength % _workerRegionsTransparentQueue.Length;
-            cmdRegion = default;
-            for (int i = 0; i < length; i++)
-            {
-                cmdRegion.Count = i < reminderBlobs ? blobsPerWorker + 1 : blobsPerWorker;
-                _workerRegionsTransparentQueue[i] = cmdRegion;
-                cmdRegion.Increment();
-            }
-        }
 
         public static void UpdateDynamicData(EntityManager entityManager)
         {
-            Application.ParallelFor(entityCount, i =>
+            Application.ParallelFor(_entityCount, i =>
             {
-                Entity entityMat = _drawEntitiesByMat[i];
-                //_drawRenderBoundsByMat.HostBuffer[i] = entityManager.GetComponent<WorldRenderBounds>(entityMat).Value;
+                Entity entityMat = _entities[i];
 
                 for (int j = 0; j < _renderBuffers.Length; j++)
                 {
@@ -558,7 +390,7 @@ namespace VECS
             }
         }
 
-        private static unsafe void WriteToRenderBuffer(EntityManager entityManager, int i, Entity entityMat, int j)
+        private static void WriteToRenderBuffer(EntityManager entityManager, int i, Entity entityMat, int j)
         {
             var buffer = _renderBuffers[j];
             if (entityManager.HasComponent(entityMat, buffer.SourceTypeComponentId, out int signiture))
@@ -571,273 +403,37 @@ namespace VECS
             }
         }
 
-        public static void CopyDataToMaterials()
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static void Execute(QueueBase queue, RendererFrameInfo frameInfo, int pushConstantIndex, VkCullModeFlags cullMode)
         {
-            var list = AssetDataBase<GraphicsPipeline>.AllAssetsListForReading;
-            Application.ParallelFor(list.Count, (i) =>
-            {
-                var mat = list[i];
-                if (!_pipelineBufferRegions.TryGetValue(mat.Hash, out var region)) return;
-
-                for (int j = 0; j < _renderBuffers.Length; j++)
-                {
-                    CopyFromRenderBuffer(mat,region,j);
-                }
-            });
+            queue.ExecuteDraws(_indirectCmdBuffer, frameInfo, pushConstantIndex, cullMode);
         }
 
-        private static unsafe void CopyFromRenderBuffer(GraphicsPipeline pipeline, BufferRegion region, int bufferIndex)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static void Execute(int queueId, RendererFrameInfo frameInfo, int pushConstantIndex, VkCullModeFlags cullMode)
         {
-            var renderBuffer = _renderBuffers[bufferIndex];
-            
-            if(pipeline.OwnersBuffer(renderBuffer.BufferShaderPropertyId))
-            {
-                var materialBuffer = pipeline.GetStorageSwapChainBuffer(renderBuffer.BufferShaderPropertyId);
-                pipeline.SetDescriptorStorageBufferLengthFromProperty(renderBuffer.BufferShaderPropertyId, (uint)region.Count);
-                renderBuffer.CopyTo(materialBuffer.HostPtr, region.StartIndex, region.Count);
-            }
+            if (!_queueLookup.TryGetValue(queueId, out var queue)) return;
+            Execute(queue, frameInfo, pushConstantIndex, cullMode);
         }
 
-        public static unsafe void CopyToAllInOneMateriasl()
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static void Cull(QueueBase queue, RendererFrameInfo frameInfo, CullData cullData)
         {
+            queue.Cull(frameInfo, cullData, _indirectCmdBuffer);
         }
 
-        public unsafe static void ExecuteOpaqueDrawCmds(RendererFrameInfo frameInfo, VkCommandBuffer[] commandBuffers, VkFormat* colourFormats, uint colourAttachmentCount, VkFormat depthFormat, VkFormat stencilFormat)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static void Cull(int queueId, RendererFrameInfo frameInfo, CullData cullData)
         {
-            if (MULTI_THREAD_RENDERING && commandBuffers != null)
-            {
-                Debug.Assert(commandBuffers.Length >= Application.ThreadDispatcher.ThreadCount, "Too few command buffers recieved!");
-                VkCommandBufferInheritanceRenderingInfo renderInheritance = new()
-                {
-                    flags = VkRenderingFlags.ContentsSecondaryCommandBuffers,
-                    colorAttachmentCount = colourAttachmentCount,
-                    pColorAttachmentFormats = colourFormats,
-                    depthAttachmentFormat = depthFormat,
-                    stencilAttachmentFormat = stencilFormat,
-                    rasterizationSamples = VkSampleCountFlags.Count1
-                };
-
-                Application.ParallelFor(_workerRegionsOpaqueQueue.Length, (i,t) =>
-                {
-                    VkCommandBufferInheritanceRenderingInfo renderingInfoInternal = renderInheritance;
-                    VkCommandBufferInheritanceInfo inheritanceInfoInternal = new()
-                    {
-                        pNext = &renderingInfoInternal
-                    };
-                    VkCommandBufferBeginInfo bufferBeginInfo = new() { pInheritanceInfo = &inheritanceInfoInternal, flags = VkCommandBufferUsageFlags.RenderPassContinue };
-                    var workerRegion = _workerRegionsOpaqueQueue[i];
-                    var cmdBuffer = commandBuffers[t];
-                    GraphicsDevice.DeviceAPI.vkBeginCommandBuffer(cmdBuffer, &bufferBeginInfo);
-                    SwapChain.SetViewPortScissor(cmdBuffer);
-
-                    for (int j = workerRegion.StartIndex; j < workerRegion.Offset; j++)
-                    {
-                        var region = _materialCmdRegions[j];
-                        var material = AssetDataBase<GraphicsPipeline>.GetHashed(region.X);
-                        var cmds = _drawCommandsByMat.AsSpan(region.Y, region.Z);
-                        material.ExecuteDrawCommands(frameInfo, cmdBuffer, cmds, region.Z, _indirectCmdBufferByMat);
-                    }
-                    GraphicsDevice.DeviceAPI.vkEndCommandBuffer(cmdBuffer);
-                });
-
-                fixed (VkCommandBuffer* pCmdBuffers = &commandBuffers[0])
-                {
-                    GraphicsDevice.DeviceAPI.vkCmdExecuteCommands(frameInfo.CommandBuffer, (uint)Application.ThreadDispatcher.ThreadCount, pCmdBuffers);
-                }
-            }
-            else
-            {
-                for (int i = 0; i < _firstTransparentCmdRegion; i++)
-                {
-                    var region = _materialCmdRegions[i];
-                    var material = AssetDataBase<GraphicsPipeline>.GetHashed(region.X);
-                    var cmds = _drawCommandsByMat.AsSpan(region.Y, region.Z);
-                    material.ExecuteDrawCommands(frameInfo, frameInfo.CommandBuffer, cmds, region.Z, _indirectCmdBufferByMat);
-                }
-            }
+            if (!_queueLookup.TryGetValue(queueId, out var queue)) return;
+            Cull(queue, frameInfo, cullData);
         }
 
-        public unsafe static void ExecuteTransparentDrawCmds(RendererFrameInfo frameInfo, VkCommandBuffer[] commandBuffers, VkFormat* colourFormats, uint colourAttachmentCount, VkFormat depthFormat, VkFormat stencilFormat)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static bool HasDrawItems(int queueId)
         {
-            if (MULTI_THREAD_RENDERING && commandBuffers != null)
-            {
-                Debug.Assert(commandBuffers.Length >= Application.ThreadDispatcher.ThreadCount, "Too few command buffers recieved!");
-                VkCommandBufferInheritanceRenderingInfo renderInheritance = new()
-                {
-                    flags = VkRenderingFlags.ContentsSecondaryCommandBuffers,
-                    colorAttachmentCount = colourAttachmentCount,
-                    pColorAttachmentFormats = colourFormats,
-                    depthAttachmentFormat = depthFormat,
-                    stencilAttachmentFormat = stencilFormat,
-                    rasterizationSamples = VkSampleCountFlags.Count1
-                };
-
-                Application.ParallelFor(_workerRegionsTransparentQueue.Length, (i, t) =>
-                {
-                    VkCommandBufferInheritanceRenderingInfo renderingInfoInternal = renderInheritance;
-                    VkCommandBufferInheritanceInfo inheritanceInfoInternal = new()
-                    {
-                        pNext = &renderingInfoInternal
-                    };
-                    VkCommandBufferBeginInfo bufferBeginInfo = new() { pInheritanceInfo = &inheritanceInfoInternal, flags = VkCommandBufferUsageFlags.RenderPassContinue };
-                    var workerRegion = _workerRegionsTransparentQueue[i];
-                    var cmdBuffer = commandBuffers[t];
-                    GraphicsDevice.DeviceAPI.vkBeginCommandBuffer(cmdBuffer, &bufferBeginInfo);
-                    SwapChain.SetViewPortScissor(cmdBuffer);
-
-                    for (int j = workerRegion.StartIndex; j < workerRegion.Offset; j++)
-                    {
-                        var region = _materialCmdRegions[j];
-                        var material = AssetDataBase<GraphicsPipeline>.GetHashed(region.X);
-                        var cmds = _drawCommandsByMat.AsSpan(region.Y, region.Z);
-                        material.ExecuteDrawCommands(frameInfo, cmdBuffer, cmds, region.Z, _indirectCmdBufferByMat);
-                    }
-                    GraphicsDevice.DeviceAPI.vkEndCommandBuffer(cmdBuffer);
-                });
-
-                fixed (VkCommandBuffer* pCmdBuffers = &commandBuffers[0])
-                {
-                    GraphicsDevice.DeviceAPI.vkCmdExecuteCommands(frameInfo.CommandBuffer, (uint)Application.ThreadDispatcher.ThreadCount, pCmdBuffers);
-                }
-            }
-            else
-            {
-                for (int i = _firstTransparentCmdRegion; i < _materialCmdRegions.Length; i++)
-                {
-                    var region = _materialCmdRegions[i];
-                    var material = AssetDataBase<GraphicsPipeline>.GetHashed(region.X);
-                    var cmds = _drawCommandsByMat.AsSpan(region.Y, region.Z);
-                    material.ExecuteDrawCommands(frameInfo, frameInfo.CommandBuffer, cmds, region.Z, _indirectCmdBufferByMat);
-                }
-            }
+            if (_queueLookup.TryGetValue(queueId, out var queue) && queue.CommandCount > 0) return true;
+            return false;
         }
-
-        public static void ExecuteAllInOneOpaqueDrawCmds(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer,int materialHash)
-        {
-            var mat = AssetDataBase<Material>.GetHashed(materialHash);
-#if DEBUG
-            CheckAllInOneMaterialRegistered(mat);
-#endif
-            mat.ExecuteDrawCommands(frameInfo, commandBuffer, _drawCommandsByMat, OpaqueCmdCountByMat, _indirectCmdBufferAllInOne);
-        }
-
-        public static void ExecuteAllInOneOpaqueDrawCmds(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, int materialHash, int pushConstantIndex)
-        {
-            var mat = AssetDataBase<Material>.GetHashed(materialHash);
-#if DEBUG
-            CheckAllInOneMaterialRegistered(mat);
-#endif
-            mat.ExecuteDrawCommandsPushConstantOverride(frameInfo, pushConstantIndex, commandBuffer, _drawCommandsByMat, OpaqueCmdCountByMat, _indirectCmdBufferAllInOne);
-        }
-
-        public static void ExecuteAllInOneTransparentDrawCmds(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, int materialHash)
-        {
-            var mat = AssetDataBase<Material>.GetHashed(materialHash);
-#if DEBUG
-            CheckAllInOneMaterialRegistered(mat);
-#endif
-            mat.ExecuteDrawCommands(frameInfo, commandBuffer, _drawCommandsByMat.AsSpan(_firstTransparentByMat,TransparentCmdCountByMat), TransparentCmdCountByMat, _indirectCmdBufferAllInOne);
-        }
-
-        public static void ExecuteAllInOneTransparentDrawCmds(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, int materialHash, int pushConstantIndex)
-        {
-            var mat = AssetDataBase<Material>.GetHashed(materialHash);
-#if DEBUG
-            CheckAllInOneMaterialRegistered(mat);
-#endif
-            mat.ExecuteDrawCommandsPushConstantOverride(frameInfo, pushConstantIndex, commandBuffer, _drawCommandsByMat.AsSpan(_firstTransparentByMat, TransparentCmdCountByMat), TransparentCmdCountByMat, _indirectCmdBufferAllInOne);
-        }
-
-        public static void ExecutateDepthOnly(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, int pushConstantIndex)
-        {
-            if(SimpleDepthCount > 0)
-            {
-                EnginePipes.DepthOnly.ExecuteDrawCommandsPushConstantOverride(frameInfo, pushConstantIndex, commandBuffer, _depthCommands.AsSpan(SimpleDepthStart, SimpleDepthCount), OpaqueCmdCountByMat, _indirectCmdBufferAllInOne);
-            }
-
-            if (_alphaClippingDepthCount > 0)
-            {
-                EnginePipes.DepthOnlyAlphaClipping.ExecuteDrawCommandsPushConstantOverride(frameInfo, pushConstantIndex, commandBuffer, _depthCommands.AsSpan(_alphaClippingDepthStart, _alphaClippingDepthCount), OpaqueCmdCountByMat, _indirectCmdBufferAllInOne);
-            }
-        }
-
-        public static void ExecutateDepthOnly(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, int pushConstantIndex, VkCullModeFlags cullMode)
-        {
-            if (SimpleDepthCount > 0)
-            {
-                EnginePipes.DepthOnly.ExecuteDrawCommandsPushConstantOverride(frameInfo, pushConstantIndex, commandBuffer, _depthCommands.AsSpan(SimpleDepthStart, SimpleDepthCount), SimpleDepthCount, _indirectCmdBufferAllInOne, cullMode);
-            }
-
-            if (_alphaClippingDepthCount > 0)
-            {
-                EnginePipes.DepthOnlyAlphaClipping.ExecuteDrawCommandsPushConstantOverride(frameInfo, pushConstantIndex, commandBuffer, _depthCommands.AsSpan(_alphaClippingDepthStart, _alphaClippingDepthCount), _alphaClippingDepthCount, _indirectCmdBufferAllInOne, cullMode);
-            }
-        }
-
-        public static void CullAllInOne(RendererFrameInfo frameInfo, CullData cullData)
-        {
-            CullAllInOne(frameInfo,frameInfo.CommandBuffer,cullData);
-        }
-
-        public static void CullAllInOne(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, CullData cullData)
-        {
-            FustrumCull.Cull(commandBuffer, Presenter.FrameIndex, cullData, (uint)entityCount, _indirectCmdBufferAllInOne,EngineBuffers.TryGetBuffer(ShaderProperties.BoundsBufferId));
-        }
-
-        public static void CullByMat(RendererFrameInfo frameInfo, CullData cullData)
-        {
-            FustrumCull.Cull(frameInfo.CommandBuffer, Presenter.FrameIndex, cullData, (uint)entityCount, _indirectCmdBufferByMat, EngineBuffers.TryGetBuffer(ShaderProperties.BoundsBufferId));
-        }
-
-        public static void IndirectToComputeMemoryBarrierAllInOne(VkCommandBuffer commandBuffer)
-        {
-            IndirectToComputeMemoryBarrier(commandBuffer, _indirectCmdBufferAllInOne.ActiveVkBuffer);
-        }
-
-        public static void IndirectToComputeMemoryBarrierByMat(VkCommandBuffer commandBuffer)
-        {
-            IndirectToComputeMemoryBarrier(commandBuffer,_indirectCmdBufferByMat.ActiveVkBuffer);
-        }
-
-        public static void IndirectToComputeMemoryBarrier(VkCommandBuffer commandBuffer, VkBuffer buffer)
-        {
-            VkBufferMemoryBarrier2 barrier = new()
-            {
-                buffer = buffer,
-                size = Vulkan.VK_WHOLE_SIZE,
-                srcQueueFamilyIndex = GraphicsDevice.PhysicalQueueFamilies.graphicsFamily,
-                dstQueueFamilyIndex = GraphicsDevice.PhysicalQueueFamilies.graphicsFamily,
-                srcAccessMask = VkAccessFlags2.IndirectCommandRead,
-                dstAccessMask = VkAccessFlags2.ShaderWrite
-            };
-
-            MemoryBarrierHelper.BufferMemoryBarrier(commandBuffer, barrier, VkPipelineStageFlags2.DrawIndirect, VkPipelineStageFlags2.ComputeShader);
-        }
-    
-        public static Span<MaterialDrawCommand> GetMaterialDrawCmds(int hash)
-        {
-            if (_pipelineBufferRegions.TryGetValue(hash, out var region))
-            {
-                return _drawCommandsByMat.AsSpan(region.StartIndex, region.Count);
-            }
-            return null;
-        }
-
-#if DEBUG
-        private static void CheckAllInOneMaterialRegistered(GraphicsPipeline pipeline)
-        {
-            if (!AllInOneMats.Contains(pipeline.Hash))
-            {
-                throw new InvalidOperationException(string.Format("Material: '{0}' (HASH: '{1}' has not be registered to teh AllInOneMats list therefore will not have object matrices assigned!", pipeline.AssetName, pipeline.Hash));
-            }
-        }
-        private static void CheckAllInOneMaterialRegistered(Material material)
-        {
-            if (!AllInOneMats.Contains(material.Pipeline.Hash))
-            {
-                throw new InvalidOperationException(string.Format("Material: '{0}' (HASH: '{1}' has not be registered to teh AllInOneMats list therefore will not have object matrices assigned!", material.Pipeline.AssetName, material.Pipeline.Hash));
-            }
-        }
-#endif
     }
 }
