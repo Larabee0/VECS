@@ -26,6 +26,8 @@ namespace VECS
         public RenderTarget G_AlbedoAttachment;
         public RenderTarget G_MaskAttachment;
 
+        public static bool useRenderGraph = true;
+
         private OIT _orderIndpTransparency;
         private Bloom _bloom;
         private SMAA _smaa;
@@ -33,6 +35,7 @@ namespace VECS
 
         private DepthOnlyQueue _depthOnlyQueue;
         private DeferredQueue _deferredQueue;
+        private ForwardQueue _forwardQueue;
 
         private static ComputeVariant _deferredComposite;
 
@@ -48,6 +51,76 @@ namespace VECS
         public DeferredRenderer()
         {
             _deferredComposite = ComputePipeline.GetOrCreate("pbr_composit.comp").Default();
+
+            RenderGraph.AddResource(new("MainColourAttachment", ShaderProperties.MainColourAttachmentId, ColourFormats[0], 0,
+                VkImageUsageFlags.Storage,
+                VkImageLayout.ShaderReadOnlyOptimal,
+                VkImageLayout.ColorAttachmentOptimal,
+                VkImageLayout.General,
+                VkImageLayout.General,
+                new(0, 0, 0, 1)));
+            RenderGraph.AddResource(new("BrightObjectAttachment", ShaderProperties.BrightColourAttachmentId, ColourFormats[1], 0,
+                VkImageUsageFlags.Storage,
+                VkImageLayout.ShaderReadOnlyOptimal,
+                VkImageLayout.ColorAttachmentOptimal,
+                VkImageLayout.General,
+                VkImageLayout.General,
+                new(0, 0, 0, 1)));
+
+            RenderGraph.AddResource(new("MainDepthAttachment", ShaderProperties.MainDepthAttachmentId, DepthFormat, 0,
+                VkImageUsageFlags.None,
+                VkImageLayout.DepthAttachmentOptimal,
+                VkImageLayout.DepthAttachmentOptimal,
+                VkImageLayout.ShaderReadOnlyOptimal,
+                VkImageLayout.General,
+                new(1, 0)));
+
+            
+
+            RenderGraph.AddResource(new("G_PositionAttachment", G_PositionPropertyId, VkFormat.R16G16B16A16Sfloat, 0,
+                VkImageUsageFlags.Storage,
+                VkImageLayout.ShaderReadOnlyOptimal,
+                VkImageLayout.ColorAttachmentOptimal,
+                VkImageLayout.ShaderReadOnlyOptimal,
+                VkImageLayout.General,
+                new(0, 0, 0, 0)));
+            RenderGraph.AddResource(new("G_NormalAttachment", G_NormalsPropertyId, VkFormat.R16G16B16A16Sfloat, 0,
+                VkImageUsageFlags.Storage,
+                VkImageLayout.ShaderReadOnlyOptimal,
+                VkImageLayout.ColorAttachmentOptimal,
+                VkImageLayout.ShaderReadOnlyOptimal,
+                VkImageLayout.General,
+                new(0, 0, 0, 0)));
+            RenderGraph.AddResource(new("G_AlbedoAttachment", G_AlbedoPropertyId, VkFormat.R8G8B8A8Unorm, 0,
+                VkImageUsageFlags.Storage,
+                VkImageLayout.ShaderReadOnlyOptimal,
+                VkImageLayout.ColorAttachmentOptimal,
+                VkImageLayout.ShaderReadOnlyOptimal,
+                VkImageLayout.General,
+                new(0, 0, 0, 0)));
+            RenderGraph.AddResource(new("G_MaskAttachment", G_MaskPropertyId, VkFormat.R8G8B8A8Unorm, 0,
+                VkImageUsageFlags.Storage,
+                VkImageLayout.ShaderReadOnlyOptimal,
+                VkImageLayout.ColorAttachmentOptimal,
+                VkImageLayout.ShaderReadOnlyOptimal,
+                VkImageLayout.General,
+                new(0, 0, 0, 0)));
+
+            RenderGraph.AddPass("DeferredDepthOnlyPass", PassType.ColourDepthStencil,
+                [],
+                ["MainDepthAttachment"], DeferredDepthPass);
+
+            RenderGraph.AddPass("DeferredObjectsPass", PassType.ColourDepthStencil,
+                ["MainDepthAttachment"],
+                ["G_PositionAttachment", "G_NormalAttachment", "G_AlbedoAttachment", "G_MaskAttachment"], DeferredObjectsPass);
+
+            RenderGraph.AddPass("DeferredCompositePass", PassType.Compute,
+                ["SSAO_BLUR_RT", "G_PositionAttachment", "G_NormalAttachment", "G_AlbedoAttachment", "G_MaskAttachment"],
+                ["MainColourAttachment"], DeferredCompositePass);
+
+            RenderGraph.AddPass("ForwardDepthOnlyPass", PassType.ColourDepthStencil, ["MainDepthAttachment", "MainColourAttachment"], ["ForwardDepthAttachment"], ForwadDepthPass);
+            RenderGraph.AddPass("ForwardPass", PassType.ColourDepthStencil, ["ForwardDepthAttachment"], ["MainColourAttachment", "BrightObjectAttachment","OpaqueOutput"],ForwardPass);
+
         }
 
         public static void SetExposure(float exposure)
@@ -70,27 +143,31 @@ namespace VECS
             _ssao = new(this);
             Skybox.StartSkybox();
             PBR.StartPBR();
+            RenderGraph.Compile();
             ScreenSizeChanged();
             _depthOnlyQueue = new DepthOnlyQueue("DepthOnly");
             _deferredQueue = new DeferredQueue("Deferred");
+            _forwardQueue = new ForwardQueue("Forward");
             DrawBlob.AddQueue(_depthOnlyQueue);
             DrawBlob.AddQueue(_deferredQueue);
+
         }
 
         public void ScreenSizeChanged()
         {
             var windowExtents = Application.MainWindow.WindowExtent;
 
-            MainColourAttachment = IRenderer.CreateOrUpdateRT(MainColourAttachment, "MainColourAttachment", ShaderProperties.MainColourAttachmentId, windowExtents, ColourFormats[0], VkImageUsageFlags.Storage);
-            BrightObjectAttachment = IRenderer.CreateOrUpdateRT(BrightObjectAttachment, "BrightObjectAttachment", ShaderProperties.BrightColourAttachmentId, windowExtents, ColourFormats[1]);
-            DepthAttachment = IRenderer.CreateOrUpdateRT(DepthAttachment, "DepthAttacment", ShaderProperties.MainDepthAttachmentId, windowExtents, DepthFormat);
+            RenderGraph.RecreateAttachments(0,windowExtents);
 
+            MainColourAttachment = RenderGraph.GetResource("MainColourAttachment");
+            BrightObjectAttachment = RenderGraph.GetResource("BrightObjectAttachment");
+            DepthAttachment = RenderGraph.GetResource("MainDepthAttachment");
 
-            G_PositionAttachment = IRenderer.CreateOrUpdateRT(G_PositionAttachment, "G_PositionAttachment", G_PositionPropertyId, windowExtents, VkFormat.R16G16B16A16Sfloat,VkImageUsageFlags.Storage);
-            G_NormalAttachment = IRenderer.CreateOrUpdateRT(G_NormalAttachment, "G_NormalAttachment", G_NormalsPropertyId, windowExtents, VkFormat.R16G16B16A16Sfloat, VkImageUsageFlags.Storage);
-            G_AlbedoAttachment  = IRenderer.CreateOrUpdateRT(G_AlbedoAttachment, "G_AlbedoAttachment", G_AlbedoPropertyId, windowExtents, VkFormat.R8G8B8A8Unorm, VkImageUsageFlags.Storage);
-            G_MaskAttachment  = IRenderer.CreateOrUpdateRT(G_MaskAttachment, "G_MaskAttachment", G_MaskPropertyId, windowExtents, VkFormat.R8G8B8A8Unorm, VkImageUsageFlags.Storage);
-
+            G_PositionAttachment = RenderGraph.GetResource("G_PositionAttachment");
+            G_NormalAttachment = RenderGraph.GetResource("G_NormalAttachment");
+            G_AlbedoAttachment = RenderGraph.GetResource("G_AlbedoAttachment");
+            G_MaskAttachment = RenderGraph.GetResource("G_MaskAttachment");
+            
             _orderIndpTransparency?.RecreateRenderTargets();
             _bloom?.RecreateRenderTargets();
             _smaa?.RecreateRenderTargets();
@@ -105,8 +182,7 @@ namespace VECS
             _deferredComposite.SetStorageBuffer(ShaderProperties.DirectionalLightsBufferId, EngineBuffers.TryGetBuffer(ShaderProperties.DirectionalLightsBufferId));
             _deferredComposite.SetStorageBuffer(ShaderProperties.PointLightsBufferId, EngineBuffers.TryGetBuffer(ShaderProperties.PointLightsBufferId));
             _deferredComposite.SetStorageBuffer(ShaderProperties.SpotLightsBufferId, EngineBuffers.TryGetBuffer(ShaderProperties.SpotLightsBufferId));
-            _deferredComposite.SetStorageBuffer(ShaderProperties.CameraInfoId, EngineBuffers.TryGetBuffer(ShaderProperties.CameraInfoId));
-            _deferredComposite.SetStorageBuffer(ShaderProperties.CameraInverseId, EngineBuffers.TryGetBuffer(ShaderProperties.CameraInverseId));
+            _deferredComposite.SetStorageBuffer(ShaderProperties.CameraDataId, EngineBuffers.TryGetBuffer(ShaderProperties.CameraDataId));
 
             _deferredComposite.SetTextures(ShaderProperties.DirShadowImageId, EngineTextures.TryGetTexture(ShaderProperties.DirShadowImageId));
             _deferredComposite.SetTextures(ShaderProperties.PLShadowImageId, EngineTextures.TryGetTexture(ShaderProperties.PLShadowImageId));
@@ -146,41 +222,40 @@ namespace VECS
             World.DefaultWorld.OnPreOpaquePass(frameInfo);
             GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
 
-            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Opaque Pass");
-            OpaquePass(frameInfo);
+            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Render Graph");
+            RenderGraph.Execute(frameInfo);
             GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
 
-            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Post-Opaque Pass");
-            World.DefaultWorld.OnPostOpaquePass(frameInfo);
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
+            // GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Post-Opaque Pass");
+            // World.DefaultWorld.OnPostOpaquePass(frameInfo);
+            // GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
 
             // Transparent pass
-            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Pre-Transparent Pass");
-            World.DefaultWorld.OnPreTransparentPass(frameInfo);
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
+            // GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Pre-Transparent Pass");
+            // World.DefaultWorld.OnPreTransparentPass(frameInfo);
+            // GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
 
-            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Transparent Pass");
-            _orderIndpTransparency.BeginOITTransparentPass(frameInfo, DepthAttachment);
-            World.DefaultWorld.OnTransparentPass(frameInfo);
-            _orderIndpTransparency.EndOITTransparentPass(frameInfo, frameInfo.CommandBuffer);
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
+            // GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Transparent Pass");
+            // _orderIndpTransparency.BeginOITTransparentPass(frameInfo, DepthAttachment);
+            // World.DefaultWorld.OnTransparentPass(frameInfo);
+            // _orderIndpTransparency.EndOITTransparentPass(frameInfo, frameInfo.CommandBuffer);
+            // GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
 
-            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Post-Transparent Pass");
-            World.DefaultWorld.OnPostTransparentPass(frameInfo);
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
+            // GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Post-Transparent Pass");
+            // World.DefaultWorld.OnPostTransparentPass(frameInfo);
+            // GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
 
             //Bloom
-            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Bloom Pass");
-            _bloom.RenderBloomObjects(frameInfo);
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
+            // GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Bloom Pass");
+            // _bloom.RenderBloomObjects(frameInfo);
+            // GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
 
             // final AA pass
-            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "SMAA Pass");
-            _smaa.ApplyAA(frameInfo);
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
+            // GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "SMAA Pass");
+            // _smaa.ApplyAA(frameInfo);
+            // GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
 
-            // anti anslising
-            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Post-SMAA Pass");
+            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Post-Main RenderGraph Pass");
             World.DefaultWorld.OnPostAA(frameInfo);
             GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
 
@@ -207,10 +282,24 @@ namespace VECS
             GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
         }
 
-        private void OpaquePass(RendererFrameInfo frameInfo)
+        private unsafe void ForwardPass(RendererFrameInfo frameInfo)
+        {
+            StartForwardRendering(frameInfo.CommandBuffer, VkAttachmentLoadOp.Load, false, false);
+            if (_forwardQueue.CommandCount > 0)
+            {
+                DrawBlob.Execute(_forwardQueue, frameInfo, 0, VkCullModeFlags.Back);
+            }
+            // skybox last item rendered to save fragments from any depth writes
+            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Skybox");
+            Skybox.RenderSkybox(frameInfo);
+            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
+
+            EndForwardRendering(frameInfo);
+        }
+
+        private void DeferredDepthPass(RendererFrameInfo frameInfo)
         {
             var commandBuffer = frameInfo.CommandBuffer;
-
             if (_depthOnlyQueue.CommandCount > 0)
             {
                 EnginePipes.DepthOnly.PushConstants.SetPushConstantInt("matrixStartIndex", DEPTH_ONLY_PUSH_CONSTANT_INDEX, frameInfo.MainCamera);
@@ -218,73 +307,62 @@ namespace VECS
                 var depthBufferCullInfo = frameInfo.CullData;
                 depthBufferCullInfo.cullMode &= ~CullModeFlags.Depth;
 
-                GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Main Depth Only");
-                
+
                 DrawBlob.Cull(_depthOnlyQueue, frameInfo, depthBufferCullInfo);
-                
-                BeginDeferredDepthOnlyRendering(commandBuffer,VkAttachmentLoadOp.Clear);
 
-                DrawBlob.Execute(_depthOnlyQueue,frameInfo, DEPTH_ONLY_PUSH_CONSTANT_INDEX, VkCullModeFlags.Back);
+                BeginDepthOnlyRendering(commandBuffer, VkAttachmentLoadOp.Clear);
 
-                EndDeferredDepthOnlyRendering(commandBuffer);
+                DrawBlob.Execute(_depthOnlyQueue, frameInfo, DEPTH_ONLY_PUSH_CONSTANT_INDEX, VkCullModeFlags.Back);
 
-                GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
+                GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
 
-                GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Main Depth Reduction");
                 DepthReduction.ReduceDepth(frameInfo);
             }
             else
             {
                 GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Clear Main Depth Only");
-                ClearDeferredDepthAttachment(commandBuffer);
+                DepthAttachment.ClearAttachment(commandBuffer);
                 GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
 
-                GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Clear Main Depth Reduction");
                 DepthReduction.ClearPyramid(frameInfo);
             }
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
+        }
 
-            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Defferred Pass");
+        private void ForwadDepthPass(RendererFrameInfo frameInfo)
+        {
+            if (_forwardQueue.CommandCount > 0)
+            {
+                var commandBuffer = frameInfo.CommandBuffer;
+                EnginePipes.DepthOnly.PushConstants.SetPushConstantInt("matrixStartIndex", DEPTH_ONLY_PUSH_CONSTANT_INDEX, frameInfo.MainCamera);
+                var depthBufferCullInfo = frameInfo.CullData;
+                depthBufferCullInfo.cullMode &= ~CullModeFlags.Depth;
+                GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Forward Depth Only");
+                DrawBlob.Cull(_forwardQueue, frameInfo, depthBufferCullInfo);
+                BeginDepthOnlyRendering(commandBuffer, _deferredQueue.CommandCount == 0 ? VkAttachmentLoadOp.Clear : VkAttachmentLoadOp.Load);
+                DrawBlob.Execute(_forwardQueue, frameInfo, DEPTH_ONLY_PUSH_CONSTANT_INDEX, VkCullModeFlags.Back);
+                GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
+                GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
 
+                DepthReduction.ReduceDepth(frameInfo);
+            }
+        }
+
+        private void DeferredObjectsPass(RendererFrameInfo frameInfo)
+        {
             DrawBlob.Cull(_deferredQueue, frameInfo, frameInfo.CullData);
 
             StartDeferredRendering(frameInfo);
 
             DrawBlob.Execute(_deferredQueue, frameInfo, DEPTH_ONLY_PUSH_CONSTANT_INDEX, VkCullModeFlags.Back);
 
-            EndDeferredRendering(frameInfo);
-
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
-
-            _ssao.SSAOPass(frameInfo);
-            DeferredComposite(frameInfo);
-
-            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Forward Composite");
-            StartMainColourRendering(frameInfo, VkAttachmentLoadOp.Load);
-
-            // skybox last item rendered to save fragments from any depth writes
-            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Skybox");
-            Skybox.RenderSkybox(frameInfo);
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
-
-            EndMainColourRendering(frameInfo);
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
+            GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
         }
 
-
-        private void DeferredComposite(RendererFrameInfo frameInfo)
+        private void DeferredCompositePass(RendererFrameInfo frameInfo)
         {
-            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Deferred Composite");
-            
-            var srcStage = MainColourAttachment.ImageLayout.GetStageFlagFromLayout();
-            MainColourAttachment.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.General, srcStage, VkPipelineStageFlags2.ComputeShader);
-            _deferredComposite.PushConstantsHandler.SetPushConstantUInt("cameraIndex", 0,(uint)frameInfo.MainCamera);
-
+            _deferredComposite.PushConstantsHandler.SetPushConstantUInt("cameraIndex", 0, (uint)frameInfo.MainCamera);
             _deferredComposite.Dispatch(frameInfo.CommandBuffer, Presenter.FrameIndex, GetGroupCount((uint)MainColourAttachment.Target.Width, 32), GetGroupCount((uint)MainColourAttachment.Target.Height, 32));
 
-            MainColourAttachment.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.ComputeShader, VkPipelineStageFlags2.ColorAttachmentOutput);
-
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -293,161 +371,27 @@ namespace VECS
             return (threadCount + localSize - 1) / localSize;
         }
 
-        private static void SetRTOutput(RenderTarget target, VkCommandBuffer commandBuffer)
-        {
-            if (target.ImageLayout == VkImageLayout.TransferSrcOptimal)
-            {
-                target.Target.SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.ColorAttachmentOutput);
-            }
-            if (target.ImageLayout == VkImageLayout.ShaderReadOnlyOptimal)
-            {
-                target.Target.SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
-            }
-        }
-
-        private static void SetRTShaderReadOnly(RenderTarget target, VkCommandBuffer commandBuffer)
-        {
-            if (target.ImageLayout == VkImageLayout.ColorAttachmentOptimal)
-            {
-                target.Target.SetImageLayout(commandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.FragmentShader);
-            }
-            if (target.ImageLayout == VkImageLayout.TransferSrcOptimal)
-            {
-                target.Target.SetImageLayout(commandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.Transfer, VkPipelineStageFlags2.FragmentShader);
-            }
-        }
-
         private unsafe void StartDeferredRendering(RendererFrameInfo frameInfo)
         {
             VkCommandBuffer commandBuffer = frameInfo.CommandBuffer;
-            SetRTOutput(G_PositionAttachment, commandBuffer);
-            SetRTOutput(G_NormalAttachment, commandBuffer);
-            SetRTOutput(G_AlbedoAttachment, commandBuffer);
-            SetRTOutput(G_MaskAttachment, commandBuffer);
 
             VkRenderingAttachmentInfo* colourAttachments = stackalloc VkRenderingAttachmentInfo[]
             {
-                new VkRenderingAttachmentInfo()
-                {
-                    imageView = G_PositionAttachment.VkImageView,
-                    imageLayout = G_PositionAttachment.ImageLayout,
-                    loadOp = VkAttachmentLoadOp.Clear,
-                    storeOp = VkAttachmentStoreOp.Store,
-                    clearValue = new(0, 0, 0, 0)
-                },
-
-                new VkRenderingAttachmentInfo()
-                {
-                    imageView = G_NormalAttachment.VkImageView,
-                    imageLayout = G_NormalAttachment.ImageLayout,
-                    loadOp = VkAttachmentLoadOp.Clear,
-                    storeOp = VkAttachmentStoreOp.Store,
-                    clearValue = new(0, 0, 0, 0)
-                },
-
-                new VkRenderingAttachmentInfo()
-                {
-                    imageView = G_AlbedoAttachment.VkImageView,
-                    imageLayout = G_AlbedoAttachment.ImageLayout,
-                    loadOp = VkAttachmentLoadOp.Clear,
-                    storeOp = VkAttachmentStoreOp.Store,
-                    clearValue = new(0, 0, 0, 0)
-                },
-
-                new VkRenderingAttachmentInfo()
-                {
-                    imageView = G_MaskAttachment.VkImageView,
-                    imageLayout = G_MaskAttachment.ImageLayout,
-                    loadOp = VkAttachmentLoadOp.Clear,
-                    storeOp = VkAttachmentStoreOp.Store,
-                    clearValue = new(0, 0, 0, 0)
-                }
+                G_PositionAttachment.GetAttachmentInfo(),
+                G_NormalAttachment.GetAttachmentInfo(),
+                G_AlbedoAttachment.GetAttachmentInfo(),
+                G_MaskAttachment.GetAttachmentInfo()
             };
 
-            VkRenderingAttachmentInfo depth = new()
-            {
-                imageView = DepthAttachment.VkImageView,
-                imageLayout = DepthAttachment.ImageLayout,
-                loadOp = VkAttachmentLoadOp.Load,
-                storeOp = VkAttachmentStoreOp.Store,
-            };
-            VkRenderingInfo renderingInfo = new()
-            {
-                renderArea = new(0, 0, (uint)G_PositionAttachment.Target.Width, (uint)G_PositionAttachment.Target.Height),
-                layerCount = 1,
-                colorAttachmentCount = 4u,
-                pColorAttachments = colourAttachments,
-                pDepthAttachment = &depth,
-                flags = VkRenderingFlags.ContentsInlineKHR | VkRenderingFlags.ContentsSecondaryCommandBuffers
-            };
-            GraphicsDevice.DeviceAPI.vkCmdBeginRendering(commandBuffer, &renderingInfo);
+            G_PositionAttachment.BeginRenderingMultiAttachment(commandBuffer, 1, colourAttachments, 4, DepthAttachment.GetAttachmentInfo(VkAttachmentLoadOp.Load));
 
-            SwapChain.SetViewPortScissor(commandBuffer);
+            Presenter.SetToCurrentCameraViewportScissor(commandBuffer);
         }
 
-        private void EndDeferredRendering(RendererFrameInfo frameInfo)
+        public void BeginDepthOnlyRendering(VkCommandBuffer commandBuffer, VkAttachmentLoadOp loadOp)
         {
-            VkCommandBuffer commandBuffer = frameInfo.CommandBuffer;
-            GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
-            SetRTShaderReadOnly(G_PositionAttachment, commandBuffer);
-            SetRTShaderReadOnly(G_NormalAttachment, commandBuffer);
-            SetRTShaderReadOnly(G_AlbedoAttachment, commandBuffer);
-            SetRTShaderReadOnly(G_MaskAttachment, commandBuffer);
-        }
-
-        public unsafe void ClearDeferredDepthAttachment(VkCommandBuffer commandBuffer)
-        {
-            VkClearDepthStencilValue clearDepthStencilValue = new(1, 0);
-            VkImageSubresourceRange subresourceRange = DepthAttachment.Target.GetSubresourceRange();
-
-            DepthAttachment.Target.SetImageLayout(commandBuffer, VkImageLayout.TransferDstOptimal, VkPipelineStageFlags2.LateFragmentTests, VkPipelineStageFlags2.Transfer);
-
-            GraphicsDevice.DeviceAPI.vkCmdClearDepthStencilImage(commandBuffer, DepthAttachment.VkImage, DepthAttachment.ImageLayout, &clearDepthStencilValue, 1, &subresourceRange);
-
-            DepthAttachment.Target.SetImageLayout(commandBuffer, VkImageLayout.DepthAttachmentOptimal, VkPipelineStageFlags2.Transfer, VkPipelineStageFlags2.EarlyFragmentTests);
-        }
-
-        public unsafe void BeginDeferredDepthOnlyRendering(VkCommandBuffer commandBuffer, VkAttachmentLoadOp loadOp)
-        {
-            VkRenderingAttachmentInfo depth = new()
-            {
-                imageView = DepthAttachment.VkImageView,
-                imageLayout = DepthAttachment.ImageLayout,
-                loadOp = loadOp,
-                storeOp = VkAttachmentStoreOp.Store,
-                clearValue = new(1, 0)
-            };
-            VkRenderingInfo renderingInfo = new()
-            {
-                renderArea = new(0, 0, (uint)DepthAttachment.Target.Width, (uint)DepthAttachment.Target.Height),
-                layerCount = 1,
-                colorAttachmentCount = 0,
-                pDepthAttachment = &depth,
-                flags = VkRenderingFlags.ContentsInlineKHR | VkRenderingFlags.ContentsSecondaryCommandBuffers
-            };
-            GraphicsDevice.DeviceAPI.vkCmdBeginRendering(commandBuffer, &renderingInfo);
-
-            SwapChain.SetViewPortScissor(commandBuffer);
-        }
-
-        public void EndDeferredDepthOnlyRendering(VkCommandBuffer commandBuffer)
-        {
-            GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
-
-            // PLEASE TRY REMOVING THIS BARRIER ON NV TO SEE IF IT CASUES FLICKERING
-            uint graphicsFamily = GraphicsDevice.PhysicalQueueFamilies.graphicsFamily;
-
-            MemoryBarrierHelper.ImageMemoryBarrier(commandBuffer,
-                DepthAttachment.VkImage,
-                DepthAttachment.Target.GetSubresourceRange(),
-                VkPipelineStageFlags2.EarlyFragmentTests | VkPipelineStageFlags2.LateFragmentTests,
-                VkAccessFlags2.DepthStencilAttachmentRead | VkAccessFlags2.DepthStencilAttachmentWrite,
-                VkPipelineStageFlags2.EarlyFragmentTests | VkPipelineStageFlags2.LateFragmentTests,
-                VkAccessFlags2.DepthStencilAttachmentRead | VkAccessFlags2.DepthStencilAttachmentWrite,
-                VkImageLayout.DepthStencilAttachmentOptimal,
-                VkImageLayout.DepthStencilAttachmentOptimal,
-                graphicsFamily, graphicsFamily
-            );
+            DepthAttachment.BeginRenderingOnlyAttachment(commandBuffer, loadOp);
+            Presenter.SetToCurrentCameraViewportScissor(commandBuffer);
         }
 
         public void PostRender()
@@ -455,79 +399,40 @@ namespace VECS
 
         }
 
-        public void StartMainColourRendering(RendererFrameInfo frameInfo, VkAttachmentLoadOp colourLoad)
+        public void StartForwardRendering(RendererFrameInfo frameInfo, VkAttachmentLoadOp colourLoad)
         {
-            StartMainColourRendering(frameInfo.CommandBuffer, colourLoad);
+            StartForwardRendering(frameInfo.CommandBuffer, colourLoad);
+            MainColourAttachment.Target.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal);
+            BrightObjectAttachment.Target.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal);
+            DepthAttachment.Target.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.DepthAttachmentOptimal);
         }
-        public unsafe void StartMainColourRendering(VkCommandBuffer commandBuffer, VkAttachmentLoadOp colourLoad, bool onlyMainAttachment = false, bool noDepth = false)
+
+        public unsafe void StartForwardRendering(VkCommandBuffer commandBuffer, VkAttachmentLoadOp colourLoad, bool onlyMainAttachment = false, bool noDepth = false)
         {
-            if (MainColourAttachment.ImageLayout == VkImageLayout.TransferSrcOptimal)
-            {
-                MainColourAttachment.Target.SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.ColorAttachmentOutput);
-            }
-            if (MainColourAttachment.ImageLayout == VkImageLayout.ShaderReadOnlyOptimal)
-            {
-                MainColourAttachment.Target.SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
-            }
-            BrightObjectAttachment.Target.SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.ColorAttachmentOutput);
 
             VkRenderingAttachmentInfo* colourAttachments = stackalloc VkRenderingAttachmentInfo[]
             {
-                new VkRenderingAttachmentInfo()
-                {
-                    imageView = MainColourAttachment.VkImageView,
-                    imageLayout = MainColourAttachment.ImageLayout,
-                    loadOp = colourLoad,
-                    storeOp = VkAttachmentStoreOp.Store,
-                    clearValue = new(0, 0, 0, 1)
-                },
-
-                new VkRenderingAttachmentInfo()
-                {
-                    imageView = BrightObjectAttachment.VkImageView,
-                    imageLayout = BrightObjectAttachment.ImageLayout,
-                    loadOp = colourLoad,
-                    storeOp = VkAttachmentStoreOp.Store,
-                    clearValue = new(0, 0, 0, 1)
-                }
+                MainColourAttachment.GetAttachmentInfo(colourLoad),
+                BrightObjectAttachment.GetAttachmentInfo(colourLoad),
             };
 
-            VkRenderingAttachmentInfo depth = new()
-            {
-                imageView = DepthAttachment.VkImageView,
-                imageLayout = DepthAttachment.ImageLayout,
-                loadOp = VkAttachmentLoadOp.Load,
-                storeOp = VkAttachmentStoreOp.Store
-            };
+            MainColourAttachment.BeginRenderingMultiAttachment(commandBuffer, 1, colourAttachments, onlyMainAttachment ? 1 : 2, DepthAttachment.GetAttachmentInfo(VkAttachmentLoadOp.Load));
 
-
-            VkRenderingInfo renderingInfo = new()
-            {
-                renderArea = new(0, 0, (uint)MainColourAttachment.Target.Width, (uint)MainColourAttachment.Target.Height),
-                layerCount = 1,
-                colorAttachmentCount = onlyMainAttachment ? 1u : 2u,
-                pColorAttachments = colourAttachments,
-                pDepthAttachment = noDepth ? null : &depth,
-                flags = VkRenderingFlags.ContentsInlineKHR | VkRenderingFlags.ContentsSecondaryCommandBuffers
-            };
-            GraphicsDevice.DeviceAPI.vkCmdBeginRendering(commandBuffer, &renderingInfo);
-
-            SwapChain.SetViewPortScissor(commandBuffer);
+            Presenter.SetToCurrentCameraViewportScissor(commandBuffer);
         }
 
-        public void EndMainColourRendering(RendererFrameInfo frameInfo)
+        public void EndForwardRendering(RendererFrameInfo frameInfo)
         {
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
         }
 
         public void BlitFromMainColour(VkCommandBuffer commandBuffer, VkImage dst, int dstWidth, int dstHeight, VkImageAspectFlags dstAspectMask)
         {
-            MainColourAttachment.Target.SetImageLayout(commandBuffer, VkImageLayout.TransferSrcOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.Blit);
+            MainColourAttachment.Target.SetImageLayoutAuto(commandBuffer, VkImageLayout.TransferSrcOptimal);
 
-            TextureExtensions.BlitGeneric(commandBuffer, VkFilter.Linear, MainColourAttachment.GetBlitCmd(dstWidth, dstHeight, dstAspectMask), MainColourAttachment.VkImage, MainColourAttachment.ImageLayout, dst, VkImageLayout.TransferDstOptimal);
+            TextureExtensions.BlitGeneric(commandBuffer, VkFilter.Linear, MainColourAttachment.GetBlitCmd(dstWidth, dstHeight, dstAspectMask), MainColourAttachment.VkImage, MainColourAttachment.CurrentLayout, dst, VkImageLayout.TransferDstOptimal);
 
-            MainColourAttachment.Target.SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.ColorAttachmentOutput);
-
+            MainColourAttachment.Target.SetImageLayoutAuto(commandBuffer, VkImageLayout.ColorAttachmentOptimal);
         }
     }
 }

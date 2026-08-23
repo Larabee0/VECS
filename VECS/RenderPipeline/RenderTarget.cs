@@ -1,4 +1,5 @@
-﻿using VECS.LowLevel;
+﻿using System.Runtime.CompilerServices;
+using VECS.LowLevel;
 using Vortice.Vulkan;
 
 namespace VECS
@@ -11,12 +12,142 @@ namespace VECS
         DepthStencil
     }
 
+    public readonly struct RenderTargetDefintion
+    {
+        public readonly string Name;
+        public readonly int ShaderPropertyId;
+        public readonly int TargetDisplay;
+        public readonly VkFormat Format;
+        public readonly VkExtent2D Extent;
+        public readonly VkImageUsageFlags AdditionalUsage;
+        public readonly VkImageLayout InputAttachmentLayout;
+        public readonly VkImageLayout OutputAttachmentLayout;
+
+        public readonly VkImageLayout InputComputeLayout;
+        public readonly VkImageLayout OutputComputeLayout;
+
+        public readonly VkClearValue DefaultClearValue;
+
+        public readonly VkSamplerAddressMode SamplerAddressMode;
+        public RenderTargetDefintion(string name)
+        {
+            Name = name;
+            TargetDisplay = -1;
+            SamplerAddressMode = VkSamplerAddressMode.ClampToEdge;
+        }
+
+        public RenderTargetDefintion(
+            string name,
+            VkFormat format,
+            VkExtent2D extent,
+            VkImageUsageFlags usage,
+            VkImageLayout inputAttachmentLayout,
+            VkImageLayout outputAttachmentLayout,
+            VkImageLayout inputComputeLayout,
+            VkImageLayout outputComputeLayout
+            ) : this(name)
+        {
+            Format = format;
+            Extent = extent;
+            AdditionalUsage = usage;
+            InputAttachmentLayout = inputAttachmentLayout;
+            OutputAttachmentLayout = outputAttachmentLayout;
+            InputComputeLayout = inputComputeLayout;
+            OutputComputeLayout = outputComputeLayout;
+        }
+
+        public RenderTargetDefintion(
+            string name,
+            VkFormat format,
+            VkExtent2D extent,
+            VkImageUsageFlags usage,
+            VkImageLayout inputAttachmentLayout,
+            VkImageLayout outputAttachmentLayout,
+            VkImageLayout inputComputeLayout,
+            VkImageLayout outputComputeLayout,
+            VkClearValue defaultClearValue) : this(name, format, extent, usage, inputAttachmentLayout, outputAttachmentLayout, inputComputeLayout, outputComputeLayout)
+        {
+            DefaultClearValue = defaultClearValue;
+        }
+
+        public RenderTargetDefintion(
+            string name,
+            int shaderPropertyId,
+            VkFormat format,
+            VkExtent2D extent,
+            VkImageUsageFlags usage,
+            VkImageLayout inputAttachmentLayout,
+            VkImageLayout outputAttachmentLayout,
+            VkImageLayout inputComputeLayout,
+            VkImageLayout outputComputeLayout,
+            VkClearValue defaultClearValue) : this(name, format, extent, usage, inputAttachmentLayout, outputAttachmentLayout, inputComputeLayout, outputComputeLayout, defaultClearValue)
+        {
+            ShaderPropertyId = shaderPropertyId;
+        }
+
+        public RenderTargetDefintion(
+            string name,
+            int shaderPropertyId,
+            VkFormat format,
+            VkExtent2D extent,
+            VkImageUsageFlags usage,
+            VkImageLayout inputAttachmentLayout,
+            VkImageLayout outputAttachmentLayout,
+            VkImageLayout inputComputeLayout,
+            VkImageLayout outputComputeLayout,
+            VkClearValue defaultClearValue,
+            VkSamplerAddressMode addressMode) : this(name,shaderPropertyId, format, extent, usage, inputAttachmentLayout, outputAttachmentLayout, inputComputeLayout, outputComputeLayout, defaultClearValue)
+        {
+            SamplerAddressMode = addressMode;
+        }
+
+        public RenderTargetDefintion(
+            string name,
+            int shaderPropertyId,
+            VkFormat format,
+            int targetDisplay,
+            VkImageUsageFlags usage,
+            VkImageLayout inputAttachmentLayout,
+            VkImageLayout outputAttachmentLayout,
+            VkImageLayout inputComputeLayout,
+            VkImageLayout outputComputeLayout,
+            VkClearValue defaultClearValue) : this(name, shaderPropertyId, format, new VkExtent2D(), usage, inputAttachmentLayout, outputAttachmentLayout, inputComputeLayout, outputComputeLayout, defaultClearValue)
+        {
+            TargetDisplay = targetDisplay;
+        }
+
+
+        public RenderTargetDefintion(
+            string name,
+            VkFormat format,
+            int targetDisplay,
+            VkImageUsageFlags usage,
+            VkImageLayout inputAttachmentLayout,
+            VkImageLayout outputAttachmentLayout,
+            VkImageLayout inputComputeLayout,
+            VkImageLayout outputComputeLayout,
+            VkClearValue defaultClearValue) : this(name, format, new VkExtent2D(), usage, inputAttachmentLayout, outputAttachmentLayout, inputComputeLayout, outputComputeLayout, defaultClearValue)
+        {
+            TargetDisplay = targetDisplay;
+        }
+    }
+
+    
+
     public class RenderTarget
     {
         private readonly Texture2D _image;
         private readonly RenderTargetType _renderTargetType;
+        public readonly VkImageLayout AttachmentInputLayout;
+        public readonly VkImageLayout AttachmentOutputLayout;
+        public readonly VkImageLayout ComputeInputLayout;
+        public readonly VkImageLayout ComputeOutputLayout;
+
+        public readonly VkClearValue DefaultClearValue;
+        public readonly int TargetDisplay;
+
         public Texture2D Target => _image;
-        public VkImageLayout ImageLayout => _image.ImageLayout;
+        public VkImageLayout CurrentLayout => _image.ImageLayout;
         public VkImage VkImage => _image._vkImage;
         public VkImageView VkImageView => _image._imageView;
 
@@ -47,7 +178,7 @@ namespace VECS
                 _renderTargetType = RenderTargetType.Colour;
             }
 
-            _image = new(string.Format("_RT_{0}_{2}_{1}", name, Presenter.FrameCount, _renderTargetType.ToString()), width, height, format, usageFlags, samplerMode, 0, false, VkCompareOp.Never, false);
+            _image = new(string.Format("RT_{0}_{2}_{1}", name, Presenter.FrameCount, _renderTargetType.ToString()), width, height, format, usageFlags, samplerMode, 0, false, VkCompareOp.Never, false);
 
             if (_renderTargetType == RenderTargetType.Colour)
             {
@@ -58,8 +189,13 @@ namespace VECS
                 _image.SetImageLayout(VkImageLayout.DepthStencilAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.EarlyFragmentTests);
             }
             CreateAdditionalSamplers();
+            DefaultClearValue = new()
+            {
+                color = new(0, 0, 0, 1),
+                depthStencil = new(1, 0)
+            };
+            TargetDisplay = -1;
         }
-
         public RenderTarget(string name, int width, int height, VkFormat format, VkImageUsageFlags additionalFlags, VkSamplerAddressMode samplerMode = VkSamplerAddressMode.ClampToEdge)
         {
             VkImageUsageFlags usageFlags = additionalFlags;
@@ -87,7 +223,7 @@ namespace VECS
                 _renderTargetType = RenderTargetType.Colour;
             }
 
-            _image = new(string.Format("_RT_{0}_{2}_{1}", name, Presenter.FrameCount, _renderTargetType.ToString()), width, height, format, usageFlags, samplerMode, 0, false, VkCompareOp.Never, false);
+            _image = new(string.Format("RT_{0}_{2}_{1}", name, Presenter.FrameCount, _renderTargetType.ToString()), width, height, format, usageFlags, samplerMode, 0, false, VkCompareOp.Never, false);
 
             if (_renderTargetType == RenderTargetType.Colour)
             {
@@ -98,8 +234,46 @@ namespace VECS
                 _image.SetImageLayout(VkImageLayout.DepthStencilAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.EarlyFragmentTests);
             }
             CreateAdditionalSamplers();
+            DefaultClearValue = new()
+            {
+                color = new(0, 0, 0, 1),
+                depthStencil = new(1, 0)
+            };
+            TargetDisplay = -1;
         }
-        
+
+        public RenderTarget(string name, int width, int height, VkFormat format, VkClearValue defaultClearValue, VkSamplerAddressMode samplerMode = VkSamplerAddressMode.ClampToEdge) : this(name, width, height, format, samplerMode)
+        {
+            DefaultClearValue = defaultClearValue;
+            TargetDisplay = -1;
+        }
+
+        public RenderTarget(string name, int width, int height, VkFormat format, VkClearValue defaultClearValue, VkImageUsageFlags additionalFlags, VkSamplerAddressMode samplerMode = VkSamplerAddressMode.ClampToEdge) : this(name, width, height, format, additionalFlags, samplerMode)
+        {
+            DefaultClearValue = defaultClearValue;
+            TargetDisplay = -1;
+        }
+
+        public RenderTarget(RenderTargetDefintion value) : this(value.Name, (int)value.Extent.width,(int)value.Extent.height,value.Format,value.AdditionalUsage)
+        {
+            AttachmentInputLayout = value.InputAttachmentLayout;
+            AttachmentOutputLayout = value.OutputAttachmentLayout;
+            ComputeInputLayout = value.InputComputeLayout;
+            ComputeOutputLayout = value.OutputComputeLayout;
+            DefaultClearValue = value.DefaultClearValue;
+            TargetDisplay = value.TargetDisplay;
+        }
+        public RenderTarget(RenderTargetDefintion value, VkExtent2D extent) : this(value.Name, (int)extent.width, (int)extent.height, value.Format, value.AdditionalUsage)
+        {
+            AttachmentInputLayout = value.InputAttachmentLayout;
+            AttachmentOutputLayout = value.OutputAttachmentLayout;
+            ComputeInputLayout = value.InputComputeLayout;
+            ComputeOutputLayout = value.OutputComputeLayout;
+            DefaultClearValue = value.DefaultClearValue;
+            TargetDisplay = value.TargetDisplay;
+
+
+        }
         public VkImageBlit GetBlitCmd(int dstWidth, int dstHeight, VkImageAspectFlags dstAspectMask)
         {
             VkImageBlit imageBlit = new()
@@ -170,6 +344,7 @@ namespace VECS
 
         public void Resize(int width, int height)
         {
+            if (_image.Width == width && _image.Height == height) return;
             _image.Reinitialise(width, height);
 
             if (_renderTargetType == RenderTargetType.Colour)
@@ -180,6 +355,113 @@ namespace VECS
             {
                 _image.SetImageLayout(VkImageLayout.DepthStencilAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.EarlyFragmentTests);
             }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public VkRect2D GetFullRenderArea()
+        {
+            return new(0, 0, (uint)Target.Width, (uint)Target.Height);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public VkRenderingAttachmentInfo GetAttachmentInfo(VkAttachmentLoadOp loadOp = VkAttachmentLoadOp.Clear, VkAttachmentStoreOp storeOp = VkAttachmentStoreOp.Store)
+        {
+            return GetAttachmentInfo(DefaultClearValue,loadOp, storeOp);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public VkRenderingAttachmentInfo GetAttachmentInfo(VkClearValue clear, VkAttachmentLoadOp loadOp = VkAttachmentLoadOp.Clear, VkAttachmentStoreOp storeOp = VkAttachmentStoreOp.Store)
+        {
+            return new()
+            {
+                clearValue = clear,
+                imageLayout = CurrentLayout,
+                imageView = VkImageView,
+                loadOp = loadOp,
+                storeOp = storeOp,
+            };
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void BeginRenderingOnlyAttachment(VkCommandBuffer commandBuffer, VkAttachmentLoadOp loadOp = VkAttachmentLoadOp.Clear, VkAttachmentStoreOp storeOp = VkAttachmentStoreOp.Store)
+        {
+            BeginRenderingOnlyAttachment(commandBuffer,DefaultClearValue,loadOp,storeOp);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe void BeginRenderingOnlyAttachment(VkCommandBuffer commandBuffer, VkClearValue clearValue, VkAttachmentLoadOp loadOp = VkAttachmentLoadOp.Clear, VkAttachmentStoreOp storeOp = VkAttachmentStoreOp.Store)
+        {
+            var attachmentInfo = GetAttachmentInfo(clearValue, loadOp, storeOp);
+            VkRenderingInfo renderingInfo = new()
+            {
+                renderArea = GetFullRenderArea(),
+                layerCount = 1,
+                flags = VkRenderingFlags.ContentsInlineKHR | VkRenderingFlags.ContentsSecondaryCommandBuffers
+            };
+            switch (_renderTargetType)
+            {
+                case RenderTargetType.Colour:
+                    renderingInfo.colorAttachmentCount = 1;
+                    renderingInfo.pColorAttachments = &attachmentInfo;
+                    break;
+                case RenderTargetType.Depth:
+                    renderingInfo.pDepthAttachment = &attachmentInfo;
+                    break;
+                case RenderTargetType.Stencil:
+                    renderingInfo.pStencilAttachment = &attachmentInfo;
+                    break;
+                case RenderTargetType.DepthStencil:
+                    renderingInfo.pDepthAttachment = &attachmentInfo;
+                    renderingInfo.pStencilAttachment = &attachmentInfo;
+                    break;
+            }
+            GraphicsDevice.DeviceAPI.vkCmdBeginRendering(commandBuffer, &renderingInfo);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void ClearAttachment(VkCommandBuffer commandBuffer)
+        {
+            ClearAttachment(commandBuffer, DefaultClearValue);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void ClearAttachment(VkCommandBuffer commandBuffer, VkClearValue clearValue)
+        {
+            BeginRenderingOnlyAttachment(commandBuffer, clearValue);
+            GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe void BeginRenderingMultiAttachment(VkCommandBuffer commandBuffer, int layCount, VkRenderingAttachmentInfo* colourAttachments, int attachmentCount)
+        {
+            BeginRenderingMultiAttachment(commandBuffer, layCount, colourAttachments, attachmentCount, null, null);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe void BeginRenderingMultiAttachment(VkCommandBuffer commandBuffer, int layCount, VkRenderingAttachmentInfo* colourAttachments, int attachmentCount, VkRenderingAttachmentInfo depth)
+        {
+            BeginRenderingMultiAttachment(commandBuffer, layCount, colourAttachments, attachmentCount, &depth, null);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe void BeginRenderingMultiAttachment(VkCommandBuffer commandBuffer, int layCount, VkRenderingAttachmentInfo* colourAttachments, int attachmentCount, VkRenderingAttachmentInfo depth, VkRenderingAttachmentInfo stencil)
+        {
+            BeginRenderingMultiAttachment(commandBuffer, layCount, colourAttachments, attachmentCount, &depth, &stencil);
+        }
+
+        private unsafe void BeginRenderingMultiAttachment(VkCommandBuffer commandBuffer, int layCount,VkRenderingAttachmentInfo* colourAttachments, int attachmentCount, VkRenderingAttachmentInfo* depth, VkRenderingAttachmentInfo* stencil )
+        {
+            VkRenderingInfo renderingInfo = new()
+            {
+                renderArea = GetFullRenderArea(),
+                layerCount = (uint)layCount,
+                colorAttachmentCount = (uint)attachmentCount,
+                pColorAttachments = colourAttachments,
+                pDepthAttachment = depth,
+                pStencilAttachment = stencil,
+                flags = VkRenderingFlags.ContentsInlineKHR | VkRenderingFlags.ContentsSecondaryCommandBuffers
+            };
+            GraphicsDevice.DeviceAPI.vkCmdBeginRendering(commandBuffer, &renderingInfo);
         }
     }
 }

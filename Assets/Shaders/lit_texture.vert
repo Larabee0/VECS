@@ -25,9 +25,9 @@ layout(set = 0, binding = 0) uniform LightingInfo {
 	int numSpotLightShadows;
 } lighting;
 
-layout(set = 0,binding = 4) readonly buffer CameraInfos {
-	CameraInfo values[];
-} cameraInfo;
+layout(set = 0,binding = 4) readonly buffer CameraDatas {
+	CameraData values[];
+} cameraData;
 
 
 layout(std140, set = 1, binding = 0) readonly buffer ObjectMatricesBuffer{
@@ -58,7 +58,7 @@ void main()
 	ObjectMatrices objectMat = matricesBuffer.matrices[gl_BaseInstance];
 
 	vec4 positionWorld = objectMat.modelMatrix * vec4(position, 1.0);
-	gl_Position = cameraInfo.values[constants.cameraIndex].projectionViewMatrix * positionWorld;
+	gl_Position = cameraData.values[constants.cameraIndex].projectionViewMatrix * positionWorld;
 	
 	fragNormalWorld = normalize(mat3(objectMat.normalMatrix) * normal);
 	
@@ -67,7 +67,7 @@ void main()
 	fragPosWorld = positionWorld.xyz;
 	//fragPosDirLight = (biasMat * lighting.directionalLight.lightSpace * objectMat.modelMatrix) * vec4(position, 1.0);
 
-	fragViewPos = (cameraInfo.values[constants.cameraIndex].viewMatrix * positionWorld).xyz;
+	fragViewPos = (cameraData.values[constants.cameraIndex].viewMatrix * positionWorld).xyz;
 	fragTangentWorld = vec4(mat3(objectMat.modelMatrix) * tangent.xyz, tangent.w);
 	vec3 T = normalize(vec3(objectMat.normalMatrix * vec4(tangent.xyz,0)));
 	vec3 N = normalize(vec3(objectMat.normalMatrix * vec4(normal,0)));

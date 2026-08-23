@@ -13,10 +13,7 @@ namespace VECS
 #if DEBUG
         public const bool LOG_MISSING_GLOBAL_SHADER_PROPERTIES = false;
 #endif
-        public static readonly int CameraInfoId = "cameraInfo".GetShaderPropertyId();
-        public static readonly int CameraInverseId = "cameraInverse".GetShaderPropertyId();
-        public static readonly int AdditionalCameraInfoId = "cameraPlanes".GetShaderPropertyId();
-        public static readonly int OrthographicInfoId = "orthographic".GetShaderPropertyId();
+        public static readonly int CameraDataId = "cameraData".GetShaderPropertyId();
 
         public static readonly int MainColourAttachmentId = "mainColour".GetShaderPropertyId();
         public static readonly int BrightColourAttachmentId = "brightColour".GetShaderPropertyId();
@@ -52,10 +49,7 @@ namespace VECS
         {
             IgnoreUnFoundShaderProperties =
             [
-                CameraInfoId,
-                CameraInverseId,
-                AdditionalCameraInfoId,
-                OrthographicInfoId,
+                CameraDataId,
                 LightingInfoId,
                 PointLightsBufferId,
                 SpotLightsBufferId,

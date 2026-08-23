@@ -12,9 +12,9 @@ layout (location = 1) out vec3 fragNormalWorld;
 layout (location = 2) out vec2 fragUV;
 layout (location = 3) out vec4 fragTangentWorld;
 
-layout(set = 0,binding = 0) readonly buffer CameraInfos {
-	CameraInfo values[];
-} cameraInfo;
+layout (set = 0, binding = 0) readonly buffer CameraDatas {
+	CameraData values[];
+} cameraData;
 
 
 layout(std140, set = 1, binding = 0) readonly buffer ObjectMatricesBuffer{
@@ -45,7 +45,7 @@ void main()
 	ObjectMatrices objectMat = matricesBuffer.matrices[gl_BaseInstance];
 
 	vec4 positionWorld = objectMat.modelMatrix * vec4(position, 1.0);
-	gl_Position = cameraInfo.values[constants.cameraIndex].projectionViewMatrix * positionWorld;
+	gl_Position = cameraData.values[constants.cameraIndex].projectionViewMatrix * positionWorld;
 		
 	fragUV = uv;
 	fragPosWorld = positionWorld.xyz;

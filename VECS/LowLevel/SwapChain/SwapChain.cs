@@ -21,10 +21,6 @@ namespace VECS.LowLevel
 
         public static bool SwapChainInitialised { get; internal set; }
 
-        internal static VkViewport MainViewport => MainSwapChainData.Viewport;
-
-        internal static VkRect2D MainScissor => MainSwapChainData.Scissor;
-
         internal static SwapChainData[] SwapChainsForPresent;
         internal static SwapChainData MainSwapChainData => Application.MainWindow.SwapChainData;
 
@@ -141,12 +137,6 @@ namespace VECS.LowLevel
         {
             GraphicsDevice.DeviceAPI.vkWaitForFences(fence, true, ulong.MaxValue);
             GraphicsDevice.DeviceAPI.vkResetFences(fence).CheckResult( "Failed to reset fence ");
-        }
-
-        public static void SetViewPortScissor(VkCommandBuffer commandBuffer)
-        {
-            GraphicsDevice.DeviceAPI.vkCmdSetViewport(commandBuffer, 0, MainViewport);
-            GraphicsDevice.DeviceAPI.vkCmdSetScissor(commandBuffer, 0, MainScissor);
         }
 
         // should be called from graphics queue

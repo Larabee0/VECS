@@ -6,9 +6,9 @@
 #include "common_structures.glsl"
 #include "mesh_shader_structures.glsl"
 
-layout(set = 0, binding = 0) readonly buffer CameraInfos {
-	CameraInfo values[];
-} cameraInfo;
+layout(set = 0, binding = 0) readonly buffer CameraDatas {
+	CameraData values[];
+} cameraData;
 
 layout (std140, set = 1, binding = 0) readonly buffer ObjectMatricesBuffer{
 	ObjectMatrices matrices[];
@@ -50,14 +50,14 @@ void main()
 	
 	SetMeshOutputsEXT(meshlet.vertex_count, meshlet.triangle_count);
 
-	mat4 mvp = cameraInfo.values[cameraIndex].projectionViewMatrix * matricesBuffer.matrices[0].modelMatrix;
+	mat4 mvp = cameraData.values[cameraIndex].projectionViewMatrix * matricesBuffer.matrices[0].modelMatrix;
     uvec3 triIndices;
     uint vertexOffset = meshlet.vertex_offset;
     uint indexOffset = meshlet.triangle_offset;
 
     for(uint i = 0; i < meshlet.vertex_count; i++)
     {
-        gl_MeshVerticesEXT[i].gl_Position = cameraInfo.values[cameraIndex].projectionViewMatrix * (matricesBuffer.matrices[0].modelMatrix * vec4(vertexPositionBuffer.pos[vertexOffset + i].xyz, 1.0));
+        gl_MeshVerticesEXT[i].gl_Position = cameraData.values[cameraIndex].projectionViewMatrix * (matricesBuffer.matrices[0].modelMatrix * vec4(vertexPositionBuffer.pos[vertexOffset + i].xyz, 1.0));
         
 	    vertexOutput[i].color = vec4(1);
     }

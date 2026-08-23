@@ -107,7 +107,7 @@ namespace VECS.ECS.Presentation
 
                 if (dirCount == 0 && entityManager.SingletonEntity<MainCamera>(out Entity mainCamera) && entityManager.GetComponent(mainCamera, out Camera camera))
                 {
-                    hostBuffer[dirCount] = DirectionalLightShadows.GetDirectionalLight(directionalLight.Value, new(camera), new(camera.ProjectionMatrix, camera.ClipNear, camera.ClipFar, SwapChain.ExtentAspectRatio));
+                    hostBuffer[dirCount] = DirectionalLightShadows.GetDirectionalLight(directionalLight.Value, new(camera));
                 }
                 else
                 {

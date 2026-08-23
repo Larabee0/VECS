@@ -99,7 +99,7 @@ namespace VECS
             pushConstants.SetPushConstantUniform("cullData", setId, this);
         }
 
-        public CullData(RenderLayer includeMask, RenderLayer excludeMask, CullModeFlags cullMode, float zNear, CameraInfo camera)
+        public CullData(RenderLayer includeMask, RenderLayer excludeMask, CullModeFlags cullMode, float zNear, CameraData camera)
         {
             Matrix4x4 viewProj = camera.ProjectionViewMatrix;
 

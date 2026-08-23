@@ -1,7 +1,10 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
+using System.Numerics;
+using System.Runtime.CompilerServices;
 using VECS.ECS;
 using VECS.ECS.Presentation;
 using VECS.LowLevel;
@@ -63,6 +66,31 @@ namespace VECS
         public static int NextFrameIndex => Instance._isFrameStarted ? SwapChain.NextFrame : 0;
 
         public static bool NewSwapChain { get; private set; }
+
+        public static CameraOutputOverride CurrentCameraOutput
+        {
+            get;
+            private set;
+        }
+
+        public static VkRect2D CurrentCameraScissor
+        {
+            get;
+            private set;
+        }
+
+        public static VkViewport CurrentCameraViewport
+        {
+            get;
+            private set;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void SetToCurrentCameraViewportScissor(VkCommandBuffer commandBuffer)
+        {
+            GraphicsDevice.DeviceAPI.vkCmdSetViewport(commandBuffer, 0, CurrentCameraViewport);
+            GraphicsDevice.DeviceAPI.vkCmdSetScissor(commandBuffer, 0, CurrentCameraScissor);
+        }
 
         public Presenter()
         {
@@ -147,6 +175,33 @@ namespace VECS
             World.DefaultWorld.EntityManager.AddComponent(FrameInfoEntity, frameInfo);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static Rect CreateViewportRectForCamera(float width, float height, Rect cameraRect)
+        {
+            return new(width * cameraRect.X, height * cameraRect.Y, width * cameraRect.Width, height * cameraRect.Height);
+        }
+
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static VkViewport CreateViewport(Rect rect, float minDepth = 0, float maxDepth = 1)
+        {
+            return CreateViewport(rect.X, rect.Y, rect.Width, rect.Height, minDepth, maxDepth);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static VkViewport CreateViewport(float x, float y, float width, float height, float minDepth = 0, float maxDepth = 1)
+        {
+            return new()
+            {
+                x = x,
+                y = height - y,
+                width = width,
+                height = -height,
+                minDepth = minDepth,
+                maxDepth = maxDepth,
+            };
+        }
+
         private  static RendererFrameInfo  CreateRendererFrameInfo(float deltaTime, VkCommandBuffer commandBuffer)
         { 
             int frameIndex = SwapChain.FrameIndex;
@@ -168,11 +223,49 @@ namespace VECS
                     {
                         mainCamera = i;
                         camera = entityManager.GetComponent<Camera>(cameras[i]);
+
+                        if(entityManager.HasComponent<CameraOutputOverride>(entity, out var signature))
+                        {
+                            var cameraOutputOverride = entityManager.GetComponent<CameraOutputOverride>(signature);
+
+                            if(cameraOutputOverride.TargetTexture != 0)
+                            {
+                                var outputRT = AssetDataBase<Texture2D>.GetHashed(cameraOutputOverride.TargetTexture);
+
+                                CurrentCameraScissor = new(0, 0, (uint)outputRT.Width, (uint)outputRT.Height);
+
+                                var rect = CreateViewportRectForCamera(outputRT.Width, outputRT.Height, cameraOutputOverride.ViewportRect);
+
+                                CurrentCameraViewport = CreateViewport(rect, 0, 1);
+
+                            }
+                            else
+                            {
+                                cameraOutputOverride.DisplayIndex = Math.Max(0, cameraOutputOverride.DisplayIndex);
+                                Debug.Assert(cameraOutputOverride.DisplayIndex < SwapChain.SwapChainsForPresent.Length);
+                                var targetDisplay = SwapChain.SwapChainsForPresent[cameraOutputOverride.DisplayIndex];
+
+                                CurrentCameraScissor = targetDisplay.Scissor;
+
+                                var rect = CreateViewportRectForCamera(targetDisplay.SwapChainExtent.width, targetDisplay.SwapChainExtent.height, cameraOutputOverride.ViewportRect);
+
+                                CurrentCameraViewport = CreateViewport(rect, targetDisplay.Viewport.minDepth, targetDisplay.Viewport.maxDepth);
+
+                            }
+
+                            CurrentCameraOutput = cameraOutputOverride;
+
+                        }
+                        else
+                        {
+                            CurrentCameraScissor = SwapChain.MainSwapChainData.Scissor;
+                            CurrentCameraViewport = SwapChain.MainSwapChainData.Viewport;
+                        }
                     }
                 }
             }
 
-            CameraInfo cameraInfo = ((SwapChainBuffer<CameraInfo>)EngineBuffers.TryGetBuffer(ShaderProperties.CameraInfoId)).HostBuffer[mainCamera];
+            CameraData cameraInfo = ((SwapChainBuffer<CameraData>)EngineBuffers.TryGetBuffer(ShaderProperties.CameraDataId)).HostBuffer[mainCamera];
             float clipNear = camera.ClipNear;
 
             CullData cullData = new(RenderLayer.All, RenderLayer.OnlyShadow, camera.CullMode, clipNear, cameraInfo);

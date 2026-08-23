@@ -256,28 +256,11 @@ namespace VECS.UI
             
             var _outputTarget = EngineTextures.TryGetTexture(ShaderProperties.MainColourAttachmentId).First;
 
-            if (RenderTargetTex2D.ImageLayout == VkImageLayout.ColorAttachmentOptimal)
-            {
-                RenderTargetTex2D.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.FragmentShader);
-            }
-            else if (RenderTargetTex2D.ImageLayout == VkImageLayout.TransferSrcOptimal)
-            {
-                RenderTargetTex2D.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.FragmentShader);
-            }
+            RenderTargetTex2D.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal);
 
             var targetLayout = _outputTarget.ImageLayout;
 
-            if (targetLayout != VkImageLayout.ColorAttachmentOptimal)
-            {
-                if (_outputTarget.ImageLayout == VkImageLayout.ShaderReadOnlyOptimal)
-                {
-                    _outputTarget.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
-                }
-                else if (_outputTarget.ImageLayout == VkImageLayout.TransferSrcOptimal)
-                {
-                    _outputTarget.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.ColorAttachmentOutput);
-                }
-            }
+            _outputTarget.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal);
 
             VkRenderingAttachmentInfo colourAttachments = new()
             {
@@ -306,17 +289,7 @@ namespace VECS.UI
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
 
-            if (targetLayout != VkImageLayout.ColorAttachmentOptimal)
-            {
-                if (targetLayout == VkImageLayout.ShaderReadOnlyOptimal)
-                {
-                    _outputTarget.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
-                }
-                else if (targetLayout == VkImageLayout.TransferSrcOptimal)
-                {
-                    _outputTarget.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.TransferSrcOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.Blit);
-                }
-            }
+            _outputTarget.SetImageLayoutAuto(frameInfo.CommandBuffer, targetLayout);
 
             GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
         }

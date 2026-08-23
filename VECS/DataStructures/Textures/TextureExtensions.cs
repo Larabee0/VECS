@@ -85,12 +85,20 @@ namespace VECS
             public int frameIndex;
             private bool Disposed;
 
+#if DEBUG
+            private StackTrace stackTrace;
+            private string StackTrack => stackTrace.ToString();
+#endif
+
             public DisposeTextureCmd(VkImage image, VmaAllocation allocation, VkImageView imageview, VkSampler sampler)
             {
                 Image = image;
                 Allocation = allocation;
                 Imageview = imageview;
                 Sampler = sampler;
+#if DEBUG
+                stackTrace = new StackTrace();
+#endif
             }
 
             public static void Dispose(DisposeTextureCmd cmd)

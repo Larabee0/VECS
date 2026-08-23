@@ -1,4 +1,5 @@
-﻿using System.Numerics;
+﻿using SDL3;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using VECS.LowLevel;
@@ -40,6 +41,9 @@ namespace VECS
             OIT_Composite = GraphicsPipeline.VertexFragmentPipeline("OIT_Composite", "fullscreen.vert", "oit_composite.frag", alphaBlending);
 
             _transparentQueue = new("Transparent");
+
+            RenderGraph.AddPass("TransparentPass", PassType.ColourDepthStencil, ["OpaqueOutput"], ["TransparentHeadIndexImage"], TransparentPass);
+            RenderGraph.AddPass("TransaprentComposite", PassType.ColourDepthStencil, ["TransparentHeadIndexImage"], ["BrightObjectAttachment", "MainColourAttachment", "TransparentOutput"], TransparentComposite);
         }
 
         public unsafe void RecreateRenderTargets()
@@ -79,6 +83,16 @@ namespace VECS
             OIT_Composite.Default().SetTexture(ShaderProperties.HeadIndexImageId, _headIndex);
         }
 
+        private unsafe void TransparentPass(RendererFrameInfo frameInfo)
+        {
+            BeginOITTransparentPass(frameInfo, RenderGraph.GetResource("MainDepthAttachment"));
+            GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
+
+            GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier(frameInfo.CommandBuffer, VkPipelineStageFlags.ColorAttachmentOutput, VkPipelineStageFlags.FragmentShader, VkDependencyFlags.None, 0, null, 0, null, 0, null);
+
+            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
+        }
+
         public unsafe void BeginOITTransparentPass(RendererFrameInfo frameInfo, RenderTarget depthTraget)
         {
             GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Transparent Pre-Rendering");
@@ -88,25 +102,6 @@ namespace VECS
             cullData.cullMode &= ~CullModeFlags.Depth;
 
             DrawBlob.Cull(_transparentQueue, frameInfo, cullData);
-
-            VkRenderingAttachmentInfo depthAttachment = new()
-            {
-                imageLayout = depthTraget.ImageLayout,
-                imageView = depthTraget.VkImageView,
-                loadOp = VkAttachmentLoadOp.Load,
-                storeOp = VkAttachmentStoreOp.Store,
-                clearValue = new(1, 0)
-            };
-
-            VkRenderingInfo renderingInfo = new()
-            {
-                renderArea = new(0, 0, (uint)_headIndex.Width, (uint)_headIndex.Height),
-                colorAttachmentCount = 0,
-                layerCount = 1,
-                flags = VkRenderingFlags.ContentsInlineKHR | VkRenderingFlags.ContentsSecondaryCommandBuffers,
-                pDepthAttachment = &depthAttachment
-            };
-
 
             VkClearColorValue clearColor = default;
             clearColor.uint32[0] = uint.MaxValue;
@@ -127,16 +122,18 @@ namespace VECS
             GraphicsDevice.EndLabelCmd(commandBuffer);
 
             GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Transparent Rendering");
-            GraphicsDevice.DeviceAPI.vkCmdBeginRendering(commandBuffer, &renderingInfo);
 
-            SwapChain.SetViewPortScissor(commandBuffer);
+            depthTraget.BeginRenderingMultiAttachment(commandBuffer, 1, null, 0, depthTraget.GetAttachmentInfo(VkAttachmentLoadOp.Load));
 
-            DrawOITs(frameInfo);
+            Presenter.SetToCurrentCameraViewportScissor(commandBuffer);
+            if (_transparentQueue.CommandCount > 0)
+            {
+                DrawBlob.Execute(_transparentQueue, frameInfo, 0, VkCullModeFlags.None);
+            }
         }
 
         public unsafe void EndOITTransparentPass(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer)
         {
-            VkMemoryBarrier2 barrier;
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
 
             GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier(commandBuffer, VkPipelineStageFlags.ColorAttachmentOutput, VkPipelineStageFlags.FragmentShader, VkDependencyFlags.None, 0, null, 0, null, 0, null);
@@ -144,7 +141,14 @@ namespace VECS
             GraphicsDevice.EndLabelCmd(commandBuffer);
 
             GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Transparent Composite");
-            barrier = new()
+            TransparentComposite(frameInfo);
+            GraphicsDevice.EndLabelCmd(commandBuffer);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void TransparentComposite(RendererFrameInfo frameInfo)
+        {
+            VkMemoryBarrier2 barrier = new()
             {
                 srcAccessMask = VkAccessFlags2.ShaderRead | VkAccessFlags2.ShaderWrite,
                 dstAccessMask = VkAccessFlags2.ShaderRead | VkAccessFlags2.ShaderWrite,
@@ -152,27 +156,14 @@ namespace VECS
                 dstStageMask = VkPipelineStageFlags2.FragmentShader,
             };
 
-            MemoryBarrierHelper.MemoryBarrier(commandBuffer, barrier);
+            MemoryBarrierHelper.MemoryBarrier(frameInfo.CommandBuffer, barrier);
 
-            ActiveRenderer.StartMainColourRendering(frameInfo, VkAttachmentLoadOp.Load);
+            ActiveRenderer.StartForwardRendering(frameInfo, VkAttachmentLoadOp.Load);
 
-            DrawOIT_Compites(frameInfo);
-            ActiveRenderer.EndMainColourRendering(frameInfo);
-            GraphicsDevice.EndLabelCmd(commandBuffer);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void DrawOIT_Compites(RendererFrameInfo frameInfo)
-        {
             OIT_Composite.Default().Bind(frameInfo);
 
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void DrawOITs(RendererFrameInfo frameInfo)
-        {
-            DrawBlob.Execute(_transparentQueue, frameInfo, 0, VkCullModeFlags.None);
+            ActiveRenderer.EndForwardRendering(frameInfo);
         }
     }
 }

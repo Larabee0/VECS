@@ -40,13 +40,13 @@ namespace VECS
         public static void RenderSkybox(RendererFrameInfo frameInfo)
         {
             if (SkyboxTexture == null || Cube == null) return;
-            var camera = ((SwapChainBuffer<CameraInfo>)EngineBuffers.TryGetBuffer(ShaderProperties.CameraInfoId)).HostBuffer[frameInfo.MainCamera];
+            var camera = ((SwapChainBuffer<CameraData>)EngineBuffers.TryGetBuffer(ShaderProperties.CameraDataId)).HostBuffer[frameInfo.MainCamera];
             _skybox.PushConstants.SetPushConstantUniform("viewProj",0, GetSkyboxMatrix(camera));
             _skybox.Bind(frameInfo);
             Cube.SimpleBindAndDraw(frameInfo.CommandBuffer);
         }
 
-        public static Matrix4x4 GetSkyboxMatrix(in CameraInfo cameraInfo)
+        public static Matrix4x4 GetSkyboxMatrix(in CameraData cameraInfo)
         {
             var view = cameraInfo.ViewMatrix;
             view.Translation = Vector3.Zero;

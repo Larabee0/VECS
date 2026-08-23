@@ -27,13 +27,9 @@ layout (set = 0, binding = 3) readonly buffer SpotLights {
 	SpotLight values[];
 } spotLightBuffer;
 
-layout(set = 0,binding = 4) readonly buffer CameraInfos {
-	CameraInfo values[];
-} cameraInfo;
-
-layout(set = 0, binding = 5) readonly buffer CameraInverses {
-	CameraInverse values[];
-} cameraInverse;
+layout(set = 0,binding = 4) readonly buffer CameraDatas {
+	CameraData values[];
+} cameraData;
 
 layout (set = 1, binding = 0) uniform sampler2DArray dirShadow;
 layout (set = 1, binding = 1) uniform sampler2DArray[] plShadow;
@@ -94,7 +90,7 @@ void main(){
     vec4 positionWorld = imageLoad(g_PositionIn,outPosI);
     vec3 N = imageLoad(g_NormalsIn,outPosI).rgb;
     
-	vec3 cameraPosWorld = cameraInverse.values[constants.cameraIndex].inverseViewMatrix[3].xyz;    
+	vec3 cameraPosWorld = cameraData.values[constants.cameraIndex].inverseViewMatrix[3].xyz;    
 	vec3 V = normalize(cameraPosWorld - positionWorld.xyz);
 	vec3 maskValue = imageLoad(g_MaskIn,outPosI).rga; 
 	vec2 metalRoughness = vec2(maskValue.r, 1 - maskValue.b);
@@ -104,7 +100,7 @@ void main(){
     vec3 albedo = pow(imageLoad(g_AlbedoIn, outPosI).rgb, vec3(2.2));
 	vec4 outColour = vec4(ambientComponent(samplerIrradiance, prefilteredMap, samplerBRDFLUT, N, V, albedo, ambient, metalRoughness),1.0);
 
-    vec3 viewPos = (cameraInfo.values[constants.cameraIndex].viewMatrix *  vec4(positionWorld.xyz,1.0)).xyz;
+    vec3 viewPos = (cameraData.values[constants.cameraIndex].viewMatrix *  vec4(positionWorld.xyz,1.0)).xyz;
 	int cascadeIndex = 0;
 	float shadow= 1.0;
     vec3 Lo = vec3(0);

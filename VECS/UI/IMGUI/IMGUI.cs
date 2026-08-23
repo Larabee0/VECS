@@ -356,11 +356,11 @@ namespace VECS.UI
 
 
 
-            if (_outputTarget.ImageLayout == VkImageLayout.ShaderReadOnlyOptimal)
+            if (_outputTarget.CurrentLayout == VkImageLayout.ShaderReadOnlyOptimal)
             {
                 _outputTarget.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
             }
-            else if (_outputTarget.ImageLayout == VkImageLayout.TransferSrcOptimal)
+            else if (_outputTarget.CurrentLayout == VkImageLayout.TransferSrcOptimal)
             {
                 _outputTarget.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.ColorAttachmentOutput);
             }
@@ -368,7 +368,7 @@ namespace VECS.UI
             VkRenderingAttachmentInfo colourAttachments = new()
             {
                 imageView = _outputTarget.VkImageView,
-                imageLayout = _outputTarget.ImageLayout,
+                imageLayout = _outputTarget.CurrentLayout,
                 loadOp = VkAttachmentLoadOp.Clear,
                 storeOp = VkAttachmentStoreOp.Store,
                 clearValue = new(ClearColour.X, ClearColour.Y, ClearColour.Z, ClearColour.W)
@@ -431,25 +431,25 @@ namespace VECS.UI
 
         public unsafe void OverlayToActiveTarget(RendererFrameInfo frameInfo, RenderTarget renderTarget)
         {
-            if (_outputTarget.ImageLayout == VkImageLayout.ColorAttachmentOptimal)
+            if (_outputTarget.CurrentLayout == VkImageLayout.ColorAttachmentOptimal)
             {
                 _outputTarget.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.FragmentShader);
             }
-            else if (_outputTarget.ImageLayout == VkImageLayout.TransferSrcOptimal)
+            else if (_outputTarget.CurrentLayout == VkImageLayout.TransferSrcOptimal)
             {
                 _outputTarget.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.FragmentShader);
             }
 
-            var targetLayout = renderTarget.ImageLayout;
+            var targetLayout = renderTarget.CurrentLayout;
 
 
             if(targetLayout != VkImageLayout.ColorAttachmentOptimal)
             {
-                if (renderTarget.ImageLayout == VkImageLayout.ShaderReadOnlyOptimal)
+                if (renderTarget.CurrentLayout == VkImageLayout.ShaderReadOnlyOptimal)
                 {
                     renderTarget.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
                 }
-                else if (renderTarget.ImageLayout == VkImageLayout.TransferSrcOptimal)
+                else if (renderTarget.CurrentLayout == VkImageLayout.TransferSrcOptimal)
                 {
                     renderTarget.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.ColorAttachmentOutput);
                 }
@@ -459,7 +459,7 @@ namespace VECS.UI
             VkRenderingAttachmentInfo colourAttachments = new()
             {
                 imageView = renderTarget.VkImageView,
-                imageLayout = renderTarget.ImageLayout,
+                imageLayout = renderTarget.CurrentLayout,
                 loadOp = VkAttachmentLoadOp.Load,
                 storeOp = VkAttachmentStoreOp.Store,
                 clearValue = new(0, 0, 0, 0)
@@ -497,16 +497,16 @@ namespace VECS.UI
 
         public void BlitToImage(VkCommandBuffer commandBuffer, VkImage dst, int dstWidth, int dstHeight, VkImageAspectFlags dstAspectMask)
         {
-            if (_outputTarget.ImageLayout == VkImageLayout.ColorAttachmentOptimal)
+            if (_outputTarget.CurrentLayout == VkImageLayout.ColorAttachmentOptimal)
             {
                 _outputTarget.Target.SetImageLayout(commandBuffer, VkImageLayout.TransferSrcOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.Blit);
             }
-            else if (_outputTarget.ImageLayout == VkImageLayout.ShaderReadOnlyOptimal)
+            else if (_outputTarget.CurrentLayout == VkImageLayout.ShaderReadOnlyOptimal)
             {
                 _outputTarget.Target.SetImageLayout(commandBuffer, VkImageLayout.TransferSrcOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.Blit);
             }
 
-            TextureExtensions.BlitGeneric(commandBuffer, VkFilter.Linear, _outputTarget.GetBlitCmd(dstWidth, dstHeight, dstAspectMask), _outputTarget.VkImage, _outputTarget.ImageLayout, dst, VkImageLayout.TransferDstOptimal);
+            TextureExtensions.BlitGeneric(commandBuffer, VkFilter.Linear, _outputTarget.GetBlitCmd(dstWidth, dstHeight, dstAspectMask), _outputTarget.VkImage, _outputTarget.CurrentLayout, dst, VkImageLayout.TransferDstOptimal);
         }
 
         public void Dispose()

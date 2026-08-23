@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Numerics;
 using VECS.ECS;
 using VECS.ECS.Presentation;
-using VECS.LowLevel;
 using Vortice.Vulkan;
 
 namespace VECS
@@ -13,10 +12,8 @@ namespace VECS
     {
         private const VkBufferUsageFlags BufferUsageFlags = VkBufferUsageFlags.StorageBuffer;
 
-        private readonly static SwapChainBuffer<CameraInfo> CameraInfoBuffer;
-        private readonly static SwapChainBuffer<CameraInverseInfo> CameraInverseInfoBuffer;
-        private readonly static SwapChainBuffer<AdditionalCameraInfo> AddtionalCameraInfoBuffer;
-        private readonly static SwapChainBuffer<OrthographicInfo> OrthopgrahicInfoBuffer;
+        private readonly static SwapChainBuffer<CameraData> CameraDataBuffer;
+
 
         private readonly static SwapChainBuffer LightingInfoBuffer;
         internal readonly static SwapChainBuffer<DirectionalLightUniform> DirectionalLightBuffer;
@@ -49,6 +46,7 @@ namespace VECS
             {
                 throw new KeyNotFoundException(string.Format("Key {0} has no buffer assocaited with it, use AddEngineBuffer to add it", propertyId));
             }
+            Pipeline._descriptorReWrite = true;
         }
 
         public static void AddOrUpdateEngineBuffer(int propertyId, SwapChainBuffer buffer)
@@ -73,10 +71,7 @@ namespace VECS
 
         static unsafe EngineBuffers()
         {
-            CameraInfoBuffer = new (Presenter.MAX_CAMERAS, BufferUsageFlags, true);
-            CameraInverseInfoBuffer = new (Presenter.MAX_CAMERAS, BufferUsageFlags, true);
-            AddtionalCameraInfoBuffer = new (Presenter.MAX_CAMERAS, BufferUsageFlags, true);
-            OrthopgrahicInfoBuffer = new (Presenter.MAX_CAMERAS, BufferUsageFlags, true);
+            CameraDataBuffer = new(Presenter.MAX_CAMERAS * 2, BufferUsageFlags, true);
 
             LightingInfoBuffer = new(1, GPUBufferExtensions.GetAlignment((uint)sizeof(LightingInfo), VkBufferUsageFlags.UniformBuffer), VkBufferUsageFlags.UniformBuffer, true);
             DirectionalLightBuffer = new(1, BufferUsageFlags, true);
@@ -86,13 +81,10 @@ namespace VECS
 
 
             DirectionalLightMatsBuffer = new(DirectionalLightShadows.MAX_CASCADE_COUNT, BufferUsageFlags, true);
-            PointLightMatsBuffer = new(PointLightShadows.MAX_POINT_LIGHT_SHADOW_CASTERS*6, BufferUsageFlags, true);
+            PointLightMatsBuffer = new(PointLightShadows.MAX_POINT_LIGHT_SHADOW_CASTERS * 6, BufferUsageFlags, true);
             SpotLightMatsBuffer = new(SpotLightShadows.MAX_SPOT_LIGHT_SHADOW_CASTERS, BufferUsageFlags, true);
 
-            CameraInfoBuffer.SetDebugName("CameraInfoBuffer");
-            CameraInverseInfoBuffer.SetDebugName("CameraInverseInfoBuffer");
-            AddtionalCameraInfoBuffer.SetDebugName("AddtionalCameraInfoBuffer");
-            OrthopgrahicInfoBuffer.SetDebugName("OrthopgrahicInfoBuffer");
+            CameraDataBuffer.SetDebugName("CameraDataBuffer");
 
             LightingInfoBuffer.SetDebugName("LightingInfoBuffer");
             DirectionalLightBuffer.SetDebugName("DirectionalLightBuffer");
@@ -103,10 +95,7 @@ namespace VECS
             PointLightMatsBuffer.SetDebugName("PointLightMatsBuffer");
             SpotLightMatsBuffer.SetDebugName("SpotLightMatsBuffer");
 
-            AddEngineBuffer(ShaderProperties.CameraInfoId, CameraInfoBuffer);
-            AddEngineBuffer(ShaderProperties.CameraInverseId, CameraInverseInfoBuffer);
-            AddEngineBuffer(ShaderProperties.AdditionalCameraInfoId, AddtionalCameraInfoBuffer);
-            AddEngineBuffer(ShaderProperties.OrthographicInfoId, OrthopgrahicInfoBuffer);
+            AddEngineBuffer(ShaderProperties.CameraDataId, CameraDataBuffer);
 
             AddEngineBuffer(ShaderProperties.LightingInfoId, LightingInfoBuffer);
             AddEngineBuffer(ShaderProperties.DirectionalLightsBufferId, DirectionalLightBuffer);
@@ -124,10 +113,7 @@ namespace VECS
             var cameraCount = Math.Min(cameras.Count, Presenter.MAX_CAMERAS);
             int mainCamera = -1;
             Camera camera;
-            float clipNear = 0;
-            float clipFar = 0;
-            CameraOrthographic orthCam = default;
-            bool orth = false;
+            CameraOrthographic orthCam;
             for (int i = 0; i < cameraCount; i++)
             {
                 var entity = cameras[i];
@@ -136,33 +122,19 @@ namespace VECS
                 {
                     mainCamera = i;
                 }
-                if (entityManager.HasComponent<CameraPerspective>(entity, out var signature))
+                if (entityManager.HasComponent<CameraPerspective>(entity))
                 {
-                    var per = entityManager.GetComponent<CameraPerspective>(signature);
-                    clipNear = per.ClipNear;
-                    clipFar = per.ClipFar;
+                    CameraDataBuffer.HostBuffer[i] = new(camera);
                 }
-                else if (entityManager.HasComponent<CameraOrthographic>(entity, out signature))
+                else if (entityManager.HasComponent<CameraOrthographic>(entity, out var signature))
                 {
                     orthCam = entityManager.GetComponent<CameraOrthographic>(signature);
-                    clipNear = orthCam.ClipNear;
-                    clipFar = orthCam.ClipFar;
-                    orth = true;
+                    CameraDataBuffer.HostBuffer[i] = new(camera, orthCam);
                 }
-                CameraInfoBuffer.HostBuffer[i] = new(camera);
-                CameraInverseInfoBuffer.HostBuffer[i] = new(camera);
-                AddtionalCameraInfoBuffer.HostBuffer[i] = new(camera.ProjectionMatrix, clipNear, clipFar, SwapChain.ExtentAspectRatio);
-                OrthopgrahicInfoBuffer.HostBuffer[i] = new(orth, orthCam);
             }
 
-            CameraInfoBuffer.SetBuffersDirty(true);
-            CameraInverseInfoBuffer.SetBuffersDirty(true);
-            AddtionalCameraInfoBuffer.SetBuffersDirty(true);
-            OrthopgrahicInfoBuffer.SetBuffersDirty(true);
-            GPUBufferExtensions.WriteFromHostDelayed(CameraInfoBuffer, frameIndex);
-            GPUBufferExtensions.WriteFromHostDelayed(CameraInverseInfoBuffer,frameIndex);
-            GPUBufferExtensions.WriteFromHostDelayed(AddtionalCameraInfoBuffer,frameIndex);
-            GPUBufferExtensions.WriteFromHostDelayed(OrthopgrahicInfoBuffer,frameIndex);
+            CameraDataBuffer.SetBuffersDirty(true);
+            GPUBufferExtensions.WriteFromHostDelayed(CameraDataBuffer, frameIndex);
         }
 
         public static unsafe LightingInfo UpdateLights(EntityManager entityManager, int frameIndex)
@@ -195,11 +167,7 @@ namespace VECS
 
         public static void CleanUp()
         {
-
-            CameraInfoBuffer.Dispose();
-            CameraInverseInfoBuffer.Dispose();
-            AddtionalCameraInfoBuffer.Dispose();
-            OrthopgrahicInfoBuffer.Dispose();
+            CameraDataBuffer.Dispose();
 
             LightingInfoBuffer.Dispose();
             DirectionalLightBuffer.Dispose();

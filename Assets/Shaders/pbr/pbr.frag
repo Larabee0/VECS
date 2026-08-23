@@ -37,13 +37,9 @@ layout (set = 0, binding = 3) readonly buffer SpotLights {
 	SpotLight values[];
 } spotLightBuffer;
 
-layout(set = 0,binding = 4) readonly buffer CameraInfos {
-	CameraInfo values[];
-} cameraInfo;
-
-layout(set = 0, binding = 5) readonly buffer CameraInverses {
-	CameraInverse values[];
-} cameraInverse;
+layout(set = 0,binding = 4) readonly buffer CameraDatas {
+	CameraData values[];
+} cameraData;
 
 layout (set = 1, binding = 2) uniform sampler2DArray dirShadow;
 layout (set = 1, binding = 3) uniform sampler2DArray[] plShadow;
@@ -76,7 +72,7 @@ layout(push_constant) uniform Constants{
 void main() {
 	vec3 N = calculateNormal(normalMap,TILED_UV,fragNormalWorld,fragTangentWorld.xyz);
 
-	vec3 cameraPosWorld = cameraInverse.values[constants.cameraIndex].inverseViewMatrix[3].xyz;
+	vec3 cameraPosWorld = cameraData.values[constants.cameraIndex].inverseViewMatrix[3].xyz;
 
 	vec3 V = normalize(cameraPosWorld - fragPosWorld);
 	

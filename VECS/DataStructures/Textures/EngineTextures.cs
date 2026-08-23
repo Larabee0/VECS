@@ -94,6 +94,7 @@ namespace VECS
 
         public static void AddOrUpdateTexture(int propertyId, ITextureProvider texture)
         {
+            if (propertyId == 0) return;
             _engineTextures.AddOrUpdate(propertyId, texture, (key, value) =>
             {
                 value.Dispose();

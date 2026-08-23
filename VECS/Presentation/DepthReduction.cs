@@ -109,20 +109,24 @@ namespace VECS
 
         public static unsafe void ClearPyramid(RendererFrameInfo frameInfo)
         {
+            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Clear Depth Pyramid");
             VkClearColorValue clearDepthStencilValue = new(0, 0, 0, 0);
             VkImageSubresourceRange subresourceRange = _depthPryamid.GetSubresourceRange();
 
-            _depthPryamid.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.General, VkPipelineStageFlags2.ComputeShader | VkPipelineStageFlags2.Transfer, VkPipelineStageFlags2.Transfer);
+            _depthPryamid.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.General);
 
             GraphicsDevice.DeviceAPI.vkCmdClearColorImage(frameInfo.CommandBuffer, _depthPryamid._vkImage, _depthPryamid.ImageLayout, &clearDepthStencilValue, 1, &subresourceRange);
 
-            _depthPryamid.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.General, VkPipelineStageFlags2.Transfer, VkPipelineStageFlags2.ComputeShader | VkPipelineStageFlags2.Transfer);
+            _depthPryamid.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.General);
+            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static unsafe void ReduceDepth(RendererFrameInfo frameInfo)
         {
+            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Depth Reduction");
             ComputeShaderTransfer(frameInfo);
+            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
         }
 
         private static unsafe void ComputeShaderTransfer(RendererFrameInfo frameInfo)

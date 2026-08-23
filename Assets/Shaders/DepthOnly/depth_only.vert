@@ -10,9 +10,9 @@ layout(std140, set = 0, binding = 0) readonly buffer ObjectMatricesBuffer{
 	ObjectMatrices matrices[];
 } matricesBuffer;
 
-layout(std140, set = 1, binding = 0) readonly buffer CameraInfos {
-	CameraInfo values[];
-} cameraInfo;
+layout(std140, set = 1, binding = 0) readonly buffer CameraDatas {
+	CameraData values[];
+} cameraData;
 
 layout(std140, set = 1, binding = 1) readonly buffer DirectionalShadowMats{
     mat4 value[];
@@ -36,7 +36,7 @@ layout(push_constant) uniform InstanceInfo {
 mat4 getTransform(int bufferSelect, int bufferOffset) {
     switch(bufferSelect){
         case 0:
-            return cameraInfo.values[bufferOffset].projectionViewMatrix;
+            return cameraData.values[bufferOffset].projectionViewMatrix;
         case 1:
             return directionalShadowsMats.value[bufferOffset];
         case 2:

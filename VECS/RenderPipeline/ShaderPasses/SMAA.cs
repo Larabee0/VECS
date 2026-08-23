@@ -79,39 +79,48 @@ namespace VECS
             BlitEdgeTarget = smaaBlit.Create("SMAA_BlitEdgeTarget");
             BlitBlendTarget = smaaBlit.Create("SMAA_BlitBlendTarget");
 
-            //RecreateRenderTargets();
+            RenderGraph.AddResource(new("SMAA_Edge_Input_Attachment",
+                VkFormat.R8G8B8A8Unorm, 0,
+                VkImageUsageFlags.None,
+                VkImageLayout.ShaderReadOnlyOptimal,
+                VkImageLayout.ColorAttachmentOptimal,
+                VkImageLayout.General,
+                VkImageLayout.General,
+                new(0, 0, 0, 1)));
+
+            RenderGraph.AddResource(new("SMAA_Edge_Attachment",
+                VkFormat.R8G8B8A8Unorm, 0,
+                VkImageUsageFlags.None,
+                VkImageLayout.ShaderReadOnlyOptimal,
+                VkImageLayout.ColorAttachmentOptimal,
+                VkImageLayout.General,
+                VkImageLayout.General,
+                new(0, 0, 0, 0)));
+
+            RenderGraph.AddResource(new("SMAA_Blend_Attachment",
+                VkFormat.R8G8B8A8Unorm, 0,
+                VkImageUsageFlags.None,
+                VkImageLayout.ShaderReadOnlyOptimal,
+                VkImageLayout.ColorAttachmentOptimal,
+                VkImageLayout.General,
+                VkImageLayout.General,
+                new(0, 0, 0, 0)));
+
+            RenderGraph.AddResource(new("SMAA_Edge_Input_Attachment", VkFormat.R8G8B8A8Unorm, 0, VkImageUsageFlags.None, VkImageLayout.ShaderReadOnlyOptimal, VkImageLayout.ColorAttachmentOptimal, VkImageLayout.General, VkImageLayout.General, new(0, 0, 0, 1)));
+
+            RenderGraph.AddPass("SMAA_Edge_Input", PassType.ColourDepthStencil, ["MainColourAttachment"], ["SMAA_Edge_Input_Attachment"], CopyMainOutputToEdgeInput);
+            RenderGraph.AddPass("SMAA_Edge_Detection", PassType.ColourDepthStencil, ["SMAA_Edge_Input_Attachment"], ["SMAA_Edge_Attachment"], EdgeDetectionPass);
+            RenderGraph.AddPass("SMAA_Blend_Weight", PassType.ColourDepthStencil, ["SMAA_Edge_Attachment"], ["SMAA_Blend_Attachment"], BlendWeightCalculation);
+            RenderGraph.AddPass("SMAA_Output", PassType.ColourDepthStencil, ["SMAA_Blend_Attachment"], ["MainColourOutput", "MainColourAttachment", "BrightObjectAttachment"], OutputBlending);
         }
 
         public void RecreateRenderTargets()
         {
             var windowExtents = Application.MainWindow.WindowExtent;
 
-            if (EdgeInputTarget == null)
-            {
-                EdgeInputTarget = new("SMAA_Edge_Input_Attachment", (int)windowExtents.width, (int)windowExtents.height, VkFormat.R8G8B8A8Unorm);
-            }
-            else
-            {
-                EdgeInputTarget.Resize((int)windowExtents.width, (int)windowExtents.height);
-            }
-
-            if (EdgeTarget == null)
-            {
-                EdgeTarget = new("SMAA_Edge_Attachment", (int)windowExtents.width, (int)windowExtents.height, VkFormat.R8G8B8A8Unorm);
-            }
-            else
-            {
-                EdgeTarget.Resize((int)windowExtents.width, (int)windowExtents.height);
-            }
-
-            if (BlendTarget == null)
-            {
-                BlendTarget = new("SMAA_Blend_Attachment", (int)windowExtents.width, (int)windowExtents.height, VkFormat.R8G8B8A8Unorm);
-            }
-            else
-            {
-                BlendTarget.Resize((int)windowExtents.width, (int)windowExtents.height);
-            }
+            EdgeInputTarget = RenderGraph.GetResource("SMAA_Edge_Input_Attachment");
+            EdgeTarget = RenderGraph.GetResource("SMAA_Edge_Attachment");
+            BlendTarget = RenderGraph.GetResource("SMAA_Blend_Attachment");
 
             var texelSize = new Vector4(1.0f / windowExtents.width, 1.0f / windowExtents.height, windowExtents.width, windowExtents.height);
 
@@ -130,7 +139,7 @@ namespace VECS
             BlitBlendTarget.SetTexture("inputTexture".GetShaderPropertyId(), BlendTarget.Target);
         }
 
-        public unsafe void ApplyAA(RendererFrameInfo frameInfo)
+        public void ApplyAA(RendererFrameInfo frameInfo)
         {
             _smaaEnabled = InputManager.Instance.GetKeyUp(SDL3.SDL_Keycode.F8) ? !_smaaEnabled : _smaaEnabled;
 
@@ -138,10 +147,7 @@ namespace VECS
 
             var mainTarget = EngineTextures.TryGetTexture(ShaderProperties.MainColourAttachmentId);
 
-            mainTarget.First.SetImageLayout(frameInfo.CommandBuffer,
-                VkImageLayout.ShaderReadOnlyOptimal,
-                VkPipelineStageFlags2.ColorAttachmentOutput,
-                VkPipelineStageFlags2.FragmentShader);
+            mainTarget.First.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal);
 
             CopyMainOutputToEdgeInput(frameInfo);
 
@@ -149,10 +155,7 @@ namespace VECS
 
             BlendWeightCalculation(frameInfo);
 
-            mainTarget.First.SetImageLayout(frameInfo.CommandBuffer,
-                VkImageLayout.ColorAttachmentOptimal,
-                VkPipelineStageFlags2.FragmentShader,
-                VkPipelineStageFlags2.ColorAttachmentOutput);
+            mainTarget.First.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal);
 
             OutputBlending(frameInfo);
 
@@ -164,182 +167,55 @@ namespace VECS
 #if DEBUG
         private unsafe void OutputBlendWeights(in RendererFrameInfo frameInfo)
         {
-            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Output Blend Weights");
-            ActiveRenderer.StartMainColourRendering(frameInfo, VkAttachmentLoadOp.Clear);
+            ActiveRenderer.StartForwardRendering(frameInfo, VkAttachmentLoadOp.Clear);
 
             BlitBlendTarget.Bind(frameInfo);
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
 
-            ActiveRenderer.EndMainColourRendering(frameInfo);
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
+            ActiveRenderer.EndForwardRendering(frameInfo);
         }
 
         private unsafe void OutputEdgeDetection(in RendererFrameInfo frameInfo)
         {
-            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Output Edge Detection");
-            ActiveRenderer.StartMainColourRendering(frameInfo, VkAttachmentLoadOp.Clear);
+            ActiveRenderer.StartForwardRendering(frameInfo, VkAttachmentLoadOp.Clear);
 
             BlitEdgeTarget.Bind(frameInfo);
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
 
-            ActiveRenderer.EndMainColourRendering(frameInfo);
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
+            ActiveRenderer.EndForwardRendering(frameInfo);
         }
 #endif
 
-        private unsafe void OutputBlending(RendererFrameInfo frameInfo)
+        private void OutputBlending(RendererFrameInfo frameInfo)
         {
-            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Output Blending");
-            ActiveRenderer.StartMainColourRendering(frameInfo, VkAttachmentLoadOp.Load);
-
+            ActiveRenderer.StartForwardRendering(frameInfo, VkAttachmentLoadOp.Load);
             NeighbourhoodBlending.Bind(frameInfo);
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
-
-            ActiveRenderer.EndMainColourRendering(frameInfo);
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
+            ActiveRenderer.EndForwardRendering(frameInfo);
         }
 
-        private unsafe void BlendWeightCalculation(RendererFrameInfo frameInfo)
+        private void BlendWeightCalculation(RendererFrameInfo frameInfo)
         {
-            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Blend Weight Calculation");
-            BlendTarget.Target.SetImageLayout(frameInfo.CommandBuffer,
-                VkImageLayout.ColorAttachmentOptimal,
-                VkPipelineStageFlags2.FragmentShader,
-                VkPipelineStageFlags2.ColorAttachmentOutput);
-
-            VkRenderingAttachmentInfo* blendWeightAttachments = stackalloc VkRenderingAttachmentInfo[]
-                        {
-                new()
-                {
-                    imageView = BlendTarget.VkImageView,
-                    imageLayout = BlendTarget.ImageLayout,
-                    loadOp = VkAttachmentLoadOp.Clear,
-                    storeOp = VkAttachmentStoreOp.Store,
-                    clearValue = new(0,0,0,0)
-                },
-                new()
-                {
-                    imageView = BlendTarget.VkImageView,
-                    imageLayout = BlendTarget.ImageLayout,
-                    loadOp = VkAttachmentLoadOp.Clear,
-                    storeOp = VkAttachmentStoreOp.Store,
-                    clearValue = new(0,0,0,0)
-                }
-            };
-
-            VkRenderingInfo blendWeightTarget = new()
-            {
-                layerCount = 1,
-                colorAttachmentCount = 1,
-                pColorAttachments = blendWeightAttachments,
-                renderArea = new(0, 0, (uint)BlendTarget.Target.Width, (uint)BlendTarget.Target.Height),
-            };
-            GraphicsDevice.DeviceAPI.vkCmdBeginRendering(frameInfo.CommandBuffer, &blendWeightTarget);
+            BlendTarget.BeginRenderingOnlyAttachment(frameInfo.CommandBuffer);
             BlendWeightCalc.Bind(frameInfo);
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
-
-            BlendTarget.Target.SetImageLayout(frameInfo.CommandBuffer,
-                VkImageLayout.ShaderReadOnlyOptimal,
-                VkPipelineStageFlags2.ColorAttachmentOutput,
-                VkPipelineStageFlags2.FragmentShader);
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
         }
 
-        private unsafe void EdgeDetectionPass(RendererFrameInfo frameInfo)
+        private void EdgeDetectionPass(RendererFrameInfo frameInfo)
         {
-            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Edge Detection");
-            EdgeTarget.Target.SetImageLayout(frameInfo.CommandBuffer,
-                VkImageLayout.ColorAttachmentOptimal,
-                VkPipelineStageFlags2.FragmentShader,
-                VkPipelineStageFlags2.ColorAttachmentOutput);
-
-            VkRenderingAttachmentInfo* edgeDetection = stackalloc VkRenderingAttachmentInfo[]
-                        {
-                new()
-                {
-                    imageView = EdgeTarget.VkImageView,
-                    imageLayout = EdgeTarget.ImageLayout,
-                    loadOp = VkAttachmentLoadOp.Clear,
-                    storeOp = VkAttachmentStoreOp.Store,
-                    clearValue = new(0,0,0,0)
-                },
-                new()
-                {
-                    imageView = EdgeTarget.VkImageView,
-                    imageLayout = EdgeTarget.ImageLayout,
-                    loadOp = VkAttachmentLoadOp.Clear,
-                    storeOp = VkAttachmentStoreOp.Store,
-                    clearValue = new(0,0,0,0)
-                }
-            };
-
-            VkRenderingInfo copyedgeDetectionTarget = new()
-            {
-                layerCount = 1,
-                colorAttachmentCount = 1,
-                pColorAttachments = edgeDetection,
-                renderArea = new(0, 0, (uint)EdgeTarget.Target.Width, (uint)EdgeTarget.Target.Height),
-            };
-
-            GraphicsDevice.DeviceAPI.vkCmdBeginRendering(frameInfo.CommandBuffer, &copyedgeDetectionTarget);
+            EdgeTarget.BeginRenderingOnlyAttachment(frameInfo.CommandBuffer);
             EdgeDetection.Bind(frameInfo);
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
-
-            EdgeTarget.Target.SetImageLayout(frameInfo.CommandBuffer,
-                VkImageLayout.ShaderReadOnlyOptimal,
-                VkPipelineStageFlags2.ColorAttachmentOutput,
-                VkPipelineStageFlags2.FragmentShader);
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
         }
 
-        private unsafe void CopyMainOutputToEdgeInput(RendererFrameInfo frameInfo)
+        private void CopyMainOutputToEdgeInput(RendererFrameInfo frameInfo)
         {
-            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Copy to Edge Input");
-            EdgeInputTarget.Target.SetImageLayout(frameInfo.CommandBuffer,
-                VkImageLayout.ColorAttachmentOptimal,
-                VkPipelineStageFlags2.FragmentShader,
-                VkPipelineStageFlags2.ColorAttachmentOutput);
-
-            VkRenderingAttachmentInfo* copyToEdge = stackalloc VkRenderingAttachmentInfo[]
-                        {
-                new()
-                {
-                    imageView = EdgeInputTarget.VkImageView,
-                    imageLayout = EdgeInputTarget.ImageLayout,
-                    loadOp = VkAttachmentLoadOp.Clear,
-                    storeOp = VkAttachmentStoreOp.Store,
-                    clearValue = new(0,0,0,1)
-                },
-                new()
-                {
-                    imageView = EdgeInputTarget.VkImageView,
-                    imageLayout = EdgeInputTarget.ImageLayout,
-                    loadOp = VkAttachmentLoadOp.Clear,
-                    storeOp = VkAttachmentStoreOp.Store,
-                    clearValue = new(0,0,0,1)
-                }
-            };
-
-            VkRenderingInfo copyToEdgeTarget = new()
-            {
-                layerCount = 1,
-                colorAttachmentCount = 1,
-                pColorAttachments = copyToEdge,
-                renderArea = new(0, 0, (uint)EdgeInputTarget.Target.Width, (uint)EdgeInputTarget.Target.Height),
-            };
-
-            GraphicsDevice.DeviceAPI.vkCmdBeginRendering(frameInfo.CommandBuffer, &copyToEdgeTarget);
+            EdgeInputTarget.BeginRenderingOnlyAttachment(frameInfo.CommandBuffer);
             BlitMain.Bind(frameInfo);
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
-
-            EdgeInputTarget.Target.SetImageLayout(frameInfo.CommandBuffer,
-                VkImageLayout.ShaderReadOnlyOptimal,
-                VkPipelineStageFlags2.ColorAttachmentOutput,
-                VkPipelineStageFlags2.FragmentShader);
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
         }
     }
 }

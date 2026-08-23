@@ -13,9 +13,9 @@ layout (location = 1) out vec3 normalsOut;
 layout (location = 2) out vec3 albedoOut;
 layout (location = 3) out vec4 maskOut;
 
-layout (set = 0, binding = 1) readonly buffer AdditionalCameraInfos {
-	AdditionalCameraInfo values[];
-} cameraPlanes;
+layout (set = 0, binding = 0) readonly buffer CameraDatas {
+	CameraData values[];
+} cameraData;
 
 layout(set = 2, binding = 0) uniform samplerCubeArray texSampler;
 
@@ -34,7 +34,7 @@ void main()
 	vec3 diffuseTextureColour = texture(texSampler, vec4(fragUV,fragUV)).rgb;
 
     normalsOut= fragNormalWorld;
-    positionOut.w = linearDepth(gl_FragCoord.z, cameraPlanes.values[constants.cameraIndex].nearPlane,cameraPlanes.values[constants.cameraIndex].farPlane);
+    positionOut.w = linearDepth(gl_FragCoord.z, cameraData.values[constants.cameraIndex].nearPlane, cameraData.values[constants.cameraIndex].farPlane);
     positionOut.xyz = fragPosWorld;
     albedoOut = vec3(diffuseTextureColour);
 }

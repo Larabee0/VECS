@@ -401,6 +401,13 @@ namespace VECS
             SetImageLayout(cmdbuffer, newImageLayout, GetSubresourceRange(), srcStage, dstStage);
         }
 
+        public void SetImageLayoutAuto(VkCommandBuffer cmdBuffer, VkImageLayout newLayout)
+        {
+            var dstStage = newLayout.GetStageFlagFromLayout();
+            var srcStage = _imageLayout.GetStageFlagFromLayout();
+            SetImageLayout(cmdBuffer,newLayout,srcStage, dstStage);
+        }
+
         public virtual void SetImageLayout(VkCommandBuffer cmdbuffer, VkImageLayout newImageLayout, VkImageSubresourceRange resourceRange, VkPipelineStageFlags2 srcStage = VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2 dstStage = VkPipelineStageFlags2.FragmentShader)
         {
             if (newImageLayout == _imageLayout)

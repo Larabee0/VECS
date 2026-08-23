@@ -127,7 +127,7 @@ namespace VECS
         {
             var commandBuffer = AuxiliaryCommandBufferManager.Record();
             
-            BRDFLUT_Texture.SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
+            BRDFLUT_Texture.SetImageLayoutAuto(commandBuffer, VkImageLayout.ColorAttachmentOptimal);
 
             VkRenderingAttachmentInfo colourAttachments = new()
             {
@@ -159,7 +159,7 @@ namespace VECS
             GraphicsDevice.DeviceAPI.vkCmdDraw(commandBuffer, 3, 1, 0, 0);
 
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
-            BRDFLUT_Texture.SetImageLayout(commandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.FragmentShader);
+            BRDFLUT_Texture.SetImageLayoutAuto(commandBuffer, VkImageLayout.ShaderReadOnlyOptimal);
 
             AuxiliaryCommandBufferManager.Submit();
         }
@@ -170,7 +170,7 @@ namespace VECS
 
             frameInfo = new(frameInfo.CameraCount, frameInfo.MainCamera, frameInfo.DeltaTime, commandBuffer, frameInfo.CullData, frameInfo.LightingInfo);
 
-            Irradiance_Cubemap.SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
+            Irradiance_Cubemap.SetImageLayoutAuto(commandBuffer, VkImageLayout.ColorAttachmentOptimal);
 
             VkRenderingAttachmentInfo colourAttachments = new()
             {
@@ -227,7 +227,7 @@ namespace VECS
 
                 GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
             }
-            Irradiance_Cubemap.SetImageLayout(commandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.FragmentShader);
+            Irradiance_Cubemap.SetImageLayoutAuto(commandBuffer, VkImageLayout.ShaderReadOnlyOptimal);
 
             Irradiance_Cubemap.RegenerateMipMaps(commandBuffer);
             AuxiliaryCommandBufferManager.Submit();
@@ -237,7 +237,7 @@ namespace VECS
         {
             var commandBuffer = AuxiliaryCommandBufferManager.Record();
             frameInfo = new(frameInfo.CameraCount, frameInfo.MainCamera, frameInfo.DeltaTime, commandBuffer, frameInfo.CullData, frameInfo.LightingInfo);
-            Prefiltered_Cubemap.SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
+            Prefiltered_Cubemap.SetImageLayoutAuto(commandBuffer, VkImageLayout.ColorAttachmentOptimal);
 
             VkRenderingAttachmentInfo colourAttachments = new()
             {
@@ -294,7 +294,7 @@ namespace VECS
 
                 GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
             }
-            Prefiltered_Cubemap.SetImageLayout(commandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.FragmentShader);
+            Prefiltered_Cubemap.SetImageLayoutAuto(commandBuffer, VkImageLayout.ShaderReadOnlyOptimal);
 
             Prefiltered_Cubemap.RegenerateMipMaps(commandBuffer);
             AuxiliaryCommandBufferManager.Submit();

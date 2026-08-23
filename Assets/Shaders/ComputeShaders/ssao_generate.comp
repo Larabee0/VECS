@@ -6,16 +6,12 @@ layout(set = 0, binding = 0) readonly buffer SSAOKernels {
 	vec4 values[];
 } ssaoKernels;
 
-layout(set = 0,binding = 1) readonly buffer CameraInfos {
-	CameraInfo values[];
-} cameraInfo;
+layout(set = 0,binding = 1) readonly buffer CameraDatas {
+	CameraData values[];
+} cameraData;
 
-layout (set = 0, binding = 2) readonly buffer AdditionalCameraInfos {
-	AdditionalCameraInfo values[];
-} cameraPlanes;
-
-layout (set = 0, binding = 3) uniform sampler2D ssaoNoise;
-layout (set = 0, binding = 4) uniform sampler2D mainDepth;
+layout (set = 0, binding = 2) uniform sampler2D ssaoNoise;
+layout (set = 0, binding = 3) uniform sampler2D mainDepth;
 layout (set = 1, binding = 0) uniform sampler2D g_PositionIn;
 layout (set = 1, binding = 1) uniform sampler2D g_NormalsIn;
 layout (set = 1, binding = 2, r8) uniform writeonly image2D ssao_Source;
@@ -34,8 +30,8 @@ float inverseLerp(float a, float b, float value)
 }
 
 float glLinearDepth(float depth){
-    float near = cameraPlanes.values[constants.cameraIndex].nearPlane;
-    float far = cameraPlanes.values[constants.cameraIndex].farPlane;
+    float near = cameraData.values[constants.cameraIndex].nearPlane;
+    float far = cameraData.values[constants.cameraIndex].farPlane;
     float ndc = depth * 2.0 - 1.0;
     float linearDepth = (2.0 * near * far) / (far + near - ndc * (far - near));
     return linearDepth;
@@ -58,7 +54,7 @@ void main(){
 
     vec4 positionWorld = texture(g_PositionIn,UV).rgba;
     // transform world post to view pos
-    vec3 viewPos = (cameraInfo.values[constants.cameraIndex].viewMatrix * vec4(positionWorld.xyz,1.0)).xyz;
+    vec3 viewPos = (cameraData.values[constants.cameraIndex].viewMatrix * vec4(positionWorld.xyz,1.0)).xyz;
     // src normal vector
     vec3 N = normalize(texture(g_NormalsIn,UV).rgb);
 
@@ -76,7 +72,7 @@ void main(){
         samplePos = viewPos + samplePos * constants.radius;
 
         vec4 offset = vec4(samplePos, 1.0);
-        offset = cameraInfo.values[constants.cameraIndex].projectionMatrix * offset;    // from view to clip-space
+        offset = cameraData.values[constants.cameraIndex].projectionMatrix * offset;    // from view to clip-space
         offset.xyz /= offset.w;               // perspective divide
         offset.xyz = offset.xyz * 0.5 + 0.5; // transform to range 0.0 - 1.0
 

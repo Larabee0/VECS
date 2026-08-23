@@ -37,16 +37,16 @@ namespace VECS
 
             _ui.Draw(frameInfo);
 
-            _outputTexture.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.TransferDstOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.Blit);
+            _outputTexture.Target.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.TransferDstOptimal);
 
             _ui.BlitToImage(frameInfo.CommandBuffer, _outputTexture.VkImage, _width, _height, VkImageAspectFlags.Color);
             
-            _outputTexture.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.TransferSrcOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.Blit);
+            _outputTexture.Target.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.TransferSrcOptimal);
 
             // blit renderImage into swapchain
             BlitToSwapChain(frameInfo.CommandBuffer);
 
-            _outputTexture.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.ColorAttachmentOutput);
+            _outputTexture.Target.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal);
         }
 
         public unsafe void BlitToSwapChain(VkCommandBuffer commandBuffer)
@@ -59,7 +59,7 @@ namespace VECS
                     _height,
                     VkImageAspectFlags.Color),
                     _outputTexture.VkImage,
-                    _outputTexture.ImageLayout,
+                    _outputTexture.CurrentLayout,
                     SwapChainData.SwapChainImages[*SwapChainData.CurrentImageIndex],
                     VkImageLayout.TransferDstOptimal
                 );

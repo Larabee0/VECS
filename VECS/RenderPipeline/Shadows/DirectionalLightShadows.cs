@@ -98,15 +98,15 @@ namespace VECS
             }
         }
 
-        public unsafe static DirectionalLightUniform GetDirectionalLight(DirectionalLightUniform src, CameraInverseInfo cameraInverseInfo, AdditionalCameraInfo additionalCameraInfo)
+        public unsafe static DirectionalLightUniform GetDirectionalLight(DirectionalLightUniform src, CameraData cameraData)
         {
             DirectionalLightUniform lightingInfo = src;
 
             lightingInfo.CascadeCount = MAX_CASCADE_COUNT;
             var directionalShadowsBuffer = ((SwapChainBuffer<Matrix4x4>)EngineBuffers.TryGetBuffer(matsPropertyId)).HostBuffer;
 
-            float nearClip = additionalCameraInfo.NearPlane;
-            float farClip = additionalCameraInfo.FarPlane;
+            float nearClip = cameraData.NearPlane;
+            float farClip = cameraData.FarPlane;
             float clipRange = farClip - nearClip;
 
             float* cascadeSplits = stackalloc float[MAX_CASCADE_COUNT];
@@ -114,7 +114,7 @@ namespace VECS
             GetCascadeSplits(nearClip, farClip, cascadeSplits);
             
             float lastSplitDist = 0.0f;
-            var invCam = cameraInverseInfo.InverseProjectionViewMatrix;
+            var invCam = cameraData.InverseProjectionViewMatrix;
 
             var sceneBounds = GetSceneBounds(null);
 
@@ -216,7 +216,7 @@ namespace VECS
         {
             GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Directional Light Shadow Pass");
             Texture2DArray arrayTex = (Texture2DArray)_shadowDepthTextures.First;
-            arrayTex.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.DepthAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.EarlyFragmentTests);
+            arrayTex.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.DepthAttachmentOptimal);
 
             CullData depthBufferCullInfo;
             VkRenderingAttachmentInfo depth = new()
@@ -267,7 +267,7 @@ namespace VECS
                 GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
                 GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
             }
-            arrayTex.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.LateFragmentTests, VkPipelineStageFlags2.FragmentShader);
+            arrayTex.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal);
             GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
         }
     }

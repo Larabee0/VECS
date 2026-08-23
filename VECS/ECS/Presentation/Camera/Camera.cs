@@ -1,4 +1,5 @@
 ﻿using System.Numerics;
+using Vortice.Vulkan;
 
 namespace VECS.ECS.Presentation
 {
@@ -33,6 +34,27 @@ namespace VECS.ECS.Presentation
         [ReadOnlyInspector]
         public float ClipFar;
     }
+
+    public struct CameraOutputOverride : IComponent
+    {
+        public static CameraOutputOverride Identity => new()
+        {
+            ViewportRect = new(0,0,1,1),
+            Depth = 0,
+            TargetTexture = 0,
+            DisplayIndex = 0,
+        };
+
+        public static int ComponentId { get; set; }
+
+        public readonly int Id => ComponentId;
+
+        public Rect ViewportRect;
+        public float Depth;
+        public int TargetTexture;
+        public int DisplayIndex;
+    }
+
 
     /// <summary>
     /// main camera tag

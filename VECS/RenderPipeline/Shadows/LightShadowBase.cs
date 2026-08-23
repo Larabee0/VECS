@@ -65,37 +65,32 @@ namespace VECS
             VkImageSubresourceRange subresourceRange = texture.GetSubresourceRange();
 
             var existing = texture.ImageLayout;
-            if (existing == VkImageLayout.ShaderReadOnlyOptimal)
-            {
-                texture.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.TransferDstOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.Transfer);
-            }
-            else
-            {
-                texture.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.TransferDstOptimal, VkPipelineStageFlags2.LateFragmentTests, VkPipelineStageFlags2.Transfer);
-            }
+            texture.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.DepthAttachmentOptimal);
+
+
 
             GraphicsDevice.DeviceAPI.vkCmdClearDepthStencilImage(frameInfo.CommandBuffer, texture._vkImage, VkImageLayout.TransferDstOptimal, &clearValue, 1, &subresourceRange);
 
             if (existing == VkImageLayout.ShaderReadOnlyOptimal)
             {
-                texture.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.Transfer, VkPipelineStageFlags2.FragmentShader);
+                texture.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal);
             }
             else
             {
-                texture.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.DepthAttachmentOptimal, VkPipelineStageFlags2.Transfer, VkPipelineStageFlags2.EarlyFragmentTests);
+                texture.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.DepthAttachmentOptimal);
             }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected static void SetImageLayoutRead(VkCommandBuffer commandBuffer, Texture texture)
         {
-            texture.SetImageLayout(commandBuffer, VkImageLayout.DepthAttachmentStencilReadOnlyOptimal, VkPipelineStageFlags2.EarlyFragmentTests | VkPipelineStageFlags2.LateFragmentTests, VkPipelineStageFlags2.EarlyFragmentTests);
+            texture.SetImageLayoutAuto(commandBuffer, VkImageLayout.DepthAttachmentStencilReadOnlyOptimal);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected static void SetImageLayoutWrite(VkCommandBuffer commandBuffer, Texture texture)
         {
-            texture.SetImageLayout(commandBuffer, VkImageLayout.DepthStencilAttachmentOptimal, VkPipelineStageFlags2.EarlyFragmentTests, VkPipelineStageFlags2.EarlyFragmentTests);
+            texture.SetImageLayoutAuto(commandBuffer, VkImageLayout.DepthStencilAttachmentOptimal);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
