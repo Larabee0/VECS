@@ -389,7 +389,7 @@ namespace VECS
             radius = Vector3.Distance(boundingBox.Min, boundingBox.Max) * 0.5f;
 
 
-            World.DefaultWorld.GetSystem<DebugDrawUtilities>().DrawSphere(center, radius, Colour.Green);
+            DebugDrawer.DrawSphere(center, radius, Colour.Green);
             center = Vector3.Transform(center, view);
             return ProjectSphere(center, radius, zNear, p00, p11, out aabb);
         }

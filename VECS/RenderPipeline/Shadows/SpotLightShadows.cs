@@ -28,6 +28,33 @@ namespace VECS
             _depthOnly.PushConstants.SetPushConstantInt("bufferSelect", SPOT_SHADOWS_PUSH_CONSTANT_INDEX, 3);
             _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("layerCount", SPOT_SHADOWS_PUSH_CONSTANT_INDEX, 1);
             _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("bufferSelect", SPOT_SHADOWS_PUSH_CONSTANT_INDEX, 3);
+
+            RenderGraph.AddPass("SpotLightShadows", PassType.ColourDepthStencil, [], ["SpotLightShadowAttachments"], SpotLightPass);
+        }
+
+        private void SpotLightPass(RendererFrameInfo frameInfo)
+        {
+            if (ReassignTextures)
+            {
+                AssignShadowTextures(ShaderProperties.SLShadowImageId);
+            }
+            PreShadowPass(frameInfo);
+            var hostBuffer = (SwapChainBuffer<SpotLightUniform>)EngineBuffers.TryGetBuffer(ShaderProperties.SpotLightsBufferId);
+            GPUBufferExtensions.WriteFromHostDelayed(hostBuffer, Presenter.FrameIndex);
+
+            while (ClearShadow.TryDequeue(out var shadowIndex))
+            {
+                GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, string.Format("Clear Shadow {0}", shadowIndex));
+                ClearImage(frameInfo, shadowIndex);
+                GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
+            }
+
+            while (UpdateShadow.TryDequeue(out var shadowIndex))
+            {
+                GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, string.Format("Render Shadow {0}", shadowIndex));
+                SpotLightShadowPass(frameInfo, shadowIndex, hostBuffer.HostBuffer[shadowIndex]);
+                GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
+            }
         }
 
         private static Texture2D CreateShadowMap(int index, int size)
@@ -96,7 +123,6 @@ namespace VECS
 
         public void SpotLightShadowPass(in RendererFrameInfo frameInfo, int textureIndex, SpotLightUniform spotLight)
         {
-            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, string.Format("Spot {0} Light Shadow Pass", textureIndex));
             Texture2D texture = (Texture2D)_shadowDepthTextures.GetTexture(textureIndex);
 
             var mats = EngineBuffers.TryGetBuffer(matsPropertyId);
@@ -123,7 +149,6 @@ namespace VECS
             GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
 
             SetImageLayoutRead(frameInfo.CommandBuffer, texture);
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
         }
     }
 }

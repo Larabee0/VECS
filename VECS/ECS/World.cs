@@ -193,53 +193,9 @@ namespace VECS.ECS
             _presentationSystems.ForEach(s => s.OnPrePresent(_entityManager));
         }
 
-        internal void OnPreShadowPass(RendererFrameInfo rendererFrameInfo)
-        {
-            _presentationSystems.ForEach(s => s.OnPreShadowPass(_entityManager, rendererFrameInfo));
-        }
-        internal void OnShadowPass(RendererFrameInfo rendererFrameInfo)
-        {
-            _presentationSystems.ForEach(s => s.OnShadowPass(_entityManager, rendererFrameInfo));
-        }
-        internal void OnPostShadowPass(RendererFrameInfo rendererFrameInfo)
-        {
-            _presentationSystems.ForEach(s => s.OnPostShadowPass(_entityManager, rendererFrameInfo));
-        }
-
-        internal void OnPreOpaquePass(RendererFrameInfo rendererFrameInfo)
-        {
-            _presentationSystems.ForEach(s => s.OnPreOpaquePass(_entityManager, rendererFrameInfo));
-        }
-        internal void OnOpaquePass(RendererFrameInfo rendererFrameInfo)
-        {
-            _presentationSystems.ForEach(s => s.OnOpaquePass(_entityManager, rendererFrameInfo));
-        }
-        internal void OnPostOpaquePass(RendererFrameInfo rendererFrameInfo)
-        {
-            _presentationSystems.ForEach(s => s.OnPostOpaquePass(_entityManager, rendererFrameInfo));
-        }
-
-        internal void OnPreTransparentPass(RendererFrameInfo rendererFrameInfo)
-        {
-            _presentationSystems.ForEach(s => s.OnPreTransparentPass(_entityManager, rendererFrameInfo));
-        }
-        internal void OnTransparentPass(RendererFrameInfo rendererFrameInfo)
-        {
-            _presentationSystems.ForEach(s => s.OnTransparentPass(_entityManager, rendererFrameInfo));
-        }
-        internal void OnPostTransparentPass(RendererFrameInfo rendererFrameInfo)
-        {
-            _presentationSystems.ForEach(s => s.OnPostTransparentPass(_entityManager, rendererFrameInfo));
-        }
-
         internal void OnPostAA(RendererFrameInfo rendererFrameInfo)
         {
             _presentationSystems.ForEach(s => s.OnPostAA(_entityManager, rendererFrameInfo));
-        }
-
-        internal void PostPresentUpdate()
-        {
-            _presentationSystems.ForEach(s => s.OnPostPresentation(_entityManager));
         }
 
         internal void OnDestroy()

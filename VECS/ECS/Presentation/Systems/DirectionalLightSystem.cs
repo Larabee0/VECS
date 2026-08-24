@@ -1,11 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using VECS.LowLevel;
 
 namespace VECS.ECS.Presentation
 {
-    public class DirectionalLightSystem : PresentationSystemBase
+    public class DirectionalLightSystem : SystemBase
     {
         private EntityQuery _directionalLightCreateQuery;
         private EntityQuery _directionalLightUpdateQuery;
@@ -13,7 +12,7 @@ namespace VECS.ECS.Presentation
 
         private DirectionalLightShadows _directionalLightShadows;
 
-        bool reassignTextures = false;
+        //bool reassignTextures = false;
 
         public override void OnCreate(EntityManager entityManager)
         {
@@ -26,11 +25,6 @@ namespace VECS.ECS.Presentation
                 .WithAll(typeof(DirectionalLight), typeof(UpdateLight))
                 .WithNone(typeof(Prefab), typeof(DoNotRender), typeof(ShadowInfo))
                 .Build();
-
-            //_directionalLightShadowQuery = new EntityQuery(entityManager)
-            //    .WithAll(typeof(DirectionalLight), typeof(ShadowInfo))
-            //    .WithNone(typeof(Prefab), typeof(DoNotRender))
-            //    .Build();
 
             _directionalLightShadowQuery = new EntityQuery(entityManager)
                 .WithAll(typeof(DirectionalLight), typeof(ShadowInfo), typeof(UpdateShadow))
@@ -118,63 +112,39 @@ namespace VECS.ECS.Presentation
 
         public override void OnPrePresent(EntityManager entityManager)
         {
-            if (!_directionalLightShadowQuery.HasEntities) return;
-            reassignTextures = false;
+
+            if (!_directionalLightShadowQuery.HasEntities && !_directionalLightUpdateQuery.HasEntities) return;
+
+            _directionalLightShadows.ReassignTextures = false;
             var entities = _directionalLightShadowQuery.GetEntities();
             int i = 0;
             for (; i < Math.Min(1, entities.Count); i++)
             {
-                entityManager.GetComponent(entities[i], out ShadowInfo shadowInfo);
+                bool hasShadowInfo = entityManager.GetComponent(entities[i], out ShadowInfo shadowInfo);
 
                 Debug.Assert(shadowInfo.Resolution > 2);
                 bool textureChanged = _directionalLightShadows.SetShadowTexture(i, shadowInfo.Resolution);
-                if (textureChanged)
+                if (textureChanged && shadowInfo.UpdateBehaviour == ShadowUpdate.OnDemand && !entityManager.HasComponent<UpdateShadow>(entities[i]))
+                {
+                    _directionalLightShadows.UpdateShadow.Enqueue(i);
+                }
+                else if(textureChanged && shadowInfo.UpdateBehaviour != ShadowUpdate.OnDemand && !entityManager.HasComponent<UpdateShadow>(entities[i]))
                 {
                     entityManager.AddComponent<UpdateShadow>(entities[i]);
                 }
-                reassignTextures |= textureChanged;
-            }
-
-            for (; i < 1; i++)
-            {
-                reassignTextures |= _directionalLightShadows.SetShadowTexture(i, 8);
-            }
-        }
-
-        public override void OnShadowPass(EntityManager entityManager, RendererFrameInfo frameInfo)
-        {
-            if (!_directionalLightUpdateQuery.HasEntities && !_directionalLightShadowQuery.HasEntities) return;
-
-            var hostBuffer = (SwapChainBuffer<DirectionalLightUniform>)EngineBuffers.TryGetBuffer(ShaderProperties.DirectionalLightsBufferId);
-            GPUBufferExtensions.WriteFromHostDelayed(hostBuffer, Presenter.FrameIndex);
-
-            var entities = _directionalLightShadowQuery.GetEntities();
-
-            if (reassignTextures)
-            {
-                _directionalLightShadows.AssignShadowTextures(ShaderProperties.DirShadowImageId);
-            }
-
-            _directionalLightShadows.PreShadowPass(frameInfo);
-            int i = 0;
-
-            for (; i < Math.Min(1, entities.Count); i++)
-            {
-                if (!entityManager.HasComponent<UpdateShadow>(entities[i])
-                    || !entityManager.GetComponent(entities[i], out ShadowInfo shadowInfo)) continue;
-
+                _directionalLightShadows.ReassignTextures |= textureChanged;
+                if (!entityManager.HasComponent<UpdateShadow>(entities[i]) || !hasShadowInfo) continue;
                 if (shadowInfo.UpdateBehaviour == ShadowUpdate.OnDemand)
                 {
                     entityManager.RemoveComponent<UpdateShadow>(entities[i]);
                 }
-
-                _directionalLightShadows.DirectionalShadowPass(frameInfo, hostBuffer.HostBuffer[i]);
-
+                _directionalLightShadows.UpdateShadow.Enqueue(i);
             }
 
             for (; i < 1; i++)
             {
-                _directionalLightShadows.ClearImage(frameInfo, i);
+                _directionalLightShadows.ReassignTextures |= _directionalLightShadows.SetShadowTexture(i, 8);
+                _directionalLightShadows.ClearShadow.Enqueue(i);
             }
         }
     }

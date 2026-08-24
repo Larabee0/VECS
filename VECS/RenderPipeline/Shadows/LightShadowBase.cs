@@ -1,4 +1,5 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
@@ -23,6 +24,11 @@ namespace VECS
 
         protected readonly Material _depthOnly;
         protected readonly Material _depthOnlyAlphaClipping;
+
+        public Queue<int> UpdateShadow = new();
+        public Queue<int> ClearShadow = new();
+
+        public bool ReassignTextures;
 
         public LightShadowBase(int numLights)
         {
@@ -66,8 +72,6 @@ namespace VECS
 
             var existing = texture.ImageLayout;
             texture.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.DepthAttachmentOptimal);
-
-
 
             GraphicsDevice.DeviceAPI.vkCmdClearDepthStencilImage(frameInfo.CommandBuffer, texture._vkImage, VkImageLayout.TransferDstOptimal, &clearValue, 1, &subresourceRange);
 

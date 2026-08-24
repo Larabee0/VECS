@@ -42,7 +42,7 @@ namespace VECS
 
             _transparentQueue = new("Transparent");
 
-            RenderGraph.AddPass("TransparentPass", PassType.ColourDepthStencil, ["OpaqueOutput"], ["TransparentHeadIndexImage"], TransparentPass);
+            RenderGraph.AddPass("TransparentPass", PassType.ColourDepthStencil, ["OpaqueOutput", "DirectionalShadowAttachment", "PointLightShadowAttachments", "SpotLightShadowAttachments"], ["TransparentHeadIndexImage"], TransparentPass);
             RenderGraph.AddPass("TransaprentComposite", PassType.ColourDepthStencil, ["TransparentHeadIndexImage"], ["BrightObjectAttachment", "MainColourAttachment", "TransparentOutput"], TransparentComposite);
         }
 

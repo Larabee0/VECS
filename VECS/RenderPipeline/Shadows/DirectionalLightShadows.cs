@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using VECS.ECS;
@@ -10,7 +11,7 @@ namespace VECS
 {
     public class DirectionalLightShadows : LightShadowBase
     {
-        const int DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX = 1;
+        public const int DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX = 1;
         public static VkFormat DIRECTIONAL_SHADOW_FORMAT => PreferredFormats.LOW_PRECISION_DEPTH_ONLY;
         public const int MAX_CASCADE_COUNT = 4;
         public const float CASCADE_SPLIT_LAMBDA = 0.95f;
@@ -44,6 +45,33 @@ namespace VECS
             _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("layerCount", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, 1);
             _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("layerOffset", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, 0);
 
+            RenderGraph.AddPass("DirectionalLightShadows", PassType.ColourDepthStencil, [], ["DirectionalShadowAttachments"], ShadowPass);
+        }
+
+        private void ShadowPass(RendererFrameInfo frameInfo)
+        {
+            if (ReassignTextures)
+            {
+                AssignShadowTextures(ShaderProperties.DirShadowImageId);
+            }
+
+            PreShadowPass(frameInfo);
+            var hostBuffer = (SwapChainBuffer<DirectionalLightUniform>)EngineBuffers.TryGetBuffer(ShaderProperties.DirectionalLightsBufferId);
+            GPUBufferExtensions.WriteFromHostDelayed(hostBuffer, Presenter.FrameIndex);
+
+            while(ClearShadow.TryDequeue(out var shadowIndex))
+            {
+                GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, string.Format("Clear Shadow {0}", shadowIndex));
+                ClearImage(frameInfo, shadowIndex);
+                GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
+            }
+
+            while (UpdateShadow.TryDequeue(out var shadowIndex))
+            {
+                GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, string.Format("Render Shadow {0}",shadowIndex));
+                DirectionalShadowPass(frameInfo, hostBuffer.HostBuffer[shadowIndex]);
+                GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -214,7 +242,6 @@ namespace VECS
 
         public unsafe void DirectionalShadowPass(in RendererFrameInfo frameInfo, DirectionalLightUniform dirUniform)
         {
-            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Directional Light Shadow Pass");
             Texture2DArray arrayTex = (Texture2DArray)_shadowDepthTextures.First;
             arrayTex.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.DepthAttachmentOptimal);
 
@@ -268,7 +295,6 @@ namespace VECS
                 GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
             }
             arrayTex.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal);
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
         }
     }
 }

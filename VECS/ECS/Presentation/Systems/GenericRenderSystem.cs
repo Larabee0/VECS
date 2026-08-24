@@ -2,7 +2,7 @@
 
 namespace VECS.ECS.Presentation
 {
-    public class GenericRenderSystem : PresentationSystemBase
+    public class GenericRenderSystem : SystemBase
     {
         private EntityQuery _renderEntityQuery;
 

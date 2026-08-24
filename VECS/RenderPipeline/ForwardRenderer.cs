@@ -77,46 +77,6 @@ namespace VECS
                 PBR.Generate_Irradiance(frameInfo);
                 PBR.Generate_Prefiltered_Cubemap(frameInfo);
             }
-            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Shadows");
-            ShadowPass(frameInfo);
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
-            // Opaque pass
-            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Pre-Opaque Pass");
-            World.DefaultWorld.OnPreOpaquePass(frameInfo);
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
-
-            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Opaque Pass");
-            OpaquePass(frameInfo);
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
-
-            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Post-Opaque Pass");
-            World.DefaultWorld.OnPostOpaquePass(frameInfo);
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
-
-            // Transparent pass
-            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Pre-Transparent Pass");
-            World.DefaultWorld.OnPreTransparentPass(frameInfo);
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
-            
-            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Transparent Pass");
-            _orderIndpTransparency.BeginOITTransparentPass(frameInfo,DepthAttachment);
-            World.DefaultWorld.OnTransparentPass(frameInfo);
-            _orderIndpTransparency.EndOITTransparentPass(frameInfo, frameInfo.CommandBuffer);
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
-
-            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Post-Transparent Pass");
-            World.DefaultWorld.OnPostTransparentPass(frameInfo);
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
-
-            //Bloom
-            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Bloom Pass");
-            _bloom.RenderBloomObjects(frameInfo);
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
-
-            // final AA pass
-            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "SMAA Pass");
-            _smaa.ApplyAA(frameInfo);
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
 
             // anti anslising
             GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Post-SMAA Pass");
@@ -127,75 +87,6 @@ namespace VECS
             var extents = SwapChain.SwapChainExtent;
             GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "SwapChain Blit");
             BlitFromMainColour(frameInfo.CommandBuffer, SwapChain.MainSwapChainData.SwapChainImages[imageIndex], (int)extents.width, (int)extents.height, VkImageAspectFlags.Color);
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
-        }
-
-        private void OpaquePass(RendererFrameInfo frameInfo)
-        {
-            var commandBuffer = frameInfo.CommandBuffer;
-
-            if (_depthOnlyQueue.CommandCount > 0)
-            {
-                GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Main Depth Only");
-                EnginePipes.DepthOnly.PushConstants.SetPushConstantInt("matrixStartIndex", DEPTH_ONLY_PUSH_CONSTANT_INDEX, frameInfo.MainCamera);
-
-                var depthBufferCullInfo = frameInfo.CullData;
-                depthBufferCullInfo.cullMode &= ~CullModeFlags.Depth;
-                depthBufferCullInfo.ExcludeMask |= RenderLayer.Transparent;
-
-                DrawBlob.Cull(_depthOnlyQueue, frameInfo,depthBufferCullInfo);
-
-                BeginDepthOnlyRendering(commandBuffer, VkAttachmentLoadOp.Clear);
-
-                DrawBlob.Execute(_depthOnlyQueue,frameInfo,DEPTH_ONLY_PUSH_CONSTANT_INDEX,VkCullModeFlags.Back);
-
-                EndDepthOnlyRendering(commandBuffer);
-                GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
-
-                GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Main Depth Reduction");
-                DepthReduction.ReduceDepth(frameInfo);
-            }
-            else
-            {
-                GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Clear Main Depth Only");
-                ClearForwardDepthAttachment(commandBuffer);
-                GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
-
-                GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Clear Main Depth Reduction");
-                DepthReduction.ClearPyramid(frameInfo);
-            }
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
-
-            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Main Colour Pass");
-
-            DrawBlob.Cull(_forwardQueue, frameInfo, frameInfo.CullData);
-
-            StartForwardRendering(frameInfo, VkAttachmentLoadOp.Clear);
-
-            DrawBlob.Execute(_forwardQueue, frameInfo, 0, VkCullModeFlags.Back);
-
-            // skybox last item rendered to save fragments from any depth writes
-            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Skybox");
-            Skybox.RenderSkybox(frameInfo);
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
-
-            EndForwardRendering(frameInfo);
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
-        }
-
-        private static void ShadowPass(RendererFrameInfo frameInfo)
-        {
-            // shadows pass
-            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Pre-Shadow Pass");
-            World.DefaultWorld.OnPreShadowPass(frameInfo);
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
-
-            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Shadow Pass");
-            World.DefaultWorld.OnShadowPass(frameInfo);
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
-
-            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Post-Shadow");
-            World.DefaultWorld.OnPostShadowPass(frameInfo);
             GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
         }
 

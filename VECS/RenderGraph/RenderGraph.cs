@@ -14,6 +14,9 @@ namespace VECS
         private static List<RenderPass> Passes = [];
         private static List<int> ExecutionOrder = [];
 
+        private static bool Recompile = true;
+             
+
 #if DEBUG
         private static string[] ExecutionOrderEnglish;
 #endif
@@ -60,6 +63,7 @@ namespace VECS
                 ExecuteFunc = executeFunc
             };
             Passes.Add(pass);
+            Recompile = true;
         }
 
         public static void RecreateAttachments(int display, VkExtent2D extent)
@@ -91,6 +95,7 @@ namespace VECS
 
         public static void Execute(RendererFrameInfo frameInfo)
         {
+            if (Recompile) Compile();
             VkCommandBuffer commandBuffer = frameInfo.CommandBuffer;
             foreach(var passIndex in ExecutionOrder)
             {
@@ -149,6 +154,7 @@ namespace VECS
 
         public static void Compile()
         {
+            ExecutionOrder.Clear();
             List<int>[] dependencies = new List<int>[Passes.Count];
             List<int>[] dependents = new List<int>[Passes.Count];
 
@@ -183,6 +189,7 @@ namespace VECS
                 Console.WriteLine(ExecutionOrderEnglish[i]);
             }
 #endif
+            Recompile = false;
         }
 
         private static void SortExecution(List<int>[] dependents, bool[] visited, bool[] inStack)

@@ -17,21 +17,7 @@ namespace VECS.ECS.Presentation
 
         }
 
-        public virtual void OnPreShadowPass(EntityManager entityManager, RendererFrameInfo frameInfo) { }
-        public virtual void OnShadowPass(EntityManager entityManager, RendererFrameInfo frameInfo) { }
-        public virtual void OnPostShadowPass(EntityManager entityManager, RendererFrameInfo frameInfo) { }
-
-        public virtual void OnPreOpaquePass(EntityManager entityManager, RendererFrameInfo frameInfo) { }
-        public virtual void OnOpaquePass(EntityManager entityManager, RendererFrameInfo frameInfo) { }
-        public virtual void OnPostOpaquePass(EntityManager entityManager, RendererFrameInfo frameInfo) { }
-
-        public virtual void OnPreTransparentPass(EntityManager entityManager, RendererFrameInfo frameInfo) { }
-        public virtual void OnTransparentPass(EntityManager entityManager, RendererFrameInfo frameInfo) { }
-        public virtual void OnPostTransparentPass(EntityManager entityManager, RendererFrameInfo frameInfo) { }
-
         public virtual void OnPostAA(EntityManager entityManager, RendererFrameInfo frameInfo) { }
-
-        public virtual void OnPostPresentation(EntityManager entityManager) { }
 
     }
 }

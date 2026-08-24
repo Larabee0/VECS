@@ -27,7 +27,36 @@ namespace VECS
             _depthOnly.PushConstants.SetPushConstantInt("bufferSelect", POINT_SHADOWS_PUSH_CONSTANT_INDEX, 2);
             _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("layerCount", POINT_SHADOWS_PUSH_CONSTANT_INDEX, 1);
             _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("bufferSelect", POINT_SHADOWS_PUSH_CONSTANT_INDEX, 2);
+
+            RenderGraph.AddPass("PointLightShadows", PassType.ColourDepthStencil, [], ["PointLightShadowAttachments"], PointLightPass);
             
+        }
+
+        private void PointLightPass(RendererFrameInfo frameInfo)
+        {
+            if (ReassignTextures)
+            {
+                AssignShadowTextures(ShaderProperties.PLShadowImageId);
+            }
+
+            PreShadowPass(frameInfo);
+
+            var hostBuffer = (SwapChainBuffer<PointLightUniform>)EngineBuffers.TryGetBuffer(ShaderProperties.PointLightsBufferId);
+            GPUBufferExtensions.WriteFromHostDelayed(hostBuffer, Presenter.FrameIndex);
+
+            while (ClearShadow.TryDequeue(out var shadowIndex))
+            {
+                GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, string.Format("Clear Shadow {0}", shadowIndex));
+                ClearImage(frameInfo, shadowIndex);
+                GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
+            }
+
+            while (UpdateShadow.TryDequeue(out var shadowIndex))
+            {
+                GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, string.Format("Render Shadow {0}", shadowIndex));
+                PointLightShadowPass(frameInfo, shadowIndex, hostBuffer.HostBuffer[shadowIndex]);
+                GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
+            }
         }
 
         private static Texture2DArray CreateShadowMap(int index, int size)
@@ -98,7 +127,6 @@ namespace VECS
 
         public void PointLightShadowPass(in RendererFrameInfo frameInfo, int index, PointLightUniform pointLight)
         {
-            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, string.Format("Point {0} Light Shadow Pass", index));
             Texture2DArray arrayTex = (Texture2DArray)_shadowDepthTextures.GetTexture(index);
 
             FillViewMatrix(EngineBuffers.TryGetBuffer(matsPropertyId), index, pointLight);
@@ -129,8 +157,6 @@ namespace VECS
             }
 
             SetImageLayoutRead(frameInfo.CommandBuffer, arrayTex);
-
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
         }
     }
 }

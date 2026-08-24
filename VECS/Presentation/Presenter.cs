@@ -313,6 +313,7 @@ namespace VECS
             {
                 World.DefaultWorld.OnPrePresent();
                 _renderer.PreRender();
+                DebugDrawer.PrePresent();
 
                 UpdateEntityFrameInfo(World.DefaultWorld.EntityManager);
                 // kill off buffers
@@ -336,7 +337,6 @@ namespace VECS
 
                 _isFrameStarted = false;
                 _renderer.PostRender();
-                World.DefaultWorld.PostPresentUpdate();
                 //Console.WriteLine("Frame {0}", FrameCount);
                 _frameCount++;
                 _framesSinceSwapChainRecreation++;

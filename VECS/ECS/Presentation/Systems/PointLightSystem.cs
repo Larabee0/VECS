@@ -5,15 +5,13 @@ using VECS.ECS.Transforms;
 
 namespace VECS.ECS.Presentation
 {
-    public class PointLightSystem : PresentationSystemBase
+    public class PointLightSystem : SystemBase
     {
         private EntityQuery _pointLightCreateQuery;
         private EntityQuery _pointLightUpdateQuery;
         private EntityQuery _pointLightShadowQuery;
 
         private PointLightShadows _pointLightShadows;
-
-        bool reassignTextures = false;
 
         public override void OnCreate(EntityManager entityManager)
         {
@@ -113,64 +111,38 @@ namespace VECS.ECS.Presentation
 
         public override void OnPrePresent(EntityManager entityManager)
         {
-            if (!_pointLightShadowQuery.HasEntities) return;
-            reassignTextures = false;
+            if (!_pointLightShadowQuery.HasEntities && !_pointLightUpdateQuery.HasEntities) return;
+
+            _pointLightShadows.ReassignTextures = false;
             var entities = _pointLightShadowQuery.GetEntities();
             int i = 0;
             for (; i < Math.Min(PointLightShadows.MAX_POINT_LIGHT_SHADOW_CASTERS,entities.Count); i++)
             {
-                entityManager.GetComponent(entities[i], out ShadowInfo shadowInfo);
+                bool hasShadowInfo = entityManager.GetComponent(entities[i], out ShadowInfo shadowInfo);
                 
                 Debug.Assert(shadowInfo.Resolution > 2);
                 bool textureChanged = _pointLightShadows.SetShadowTexture(i, shadowInfo.Resolution);
-                if (textureChanged)
+                if (textureChanged && shadowInfo.UpdateBehaviour == ShadowUpdate.OnDemand && !entityManager.HasComponent<UpdateShadow>(entities[i]))
+                {
+                    _pointLightShadows.UpdateShadow.Enqueue(i);
+                }
+                else if (textureChanged && shadowInfo.UpdateBehaviour != ShadowUpdate.OnDemand && !entityManager.HasComponent<UpdateShadow>(entities[i]))
                 {
                     entityManager.AddComponent<UpdateShadow>(entities[i]);
                 }
-                reassignTextures |= textureChanged;
-            }
-
-            for (; i < PointLightShadows.MAX_POINT_LIGHT_SHADOW_CASTERS; i++)
-            {
-                reassignTextures |= _pointLightShadows.SetShadowTexture(i, 8);
-            }
-        }
-
-        public override void OnShadowPass(EntityManager entityManager, RendererFrameInfo frameInfo)
-        {
-            if (!_pointLightUpdateQuery.HasEntities && !_pointLightShadowQuery.HasEntities) return;
-
-            var hostBuffer = (SwapChainBuffer<PointLightUniform>)EngineBuffers.TryGetBuffer(ShaderProperties.PointLightsBufferId);
-            GPUBufferExtensions.WriteFromHostDelayed(hostBuffer, Presenter.FrameIndex);
-            
-            var entities = _pointLightShadowQuery.GetEntities();
-
-            if (reassignTextures)
-            {
-                _pointLightShadows.AssignShadowTextures(ShaderProperties.PLShadowImageId);
-            }
-
-            _pointLightShadows.PreShadowPass(frameInfo);
-
-            int i = 0;
-
-            for (; i < Math.Min(PointLightShadows.MAX_POINT_LIGHT_SHADOW_CASTERS, entities.Count); i++)
-            {
-                if (!entityManager.HasComponent<UpdateShadow>(entities[i])
-                    || !entityManager.GetComponent(entities[i], out ShadowInfo shadowInfo)) continue;
-
-                if(shadowInfo.UpdateBehaviour == ShadowUpdate.OnDemand)
+                _pointLightShadows.ReassignTextures |= textureChanged;
+                if (!entityManager.HasComponent<UpdateShadow>(entities[i]) || !hasShadowInfo) continue;
+                if (shadowInfo.UpdateBehaviour == ShadowUpdate.OnDemand)
                 {
                     entityManager.RemoveComponent<UpdateShadow>(entities[i]);
                 }
-
-                _pointLightShadows.PointLightShadowPass(frameInfo, i, hostBuffer.HostBuffer[i]);
-
+                _pointLightShadows.UpdateShadow.Enqueue(i);
             }
 
             for (; i < PointLightShadows.MAX_POINT_LIGHT_SHADOW_CASTERS; i++)
             {
-                _pointLightShadows.ClearImage(frameInfo,i);
+                _pointLightShadows.ReassignTextures |= _pointLightShadows.SetShadowTexture(i, 8);
+                _pointLightShadows.ClearShadow.Enqueue(i);
             }
         }
     }
