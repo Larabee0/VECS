@@ -15,7 +15,9 @@ namespace VECS
         private static List<int> ExecutionOrder = [];
 
         private static bool Recompile = true;
-             
+
+
+        private static HashSet<string> RemovePasses = [];
 
 #if DEBUG
         private static string[] ExecutionOrderEnglish;
@@ -150,10 +152,6 @@ namespace VECS
                     {
                         Resources[item.Key] = IRenderer.CreateOrUpdateRT(null, item.Value, extent);
                     }
-                    // else if(item.Value.TargetDisplay == -1)
-                    // {
-                    //     Resources[item.Key] = IRenderer.CreateOrUpdateRT(null,item.Value, item.Value.Extent);
-                    // }
                 }
             }
 
@@ -260,6 +258,17 @@ namespace VECS
 
         public static void Compile()
         {
+            if (RemovePasses.Count > 0)
+            {
+                for (int i = Passes.Count - 1; i >= 0; i--)
+                {
+                    if (RemovePasses.Contains(Passes[i].Name))
+                    {
+                        Passes.RemoveAt(i);
+                    }
+                }
+                RemovePasses.Clear();
+            }
             Passes.Sort((x,y)=>x.PassCategory.CompareTo(y.PassCategory));
 
 
@@ -303,19 +312,7 @@ namespace VECS
             {
                 var pass = passes[i];
 
-                //pass.DependantPasses.ForEach(input =>
-                //{
-                //    if (resourceWriters.TryGetValue(input, out var it))
-                //    {
-                //        dependencies[i].Add(it);
-                //        dependents[it].Add(i);
-                //    }
-                //});
                 resourceWriters[pass.Name] = i;
-                //pass.Outputs.ForEach(output =>
-                //{
-                //    resourceWriters[output] = i;
-                //});
             }
 
             for (int i = 0; i < passes.Count; i++)
@@ -330,17 +327,18 @@ namespace VECS
                         dependents[it].Add(i);
                     }
                 });
-                //resourceWriters[pass.Name] = i;
-                // pass.Outputs.ForEach(output =>
-                // {
-                //     resourceWriters[output] = i;
-                // });
             }
             for (int i = 0; i < Passes.Count; i++)
             {
                 dependencies[i].Reverse();
                 dependents[i].Reverse();
             }
+        }
+
+        internal static void RemovePass(string passName)
+        {
+            RemovePasses.Add(passName);
+            Recompile = true;
         }
     }
 }

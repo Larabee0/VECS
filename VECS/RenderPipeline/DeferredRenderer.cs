@@ -224,7 +224,7 @@ namespace VECS
 
         public void PreRender()
         {
-
+            _ssao.SSAO_Toggle_Input();
         }
 
         public unsafe void Render(RendererFrameInfo frameInfo, int imageIndex)

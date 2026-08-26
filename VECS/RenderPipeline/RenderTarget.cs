@@ -391,6 +391,23 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe void BeginRenderingOnlyAttachment(VkCommandBuffer commandBuffer, VkClearValue clearValue, VkAttachmentLoadOp loadOp = VkAttachmentLoadOp.Clear, VkAttachmentStoreOp storeOp = VkAttachmentStoreOp.Store)
         {
+            
+            switch (_renderTargetType)
+            {
+                case RenderTargetType.Colour when(CurrentLayout != VkImageLayout.ColorAttachmentOptimal):
+                    Target.SetImageLayoutAuto(commandBuffer, VkImageLayout.ColorAttachmentOptimal);
+                    break;
+                case RenderTargetType.Depth when(CurrentLayout != VkImageLayout.DepthAttachmentOptimal):
+                    Target.SetImageLayoutAuto(commandBuffer, VkImageLayout.DepthAttachmentOptimal);
+                    break;
+                case RenderTargetType.Stencil when(CurrentLayout != VkImageLayout.StencilAttachmentOptimal):
+                    Target.SetImageLayoutAuto(commandBuffer, VkImageLayout.StencilAttachmentOptimal);
+                    break;
+                case RenderTargetType.DepthStencil when(CurrentLayout != VkImageLayout.DepthStencilAttachmentOptimal):
+                    Target.SetImageLayoutAuto(commandBuffer, VkImageLayout.DepthStencilAttachmentOptimal);
+                    break;
+            }
+
             var attachmentInfo = GetAttachmentInfo(clearValue, loadOp, storeOp);
             VkRenderingInfo renderingInfo = new()
             {
@@ -403,6 +420,7 @@ namespace VECS
                 case RenderTargetType.Colour:
                     renderingInfo.colorAttachmentCount = 1;
                     renderingInfo.pColorAttachments = &attachmentInfo;
+                    
                     break;
                 case RenderTargetType.Depth:
                     renderingInfo.pDepthAttachment = &attachmentInfo;
@@ -421,7 +439,12 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void ClearAttachment(VkCommandBuffer commandBuffer)
         {
+            var layoutAfterRender = CurrentLayout;
             ClearAttachment(commandBuffer, DefaultClearValue);
+            if(CurrentLayout != layoutAfterRender)
+            {
+                Target.SetImageLayoutAuto(commandBuffer, layoutAfterRender);
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

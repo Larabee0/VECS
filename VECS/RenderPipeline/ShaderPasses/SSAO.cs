@@ -29,6 +29,9 @@ namespace VECS
 
 
         private RenderTarget _ssaoBlurRt;
+        public static bool SSAO_Enabled = true;
+
+        private bool _SSAO_Cleared = false;
 
         public SSAO(IRenderer activeRenderer)
         {
@@ -52,12 +55,16 @@ namespace VECS
                 VkImageLayout.ColorAttachmentOptimal,
                 VkImageLayout.General,
                 VkImageLayout.ShaderReadOnlyOptimal,
-                new(0, 0, 0, 0)));
+                new(1, 1, 1, 1)));
+            AddSSAOPasses();
+        }
 
+        private void AddSSAOPasses()
+        {
             RenderGraph.AddPass("SSAO_Generate", PassType.Compute, ["DeferredObjectsPass", "DeferredDepthOnlyPass"], ["G_PositionAttachment", "G_NormalAttachment", "MainDepthAttachment"], ["SSAO_RT"], GenerateSSAO);
             RenderGraph.AddPass("SSAO_Blur", PassType.Compute, ["SSAO_Generate"], ["SSAO_RT"], ["SSAO_BLUR_RT"], BlurSSAO);
         }
-        
+
         public void RecreateRenderTargets()
         {
             var windowExtents = Application.MainWindow.WindowExtent;
@@ -72,6 +79,7 @@ namespace VECS
 
             _computeSSAOGenerate.PushConstantsHandler.SetPushConstantVector2("outputImageSize", 0, new(windowExtents.width / 2, windowExtents.height / 2));
             _computeSSAOBlur.PushConstantsHandler.SetPushConstantVector2("outputImageSize", 0, new(windowExtents.width, windowExtents.height));
+            _SSAO_Cleared = false;
         }
 
         private static void GenerateResources()
@@ -121,6 +129,28 @@ namespace VECS
         private void BlurSSAO(RendererFrameInfo frameInfo)
         {
             _computeSSAOBlur.Dispatch(frameInfo.CommandBuffer, Presenter.FrameIndex, GetGroupCount((uint)_ssaoBlurRt.Target.Width, 32), GetGroupCount((uint)_ssaoBlurRt.Target.Height, 32));
+            _SSAO_Cleared = false;
+
+            if (!SSAO_Enabled && !_SSAO_Cleared)
+            {
+                _SSAO_Cleared = true;
+                _ssaoBlurRt.ClearAttachment(frameInfo.CommandBuffer);
+                RenderGraph.RemovePass("SSAO_Generate");
+                RenderGraph.RemovePass("SSAO_Blur");
+            }
+        }
+
+        public void SSAO_Toggle_Input()
+        {
+            if (InputManager.Instance.GetKeyUp(SDL3.SDL_Keycode.O))
+            {
+                SSAO_Enabled = !SSAO_Enabled;
+                Console.WriteLine("SSAO Enabled: {0}", SSAO_Enabled);
+                if (SSAO_Enabled)
+                {
+                    AddSSAOPasses();
+                }
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
