@@ -86,8 +86,8 @@ namespace VECS
             _blurHorizontal.PushConstants.SetPushConstantFloat("blurScale", 1, 1);
             _blurHorizontal.PushConstants.SetPushConstantFloat("blurStrength", 1, 1.5f);
 
-            RenderGraph.AddPass("Bloom_Blur_Vertical", PassType.ColourDepthStencil, ["BrightObjectAttachment", "TransparentOutput"], ["Bloom_Blur_Attachment"], BlurVertical);
-            RenderGraph.AddPass("Bloom_Blur_Horizontal", PassType.ColourDepthStencil, ["Bloom_Blur_Attachment"], ["BrightObjectAttachment", "MainColourAttachment"], BlurHorizontal);
+            RenderGraph.AddPass("Bloom_Blur_Vertical", PassType.Render, PassCategory.PostProcessing, ["ForwardPass", "DeferredCompositePass", "TransaprentComposite", "SMAA_Output"], ["BrightObjectAttachment"], ["Bloom_Blur_Attachment"], BlurVertical);
+            RenderGraph.AddPass("Bloom_Blur_Horizontal", PassType.Render, PassCategory.PostProcessing, ["Bloom_Blur_Vertical"], ["Bloom_Blur_Attachment"], ["BrightObjectAttachment", "MainColourAttachment"], BlurHorizontal);
         }
 
         public void RecreateRenderTargets()

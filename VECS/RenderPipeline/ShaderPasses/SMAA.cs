@@ -14,12 +14,12 @@ namespace VECS
         private readonly Material EdgeDetection;
         private readonly Material BlendWeightCalc;
         private readonly Material NeighbourhoodBlending;
-        private readonly Material BlitMain;
+#if DEBUG
         private readonly Material BlitEdgeTarget;
         private readonly Material BlitBlendTarget;
+#endif
         private readonly IRenderer ActiveRenderer;
 
-        private RenderTarget EdgeInputTarget;
         private RenderTarget EdgeTarget;
         private RenderTarget BlendTarget;
 
@@ -70,23 +70,15 @@ namespace VECS
             BlendWeightCalc.SetTexture("uSearchTexture".GetShaderPropertyId(), SearchTexture);
 
 
+#if DEBUG
             var alphaBlending = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             alphaBlending.colourFormats = [VkFormat.R8G8B8A8Unorm];
             alphaBlending.depthStencilInfo.depthTestEnable = false;
 
             GraphicsPipeline smaaBlit = GraphicsPipeline.VertexFragmentPipeline("SMAA_Blitter", "fullscreen.vert", "blit.frag", alphaBlending);
-            BlitMain = smaaBlit.Default();
-            BlitEdgeTarget = smaaBlit.Create("SMAA_BlitEdgeTarget");
+            BlitEdgeTarget = smaaBlit.Default();
             BlitBlendTarget = smaaBlit.Create("SMAA_BlitBlendTarget");
-
-            RenderGraph.AddResource(new("SMAA_Edge_Input_Attachment",
-                VkFormat.R8G8B8A8Unorm, 0,
-                VkImageUsageFlags.None,
-                VkImageLayout.ShaderReadOnlyOptimal,
-                VkImageLayout.ColorAttachmentOptimal,
-                VkImageLayout.General,
-                VkImageLayout.General,
-                new(0, 0, 0, 1)));
+#endif
 
             RenderGraph.AddResource(new("SMAA_Edge_Attachment",
                 VkFormat.R8G8B8A8Unorm, 0,
@@ -106,26 +98,22 @@ namespace VECS
                 VkImageLayout.General,
                 new(0, 0, 0, 0)));
 
-            RenderGraph.AddResource(new("SMAA_Edge_Input_Attachment", VkFormat.R8G8B8A8Unorm, 0, VkImageUsageFlags.None, VkImageLayout.ShaderReadOnlyOptimal, VkImageLayout.ColorAttachmentOptimal, VkImageLayout.General, VkImageLayout.General, new(0, 0, 0, 1)));
-
-            RenderGraph.AddPass("SMAA_Edge_Input", PassType.ColourDepthStencil, ["MainColourAttachment"], ["SMAA_Edge_Input_Attachment"], CopyMainOutputToEdgeInput);
-            RenderGraph.AddPass("SMAA_Edge_Detection", PassType.ColourDepthStencil, ["SMAA_Edge_Input_Attachment"], ["SMAA_Edge_Attachment"], EdgeDetectionPass);
-            RenderGraph.AddPass("SMAA_Blend_Weight", PassType.ColourDepthStencil, ["SMAA_Edge_Attachment"], ["SMAA_Blend_Attachment"], BlendWeightCalculation);
-            RenderGraph.AddPass("SMAA_Output", PassType.ColourDepthStencil, ["SMAA_Blend_Attachment"], ["MainColourOutput", "MainColourAttachment", "BrightObjectAttachment"], OutputBlending);
+            RenderGraph.AddPass("SMAA_Edge_Detection", PassType.Render, PassCategory.AntiAliasing, ["ForwardPass", "DeferredCompositePass", "TransaprentComposite"], ["MainColourAttachment"], ["SMAA_Edge_Attachment"], EdgeDetectionPass);
+            RenderGraph.AddPass("SMAA_Blend_Weight", PassType.Render, PassCategory.AntiAliasing, ["SMAA_Edge_Detection"], ["SMAA_Edge_Attachment"], ["SMAA_Blend_Attachment"], BlendWeightCalculation);
+            RenderGraph.AddPass("SMAA_Output", PassType.Render, PassCategory.AntiAliasing, ["SMAA_Blend_Weight"], ["SMAA_Blend_Attachment"], ["MainColourAttachment", "BrightObjectAttachment"], OutputBlending);
         }
 
         public void RecreateRenderTargets()
         {
             var windowExtents = Application.MainWindow.WindowExtent;
 
-            EdgeInputTarget = RenderGraph.GetResource("SMAA_Edge_Input_Attachment");
             EdgeTarget = RenderGraph.GetResource("SMAA_Edge_Attachment");
             BlendTarget = RenderGraph.GetResource("SMAA_Blend_Attachment");
 
             var texelSize = new Vector4(1.0f / windowExtents.width, 1.0f / windowExtents.height, windowExtents.width, windowExtents.height);
 
             EdgeDetection.PushConstants.SetPushConstantVector4("texelSize", 0, texelSize);
-            EdgeDetection.SetTexture("uColourTexture".GetShaderPropertyId(), EdgeInputTarget.Target);
+            EdgeDetection.SetTexture("uColourTexture".GetShaderPropertyId(), EngineTextures.TryGetTexture(ShaderProperties.MainColourAttachmentId));
 
             BlendWeightCalc.PushConstants.SetPushConstantVector4("texelSize", 0, texelSize);
             BlendWeightCalc.SetTexture("uEdgeTexture".GetShaderPropertyId(), EdgeTarget.Target);
@@ -133,10 +121,10 @@ namespace VECS
             NeighbourhoodBlending.PushConstants.SetPushConstantVector4("texelSize", 0, texelSize);
             NeighbourhoodBlending.SetTexture("uBlendTexture".GetShaderPropertyId(), BlendTarget.Target);
             NeighbourhoodBlending.SetTexture("uColourTexture".GetShaderPropertyId(), EngineTextures.TryGetTexture(ShaderProperties.MainColourAttachmentId));
-
-            BlitMain.SetTexture("inputTexture".GetShaderPropertyId(), EngineTextures.TryGetTexture(ShaderProperties.MainColourAttachmentId));
+#if DEBUG
             BlitEdgeTarget.SetTexture("inputTexture".GetShaderPropertyId(), EdgeTarget.Target);
             BlitBlendTarget.SetTexture("inputTexture".GetShaderPropertyId(), BlendTarget.Target);
+#endif
         }
 
         public void ApplyAA(RendererFrameInfo frameInfo)
@@ -148,8 +136,6 @@ namespace VECS
             var mainTarget = EngineTextures.TryGetTexture(ShaderProperties.MainColourAttachmentId);
 
             mainTarget.First.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal);
-
-            CopyMainOutputToEdgeInput(frameInfo);
 
             EdgeDetectionPass(frameInfo);
 
@@ -206,14 +192,6 @@ namespace VECS
         {
             EdgeTarget.BeginRenderingOnlyAttachment(frameInfo.CommandBuffer);
             EdgeDetection.Bind(frameInfo);
-            GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
-            GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
-        }
-
-        private void CopyMainOutputToEdgeInput(RendererFrameInfo frameInfo)
-        {
-            EdgeInputTarget.BeginRenderingOnlyAttachment(frameInfo.CommandBuffer);
-            BlitMain.Bind(frameInfo);
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
         }

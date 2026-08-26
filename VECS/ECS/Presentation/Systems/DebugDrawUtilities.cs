@@ -4,7 +4,7 @@ using VECS.LowLevel;
 
 namespace VECS.ECS.Presentation
 {
-    public class DebugDrawUtilities : PresentationSystemBase
+    public class DebugDrawUtilities : SystemBase
     {
         private EntityQuery _renderBoundsQuery;
         private EntityQuery _cameraQuery;

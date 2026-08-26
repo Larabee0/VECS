@@ -45,7 +45,7 @@ namespace VECS
             _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("layerCount", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, 1);
             _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("layerOffset", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, 0);
 
-            RenderGraph.AddPass("DirectionalLightShadows", PassType.ColourDepthStencil, [], ["DirectionalShadowAttachments"], ShadowPass);
+            RenderGraph.AddPass("DirectionalLightShadows", PassType.Render, [], [], ["DirectionalShadowAttachments"], ShadowPass);
         }
 
         private void ShadowPass(RendererFrameInfo frameInfo)

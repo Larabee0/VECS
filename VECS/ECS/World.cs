@@ -23,18 +23,15 @@ namespace VECS.ECS
         private readonly EntityManager _entityManager;
         private readonly PhysicsWorld _physicsSimulation;
         private readonly List<SystemBase> _systems;
-        private readonly List<PresentationSystemBase> _presentationSystems;
 
         public EntityManager EntityManager => _entityManager;
         public PhysicsWorld Simulation => _physicsSimulation;
         public List<SystemBase> Systems => _systems;
-        public List<PresentationSystemBase> PresentationSystems => _presentationSystems;
 
         public World()
         {
             _entityManager = new(this);
             _systems = [];
-            _presentationSystems = [];
             
             CreateSystem<LocalToWorldSystem>();
             CreateSystem<CameraSystem>();
@@ -71,13 +68,6 @@ namespace VECS.ECS
             for (int i = 0; i < Systems.Count; i++)
             {
                 if (Systems[i] is T system)
-                {
-                    return system;
-                }
-            }
-            for (int i = 0; i < PresentationSystems.Count; i++)
-            {
-                if (PresentationSystems[i] is T system)
                 {
                     return system;
                 }
@@ -121,18 +111,6 @@ namespace VECS.ECS
 
 
             system.World = this;
-            if (system is PresentationSystemBase presentationSystem)
-            {
-                if (!_presentationSystems.Any(x => x.GetType() == presentationSystem.GetType()))
-                {
-                    presentationSystem.OnCreate(EntityManager);
-                    _presentationSystems.Add(presentationSystem);
-                    return system;
-                }
-                return _presentationSystems.Find(sys => sys.GetType() == presentationSystem.GetType()) as T;
-            }
-            else
-            {
                 if (!_systems.Any(x => x.GetType() == system.GetType()))
                 {
                     system.OnCreate(EntityManager);
@@ -140,7 +118,7 @@ namespace VECS.ECS
                     return system;
                 }
                 return (T)_systems.Find(sys => sys.GetType() == system.GetType());
-            }
+            
         }
 
 
@@ -162,20 +140,17 @@ namespace VECS.ECS
             _physicsSimulation.FixedUpdate();
             _entityManager.DiryQueries();
             _systems.ForEach(s => s.OnFixedUpdate(_entityManager));
-            _presentationSystems.ForEach(s => s.OnFixedUpdate(_entityManager));
         }
 
         internal void OnPostFixedUpdate()
         {
             _systems.ForEach(s => s.OnPostFixedUpdate(_entityManager));
-            _presentationSystems.ForEach(s => s.OnPostFixedUpdate(_entityManager));
         }
 
         internal void OnUpdate()
         {
             _entityManager.DiryQueries();
             _systems.ForEach(s => s.OnUpdate(_entityManager));
-            _presentationSystems.ForEach(s => s.OnUpdate(_entityManager));
         }
 
         /// <summary>
@@ -184,23 +159,15 @@ namespace VECS.ECS
         internal void OnPostUpdate()
         {
             _systems.ForEach(s => s.OnPostUpdate(_entityManager));
-            _presentationSystems.ForEach(s => s.OnPostUpdate(_entityManager));
         }
 
         internal void OnPrePresent()
         {
             _systems.ForEach(s => s.OnPrePresent(_entityManager));
-            _presentationSystems.ForEach(s => s.OnPrePresent(_entityManager));
-        }
-
-        internal void OnPostAA(RendererFrameInfo rendererFrameInfo)
-        {
-            _presentationSystems.ForEach(s => s.OnPostAA(_entityManager, rendererFrameInfo));
         }
 
         internal void OnDestroy()
         {
-            _presentationSystems.ForEach(s => s.OnDestroy(_entityManager));
             _systems.ForEach(s => s.OnDestroy(_entityManager));
             DefaultWorld = null;
         }

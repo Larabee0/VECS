@@ -39,7 +39,7 @@ namespace VECS
 
         private static ComputeVariant _deferredComposite;
 
-        public static readonly VkFormat[] Colours = [VkFormat.R32G32B32A32Sfloat, VkFormat.R32G32B32A32Sfloat];
+        public static readonly VkFormat[] Colours = [VkFormat.R16G16B16A16Sfloat, VkFormat.R32G32B32A32Sfloat];
         public VkFormat[] ColourFormats => Colours;
 
         public VkFormat DepthFormat => PreferredFormats.LOW_PRECISION_DEPTH_ONLY;
@@ -106,20 +106,44 @@ namespace VECS
                 VkImageLayout.General,
                 new(0, 0, 0, 0)));
 
-            RenderGraph.AddPass("DeferredDepthOnlyPass", PassType.ColourDepthStencil,
-                [],
+            RenderGraph.AddPass("DeferredDepthOnlyPass", PassType.Render,
+                [], [],
                 ["MainDepthAttachment"], DeferredDepthPass);
 
-            RenderGraph.AddPass("DeferredObjectsPass", PassType.ColourDepthStencil,
+            RenderGraph.AddPass("DeferredObjectsPass", PassType.Render,
+                ["DeferredDepthOnlyPass"],
                 ["MainDepthAttachment"],
                 ["G_PositionAttachment", "G_NormalAttachment", "G_AlbedoAttachment", "G_MaskAttachment"], DeferredObjectsPass);
 
             RenderGraph.AddPass("DeferredCompositePass", PassType.Compute,
-                ["SSAO_BLUR_RT", "G_PositionAttachment", "G_NormalAttachment", "G_AlbedoAttachment", "G_MaskAttachment", "DirectionalShadowAttachment", "PointLightShadowAttachments", "SpotLightShadowAttachments"],
+                [
+                    "SSAO_Blur",
+                    "DeferredObjectsPass",
+                    "SpotLightShadows",
+                    "PointLightShadows",
+                    "DirectionalLightShadows"
+                ],
+                ["SSAO_BLUR_RT",
+                "G_PositionAttachment",
+                "G_NormalAttachment",
+                "G_AlbedoAttachment",
+                "G_MaskAttachment",
+                "DirectionalShadowAttachment",
+                "PointLightShadowAttachments",
+                "SpotLightShadowAttachments"],
                 ["MainColourAttachment"], DeferredCompositePass);
 
-            RenderGraph.AddPass("ForwardDepthOnlyPass", PassType.ColourDepthStencil, ["MainDepthAttachment", "MainColourAttachment"], ["ForwardDepthAttachment"], ForwadDepthPass);
-            RenderGraph.AddPass("ForwardPass", PassType.ColourDepthStencil, ["ForwardDepthAttachment", "DirectionalShadowAttachment", "PointLightShadowAttachments", "SpotLightShadowAttachments"], ["MainColourAttachment", "BrightObjectAttachment","OpaqueOutput"],ForwardPass);
+            RenderGraph.AddPass("ForwardDepthOnlyPass", PassType.Render,
+                ["DeferredCompositePass"],
+                ["MainDepthAttachment"],
+                ["MainDepthAttachment"], ForwadDepthPass);
+            RenderGraph.AddPass("ForwardPass", PassType.Render,
+                ["ForwardDepthOnlyPass",
+                    "SpotLightShadows",
+                    "PointLightShadows",
+                    "DirectionalLightShadows"],
+                ["MainDepthAttachment", "DirectionalShadowAttachment", "PointLightShadowAttachments", "SpotLightShadowAttachments"],
+                ["MainColourAttachment", "BrightObjectAttachment",], ForwardPass);
 
         }
 
@@ -207,20 +231,18 @@ namespace VECS
         {
             if (Presenter.FrameCount == 0)
             {
+                GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "PBR Maps");
+                PBR.Generate_Prefiltered_Cubemap(frameInfo);
                 PBR.Generate_BRDFLUT(frameInfo);
                 PBR.Generate_Irradiance(frameInfo);
-                PBR.Generate_Prefiltered_Cubemap(frameInfo);
                 _deferredComposite?.SetTexture("samplerIrradiance".GetShaderPropertyId(), EngineTextures.TryGetTexture("samplerIrradiance".GetShaderPropertyId()).First);
                 _deferredComposite?.SetTexture("prefilteredMap".GetShaderPropertyId(), EngineTextures.TryGetTexture("prefilteredMap".GetShaderPropertyId()).First);
                 _deferredComposite?.SetTexture("samplerBRDFLUT".GetShaderPropertyId(), EngineTextures.TryGetTexture("samplerBRDFLUT".GetShaderPropertyId()).First);
+                GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
             }
 
             GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Render Graph");
             RenderGraph.Execute(frameInfo);
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
-
-            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Post-Main RenderGraph Pass");
-            World.DefaultWorld.OnPostAA(frameInfo);
             GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
 
             // blit renderImage into swapchain

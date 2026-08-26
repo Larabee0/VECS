@@ -42,8 +42,13 @@ namespace VECS
 
             _transparentQueue = new("Transparent");
 
-            RenderGraph.AddPass("TransparentPass", PassType.ColourDepthStencil, ["OpaqueOutput", "DirectionalShadowAttachment", "PointLightShadowAttachments", "SpotLightShadowAttachments"], ["TransparentHeadIndexImage"], TransparentPass);
-            RenderGraph.AddPass("TransaprentComposite", PassType.ColourDepthStencil, ["TransparentHeadIndexImage"], ["BrightObjectAttachment", "MainColourAttachment", "TransparentOutput"], TransparentComposite);
+            RenderGraph.AddPass("TransparentPass", PassType.Render, PassCategory.Transparent, [
+                "ForwardPass",
+                "DeferredCompositePass",
+                    "SpotLightShadows",
+                    "PointLightShadows",
+                    "DirectionalLightShadows"], ["MainDepthAttachment", "DirectionalShadowAttachment", "PointLightShadowAttachments", "SpotLightShadowAttachments"], ["TransparentHeadIndexImage"], TransparentPass);
+            RenderGraph.AddPass("TransparentComposite", PassType.Render, PassCategory.Transparent, ["TransparentPass"], ["TransparentHeadIndexImage"], ["BrightObjectAttachment", "MainColourAttachment"], TransparentComposite);
         }
 
         public unsafe void RecreateRenderTargets()
@@ -81,10 +86,14 @@ namespace VECS
 
             _headIndex.SetImageLayout(VkImageLayout.General, VkPipelineStageFlags2.None, VkPipelineStageFlags2.Transfer);
             OIT_Composite.Default().SetTexture(ShaderProperties.HeadIndexImageId, _headIndex);
+            _headCleared = false;
         }
+
+        private bool _headCleared = false;
 
         private unsafe void TransparentPass(RendererFrameInfo frameInfo)
         {
+            if (_headCleared && _transparentQueue.CommandCount == 0) return;
             BeginOITTransparentPass(frameInfo, RenderGraph.GetResource("MainDepthAttachment"));
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
 
@@ -109,7 +118,7 @@ namespace VECS
 
             GraphicsDevice.DeviceAPI.vkCmdClearColorImage(commandBuffer, _headIndex._vkImage, VkImageLayout.General, &clearColor, 1, &imageSubresource);
             GraphicsDevice.DeviceAPI.vkCmdFillBuffer(commandBuffer, _geometry.Buffer[0].VkBuffer, 0, sizeof(uint), 0);
-
+            _headCleared = true;
             VkMemoryBarrier2 barrier = new()
             {
                 srcAccessMask = VkAccessFlags2.TransferWrite,
@@ -129,6 +138,7 @@ namespace VECS
             if (_transparentQueue.CommandCount > 0)
             {
                 DrawBlob.Execute(_transparentQueue, frameInfo, 0, VkCullModeFlags.None);
+                _headCleared = false;
             }
         }
 
@@ -148,6 +158,7 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void TransparentComposite(RendererFrameInfo frameInfo)
         {
+            if (_headCleared) return;
             VkMemoryBarrier2 barrier = new()
             {
                 srcAccessMask = VkAccessFlags2.ShaderRead | VkAccessFlags2.ShaderWrite,

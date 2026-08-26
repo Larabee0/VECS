@@ -54,8 +54,8 @@ namespace VECS
                 VkImageLayout.ShaderReadOnlyOptimal,
                 new(0, 0, 0, 0)));
 
-            RenderGraph.AddPass("SSAO_Generate",PassType.Compute, ["G_PositionAttachment", "G_NormalAttachment", "MainDepthAttachment"], ["SSAO_RT"], GenerateSSAO);
-            RenderGraph.AddPass("SSAO_Blur", PassType.Compute, ["SSAO_RT"], ["SSAO_BLUR_RT"], BlurSSAO);
+            RenderGraph.AddPass("SSAO_Generate", PassType.Compute, ["DeferredObjectsPass", "DeferredDepthOnlyPass"], ["G_PositionAttachment", "G_NormalAttachment", "MainDepthAttachment"], ["SSAO_RT"], GenerateSSAO);
+            RenderGraph.AddPass("SSAO_Blur", PassType.Compute, ["SSAO_Generate"], ["SSAO_RT"], ["SSAO_BLUR_RT"], BlurSSAO);
         }
         
         public void RecreateRenderTargets()

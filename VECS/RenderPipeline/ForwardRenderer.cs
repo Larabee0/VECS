@@ -78,11 +78,6 @@ namespace VECS
                 PBR.Generate_Prefiltered_Cubemap(frameInfo);
             }
 
-            // anti anslising
-            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Post-SMAA Pass");
-            World.DefaultWorld.OnPostAA(frameInfo);
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
-
             // blit renderImage into swapchain
             var extents = SwapChain.SwapChainExtent;
             GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "SwapChain Blit");

@@ -52,7 +52,7 @@ namespace VECS
             Resources[name] = renderTarget;
         }
 
-        public static void AddPass(string name, PassType passType, List<string> inputs, List<string> outputs, Action<RendererFrameInfo> executeFunc)
+        public static void AddPass(string name, PassType passType, List<string> dependantPasses, List<string> inputs, List<string> outputs, Action<RendererFrameInfo> executeFunc)
         {
             var pass = new RenderPass()
             {
@@ -60,7 +60,73 @@ namespace VECS
                 PassType = passType,
                 Inputs = inputs,
                 Outputs = outputs,
-                ExecuteFunc = executeFunc
+                ExecuteFunc = executeFunc,
+                DependantPasses = dependantPasses,
+            };
+            Passes.Add(pass);
+            Recompile = true;
+        }
+
+        public static void AddPass(string name, PassType passType, int order, List<string> inputs, List<string> outputs, Action<RendererFrameInfo> executeFunc)
+        {
+            var pass = new RenderPass()
+            {
+                Name = name,
+                PassType = passType,
+                Inputs = inputs,
+                Outputs = outputs,
+                ExecuteFunc = executeFunc,
+                RelativeOrder = order,
+
+            };
+            Passes.Add(pass);
+            Recompile = true;
+        }
+
+        public static void AddPass(string name, PassType passType, PassCategory category, List<string> inputs, List<string> outputs, Action<RendererFrameInfo> executeFunc)
+        {
+            var pass = new RenderPass()
+            {
+                Name = name,
+                PassType = passType,
+                Inputs = inputs,
+                Outputs = outputs,
+                ExecuteFunc = executeFunc,
+                PassCategory = category,
+
+            };
+            Passes.Add(pass);
+            Recompile = true;
+        }
+
+        public static void AddPass(string name, PassType passType, PassCategory category, List<string> dependantPasses, List<string> inputs, List<string> outputs, Action<RendererFrameInfo> executeFunc)
+        {
+            var pass = new RenderPass()
+            {
+                Name = name,
+                PassType = passType,
+                Inputs = inputs,
+                Outputs = outputs,
+                ExecuteFunc = executeFunc,
+                PassCategory = category,
+                DependantPasses = dependantPasses
+
+            };
+            Passes.Add(pass);
+            Recompile = true;
+        }
+        public static void AddPass(string name, PassType passType, PassCategory category, int order, List<string> inputs, List<string> outputs, Action<RendererFrameInfo> executeFunc)
+        {
+            var pass = new RenderPass()
+            {
+                Name = name,
+                PassType = passType,
+                Inputs = inputs,
+                Outputs = outputs,
+                ExecuteFunc = executeFunc,
+                PassCategory = category,
+                RelativeOrder = order,
+
             };
             Passes.Add(pass);
             Recompile = true;
@@ -107,7 +173,7 @@ namespace VECS
                     
                     switch (pass.PassType)
                     {
-                        case PassType.ColourDepthStencil:
+                        case PassType.Render:
                             resource.Target.SetImageLayoutAuto(commandBuffer, resource.AttachmentInputLayout);
                             break;
                         case PassType.Compute:
@@ -122,7 +188,7 @@ namespace VECS
                     if (!Resources.TryGetValue(output, out var resource)) return;
                     switch (pass.PassType)
                     {
-                        case PassType.ColourDepthStencil:
+                        case PassType.Render:
                             resource.Target.SetImageLayoutAuto(commandBuffer, resource.AttachmentOutputLayout);
                             break;
                         case PassType.Compute:
@@ -138,7 +204,7 @@ namespace VECS
                     if (!Resources.TryGetValue(output, out var resource)) return;
                     switch (pass.PassType)
                     {
-                        case PassType.ColourDepthStencil:
+                        case PassType.Render:
                             resource.Target.SetImageLayoutAuto(commandBuffer, resource.AttachmentInputLayout);
                             break;
                         case PassType.Compute:
@@ -152,34 +218,33 @@ namespace VECS
         }
 
 
-        public static void Compile()
+        public static List<int> Compile(List<RenderPass> passes)
         {
-            ExecutionOrder.Clear();
-            List<int>[] dependencies = new List<int>[Passes.Count];
-            List<int>[] dependents = new List<int>[Passes.Count];
+            List<int> localExecutionOrder = new(passes.Count);
+            List<int>[] dependencies = new List<int>[passes.Count];
+            List<int>[] dependents = new List<int>[passes.Count];
 
             for (int i = 0; i < dependencies.Length; i++)
             {
                 dependents[i] = [];
-                dependencies[i] = [];  
-            } 
-                        
+                dependencies[i] = [];
+            }
 
             Dictionary<string, int> resourceWriters = [];
-            DependencyDiscovery(dependencies, dependents, resourceWriters);
+            DependencyDiscovery(dependencies, dependents, resourceWriters, passes);
 
-            bool[] visited = new bool[Passes.Count];
-            bool[] inStack = new bool[Passes.Count];
+            bool[] visited = new bool[passes.Count];
+            bool[] inStack = new bool[passes.Count];
 
-            SortExecution(dependents, visited, inStack);
-            ExecutionOrder.Reverse();
+            SortExecution(dependents, visited, inStack, passes, localExecutionOrder);
+            localExecutionOrder.Reverse();
 
 #if DEBUG
-            ExecutionOrderEnglish = new string[ExecutionOrder.Count];
+            ExecutionOrderEnglish = new string[localExecutionOrder.Count];
 
-            for (int i = 0; i < ExecutionOrder.Count; i++)
+            for (int i = 0; i < localExecutionOrder.Count; i++)
             {
-                ExecutionOrderEnglish[i] = Passes[ExecutionOrder[i]].Name;
+                ExecutionOrderEnglish[i] = passes[localExecutionOrder[i]].Name;
             }
 
             Console.WriteLine("Logging RenderGraph execution order..");
@@ -189,12 +254,22 @@ namespace VECS
                 Console.WriteLine(ExecutionOrderEnglish[i]);
             }
 #endif
+
+            return localExecutionOrder;
+        }
+
+        public static void Compile()
+        {
+            Passes.Sort((x,y)=>x.PassCategory.CompareTo(y.PassCategory));
+
+
+            ExecutionOrder = Compile(Passes);
             Recompile = false;
         }
 
-        private static void SortExecution(List<int>[] dependents, bool[] visited, bool[] inStack)
+        private static void SortExecution(List<int>[] dependents, bool[] visited, bool[] inStack, List<RenderPass> passes, List<int> executionOrder)
         {
-            void Visit(int node)
+            void Visit(int node, List<int> executionOrder)
             {
                 if (inStack[node])
                 {
@@ -207,28 +282,47 @@ namespace VECS
                 }
 
                 inStack[node] = true;
-                dependents[node].ForEach(dependent => Visit(dependent));
+                dependents[node].ForEach(dependent => Visit(dependent, executionOrder));
                 inStack[node] = false;
                 visited[node] = true;
-                ExecutionOrder.Add(node);
+                executionOrder.Add(node);
             }
 
-            for (int i = 0; i < Passes.Count; i++)
+            for (int i = 0; i < passes.Count; i++)
             {
                 if (!visited[i])
                 {
-                    Visit(i);
+                    Visit(i, executionOrder);
                 }
             }
         }
 
-        private static void DependencyDiscovery(List<int>[] dependencies, List<int>[] dependents, Dictionary<string, int> resourceWriters)
+        private static void DependencyDiscovery(List<int>[] dependencies, List<int>[] dependents, Dictionary<string, int> resourceWriters, List<RenderPass> passes)
         {
-            for (int i = 0; i < Passes.Count; i++)
+            for (int i = 0; i < passes.Count; i++)
             {
-                var pass = Passes[i];
+                var pass = passes[i];
 
-                pass.Inputs.ForEach(input =>
+                //pass.DependantPasses.ForEach(input =>
+                //{
+                //    if (resourceWriters.TryGetValue(input, out var it))
+                //    {
+                //        dependencies[i].Add(it);
+                //        dependents[it].Add(i);
+                //    }
+                //});
+                resourceWriters[pass.Name] = i;
+                //pass.Outputs.ForEach(output =>
+                //{
+                //    resourceWriters[output] = i;
+                //});
+            }
+
+            for (int i = 0; i < passes.Count; i++)
+            {
+                var pass = passes[i];
+
+                pass.DependantPasses.ForEach(input =>
                 {
                     if (resourceWriters.TryGetValue(input, out var it))
                     {
@@ -236,11 +330,16 @@ namespace VECS
                         dependents[it].Add(i);
                     }
                 });
-
-                pass.Outputs.ForEach(output =>
-                {
-                    resourceWriters[output] = i;
-                });
+                //resourceWriters[pass.Name] = i;
+                // pass.Outputs.ForEach(output =>
+                // {
+                //     resourceWriters[output] = i;
+                // });
+            }
+            for (int i = 0; i < Passes.Count; i++)
+            {
+                dependencies[i].Reverse();
+                dependents[i].Reverse();
             }
         }
     }

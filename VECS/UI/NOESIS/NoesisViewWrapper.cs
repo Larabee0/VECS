@@ -71,6 +71,7 @@ namespace VECS.UI
             View = GUI.CreateView(rootElement);
             
             View.Renderer.Init(renderDevice);
+            Application.NoesisDriver.AddView(this);
         }
 
         public NoesisViewWrapper(string fileName)
@@ -94,6 +95,7 @@ namespace VECS.UI
             InputManager.Instance.OnKeyDown += ViewKeyDown;
             InputManager.Instance.OnKeyUp += ViewKeyUp;
             Presenter.OnSwapChainRecreation += ResizeRT;
+            Application.NoesisDriver.AddView(this);
         }
 
         private void ResizeRT()
@@ -126,6 +128,7 @@ namespace VECS.UI
             InputManager.Instance.OnKeyDown -= ViewKeyDown;
             InputManager.Instance.OnKeyUp -= ViewKeyUp;
             Presenter.OnSwapChainRecreation -= ResizeRT;
+            Application.NoesisDriver.RemoveView(this);
             View.Renderer.Shutdown();
             View.Dispose();
             GC.ReRegisterForFinalize(this);
@@ -222,15 +225,16 @@ namespace VECS.UI
             }
         }
 
-        public void Render(RendererFrameInfo frameInfo)
+        internal void NoesisPreRender()
         {
-            Application.NoesisDriver.CurrentFrameInfo = frameInfo;
-
             if (PreRender() || ALWAYS_RE_RENDER)
             {
                 _framesSinceLastRender = 0;
             }
+        }
 
+        internal void Render(RendererFrameInfo frameInfo)
+        {
             if (_framesSinceLastRender < SwapChain.MAX_CONCURRENT_FRAMES + 1)
             {
                 GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, string.Format("NOESIS Begin On-Screen Render {0}",RenderTarget.Colour.Texture.AssetName));
@@ -246,11 +250,9 @@ namespace VECS.UI
                 RenderTargetTex2D.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.FragmentShader);
                 GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
             }
-
-            BlitToMain(frameInfo);
         }
 
-        private unsafe void BlitToMain(RendererFrameInfo frameInfo)
+        public unsafe void BlitToMain(RendererFrameInfo frameInfo)
         {
             GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, string.Format("NOESIS Blit to Main {0}",RenderTarget.Colour.Texture.AssetName));
             

@@ -72,6 +72,8 @@ namespace VECS.UI
         
         private readonly bool mFillModeNonSolid;
 
+        private List<NoesisViewWrapper> _views = [];
+
 
         public NoesisDriver()
         {
@@ -87,10 +89,54 @@ namespace VECS.UI
 
             Presenter.OnSwapChainRecreation += NewSwapChain;
             Presenter.Instance.PreGraphicsPipe += PreGraphicsPipe;
+
+            RenderGraph.AddPass("NoesisInternal",
+                PassType.Render, PassCategory.UI,
+                ["Bloom_Blur_Horizontal", "ForwardPass", "DeferredCompositePass", "TransaprentComposite", "SMAA_Output"],
+                [],
+                [],
+                RenderUI);
+
+            RenderGraph.AddPass("NoesisBlit",
+                PassType.Render, PassCategory.UI,
+                ["NoesisInternal", "Bloom_Blur_Horizontal", "ForwardPass", "DeferredCompositePass", "TransaprentComposite", "SMAA_Output"],
+                ["NoesisAttachments", "MainColourAttachment", "BrightObjectAttachment"],
+                ["MainColourAttachment", "BrightObjectAttachment"],
+                OutputUI);
+        }
+
+        internal void AddView(NoesisViewWrapper view)
+        {
+            if(_views.Contains(view)) return;
+            _views.Add(view);
+        }
+
+        internal void RemoveView(NoesisViewWrapper view)
+        {
+            if (!_views.Contains(view)) return;
+            _views.Remove(view);
+        }
+
+        private void OutputUI(RendererFrameInfo frameInfo)
+        {
+            CurrentFrameInfo = frameInfo;
+
+            _views.ForEach(view => view.BlitToMain(frameInfo));
+        }
+
+        private void RenderUI(RendererFrameInfo frameInfo)
+        {
+            CurrentFrameInfo = frameInfo;
+            _views.ForEach(view =>
+            {
+                view.NoesisPreRender();
+                view.Render(frameInfo);
+            });
         }
 
         private void PreGraphicsPipe(int obj)
         {
+            CurrentFrameInfo = default;
             _drawPos = 0;
             _draws = 0;
         }

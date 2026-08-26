@@ -126,7 +126,7 @@ namespace VECS
         public static unsafe void Generate_BRDFLUT(RendererFrameInfo frameInfo)
         {
             var commandBuffer = AuxiliaryCommandBufferManager.Record();
-            
+            GraphicsDevice.BeginLabelCmd(commandBuffer,"Generate BRDFLUT");
             BRDFLUT_Texture.SetImageLayoutAuto(commandBuffer, VkImageLayout.ColorAttachmentOptimal);
 
             VkRenderingAttachmentInfo colourAttachments = new()
@@ -161,12 +161,14 @@ namespace VECS
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
             BRDFLUT_Texture.SetImageLayoutAuto(commandBuffer, VkImageLayout.ShaderReadOnlyOptimal);
 
+            GraphicsDevice.EndLabelCmd(commandBuffer);
             AuxiliaryCommandBufferManager.Submit();
         }
 
         public static unsafe void Generate_Irradiance(RendererFrameInfo frameInfo)
         {
             var commandBuffer = AuxiliaryCommandBufferManager.Record();
+            GraphicsDevice.BeginLabelCmd(commandBuffer, "Generate Irradiance");
 
             frameInfo = new(frameInfo.CameraCount, frameInfo.MainCamera, frameInfo.DeltaTime, commandBuffer, frameInfo.CullData, frameInfo.LightingInfo);
 
@@ -230,12 +232,14 @@ namespace VECS
             Irradiance_Cubemap.SetImageLayoutAuto(commandBuffer, VkImageLayout.ShaderReadOnlyOptimal);
 
             Irradiance_Cubemap.RegenerateMipMaps(commandBuffer);
+            GraphicsDevice.EndLabelCmd(commandBuffer);
             AuxiliaryCommandBufferManager.Submit();
         }
 
         public static unsafe void Generate_Prefiltered_Cubemap(RendererFrameInfo frameInfo)
         {
             var commandBuffer = AuxiliaryCommandBufferManager.Record();
+            GraphicsDevice.BeginLabelCmd(commandBuffer, "Generate PrefilteredSkybox");
             frameInfo = new(frameInfo.CameraCount, frameInfo.MainCamera, frameInfo.DeltaTime, commandBuffer, frameInfo.CullData, frameInfo.LightingInfo);
             Prefiltered_Cubemap.SetImageLayoutAuto(commandBuffer, VkImageLayout.ColorAttachmentOptimal);
 
@@ -297,6 +301,7 @@ namespace VECS
             Prefiltered_Cubemap.SetImageLayoutAuto(commandBuffer, VkImageLayout.ShaderReadOnlyOptimal);
 
             Prefiltered_Cubemap.RegenerateMipMaps(commandBuffer);
+            GraphicsDevice.EndLabelCmd(commandBuffer);
             AuxiliaryCommandBufferManager.Submit();
         }
     }

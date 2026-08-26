@@ -28,7 +28,7 @@ namespace VECS
             _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("layerCount", POINT_SHADOWS_PUSH_CONSTANT_INDEX, 1);
             _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("bufferSelect", POINT_SHADOWS_PUSH_CONSTANT_INDEX, 2);
 
-            RenderGraph.AddPass("PointLightShadows", PassType.ColourDepthStencil, [], ["PointLightShadowAttachments"], PointLightPass);
+            RenderGraph.AddPass("PointLightShadows", PassType.Render, [], [], ["PointLightShadowAttachments"], PointLightPass);
             
         }
 

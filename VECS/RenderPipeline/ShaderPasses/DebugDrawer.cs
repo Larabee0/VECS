@@ -66,10 +66,10 @@ namespace VECS
 
         internal static void AddToRenderGraph()
         {
-            RenderGraph.AddPass("DebugLines", PassType.ColourDepthStencil, ["OpaqueOutput"], ["MainColourAttachment", "BrightObjectAttachment", "LinesOutput"],LinePass);
-            RenderGraph.AddPass("DebugWireCubes", PassType.ColourDepthStencil, ["LinesOutput"], ["MainColourAttachment", "BrightObjectAttachment", "WireCubeOutput"], WireCubesPass);
-            RenderGraph.AddPass("DebugWireSpheres", PassType.ColourDepthStencil, ["WireCubeOutput"], ["MainColourAttachment", "BrightObjectAttachment", "WireSphereOutput"], WireSpheresPass);
-            RenderGraph.AddPass("DebugFustrums", PassType.ColourDepthStencil, ["WireSphereOutput"], ["MainColourAttachment", "BrightObjectAttachment", "OpaqueOutput"], FustrumPass);
+            RenderGraph.AddPass("DebugLines", PassType.Render, ["ForwardPass", "DeferredCompositePass", "TransaprentComposite"], ["MainColourAttachment", "BrightObjectAttachment"], ["MainColourAttachment", "BrightObjectAttachment"],LinePass);
+            RenderGraph.AddPass("DebugWireCubes", PassType.Render, ["DebugLines"], ["MainColourAttachment", "BrightObjectAttachment"], ["MainColourAttachment", "BrightObjectAttachment"], WireCubesPass);
+            RenderGraph.AddPass("DebugWireSpheres", PassType.Render, ["DebugWireCubes"], ["MainColourAttachment", "BrightObjectAttachment"], ["MainColourAttachment", "BrightObjectAttachment"], WireSpheresPass);
+            RenderGraph.AddPass("DebugFustrums", PassType.Render, ["DebugWireSpheres"], ["MainColourAttachment", "BrightObjectAttachment"], ["MainColourAttachment", "BrightObjectAttachment"], FustrumPass);
         }
 
         internal static void CleanUp()

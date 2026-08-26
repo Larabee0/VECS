@@ -29,7 +29,7 @@ namespace VECS
             _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("layerCount", SPOT_SHADOWS_PUSH_CONSTANT_INDEX, 1);
             _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("bufferSelect", SPOT_SHADOWS_PUSH_CONSTANT_INDEX, 3);
 
-            RenderGraph.AddPass("SpotLightShadows", PassType.ColourDepthStencil, [], ["SpotLightShadowAttachments"], SpotLightPass);
+            RenderGraph.AddPass("SpotLightShadows", PassType.Render, [], [], ["SpotLightShadowAttachments"], SpotLightPass);
         }
 
         private void SpotLightPass(RendererFrameInfo frameInfo)
