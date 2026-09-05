@@ -182,7 +182,7 @@ namespace VECS.LowLevel
                 subresourceRange = new VkImageSubresourceRange(VkImageAspectFlags.Color),
                 srcStageMask = VkPipelineStageFlags2.Transfer,
                 srcAccessMask = VkAccessFlags2.TransferWrite,
-                dstStageMask = VkPipelineStageFlags2.None,
+                dstStageMask = VkPipelineStageFlags2.AllGraphics,
                 dstAccessMask = VkAccessFlags2.None,
                 oldLayout = VkImageLayout.TransferDstOptimal,
                 newLayout = VkImageLayout.PresentSrcKHR,
@@ -205,6 +205,7 @@ namespace VECS.LowLevel
             }
 
             GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier2(commandBuffer, &info);
+
         }
 
         public static void CleanUp()

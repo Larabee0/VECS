@@ -214,8 +214,10 @@ namespace VECS
                 EngineBuffers.UpdateCameras(entityManager,frameIndex);
 
                 var cameras = entityManager.GetAllEntitiesWithComponent<Camera>();
-                cameraCount = Math.Min(cameras.Count, MAX_CAMERAS);
-
+                if (cameras != null)
+                {
+                    cameraCount = Math.Min(cameras.Count, MAX_CAMERAS);
+                }
                 for (int i = 0; i < cameraCount; i++)
                 {
                     var entity = cameras[i];
@@ -265,7 +267,7 @@ namespace VECS
                 }
             }
 
-            CameraData cameraInfo = ((SwapChainBuffer<CameraData>)EngineBuffers.TryGetBuffer(ShaderProperties.CameraDataId)).HostBuffer[mainCamera];
+            CameraData cameraInfo = cameraCount == 0 ? default : ((SwapChainBuffer<CameraData>)EngineBuffers.TryGetBuffer(ShaderProperties.CameraDataId)).HostBuffer[mainCamera];
             float clipNear = camera.ClipNear;
 
             CullData cullData = new(RenderLayer.All, RenderLayer.OnlyShadow, camera.CullMode, clipNear, cameraInfo);

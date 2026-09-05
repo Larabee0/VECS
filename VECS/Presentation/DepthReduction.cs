@@ -122,7 +122,7 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe void ReduceDepth(RendererFrameInfo frameInfo)
+        public static void ReduceDepth(RendererFrameInfo frameInfo)
         {
             GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Depth Reduction");
             ComputeShaderTransfer(frameInfo);

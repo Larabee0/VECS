@@ -12,7 +12,7 @@ namespace VECS.LowLevel
     internal static class GraphicsDeviceInit
     {
 #if DEBUG
-        public static bool BreakOnValidationError = true;
+        public static bool BreakOnValidationError = false;
         private readonly static string[] _requiredValidationLayers = ["VK_LAYER_KHRONOS_validation"];
 #endif
         private readonly static VkUtf8String[] _requiredDeviceExtensions = [

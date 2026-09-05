@@ -9,6 +9,7 @@ namespace VECS.ECS.Presentation
     /// <summary>
     /// Camera system updates all cameras
     /// </summary>
+    [UpdateBefore(typeof(LocalToWorldSystem))]
     public class CameraSystem : SystemBase
     {
         const float lookSpeed = 10f;
@@ -36,7 +37,7 @@ namespace VECS.ECS.Presentation
                 .WithNone(typeof(Prefab))
                 .Build();
             _cameraInitQuery = new EntityQuery(entityManager)
-                .WithAll(typeof(LocalToWorld))
+                //.WithAll(typeof(LocalToWorld))
                 .WithAny(typeof(CameraOrthographic), typeof(CameraPerspective))
                 .WithNone(typeof(Camera), typeof(Prefab))
                 .Build();
@@ -126,10 +127,17 @@ namespace VECS.ECS.Presentation
                 }
                 entityManager.SetComponent(entity, perCam);
             }
+
+            Matrix4x4 ltwMatrix = Matrix4x4.Identity;
+            if (entityManager.GetComponent<LocalToWorld>(entity, out var ltw))
+            {
+                ltwMatrix = ltw.Value;
+            }
             var camera = new Camera()
             {
                 ProjectionMatrix = GetPerspectiveProject(perCam, aspect),
-                ViewMatrix = GetViewMatrix(entityManager.GetComponent<LocalToWorld>(entity).Value),
+                ViewMatrix = GetViewMatrix(ltwMatrix),
+
                 CullMode = perCam.CullMode,
                 ClipNear = perCam.ClipNear,
                 ClipFar = perCam.ClipFar,
@@ -156,10 +164,15 @@ namespace VECS.ECS.Presentation
         private static void UpdateOrthographicCamera(EntityManager entityManager, Entity entity)
         {
             var orthCam = entityManager.GetComponent<CameraOrthographic>(entity);
+            Matrix4x4 ltwMatrix = Matrix4x4.Identity;
+            if (entityManager.GetComponent<LocalToWorld>(entity, out var ltw))
+            {
+                ltwMatrix = ltw.Value;
+            }
             var camera = new Camera()
             {
                 ProjectionMatrix = GetOrthographicProject(orthCam),
-                ViewMatrix = GetViewMatrix(entityManager.GetComponent<LocalToWorld>(entity).Value),
+                ViewMatrix = GetViewMatrix(ltwMatrix),
                 CullMode = orthCam.CullMode,
                 ClipNear = orthCam.ClipNear,
                 ClipFar = orthCam.ClipFar,

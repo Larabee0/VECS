@@ -170,6 +170,13 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetVector4(int propertyId, Vector4 value)
+        {
+            WriteToBuffer(propertyId, value);
+        }
+
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetUniform<T>(int propertyId, T value) where T : unmanaged
         {
             WriteToBuffer(propertyId, value);

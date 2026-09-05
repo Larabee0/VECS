@@ -56,13 +56,11 @@ namespace VECS
                 VkImageLayout.General,
                 VkImageLayout.ShaderReadOnlyOptimal,
                 new(1, 1, 1, 1)));
-            AddSSAOPasses();
-        }
 
-        private void AddSSAOPasses()
-        {
-            RenderGraph.AddPass("SSAO_Generate", PassType.Compute, ["DeferredObjectsPass", "DeferredDepthOnlyPass"], ["G_PositionAttachment", "G_NormalAttachment", "MainDepthAttachment"], ["SSAO_RT"], GenerateSSAO);
+            RenderGraph.AddPass("SSAO_Generate", PassType.Compute, ["DeferredObjectsPass", "DeferredDepthOnlyPass", "SSAO_Clear"], ["G_PositionAttachment", "G_NormalAttachment", "MainDepthAttachment"], ["SSAO_RT"], GenerateSSAO);
             RenderGraph.AddPass("SSAO_Blur", PassType.Compute, ["SSAO_Generate"], ["SSAO_RT"], ["SSAO_BLUR_RT"], BlurSSAO);
+            RenderGraph.AddPass("SSAO_Clear", PassType.Compute, ["DeferredObjectsPass", "DeferredDepthOnlyPass"], [""], ["SSAO_BLUR_RT"], ClearSSAO);
+            RenderGraph.DisablePass("SSAO_Clear");
         }
 
         public void RecreateRenderTargets()
@@ -129,18 +127,21 @@ namespace VECS
         private void BlurSSAO(RendererFrameInfo frameInfo)
         {
             _computeSSAOBlur.Dispatch(frameInfo.CommandBuffer, Presenter.FrameIndex, GetGroupCount((uint)_ssaoBlurRt.Target.Width, 32), GetGroupCount((uint)_ssaoBlurRt.Target.Height, 32));
-            _SSAO_Cleared = false;
 
-            if (!SSAO_Enabled && !_SSAO_Cleared)
+            _SSAO_Cleared = false;
+        }
+
+        private void ClearSSAO(RendererFrameInfo frameInfo)
+        {
+            if (!_SSAO_Cleared)
             {
                 _SSAO_Cleared = true;
                 _ssaoBlurRt.ClearAttachment(frameInfo.CommandBuffer);
-                RenderGraph.RemovePass("SSAO_Generate");
-                RenderGraph.RemovePass("SSAO_Blur");
+                RenderGraph.DisablePass("SSAO_Clear");
             }
         }
 
-        public void SSAO_Toggle_Input()
+        public static void SSAO_Toggle_Input()
         {
             if (InputManager.Instance.GetKeyUp(SDL3.SDL_Keycode.O))
             {
@@ -148,7 +149,12 @@ namespace VECS
                 Console.WriteLine("SSAO Enabled: {0}", SSAO_Enabled);
                 if (SSAO_Enabled)
                 {
-                    AddSSAOPasses();
+                    RenderGraph.EnablePasses(["SSAO_Blur", "SSAO_Generate"]);
+                }
+                else
+                {
+                    RenderGraph.EnablePass("SSAO_Clear");
+                    RenderGraph.DisablePasses(["SSAO_Blur", "SSAO_Generate"]);
                 }
             }
         }

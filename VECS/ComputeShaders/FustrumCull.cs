@@ -263,8 +263,8 @@ namespace VECS
         }
         private static void GPUCullInternal(VkCommandBuffer commandBuffer, int frameIndex, CullData cullData, uint indirectCmdOffset, uint drawCount, SwapChainBuffer drawIndirect, SwapChainBuffer bounds, uint variantIndex)
         {
-            bounds.SetUsedInstanceCount(drawCount);
-            drawIndirect.SetUsedInstanceCount(indirectCmdOffset+drawCount);
+            //bounds.SetUsedInstanceCount(drawCount);
+            //drawIndirect.SetUsedInstanceCount(indirectCmdOffset+drawCount);
             cullData.drawCount = drawCount;
 
             var invokeVariant = _computeShader.GetOrCreateVariant(variantIndex);

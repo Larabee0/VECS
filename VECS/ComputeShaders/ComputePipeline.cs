@@ -220,7 +220,7 @@ namespace VECS
         {
             return GetBuffer(descriptorBinding.DescriptorSetIndex, descriptorBinding.BindPoint);
         }
-        private static void Update(ComputePipeline pipeline)
+        internal static void Update(ComputePipeline pipeline)
         {
             if (pipeline.VariantCount == 0) return;
 

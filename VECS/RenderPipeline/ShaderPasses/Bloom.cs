@@ -86,24 +86,24 @@ namespace VECS
             _blurHorizontal.PushConstants.SetPushConstantFloat("blurScale", 1, 1);
             _blurHorizontal.PushConstants.SetPushConstantFloat("blurStrength", 1, 1.5f);
 
-            RenderGraph.AddPass("Bloom_Blur_Vertical", PassType.Render, PassCategory.PostProcessing, ["ForwardPass", "DeferredCompositePass", "TransaprentComposite", "SMAA_Output"], ["BrightObjectAttachment"], ["Bloom_Blur_Attachment"], BlurVertical);
-            RenderGraph.AddPass("Bloom_Blur_Horizontal", PassType.Render, PassCategory.PostProcessing, ["Bloom_Blur_Vertical"], ["Bloom_Blur_Attachment"], ["BrightObjectAttachment", "MainColourAttachment"], BlurHorizontal);
+            // RenderGraph.AddPass("Bloom_Blur_Vertical", PassType.Render, PassCategory.PostProcessing, ["ForwardPass", "DeferredCompositePass", "TransaprentComposite", "SMAA_Output"], ["BrightObjectAttachment"], ["Bloom_Blur_Attachment"], BlurVertical);
+            // RenderGraph.AddPass("Bloom_Blur_Horizontal", PassType.Render, PassCategory.PostProcessing, ["Bloom_Blur_Vertical"], ["Bloom_Blur_Attachment"], ["BrightObjectAttachment", "MainColourAttachment"], BlurHorizontal);
         }
 
         public void RecreateRenderTargets()
         {
-            var winbdowExtents = Application.MainWindow.WindowExtent;
+            var windowExtents = Application.MainWindow.WindowExtent;
 
             FRAME_BUFFER_DIMENTIONS_X = FRAME_BUFFER_MAX_RES;
             FRAME_BUFFER_DIMENTIONS_Y = FRAME_BUFFER_MAX_RES;
 
-            if (winbdowExtents.height > winbdowExtents.width)
+            if (windowExtents.height > windowExtents.width)
             {
-                FRAME_BUFFER_DIMENTIONS_X = (int)(((float)winbdowExtents.width / (float)winbdowExtents.height) * FRAME_BUFFER_MAX_RES);
+                FRAME_BUFFER_DIMENTIONS_X = (int)(((float)windowExtents.width / (float)windowExtents.height) * FRAME_BUFFER_MAX_RES);
             }
             else
             {
-                FRAME_BUFFER_DIMENTIONS_Y = (int)(((float)winbdowExtents.height / (float)winbdowExtents.width) * FRAME_BUFFER_MAX_RES);
+                FRAME_BUFFER_DIMENTIONS_Y = (int)(((float)windowExtents.height / (float)windowExtents.width) * FRAME_BUFFER_MAX_RES);
             }
 
             _glowTexture = RenderGraph.GetResource("Bloom_Glow_Attachment");

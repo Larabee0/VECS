@@ -92,17 +92,17 @@ namespace VECS.UI
 
             RenderGraph.AddPass("NoesisInternal",
                 PassType.Render, PassCategory.UI,
-                ["Bloom_Blur_Horizontal", "ForwardPass", "DeferredCompositePass", "TransaprentComposite", "SMAA_Output"],
+                ["Bloom_Blur_Horizontal", "PhyBloomMix", "ForwardPass", "DeferredCompositePass", "TransaprentComposite", "SMAA_Output"],
                 [],
                 [],
                 RenderUI);
 
-            RenderGraph.AddPass("NoesisBlit",
-                PassType.Render, PassCategory.UI,
-                ["NoesisInternal", "Bloom_Blur_Horizontal", "ForwardPass", "DeferredCompositePass", "TransaprentComposite", "SMAA_Output"],
-                ["NoesisAttachments", "MainColourAttachment", "BrightObjectAttachment"],
-                ["MainColourAttachment", "BrightObjectAttachment"],
-                OutputUI);
+            // RenderGraph.AddPass("NoesisBlit",
+            //     PassType.Render, PassCategory.UI,
+            //     ["NoesisInternal", "Bloom_Blur_Horizontal", "PhyBloomMix", "ForwardPass", "DeferredCompositePass", "TransaprentComposite", "SMAA_Output"],
+            //     ["NoesisAttachments", "MainColourAttachment", "BrightObjectAttachment"],
+            //     ["MainColourAttachment", "BrightObjectAttachment"],
+            //     OutputUI);
         }
 
         internal void AddView(NoesisViewWrapper view)

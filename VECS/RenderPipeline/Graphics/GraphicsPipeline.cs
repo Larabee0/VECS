@@ -609,6 +609,7 @@ namespace VECS
             var mesh = AssetDataBase<DirectMesh>.GetHashed(command.DirectMesh);
             mesh.BindSpecificBuffers(commandBuffer, _graphicsPipelineConfigInfo.BindingDescriptions, _graphicsPipelineConfigInfo.AttributeDescriptions);
 
+
             // if (command.MeshSubRegion.Count > 8)
             // {
             //     uint rollingOffset = 0;

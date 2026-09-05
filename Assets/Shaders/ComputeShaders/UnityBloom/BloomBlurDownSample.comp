@@ -1,0 +1,48 @@
+#version 460
+
+#extension GL_ARB_shading_language_include : require
+
+#include "UnityFunctions.glsl"
+layout (set = 0, binding = 0) uniform sampler2D srcTexture;
+layout (set = 0, binding = 1) uniform writeonly image2D dstTexture;
+
+layout (set = 0, binding = 2)  uniform Constants{
+    vec2 outputImageSize; // texel size
+} constants;
+
+#include "bloom_blur_common.glsl"
+
+layout(local_size_x = 8, local_size_y = 8) in;
+void main()
+{
+    // Upper-left pixel coordinate of quad that this thread will read
+    ivec2 threadUL = ((ivec2(gl_LocalInvocationID.xy) << ivec2(1)) + (ivec2(gl_WorkGroupID.xy) << ivec2(3)) + ivec2(-4));
+
+    vec2 offset = vec2(threadUL);
+    vec2 texelSizeZW = vec2(1.0) / constants.outputImageSize;
+    vec2 maxCoord = 1.0 - 0.5 * texelSizeZW;
+    vec3 p00 = texture(srcTexture, ClampAndScaleUVForBilinearPostProcessTexture((offset                  + 0.5) * texelSizeZW, texelSizeZW)).rgb;
+    vec3 p10 = texture(srcTexture, ClampAndScaleUVForBilinearPostProcessTexture((offset + vec2(1.0, 0.0) + 0.5) * texelSizeZW, texelSizeZW)).rgb;
+    vec3 p01 = texture(srcTexture, ClampAndScaleUVForBilinearPostProcessTexture((offset + vec2(0.0, 1.0) + 0.5) * texelSizeZW, texelSizeZW)).rgb;
+    vec3 p11 = texture(srcTexture, ClampAndScaleUVForBilinearPostProcessTexture((offset + vec2(1.0, 1.0) + 0.5) * texelSizeZW, texelSizeZW)).rgb;
+
+    // Store the 4 downsampled pixels in LDS
+    uint destIdx = gl_LocalInvocationID.x + (gl_LocalInvocationID.y << 4u);
+    Store2Pixels(destIdx     , p00, p10);
+    Store2Pixels(destIdx + 8u, p01, p11);
+
+    groupMemoryBarrier();
+    memoryBarrierShared();
+    barrier();
+
+    // Horizontally blur the pixels in LDS
+    uint row = gl_LocalInvocationID.y << 4u;
+    BlurHorizontally(row + (gl_LocalInvocationID.x << 1u), row + gl_LocalInvocationID.x + (gl_LocalInvocationID.x & 4u));
+
+    groupMemoryBarrier();
+    memoryBarrierShared();
+    barrier();
+
+    // Vertically blur the pixels in LDS and write the result to memory
+    BlurVertically(gl_GlobalInvocationID.xy, (gl_LocalInvocationID.y << 3u) + gl_LocalInvocationID.x);
+}

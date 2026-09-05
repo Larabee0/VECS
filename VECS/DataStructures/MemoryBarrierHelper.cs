@@ -10,7 +10,7 @@ namespace VECS
         // https://vulkan.lunarg.com/doc/view/1.4.328.1/windows/antora/spec/latest/chapters/synchronization.html#synchronization-access-types-supported
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static void SetImageLayout(VkCommandBuffer cmdbuffer,
+        internal unsafe static void SetImageLayout(VkCommandBuffer cmdbuffer,
             VkImage image,
             VkImageAspectFlags aspectMask,
             VkImageLayout oldImageLayout,
@@ -19,12 +19,13 @@ namespace VECS
             VkPipelineStageFlags2 dstStageMask)
         {
             VkImageSubresourceRange subresourceRange = new(aspectMask, 0, 1, 0, 1);
-            SetImageLayout(cmdbuffer, image, oldImageLayout, newImageLayout, subresourceRange, srcStageMask, dstStageMask);
+            var barrier = GetImageLayoutBarrier(image, oldImageLayout, newImageLayout, subresourceRange, srcStageMask, dstStageMask);
+
+            ImageMemoryBarrier(cmdbuffer, &barrier, 1);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe void SetImageLayout(
-            VkCommandBuffer cmdBuffer,
+        public static VkImageMemoryBarrier2 GetImageLayoutBarrier(
             VkImage image,
             VkImageLayout oldLayout,
             VkImageLayout newLayout,
@@ -94,7 +95,7 @@ namespace VECS
             }
 
             uint queueFamily = GraphicsDevice.PhysicalQueueFamilies.graphicsFamily;
-            ImageMemoryBarrier(cmdBuffer, image,
+            return GetImageMemoryBarrier(image,
                 subresourceRange,
                 srcStage, srcAccessMask,
                 dstStage, dstAccessMask,
@@ -115,7 +116,20 @@ namespace VECS
             uint dstQueue
             )
         {
-            VkImageMemoryBarrier2 imageMemoryBarrier2 = new(
+            var barrier = GetImageMemoryBarrier(image, subresourceRange, srcStage, srcAccess, dstStage, dstAccess,oldLayout, newLayout,srcQueue,dstQueue);
+            ImageMemoryBarrier(cmdBuffer, &barrier, 1);
+        }
+
+        public unsafe static VkImageMemoryBarrier2 GetImageMemoryBarrier(
+            VkImage image,
+            VkImageSubresourceRange subresourceRange,
+            VkPipelineStageFlags2 srcStage, VkAccessFlags2 srcAccess,
+            VkPipelineStageFlags2 dstStage, VkAccessFlags2 dstAccess,
+            VkImageLayout oldLayout, VkImageLayout newLayout,
+            uint srcQueue,
+            uint dstQueue)
+        {
+            return new(
                 image,
                 subresourceRange,
                 srcStage, srcAccess,
@@ -123,11 +137,15 @@ namespace VECS
                 oldLayout, newLayout,
                 srcQueue, dstQueue
             );
+        }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static unsafe void ImageMemoryBarrier(VkCommandBuffer cmdBuffer, VkImageMemoryBarrier2* barriers, uint barrierCount)
+        {
             VkDependencyInfo info = new()
             {
-                imageMemoryBarrierCount = 1,
-                pImageMemoryBarriers = &imageMemoryBarrier2
+                imageMemoryBarrierCount = barrierCount,
+                pImageMemoryBarriers = barriers
             };
             GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier2(cmdBuffer, &info);
         }

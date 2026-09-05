@@ -39,7 +39,7 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void RenderSkybox(RendererFrameInfo frameInfo)
         {
-            if (SkyboxTexture == null || Cube == null) return;
+            if (SkyboxTexture == null || Cube == null||frameInfo.CameraCount == 0) return;
             var camera = ((SwapChainBuffer<CameraData>)EngineBuffers.TryGetBuffer(ShaderProperties.CameraDataId)).HostBuffer[frameInfo.MainCamera];
             _skybox.PushConstants.SetPushConstantUniform("viewProj",0, GetSkyboxMatrix(camera));
             _skybox.Bind(frameInfo);

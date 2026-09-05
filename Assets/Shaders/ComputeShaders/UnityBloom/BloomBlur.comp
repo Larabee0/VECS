@@ -1,0 +1,47 @@
+#version 460
+
+#extension GL_ARB_shading_language_include : require
+
+#include "UnityFunctions.glsl"
+layout (set = 0, binding = 0) uniform sampler2D srcTexture;
+layout (set = 0, binding = 1) uniform writeonly image2D dstTexture;
+
+layout (set = 0, binding = 2)  uniform Constants{
+    vec2 outputImageSize; // texel size
+} constants;
+
+#include "bloom_blur_common.glsl"
+
+layout(local_size_x = 8, local_size_y = 8) in;
+void main()
+{
+    // Upper-left pixel coordinate of quad that this thread will read
+    ivec2 threadUL = ((ivec2(gl_LocalInvocationID.xy) << ivec2(1)) + (ivec2(gl_WorkGroupID.xy) << ivec2(3)) + ivec2(-4));
+    
+    uvec2 uthreadUL = max(ivec2(0), threadUL);
+    uvec2 size = uvec2(constants.outputImageSize) - 1u;
+    vec3 p00 = texelFetch(srcTexture,ivec2(min(uthreadUL + uvec2(0u, 0u), size)),0).rgb;
+    vec3 p10 = texelFetch(srcTexture,ivec2(min(uthreadUL + uvec2(1u, 0u), size)),0).rgb;
+    vec3 p11 = texelFetch(srcTexture,ivec2(min(uthreadUL + uvec2(1u, 1u), size)),0).rgb;
+    vec3 p01 = texelFetch(srcTexture,ivec2(min(uthreadUL + uvec2(0u, 1u), size)),0).rgb;
+
+    // Store the 4 downsampled pixels in LDS
+    uint destIdx = uint(gl_LocalInvocationID.x) + (uint(gl_LocalInvocationID.y) << 4u);
+    Store2Pixels(destIdx     , p00, p10);
+    Store2Pixels(destIdx + 8u, p01, p11);
+
+    groupMemoryBarrier();
+    memoryBarrierShared();
+    barrier();
+
+    // Horizontally blur the pixels in LDS
+    uint row = gl_LocalInvocationID.y << 4u;
+    BlurHorizontally(row + (uint(gl_LocalInvocationID.x) << 1u), row + uint(gl_LocalInvocationID.x) + (uint(gl_LocalInvocationID.x) & 4u));
+
+    groupMemoryBarrier();
+    memoryBarrierShared();
+    barrier();
+
+    // Vertically blur the pixels in LDS and write the result to memory
+    BlurVertically(uvec2(gl_GlobalInvocationID.xy), (uint(gl_LocalInvocationID.y) << 3u) + uint(gl_LocalInvocationID.x));
+}

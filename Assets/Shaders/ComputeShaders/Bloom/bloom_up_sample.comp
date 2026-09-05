@@ -1,0 +1,65 @@
+#version 460
+
+layout (set = 0, binding = 0) uniform sampler2D srcLowTexture;
+layout (set = 0, binding = 1, rgba32f) uniform image2D srcHighTexture;
+layout (set = 0, binding = 2) uniform writeonly image2D dstTexture;
+
+layout (set = 0, binding = 3) uniform Constants{
+    vec2 outputImageSize;
+    float filterRadius;
+} constants;
+
+float inverseLerp(float a, float b, float value)
+{
+    return a != b ? (value - a) / (b - a) : 0;
+}
+
+layout(local_size_x = 8, local_size_y = 8) in;
+void main()
+{
+	uvec2 outPos = gl_GlobalInvocationID.xy;
+	if(outPos.x > constants.outputImageSize.x || outPos.y > constants.outputImageSize.y){
+        return;
+    }
+    // The filter kernel is applied with a radius, specified in texture
+    // coordinates, so that the radius will vary across mip resolutions.
+    float x = constants.filterRadius;
+    float y = constants.filterRadius;
+    
+    vec2 texCoord = vec2(0);
+    vec2 outPosF = vec2(outPos);
+    ivec2 outPosI = ivec2(outPos);
+    texCoord.x = inverseLerp(0, constants.outputImageSize.x - 1, outPosF.x);
+    texCoord.y = inverseLerp(0, constants.outputImageSize.y - 1, outPosF.y);
+
+    // Take 9 samples around current texel:
+    // a - b - c
+    // d - e - f
+    // g - h - i
+    // === ('e' is the current texel) ===
+    vec3 a = texture(srcLowTexture, vec2(texCoord.x - x, texCoord.y + y)).rgb;
+    vec3 b = texture(srcLowTexture, vec2(texCoord.x,     texCoord.y + y)).rgb;
+    vec3 c = texture(srcLowTexture, vec2(texCoord.x + x, texCoord.y + y)).rgb;
+
+    vec3 d = texture(srcLowTexture, vec2(texCoord.x - x, texCoord.y)).rgb;
+    vec3 e = texture(srcLowTexture, vec2(texCoord.x,     texCoord.y)).rgb;
+    vec3 f = texture(srcLowTexture, vec2(texCoord.x + x, texCoord.y)).rgb;
+
+    vec3 g = texture(srcLowTexture, vec2(texCoord.x - x, texCoord.y - y)).rgb;
+    vec3 h = texture(srcLowTexture, vec2(texCoord.x,     texCoord.y - y)).rgb;
+    vec3 i = texture(srcLowTexture, vec2(texCoord.x + x, texCoord.y - y)).rgb;
+
+    // Apply weighted distribution, by using a 3x3 tent filter:
+    //  1   | 1 2 1 |
+    // -- * | 2 4 2 |
+    // 16   | 1 2 1 |
+    vec3 upsample = e*4.0;
+    upsample += (b+d+f+h)*2.0;
+    upsample += (a+c+g+i);
+    upsample *= 1.0 / 16.0;
+
+    
+    upsample = imageLoad(srcHighTexture,outPosI).rgb + upsample;
+
+    imageStore(dstTexture, outPosI, vec4(upsample,1.0));
+}

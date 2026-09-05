@@ -32,6 +32,7 @@ namespace VECS
         private Bloom _bloom;
         private SMAA _smaa;
         private SSAO _ssao;
+        private UnityPhyBloom _phyBloom;
 
         private DepthOnlyQueue _depthOnlyQueue;
         private DeferredQueue _deferredQueue;
@@ -39,7 +40,7 @@ namespace VECS
 
         private static ComputeVariant _deferredComposite;
 
-        public static readonly VkFormat[] Colours = [VkFormat.R16G16B16A16Sfloat, VkFormat.R32G32B32A32Sfloat];
+        public static readonly VkFormat[] Colours = [VkFormat.R32G32B32A32Sfloat, VkFormat.R32G32B32A32Sfloat];
         public VkFormat[] ColourFormats => Colours;
 
         public VkFormat DepthFormat => PreferredFormats.LOW_PRECISION_DEPTH_ONLY;
@@ -133,15 +134,12 @@ namespace VECS
                 "SpotLightShadowAttachments"],
                 ["MainColourAttachment"], DeferredCompositePass);
 
-            RenderGraph.AddPass("ForwardDepthOnlyPass", PassType.Render,
-                ["DeferredCompositePass"],
-                ["MainDepthAttachment"],
-                ["MainDepthAttachment"], ForwadDepthPass);
             RenderGraph.AddPass("ForwardPass", PassType.Render,
                 ["ForwardDepthOnlyPass",
                     "SpotLightShadows",
                     "PointLightShadows",
-                    "DirectionalLightShadows"],
+                    "DirectionalLightShadows",
+                    "DeferredCompositePass"],
                 ["MainDepthAttachment", "DirectionalShadowAttachment", "PointLightShadowAttachments", "SpotLightShadowAttachments"],
                 ["MainColourAttachment", "BrightObjectAttachment",], ForwardPass);
 
@@ -165,6 +163,7 @@ namespace VECS
             _bloom = new(this);
             _smaa = new(this);
             _ssao = new(this);
+            _phyBloom = new(this);
             Skybox.StartSkybox();
             PBR.StartPBR();
 
@@ -174,6 +173,7 @@ namespace VECS
             _forwardQueue = new ForwardQueue("Forward");
             DrawBlob.AddQueue(_depthOnlyQueue);
             DrawBlob.AddQueue(_deferredQueue);
+            DrawBlob.AddQueue(_forwardQueue);
 
         }
 
@@ -196,6 +196,7 @@ namespace VECS
             _bloom?.RecreateRenderTargets();
             _smaa?.RecreateRenderTargets();
             _ssao?.RecreateRenderTargets();
+            _phyBloom?.RecreateRenderTargets();
             SetDeferredResources();
             _onScreenSizeChanged?.Invoke();
         }
@@ -224,7 +225,8 @@ namespace VECS
 
         public void PreRender()
         {
-            _ssao.SSAO_Toggle_Input();
+            SSAO.SSAO_Toggle_Input();
+            UnityPhyBloom.Bloom_Toggle_Input();
         }
 
         public unsafe void Render(RendererFrameInfo frameInfo, int imageIndex)
@@ -249,11 +251,16 @@ namespace VECS
             var extents = SwapChain.SwapChainExtent;
             GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "SwapChain Blit");
             BlitFromMainColour(frameInfo.CommandBuffer, SwapChain.MainSwapChainData.SwapChainImages[imageIndex], (int)extents.width, (int)extents.height, VkImageAspectFlags.Color);
+
             GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
         }
 
         private void ForwardPass(RendererFrameInfo frameInfo)
         {
+            if (_forwardQueue.CommandCount > 0)
+            {
+                DrawBlob.Cull(_forwardQueue, frameInfo, frameInfo.CullData);
+            }
             StartForwardRendering(frameInfo.CommandBuffer, VkAttachmentLoadOp.Load, false, false);
             if (_forwardQueue.CommandCount > 0)
             {
@@ -308,8 +315,8 @@ namespace VECS
                 depthBufferCullInfo.cullMode &= ~CullModeFlags.Depth;
                 GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Forward Depth Only");
                 DrawBlob.Cull(_forwardQueue, frameInfo, depthBufferCullInfo);
-                BeginDepthOnlyRendering(commandBuffer, _deferredQueue.CommandCount == 0 ? VkAttachmentLoadOp.Clear : VkAttachmentLoadOp.Load);
-                DrawBlob.Execute(_forwardQueue, frameInfo, DEPTH_ONLY_PUSH_CONSTANT_INDEX, VkCullModeFlags.Back);
+                BeginDepthOnlyRendering(commandBuffer, VkAttachmentLoadOp.Load);
+                //DrawBlob.Execute(_forwardQueue, frameInfo, DEPTH_ONLY_PUSH_CONSTANT_INDEX, VkCullModeFlags.Back);
                 GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
                 GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
 

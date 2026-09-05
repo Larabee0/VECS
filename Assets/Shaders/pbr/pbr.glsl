@@ -86,14 +86,15 @@ vec3 ambientComponent(
 	vec3 F0 = vec3(0.04); 
 	F0 = mix(F0, albedo, metalRoughness.r);
 
-	vec2 brdf = texture(samplerBRDFLUT, vec2(max(dot(normal, toCamera), 0.0), metalRoughness.g)).rg;
+    float dotProd = dot(normal, toCamera);
+	dotProd = isnan(dotProd) ? 0 : dotProd;
+	vec2 brdf = texture(samplerBRDFLUT, vec2(max(dotProd, 0.0), metalRoughness.g)).rg;
 	vec3 reflection = prefilteredReflection(prefilteredMap, reflect(-toCamera, normal), metalRoughness.g).rgb ;	
 	vec3 irradiance = texture(samplerIrradiance, normal).rgb;
     
 	// Diffuse based on irradiance
 	vec3 diffuse = irradiance * albedo;
-    
-	vec3 F = F_SchlickR(max(dot(normal, toCamera), 0.0), F0, metalRoughness.g);
+	vec3 F = F_SchlickR(max(dotProd, 0.0), F0, metalRoughness.g);
     
 	// Specular reflectance
 	vec3 specular = reflection * (F * brdf.x + brdf.y);

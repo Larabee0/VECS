@@ -71,7 +71,7 @@ namespace VECS
             VkImageSubresourceRange subresourceRange = texture.GetSubresourceRange();
 
             var existing = texture.ImageLayout;
-            texture.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.DepthAttachmentOptimal);
+            texture.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.TransferDstOptimal);
 
             GraphicsDevice.DeviceAPI.vkCmdClearDepthStencilImage(frameInfo.CommandBuffer, texture._vkImage, VkImageLayout.TransferDstOptimal, &clearValue, 1, &subresourceRange);
 

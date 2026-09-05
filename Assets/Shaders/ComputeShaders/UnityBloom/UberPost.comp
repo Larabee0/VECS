@@ -1,0 +1,38 @@
+#version 460
+
+#extension GL_ARB_shading_language_include : require
+
+#include "UnityFunctions.glsl"
+
+
+layout (set = 0, binding = 0) uniform sampler2D srcBloomTexture;
+layout (set = 0, binding = 1) uniform sampler2D srcMainTexture;
+layout (set = 0, binding = 2) uniform writeonly image2D dstTexture;
+
+layout (set = 0, binding = 3) uniform Constants{
+    vec4 bloomThreshold;
+    vec4 bloomTint;
+    vec2 outputImageSize;
+    float bloomStrength;
+} constants;
+
+vec2 ClampAndScaleUVForBilinearPostProcessTexture(vec2 UV)
+{
+    vec2 zw = vec2(1)/ constants.outputImageSize;
+    return ClampAndScaleUV(UV, zw, 0.5f, vec2(1.0));
+}
+
+layout(local_size_x = 8, local_size_y = 8) in;
+void main(){
+    vec2 zw = vec2(1)/ constants.outputImageSize;
+    PositionInputs posInputs = GetPositionInput(vec2(gl_GlobalInvocationID.xy), zw, uvec2(8, 8));
+
+    vec2 uvDistorted = posInputs.positionNDC.xy;
+    vec3 color = texture(srcMainTexture, ClampAndScaleUVForBilinearPostProcessTexture(uvDistorted)).rgb;
+    vec3 bloom = texture(srcBloomTexture, ClampAndScaleUVForBilinearPostProcessTexture(uvDistorted)).rgb;
+    
+    vec3 thresholdedColor = QuadraticThreshold(color.xyz, constants.bloomThreshold.x, constants.bloomThreshold.yzw);
+    color.xyz = mix(color.xyz, (color.xyz - thresholdedColor) + (bloom * constants.bloomTint.xyz), constants.bloomStrength);
+
+    imageStore(dstTexture, ivec2(posInputs.positionSS), vec4(color,1.0));
+}

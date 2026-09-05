@@ -110,6 +110,7 @@ namespace VECS
         public static void UpdateCameras(EntityManager entityManager, int frameIndex)
         {
             var cameras = entityManager.GetAllEntitiesWithComponent<Camera>();
+            if (cameras == null) return;
             var cameraCount = Math.Min(cameras.Count, Presenter.MAX_CAMERAS);
             int mainCamera = -1;
             Camera camera;

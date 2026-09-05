@@ -12,6 +12,8 @@ namespace VECS
         {
             AssetDataBase<Material>.AddOnAddedListener(OnMaterialAdded);
             AssetDataBase<Material>.AddOnRemovedListener(OnMaterialRemoved);
+
+            AssetDataBase<Material>.AllAssetsListForReading.ForEach(OnMaterialAdded);
         }
 
         private void OnMaterialAdded(Material newMaterial)

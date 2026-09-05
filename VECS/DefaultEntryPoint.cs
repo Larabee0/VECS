@@ -54,7 +54,7 @@ namespace VECS
             _sphere = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("UV-Sphere.obj"), null)[0];
             CreateMainCamera();
             DirectionalLight();
-            //PointLight();
+            PointLight();
             //SponzaOld();
             //SponzaNew();
             SponzaNewPBR();
@@ -134,19 +134,19 @@ namespace VECS
             
             
             PointLight(entityManager, new(-10, 1, 0), new(4, 0, 0, 1), _sphere);
-            PointLight(entityManager, new(10, 1f, 0), new(1, 0, 0, 1), _sphere);
-            
-            PointLight(entityManager, new(8, 1, 0), new(0, 1, 0, 1), _sphere);
-            PointLight(entityManager, new(-8, 1, 0), new(0, 1, 0, 1), _sphere);
-            
-            PointLight(entityManager, new(6, 1, 0), new(0, 0, 1, 1), _sphere);
-            PointLight(entityManager, new(-6, 1, 0), new(0, 0, 1, 1), _sphere);
-            
-            PointLight(entityManager, new(4, 1, 0), new(1, 1, 0, 1), _sphere);
-            PointLight(entityManager, new(-4, 1, 0), new(1, 1, 0, 1), _sphere);
-            
-            PointLight(entityManager, new(2, 1, 0), new(0, 1, 1, 1), _sphere);
-            PointLight(entityManager, new(-2, 1, 0), new(0, 1, 1, 1), _sphere);
+            // PointLight(entityManager, new(10, 1f, 0), new(1, 0, 0, 1), _sphere);
+            // 
+            // PointLight(entityManager, new(8, 1, 0), new(0, 1, 0, 1), _sphere);
+            // PointLight(entityManager, new(-8, 1, 0), new(0, 1, 0, 1), _sphere);
+            // 
+            // PointLight(entityManager, new(6, 1, 0), new(0, 0, 1, 1), _sphere);
+            // PointLight(entityManager, new(-6, 1, 0), new(0, 0, 1, 1), _sphere);
+            // 
+            // PointLight(entityManager, new(4, 1, 0), new(1, 1, 0, 1), _sphere);
+            // PointLight(entityManager, new(-4, 1, 0), new(1, 1, 0, 1), _sphere);
+            // 
+            // PointLight(entityManager, new(2, 1, 0), new(0, 1, 1, 1), _sphere);
+            // PointLight(entityManager, new(-2, 1, 0), new(0, 1, 1, 1), _sphere);
 
         }
 
@@ -174,11 +174,14 @@ namespace VECS
                 Resolution = 1365,
             });
 
-            entityManager.AddComponent(pointLight, new Scale() { Value = new Vector3(0.05f, 0.05f, 0.05f) });
+            entityManager.AddComponent(pointLight, new Scale() { Value = new Vector3(0.5f, 0.5f, 0.5f) });
 
-            entityManager.AddComponent<MainColour>(pointLight, new() { Value = diffuse });
+            entityManager.AddComponent<MainColour>(pointLight, new() { Value = diffuse*20f });
 
             AddRenderMeshComponents(pointLight,EnginePipes.Unlit.Default(), 0, subMesh, entityManager,RenderLayer.Default | RenderLayer.NoShadow);
+            MaterialProvider material = new("PointLightUnlit", EnginePipes.DepthOnly.Create("Unlit"), EnginePipes.Unlit.Default());
+            AssetDataBase<MaterialProvider>.Add(material);
+            entityManager.AddComponent(pointLight, new MaterialProviderComponent() { Value = material.Hash, LayerFlags = RenderLayer.Default | RenderLayer.NoShadow });
         }
 
         private static void ShadowDebug()

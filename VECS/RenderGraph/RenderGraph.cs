@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
@@ -16,8 +17,10 @@ namespace VECS
 
         private static bool Recompile = true;
 
+        private static int ImageMemoryBarrierStackSize;
 
         private static HashSet<string> RemovePasses = [];
+        private static HashSet<string> DisabledPasses = [];
 
 #if DEBUG
         private static string[] ExecutionOrderEnglish;
@@ -157,28 +160,48 @@ namespace VECS
 
         }
 
-        public static void Execute(RendererFrameInfo frameInfo)
+        public unsafe static void Execute(RendererFrameInfo frameInfo)
         {
             if (Recompile) Compile();
             VkCommandBuffer commandBuffer = frameInfo.CommandBuffer;
-            foreach(var passIndex in ExecutionOrder)
+            VkImageMemoryBarrier2* imageBarriers = stackalloc VkImageMemoryBarrier2[ImageMemoryBarrierStackSize];
+            uint imageBarrierCount;
+            ExecutionOrder.ForEach(passIndex =>
             {
                 var pass = Passes[passIndex];
+                if (DisabledPasses.Contains(pass.Name))
+                {
+                    return;
+                }
                 GraphicsDevice.BeginLabelCmd(commandBuffer, pass.Name);
+
+
+                imageBarrierCount = 0;
+                NativeMemory.Fill(imageBarriers, (uint)(sizeof(VkImageMemoryBarrier2) * ImageMemoryBarrierStackSize), 0);
                 pass.Inputs.ForEach(input =>
                 {
                     if (!Resources.TryGetValue(input, out var resource)) return;
-                    
+
                     switch (pass.PassType)
                     {
                         case PassType.Render:
-                            resource.Target.SetImageLayoutAuto(commandBuffer, resource.AttachmentInputLayout);
+                            if (resource.Target.ImageLayout != resource.AttachmentInputLayout)
+                            {
+                                imageBarriers[imageBarrierCount] = resource.Target.GetImageLayoutBarrierAuto(resource.AttachmentInputLayout);
+                                imageBarrierCount++;
+                                resource.Target.SetImageLayoutSilent(resource.AttachmentInputLayout);
+                            }
                             break;
                         case PassType.Compute:
-                            resource.Target.SetImageLayoutAuto(commandBuffer, resource.ComputeInputLayout);
+                            if (resource.Target.ImageLayout != resource.ComputeInputLayout)
+                            {
+                                imageBarriers[imageBarrierCount] = resource.Target.GetImageLayoutBarrierAuto(resource.ComputeInputLayout);
+                                imageBarrierCount++;
+                                resource.Target.SetImageLayoutSilent(resource.ComputeInputLayout);
+                            }
                             break;
                     }
-                    
+
                 });
 
                 pass.Outputs.ForEach(output =>
@@ -187,32 +210,58 @@ namespace VECS
                     switch (pass.PassType)
                     {
                         case PassType.Render:
-                            resource.Target.SetImageLayoutAuto(commandBuffer, resource.AttachmentOutputLayout);
+                            if (resource.Target.ImageLayout != resource.AttachmentOutputLayout)
+                            {
+                                imageBarriers[imageBarrierCount] = resource.Target.GetImageLayoutBarrierAuto(resource.AttachmentOutputLayout);
+                                imageBarrierCount++;
+                                resource.Target.SetImageLayoutSilent(resource.AttachmentOutputLayout);
+                            }
                             break;
                         case PassType.Compute:
-                            resource.Target.SetImageLayoutAuto(commandBuffer, resource.ComputeOutputLayout);
+                            if (resource.Target.ImageLayout != resource.ComputeOutputLayout)
+                            {
+                                imageBarriers[imageBarrierCount] = resource.Target.GetImageLayoutBarrierAuto(resource.ComputeOutputLayout);
+                                imageBarrierCount++;
+                                resource.Target.SetImageLayoutSilent(resource.ComputeOutputLayout);
+                            }
                             break;
                     }
                 });
+
+                MemoryBarrierHelper.ImageMemoryBarrier(commandBuffer, imageBarriers, imageBarrierCount);
 
                 pass.ExecuteFunc(frameInfo);
 
+                imageBarrierCount = 0;
+                NativeMemory.Fill(imageBarriers, (uint)(sizeof(VkImageMemoryBarrier2) * ImageMemoryBarrierStackSize), 0);
                 pass.Outputs.ForEach(output =>
                 {
                     if (!Resources.TryGetValue(output, out var resource)) return;
                     switch (pass.PassType)
                     {
                         case PassType.Render:
-                            resource.Target.SetImageLayoutAuto(commandBuffer, resource.AttachmentInputLayout);
+                            if (resource.Target.ImageLayout != resource.AttachmentInputLayout)
+                            {
+                                imageBarriers[imageBarrierCount] = resource.Target.GetImageLayoutBarrierAuto(resource.AttachmentInputLayout);
+                                imageBarrierCount++;
+                                resource.Target.SetImageLayoutSilent(resource.AttachmentInputLayout);
+                            }
                             break;
                         case PassType.Compute:
-                            resource.Target.SetImageLayoutAuto(commandBuffer, resource.ComputeInputLayout);
+                            if (resource.Target.ImageLayout != resource.ComputeInputLayout)
+                            {
+                                imageBarriers[imageBarrierCount] = resource.Target.GetImageLayoutBarrierAuto(resource.ComputeInputLayout);
+                                imageBarrierCount++;
+                                resource.Target.SetImageLayoutSilent(resource.ComputeInputLayout);
+                            }
                             break;
                     }
                 });
 
+                MemoryBarrierHelper.ImageMemoryBarrier(commandBuffer, imageBarriers, imageBarrierCount);
+
                 GraphicsDevice.EndLabelCmd(commandBuffer);
-            }
+            });
         }
 
 
@@ -296,13 +345,15 @@ namespace VECS
                 visited[node] = true;
                 executionOrder.Add(node);
             }
-
+            ImageMemoryBarrierStackSize = 0;
             for (int i = 0; i < passes.Count; i++)
             {
                 if (!visited[i])
                 {
                     Visit(i, executionOrder);
                 }
+
+                ImageMemoryBarrierStackSize = Math.Max(ImageMemoryBarrierStackSize,Math.Max(passes[i].Inputs.Count, passes[i].Outputs.Count));
             }
         }
 
@@ -340,5 +391,27 @@ namespace VECS
             RemovePasses.Add(passName);
             Recompile = true;
         }
+
+        internal static void DisablePass(string passName)
+        {
+            DisabledPasses.Add(passName);
+        }
+
+        internal static void EnablePass(string passName)
+        {
+            DisabledPasses.Remove(passName);
+        }
+
+        internal static void DisablePasses(string[] passes)
+        {
+            DisabledPasses.UnionWith(passes);
+        }
+
+
+        internal static void EnablePasses(string[] passes)
+        {
+            DisabledPasses.ExceptWith(passes);
+        }
+
     }
 }

@@ -228,6 +228,7 @@ namespace VECS.LowLevel
 
         #region Labels Events
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void SetObjectName(VkObjectType objectType, ulong handle, string name)
         {
 #if DEBUG
@@ -235,6 +236,7 @@ namespace VECS.LowLevel
 #endif
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static unsafe void BeginLabelCmd(VkCommandBuffer commandBuffer, string label)
         {
 #if DEBUG
@@ -251,6 +253,7 @@ namespace VECS.LowLevel
 #endif
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void EndLabelCmd(VkCommandBuffer commandBuffer)
         {
 #if DEBUG
