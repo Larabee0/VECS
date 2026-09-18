@@ -9,13 +9,21 @@ namespace VECS
         Compute
     }
 
+    [Flags]
     public enum PassCategory
     {
-        Opaque,
-        Transparent,
-        AntiAliasing,
-        PostProcessing,
-        UI
+        None = 0,
+        FixedMap = 1,
+        PreRendering = 2,
+        Opaque = 4,
+        Transparent = 8,
+        PostRendering = 16,
+        PostProcessing = 32,
+        UI = 64,
+        All = FixedMap | PreRendering | Opaque | Transparent | PostRendering | PostProcessing | UI,
+
+        MainView = PreRendering | Opaque | Transparent | PostRendering | PostProcessing | UI,
+        SecondaryView = PreRendering | Opaque | Transparent | PostRendering,
     }
 
     public class RenderPass

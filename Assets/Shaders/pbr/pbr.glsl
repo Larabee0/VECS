@@ -87,7 +87,7 @@ vec3 ambientComponent(
 	F0 = mix(F0, albedo, metalRoughness.r);
 
     float dotProd = dot(normal, toCamera);
-	dotProd = isnan(dotProd) ? 0 : dotProd;
+	
 	vec2 brdf = texture(samplerBRDFLUT, vec2(max(dotProd, 0.0), metalRoughness.g)).rg;
 	vec3 reflection = prefilteredReflection(prefilteredMap, reflect(-toCamera, normal), metalRoughness.g).rgb ;	
 	vec3 irradiance = texture(samplerIrradiance, normal).rgb;

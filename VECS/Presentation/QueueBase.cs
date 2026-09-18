@@ -33,6 +33,8 @@ namespace VECS
         protected int _queueIndexer;
         protected int _queueCount;
 
+        protected uint _targetCamera;
+
         internal int _commandBufferOffset;
 
         public int CommandCount => _queueCount;
@@ -241,22 +243,27 @@ namespace VECS
             }
         }
 
-        internal void ExecuteDraws(SwapChainBuffer<VECSDrawIndexIndirectCommand> indirectCmds,RendererFrameInfo frameInfo, int pushConstantIndex, VkCullModeFlags cullMode)
+        internal virtual void SetTargetCamera(int cameraIndex)
         {
-            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, string.Format("Draw {0} Queue", AssetName));
+            _targetCamera = (uint)Math.Max(0, cameraIndex);
+        }
+
+        internal void ExecuteDraws(SwapChainBuffer<VECSDrawIndexIndirectCommand> indirectCmds,VkCommandBuffer commandBuffer, int pushConstantIndex, VkCullModeFlags cullMode)
+        {
+            GraphicsDevice.BeginLabelCmd(commandBuffer, string.Format("Draw {0} Queue", AssetName));
             // draw batches/draw calls do not align
             foreach (var drawCall in _drawBatches)
             {
                 var region = drawCall.Value;
                 var pipeline = AssetDataBase<GraphicsPipeline>.GetHashed(drawCall.Key);
                 var cmds = _drawCalls.AsSpan(region.StartIndex, region.Count);
-
-                pipeline.ExecuteDrawCommandsPushConstantOverride(frameInfo, pushConstantIndex, frameInfo.CommandBuffer, cmds, region.Count, indirectCmds, cullMode);
+                pipeline.PushConstants.SetPushConstantUInt("cameraIndex", pushConstantIndex, _targetCamera);
+                pipeline.ExecuteDrawCommandsPushConstantOverride(pushConstantIndex, commandBuffer, cmds, region.Count, indirectCmds, cullMode);
             }
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
+            GraphicsDevice.EndLabelCmd(commandBuffer);
         }
 
-        internal unsafe void Cull(RendererFrameInfo frameInfo, CullData cullData, SwapChainBuffer<VECSDrawIndexIndirectCommand> indirectCmdBuffer)
+        internal unsafe void Cull(VkCommandBuffer commandBuffer, CullData cullData, SwapChainBuffer<VECSDrawIndexIndirectCommand> indirectCmdBuffer)
         {
             if (_queueCount == 0) return;
             VkBufferMemoryBarrier2 barrier = new()
@@ -272,12 +279,12 @@ namespace VECS
                 dstStageMask = VkPipelineStageFlags2.ComputeShader,
             };
 
-            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, string.Format("Cull {0} Queue", AssetName));
+            GraphicsDevice.BeginLabelCmd(commandBuffer, string.Format("Cull {0} Queue", AssetName));
 
-            MemoryBarrierHelper.BufferMemoryBarrier(frameInfo.CommandBuffer, barrier, VkPipelineStageFlags2.DrawIndirect, VkPipelineStageFlags2.ComputeShader);
-            FustrumCull.Cull(frameInfo.CommandBuffer, Presenter.FrameIndex, cullData,(uint)_commandBufferOffset, (uint)_queueCount, indirectCmdBuffer, EngineBuffers.TryGetBuffer(ShaderProperties.BoundsBufferId));
+            MemoryBarrierHelper.BufferMemoryBarrier(commandBuffer, barrier, VkPipelineStageFlags2.DrawIndirect, VkPipelineStageFlags2.ComputeShader);
+            FustrumCull.Cull(commandBuffer, Presenter.FrameIndex, cullData, (uint)_commandBufferOffset, (uint)_queueCount, indirectCmdBuffer, EngineBuffers.TryGetBuffer(ShaderProperties.BoundsBufferId));
 
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
+            GraphicsDevice.EndLabelCmd(commandBuffer);
         }
     }
 }

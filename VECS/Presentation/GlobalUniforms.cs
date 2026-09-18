@@ -98,18 +98,9 @@ namespace VECS
         }
     }
 
-    [StructLayout(LayoutKind.Sequential, Size = 340)]
-    public struct DirectionalLightUniform
+    [StructLayout(LayoutKind.Sequential, Size = 280)]
+    public struct DirectionalLightShadowUniform
     {
-        public Vector4 Direction;
-
-        [HideInInspector]
-        public Vector4 CascadeSplits;
-
-        public Vector4 Ambient;
-        public Vector4 Diffuse;
-        public Vector4 Specular;
-
         [HideInInspector]
         public Matrix4x4 LightSpaceA;
         [HideInInspector]
@@ -118,10 +109,15 @@ namespace VECS
         public Matrix4x4 LightSpaceC;
         [HideInInspector]
         public Matrix4x4 LightSpaceD;
+        [HideInInspector]
+        public Vector4 CascadeSplits;
+
 
         [HideInInspector]
         public int CascadeCount;
 
+        [HideInInspector]
+        public int LightIndex;
 
         public Matrix4x4 this[int index]
         {
@@ -157,6 +153,17 @@ namespace VECS
                 }
             }
         }
+    }
+
+
+    [StructLayout(LayoutKind.Sequential, Size = 64)]
+    public struct DirectionalLightUniform
+    {
+        public Vector4 Direction;
+        public Vector4 Ambient;
+        public Vector4 Diffuse;
+        public Vector4 Specular;
+
     }
 
     [StructLayout(LayoutKind.Sequential, Size = 464)]

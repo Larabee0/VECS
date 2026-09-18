@@ -1,7 +1,9 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Threading;
 using Vortice.Vulkan;
 
 namespace VECS.LowLevel
@@ -53,7 +55,7 @@ namespace VECS.LowLevel
 
         private static VkCommandBuffer[] _mainPipeCommandBuffers;
 
-        internal static VkCommandPool[] _secondaryMainPipeCommandBuffers;
+        private static readonly ConcurrentDictionary<int, SecondaryCommandBufferManager> _secondaryCommandBuffers = new(Environment.ProcessorCount, Environment.ProcessorCount);
 
 
         public static VkPhysicalDeviceProperties PropertiesVK10 { get; internal set; }
@@ -77,7 +79,6 @@ namespace VECS.LowLevel
         public static VkCommandPool MainCommandPool => _commandPoolMain;
 
         public static VkCommandBuffer[] MainPipeCommandBuffers => _mainPipeCommandBuffers;
-        public static VkCommandPool[] SecondaryMainPipeCommandBuffers => _secondaryMainPipeCommandBuffers;
 
         public static VkInstance VkInstance => _instance;
         public static SwapChainSupportDetails SwapChainSupport  { get; internal set; }
@@ -121,6 +122,35 @@ namespace VECS.LowLevel
 
         #region For Extneral use
 
+
+        public static VkCommandBuffer GetSecondaryCommandBuffer()
+        {
+            var thread = Environment.CurrentManagedThreadId;
+
+            SecondaryCommandBufferManager secondaryCommandBufferManager = _secondaryCommandBuffers.GetOrAdd(thread, (key) => new SecondaryCommandBufferManager());
+
+            secondaryCommandBufferManager.AllocateCommandBuffers();
+
+            unsafe
+            {
+                return secondaryCommandBufferManager.CommandBuffers[Presenter.FrameIndex];
+            }
+        }
+
+        public unsafe static void BeginSecondaryCommandBuffer(VkCommandBuffer commandBuffer)
+        {
+
+            VkCommandBufferInheritanceInfo inheritanceInfo = new();
+
+
+            VkCommandBufferBeginInfo begininfo = new()
+            {
+                pInheritanceInfo = &inheritanceInfo,
+                flags = VkCommandBufferUsageFlags.SimultaneousUse
+            };
+            _deviceApi.vkBeginCommandBuffer(commandBuffer, &begininfo);
+        }
+
         internal static unsafe void CreateCommandBuffers()
         {
             _mainPipeCommandBuffers = new VkCommandBuffer[SwapChain.MAX_CONCURRENT_FRAMES];
@@ -136,23 +166,24 @@ namespace VECS.LowLevel
             {
                 _deviceApi.vkAllocateCommandBuffers(&allocInfo, pCommandBuffers).CheckResult("Failed to allocate main command buffers");
             }
+            
         }
 
         internal static unsafe void FreeCommandBuffers()
         {
             if (_mainPipeCommandBuffers != null)
             {
-                for (int i = 0; i < _secondaryMainPipeCommandBuffers.Length; i++)
-                {
-                    _deviceApi.vkResetCommandPool(_secondaryMainPipeCommandBuffers[i], VkCommandPoolResetFlags.ReleaseResources);
-                }
-
                 fixed (VkCommandBuffer* pCommandBuffers = &_mainPipeCommandBuffers[0])
                 {
                     _deviceApi.vkFreeCommandBuffers(MainCommandPool, (uint)_mainPipeCommandBuffers.Length, pCommandBuffers);
                 }
 
                 _mainPipeCommandBuffers = null;
+
+                foreach (var pair in _secondaryCommandBuffers)
+                {
+                    pair.Value.FreeCommandBuffers();
+                }
             }
         }
 
@@ -271,11 +302,10 @@ namespace VECS.LowLevel
 
             FreeCommandBuffers();
 
-            for (int i = 0; i < _secondaryMainPipeCommandBuffers.Length; i++)
+            foreach (var pair in _secondaryCommandBuffers)
             {
-                _deviceApi.vkDestroyCommandPool(_secondaryMainPipeCommandBuffers[i]);
+                pair.Value.Dispose();
             }
-
             _deviceApi.vkDestroyCommandPool(_commandPoolMain);
             Vma.vmaDestroyAllocator(_allocator);
             _deviceApi.vkDestroyDevice();

@@ -104,15 +104,33 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void SetPushConstantFloat(this PushConstantsHandler handler, int propertyId, int instanceIndex, float value)
+        {
+            WriteToPushConstantBuffer(handler, propertyId, instanceIndex, value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void SetPushConstantVector2(this PushConstantsHandler handler, string property, int instanceIndex, Vector2 value)
         {
             WriteToPushConstantBuffer(handler, property, instanceIndex, value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void SetPushConstantVector2(this PushConstantsHandler handler, int propertyId, int instanceIndex, Vector2 value)
+        {
+            WriteToPushConstantBuffer(handler, propertyId, instanceIndex, value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void SetPushConstantVector4(this PushConstantsHandler handler, string property, int instanceIndex, Vector4 value)
         {
             WriteToPushConstantBuffer(handler, property, instanceIndex, value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void SetPushConstantVector4(this PushConstantsHandler handler, int propertyId, int instanceIndex, Vector4 value)
+        {
+            WriteToPushConstantBuffer(handler, propertyId, instanceIndex, value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -136,9 +154,15 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void WriteToPushConstantBuffer<T>(PushConstantsHandler handler, string property, int instanceIndex, T value) where T : unmanaged
         {
+            WriteToPushConstantBuffer<T>(handler,property.GetShaderPropertyId(), instanceIndex, value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void WriteToPushConstantBuffer<T>(PushConstantsHandler handler, int propertyId, int instanceIndex, T value) where T : unmanaged
+        {
             for (int i = 0; i < handler.Count; i++)
             {
-                if (handler.PushConstantsInfo[i].WriteToPushConstantBuffer(handler.GetPushConstantInstance(instanceIndex, i), property, value))
+                if (handler.PushConstantsInfo[i].WriteToPushConstantBuffer(propertyId, handler.GetPushConstantInstance(instanceIndex, i),  value))
                 {
                     break;
                 }

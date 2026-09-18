@@ -31,6 +31,7 @@ layout(push_constant) uniform InstanceInfo {
     int layerOffset;
     int layerCount;
     int bufferSelect;
+	uint cameraIndex;
 } instanceInfo;
 
 mat4 getTransform(int bufferSelect, int bufferOffset) {
@@ -54,10 +55,10 @@ void main()
     int bufferSelect = instanceInfo.bufferSelect;
     int layerOffset = instanceInfo.layerOffset;
     int layerCount = instanceInfo.layerCount;
-    int bufferOffset = instanceInfo.matrixStartIndex;
+    int bufferOffset = max(instanceInfo.matrixStartIndex,int(instanceInfo.cameraIndex));
     mat4 transformMatrix = getTransform(bufferSelect, bufferOffset);
     
-    gl_Position = transformMatrix *(objectMat.modelMatrix * vec4(inPos, 1.0));
+    gl_Position = transformMatrix * (objectMat.modelMatrix * vec4(inPos, 1.0));
     fragUV = uv;
 }  
 

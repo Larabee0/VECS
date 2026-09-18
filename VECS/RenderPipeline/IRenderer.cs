@@ -1,4 +1,5 @@
-﻿using Vortice.Vulkan;
+﻿using System.Numerics;
+using Vortice.Vulkan;
 
 namespace VECS
 {
@@ -10,6 +11,8 @@ namespace VECS
         public VkFormat StencilFormat { get; }
 
         public RenderTarget MainColourAttachment { get; }
+        public RenderTarget PostProcessingAttachment { get; }
+        public VkExtent2D MainRenderingAttachmentsSize { get; }
         
         public void PostCreate();
         public void ScreenSizeChanged();
@@ -19,6 +22,13 @@ namespace VECS
 
         public void StartForwardRendering(RendererFrameInfo frameInfo, VkAttachmentLoadOp loadOp);
         public void EndForwardRendering(RendererFrameInfo frameInfo);
+
+
+        public void BlitFromPostProcessingColour(VkCommandBuffer commandBuffer, VkImage dst, int dstWidth, int dstHeight, VkImageAspectFlags dstAspectMask);
+        public void BlitFromMainColour(VkCommandBuffer commandBuffer, VkImage dst, int dstWidth, int dstHeight, VkImageAspectFlags dstAspectMask);
+
+        public void BlitFromMainColour(VkCommandBuffer commandBuffer, VkRect2D srcRect, VkImage dst, VkRect2D dstRect, VkImageAspectFlags dstAspectMask);
+
 
         public static RenderTarget CreateOrUpdateRT(RenderTarget target, string name, int shaderPropertyId, VkExtent2D extent, VkFormat format)
         {
@@ -97,7 +107,7 @@ namespace VECS
                 target = new(defintion, extent);
                 EngineTextures.AddOrUpdateTexture(defintion.ShaderPropertyId, (SingleTexture)target.Target);
             }
-            else
+            else if(target.Target.Width != (int)extent.width || target.Target.Height != (int)extent.height)
             {
                 target.Resize((int)extent.width, (int)extent.height);
             }
@@ -108,5 +118,6 @@ namespace VECS
         {
             target.Resize((int)newExtent.width, (int)newExtent.height);
         }
+
     }
 }

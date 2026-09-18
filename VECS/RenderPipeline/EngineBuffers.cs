@@ -16,6 +16,7 @@ namespace VECS
 
 
         private readonly static SwapChainBuffer LightingInfoBuffer;
+        internal readonly static SwapChainBuffer<DirectionalLightShadowUniform> DirectionalLightShadowBuffer;
         internal readonly static SwapChainBuffer<DirectionalLightUniform> DirectionalLightBuffer;
         internal readonly static SwapChainBuffer<PointLightUniform> PointLightBuffer;
         internal readonly static SwapChainBuffer<SpotLightUniform> SpotLightBuffer;
@@ -71,22 +72,24 @@ namespace VECS
 
         static unsafe EngineBuffers()
         {
-            CameraDataBuffer = new(Presenter.MAX_CAMERAS * 2, BufferUsageFlags, true);
+            CameraDataBuffer = new(Presenter.MAX_CAMERAS * 20, BufferUsageFlags, true);
 
             LightingInfoBuffer = new(1, GPUBufferExtensions.GetAlignment((uint)sizeof(LightingInfo), VkBufferUsageFlags.UniformBuffer), VkBufferUsageFlags.UniformBuffer, true);
-            DirectionalLightBuffer = new(1, BufferUsageFlags, true);
+            DirectionalLightShadowBuffer = new(Presenter.MAX_CAMERAS * 20, BufferUsageFlags, true);
+            DirectionalLightBuffer = new(10, BufferUsageFlags, true);
             PointLightBuffer = new(PointLightShadows.MAX_POINT_LIGHT_SHADOW_CASTERS, BufferUsageFlags, true);
             SpotLightBuffer = new(SpotLightShadows.MAX_SPOT_LIGHT_SHADOW_CASTERS, BufferUsageFlags, true);
 
 
 
-            DirectionalLightMatsBuffer = new(DirectionalLightShadows.MAX_CASCADE_COUNT, BufferUsageFlags, true);
+            DirectionalLightMatsBuffer = new(Presenter.MAX_CAMERAS * 20 * DirectionalLightShadows.MAX_CASCADE_COUNT, BufferUsageFlags, true);
             PointLightMatsBuffer = new(PointLightShadows.MAX_POINT_LIGHT_SHADOW_CASTERS * 6, BufferUsageFlags, true);
             SpotLightMatsBuffer = new(SpotLightShadows.MAX_SPOT_LIGHT_SHADOW_CASTERS, BufferUsageFlags, true);
 
             CameraDataBuffer.SetDebugName("CameraDataBuffer");
 
             LightingInfoBuffer.SetDebugName("LightingInfoBuffer");
+            DirectionalLightShadowBuffer.SetDebugName("DirectionaLightShadowBuffer");
             DirectionalLightBuffer.SetDebugName("DirectionalLightBuffer");
             PointLightBuffer.SetDebugName("PointLightBuffer");
             SpotLightBuffer.SetDebugName("SpotLightBuffer");
@@ -99,6 +102,7 @@ namespace VECS
 
             AddEngineBuffer(ShaderProperties.LightingInfoId, LightingInfoBuffer);
             AddEngineBuffer(ShaderProperties.DirectionalLightsBufferId, DirectionalLightBuffer);
+            AddEngineBuffer(ShaderProperties.DirectionalLightShadowBufferId, DirectionalLightShadowBuffer);
             AddEngineBuffer(ShaderProperties.PointLightsBufferId, PointLightBuffer);
             AddEngineBuffer(ShaderProperties.SpotLightsBufferId, SpotLightBuffer);
 
@@ -112,17 +116,12 @@ namespace VECS
             var cameras = entityManager.GetAllEntitiesWithComponent<Camera>();
             if (cameras == null) return;
             var cameraCount = Math.Min(cameras.Count, Presenter.MAX_CAMERAS);
-            int mainCamera = -1;
             Camera camera;
             CameraOrthographic orthCam;
             for (int i = 0; i < cameraCount; i++)
             {
                 var entity = cameras[i];
                 camera = entityManager.GetComponent<Camera>(entity);
-                if (mainCamera == -1 && entityManager.HasComponent<MainCamera>(entity))
-                {
-                    mainCamera = i;
-                }
                 if (entityManager.HasComponent<CameraPerspective>(entity))
                 {
                     CameraDataBuffer.HostBuffer[i] = new(camera);
@@ -163,6 +162,7 @@ namespace VECS
             Buffer.MemoryCopy(&lightingInfo, LightingInfoBuffer.HostPtr, LightingInfoBuffer.InstanceSize32, sizeof(LightingInfo));
             LightingInfoBuffer.SetBuffersDirty(true);
             GPUBufferExtensions.WriteFromHostDelayed(LightingInfoBuffer, frameIndex);
+            GPUBufferExtensions.WriteFromHostDelayed(DirectionalLightBuffer, frameIndex);
             return lightingInfo;
         }
 
@@ -170,6 +170,7 @@ namespace VECS
         {
             CameraDataBuffer.Dispose();
 
+            DirectionalLightShadowBuffer.Dispose();
             LightingInfoBuffer.Dispose();
             DirectionalLightBuffer.Dispose();
             PointLightBuffer.Dispose();

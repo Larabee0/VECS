@@ -2,23 +2,19 @@
 
 #extension GL_ARB_shading_language_include : require
 
+#include "../compute_texture_functions.glsl"
 #include "UnityFunctions.glsl"
 layout (set = 0, binding = 0) uniform sampler2D srcTexture;
 layout (set = 0, binding = 1) uniform writeonly image2D dstTexture;
 
-layout (set = 0, binding = 2)  uniform Constants{
+layout (push_constant)  uniform Constants{
     vec4 outputImageSize; // texel size
+    vec4 srcResolution; // screen size
     // vec4 screenSize; // main colour attachment screen size (srcTexture) raw pixels = xy | 1/raw pixels = zw
     // vec4 postProcessScreenSize; // main colour attachment screen size (srcTexture) raw pixels = xy | 1/raw pixels = zw
     // vec4 postProcessScale; // 1, 1, 1, 1
     vec4 bloomThreshold; // 0.0, -1.0*10-5, 0.00002, 25000.0
-    vec2 srcResolution; // screen size
 } constants;
-
-vec2 ClampAndScaleUVForBilinearPostProcessTexture(vec2 uv){
-    //return ClampAndScaleUV(uv,_screenSize.zw,0.5,postProcessScale.xy);
-    return ClampAndScaleUV(uv, vec2(1.0)/constants.srcResolution, 0.5, vec2(1));
-}
 
 float Luminance(vec3 linearRgb)
 {
@@ -28,7 +24,7 @@ float Luminance(vec3 linearRgb)
 vec3 BilinearSample(vec2 uv, vec2 offset, out float weight)
 {
     //vec3 c = texture(srcTexture, s_linear_clamp_sampler, ClampAndScaleUVForBilinearPostProcessTexture(uv + offset * _PostProcessScreenSize.zw), 0.0).rgb;
-    vec3 c = texture(srcTexture, ClampAndScaleUVForBilinearPostProcessTexture(uv + offset * (vec2(1.0)/constants.srcResolution))).xyz;
+    vec3 c = texture(srcTexture, ClampAndScaleUVForBilinearPostProcessTexture(uv + offset * (constants.srcResolution.zw), constants.srcResolution.zw)).xyz;
 
     //c.xyz = QuadraticThreshold(c.xyz, _BloomThreshold.x, _BloomThreshold.yzw);
     c.xyz = QuadraticThreshold(c.xyz, constants.bloomThreshold.x, constants.bloomThreshold.yzw);

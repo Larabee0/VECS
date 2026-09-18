@@ -100,8 +100,8 @@ namespace VECS.UI
             // RenderGraph.AddPass("NoesisBlit",
             //     PassType.Render, PassCategory.UI,
             //     ["NoesisInternal", "Bloom_Blur_Horizontal", "PhyBloomMix", "ForwardPass", "DeferredCompositePass", "TransaprentComposite", "SMAA_Output"],
-            //     ["NoesisAttachments", "MainColourAttachment", "BrightObjectAttachment"],
-            //     ["MainColourAttachment", "BrightObjectAttachment"],
+            //     ["NoesisAttachments", RenderGraph.MainColourAttachment],
+            //     [RenderGraph.MainColourAttachment],
             //     OutputUI);
         }
 

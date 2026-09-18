@@ -10,8 +10,9 @@ struct ObjectBounds{
 
 struct Node
 {
-    vec4 color;
     float depth;
+	uint rg;
+	uint ba;
     uint next;
 };
 

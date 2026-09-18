@@ -1,4 +1,5 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System;
+using System.Runtime.CompilerServices;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
@@ -274,7 +275,15 @@ namespace VECS
 
 
         }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public VkImageBlit GetBlitCmd(int dstWidth, int dstHeight, VkImageAspectFlags dstAspectMask)
+        {
+            return GetBlitCmd(new VkRect2D(0, 0, (uint)Target.Width, (uint)Target.Height),new(0,0, (uint)dstWidth, (uint)dstHeight), dstAspectMask);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public VkImageBlit GetBlitCmd(VkRect2D srcRect, VkRect2D dstRect, VkImageAspectFlags dstAspectMask)
         {
             VkImageBlit imageBlit = new()
             {
@@ -299,12 +308,18 @@ namespace VECS
                     mipLevel = 0
                 }
             };
-            imageBlit.srcOffsets[1].x = Target.Width;
-            imageBlit.srcOffsets[1].y = Target.Height;
+            imageBlit.srcOffsets[0].x = Math.Clamp(srcRect.offset.x, 0, Target.Width - 1);
+            imageBlit.srcOffsets[0].y = Math.Clamp(srcRect.offset.y, 0, Target.Height - 1);
+
+            imageBlit.srcOffsets[1].x = Math.Clamp((int)srcRect.extent.width, 1, Target.Width);
+            imageBlit.srcOffsets[1].y = Math.Clamp((int)srcRect.extent.height, 1, Target.Height);
             imageBlit.srcOffsets[1].z = 1;
 
-            imageBlit.dstOffsets[1].x = dstWidth;
-            imageBlit.dstOffsets[1].y = dstHeight;
+            imageBlit.dstOffsets[0].x = dstRect.offset.x;
+            imageBlit.dstOffsets[0].y = dstRect.offset.y;
+
+            imageBlit.dstOffsets[1].x = (int)dstRect.extent.width;
+            imageBlit.dstOffsets[1].y = (int)dstRect.extent.height;
             imageBlit.dstOffsets[1].z = 1;
 
             return imageBlit;

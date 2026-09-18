@@ -21,9 +21,6 @@ namespace VECS.ECS.Presentation
                 .WithAll(typeof(Camera), typeof(LocalToWorld))
                 .WithNone(typeof(Prefab), typeof(MainCamera))
                 .Build();
-
-            DebugDrawer.Reset();
-            DebugDrawer.AddToRenderGraph();
         }
 
         public override void OnPrePresent(EntityManager entityManager)
@@ -77,8 +74,6 @@ namespace VECS.ECS.Presentation
 
         public override void OnDestroy(EntityManager entityManager)
         {
-
-            DebugDrawer.CleanUp();
         }
     }
 }

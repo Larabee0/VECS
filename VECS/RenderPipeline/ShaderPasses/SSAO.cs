@@ -5,7 +5,7 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
-    public class SSAO
+    public class SSAO : IRenderPass
     {
         public static readonly int SSAO_RT_PropertyId = "ssao_Source".GetShaderPropertyId();
         public static readonly int SSAO_Blur_RT_PropertyId = "ssao_blur_Source".GetShaderPropertyId();
@@ -16,14 +16,6 @@ namespace VECS
 
         private readonly ComputeVariant _computeSSAOGenerate;
         private readonly ComputeVariant _computeSSAOBlur;
-
-        private readonly RenderTargetDefintion _ssaoRTDef = new("SSAO_RT", SSAO_RT_PropertyId, VkFormat.R8Unorm, -1,
-                VkImageUsageFlags.Storage,
-                VkImageLayout.ShaderReadOnlyOptimal,
-                VkImageLayout.ColorAttachmentOptimal,
-                VkImageLayout.General,
-                VkImageLayout.ShaderReadOnlyOptimal,
-                new(0, 0, 0, 0));
 
         private RenderTarget _ssaoRT;
 
@@ -49,7 +41,15 @@ namespace VECS
             _computeSSAOGenerate?.SetStorageBuffer(ShaderProperties.CameraDataId, EngineBuffers.TryGetBuffer(ShaderProperties.CameraDataId));
             _computeSSAOGenerate?.SetStorageBuffer(SSAO_Kernals_PropertyId, EngineBuffers.TryGetBuffer(SSAO_Kernals_PropertyId));
 
-            RenderGraph.AddResource(new("SSAO_BLUR_RT", SSAO_Blur_RT_PropertyId, VkFormat.R8Unorm, 0,
+            RenderGraph.AddResource(new("SSAO_RT", SSAO_RT_PropertyId, VkFormat.R8Unorm, -1,
+                VkImageUsageFlags.Storage,
+                VkImageLayout.ShaderReadOnlyOptimal,
+                VkImageLayout.ColorAttachmentOptimal,
+                VkImageLayout.General,
+                VkImageLayout.ShaderReadOnlyOptimal,
+                new(0, 0, 0, 0)));
+
+            RenderGraph.AddResource(new("SSAO_BLUR_RT", SSAO_Blur_RT_PropertyId, VkFormat.R8Unorm, -1,
                 VkImageUsageFlags.Storage,
                 VkImageLayout.ShaderReadOnlyOptimal,
                 VkImageLayout.ColorAttachmentOptimal,
@@ -57,27 +57,43 @@ namespace VECS
                 VkImageLayout.ShaderReadOnlyOptimal,
                 new(1, 1, 1, 1)));
 
-            RenderGraph.AddPass("SSAO_Generate", PassType.Compute, ["DeferredObjectsPass", "DeferredDepthOnlyPass", "SSAO_Clear"], ["G_PositionAttachment", "G_NormalAttachment", "MainDepthAttachment"], ["SSAO_RT"], GenerateSSAO);
-            RenderGraph.AddPass("SSAO_Blur", PassType.Compute, ["SSAO_Generate"], ["SSAO_RT"], ["SSAO_BLUR_RT"], BlurSSAO);
-            RenderGraph.AddPass("SSAO_Clear", PassType.Compute, ["DeferredObjectsPass", "DeferredDepthOnlyPass"], [""], ["SSAO_BLUR_RT"], ClearSSAO);
+        }
+
+        public void AddToRenderGraph()
+        {
+            RenderGraph.AddPass("SSAO_Generate", PassType.Compute, PassCategory.PostRendering, ["DeferredObjectsPass", "DeferredDepthOnlyPass", "SSAO_Clear"], ["G_PositionAttachment", "G_NormalAttachment", "MainDepthAttachment"], ["SSAO_RT"], GenerateSSAO);
+            RenderGraph.AddPass("SSAO_Blur", PassType.Compute, PassCategory.PostRendering, ["SSAO_Generate"], ["SSAO_RT"], ["SSAO_BLUR_RT"], BlurSSAO);
+            RenderGraph.AddPass("SSAO_Clear", PassType.Compute, PassCategory.PostRendering, ["DeferredObjectsPass", "DeferredDepthOnlyPass"], [""], ["SSAO_BLUR_RT"], ClearSSAO);
             RenderGraph.DisablePass("SSAO_Clear");
+        }
+
+        public void PrePresent()
+        {
+
         }
 
         public void RecreateRenderTargets()
         {
-            var windowExtents = Application.MainWindow.WindowExtent;
-            _ssaoRT = RenderGraph.GetResource("SSAO_RT");
-            _ssaoBlurRt = RenderGraph.GetResource("SSAO_BLUR_RT");
-            bool noRenderGraphResource = _ssaoRT == null;
-            _ssaoRT = IRenderer.CreateOrUpdateRT(_ssaoRT, _ssaoRTDef, new(windowExtents.width / 2, windowExtents.height / 2));
-            if (noRenderGraphResource)
-            {
-                RenderGraph.AddResource("SSAO_RT", _ssaoRT);
-            }
-
-            _computeSSAOGenerate.PushConstantsHandler.SetPushConstantVector2("outputImageSize", 0, new(windowExtents.width / 2, windowExtents.height / 2));
-            _computeSSAOBlur.PushConstantsHandler.SetPushConstantVector2("outputImageSize", 0, new(windowExtents.width, windowExtents.height));
+            var windowExtents = ActiveRenderer.MainRenderingAttachmentsSize;
+            _ssaoRT = RenderGraph.GetOrCreateResource("SSAO_RT", new(windowExtents.width / 2, windowExtents.height / 2));
+            _ssaoBlurRt = RenderGraph.GetOrCreateResource("SSAO_BLUR_RT",windowExtents);
+            SetImageSize(windowExtents);
             _SSAO_Cleared = false;
+        }
+
+        private void SetImageSize(VkExtent2D windowExtents)
+        {
+            Vector4 ssaoRTSize = new(windowExtents.width / 2, windowExtents.height / 2, 1.0f / (windowExtents.width / 2), 1.0f / (windowExtents.height / 2));
+            Vector4 ssaoBlurRTSize = new(windowExtents.width, windowExtents.height, 1.0f / windowExtents.width, 1.0f / windowExtents.height);
+            Vector2 scale = ssaoBlurRTSize.AsVector2() / new Vector2(_ssaoBlurRt.Target.Width, _ssaoBlurRt.Target.Height);
+            _computeSSAOGenerate.PushConstantsHandler.SetPushConstantVector4("srcImageSize", 0, ssaoBlurRTSize);
+            _computeSSAOGenerate.PushConstantsHandler.SetPushConstantVector4("outputImageSize", 0, ssaoRTSize);
+            _computeSSAOGenerate.PushConstantsHandler.SetPushConstantVector2("noiseScale", 0, new(windowExtents.width / 4, windowExtents.height / 4));
+            _computeSSAOGenerate.PushConstantsHandler.SetPushConstantVector2("renderScale", 0, scale);
+
+            _computeSSAOBlur.PushConstantsHandler.SetPushConstantVector4("srcImageSize", 0, ssaoRTSize);
+            _computeSSAOBlur.PushConstantsHandler.SetPushConstantVector4("outputImageSize", 0, ssaoBlurRTSize);
+            _computeSSAOBlur.PushConstantsHandler.SetPushConstantVector2("renderScale", 0, scale);
         }
 
         private static void GenerateResources()
@@ -120,13 +136,14 @@ namespace VECS
 
         private void GenerateSSAO(RendererFrameInfo frameInfo)
         {
-            _computeSSAOGenerate.PushConstantsHandler.SetPushConstantUInt("cameraIndex", 0, 0);
-            _computeSSAOGenerate.Dispatch(frameInfo.CommandBuffer, Presenter.FrameIndex, (uint)_ssaoRT.Target.Width, (uint)_ssaoRT.Target.Height);
+            SetImageSize(new(frameInfo.OutputRect.extent.width, frameInfo.OutputRect.extent.height));
+            _computeSSAOGenerate.PushConstantsHandler.SetPushConstantUInt("cameraIndex", 0, (uint)frameInfo.TargetCamera);
+            _computeSSAOGenerate.Dispatch(frameInfo.CommandBuffer, Presenter.FrameIndex, frameInfo.OutputRect.extent.width / 2, frameInfo.OutputRect.extent.height / 2);
         }
 
         private void BlurSSAO(RendererFrameInfo frameInfo)
         {
-            _computeSSAOBlur.Dispatch(frameInfo.CommandBuffer, Presenter.FrameIndex, (uint)_ssaoBlurRt.Target.Width, (uint)_ssaoBlurRt.Target.Height);
+            _computeSSAOBlur.Dispatch(frameInfo.CommandBuffer, Presenter.FrameIndex, frameInfo.OutputRect.extent.width, frameInfo.OutputRect.extent.height);
 
             _SSAO_Cleared = false;
         }
@@ -141,21 +158,18 @@ namespace VECS
             }
         }
 
-        public static void SSAO_Toggle_Input()
+        public void SetEnabled(bool enabled)
         {
-            if (InputManager.Instance.GetKeyUp(SDL3.SDL_Keycode.O))
+            if (enabled == SSAO_Enabled) return;
+            SSAO_Enabled = enabled;
+            if (SSAO_Enabled)
             {
-                SSAO_Enabled = !SSAO_Enabled;
-                Console.WriteLine("SSAO Enabled: {0}", SSAO_Enabled);
-                if (SSAO_Enabled)
-                {
-                    RenderGraph.EnablePasses(["SSAO_Blur", "SSAO_Generate"]);
-                }
-                else
-                {
-                    RenderGraph.EnablePass("SSAO_Clear");
-                    RenderGraph.DisablePasses(["SSAO_Blur", "SSAO_Generate"]);
-                }
+                RenderGraph.EnablePass("SSAO_Blur", "SSAO_Generate");
+            }
+            else
+            {
+                RenderGraph.EnablePass("SSAO_Clear");
+                RenderGraph.DisablePass("SSAO_Blur", "SSAO_Generate");
             }
         }
 

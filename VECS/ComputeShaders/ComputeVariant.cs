@@ -10,16 +10,16 @@ namespace VECS
 {
     public class ComputeVariant : DisposableAsset
     {
-        internal unsafe void* pUniformBuffer;
-        internal bool localUniformAllocation;
-
         private readonly ComputePipeline _computePipeline;
         private readonly uint _variantIndex;
         private ITextureProvider[][] _textures;
         private GPUBuffer[][][] _storageBuffers;
 
-        private GPUBuffer _tempUniformBuffer;
+        internal unsafe void* pUniformBuffer;
+        internal bool localUniformAllocation;
+
         private DescriptorSetInfo[] _tempDescriptorSetInfos;
+        private GPUBuffer _localUniformBuffer;
         internal bool _allowTmpBufferAllocation;
 
         public uint VariantIndex => _variantIndex;
@@ -40,11 +40,16 @@ namespace VECS
 
             if (localUniformAlloc && allowTmpBufferAllocation && pipeline.UniformBufferSize > 0)
             {
-                AllocateTemporaryBuffers();
+                AllocateTemporaryUniformBuffer();
             }
             else
             {
                 pUniformBuffer = null;
+            }
+
+            if (allowTmpBufferAllocation)
+            {
+                AllocateTemporaryDescriptors();
             }
 
             _textures = new ITextureProvider[DescriptorSetCount][];
@@ -116,19 +121,24 @@ namespace VECS
             AssetDataBase<ComputeVariant>.Add(this);
         }
 
-        public unsafe void AllocateTemporaryBuffers()
+        public void AllocateTemporaryDescriptors()
+        {
+            if (!_allowTmpBufferAllocation) return;
+            _tempDescriptorSetInfos = _computePipeline.GetTemporaryDescriptorSetInfos();
+        }
+
+        public unsafe void AllocateTemporaryUniformBuffer()
         {
             if (!localUniformAllocation) return;
             if (!_allowTmpBufferAllocation) return;
 
-            _tempDescriptorSetInfos = _computePipeline.GetTemporaryDescriptorSetInfos();
-            _tempUniformBuffer = new(_computePipeline.UniformBufferSize, 1, _computePipeline.UniformFlags, true, false, false);
-            pUniformBuffer = _tempUniformBuffer.HostPtr;
+            _localUniformBuffer = new(_computePipeline.UniformBufferSize, 1, _computePipeline.UniformFlags, true, false, false);
+            pUniformBuffer = _localUniformBuffer.HostPtr;
         }
 
         public void DiposeTemporaryBuffers()
         {
-            _tempUniformBuffer?.EnqueueForDisposal();
+            _localUniformBuffer?.EnqueueForDisposal();
             if(_tempDescriptorSetInfos != null)
             {
                 for (int i = 0; i < _tempDescriptorSetInfos.Length; i++)
@@ -137,6 +147,7 @@ namespace VECS
                 }
                 _tempDescriptorSetInfos = null;
             }
+            _allowTmpBufferAllocation = false;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -198,7 +209,7 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public DescriptorSetInfo GetDescriptorInfo(uint setIndex)
         {
-            if (localUniformAllocation)
+            if (_allowTmpBufferAllocation)
             {
                 return _tempDescriptorSetInfos[setIndex];
             }
@@ -228,7 +239,7 @@ namespace VECS
         private void SetStorageBuffer(ulong offset, ulong count, SwapChainBuffer buffer, uint setIndex, uint bindPoint)
         {
             var setInfo = GetDescriptorInfo(setIndex);
-            uint variant = localUniformAllocation ? 0 : VariantIndex;
+            uint variant = _allowTmpBufferAllocation ? 0 : VariantIndex;
             var bufferArray = _storageBuffers[setIndex][setInfo.BindPointToBufferIndex[bindPoint]];
             for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
             {
@@ -248,7 +259,7 @@ namespace VECS
             if (LookUpProperty(propertyId, out var propertyInfo) && propertyInfo.BindingInfo.StorageBuffer)
             {
                 var setInfo = GetDescriptorInfo(propertyInfo.SetIndex);
-                uint variant = localUniformAllocation ? 0 : VariantIndex;
+                uint variant = _allowTmpBufferAllocation ? 0 : VariantIndex;
                 var bufferArray = _storageBuffers[propertyInfo.SetIndex][setInfo.BindPointToBufferIndex[propertyInfo.BindPoint]];
                 for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
                 {
@@ -264,7 +275,7 @@ namespace VECS
             var buffers = _storageBuffers[setIndex][bufferIndex];
             
             var setInfo = GetDescriptorInfo(setIndex);
-            uint variant = localUniformAllocation ? 0 : VariantIndex;
+            uint variant = _allowTmpBufferAllocation ? 0 : VariantIndex;
 
             for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
             {
@@ -279,7 +290,7 @@ namespace VECS
             ITextureProvider textures = _textures[setIndex][imageIndex];
             if (textures.AnyDisposed) return;
             var setInfo = GetDescriptorInfo(setIndex);
-            uint variant = localUniformAllocation ? 0 : VariantIndex;
+            uint variant = _allowTmpBufferAllocation ? 0 : VariantIndex;
 
             VkDescriptorImageInfo* imageInfos = stackalloc VkDescriptorImageInfo[textures.ImageCount];
 
@@ -306,7 +317,7 @@ namespace VECS
             if (LookUpProperty(propertyId, out var propertyInfo) && propertyInfo.BindingInfo.Image)
             {
                 var setInfo = GetDescriptorInfo(propertyInfo.SetIndex);
-                uint variant = localUniformAllocation ? 0 : VariantIndex;
+                uint variant = _allowTmpBufferAllocation ? 0 : VariantIndex;
                 SetTextures(propertyInfo.BindPoint, setInfo, variant, imageInfos, imageCount);
             }
         }
@@ -384,7 +395,7 @@ namespace VECS
                     }
                     else
                     {
-                        addressRange = _tempUniformBuffer.GetBufferAddressRangeBytes(internalOffset, binding.BufferSize);
+                        addressRange = _localUniformBuffer.GetBufferAddressRangeBytes(internalOffset, binding.BufferSize);
                     }
 
                     for (int frameIndex = 0; frameIndex < SwapChain.MAX_CONCURRENT_FRAMES; frameIndex++)
@@ -397,13 +408,16 @@ namespace VECS
 
         public unsafe void Dispatch(VkCommandBuffer commandBuffer, int frameIndex, uint invokeCountX, uint invokeCountY =0, uint invokeCountZ = 0)
         {
-            if (localUniformAllocation)
+            if (_allowTmpBufferAllocation)
             {
                 var descriptorSetCount = DescriptorSetCount;
                 VkDescriptorBufferBindingInfoEXT* bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[descriptorSetCount];
                 ulong* offsets = stackalloc ulong[descriptorSetCount];
                 uint* indices = stackalloc uint[descriptorSetCount];
-                GPUBufferExtensions.WriteFromHostDelayed(_tempUniformBuffer, 0, _computePipeline.UniformBufferSize);
+                if (localUniformAllocation)
+                {
+                    GPUBufferExtensions.WriteFromHostDelayed(_localUniformBuffer, 0, _computePipeline.UniformBufferSize);
+                }
                 WriteUniformToDescriptorBuffers();
                 for (uint i = 0; i < descriptorSetCount; i++)
                 {
@@ -500,13 +514,21 @@ namespace VECS
             if (_disposed) return;
             _disposed = true;
             GC.SuppressFinalize(this);
-            _tempUniformBuffer?.EnqueueForDisposal();
-            _tempUniformBuffer = null;
+            _localUniformBuffer?.EnqueueForDisposal();
+            _localUniformBuffer = null;
             _computePipeline.RemoveVariant(this);
             if (localUniformAllocation)
             {
                 NativeMemory.AlignedFree(pUniformBuffer);
                 localUniformAllocation = false;
+            }
+            if (_allowTmpBufferAllocation)
+            {
+                for (int i = 0; i < _tempDescriptorSetInfos.Length; i++)
+                {
+                    _tempDescriptorSetInfos[i]?.Dispose();
+                }
+                _allowTmpBufferAllocation = false;
             }
             pUniformBuffer = null;
 

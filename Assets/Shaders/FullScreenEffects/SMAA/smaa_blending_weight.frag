@@ -14,10 +14,9 @@ layout (set = 0, binding = 1) uniform texture2D uSearchTexture;
 layout (set = 0, binding = 2) uniform texture2D uEdgeTexture;
 layout (set = 0, binding = 3) uniform sampler uSampler;
 
-layout(push_constant) uniform TexelSize 
-{
-	vec4 value;
-} texelSize;
+layout(push_constant) uniform Constants {
+	vec4 texelSize;
+} constants;
 
 #if !defined(SMAA_DISABLE_DIAG_DETECTION)
 
@@ -445,7 +444,7 @@ void main()
         vTexCoord0,
         vPixCoord0,
         vOffset,
-        texelSize.value,
+        constants.texelSize,
         uEdgeTexture,
         uAreaTexture,
         uSearchTexture,

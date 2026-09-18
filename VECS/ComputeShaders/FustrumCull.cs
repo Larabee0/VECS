@@ -62,7 +62,7 @@ namespace VECS
         }
     }
 
-    [StructLayout(LayoutKind.Sequential, Size = 188)]
+    [StructLayout(LayoutKind.Sequential, Size = 192)]
     public struct CullData
     {
         public Vector4 left;

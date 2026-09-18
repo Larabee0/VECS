@@ -431,30 +431,11 @@ namespace VECS.UI
 
         public unsafe void OverlayToActiveTarget(RendererFrameInfo frameInfo, RenderTarget renderTarget)
         {
-            if (_outputTarget.CurrentLayout == VkImageLayout.ColorAttachmentOptimal)
-            {
-                _outputTarget.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.FragmentShader);
-            }
-            else if (_outputTarget.CurrentLayout == VkImageLayout.TransferSrcOptimal)
-            {
-                _outputTarget.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.FragmentShader);
-            }
+            _outputTarget.Target.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal);
 
             var targetLayout = renderTarget.CurrentLayout;
 
-
-            if(targetLayout != VkImageLayout.ColorAttachmentOptimal)
-            {
-                if (renderTarget.CurrentLayout == VkImageLayout.ShaderReadOnlyOptimal)
-                {
-                    renderTarget.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
-                }
-                else if (renderTarget.CurrentLayout == VkImageLayout.TransferSrcOptimal)
-                {
-                    renderTarget.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.ColorAttachmentOutput);
-                }
-            }
-
+            renderTarget.Target.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal);
 
             VkRenderingAttachmentInfo colourAttachments = new()
             {
@@ -482,17 +463,8 @@ namespace VECS.UI
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
 
-            if (targetLayout != VkImageLayout.ColorAttachmentOptimal)
-            {
-                if (targetLayout == VkImageLayout.ShaderReadOnlyOptimal)
-                {
-                    renderTarget.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
-                }
-                else if (targetLayout == VkImageLayout.TransferSrcOptimal)
-                {
-                    renderTarget.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.TransferSrcOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.Blit);
-                }
-            }
+
+            renderTarget.Target.SetImageLayoutAuto(frameInfo.CommandBuffer, targetLayout);
         }
 
         public void BlitToImage(VkCommandBuffer commandBuffer, VkImage dst, int dstWidth, int dstHeight, VkImageAspectFlags dstAspectMask)

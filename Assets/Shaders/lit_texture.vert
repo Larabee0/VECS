@@ -25,7 +25,7 @@ layout(set = 0, binding = 0) uniform LightingInfo {
 	int numSpotLightShadows;
 } lighting;
 
-layout(set = 0,binding = 4) readonly buffer CameraDatas {
+layout(set = 0,binding = 5) readonly buffer CameraDatas {
 	CameraData values[];
 } cameraData;
 

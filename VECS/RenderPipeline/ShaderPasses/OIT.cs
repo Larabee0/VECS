@@ -1,5 +1,4 @@
-﻿using SDL3;
-using System.Numerics;
+﻿using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using VECS.LowLevel;
@@ -7,14 +6,17 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
-    public class OIT
+    public class OIT : IRenderPass
     {
-        [StructLayout(LayoutKind.Sequential, Size = 24)]
+        [StructLayout(LayoutKind.Sequential, Size = 16)]
         private struct OITNode
         {
-            public Vector4 Colour;
-            public float Depth;
-            public uint Next;
+            public float Depth; // => R32sfloat
+            public uint RG; // R32Uint
+            public uint BA; // R32Uint
+            public uint Next; // => R32Uint
+
+            //private VkFormat format = VkFormat.R32G32B32Uint
         }
 
         public const uint OIT_NODE_COUNT = 20;
@@ -42,19 +44,33 @@ namespace VECS
 
             _transparentQueue = new("Transparent");
 
+        }
+
+        public void AddToRenderGraph()
+        {
             RenderGraph.AddPass("TransparentPass", PassType.Render, PassCategory.Transparent, [
                 "ForwardPass",
                 "DeferredCompositePass",
                     "SpotLightShadows",
                     "PointLightShadows",
                     "DirectionalLightShadows"], ["MainDepthAttachment", "DirectionalShadowAttachment", "PointLightShadowAttachments", "SpotLightShadowAttachments"], ["TransparentHeadIndexImage"], TransparentPass);
-            RenderGraph.AddPass("TransparentComposite", PassType.Render, PassCategory.Transparent, ["TransparentPass"], ["TransparentHeadIndexImage"], ["BrightObjectAttachment", "MainColourAttachment"], TransparentComposite);
+            RenderGraph.AddPass("TransparentComposite", PassType.Render, PassCategory.Transparent, ["TransparentPass"], ["TransparentHeadIndexImage"], [RenderGraph.MainColourAttachment], TransparentComposite);
+        }
+
+        public void SetEnabled(bool enabled)
+        {
+
+        }
+
+        public void PrePresent()
+        {
+
         }
 
         public unsafe void RecreateRenderTargets()
         {
             EngineBuffers.RemoveEngineBuffer(ShaderProperties.LinkedListSBOId);
-            var windowExtents = Application.MainWindow.WindowExtent;
+            var windowExtents = ActiveRenderer.MainRenderingAttachmentsSize;
             var _maxNodes = OIT_NODE_COUNT * windowExtents.width * windowExtents.height;
             if (_linkedList == null)
             {
@@ -63,13 +79,13 @@ namespace VECS
                 _linkedList = new("OIT_Node_Linked_List", SwapChainBuffer.AliasGPUBuffer(nodeLL));
                 EngineBuffers.AddEngineBuffer(ShaderProperties.LinkedListSBOId, _linkedList);
             }
-            else
-            {
-                var src = AssetDataBase<GPUBufferAsset>.GetNamed("OIT_Node_Linked_List");
-                src.Buffer.Dispose();
-                _linkedList.Buffer.Realloc(_maxNodes);
-                src.Buffer = _linkedList.Buffer[0];
-            }
+            //else
+            //{
+            //    var src = AssetDataBase<GPUBufferAsset>.GetNamed("OIT_Node_Linked_List");
+            //    src.Buffer.Dispose();
+            //    _linkedList.Buffer.Realloc(_maxNodes);
+            //    src.Buffer = _linkedList.Buffer[0];
+            //}
 
             _geometry.Buffer[0].WriteToBuffer(&_maxNodes, sizeof(uint), sizeof(uint));
 
@@ -78,15 +94,15 @@ namespace VECS
                 _headIndex = new(string.Format("OIT_HeadIndex_{0}", Presenter.FrameCount), (int)windowExtents.width, (int)windowExtents.height, VkFormat.R32Uint, VkImageUsageFlags.TransferDst | VkImageUsageFlags.Storage, false);
 
                 EngineTextures.AddTexture(ShaderProperties.HeadIndexImageId, _headIndex.AsSingleTexture());
+                _headIndex.SetImageLayout(VkImageLayout.General, VkPipelineStageFlags2.None, VkPipelineStageFlags2.Transfer);
+                OIT_Composite.Default().SetTexture(ShaderProperties.HeadIndexImageId, _headIndex);
+                _headCleared = false;
             }
-            else
-            {
-                _headIndex.Reinitialise((int)windowExtents.width, (int)windowExtents.height);
-            }
+            //else
+            //{
+            //    _headIndex.Reinitialise((int)windowExtents.width, (int)windowExtents.height);
+            //}
 
-            _headIndex.SetImageLayout(VkImageLayout.General, VkPipelineStageFlags2.None, VkPipelineStageFlags2.Transfer);
-            OIT_Composite.Default().SetTexture(ShaderProperties.HeadIndexImageId, _headIndex);
-            _headCleared = false;
         }
 
         private bool _headCleared = false;
@@ -110,7 +126,8 @@ namespace VECS
             var cullData = frameInfo.CullData;
             cullData.cullMode &= ~CullModeFlags.Depth;
 
-            DrawBlob.Cull(_transparentQueue, frameInfo, cullData);
+            DrawBlob.SetTargetCamera(_transparentQueue, frameInfo.TargetCamera);
+            DrawBlob.Cull(_transparentQueue, frameInfo.CommandBuffer, cullData);
 
             VkClearColorValue clearColor = default;
             clearColor.uint32[0] = uint.MaxValue;
@@ -137,7 +154,7 @@ namespace VECS
             Presenter.SetToCurrentCameraViewportScissor(commandBuffer);
             if (_transparentQueue.CommandCount > 0)
             {
-                DrawBlob.Execute(_transparentQueue, frameInfo, 0, VkCullModeFlags.None);
+                DrawBlob.Execute(_transparentQueue, frameInfo.CommandBuffer, 0, VkCullModeFlags.None);
                 _headCleared = false;
             }
         }
@@ -170,6 +187,7 @@ namespace VECS
             MemoryBarrierHelper.MemoryBarrier(frameInfo.CommandBuffer, barrier);
 
             ActiveRenderer.StartForwardRendering(frameInfo, VkAttachmentLoadOp.Load);
+            Presenter.SetToCurrentCameraViewportScissor(frameInfo.CommandBuffer);
 
             OIT_Composite.Default().Bind(frameInfo);
 

@@ -46,9 +46,9 @@ namespace VECS
             _bloomMixer.SetFloat("constants.bloomStrength".GetShaderPropertyId(), 0.07f);
             Application.Instance.OnDestroy += CleanUpViews;
 
-            RenderGraph.AddPass("PhyBloomDownSample", PassType.Compute, ["ForwardPass", "DeferredCompositePass", "TransaprentComposite", "SMAA_Output"], ["MainColourAttachment"], ["PhyBloomAttachment"],BloomDownSample);
-            RenderGraph.AddPass("PhyBloomUpSample", PassType.Compute, ["PhyBloomDownSample"], ["MainColourAttachment"], ["PhyBloomAttachment"], BloomUpSample);
-            RenderGraph.AddPass("PhyBloomMix", PassType.Compute, ["PhyBloomUpSample"], ["MainColourAttachment", "PhyBloomAttachment"], ["MainColourAttachment"], BloomMix);
+            RenderGraph.AddPass("PhyBloomDownSample", PassType.Compute, PassCategory.PostProcessing,["ForwardPass", "DeferredCompositePass", "TransaprentComposite", "SMAA_Output"], [RenderGraph.MainColourAttachment], ["PhyBloomAttachment"],BloomDownSample);
+            RenderGraph.AddPass("PhyBloomUpSample", PassType.Compute, PassCategory.PostProcessing, ["PhyBloomDownSample"], [RenderGraph.MainColourAttachment], ["PhyBloomAttachment"], BloomUpSample);
+            RenderGraph.AddPass("PhyBloomMix", PassType.Compute, PassCategory.PostProcessing, ["PhyBloomUpSample"], [RenderGraph.MainColourAttachment, "PhyBloomAttachment"], [RenderGraph.MainColourAttachment], BloomMix);
         }
 
         private void CleanUpViews()

@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Numerics;
-using VECS.ECS;
 using VECS.ECS.Presentation;
 using VECS.ECS.Transforms;
 using VECS.LowLevel;
@@ -9,7 +8,7 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
-    public static class DebugDrawer
+    public class DebugDrawer : IRenderPass
     {
         public const int MAX_LINES = 1000;
         private static readonly int ColourBufferId = "colourBuffer".GetShaderPropertyId();
@@ -17,30 +16,34 @@ namespace VECS
         
         private static readonly Vector2 _min = new(-1, -1);
         private static readonly Vector2 _max = new(1, 1);
-        private static readonly Vector4[] _fustrumVerts = new Vector4[16];
-        private static GPUBuffer<Vector3> _circleBuffer;
-        private static SwapChainBuffer<Vector3> _frustrumBuffer;
-        private static GPUBuffer<Vector3> _cubeBuffer;
-        private static SwapChainBuffer<Matrix3x2> _lineBuffer;
-        private static SwapChainBuffer<ModelMatrices> _matrices;
-        private static SwapChainBuffer<Vector4> _colours;
+        private readonly Vector4[] _fustrumVerts = new Vector4[16];
+        private GPUBuffer<Vector3> _circleBuffer;
+        private SwapChainBuffer<Vector3> _frustrumBuffer;
+        private GPUBuffer<Vector3> _cubeBuffer;
+        private SwapChainBuffer<Matrix3x2> _lineBuffer;
+        private SwapChainBuffer<ModelMatrices> _matrices;
+        private SwapChainBuffer<Vector4> _colours;
                 
-        private static SwapChainBuffer<VkDrawIndirectCommand> _drawBuffer;
+        private SwapChainBuffer<VkDrawIndirectCommand> _drawBuffer;
                 
-        private static readonly Queue<Line> _lineQueue = new();
+        private readonly Queue<Line> _lineQueue = new();
                 
-        private static readonly Queue<DrawCube> _wireCubes = new();
+        private readonly Queue<DrawCube> _wireCubes = new();
                 
-        private static readonly Queue<Sphere> _wireSpheres = new();
-        private static readonly Queue<Fustrum> _fustrums = new();
+        private readonly Queue<Sphere> _wireSpheres = new();
+        private readonly Queue<Fustrum> _fustrums = new();
 
-        private static int _drawIndex;
-        private static int _drawBufferIndex;
+        private int _drawIndex;
+        private int _drawBufferIndex;
 
-        internal static void Reset()
+        private IRenderer _activeRenderer;
+
+        public static DebugDrawer Instance { get; private set; }
+
+        public DebugDrawer(IRenderer activeRenderer)
         {
-            CleanUp();
-
+            _activeRenderer = activeRenderer;
+            Instance = this;
             _circleBuffer = new(32, VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferDst, true, false, false);
             
             _frustrumBuffer = new(16 * 1000, VkBufferUsageFlags.VertexBuffer | VkBufferUsageFlags.TransferDst, true, false);
@@ -50,6 +53,7 @@ namespace VECS
             _matrices = new(32, VkBufferUsageFlags.StorageBuffer, true);
             _colours = new(32, VkBufferUsageFlags.StorageBuffer, true);
 
+            _frustrumBuffer.SetDebugName("DebugDrawer_FustrumBuffer");
             _circleBuffer.SetDebugName("DebugDrawer_WireCircle_mesh");
             _cubeBuffer.SetDebugName("DebugDrawer_WireCube_Mesh");
             _lineBuffer.SetDebugName("DebugDrawer_Line_Mesh");
@@ -62,30 +66,43 @@ namespace VECS
             CreateWireCircle();
             EnginePipes.WireFrame.SetStorageBuffer(ShaderProperties.MatricesBufferId, _matrices);
             EnginePipes.WireFrame.SetStorageBuffer(ShaderProperties.ColourBufferId, _colours);
+
+
+            new GPUBufferAsset("DebugDrawer_WireCircle_mesh", _circleBuffer);
+            new GPUBufferAsset("DebugDrawer_WireCube_Mesh", _cubeBuffer);
+            new SwapChainBufferAsset("DebugDrawer_FustrumBuffer", _frustrumBuffer);
+            new SwapChainBufferAsset("DebugDrawer_Line_Mesh", _lineBuffer);
+            new SwapChainBufferAsset("DebugDrawer_DrawCmds", _drawBuffer);
+            new SwapChainBufferAsset("DebugDrawer_Transforms", _matrices);
+            new SwapChainBufferAsset("DebugDrawer_Colours", _colours);
         }
 
-        internal static void AddToRenderGraph()
+        public void AddToRenderGraph()
         {
-            RenderGraph.AddPass("DebugLines", PassType.Render, ["ForwardPass", "DeferredCompositePass", "TransaprentComposite"], ["MainColourAttachment", "BrightObjectAttachment"], ["MainColourAttachment", "BrightObjectAttachment"],LinePass);
-            RenderGraph.AddPass("DebugWireCubes", PassType.Render, ["DebugLines"], ["MainColourAttachment", "BrightObjectAttachment"], ["MainColourAttachment", "BrightObjectAttachment"], WireCubesPass);
-            RenderGraph.AddPass("DebugWireSpheres", PassType.Render, ["DebugWireCubes"], ["MainColourAttachment", "BrightObjectAttachment"], ["MainColourAttachment", "BrightObjectAttachment"], WireSpheresPass);
-            RenderGraph.AddPass("DebugFustrums", PassType.Render, ["DebugWireSpheres"], ["MainColourAttachment", "BrightObjectAttachment"], ["MainColourAttachment", "BrightObjectAttachment"], FustrumPass);
+            RenderGraph.AddPass("DebugLines", PassType.Render, PassCategory.PostRendering, ["ForwardPass", "DeferredCompositePass", "TransaprentComposite"], [RenderGraph.MainColourAttachment], [RenderGraph.MainColourAttachment],LinePass);
+            RenderGraph.AddPass("DebugWireCubes", PassType.Render, PassCategory.PostRendering, ["DebugLines"], [RenderGraph.MainColourAttachment], [RenderGraph.MainColourAttachment], WireCubesPass);
+            RenderGraph.AddPass("DebugWireSpheres", PassType.Render, PassCategory.PostRendering, ["DebugWireCubes"], [RenderGraph.MainColourAttachment], [RenderGraph.MainColourAttachment], WireSpheresPass);
+            RenderGraph.AddPass("DebugFustrums", PassType.Render, PassCategory.PostRendering, ["DebugWireSpheres"], [RenderGraph.MainColourAttachment], [RenderGraph.MainColourAttachment], FustrumPass);
         }
 
-        internal static void CleanUp()
+        public void SetEnabled(bool enabled)
         {
-            _circleBuffer?.EnqueueForDisposal();
-            _frustrumBuffer?.Dispose();
-            _cubeBuffer?.EnqueueForDisposal();
-            _lineBuffer?.Dispose();
-
-            _matrices?.Dispose();
-            _colours?.Dispose();
-
-            _drawBuffer?.Dispose();
+            if (enabled)
+            {
+                RenderGraph.EnablePass("DebugLines", "DebugWireCubes", "DebugWireSpheres", "DebugFustrums");
+            }
+            else
+            {
+                RenderGraph.DisablePass("DebugLines", "DebugWireCubes", "DebugWireSpheres", "DebugFustrums");
+            }
         }
 
-        internal static void PrePresent()
+        public void RecreateRenderTargets()
+        {
+
+        }
+
+        public void PrePresent()
         {
             if ((_lineQueue.Count > 0)
                 || (_wireCubes.Count > 0)
@@ -105,7 +122,7 @@ namespace VECS
         SetandWriteBuffers();
         }
 
-        private static void LinePass(RendererFrameInfo frameInfo)
+        private void LinePass(RendererFrameInfo frameInfo)
         {
             if (_lineQueue.Count == 0) return;
 
@@ -137,7 +154,7 @@ namespace VECS
             Presenter.Instance.Renderer.EndForwardRendering(frameInfo);
         }
 
-        private static void WireCubesPass(RendererFrameInfo frameInfo)
+        private void WireCubesPass(RendererFrameInfo frameInfo)
         {
             if (_wireCubes.Count == 0) return;
 
@@ -166,7 +183,7 @@ namespace VECS
             Presenter.Instance.Renderer.EndForwardRendering(frameInfo);
         }
 
-        private static void WireSpheresPass(RendererFrameInfo frameInfo)
+        private void WireSpheresPass(RendererFrameInfo frameInfo)
         {
             if (_wireSpheres.Count == 0) return;
 
@@ -210,7 +227,7 @@ namespace VECS
             Presenter.Instance.Renderer.EndForwardRendering(frameInfo);
         }
 
-        private static void FustrumPass(RendererFrameInfo frameInfo)
+        private void FustrumPass(RendererFrameInfo frameInfo)
         {
             if (_fustrums.Count == 0) return;
             Matrix4x4 view = CameraSystem.GetViewMatrix(Matrix4x4.Identity);
@@ -281,7 +298,7 @@ namespace VECS
         }
 
 
-        private static void SetandWriteBuffers()
+        private void SetandWriteBuffers()
         {
             if (_lineQueue.Count == 0 && _wireCubes.Count == 0 && _wireSpheres.Count == 0 && _fustrums.Count == 0) return;
             
@@ -298,13 +315,13 @@ namespace VECS
             GPUBufferExtensions.WriteFromHostDelayed(_colours, Presenter.FrameIndex);
         }
 
-        private unsafe static void DrawIndirect(RendererFrameInfo frameInfo, int offset, int count)
+        private unsafe void DrawIndirect(RendererFrameInfo frameInfo, int offset, int count)
         {
             EnginePipes.WireFrame.BindAll(frameInfo, 0);
             GraphicsDevice.DeviceAPI.vkCmdDrawIndirect(frameInfo.CommandBuffer, _drawBuffer.ActiveVkBuffer, (uint)offset * (uint)sizeof(VkDrawIndirectCommand), (uint)count, (uint)sizeof(VkDrawIndirectCommand));
         }
 
-        private static void CreateWireCube()
+        private void CreateWireCube()
         {
             Vector3 min = new(-0.5f, -0.5f, -0.5f);
             Vector3 max = new(0.5f, 0.5f, 0.5f);
@@ -332,7 +349,7 @@ namespace VECS
 
             _cubeBuffer.WriteFromHostBuffer();
         }
-        private static void CreateWireCircle()
+        private void CreateWireCircle()
         {
             var vertices = _circleBuffer.HostBuffer;
             float radians = 0;
@@ -357,7 +374,7 @@ namespace VECS
 
         public static void DrawLine(Vector3 start, Vector3 end, Colour colour)
         {
-            _lineQueue.Enqueue(new Line(start, end, colour));
+            Instance._lineQueue.Enqueue(new Line(start, end, colour));
         }
 
         public static void DrawSphere(Vector3 center, float radius)
@@ -367,7 +384,7 @@ namespace VECS
 
         public static void DrawSphere(Vector3 center, float radius, Colour colour)
         {
-            _wireSpheres.Enqueue(new(new(center, radius), colour));
+            Instance._wireSpheres.Enqueue(new(new(center, radius), colour));
         }
 
         public static void DrawWireCube(Vector3 center, Vector3 size, Quaternion orientation)
@@ -377,12 +394,12 @@ namespace VECS
 
         public static void DrawWireCube(Vector3 center, Vector3 size, Quaternion orientation, Colour colour)
         {
-            _wireCubes.Enqueue(new DrawCube(center, size, orientation, colour));
+            Instance._wireCubes.Enqueue(new DrawCube(center, size, orientation, colour));
         }
 
         public static void DrawFustrum(Matrix4x4 projection, Matrix4x4 ltw, Colour colour)
         {
-            _fustrums.Enqueue(new(projection,ltw, colour));
+            Instance._fustrums.Enqueue(new(projection,ltw, colour));
         }
 
         private readonly struct DrawCube

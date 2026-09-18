@@ -29,7 +29,7 @@ namespace VECS
             _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("layerCount", SPOT_SHADOWS_PUSH_CONSTANT_INDEX, 1);
             _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("bufferSelect", SPOT_SHADOWS_PUSH_CONSTANT_INDEX, 3);
 
-            RenderGraph.AddPass("SpotLightShadows", PassType.Render, [], [], ["SpotLightShadowAttachments"], SpotLightPass);
+            RenderGraph.AddPass("SpotLightShadows", PassType.Render,PassCategory.FixedMap, [], [], ["SpotLightShadowAttachments"], SpotLightPass);
         }
 
         private void SpotLightPass(RendererFrameInfo frameInfo)
@@ -134,7 +134,7 @@ namespace VECS
             GetSpaceMatrix(spotLight, out var near, out var view, out var proj);
             CullData depthBufferCullInfo = new(SHADOW_INCLUDE_MASK, SHADOW_EXCLUDE_MASK, SHADOW_CULL_MODE, near, proj, view);
 
-            CullShadow(frameInfo, depthBufferCullInfo);
+            CullShadow(frameInfo.CommandBuffer, depthBufferCullInfo);
             GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Depth Pass");
             BeginShadowPass(frameInfo.CommandBuffer, texture._imageView,(uint)texture.Width);
 
@@ -143,7 +143,7 @@ namespace VECS
             _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("matrixStartIndex", SPOT_SHADOWS_PUSH_CONSTANT_INDEX, textureIndex);
             _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("layerOffset", SPOT_SHADOWS_PUSH_CONSTANT_INDEX, 0);
 
-            DrawDepthOnly(frameInfo,SPOT_SHADOWS_PUSH_CONSTANT_INDEX,VkCullModeFlags.Front);
+            DrawDepthOnly(frameInfo.CommandBuffer,SPOT_SHADOWS_PUSH_CONSTANT_INDEX,VkCullModeFlags.Front);
 
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
             GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);

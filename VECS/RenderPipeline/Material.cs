@@ -8,36 +8,36 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
-    public class Material : DisposableAsset
+    internal class TemporaryDescriptor : IDisposable
     {
-        internal class TemporaryDescriptor : IDisposable
+        public DescriptorBuffer DescriptorBuffer;
+        public unsafe byte* _hostBuffer;
+
+        public unsafe TemporaryDescriptor(DescriptorSetInfo setInfo)
         {
-            public DescriptorBuffer DescriptorBuffer;
-            public unsafe byte* _hostBuffer;
-
-            public unsafe TemporaryDescriptor(DescriptorSetInfo setInfo)
-            {
-                DescriptorBuffer = new(setInfo.DescriptorBuffers[0].Layout, setInfo._descriptorBindings, (int)setInfo._uniformCount, setInfo.StorageBufferCount > 0 || setInfo.UnifromBufferSize > 0, setInfo.ImageCount > 0);
+            DescriptorBuffer = new(setInfo.DescriptorBuffers[0].Layout, setInfo._descriptorBindings, (int)setInfo._uniformCount, setInfo.StorageBufferCount > 0 || setInfo.UnifromBufferSize > 0, setInfo.ImageCount > 0);
 
 
-                var totalallocationSize = DescriptorBuffer.AllocationSize;
+            var totalallocationSize = DescriptorBuffer.AllocationSize;
 
-                _hostBuffer = (byte*)NativeMemory.AlignedAlloc(totalallocationSize, (uint)GPUBufferExtensions.GetAlignment(DescriptorBuffer.AlignedSize));
+            _hostBuffer = (byte*)NativeMemory.AlignedAlloc(totalallocationSize, (uint)GPUBufferExtensions.GetAlignment(DescriptorBuffer.AlignedSize));
 
-                NativeMemory.Fill(_hostBuffer, totalallocationSize, 0);
-                DescriptorBuffer.SetHostPtr(_hostBuffer);
-            }
-
-            public unsafe void Dispose()
-            {
-                GC.SuppressFinalize(this);
-                DescriptorBuffer.Dispose();
-                NativeMemory.AlignedFree(_hostBuffer);
-                _hostBuffer = null;
-                GC.ReRegisterForFinalize(this);
-            }
+            NativeMemory.Fill(_hostBuffer, totalallocationSize, 0);
+            DescriptorBuffer.SetHostPtr(_hostBuffer);
         }
 
+        public unsafe void Dispose()
+        {
+            GC.SuppressFinalize(this);
+            DescriptorBuffer.Dispose();
+            NativeMemory.AlignedFree(_hostBuffer);
+            _hostBuffer = null;
+            GC.ReRegisterForFinalize(this);
+        }
+    }
+
+    public class Material : DisposableAsset
+    {
         private readonly uint _variantIndex;
         private readonly GraphicsPipeline _graphicsPipeline;
         private Vector2ULong[][] _storageBufferRegions;

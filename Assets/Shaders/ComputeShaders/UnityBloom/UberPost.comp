@@ -2,6 +2,7 @@
 
 #extension GL_ARB_shading_language_include : require
 
+#include "../compute_texture_functions.glsl"
 #include "UnityFunctions.glsl"
 
 
@@ -9,25 +10,20 @@ layout (set = 0, binding = 0) uniform sampler2D srcBloomTexture;
 layout (set = 0, binding = 1) uniform sampler2D srcMainTexture;
 layout (set = 0, binding = 2) uniform writeonly image2D dstTexture;
 
-layout (set = 0, binding = 3) uniform Constants{
+layout (push_constant) uniform Constants{
     vec4 bloomThreshold;
     vec4 bloomTint;
     vec4 outputImageSize;
     float bloomStrength;
 } constants;
 
-vec2 ClampAndScaleUVForBilinearPostProcessTexture(vec2 UV)
-{
-    return ClampAndScaleUV(UV, constants.outputImageSize.zw, 0.5f, vec2(1.0));
-}
-
 layout(local_size_x = 8, local_size_y = 8) in;
 void main(){
     PositionInputs posInputs = GetPositionInput(vec2(gl_GlobalInvocationID.xy), constants.outputImageSize.zw, uvec2(8, 8));
 
-    vec2 uvDistorted = posInputs.positionNDC.xy;
-    vec3 color = texture(srcMainTexture, ClampAndScaleUVForBilinearPostProcessTexture(uvDistorted)).rgb;
-    vec3 bloom = texture(srcBloomTexture, ClampAndScaleUVForBilinearPostProcessTexture(uvDistorted)).rgb;
+    vec2 uv = posInputs.positionNDC.xy;
+    vec3 color = texture(srcMainTexture, ClampAndScaleUVForBilinearPostProcessTexture(uv, constants.outputImageSize.zw)).rgb;
+    vec3 bloom = texture(srcBloomTexture, ClampAndScaleUVForBilinearPostProcessTexture(uv, constants.outputImageSize.zw)).rgb;
     
     vec3 thresholdedColor = QuadraticThreshold(color.xyz, constants.bloomThreshold.x, constants.bloomThreshold.yzw);
     color.xyz = mix(color.xyz, (color.xyz - thresholdedColor) + (bloom * constants.bloomTint.xyz), constants.bloomStrength);

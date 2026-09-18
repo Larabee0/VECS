@@ -404,29 +404,29 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static void Execute(QueueBase queue, RendererFrameInfo frameInfo, int pushConstantIndex, VkCullModeFlags cullMode)
+        internal static void Execute(QueueBase queue, VkCommandBuffer commandBuffer, int pushConstantIndex, VkCullModeFlags cullMode)
         {
-            queue.ExecuteDraws(_indirectCmdBuffer, frameInfo, pushConstantIndex, cullMode);
+            queue.ExecuteDraws(_indirectCmdBuffer, commandBuffer, pushConstantIndex, cullMode);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static void Execute(int queueId, RendererFrameInfo frameInfo, int pushConstantIndex, VkCullModeFlags cullMode)
+        internal static void Execute(int queueId, VkCommandBuffer commandBuffer, int pushConstantIndex, VkCullModeFlags cullMode)
         {
             if (!_queueLookup.TryGetValue(queueId, out var queue)) return;
-            Execute(queue, frameInfo, pushConstantIndex, cullMode);
+            Execute(queue, commandBuffer, pushConstantIndex, cullMode);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static void Cull(QueueBase queue, RendererFrameInfo frameInfo, CullData cullData)
+        internal static void Cull(QueueBase queue, VkCommandBuffer commandBuffer, CullData cullData)
         {
-            queue.Cull(frameInfo, cullData, _indirectCmdBuffer);
+            queue.Cull(commandBuffer, cullData, _indirectCmdBuffer);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static void Cull(int queueId, RendererFrameInfo frameInfo, CullData cullData)
+        internal static void Cull(int queueId, VkCommandBuffer commandBuffer, CullData cullData)
         {
             if (!_queueLookup.TryGetValue(queueId, out var queue)) return;
-            Cull(queue, frameInfo, cullData);
+            Cull(queue, commandBuffer, cullData);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -434,6 +434,17 @@ namespace VECS
         {
             if (_queueLookup.TryGetValue(queueId, out var queue) && queue.CommandCount > 0) return true;
             return false;
+        }
+
+        internal static void SetTargetCamera(int queueId, int cameraIndex)
+        {
+            if (!_queueLookup.TryGetValue(queueId, out var queue)) return;
+            SetTargetCamera(queue, cameraIndex);
+        }
+
+        internal static void SetTargetCamera(QueueBase queue, int cameraIndex)
+        {
+            queue.SetTargetCamera(cameraIndex);
         }
     }
 }

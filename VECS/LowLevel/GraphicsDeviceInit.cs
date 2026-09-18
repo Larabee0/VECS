@@ -461,16 +461,10 @@ namespace VECS.LowLevel
             VkCommandPoolCreateInfo poolInfo = new()
             {
                 queueFamilyIndex = queueFamilyIndices.graphicsFamily,
-                flags = VkCommandPoolCreateFlags.Transient | VkCommandPoolCreateFlags.ResetCommandBuffer,
+                flags = VkCommandPoolCreateFlags.ResetCommandBuffer,
             };
 
-            _secondaryMainPipeCommandBuffers = new VkCommandPool[Environment.ProcessorCount * 2];
             _deviceApi.vkCreateCommandPool(poolInfo, null, out _commandPoolMain).CheckResult("Failed to create main command pool!");
-
-            for (int i = 0; i < _secondaryMainPipeCommandBuffers.Length; i++)
-            {
-                _deviceApi.vkCreateCommandPool(poolInfo, null, out _secondaryMainPipeCommandBuffers[i]).CheckResult("Failed to create secondary main command pool!");
-            }
         }
 
         #endregion

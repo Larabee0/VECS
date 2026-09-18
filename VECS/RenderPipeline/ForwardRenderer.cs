@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Numerics;
 using VECS.ECS;
 using VECS.LowLevel;
 using Vortice.Vulkan;
@@ -9,6 +10,7 @@ namespace VECS
     {
         const int DEPTH_ONLY_PUSH_CONSTANT_INDEX = 0;
         public RenderTarget MainColourAttachment { get; private set; }
+        public RenderTarget PostProcessingAttachment { get; private set; }
         public RenderTarget BrightObjectAttachment;
         public RenderTarget DepthAttachment;
 
@@ -17,10 +19,11 @@ namespace VECS
 
         private OIT _orderIndpTransparency;
         private SMAA _smaa;
-
+        private Skybox _skybox;
         public VkFormat MainColourFormat => VkFormat.R16G16B16A16Sfloat;
         public VkFormat PostProcessingColourFormat => VkFormat.B10G11R11UfloatPack32;
 
+        public VkExtent2D MainRenderingAttachmentsSize => new(2048, 2048);
         public VkFormat DepthFormat => PreferredFormats.LOW_PRECISION_DEPTH_ONLY;
         public VkFormat StencilFormat => VkFormat.Undefined;
         private Action _onScreenSizeChanged;
@@ -42,8 +45,7 @@ namespace VECS
             EnginePipes.DepthOnly.PushConstants.SetPushConstantInt("bufferSelect", DEPTH_ONLY_PUSH_CONSTANT_INDEX, 0);
             _orderIndpTransparency = new(this);
             _smaa = new(this);
-            Skybox.StartSkybox();
-            PBR.StartPBR();
+            _skybox = new(this);
         }
 
         public void ScreenSizeChanged()
@@ -51,7 +53,7 @@ namespace VECS
             EngineBuffers.RemoveEngineBuffer(ShaderProperties.LinkedListSBOId);
             var windowExtents = Application.MainWindow.WindowExtent;
 
-            MainColourAttachment = IRenderer.CreateOrUpdateRT(MainColourAttachment, "MainColourAttachment", ShaderProperties.MainColourAttachmentId, windowExtents, MainColourFormat, new VkClearValue(0, 0, 0, 1));
+            MainColourAttachment = IRenderer.CreateOrUpdateRT(MainColourAttachment, RenderGraph.MainColourAttachment, ShaderProperties.MainColourAttachmentId, windowExtents, MainColourFormat, new VkClearValue(0, 0, 0, 1));
             DepthAttachment = IRenderer.CreateOrUpdateRT(DepthAttachment, "DepthAttacment", ShaderProperties.MainDepthAttachmentId, windowExtents, DepthFormat, new VkClearValue(1,0));
 
             _smaa?.RecreateRenderTargets();
@@ -65,14 +67,6 @@ namespace VECS
 
         public unsafe void Render(RendererFrameInfo frameInfo, int imageIndex)
         {
-
-            if (Presenter.FrameCount == 2)
-            {
-                PBR.Generate_BRDFLUT(frameInfo);
-                PBR.Generate_Irradiance(frameInfo);
-                PBR.Generate_Prefiltered_Cubemap(frameInfo);
-            }
-
             // blit renderImage into swapchain
             var extents = SwapChain.SwapChainExtent;
             GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "SwapChain Blit");
@@ -161,7 +155,24 @@ namespace VECS
             TextureExtensions.BlitGeneric(commandBuffer, VkFilter.Linear, MainColourAttachment.GetBlitCmd(dstWidth, dstHeight, dstAspectMask), MainColourAttachment.VkImage, MainColourAttachment.CurrentLayout, dst, VkImageLayout.TransferDstOptimal);
 
             MainColourAttachment.Target.SetImageLayoutAuto(commandBuffer, VkImageLayout.ColorAttachmentOptimal);
+        }
 
+        public void BlitFromMainColour(VkCommandBuffer commandBuffer, VkRect2D srcRect, VkImage dst, VkRect2D dstRect, VkImageAspectFlags dstAspectMask)
+        {
+            MainColourAttachment.Target.SetImageLayoutAuto(commandBuffer, VkImageLayout.TransferSrcOptimal);
+
+            TextureExtensions.BlitGeneric(commandBuffer, VkFilter.Linear, MainColourAttachment.GetBlitCmd(srcRect, dstRect, dstAspectMask), MainColourAttachment.VkImage, MainColourAttachment.CurrentLayout, dst, VkImageLayout.TransferDstOptimal);
+
+            MainColourAttachment.Target.SetImageLayoutAuto(commandBuffer, VkImageLayout.ColorAttachmentOptimal);
+        }
+
+        public void BlitFromPostProcessingColour(VkCommandBuffer commandBuffer, VkImage dst, int dstWidth, int dstHeight, VkImageAspectFlags dstAspectMask)
+        {
+            PostProcessingAttachment.Target.SetImageLayoutAuto(commandBuffer, VkImageLayout.TransferSrcOptimal);
+
+            TextureExtensions.BlitGeneric(commandBuffer, VkFilter.Linear, PostProcessingAttachment.GetBlitCmd(dstWidth, dstHeight, dstAspectMask), PostProcessingAttachment.VkImage, PostProcessingAttachment.CurrentLayout, dst, VkImageLayout.TransferDstOptimal);
+
+            PostProcessingAttachment.Target.SetImageLayoutAuto(commandBuffer, VkImageLayout.ColorAttachmentOptimal);
         }
     }
 }

@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using VECS.ECS;
@@ -23,14 +22,15 @@ namespace VECS
 
         public DirectionalLightShadows() : base(1)
         {
-            _shadowDepthTextures.SetTexture( new Texture2DArray("DirectionalShadowRT",
+            _shadowDepthTextures.SetTexture(new Texture2DArray("DirectionalShadowRT",
                 1,
                 1,
                 MAX_CASCADE_COUNT,
                 DIRECTIONAL_SHADOW_FORMAT,
                 VkSamplerAddressMode.ClampToBorder,
                 VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.Sampled,
-                false),0);
+                false),
+            0);
 
             EngineTextures.AddOrUpdateTexture(ShaderProperties.DirShadowImageId, _shadowDepthTextures);
             AssignShadowTextures(ShaderProperties.DirShadowImageId);
@@ -45,7 +45,7 @@ namespace VECS
             _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("layerCount", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, 1);
             _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("layerOffset", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, 0);
 
-            RenderGraph.AddPass("DirectionalLightShadows", PassType.Render, [], [], ["DirectionalShadowAttachments"], ShadowPass);
+            RenderGraph.AddPass("DirectionalLightShadows", PassType.Render,PassCategory.PreRendering, [], [], ["DirectionalShadowAttachments"], ShadowPass);
         }
 
         private void ShadowPass(RendererFrameInfo frameInfo)
@@ -56,20 +56,19 @@ namespace VECS
             }
 
             PreShadowPass(frameInfo);
-            var hostBuffer = (SwapChainBuffer<DirectionalLightUniform>)EngineBuffers.TryGetBuffer(ShaderProperties.DirectionalLightsBufferId);
+            var hostBuffer = (SwapChainBuffer<DirectionalLightShadowUniform>)EngineBuffers.TryGetBuffer(ShaderProperties.DirectionalLightShadowBufferId);
             GPUBufferExtensions.WriteFromHostDelayed(hostBuffer, Presenter.FrameIndex);
 
-            while(ClearShadow.TryDequeue(out var shadowIndex))
+            if(Clear)
             {
-                GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, string.Format("Clear Shadow {0}", shadowIndex));
-                ClearImage(frameInfo, shadowIndex);
+                GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, string.Format("Clear Shadow {0}", 0));
+                ClearImage(frameInfo, 0);
                 GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
             }
-
-            while (UpdateShadow.TryDequeue(out var shadowIndex))
+            else
             {
-                GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, string.Format("Render Shadow {0}",shadowIndex));
-                DirectionalShadowPass(frameInfo, hostBuffer.HostBuffer[shadowIndex]);
+                GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, string.Format("Render Shadow {0}", 0));
+                DirectionalShadowPass(frameInfo, hostBuffer.HostBuffer[frameInfo.TargetCamera]);
                 GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
             }
         }
@@ -108,7 +107,7 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static void GetFustrumCorners(Matrix4x4 inverseCamera, Vector3[] fustrumCorners)
+        private unsafe static void GetFustrumCorners(Matrix4x4 inverseCamera, Vector3* fustrumCorners)
         {
             fustrumCorners[0] = new Vector3(-1.0f, 1.0f, 0.0f);
             fustrumCorners[1] = new Vector3(1.0f, 1.0f, 0.0f);
@@ -126,9 +125,10 @@ namespace VECS
             }
         }
 
-        public unsafe static DirectionalLightUniform GetDirectionalLight(DirectionalLightUniform src, CameraData cameraData)
+        public unsafe static DirectionalLightShadowUniform GetDirectionalLight(DirectionalLightUniform src, int lightIndex, CameraData cameraData)
         {
-            DirectionalLightUniform lightingInfo = src;
+            DirectionalLightShadowUniform lightingInfo = default;
+            lightingInfo.LightIndex = lightIndex;
 
             lightingInfo.CascadeCount = MAX_CASCADE_COUNT;
             var directionalShadowsBuffer = ((SwapChainBuffer<Matrix4x4>)EngineBuffers.TryGetBuffer(matsPropertyId)).HostBuffer;
@@ -149,7 +149,7 @@ namespace VECS
             //var height = sceneBounds.Max.Y - sceneBounds.Min.Y;
             var height = Vector3.Distance(sceneBounds.Min, sceneBounds.Max);
 
-            Vector3[] frustumCorners = new Vector3[8];
+            Vector3* frustumCorners = stackalloc Vector3[8];
             for (int i = 0; i < MAX_CASCADE_COUNT; i++)
             {
                 float splitDist = cascadeSplits[i];
@@ -240,7 +240,7 @@ namespace VECS
             GPUBufferExtensions.WriteFromHostDelayed(mats, Presenter.FrameIndex);
         }
 
-        public unsafe void DirectionalShadowPass(in RendererFrameInfo frameInfo, DirectionalLightUniform dirUniform)
+        public unsafe void DirectionalShadowPass(in RendererFrameInfo frameInfo, DirectionalLightShadowUniform dirUniform)
         {
             Texture2DArray arrayTex = (Texture2DArray)_shadowDepthTextures.First;
             arrayTex.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.DepthAttachmentOptimal);
@@ -264,6 +264,8 @@ namespace VECS
                 flags = VkRenderingFlags.ContentsInlineKHR | VkRenderingFlags.ContentsSecondaryCommandBuffers
             };
 
+            int cameraOffset = frameInfo.TargetCamera * MAX_CASCADE_COUNT;
+
             for (int i = 0; i < Math.Min(MAX_CASCADE_COUNT,dirUniform.CascadeCount); i++)
             {
                 GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, string.Format("Cascade {0}", i));
@@ -277,7 +279,7 @@ namespace VECS
                     _viewMatrices[i]
                 );
                 
-                CullShadow(frameInfo, depthBufferCullInfo);
+                CullShadow(frameInfo.CommandBuffer, depthBufferCullInfo);
 
                 GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Depth Pass");
                 GraphicsDevice.DeviceAPI.vkCmdBeginRendering(frameInfo.CommandBuffer, &renderingInfo);
@@ -285,10 +287,10 @@ namespace VECS
 
                 SetViewPort(frameInfo.CommandBuffer, (uint)arrayTex.Width);
 
-                _depthOnly.PushConstants.SetPushConstantInt("matrixStartIndex", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, i);
-                _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("matrixStartIndex", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, i);
+                _depthOnly.PushConstants.SetPushConstantInt("matrixStartIndex", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, cameraOffset + i);
+                _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("matrixStartIndex", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, cameraOffset + i);
 
-                DrawDepthOnly(frameInfo, DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, VkCullModeFlags.Front);
+                DrawDepthOnly(frameInfo.CommandBuffer, DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, VkCullModeFlags.Front);
 
                 GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
                 GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);

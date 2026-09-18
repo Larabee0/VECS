@@ -9,6 +9,12 @@ namespace VECS
 
     public static class RenderGraph
     {
+        // assumed render targets
+
+        public static readonly string MainColourAttachment = "MainColourAttachment";
+        public static readonly string MainDepthAttachment = "MainDepthAttachment";
+        public static readonly string PostProcessingColourAttachment = "PostProcessingColourAttachment";
+
         private static Dictionary<string, RenderTargetDefintion> ResourceDefinitons = [];
         private static Dictionary<string, RenderTarget> Resources = [];
         private static List<string> MatchScreenSize = [];
@@ -26,16 +32,15 @@ namespace VECS
         private static string[] ExecutionOrderEnglish;
 #endif
 
-        // public static void AddResource(string name, VkFormat format, VkExtent2D extent, VkImageUsageFlags usage, VkImageLayout initialLayout, VkImageLayout finalLayout)
-        // {
-        //     RenderTargetDefintion renderTargetDef = new(name, format, extent, usage, initialLayout, finalLayout);
-        //     AddResource(renderTargetDef);
-        // }
-
         public static RenderTarget GetResource(string name)
         {
             Resources.TryGetValue(name, out RenderTarget rt);
             return rt;
+        }
+
+        public static bool GetResourceDefintion(string name, out RenderTargetDefintion rt)
+        {
+            return ResourceDefinitons.TryGetValue(name,out  rt);
         }
 
         public static void RemoveResource(string name)
@@ -57,37 +62,20 @@ namespace VECS
             Resources[name] = renderTarget;
         }
 
-        public static void AddPass(string name, PassType passType, List<string> dependantPasses, List<string> inputs, List<string> outputs, Action<RendererFrameInfo> executeFunc)
+        public static RenderTarget GetOrCreateResource(string name, VkExtent2D extent)
         {
-            var pass = new RenderPass()
+
+            var attachment = GetResource(name);
+
+            if (GetResourceDefintion(name, out var rtDef))
             {
-                Name = name,
-                PassType = passType,
-                Inputs = inputs,
-                Outputs = outputs,
-                ExecuteFunc = executeFunc,
-                DependantPasses = dependantPasses,
-            };
-            Passes.Add(pass);
-            Recompile = true;
+                attachment = IRenderer.CreateOrUpdateRT(attachment, rtDef, extent);
+            }
+
+            AddResource(name, attachment);
+
+            return attachment;
         }
-
-        public static void AddPass(string name, PassType passType, int order, List<string> inputs, List<string> outputs, Action<RendererFrameInfo> executeFunc)
-        {
-            var pass = new RenderPass()
-            {
-                Name = name,
-                PassType = passType,
-                Inputs = inputs,
-                Outputs = outputs,
-                ExecuteFunc = executeFunc,
-                RelativeOrder = order,
-
-            };
-            Passes.Add(pass);
-            Recompile = true;
-        }
-
         public static void AddPass(string name, PassType passType, PassCategory category, List<string> inputs, List<string> outputs, Action<RendererFrameInfo> executeFunc)
         {
             var pass = new RenderPass()
@@ -160,7 +148,7 @@ namespace VECS
 
         }
 
-        public unsafe static void Execute(RendererFrameInfo frameInfo)
+        public unsafe static void Execute(RendererFrameInfo frameInfo, PassCategory category = PassCategory.All)
         {
             if (Recompile) Compile();
             VkCommandBuffer commandBuffer = frameInfo.CommandBuffer;
@@ -169,7 +157,7 @@ namespace VECS
             ExecutionOrder.ForEach(passIndex =>
             {
                 var pass = Passes[passIndex];
-                if (DisabledPasses.Contains(pass.Name))
+                if ((category & pass.PassCategory) == 0 || DisabledPasses.Contains(pass.Name))
                 {
                     return;
                 }
@@ -402,13 +390,13 @@ namespace VECS
             DisabledPasses.Remove(passName);
         }
 
-        internal static void DisablePasses(string[] passes)
+        internal static void DisablePass(params string[] passes)
         {
             DisabledPasses.UnionWith(passes);
         }
 
 
-        internal static void EnablePasses(string[] passes)
+        internal static void EnablePass(params string[] passes)
         {
             DisabledPasses.ExceptWith(passes);
         }

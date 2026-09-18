@@ -7,10 +7,9 @@
 layout (location = 0) out vec2 vTexCoord0;
 layout (location = 1) out vec4 vOffset[3];
 
-layout(push_constant) uniform TexelSize 
-{
-	vec4 value;
-} texelSize;
+layout(push_constant) uniform Constants {
+	vec4 texelSize;
+} constants;
 
 /**
  * Edge Detection Vertex Shader
@@ -42,6 +41,6 @@ void main()
     vTexCoord0 = clamp(vertexBase,vec2(0.0),vec2(1.0))*2.0;
     vTexCoord0.y = 1.0 - vTexCoord0.y;
 
-    SMAAEdgeDetectionVS(vTexCoord0, texelSize.value, vOffset);
+    SMAAEdgeDetectionVS(vTexCoord0, constants.texelSize, vOffset);
 
 }

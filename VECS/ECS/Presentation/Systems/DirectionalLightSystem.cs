@@ -12,8 +12,6 @@ namespace VECS.ECS.Presentation
 
         private DirectionalLightShadows _directionalLightShadows;
 
-        //bool reassignTextures = false;
-
         public override void OnCreate(EntityManager entityManager)
         {
             _directionalLightCreateQuery = new EntityQuery(entityManager)
@@ -23,7 +21,7 @@ namespace VECS.ECS.Presentation
 
             _directionalLightUpdateQuery = new EntityQuery(entityManager)
                 .WithAll(typeof(DirectionalLight), typeof(UpdateLight))
-                .WithNone(typeof(Prefab), typeof(DoNotRender), typeof(ShadowInfo))
+                .WithNone(typeof(Prefab), typeof(DoNotRender))
                 .Build();
 
             _directionalLightShadowQuery = new EntityQuery(entityManager)
@@ -65,32 +63,52 @@ namespace VECS.ECS.Presentation
             DirectionalLightFrameInfo frameInfo = new();
             if (_directionalLightShadowQuery.HasEntities || _directionalLightUpdateQuery.HasEntities)
             {
+                int dirShadowCount = 0;
                 int dirCount = 0;
-                var hostBuffer = (SwapChainBuffer<DirectionalLightUniform>)EngineBuffers.TryGetBuffer(ShaderProperties.DirectionalLightsBufferId);
+                var shadowHostBuffer = (SwapChainBuffer<DirectionalLightShadowUniform>)EngineBuffers.TryGetBuffer(ShaderProperties.DirectionalLightShadowBufferId);
+                var lightHostBuffer = (SwapChainBuffer<DirectionalLightUniform>)EngineBuffers.TryGetBuffer(ShaderProperties.DirectionalLightsBufferId);
 
                 if (_directionalLightShadowQuery.HasEntities)
                 {
                     var entities = _directionalLightShadowQuery.GetEntities();
 
-                    hostBuffer.Realloc((uint)entities.Count);
+                    shadowHostBuffer.Realloc((uint)entities.Count);
                     frameInfo.DirectionalLightShadowCount = entities.Count;
-                    UpdateDLBuffer(entityManager, ref dirCount, entities, hostBuffer.HostBuffer);
+                    UpdateDLShadowBuffer(entityManager, ref dirShadowCount, dirCount, entities, shadowHostBuffer.HostBuffer);
                 }
                 if (_directionalLightUpdateQuery.HasEntities)
                 {
                     var entities = _directionalLightUpdateQuery.GetEntities();
 
-                    hostBuffer.Realloc((uint)(frameInfo.DirectionalLightShadowCount + entities.Count));
+                    shadowHostBuffer.Realloc((uint)(frameInfo.DirectionalLightShadowCount + entities.Count));
 
                     frameInfo.DirectionalLightCount = entities.Count;
-                    UpdateDLBuffer(entityManager, ref dirCount, entities, hostBuffer.HostBuffer);
+                    UpdateDLBuffer(entityManager, ref dirCount, entities, lightHostBuffer.HostBuffer);
                 }
 
                 frameInfo.DirectionalLightCount += frameInfo.DirectionalLightShadowCount;
                 frameInfo.DirectionalLightShadowCount = Math.Min(1, frameInfo.DirectionalLightShadowCount);
-                hostBuffer.SetBuffersDirty(true);
+                shadowHostBuffer.SetBuffersDirty(true);
+                lightHostBuffer.SetBuffersDirty(true);
             }
             entityManager.AddComponent(Presenter.Instance.FrameInfoEntity, frameInfo);
+        }
+
+        private static void UpdateDLShadowBuffer(EntityManager entityManager, ref int dirCount, int lightIndex, List<Entity> entities, Span<DirectionalLightShadowUniform> hostBuffer)
+        {
+            var cameras = entityManager.GetAllEntitiesWithComponent<Camera>();
+            if (cameras == null) return;
+            for (int i = 0; i < entities.Count; i++)
+            {
+                if (!entityManager.GetComponent(entities[i], out DirectionalLight directionalLight)) continue;
+
+                for (int j = 0; j < Math.Min(cameras.Count, Presenter.MAX_CAMERAS); j++, dirCount++)
+                {
+                    hostBuffer[dirCount] = DirectionalLightShadows.GetDirectionalLight(directionalLight.Value, lightIndex, new(entityManager.GetComponent<Camera>(cameras[i])));
+                }
+
+                
+            }
         }
 
         private static void UpdateDLBuffer(EntityManager entityManager, ref int dirCount, List<Entity> entities, Span<DirectionalLightUniform> hostBuffer)
@@ -99,14 +117,7 @@ namespace VECS.ECS.Presentation
             {
                 if (!entityManager.GetComponent(entities[i], out DirectionalLight directionalLight)) continue;
 
-                if (dirCount == 0 && entityManager.SingletonEntity<MainCamera>(out Entity mainCamera) && entityManager.GetComponent(mainCamera, out Camera camera))
-                {
-                    hostBuffer[dirCount] = DirectionalLightShadows.GetDirectionalLight(directionalLight.Value, new(camera));
-                }
-                else
-                {
-                    hostBuffer[dirCount] = directionalLight.Value;
-                }
+                hostBuffer[dirCount] = directionalLight.Value;
             }
         }
 
@@ -126,7 +137,7 @@ namespace VECS.ECS.Presentation
                 bool textureChanged = _directionalLightShadows.SetShadowTexture(i, shadowInfo.Resolution);
                 if (textureChanged && shadowInfo.UpdateBehaviour == ShadowUpdate.OnDemand && !entityManager.HasComponent<UpdateShadow>(entities[i]))
                 {
-                    _directionalLightShadows.UpdateShadow.Enqueue(i);
+                    //_directionalLightShadows.UpdateShadow.Enqueue(i);
                 }
                 else if(textureChanged && shadowInfo.UpdateBehaviour != ShadowUpdate.OnDemand && !entityManager.HasComponent<UpdateShadow>(entities[i]))
                 {
@@ -138,13 +149,13 @@ namespace VECS.ECS.Presentation
                 {
                     entityManager.RemoveComponent<UpdateShadow>(entities[i]);
                 }
-                _directionalLightShadows.UpdateShadow.Enqueue(i);
+                //_directionalLightShadows.UpdateShadow.Enqueue(i);
             }
 
             for (; i < 1; i++)
             {
                 _directionalLightShadows.ReassignTextures |= _directionalLightShadows.SetShadowTexture(i, 8);
-                _directionalLightShadows.ClearShadow.Enqueue(i);
+                _directionalLightShadows.Clear = true;
             }
         }
     }

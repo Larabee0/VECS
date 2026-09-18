@@ -1,12 +1,10 @@
 ﻿using System;
 using System.Numerics;
-using System.Runtime.CompilerServices;
-using VECS.LowLevel;
 using Vortice.Vulkan;
 
 namespace VECS
 {
-    public sealed class UnityPhyBloom
+    public sealed class UnityPhyBloom : IRenderPass
     {
         private readonly static int SrcTextureId = "srcTexture".GetShaderPropertyId();
         private readonly static int DstTextureId = "dstTexture".GetShaderPropertyId();
@@ -17,15 +15,16 @@ namespace VECS
         private readonly static int SrcBloomTextureId = "srcBloomTexture".GetShaderPropertyId();
         private readonly static int SrcMainTextureId = "srcMainTexture".GetShaderPropertyId();
 
-        private readonly static int SrcResolutionId = "constants.srcResolution".GetShaderPropertyId();
-        private readonly static int OutputImageSizeId = "constants.outputImageSize".GetShaderPropertyId();
-        private readonly static int BloomThresholdId = "constants.bloomThreshold".GetShaderPropertyId();
-        private readonly static int BloomTintId = "constants.bloomTint".GetShaderPropertyId();
-        private readonly static int BloomStrengthId = "constants.bloomStrength".GetShaderPropertyId();
 
-        private readonly static int LowSizeId = "constants.lowSize".GetShaderPropertyId();
-        private readonly static int HighSizeId = "constants.highSize".GetShaderPropertyId();
-        private readonly static int ScatterId = "constants.scatter".GetShaderPropertyId();
+        private readonly static int SrcResolutionId = "srcResolution".GetShaderPropertyId();
+        private readonly static int OutputImageSizeId = "outputImageSize".GetShaderPropertyId();
+        private readonly static int BloomThresholdId = "bloomThreshold".GetShaderPropertyId();
+        private readonly static int BloomTintId = "bloomTint".GetShaderPropertyId();
+        private readonly static int BloomStrengthId = "bloomStrength".GetShaderPropertyId();
+
+        private readonly static int LowSizeId = "lowSize".GetShaderPropertyId();
+        private readonly static int HighSizeId = "highSize".GetShaderPropertyId();
+        private readonly static int ScatterId = "scatter".GetShaderPropertyId();
 
         private static readonly Vector4 BloomThreshold = new(0.0f, -1.0e-5f, 0.00002f, 25000.0f);
         private static readonly Vector4 BloomTint = new(1, 1, 1, 1);
@@ -66,28 +65,33 @@ namespace VECS
             
             _bloomIntermediate = new("BloomIntermediate", 8, 8, colourFormat, VkImageUsageFlags.Storage | VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferDst, VkSamplerAddressMode.ClampToEdge, 0, false, VkCompareOp.Never, VkSamplerMipmapMode.Nearest, VkBorderColor.FloatOpaqueBlack, VkFilter.Linear, false);
 
-            RenderGraph.AddPass("PhyBloomDownSample", PassType.Compute, ["ForwardPass", "DeferredCompositePass", "TransaprentComposite", "SMAA_Output"], ["PostProcessingColourAttachment"], ["PhyBloomAttachment"], BloomDownSample);
-            RenderGraph.AddPass("PhyBloomUpSample", PassType.Compute, ["PhyBloomDownSample"], ["MainColourAttachment"], ["PhyBloomAttachment"], BloomUpSample);
-            RenderGraph.AddPass("PhyBloomMix", PassType.Compute, ["PhyBloomUpSample"], ["PostProcessingColourAttachment", "MainColourAttachment", "PhyBloomAttachment"], ["MainColourAttachment", "PostProcessingColourAttachment"], BloomMix);
         }
 
-        public static void Bloom_Toggle_Input()
+        public void AddToRenderGraph()
         {
-            if (InputManager.Instance.GetKeyUp(SDL3.SDL_Keycode.B))
-            {
-                Bloom_Enabled = !Bloom_Enabled;
+            RenderGraph.AddPass("PhyBloomDownSample", PassType.Compute, PassCategory.PostProcessing,["ForwardPass", "DeferredCompositePass", "TransaprentComposite", "SMAA_Output"], [RenderGraph.PostProcessingColourAttachment], ["PhyBloomAttachment"], BloomDownSample);
+            RenderGraph.AddPass("PhyBloomUpSample", PassType.Compute, PassCategory.PostProcessing, ["PhyBloomDownSample"], [RenderGraph.MainColourAttachment], ["PhyBloomAttachment"], BloomUpSample);
+            RenderGraph.AddPass("PhyBloomMix", PassType.Compute, PassCategory.PostProcessing, ["PhyBloomUpSample"], [RenderGraph.PostProcessingColourAttachment, RenderGraph.MainColourAttachment, "PhyBloomAttachment"], [RenderGraph.MainColourAttachment, RenderGraph.PostProcessingColourAttachment], BloomMix);
+        }
 
-                Console.WriteLine("Bloom Enabled: {0}", Bloom_Enabled);
-                if (Bloom_Enabled)
-                {
-                    RenderGraph.EnablePasses(["PhyBloomDownSample", "PhyBloomUpSample", "PhyBloomMix"]);
-                }
-                else
-                {
-                    RenderGraph.DisablePasses(["PhyBloomDownSample", "PhyBloomUpSample", "PhyBloomMix"]);
-                }
+        public void SetEnabled(bool enabled)
+        {
+            if (Bloom_Enabled == enabled) return;
+            
+            Bloom_Enabled = enabled;
+
+            Console.WriteLine("Bloom Enabled: {0}", Bloom_Enabled);
+            if (Bloom_Enabled)
+            {
+                RenderGraph.EnablePass("PhyBloomDownSample", "PhyBloomUpSample", "PhyBloomMix");
+            }
+            else
+            {
+                RenderGraph.DisablePass("PhyBloomDownSample", "PhyBloomUpSample", "PhyBloomMix");
             }
         }
+
+
 
         private void DisposeBloomMips()
         {
@@ -141,9 +145,16 @@ namespace VECS
             SetBloomUpsamplerVariants();
         }
 
+        public void PrePresent()
+        {
+
+        }
+
+
+
         private void SetBloomDownSampleVariants()
         {
-            _bloomBlur.SetVector2(OutputImageSizeId, new(_bloomMipDown[0].Width, _bloomMipDown[0].Height));
+            _bloomBlur.PushConstantsHandler.SetPushConstantVector2(OutputImageSizeId, 0, new(_bloomMipDown[0].Width, _bloomMipDown[0].Height));
             _bloomBlur.SetTexture(DstTextureId, _bloomMipDown[0]);
             _bloomBlur.SetTexture(SrcTextureId, _bloomFinalMipUp);
 
@@ -153,7 +164,7 @@ namespace VECS
 
                 downSampleVariant.SetTexture(SrcTextureId, _bloomMipDown[i]);
 
-                downSampleVariant.SetVector4(OutputImageSizeId, new(_bloomMipDown[i + 1].Width, _bloomMipDown[i + 1].Height, 1.0f / _bloomMipDown[i + 1].Width, 1.0f / _bloomMipDown[i + 1].Height));
+                downSampleVariant.PushConstantsHandler.SetPushConstantVector4(OutputImageSizeId, (int)i, new(_bloomMipDown[i + 1].Width, _bloomMipDown[i + 1].Height, 1.0f / _bloomMipDown[i + 1].Width, 1.0f / _bloomMipDown[i + 1].Height));
                 downSampleVariant.SetTexture(DstTextureId, _bloomMipDown[i + 1]);
             }
         }
@@ -167,19 +178,19 @@ namespace VECS
                 upSampleVariants[i] = _bloomUpSample.GetOrCreateVariant(i);
             }
             var variant = upSampleVariants[^1];
-            SetUpSampleVariant(variant, _bloomMipDown[^1], _bloomMipDown[^2], _bloomMipUp[^2], BloomScatter);
+            SetUpSampleVariant(variant, _bloomMipDown[^1], _bloomMipDown[^2], _bloomMipUp[^2], BloomScatter, upSampleVariants.Length -1);
 
             for (int i = _bloomMipDown.Length - 3; i >= 0; i--)
             {
-                SetUpSampleVariant(upSampleVariants[i], _bloomMipUp[i + 1], _bloomMipDown[i], _bloomMipUp[i], BloomScatter);
+                SetUpSampleVariant(upSampleVariants[i], _bloomMipUp[i + 1], _bloomMipDown[i], _bloomMipUp[i], BloomScatter, i);
             }
         }
 
         private void SetBloomPreFilterVariant(VkExtent2D windowExtents)
         {
-            _bloomPrefilter.SetVector2(SrcResolutionId, new(windowExtents.width, windowExtents.height));
-            _bloomPrefilter.SetVector4(OutputImageSizeId, new Vector4(_bloomFinalMipUp.Width, _bloomFinalMipUp.Height, 1.0f / _bloomFinalMipUp.Width, 1.0f / _bloomFinalMipUp.Height));
-            _bloomPrefilter.SetVector4(BloomThresholdId, BloomThreshold);
+            _bloomPrefilter.PushConstantsHandler.SetPushConstantVector4(SrcResolutionId,0, new(windowExtents.width, windowExtents.height, 1.0f / windowExtents.width, 1.0f / windowExtents.height));
+            _bloomPrefilter.PushConstantsHandler.SetPushConstantVector4(OutputImageSizeId,0, new Vector4(_bloomFinalMipUp.Width, _bloomFinalMipUp.Height, 1.0f / _bloomFinalMipUp.Width, 1.0f / _bloomFinalMipUp.Height));
+            _bloomPrefilter.PushConstantsHandler.SetPushConstantVector4(BloomThresholdId,0, BloomThreshold);
 
             _bloomPrefilter.SetTexture(SrcTextureId, PostProcessingAttachment.Target);
             _bloomPrefilter.SetTexture(DstTextureId, _bloomFinalMipUp);
@@ -187,21 +198,21 @@ namespace VECS
 
         private void SetUberPostVariant(VkExtent2D windowExtents)
         {
-            _bloomUberPost.SetVector4(OutputImageSizeId, new(windowExtents.width, windowExtents.height, 1.0f / windowExtents.width, 1.0f / windowExtents.height));
-            _bloomUberPost.SetVector4(BloomThresholdId, BloomThreshold);
-            _bloomUberPost.SetVector4(BloomTintId, BloomTint);
-            _bloomUberPost.SetFloat(BloomStrengthId, BloomStrength);
+            _bloomUberPost.PushConstantsHandler.SetPushConstantVector4(OutputImageSizeId, 0, new(windowExtents.width, windowExtents.height, 1.0f / windowExtents.width, 1.0f / windowExtents.height));
+            _bloomUberPost.PushConstantsHandler.SetPushConstantVector4(BloomThresholdId, 0, BloomThreshold);
+            _bloomUberPost.PushConstantsHandler.SetPushConstantVector4(BloomTintId, 0, BloomTint);
+            _bloomUberPost.PushConstantsHandler.SetPushConstantFloat(BloomStrengthId,0, BloomStrength);
 
             _bloomUberPost.SetTexture(DstTextureId, PostProcessingAttachment.Target);
             _bloomUberPost.SetTexture(SrcMainTextureId, _bloomIntermediate);
             _bloomUberPost.SetTexture(SrcBloomTextureId, _bloomFinalMipUp);
         }
 
-        private static void SetUpSampleVariant(ComputeVariant upSampleVariant, Texture2D lowTexture, Texture2D highTexture, Texture2D outputTexture, float scatter)
+        private static void SetUpSampleVariant(ComputeVariant upSampleVariant, Texture2D lowTexture, Texture2D highTexture, Texture2D outputTexture, float scatter, int pushConstants)
         {
-            upSampleVariant.SetVector4(HighSizeId, new(highTexture.Width, highTexture.Height, 1.0f / highTexture.Width, 1.0f / highTexture.Height));
-            upSampleVariant.SetVector4(LowSizeId, new(lowTexture.Width, lowTexture.Height, 1.0f / lowTexture.Width, 1.0f / lowTexture.Height));
-            upSampleVariant.SetFloat(ScatterId, scatter);
+            upSampleVariant.PushConstantsHandler.SetPushConstantVector4(HighSizeId, pushConstants, new(highTexture.Width, highTexture.Height, 1.0f / highTexture.Width, 1.0f / highTexture.Height));
+            upSampleVariant.PushConstantsHandler.SetPushConstantVector4(LowSizeId, pushConstants, new(lowTexture.Width, lowTexture.Height, 1.0f / lowTexture.Width, 1.0f / lowTexture.Height));
+            upSampleVariant.PushConstantsHandler.SetPushConstantFloat(ScatterId, pushConstants, scatter);
 
             upSampleVariant.SetTexture(SrcHighTextureId, highTexture);
             upSampleVariant.SetTexture(SrcLowTextureId, lowTexture);

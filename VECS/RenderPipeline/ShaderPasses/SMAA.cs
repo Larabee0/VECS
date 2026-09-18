@@ -1,13 +1,13 @@
 ﻿using BCnEncoder.Shared.ImageFiles;
-using System;
 using System.IO;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
 namespace VECS
 {
-    public class SMAA
+    public class SMAA : IRenderPass
     {
         private readonly Texture2D AreaTexture;
         private readonly Texture2D SearchTexture;
@@ -24,6 +24,9 @@ namespace VECS
         private RenderTarget EdgeTarget;
         private RenderTarget BlendTarget;
         private RenderTarget PostProcessingAttachment;
+
+
+        private RenderTarget ColourSrc;
 
         private bool _smaaEnabled = true;
 
@@ -101,11 +104,15 @@ namespace VECS
                 VkImageLayout.General,
                 new(0, 0, 0, 0)));
 
+            RenderGraph.AddResource(new("SMAA_Colour_Attachment",
+                ActiveRenderer.MainColourFormat, 0,
+                VkImageUsageFlags.None,
+                VkImageLayout.ShaderReadOnlyOptimal,
+                VkImageLayout.TransferDstOptimal,
+                VkImageLayout.General,
+                VkImageLayout.General,
+                new(0, 0, 0, 0)));
             
-
-            RenderGraph.AddPass("SMAA_Edge_Detection", PassType.Render, PassCategory.AntiAliasing, ["ForwardPass", "DeferredCompositePass", "TransaprentComposite"], ["MainColourAttachment"], ["SMAA_Edge_Attachment"], EdgeDetectionPass);
-            RenderGraph.AddPass("SMAA_Blend_Weight", PassType.Render, PassCategory.AntiAliasing, ["SMAA_Edge_Detection"], ["SMAA_Edge_Attachment"], ["SMAA_Blend_Attachment"], BlendWeightCalculation);
-            RenderGraph.AddPass("SMAA_Output", PassType.Render, PassCategory.AntiAliasing, ["SMAA_Blend_Weight"], ["SMAA_Blend_Attachment"], ["PostProcessingColourAttachment"], OutputBlending);
 
             VkSamplerCreateInfo samplerCreateInfo = new()
             {
@@ -126,9 +133,9 @@ namespace VECS
                 unnormalizedCoordinates = false
 
             };
-            //EdgeDetection.SetSampler("PointSampler".GetShaderPropertyId(), TextureExtensions.GetOrCreateSample(samplerCreateInfo));
+
             EdgeDetection.SetSampler("uSampler".GetShaderPropertyId(), TextureExtensions.GetOrCreateSample(samplerCreateInfo));
-            //BlendWeightCalc.SetSampler("PointSampler".GetShaderPropertyId(), TextureExtensions.GetOrCreateSample(samplerCreateInfo));
+
             samplerCreateInfo = new()
             {
                 magFilter = VkFilter.Linear,
@@ -148,61 +155,85 @@ namespace VECS
                 unnormalizedCoordinates = false
 
             };
-            //EdgeDetection.SetSampler("LinearSampler".GetShaderPropertyId(), TextureExtensions.GetOrCreateSample(samplerCreateInfo));
-            //BlendWeightCalc.SetSampler("uSampler".GetShaderPropertyId(), TextureExtensions.GetOrCreateSample(samplerCreateInfo));
-            //BlendWeightCalc.SetSampler("LinearSampler".GetShaderPropertyId(), TextureExtensions.GetOrCreateSample(samplerCreateInfo));
-            //NeighbourhoodBlending.SetSampler("LinearSampler".GetShaderPropertyId(), TextureExtensions.GetOrCreateSample(samplerCreateInfo));
             BlendWeightCalc.SetSampler("uSampler".GetShaderPropertyId(), TextureExtensions.GetOrCreateSample(samplerCreateInfo));
             NeighbourhoodBlending.SetSampler("uSampler".GetShaderPropertyId(), TextureExtensions.GetOrCreateSample(samplerCreateInfo));
         }
 
-        public void RecreateRenderTargets()
+        public void SetEnabled(bool enabled)
         {
-            var windowExtents = Application.MainWindow.WindowExtent;
+            _smaaEnabled = enabled;
+        }
 
-            EdgeTarget = RenderGraph.GetResource("SMAA_Edge_Attachment");
-            BlendTarget = RenderGraph.GetResource("SMAA_Blend_Attachment");
-            PostProcessingAttachment = RenderGraph.GetResource("PostProcessingColourAttachment");
+        public void AddToRenderGraph()
+        {
+            RenderGraph.AddPass("SMAA_Edge_Detection", PassType.Render, PassCategory.PostProcessing,
+                ["ForwardPass", "DeferredCompositePass", "TransaprentComposite"],
+                [RenderGraph.MainColourAttachment, "SMAA_Colour_Attachment"],
+                ["SMAA_Edge_Attachment", "SMAA_Colour_Attachment"],
+                EdgeDetectionPass);
 
-            var texelSize = new Vector4(1.0f / windowExtents.width, 1.0f / windowExtents.height, windowExtents.width, windowExtents.height);
+            RenderGraph.AddPass("SMAA_Blend_Weight", PassType.Render, PassCategory.PostProcessing,
+                ["SMAA_Edge_Detection"],
+                ["SMAA_Edge_Attachment"],
+                ["SMAA_Blend_Attachment"],
+                BlendWeightCalculation);
+
+            RenderGraph.AddPass("SMAA_Output", PassType.Render, PassCategory.PostProcessing,
+                ["SMAA_Blend_Weight", "SMAA_Colour_Attachment"],
+                ["SMAA_Blend_Attachment"],
+                [RenderGraph.PostProcessingColourAttachment],
+                OutputBlending);
+
+        }
+
+        public void PrePresent()
+        {
+
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetScreenSize(int width, int height)
+        {
+            var texelSize = new Vector4(1.0f / width, 1.0f / height, width, height);
+            SetScreenSize(texelSize);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetScreenSize(uint width, uint height)
+        {
+            var texelSize = new Vector4(1.0f / width, 1.0f / height, width, height);
+            SetScreenSize(texelSize);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetScreenSize(Vector4 texelSize)
+        {
 
             EdgeDetection.PushConstants.SetPushConstantVector4("texelSize", 0, texelSize);
-            EdgeDetection.SetTexture("uColourTexture".GetShaderPropertyId(), EngineTextures.TryGetTexture(ShaderProperties.MainColourAttachmentId));
-
             BlendWeightCalc.PushConstants.SetPushConstantVector4("texelSize", 0, texelSize);
+            NeighbourhoodBlending.PushConstants.SetPushConstantVector4("texelSize", 0, texelSize);
+        }
+
+        public void RecreateRenderTargets()
+        {
+            EdgeTarget = RenderGraph.GetResource("SMAA_Edge_Attachment");
+            BlendTarget = RenderGraph.GetResource("SMAA_Blend_Attachment");
+            ColourSrc = RenderGraph.GetResource("SMAA_Colour_Attachment");
+
+            PostProcessingAttachment = RenderGraph.GetResource(RenderGraph.PostProcessingColourAttachment);
+
+            EdgeDetection.SetTexture("uColourTexture".GetShaderPropertyId(), ColourSrc.Target);
+
             BlendWeightCalc.SetTexture("uEdgeTexture".GetShaderPropertyId(), EdgeTarget.Target);
 
-            NeighbourhoodBlending.PushConstants.SetPushConstantVector4("texelSize", 0, texelSize);
             NeighbourhoodBlending.SetTexture("uBlendTexture".GetShaderPropertyId(), BlendTarget.Target);
-            NeighbourhoodBlending.SetTexture("uColourTexture".GetShaderPropertyId(), EngineTextures.TryGetTexture(ShaderProperties.MainColourAttachmentId));
+            NeighbourhoodBlending.SetTexture("uColourTexture".GetShaderPropertyId(), ColourSrc.Target);
 #if DEBUG
             BlitEdgeTarget.SetTexture("inputTexture".GetShaderPropertyId(), EdgeTarget.Target);
             BlitBlendTarget.SetTexture("inputTexture".GetShaderPropertyId(), BlendTarget.Target);
 #endif
         }
 
-        public void ApplyAA(RendererFrameInfo frameInfo)
-        {
-            _smaaEnabled = InputManager.Instance.GetKeyUp(SDL3.SDL_Keycode.F8) ? !_smaaEnabled : _smaaEnabled;
-
-            if (!_smaaEnabled) return;
-
-            var mainTarget = EngineTextures.TryGetTexture(ShaderProperties.MainColourAttachmentId);
-
-            mainTarget.First.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal);
-
-            EdgeDetectionPass(frameInfo);
-
-            BlendWeightCalculation(frameInfo);
-
-            mainTarget.First.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal);
-
-            OutputBlending(frameInfo);
-
-            // OutputEdgeDetection(frameInfo);
-
-            // OutputBlendWeights(frameInfo);
-        }
 
 #if DEBUG
         private unsafe void OutputBlendWeights( RendererFrameInfo frameInfo)
@@ -229,17 +260,9 @@ namespace VECS
 
         private void OutputBlending(RendererFrameInfo frameInfo)
         {
-            if (InputManager.Instance.GetKeyUp(SDL3.SDL_Keycode.F8))
-            {
-                _smaaEnabled = !_smaaEnabled;
-                Console.WriteLine($"SMAA ENABLED {_smaaEnabled}");
-            }
-
             if (!_smaaEnabled)
             {
-                var deferred = (DeferredRenderer)ActiveRenderer;
-                PostProcessingAttachment.Target.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.TransferDstOptimal);
-                deferred.BlitFromMainColour(frameInfo.CommandBuffer, PostProcessingAttachment.VkImage, PostProcessingAttachment.Target.Width, PostProcessingAttachment.Target.Height, VkImageAspectFlags.Color);
+                BlitPostProcessFromMainAttachment(frameInfo);
             }
             else
             {
@@ -248,6 +271,12 @@ namespace VECS
                 GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
                 GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
             }
+        }
+
+        private void BlitPostProcessFromMainAttachment(RendererFrameInfo frameInfo)
+        {
+            PostProcessingAttachment.Target.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.TransferDstOptimal);
+            ActiveRenderer.BlitFromMainColour(frameInfo.CommandBuffer, frameInfo.OutputRect, PostProcessingAttachment.VkImage, frameInfo.OutputRect, VkImageAspectFlags.Color);
         }
 
         private void BlendWeightCalculation(RendererFrameInfo frameInfo)
@@ -262,6 +291,11 @@ namespace VECS
         private void EdgeDetectionPass(RendererFrameInfo frameInfo)
         {
             if (!_smaaEnabled) return;
+            SetScreenSize(frameInfo.OutputRect.extent.height, frameInfo.OutputRect.extent.width);
+
+            ActiveRenderer.BlitFromMainColour(frameInfo.CommandBuffer, frameInfo.OutputRect, ColourSrc.VkImage, frameInfo.OutputRect, VkImageAspectFlags.Color);
+            ColourSrc.Target.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal);
+
             EdgeTarget.BeginRenderingOnlyAttachment(frameInfo.CommandBuffer);
             EdgeDetection.Bind(frameInfo);
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);

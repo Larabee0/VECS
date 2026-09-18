@@ -6,7 +6,7 @@
 layout (set = 0, binding = 0) uniform sampler2D srcTexture;
 layout (set = 0, binding = 1) uniform writeonly image2D dstTexture;
 
-layout (set = 0, binding = 2)  uniform Constants{
+layout (push_constant)  uniform Constants{
     vec2 outputImageSize; // texel size
 } constants;
 

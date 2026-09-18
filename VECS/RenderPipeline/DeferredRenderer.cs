@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Numerics;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
@@ -11,7 +13,7 @@ namespace VECS
         public RenderTarget MainColourAttachment { get; private set; }
         public RenderTarget DepthAttachment;
 
-        public RenderTarget PostProcessingAttachment;
+        public RenderTarget PostProcessingAttachment { get; private set;  }
 
         public static readonly int G_PositionPropertyId = "g_PositionIn".GetShaderPropertyId();
         public static readonly int G_NormalsPropertyId = "g_NormalsIn".GetShaderPropertyId();
@@ -24,13 +26,7 @@ namespace VECS
         public RenderTarget G_AlbedoAttachment;
         public RenderTarget G_MaskAttachment;
 
-        public static bool useRenderGraph = true;
-
-        private OIT _orderIndpTransparency;
-
-        private SMAA _smaa;
-        private SSAO _ssao;
-        private UnityPhyBloom _phyBloom;
+        private List<IRenderPass> _passes = [];
 
         private DepthOnlyQueue _depthOnlyQueue;
         private DeferredQueue _deferredQueue;
@@ -43,6 +39,19 @@ namespace VECS
         public VkFormat DepthFormat => PreferredFormats.LOW_PRECISION_DEPTH_ONLY;
 
         public VkFormat StencilFormat => VkFormat.Undefined;
+
+        private VkExtent2D _mainAttachmentSize;
+
+        public VkExtent2D MainRenderingAttachmentsSize
+        { 
+            get => _mainAttachmentSize;
+            private set 
+            {
+                _mainAttachmentSize.width = Math.Max(value.width, MaxReflectionTextureSize.width);
+                _mainAttachmentSize.height = Math.Max(value.height, MaxReflectionTextureSize.height);
+            }
+        }
+        public VkExtent2D MaxReflectionTextureSize { get; private set; } = new (2048, 2048);
         private Action _onScreenSizeChanged;
         public Action OnScreenSizeChanged{get=> _onScreenSizeChanged;set => _onScreenSizeChanged = value;}
 
@@ -50,7 +59,7 @@ namespace VECS
         {
             _deferredComposite = ComputePipeline.GetOrCreate("pbr_composit.comp").Default();
 
-            RenderGraph.AddResource(new("MainColourAttachment", ShaderProperties.MainColourAttachmentId, MainColourFormat, 0,
+            RenderGraph.AddResource(new(RenderGraph.MainColourAttachment, ShaderProperties.MainColourAttachmentId, MainColourFormat, MainRenderingAttachmentsSize,
                 VkImageUsageFlags.Storage,
                 VkImageLayout.ShaderReadOnlyOptimal,
                 VkImageLayout.ColorAttachmentOptimal,
@@ -58,7 +67,7 @@ namespace VECS
                 VkImageLayout.General,
                 new(0, 0, 0, 1)));
 
-            RenderGraph.AddResource(new("PostProcessingColourAttachment", "PostProcessingAttachment".GetShaderPropertyId(), VkFormat.B10G11R11UfloatPack32, 0,
+            RenderGraph.AddResource(new(RenderGraph.PostProcessingColourAttachment, "PostProcessingAttachment".GetShaderPropertyId(), VkFormat.B10G11R11UfloatPack32, 0,
                 VkImageUsageFlags.Storage,
                 VkImageLayout.ShaderReadOnlyOptimal,
                 VkImageLayout.ColorAttachmentOptimal,
@@ -66,7 +75,7 @@ namespace VECS
                 VkImageLayout.General,
                 new(0, 0, 0, 1)));
 
-            RenderGraph.AddResource(new("MainDepthAttachment", ShaderProperties.MainDepthAttachmentId, DepthFormat, 0,
+            RenderGraph.AddResource(new("MainDepthAttachment", ShaderProperties.MainDepthAttachmentId, DepthFormat, MainRenderingAttachmentsSize,
                 VkImageUsageFlags.None,
                 VkImageLayout.DepthAttachmentOptimal,
                 VkImageLayout.DepthAttachmentOptimal,
@@ -74,30 +83,29 @@ namespace VECS
                 VkImageLayout.General,
                 new(1, 0)));
 
-            
 
-            RenderGraph.AddResource(new("G_PositionAttachment", G_PositionPropertyId, VkFormat.R16G16B16A16Sfloat, 0,
+            RenderGraph.AddResource(new("G_PositionAttachment", G_PositionPropertyId, VkFormat.R16G16B16A16Sfloat, MainRenderingAttachmentsSize,
                 VkImageUsageFlags.Storage,
                 VkImageLayout.ShaderReadOnlyOptimal,
                 VkImageLayout.ColorAttachmentOptimal,
                 VkImageLayout.ShaderReadOnlyOptimal,
                 VkImageLayout.General,
                 new(0, 0, 0, 0)));
-            RenderGraph.AddResource(new("G_NormalAttachment", G_NormalsPropertyId, VkFormat.R16G16B16A16Sfloat, 0,
+            RenderGraph.AddResource(new("G_NormalAttachment", G_NormalsPropertyId, VkFormat.R16G16B16A16Sfloat, MainRenderingAttachmentsSize,
                 VkImageUsageFlags.Storage,
                 VkImageLayout.ShaderReadOnlyOptimal,
                 VkImageLayout.ColorAttachmentOptimal,
                 VkImageLayout.ShaderReadOnlyOptimal,
                 VkImageLayout.General,
                 new(0, 0, 0, 0)));
-            RenderGraph.AddResource(new("G_AlbedoAttachment", G_AlbedoPropertyId, VkFormat.R8G8B8A8Unorm, 0,
+            RenderGraph.AddResource(new("G_AlbedoAttachment", G_AlbedoPropertyId, VkFormat.B10G11R11UfloatPack32, MainRenderingAttachmentsSize,
                 VkImageUsageFlags.Storage,
                 VkImageLayout.ShaderReadOnlyOptimal,
                 VkImageLayout.ColorAttachmentOptimal,
                 VkImageLayout.ShaderReadOnlyOptimal,
                 VkImageLayout.General,
                 new(0, 0, 0, 0)));
-            RenderGraph.AddResource(new("G_MaskAttachment", G_MaskPropertyId, VkFormat.R8G8B8A8Unorm, 0,
+            RenderGraph.AddResource(new("G_MaskAttachment", G_MaskPropertyId, VkFormat.R8G8B8A8Unorm, MainRenderingAttachmentsSize,
                 VkImageUsageFlags.Storage,
                 VkImageLayout.ShaderReadOnlyOptimal,
                 VkImageLayout.ColorAttachmentOptimal,
@@ -105,16 +113,22 @@ namespace VECS
                 VkImageLayout.General,
                 new(0, 0, 0, 0)));
 
-            RenderGraph.AddPass("DeferredDepthOnlyPass", PassType.Render,
-                [], [],
-                ["MainDepthAttachment"], DeferredDepthPass);
+            AddToRenderGraph();
 
-            RenderGraph.AddPass("DeferredObjectsPass", PassType.Render,
+        }
+
+        private void AddToRenderGraph()
+        {
+            RenderGraph.AddPass("DeferredDepthOnlyPass", PassType.Render, PassCategory.PreRendering,
+                            [], [],
+                            ["MainDepthAttachment"], DeferredDepthPass);
+
+            RenderGraph.AddPass("DeferredObjectsPass", PassType.Render, PassCategory.Opaque,
                 ["DeferredDepthOnlyPass"],
                 ["MainDepthAttachment"],
                 ["G_PositionAttachment", "G_NormalAttachment", "G_AlbedoAttachment", "G_MaskAttachment"], DeferredObjectsPass);
 
-            RenderGraph.AddPass("DeferredCompositePass", PassType.Compute,
+            RenderGraph.AddPass("DeferredCompositePass", PassType.Compute, PassCategory.PostRendering,
                 [
                     "SSAO_Blur",
                     "DeferredObjectsPass",
@@ -130,16 +144,16 @@ namespace VECS
                 "DirectionalShadowAttachment",
                 "PointLightShadowAttachments",
                 "SpotLightShadowAttachments"],
-                ["MainColourAttachment"], DeferredCompositePass);
+                [RenderGraph.MainColourAttachment], DeferredCompositePass);
 
-            RenderGraph.AddPass("ForwardPass", PassType.Render,
+            RenderGraph.AddPass("ForwardPass", PassType.Render, PassCategory.Opaque,
                 ["ForwardDepthOnlyPass",
                     "SpotLightShadows",
                     "PointLightShadows",
                     "DirectionalLightShadows",
                     "DeferredCompositePass"],
                 ["MainDepthAttachment", "DirectionalShadowAttachment", "PointLightShadowAttachments", "SpotLightShadowAttachments"],
-                ["MainColourAttachment", "BrightObjectAttachment",], ForwardPass);
+                [RenderGraph.MainColourAttachment], ForwardPass);
 
         }
 
@@ -153,16 +167,24 @@ namespace VECS
             _deferredComposite?.PushConstantsHandler?.SetPushConstantFloat("gamma", 0, gamma);
         }
 
+        public void AddPass<T>() where T : IRenderPass
+        {
+            _passes.Add((IRenderPass)Activator.CreateInstance(typeof(T), this));
+        }
+
         public void PostCreate()
         {
             EnginePipes.DepthOnly.PushConstants.SetPushConstantInt("layerCount", DEPTH_ONLY_PUSH_CONSTANT_INDEX, 1);
             EnginePipes.DepthOnly.PushConstants.SetPushConstantInt("bufferSelect", DEPTH_ONLY_PUSH_CONSTANT_INDEX, 0);
-            _orderIndpTransparency = new(this);
-            _smaa = new(this);
-            _ssao = new(this);
-            _phyBloom = new(this);
-            Skybox.StartSkybox();
-            PBR.StartPBR();
+
+            AddPass<OIT>();
+            AddPass<SMAA>();
+            AddPass<SSAO>();
+            AddPass<UnityPhyBloom>();
+            AddPass<Skybox>();
+            AddPass<DebugDrawer>();
+            AddPass<PBR>();
+            _passes.ForEach(p => p.AddToRenderGraph());
 
             ScreenSizeChanged();
             _depthOnlyQueue = new DepthOnlyQueue("DepthOnly");
@@ -177,21 +199,20 @@ namespace VECS
         public void ScreenSizeChanged()
         {
             var windowExtents = Application.MainWindow.WindowExtent;
+            MainRenderingAttachmentsSize = windowExtents;
 
-            RenderGraph.RecreateAttachments(0,windowExtents);
 
-            MainColourAttachment = RenderGraph.GetResource("MainColourAttachment");
-            DepthAttachment = RenderGraph.GetResource("MainDepthAttachment");
-            PostProcessingAttachment = RenderGraph.GetResource("PostProcessingColourAttachment");
-            G_PositionAttachment = RenderGraph.GetResource("G_PositionAttachment");
-            G_NormalAttachment = RenderGraph.GetResource("G_NormalAttachment");
-            G_AlbedoAttachment = RenderGraph.GetResource("G_AlbedoAttachment");
-            G_MaskAttachment = RenderGraph.GetResource("G_MaskAttachment");
-            
-            _orderIndpTransparency?.RecreateRenderTargets();
-            _smaa?.RecreateRenderTargets();
-            _ssao?.RecreateRenderTargets();
-            _phyBloom?.RecreateRenderTargets();
+            RenderGraph.RecreateAttachments(0, Application.MainWindow.WindowExtent);
+            PostProcessingAttachment = RenderGraph.GetResource(RenderGraph.PostProcessingColourAttachment);
+
+            MainColourAttachment = RenderGraph.GetOrCreateResource(RenderGraph.MainColourAttachment, MainRenderingAttachmentsSize);
+            DepthAttachment = RenderGraph.GetOrCreateResource(RenderGraph.MainDepthAttachment, MainRenderingAttachmentsSize);
+            G_PositionAttachment = RenderGraph.GetOrCreateResource("G_PositionAttachment", MainRenderingAttachmentsSize);
+            G_NormalAttachment = RenderGraph.GetOrCreateResource("G_NormalAttachment", MainRenderingAttachmentsSize);
+            G_AlbedoAttachment = RenderGraph.GetOrCreateResource("G_AlbedoAttachment", MainRenderingAttachmentsSize);
+            G_MaskAttachment = RenderGraph.GetOrCreateResource("G_MaskAttachment", MainRenderingAttachmentsSize);
+
+            _passes.ForEach(p => p.RecreateRenderTargets());
             SetDeferredResources();
             _onScreenSizeChanged?.Invoke();
         }
@@ -199,6 +220,8 @@ namespace VECS
         private void SetDeferredResources()
         {
             var windowExtents = Application.MainWindow.WindowExtent;
+            //_deferredComposite.SetStorageBuffer(ShaderProperties.LightingInfoId, EngineBuffers.TryGetBuffer(ShaderProperties.LightingInfoId));
+            
             _deferredComposite.SetStorageBuffer(ShaderProperties.DirectionalLightsBufferId, EngineBuffers.TryGetBuffer(ShaderProperties.DirectionalLightsBufferId));
             _deferredComposite.SetStorageBuffer(ShaderProperties.PointLightsBufferId, EngineBuffers.TryGetBuffer(ShaderProperties.PointLightsBufferId));
             _deferredComposite.SetStorageBuffer(ShaderProperties.SpotLightsBufferId, EngineBuffers.TryGetBuffer(ShaderProperties.SpotLightsBufferId));
@@ -220,24 +243,11 @@ namespace VECS
 
         public void PreRender()
         {
-            SSAO.SSAO_Toggle_Input();
-            UnityPhyBloom.Bloom_Toggle_Input();
+
         }
 
         public unsafe void Render(RendererFrameInfo frameInfo, int imageIndex)
         {
-            if (Presenter.FrameCount == 0)
-            {
-                GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "PBR Maps");
-                PBR.Generate_Prefiltered_Cubemap(frameInfo);
-                PBR.Generate_BRDFLUT(frameInfo);
-                PBR.Generate_Irradiance(frameInfo);
-                _deferredComposite?.SetTexture("samplerIrradiance".GetShaderPropertyId(), EngineTextures.TryGetTexture("samplerIrradiance".GetShaderPropertyId()).First);
-                _deferredComposite?.SetTexture("prefilteredMap".GetShaderPropertyId(), EngineTextures.TryGetTexture("prefilteredMap".GetShaderPropertyId()).First);
-                _deferredComposite?.SetTexture("samplerBRDFLUT".GetShaderPropertyId(), EngineTextures.TryGetTexture("samplerBRDFLUT".GetShaderPropertyId()).First);
-                GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
-            }
-
             GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Render Graph");
             RenderGraph.Execute(frameInfo);
             GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
@@ -254,17 +264,14 @@ namespace VECS
         {
             if (_forwardQueue.CommandCount > 0)
             {
-                DrawBlob.Cull(_forwardQueue, frameInfo, frameInfo.CullData);
+                DrawBlob.SetTargetCamera(_forwardQueue, frameInfo.TargetCamera);
+                DrawBlob.Cull(_forwardQueue, frameInfo.CommandBuffer, frameInfo.CullData);
             }
-            StartForwardRendering(frameInfo.CommandBuffer, VkAttachmentLoadOp.Load, false);
+            StartForwardRendering(frameInfo.CommandBuffer, VkAttachmentLoadOp.Load);
             if (_forwardQueue.CommandCount > 0)
             {
-                DrawBlob.Execute(_forwardQueue, frameInfo, 0, VkCullModeFlags.Back);
+                DrawBlob.Execute(_forwardQueue, frameInfo.CommandBuffer, 0, VkCullModeFlags.Back);
             }
-            // skybox last item rendered to save fragments from any depth writes
-            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Skybox");
-            Skybox.RenderSkybox(frameInfo);
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
 
             EndForwardRendering(frameInfo);
         }
@@ -274,17 +281,18 @@ namespace VECS
             var commandBuffer = frameInfo.CommandBuffer;
             if (_depthOnlyQueue.CommandCount > 0)
             {
-                EnginePipes.DepthOnly.PushConstants.SetPushConstantInt("matrixStartIndex", DEPTH_ONLY_PUSH_CONSTANT_INDEX, frameInfo.MainCamera);
+                EnginePipes.DepthOnly.PushConstants.SetPushConstantInt("matrixStartIndex", DEPTH_ONLY_PUSH_CONSTANT_INDEX, frameInfo.TargetCamera);
 
                 var depthBufferCullInfo = frameInfo.CullData;
                 depthBufferCullInfo.cullMode &= ~CullModeFlags.Depth;
 
 
-                DrawBlob.Cull(_depthOnlyQueue, frameInfo, depthBufferCullInfo);
+                DrawBlob.SetTargetCamera(_depthOnlyQueue, frameInfo.TargetCamera);
+                DrawBlob.Cull(_depthOnlyQueue, frameInfo.CommandBuffer, depthBufferCullInfo);
 
                 BeginDepthOnlyRendering(commandBuffer, VkAttachmentLoadOp.Clear);
 
-                DrawBlob.Execute(_depthOnlyQueue, frameInfo, DEPTH_ONLY_PUSH_CONSTANT_INDEX, VkCullModeFlags.Back);
+                DrawBlob.Execute(_depthOnlyQueue, frameInfo.CommandBuffer, DEPTH_ONLY_PUSH_CONSTANT_INDEX, VkCullModeFlags.Back);
 
                 GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
 
@@ -305,11 +313,11 @@ namespace VECS
             if (_forwardQueue.CommandCount > 0)
             {
                 var commandBuffer = frameInfo.CommandBuffer;
-                EnginePipes.DepthOnly.PushConstants.SetPushConstantInt("matrixStartIndex", DEPTH_ONLY_PUSH_CONSTANT_INDEX, frameInfo.MainCamera);
+                EnginePipes.DepthOnly.PushConstants.SetPushConstantInt("matrixStartIndex", DEPTH_ONLY_PUSH_CONSTANT_INDEX, frameInfo.TargetCamera);
                 var depthBufferCullInfo = frameInfo.CullData;
                 depthBufferCullInfo.cullMode &= ~CullModeFlags.Depth;
                 GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Forward Depth Only");
-                DrawBlob.Cull(_forwardQueue, frameInfo, depthBufferCullInfo);
+                DrawBlob.Cull(_forwardQueue, frameInfo.CommandBuffer, depthBufferCullInfo);
                 BeginDepthOnlyRendering(commandBuffer, VkAttachmentLoadOp.Load);
                 //DrawBlob.Execute(_forwardQueue, frameInfo, DEPTH_ONLY_PUSH_CONSTANT_INDEX, VkCullModeFlags.Back);
                 GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
@@ -321,19 +329,20 @@ namespace VECS
 
         private void DeferredObjectsPass(RendererFrameInfo frameInfo)
         {
-            DrawBlob.Cull(_deferredQueue, frameInfo, frameInfo.CullData);
+            DrawBlob.SetTargetCamera(_deferredQueue, frameInfo.TargetCamera);
+            DrawBlob.Cull(_deferredQueue, frameInfo.CommandBuffer, frameInfo.CullData);
 
             StartDeferredRendering(frameInfo);
 
-            DrawBlob.Execute(_deferredQueue, frameInfo, DEPTH_ONLY_PUSH_CONSTANT_INDEX, VkCullModeFlags.Back);
+            DrawBlob.Execute(_deferredQueue, frameInfo.CommandBuffer, 0, VkCullModeFlags.Back);
 
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
         }
 
         private void DeferredCompositePass(RendererFrameInfo frameInfo)
         {
-            _deferredComposite.PushConstantsHandler.SetPushConstantUInt("cameraIndex", 0, (uint)frameInfo.MainCamera);
-            _deferredComposite.Dispatch(frameInfo.CommandBuffer, Presenter.FrameIndex, (uint)MainColourAttachment.Target.Width, (uint)MainColourAttachment.Target.Height);
+            _deferredComposite.PushConstantsHandler.SetPushConstantUInt("cameraIndex", 0, (uint)frameInfo.TargetCamera);
+            _deferredComposite.Dispatch(frameInfo.CommandBuffer, Presenter.FrameIndex, frameInfo.OutputRect.extent.width, frameInfo.OutputRect.extent.height);
 
         }
 
@@ -400,6 +409,16 @@ namespace VECS
 
             MainColourAttachment.Target.SetImageLayoutAuto(commandBuffer, VkImageLayout.ColorAttachmentOptimal);
         }
+
+        public void BlitFromMainColour(VkCommandBuffer commandBuffer, VkRect2D srcRect, VkImage dst, VkRect2D dstRect, VkImageAspectFlags dstAspectMask)
+        {
+            MainColourAttachment.Target.SetImageLayoutAuto(commandBuffer, VkImageLayout.TransferSrcOptimal);
+
+            TextureExtensions.BlitGeneric(commandBuffer, VkFilter.Linear, MainColourAttachment.GetBlitCmd(srcRect, dstRect, dstAspectMask), MainColourAttachment.VkImage, MainColourAttachment.CurrentLayout, dst, VkImageLayout.TransferDstOptimal);
+
+            MainColourAttachment.Target.SetImageLayoutAuto(commandBuffer, VkImageLayout.ColorAttachmentOptimal);
+        }
+
         public void BlitFromPostProcessingColour(VkCommandBuffer commandBuffer, VkImage dst, int dstWidth, int dstHeight, VkImageAspectFlags dstAspectMask)
         {
             PostProcessingAttachment.Target.SetImageLayoutAuto(commandBuffer, VkImageLayout.TransferSrcOptimal);

@@ -172,7 +172,10 @@ namespace VECS
                     throw new NotImplementedException("Bool type not implemented for descriptor sets");
                 }
             }
-            bindingParentName += ".";
+            if (!string.IsNullOrEmpty(bindingParentName))
+            {
+                bindingParentName += ".";
+            }
             for (uint i = 0; i < memberCount; i++)
             {
                 var member = members[i];

@@ -47,7 +47,7 @@ namespace VECS
 
             _pipeline = GPUPipelineUtil.CreateComputePipeline(computePipelineInfo);
             GraphicsDevice.SetObjectName(VkObjectType.Pipeline, _pipeline.Handle, AssetName + "_v" + _version);
-            _computeVariants = [new ComputeVariant("Default", this, false)];
+            _computeVariants = [new ComputeVariant("Default", this, false,false)];
             _variantsToAdd.TryDequeue(out var variant);
 
             if (_uniformBufferSize > 0)

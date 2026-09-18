@@ -17,10 +17,9 @@ layout (set = 0, binding = 2) uniform texture2D uBlendTexture;
 layout (set = 0, binding = 3) uniform sampler2D uVelocityTexture;
 #endif
 
-layout(push_constant) uniform TexelSize 
-{
-	vec4 value;
-} texelSize;
+layout(push_constant) uniform Constants {
+	vec4 texelSize;
+} constants;
 
 //-----------------------------------------------------------------------------
 // Neighborhood Blending Pixel Shader (Third Pass)
@@ -89,7 +88,7 @@ void main()
 {
     outFragColour = SMAANeighborhoodBlendingPS(
         vTexCoord0,
-        texelSize.value,
+        constants.texelSize,
         vOffset,
         uSampler,
         uColourTexture,

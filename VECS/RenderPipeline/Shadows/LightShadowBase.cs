@@ -29,7 +29,7 @@ namespace VECS
         public Queue<int> ClearShadow = new();
 
         public bool ReassignTextures;
-
+        public bool Clear;
         public LightShadowBase(int numLights)
         {
             if (numLights > 1)
@@ -46,15 +46,15 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void CullShadow(RendererFrameInfo frameInfo, CullData cullData)
+        public static void CullShadow(VkCommandBuffer commandBuffer, CullData cullData)
         {
-            DrawBlob.Cull(Depth_Only_Queue_Name, frameInfo, cullData);
+            DrawBlob.Cull(Depth_Only_Queue_Name, commandBuffer, cullData);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void DrawDepthOnly(RendererFrameInfo frameInfo, int pushConstantIndex, VkCullModeFlags cullMode)
+        public static void DrawDepthOnly(VkCommandBuffer commandBuffer, int pushConstantIndex, VkCullModeFlags cullMode)
         {
-            DrawBlob.Execute(Depth_Only_Queue_Name,frameInfo, pushConstantIndex, cullMode);
+            DrawBlob.Execute(Depth_Only_Queue_Name, commandBuffer, pushConstantIndex, cullMode);
         }
 
         public abstract bool SetShadowTexture(int i, int resolution);

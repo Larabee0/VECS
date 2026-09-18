@@ -25,6 +25,14 @@
 			],
 			"problemMatcher": [],
 			"label": "build Release"
-		}
-	]
+		},
+		{
+			"label":"Validate Shaders",
+			"type": "shell",
+			"command": "./ValidateShaders.bat",
+			"runOptions": {
+				"runOn": "folderOpen"
+			}
+		},
+	],
 }

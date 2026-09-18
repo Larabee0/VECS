@@ -1,16 +1,10 @@
 #version 460
+#extension GL_ARB_shading_language_include : require
+#include "../common_structures.glsl"
 
 #define MAX_FRAGMENT_COUNT 128
 
-struct Node
-{
-    vec4 color;
-    float depth;
-    uint next;
-};
-
 layout (location = 0) out vec4 outFragColor;
-layout (location = 1) out vec4 outBrightColor;
 
 layout (set = 0, binding = 0, r32ui) uniform uimage2D headIndexImage;
 
@@ -53,17 +47,9 @@ void main()
 
     for (int i = 0; i < count; ++i)
     {
-        vec4 fragColour = fragments[i].color;
+        vec4 fragColour = vec4(unpackHalf2x16(fragments[i].rg),unpackHalf2x16(fragments[i].ba));
         color = mix(color, fragColour, fragColour.a);
     }
 
     outFragColor = color;
-    brightness = dot(color.rgb, vec3(0.2126, 0.7152, 0.0722));
-    if(brightness > 0.20)
-    {
-        outBrightColor = color;
-    }
-    else{
-        outBrightColor = vec4(0);
-    }
 }

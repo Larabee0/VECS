@@ -26,15 +26,19 @@ layout(set = 0, binding = 1) readonly buffer DirectionalLights {
 	DirectionalLight values[];
 } directionalLightBuffer;
 
-layout (set = 0, binding = 2) readonly buffer PointLights {
+layout(set = 0, binding = 2) readonly buffer DirectionalLightShadows {
+	DirectionalLightShadow values[];
+} directionalLightShadowBuffer;
+
+layout (set = 0, binding = 3) readonly buffer PointLights {
 	PointLight values[];
 } pointLightBuffer;
 
-layout (set = 0, binding = 3) readonly buffer SpotLights {
+layout (set = 0, binding = 4) readonly buffer SpotLights {
 	SpotLight values[];
 } spotLightBuffer;
 
-layout(set = 0,binding = 4) readonly buffer CameraDatas {
+layout(set = 0,binding = 5) readonly buffer CameraDatas {
 	CameraData values[];
 } cameraData;
 
@@ -78,12 +82,14 @@ void main()
 
 	vec3 result = vec3(0);
 	int cascadeIndex = 0;
+	DirectionalLightShadow dirShadowInfo = directionalLightShadowBuffer.values[constants.cameraIndex];
+
 	for(int i = 0; i < lighting.numDirLights; i++) {
 		DirectionalLight directionalLight = directionalLightBuffer.values[i];
 		
-		float shadow = i < lighting.numDirLightsShadows ? DirShadows(
+		float shadow = i == dirShadowInfo.lightIndex ? DirShadows(
 			dirShadow,
-			directionalLight,
+			dirShadowInfo,
 			fragPosWorld,
 			fragViewPos,
 			cascadeIndex) : 1.0;

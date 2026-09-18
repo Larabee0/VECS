@@ -85,14 +85,15 @@ namespace VECS
             {
                 return null;
             }
-
             var shaderCompiler = new Compiler();
             CompilerOptions options = new()
             {
                 TargetEnv = TargetEnvironmentVersion.Vulkan_1_3,
                 NaNClamp = true,
+                
                 SourceLanguage = GetShadingLanguage(filePath),
                 TargetSpv = SpirVVersion.Version_1_6,
+                
 #if DEBUG
                 OptimizationLevel = OptimizationLevel.Zero,
                 GeneratedDebug = true,
