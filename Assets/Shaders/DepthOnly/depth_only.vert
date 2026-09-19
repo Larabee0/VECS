@@ -37,7 +37,7 @@ layout(push_constant) uniform InstanceInfo {
 mat4 getTransform(int bufferSelect, int bufferOffset) {
     switch(bufferSelect){
         case 0:
-            return cameraData.values[bufferOffset].projectionViewMatrix;
+            return cameraData.values[max(bufferOffset,int(instanceInfo.cameraIndex))].projectionViewMatrix;
         case 1:
             return directionalShadowsMats.value[bufferOffset];
         case 2:
@@ -55,7 +55,7 @@ void main()
     int bufferSelect = instanceInfo.bufferSelect;
     int layerOffset = instanceInfo.layerOffset;
     int layerCount = instanceInfo.layerCount;
-    int bufferOffset = max(instanceInfo.matrixStartIndex,int(instanceInfo.cameraIndex));
+    int bufferOffset = instanceInfo.matrixStartIndex;
     mat4 transformMatrix = getTransform(bufferSelect, bufferOffset);
     
     gl_Position = transformMatrix * (objectMat.modelMatrix * vec4(inPos, 1.0));

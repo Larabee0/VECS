@@ -98,7 +98,7 @@ namespace VECS
         }
     }
 
-    [StructLayout(LayoutKind.Sequential, Size = 280)]
+    [StructLayout(LayoutKind.Sequential, Size = 288)]
     public struct DirectionalLightShadowUniform
     {
         [HideInInspector]
@@ -118,6 +118,11 @@ namespace VECS
 
         [HideInInspector]
         public int LightIndex;
+        [HideInInspector]
+        public int pad1;
+
+        [HideInInspector]
+        public int pad2;
 
         public Matrix4x4 this[int index]
         {

@@ -252,10 +252,10 @@ namespace VECS
             }
         }
 
-        private static Entity GetMainCamera(out int mainCameraIndex, out int cameraCount, out Camera mainCamera)
+        private static Entity GetMainCamera(out int cameraCount, out Camera mainCamera)
         {
             cameraCount = 0;
-            mainCameraIndex = -1;
+            var mainCameraIndex = -1;
             mainCamera = default;
             if (World.DefaultWorld != null)
             {
@@ -276,7 +276,7 @@ namespace VECS
                     }
                     mainCameraIndex = Math.Max(mainCameraIndex,0);
                     mainCamera = entityManager.GetComponent<Camera>(cameras[mainCameraIndex]);
-
+                    
                     return cameras[mainCameraIndex];
                 }
 
@@ -325,6 +325,10 @@ namespace VECS
 
                     CurrentCameraViewport = CreateViewport(rect, 0, 1);
 
+                    if (!_outputTextures.ContainsKey(cameraOutputOverride.TargetTexture))
+                    {
+                        _outputTextures[cameraOutputOverride.TargetTexture] = outputRT;
+                    }
                 }
                 else
                 {
@@ -417,7 +421,7 @@ namespace VECS
             }
         }
 
-        private unsafe void GraphicsPipe(int imageIndex)
+        private void GraphicsPipe(int imageIndex)
         {
             VkCommandBuffer commandBuffer = SwapChain.CurrentMainCommandBuffer;
             GraphicsDevice.BeginLabelCmd(commandBuffer, "Start Frame Buffer Fill Cmds");
@@ -458,8 +462,8 @@ namespace VECS
             NewSwapChain = _framesSinceSwapChainRecreation < SwapChain.MAX_CONCURRENT_FRAMES_UINT;
             LightingInfo lightingInfo = GetDefaultWorldLighting(FrameIndex);
             UpdateCamerasDefaultWorld(FrameIndex);
-            var mainCameraEntity = GetMainCamera(out int mainIndex, out int cameraCount, out Camera mainCamera);
-            RendererFrameInfo mainCameraFrameInfo = CreateRendererFrameInfoForCamera(deltaTime, mainIndex, commandBuffer, mainCamera, lightingInfo);
+            var mainCameraEntity = GetMainCamera(out int cameraCount, out Camera mainCamera);
+            RendererFrameInfo mainCameraFrameInfo = CreateRendererFrameInfoForCamera(deltaTime, mainCamera.CameraIndex, commandBuffer, mainCamera, lightingInfo);
             mainCameraFrameInfo = new(mainCameraFrameInfo, new(0, 0, Application.MainWindow.WindowExtent.width, Application.MainWindow.WindowExtent.height));
             RenderCallback?.Invoke(mainCameraFrameInfo);
 
@@ -469,7 +473,7 @@ namespace VECS
 
             for (int i = 0; i < cameraCount; i++)
             {
-                if(i == mainIndex)
+                if(i == mainCamera.CameraIndex)
                 {
                     continue;
                 }
@@ -477,11 +481,13 @@ namespace VECS
                 {
                     var secondaryCameraEntity = GetCamera(i, out var secondaryCamera);
                     SetCameraViewPort(World.DefaultWorld.EntityManager, secondaryCameraEntity);
-                    RendererFrameInfo secondaryCameraFrameInfo = CreateRendererFrameInfoForCamera(deltaTime, i, commandBuffer, secondaryCamera, lightingInfo);
-                    GraphicsDevice.BeginLabelCmd(commandBuffer, "Render Graph Main Camera");
+                    RendererFrameInfo secondaryCameraFrameInfo = CreateRendererFrameInfoForCamera(deltaTime, secondaryCamera.CameraIndex, commandBuffer, secondaryCamera, lightingInfo);
+                    secondaryCameraFrameInfo = new(secondaryCameraFrameInfo, CurrentCameraScissor);
+                    GraphicsDevice.BeginLabelCmd(commandBuffer, "Render Graph Secondary Camera");
                     RenderGraph.Execute(secondaryCameraFrameInfo, PassCategory.SecondaryView);
                     GraphicsDevice.EndLabelCmd(commandBuffer);
                     CopyFromRendererMainColourToOutputImage(commandBuffer, CurrentCameraOutput.TargetTexture);
+                    _outputTextures[CurrentCameraOutput.TargetTexture].SetImageLayoutAuto(commandBuffer, VkImageLayout.ShaderReadOnlyOptimal);
                 }
             }
 

@@ -53,12 +53,43 @@ namespace VECS
         {
             _sphere = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("UV-Sphere.obj"), null)[0];
             CreateMainCamera();
+            CreateCamera();
             DirectionalLight();
             PointLight();
             //SponzaOld();
             //SponzaNew();
             SponzaNewPBR();
             //ShadowDebug();
+        }
+
+        private static void CreateCamera()
+        {
+            Texture2D tex = new("SecondCamera", 512, 512, VkFormat.R16G16B16A16Sfloat, VkImageUsageFlags.Sampled | VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.TransferDst | VkImageUsageFlags.TransferSrc, false);
+            EntityManager entityManager = World.DefaultWorld.EntityManager;
+            Entity MainCamera = entityManager.CreateEntity("Main Camera");
+            entityManager.AddComponent(MainCamera, new Translation() { Value = initalCameraPos });
+            entityManager.AddComponent<Rotation>(MainCamera, new() { Value = NumericsExtensions.CameraRotation(TransformExtensions.Rad2Deg * initalCameraRot.X, TransformExtensions.Rad2Deg * initalCameraRot.Y) });
+            entityManager.AddComponent(MainCamera, cameraPerspective);
+            entityManager.AddComponent<CameraOutputOverride>(MainCamera, new()
+            {
+                TargetTexture = tex.Hash,
+                ViewportRect  =new Rect(0,0, 1, 1),
+            });
+
+
+            var mesh = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("quad.obj"), null)[0];
+
+            var unlitTex = EnginePipes.Unlit_Tex_Deferred.Default();
+
+
+            unlitTex.SetTexture("texSampler".GetShaderPropertyId(), tex);
+            var entity = entityManager.CreateEntity();
+            AddRenderMeshComponents(entity, unlitTex, 0, mesh, entityManager);
+            MaterialProvider material = new("SecondaryCam", EnginePipes.DepthOnly.Create("unlitTex"), unlitTex);
+            AssetDataBase<MaterialProvider>.Add(material);
+            entityManager.AddComponent(entity, new MaterialProviderComponent() { Value = material.Hash, LayerFlags = RenderLayer.Default | RenderLayer.NoShadow });
+            entityManager.AddComponent(entity, new Rotation() { Value = TransformExtensions.EulerUnity(0, -90, 90) });
+            entityManager.AddComponent(entity, new Translation() { Value = new Vector3(0, 2, 1) });
         }
 
         private static void CreateMainCamera()

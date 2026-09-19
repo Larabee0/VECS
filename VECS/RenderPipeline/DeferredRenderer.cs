@@ -238,7 +238,6 @@ namespace VECS
             _deferredComposite.SetTextures(SSAO.SSAO_Blur_RT_PropertyId, EngineTextures.TryGetTexture(SSAO.SSAO_Blur_RT_PropertyId));
 
             _deferredComposite.SetTexture("outImage".GetShaderPropertyId(), MainColourAttachment.Target);
-            _deferredComposite.PushConstantsHandler.SetPushConstantVector2("outputImageSize", 0, new(windowExtents.width, windowExtents.height));
         }
 
         public void PreRender()
@@ -342,6 +341,7 @@ namespace VECS
         private void DeferredCompositePass(RendererFrameInfo frameInfo)
         {
             _deferredComposite.PushConstantsHandler.SetPushConstantUInt("cameraIndex", 0, (uint)frameInfo.TargetCamera);
+            _deferredComposite.PushConstantsHandler.SetPushConstantVector4("outputImageSize", 0, new(frameInfo.OutputRect.extent.width, frameInfo.OutputRect.extent.height, 1.0f / frameInfo.OutputRect.extent.width, 1.0f / frameInfo.OutputRect.extent.height));
             _deferredComposite.Dispatch(frameInfo.CommandBuffer, Presenter.FrameIndex, frameInfo.OutputRect.extent.width, frameInfo.OutputRect.extent.height);
 
         }

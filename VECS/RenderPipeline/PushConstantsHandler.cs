@@ -154,7 +154,7 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void WriteToPushConstantBuffer<T>(PushConstantsHandler handler, string property, int instanceIndex, T value) where T : unmanaged
         {
-            WriteToPushConstantBuffer<T>(handler,property.GetShaderPropertyId(), instanceIndex, value);
+            WriteToPushConstantBuffer(handler,property.GetShaderPropertyId(), instanceIndex, value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

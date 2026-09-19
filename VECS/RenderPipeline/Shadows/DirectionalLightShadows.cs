@@ -17,8 +17,8 @@ namespace VECS
 
         public static readonly int matsPropertyId = ShaderProperties.DirShadowMatsId;
 
-        private static readonly Matrix4x4[] _viewMatrices = new Matrix4x4[MAX_CASCADE_COUNT];
-        private static readonly Matrix4x4[] _projMatrices = new Matrix4x4[MAX_CASCADE_COUNT];
+        private static readonly Matrix4x4[] _viewMatrices = new Matrix4x4[MAX_CASCADE_COUNT * Presenter.MAX_CAMERAS * 20];
+        private static readonly Matrix4x4[] _projMatrices = new Matrix4x4[MAX_CASCADE_COUNT * Presenter.MAX_CAMERAS * 20];
 
         public DirectionalLightShadows() : base(1)
         {
@@ -125,11 +125,11 @@ namespace VECS
             }
         }
 
-        public unsafe static DirectionalLightShadowUniform GetDirectionalLight(DirectionalLightUniform src, int lightIndex, CameraData cameraData)
+        public unsafe static DirectionalLightShadowUniform GetDirectionalLight(DirectionalLightUniform src, int lightIndex, CameraData cameraData, int offset)
         {
             DirectionalLightShadowUniform lightingInfo = default;
             lightingInfo.LightIndex = lightIndex;
-
+            offset *= MAX_CASCADE_COUNT;
             lightingInfo.CascadeCount = MAX_CASCADE_COUNT;
             var directionalShadowsBuffer = ((SwapChainBuffer<Matrix4x4>)EngineBuffers.TryGetBuffer(matsPropertyId)).HostBuffer;
 
@@ -210,12 +210,12 @@ namespace VECS
                 
                 Matrix4x4 lightViewMatrix = Matrix4x4.CreateLookAt(lightDir, frustumCenter, new Vector3(0.0f, 1.0f, 0.0f));
                 Matrix4x4 lightOrthoMatrix = Matrix4x4.CreateOrthographicOffCenter(minExtents.X, maxExtents.X, minExtents.Y, maxExtents.Y, 0.0f, maxExtents.Z - minExtents.Z);
-                _viewMatrices[i] = lightViewMatrix;
-                _projMatrices[i] = lightOrthoMatrix;
+                _viewMatrices[offset +i] = lightViewMatrix;
+                _projMatrices[offset + i] = lightOrthoMatrix;
                 // Store split distance and matrix in cascade
                 lightingInfo.CascadeSplits[i] = (nearClip + splitDist * clipRange) * -1.0f;
                 lightingInfo[i] = lightViewMatrix * lightOrthoMatrix;
-                directionalShadowsBuffer[i] = lightingInfo[i];
+                directionalShadowsBuffer[offset + i] = lightingInfo[i];
                 lastSplitDist = cascadeSplits[i];
             }
 
@@ -275,8 +275,8 @@ namespace VECS
                     SHADOW_EXCLUDE_MASK,
                     SHADOW_CULL_MODE,
                     0,
-                    _projMatrices[i],
-                    _viewMatrices[i]
+                    _projMatrices[cameraOffset + i],
+                    _viewMatrices[cameraOffset + i]
                 );
                 
                 CullShadow(frameInfo.CommandBuffer, depthBufferCullInfo);
@@ -289,6 +289,8 @@ namespace VECS
 
                 _depthOnly.PushConstants.SetPushConstantInt("matrixStartIndex", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, cameraOffset + i);
                 _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("matrixStartIndex", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, cameraOffset + i);
+                // _depthOnly.PushConstants.SetPushConstantUInt("cameraIndex", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, (uint)frameInfo.TargetCamera);
+                // _depthOnlyAlphaClipping.PushConstants.SetPushConstantUInt("cameraIndex", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, (uint)frameInfo.TargetCamera);
 
                 DrawDepthOnly(frameInfo.CommandBuffer, DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, VkCullModeFlags.Front);
 

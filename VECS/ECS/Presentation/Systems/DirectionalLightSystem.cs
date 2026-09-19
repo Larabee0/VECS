@@ -104,7 +104,8 @@ namespace VECS.ECS.Presentation
 
                 for (int j = 0; j < Math.Min(cameras.Count, Presenter.MAX_CAMERAS); j++, dirCount++)
                 {
-                    hostBuffer[dirCount] = DirectionalLightShadows.GetDirectionalLight(directionalLight.Value, lightIndex, new(entityManager.GetComponent<Camera>(cameras[i])));
+                    var camera = entityManager.GetComponent<Camera>(cameras[j]);
+                    hostBuffer[dirCount] = DirectionalLightShadows.GetDirectionalLight(directionalLight.Value, lightIndex, new(camera), camera.CameraIndex);
                 }
 
                 

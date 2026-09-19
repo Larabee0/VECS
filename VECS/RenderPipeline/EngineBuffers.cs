@@ -124,12 +124,12 @@ namespace VECS
                 camera = entityManager.GetComponent<Camera>(entity);
                 if (entityManager.HasComponent<CameraPerspective>(entity))
                 {
-                    CameraDataBuffer.HostBuffer[i] = new(camera);
+                    CameraDataBuffer.HostBuffer[camera.CameraIndex] = new(camera);
                 }
                 else if (entityManager.HasComponent<CameraOrthographic>(entity, out var signature))
                 {
                     orthCam = entityManager.GetComponent<CameraOrthographic>(signature);
-                    CameraDataBuffer.HostBuffer[i] = new(camera, orthCam);
+                    CameraDataBuffer.HostBuffer[camera.CameraIndex] = new(camera, orthCam);
                 }
             }
 

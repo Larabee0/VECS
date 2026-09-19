@@ -33,6 +33,8 @@ namespace VECS.ECS.Presentation
         public float ClipNear;
         [ReadOnlyInspector]
         public float ClipFar;
+        [ReadOnlyInspector]
+        public int CameraIndex;
     }
 
     public struct CameraOutputOverride : IComponent
