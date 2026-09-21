@@ -9,6 +9,7 @@ namespace VECS.ECS.Presentation
     /// <summary>
     /// Camera system updates all cameras
     /// </summary>
+    [UpdateBefore(typeof(LocalToWorldSystem))]
     public class CameraSystem : SystemBase
     {
         const float lookSpeed = 10f;
@@ -16,6 +17,7 @@ namespace VECS.ECS.Presentation
 
         EntityQuery _cameraQueryPerspective; // query for persepctive cameras
         EntityQuery _cameraQueryOrthographic; // query for orthographic cameras
+        EntityQuery _cameraQueryIndex; // query for indexing cameras
         EntityQuery _cameraInitQuery; // initalises camera entities that lack the camera component type.
 
         EntityQuery _cameraMotion; // query to update camera position and rotation.
@@ -36,9 +38,15 @@ namespace VECS.ECS.Presentation
                 .WithNone(typeof(Prefab))
                 .Build();
             _cameraInitQuery = new EntityQuery(entityManager)
-                .WithAll(typeof(LocalToWorld))
+                //.WithAll(typeof(LocalToWorld))
                 .WithAny(typeof(CameraOrthographic), typeof(CameraPerspective))
                 .WithNone(typeof(Camera), typeof(Prefab))
+                .Build();
+
+            _cameraQueryIndex = new EntityQuery(entityManager)
+                .WithAll(typeof(Camera))
+                .WithAny(typeof(CameraOrthographic), typeof(CameraPerspective))
+                .WithNone(typeof(Prefab))
                 .Build();
         }
 
@@ -81,12 +89,23 @@ namespace VECS.ECS.Presentation
                 UpdateOrthographicCameras(entityManager);
             }
 
+
             if (_cameraMotion.HasEntities)
             {
                 _cameraMotion.GetEntities().ForEach(entity =>
                 {
                     TransformCamera(entityManager, entity);
                 });
+            }
+            if (_cameraQueryIndex.HasEntities)
+            {
+                var cameras = _cameraQueryIndex.GetEntities();
+                for (int i = 0; i < cameras.Count; i++)
+                {
+                    var camera = entityManager.GetComponent<Camera>(cameras[i]);
+                    camera.CameraIndex = i;
+                    entityManager.SetComponent(cameras[i], camera);
+                }
             }
         }
 
@@ -126,10 +145,21 @@ namespace VECS.ECS.Presentation
                 }
                 entityManager.SetComponent(entity, perCam);
             }
+
+            Matrix4x4 ltwMatrix = Matrix4x4.Identity;
+            if (entityManager.GetComponent<LocalToWorld>(entity, out var ltw))
+            {
+                ltwMatrix = ltw.Value;
+            }
+            if(entityManager.GetComponent<CameraOutputOverride>(entity, out var cameraOutputOverride))
+            {
+                aspect = cameraOutputOverride.ViewportRect.Width / cameraOutputOverride.ViewportRect.Height;
+            }
             var camera = new Camera()
             {
                 ProjectionMatrix = GetPerspectiveProject(perCam, aspect),
-                ViewMatrix = GetViewMatrix(entityManager.GetComponent<LocalToWorld>(entity).Value),
+                ViewMatrix = GetViewMatrix(ltwMatrix),
+
                 CullMode = perCam.CullMode,
                 ClipNear = perCam.ClipNear,
                 ClipFar = perCam.ClipFar,
@@ -156,10 +186,15 @@ namespace VECS.ECS.Presentation
         private static void UpdateOrthographicCamera(EntityManager entityManager, Entity entity)
         {
             var orthCam = entityManager.GetComponent<CameraOrthographic>(entity);
+            Matrix4x4 ltwMatrix = Matrix4x4.Identity;
+            if (entityManager.GetComponent<LocalToWorld>(entity, out var ltw))
+            {
+                ltwMatrix = ltw.Value;
+            }
             var camera = new Camera()
             {
                 ProjectionMatrix = GetOrthographicProject(orthCam),
-                ViewMatrix = GetViewMatrix(entityManager.GetComponent<LocalToWorld>(entity).Value),
+                ViewMatrix = GetViewMatrix(ltwMatrix),
                 CullMode = orthCam.CullMode,
                 ClipNear = orthCam.ClipNear,
                 ClipFar = orthCam.ClipFar,

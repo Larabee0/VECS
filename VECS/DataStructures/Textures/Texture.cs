@@ -57,7 +57,8 @@ namespace VECS
             protected set
             {
                 _anisoLevel = value;
-                AnisotropyEnable = _anisoLevel > 0; 
+                AnisotropyEnable = _anisoLevel > 0;
+                
             }
         }
 
@@ -401,13 +402,38 @@ namespace VECS
             SetImageLayout(cmdbuffer, newImageLayout, GetSubresourceRange(), srcStage, dstStage);
         }
 
-        public virtual void SetImageLayout(VkCommandBuffer cmdbuffer, VkImageLayout newImageLayout, VkImageSubresourceRange resourceRange, VkPipelineStageFlags2 srcStage = VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2 dstStage = VkPipelineStageFlags2.FragmentShader)
+        public void SetImageLayoutAuto(VkCommandBuffer cmdBuffer, VkImageLayout newLayout)
+        {
+            var dstStage = newLayout.GetStageFlagFromLayout();
+            var srcStage = _imageLayout.GetStageFlagFromLayout();
+            SetImageLayout(cmdBuffer,newLayout,srcStage, dstStage);
+        }
+
+        public VkImageMemoryBarrier2 GetImageLayoutBarrierAuto(VkImageLayout newLayout)
+        {
+            var dstStage = newLayout.GetStageFlagFromLayout();
+            var srcStage = _imageLayout.GetStageFlagFromLayout();
+            return GetImageLayoutBarrier(newLayout, GetSubresourceRange(), srcStage, dstStage);
+        }
+
+        public unsafe virtual VkImageMemoryBarrier2 GetImageLayoutBarrier(VkImageLayout newImageLayout, VkImageSubresourceRange resourceRange, VkPipelineStageFlags2 srcStage = VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2 dstStage = VkPipelineStageFlags2.FragmentShader)
+        {
+            return MemoryBarrierHelper.GetImageLayoutBarrier(_vkImage, _imageLayout, newImageLayout, resourceRange, srcStage, dstStage);
+        }
+
+        public unsafe virtual void SetImageLayout(VkCommandBuffer cmdbuffer, VkImageLayout newImageLayout, VkImageSubresourceRange resourceRange, VkPipelineStageFlags2 srcStage = VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2 dstStage = VkPipelineStageFlags2.FragmentShader)
         {
             if (newImageLayout == _imageLayout)
             {
                 return;
             }
-            MemoryBarrierHelper.SetImageLayout(cmdbuffer, _vkImage, _imageLayout, newImageLayout, resourceRange, srcStage, dstStage);
+            var barrier = GetImageLayoutBarrier(newImageLayout, resourceRange, srcStage, dstStage);
+            MemoryBarrierHelper.ImageMemoryBarrier(cmdbuffer, &barrier, 1);
+            SetImageLayoutSilent(newImageLayout);
+        }
+
+        public void SetImageLayoutSilent(VkImageLayout newImageLayout)
+        {
             _imageLayout = newImageLayout;
             UpdateDescriptor();
         }

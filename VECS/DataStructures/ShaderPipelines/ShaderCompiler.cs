@@ -1,4 +1,5 @@
-﻿using System;
+﻿#define PARALLEL_SHADER_COMPILER
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -20,8 +21,10 @@ namespace VECS
         {
             var extention = Path.GetExtension(filePath);
             extention = extention.ToLower();
+            
             return extention switch
             {
+                
                 ".frag" => ShaderKind.GLSL_FragmentShader,
                 ".vert" => ShaderKind.GLSL_VertexShader,
                 ".comp" => ShaderKind.GLSL_ComputeShader,
@@ -29,6 +32,15 @@ namespace VECS
                 ".task" => ShaderKind.GLSL_TaskShader,
                 _=> throw new NotSupportedException()
             };
+        }
+
+        private static SourceLanguage GetShadingLanguage(string filePath)
+        {
+            if (filePath.Contains("hlsl", StringComparison.CurrentCultureIgnoreCase))
+            {
+                return SourceLanguage.HLSL;
+            }
+            return SourceLanguage.GLSL;
         }
 
         public static void LoadAllShaders()
@@ -48,12 +60,17 @@ namespace VECS
             }
             
             ShaderModule[] shaderModules = new ShaderModule[shaderFiles.Count];
-
+#if PARALLEL_SHADER_COMPILER
             Application.ParallelFor(shaderModules.Length, (i) =>
             {
                 shaderModules[i] = Compile(shaderFiles[i].FullName);
             });
-
+#else
+            for (int i = 0; i < shaderModules.Length; i++)
+            {
+                shaderModules[i] = Compile(shaderFiles[i].FullName);
+            }
+#endif
             for (int i = 0; i < shaderModules.Length; i++)
             {
                 if (shaderModules[i] == null || shaderModules[i].IsDisposed) continue;
@@ -68,11 +85,14 @@ namespace VECS
             {
                 return null;
             }
-
             var shaderCompiler = new Compiler();
             CompilerOptions options = new()
             {
                 TargetEnv = TargetEnvironmentVersion.Vulkan_1_3,
+                NaNClamp = true,
+                
+                SourceLanguage = GetShadingLanguage(filePath),
+                TargetSpv = SpirVVersion.Version_1_6,
                 
 #if DEBUG
                 OptimizationLevel = OptimizationLevel.Zero,
@@ -141,6 +161,7 @@ namespace VECS
                     break;
                 default:
                     Console.WriteLine("Failed to compile shader \"{0}\" with {2} errors and {3} warnings \n{1}",Path.GetFileName(filePath),compileResult.ErrorMessage,compileResult.ErrorsCount,compileResult.WarningsCount);
+                    Debugger.Break();
                     break;
             }
 

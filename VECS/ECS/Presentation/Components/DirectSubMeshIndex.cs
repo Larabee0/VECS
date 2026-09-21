@@ -7,5 +7,7 @@
 
         public int Hash;
         public int SubMesh;
+
+        public readonly ulong Combined => Material.CombineMaterial(Hash, SubMesh);
     }
 }

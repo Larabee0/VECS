@@ -23,19 +23,23 @@ namespace VECS.ECS
         private readonly EntityManager _entityManager;
         private readonly PhysicsWorld _physicsSimulation;
         private readonly List<SystemBase> _systems;
-        private readonly List<PresentationSystemBase> _presentationSystems;
+
+        private readonly UnitySystemGroup _systemGroup;
 
         public EntityManager EntityManager => _entityManager;
         public PhysicsWorld Simulation => _physicsSimulation;
         public List<SystemBase> Systems => _systems;
-        public List<PresentationSystemBase> PresentationSystems => _presentationSystems;
 
         public World()
         {
             _entityManager = new(this);
             _systems = [];
-            _presentationSystems = [];
-            
+            TypeManager.InitializeAllSystemTypes();
+            _systemGroup = new()
+            {
+                World = this
+            };
+            _systemGroup.OnCreate(_entityManager);
             CreateSystem<LocalToWorldSystem>();
             CreateSystem<CameraSystem>();
             CreateSystem<WorldRenderBoundsUpdateSystem>();
@@ -47,7 +51,6 @@ namespace VECS.ECS
             CreateSystem<DebugDrawUtilities>();
 
             _physicsSimulation = new PhysicsWorld(this, PhysicsSettings.Default);
-
             // default systems
             DefaultWorld = this;
         }
@@ -75,13 +78,6 @@ namespace VECS.ECS
                     return system;
                 }
             }
-            for (int i = 0; i < PresentationSystems.Count; i++)
-            {
-                if (PresentationSystems[i] is T system)
-                {
-                    return system;
-                }
-            }
             return null;
         }
 
@@ -97,50 +93,17 @@ namespace VECS.ECS
         /// <returns></returns>
         public T AddSystem<T>(T system) where T : SystemBase
         {
-            //List<SystemBase> updateBefores = [];
-            //List<SystemBase> updateAfters = [];
-            //foreach (var item in Attribute.GetCustomAttributes(typeof(T)))
-            //{
-            //    if (item is UpdateAfterAttribute updateAfter && updateAfter.SystemType.IsSubclassOf(typeof(SystemBase)))
-            //    {
-            //        var target = _systems.Find(f => f.GetType() == updateAfter.SystemType);
-            //        if (target != null)
-            //        {
-            //            updateAfters.Add(target);
-            //        }
-            //    }
-            //    else if(item is UpdateBeforeAttribute updateBefore && updateBefore.SystemType.IsSubclassOf(typeof(SystemBase)))
-            //    {
-            //        var target = _systems.Find(f => f.GetType() == updateBefore.SystemType);
-            //        if (target != null)
-            //        {
-            //            updateBefores.Add(target);
-            //        }
-            //    }
-            //}
-
+            _systemGroup.AddSystemToUpdateList(system);
 
             system.World = this;
-            if (system is PresentationSystemBase presentationSystem)
+            if (!_systems.Any(x => x.GetType() == system.GetType()))
             {
-                if (!_presentationSystems.Any(x => x.GetType() == presentationSystem.GetType()))
-                {
-                    presentationSystem.OnCreate(EntityManager);
-                    _presentationSystems.Add(presentationSystem);
-                    return system;
-                }
-                return _presentationSystems.Find(sys => sys.GetType() == presentationSystem.GetType()) as T;
+                system.OnCreate(EntityManager);
+                _systems.Add(system);
+                return system;
             }
-            else
-            {
-                if (!_systems.Any(x => x.GetType() == system.GetType()))
-                {
-                    system.OnCreate(EntityManager);
-                    _systems.Add(system);
-                    return system;
-                }
-                return (T)_systems.Find(sys => sys.GetType() == system.GetType());
-            }
+            return (T)_systems.Find(sys => sys.GetType() == system.GetType());
+            
         }
 
 
@@ -159,23 +122,25 @@ namespace VECS.ECS
 
         internal void OnFixedUpdate()
         {
+            _systemGroup.SortSystems();
             _physicsSimulation.FixedUpdate();
             _entityManager.DiryQueries();
-            _systems.ForEach(s => s.OnFixedUpdate(_entityManager));
-            _presentationSystems.ForEach(s => s.OnFixedUpdate(_entityManager));
+            //_systems.ForEach(s => s.OnFixedUpdate(_entityManager));
+            _systemGroup.OnFixedUpdate(_entityManager);
         }
 
         internal void OnPostFixedUpdate()
         {
-            _systems.ForEach(s => s.OnPostFixedUpdate(_entityManager));
-            _presentationSystems.ForEach(s => s.OnPostFixedUpdate(_entityManager));
+            //_systems.ForEach(s => s.OnPostFixedUpdate(_entityManager));
+            _systemGroup.OnPostFixedUpdate(_entityManager);
         }
 
         internal void OnUpdate()
         {
+            _systemGroup.SortSystems();
             _entityManager.DiryQueries();
-            _systems.ForEach(s => s.OnUpdate(_entityManager));
-            _presentationSystems.ForEach(s => s.OnUpdate(_entityManager));
+            //_systems.ForEach(s => s.OnUpdate(_entityManager));
+            _systemGroup.OnUpdate(_entityManager);
         }
 
         /// <summary>
@@ -183,69 +148,20 @@ namespace VECS.ECS
         /// </summary>
         internal void OnPostUpdate()
         {
-            _systems.ForEach(s => s.OnPostUpdate(_entityManager));
-            _presentationSystems.ForEach(s => s.OnPostUpdate(_entityManager));
+            //_systems.ForEach(s => s.OnPostUpdate(_entityManager));
+            _systemGroup.OnPostUpdate(_entityManager);
         }
 
         internal void OnPrePresent()
         {
-            _systems.ForEach(s => s.OnPrePresent(_entityManager));
-            _presentationSystems.ForEach(s => s.OnPrePresent(_entityManager));
-        }
-
-        internal void OnPreShadowPass(RendererFrameInfo rendererFrameInfo)
-        {
-            _presentationSystems.ForEach(s => s.OnPreShadowPass(_entityManager, rendererFrameInfo));
-        }
-        internal void OnShadowPass(RendererFrameInfo rendererFrameInfo)
-        {
-            _presentationSystems.ForEach(s => s.OnShadowPass(_entityManager, rendererFrameInfo));
-        }
-        internal void OnPostShadowPass(RendererFrameInfo rendererFrameInfo)
-        {
-            _presentationSystems.ForEach(s => s.OnPostShadowPass(_entityManager, rendererFrameInfo));
-        }
-
-        internal void OnPreOpaquePass(RendererFrameInfo rendererFrameInfo)
-        {
-            _presentationSystems.ForEach(s => s.OnPreOpaquePass(_entityManager, rendererFrameInfo));
-        }
-        internal void OnOpaquePass(RendererFrameInfo rendererFrameInfo)
-        {
-            _presentationSystems.ForEach(s => s.OnOpaquePass(_entityManager, rendererFrameInfo));
-        }
-        internal void OnPostOpaquePass(RendererFrameInfo rendererFrameInfo)
-        {
-            _presentationSystems.ForEach(s => s.OnPostOpaquePass(_entityManager, rendererFrameInfo));
-        }
-
-        internal void OnPreTransparentPass(RendererFrameInfo rendererFrameInfo)
-        {
-            _presentationSystems.ForEach(s => s.OnPreTransparentPass(_entityManager, rendererFrameInfo));
-        }
-        internal void OnTransparentPass(RendererFrameInfo rendererFrameInfo)
-        {
-            _presentationSystems.ForEach(s => s.OnTransparentPass(_entityManager, rendererFrameInfo));
-        }
-        internal void OnPostTransparentPass(RendererFrameInfo rendererFrameInfo)
-        {
-            _presentationSystems.ForEach(s => s.OnPostTransparentPass(_entityManager, rendererFrameInfo));
-        }
-
-        internal void OnPostAA(RendererFrameInfo rendererFrameInfo)
-        {
-            _presentationSystems.ForEach(s => s.OnPostAA(_entityManager, rendererFrameInfo));
-        }
-
-        internal void PostPresentUpdate()
-        {
-            _presentationSystems.ForEach(s => s.OnPostPresentation(_entityManager));
+            //_systems.ForEach(s => s.OnPrePresent(_entityManager));
+            _systemGroup.OnPrePresent(_entityManager);
         }
 
         internal void OnDestroy()
         {
-            _presentationSystems.ForEach(s => s.OnDestroy(_entityManager));
-            _systems.ForEach(s => s.OnDestroy(_entityManager));
+            //_systems.ForEach(s => s.OnDestroy(_entityManager));
+            _systemGroup.OnDestroy(_entityManager);
             DefaultWorld = null;
         }
 

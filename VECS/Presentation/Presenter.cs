@@ -1,7 +1,10 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
+using System.Numerics;
+using System.Runtime.CompilerServices;
 using VECS.ECS;
 using VECS.ECS.Presentation;
 using VECS.LowLevel;
@@ -38,16 +41,23 @@ namespace VECS
         public const int MAX_CAMERAS = 10;
 
         public static Presenter Instance { get; private set; }
-
+        
+        private int _frameToWaitOn = 0;
         private bool _isFrameStarted = false;
         protected IRenderer _renderer;
         private IMGUI _imgui;
         private static ulong _frameCount;
 
+        private static readonly int Display0Src = "Display_0".GetShaderPropertyId();
+
         private static ulong _framesSinceSwapChainRecreation = 0;
 
-        public static VkFormat[] ColourFormats => Instance._renderer.ColourFormats;
+        public static VkFormat MainColourFormat => Instance._renderer.MainColourFormat;
+        public static VkFormat PostProcessingcolourFormat => Instance._renderer.PostProcessingColourFormat;
         public static VkFormat DepthFormat => Instance._renderer.DepthFormat;
+        public static VkFormat StencilFormat => Instance._renderer.StencilFormat;
+
+        private static Dictionary<int, Texture> _outputTextures = [];
 
         internal Action PostPresentationUpdate;
         internal Action<int> PreGraphicsPipe;
@@ -64,11 +74,47 @@ namespace VECS
 
         public static bool NewSwapChain { get; private set; }
 
+        public static CameraOutputOverride CurrentCameraOutput
+        {
+            get;
+            private set;
+        }
+
+        public static VkRect2D CurrentCameraScissor
+        {
+            get;
+            private set;
+        }
+
+        public static VkViewport CurrentCameraViewport
+        {
+            get;
+            private set;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void SetToCurrentCameraViewportScissor(VkCommandBuffer commandBuffer)
+        {
+            GraphicsDevice.DeviceAPI.vkCmdSetViewport(commandBuffer, 0, CurrentCameraViewport);
+            GraphicsDevice.DeviceAPI.vkCmdSetScissor(commandBuffer, 0, CurrentCameraScissor);
+        }
+
         public Presenter()
         {
             Instance = this;
             PipelineRecreation.Reset();
+            RenderGraph.AddResource(new(
+                "Display_0_Ouput_Tex",
+                VkFormat.R8G8B8A8Unorm,
+                0,
+                VkImageUsageFlags.Storage | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.TransferDst,
+                VkImageLayout.ShaderReadOnlyOptimal,
+                VkImageLayout.ColorAttachmentOptimal,
+                VkImageLayout.General,
+                VkImageLayout.General,
+                new(0, 0, 0, 1)));
             RecreateSwapChain();
+
         }
 
         protected abstract IRenderer CreateRenderer();
@@ -123,7 +169,14 @@ namespace VECS
             SwapChain.StartTimelineWorkers();
             OnSwapChainRecreation?.Invoke();
             Console.WriteLine(SwapChain.ExtentAspectRatio);
-            
+            InteralSwapChainRecreate();
+        }
+
+        private static void InteralSwapChainRecreate()
+        {
+            var display0Target = RenderGraph.GetResource("Display_0_Ouput_Tex");
+            _outputTextures[Display0Src] = display0Target.Target;
+
         }
 
         /// <summary>
@@ -147,51 +200,170 @@ namespace VECS
             World.DefaultWorld.EntityManager.AddComponent(FrameInfoEntity, frameInfo);
         }
 
-        private  static RendererFrameInfo  CreateRendererFrameInfo(float deltaTime, VkCommandBuffer commandBuffer)
-        { 
-            int frameIndex = SwapChain.FrameIndex;
-            int cameraCount = 0;
-            int mainCamera = -1;
-            Camera camera = default;
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static Rect CreateViewportRectForCamera(float width, float height, Rect cameraRect)
+        {
+            return new(width * cameraRect.X, height * cameraRect.Y, width * cameraRect.Width, height * cameraRect.Height);
+        }
+
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static VkViewport CreateViewport(Rect rect, float minDepth = 0, float maxDepth = 1)
+        {
+            return CreateViewport(rect.X, rect.Y, rect.Width, rect.Height, minDepth, maxDepth);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static VkViewport CreateViewport(float x, float y, float width, float height, float minDepth = 0, float maxDepth = 1)
+        {
+            return new()
+            {
+                x = x,
+                y = height - y,
+                width = width,
+                height = -height,
+                minDepth = minDepth,
+                maxDepth = maxDepth,
+            };
+        }
+
+        private static RendererFrameInfo CreateRendererFrameInfo(float deltaTime, int targetCamera, VkCommandBuffer mainCommandBuffer, LightingInfo lightingInfo, float nearPlane, Matrix4x4 projectionMatrix, Matrix4x4 viewMatrix, CullModeFlags cullMode = CullModeFlags.Fustrum | CullModeFlags.Distance)
+        {
+            CullData cullData = new(RenderLayer.All, RenderLayer.OnlyShadow, cullMode, nearPlane, projectionMatrix,viewMatrix);
+            return new RendererFrameInfo(
+                targetCamera,
+                deltaTime,
+                mainCommandBuffer,
+                cullData,
+                lightingInfo);
+        }
+
+        private static RendererFrameInfo CreateRendererFrameInfoForCamera(float deltaTime, int cameraIndex, VkCommandBuffer commandBuffer, Camera camera, LightingInfo lightingInfo)
+        {
+
+            return CreateRendererFrameInfo(deltaTime, cameraIndex, commandBuffer, lightingInfo, camera.ClipNear, camera.ProjectionMatrix, camera.ViewMatrix, camera.CullMode);
+        }
+
+        private static void UpdateCamerasDefaultWorld(int frameIndex)
+        {
+            if (World.DefaultWorld != null)
+            {
+                EngineBuffers.UpdateCameras(World.DefaultWorld.EntityManager, frameIndex);
+            }
+        }
+
+        private static Entity GetMainCamera(out int cameraCount, out Camera mainCamera)
+        {
+            cameraCount = 0;
+            var mainCameraIndex = -1;
+            mainCamera = default;
             if (World.DefaultWorld != null)
             {
                 var entityManager = World.DefaultWorld.EntityManager;
-                EngineBuffers.UpdateCameras(entityManager,frameIndex);
 
                 var cameras = entityManager.GetAllEntitiesWithComponent<Camera>();
-                cameraCount = Math.Min(cameras.Count, MAX_CAMERAS);
-
-                for (int i = 0; i < cameraCount; i++)
+                if (cameras != null)
                 {
-                    var entity = cameras[i];
-                    if (mainCamera == -1 && entityManager.HasComponent<MainCamera>(entity))
+                    cameraCount = Math.Min(cameras.Count, MAX_CAMERAS);
+
+                    for (int i = 0; i < cameraCount; i++)
                     {
-                        mainCamera = i;
-                        camera = entityManager.GetComponent<Camera>(cameras[i]);
+                        var entity = cameras[i];
+                        if (mainCameraIndex == -1 && entityManager.HasComponent<MainCamera>(entity))
+                        {
+                            mainCameraIndex = i;
+                        }
+                    }
+                    mainCameraIndex = Math.Max(mainCameraIndex,0);
+                    mainCamera = entityManager.GetComponent<Camera>(cameras[mainCameraIndex]);
+                    
+                    return cameras[mainCameraIndex];
+                }
+
+            }
+            return Entity.Null;
+        }
+
+        private static Entity GetCamera(int cameraIndex, out Camera camera)
+        {
+            camera = default;
+            if (World.DefaultWorld != null)
+            {
+                var entityManager = World.DefaultWorld.EntityManager;
+
+                var cameras = entityManager.GetAllEntitiesWithComponent<Camera>();
+                if (cameras != null)
+                {
+                    cameraIndex = Math.Min(cameraIndex, MAX_CAMERAS);
+
+                    cameraIndex = Math.Max(cameraIndex, 0);
+                    camera = entityManager.GetComponent<Camera>(cameras[cameraIndex]);
+
+                    return cameras[cameraIndex];
+                }
+
+            }
+            return Entity.Null;
+        }
+
+        private static void SetCameraViewPort(EntityManager entityManager, Entity entity)
+        {
+            if (entityManager.HasComponent<CameraOutputOverride>(entity, out var signature))
+            {
+                var cameraOutputOverride = entityManager.GetComponent<CameraOutputOverride>(signature);
+                if(cameraOutputOverride.TargetTexture == Display0Src)
+                {
+                    cameraOutputOverride.TargetTexture = 0;
+                }
+                if (cameraOutputOverride.TargetTexture != 0)
+                {
+                    var outputRT = AssetDataBase<Texture2D>.GetHashed(cameraOutputOverride.TargetTexture);
+
+                    CurrentCameraScissor = new(0, 0, (uint)outputRT.Width, (uint)outputRT.Height);
+
+                    var rect = CreateViewportRectForCamera(outputRT.Width, outputRT.Height, cameraOutputOverride.ViewportRect);
+
+                    CurrentCameraViewport = CreateViewport(rect, 0, 1);
+
+                    if (!_outputTextures.ContainsKey(cameraOutputOverride.TargetTexture))
+                    {
+                        _outputTextures[cameraOutputOverride.TargetTexture] = outputRT;
                     }
                 }
+                else
+                {
+                    cameraOutputOverride.DisplayIndex = Math.Max(0, cameraOutputOverride.DisplayIndex);
+                    Debug.Assert(cameraOutputOverride.DisplayIndex < SwapChain.SwapChainsForPresent.Length);
+                    var targetDisplay = SwapChain.SwapChainsForPresent[cameraOutputOverride.DisplayIndex];
+
+                    CurrentCameraScissor = targetDisplay.Scissor;
+
+                    var rect = CreateViewportRectForCamera(targetDisplay.SwapChainExtent.width, targetDisplay.SwapChainExtent.height, cameraOutputOverride.ViewportRect);
+
+                    CurrentCameraViewport = CreateViewport(rect, targetDisplay.Viewport.minDepth, targetDisplay.Viewport.maxDepth);
+
+                }
+
+                CurrentCameraOutput = cameraOutputOverride;
+
             }
+            else
+            {
+                CurrentCameraScissor = SwapChain.MainSwapChainData.Scissor;
+                CurrentCameraViewport = SwapChain.MainSwapChainData.Viewport;
+            }
+        }
 
-            CameraInfo cameraInfo = ((SwapChainBuffer<CameraInfo>)EngineBuffers.TryGetBuffer(ShaderProperties.CameraInfoId)).HostBuffer[mainCamera];
-            float clipNear = camera.ClipNear;
-
-            CullData cullData = new(RenderLayer.All, RenderLayer.OnlyShadow, camera.CullMode, clipNear, cameraInfo);
-
+        private static LightingInfo GetDefaultWorldLighting(int frameIndex)
+        {
             LightingInfo lightingInfo = default;
             if (World.DefaultWorld != null)
             {
                 var entityManager = World.DefaultWorld.EntityManager;
-                lightingInfo = EngineBuffers.UpdateLights(entityManager,frameIndex);
+                lightingInfo = EngineBuffers.UpdateLights(entityManager, frameIndex);
             }
-            NewSwapChain =  _framesSinceSwapChainRecreation < SwapChain.MAX_CONCURRENT_FRAMES_UINT;
 
-            return new RendererFrameInfo(
-                cameraCount,
-                mainCamera,
-                deltaTime,
-                commandBuffer,
-                cullData,
-                lightingInfo);
+            return lightingInfo;
         }
 
         /// <summary>
@@ -204,7 +376,7 @@ namespace VECS
             info.screenAspect = SwapChain.ExtentAspectRatio;
             entityManager.SetComponent(FrameInfoEntity, info);
         }
-        int frameToWaitOn = 0;
+        
         public void Present()
         {
             _imgui.Update();
@@ -234,23 +406,22 @@ namespace VECS
 
                 //BasicSubmission.WaitForCommandBuffer(SwapChain.MainSwapChainData);
                 
-                frameToWaitOn = SwapChain.NextFrame;
+                _frameToWaitOn = SwapChain.NextFrame;
                 BasicSubmission.SubmitGraphicsQueue();
-                SwapChain.WaitForNextFrame(frameToWaitOn);
+                SwapChain.WaitForNextFrame(_frameToWaitOn);
 
 
                 PostPresentationUpdate?.Invoke();
 
                 _isFrameStarted = false;
                 _renderer.PostRender();
-                World.DefaultWorld.PostPresentUpdate();
                 //Console.WriteLine("Frame {0}", FrameCount);
                 _frameCount++;
                 _framesSinceSwapChainRecreation++;
             }
         }
 
-        private unsafe void GraphicsPipe(int imageIndex)
+        private void GraphicsPipe(int imageIndex)
         {
             VkCommandBuffer commandBuffer = SwapChain.CurrentMainCommandBuffer;
             GraphicsDevice.BeginLabelCmd(commandBuffer, "Start Frame Buffer Fill Cmds");
@@ -277,7 +448,6 @@ namespace VECS
 
             PreGraphicsPipe?.Invoke(FrameIndex);
 
-            RendererFrameInfo frameInfo = CreateRendererFrameInfo(Time.DeltaTime, commandBuffer);
             ComputePipeline.UpdateComputeShaders();
             GraphicsPipeline.UpdateMaterials();
 
@@ -288,16 +458,54 @@ namespace VECS
             
             AuxiliaryCommandBufferManager.Update();
 
-            _renderer.Render(frameInfo, imageIndex);
+            float deltaTime = Time.DeltaTime;
+            NewSwapChain = _framesSinceSwapChainRecreation < SwapChain.MAX_CONCURRENT_FRAMES_UINT;
+            LightingInfo lightingInfo = GetDefaultWorldLighting(FrameIndex);
+            UpdateCamerasDefaultWorld(FrameIndex);
+            var mainCameraEntity = GetMainCamera(out int cameraCount, out Camera mainCamera);
+            RendererFrameInfo mainCameraFrameInfo = CreateRendererFrameInfoForCamera(deltaTime, mainCamera.CameraIndex, commandBuffer, mainCamera, lightingInfo);
+            mainCameraFrameInfo = new(mainCameraFrameInfo, new(0, 0, Application.MainWindow.WindowExtent.width, Application.MainWindow.WindowExtent.height));
+            RenderCallback?.Invoke(mainCameraFrameInfo);
 
-            // UI Overlay
-            GraphicsDevice.BeginLabelCmd(commandBuffer, "IMGUI Pass");
-            _imgui.Draw(frameInfo);
-
-            _imgui.OverlayToActiveTarget(frameInfo,_renderer.MainColourAttachment);
+            GraphicsDevice.BeginLabelCmd(commandBuffer, "Render Graph Fixed Maps");
+            RenderGraph.Execute(mainCameraFrameInfo, PassCategory.FixedMap);
             GraphicsDevice.EndLabelCmd(commandBuffer);
 
-            RenderCallback?.Invoke(frameInfo);
+            for (int i = 0; i < cameraCount; i++)
+            {
+                if(i == mainCamera.CameraIndex)
+                {
+                    continue;
+                }
+                else
+                {
+                    var secondaryCameraEntity = GetCamera(i, out var secondaryCamera);
+                    SetCameraViewPort(World.DefaultWorld.EntityManager, secondaryCameraEntity);
+                    RendererFrameInfo secondaryCameraFrameInfo = CreateRendererFrameInfoForCamera(deltaTime, secondaryCamera.CameraIndex, commandBuffer, secondaryCamera, lightingInfo);
+                    secondaryCameraFrameInfo = new(secondaryCameraFrameInfo, CurrentCameraScissor);
+                    GraphicsDevice.BeginLabelCmd(commandBuffer, "Render Graph Secondary Camera");
+                    RenderGraph.Execute(secondaryCameraFrameInfo, PassCategory.SecondaryView);
+                    GraphicsDevice.EndLabelCmd(commandBuffer);
+                    CopyFromRendererMainColourToOutputImage(commandBuffer, CurrentCameraOutput.TargetTexture);
+                    _outputTextures[CurrentCameraOutput.TargetTexture].SetImageLayoutAuto(commandBuffer, VkImageLayout.ShaderReadOnlyOptimal);
+                }
+            }
+
+
+            SetCameraViewPort(World.DefaultWorld.EntityManager, mainCameraEntity);
+            GraphicsDevice.BeginLabelCmd(commandBuffer, "Render Graph Main Camera");
+            RenderGraph.Execute(mainCameraFrameInfo, PassCategory.MainView);
+            CopyFromRendererPostProcessingToOutputImage(commandBuffer, Display0Src);
+
+            // imgui Overlay
+            GraphicsDevice.BeginLabelCmd(commandBuffer, "IMGUI Pass");
+            _imgui.Draw(mainCameraFrameInfo);
+
+            _imgui.OverlayToActiveTarget(mainCameraFrameInfo, RenderGraph.GetResource("Display_0_Ouput_Tex"));
+            GraphicsDevice.EndLabelCmd(commandBuffer);
+            GraphicsDevice.EndLabelCmd(commandBuffer);
+
+            CopyFromOutputToSwapChainFull(commandBuffer, Display0Src, 0, imageIndex);
 
             // Play back Write Cmds generated during frame from CPU to GPU Buffers
             // this is an optimisation to avoid double writes
@@ -305,6 +513,52 @@ namespace VECS
             GPUBufferExtensions.PlaybackWriteBufferCmds();
             GraphicsDevice.EndLabelCmd(commandBuffer);
             //SwapChain.MainSwapChainData.SetImageLayout(commandBuffer, imageIndex, VkImageLayout.PresentSrcKHR);
+        }
+
+        private void CopyFromRendererMainColourToOutputImage(VkCommandBuffer commandBuffer,int outputId)
+        {
+            if (!_outputTextures.TryGetValue(outputId, out var image))
+            {
+                Debug.Assert(false, $"Missing output Texture: {outputId.GetPropertyIdString()}");
+                return;
+            }
+
+            image.SetImageLayoutAuto(commandBuffer, VkImageLayout.TransferDstOptimal);
+            _renderer.BlitFromMainColour(commandBuffer, new(0, 0, (uint)image.Width, (uint)image.Height), image._vkImage, new(0,0,(uint)image.Width, (uint)image.Height), VkImageAspectFlags.Color);
+
+        }
+
+        private void CopyFromRendererPostProcessingToOutputImage(VkCommandBuffer commandBuffer, int outputId)
+        {
+            if (!_outputTextures.TryGetValue(outputId, out var image))
+            {
+                Debug.Assert(false, $"Missing output Texture: {outputId.GetPropertyIdString()}");
+                return;
+            }
+
+            image.SetImageLayoutAuto(commandBuffer, VkImageLayout.TransferDstOptimal);
+            _renderer.BlitFromPostProcessingColour(commandBuffer, image._vkImage, image.Width, image.Height, VkImageAspectFlags.Color);
+
+        }
+
+        private unsafe void CopyFromOutputToSwapChainFull(VkCommandBuffer commandBuffer,int outputId, int swapchainIndex, int imageIndex)
+        {
+            if (swapchainIndex >= SwapChain.SwapChainsForPresent.Length)
+            {
+                Debug.Assert(false, $"Swapchain '{imageIndex}' out of range '{SwapChain.SwapChainsForPresent.Length}'");
+                return;
+            }
+
+            if (!_outputTextures.TryGetValue(outputId, out var image))
+            {
+                Debug.Assert(false, $"Missing output Texture: {outputId.GetPropertyIdString()}");
+                return;
+            }
+
+            image.SetImageLayoutAuto(commandBuffer, VkImageLayout.TransferSrcOptimal);
+            var blitCmd = image.GetBlitCmd((int)SwapChain.SwapChainExtent.width, (int)SwapChain.SwapChainExtent.height, VkImageAspectFlags.Color);
+            TextureExtensions.BlitGeneric(commandBuffer, VkFilter.Linear, blitCmd, image._vkImage, VkImageLayout.TransferSrcOptimal, SwapChain.SwapChainsForPresent[swapchainIndex].SwapChainImages[imageIndex], VkImageLayout.TransferDstOptimal);
+
         }
 
         public bool BeginFrame()

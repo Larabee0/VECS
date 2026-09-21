@@ -42,6 +42,7 @@ namespace VECS
         public uint firstIndex;
         public int vertexOffset;
         public uint firstInstance;
+        public uint absMatrixIndex;
         public RenderLayer layerFlags;
         public byte drawnFlag;
         public byte pad1;
@@ -61,7 +62,7 @@ namespace VECS
         }
     }
 
-    [StructLayout(LayoutKind.Sequential, Size = 188)]
+    [StructLayout(LayoutKind.Sequential, Size = 192)]
     public struct CullData
     {
         public Vector4 left;
@@ -98,7 +99,7 @@ namespace VECS
             pushConstants.SetPushConstantUniform("cullData", setId, this);
         }
 
-        public CullData(RenderLayer includeMask, RenderLayer excludeMask, CullModeFlags cullMode, float zNear, CameraInfo camera)
+        public CullData(RenderLayer includeMask, RenderLayer excludeMask, CullModeFlags cullMode, float zNear, CameraData camera)
         {
             Matrix4x4 viewProj = camera.ProjectionViewMatrix;
 
@@ -194,6 +195,7 @@ namespace VECS
         {
             
             var variantIndex = Interlocked.Increment(ref _invokation) - 1;
+            /*
 #if DEBUG
 #pragma warning disable CS0162
             if (CPUCulling)
@@ -219,24 +221,59 @@ namespace VECS
 
 #pragma warning restore CS0162
 #endif
+            */
 
+            GPUCullInternal(commandBuffer,frameIndex, cullData,0, drawCount, drawIndirect, bounds, variantIndex);
 
-            GPUCullInternal(commandBuffer,frameIndex, cullData, drawCount, drawIndirect, bounds, variantIndex);
-            
         }
-        private static void GPUCullInternal(VkCommandBuffer commandBuffer, int frameIndex, CullData cullData, uint drawCount, SwapChainBuffer drawIndirect, SwapChainBuffer bounds, uint variantIndex)
+        public static void Cull(VkCommandBuffer commandBuffer, int frameIndex, CullData cullData, uint indirectOffset, uint drawCount, SwapChainBuffer<VECSDrawIndexIndirectCommand> drawIndirect, SwapChainBuffer bounds)
         {
-            bounds.SetUsedInstanceCount(drawCount);
-            drawIndirect.SetUsedInstanceCount(drawCount);
+
+            var variantIndex = Interlocked.Increment(ref _invokation) - 1;
+            /*
+#if DEBUG
+#pragma warning disable CS0162
+            if (CPUCulling)
+            {
+                CPUCull(cullData, drawCount, drawIndirect, bounds);
+                return;
+            }
+
+            var includeMask = cullData.IncludeMask;
+            var excludeMask = cullData.ExcludeMask;
+            for (int i = 0; i < drawCount; i++)
+            {
+                var flags = drawIndirect.HostBuffer[i].layerFlags;
+                var include = (includeMask & flags) == flags;
+                var exclude = (excludeMask & flags) == flags;
+                var visible = include && !exclude;
+            }
+
+
+            bool fustrumCulling = (1 | (byte)cullData.cullMode) == (byte)cullData.cullMode;
+            bool distanceCulling = (2 | (byte)cullData.cullMode) == (byte)cullData.cullMode;
+            bool depthCulling = (4 | (byte)cullData.cullMode) == (byte)cullData.cullMode;
+
+#pragma warning restore CS0162
+#endif
+            */
+
+            GPUCullInternal(commandBuffer, frameIndex, cullData, indirectOffset, drawCount, drawIndirect, bounds, variantIndex);
+
+        }
+        private static void GPUCullInternal(VkCommandBuffer commandBuffer, int frameIndex, CullData cullData, uint indirectCmdOffset, uint drawCount, SwapChainBuffer drawIndirect, SwapChainBuffer bounds, uint variantIndex)
+        {
+            //bounds.SetUsedInstanceCount(drawCount);
+            //drawIndirect.SetUsedInstanceCount(indirectCmdOffset+drawCount);
             cullData.drawCount = drawCount;
 
             var invokeVariant = _computeShader.GetOrCreateVariant(variantIndex);
 
             invokeVariant.SetUniform(CullDataId, cullData);
-            invokeVariant.SetStorageBuffer(DrawBufferId, drawIndirect);
+            invokeVariant.SetStorageBuffer(DrawBufferId, drawIndirect, indirectCmdOffset, drawCount);
             invokeVariant.SetStorageBuffer(BoundsBufferId, bounds);
             invokeVariant.SetTexture(DepthPyramidId, DepthReduction.DepthPryamid);
-            invokeVariant.Dispatch(commandBuffer, frameIndex, (drawCount / 256) + 1);
+            invokeVariant.Dispatch(commandBuffer, frameIndex, drawCount);
 
             VkBufferMemoryBarrier2 barrier = new()
             {
@@ -352,7 +389,7 @@ namespace VECS
             radius = Vector3.Distance(boundingBox.Min, boundingBox.Max) * 0.5f;
 
 
-            World.DefaultWorld.GetSystem<DebugDrawUtilities>().DrawSphere(center, radius, Colour.Green);
+            DebugDrawer.DrawSphere(center, radius, Colour.Green);
             center = Vector3.Transform(center, view);
             return ProjectSphere(center, radius, zNear, p00, p11, out aabb);
         }

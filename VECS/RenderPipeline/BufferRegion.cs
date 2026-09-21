@@ -22,6 +22,8 @@ namespace VECS
 
         public readonly int Offset => StartIndex + Count;
 
+        public override readonly string ToString() => string.Format("{0}.{1}", StartIndex, Count);
+
         public void Increment()
         {
             StartIndex += Count;

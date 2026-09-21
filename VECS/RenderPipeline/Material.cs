@@ -8,36 +8,36 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
-    public class Material : DisposableAsset
+    internal class TemporaryDescriptor : IDisposable
     {
-        internal class TemporaryDescriptor : IDisposable
+        public DescriptorBuffer DescriptorBuffer;
+        public unsafe byte* _hostBuffer;
+
+        public unsafe TemporaryDescriptor(DescriptorSetInfo setInfo)
         {
-            public DescriptorBuffer DescriptorBuffer;
-            public unsafe byte* _hostBuffer;
-
-            public unsafe TemporaryDescriptor(DescriptorSetInfo setInfo)
-            {
-                DescriptorBuffer = new(setInfo.DescriptorBuffers[0].Layout, setInfo._descriptorBindings, (int)setInfo._uniformCount, setInfo.StorageBufferCount > 0 || setInfo.UnifromBufferSize > 0, setInfo.ImageCount > 0);
+            DescriptorBuffer = new(setInfo.DescriptorBuffers[0].Layout, setInfo._descriptorBindings, (int)setInfo._uniformCount, setInfo.StorageBufferCount > 0 || setInfo.UnifromBufferSize > 0, setInfo.ImageCount > 0);
 
 
-                var totalallocationSize = DescriptorBuffer.AllocationSize;
+            var totalallocationSize = DescriptorBuffer.AllocationSize;
 
-                _hostBuffer = (byte*)NativeMemory.AlignedAlloc(totalallocationSize, (uint)GPUBufferExtensions.GetAlignment(DescriptorBuffer.AlignedSize));
+            _hostBuffer = (byte*)NativeMemory.AlignedAlloc(totalallocationSize, (uint)GPUBufferExtensions.GetAlignment(DescriptorBuffer.AlignedSize));
 
-                NativeMemory.Fill(_hostBuffer, totalallocationSize, 0);
-                DescriptorBuffer.SetHostPtr(_hostBuffer);
-            }
-
-            public unsafe void Dispose()
-            {
-                GC.SuppressFinalize(this);
-                DescriptorBuffer.Dispose();
-                NativeMemory.AlignedFree(_hostBuffer);
-                _hostBuffer = null;
-                GC.ReRegisterForFinalize(this);
-            }
+            NativeMemory.Fill(_hostBuffer, totalallocationSize, 0);
+            DescriptorBuffer.SetHostPtr(_hostBuffer);
         }
 
+        public unsafe void Dispose()
+        {
+            GC.SuppressFinalize(this);
+            DescriptorBuffer.Dispose();
+            NativeMemory.AlignedFree(_hostBuffer);
+            _hostBuffer = null;
+            GC.ReRegisterForFinalize(this);
+        }
+    }
+
+    public class Material : DisposableAsset
+    {
         private readonly uint _variantIndex;
         private readonly GraphicsPipeline _graphicsPipeline;
         private Vector2ULong[][] _storageBufferRegions;
@@ -63,6 +63,8 @@ namespace VECS
         public DescriptorSetInfo[] DescriptorSetInfos => _graphicsPipeline.DescriptorSetInfos;
         public GraphicsPipeline Pipeline => _graphicsPipeline;
         public PushConstantsHandler PushConstants => _graphicsPipeline.PushConstants;
+
+        public ulong CombinedHash => CombineMaterial(_graphicsPipeline.Hash, (int)_variantIndex);
 
         internal unsafe Material(string name, GraphicsPipeline pipeline, bool localUniformAlloc = true)
         {
@@ -240,6 +242,16 @@ namespace VECS
             DescriptorBuffer.SetOffsets(frameInfo.CommandBuffer, Pipeline.PipelineLayout, VkPipelineBindPoint.Graphics, 0, (uint)DescriptorSetCount, offsets, indices);
         }
 
+        public void SetSampler(uint setIndex, uint bindPoint, TextureSampler sampler)
+        {
+
+            for (int f = 0; f < SwapChain.MAX_CONCURRENT_FRAMES; f++)
+            {
+                var descriptorBuffer = GetDescriptorBuffer(setIndex, f);
+                SetSampler(descriptorBuffer, sampler._textureSampler, bindPoint, setIndex);
+            }
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetTexture(uint setIndex, uint bindPoint, Texture texture, int index = 0)
         {
@@ -304,6 +316,12 @@ namespace VECS
         private static unsafe void SetTextures(DescriptorBuffer buffer, VkDescriptorType descriptorType, VkDescriptorImageInfo* imageInfos, uint imageCount, uint bindingIndex,  uint variant)
         {
             buffer.SetImageInfoBinding(imageInfos, imageCount, descriptorType, variant, bindingIndex);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void SetSampler(DescriptorBuffer buffer, VkSampler sampler, uint bindingIndex, uint variant)
+        {
+            buffer.SetSamplerBinding(sampler, variant, bindingIndex);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -547,6 +565,43 @@ namespace VECS
                         variant.WriteTexturesToDescriptorBuffer(setIndex, binding.BindPoint);
                     }
                 }
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static ulong CombineMaterial(int pipelineHash, int materialHash)
+        {
+            unchecked
+            {
+                ulong output = (uint)pipelineHash;
+                return (output << 32) + (uint)materialHash;
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void DecomposeHash(ulong combined, out int pipelineHash, out int materialHash)
+        {
+            unchecked
+            {
+                pipelineHash = (int)(uint)(combined >> 32);
+                materialHash = (int)(uint)(combined + (0 << 32));
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int DecodeIndex(ulong combined)
+        {
+            unchecked
+            {
+                return (int)(uint)(combined + (0 << 32));
+            }
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int DecodePipelineHash(ulong combined)
+        {
+            unchecked
+            {
+                return (int)(uint)(combined >> 32);
             }
         }
     }

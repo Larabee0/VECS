@@ -10,7 +10,7 @@ namespace VECS
         // https://vulkan.lunarg.com/doc/view/1.4.328.1/windows/antora/spec/latest/chapters/synchronization.html#synchronization-access-types-supported
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static void SetImageLayout(VkCommandBuffer cmdbuffer,
+        internal unsafe static void SetImageLayout(VkCommandBuffer cmdbuffer,
             VkImage image,
             VkImageAspectFlags aspectMask,
             VkImageLayout oldImageLayout,
@@ -19,12 +19,13 @@ namespace VECS
             VkPipelineStageFlags2 dstStageMask)
         {
             VkImageSubresourceRange subresourceRange = new(aspectMask, 0, 1, 0, 1);
-            SetImageLayout(cmdbuffer, image, oldImageLayout, newImageLayout, subresourceRange, srcStageMask, dstStageMask);
+            var barrier = GetImageLayoutBarrier(image, oldImageLayout, newImageLayout, subresourceRange, srcStageMask, dstStageMask);
+
+            ImageMemoryBarrier(cmdbuffer, &barrier, 1);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe void SetImageLayout(
-            VkCommandBuffer cmdBuffer,
+        public static VkImageMemoryBarrier2 GetImageLayoutBarrier(
             VkImage image,
             VkImageLayout oldLayout,
             VkImageLayout newLayout,
@@ -94,7 +95,7 @@ namespace VECS
             }
 
             uint queueFamily = GraphicsDevice.PhysicalQueueFamilies.graphicsFamily;
-            ImageMemoryBarrier(cmdBuffer, image,
+            return GetImageMemoryBarrier(image,
                 subresourceRange,
                 srcStage, srcAccessMask,
                 dstStage, dstAccessMask,
@@ -115,7 +116,20 @@ namespace VECS
             uint dstQueue
             )
         {
-            VkImageMemoryBarrier2 imageMemoryBarrier2 = new(
+            var barrier = GetImageMemoryBarrier(image, subresourceRange, srcStage, srcAccess, dstStage, dstAccess,oldLayout, newLayout,srcQueue,dstQueue);
+            ImageMemoryBarrier(cmdBuffer, &barrier, 1);
+        }
+
+        public unsafe static VkImageMemoryBarrier2 GetImageMemoryBarrier(
+            VkImage image,
+            VkImageSubresourceRange subresourceRange,
+            VkPipelineStageFlags2 srcStage, VkAccessFlags2 srcAccess,
+            VkPipelineStageFlags2 dstStage, VkAccessFlags2 dstAccess,
+            VkImageLayout oldLayout, VkImageLayout newLayout,
+            uint srcQueue,
+            uint dstQueue)
+        {
+            return new(
                 image,
                 subresourceRange,
                 srcStage, srcAccess,
@@ -123,11 +137,16 @@ namespace VECS
                 oldLayout, newLayout,
                 srcQueue, dstQueue
             );
+        }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static unsafe void ImageMemoryBarrier(VkCommandBuffer cmdBuffer, VkImageMemoryBarrier2* barriers, uint barrierCount)
+        {
+            if (barrierCount == 0) return;
             VkDependencyInfo info = new()
             {
-                imageMemoryBarrierCount = 1,
-                pImageMemoryBarriers = &imageMemoryBarrier2
+                imageMemoryBarrierCount = barrierCount,
+                pImageMemoryBarriers = barriers
             };
             GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier2(cmdBuffer, &info);
         }
@@ -135,6 +154,7 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static unsafe void BufferMemoryBarrier(VkCommandBuffer cmdBuffer,uint barrierCount,VkBufferMemoryBarrier2* barriers)
         {
+            if (barrierCount == 0) return;
             VkDependencyInfo info = new()
             {
                 bufferMemoryBarrierCount = barrierCount,
@@ -165,6 +185,7 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static unsafe void MemoryBarrier(VkCommandBuffer cmdBuffer, uint barrierCount, VkMemoryBarrier2* barriers)
         {
+            if (barrierCount == 0) return;
             VkDependencyInfo info = new()
             {
                 memoryBarrierCount = barrierCount,
@@ -190,13 +211,13 @@ namespace VECS
             return layout switch
             {
                 VkImageLayout.Undefined => VkPipelineStageFlags2.None,
-                VkImageLayout.General => VkPipelineStageFlags2.ComputeShader,
+                VkImageLayout.General => VkPipelineStageFlags2.AllCommands,
                 VkImageLayout.ColorAttachmentOptimal => VkPipelineStageFlags2.ColorAttachmentOutput,
                 VkImageLayout.DepthStencilAttachmentOptimal => VkPipelineStageFlags2.EarlyFragmentTests | VkPipelineStageFlags2.LateFragmentTests,
                 VkImageLayout.DepthStencilReadOnlyOptimal => VkPipelineStageFlags2.EarlyFragmentTests | VkPipelineStageFlags2.LateFragmentTests,
-                VkImageLayout.ShaderReadOnlyOptimal => VkPipelineStageFlags2.FragmentShader,
-                VkImageLayout.TransferSrcOptimal => VkPipelineStageFlags2.Transfer,
-                VkImageLayout.TransferDstOptimal => VkPipelineStageFlags2.Transfer,
+                VkImageLayout.ShaderReadOnlyOptimal => VkPipelineStageFlags2.FragmentShader | VkPipelineStageFlags2.ComputeShader,
+                VkImageLayout.TransferSrcOptimal => VkPipelineStageFlags2.Transfer | VkPipelineStageFlags2.Blit,
+                VkImageLayout.TransferDstOptimal => VkPipelineStageFlags2.Transfer | VkPipelineStageFlags2.Blit,
                 VkImageLayout.Preinitialized => VkPipelineStageFlags2.None,
                 VkImageLayout.DepthReadOnlyStencilAttachmentOptimal => VkPipelineStageFlags2.EarlyFragmentTests | VkPipelineStageFlags2.LateFragmentTests,
                 VkImageLayout.DepthAttachmentStencilReadOnlyOptimal => VkPipelineStageFlags2.EarlyFragmentTests | VkPipelineStageFlags2.LateFragmentTests,
@@ -204,7 +225,7 @@ namespace VECS
                 VkImageLayout.DepthReadOnlyOptimal => VkPipelineStageFlags2.EarlyFragmentTests | VkPipelineStageFlags2.LateFragmentTests,
                 VkImageLayout.StencilAttachmentOptimal => VkPipelineStageFlags2.EarlyFragmentTests | VkPipelineStageFlags2.LateFragmentTests,
                 VkImageLayout.StencilReadOnlyOptimal => VkPipelineStageFlags2.EarlyFragmentTests | VkPipelineStageFlags2.LateFragmentTests,
-                VkImageLayout.ReadOnlyOptimal => VkPipelineStageFlags2.FragmentShader,
+                VkImageLayout.ReadOnlyOptimal => VkPipelineStageFlags2.FragmentShader | VkPipelineStageFlags2.ComputeShader,
                 VkImageLayout.AttachmentOptimal => VkPipelineStageFlags2.ColorAttachmentOutput | VkPipelineStageFlags2.EarlyFragmentTests | VkPipelineStageFlags2.LateFragmentTests,
                 VkImageLayout.RenderingLocalRead => VkPipelineStageFlags2.ColorAttachmentOutput,
                 VkImageLayout.PresentSrcKHR => VkPipelineStageFlags2.None,

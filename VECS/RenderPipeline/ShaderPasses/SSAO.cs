@@ -1,12 +1,11 @@
 ﻿using System;
 using System.Numerics;
 using System.Runtime.CompilerServices;
-using VECS.LowLevel;
 using Vortice.Vulkan;
 
 namespace VECS
 {
-    public class SSAO
+    public class SSAO : IRenderPass
     {
         public static readonly int SSAO_RT_PropertyId = "ssao_Source".GetShaderPropertyId();
         public static readonly int SSAO_Blur_RT_PropertyId = "ssao_blur_Source".GetShaderPropertyId();
@@ -19,9 +18,11 @@ namespace VECS
         private readonly ComputeVariant _computeSSAOBlur;
 
         private RenderTarget _ssaoRT;
-        private RenderTarget _ssaoBlurRt;
 
-        private bool _SSAO_Enabled = true;
+
+        private RenderTarget _ssaoBlurRt;
+        public static bool SSAO_Enabled = true;
+
         private bool _SSAO_Cleared = false;
 
         public SSAO(IRenderer activeRenderer)
@@ -37,48 +38,62 @@ namespace VECS
             _computeSSAOGenerate.PushConstantsHandler.SetPushConstantFloat("radius", 0, 0.5f);
             _computeSSAOGenerate.PushConstantsHandler.SetPushConstantFloat("bias", 0, 0.025f);
             _computeSSAOGenerate.PushConstantsHandler.SetPushConstantInt("kernelSize", 0, 64);
-            _computeSSAOGenerate?.SetStorageBuffer(ShaderProperties.CameraInfoId, EngineBuffers.TryGetBuffer(ShaderProperties.CameraInfoId));
-            _computeSSAOGenerate?.SetStorageBuffer(ShaderProperties.AdditionalCameraInfoId, EngineBuffers.TryGetBuffer(ShaderProperties.AdditionalCameraInfoId));
+            _computeSSAOGenerate?.SetStorageBuffer(ShaderProperties.CameraDataId, EngineBuffers.TryGetBuffer(ShaderProperties.CameraDataId));
             _computeSSAOGenerate?.SetStorageBuffer(SSAO_Kernals_PropertyId, EngineBuffers.TryGetBuffer(SSAO_Kernals_PropertyId));
+
+            RenderGraph.AddResource(new("SSAO_RT", SSAO_RT_PropertyId, VkFormat.R8Unorm, -1,
+                VkImageUsageFlags.Storage,
+                VkImageLayout.ShaderReadOnlyOptimal,
+                VkImageLayout.ColorAttachmentOptimal,
+                VkImageLayout.General,
+                VkImageLayout.ShaderReadOnlyOptimal,
+                new(0, 0, 0, 0)));
+
+            RenderGraph.AddResource(new("SSAO_BLUR_RT", SSAO_Blur_RT_PropertyId, VkFormat.R8Unorm, -1,
+                VkImageUsageFlags.Storage,
+                VkImageLayout.ShaderReadOnlyOptimal,
+                VkImageLayout.ColorAttachmentOptimal,
+                VkImageLayout.General,
+                VkImageLayout.ShaderReadOnlyOptimal,
+                new(1, 1, 1, 1)));
+
         }
-        
-        public unsafe void SSAOPass(RendererFrameInfo frameInfo)
+
+        public void AddToRenderGraph()
         {
-            if (InputManager.Instance.GetKeyUp(SDL3.SDL_Keycode.O))
-            {
-                _SSAO_Enabled = !_SSAO_Enabled;
-                Console.WriteLine("SSAO Enabled: {0}", _SSAO_Enabled);
-            }
-            if (_SSAO_Enabled)
-            {
-                ComputeSSAO(frameInfo);
-                _SSAO_Cleared = false;
-            }
-            else if(!_SSAO_Cleared)
-            {
-                _SSAO_Cleared = true;
-                var srcStage = _ssaoBlurRt.ImageLayout.GetStageFlagFromLayout();
-                var clearColour = new VkClearColorValue(1f, 1f, 1f, 1f);
-                var subResourceRange = _ssaoBlurRt.Target.GetSubresourceRange();
+            RenderGraph.AddPass("SSAO_Generate", PassType.Compute, PassCategory.PostRendering, ["DeferredObjectsPass", "DeferredDepthOnlyPass", "SSAO_Clear"], ["G_PositionAttachment", "G_NormalAttachment", "MainDepthAttachment"], ["SSAO_RT"], GenerateSSAO);
+            RenderGraph.AddPass("SSAO_Blur", PassType.Compute, PassCategory.PostRendering, ["SSAO_Generate"], ["SSAO_RT"], ["SSAO_BLUR_RT"], BlurSSAO);
+            RenderGraph.AddPass("SSAO_Clear", PassType.Compute, PassCategory.PostRendering, ["DeferredObjectsPass", "DeferredDepthOnlyPass"], [""], ["SSAO_BLUR_RT"], ClearSSAO);
+            RenderGraph.DisablePass("SSAO_Clear");
+        }
 
-                GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Clear SSAO Output");
-                
-                _ssaoBlurRt.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.TransferDstOptimal, srcStage, VkPipelineStageFlags2.Transfer);
-                GraphicsDevice.DeviceAPI.vkCmdClearColorImage(frameInfo.CommandBuffer, _ssaoBlurRt.VkImage, VkImageLayout.TransferDstOptimal, &clearColour, 1, &subResourceRange);
-                _ssaoBlurRt.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.Transfer, VkPipelineStageFlags2.FragmentShader | VkPipelineStageFlags2.ComputeShader);
+        public void PrePresent()
+        {
 
-                GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
-            }
         }
 
         public void RecreateRenderTargets()
         {
-            var windowExtents = Application.MainWindow.WindowExtent;
+            var windowExtents = ActiveRenderer.MainRenderingAttachmentsSize;
+            _ssaoRT = RenderGraph.GetOrCreateResource("SSAO_RT", new(windowExtents.width / 2, windowExtents.height / 2));
+            _ssaoBlurRt = RenderGraph.GetOrCreateResource("SSAO_BLUR_RT",windowExtents);
+            SetImageSize(windowExtents);
+            _SSAO_Cleared = false;
+        }
 
-            _ssaoRT = IRenderer.CreateOrUpdateRT(_ssaoRT, "SSAO", SSAO_RT_PropertyId,  new(windowExtents.width / 2, windowExtents.height / 2), VkFormat.R8Unorm, VkImageUsageFlags.Storage);
-            _ssaoBlurRt = IRenderer.CreateOrUpdateRT(_ssaoBlurRt, "SSAO_Blur", SSAO_Blur_RT_PropertyId, windowExtents, VkFormat.R8Unorm, VkImageUsageFlags.Storage);
-            _computeSSAOGenerate.PushConstantsHandler.SetPushConstantVector2("outputImageSize", 0, new(windowExtents.width/2, windowExtents.height/2));
-            _computeSSAOBlur.PushConstantsHandler.SetPushConstantVector2("outputImageSize", 0, new(windowExtents.width, windowExtents.height));
+        private void SetImageSize(VkExtent2D windowExtents)
+        {
+            Vector4 ssaoRTSize = new(windowExtents.width / 2, windowExtents.height / 2, 1.0f / (windowExtents.width / 2), 1.0f / (windowExtents.height / 2));
+            Vector4 ssaoBlurRTSize = new(windowExtents.width, windowExtents.height, 1.0f / windowExtents.width, 1.0f / windowExtents.height);
+            Vector2 scale = ssaoBlurRTSize.AsVector2() / new Vector2(_ssaoBlurRt.Target.Width, _ssaoBlurRt.Target.Height);
+            _computeSSAOGenerate.PushConstantsHandler.SetPushConstantVector4("srcImageSize", 0, ssaoBlurRTSize);
+            _computeSSAOGenerate.PushConstantsHandler.SetPushConstantVector4("outputImageSize", 0, ssaoRTSize);
+            _computeSSAOGenerate.PushConstantsHandler.SetPushConstantVector2("noiseScale", 0, new(windowExtents.width / 4, windowExtents.height / 4));
+            _computeSSAOGenerate.PushConstantsHandler.SetPushConstantVector2("renderScale", 0, scale);
+
+            _computeSSAOBlur.PushConstantsHandler.SetPushConstantVector4("srcImageSize", 0, ssaoRTSize);
+            _computeSSAOBlur.PushConstantsHandler.SetPushConstantVector4("outputImageSize", 0, ssaoBlurRTSize);
+            _computeSSAOBlur.PushConstantsHandler.SetPushConstantVector2("renderScale", 0, scale);
         }
 
         private static void GenerateResources()
@@ -119,40 +134,44 @@ namespace VECS
             EngineTextures.AddOrUpdateTexture(SSAO_Noise_PropertyId, (SingleTexture)ssaoNoiseTex);
         }
 
-        private void ComputeSSAO(RendererFrameInfo frameInfo)
+        private void GenerateSSAO(RendererFrameInfo frameInfo)
         {
-            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "SSAO Compute Pass");
-            
-            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "SSAO Generaete");
-
-            var srcStage = _ssaoRT.ImageLayout.GetStageFlagFromLayout();
-            _ssaoRT.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.General, srcStage, VkPipelineStageFlags2.ComputeShader);
-
-            _computeSSAOGenerate.PushConstantsHandler.SetPushConstantUInt("cameraIndex", 0, 0);
-            _computeSSAOGenerate.Dispatch(frameInfo.CommandBuffer, Presenter.FrameIndex, GetGroupCount((uint)_ssaoRT.Target.Width, 32), GetGroupCount((uint)_ssaoRT.Target.Height, 32));
-            
-            _ssaoRT.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.ComputeShader, VkPipelineStageFlags2.ComputeShader);
-
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
-
-            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "SSAO Blur");
-
-            srcStage = _ssaoBlurRt.ImageLayout.GetStageFlagFromLayout();
-            _ssaoBlurRt.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.General, srcStage, VkPipelineStageFlags2.ComputeShader);
-
-            _computeSSAOBlur.Dispatch(frameInfo.CommandBuffer, Presenter.FrameIndex, GetGroupCount((uint)_ssaoBlurRt.Target.Width, 32), GetGroupCount((uint)_ssaoBlurRt.Target.Height, 32));
-
-            _ssaoBlurRt.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.ComputeShader, VkPipelineStageFlags2.ComputeShader);
-
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
-
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
+            SetImageSize(new(frameInfo.OutputRect.extent.width, frameInfo.OutputRect.extent.height));
+            _computeSSAOGenerate.PushConstantsHandler.SetPushConstantUInt("cameraIndex", 0, (uint)frameInfo.TargetCamera);
+            _computeSSAOGenerate.Dispatch(frameInfo.CommandBuffer, Presenter.FrameIndex, frameInfo.OutputRect.extent.width / 2, frameInfo.OutputRect.extent.height / 2);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static uint GetGroupCount(uint threadCount, uint localSize)
+        private void BlurSSAO(RendererFrameInfo frameInfo)
         {
-            return (threadCount + localSize - 1) / localSize;
+            _computeSSAOBlur.Dispatch(frameInfo.CommandBuffer, Presenter.FrameIndex, frameInfo.OutputRect.extent.width, frameInfo.OutputRect.extent.height);
+
+            _SSAO_Cleared = false;
         }
+
+        private void ClearSSAO(RendererFrameInfo frameInfo)
+        {
+            if (!_SSAO_Cleared)
+            {
+                _SSAO_Cleared = true;
+                _ssaoBlurRt.ClearAttachment(frameInfo.CommandBuffer);
+                RenderGraph.DisablePass("SSAO_Clear");
+            }
+        }
+
+        public void SetEnabled(bool enabled)
+        {
+            if (enabled == SSAO_Enabled) return;
+            SSAO_Enabled = enabled;
+            if (SSAO_Enabled)
+            {
+                RenderGraph.EnablePass("SSAO_Blur", "SSAO_Generate");
+            }
+            else
+            {
+                RenderGraph.EnablePass("SSAO_Clear");
+                RenderGraph.DisablePass("SSAO_Blur", "SSAO_Generate");
+            }
+        }
+
     }
 }

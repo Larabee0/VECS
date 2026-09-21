@@ -18,36 +18,39 @@ namespace VECS
     /// </summary>
     public readonly struct RendererFrameInfo
     {
-        public readonly int CameraCount;
-        public readonly int MainCamera;
+        public readonly int TargetCamera;
         public readonly float DeltaTime;
 
         public readonly VkCommandBuffer CommandBuffer;
         public readonly CullData CullData;
         public readonly LightingInfo LightingInfo;
 
-        // public readonly BufferMAXCAMS<CameraInfo> CameraInfo;
-        // public readonly BufferMAXCAMS<CameraInverseInfo> CameraInverseInfo;
-        // public readonly BufferMAXCAMS<AdditionalCameraInfo> AdditionalCameraInfo;
-        // public readonly BufferMAXCAMS<OrthographicInfo> OrthographicInfo;
-        // public readonly BufferMAXLIGHTS<PointLightUniform> PointLights;
-        // public readonly BufferMAXLIGHTS<SpotLightUniform> SpotLights;
+        public readonly VkRect2D OutputRect;
 
         public RendererFrameInfo(
-            int cameraCount,
             int mainCamera,
             float deltaTime,
             VkCommandBuffer commandBuffer,
             CullData cullData,
             LightingInfo lightingInfo)
         {
-            CameraCount = cameraCount;
-            MainCamera = mainCamera;
+            TargetCamera = mainCamera;
             DeltaTime = deltaTime;
 
             CommandBuffer = commandBuffer;
             CullData = cullData;
             LightingInfo = lightingInfo;
+        }
+
+        public RendererFrameInfo(RendererFrameInfo frameInfo, VkRect2D outputRect)
+        {
+            TargetCamera = frameInfo.TargetCamera;
+            DeltaTime = frameInfo.DeltaTime;
+
+            CommandBuffer = frameInfo.CommandBuffer;
+            CullData = frameInfo.CullData;
+            LightingInfo = frameInfo.LightingInfo;
+            OutputRect = outputRect;
         }
 
         public static bool operator ==(RendererFrameInfo left, RendererFrameInfo right)

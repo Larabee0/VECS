@@ -6,7 +6,7 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
-    public static class PBR
+    public class PBR : IRenderPass
     {
         public const VkFormat BRDFLUT_FORMAT = VkFormat.R8G8Unorm;
         public const VkFormat IRRADIANCE_FORMAT = VkFormat.R8G8B8A8Unorm;
@@ -18,15 +18,15 @@ namespace VECS
         public const int IRRADIANCE_DIMENTIONS = 512;
         public const int PREFILTERED_CUBE_DIMENTIONS = 512;
 
-        private static Texture2D BRDFLUT_Texture;
-        private static Cubemap Irradiance_Cubemap;
-        private static Cubemap Prefiltered_Cubemap;
+        private Texture2D BRDFLUT_Texture;
+        private Cubemap Irradiance_Cubemap;
+        private Cubemap Prefiltered_Cubemap;
 
-        private static GraphicsPipeline BRDFLUT_Generator;
-        private static GraphicsPipeline Irradiance_Generator;
-        private static GraphicsPipeline Prefiltered_Generator;
+        private GraphicsPipeline BRDFLUT_Generator;
+        private GraphicsPipeline Irradiance_Generator;
+        private GraphicsPipeline Prefiltered_Generator;
 
-        public static void StartPBR()
+        public PBR(IRenderer activeRenderer)
         {
             CreateAssets();
 
@@ -50,10 +50,38 @@ namespace VECS
                 asset.SetCubeMap(prefilteredProp, Prefiltered_Cubemap);
                 asset.SetTexture(brdflutProp, BRDFLUT_Texture);
             });
+            AssetDataBase<ComputeVariant>.AllAssetsListForReading.ForEach(asset =>
+            {
+                asset.SetTexture(irradianceProp, Irradiance_Cubemap);
+                asset.SetTexture(prefilteredProp, Prefiltered_Cubemap);
+                asset.SetTexture(brdflutProp, BRDFLUT_Texture);
+            });
+        }
+
+        public void AddToRenderGraph()
+        {
+            RenderGraph.AddPass("PBR_Genderate_BRDFLUT", PassType.Render, PassCategory.FixedMap, [], [], Generate_BRDFLUT);
+            RenderGraph.AddPass("PBR_Generate_Irradiance", PassType.Render, PassCategory.FixedMap, [], [], Generate_Irradiance);
+            RenderGraph.AddPass("PBR_Generate_Prefiltered_Cubemap", PassType.Render, PassCategory.FixedMap, [], [], Generate_Prefiltered_Cubemap);
+        }
+
+        public void RecreateRenderTargets() { }
+        public void PrePresent() { }
+
+        public void SetEnabled(bool enabled)
+        {
+            if (enabled)
+            {
+                RenderGraph.EnablePass("PBR_Genderate_BRDFLUT", "PBR_Generate_Irradiance", "PBR_Generate_Prefiltered_Cubemap");
+            }
+            else
+            {
+                RenderGraph.DisablePass("PBR_Genderate_BRDFLUT", "PBR_Generate_Irradiance", "PBR_Generate_Prefiltered_Cubemap");
+            }
         }
 
 
-        public static void CreateAssets()
+        public void CreateAssets()
         {
             BRDFLUT_Texture = new(
                 "BRDFLUT",
@@ -123,11 +151,11 @@ namespace VECS
             Prefiltered_Generator = GraphicsPipeline.VertexFragmentPipeline("Prefiltered_Cube_Generator", "filtercube.vert", "prefilterenvmap.frag", prefiltered_cube_gen_config);
         }
 
-        public static unsafe void Generate_BRDFLUT(RendererFrameInfo frameInfo)
+        public unsafe void Generate_BRDFLUT(RendererFrameInfo frameInfo)
         {
             var commandBuffer = AuxiliaryCommandBufferManager.Record();
-            
-            BRDFLUT_Texture.SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
+            GraphicsDevice.BeginLabelCmd(commandBuffer,"Generate BRDFLUT");
+            BRDFLUT_Texture.SetImageLayoutAuto(commandBuffer, VkImageLayout.ColorAttachmentOptimal);
 
             VkRenderingAttachmentInfo colourAttachments = new()
             {
@@ -155,22 +183,25 @@ namespace VECS
             GraphicsDevice.DeviceAPI.vkCmdSetViewport(commandBuffer, 0, viewport);
             GraphicsDevice.DeviceAPI.vkCmdSetScissor(commandBuffer, 0, scissor);
 
-            BRDFLUT_Generator.Default().Bind(new(frameInfo.CameraCount, frameInfo.MainCamera, frameInfo.DeltaTime, commandBuffer, frameInfo.CullData, frameInfo.LightingInfo));
+            BRDFLUT_Generator.Default().Bind(new(frameInfo.TargetCamera, frameInfo.DeltaTime, commandBuffer, frameInfo.CullData, frameInfo.LightingInfo));
             GraphicsDevice.DeviceAPI.vkCmdDraw(commandBuffer, 3, 1, 0, 0);
 
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
-            BRDFLUT_Texture.SetImageLayout(commandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.FragmentShader);
+            BRDFLUT_Texture.SetImageLayoutAuto(commandBuffer, VkImageLayout.ShaderReadOnlyOptimal);
 
+            GraphicsDevice.EndLabelCmd(commandBuffer);
             AuxiliaryCommandBufferManager.Submit();
+            RenderGraph.DisablePass("PBR_Genderate_BRDFLUT");
         }
 
-        public static unsafe void Generate_Irradiance(RendererFrameInfo frameInfo)
+        public unsafe void Generate_Irradiance(RendererFrameInfo frameInfo)
         {
             var commandBuffer = AuxiliaryCommandBufferManager.Record();
+            GraphicsDevice.BeginLabelCmd(commandBuffer, "Generate Irradiance");
 
-            frameInfo = new(frameInfo.CameraCount, frameInfo.MainCamera, frameInfo.DeltaTime, commandBuffer, frameInfo.CullData, frameInfo.LightingInfo);
+            frameInfo = new(frameInfo.TargetCamera, frameInfo.DeltaTime, commandBuffer, frameInfo.CullData, frameInfo.LightingInfo);
 
-            Irradiance_Cubemap.SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
+            Irradiance_Cubemap.SetImageLayoutAuto(commandBuffer, VkImageLayout.ColorAttachmentOptimal);
 
             VkRenderingAttachmentInfo colourAttachments = new()
             {
@@ -227,17 +258,20 @@ namespace VECS
 
                 GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
             }
-            Irradiance_Cubemap.SetImageLayout(commandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.FragmentShader);
+            Irradiance_Cubemap.SetImageLayoutAuto(commandBuffer, VkImageLayout.ShaderReadOnlyOptimal);
 
             Irradiance_Cubemap.RegenerateMipMaps(commandBuffer);
+            GraphicsDevice.EndLabelCmd(commandBuffer);
             AuxiliaryCommandBufferManager.Submit();
+            RenderGraph.DisablePass("PBR_Generate_Irradiance");
         }
 
-        public static unsafe void Generate_Prefiltered_Cubemap(RendererFrameInfo frameInfo)
+        public unsafe void Generate_Prefiltered_Cubemap(RendererFrameInfo frameInfo)
         {
             var commandBuffer = AuxiliaryCommandBufferManager.Record();
-            frameInfo = new(frameInfo.CameraCount, frameInfo.MainCamera, frameInfo.DeltaTime, commandBuffer, frameInfo.CullData, frameInfo.LightingInfo);
-            Prefiltered_Cubemap.SetImageLayout(commandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
+            GraphicsDevice.BeginLabelCmd(commandBuffer, "Generate PrefilteredSkybox");
+            frameInfo = new(frameInfo.TargetCamera, frameInfo.DeltaTime, commandBuffer, frameInfo.CullData, frameInfo.LightingInfo);
+            Prefiltered_Cubemap.SetImageLayoutAuto(commandBuffer, VkImageLayout.ColorAttachmentOptimal);
 
             VkRenderingAttachmentInfo colourAttachments = new()
             {
@@ -294,10 +328,12 @@ namespace VECS
 
                 GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
             }
-            Prefiltered_Cubemap.SetImageLayout(commandBuffer, VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.ColorAttachmentOutput, VkPipelineStageFlags2.FragmentShader);
+            Prefiltered_Cubemap.SetImageLayoutAuto(commandBuffer, VkImageLayout.ShaderReadOnlyOptimal);
 
             Prefiltered_Cubemap.RegenerateMipMaps(commandBuffer);
+            GraphicsDevice.EndLabelCmd(commandBuffer);
             AuxiliaryCommandBufferManager.Submit();
+            RenderGraph.DisablePass("PBR_Generate_Prefiltered_Cubemap");
         }
     }
 }

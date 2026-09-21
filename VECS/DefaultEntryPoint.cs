@@ -53,12 +53,43 @@ namespace VECS
         {
             _sphere = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("UV-Sphere.obj"), null)[0];
             CreateMainCamera();
+            CreateCamera();
             DirectionalLight();
-            //PointLight();
+            PointLight();
             //SponzaOld();
             //SponzaNew();
             SponzaNewPBR();
             //ShadowDebug();
+        }
+
+        private static void CreateCamera()
+        {
+            Texture2D tex = new("SecondCamera", 512, 512, VkFormat.R16G16B16A16Sfloat, VkImageUsageFlags.Sampled | VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.TransferDst | VkImageUsageFlags.TransferSrc, false);
+            EntityManager entityManager = World.DefaultWorld.EntityManager;
+            Entity MainCamera = entityManager.CreateEntity("Main Camera");
+            entityManager.AddComponent(MainCamera, new Translation() { Value = initalCameraPos });
+            entityManager.AddComponent<Rotation>(MainCamera, new() { Value = NumericsExtensions.CameraRotation(TransformExtensions.Rad2Deg * initalCameraRot.X, TransformExtensions.Rad2Deg * initalCameraRot.Y) });
+            entityManager.AddComponent(MainCamera, cameraPerspective);
+            entityManager.AddComponent<CameraOutputOverride>(MainCamera, new()
+            {
+                TargetTexture = tex.Hash,
+                ViewportRect  =new Rect(0,0, 1, 1),
+            });
+
+
+            var mesh = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("quad.obj"), null)[0];
+
+            var unlitTex = EnginePipes.Unlit_Tex_Deferred.Default();
+
+
+            unlitTex.SetTexture("texSampler".GetShaderPropertyId(), tex);
+            var entity = entityManager.CreateEntity();
+            AddRenderMeshComponents(entity, unlitTex, 0, mesh, entityManager);
+            MaterialProvider material = new("SecondaryCam", EnginePipes.DepthOnly.Create("unlitTex"), unlitTex);
+            AssetDataBase<MaterialProvider>.Add(material);
+            entityManager.AddComponent(entity, new MaterialProviderComponent() { Value = material.Hash, LayerFlags = RenderLayer.Default | RenderLayer.NoShadow });
+            entityManager.AddComponent(entity, new Rotation() { Value = TransformExtensions.EulerUnity(0, -90, 90) });
+            entityManager.AddComponent(entity, new Translation() { Value = new Vector3(0, 2, 1) });
         }
 
         private static void CreateMainCamera()
@@ -124,7 +155,7 @@ namespace VECS
             entityManager.AddComponent(dirLight, new ShadowInfo()
             {
                 UpdateBehaviour = ShadowUpdate.Always,
-                Resolution = ShadowMapResolution.FouryNinteySix.GetResolution(),
+                Resolution = ShadowMapResolution.TwentyFourtyEight.GetResolution(),
             });
         }
 
@@ -134,19 +165,19 @@ namespace VECS
             
             
             PointLight(entityManager, new(-10, 1, 0), new(4, 0, 0, 1), _sphere);
-            PointLight(entityManager, new(10, 1f, 0), new(1, 0, 0, 1), _sphere);
-            
-            PointLight(entityManager, new(8, 1, 0), new(0, 1, 0, 1), _sphere);
-            PointLight(entityManager, new(-8, 1, 0), new(0, 1, 0, 1), _sphere);
-            
-            PointLight(entityManager, new(6, 1, 0), new(0, 0, 1, 1), _sphere);
-            PointLight(entityManager, new(-6, 1, 0), new(0, 0, 1, 1), _sphere);
-            
-            PointLight(entityManager, new(4, 1, 0), new(1, 1, 0, 1), _sphere);
-            PointLight(entityManager, new(-4, 1, 0), new(1, 1, 0, 1), _sphere);
-            
-            PointLight(entityManager, new(2, 1, 0), new(0, 1, 1, 1), _sphere);
-            PointLight(entityManager, new(-2, 1, 0), new(0, 1, 1, 1), _sphere);
+            // PointLight(entityManager, new(10, 1f, 0), new(1, 0, 0, 1), _sphere);
+            // 
+            // PointLight(entityManager, new(8, 1, 0), new(0, 1, 0, 1), _sphere);
+            // PointLight(entityManager, new(-8, 1, 0), new(0, 1, 0, 1), _sphere);
+            // 
+            // PointLight(entityManager, new(6, 1, 0), new(0, 0, 1, 1), _sphere);
+            // PointLight(entityManager, new(-6, 1, 0), new(0, 0, 1, 1), _sphere);
+            // 
+            // PointLight(entityManager, new(4, 1, 0), new(1, 1, 0, 1), _sphere);
+            // PointLight(entityManager, new(-4, 1, 0), new(1, 1, 0, 1), _sphere);
+            // 
+            // PointLight(entityManager, new(2, 1, 0), new(0, 1, 1, 1), _sphere);
+            // PointLight(entityManager, new(-2, 1, 0), new(0, 1, 1, 1), _sphere);
 
         }
 
@@ -174,11 +205,14 @@ namespace VECS
                 Resolution = 1365,
             });
 
-            entityManager.AddComponent(pointLight, new Scale() { Value = new Vector3(0.05f, 0.05f, 0.05f) });
+            entityManager.AddComponent(pointLight, new Scale() { Value = new Vector3(0.5f, 0.5f, 0.5f) });
 
-            entityManager.AddComponent<MainColour>(pointLight, new() { Value = diffuse });
+            entityManager.AddComponent<MainColour>(pointLight, new() { Value = diffuse*20f });
 
             AddRenderMeshComponents(pointLight,EnginePipes.Unlit.Default(), 0, subMesh, entityManager,RenderLayer.Default | RenderLayer.NoShadow);
+            MaterialProvider material = new("PointLightUnlit", EnginePipes.DepthOnly.Create("Unlit"), EnginePipes.Unlit.Default());
+            AssetDataBase<MaterialProvider>.Add(material);
+            entityManager.AddComponent(pointLight, new MaterialProviderComponent() { Value = material.Hash, LayerFlags = RenderLayer.Default | RenderLayer.NoShadow });
         }
 
         private static void ShadowDebug()
@@ -393,20 +427,33 @@ namespace VECS
                 Material material = AssetDataBase<Material>.GetNamedSilentFail(matName);
                 material ??= lit.Create(matName);
 
+                MaterialProvider materialProvider = AssetDataBase<MaterialProvider>.GetNamedSilentFail(matName);
+
+                if(materialProvider == null)
+                {
+                    materialProvider = new MaterialProvider(matName, material);
+                    AssetDataBase<MaterialProvider>.Add(materialProvider);
+                }
+                
+
                 if (matInfo.DiffuseTexture != null)
                 {
                     if (!textureLibrary.TryGetValue(matInfo.DiffuseTexture, out var diffuseTexture))
                     {
                         diffuseTexture = TextureLoader.Load2D(matInfo.DiffuseTexture,VkFormat.Bc7UnormBlock);
                         textureLibrary.Add(matInfo.DiffuseTexture, diffuseTexture);
+                        materialProvider.DepthOnly = EnginePipes.DepthOnly.Default();
                     }
                     if (matInfo.AlphaClipping)
                     {
                         //material.SetTexture(ShaderProperties.HeadIndexImageId, Presenter.Instance.ForwardRenderer._headIndex);
                         material.AlphaClipping = true;
                         material.OverrideCullMode = true;
-                        material.CullMode = Vortice.Vulkan.VkCullModeFlags.None;
+                        material.CullMode = VkCullModeFlags.None;
                         material.AlphaTexture = diffuseTexture;
+                        var alphaClippingDepthVariant = EnginePipes.DepthOnlyAlphaClipping.Create(matName);
+                        DrawBlob.SetAlphaClipping(material,alphaClippingDepthVariant);
+                        materialProvider.DepthOnly = alphaClippingDepthVariant;
                     }
                     material.SetTexture(texProp, diffuseTexture);
                 }
@@ -458,6 +505,7 @@ namespace VECS
                     entityManager.AddComponent(entity, parent);
 
                     AddRenderMeshComponents(entity, material, 0, sponza[meshIndex], entityManager);
+                    entityManager.AddComponent(entity, new MaterialProviderComponent() { Value = materialProvider.Hash, LayerFlags = material.Pipeline.Transparent ? RenderLayer.Default | RenderLayer.Transparent : RenderLayer.Default });
                 }
                 litVariant++;
             }

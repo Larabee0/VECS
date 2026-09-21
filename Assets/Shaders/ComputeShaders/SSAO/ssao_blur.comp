@@ -1,0 +1,32 @@
+#version 460
+#extension GL_ARB_shading_language_include : require
+
+#include "../compute_texture_functions.glsl"
+  
+layout (set = 0, binding = 0) uniform sampler2D ssao_Source;
+layout (set = 0, binding = 1, r8) uniform writeonly image2D ssao_blur_Source;
+
+layout(push_constant) uniform Constants{
+    vec4 srcImageSize;
+    vec4 outputImageSize;
+    vec2 renderScale;
+} constants;
+
+layout(local_size_x = 8, local_size_y = 8) in;
+void main() {
+    PositionInputs posInputs = GetPositionInput(vec2(gl_GlobalInvocationID.xy), constants.outputImageSize.zw, uvec2(8, 8));
+
+    vec2 uv = posInputs.positionNDC.xy;
+    
+    float result = 0.0;
+    for (int x = -2; x < 2; ++x) 
+    {
+        for (int y = -2; y < 2; ++y) 
+        {
+            vec2 offset = vec2(float(x), float(y)) * constants.srcImageSize.zw;
+            result += texture(ssao_Source, ClampAndScaleUVForBilinear(uv + offset, constants.srcImageSize.zw,constants.renderScale)).r;
+        }
+    }
+    
+    imageStore(ssao_blur_Source, ivec2(posInputs.positionSS), vec4(result / 16.0));
+}  

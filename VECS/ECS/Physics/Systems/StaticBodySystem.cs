@@ -42,15 +42,13 @@ namespace VECS.ECS.Physics
 
             if (_drawBodies && _drawBodyDescs.HasEntities)
             {
-                var drawRenderBounds = World.GetSystem<DebugDrawUtilities>();
-
                 _drawBodyDescs.GetEntities().ForEach(e =>
                 {
                     var desc = entityManager.GetComponent<StaticBodyDescComp>(e);
                     var shape =
                     World.Simulation.Simulation.Shapes.GetShape<Box>(desc.Value.Shape.Index);
-                    
-                    drawRenderBounds.DrawWireCube(desc.Value.Pose.Position, new(shape.Width,shape.Height,shape.Length), desc.Value.Pose.Orientation, new Vector4(0, 1, 0, 1).ToVkColor());
+
+                    DebugDrawer.DrawWireCube(desc.Value.Pose.Position, new(shape.Width,shape.Height,shape.Length), desc.Value.Pose.Orientation, new Vector4(0, 1, 0, 1).ToVkColor());
                 });
             }
         }

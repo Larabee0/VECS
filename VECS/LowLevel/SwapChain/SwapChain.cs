@@ -21,10 +21,6 @@ namespace VECS.LowLevel
 
         public static bool SwapChainInitialised { get; internal set; }
 
-        internal static VkViewport MainViewport => MainSwapChainData.Viewport;
-
-        internal static VkRect2D MainScissor => MainSwapChainData.Scissor;
-
         internal static SwapChainData[] SwapChainsForPresent;
         internal static SwapChainData MainSwapChainData => Application.MainWindow.SwapChainData;
 
@@ -143,12 +139,6 @@ namespace VECS.LowLevel
             GraphicsDevice.DeviceAPI.vkResetFences(fence).CheckResult( "Failed to reset fence ");
         }
 
-        public static void SetViewPortScissor(VkCommandBuffer commandBuffer)
-        {
-            GraphicsDevice.DeviceAPI.vkCmdSetViewport(commandBuffer, 0, MainViewport);
-            GraphicsDevice.DeviceAPI.vkCmdSetScissor(commandBuffer, 0, MainScissor);
-        }
-
         // should be called from graphics queue
 
         internal static unsafe void SetSwapChainImageLayoutTransferDST(VkCommandBuffer commandBuffer, int frameIndex, uint imageCount, uint* imageIndices)
@@ -192,7 +182,7 @@ namespace VECS.LowLevel
                 subresourceRange = new VkImageSubresourceRange(VkImageAspectFlags.Color),
                 srcStageMask = VkPipelineStageFlags2.Transfer,
                 srcAccessMask = VkAccessFlags2.TransferWrite,
-                dstStageMask = VkPipelineStageFlags2.None,
+                dstStageMask = VkPipelineStageFlags2.AllGraphics,
                 dstAccessMask = VkAccessFlags2.None,
                 oldLayout = VkImageLayout.TransferDstOptimal,
                 newLayout = VkImageLayout.PresentSrcKHR,
@@ -215,6 +205,7 @@ namespace VECS.LowLevel
             }
 
             GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier2(commandBuffer, &info);
+
         }
 
         public static void CleanUp()

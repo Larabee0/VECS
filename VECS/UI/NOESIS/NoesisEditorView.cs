@@ -3,12 +3,11 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using VECS.ECS;
-using VECS.ECS.Presentation;
 using VECS.ECS.Transforms;
 
 namespace VECS.UI
 {
-    public class NoesisEditorView : PresentationSystemBase
+    public class NoesisEditorView : SystemBase
     {
         private EntityQuery _hierarchyEntities;
         private EntityQuery _singleEntities;
@@ -227,23 +226,14 @@ namespace VECS.UI
 
         public override void OnPrePresent(EntityManager entityManager)
         {
-            Application.NoesisDriver.CurrentFrameInfo = default;
-        }
-
-        public override void OnPostAA(EntityManager entityManager, RendererFrameInfo frameInfo)
-        {
             if (Presenter.NewSwapChain)
             {
                 UpdateGameView();
             }
-            MainView.Render(frameInfo);
         }
 
         public override void OnDestroy(EntityManager entityManager)
         {
-            // MainView.View.Content.GotFocus -= GotFocus;
-            // MainView.View.Content.LostFocus -= LostFocus;
-            // MainView.View.Content.FocusableChanged -= FocusChanged;
             _hierarchyTreeView.SelectedItemChanged -= EntityItemChanged;
             _directoryTreeView.SelectedItemChanged -= NoesisDirectoryHelper.DirectoryTreeViewItemSelected;
             _hierarchyTreeView.LostFocus -= ClearInspector;

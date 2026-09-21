@@ -85,12 +85,20 @@ namespace VECS
             public int frameIndex;
             private bool Disposed;
 
+#if DEBUG
+            private StackTrace stackTrace;
+            private string StackTrack => stackTrace.ToString();
+#endif
+
             public DisposeTextureCmd(VkImage image, VmaAllocation allocation, VkImageView imageview, VkSampler sampler)
             {
                 Image = image;
                 Allocation = allocation;
                 Imageview = imageview;
                 Sampler = sampler;
+#if DEBUG
+                stackTrace = new StackTrace();
+#endif
             }
 
             public static void Dispose(DisposeTextureCmd cmd)
@@ -115,7 +123,9 @@ namespace VECS
         private readonly static ConcurrentQueue<TextureBufferCopyCmd> _copyBufferToTexture = [];
         private readonly static ConcurrentQueue<TextureBufferCopyCmd> _copyTextureToBuffer = [];
         private readonly static ConcurrentQueue<Texture> _regenMipMapsCmds = [];
-        private readonly static ConcurrentQueue<SetTextureLayoutCmd> _setLayoutCmds = [];
+        private readonly static ConcurrentQueue<SetTextureLayoutCmd> _setLayoutCmdsQueue = [];
+
+        private readonly static List<SetTextureLayoutCmd> _setLayoutCmds = [];
 
         private readonly static ConcurrentQueue<DisposeTextureCmd> _disposalQueue = [];
         private readonly static List<DisposeTextureCmd> _disposalList = [];
@@ -227,13 +237,17 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static void CreateSampler(this Texture texture)
         {
-            if (!_samplers.TryGetValue( texture.GetSamplerId(), out var sampler))
+            texture._textureSampler = GetOrCreateSample(texture.GetSamplerCreateInfo());
+        }
+
+        public static TextureSampler GetOrCreateSample(VkSamplerCreateInfo samplerCreateInfo)
+        {
+            if(!_samplers.TryGetValue(GetSamplerId(samplerCreateInfo), out var sampler))
             {
-                sampler = new(texture.GetSamplerCreateInfo());
+                sampler = new(samplerCreateInfo);
                 _samplers.TryAdd(sampler.SamplerId, sampler);
             }
-
-            texture._textureSampler = sampler;
+            return sampler;
         }
 
         public unsafe static int GetSamplerId(VkSamplerCreateInfo samplerCreateInfo)
@@ -371,16 +385,31 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static void SetImageLayout(Texture texture,VkImageLayout newImageLayout, VkPipelineStageFlags2 srcStage , VkPipelineStageFlags2 dstStage)
         {
-            _setLayoutCmds.Enqueue(new(texture, newImageLayout, srcStage, dstStage));
+            _setLayoutCmdsQueue.Enqueue(new(texture, newImageLayout, srcStage, dstStage));
         }
 
-        internal static void PlaybackSetLayoutCmds(VkCommandBuffer cmd)
+        internal unsafe static void PlaybackSetLayoutCmds(VkCommandBuffer cmd)
         {
-            while(_setLayoutCmds.TryDequeue(out var layout))
+            if (_setLayoutCmdsQueue.IsEmpty) return;
+            _setLayoutCmds.Clear();
+            _setLayoutCmds.EnsureCapacity(_setLayoutCmdsQueue.Count);
+            while (_setLayoutCmdsQueue.TryDequeue(out var layout))
             {
-                var srcStage = layout.Texture.ImageLayout.GetStageFlagFromLayout();
-                layout.Texture.SetImageLayout(cmd, layout.NewImageLayout, srcStage, layout.DstStage);
+                _setLayoutCmds.Add(layout);
             }
+
+            VkImageMemoryBarrier2* barriers = stackalloc VkImageMemoryBarrier2[_setLayoutCmds.Count];
+
+            for (int i = 0; i < _setLayoutCmds.Count; i++)
+            {
+                var layout = _setLayoutCmds[i];
+                var srcStage = layout.Texture.ImageLayout.GetStageFlagFromLayout();
+                barriers[i] = layout.Texture.GetImageLayoutBarrier(layout.NewImageLayout, layout.Texture.GetSubresourceRange(), srcStage, layout.DstStage);
+                layout.Texture.SetImageLayoutSilent(layout.NewImageLayout);
+            }
+
+            MemoryBarrierHelper.ImageMemoryBarrier(cmd, barriers, (uint)_setLayoutCmds.Count);
+
         }
         #endregion
 

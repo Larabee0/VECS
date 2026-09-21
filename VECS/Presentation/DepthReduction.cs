@@ -109,20 +109,24 @@ namespace VECS
 
         public static unsafe void ClearPyramid(RendererFrameInfo frameInfo)
         {
+            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Clear Depth Pyramid");
             VkClearColorValue clearDepthStencilValue = new(0, 0, 0, 0);
             VkImageSubresourceRange subresourceRange = _depthPryamid.GetSubresourceRange();
 
-            _depthPryamid.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.General, VkPipelineStageFlags2.ComputeShader | VkPipelineStageFlags2.Transfer, VkPipelineStageFlags2.Transfer);
+            _depthPryamid.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.General);
 
             GraphicsDevice.DeviceAPI.vkCmdClearColorImage(frameInfo.CommandBuffer, _depthPryamid._vkImage, _depthPryamid.ImageLayout, &clearDepthStencilValue, 1, &subresourceRange);
 
-            _depthPryamid.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.General, VkPipelineStageFlags2.Transfer, VkPipelineStageFlags2.ComputeShader | VkPipelineStageFlags2.Transfer);
+            _depthPryamid.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.General);
+            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe void ReduceDepth(RendererFrameInfo frameInfo)
+        public static void ReduceDepth(RendererFrameInfo frameInfo)
         {
+            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Depth Reduction");
             ComputeShaderTransfer(frameInfo);
+            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
         }
 
         private static unsafe void ComputeShaderTransfer(RendererFrameInfo frameInfo)
@@ -184,7 +188,7 @@ namespace VECS
                 _depthReduceShader.PushConstantsHandler.SetPushConstantVector2("imageSize", 0, new(x, y));
                 _depthReduceShader.PushConstantsHandler.SetPushConstantInt("srcIndex", 0, i);
                 _depthReduceShader.PushConstantsHandler.SetPushConstantInt("dstIndex", 0, i);
-                _depthReduceShader.Dispatch(frameInfo.CommandBuffer, Presenter.FrameIndex, GetGroupCount(x, 32), GetGroupCount(y, 32));
+                _depthReduceShader.Dispatch(frameInfo.CommandBuffer, Presenter.FrameIndex, x, y);
 
                 GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier2(frameInfo.CommandBuffer, &dependencyInfo);
             }
@@ -209,12 +213,6 @@ namespace VECS
             };
             GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier2(frameInfo.CommandBuffer, &depthDependencyInfo);
             depthTexture._imageLayout = VkImageLayout.DepthStencilAttachmentOptimal;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static uint  GetGroupCount(uint threadCount, uint localSize)
-        {
-            return (threadCount + localSize - 1) / localSize;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

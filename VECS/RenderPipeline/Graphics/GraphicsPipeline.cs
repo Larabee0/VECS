@@ -10,8 +10,22 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
+    public enum PipelineType
+    {
+        Unknown = 0,
+
+        Forward,
+        
+        Deferred,
+        
+        DepthOnly,
+
+        Transparent
+    }
+
     public partial class GraphicsPipeline : Pipeline
     {
+        private PipelineType _pipelineType;
         private readonly static ConcurrentDictionary<int, int> _lastBoundGraphicsPipeline = new(Environment.ProcessorCount, Environment.ProcessorCount * 2);
         private GraphicsPipelineDefinition _definition;
         private GraphicsPipelineConfigInfo _graphicsPipelineConfigInfo;
@@ -36,6 +50,8 @@ namespace VECS
         public int MeshShaderDescriptorSetIndex => _meshShaderDescriptorSetIndex;
 
         public bool IsMeshShader => _meshShaderDescriptorSetIndex != -1;
+
+        public PipelineType PipelineType => _pipelineType;
 
         private unsafe void CreateDefault()
         {
@@ -506,7 +522,7 @@ namespace VECS
             }
         }
 
-        public unsafe void ExecuteDrawCommandsPushConstantOverride(RendererFrameInfo frameInfo, int pushConstantOverride, VkCommandBuffer commandBuffer, Span<MaterialDrawCommand> drawCmds, int matDrawCount, SwapChainBuffer<VECSDrawIndexIndirectCommand> indirectCmdBuffer, VkCullModeFlags cullMode)
+        public unsafe void ExecuteDrawCommandsPushConstantOverride(int pushConstantOverride, VkCommandBuffer commandBuffer, Span<MaterialDrawCommand> drawCmds, int matDrawCount, SwapChainBuffer<VECSDrawIndexIndirectCommand> indirectCmdBuffer, VkCullModeFlags cullMode)
         {
             if (matDrawCount <= 0) return;
             var frameIndex = Presenter.FrameIndex;
@@ -566,7 +582,7 @@ namespace VECS
             }
         }
 
-        internal unsafe void ExecuteDrawCommand(VkCommandBuffer commandBuffer, int frameIndex,int pushConstantIndex, SwapChainBuffer<VECSDrawIndexIndirectCommand> indirectCmdBuffer, MaterialDrawCommand command, ulong* offsets, uint* indices, ref int lastVariant, VkCullModeFlags cullMode)
+        internal unsafe void ExecuteDrawCommand(VkCommandBuffer commandBuffer, int frameIndex, int pushConstantIndex, SwapChainBuffer<VECSDrawIndexIndirectCommand> indirectCmdBuffer, MaterialDrawCommand command, ulong* offsets, uint* indices, ref int lastVariant, VkCullModeFlags cullMode)
         {
             if (lastVariant != command.Variant)
             {
@@ -593,11 +609,43 @@ namespace VECS
             var mesh = AssetDataBase<DirectMesh>.GetHashed(command.DirectMesh);
             mesh.BindSpecificBuffers(commandBuffer, _graphicsPipelineConfigInfo.BindingDescriptions, _graphicsPipelineConfigInfo.AttributeDescriptions);
 
+
+            // if (command.MeshSubRegion.Count > 8)
+            // {
+            //     uint rollingOffset = 0;
+            //     for (int i = 0; i < command.MeshSubRegion.Count / 8; i++)
+            //     {
+            //         GraphicsDevice.DeviceAPI.vkCmdDrawIndexedIndirect(
+            //             commandBuffer,
+            //             indirectCmdBuffer.ActiveVkBuffer,
+            //             (rollingOffset + (uint)command.MeshSubRegion.StartIndex) * (uint)sizeof(VECSDrawIndexIndirectCommand),
+            //             8, (uint)sizeof(VECSDrawIndexIndirectCommand));
+            // 
+            //         rollingOffset += 8;
+            //     }
+            // 
+            //     if (rollingOffset < command.MeshSubRegion.Count)
+            //     {
+            //         GraphicsDevice.DeviceAPI.vkCmdDrawIndexedIndirect(
+            //             commandBuffer,
+            //             indirectCmdBuffer.ActiveVkBuffer,
+            //             (rollingOffset + (uint)command.MeshSubRegion.StartIndex) * (uint)sizeof(VECSDrawIndexIndirectCommand),
+            //             (uint)command.MeshSubRegion.Count - rollingOffset , (uint)sizeof(VECSDrawIndexIndirectCommand));
+            //     }
+            // }
+            // else
+            // {
+            //      GraphicsDevice.DeviceAPI.vkCmdDrawIndexedIndirect(
+            //      commandBuffer,
+            //      indirectCmdBuffer.ActiveVkBuffer,
+            //      (uint)command.MeshSubRegion.StartIndex * (uint)sizeof(VECSDrawIndexIndirectCommand),
+            //      (uint)command.MeshSubRegion.Count, (uint)sizeof(VECSDrawIndexIndirectCommand));
+            // }
             GraphicsDevice.DeviceAPI.vkCmdDrawIndexedIndirect(
-                commandBuffer,
-                indirectCmdBuffer.ActiveVkBuffer,
-                (uint)command.MeshSubRegion.StartIndex * (uint)sizeof(VECSDrawIndexIndirectCommand),
-                (uint)command.MeshSubRegion.Count, (uint)sizeof(VECSDrawIndexIndirectCommand));
+            commandBuffer,
+            indirectCmdBuffer.ActiveVkBuffer,
+            (uint)command.MeshSubRegion.StartIndex * (uint)sizeof(VECSDrawIndexIndirectCommand),
+            (uint)command.MeshSubRegion.Count, (uint)sizeof(VECSDrawIndexIndirectCommand));
         }
 
         internal unsafe void ExecuteDrawCommand(VkCommandBuffer commandBuffer, int frameIndex, int pushConstantIndex, SwapChainBuffer<VECSDrawIndexIndirectCommand> indirectCmdBuffer, MaterialDrawCommand command, ulong* offsets, uint* indices, ref int lastVariant)

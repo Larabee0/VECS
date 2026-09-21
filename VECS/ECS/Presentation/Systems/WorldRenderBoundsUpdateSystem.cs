@@ -3,6 +3,7 @@ using VECS.ECS.Transforms;
 
 namespace VECS.ECS.Presentation
 {
+    [UpdateAfter(typeof(LocalToWorldSystem))]
     public class WorldRenderBoundsUpdateSystem : SystemBase
     {
         private EntityQuery _addRenderBounds;

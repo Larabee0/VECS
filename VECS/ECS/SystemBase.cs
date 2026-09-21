@@ -9,11 +9,19 @@ namespace VECS.ECS
     /// </summary>
     public class SystemBase
     {
+        internal static int systemIdAllocator;
         public World World { get; set; }
         public bool AlwaysUpdate;
+        public int SystemID;
+        public int SystemTypeIndex;
 
         public List<EntityQuery> Queries = [];
 
+        public SystemBase()
+        {
+            SystemTypeIndex = TypeManager.GetSystemTypeIndex(GetType());
+            SystemID = ++systemIdAllocator;
+        }
 
         public virtual void OnCreate(EntityManager entityManager)
         {

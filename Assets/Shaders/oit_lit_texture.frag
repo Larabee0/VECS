@@ -104,7 +104,8 @@ void main()
         uint prevHeadIdx = imageAtomicExchange(headIndexImage, ivec2(gl_FragCoord.xy), nodeIdx);
 
         // Store node data
-        linkedListSBO.nodes[nodeIdx].color = textureColour;
+        linkedListSBO.nodes[nodeIdx].rg = packHalf2x16(textureColour.rg);
+		linkedListSBO.nodes[nodeIdx].ba = packHalf2x16(textureColour.ba);
         linkedListSBO.nodes[nodeIdx].depth = gl_FragCoord.z;
         linkedListSBO.nodes[nodeIdx].next = prevHeadIdx;
     }

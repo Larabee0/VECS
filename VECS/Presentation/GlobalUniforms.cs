@@ -6,82 +6,79 @@ using VECS.ECS.Transforms;
 
 namespace VECS
 {
-    [StructLayout(LayoutKind.Sequential, Size = 224)]
-    public struct CameraInfo
+    [StructLayout(LayoutKind.Sequential, Size = 464)]
+    public struct CameraData
     {
         public Matrix4x4 ProjectionMatrix;
         public Matrix4x4 ViewMatrix;
         public Matrix4x4 ProjectionViewMatrix;
-        public Vector4 Position;
-        public Vector4 Forward;
 
-        public CameraInfo (Camera camera)
-        {
-            ProjectionMatrix = camera.ProjectionMatrix;
-            ViewMatrix = camera.ViewMatrix;
-            Position = new(camera.ViewMatrix.Translation,1);
-            Forward = new(camera.ViewMatrix.Forward(),1);
-
-            ProjectionViewMatrix = ViewMatrix * ProjectionMatrix;
-        }
-    }
-
-    [StructLayout(LayoutKind.Sequential, Size = 192)]
-    public struct CameraInverseInfo
-    {
         public Matrix4x4 InverseProjectionMatrix;
         public Matrix4x4 InverseViewMatrix;
         public Matrix4x4 InverseProjectionViewMatrix;
 
-        public CameraInverseInfo(Camera camera)
+        public Vector4 Frustum;
+
+        public Vector3 Position;
+        public float pad_1;
+
+        public Vector3 Forward;
+        public float pad_2;
+
+        public float Ratio;
+         
+        public float P00;
+        public float P11;
+
+        public float NearPlane;
+        public float FarPlane;
+
+        public float Width;
+        public float Height;
+        public int Orthographic;
+
+        public CameraData(Camera camera)
         {
+            ProjectionMatrix = camera.ProjectionMatrix;
+            ViewMatrix = camera.ViewMatrix;
+            Position = camera.ViewMatrix.Translation;
+            Forward = camera.ViewMatrix.Forward();
+
+            ProjectionViewMatrix = ViewMatrix * ProjectionMatrix;
+
             Matrix4x4.Invert(camera.ProjectionMatrix, out InverseProjectionMatrix);
             InverseViewMatrix = camera.InverseViewMatrix;
             Matrix4x4.Invert(camera.ViewMatrix * camera.ProjectionMatrix, out InverseProjectionViewMatrix);
-        }
-    }
 
-    [StructLayout(LayoutKind.Sequential, Size = 48)]
-    public struct AdditionalCameraInfo
-    {
-        public float Ratio;
-        public float P00;
-        public float P11;
-        public float NearPlane;
-        public float FarPlane;
-        public Vector4 Frustum;
-
-        public AdditionalCameraInfo(Matrix4x4 projection, float clipNear, float clipFar, float screenAspect)
-        {
-
-            Matrix4x4 projectionT = Matrix4x4.Transpose(projection);
+            Matrix4x4 projectionT = Matrix4x4.Transpose(ProjectionMatrix);
 
             Vector4 frustrumX = (projectionT.GetMatrixRow(3) + projectionT.GetMatrixRow(0)).NormalizePlane();
             Vector4 frustrumY = (projectionT.GetMatrixRow(3) + projectionT.GetMatrixRow(1)).NormalizePlane();
             Frustum = new(frustrumX.X, frustrumX.Z, frustrumY.Y, frustrumY.Z);
-            P00 = projection[0, 0];
-            P11 = projection[1, 1];
-            NearPlane = clipNear;
-            FarPlane = clipFar;
-            Ratio = screenAspect;
+            P00 = ProjectionMatrix[0, 0];
+            P11 = ProjectionMatrix[1, 1];
+            NearPlane = camera.ClipNear;
+            FarPlane = camera.ClipFar;
         }
-    }
 
-    [StructLayout(LayoutKind.Sequential, Size = 16)]
-    public struct OrthographicInfo
-    {
-        public float Orthographic;
-        public float Width;
-        public float Height;
-
-        public OrthographicInfo(bool orthographic, CameraOrthographic camera)
+        public CameraData(Camera camera, float ratio) : this(camera)
         {
-            Orthographic = orthographic ? 1 : 0;
-            Width = camera.width;
-            Height = camera.height;
+            Ratio = ratio;
+        }
+
+        public CameraData(Camera camera, CameraOrthographic orthographic, float ratio) : this(camera, ratio)
+        {
+            Width = orthographic.width;
+            Height = orthographic.height;
+            Orthographic = 1;
+        }
+        public CameraData(Camera camera, CameraOrthographic orthographic) : this(camera)
+        {
+            Width = orthographic.width;
+            Height = orthographic.height;
+            Orthographic = 1;
         }
     }
-    
 
     [StructLayout(LayoutKind.Sequential, Size = 24)]
     public struct LightingInfo
@@ -101,18 +98,9 @@ namespace VECS
         }
     }
 
-    [StructLayout(LayoutKind.Sequential, Size = 340)]
-    public struct DirectionalLightUniform
+    [StructLayout(LayoutKind.Sequential, Size = 288)]
+    public struct DirectionalLightShadowUniform
     {
-        public Vector4 Direction;
-
-        [HideInInspector]
-        public Vector4 CascadeSplits;
-
-        public Vector4 Ambient;
-        public Vector4 Diffuse;
-        public Vector4 Specular;
-
         [HideInInspector]
         public Matrix4x4 LightSpaceA;
         [HideInInspector]
@@ -121,10 +109,20 @@ namespace VECS
         public Matrix4x4 LightSpaceC;
         [HideInInspector]
         public Matrix4x4 LightSpaceD;
+        [HideInInspector]
+        public Vector4 CascadeSplits;
+
 
         [HideInInspector]
         public int CascadeCount;
 
+        [HideInInspector]
+        public int LightIndex;
+        [HideInInspector]
+        public int pad1;
+
+        [HideInInspector]
+        public int pad2;
 
         public Matrix4x4 this[int index]
         {
@@ -160,6 +158,17 @@ namespace VECS
                 }
             }
         }
+    }
+
+
+    [StructLayout(LayoutKind.Sequential, Size = 64)]
+    public struct DirectionalLightUniform
+    {
+        public Vector4 Direction;
+        public Vector4 Ambient;
+        public Vector4 Diffuse;
+        public Vector4 Specular;
+
     }
 
     [StructLayout(LayoutKind.Sequential, Size = 464)]
@@ -237,4 +246,5 @@ namespace VECS
             Range = spotLight.range;
         }
     }
+
 }

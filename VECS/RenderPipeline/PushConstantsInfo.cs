@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using VECS.LowLevel;
@@ -9,13 +11,21 @@ namespace VECS
 {
     public class PushConstantsInfo
     {
+        public readonly HashSet<int> IgnoredPushConstantsFailure = ["cameraIndex".GetShaderPropertyId()];
+
+
         public readonly string Name;
+
+        public readonly int Id;
         public readonly DescriptorPropertyInfo[] Variables;
+        
         public readonly VkPushConstantRange VkPushConstantRange;
         public readonly uint BufferOffset;
         public VkShaderStageFlags ShaderStages => VkPushConstantRange.stageFlags;
         public uint ShaderOffset => VkPushConstantRange.offset;
         public uint BlockSize => VkPushConstantRange.size;
+
+        protected ConcurrentDictionary<int, DescriptorPropertyInfo> _cachedProperties = new();
 
         public PushConstantsInfo(SpvReflectBlockVariable pushConstantBlock, VkShaderStageFlags shaderStages, uint bufferOffset)
         {
@@ -30,52 +40,56 @@ namespace VECS
             };
         }
 
-        private DescriptorPropertyInfo GetProperty(string name)
+
+        private DescriptorPropertyInfo GetProperty(int propertyId)
         {
-           
-            string topLevelMemberName = name;
-            int subPropertyIndex = name.IndexOf('.');
 
-            if (subPropertyIndex != -1)
+            if (_cachedProperties.TryGetValue(propertyId, out DescriptorPropertyInfo topLevelMember))
             {
-                topLevelMemberName = name[..subPropertyIndex];
+                return topLevelMember;
             }
-
-            DescriptorPropertyInfo topLevelMember = null;
 
             for (int i = 0; i < Variables.Length; i++)
             {
-                if (Variables[i].Name == topLevelMemberName)
+                if (Variables[i].Id == propertyId)
                 {
                     topLevelMember = Variables[i];
                     break;
                 }
+                else if (Variables[i].LookUpMember(propertyId,out topLevelMember))
+                {
+                    break;
+                }
             }
 
-            if (topLevelMember != null && subPropertyIndex != -1)
+            _cachedProperties.TryAdd(propertyId, topLevelMember);
+
+
+#if DEBUG
+            if (topLevelMember == null)
             {
-                topLevelMember.LookUpMember(name[(subPropertyIndex + 1)..], out topLevelMember);
+                bool isGlobalPushConstant = IgnoredPushConstantsFailure.Contains(propertyId);
+                if (!isGlobalPushConstant || (isGlobalPushConstant && ShaderProperties.LOG_MISSING_GLOBAL_SHADER_PROPERTIES))
+                {
+                    Console.WriteLine("PUSH CONST Failed to find property {0}", propertyId.GetPropertyIdString());
+                }
             }
-
+#endif
             return topLevelMember;
         }
 
-        public bool WriteToPushConstantBuffer<T>(Span<byte> buffer, string property, T value) where T : unmanaged
+        public bool WriteToPushConstantBuffer<T>(int propertyId, Span<byte> buffer, T value) where T : unmanaged
         {
-            if(property == Name)
+            if(propertyId == Id)
             {
                 WriteToPushConstantBuffer(buffer, 0, value);
                 return true;
             }
-            var propertyInfo = GetProperty(property);
+            var propertyInfo = GetProperty(propertyId);
             if (propertyInfo != null)
             {
                 WriteToPushConstantBuffer(buffer, (int)propertyInfo.Offset, value);
                 return true;
-            }
-            else
-            {
-                Console.WriteLine("PUSH CONST Failed to find property {0}", property);
             }
             return false;
         }

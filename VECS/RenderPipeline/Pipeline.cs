@@ -81,7 +81,7 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool LookUpProperty(string property, out ShaderProperty propertyInfo)
         {
-            return LookUpProperty(property.GetHashCode(), out propertyInfo);
+            return LookUpProperty(property.GetShaderPropertyId(), out propertyInfo);
         }
 
         public bool LookUpProperty(int propertyId, out ShaderProperty propertyInfo)

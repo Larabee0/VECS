@@ -13,6 +13,7 @@ layout(push_constant) uniform InstanceInfo {
     int layerOffset;
     int layerCount;
     int bufferSelect;
+	uint cameraIndex;
 } instanceInfo;
 
 void main()

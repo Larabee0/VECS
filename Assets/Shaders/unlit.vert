@@ -6,9 +6,9 @@ layout (location = 0) in vec3 position;
 
 layout (location = 0) out vec4 fragColour;
 
-layout(set = 0,binding = 0) readonly buffer CameraInfos {
-	CameraInfo values[];
-} cameraInfo;
+layout(set = 0,binding = 0) readonly buffer CameraDatas {
+	CameraData values[];
+} cameraData;
 
 layout(std140, set = 1, binding = 0) readonly buffer ObjectMatricesBuffer{
 	ObjectMatrices matrices[];
@@ -29,6 +29,6 @@ layout(push_constant) uniform Constants{
 void main()
 {
 	vec4 positionWorld = matricesBuffer.matrices[gl_BaseInstance].modelMatrix * vec4(position, 1.0);
-	gl_Position = cameraInfo.values[constants.cameraIndex].projectionViewMatrix * positionWorld;
+	gl_Position = cameraData.values[constants.cameraIndex].projectionViewMatrix * positionWorld;
 	fragColour = colourBuffer.colours[gl_BaseInstance];
 }
