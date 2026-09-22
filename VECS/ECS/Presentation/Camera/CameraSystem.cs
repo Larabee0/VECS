@@ -12,8 +12,6 @@ namespace VECS.ECS.Presentation
     [UpdateBefore(typeof(LocalToWorldSystem))]
     public class CameraSystem : SystemBase
     {
-        const float lookSpeed = 10f;
-        const float moveSpeed = 3f;
 
         EntityQuery _cameraQueryPerspective; // query for persepctive cameras
         EntityQuery _cameraQueryOrthographic; // query for orthographic cameras
@@ -45,7 +43,7 @@ namespace VECS.ECS.Presentation
 
             _cameraQueryIndex = new EntityQuery(entityManager)
                 .WithAll(typeof(Camera))
-                .WithAny(typeof(CameraOrthographic), typeof(CameraPerspective))
+                .WithAny(typeof(CameraOrthographic), typeof(CameraPerspective), typeof(ReflectionProbeCamera))
                 .WithNone(typeof(Prefab))
                 .Build();
         }
@@ -330,6 +328,7 @@ namespace VECS.ECS.Presentation
             }
 
             var ltw = entityManager.GetComponent<LocalToWorld>(entity).Value;
+            var freeCam = entityManager.GetComponent<FreeCamera>(entity);
 
             var forward = ltw.Forward();
             var right = ltw.Right();
@@ -337,8 +336,7 @@ namespace VECS.ECS.Presentation
             // rotate camera
             if (look.LengthSquared() > float.Epsilon)
             {
-                look = -lookSpeed * Time.DeltaTime * look;
-                var freeCam = entityManager.GetComponent<FreeCamera>(entity);
+                look = -freeCam.LookSpeed * Time.DeltaTime * look;
 
                 freeCam.AngleX -= look.Y;
                 freeCam.AngleY += look.X;
@@ -363,6 +361,8 @@ namespace VECS.ECS.Presentation
                 bool slow = InputManager.Instance.GetKey(SDL_Keycode.LeftControl) || InputManager.Instance.GetKey(SDL_Keycode.RightControl);
                 bool fast = InputManager.Instance.GetKey(SDL_Keycode.LeftShift) || InputManager.Instance.GetKey(SDL_Keycode.RightShift);
                 bool extraFast = InputManager.Instance.GetKey(SDL_Keycode.LeftAlt);
+                
+                var moveSpeed = freeCam.MoveSpeed;
 
                 float speed = slow ? moveSpeed * 0.25f : fast ? moveSpeed * 4f : extraFast ? moveSpeed * 8f : moveSpeed;
 

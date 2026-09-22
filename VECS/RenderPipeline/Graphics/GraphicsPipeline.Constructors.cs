@@ -127,7 +127,7 @@ namespace VECS
 
             _pipelineLayout = GPUPipelineUtil.CreatePipelineLayout(_descriptorSetLayouts, _pushConstantsHandler, shaderModules);
             _pipeline = GPUPipelineUtil.CreateGraphicsPipeline(_graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT, shaderModules);
-            CreateDefault();
+            
 
             for (int i = 0; i < shaderModules.Length; i++)
             {
@@ -150,7 +150,7 @@ namespace VECS
             {
                 _pipelineType = PipelineType.Deferred;
             }
-
+            CreateDefault();
 
 
             AssetDataBase<GraphicsPipeline>.Add(this);

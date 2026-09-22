@@ -21,6 +21,9 @@ namespace VECS
         internal readonly static SwapChainBuffer<PointLightUniform> PointLightBuffer;
         internal readonly static SwapChainBuffer<SpotLightUniform> SpotLightBuffer;
 
+
+        internal readonly static SwapChainBuffer<CubeReflectionUniform> CubeRelfectionBuffer;
+
         internal readonly static SwapChainBuffer<Matrix4x4> DirectionalLightMatsBuffer;
         internal readonly static SwapChainBuffer<Matrix4x4> PointLightMatsBuffer;
         internal readonly static SwapChainBuffer<Matrix4x4> SpotLightMatsBuffer;
@@ -80,11 +83,13 @@ namespace VECS
             PointLightBuffer = new(PointLightShadows.MAX_POINT_LIGHT_SHADOW_CASTERS, BufferUsageFlags, true);
             SpotLightBuffer = new(SpotLightShadows.MAX_SPOT_LIGHT_SHADOW_CASTERS, BufferUsageFlags, true);
 
-
+            CubeRelfectionBuffer = new(1, BufferUsageFlags, true);
 
             DirectionalLightMatsBuffer = new(Presenter.MAX_CAMERAS * 20 * DirectionalLightShadows.MAX_CASCADE_COUNT, BufferUsageFlags, true);
             PointLightMatsBuffer = new(PointLightShadows.MAX_POINT_LIGHT_SHADOW_CASTERS * 6, BufferUsageFlags, true);
             SpotLightMatsBuffer = new(SpotLightShadows.MAX_SPOT_LIGHT_SHADOW_CASTERS, BufferUsageFlags, true);
+
+            CubeRelfectionBuffer.SetDebugName("CubeRelfectionBuffer");
 
             CameraDataBuffer.SetDebugName("CameraDataBuffer");
 
@@ -99,6 +104,8 @@ namespace VECS
             SpotLightMatsBuffer.SetDebugName("SpotLightMatsBuffer");
 
             AddEngineBuffer(ShaderProperties.CameraDataId, CameraDataBuffer);
+
+            AddEngineBuffer(ShaderProperties.CubeRelfectionProbesId, CubeRelfectionBuffer);
 
             AddEngineBuffer(ShaderProperties.LightingInfoId, LightingInfoBuffer);
             AddEngineBuffer(ShaderProperties.DirectionalLightsBufferId, DirectionalLightBuffer);
@@ -122,14 +129,15 @@ namespace VECS
             {
                 var entity = cameras[i];
                 camera = entityManager.GetComponent<Camera>(entity);
-                if (entityManager.HasComponent<CameraPerspective>(entity))
-                {
-                    CameraDataBuffer.HostBuffer[camera.CameraIndex] = new(camera);
-                }
-                else if (entityManager.HasComponent<CameraOrthographic>(entity, out var signature))
+                
+                if (entityManager.HasComponent<CameraOrthographic>(entity, out var signature))
                 {
                     orthCam = entityManager.GetComponent<CameraOrthographic>(signature);
                     CameraDataBuffer.HostBuffer[camera.CameraIndex] = new(camera, orthCam);
+                }
+                else
+                {
+                    CameraDataBuffer.HostBuffer[camera.CameraIndex] = new(camera);
                 }
             }
 
@@ -169,7 +177,7 @@ namespace VECS
         public static void CleanUp()
         {
             CameraDataBuffer.Dispose();
-
+            CubeRelfectionBuffer.Dispose();
             DirectionalLightShadowBuffer.Dispose();
             LightingInfoBuffer.Dispose();
             DirectionalLightBuffer.Dispose();

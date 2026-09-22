@@ -49,13 +49,14 @@ float textureProj(sampler2D shadowTex, vec4 shadowCoord, vec2 offset, float ambi
 	return shadow;
 }
 
-float textureProj(sampler2DArray dirShadowTex, vec4 shadowCoord, vec2 offset, uint cascadeIndex, float ambientFactor)
+
+float textureProj(sampler2DArray dirShadowTex, vec4 shadowCoord, vec2 offset, uint cascadeIndex, float ambientFactor, vec2 scale)
 {
 	float shadow = 1.0;
 	float bias =  0.001;
 	
 	if ( shadowCoord.z > -1.0 && shadowCoord.z < 1.0 ) {
-		float dist = texture(dirShadowTex, vec3(shadowCoord.st + offset, cascadeIndex)).r;
+		float dist = texture(dirShadowTex, vec3(vec2(shadowCoord.st + offset) * scale, cascadeIndex)).r;
 		if (shadowCoord.w > 0 && dist < shadowCoord.z - bias) {
 			shadow = ambientFactor;
 		}
@@ -83,7 +84,7 @@ float filterPCF(sampler2D shadowTex, vec4 sc, float ambientFactor) {
 	return shadowFactor / count;
 }
 
-float filterPCF(sampler2DArray shadowTex, vec4 sc, uint textureIndex, float ambientFactor)
+float filterPCF(sampler2DArray shadowTex, vec4 sc, uint textureIndex, float ambientFactor, vec2 texScale)
 {
 	ivec2 texDim = textureSize(shadowTex, 0).xy;
 	float scale = 0.75;
@@ -96,7 +97,7 @@ float filterPCF(sampler2DArray shadowTex, vec4 sc, uint textureIndex, float ambi
 	
 	for (int x = -range; x <= range; x++) {
 		for (int y = -range; y <= range; y++) {
-			shadowFactor += textureProj(shadowTex, sc, vec2(dx*x, dy*y), textureIndex, ambientFactor);
+			shadowFactor += textureProj(shadowTex, sc, vec2(dx*x, dy*y), textureIndex, ambientFactor, texScale);
 			count++;
 		}
 	}
@@ -116,9 +117,9 @@ float DirShadows(sampler2DArray dirShadowMap, DirectionalLightShadow directional
 	
 	float shadow = 0;
 	if (1 == 1) {
-		shadow = filterPCF(dirShadowMap, shadowCoord / shadowCoord.w, cascadeIndex, AMBIENT_DIR_SHADOW_FACTOR);
+		shadow = filterPCF(dirShadowMap, shadowCoord / shadowCoord.w, cascadeIndex, AMBIENT_DIR_SHADOW_FACTOR,directionalLight.scale);
 	} else {
-		shadow = textureProj(dirShadowMap, shadowCoord / shadowCoord.w, vec2(0.0), cascadeIndex,AMBIENT_DIR_SHADOW_FACTOR);
+		shadow = textureProj(dirShadowMap, shadowCoord / shadowCoord.w, vec2(0.0), cascadeIndex,AMBIENT_DIR_SHADOW_FACTOR,directionalLight.scale);
 	}
 	return shadow;
 }
@@ -145,10 +146,10 @@ float ShadowPlCalculationAlt(sampler2DArray plShadowTex, vec3 fragPos, vec3 view
 	vec4 shadowCoord = (biasMat * pl.plLightSpace[faceId]) * vec4(fragPos, 1.0);
 	
 	if (1 == 1) {
-		shadow = filterPCF(plShadowTex, shadowCoord /  shadowCoord.w, faceId,0);
+		shadow = filterPCF(plShadowTex, shadowCoord /  shadowCoord.w, faceId,0, vec2(1.0));
 	}
 	else {
-		shadow = textureProj(plShadowTex, shadowCoord /  shadowCoord.w, vec2(0.0),faceId,0);
+		shadow = textureProj(plShadowTex, shadowCoord /  shadowCoord.w, vec2(0.0),faceId,0, vec2(1.0));
 	}
 	return shadow;
 }

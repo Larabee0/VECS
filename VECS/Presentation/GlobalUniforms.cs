@@ -45,7 +45,6 @@ namespace VECS
             Forward = camera.ViewMatrix.Forward();
 
             ProjectionViewMatrix = ViewMatrix * ProjectionMatrix;
-
             Matrix4x4.Invert(camera.ProjectionMatrix, out InverseProjectionMatrix);
             InverseViewMatrix = camera.InverseViewMatrix;
             Matrix4x4.Invert(camera.ViewMatrix * camera.ProjectionMatrix, out InverseProjectionViewMatrix);
@@ -112,17 +111,14 @@ namespace VECS
         [HideInInspector]
         public Vector4 CascadeSplits;
 
+        [HideInInspector]
+        public Vector2 Scale;
 
         [HideInInspector]
         public int CascadeCount;
 
         [HideInInspector]
         public int LightIndex;
-        [HideInInspector]
-        public int pad1;
-
-        [HideInInspector]
-        public int pad2;
 
         public Matrix4x4 this[int index]
         {
@@ -169,6 +165,34 @@ namespace VECS
         public Vector4 Diffuse;
         public Vector4 Specular;
 
+    }
+
+    [StructLayout(LayoutKind.Sequential, Size = 400)]
+    public struct CubeReflectionUniform
+    {
+        public Matrix4x4 PositiveX;
+        public Matrix4x4 NegativeX;
+        public Matrix4x4 PositiveY;
+        public Matrix4x4 NegativeY;
+        public Matrix4x4 PositiveZ;
+        public Matrix4x4 NegativeZ;
+
+        public Vector3 Position;
+        public float FarPlane;
+
+        public CubeReflectionUniform(Vector3 position, float farPlane)
+        {
+            Position = position;
+            FarPlane = farPlane;
+            Matrix4x4 CubeProjectionMatrix = Matrix4x4.CreatePerspectiveFieldOfView(MathF.PI * 0.5f, 1.0f, 0.1f, farPlane);
+
+            PositiveX = Matrix4x4.CreateLookAt(position, position + new Vector3(1.0f, 0.0f, 0.0f), new Vector3(0.0f, -1.0f, 0.0f)) * CubeProjectionMatrix;
+            NegativeX = Matrix4x4.CreateLookAt(position, position + new Vector3(-1.0f, 0.0f, 0.0f), new Vector3(0.0f, -1.0f, 0.0f)) * CubeProjectionMatrix;
+            PositiveY = Matrix4x4.CreateLookAt(position, position + new Vector3(0.0f, 1.0f, 0.0f), new Vector3(0.0f, 0.0f, 1.0f)) * CubeProjectionMatrix;
+            NegativeY = Matrix4x4.CreateLookAt(position, position + new Vector3(0.0f, -1.0f, 0.0f), new Vector3(0.0f, 0.0f, -1.0f)) * CubeProjectionMatrix;
+            PositiveZ = Matrix4x4.CreateLookAt(position, position + new Vector3(0.0f, 0.0f, 1.0f), new Vector3(0.0f, -1.0f, 0.0f)) * CubeProjectionMatrix;
+            NegativeZ = Matrix4x4.CreateLookAt(position, position + new Vector3(0.0f, 0.0f, -1.0f), new Vector3(0.0f, -1.0f, 0.0f)) * CubeProjectionMatrix;
+        }
     }
 
     [StructLayout(LayoutKind.Sequential, Size = 464)]

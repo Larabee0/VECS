@@ -197,6 +197,7 @@ namespace VECS
             };
             TargetDisplay = -1;
         }
+        
         public RenderTarget(string name, int width, int height, VkFormat format, VkImageUsageFlags additionalFlags, VkSamplerAddressMode samplerMode = VkSamplerAddressMode.ClampToEdge)
         {
             VkImageUsageFlags usageFlags = additionalFlags;
@@ -264,6 +265,7 @@ namespace VECS
             DefaultClearValue = value.DefaultClearValue;
             TargetDisplay = value.TargetDisplay;
         }
+        
         public RenderTarget(RenderTargetDefintion value, VkExtent2D extent) : this(value.Name, (int)extent.width, (int)extent.height, value.Format, value.AdditionalUsage)
         {
             AttachmentInputLayout = value.InputAttachmentLayout;
@@ -279,11 +281,17 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public VkImageBlit GetBlitCmd(int dstWidth, int dstHeight, VkImageAspectFlags dstAspectMask)
         {
-            return GetBlitCmd(new VkRect2D(0, 0, (uint)Target.Width, (uint)Target.Height),new(0,0, (uint)dstWidth, (uint)dstHeight), dstAspectMask);
+            return GetBlitCmd(new VkRect2D(0, 0, (uint)Target.Width, (uint)Target.Height),new(0,0, (uint)dstWidth, (uint)dstHeight), 0, dstAspectMask);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public VkImageBlit GetBlitCmd(VkRect2D srcRect, VkRect2D dstRect, VkImageAspectFlags dstAspectMask)
+        {
+            return GetBlitCmd(srcRect, dstRect, 0, dstAspectMask);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public VkImageBlit GetBlitCmd(VkRect2D srcRect, VkRect2D dstRect, uint dstLayer, VkImageAspectFlags dstAspectMask)
         {
             VkImageBlit imageBlit = new()
             {
@@ -304,6 +312,7 @@ namespace VECS
                         RenderTargetType.DepthStencil => VkImageAspectFlags.Depth | VkImageAspectFlags.Stencil,
                         _=> VkImageAspectFlags.None
                     },
+                    baseArrayLayer =dstLayer,
                     layerCount = 1,
                     mipLevel = 0
                 }

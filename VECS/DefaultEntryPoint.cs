@@ -22,7 +22,7 @@ namespace VECS
         {
             FOV = 45,
             ClipNear = 0.5f,
-            ClipFar = 50f,
+            ClipFar = 75f,
             CullMode = CullModeFlags.Fustrum | CullModeFlags.Distance
         };
 
@@ -53,7 +53,8 @@ namespace VECS
         {
             _sphere = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("UV-Sphere.obj"), null)[0];
             CreateMainCamera();
-            CreateCamera();
+            //CreateCamera();
+            CreateCubeProbe();
             DirectionalLight();
             PointLight();
             //SponzaOld();
@@ -62,20 +63,45 @@ namespace VECS
             //ShadowDebug();
         }
 
+        private static void CreateCubeProbe()
+        {
+            EntityManager entityManager = World.DefaultWorld.EntityManager;
+            Entity probe = entityManager.CreateEntity("Reflection Probe");
+
+            entityManager.AddComponent(probe, new ReflectionProbe()
+            {
+                FarPlane = 20,
+                Resolution = 1024
+            });
+            entityManager.AddComponent<Translation>(probe);
+            var defaultInfo = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
+            var mirrorSurface = new GraphicsPipeline("MirrorSurface", defaultInfo, AssetDataBase<ShaderModule>.GetNamed("lit_texture.vert"), AssetDataBase<ShaderModule>.GetNamed("mirror_surface.frag")).Default();
+            
+
+            AddRenderMeshComponents(probe, mirrorSurface, 0, _sphere, entityManager, RenderLayer.Default | RenderLayer.NoShadow);
+            MaterialProvider material = new("Mirror", EnginePipes.DepthOnly.Create("Mirror"), mirrorSurface);
+            AssetDataBase<MaterialProvider>.Add(material);
+            entityManager.AddComponent(probe, new MaterialProviderComponent() { Value = material.Hash, LayerFlags = RenderLayer.Default | RenderLayer.NoShadow });
+        }
+
         private static void CreateCamera()
         {
             Texture2D tex = new("SecondCamera", 512, 512, VkFormat.R16G16B16A16Sfloat, VkImageUsageFlags.Sampled | VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.TransferDst | VkImageUsageFlags.TransferSrc, false);
             EntityManager entityManager = World.DefaultWorld.EntityManager;
-            Entity MainCamera = entityManager.CreateEntity("Main Camera");
-            entityManager.AddComponent(MainCamera, new Translation() { Value = initalCameraPos });
-            entityManager.AddComponent<Rotation>(MainCamera, new() { Value = NumericsExtensions.CameraRotation(TransformExtensions.Rad2Deg * initalCameraRot.X, TransformExtensions.Rad2Deg * initalCameraRot.Y) });
-            entityManager.AddComponent(MainCamera, cameraPerspective);
-            entityManager.AddComponent<CameraOutputOverride>(MainCamera, new()
+            Entity secondaryCamera = entityManager.CreateEntity("Secondary Camera");
+            entityManager.AddComponent(secondaryCamera, new Translation() { Value = initalCameraPos });
+            entityManager.AddComponent<Rotation>(secondaryCamera, new() { Value = NumericsExtensions.CameraRotation(TransformExtensions.Rad2Deg * initalCameraRot.X, TransformExtensions.Rad2Deg * initalCameraRot.Y) });
+            entityManager.AddComponent(secondaryCamera, cameraPerspective);
+            entityManager.AddComponent<CameraOutputOverride>(secondaryCamera, new()
             {
                 TargetTexture = tex.Hash,
                 ViewportRect  =new Rect(0,0, 1, 1),
             });
-
+            var entity = entityManager.CreateEntity();
+            entityManager.AddComponent(secondaryCamera, new ReflectMainCamera()
+            {
+                Target = entity
+            });
 
             var mesh = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("quad.obj"), null)[0];
 
@@ -83,12 +109,11 @@ namespace VECS
 
 
             unlitTex.SetTexture("texSampler".GetShaderPropertyId(), tex);
-            var entity = entityManager.CreateEntity();
             AddRenderMeshComponents(entity, unlitTex, 0, mesh, entityManager);
             MaterialProvider material = new("SecondaryCam", EnginePipes.DepthOnly.Create("unlitTex"), unlitTex);
             AssetDataBase<MaterialProvider>.Add(material);
             entityManager.AddComponent(entity, new MaterialProviderComponent() { Value = material.Hash, LayerFlags = RenderLayer.Default | RenderLayer.NoShadow });
-            entityManager.AddComponent(entity, new Rotation() { Value = TransformExtensions.EulerUnity(0, -90, 90) });
+            entityManager.AddComponent(entity, new Rotation() { Value = TransformExtensions.EulerUnity(0, 90, 90) });
             entityManager.AddComponent(entity, new Translation() { Value = new Vector3(0, 2, 1) });
         }
 
@@ -96,7 +121,7 @@ namespace VECS
         {
             EntityManager entityManager = World.DefaultWorld.EntityManager;
             Entity MainCamera = entityManager.CreateEntity("Main Camera");
-            entityManager.AddComponent<FreeCamera>(MainCamera, new() { AngleX = TransformExtensions.Rad2Deg * initalCameraRot.X, AngleY = TransformExtensions.Rad2Deg * initalCameraRot.Y });
+            entityManager.AddComponent<FreeCamera>(MainCamera, new() { AngleX = TransformExtensions.Rad2Deg * initalCameraRot.X, AngleY = TransformExtensions.Rad2Deg * initalCameraRot.Y, LookSpeed = 10f, MoveSpeed = 3f });
             entityManager.AddComponent(MainCamera, new Translation() { Value = initalCameraPos });
             entityManager.AddComponent<Rotation>(MainCamera, new() { Value = NumericsExtensions.CameraRotation(TransformExtensions.Rad2Deg * initalCameraRot.X,TransformExtensions.Rad2Deg * initalCameraRot.Y) });
             entityManager.AddComponent(MainCamera, cameraPerspective);

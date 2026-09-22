@@ -7,5 +7,8 @@
 
         public float AngleX;
         public float AngleY;
+
+        public float LookSpeed;
+        public float MoveSpeed;
     }
 }

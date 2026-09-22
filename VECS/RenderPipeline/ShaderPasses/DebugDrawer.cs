@@ -16,7 +16,7 @@ namespace VECS
         
         private static readonly Vector2 _min = new(-1, -1);
         private static readonly Vector2 _max = new(1, 1);
-        private readonly Vector4[] _fustrumVerts = new Vector4[16];
+        private readonly Vector4[] _fustrumVerts = new Vector4[16*6];
         private GPUBuffer<Vector3> _circleBuffer;
         private SwapChainBuffer<Vector3> _frustrumBuffer;
         private GPUBuffer<Vector3> _cubeBuffer;
@@ -79,10 +79,10 @@ namespace VECS
 
         public void AddToRenderGraph()
         {
-            RenderGraph.AddPass("DebugLines", PassType.Render, PassCategory.PostRendering, ["ForwardPass", "DeferredCompositePass", "TransaprentComposite"], [RenderGraph.MainColourAttachment], [RenderGraph.MainColourAttachment],LinePass);
-            RenderGraph.AddPass("DebugWireCubes", PassType.Render, PassCategory.PostRendering, ["DebugLines"], [RenderGraph.MainColourAttachment], [RenderGraph.MainColourAttachment], WireCubesPass);
-            RenderGraph.AddPass("DebugWireSpheres", PassType.Render, PassCategory.PostRendering, ["DebugWireCubes"], [RenderGraph.MainColourAttachment], [RenderGraph.MainColourAttachment], WireSpheresPass);
-            RenderGraph.AddPass("DebugFustrums", PassType.Render, PassCategory.PostRendering, ["DebugWireSpheres"], [RenderGraph.MainColourAttachment], [RenderGraph.MainColourAttachment], FustrumPass);
+            RenderGraph.AddPass("DebugLines", PassType.Render, PassCategory.PostProcessing, ["ForwardPass", "DeferredCompositePass", "TransaprentComposite"], [RenderGraph.MainColourAttachment], [RenderGraph.MainColourAttachment],LinePass);
+            RenderGraph.AddPass("DebugWireCubes", PassType.Render, PassCategory.PostProcessing, ["DebugLines"], [RenderGraph.MainColourAttachment], [RenderGraph.MainColourAttachment], WireCubesPass);
+            RenderGraph.AddPass("DebugWireSpheres", PassType.Render, PassCategory.PostProcessing, ["DebugWireCubes"], [RenderGraph.MainColourAttachment], [RenderGraph.MainColourAttachment], WireSpheresPass);
+            RenderGraph.AddPass("DebugFustrums", PassType.Render, PassCategory.PostProcessing, ["DebugWireSpheres"], [RenderGraph.MainColourAttachment], [RenderGraph.MainColourAttachment], FustrumPass);
         }
 
         public void SetEnabled(bool enabled)

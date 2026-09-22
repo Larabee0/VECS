@@ -42,7 +42,6 @@ namespace VECS.ECS.Presentation
         public static CameraOutputOverride Identity => new()
         {
             ViewportRect = new(0,0,1,1),
-            Depth = 0,
             TargetTexture = 0,
             DisplayIndex = 0,
         };
@@ -52,9 +51,18 @@ namespace VECS.ECS.Presentation
         public readonly int Id => ComponentId;
 
         public Rect ViewportRect;
-        public float Depth;
         public int TargetTexture;
         public int DisplayIndex;
+
+        public uint CubemapFace;
+
+        public OutputType OutputType;
+    }
+
+    public enum OutputType
+    {
+        Tex2D,
+        TexCube
     }
 
 
@@ -65,5 +73,13 @@ namespace VECS.ECS.Presentation
     {
         public static int ComponentId { get; set; }
         public readonly int Id => ComponentId;
+    }
+
+    public struct CameraDirectionalShadowScale : IComponent
+    {
+        public static int ComponentId { get; set; }
+        public readonly int Id => ComponentId;
+
+        public float Value;
     }
 }

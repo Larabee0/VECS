@@ -317,7 +317,16 @@ namespace VECS
                 }
                 if (cameraOutputOverride.TargetTexture != 0)
                 {
-                    var outputRT = AssetDataBase<Texture2D>.GetHashed(cameraOutputOverride.TargetTexture);
+                    Texture outputRT = null;
+                    switch (cameraOutputOverride.OutputType)
+                    {
+                        case OutputType.Tex2D:
+                            outputRT = AssetDataBase<Texture2D>.GetHashed(cameraOutputOverride.TargetTexture);
+                            break;
+                        case OutputType.TexCube:
+                            outputRT = AssetDataBase<Cubemap>.GetHashed(cameraOutputOverride.TargetTexture);
+                            break;
+                    }
 
                     CurrentCameraScissor = new(0, 0, (uint)outputRT.Width, (uint)outputRT.Height);
 
@@ -391,7 +400,7 @@ namespace VECS
             if (_isFrameStarted)
             {
                 World.DefaultWorld.OnPrePresent();
-                _renderer.PreRender();
+                _renderer.PrePresent();
 
                 UpdateEntityFrameInfo(World.DefaultWorld.EntityManager);
                 // kill off buffers
@@ -483,11 +492,12 @@ namespace VECS
                     SetCameraViewPort(World.DefaultWorld.EntityManager, secondaryCameraEntity);
                     RendererFrameInfo secondaryCameraFrameInfo = CreateRendererFrameInfoForCamera(deltaTime, secondaryCamera.CameraIndex, commandBuffer, secondaryCamera, lightingInfo);
                     secondaryCameraFrameInfo = new(secondaryCameraFrameInfo, CurrentCameraScissor);
+
                     GraphicsDevice.BeginLabelCmd(commandBuffer, "Render Graph Secondary Camera");
                     RenderGraph.Execute(secondaryCameraFrameInfo, PassCategory.SecondaryView);
                     GraphicsDevice.EndLabelCmd(commandBuffer);
-                    CopyFromRendererMainColourToOutputImage(commandBuffer, CurrentCameraOutput.TargetTexture);
-                    _outputTextures[CurrentCameraOutput.TargetTexture].SetImageLayoutAuto(commandBuffer, VkImageLayout.ShaderReadOnlyOptimal);
+
+                    CopyFromRendererMainColourToOutputImage(commandBuffer);
                 }
             }
 
@@ -515,17 +525,29 @@ namespace VECS
             //SwapChain.MainSwapChainData.SetImageLayout(commandBuffer, imageIndex, VkImageLayout.PresentSrcKHR);
         }
 
-        private void CopyFromRendererMainColourToOutputImage(VkCommandBuffer commandBuffer,int outputId)
+        private void CopyFromRendererMainColourToOutputImage(VkCommandBuffer commandBuffer)
         {
-            if (!_outputTextures.TryGetValue(outputId, out var image))
+            if (!_outputTextures.TryGetValue(CurrentCameraOutput.TargetTexture, out var image))
             {
-                Debug.Assert(false, $"Missing output Texture: {outputId.GetPropertyIdString()}");
+                Debug.Assert(false, $"Missing output Texture: {CurrentCameraOutput.TargetTexture.GetPropertyIdString()}");
                 return;
             }
 
             image.SetImageLayoutAuto(commandBuffer, VkImageLayout.TransferDstOptimal);
-            _renderer.BlitFromMainColour(commandBuffer, new(0, 0, (uint)image.Width, (uint)image.Height), image._vkImage, new(0,0,(uint)image.Width, (uint)image.Height), VkImageAspectFlags.Color);
 
+            switch (CurrentCameraOutput.OutputType)
+            {
+                case OutputType.Tex2D:
+                    _renderer.BlitFromMainColour(commandBuffer, new(0, 0, (uint)image.Width, (uint)image.Height), image._vkImage, new(0, 0, (uint)image.Width, (uint)image.Height), VkImageAspectFlags.Color);
+                    break;
+                case OutputType.TexCube:
+                    _renderer.BlitFromMainColour(commandBuffer, new(0, 0, (uint)image.Width, (uint)image.Height), image._vkImage, new(0, 0, (uint)image.Width, (uint)image.Height),CurrentCameraOutput.CubemapFace, VkImageAspectFlags.Color);
+                    break;
+            }
+
+            
+
+            image.SetImageLayoutAuto(commandBuffer, VkImageLayout.ShaderReadOnlyOptimal);
         }
 
         private void CopyFromRendererPostProcessingToOutputImage(VkCommandBuffer commandBuffer, int outputId)

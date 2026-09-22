@@ -125,12 +125,14 @@ namespace VECS
             }
         }
 
-        public unsafe static DirectionalLightShadowUniform GetDirectionalLight(DirectionalLightUniform src, int lightIndex, CameraData cameraData, int offset)
+        public unsafe static DirectionalLightShadowUniform GetDirectionalLight(DirectionalLightUniform src, int lightIndex, CameraData cameraData, int offset, float scale)
         {
             DirectionalLightShadowUniform lightingInfo = default;
             lightingInfo.LightIndex = lightIndex;
             offset *= MAX_CASCADE_COUNT;
             lightingInfo.CascadeCount = MAX_CASCADE_COUNT;
+            lightingInfo.Scale = new(Math.Max(1.0f,scale));
+            
             var directionalShadowsBuffer = ((SwapChainBuffer<Matrix4x4>)EngineBuffers.TryGetBuffer(matsPropertyId)).HostBuffer;
 
             float nearClip = cameraData.NearPlane;
@@ -244,7 +246,7 @@ namespace VECS
         {
             Texture2DArray arrayTex = (Texture2DArray)_shadowDepthTextures.First;
             arrayTex.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.DepthAttachmentOptimal);
-
+            var renderScale  = Math.Max(1.0f, dirUniform.Scale.X);
             CullData depthBufferCullInfo;
             VkRenderingAttachmentInfo depth = new()
             {
@@ -257,7 +259,7 @@ namespace VECS
 
             VkRenderingInfo renderingInfo = new()
             {
-                renderArea = new(0, 0, (uint)arrayTex.Width, (uint)arrayTex.Height),
+                renderArea = new(0, 0, (uint)(arrayTex.Width * renderScale), (uint)(arrayTex.Height * renderScale)),
                 layerCount = 1,
                 colorAttachmentCount = 0,
                 pDepthAttachment = &depth,
@@ -285,7 +287,7 @@ namespace VECS
                 GraphicsDevice.DeviceAPI.vkCmdBeginRendering(frameInfo.CommandBuffer, &renderingInfo);
 
 
-                SetViewPort(frameInfo.CommandBuffer, (uint)arrayTex.Width);
+                SetViewPort(frameInfo.CommandBuffer, (uint)(arrayTex.Width * renderScale));
 
                 _depthOnly.PushConstants.SetPushConstantInt("matrixStartIndex", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, cameraOffset + i);
                 _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("matrixStartIndex", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, cameraOffset + i);

@@ -49,6 +49,8 @@ namespace VECS.ECS
             CreateSystem<SpotLightSystem>();
             CreateSystem<GenericRenderSystem>();
             CreateSystem<DebugDrawUtilities>();
+            //CreateSystem<PlanarReflections>();
+            CreateSystem<CubemapRelfections>();
 
             _physicsSimulation = new PhysicsWorld(this, PhysicsSettings.Default);
             // default systems

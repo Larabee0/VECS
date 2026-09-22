@@ -26,6 +26,6 @@ float linearDepth(float depth, float nearPlane, float farPlane)
 
 void main()
 {
-    colourOut = texture(texSampler, fragUV);
+    colourOut = texture(texSampler, vec2(fragUV.x, 1.0-fragUV.y));
 	//colourOut = vec4(fragUV,0,1);
 }

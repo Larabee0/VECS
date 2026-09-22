@@ -48,6 +48,32 @@
 
         public static readonly Matrix3x3 identity = new(1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f);
 
+        public Vector3 this[int i]
+        {
+            readonly get => i switch
+            {
+                0 => c0,
+                1 => c1,
+                2 => c2,
+                _ => throw new IndexOutOfRangeException(),
+            };
+            set
+            {
+                switch (i)
+                {
+                    case 0:
+                        c0 = value;
+                        break;
+                    case 1:
+                        c1 = value;
+                        break;
+                    case 2:
+                        c2 = value;
+                        break;
+                }
+            }
+        }
+
         public Matrix3x3(float m00, float m01, float m02,
                         float m10, float m11, float m12,
                         float m20, float m21, float m22)
@@ -70,6 +96,66 @@
             c0 = f4x4.GetMatrixColumn(0).AsVector3();//.c0.xyz;
             c1 = f4x4.GetMatrixColumn(1).AsVector3();//.c1.xyz;
             c2 = f4x4.GetMatrixColumn(2).AsVector3();//.c2.xyz;
+        }
+
+        public static Matrix4x4 Make4x4(Matrix3x3 m)
+        {
+            Matrix4x4 m4x4 = new();
+
+            m4x4[0, 0] = m.c0.X;
+            m4x4[1, 0] = m.c0.Y;
+            m4x4[2, 0] = m.c0.Z;
+
+            m4x4[0, 1] = m.c1.X;
+            m4x4[1, 1] = m.c1.Y;
+            m4x4[2, 1] = m.c1.Z;
+
+            m4x4[0, 2] = m.c2.X;
+            m4x4[1, 2] = m.c2.Y;
+            m4x4[2, 2] = m.c2.Z;
+
+            m4x4.M44 = 1.0f;
+
+            return m4x4;
+        }
+
+        public static Matrix3x3 OuterProduct(Vector3 c, Vector3 r)
+        {
+            var matrix = new Matrix3x3(Vector3.Zero, Vector3.Zero, Vector3.Zero);
+
+            for (int i = 0; i < 3; i++)
+            {
+                matrix[i] = c * r[i];
+            }
+
+            return matrix;
+        }
+
+        public static   Matrix3x3 operator - (Matrix3x3 m, float s)
+        {
+            m.c0[0] = m.c0[0] - s;
+            m.c0[1] = m.c0[1] - s;
+            m.c0[2] = m.c0[2] - s;
+            m.c1[0] = m.c1[0] - s;
+            m.c1[1] = m.c1[1] - s;
+            m.c1[2] = m.c1[2] - s;
+            m.c2[0] = m.c2[0] - s;
+            m.c2[1] = m.c2[1] - s;
+            m.c2[2] = m.c2[2] - s;
+
+            return m;
+        }
+        public static Matrix3x3 operator *(Matrix3x3 lhs, Matrix3x3 rhs)
+        {
+            return new(lhs.c0 * rhs.c0, lhs.c1 * rhs.c1, lhs.c2 * rhs.c2);
+        }
+        public static Matrix3x3 operator *(float lhs, Matrix3x3 rhs)
+        {
+            return new(lhs * rhs.c0, lhs * rhs.c1, lhs * rhs.c2);
+        }
+        public static Matrix3x3 operator -(Matrix3x3 lhs, Matrix3x3 rhs)
+        {
+            return new(lhs.c0 - rhs.c0, lhs.c1 - rhs.c1, lhs.c2 - rhs.c2);
         }
     }
 }

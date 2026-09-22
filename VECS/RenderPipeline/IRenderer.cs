@@ -16,7 +16,7 @@ namespace VECS
         
         public void PostCreate();
         public void ScreenSizeChanged();
-        public void PreRender();
+        public void PrePresent();
         public void Render(RendererFrameInfo frameInfo, int imageIndex);
         public void PostRender();
 
@@ -28,6 +28,7 @@ namespace VECS
         public void BlitFromMainColour(VkCommandBuffer commandBuffer, VkImage dst, int dstWidth, int dstHeight, VkImageAspectFlags dstAspectMask);
 
         public void BlitFromMainColour(VkCommandBuffer commandBuffer, VkRect2D srcRect, VkImage dst, VkRect2D dstRect, VkImageAspectFlags dstAspectMask);
+        public void BlitFromMainColour(VkCommandBuffer commandBuffer, VkRect2D srcRect, VkImage dst, VkRect2D dstRect, uint dstLayer, VkImageAspectFlags dstAspectMask);
 
 
         public static RenderTarget CreateOrUpdateRT(RenderTarget target, string name, int shaderPropertyId, VkExtent2D extent, VkFormat format)
