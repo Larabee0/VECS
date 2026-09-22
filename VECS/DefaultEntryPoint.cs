@@ -73,7 +73,7 @@ namespace VECS
                 FarPlane = 20,
                 Resolution = 1024
             });
-            entityManager.AddComponent<Translation>(probe);
+            entityManager.AddComponent(probe,new Translation() { Value = new(0,2,0)});
             var defaultInfo = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             var mirrorSurface = new GraphicsPipeline("MirrorSurface", defaultInfo, AssetDataBase<ShaderModule>.GetNamed("lit_texture.vert"), AssetDataBase<ShaderModule>.GetNamed("mirror_surface.frag")).Default();
             
