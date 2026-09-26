@@ -144,7 +144,7 @@ namespace VECS
         public readonly VkImageLayout ComputeInputLayout;
         public readonly VkImageLayout ComputeOutputLayout;
 
-        public readonly VkClearValue DefaultClearValue;
+        public  VkClearValue DefaultClearValue;
         public readonly int TargetDisplay;
 
         public Texture2D Target => _image;

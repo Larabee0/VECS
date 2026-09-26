@@ -125,6 +125,8 @@ namespace VECS
             {
                 SDL3WindowManager.WaitForResizeEvents();
                 DrawBlob.Reset();
+                ComputePipeline.UpdateComputeShaders();
+                GraphicsPipeline.UpdateMaterials();
             }
             if (!SwapChain.SwapChainInitialised)
             {
@@ -510,7 +512,9 @@ namespace VECS
             // imgui Overlay
             GraphicsDevice.BeginLabelCmd(commandBuffer, "IMGUI Pass");
             _imgui.Draw(mainCameraFrameInfo);
+            GraphicsDevice.EndLabelCmd(commandBuffer);
 
+            GraphicsDevice.BeginLabelCmd(commandBuffer, "IMGUI Overlay");
             _imgui.OverlayToActiveTarget(mainCameraFrameInfo, RenderGraph.GetResource("Display_0_Ouput_Tex"));
             GraphicsDevice.EndLabelCmd(commandBuffer);
             GraphicsDevice.EndLabelCmd(commandBuffer);

@@ -723,7 +723,7 @@ namespace VECS
                     {
                         pipeline._descriptorSetInfos[i].SetStorageBuffer(EngineBuffers.TryGetBuffer(binding.Id), binding.BindPoint);
                     }
-                    if ((_descriptorReWrite || Presenter.NewSwapChain )&& binding.Image)
+                    if ((_descriptorReWrite || Presenter.NewSwapChain) && binding.Image)
                     {
                         var texture = EngineTextures.TryGetTexture(binding.Id);
                         if (texture == null) continue;

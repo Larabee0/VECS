@@ -131,7 +131,7 @@ namespace VECS
 
     public static partial class DrawBlob
     {
-        private static RenderBuffer[] _renderBuffers = [];
+        private static RenderBuffer[] _renderBuffers;
 
         public static RenderBuffer[] RenderBuffers => _renderBuffers;
 
@@ -175,6 +175,7 @@ namespace VECS
                 {
                     _renderBuffers[i].Dispose();
                 }
+                _entityCount = 0;
             }
 
             _renderBuffers = new RenderBuffer[renderBufferTypes.Count];

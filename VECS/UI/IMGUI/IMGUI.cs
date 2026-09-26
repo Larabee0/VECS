@@ -37,6 +37,7 @@ namespace VECS.UI
         private unsafe readonly Dictionary<uint, FontPtr> _fonts = [];
 
         public Vector4 ClearColour;
+        private bool _cleared;
 
         private struct FontPtr
         {
@@ -64,8 +65,10 @@ namespace VECS.UI
 
             _context = ImGui.GetCurrentContext();
 
-            _outputTarget = new(_outputWindow.WindowName, (int)_outputWindow.WindowExtent.width, (int)_outputWindow.WindowExtent.height,VkFormat.R8G8B8A8Unorm, VkSamplerAddressMode.ClampToEdge);
-
+            _outputTarget = new(_outputWindow.WindowName, (int)_outputWindow.WindowExtent.width, (int)_outputWindow.WindowExtent.height, VkFormat.R8G8B8A8Unorm, VkSamplerAddressMode.ClampToEdge)
+            {
+                DefaultClearValue = new(ClearColour.X, ClearColour.Y, ClearColour.Z, ClearColour.W)
+            };
 
         }
 
@@ -267,6 +270,7 @@ namespace VECS.UI
                 _outputTarget.Resize((int)_outputWindow.WindowExtent.width, (int)_outputWindow.WindowExtent.height);
 
                 _blitVariant?.SetTexture(inputTextureId, _outputTarget.Target);
+                _cleared = false;
             }
 
             io.DeltaTime = Time.DeltaTime;
@@ -339,8 +343,14 @@ namespace VECS.UI
             UpdateBuffers();
             if (imDrawData.CmdListsCount <= 0)
             {
+                if (!_cleared)
+                {
+                    _cleared = true;
+                    _outputTarget.ClearAttachment(frameInfo.CommandBuffer);
+                }
                 return;
             }
+            _cleared = false;
 
             var io = ImGui.GetIO();
             Vector2 scale = new(2.0f / io.DisplaySize.X, 2.0f / io.DisplaySize.Y);
@@ -354,35 +364,7 @@ namespace VECS.UI
             GPUBufferExtensions.WriteFromHostDelayed(_vertexBuffer, Presenter.FrameIndex);
             GPUBufferExtensions.WriteFromHostDelayed(_indexBuffer, Presenter.FrameIndex);
 
-
-
-            if (_outputTarget.CurrentLayout == VkImageLayout.ShaderReadOnlyOptimal)
-            {
-                _outputTarget.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.ColorAttachmentOutput);
-            }
-            else if (_outputTarget.CurrentLayout == VkImageLayout.TransferSrcOptimal)
-            {
-                _outputTarget.Target.SetImageLayout(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.Blit, VkPipelineStageFlags2.ColorAttachmentOutput);
-            }
-
-            VkRenderingAttachmentInfo colourAttachments = new()
-            {
-                imageView = _outputTarget.VkImageView,
-                imageLayout = _outputTarget.CurrentLayout,
-                loadOp = VkAttachmentLoadOp.Clear,
-                storeOp = VkAttachmentStoreOp.Store,
-                clearValue = new(ClearColour.X, ClearColour.Y, ClearColour.Z, ClearColour.W)
-            };
-
-            VkRenderingInfo renderingInfo = new()
-            {
-                renderArea = new(0, 0, (uint)_outputTarget.Target.Width, (uint)_outputTarget.Target.Height),
-                layerCount = 1,
-                colorAttachmentCount = 1,
-                pColorAttachments = &colourAttachments,
-                flags = VkRenderingFlags.ContentsInlineKHR | VkRenderingFlags.ContentsSecondaryCommandBuffers
-            };
-            GraphicsDevice.DeviceAPI.vkCmdBeginRendering(frameInfo.CommandBuffer, &renderingInfo);
+            _outputTarget.BeginRenderingOnlyAttachment(frameInfo.CommandBuffer);
 
             GraphicsDevice.DeviceAPI.vkCmdSetScissor(frameInfo.CommandBuffer, 0, new VkRect2D(new VkOffset2D(0, 0), new VkExtent2D(_outputTarget.Target.Width, _outputTarget.Target.Height)));
             GraphicsDevice.DeviceAPI.vkCmdSetViewport(frameInfo.CommandBuffer, 0, 0, io.DisplaySize.X, io.DisplaySize.Y);
