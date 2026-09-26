@@ -52,8 +52,6 @@ namespace VECS
             }
         }
         public VkExtent2D MaxReflectionTextureSize { get; private set; } = new (2048, 2048);
-        private Action _onScreenSizeChanged;
-        public Action OnScreenSizeChanged{get=> _onScreenSizeChanged;set => _onScreenSizeChanged = value;}
 
         public DeferredRenderer()
         {
@@ -214,7 +212,6 @@ namespace VECS
 
             _passes.ForEach(p => p.RecreateRenderTargets());
             SetDeferredResources();
-            _onScreenSizeChanged?.Invoke();
         }
 
         private void SetDeferredResources()
