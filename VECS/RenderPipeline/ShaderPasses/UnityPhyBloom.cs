@@ -102,7 +102,8 @@ namespace VECS
                     AssetDataBase<Texture2D>.Remove(_bloomMipDown[i]);
                     _bloomMipDown[i].Dispose();
                 }
-                for (int i = 0; i < _bloomMipUp.Length; i++)
+                // bloom final up is at index 0 already disposed through reinitilise.
+                for (int i = 1; i < _bloomMipUp.Length; i++)
                 {
                     AssetDataBase<Texture2D>.Remove(_bloomMipUp[i]);
                     _bloomMipUp[i].Dispose();
