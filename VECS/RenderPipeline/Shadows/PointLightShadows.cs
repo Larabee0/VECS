@@ -24,10 +24,8 @@ namespace VECS
             EngineTextures.AddOrUpdateTexture(ShaderProperties.PLShadowImageId, _shadowDepthTextures);
             AssignShadowTextures(ShaderProperties.PLShadowImageId);
 
-            _depthOnly.PushConstants.SetPushConstantInt("layerCount", POINT_SHADOWS_PUSH_CONSTANT_INDEX, 1);
-            _depthOnly.PushConstants.SetPushConstantInt("bufferSelect", POINT_SHADOWS_PUSH_CONSTANT_INDEX, 2);
-            _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("layerCount", POINT_SHADOWS_PUSH_CONSTANT_INDEX, 1);
-            _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("bufferSelect", POINT_SHADOWS_PUSH_CONSTANT_INDEX, 2);
+            _depthOnly.PushConstants.SetPushConstantInt(Buffer_Select_PushConstantId, POINT_SHADOWS_PUSH_CONSTANT_INDEX, 2);
+            _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt(Buffer_Select_PushConstantId, POINT_SHADOWS_PUSH_CONSTANT_INDEX, 2);
 
             RenderGraph.AddPass("PointLightShadows", PassType.Render, PassCategory.FixedMap, [], [], ["PointLightShadowAttachments"], PointLightPass);
             
@@ -133,8 +131,6 @@ namespace VECS
             FillViewMatrix(EngineBuffers.TryGetBuffer(matsPropertyId), index, pointLight);
 
             SetImageLayoutWrite(frameInfo.CommandBuffer, arrayTex);
-            _depthOnly.PushConstants.SetPushConstantInt("layerOffset", POINT_SHADOWS_PUSH_CONSTANT_INDEX, 0);
-            _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("layerOffset", POINT_SHADOWS_PUSH_CONSTANT_INDEX, 0);
             Matrix4x4 CubeProjectionMatrix = Matrix4x4.CreatePerspectiveFieldOfView(MathF.PI * 0.5f, 1.0f, 0.1f, pointLight.FarPlane);
 
 
@@ -172,8 +168,8 @@ namespace VECS
             GraphicsDevice.BeginLabelCmd(commandBuffer, "Depth Pass");
             BeginShadowPass(commandBuffer, arrayTex.AdditionalImageViews[i], (uint)arrayTex.Width);
 
-            _depthOnly.PushConstants.SetPushConstantInt("matrixStartIndex", POINT_SHADOWS_PUSH_CONSTANT_INDEX, (index * 6) + i);
-            _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("matrixStartIndex", POINT_SHADOWS_PUSH_CONSTANT_INDEX, (index * 6) + i);
+            _depthOnly.PushConstants.SetPushConstantInt(Matrix_Start_Index_PushConstantId, POINT_SHADOWS_PUSH_CONSTANT_INDEX, (index * 6) + i);
+            _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt(Matrix_Start_Index_PushConstantId, POINT_SHADOWS_PUSH_CONSTANT_INDEX, (index * 6) + i);
 
             DrawDepthOnly(commandBuffer, POINT_SHADOWS_PUSH_CONSTANT_INDEX, VkCullModeFlags.Front);
 

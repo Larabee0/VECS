@@ -94,11 +94,6 @@ namespace VECS
             _ => throw new IndexOutOfRangeException(),
         };
 
-        public readonly void SetPushConstant(PushConstantsHandler pushConstants, int setId = 0)
-        {
-            pushConstants.SetPushConstantUniform("cullData", setId, this);
-        }
-
         public CullData(RenderLayer includeMask, RenderLayer excludeMask, CullModeFlags cullMode, float zNear, CameraData camera)
         {
             Matrix4x4 viewProj = camera.ProjectionViewMatrix;

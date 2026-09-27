@@ -41,8 +41,6 @@ namespace VECS
             _depthOnlyQueue = new DepthOnlyQueue("DepthOnly");
             _forwardQueue = new ForwardQueue("Forward");
 
-            EnginePipes.DepthOnly.PushConstants.SetPushConstantInt("layerCount", DEPTH_ONLY_PUSH_CONSTANT_INDEX, 1);
-            EnginePipes.DepthOnly.PushConstants.SetPushConstantInt("bufferSelect", DEPTH_ONLY_PUSH_CONSTANT_INDEX, 0);
             _orderIndpTransparency = new(this);
             _smaa = new(this);
             _skybox = new(this);

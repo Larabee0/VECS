@@ -51,7 +51,7 @@ namespace VECS
 
         private static void PreCreate()
         {
-            _sphere = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("UV-Sphere.obj"), null)[0];
+            _sphere = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("UV-Sphere.obj"), [new(VertexAttribute.Tangent,VertexAttributeFormat.Float4)])[0];
             CreateMainCamera();
             //CreateCamera();
             CreateCubeProbe();

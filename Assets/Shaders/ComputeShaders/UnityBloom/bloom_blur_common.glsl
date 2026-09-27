@@ -51,6 +51,7 @@ void BlurHorizontally(uint outIndex, uint leftMostIndex)
     Load2Pixels(leftMostIndex + 3, s6, s7);
     Load2Pixels(leftMostIndex + 4, s8, s9);
 
+    barrier();
     Store1Pixel(outIndex    , BlurPixels(s0, s1, s2, s3, s4, s5, s6, s7, s8));
     Store1Pixel(outIndex + 1, BlurPixels(s1, s2, s3, s4, s5, s6, s7, s8, s9));
 }

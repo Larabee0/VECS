@@ -108,6 +108,10 @@ namespace VECS
                 Time.Update();
                 frameStart = Time.TimeSinceStartUpAsDouble * 1000.0;
                 Time.UpdateFixedTimeStep();
+                if (InputManager.Instance.GetKeyUp(SDL3.SDL_Keycode.F12))
+                {
+                    SDL3WindowManager.MainWindow.ToggleFullScreenMode();
+                }
                 Update();
                 Presentation();
                 SDL3WindowManager.LateInputUpdate();

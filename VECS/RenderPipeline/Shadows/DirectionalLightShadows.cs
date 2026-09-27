@@ -36,16 +36,12 @@ namespace VECS
             AssignShadowTextures(ShaderProperties.DirShadowImageId);
 
             _shadowDepthTextures.First.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.LateFragmentTests, VkPipelineStageFlags2.FragmentShader);
-            
-            _depthOnly.PushConstants.SetPushConstantInt("bufferSelect", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, 1);
-            _depthOnly.PushConstants.SetPushConstantInt("layerCount", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, 1);
-            _depthOnly.PushConstants.SetPushConstantInt("layerOffset", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, 0);
 
-            _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("bufferSelect", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, 1);
-            _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("layerCount", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, 1);
-            _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("layerOffset", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, 0);
+            _depthOnly.PushConstants.SetPushConstantInt(Buffer_Select_PushConstantId, DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, 1);
 
-            RenderGraph.AddPass("DirectionalLightShadows", PassType.Render,PassCategory.PreRendering, [], [], ["DirectionalShadowAttachments"], ShadowPass);
+            _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt(Buffer_Select_PushConstantId, DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, 1);
+
+            RenderGraph.AddPass("DirectionalLightShadows", PassType.Render, PassCategory.PreRendering, [], [], ["DirectionalShadowAttachments"], ShadowPass);
         }
 
         private void ShadowPass(RendererFrameInfo frameInfo)
@@ -59,7 +55,7 @@ namespace VECS
             var hostBuffer = (SwapChainBuffer<DirectionalLightShadowUniform>)EngineBuffers.TryGetBuffer(ShaderProperties.DirectionalLightShadowBufferId);
             GPUBufferExtensions.WriteFromHostDelayed(hostBuffer, Presenter.FrameIndex);
 
-            if(Clear)
+            if (Clear)
             {
                 GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, string.Format("Clear Shadow {0}", 0));
                 ClearImage(frameInfo, 0);
@@ -131,8 +127,8 @@ namespace VECS
             lightingInfo.LightIndex = lightIndex;
             offset *= MAX_CASCADE_COUNT;
             lightingInfo.CascadeCount = MAX_CASCADE_COUNT;
-            lightingInfo.Scale = new(Math.Max(1.0f,scale));
-            
+            lightingInfo.Scale = new(Math.Max(1.0f, scale));
+
             var directionalShadowsBuffer = ((SwapChainBuffer<Matrix4x4>)EngineBuffers.TryGetBuffer(matsPropertyId)).HostBuffer;
 
             float nearClip = cameraData.NearPlane;
@@ -142,7 +138,7 @@ namespace VECS
             float* cascadeSplits = stackalloc float[MAX_CASCADE_COUNT];
 
             GetCascadeSplits(nearClip, farClip, cascadeSplits);
-            
+
             float lastSplitDist = 0.0f;
             var invCam = cameraData.InverseProjectionViewMatrix;
 
@@ -209,10 +205,10 @@ namespace VECS
                     range = MathF.Abs(maxExtents.Z - minExtents.Z);
                 }
                 Vector3 lightDir = frustumCenter - src.Direction.AsVector3() * -minExtents.Z;
-                
+
                 Matrix4x4 lightViewMatrix = Matrix4x4.CreateLookAt(lightDir, frustumCenter, new Vector3(0.0f, 1.0f, 0.0f));
                 Matrix4x4 lightOrthoMatrix = Matrix4x4.CreateOrthographicOffCenter(minExtents.X, maxExtents.X, minExtents.Y, maxExtents.Y, 0.0f, maxExtents.Z - minExtents.Z);
-                _viewMatrices[offset +i] = lightViewMatrix;
+                _viewMatrices[offset + i] = lightViewMatrix;
                 _projMatrices[offset + i] = lightOrthoMatrix;
                 // Store split distance and matrix in cascade
                 lightingInfo.CascadeSplits[i] = (nearClip + splitDist * clipRange) * -1.0f;
@@ -246,7 +242,7 @@ namespace VECS
         {
             Texture2DArray arrayTex = (Texture2DArray)_shadowDepthTextures.First;
             arrayTex.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.DepthAttachmentOptimal);
-            var renderScale  = Math.Max(1.0f, dirUniform.Scale.X);
+            var renderScale = Math.Max(1.0f, dirUniform.Scale.X);
             CullData depthBufferCullInfo;
             VkRenderingAttachmentInfo depth = new()
             {
@@ -268,7 +264,7 @@ namespace VECS
 
             int cameraOffset = frameInfo.TargetCamera * MAX_CASCADE_COUNT;
 
-            for (int i = 0; i < Math.Min(MAX_CASCADE_COUNT,dirUniform.CascadeCount); i++)
+            for (int i = 0; i < Math.Min(MAX_CASCADE_COUNT, dirUniform.CascadeCount); i++)
             {
                 GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, string.Format("Cascade {0}", i));
                 depth.imageView = arrayTex.AdditionalImageViews[i];
@@ -280,7 +276,7 @@ namespace VECS
                     _projMatrices[cameraOffset + i],
                     _viewMatrices[cameraOffset + i]
                 );
-                
+
                 CullShadow(frameInfo.CommandBuffer, depthBufferCullInfo);
 
                 GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Depth Pass");
@@ -289,10 +285,8 @@ namespace VECS
 
                 SetViewPort(frameInfo.CommandBuffer, (uint)(arrayTex.Width * renderScale));
 
-                _depthOnly.PushConstants.SetPushConstantInt("matrixStartIndex", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, cameraOffset + i);
-                _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("matrixStartIndex", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, cameraOffset + i);
-                // _depthOnly.PushConstants.SetPushConstantUInt("cameraIndex", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, (uint)frameInfo.TargetCamera);
-                // _depthOnlyAlphaClipping.PushConstants.SetPushConstantUInt("cameraIndex", DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, (uint)frameInfo.TargetCamera);
+                _depthOnly.PushConstants.SetPushConstantInt(Matrix_Start_Index_PushConstantId, DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, cameraOffset + i);
+                _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt(Matrix_Start_Index_PushConstantId, DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, cameraOffset + i);
 
                 DrawDepthOnly(frameInfo.CommandBuffer, DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, VkCullModeFlags.Front);
 

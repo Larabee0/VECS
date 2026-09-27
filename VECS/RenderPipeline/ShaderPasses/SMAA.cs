@@ -209,9 +209,9 @@ namespace VECS
         public void SetScreenSize(Vector4 texelSize)
         {
 
-            EdgeDetection.PushConstants.SetPushConstantVector4("texelSize", 0, texelSize);
-            BlendWeightCalc.PushConstants.SetPushConstantVector4("texelSize", 0, texelSize);
-            NeighbourhoodBlending.PushConstants.SetPushConstantVector4("texelSize", 0, texelSize);
+            EdgeDetection.PushConstants.SetPushConstantVector4(ShaderProperties.TexelSize_PushConstantId, 0, texelSize);
+            BlendWeightCalc.PushConstants.SetPushConstantVector4(ShaderProperties.TexelSize_PushConstantId, 0, texelSize);
+            NeighbourhoodBlending.PushConstants.SetPushConstantVector4(ShaderProperties.TexelSize_PushConstantId, 0, texelSize);
         }
 
         public void RecreateRenderTargets()

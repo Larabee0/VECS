@@ -28,8 +28,6 @@ layout(std140, set = 1, binding = 3) readonly buffer SpotShadowMats{
 
 layout(push_constant) uniform InstanceInfo {
     int matrixStartIndex;
-    int layerOffset;
-    int layerCount;
     int bufferSelect;
 	uint cameraIndex;
 } instanceInfo;
@@ -51,14 +49,8 @@ mat4 getTransform(int bufferSelect, int bufferOffset) {
 void main()
 {
 	ObjectMatrices objectMat = matricesBuffer.matrices[gl_BaseInstance];
-
-    int bufferSelect = instanceInfo.bufferSelect;
-    int layerOffset = instanceInfo.layerOffset;
-    int layerCount = instanceInfo.layerCount;
-    int bufferOffset = instanceInfo.matrixStartIndex;
-    mat4 transformMatrix = getTransform(bufferSelect, bufferOffset);
     
-    gl_Position = transformMatrix * (objectMat.modelMatrix * vec4(inPos, 1.0));
+    gl_Position = getTransform(instanceInfo.bufferSelect, instanceInfo.matrixStartIndex) * (objectMat.modelMatrix * vec4(inPos, 1.0));
     fragUV = uv;
 }  
 

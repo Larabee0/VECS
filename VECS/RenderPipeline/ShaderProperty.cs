@@ -44,6 +44,12 @@ namespace VECS
 
 
         public static readonly int CubeRelfectionProbesId = "reflectionProbes".GetShaderPropertyId();
+        public static readonly int CameraIndex_PushConstantId = "cameraIndex".GetShaderPropertyId();
+
+        public static readonly int TexelSize_PushConstantId = "texelSize".GetShaderPropertyId();
+        public static readonly int OutputImageSize_PushConstantId = "outputImageSize".GetShaderPropertyId();
+
+        public static readonly int SrcImageSize_PushConstantId = "srcImageSize".GetShaderPropertyId();
 
         public static readonly HashSet<int> IgnoreUnFoundShaderProperties;
 

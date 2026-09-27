@@ -18,6 +18,8 @@ namespace VECS.UI
         }
 
         private const float FONT_SCALE = 1.0f;
+        private static readonly int Translate_PushConstantId = "translate".GetShaderPropertyId();
+        private static readonly int Scale_PushConstantPropertyId = "scale".GetShaderPropertyId();
         private static readonly int fontSamplerId = "fontSampler".GetShaderPropertyId();
         private static readonly int inputTextureId = "inputTexture".GetShaderPropertyId();
         internal static readonly Queue<Material> _freeVariants = [];
@@ -391,8 +393,8 @@ namespace VECS.UI
                     mat = textureVariant.Variant;
                     var variantIndex = (int)mat.VariantIndex;
 
-                    mat.PushConstants.SetPushConstantVector2("scale", variantIndex, scale);
-                    mat.PushConstants.SetPushConstantVector2("translate", variantIndex, translate);
+                    mat.PushConstants.SetPushConstantVector2(Scale_PushConstantPropertyId, variantIndex, scale);
+                    mat.PushConstants.SetPushConstantVector2(Translate_PushConstantId, variantIndex, translate);
                     mat.Bind(frameInfo);
 
 

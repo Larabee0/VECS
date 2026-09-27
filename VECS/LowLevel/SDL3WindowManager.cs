@@ -17,7 +17,10 @@ namespace VECS.LowLevel
         private const SDL_InitFlags SDL_INIT_FLAGS = SDL_InitFlags.Video | SDL_InitFlags.Events;
         
         public const SDL_WindowFlags SDL_WINDOW_FLAGS = SDL_WindowFlags.HighPixelDensity | SDL_WindowFlags.Vulkan | SDL_WindowFlags.Resizable;
-        
+        public const SDL_WindowFlags FULL_SCREEN_WINDOW_FLAGS = SDL_WindowFlags.HighPixelDensity | SDL_WindowFlags.Vulkan | SDL_WindowFlags.Fullscreen;
+        public const SDL_WindowFlags BORDERLESS_WINDOW_FLAGS = SDL_WindowFlags.HighPixelDensity | SDL_WindowFlags.Vulkan | SDL_WindowFlags.Borderless;
+
+
         private const string WINDOW_CONFIG_FILE_NAME = "WindowConfig.json";
 
         private readonly static Dictionary<SDL_WindowID, SDL3Window> _windows = [];
@@ -36,6 +39,10 @@ namespace VECS.LowLevel
         private readonly static ConcurrentQueue<DisposeWindow> _disposalQueue = [];
         private readonly static List<DisposeWindow> _disposalList = [];
 
+        private readonly static List<SDL_DisplayID> displays = [];
+
+        private static int _primaryDisplayIndex;
+
         public unsafe static void Init()
         {
             if (!SDL.SDL_Init(SDL_INIT_FLAGS))
@@ -53,6 +60,20 @@ namespace VECS.LowLevel
 
             Vulkan.vkInitialize().CheckResult("Failed Initialise vulkan!");
 
+            var displayIds = SDL.SDL_GetDisplays();
+
+            displays.Clear();
+            for (int i = 0; i < displayIds.Length; i++)
+            {
+                displays.Add(displayIds[i]);
+
+                
+            }
+
+            var primary = SDL.SDL_GetPrimaryDisplay();
+
+            _primaryDisplayIndex = displays.IndexOf(primary);
+            
             try
             {
                 if (File.Exists(WindowConfigFilePath))
@@ -400,6 +421,7 @@ namespace VECS.LowLevel
             public int Height { get; set; }
             public int XPos { get; set; }
             public int YPos { get; set; }
+            public SDL_DisplayID TargetDisplay { get; set; }
         }
 
         private class GlobalWindowSettings

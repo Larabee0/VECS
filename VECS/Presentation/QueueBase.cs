@@ -257,7 +257,7 @@ namespace VECS
                 var region = drawCall.Value;
                 var pipeline = AssetDataBase<GraphicsPipeline>.GetHashed(drawCall.Key);
                 var cmds = _drawCalls.AsSpan(region.StartIndex, region.Count);
-                pipeline.PushConstants.SetPushConstantUInt("cameraIndex", pushConstantIndex, _targetCamera);
+                pipeline.PushConstants.SetPushConstantUInt(ShaderProperties.CameraIndex_PushConstantId, pushConstantIndex, _targetCamera);
                 pipeline.ExecuteDrawCommandsPushConstantOverride(pushConstantIndex, commandBuffer, cmds, region.Count, indirectCmds, cullMode);
             }
             GraphicsDevice.EndLabelCmd(commandBuffer);

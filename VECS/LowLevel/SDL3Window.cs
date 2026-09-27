@@ -16,6 +16,8 @@ namespace VECS.LowLevel
         protected int _width;
         protected int _height;
         protected bool _framebufferResized = false;
+        protected bool _borderMode = true;
+        protected bool _fullscreen = false;
         protected readonly bool _mainWindow;
 
         protected VkSurfaceKHR _surface;
@@ -154,6 +156,29 @@ namespace VECS.LowLevel
             }
         }
 
+        public void SetBordlessMode(bool borderVisible)
+        {
+            if(_borderMode == borderVisible) return;
+            _borderMode = borderVisible;
+            SDL.SDL_SetWindowBordered(_window, _borderMode);
+        }
+
+        public void ToggleBorderMode()
+        {
+            SetBordlessMode(!_borderMode);
+        }
+
+        public void ToggleFullScreenMode()
+        {
+            SetFullScreen(!_fullscreen);
+        }
+
+        public void SetFullScreen(bool isFullscreen)
+        {
+            if(_fullscreen == isFullscreen) return;
+            _fullscreen = isFullscreen;
+            SDL.SDL_SetWindowFullscreen(_window, _fullscreen);
+        }
 
         public virtual void Dispose()
         {

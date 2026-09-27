@@ -10,8 +10,6 @@ layout(set = 2, binding = 1) uniform TexProps{
 
 layout(push_constant) uniform InstanceInfo {
     int matrixStartIndex;
-    int layerOffset;
-    int layerCount;
     int bufferSelect;
 	uint cameraIndex;
 } instanceInfo;

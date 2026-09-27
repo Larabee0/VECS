@@ -12,6 +12,9 @@ namespace VECS
         public static readonly int SSAO_Kernals_PropertyId = "ssaoKernels".GetShaderPropertyId();
         public static readonly int SSAO_Noise_PropertyId = "ssaoNoise".GetShaderPropertyId();
 
+        public static readonly int NoiseScale_PushConstantId = "noiseScale".GetShaderPropertyId();
+        public static readonly int RenderScale_PushConstantId = "renderScale".GetShaderPropertyId();
+
         private readonly IRenderer ActiveRenderer;
 
         private readonly ComputeVariant _computeSSAOGenerate;
@@ -86,14 +89,14 @@ namespace VECS
             Vector4 ssaoRTSize = new(windowExtents.width / 2, windowExtents.height / 2, 1.0f / (windowExtents.width / 2), 1.0f / (windowExtents.height / 2));
             Vector4 ssaoBlurRTSize = new(windowExtents.width, windowExtents.height, 1.0f / windowExtents.width, 1.0f / windowExtents.height);
             Vector2 scale = ssaoBlurRTSize.AsVector2() / new Vector2(_ssaoBlurRt.Target.Width, _ssaoBlurRt.Target.Height);
-            _computeSSAOGenerate.PushConstantsHandler.SetPushConstantVector4("srcImageSize", 0, ssaoBlurRTSize);
-            _computeSSAOGenerate.PushConstantsHandler.SetPushConstantVector4("outputImageSize", 0, ssaoRTSize);
-            _computeSSAOGenerate.PushConstantsHandler.SetPushConstantVector2("noiseScale", 0, new(windowExtents.width / 4, windowExtents.height / 4));
-            _computeSSAOGenerate.PushConstantsHandler.SetPushConstantVector2("renderScale", 0, scale);
+            _computeSSAOGenerate.PushConstantsHandler.SetPushConstantVector4(ShaderProperties.SrcImageSize_PushConstantId, 0, ssaoBlurRTSize);
+            _computeSSAOGenerate.PushConstantsHandler.SetPushConstantVector4(ShaderProperties.OutputImageSize_PushConstantId, 0, ssaoRTSize);
+            _computeSSAOGenerate.PushConstantsHandler.SetPushConstantVector2(NoiseScale_PushConstantId, 0, new(windowExtents.width / 4, windowExtents.height / 4));
+            _computeSSAOGenerate.PushConstantsHandler.SetPushConstantVector2(RenderScale_PushConstantId, 0, scale);
 
-            _computeSSAOBlur.PushConstantsHandler.SetPushConstantVector4("srcImageSize", 0, ssaoRTSize);
-            _computeSSAOBlur.PushConstantsHandler.SetPushConstantVector4("outputImageSize", 0, ssaoBlurRTSize);
-            _computeSSAOBlur.PushConstantsHandler.SetPushConstantVector2("renderScale", 0, scale);
+            _computeSSAOBlur.PushConstantsHandler.SetPushConstantVector4(ShaderProperties.SrcImageSize_PushConstantId, 0, ssaoRTSize);
+            _computeSSAOBlur.PushConstantsHandler.SetPushConstantVector4(ShaderProperties.OutputImageSize_PushConstantId, 0, ssaoBlurRTSize);
+            _computeSSAOBlur.PushConstantsHandler.SetPushConstantVector2(RenderScale_PushConstantId, 0, scale);
         }
 
         private static void GenerateResources()
@@ -137,7 +140,7 @@ namespace VECS
         private void GenerateSSAO(RendererFrameInfo frameInfo)
         {
             SetImageSize(new(frameInfo.OutputRect.extent.width, frameInfo.OutputRect.extent.height));
-            _computeSSAOGenerate.PushConstantsHandler.SetPushConstantUInt("cameraIndex", 0, (uint)frameInfo.TargetCamera);
+            _computeSSAOGenerate.PushConstantsHandler.SetPushConstantUInt(ShaderProperties.CameraIndex_PushConstantId, 0, (uint)frameInfo.TargetCamera);
             _computeSSAOGenerate.Dispatch(frameInfo.CommandBuffer, Presenter.FrameIndex, frameInfo.OutputRect.extent.width / 2, frameInfo.OutputRect.extent.height / 2);
         }
 

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using SDL3;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
@@ -68,6 +69,7 @@ namespace VECS
         private readonly static ConcurrentQueue<Pipeline> _shaderChanged = new();
 
         private readonly static ConcurrentQueue<Pipeline> _recreationQueue = new();
+        private readonly static List<Pipeline> _recreationList = [];
 
         private readonly static ConcurrentQueue<NewPipeline> _newPipelines = new();
 
@@ -79,19 +81,23 @@ namespace VECS
 
         private static Thread PipelineThread;
         private static CancellationTokenSource PipelineThreadCancel;
-
+        private static AutoResetEvent _trigger;
 
         public static void Reset(bool stop = false)
         {
             if(PipelineThread != null)
             {
                 PipelineThreadCancel.Cancel();
+                _trigger.Set();
                 PipelineThread.Join();
                 PipelineThread = null;
+
+                _trigger.Close();
             }
 
             if (!stop)
             {
+                _trigger = new(false);
                 PipelineThreadCancel = new();
                 PipelineThread = new Thread(DoPipelineWork)
                 {
@@ -149,14 +155,17 @@ namespace VECS
             CancellationTokenSource token = (CancellationTokenSource)cancellationToken;
             while (!token.IsCancellationRequested)
             {
+                _trigger.WaitOne();
                 while (_dstDisposalQueue.TryDequeue(out var cmd))
                 {
                     cmd?.DisposeInternal();
                 }
 
-                while(_recreationQueue.TryDequeue(out var recreate))
+
+                for (int i = _recreationList.Count - 1; i >= 0; i--)
                 {
-                    RecreatePipeline(recreate);
+                    RecreatePipeline(_recreationList[i]);
+                    _recreationList.RemoveAt(i);
                 }
             }
         }
@@ -195,6 +204,22 @@ namespace VECS
                 pipeline.Reinitialise();
             }
             return true;
+        }
+
+        public static void PlaybackRecreation()
+        {
+            if (_recreationQueue.IsEmpty)
+            {
+                return;
+                
+            }
+            _recreationList.EnsureCapacity(_recreationQueue.Count);
+
+            while (_recreationQueue.TryDequeue(out var pipe))
+            {
+                _recreationList.Add(pipe);
+            }
+            _trigger.Set();
         }
 
         public static void PlaybackDisposalCommands()

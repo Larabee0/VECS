@@ -24,10 +24,8 @@ namespace VECS
             EngineTextures.AddOrUpdateTexture(ShaderProperties.SLShadowImageId, _shadowDepthTextures);
             AssignShadowTextures(ShaderProperties.SLShadowImageId);
 
-            _depthOnly.PushConstants.SetPushConstantInt("layerCount", SPOT_SHADOWS_PUSH_CONSTANT_INDEX, 1);
-            _depthOnly.PushConstants.SetPushConstantInt("bufferSelect", SPOT_SHADOWS_PUSH_CONSTANT_INDEX, 3);
-            _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("layerCount", SPOT_SHADOWS_PUSH_CONSTANT_INDEX, 1);
-            _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("bufferSelect", SPOT_SHADOWS_PUSH_CONSTANT_INDEX, 3);
+            _depthOnly.PushConstants.SetPushConstantInt(Buffer_Select_PushConstantId, SPOT_SHADOWS_PUSH_CONSTANT_INDEX, 3);
+            _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt(Buffer_Select_PushConstantId, SPOT_SHADOWS_PUSH_CONSTANT_INDEX, 3);
 
             RenderGraph.AddPass("SpotLightShadows", PassType.Render,PassCategory.FixedMap, [], [], ["SpotLightShadowAttachments"], SpotLightPass);
         }
@@ -138,10 +136,8 @@ namespace VECS
             GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Depth Pass");
             BeginShadowPass(frameInfo.CommandBuffer, texture._imageView,(uint)texture.Width);
 
-            _depthOnly.PushConstants.SetPushConstantInt("matrixStartIndex", SPOT_SHADOWS_PUSH_CONSTANT_INDEX, textureIndex);
-            _depthOnly.PushConstants.SetPushConstantInt("layerOffset", SPOT_SHADOWS_PUSH_CONSTANT_INDEX, 0);
-            _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("matrixStartIndex", SPOT_SHADOWS_PUSH_CONSTANT_INDEX, textureIndex);
-            _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt("layerOffset", SPOT_SHADOWS_PUSH_CONSTANT_INDEX, 0);
+            _depthOnly.PushConstants.SetPushConstantInt(Matrix_Start_Index_PushConstantId, SPOT_SHADOWS_PUSH_CONSTANT_INDEX, textureIndex);
+            _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt(Matrix_Start_Index_PushConstantId, SPOT_SHADOWS_PUSH_CONSTANT_INDEX, textureIndex);
 
             DrawDepthOnly(frameInfo.CommandBuffer,SPOT_SHADOWS_PUSH_CONSTANT_INDEX,VkCullModeFlags.Front);
 

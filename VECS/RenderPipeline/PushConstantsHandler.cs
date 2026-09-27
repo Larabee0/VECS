@@ -92,9 +92,22 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void SetPushConstantInt(this PushConstantsHandler handler, int propertyId, int instanceIndex, int value)
+        {
+            WriteToPushConstantBuffer(handler, propertyId, instanceIndex, value);
+        }
+
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void SetPushConstantUInt(this PushConstantsHandler handler, string property, int instanceIndex, uint value)
         {
             WriteToPushConstantBuffer(handler, property, instanceIndex, value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void SetPushConstantUInt(this PushConstantsHandler handler, int propertyId, int instanceIndex, uint value)
+        {
+            WriteToPushConstantBuffer(handler, propertyId, instanceIndex, value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

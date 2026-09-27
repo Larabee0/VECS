@@ -419,6 +419,7 @@ namespace VECS
                 
                 _frameToWaitOn = SwapChain.NextFrame;
                 BasicSubmission.SubmitGraphicsQueue();
+                PipelineRecreation.PlaybackRecreation();
                 SwapChain.WaitForNextFrame(_frameToWaitOn);
 
 

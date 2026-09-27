@@ -19,6 +19,10 @@ namespace VECS
 
         public static readonly int Depth_Only_Queue_Name = "DepthOnly".GetShaderPropertyId();
 
+        public static readonly int Buffer_Select_PushConstantId = "bufferSelect".GetShaderPropertyId();
+        public static readonly int Matrix_Start_Index_PushConstantId = "matrixStartIndex".GetShaderPropertyId();
+
+
         protected readonly ITextureProvider _shadowDepthTextures;
         protected readonly bool[] _clearImages;
 

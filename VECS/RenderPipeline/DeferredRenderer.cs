@@ -172,9 +172,6 @@ namespace VECS
 
         public void PostCreate()
         {
-            EnginePipes.DepthOnly.PushConstants.SetPushConstantInt("layerCount", DEPTH_ONLY_PUSH_CONSTANT_INDEX, 1);
-            EnginePipes.DepthOnly.PushConstants.SetPushConstantInt("bufferSelect", DEPTH_ONLY_PUSH_CONSTANT_INDEX, 0);
-
             AddPass<OIT>();
             AddPass<SMAA>();
             AddPass<SSAO>();
@@ -277,8 +274,6 @@ namespace VECS
             var commandBuffer = frameInfo.CommandBuffer;
             if (_depthOnlyQueue.CommandCount > 0)
             {
-                EnginePipes.DepthOnly.PushConstants.SetPushConstantInt("matrixStartIndex", DEPTH_ONLY_PUSH_CONSTANT_INDEX, frameInfo.TargetCamera);
-
                 var depthBufferCullInfo = frameInfo.CullData;
                 depthBufferCullInfo.cullMode &= ~CullModeFlags.Depth;
 
@@ -304,25 +299,6 @@ namespace VECS
             }
         }
 
-        private void ForwadDepthPass(RendererFrameInfo frameInfo)
-        {
-            if (_forwardQueue.CommandCount > 0)
-            {
-                var commandBuffer = frameInfo.CommandBuffer;
-                EnginePipes.DepthOnly.PushConstants.SetPushConstantInt("matrixStartIndex", DEPTH_ONLY_PUSH_CONSTANT_INDEX, frameInfo.TargetCamera);
-                var depthBufferCullInfo = frameInfo.CullData;
-                depthBufferCullInfo.cullMode &= ~CullModeFlags.Depth;
-                GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Forward Depth Only");
-                DrawBlob.Cull(_forwardQueue, frameInfo.CommandBuffer, depthBufferCullInfo);
-                BeginDepthOnlyRendering(commandBuffer, VkAttachmentLoadOp.Load);
-                //DrawBlob.Execute(_forwardQueue, frameInfo, DEPTH_ONLY_PUSH_CONSTANT_INDEX, VkCullModeFlags.Back);
-                GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
-                GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
-
-                DepthReduction.ReduceDepth(frameInfo);
-            }
-        }
-
         private void DeferredObjectsPass(RendererFrameInfo frameInfo)
         {
             DrawBlob.SetTargetCamera(_deferredQueue, frameInfo.TargetCamera);
@@ -337,8 +313,8 @@ namespace VECS
 
         private void DeferredCompositePass(RendererFrameInfo frameInfo)
         {
-            _deferredComposite.PushConstantsHandler.SetPushConstantUInt("cameraIndex", 0, (uint)frameInfo.TargetCamera);
-            _deferredComposite.PushConstantsHandler.SetPushConstantVector4("outputImageSize", 0, new(frameInfo.OutputRect.extent.width, frameInfo.OutputRect.extent.height, 1.0f / frameInfo.OutputRect.extent.width, 1.0f / frameInfo.OutputRect.extent.height));
+            _deferredComposite.PushConstantsHandler.SetPushConstantUInt(ShaderProperties.CameraIndex_PushConstantId, 0, (uint)frameInfo.TargetCamera);
+            _deferredComposite.PushConstantsHandler.SetPushConstantVector4(ShaderProperties.OutputImageSize_PushConstantId, 0, new(frameInfo.OutputRect.extent.width, frameInfo.OutputRect.extent.height, 1.0f / frameInfo.OutputRect.extent.width, 1.0f / frameInfo.OutputRect.extent.height));
             _deferredComposite.Dispatch(frameInfo.CommandBuffer, Presenter.FrameIndex, frameInfo.OutputRect.extent.width, frameInfo.OutputRect.extent.height);
 
         }
