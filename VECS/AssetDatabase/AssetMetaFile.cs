@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
+using Vortice.Vulkan;
 
 namespace VECS
 {
@@ -30,6 +31,7 @@ namespace VECS
         public virtual void SaveMetaFile() { }
 
         public virtual void LoadAsset() { }
+        public virtual void PostLoad() { }
 
         private static readonly Dictionary<string, Type> MetaFileTypes = [];
 
@@ -74,7 +76,7 @@ namespace VECS
             
             var metaFile = LoadMetaFileAsDeclaredType(path);
 
-            AssetMetaFileDataBase.MetaFileDataBase.AddOrUpdate(metaFile.GUID,metaFile,(key, old) => metaFile);
+            metaFile = AssetMetaFileDataBase.MetaFileDataBase.GetOrAdd(metaFile.GUID,metaFile);
 
             return (T)metaFile;
         }

@@ -277,6 +277,16 @@ namespace VECS
             }
         }
 
+        public void TryLoadKtxFile()
+        {
+            if(DstTexture != null || KtxFiles != null)
+            {
+                return;
+            }
+
+            LoadKtxFile();
+        }
+
         public void LoadKtxFile()
         {
             bool ktxExists = File.Exists(KtxFileName);

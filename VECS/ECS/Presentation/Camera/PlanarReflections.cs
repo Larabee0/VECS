@@ -1,9 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
 using VECS.ECS.Transforms;
 
 namespace VECS.ECS.Presentation
@@ -77,8 +73,9 @@ namespace VECS.ECS.Presentation
                     //reflect[0, 0] = -1.0f;
 
 
-                    var viewReflected = Reflect(new(-Vector3.UnitX,0)) * mainCamera.ViewMatrix;// UnityBasedReflected(mainCameraLTW, targetPlaneLTW);// CameraSystem.GetViewMatrix(reflect); //mainCamera.ViewMatrix * reflect;
+                    var viewReflected =UnityBasedReflected(mainCameraLTW, targetPlaneLTW);// CameraSystem.GetViewMatrix(reflect); //mainCamera.ViewMatrix * reflect; mainCamera.ViewMatrix * Reflect(new(-Vector3.UnitX,0));// 
 
+                    DebugDrawer.DrawLine(viewReflected.Translation, viewReflected.Forward() , Colour.Blue);
 
 
                     Matrix4x4.Invert(viewReflected, out var inverted);
@@ -91,7 +88,9 @@ namespace VECS.ECS.Presentation
                     cam.ClipNear = mainCamera.ClipNear;
                     cam.ClipFar = mainCamera.ClipFar;
                     entityManager.SetComponent(entity,cam);
-                    
+                    var mirror = AssetDataBase<MaterialProvider>.GetHashed( entityManager.GetComponent<MaterialProviderComponent>(entity).Value);
+                    mirror.Colour.SetMatrix4x4("planarData.viewProjection".GetShaderPropertyId(), cam.ViewMatrix * cam.ProjectionMatrix);
+
                 });
             }
         }
@@ -110,6 +109,9 @@ namespace VECS.ECS.Presentation
             return CameraSystem.GetViewMatrix( TransformExtensions.TRS(reflectedPosition, TransformExtensions.QuaternionLookRotation(reflectedDirection,Vector3.UnitY), Vector3.One));
         }
 
+
+
+
         public static Matrix4x4 Reflect(Vector4 planeWorldSpace)
         {
             Matrix4x4 reflectM = Matrix4x4.Identity;
@@ -122,7 +124,7 @@ namespace VECS.ECS.Presentation
             {
                 // General plane reflection matrix R = I - 2*n*n^T for normalized plane; ignore translation for now
                 Vector3 n = Vector3.Normalize(planeWorldSpace.AsVector3());
-                Matrix3x3 R = new Matrix3x3(Vector3.One, Vector3.One, Vector3.One) - 2.0f * Matrix3x3.OuterProduct(n, n);
+                Matrix3x3 R = Matrix3x3.identity - 2.0f * Matrix3x3.OuterProduct(n, n);
                 reflectM = Matrix3x3.Make4x4(R);
             }
 

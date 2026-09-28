@@ -23,7 +23,9 @@ namespace VECS
         private static readonly HashSet<string> TextureTypes = [".png", ".jpg", ".jpeg",".ktx", ".TexDef"];
         private static readonly HashSet<string> NoesisTypes = [".xaml","ttf","otf"];
 
-        private static readonly HashSet<string> MeshTypes = [".obj",".fbx"];
+        private static readonly HashSet<string> _meshTypes = [".obj",".fbx"];
+
+        public static HashSet<string> MeshTypes => [.. _meshTypes];
 
         private static readonly HashSet<string> CompiledShaderTypes = [".spv"];
         private static readonly HashSet<string> UnCompiledShaderTypes = [.. ShaderCompiler._compileTags, ".glsl"];
@@ -40,7 +42,7 @@ namespace VECS
             {
                 return AssetType.Noesis;
             }
-            else if (MeshTypes.Contains(extension))
+            else if (_meshTypes.Contains(extension))
             {
                 return AssetType.Mesh;
             }
@@ -65,10 +67,11 @@ namespace VECS
 
         internal static void FileWatcherStart()
         {
-            _watcher = new(Asset.AssetsPath);
-
-            _watcher.IncludeSubdirectories = true;
-            _watcher.EnableRaisingEvents = true;
+            _watcher = new(Asset.AssetsPath)
+            {
+                IncludeSubdirectories = true,
+                EnableRaisingEvents = true
+            };
             _watcher.Error += FileWatchError;
             _watcher.Changed += FileChanged;
             _watcher.Created += FileCreated;

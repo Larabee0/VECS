@@ -20,8 +20,9 @@ namespace VECS
         public static Application Instance { get; private set; }
         private static bool running = true;
 
-        private static uint _targetFrameRate = uint.MaxValue; //20;//  
+        private static uint _targetFrameRate =   uint.MaxValue; //20;// 
         private static double _targetFrameTime;
+        private double _frameStart;
 
         public static uint TargetFrameRate
         {
@@ -64,14 +65,14 @@ namespace VECS
 
         public Application()
         {
+            var sw = Stopwatch.StartNew();
             _persistentDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            _persistentDataPath = System.IO.Path.Combine(_persistentDataPath, Bootstrap.ProjectName);
+            _persistentDataPath = Path.Combine(_persistentDataPath, Bootstrap.ProjectName);
             if (!Directory.Exists(_persistentDataPath))
             {
                 Directory.CreateDirectory(_persistentDataPath);
             }
             Console.WriteLine("PersistentDataPath: {0}", PersistentDataPath);
-            var sw = Stopwatch.StartNew();
             Instance = this;
             var targetThreadCount = int.Max(1, Environment.ProcessorCount > 4 ? Environment.ProcessorCount - 2 : Environment.ProcessorCount - 1);
             _threadDispatcher = new ThreadDispatcher(targetThreadCount);
@@ -82,14 +83,13 @@ namespace VECS
             GraphicsDevice.Initialise(_mainAppWindow);
             SDL3WindowManager.CheckLoadedPresentMode();
             ShaderModule.LoadAllShaders();
-            //SDL3WindowManager.CreateNewEditorWindow("VECS-Editor", Width, Height);
-            //_presenter = new Presenter<ForwardRenderer>();
+            MeshLoader.BackGroundPreLoad();
             _presenter = new Presenter<DeferredRenderer>();
 
             Time.FixedTimeStepCallback += FixedUpdate;
+            TargetFrameRate = _targetFrameRate;
             sw.Stop();
             Console.WriteLine("Application.Constructor time: {0}ms", sw.ElapsedMilliseconds);
-            TargetFrameRate = _targetFrameRate;
         }
 
         /// <summary>
@@ -106,12 +106,8 @@ namespace VECS
                     break;
                 }
                 Time.Update();
-                frameStart = Time.TimeSinceStartUpAsDouble * 1000.0;
+                _frameStart = Time.TimeSinceStartUpAsDouble * 1000.0;
                 Time.UpdateFixedTimeStep();
-                if (InputManager.Instance.GetKeyUp(SDL3.SDL_Keycode.F12))
-                {
-                    SDL3WindowManager.MainWindow.ToggleFullScreenMode();
-                }
                 Update();
                 Presentation();
                 SDL3WindowManager.LateInputUpdate();
@@ -122,20 +118,20 @@ namespace VECS
             GraphicsDevice.DeviceWaitIdle();
             Destroy();
         }
-        private double frameStart;
+        
         private void TargetFrameRateUpdate()
         {
             if (_targetFrameRate == uint.MaxValue) return;
             double frameEnd = Time.TimeSinceStartUpAsDouble * 1000.0;
 
-            double duration = frameEnd - frameStart;
+            double duration = frameEnd - _frameStart;
             double remaining = _targetFrameTime - duration;
 
             while (remaining > 0)
             {
                 Thread.SpinWait(5);
                 frameEnd = Time.TimeSinceStartUpAsDouble * 1000.0;
-                duration = frameEnd - frameStart;
+                duration = frameEnd - _frameStart;
                 remaining = _targetFrameTime - duration;
             }
         }

@@ -7,33 +7,6 @@ struct CubeRelfectionData {
 };
 
 
-#define CUBEMAPFACE_POSITIVE_X 0
-#define CUBEMAPFACE_NEGATIVE_X 1
-#define CUBEMAPFACE_POSITIVE_Y 2
-#define CUBEMAPFACE_NEGATIVE_Y 3
-#define CUBEMAPFACE_POSITIVE_Z 4
-#define CUBEMAPFACE_NEGATIVE_Z 5
-
-int CubeMapFaceID(vec3 dir)
-{
-    int faceID;
-
-    if (abs(dir.z) >= abs(dir.x) && abs(dir.z) >= abs(dir.y))
-    {
-        faceID = (dir.z < 0.0) ? CUBEMAPFACE_NEGATIVE_Z : CUBEMAPFACE_POSITIVE_Z;
-    }
-    else if (abs(dir.y) >= abs(dir.x))
-    {
-        faceID = (dir.y < 0.0) ? CUBEMAPFACE_NEGATIVE_Y : CUBEMAPFACE_POSITIVE_Y;
-    }
-    else
-    {
-        faceID = (dir.x < 0.0) ? CUBEMAPFACE_NEGATIVE_X : CUBEMAPFACE_POSITIVE_X;
-    }
-
-    return faceID;
-}
-
 vec4 CubeRelfection(samplerCube relectionCube, vec3 toCamera, vec3 normalWS, CubeRelfectionData relectionProbe){
     vec4 reflectionColour = vec4(0.0);
     

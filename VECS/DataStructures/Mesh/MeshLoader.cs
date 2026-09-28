@@ -11,23 +11,56 @@ using System.Linq;
 using System.Numerics;
 using System.Text;
 using System.Text.Json;
-using Material = Assimp.Material;
+using System.Threading.Tasks;
+using Vortice.Vulkan;
 
 namespace VECS
 {
+
+
+
     public class MaterialInfo
     {
+        public struct TextureInfo
+        {
+            public string TextureFile;
+            public VkFormat FormatHint;
+
+            public TextureInfo(string textureFile, VkFormat formatHint)
+            {
+                TextureFile = textureFile;
+                FormatHint = formatHint;
+            }
+
+            public override readonly int GetHashCode() => HashCode.Combine(TextureFile, FormatHint);
+        }
         public string Name;
+        public VkFormat DiffuseFormatHint = VkFormat.Bc7UnormBlock;
         public string DiffuseTexture;
+        public VkFormat NormalFormatHint = VkFormat.Bc5UnormBlock;
         public string NormalTexture;
+        public VkFormat AOFormatHint = VkFormat.Bc4UnormBlock;
         public string AOTexture;
+        public VkFormat MetallicFormatHint = VkFormat.Bc4UnormBlock;
         public string MetallicTexture;
+        public VkFormat SmoothnessFormatHint = VkFormat.Bc4UnormBlock;
         public string SmoothnessTexture;
+        public VkFormat MaskFormatHint = VkFormat.Bc3UnormBlock;
         public string MaskTexture;
         public Vector4 DiffuseColour;
         public List<int> appliesTo = [];
         public bool TrasnparencyHint;
         public bool AlphaClipping;
+
+        public TextureInfo[] TextureInfos =>
+            [
+                new(DiffuseTexture,DiffuseFormatHint),
+                new(NormalTexture,NormalFormatHint),
+                new(AOTexture,AOFormatHint),
+                new(MetallicTexture,MetallicFormatHint),
+                new(SmoothnessTexture,SmoothnessFormatHint),
+                new(MaskTexture,MaskFormatHint),
+            ];
 
         public MaterialInfo(Assimp.Material mat, string meshFileName)
         {
@@ -94,6 +127,16 @@ namespace VECS
             }
             DiffuseColour = Vector4.One;
         }
+
+        public void EnsureTexturesLoaded()
+        {
+            TextureLoader.GetOrLoad2D(DiffuseTexture, DiffuseFormatHint);
+            TextureLoader.GetOrLoad2D(NormalTexture, NormalFormatHint);
+            TextureLoader.GetOrLoad2D(AOTexture, AOFormatHint);
+            TextureLoader.GetOrLoad2D(MetallicTexture, MetallicFormatHint);
+            TextureLoader.GetOrLoad2D(SmoothnessTexture, SmoothnessFormatHint);
+            TextureLoader.GetOrLoad2D(MaskTexture, MaskFormatHint);
+        }
     }
 
     public class MaterialTemplate
@@ -123,6 +166,216 @@ namespace VECS
         private const bool ASSIMP_VERBOSE_LOGGING = false;
         public static string DefaultMeshPath => Path.Combine(Asset.AssetsPath, "Models");
 
+        private readonly static Dictionary<string, ModelMetaFile> _models = [];
+        private readonly static Dictionary<Guid, Scene> _preLoaded = [];
+
+        private static Task StartLoad;
+
+        internal static void BackGroundPreLoad()
+        {
+            StartLoad = Task.Run(DetectModels);
+        }
+
+        internal static void DetectModels()
+        {
+            var dir = new DirectoryInfo(Asset.AssetsPath);
+            List<FileInfo> fileInfos = [];
+            foreach (var type in AssetManager.MeshTypes)
+            {
+                fileInfos.AddRange(dir.GetFiles($"*{type}", SearchOption.AllDirectories));
+            }
+            Console.WriteLine("[MeshLoader] Detected {0} Models", fileInfos.Count);
+            List<string> autoLoad = [];
+            HashSet<string> loadTextures = [];
+            for (int i = 0; i < fileInfos.Count; i++)
+            {
+                var metaFile = AssetMetaFile.TryLoad<ModelMetaFile>(fileInfos[i].FullName);
+                if (metaFile == null)
+                {
+                    metaFile = new ModelMetaFile(fileInfos[i].FullName, null, null);
+                    metaFile.SaveMetaFile();
+                }
+                metaFile.SrcFileName = fileInfos[i].FullName;
+                _models[fileInfos[i].FullName] = metaFile;
+
+                metaFile.PostLoad();
+                if (metaFile.LoadOnStart)
+                {
+                    autoLoad.Add(fileInfos[i].FullName);
+                }
+                if(metaFile.AutoLoadTextures && metaFile.MaterialSet != null)
+                {
+
+                }
+            }
+            var meshFiles = Task.Run(() =>
+            {
+                Stopwatch sw = Stopwatch.StartNew();
+                Scene[] scenes = new Scene[autoLoad.Count];
+
+                Parallel.For(0, autoLoad.Count, (i) =>
+                {
+                    AssimpContext importer = new();
+                    scenes[i] = importer.ImportFile(autoLoad[i], PostProcessSteps.JoinIdenticalVertices | PostProcessSteps.RemoveRedundantMaterials);
+                    importer.Dispose();
+                });
+
+                int meshCount = 0;
+
+                for (int i = 0; i < autoLoad.Count; i++)
+                {
+                    if (scenes[i] == null) continue;
+                    meshCount += scenes[i].MeshCount;
+                }
+
+                Mesh[] meshes = new Mesh[meshCount];
+                uint[] indexCounts = new uint[meshCount];
+
+                for (int i = 0, k = 0; i < autoLoad.Count; i++)
+                {
+                    if (scenes[i] == null) continue;
+                    for (int j = 0; j < scenes[i].MeshCount; j++, k++)
+                    {
+                        meshes[k] = scenes[i].Meshes[j];
+                    }
+                }
+
+                Parallel.For(0, meshCount, (i) =>
+                {
+                    var mesh = meshes[i];
+                    int[] indices = [.. mesh.GetIndices()];
+
+                    indexCounts[i] = (uint)indices.Length;
+
+                    if (!mesh.HasVertices || !mesh.HasTextureCoords(0) || !mesh.HasNormals || mesh.Tangents.Count == mesh.VertexCount) return;
+
+                    Vector4[] generatedTangents = new Vector4[mesh.VertexCount];
+
+                    // calculate tangents
+                    var context = new MikktspaceContext(mesh.FaceCount,
+                        face => 3,
+                        (int face, int vertex, out float x, out float y, out float z) =>
+                        {
+                            var vert = mesh.Vertices[indices[vertex + (face * 3)]];
+                            x = vert.X;
+                            y = vert.Y;
+                            z = vert.Z;
+                        },
+                        (int face, int vertex, out float x, out float y, out float z) =>
+                        {
+                            var norm = mesh.Normals[indices[vertex + (face * 3)]];
+                            x = norm.X;
+                            y = norm.Y;
+                            z = norm.Z;
+                        },
+                        (int face, int vertex, out float u, out float v) =>
+                        {
+                            var norm = mesh.TextureCoordinateChannels[0][indices[vertex + (face * 3)]];
+                            u = norm.X;
+                            v = norm.Y;
+                        },
+                        (face, vertex, x, y, z, sign) => generatedTangents[indices[vertex + (face * 3)]] = new(x, y, z, sign)
+                    );
+
+                    if (MikkGenerator.GenerateTangentSpace(context))
+                    {
+                        mesh.Tangents.Clear();
+                        for (int j = 0; j < generatedTangents.Length; j++)
+                        {
+                            mesh.Tangents.Add(generatedTangents[j].AsVector3());
+                        }
+                    }
+
+
+                });
+
+                int preLoadCount = 0;
+                for (int i = 0, k = 0; i < autoLoad.Count; i++)
+                {
+                    if (scenes[i] != null)
+                    {
+                        var meta = _models[autoLoad[i]];
+                        _preLoaded[meta.GUID] = scenes[i];
+
+                        uint indexCount = 0;
+
+                        for (int j = 0; j < scenes[i].MeshCount; j++, k++)
+                        {
+                            indexCount += indexCounts[k];
+                            scenes[i].Metadata[$"VECS_Index_Total_{j}"] = new(MetaDataType.UInt32, indexCounts[k]);
+                        }
+                        meta.IndexCount = indexCount;
+
+                        preLoadCount++;
+                    }
+                }
+                sw.Stop();
+                Console.WriteLine("[MeshLoader] PreLoaded {0} Models in {1}ms", preLoadCount, sw.ElapsedMilliseconds);
+            });
+
+            Stopwatch sw = Stopwatch.StartNew();
+
+            foreach (var item in _models)
+            {
+                item.Value.TryTexturesLoaded();
+            }
+            sw.Stop();
+            Console.WriteLine("[MeshLoader] Texures loaded in {0}ms for model pre-loading to", sw.ElapsedMilliseconds);
+            if (!meshFiles.IsCompleted)
+            {
+                meshFiles.Wait();
+            }
+            
+        }
+
+        private static void WaitPreLoad()
+        {
+            if (StartLoad.IsFaulted)
+            {
+                Debugger.Break();
+            }
+            if (!StartLoad.IsCompleted)
+            {
+                Stopwatch sw = Stopwatch.StartNew();
+                StartLoad.Wait();
+                sw.Stop();
+                Console.WriteLine("Had to wait {0}ms for model pre-loading to", sw.ElapsedMilliseconds);
+            }
+        }
+
+
+        private static Scene GetOrLoadScene(string filePath, MaterialSet template = null)
+        {
+            WaitPreLoad();
+
+
+            if (!_models.TryGetValue(filePath, out var meta))
+            {
+                meta = new(filePath, null, template);
+                _models[filePath] = meta;
+            }
+            else if (meta.MaterialInfo == null && template != null)
+            {
+                meta.MaterialSet = template;
+                meta.SaveMetaFile();
+            }
+            if (!_preLoaded.TryGetValue(meta.GUID, out Scene scene))
+            {
+                AssimpContext importer = new();
+                
+#if AssimpLogging
+                var logger = StartAssimpLogger(ASSIMP_VERBOSE_LOGGING);
+#endif
+                scene = importer.ImportFile(filePath, PostProcessSteps.JoinIdenticalVertices | PostProcessSteps.RemoveRedundantMaterials);
+                _preLoaded[meta.GUID] = scene;
+#if AssimpLogging
+            StopAssimpLogger(logger);
+#endif
+                importer.Dispose();
+            }
+            return scene;
+        }
+
         public static string GetMeshInDefaultPath(string file)
         {
             return Path.Combine(DefaultMeshPath, file);
@@ -145,13 +398,7 @@ namespace VECS
                 string text = File.ReadAllText(matInfoPath);
                 template = JsonSerializer.Deserialize<MaterialSet>(text);
             }
-            AssimpContext importer = new();
-            
-#if AssimpLogging
-            var logger = StartAssimpLogger(ASSIMP_VERBOSE_LOGGING);
-#endif
-            Scene scene = importer.ImportFile(filePath, PostProcessSteps.JoinIdenticalVertices | PostProcessSteps.RemoveRedundantMaterials);
-
+            var scene = GetOrLoadScene(filePath, template);
             if (scene == null)
             {
                 meshes = null;
@@ -198,10 +445,6 @@ namespace VECS
             }
 
 
-#if AssimpLogging
-            StopAssimpLogger(logger);
-#endif
-            importer.Dispose();
             
         }
 
@@ -212,11 +455,7 @@ namespace VECS
                 return null;
             }
 
-            AssimpContext importer = new();
-#if AssimpLogging
-            var logger = StartAssimpLogger(ASSIMP_VERBOSE_LOGGING);
-#endif
-            Scene scene = importer.ImportFile(filePath, PostProcessSteps.JoinIdenticalVertices);
+            var scene = GetOrLoadScene(filePath);
 
             if (scene == null)
             {
@@ -225,10 +464,6 @@ namespace VECS
             var directMeshName = Path.GetFileNameWithoutExtension(filePath);
             var meshes = CreateMeshes(directMeshName, scene, additionalAttributes);
             meshes[0].DirectMeshBuffer.FileName = Path.GetFileName(filePath);
-#if AssimpLogging
-            StopAssimpLogger(logger);
-#endif
-            importer.Dispose();
             return meshes;
         }
 
@@ -274,8 +509,17 @@ namespace VECS
 
             for (int i = 0; i < scene.MeshCount; i++)
             {
-                directMeshCreateInfo[i] = new DirectSubMeshCreateInfo((uint)scene.Meshes[i].VertexCount,
-                    (uint)scene.Meshes[i].GetUnsignedIndices().Count());
+                uint indexCount  = 0;
+                if (scene.Metadata.TryGetValue($"VECS_Index_Total_{i}", out var value) && value.DataType == MetaDataType.UInt32)
+                {
+                    indexCount = (uint)value.Data;
+                }
+                else
+                {
+                    indexCount = (uint)scene.Meshes[i].GetUnsignedIndices().Count();
+                }
+
+                directMeshCreateInfo[i] = new DirectSubMeshCreateInfo((uint)scene.Meshes[i].VertexCount, indexCount);
             }
 
             var directMeshBuffer = new DirectMesh(directMeshName, attributeDescriptions, directMeshCreateInfo);
@@ -310,7 +554,7 @@ namespace VECS
         {
             List<Vector3> srcVertices = srcMesh.Vertices;
             List<Vector3> srcNormals = srcMesh.HasNormals ? srcMesh.Normals : null;
-            List<Vector3> srcTangents = srcMesh.HasTangentBasis ? srcMesh.Tangents : null;
+            List<Vector3> srcTangents = srcMesh.Tangents.Count > 0 ? srcMesh.Tangents : null;
             List<Vector4> srcColours = srcMesh.HasVertexColors(0) ? srcMesh.VertexColorChannels[0] : null;
             List<Vector3> srcUV0 = srcMesh.HasTextureCoords(0) ? srcMesh.TextureCoordinateChannels[0] : null;
             List<Vector3> srcUV1 = srcMesh.HasTextureCoords(1) ? srcMesh.TextureCoordinateChannels[1] : null;
@@ -346,7 +590,7 @@ namespace VECS
 
             for (int i = 0; i < srcMesh.VertexCount; i++)
             {
-                if (!dstTangents.IsEmpty && srcTangents != null) { dstTangents[i] = srcTangents[i].AsVector4(); }
+                if (!dstTangents.IsEmpty && srcTangents != null) { dstTangents[i] = new(srcTangents[i],1); }
                 if (!dstUV0.IsEmpty && srcUV0 != null) { dstUV0[i] = srcUV0[i].ToVector2(); }
                 if (!dstUV1.IsEmpty && srcUV1 != null) { dstUV1[i] = srcUV1[i].ToVector2(); }
                 if (!dstUV2.IsEmpty && srcUV2 != null) { dstUV2[i] = srcUV2[i].ToVector2(); }
@@ -358,16 +602,24 @@ namespace VECS
             }
 
 
-            
-            var counter = 0;
-            foreach(var index in srcMesh.GetUnsignedIndices())
+            int offset = 0;
+            var dstIndices = dstMesh.Indicies;
+            for (int i = 0; i < srcMesh.FaceCount; i++)
             {
-                dstMesh.Indicies[counter] = index;
-                counter++;
+                var face = srcMesh.Faces[i];
+                if (face.IndexCount <= 0 || face.Indices == null)
+                {
+                    continue;
+                }
+
+                for (int j = 0; j < face.IndexCount; j++, offset++)
+                {
+                    dstIndices[offset] = (uint)face.Indices[j];
+                }
             }
 
 
-            if(dstTangents != Span<Vector4>.Empty && !srcMesh.HasTangentBasis)
+            if (dstTangents != Span<Vector4>.Empty && srcTangents == null)
             {
                 Vector4[] generatedTangents = new Vector4[dstVertices.Length];
                 int[] indices = [..srcMesh.GetIndices()];
@@ -403,6 +655,11 @@ namespace VECS
                 }
 
                 generatedTangents.CopyTo(dstTangents);
+                for (int i = 0; i < dstTangents.Length; i++)
+                {
+                    srcMesh.Tangents.Add(dstTangents[i].AsVector3());
+                    srcMesh.BiTangents.Add(dstTangents[i].AsVector3());
+                }
             }
 
             dstMesh.RecalculateRenderBounds();
@@ -507,7 +764,7 @@ namespace VECS
 
             for (int i = 0; i < validFiles.Count; i++)
             {
-                var scene = importer.ImportFile(validFiles[i]);
+                var scene = GetOrLoadScene(validFiles[i]);
                 if (scene != null)
                 {
                     assimpScenes.Add(scene);

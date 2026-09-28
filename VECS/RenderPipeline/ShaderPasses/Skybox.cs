@@ -35,7 +35,6 @@ namespace VECS
             pipelineConfig.depthStencilInfo.depthTestEnable = true;
 
             _skybox ??= GraphicsPipeline.VertexFragmentPipeline("Skybox", "skybox.vert", "skybox.frag", pipelineConfig).Default();
-            Cube ??= MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("cube-UV.obj"),null)[0];
 
             SkyboxTexture ??= TextureLoader.LoadCubemap(Path.Combine(TextureLoader.DefaultTexturePath, "Skyboxes", "GL_Skybox", "GL_Skybox.TexDef.ktx"), VkFormat.Bc7UnormBlock);
             _activeRenderer = activeRenderer;
@@ -64,12 +63,11 @@ namespace VECS
 
         public void RecreateRenderTargets()
         {
-
         }
 
         public void PrePresent()
         {
-
+            Cube ??= MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("cube-UV.obj"), null)[0];
         }
 
         public void RenderSkybox(RendererFrameInfo frameInfo)

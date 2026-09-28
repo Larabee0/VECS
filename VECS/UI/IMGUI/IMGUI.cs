@@ -24,6 +24,16 @@ namespace VECS.UI
         private static readonly int inputTextureId = "inputTexture".GetShaderPropertyId();
         internal static readonly Queue<Material> _freeVariants = [];
 
+        internal static GraphicsPipeline _imguiPipeline;
+
+        static IMGUI()
+        {
+            _imguiPipeline = GraphicsPipelineDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "IMGUI_Pipe.sp"));
+
+            _freeVariants.Enqueue(_imguiPipeline.Default());
+
+        }
+
         private readonly SDL3Window _outputWindow;
 
         private ImGuiContextPtr _context;
@@ -97,7 +107,7 @@ namespace VECS.UI
             ImGui.SetCurrentContext(_context);
             if (!_freeVariants.TryDequeue(out var variant))
             {
-                variant = EnginePipes.IMGUI.Create(string.Format("IMGUI_VAR_{0}", textureID.ToString()));
+                variant = _imguiPipeline.Create(string.Format("IMGUI_VAR_{0}", textureID.ToString()));
             }
             _textureVariants[textureID] = new()
             {
@@ -195,7 +205,7 @@ namespace VECS.UI
 
             if(!_freeVariants.TryDequeue(out var variant))
             {
-                variant = EnginePipes.IMGUI.Create(string.Format("IMGUI_VAR_{1}_{0}", textureData.TexID.Handle.ToString(), _outputWindow.WindowName));
+                variant = _imguiPipeline.Create(string.Format("IMGUI_VAR_{1}_{0}", textureData.TexID.Handle.ToString(), _outputWindow.WindowName));
             }
 
             

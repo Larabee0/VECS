@@ -136,6 +136,7 @@ namespace VECS
                 _renderer = CreateRenderer();
                 _renderer.PostCreate();
                 _imgui = new(SDL3WindowManager.MainWindow);
+                EnginePipes.Load();
                 SwapChain.GraphicsCallback += GraphicsPipe;
             }
             else

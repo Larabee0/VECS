@@ -173,6 +173,7 @@ namespace VECS.UI
 
             for (Shader.Enum i = 0; i < Shader.Enum.Count; i++)
             {
+                if (i >= Shader.Enum.SDF_LCD_Solid && i <= Shader.Enum.SDF_LCD_Pattern_Mirror) continue;
                 _pixelShaders[(int)i] = AssetDataBase<ShaderModule>.GetNamed(string.Format("{0}_PS", i.ToString()));
             }
         }

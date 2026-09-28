@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Numerics;
 using VECS.ECS.Presentation;
 using VECS.ECS.Transforms;
@@ -39,6 +40,7 @@ namespace VECS
         private IRenderer _activeRenderer;
 
         public static DebugDrawer Instance { get; private set; }
+        internal static GraphicsPipeline DebugWireFrame { get; private set; }
 
         public DebugDrawer(IRenderer activeRenderer)
         {
@@ -64,8 +66,10 @@ namespace VECS
             _lineBuffer.HostBuffer.Fill(new Matrix3x2(0, 0, 0, 0, 0, 0));
             CreateWireCube();
             CreateWireCircle();
-            EnginePipes.WireFrame.SetStorageBuffer(ShaderProperties.MatricesBufferId, _matrices);
-            EnginePipes.WireFrame.SetStorageBuffer(ShaderProperties.ColourBufferId, _colours);
+            DebugWireFrame = GraphicsPipelineDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "WireFrame.sp"));
+
+            DebugWireFrame.SetStorageBuffer(ShaderProperties.MatricesBufferId, _matrices);
+            DebugWireFrame.SetStorageBuffer(ShaderProperties.ColourBufferId, _colours);
 
 
             new GPUBufferAsset("DebugDrawer_WireCircle_mesh", _circleBuffer);
@@ -304,11 +308,11 @@ namespace VECS
             
             var drawCount = _wireCubes.Count + _wireSpheres.Count + _lineQueue.Count + _fustrums.Count;
 
-            EnginePipes.WireFrame.SetDescriptorStorageBufferLengthFromProperty(ShaderProperties.MatricesBufferId, (uint)drawCount);
-            EnginePipes.WireFrame.SetDescriptorStorageBufferLengthFromProperty(ShaderProperties.ColourBufferId, (uint)drawCount);
+            DebugWireFrame.SetDescriptorStorageBufferLengthFromProperty(ShaderProperties.MatricesBufferId, (uint)drawCount);
+            DebugWireFrame.SetDescriptorStorageBufferLengthFromProperty(ShaderProperties.ColourBufferId, (uint)drawCount);
 
-            EnginePipes.WireFrame.GetStorageSwapChainBuffer(MatricesBufferId).SetBuffersDirty(true);
-            EnginePipes.WireFrame.GetStorageSwapChainBuffer(ColourBufferId).SetBuffersDirty(true);
+            DebugWireFrame.GetStorageSwapChainBuffer(MatricesBufferId).SetBuffersDirty(true);
+            DebugWireFrame.GetStorageSwapChainBuffer(ColourBufferId).SetBuffersDirty(true);
 
             GPUBufferExtensions.WriteFromHostDelayed(_drawBuffer, Presenter.FrameIndex);
             GPUBufferExtensions.WriteFromHostDelayed(_matrices, Presenter.FrameIndex);
@@ -317,7 +321,7 @@ namespace VECS
 
         private unsafe void DrawIndirect(RendererFrameInfo frameInfo, int offset, int count)
         {
-            EnginePipes.WireFrame.BindAll(frameInfo, 0);
+            DebugWireFrame.BindAll(frameInfo, 0);
             GraphicsDevice.DeviceAPI.vkCmdDrawIndirect(frameInfo.CommandBuffer, _drawBuffer.ActiveVkBuffer, (uint)offset * (uint)sizeof(VkDrawIndirectCommand), (uint)count, (uint)sizeof(VkDrawIndirectCommand));
         }
 

@@ -19,8 +19,10 @@ layout(set = 0,binding = 1) readonly buffer RelfectionProbes {
 } reflectionProbes;
 
 layout (set = 0, binding = 2) uniform samplerCube relfectionMap;
-layout (set = 0, binding = 3) uniform samplerCube relfectionMap2;
-layout (set = 0, binding = 4) uniform samplerCube relfectionMap3;
+layout (set = 0, binding = 3) uniform sampler2D planarMap;
+layout (set = 0, binding = 4) uniform PlanarData{
+	mat4 viewProjection;
+} planarData;
 
 layout(set = 0,binding = 5) readonly buffer CameraDatas {
 	CameraData values[];
@@ -30,9 +32,23 @@ layout(push_constant) uniform Constants{
     
 	uint cameraIndex;
 } constants;
-void main()
-{
+vec4 PlanarReflection(){
+	vec4 reflectionPosition = planarData.viewProjection * vec4(fragPosWS,1.0);
+	vec2 reflectTexCoord;
+    reflectTexCoord.x = reflectionPosition.x / reflectionPosition.w / 2.0 + 0.5;
+    reflectTexCoord.y = reflectionPosition.y / reflectionPosition.w / 2.0 - 0.5;
+
+
+	return texture(planarMap, reflectTexCoord);
+}
+
+vec4 CubeReflection(){
 	vec3 cameraPosWorld = cameraData.values[constants.cameraIndex].inverseViewMatrix[3].xyz;    
 	vec3 V = normalize(cameraPosWorld - fragPosWS.xyz);
-	outColour = CubeRelfection(relfectionMap, V, fragNormalWS, reflectionProbes.values[0]);
+	
+	return CubeRelfection(relfectionMap, V, fragNormalWS, reflectionProbes.values[0]);
+}
+void main()
+{
+	outColour = PlanarReflection();
 }

@@ -13,8 +13,6 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
@@ -79,8 +77,11 @@ namespace VECS
 
         private static TextureMetaFile LoadOrCompressTexture(string path)
         {
-            var metaFile = new TextureMetaFile(path, TextureShape.TwoD);
-            metaFile.LoadKtxFile();
+            var metaFile = AssetMetaFile.TryLoad<TextureMetaFile>(path);
+
+            metaFile ??= new TextureMetaFile(path, TextureShape.TwoD);
+            metaFile.SrcFileName ??= path;
+            metaFile.TryLoadKtxFile();
 
             if (metaFile.Compress && !metaFile.LoadedFormat.IsCompressedFormat())
             {
@@ -92,9 +93,11 @@ namespace VECS
 
         private static TextureMetaFile LoadOrCompressTexture(string path, VkFormat format, TextureShape shape)
         {
-            
-            var metaFile = new TextureMetaFile(path, shape, format);
-            metaFile.LoadKtxFile();
+
+            var metaFile = AssetMetaFile.TryLoad<TextureMetaFile>(path);
+            metaFile ??= new TextureMetaFile(path, shape,format);
+            metaFile.SrcFileName ??= path;
+            metaFile.TryLoadKtxFile();
 
             if (metaFile.Compress && !metaFile.LoadedFormat.IsCompressedFormat())
             {
@@ -102,6 +105,26 @@ namespace VECS
             }
 
             return metaFile;
+        }
+
+        public static Texture2D GetOrLoad2D(string path)
+        {
+            var metaFile = LoadOrCompressTexture(path);
+            if (metaFile.DstTexture is Texture2D texture2D)
+            {
+                return texture2D;
+            }
+            return new(metaFile, VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled);
+        }
+
+        public static Texture2D GetOrLoad2D(string path, VkFormat formatHint)
+        {
+            var metaFile = LoadOrCompressTexture(path, formatHint, TextureShape.TwoD);
+            if (metaFile.DstTexture is Texture2D texture2D)
+            {
+                return texture2D;
+            }
+            return new(metaFile, VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled);
         }
 
         public static Texture2D Load2D(string path)
@@ -116,6 +139,17 @@ namespace VECS
             var metaFile = LoadOrCompressTexture(path,format, TextureShape.TwoD);
             
             return new(metaFile, VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled);
+        }
+
+        public static Cubemap GetOrLoadCubemap(string path, VkFormat format)
+        {
+            var metaFile = LoadOrCompressTexture(path, format, TextureShape.Cube);
+
+            if (metaFile.DstTexture is Cubemap cubemap)
+            {
+                return cubemap;
+            }
+            return new(metaFile);
         }
 
         public static Cubemap LoadCubemap(string path, VkFormat format)

@@ -53,8 +53,8 @@ namespace VECS
         {
             _sphere = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("UV-Sphere.obj"), [new(VertexAttribute.Tangent,VertexAttributeFormat.Float4)])[0];
             CreateMainCamera();
-            //CreateCamera();
-            CreateCubeProbe();
+            //PlanrRelfection();
+            //CreateCubeProbe();
             DirectionalLight();
             PointLight();
             //SponzaOld();
@@ -84,7 +84,7 @@ namespace VECS
             entityManager.AddComponent(probe, new MaterialProviderComponent() { Value = material.Hash, LayerFlags = RenderLayer.Default | RenderLayer.NoShadow });
         }
 
-        private static void CreateCamera()
+        private static void PlanrRelfection()
         {
             Texture2D tex = new("SecondCamera", 512, 512, VkFormat.R16G16B16A16Sfloat, VkImageUsageFlags.Sampled | VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.TransferDst | VkImageUsageFlags.TransferSrc, false);
             EntityManager entityManager = World.DefaultWorld.EntityManager;
@@ -105,14 +105,17 @@ namespace VECS
 
             var mesh = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("quad.obj"), null)[0];
 
-            var unlitTex = EnginePipes.Unlit_Tex_Deferred.Default();
+            var defaultInfo = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
+            var mirrorSurface = new GraphicsPipeline("MirrorSurface", defaultInfo, AssetDataBase<ShaderModule>.GetNamed("lit_texture.vert"), AssetDataBase<ShaderModule>.GetNamed("mirror_surface.frag")).Default();
+            var unlitTex = mirrorSurface;
 
 
-            unlitTex.SetTexture("texSampler".GetShaderPropertyId(), tex);
+            unlitTex.SetTexture("planarMap".GetShaderPropertyId(), tex);
             AddRenderMeshComponents(entity, unlitTex, 0, mesh, entityManager);
             MaterialProvider material = new("SecondaryCam", EnginePipes.DepthOnly.Create("unlitTex"), unlitTex);
             AssetDataBase<MaterialProvider>.Add(material);
             entityManager.AddComponent(entity, new MaterialProviderComponent() { Value = material.Hash, LayerFlags = RenderLayer.Default | RenderLayer.NoShadow });
+            entityManager.AddComponent(secondaryCamera, new MaterialProviderComponent() { Value = material.Hash, LayerFlags = RenderLayer.Default | RenderLayer.NoShadow });
             entityManager.AddComponent(entity, new Rotation() { Value = TransformExtensions.EulerUnity(0, 90, 90) });
             entityManager.AddComponent(entity, new Translation() { Value = new Vector3(0, 2, 1) });
         }
@@ -344,7 +347,7 @@ namespace VECS
                 {
                     if (!textureLibrary.TryGetValue(matInfo.DiffuseTexture, out var diffuseTexture))
                     {
-                        diffuseTexture = TextureLoader.Load2D(matInfo.DiffuseTexture,VkFormat.Bc7UnormBlock); //new Texture2D(matInfo.DiffuseTexture);
+                        diffuseTexture = TextureLoader.GetOrLoad2D(matInfo.DiffuseTexture,VkFormat.Bc7UnormBlock); //new Texture2D(matInfo.DiffuseTexture);
                         textureLibrary.Add(matInfo.DiffuseTexture, diffuseTexture);
                     }
                     if (matInfo.AlphaClipping)
@@ -365,7 +368,7 @@ namespace VECS
                 {
                     if (!textureLibrary.TryGetValue(matInfo.NormalTexture, out var normalTexture))
                     {
-                        normalTexture = TextureLoader.Load2D(matInfo.NormalTexture, VkFormat.Bc5UnormBlock); // new Texture2D(matInfo.NormalTexture, true,false,false);
+                        normalTexture = TextureLoader.GetOrLoad2D(matInfo.NormalTexture, VkFormat.Bc5UnormBlock); // new Texture2D(matInfo.NormalTexture, true,false,false);
                         //normalTexture.Reinitialise(new VkComponentMapping(VkComponentSwizzle.A, VkComponentSwizzle.G, VkComponentSwizzle.B, VkComponentSwizzle.R));
 
                         textureLibrary.Add(matInfo.NormalTexture, normalTexture);
@@ -411,7 +414,7 @@ namespace VECS
             Console.WriteLine("Sponza Mesh Import time: {0}ms", sw.ElapsedMilliseconds);
 
             Dictionary<string, Texture2D> textureLibrary = [];
-            
+
             EntityManager entityManager = World.DefaultWorld.EntityManager;
 
             var commonParent = entityManager.CreateEntity();
@@ -429,7 +432,7 @@ namespace VECS
 
             var texProp = "albedoMap".GetShaderPropertyId();
             var normalProp = "normalMap".GetShaderPropertyId();
-            
+
             var maskProp = "maskMap".GetShaderPropertyId();
 
             var texColour = "texProps.colour".GetShaderPropertyId();
@@ -454,18 +457,18 @@ namespace VECS
 
                 MaterialProvider materialProvider = AssetDataBase<MaterialProvider>.GetNamedSilentFail(matName);
 
-                if(materialProvider == null)
+                if (materialProvider == null)
                 {
                     materialProvider = new MaterialProvider(matName, material);
                     AssetDataBase<MaterialProvider>.Add(materialProvider);
                 }
-                
+
 
                 if (matInfo.DiffuseTexture != null)
                 {
                     if (!textureLibrary.TryGetValue(matInfo.DiffuseTexture, out var diffuseTexture))
                     {
-                        diffuseTexture = TextureLoader.Load2D(matInfo.DiffuseTexture,VkFormat.Bc7UnormBlock);
+                        diffuseTexture = TextureLoader.GetOrLoad2D(matInfo.DiffuseTexture, VkFormat.Bc7UnormBlock);
                         textureLibrary.Add(matInfo.DiffuseTexture, diffuseTexture);
                         materialProvider.DepthOnly = EnginePipes.DepthOnly.Default();
                     }
@@ -477,7 +480,7 @@ namespace VECS
                         material.CullMode = VkCullModeFlags.None;
                         material.AlphaTexture = diffuseTexture;
                         var alphaClippingDepthVariant = EnginePipes.DepthOnlyAlphaClipping.Create(matName);
-                        DrawBlob.SetAlphaClipping(material,alphaClippingDepthVariant);
+                        DrawBlob.SetAlphaClipping(material, alphaClippingDepthVariant);
                         materialProvider.DepthOnly = alphaClippingDepthVariant;
                     }
                     material.SetTexture(texProp, diffuseTexture);
@@ -488,10 +491,10 @@ namespace VECS
                 }
 
                 if (matInfo.NormalTexture != null)
-                { 
+                {
                     if (!textureLibrary.TryGetValue(matInfo.NormalTexture, out var normalTexture))
                     {
-                        normalTexture = TextureLoader.Load2D(matInfo.NormalTexture, VkFormat.Bc5UnormBlock);
+                        normalTexture = TextureLoader.GetOrLoad2D(matInfo.NormalTexture, VkFormat.Bc5UnormBlock);
                         textureLibrary.Add(matInfo.NormalTexture, normalTexture);
                     }
                     material.SetTexture(normalProp, normalTexture);
@@ -501,11 +504,11 @@ namespace VECS
                     material.SetTexture(normalProp, EngineTextures.Black);
                 }
 
-                if(matInfo.MaskTexture != null)
+                if (matInfo.MaskTexture != null)
                 {
                     if (!textureLibrary.TryGetValue(matInfo.MaskTexture, out var maskTexture))
                     {
-                        maskTexture = TextureLoader.Load2D(matInfo.MaskTexture, VkFormat.Bc3UnormBlock);
+                        maskTexture = TextureLoader.GetOrLoad2D(matInfo.MaskTexture, VkFormat.Bc3UnormBlock);
                         textureLibrary.Add(matInfo.MaskTexture, maskTexture);
                     }
                     material.SetTexture(maskProp, maskTexture);
@@ -537,9 +540,8 @@ namespace VECS
             entityManager.AddComponent(commonParent, new Rotation() { Value = TransformExtensions.EulerUnity(00, 90, 0) });
             entityManager.AddComponent(commonParent, new Scale() { Value = Vector3.One });
             entityManager.AddComponent(commonParent, children);
-
-           DeferredRenderer.SetExposure(2.0f);
-           DeferredRenderer.SetGamma(1.0f);
+            DeferredRenderer.SetExposure(2.0f);
+            DeferredRenderer.SetGamma(1.0f);
         }
 
         public static void AddRenderMeshComponents(Entity entity, Material mat, int entityVariant, DirectSubMesh mesh, EntityManager entityManager, RenderLayer layerFlags = RenderLayer.Default)

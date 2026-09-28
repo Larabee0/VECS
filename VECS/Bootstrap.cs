@@ -11,8 +11,8 @@ namespace VECS
     {
         private static string[] AdditionalAssemblies = [];
 
-        private static readonly bool LogLoadedAssembliesOnStart = true;
-        public static readonly bool LogAssetDataBaseCountsOnStart = true;
+        private static readonly bool LogLoadedAssembliesOnStart = false;
+        public static readonly bool LogAssetDataBaseCountsOnStart = false;
 
         public static List<Assembly> LoadedAssemblies = [];
 
