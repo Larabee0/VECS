@@ -170,6 +170,7 @@ namespace VECS
         private readonly static Dictionary<Guid, Scene> _preLoaded = [];
 
         private static Task StartLoad;
+        private static bool _texturesPreLoaded;
 
         internal static void BackGroundPreLoad()
         {
@@ -203,116 +204,131 @@ namespace VECS
                 {
                     autoLoad.Add(fileInfos[i].FullName);
                 }
-                if(metaFile.AutoLoadTextures && metaFile.MaterialSet != null)
+                if (metaFile.AutoLoadTextures && metaFile.MaterialSet != null)
                 {
 
                 }
             }
-            var meshFiles = Task.Run(() =>
+            //var meshFiles = Task.Run(() =>
+            //{
+            //    AutoLoadModelTextures();
+            //});
+            AutoLoadModel(autoLoad);
+            AutoLoadModelTextures();
+            //if (!meshFiles.IsCompleted)
+            //{
+            //    meshFiles.Wait();
+            //}
+
+        }
+
+        private static void AutoLoadModel(List<string> autoLoad)
+        {
+            Stopwatch sw = Stopwatch.StartNew();
+            Scene[] scenes = new Scene[autoLoad.Count];
+
+            Parallel.For(0, autoLoad.Count, (i) =>
             {
-                Stopwatch sw = Stopwatch.StartNew();
-                Scene[] scenes = new Scene[autoLoad.Count];
-
-                Parallel.For(0, autoLoad.Count, (i) =>
-                {
-                    AssimpContext importer = new();
-                    scenes[i] = importer.ImportFile(autoLoad[i], PostProcessSteps.JoinIdenticalVertices | PostProcessSteps.RemoveRedundantMaterials);
-                    importer.Dispose();
-                });
-
-                int meshCount = 0;
-
-                for (int i = 0; i < autoLoad.Count; i++)
-                {
-                    if (scenes[i] == null) continue;
-                    meshCount += scenes[i].MeshCount;
-                }
-
-                Mesh[] meshes = new Mesh[meshCount];
-                uint[] indexCounts = new uint[meshCount];
-
-                for (int i = 0, k = 0; i < autoLoad.Count; i++)
-                {
-                    if (scenes[i] == null) continue;
-                    for (int j = 0; j < scenes[i].MeshCount; j++, k++)
-                    {
-                        meshes[k] = scenes[i].Meshes[j];
-                    }
-                }
-
-                Parallel.For(0, meshCount, (i) =>
-                {
-                    var mesh = meshes[i];
-                    int[] indices = [.. mesh.GetIndices()];
-
-                    indexCounts[i] = (uint)indices.Length;
-
-                    if (!mesh.HasVertices || !mesh.HasTextureCoords(0) || !mesh.HasNormals || mesh.Tangents.Count == mesh.VertexCount) return;
-
-                    Vector4[] generatedTangents = new Vector4[mesh.VertexCount];
-
-                    // calculate tangents
-                    var context = new MikktspaceContext(mesh.FaceCount,
-                        face => 3,
-                        (int face, int vertex, out float x, out float y, out float z) =>
-                        {
-                            var vert = mesh.Vertices[indices[vertex + (face * 3)]];
-                            x = vert.X;
-                            y = vert.Y;
-                            z = vert.Z;
-                        },
-                        (int face, int vertex, out float x, out float y, out float z) =>
-                        {
-                            var norm = mesh.Normals[indices[vertex + (face * 3)]];
-                            x = norm.X;
-                            y = norm.Y;
-                            z = norm.Z;
-                        },
-                        (int face, int vertex, out float u, out float v) =>
-                        {
-                            var norm = mesh.TextureCoordinateChannels[0][indices[vertex + (face * 3)]];
-                            u = norm.X;
-                            v = norm.Y;
-                        },
-                        (face, vertex, x, y, z, sign) => generatedTangents[indices[vertex + (face * 3)]] = new(x, y, z, sign)
-                    );
-
-                    if (MikkGenerator.GenerateTangentSpace(context))
-                    {
-                        mesh.Tangents.Clear();
-                        for (int j = 0; j < generatedTangents.Length; j++)
-                        {
-                            mesh.Tangents.Add(generatedTangents[j].AsVector3());
-                        }
-                    }
-
-
-                });
-
-                int preLoadCount = 0;
-                for (int i = 0, k = 0; i < autoLoad.Count; i++)
-                {
-                    if (scenes[i] != null)
-                    {
-                        var meta = _models[autoLoad[i]];
-                        _preLoaded[meta.GUID] = scenes[i];
-
-                        uint indexCount = 0;
-
-                        for (int j = 0; j < scenes[i].MeshCount; j++, k++)
-                        {
-                            indexCount += indexCounts[k];
-                            scenes[i].Metadata[$"VECS_Index_Total_{j}"] = new(MetaDataType.UInt32, indexCounts[k]);
-                        }
-                        meta.IndexCount = indexCount;
-
-                        preLoadCount++;
-                    }
-                }
-                sw.Stop();
-                Console.WriteLine("[MeshLoader] PreLoaded {0} Models in {1}ms", preLoadCount, sw.ElapsedMilliseconds);
+                AssimpContext importer = new();
+                scenes[i] = importer.ImportFile(autoLoad[i], PostProcessSteps.JoinIdenticalVertices | PostProcessSteps.RemoveRedundantMaterials);
+                importer.Dispose();
             });
 
+            int meshCount = 0;
+
+            for (int i = 0; i < autoLoad.Count; i++)
+            {
+                if (scenes[i] == null) continue;
+                meshCount += scenes[i].MeshCount;
+            }
+
+            Mesh[] meshes = new Mesh[meshCount];
+            uint[] indexCounts = new uint[meshCount];
+
+            for (int i = 0, k = 0; i < autoLoad.Count; i++)
+            {
+                if (scenes[i] == null) continue;
+                for (int j = 0; j < scenes[i].MeshCount; j++, k++)
+                {
+                    meshes[k] = scenes[i].Meshes[j];
+                }
+            }
+
+            Parallel.For(0, meshCount, (i) =>
+            {
+                var mesh = meshes[i];
+                int[] indices = [.. mesh.GetIndices()];
+
+                indexCounts[i] = (uint)indices.Length;
+
+                if (!mesh.HasVertices || !mesh.HasTextureCoords(0) || !mesh.HasNormals || mesh.Tangents.Count == mesh.VertexCount) return;
+
+                Vector4[] generatedTangents = new Vector4[mesh.VertexCount];
+
+                // calculate tangents
+                var context = new MikktspaceContext(mesh.FaceCount,
+                    face => 3,
+                    (int face, int vertex, out float x, out float y, out float z) =>
+                    {
+                        var vert = mesh.Vertices[indices[vertex + (face * 3)]];
+                        x = vert.X;
+                        y = vert.Y;
+                        z = vert.Z;
+                    },
+                    (int face, int vertex, out float x, out float y, out float z) =>
+                    {
+                        var norm = mesh.Normals[indices[vertex + (face * 3)]];
+                        x = norm.X;
+                        y = norm.Y;
+                        z = norm.Z;
+                    },
+                    (int face, int vertex, out float u, out float v) =>
+                    {
+                        var norm = mesh.TextureCoordinateChannels[0][indices[vertex + (face * 3)]];
+                        u = norm.X;
+                        v = norm.Y;
+                    },
+                    (face, vertex, x, y, z, sign) => generatedTangents[indices[vertex + (face * 3)]] = new(x, y, z, sign)
+                );
+
+                if (MikkGenerator.GenerateTangentSpace(context))
+                {
+                    mesh.Tangents.Clear();
+                    for (int j = 0; j < generatedTangents.Length; j++)
+                    {
+                        mesh.Tangents.Add(generatedTangents[j].AsVector3());
+                    }
+                }
+
+
+            });
+
+            int preLoadCount = 0;
+            for (int i = 0, k = 0; i < autoLoad.Count; i++)
+            {
+                if (scenes[i] != null)
+                {
+                    var meta = _models[autoLoad[i]];
+                    _preLoaded[meta.GUID] = scenes[i];
+
+                    uint indexCount = 0;
+
+                    for (int j = 0; j < scenes[i].MeshCount; j++, k++)
+                    {
+                        indexCount += indexCounts[k];
+                        scenes[i].Metadata[$"VECS_Index_Total_{j}"] = new(MetaDataType.UInt32, indexCounts[k]);
+                    }
+                    meta.IndexCount = indexCount;
+
+                    preLoadCount++;
+                }
+            }
+            sw.Stop();
+            Console.WriteLine("[MeshLoader] PreLoaded {0} Models in {1}ms", preLoadCount, sw.ElapsedMilliseconds);
+        }
+
+        private static void AutoLoadModelTextures()
+        {
             Stopwatch sw = Stopwatch.StartNew();
 
             foreach (var item in _models)
@@ -321,11 +337,6 @@ namespace VECS
             }
             sw.Stop();
             Console.WriteLine("[MeshLoader] Texures loaded in {0}ms for model pre-loading to", sw.ElapsedMilliseconds);
-            if (!meshFiles.IsCompleted)
-            {
-                meshFiles.Wait();
-            }
-            
         }
 
         private static void WaitPreLoad()
@@ -340,6 +351,11 @@ namespace VECS
                 StartLoad.Wait();
                 sw.Stop();
                 Console.WriteLine("Had to wait {0}ms for model pre-loading to", sw.ElapsedMilliseconds);
+            }
+            if (!_texturesPreLoaded)
+            {
+                AutoLoadModelTextures();
+                _texturesPreLoaded = true;
             }
         }
 

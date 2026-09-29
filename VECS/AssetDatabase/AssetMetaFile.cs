@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
 using Vortice.Vulkan;
@@ -76,7 +77,23 @@ namespace VECS
             
             var metaFile = LoadMetaFileAsDeclaredType(path);
 
-            metaFile = AssetMetaFileDataBase.MetaFileDataBase.GetOrAdd(metaFile.GUID,metaFile);
+            if (!AssetMetaFileDataBase.MetaFileDataBase.TryAdd(metaFile.GUID, metaFile))
+            {
+                var existing = AssetMetaFileDataBase.MetaFileDataBase[metaFile.GUID];
+
+                if (existing.Type != metaFile.Type)
+                {
+                    throw new Exception();
+                }
+                if(existing.Version < metaFile.Version)
+                {
+                    AssetMetaFileDataBase.MetaFileDataBase.AddOrUpdate(metaFile.GUID, metaFile, (a, b) => metaFile);
+                }
+                else
+                {
+                    metaFile = existing;
+                }
+            }
 
             return (T)metaFile;
         }

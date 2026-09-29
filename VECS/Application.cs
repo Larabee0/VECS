@@ -81,9 +81,9 @@ namespace VECS
             SDL3WindowManager.Init();
             _mainAppWindow = SDL3WindowManager.CreateNewWindow("VECS", Width, Height);
             GraphicsDevice.Initialise(_mainAppWindow);
+            MeshLoader.BackGroundPreLoad();
             SDL3WindowManager.CheckLoadedPresentMode();
             ShaderModule.LoadAllShaders();
-            MeshLoader.BackGroundPreLoad();
             _presenter = new Presenter<DeferredRenderer>();
 
             Time.FixedTimeStepCallback += FixedUpdate;

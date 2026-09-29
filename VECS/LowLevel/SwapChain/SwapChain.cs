@@ -7,6 +7,9 @@ namespace VECS.LowLevel
 {
     public static partial class SwapChain
     {
+        
+        private const ulong SEMAPHORE_TIME_OUT = 5000000000; // 5000 ms
+
         public static int SWAP_CHAIN_IMAGE_COUNT { get; internal set; }
         public static uint SWAP_CHAIN_IMAGE_COUNT_UINT => (uint)SWAP_CHAIN_IMAGE_COUNT;
 
@@ -73,7 +76,7 @@ namespace VECS.LowLevel
             };
             var semaphore = _timelineSemaphores[frameIndex].Semaphore;
             waitInfo.pSemaphores = &semaphore;
-            GraphicsDevice.DeviceAPI.vkWaitSemaphoresKHR(&waitInfo, ulong.MaxValue);
+            GraphicsDevice.DeviceAPI.vkWaitSemaphoresKHR(&waitInfo, SEMAPHORE_TIME_OUT).CheckResult("Timeline Semaphore Deadlock detected!");
 
         }
         
@@ -103,7 +106,7 @@ namespace VECS.LowLevel
 
             var semaphore = _timelineSemaphores[frameIndex].Semaphore;
             waitInfo.pSemaphores = &semaphore;
-           GraphicsDevice.DeviceAPI.vkWaitSemaphoresKHR(&waitInfo, ulong.MaxValue);
+           GraphicsDevice.DeviceAPI.vkWaitSemaphoresKHR(&waitInfo, SEMAPHORE_TIME_OUT).CheckResult("Timeline Semaphore Deadlock detected!");
         }
         #endregion
 
