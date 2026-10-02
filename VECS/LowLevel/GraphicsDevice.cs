@@ -166,7 +166,11 @@ namespace VECS.LowLevel
             {
                 _deviceApi.vkAllocateCommandBuffers(&allocInfo, pCommandBuffers).CheckResult("Failed to allocate main command buffers");
             }
-            
+
+            for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
+            {
+                SetObjectName(VkObjectType.CommandBuffer, (ulong)_mainPipeCommandBuffers[i].Handle, $"MainCommandBuffer Frame: {i}");
+            }
         }
 
         internal static unsafe void FreeCommandBuffers()

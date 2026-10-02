@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 #if DEBUG
 using System.Diagnostics;
@@ -11,8 +12,8 @@ namespace VECS
     public static class AssetDataBase<T> where T : Asset
     {
         private readonly static List<T> _assetsList = [];
-        private readonly static Dictionary<string, T> _assetsByName = [];
-        private readonly static Dictionary<int, T> _assetsByHash = [];
+        private readonly static ConcurrentDictionary<string, T> _assetsByName = [];
+        private readonly static ConcurrentDictionary<int, T> _assetsByHash = [];
 
         public static int AssetCount => _assetsList.Count;
         public static List<T> AllAssetsListForReading => _assetsList;
@@ -62,6 +63,54 @@ namespace VECS
             }
         }
 
+        public static void Rename(T asset, string newName)
+        {
+            if (asset == null)
+            {
+                Console.WriteLine("Tried to add null asset to {0} AssetDatabase.", typeof(T));
+                return;
+            }
+
+            if (!_assetsByName.ContainsKey(asset.AssetName))
+            {
+                Console.WriteLine("Cannot rename asset '{1}' as it is not in asset to {0} AssetDatabase.", typeof(T), asset.AssetName);
+                return;
+            }
+
+            if (string.IsNullOrEmpty(newName) || string.IsNullOrWhiteSpace(newName))
+            {
+                Console.WriteLine("Cannot rename asset '{1}' new name is null/empty/whitespace {0} AssetDatabase.", typeof(T), asset.AssetName);
+                return;
+            }
+
+            while (_assetsByName.ContainsKey(newName))
+            {
+                var untocuhedname = newName;
+                newName += "^" + (int)MathF.Round(Random.Shared.NextSingle() * 1000f);
+                Console.WriteLine("Adding duplicate {0} name: {1} generated name:{2}",
+                    typeof(T),
+                    untocuhedname,
+                    newName
+                );
+#if DEBUG
+                StackTrace trace = new(true);
+
+                Console.WriteLine(string.Format("Duplicate Asset Add trace\n {0}", trace.ToString()));
+#endif
+            }
+
+            if (!_assetsByName.TryAdd(newName, asset))
+            {
+                throw new Exception("Failed to add asset to AssetDataBase by Name");
+            }
+
+            if(!_assetsByName.TryRemove(asset.AssetName,out _))
+            {
+                throw new Exception("Failed to remove asset to AssetDataBase by Name");
+            }
+            asset.AssetName = newName;
+        }
+
         public static void Add(T asset)
         {
             if (asset == null)
@@ -91,14 +140,24 @@ namespace VECS
                 Console.WriteLine(string.Format("Duplicate Asset Add trace\n {0}", trace.ToString()));
 #endif
             }
-            _assetsList.Add(asset);
-            _assetsByName.Add(asset.AssetName, asset);
-            _assetsByHash.Add(asset.Hash, asset);
-            if (_assetsList.Count > ushort.MaxValue)
+            if(!_assetsByName.TryAdd(asset.AssetName, asset))
             {
-                Console.WriteLine("Too many {0}; over {1}", typeof(T), ushort.MaxValue);
+                throw new Exception("Failed to add asset to AssetDataBase by Name");
             }
-            asset.Index = _assetsList.Count - 1;
+            if (!_assetsByHash.TryAdd(asset.Hash, asset))
+            {
+                throw new Exception("Failed to add asset to AssetDataBase by Hash");
+            }
+            
+            lock (_assetsList)
+            {
+                _assetsList.Add(asset);
+                if (_assetsList.Count > ushort.MaxValue)
+                {
+                    Console.WriteLine("Too many {0}; over {1}", typeof(T), ushort.MaxValue);
+                }
+                asset.Index = _assetsList.Count - 1;
+            }
             OnAdded?.Invoke(asset);
         }
 
@@ -106,10 +165,19 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void Remove(T asset)
         {
-            _assetsByName.Remove(asset.AssetName);
-            _assetsList.Remove(asset);
-            _assetsByHash.Remove(asset.Hash);
-            SetIndices();
+            if (!_assetsByName.TryRemove(asset.AssetName, out _))
+            {
+                throw new Exception("Failed to remove asset to AssetDataBase by Name");
+            }
+            if (!_assetsByHash.TryRemove(asset.Hash, out _))
+            {
+                throw new Exception("Failed to remove asset to AssetDataBase by Hash");
+            }
+            lock (_assetsList)
+            {
+                _assetsList.Remove(asset);
+                SetIndices();
+            }
             OnRemoved?.Invoke(asset);
         }
 
@@ -120,16 +188,23 @@ namespace VECS
             {
                 return;
             }
-
-            for (int i = 0; i < assets.Length; i++)
+            lock (_assetsList)
             {
-                var asset = assets[i];
-                _assetsByName.Remove(asset.AssetName);
-                _assetsList.Remove(asset);
-                _assetsByHash.Remove(asset.Hash);
+                for (int i = 0; i < assets.Length; i++)
+                {
+                    var asset = assets[i];
+                    if (!_assetsByName.TryRemove(asset.AssetName, out _))
+                    {
+                        throw new Exception("Failed to remove asset to AssetDataBase by Name");
+                    }
+                    if (!_assetsByHash.TryRemove(asset.Hash, out _))
+                    {
+                        throw new Exception("Failed to remove asset to AssetDataBase by Hash");
+                    }
+                    _assetsList.Remove(asset);
+                }
+                SetIndices();
             }
-            SetIndices();
-
             for (int i = 0; i < assets.Length; i++)
             {
                 OnRemoved?.Invoke(assets[i]);
@@ -151,15 +226,23 @@ namespace VECS
 
             IEnumerable<T> assetsAsT = assets.Cast<T>();
 
-            foreach (var asset in assetsAsT)
+            lock (_assetsList)
             {
-                _assetsByName.Remove(asset.AssetName);
-                _assetsList.Remove(asset);
-                _assetsByHash.Remove(asset.Hash);
+                foreach (var asset in assetsAsT)
+                {
+                    if (!_assetsByName.TryRemove(asset.AssetName, out _))
+                    {
+                        throw new Exception("Failed to remove asset to AssetDataBase by Name");
+                    }
+                    if (!_assetsByHash.TryRemove(asset.Hash, out _))
+                    {
+                        throw new Exception("Failed to remove asset to AssetDataBase by Hash");
+                    }
+                    _assetsList.Remove(asset);
+                }
+
+                SetIndices();
             }
-
-            SetIndices();
-
             foreach (var asset in assetsAsT)
             {
                 OnRemoved?.Invoke(asset);

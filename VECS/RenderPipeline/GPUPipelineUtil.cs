@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Text;
 using VECS.LowLevel;
 using Vortice.SPIRV;
 using Vortice.SPIRV.Reflect;
@@ -390,7 +391,7 @@ namespace VECS
         {
             Array.Sort(shaders);
             var firstStage = shaders[0].VkShaderStage;
-
+            byte[][] entryPoints = new byte[shaders.Length][];
             string cacheName = shaders[0].AssetName;
             for (int i = 1; i < shaders.Length; i++)
             {
@@ -402,7 +403,9 @@ namespace VECS
             VkPipelineShaderStageCreateInfo* shaderStages = stackalloc VkPipelineShaderStageCreateInfo[shaders.Length];
             for (int i = 0; i < shaders.Length; i++)
             {
+                entryPoints[i] = Encoding.UTF8.GetBytes(shaders[i].EntryPoint);
                 shaderStages[i] = shaders[i].ShaderStageCreateInfo;
+                shaderStages[i].pName = new VkUtf8ReadOnlyString(entryPoints[i]);
             }
 
             return CreateGraphicsPipeline(cacheName, configInfo, flags, (uint)shaders.Length, shaderStages);

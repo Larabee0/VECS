@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Text;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
@@ -44,6 +45,7 @@ namespace VECS
                 stage = shaderModule.ShaderStageCreateInfo,
                 flags = VkPipelineCreateFlags.DescriptorBufferEXT
             };
+            computePipelineInfo.stage.pName = new VkUtf8ReadOnlyString(Encoding.UTF8.GetBytes(shaderModule.EntryPoint));
 
             _pipeline = GPUPipelineUtil.CreateComputePipeline(computePipelineInfo);
             GraphicsDevice.SetObjectName(VkObjectType.Pipeline, _pipeline.Handle, AssetName + "_v" + _version);
@@ -283,7 +285,7 @@ namespace VECS
             return old;
         }
 
-        public override VkPipeline Recreate()
+        public unsafe override VkPipeline Recreate()
         {
             ShaderModule shaderModule = AssetDataBase<ShaderModule>.GetHashed(_shaderHashes[0]);
             _localSize = shaderModule.ComputeShaderLocalSize;
@@ -293,7 +295,7 @@ namespace VECS
                 stage = shaderModule.ShaderStageCreateInfo,
                 flags = VkPipelineCreateFlags.DescriptorBufferEXT
             };
-
+            computePipelineInfo.stage.pName = new VkUtf8ReadOnlyString(Encoding.UTF8.GetBytes(shaderModule.EntryPoint));
             return GPUPipelineUtil.CreateComputePipeline(computePipelineInfo);
         }
 
@@ -413,7 +415,7 @@ namespace VECS
                 stage = shaderModule.ShaderStageCreateInfo,
                 flags = VkPipelineCreateFlags.DescriptorBufferEXT
             };
-
+            computePipelineInfo.stage.pName = new VkUtf8ReadOnlyString(Encoding.UTF8.GetBytes(shaderModule.EntryPoint));
             _pipelineLayout = GPUPipelineUtil.CreatePipelineLayout(_descriptorSetLayouts, _pushConstantsHandler, shaderModule);
             _pipeline = GPUPipelineUtil.CreateComputePipeline(computePipelineInfo);
 

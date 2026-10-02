@@ -1,7 +1,8 @@
 ﻿//#define AssimpLogging
-#define MULTI_THREADED_MESH_FILL
+//#define MULTI_THREADED_MESH_FILL
 
 using Assimp;
+using Assimp.Unmanaged;
 using Mikktspace.NET;
 using System;
 using System.Collections.Generic;
@@ -174,7 +175,8 @@ namespace VECS
 
         internal static void BackGroundPreLoad()
         {
-            StartLoad = Task.Run(DetectModels);
+            //StartLoad = Task.Run(DetectModels);
+            DetectModels();
         }
 
         internal static void DetectModels()
@@ -187,7 +189,6 @@ namespace VECS
             }
             Console.WriteLine("[MeshLoader] Detected {0} Models", fileInfos.Count);
             List<string> autoLoad = [];
-            HashSet<string> loadTextures = [];
             for (int i = 0; i < fileInfos.Count; i++)
             {
                 var metaFile = AssetMetaFile.TryLoad<ModelMetaFile>(fileInfos[i].FullName);
@@ -226,13 +227,13 @@ namespace VECS
         {
             Stopwatch sw = Stopwatch.StartNew();
             Scene[] scenes = new Scene[autoLoad.Count];
-
-            Parallel.For(0, autoLoad.Count, (i) =>
+            
+            AssimpContext importer = new();
+            for(int i = 0; i<autoLoad.Count; i++)
             {
-                AssimpContext importer = new();
                 scenes[i] = importer.ImportFile(autoLoad[i], PostProcessSteps.JoinIdenticalVertices | PostProcessSteps.RemoveRedundantMaterials);
-                importer.Dispose();
-            });
+            }
+            importer.Dispose();
 
             int meshCount = 0;
 
@@ -341,6 +342,7 @@ namespace VECS
 
         private static void WaitPreLoad()
         {
+            if (StartLoad == null) return;
             if (StartLoad.IsFaulted)
             {
                 Debugger.Break();
@@ -547,13 +549,13 @@ namespace VECS
 #if MULTI_THREADED_MESH_FILL
             Application.ParallelFor(scene.MeshCount, (i) =>
             {
-                sceneMeshes[i].AssetName = directMeshName + "." + scene.Meshes[i].Name;
+                AssetDataBase<DirectSubMesh>.Rename(sceneMeshes[i], directMeshName + "." + scene.Meshes[i].Name);
                 FillSubMesh(sceneMeshes[i], scene.Meshes[i]);
             });
 #else
             for (int i = 0; i < scene.MeshCount; i++)
             {
-                sceneMeshes[i].AssetName = directMeshName + "." + scene.Meshes[i].Name;
+                AssetDataBase<DirectSubMesh>.Rename(sceneMeshes[i], directMeshName + "." + scene.Meshes[i].Name);
                 FillSubMesh(sceneMeshes[i], scene.Meshes[i]);
             }
 #endif
@@ -638,27 +640,27 @@ namespace VECS
             if (dstTangents != Span<Vector4>.Empty && srcTangents == null)
             {
                 Vector4[] generatedTangents = new Vector4[dstVertices.Length];
-                int[] indices = [..srcMesh.GetIndices()];
+                uint[] indices = [.. dstIndices];
                 // calculate tangents
                 var context = new MikktspaceContext(srcMesh.FaceCount,
                     face => 3,
                     (int face, int vertex, out float x, out float y, out float z) =>
                     {
-                        var vert = srcVertices[indices[vertex + (face * 3)]];
+                        var vert = srcVertices[(int)indices[vertex + (face * 3)]];
                         x = vert.X;
                         y = vert.Y;
                         z = vert.Z;
                     },
                     (int face, int vertex, out float x, out float y, out float z) =>
                     {
-                        var norm = srcNormals[indices[vertex + (face * 3)]];
+                        var norm = srcNormals[(int)indices[vertex + (face * 3)]];
                         x = norm.X;
                         y = norm.Y;
                         z = norm.Z;
                     },
                     (int face, int vertex, out float u, out float v) =>
                     {
-                        var norm = srcUV0[indices[vertex + (face * 3)]];
+                        var norm = srcUV0[(int)indices[vertex + (face * 3)]];
                         u = norm.X;
                         v = norm.Y;
                     },

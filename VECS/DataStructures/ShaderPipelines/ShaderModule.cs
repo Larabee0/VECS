@@ -49,6 +49,8 @@ namespace VECS
 
         private readonly ConcurrentBag<int> _registedLayouts = [];
 
+        public readonly string EntryPoint;
+
         private VkShaderModule _vkShaderModule;
         private SpvReflectShaderModule _spvShaderModule;
         private VkShaderStageFlags _vkStage = VkShaderStageFlags.None;
@@ -77,12 +79,10 @@ namespace VECS
         {
             get
             {
-                VkUtf8ReadOnlyString entryPoint = Encoding.UTF8.GetBytes(_spvShaderModule.EntryPointName);
                 return new()
                 {
                     stage = _vkStage,
-                    module = _vkShaderModule,
-                    pName = entryPoint
+                    module = _vkShaderModule
                 };
             }
         }
@@ -94,12 +94,14 @@ namespace VECS
 
             byte[] shaderCode = File.ReadAllBytes(filePath);
             InternalCreate(shaderCode);
+            EntryPoint = _spvShaderModule.EntryPointName;
         }
 
         internal ShaderModule(string name, byte[] shaderCode)
         {
             AssetName = name;
             InternalCreate(shaderCode);
+            EntryPoint = _spvShaderModule.EntryPointName;
         }
 
         private unsafe void InternalCreate(byte[] shaderCode)
