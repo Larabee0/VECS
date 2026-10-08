@@ -12,12 +12,12 @@ namespace VECS
         [JsonIgnore]
         public ShaderModule[] ShaderModules;
         [JsonIgnore]
-
         [HideInInspector]
         public bool Hidden;
         [HideInInspector]
         public Guid[] ShaderPrograms;
-        
+
+        public SpecialisationConstant[] SpecialisationConstants;
 
         public VkFormat[] ColourFormats;
 
@@ -192,6 +192,12 @@ namespace VECS
                 configInfo.AttributeDescriptions[i] = AttributeDescriptions[i].ToVkVertexInputAttributeDescription();
             }
 
+            configInfo.SpecialisationConstants = new VECSSpecialisationConstant[SpecialisationConstants.Length];
+            for (int i = 0; i < SpecialisationConstants.Length; i++)
+            {
+                configInfo.SpecialisationConstants[i] = SpecialisationConstants[i].VecsConstant;
+            }
+
             configInfo.colourFormats = ColourFormats;
 
             configInfo.depthFormat = (VkFormat)DepthFormat;
@@ -257,8 +263,6 @@ namespace VECS
 
             var definition = JsonSerializer.Deserialize<GraphicsPipelineDefinition>(defintionRawJson, JsonHelper.IncludeFields);
 
-
-            
             definition.ShaderModules = new ShaderModule[definition.ShaderPrograms.Length];
             for (int i = 0; i < definition.ShaderPrograms.Length; i++)
             {
@@ -270,8 +274,18 @@ namespace VECS
                     }
                 }
             }
-            
-
+            definition.SpecialisationConstants ??= [];
+            for (int i = 0; i < definition.SpecialisationConstants.Length; i++)
+            {
+                if (AssetMetaFileDataBase.MetaFileDataBase.TryGetValue(definition.ShaderPrograms[i], out var metaFile) && metaFile is ShaderModuleMetaFile shaderModuleMeta)
+                {
+                    if (shaderModuleMeta.TargetInstance != null)
+                    {
+                        definition.SpecialisationConstants[i].ShaderModule = shaderModuleMeta.TargetInstance;
+                    }
+                }
+                definition.SpecialisationConstants[i].VecsConstant = VECSSpecialisationConstant.FromJson(definition.SpecialisationConstants[i]);
+            }
 
             return definition;
         }
@@ -284,6 +298,10 @@ namespace VECS
                 ShaderPrograms[i] = ShaderModules[i].MetaFile.GUID;
             }
 
+            for (int i = 0; i < SpecialisationConstants.Length; i++)
+            {
+                SpecialisationConstants[i].Data = SpecialisationConstants[i].VecsConstant.GetJsonData();
+            }
 
             var json = JsonSerializer.Serialize(this, JsonHelper.IncludeFields);
 
@@ -470,5 +488,50 @@ namespace VECS
                 return HashCode.Combine(Binding, Location, Format, Offset);
             }
         }
+
+        public class SpecialisationConstant
+        {
+            [JsonIgnore]
+            public VECSSpecialisationConstant VecsConstant;
+            [JsonIgnore]
+            public ShaderModule ShaderModule;
+            [HideInInspector]
+            public Guid ShaderGuid;
+
+            public uint ConstantId;
+            public ConstantFormat DataFormatHint;
+
+            public string Data;
+
+            public SpecialisationConstant()
+            {
+
+            }
+
+            public SpecialisationConstant(VECSSpecialisationConstant constant)
+            {
+                ShaderModule = AssetDataBase<ShaderModule>.GetHashed(constant.TargetShaderHash);
+                ShaderGuid = ShaderModule.MetaFile.GUID;
+                ConstantId = constant.ConstantId;
+                DataFormatHint = constant.DataFormatHint;
+                VecsConstant = constant;
+            }
+
+            public override int GetHashCode()
+            {
+                return HashCode.Combine(ShaderGuid,ConstantId,DataFormatHint, Data);
+            }
+
+            public override bool Equals(object obj)
+            {
+                if (obj is SpecialisationConstant other)
+                {
+                    return other.GetHashCode() == GetHashCode();
+                }
+                return false;
+            }
+
+        }
+
     }
 }

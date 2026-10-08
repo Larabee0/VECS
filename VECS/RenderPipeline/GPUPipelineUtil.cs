@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Text;
 using VECS.LowLevel;
 using Vortice.SPIRV;
@@ -387,7 +388,7 @@ namespace VECS
             return _pipline;
         }
 
-        public static unsafe VkPipeline CreateGraphicsPipeline(GraphicsPipelineConfigInfo configInfo,VkPipelineCreateFlags flags, params ShaderModule[] shaders)
+        public static unsafe VkPipeline CreateGraphicsPipeline(GraphicsPipelineConfigInfo configInfo, VkPipelineCreateFlags flags, params ShaderModule[] shaders)
         {
             Array.Sort(shaders);
             var firstStage = shaders[0].VkShaderStage;
@@ -401,14 +402,80 @@ namespace VECS
 
 
             VkPipelineShaderStageCreateInfo* shaderStages = stackalloc VkPipelineShaderStageCreateInfo[shaders.Length];
+
+            VkSpecializationInfo* specialisationInfos = stackalloc VkSpecializationInfo[shaders.Length];
+
+            byte[][] specialisationData = new byte[shaders.Length][];
+            VkSpecializationMapEntry[][] mapEntries = new VkSpecializationMapEntry[shaders.Length][];
+
             for (int i = 0; i < shaders.Length; i++)
             {
                 entryPoints[i] = Encoding.UTF8.GetBytes(shaders[i].EntryPoint);
                 shaderStages[i] = shaders[i].ShaderStageCreateInfo;
                 shaderStages[i].pName = new VkUtf8ReadOnlyString(entryPoints[i]);
+
+                var constants = GetSpecialisationInfo(shaders[i], configInfo, out uint byteSize);
+                if (constants != null)
+                {
+                    specialisationData[i] = new byte[byteSize];  
+                    shaderStages[i].pSpecializationInfo = &specialisationInfos[i];
+                    specialisationInfos[i].dataSize = byteSize;
+                    specialisationInfos[i].mapEntryCount = (uint)constants.Length;
+                    fixed (byte* pData  = &specialisationData[i][0])
+                    {
+                        specialisationInfos[i].pData = pData;
+                        uint offset = 0;
+                        for (int j = 0; j < constants.Length; j++)
+                        {
+                            var constant = constants[j];
+                            mapEntries[i][j].constantID = constant.ConstantId;
+                            mapEntries[i][j].offset = offset;
+                            mapEntries[i][j].size = constant.DataFormatHint.ToByteSize();
+                            NativeMemory.Copy(constant.Data, &pData[offset], mapEntries[i][j].size);
+                            offset += (uint)mapEntries[i][j].size;
+                        }
+                    }
+                    fixed(VkSpecializationMapEntry* pMap = &mapEntries[i][0])
+                    {
+                        specialisationInfos[i].pMapEntries = pMap;
+                        
+                    }
+                }
             }
 
             return CreateGraphicsPipeline(cacheName, configInfo, flags, (uint)shaders.Length, shaderStages);
+        }
+
+        private static VECSSpecialisationConstant[] GetSpecialisationInfo(ShaderModule shader, GraphicsPipelineConfigInfo config, out uint byteSize)
+        {
+            byteSize = 0;
+            if(shader.SpvShaderModule.spec_constant_count == 0)
+            {
+                return null;
+            }
+            var specialisationConstants =  new VECSSpecialisationConstant[shader.SpvShaderModule.spec_constant_count];
+            uint j = 0;
+            for (int i = 0; i < config.SpecialisationConstants.Length ; i++)
+            {
+                if (config.SpecialisationConstants[i].TargetShaderHash == shader.Hash)
+                {
+                    Debug.Assert(j < shader.SpvShaderModule.spec_constant_count, "Too many specialisation constants provided");
+                    specialisationConstants[j] = config.SpecialisationConstants[i];
+                    j++;
+                }
+            }
+
+            Debug.Assert(j == shader.SpvShaderModule.spec_constant_count, "Insufficient specialisation constants");
+            HashSet<uint> ids = new(specialisationConstants.Length);
+            for (int i = 0; i < specialisationConstants.Length; i++)
+            {
+                ids.Add(specialisationConstants[i].ConstantId);
+                byteSize += specialisationConstants[i].DataFormatHint.ToByteSize();
+            }
+
+            Debug.Assert(ids.Count == shader.SpvShaderModule.spec_constant_count, "Duplicate specialisation constants Ids");
+
+            return specialisationConstants;
         }
 
         private static unsafe VkPipeline CreateGraphicsPipeline(string cacheName, GraphicsPipelineConfigInfo configInfo, VkPipelineCreateFlags flags, uint stageCount ,VkPipelineShaderStageCreateInfo* shaderStages)
