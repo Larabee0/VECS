@@ -181,6 +181,7 @@ namespace VECS
 
         internal static void DetectModels()
         {
+            Stopwatch sw = Stopwatch.StartNew();
             var dir = new DirectoryInfo(Asset.AssetsPath);
             List<FileInfo> fileInfos = [];
             foreach (var type in AssetManager.MeshTypes)
@@ -214,13 +215,14 @@ namespace VECS
             //{
             //    AutoLoadModelTextures();
             //});
-            AutoLoadModel(autoLoad);
-            AutoLoadModelTextures();
+            //AutoLoadModel(autoLoad);
+            //AutoLoadModelTextures();
             //if (!meshFiles.IsCompleted)
             //{
             //    meshFiles.Wait();
             //}
-
+            sw.Stop();
+            Console.WriteLine("[MeshLoader] Finished Pre-loading in {0}ms", sw.ElapsedMilliseconds);
         }
 
         private static void AutoLoadModel(List<string> autoLoad)
@@ -331,13 +333,13 @@ namespace VECS
         private static void AutoLoadModelTextures()
         {
             Stopwatch sw = Stopwatch.StartNew();
-
+            int texCount = 0;
             foreach (var item in _models)
             {
-                item.Value.TryTexturesLoaded();
+                texCount+=item.Value.TryTexturesLoaded();
             }
             sw.Stop();
-            Console.WriteLine("[MeshLoader] Texures loaded in {0}ms for model pre-loading to", sw.ElapsedMilliseconds);
+            Console.WriteLine("[MeshLoader] {1} Texures loaded in {0}ms for model pre-loading", sw.ElapsedMilliseconds,texCount);
         }
 
         private static void WaitPreLoad()

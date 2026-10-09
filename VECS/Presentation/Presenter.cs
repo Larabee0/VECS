@@ -626,7 +626,7 @@ namespace VECS
             }
             ShaderPipelineLayout.CleanUp();
             GraphicsDevice.FreeCommandBuffers();
-            _imgui.Dispose();
+            _imgui?.Dispose();
             SwapChain.CleanUp();
             Instance = null;
             GC.ReRegisterForFinalize(this);

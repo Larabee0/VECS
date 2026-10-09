@@ -38,7 +38,7 @@ namespace VECS
 
             MissingTexture = new("Fallback", 4, 4, VkFormat.R8G8B8A8Unorm, VkImageUsageFlags.TransferDst | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.Sampled | VkImageUsageFlags.Storage, true);
             MissingTexture.CopyFromArray(copyFrom);
-            MissingTexture.CreateHostBuffer(true);
+            MissingTexture.CreateHostBuffer(false);
 
             Array.Fill(copyFrom, Colour.Clear);
             Zeroed = new("Clear", 4, 4);

@@ -71,7 +71,7 @@ namespace VECS
             }
         }
 
-        public void TryTexturesLoaded()
+        public int TryTexturesLoaded()
         {
             if(AllTextures != null && AllTextures.Count > 0)
             {
@@ -79,7 +79,9 @@ namespace VECS
                 {
                     TextureLoader.GetOrLoad2D(item.TextureFile, item.FormatHint);
                 }
+                return AllTextures.Count;
             }
+            return 0;
         }
 
         public override void SaveMetaFile()

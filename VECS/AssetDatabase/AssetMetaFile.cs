@@ -34,18 +34,19 @@ namespace VECS
         public virtual void LoadAsset() { }
         public virtual void PostLoad() { }
 
-        private static readonly Dictionary<string, Type> MetaFileTypes = [];
+        private static readonly ConcurrentDictionary<string, Type> MetaFileTypes = [];
 
         static AssetMetaFile()
         {
             var assemblies = AppDomain.CurrentDomain.GetAssemblies();
             var metaFile = typeof(AssetMetaFile);
+            MetaFileTypes.Clear();
             for (int i = 0; i < assemblies.Length; i++)
             {
                 foreach (var item in assemblies[i].ExportedTypes)
                 {
                     metaFile.IsAssignableFrom(item);
-                    MetaFileTypes.Add(item.FullName, item);
+                    MetaFileTypes.TryAdd(item.FullName, item);
                 }
             }
 
@@ -58,7 +59,7 @@ namespace VECS
             foreach (var item in args.LoadedAssembly.ExportedTypes)
             {
                 metaFile.IsAssignableFrom(item);
-                MetaFileTypes.Add(item.FullName, item);
+                MetaFileTypes.TryAdd(item.FullName, item);
             }
         }
 

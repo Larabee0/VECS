@@ -43,7 +43,7 @@ namespace VECS
                 {
                     Console.WriteLine(string.Format("{0},\n{1}", ex.InnerException.ToString(), ex.InnerException.StackTrace));
                 }
-                Console.ReadLine();
+                //Console.ReadLine();
                 return 1;
             }
             return 0;

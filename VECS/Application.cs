@@ -82,7 +82,7 @@ namespace VECS
             _mainAppWindow = SDL3WindowManager.CreateNewWindow("VECS", Width, Height);
             GraphicsDevice.Initialise(_mainAppWindow);
             ShaderModule.LoadAllShaders();
-            MeshLoader.BackGroundPreLoad();
+            //MeshLoader.BackGroundPreLoad();
             SDL3WindowManager.CheckLoadedPresentMode();
             _presenter = new Presenter<DeferredRenderer>();
 
@@ -101,6 +101,11 @@ namespace VECS
             while (running)
             {
                 running = !SDL3WindowManager.UpdateWindowEvents();
+                if(Presenter.FrameCount > 1000)
+                {
+                    Console.WriteLine("auto shutdown");
+                    running = false;
+                }
                 if (!running)
                 {
                     break;

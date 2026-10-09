@@ -675,13 +675,13 @@ namespace VECS.LowLevel
         {
             var message = new VkUtf8String(pCallbackData->pMessage);
 
-            Console.WriteLine(string.Format("[{0}] Vulkan: Validation Layer: {1}", messageSeverity, Encoding.UTF8.GetString(message.Span)));
+            Console.WriteLine("[{0}] [Frame {2}] Vulkan: Validation Layer: {1}", messageSeverity, Encoding.UTF8.GetString(message.Span),Presenter.FrameCount);
             StackTrace trace = new(true);
             var traceString = trace.ToString();
 
             var index = traceString.IndexOf('\r') + 1;
 
-            Console.WriteLine(string.Format("Validation layer trace\n {0}", traceString[index..]));
+            Console.WriteLine("Validation layer trace\n {0}", traceString[index..]);
             if (BreakOnValidationError)
             {
                 Debugger.Break();

@@ -7,7 +7,7 @@ using System.Text;
 
 namespace VECS
 {
-    internal static class Bootstrap
+    public static class Bootstrap
     {
         private static string[] AdditionalAssemblies = [];
 
@@ -23,7 +23,7 @@ namespace VECS
         public static string ProjectName { get; private set; }
 
 
-        static int Main(string[] args)
+        public static int Main(string[] args)
         {
             Stopwatch swMain = Stopwatch.StartNew();
             var assembliesConfig = Path.Combine(Asset.AssetsPath, "AdditionalAssemblies.config");
@@ -89,7 +89,7 @@ namespace VECS
             {
                 Console.WriteLine(string.Format("{0},\n{1}", ex.Message, ex.StackTrace));
                 Console.WriteLine(string.Format("{0},\n{1}", ex.InnerException.Message, ex.InnerException.StackTrace));
-                Console.ReadLine();
+                //Console.ReadLine();
                 return 1;
             }
 
