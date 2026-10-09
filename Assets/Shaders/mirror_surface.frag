@@ -50,5 +50,5 @@ vec4 CubeReflection(){
 }
 void main()
 {
-	outColour = PlanarReflection();
+	outColour = CubeReflection();
 }

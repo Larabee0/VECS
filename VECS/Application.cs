@@ -101,11 +101,11 @@ namespace VECS
             while (running)
             {
                 running = !SDL3WindowManager.UpdateWindowEvents();
-                if(Presenter.FrameCount > 1000)
-                {
-                    Console.WriteLine("auto shutdown");
-                    running = false;
-                }
+                // if(Presenter.FrameCount > 1000)
+                // {
+                //     Console.WriteLine("auto shutdown");
+                //     running = false;
+                // }
                 if (!running)
                 {
                     break;

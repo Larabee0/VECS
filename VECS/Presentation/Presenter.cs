@@ -58,6 +58,7 @@ namespace VECS
         public static VkFormat StencilFormat => Instance._renderer.StencilFormat;
 
         private static Dictionary<int, Texture> _outputTextures = [];
+        private static Dictionary<int, bool> _outputWrittenThisFrame = [];
 
         internal Action PostPresentationUpdate;
         internal Action<int> PreGraphicsPipe;
@@ -468,7 +469,7 @@ namespace VECS
             {
                 GraphicsPipeline.UpdateMaterials();
             }
-            
+
             AuxiliaryCommandBufferManager.Update();
 
             float deltaTime = Time.DeltaTime;
@@ -486,7 +487,7 @@ namespace VECS
 
             for (int i = 0; i < cameraCount; i++)
             {
-                if(i == mainCamera.CameraIndex)
+                if (i == mainCamera.CameraIndex)
                 {
                     continue;
                 }
@@ -505,6 +506,9 @@ namespace VECS
                 }
             }
 
+            GraphicsDevice.BeginLabelCmd(commandBuffer, "Pre-Main Camera Output MipMap Gen");
+            OutputMipmapGen(commandBuffer);
+            GraphicsDevice.EndLabelCmd(commandBuffer);
 
             SetCameraViewPort(World.DefaultWorld.EntityManager, mainCameraEntity);
             GraphicsDevice.BeginLabelCmd(commandBuffer, "Render Graph Main Camera");
@@ -521,6 +525,10 @@ namespace VECS
             GraphicsDevice.EndLabelCmd(commandBuffer);
             GraphicsDevice.EndLabelCmd(commandBuffer);
 
+            GraphicsDevice.BeginLabelCmd(commandBuffer, "Post Main Camera Output MipMap Gen");
+            OutputMipmapGen(commandBuffer);
+            GraphicsDevice.EndLabelCmd(commandBuffer);
+
             CopyFromOutputToSwapChainFull(commandBuffer, Display0Src, 0, imageIndex);
 
             // Play back Write Cmds generated during frame from CPU to GPU Buffers
@@ -529,6 +537,20 @@ namespace VECS
             GPUBufferExtensions.PlaybackWriteBufferCmds();
             GraphicsDevice.EndLabelCmd(commandBuffer);
             //SwapChain.MainSwapChainData.SetImageLayout(commandBuffer, imageIndex, VkImageLayout.PresentSrcKHR);
+        }
+
+        private static void OutputMipmapGen(VkCommandBuffer commandBuffer)
+        {
+            foreach (var pair in _outputWrittenThisFrame)
+            {
+                if (pair.Value && _outputTextures[pair.Key].MipMapCount > 0)
+                {
+                    GraphicsDevice.BeginLabelCmd(commandBuffer, $"{_outputTextures[pair.Key]} MipMap Gen");
+                    _outputTextures[pair.Key].RegenerateMipMaps(commandBuffer);
+                    GraphicsDevice.EndLabelCmd(commandBuffer);
+                }
+                _outputWrittenThisFrame[pair.Key] = false;
+            }
         }
 
         private void CopyFromRendererMainColourToOutputImage(VkCommandBuffer commandBuffer)
@@ -551,6 +573,7 @@ namespace VECS
                     break;
             }
 
+            _outputWrittenThisFrame[CurrentCameraOutput.TargetTexture] = true;
             
 
             image.SetImageLayoutAuto(commandBuffer, VkImageLayout.ShaderReadOnlyOptimal);

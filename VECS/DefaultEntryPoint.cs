@@ -54,7 +54,7 @@ namespace VECS
             _sphere = MeshLoader.LoadModelFromFile(MeshLoader.GetMeshInDefaultPath("UV-Sphere.obj"), [new(VertexAttribute.Tangent,VertexAttributeFormat.Float4)])[0];
             CreateMainCamera();
             //PlanrRelfection();
-            //CreateCubeProbe();
+            CreateCubeProbe();
             DirectionalLight();
             PointLight();
             //SponzaOld();

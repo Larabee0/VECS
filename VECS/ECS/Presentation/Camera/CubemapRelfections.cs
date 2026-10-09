@@ -133,7 +133,7 @@ namespace VECS.ECS.Presentation
                     Matrix4x4 currentViewMatrix;
                     Matrix4x4 currentInverseViewMatrix;
 
-                    Cubemap cubemap = new("ReflectionProbeTex", probe.Resolution, Presenter.MainColourFormat, Vortice.Vulkan.VkSamplerAddressMode.ClampToEdge, Vortice.Vulkan.VkImageUsageFlags.TransferDst | Vortice.Vulkan.VkImageUsageFlags.Sampled, false);
+                    Cubemap cubemap = new("ReflectionProbeTex", probe.Resolution, Presenter.MainColourFormat, Vortice.Vulkan.VkSamplerAddressMode.ClampToEdge, Vortice.Vulkan.VkImageUsageFlags.TransferDst | Vortice.Vulkan.VkImageUsageFlags.Sampled, true);
                     int hash = cubemap.Hash;
                     ReflectionProbeCameras cameras = default;
                     var buffer = EngineBuffers.TryGetBuffer(ShaderProperties.CubeRelfectionProbesId);
