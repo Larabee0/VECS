@@ -95,6 +95,7 @@ namespace VECS
 
             createInfo.viewType = VkImageViewType.Image2D;
             createInfo.subresourceRange.layerCount = 1;
+            createInfo.subresourceRange.levelCount = 1;
 
             for (uint i = 0; i < 6u; i++)
             {
