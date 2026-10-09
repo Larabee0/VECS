@@ -11,12 +11,13 @@ namespace VECS.LowLevel
         private static Thread _submitThread;
 
         private static CancellationTokenSource _submitCancel;
+        private static AutoResetEvent _autoResetEvent;
 
         public static void StartSubmitThread()
         {
 
             _submitCancel = new();
-
+            _autoResetEvent = new(false);
             _submitThread = new Thread(SubmitThread)
             {
                 Name = "Main Queue Thread",
@@ -41,6 +42,8 @@ namespace VECS.LowLevel
             Console.WriteLine("SwapChain Exited!");
             _submitThread = null;
             _submitCancel = null;
+            _autoResetEvent.Dispose();
+            _autoResetEvent  = null;
 #if DEBUG
             GraphicsDeviceInit.BreakOnValidationError = true;
 #endif
@@ -78,6 +81,7 @@ namespace VECS.LowLevel
             int submitFrame;
             int lastFrame = 0;
             bool submittedAnyFrames = false;
+            _autoResetEvent.WaitOne();
             while (!cancel.IsCancellationRequested)
             {
                 submitFrame = CurrentFrame;
@@ -169,6 +173,10 @@ namespace VECS.LowLevel
             SwapChain.BuildGraphicsCommands(CurrentFrame, 1, SwapChain.MainSwapChainData.CurrentImageIndex);
 
             SwapChain.SignalTimelineFromHost(SemaphoreStages.QueuePresentLate,CurrentFrame);
+            if (Presenter.NewSwapChain)
+            {
+                _autoResetEvent.Set();
+            }
         }
 
         public static unsafe bool Present(SwapChainData swapChain, int frameIndex, uint imageIndex)
