@@ -1,13 +1,9 @@
 using BCnEncoder.Decoder;
 using BCnEncoder.Encoder;
-using BCnEncoder.ImageSharp;
 using BCnEncoder.Shared;
 using BCnEncoder.Shared.ImageFiles;
 using CommunityToolkit.HighPerformance;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
-using SixLabors.ImageSharp.Processing;
-using SixLabors.ImageSharp.Processing.Processors.Transforms;
+using ImageMagick;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -47,6 +43,7 @@ namespace VECS
 
         public static void UpdateCompression()
         {
+            
             bool resort = !CompressQueue.IsEmpty;
             while (CompressQueue.TryDequeue(out var newCompresse))
             {
@@ -333,6 +330,7 @@ namespace VECS
                     for (int i = 0; i < 6; i++)
                     {
                         var face = src.MipMaps[0].Faces[i];
+
                         faces[i] = decoder.DecodeRaw2D(face.Data, (int)face.Width, (int)face.Height, srcFormat);
                     }
 
@@ -568,40 +566,43 @@ namespace VECS
 
             for (int i = 0, k = 0; i < metaFiles.Length; i++)
             {
-                Image<Rgba32>[] images = new Image<Rgba32>[metaFiles[i].Length];
+                
+                MagickImage[] images = new MagickImage[metaFiles[i].Length];
 
                 for (int j = 0; j < metaFiles[i].Length; j++)
                 {
-                    images[j] = Image.Load<Rgba32>(metaFiles[i][j].SrcFileName);
+                    images[j] = new MagickImage(metaFiles[i][j].SrcFileName);
 
                     if (metaFiles[i][j].FlipVertical)
                     {
-                        var flipProcessor = new FlipProcessor(FlipMode.Vertical);
-                        images[j].Mutate(flipProcessor);
+                        images[j].Flip();
+                        //var flipProcessor = new FlipProcessor(FlipMode.Vertical);
+                        //images[j].Mutate(flipProcessor);
                     }
 
                     if (metaFiles[i][j].FlipHorizontal)
                     {
-                        var flipProcessor = new FlipProcessor(FlipMode.Horizontal);
-                        images[j].Mutate(flipProcessor);
+                        images[j].Flop();
+                        //var flipProcessor = new FlipProcessor(FlipMode.Horizontal);
+                        //images[j].Mutate(flipProcessor);
                     }
                 }
 
                 if (images.Length == 6 && (Type == TextureShape.Cube || Type == TextureShape.CubeArray))
                 {
                     ktxFiles[i] = encoder.EncodeCubeMapToKtx(
-                        images[0],
-                        images[1],
-                        images[2],
-                        images[3],
-                        images[4],
-                        images[5]);
+                        new(images[0].GetPixels().ToByteArray(PixelMapping.RGBA)),
+                        new(images[1].GetPixels().ToByteArray(PixelMapping.RGBA)),
+                        new(images[2].GetPixels().ToByteArray(PixelMapping.RGBA)),
+                        new(images[3].GetPixels().ToByteArray(PixelMapping.RGBA)),
+                        new(images[4].GetPixels().ToByteArray(PixelMapping.RGBA)),
+                        new(images[5].GetPixels().ToByteArray(PixelMapping.RGBA)),width, height, PixelFormat.Rgba32);
                 }
                 else
                 {
                     for (int j = 0; j < images.Length; j++, k++)
                     {
-                        ktxFiles[k] = encoder.EncodeToKtx(images[j]);
+                        ktxFiles[k] = encoder.EncodeToKtx(new(images[j].GetPixels().ToByteArray(PixelMapping.RGBA)), width, height, PixelFormat.Rgba32);
                     }
                 }
 

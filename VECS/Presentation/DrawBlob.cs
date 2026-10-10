@@ -155,7 +155,7 @@ namespace VECS
 
             foreach (var assembly in assemblies)
             {
-                allTypes.UnionWith(assembly.DefinedTypes);
+                allTypes.UnionWith(assembly.ExportedTypes);
             }
 
             List<Type> renderBufferTypes = [];

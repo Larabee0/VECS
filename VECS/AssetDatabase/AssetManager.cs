@@ -1,4 +1,5 @@
-﻿using System;
+﻿using ImageMagick;
+using System;
 using System.Collections.Generic;
 using System.IO;
 
@@ -77,10 +78,16 @@ namespace VECS
             _watcher.Created += FileCreated;
             _watcher.Deleted += FileDeleted;
             _watcher.Renamed += FileRenamed;
-
+            /*
             HashSet<string> imageExtenions = [];
 
-            foreach(var format in SixLabors.ImageSharp.Configuration.Default.ImageFormatsManager.ImageFormats)
+            for (MagickFormat format = 0; format <= MagickFormat.Wbinfo; format++)
+            {
+                var formatInfo = MagickFormatInfo.Create(format);
+                formatInfo.Format.
+            }
+
+            foreach (var format in )
             {
                 foreach(var extension in format.FileExtensions)
                 {
@@ -88,7 +95,7 @@ namespace VECS
                 }
             }
             TextureTypes.UnionWith(imageExtenions);
-
+            */
         }
 
         private static void FileRenamed(object sender, RenamedEventArgs e)

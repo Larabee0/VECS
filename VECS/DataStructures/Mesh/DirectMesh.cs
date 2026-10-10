@@ -91,6 +91,7 @@ namespace VECS
                 if (_indexOffsetBuffer == null)
                 {
                     _indexOffsetBuffer ??= new GPUBuffer<uint>(IndexBufferLength, VkBufferUsageFlags.StorageBuffer, true, false, false);
+                    _indexOffsetBuffer.SetDebugName($"{AssetName} Index Offset Buffer");
                     var offsets = _indexOffsetBuffer.HostBuffer;
 
                     for (int i = 0; i < SubMeshInfos.Length; i++)
@@ -168,6 +169,8 @@ namespace VECS
             _indexBuffer.TryAllocHostBuffer(false);
             _indexBuffer.SetGPUBufferChanged(false);
 
+            _indexBuffer.SetDebugName($"{AssetName} Index Buffer");
+
             VertexAttributeDescription[] vertexAttributes = new VertexAttributeDescription[_consumedAttributes.Values.Count];
             _attributesInOrder = new VertexAttribute[vertexAttributes.Length];
             _vertexVkBuffers = new VkBuffer[vertexAttributes.Length];
@@ -180,6 +183,7 @@ namespace VECS
                     _attributesInOrder[bindingIndex] = attribute;
                     _consumedAttributes[attribute] = vertexAttributes[bindingIndex] = new(attributeDescription.attribute, attributeDescription.format, 0, bindingIndex, bindingIndex);
                     _vertexVkBuffers[bindingIndex] = _vertexBuffers[attribute].VkBuffer;
+                    _vertexBuffers[attribute].SetDebugName($"{AssetName} Vertex Buffer [{attribute}]");
                     bindingIndex++;
                 }
             }

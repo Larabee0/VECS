@@ -71,6 +71,14 @@ namespace VECS
             }
         }
 
+        public void AddTextures(HashSet<MaterialInfo.TextureInfo> texs)
+        {
+            if (AllTextures != null && AllTextures.Count > 0)
+            {
+                texs.UnionWith(AllTextures);
+            }
+        }
+
         public int TryTexturesLoaded()
         {
             if(AllTextures != null && AllTextures.Count > 0)

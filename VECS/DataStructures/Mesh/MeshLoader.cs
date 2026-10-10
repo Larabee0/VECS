@@ -12,6 +12,7 @@ using System.Linq;
 using System.Numerics;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Vortice.Vulkan;
 
@@ -175,8 +176,8 @@ namespace VECS
 
         internal static void BackGroundPreLoad()
         {
-            //StartLoad = Task.Run(DetectModels);
-            DetectModels();
+            StartLoad = Task.Run(DetectModels);
+            //DetectModels();
         }
 
         internal static void DetectModels()
@@ -211,16 +212,16 @@ namespace VECS
 
                 }
             }
-            //var meshFiles = Task.Run(() =>
-            //{
-            //    AutoLoadModelTextures();
-            //});
+            var meshFiles = Task.Run(() =>
+            {
+                AutoLoadModel(autoLoad);
+            });
             //AutoLoadModel(autoLoad);
-            //AutoLoadModelTextures();
-            //if (!meshFiles.IsCompleted)
-            //{
-            //    meshFiles.Wait();
-            //}
+            AutoLoadModelTextures();
+            if (!meshFiles.IsCompleted)
+            {
+                meshFiles.Wait();
+            }
             sw.Stop();
             Console.WriteLine("[MeshLoader] Finished Pre-loading in {0}ms", sw.ElapsedMilliseconds);
         }
@@ -229,21 +230,33 @@ namespace VECS
         {
             Stopwatch sw = Stopwatch.StartNew();
             Scene[] scenes = new Scene[autoLoad.Count];
-            
-            AssimpContext importer = new();
-            for(int i = 0; i<autoLoad.Count; i++)
-            {
-                scenes[i] = importer.ImportFile(autoLoad[i], PostProcessSteps.JoinIdenticalVertices | PostProcessSteps.RemoveRedundantMaterials);
-            }
-            importer.Dispose();
 
             int meshCount = 0;
-
-            for (int i = 0; i < autoLoad.Count; i++)
+            Parallel.For(0,autoLoad.Count, (i) =>
             {
-                if (scenes[i] == null) continue;
-                meshCount += scenes[i].MeshCount;
-            }
+                AssimpContext importer = new();
+                var scene = scenes[i] = importer.ImportFile(autoLoad[i], PostProcessSteps.JoinIdenticalVertices | PostProcessSteps.RemoveRedundantMaterials);
+                if (scene != null)
+                {
+                    Interlocked.Add(ref meshCount, scene.MeshCount);
+                }
+                importer.Dispose();
+            });
+
+            //AssimpContext importer = new();
+            //for(int i = 0; i<autoLoad.Count; i++)
+            //{
+            //    scenes[i] = importer.ImportFile(autoLoad[i], PostProcessSteps.JoinIdenticalVertices | PostProcessSteps.RemoveRedundantMaterials);
+            //}
+            //importer.Dispose();
+
+            // int meshCount = 0;
+            // 
+            // for (int i = 0; i < autoLoad.Count; i++)
+            // {
+            //     if (scenes[i] == null) continue;
+            //     meshCount += scenes[i].MeshCount;
+            // }
 
             Mesh[] meshes = new Mesh[meshCount];
             uint[] indexCounts = new uint[meshCount];
@@ -302,8 +315,6 @@ namespace VECS
                         mesh.Tangents.Add(generatedTangents[j].AsVector3());
                     }
                 }
-
-
             });
 
             int preLoadCount = 0;
@@ -333,13 +344,21 @@ namespace VECS
         private static void AutoLoadModelTextures()
         {
             Stopwatch sw = Stopwatch.StartNew();
-            int texCount = 0;
-            foreach (var item in _models)
+            HashSet<MaterialInfo.TextureInfo> textures = [];
+
+            foreach(var value in _models)
             {
-                texCount+=item.Value.TryTexturesLoaded();
+                value.Value.AddTextures(textures);
             }
+
+            foreach (var value in textures)
+            {
+                TextureLoader.GetOrLoad2D(value.TextureFile, value.FormatHint);
+            }
+
+            _texturesPreLoaded = true;
             sw.Stop();
-            Console.WriteLine("[MeshLoader] {1} Texures loaded in {0}ms for model pre-loading", sw.ElapsedMilliseconds,texCount);
+            Console.WriteLine("[MeshLoader] {1} Texures loaded in {0}ms for model pre-loading", sw.ElapsedMilliseconds, textures.Count);
         }
 
         private static void WaitPreLoad()

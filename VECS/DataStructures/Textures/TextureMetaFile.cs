@@ -1,11 +1,8 @@
 using BCnEncoder.Encoder;
-using BCnEncoder.ImageSharp;
 using BCnEncoder.Shared;
 using BCnEncoder.Shared.ImageFiles;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
-using SixLabors.ImageSharp.Processing;
-using SixLabors.ImageSharp.Processing.Processors.Transforms;
+using ImageMagick;
+using ImageMagick.Formats;
 using System;
 using System.IO;
 using System.Text.Json;
@@ -195,9 +192,10 @@ namespace VECS
             TextureType = filePath.Contains("normal", StringComparison.CurrentCultureIgnoreCase) ? TextureType.Normal : TextureType.Default;
             try
             {
-                var imageInfo = Image.Identify(filePath);
+
+                var imageInfo = new MagickImageInfo(filePath);
                 Compress = imageInfo.Width % 2 == 0 && imageInfo.Height % 2 == 0;
-                BitsPerPixel = imageInfo.PixelType.BitsPerPixel;
+                BitsPerPixel = 32;
             }
             catch
             {
@@ -217,9 +215,9 @@ namespace VECS
             TextureType = filePath.Contains("normal", StringComparison.CurrentCultureIgnoreCase) ? TextureType.Normal : TextureType.Default;
             try
             {
-                var imageInfo = Image.Identify(filePath);
+                var imageInfo = new MagickImageInfo(filePath);
                 Compress = imageInfo.Width % 2 == 0 && imageInfo.Height % 2 == 0;
-                BitsPerPixel = imageInfo.PixelType.BitsPerPixel;
+                BitsPerPixel = 32;
             }
             catch
             {
@@ -304,21 +302,19 @@ namespace VECS
             encoder.OutputOptions.Quality = CompressionQuality.Balanced;
             encoder.OutputOptions.Format = VkFormat.GetUncompressedVkFormat().GetBcEncoderFormat();
             encoder.OutputOptions.FileFormat = OutputFileFormat.Ktx;
-            using Image<Rgba32> image = Image.Load<Rgba32>(SrcFileName);
+            using MagickImage image = new(SrcFileName,new MagickReadSettings(new TiffReadDefines() { AssumeAlpha = true }));
 
             if (FlipVertical)
             {
-                var flipProcessor = new FlipProcessor(FlipMode.Vertical);
-                image.Mutate(flipProcessor);
+                image.Flip();
             }
 
             if (FlipHorizontal)
             {
-                var flipProcessor = new FlipProcessor(FlipMode.Horizontal);
-                image.Mutate(flipProcessor);
+                image.Flop();
             }
 
-            KtxFiles = [encoder.EncodeToKtx(image)];
+            KtxFiles = [encoder.EncodeToKtx(new(image.GetPixels().ToByteArray(PixelMapping.RGBA)), (int)image.Width, (int)image.Height, PixelFormat.Rgba32)];
             
             Width = (int)KtxFiles[0].header.PixelWidth;
             Height = (int)KtxFiles[0].header.PixelHeight;
