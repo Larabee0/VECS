@@ -133,13 +133,14 @@ namespace VECS.LowLevel
 
             unsafe
             {
-                return secondaryCommandBufferManager.CommandBuffers[Presenter.FrameIndex];
+                return secondaryCommandBufferManager.GetNextCommandBuffer(Presenter.FrameIndex);
             }
         }
 
         public unsafe static void BeginSecondaryCommandBuffer(VkCommandBuffer commandBuffer)
         {
-
+            ComputePipeline.ClearPipelineSecondaryCommandBuffer(commandBuffer);
+            GraphicsPipeline.ClearPipelineSecondaryCommandBuffer(commandBuffer);
             VkCommandBufferInheritanceInfo inheritanceInfo = new();
 
 

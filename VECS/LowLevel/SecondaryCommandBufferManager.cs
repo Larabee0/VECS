@@ -4,9 +4,13 @@ using Vortice.Vulkan;
 
 namespace VECS.LowLevel
 {
-    public unsafe struct SecondaryCommandBufferManager : IDisposable
+    public unsafe class SecondaryCommandBufferManager : IDisposable
     {
         public VkCommandPool CommandPool;
+
+        private int _lastFrameIndex = -1;
+        private uint Counter;
+        private uint AllocationCount = 1;
 
         public  VkCommandBuffer* CommandBuffers;
 
@@ -14,7 +18,7 @@ namespace VECS.LowLevel
 
         private bool _disposed = false;
 
-        public readonly bool Disposed => _disposed;
+        public bool Disposed => _disposed;
 
         public SecondaryCommandBufferManager()
         {
@@ -34,13 +38,46 @@ namespace VECS.LowLevel
             if (Allocated) return;
             VkCommandBufferAllocateInfo allocation = new()
             {
-                commandBufferCount = SwapChain.MAX_CONCURRENT_FRAMES_UINT,
+                commandBufferCount = AllocationCount * SwapChain.MAX_CONCURRENT_FRAMES_UINT,
                 commandPool = CommandPool,
                 level = VkCommandBufferLevel.Secondary,
             };
 
             GraphicsDevice.DeviceAPI.vkAllocateCommandBuffers(&allocation, CommandBuffers);
             Allocated = true;
+        }
+
+        public VkCommandBuffer GetNextCommandBuffer(int frameIndex)
+        {
+            if(frameIndex != _lastFrameIndex)
+            {
+                _lastFrameIndex = frameIndex;
+                ResetCounter();
+            }
+            if(Counter >= AllocationCount)
+            {
+                AllocationCount += 1;
+                CommandBuffers = (VkCommandBuffer*)NativeMemory.Realloc(CommandBuffers, (uint)sizeof(VkCommandBuffer) * AllocationCount * SwapChain.MAX_CONCURRENT_FRAMES_UINT);
+
+                VkCommandBufferAllocateInfo allocation = new()
+                {
+                    commandBufferCount = SwapChain.MAX_CONCURRENT_FRAMES_UINT,
+                    commandPool = CommandPool,
+                    level = VkCommandBufferLevel.Secondary,
+                };
+
+                GraphicsDevice.DeviceAPI.vkAllocateCommandBuffers(&allocation, &CommandBuffers[Counter * SwapChain.MAX_CONCURRENT_FRAMES_UINT]);
+            }
+
+            
+            var cmd = CommandBuffers[Counter * SwapChain.MAX_CONCURRENT_FRAMES_UINT + frameIndex];
+            Counter++;
+            return cmd;
+        }
+
+        public void ResetCounter()
+        {
+            Counter = 0;
         }
 
         public void FreeCommandBuffers()
@@ -55,7 +92,7 @@ namespace VECS.LowLevel
         {
             if(_disposed) return;
             _disposed = true;
-            FreeCommandBuffers();
+            //FreeCommandBuffers();
             NativeMemory.Free(CommandBuffers);
             GraphicsDevice.DeviceAPI.vkDestroyCommandPool(CommandPool);
         }

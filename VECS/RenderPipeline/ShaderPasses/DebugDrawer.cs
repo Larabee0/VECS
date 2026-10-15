@@ -121,9 +121,9 @@ namespace VECS
                     _colours.Realloc((uint)drawCount);
                 }
             }
-        _drawIndex = 0;
-        _drawBufferIndex = 0;
-        SetandWriteBuffers();
+            _drawIndex = 0;
+            _drawBufferIndex = 0;
+            SetandWriteBuffers();
         }
 
         private void LinePass(RendererFrameInfo frameInfo)
@@ -152,6 +152,9 @@ namespace VECS
                 _drawBufferIndex++;
             }
             GPUBufferExtensions.WriteFromHostDelayed(_lineBuffer, Presenter.FrameIndex);
+            GPUBufferExtensions.WriteFromHostDelayed(_drawBuffer, Presenter.FrameIndex);
+            GPUBufferExtensions.WriteFromHostDelayed(_matrices, Presenter.FrameIndex);
+            GPUBufferExtensions.WriteFromHostDelayed(_colours, Presenter.FrameIndex);
             Presenter.Instance.Renderer.StartForwardRendering(frameInfo, VkAttachmentLoadOp.Load);
             GraphicsDevice.DeviceAPI.vkCmdBindVertexBuffer(frameInfo.CommandBuffer, 0, _lineBuffer.ActiveVkBuffer);
             DrawIndirect(frameInfo, 0, _drawBufferIndex);
@@ -293,6 +296,9 @@ namespace VECS
                 vertexOffset += 16;
             }
             GPUBufferExtensions.WriteFromHostDelayed(_frustrumBuffer, Presenter.FrameIndex);
+            GPUBufferExtensions.WriteFromHostDelayed(_drawBuffer, Presenter.FrameIndex);
+            GPUBufferExtensions.WriteFromHostDelayed(_matrices, Presenter.FrameIndex);
+            GPUBufferExtensions.WriteFromHostDelayed(_colours, Presenter.FrameIndex);
 
             Presenter.Instance.Renderer.StartForwardRendering(frameInfo, VkAttachmentLoadOp.Load);
 

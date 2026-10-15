@@ -8,12 +8,13 @@ layout(set = 2, binding = 1) uniform TexProps{
     float alphaTiling;
 } alphaProps;
 
+/*
 layout(push_constant) uniform InstanceInfo {
     int matrixStartIndex;
     int bufferSelect;
 	uint cameraIndex;
 } instanceInfo;
-
+*/
 void main()
 {
     float alphaThreshold = alphaProps.alphaThreshold;

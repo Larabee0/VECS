@@ -15,7 +15,7 @@ namespace VECS
         private static readonly ConcurrentQueue<string> _recompileQueue = [];
 
         public static string ShaderFilePath => Path.Combine(Asset.AssetsPath, "Shaders");
-        public static readonly string[] _compileTags = [".frag", ".vert", ".comp", ".mesh", ".task"];
+        public static readonly string[] _compileTags = [".frag", ".vert", ".comp",".geom", ".mesh", ".task"];
 
         private static ShaderKind GetShaderKindFromFileExtention(string filePath)
         {
@@ -30,6 +30,7 @@ namespace VECS
                 ".comp" => ShaderKind.GLSL_ComputeShader,
                 ".mesh" => ShaderKind.GLSL_MeshShader,
                 ".task" => ShaderKind.GLSL_TaskShader,
+                ".geom" => ShaderKind.GLSL_GeometryShader,
                 _=> throw new NotSupportedException()
             };
         }

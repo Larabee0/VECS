@@ -108,5 +108,12 @@ namespace VECS
                 GraphicsDevice.DeviceAPI.vkCmdPushConstants(commandBuffer, pipelineLayout, ShaderStages, ShaderOffset, BlockSize, pPushConstants);
             }
         }
+        internal unsafe void PushConstants<T>(Span<T> buffer, VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout) where T : unmanaged
+        {
+            fixed (void* pPushConstants = &buffer[0])
+            {
+                GraphicsDevice.DeviceAPI.vkCmdPushConstants(commandBuffer, pipelineLayout, ShaderStages, ShaderOffset, BlockSize, pPushConstants);
+            }
+        }
     }
 }

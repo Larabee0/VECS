@@ -26,7 +26,7 @@ namespace VECS
     public partial class GraphicsPipeline : Pipeline
     {
         private PipelineType _pipelineType;
-        private readonly static ConcurrentDictionary<int, int> _lastBoundGraphicsPipeline = new(Environment.ProcessorCount, Environment.ProcessorCount * 2);
+        private readonly static ConcurrentDictionary<nint, int> _lastBoundGraphicsPipeline = new(Environment.ProcessorCount, Environment.ProcessorCount * 2);
         private GraphicsPipelineDefinition _definition;
         private GraphicsPipelineConfigInfo _graphicsPipelineConfigInfo;
 
@@ -311,12 +311,12 @@ namespace VECS
         internal void BindPipe(VkCommandBuffer commandBuffer)
         {
             var threadID = Environment.CurrentManagedThreadId;
-            bool init = _lastBoundGraphicsPipeline.TryGetValue(threadID, out var shaderHash);
+            bool init = _lastBoundGraphicsPipeline.TryGetValue(commandBuffer.Handle, out var shaderHash);
 
             if (!init || shaderHash != Hash || shaderHash == int.MaxValue)
             {
                 GraphicsDevice.DeviceAPI.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Graphics, _pipeline);
-                _lastBoundGraphicsPipeline.AddOrUpdate(threadID, Hash, (a, b) => Hash);
+                _lastBoundGraphicsPipeline.AddOrUpdate(commandBuffer.Handle, Hash, (a, b) => Hash);
             }
 
             GraphicsDevice.DeviceAPI.vkCmdSetCullMode(commandBuffer,_graphicsPipelineConfigInfo.rasterizationInfo.cullMode);
@@ -522,6 +522,62 @@ namespace VECS
             }
         }
 
+        public unsafe void ExecuteDrawCommandsPushConstantOverride<T>(RendererFrameInfo frameInfo, Span<T> pushConstantBuffer, VkCommandBuffer commandBuffer, Span<MaterialDrawCommand> drawCmds, int matDrawCount, SwapChainBuffer<VECSDrawIndexIndirectCommand> indirectCmdBuffer) where T : unmanaged
+        {
+            if (matDrawCount <= 0) return;
+            var frameIndex = Presenter.FrameIndex;
+
+            int firstCommand = 0;
+            for (int i = 0; i < matDrawCount; i++)
+            {
+                if (_matVariants[i] != null)
+                {
+                    firstCommand = i;
+                    break;
+                }
+            }
+
+            var command = drawCmds[firstCommand];
+
+            if (_preBindUpdate)
+            {
+                Update(this);
+            }
+            VkDescriptorBufferBindingInfoEXT* bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[_descriptorSetCount];
+            ulong* offsets = stackalloc ulong[_descriptorSetCount];
+            uint* indices = stackalloc uint[_descriptorSetCount];
+
+            for (uint i = 0; i < _descriptorSetCount; i++)
+            {
+                DescriptorSetInfo descriptorSetInfo = _descriptorSetInfos[i];
+                DescriptorBuffer buffer = descriptorSetInfo.DescriptorBuffers[frameIndex];
+
+                bindingInfo[i] = buffer.BindingInfo;
+                offsets[i] = buffer.AlignedSize * (uint)command.Variant;
+                indices[i] = i;
+            }
+
+            BindPipe(commandBuffer);
+            DescriptorBuffer.BindSets(commandBuffer, (uint)_descriptorSetCount, bindingInfo);
+            DescriptorBuffer.SetOffsets(commandBuffer, _pipelineLayout, VkPipelineBindPoint.Graphics, 0, (uint)_descriptorSetCount, offsets, indices);
+
+            int lastVariant = command.Variant;
+            if (_matVariants[lastVariant].OverrideCullMode)
+            {
+                GraphicsDevice.DeviceAPI.vkCmdSetCullMode(commandBuffer, _matVariants[lastVariant].CullMode);
+            }
+            for (int i = 0; i < matDrawCount; i++)
+            {
+                command = drawCmds[i];
+                if (_matVariants[command.Variant] == null)
+                {
+                    continue;
+                }
+
+                ExecuteDrawCommand(commandBuffer, frameIndex, pushConstantBuffer, indirectCmdBuffer, command, offsets, indices, ref lastVariant);
+            }
+        }
+
         public unsafe void ExecuteDrawCommandsPushConstantOverride(int pushConstantOverride, VkCommandBuffer commandBuffer, Span<MaterialDrawCommand> drawCmds, int matDrawCount, SwapChainBuffer<VECSDrawIndexIndirectCommand> indirectCmdBuffer, VkCullModeFlags cullMode)
         {
             if (matDrawCount <= 0) return;
@@ -582,6 +638,66 @@ namespace VECS
             }
         }
 
+        public unsafe void ExecuteDrawCommandsPushConstantOverride<T>(Span<T> pushConstantBuffer, VkCommandBuffer commandBuffer, Span<MaterialDrawCommand> drawCmds, int matDrawCount, SwapChainBuffer<VECSDrawIndexIndirectCommand> indirectCmdBuffer, VkCullModeFlags cullMode) where T : unmanaged
+        {
+            if (matDrawCount <= 0) return;
+            var frameIndex = Presenter.FrameIndex;
+
+            int firstCommand = 0;
+            for (int i = 0; i < matDrawCount; i++)
+            {
+                if (_matVariants[i] != null)
+                {
+                    firstCommand = i;
+                    break;
+                }
+            }
+
+            var command = drawCmds[firstCommand];
+
+            if (_preBindUpdate)
+            {
+                Update(this);
+            }
+            VkDescriptorBufferBindingInfoEXT* bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[_descriptorSetCount];
+            ulong* offsets = stackalloc ulong[_descriptorSetCount];
+            uint* indices = stackalloc uint[_descriptorSetCount];
+
+            for (uint i = 0; i < _descriptorSetCount; i++)
+            {
+                DescriptorSetInfo descriptorSetInfo = _descriptorSetInfos[i];
+                DescriptorBuffer buffer = descriptorSetInfo.DescriptorBuffers[frameIndex];
+
+                bindingInfo[i] = buffer.BindingInfo;
+                offsets[i] = buffer.AlignedSize * (uint)command.Variant;
+                indices[i] = i;
+            }
+
+            BindPipe(commandBuffer);
+            DescriptorBuffer.BindSets(commandBuffer, (uint)_descriptorSetCount, bindingInfo);
+            DescriptorBuffer.SetOffsets(commandBuffer, _pipelineLayout, VkPipelineBindPoint.Graphics, 0, (uint)_descriptorSetCount, offsets, indices);
+
+            int lastVariant = command.Variant;
+            if (_matVariants[lastVariant].OverrideCullMode)
+            {
+                GraphicsDevice.DeviceAPI.vkCmdSetCullMode(commandBuffer, _matVariants[lastVariant].CullMode);
+            }
+            else
+            {
+                GraphicsDevice.DeviceAPI.vkCmdSetCullMode(commandBuffer, cullMode);
+            }
+            for (int i = 0; i < matDrawCount; i++)
+            {
+                command = drawCmds[i];
+                if (_matVariants[command.Variant] == null)
+                {
+                    continue;
+                }
+
+                ExecuteDrawCommand(commandBuffer, frameIndex, pushConstantBuffer, indirectCmdBuffer, command, offsets, indices, ref lastVariant, cullMode);
+            }
+        }
+
         internal unsafe void ExecuteDrawCommand(VkCommandBuffer commandBuffer, int frameIndex, int pushConstantIndex, SwapChainBuffer<VECSDrawIndexIndirectCommand> indirectCmdBuffer, MaterialDrawCommand command, ulong* offsets, uint* indices, ref int lastVariant, VkCullModeFlags cullMode)
         {
             if (lastVariant != command.Variant)
@@ -609,38 +725,40 @@ namespace VECS
             var mesh = AssetDataBase<DirectMesh>.GetHashed(command.DirectMesh);
             mesh.BindSpecificBuffers(commandBuffer, _graphicsPipelineConfigInfo.BindingDescriptions, _graphicsPipelineConfigInfo.AttributeDescriptions);
 
+            GraphicsDevice.DeviceAPI.vkCmdDrawIndexedIndirect(
+            commandBuffer,
+            indirectCmdBuffer.ActiveVkBuffer,
+            (uint)command.MeshSubRegion.StartIndex * (uint)sizeof(VECSDrawIndexIndirectCommand),
+            (uint)command.MeshSubRegion.Count, (uint)sizeof(VECSDrawIndexIndirectCommand));
+        }
 
-            // if (command.MeshSubRegion.Count > 8)
-            // {
-            //     uint rollingOffset = 0;
-            //     for (int i = 0; i < command.MeshSubRegion.Count / 8; i++)
-            //     {
-            //         GraphicsDevice.DeviceAPI.vkCmdDrawIndexedIndirect(
-            //             commandBuffer,
-            //             indirectCmdBuffer.ActiveVkBuffer,
-            //             (rollingOffset + (uint)command.MeshSubRegion.StartIndex) * (uint)sizeof(VECSDrawIndexIndirectCommand),
-            //             8, (uint)sizeof(VECSDrawIndexIndirectCommand));
-            // 
-            //         rollingOffset += 8;
-            //     }
-            // 
-            //     if (rollingOffset < command.MeshSubRegion.Count)
-            //     {
-            //         GraphicsDevice.DeviceAPI.vkCmdDrawIndexedIndirect(
-            //             commandBuffer,
-            //             indirectCmdBuffer.ActiveVkBuffer,
-            //             (rollingOffset + (uint)command.MeshSubRegion.StartIndex) * (uint)sizeof(VECSDrawIndexIndirectCommand),
-            //             (uint)command.MeshSubRegion.Count - rollingOffset , (uint)sizeof(VECSDrawIndexIndirectCommand));
-            //     }
-            // }
-            // else
-            // {
-            //      GraphicsDevice.DeviceAPI.vkCmdDrawIndexedIndirect(
-            //      commandBuffer,
-            //      indirectCmdBuffer.ActiveVkBuffer,
-            //      (uint)command.MeshSubRegion.StartIndex * (uint)sizeof(VECSDrawIndexIndirectCommand),
-            //      (uint)command.MeshSubRegion.Count, (uint)sizeof(VECSDrawIndexIndirectCommand));
-            // }
+        internal unsafe void ExecuteDrawCommand<T>(VkCommandBuffer commandBuffer, int frameIndex, Span<T> pushConstantBuffer, SwapChainBuffer<VECSDrawIndexIndirectCommand> indirectCmdBuffer, MaterialDrawCommand command, ulong* offsets, uint* indices, ref int lastVariant, VkCullModeFlags cullMode) where T : unmanaged
+        {
+            if (lastVariant != command.Variant)
+            {
+                for (uint i = 0; i < _descriptorSetCount; i++)
+                {
+                    DescriptorSetInfo descriptorSetInfo = _descriptorSetInfos[i];
+                    DescriptorBuffer buffer = descriptorSetInfo.DescriptorBuffers[frameIndex];
+
+                    offsets[i] = buffer.AlignedSize * (uint)command.Variant;
+                }
+                DescriptorBuffer.SetOffsets(commandBuffer, _pipelineLayout, VkPipelineBindPoint.Graphics, 0, (uint)_descriptorSetCount, offsets, indices);
+                lastVariant = command.Variant;
+                if (_matVariants[lastVariant].OverrideCullMode)
+                {
+                    GraphicsDevice.DeviceAPI.vkCmdSetCullMode(commandBuffer, _matVariants[lastVariant].CullMode);
+                }
+                else
+                {
+                    GraphicsDevice.DeviceAPI.vkCmdSetCullMode(commandBuffer, cullMode);
+                }
+            }
+
+            _pushConstantsHandler.BindPushConstants(commandBuffer, _pipelineLayout, pushConstantBuffer);
+            var mesh = AssetDataBase<DirectMesh>.GetHashed(command.DirectMesh);
+            mesh.BindSpecificBuffers(commandBuffer, _graphicsPipelineConfigInfo.BindingDescriptions, _graphicsPipelineConfigInfo.AttributeDescriptions);
+
             GraphicsDevice.DeviceAPI.vkCmdDrawIndexedIndirect(
             commandBuffer,
             indirectCmdBuffer.ActiveVkBuffer,
@@ -668,6 +786,36 @@ namespace VECS
             }
 
             _pushConstantsHandler.BindPushConstants(commandBuffer, _pipelineLayout, pushConstantIndex);
+            var mesh = AssetDataBase<DirectMesh>.GetHashed(command.DirectMesh);
+            mesh.BindSpecificBuffers(commandBuffer, _graphicsPipelineConfigInfo.BindingDescriptions, _graphicsPipelineConfigInfo.AttributeDescriptions);
+
+            GraphicsDevice.DeviceAPI.vkCmdDrawIndexedIndirect(
+                commandBuffer,
+                indirectCmdBuffer.ActiveVkBuffer,
+                (uint)command.MeshSubRegion.StartIndex * (uint)sizeof(VECSDrawIndexIndirectCommand),
+                (uint)command.MeshSubRegion.Count, (uint)sizeof(VECSDrawIndexIndirectCommand));
+        }
+
+        internal unsafe void ExecuteDrawCommand<T>(VkCommandBuffer commandBuffer, int frameIndex, Span<T> pushConstantBuffer, SwapChainBuffer<VECSDrawIndexIndirectCommand> indirectCmdBuffer, MaterialDrawCommand command, ulong* offsets, uint* indices, ref int lastVariant) where T : unmanaged
+        {
+            if (lastVariant != command.Variant)
+            {
+                for (uint i = 0; i < _descriptorSetCount; i++)
+                {
+                    DescriptorSetInfo descriptorSetInfo = _descriptorSetInfos[i];
+                    DescriptorBuffer buffer = descriptorSetInfo.DescriptorBuffers[frameIndex];
+
+                    offsets[i] = buffer.AlignedSize * (uint)command.Variant;
+                }
+                DescriptorBuffer.SetOffsets(commandBuffer, _pipelineLayout, VkPipelineBindPoint.Graphics, 0, (uint)_descriptorSetCount, offsets, indices);
+                lastVariant = command.Variant;
+                if (_matVariants[lastVariant].OverrideCullMode)
+                {
+                    GraphicsDevice.DeviceAPI.vkCmdSetCullMode(commandBuffer, _matVariants[lastVariant].CullMode);
+                }
+            }
+
+            _pushConstantsHandler.BindPushConstants(commandBuffer, _pipelineLayout, pushConstantBuffer);
             var mesh = AssetDataBase<DirectMesh>.GetHashed(command.DirectMesh);
             mesh.BindSpecificBuffers(commandBuffer, _graphicsPipelineConfigInfo.BindingDescriptions, _graphicsPipelineConfigInfo.AttributeDescriptions);
 
@@ -793,6 +941,11 @@ namespace VECS
                 Update(readingList[i]);
             });
             _descriptorReWrite = false;
+        }
+
+        internal static void ClearPipelineSecondaryCommandBuffer(VkCommandBuffer commandBuffer)
+        {
+            _lastBoundGraphicsPipeline[commandBuffer.Handle] = int.MaxValue;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

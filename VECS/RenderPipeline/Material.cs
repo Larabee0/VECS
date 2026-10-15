@@ -449,6 +449,48 @@ namespace VECS
             }
         }
 
+        public unsafe void ExecuteDrawCommandsPushConstantOverride<T>(RendererFrameInfo frameInfo, Span<T> pushConstantBuffer, VkCommandBuffer commandBuffer, Span<MaterialDrawCommand> drawCmds, int drawCount, SwapChainBuffer<VECSDrawIndexIndirectCommand> indirectCmdBuffer) where T : unmanaged
+        {
+            if (drawCount <= 0) return;
+            var frameIndex = Presenter.FrameIndex;
+
+            var command = drawCmds[0];
+            command.Variant = (int)VariantIndex;
+            if (Pipeline._preBindUpdate)
+            {
+                GraphicsPipeline.Update(Pipeline);
+            }
+            VkDescriptorBufferBindingInfoEXT* bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[DescriptorSetCount];
+            ulong* offsets = stackalloc ulong[DescriptorSetCount];
+            uint* indices = stackalloc uint[DescriptorSetCount];
+
+            for (uint i = 0; i < DescriptorSetCount; i++)
+            {
+                DescriptorSetInfo descriptorSetInfo = DescriptorSetInfos[i];
+                DescriptorBuffer buffer = descriptorSetInfo.DescriptorBuffers[frameIndex];
+
+                bindingInfo[i] = buffer.BindingInfo;
+                offsets[i] = buffer.AlignedSize * (uint)command.Variant;
+                indices[i] = i;
+            }
+            Pipeline.BindPipe(commandBuffer);
+            DescriptorBuffer.BindSets(commandBuffer, (uint)DescriptorSetCount, bindingInfo);
+            DescriptorBuffer.SetOffsets(commandBuffer, Pipeline.PipelineLayout, VkPipelineBindPoint.Graphics, 0, (uint)DescriptorSetCount, offsets, indices);
+
+            if (OverrideCullMode)
+            {
+                GraphicsDevice.DeviceAPI.vkCmdSetCullMode(commandBuffer, CullMode);
+            }
+
+            var lastVariant = (int)VariantIndex;
+            for (int i = 0; i < drawCount; i++)
+            {
+                command = drawCmds[i];
+                command.Variant = (int)VariantIndex;
+                Pipeline.ExecuteDrawCommand(commandBuffer, frameIndex, pushConstantBuffer, indirectCmdBuffer, command, offsets, indices, ref lastVariant);
+            }
+        }
+
         public void Reinitialise(Dictionary<int, Vector4UInt> textureRemap, Dictionary<int, Vector4UInt> storageRemap)
         {
             var existingImages = _textures;

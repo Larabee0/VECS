@@ -14,6 +14,17 @@ namespace VECS.ECS.Transforms
         public const float Deg2Rad = (float.Pi * 2) / 360f;
         public const float Rad2Deg = 360f/ (float.Pi * 2);
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static float ToRadians(this in float degrees)
+        {
+            return degrees * Deg2Rad;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static float ToDegrees(this in float radians)
+        {
+            return radians * Rad2Deg;
+        }
 
         public static Quaternion QuaternionLookRotation(Vector3 forward, Vector3 up)
         {
@@ -91,6 +102,15 @@ namespace VECS.ECS.Transforms
             return 0f;
         }
 
+        public static string ToHumanString(this Matrix4x4 m)
+        {
+            Vector4 c0 = new(m.M11, m.M21, m.M31, m.M41);
+            Vector4 c1 = new(m.M12, m.M22, m.M32, m.M42);
+            Vector4 c2 = new(m.M13, m.M23, m.M33, m.M43);
+            Vector4 c3 = new(m.M14, m.M24, m.M34, m.M44);
+
+            return $"C0:{c0}\nC1{c1}\nC2{c2}\nC3{c3}";
+        }
 
         /// <summary>
         /// Calculates the angle between two vectors.
@@ -135,7 +155,6 @@ namespace VECS.ECS.Transforms
             Matrix4x4.Invert(m, out m);
             return m;
         }
-
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static Vector3 GetAxisZ(this Matrix4x4 m)

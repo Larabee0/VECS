@@ -1,5 +1,7 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
@@ -7,6 +9,14 @@ namespace VECS
 {
     public abstract class LightShadowBase
     {
+        [StructLayout(LayoutKind.Sequential, Size = 12)]
+        protected struct DepthOnlyPushConstants
+        {
+            public int MatrixStartIndex;
+            public int BufferSelect;
+            public uint CameraIndex;
+        }
+
         public const bool SHADOW_CULLING = true;
         public const bool SHADOW_DST_CULLING = true;
         public const bool SHADOW_DEPTH_CULLING = false;
@@ -59,6 +69,12 @@ namespace VECS
         public static void DrawDepthOnly(VkCommandBuffer commandBuffer, int pushConstantIndex, VkCullModeFlags cullMode)
         {
             DrawBlob.Execute(Depth_Only_Queue_Name, commandBuffer, pushConstantIndex, cullMode);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void DrawDepthOnly<T>(VkCommandBuffer commandBuffer, Span<T> pushConstantbuffer, VkCullModeFlags cullMode) where T : unmanaged
+        {
+            DrawBlob.Execute(Depth_Only_Queue_Name, commandBuffer, pushConstantbuffer, cullMode);
         }
 
         public abstract bool SetShadowTexture(int i, int resolution);

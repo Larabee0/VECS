@@ -27,6 +27,8 @@ namespace VECS
         internal readonly static SwapChainBuffer<Matrix4x4> DirectionalLightMatsBuffer;
         internal readonly static SwapChainBuffer<Matrix4x4> PointLightMatsBuffer;
         internal readonly static SwapChainBuffer<Matrix4x4> SpotLightMatsBuffer;
+        internal readonly static SwapChainBuffer<Matrix4x4> TetrahedronPointLightMatsBuffer;
+        internal readonly static SwapChainBuffer<Vector4> TetrahedronPointLightPlanesBuffer;
 
         internal readonly static ConcurrentDictionary<int, SwapChainBuffer> _engineBuffers = new();
 
@@ -88,6 +90,8 @@ namespace VECS
             DirectionalLightMatsBuffer = new(Presenter.MAX_CAMERAS * 20 * DirectionalLightShadows.MAX_CASCADE_COUNT, BufferUsageFlags, true);
             PointLightMatsBuffer = new(PointLightShadows.MAX_POINT_LIGHT_SHADOW_CASTERS * 6, BufferUsageFlags, true);
             SpotLightMatsBuffer = new(SpotLightShadows.MAX_SPOT_LIGHT_SHADOW_CASTERS, BufferUsageFlags, true);
+            TetrahedronPointLightMatsBuffer = new(PointLightShadows.MAX_POINT_LIGHT_SHADOW_CASTERS * 4, BufferUsageFlags, true);
+            TetrahedronPointLightPlanesBuffer = new(PointLightShadows.MAX_POINT_LIGHT_SHADOW_CASTERS * 12, BufferUsageFlags, true);
 
             CubeRelfectionBuffer.SetDebugName("CubeRelfectionBuffer");
 
@@ -102,6 +106,8 @@ namespace VECS
             DirectionalLightMatsBuffer.SetDebugName("DirectionalLightMatsBuffer");
             PointLightMatsBuffer.SetDebugName("PointLightMatsBuffer");
             SpotLightMatsBuffer.SetDebugName("SpotLightMatsBuffer");
+            TetrahedronPointLightMatsBuffer.SetDebugName("TetrahedronPLMatsBuffer");
+            TetrahedronPointLightPlanesBuffer.SetDebugName("TetrahedronPLPlanesBuffer");
 
             AddEngineBuffer(ShaderProperties.CameraDataId, CameraDataBuffer);
 
@@ -116,6 +122,8 @@ namespace VECS
             AddEngineBuffer(ShaderProperties.DirShadowMatsId, DirectionalLightMatsBuffer);
             AddEngineBuffer(ShaderProperties.PLShadowMatsId, PointLightMatsBuffer);
             AddEngineBuffer(ShaderProperties.SLShadowMatsId, SpotLightMatsBuffer);
+            AddEngineBuffer(TetrahedronPointShadows.TetraHedronPLMatsId, TetrahedronPointLightMatsBuffer);
+            AddEngineBuffer(TetrahedronPointShadows.TetraHedronPLPlanesId, TetrahedronPointLightPlanesBuffer);
         }
 
         public static void UpdateCameras(EntityManager entityManager, int frameIndex)
@@ -187,6 +195,8 @@ namespace VECS
             DirectionalLightMatsBuffer.Dispose();
             PointLightMatsBuffer.Dispose();
             SpotLightMatsBuffer.Dispose();
+            TetrahedronPointLightMatsBuffer.Dispose();
+            TetrahedronPointLightPlanesBuffer.Dispose();
 
             _engineBuffers.Clear();
         }

@@ -263,6 +263,21 @@ namespace VECS
             GraphicsDevice.EndLabelCmd(commandBuffer);
         }
 
+        internal void ExecuteDraws<T>(SwapChainBuffer<VECSDrawIndexIndirectCommand> indirectCmds, VkCommandBuffer commandBuffer, Span<T> pushConstantBuffer, VkCullModeFlags cullMode) where T : unmanaged
+        {
+            GraphicsDevice.BeginLabelCmd(commandBuffer, string.Format("Draw {0} Queue", AssetName));
+            // draw batches/draw calls do not align
+            foreach (var drawCall in _drawBatches)
+            {
+                var region = drawCall.Value;
+                var pipeline = AssetDataBase<GraphicsPipeline>.GetHashed(drawCall.Key);
+                var cmds = _drawCalls.AsSpan(region.StartIndex, region.Count);
+                //pipeline.PushConstants.SetPushConstantUInt(ShaderProperties.CameraIndex_PushConstantId, pushConstantBuffer, _targetCamera);
+                pipeline.ExecuteDrawCommandsPushConstantOverride(pushConstantBuffer, commandBuffer, cmds, region.Count, indirectCmds, cullMode);
+            }
+            GraphicsDevice.EndLabelCmd(commandBuffer);
+        }
+
         internal unsafe void Cull(VkCommandBuffer commandBuffer, CullData cullData, SwapChainBuffer<VECSDrawIndexIndirectCommand> indirectCmdBuffer)
         {
             if (_queueCount == 0) return;

@@ -243,7 +243,41 @@ namespace VECS
             Texture2DArray arrayTex = (Texture2DArray)_shadowDepthTextures.First;
             arrayTex.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.DepthAttachmentOptimal);
             var renderScale = Math.Max(1.0f, dirUniform.Scale.X);
-            CullData depthBufferCullInfo;
+
+            int cameraOffset = frameInfo.TargetCamera * MAX_CASCADE_COUNT;
+
+            if (dirUniform.CascadeCount > 1)
+            {
+                var passCount = Math.Min(MAX_CASCADE_COUNT, dirUniform.CascadeCount);
+                /*
+                VkCommandBuffer* secondaries = stackalloc VkCommandBuffer[passCount];
+                Application.ParallelFor(passCount, (i) =>
+                {
+                    secondaries[i] = GraphicsDevice.GetSecondaryCommandBuffer();
+                    GraphicsDevice.BeginSecondaryCommandBuffer(secondaries[i]);
+                    SinglePass(i, cameraOffset, renderScale, secondaries[i], arrayTex);
+                    GraphicsDevice.DeviceAPI.vkEndCommandBuffer(secondaries[i]);
+                });
+
+                GraphicsDevice.DeviceAPI.vkCmdExecuteCommands(frameInfo.CommandBuffer, (uint)passCount, secondaries);
+                */
+
+                for (int i = 0; i < passCount; i++)
+                {
+                    SinglePass(i, cameraOffset, renderScale, frameInfo.CommandBuffer, arrayTex);
+                }
+            }
+            else
+            {
+                SinglePass(0, cameraOffset, renderScale, frameInfo.CommandBuffer, arrayTex);
+            }
+
+            arrayTex.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal);
+        }
+
+
+        private unsafe void SinglePass(int cascadeIndex, int cameraOffset, float renderScale, VkCommandBuffer commandBuffer, Texture2DArray arrayTex)
+        {   
             VkRenderingAttachmentInfo depth = new()
             {
                 imageView = arrayTex._imageView,
@@ -261,40 +295,32 @@ namespace VECS
                 pDepthAttachment = &depth,
                 flags = VkRenderingFlags.ContentsInlineKHR | VkRenderingFlags.ContentsSecondaryCommandBuffers
             };
+            DepthOnlyPushConstants depthOnlyPushConstants = new() { BufferSelect = DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, MatrixStartIndex = cameraOffset + cascadeIndex };
+            Span<DepthOnlyPushConstants> pushBuffer = new(ref depthOnlyPushConstants);
+            GraphicsDevice.BeginLabelCmd(commandBuffer, string.Format("Cascade {0}", cascadeIndex));
+            depth.imageView = arrayTex.AdditionalImageViews[cascadeIndex];
+            CullData depthBufferCullInfo = new(
+                SHADOW_INCLUDE_MASK,
+                SHADOW_EXCLUDE_MASK,
+                SHADOW_CULL_MODE,
+                0,
+                _projMatrices[cameraOffset + cascadeIndex],
+                _viewMatrices[cameraOffset + cascadeIndex]
+            );
 
-            int cameraOffset = frameInfo.TargetCamera * MAX_CASCADE_COUNT;
+            CullShadow(commandBuffer, depthBufferCullInfo);
 
-            for (int i = 0; i < Math.Min(MAX_CASCADE_COUNT, dirUniform.CascadeCount); i++)
-            {
-                GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, string.Format("Cascade {0}", i));
-                depth.imageView = arrayTex.AdditionalImageViews[i];
-                depthBufferCullInfo = new(
-                    SHADOW_INCLUDE_MASK,
-                    SHADOW_EXCLUDE_MASK,
-                    SHADOW_CULL_MODE,
-                    0,
-                    _projMatrices[cameraOffset + i],
-                    _viewMatrices[cameraOffset + i]
-                );
-
-                CullShadow(frameInfo.CommandBuffer, depthBufferCullInfo);
-
-                GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Depth Pass");
-                GraphicsDevice.DeviceAPI.vkCmdBeginRendering(frameInfo.CommandBuffer, &renderingInfo);
+            GraphicsDevice.BeginLabelCmd(commandBuffer, "Depth Pass");
+            GraphicsDevice.DeviceAPI.vkCmdBeginRendering(commandBuffer, &renderingInfo);
 
 
-                SetViewPort(frameInfo.CommandBuffer, (uint)(arrayTex.Width * renderScale));
+            SetViewPort(commandBuffer, (uint)(arrayTex.Width * renderScale));
 
-                _depthOnly.PushConstants.SetPushConstantInt(Matrix_Start_Index_PushConstantId, DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, cameraOffset + i);
-                _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt(Matrix_Start_Index_PushConstantId, DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, cameraOffset + i);
+            DrawDepthOnly(commandBuffer, pushBuffer, VkCullModeFlags.Front);
 
-                DrawDepthOnly(frameInfo.CommandBuffer, DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, VkCullModeFlags.Front);
-
-                GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
-                GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
-                GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
-            }
-            arrayTex.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal);
+            GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
+            GraphicsDevice.EndLabelCmd(commandBuffer);
+            GraphicsDevice.EndLabelCmd(commandBuffer);
         }
     }
 }

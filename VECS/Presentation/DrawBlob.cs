@@ -411,10 +411,23 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static void Execute<T>(QueueBase queue, VkCommandBuffer commandBuffer, Span<T> pushConstantBuffer, VkCullModeFlags cullMode) where T : unmanaged
+        {
+            queue.ExecuteDraws(_indirectCmdBuffer, commandBuffer, pushConstantBuffer, cullMode);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static void Execute(int queueId, VkCommandBuffer commandBuffer, int pushConstantIndex, VkCullModeFlags cullMode)
         {
             if (!_queueLookup.TryGetValue(queueId, out var queue)) return;
             Execute(queue, commandBuffer, pushConstantIndex, cullMode);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static void Execute<T>(int queueId, VkCommandBuffer commandBuffer, Span<T> pushConstantBuffer, VkCullModeFlags cullMode) where T : unmanaged
+        {
+            if (!_queueLookup.TryGetValue(queueId, out var queue)) return;
+            Execute(queue, commandBuffer, pushConstantBuffer, cullMode);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

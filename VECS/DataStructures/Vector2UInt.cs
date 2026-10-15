@@ -160,5 +160,10 @@ namespace System.Numerics
         }
 
         public override readonly int GetHashCode() => HashCode.Combine(X, Y);
+
+        public override string ToString()
+        {
+            return $"X:{X} | Y:{Y}";
+        }
     }
 }

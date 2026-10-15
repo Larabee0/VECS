@@ -436,6 +436,36 @@ namespace VECS
             }
         }
 
+        public unsafe void Dispatch<T>(VkCommandBuffer commandBuffer,Span<T> pushConstantsBuffer, int frameIndex, uint invokeCountX, uint invokeCountY = 0, uint invokeCountZ = 0) where T : unmanaged
+        {
+            if (_allowTmpBufferAllocation)
+            {
+                var descriptorSetCount = DescriptorSetCount;
+                VkDescriptorBufferBindingInfoEXT* bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[descriptorSetCount];
+                ulong* offsets = stackalloc ulong[descriptorSetCount];
+                uint* indices = stackalloc uint[descriptorSetCount];
+                if (localUniformAllocation)
+                {
+                    GPUBufferExtensions.WriteFromHostDelayed(_localUniformBuffer, 0, _computePipeline.UniformBufferSize);
+                }
+                WriteUniformToDescriptorBuffers();
+                for (uint i = 0; i < descriptorSetCount; i++)
+                {
+                    _tempDescriptorSetInfos[i].WriteFromBuffers(frameIndex);
+                    var buffer = _tempDescriptorSetInfos[i].DescriptorBuffers[frameIndex];
+                    bindingInfo[i] = buffer.BindingInfo;
+                    offsets[i] = 0;
+                    indices[i] = i;
+                }
+
+                _computePipeline.Dispatch(commandBuffer, pushConstantsBuffer, bindingInfo, offsets, indices, invokeCountX, invokeCountY, invokeCountZ);
+            }
+            else
+            {
+                _computePipeline.Dispatch(commandBuffer, frameIndex, VariantIndex, pushConstantsBuffer, invokeCountX, invokeCountY, invokeCountZ);
+            }
+        }
+
         public void Reinitialise(Dictionary<int, Vector4UInt> textureRemap, Dictionary<int, Vector4UInt> storageRemap)
         {
             var existingImages = _textures;

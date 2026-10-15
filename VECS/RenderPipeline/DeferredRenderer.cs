@@ -259,14 +259,11 @@ namespace VECS
             {
                 DrawBlob.SetTargetCamera(_forwardQueue, frameInfo.TargetCamera);
                 DrawBlob.Cull(_forwardQueue, frameInfo.CommandBuffer, frameInfo.CullData);
-            }
-            StartForwardRendering(frameInfo.CommandBuffer, VkAttachmentLoadOp.Load);
-            if (_forwardQueue.CommandCount > 0)
-            {
+                StartForwardRendering(frameInfo.CommandBuffer, VkAttachmentLoadOp.Load);
                 DrawBlob.Execute(_forwardQueue, frameInfo.CommandBuffer, 0, VkCullModeFlags.Back);
+                EndForwardRendering(frameInfo);
             }
 
-            EndForwardRendering(frameInfo);
         }
 
         private void DeferredDepthPass(RendererFrameInfo frameInfo)

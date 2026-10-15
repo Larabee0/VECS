@@ -1,4 +1,6 @@
+using CommunityToolkit.HighPerformance;
 using System;
+using System.Diagnostics;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using Vortice.SPIRV.Reflect;
@@ -21,6 +23,7 @@ namespace VECS
         public int Count => _pushConstantsCount;
         public uint UCount => (uint)_pushConstantsCount;
 
+        public uint BufferInstanceSize => _bufferInstanceSize;
 
         public PushConstantsHandler(params SpvReflectShaderModule[] modules)
         {
@@ -78,8 +81,14 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Span<byte> GetPushConstantInstance(int instanceIndex, int pushConstantIndex)
         {
+            return GetPushConstantFromBuffer(GetBufferInstance(instanceIndex),pushConstantIndex);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public Span<byte> GetPushConstantFromBuffer(Span<byte> buffer, int pushConstantIndex)
+        {
             var info = _pushConstantsInfos[pushConstantIndex];
-            return GetBufferInstance(instanceIndex).Slice((int)info.BufferOffset, (int)info.BlockSize);
+            return buffer.Slice((int)info.BufferOffset, (int)info.BlockSize);
         }
     }
 
@@ -200,6 +209,17 @@ namespace VECS
             for (int i = 0; i < handler.Count; i++)
             {
                 handler.PushConstantsInfo[i].PushConstants(handler.GetPushConstantInstance(instanceIndex, i), commandBuffer, pipelineLayout);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe static void BindPushConstants<T>(this PushConstantsHandler handler, VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, Span<T> buffer) where T : unmanaged
+        {
+            Debug.Assert(buffer.Length *  sizeof(T) == handler.BufferInstanceSize,$"PushConstantType [{typeof(T).ToString()}] Size: {sizeof(T)} does not match pushblock size: {handler.BufferInstanceSize}");
+
+            for (int i = 0; i < handler.Count; i++)
+            {
+                handler.PushConstantsInfo[i].PushConstants(handler.GetPushConstantFromBuffer(buffer.AsBytes(), i), commandBuffer, pipelineLayout);
             }
         }
 

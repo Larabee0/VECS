@@ -366,6 +366,7 @@ namespace VECS.LowLevel
                 runtimeDescriptorArray = true,
                 uniformAndStorageBuffer8BitAccess = true,
                 shaderInt8 = true,
+                
                 pNext = &deviceFeatures11
             };
 
@@ -396,6 +397,7 @@ namespace VECS.LowLevel
                 fragmentStoresAndAtomics = true,
                 geometryShader = true,
                 imageCubeArray = true,
+                shaderClipDistance = true,
             };
 
             VkPhysicalDeviceFeatures2 deviceFeatures2 = new()
