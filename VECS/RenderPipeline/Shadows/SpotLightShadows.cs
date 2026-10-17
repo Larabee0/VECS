@@ -105,6 +105,7 @@ namespace VECS
                 lightView = Matrix4x4.CreateLookAt(lightPos, shadowFocus, new(0, 0, 1));
             }
 
+
             nearPlane = near_plane;
             return lightView * lightProj;
         }
