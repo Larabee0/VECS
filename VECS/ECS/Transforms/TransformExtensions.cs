@@ -11,8 +11,8 @@ namespace VECS.ECS.Transforms
     /// </summary>
     public static class TransformExtensions
     {
-        public const float Deg2Rad = (float.Pi * 2) / 360f;
-        public const float Rad2Deg = 360f/ (float.Pi * 2);
+        public const float Deg2Rad = float.Pi / 180f;
+        public const float Rad2Deg = 180f / float.Pi;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static float ToRadians(this in float degrees)

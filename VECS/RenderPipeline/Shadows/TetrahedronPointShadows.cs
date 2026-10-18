@@ -29,13 +29,28 @@ namespace VECS
         private readonly static Matrix4x4 RotationC = Matrix4x4.CreateRotationX(-27.36780516f.ToRadians()) * Matrix4x4.CreateRotationY(270f.ToRadians());
         private readonly static Matrix4x4 RotationD = Matrix4x4.CreateRotationZ(90f.ToRadians()) * Matrix4x4.CreateRotationX(-27.36780516f.ToRadians()) * Matrix4x4.CreateRotationY(90f.ToRadians());
 
-        private const float ALPHA = 1.99273682f;
-        private const float BETA = 2.78596497f;
-        private const float FOV0 = 143.98570868f;
-        private const float FOV1 = 125.26438968f;
+        private readonly static float ALPHA = 1.99273682f.ToRadians();
+        private readonly static float BETA = 2.78596497f.ToRadians();
+        private readonly static float FOV0 = 143.98570868f;
+        private readonly static float FOV1 = 125.26438968f;
 
-        private readonly static Matrix4x4 Projection0 = Perspective(new(FOV0 + ALPHA, FOV1 + BETA), 0.01f, 7f);
-        private readonly static Matrix4x4 Projection1 = Perspective(new(FOV1 + BETA, FOV0 + ALPHA), 0.01f, 7f);
+        private readonly static Matrix4x4 Projection0 = Perspective(new(FOV0 + BETA, FOV1 + BETA), 0.1f, 7f);
+        private readonly static Matrix4x4 Projection1 = Perspective(new(FOV1+ ALPHA, FOV0 + ALPHA), 0.1f, 7f);
+
+        private readonly static Matrix4x4 DX9Projection0 = GetPerspectiveDX9(256f, new(FOV0 + ALPHA, FOV1 + BETA));
+        private readonly static Matrix4x4 DX9Projection1 = GetPerspectiveDX9(256f, new(FOV1 + BETA, FOV0 + ALPHA));
+
+        private readonly static Matrix4x4 SysNumProjection0 = GetPerspectiveFOVHV(256f, new(FOV0 + ALPHA, FOV1 + BETA));
+        private readonly static Matrix4x4 SysNumProjection1 = GetPerspectiveFOVHV(256f, new(FOV1 + BETA, FOV0 + ALPHA));
+
+        private readonly static string StrProjection0 = Projection0.ToHumanString();
+        private readonly static string StrProjection1 = Projection1.ToHumanString();
+
+        private readonly static string StrDX9Projection0 = DX9Projection0.ToHumanString();
+        private readonly static string StrDX9Projection1 = DX9Projection1.ToHumanString();
+
+        private readonly static string StrSysNumProjection0 = SysNumProjection0.ToHumanString();
+        private readonly static string StrSysNumProjection1 = SysNumProjection1.ToHumanString();
 
         private readonly static Vector2 FOV_A = new(143.98570868f, 125.26438968f);
         private readonly static Vector2 FOV_B = new(125.26438968f, 143.98570868f);
@@ -52,6 +67,7 @@ namespace VECS
 
         public TetrahedronPointShadows() : base(1)
         {
+            var alphaBeta = GetAlphaBeta(7f, FOV_A, GetPerspectiveDX9(7f, FOV_A));
             _shadowDepthTextures.SetTexture(new Texture2D("TetrahedronShadowRT",
                 4096, 4096,
                 PreferredFormats.LOW_PRECISION_DEPTH_ONLY,
@@ -134,18 +150,21 @@ namespace VECS
             Span<Vector4> clippingPlanes = ((SwapChainBuffer<Vector4>)EngineBuffers.TryGetBuffer(TetraHedronPLPlanesId)).HostBuffer;
 
             Vector3 plPosition = new(-8, 1, 0);
-            A_CP_0 = GetClippingPlane(ALPHA, Up_C_3, Up_C_0, Forward_Face_C, Forward_Face_A);
-            A_CP_1 = GetClippingPlane(ALPHA, Up_C_1, Up_C_3, Forward_Face_B, Forward_Face_A);
-            A_CP_2 = GetClippingPlane(ALPHA, Up_C_0, Up_C_1, Forward_Face_D, Forward_Face_A);
-            B_CP_0 = GetClippingPlane(ALPHA, Up_C_3, Up_C_1, Forward_Face_A, Forward_Face_B);
-            B_CP_1 = GetClippingPlane(ALPHA, Up_C_2, Up_C_3, Forward_Face_C, Forward_Face_B);
-            B_CP_2 = GetClippingPlane(ALPHA, Up_C_1, Up_C_2, Forward_Face_D, Forward_Face_B);
-            C_CP_0 = GetClippingPlane(ALPHA, Up_C_0, Up_C_3, Forward_Face_A, Forward_Face_C);
-            C_CP_1 = GetClippingPlane(ALPHA, Up_C_3, Up_C_2, Forward_Face_B, Forward_Face_C);
-            C_CP_2 = GetClippingPlane(ALPHA, Up_C_2, Up_C_0, Forward_Face_D, Forward_Face_C);
-            D_CP_0 = GetClippingPlane(ALPHA, Up_C_1, Up_C_0, Forward_Face_A, Forward_Face_D);
-            D_CP_1 = GetClippingPlane(ALPHA, Up_C_2, Up_C_1, Forward_Face_B, Forward_Face_D);
-            D_CP_2 = GetClippingPlane(ALPHA, Up_C_0, Up_C_2, Forward_Face_C, Forward_Face_D);
+            A_CP_0 = GetClippingPlane(-ALPHA, Up_C_3, Up_C_0, Forward_Face_C, Forward_Face_A);
+            A_CP_1 = GetClippingPlane(-ALPHA, Up_C_1, Up_C_3, Forward_Face_B, Forward_Face_A);
+            A_CP_2 = GetClippingPlane(-ALPHA, Up_C_0, Up_C_1, Forward_Face_D, Forward_Face_A);
+                                      
+            B_CP_0 = GetClippingPlane(-ALPHA, Up_C_3, Up_C_1, Forward_Face_A, Forward_Face_B);
+            B_CP_1 = GetClippingPlane(-ALPHA, Up_C_2, Up_C_3, Forward_Face_C, Forward_Face_B);
+            B_CP_2 = GetClippingPlane(-ALPHA, Up_C_1, Up_C_2, Forward_Face_D, Forward_Face_B);
+                                      
+            C_CP_0 = GetClippingPlane(-ALPHA, Up_C_0, Up_C_3, Forward_Face_A, Forward_Face_C);
+            C_CP_1 = GetClippingPlane(-ALPHA, Up_C_3, Up_C_2, Forward_Face_B, Forward_Face_C);
+            C_CP_2 = GetClippingPlane(-ALPHA, Up_C_2, Up_C_0, Forward_Face_D, Forward_Face_C);
+                                      
+            D_CP_0 = GetClippingPlane(-ALPHA, Up_C_1, Up_C_0, Forward_Face_A, Forward_Face_D);
+            D_CP_1 = GetClippingPlane(-ALPHA, Up_C_2, Up_C_1, Forward_Face_B, Forward_Face_D);
+            D_CP_2 = GetClippingPlane(-ALPHA, Up_C_0, Up_C_2, Forward_Face_C, Forward_Face_D);
             clippingPlanes[0] = GetClippingPlane(ALPHA, C_3, C_0, Face_C, Face_A);
             clippingPlanes[1] = GetClippingPlane(ALPHA, C_1, C_3, Face_B, Face_A);
             clippingPlanes[2] = GetClippingPlane(ALPHA, C_0, C_1, Face_D, Face_A);
@@ -161,6 +180,22 @@ namespace VECS
             clippingPlanes[09] = GetClippingPlane(ALPHA, C_1, C_0, Face_A, Face_D);
             clippingPlanes[10] = GetClippingPlane(ALPHA, C_2, C_1, Face_B, Face_D);
             clippingPlanes[11] = GetClippingPlane(ALPHA, C_0, C_2, Face_C, Face_D);
+
+            clippingPlanes[0] = B_CP_0;
+            clippingPlanes[1] = B_CP_1;
+            clippingPlanes[2] = B_CP_2;
+
+            clippingPlanes[3] = A_CP_0;
+            clippingPlanes[4] = A_CP_1;
+            clippingPlanes[5] = A_CP_2;
+
+            clippingPlanes[6] = C_CP_0;
+            clippingPlanes[7] = C_CP_1;
+            clippingPlanes[8] = C_CP_2;
+
+            clippingPlanes[09] = D_CP_0;
+            clippingPlanes[10] = D_CP_1;
+            clippingPlanes[11] = D_CP_2;
             _tile_debug_visualiser.PushConstantsHandler.SetPushConstantVector4(ShaderProperties.OutputImageSize_PushConstantId, 0, new(frameInfo.OutputRect.extent.width, frameInfo.OutputRect.extent.height, 1.0f / frameInfo.OutputRect.extent.width, 1.0f / frameInfo.OutputRect.extent.height));
             _tile_debug_visualiser.PushConstantsHandler.SetPushConstantInt("sideIndex", 0, 0);
             _tile_debug_visualiser.PushConstantsHandler.SetPushConstantInt("useConst", 0, 0);
@@ -217,6 +252,10 @@ namespace VECS
             Span<Matrix4x4> projs = stackalloc Matrix4x4[4];
             ViewMatrices(plPosition, views);
             ProjectionMatrices(farPlane, projs);
+            GraphicsDevice.BeginLabelCmd(commandBuffer, "Clear Pass");
+            GraphicsDevice.DeviceAPI.vkCmdBeginRendering(commandBuffer, &renderingInfo);
+            GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
+            GraphicsDevice.EndLabelCmd(commandBuffer);
             for (int i = 0; i < 4; i++)
             {
                 depthOnlyPushConstants.MatrixStartIndex = i;
@@ -236,13 +275,13 @@ namespace VECS
                 GraphicsDevice.DeviceAPI.vkCmdBeginRendering(commandBuffer, &renderingInfo);
                 
                 SetViewPort(commandBuffer, 4096);
-                DrawDepthOnly(commandBuffer, pushBuffer, VkCullModeFlags.None);
+                DrawDepthOnly(commandBuffer, pushBuffer, VkCullModeFlags.Front);
                     
                 GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
 
                 GraphicsDevice.EndLabelCmd(commandBuffer);
                 //GraphicsDevice.EndLabelCmd(commandBuffer);
-                //depth.loadOp = VkAttachmentLoadOp.Load;
+                depth.loadOp = VkAttachmentLoadOp.Load;
             }
             tex.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal);
 
@@ -282,7 +321,7 @@ namespace VECS
                 string proj = projection[i].ToHumanString();
                 string view = views[i].ToHumanString();
                 string tex = texture[i].ToHumanString();
-                shadowMatrices[i] = views[i] * projection[i];// * texture[i];
+                shadowMatrices[i] = views[i] * projection[i] * texture[i];
             }
             var translation = Matrix4x4.CreateTranslation(position);
         }
@@ -291,7 +330,8 @@ namespace VECS
         {
             Vector3 normal = Vector3.Normalize(Vector3.Cross(left,right));
             Vector3 rotationAxis = Vector3.Normalize(Vector3.Cross(up,forward));
-            return new(Vector3.Normalize(Vector3.Transform(normal, new Quaternion(rotationAxis, -alpha.ToRadians()))), 1);
+            Vector3 transformedNormal = Vector3.Normalize(Vector3.Transform(normal, Quaternion.CreateFromAxisAngle(rotationAxis, alpha.ToRadians())));
+            return new(transformedNormal, 1);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -342,20 +382,26 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void ViewMatrices(Vector3 position, Span<Matrix4x4> views)
         {
+            views[0] = Matrix4x4.CreateLookAt(position, position + Forward_Face_A, -Forward_Face_B);
+            views[1] = Matrix4x4.CreateLookAt(position, position + Forward_Face_B, -Forward_Face_A);
+            views[2] = Matrix4x4.CreateLookAt(position, position + Forward_Face_C, -Forward_Face_D);
+            views[3] = Matrix4x4.CreateLookAt(position, position + Forward_Face_D, -Forward_Face_C);
+
             views[0] = Matrix4x4.CreateLookAt(position, position + RotationA.Forward(), RotationA.Up());
             views[1] = Matrix4x4.CreateLookAt(position, position + RotationB.Forward(), RotationB.Up());
             views[2] = Matrix4x4.CreateLookAt(position, position + RotationC.Forward(), RotationC.Up());
             views[3] = Matrix4x4.CreateLookAt(position, position + RotationD.Forward(), RotationD.Up());
 
-            DebugDrawer.DrawLine(position, position + RotationA.Forward(), Colour.Red);
-            DebugDrawer.DrawLine(position, position + RotationB.Forward(), Colour.Green);
-            DebugDrawer.DrawLine(position, position + RotationC.Forward(), Colour.Blue);
-            DebugDrawer.DrawLine(position, position + RotationD.Forward(), Colour.White);
 
-            DebugDrawer.DrawLine(position, position + (0.5f * -RotationA.Up()), Colour.Red);
-            DebugDrawer.DrawLine(position, position + (0.5f * RotationB.Up()), Colour.Green);
-            DebugDrawer.DrawLine(position, position + (0.5f * RotationC.Up()), Colour.Blue);
-            DebugDrawer.DrawLine(position, position + (0.5f * RotationD.Up()), Colour.White);
+            DebugDrawer.DrawLine(position, position + Forward_Face_A, Colour.Red);
+            DebugDrawer.DrawLine(position, position + Forward_Face_B, Colour.Green);
+            DebugDrawer.DrawLine(position, position + Forward_Face_C, Colour.Blue);
+            DebugDrawer.DrawLine(position, position + Forward_Face_D, Colour.White);
+
+            DebugDrawer.DrawLine(position, position + (0.5f * -Forward_Face_B), Colour.Red);
+            DebugDrawer.DrawLine(position, position + (0.5f * -Forward_Face_A), Colour.Green);
+            DebugDrawer.DrawLine(position, position + (0.5f * -Forward_Face_D), Colour.Blue);
+            DebugDrawer.DrawLine(position, position + (0.5f * -Forward_Face_C), Colour.White);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -370,20 +416,21 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static Matrix4x4 GetPerspectiveFOVHV(float farPlane, Vector2 fov)
         {
+            fov *= TransformExtensions.Deg2Rad;
             return Matrix4x4.CreatePerspective(1f / MathF.Tan(fov.X * 0.5f), 1f / MathF.Tan(fov.Y * 0.5f), 0.1f, farPlane);
         }
 
         private static Matrix4x4 GetPerspectiveDX9(float farplane, Vector2 fov)
         {
             fov *= TransformExtensions.Deg2Rad;
-           float w = 1f / MathF.Tan(fov.X * 0.5f);  // 1/tan(x) == cot(x)
-           float h = 1f / MathF.Tan(fov.Y * 0.5f);   // 1/tan(x) == cot(x)
-           float Q = farplane / (farplane - 0.1f);
+            float w = 1f / MathF.Tan(fov.X * 0.5f);  // 1/tan(x) == cot(x)
+            float h = 1f / MathF.Tan(fov.Y * 0.5f);   // 1/tan(x) == cot(x)
+            float Q = farplane / (farplane - 0.1f);
             Matrix4x4 ret = new();
 
             ret[0, 0] = w;
             ret[1, 1] = h;
-            ret[2,2] = -Q;
+            ret[2, 2] = -Q;
             ret[3, 2] = Q * -0.1f;
             ret[2, 3] = -1;
 
@@ -393,7 +440,6 @@ namespace VECS
         private static Matrix4x4 Perspective(Vector2 fov, float n, float f)
         {
             float left, right, top, bottom;
-
             top = n * MathF.Tan(fov.Y.ToRadians() * 0.5f);
             bottom = -top;
             right = n * MathF.Tan(fov.X.ToRadians() * 0.5f);
