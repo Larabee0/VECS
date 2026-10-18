@@ -241,15 +241,14 @@ namespace VECS
             return imageMemoryBarrier;
         }
 
-        private unsafe void BloomDownSample(RendererFrameInfo frameInfo)
+        private void BloomDownSample(RendererFrameInfo frameInfo)
         {
-            var deferred = (DeferredRenderer)_activeRenderer;
-
-            VkImageMemoryBarrier2* barriers = stackalloc VkImageMemoryBarrier2[2];
-            barriers[0] = _bloomIntermediate.GetImageLayoutBarrierAuto(VkImageLayout.TransferDstOptimal);
-            barriers[1] = PostProcessingAttachment.Target.GetImageLayoutBarrierAuto(VkImageLayout.TransferSrcOptimal);
-
-            MemoryBarrierHelper.ImageMemoryBarrier(frameInfo.CommandBuffer, barriers,2);
+            Span<VkImageMemoryBarrier2> barriers =
+            [
+                _bloomIntermediate.GetImageLayoutBarrierAuto(VkImageLayout.TransferDstOptimal),
+                PostProcessingAttachment.Target.GetImageLayoutBarrierAuto(VkImageLayout.TransferSrcOptimal),
+            ];
+            MemoryBarrierHelper.ImageMemoryBarrier(frameInfo.CommandBuffer, barriers);
 
             PostProcessingAttachment.Target.SetImageLayoutSilent(VkImageLayout.TransferSrcOptimal);
             _bloomIntermediate.SetImageLayoutSilent(VkImageLayout.TransferDstOptimal);
@@ -258,21 +257,21 @@ namespace VECS
 
             barriers[0] = _bloomIntermediate.GetImageLayoutBarrierAuto(VkImageLayout.ShaderReadOnlyOptimal);
 
-            MemoryBarrierHelper.ImageMemoryBarrier(frameInfo.CommandBuffer, barriers, 1);
+            MemoryBarrierHelper.ImageMemoryBarrier(frameInfo.CommandBuffer, barriers[0]);
             _bloomIntermediate.SetImageLayoutSilent(VkImageLayout.ShaderReadOnlyOptimal);
             _bloomPrefilter.Dispatch(frameInfo.CommandBuffer, Presenter.FrameIndex, (uint)Screen.Width, (uint)Screen.Height);
             barriers[0] = GetImageBarrier(VkAccessFlags2.ShaderWrite | VkAccessFlags2.ShaderRead, VkAccessFlags2.ShaderWrite | VkAccessFlags2.ShaderRead, _bloomFinalMipUp, 0);
             barriers[0].newLayout = VkImageLayout.ShaderReadOnlyOptimal;
             _bloomFinalMipUp.SetImageLayoutSilent(VkImageLayout.ShaderReadOnlyOptimal);
 
-            MemoryBarrierHelper.ImageMemoryBarrier(frameInfo.CommandBuffer, barriers, 1);
+            MemoryBarrierHelper.ImageMemoryBarrier(frameInfo.CommandBuffer, barriers[0]);
 
             _bloomBlur.Dispatch(frameInfo.CommandBuffer, Presenter.FrameIndex, (uint)_bloomMipDown[0].Width, (uint)_bloomMipDown[0].Height);
             barriers[0] = GetImageBarrier(VkAccessFlags2.ShaderWrite | VkAccessFlags2.ShaderRead, VkAccessFlags2.ShaderWrite | VkAccessFlags2.ShaderRead, _bloomFinalMipUp, 0);
             barriers[1] = GetImageBarrier(VkAccessFlags2.ShaderWrite | VkAccessFlags2.ShaderRead, VkAccessFlags2.ShaderWrite | VkAccessFlags2.ShaderRead, _bloomMipDown[0], 0);
             barriers[1].newLayout = VkImageLayout.ShaderReadOnlyOptimal;
             _bloomMipDown[0].SetImageLayoutSilent(VkImageLayout.ShaderReadOnlyOptimal);
-            MemoryBarrierHelper.ImageMemoryBarrier(frameInfo.CommandBuffer, barriers, 2);
+            MemoryBarrierHelper.ImageMemoryBarrier(frameInfo.CommandBuffer, barriers[0]);
 
             for (uint i = 0; i < _bloomMipDown.Length-1; i++)
             {
@@ -282,13 +281,13 @@ namespace VECS
                 barriers[1] = GetImageBarrier(VkAccessFlags2.ShaderWrite | VkAccessFlags2.ShaderRead, VkAccessFlags2.ShaderWrite | VkAccessFlags2.ShaderRead, _bloomMipDown[i+1],0);
                 barriers[1].newLayout = VkImageLayout.ShaderReadOnlyOptimal;
                 _bloomMipDown[i + 1].SetImageLayoutSilent(VkImageLayout.ShaderReadOnlyOptimal);
-                MemoryBarrierHelper.ImageMemoryBarrier(frameInfo.CommandBuffer, barriers, 2);
+                MemoryBarrierHelper.ImageMemoryBarrier(frameInfo.CommandBuffer, barriers);
             }
         }
 
-        private unsafe void BloomUpSample(RendererFrameInfo frameInfo)
+        private void BloomUpSample(RendererFrameInfo frameInfo)
         {
-            VkImageMemoryBarrier2* barriers = stackalloc VkImageMemoryBarrier2[3];
+            Span<VkImageMemoryBarrier2> barriers = stackalloc VkImageMemoryBarrier2[3];
             var variant = _bloomUpSample.GetOrCreateVariant((uint)_bloomMipDown.Length - 2);
             variant.Dispatch(frameInfo.CommandBuffer, Presenter.FrameIndex, (uint)_bloomMipDown[^2].Width, (uint)_bloomMipDown[^2].Height);
             barriers[0] = GetImageBarrier(VkAccessFlags2.ShaderWrite | VkAccessFlags2.ShaderRead, VkAccessFlags2.ShaderWrite | VkAccessFlags2.ShaderRead, _bloomMipDown[^1], 0);
@@ -296,7 +295,7 @@ namespace VECS
             barriers[2] = GetImageBarrier(VkAccessFlags2.ShaderWrite, VkAccessFlags2.ShaderWrite | VkAccessFlags2.ShaderRead, _bloomMipUp[^2], 0);
             barriers[2].newLayout = VkImageLayout.ShaderReadOnlyOptimal;
             _bloomMipUp[^2].SetImageLayoutSilent(VkImageLayout.ShaderReadOnlyOptimal);
-            MemoryBarrierHelper.ImageMemoryBarrier(frameInfo.CommandBuffer, barriers, 3);
+            MemoryBarrierHelper.ImageMemoryBarrier(frameInfo.CommandBuffer, barriers);
 
             for (int i = _bloomMipUp.Length-3; i >= 0; i--)
             {
@@ -307,7 +306,7 @@ namespace VECS
                 barriers[2] = GetImageBarrier(VkAccessFlags2.ShaderWrite | VkAccessFlags2.ShaderRead, VkAccessFlags2.ShaderWrite | VkAccessFlags2.ShaderRead, _bloomMipUp[i], 0);
                 barriers[2].newLayout = VkImageLayout.ShaderReadOnlyOptimal;
                 _bloomMipUp[i].SetImageLayoutSilent(VkImageLayout.ShaderReadOnlyOptimal);
-                MemoryBarrierHelper.ImageMemoryBarrier(frameInfo.CommandBuffer, barriers, 3);
+                MemoryBarrierHelper.ImageMemoryBarrier(frameInfo.CommandBuffer, barriers);
             }
 
         }

@@ -317,17 +317,17 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe void WriteDescriptors(int frameIndex, uint bindingPoint, uint setVariant, VkDescriptorImageInfo imageInfo, VkDescriptorType imageType)
+        public void WriteDescriptors(int frameIndex, uint bindingPoint, uint setVariant, VkDescriptorImageInfo imageInfo, VkDescriptorType imageType)
         {
             var descriptorBuffer = _descriptorBuffers[frameIndex];
-            descriptorBuffer.SetImageInfoBinding(&imageInfo, 1, imageType, setVariant, bindingPoint);
+            descriptorBuffer.SetImageInfoBinding(new Span<VkDescriptorImageInfo>(ref imageInfo), imageType, setVariant, bindingPoint);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe void WriteDescriptors(int frameIndex, uint bindingPoint, uint setVariant, VkDescriptorImageInfo* imageInfo, uint imageCount, VkDescriptorType imageType)
+        public void WriteDescriptors(int frameIndex, uint bindingPoint, uint setVariant, Span<VkDescriptorImageInfo> imageInfo, VkDescriptorType imageType)
         {
             var descriptorBuffer = _descriptorBuffers[frameIndex];
-            descriptorBuffer.SetImageInfoBinding(imageInfo, imageCount, imageType, setVariant, bindingPoint);
+            descriptorBuffer.SetImageInfoBinding(imageInfo, imageType, setVariant, bindingPoint);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

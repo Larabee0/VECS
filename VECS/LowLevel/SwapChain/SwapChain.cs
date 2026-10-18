@@ -146,7 +146,7 @@ namespace VECS.LowLevel
 
         internal static unsafe void SetSwapChainImageLayoutTransferDST(VkCommandBuffer commandBuffer, int frameIndex, uint imageCount, uint* imageIndices)
         {
-            VkImageMemoryBarrier2* barriers = stackalloc VkImageMemoryBarrier2[(int)imageCount];
+            Span<VkImageMemoryBarrier2> barriers = stackalloc VkImageMemoryBarrier2[(int)imageCount];
             VkImageMemoryBarrier2 barrier = new()
             {
                 subresourceRange = new VkImageSubresourceRange(VkImageAspectFlags.Color),
@@ -159,12 +159,7 @@ namespace VECS.LowLevel
                 srcQueueFamilyIndex = Vulkan.VK_QUEUE_FAMILY_IGNORED,
                 dstQueueFamilyIndex = Vulkan.VK_QUEUE_FAMILY_IGNORED
             };
-            VkDependencyInfo info = new()
-            {
-                imageMemoryBarrierCount = imageCount,
-                pImageMemoryBarriers = barriers
-            };
-
+            
             for (int i = 0; i < SwapChainsForPresent.Length; i++)
             {
                 SwapChainData swapChainData = SwapChainsForPresent[i];
@@ -174,12 +169,12 @@ namespace VECS.LowLevel
                 swapChainData.SwapChainImageLayouts[imageIndices[i]] = barrier.newLayout;
             }
 
-            GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier2(commandBuffer, &info);
+            MemoryBarrierHelper.ImageMemoryBarrier(commandBuffer, barriers);
         }
 
         internal static unsafe void SetSwapChainLayoutPresent(VkCommandBuffer commandBuffer, int frameIndex, uint imageCount, uint* imageIndices)
         {
-            VkImageMemoryBarrier2* barriers = stackalloc VkImageMemoryBarrier2[(int)imageCount];
+            Span<VkImageMemoryBarrier2> barriers = stackalloc VkImageMemoryBarrier2[(int)imageCount];
             VkImageMemoryBarrier2 barrier = new()
             {
                 subresourceRange = new VkImageSubresourceRange(VkImageAspectFlags.Color),
@@ -192,11 +187,6 @@ namespace VECS.LowLevel
                 srcQueueFamilyIndex = Vulkan.VK_QUEUE_FAMILY_IGNORED,
                 dstQueueFamilyIndex = Vulkan.VK_QUEUE_FAMILY_IGNORED
             };
-            VkDependencyInfo info = new()
-            {
-                imageMemoryBarrierCount = imageCount,
-                pImageMemoryBarriers = barriers
-            };
 
             for (int i = 0; i < SwapChainsForPresent.Length; i++)
             {
@@ -207,8 +197,7 @@ namespace VECS.LowLevel
                 swapChainData.SwapChainImageLayouts[imageIndices[i]] = barrier.newLayout;
             }
 
-            GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier2(commandBuffer, &info);
-
+            MemoryBarrierHelper.ImageMemoryBarrier(commandBuffer, barriers);
         }
 
         public static void CleanUp()

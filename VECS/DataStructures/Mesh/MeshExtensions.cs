@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Numerics;
-using System.Runtime.InteropServices;
 using VECS.ECS;
 using VECS.ECS.Presentation;
 using VECS.LowLevel;
@@ -356,7 +355,7 @@ namespace VECS
             return submeshMeshletData;
         }
 
-        public static unsafe void CreateMeshlets(this DirectMesh srcMesh)
+        public static void CreateMeshlets(this DirectMesh srcMesh)
         {
             if (!GraphicsDevice.MeshShading)
             {
@@ -482,7 +481,7 @@ namespace VECS
             }
         }
 
-        private static unsafe void UploadMesletIndexData(DirectMesh srcMesh, SubmeshMeshletData[] submeshMeshletDatas, byte[] meshletTriangles, int meshletIndexCount)
+        private static void UploadMesletIndexData(DirectMesh srcMesh, SubmeshMeshletData[] submeshMeshletDatas, byte[] meshletTriangles, int meshletIndexCount)
         {
             var indexBuffer = srcMesh._meshletIndexBuffer;
             if (indexBuffer != null && !indexBuffer.IsDisposed)

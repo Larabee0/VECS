@@ -417,7 +417,7 @@ namespace VECS
             GraphicsDevice.DeviceAPI.vkCmdBindIndexBuffer(cmd, _indexBuffer.VkBuffer, 0, VkIndexType.Uint32);
         }
 
-        internal unsafe void BindSpecificBuffers(VkCommandBuffer cmd, VkVertexInputBindingDescription[] vBindings, VkVertexInputAttributeDescription[] vAttributes)
+        internal void BindSpecificBuffers(VkCommandBuffer cmd, VkVertexInputBindingDescription[] vBindings, VkVertexInputAttributeDescription[] vAttributes)
         {
             if (vAttributes.Length == _attributeDescriptions.Length)
             {
@@ -426,9 +426,9 @@ namespace VECS
             }
             int bufferCount = Math.Min(vAttributes.Length, _attributeDescriptions.Length);
 
-            ulong* pOffsets = stackalloc ulong[bufferCount];
+            Span<ulong> pOffsets = stackalloc ulong[bufferCount];
 
-            VkBuffer* pBuffers = stackalloc VkBuffer[bufferCount];
+            Span<VkBuffer> pBuffers = stackalloc VkBuffer[bufferCount];
             int index = 0;
             for (int i = 0; i < vAttributes.Length; i++)
             {
@@ -446,7 +446,12 @@ namespace VECS
                 }
             }
 
-            GraphicsDevice.DeviceAPI.vkCmdBindVertexBuffers(cmd, 0, (uint)bufferCount, pBuffers, pOffsets);
+            unsafe
+            {
+                fixed(ulong* pOffsetsPtr = pOffsets)
+                fixed(VkBuffer* pBuffersPtr = pBuffers)
+                GraphicsDevice.DeviceAPI.vkCmdBindVertexBuffers(cmd, 0, (uint)bufferCount, pBuffersPtr, pOffsetsPtr);
+            }
             GraphicsDevice.DeviceAPI.vkCmdBindIndexBuffer(cmd, _indexBuffer.VkBuffer, 0, VkIndexType.Uint32);
         }
 

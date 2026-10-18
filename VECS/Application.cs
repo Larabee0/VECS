@@ -187,11 +187,15 @@ namespace VECS
 
         }
 
-        private static unsafe void LogMemoryUsage()
+        private static void LogMemoryUsage()
         {
-            VmaBudget* budgets = stackalloc VmaBudget[(int)Vulkan.VK_MAX_MEMORY_HEAPS];
+            Span<VmaBudget> budgets = stackalloc VmaBudget[(int)Vulkan.VK_MAX_MEMORY_HEAPS];
 
-            Vma.vmaGetHeapBudgets(GraphicsDevice.VmaAllocator, budgets);
+            unsafe
+            { 
+                fixed (VmaBudget* ptr = budgets)
+                Vma.vmaGetHeapBudgets(GraphicsDevice.VmaAllocator, ptr);
+            }
             Console.WriteLine("\nLogging Vulkan Memory Usage");
 
             Vma.vmaCalculateStatistics(GraphicsDevice.VmaAllocator, out VmaTotalStatistics stats);

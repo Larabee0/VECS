@@ -19,8 +19,8 @@ namespace VECS
 
         private static VkImageView[] _additionalViews;
 
-        private static unsafe VkDescriptorImageInfo* _srcImages;
-        private static unsafe VkDescriptorImageInfo* _dstImages;
+        private static unsafe VkDescriptorImageInfo[] _srcImages;
+        private static unsafe VkDescriptorImageInfo[] _dstImages;
 
         public static void Init()
         {
@@ -38,8 +38,6 @@ namespace VECS
                 GraphicsDevice.DeviceAPI.vkDestroyImageView(_additionalViews[i]);
             }
             _depthReduceShader.Dispose();
-            NativeMemory.Free(_srcImages);
-            NativeMemory.Free(_dstImages);
             _srcImages = null;
             _dstImages = null;
         }
@@ -70,14 +68,12 @@ namespace VECS
                 }
 
                 _depthPryamid.Reinitialise((int)_depthPyramidWidth, (int)_depthPyramidHeight);
-                 NativeMemory.Free(_srcImages);
-                 NativeMemory.Free(_dstImages);
                 _srcImages = null;
                 _dstImages = null;
             }
 
-            _srcImages = (VkDescriptorImageInfo*)NativeMemory.Alloc((uint)sizeof(VkDescriptorImageInfo) * _depthPryamid.MipMapCount);
-            _dstImages = (VkDescriptorImageInfo*)NativeMemory.Alloc((uint)sizeof(VkDescriptorImageInfo) * _depthPryamid.MipMapCount);
+            _srcImages = new VkDescriptorImageInfo[ _depthPryamid.MipMapCount];
+            _dstImages = new VkDescriptorImageInfo[ _depthPryamid.MipMapCount];
 
             _additionalViews = new VkImageView[_depthPryamid.MipMapCount];
 
@@ -177,8 +173,8 @@ namespace VECS
                 imageLayout = VkImageLayout.ShaderReadOnlyOptimal
             };
 
-            _depthReduceShader.SetTexturesUnsafe(InImagePropertyId, _srcImages,_depthPryamid.MipMapCount);
-            _depthReduceShader.SetTexturesUnsafe(OutImagePropertyId, _dstImages, _depthPryamid.MipMapCount);
+            _depthReduceShader.SetTextures(InImagePropertyId, _srcImages);
+            _depthReduceShader.SetTextures(OutImagePropertyId, _dstImages);
 
             for (int i = 0; i < _depthPryamid.MipMapCount; i++)
             {

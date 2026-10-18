@@ -80,24 +80,26 @@ namespace VECS.LowLevel
             };
             int submitFrame;
             int lastFrame = 0;
+            uint imageIndex;
             bool submittedAnyFrames = false;
+            VkCommandBufferSubmitInfo commandBufferSubmitInfo = new();
+            VkSubmitInfo2 submitInfo = new()
+            {
+                commandBufferInfoCount = 1,
+                pCommandBufferInfos = &commandBufferSubmitInfo,
+                signalSemaphoreInfoCount = 2,
+                pSignalSemaphoreInfos = renderingCompleteInfo,
+                waitSemaphoreInfoCount = 2,
+                pWaitSemaphoreInfos = acquireCompleteInfo
+            };
             _autoResetEvent.WaitOne();
             while (!cancel.IsCancellationRequested)
             {
                 submitFrame = CurrentFrame;
-                uint imageIndex = *SwapChain.MainSwapChainData.CurrentImageIndex;
-                VkCommandBufferSubmitInfo commandBufferSubmitInfo = new();
+                imageIndex = *SwapChain.MainSwapChainData.CurrentImageIndex;
+                
 
 
-                VkSubmitInfo2 submitInfo = new()
-                {
-                    commandBufferInfoCount = 1,
-                    pCommandBufferInfos = &commandBufferSubmitInfo,
-                    signalSemaphoreInfoCount = 2,
-                    pSignalSemaphoreInfos = renderingCompleteInfo,
-                    waitSemaphoreInfoCount = 2,
-                    pWaitSemaphoreInfos = acquireCompleteInfo
-                };
                 acquireCompleteInfo[0].semaphore = SwapChain.MainSwapChainData.AcquiredImageReadySemaphores[submitFrame];
 
                 acquireCompleteInfo[1].semaphore = SwapChain._timelineSemaphores[submitFrame].Semaphore;

@@ -173,7 +173,7 @@ namespace VECS
             MemoryBarrierHelper.BufferMemoryBarrier(commandBuffer, barrier);
         }
 
-        private static unsafe void Prepare(ComputeVariant variant, DirectSubMesh subMesh)
+        private static void Prepare(ComputeVariant variant, DirectSubMesh subMesh)
         {
             int variantIndex = (int)variant.VariantIndex;
             ResetMinMax(variantIndex);

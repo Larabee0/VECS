@@ -57,7 +57,7 @@ namespace VECS
             Interlocked.Exchange(ref _invokcation, 0);
         }
 
-        public static unsafe void DispatchSingleTimeCmd(DirectMesh mesh)
+        public static void DispatchSingleTimeCmd(DirectMesh mesh)
         {
             var commandBuffer = GraphicsDevice.BeginSingleTimeMainPipe();
             GPUBufferExtensions.PlaybackCopyBuffersCmds(commandBuffer);
@@ -65,7 +65,7 @@ namespace VECS
             GraphicsDevice.EndSingleTimeMainPipe(commandBuffer);
         }
 
-        public static unsafe void Dispatch(VkCommandBuffer commandBuffer, int frameIndex, DirectMesh mesh)
+        public static void Dispatch(VkCommandBuffer commandBuffer, int frameIndex, DirectMesh mesh)
         {
             var variantIndex = Interlocked.Increment(ref _invokcation) - 1;
             var calcuateNormalsVariant = _calcuateNormals.GetOrCreateVariant(variantIndex);
@@ -122,30 +122,31 @@ namespace VECS
             workGroupXY = ComputePipeline.CompensateForWorkGroupLimits(vertexNormalBuffer.UInstanceCount32);
             normalizeNormalsVariant.Dispatch(commandBuffer, frameIndex, workGroupXY.X, workGroupXY.Y, 1);
 
-            VkBufferMemoryBarrier2* barriers = stackalloc VkBufferMemoryBarrier2[2];
-
-            barriers[0] = new()
-            {
-                buffer = vertexPositionBuffer.VkBuffer,
-                srcAccessMask = VkAccessFlags2.ShaderRead,
-                dstAccessMask = VkAccessFlags2.ShaderWrite | VkAccessFlags2.ShaderRead | VkAccessFlags2.VertexAttributeRead,
-                srcStageMask = VkPipelineStageFlags2.ComputeShader,
-                dstStageMask = VkPipelineStageFlags2.ComputeShader | VkPipelineStageFlags2.VertexInput,
-                size = Vulkan.VK_WHOLE_SIZE
-            };
-            barriers[1] = new()
-            {
-                buffer = vertexNormalBuffer.VkBuffer,
-                srcAccessMask = VkAccessFlags2.ShaderWrite | VkAccessFlags2.ShaderRead,
-                dstAccessMask = VkAccessFlags2.ShaderWrite | VkAccessFlags2.ShaderRead | VkAccessFlags2.VertexAttributeRead,
-                srcStageMask = VkPipelineStageFlags2.ComputeShader,
-                dstStageMask = VkPipelineStageFlags2.ComputeShader | VkPipelineStageFlags2.VertexInput,
-                size = Vulkan.VK_WHOLE_SIZE
-            };
-            MemoryBarrierHelper.BufferMemoryBarrier(commandBuffer, 2, barriers);
+            Span<VkBufferMemoryBarrier2> barriers =
+            [
+                new()
+                {
+                    buffer = vertexPositionBuffer.VkBuffer,
+                    srcAccessMask = VkAccessFlags2.ShaderRead,
+                    dstAccessMask = VkAccessFlags2.ShaderWrite | VkAccessFlags2.ShaderRead | VkAccessFlags2.VertexAttributeRead,
+                    srcStageMask = VkPipelineStageFlags2.ComputeShader,
+                    dstStageMask = VkPipelineStageFlags2.ComputeShader | VkPipelineStageFlags2.VertexInput,
+                    size = Vulkan.VK_WHOLE_SIZE
+                },
+                new()
+                {
+                    buffer = vertexNormalBuffer.VkBuffer,
+                    srcAccessMask = VkAccessFlags2.ShaderWrite | VkAccessFlags2.ShaderRead,
+                    dstAccessMask = VkAccessFlags2.ShaderWrite | VkAccessFlags2.ShaderRead | VkAccessFlags2.VertexAttributeRead,
+                    srcStageMask = VkPipelineStageFlags2.ComputeShader,
+                    dstStageMask = VkPipelineStageFlags2.ComputeShader | VkPipelineStageFlags2.VertexInput,
+                    size = Vulkan.VK_WHOLE_SIZE
+                }
+            ];
+            MemoryBarrierHelper.BufferMemoryBarrier(commandBuffer, barriers);
         }
 
-        private static unsafe void PrepareNormalRecalculate(ComputeVariant computeNormals, GPUBuffer<uint> indexBuffer, GPUBuffer<uint> indexOffsetBuffer, GPUBuffer<Vector3> vertexBuffer, GPUBuffer<Vector3> normalBuffer)
+        private static void PrepareNormalRecalculate(ComputeVariant computeNormals, GPUBuffer<uint> indexBuffer, GPUBuffer<uint> indexOffsetBuffer, GPUBuffer<Vector3> vertexBuffer, GPUBuffer<Vector3> normalBuffer)
         {
             uint componsatedBufferLength = (uint)(int)MathF.Ceiling((float)indexBuffer.UInstanceCount32 / 3f);
             uint divider = (uint)(int)MathF.Ceiling((float)componsatedBufferLength / (float)GraphicsDevice.MaxWorkGroupX);
@@ -178,7 +179,7 @@ namespace VECS
             computeNormals.SetStorageBuffer(IndexOffsetId, indexOffsetBuffer);
         }
 
-        private static unsafe void PrepareNormalNormalize(ComputeVariant normalizeNormals, GPUBuffer<Vector3> normalBuffer)
+        private static void PrepareNormalNormalize(ComputeVariant normalizeNormals, GPUBuffer<Vector3> normalBuffer)
         {
             uint divider = (uint)(int)MathF.Ceiling((float)normalBuffer.UInstanceCount32 / (float)GraphicsDevice.MaxWorkGroupX);
             uint workGroupX = (uint)Math.Min(normalBuffer.UInstanceCount32, GraphicsDevice.MaxWorkGroupX);

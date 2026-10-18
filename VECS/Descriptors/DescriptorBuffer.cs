@@ -149,10 +149,10 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe void SetCombinedImageSamplerBinding(Texture texture, uint set, uint binding)
+        public void SetCombinedImageSamplerBinding(Texture texture, uint set, uint binding)
         {
-            var imageInfo = texture.ImageInfo;
-            SetImageInfoBinding(&imageInfo,1, VkDescriptorType.CombinedImageSampler, set, binding);
+            Span<VkDescriptorImageInfo> imageInfo = [texture.ImageInfo];
+            SetImageInfoBinding(imageInfo, VkDescriptorType.CombinedImageSampler, set, binding);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -163,9 +163,9 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe void SetImageInfoBinding(VkDescriptorImageInfo* imageInfo,uint imageCount, VkDescriptorType type, uint set, uint binding)
+        public void SetImageInfoBinding(Span<VkDescriptorImageInfo> imageInfo, VkDescriptorType type, uint set, uint binding)
         {
-            DescriptorBufferWriteInfo info = new(imageInfo, imageCount,type, set, binding);
+            DescriptorBufferWriteInfo info = new(imageInfo, type, set, binding);
             WriteDescriptor(info);
         }
 
@@ -192,6 +192,7 @@ namespace VECS
             var addressInfo = writeInfo.AddressInfoEXT;
             var sampler = writeInfo.Sampler;
             getInfo.type = writeInfo.Type;
+            fixed(VkDescriptorImageInfo* imagePtr = writeInfo.ImageInfo)
             switch (writeInfo.Type)
             {
                 case VkDescriptorType.UniformTexelBuffer:
@@ -216,19 +217,19 @@ namespace VECS
                     getInfo.data.pUniformBuffer = &addressInfo;
                     break;
                 case VkDescriptorType.CombinedImageSampler:
-                    getInfo.data.pCombinedImageSampler = writeInfo.ImageInfo;
+                    getInfo.data.pCombinedImageSampler = imagePtr;
                     break;
                 case VkDescriptorType.SampledImage:
-                    getInfo.data.pSampledImage = writeInfo.ImageInfo;
+                    getInfo.data.pSampledImage = imagePtr;
                     break;
                 case VkDescriptorType.Sampler:
                     getInfo.data.pSampler = &sampler;
                     break;
                 case VkDescriptorType.StorageImage:
-                    getInfo.data.pStorageImage = writeInfo.ImageInfo;
+                    getInfo.data.pStorageImage = imagePtr;
                     break;
                 case VkDescriptorType.InputAttachment:
-                    getInfo.data.pInputAttachmentImage = writeInfo.ImageInfo;
+                    getInfo.data.pInputAttachmentImage = imagePtr;
                     break;
                 default:
                     throw new NotImplementedException(string.Format("Descriptor Type {0} is invalid or not implemented for VkDescriptorAddressInfoEXT!", writeInfo.Type.ToString()));
@@ -276,11 +277,11 @@ namespace VECS
             GPUBufferExtensions.WriteFromHostDelayed(_descriptorBuffer, 0, _usageLength * _alignedLayoutSize);
         }
 
-        public static unsafe void Bind(VkCommandBuffer cmd, DescriptorBuffer buffer)
+        public static void Bind(VkCommandBuffer cmd, DescriptorBuffer buffer)
         {
             buffer.Flush();
             VkDescriptorBufferBindingInfoEXT bindingInfo = buffer.BindingInfo;
-            BindSets(cmd, 1, &bindingInfo);
+            BindSets(cmd, 1, new Span<VkDescriptorBufferBindingInfoEXT>(ref bindingInfo));
         }
 
         public unsafe Span<ulong> GetHostBuffer()
@@ -300,10 +301,10 @@ namespace VECS
             _descriptorBuffer.ReadFromBuffer(_hostPtr, _usageLength * _alignedLayoutSize);
         }
 #endif
-
-        public static unsafe void BindSets(VkCommandBuffer cmd, DescriptorBuffer[] buffers)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void BindSets(VkCommandBuffer cmd, DescriptorBuffer[] buffers)
         {
-            VkDescriptorBufferBindingInfoEXT* bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[buffers.Length];
+            Span<VkDescriptorBufferBindingInfoEXT> bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[buffers.Length];
 
             for (int i = 0; i < buffers.Length; i++)
             {
@@ -311,14 +312,26 @@ namespace VECS
                 bindingInfo[i] = buffers[i].BindingInfo;
             }
 
-            BindSets(cmd, (uint)buffers.Length, bindingInfo);
+            BindSets(cmd, bindingInfo);
         }
 
-        public static unsafe void BindSets(VkCommandBuffer cmd, uint bufferCount, VkDescriptorBufferBindingInfoEXT* bindingInfo)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static unsafe void BindSets(VkCommandBuffer cmd, uint bufferCount, Span<VkDescriptorBufferBindingInfoEXT> bindingInfo)
         {
-            GraphicsDevice.DeviceAPI.vkCmdBindDescriptorBuffersEXT(cmd, bufferCount, bindingInfo);
+            fixed (VkDescriptorBufferBindingInfoEXT* pBindingInfo = bindingInfo)
+            {
+                GraphicsDevice.DeviceAPI.vkCmdBindDescriptorBuffersEXT(cmd, bufferCount, pBindingInfo);
+            }
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static unsafe void BindSets(VkCommandBuffer cmd, Span<VkDescriptorBufferBindingInfoEXT> bindingInfo)
+        {
+            fixed (VkDescriptorBufferBindingInfoEXT* pBindingInfo = &bindingInfo[0])
+            {
+                GraphicsDevice.DeviceAPI.vkCmdBindDescriptorBuffersEXT(cmd, (uint)bindingInfo.Length, pBindingInfo);
+            }
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static unsafe void BindSets(VkCommandBuffer cmd, uint bufferCount, VkDescriptorBufferBindingInfoEXT[] bindingInfo)
         {
             fixed (VkDescriptorBufferBindingInfoEXT* pBindingInfo = &bindingInfo[0])
@@ -326,27 +339,36 @@ namespace VECS
                 GraphicsDevice.DeviceAPI.vkCmdBindDescriptorBuffersEXT(cmd, bufferCount, pBindingInfo);
             }
         }
-
-        public static unsafe void SetOffsets(VkCommandBuffer cmd, VkPipelineLayout layout, VkPipelineBindPoint bindPoint, uint firstSet, DescriptorBuffer[] buffer)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void SetOffsets(VkCommandBuffer cmd, VkPipelineLayout layout, VkPipelineBindPoint bindPoint, uint firstSet, DescriptorBuffer[] buffer)
         {
             uint setCount = (uint)buffer.Length;
-            ulong* offsets = stackalloc ulong[buffer.Length];
-            uint* indices = stackalloc uint[buffer.Length];
+            Span<ulong> offsets = stackalloc ulong[buffer.Length];
+            Span<uint> indices = stackalloc uint[buffer.Length];
 
-            for (uint i = 0; i < buffer.Length; i++)
+            for (int i = 0; i < buffer.Length; i++)
             {
                 offsets[i] = 0;
-                indices[i] = i;
+                indices[i] = (uint)i;
             }
-
-            GraphicsDevice.DeviceAPI.vkCmdSetDescriptorBufferOffsetsEXT(cmd, bindPoint, layout, firstSet, setCount, indices, offsets);
+            SetOffsets(cmd, layout, bindPoint,firstSet,setCount,offsets,indices);
         }
 
-        public static unsafe void SetOffsets(VkCommandBuffer cmd, VkPipelineLayout layout, VkPipelineBindPoint bindPoint, uint firstSet, uint setCount, ulong* offsets, uint* indices)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void SetOffsets(VkCommandBuffer cmd, VkPipelineLayout layout, VkPipelineBindPoint bindPoint, Span<ulong> offsets, Span<uint> indices)
         {
-            GraphicsDevice.DeviceAPI.vkCmdSetDescriptorBufferOffsetsEXT(cmd, bindPoint, layout, firstSet, setCount, indices, offsets);
+            SetOffsets(cmd, layout, bindPoint, 0, (uint)offsets.Length, offsets, indices);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static unsafe void SetOffsets(VkCommandBuffer cmd, VkPipelineLayout layout, VkPipelineBindPoint bindPoint, uint firstSet, uint setCount, Span<ulong> offsets, Span<uint> indices)
+        {
+            fixed(ulong* offsetsPtr = offsets)
+            fixed (uint* indicesPtr = indices)
+            GraphicsDevice.DeviceAPI.vkCmdSetDescriptorBufferOffsetsEXT(cmd, bindPoint, layout, firstSet, setCount, indicesPtr, offsetsPtr);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static unsafe void SetOffset(VkCommandBuffer cmd, VkPipelineLayout layout, VkPipelineBindPoint bindPoint, uint firstSet)
         {
             ulong offsets = 0;
@@ -371,9 +393,9 @@ namespace VECS
         }
     }
 
-    public struct DescriptorBufferWriteInfo
+    public ref struct DescriptorBufferWriteInfo
     {
-        public unsafe VkDescriptorImageInfo* ImageInfo;
+        public Span<VkDescriptorImageInfo> ImageInfo;
         public uint ImageCount;
         public VkSampler Sampler;
         public VkDescriptorAddressInfoEXT AddressInfoEXT;
@@ -382,7 +404,7 @@ namespace VECS
         public uint Binding;
         public VkDescriptorType Type;
 
-        public unsafe DescriptorBufferWriteInfo(VkSampler sampler, uint set, uint binding)
+        public DescriptorBufferWriteInfo(VkSampler sampler, uint set, uint binding)
         {
             Set = set;
             Binding = binding;
@@ -391,13 +413,13 @@ namespace VECS
             DataSize = GraphicsDevice.PropertiesDescriptorBuffer.samplerDescriptorSize;
         }
 
-        public unsafe DescriptorBufferWriteInfo(VkDescriptorImageInfo* imageInfo, uint imageCount, VkDescriptorType type, uint set, uint binding)
+        public DescriptorBufferWriteInfo(Span<VkDescriptorImageInfo> imageInfo, VkDescriptorType type, uint set, uint binding)
         {
             Set = set;
             Binding = binding;
             Type = type;
             ImageInfo = imageInfo;
-            ImageCount = imageCount;
+            ImageCount = (uint)imageInfo.Length;
             var properties = GraphicsDevice.PropertiesDescriptorBuffer;
             DataSize = type switch
             {
@@ -409,7 +431,7 @@ namespace VECS
             };
         }
 
-        public unsafe DescriptorBufferWriteInfo(VkDescriptorAddressInfoEXT addressInfo, VkDescriptorType type, uint set, uint binding)
+        public DescriptorBufferWriteInfo(VkDescriptorAddressInfoEXT addressInfo, VkDescriptorType type, uint set, uint binding)
         {
             Set = set;
             AddressInfoEXT = addressInfo;

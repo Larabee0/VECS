@@ -222,7 +222,7 @@ namespace VECS
             };
 
 
-            Matrix4x4* matrices = stackalloc Matrix4x4[] {
+            Span<Matrix4x4> matrices = [
 			    // POSITIVE_X
                 Matrix4x4.CreateRotationY( TransformExtensions.Deg2Rad * 90.0f)* Matrix4x4.CreateRotationX(TransformExtensions.Deg2Rad * 180.0f),
 			    // NEGATIVE_X
@@ -235,7 +235,7 @@ namespace VECS
 			    Matrix4x4.CreateRotationZ(TransformExtensions.Deg2Rad *180.0f),
 			    // NEGATIVE_Z
 			    Matrix4x4.CreateRotationZ(TransformExtensions.Deg2Rad *180.0f),
-            };
+            ];
 
             VkViewport viewport = new(0, 0, IRRADIANCE_DIMENTIONS, IRRADIANCE_DIMENTIONS, 0.0f, 1.0f);
             VkRect2D scissor = new(0, 0, IRRADIANCE_DIMENTIONS, IRRADIANCE_DIMENTIONS);
@@ -292,7 +292,7 @@ namespace VECS
             };
 
 
-            Matrix4x4* matrices = stackalloc Matrix4x4[] {
+            Span<Matrix4x4> matrices = [
 			    // POSITIVE_X
                 Matrix4x4.CreateRotationY( TransformExtensions.Deg2Rad * 90.0f)* Matrix4x4.CreateRotationX(TransformExtensions.Deg2Rad * 180.0f),
 			    // NEGATIVE_X
@@ -305,7 +305,7 @@ namespace VECS
 			    Matrix4x4.CreateRotationZ(TransformExtensions.Deg2Rad *180.0f),
 			    // NEGATIVE_Z
 			    Matrix4x4.CreateRotationZ(TransformExtensions.Deg2Rad *180.0f),
-            };
+            ];
 
             VkViewport viewport = new(0, 0, PREFILTERED_CUBE_DIMENTIONS, PREFILTERED_CUBE_DIMENTIONS, 0.0f, 1.0f);
             VkRect2D scissor = new(0, 0, PREFILTERED_CUBE_DIMENTIONS, PREFILTERED_CUBE_DIMENTIONS);

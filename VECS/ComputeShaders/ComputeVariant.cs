@@ -284,7 +284,7 @@ namespace VECS
             }
         }
 
-        private unsafe void WriteTexturesToDescriptorBuffer(uint setIndex, uint bindPoint)
+        private void WriteTexturesToDescriptorBuffer(uint setIndex, uint bindPoint)
         {
             int imageIndex = DescriptorSetInfos[setIndex].BindPointToImageIndex[bindPoint];
             ITextureProvider textures = _textures[setIndex][imageIndex];
@@ -292,35 +292,47 @@ namespace VECS
             var setInfo = GetDescriptorInfo(setIndex);
             uint variant = _allowTmpBufferAllocation ? 0 : VariantIndex;
 
-            VkDescriptorImageInfo* imageInfos = stackalloc VkDescriptorImageInfo[textures.ImageCount];
+            Span<VkDescriptorImageInfo> imageInfos = stackalloc VkDescriptorImageInfo[textures.ImageCount];
 
             for (int i = 0; i < textures.ImageCount; i++)
             {
                 imageInfos[i] = textures.GetTexture(i).ImageInfo;
             }
 
-            SetTextures(bindPoint, setInfo, variant, imageInfos, (uint)textures.ImageCount);
+            SetTextures(bindPoint, setInfo, variant, imageInfos);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static unsafe void SetTextures(uint bindPoint, DescriptorSetInfo setInfo, uint variant, VkDescriptorImageInfo* imageInfos, uint imageCount)
+        private static void SetTextures(uint bindPoint, DescriptorSetInfo setInfo, uint variant, Span<VkDescriptorImageInfo> imageInfos)
         {
             for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
             {
-                setInfo.WriteDescriptors(i, bindPoint, variant, imageInfos, imageCount, setInfo.GetBinding(bindPoint).DescriptorType);
+                setInfo.WriteDescriptors(i, bindPoint, variant, imageInfos, setInfo.GetBinding(bindPoint).DescriptorType);
             }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe void SetTexturesUnsafe(int propertyId, VkDescriptorImageInfo* imageInfos, uint imageCount)
+        public void SetTextures(int propertyId, Span<VkDescriptorImageInfo> imageInfos)
         {
             if (LookUpProperty(propertyId, out var propertyInfo) && propertyInfo.BindingInfo.Image)
             {
                 var setInfo = GetDescriptorInfo(propertyInfo.SetIndex);
                 uint variant = _allowTmpBufferAllocation ? 0 : VariantIndex;
-                SetTextures(propertyInfo.BindPoint, setInfo, variant, imageInfos, imageCount);
+                SetTextures(propertyInfo.BindPoint, setInfo, variant, imageInfos);
             }
         }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetTextures(int propertyId, VkDescriptorImageInfo imageInfo)
+        {
+            if (LookUpProperty(propertyId, out var propertyInfo) && propertyInfo.BindingInfo.Image)
+            {
+                var setInfo = GetDescriptorInfo(propertyInfo.SetIndex);
+                uint variant = _allowTmpBufferAllocation ? 0 : VariantIndex;
+                SetTextures(propertyInfo.BindPoint, setInfo, variant, [imageInfo]);
+            }
+        }
+
 
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -406,26 +418,26 @@ namespace VECS
             }
         }
 
-        public unsafe void Dispatch(VkCommandBuffer commandBuffer, int frameIndex, uint invokeCountX, uint invokeCountY =0, uint invokeCountZ = 0)
+        public void Dispatch(VkCommandBuffer commandBuffer, int frameIndex, uint invokeCountX, uint invokeCountY =0, uint invokeCountZ = 0)
         {
             if (_allowTmpBufferAllocation)
             {
                 var descriptorSetCount = DescriptorSetCount;
-                VkDescriptorBufferBindingInfoEXT* bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[descriptorSetCount];
-                ulong* offsets = stackalloc ulong[descriptorSetCount];
-                uint* indices = stackalloc uint[descriptorSetCount];
+                Span<VkDescriptorBufferBindingInfoEXT> bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[descriptorSetCount];
+                Span<ulong> offsets = stackalloc ulong[descriptorSetCount];
+                Span<uint> indices = stackalloc uint[descriptorSetCount];
                 if (localUniformAllocation)
                 {
                     GPUBufferExtensions.WriteFromHostDelayed(_localUniformBuffer, 0, _computePipeline.UniformBufferSize);
                 }
                 WriteUniformToDescriptorBuffers();
-                for (uint i = 0; i < descriptorSetCount; i++)
+                for (int i = 0; i < descriptorSetCount; i++)
                 {
                     _tempDescriptorSetInfos[i].WriteFromBuffers(frameIndex);
                     var buffer = _tempDescriptorSetInfos[i].DescriptorBuffers[frameIndex];
                     bindingInfo[i] = buffer.BindingInfo;
                     offsets[i] = 0;
-                    indices[i] = i;
+                    indices[i] = (uint)i;
                 }
 
                 _computePipeline.Dispatch(commandBuffer, VariantIndex, bindingInfo, offsets, indices, invokeCountX, invokeCountY, invokeCountZ);
@@ -436,26 +448,26 @@ namespace VECS
             }
         }
 
-        public unsafe void Dispatch<T>(VkCommandBuffer commandBuffer,Span<T> pushConstantsBuffer, int frameIndex, uint invokeCountX, uint invokeCountY = 0, uint invokeCountZ = 0) where T : unmanaged
+        public void Dispatch<T>(VkCommandBuffer commandBuffer,Span<T> pushConstantsBuffer, int frameIndex, uint invokeCountX, uint invokeCountY = 0, uint invokeCountZ = 0) where T : unmanaged
         {
             if (_allowTmpBufferAllocation)
             {
                 var descriptorSetCount = DescriptorSetCount;
-                VkDescriptorBufferBindingInfoEXT* bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[descriptorSetCount];
-                ulong* offsets = stackalloc ulong[descriptorSetCount];
-                uint* indices = stackalloc uint[descriptorSetCount];
+                Span<VkDescriptorBufferBindingInfoEXT> bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[descriptorSetCount];
+                Span<ulong> offsets = stackalloc ulong[descriptorSetCount];
+                Span<uint> indices = stackalloc uint[descriptorSetCount];
                 if (localUniformAllocation)
                 {
                     GPUBufferExtensions.WriteFromHostDelayed(_localUniformBuffer, 0, _computePipeline.UniformBufferSize);
                 }
                 WriteUniformToDescriptorBuffers();
-                for (uint i = 0; i < descriptorSetCount; i++)
+                for (int i = 0; i < descriptorSetCount; i++)
                 {
                     _tempDescriptorSetInfos[i].WriteFromBuffers(frameIndex);
                     var buffer = _tempDescriptorSetInfos[i].DescriptorBuffers[frameIndex];
                     bindingInfo[i] = buffer.BindingInfo;
                     offsets[i] = 0;
-                    indices[i] = i;
+                    indices[i] = (uint)i;
                 }
 
                 _computePipeline.Dispatch(commandBuffer, pushConstantsBuffer, bindingInfo, offsets, indices, invokeCountX, invokeCountY, invokeCountZ);

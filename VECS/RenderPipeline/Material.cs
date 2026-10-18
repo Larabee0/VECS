@@ -193,23 +193,23 @@ namespace VECS
             Pipeline.BindAll(frameInfo, _variantIndex);
         }
 
-        public unsafe void BindCareful(in RendererFrameInfo frameInfo)
+        public void BindCareful(in RendererFrameInfo frameInfo)
         {
             int frameIndex = Presenter.FrameIndex;
-            VkDescriptorBufferBindingInfoEXT* bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[DescriptorSetCount];
-            ulong* offsets = stackalloc ulong[DescriptorSetCount];
-            uint* indices = stackalloc uint[DescriptorSetCount];
+            Span<VkDescriptorBufferBindingInfoEXT> bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[DescriptorSetCount];
+            Span<ulong> offsets = stackalloc ulong[DescriptorSetCount];
+            Span<uint> indices = stackalloc uint[DescriptorSetCount];
 
             if (localDescriptors == null)
             {
-                for (uint i = 0; i < DescriptorSetCount; i++)
+                for (int i = 0; i < DescriptorSetCount; i++)
                 {
                     DescriptorSetInfo descriptorSetInfo = DescriptorSetInfos[i];
                     DescriptorBuffer buffer = descriptorSetInfo.DescriptorBuffers[frameIndex];
 
                     bindingInfo[i] = buffer.BindingInfo;
                     offsets[i] = buffer.AlignedSize * VariantIndex;
-                    indices[i] = i;
+                    indices[i] = (uint)i;
                 }
             }
             else
@@ -292,13 +292,13 @@ namespace VECS
             }
         }
 
-        private unsafe void WriteTexturesToDescriptorBuffer(uint setIndex, uint bindPoint)
+        private void WriteTexturesToDescriptorBuffer(uint setIndex, uint bindPoint)
         {
             int imageIndex = DescriptorSetInfos[setIndex].BindPointToImageIndex[bindPoint];
             ITextureProvider textures = _textures[setIndex][imageIndex];
             uint variant = localDescriptors != null ? 0 : VariantIndex;
 
-            VkDescriptorImageInfo* imageInfos = stackalloc VkDescriptorImageInfo[textures.ImageCount];
+            Span<VkDescriptorImageInfo> imageInfos = stackalloc VkDescriptorImageInfo[textures.ImageCount];
 
             for (int i = 0; i < textures.ImageCount; i++)
             {
@@ -308,14 +308,14 @@ namespace VECS
             for (int f = 0; f < SwapChain.MAX_CONCURRENT_FRAMES; f++)
             {
                 var descriptorBuffer = GetDescriptorBuffer(setIndex,f);
-                SetTextures(descriptorBuffer, DescriptorSetInfos[setIndex].GetBinding(bindPoint).DescriptorType, imageInfos, (uint)textures.ImageCount, bindPoint, variant);
+                SetTextures(descriptorBuffer, DescriptorSetInfos[setIndex].GetBinding(bindPoint).DescriptorType, imageInfos, bindPoint, variant);
             }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static unsafe void SetTextures(DescriptorBuffer buffer, VkDescriptorType descriptorType, VkDescriptorImageInfo* imageInfos, uint imageCount, uint bindingIndex,  uint variant)
+        private static void SetTextures(DescriptorBuffer buffer, VkDescriptorType descriptorType, Span<VkDescriptorImageInfo> imageInfos, uint bindingIndex,  uint variant)
         {
-            buffer.SetImageInfoBinding(imageInfos, imageCount, descriptorType, variant, bindingIndex);
+            buffer.SetImageInfoBinding(imageInfos, descriptorType, variant, bindingIndex);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -366,7 +366,7 @@ namespace VECS
             return _graphicsPipeline.GetStorageSwapChainBuffer(propertyId);
         }
 
-        public unsafe void ExecuteDrawCommands(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, Span<MaterialDrawCommand> drawCmds, int drawCount, SwapChainBuffer<VECSDrawIndexIndirectCommand> indirectCmdBuffer)
+        public void ExecuteDrawCommands(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer, Span<MaterialDrawCommand> drawCmds, int drawCount, SwapChainBuffer<VECSDrawIndexIndirectCommand> indirectCmdBuffer)
         {
             if (drawCount <= 0) return;
             var frameIndex = Presenter.FrameIndex;
@@ -376,17 +376,17 @@ namespace VECS
             {
                 GraphicsPipeline.Update(Pipeline);
             }
-            VkDescriptorBufferBindingInfoEXT* bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[DescriptorSetCount];
-            ulong* offsets = stackalloc ulong[DescriptorSetCount];
-            uint* indices = stackalloc uint[DescriptorSetCount];
-            for (uint i = 0; i < DescriptorSetCount; i++)
+            Span<VkDescriptorBufferBindingInfoEXT> bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[DescriptorSetCount];
+            Span<ulong> offsets = stackalloc ulong[DescriptorSetCount];
+            Span<uint> indices = stackalloc uint[DescriptorSetCount];
+            for (int i = 0; i < DescriptorSetCount; i++)
             {
                 DescriptorSetInfo descriptorSetInfo = DescriptorSetInfos[i];
                 DescriptorBuffer buffer = descriptorSetInfo.DescriptorBuffers[frameIndex];
 
                 bindingInfo[i] = buffer.BindingInfo;
                 offsets[i] = buffer.AlignedSize * (uint)command.Variant;
-                indices[i] = i;
+                indices[i] = (uint)i;
             }
 
             Pipeline.BindPipe(commandBuffer);
@@ -407,7 +407,7 @@ namespace VECS
             }
         }
 
-        public unsafe void ExecuteDrawCommandsPushConstantOverride(RendererFrameInfo frameInfo, int pushConstantOverride, VkCommandBuffer commandBuffer, Span<MaterialDrawCommand> drawCmds, int drawCount, SwapChainBuffer<VECSDrawIndexIndirectCommand> indirectCmdBuffer)
+        public void ExecuteDrawCommandsPushConstantOverride(RendererFrameInfo frameInfo, int pushConstantOverride, VkCommandBuffer commandBuffer, Span<MaterialDrawCommand> drawCmds, int drawCount, SwapChainBuffer<VECSDrawIndexIndirectCommand> indirectCmdBuffer)
         {
             if (drawCount <= 0) return;
             var frameIndex = Presenter.FrameIndex;
@@ -418,18 +418,18 @@ namespace VECS
             {
                 GraphicsPipeline.Update(Pipeline);
             }
-            VkDescriptorBufferBindingInfoEXT* bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[DescriptorSetCount];
-            ulong* offsets = stackalloc ulong[DescriptorSetCount];
-            uint* indices = stackalloc uint[DescriptorSetCount];
+            Span<VkDescriptorBufferBindingInfoEXT> bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[DescriptorSetCount];
+            Span<ulong> offsets = stackalloc ulong[DescriptorSetCount];
+            Span<uint> indices = stackalloc uint[DescriptorSetCount];
 
-            for (uint i = 0; i < DescriptorSetCount; i++)
+            for (int i = 0; i < DescriptorSetCount; i++)
             {
                 DescriptorSetInfo descriptorSetInfo = DescriptorSetInfos[i];
                 DescriptorBuffer buffer = descriptorSetInfo.DescriptorBuffers[frameIndex];
 
                 bindingInfo[i] = buffer.BindingInfo;
                 offsets[i] = buffer.AlignedSize * (uint)command.Variant;
-                indices[i] = i;
+                indices[i] = (uint)i;
             }
             Pipeline.BindPipe(commandBuffer);
             DescriptorBuffer.BindSets(commandBuffer, (uint)DescriptorSetCount, bindingInfo);
@@ -449,7 +449,7 @@ namespace VECS
             }
         }
 
-        public unsafe void ExecuteDrawCommandsPushConstantOverride<T>(RendererFrameInfo frameInfo, Span<T> pushConstantBuffer, VkCommandBuffer commandBuffer, Span<MaterialDrawCommand> drawCmds, int drawCount, SwapChainBuffer<VECSDrawIndexIndirectCommand> indirectCmdBuffer) where T : unmanaged
+        public void ExecuteDrawCommandsPushConstantOverride<T>(RendererFrameInfo frameInfo, Span<T> pushConstantBuffer, VkCommandBuffer commandBuffer, Span<MaterialDrawCommand> drawCmds, int drawCount, SwapChainBuffer<VECSDrawIndexIndirectCommand> indirectCmdBuffer) where T : unmanaged
         {
             if (drawCount <= 0) return;
             var frameIndex = Presenter.FrameIndex;
@@ -460,18 +460,18 @@ namespace VECS
             {
                 GraphicsPipeline.Update(Pipeline);
             }
-            VkDescriptorBufferBindingInfoEXT* bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[DescriptorSetCount];
-            ulong* offsets = stackalloc ulong[DescriptorSetCount];
-            uint* indices = stackalloc uint[DescriptorSetCount];
+            Span<VkDescriptorBufferBindingInfoEXT> bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[DescriptorSetCount];
+            Span<ulong> offsets = stackalloc ulong[DescriptorSetCount];
+            Span<uint> indices = stackalloc uint[DescriptorSetCount];
 
-            for (uint i = 0; i < DescriptorSetCount; i++)
+            for (int i = 0; i < DescriptorSetCount; i++)
             {
                 DescriptorSetInfo descriptorSetInfo = DescriptorSetInfos[i];
                 DescriptorBuffer buffer = descriptorSetInfo.DescriptorBuffers[frameIndex];
 
                 bindingInfo[i] = buffer.BindingInfo;
                 offsets[i] = buffer.AlignedSize * (uint)command.Variant;
-                indices[i] = i;
+                indices[i] = (uint)i;
             }
             Pipeline.BindPipe(commandBuffer);
             DescriptorBuffer.BindSets(commandBuffer, (uint)DescriptorSetCount, bindingInfo);

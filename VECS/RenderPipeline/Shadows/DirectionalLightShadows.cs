@@ -70,7 +70,7 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static unsafe void GetCascadeSplits(float nearPlane, float farPlane, float* cascadeSplits)
+        private static void GetCascadeSplits(float nearPlane, float farPlane, Span<float> cascadeSplits)
         {
             float clipRange = farPlane - nearPlane;
 
@@ -103,7 +103,7 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private unsafe static void GetFustrumCorners(Matrix4x4 inverseCamera, Vector3* fustrumCorners)
+        private static void GetFustrumCorners(Matrix4x4 inverseCamera, Span<Vector3> fustrumCorners)
         {
             fustrumCorners[0] = new Vector3(-1.0f, 1.0f, 0.0f);
             fustrumCorners[1] = new Vector3(1.0f, 1.0f, 0.0f);
@@ -121,7 +121,7 @@ namespace VECS
             }
         }
 
-        public unsafe static DirectionalLightShadowUniform GetDirectionalLight(DirectionalLightUniform src, int lightIndex, CameraData cameraData, int offset, float scale)
+        public static DirectionalLightShadowUniform GetDirectionalLight(DirectionalLightUniform src, int lightIndex, CameraData cameraData, int offset, float scale)
         {
             DirectionalLightShadowUniform lightingInfo = default;
             lightingInfo.LightIndex = lightIndex;
@@ -135,7 +135,7 @@ namespace VECS
             float farClip = cameraData.FarPlane;
             float clipRange = farClip - nearClip;
 
-            float* cascadeSplits = stackalloc float[MAX_CASCADE_COUNT];
+            Span<float> cascadeSplits = stackalloc float[MAX_CASCADE_COUNT];
 
             GetCascadeSplits(nearClip, farClip, cascadeSplits);
 
@@ -147,7 +147,7 @@ namespace VECS
             //var height = sceneBounds.Max.Y - sceneBounds.Min.Y;
             var height = Vector3.Distance(sceneBounds.Min, sceneBounds.Max);
 
-            Vector3* frustumCorners = stackalloc Vector3[8];
+            Span<Vector3> frustumCorners = stackalloc Vector3[8];
             for (int i = 0; i < MAX_CASCADE_COUNT; i++)
             {
                 float splitDist = cascadeSplits[i];

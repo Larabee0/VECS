@@ -401,9 +401,9 @@ namespace VECS
             }
 
 
-            VkPipelineShaderStageCreateInfo* shaderStages = stackalloc VkPipelineShaderStageCreateInfo[shaders.Length];
+            Span<VkPipelineShaderStageCreateInfo> shaderStages = stackalloc VkPipelineShaderStageCreateInfo[shaders.Length];
 
-            VkSpecializationInfo* specialisationInfos = stackalloc VkSpecializationInfo[shaders.Length];
+            Span<VkSpecializationInfo> specialisationInfos = stackalloc VkSpecializationInfo[shaders.Length];
 
             byte[][] specialisationData = new byte[shaders.Length][];
             VkSpecializationMapEntry[][] mapEntries = new VkSpecializationMapEntry[shaders.Length][];
@@ -417,8 +417,12 @@ namespace VECS
                 var constants = GetSpecialisationInfo(shaders[i], configInfo, out uint byteSize);
                 if (constants != null)
                 {
-                    specialisationData[i] = new byte[byteSize];  
-                    shaderStages[i].pSpecializationInfo = &specialisationInfos[i];
+                    specialisationData[i] = new byte[byteSize];
+                    fixed(VkSpecializationInfo* pSpecializationInfo = &specialisationInfos[i])
+                    {
+                        shaderStages[i].pSpecializationInfo = pSpecializationInfo;
+                    }
+                    
                     specialisationInfos[i].dataSize = byteSize;
                     specialisationInfos[i].mapEntryCount = (uint)constants.Length;
                     fixed (byte* pData  = &specialisationData[i][0])
@@ -478,7 +482,7 @@ namespace VECS
             return specialisationConstants;
         }
 
-        private static unsafe VkPipeline CreateGraphicsPipeline(string cacheName, GraphicsPipelineConfigInfo configInfo, VkPipelineCreateFlags flags, uint stageCount ,VkPipelineShaderStageCreateInfo* shaderStages)
+        private static unsafe VkPipeline CreateGraphicsPipeline(string cacheName, GraphicsPipelineConfigInfo configInfo, VkPipelineCreateFlags flags, uint stageCount, Span<VkPipelineShaderStageCreateInfo> shaderStages)
         {
             var cache = AssetDataBase<ShaderPipelineLayout>.GetNamed(cacheName);
 
@@ -494,27 +498,26 @@ namespace VECS
             var inputAssemblyInfo = configInfo.inputAssemblyInfo;
 
             // Assign remaining memory pointers
-            VkPipelineColorBlendAttachmentState* colourAttachments = stackalloc VkPipelineColorBlendAttachmentState[configInfo.colourFormats.Length];
+            Span<VkPipelineColorBlendAttachmentState> colourAttachments = stackalloc VkPipelineColorBlendAttachmentState[configInfo.colourFormats.Length];
             for (int i = 0; i < configInfo.colourFormats.Length; i++)
             {
                 colourAttachments[i] = colourBlendAttachment;
             }
-            colourBlendInfo.pAttachments = colourAttachments;
+            fixed(VkPipelineColorBlendAttachmentState* pColourAttachments = colourAttachments)
+            {
+                colourBlendInfo.pAttachments = pColourAttachments;
+            }
             colourBlendInfo.attachmentCount = (uint)configInfo.colourFormats.Length;
 
-            VkDynamicState* pDynamicStates = stackalloc VkDynamicState[configInfo.dynamicStateEnables.Length];
-
-            for (int i = 0; i < configInfo.dynamicStateEnables.Length; i++)
+            fixed (VkDynamicState* pDynamicStates = configInfo.dynamicStateEnables)
             {
-                pDynamicStates[i] = configInfo.dynamicStateEnables[i];
+                vkDynamicInfo.pDynamicStates = pDynamicStates;
             }
 
-            vkDynamicInfo.pDynamicStates = pDynamicStates;
             vkDynamicInfo.dynamicStateCount = (uint)configInfo.dynamicStateEnables.Length;
             VkGraphicsPipelineCreateInfo pipelineInfo = new()
             {
                 stageCount = stageCount,
-                pStages = shaderStages,
                 pVertexInputState = null, // not needed for mesh shader
                 pInputAssemblyState = null, // not needed for mesh shader
                 pViewportState = &viewportInfo,
@@ -530,6 +533,11 @@ namespace VECS
                 basePipelineHandle = configInfo.BasePipeline == null ? VkPipeline.Null : configInfo.BasePipeline._pipeline
             };
 
+            fixed(VkPipelineShaderStageCreateInfo* pShaderStages = shaderStages)
+            {
+                pipelineInfo.pStages = pShaderStages;
+            }
+
             flags |= ((configInfo.BasePipeline != null)
                     ? VkPipelineCreateFlags.Derivative
                     : (configInfo.AllowDerivative
@@ -540,8 +548,8 @@ namespace VECS
             {
 
                 // Vertex Input State Create Info
-                VkVertexInputBindingDescription* pBindingDescriptions = stackalloc VkVertexInputBindingDescription[configInfo.BindingDescriptions.Length];
-                VkVertexInputAttributeDescription* pAttributeDescriptions = stackalloc VkVertexInputAttributeDescription[configInfo.AttributeDescriptions.Length];
+                Span<VkVertexInputBindingDescription> pBindingDescriptions = stackalloc VkVertexInputBindingDescription[configInfo.BindingDescriptions.Length];
+                Span<VkVertexInputAttributeDescription> pAttributeDescriptions = stackalloc VkVertexInputAttributeDescription[configInfo.AttributeDescriptions.Length];
                 VkPipelineVertexInputStateCreateInfo vertexInputState = GetVertexInputState(
                     configInfo.BindingDescriptions,
                     configInfo.AttributeDescriptions,
@@ -579,24 +587,31 @@ namespace VECS
             return graphicsPipeline;
         }
 
-        private static unsafe VkPipelineVertexInputStateCreateInfo GetVertexInputState(VkVertexInputBindingDescription[] bindingDescriptions, VkVertexInputAttributeDescription[] attributeDescriptions, VkVertexInputBindingDescription* pBindingDescriptions, VkVertexInputAttributeDescription* pAttributeDescriptions)
+        private static unsafe VkPipelineVertexInputStateCreateInfo GetVertexInputState(VkVertexInputBindingDescription[] bindingDescriptions, VkVertexInputAttributeDescription[] attributeDescriptions, Span<VkVertexInputBindingDescription> outBindingDescriptions, Span<VkVertexInputAttributeDescription> outAttributeDescriptions)
         {
             for (int i = 0; i < bindingDescriptions.Length; i++)
             {
-                pBindingDescriptions[i] = bindingDescriptions[i];
+                outBindingDescriptions[i] = bindingDescriptions[i];
             }
             for (int i = 0; i < attributeDescriptions.Length; i++)
             {
-                pAttributeDescriptions[i] = attributeDescriptions[i];
+                outAttributeDescriptions[i] = attributeDescriptions[i];
             }
 
             VkPipelineVertexInputStateCreateInfo vertexInputInfo = new()
             {
                 vertexAttributeDescriptionCount = (uint)attributeDescriptions.Length,
                 vertexBindingDescriptionCount = (uint)bindingDescriptions.Length,
-                pVertexAttributeDescriptions = pAttributeDescriptions,
-                pVertexBindingDescriptions = pBindingDescriptions
             };
+
+            fixed (VkVertexInputAttributeDescription* pVertexAttributeDescriptions = outAttributeDescriptions)
+            {
+                vertexInputInfo.pVertexAttributeDescriptions = pVertexAttributeDescriptions;
+            }
+            fixed (VkVertexInputBindingDescription* pVertexBindingDescriptions = outBindingDescriptions)
+            {
+                vertexInputInfo.pVertexBindingDescriptions = pVertexBindingDescriptions;
+            }
 
             if (bindingDescriptions.Length == 0)
             {

@@ -413,10 +413,10 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe void BeginRenderingOneAttachmentWithDepthStencil(VkCommandBuffer commandBuffer, VkRenderingAttachmentInfo depthStencil, VkAttachmentLoadOp colourLoadOp = VkAttachmentLoadOp.Clear, VkAttachmentStoreOp colourStoreOp = VkAttachmentStoreOp.Store)
+        public void BeginRenderingOneAttachmentWithDepthStencil(VkCommandBuffer commandBuffer, VkRenderingAttachmentInfo depthStencil, VkAttachmentLoadOp colourLoadOp = VkAttachmentLoadOp.Clear, VkAttachmentStoreOp colourStoreOp = VkAttachmentStoreOp.Store)
         {
             var colourAttachment = GetAttachmentInfo(colourLoadOp, colourStoreOp);
-            BeginRenderingMultiAttachment(commandBuffer, 1, &colourAttachment, 1, depthStencil);
+            BeginRenderingMultiAttachment(commandBuffer, 1, new Span<VkRenderingAttachmentInfo>(ref colourAttachment), depthStencil);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -486,36 +486,39 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe void BeginRenderingMultiAttachment(VkCommandBuffer commandBuffer, int layCount, VkRenderingAttachmentInfo* colourAttachments, int attachmentCount)
+        public void BeginRenderingMultiAttachment(VkCommandBuffer commandBuffer, int layCount, Span<VkRenderingAttachmentInfo> colourAttachments)
         {
-            BeginRenderingMultiAttachment(commandBuffer, layCount, colourAttachments, attachmentCount, null, null);
+            BeginRenderingMultiAttachment(commandBuffer, layCount, colourAttachments, default, default);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe void BeginRenderingMultiAttachment(VkCommandBuffer commandBuffer, int layCount, VkRenderingAttachmentInfo* colourAttachments, int attachmentCount, VkRenderingAttachmentInfo depth)
+        public void BeginRenderingMultiAttachment(VkCommandBuffer commandBuffer, int layCount, Span<VkRenderingAttachmentInfo> colourAttachments, in VkRenderingAttachmentInfo depth)
         {
-            BeginRenderingMultiAttachment(commandBuffer, layCount, colourAttachments, attachmentCount, &depth, null);
+            BeginRenderingMultiAttachment(commandBuffer, layCount, colourAttachments, depth, default);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe void BeginRenderingMultiAttachment(VkCommandBuffer commandBuffer, int layCount, VkRenderingAttachmentInfo* colourAttachments, int attachmentCount, VkRenderingAttachmentInfo depth, VkRenderingAttachmentInfo stencil)
+        private unsafe void BeginRenderingMultiAttachment(VkCommandBuffer commandBuffer, int layCount, Span<VkRenderingAttachmentInfo> colourAttachments, in VkRenderingAttachmentInfo depth, in VkRenderingAttachmentInfo stencil)
         {
-            BeginRenderingMultiAttachment(commandBuffer, layCount, colourAttachments, attachmentCount, &depth, &stencil);
-        }
-
-        private unsafe void BeginRenderingMultiAttachment(VkCommandBuffer commandBuffer, int layCount,VkRenderingAttachmentInfo* colourAttachments, int attachmentCount, VkRenderingAttachmentInfo* depth, VkRenderingAttachmentInfo* stencil )
-        {
-            VkRenderingInfo renderingInfo = new()
+            fixed (VkRenderingAttachmentInfo* pColourAttachments = colourAttachments)
             {
-                renderArea = GetFullRenderArea(),
-                layerCount = (uint)layCount,
-                colorAttachmentCount = (uint)attachmentCount,
-                pColorAttachments = colourAttachments,
-                pDepthAttachment = depth,
-                pStencilAttachment = stencil,
-                flags = VkRenderingFlags.ContentsInlineKHR | VkRenderingFlags.ContentsSecondaryCommandBuffers
-            };
-            GraphicsDevice.DeviceAPI.vkCmdBeginRendering(commandBuffer, &renderingInfo);
+                fixed(VkRenderingAttachmentInfo* pDepth = &depth)
+                {
+                    fixed(VkRenderingAttachmentInfo* pStencil = &stencil)
+                    {
+                        VkRenderingInfo renderingInfo = new()
+                        {
+                            renderArea = GetFullRenderArea(),
+                            layerCount = (uint)layCount,
+                            colorAttachmentCount = (uint)colourAttachments.Length,
+                            pColorAttachments = pColourAttachments,
+                            pDepthAttachment = pDepth,
+                            pStencilAttachment = pStencil,
+                            flags = VkRenderingFlags.ContentsInlineKHR | VkRenderingFlags.ContentsSecondaryCommandBuffers
+                        };
+                        GraphicsDevice.DeviceAPI.vkCmdBeginRendering(commandBuffer, &renderingInfo);
+                    }
+                }
+            }
         }
     }
 }

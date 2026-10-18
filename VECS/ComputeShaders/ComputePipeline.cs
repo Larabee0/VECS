@@ -151,42 +151,42 @@ namespace VECS
             return false;
         }
 
-        public unsafe void Dispatch(VkCommandBuffer commandBuffer, int frameIndex, uint variantIndex, uint invokeCountX, uint invokeCountY = 0, uint invokeCountZ = 0)
+        public void Dispatch(VkCommandBuffer commandBuffer, int frameIndex, uint variantIndex, uint invokeCountX, uint invokeCountY = 0, uint invokeCountZ = 0)
         {
-            VkDescriptorBufferBindingInfoEXT* bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[_descriptorSetCount];
-            ulong* offsets = stackalloc ulong[_descriptorSetCount];
-            uint* indices = stackalloc uint[_descriptorSetCount];
+            Span<VkDescriptorBufferBindingInfoEXT> bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[_descriptorSetCount];
+            Span<ulong> offsets = stackalloc ulong[_descriptorSetCount];
+            Span<uint> indices = stackalloc uint[_descriptorSetCount];
 
-            for (uint i = 0; i < _descriptorSetCount; i++)
+            for (int i = 0; i < _descriptorSetCount; i++)
             {
                 var buffer = _descriptorSetInfos[i].DescriptorBuffers[frameIndex];
                 bindingInfo[i] = buffer.BindingInfo;
                 offsets[i] = buffer.AlignedSize * variantIndex;
-                indices[i] = i;
+                indices[i] = (uint)i;
             }
 
             Dispatch(commandBuffer, variantIndex, bindingInfo, offsets, indices, invokeCountX, invokeCountY, invokeCountZ);
         }
 
-        public unsafe void Dispatch<T>(VkCommandBuffer commandBuffer, int frameIndex, uint variantIndex, Span<T> pushConstantBuffer, uint invokeCountX, uint invokeCountY = 0, uint invokeCountZ = 0) where T : unmanaged
+        public void Dispatch<T>(VkCommandBuffer commandBuffer, int frameIndex, uint variantIndex, Span<T> pushConstantBuffer, uint invokeCountX, uint invokeCountY = 0, uint invokeCountZ = 0) where T : unmanaged
         {
-            VkDescriptorBufferBindingInfoEXT* bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[_descriptorSetCount];
-            ulong* offsets = stackalloc ulong[_descriptorSetCount];
-            uint* indices = stackalloc uint[_descriptorSetCount];
+            Span<VkDescriptorBufferBindingInfoEXT> bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[_descriptorSetCount];
+            Span<ulong> offsets = stackalloc ulong[_descriptorSetCount];
+            Span<uint> indices = stackalloc uint[_descriptorSetCount];
 
-            for (uint i = 0; i < _descriptorSetCount; i++)
+            for (int i = 0; i < _descriptorSetCount; i++)
             {
                 var buffer = _descriptorSetInfos[i].DescriptorBuffers[frameIndex];
                 bindingInfo[i] = buffer.BindingInfo;
                 offsets[i] = buffer.AlignedSize * variantIndex;
-                indices[i] = i;
+                indices[i] = (uint)i;
             }
 
             Dispatch(commandBuffer, pushConstantBuffer, bindingInfo, offsets, indices, invokeCountX, invokeCountY, invokeCountZ);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe void Dispatch(VkCommandBuffer commandBuffer, uint pushConstantIndex, VkDescriptorBufferBindingInfoEXT* bindingInfo, ulong* offsets, uint* indices, uint invokeCountX, uint invokeCountY = 0, uint invokeCountZ = 0)
+        public void Dispatch(VkCommandBuffer commandBuffer, uint pushConstantIndex, Span<VkDescriptorBufferBindingInfoEXT> bindingInfo, Span<ulong> offsets, Span<uint> indices, uint invokeCountX, uint invokeCountY = 0, uint invokeCountZ = 0)
         {
             var threadID = Environment.CurrentManagedThreadId;
             bool init = _lastBoundComputePipeline.TryGetValue(commandBuffer.Handle, out var shaderHash);
@@ -198,14 +198,14 @@ namespace VECS
             }
 
             DescriptorBuffer.BindSets(commandBuffer, (uint)_descriptorSetCount, bindingInfo);
-            DescriptorBuffer.SetOffsets(commandBuffer, _pipelineLayout, VkPipelineBindPoint.Compute, 0, (uint)_descriptorSetCount, offsets, indices);
+            DescriptorBuffer.SetOffsets(commandBuffer, _pipelineLayout, VkPipelineBindPoint.Compute, offsets, indices);
 
             _pushConstantsHandler.BindPushConstants(commandBuffer, _pipelineLayout, pushConstantIndex);
             GraphicsDevice.DeviceAPI.vkCmdDispatch(commandBuffer, invokeCountX.GetComputeShaderGroupCount(_localSize.X), invokeCountY.GetComputeShaderGroupCount(_localSize.Y), invokeCountZ.GetComputeShaderGroupCount(_localSize.Z));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe void Dispatch<T>(VkCommandBuffer commandBuffer, Span<T> pushConstantBuffer, VkDescriptorBufferBindingInfoEXT* bindingInfo, ulong* offsets, uint* indices, uint invokeCountX, uint invokeCountY = 0, uint invokeCountZ = 0) where T : unmanaged
+        public void Dispatch<T>(VkCommandBuffer commandBuffer, Span<T> pushConstantBuffer, Span<VkDescriptorBufferBindingInfoEXT> bindingInfo, Span<ulong> offsets, Span<uint> indices, uint invokeCountX, uint invokeCountY = 0, uint invokeCountZ = 0) where T : unmanaged
         {
             var threadID = Environment.CurrentManagedThreadId;
             bool init = _lastBoundComputePipeline.TryGetValue(commandBuffer.Handle, out var shaderHash);
@@ -216,8 +216,8 @@ namespace VECS
                 _lastBoundComputePipeline.AddOrUpdate(commandBuffer.Handle, Hash, (a, b) => Hash);
             }
 
-            DescriptorBuffer.BindSets(commandBuffer, (uint)_descriptorSetCount, bindingInfo);
-            DescriptorBuffer.SetOffsets(commandBuffer, _pipelineLayout, VkPipelineBindPoint.Compute, 0, (uint)_descriptorSetCount, offsets, indices);
+            DescriptorBuffer.BindSets(commandBuffer, bindingInfo);
+            DescriptorBuffer.SetOffsets(commandBuffer, _pipelineLayout, VkPipelineBindPoint.Compute, offsets, indices);
 
             _pushConstantsHandler.BindPushConstants(commandBuffer, _pipelineLayout, pushConstantBuffer);
             GraphicsDevice.DeviceAPI.vkCmdDispatch(commandBuffer, invokeCountX.GetComputeShaderGroupCount(_localSize.X), invokeCountY.GetComputeShaderGroupCount(_localSize.Y), invokeCountZ.GetComputeShaderGroupCount(_localSize.Z));

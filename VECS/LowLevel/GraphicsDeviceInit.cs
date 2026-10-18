@@ -119,20 +119,27 @@ namespace VECS.LowLevel
         /// Determines if the hardware meets the requirements for the application
         /// </summary>
         /// <exception cref="Exception"></exception>
-        internal static unsafe void HasRequiredInstanceExtensions()
+        internal static void HasRequiredInstanceExtensions()
         {
             Vulkan.vkEnumerateInstanceExtensionProperties(out uint propertyCount);
 
-            VkExtensionProperties* extensions = stackalloc VkExtensionProperties[(int)propertyCount];
+            Span<VkExtensionProperties> extensions = stackalloc VkExtensionProperties[(int)propertyCount];
 
 
-            Vulkan.vkEnumerateInstanceExtensionProperties(&propertyCount, extensions);
+            Vulkan.vkEnumerateInstanceExtensionProperties(extensions);
 
             Console.WriteLine("Available extensions:");
             HashSet<string> available = [];
+            string extension;
             for (int i = 0; i < propertyCount; i++)
             {
-                string extension = Encoding.UTF8.GetString(extensions[i].extensionName, 256);
+                unsafe
+                {
+                    fixed (byte* ptr = extensions[i].extensionName)
+                    {
+                         extension= Encoding.UTF8.GetString(ptr, 256);
+                    }
+                }
                 int terminator = extension.IndexOf('\0');
                 extension = extension[..terminator];
                 available.Add(extension);
@@ -143,7 +150,10 @@ namespace VECS.LowLevel
 
             for (int i = 0; i < required.Count; i++)
             {
-                string extension = Encoding.UTF8.GetString(required[i].Buffer, 256);
+                unsafe
+                {
+                    extension = Encoding.UTF8.GetString(required[i].Buffer, 256);
+                }
                 int terminator = extension.IndexOf('\0');
                 extension = extension[..terminator];
                 Console.WriteLine("\t" + extension);
@@ -282,7 +292,7 @@ namespace VECS.LowLevel
 
             PhysicalQueueFamilies = indices;
 
-            VkDeviceQueueCreateInfo* pQueueCreateInfos = stackalloc VkDeviceQueueCreateInfo[uniqueQueueFamilies.Count];
+            Span<VkDeviceQueueCreateInfo> queueCreateInfos = stackalloc VkDeviceQueueCreateInfo[uniqueQueueFamilies.Count];
 
             float* queuePriority = stackalloc float[3]
             {
@@ -293,9 +303,9 @@ namespace VECS.LowLevel
             int index = 0;
             foreach (var keyValuePair in uniqueQueueFamilies)
             {
-                pQueueCreateInfos[index] = new VkDeviceQueueCreateInfo()
+                queueCreateInfos[index] = new VkDeviceQueueCreateInfo()
                 {
-                    queueFamilyIndex = (uint)keyValuePair.Key,
+                    queueFamilyIndex = keyValuePair.Key,
                     queueCount = (uint)keyValuePair.Value,
                     pQueuePriorities = queuePriority
                 };
@@ -417,12 +427,9 @@ namespace VECS.LowLevel
             }
 
             using VkStringArray deviceExtensionNames = new(loadExtensions);
-
-
             VkDeviceCreateInfo createInfo = new()
             {
                 queueCreateInfoCount = (uint)uniqueQueueFamilies.Count,
-                pQueueCreateInfos = pQueueCreateInfos,
                 pEnabledFeatures = null,
                 enabledExtensionCount = (uint)loadExtensions.Length,
                 ppEnabledExtensionNames = deviceExtensionNames,
@@ -442,7 +449,11 @@ namespace VECS.LowLevel
             createInfo.enabledLayerCount = 0;
             
 #endif
-            _instanceApi.vkCreateDevice(_physicalDevice, in createInfo, null, out _device).CheckResult("Failed to create logical device");
+            fixed (VkDeviceQueueCreateInfo* pQueueCreateInfos = queueCreateInfos)
+            {
+                createInfo.pQueueCreateInfos = pQueueCreateInfos;
+                _instanceApi.vkCreateDevice(_physicalDevice, in createInfo, null, out _device).CheckResult("Failed to create logical device");
+            }
 
             _deviceApi = Vulkan.GetApi(_instance, _device);
 

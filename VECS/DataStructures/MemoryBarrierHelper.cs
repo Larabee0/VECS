@@ -10,7 +10,7 @@ namespace VECS
         // https://vulkan.lunarg.com/doc/view/1.4.328.1/windows/antora/spec/latest/chapters/synchronization.html#synchronization-access-types-supported
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal unsafe static void SetImageLayout(VkCommandBuffer cmdbuffer,
+        internal static void SetImageLayout(VkCommandBuffer cmdbuffer,
             VkImage image,
             VkImageAspectFlags aspectMask,
             VkImageLayout oldImageLayout,
@@ -21,7 +21,7 @@ namespace VECS
             VkImageSubresourceRange subresourceRange = new(aspectMask, 0, 1, 0, 1);
             var barrier = GetImageLayoutBarrier(image, oldImageLayout, newImageLayout, subresourceRange, srcStageMask, dstStageMask);
 
-            ImageMemoryBarrier(cmdbuffer, &barrier, 1);
+            ImageMemoryBarrier(cmdbuffer, new Span<VkImageMemoryBarrier2>(ref barrier));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -105,7 +105,7 @@ namespace VECS
 
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe void ImageMemoryBarrier(
+        public static void ImageMemoryBarrier(
             VkCommandBuffer cmdBuffer,
             VkImage image,
             VkImageSubresourceRange subresourceRange,
@@ -117,7 +117,7 @@ namespace VECS
             )
         {
             var barrier = GetImageMemoryBarrier(image, subresourceRange, srcStage, srcAccess, dstStage, dstAccess,oldLayout, newLayout,srcQueue,dstQueue);
-            ImageMemoryBarrier(cmdBuffer, &barrier, 1);
+            ImageMemoryBarrier(cmdBuffer, new Span<VkImageMemoryBarrier2>(ref barrier));
         }
 
         public unsafe static VkImageMemoryBarrier2 GetImageMemoryBarrier(
@@ -140,27 +140,22 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe void ImageMemoryBarrier(VkCommandBuffer cmdBuffer, VkImageMemoryBarrier2* barriers, uint barrierCount)
+        public static void ImageMemoryBarrier(VkCommandBuffer cmdBuffer, Span<VkImageMemoryBarrier2> imageBarriers)
         {
-            if (barrierCount == 0) return;
-            VkDependencyInfo info = new()
-            {
-                imageMemoryBarrierCount = barrierCount,
-                pImageMemoryBarriers = barriers
-            };
-            GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier2(cmdBuffer, &info);
+            if (imageBarriers.Length == 0) return;
+            GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier2(cmdBuffer, VkDependencyFlags.None, null, null, imageBarriers);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void ImageMemoryBarrier(VkCommandBuffer cmdBuffer, VkImageMemoryBarrier2 imageBarrier)
+        {
+            GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier2(cmdBuffer, VkDependencyFlags.None, null, null, new Span<VkImageMemoryBarrier2>(ref imageBarrier));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe void BufferMemoryBarrier(VkCommandBuffer cmdBuffer,uint barrierCount,VkBufferMemoryBarrier2* barriers)
+        public static void BufferMemoryBarrier(VkCommandBuffer cmdBuffer, Span<VkBufferMemoryBarrier2> bufferBarriers)
         {
-            if (barrierCount == 0) return;
-            VkDependencyInfo info = new()
-            {
-                bufferMemoryBarrierCount = barrierCount,
-                pBufferMemoryBarriers = barriers
-            };
-            GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier2(cmdBuffer, &info);
+            if (bufferBarriers.Length == 0) return;
+            GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier2(cmdBuffer,VkDependencyFlags.None, null, bufferBarriers, null);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -172,37 +167,22 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe void BufferMemoryBarrier(VkCommandBuffer cmdBuffer, VkBufferMemoryBarrier2 barrier)
+        public static void BufferMemoryBarrier(VkCommandBuffer cmdBuffer, VkBufferMemoryBarrier2 barrier)
         {
-            VkDependencyInfo info = new()
-            {
-                bufferMemoryBarrierCount = 1,
-                pBufferMemoryBarriers = &barrier
-            };
-            GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier2(cmdBuffer, &info);
+            BufferMemoryBarrier(cmdBuffer, new Span<VkBufferMemoryBarrier2>(ref barrier));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe void MemoryBarrier(VkCommandBuffer cmdBuffer, uint barrierCount, VkMemoryBarrier2* barriers)
+        public static void MemoryBarrier(VkCommandBuffer cmdBuffer, Span<VkMemoryBarrier2> memoryBarriers)
         {
-            if (barrierCount == 0) return;
-            VkDependencyInfo info = new()
-            {
-                memoryBarrierCount = barrierCount,
-                pMemoryBarriers = barriers
-            };
-            GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier2(cmdBuffer, &info);
+            if (memoryBarriers.Length == 0) return;
+            GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier2(cmdBuffer, VkDependencyFlags.None, memoryBarriers, null, null);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe void MemoryBarrier(VkCommandBuffer cmdBuffer, VkMemoryBarrier2 barriers)
+        public static void MemoryBarrier(VkCommandBuffer cmdBuffer, VkMemoryBarrier2 memoryBarrier)
         {
-            VkDependencyInfo info = new()
-            {
-                memoryBarrierCount = 1,
-                pMemoryBarriers = &barriers
-            };
-            GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier2(cmdBuffer, &info);
+            MemoryBarrier(cmdBuffer, new Span<VkMemoryBarrier2>(ref memoryBarrier));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

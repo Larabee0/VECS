@@ -316,19 +316,19 @@ namespace VECS
 
         }
 
-        private unsafe void StartDeferredRendering(RendererFrameInfo frameInfo)
+        private void StartDeferredRendering(RendererFrameInfo frameInfo)
         {
             VkCommandBuffer commandBuffer = frameInfo.CommandBuffer;
 
-            VkRenderingAttachmentInfo* colourAttachments = stackalloc VkRenderingAttachmentInfo[]
-            {
+            Span<VkRenderingAttachmentInfo> colourAttachments =
+            [
                 G_PositionAttachment.GetAttachmentInfo(),
                 G_NormalAttachment.GetAttachmentInfo(),
                 G_AlbedoAttachment.GetAttachmentInfo(),
                 G_MaskAttachment.GetAttachmentInfo()
-            };
+            ];
 
-            G_PositionAttachment.BeginRenderingMultiAttachment(commandBuffer, 1, colourAttachments, 4, DepthAttachment.GetAttachmentInfo(VkAttachmentLoadOp.Load));
+            G_PositionAttachment.BeginRenderingMultiAttachment(commandBuffer, 1, colourAttachments, DepthAttachment.GetAttachmentInfo(VkAttachmentLoadOp.Load));
 
             Presenter.SetToCurrentCameraViewportScissor(commandBuffer);
         }

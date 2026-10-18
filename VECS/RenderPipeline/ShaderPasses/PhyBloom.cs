@@ -111,13 +111,13 @@ namespace VECS
                 imageInfo.imageView = _mipDownViews[i];
 
                 downSampleVariant.SetVector2(SrcResolutionId, new(mipWidth, mipHeight));
-                downSampleVariant.SetTexturesUnsafe(SrcTextureId, &imageInfo, 1);
+                downSampleVariant.SetTextures(SrcTextureId, imageInfo);
 
                 TextureLoader.CalculateMipLevelSize(_bloomDown.Width, _bloomDown.Height, (int)i + 1, out mipWidth, out mipHeight);
                 imageInfo.imageView = _mipDownViews[i + 1];
 
                 downSampleVariant.SetVector2(OutputImageSizeId, new(mipWidth, mipHeight));
-                downSampleVariant.SetTexturesUnsafe(DstTextureId, &imageInfo, 1);
+                downSampleVariant.SetTextures(DstTextureId, imageInfo);
             }
             
             for (uint i = 0; i < 6; i++)
@@ -129,12 +129,12 @@ namespace VECS
                 upSampleVariant.SetFloat(FilterRadiusSizeId, 0.005f);
 
                 imageInfo.imageView = _mipUpViews[i];
-                upSampleVariant.SetTexturesUnsafe(DstTextureId, &imageInfo, 1);
+                upSampleVariant.SetTextures(DstTextureId, imageInfo);
                 imageInfo.imageView =  _mipDownViews[i];
-                upSampleVariant.SetTexturesUnsafe(SrcHighTextureId, &imageInfo, 1);
+                upSampleVariant.SetTextures(SrcHighTextureId, imageInfo);
 
                 imageInfo.imageView = i != 5 ? _mipUpViews[i+1] : _mipDownViews[i+1];
-                upSampleVariant.SetTexturesUnsafe(SrcLowTextureId, &imageInfo, 1);
+                upSampleVariant.SetTextures(SrcLowTextureId, imageInfo);
             }
 
             var windowExtents = Application.MainWindow.WindowExtent;
@@ -145,11 +145,11 @@ namespace VECS
 
             _bloomMixer.SetTexture(SrcBloomTextureId, _bloomUp);
 
-            _bloomMix.SetTexturesUnsafe(SrcBloomTextureId,&imageInfo,1);
+            _bloomMix.SetTextures(SrcBloomTextureId,imageInfo);
             var mainTarget = EngineTextures.TryGetTexture(ShaderProperties.MainColourAttachmentId);
             imageInfo = mainTarget.First.ImageInfo;
-            _bloomMix.SetTexturesUnsafe(SrcMainTextureId, &imageInfo, 1);
-            _bloomMix.SetTexturesUnsafe(DstTextureId, &imageInfo, 1);
+            _bloomMix.SetTextures(SrcMainTextureId, imageInfo);
+            _bloomMix.SetTextures(DstTextureId, imageInfo);
             _bloomMixer.SetTexture(SrcMainTextureId,mainTarget);
         }
         private void BloomDownSample(RendererFrameInfo frameInfo)

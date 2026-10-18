@@ -388,7 +388,7 @@ namespace VECS
             _setLayoutCmdsQueue.Enqueue(new(texture, newImageLayout, srcStage, dstStage));
         }
 
-        internal unsafe static void PlaybackSetLayoutCmds(VkCommandBuffer cmd)
+        internal static void PlaybackSetLayoutCmds(VkCommandBuffer cmd)
         {
             if (_setLayoutCmdsQueue.IsEmpty) return;
             _setLayoutCmds.Clear();
@@ -398,7 +398,7 @@ namespace VECS
                 _setLayoutCmds.Add(layout);
             }
 
-            VkImageMemoryBarrier2* barriers = stackalloc VkImageMemoryBarrier2[_setLayoutCmds.Count];
+            Span<VkImageMemoryBarrier2> barriers = stackalloc VkImageMemoryBarrier2[_setLayoutCmds.Count];
 
             for (int i = 0; i < _setLayoutCmds.Count; i++)
             {
@@ -408,7 +408,7 @@ namespace VECS
                 layout.Texture.SetImageLayoutSilent(layout.NewImageLayout);
             }
 
-            MemoryBarrierHelper.ImageMemoryBarrier(cmd, barriers, (uint)_setLayoutCmds.Count);
+            MemoryBarrierHelper.ImageMemoryBarrier(cmd, barriers);
 
         }
         #endregion
@@ -518,9 +518,9 @@ namespace VECS
             GraphicsDevice.EndSingleTimeMainPipe(cmd);
         }
 
-        internal static unsafe void PlaybackCopyCmds(VkCommandBuffer cmd)
+        internal static void PlaybackCopyCmds(VkCommandBuffer cmd)
         {
-            VkBufferImageCopy copyCmd;
+            Span<VkBufferImageCopy> copyCmd = stackalloc VkBufferImageCopy[1];
             while (_copyBufferToTexture.TryDequeue(out var copy))
             {
                 if (copy.Buffer.IsDisposed || copy.Texture.IsDisposed) continue;
@@ -529,17 +529,13 @@ namespace VECS
                 {
                     if (copy.CopyCmds != null)
                     {
-                        fixed(VkBufferImageCopy* copyCmds = copy.CopyCmds)
-                        {
-                            CopyBufferToTexture(copy.Texture, cmd, copy.Buffer, (uint)copy.CopyCmds.Length, copyCmds);
-                        }
+                        CopyBufferToTexture(copy.Texture, cmd, copy.Buffer, (uint)copy.CopyCmds.Length, copy.CopyCmds);
                     }
                     else
                     {
-                        copyCmd = copy.CopyCmd;
-                        CopyBufferToTexture(copy.Texture, cmd, copy.Buffer, 1, &copyCmd);
+                        copyCmd[0] = copy.CopyCmd;
+                        CopyBufferToTexture(copy.Texture, cmd, copy.Buffer, 1, copyCmd);
                     }
-                    
                 }
                 else
                 {
@@ -563,7 +559,7 @@ namespace VECS
             }
         }
 
-        internal static unsafe bool CopyFromBuffer(this Texture texture, VkCommandBuffer cmdBuffer, GPUBuffer buffer, ulong[] offsets = null, VkExtent3D[] extents = null)
+        internal static bool CopyFromBuffer(this Texture texture, VkCommandBuffer cmdBuffer, GPUBuffer buffer, ulong[] offsets = null, VkExtent3D[] extents = null)
         {
             var imageLayout = texture.ImageLayout;
             bool changeLayout = false;
@@ -610,8 +606,8 @@ namespace VECS
                     hintRegenerateMipMaps = true;
                 }
 
-                VkBufferImageCopy* bufferCopyRegions = stackalloc VkBufferImageCopy[(int)copyCount];
-                for (uint i = 0, k = 0; i < copyCount; i++)
+                Span<VkBufferImageCopy> bufferCopyRegions = stackalloc VkBufferImageCopy[(int)copyCount];
+                for (int i = 0, k = 0; i < copyCount; i++)
                 {
                     for (uint j = 0; j < texture.MipMapCount; j++, k++)
                     {
@@ -624,7 +620,7 @@ namespace VECS
                             {
                                 aspectMask = subresourceRange.aspectMask,
                                 mipLevel = j,
-                                baseArrayLayer = i,
+                                baseArrayLayer = (uint)i,
                                 layerCount = 1
                             },
                             imageOffset = new(0, 0, 0),
@@ -658,8 +654,8 @@ namespace VECS
                     hintRegenerateMipMaps = true;
                 }
 
-                VkBufferImageCopy* bufferCopyRegions = stackalloc VkBufferImageCopy[(int)texture.ImageExtent.depth * (int)texture.MipMapCount];
-                for (uint i = 0, k = 0; i < texture.ImageExtent.depth; i++)
+                Span<VkBufferImageCopy> bufferCopyRegions = stackalloc VkBufferImageCopy[(int)texture.ImageExtent.depth * (int)texture.MipMapCount];
+                for (int i = 0, k = 0; i < texture.ImageExtent.depth; i++)
                 {
                     for (uint j = 0; j < texture.MipMapCount; j++, k++)
                     {
@@ -672,7 +668,7 @@ namespace VECS
                             {
                                 aspectMask = subresourceRange.aspectMask,
                                 mipLevel = j,
-                                baseArrayLayer = i,
+                                baseArrayLayer = (uint)i,
                                 layerCount = 1
                             },
                             imageOffset = new(0, 0, 0),
@@ -707,8 +703,8 @@ namespace VECS
                     hintRegenerateMipMaps = true;
                 }
 
-                VkBufferImageCopy* bufferCopyRegions = stackalloc VkBufferImageCopy[(int)copyCount];
-                for (uint i = 0; i < copyCount; i++)
+                Span<VkBufferImageCopy> bufferCopyRegions = stackalloc VkBufferImageCopy[(int)copyCount];
+                for (int i = 0; i < copyCount; i++)
                 {
                     bufferCopyRegions[i] = new()
                     {
@@ -718,7 +714,7 @@ namespace VECS
                         imageSubresource = new()
                         {
                             aspectMask = subresourceRange.aspectMask,
-                            mipLevel = i,
+                            mipLevel = (uint)i,
                             baseArrayLayer = 0,
                             layerCount = 1
                         },
@@ -758,7 +754,7 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static unsafe void CopyBufferToTexture(Texture texture, VkCommandBuffer cmdBuffer, GPUBuffer buffer, uint copyCount, VkBufferImageCopy* bufferCopyRegions)
+        private static void CopyBufferToTexture(Texture texture, VkCommandBuffer cmdBuffer, GPUBuffer buffer, uint copyCount, Span<VkBufferImageCopy> bufferCopyRegions)
         {
             VkImageLayout setBackLayout = VkImageLayout.Undefined;
             if(texture.ImageLayout != VkImageLayout.TransferDstOptimal)
@@ -766,7 +762,7 @@ namespace VECS
                 setBackLayout = texture.ImageLayout;
                 texture.SetImageLayout(cmdBuffer,VkImageLayout.TransferDstOptimal, VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2.Transfer);
             }
-            GraphicsDevice.DeviceAPI.vkCmdCopyBufferToImage(cmdBuffer, buffer.VkBuffer, texture._vkImage, VkImageLayout.TransferDstOptimal, copyCount, bufferCopyRegions);
+            GraphicsDevice.DeviceAPI.vkCmdCopyBufferToImage(cmdBuffer, buffer.VkBuffer, texture._vkImage, VkImageLayout.TransferDstOptimal, bufferCopyRegions, copyCount);
             if(setBackLayout != VkImageLayout.Undefined)
             {
                 texture.SetImageLayout(cmdBuffer, setBackLayout, VkPipelineStageFlags2.Transfer, VkPipelineStageFlags2.FragmentShader);
@@ -779,7 +775,7 @@ namespace VECS
             _copyTextureToBuffer.Enqueue(new(texture, buffer, false,false));
         }
 
-        internal static unsafe void CopyToBuffer(this Texture texture, VkCommandBuffer cmdBuffer, GPUBuffer buffer)
+        internal static void CopyToBuffer(this Texture texture, VkCommandBuffer cmdBuffer, GPUBuffer buffer)
         {
             var imageLayout = texture.ImageLayout;
             bool changeLayout = false;
@@ -793,8 +789,8 @@ namespace VECS
             uint formatSize = (uint)Vulkan.BlockSize(texture.Format);
             uint size = texture.ImageExtent.width * texture.ImageExtent.height * formatSize;
             var subresourceRange = texture.GetSubresourceRange();
-            VkBufferImageCopy* bufferCopyRegions = stackalloc VkBufferImageCopy[(int)texture.MipMapCount];
-            for (uint i = 0; i < texture.MipMapCount; i++)
+            Span<VkBufferImageCopy> bufferCopyRegions = stackalloc VkBufferImageCopy[(int)texture.MipMapCount];
+            for (int i = 0; i < texture.MipMapCount; i++)
             {
                 bufferCopyRegions[i] = new()
                 {
@@ -804,7 +800,7 @@ namespace VECS
                     imageSubresource = new()
                     {
                         aspectMask = subresourceRange.aspectMask,
-                        mipLevel = i,
+                        mipLevel = (uint)i,
                         baseArrayLayer = 0,
                         layerCount = 1
                     },
@@ -814,8 +810,8 @@ namespace VECS
                         0
                     ),
                     imageExtent = new(
-                        (int)(texture.ImageExtent.width >> (int)i),
-                        (int)(texture.ImageExtent.height >> (int)i),
+                        (int)(texture.ImageExtent.width >> i),
+                        (int)(texture.ImageExtent.height >> i),
                         1
                     )
                 };
@@ -825,9 +821,11 @@ namespace VECS
                 size = bufferCopyRegions[i].imageExtent.width * bufferCopyRegions[i].imageExtent.height * formatSize;
                 offset += size;
             }
-
-            GraphicsDevice.DeviceAPI.vkCmdCopyImageToBuffer(cmdBuffer, texture._vkImage, VkImageLayout.TransferSrcOptimal, buffer.VkBuffer, texture.MipMapCount, bufferCopyRegions);
-
+            unsafe
+            {
+                fixed (VkBufferImageCopy* bufferCopyRegionsPtr = bufferCopyRegions)
+                GraphicsDevice.DeviceAPI.vkCmdCopyImageToBuffer(cmdBuffer, texture._vkImage, VkImageLayout.TransferSrcOptimal, buffer.VkBuffer, texture.MipMapCount, bufferCopyRegionsPtr);
+            }
             if (changeLayout && imageLayout != VkImageLayout.Undefined)
             {
                 texture.SetImageLayout(cmdBuffer, imageLayout, VkPipelineStageFlags2.Transfer, VkPipelineStageFlags2.Transfer);

@@ -192,7 +192,7 @@ namespace VECS
             EntityManager entityManager = World.DefaultWorld.EntityManager;
             
             
-            PointLight(entityManager, new(-10, 1, 0), new(4, 0, 0, 1), _sphere);
+            PointLight(entityManager, new(-7, 1, 1), new(4, 0, 0, 1), _sphere);
             // PointLight(entityManager, new(10, 1f, 0), new(1, 0, 0, 1), _sphere);
             // 
             // PointLight(entityManager, new(8, 1, 0), new(0, 1, 0, 1), _sphere);
@@ -215,32 +215,32 @@ namespace VECS
 
             entityManager.AddComponent(pointLight, new Translation() { Value = translation });
 
-            entityManager.AddComponent(pointLight, new PointLight()
-            {
-                Ambient = new(0.1f, 0.1f, 0.1f, 1f),
-                Diffuse = diffuse,
-                Specular = diffuse,
-
-                Constant = 1.0f,
-                Linear = 0.07f,
-                Quadratic = 0.017f,
-                Range = 7f
-            });
-
-            entityManager.AddComponent(pointLight, new ShadowInfo()
-            {
-                UpdateBehaviour = ShadowUpdate.Always,
-                Resolution = 1365,
-            });
+            //entityManager.AddComponent(pointLight, new PointLight()
+            //{
+            //    Ambient = new(0.1f, 0.1f, 0.1f, 1f),
+            //    Diffuse = diffuse,
+            //    Specular = diffuse,
+            //
+            //    Constant = 1.0f,
+            //    Linear = 0.07f,
+            //    Quadratic = 0.017f,
+            //    Range = 7f
+            //});
+            //
+            //entityManager.AddComponent(pointLight, new ShadowInfo()
+            //{
+            //    UpdateBehaviour = ShadowUpdate.Always,
+            //    Resolution = 1365,
+            //});
 
             entityManager.AddComponent(pointLight, new Scale() { Value = new Vector3(0.5f, 0.5f, 0.5f) });
 
-            entityManager.AddComponent<MainColour>(pointLight, new() { Value = diffuse*20f });
+            entityManager.AddComponent<MainColour>(pointLight, new() { Value = diffuse });
 
-            AddRenderMeshComponents(pointLight,EnginePipes.Unlit.Default(), 0, subMesh, entityManager,RenderLayer.Default | RenderLayer.NoShadow);
+            AddRenderMeshComponents(pointLight,EnginePipes.Unlit.Default(), 0, subMesh, entityManager,RenderLayer.Default);
             MaterialProvider material = new("PointLightUnlit", EnginePipes.DepthOnly.Create("Unlit"), EnginePipes.Unlit.Default());
             AssetDataBase<MaterialProvider>.Add(material);
-            entityManager.AddComponent(pointLight, new MaterialProviderComponent() { Value = material.Hash, LayerFlags = RenderLayer.Default | RenderLayer.NoShadow });
+            entityManager.AddComponent(pointLight, new MaterialProviderComponent() { Value = material.Hash, LayerFlags = RenderLayer.Default  });
         }
 
         private static void ShadowDebug()

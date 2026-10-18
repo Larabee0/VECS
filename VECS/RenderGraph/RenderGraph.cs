@@ -153,7 +153,7 @@ namespace VECS
             if (Recompile) Compile();
             VkCommandBuffer commandBuffer = frameInfo.CommandBuffer;
             VkImageMemoryBarrier2* imageBarriers = stackalloc VkImageMemoryBarrier2[ImageMemoryBarrierStackSize];
-            uint imageBarrierCount;
+            int imageBarrierCount;
             ExecutionOrder.ForEach(passIndex =>
             {
                 var pass = Passes[passIndex];
@@ -216,7 +216,7 @@ namespace VECS
                     }
                 });
 
-                MemoryBarrierHelper.ImageMemoryBarrier(commandBuffer, imageBarriers, imageBarrierCount);
+                MemoryBarrierHelper.ImageMemoryBarrier(commandBuffer, new Span<VkImageMemoryBarrier2>(imageBarriers, imageBarrierCount));
 
                 pass.ExecuteFunc(frameInfo);
 
@@ -246,7 +246,7 @@ namespace VECS
                     }
                 });
 
-                MemoryBarrierHelper.ImageMemoryBarrier(commandBuffer, imageBarriers, imageBarrierCount);
+                MemoryBarrierHelper.ImageMemoryBarrier(commandBuffer, new Span<VkImageMemoryBarrier2>(imageBarriers, imageBarrierCount));
 
                 GraphicsDevice.EndLabelCmd(commandBuffer);
             });

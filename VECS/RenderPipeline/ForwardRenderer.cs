@@ -82,7 +82,7 @@ namespace VECS
             StartForwardRendering(frameInfo.CommandBuffer, colourLoad);
         }
 
-        public unsafe void StartForwardRendering(VkCommandBuffer commandBuffer, VkAttachmentLoadOp colourLoad, bool onlyMainAttachment = false, bool noDepth = false)
+        public void StartForwardRendering(VkCommandBuffer commandBuffer, VkAttachmentLoadOp colourLoad, bool onlyMainAttachment = false, bool noDepth = false)
         {
             if (MainColourAttachment.CurrentLayout == VkImageLayout.TransferSrcOptimal)
             {
@@ -94,14 +94,14 @@ namespace VECS
             }
             BrightObjectAttachment.Target.SetImageLayoutAuto(commandBuffer, VkImageLayout.ColorAttachmentOptimal);
 
-            VkRenderingAttachmentInfo* colourAttachments = stackalloc VkRenderingAttachmentInfo[]
-            {
+            Span<VkRenderingAttachmentInfo> colourAttachments =
+            [
                 MainColourAttachment.GetAttachmentInfo(colourLoad),
 
                 BrightObjectAttachment.GetAttachmentInfo(colourLoad)
-            };
+            ];
 
-            MainColourAttachment.BeginRenderingMultiAttachment(commandBuffer, 1, colourAttachments, onlyMainAttachment ? 1 : 2, DepthAttachment.GetAttachmentInfo());
+            MainColourAttachment.BeginRenderingMultiAttachment(commandBuffer, 1, colourAttachments, DepthAttachment.GetAttachmentInfo());
 
             Presenter.SetToCurrentCameraViewportScissor(commandBuffer);
         }

@@ -212,14 +212,14 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe static void Unmap(this GPUBuffer buffer)
+        public static void Unmap(this GPUBuffer buffer)
         {
             if (buffer.VkBufferSize == 0) return;
             Vma.vmaUnmapMemory(GraphicsDevice.VmaAllocator, buffer._allocation);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe void Flush(this GPUBuffer buffer, ulong size = Vulkan.VK_WHOLE_SIZE, ulong offset = 0)
+        public static void Flush(this GPUBuffer buffer, ulong size = Vulkan.VK_WHOLE_SIZE, ulong offset = 0)
         {
             Vma.vmaFlushAllocation(GraphicsDevice.VmaAllocator, buffer._allocation, offset, size).CheckResult( "Failed to flush allocation!");
         }
@@ -518,13 +518,13 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe static void WriteFromHostToActiveBuffer(this SwapChainBuffer buffer)
+        public static void WriteFromHostToActiveBuffer(this SwapChainBuffer buffer)
         {
             WriteFromHostToBuffer(buffer, Presenter.FrameIndex);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe static void ReadToHostFromActiveBuffer(this SwapChainBuffer buffer)
+        public static void ReadToHostFromActiveBuffer(this SwapChainBuffer buffer)
         {
             ReadToHostFromBuffer(buffer, Presenter.FrameIndex);
         }
@@ -577,7 +577,7 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe static void FillBufferSingleTimeCmd(this GPUBuffer buffer, uint data, ulong dstOffset = 0, ulong bufferSize = Vulkan.VK_WHOLE_SIZE)
+        public static void FillBufferSingleTimeCmd(this GPUBuffer buffer, uint data, ulong dstOffset = 0, ulong bufferSize = Vulkan.VK_WHOLE_SIZE)
         {
             var cmd = GraphicsDevice.BeginSingleTimeMainPipe();
             FillBuffer(buffer, cmd, data, dstOffset, bufferSize);
@@ -635,7 +635,7 @@ namespace VECS
             }
         }
 
-        public static unsafe void PlaybackWriteBufferCmds()
+        public static void PlaybackWriteBufferCmds()
         {
             while(_writeBufferCmds.TryDequeue(out var cmd))
             {
@@ -662,7 +662,7 @@ namespace VECS
             _disposalQueue.Enqueue(new(gpuBuffer, (int)Presenter.FrameCount + i));
         }
 
-        public static unsafe void PlayerbackDisposeCmds()
+        public static void PlayerbackDisposeCmds()
         {
             for (int i = _disposalList.Count - 1; i >= 0; i--)
             {
@@ -684,12 +684,12 @@ namespace VECS
             }
         }
 
-        public static unsafe void WriteFromHostDelayed(GPUBuffer buffer, ulong offset, ulong size)
+        public static void WriteFromHostDelayed(GPUBuffer buffer, ulong offset, ulong size)
         {
             _writeBufferCmds.Enqueue(new(buffer, offset,size));
         }
 
-        public static unsafe void WriteFromHostDelayed(SwapChainBuffer buffer, int frameIndex)
+        public static void WriteFromHostDelayed(SwapChainBuffer buffer, int frameIndex)
         {
             _writeBufferCmds.Enqueue(new(buffer, frameIndex));
         }

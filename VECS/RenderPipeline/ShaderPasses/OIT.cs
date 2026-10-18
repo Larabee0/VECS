@@ -1,4 +1,5 @@
-﻿using System.Numerics;
+﻿using System;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using VECS.LowLevel;
@@ -149,7 +150,7 @@ namespace VECS
 
             GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Transparent Rendering");
 
-            depthTraget.BeginRenderingMultiAttachment(commandBuffer, 1, null, 0, depthTraget.GetAttachmentInfo(VkAttachmentLoadOp.Load));
+            depthTraget.BeginRenderingMultiAttachment(commandBuffer, 1, [], depthTraget.GetAttachmentInfo(VkAttachmentLoadOp.Load));
 
             Presenter.SetToCurrentCameraViewportScissor(commandBuffer);
             if (_transparentQueue.CommandCount > 0)

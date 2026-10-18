@@ -416,19 +416,19 @@ namespace VECS
             return GetImageLayoutBarrier(newLayout, GetSubresourceRange(), srcStage, dstStage);
         }
 
-        public unsafe virtual VkImageMemoryBarrier2 GetImageLayoutBarrier(VkImageLayout newImageLayout, VkImageSubresourceRange resourceRange, VkPipelineStageFlags2 srcStage = VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2 dstStage = VkPipelineStageFlags2.FragmentShader)
+        public virtual VkImageMemoryBarrier2 GetImageLayoutBarrier(VkImageLayout newImageLayout, VkImageSubresourceRange resourceRange, VkPipelineStageFlags2 srcStage = VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2 dstStage = VkPipelineStageFlags2.FragmentShader)
         {
             return MemoryBarrierHelper.GetImageLayoutBarrier(_vkImage, _imageLayout, newImageLayout, resourceRange, srcStage, dstStage);
         }
 
-        public unsafe virtual void SetImageLayout(VkCommandBuffer cmdbuffer, VkImageLayout newImageLayout, VkImageSubresourceRange resourceRange, VkPipelineStageFlags2 srcStage = VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2 dstStage = VkPipelineStageFlags2.FragmentShader)
+        public virtual void SetImageLayout(VkCommandBuffer cmdbuffer, VkImageLayout newImageLayout, VkImageSubresourceRange resourceRange, VkPipelineStageFlags2 srcStage = VkPipelineStageFlags2.FragmentShader, VkPipelineStageFlags2 dstStage = VkPipelineStageFlags2.FragmentShader)
         {
             if (newImageLayout == _imageLayout)
             {
                 return;
             }
             var barrier = GetImageLayoutBarrier(newImageLayout, resourceRange, srcStage, dstStage);
-            MemoryBarrierHelper.ImageMemoryBarrier(cmdbuffer, &barrier, 1);
+            MemoryBarrierHelper.ImageMemoryBarrier(cmdbuffer, barrier);
             SetImageLayoutSilent(newImageLayout);
         }
 
