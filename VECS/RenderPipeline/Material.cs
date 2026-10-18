@@ -376,77 +376,28 @@ namespace VECS
             {
                 GraphicsPipeline.Update(Pipeline);
             }
+            Pipeline.BindPipe(commandBuffer);
             Span<VkDescriptorBufferBindingInfoEXT> bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[DescriptorSetCount];
             Span<ulong> offsets = stackalloc ulong[DescriptorSetCount];
             Span<uint> indices = stackalloc uint[DescriptorSetCount];
-            for (int i = 0; i < DescriptorSetCount; i++)
-            {
-                DescriptorSetInfo descriptorSetInfo = DescriptorSetInfos[i];
-                DescriptorBuffer buffer = descriptorSetInfo.DescriptorBuffers[frameIndex];
+            Pipeline.SetInitialDescriptors(commandBuffer, frameIndex, command, bindingInfo, offsets, indices);
 
-                bindingInfo[i] = buffer.BindingInfo;
-                offsets[i] = buffer.AlignedSize * (uint)command.Variant;
-                indices[i] = (uint)i;
-            }
-
-            Pipeline.BindPipe(commandBuffer);
-            
-            if (OverrideCullMode)
-            {
-                GraphicsDevice.DeviceAPI.vkCmdSetCullMode(commandBuffer, CullMode);
-            }
-
-            DescriptorBuffer.BindSets(commandBuffer, (uint)DescriptorSetCount, bindingInfo);
-            DescriptorBuffer.SetOffsets(commandBuffer, Pipeline.PipelineLayout, VkPipelineBindPoint.Graphics, 0, (uint)DescriptorSetCount, offsets, indices);
-            var lastVariant = (int)VariantIndex;
+            Pipeline.SetCullModeAuto(commandBuffer, command.Variant);
+            var lastVariant = command.Variant;
             for (int i = 0; i < drawCount; i++)
             {
                 command = drawCmds[i];
                 command.Variant = (int)VariantIndex;
-                Pipeline.ExecuteDrawCommand(commandBuffer, frameIndex, command.Entity, indirectCmdBuffer, command, offsets, indices, ref lastVariant);
+                var pushConstantsBuffer = Pipeline.PushConstants.GetBufferInstance(command.Entity);
+                Pipeline.ExecuteDrawCommand(commandBuffer, frameIndex, pushConstantsBuffer, indirectCmdBuffer, command, offsets, indices, ref lastVariant);
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void ExecuteDrawCommandsPushConstantOverride(RendererFrameInfo frameInfo, int pushConstantOverride, VkCommandBuffer commandBuffer, Span<MaterialDrawCommand> drawCmds, int drawCount, SwapChainBuffer<VECSDrawIndexIndirectCommand> indirectCmdBuffer)
         {
-            if (drawCount <= 0) return;
-            var frameIndex = Presenter.FrameIndex;
-
-            var command = drawCmds[0];
-            command.Variant = (int)VariantIndex;
-            if (Pipeline._preBindUpdate)
-            {
-                GraphicsPipeline.Update(Pipeline);
-            }
-            Span<VkDescriptorBufferBindingInfoEXT> bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[DescriptorSetCount];
-            Span<ulong> offsets = stackalloc ulong[DescriptorSetCount];
-            Span<uint> indices = stackalloc uint[DescriptorSetCount];
-
-            for (int i = 0; i < DescriptorSetCount; i++)
-            {
-                DescriptorSetInfo descriptorSetInfo = DescriptorSetInfos[i];
-                DescriptorBuffer buffer = descriptorSetInfo.DescriptorBuffers[frameIndex];
-
-                bindingInfo[i] = buffer.BindingInfo;
-                offsets[i] = buffer.AlignedSize * (uint)command.Variant;
-                indices[i] = (uint)i;
-            }
-            Pipeline.BindPipe(commandBuffer);
-            DescriptorBuffer.BindSets(commandBuffer, (uint)DescriptorSetCount, bindingInfo);
-            DescriptorBuffer.SetOffsets(commandBuffer, Pipeline.PipelineLayout, VkPipelineBindPoint.Graphics, 0, (uint)DescriptorSetCount, offsets, indices);
-
-            if (OverrideCullMode)
-            {
-                GraphicsDevice.DeviceAPI.vkCmdSetCullMode(commandBuffer, CullMode);
-            }
-
-            var lastVariant = (int)VariantIndex;
-            for (int i = 0; i < drawCount; i++)
-            {
-                command = drawCmds[i];
-                command.Variant = (int)VariantIndex;
-                Pipeline.ExecuteDrawCommand(commandBuffer, frameIndex, pushConstantOverride, indirectCmdBuffer, command, offsets, indices, ref lastVariant);
-            }
+            var pushConstantsBuffer = Pipeline.PushConstants.GetBufferInstance(pushConstantOverride);
+            ExecuteDrawCommandsPushConstantOverride(frameInfo, pushConstantsBuffer, commandBuffer, drawCmds, drawCount, indirectCmdBuffer);
         }
 
         public void ExecuteDrawCommandsPushConstantOverride<T>(RendererFrameInfo frameInfo, Span<T> pushConstantBuffer, VkCommandBuffer commandBuffer, Span<MaterialDrawCommand> drawCmds, int drawCount, SwapChainBuffer<VECSDrawIndexIndirectCommand> indirectCmdBuffer) where T : unmanaged
@@ -460,29 +411,15 @@ namespace VECS
             {
                 GraphicsPipeline.Update(Pipeline);
             }
+            Pipeline.BindPipe(commandBuffer);
             Span<VkDescriptorBufferBindingInfoEXT> bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[DescriptorSetCount];
             Span<ulong> offsets = stackalloc ulong[DescriptorSetCount];
             Span<uint> indices = stackalloc uint[DescriptorSetCount];
+            Pipeline.SetInitialDescriptors(commandBuffer, frameIndex, command, bindingInfo, offsets, indices);
 
-            for (int i = 0; i < DescriptorSetCount; i++)
-            {
-                DescriptorSetInfo descriptorSetInfo = DescriptorSetInfos[i];
-                DescriptorBuffer buffer = descriptorSetInfo.DescriptorBuffers[frameIndex];
+            Pipeline.SetCullModeAuto(commandBuffer, command.Variant);
 
-                bindingInfo[i] = buffer.BindingInfo;
-                offsets[i] = buffer.AlignedSize * (uint)command.Variant;
-                indices[i] = (uint)i;
-            }
-            Pipeline.BindPipe(commandBuffer);
-            DescriptorBuffer.BindSets(commandBuffer, (uint)DescriptorSetCount, bindingInfo);
-            DescriptorBuffer.SetOffsets(commandBuffer, Pipeline.PipelineLayout, VkPipelineBindPoint.Graphics, 0, (uint)DescriptorSetCount, offsets, indices);
-
-            if (OverrideCullMode)
-            {
-                GraphicsDevice.DeviceAPI.vkCmdSetCullMode(commandBuffer, CullMode);
-            }
-
-            var lastVariant = (int)VariantIndex;
+            var lastVariant = command.Variant;
             for (int i = 0; i < drawCount; i++)
             {
                 command = drawCmds[i];

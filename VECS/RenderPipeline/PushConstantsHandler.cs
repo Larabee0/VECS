@@ -215,7 +215,7 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe static void BindPushConstants<T>(this PushConstantsHandler handler, VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, Span<T> buffer) where T : unmanaged
         {
-            Debug.Assert(buffer.Length *  sizeof(T) == handler.BufferInstanceSize,$"PushConstantType [{typeof(T).ToString()}] Size: {sizeof(T)} does not match pushblock size: {handler.BufferInstanceSize}");
+            Debug.Assert(buffer.Length * sizeof(T) == handler.BufferInstanceSize,$"PushConstantType [{typeof(T).ToString()}] Size: {sizeof(T)} does not match pushblock size: {handler.BufferInstanceSize}");
 
             for (int i = 0; i < handler.Count; i++)
             {
