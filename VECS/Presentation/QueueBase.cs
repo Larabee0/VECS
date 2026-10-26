@@ -41,7 +41,8 @@ namespace VECS
         public int CommandOffset => _commandBufferOffset;
 
         protected MaterialProviderFrozen[] _queue = [];
-        protected MaterialDrawCommand[] _drawCalls = [];
+        protected MaterialDrawCommand[] _indirectDrawCalls = [];
+        protected MeshDrawCommand[] _meshDrawCalls = [];
 
         protected readonly ConcurrentDictionary<ulong, BufferRegion> _materialBufferRegions = new();
 
@@ -82,7 +83,7 @@ namespace VECS
                 commandRange[i] = src[_queue[i].EntityIndex];
             }
 
-            foreach (var island in _materialIslands)
+            foreach (var island in _materialIslands)    
             {
                 Material.DecomposeHash(island.Key.CombinedMaterialHash, out int pipelineHash, out int materialIndex);
 
@@ -102,7 +103,50 @@ namespace VECS
                     commandRange[i + offset].firstInstance = (uint)(queueEntityIndex - regionBounds.StartIndex);
                 }
 
-                _drawCalls[batchOffset + drawCallIndex] = new(pipelineHash, materialIndex, 0, island.Key.MeshHash, new(_commandBufferOffset + island.Value.X, island.Value.Y));
+                _indirectDrawCalls[batchOffset + drawCallIndex] = new(pipelineHash, materialIndex, 0, island.Key.MeshHash, new(_commandBufferOffset + island.Value.X, island.Value.Y));
+
+                drawCallIndex++;
+            }
+        }
+
+        internal virtual void BuildCommandBuffers(ReadOnlySpan<MeshTaskCommand> src, Span<MeshTaskCommand> commandRange)
+        {
+            int drawCallIndex = 0;
+            int batchOffset = -1;
+
+            for (int i = 0; i < _queueCount; i++)
+            {
+                commandRange[i] = src[_queue[i].EntityIndex];
+            }
+
+
+            foreach (var island in _materialIslands)
+            {
+                Material.DecomposeHash(island.Key.CombinedMaterialHash, out int pipelineHash, out int materialIndex);
+
+                var regionBounds = _materialBufferRegions[island.Key.CombinedMaterialHash];
+                
+                if (_drawBatches[pipelineHash].StartIndex != batchOffset)
+                {
+                    drawCallIndex = 0;
+                    batchOffset = _drawBatches[pipelineHash].StartIndex;
+                }
+
+                  var offset = island.Value.X;
+                 
+                 for (int i = 0; i < island.Value.Y; i++)
+                 {
+                    var queueEntityIndex = _queue[i + offset].EntityIndex;
+                    commandRange[i + offset].AbsMatrixIndex = (uint)(queueEntityIndex - regionBounds.StartIndex);
+                 }
+
+                _meshDrawCalls[batchOffset + drawCallIndex] = new(
+                    pipelineHash,
+                    materialIndex, 
+                    0,
+                    island.Key.MeshHash,
+                    new(_commandBufferOffset + island.Value.X, island.Value.Y)
+                );
 
                 drawCallIndex++;
             }
@@ -124,15 +168,16 @@ namespace VECS
                 meshHash = Material.DecodePipelineHash(frozenData.MeshHash);
                 pipelineHash = Material.DecodePipelineHash(frozenData.ColourHash);
                 key = new(frozenData.ColourHash, meshHash);
+                bool newMesh = _materialIslands.TryAdd(key, new Vector2Int(i, 1));
 
-                if (!_materialIslands.TryAdd(key, new Vector2Int(i, 1)))
+                if (!newMesh)
                 {
                     var currnet = _materialIslands[key];
                     currnet.Y++;
                     _materialIslands[key] = currnet;
                 }
-
-                if (!_materialBufferRegions.TryAdd(frozenData.ColourHash, new(entityIndex, entityIndex)))
+                bool newRegion = _materialBufferRegions.TryAdd(frozenData.ColourHash, new(entityIndex, entityIndex));
+                if (!newRegion)
                 {
                     var current = _materialBufferRegions[frozenData.ColourHash];
 
@@ -140,7 +185,7 @@ namespace VECS
                     current.Count = Math.Max(current.Count, entityIndex);
                     _materialBufferRegions[frozenData.ColourHash] = current;
                 }
-                else if (!_drawBatches.TryAdd(pipelineHash, new(0, 1)))
+                if ((newRegion || newMesh) && !_drawBatches.TryAdd(pipelineHash, new(0, 1)))
                 {
                     var current = _drawBatches[pipelineHash];
                     current.Count++;
@@ -164,7 +209,11 @@ namespace VECS
             }
 
             _materialIslands.TrimExcess();
-            Array.Resize(ref _drawCalls, _materialIslands.Count);
+            Array.Resize(ref _indirectDrawCalls, _materialIslands.Count);
+            if (GraphicsDevice.MeshShading)
+            {
+                Array.Resize(ref _meshDrawCalls, _materialIslands.Count);
+            }
         }
 
         internal void CountDepthIslands()
@@ -184,14 +233,15 @@ namespace VECS
                 mesh = Material.DecodePipelineHash(frozenData.MeshHash);
                 pipelineHash = Material.DecodePipelineHash(frozenData.DepthOnlyHash);
                 key = new(frozenData.DepthOnlyHash, mesh);
-                if (!_materialIslands.TryAdd(key, new Vector2Int(i, 1)))
+                bool newMesh = _materialIslands.TryAdd(key, new Vector2Int(i, 1));
+                if (!newMesh)
                 {
                     var current = _materialIslands[key];
                     current.Y++;
                     _materialIslands[key] = current;
                 }
-
-                if (!_materialBufferRegions.TryAdd(frozenData.DepthOnlyHash, new(entityIndex, entityIndex)))
+                bool newRegion = _materialBufferRegions.TryAdd(frozenData.DepthOnlyHash, new(entityIndex, entityIndex));
+                if (!newRegion)
                 {
                     var current = _materialBufferRegions[frozenData.DepthOnlyHash];
 
@@ -199,7 +249,8 @@ namespace VECS
                     current.Count = Math.Max(current.Count, entityIndex);
                     _materialBufferRegions[frozenData.DepthOnlyHash] = current;
                 }
-                else if (!_drawBatches.TryAdd(pipelineHash, new(0, 1)))
+                
+                if ((newRegion || newMesh) && !_drawBatches.TryAdd(pipelineHash, new(0, 1)))
                 {
                     var current = _drawBatches[pipelineHash];
                     current.Count++;
@@ -223,7 +274,11 @@ namespace VECS
             }
 
             _materialIslands.TrimExcess();
-            Array.Resize(ref _drawCalls, _materialIslands.Count);
+            Array.Resize(ref _indirectDrawCalls, _materialIslands.Count);
+            if (GraphicsDevice.MeshShading)
+            {
+                Array.Resize(ref _meshDrawCalls, _materialIslands.Count);
+            }
         }
 
         internal void SetMaterialBufferRegions()
@@ -233,11 +288,38 @@ namespace VECS
                 Material.DecomposeHash(kvp.Key, out int pipelineHash, out int matIndex);
 
                 var mat = AssetDataBase<GraphicsPipeline>.GetHashed(pipelineHash).GetOrCreateVariant((uint)matIndex);
+
                 for (int i = 0; i < DrawBlob.RenderBuffers.Length; i++)
                 {
-                    if (mat.LookUpProperty(DrawBlob.RenderBuffers[i].BufferShaderPropertyId, out var propertyInfo))
+                    if (mat.LookUpProperty(DrawBlob.RenderBuffers[i].BufferShaderPropertyId, out ShaderProperty propertyInfo))
                     {
                         mat.SetStorageBufferLength(propertyInfo.SetIndex, propertyInfo.BindPoint, (uint)kvp.Value.StartIndex, (uint)kvp.Value.Count);
+                    }
+                }
+            }
+
+            if (GraphicsDevice.MeshShading)
+            {
+                foreach (var batch in _drawBatches)
+                {
+                    var pipeline = AssetDataBase<GraphicsPipeline>.GetHashed(batch.Key);
+                    if (!pipeline.IsMeshShader) continue;
+
+                    var cmds = _meshDrawCalls.AsSpan(batch.Value.StartIndex, batch.Value.Count);
+                    int start = cmds[0].MeshStart;
+                    int count =0;
+                    for (int i = 0; i < cmds.Length; i++)
+                    {
+                        start = Math.Min(cmds[i].MeshStart, start);
+                        count += cmds[i].MeshCount;
+                    }
+
+                    if (pipeline.LookUpProperty("taskCommands".GetShaderPropertyId(), out ShaderProperty propertyInfo))
+                    {
+                        for (uint i = 0; i < pipeline.VariantCount; i++)
+                        {
+                            pipeline.GetOrCreateVariant(i).SetStorageBufferLength(propertyInfo.SetIndex, propertyInfo.BindPoint, (uint)start, (uint)count);
+                        }
                     }
                 }
             }
@@ -248,7 +330,7 @@ namespace VECS
             _targetCamera = (uint)Math.Max(0, cameraIndex);
         }
 
-        internal void ExecuteDraws(SwapChainBuffer<VECSDrawIndexIndirectCommand> indirectCmds,VkCommandBuffer commandBuffer, int pushConstantIndex, VkCullModeFlags cullMode)
+        internal void ExecuteDraws(SwapChainBuffer<VECSDrawIndexIndirectCommand> indirectCmds, VkCommandBuffer commandBuffer, int pushConstantIndex, VkCullModeFlags cullMode)
         {
             GraphicsDevice.BeginLabelCmd(commandBuffer, string.Format("Draw {0} Queue", AssetName));
             // draw batches/draw calls do not align
@@ -256,9 +338,18 @@ namespace VECS
             {
                 var region = drawCall.Value;
                 var pipeline = AssetDataBase<GraphicsPipeline>.GetHashed(drawCall.Key);
-                var cmds = _drawCalls.AsSpan(region.StartIndex, region.Count);
                 pipeline.PushConstants.SetPushConstantUInt(ShaderProperties.CameraIndex_PushConstantId, pushConstantIndex, _targetCamera);
-                pipeline.ExecuteDrawCommandsPushConstantOverride(pushConstantIndex, commandBuffer, cmds, region.Count, indirectCmds, cullMode);
+                if (pipeline.IsMeshShader)
+                {
+                    var cmds = _meshDrawCalls.AsSpan(region.StartIndex,region.Count);
+                    pipeline.ExecuteDrawMeshCommandsPushConstantOverride(pushConstantIndex, commandBuffer, cmds, region.Count, cullMode);
+                }
+                else
+                {
+                    var cmds = _indirectDrawCalls.AsSpan(region.StartIndex, region.Count);
+                    pipeline.ExecuteDrawCommandsPushConstantOverride(pushConstantIndex, commandBuffer, cmds, region.Count, indirectCmds, cullMode);
+                }
+                
             }
             GraphicsDevice.EndLabelCmd(commandBuffer);
         }
@@ -271,9 +362,16 @@ namespace VECS
             {
                 var region = drawCall.Value;
                 var pipeline = AssetDataBase<GraphicsPipeline>.GetHashed(drawCall.Key);
-                var cmds = _drawCalls.AsSpan(region.StartIndex, region.Count);
-                //pipeline.PushConstants.SetPushConstantUInt(ShaderProperties.CameraIndex_PushConstantId, pushConstantBuffer, _targetCamera);
-                pipeline.ExecuteDrawCommandsPushConstantOverride(pushConstantBuffer, commandBuffer, cmds, region.Count, indirectCmds, cullMode);
+                if (pipeline.IsMeshShader)
+                {
+                    var cmds = _meshDrawCalls.AsSpan(region.StartIndex, region.Count);
+                    pipeline.ExecuteDrawMeshCommandsPushConstantOverride(pushConstantBuffer, commandBuffer, cmds, region.Count, cullMode);
+                }
+                else
+                {
+                    var cmds = _indirectDrawCalls.AsSpan(region.StartIndex, region.Count);
+                    pipeline.ExecuteDrawCommandsPushConstantOverride(pushConstantBuffer, commandBuffer, cmds, region.Count, indirectCmds, cullMode);
+                }
             }
             GraphicsDevice.EndLabelCmd(commandBuffer);
         }

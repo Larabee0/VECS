@@ -192,6 +192,18 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void WriteToPushConstantBuffer<T>(this PushConstantsHandler handler, int propertyId, Span<byte> instance, T value) where T : unmanaged
+        {
+            for (int i = 0; i < handler.Count; i++)
+            {
+                if (handler.PushConstantsInfo[i].WriteToPushConstantBuffer(propertyId, instance, value))
+                {
+                    break;
+                }
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void BindPushConstants(this PushConstantsHandler handler, RendererFrameInfo rendererFrameInfo, VkPipelineLayout pipelineLayout, int instanceIndex)
         {
             BindPushConstants(handler, rendererFrameInfo.CommandBuffer, pipelineLayout, instanceIndex);

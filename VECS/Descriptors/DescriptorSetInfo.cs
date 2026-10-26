@@ -53,6 +53,8 @@ namespace VECS
         public bool HasStorageBuffers => _hasStorageBuffers;
         public bool HasImages => _imageCount > 0;
 
+        public bool ForMeshShader => _forMeshShader;
+
 
         //public DescriptorBinding[] DescriptorBindings => _descriptorBindings;
 
@@ -96,6 +98,7 @@ namespace VECS
 
             if (meshShader)
             {
+                _internalUniformBufferOffsets = [];
                 return;
             }
             _internalUniformBufferOffsets = new uint[_bindingCount];

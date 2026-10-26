@@ -9,12 +9,14 @@ namespace VECS
 {
     public abstract class LightShadowBase
     {
-        [StructLayout(LayoutKind.Sequential, Size = 12)]
+        [StructLayout(LayoutKind.Sequential, Size = 20)]
         protected struct DepthOnlyPushConstants
         {
+            public uint CameraIndex;
             public int MatrixStartIndex;
             public int BufferSelect;
-            public uint CameraIndex;
+            private readonly int TaskOffset;
+            private readonly int TaskCount;
         }
 
         public const bool SHADOW_CULLING = true;
@@ -38,6 +40,8 @@ namespace VECS
 
         protected readonly Material _depthOnly;
         protected readonly Material _depthOnlyAlphaClipping;
+        protected readonly Material _meshDepthOnly;
+        protected readonly Material _meshDepthOnlyAlphaClipping;
 
         public Queue<int> UpdateShadow = new();
         public Queue<int> ClearShadow = new();
@@ -57,6 +61,12 @@ namespace VECS
             _clearImages = new bool[numLights];
             _depthOnly = EnginePipes.DepthOnly.Default();
             _depthOnlyAlphaClipping = EnginePipes.DepthOnlyAlphaClipping.Default();
+
+            if (GraphicsDevice.MeshShading)
+            {
+                _meshDepthOnly = EnginePipes.MeshDepthOnly.Default();
+                _meshDepthOnlyAlphaClipping = EnginePipes.MeshDepthOnlyAlphaClipping.Default();
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

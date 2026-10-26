@@ -95,9 +95,9 @@ namespace VECS
         private readonly DirectMesh _owner;
         private readonly ConcurrentDictionary<int, MeshShaderDescriptorBuffer> _materialSets = [];
 
-        private unsafe VkDescriptorAddressInfoEXT* _bufferAddress;
+        private readonly VkDescriptorAddressInfoEXT[] _bufferAddress;
 
-        public unsafe MeshShaderDescriptorAsBuffer(DirectMesh owner)
+        public MeshShaderDescriptorAsBuffer(DirectMesh owner)
         {
             if (!GraphicsDevice.MeshShading)
             {
@@ -107,7 +107,7 @@ namespace VECS
             var attributes = owner.AllAttributesInOrder;
             _owner = owner;
 
-            _bufferAddress = (VkDescriptorAddressInfoEXT*)NativeMemory.Alloc((uint)sizeof(VkDescriptorAddressInfoEXT) * ((uint)attributes.Length + 3));
+            _bufferAddress = new VkDescriptorAddressInfoEXT[attributes.Length + 3];
 
             GPUBuffer buffer = owner._meshletBuffer;
             _bufferAddress[0] = buffer.DeviceAddressInfo;
@@ -133,13 +133,10 @@ namespace VECS
             {
                 newLayout = _materialSets[newLayout.LayoutHash];
             }
-
-            
-
             return newLayout;
         }
 
-        public unsafe void UpdateDescriptorBuffer(int frameIndex,MeshShaderDescriptorBuffer shaderDescriptorBuffer)
+        public void UpdateDescriptorBuffer(int frameIndex,MeshShaderDescriptorBuffer shaderDescriptorBuffer)
         {
 
             if (!shaderDescriptorBuffer.SetsDirty[frameIndex])
@@ -183,7 +180,7 @@ namespace VECS
             return false;
         }
         
-        public unsafe void Dispose()
+        public void Dispose()
         {
             if (_disposed) return;
             _disposed = true;
@@ -193,9 +190,6 @@ namespace VECS
             {
                 item.Dispose();
             }
-
-            NativeMemory.Free(_bufferAddress);
-            _bufferAddress = null;
             GC.ReRegisterForFinalize(this);
         }
     }

@@ -20,6 +20,7 @@ namespace VECS
         public DirectSubMeshCreateInfo DirectSubMeshCreateInfo => new(VertexCount, IndexCount);
 
         public VECSDrawIndexIndirectCommand IndirectCommand => DirectSubMeshInfo.IndirectDrawCmd;
+        public SubmeshMeshletData MeshletData => DirectMeshBuffer.SubMeshMesletInfos[_directSubMeshIndex];
         public RenderBounds Bounds => new(_modelBounds, true);
         public VertexAttributeDescription[] AttributeDescriptions => [.. _directMeshBuffer.ConsumedAttributes.Values];
         public Span<Vector3> Vertices => _directMeshBuffer.GetVertexSpan<Vector3>(VertexAttribute.Position, DirectSubMeshInfo.VertexOffset, DirectSubMeshInfo.VertexCount);

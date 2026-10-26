@@ -157,7 +157,7 @@ namespace VECS
             GPUBufferExtensions.WriteFromHostDelayed(_colours, Presenter.FrameIndex);
             Presenter.Instance.Renderer.StartForwardRendering(frameInfo, VkAttachmentLoadOp.Load);
             GraphicsDevice.DeviceAPI.vkCmdBindVertexBuffer(frameInfo.CommandBuffer, 0, _lineBuffer.ActiveVkBuffer);
-            DrawIndirect(frameInfo, 0, _drawBufferIndex);
+            DrawIndirect(frameInfo.CommandBuffer, 0, _drawBufferIndex);
             Presenter.Instance.Renderer.EndForwardRendering(frameInfo);
         }
 
@@ -186,7 +186,7 @@ namespace VECS
             _drawBufferIndex++;
             Presenter.Instance.Renderer.StartForwardRendering(frameInfo, VkAttachmentLoadOp.Load);
             GraphicsDevice.DeviceAPI.vkCmdBindVertexBuffer(frameInfo.CommandBuffer, 0, _cubeBuffer.VkBuffer);
-            DrawIndirect(frameInfo, drawOffset, 1);
+            DrawIndirect(frameInfo.CommandBuffer, drawOffset, 1);
             Presenter.Instance.Renderer.EndForwardRendering(frameInfo);
         }
 
@@ -230,7 +230,7 @@ namespace VECS
             Presenter.Instance.Renderer.StartForwardRendering(frameInfo, VkAttachmentLoadOp.Load);
 
             GraphicsDevice.DeviceAPI.vkCmdBindVertexBuffer(frameInfo.CommandBuffer, 0, _circleBuffer.VkBuffer);
-            DrawIndirect(frameInfo, offset, 1);
+            DrawIndirect(frameInfo.CommandBuffer, offset, 1);
             Presenter.Instance.Renderer.EndForwardRendering(frameInfo);
         }
 
@@ -303,7 +303,7 @@ namespace VECS
             Presenter.Instance.Renderer.StartForwardRendering(frameInfo, VkAttachmentLoadOp.Load);
 
             GraphicsDevice.DeviceAPI.vkCmdBindVertexBuffer(frameInfo.CommandBuffer, 0, _frustrumBuffer.ActiveVkBuffer);
-            DrawIndirect(frameInfo, indirectStartIndex, drawCount);
+            DrawIndirect(frameInfo.CommandBuffer, indirectStartIndex, drawCount);
             Presenter.Instance.Renderer.EndForwardRendering(frameInfo);
         }
 
@@ -325,10 +325,10 @@ namespace VECS
             GPUBufferExtensions.WriteFromHostDelayed(_colours, Presenter.FrameIndex);
         }
 
-        private unsafe void DrawIndirect(RendererFrameInfo frameInfo, int offset, int count)
+        private unsafe void DrawIndirect(VkCommandBuffer commandBuffer, int offset, int count)
         {
-            DebugWireFrame.BindAll(frameInfo, 0);
-            GraphicsDevice.DeviceAPI.vkCmdDrawIndirect(frameInfo.CommandBuffer, _drawBuffer.ActiveVkBuffer, (uint)offset * (uint)sizeof(VkDrawIndirectCommand), (uint)count, (uint)sizeof(VkDrawIndirectCommand));
+            DebugWireFrame.BindAll(commandBuffer, 0);
+            GraphicsDevice.DeviceAPI.vkCmdDrawIndirect(commandBuffer, _drawBuffer.ActiveVkBuffer, (uint)offset * (uint)sizeof(VkDrawIndirectCommand), (uint)count, (uint)sizeof(VkDrawIndirectCommand));
         }
 
         private void CreateWireCube()

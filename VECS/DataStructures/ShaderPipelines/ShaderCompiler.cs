@@ -106,10 +106,10 @@ namespace VECS
                 ShaderStage = GetShaderKindFromFileExtention(filePath)
             };
 
-            if (!GraphicsDevice.MeshShading && (options.ShaderStage == ShaderKind.GLSL_MeshShader || options.ShaderStage == ShaderKind.GLSL_TaskShader))
-            {
-                return null;
-            }
+            //if (!GraphicsDevice.MeshShading && (options.ShaderStage == ShaderKind.GLSL_MeshShader || options.ShaderStage == ShaderKind.GLSL_TaskShader))
+            //{
+            //    return null;
+            //}
             CompileResult compileResult = null;
             try
             {

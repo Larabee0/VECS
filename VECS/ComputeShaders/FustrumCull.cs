@@ -34,7 +34,7 @@ namespace VECS
 
 
 
-    [StructLayout(LayoutKind.Sequential, Size = 24)]
+    [StructLayout(LayoutKind.Sequential, Size = 32)]
     public struct VECSDrawIndexIndirectCommand
     {
         public uint indexCount;

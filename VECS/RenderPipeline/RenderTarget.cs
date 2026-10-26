@@ -494,16 +494,16 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void BeginRenderingMultiAttachment(VkCommandBuffer commandBuffer, int layCount, Span<VkRenderingAttachmentInfo> colourAttachments, in VkRenderingAttachmentInfo depth)
         {
-            BeginRenderingMultiAttachment(commandBuffer, layCount, colourAttachments, depth, default);
+            BeginRenderingMultiAttachment(commandBuffer, layCount, colourAttachments, [depth], null);
         }
 
-        private unsafe void BeginRenderingMultiAttachment(VkCommandBuffer commandBuffer, int layCount, Span<VkRenderingAttachmentInfo> colourAttachments, in VkRenderingAttachmentInfo depth, in VkRenderingAttachmentInfo stencil)
+        private unsafe void BeginRenderingMultiAttachment(VkCommandBuffer commandBuffer, int layCount, Span<VkRenderingAttachmentInfo> colourAttachments, Span<VkRenderingAttachmentInfo> depth, Span<VkRenderingAttachmentInfo> stencil)
         {
             fixed (VkRenderingAttachmentInfo* pColourAttachments = colourAttachments)
             {
-                fixed(VkRenderingAttachmentInfo* pDepth = &depth)
+                fixed(VkRenderingAttachmentInfo* pDepth = depth)
                 {
-                    fixed(VkRenderingAttachmentInfo* pStencil = &stencil)
+                    fixed(VkRenderingAttachmentInfo* pStencil = stencil)
                     {
                         VkRenderingInfo renderingInfo = new()
                         {

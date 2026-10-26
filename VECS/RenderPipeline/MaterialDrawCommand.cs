@@ -29,4 +29,27 @@
                 && a.MeshSubRegion.Count == b.MeshSubRegion.Count;
         }
     }
+
+    public struct MeshDrawCommand
+    {
+        public int PipelineHash;
+        public int MaterialVariantIndex;
+        public int PushConstantIndex;
+        public int DirectMeshHash;
+        public BufferRegion MeshSubRegion;
+
+        public readonly int MeshStart => MeshSubRegion.StartIndex;
+        public readonly int MeshCount => MeshSubRegion.Count;
+
+
+        public MeshDrawCommand(int pipeline, int variant, int pushConstant, int directMesh, BufferRegion meshSubRegion)
+        {
+            PipelineHash = pipeline;
+            MaterialVariantIndex = variant;
+            PushConstantIndex = pushConstant;
+            DirectMeshHash = directMesh;
+            MeshSubRegion = meshSubRegion;
+        }
+
+    }
 }

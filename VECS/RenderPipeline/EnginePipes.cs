@@ -12,6 +12,8 @@ namespace VECS
         public static GraphicsPipeline Unlit { get; private set; }
         public static GraphicsPipeline DepthOnly { get; private set; }
         public static GraphicsPipeline DepthOnlyAlphaClipping { get; private set; }
+        public static GraphicsPipeline MeshDepthOnly { get; private set; }
+        public static GraphicsPipeline MeshDepthOnlyAlphaClipping { get; private set; }
         public static GraphicsPipeline Blit { get; private set; }
         public static GraphicsPipeline OIT_Unlit { get; private set; }
         public static GraphicsPipeline OIT_LitTexture { get; private set; }
@@ -22,7 +24,6 @@ namespace VECS
         {
             LitTexture = GraphicsPipelineDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "LitTexture.sp"));
             PBRTexture = GraphicsPipelineDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "PBRTexture.sp"));
-
             DepthOnly = GraphicsPipelineDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "DepthOnly.sp"));
             DepthOnlyAlphaClipping = GraphicsPipelineDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "DepthOnlyAlphaClipping.sp"));
 
@@ -32,6 +33,9 @@ namespace VECS
             if (GraphicsDevice.MeshShading)
             {
                 UnlitMeshShader = GraphicsPipelineDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "MeshShader.sp"));
+                MeshDepthOnly = GraphicsPipelineDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "MeshDepthOnly.sp"));
+                MeshDepthOnlyAlphaClipping = GraphicsPipelineDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "MeshDepthOnlyAlphaClipping.sp"));
+
             }
 
             Blit = GraphicsPipelineDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "Blitter.sp"));

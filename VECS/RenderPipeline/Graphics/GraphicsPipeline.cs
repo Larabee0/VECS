@@ -53,6 +53,8 @@ namespace VECS
 
         public PipelineType PipelineType => _pipelineType;
 
+        public VkCullModeFlags DefaultCullMode => _graphicsPipelineConfigInfo.rasterizationInfo.cullMode;
+
         private unsafe void CreateDefault()
         {
             GraphicsDevice.SetObjectName(VkObjectType.Pipeline, _pipeline.Handle, AssetName + "_v" + _version);
@@ -319,10 +321,10 @@ namespace VECS
                 _lastBoundGraphicsPipeline.AddOrUpdate(commandBuffer.Handle, Hash, (a, b) => Hash);
             }
 
-            GraphicsDevice.DeviceAPI.vkCmdSetCullMode(commandBuffer,_graphicsPipelineConfigInfo.rasterizationInfo.cullMode);
+            GraphicsDevice.DeviceAPI.vkCmdSetCullMode(commandBuffer, DefaultCullMode);
         }
 
-        public void BindAll(RendererFrameInfo frameInfo, uint variantIndex)
+        public void BindAll(VkCommandBuffer commandBuffer, uint variantIndex)
         {
             var variant = GetOrCreateVariant(variantIndex);
             if (_preBindUpdate)
@@ -335,33 +337,14 @@ namespace VECS
 
             int frameIndex = Presenter.FrameIndex;
 
-            for (int i = 0; i < _descriptorSetCount; i++)
-            {
-                DescriptorSetInfo descriptorSetInfo = _descriptorSetInfos[i];
-                DescriptorBuffer buffer = descriptorSetInfo.DescriptorBuffers[frameIndex];
-
-                bindingInfo[i] = buffer.BindingInfo;
-                offsets[i] = buffer.AlignedSize * variantIndex;
-                indices[i] = (uint)i;
-            }
-
-            var commandBuffer = frameInfo.CommandBuffer;
-
+            GetInitialDescriptors(frameIndex, variantIndex, bindingInfo, offsets, indices);
             BindPipe(commandBuffer);
-
-            if (_descriptorSetCount > 0)
-            {
-                DescriptorBuffer.BindSets(commandBuffer, bindingInfo);
-                DescriptorBuffer.SetOffsets(commandBuffer, _pipelineLayout, VkPipelineBindPoint.Graphics, offsets, indices);
-            }
-            if (_matVariants[variantIndex].OverrideCullMode)
-            {
-                GraphicsDevice.DeviceAPI.vkCmdSetCullMode(commandBuffer, _matVariants[variantIndex].CullMode);
-            }
-            _pushConstantsHandler.BindPushConstants(commandBuffer, _pipelineLayout, variantIndex);
+            SetDescriptors(commandBuffer, bindingInfo, offsets, indices);
+            SetCullModeAuto(commandBuffer, (int)variantIndex);
+            BindPushConstants(commandBuffer, variantIndex);
         }
 
-        public void BindAllMesh(RendererFrameInfo frameInfo,uint variantIndex, DirectMesh mesh)
+        public void BindAllMesh(VkCommandBuffer commandBuffer, uint variantIndex, DirectMesh mesh)
         {
             if (_meshShaderDescriptorSetIndex < 0) return;
 
@@ -376,38 +359,31 @@ namespace VECS
             Span<uint> indices = stackalloc uint[_descriptorSetCount];
 
             int frameIndex = Presenter.FrameIndex;
-
-            for (int i = 0; i < _descriptorSetCount; i++)
-            {
-                DescriptorSetInfo descriptorSetInfo = _descriptorSetInfos[i];
-                DescriptorBuffer buffer = descriptorSetInfo.DescriptorBuffers[frameIndex];
-                if(i == _meshShaderDescriptorSetIndex )
-                {
-                    if (!mesh.MeshShaderSet.TryGetDescriptorBuffer(frameIndex, _meshShaderDescriptorHash, out buffer))
-                    {
-                        MeshShaderDescriptorBuffer descriptor = mesh.MeshShaderSet.RegisterMaterial(_descriptorSetLayouts[_meshShaderDescriptorSetIndex], _meshShaderVertexAttributes);
-                        mesh.MeshShaderSet.UpdateDescriptorBuffer(Presenter.FrameIndex, descriptor);
-                        buffer = descriptor.DescriptorBuffers[frameIndex];
-                    }
-                }
-                bindingInfo[i] = buffer.BindingInfo;
-                offsets[i] = buffer.AlignedSize * variantIndex;
-                indices[i] = (uint)i;
-            }
-
-
-            var commandBuffer = frameInfo.CommandBuffer;
-            
+            GetInitialDescriptors(frameIndex, variantIndex, bindingInfo, offsets, indices);
+            AddMeshShaderDescriptors(mesh, frameIndex, variantIndex, bindingInfo, offsets);
             BindPipe(commandBuffer);
+            SetDescriptors(commandBuffer, bindingInfo, offsets, indices);
+            SetCullModeAuto(commandBuffer, variantIndex);
+            BindPushConstants(commandBuffer, variantIndex);
+        }
 
-            DescriptorBuffer.BindSets(commandBuffer, bindingInfo);
-            DescriptorBuffer.SetOffsets(commandBuffer, _pipelineLayout, VkPipelineBindPoint.Graphics, offsets, indices);
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void BindPushConstants(VkCommandBuffer commandBuffer, uint variantIndex)
+        {
+            BindPushConstants(commandBuffer, (int)variantIndex);
+        }
 
-            if (_matVariants[variantIndex].OverrideCullMode)
-            {
-                GraphicsDevice.DeviceAPI.vkCmdSetCullMode(commandBuffer, _matVariants[variantIndex].CullMode);
-            }
-            _pushConstantsHandler.BindPushConstants(commandBuffer, _pipelineLayout, variantIndex);
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void BindPushConstants(VkCommandBuffer commandBuffer, int variantIndex)
+        {
+            var pushConstantsBuffer = _pushConstantsHandler.GetBufferInstance(variantIndex);
+            BindPushConstants(commandBuffer, pushConstantsBuffer);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void BindPushConstants<T>(VkCommandBuffer commandBuffer, Span<T> pushConstantsBuffer) where T : unmanaged
+        {
+            _pushConstantsHandler.BindPushConstants(commandBuffer,_pipelineLayout,pushConstantsBuffer);
         }
 
         public override VkPipeline ReplacePipeline(VkPipeline pipeline)

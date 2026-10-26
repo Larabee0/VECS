@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using VECS.ECS;
 using VECS.ECS.Presentation;
 using VECS.LowLevel;
@@ -9,6 +10,30 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
+
+
+    [StructLayout(LayoutKind.Sequential, Size = 32)]
+    public struct MeshTaskCommand
+    {
+        public uint MeshletStartIndex;
+        public uint MeshletCount;
+        public uint TriangleStartIndex;
+        public uint VertexStartIndex;
+        public uint AbsMatrixIndex;
+        public RenderLayer LayerFlags;
+        //private byte pad1;
+        //private byte pad2;
+        //private byte pad3;
+        //private uint pad4;
+        //private uint pad5;
+        public MeshTaskCommand(uint meshletStartIndex, uint meshletCount, uint absMatrixIndex, RenderLayer layerFlags)
+        {
+            MeshletStartIndex = meshletStartIndex;
+            MeshletCount = meshletCount;
+            AbsMatrixIndex = absMatrixIndex;
+            LayerFlags = layerFlags;
+        }
+    };
     internal readonly struct MatComparerer : IComparer<RenderMesh>, IComparer<MaterialDrawCommand>
     {
         public readonly static MatComparerer Comparer = new();
@@ -138,8 +163,10 @@ namespace VECS
         private static Entity[] _entities = [];
         private static MaterialProviderFrozen[] _materialInfo = [];
         private static VECSDrawIndexIndirectCommand[] _indirectCmdSrc = [];
+        private static MeshTaskCommand[] _indirectCmdMeshTaskSrc = [];
 
         private static SwapChainBuffer<VECSDrawIndexIndirectCommand> _indirectCmdBuffer;
+        private static SwapChainBuffer<MeshTaskCommand> _indirectCmdBufferMeshTask;
 
         private static QueueBase[] _queues = [];
 
@@ -184,6 +211,15 @@ namespace VECS
             {
                 _renderBuffers[i] = new(renderBufferTypes[i]);
             }
+            ShaderProperties.IgnoreUnFoundShaderProperties.Add("taskCommands".GetShaderPropertyId());
+             _indirectCmdBufferMeshTask = new(1,
+                     VkBufferUsageFlags.TransferDst |
+                     VkBufferUsageFlags.TransferSrc |
+                     VkBufferUsageFlags.IndirectBuffer |
+                     VkBufferUsageFlags.StorageBuffer,
+                     true);
+             _ = new SwapChainBufferAsset("IndirectCommandBufferMeshTask", _indirectCmdBufferMeshTask);
+            EngineBuffers.AddOrUpdateEngineBuffer("taskCommands".GetShaderPropertyId(), _indirectCmdBufferMeshTask);
 
             GC.Collect();
         }
@@ -248,6 +284,7 @@ namespace VECS
             Array.Resize(ref _entities, _entityCount);
             Array.Resize(ref _materialInfo, _entityCount);
             Array.Resize(ref _indirectCmdSrc, _entityCount);
+            Array.Resize(ref _indirectCmdMeshTaskSrc, _entityCount);
 
             for (int j = 0; j < _queues.Length; j++)
             {
@@ -261,7 +298,6 @@ namespace VECS
 #else
             Application.ParallelFor(_entityCount, (i) =>
             {
-
                 CopyEntityData(entityManager, entities, i);
             });
 #endif
@@ -289,8 +325,23 @@ namespace VECS
                 _indirectCmdBuffer.Realloc((uint)totalDraws);
             }
 
+            if(_indirectCmdBufferMeshTask == null)
+            {
+                _indirectCmdBufferMeshTask = new((uint)totalDraws,
+                        VkBufferUsageFlags.TransferDst |
+                        VkBufferUsageFlags.TransferSrc |
+                        VkBufferUsageFlags.IndirectBuffer |
+                        VkBufferUsageFlags.StorageBuffer,
+                        true);
+                _ = new SwapChainBufferAsset("IndirectCommandBufferMeshTask", _indirectCmdBufferMeshTask);
 
 
+                EngineBuffers.AddOrUpdateEngineBuffer("taskCommands".GetShaderPropertyId(), _indirectCmdBufferMeshTask);
+            }
+            else
+            {
+                _indirectCmdBufferMeshTask.Realloc((uint)totalDraws);
+            }
 #if DEBUG
 
             for (int i = 0; i < _entityCount; i++)
@@ -316,9 +367,10 @@ namespace VECS
 
 #if DEBUG
             var hostBuffer = _indirectCmdBuffer.HostBuffer;
+            var hostBufferMeshTask = _indirectCmdBufferMeshTask.HostBuffer;
             for (int j = 0; j < _queues.Length; j++)
             {
-                SortAndBuild(hostBuffer, j);
+                SortAndBuild(hostBuffer, hostBufferMeshTask, j);
             }
 #else
             Application.ParallelFor(_queues.Length, (i) =>
@@ -330,14 +382,22 @@ namespace VECS
             for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
             {
                 GPUBufferExtensions.WriteFromHostDelayed(_indirectCmdBuffer, i);
+                if (GraphicsDevice.MeshShading)
+                {
+                    GPUBufferExtensions.WriteFromHostDelayed(_indirectCmdBufferMeshTask, i);
+                }
             }
         }
 
-        private static void SortAndBuild(Span<VECSDrawIndexIndirectCommand> hostBuffer, int i)
+        private static void SortAndBuild(Span<VECSDrawIndexIndirectCommand> hostBuffer, Span<MeshTaskCommand> hostBufferMeshTask, int i)
         {
             var queue = _queues[i];
             queue.SortQueuePhaseOne();
             queue.BuildCommandBuffers(_indirectCmdSrc, hostBuffer.Slice(queue.CommandOffset, queue.CommandCount));
+            if (GraphicsDevice.MeshShading)
+            {
+                queue.BuildCommandBuffers(_indirectCmdMeshTaskSrc, hostBufferMeshTask.Slice(queue.CommandOffset, queue.CommandCount));
+            }
             queue.SetMaterialBufferRegions();
         }
 
@@ -348,10 +408,21 @@ namespace VECS
             var meshData = entityManager.GetComponent<DirectSubMeshIndex>(entity);
             var matProvider = entityManager.GetComponent<MaterialProviderComponent>(entity);
             var frozenData = AssetDataBase<MaterialProvider>.GetHashed(matProvider.Value).GetFrozen(i, meshData.Combined);
-            _indirectCmdSrc[i] = AssetDataBase<DirectMesh>.GetHashed(meshData.Hash).SubMeshInfos[meshData.SubMesh].IndirectDrawCmd;
+            var directMesh = AssetDataBase<DirectMesh>.GetHashed(meshData.Hash);
+            _indirectCmdSrc[i] = directMesh.SubMeshInfos[meshData.SubMesh].IndirectDrawCmd;
             _indirectCmdSrc[i].firstInstance = (uint)i;
             _indirectCmdSrc[i].absMatrixIndex = (uint)i;
             _indirectCmdSrc[i].layerFlags = matProvider.LayerFlags;
+
+            if (GraphicsDevice.MeshShading)
+            {
+                _indirectCmdMeshTaskSrc[i].AbsMatrixIndex = (uint)i;
+                _indirectCmdMeshTaskSrc[i].MeshletStartIndex = (uint)directMesh.SubMeshMesletInfos[meshData.SubMesh].MeshletOffset;
+                _indirectCmdMeshTaskSrc[i].MeshletCount = (uint)directMesh.SubMeshMesletInfos[meshData.SubMesh].MeshletCount;
+                _indirectCmdMeshTaskSrc[i].VertexStartIndex = (uint)directMesh.SubMeshMesletInfos[meshData.SubMesh].VertexOffset;
+                _indirectCmdMeshTaskSrc[i].TriangleStartIndex = (uint)directMesh.SubMeshMesletInfos[meshData.SubMesh].TriangleOffset;
+                _indirectCmdMeshTaskSrc[i].LayerFlags = matProvider.LayerFlags;
+            }
             _entities[i] = entity;
             _materialInfo[i] = frozenData;
 
@@ -407,7 +478,7 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static void Execute(QueueBase queue, VkCommandBuffer commandBuffer, int pushConstantIndex, VkCullModeFlags cullMode)
         {
-            queue.ExecuteDraws(_indirectCmdBuffer, commandBuffer, pushConstantIndex, cullMode);
+            queue.ExecuteDraws(_indirectCmdBuffer,commandBuffer, pushConstantIndex, cullMode);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

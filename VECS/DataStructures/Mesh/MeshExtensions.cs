@@ -415,8 +415,12 @@ namespace VECS
             // copy meshlets - this get to be CPU coherent
             srcMesh._meshletBuffer = UploadMeshletData(meshlets, srcMesh._meshletBuffer);
 
+            GraphicsDevice.SetObjectName(VkObjectType.Buffer, srcMesh._meshletBuffer.VkBuffer.Handle, $"{srcMesh.AssetName}_Meshlet_Buffer");
+
             // copy meshlet bounds - this get to be CPU coherent
             srcMesh._meshletBoundsBuffer = UploadMeshletData(meshletBounds, srcMesh._meshletBoundsBuffer);
+            
+            GraphicsDevice.SetObjectName(VkObjectType.Buffer, srcMesh._meshletBoundsBuffer.VkBuffer.Handle, $"{srcMesh.AssetName}_Meshlet_Bounds_Buffer");
         }
 
         private static void UploadMeshletVertexData(DirectMesh srcMesh, int meshletVertexCount, DirectSubMeshInfo[] subMeshes, SubmeshMeshletData[] submeshMeshletDatas, int i)
@@ -432,7 +436,7 @@ namespace VECS
             }
 
             buffer = new GPUBuffer(attributeStride == 12 ? 16 : attributeStride, (uint)meshletVertexCount, MESH_SHADER_VERTEX_BUFFER_FLAGS, false, false, true);
-
+            GraphicsDevice.SetObjectName(VkObjectType.Buffer, buffer.VkBuffer.Handle, $"{srcMesh.AssetName}_Meshlet_{attribute}_Buffer");
             buffer.TryAllocHostBuffer(false);
 
             MeshletCopyVertexDataToGPUBuffer(srcMesh, subMeshes, submeshMeshletDatas, attribute, buffer, attributeStride);
@@ -490,6 +494,7 @@ namespace VECS
             }
             indexBuffer = new((uint)meshletIndexCount, MESH_SHADER_INDEX_BUFFER_FLAGS, false, true, true);
             indexBuffer.TryAllocHostBuffer(false);
+            GraphicsDevice.SetObjectName(VkObjectType.Buffer, indexBuffer.VkBuffer.Handle, $"{srcMesh.AssetName}_Meshlet_Index_Buffer");
             var host = indexBuffer.HostBuffer;
 
             int indexAccumulator = 0;

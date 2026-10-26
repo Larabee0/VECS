@@ -271,7 +271,7 @@ namespace VECS
             barriers[1] = GetImageBarrier(VkAccessFlags2.ShaderWrite | VkAccessFlags2.ShaderRead, VkAccessFlags2.ShaderWrite | VkAccessFlags2.ShaderRead, _bloomMipDown[0], 0);
             barriers[1].newLayout = VkImageLayout.ShaderReadOnlyOptimal;
             _bloomMipDown[0].SetImageLayoutSilent(VkImageLayout.ShaderReadOnlyOptimal);
-            MemoryBarrierHelper.ImageMemoryBarrier(frameInfo.CommandBuffer, barriers[0]);
+            MemoryBarrierHelper.ImageMemoryBarrier(frameInfo.CommandBuffer, barriers);
 
             for (uint i = 0; i < _bloomMipDown.Length-1; i++)
             {

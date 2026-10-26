@@ -183,7 +183,7 @@ namespace VECS
             GraphicsDevice.DeviceAPI.vkCmdSetViewport(commandBuffer, 0, viewport);
             GraphicsDevice.DeviceAPI.vkCmdSetScissor(commandBuffer, 0, scissor);
 
-            BRDFLUT_Generator.Default().Bind(new(frameInfo.TargetCamera, frameInfo.DeltaTime, commandBuffer, frameInfo.CullData, frameInfo.LightingInfo));
+            BRDFLUT_Generator.Default().Bind(commandBuffer);
             GraphicsDevice.DeviceAPI.vkCmdDraw(commandBuffer, 3, 1, 0, 0);
 
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
@@ -198,8 +198,6 @@ namespace VECS
         {
             var commandBuffer = AuxiliaryCommandBufferManager.Record();
             GraphicsDevice.BeginLabelCmd(commandBuffer, "Generate Irradiance");
-
-            frameInfo = new(frameInfo.TargetCamera, frameInfo.DeltaTime, commandBuffer, frameInfo.CullData, frameInfo.LightingInfo);
 
             Irradiance_Cubemap.SetImageLayoutAuto(commandBuffer, VkImageLayout.ColorAttachmentOptimal);
 
@@ -253,7 +251,7 @@ namespace VECS
                 GraphicsDevice.DeviceAPI.vkCmdSetScissor(commandBuffer, 0, scissor);
 
                 Irradiance_Generator.PushConstants.SetPushConstantMatrix4x4("mvp", 0, matrices[i] * persectve);
-                Irradiance_Generator.BindAll(frameInfo, 0);
+                Irradiance_Generator.BindAll(commandBuffer, 0);
                 Skybox.Cube.SimpleBindAndDraw(commandBuffer);
 
                 GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
@@ -270,7 +268,7 @@ namespace VECS
         {
             var commandBuffer = AuxiliaryCommandBufferManager.Record();
             GraphicsDevice.BeginLabelCmd(commandBuffer, "Generate PrefilteredSkybox");
-            frameInfo = new(frameInfo.TargetCamera, frameInfo.DeltaTime, commandBuffer, frameInfo.CullData, frameInfo.LightingInfo);
+
             Prefiltered_Cubemap.SetImageLayoutAuto(commandBuffer, VkImageLayout.ColorAttachmentOptimal);
 
             VkRenderingAttachmentInfo colourAttachments = new()
@@ -323,7 +321,7 @@ namespace VECS
                 GraphicsDevice.DeviceAPI.vkCmdSetScissor(commandBuffer, 0, scissor);
 
                 Prefiltered_Generator.PushConstants.SetPushConstantMatrix4x4("mvp", 0, matrices[i] * persectve);
-                Prefiltered_Generator.BindAll(frameInfo, 0);
+                Prefiltered_Generator.BindAll(commandBuffer, 0);
                 Skybox.Cube.SimpleBindAndDraw(commandBuffer);
 
                 GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);

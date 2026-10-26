@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Threading;
 using Vortice.Vulkan;
 
@@ -76,8 +78,63 @@ namespace VECS.LowLevel
             };
             var semaphore = _timelineSemaphores[frameIndex].Semaphore;
             waitInfo.pSemaphores = &semaphore;
-            GraphicsDevice.DeviceAPI.vkWaitSemaphoresKHR(&waitInfo, SEMAPHORE_TIME_OUT).CheckResult("Timeline Semaphore Deadlock detected!");
+            try
+            {
+                GraphicsDevice.DeviceAPI.vkWaitSemaphoresKHR(&waitInfo, SEMAPHORE_TIME_OUT).CheckResult("Timeline Semaphore Deadlock detected!");
+            }
+            catch (Exception ex)
+            {
+                GetDeviceFault();
+                throw new Exception("Unrecoverable device error",ex);
+            }
 
+        }
+
+        private static unsafe void GetDeviceFault()
+        {
+            VkDeviceFaultCountsEXT countsExt = new();
+            GraphicsDevice.DeviceAPI.vkGetDeviceFaultInfoEXT(&countsExt, null);
+            VkDeviceFaultInfoEXT infos = new();
+
+            Span<VkDeviceFaultAddressInfoKHR> addresInfos = stackalloc VkDeviceFaultAddressInfoKHR[(int)countsExt.addressInfoCount];
+            Span<VkDeviceFaultVendorInfoKHR> vendorInfos = stackalloc VkDeviceFaultVendorInfoKHR[(int)countsExt.addressInfoCount];
+            Span<byte> binaryData = stackalloc byte[(int)countsExt.vendorBinarySize];
+
+            fixed(VkDeviceFaultAddressInfoKHR* ptrAddressInfos = addresInfos)
+            {
+                infos.pAddressInfos = ptrAddressInfos;
+            }
+
+            fixed (VkDeviceFaultVendorInfoKHR* ptrVendorInfos = vendorInfos)
+            {
+                infos.pVendorInfos = ptrVendorInfos;
+            }
+
+            fixed (byte* ptrBinaryData = binaryData)
+            {
+                infos.pVendorBinaryData = ptrBinaryData;
+            }
+
+            GraphicsDevice.DeviceAPI.vkGetDeviceFaultInfoEXT(&countsExt, &infos);
+            Console.WriteLine("Description:");
+            Console.WriteLine(new VkUtf8String(infos.description, 256).ToString());
+            Console.WriteLine("Address Info:");
+            for (int i = 0; i < countsExt.addressInfoCount; i++)
+            {
+                var info = infos.pAddressInfos[i];
+                var lower_address = (info.reportedAddress & ~(info.addressPrecision - 1));
+                var upper_address = (info.reportedAddress | (info.addressPrecision - 1));
+                Console.WriteLine("AddrType: {0} | ReportedAddr: {1} | AddPrecision {2} | AddrRange {3}-{4}", info.addressType, info.reportedAddress, info.addressPrecision, lower_address, upper_address);
+            }
+            Console.WriteLine("Vendor Info:");
+            for (int i = 0; i < countsExt.vendorInfoCount; i++)
+            {
+                var vendor = infos.pVendorInfos[i];
+                Console.WriteLine("Description {0}", new VkUtf8String(infos.description, 256).ToString());
+                Console.WriteLine("FaultCode {0} | FaultData {1}",vendor.vendorFaultCode,vendor.vendorFaultData);
+            }
+
+            Debugger.Break();
         }
         
         public static unsafe void SignalNextFrame(int frameIndex)

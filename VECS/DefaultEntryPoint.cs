@@ -6,6 +6,7 @@ using System.Numerics;
 using VECS.ECS;
 using VECS.ECS.Presentation;
 using VECS.ECS.Transforms;
+using VECS.LowLevel;
 using Vortice.Vulkan;
 
 namespace VECS
@@ -238,7 +239,8 @@ namespace VECS
             entityManager.AddComponent<MainColour>(pointLight, new() { Value = diffuse });
 
             AddRenderMeshComponents(pointLight,EnginePipes.Unlit.Default(), 0, subMesh, entityManager,RenderLayer.Default);
-            MaterialProvider material = new("PointLightUnlit", EnginePipes.DepthOnly.Create("Unlit"), EnginePipes.Unlit.Default());
+            //MaterialProvider material = new("PointLightUnlit",EnginePipes.DepthOnly.Create("Unlit") , EnginePipes.MeshDepthOnly.Default(), EnginePipes.Unlit.Default());
+            MaterialProvider material = new("PointLightUnlit", EnginePipes.DepthOnly.Create("Unlit"),  EnginePipes.Unlit.Default());
             AssetDataBase<MaterialProvider>.Add(material);
             entityManager.AddComponent(pointLight, new MaterialProviderComponent() { Value = material.Hash, LayerFlags = RenderLayer.Default  });
         }
@@ -471,6 +473,8 @@ namespace VECS
                         diffuseTexture = TextureLoader.GetOrLoad2D(matInfo.DiffuseTexture, VkFormat.Bc7UnormBlock);
                         textureLibrary.Add(matInfo.DiffuseTexture, diffuseTexture);
                         materialProvider.DepthOnly = EnginePipes.DepthOnly.Default();
+                        if (GraphicsDevice.MeshShading)
+                            materialProvider.DepthOnly_Mesh = EnginePipes.MeshDepthOnly.Default();
                     }
                     if (matInfo.AlphaClipping)
                     {
@@ -482,6 +486,12 @@ namespace VECS
                         var alphaClippingDepthVariant = EnginePipes.DepthOnlyAlphaClipping.Create(matName);
                         DrawBlob.SetAlphaClipping(material, alphaClippingDepthVariant);
                         materialProvider.DepthOnly = alphaClippingDepthVariant;
+                        if (GraphicsDevice.MeshShading)
+                        {
+                            var meshAlphaClippingDepthVariant = EnginePipes.MeshDepthOnlyAlphaClipping.Create(matName);
+                            DrawBlob.SetAlphaClipping(material, meshAlphaClippingDepthVariant);
+                            materialProvider.DepthOnly_Mesh = meshAlphaClippingDepthVariant;
+                        }
                     }
                     material.SetTexture(texProp, diffuseTexture);
                 }

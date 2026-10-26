@@ -11,8 +11,8 @@ out float gl_ClipDistance[3];
 const vec3 tetrahedronPlanes[12] = vec3[](
 
     // b
-    vec3(0.00000000, -0.03477280, -0.99939519),
     vec3(0.47510946, -0.70667917, -0.52428567),
+    vec3(0.00000000, -0.03477280, -0.99939519),
     vec3(-0.47510946, -0.70667917, -0.52428567),
     // a
     vec3(0.00000000, -0.03477280, 0.99939519),
@@ -77,9 +77,11 @@ layout(std140, set = 1, binding = 5) readonly buffer TetraShadowPlanes{
 } tetraShadowPlanes;
 
 layout(push_constant) uniform InstanceInfo {
+	uint cameraIndex;
     int matrixStartIndex;
     int bufferSelect;
-	uint cameraIndex;
+	int taskOffset;
+    int taskCount;
 } instanceInfo;
 
 mat4 getTransform(int bufferSelect, int bufferOffset) {
@@ -102,7 +104,7 @@ mat4 getTransform(int bufferSelect, int bufferOffset) {
 float GetClipDist(vec3 positionWorld, int planeIndex){
     const vec3 lightPos = vec3(-8, 1, 0);
 
-    vec3 normal = tetrahedronPlanes[planeIndex];
+    vec3 normal = tetraShadowPlanes.value[planeIndex];
     return (dot(positionWorld,normal)+dot(-normal,lightPos));
 }
 

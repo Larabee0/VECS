@@ -453,7 +453,7 @@ namespace VECS.UI
             GraphicsDevice.DeviceAPI.vkCmdSetViewport(frameInfo.CommandBuffer, 0, renderTarget.Target.Height, renderTarget.Target.Width, -renderTarget.Target.Height);
             GraphicsDevice.DeviceAPI.vkCmdSetScissor(frameInfo.CommandBuffer, 0, new VkRect2D(new VkOffset2D(0, 0), new VkExtent2D(renderTarget.Target.Width, renderTarget.Target.Height)));
 
-            _blitVariant.Bind(frameInfo);
+            _blitVariant.BindCareful(frameInfo);
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
 

@@ -28,9 +28,15 @@ namespace VECS
             _depthOnly.PushConstants.SetPushConstantInt(Buffer_Select_PushConstantId, POINT_SHADOWS_PUSH_CONSTANT_INDEX, 2);
             _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt(Buffer_Select_PushConstantId, POINT_SHADOWS_PUSH_CONSTANT_INDEX, 2);
 
+            if (GraphicsDevice.MeshShading)
+            {
+                _meshDepthOnly.PushConstants.SetPushConstantInt(Buffer_Select_PushConstantId, POINT_SHADOWS_PUSH_CONSTANT_INDEX, 1);
+                _meshDepthOnlyAlphaClipping.PushConstants.SetPushConstantInt(Buffer_Select_PushConstantId, POINT_SHADOWS_PUSH_CONSTANT_INDEX, 1);
+            }
+
             RenderGraph.AddPass("PointLightShadows", PassType.Render, PassCategory.FixedMap, [], [], ["PointLightShadowAttachments"], PointLightPass);
 
-            new TetrahedronPointShadows();
+            //new TetrahedronPointShadows();
         }
 
         private void PointLightPass(RendererFrameInfo frameInfo)

@@ -1,9 +1,9 @@
 #version 460
 layout (location = 0) in vec2 UV;
 
-layout(set = 2, binding = 0) uniform sampler2D alphaSampler;
+layout(set = 0, binding = 1) uniform sampler2D alphaSampler;
 
-layout(set = 2, binding = 1) uniform TexProps{
+layout(set = 0, binding = 2) uniform TexProps{
     float alphaThreshold;
     float alphaTiling;
 } alphaProps;

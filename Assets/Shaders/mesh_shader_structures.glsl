@@ -18,3 +18,29 @@ struct Bounds {
     uint8_t cone_axis_z;
     uint8_t cone_cutoff;
 };
+
+struct MeshTaskCommand {
+    uint meshletOffset;
+    uint meshletCount;    
+    uint triangleStartIndex;
+    uint vertexStartIndex;
+    uint absMatrixIndex;
+	uint8_t layerFlags;
+	uint8_t pad1;
+	uint8_t pad2;
+	uint8_t pad3;
+    uint pad4;
+    uint pad5;
+};
+
+struct MeshTaskPayload
+{
+    uint A;
+    uint B;
+    uint C;
+    uint taskCommandIndex[64];
+    uint meshletCount;
+    uint taskCount; // used only in task shader
+    uint localTaskOffset;
+};
+

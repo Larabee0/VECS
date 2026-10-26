@@ -14,13 +14,11 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using VECS.LowLevel;
 using Vortice.Vulkan;
 
 namespace VECS
 {
-
-
-
     public class MaterialInfo
     {
         public struct TextureInfo
@@ -581,6 +579,12 @@ namespace VECS
             }
 #endif
             sw.Stop();
+
+            if (GraphicsDevice.MeshShading)
+            {
+                directMeshBuffer.CreateMeshlets();
+                directMeshBuffer.RecreateMeshShaderDescriptorSet();
+            }
 
             Console.WriteLine("Mesh import time {0}ms (DirectMesh {2} | Imported {1} Meshes)", sw.ElapsedMilliseconds, scene.MeshCount, directMeshName);
 

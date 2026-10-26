@@ -147,6 +147,7 @@ namespace VECS
             for (int i = 0; i < TotalSets; i++)
             {
                 DescriptorSetInfo setInfo = DescriptorSetInfos[i];
+                if (setInfo.ForMeshShader) continue;
                 localDescriptors[i] = new(setInfo);
             }
 
@@ -160,8 +161,8 @@ namespace VECS
             for (uint i = 0; i < DescriptorSetCount; i++)
             {
                 var setInfo = DescriptorSetInfos[i];
-                var descriptorBuffer = localDescriptors[i].DescriptorBuffer;
                 if (Pipeline.MeshShaderDescriptorSetIndex == i) continue;
+                var descriptorBuffer = localDescriptors[i].DescriptorBuffer;
 
                 for (uint j = 0; j < setInfo.BindingCount; j++)
                 {
@@ -190,7 +191,13 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Bind(in RendererFrameInfo frameInfo)
         {
-            Pipeline.BindAll(frameInfo, _variantIndex);
+            Pipeline.BindAll(frameInfo.CommandBuffer, _variantIndex);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Bind(in VkCommandBuffer commandBuffer)
+        {
+            Pipeline.BindAll(commandBuffer, _variantIndex);
         }
 
         public void BindCareful(in RendererFrameInfo frameInfo)
@@ -376,13 +383,14 @@ namespace VECS
             {
                 GraphicsPipeline.Update(Pipeline);
             }
-            Pipeline.BindPipe(commandBuffer);
             Span<VkDescriptorBufferBindingInfoEXT> bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[DescriptorSetCount];
             Span<ulong> offsets = stackalloc ulong[DescriptorSetCount];
             Span<uint> indices = stackalloc uint[DescriptorSetCount];
-            Pipeline.SetInitialDescriptors(commandBuffer, frameIndex, command, bindingInfo, offsets, indices);
+            Pipeline.GetInitialDescriptors(frameIndex, command.Variant, bindingInfo, offsets, indices);
+            Pipeline.BindPipe(commandBuffer);
+            Pipeline.SetDescriptors(commandBuffer, bindingInfo, offsets, indices);
 
-            Pipeline.SetCullModeAuto(commandBuffer, command.Variant);
+            Pipeline.SetCullModeAuto(commandBuffer, VariantIndex);
             var lastVariant = command.Variant;
             for (int i = 0; i < drawCount; i++)
             {
@@ -411,13 +419,15 @@ namespace VECS
             {
                 GraphicsPipeline.Update(Pipeline);
             }
-            Pipeline.BindPipe(commandBuffer);
+
             Span<VkDescriptorBufferBindingInfoEXT> bindingInfo = stackalloc VkDescriptorBufferBindingInfoEXT[DescriptorSetCount];
             Span<ulong> offsets = stackalloc ulong[DescriptorSetCount];
             Span<uint> indices = stackalloc uint[DescriptorSetCount];
-            Pipeline.SetInitialDescriptors(commandBuffer, frameIndex, command, bindingInfo, offsets, indices);
+            Pipeline.GetInitialDescriptors(frameIndex, command.Variant, bindingInfo, offsets, indices);
+            Pipeline.BindPipe(commandBuffer);
+            Pipeline.SetDescriptors(commandBuffer, bindingInfo, offsets, indices);
 
-            Pipeline.SetCullModeAuto(commandBuffer, command.Variant);
+            Pipeline.SetCullModeAuto(commandBuffer, VariantIndex);
 
             var lastVariant = command.Variant;
             for (int i = 0; i < drawCount; i++)
@@ -532,6 +542,7 @@ namespace VECS
         {
             for (uint setIndex = 0; setIndex < variant.TotalSets; setIndex++)
             {
+                if (setIndex == variant.Pipeline.MeshShaderDescriptorSetIndex) continue;
                 for (int i = 0; i < variant.DescriptorSetInfos[setIndex].BindingCount; i++)
                 {
                     var binding = variant.DescriptorSetInfos[setIndex]._descriptorBindings[i];

@@ -1,5 +1,7 @@
 using System.Collections.Generic;
+using System.Diagnostics;
 using VECS.ECS;
+using VECS.LowLevel;
 
 namespace VECS
 {
@@ -49,9 +51,20 @@ namespace VECS
 
         public MaterialProviderFrozen(MaterialProvider provider, int entityIndex, ulong meshHash)
         {
-            DepthOnlyHash = provider.DepthOnlyHash;
+            Debug.Assert(provider.IsValid);
+            if (GraphicsDevice.PreferMeshShaders)
+            {
+                ColourHash = provider.HasMeshColour ? provider.MeshColourHash : provider.ColourHash;
 
-            ColourHash = provider.ColourHash;
+                DepthOnlyHash = provider.HasMeshDepthOnly ? provider.MeshDepthOnlyHash : provider.DepthOnlyHash;
+            }
+            else
+            {
+                DepthOnlyHash = provider.DepthOnlyHash;
+
+                ColourHash = provider.ColourHash;
+            }
+
 
             MeshHash = meshHash;
 
@@ -71,6 +84,9 @@ namespace VECS
 
         public bool HasDepthOnly => DepthOnly != null || DepthOnly_Mesh != null;
         public bool HasAnyColour => Colour != null || Colour_Mesh != null;
+
+        public bool HasMeshDepthOnly => DepthOnly_Mesh != null;
+        public bool HasMeshColour => Colour_Mesh != null;
 
         public bool IsValid => HasDepthOnly || HasAnyColour;
 
@@ -114,6 +130,13 @@ namespace VECS
 
         public MaterialProvider(string name,  Material depthOnly, Material colour) : this(name)
         {
+            DepthOnly = depthOnly;
+            Colour = colour;
+        }
+
+        public MaterialProvider(string name, Material depthOnly, Material meshDepthOnly, Material colour) : this(name)
+        {
+            DepthOnly_Mesh = meshDepthOnly;
             DepthOnly = depthOnly;
             Colour = colour;
         }

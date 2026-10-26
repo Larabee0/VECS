@@ -20,6 +20,7 @@ namespace VECS.LowLevel
             Vulkan.VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME,
             Vulkan.VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
             Vulkan.VK_KHR_8BIT_STORAGE_EXTENSION_NAME,
+            Vulkan.VK_EXT_DEVICE_FAULT_EXTENSION_NAME,
             Vulkan.VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME,
             Vulkan.VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME,
             Vulkan.VK_EXT_NESTED_COMMAND_BUFFER_EXTENSION_NAME,
@@ -61,7 +62,7 @@ namespace VECS.LowLevel
 
             using VkStringArray vkInstanceExtensions = new(GetRequiredExtensions());
 
-            VkInstanceCreateInfo createInfo = new()
+            VkInstanceCreateInfo instanceCreateInfo = new()
             {
                 pApplicationInfo = &appInfo,
                 enabledExtensionCount = vkInstanceExtensions.Length,
@@ -72,12 +73,18 @@ namespace VECS.LowLevel
             using VkStringArray validationlayers = new(_requiredValidationLayers);
 
 
-            createInfo.enabledLayerCount = (uint)_requiredValidationLayers.Length;
-            createInfo.ppEnabledLayerNames = validationlayers;
+            instanceCreateInfo.enabledLayerCount = (uint)_requiredValidationLayers.Length;
+            instanceCreateInfo.ppEnabledLayerNames = validationlayers;
             VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo = PopulateDebugMessengerCreateInfo();
-            createInfo.pNext = &debugCreateInfo;
+            instanceCreateInfo.pNext = &debugCreateInfo;
 
-            
+            VkValidationFeatureEnableEXT validationFeatureEnables = VkValidationFeatureEnableEXT.DebugPrintf;
+            VkValidationFeaturesEXT validateFeatures = new()
+            {
+                enabledValidationFeatureCount = 1,
+                pEnabledValidationFeatures = &validationFeatureEnables
+            };
+            debugCreateInfo.pNext = &validateFeatures;
 
             bool validationLayerBreak = BreakOnValidationError;
             BreakOnValidationError = false;
@@ -86,7 +93,7 @@ namespace VECS.LowLevel
             createInfo.enabledLayerCount = 0;
             createInfo.pNext = null;
 #endif
-            Vulkan.vkCreateInstance(&createInfo, null, out _instance).CheckResult("Failed to create vulkan instance!");
+            Vulkan.vkCreateInstance(&instanceCreateInfo, null, out _instance).CheckResult("Failed to create vulkan instance!");
 #if DEBUG
             BreakOnValidationError = validationLayerBreak;
 #endif
@@ -312,9 +319,16 @@ namespace VECS.LowLevel
                 index++;
             }
 
+            VkPhysicalDeviceFaultFeaturesEXT deviceFaultFeaturesEXT = new()
+            {
+                deviceFault = true,
+                deviceFaultVendorBinary = true
+            };
+
             VkPhysicalDeviceColorWriteEnableFeaturesEXT colorWriteEnableFeaturesEXT = new()
             {
                 colorWriteEnable = true,
+                pNext = &deviceFaultFeaturesEXT
             };
 
 
@@ -352,7 +366,7 @@ namespace VECS.LowLevel
 
             if (MeshShading)
             {
-                extendedDynamicState3Features.pNext = &meshShaderFeatures;
+                colorWriteEnableFeaturesEXT.pNext = &meshShaderFeatures;
             }
 
             VkPhysicalDeviceVulkan11Features deviceFeatures11 = new()

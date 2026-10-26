@@ -94,8 +94,26 @@ namespace VECS.LowLevel
                 return props.limits.maxComputeWorkGroupCount[0];
             }
         }
+        public static unsafe ulong MaxWorkGroupY
+        {
+            get
+            {
+                var props = PropertiesVK10;
+                return props.limits.maxComputeWorkGroupCount[1];
+            }
+        }
+
+        public static unsafe ulong MaxWorkGroupZ
+        {
+            get
+            {
+                var props = PropertiesVK10;
+                return props.limits.maxComputeWorkGroupCount[2];
+            }
+        }
 
         public static bool MeshShading { get; internal set; }
+        public static bool PreferMeshShaders => true && MeshShading;
         public static uint PreferredMeshWorkGroupInvocations => PropertiesMeshShading.maxPreferredMeshWorkGroupInvocations;
         public static uint PreferredTaskWorkGroupInvocations => PropertiesMeshShading.maxPreferredTaskWorkGroupInvocations;
 

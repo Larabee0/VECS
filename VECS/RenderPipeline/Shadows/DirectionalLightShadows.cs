@@ -41,6 +41,12 @@ namespace VECS
 
             _depthOnlyAlphaClipping.PushConstants.SetPushConstantInt(Buffer_Select_PushConstantId, DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, 1);
 
+            if (GraphicsDevice.MeshShading)
+            {
+                _meshDepthOnly.PushConstants.SetPushConstantInt(Buffer_Select_PushConstantId, DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, 1);
+                _meshDepthOnlyAlphaClipping.PushConstants.SetPushConstantInt(Buffer_Select_PushConstantId, DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, 1);
+            }
+
             RenderGraph.AddPass("DirectionalLightShadows", PassType.Render, PassCategory.PreRendering, [], [], ["DirectionalShadowAttachments"], ShadowPass);
         }
 

@@ -15,7 +15,7 @@ layout(std140, set = 2, binding = 0) readonly buffer MeshletBuffer{
 
 layout(std140, set = 2, binding = 1) readonly buffer BoundsBuffer{
 	Bounds bounds[];
-} boundsBuffer;
+} meshletBoundsBuffer;
 
 layout(push_constant) uniform pushConstant{
 	uint cameraIndex;

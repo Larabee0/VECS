@@ -654,6 +654,7 @@ namespace VECS
                             VertexAttributeDescription attributeDesc = new(attribute, format, 0, bindingDesc.BindPoint, bindingDesc.BindPoint);
 
                             attributeDescriptions.Add(attributeDesc);
+                            break;
                         }
                     }
                 }
