@@ -22,6 +22,9 @@ struct Bounds {
     uint8_t cone_cutoff;
 };
 
+// set taskStartOffset to this when the MeshTaskCommand should be skipped in the task shader
+#define TASK_COMMAND_SKIP  4294967295
+
 struct MeshTaskCommand {
     uint meshletOffset;
     uint meshletCount;

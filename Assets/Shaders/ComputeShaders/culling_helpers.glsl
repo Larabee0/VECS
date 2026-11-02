@@ -1,4 +1,4 @@
-#define TASK_COMMAND_SKIP  4294967295
+
 
 struct ObjectBounds {
 	vec4 bMin;
@@ -6,17 +6,17 @@ struct ObjectBounds {
 };
 
 
-bvec4 cullingMode(uint8_t flags, uint8_t cullDataIncludeMask, uint8_t cullDataExcludeMask, uint8_t cullMode){
+bvec4 cullingMode(uint8_t objectCullFlags, uint8_t cullDataIncludeMask, uint8_t cullDataExcludeMask, uint8_t cullMode){
     
-    bool includeMask = (flags | cullDataIncludeMask) == cullDataIncludeMask;
-    bool excludeMask = (flags & ~cullDataExcludeMask) == flags;
-    bvec4 cullModeInfo = bvec4(0);
-    cullModeInfo.x = includeMask && excludeMask;
+    bool includeMask = (objectCullFlags | cullDataIncludeMask) == cullDataIncludeMask;
+    bool excludeMask = (objectCullFlags & ~cullDataExcludeMask) == objectCullFlags;
+    bvec4 cullState = bvec4(0);
+    cullState.x = includeMask && excludeMask; // x = visible in this pass
 
-    cullModeInfo.y = (uint8_t(1) | cullMode) == cullMode;
-    cullModeInfo.z = (uint8_t(2) | cullMode) == cullMode;
-    cullModeInfo.w = (uint8_t(4) | cullMode) == cullMode;
-    return cullModeInfo;
+    cullState.y = (uint8_t(1) | cullMode) == cullMode; // y = fustrum culling enable
+    cullState.z = (uint8_t(2) | cullMode) == cullMode; // z = distance culling enable
+    cullState.w = (uint8_t(4) | cullMode) == cullMode; // w = depth pryamid culling enable
+    return cullState;
 }
 
 
