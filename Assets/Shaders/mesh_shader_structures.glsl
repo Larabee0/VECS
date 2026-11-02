@@ -1,3 +1,6 @@
+#define TASK_LOCAL_SIZE_X  64
+#define MESH_LOCAL_SIZE_X  64
+
 
 struct Meshlet {
     uint vertex_offset;
@@ -21,26 +24,39 @@ struct Bounds {
 
 struct MeshTaskCommand {
     uint meshletOffset;
-    uint meshletCount;    
+    uint meshletCount;
+    uint taskStartOffset;
     uint triangleStartIndex;
     uint vertexStartIndex;
     uint absMatrixIndex;
+    uint localMatrixIndex;
 	uint8_t layerFlags;
-	uint8_t pad1;
-	uint8_t pad2;
-	uint8_t pad3;
-    uint pad4;
-    uint pad5;
 };
 
-struct MeshTaskPayload
-{
-    uint A;
-    uint B;
-    uint C;
-    uint taskCommandIndex[64];
+struct MeshletInfo {
+    uint index;
+    uint16_t verts;
+    uint16_t tris;
+};
+
+struct MeshTaskPayload {
+    uint TaskGroupID;
+    uint taskIndex;
     uint meshletCount;
-    uint taskCount; // used only in task shader
-    uint localTaskOffset;
+    uint meshletOffset;
+    MeshletInfo perMeshlet[TASK_LOCAL_SIZE_X];
 };
 
+
+uint GetComputeShaderGroupCount(uint threadCount, uint localSize)
+{
+	return max(1, (threadCount + localSize - 1) / localSize);
+}
+
+uint GetPerInvoke(uint count){
+	uint perInvoke = max(1, count / MESH_LOCAL_SIZE_X);
+	if(count % MESH_LOCAL_SIZE_X != 0){
+		perInvoke++;
+	}
+	return perInvoke;
+}

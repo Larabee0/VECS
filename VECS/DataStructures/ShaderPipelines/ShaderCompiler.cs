@@ -91,7 +91,8 @@ namespace VECS
             {
                 TargetEnv = TargetEnvironmentVersion.Vulkan_1_3,
                 NaNClamp = true,
-                
+                HlslOffsets = true,
+
                 SourceLanguage = GetShadingLanguage(filePath),
                 TargetSpv = SpirVVersion.Version_1_6,
                 

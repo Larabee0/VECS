@@ -62,7 +62,7 @@ namespace VECS
 
             for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
             {
-                DescriptorBuffers[i] = new(layout, desired.Length+3, 1, true, false);
+                DescriptorBuffers[i] = new(layout, desired.Length + 3, 1, true, false);
             }
             var allocationSize = DescriptorBuffers[0].AllocationSize;
             _descriptorBufferHostPtr = (byte*)NativeMemory.AlignedAlloc(allocationSize * SwapChain.MAX_CONCURRENT_FRAMES_UINT, (uint)GPUBufferExtensions.GetAlignment(DescriptorBuffers[0].AlignedSize));

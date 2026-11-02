@@ -47,7 +47,10 @@ namespace VECS
         protected readonly ConcurrentDictionary<ulong, BufferRegion> _materialBufferRegions = new();
 
         protected Dictionary<MaterialIsland, Vector2Int> _materialIslands = [];
+        private uint _meshTaskOffset;
         protected readonly ConcurrentDictionary<int, BufferRegion> _drawBatches = new();
+
+        public int DrawCount => _indirectDrawCalls.Length;
 
         public QueueBase(string name)
         {
@@ -137,7 +140,7 @@ namespace VECS
                  for (int i = 0; i < island.Value.Y; i++)
                  {
                     var queueEntityIndex = _queue[i + offset].EntityIndex;
-                    commandRange[i + offset].AbsMatrixIndex = (uint)(queueEntityIndex - regionBounds.StartIndex);
+                    commandRange[i + offset].localMatrixIndex = (uint)(queueEntityIndex - regionBounds.StartIndex);
                  }
 
                 _meshDrawCalls[batchOffset + drawCallIndex] = new(
@@ -288,10 +291,10 @@ namespace VECS
                 Material.DecomposeHash(kvp.Key, out int pipelineHash, out int matIndex);
 
                 var mat = AssetDataBase<GraphicsPipeline>.GetHashed(pipelineHash).GetOrCreateVariant((uint)matIndex);
-
+                ShaderProperty propertyInfo;
                 for (int i = 0; i < DrawBlob.RenderBuffers.Length; i++)
                 {
-                    if (mat.LookUpProperty(DrawBlob.RenderBuffers[i].BufferShaderPropertyId, out ShaderProperty propertyInfo))
+                    if (mat.LookUpProperty(DrawBlob.RenderBuffers[i].BufferShaderPropertyId, out propertyInfo))
                     {
                         mat.SetStorageBufferLength(propertyInfo.SetIndex, propertyInfo.BindPoint, (uint)kvp.Value.StartIndex, (uint)kvp.Value.Count);
                     }
@@ -300,27 +303,70 @@ namespace VECS
 
             if (GraphicsDevice.MeshShading)
             {
+                uint bufferCount = EngineBuffers.TryGetBuffer(ShaderProperties.MatricesBufferId).UInstanceCount32;
+                Dictionary<int,Vector2Int> duplicateVariants = new(_meshDrawCalls.Length);
                 foreach (var batch in _drawBatches)
                 {
                     var pipeline = AssetDataBase<GraphicsPipeline>.GetHashed(batch.Key);
                     if (!pipeline.IsMeshShader) continue;
-
+                    
+                    bool setCommadRange = pipeline.LookUpProperty("taskCommands".GetShaderPropertyId(), out ShaderProperty propertyInfo);
+                    if (!setCommadRange) continue;
                     var cmds = _meshDrawCalls.AsSpan(batch.Value.StartIndex, batch.Value.Count);
-                    int start = cmds[0].MeshStart;
-                    int count =0;
+                    duplicateVariants.Clear();
                     for (int i = 0; i < cmds.Length; i++)
                     {
-                        start = Math.Min(cmds[i].MeshStart, start);
-                        count += cmds[i].MeshCount;
-                    }
-
-                    if (pipeline.LookUpProperty("taskCommands".GetShaderPropertyId(), out ShaderProperty propertyInfo))
-                    {
-                        for (uint i = 0; i < pipeline.VariantCount; i++)
+                        var cmd = cmds[i];
+                        if (!duplicateVariants.TryAdd(cmd.MaterialVariantIndex, new(cmd.TaskOffset, cmd.TaskCount)))
                         {
-                            pipeline.GetOrCreateVariant(i).SetStorageBufferLength(propertyInfo.SetIndex, propertyInfo.BindPoint, (uint)start, (uint)count);
+                            var val = duplicateVariants[cmd.MaterialVariantIndex];
+                            val.X = Math.Min(val.X, cmd.TaskOffset);
+                            val.Y += cmd.TaskCount;
+                            duplicateVariants[cmd.MaterialVariantIndex] = val;
                         }
                     }
+
+                    for (int i = 0; i < duplicateVariants.Count; i++)
+                    {
+                        var cmd = cmds[i];
+                        var range = duplicateVariants[cmd.MaterialVariantIndex];
+                        pipeline.GetOrCreateVariant((uint)cmd.MaterialVariantIndex)
+                                    .SetStorageBufferLength(propertyInfo.SetIndex, propertyInfo.BindPoint,
+                                        (uint)range.X, (uint)range.Y);
+                    }
+                }
+            }
+        }
+
+        internal void PopulateIndirectTaskBuffer(int meshTaskOffset, Span<MeshIndirectDraw> indirectTasks, Span<MeshTaskCommand> taskCmds)
+        {
+            _meshTaskOffset = (uint)meshTaskOffset;
+            foreach (var drawBatch in _drawBatches)
+            {
+                var pipeline = AssetDataBase<GraphicsPipeline>.GetHashed(drawBatch.Key);
+                if (!pipeline.IsMeshShader) continue;
+                var batch = drawBatch.Value;
+                
+                //var workGroupSize = pipeline.MeshShaderWorkGroupSizes.X;
+                Span<MeshDrawCommand> drawRange = _meshDrawCalls.AsSpan(batch.StartIndex, batch.Count);
+                Span<MeshIndirectDraw> cmdRange = indirectTasks.Slice(batch.StartIndex, batch.Count);
+                
+                for (int i = 0; i < drawRange.Length; i++)
+                {
+                    MeshDrawCommand drawCommand = drawRange[i];
+                    //Span<MeshTaskCommand> taskRange = taskCmds.Slice(drawCommand.TaskOffset, drawCommand.TaskCount);
+                    //uint paddedMeshelts = 0;
+                    //for (int j = 0; j < drawCommand.TaskCount; j++)
+                    //{
+                    //    taskRange[j].TaskStartIndex = paddedMeshelts;
+                    //    paddedMeshelts += taskRange[j].MeshletCount.GetComputeShaderGroupCount(workGroupSize);
+                    //}
+                    //cmdRange[i].GroupCountX = paddedMeshelts;
+                    //cmdRange[i].GroupCountY = 1;
+                    //cmdRange[i].GroupCountZ = 1;
+                    cmdRange[i].CommandStart = (uint)drawCommand.TaskOffset;
+                    cmdRange[i].CommandEnd   = (uint)drawCommand.TaskCount;
+                    drawRange[i].Index = (uint)(batch.StartIndex + i);
                 }
             }
         }
@@ -376,14 +422,14 @@ namespace VECS
             GraphicsDevice.EndLabelCmd(commandBuffer);
         }
 
-        internal unsafe void Cull(VkCommandBuffer commandBuffer, CullData cullData, SwapChainBuffer<VECSDrawIndexIndirectCommand> indirectCmdBuffer)
+        internal void Cull(VkCommandBuffer commandBuffer, CullData cullData, SwapChainBuffer<VECSDrawIndexIndirectCommand> indirectCmdBuffer)
         {
             if (_queueCount == 0) return;
             VkBufferMemoryBarrier2 barrier = new()
             {
                 buffer = indirectCmdBuffer.ActiveVkBuffer,
-                offset = (uint)sizeof(VECSDrawIndexIndirectCommand) * (uint)_commandBufferOffset,
-                size = (uint)sizeof(VECSDrawIndexIndirectCommand) * (uint)_queueCount,
+                offset = indirectCmdBuffer.UInstanceSize32 * (uint)_commandBufferOffset,
+                size = indirectCmdBuffer.UInstanceSize32 * (uint)_queueCount,
                 srcQueueFamilyIndex = Vulkan.VK_QUEUE_FAMILY_IGNORED,
                 dstQueueFamilyIndex = Vulkan.VK_QUEUE_FAMILY_IGNORED,
                 srcAccessMask = VkAccessFlags2.IndirectCommandRead,
@@ -397,6 +443,62 @@ namespace VECS
             MemoryBarrierHelper.BufferMemoryBarrier(commandBuffer, barrier, VkPipelineStageFlags2.DrawIndirect, VkPipelineStageFlags2.ComputeShader);
             FustrumCull.Cull(commandBuffer, Presenter.FrameIndex, cullData, (uint)_commandBufferOffset, (uint)_queueCount, indirectCmdBuffer, EngineBuffers.TryGetBuffer(ShaderProperties.BoundsBufferId));
 
+            GraphicsDevice.EndLabelCmd(commandBuffer);
+        }
+
+        internal void Cull(VkCommandBuffer commandBuffer, CullData cullData, SwapChainBuffer<MeshIndirectDraw> indirectCmdBuffer)
+        {
+            if (_queueCount == 0) return;
+            Vector2UInt batchRange = new(uint.MaxValue,0);
+
+
+            foreach (var drawBatch in _drawBatches)
+            {
+                var pipeline = AssetDataBase<GraphicsPipeline>.GetHashed(drawBatch.Key);
+                if (!pipeline.IsMeshShader) continue;
+                var batch = drawBatch.Value;
+                batchRange.X = Math.Min(batchRange.X, (uint)batch.StartIndex);
+                batchRange.Y += (uint)batch.Count;
+            }
+            if (batchRange.Y == 0) return;
+
+            GraphicsDevice.BeginLabelCmd(commandBuffer, string.Format("MeshTask_Cull {0} Queue", AssetName));
+            VkBufferMemoryBarrier2 barrier = new()
+            {
+                buffer = indirectCmdBuffer.ActiveVkBuffer,
+                // offset = indirectCmdBuffer.UInstanceCount32 * (uint)_commandBufferOffset,
+                // size = indirectCmdBuffer.UInstanceSize32 * (uint)_queueCount,
+                srcQueueFamilyIndex = Vulkan.VK_QUEUE_FAMILY_IGNORED,
+                dstQueueFamilyIndex = Vulkan.VK_QUEUE_FAMILY_IGNORED,
+                srcAccessMask = VkAccessFlags2.IndirectCommandRead,
+                dstAccessMask = VkAccessFlags2.ShaderWrite,
+                srcStageMask = VkPipelineStageFlags2.DrawIndirect | VkPipelineStageFlags2.TaskShaderEXT | VkPipelineStageFlags2.MeshShaderEXT,
+                dstStageMask = VkPipelineStageFlags2.ComputeShader,
+                offset = batchRange.X + _meshTaskOffset * indirectCmdBuffer.UInstanceSize32,
+                size = batchRange.Y * indirectCmdBuffer.UInstanceSize32
+            };
+
+
+            MemoryBarrierHelper.BufferMemoryBarrier(commandBuffer, barrier, VkPipelineStageFlags2.DrawIndirect, VkPipelineStageFlags2.ComputeShader);
+
+            barrier = new()
+            {
+                buffer = DrawBlob._meshTaskCommands.ActiveVkBuffer,
+                // offset = indirectCmdBuffer.UInstanceCount32 * (uint)_commandBufferOffset,
+                // size = indirectCmdBuffer.UInstanceSize32 * (uint)_queueCount,
+                srcQueueFamilyIndex = Vulkan.VK_QUEUE_FAMILY_IGNORED,
+                dstQueueFamilyIndex = Vulkan.VK_QUEUE_FAMILY_IGNORED,
+                srcAccessMask = VkAccessFlags2.IndirectCommandRead,
+                dstAccessMask = VkAccessFlags2.ShaderWrite,
+                srcStageMask = VkPipelineStageFlags2.DrawIndirect | VkPipelineStageFlags2.TaskShaderEXT | VkPipelineStageFlags2.MeshShaderEXT,
+                dstStageMask = VkPipelineStageFlags2.ComputeShader,
+                offset = 0,
+                size =Vulkan.VK_WHOLE_SIZE
+            };
+
+            MemoryBarrierHelper.BufferMemoryBarrier(commandBuffer, barrier, VkPipelineStageFlags2.DrawIndirect, VkPipelineStageFlags2.ComputeShader);
+
+            MeshTaskCull.Cull(commandBuffer, Presenter.FrameIndex, cullData, batchRange.X + _meshTaskOffset, batchRange.Y, indirectCmdBuffer, EngineBuffers.TryGetBuffer(ShaderProperties.BoundsBufferId));
             GraphicsDevice.EndLabelCmd(commandBuffer);
         }
     }

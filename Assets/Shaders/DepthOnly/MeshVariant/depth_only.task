@@ -1,6 +1,7 @@
 #version 460
 #extension GL_EXT_mesh_shader : require
 #extension GL_EXT_shader_explicit_arithmetic_types_int8 : require
+#extension GL_EXT_shader_explicit_arithmetic_types_int16 : require
 #extension GL_ARB_shading_language_include : require
 #extension GL_EXT_debug_printf : require
 #include "../../common_structures.glsl"
@@ -34,43 +35,72 @@ layout(push_constant) uniform pushConstant{
 taskPayloadSharedEXT MeshTaskPayload payload;
 
 
-uint GetComputeShaderGroupCount(uint threadCount, uint localSize)
-{
-	return max(1, (threadCount + localSize - 1) / localSize);
-}
+shared uint localMeshletCount;
 
-layout (local_size_x = 8, local_size_y = 1) in;
+layout (local_size_x = TASK_LOCAL_SIZE_X, local_size_y = 1) in;
 void main(){
-	uint gID = constants.taskOffset +  gl_GlobalInvocationID.x;
-	uint invocationCount = 0;
-	uint taskCount = 0;
-	if(gl_GlobalInvocationID.x < constants.taskCount) {
-    	taskCount = taskCommands.values[gID].meshletCount;
-    	//debugPrintfEXT("invocationCount %u", taskCount);
-    	//debugPrintfEXT("gl_GlobalInvocationID %u", gl_GlobalInvocationID.x);
-    	//debugPrintfEXT("gl_LocalInvocationID  %u", gl_LocalInvocationID .x);
-		payload.taskCommandIndex[gl_LocalInvocationID.x] = taskCount;
+	MeshTaskCommand command;
+	uint taskIndex = 0;
+	if(gl_LocalInvocationID.x == 0){
+		payload.meshletCount = 0;
+		uint taskStartOffset;
+		uint endRange;
+		for(uint i = constants.taskOffset; i < constants.taskCount; i++){
+			command = taskCommands.values[i];
+			taskStartOffset = command.taskStartOffset;
+			endRange = taskStartOffset + GetComputeShaderGroupCount(command.meshletCount,TASK_LOCAL_SIZE_X);
+			if(gl_WorkGroupID.x >= taskStartOffset && gl_WorkGroupID.x < endRange){
+				payload.taskIndex = i;
+				
+				localMeshletCount = (endRange - 1 == gl_WorkGroupID.x) 
+					? (command.meshletCount - ((gl_WorkGroupID.x - taskStartOffset) * TASK_LOCAL_SIZE_X))
+					: TASK_LOCAL_SIZE_X;
+				break;
+			}
+		}
 
-		atomicAdd(payload.meshletCount, taskCount);
-		atomicAdd(payload.taskCount, 1);
+    	//debugPrintfEXT("%u = WG task info global pyload.taskIndex: %u | shared localMeshletCount: %u", gl_WorkGroupID.x, payload.taskIndex, localMeshletCount);
+		
+	}
+	barrier();
+
+	
+	
+	if(gl_LocalInvocationID.x < localMeshletCount) {
+		taskIndex = payload.taskIndex;
+		command = taskCommands.values[taskIndex];
+		uint meshletOffset = gl_WorkGroupID.x - command.taskStartOffset;
+		uint meshletIndex = gl_LocalInvocationID.x + (meshletOffset*TASK_LOCAL_SIZE_X);
+		//debugPrintfEXT("%u %u task %u meshRange offset %u index %u count %u", gl_WorkGroupID.x, gl_LocalInvocationID.x, taskIndex, meshletOffset, meshletIndex, localMeshletCount);
+		meshletIndex += command.meshletOffset;
+    	Meshlet meshlet = meshletsBuffer.meshlets[meshletIndex];
+
+    	uint verticesPerInvoke = GetPerInvoke(meshlet.vertex_count);
+    	uint trianglesPerInvoke = GetPerInvoke(meshlet.triangle_count);
+		
+		MeshletInfo info = {
+			meshletIndex,
+			uint16_t(verticesPerInvoke),
+			uint16_t(trianglesPerInvoke)
+		};
+
+		uint index = atomicAdd(payload.meshletCount, 1);
+		payload.perMeshlet[index] = info;
+    	//debugPrintfEXT("%u %u meshletIndex %u", gl_WorkGroupID.x, gl_GlobalInvocationID.x, payload.perMeshlet[index].index);
 	}
 
 	barrier();
 	if(gl_LocalInvocationID.x == 0)
 	{
-		payload.A = gl_WorkGroupID.x;
-		uint meshInvocation = payload.meshletCount == 0 ? 0 : GetComputeShaderGroupCount(payload.meshletCount, 64);
-
-		debugPrintfEXT("TaskCount %u", payload.taskCount);
+		uint invocationsSoFar = gl_WorkGroupID.x * TASK_LOCAL_SIZE_X;
+		uint originalMeshletCount = payload.meshletCount; 
+		payload.meshletCount = min(payload.meshletCount, command.meshletCount - invocationsSoFar);
+		payload.meshletOffset = invocationsSoFar;
+		payload.TaskGroupID = gl_WorkGroupID.x;
+		payload.taskIndex = taskIndex;
 		
-		uint taskOffset = gl_WorkGroupID.x * 8;
 
-		payload.localTaskOffset = taskOffset;
-
-		debugPrintfEXT("TaskOffset %u", taskOffset);
-		
-    	//debugPrintfEXT("meshletCount %u", payload.meshletCount);
-    	//debugPrintfEXT("meshInvocation %u", meshInvocation);
-		EmitMeshTasksEXT(meshInvocation, 1, 1);
+    	//debugPrintfEXT("%u %u emit meshlets %u | %u", gl_WorkGroupID.x, gl_GlobalInvocationID.x, payload.meshletCount, originalMeshletCount);
+		EmitMeshTasksEXT(payload.meshletCount, 1, 1);
 	}
 }

@@ -238,9 +238,16 @@ namespace VECS
 
             entityManager.AddComponent<MainColour>(pointLight, new() { Value = diffuse });
 
-            AddRenderMeshComponents(pointLight,EnginePipes.Unlit.Default(), 0, subMesh, entityManager,RenderLayer.Default);
-            //MaterialProvider material = new("PointLightUnlit",EnginePipes.DepthOnly.Create("Unlit") , EnginePipes.MeshDepthOnly.Default(), EnginePipes.Unlit.Default());
-            MaterialProvider material = new("PointLightUnlit", EnginePipes.DepthOnly.Create("Unlit"),  EnginePipes.Unlit.Default());
+            MaterialProvider material;
+            if (GraphicsDevice.MeshShading)
+            {
+                material = new("PointLightUnlit", EnginePipes.DepthOnly.Create("Unlit"), EnginePipes.MeshDepthOnly.Default(), EnginePipes.Unlit.Default());
+            }
+            else
+            {
+                material = new("PointLightUnlit", EnginePipes.DepthOnly.Create("Unlit"),  EnginePipes.Unlit.Default());
+            }
+            AddRenderMeshComponents(pointLight, EnginePipes.Unlit.Default(), 0, subMesh, entityManager, RenderLayer.Default);
             AssetDataBase<MaterialProvider>.Add(material);
             entityManager.AddComponent(pointLight, new MaterialProviderComponent() { Value = material.Hash, LayerFlags = RenderLayer.Default  });
         }

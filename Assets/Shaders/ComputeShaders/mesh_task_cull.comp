@@ -1,0 +1,109 @@
+#version 460
+#extension GL_EXT_shader_explicit_arithmetic_types_int8 : require
+#extension GL_EXT_shader_explicit_arithmetic_types_int16 : require
+#extension GL_ARB_shading_language_include : require
+#extension GL_EXT_debug_printf : require
+#include "../mesh_shader_structures.glsl"
+#include "culling_helpers.glsl"
+
+struct MeshIndirectDraw {
+    uint groupCountsX;
+    uint groupCountsY;
+    uint groupCountsZ;
+    uint start;
+    uint count;
+};
+
+layout(std140, set = 0, binding = 0) readonly buffer ObjectBoundsBuffer {
+	ObjectBounds bounds[];
+} boundsBuffer;
+
+layout(set = 0, binding = 1) buffer InstanceBuffer {
+	MeshIndirectDraw Draws[];
+} drawBuffer;
+
+layout(std140, set = 0, binding = 2) buffer TaskCommands {
+	MeshTaskCommand values[];
+} meshTaskCommands;
+
+layout(set = 0, binding = 3) uniform CullData {
+	vec4 frustum[6]; // data for left/right/top/bottom frustum planes
+	mat4 viewMatrix;
+	vec2 pyramid;
+	float zNear;
+	float P00;
+	float P11;
+	uint drawCount;
+	uint8_t includeMask;
+	uint8_t excludeMask;
+	uint8_t cullMode;
+	uint8_t padding;
+} cullData;
+
+shared uint paddedMeshlets;
+shared uvec2 commandRange;
+shared uint commandsPerThread;
+
+layout(local_size_x = 128) in;
+void main() {
+
+    if(gl_LocalInvocationID.x == 0){
+        paddedMeshlets = 0;
+        commandRange = uvec2(drawBuffer.Draws[gl_WorkGroupID.x].start,drawBuffer.Draws[gl_WorkGroupID.x].count);
+        commandsPerThread = GetComputeShaderGroupCount( commandRange.y, gl_WorkGroupSize.x);
+    	//debugPrintfEXT("%u cullinfo global offset: %u | count: %u | per therad: %u", gl_WorkGroupID.x, commandRange.x, commandRange.y, commandsPerThread);
+		
+    }
+
+    barrier();
+
+	if((commandRange.y == 0 || commandsPerThread == 0) && gl_LocalInvocationID.x != 0){
+        return;
+    }
+
+    uint localOffset = commandRange.x +( gl_LocalInvocationID.x * commandsPerThread);
+    uint count = localOffset + commandsPerThread;
+    uint max = commandRange.x + commandRange.y;
+    
+
+    if(localOffset >= max){
+        count = 0;
+    }
+
+    if(count > max) {
+        count = max;
+    }
+
+    if(count == 0 && gl_LocalInvocationID.x != 0) return;
+    //debugPrintfEXT("%u %u cullinfo localOffset: %u | Count: %u | Max: %u", gl_WorkGroupID.x, gl_LocalInvocationID.x, localOffset, count, max);
+    bvec4 cullModeInfo;
+    for(uint i = localOffset; i < count; i++) {
+
+		cullModeInfo = cullingMode(meshTaskCommands.values[i].layerFlags, cullData.includeMask, cullData.excludeMask, cullData.cullMode);
+
+        if(cullModeInfo.x && cullModeInfo.y) {
+            cullModeInfo.x = IsVisible(
+                boundsBuffer.bounds[meshTaskCommands.values[i].absMatrixIndex],
+                cullModeInfo.z ? 6 : 4,
+                cullData.frustum
+            );
+        }
+
+        if(cullModeInfo.x) {
+            meshTaskCommands.values[i].taskStartOffset = atomicAdd(
+                paddedMeshlets,
+                GetComputeShaderGroupCount(meshTaskCommands.values[i].meshletCount, TASK_LOCAL_SIZE_X)
+            );
+        }
+        else {
+            meshTaskCommands.values[i].taskStartOffset = TASK_COMMAND_SKIP;
+        }
+    }
+
+    barrier();
+    if(gl_LocalInvocationID.x == 0){
+        drawBuffer.Draws[gl_WorkGroupID.x].groupCountsX = paddedMeshlets;
+        drawBuffer.Draws[gl_WorkGroupID.x].groupCountsY = 1;
+        drawBuffer.Draws[gl_WorkGroupID.x].groupCountsZ = 1;
+    }
+}

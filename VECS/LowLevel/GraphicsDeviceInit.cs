@@ -20,7 +20,7 @@ namespace VECS.LowLevel
             Vulkan.VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME,
             Vulkan.VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
             Vulkan.VK_KHR_8BIT_STORAGE_EXTENSION_NAME,
-            Vulkan.VK_EXT_DEVICE_FAULT_EXTENSION_NAME,
+            //Vulkan.VK_EXT_DEVICE_FAULT_EXTENSION_NAME,
             Vulkan.VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME,
             Vulkan.VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME,
             Vulkan.VK_EXT_NESTED_COMMAND_BUFFER_EXTENSION_NAME,
@@ -30,7 +30,7 @@ namespace VECS.LowLevel
             Vulkan.VK_EXT_COLOR_WRITE_ENABLE_EXTENSION_NAME
         ];
 
-        private const bool ForceMeshShadingOff = true;
+        private const bool ForceMeshShadingOff = false;
         private readonly static VkUtf8String[] _meshShaderExtensions = [
             Vulkan.VK_EXT_MESH_SHADER_EXTENSION_NAME,
         ];
@@ -328,7 +328,7 @@ namespace VECS.LowLevel
             VkPhysicalDeviceColorWriteEnableFeaturesEXT colorWriteEnableFeaturesEXT = new()
             {
                 colorWriteEnable = true,
-                pNext = &deviceFaultFeaturesEXT
+                //pNext = &deviceFaultFeaturesEXT
             };
 
 
@@ -374,6 +374,7 @@ namespace VECS.LowLevel
                 shaderDrawParameters = true,
                 multiviewGeometryShader = true,
                 multiview = true,
+
                 pNext = &descriptorBuffers
             };
 
@@ -390,6 +391,7 @@ namespace VECS.LowLevel
                 runtimeDescriptorArray = true,
                 uniformAndStorageBuffer8BitAccess = true,
                 shaderInt8 = true,
+                
                 
                 pNext = &deviceFeatures11
             };
@@ -422,6 +424,7 @@ namespace VECS.LowLevel
                 geometryShader = true,
                 imageCubeArray = true,
                 shaderClipDistance = true,
+                shaderInt16 = true,
             };
 
             VkPhysicalDeviceFeatures2 deviceFeatures2 = new()

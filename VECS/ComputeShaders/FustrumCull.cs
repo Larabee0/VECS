@@ -45,8 +45,6 @@ namespace VECS
         public uint absMatrixIndex;
         public RenderLayer layerFlags;
         public byte drawnFlag;
-        public byte pad1;
-        public byte pad2;
 
         public VECSDrawIndexIndirectCommand()
         {
@@ -152,11 +150,9 @@ namespace VECS
 #if DEBUG
         public const bool CPUCulling = false;
 #endif
-
-        private static readonly int BoundsBufferId = "boundsBuffer".GetShaderPropertyId();
-        private static readonly int DrawBufferId = "drawBuffer".GetShaderPropertyId();
+        public static readonly int DrawBufferId = "drawBuffer".GetShaderPropertyId();
         private static readonly int DepthPyramidId = "depthPyramid".GetShaderPropertyId();
-        private static readonly int CullDataId = "cullData".GetShaderPropertyId();
+        public static readonly int CullDataId = "cullData".GetShaderPropertyId();
 
 
         private static readonly ComputePipeline _computeShader;
@@ -165,7 +161,7 @@ namespace VECS
         private static readonly GPUBuffer<float> _textureResult;
 #endif
 
-        private static uint _invokation = 0;
+        private static uint _invocation = 0;
 
         public static ComputePipeline Shader => _computeShader;
 
@@ -183,13 +179,13 @@ namespace VECS
 
         public static void PostPresent()
         {
-            Interlocked.Exchange(ref _invokation, 0);
+            Interlocked.Exchange(ref _invocation, 0);
         }
 
         public static void Cull(VkCommandBuffer commandBuffer,int frameIndex, CullData cullData, uint drawCount, SwapChainBuffer<VECSDrawIndexIndirectCommand> drawIndirect, SwapChainBuffer bounds)
         {
             
-            var variantIndex = Interlocked.Increment(ref _invokation) - 1;
+            var variantIndex = Interlocked.Increment(ref _invocation) - 1;
             /*
 #if DEBUG
 #pragma warning disable CS0162
@@ -224,7 +220,7 @@ namespace VECS
         public static void Cull(VkCommandBuffer commandBuffer, int frameIndex, CullData cullData, uint indirectOffset, uint drawCount, SwapChainBuffer<VECSDrawIndexIndirectCommand> drawIndirect, SwapChainBuffer bounds)
         {
 
-            var variantIndex = Interlocked.Increment(ref _invokation) - 1;
+            var variantIndex = Interlocked.Increment(ref _invocation) - 1;
             /*
 #if DEBUG
 #pragma warning disable CS0162
@@ -266,8 +262,9 @@ namespace VECS
 
             invokeVariant.SetUniform(CullDataId, cullData);
             invokeVariant.SetStorageBuffer(DrawBufferId, drawIndirect, indirectCmdOffset, drawCount);
-            invokeVariant.SetStorageBuffer(BoundsBufferId, bounds);
+            invokeVariant.SetStorageBuffer(ShaderProperties.BoundsBufferId, bounds);
             invokeVariant.SetTexture(DepthPyramidId, DepthReduction.DepthPryamid);
+            Pipeline._descriptorReWrite = true;
             invokeVariant.Dispatch(commandBuffer, frameIndex, drawCount);
 
             VkBufferMemoryBarrier2 barrier = new()
@@ -277,10 +274,12 @@ namespace VECS
                 srcQueueFamilyIndex = GraphicsDevice.PhysicalQueueFamilies.graphicsFamily,
                 dstQueueFamilyIndex = GraphicsDevice.PhysicalQueueFamilies.graphicsFamily,
                 srcAccessMask = VkAccessFlags2.ShaderWrite,
-                dstAccessMask = VkAccessFlags2.IndirectCommandRead | VkAccessFlags2.ShaderWrite
+                dstAccessMask = VkAccessFlags2.IndirectCommandRead | VkAccessFlags2.ShaderWrite,
+                srcStageMask =  VkPipelineStageFlags2.ComputeShader,
+                dstStageMask = VkPipelineStageFlags2.DrawIndirect | VkPipelineStageFlags2.ComputeShader
             };
 
-            MemoryBarrierHelper.BufferMemoryBarrier(commandBuffer, barrier, VkPipelineStageFlags2.ComputeShader, VkPipelineStageFlags2.DrawIndirect | VkPipelineStageFlags2.ComputeShader);
+            MemoryBarrierHelper.BufferMemoryBarrier(commandBuffer, barrier);
         }
 
 
@@ -433,4 +432,65 @@ namespace VECS
         }
 #endif        
     }
+
+    internal static class MeshTaskCull
+    {
+        private static readonly ComputePipeline _computeShader;
+
+        private static uint _invocation = 0;
+
+        static MeshTaskCull()
+        {
+            _computeShader = ComputePipeline.GetOrCreate("mesh_task_cull.comp");
+            Presenter.Instance.PostPresentationUpdate += PostPresent;
+        }
+
+        private static void PostPresent()
+        {
+            Interlocked.Exchange(ref _invocation, 0);
+        }
+
+        public static void Cull(VkCommandBuffer commandBuffer, int frameIndex, CullData cullData,uint indirectCmdOffset, uint drawCount, SwapChainBuffer<MeshIndirectDraw> indirectBuffer, SwapChainBuffer bounds)
+        {
+            var variantIndex = Interlocked.Increment(ref _invocation) - 1;
+
+            cullData.drawCount = drawCount;
+            
+            var invokeVariant = _computeShader.GetOrCreateVariant(variantIndex);
+
+            invokeVariant.SetUniform(FustrumCull.CullDataId, cullData);
+            invokeVariant.SetStorageBuffer(FustrumCull.DrawBufferId, indirectBuffer, indirectCmdOffset, drawCount);
+            invokeVariant.SetStorageBuffer("meshTaskCommands".GetShaderPropertyId(), DrawBlob._meshTaskCommands);
+            invokeVariant.SetStorageBuffer(ShaderProperties.BoundsBufferId, bounds);
+            invokeVariant.Dispatch(commandBuffer, frameIndex, drawCount * _computeShader.LocalSize.X);
+            VkBufferMemoryBarrier2 barrier = new()
+            {
+                buffer = indirectBuffer.ActiveVkBuffer,
+                size = Vulkan.VK_WHOLE_SIZE,
+                srcQueueFamilyIndex = GraphicsDevice.PhysicalQueueFamilies.graphicsFamily,
+                dstQueueFamilyIndex = GraphicsDevice.PhysicalQueueFamilies.graphicsFamily,
+                srcAccessMask = VkAccessFlags2.ShaderWrite,
+                dstAccessMask = VkAccessFlags2.ShaderRead | VkAccessFlags2.IndirectCommandRead,
+                srcStageMask = VkPipelineStageFlags2.ComputeShader,
+                dstStageMask = VkPipelineStageFlags2.DrawIndirect | VkPipelineStageFlags2.ComputeShader | VkPipelineStageFlags2.TaskShaderEXT | VkPipelineStageFlags2.MeshShaderEXT
+            };
+
+            MemoryBarrierHelper.BufferMemoryBarrier(commandBuffer, barrier);
+
+            barrier = new()
+            {
+                buffer = DrawBlob._meshTaskCommands.ActiveVkBuffer,
+                size = Vulkan.VK_WHOLE_SIZE,
+                srcQueueFamilyIndex = GraphicsDevice.PhysicalQueueFamilies.graphicsFamily,
+                dstQueueFamilyIndex = GraphicsDevice.PhysicalQueueFamilies.graphicsFamily,
+                srcAccessMask = VkAccessFlags2.ShaderWrite,
+                dstAccessMask = VkAccessFlags2.ShaderRead | VkAccessFlags2.IndirectCommandRead,
+                srcStageMask = VkPipelineStageFlags2.ComputeShader,
+                dstStageMask = VkPipelineStageFlags2.DrawIndirect | VkPipelineStageFlags2.ComputeShader | VkPipelineStageFlags2.TaskShaderEXT | VkPipelineStageFlags2.MeshShaderEXT
+            };
+            MemoryBarrierHelper.BufferMemoryBarrier(commandBuffer, barrier);
+
+        }
+    }
+
 }

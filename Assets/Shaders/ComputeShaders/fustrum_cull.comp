@@ -1,10 +1,7 @@
 #version 460
 #extension GL_EXT_shader_explicit_arithmetic_types_int8 : require
-
-struct ObjectBounds {
-	vec4 bMin;
-	vec4 bMax;
-};
+#extension GL_ARB_shading_language_include : require
+#include "culling_helpers.glsl"
 
 struct DrawCommand {
 	uint indexCount;
@@ -20,7 +17,7 @@ layout(std140, set = 0, binding = 0) readonly buffer ObjectBoundsBuffer {
 	ObjectBounds bounds[];
 } boundsBuffer;
 
-layout(set = 0, binding = 1) buffer InstanceBuffer {
+layout(std140, set = 0, binding = 1) buffer InstanceBuffer {
 	DrawCommand Draws[];
 } drawBuffer;
 
@@ -100,64 +97,26 @@ bool IsDepthVisible(uint objectIndex){
 	return true;
 }
 
-bool IsVisible(uint objectIndex, int planeCount)
-{
-	ObjectBounds bounds = boundsBuffer.bounds[objectIndex];
-
-	vec4 bmin = bounds.bMin;
-	float cullOveride = bmin.w;
-	if(cullOveride > 0.5 && cullOveride < 2) return true;
-
-	vec4 bmax = bounds.bMax;
-	bmin.w = 1;
-	bmax.w = 1;
-	for (int i = 0; i < planeCount; i++)
-	{
-	    vec4 g = cullData.frustum[i];
-	    bool visible =
-		dot(g, bmin) < 0.0 &&
-	    dot(g, vec4(bmax.x, bmin.y, bmin.z, 1.0)) < 0.0 &&
-	    dot(g, vec4(bmin.x, bmax.y, bmin.z, 1.0)) < 0.0 &&
-	    dot(g, vec4(bmax.x, bmax.y, bmin.z, 1.0)) < 0.0 &&
-	    dot(g, vec4(bmin.x, bmin.y, bmax.z, 1.0)) < 0.0 &&
-	    dot(g, vec4(bmax.x, bmin.y, bmax.z, 1.0)) < 0.0 &&
-	    dot(g, vec4(bmin.x, bmax.y, bmax.z, 1.0)) < 0.0 &&
-	    dot(g, bmax) < 0.0;
-
-	    if (visible)
-	    {
-	        return false;
-	    }
-	}
-
-	return true;
-}
 
 layout(local_size_x = 256) in;
-void main()
-{
+void main() {
 	uint gID = gl_GlobalInvocationID.x;
 	if(gID < cullData.drawCount)
 	{
-		uint8_t flags = drawBuffer.Draws[gID].layerFlags;
-		
-		bool includeMask = (flags | cullData.includeMask) == cullData.includeMask;
-		bool excludeMask = (flags & ~cullData.excludeMask) == flags;
+		bvec4 cullModeInfo = cullingMode(drawBuffer.Draws[gID].layerFlags, cullData.includeMask, cullData.excludeMask, cullData.cullMode);
 
-		bool visible = includeMask && excludeMask;
-
-		bool fustrumCulling = (uint8_t(1) | cullData.cullMode) == cullData.cullMode;
-		bool distanceCulling = (uint8_t(2) | cullData.cullMode) == cullData.cullMode;
-		bool depthCulling = (uint8_t(4) | cullData.cullMode) == cullData.cullMode;
-
-		if(visible && fustrumCulling){
-			visible = IsVisible(drawBuffer.Draws[gID].absMatrixIndex, distanceCulling ? 6 : 4);
+		if(cullModeInfo.x && cullModeInfo.y){
+			cullModeInfo.x = IsVisible(
+				boundsBuffer.bounds[drawBuffer.Draws[gID].absMatrixIndex],
+				cullModeInfo.z ? 6 : 4,
+				cullData.frustum
+			);
 		}
-		if(visible && depthCulling){
-			visible = IsDepthVisible(drawBuffer.Draws[gID].absMatrixIndex);
+		if(cullModeInfo.x && cullModeInfo.w){
+			cullModeInfo.x = IsDepthVisible(drawBuffer.Draws[gID].absMatrixIndex);
 		}
 		
-		if(visible){
+		if(cullModeInfo.x){
 			drawBuffer.Draws[gID].instanceCount = 1;
 		}
 		else{

@@ -91,6 +91,9 @@ namespace VECS
             {
                 pipelineConfig.BindingDescriptions = null;
                 pipelineConfig.AttributeDescriptions = null;
+                var taskShader = shaderModules.First(i=> i.VkShaderStage == VkShaderStageFlags.TaskEXT);
+                taskShader ??= shaderModules.First(i => i.VkShaderStage == VkShaderStageFlags.MeshEXT);
+                _meshShaderWorkGroupSizes = taskShader.ComputeShaderLocalSize;
             }
             else
             {

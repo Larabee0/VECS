@@ -32,7 +32,7 @@ namespace VECS
             if (_queueCount > 0)
             {
                 Array.Sort(_queue, new SortByDepthOnly());
-
+                Array.Reverse(_queue);
                 CountDepthIslands();
 
             }

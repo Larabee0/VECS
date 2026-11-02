@@ -36,10 +36,11 @@
         public int MaterialVariantIndex;
         public int PushConstantIndex;
         public int DirectMeshHash;
+        public uint Index;
         public BufferRegion MeshSubRegion;
 
-        public readonly int MeshStart => MeshSubRegion.StartIndex;
-        public readonly int MeshCount => MeshSubRegion.Count;
+        public readonly int TaskOffset => MeshSubRegion.StartIndex;
+        public readonly int TaskCount => MeshSubRegion.Count;
 
 
         public MeshDrawCommand(int pipeline, int variant, int pushConstant, int directMesh, BufferRegion meshSubRegion)

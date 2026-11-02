@@ -412,12 +412,11 @@ namespace VECS
             // copy meshlet index buffer
             UploadMesletIndexData(srcMesh, submeshMeshletDatas, meshletTriangles, meshletIndexCount);
 
-            // copy meshlets - this get to be CPU coherent
+            // copy meshlets - this gets to be CPU coherent
             srcMesh._meshletBuffer = UploadMeshletData(meshlets, srcMesh._meshletBuffer);
-
             GraphicsDevice.SetObjectName(VkObjectType.Buffer, srcMesh._meshletBuffer.VkBuffer.Handle, $"{srcMesh.AssetName}_Meshlet_Buffer");
 
-            // copy meshlet bounds - this get to be CPU coherent
+            // copy meshlet bounds - this gets to be CPU coherent
             srcMesh._meshletBoundsBuffer = UploadMeshletData(meshletBounds, srcMesh._meshletBoundsBuffer);
             
             GraphicsDevice.SetObjectName(VkObjectType.Buffer, srcMesh._meshletBoundsBuffer.VkBuffer.Handle, $"{srcMesh.AssetName}_Meshlet_Bounds_Buffer");

@@ -2,6 +2,7 @@
 
 #extension GL_EXT_mesh_shader : require
 #extension GL_EXT_shader_explicit_arithmetic_types_int8 : require
+#extension GL_EXT_shader_explicit_arithmetic_types_int16 : require
 #extension GL_ARB_shading_language_include : require
 #include "common_structures.glsl"
 #include "mesh_shader_structures.glsl"
@@ -65,6 +66,9 @@ void main()
     for(uint i = 0; i < meshlet.triangle_count; i ++)
     {
 		index = i * 3;
-        gl_PrimitiveTriangleIndicesEXT[i] = uvec3(indexBuffer.indices[indexOffset + index + 0], indexBuffer.indices[indexOffset + index + 1], indexBuffer.indices[indexOffset + index + 2]);
+        gl_PrimitiveTriangleIndicesEXT[i] = uvec3(
+            indexBuffer.indices[indexOffset + index + 0],
+            indexBuffer.indices[indexOffset + index + 1],
+            indexBuffer.indices[indexOffset + index + 2]);
     }
 }

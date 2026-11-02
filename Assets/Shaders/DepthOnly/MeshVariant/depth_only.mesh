@@ -2,6 +2,7 @@
 
 #extension GL_EXT_mesh_shader : require
 #extension GL_EXT_shader_explicit_arithmetic_types_int8 : require
+#extension GL_EXT_shader_explicit_arithmetic_types_int16 : require
 #extension GL_ARB_shading_language_include : require
 #extension GL_EXT_debug_printf : require
 #include "../../common_structures.glsl"
@@ -50,7 +51,7 @@ layout(std140, set = 2, binding = 0) readonly buffer MeshletBuffer{
 	Meshlet meshlets[];
 } meshletsBuffer;
 
-layout(std430, set = 2, binding = 2) readonly buffer MeshletIndexBuffer{
+layout(std430,set = 2, binding = 2) readonly buffer MeshletIndexBuffer{
 	uint8_t indices[];
 } indexBuffer;
 
@@ -65,6 +66,10 @@ layout(std430, set = 2, binding = 4) readonly buffer VertexUVBuffer{
 layout(std140, set = 3, binding = 0) readonly buffer TaskCommands{
 	MeshTaskCommand values[];
 } taskCommands;
+
+layout(std140, set = 3, binding = 1) buffer GeoInfo{
+    uvec4 values[];
+} geometryDrawn;
 
 layout(push_constant) uniform pushConstant{
 	uint cameraIndex;
@@ -115,84 +120,116 @@ vec3 getClipDist(vec3 positionWorld){
     }
 }
 
-layout(local_size_x = 64, local_size_y = 1) in;
-void main(){
-    uint tci = constants.taskOffset + payload.localTaskOffset;
-    uint taskCount = constants.taskCount;
-    uint globalInvoke = gl_GlobalInvocationID.x;
+uvec3 GetPerMeshlet(){
+	MeshletInfo info = payload.perMeshlet[gl_WorkGroupID.x];
     
-    MeshTaskCommand taskCommand = taskCommands.values[tci];
-    //debugPrintfEXT("WorkGroupID  %u",  gl_WorkGroupID.x);
-    //debugPrintfEXT("task_WorkGroupID  %u",  payload.A);
+    return uvec3(uint(info.index), uint(info.verts), uint(info.tris));
+}
 
-    while(globalInvoke >= taskCommand.meshletCount){
-        tci++;
-
-        if(tci >= taskCount){
-            debugPrintfEXT("aborted");
-            SetMeshOutputsEXT(0,0);
-            return;
-        }
-        globalInvoke -= taskCommand.meshletCount;
-        taskCommand = taskCommands.values[min(constants.taskCount-1,tci)];
+uvec2 GetOffsetCount(uint perInvoke, uint count){
+    uint offset = perInvoke * gl_LocalInvocationID.x;
+    if(offset >= count) {
+        return uvec2(0, 0);
     }
-    //debugPrintfEXT("while tci %u", tci);
-
-    uint ptci = (payload.A * 8) + gl_LocalInvocationID.x;
-
-    debugPrintfEXT("payloadTaskOffset %u | tci %u | gl_WGID %u", payload.localTaskOffset, tci, gl_WorkGroupID.x);
-
-    SetMeshOutputsEXT(0,0);
-    return;
-
-    //debugPrintfEXT("taskCommandIndex %u", tci);
-    //debugPrintfEXT("meshletIndex %u", taskCommand.meshletOffset + globalInvoke);
-    //debugPrintfEXT("globalInvoke %u",  gl_GlobalInvocationID.x);
-    if(tci >= constants.taskCount){
+    else if(perInvoke + offset > count) {
+        perInvoke -= perInvoke + offset - count;
     }
-    taskCommand = taskCommands.values[0];
-	uint meshletIndex =  0;
+    return uvec2(offset, perInvoke);
+}
 
-    if(meshletIndex >= taskCommand.meshletCount){
-        SetMeshOutputsEXT(0,0);
-        return;
+layout(local_size_x = MESH_LOCAL_SIZE_X, local_size_y = 1) in;
+void main(){
+    MeshTaskCommand taskCommand = taskCommands.values[payload.taskIndex];
+
+    uint localMeshletIndex = gl_WorkGroupID.x;
+    uvec3 info = GetPerMeshlet();
+
+    uint absMeshletIndex = info.x;
+
+    Meshlet meshlet = meshletsBuffer.meshlets[absMeshletIndex];
+
+    if(gl_LocalInvocationID.x == 0){
+        // debugPrintfEXT("%u %u OutputEXT | meshletIndex %u | vertCount %u | triCount %u",
+        //     payload.TaskGroupID,
+        //     gl_LocalInvocationID.x,
+        //     absMeshletIndex,
+        //     meshlet.vertex_count,
+        //     meshlet.triangle_count
+        // );
+        SetMeshOutputsEXT(meshlet.vertex_count,meshlet.triangle_count);
     }
-    //meshletIndex += taskCommand.meshletOffset;
-    //debugPrintfEXT("meshletIndex %u", meshletIndex);
-    Meshlet meshlet = meshletsBuffer.meshlets[meshletIndex];
-    uvec3 triIndices;
+    barrier();
+
+    
+
+    // debugPrintfEXT("%u %u OutputEXT | vis %u | verts %u | tris %u",
+    //     payload.TaskGroupID,
+    //     gl_LocalInvocationID.x,
+    //     info.x,
+    //     info.y,
+    //     info.z
+    // );
+    
+    // vertex offset
+    uvec2 outVertInfo = GetOffsetCount(info.y, meshlet.vertex_count);
+
+    // trianlge offset
+    uvec2 outTriInfo = GetOffsetCount(info.z, meshlet.triangle_count);
+    if(outTriInfo.y == 0 && outVertInfo.y == 0) return;
+
+    uint vertexOffset = taskCommand.vertexStartIndex + meshlet.vertex_offset + outVertInfo.x;
+    uint indexOffset = taskCommand.triangleStartIndex + meshlet.triangle_offset + (outTriInfo.x * 3);
+    // debugPrintfEXT("%u %u OutputConfig | vertOff %u | vertCount %u | triOff %u | triCount %u",
+    //     payload.TaskGroupID,
+    //     gl_LocalInvocationID.x,
+    //     vertexOffset,
+    //     outVertInfo.y,
+    //     indexOffset,
+    //     outTriInfo.y
+    // );
+
+
+
+
+    //debugPrintfEXT("%u %u Valid Meshlet range %u - %u | localIndex %u | OffsetIndex %u",
+    //    payload.TaskGroupID,
+    //    gl_GlobalInvocationID.x,
+    //    taskCommand.meshletOffset,
+    //    taskCommand.meshletOffset + taskCommand.meshletCount,
+    //    offsetMeshletIndex,
+    //    taskCommand.meshletOffset + offsetMeshletIndex
+    //);
+
+
     vec4 positionWorld;
     vec3 clipDist;
-    uint vertexOffset = taskCommand.vertexStartIndex + meshlet.vertex_offset;
-    uint indexOffset = taskCommand.triangleStartIndex + meshlet.triangle_offset;
-    uint index;
-    vec2 uv;
     
     mat4 viewProjection = getTransform(constants.bufferSelect, constants.matrixStartIndex);
-    mat4 modelMatrix = matricesBuffer.matrices[taskCommand.absMatrixIndex].modelMatrix;
-
-	SetMeshOutputsEXT(meshlet.vertex_count, meshlet.triangle_count);
-
-    for(uint i = 0; i < meshlet.vertex_count; i++){
+    mat4 modelMatrix = matricesBuffer.matrices[taskCommand.localMatrixIndex].modelMatrix;
+    
+    for(uint i = 0; i < outVertInfo.y; i++){
         positionWorld = modelMatrix * vec4(vertexPositionBuffer.pos[vertexOffset + i].xyz, 1.0);
-        uv = vertexTexCoord0Buffer.uv[vertexOffset + i];
+        
         clipDist = getClipDist(positionWorld.xyz);
-        gl_MeshVerticesEXT[i].gl_Position = viewProjection * positionWorld;
-        gl_MeshVerticesEXT[i].gl_ClipDistance[0] = clipDist.x;
-        gl_MeshVerticesEXT[i].gl_ClipDistance[1] = clipDist.x;
-        gl_MeshVerticesEXT[i].gl_ClipDistance[2] = clipDist.x;
+        gl_MeshVerticesEXT[outVertInfo.x + i].gl_Position = viewProjection * positionWorld;
+        gl_MeshVerticesEXT[outVertInfo.x + i].gl_ClipDistance[0] = clipDist.x;
+        gl_MeshVerticesEXT[outVertInfo.x + i].gl_ClipDistance[1] = clipDist.y;
+        gl_MeshVerticesEXT[outVertInfo.x + i].gl_ClipDistance[2] = clipDist.z;
 
-        fragUV[i] = vec2(gl_GlobalInvocationID.x,0);
+        fragUV[outVertInfo.x + i] = vertexTexCoord0Buffer.uv[vertexOffset + i];
     }
 
-    for(uint i = 0; i < meshlet.triangle_count; i++){
+    //return;
+    
+    uint index;
+    for(uint i = 0; i < outTriInfo.y; i++){
         index = i * 3;
-        triIndices = uvec3(
+        //gl_PrimitiveTriangleIndicesEXT[outTriInfo.x + i] = uvec3(0);
+        gl_PrimitiveTriangleIndicesEXT[outTriInfo.x + i] = uvec3(
             indexBuffer.indices[indexOffset + index + 0],
             indexBuffer.indices[indexOffset + index + 1],
             
             indexBuffer.indices[indexOffset + index + 2]
         );
-        gl_PrimitiveTriangleIndicesEXT[i] = triIndices;
     }
 }

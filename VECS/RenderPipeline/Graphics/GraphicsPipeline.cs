@@ -36,6 +36,8 @@ namespace VECS
         private int _meshShaderDescriptorSetIndex = -1;
         private int _meshShaderDescriptorHash = 0;
 
+        private Vector3UInt _meshShaderWorkGroupSizes;
+
         internal Material[] _matVariants;
 
         private ConcurrentQueue<Material> _variantsToAdd = new();
@@ -48,7 +50,7 @@ namespace VECS
 
         public bool Transparent => _oitDescriptorSetIndex != -1;
         public int MeshShaderDescriptorSetIndex => _meshShaderDescriptorSetIndex;
-
+        public Vector3UInt MeshShaderWorkGroupSizes => _meshShaderWorkGroupSizes;
         public bool IsMeshShader => _meshShaderDescriptorSetIndex != -1;
 
         public PipelineType PipelineType => _pipelineType;

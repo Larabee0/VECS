@@ -128,10 +128,11 @@ namespace VECS
                         break;
                 }
             }
-            if(_vkStage == VkShaderStageFlags.Compute)
+            if(_vkStage == VkShaderStageFlags.Compute || _vkStage == VkShaderStageFlags.TaskEXT || _vkStage == VkShaderStageFlags.MeshEXT)
             {
                 _computeShaderLocalSize = new(_spvShaderModule.entry_points[0].local_size.x, _spvShaderModule.entry_points[0].local_size.y, _spvShaderModule.entry_points[0].local_size.z);
             }
+
             if (disposeNow)
             {
                 _disposed = true;

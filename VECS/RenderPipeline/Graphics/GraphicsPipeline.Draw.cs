@@ -289,7 +289,7 @@ namespace VECS
             {
                 command = drawCmds[i];
                 _pushConstantsHandler.WriteToPushConstantBuffer("taskOffset".GetShaderPropertyId(), pushConstantBuffer.AsBytes(), rollingOffset);
-                rollingOffset += command.MeshCount;
+                rollingOffset += command.TaskCount;
                 if (_matVariants[command.MaterialVariantIndex] == null)
                 {
                     continue;
@@ -382,13 +382,17 @@ namespace VECS
             for (int i = 0; i < matDrawCount; i++)
             {
                 command = drawCmds[i];
+                if( lastVariant != command.MaterialVariantIndex)
+                {
+                    rollingOffset = 0;
+                }
+
                 _pushConstantsHandler.WriteToPushConstantBuffer("taskOffset".GetShaderPropertyId(), pushConstantBuffer.AsBytes(), rollingOffset);
-                rollingOffset += command.MeshCount;
+                rollingOffset += command.TaskCount;
                 if (_matVariants[command.MaterialVariantIndex] == null)
                 {
                     continue;
                 }
-
                 ExecuteDrawMeshCommand(commandBuffer, frameIndex, pushConstantBuffer, command,bindingInfo, offsets, indices, ref lastVariant, ref lastMesh, cullMode);
             }
         }
@@ -445,7 +449,7 @@ namespace VECS
                 UpdateOffsets(commandBuffer, offsets, indices);
             }
 
-            ExecuteDrawCommandMesh(commandBuffer, pushConstantBuffer, command);
+            ExecuteDrawCommandMesh(commandBuffer, pushConstantBuffer, command, DrawBlob._indirectTaskBuffer);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -474,7 +478,7 @@ namespace VECS
                 UpdateOffsets(commandBuffer,offsets, indices);
             }
 
-            ExecuteDrawCommandMesh(commandBuffer, pushConstantBuffer, command);
+            ExecuteDrawCommandMesh(commandBuffer, pushConstantBuffer, command, DrawBlob._indirectTaskBuffer);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -486,25 +490,51 @@ namespace VECS
             mesh.BindSpecificBuffers(commandBuffer, _graphicsPipelineConfigInfo.BindingDescriptions, _graphicsPipelineConfigInfo.AttributeDescriptions);
             unsafe
             {
+                uint commandSize = (uint)sizeof(VECSDrawIndexIndirectCommand);
                 GraphicsDevice.DeviceAPI.vkCmdDrawIndexedIndirect(
                     commandBuffer,
                     indirectCmdBuffer.ActiveVkBuffer,
-                    (uint)command.MeshSubRegion.StartIndex * (uint)sizeof(VECSDrawIndexIndirectCommand),
-                    (uint)command.MeshSubRegion.Count, (uint)sizeof(VECSDrawIndexIndirectCommand)
+                    (uint)command.MeshSubRegion.StartIndex * commandSize,
+                    (uint)command.MeshSubRegion.Count, commandSize
                 );
             }
         }
 
         private void ExecuteDrawCommandMesh<T>(VkCommandBuffer commandBuffer, Span<T> pushConstantBuffer, MeshDrawCommand command) where T : unmanaged
         {
-
-            _pushConstantsHandler.WriteToPushConstantBuffer("taskCount".GetShaderPropertyId(), pushConstantBuffer.AsBytes(), command.MeshCount);
+            var host = ((SwapChainBuffer<MeshTaskCommand>)EngineBuffers.TryGetBuffer("taskCommands".GetShaderPropertyId())).HostBuffer.Slice(command.TaskOffset,command.TaskCount);
+            uint totalPaddedMeshlets = 0;
+            for ( var i = 0; i < host.Length; i++)
+            {
+                host[i].TaskStartIndex = totalPaddedMeshlets;
+                totalPaddedMeshlets += host[i].MeshletCount.GetComputeShaderGroupCount(MeshShaderWorkGroupSizes.X);
+            }
+            _pushConstantsHandler.WriteToPushConstantBuffer("taskCount".GetShaderPropertyId(), pushConstantBuffer.AsBytes(), command.TaskCount);
             BindPushConstants(commandBuffer, pushConstantBuffer);
+            GraphicsDevice.DeviceAPI.vkCmdDrawMeshTasksEXT(commandBuffer, totalPaddedMeshlets, 1, 1);
+        }
 
-            //VkDrawIndirect2InfoKHR
-            //GraphicsDevice.DeviceAPI.vkCmdDrawMeshTasksIndirect2EXT(commandBuffer,)
+        private unsafe void ExecuteDrawCommandMesh<T>(VkCommandBuffer commandBuffer, Span<T> pushConstantBuffer, MeshDrawCommand command, SwapChainBuffer<MeshIndirectDraw> indirectCmdBuffer) where T : unmanaged
+        {
+            uint commandSize = (uint)sizeof(MeshIndirectDraw);
+            //_pushConstantsHandler.WriteToPushConstantBuffer("taskOffset".GetShaderPropertyId(), pushConstantBuffer.AsBytes(), command.TaskOffset);
+            _pushConstantsHandler.WriteToPushConstantBuffer("taskCount".GetShaderPropertyId(), pushConstantBuffer.AsBytes(), command.TaskCount);
 
-            GraphicsDevice.DeviceAPI.vkCmdDrawMeshTasksEXT(commandBuffer, (uint)command.MeshCount.GetComputeShaderGroupCount(8), 1, 1);
+            // var indirectHost = indirectCmdBuffer.HostBuffer.Slice(command.TaskOffset, 1);
+            // var host = ((SwapChainBuffer<MeshTaskCommand>)EngineBuffers.TryGetBuffer("taskCommands".GetShaderPropertyId())).HostBuffer.Slice(command.TaskOffset, command.TaskCount);
+            // uint totalPaddedMeshlets = 0;
+            // for (int i = 0; i < host.Length; i++)
+            // {
+            //     host[i].TaskStartIndex = totalPaddedMeshlets;
+            //     totalPaddedMeshlets += host[i].MeshletCount.GetComputeShaderGroupCount(MeshShaderWorkGroupSizes.X);
+            // }
+            // indirectHost[0].GroupCountX = totalPaddedMeshlets;
+            // indirectHost[0].CommandStart = (uint)command.TaskOffset;
+            // indirectHost[0].CommandStart = (uint)command.TaskCount;
+            BindPushConstants(commandBuffer, pushConstantBuffer);
+            GraphicsDevice.DeviceAPI.vkCmdDrawMeshTasksIndirectEXT(commandBuffer, indirectCmdBuffer.ActiveVkBuffer, command.Index * commandSize, 1, commandSize);
+
+
         }
     }
 }
