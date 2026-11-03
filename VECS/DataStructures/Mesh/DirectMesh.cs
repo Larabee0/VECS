@@ -53,7 +53,7 @@ namespace VECS
 
         internal GPUBuffer<Meshlet> _meshletBuffer;
 
-        internal GPUBuffer<Bounds> _meshletBoundsBuffer;
+        internal GPUBuffer<ShaderAABB> _meshletBoundsBuffer;
         internal uint[] _meshShaderVertexMap;
 
         #endregion

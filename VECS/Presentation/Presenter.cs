@@ -495,6 +495,9 @@ namespace VECS
                 {
                     var secondaryCameraEntity = GetCamera(i, out var secondaryCamera);
                     SetCameraViewPort(World.DefaultWorld.EntityManager, secondaryCameraEntity);
+
+                    EngineBuffers.CameraDataBuffer.HostBuffer[secondaryCamera.CameraIndex].Width = CurrentCameraViewport.width;
+                    EngineBuffers.CameraDataBuffer.HostBuffer[secondaryCamera.CameraIndex].Height = CurrentCameraViewport.height;
                     RendererFrameInfo secondaryCameraFrameInfo = CreateRendererFrameInfoForCamera(deltaTime, secondaryCamera.CameraIndex, commandBuffer, secondaryCamera, lightingInfo);
                     secondaryCameraFrameInfo = new(secondaryCameraFrameInfo, CurrentCameraScissor);
 
@@ -511,6 +514,8 @@ namespace VECS
             GraphicsDevice.EndLabelCmd(commandBuffer);
 
             SetCameraViewPort(World.DefaultWorld.EntityManager, mainCameraEntity);
+            EngineBuffers.CameraDataBuffer.HostBuffer[mainCamera.CameraIndex].Width = CurrentCameraViewport.width;
+            EngineBuffers.CameraDataBuffer.HostBuffer[mainCamera.CameraIndex].Height = CurrentCameraViewport.height;
             GraphicsDevice.BeginLabelCmd(commandBuffer, "Render Graph Main Camera");
             RenderGraph.Execute(mainCameraFrameInfo, PassCategory.MainView);
             CopyFromRendererPostProcessingToOutputImage(commandBuffer, Display0Src);

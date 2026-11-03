@@ -1,8 +1,10 @@
 
-
-struct ObjectBounds {
-	vec4 bMin;
-	vec4 bMax;
+struct MeshTaskCullData{
+	vec4 frustum[6]; // data for left/right/top/bottom frustum planes
+	uint8_t includeMask;
+	uint8_t excludeMask;
+	uint8_t cullMode;
+	uint8_t padding;
 };
 
 
@@ -49,4 +51,58 @@ bool IsVisible(ObjectBounds bounds, int planeCount, vec4 frustums[6])
 	}
 
 	return true;
+}
+
+ObjectBounds AABBFromMinMax(vec3 min, vec3 max, float cullOveride){
+	ObjectBounds val = {vec4(min,cullOveride),vec4(max,0)};
+	return val;
+}
+
+vec3 Select(vec3 falseValue, vec3 trueValue, bvec3 test){
+	return vec3(
+		test.x ? trueValue.x : falseValue.x,
+		test.y ? trueValue.y : falseValue.y,
+		test.z ? trueValue.z : falseValue.z
+	);
+}
+
+ObjectBounds TransformAABB(ObjectBounds aabb, mat3 transformation){
+	vec3 t1 = transformation[0] * vec3(aabb.bMin.x);
+	vec3 t2 = transformation[0] * vec3(aabb.bMax.x);
+	bvec3 minMask = lessThan(t1, t2);
+	ObjectBounds transformedAABB = AABBFromMinMax(Select(t2,t1,minMask),Select(t2,t1,not(minMask)),aabb.bMin.w);
+	
+	t1 = transformation[1] * vec3(aabb.bMin.y);
+	t2 = transformation[1] * vec3(aabb.bMax.y);
+	minMask = lessThan(t1, t2);
+	transformedAABB.bMin.xyz += Select(t2, t1, minMask);
+	transformedAABB.bMax.xyz += Select(t2, t1, not(minMask));
+
+	t1 = transformation[2] * vec3(aabb.bMin.z);
+	t2 = transformation[2] * vec3(aabb.bMax.z);
+	minMask = lessThan(t1, t2);
+	transformedAABB.bMin.xyz += Select(t2, t1, minMask);
+	transformedAABB.bMax.xyz += Select(t2, t1, not(minMask));
+	return transformedAABB;
+}
+
+ObjectBounds TransformAABB(ObjectBounds aabb, mat4 m){
+	
+	//aabb = TransformAABB(aabb, mat3((transformation)));
+	
+	//aabb.bMin.xyz += transformation[3].xyz;
+	//aabb.bMax.xyz += transformation[3].xyz;
+	//m = transpose(m);
+	vec3 center = (aabb.bMax.xyz + aabb.bMin.xyz) * 0.5;
+	vec3 extents = aabb.bMax.xyz - center;
+
+	vec3 t_center = (m * vec4(center,1.0)).xyz;
+
+	mat3 abs_Mat = mat3(abs(m[0].xyz),abs(m[1].xyz),abs(m[2].xyz));
+	vec3 t_extent = abs_Mat * extents;
+
+	aabb.bMin.xyz = t_center - t_extent;
+	aabb.bMax.xyz = t_center + t_extent;
+
+	return aabb;
 }

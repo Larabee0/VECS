@@ -4,6 +4,7 @@
 #extension GL_ARB_shading_language_include : require
 #extension GL_EXT_debug_printf : require
 #include "../mesh_shader_structures.glsl"
+#include "../common_structures.glsl"
 #include "culling_helpers.glsl"
 
 struct MeshIndirectDraw {
@@ -40,6 +41,11 @@ layout(set = 0, binding = 3) uniform CullData {
 	uint8_t padding;
 } cullData;
 
+
+layout(set = 0, binding = 4) buffer MeshTaskLocalCullInfo {
+	MeshTaskCullData values[];
+} meshTaskCullData;
+
 shared uint paddedMeshlets;
 shared uvec2 commandRange;
 shared uint commandsPerThread;
@@ -53,6 +59,12 @@ void main() {
         commandsPerThread = GetComputeShaderGroupCount( commandRange.y, gl_WorkGroupSize.x);
     	//debugPrintfEXT("%u cullinfo global offset: %u | count: %u | per therad: %u", gl_WorkGroupID.x, commandRange.x, commandRange.y, commandsPerThread);
 		
+    }
+    if(gl_GlobalInvocationID.x == 0){
+        meshTaskCullData.values[0].frustum = cullData.frustum;
+        meshTaskCullData.values[0].includeMask = cullData.includeMask;
+        meshTaskCullData.values[0].excludeMask = cullData.excludeMask;
+        meshTaskCullData.values[0].cullMode = cullData.cullMode;
     }
 
     barrier();

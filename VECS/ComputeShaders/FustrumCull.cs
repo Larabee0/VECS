@@ -461,6 +461,7 @@ namespace VECS
             invokeVariant.SetUniform(FustrumCull.CullDataId, cullData);
             invokeVariant.SetStorageBuffer(FustrumCull.DrawBufferId, indirectBuffer, indirectCmdOffset, drawCount);
             invokeVariant.SetStorageBuffer("meshTaskCommands".GetShaderPropertyId(), DrawBlob._meshTaskCommands);
+            invokeVariant.SetStorageBuffer("meshTaskCullData".GetShaderPropertyId(), DrawBlob._meshTaskCullLocalData);
             invokeVariant.SetStorageBuffer(ShaderProperties.BoundsBufferId, bounds);
             invokeVariant.Dispatch(commandBuffer, frameIndex, drawCount * _computeShader.LocalSize.X);
             VkBufferMemoryBarrier2 barrier = new()
@@ -487,6 +488,19 @@ namespace VECS
                 dstAccessMask = VkAccessFlags2.ShaderRead | VkAccessFlags2.IndirectCommandRead,
                 srcStageMask = VkPipelineStageFlags2.ComputeShader,
                 dstStageMask = VkPipelineStageFlags2.DrawIndirect | VkPipelineStageFlags2.ComputeShader | VkPipelineStageFlags2.TaskShaderEXT | VkPipelineStageFlags2.MeshShaderEXT
+            };
+            MemoryBarrierHelper.BufferMemoryBarrier(commandBuffer, barrier);
+
+            barrier = new()
+            {
+                buffer = DrawBlob._meshTaskCullLocalData.ActiveVkBuffer,
+                size = Vulkan.VK_WHOLE_SIZE,
+                srcQueueFamilyIndex = Vulkan.VK_QUEUE_FAMILY_IGNORED,
+                dstQueueFamilyIndex = Vulkan.VK_QUEUE_FAMILY_IGNORED,
+                srcAccessMask = VkAccessFlags2.ShaderWrite,
+                dstAccessMask = VkAccessFlags2.ShaderRead,
+                srcStageMask = VkPipelineStageFlags2.ComputeShader,
+                dstStageMask = VkPipelineStageFlags2.ComputeShader | VkPipelineStageFlags2.TaskShaderEXT
             };
             MemoryBarrierHelper.BufferMemoryBarrier(commandBuffer, barrier);
 

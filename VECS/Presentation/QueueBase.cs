@@ -466,8 +466,6 @@ namespace VECS
             VkBufferMemoryBarrier2 barrier = new()
             {
                 buffer = indirectCmdBuffer.ActiveVkBuffer,
-                // offset = indirectCmdBuffer.UInstanceCount32 * (uint)_commandBufferOffset,
-                // size = indirectCmdBuffer.UInstanceSize32 * (uint)_queueCount,
                 srcQueueFamilyIndex = Vulkan.VK_QUEUE_FAMILY_IGNORED,
                 dstQueueFamilyIndex = Vulkan.VK_QUEUE_FAMILY_IGNORED,
                 srcAccessMask = VkAccessFlags2.IndirectCommandRead,
@@ -484,8 +482,6 @@ namespace VECS
             barrier = new()
             {
                 buffer = DrawBlob._meshTaskCommands.ActiveVkBuffer,
-                // offset = indirectCmdBuffer.UInstanceCount32 * (uint)_commandBufferOffset,
-                // size = indirectCmdBuffer.UInstanceSize32 * (uint)_queueCount,
                 srcQueueFamilyIndex = Vulkan.VK_QUEUE_FAMILY_IGNORED,
                 dstQueueFamilyIndex = Vulkan.VK_QUEUE_FAMILY_IGNORED,
                 srcAccessMask = VkAccessFlags2.IndirectCommandRead,
@@ -496,7 +492,21 @@ namespace VECS
                 size =Vulkan.VK_WHOLE_SIZE
             };
 
-            MemoryBarrierHelper.BufferMemoryBarrier(commandBuffer, barrier, VkPipelineStageFlags2.DrawIndirect, VkPipelineStageFlags2.ComputeShader);
+            MemoryBarrierHelper.BufferMemoryBarrier(commandBuffer, barrier);
+            barrier = new()
+            {
+                buffer = DrawBlob._meshTaskCullLocalData.ActiveVkBuffer,
+                srcQueueFamilyIndex = Vulkan.VK_QUEUE_FAMILY_IGNORED,
+                dstQueueFamilyIndex = Vulkan.VK_QUEUE_FAMILY_IGNORED,
+                srcAccessMask = VkAccessFlags2.ShaderRead,
+                dstAccessMask = VkAccessFlags2.ShaderWrite,
+                srcStageMask = VkPipelineStageFlags2.ComputeShader | VkPipelineStageFlags2.TaskShaderEXT,
+                dstStageMask = VkPipelineStageFlags2.ComputeShader,
+                offset = 0,
+                size = Vulkan.VK_WHOLE_SIZE
+            };
+
+            MemoryBarrierHelper.BufferMemoryBarrier(commandBuffer, barrier);
 
             MeshTaskCull.Cull(commandBuffer, Presenter.FrameIndex, cullData, batchRange.X + _meshTaskOffset, batchRange.Y, indirectCmdBuffer, EngineBuffers.TryGetBuffer(ShaderProperties.BoundsBufferId));
             GraphicsDevice.EndLabelCmd(commandBuffer);

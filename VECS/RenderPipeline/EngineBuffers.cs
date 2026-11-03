@@ -12,7 +12,7 @@ namespace VECS
     {
         private const VkBufferUsageFlags BufferUsageFlags = VkBufferUsageFlags.StorageBuffer;
 
-        private readonly static SwapChainBuffer<CameraData> CameraDataBuffer;
+        internal readonly static SwapChainBuffer<CameraData> CameraDataBuffer;
 
 
         private readonly static SwapChainBuffer LightingInfoBuffer;

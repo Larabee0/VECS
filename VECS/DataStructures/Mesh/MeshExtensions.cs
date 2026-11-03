@@ -5,9 +5,28 @@ using VECS.ECS.Presentation;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 using MeshOptimizer;
+using System.Runtime.InteropServices;
+using System.Runtime.CompilerServices;
 
 namespace VECS
 {
+    [StructLayout(LayoutKind.Sequential, Size = 32)]
+    public struct VECSMeshlet
+    {
+        public Meshlet Meshlet;
+        public uint Visbility;
+
+        public uint vertex_offset => Meshlet.vertex_offset;
+        public uint triangle_offset => Meshlet.triangle_offset;
+        public uint vertex_count => Meshlet.vertex_count;
+        public uint triangle_count => Meshlet.triangle_count;
+
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static implicit operator VECSMeshlet(Meshlet meshlet) => new() { Meshlet = meshlet };
+
+    }
+
     public static class MeshExtensions
     {
         #region  Subdivision
@@ -283,7 +302,7 @@ namespace VECS
 
         private static unsafe SubmeshMeshletData CreateMeshlets(DirectSubMesh subMesh,
             ref Meshlet[] srcMeshlets,
-            ref MeshOptimizer.Bounds[] srcMeshletBounds,
+            ref ShaderAABB[] srcMeshletBounds,
             ref uint[] srcMeshletVertices,
             ref byte[] srcMeshletTriangles)
         {
@@ -293,7 +312,7 @@ namespace VECS
             SubmeshMeshletData submeshMeshletData = new(meshletCount);
 
             Meshlet[] meshlets = new Meshlet[meshletCount];
-            MeshOptimizer.Bounds[] meshletBounds = new MeshOptimizer.Bounds[meshletCount];
+            ShaderAABB[] meshletBounds = new ShaderAABB[meshletCount];
             uint[] meshletVertices = new uint[submeshMeshletData.VertexCount];
             byte[] meshletTriangles = new byte[submeshMeshletData.TriangleCount];
 
@@ -303,7 +322,7 @@ namespace VECS
                 {
                     fixed (Meshlet* subMeshlets = &meshlets[submeshMeshletData.MeshletOffset])
                     {
-                        fixed (MeshOptimizer.Bounds* subMeshletBounds = &meshletBounds[submeshMeshletData.MeshletOffset])
+                        fixed (ShaderAABB* subMeshletBounds = &meshletBounds[submeshMeshletData.MeshletOffset])
                         {
                             fixed (uint* subMeshletVertices = &meshletVertices[submeshMeshletData.VertexOffset])
                             {
@@ -348,6 +367,7 @@ namespace VECS
             var trisDst = srcMeshletTriangles.AsSpan(submeshMeshletData.TriangleOffset, submeshMeshletData.TriangleCount);
 
             mesletSrc.CopyTo(mesletDst);
+
             boundsSrc.CopyTo(boundsDst);
             vertsSrc.CopyTo(vertsDst);
             trisSrc.CopyTo(trisDst);
@@ -367,7 +387,7 @@ namespace VECS
 
             // this is over allocated for worse case scenarios
             Meshlet[] meshlets = [];
-            MeshOptimizer.Bounds[] meshletBounds = [];
+            ShaderAABB[] meshletBounds = [];
             uint[] meshletVertices = [];
             byte[] meshletTriangles = [];
             for (int i = 0; i < subMeshes.Length; i++)
@@ -380,7 +400,7 @@ namespace VECS
 
         private static void UploadMesletData(DirectMesh srcMesh,
             Meshlet[] meshlets,
-            MeshOptimizer.Bounds[] meshletBounds,
+            ShaderAABB[] meshletBounds,
             uint[] meshletVertices,
             byte[] meshletTriangles)
         {
@@ -545,7 +565,7 @@ namespace VECS
             uint* srcIndices,
             float* srcVertices,
             Meshlet* meshlets,
-            Bounds* meshletBounds,
+            ShaderAABB* meshletBounds,
             uint* meshletVerts,
             byte* meshletTris
         )
@@ -576,7 +596,14 @@ namespace VECS
                 var verts = &meshletVerts[(int)meshlet.vertex_offset];
                 var tris = &meshletTris[(int)meshlet.triangle_offset];
                 Meshopt.OptimizeMeshlet(verts, tris, meshlet.triangle_count, meshlet.vertex_count);
-                meshletBounds[i] = Meshopt.ComputeMeshletBounds(verts, tris, meshlet.triangle_count, srcVertices, srcVertexCount, srcVertexStride);
+                var sphere = Meshopt.ComputeMeshletBounds(verts, tris, meshlet.triangle_count, srcVertices, srcVertexCount, srcVertexStride);
+
+                AABB aabb = AABB.FromCenterExtents(new(sphere.center[0], sphere.center[1], sphere.center[2]), new(sphere.radius));
+
+                meshletBounds[i] = new ShaderAABB(aabb,CullOverrides.None);
+                //meshletBounds[i] = new ShaderAABB(CalculateIndexBasedAABB(
+                //    new Span<Vector3>(srcVertices + (3 * meshlet.vertex_offset), (int)meshlet.vertex_count),
+                //    new Span<byte>(tris,(int)meshlet.triangle_count * 3)), CullOverrides.None);
             }
 
             return submeshData;
@@ -748,6 +775,69 @@ namespace VECS
             return dst;
         }
 
+        public static AABB CalculateVertexBasedAABB(Span<Vector3> vertices)
+        {
+            Vector3 min = new(float.MaxValue);
+            Vector3 max = new(float.MinValue);
+
+            for (int i = 0; i < vertices.Length; i++)
+            {
+                Vector3 position = vertices[i];
+
+                min = Vector3.Min(min, position);
+                max = Vector3.Max(max, position);
+            }
+
+            var aabb = AABB.FromMinMax(min, max);
+            var size = Vector3.Abs(aabb.Size);
+
+            if (size.X < float.Epsilon)
+            {
+                size.X = 0.01f;
+            }
+            if (size.Y < float.Epsilon)
+            {
+                size.Y = 0.01f;
+            }
+            if (size.Z < float.Epsilon)
+            {
+                size.Z = 0.01f;
+            }
+            aabb.Size = size;
+            return aabb;
+        }
+
+        public static AABB CalculateIndexBasedAABB(Span<Vector3> vertices, Span<byte> indices)
+        {
+            Vector3 min = new(float.MaxValue);
+            Vector3 max = new(float.MinValue);
+
+            for (int i = 0; i < indices.Length; i++)
+            {
+                Vector3 position = vertices[indices[i]];
+
+                min = Vector3.Min(min, position);
+                max = Vector3.Max(max, position);
+            }
+
+            var aabb = AABB.FromMinMax(min, max);
+            var size = Vector3.Abs(aabb.Size);
+
+            if (size.X < float.Epsilon)
+            {
+                size.X = 0.01f;
+            }
+            if (size.Y < float.Epsilon)
+            {
+                size.Y = 0.01f;
+            }
+            if (size.Z < float.Epsilon)
+            {
+                size.Z = 0.01f;
+            }
+            aabb.Size = size;
+            return aabb;
+        }
         #endregion
     }
 }

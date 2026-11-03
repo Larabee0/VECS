@@ -130,17 +130,17 @@ namespace VECS
             //
             // And so on. Translation can be handled by simply initializing the new min and max with the translation
             // amount since it does not affect the min and max bounds in local space.
-            var t1 = transform.c0 * new Vector3(aabb.Min.X, aabb.Min.X, aabb.Min.X);
-            var t2 = transform.c0 * new Vector3(aabb.Max.X, aabb.Max.X, aabb.Max.X);
+            var t1 = transform.c0 * new Vector3(aabb.Min.X);
+            var t2 = transform.c0 * new Vector3(aabb.Max.X);
             var minMask = NumericsExtensions.Less( t1 , t2);
             var transformed = AABB.FromMinMax(NumericsExtensions.Select(t2, t1, minMask), NumericsExtensions.Select(t2, t1, !minMask));
-            t1 = transform.c1 * new Vector3(aabb.Min.Y,aabb.Min.Y,aabb.Min.Y);
-            t2 = transform.c1 * new Vector3(aabb.Max.Y, aabb.Max.Y, aabb.Max.Y);
+            t1 = transform.c1 * new Vector3(aabb.Min.Y);
+            t2 = transform.c1 * new Vector3(aabb.Max.Y);
             minMask = NumericsExtensions.Less(t1, t2);
             transformed.Min += NumericsExtensions.Select(t2, t1, minMask);
             transformed.Max += NumericsExtensions.Select(t2, t1, !minMask);
-            t1 = transform.c2 * new Vector3(aabb.Min.Z,aabb.Min.Z,aabb.Min.Z);
-            t2 = transform.c2 * new Vector3(aabb.Max.Z, aabb.Max.Z, aabb.Max.Z);
+            t1 = transform.c2 * new Vector3(aabb.Min.Z);
+            t2 = transform.c2 * new Vector3(aabb.Max.Z);
             minMask = NumericsExtensions.Less(t1, t2);
             transformed.Min += NumericsExtensions.Select(t2, t1, minMask);
             transformed.Max += NumericsExtensions.Select(t2, t1, !minMask);

@@ -15,7 +15,7 @@ out gl_MeshPerVertexEXT {
   float gl_ClipDistance[3];
 } gl_MeshVerticesEXT[];
 
-layout(triangles, max_vertices = 64, max_primitives = 64) out;
+layout(triangles, max_vertices = MAX_MESH_VTX, max_primitives = MAX_MESH_TRIS) out;
 
 layout(location = 0) out vec2 fragUV[];
 
@@ -67,10 +67,6 @@ layout(std140, set = 3, binding = 0) readonly buffer TaskCommands{
 	MeshTaskCommand values[];
 } taskCommands;
 
-layout(std140, set = 3, binding = 1) buffer GeoInfo{
-    uvec4 values[];
-} geometryDrawn;
-
 layout(push_constant) uniform pushConstant{
 	uint cameraIndex;
     int matrixStartIndex;
@@ -78,6 +74,8 @@ layout(push_constant) uniform pushConstant{
 	int taskOffset;
     int taskCount;
 } constants;
+
+//shared vec3 vertexClip[MAX_MESH_VTX];
 
 mat4 getTransform(int bufferSelect, int bufferOffset) {
     switch(bufferSelect){
@@ -93,6 +91,23 @@ mat4 getTransform(int bufferSelect, int bufferOffset) {
             return tetraShadowMats.value[bufferOffset];
         default:
             return mat4(1.0);
+    }
+}
+
+vec2 getScreenSize(int bufferSelect, int bufferOffset){
+    switch(bufferSelect){
+        case 0:
+            return vec2(cameraData.values[max(bufferOffset,int(constants.cameraIndex))].width,cameraData.values[max(bufferOffset,int(constants.cameraIndex))].height);
+        case 1:
+            return vec2(8129,8129);
+        case 2:
+            return vec2(8129,8129);
+        case 3:
+            return vec2(8129,8129);
+        case 4:
+            return vec2(8129,8129);
+        default:
+            return vec2(8129,8129);
     }
 }
 
@@ -206,6 +221,8 @@ void main(){
     
     mat4 viewProjection = getTransform(constants.bufferSelect, constants.matrixStartIndex);
     mat4 modelMatrix = matricesBuffer.matrices[taskCommand.localMatrixIndex].modelMatrix;
+
+    vec2 screen = abs(getScreenSize(constants.bufferSelect, constants.matrixStartIndex));
     
     for(uint i = 0; i < outVertInfo.y; i++){
         positionWorld = modelMatrix * vec4(vertexPositionBuffer.pos[vertexOffset + i].xyz, 1.0);
@@ -216,20 +233,47 @@ void main(){
         gl_MeshVerticesEXT[outVertInfo.x + i].gl_ClipDistance[1] = clipDist.y;
         gl_MeshVerticesEXT[outVertInfo.x + i].gl_ClipDistance[2] = clipDist.z;
 
+        
+		//vertexClip[outVertInfo.x + i] = vec3((positionWorld.xy / positionWorld.w * 0.5 + vec2(0.5)) * screen, positionWorld.w);
+
         fragUV[outVertInfo.x + i] = vertexTexCoord0Buffer.uv[vertexOffset + i];
     }
 
     //return;
     
     uint index;
+    uvec3 abc;
     for(uint i = 0; i < outTriInfo.y; i++){
         index = i * 3;
         //gl_PrimitiveTriangleIndicesEXT[outTriInfo.x + i] = uvec3(0);
-        gl_PrimitiveTriangleIndicesEXT[outTriInfo.x + i] = uvec3(
+        abc = uvec3(
             indexBuffer.indices[indexOffset + index + 0],
             indexBuffer.indices[indexOffset + index + 1],
             
             indexBuffer.indices[indexOffset + index + 2]
         );
+        gl_PrimitiveTriangleIndicesEXT[outTriInfo.x + i] = abc;
+
+        /*
+        bool culled = false;
+        vec2 pa = vertexClip[abc.x].xy;
+        vec2 pb = vertexClip[abc.y].xy;
+        vec2 pc = vertexClip[abc.z].xy;
+		vec2 eb = pb - pa;
+		vec2 ec = pc - pa;
+
+		culled = culled || (eb.x * ec.y > eb.y * ec.x);
+        
+        vec2 bmin = min(pa, min(pb, pc));
+        vec2 bmax = max(pa, max(pb, pc));
+
+        float sbprec = 1.0 / 256.0;
+
+        culled = culled || (round(bmin.x - sbprec) == round(bmax.x) || round(bmin.y) == round(bmax.y + sbprec));
+
+        culled = culled && (vertexClip[abc.x].z < 0 && vertexClip[abc.y].z < 0 && vertexClip[abc.z].z < 0);
+
+        gl_MeshPrimitivesEXT[outTriInfo.x + i].gl_CullPrimitiveEXT = culled;
+        */
     }
 }

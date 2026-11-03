@@ -113,7 +113,7 @@ namespace VECS
                 || (_wireSpheres.Count > 0)
                 || (_fustrums.Count > 0))
             {
-                var drawCount = _wireCubes.Count + _wireSpheres.Count + _lineQueue.Count;
+                var drawCount = _wireCubes.Count +( _wireSpheres.Count*4) + _lineQueue.Count;
 
                 if (_matrices.InstanceCount32 < drawCount)
                 {

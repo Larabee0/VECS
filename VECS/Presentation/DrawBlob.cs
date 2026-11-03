@@ -180,6 +180,7 @@ namespace VECS
         private static SwapChainBuffer<VECSDrawIndexIndirectCommand> _indirectCmdBuffer;
         internal static SwapChainBuffer<MeshIndirectDraw> _indirectTaskBuffer;
         internal static SwapChainBuffer<MeshTaskCommand> _meshTaskCommands;
+        internal static SwapChainBuffer _meshTaskCullLocalData;
 
         private static QueueBase[] _queues = [];
 
@@ -233,6 +234,12 @@ namespace VECS
                      true);
              _ = new SwapChainBufferAsset("MeshTaskCommands", _meshTaskCommands);
             EngineBuffers.AddOrUpdateEngineBuffer("taskCommands".GetShaderPropertyId(), _meshTaskCommands);
+
+            ShaderProperties.IgnoreUnFoundShaderProperties.Add("meshTaskCullData".GetShaderPropertyId());
+            _meshTaskCullLocalData = new(128,1,VkBufferUsageFlags.StorageBuffer,false,false);
+            _ = new SwapChainBufferAsset("MeshTaskLocalCullInfo", _meshTaskCullLocalData);
+            EngineBuffers.AddOrUpdateEngineBuffer("meshTaskCullData".GetShaderPropertyId(), _meshTaskCullLocalData);
+
             GC.Collect();
         }
 
@@ -377,9 +384,9 @@ namespace VECS
             });
 #endif
             int batchCount = 0;
+            var hostBufferMeshTask = _meshTaskCommands.HostBuffer;
 #if DEBUG
             var hostBuffer = _indirectCmdBuffer.HostBuffer;
-            var hostBufferMeshTask = _meshTaskCommands.HostBuffer;
             for (int j = 0; j < _queues.Length; j++)
             {
                 batchCount+=SortAndBuild(hostBuffer, hostBufferMeshTask, j);

@@ -1,4 +1,6 @@
-﻿using System.Numerics;
+﻿using System;
+using System.Collections.Generic;
+using System.Numerics;
 using VECS.ECS.Transforms;
 using VECS.LowLevel;
 
@@ -39,16 +41,43 @@ namespace VECS.ECS.Presentation
             QueueCameraFustrums(entityManager);
         }
 
-        internal void QueueBoundingBoxes(EntityManager entityManager)
+        internal unsafe void QueueBoundingBoxes(EntityManager entityManager)
         {
             if (!_drawBounds || !_renderBoundsQuery.HasEntities) return;
             var entities = _renderBoundsQuery.GetEntities();
-
+            HashSet<DirectMesh> readMeshlets = new();
             for (int i = 0; i < entities.Count; i++)
             {
                 var entity = entities[i];
                 AABB bounds = entityManager.GetComponent<WorldRenderBounds>(entity).Value;
-                DebugDrawer.DrawWireCube(bounds.Center, bounds.Size, Quaternion.Identity);
+                //DebugDrawer.DrawWireCube(bounds.Center, bounds.Size, Quaternion.Identity);
+                if (GraphicsDevice.MeshShading)
+                {
+                    if (entityManager.GetComponent<RenderMesh>(entity, out var renderMesh) && entityManager.GetComponent<LocalToWorld>(entity, out var ltw))
+                    {
+                        var directMesh = AssetDataBase<DirectMesh>.GetHashed(renderMesh.MeshHash);
+                        readMeshlets.Add(directMesh);
+                        //directMesh._meshletBuffer.ReadToHostBuffer();
+                        var submesh = directMesh.DirectSubMeshes[renderMesh.SubMesh];
+                        var meshletBounds = directMesh._meshletBoundsBuffer.HostBuffer;
+                        var meshlets = directMesh._meshletBuffer.HostBuffer;
+                        var meshletData = submesh.MeshletData;
+                        var ltwM = ltw.Value;
+                        for (int j = 0; j < meshletData.MeshletCount; j++)
+                        {
+                            //var meshletBound = meshletBounds[meshletData.MeshletOffset + j];
+                            var meshletBound = AABB.Transform(ltwM, meshletBounds[meshletData.MeshletOffset + j]);
+
+                            DebugDrawer.DrawWireCube(meshletBound.Center, meshletBound.Size,Quaternion.Identity);
+                        }
+                        
+                    }
+                }
+            }
+
+            foreach (var item in readMeshlets)
+            {
+                item._meshletBuffer.ReadToHostBuffer();
             }
         }
 

@@ -90,8 +90,8 @@ namespace VECS.LowLevel
             BreakOnValidationError = false;
 
 #else
-            createInfo.enabledLayerCount = 0;
-            createInfo.pNext = null;
+            instanceCreateInfo.enabledLayerCount = 0;
+            instanceCreateInfo.pNext = null;
 #endif
             Vulkan.vkCreateInstance(&instanceCreateInfo, null, out _instance).CheckResult("Failed to create vulkan instance!");
 #if DEBUG

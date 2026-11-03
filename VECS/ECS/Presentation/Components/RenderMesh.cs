@@ -52,12 +52,12 @@ namespace VECS.ECS.Presentation
         }
 
 
-#if DEBUG
         public readonly int MeshHash => Mesh.Hash;
         public readonly int SubMesh => Mesh.SubMesh;
         public readonly int MatHash => Material.Hash;
         public readonly int MatVar => Material.Variant;
         public readonly int MatEntity => Material.Entity;
+#if DEBUG
         public readonly DirectMesh DEBUG_DirectMesh => AssetDataBase<DirectMesh>.GetHashedSilentFail(Mesh.Hash);
         public readonly DirectSubMesh DEBUG_DirectSubMesh => DirectSubMesh.GetSubMeshAtIndex(Mesh);
         public readonly GraphicsPipeline DEBUG_Mat => AssetDataBase<GraphicsPipeline>.GetHashedSilentFail(MatHash);

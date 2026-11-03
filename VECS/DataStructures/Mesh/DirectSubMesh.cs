@@ -85,47 +85,7 @@ namespace VECS
 
         public void RecalculateRenderBounds()
         {
-            float minX = float.MaxValue;
-            float minY = float.MaxValue;
-            float minZ = float.MaxValue;
-
-            float maxX = float.MinValue;
-            float maxY = float.MinValue;
-            float maxZ = float.MinValue;
-
-            var vertices = Vertices;
-
-            for (int i = 0; i < VertexCount; i++)
-            {
-                Vector3 position = vertices[i];
-
-                minX = Math.Min(minX, position.X);
-                minY = Math.Min(minY, position.Y);
-                minZ = Math.Min(minZ, position.Z);
-
-                maxX = Math.Max(maxX, position.X);
-                maxY = Math.Max(maxY, position.Y);
-                maxZ = Math.Max(maxZ, position.Z);
-            }
-
-            Vector3 min = new(minX, minY, minZ);
-            Vector3 max = new(maxX, maxY, maxZ);
-            var b = AABB.FromMinMax(min, max);
-            var size = b.Size;
-            if (MathF.Abs(size.X) < float.Epsilon)
-            {
-                size.X = .1f;
-            }
-            if (MathF.Abs(size.Y) < float.Epsilon)
-            {
-                size.Y = .1f;
-            }
-            if (MathF.Abs(size.Z) < float.Epsilon)
-            {
-                size.Z = .1f;
-            }
-            b.Size = size;
-            _modelBounds = b;
+            _modelBounds = MeshExtensions.CalculateVertexBasedAABB(Vertices);
         }
 
         internal void SetBounds(Vector3 min, Vector3 max)

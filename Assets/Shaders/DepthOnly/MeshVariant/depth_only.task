@@ -6,23 +6,32 @@
 #extension GL_EXT_debug_printf : require
 #include "../../common_structures.glsl"
 #include "../../mesh_shader_structures.glsl"
+#include "../../ComputeShaders/culling_helpers.glsl"
+
+layout (std140, set = 0, binding = 0) readonly buffer ObjectMatricesBuffer{
+	ObjectMatrices matrices[];
+} matricesBuffer;
 
 layout(set = 1, binding = 0) readonly buffer CameraDatas {
 	CameraData values[];
 } cameraData;
 
 
-layout(std140, set = 2, binding = 0) readonly buffer MeshletBuffer{
+layout(std140, set = 2, binding = 0) buffer MeshletBuffer{
 	Meshlet meshlets[];
 } meshletsBuffer;
 
 layout(std140, set = 2, binding = 1) readonly buffer BoundsBuffer{
-	Bounds bounds[];
+	ObjectBounds bounds[];
 } meshletBoundsBuffer;
 
 layout(std140, set = 3, binding = 0) readonly buffer TaskCommands{
 	MeshTaskCommand values[];
 } taskCommands;
+
+layout(set = 3, binding = 1) readonly buffer MeshTaskLocalCullInfo {
+	MeshTaskCullData values[];
+} meshTaskCullData;
 
 layout(push_constant) uniform pushConstant{
 	uint cameraIndex;
@@ -74,19 +83,33 @@ void main(){
 		//debugPrintfEXT("%u %u task %u meshRange offset %u index %u count %u", gl_WorkGroupID.x, gl_LocalInvocationID.x, taskIndex, meshletOffset, meshletIndex, localMeshletCount);
 		meshletIndex += command.meshletOffset;
     	Meshlet meshlet = meshletsBuffer.meshlets[meshletIndex];
+		MeshTaskCullData cullInfo = meshTaskCullData.values[0];
+		bvec4 cullModeInfo = cullingMode(command.layerFlags, cullInfo.includeMask, cullInfo.excludeMask, cullInfo.cullMode);
 
-    	uint verticesPerInvoke = GetPerInvoke(meshlet.vertex_count);
-    	uint trianglesPerInvoke = GetPerInvoke(meshlet.triangle_count);
-		
-		MeshletInfo info = {
-			meshletIndex,
-			uint16_t(verticesPerInvoke),
-			uint16_t(trianglesPerInvoke)
-		};
+        if(cullModeInfo.x && cullModeInfo.y) {
+            cullModeInfo.x = IsVisible(
+				TransformAABB(meshletBoundsBuffer.bounds[meshletIndex], matricesBuffer.matrices[command.localMatrixIndex].modelMatrix),
+                cullModeInfo.z ? 6 : 4,
+                cullInfo.frustum
+            );
+			//cullModeInfo.x = true;
+        }
+		if(cullModeInfo.x) {
+    		uint verticesPerInvoke = GetPerInvoke(meshlet.vertex_count);
+    		uint trianglesPerInvoke = GetPerInvoke(meshlet.triangle_count);
 
-		uint index = atomicAdd(payload.meshletCount, 1);
-		payload.perMeshlet[index] = info;
-    	//debugPrintfEXT("%u %u meshletIndex %u", gl_WorkGroupID.x, gl_GlobalInvocationID.x, payload.perMeshlet[index].index);
+			MeshletInfo info = {
+				meshletIndex,
+				uint16_t(verticesPerInvoke),
+				uint16_t(trianglesPerInvoke)
+			};
+
+			uint index = atomicAdd(payload.meshletCount, 1);
+			payload.perMeshlet[index] = info;
+
+    		//debugPrintfEXT("%u %u meshletIndex %u", gl_WorkGroupID.x, gl_GlobalInvocationID.x, payload.perMeshlet[index].index);
+			
+		}
 	}
 
 	barrier();

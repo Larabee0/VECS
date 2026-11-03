@@ -6,6 +6,7 @@
 #include "common_structures.glsl"
 #include "mesh_shader_structures.glsl"
 
+
 layout(set = 0, binding = 0) readonly buffer CameraDatas {
 	CameraData values[];
 } cameraData;
