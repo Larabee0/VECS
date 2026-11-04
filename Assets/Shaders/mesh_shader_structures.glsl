@@ -37,10 +37,10 @@ struct MeshletInfo {
 };
 
 struct MeshTaskPayload {
-    uint TaskGroupID;
+    //uint TaskGroupID;
     uint taskIndex;
-    uint meshletCount;
-    uint meshletOffset;
+    //uint meshletCount;
+    //uint meshletOffset;
     MeshletInfo perMeshlet[TASK_LOCAL_SIZE_X];
 };
 

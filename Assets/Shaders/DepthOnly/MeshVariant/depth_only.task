@@ -45,13 +45,14 @@ taskPayloadSharedEXT MeshTaskPayload payload;
 
 
 shared uint localMeshletCount;
+shared uint totalmeshletCount;
 
 layout (local_size_x = TASK_LOCAL_SIZE_X, local_size_y = 1) in;
 void main(){
 	MeshTaskCommand command;
 	uint taskIndex = 0;
 	if(gl_LocalInvocationID.x == 0){
-		payload.meshletCount = 0;
+		totalmeshletCount = 0;
 		uint taskStartOffset;
 		uint endRange;
 		for(uint i = constants.taskOffset; i < constants.taskCount; i++){
@@ -104,7 +105,7 @@ void main(){
 				uint16_t(trianglesPerInvoke)
 			};
 
-			uint index = atomicAdd(payload.meshletCount, 1);
+			uint index = atomicAdd(totalmeshletCount, 1);
 			payload.perMeshlet[index] = info;
 
     		//debugPrintfEXT("%u %u meshletIndex %u", gl_WorkGroupID.x, gl_GlobalInvocationID.x, payload.perMeshlet[index].index);
@@ -116,14 +117,13 @@ void main(){
 	if(gl_LocalInvocationID.x == 0)
 	{
 		uint invocationsSoFar = gl_WorkGroupID.x * TASK_LOCAL_SIZE_X;
-		uint originalMeshletCount = payload.meshletCount; 
-		payload.meshletCount = min(payload.meshletCount, command.meshletCount - invocationsSoFar);
-		payload.meshletOffset = invocationsSoFar;
-		payload.TaskGroupID = gl_WorkGroupID.x;
+		uint meshShadersToInvoke =  min(totalmeshletCount, command.meshletCount - invocationsSoFar);
+		//payload.meshletOffset = invocationsSoFar;
+		//payload.TaskGroupID = gl_WorkGroupID.x;
 		payload.taskIndex = taskIndex;
 		
 
     	//debugPrintfEXT("%u %u emit meshlets %u | %u", gl_WorkGroupID.x, gl_GlobalInvocationID.x, payload.meshletCount, originalMeshletCount);
-		EmitMeshTasksEXT(payload.meshletCount, 1, 1);
+		EmitMeshTasksEXT(meshShadersToInvoke, 1, 1);
 	}
 }
