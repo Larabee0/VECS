@@ -18,8 +18,10 @@ out gl_MeshPerVertexEXT {
 layout(triangles, max_vertices = MAX_MESH_VTX, max_primitives = MAX_MESH_TRIS) out;
 
 layout(location = 0) out vec2 fragUV[];
-//layout(location = 1) out vec3 fragClip[];
-//shared vec3 vertexClip[MAX_MESH_VTX];
+// layout(location = 1) out vec3 fragClip[];
+// shared vec3 vertexClip [MAX_MESH_VTX];
+// shared bool vertexOOB [MAX_MESH_VTX];
+shared vec3 vertexClipNDC [MAX_MESH_VTX];
 
 layout (std140, set = 0, binding = 0) readonly buffer ObjectMatricesBuffer{
 	ObjectMatrices matrices[];
@@ -229,59 +231,72 @@ void main(){
         positionWorld = modelMatrix * vec4(vertexPositionBuffer.pos[vertexOffset + i].xyz, 1.0);
         
         clipDist = getClipDist(positionWorld.xyz);
-        gl_MeshVerticesEXT[outVertInfo.x + i].gl_Position = viewProjection * positionWorld;
+        positionWorld = viewProjection * positionWorld;
+        gl_MeshVerticesEXT[outVertInfo.x + i].gl_Position = positionWorld;
         gl_MeshVerticesEXT[outVertInfo.x + i].gl_ClipDistance[0] = clipDist.x;
         gl_MeshVerticesEXT[outVertInfo.x + i].gl_ClipDistance[1] = clipDist.y;
         gl_MeshVerticesEXT[outVertInfo.x + i].gl_ClipDistance[2] = clipDist.z;
         fragUV[outVertInfo.x + i] = vertexTexCoord0Buffer.uv[vertexOffset + i];
-        /*
-        positionWorld = viewProjection * positionWorld;
-        vec2 clip = vec2((positionWorld.xy / positionWorld.w));
-		vertexClip[outVertInfo.x + i] = vec3((positionWorld.xy / positionWorld.w * 0.5 + vec2(0.5)) * screen, positionWorld.w);
-        clip =vec2(greaterThan(abs(clip),vec2(1.0)));
-        fragClip[outVertInfo.x + i] = vec3(clip,float(any(greaterThan(abs(vec2((positionWorld.xy / positionWorld.w))),vec2(1.0)))));
-        */
+
+        // vec2 clip = vec2(positionWorld.xy / positionWorld.w);
+        //vertexClip[outVertInfo.x + i] = vec3((clip * 0.5 + vec2(0.5)) * screen, positionWorld.w);
+        //vertexOOB[outVertInfo.x + i] = all(greaterThan(abs(vec2(clip)),vec2(1.0)));;
+        vertexClipNDC[outVertInfo.x + i] = vec3(positionWorld.xy / positionWorld.w, positionWorld.w);
+        //fragClip[outVertInfo.x + i] = vec3(clip, positionWorld.w);
+        
     }
 
     //return;
     barrier();
     uint index;
     uvec3 abc;
+    vec3 pa;
+    vec3 pb;
+    vec3 pc;
     for(uint i = 0; i < outTriInfo.y; i++){
         index = i * 3;
         //gl_PrimitiveTriangleIndicesEXT[outTriInfo.x + i] = uvec3(0);
         abc = uvec3(
-            indexBuffer.indices[indexOffset + index + 0],
-            indexBuffer.indices[indexOffset + index + 1],
-            
-            indexBuffer.indices[indexOffset + index + 2]
+            uint(indexBuffer.indices[indexOffset + index + 0]),
+            uint(indexBuffer.indices[indexOffset + index + 1]),
+            uint(indexBuffer.indices[indexOffset + index + 2])
         );
         gl_PrimitiveTriangleIndicesEXT[outTriInfo.x + i] = abc;
 
-        /*
-        bool culled = false;
-        vec2 pa = vertexClip[abc.x].xy;
-        vec2 pb = vertexClip[abc.y].xy;
-        vec2 pc = vertexClip[abc.z].xy;
+        
+        //bool culled = false;
+        //vec2 pa = vertexClip[abc.x].xy;
+        //vec2 pb = vertexClip[abc.y].xy;
+        //vec2 pc = vertexClip[abc.z].xy;
         
 		// backface culling + zero-area culling
-		vec2 eb = pb - pa;
-		vec2 ec = pc - pa;
+		//vec2 eb = pb - pa;
+		//vec2 ec = pc - pa;
 
 		//culled = culled || (eb.x * ec.y <= eb.y * ec.x);
 
 		// small primitive culling
-		vec2 bmin = min(pa, min(pb, pc));
-		vec2 bmax = max(pa, max(pb, pc));
-		const float sbprec = 1.0 / 256.0; // note: this can be set to 1/2^subpixelPrecisionBits
+		//vec2 bmin = min(pa, min(pb, pc));
+		//vec2 bmax = max(pa, max(pb, pc));
+		//const float sbprec = 1.0 / 256.0; // note: this can be set to 1/2^subpixelPrecisionBits
 
 		// note: this is slightly imprecise (doesn't fully match hw behavior and is both too loose and too strict)
-		culled = culled || (round(bmin.x - sbprec) == round(bmax.x) || round(bmin.y) == round(bmax.y + sbprec));
+		//culled = culled || (round(bmin.x - sbprec) == round(bmax.x) || round(bmin.y) == round(bmax.y + sbprec));
 
 		// the computations above are only valid if all vertices are in front of perspective plane
-		culled = culled && (vertexClip[abc.x].z > 0 && vertexClip[abc.y].z > 0 && vertexClip[abc.z].z > 0);
+		//culled = culled && (vertexClip[abc.x].z > 0 && vertexClip[abc.y].z > 0 && vertexClip[abc.z].z > 0);
+        
+        pa = vertexClipNDC[abc.x];
+        pb = vertexClipNDC[abc.y];
+        pc = vertexClipNDC[abc.z];
+
+        gl_MeshPrimitivesEXT[outTriInfo.x + i].gl_CullPrimitiveEXT = (pa.z < 0.0 && pb.z < 0.0 && pc.z < 0.0)
+                            || (((pa.x > 1.0 && pb.x > 1.0 && pc.x > 1.0) || (pa.x < -1.0 && pb.x < -1.0 && pc.x < -1.0))
+                                && ((pa.y > 1.0 && pb.y > 1.0 && pc.y > 1.0) || (pa.y < -1.0 && pb.y < -1.0 && pc.y < -1.0)));
+        
+        
 
         //gl_MeshPrimitivesEXT[outTriInfo.x + i].gl_CullPrimitiveEXT = culled;
-        */
+        
     }
 }

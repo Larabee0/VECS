@@ -297,7 +297,7 @@ namespace VECS
 
         #region  MeshShading
         public const uint MAX_MESHLET_VERTS = 64;
-        public const uint MAX_MESHLET_TRIS = 64;
+        public const uint MAX_MESHLET_TRIS = 96;
         public const float MESHLET_CONE_WEIGHT = 0.0f;
 
         private static unsafe SubmeshMeshletData CreateMeshlets(DirectSubMesh subMesh,

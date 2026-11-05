@@ -1,7 +1,7 @@
 #define TASK_LOCAL_SIZE_X  64
-#define MESH_LOCAL_SIZE_X  64
+#define MESH_LOCAL_SIZE_X  32
 #define MAX_MESH_VTX 64
-#define MAX_MESH_TRIS 64
+#define MAX_MESH_TRIS 96
 
 struct Meshlet {
     uint vertex_offset;
