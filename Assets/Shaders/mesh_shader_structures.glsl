@@ -24,12 +24,23 @@ struct MeshTaskCommand {
     uint meshletCount;
     uint taskStartOffset;
     uint triangleStartIndex;
+
     uint vertexStartIndex;
     uint absMatrixIndex;
     uint localMatrixIndex;
-	uint8_t layerFlags;
+    uint8_t  layerFlags;
 };
 
+struct MeshTaskCullData{
+	mat4 viewProj;
+	uint8_t includeMask;
+	uint8_t excludeMask;
+	uint8_t cullMode;
+    
+    uint8_t  projectionBufferSelect;
+    uint16_t projectionBufferOffset;
+
+};
 struct MeshletInfo {
     uint index;
     uint16_t verts;

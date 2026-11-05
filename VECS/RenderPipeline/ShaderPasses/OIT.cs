@@ -125,7 +125,7 @@ namespace VECS
             VkCommandBuffer commandBuffer = frameInfo.CommandBuffer;
 
             var cullData = frameInfo.CullData;
-            cullData.cullMode &= ~CullModeFlags.Depth;
+            cullData.CullMode &= ~CullModeFlags.Depth;
 
             DrawBlob.SetTargetCamera(_transparentQueue, frameInfo.TargetCamera);
             DrawBlob.Cull(_transparentQueue, frameInfo.CommandBuffer, cullData);

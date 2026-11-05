@@ -28,17 +28,21 @@ layout(std140, set = 0, binding = 2) buffer TaskCommands {
 } meshTaskCommands;
 
 layout(set = 0, binding = 3) uniform CullData {
-	vec4 frustum[6]; // data for left/right/top/bottom frustum planes
+	//vec4 frustum[6]; // data for left/right/top/bottom frustum planes
+    mat4 viewProj;
 	mat4 viewMatrix;
+    vec4 sphere;
 	vec2 pyramid;
 	float zNear;
 	float P00;
 	float P11;
 	uint drawCount;
+    uint projectionSelect;
+    uint projectionIndex;
 	uint8_t includeMask;
 	uint8_t excludeMask;
 	uint8_t cullMode;
-	uint8_t padding;
+    uint8_t cullShape;
 } cullData;
 
 
@@ -61,10 +65,13 @@ void main() {
 		
     }
     if(gl_GlobalInvocationID.x == 0){
-        meshTaskCullData.values[0].frustum = cullData.frustum;
+        meshTaskCullData.values[0].viewProj = cullData.viewProj;
         meshTaskCullData.values[0].includeMask = cullData.includeMask;
         meshTaskCullData.values[0].excludeMask = cullData.excludeMask;
         meshTaskCullData.values[0].cullMode = cullData.cullMode;
+        
+        meshTaskCullData.values[0].projectionBufferSelect = uint8_t(cullData.projectionSelect);
+        meshTaskCullData.values[0].projectionBufferOffset = uint16_t(cullData.projectionIndex);
     }
 
     barrier();
@@ -89,16 +96,27 @@ void main() {
     if(count == 0 && gl_LocalInvocationID.x != 0) return;
     //debugPrintfEXT("%u %u cullinfo localOffset: %u | Count: %u | Max: %u", gl_WorkGroupID.x, gl_LocalInvocationID.x, localOffset, count, max);
     bvec4 cullModeInfo;
+    uint cullShape = uint(cullData.cullShape);
+
     for(uint i = localOffset; i < count; i++) {
 
 		cullModeInfo = cullingMode(meshTaskCommands.values[i].layerFlags, cullData.includeMask, cullData.excludeMask, cullData.cullMode);
 
         if(cullModeInfo.x && cullModeInfo.y) {
-            cullModeInfo.x = IsVisible(
-                boundsBuffer.bounds[meshTaskCommands.values[i].absMatrixIndex],
-                cullModeInfo.z ? 6 : 4,
-                cullData.frustum
-            );
+
+            switch(cullShape){
+                case 0:
+                cullModeInfo.x = IsVisible(
+                    boundsBuffer.bounds[meshTaskCommands.values[i].absMatrixIndex],
+                    cullModeInfo.z,
+                    cullData.viewProj
+                );
+                break;
+                case 1:
+                cullModeInfo.x = AABB_Intersects_Sphere(boundsBuffer.bounds[meshTaskCommands.values[i].absMatrixIndex],
+                            cullData.sphere);
+                break;
+            }
         }
 
         if(cullModeInfo.x) {

@@ -374,7 +374,7 @@ namespace VECS.LowLevel
                 shaderDrawParameters = true,
                 multiviewGeometryShader = true,
                 multiview = true,
-
+                storageBuffer16BitAccess = true,
                 pNext = &descriptorBuffers
             };
 
@@ -403,6 +403,7 @@ namespace VECS.LowLevel
                 maintenance4 = true,
                 dynamicRendering = true,
                 synchronization2 = true,
+
                 shaderDemoteToHelperInvocation = true,
                 pNext = &deviceFeatures12
             };
@@ -425,6 +426,7 @@ namespace VECS.LowLevel
                 imageCubeArray = true,
                 shaderClipDistance = true,
                 shaderInt16 = true,
+
             };
 
             VkPhysicalDeviceFeatures2 deviceFeatures2 = new()

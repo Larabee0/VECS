@@ -312,7 +312,11 @@ namespace VECS
                 0,
                 _projMatrices[cameraOffset + cascadeIndex],
                 _viewMatrices[cameraOffset + cascadeIndex]
-            );
+            )
+            {
+                ProjectionSelect = DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX,
+                ProjectionOffset = (uint)(cameraOffset + cascadeIndex)
+            };
 
             CullShadow(commandBuffer, depthBufferCullInfo);
 

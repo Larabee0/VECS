@@ -233,7 +233,11 @@ namespace VECS
 
         private static RendererFrameInfo CreateRendererFrameInfo(float deltaTime, int targetCamera, VkCommandBuffer mainCommandBuffer, LightingInfo lightingInfo, float nearPlane, Matrix4x4 projectionMatrix, Matrix4x4 viewMatrix, CullModeFlags cullMode = CullModeFlags.Fustrum | CullModeFlags.Distance)
         {
-            CullData cullData = new(RenderLayer.All, RenderLayer.OnlyShadow, cullMode, nearPlane, projectionMatrix,viewMatrix);
+            CullData cullData = new(RenderLayer.All, RenderLayer.OnlyShadow, cullMode, nearPlane, projectionMatrix, viewMatrix)
+            {
+                ProjectionOffset = (uint)targetCamera,
+                ProjectionSelect = 0
+            };
             return new RendererFrameInfo(
                 targetCamera,
                 deltaTime,

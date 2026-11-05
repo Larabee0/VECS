@@ -236,7 +236,7 @@ namespace VECS
             EngineBuffers.AddOrUpdateEngineBuffer("taskCommands".GetShaderPropertyId(), _meshTaskCommands);
 
             ShaderProperties.IgnoreUnFoundShaderProperties.Add("meshTaskCullData".GetShaderPropertyId());
-            _meshTaskCullLocalData = new(128,1,VkBufferUsageFlags.StorageBuffer,false,false);
+            _meshTaskCullLocalData = new(1,96,VkBufferUsageFlags.StorageBuffer,false,false);
             _ = new SwapChainBufferAsset("MeshTaskLocalCullInfo", _meshTaskCullLocalData);
             EngineBuffers.AddOrUpdateEngineBuffer("meshTaskCullData".GetShaderPropertyId(), _meshTaskCullLocalData);
 

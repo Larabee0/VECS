@@ -272,7 +272,7 @@ namespace VECS
             if (_depthOnlyQueue.CommandCount > 0)
             {
                 var depthBufferCullInfo = frameInfo.CullData;
-                depthBufferCullInfo.cullMode &= ~CullModeFlags.Depth;
+                depthBufferCullInfo.CullMode &= ~CullModeFlags.Depth;
 
 
                 DrawBlob.SetTargetCamera(_depthOnlyQueue, frameInfo.TargetCamera);

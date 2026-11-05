@@ -90,10 +90,9 @@ void main(){
         if(cullModeInfo.x && cullModeInfo.y) {
             cullModeInfo.x = IsVisible(
 				TransformAABB(meshletBoundsBuffer.bounds[meshletIndex], matricesBuffer.matrices[command.localMatrixIndex].modelMatrix),
-                cullModeInfo.z ? 6 : 4,
-                cullInfo.frustum
+                cullModeInfo.z,
+                cullInfo.viewProj
             );
-			//cullModeInfo.x = true;
         }
 		if(cullModeInfo.x) {
     		uint verticesPerInvoke = GetPerInvoke(meshlet.vertex_count);

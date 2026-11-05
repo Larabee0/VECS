@@ -127,7 +127,7 @@ namespace VECS
 
         private static unsafe void ComputeShaderTransfer(RendererFrameInfo frameInfo)
         {
-            if (!frameInfo.CullData.cullMode.HasFlag(CullModeFlags.Depth)) return;
+            if (!frameInfo.CullData.CullMode.HasFlag(CullModeFlags.Depth)) return;
 
             var depthTexture = EngineTextures.TryGetTexture(ShaderProperties.MainDepthAttachmentId).First;
             

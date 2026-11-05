@@ -171,7 +171,11 @@ namespace VECS
         {
             DepthOnlyPushConstants depthOnlyPushConstants = new() { BufferSelect = POINT_SHADOWS_PUSH_CONSTANT_INDEX, MatrixStartIndex = (index * 6) + i };
             Span<DepthOnlyPushConstants> pushBuffer = new(ref depthOnlyPushConstants);
-            CullData depthBufferCullInfo = new(SHADOW_INCLUDE_MASK, SHADOW_EXCLUDE_MASK, SHADOW_CULL_MODE, 0.1f, CubeProjectionMatrix, GetViewMatrix(i, pointLight.Position.AsVector3()));
+            CullData depthBufferCullInfo = new(SHADOW_INCLUDE_MASK, SHADOW_EXCLUDE_MASK, SHADOW_CULL_MODE, 0.1f, CubeProjectionMatrix, GetViewMatrix(i, pointLight.Position.AsVector3()))
+            {
+                ProjectionSelect = POINT_SHADOWS_PUSH_CONSTANT_INDEX,
+                ProjectionOffset = (uint)((index * 6) + i)
+            };
 
             DebugDrawer.DrawLine(pointLight.Position.AsVector3(), GetViewMatrix(i, pointLight.Position.AsVector3()).Forward(), new Vector4(1f, 0f, 1f, 1f).ToVkColor());
             CullShadow(commandBuffer, depthBufferCullInfo);

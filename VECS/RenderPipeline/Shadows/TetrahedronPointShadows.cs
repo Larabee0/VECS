@@ -267,7 +267,11 @@ namespace VECS
                     0.01f,
                     projs[i],
                     views[i]
-                );
+                )
+                {
+                    ProjectionSelect = 4,
+                    ProjectionOffset = (uint)(i)
+                };
 
                 CullShadow(commandBuffer, depthBufferCullInfo);
 

@@ -137,7 +137,11 @@ namespace VECS
             SetImageLayoutWrite(frameInfo.CommandBuffer, texture);
 
             GetSpaceMatrix(spotLight, out var near, out var view, out var proj);
-            CullData depthBufferCullInfo = new(SHADOW_INCLUDE_MASK, SHADOW_EXCLUDE_MASK, SHADOW_CULL_MODE, near, proj, view);
+            CullData depthBufferCullInfo = new(SHADOW_INCLUDE_MASK, SHADOW_EXCLUDE_MASK, SHADOW_CULL_MODE, near, proj, view)
+            {
+                ProjectionSelect = SPOT_SHADOWS_PUSH_CONSTANT_INDEX,
+                ProjectionOffset = (uint)(textureIndex)
+            };
 
             CullShadow(frameInfo.CommandBuffer, depthBufferCullInfo);
             GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Depth Pass");

@@ -32,6 +32,12 @@ namespace VECS
         All = Fustrum | Distance | Depth
     }
 
+    public enum CullShape : byte
+    {
+        Fustrum = 0,
+        Sphere = 1,
+        AABB = 2,
+    }
 
 
     [StructLayout(LayoutKind.Sequential, Size = 32)]
@@ -60,88 +66,88 @@ namespace VECS
         }
     }
 
-    [StructLayout(LayoutKind.Sequential, Size = 192)]
+    [StructLayout(LayoutKind.Sequential, Size = 184)]
     public struct CullData
     {
-        public Vector4 left;
-        public Vector4 right;
-        public Vector4 bottom;
-        public Vector4 top;
-        public Vector4 near;
-        public Vector4 far;
+        public Matrix4x4 ViewProj;
         public Matrix4x4 View;
-        public Vector2 pyramid;
-        public float zNear;
+        public Vector4 Sphere;
+        public Vector2 Pyramid;
+        public float ZNear;
         public float P00;
         public float P11;
-        public uint drawCount;
+        public uint DrawCount;
+        public uint ProjectionSelect;
+        public uint ProjectionOffset;
         public RenderLayer IncludeMask;
         public RenderLayer ExcludeMask;
-        public CullModeFlags cullMode;
-        private readonly byte Padding;
-
+        public CullModeFlags CullMode;
+        public CullShape CullShape;
 
         public readonly Vector4 this[int i] => i switch
         {
-            0 => left,
-            1 => right,
-            2 => bottom,
-            3 => top,
-            4 => near,
-            5 => far,
+            0 => ViewProj.GetMatrixColumn(3) + ViewProj.GetMatrixColumn(0),
+            1 => ViewProj.GetMatrixColumn(3) - ViewProj.GetMatrixColumn(0),
+            2 => ViewProj.GetMatrixColumn(3) - ViewProj.GetMatrixColumn(1),
+            3 => ViewProj.GetMatrixColumn(3) + ViewProj.GetMatrixColumn(1),
+            4 => ViewProj.GetMatrixColumn(3) - ViewProj.GetMatrixColumn(2),
+            5 => ViewProj.GetMatrixColumn(3) + ViewProj.GetMatrixColumn(2),
             _ => throw new IndexOutOfRangeException(),
         };
 
         public CullData(RenderLayer includeMask, RenderLayer excludeMask, CullModeFlags cullMode, float zNear, CameraData camera)
         {
-            Matrix4x4 viewProj = camera.ProjectionViewMatrix;
+            ViewProj = camera.ProjectionMatrix;
+            //ViewProj = Matrix4x4.Transpose(ViewProj);
+            ZNear = zNear;
+            P00 = ViewProj[0, 0];
+            P11 = ViewProj[1, 1];
 
-            Matrix4x4 projectionT = Matrix4x4.Transpose(viewProj);
-            near = projectionT.GetMatrixRow(3) - projectionT.GetMatrixRow(2);
-            far = projectionT.GetMatrixRow(3) + projectionT.GetMatrixRow(2);
+            Pyramid = new(DepthReduction.DepthPryamid.Width, DepthReduction.DepthPryamid.Height);
 
-            right = projectionT.GetMatrixRow(3) - projectionT.GetMatrixRow(0);
-            left = projectionT.GetMatrixRow(3) + projectionT.GetMatrixRow(0);
-
-            top = projectionT.GetMatrixRow(3) + projectionT.GetMatrixRow(1);
-            bottom = projectionT.GetMatrixRow(3) - projectionT.GetMatrixRow(1);
-            this.zNear = zNear;
-            P00 = viewProj[0, 0];
-            P11 = viewProj[1, 1];
-
-            pyramid = new(DepthReduction.DepthPryamid.Width, DepthReduction.DepthPryamid.Height);
-
-            this.cullMode = cullMode;
-            drawCount = 0;
+            CullMode = cullMode;
+            DrawCount = 0;
             IncludeMask = includeMask;
             ExcludeMask = excludeMask;
+            CullShape = CullShape.Fustrum;
             View = camera.ViewMatrix;
         }
 
         public CullData(RenderLayer includeMask, RenderLayer excludeMask, CullModeFlags cullMode, float zNear, Matrix4x4 projection, Matrix4x4 view)
         {
-            Matrix4x4 viewProj = view * projection;
+            ViewProj = view * projection;
+            //ViewProj = Matrix4x4.Transpose(ViewProj);
+            ZNear = zNear;
+            P00 = ViewProj[0, 0];
+            P11 = ViewProj[1, 1];
 
-            Matrix4x4 projectionT = Matrix4x4.Transpose(viewProj);
-            near = projectionT.GetMatrixRow(3) - projectionT.GetMatrixRow(2);
-            far = projectionT.GetMatrixRow(3) + projectionT.GetMatrixRow(2);
+            Pyramid = new(DepthReduction.DepthPryamid.Width, DepthReduction.DepthPryamid.Height);
 
-            right = projectionT.GetMatrixRow(3) - projectionT.GetMatrixRow(0);
-            left = projectionT.GetMatrixRow(3) + projectionT.GetMatrixRow(0);
-
-            top = projectionT.GetMatrixRow(3) + projectionT.GetMatrixRow(1);
-            bottom = projectionT.GetMatrixRow(3) - projectionT.GetMatrixRow(1);
-            this.zNear = zNear;
-            P00 = viewProj[0, 0];
-            P11 = viewProj[1, 1];
-
-            pyramid = new(DepthReduction.DepthPryamid.Width, DepthReduction.DepthPryamid.Height);
-
-            this.cullMode = cullMode;
-            drawCount = 0;
+            CullMode = cullMode;
+            DrawCount = 0;
             IncludeMask = includeMask;
             ExcludeMask = excludeMask;
+            CullShape = CullShape.Fustrum;
             View = view;
+        }
+
+        public CullData(RenderLayer includeMask, RenderLayer excludeMask, CullModeFlags cullMode, Vector4 sphere)
+        {
+            ViewProj = Matrix4x4.Identity;
+            Sphere = sphere;
+            ZNear = 0;
+            P00 = ViewProj[0, 0];
+            P11 = ViewProj[1, 1];
+
+            Pyramid = new(DepthReduction.DepthPryamid.Width, DepthReduction.DepthPryamid.Height);
+
+            CullMode = cullMode;
+            DrawCount = 0;
+            IncludeMask = includeMask;
+            ExcludeMask = excludeMask;
+            CullShape = CullShape.Sphere;
+
+            View = Matrix4x4.Identity;
         }
     }
 
@@ -256,7 +262,7 @@ namespace VECS
         {
             //bounds.SetUsedInstanceCount(drawCount);
             //drawIndirect.SetUsedInstanceCount(indirectCmdOffset+drawCount);
-            cullData.drawCount = drawCount;
+            cullData.DrawCount = drawCount;
 
             var invokeVariant = _computeShader.GetOrCreateVariant(variantIndex);
 
@@ -293,14 +299,14 @@ namespace VECS
             {
                 AABB boundsInternal = boundsSpan[i];
 
-                if (cullData.cullMode == 0 || IsVisibleAABB(boundsSpan[i], cullData))
+                if (cullData.CullMode == 0 || IsVisibleAABB(boundsSpan[i], cullData))
                 {
 
-                    if (cullData.cullMode.HasFlag(CullModeFlags.Depth) && DepthProj(boundsSpan[i], cullData.View, cullData.zNear, cullData.P00, cullData.P11, out var aabb, out float radius))
+                    if (cullData.CullMode.HasFlag(CullModeFlags.Depth) && DepthProj(boundsSpan[i], cullData.View, cullData.ZNear, cullData.P00, cullData.P11, out var aabb, out float radius))
                     {
                         var center = Vector3.Transform(boundsInternal.Center, cullData.View);
-                        float width = MathF.Abs((aabb.Z - aabb.X) * cullData.pyramid.X);
-                        float height = MathF.Abs((aabb.W - aabb.Y) * cullData.pyramid.Y);
+                        float width = MathF.Abs((aabb.Z - aabb.X) * cullData.Pyramid.X);
+                        float height = MathF.Abs((aabb.W - aabb.Y) * cullData.Pyramid.Y);
                         float level = Math.Min(9, MathF.Floor(MathF.Log2(Math.Max(width, height))));
                         Vector2 uv = (new Vector2(aabb.X, aabb.Y) + new Vector2(aabb.Z, aabb.W)) * 0.5f;
                         uv.X = 1.0f - uv.X;
@@ -313,7 +319,7 @@ namespace VECS
                         GraphicsDevice.EndSingleTimeMainPipe(computeCommandBuffer);
                         _textureResult.ReadToHostBuffer();  
                         var depthValue = 1-_textureResult.HostBuffer[0];
-                        float depthSphere = MathF.Abs( cullData.zNear / (center.Z - radius));
+                        float depthSphere = MathF.Abs( cullData.ZNear / (center.Z - radius));
 
                         bool visible = depthSphere >= depthValue;
                         if (visible)
@@ -347,7 +353,7 @@ namespace VECS
             var max = bounds.Max;
             min.W = 1f;
             max.W = 1f;
-            int planeCount = cullData.cullMode.HasFlag(CullModeFlags.Distance) ? 6 : 4;
+            int planeCount = cullData.CullMode.HasFlag(CullModeFlags.Distance) ? 6 : 4;
             for (int i = 0; i < planeCount; i++)
             {
                 var g = cullData[i];
@@ -454,7 +460,7 @@ namespace VECS
         {
             var variantIndex = Interlocked.Increment(ref _invocation) - 1;
 
-            cullData.drawCount = drawCount;
+            cullData.DrawCount = drawCount;
             
             var invokeVariant = _computeShader.GetOrCreateVariant(variantIndex);
 

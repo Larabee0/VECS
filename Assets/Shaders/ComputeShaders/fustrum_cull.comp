@@ -25,17 +25,21 @@ layout(std140, set = 0, binding = 1) buffer InstanceBuffer {
 layout(set = 0, binding = 2) uniform sampler2D depthPyramid;
 
 layout(set = 0, binding = 3) uniform CullData{
-	vec4 frustum[6]; // data for left/right/top/bottom frustum planes
+	// vec4 frustum[6]; // data for left/right/top/bottom frustum planes
+	mat4 viewProj;
 	mat4 viewMatrix;
+    vec4 sphere;
 	vec2 pyramid;
 	float zNear;
 	float P00;
 	float P11;
 	uint drawCount;
+    uint projectionSelect;
+    uint projectionIndex;
 	uint8_t includeMask;
 	uint8_t excludeMask;
 	uint8_t cullMode;
-	uint8_t padding;
+    uint8_t cullShape;
 } cullData;
 
 // 2D Polyhedral Bounds of a Clipped, Perspective-Projected 3D Sphere. Michael Mara, Morgan McGuire. 2013
@@ -109,8 +113,8 @@ void main() {
 		if(cullModeInfo.x && cullModeInfo.y){
 			cullModeInfo.x = IsVisible(
 				boundsBuffer.bounds[drawBuffer.Draws[gID].absMatrixIndex],
-				cullModeInfo.z ? 6 : 4,
-				cullData.frustum
+				cullModeInfo.z,
+				cullData.viewProj
 			);
 		}
 		if(cullModeInfo.x && cullModeInfo.w){
