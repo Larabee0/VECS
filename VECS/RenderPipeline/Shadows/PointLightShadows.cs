@@ -174,7 +174,8 @@ namespace VECS
             CullData depthBufferCullInfo = new(SHADOW_INCLUDE_MASK, SHADOW_EXCLUDE_MASK, SHADOW_CULL_MODE, 0.1f, CubeProjectionMatrix, GetViewMatrix(i, pointLight.Position.AsVector3()))
             {
                 ProjectionSelect = POINT_SHADOWS_PUSH_CONSTANT_INDEX,
-                ProjectionOffset = (uint)((index * 6) + i)
+                ProjectionOffset = (ushort)((index * 6) + i),
+                LayerCount = 1
             };
 
             DebugDrawer.DrawLine(pointLight.Position.AsVector3(), GetViewMatrix(i, pointLight.Position.AsVector3()).Forward(), new Vector4(1f, 0f, 1f, 1f).ToVkColor());

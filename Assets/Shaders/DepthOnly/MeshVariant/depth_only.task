@@ -43,6 +43,7 @@ layout(push_constant) uniform pushConstant{
 
 taskPayloadSharedEXT MeshTaskPayload payload;
 
+#include "depth_only_common.glsl"
 
 shared uint localMeshletCount;
 shared uint totalmeshletCount;
@@ -68,7 +69,14 @@ void main(){
 				break;
 			}
 		}
+		uint maxLayer = meshTaskCullData.values[0].maxLayers;
+		uint projectionSelect = uint(meshTaskCullData.values[0].projectionBufferSelect);
+		uint baseAmplificationCount = GetAmplificationCountFromProjectionSelect(projectionSelect);
+		uint baseLayerCount         = GetLayerCountFromProjectionSelect(projectionSelect);
 
+		payload.projectionCount = min(maxLayer, baseAmplificationCount);
+		payload.layerCount      = int(min(maxLayer, baseLayerCount));
+		
     	//debugPrintfEXT("%u = WG task info global pyload.taskIndex: %u | shared localMeshletCount: %u", gl_WorkGroupID.x, payload.taskIndex, localMeshletCount);
 		
 	}
@@ -87,12 +95,22 @@ void main(){
 		MeshTaskCullData cullInfo = meshTaskCullData.values[0];
 		bvec4 cullModeInfo = cullingMode(command.layerFlags, cullInfo.includeMask, cullInfo.excludeMask, cullInfo.cullMode);
 
+		uint16_t projectionMask = Layer_Project_None;
+
         if(cullModeInfo.x && cullModeInfo.y) {
-            cullModeInfo.x = IsVisible(
-				TransformAABB(meshletBoundsBuffer.bounds[meshletIndex], matricesBuffer.matrices[command.localMatrixIndex].modelMatrix),
-                cullModeInfo.z,
-                cullInfo.viewProj
-            );
+			uint projectionCount = payload.projectionCount;
+			ObjectBounds bounds = TransformAABB(meshletBoundsBuffer.bounds[meshletIndex], matricesBuffer.matrices[command.localMatrixIndex].modelMatrix);
+			cullModeInfo.x = false;
+			for(uint i = 0; i < projectionCount; i++){
+				bool visible = IsVisible(
+					bounds,
+                	cullModeInfo.z,
+                	cullInfo.viewProj[i]
+            	);
+				cullModeInfo.x = cullModeInfo.x || visible;
+				projectionMask |= (GetLayerProjectBitMask(i) * uint16_t(visible));
+			}
+            
         }
 		if(cullModeInfo.x) {
     		uint verticesPerInvoke = GetPerInvoke(meshlet.vertex_count);
@@ -100,8 +118,9 @@ void main(){
 
 			MeshletInfo info = {
 				meshletIndex,
-				uint16_t(verticesPerInvoke),
-				uint16_t(trianglesPerInvoke)
+				projectionMask,
+				uint8_t(verticesPerInvoke),
+				uint8_t(trianglesPerInvoke)
 			};
 
 			uint index = atomicAdd(totalmeshletCount, 1);
@@ -115,14 +134,11 @@ void main(){
 	barrier();
 	if(gl_LocalInvocationID.x == 0)
 	{
-		uint invocationsSoFar = gl_WorkGroupID.x * TASK_LOCAL_SIZE_X;
-		uint meshShadersToInvoke =  min(totalmeshletCount, command.meshletCount - invocationsSoFar);
-		//payload.meshletOffset = invocationsSoFar;
-		//payload.TaskGroupID = gl_WorkGroupID.x;
-		payload.taskIndex = taskIndex;
-		
+		uint meshShadersToInvoke = min(totalmeshletCount, command.meshletCount - (gl_WorkGroupID.x * TASK_LOCAL_SIZE_X));
+		payload.layerCount = 1;
+
 
     	//debugPrintfEXT("%u %u emit meshlets %u | %u", gl_WorkGroupID.x, gl_GlobalInvocationID.x, payload.meshletCount, originalMeshletCount);
-		EmitMeshTasksEXT(meshShadersToInvoke, 1, 1);
+		EmitMeshTasksEXT(meshShadersToInvoke, payload.projectionCount, 1);
 	}
 }

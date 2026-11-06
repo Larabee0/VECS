@@ -32,26 +32,26 @@ struct MeshTaskCommand {
 };
 
 struct MeshTaskCullData{
-	mat4 viewProj;
+	mat4 viewProj[6];
+    uint16_t projectionBufferOffset;
+    uint16_t maxLayers;
 	uint8_t includeMask;
 	uint8_t excludeMask;
-	uint8_t cullMode;
-    
-    uint8_t  projectionBufferSelect;
-    uint16_t projectionBufferOffset;
+	uint8_t cullMode;    
+    uint8_t projectionBufferSelect;
 
 };
 struct MeshletInfo {
     uint index;
-    uint16_t verts;
-    uint16_t tris;
+    uint16_t viewMask;
+    uint8_t verts;
+    uint8_t tris;
 };
 
 struct MeshTaskPayload {
-    //uint TaskGroupID;
     uint taskIndex;
-    //uint meshletCount;
-    //uint meshletOffset;
+    int layerCount;
+    uint projectionCount;
     MeshletInfo perMeshlet[TASK_LOCAL_SIZE_X];
 };
 

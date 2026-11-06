@@ -39,6 +39,21 @@ namespace VECS
         AABB = 2,
     }
 
+    [Flags]
+    public enum Layer : ushort
+    {
+        None = 0,
+        One = 1,
+        two = 2,
+        Three = 4,
+        Four = 8,
+        Five = 16,
+        Six = 32,
+        All = One | two | Three | Four | Five | Six
+
+    }
+
+
 
     [StructLayout(LayoutKind.Sequential, Size = 32)]
     public struct VECSDrawIndexIndirectCommand
@@ -66,10 +81,15 @@ namespace VECS
         }
     }
 
-    [StructLayout(LayoutKind.Sequential, Size = 184)]
+    [StructLayout(LayoutKind.Sequential, Size = 512)]
     public struct CullData
     {
         public Matrix4x4 ViewProj;
+        public Matrix4x4 ViewProj1;
+        public Matrix4x4 ViewProj2;
+        public Matrix4x4 ViewProj3;
+        public Matrix4x4 ViewProj4;
+        public Matrix4x4 ViewProj5;
         public Matrix4x4 View;
         public Vector4 Sphere;
         public Vector2 Pyramid;
@@ -78,7 +98,8 @@ namespace VECS
         public float P11;
         public uint DrawCount;
         public uint ProjectionSelect;
-        public uint ProjectionOffset;
+        public ushort ProjectionOffset;
+        public ushort LayerCount;
         public RenderLayer IncludeMask;
         public RenderLayer ExcludeMask;
         public CullModeFlags CullMode;

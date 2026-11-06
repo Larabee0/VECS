@@ -270,7 +270,8 @@ namespace VECS
                 )
                 {
                     ProjectionSelect = 4,
-                    ProjectionOffset = (uint)(i)
+                    ProjectionOffset = (ushort)i,
+                    LayerCount = 1
                 };
 
                 CullShadow(commandBuffer, depthBufferCullInfo);

@@ -9,6 +9,7 @@
 #include "../../mesh_shader_structures.glsl"
 
 taskPayloadSharedEXT MeshTaskPayload payload;
+#include "depth_only_common.glsl"
 
 out gl_MeshPerVertexEXT {
   vec4  gl_Position;
@@ -19,7 +20,7 @@ layout(triangles, max_vertices = MAX_MESH_VTX, max_primitives = MAX_MESH_TRIS) o
 
 layout(location = 0) out vec2 fragUV[];
 
-shared vec3 vertexClipNDC [MAX_MESH_VTX];
+shared uvec2 vertexClipNDC [MAX_MESH_VTX];
 
 layout (std140, set = 0, binding = 0) readonly buffer ObjectMatricesBuffer{
 	ObjectMatrices matrices[];
@@ -73,23 +74,6 @@ layout(set = 3, binding = 1) readonly buffer MeshTaskLocalCullInfo {
 	MeshTaskCullData values[];
 } meshTaskCullData;
 
-mat4 getTransform(uint bufferSelect, uint bufferOffset) {
-    switch(bufferSelect){
-        case 0:
-            return cameraData.values[bufferOffset].projectionViewMatrix;
-        case 1:
-            return directionalShadowsMats.value[bufferOffset];
-        case 2:
-            return pointShadowsMats.value[bufferOffset];
-        case 3:
-            return spotShadowsMats.value[bufferOffset];
-        case 4:
-            return tetraShadowMats.value[bufferOffset];
-        default:
-            return mat4(1.0);
-    }
-}
-
 float getClipDist(vec3 positionWorld, uint planeIndex){
     const vec3 lightPos = vec3(-8, 1, 0);
 
@@ -114,21 +98,21 @@ vec3 getClipDist(vec3 positionWorld){
     }
 }
 
-uvec3 GetPerMeshlet(){
-	MeshletInfo info = payload.perMeshlet[gl_WorkGroupID.x];
-    
-    return uvec3(uint(info.index), uint(info.verts), uint(info.tris));
-}
-
-uvec2 GetOffsetCount(uint perInvoke, uint count){
-    uint offset = perInvoke * gl_LocalInvocationID.x;
-    if(offset >= count) {
-        return uvec2(0, 0);
+mat4 getTransform(uint bufferSelect, uint bufferOffset) {
+    switch(bufferSelect){
+        case 0:
+            return cameraData.values[bufferOffset].projectionViewMatrix;
+        case 1:
+            return directionalShadowsMats.value[bufferOffset];
+        case 2:
+            return pointShadowsMats.value[bufferOffset];
+        case 3:
+            return spotShadowsMats.value[bufferOffset];
+        case 4:
+            return tetraShadowMats.value[bufferOffset];
+        default:
+            return mat4(1.0);
     }
-    else if(perInvoke + offset > count) {
-        perInvoke -= perInvoke + offset - count;
-    }
-    return uvec2(offset, perInvoke);
 }
 
 layout(local_size_x = MESH_LOCAL_SIZE_X, local_size_y = 1) in;
@@ -136,14 +120,15 @@ void main(){
     MeshTaskCommand taskCommand = taskCommands.values[payload.taskIndex];
 
     uint localMeshletIndex = gl_WorkGroupID.x;
-    uvec3 info = GetPerMeshlet();
+    uvec4 info = GetPerMeshlet();
 
     uint absMeshletIndex = info.x;
 
     Meshlet meshlet = meshletsBuffer.meshlets[absMeshletIndex];
 
-    if(gl_LocalInvocationID.x == 0){
-        SetMeshOutputsEXT(meshlet.vertex_count,meshlet.triangle_count);
+    if(gl_LocalInvocationID.x == 0) {
+        //debugPrintfEXT("%u %u abort meshlet %u", gl_WorkGroupID.x, gl_WorkGroupID.y, info.w);
+        SetMeshOutputsEXT(meshlet.vertex_count * info.w, meshlet.triangle_count * info.w);
     }
     barrier();
 
@@ -154,7 +139,7 @@ void main(){
     uvec2 outTriInfo = GetOffsetCount(info.z, meshlet.triangle_count);
     if(outTriInfo.y == 0 && outVertInfo.y == 0) return;
 
-    mat4 viewProjection = getTransform(meshTaskCullData.values[0].projectionBufferSelect, meshTaskCullData.values[0].projectionBufferOffset);
+    mat4 viewProjection = getTransform(meshTaskCullData.values[0].projectionBufferSelect, meshTaskCullData.values[0].projectionBufferOffset + gl_WorkGroupID.y);
     mat4 modelMatrix = matricesBuffer.matrices[taskCommand.localMatrixIndex].modelMatrix;
     uint vertexOffset = taskCommand.vertexStartIndex + meshlet.vertex_offset + outVertInfo.x;
     vec4 positionWorld;
@@ -171,11 +156,12 @@ void main(){
         gl_MeshVerticesEXT[outVertInfo.x + i].gl_ClipDistance[1] = clipDist.y;
         gl_MeshVerticesEXT[outVertInfo.x + i].gl_ClipDistance[2] = clipDist.z;
         fragUV[outVertInfo.x + i] = vertexTexCoord0Buffer.uv[vertexOffset + i];
-        vertexClipNDC[outVertInfo.x + i] = vec3(positionWorld.xy / positionWorld.w, positionWorld.w);
+        vertexClipNDC[outVertInfo.x + i] = uvec2(packHalf2x16(positionWorld.xy / positionWorld.w), floatBitsToUint(positionWorld.w));
         
     }
 
     barrier();
+    int layer = min(int(gl_WorkGroupID.y),meshTaskCullData.values[0].maxLayers-1);
     uint indexOffset = taskCommand.triangleStartIndex + meshlet.triangle_offset + (outTriInfo.x * 3);
     uint index;
     uvec3 abc;
@@ -184,6 +170,8 @@ void main(){
     vec3 pc;
     for(uint i = 0; i < outTriInfo.y; i++){
         index = i * 3;
+        gl_MeshPrimitivesEXT[outTriInfo.x + i].gl_Layer = layer;
+
         abc = uvec3(
             uint(indexBuffer.indices[indexOffset + index + 0]),
             uint(indexBuffer.indices[indexOffset + index + 1]),
@@ -192,9 +180,9 @@ void main(){
 
         gl_PrimitiveTriangleIndicesEXT[outTriInfo.x + i] = abc;
 
-        pa = vertexClipNDC[abc.x];
-        pb = vertexClipNDC[abc.y];
-        pc = vertexClipNDC[abc.z];
+        pa = vec3(unpackHalf2x16(vertexClipNDC[abc.x].x), uintBitsToFloat(vertexClipNDC[abc.x].y));
+        pb = vec3(unpackHalf2x16(vertexClipNDC[abc.y].x), uintBitsToFloat(vertexClipNDC[abc.y].y));
+        pc = vec3(unpackHalf2x16(vertexClipNDC[abc.z].x), uintBitsToFloat(vertexClipNDC[abc.z].y));
         bool behindCamera = (pa.z < 0.0 && pb.z < 0.0 && pc.z < 0.0);
         bool inBounds = ((pa.x > 1.0 && pb.x > 1.0 && pc.x > 1.0) || (pa.x < -1.0 && pb.x < -1.0 && pc.x < -1.0))
                                 && ((pa.y > 1.0 && pb.y > 1.0 && pc.y > 1.0) || (pa.y < -1.0 && pb.y < -1.0 && pc.y < -1.0));

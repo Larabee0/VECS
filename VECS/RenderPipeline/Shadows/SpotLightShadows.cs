@@ -140,7 +140,8 @@ namespace VECS
             CullData depthBufferCullInfo = new(SHADOW_INCLUDE_MASK, SHADOW_EXCLUDE_MASK, SHADOW_CULL_MODE, near, proj, view)
             {
                 ProjectionSelect = SPOT_SHADOWS_PUSH_CONSTANT_INDEX,
-                ProjectionOffset = (uint)(textureIndex)
+                ProjectionOffset = (ushort)textureIndex,
+                LayerCount = 1
             };
 
             CullShadow(frameInfo.CommandBuffer, depthBufferCullInfo);

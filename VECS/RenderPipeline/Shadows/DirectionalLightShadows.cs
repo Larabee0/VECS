@@ -267,10 +267,25 @@ namespace VECS
 
                 GraphicsDevice.DeviceAPI.vkCmdExecuteCommands(frameInfo.CommandBuffer, (uint)passCount, secondaries);
                 */
-
-                for (int i = 0; i < passCount; i++)
+                if (GraphicsDevice.MeshShading)
                 {
-                    SinglePass(i, cameraOffset, renderScale, frameInfo.CommandBuffer, arrayTex);
+                    // for supporting non-mesh shading depth materials need to add a way to only draw mesh materials in the first pass and only draw vertex ones in the next pass
+                    
+                    MeshShadingPass(cameraOffset, passCount, renderScale, frameInfo.CommandBuffer, arrayTex);
+
+                    /* 
+                    for (int i = 0; i < passCount; i++)
+                    {
+                        SinglePass(i, cameraOffset, renderScale, frameInfo.CommandBuffer, arrayTex, VkAttachmentLoadOp.Load);
+                    }
+                    */
+                }
+                else
+                {
+                    for (int i = 0; i < passCount; i++)
+                    {
+                        SinglePass(i, cameraOffset, renderScale, frameInfo.CommandBuffer, arrayTex);
+                    }
                 }
             }
             else
@@ -281,14 +296,65 @@ namespace VECS
             arrayTex.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal);
         }
 
+        private unsafe void MeshShadingPass(int cameraOffset,int cascadeCount, float renderScale, VkCommandBuffer commandBuffer, Texture2DArray arrayTex)
+        {
+            CullData depthBufferCullInfo = new(
+                SHADOW_INCLUDE_MASK,
+                SHADOW_EXCLUDE_MASK,
+                SHADOW_CULL_MODE,
+                0,
+                _projMatrices[cameraOffset],
+                _viewMatrices[cameraOffset]
+            )
+            {
+                ProjectionSelect = DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX,
 
-        private unsafe void SinglePass(int cascadeIndex, int cameraOffset, float renderScale, VkCommandBuffer commandBuffer, Texture2DArray arrayTex)
-        {   
+                ViewProj1 = _viewMatrices[cameraOffset + 1] * _projMatrices[cameraOffset + 1],
+                ViewProj2 = _viewMatrices[cameraOffset + 2] * _projMatrices[cameraOffset + 2],
+                ViewProj3 = _viewMatrices[cameraOffset + 3] * _projMatrices[cameraOffset + 3],
+
+
+                ProjectionOffset = (ushort)cameraOffset,
+                LayerCount = (ushort)cascadeCount
+
+            };
             VkRenderingAttachmentInfo depth = new()
             {
                 imageView = arrayTex._imageView,
                 imageLayout = VkImageLayout.DepthAttachmentOptimal,
                 loadOp = VkAttachmentLoadOp.Clear,
+                storeOp = VkAttachmentStoreOp.Store,
+                clearValue = new(1, 0)
+            };
+            VkRenderingInfo renderingInfo = new()
+            {
+                renderArea = new(0, 0, (uint)(arrayTex.Width * renderScale), (uint)(arrayTex.Height * renderScale)),
+                layerCount = (uint)cascadeCount,
+                colorAttachmentCount = 0,
+                pDepthAttachment = &depth,
+                flags = VkRenderingFlags.ContentsInlineKHR | VkRenderingFlags.ContentsSecondaryCommandBuffers
+            };
+            Span<DepthOnlyPushConstants> pushBuffer = stackalloc DepthOnlyPushConstants[1];
+            CullShadow(commandBuffer, depthBufferCullInfo);
+            GraphicsDevice.BeginLabelCmd(commandBuffer, "Depth Pass");
+            GraphicsDevice.DeviceAPI.vkCmdBeginRendering(commandBuffer, &renderingInfo);
+
+
+            SetViewPort(commandBuffer, (uint)(arrayTex.Width * renderScale));
+
+            DrawDepthOnly(commandBuffer, pushBuffer, VkCullModeFlags.Front);
+
+            GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
+            GraphicsDevice.EndLabelCmd(commandBuffer);
+        }
+
+        private unsafe void SinglePass(int cascadeIndex, int cameraOffset, float renderScale, VkCommandBuffer commandBuffer, Texture2DArray arrayTex, VkAttachmentLoadOp loadOp = VkAttachmentLoadOp.Clear)
+        {   
+            VkRenderingAttachmentInfo depth = new()
+            {
+                imageView = arrayTex._imageView,
+                imageLayout = VkImageLayout.DepthAttachmentOptimal,
+                loadOp = loadOp,
                 storeOp = VkAttachmentStoreOp.Store,
                 clearValue = new(1, 0)
             };
@@ -315,7 +381,8 @@ namespace VECS
             )
             {
                 ProjectionSelect = DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX,
-                ProjectionOffset = (uint)(cameraOffset + cascadeIndex)
+                ProjectionOffset = (ushort)(cameraOffset + cascadeIndex),
+                LayerCount = 1
             };
 
             CullShadow(commandBuffer, depthBufferCullInfo);

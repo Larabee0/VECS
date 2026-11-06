@@ -235,8 +235,9 @@ namespace VECS
         {
             CullData cullData = new(RenderLayer.All, RenderLayer.OnlyShadow, cullMode, nearPlane, projectionMatrix, viewMatrix)
             {
-                ProjectionOffset = (uint)targetCamera,
-                ProjectionSelect = 0
+                ProjectionOffset = (ushort)targetCamera,
+                ProjectionSelect = 0,
+                LayerCount = 1
             };
             return new RendererFrameInfo(
                 targetCamera,

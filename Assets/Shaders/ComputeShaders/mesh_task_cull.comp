@@ -29,7 +29,7 @@ layout(std140, set = 0, binding = 2) buffer TaskCommands {
 
 layout(set = 0, binding = 3) uniform CullData {
 	//vec4 frustum[6]; // data for left/right/top/bottom frustum planes
-    mat4 viewProj;
+    mat4 viewProj[6];
 	mat4 viewMatrix;
     vec4 sphere;
 	vec2 pyramid;
@@ -38,7 +38,8 @@ layout(set = 0, binding = 3) uniform CullData {
 	float P11;
 	uint drawCount;
     uint projectionSelect;
-    uint projectionIndex;
+    uint16_t projectionIndex;
+    uint16_t layerCount;
 	uint8_t includeMask;
 	uint8_t excludeMask;
 	uint8_t cullMode;
@@ -65,13 +66,20 @@ void main() {
 		
     }
     if(gl_GlobalInvocationID.x == 0){
-        meshTaskCullData.values[0].viewProj = cullData.viewProj;
+        meshTaskCullData.values[0].viewProj[0] = cullData.viewProj[0];
+        meshTaskCullData.values[0].viewProj[1] = cullData.viewProj[1];
+        meshTaskCullData.values[0].viewProj[2] = cullData.viewProj[2];
+
+        meshTaskCullData.values[0].viewProj[3] = cullData.viewProj[3];
+        meshTaskCullData.values[0].viewProj[4] = cullData.viewProj[4];
+        meshTaskCullData.values[0].viewProj[5] = cullData.viewProj[5];
         meshTaskCullData.values[0].includeMask = cullData.includeMask;
         meshTaskCullData.values[0].excludeMask = cullData.excludeMask;
         meshTaskCullData.values[0].cullMode = cullData.cullMode;
         
+        meshTaskCullData.values[0].maxLayers = cullData.layerCount;
         meshTaskCullData.values[0].projectionBufferSelect = uint8_t(cullData.projectionSelect);
-        meshTaskCullData.values[0].projectionBufferOffset = uint16_t(cullData.projectionIndex);
+        meshTaskCullData.values[0].projectionBufferOffset = cullData.projectionIndex;
     }
 
     barrier();
@@ -109,7 +117,7 @@ void main() {
                 cullModeInfo.x = IsVisible(
                     boundsBuffer.bounds[meshTaskCommands.values[i].absMatrixIndex],
                     cullModeInfo.z,
-                    cullData.viewProj
+                    cullData.viewProj[cullData.layerCount-1]
                 );
                 break;
                 case 1:
