@@ -52,6 +52,9 @@ namespace VECS
 
         public int DrawCount => _indirectDrawCalls.Length;
 
+        public bool HasMeshShaders { get; private set;  }
+        public bool HasVertexShaders { get; private set; }
+
         public QueueBase(string name)
         {
             AssetName = name;
@@ -140,7 +143,7 @@ namespace VECS
                  for (int i = 0; i < island.Value.Y; i++)
                  {
                     var queueEntityIndex = _queue[i + offset].EntityIndex;
-                    commandRange[i + offset].localMatrixIndex = (uint)(queueEntityIndex - regionBounds.StartIndex);
+                    commandRange[i + offset].LocalMatrixIndex = (uint)(queueEntityIndex - regionBounds.StartIndex);
                  }
 
                 _meshDrawCalls[batchOffset + drawCallIndex] = new(
@@ -286,11 +289,17 @@ namespace VECS
 
         internal void SetMaterialBufferRegions()
         {
+            HasMeshShaders = false;
+            HasVertexShaders = false;
             foreach (var kvp in _materialBufferRegions)
             {
                 Material.DecomposeHash(kvp.Key, out int pipelineHash, out int matIndex);
+                var pipe = AssetDataBase<GraphicsPipeline>.GetHashed(pipelineHash);
 
-                var mat = AssetDataBase<GraphicsPipeline>.GetHashed(pipelineHash).GetOrCreateVariant((uint)matIndex);
+                HasVertexShaders |= !pipe.IsMeshShader;
+                HasMeshShaders |= pipe.IsMeshShader;
+
+                var mat = pipe.GetOrCreateVariant((uint)matIndex);
                 ShaderProperty propertyInfo;
                 for (int i = 0; i < DrawBlob.RenderBuffers.Length; i++)
                 {
@@ -376,8 +385,10 @@ namespace VECS
             _targetCamera = (uint)Math.Max(0, cameraIndex);
         }
 
-        internal void ExecuteDraws(SwapChainBuffer<VECSDrawIndexIndirectCommand> indirectCmds, VkCommandBuffer commandBuffer, int pushConstantIndex, VkCullModeFlags cullMode)
+        internal void ExecuteDraws(SwapChainBuffer<VECSDrawIndexIndirectCommand> indirectCmds, VkCommandBuffer commandBuffer, int pushConstantIndex, VkCullModeFlags cullMode, DrawType drawMode = DrawType.All)
         {
+            drawMode = drawMode.NormalizeForMeshShading();
+            if (drawMode == DrawType.None) return;
             GraphicsDevice.BeginLabelCmd(commandBuffer, string.Format("Draw {0} Queue", AssetName));
             // draw batches/draw calls do not align
             foreach (var drawCall in _drawBatches)
@@ -385,12 +396,12 @@ namespace VECS
                 var region = drawCall.Value;
                 var pipeline = AssetDataBase<GraphicsPipeline>.GetHashed(drawCall.Key);
                 pipeline.PushConstants.SetPushConstantUInt(ShaderProperties.CameraIndex_PushConstantId, pushConstantIndex, _targetCamera);
-                if (pipeline.IsMeshShader)
+                if (pipeline.IsMeshShader && (DrawType.Mesh | drawMode) == drawMode)
                 {
                     var cmds = _meshDrawCalls.AsSpan(region.StartIndex,region.Count);
                     pipeline.ExecuteDrawMeshCommandsPushConstantOverride(pushConstantIndex, commandBuffer, cmds, region.Count, cullMode);
                 }
-                else
+                else if(!pipeline.IsMeshShader && (DrawType.Vertex | drawMode) == drawMode)
                 {
                     var cmds = _indirectDrawCalls.AsSpan(region.StartIndex, region.Count);
                     pipeline.ExecuteDrawCommandsPushConstantOverride(pushConstantIndex, commandBuffer, cmds, region.Count, indirectCmds, cullMode);
@@ -400,20 +411,22 @@ namespace VECS
             GraphicsDevice.EndLabelCmd(commandBuffer);
         }
 
-        internal void ExecuteDraws<T>(SwapChainBuffer<VECSDrawIndexIndirectCommand> indirectCmds, VkCommandBuffer commandBuffer, Span<T> pushConstantBuffer, VkCullModeFlags cullMode) where T : unmanaged
+        internal void ExecuteDraws<T>(SwapChainBuffer<VECSDrawIndexIndirectCommand> indirectCmds, VkCommandBuffer commandBuffer, Span<T> pushConstantBuffer, VkCullModeFlags cullMode, DrawType drawMode = DrawType.All) where T : unmanaged
         {
+            drawMode = drawMode.NormalizeForMeshShading();
+            if (drawMode == DrawType.None) return;
             GraphicsDevice.BeginLabelCmd(commandBuffer, string.Format("Draw {0} Queue", AssetName));
             // draw batches/draw calls do not align
             foreach (var drawCall in _drawBatches)
             {
                 var region = drawCall.Value;
                 var pipeline = AssetDataBase<GraphicsPipeline>.GetHashed(drawCall.Key);
-                if (pipeline.IsMeshShader)
+                if (pipeline.IsMeshShader && (DrawType.Mesh | drawMode) == drawMode)
                 {
                     var cmds = _meshDrawCalls.AsSpan(region.StartIndex, region.Count);
                     pipeline.ExecuteDrawMeshCommandsPushConstantOverride(pushConstantBuffer, commandBuffer, cmds, region.Count, cullMode);
                 }
-                else
+                else if(!pipeline.IsMeshShader && (DrawType.Vertex | drawMode) == drawMode)
                 {
                     var cmds = _indirectDrawCalls.AsSpan(region.StartIndex, region.Count);
                     pipeline.ExecuteDrawCommandsPushConstantOverride(pushConstantBuffer, commandBuffer, cmds, region.Count, indirectCmds, cullMode);
@@ -422,9 +435,9 @@ namespace VECS
             GraphicsDevice.EndLabelCmd(commandBuffer);
         }
 
-        internal void Cull(VkCommandBuffer commandBuffer, CullData cullData, SwapChainBuffer<VECSDrawIndexIndirectCommand> indirectCmdBuffer)
+        internal bool Cull(VkCommandBuffer commandBuffer, CullData cullData, SwapChainBuffer<VECSDrawIndexIndirectCommand> indirectCmdBuffer)
         {
-            if (_queueCount == 0) return;
+            if (!HasVertexShaders || _queueCount == 0) return false;
             VkBufferMemoryBarrier2 barrier = new()
             {
                 buffer = indirectCmdBuffer.ActiveVkBuffer,
@@ -444,11 +457,12 @@ namespace VECS
             FustrumCull.Cull(commandBuffer, Presenter.FrameIndex, cullData, (uint)_commandBufferOffset, (uint)_queueCount, indirectCmdBuffer, EngineBuffers.TryGetBuffer(ShaderProperties.BoundsBufferId));
 
             GraphicsDevice.EndLabelCmd(commandBuffer);
+            return true;
         }
 
-        internal void Cull(VkCommandBuffer commandBuffer, CullData cullData, SwapChainBuffer<MeshIndirectDraw> indirectCmdBuffer)
+        internal bool Cull(VkCommandBuffer commandBuffer, CullData cullData, SwapChainBuffer<MeshIndirectDraw> indirectCmdBuffer)
         {
-            if (_queueCount == 0) return;
+            if (!HasMeshShaders || _queueCount == 0) return false;
             Vector2UInt batchRange = new(uint.MaxValue,0);
 
 
@@ -460,7 +474,7 @@ namespace VECS
                 batchRange.X = Math.Min(batchRange.X, (uint)batch.StartIndex);
                 batchRange.Y += (uint)batch.Count;
             }
-            if (batchRange.Y == 0) return;
+            if (batchRange.Y == 0) return false;
 
             GraphicsDevice.BeginLabelCmd(commandBuffer, string.Format("MeshTask_Cull {0} Queue", AssetName));
             VkBufferMemoryBarrier2 barrier = new()
@@ -510,6 +524,7 @@ namespace VECS
 
             MeshTaskCull.Cull(commandBuffer, Presenter.FrameIndex, cullData, batchRange.X + _meshTaskOffset, batchRange.Y, indirectCmdBuffer, EngineBuffers.TryGetBuffer(ShaderProperties.BoundsBufferId));
             GraphicsDevice.EndLabelCmd(commandBuffer);
+            return true;
         }
     }
 }

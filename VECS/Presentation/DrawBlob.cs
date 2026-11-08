@@ -20,9 +20,11 @@ namespace VECS
         public uint MeshletCount;
         public uint TaskStartIndex;
         public uint TriangleStartIndex;
+
         public uint VertexStartIndex;
         public uint AbsMatrixIndex;
-        public uint localMatrixIndex;
+        public uint LocalMatrixIndex;
+        private readonly ushort _viewMask;
         public RenderLayer LayerFlags;
 
         public MeshTaskCommand(uint meshletStartIndex, uint meshletCount, uint absMatrixIndex, RenderLayer layerFlags)
@@ -30,7 +32,7 @@ namespace VECS
             MeshletStartIndex = meshletStartIndex;
             MeshletCount = meshletCount;
             AbsMatrixIndex = absMatrixIndex;
-            localMatrixIndex = absMatrixIndex;
+            LocalMatrixIndex = absMatrixIndex;
             LayerFlags = layerFlags;
         }
     }
@@ -44,6 +46,24 @@ namespace VECS
         public uint CommandStart;
         public uint CommandEnd;
     }
+
+    [Flags]
+    public enum DrawType : byte
+    {
+        None,
+        Vertex = 1,
+        Mesh = 2,
+        All = Mesh | Vertex
+    }
+
+    public static class DrawModeExtensions
+    {
+        public static DrawType NormalizeForMeshShading(this DrawType drawType)
+        {
+            return !GraphicsDevice.MeshShading && (DrawType.Mesh | drawType) == drawType ? DrawType.Vertex : drawType;
+        }
+    }
+
 
 
     internal readonly struct MatComparerer : IComparer<RenderMesh>, IComparer<MaterialDrawCommand>
@@ -523,58 +543,75 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static void Execute(QueueBase queue, VkCommandBuffer commandBuffer, int pushConstantIndex, VkCullModeFlags cullMode)
+        internal static void Execute(QueueBase queue, VkCommandBuffer commandBuffer, int pushConstantIndex, VkCullModeFlags cullMode, DrawType drawMode = DrawType.All)
         {
-            queue.ExecuteDraws(_indirectCmdBuffer,commandBuffer, pushConstantIndex, cullMode);
+            queue.ExecuteDraws(_indirectCmdBuffer,commandBuffer, pushConstantIndex, cullMode, drawMode);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static void Execute<T>(QueueBase queue, VkCommandBuffer commandBuffer, Span<T> pushConstantBuffer, VkCullModeFlags cullMode) where T : unmanaged
+        internal static void Execute<T>(QueueBase queue, VkCommandBuffer commandBuffer, Span<T> pushConstantBuffer, VkCullModeFlags cullMode, DrawType drawMode = DrawType.All) where T : unmanaged
         {
-            queue.ExecuteDraws(_indirectCmdBuffer, commandBuffer, pushConstantBuffer, cullMode);
+            queue.ExecuteDraws(_indirectCmdBuffer, commandBuffer, pushConstantBuffer, cullMode, drawMode);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static void Execute(int queueId, VkCommandBuffer commandBuffer, int pushConstantIndex, VkCullModeFlags cullMode)
+        internal static void Execute(int queueId, VkCommandBuffer commandBuffer, int pushConstantIndex, VkCullModeFlags cullMode, DrawType drawMode = DrawType.All)
         {
             if (!_queueLookup.TryGetValue(queueId, out var queue)) return;
-            Execute(queue, commandBuffer, pushConstantIndex, cullMode);
+            Execute(queue, commandBuffer, pushConstantIndex, cullMode, drawMode);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static void Execute<T>(int queueId, VkCommandBuffer commandBuffer, Span<T> pushConstantBuffer, VkCullModeFlags cullMode) where T : unmanaged
+        internal static void Execute<T>(int queueId, VkCommandBuffer commandBuffer, Span<T> pushConstantBuffer, VkCullModeFlags cullMode, DrawType drawMode = DrawType.All) where T : unmanaged
         {
             if (!_queueLookup.TryGetValue(queueId, out var queue)) return;
-            Execute(queue, commandBuffer, pushConstantBuffer, cullMode);
+            Execute(queue, commandBuffer, pushConstantBuffer, cullMode, drawMode);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static void Cull(QueueBase queue, VkCommandBuffer commandBuffer, CullData cullData)
+        internal static bool Cull(QueueBase queue, VkCommandBuffer commandBuffer, CullData cullData, DrawType drawMode = DrawType.All)
         {
-            if (GraphicsDevice.MeshShading)
+            drawMode = drawMode.NormalizeForMeshShading();
+            if (drawMode == DrawType.None) return false;
+            if (GraphicsDevice.MeshShading && (DrawType.Mesh | drawMode) == drawMode)
             {
                 GraphicsDevice.BeginLabelCmd(commandBuffer, $"Culling {queue.Label}");
-                queue.Cull(commandBuffer, cullData, _indirectCmdBuffer);
-                queue.Cull(commandBuffer, cullData, _indirectTaskBuffer);
+                bool cullRun = false;
+                if((DrawType.Vertex | drawMode) == drawMode)
+                {
+                    cullRun |= queue.Cull(commandBuffer, cullData, _indirectCmdBuffer);
+                }
+                cullRun |= queue.Cull(commandBuffer, cullData, _indirectTaskBuffer);
                 GraphicsDevice.EndLabelCmd(commandBuffer);
+                return cullRun;
             }
             else
             {
-                queue.Cull(commandBuffer, cullData, _indirectCmdBuffer);
+                return queue.Cull(commandBuffer, cullData, _indirectCmdBuffer);
             }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static void Cull(int queueId, VkCommandBuffer commandBuffer, CullData cullData)
+        internal static bool Cull(int queueId, VkCommandBuffer commandBuffer, CullData cullData, DrawType drawMode = DrawType.All)
         {
-            if (!_queueLookup.TryGetValue(queueId, out var queue)) return;
-            Cull(queue, commandBuffer, cullData);
+            if (!_queueLookup.TryGetValue(queueId, out var queue)) return false;
+            return Cull(queue, commandBuffer, cullData, drawMode);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static bool HasDrawItems(int queueId)
         {
             if (_queueLookup.TryGetValue(queueId, out var queue) && queue.CommandCount > 0) return true;
+            return false;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static bool HasDrawItems(int queueId, DrawType drawMode)
+        {
+            if (_queueLookup.TryGetValue(queueId, out var queue) && queue.CommandCount > 0)
+            {
+                return (queue.HasVertexShaders && (DrawType.Vertex | drawMode) == drawMode) || (queue.HasMeshShaders && (DrawType.Mesh | drawMode) == drawMode);
+            }
             return false;
         }
 

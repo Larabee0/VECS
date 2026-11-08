@@ -7,6 +7,7 @@
 #extension GL_EXT_debug_printf : require
 #include "../../common_structures.glsl"
 #include "../../mesh_shader_structures.glsl"
+#include "../../view_projection_amplification_helpers.glsl"
 
 taskPayloadSharedEXT MeshTaskPayload payload;
 #include "depth_only_common.glsl"
@@ -139,7 +140,7 @@ void main(){
     uvec2 outTriInfo = GetOffsetCount(info.z, meshlet.triangle_count);
     if(outTriInfo.y == 0 && outVertInfo.y == 0) return;
 
-    mat4 viewProjection = getTransform(meshTaskCullData.values[0].projectionBufferSelect, meshTaskCullData.values[0].projectionBufferOffset + gl_WorkGroupID.y);
+    mat4 viewProjection = getTransform(meshTaskCullData.values[0].projectionBufferSelect, meshTaskCullData.values[0].projectionBufferOffset + payload.layerOffset + gl_WorkGroupID.y);
     mat4 modelMatrix = matricesBuffer.matrices[taskCommand.localMatrixIndex].modelMatrix;
     uint vertexOffset = taskCommand.vertexStartIndex + meshlet.vertex_offset + outVertInfo.x;
     vec4 positionWorld;
@@ -161,7 +162,8 @@ void main(){
     }
 
     barrier();
-    int layer = min(int(gl_WorkGroupID.y),meshTaskCullData.values[0].maxLayers-1);
+    int layer = min(payload.layerOffset + min(int(gl_WorkGroupID.y), payload.layerCount-1), meshTaskCullData.values[0].maxLayers-1);
+    //debugPrintfEXT("%u layer %i", gl_WorkGroupID.y,layer);
     uint indexOffset = taskCommand.triangleStartIndex + meshlet.triangle_offset + (outTriInfo.x * 3);
     uint index;
     uvec3 abc;

@@ -283,204 +283,6 @@ namespace VECS.LowLevel
         }
 
 
-        #region Create Logical Device
-        /// <summary>
-        /// creates a logical vulkan device from the selected physical device <see cref="_physicalDevice"/>
-        /// </summary>
-        /// <exception cref="Exception"></exception>
-        internal static unsafe void CreateLogicalDevice()
-        {
-            var indices = FindQueueFamilies(_physicalDevice);
-
-            Dictionary<uint, int> uniqueQueueFamilies = new(3)
-            {
-                { indices.graphicsFamily, 1 }
-            };
-
-            PhysicalQueueFamilies = indices;
-
-            Span<VkDeviceQueueCreateInfo> queueCreateInfos = stackalloc VkDeviceQueueCreateInfo[uniqueQueueFamilies.Count];
-
-            float* queuePriority = stackalloc float[3]
-            {
-                1f,
-                1f,
-                1f
-            };
-            int index = 0;
-            foreach (var keyValuePair in uniqueQueueFamilies)
-            {
-                queueCreateInfos[index] = new VkDeviceQueueCreateInfo()
-                {
-                    queueFamilyIndex = keyValuePair.Key,
-                    queueCount = (uint)keyValuePair.Value,
-                    pQueuePriorities = queuePriority
-                };
-                index++;
-            }
-
-            VkPhysicalDeviceFaultFeaturesEXT deviceFaultFeaturesEXT = new()
-            {
-                deviceFault = true,
-                deviceFaultVendorBinary = true
-            };
-
-            VkPhysicalDeviceColorWriteEnableFeaturesEXT colorWriteEnableFeaturesEXT = new()
-            {
-                colorWriteEnable = true,
-                //pNext = &deviceFaultFeaturesEXT
-            };
-
-
-            VkPhysicalDeviceExtendedDynamicState3FeaturesEXT extendedDynamicState3Features = new()
-            {
-                extendedDynamicState3PolygonMode = true,
-                extendedDynamicState3ColorBlendEquation = true,
-                extendedDynamicState3ColorBlendEnable = true,
-                extendedDynamicState3RasterizationSamples = true,
-                pNext =&colorWriteEnableFeaturesEXT
-            };
-
-
-            VkPhysicalDeviceNestedCommandBufferFeaturesEXT nestedCommandBufferFeatures = new()
-            {
-                nestedCommandBuffer = true,
-                nestedCommandBufferRendering = true,
-                pNext = &extendedDynamicState3Features
-            };
-
-            
-
-            VkPhysicalDeviceDescriptorBufferFeaturesEXT descriptorBuffers = new()
-            {
-                descriptorBuffer = true,
-                pNext = &nestedCommandBufferFeatures
-            };
-
-
-            VkPhysicalDeviceMeshShaderFeaturesEXT meshShaderFeatures = new()
-            {
-                taskShader = true,
-                meshShader = true
-            };
-
-            if (MeshShading)
-            {
-                colorWriteEnableFeaturesEXT.pNext = &meshShaderFeatures;
-            }
-
-            VkPhysicalDeviceVulkan11Features deviceFeatures11 = new()
-            {
-                shaderDrawParameters = true,
-                multiviewGeometryShader = true,
-                multiview = true,
-                storageBuffer16BitAccess = true,
-                pNext = &descriptorBuffers
-            };
-
-
-            VkPhysicalDeviceVulkan12Features deviceFeatures12 = new()
-            {
-                bufferDeviceAddress = true,
-                imagelessFramebuffer = true,
-                samplerFilterMinmax = true,
-                timelineSemaphore = true,
-                storageBuffer8BitAccess = true,
-                shaderOutputViewportIndex = true,
-                shaderOutputLayer = true,
-                runtimeDescriptorArray = true,
-                uniformAndStorageBuffer8BitAccess = true,
-                shaderInt8 = true,
-                
-                
-                pNext = &deviceFeatures11
-            };
-
-
-
-            VkPhysicalDeviceVulkan13Features deviceFeatures13 = new()
-            {
-                maintenance4 = true,
-                dynamicRendering = true,
-                synchronization2 = true,
-
-                shaderDemoteToHelperInvocation = true,
-                pNext = &deviceFeatures12
-            };
-
-            VkPhysicalDeviceVulkan14Features deviceFeatures14 = new()
-            {
-                dynamicRenderingLocalRead = true,
-                pNext = & deviceFeatures13
-            };
-
-            VkPhysicalDeviceFeatures deviceFeature = new()
-            {
-                samplerAnisotropy = true,
-                fillModeNonSolid = true,
-                multiDrawIndirect = true,
-                drawIndirectFirstInstance = true,
-                dualSrcBlend = true,
-                fragmentStoresAndAtomics = true,
-                geometryShader = true,
-                imageCubeArray = true,
-                shaderClipDistance = true,
-                shaderInt16 = true,
-
-            };
-
-            VkPhysicalDeviceFeatures2 deviceFeatures2 = new()
-            {
-                features = deviceFeature,
-                pNext = &deviceFeatures14
-            };
-
-            VkUtf8String[] loadExtensions;
-            if (MeshShading)
-            {
-                loadExtensions = [.. _requiredDeviceExtensions, .. _meshShaderExtensions];
-            }
-            else
-            {
-                loadExtensions = _requiredDeviceExtensions;
-            }
-
-            using VkStringArray deviceExtensionNames = new(loadExtensions);
-            VkDeviceCreateInfo createInfo = new()
-            {
-                queueCreateInfoCount = (uint)uniqueQueueFamilies.Count,
-                pEnabledFeatures = null,
-                enabledExtensionCount = (uint)loadExtensions.Length,
-                ppEnabledExtensionNames = deviceExtensionNames,
-
-                enabledLayerCount = 0,
-                pNext = &deviceFeatures2,
-            };
-
-#if DEBUG
-
-            //using VkStringArray enabledValidationlayers = new(_requiredValidationLayers);
-            //createInfo.enabledLayerCount = (uint)_requiredValidationLayers.Length;
-            //createInfo.ppEnabledLayerNames = enabledValidationlayers;
-
-#else
-            
-            createInfo.enabledLayerCount = 0;
-            
-#endif
-            fixed (VkDeviceQueueCreateInfo* pQueueCreateInfos = queueCreateInfos)
-            {
-                createInfo.pQueueCreateInfos = pQueueCreateInfos;
-                _instanceApi.vkCreateDevice(_physicalDevice, in createInfo, null, out _device).CheckResult("Failed to create logical device");
-            }
-
-            _deviceApi = Vulkan.GetApi(_instance, _device);
-
-            _deviceApi.vkGetDeviceQueue(indices.graphicsFamily, 0, out _mainQueue);
-        }
-
-        #endregion
-
         #region Create Command Pool
         /// <summary>
         /// Creates the command buffer pool for submitting commands to the logical device
@@ -617,6 +419,205 @@ namespace VECS.LowLevel
 
 
             return details;
+        }
+
+        #endregion
+
+        #region Create Logical Device
+        /// <summary>
+        /// creates a logical vulkan device from the selected physical device <see cref="_physicalDevice"/>
+        /// </summary>
+        /// <exception cref="Exception"></exception>
+        internal static unsafe void CreateLogicalDevice()
+        {
+            var indices = FindQueueFamilies(_physicalDevice);
+
+            Dictionary<uint, int> uniqueQueueFamilies = new(3)
+            {
+                { indices.graphicsFamily, 1 }
+            };
+
+            PhysicalQueueFamilies = indices;
+
+            Span<VkDeviceQueueCreateInfo> queueCreateInfos = stackalloc VkDeviceQueueCreateInfo[uniqueQueueFamilies.Count];
+
+            float* queuePriority = stackalloc float[3]
+            {
+                1f,
+                1f,
+                1f
+            };
+            int index = 0;
+            foreach (var keyValuePair in uniqueQueueFamilies)
+            {
+                queueCreateInfos[index] = new VkDeviceQueueCreateInfo()
+                {
+                    queueFamilyIndex = keyValuePair.Key,
+                    queueCount = (uint)keyValuePair.Value,
+                    pQueuePriorities = queuePriority
+                };
+                index++;
+            }
+
+            VkPhysicalDeviceFaultFeaturesEXT deviceFaultFeaturesEXT = new()
+            {
+                deviceFault = true,
+                deviceFaultVendorBinary = true
+            };
+
+            VkPhysicalDeviceColorWriteEnableFeaturesEXT colorWriteEnableFeaturesEXT = new()
+            {
+                colorWriteEnable = true,
+                //pNext = &deviceFaultFeaturesEXT
+            };
+
+
+            VkPhysicalDeviceExtendedDynamicState3FeaturesEXT extendedDynamicState3Features = new()
+            {
+                extendedDynamicState3PolygonMode = true,
+                extendedDynamicState3ColorBlendEquation = true,
+                extendedDynamicState3ColorBlendEnable = true,
+                extendedDynamicState3RasterizationSamples = true,
+                pNext = &colorWriteEnableFeaturesEXT
+            };
+
+
+            VkPhysicalDeviceNestedCommandBufferFeaturesEXT nestedCommandBufferFeatures = new()
+            {
+                nestedCommandBuffer = true,
+                nestedCommandBufferRendering = true,
+                pNext = &extendedDynamicState3Features
+            };
+
+
+
+            VkPhysicalDeviceDescriptorBufferFeaturesEXT descriptorBuffers = new()
+            {
+                descriptorBuffer = true,
+                pNext = &nestedCommandBufferFeatures
+            };
+
+
+            VkPhysicalDeviceMeshShaderFeaturesEXT meshShaderFeatures = new()
+            {
+                taskShader = true,
+                meshShader = true
+            };
+
+            if (MeshShading)
+            {
+                colorWriteEnableFeaturesEXT.pNext = &meshShaderFeatures;
+            }
+
+            VkPhysicalDeviceVulkan11Features deviceFeatures11 = new()
+            {
+                shaderDrawParameters = true,
+                multiviewGeometryShader = true,
+                multiview = true,
+                storageBuffer16BitAccess = true,
+                uniformAndStorageBuffer16BitAccess = true,
+                pNext = &descriptorBuffers
+            };
+
+
+            VkPhysicalDeviceVulkan12Features deviceFeatures12 = new()
+            {
+                bufferDeviceAddress = true,
+                imagelessFramebuffer = true,
+                samplerFilterMinmax = true,
+                timelineSemaphore = true,
+                storageBuffer8BitAccess = true,
+                shaderOutputViewportIndex = true,
+                shaderOutputLayer = true,
+                runtimeDescriptorArray = true,
+                uniformAndStorageBuffer8BitAccess = true,
+                shaderInt8 = true,
+
+
+                pNext = &deviceFeatures11
+            };
+
+
+
+            VkPhysicalDeviceVulkan13Features deviceFeatures13 = new()
+            {
+                maintenance4 = true,
+                dynamicRendering = true,
+                synchronization2 = true,
+
+                shaderDemoteToHelperInvocation = true,
+                pNext = &deviceFeatures12
+            };
+
+            VkPhysicalDeviceVulkan14Features deviceFeatures14 = new()
+            {
+                dynamicRenderingLocalRead = true,
+                pNext = &deviceFeatures13
+            };
+
+            VkPhysicalDeviceFeatures deviceFeature = new()
+            {
+                samplerAnisotropy = true,
+                fillModeNonSolid = true,
+                multiDrawIndirect = true,
+                drawIndirectFirstInstance = true,
+                dualSrcBlend = true,
+                fragmentStoresAndAtomics = true,
+                geometryShader = true,
+                imageCubeArray = true,
+                shaderClipDistance = true,
+                shaderInt16 = true,
+
+            };
+
+            VkPhysicalDeviceFeatures2 deviceFeatures2 = new()
+            {
+                features = deviceFeature,
+                pNext = &deviceFeatures14
+            };
+
+            VkUtf8String[] loadExtensions;
+            if (MeshShading)
+            {
+                loadExtensions = [.. _requiredDeviceExtensions, .. _meshShaderExtensions];
+            }
+            else
+            {
+                loadExtensions = _requiredDeviceExtensions;
+            }
+
+            using VkStringArray deviceExtensionNames = new(loadExtensions);
+            VkDeviceCreateInfo createInfo = new()
+            {
+                queueCreateInfoCount = (uint)uniqueQueueFamilies.Count,
+                pEnabledFeatures = null,
+                enabledExtensionCount = (uint)loadExtensions.Length,
+                ppEnabledExtensionNames = deviceExtensionNames,
+
+                enabledLayerCount = 0,
+                pNext = &deviceFeatures2,
+            };
+
+#if DEBUG
+
+            //using VkStringArray enabledValidationlayers = new(_requiredValidationLayers);
+            //createInfo.enabledLayerCount = (uint)_requiredValidationLayers.Length;
+            //createInfo.ppEnabledLayerNames = enabledValidationlayers;
+
+#else
+            
+            createInfo.enabledLayerCount = 0;
+            
+#endif
+            fixed (VkDeviceQueueCreateInfo* pQueueCreateInfos = queueCreateInfos)
+            {
+                createInfo.pQueueCreateInfos = pQueueCreateInfos;
+                _instanceApi.vkCreateDevice(_physicalDevice, in createInfo, null, out _device).CheckResult("Failed to create logical device");
+            }
+
+            _deviceApi = Vulkan.GetApi(_instance, _device);
+
+            _deviceApi.vkGetDeviceQueue(indices.graphicsFamily, 0, out _mainQueue);
         }
 
         #endregion

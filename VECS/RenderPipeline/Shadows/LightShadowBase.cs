@@ -70,21 +70,21 @@ namespace VECS
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void CullShadow(VkCommandBuffer commandBuffer, CullData cullData)
+        public static bool CullShadow(VkCommandBuffer commandBuffer, CullData cullData, DrawType drawMode = DrawType.All)
         {
-            DrawBlob.Cull(Depth_Only_Queue_Name, commandBuffer, cullData);
+            return DrawBlob.Cull(Depth_Only_Queue_Name, commandBuffer, cullData, drawMode);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void DrawDepthOnly(VkCommandBuffer commandBuffer, int pushConstantIndex, VkCullModeFlags cullMode)
+        public static void DrawDepthOnly(VkCommandBuffer commandBuffer, int pushConstantIndex, VkCullModeFlags cullMode, DrawType drawMode = DrawType.All)
         {
-            DrawBlob.Execute(Depth_Only_Queue_Name, commandBuffer, pushConstantIndex, cullMode);
+            DrawBlob.Execute(Depth_Only_Queue_Name, commandBuffer, pushConstantIndex, cullMode, drawMode);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void DrawDepthOnly<T>(VkCommandBuffer commandBuffer, Span<T> pushConstantbuffer, VkCullModeFlags cullMode) where T : unmanaged
+        public static void DrawDepthOnly<T>(VkCommandBuffer commandBuffer, Span<T> pushConstantbuffer, VkCullModeFlags cullMode, DrawType drawMode = DrawType.All) where T : unmanaged
         {
-            DrawBlob.Execute(Depth_Only_Queue_Name, commandBuffer, pushConstantbuffer, cullMode);
+            DrawBlob.Execute(Depth_Only_Queue_Name, commandBuffer, pushConstantbuffer, cullMode, drawMode);
         }
 
         public abstract bool SetShadowTexture(int i, int resolution);
@@ -153,29 +153,38 @@ namespace VECS
         public abstract void PreShadowPass(in RendererFrameInfo frameInfo);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected static unsafe void BeginShadowPass(VkCommandBuffer commandBuffer, VkImageView imageView,uint imageSize)
+        protected static unsafe void BeginShadowPass(VkCommandBuffer commandBuffer, VkImageView imageView, uint imageSize)
         {
-            VkClearValue clearValues = new(1.0f, 0);
-            VkRenderingAttachmentInfo depth = new()
-            {
-                imageView = imageView,
-                imageLayout = VkImageLayout.DepthStencilAttachmentOptimal,
-                loadOp = VkAttachmentLoadOp.Clear,
-                storeOp = VkAttachmentStoreOp.Store,
-                clearValue = clearValues,
-            };
-
-            
-            VkRenderingInfo renderingInfo = new()
-            {
-                renderArea = new(0, 0, imageSize, imageSize),
-                layerCount = 1,
-                colorAttachmentCount = 0,
-                pDepthAttachment = &depth
-            };
-
+            VkRenderingAttachmentInfo depth = GetAttchmentInfo(imageView,VkAttachmentLoadOp.Clear);
+            VkRenderingInfo renderingInfo = GetRenderingInfo(depth,1,1,imageSize);
             GraphicsDevice.DeviceAPI.vkCmdBeginRendering(commandBuffer, &renderingInfo);
             SetViewPort(commandBuffer, imageSize);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        protected unsafe static VkRenderingInfo GetRenderingInfo(VkRenderingAttachmentInfo attachmentInfo, float renderScale, uint layerCount, uint texSize)
+        {
+            return new()
+            {
+                renderArea = new(0, 0, (uint)(texSize * renderScale), (uint)(texSize * renderScale)),
+                layerCount = layerCount,
+                colorAttachmentCount = 0,
+                pDepthAttachment = &attachmentInfo,
+                flags = VkRenderingFlags.ContentsInlineKHR | VkRenderingFlags.ContentsSecondaryCommandBuffers
+            };
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        protected static VkRenderingAttachmentInfo GetAttchmentInfo(VkImageView view, VkAttachmentLoadOp loadOp)
+        {
+            return new()
+            {
+                imageView = view,
+                imageLayout = VkImageLayout.DepthAttachmentOptimal,
+                loadOp = loadOp,
+                storeOp = VkAttachmentStoreOp.Store,
+                clearValue = new(1, 0)
+            };
         }
     }
 }

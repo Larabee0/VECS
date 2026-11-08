@@ -7,6 +7,7 @@
 #include "../../common_structures.glsl"
 #include "../../mesh_shader_structures.glsl"
 #include "../../ComputeShaders/culling_helpers.glsl"
+#include "../../view_projection_amplification_helpers.glsl"
 
 layout (std140, set = 0, binding = 0) readonly buffer ObjectMatricesBuffer{
 	ObjectMatrices matrices[];
@@ -54,9 +55,10 @@ void main(){
 	uint taskIndex = 0;
 	if(gl_LocalInvocationID.x == 0){
 		totalmeshletCount = 0;
+		localMeshletCount = 0;
 		uint taskStartOffset;
 		uint endRange;
-		for(uint i = constants.taskOffset; i < constants.taskCount; i++){
+		for(uint i = constants.taskOffset; i < constants.taskOffset+constants.taskCount; i++){
 			command = taskCommands.values[i];
 			taskStartOffset = command.taskStartOffset;
 			endRange = taskStartOffset + GetComputeShaderGroupCount(command.meshletCount,TASK_LOCAL_SIZE_X);
@@ -74,10 +76,14 @@ void main(){
 		uint baseAmplificationCount = GetAmplificationCountFromProjectionSelect(projectionSelect);
 		uint baseLayerCount         = GetLayerCountFromProjectionSelect(projectionSelect);
 
-		payload.projectionCount = min(maxLayer, baseAmplificationCount);
-		payload.layerCount      = int(min(maxLayer, baseLayerCount));
+		bool viewMaskVisible = InProjectionViewMask(gl_WorkGroupID.y, command.viewMask);
+		localMeshletCount *= uint(viewMaskVisible);
+		payload.projectionCount = 1; //min(maxLayer, baseAmplificationCount);
+		payload.layerCount      = 1; //int(min(maxLayer, baseLayerCount));
+		payload.layerOffset = int(gl_WorkGroupID.y);
 		
-    	//debugPrintfEXT("%u = WG task info global pyload.taskIndex: %u | shared localMeshletCount: %u", gl_WorkGroupID.x, payload.taskIndex, localMeshletCount);
+    	//debugPrintfEXT("%u = WG task info global payload.taskIndex: %u | shared localMeshletCount: %u", gl_WorkGroupID.x, payload.taskIndex, localMeshletCount);
+		//debugPrintfEXT("%u %u = WG task info global pyload.taskIndex: %u | shared localMeshletCount: %u", gl_WorkGroupID.x, gl_WorkGroupID.y, payload.taskIndex, localMeshletCount);
 		
 	}
 	barrier();
@@ -105,10 +111,10 @@ void main(){
 				bool visible = IsVisible(
 					bounds,
                 	cullModeInfo.z,
-                	cullInfo.viewProj[i]
+                	cullInfo.viewProj[gl_WorkGroupID.y]
             	);
 				cullModeInfo.x = cullModeInfo.x || visible;
-				projectionMask |= (GetLayerProjectBitMask(i) * uint16_t(visible));
+				projectionMask |= (GetLayerProjectBitMask(gl_WorkGroupID.y) * uint16_t(visible));
 			}
             
         }
@@ -138,7 +144,7 @@ void main(){
 		payload.layerCount = 1;
 
 
-    	//debugPrintfEXT("%u %u emit meshlets %u | %u", gl_WorkGroupID.x, gl_GlobalInvocationID.x, payload.meshletCount, originalMeshletCount);
+    	//debugPrintfEXT("%u %u %u emit meshlets %u", gl_WorkGroupID.x, gl_WorkGroupID.y, gl_GlobalInvocationID.x, meshShadersToInvoke);
 		EmitMeshTasksEXT(meshShadersToInvoke, payload.projectionCount, 1);
 	}
 }

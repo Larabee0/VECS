@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -169,6 +170,61 @@ namespace VECS
             CullShape = CullShape.Sphere;
 
             View = Matrix4x4.Identity;
+        }
+
+        public CullData(RenderLayer includeMask, RenderLayer excludeMask, CullModeFlags cullMode, Vector4 sphere, Span<Matrix4x4> projectionMatrices, Span<Matrix4x4> viewMatrices)
+        {
+            Debug.Assert(viewMatrices.Length >= 6);
+            Debug.Assert(projectionMatrices.Length >= 6);
+            View = viewMatrices[0];
+            ViewProj = viewMatrices[0] * projectionMatrices[0];
+            ViewProj1 = viewMatrices[1] * projectionMatrices[1];
+            ViewProj2 = viewMatrices[2] * projectionMatrices[2];
+            ViewProj3 = viewMatrices[3] * projectionMatrices[3];
+            ViewProj4 = viewMatrices[4] * projectionMatrices[4];
+            ViewProj5 = viewMatrices[5] * projectionMatrices[5];
+
+            Sphere = sphere;
+            ZNear = 0;
+            P00 = ViewProj[0, 0];
+            P11 = ViewProj[1, 1];
+
+            Pyramid = new(DepthReduction.DepthPryamid.Width, DepthReduction.DepthPryamid.Height);
+
+            CullMode = cullMode;
+            DrawCount = 0;
+            IncludeMask = includeMask;
+            ExcludeMask = excludeMask;
+            CullShape = CullShape.Sphere;
+
+        }
+
+        public CullData(RenderLayer includeMask, RenderLayer excludeMask, CullModeFlags cullMode, uint projectionSelect, ushort projectionOffset, ushort layerCount, float zNear, Span<Matrix4x4> projectionMatrices, Span<Matrix4x4> viewMatrices)
+        {
+            Debug.Assert(viewMatrices.Length >= 4);
+            Debug.Assert(projectionMatrices.Length >= 4);
+            View = viewMatrices[0];
+            ViewProj = viewMatrices[0] * projectionMatrices[0];
+            ViewProj1 = viewMatrices[1] * projectionMatrices[1];
+            ViewProj2 = viewMatrices[2] * projectionMatrices[2];
+            ViewProj3 = viewMatrices[3] * projectionMatrices[3];
+
+            ZNear = zNear;
+            P00 = ViewProj[0, 0];
+            P11 = ViewProj[1, 1];
+
+
+            Pyramid = new(DepthReduction.DepthPryamid.Width, DepthReduction.DepthPryamid.Height);
+
+            CullMode = cullMode;
+            DrawCount = 0;
+            IncludeMask = includeMask;
+            ExcludeMask = excludeMask;
+            ProjectionSelect = projectionSelect;
+            ProjectionOffset = projectionOffset;
+            LayerCount = layerCount;
+            CullShape = CullShape.Fustrum;
+
         }
     }
 

@@ -28,6 +28,7 @@ struct MeshTaskCommand {
     uint vertexStartIndex;
     uint absMatrixIndex;
     uint localMatrixIndex;
+    uint16_t viewMask;
     uint8_t  layerFlags;
 };
 
@@ -50,6 +51,7 @@ struct MeshletInfo {
 
 struct MeshTaskPayload {
     uint taskIndex;
+    int layerOffset;
     int layerCount;
     uint projectionCount;
     MeshletInfo perMeshlet[TASK_LOCAL_SIZE_X];

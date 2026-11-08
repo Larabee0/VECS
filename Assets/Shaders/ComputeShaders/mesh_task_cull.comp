@@ -6,6 +6,7 @@
 #include "../mesh_shader_structures.glsl"
 #include "../common_structures.glsl"
 #include "culling_helpers.glsl"
+#include "../view_projection_amplification_helpers.glsl"
 
 struct MeshIndirectDraw {
     uint groupCountsX;
@@ -104,25 +105,46 @@ void main() {
     if(count == 0 && gl_LocalInvocationID.x != 0) return;
     //debugPrintfEXT("%u %u cullinfo localOffset: %u | Count: %u | Max: %u", gl_WorkGroupID.x, gl_LocalInvocationID.x, localOffset, count, max);
     bvec4 cullModeInfo;
+    ObjectBounds bounds;
     uint cullShape = uint(cullData.cullShape);
+    uint16_t viewMask = Layer_Project_None;
 
     for(uint i = localOffset; i < count; i++) {
 
 		cullModeInfo = cullingMode(meshTaskCommands.values[i].layerFlags, cullData.includeMask, cullData.excludeMask, cullData.cullMode);
+        bounds = boundsBuffer.bounds[meshTaskCommands.values[i].absMatrixIndex];
 
         if(cullModeInfo.x && cullModeInfo.y) {
-
+            
             switch(cullShape){
                 case 0:
-                cullModeInfo.x = IsVisible(
-                    boundsBuffer.bounds[meshTaskCommands.values[i].absMatrixIndex],
-                    cullModeInfo.z,
-                    cullData.viewProj[cullData.layerCount-1]
-                );
+
+                    for(uint i = 0; i < cullData.layerCount; i++) {
+                        cullModeInfo.x = IsVisible(
+                            bounds,
+                            cullModeInfo.z,
+                            cullData.viewProj[i]
+                        );
+
+				        viewMask |= (GetLayerProjectBitMask(i) * uint16_t(cullModeInfo.x ));
+                    }
+
                 break;
                 case 1:
-                cullModeInfo.x = AABB_Intersects_Sphere(boundsBuffer.bounds[meshTaskCommands.values[i].absMatrixIndex],
+                    // for cubemap point lights, task y = cubemap faces (6), culled by this compute shader
+                    // should work exactly the same as directional lights where the layer control is passed to the task shader and it doesnt emit meshlets per layer
+                    
+                    // for filed point lights as each face is a quad on the same layer we cull for the radius of the light
+                    // the task shader emits meshlets per light rather than per viewprojection matrix
+                    // the mesh shader sets its output to 0 for meshlets not within its the view bounds
+                    // for point tiled lights, task y = num point lights for tiled Pointlights culled by this compute shader
+                    // task shader wont emit meshlets per light
+                    // task shader culls per light view matrix but has to launch 4 mesh shaders in y axis for tiled pointlights
+                    // mesh shader culls tris per face of the point light tetraheadron
+                    cullModeInfo.x = AABB_Intersects_Sphere(bounds,
                             cullData.sphere);
+
+                    viewMask = Layer_Project_0;
                 break;
             }
         }
@@ -132,6 +154,7 @@ void main() {
                 paddedMeshlets,
                 GetComputeShaderGroupCount(meshTaskCommands.values[i].meshletCount, TASK_LOCAL_SIZE_X)
             );
+            meshTaskCommands.values[i].viewMask = viewMask;
         }
         else {
             meshTaskCommands.values[i].taskStartOffset = TASK_COMMAND_SKIP;
@@ -141,7 +164,7 @@ void main() {
     barrier();
     if(gl_LocalInvocationID.x == 0){
         drawBuffer.Draws[gl_WorkGroupID.x].groupCountsX = paddedMeshlets;
-        drawBuffer.Draws[gl_WorkGroupID.x].groupCountsY = 1;
+        drawBuffer.Draws[gl_WorkGroupID.x].groupCountsY = cullData.layerCount;
         drawBuffer.Draws[gl_WorkGroupID.x].groupCountsZ = 1;
     }
 }

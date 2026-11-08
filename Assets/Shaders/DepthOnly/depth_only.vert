@@ -6,7 +6,7 @@ layout (location = 1) in vec2 uv;
 
 layout (location = 0) out vec2 fragUV;
 
-out float gl_ClipDistance[3];
+out float gl_ClipDistance[4];
 
 const vec3 tetrahedronPlanes[12] = vec3[](
 
@@ -108,31 +108,57 @@ float GetClipDist(vec3 positionWorld, int planeIndex){
     return (dot(positionWorld,normal)+dot(-normal,lightPos));
 }
 
+vec4 GetClipDistDir(vec3 positionWorld, mat4 viewProj){
+
+    viewProj[0] = vec4(0.3809524, 0, 0, -0);
+    viewProj[1] = vec4(0, 0.3809524, 0, -0);
+    viewProj[2] = vec4(0, 0, -0.024258217, -0);
+    viewProj[3] = vec4(0, 0, 0, 1);
+    viewProj = transpose(viewProj);
+    const vec3 lightPos = vec3(1.1456438, 2.2912877, 0.9864766);
+    vec3 right =  normalize(viewProj[3] - viewProj[0]).xyz;
+    vec3 left =   normalize(viewProj[3] + viewProj[0]).xyz;
+    vec3 top =    normalize(viewProj[3] + viewProj[1]).xyz;
+    vec3 bottom = normalize(viewProj[3] - viewProj[1]).xyz;
+
+    return vec4(
+        dot(positionWorld, right) + dot(-right, lightPos),
+        dot(positionWorld, left) + dot(-left, lightPos),
+        dot(positionWorld, top) + dot(-top, lightPos),
+        dot(positionWorld, bottom)+ dot(-bottom, lightPos)
+    );
+}
+
 void main()
 {
 	ObjectMatrices objectMat = matricesBuffer.matrices[gl_BaseInstance];
     vec4 positionWorld = objectMat.modelMatrix * vec4(inPos, 1.0);
     gl_Position = getTransform(instanceInfo.bufferSelect, instanceInfo.matrixStartIndex) * (positionWorld);
     
-    vec3 clipDist;
+    vec4 clipDist;
     if(instanceInfo.bufferSelect == 4) {
         int faceIndex = instanceInfo.matrixStartIndex;
         int planeIndex = 3 * instanceInfo.matrixStartIndex;
         const vec3 lightPos = vec3(-8, 1, 0);
         
-        clipDist = vec3(
+        clipDist = vec4(
             GetClipDist(positionWorld.xyz, planeIndex),
             GetClipDist(positionWorld.xyz, planeIndex + 1),
-            GetClipDist(positionWorld.xyz, planeIndex + 2)
+            GetClipDist(positionWorld.xyz, planeIndex + 2),
+            1.0
         );
     }
+    //else if(instanceInfo.bufferSelect == 1){
+    //    clipDist = GetClipDistDir(positionWorld.xyz,getTransform(instanceInfo.bufferSelect, instanceInfo.matrixStartIndex));
+    //}
     else {
-        clipDist = vec3(1.0);
+        clipDist = vec4(1.0);
     }
     
     gl_ClipDistance[0] = clipDist.x;
     gl_ClipDistance[1] = clipDist.y;
     gl_ClipDistance[2] = clipDist.z;
+    gl_ClipDistance[3] = clipDist.w;
     fragUV = uv;
 }  
 

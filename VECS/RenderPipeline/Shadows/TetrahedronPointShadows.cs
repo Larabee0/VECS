@@ -69,7 +69,7 @@ namespace VECS
         {
             var alphaBeta = GetAlphaBeta(7f, FOV_A, GetPerspectiveDX9(7f, FOV_A));
             _shadowDepthTextures.SetTexture(new Texture2D("TetrahedronShadowRT",
-                4096, 4096,
+                8192, 8192,
                 PreferredFormats.LOW_PRECISION_DEPTH_ONLY,
                 VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.Sampled,
                 VkSamplerAddressMode.ClampToBorder,
@@ -222,31 +222,17 @@ namespace VECS
             Vector3 plPosition = new(-8, 1, 0);
             float farPlane = 7;
 
-            ProduceShadowMatrices(plPosition, farPlane, 1f, new Vector2(0));
+            ProduceShadowMatrices(plPosition, farPlane, 0.5f, new Vector2(-0.5f,-0.5f));
 
             Texture2D tex = (Texture2D)_shadowDepthTextures.First;
 
             tex.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.DepthAttachmentOptimal);
 
-            VkRenderingAttachmentInfo depth = new()
-            {
-                imageView = tex._imageView,
-                imageLayout = tex.ImageLayout,
-                loadOp = VkAttachmentLoadOp.Clear,
-                storeOp = VkAttachmentStoreOp.Store,
-                clearValue = new(1,0)
-            };
+            VkRenderingAttachmentInfo depth = GetAttchmentInfo(tex._imageView, VkAttachmentLoadOp.Clear);;
 
-            VkRenderingInfo renderingInfo = new()
-            {
-                renderArea = new(0,0, 4096, 4096),
-                layerCount  = 1,
-                pDepthAttachment = &depth,
-                flags = VkRenderingFlags.ContentsInlineKHR | VkRenderingFlags.ContentsSecondaryCommandBuffers
-            };
+            VkRenderingInfo renderingInfo = GetRenderingInfo(depth, 1, 1, 8192);
 
-            DepthOnlyPushConstants depthOnlyPushConstants = new() { BufferSelect = 4 };
-            Span<DepthOnlyPushConstants> pushBuffer = new(ref depthOnlyPushConstants);
+            Span<DepthOnlyPushConstants> pushBuffer = [new() { BufferSelect = 4 }];
             var commandBuffer = frameInfo.CommandBuffer;
             Span<Matrix4x4> views = stackalloc Matrix4x4[4];
             Span<Matrix4x4> projs = stackalloc Matrix4x4[4];
@@ -258,7 +244,7 @@ namespace VECS
             GraphicsDevice.EndLabelCmd(commandBuffer);
             for (int i = 0; i < 4; i++)
             {
-                depthOnlyPushConstants.MatrixStartIndex = i;
+                pushBuffer[0].MatrixStartIndex = i;
                 //GraphicsDevice.BeginLabelCmd(commandBuffer, $"Cascade {i}");
                 CullData depthBufferCullInfo = new(
                     SHADOW_INCLUDE_MASK,
@@ -279,7 +265,7 @@ namespace VECS
                 GraphicsDevice.BeginLabelCmd(commandBuffer, "Depth Pass");
                 GraphicsDevice.DeviceAPI.vkCmdBeginRendering(commandBuffer, &renderingInfo);
                 
-                SetViewPort(commandBuffer, 4096);
+                SetViewPort(commandBuffer, 8192);
                 DrawDepthOnly(commandBuffer, pushBuffer, VkCullModeFlags.Front);
                     
                 GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
