@@ -3,7 +3,7 @@
 #extension GL_EXT_shader_explicit_arithmetic_types_int16 : require
 #extension GL_ARB_shading_language_include : require
 #extension GL_EXT_debug_printf : require
-#include "../mesh_shader_structures.glsl"
+#include "../mesh_task_common.glsl"
 #include "../common_structures.glsl"
 #include "culling_helpers.glsl"
 #include "../view_projection_amplification_helpers.glsl"
@@ -49,7 +49,7 @@ layout(set = 0, binding = 3) uniform CullData {
 } cullData;
 
 
-layout(set = 0, binding = 4) buffer MeshTaskLocalCullInfo {
+layout(std140, set = 0, binding = 4) buffer MeshTaskLocalCullInfo {
 	MeshTaskCullData values[];
 } meshTaskCullData;
 

@@ -1,0 +1,120 @@
+#version 460
+
+#extension GL_EXT_mesh_shader : require
+#extension GL_EXT_shader_explicit_arithmetic_types_int8 : require
+#extension GL_EXT_shader_explicit_arithmetic_types_int16 : require
+#extension GL_ARB_shading_language_include : require
+#extension GL_EXT_debug_printf : require
+#include "common_structures.glsl"
+#include "mesh_task_common.glsl"
+#include "mesh_only.glsl"
+
+
+taskPayloadSharedEXT MeshTaskPayload payload;
+
+layout(local_size_x = MESH_LOCAL_SIZE_X, local_size_y = 1) in;
+layout(triangles, max_vertices = MAX_MESH_VTX, max_primitives = MAX_MESH_TRIS) out;
+
+layout(location = 0) out vec2 fragUV[];
+
+layout (std140, set = 0, binding = 0) readonly buffer ObjectMatricesBuffer{
+	ObjectMatrices matrices[];
+} matricesBuffer;
+
+layout(std140, set = 1, binding = 0) readonly buffer CameraDatas {
+	CameraData values[];
+} cameraData;
+
+layout(std140, set = 2, binding = 0) readonly buffer MeshletBuffer{
+	Meshlet meshlets[];
+} meshletsBuffer;
+
+layout(std430,set = 2, binding = 2) readonly buffer MeshletIndexBuffer{
+	uint8_t indices[];
+} indexBuffer;
+
+layout(std140, set = 2, binding = 3) readonly buffer VertexPositionBuffer{
+	vec4 pos[];
+} vertexPositionBuffer;
+
+layout(std430, set = 2, binding = 4) readonly buffer VertexUVBuffer{
+	vec2 uv[];
+} vertexTexCoord0Buffer;
+
+layout(std140, set = 3, binding = 0) readonly buffer TaskCommands{
+	MeshTaskCommand values[];
+} taskCommands;
+
+layout(set = 3, binding = 1) readonly buffer MeshTaskLocalCullInfo {
+	MeshTaskCullData values[];
+} meshTaskCullData;
+
+layout(push_constant) uniform Constants{
+	uint cameraIndex;
+	int taskOffset;
+    int taskCount;
+} instanceInfo;
+
+uvec4 GetPerMeshlet() {
+	MeshletInfo info = payload.perMeshlet[gl_WorkGroupID.x];
+
+    return uvec4(uint(info.index), uint(info.verts), uint(info.tris), 1);
+}
+
+void main() {
+    MeshTaskCommand taskCommand = taskCommands.values[payload.taskIndex];
+    
+    uint localMeshletIndex = gl_WorkGroupID.x;
+    uvec4 info = GetPerMeshlet();
+
+    Meshlet meshlet = meshletsBuffer.meshlets[info.x];
+    
+    if(gl_LocalInvocationID.x == 0) {
+        SetMeshOutputsEXT(meshlet.vertex_count * info.w, meshlet.triangle_count * info.w);
+    }
+    
+    barrier();
+    
+    // vertex offset
+    uvec2 outVertInfo = GetOffsetCount(info.y, meshlet.vertex_count);
+    
+    // trianlge offset
+    uvec2 outTriInfo = GetOffsetCount(info.z, meshlet.triangle_count);
+    if(outTriInfo.y == 0 && outVertInfo.y == 0) return;
+
+    mat4 viewProjection = cameraData.values[instanceInfo.cameraIndex].projectionViewMatrix;
+    mat4 modelMatrix = matricesBuffer.matrices[taskCommand.localMatrixIndex].modelMatrix;
+    uint vertexOffset = taskCommand.vertexStartIndex + meshlet.vertex_offset + outVertInfo.x;
+    vec4 positionWorld;
+
+    for(uint i = 0; i < outVertInfo.y; i++) { 
+        positionWorld = modelMatrix * vec4(vertexPositionBuffer.pos[vertexOffset + i].xyz, 1.0);
+        
+        positionWorld =  viewProjection *  positionWorld;
+        gl_MeshVerticesEXT[outVertInfo.x + i].gl_Position = positionWorld;
+        fragUV[outVertInfo.x + i] = vertexTexCoord0Buffer.uv[vertexOffset + i];
+
+        vertexClipNDC[outVertInfo.x + i] = uvec2(packHalf2x16(positionWorld.xy / positionWorld.w), floatBitsToUint(positionWorld.w));
+        
+    }
+
+    barrier();
+
+    uint indexOffset = taskCommand.triangleStartIndex + meshlet.triangle_offset + (outTriInfo.x * 3);
+    uint index;
+    uvec3 abc;
+
+    for(uint i = 0; i < outTriInfo.y; i++) {
+        index = i * 3;
+
+        abc = uvec3(
+            uint(indexBuffer.indices[indexOffset + index + 0]),
+            uint(indexBuffer.indices[indexOffset + index + 1]),
+            uint(indexBuffer.indices[indexOffset + index + 2])
+        );
+
+        gl_PrimitiveTriangleIndicesEXT[outTriInfo.x + i] = abc;
+        
+        gl_MeshPrimitivesEXT[outTriInfo.x + i].gl_CullPrimitiveEXT = cullPrimative(abc);
+    }
+}

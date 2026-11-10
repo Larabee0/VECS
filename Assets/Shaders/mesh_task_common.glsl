@@ -2,6 +2,8 @@
 #define MESH_LOCAL_SIZE_X  32
 #define MAX_MESH_VTX 64
 #define MAX_MESH_TRIS 96
+// set taskStartOffset to this when the MeshTaskCommand should be skipped in the task shader
+#define TASK_COMMAND_SKIP  4294967295
 
 struct Meshlet {
     uint vertex_offset;
@@ -9,15 +11,6 @@ struct Meshlet {
 	uint vertex_count;
 	uint triangle_count;
 };
-
-// escaping my vec3 nightmares heavily
-struct Bounds {
-    vec4 min; // radius in w
-    vec4 max; // cut off in w
-};
-
-// set taskStartOffset to this when the MeshTaskCommand should be skipped in the task shader
-#define TASK_COMMAND_SKIP  4294967295
 
 struct MeshTaskCommand {
     uint meshletOffset;
@@ -60,15 +53,7 @@ struct MeshTaskPayload {
 };
 
 
-uint GetComputeShaderGroupCount(uint threadCount, uint localSize)
-{
+uint GetComputeShaderGroupCount(uint threadCount, uint localSize) {
 	return max(1, (threadCount + localSize - 1) / localSize);
 }
 
-uint GetPerInvoke(uint count){
-	uint perInvoke = max(1, count / MESH_LOCAL_SIZE_X);
-	if(count % MESH_LOCAL_SIZE_X != 0){
-		perInvoke++;
-	}
-	return perInvoke;
-}

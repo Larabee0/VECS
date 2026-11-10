@@ -649,7 +649,7 @@ namespace VECS
                             var format = bindingDesc.Variables[0].Size.GetAttributeFromByteSize();
                             if (format == VertexAttributeFormat.Byte)
                             {
-                                throw new InvalidOperationException(string.Format("Shader property {0} is trying ot use a vertex buffer of bytes which is not supported by DirectMesh!", pair.Key));
+                                throw new InvalidOperationException(string.Format("Shader property {0} is trying to use a vertex buffer of bytes which is not supported by DirectMesh!", pair.Key));
                             }
                             VertexAttributeDescription attributeDesc = new(attribute, format, 0, bindingDesc.BindPoint, bindingDesc.BindPoint);
 

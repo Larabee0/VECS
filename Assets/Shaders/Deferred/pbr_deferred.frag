@@ -13,24 +13,26 @@ layout (location = 1) out vec3 normalsOut;
 layout (location = 2) out vec3 albedoOut;
 layout (location = 3) out vec4 maskOut;
 
-layout (set = 0, binding = 0) readonly buffer CameraDatas {
+layout (set = 1, binding = 0) readonly buffer CameraDatas {
 	CameraData values[];
 } cameraData;
 
-layout(set = 2, binding = 0) uniform TexPorps {
+layout(set = 1, binding = 1) uniform TexPorps {
 	vec4 colour;
 	float tiling;
     float exposure;
     float gamma;
 } texProps;
 
-layout (set = 2, binding = 1) uniform sampler2D albedoMap;
-layout (set = 2, binding = 2) uniform sampler2D normalMap;
-layout (set = 2, binding = 3) uniform sampler2D maskMap;
+layout (set = 1, binding = 2) uniform sampler2D albedoMap;
+layout (set = 1, binding = 3) uniform sampler2D normalMap;
+layout (set = 1, binding = 4) uniform sampler2D maskMap;
 
 layout(push_constant) uniform Constants{
 	uint cameraIndex;
-} constants;
+	int taskOffset;
+    int taskCount;
+} instanceInfo;
 
 #define TILED_UV fragUV * texProps.tiling
 
@@ -44,7 +46,7 @@ float linearDepth(float depth, float nearPlane, float farPlane)
 void main(){
     vec3 normal = calculateNormal(normalMap,TILED_UV,fragNormalWorld,fragTangentWorld.xyz);
     normalsOut= normal;
-    positionOut.w = linearDepth(gl_FragCoord.z, cameraData.values[constants.cameraIndex].nearPlane,cameraData.values[constants.cameraIndex].farPlane);
+    positionOut.w = linearDepth(gl_FragCoord.z, cameraData.values[instanceInfo.cameraIndex].nearPlane,cameraData.values[instanceInfo.cameraIndex].farPlane);
     positionOut.xyz = fragPosWorld;
     albedoOut.rgb = texture(albedoMap, TILED_UV).rgb;
     maskOut = texture(maskMap,TILED_UV).rgba;

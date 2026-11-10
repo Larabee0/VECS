@@ -5,7 +5,8 @@
 #extension GL_ARB_shading_language_include : require
 #extension GL_EXT_debug_printf : require
 #include "../../common_structures.glsl"
-#include "../../mesh_shader_structures.glsl"
+#include "../../mesh_task_common.glsl"
+#include "../../task_only.glsl"
 #include "../../ComputeShaders/culling_helpers.glsl"
 #include "../../view_projection_amplification_helpers.glsl"
 
@@ -50,14 +51,14 @@ taskPayloadSharedEXT MeshTaskPayload payload;
 #include "depth_only_common.glsl"
 
 shared uint localMeshletCount;
-shared uint totalmeshletCount;
+shared uint totalMeshletCount;
 
 layout (local_size_x = TASK_LOCAL_SIZE_X, local_size_y = 1) in;
 void main(){
 	MeshTaskCommand command;
 	uint taskIndex = 0;
-	if(gl_LocalInvocationID.x == 0){
-		totalmeshletCount = 0;
+	if(gl_LocalInvocationID.x == 0) {
+		totalMeshletCount = 0;
 		localMeshletCount = 0;
 		uint taskStartOffset;
 		uint endRange;
@@ -80,7 +81,7 @@ void main(){
 		uint baseLayerCount         = GetLayerCountFromProjectionSelect(projectionSelect);
 
 		uint16_t layerBits = GetLayerBitsFromMask(gl_WorkGroupID.y, command.viewMask);		
-		bool viewMaskVisible = layerBits != Layer_Project_None;
+		
 		localMeshletCount *= uint(layerBits != Layer_Project_None);
 		payload.projectionCount = max(1,baseAmplificationCount * meshTaskCullData.values[0].sphereCount);
 		payload.layerCount      = 1; //int(min(maxLayer, baseLayerCount));
@@ -90,10 +91,9 @@ void main(){
 		//debugPrintfEXT("%u %u = WG task info global pyload.taskIndex: %u | shared localMeshletCount: %u", gl_WorkGroupID.x, gl_WorkGroupID.y, payload.taskIndex, localMeshletCount);
 		
 	}
+
 	barrier();
 
-	
-	
 	if(gl_LocalInvocationID.x < localMeshletCount) {
 		taskIndex = payload.taskIndex;
 		command = taskCommands.values[taskIndex];
@@ -139,7 +139,7 @@ void main(){
 				uint8_t(trianglesPerInvoke)
 			};
 
-			uint index = atomicAdd(totalmeshletCount, 1);
+			uint index = atomicAdd(totalMeshletCount, 1);
 			payload.perMeshlet[index] = info;
 
     		//debugPrintfEXT("%u %u meshletIndex %u", gl_WorkGroupID.x, gl_GlobalInvocationID.x, payload.perMeshlet[index].index);
@@ -150,7 +150,7 @@ void main(){
 	barrier();
 	if(gl_LocalInvocationID.x == 0)
 	{
-		uint meshShadersToInvoke = min(totalmeshletCount, command.meshletCount - (gl_WorkGroupID.x * TASK_LOCAL_SIZE_X));
+		uint meshShadersToInvoke = min(totalMeshletCount, command.meshletCount - (gl_WorkGroupID.x * TASK_LOCAL_SIZE_X));
 		payload.layerCount = 1;
 
 

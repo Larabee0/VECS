@@ -375,7 +375,7 @@ namespace VECS
                     //cmdRange[i].GroupCountZ = 1;
                     cmdRange[i].CommandStart = (uint)drawCommand.TaskOffset;
                     cmdRange[i].CommandEnd   = (uint)drawCommand.TaskCount;
-                    drawRange[i].Index = (uint)(batch.StartIndex + i);
+                    drawRange[i].Index = _meshTaskOffset + (uint)(batch.StartIndex + i);
                 }
             }
         }

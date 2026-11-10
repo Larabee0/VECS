@@ -18,6 +18,7 @@ namespace VECS
         public static GraphicsPipeline OIT_Unlit { get; private set; }
         public static GraphicsPipeline OIT_LitTexture { get; private set; }
         public static GraphicsPipeline PBR_Deferred { get; private set; }
+        public static GraphicsPipeline PBR_Deferred_Mesh { get; private set; }
         public static GraphicsPipeline Unlit_Tex_Deferred { get; private set; }
 
         internal static void Load()
@@ -35,6 +36,8 @@ namespace VECS
                 UnlitMeshShader = GraphicsPipelineDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "MeshShader.sp"));
                 MeshDepthOnly = GraphicsPipelineDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "MeshDepthOnly.sp"));
                 MeshDepthOnlyAlphaClipping = GraphicsPipelineDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "MeshDepthOnlyAlphaClipping.sp"));
+
+                PBR_Deferred_Mesh = GraphicsPipelineDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "PBR_Deferred_mesh.sp"));
 
             }
 

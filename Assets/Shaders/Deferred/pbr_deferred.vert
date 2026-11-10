@@ -12,44 +12,31 @@ layout (location = 1) out vec3 fragNormalWorld;
 layout (location = 2) out vec2 fragUV;
 layout (location = 3) out vec4 fragTangentWorld;
 
-layout (set = 0, binding = 0) readonly buffer CameraDatas {
+layout(std140, set = 0, binding = 0) readonly buffer ObjectMatricesBuffer{
+	ObjectMatrices matrices[];
+}matricesBuffer;
+
+layout (set = 1, binding = 0) readonly buffer CameraDatas {
 	CameraData values[];
 } cameraData;
 
 
-layout(std140, set = 1, binding = 0) readonly buffer ObjectMatricesBuffer{
-	ObjectMatrices matrices[];
-}matricesBuffer;
-
-
-layout(std140, set = 1, binding = 1) readonly buffer ObjectBoundsBuffer{
-	ObjectBounds bounds[];
-}boundsBuffer;
-
 layout(push_constant) uniform Constants{
 	uint cameraIndex;
-} constants;
+	int taskOffset;
+    int taskCount;
+} instanceInfo;
 
 
-
-const mat4 biasMat = mat4(
-	0.5, 0.0, 0.0, 0.0,
-	0.0, 0.5, 0.0, 0.0,
-	0.0, 0.0, 1.0, 0.0, 
-	0.5, 0.5, 0.0, 1.0 );
-
-const vec3 DIRECTION_TO_LIGHT = normalize(vec3(1.0, 3.0, 1.0));
-const float AMBIENT = 0.02;
 void main()
 {
 	ObjectMatrices objectMat = matricesBuffer.matrices[gl_BaseInstance];
 
 	vec4 positionWorld = objectMat.modelMatrix * vec4(position, 1.0);
-	gl_Position = cameraData.values[constants.cameraIndex].projectionViewMatrix * positionWorld;
+	gl_Position = cameraData.values[instanceInfo.cameraIndex].projectionViewMatrix * positionWorld;
 		
 	fragUV = uv;
 	fragPosWorld = positionWorld.xyz;
 	fragNormalWorld = normalize(mat3(objectMat.normalMatrix) * normal);	
-	//fragNormalWorld = normal;
 	fragTangentWorld = vec4(mat3(objectMat.modelMatrix) * tangent.xyz, tangent.w);
 }

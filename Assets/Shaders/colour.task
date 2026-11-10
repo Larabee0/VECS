@@ -1,0 +1,129 @@
+#version 460
+#extension GL_EXT_mesh_shader : require
+#extension GL_EXT_shader_explicit_arithmetic_types_int8 : require
+#extension GL_EXT_shader_explicit_arithmetic_types_int16 : require
+#extension GL_ARB_shading_language_include : require
+#extension GL_EXT_debug_printf : require
+#include "common_structures.glsl"
+#include "mesh_task_common.glsl"
+#include "task_only.glsl"
+#include "ComputeShaders/culling_helpers.glsl"
+
+layout (std140, set = 0, binding = 0) readonly buffer ObjectMatricesBuffer{
+	ObjectMatrices matrices[];
+} matricesBuffer;
+
+layout(set = 1, binding = 0) readonly buffer CameraDatas {
+	CameraData values[];
+} cameraData;
+
+layout(std140, set = 2, binding = 0) buffer MeshletBuffer{
+	Meshlet meshlets[];
+} meshletsBuffer;
+
+layout(std140, set = 2, binding = 1) readonly buffer BoundsBuffer{
+	ObjectBounds bounds[];
+} meshletBoundsBuffer;
+
+layout(std140, set = 3, binding = 0) readonly buffer TaskCommands{
+	MeshTaskCommand values[];
+} taskCommands;
+
+layout(set = 3, binding = 1) readonly buffer MeshTaskLocalCullInfo {
+	MeshTaskCullData values[];
+} meshTaskCullData;
+
+layout(push_constant) uniform Constants{
+	uint cameraIndex;
+	int taskOffset;
+    int taskCount;
+} instanceInfo;
+
+taskPayloadSharedEXT MeshTaskPayload payload;
+
+shared uint localMeshletCount;
+shared uint totalMeshletCount;
+
+layout (local_size_x = TASK_LOCAL_SIZE_X, local_size_y = 1) in;
+void main() {
+	MeshTaskCommand command;
+	uint taskIndex = 0;
+
+    if(gl_LocalInvocationID.x == 0) {
+        localMeshletCount = 0;
+        totalMeshletCount = 0;
+		uint taskStartOffset;
+		uint endRange;
+        uint count = instanceInfo.taskOffset + instanceInfo.taskCount;
+        for(uint i = instanceInfo.taskOffset; i < count; i++) {
+            command = taskCommands.values[i];
+            taskStartOffset = command.taskStartOffset;
+            endRange = taskStartOffset + GetComputeShaderGroupCount(command.meshletCount, TASK_LOCAL_SIZE_X);
+            if(gl_WorkGroupID.x >= taskStartOffset && gl_WorkGroupID.x < endRange) {
+                payload.taskIndex = i;
+
+                localMeshletCount = (endRange - 1 == gl_WorkGroupID.x)
+                    ? (command.meshletCount - ((gl_WorkGroupID.x - taskStartOffset) * TASK_LOCAL_SIZE_X))
+                    : TASK_LOCAL_SIZE_X;
+                break;
+            }
+        }
+
+        uint maxLayer = 1;
+        uint projectionSelect = 0;
+        uint baseAmplificationCount = 1;
+        uint baseLayerCount = 1;
+
+        payload.projectionCount = 1;
+        payload.layerCount = 1;
+        payload.layerOffset = int(instanceInfo.cameraIndex);
+    }
+
+    barrier();
+
+    if(gl_LocalInvocationID.x < localMeshletCount) {
+        taskIndex = payload.taskIndex;
+        command = taskCommands.values[taskIndex];
+        uint meshletOffset = gl_WorkGroupID.x - command.taskStartOffset;
+        uint meshletIndex = gl_LocalInvocationID.x + (meshletOffset * TASK_LOCAL_SIZE_X);
+        meshletIndex += command.meshletOffset;
+        Meshlet meshlet = meshletsBuffer.meshlets[meshletIndex];
+        MeshTaskCullData cullInfo = meshTaskCullData.values[0];
+        bvec4 cullModeInfo = cullingMode(command.layerFlags, cullInfo.includeMask, cullInfo.excludeMask, cullInfo.cullMode);
+        uint projectionSelect = 0;
+
+        uint16_t projectionOffset = uint16_t(instanceInfo.cameraIndex);
+
+        if(cullModeInfo.x && cullModeInfo.y) {
+            uint projectionCount = payload.projectionCount;
+            ObjectBounds bounds = TransformAABB(meshletBoundsBuffer.bounds[meshletIndex], matricesBuffer.matrices[command.localMatrixIndex].modelMatrix);
+            cullModeInfo.x = IsVisible(
+                bounds,
+                cullModeInfo.z,
+                cameraData.values[instanceInfo.cameraIndex].projectionViewMatrix
+            );
+        }
+        if(cullModeInfo.x) {
+    		uint verticesPerInvoke = GetPerInvoke(meshlet.vertex_count);
+    		uint trianglesPerInvoke = GetPerInvoke(meshlet.triangle_count);
+            MeshletInfo info = {
+				meshletIndex,
+				uint16_t(1),
+				uint8_t(verticesPerInvoke),
+				uint8_t(trianglesPerInvoke)
+			};
+
+			uint index = atomicAdd(totalMeshletCount, 1);
+			payload.perMeshlet[index] = info;
+        }
+
+    }
+    barrier();
+
+    if(gl_LocalInvocationID.x == 0) {
+        uint meshShadersToInvoke = min(totalMeshletCount, command.meshletCount - (gl_WorkGroupID.x * TASK_LOCAL_SIZE_X));
+        payload.layerCount = 1;
+
+        EmitMeshTasksEXT(meshShadersToInvoke, 1, 1);
+    }
+}

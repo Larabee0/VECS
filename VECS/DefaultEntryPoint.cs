@@ -437,6 +437,12 @@ namespace VECS
 
             var lit = EnginePipes.PBRTexture;
             lit = EnginePipes.PBR_Deferred;
+
+            if (GraphicsDevice.MeshShading)
+            {
+                lit = EnginePipes.PBR_Deferred_Mesh;
+            }
+
             //var litTransparent = EnginePipes.OIT_LitTexture;
 
             var texProp = "albedoMap".GetShaderPropertyId();

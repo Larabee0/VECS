@@ -6,11 +6,14 @@
 #extension GL_ARB_shading_language_include : require
 #extension GL_EXT_debug_printf : require
 #include "../../common_structures.glsl"
-#include "../../mesh_shader_structures.glsl"
+#include "../../mesh_task_common.glsl"
+#include "../../mesh_only.glsl"
 #include "../../view_projection_amplification_helpers.glsl"
 
 taskPayloadSharedEXT MeshTaskPayload payload;
 #include "depth_only_common.glsl"
+
+layout(local_size_x = MESH_LOCAL_SIZE_X, local_size_y = 1) in;
 
 out gl_MeshPerVertexEXT {
   vec4  gl_Position;
@@ -21,7 +24,6 @@ layout(triangles, max_vertices = MAX_MESH_VTX, max_primitives = MAX_MESH_TRIS) o
 
 layout(location = 0) out vec2 fragUV[];
 
-shared uvec2 vertexClipNDC [MAX_MESH_VTX];
 
 layout (std140, set = 0, binding = 0) readonly buffer ObjectMatricesBuffer{
 	ObjectMatrices matrices[];
@@ -116,16 +118,13 @@ mat4 getTransform(uint bufferSelect, uint bufferOffset) {
     }
 }
 
-layout(local_size_x = MESH_LOCAL_SIZE_X, local_size_y = 1) in;
 void main(){
     MeshTaskCommand taskCommand = taskCommands.values[payload.taskIndex];
 
     uint localMeshletIndex = gl_WorkGroupID.x;
     uvec4 info = GetPerMeshlet();
 
-    uint absMeshletIndex = info.x;
-
-    Meshlet meshlet = meshletsBuffer.meshlets[absMeshletIndex];
+    Meshlet meshlet = meshletsBuffer.meshlets[info.x];
 
     if(gl_LocalInvocationID.x == 0) {
         //debugPrintfEXT("%u %u abort meshlet %u", gl_WorkGroupID.x, gl_WorkGroupID.y, info.w);
@@ -162,14 +161,12 @@ void main(){
     }
 
     barrier();
+
     int layer = min(payload.layerOffset + min(int(gl_WorkGroupID.y), payload.layerCount-1), meshTaskCullData.values[0].maxLayers-1);
     //debugPrintfEXT("%u layer %i", gl_WorkGroupID.y,layer);
     uint indexOffset = taskCommand.triangleStartIndex + meshlet.triangle_offset + (outTriInfo.x * 3);
     uint index;
     uvec3 abc;
-    vec3 pa;
-    vec3 pb;
-    vec3 pc;
     for(uint i = 0; i < outTriInfo.y; i++){
         index = i * 3;
         gl_MeshPrimitivesEXT[outTriInfo.x + i].gl_Layer = layer;
@@ -182,14 +179,7 @@ void main(){
 
         gl_PrimitiveTriangleIndicesEXT[outTriInfo.x + i] = abc;
 
-        pa = vec3(unpackHalf2x16(vertexClipNDC[abc.x].x), uintBitsToFloat(vertexClipNDC[abc.x].y));
-        pb = vec3(unpackHalf2x16(vertexClipNDC[abc.y].x), uintBitsToFloat(vertexClipNDC[abc.y].y));
-        pc = vec3(unpackHalf2x16(vertexClipNDC[abc.z].x), uintBitsToFloat(vertexClipNDC[abc.z].y));
-        bool behindCamera = (pa.z < 0.0 && pb.z < 0.0 && pc.z < 0.0);
-        bool inBounds = ((pa.x > 1.0 && pb.x > 1.0 && pc.x > 1.0) || (pa.x < -1.0 && pb.x < -1.0 && pc.x < -1.0))
-                                && ((pa.y > 1.0 && pb.y > 1.0 && pc.y > 1.0) || (pa.y < -1.0 && pb.y < -1.0 && pc.y < -1.0));
-
-        gl_MeshPrimitivesEXT[outTriInfo.x + i].gl_CullPrimitiveEXT = behindCamera || inBounds;
+        gl_MeshPrimitivesEXT[outTriInfo.x + i].gl_CullPrimitiveEXT = cullPrimative(abc);
         
     }
 }
