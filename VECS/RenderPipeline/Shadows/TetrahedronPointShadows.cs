@@ -34,6 +34,10 @@ namespace VECS
         private readonly static float FOV0 = 143.98570868f;
         private readonly static float FOV1 = 125.26438968f;
 
+        private static readonly float TEX_SIZE = 1f;//0.5f; // 
+        private static readonly Vector2 TEX_COORDINATE = Vector2.Zero;//new(-0.5f, -0.5f); // 
+        private const uint TEX_RES = 2048;
+
         private readonly static Matrix4x4 Projection0 = Perspective(new(FOV0 + BETA, FOV1 + BETA), 0.1f, 7f);
         private readonly static Matrix4x4 Projection1 = Perspective(new(FOV1+ ALPHA, FOV0 + ALPHA), 0.1f, 7f);
 
@@ -59,7 +63,7 @@ namespace VECS
 
 
         private const float r = 0.0625f;
-
+        private const int MAX_POINT_SHADOWS_PER_MESH_PASS = 15;
         private readonly ComputeVariant _tile_debug_visualiser;
         private readonly RenderTarget _tileDebug;
 
@@ -69,7 +73,7 @@ namespace VECS
         {
             var alphaBeta = GetAlphaBeta(7f, FOV_A, GetPerspectiveDX9(7f, FOV_A));
             _shadowDepthTextures.SetTexture(new Texture2D("TetrahedronShadowRT",
-                8192, 8192,
+                (int)TEX_RES, (int)TEX_RES,
                 PreferredFormats.LOW_PRECISION_DEPTH_ONLY,
                 VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.Sampled,
                 VkSamplerAddressMode.ClampToBorder,
@@ -111,7 +115,7 @@ namespace VECS
         private readonly static Vector3 Face_C = RotationC.Forward(); // left
         private readonly static Vector3 Face_D = RotationD.Forward(); // right
        // static Vector3 plPosition = new(0, 0, 0);
-       //  private readonly static Vector3 Face_A = -new Vector3(0f, -0.57735026f, 0.81649661f);
+       //  private readonly static Vector3 Face_A = -new Vector3(0f, -0.57735026f, 0.1649661f);
        //  private readonly static Vector3 Face_B = -new Vector3(0f, -0.57735026f, -0.81649661f);
        //  private readonly static Vector3 Face_C = -new Vector3(-0.81649661f, 0.57735026f, 0f);
        //  private readonly static Vector3 Face_D = -new Vector3(0.81649661f, 0.57735026f, 0f);
@@ -222,20 +226,67 @@ namespace VECS
             Vector3 plPosition = new(-8, 1, 0);
             float farPlane = 7;
 
-            ProduceShadowMatrices(plPosition, farPlane, 0.5f, new Vector2(-0.5f,-0.5f));
+            //ProduceShadowMatrices(plPosition, farPlane, 0.5f, new Vector2(-0.5f,-0.5f));
+            ProduceShadowMatrices(plPosition, farPlane, TEX_SIZE, TEX_COORDINATE);
 
             Texture2D tex = (Texture2D)_shadowDepthTextures.First;
 
             tex.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.DepthAttachmentOptimal);
 
-            VkRenderingAttachmentInfo depth = GetAttchmentInfo(tex._imageView, VkAttachmentLoadOp.Clear);;
+            if (GraphicsDevice.MeshShading)
+            {
+                MeshShadingPass(frameInfo.CommandBuffer, [new(plPosition, farPlane)], tex);
+            }
+            else
+            {
+                VertexPasses(tex, frameInfo, plPosition, farPlane);
+            }
 
-            VkRenderingInfo renderingInfo = GetRenderingInfo(depth, 1, 1, 8192);
+
+            tex.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal);
+
+        }
+
+        private unsafe void MeshShadingPass(VkCommandBuffer commandBuffer, Span<Vector4> plLights, Texture2D tex)
+        {
+            int requiredPasses = (plLights.Length / MAX_POINT_SHADOWS_PER_MESH_PASS) + Math.Min(1,plLights.Length);
+
+            if (requiredPasses == 0) return;
+
+            Span<DepthOnlyPushConstants> pushBuffer = stackalloc DepthOnlyPushConstants[1];
+            CullData depthBufferInfo;
+            for (int i = 0; i < requiredPasses; i++)
+            {
+                int count = i < requiredPasses - 1 ? MAX_POINT_SHADOWS_PER_MESH_PASS : plLights.Length % MAX_POINT_SHADOWS_PER_MESH_PASS;
+                depthBufferInfo = new(SHADOW_INCLUDE_MASK, SHADOW_EXCLUDE_MASK, SHADOW_CULL_MODE, 0, plLights.Slice(MAX_POINT_SHADOWS_PER_MESH_PASS * i, count));
+
+                bool draw = CullShadow(commandBuffer, depthBufferInfo, DrawType.Mesh);
+
+                VkRenderingAttachmentInfo depth = GetAttchmentInfo(tex._imageView, i != 0 ? VkAttachmentLoadOp.Load : VkAttachmentLoadOp.Clear);
+                VkRenderingInfo renderingInfo = GetRenderingInfo(depth, 1, 1, (uint)tex.Width);
+
+                GraphicsDevice.BeginLabelCmd(commandBuffer, $"Depth Mesh Shader Pass {i}");
+                GraphicsDevice.DeviceAPI.vkCmdBeginRendering(commandBuffer, &renderingInfo);
+                SetViewPort(commandBuffer, (uint)tex.Width);
+                DrawDepthOnly(commandBuffer, pushBuffer, VkCullModeFlags.Front, draw ? DrawType.Mesh : DrawType.None);
+                GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
+                GraphicsDevice.EndLabelCmd(commandBuffer);
+            }
+            
+        }
+
+        private unsafe void VertexPasses( Texture2D tex, RendererFrameInfo frameInfo, Vector3 plPosition, float farPlane)
+        {
+            VkRenderingAttachmentInfo depth = GetAttchmentInfo(tex._imageView, VkAttachmentLoadOp.Clear); ;
+
+            VkRenderingInfo renderingInfo = GetRenderingInfo(depth, 1, 1, TEX_RES);
 
             Span<DepthOnlyPushConstants> pushBuffer = [new() { BufferSelect = 4 }];
             var commandBuffer = frameInfo.CommandBuffer;
             Span<Matrix4x4> views = stackalloc Matrix4x4[4];
             Span<Matrix4x4> projs = stackalloc Matrix4x4[4];
+            Span<Matrix4x4> texture = stackalloc Matrix4x4[4];
+            TextureMatrices(TEX_COORDINATE, TEX_SIZE, texture);
             ViewMatrices(plPosition, views);
             ProjectionMatrices(farPlane, projs);
             GraphicsDevice.BeginLabelCmd(commandBuffer, "Clear Pass");
@@ -251,8 +302,8 @@ namespace VECS
                     SHADOW_EXCLUDE_MASK,
                     SHADOW_CULL_MODE,
                     0.01f,
-                    projs[i],
-                    views[i]
+                    views[i] * projs[i] * texture[i]
+
                 )
                 {
                     ProjectionSelect = 4,
@@ -264,18 +315,16 @@ namespace VECS
 
                 GraphicsDevice.BeginLabelCmd(commandBuffer, "Depth Pass");
                 GraphicsDevice.DeviceAPI.vkCmdBeginRendering(commandBuffer, &renderingInfo);
-                
-                SetViewPort(commandBuffer, 8192);
+
+                SetViewPort(commandBuffer, TEX_RES);
                 DrawDepthOnly(commandBuffer, pushBuffer, VkCullModeFlags.Front);
-                    
+
                 GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
 
                 GraphicsDevice.EndLabelCmd(commandBuffer);
                 //GraphicsDevice.EndLabelCmd(commandBuffer);
-                depth.loadOp = VkAttachmentLoadOp.Load;
+                renderingInfo.pDepthAttachment->loadOp = VkAttachmentLoadOp.Load;
             }
-            tex.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal);
-
         }
 
         public override void PreShadowPass(in RendererFrameInfo frameInfo)

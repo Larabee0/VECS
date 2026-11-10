@@ -36,7 +36,7 @@ namespace VECS
 
             RenderGraph.AddPass("PointLightShadows", PassType.Render, PassCategory.FixedMap, [], [], ["PointLightShadowAttachments"], PointLightPass);
 
-            //new TetrahedronPointShadows();
+            new TetrahedronPointShadows();
         }
 
         private void PointLightPass(RendererFrameInfo frameInfo)

@@ -32,11 +32,12 @@ layout(set = 0, binding = 3) uniform CullData {
 	//vec4 frustum[6]; // data for left/right/top/bottom frustum planes
     mat4 viewProj[6];
 	mat4 viewMatrix;
-    vec4 sphere;
+    //vec4 sphere;
 	vec2 pyramid;
 	float zNear;
 	float P00;
 	float P11;
+    uint sphereCount;
 	uint drawCount;
     uint projectionSelect;
     uint16_t projectionIndex;
@@ -80,7 +81,8 @@ void main() {
         meshTaskCullData.values[0].excludeMask = cullData.excludeMask;
         meshTaskCullData.values[0].cullMode = cullData.cullMode;
         
-        meshTaskCullData.values[0].maxLayers = cullData.layerCount;
+        meshTaskCullData.values[0].maxLayers = uint8_t(cullData.layerCount);
+        meshTaskCullData.values[0].sphereCount = uint8_t(cullData.sphereCount);
         meshTaskCullData.values[0].projectionBufferSelect = uint8_t(cullData.projectionSelect);
         meshTaskCullData.values[0].projectionBufferOffset = cullData.projectionIndex;
     }
@@ -110,25 +112,25 @@ void main() {
     ObjectBounds bounds;
     uint cullShape = uint(cullData.cullShape);
     uint16_t viewMask;
-
+    bool visible;
     for(uint i = localOffset; i < count; i++) {
         viewMask = Layer_Project_None;
 		cullModeInfo = cullingMode(meshTaskCommands.values[i].layerFlags, cullData.includeMask, cullData.excludeMask, cullData.cullMode);
         bounds = boundsBuffer.bounds[meshTaskCommands.values[i].absMatrixIndex];
         
         if(cullModeInfo.x && cullModeInfo.y) {
-            
+            cullModeInfo.x = false;
             switch(cullShape){
                 case 0:
-
+                    
                     for(uint j = 0; j < cullData.layerCount; j++) {
-                        bool visible = IsVisible(
+                        visible = IsVisible(
                             bounds,
                             cullModeInfo.z,
                             cullData.viewProj[j]
                         );
 
-				        viewMask |= (GetLayerProjectBitMask(j) * uint16_t(cullModeInfo.x));
+				        viewMask |= (GetLayerProjectBitMask(j) * uint16_t(visible));
                         cullModeInfo.x = cullModeInfo.x || visible;
                     }
 
@@ -144,10 +146,14 @@ void main() {
                     // task shader wont emit meshlets per light
                     // task shader culls per light view matrix but has to launch 4 mesh shaders in y axis for tiled pointlights
                     // mesh shader culls tris per face of the point light tetraheadron
-                    cullModeInfo.x = AABB_Intersects_Sphere(bounds,
-                            cullData.sphere);
-
-                    viewMask = Layer_Project_0;
+                    for(uint j = 0; j < cullData.sphereCount; j++) {
+                        visible = AABB_Intersects_Sphere(bounds,
+                            getSphere(cullData.viewProj, j));
+                        
+				        viewMask |= (GetLayerProjectBitMask(j) * uint16_t(visible));
+                        cullModeInfo.x = cullModeInfo.x || visible;
+                    }
+                    
                 break;
             }
         }
@@ -157,19 +163,27 @@ void main() {
                 paddedMeshlets,
                 GetComputeShaderGroupCount(meshTaskCommands.values[i].meshletCount, TASK_LOCAL_SIZE_X)
             );
-            meshTaskCommands.values[i].viewMask = viewMask;
         }
         else {
             meshTaskCommands.values[i].taskStartOffset = TASK_COMMAND_SKIP;
+            viewMask = Layer_Project_None;
         }
-        atomicMax(usedLayerCount,GetMaskLayerCount(viewMask));
+        meshTaskCommands.values[i].viewMask = viewMask;
+        atomicMax(usedLayerCount, GetMaskLayerCount(viewMask));
     }
 
 
     barrier();
     if(gl_LocalInvocationID.x == 0){
         drawBuffer.Draws[gl_WorkGroupID.x].groupCountsX = paddedMeshlets;
-        drawBuffer.Draws[gl_WorkGroupID.x].groupCountsY = min(usedLayerCount,cullData.layerCount);
+        switch(cullShape){
+            case 0:
+                drawBuffer.Draws[gl_WorkGroupID.x].groupCountsY = min(usedLayerCount,cullData.layerCount);
+                break;
+            case 1:
+                drawBuffer.Draws[gl_WorkGroupID.x].groupCountsY = min(usedLayerCount,cullData.sphereCount);
+                break;
+        }
         drawBuffer.Draws[gl_WorkGroupID.x].groupCountsZ = 1;
     }
 }

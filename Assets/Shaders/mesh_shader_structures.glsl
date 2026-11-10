@@ -35,7 +35,9 @@ struct MeshTaskCommand {
 struct MeshTaskCullData{
 	mat4 viewProj[6];
     uint16_t projectionBufferOffset;
-    uint16_t maxLayers;
+    uint8_t maxLayers;
+    uint8_t sphereCount;
+    
 	uint8_t includeMask;
 	uint8_t excludeMask;
 	uint8_t cullMode;    

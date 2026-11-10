@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
@@ -300,13 +301,35 @@ namespace VECS.LowLevel
 
             VkDebugUtilsLabelEXT labelInfo = new()
             {
-                pLabelName = vkString
+                pLabelName = vkString,
             };
 
             _instanceApi.vkCmdBeginDebugUtilsLabelEXT(commandBuffer, &labelInfo);
 #endif
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static unsafe void BeginLabelCmd(VkCommandBuffer commandBuffer, string label, Vector4 colour)
+        {
+#if DEBUG
+            var bytes = Encoding.UTF8.GetBytes(label);
+
+            VkUtf8ReadOnlyString vkString = new(bytes);
+
+            VkDebugUtilsLabelEXT labelInfo = new()
+            {
+                pLabelName = vkString,
+            };
+
+            for (int i = 0; i < 4; i++)
+            {
+                labelInfo.color[i] = colour[i];
+            }
+
+
+            _instanceApi.vkCmdBeginDebugUtilsLabelEXT(commandBuffer, &labelInfo);
+#endif
+        }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void EndLabelCmd(VkCommandBuffer commandBuffer)
         {

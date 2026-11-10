@@ -29,11 +29,11 @@ layout(set = 0, binding = 3) uniform CullData{
 	// vec4 frustum[6]; // data for left/right/top/bottom frustum planes
 	mat4 viewProj[6];
 	mat4 viewMatrix;
-    vec4 sphere;
 	vec2 pyramid;
 	float zNear;
 	float P00;
 	float P11;
+	uint sphereCount;
 	uint drawCount;
     uint projectionSelect;
     uint16_t projectionIndex;

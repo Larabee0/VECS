@@ -82,7 +82,7 @@ namespace VECS
         }
     }
 
-    [StructLayout(LayoutKind.Sequential, Size = 512)]
+    [StructLayout(LayoutKind.Sequential, Size = 496)]
     public struct CullData
     {
         public Matrix4x4 ViewProj;
@@ -92,11 +92,12 @@ namespace VECS
         public Matrix4x4 ViewProj4;
         public Matrix4x4 ViewProj5;
         public Matrix4x4 View;
-        public Vector4 Sphere;
+        //public Vector4 Sphere;
         public Vector2 Pyramid;
         public float ZNear;
         public float P00;
         public float P11;
+        public uint SphereCount;
         public uint DrawCount;
         public uint ProjectionSelect;
         public ushort ProjectionOffset;
@@ -117,6 +118,33 @@ namespace VECS
             _ => throw new IndexOutOfRangeException(),
         };
 
+        public void SetSphere(Vector4 sphere, int i, int m)
+        {
+            switch (m)
+            {
+                case 0:
+                    ViewProj.SetMatrixRow(i % 4, sphere);
+                    break;
+                case 1:
+                    ViewProj1.SetMatrixRow(i % 4, sphere);
+                    break;
+                case 2:
+                    ViewProj2.SetMatrixRow(i % 4, sphere);
+                    break;
+                case 3:
+                    ViewProj3.SetMatrixRow(i % 4, sphere);
+                    break;
+                case 4:
+                    ViewProj4.SetMatrixRow(i % 4, sphere);
+                    break;
+                case 5:
+                    ViewProj5.SetMatrixRow(i % 4, sphere);
+                    break;
+                default:
+                    break;
+            }
+        }
+        /*
         public CullData(RenderLayer includeMask, RenderLayer excludeMask, CullModeFlags cullMode, float zNear, CameraData camera)
         {
             ViewProj = camera.ProjectionMatrix;
@@ -134,7 +162,7 @@ namespace VECS
             CullShape = CullShape.Fustrum;
             View = camera.ViewMatrix;
         }
-
+        */
         public CullData(RenderLayer includeMask, RenderLayer excludeMask, CullModeFlags cullMode, float zNear, Matrix4x4 projection, Matrix4x4 view)
         {
             ViewProj = view * projection;
@@ -153,11 +181,11 @@ namespace VECS
             View = view;
         }
 
-        public CullData(RenderLayer includeMask, RenderLayer excludeMask, CullModeFlags cullMode, Vector4 sphere)
+        public CullData(RenderLayer includeMask, RenderLayer excludeMask, CullModeFlags cullMode, float zNear, Matrix4x4 viewProjection)
         {
-            ViewProj = Matrix4x4.Identity;
-            Sphere = sphere;
-            ZNear = 0;
+            ViewProj = viewProjection;
+            //ViewProj = Matrix4x4.Transpose(ViewProj);
+            ZNear = zNear;
             P00 = ViewProj[0, 0];
             P11 = ViewProj[1, 1];
 
@@ -167,24 +195,27 @@ namespace VECS
             DrawCount = 0;
             IncludeMask = includeMask;
             ExcludeMask = excludeMask;
-            CullShape = CullShape.Sphere;
-
+            CullShape = CullShape.Fustrum;
             View = Matrix4x4.Identity;
         }
 
-        public CullData(RenderLayer includeMask, RenderLayer excludeMask, CullModeFlags cullMode, Vector4 sphere, Span<Matrix4x4> projectionMatrices, Span<Matrix4x4> viewMatrices)
+        public CullData(RenderLayer includeMask, RenderLayer excludeMask, CullModeFlags cullMode, ushort projectionOffset, Span<Vector4> spheres)
         {
-            Debug.Assert(viewMatrices.Length >= 6);
-            Debug.Assert(projectionMatrices.Length >= 6);
-            View = viewMatrices[0];
-            ViewProj = viewMatrices[0] * projectionMatrices[0];
-            ViewProj1 = viewMatrices[1] * projectionMatrices[1];
-            ViewProj2 = viewMatrices[2] * projectionMatrices[2];
-            ViewProj3 = viewMatrices[3] * projectionMatrices[3];
-            ViewProj4 = viewMatrices[4] * projectionMatrices[4];
-            ViewProj5 = viewMatrices[5] * projectionMatrices[5];
+            Debug.Assert(spheres.Length <= 15);
 
-            Sphere = sphere;
+            ViewProj = Matrix4x4.Identity;
+            ViewProj1 = Matrix4x4.Identity;
+            ViewProj2 = Matrix4x4.Identity;
+            ViewProj3 = Matrix4x4.Identity;
+            ViewProj4 = Matrix4x4.Identity;
+            ViewProj5 = Matrix4x4.Identity;
+            for (int i = 0, m = 0; i < spheres.Length; i++, m += (i + 1 % 4) == 0 ? 1 : 0)
+            {
+                SetSphere(spheres[i], i, m);
+            }
+
+            SphereCount = (uint)spheres.Length;
+            //ViewProj = Matrix4x4.Identity;
             ZNear = 0;
             P00 = ViewProj[0, 0];
             P11 = ViewProj[1, 1];
@@ -196,7 +227,11 @@ namespace VECS
             IncludeMask = includeMask;
             ExcludeMask = excludeMask;
             CullShape = CullShape.Sphere;
+            ProjectionOffset = projectionOffset;
+            ProjectionSelect = 4;
+            LayerCount = 1;
 
+            View = Matrix4x4.Identity;
         }
 
         public CullData(RenderLayer includeMask, RenderLayer excludeMask, CullModeFlags cullMode, uint projectionSelect, ushort projectionOffset, Matrix4x4 cubeProjectionMatrix, Span<Matrix4x4> viewMatrices)

@@ -221,7 +221,7 @@ namespace System.Numerics
             return new Vector4(mat[0, column], mat[1, column], mat[2, column], mat[3, column]);
         }
 
-        public static void SetMatrixRow(this Matrix4x4 mat, int row, Vector4 value)
+        public static void SetMatrixRow(ref this Matrix4x4 mat, int row, Vector4 value)
         {
             mat[row, 0] = value.X;
             mat[row, 1] = value.Y;

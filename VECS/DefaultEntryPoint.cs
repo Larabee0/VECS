@@ -231,7 +231,7 @@ namespace VECS
             entityManager.AddComponent(pointLight, new ShadowInfo()
             {
                 UpdateBehaviour = ShadowUpdate.Always,
-                Resolution = 1365,
+                Resolution = 2048,
             });
 
             entityManager.AddComponent(pointLight, new Scale() { Value = new Vector3(0.5f, 0.5f, 0.5f) });

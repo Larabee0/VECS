@@ -151,3 +151,7 @@ ObjectBounds TransformAABB(ObjectBounds aabb, mat4 m){
 float triangleArea(vec2 a, vec2 b, vec2 c) {
 	return ((a.x - c.x) * (b.y - a.y) - (a.x - b.x) * (c.y - a.y)) * 0.5;
 }
+
+vec4 getSphere(mat4[6] matrices, uint index) {
+	return matrices[index/4][index%4];
+}

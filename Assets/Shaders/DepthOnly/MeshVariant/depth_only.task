@@ -17,6 +17,9 @@ layout(set = 1, binding = 0) readonly buffer CameraDatas {
 	CameraData values[];
 } cameraData;
 
+layout(std140, set = 1, binding = 4) readonly buffer TetraShadowMats{
+    mat4 value[];
+} tetraShadowMats;
 
 layout(std140, set = 2, binding = 0) buffer MeshletBuffer{
 	Meshlet meshlets[];
@@ -79,7 +82,7 @@ void main(){
 		uint16_t layerBits = GetLayerBitsFromMask(gl_WorkGroupID.y, command.viewMask);		
 		bool viewMaskVisible = layerBits != Layer_Project_None;
 		localMeshletCount *= uint(layerBits != Layer_Project_None);
-		payload.projectionCount = 1; //min(maxLayer, baseAmplificationCount);
+		payload.projectionCount = max(1,baseAmplificationCount * meshTaskCullData.values[0].sphereCount);
 		payload.layerCount      = 1; //int(min(maxLayer, baseLayerCount));
 		payload.layerOffset = GetLayerIndexFromBits(layerBits);
 		
@@ -101,21 +104,27 @@ void main(){
     	Meshlet meshlet = meshletsBuffer.meshlets[meshletIndex];
 		MeshTaskCullData cullInfo = meshTaskCullData.values[0];
 		bvec4 cullModeInfo = cullingMode(command.layerFlags, cullInfo.includeMask, cullInfo.excludeMask, cullInfo.cullMode);
+		uint projectionSelect = uint(meshTaskCullData.values[0].projectionBufferSelect);
 
 		uint16_t projectionMask = Layer_Project_None;
+		uint16_t projectionOffset = meshTaskCullData.values[0].projectionBufferOffset;
 
         if(cullModeInfo.x && cullModeInfo.y) {
 			uint projectionCount = payload.projectionCount;
 			ObjectBounds bounds = TransformAABB(meshletBoundsBuffer.bounds[meshletIndex], matricesBuffer.matrices[command.localMatrixIndex].modelMatrix);
 			cullModeInfo.x = false;
+			uint baseProjectionIndex = projectionSelect != 4 ? payload.layerOffset : projectionOffset + payload.layerOffset;
 			for(uint i = 0; i < projectionCount; i++){
+				mat4 viewProj = projectionSelect != 4 
+					? cullInfo.viewProj[baseProjectionIndex + i]
+					: tetraShadowMats.value[baseProjectionIndex + i];
 				bool visible = IsVisible(
 					bounds,
                 	cullModeInfo.z,
-                	cullInfo.viewProj[payload.layerOffset]
+                	viewProj
             	);
 				cullModeInfo.x = cullModeInfo.x || visible;
-				projectionMask |= (GetLayerProjectBitMask(payload.layerOffset) * uint16_t(visible));
+				projectionMask |= (GetLayerProjectBitMask(baseProjectionIndex + i) * uint16_t(visible));
 			}
             
         }

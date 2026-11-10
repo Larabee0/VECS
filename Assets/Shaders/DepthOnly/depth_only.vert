@@ -108,6 +108,11 @@ float GetClipDist(vec3 positionWorld, int planeIndex){
     return (dot(positionWorld,normal)+dot(-normal,lightPos));
 }
 
+vec3 GetClippingPlane(vec3 right, vec3 left){
+    vec3 normal = normalize(cross(left, right));
+    return vec3(normal);
+}
+
 vec4 GetClipDistDir(vec3 positionWorld, mat4 viewProj){
 
     viewProj[0] = vec4(0.3809524, 0, 0, -0);
@@ -121,11 +126,16 @@ vec4 GetClipDistDir(vec3 positionWorld, mat4 viewProj){
     vec3 top =    normalize(viewProj[3] + viewProj[1]).xyz;
     vec3 bottom = normalize(viewProj[3] - viewProj[1]).xyz;
 
+    vec3 cp0 = -GetClippingPlane(top, right);
+    vec3 cp1 = -GetClippingPlane(bottom, right);
+    vec3 cp2 = -GetClippingPlane(top, left);
+    vec3 cp3 = -GetClippingPlane(bottom, left);
+
     return vec4(
-        dot(positionWorld, right) + dot(-right, lightPos),
-        dot(positionWorld, left) + dot(-left, lightPos),
-        dot(positionWorld, top) + dot(-top, lightPos),
-        dot(positionWorld, bottom)+ dot(-bottom, lightPos)
+        dot(positionWorld, cp0) + dot(-cp0, lightPos),
+        dot(positionWorld, cp1) + dot(-cp1, lightPos),
+        dot(positionWorld, cp2) + dot(-cp2, lightPos),
+        dot(positionWorld, cp3) + dot(-cp3, lightPos)
     );
 }
 

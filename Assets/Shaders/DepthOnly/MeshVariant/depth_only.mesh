@@ -84,7 +84,7 @@ float getClipDist(vec3 positionWorld, uint planeIndex){
 
 vec3 getClipDist(vec3 positionWorld){
     if(uint(meshTaskCullData.values[0].projectionBufferSelect) == 4) {
-        uint faceIndex = uint(meshTaskCullData.values[0].projectionBufferOffset);
+        uint faceIndex = uint(meshTaskCullData.values[0].projectionBufferOffset + (4 * payload.layerOffset)+gl_WorkGroupID.y);
         uint planeIndex = 3 * faceIndex;
         const vec3 lightPos = vec3(-8, 1, 0);
         
