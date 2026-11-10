@@ -153,9 +153,9 @@ namespace VECS
         public abstract void PreShadowPass(in RendererFrameInfo frameInfo);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected static unsafe void BeginShadowPass(VkCommandBuffer commandBuffer, VkImageView imageView, uint imageSize)
+        protected static unsafe void BeginShadowPass(VkCommandBuffer commandBuffer, VkImageView imageView, uint imageSize, VkAttachmentLoadOp loadOp = VkAttachmentLoadOp.Clear)
         {
-            VkRenderingAttachmentInfo depth = GetAttchmentInfo(imageView,VkAttachmentLoadOp.Clear);
+            VkRenderingAttachmentInfo depth = GetAttchmentInfo(imageView, loadOp);
             VkRenderingInfo renderingInfo = GetRenderingInfo(depth,1,1,imageSize);
             GraphicsDevice.DeviceAPI.vkCmdBeginRendering(commandBuffer, &renderingInfo);
             SetViewPort(commandBuffer, imageSize);

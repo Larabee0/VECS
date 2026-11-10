@@ -216,23 +216,23 @@ namespace VECS
 
             entityManager.AddComponent(pointLight, new Translation() { Value = translation });
 
-            //entityManager.AddComponent(pointLight, new PointLight()
-            //{
-            //    Ambient = new(0.1f, 0.1f, 0.1f, 1f),
-            //    Diffuse = diffuse,
-            //    Specular = diffuse,
-            //
-            //    Constant = 1.0f,
-            //    Linear = 0.07f,
-            //    Quadratic = 0.017f,
-            //    Range = 7f
-            //});
-            //
-            //entityManager.AddComponent(pointLight, new ShadowInfo()
-            //{
-            //    UpdateBehaviour = ShadowUpdate.Always,
-            //    Resolution = 1365,
-            //});
+            entityManager.AddComponent(pointLight, new PointLight()
+            {
+                Ambient = new(0.1f, 0.1f, 0.1f, 1f),
+                Diffuse = diffuse,
+                Specular = diffuse,
+            
+                Constant = 1.0f,
+                Linear = 0.07f,
+                Quadratic = 0.017f,
+                Range = 7f
+            });
+            
+            entityManager.AddComponent(pointLight, new ShadowInfo()
+            {
+                UpdateBehaviour = ShadowUpdate.Always,
+                Resolution = 1365,
+            });
 
             entityManager.AddComponent(pointLight, new Scale() { Value = new Vector3(0.5f, 0.5f, 0.5f) });
 

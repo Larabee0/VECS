@@ -159,18 +159,63 @@ namespace VECS
 
             GraphicsDevice.DeviceAPI.vkCmdExecuteCommands(frameInfo.CommandBuffer,6, secondaries);
 #else
-            for (int i = 0; i < 6; i++)
+
+            if (GraphicsDevice.MeshShading)
             {
-                RenderShadows(frameInfo.CommandBuffer, index, pointLight, arrayTex, CubeProjectionMatrix, i);
+                MeshShadingPass(frameInfo.CommandBuffer, index, pointLight, CubeProjectionMatrix, arrayTex);
+
+                if (DrawBlob.HasDrawItems(Depth_Only_Queue_Name, DrawType.Vertex))
+                {
+                    GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Vertex Passes");
+                    for (int i = 0; i < 6; i++)
+                    {
+                        RenderShadows(frameInfo.CommandBuffer, index, pointLight, arrayTex, CubeProjectionMatrix, i, VkAttachmentLoadOp.Load);
+                    }
+                    GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
+                }
             }
+            else
+            {
+                for (int i = 0; i < 6; i++)
+                {
+                    RenderShadows(frameInfo.CommandBuffer, index, pointLight, arrayTex, CubeProjectionMatrix, i);
+                }
+            }
+
 #endif
             SetImageLayoutRead(frameInfo.CommandBuffer, arrayTex);
         }
 
-        private static void RenderShadows(VkCommandBuffer commandBuffer, int index, PointLightUniform pointLight, Texture2DArray arrayTex, Matrix4x4 CubeProjectionMatrix, int i)
+        private unsafe void MeshShadingPass(VkCommandBuffer commandBuffer, int index, PointLightUniform pointLight, Matrix4x4 CubeProjectionMatrix, Texture2DArray arrayTex)
         {
-            DepthOnlyPushConstants depthOnlyPushConstants = new() { BufferSelect = POINT_SHADOWS_PUSH_CONSTANT_INDEX, MatrixStartIndex = (index * 6) + i };
-            Span<DepthOnlyPushConstants> pushBuffer = new(ref depthOnlyPushConstants);
+
+            Span<Matrix4x4> viewMatrices = stackalloc Matrix4x4[6];
+
+            for (int i = 0; i < 6; i++)
+            {
+                viewMatrices[i] = GetViewMatrix(i, pointLight.Position.AsVector3());
+            }
+
+            CullData depthBufferCullInfo = new(SHADOW_INCLUDE_MASK, SHADOW_EXCLUDE_MASK, SHADOW_CULL_MODE, POINT_SHADOWS_PUSH_CONSTANT_INDEX, (ushort)(index * 6), CubeProjectionMatrix, viewMatrices);
+
+            bool draw = CullShadow(commandBuffer, depthBufferCullInfo, DrawType.Mesh);
+
+            GraphicsDevice.BeginLabelCmd(commandBuffer, "Depth Pass Mesh Shader");
+            VkRenderingAttachmentInfo depth = GetAttchmentInfo(arrayTex._imageView, VkAttachmentLoadOp.Clear);
+            VkRenderingInfo renderingInfo = GetRenderingInfo(depth, 1, 6, (uint)arrayTex.Width);
+            GraphicsDevice.DeviceAPI.vkCmdBeginRendering(commandBuffer, &renderingInfo);
+            SetViewPort(commandBuffer, (uint)arrayTex.Width);
+
+            Span<DepthOnlyPushConstants> pushBuffer = stackalloc DepthOnlyPushConstants[1];
+            DrawDepthOnly(commandBuffer, pushBuffer, VkCullModeFlags.Front, draw ? DrawType.Mesh : DrawType.None);
+
+            GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
+            GraphicsDevice.EndLabelCmd(commandBuffer);
+        }
+
+        private static void RenderShadows(VkCommandBuffer commandBuffer, int index, PointLightUniform pointLight, Texture2DArray arrayTex, Matrix4x4 CubeProjectionMatrix, int i, VkAttachmentLoadOp loadOp = VkAttachmentLoadOp.Clear)
+        {
+            Span<DepthOnlyPushConstants> pushBuffer = [new() { BufferSelect = POINT_SHADOWS_PUSH_CONSTANT_INDEX, MatrixStartIndex = (index * 6) + i }] ;
             CullData depthBufferCullInfo = new(SHADOW_INCLUDE_MASK, SHADOW_EXCLUDE_MASK, SHADOW_CULL_MODE, 0.1f, CubeProjectionMatrix, GetViewMatrix(i, pointLight.Position.AsVector3()))
             {
                 ProjectionSelect = POINT_SHADOWS_PUSH_CONSTANT_INDEX,
@@ -179,12 +224,12 @@ namespace VECS
             };
 
             DebugDrawer.DrawLine(pointLight.Position.AsVector3(), GetViewMatrix(i, pointLight.Position.AsVector3()).Forward(), new Vector4(1f, 0f, 1f, 1f).ToVkColor());
-            CullShadow(commandBuffer, depthBufferCullInfo);
+            bool draw = CullShadow(commandBuffer, depthBufferCullInfo);
 
             GraphicsDevice.BeginLabelCmd(commandBuffer, "Depth Pass");
-            BeginShadowPass(commandBuffer, arrayTex.AdditionalImageViews[i], (uint)arrayTex.Width);
+            BeginShadowPass(commandBuffer, arrayTex.AdditionalImageViews[i], (uint)arrayTex.Width, loadOp);
 
-            DrawDepthOnly(commandBuffer, pushBuffer, VkCullModeFlags.Front);
+            DrawDepthOnly(commandBuffer, pushBuffer, VkCullModeFlags.Front, draw ? DrawType.Vertex : DrawType.None);
 
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
             GraphicsDevice.EndLabelCmd(commandBuffer);

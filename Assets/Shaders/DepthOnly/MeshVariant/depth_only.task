@@ -76,11 +76,12 @@ void main(){
 		uint baseAmplificationCount = GetAmplificationCountFromProjectionSelect(projectionSelect);
 		uint baseLayerCount         = GetLayerCountFromProjectionSelect(projectionSelect);
 
-		bool viewMaskVisible = InProjectionViewMask(gl_WorkGroupID.y, command.viewMask);
-		localMeshletCount *= uint(viewMaskVisible);
+		uint16_t layerBits = GetLayerBitsFromMask(gl_WorkGroupID.y, command.viewMask);		
+		bool viewMaskVisible = layerBits != Layer_Project_None;
+		localMeshletCount *= uint(layerBits != Layer_Project_None);
 		payload.projectionCount = 1; //min(maxLayer, baseAmplificationCount);
 		payload.layerCount      = 1; //int(min(maxLayer, baseLayerCount));
-		payload.layerOffset = int(gl_WorkGroupID.y);
+		payload.layerOffset = GetLayerIndexFromBits(layerBits);
 		
     	//debugPrintfEXT("%u = WG task info global payload.taskIndex: %u | shared localMeshletCount: %u", gl_WorkGroupID.x, payload.taskIndex, localMeshletCount);
 		//debugPrintfEXT("%u %u = WG task info global pyload.taskIndex: %u | shared localMeshletCount: %u", gl_WorkGroupID.x, gl_WorkGroupID.y, payload.taskIndex, localMeshletCount);
@@ -111,10 +112,10 @@ void main(){
 				bool visible = IsVisible(
 					bounds,
                 	cullModeInfo.z,
-                	cullInfo.viewProj[gl_WorkGroupID.y]
+                	cullInfo.viewProj[payload.layerOffset]
             	);
 				cullModeInfo.x = cullModeInfo.x || visible;
-				projectionMask |= (GetLayerProjectBitMask(gl_WorkGroupID.y) * uint16_t(visible));
+				projectionMask |= (GetLayerProjectBitMask(payload.layerOffset) * uint16_t(visible));
 			}
             
         }

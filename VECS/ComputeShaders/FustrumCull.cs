@@ -199,6 +199,33 @@ namespace VECS
 
         }
 
+        public CullData(RenderLayer includeMask, RenderLayer excludeMask, CullModeFlags cullMode, uint projectionSelect, ushort projectionOffset, Matrix4x4 cubeProjectionMatrix, Span<Matrix4x4> viewMatrices)
+        {
+            Debug.Assert(viewMatrices.Length >= 6);
+            View = viewMatrices[0];
+            ViewProj = viewMatrices[0] *  cubeProjectionMatrix;
+            ViewProj1 = viewMatrices[1] * cubeProjectionMatrix;
+            ViewProj2 = viewMatrices[2] * cubeProjectionMatrix;
+            ViewProj3 = viewMatrices[3] * cubeProjectionMatrix;
+            ViewProj4 = viewMatrices[4] * cubeProjectionMatrix;
+            ViewProj5 = viewMatrices[5] * cubeProjectionMatrix;
+
+            ZNear = 0;
+            P00 = ViewProj[0, 0];
+            P11 = ViewProj[1, 1];
+
+            Pyramid = new(DepthReduction.DepthPryamid.Width, DepthReduction.DepthPryamid.Height);
+
+            CullMode = cullMode;
+            DrawCount = 0;
+            IncludeMask = includeMask;
+            ExcludeMask = excludeMask;
+            CullShape = CullShape.Fustrum;
+            ProjectionSelect = projectionSelect;
+            ProjectionOffset = projectionOffset;
+            LayerCount = 6;
+        }
+
         public CullData(RenderLayer includeMask, RenderLayer excludeMask, CullModeFlags cullMode, uint projectionSelect, ushort projectionOffset, ushort layerCount, float zNear, Span<Matrix4x4> projectionMatrices, Span<Matrix4x4> viewMatrices)
         {
             Debug.Assert(viewMatrices.Length >= 4);

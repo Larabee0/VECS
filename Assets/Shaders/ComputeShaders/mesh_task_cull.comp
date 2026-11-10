@@ -55,12 +55,14 @@ layout(set = 0, binding = 4) buffer MeshTaskLocalCullInfo {
 shared uint paddedMeshlets;
 shared uvec2 commandRange;
 shared uint commandsPerThread;
+shared uint usedLayerCount;
 
 layout(local_size_x = 128) in;
 void main() {
 
     if(gl_LocalInvocationID.x == 0){
         paddedMeshlets = 0;
+        usedLayerCount = 0;
         commandRange = uvec2(drawBuffer.Draws[gl_WorkGroupID.x].start,drawBuffer.Draws[gl_WorkGroupID.x].count);
         commandsPerThread = GetComputeShaderGroupCount( commandRange.y, gl_WorkGroupSize.x);
     	//debugPrintfEXT("%u cullinfo global offset: %u | count: %u | per therad: %u", gl_WorkGroupID.x, commandRange.x, commandRange.y, commandsPerThread);
@@ -107,26 +109,27 @@ void main() {
     bvec4 cullModeInfo;
     ObjectBounds bounds;
     uint cullShape = uint(cullData.cullShape);
-    uint16_t viewMask = Layer_Project_None;
+    uint16_t viewMask;
 
     for(uint i = localOffset; i < count; i++) {
-
+        viewMask = Layer_Project_None;
 		cullModeInfo = cullingMode(meshTaskCommands.values[i].layerFlags, cullData.includeMask, cullData.excludeMask, cullData.cullMode);
         bounds = boundsBuffer.bounds[meshTaskCommands.values[i].absMatrixIndex];
-
+        
         if(cullModeInfo.x && cullModeInfo.y) {
             
             switch(cullShape){
                 case 0:
 
-                    for(uint i = 0; i < cullData.layerCount; i++) {
-                        cullModeInfo.x = IsVisible(
+                    for(uint j = 0; j < cullData.layerCount; j++) {
+                        bool visible = IsVisible(
                             bounds,
                             cullModeInfo.z,
-                            cullData.viewProj[i]
+                            cullData.viewProj[j]
                         );
 
-				        viewMask |= (GetLayerProjectBitMask(i) * uint16_t(cullModeInfo.x ));
+				        viewMask |= (GetLayerProjectBitMask(j) * uint16_t(cullModeInfo.x));
+                        cullModeInfo.x = cullModeInfo.x || visible;
                     }
 
                 break;
@@ -159,12 +162,14 @@ void main() {
         else {
             meshTaskCommands.values[i].taskStartOffset = TASK_COMMAND_SKIP;
         }
+        atomicMax(usedLayerCount,GetMaskLayerCount(viewMask));
     }
+
 
     barrier();
     if(gl_LocalInvocationID.x == 0){
         drawBuffer.Draws[gl_WorkGroupID.x].groupCountsX = paddedMeshlets;
-        drawBuffer.Draws[gl_WorkGroupID.x].groupCountsY = cullData.layerCount;
+        drawBuffer.Draws[gl_WorkGroupID.x].groupCountsY = min(usedLayerCount,cullData.layerCount);
         drawBuffer.Draws[gl_WorkGroupID.x].groupCountsZ = 1;
     }
 }

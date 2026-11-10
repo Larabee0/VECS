@@ -390,9 +390,9 @@ namespace VECS
             
             Span<DepthOnlyPushConstants> pushBuffer = stackalloc DepthOnlyPushConstants[1];
             DrawDepthOnly(commandBuffer, pushBuffer, VkCullModeFlags.Front,draw ? DrawType.Mesh : DrawType.None);
-
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
             GraphicsDevice.EndLabelCmd(commandBuffer);
+
         }
 
         private void SinglePass(int cascadeIndex, int cameraOffset, float renderScale, VkCommandBuffer commandBuffer, Texture2DArray arrayTex, VkAttachmentLoadOp loadOp = VkAttachmentLoadOp.Clear)

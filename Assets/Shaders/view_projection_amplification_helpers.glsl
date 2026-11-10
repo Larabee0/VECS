@@ -61,9 +61,45 @@ uint GetAmplificationCountFromProjectionSelect(uint projectionSelect){
     }
 }
 
+int GetLayerIndexFromBits(uint16_t mask){
+    switch(uint(mask)){
+        case 1:
+            return 0;
+        case 2:
+            return 1;
+        case 4:
+            return 2;
+        case 8:
+            return 3;
+        case 16:
+            return 4;
+        case 32:
+            return 5;
+        default:
+            return 0;
+    }
+}
+
 bool InProjectionViewMask(uint layerIndex, uint16_t viewMask) {
 
     uint16_t index = GetLayerProjectBitMask(layerIndex);
 
     return (index | viewMask) == viewMask;
+}
+
+uint16_t GetLayerBitsFromMask(uint index, uint16_t mask) {
+		
+    for(uint16_t i = Layer_Project_None, j = Layer_Project_None; i < 6; i++){
+        j += InProjectionViewMask(i, mask) ? Layer_Project_0 : Layer_Project_None;
+        if(j - 1 == index) return GetLayerProjectBitMask(i);
+    }
+    return Layer_Project_None;
+}
+
+uint GetMaskLayerCount(uint16_t mask){
+    uint inLayers = 0;
+    for(uint16_t i = Layer_Project_None; i < 6; i++){
+        inLayers += InProjectionViewMask(i,mask) ? 1 : 0;
+    }
+    return inLayers;
 }
