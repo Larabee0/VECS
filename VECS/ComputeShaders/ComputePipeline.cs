@@ -458,6 +458,7 @@ namespace VECS
             };
             computePipelineInfo.stage.pName = new VkUtf8ReadOnlyString(Encoding.UTF8.GetBytes(shaderModule.EntryPoint));
             _pipelineLayout = GPUPipelineUtil.CreatePipelineLayout(_descriptorSetLayouts, _pushConstantsHandler, shaderModule);
+            computePipelineInfo.layout = _pipelineLayout;
             _pipeline = GPUPipelineUtil.CreateComputePipeline(computePipelineInfo);
 
             GraphicsDevice.SetObjectName(VkObjectType.Pipeline, _pipeline.Handle, AssetName + "_v" + _version);

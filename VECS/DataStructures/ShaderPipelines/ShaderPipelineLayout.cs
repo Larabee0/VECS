@@ -87,6 +87,7 @@ namespace VECS
 
         public static void EnqueueForDisposal(ShaderPipelineLayout layout)
         {
+            if (layout == null) return;
             AssetDataBase<ShaderPipelineLayout>.Remove(layout);
             _disposalQueue.Enqueue(layout);
         }
