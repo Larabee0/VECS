@@ -18,7 +18,7 @@ namespace VECS
         {
             _ui = new(this);
 
-            _outputTexture = new(string.Format("{0}_Window_RT", name), width, height, VkFormat.R8G8B8A8Unorm);
+            _outputTexture = new($"{name}_Window_RT", width, height, VkFormat.R8G8B8A8Unorm);
             _ui.Update();
             ImGui.EndFrame();
             //ImGui.EndFrame();

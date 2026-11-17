@@ -108,7 +108,7 @@ namespace VECS
         {
             if (shaderCode == null)
             {
-                throw new NullReferenceException(string.Format("Shader Code was null: {0}", AssetName));
+                throw new NullReferenceException($"Shader Code was null: {AssetName}");
             }
 
             _spvShaderModule = SPIRVReflectUtil.CreateReflectShaderModule(shaderCode);

@@ -48,6 +48,11 @@ namespace System.Numerics
             return !(left == right);
         }
 
+        public static explicit operator Vector2(Vector2UInt v)
+        {
+            return new(v.X, v.Y);
+        }
+
         public override readonly int GetHashCode() => HashCode.Combine(X, Y);
     }
 
@@ -156,7 +161,7 @@ namespace System.Numerics
                 return y;
             }
 
-            throw new ArgumentException(string.Format("Object is not a {0}", typeof(Vector2Int)));
+            throw new ArgumentException($"Object is not a {typeof(Vector2Int)}");
         }
 
         public override readonly int GetHashCode() => HashCode.Combine(X, Y);

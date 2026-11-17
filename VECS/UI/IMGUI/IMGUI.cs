@@ -107,7 +107,7 @@ namespace VECS.UI
             ImGui.SetCurrentContext(_context);
             if (!_freeVariants.TryDequeue(out var variant))
             {
-                variant = _imguiPipeline.Create(string.Format("IMGUI_VAR_{0}", textureID.ToString()));
+                variant = _imguiPipeline.Create($"IMGUI_VAR_{textureID}");
             }
             _textureVariants[textureID] = new()
             {
@@ -192,7 +192,7 @@ namespace VECS.UI
         {
             VkFormat format = textureData.Format == ImTextureFormat.Rgba32 ? VkFormat.R8G8B8A8Unorm : VkFormat.A8Unorm;                      
             var texture = new Texture2D(
-                string.Format("IMGUI_{1}_{0}",textureData.UniqueID.ToString(),_outputWindow.WindowName),
+                $"IMGUI_{_outputWindow.WindowName}_{textureData.UniqueID}",
                 textureData.Width,
                 textureData.Height,
                 format,
@@ -205,7 +205,7 @@ namespace VECS.UI
 
             if(!_freeVariants.TryDequeue(out var variant))
             {
-                variant = _imguiPipeline.Create(string.Format("IMGUI_VAR_{1}_{0}", textureData.TexID.Handle.ToString(), _outputWindow.WindowName));
+                variant = _imguiPipeline.Create($"IMGUI_VAR_{_outputWindow.WindowName}_{textureData.TexID.Handle}");
             }
 
             
@@ -343,7 +343,7 @@ namespace VECS.UI
         {
             if (_blitVariant == null)
             {
-                _blitVariant = EnginePipes.Blit.Create(string.Format("{0}_Blit", _outputWindow.WindowName));
+                _blitVariant = EnginePipes.Blit.Create($"{_outputWindow.WindowName}_Blit");
                 _blitVariant.SetTexture(inputTextureId, _outputTarget.Target);
             }
 

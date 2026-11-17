@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Numerics;
 using System.Text.Json;
@@ -20,6 +21,8 @@ namespace VECS
         public SpecialisationConstant[] SpecialisationConstants;
 
         public VkFormat[] ColourFormats;
+
+        public VkDynamicState[] DynamicStates;
 
         public DepthFormat DepthFormat;
         public StencilFormat StencilFormat;
@@ -82,6 +85,12 @@ namespace VECS
                 AttributeDescriptions[i] = new(configInfo.AttributeDescriptions[i]);
             }
 
+            DynamicStates = new VkDynamicState[configInfo.dynamicStateEnables.Length];
+            for (int i = 0; i < DynamicStates.Length; i++)
+            {
+                DynamicStates[i] = configInfo.dynamicStateEnables[i];
+            }
+
             ColourFormats = configInfo.colourFormats;
 
             DepthFormat = (DepthFormat)configInfo.depthFormat;
@@ -133,6 +142,7 @@ namespace VECS
             Hidden = src.Hidden;
             ShaderPrograms = [.. src.ShaderPrograms];
             ColourFormats = [.. src.ColourFormats];
+            DynamicStates = [.. src.DynamicStates];
 
             BindingDescriptions =[.. src.BindingDescriptions];
             AttributeDescriptions = [..src.AttributeDescriptions];
@@ -197,6 +207,9 @@ namespace VECS
             {
                 configInfo.SpecialisationConstants[i] = SpecialisationConstants[i].VecsConstant;
             }
+
+            configInfo.dynamicStateEnables = new VkDynamicState[DynamicStates.Length];
+            Array.Copy(DynamicStates, configInfo.dynamicStateEnables, DynamicStates.Length);
 
             configInfo.colourFormats = ColourFormats;
 
@@ -286,6 +299,7 @@ namespace VECS
                 }
                 definition.SpecialisationConstants[i].VecsConstant = VECSSpecialisationConstant.FromJson(definition.SpecialisationConstants[i]);
             }
+            definition.DynamicStates ??= GraphicsPipelineConfigInfo.DefaultDynamicStates;
 
             return definition;
         }
@@ -391,6 +405,12 @@ namespace VECS
                     return false;
                 }
             }
+
+            if(DynamicStates.Length != other.DynamicStates.Length) return false;
+
+            HashSet<VkDynamicState> dynamicStates = [.. DynamicStates];
+
+            if(!dynamicStates.IsSubsetOf(other.DynamicStates)) return false;
 
             return true;
         }

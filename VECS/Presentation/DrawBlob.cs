@@ -144,14 +144,14 @@ namespace VECS
 
             _buffer = new(ElementSize, 1, VkBufferUsageFlags.StorageBuffer, true);
 
-            _buffer.SetDebugName(string.Format("RB_{0}_{1}",BufferSource.ElementType.Name, BufferShaderPropertyId.GetPropertyIdString()));
+            _buffer.SetDebugName($"RB_{BufferSource.ElementType.Name}_{BufferShaderPropertyId.GetPropertyIdString()}");
             EngineBuffers.AddOrUpdateEngineBuffer(BufferShaderPropertyId, _buffer);
         }
 
         public void Resize(int newLength)
         {
             _buffer.Realloc((uint)newLength);
-            _buffer.SetDebugName(string.Format("RB_{0}_{1}", BufferSource.ElementType.Name, BufferShaderPropertyId.GetPropertyIdString()));
+            _buffer.SetDebugName($"RB_{BufferSource.ElementType.Name}_{BufferShaderPropertyId.GetPropertyIdString()}");
         }
 
         public unsafe void Write(in int index, in IComponent component)

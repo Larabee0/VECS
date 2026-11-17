@@ -48,8 +48,6 @@ namespace VECS
 
             PBR_Deferred = GraphicsPipelineDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "PBR_Deferred.sp"));
             Unlit_Tex_Deferred = GraphicsPipelineDefinition.MakePipeline(Path.Combine(Asset.AssetsPath, "ShaderPipelines", "Unlit_Tex_Deferred.sp"));
-
-            DepthReduction.Init();
         }
 
     }

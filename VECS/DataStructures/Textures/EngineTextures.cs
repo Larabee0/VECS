@@ -78,7 +78,7 @@ namespace VECS
         {
             if (!_engineTextures.TryAdd(propertyId, texture))
             {
-                throw new ArgumentException(string.Format("Key {0} already exists in the enginetexture dictionary, use Updatetexture to replace it", propertyId));
+                throw new ArgumentException($"Key {propertyId} already exists in the enginetexture dictionary, use Updatetexture to replace it");
             }
         }
 
@@ -89,7 +89,7 @@ namespace VECS
                 existing.SetTexture(texture, index);
                 return;
             }
-            throw new KeyNotFoundException(string.Format("Key {0} has no texture assocaited with it, use Addtexture to add it", propertyId));
+            throw new KeyNotFoundException($"Key {propertyId} has no texture assocaited with it, use Addtexture to add it");
         }
 
         public static void AddOrUpdateTexture(int propertyId, ITextureProvider texture)

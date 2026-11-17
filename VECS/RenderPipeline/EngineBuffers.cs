@@ -42,7 +42,7 @@ namespace VECS
         {
             if(!_engineBuffers.TryAdd(propertyId, buffer))
             {
-                throw new ArgumentException(string.Format("Key {0} already exists in the enginebuffers dictionary, use UpdateEngineBuffer to replace it", propertyId));
+                throw new ArgumentException($"Key {propertyId} already exists in the enginebuffers dictionary, use UpdateEngineBuffer to replace it");
             }
         }
 
@@ -50,7 +50,7 @@ namespace VECS
         {
             if(!_engineBuffers.TryGetValue(propertyId, out var existing) || !_engineBuffers.TryUpdate(propertyId, buffer, existing))
             {
-                throw new KeyNotFoundException(string.Format("Key {0} has no buffer assocaited with it, use AddEngineBuffer to add it", propertyId));
+                throw new KeyNotFoundException($"Key {propertyId} has no buffer assocaited with it, use AddEngineBuffer to add it");
             }
             Pipeline._descriptorReWrite = true;
         }

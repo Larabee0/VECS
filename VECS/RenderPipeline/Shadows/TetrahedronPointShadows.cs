@@ -28,15 +28,15 @@ namespace VECS
         private readonly static Matrix4x4 RotationB = Matrix4x4.CreateRotationZ(90f.ToRadians()) * Matrix4x4.CreateRotationX(27.36780516f.ToRadians()) * Matrix4x4.CreateRotationY(0.0f.ToRadians());
         private readonly static Matrix4x4 RotationC = Matrix4x4.CreateRotationX(-27.36780516f.ToRadians()) * Matrix4x4.CreateRotationY(270f.ToRadians());
         private readonly static Matrix4x4 RotationD = Matrix4x4.CreateRotationZ(90f.ToRadians()) * Matrix4x4.CreateRotationX(-27.36780516f.ToRadians()) * Matrix4x4.CreateRotationY(90f.ToRadians());
-
-        private readonly static float ALPHA = 1.99273682f.ToRadians();
-        private readonly static float BETA = 2.78596497f.ToRadians();
+        // 1.9927063f.ToRadians(), 2.7859344f.ToRadians()
+        private readonly static float ALPHA = 1.9927063f.ToRadians(); //1.99273682f.ToRadians();
+        private readonly static float BETA  = 2.7859344f.ToRadians(); //2.78596497f.ToRadians();
         private readonly static float FOV0 = 143.98570868f;
         private readonly static float FOV1 = 125.26438968f;
 
         private static readonly float TEX_SIZE = 1f;//0.5f; // 
         private static readonly Vector2 TEX_COORDINATE = Vector2.Zero;//new(-0.5f, -0.5f); // 
-        private const uint TEX_RES = 2048;
+        private const uint TEX_RES = 8192;
 
         private readonly static Matrix4x4 Projection0 = Perspective(new(FOV0 + BETA, FOV1 + BETA), 0.1f, 7f);
         private readonly static Matrix4x4 Projection1 = Perspective(new(FOV1+ ALPHA, FOV0 + ALPHA), 0.1f, 7f);
@@ -71,12 +71,16 @@ namespace VECS
 
         public TetrahedronPointShadows() : base(1)
         {
-            var alphaBeta = GetAlphaBeta(7f, FOV_A, GetPerspectiveDX9(7f, FOV_A));
+            var alphaBeta = GetAlphaBeta(7f, FOV_A,  Perspective(FOV_A, 0.1f, 7f));
             _shadowDepthTextures.SetTexture(new Texture2D("TetrahedronShadowRT",
                 (int)TEX_RES, (int)TEX_RES,
                 PreferredFormats.LOW_PRECISION_DEPTH_ONLY,
                 VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.Sampled,
                 VkSamplerAddressMode.ClampToBorder,
+                0,
+                false,
+                VkCompareOp.Never,
+                VkBorderColor.FloatOpaqueWhite,
                 false),
             0);
 
@@ -110,8 +114,8 @@ namespace VECS
             _tile_debug_visualiser.SetVector4("faceVectors.faceD".GetShaderPropertyId(), new(Face_D, 1));
         }
 
-        private readonly static Vector3 Face_A = RotationA.Forward(); // down
-        private readonly static Vector3 Face_B = RotationB.Forward(); // away
+        private readonly static Vector3 Face_A = RotationB.Forward(); // down
+        private readonly static Vector3 Face_B = RotationA.Forward(); // away
         private readonly static Vector3 Face_C = RotationC.Forward(); // left
         private readonly static Vector3 Face_D = RotationD.Forward(); // right
        // static Vector3 plPosition = new(0, 0, 0);
@@ -169,37 +173,38 @@ namespace VECS
             D_CP_0 = GetClippingPlane(-ALPHA, Up_C_1, Up_C_0, Forward_Face_A, Forward_Face_D);
             D_CP_1 = GetClippingPlane(-ALPHA, Up_C_2, Up_C_1, Forward_Face_B, Forward_Face_D);
             D_CP_2 = GetClippingPlane(-ALPHA, Up_C_0, Up_C_2, Forward_Face_C, Forward_Face_D);
-            clippingPlanes[0] = GetClippingPlane(ALPHA, C_3, C_0, Face_C, Face_A);
-            clippingPlanes[1] = GetClippingPlane(ALPHA, C_1, C_3, Face_B, Face_A);
-            clippingPlanes[2] = GetClippingPlane(ALPHA, C_0, C_1, Face_D, Face_A);
 
-            clippingPlanes[3] = GetClippingPlane(ALPHA, C_3, C_1, Face_A, Face_B);
-            clippingPlanes[4] = GetClippingPlane(ALPHA, C_2, C_3, Face_C, Face_B);
-            clippingPlanes[5] = GetClippingPlane(ALPHA, C_1, C_2, Face_D, Face_B);
+            clippingPlanes[0] = GetClippingPlane(-ALPHA, C_3, C_0, Face_C, Face_A);
+            clippingPlanes[1] = GetClippingPlane(-ALPHA, C_1, C_3, Face_B, Face_A);
+            clippingPlanes[2] = GetClippingPlane(-ALPHA, C_0, C_1, Face_D, Face_A);
 
-            clippingPlanes[6] = GetClippingPlane(ALPHA, C_0, C_3, Face_A, Face_C);
-            clippingPlanes[7] = GetClippingPlane(ALPHA, C_3, C_2, Face_B, Face_C);
-            clippingPlanes[8] = GetClippingPlane(ALPHA, C_2, C_0, Face_D, Face_C);
+            clippingPlanes[3] = GetClippingPlane(-ALPHA, C_3, C_1, Face_A, Face_B);
+            clippingPlanes[4] = GetClippingPlane(-ALPHA, C_2, C_3, Face_C, Face_B);
+            clippingPlanes[5] = GetClippingPlane(-ALPHA, C_1, C_2, Face_D, Face_B);
 
-            clippingPlanes[09] = GetClippingPlane(ALPHA, C_1, C_0, Face_A, Face_D);
-            clippingPlanes[10] = GetClippingPlane(ALPHA, C_2, C_1, Face_B, Face_D);
-            clippingPlanes[11] = GetClippingPlane(ALPHA, C_0, C_2, Face_C, Face_D);
+            clippingPlanes[6] = GetClippingPlane(-ALPHA, C_0, C_3, Face_A, Face_C);
+            clippingPlanes[7] = GetClippingPlane(-ALPHA, C_3, C_2, Face_B, Face_C);
+            clippingPlanes[8] = GetClippingPlane(-ALPHA, C_2, C_0, Face_D, Face_C);
+
+            clippingPlanes[09] = GetClippingPlane(-ALPHA, C_1, C_0, Face_A, Face_D);
+            clippingPlanes[10] = GetClippingPlane(-ALPHA, C_2, C_1, Face_B, Face_D);
+            clippingPlanes[11] = GetClippingPlane(-ALPHA, C_0, C_2, Face_C, Face_D);
 
             clippingPlanes[0] = B_CP_0;
             clippingPlanes[1] = B_CP_1;
             clippingPlanes[2] = B_CP_2;
-
-            clippingPlanes[3] = A_CP_0;
-            clippingPlanes[4] = A_CP_1;
-            clippingPlanes[5] = A_CP_2;
-
+            
+            clippingPlanes[3] = D_CP_0;
+            clippingPlanes[4] = D_CP_1;
+            clippingPlanes[5] = D_CP_2;
+            
             clippingPlanes[6] = C_CP_0;
             clippingPlanes[7] = C_CP_1;
             clippingPlanes[8] = C_CP_2;
-
-            clippingPlanes[09] = D_CP_0;
-            clippingPlanes[10] = D_CP_1;
-            clippingPlanes[11] = D_CP_2;
+            
+            clippingPlanes[09] = A_CP_0;
+            clippingPlanes[10] = A_CP_1;
+            clippingPlanes[11] = A_CP_2;
             _tile_debug_visualiser.PushConstantsHandler.SetPushConstantVector4(ShaderProperties.OutputImageSize_PushConstantId, 0, new(frameInfo.OutputRect.extent.width, frameInfo.OutputRect.extent.height, 1.0f / frameInfo.OutputRect.extent.width, 1.0f / frameInfo.OutputRect.extent.height));
             _tile_debug_visualiser.PushConstantsHandler.SetPushConstantInt("sideIndex", 0, 0);
             _tile_debug_visualiser.PushConstantsHandler.SetPushConstantInt("useConst", 0, 0);
@@ -214,7 +219,7 @@ namespace VECS
             Presenter.Instance.Renderer.EndForwardRendering(frameInfo);
         }
 
-        private unsafe void ShadowPass(RendererFrameInfo frameInfo)
+        private void ShadowPass(RendererFrameInfo frameInfo)
         {
             if (ReassignTextures)
             {
@@ -230,9 +235,12 @@ namespace VECS
             ProduceShadowMatrices(plPosition, farPlane, TEX_SIZE, TEX_COORDINATE);
 
             Texture2D tex = (Texture2D)_shadowDepthTextures.First;
-
             tex.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.DepthAttachmentOptimal);
-
+            float biasConstant = 1.5f;
+            float biasClamp = 0.0f;
+            float biasSlope = 1.75f;
+            GraphicsDevice.DeviceAPI.vkCmdSetDepthBiasEnable(frameInfo.CommandBuffer, true);
+            GraphicsDevice.DeviceAPI.vkCmdSetDepthBias(frameInfo.CommandBuffer, biasConstant, biasClamp, biasSlope);
             if (GraphicsDevice.MeshShading)
             {
                 MeshShadingPass(frameInfo.CommandBuffer, [new(plPosition, farPlane)], tex);
@@ -244,7 +252,6 @@ namespace VECS
 
 
             tex.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal);
-
         }
 
         private unsafe void MeshShadingPass(VkCommandBuffer commandBuffer, Span<Vector4> plLights, Texture2D tex)
@@ -258,7 +265,7 @@ namespace VECS
             for (int i = 0; i < requiredPasses; i++)
             {
                 int count = i < requiredPasses - 1 ? MAX_POINT_SHADOWS_PER_MESH_PASS : plLights.Length % MAX_POINT_SHADOWS_PER_MESH_PASS;
-                depthBufferInfo = new(SHADOW_INCLUDE_MASK, SHADOW_EXCLUDE_MASK, SHADOW_CULL_MODE, 0, plLights.Slice(MAX_POINT_SHADOWS_PER_MESH_PASS * i, count));
+                depthBufferInfo = new(SHADOW_INCLUDE_MASK, SHADOW_EXCLUDE_MASK, SHADOW_CULL_MODE, Vector4.One, 0, plLights.Slice(MAX_POINT_SHADOWS_PER_MESH_PASS * i, count));
 
                 bool draw = CullShadow(commandBuffer, depthBufferInfo, DrawType.Mesh);
 
@@ -268,7 +275,7 @@ namespace VECS
                 GraphicsDevice.BeginLabelCmd(commandBuffer, $"Depth Mesh Shader Pass {i}");
                 GraphicsDevice.DeviceAPI.vkCmdBeginRendering(commandBuffer, &renderingInfo);
                 SetViewPort(commandBuffer, (uint)tex.Width);
-                DrawDepthOnly(commandBuffer, pushBuffer, VkCullModeFlags.Front, draw ? DrawType.Mesh : DrawType.None);
+                DrawDepthOnly(commandBuffer, pushBuffer, VkCullModeFlags.None, draw ? DrawType.Mesh : DrawType.None);
                 GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
                 GraphicsDevice.EndLabelCmd(commandBuffer);
             }
@@ -300,7 +307,7 @@ namespace VECS
                 CullData depthBufferCullInfo = new(
                     SHADOW_INCLUDE_MASK,
                     SHADOW_EXCLUDE_MASK,
-                    SHADOW_CULL_MODE,
+                    SHADOW_CULL_MODE, Vector4.One,
                     0.01f,
                     views[i] * projs[i] * texture[i]
 
@@ -388,7 +395,7 @@ namespace VECS
                 M24 = coord.Y - (size * 0.5f),
             });
             // mb
-            textures[1] = Matrix4x4.Transpose(new()
+            textures[3] = Matrix4x4.Transpose(new()
             {
                 M11 = (size * 0.5f),
                 M22 = size,
@@ -408,7 +415,7 @@ namespace VECS
                 M24 = coord.Y + (size * 0.5f)
             });
             // md
-            textures[3] = Matrix4x4.Transpose(new()
+            textures[1] = Matrix4x4.Transpose(new()
             {
                 M11 = (size * 0.5f),
                 M22 = size,
@@ -422,15 +429,43 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void ViewMatrices(Vector3 position, Span<Matrix4x4> views)
         {
-            views[0] = Matrix4x4.CreateLookAt(position, position + Forward_Face_A, -Forward_Face_B);
-            views[1] = Matrix4x4.CreateLookAt(position, position + Forward_Face_B, -Forward_Face_A);
-            views[2] = Matrix4x4.CreateLookAt(position, position + Forward_Face_C, -Forward_Face_D);
-            views[3] = Matrix4x4.CreateLookAt(position, position + Forward_Face_D, -Forward_Face_C);
+            //views[0] = Matrix4x4.Identity;
+            //views[1] = Matrix4x4.Identity;
+            //views[2] = Matrix4x4.Identity;
+            //views[3] = Matrix4x4.Identity;
 
-            views[0] = Matrix4x4.CreateLookAt(position, position + RotationA.Forward(), RotationA.Up());
-            views[1] = Matrix4x4.CreateLookAt(position, position + RotationB.Forward(), RotationB.Up());
-            views[2] = Matrix4x4.CreateLookAt(position, position + RotationC.Forward(), RotationC.Up());
-            views[3] = Matrix4x4.CreateLookAt(position, position + RotationD.Forward(), RotationD.Up());
+
+            Matrix4x4 B = Matrix4x4.CreateScale(Vector3.One) * Matrix4x4.CreateFromQuaternion(TransformExtensions.QuaternionLookRotation(Forward_Face_A, Up_C_0)) * Matrix4x4.CreateTranslation(Vector3.Zero);
+            Matrix4x4 A = Matrix4x4.CreateScale(Vector3.One) * Matrix4x4.CreateFromQuaternion(TransformExtensions.QuaternionLookRotation(Forward_Face_B, Up_C_1)) * Matrix4x4.CreateTranslation(Vector3.Zero);
+            Matrix4x4 C = Matrix4x4.CreateScale(Vector3.One) * Matrix4x4.CreateFromQuaternion(TransformExtensions.QuaternionLookRotation(Forward_Face_C, Up_C_2)) * Matrix4x4.CreateTranslation(Vector3.Zero);
+            Matrix4x4 D = Matrix4x4.CreateScale(Vector3.One) * Matrix4x4.CreateFromQuaternion(TransformExtensions.QuaternionLookRotation(Forward_Face_D, Up_C_3)) * Matrix4x4.CreateTranslation(Vector3.Zero);
+
+
+            A = Matrix4x4.CreateScale(Vector3.One) * RotationA * Matrix4x4.CreateTranslation(Vector3.Zero);
+            B = Matrix4x4.CreateScale(Vector3.One) * RotationB * Matrix4x4.CreateTranslation(Vector3.Zero);
+            C = Matrix4x4.CreateScale(Vector3.One) * RotationC * Matrix4x4.CreateTranslation(Vector3.Zero);
+            D = Matrix4x4.CreateScale(Vector3.One) * RotationD * Matrix4x4.CreateTranslation(Vector3.Zero);
+
+            Vector3 AUp = A.Up();
+            Vector3 BUp = B.Up();
+            Vector3 CUp = C.Up();
+            Vector3 DUp = D.Up();
+            Vector3 AForward = A.Forward();
+            Vector3 BForward = B.Forward();
+            Vector3 CForward = C.Forward();
+            Vector3 DForward = D.Forward();
+
+            views[0] = Matrix4x4.CreateLookAt(position, position + Forward_Face_B, AUp);
+            views[1] = Matrix4x4.CreateLookAt(position, position + Forward_Face_A, BUp);
+            views[2] = Matrix4x4.CreateLookAt(position, position + Forward_Face_C, CUp);
+            views[3] = Matrix4x4.CreateLookAt(position, position + Forward_Face_D, DUp);
+
+            views[0] = Matrix4x4.CreateLookAt(position, position + AForward, A.Up());
+            views[3] = Matrix4x4.CreateLookAt(position, position + BForward, B.Up());
+            views[2] = Matrix4x4.CreateLookAt(position, position + CForward, C.Up());
+            views[1] = Matrix4x4.CreateLookAt(position, position + DForward, D.Up());
+
+            
 
 
             DebugDrawer.DrawLine(position, position + Forward_Face_A, Colour.Red);
@@ -442,6 +477,7 @@ namespace VECS
             DebugDrawer.DrawLine(position, position + (0.5f * -Forward_Face_A), Colour.Green);
             DebugDrawer.DrawLine(position, position + (0.5f * -Forward_Face_D), Colour.Blue);
             DebugDrawer.DrawLine(position, position + (0.5f * -Forward_Face_C), Colour.White);
+
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -509,6 +545,9 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static Vector2 GetAlphaBeta(float farPlane, Vector2 fov, Matrix4x4 undialatedInverseProjA)
         {
+            Matrix4x4.Invert(undialatedInverseProjA, out undialatedInverseProjA);
+            //fov.X = fov.X.ToRadians();
+            //fov.Y = fov.Y.ToRadians();
             Span<Vector3> v = stackalloc Vector3[4];
 
             Span<Vector3> centers =
@@ -531,8 +570,8 @@ namespace VECS
                 centers[i] += offsets[i];
                 v[i] = Vector3.Normalize(Vector3.Transform(centers[i], undialatedInverseProjA));
             }
-            Vector2 dilatedFov = new(MathF.Acos(Vector3.Dot(v[0], v[1])) * 180f / MathF.PI,
-            MathF.Acos(Vector3.Dot(v[2], v[3])) * 180f / MathF.PI);
+            Vector2 dilatedFov = new(MathF.Acos(Vector3.Dot(v[0], v[1])) * (180f / MathF.PI),
+                                     MathF.Acos(Vector3.Dot(v[2], v[3])) * (180f / MathF.PI));
             return dilatedFov - fov;
         }
 

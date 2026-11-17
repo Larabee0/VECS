@@ -55,22 +55,22 @@ layout(push_constant) uniform Constants{
     int taskCount;
 } instanceInfo;
 
-uvec4 GetPerMeshlet() {
+uvec3 GetPerMeshlet() {
 	MeshletInfo info = payload.perMeshlet[gl_WorkGroupID.x];
 
-    return uvec4(uint(info.index), uint(info.verts), uint(info.tris), 1);
+    return uvec3(uint(info.index), uint(info.verts), uint(info.tris));
 }
 
 void main() {
     MeshTaskCommand taskCommand = taskCommands.values[payload.taskIndex];
     
     uint localMeshletIndex = gl_WorkGroupID.x;
-    uvec4 info = GetPerMeshlet();
+    uvec3 info = GetPerMeshlet();
 
     Meshlet meshlet = meshletsBuffer.meshlets[info.x];
     
     if(gl_LocalInvocationID.x == 0) {
-        SetMeshOutputsEXT(meshlet.vertex_count * info.w, meshlet.triangle_count * info.w);
+        SetMeshOutputsEXT(meshlet.vertex_count, meshlet.triangle_count);
     }
     
     barrier();

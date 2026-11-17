@@ -118,7 +118,8 @@ namespace VECS.LowLevel
             VkSemaphoreSubmitInfo signalSemaphoreSubmitInfo = new()
             {
                 semaphore = _signalSemaphore.Semaphore,
-                value = _completeValue = _signalSemaphore.SemaphoreValue + 1
+                value = _completeValue = _signalSemaphore.SemaphoreValue + 1,
+                stageMask = VkPipelineStageFlags2.AllGraphics
             };
             VkSubmitInfo2 submitInfo = new()
             {

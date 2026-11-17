@@ -357,6 +357,13 @@ namespace VECS
     /// </summary>
     public struct GraphicsPipelineConfigInfo
     {
+        private static readonly VkDynamicState[] _defaultDynamicStates = [
+            VkDynamicState.Viewport, 
+            VkDynamicState.Scissor,
+            VkDynamicState.CullMode
+        ];
+        public static VkDynamicState[] DefaultDynamicStates => [.. _defaultDynamicStates];
+
         public VkVertexInputBindingDescription[] BindingDescriptions;
         public VkVertexInputAttributeDescription[] AttributeDescriptions;
         public VkPipelineViewportStateCreateInfo viewportInfo;
@@ -409,7 +416,7 @@ namespace VECS
             colourBlendInfo.blendConstants[2] = 0;
             colourBlendInfo.blendConstants[3] = 0;
 
-            VkDynamicState[] dynamicStateEnables = [VkDynamicState.Viewport, VkDynamicState.Scissor, VkDynamicState.CullMode];
+            VkDynamicState[] dynamicStateEnables = DefaultDynamicStates;
             VkPipelineDynamicStateCreateInfo dynamicInfo = new()
             {
                 dynamicStateCount = (uint)dynamicStateEnables.Length,

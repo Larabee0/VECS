@@ -164,11 +164,11 @@ namespace VECS
             allocationTrace = trace.ToString();
             if (_cpuAccess)
             {
-                Console.WriteLine(string.Format("VK: 0x{1} Host: 0x{2}\nBuffer Creation trace\n {0}", trace.ToString(), VkBuffer.Handle.ToString("X16"),((ulong)_hostPtr).ToString("X16")));
+                Console.WriteLine($"VK: 0x{VkBuffer.Handle:X16} Host: 0x{(ulong)_hostPtr:X16}\nBuffer Creation trace\n {trace}");
             }
             else
             {
-                Console.WriteLine(string.Format("0x{1}\nBuffer Creation trace\n {0}", trace.ToString(), VkBuffer.Handle.ToString("X16")));
+                Console.WriteLine($"0x{VkBuffer.Handle:X16}\nBuffer Creation trace\n {trace}");
             }
 #endif
             _disposed = false;
@@ -200,11 +200,11 @@ namespace VECS
 #if LOG_BUFFER_ALLOCS
             if (_cpuAccess)
             {
-                Console.WriteLine(string.Format("VK: 0x{1} Host: 0x{2}\nDisposal trace\n {0}", allocationTrace, VkBuffer.Handle.ToString("X16"), ((ulong)_hostPtr).ToString("X16")));
+                Console.WriteLine($"VK: 0x{VkBuffer.Handle:X16} Host: 0x{(ulong)_hostPtr:X16}\nDisposal trace\n {allocationTrace}");
             }
             else
             {
-                Console.WriteLine(string.Format("0x{1}\nDisposal trace\n {0}", allocationTrace, VkBuffer.Handle.ToString("X16")));
+                Console.WriteLine($"0x{VkBuffer.Handle:X16}\nDisposal trace\n {allocationTrace}");
             }
 #endif
             if (VkBufferSize == 0 || _disposed) return;

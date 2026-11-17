@@ -33,7 +33,7 @@ layout(set = 0, binding = 3) uniform CullData {
     mat4 viewProj[6];
 	mat4 viewMatrix;
     //vec4 sphere;
-	vec2 pyramid;
+	vec4 pyramid;
 	float zNear;
 	float P00;
 	float P11;

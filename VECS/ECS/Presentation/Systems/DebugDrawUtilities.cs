@@ -50,7 +50,7 @@ namespace VECS.ECS.Presentation
             {
                 var entity = entities[i];
                 AABB bounds = entityManager.GetComponent<WorldRenderBounds>(entity).Value;
-                //DebugDrawer.DrawWireCube(bounds.Center, bounds.Size, Quaternion.Identity);
+
                 if (GraphicsDevice.MeshShading)
                 {
                     if (entityManager.GetComponent<RenderMesh>(entity, out var renderMesh) && entityManager.GetComponent<LocalToWorld>(entity, out var ltw))
@@ -68,10 +68,14 @@ namespace VECS.ECS.Presentation
                             //var meshletBound = meshletBounds[meshletData.MeshletOffset + j];
                             var meshletBound = AABB.Transform(ltwM, meshletBounds[meshletData.MeshletOffset + j]);
 
-                            DebugDrawer.DrawWireCube(meshletBound.Center, meshletBound.Size,Quaternion.Identity);
+                            DebugDrawer.DrawWireCube(meshletBound.Center, meshletBound.Size, Quaternion.Identity);
                         }
-                        
+
                     }
+                }
+                else
+                {
+                    DebugDrawer.DrawWireCube(bounds.Center, bounds.Size, Quaternion.Identity);
                 }
             }
 

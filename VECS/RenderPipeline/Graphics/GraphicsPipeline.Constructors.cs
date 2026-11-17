@@ -21,7 +21,7 @@ namespace VECS
             {
                 if(vkShaderStages.Contains(shaderModules[i].VkShaderStage))
                 {
-                    throw new ArgumentException(string.Format("More than one shader program has the same stage as another! Duplicate Stage {0}, Excepted on {1}", shaderModules[i].VkShaderStage, shaderModules[i]), nameof(shaderModules));
+                    throw new ArgumentException($"More than one shader program has the same stage as another! Duplicate Stage {shaderModules[i].VkShaderStage}, Excepted on {shaderModules[i]}", nameof(shaderModules));
                 }
 
                 vkShaderStages.Add(shaderModules[i].VkShaderStage);
@@ -35,7 +35,7 @@ namespace VECS
             }
             else if(vkShaderStages.Count == 1 && !vkShaderStages.Contains(VkShaderStageFlags.Vertex))
             {
-                throw new ArgumentException(string.Format("Only Vertex (.vert) shader programs can make pipelines of one shader stage, {0} is invalid", shaderModules[0].VkShaderStage), nameof(shaderModules));
+                throw new ArgumentException("Only Vertex (.vert) shader programs can make pipelines of one shader stage, {shaderModules[0].VkShaderStage} is invalid", nameof(shaderModules));
             }
             else if(vkShaderStages.Count == 2)
             {
@@ -53,7 +53,7 @@ namespace VECS
                 }
                 else
                 {
-                    throw new ArgumentException(string.Format("Invalid Shader stage combination {0} {1}", shaderModules[0].VkShaderStage, shaderModules[1].VkShaderStage), nameof(shaderModules));
+                    throw new ArgumentException($"Invalid Shader stage combination {shaderModules[0].VkShaderStage} {shaderModules[1].VkShaderStage}", nameof(shaderModules));
                 }
             }
             else if(vkShaderStages.Count == 3)
@@ -68,7 +68,7 @@ namespace VECS
                 }
                 else
                 {
-                    throw new ArgumentException(string.Format("Invalid Shader stage combination {0} {1} {2}", shaderModules[0].VkShaderStage, shaderModules[1].VkShaderStage, shaderModules[2].VkShaderStage), nameof(shaderModules));
+                    throw new ArgumentException($"Invalid Shader stage combination {shaderModules[0].VkShaderStage} {shaderModules[1].VkShaderStage} {shaderModules[2].VkShaderStage}", nameof(shaderModules));
                 }
             }
 

@@ -304,7 +304,7 @@ namespace VECS.UI
                 else if(type == AssetType.Shader)
                 {
                     lineItem.IconImage = ShaderIcon;
-                    lineItem.ToolTip = string.Format("plain text shader file ({0})", files[i].Extension);
+                    lineItem.ToolTip = $"plain text shader file ({files[i].Extension})";
                 }
                 else if ( type == AssetType.ShaderPreCompiled)
                 {
@@ -314,7 +314,7 @@ namespace VECS.UI
                 else
                 {
                     lineItem.IconImage = UnknownTypeIcon;
-                    lineItem.ToolTip = string.Format("Unknown File type ({0})", files[i].Extension);
+                    lineItem.ToolTip = $"Unknown File type ({files[i].Extension})";
                 }
 
                 DirectoryStackPanel.Children.Add(lineItem);

@@ -89,8 +89,8 @@ namespace VECS
                 viewCreateInfoUp.subresourceRange.baseMipLevel = i;
                 GraphicsDevice.DeviceAPI.vkCreateImageView(viewCreateInfoDown, out _mipDownViews[i]);
                 GraphicsDevice.DeviceAPI.vkCreateImageView(viewCreateInfoUp, out _mipUpViews[i]);
-                GraphicsDevice.SetObjectName(VkObjectType.ImageView, _mipDownViews[i].Handle, string.Format("PhyBloomDownMip_{0}", i));
-                GraphicsDevice.SetObjectName(VkObjectType.ImageView, _mipUpViews[i].Handle, string.Format("PhyBloomUpMip_{0}", i));
+                GraphicsDevice.SetObjectName(VkObjectType.ImageView, _mipDownViews[i].Handle, $"PhyBloomDownMip_{i}");
+                GraphicsDevice.SetObjectName(VkObjectType.ImageView, _mipUpViews[i].Handle, $"PhyBloomUpMip_{i}");
             }
             SetImages();
         }

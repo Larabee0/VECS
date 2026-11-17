@@ -205,7 +205,7 @@ namespace VECS
 #if DEBUG
             if (!validVertexFormats.Contains(typeof(T)))
             {
-                throw new ArgumentException(string.Format("Type {0} is not a valid target vertex attribute", typeof(T).FullName));
+                throw new ArgumentException($"Type {typeof(T).FullName} is not a valid target vertex attribute");
             }
 #endif
             if (_knownAttributes.TryGetValue(attribute, out bool hasAttribute)) return hasAttribute;
@@ -248,7 +248,7 @@ namespace VECS
 #if DEBUG
             if (!_consumedAttributes.ContainsKey(attribute))
             {
-                throw new ArgumentException(string.Format("The given attribute {0} is not consumed by the mesh", attribute.ToString()));
+                throw new ArgumentException($"The given attribute {attribute} is not consumed by the mesh");
             }
 #endif
             return _vertexBuffers[attribute];
@@ -259,7 +259,7 @@ namespace VECS
 #if DEBUG
             if (!HasAttributeInFormat<T>(attribute))
             {
-                throw new ArgumentException(string.Format("Type {0} is of different size {1} to values stored in the buffer {2} a valid target vertex attribute", typeof(T).FullName, sizeof(T), _consumedAttributes[attribute].format.GetAttributeByteSize()));
+                throw new ArgumentException($"Type {typeof(T).FullName} is of different size {sizeof(T)} to values stored in the buffer {_consumedAttributes[attribute].format.GetAttributeByteSize()} a valid target vertex attribute");
             }
 #endif
             var buffer = GetBufferAtAttribute(attribute);
@@ -269,7 +269,7 @@ namespace VECS
             }
             else
             {
-                throw new InvalidOperationException(string.Format("Buffer for attribute \"{0}\" is not of format \"{1}\"", _consumedAttributes[attribute].ToString(), _consumedAttributes[attribute].format.ToString()));
+                throw new InvalidOperationException($"Buffer for attribute \"{_consumedAttributes[attribute]}\" is not of format \"{_consumedAttributes[attribute].format}\"");
             }
         }
 
@@ -278,7 +278,7 @@ namespace VECS
 #if DEBUG
             if (!validVertexFormats.Contains(typeof(T)))
             {
-                throw new ArgumentException(string.Format("Type {0} is not a valid target vertex attribute", typeof(T).FullName));
+                throw new ArgumentException($"Type {typeof(T).FullName} is not a valid target vertex attribute");
             }
 #endif
             var buffer = GetBufferAtAttribute<T>(attribute);
@@ -360,7 +360,7 @@ namespace VECS
             }
             else
             {
-                throw new KeyNotFoundException(string.Format("Key {0} not conusmed by this mesh", attribute.ToString()));
+                throw new KeyNotFoundException($"Key {attribute} not conusmed by this mesh");
             }
         }
 
@@ -373,7 +373,7 @@ namespace VECS
 #if DEBUG
             if (!validVertexFormats.Contains(typeof(T)))
             {
-                throw new ArgumentException(string.Format("Type {0} is not a valid target vertex attribute", typeof(T).FullName));
+                throw new ArgumentException($"Type {typeof(T).FullName} is not a valid target vertex attribute");
             }
 #endif
             fixed (T* v = vertices)

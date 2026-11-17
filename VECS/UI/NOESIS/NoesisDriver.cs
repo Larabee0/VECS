@@ -154,7 +154,7 @@ namespace VECS.UI
         {
             if (ex.InnerException != null)
             {
-                Console.WriteLine(string.Format("{0},\n{1}", ex.InnerException.ToString(), ex.InnerException.StackTrace));
+                Console.WriteLine("{0},\n{1}", ex.InnerException.ToString(), ex.InnerException.StackTrace);
             }
             throw ex;
         }
@@ -168,13 +168,13 @@ namespace VECS.UI
         {
             for (Shader.Vertex.Enum i = 0; i < Shader.Vertex.Enum.Count; i++)
             {
-                _vertexShaders[(int)i] = AssetDataBase<ShaderModule>.GetNamed(string.Format("{0}_VS", i.ToString()));
+                _vertexShaders[(int)i] = AssetDataBase<ShaderModule>.GetNamed($"{i}_VS");
             }
 
             for (Shader.Enum i = 0; i < Shader.Enum.Count; i++)
             {
                 if (i >= Shader.Enum.SDF_LCD_Solid && i <= Shader.Enum.SDF_LCD_Pattern_Mirror) continue;
-                _pixelShaders[(int)i] = AssetDataBase<ShaderModule>.GetNamed(string.Format("{0}_PS", i.ToString()));
+                _pixelShaders[(int)i] = AssetDataBase<ShaderModule>.GetNamed($"{i}_PS");
             }
         }
 
@@ -247,7 +247,7 @@ namespace VECS.UI
                         break;
                     }
                 default:
-                    throw new InvalidOperationException(string.Format("WrapMode {0} not supported", mode.ToString()));
+                    throw new InvalidOperationException($"WrapMode {mode} not supported");
             }
         }
 
@@ -264,7 +264,7 @@ namespace VECS.UI
                     samplerInfo->magFilter = VkFilter.Linear;
                     break;
                 default:
-                    throw new InvalidOperationException(string.Format("MinMagFilter {0} not supported", minmag.ToString()));
+                    throw new InvalidOperationException($"MinMagFilter {minmag} not supported");
             }
         }
 
@@ -285,7 +285,7 @@ namespace VECS.UI
                     samplerInfo->maxLod = float.MaxValue;
                     break;
                 default:
-                    throw new InvalidOperationException(string.Format("MipFilter {0} not supported", mip.ToString()));
+                    throw new InvalidOperationException($"MipFilter {mip} not supported");
             }
         }
 
@@ -302,7 +302,7 @@ namespace VECS.UI
         {
             if (surface is NoesisRenderTarget renderTarget)
             {
-                GraphicsDevice.BeginLabelCmd(CurrentCommandBuffer,string.Format("Render Tile {0}",renderTarget.Colour.Texture.AssetName));
+                GraphicsDevice.BeginLabelCmd(CurrentCommandBuffer, $"Render Tile {renderTarget.Colour.Texture.AssetName}");
                 VkRect2D renderArea;
                 renderArea.offset.x = Math.Max(0, (int)tile.X);
                 renderArea.offset.y = Math.Max(0, (int)renderTarget.Colour.Height - ((int)tile.Y + (int)tile.Height));
@@ -407,7 +407,7 @@ namespace VECS.UI
             };
             if (needsStencil)
             {
-                renderTarget.Stencil = CreateTexture(string.Format("NOESIS_{0}_STENCIL_{1}", label, Presenter.FrameCount),
+                renderTarget.Stencil = CreateTexture($"NOESIS_{label}_STENCIL_{Presenter.FrameCount}",
                     width,
                     height,
                     PreferredFormats.STENCIL_ONLY,
@@ -418,7 +418,7 @@ namespace VECS.UI
 
             if (renderTarget.samples > VkSampleCountFlags.Count1)
             {
-                renderTarget.ColourAA = CreateTexture(string.Format("NOESIS_{0}_COLOUR_AA_{1}", label, Presenter.FrameCount),
+                renderTarget.ColourAA = CreateTexture($"NOESIS_{label}_COLOUR_AA_{Presenter.FrameCount}",
                     width,
                     height,
                     VkFormat.R8G8B8A8Unorm,
@@ -426,7 +426,7 @@ namespace VECS.UI
                     VkImageUsageFlags.ColorAttachment | VkImageUsageFlags.TransferSrc,
                     VkImageAspectFlags.Color);
 
-                renderTarget.Colour = CreateTexture(string.Format("NOESIS_{0}_COLOUR_{1}", label,Presenter.FrameCount),
+                renderTarget.Colour = CreateTexture($"NOESIS_{label}_COLOUR_{Presenter.FrameCount}",
                     width,
                     height,
                     VkFormat.R8G8B8A8Unorm,
@@ -436,7 +436,7 @@ namespace VECS.UI
             }
             else
             {
-                renderTarget.Colour = CreateTexture(string.Format("NOESIS_{0}_COLOUR_{1}", label,Presenter.FrameCount),
+                renderTarget.Colour = CreateTexture($"NOESIS_{label}_COLOUR_{Presenter.FrameCount}",
                     width,
                     height,
                     VkFormat.R8G8B8A8Unorm,
@@ -468,7 +468,7 @@ namespace VECS.UI
 
                 if (clonedTarget.samples > VkSampleCountFlags.Count1)
                 {
-                    clonedTarget.Colour = CreateTexture(string.Format("NOESIS_{0}_COLOUR_AA_{1}", label,Presenter.FrameCount),
+                    clonedTarget.Colour = CreateTexture($"NOESIS_{label}_COLOUR_AA_{Presenter.FrameCount}",
                         width,
                         height,
                         VkFormat.R8G8B8A8Unorm,
@@ -478,7 +478,7 @@ namespace VECS.UI
                 }
                 else
                 {
-                    clonedTarget.Colour = CreateTexture(string.Format("NOESIS_{0}_COLOUR_{1}", label,Presenter.FrameCount),
+                    clonedTarget.Colour = CreateTexture($"NOESIS_{label}_COLOUR_{Presenter.FrameCount}",
                         width,
                         height,
                         VkFormat.R8G8B8A8Unorm,
@@ -648,9 +648,9 @@ namespace VECS.UI
                 TextureFormat.RGBA8 => VkFormat.R8G8B8A8Unorm,
                 TextureFormat.RGBX8 => VkFormat.R8G8B8Unorm,
                 TextureFormat.R8 => VkFormat.R8Unorm,
-                _ => throw new NotImplementedException(string.Format("Noesis TextureFormat: {0} not implemented", format.ToString()))
+                _ => throw new NotImplementedException($"Noesis TextureFormat: {format} not implemented")
             };
-            Texture2D texture = new(string.Format("NOESIS_{0}_{1}",label,Presenter.FrameCount), (int)width, (int)height, vkFormat, VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled, numLevels > 1);
+            Texture2D texture = new($"NOESIS_{label}_{Presenter.FrameCount}", (int)width, (int)height, vkFormat, VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled, numLevels > 1);
             
             if ((void*)data != null)
             {
@@ -853,7 +853,7 @@ namespace VECS.UI
                     case 0:
                     break;
                 default:
-                    throw new NotSupportedException(string.Format("{0} words not supported!", u0.NumWords));
+                    throw new NotSupportedException($"{u0.NumWords} words not supported!");
             }
             #endregion
 
@@ -867,7 +867,7 @@ namespace VECS.UI
             }
             else if(u1.NumWords != 0)
             {
-                throw new NotSupportedException(string.Format("{0} words not supported!", u0.NumWords));
+                throw new NotSupportedException($"{u0.NumWords} words not supported!");
             }
             #endregion
 
@@ -932,7 +932,7 @@ namespace VECS.UI
                 case 0:
                     break;
                 default:
-                    throw new NotSupportedException(string.Format("{0} words not supported!", u2.NumWords));
+                    throw new NotSupportedException($"{u2.NumWords} words not supported!");
             }
             #endregion
 
@@ -958,7 +958,7 @@ namespace VECS.UI
                 case 0:
                     break;
                 default:
-                    throw new NotSupportedException(string.Format("{0} words not supported!", u3.NumWords));
+                    throw new NotSupportedException($"{u3.NumWords} words not supported!");
 
             }
             #endregion
@@ -1036,7 +1036,7 @@ namespace VECS.UI
             Shader.Vertex.Format.Attr.Type.Enum.Float4 => VkFormat.R32G32B32A32Sfloat,
             Shader.Vertex.Format.Attr.Type.Enum.UByte4Norm => VkFormat.R8G8B8A8Unorm,
             Shader.Vertex.Format.Attr.Type.Enum.UShort4Norm => VkFormat.R16G16B16A16Unorm,
-            _ => throw new NotImplementedException(string.Format("Format {0} not implemented", type.ToString())),
+            _ => throw new NotImplementedException($"Format {type} not implemented"),
         };
 
         private static void FillVertexAttributes(Shader.Vertex.Format.Enum format, List<VkVertexInputAttributeDescription> v)
@@ -1265,7 +1265,7 @@ namespace VECS.UI
                     blendEquation.dstAlphaBlendFactor = VkBlendFactor.OneMinusSrc1Alpha;
                     break;
                 default:
-                    throw new NotImplementedException(string.Format("Cannot set dynamic BlendMode {0}", blendMode.ToString()));
+                    throw new NotImplementedException($"Cannot set dynamic BlendMode {blendMode}");
             }
 
             if (blendEnabled)
@@ -1347,7 +1347,7 @@ namespace VECS.UI
                     passOp = VkStencilOp.Keep;
                     break;
                 default:
-                    throw new NotImplementedException(string.Format("Cannot set Dynamic StencilMode {0}", mode.ToString()));
+                    throw new NotImplementedException($"Cannot set Dynamic StencilMode {mode}");
             }
 
             GraphicsDevice.DeviceAPI.vkCmdSetDepthTestEnable(commandBuffer, depthTestEnable);
@@ -1371,7 +1371,7 @@ namespace VECS.UI
             BlendInfo(&colorBlendAttachment);
             configInfo.colourBlendAttachment = colorBlendAttachment;
 
-            var pipeline = GraphicsPipeline.VertexFragmentPipeline(string.Format("NOESIS_{0}_{1}_{2}", label, formatHash, custom), vertexShader, pixelShader, configInfo);
+            var pipeline = GraphicsPipeline.VertexFragmentPipeline($"NOESIS_{label}_{formatHash}_{custom}", vertexShader, pixelShader, configInfo);
             var pipelineHash = HashPipeline(shaderEnum, formatHash, custom);
             Pipelines.Add(pipelineHash, pipeline);
         }

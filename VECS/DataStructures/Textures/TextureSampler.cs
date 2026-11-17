@@ -80,7 +80,7 @@ namespace VECS
         {
             _samplerCreateInfo = samplerCreateInfo;
             _samplerId = ShaderProperties.Hash((byte*)&samplerCreateInfo, (uint)sizeof(VkSamplerCreateInfo));
-            AssetName = string.Format("Sampler_{0}", _samplerId);
+            AssetName = $"Sampler_{_samplerId}";
             GraphicsDevice.DeviceAPI.vkCreateSampler(samplerCreateInfo, out _textureSampler);
             GraphicsDevice.SetObjectName(VkObjectType.Sampler, _textureSampler.Handle, AssetName);
             AssetDataBase<TextureSampler>.Add(this);
@@ -89,7 +89,7 @@ namespace VECS
         {
             _samplerCreateInfo = samplerCreateInfo;
             _samplerId = ShaderProperties.Hash((byte*)&samplerCreateInfo, (uint)sizeof(VkSamplerCreateInfo));
-            AssetName = string.Format("{1}_Sampler_{0}", _samplerId,name);
+            AssetName = $"{name}_Sampler_{_samplerId}";
             GraphicsDevice.DeviceAPI.vkCreateSampler(samplerCreateInfo, out _textureSampler);
             GraphicsDevice.SetObjectName(VkObjectType.Sampler, _textureSampler.Handle, AssetName);
             AssetDataBase<TextureSampler>.Add(this);

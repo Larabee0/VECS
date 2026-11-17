@@ -217,7 +217,7 @@ namespace VECS
                         }
                         else
                         {
-                            throw new Exception(string.Format("Descriptor binding with same name\"{0}\" exists but existing binding is different!", binding.Name));
+                            throw new Exception($"Descriptor binding with same name\"{binding.Name}\" exists but existing binding is different!");
                         }
                     }
                 }
@@ -259,7 +259,7 @@ namespace VECS
                     }
                     else
                     {
-                        throw new Exception(string.Format("Descriptor binding with same name\"{0}\" exists but existing binding is different!", binding.Name));
+                        throw new Exception($"Descriptor binding with same name\"{binding.Name}\" exists but existing binding is different!");
                     }
                 }
             }
@@ -643,13 +643,13 @@ namespace VECS
                         {
                             var bindingDesc = materialBindings[pair.Value];
                             if (!bindingDesc.StorageBuffer) {
-                                throw new InvalidOperationException(string.Format("Shader property {0} should be a storage buffer as its flagged as a vertex buffer!", pair.Key));
+                                throw new InvalidOperationException($"Shader property {pair.Key} should be a storage buffer as its flagged as a vertex buffer!");
                             }
 
                             var format = bindingDesc.Variables[0].Size.GetAttributeFromByteSize();
                             if (format == VertexAttributeFormat.Byte)
                             {
-                                throw new InvalidOperationException(string.Format("Shader property {0} is trying to use a vertex buffer of bytes which is not supported by DirectMesh!", pair.Key));
+                                throw new InvalidOperationException($"Shader property {pair.Key} is trying to use a vertex buffer of bytes which is not supported by DirectMesh!");
                             }
                             VertexAttributeDescription attributeDesc = new(attribute, format, 0, bindingDesc.BindPoint, bindingDesc.BindPoint);
 

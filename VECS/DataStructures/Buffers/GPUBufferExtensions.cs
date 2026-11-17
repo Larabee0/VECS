@@ -280,11 +280,11 @@ namespace VECS
             // buffer.allocationTrace = trace.ToString();
             // if (buffer.CPUAccess)
             // {
-            //     Console.WriteLine(string.Format("REALLOC VK: 0x{1} Host: 0x{2}\nBuffer Creation trace\n {0}", trace.ToString(), buffer.VkBuffer.Handle.ToString("X16"), ((ulong)buffer._hostPtr).ToString("X16")));
-            // }
-            // else
-            // {
-            //     Console.WriteLine(string.Format("REALLOC 0x{1}\nBuffer Creation trace\n {0}", trace.ToString(), buffer.VkBuffer.Handle.ToString("X16")));
+            //     Console.WriteLine($"REALLOC VK: 0x{buffer.VkBuffer.Handle:X16} Host: 0x{(ulong)buffer._hostPtr:X16}\nBuffer Creation trace\n {trace}");
+            // }                     
+            // else                  
+            // {                     
+            //     Console.WriteLine($"REALLOC 0x{buffer.VkBuffer.Handle:X16}\nBuffer Creation trace\n {trace}");
             // }
         }
 

@@ -118,13 +118,13 @@ namespace VECS
 
             if (Clear)
             {
-                GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, string.Format("Clear Shadow {0}", 0));
+                GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Clear Shadow");
                 ClearImage(frameInfo, 0);
                 GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
             }
             else
             {
-                GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, string.Format("Render Shadow {0}", 0));
+                GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Render Shadow");
                 DirectionalShadowPass(frameInfo, hostBuffer.HostBuffer[frameInfo.TargetCamera]);
                 GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
             }
@@ -371,7 +371,7 @@ namespace VECS
             CullData depthBufferCullInfo = new(
                 SHADOW_INCLUDE_MASK,
                 SHADOW_EXCLUDE_MASK,
-                SHADOW_CULL_MODE,
+                SHADOW_CULL_MODE, Vector4.One,
                 DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX,
                 (ushort)cameraOffset,
                 (ushort)cascadeCount,
@@ -397,12 +397,12 @@ namespace VECS
 
         private void SinglePass(int cascadeIndex, int cameraOffset, float renderScale, VkCommandBuffer commandBuffer, Texture2DArray arrayTex, VkAttachmentLoadOp loadOp = VkAttachmentLoadOp.Clear)
         {
-            GraphicsDevice.BeginLabelCmd(commandBuffer, string.Format("Cascade {0}", cascadeIndex));
+            GraphicsDevice.BeginLabelCmd(commandBuffer, $"Cascade {cascadeIndex}");
 
             CullData depthBufferCullInfo = new(
                 SHADOW_INCLUDE_MASK,
                 SHADOW_EXCLUDE_MASK,
-                SHADOW_CULL_MODE,
+                SHADOW_CULL_MODE, Vector4.One,
                 0,
                 _projMatrices[cameraOffset + cascadeIndex],
                 _viewMatrices[cameraOffset + cascadeIndex]

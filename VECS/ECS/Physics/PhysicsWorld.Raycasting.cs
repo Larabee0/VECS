@@ -69,7 +69,7 @@ namespace VECS.ECS.Physics
         /// <returns></returns>
         public unsafe RaycastHit Raycast(RaycastInput raycastInput)
         {
-            Debug.Assert(raycastInput.Valid, string.Format("Raycast input invalid MaxDst = {0}, Direction = {1}", raycastInput.MaxDst, raycastInput.Direction));
+            Debug.Assert(raycastInput.Valid, $"Raycast input invalid MaxDst = {raycastInput.MaxDst}, Direction = {raycastInput.Direction}");
             int intersections = 0;
             rayHitHandler.IntersectionCount = &intersections;
             rayHitHandler.ClearOne();
@@ -84,7 +84,7 @@ namespace VECS.ECS.Physics
         /// <returns></returns>
         public unsafe RaycastHit[] RaycastAll(RaycastInput raycastInput)
         {
-            Debug.Assert(raycastInput.Valid, string.Format("Raycast input invalid MaxDst = {0}, Direction = {1}", raycastInput.MaxDst, raycastInput.Direction));
+            Debug.Assert(raycastInput.Valid, $"Raycast input invalid MaxDst = {raycastInput.MaxDst}, Direction = {raycastInput.Direction}");
             int intersections = 0;
             rayHitHandler.IntersectionCount = &intersections;
             rayHitHandler.ClearAll();
@@ -130,7 +130,7 @@ namespace VECS.ECS.Physics
                 for (int i = job.Start; i < job.End; ++i)
                 {
                     ref var ray = ref _batchedRayInputs[i];
-                    Debug.Assert(ray.Valid, string.Format("Raycast input Worker Index = {2} Job Index = {3} invalid MaxDst = {0}, Direction = {1}", ray.MaxDst, ray.Direction, workerIndex, i));
+                    Debug.Assert(ray.Valid, $"Raycast input Worker Index = {workerIndex} Job Index = {i} invalid MaxDst = {ray.MaxDst}, Direction = {ray.Direction}");
                     batcher.Add(ref ray.Origin, ref ray.Direction, ray.MaxDst, i);
                 }
             }

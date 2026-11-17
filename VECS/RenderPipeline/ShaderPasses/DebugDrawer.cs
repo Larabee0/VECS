@@ -37,8 +37,8 @@ namespace VECS
         private int _drawIndex;
         private int _drawBufferIndex;
 
-        private IRenderer _activeRenderer;
-
+        private readonly IRenderer _activeRenderer;
+        public bool Enabled { get; private set;  } = true;
         public static DebugDrawer Instance { get; private set; }
         internal static GraphicsPipeline DebugWireFrame { get; private set; }
 
@@ -91,7 +91,9 @@ namespace VECS
 
         public void SetEnabled(bool enabled)
         {
-            if (enabled)
+            if (enabled == Enabled) return;
+            Enabled = enabled;
+            if (Enabled)
             {
                 RenderGraph.EnablePass("DebugLines", "DebugWireCubes", "DebugWireSpheres", "DebugFustrums");
             }

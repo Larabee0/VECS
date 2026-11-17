@@ -102,7 +102,7 @@ namespace VECS
                 createInfo.subresourceRange.baseArrayLayer = i;
                 fixed (VkImageView* pView = &FaceImageViews[i])
                     GraphicsDevice.DeviceAPI.vkCreateImageView(createInfo, null, pView);
-                GraphicsDevice.SetObjectName(VkObjectType.ImageView, FaceImageViews[i].Handle, string.Format("CUBE_{0}_{1}", AssetName, i));
+                GraphicsDevice.SetObjectName(VkObjectType.ImageView, FaceImageViews[i].Handle, $"CUBE_{AssetName}_{i}");
             }
         }
 

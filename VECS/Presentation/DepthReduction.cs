@@ -1,76 +1,118 @@
 ﻿using System;
+using System.Numerics;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
 namespace VECS
 {
-    public static class DepthReduction
+    public class DepthReduction : IRenderPass
     {
-        private static readonly int OutImagePropertyId = "outImage".GetShaderPropertyId();
-        private static readonly int InImagePropertyId = "inImage".GetShaderPropertyId();
+        private static readonly int DstImageSizePropertyId = "dstImageSize".GetShaderPropertyId();
+        private static readonly int SrcImageSizePropertyId = "srcImageSize".GetShaderPropertyId();
+        private static readonly int DstImagePropertyId = "dstImage".GetShaderPropertyId();
+        private static readonly int SrcImagePropertyId = "srcImage".GetShaderPropertyId();
+        private static readonly int RenderScalePropertyId = "renderScale".GetShaderPropertyId();
 
-        private static uint _depthPyramidWidth;
-        private static uint _depthPyramidHeight;
-        private static ComputeVariant _depthReduceShader;
-        private static Texture2D _depthPryamid;
-        public static Texture2D DepthPryamid => _depthPryamid;
+        private readonly IRenderer ActiveRenderer;
 
-        private static VkImageView[] _additionalViews;
+        public bool Enabled { get; private set; } = true;
 
-        private static unsafe VkDescriptorImageInfo[] _srcImages;
-        private static unsafe VkDescriptorImageInfo[] _dstImages;
+        public bool IsDepthPyramidCleared { get; private set; } = false;
 
-        public static void Init()
+        private uint _depthPyramidWidth;
+        private uint _depthPyramidHeight;
+        private readonly ComputeVariant _depthReduceShader;
+        private Texture2D _depthPryamid;
+        public Texture2D DepthPryamid => _depthPryamid;
+
+        private VkImageView[] _additionalViews = [];
+
+        private VkDescriptorImageInfo[] _srcImages = [];
+        private VkDescriptorImageInfo[] _dstImages = [];
+
+        public DepthReduction(IRenderer activeRenderer)
         {
-
+            ActiveRenderer = activeRenderer;
             _depthReduceShader = ComputePipeline.GetOrCreate("depth_reduce.comp").Default();
-            Presenter.OnSwapChainRecreation += RecreateImage;
-            Application.Instance.OnDestroy += DestroyResources;
+            Application.Instance.OnDestroy += CleanupAdditionalImageViews;
+            VkFormat format = VkFormat.R16Sfloat;
+
+            _depthPryamid = new Texture2D(
+                "DepthPryamidAttachment",
+                8192,
+                8192,
+                format,
+                VkImageUsageFlags.Storage | VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferDst | VkImageUsageFlags.TransferSrc,
+                VkSamplerAddressMode.ClampToEdge, 0, false, VkCompareOp.Never, VkSamplerMipmapMode.Nearest, VkBorderColor.FloatOpaqueWhite, VkFilter.Nearest
+            );
+
+            EngineTextures.AddOrUpdateTexture(ShaderProperties.DepthPyramidId, new SingleTexture(_depthPryamid));
+
+            RenderGraph.AddResource("DepthPryamidAttachment",
+                new(_depthPryamid,
+                RenderTargetType.Colour,
+                VkImageLayout.ShaderReadOnlyOptimal,
+                VkImageLayout.ColorAttachmentOptimal,
+                VkImageLayout.General,
+                VkImageLayout.ShaderReadOnlyOptimal,
+                new(1, 0, 0, 0),
+                -1)
+            );
         }
 
-        private unsafe static void DestroyResources()
+        private void CleanupAdditionalImageViews()
         {
-            _depthPryamid.Dispose();
             for (int i = 0; i < _additionalViews.Length; i++)
             {
-                GraphicsDevice.DeviceAPI.vkDestroyImageView(_additionalViews[i]);
+                TextureExtensions.EnqueueForDisposal(VkImage.Null, VmaAllocation.Null, _additionalViews[i], VkSampler.Null);
             }
-            _depthReduceShader.Dispose();
-            _srcImages = null;
-            _dstImages = null;
         }
 
-        private unsafe static void RecreateImage()
+        public void AddToRenderGraph()
         {
-            var windowExtent = Application.MainWindow.WindowExtent;
-            _depthPyramidWidth = PreviousPow2(windowExtent.width);
-            _depthPyramidHeight = PreviousPow2(windowExtent.height);
-            VkFormat format = VkFormat.R32Sfloat;
+            RenderGraph.AddPass("ReduceDepthPyramid", PassType.Compute, PassCategory.PreRendering, ["DepthPrePass"], ["MainDepthAttachment"], ["DepthPryamidAttachment"], ReduceDepth);
+            RenderGraph.AddPass("ClearDepthPyramid", PassType.Render, PassCategory.PreRendering, ["DepthPrePass"], ["MainDepthAttachment"], ["DepthPryamidAttachment"], ClearPyramid);
+            RenderGraph.DisablePass("ClearDepthPyramid");
+        }
 
-            if (_depthPryamid == null)
+        public void PrePresent()
+        {
+
+        }
+
+        public void SetEnabled( bool enabled)
+        {
+            if (enabled == Enabled) return;
+            Enabled = enabled;
+            if (Enabled)
             {
-                _depthPryamid = new Texture2D(
-                        string.Format("DepthPryamid {0}", Presenter.FrameCount),
-                        (int)_depthPyramidWidth,
-                        (int)_depthPyramidHeight,
-                        format,
-                        VkImageUsageFlags.Storage | VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferDst | VkImageUsageFlags.TransferSrc,
-                        VkSamplerAddressMode.ClampToEdge, 0, false, VkCompareOp.Never, VkSamplerMipmapMode.Nearest, VkBorderColor.FloatTransparentBlack,  VkFilter.Nearest
-                );
-    }
+                RenderGraph.DisablePass("ClearDepthPyramid");
+                if (!IsDepthPyramidCleared)
+                {
+                    RenderGraph.EnablePass("ReduceDepthPyramid");
+                }
+            }
             else
             {
-                for (int i = 0; i < _additionalViews.Length; i++)
-                {
-                    TextureExtensions.EnqueueForDisposal(VkImage.Null, VmaAllocation.Null, _additionalViews[i], VkSampler.Null);
-                }
-
-                _depthPryamid.Reinitialise((int)_depthPyramidWidth, (int)_depthPyramidHeight);
-                _srcImages = null;
-                _dstImages = null;
+                RenderGraph.EnablePass("ClearDepthPyramid");
+                RenderGraph.DisablePass("ReduceDepthPyramid");
             }
+        }
+
+        public void RecreateRenderTargets()
+        {
+            var windowExtent = ActiveRenderer.MainRenderingAttachmentsSize;
+            _depthPyramidWidth = (windowExtent.width);
+            _depthPyramidHeight = (windowExtent.height);
+
+            
+            CleanupAdditionalImageViews();
+
+            _depthPryamid.Reinitialise((int)_depthPyramidWidth, (int)_depthPyramidHeight);
+            _srcImages = null;
+            _dstImages = null;
+            
 
             _srcImages = new VkDescriptorImageInfo[ _depthPryamid.MipMapCount];
             _dstImages = new VkDescriptorImageInfo[ _depthPryamid.MipMapCount];
@@ -83,7 +125,7 @@ namespace VECS
                 createInfo.subresourceRange.levelCount = 1;
                 createInfo.subresourceRange.baseMipLevel = i;
                 GraphicsDevice.DeviceAPI.vkCreateImageView(createInfo, out _additionalViews[i]);
-                GraphicsDevice.SetObjectName(VkObjectType.ImageView, _additionalViews[i].Handle,string.Format("DepthReductionAdd_{0}",i));
+                GraphicsDevice.SetObjectName(VkObjectType.ImageView, _additionalViews[i].Handle,$"DepthReductionAdd_{i}");
                 _dstImages[i] = new VkDescriptorImageInfo()
                 {
                     imageLayout = VkImageLayout.General,
@@ -103,7 +145,7 @@ namespace VECS
             }
         }
 
-        public static unsafe void ClearPyramid(RendererFrameInfo frameInfo)
+        public unsafe void ClearPyramid(RendererFrameInfo frameInfo)
         {
             GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Clear Depth Pyramid");
             VkClearColorValue clearDepthStencilValue = new(0, 0, 0, 0);
@@ -115,17 +157,12 @@ namespace VECS
 
             _depthPryamid.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.General);
             GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
+
+            RenderGraph.DisablePass("ClearDepthPyramid");
+            IsDepthPyramidCleared = true;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void ReduceDepth(RendererFrameInfo frameInfo)
-        {
-            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Depth Reduction");
-            ComputeShaderTransfer(frameInfo);
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
-        }
-
-        private static unsafe void ComputeShaderTransfer(RendererFrameInfo frameInfo)
+        private void ReduceDepth(RendererFrameInfo frameInfo)
         {
             if (!frameInfo.CullData.CullMode.HasFlag(CullModeFlags.Depth)) return;
 
@@ -133,27 +170,6 @@ namespace VECS
             
 
             VkImageMemoryBarrier2 depthReadBarrier = new()
-            {
-                srcAccessMask = VkAccessFlags2.DepthStencilAttachmentWrite,
-                dstAccessMask = VkAccessFlags2.ShaderRead,
-                oldLayout = depthTexture.ImageLayout,
-                newLayout = VkImageLayout.ShaderReadOnlyOptimal,
-                image = depthTexture._vkImage,
-                subresourceRange = depthTexture.GetSubresourceRange(),
-                srcStageMask = VkPipelineStageFlags2.LateFragmentTests,
-                dstStageMask = VkPipelineStageFlags2.ComputeShader
-            };
-
-            VkDependencyInfo dependencyInfo = new()
-            {
-                dependencyFlags = VkDependencyFlags.ByRegion,
-                imageMemoryBarrierCount = 1,
-                pImageMemoryBarriers = &depthReadBarrier
-            };
-
-            GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier2(frameInfo.CommandBuffer, &dependencyInfo);
-
-            depthReadBarrier = new()
             {
                 srcAccessMask = VkAccessFlags2.ShaderWrite | VkAccessFlags2.ShaderRead,
                 dstAccessMask = VkAccessFlags2.ShaderWrite | VkAccessFlags2.ShaderRead,
@@ -164,7 +180,8 @@ namespace VECS
                 srcStageMask = VkPipelineStageFlags2.ComputeShader,
                 dstStageMask = VkPipelineStageFlags2.ComputeShader
             };
-            dependencyInfo.pImageMemoryBarriers = &depthReadBarrier;
+            depthReadBarrier.subresourceRange.levelCount = 1;
+            // MemoryBarrierHelper.ImageMemoryBarrier(frameInfo.CommandBuffer, depthReadBarrier);
 
             _srcImages[0] = new()
             {
@@ -173,42 +190,58 @@ namespace VECS
                 imageLayout = VkImageLayout.ShaderReadOnlyOptimal
             };
 
-            _depthReduceShader.SetTextures(InImagePropertyId, _srcImages);
-            _depthReduceShader.SetTextures(OutImagePropertyId, _dstImages);
+            _depthReduceShader.SetTextures(SrcImagePropertyId, _srcImages);
+            _depthReduceShader.SetTextures(DstImagePropertyId, _dstImages);
 
-            for (int i = 0; i < _depthPryamid.MipMapCount; i++)
+            Vector2UInt depthInputSize = new(frameInfo.OutputRect.extent.width, frameInfo.OutputRect.extent.height);
+
+            Vector2UInt depthInputPreviousPow2 = new(PreviousPow2(frameInfo.OutputRect.extent.width), PreviousPow2(frameInfo.OutputRect.extent.height));
+
+            uint mipMapCount = Math.Max(1, TextureExtensions.CalculateMipMapLevels(depthInputPreviousPow2) - 1);
+
+            
+
+
+            for (int i = 0; i < mipMapCount; i++)
             {
-                uint x = Math.Max(1, _depthPryamid.ImageExtent.width >> i);
-                uint y = Math.Max(1, _depthPryamid.ImageExtent.height >> i);
+                uint x = Math.Max(1, depthInputPreviousPow2.X >> i);
+                uint y = Math.Max(1, depthInputPreviousPow2.Y >> i);
+                Vector4 dstImageSize = new(x, y, 1.0f / x, 1.0f / y);
+                _depthReduceShader.PushConstantsHandler.SetPushConstantVector4(DstImageSizePropertyId,0, dstImageSize);
 
-                _depthReduceShader.PushConstantsHandler.SetPushConstantVector2("imageSize", 0, new(x, y));
+
+                x = i == 0 ? depthInputSize.X: Math.Max(1, depthInputPreviousPow2.X >> i - 1);
+                y = i == 0 ? depthInputSize.Y : Math.Max(1, depthInputPreviousPow2.Y >> i - 1);
+
+                Vector4 srcImageSize = new(x, y, 1.0f / x, 1.0f / y);
+
+                _depthReduceShader.PushConstantsHandler.SetPushConstantVector4(SrcImageSizePropertyId, 0, srcImageSize);
+
+
+                Vector2 scale = srcImageSize.AsVector2() / (Vector2)GetMipMapLevel(new Vector2UInt((uint)_depthPryamid.Width, (uint)_depthPryamid.Height), Math.Max(0,i-1));
+
+                //if (i > 0) scale = new(0.5f);
+
+                _depthReduceShader.PushConstantsHandler.SetPushConstantVector2(RenderScalePropertyId, 0, scale);
                 _depthReduceShader.PushConstantsHandler.SetPushConstantInt("srcIndex", 0, i);
                 _depthReduceShader.PushConstantsHandler.SetPushConstantInt("dstIndex", 0, i);
+                x = Math.Max(1, depthInputPreviousPow2.X >> i);
+                y = Math.Max(1, depthInputPreviousPow2.Y >> i);
                 _depthReduceShader.Dispatch(frameInfo.CommandBuffer, Presenter.FrameIndex, x, y);
 
-                GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier2(frameInfo.CommandBuffer, &dependencyInfo);
+                depthReadBarrier.subresourceRange.baseMipLevel = (uint)i;
+
+                MemoryBarrierHelper.ImageMemoryBarrier(frameInfo.CommandBuffer, depthReadBarrier,VkDependencyFlags.ByRegion);
+
             }
+            IsDepthPyramidCleared = false;
+        }
 
-            VkImageMemoryBarrier2 depthTextureBarrier = new()
-            {
-                srcAccessMask = VkAccessFlags2.ShaderRead,
-                dstAccessMask = VkAccessFlags2.DepthStencilAttachmentRead | VkAccessFlags2.DepthStencilAttachmentWrite,
-                oldLayout = VkImageLayout.ShaderReadOnlyOptimal,
-                newLayout = depthTexture.ImageLayout,
-                image = depthTexture._vkImage,
-                subresourceRange = depthTexture.GetSubresourceRange(),
-                srcStageMask = VkPipelineStageFlags2.ComputeShader,
-                dstStageMask = VkPipelineStageFlags2.EarlyFragmentTests,
-            };
-
-            VkDependencyInfo depthDependencyInfo = new()
-            {
-                pImageMemoryBarriers = &depthTextureBarrier,
-                imageMemoryBarrierCount = 1,
-                dependencyFlags = VkDependencyFlags.ByRegion
-            };
-            GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier2(frameInfo.CommandBuffer, &depthDependencyInfo);
-            depthTexture._imageLayout = VkImageLayout.DepthStencilAttachmentOptimal;
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static Vector2UInt GetMipMapLevel(Vector2UInt fullRect, int level)
+        {
+            return new(Math.Max(1, fullRect.X >> level),
+             Math.Max(1, fullRect.Y >> level));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

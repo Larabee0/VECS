@@ -24,7 +24,7 @@ namespace VECS
             FOV = 45,
             ClipNear = 0.5f,
             ClipFar = 75f,
-            CullMode = CullModeFlags.Fustrum | CullModeFlags.Distance
+            CullMode = CullModeFlags.Fustrum | CullModeFlags.Distance | CullModeFlags.Depth
         };
 
         internal static int Main(string[] args)
@@ -39,10 +39,10 @@ namespace VECS
             }
             catch (Exception ex)
             {
-                Console.WriteLine(string.Format("{0},\n{1}", ex.Message, ex.StackTrace));
+                Console.WriteLine("{0},\n{1}", ex.Message, ex.StackTrace);
                 if (ex.InnerException != null)
                 {
-                    Console.WriteLine(string.Format("{0},\n{1}", ex.InnerException.ToString(), ex.InnerException.StackTrace));
+                    Console.WriteLine("{0},\n{1}", ex.InnerException.ToString(), ex.InnerException.StackTrace);
                 }
                 //Console.ReadLine();
                 return 1;
@@ -399,7 +399,7 @@ namespace VECS
                 for (int j = 0; j < matInfo.appliesTo.Count; j++, k++)
                 {
                     var meshIndex = matInfo.appliesTo[j];
-                    var entity = entityManager.CreateEntity(string.Format("Sponza Component {0}",k));
+                    var entity = entityManager.CreateEntity($"Sponza Component {k}");
                     children.Values[k] = entity;
                     entityManager.AddComponent(entity, parent);
 

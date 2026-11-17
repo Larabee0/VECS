@@ -22,7 +22,7 @@ namespace VECS
 
         public static bool MetaFileExists(string srcFile)
         {
-            return File.Exists(string.Format("{0}.meta", srcFile));
+            return File.Exists($"{srcFile}.meta");
         }
 
         public virtual void CreateDefaultMetaFile(string srcFile) { }
@@ -68,7 +68,7 @@ namespace VECS
             
             if (Path.HasExtension(".meta"))
             {
-                path = string.Format("{0}.meta",path);
+                path = $"{path}.meta";
             }
 
             if (!File.Exists(path))

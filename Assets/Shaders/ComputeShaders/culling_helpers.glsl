@@ -155,3 +155,15 @@ float triangleArea(vec2 a, vec2 b, vec2 c) {
 vec4 getSphere(mat4[6] matrices, uint index) {
 	return matrices[index/4][index%4];
 }
+
+vec3 getAABBCentre(vec4 bmin, vec4 bmax){
+	vec3 extents = (bmax.xyz-bmin.xyz)*0.5;
+	return bmin.xyz + extents;
+}
+vec3 getAABBSize(vec4 bmin, vec4 bmax){
+	return (bmax.xyz - bmin.xyz);
+}
+float getAABBRadius(vec4 bmin, vec4 bmax){
+	vec3 size = getAABBSize(bmin,bmax);
+	return max(size.x,max(size.y,size.z))*0.5;
+}

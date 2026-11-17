@@ -387,9 +387,9 @@ namespace VECS
         [JsonIgnore]
         public TextureMetaFile MetaFile;
         [JsonIgnore]
-        public string KtxFileName => string.Format("{0}.ktx", FullFileName);
+        public string KtxFileName => $"{FullFileName}.ktx";
         [JsonIgnore]
-        public string MetaFileName => string.Format("{0}.ktx.meta", FullFileName);
+        public string MetaFileName => $"{FullFileName}.ktx.meta";
 
         public TextureDefintion()
         {
@@ -528,7 +528,7 @@ namespace VECS
 
                     string filepath = Path.Combine(Asset.AssetsPath, Files[i][j]);
                     Debug.Assert(File.Exists(filepath), "Src file not found");
-                    filepath = Path.Combine(Asset.AssetsPath, string.Format("{0}.meta", Files[i][j]));
+                    filepath = Path.Combine(Asset.AssetsPath, $"{Files[i][j]}.meta");
                     Debug.Assert(File.Exists(filepath), "Src meta file not found");
                     metaFiles[i][j] = (TextureMetaFile)AssetMetaFile.LoadMetaFileAsDeclaredType(filepath);
                     metaFiles[i][j].SrcFileName = Path.Combine(Asset.AssetsPath, Files[i][j]);

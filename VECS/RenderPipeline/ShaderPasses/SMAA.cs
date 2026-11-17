@@ -28,7 +28,7 @@ namespace VECS
 
         private RenderTarget ColourSrc;
 
-        private bool _smaaEnabled = true;
+        public bool Enabled { get; private set;} = true;
 
         private static Texture2D DirectKTXLoad(string filePath)
         {
@@ -161,7 +161,7 @@ namespace VECS
 
         public void SetEnabled(bool enabled)
         {
-            _smaaEnabled = enabled;
+            Enabled = enabled;
         }
 
         public void AddToRenderGraph()
@@ -260,7 +260,7 @@ namespace VECS
 
         private void OutputBlending(RendererFrameInfo frameInfo)
         {
-            if (!_smaaEnabled)
+            if (!Enabled)
             {
                 BlitPostProcessFromMainAttachment(frameInfo);
             }
@@ -281,7 +281,7 @@ namespace VECS
 
         private void BlendWeightCalculation(RendererFrameInfo frameInfo)
         {
-            if (!_smaaEnabled) return;
+            if (!Enabled) return;
             BlendTarget.BeginRenderingOnlyAttachment(frameInfo.CommandBuffer);
             BlendWeightCalc.Bind(frameInfo);
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
@@ -290,7 +290,7 @@ namespace VECS
 
         private void EdgeDetectionPass(RendererFrameInfo frameInfo)
         {
-            if (!_smaaEnabled) return;
+            if (!Enabled) return;
             SetScreenSize(frameInfo.OutputRect.extent.height, frameInfo.OutputRect.extent.width);
 
             ActiveRenderer.BlitFromMainColour(frameInfo.CommandBuffer, frameInfo.OutputRect, ColourSrc.VkImage, frameInfo.OutputRect, VkImageAspectFlags.Color);

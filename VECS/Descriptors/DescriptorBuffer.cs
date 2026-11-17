@@ -46,7 +46,7 @@ namespace VECS
             GraphicsDevice.DeviceAPI.vkGetDescriptorSetLayoutSizeEXT(_setLayout, &unalignedLayoutSize);
             _alignedLayoutSize = (uint)GetAlignedSize(unalignedLayoutSize);
             Debug.Assert(_alignedLayoutSize > 0, "Descriptor Buffer Aligned layout size must be greater than 0 bytes");
-            Debug.Assert(_alignedLayoutSize % 2 == 0, string.Format("Descriptor Buffer Aligned layout size ({0}) must divisible by 2!", _alignedLayoutSize));
+            Debug.Assert(_alignedLayoutSize % 2 == 0, $"Descriptor Buffer Aligned layout size ({_alignedLayoutSize}) must divisible by 2!");
 
             _bindingOffsets = new uint[bindings.Length];
             _hasDataBound = new bool[maxSets];
@@ -84,7 +84,7 @@ namespace VECS
             GraphicsDevice.DeviceAPI.vkGetDescriptorSetLayoutSizeEXT(_setLayout, &unalignedLayoutSize);
             _alignedLayoutSize = (uint)GetAlignedSize(unalignedLayoutSize);
             Debug.Assert(_alignedLayoutSize > 0, "Descriptor Buffer Aligned layout size must be greater than 0 bytes");
-            Debug.Assert(_alignedLayoutSize % 2 == 0, string.Format("Descriptor Buffer Aligned layout size ({0}) must divisible by 2!", _alignedLayoutSize));
+            Debug.Assert(_alignedLayoutSize % 2 == 0, $"Descriptor Buffer Aligned layout size ({_alignedLayoutSize}) must divisible by 2!");
 
             _bindingOffsets = new uint[bindingCount];
             _hasDataBound = new bool[maxSets];
@@ -179,9 +179,9 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe void WriteDescriptor(DescriptorBufferWriteInfo writeInfo)
         {
-            //Debug.Assert(writeInfo.Binding < _bindingOffsets.Length, string.Format("Check shader descriptor set binding indexes for set {0}", writeInfo.Set));
+            // Debug.Assert(writeInfo.Binding < _bindingOffsets.Length, $"Check shader descriptor set binding indexes for set {writeInfo.Set}");
 
-            Debug.Assert(writeInfo.Set < _maxSats, string.Format("Attempting to set {0} which is beyond current max sets {1}!", writeInfo.Set, _maxSats));
+            Debug.Assert(writeInfo.Set < _maxSats, $"Attempting to set {writeInfo.Set} which is beyond current max sets {_maxSats}!");
 
             // align for set index;
             // then align for binding index
@@ -232,7 +232,7 @@ namespace VECS
                     getInfo.data.pInputAttachmentImage = imagePtr;
                     break;
                 default:
-                    throw new NotImplementedException(string.Format("Descriptor Type {0} is invalid or not implemented for VkDescriptorAddressInfoEXT!", writeInfo.Type.ToString()));
+                    throw new NotImplementedException($"Descriptor Type {writeInfo.Type} is invalid or not implemented for VkDescriptorAddressInfoEXT!");
             }
 
 
@@ -427,7 +427,7 @@ namespace VECS
                 VkDescriptorType.SampledImage => properties.sampledImageDescriptorSize,
                 VkDescriptorType.StorageImage => properties.storageImageDescriptorSize,
                 VkDescriptorType.InputAttachment => properties.inputAttachmentDescriptorSize,
-                _ => throw new NotImplementedException(string.Format("Descriptor Type {0} is invalid or not implemented for VkDescriptorImageInfo!", type.ToString())),
+                _ => throw new NotImplementedException($"Descriptor Type {type} is invalid or not implemented for VkDescriptorImageInfo!"),
             };
         }
 
@@ -447,7 +447,7 @@ namespace VECS
                 VkDescriptorType.UniformBufferDynamic => properties.uniformBufferDescriptorSize,
                 VkDescriptorType.StorageBufferDynamic => properties.storageBufferDescriptorSize,
                 VkDescriptorType.InlineUniformBlock => properties.uniformBufferDescriptorSize,
-                _ => throw new NotImplementedException(string.Format("Descriptor Type {0} is invalid or not implemented for VkDescriptorAddressInfoEXT!", type.ToString())),
+                _ => throw new NotImplementedException($"Descriptor Type {type} is invalid or not implemented for VkDescriptorAddressInfoEXT!"),
             };
         }
     }

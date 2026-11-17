@@ -19,7 +19,7 @@ namespace VECS
         [JsonIgnore]
         public VkFormat LoadedFormat;
         [JsonIgnore]
-        public string MetaFileName => string.Format("{0}.meta", SrcFileName);
+        public string MetaFileName => $"{SrcFileName}.meta";
         [JsonIgnore]
         public string KtxFileName
         {
@@ -31,7 +31,7 @@ namespace VECS
                 }
                 else
                 {
-                    return string.Format("{0}.ktx", SrcFileName);
+                    return $"{SrcFileName}.ktx";
                 }
             }
         }

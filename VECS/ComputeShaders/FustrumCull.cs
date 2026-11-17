@@ -92,8 +92,7 @@ namespace VECS
         public Matrix4x4 ViewProj4;
         public Matrix4x4 ViewProj5;
         public Matrix4x4 View;
-        //public Vector4 Sphere;
-        public Vector2 Pyramid;
+        public Vector4 Pyramid;
         public float ZNear;
         public float P00;
         public float P11;
@@ -144,26 +143,8 @@ namespace VECS
                     break;
             }
         }
-        /*
-        public CullData(RenderLayer includeMask, RenderLayer excludeMask, CullModeFlags cullMode, float zNear, CameraData camera)
-        {
-            ViewProj = camera.ProjectionMatrix;
-            //ViewProj = Matrix4x4.Transpose(ViewProj);
-            ZNear = zNear;
-            P00 = ViewProj[0, 0];
-            P11 = ViewProj[1, 1];
 
-            Pyramid = new(DepthReduction.DepthPryamid.Width, DepthReduction.DepthPryamid.Height);
-
-            CullMode = cullMode;
-            DrawCount = 0;
-            IncludeMask = includeMask;
-            ExcludeMask = excludeMask;
-            CullShape = CullShape.Fustrum;
-            View = camera.ViewMatrix;
-        }
-        */
-        public CullData(RenderLayer includeMask, RenderLayer excludeMask, CullModeFlags cullMode, float zNear, Matrix4x4 projection, Matrix4x4 view)
+        public CullData(RenderLayer includeMask, RenderLayer excludeMask, CullModeFlags cullMode, Vector4 depthPyramidSize, float zNear, Matrix4x4 projection, Matrix4x4 view)
         {
             ViewProj = view * projection;
             //ViewProj = Matrix4x4.Transpose(ViewProj);
@@ -171,7 +152,7 @@ namespace VECS
             P00 = ViewProj[0, 0];
             P11 = ViewProj[1, 1];
 
-            Pyramid = new(DepthReduction.DepthPryamid.Width, DepthReduction.DepthPryamid.Height);
+            Pyramid = depthPyramidSize;
 
             CullMode = cullMode;
             DrawCount = 0;
@@ -181,7 +162,7 @@ namespace VECS
             View = view;
         }
 
-        public CullData(RenderLayer includeMask, RenderLayer excludeMask, CullModeFlags cullMode, float zNear, Matrix4x4 viewProjection)
+        public CullData(RenderLayer includeMask, RenderLayer excludeMask, CullModeFlags cullMode, Vector4 depthPyramidSize, float zNear, Matrix4x4 viewProjection)
         {
             ViewProj = viewProjection;
             //ViewProj = Matrix4x4.Transpose(ViewProj);
@@ -189,7 +170,7 @@ namespace VECS
             P00 = ViewProj[0, 0];
             P11 = ViewProj[1, 1];
 
-            Pyramid = new(DepthReduction.DepthPryamid.Width, DepthReduction.DepthPryamid.Height);
+            Pyramid = depthPyramidSize;
 
             CullMode = cullMode;
             DrawCount = 0;
@@ -199,7 +180,7 @@ namespace VECS
             View = Matrix4x4.Identity;
         }
 
-        public CullData(RenderLayer includeMask, RenderLayer excludeMask, CullModeFlags cullMode, ushort projectionOffset, Span<Vector4> spheres)
+        public CullData(RenderLayer includeMask, RenderLayer excludeMask, CullModeFlags cullMode, Vector4 depthPyramidSize, ushort projectionOffset, Span<Vector4> spheres)
         {
             Debug.Assert(spheres.Length <= 15);
 
@@ -220,7 +201,7 @@ namespace VECS
             P00 = ViewProj[0, 0];
             P11 = ViewProj[1, 1];
 
-            Pyramid = new(DepthReduction.DepthPryamid.Width, DepthReduction.DepthPryamid.Height);
+            Pyramid = depthPyramidSize;
 
             CullMode = cullMode;
             DrawCount = 0;
@@ -234,7 +215,7 @@ namespace VECS
             View = Matrix4x4.Identity;
         }
 
-        public CullData(RenderLayer includeMask, RenderLayer excludeMask, CullModeFlags cullMode, uint projectionSelect, ushort projectionOffset, Matrix4x4 cubeProjectionMatrix, Span<Matrix4x4> viewMatrices)
+        public CullData(RenderLayer includeMask, RenderLayer excludeMask, CullModeFlags cullMode, Vector4 depthPyramidSize, uint projectionSelect, ushort projectionOffset, Matrix4x4 cubeProjectionMatrix, Span<Matrix4x4> viewMatrices)
         {
             Debug.Assert(viewMatrices.Length >= 6);
             View = viewMatrices[0];
@@ -249,7 +230,7 @@ namespace VECS
             P00 = ViewProj[0, 0];
             P11 = ViewProj[1, 1];
 
-            Pyramid = new(DepthReduction.DepthPryamid.Width, DepthReduction.DepthPryamid.Height);
+            Pyramid = depthPyramidSize;
 
             CullMode = cullMode;
             DrawCount = 0;
@@ -261,7 +242,7 @@ namespace VECS
             LayerCount = 6;
         }
 
-        public CullData(RenderLayer includeMask, RenderLayer excludeMask, CullModeFlags cullMode, uint projectionSelect, ushort projectionOffset, ushort layerCount, float zNear, Span<Matrix4x4> projectionMatrices, Span<Matrix4x4> viewMatrices)
+        public CullData(RenderLayer includeMask, RenderLayer excludeMask, CullModeFlags cullMode, Vector4 depthPyramidSize, uint projectionSelect, ushort projectionOffset, ushort layerCount, float zNear, Span<Matrix4x4> projectionMatrices, Span<Matrix4x4> viewMatrices)
         {
             Debug.Assert(viewMatrices.Length >= 4);
             Debug.Assert(projectionMatrices.Length >= 4);
@@ -276,8 +257,7 @@ namespace VECS
             P11 = ViewProj[1, 1];
 
 
-            Pyramid = new(DepthReduction.DepthPryamid.Width, DepthReduction.DepthPryamid.Height);
-
+            Pyramid = depthPyramidSize;
             CullMode = cullMode;
             DrawCount = 0;
             IncludeMask = includeMask;
@@ -408,7 +388,8 @@ namespace VECS
             invokeVariant.SetUniform(CullDataId, cullData);
             invokeVariant.SetStorageBuffer(DrawBufferId, drawIndirect, indirectCmdOffset, drawCount);
             invokeVariant.SetStorageBuffer(ShaderProperties.BoundsBufferId, bounds);
-            invokeVariant.SetTexture(DepthPyramidId, DepthReduction.DepthPryamid);
+            
+            invokeVariant.SetTexture(DepthPyramidId, EngineTextures.TryGetTexture(ShaderProperties.DepthPyramidId).First);
             Pipeline._descriptorReWrite = true;
             invokeVariant.Dispatch(commandBuffer, frameIndex, drawCount);
 
@@ -449,7 +430,7 @@ namespace VECS
                         float level = Math.Min(9, MathF.Floor(MathF.Log2(Math.Max(width, height))));
                         Vector2 uv = (new Vector2(aabb.X, aabb.Y) + new Vector2(aabb.Z, aabb.W)) * 0.5f;
                         uv.X = 1.0f - uv.X;
-                        _textureSampler.Default().SetTexture("depthPyramid".GetShaderPropertyId(), DepthReduction.DepthPryamid);
+                        _textureSampler.Default().SetTexture("depthPyramid".GetShaderPropertyId(), EngineTextures.TryGetTexture(ShaderProperties.DepthPyramidId).First);
                         _textureSampler.PushConstants.SetPushConstantVector2("uv", 0, uv);
                         _textureSampler.PushConstants.SetPushConstantFloat("level", 0, level);
                         var computeCommandBuffer = GraphicsDevice.BeginSingleTimeMainPipe();

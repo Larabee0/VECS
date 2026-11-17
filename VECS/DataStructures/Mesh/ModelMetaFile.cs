@@ -16,7 +16,7 @@ namespace VECS
         public string SrcFileName;
 
         [JsonIgnore]
-        public string MetaFileName => string.Format("{0}.meta", SrcFileName);
+        public string MetaFileName => $"{SrcFileName}.meta";
         [JsonIgnore]
         public DirectMesh TargetInstance;
         [JsonIgnore]

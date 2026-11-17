@@ -65,7 +65,7 @@ namespace VECS
                     }
                     else
                     {
-                        Console.WriteLine(string.Format("ERROR: File not found in getting assembly {0}", assemblyPath));
+                        Console.WriteLine("ERROR: File not found in getting assembly {0}", assemblyPath);
                     }
                 }
                 sw.Stop();
@@ -87,8 +87,8 @@ namespace VECS
             }
             catch (Exception ex)
             {
-                Console.WriteLine(string.Format("{0},\n{1}", ex.Message, ex.StackTrace));
-                Console.WriteLine(string.Format("{0},\n{1}", ex.InnerException.Message, ex.InnerException.StackTrace));
+                Console.WriteLine("{0},\n{1}", ex.Message, ex.StackTrace);
+                Console.WriteLine("{0},\n{1}", ex.InnerException.Message, ex.InnerException.StackTrace);
                 //Console.ReadLine();
                 return 1;
             }
@@ -124,7 +124,7 @@ namespace VECS
                     }
                     else
                     {
-                        throw new Exception(string.Format("Assembly {0} has entry points! Only one entry point per assembly is allowed.\nAssembly defines {1} and {2} and possibly more class that implement ISubAssemblyEntryPoint", entryPoint.AssemblyQualifiedName, entryPoint.FullName, type.FullName));
+                        throw new Exception($"Assembly {entryPoint.AssemblyQualifiedName} has entry points! Only one entry point per assembly is allowed.\nAssembly defines {entryPoint.FullName} and {type.FullName} and possibly more class that implement ISubAssemblyEntryPoint" );
                     }
                 }
             }
@@ -145,7 +145,7 @@ namespace VECS
                     }
                     else
                     {
-                        throw new Exception(string.Format("Assembly {0} has multiple load points! Only one load point per assembly is allowed.\nAssembly defines {1} and {2} and possibly more class that implement ISubAssemblyLoadPoint", loadPoint.Assembly.FullName, loadPoint.FullName, type.FullName));
+                        throw new Exception($"Assembly {loadPoint.Assembly.FullName} has multiple load points! Only one load point per assembly is allowed.\nAssembly defines {loadPoint.FullName} and {type.FullName} and possibly more class that implement ISubAssemblyLoadPoint");
                     }
                 }
             }
@@ -200,17 +200,17 @@ namespace VECS
 
             if(entryPoint == null && loadPoint == null)
             {
-                Console.WriteLine(string.Format("Assembly {0} does not define entry point or load point!", assembly.FullName));
+                Console.WriteLine($"Assembly {assembly.FullName} does not define entry point or load point!");
             }
 
             if (entryPoint != null && loadPoint != null)
             {
-                throw new Exception(string.Format("Assembly {0} defines an entry point ({1}) and a load point ({2})", assembly.FullName, entryPoint.FullName, loadPoint.FullName));
+                throw new Exception($"Assembly {assembly.FullName} defines an entry point ({entryPoint.FullName}) and a load point ({loadPoint.FullName})");
             }
 
             if (overrideEntryPoint != null && entryPoint != null)
             {
-                throw new Exception(string.Format("An earlier Assembly already overrodde the entry point!\nAssembly {0} defines an entry point ({1}) but so does the assembly {2} ({3})!\nOnly one assembly loaded can override the application entry point!", overrideEntryPoint.Assembly.FullName, overrideEntryPoint.FullName, assembly.FullName, entryPoint.FullName));
+                throw new Exception($"An earlier Assembly already overrodde the entry point!\nAssembly {overrideEntryPoint.Assembly.FullName} defines an entry point ({overrideEntryPoint.FullName}) but so does the assembly {assembly.FullName} ({entryPoint.FullName})!\nOnly one assembly loaded can override the application entry point!");
             }
             if (entryPoint != null)
             {

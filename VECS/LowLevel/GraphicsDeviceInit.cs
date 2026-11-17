@@ -30,7 +30,7 @@ namespace VECS.LowLevel
             Vulkan.VK_EXT_COLOR_WRITE_ENABLE_EXTENSION_NAME
         ];
 
-        private const bool ForceMeshShadingOff = false;
+        private const bool ForceMeshShadingOff = true;
         private readonly static VkUtf8String[] _meshShaderExtensions = [
             Vulkan.VK_EXT_MESH_SHADER_EXTENSION_NAME,
         ];
@@ -214,7 +214,7 @@ namespace VECS.LowLevel
                 throw new Exception("Failed to find GPUs with Vulkan support!");
             }
 
-            Console.WriteLine(string.Format("Device count: {0}", devices.Length));
+            Console.WriteLine("Device count: {0}", devices.Length);
             List<DeviceInfo> deviceHeapInfo = [];
             for (int i = 0; i < devices.Length; i++)
             {
@@ -269,7 +269,7 @@ namespace VECS.LowLevel
             var swapChainSupport = QuerySwapChainSupport(_physicalDevice, Application.MainWindow.Surface);
             if (swapChainSupport.capabilities.maxImageCount > 0)
             {
-                Debug.Assert(swapChainSupport.capabilities.maxImageCount >= swapChainSupport.capabilities.minImageCount, string.Format("Max Swapchain image count ({0}) is less than min image count ({1}). Cannot compute valid swapchain image count.", swapChainSupport.capabilities.maxImageCount, swapChainSupport.capabilities.minImageCount));
+                Debug.Assert(swapChainSupport.capabilities.maxImageCount >= swapChainSupport.capabilities.minImageCount, $"Max Swapchain image count ({swapChainSupport.capabilities.maxImageCount}) is less than min image count ({swapChainSupport.capabilities.minImageCount}). Cannot compute valid swapchain image count.");
 
                 SwapChain.SWAP_CHAIN_IMAGE_COUNT = Math.Max(SwapChain.MAX_CONCURRENT_FRAMES + 1, (int)swapChainSupport.capabilities.minImageCount);
             }
@@ -278,7 +278,7 @@ namespace VECS.LowLevel
             SwapChainSupport = swapChainSupport;
             var propertiesVK10 = PropertiesVK10;
             var str = new VkUtf8String(propertiesVK10.deviceName);
-            Console.WriteLine(string.Format("Physical device: {0}", str));
+            Console.WriteLine("Physical device: {0}", str);
             Console.WriteLine("Selected swapchain frame count: {0}", SwapChain.SWAP_CHAIN_IMAGE_COUNT);
         }
 
@@ -351,7 +351,7 @@ namespace VECS.LowLevel
             {
                 Console.WriteLine("Device did not have required extensions");
             }
-
+            
             if (!swapChainAdequate)
             {
                 Console.WriteLine("Device did not have swapchain adequate");

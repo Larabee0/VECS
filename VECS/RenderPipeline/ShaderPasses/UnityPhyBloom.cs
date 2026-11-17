@@ -44,8 +44,7 @@ namespace VECS
         private readonly Texture2D _bloomIntermediate;
 
         private readonly IRenderer _activeRenderer;
-
-        private static bool Bloom_Enabled = true;
+        public bool Enabled { get; private set; } = true;
         private RenderTarget PostProcessingAttachment;
 
         public UnityPhyBloom(IRenderer renderer)
@@ -76,12 +75,12 @@ namespace VECS
 
         public void SetEnabled(bool enabled)
         {
-            if (Bloom_Enabled == enabled) return;
-            
-            Bloom_Enabled = enabled;
+            if (Enabled == enabled) return;
 
-            Console.WriteLine("Bloom Enabled: {0}", Bloom_Enabled);
-            if (Bloom_Enabled)
+            Enabled = enabled;
+
+            Console.WriteLine("Bloom Enabled: {0}", Enabled);
+            if (Enabled)
             {
                 RenderGraph.EnablePass("PhyBloomDownSample", "PhyBloomUpSample", "PhyBloomMix");
             }
@@ -129,14 +128,14 @@ namespace VECS
             for (int i = 0; i < mipLevelCount; i++)
             {
                 TextureLoader.CalculateMipLevelSize(_bloomFinalMipUp.Width, _bloomFinalMipUp.Height, i, out mipWidth, out mipHeight);
-                _bloomMipDown[i] = new(string.Format("BloomMipDown_{0}x{1}", mipWidth, mipHeight), mipWidth, mipHeight, colourFormat, VkImageUsageFlags.Storage | VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferDst, VkSamplerAddressMode.ClampToEdge, 0, false, VkCompareOp.Never, VkSamplerMipmapMode.Nearest, VkBorderColor.FloatOpaqueBlack, VkFilter.Linear, false);
+                _bloomMipDown[i] = new($"BloomMipDown_{mipWidth}x{mipHeight}", mipWidth, mipHeight, colourFormat, VkImageUsageFlags.Storage | VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferDst, VkSamplerAddressMode.ClampToEdge, 0, false, VkCompareOp.Never, VkSamplerMipmapMode.Nearest, VkBorderColor.FloatOpaqueBlack, VkFilter.Linear, false);
             }
             _bloomMipUp = new Texture2D[mipLevelCount];
             _bloomMipUp[0] = _bloomFinalMipUp;
             for (int i = 1; i < mipLevelCount; i++)
             {
                 TextureLoader.CalculateMipLevelSize(_bloomFinalMipUp.Width, _bloomFinalMipUp.Height, i, out mipWidth, out mipHeight);
-                _bloomMipUp[i] = new(string.Format("BloomMipUp_{0}x{1}", mipWidth, mipHeight), mipWidth, mipHeight, colourFormat, VkImageUsageFlags.Storage | VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferDst, VkSamplerAddressMode.ClampToEdge, 0, false, VkCompareOp.Never, VkSamplerMipmapMode.Nearest, VkBorderColor.FloatOpaqueBlack, VkFilter.Linear, false);
+                _bloomMipUp[i] = new($"BloomMipUp_{mipWidth}x{mipHeight}", mipWidth, mipHeight, colourFormat, VkImageUsageFlags.Storage | VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferDst, VkSamplerAddressMode.ClampToEdge, 0, false, VkCompareOp.Never, VkSamplerMipmapMode.Nearest, VkBorderColor.FloatOpaqueBlack, VkFilter.Linear, false);
             }
 
             SetBloomPreFilterVariant(windowExtents);

@@ -120,7 +120,7 @@ namespace VECS.UI
         {
             var selectedEntity = entityManager.GetEntityFromId(SelectedEntityId);
             if(selectedEntity == Entity.Null) return;
-            string entityName = string.Format("Entity: {0}", entityManager.GetEntityName(selectedEntity));
+            string entityName = $"Entity: {entityManager.GetEntityName(selectedEntity)}";
             var item = new Expander()
             {
                 Header = entityName,

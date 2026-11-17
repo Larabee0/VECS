@@ -25,7 +25,7 @@ namespace VECS.LowLevel
             {
                 return other.AvaliableMemory.CompareTo(AvaliableMemory);
             }
-            throw new ArgumentException(string.Format("Object is not a {0}", typeof(DeviceInfo)));
+            throw new ArgumentException($"Object is not a {typeof(DeviceInfo)}");
         }
     }
 }

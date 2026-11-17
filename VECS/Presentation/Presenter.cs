@@ -233,7 +233,7 @@ namespace VECS
 
         private static RendererFrameInfo CreateRendererFrameInfo(float deltaTime, int targetCamera, VkCommandBuffer mainCommandBuffer, LightingInfo lightingInfo, float nearPlane, Matrix4x4 projectionMatrix, Matrix4x4 viewMatrix, CullModeFlags cullMode = CullModeFlags.Fustrum | CullModeFlags.Distance)
         {
-            CullData cullData = new(RenderLayer.All, RenderLayer.OnlyShadow, cullMode, nearPlane, projectionMatrix, viewMatrix)
+            CullData cullData = new(RenderLayer.All, RenderLayer.OnlyShadow, cullMode, Vector4.Zero,nearPlane, projectionMatrix, viewMatrix)
             {
                 ProjectionOffset = (ushort)targetCamera,
                 ProjectionSelect = 0,
@@ -483,7 +483,9 @@ namespace VECS
             UpdateCamerasDefaultWorld(FrameIndex);
             var mainCameraEntity = GetMainCamera(out int cameraCount, out Camera mainCamera);
             RendererFrameInfo mainCameraFrameInfo = CreateRendererFrameInfoForCamera(deltaTime, mainCamera.CameraIndex, commandBuffer, mainCamera, lightingInfo);
+            
             mainCameraFrameInfo = new(mainCameraFrameInfo, new(0, 0, Application.MainWindow.WindowExtent.width, Application.MainWindow.WindowExtent.height));
+            
             RenderCallback?.Invoke(mainCameraFrameInfo);
 
             GraphicsDevice.BeginLabelCmd(commandBuffer, "Render Graph Fixed Maps");

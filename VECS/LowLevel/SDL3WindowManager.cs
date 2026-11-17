@@ -142,11 +142,11 @@ namespace VECS.LowLevel
         {
             if (priority >= SDL_LogPriority.Warn)
             {
-                throw new Exception(string.Format("[{0}] SDL: {1}", priority, message));
+                throw new Exception("[{priority}] SDL: {message}");
             }
             else
             {
-                Console.WriteLine(string.Format("[{0}] SDL: {1}", priority, message));
+                Console.WriteLine("[{0}] SDL: {1}", priority, message);
             }
         }
 

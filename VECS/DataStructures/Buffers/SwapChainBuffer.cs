@@ -272,7 +272,7 @@ namespace VECS
 #if DEBUG
             if (sizeof(T) != InstanceSize32)
             {
-                Debug.Assert(sizeof(T) == InstanceSize32, string.Format("Type T: {0} does has instance size of {1}, but swapchain buffer expects instance size of {2}", value.GetType().Name, sizeof(T), InstanceSize32));
+                Debug.Assert(sizeof(T) == InstanceSize32, $"Type T: {value.GetType().Name} does has instance size of {sizeof(T)}, but swapchain buffer expects instance size of {InstanceSize32}");
             }
 #endif
             var offsetPtr = (byte*)_hostPtr +( hostBufferIndex * InstanceSize32);
@@ -331,7 +331,7 @@ namespace VECS
         {
             for (int i = 0; i < _buffers.Length; i++)
             {
-                _buffers[i].SetDebugName(string.Format("SWP_{0}_{1}", name, i));
+                _buffers[i].SetDebugName($"SWP_{name}_{i}");
             }
         }
     }

@@ -86,10 +86,10 @@ namespace VECS.ECS
                 string invalidTypes = "";
                 foreach (var invalid in all)
                 {
-                    invalidTypes = string.Format("{0}, {1}", invalidTypes, _entityManager.GetComponentName(invalid));
+                    invalidTypes = $"{invalidTypes}, {_entityManager.GetComponentName(invalid)}";
                 }
 
-                throw new InvalidOperationException(string.Format("WithAll query may not contain component types present in _withNone!\nComponent Type mistmatch {0}", invalidTypes));
+                throw new InvalidOperationException($"WithAll query may not contain component types present in _withNone!\nComponent Type mistmatch {invalidTypes}");
             }
 
             if (_withAny.Count > 0)
@@ -124,10 +124,10 @@ namespace VECS.ECS
                 string invalidTypes = "";
                 foreach (var invalid in none)
                 {
-                    invalidTypes = string.Format("{0}, {1}", invalidTypes, _entityManager.GetComponentName(invalid));
+                    invalidTypes = $"{invalidTypes}, {_entityManager.GetComponentName(invalid)}";
                 }
 
-                throw new InvalidOperationException(string.Format("WithNone query may not contain component types present in _withAll\nComponent Type mistmatch {0}", invalidTypes));
+                throw new InvalidOperationException($"WithNone query may not contain component types present in _withAll\nComponent Type mistmatch {invalidTypes}");
             }
             if (none.Overlaps(_withAny))
             {
@@ -135,10 +135,10 @@ namespace VECS.ECS
                 string invalidTypes = "";
                 foreach (var invalid in none)
                 {
-                    invalidTypes = string.Format("{0}, {1}", invalidTypes, _entityManager.GetComponentName(invalid));
+                    invalidTypes = $"{invalidTypes}, {_entityManager.GetComponentName(invalid)}";
                 }
 
-                throw new InvalidOperationException(string.Format("WithNone query may not contain component types present in _withAny!\nComponent Type mistmatch {0}", invalidTypes));
+                throw new InvalidOperationException($"WithNone query may not contain component types present in _withAny!\nComponent Type mistmatch {invalidTypes}");
             }
 
             return this;
@@ -171,10 +171,10 @@ namespace VECS.ECS
                 string invalidTypes = "";
                 foreach (var invalid in any)
                 {
-                    invalidTypes = string.Format("{0}, {1}", invalidTypes, _entityManager.GetComponentName(invalid));
+                    invalidTypes = $"{invalidTypes}, {_entityManager.GetComponentName(invalid)}";
                 }
 
-                throw new InvalidOperationException(string.Format("WithAny query may not contain component types present in _withNone!\nComponent Type mistmatch {0}", invalidTypes));
+                throw new InvalidOperationException($"WithAny query may not contain component types present in _withNone!\nComponent Type mistmatch {invalidTypes}");
             }
 
             if (_withAll.Count > 0)

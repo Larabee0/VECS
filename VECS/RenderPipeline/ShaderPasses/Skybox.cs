@@ -14,7 +14,7 @@ namespace VECS
         private static Material _skybox;
 
         private static Cubemap _skyboxTexture;
-        private bool Skybox_Enabled = true;
+        public bool Enabled { get; private set; } = true;
 
         public static Cubemap SkyboxTexture
         {
@@ -43,9 +43,9 @@ namespace VECS
         public void SetEnabled(bool enabled)
         {
 
-            if (enabled == Skybox_Enabled) return;
-            Skybox_Enabled = enabled;
-            if (Skybox_Enabled)
+            if (enabled == Enabled) return;
+            Enabled = enabled;
+            if (Enabled)
             {
                 RenderGraph.EnablePass("Skybox");
             }

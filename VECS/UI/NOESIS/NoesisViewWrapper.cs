@@ -85,9 +85,9 @@ namespace VECS.UI
             RenderFlags = RenderFlags.PPAA;
 
             ControlTreeRoot.UpdateLayout();
-            RenderTarget = (NoesisRenderTarget)NoesisHandler.NoesisDriver.CreateRenderTarget(string.Format("Noesis_RT_{0}_{1}",fileName,Presenter.FrameCount), (uint)Screen.Width, (uint)Screen.Height, 1, true);
+            RenderTarget = (NoesisRenderTarget)NoesisHandler.NoesisDriver.CreateRenderTarget($"Noesis_RT_{fileName}_{Presenter.FrameCount}", (uint)Screen.Width, (uint)Screen.Height, 1, true);
 
-            _blitVariant = EnginePipes.Blit.Create(string.Format("Noesis_Blitter_{0}_{1}",fileName,Presenter.FrameCount));
+            _blitVariant = EnginePipes.Blit.Create($"Noesis_Blitter_{fileName}_{Presenter.FrameCount}");
             _blitVariant.SetTexture(inputTextureId, RenderTargetTex2D);
             Application.NoesisDriver.CreatePipelines(VkFormat.R8G8B8A8Unorm, VkFormat.S8Uint);
             View.Content.GotKeyboardFocus += GotKeyboardFocus;
@@ -237,7 +237,7 @@ namespace VECS.UI
         {
             if (_framesSinceLastRender < SwapChain.MAX_CONCURRENT_FRAMES + 1)
             {
-                GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, string.Format("NOESIS Begin On-Screen Render {0}",RenderTarget.Colour.Texture.AssetName));
+                GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, $"NOESIS Begin On-Screen Render {RenderTarget.Colour.Texture.AssetName}");
                 Application.NoesisDriver.FormatHash = HashCode.Combine(RenderTargetTex2D.Format, VkFormat.S8Uint);
                 _framesSinceLastRender++;
                 NoesisHandler.NoesisDriver.SetRenderTarget(RenderTarget);
@@ -254,7 +254,7 @@ namespace VECS.UI
 
         public unsafe void BlitToMain(RendererFrameInfo frameInfo)
         {
-            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, string.Format("NOESIS Blit to Main {0}",RenderTarget.Colour.Texture.AssetName));
+            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, $"NOESIS Blit to Main {RenderTarget.Colour.Texture.AssetName}");
             
             var _outputTarget = EngineTextures.TryGetTexture(ShaderProperties.MainColourAttachmentId).First;
 

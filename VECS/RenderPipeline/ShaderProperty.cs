@@ -42,6 +42,7 @@ namespace VECS
         public static readonly int PLShadowMatsId = "pointShadowsMats".GetShaderPropertyId();
         public static readonly int SLShadowMatsId = "spotShadowsMats".GetShaderPropertyId();
 
+        public static readonly int DepthPyramidId = "depthPyramid".GetShaderPropertyId();
 
         public static readonly int CubeRelfectionProbesId = "reflectionProbes".GetShaderPropertyId();
         public static readonly int CameraIndex_PushConstantId = "cameraIndex".GetShaderPropertyId();
@@ -50,6 +51,8 @@ namespace VECS
         public static readonly int OutputImageSize_PushConstantId = "outputImageSize".GetShaderPropertyId();
 
         public static readonly int SrcImageSize_PushConstantId = "srcImageSize".GetShaderPropertyId();
+
+        
 
         public static readonly HashSet<int> IgnoreUnFoundShaderProperties;
 

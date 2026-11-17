@@ -15,7 +15,7 @@ namespace VECS
             SpvReflectResult result = SPIRVReflectApi.spvReflectCreateShaderModule(shaderBytes, &module);
             if (result != SpvReflectResult.Success)
             {
-                throw new Exception(string.Format("Failed to create reflected shader module: {0}", result.ToString()));
+                throw new Exception($"Failed to create reflected shader module: {result}");
             }
             return module;
         }
@@ -32,7 +32,7 @@ namespace VECS
             var result = SPIRVReflectApi.spvReflectEnumerateInputVariables(&module, &var_count, null);
             if (result != SpvReflectResult.Success)
             {
-                throw new Exception(string.Format("Failed to enumerate input variables: {0}", result.ToString()));
+                throw new Exception($"Failed to enumerate input variables: {result}");
             }
             if (var_count == 0) return null;
 
@@ -43,7 +43,7 @@ namespace VECS
 
             if (result != SpvReflectResult.Success)
             {
-                throw new Exception(string.Format("Failed to enumerate input variables: {0}", result.ToString()));
+                throw new Exception($"Failed to enumerate input variables: {result}");
             }
 
             for (int i = 0; i < var_count; i++)
@@ -63,7 +63,7 @@ namespace VECS
             var result = SPIRVReflectApi.spvReflectEnumeratePushConstantBlocks(&module, &block_count, null);
             if (result != SpvReflectResult.Success)
             {
-                throw new Exception(string.Format("Failed to enumerate push constant blocks: {0}", result.ToString()));
+                throw new Exception($"Failed to enumerate push constant blocks: {result}");
             }
             if (block_count == 0) return null;
             
@@ -73,7 +73,7 @@ namespace VECS
             
             result = SPIRVReflectApi.spvReflectEnumeratePushConstantBlocks(&module, &block_count, pPushConstants); if (result != SpvReflectResult.Success)
             {
-                throw new Exception(string.Format("Failed to enumerate push constant blocks: {0}", result.ToString()));
+                throw new Exception($"Failed to enumerate push constant blocks: {result}");
             }
 
             for (int i = 0; i < block_count; i++)
@@ -93,7 +93,7 @@ namespace VECS
             var result = SPIRVReflectApi.spvReflectEnumerateDescriptorBindings(&module, &binding_count, null);
             if (result != SpvReflectResult.Success)
             {
-                throw new Exception(string.Format("Failed to enumerate descriptor bindings: {0}", result.ToString()));
+                throw new Exception($"Failed to enumerate descriptor bindings: {result}");
             }
             if (binding_count == 0) return null;
             
@@ -105,7 +105,7 @@ namespace VECS
             
             if (result != SpvReflectResult.Success)
             {
-                throw new Exception(string.Format("Failed to enumerate descriptor bindings: {0}", result.ToString()));
+                throw new Exception($"Failed to enumerate descriptor bindings: {result}");
             }
 
             for (int i = 0; i < binding_count; i++)
@@ -131,7 +131,7 @@ namespace VECS
                 SpvReflectDescriptorType.StorageBuffer => [.. GetBlockMembers(bindingParentName, binding.block)],
                 SpvReflectDescriptorType.UniformBufferDynamic => [.. GetBlockMembers(bindingParentName, binding.block)],
                 SpvReflectDescriptorType.StorageBufferDynamic => [.. GetBlockMembers(bindingParentName, binding.block)],
-                _ => throw new NotImplementedException(string.Format("Descriptor type not implemented {0}", binding.descriptor_type.ToString())),
+                _ => throw new NotImplementedException($"Descriptor type not implemented {binding.descriptor_type}")
             };
         }
 
@@ -224,7 +224,7 @@ namespace VECS
                         properties.Add(new(propertyAbsName,member.Name, type_desc.op, member.padded_size, member.numeric, member.offset));
                         break;
                     default:
-                        throw new NotImplementedException(string.Format("Un implemented variable block type {0}", type_desc.op.ToString()));
+                        throw new NotImplementedException($"Un-implemented variable block type {type_desc.op}");
                 }
             }
             return properties;
@@ -241,7 +241,7 @@ namespace VECS
                 return new(bindingParentName, bindings.Name, SpvOp.Image, 0, traits);
             }
 
-                throw new NotImplementedException(string.Format("Image type not implemented for sampled = {0}", traits.sampled.ToString()));
+                throw new NotImplementedException($"Image type not implemented for sampled = {traits.sampled}");
         }
 
         public static DescriptorPropertyInfo GetBlockSampler(string bindingParentName, SpvReflectDescriptorBinding bindings)

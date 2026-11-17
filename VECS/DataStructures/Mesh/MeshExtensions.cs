@@ -650,7 +650,7 @@ namespace VECS
 #if DEBUG
             if (directMesh._consumedAttributes.ContainsKey(vertexAttribute.attribute))
             {
-                throw new ArgumentException(string.Format("Given vertex attributre {0} already present in the vertex buffers", vertexAttribute.ToString()));
+                throw new ArgumentException($"Given vertex attributre {vertexAttribute} already present in the vertex buffers");
             }
 #endif
             var vertexCount = directMesh.VertexBufferLength;

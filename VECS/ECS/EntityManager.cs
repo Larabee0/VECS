@@ -653,7 +653,7 @@ namespace VECS.ECS
             }
             else
             {
-                return string.Format("{0}.{1}", entity.Id, entity.Version);
+                return $"{entity.Id}.{ entity.Version}";
             }
         }
 
@@ -661,7 +661,7 @@ namespace VECS.ECS
         {
             if( entityId == Entity.Null.Id)
             {
-                Console.WriteLine("Entity Id \"{0}\" is Entity.Null",entityId);
+                Console.WriteLine("Entity Id \"{0}\" is Entity.Null", entityId);
                 return Entity.Null;
             }
             if(_entityIdToEntity.TryGetValue(entityId,out Entity entity))

@@ -12,7 +12,7 @@ namespace VECS
             Source = source;
             _textureSampler = sampler;
 
-            AssetName = string.Format("TexVar_{0}_Sampler_{1}",source.AssetName, sampler.AssetName);
+            AssetName = $"TexVar_{source.AssetName}_Sampler_{sampler.AssetName}";
 
             UpdateDescriptor();
             AssetDataBase<TextureVariant>.Add(this);

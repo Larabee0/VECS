@@ -22,6 +22,7 @@ namespace VECS
 
         public const uint OIT_NODE_COUNT = 20;
         private readonly IRenderer ActiveRenderer;
+        public bool Enabled { get; private set; } = true;
 
         public readonly GraphicsPipeline OIT_Composite;
         public Texture2D _headIndex;
@@ -60,7 +61,7 @@ namespace VECS
 
         public void SetEnabled(bool enabled)
         {
-
+            Enabled = enabled;
         }
 
         public void PrePresent()
@@ -92,7 +93,7 @@ namespace VECS
 
             if (_headIndex == null)
             {
-                _headIndex = new(string.Format("OIT_HeadIndex_{0}", Presenter.FrameCount), (int)windowExtents.width, (int)windowExtents.height, VkFormat.R32Uint, VkImageUsageFlags.TransferDst | VkImageUsageFlags.Storage, false);
+                _headIndex = new($"OIT_HeadIndex_{Presenter.FrameCount}", (int)windowExtents.width, (int)windowExtents.height, VkFormat.R32Uint, VkImageUsageFlags.TransferDst | VkImageUsageFlags.Storage, false);
 
                 EngineTextures.AddTexture(ShaderProperties.HeadIndexImageId, _headIndex.AsSingleTexture());
                 _headIndex.SetImageLayout(VkImageLayout.General, VkPipelineStageFlags2.None, VkPipelineStageFlags2.Transfer);

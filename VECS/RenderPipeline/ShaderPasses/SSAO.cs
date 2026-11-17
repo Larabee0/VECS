@@ -16,6 +16,7 @@ namespace VECS
         public static readonly int RenderScale_PushConstantId = "renderScale".GetShaderPropertyId();
 
         private readonly IRenderer ActiveRenderer;
+        public bool Enabled { get; private set; } = true;
 
         private readonly ComputeVariant _computeSSAOGenerate;
         private readonly ComputeVariant _computeSSAOBlur;
@@ -24,7 +25,6 @@ namespace VECS
 
 
         private RenderTarget _ssaoBlurRt;
-        public static bool SSAO_Enabled = true;
 
         private bool _SSAO_Cleared = false;
 
@@ -64,9 +64,9 @@ namespace VECS
 
         public void AddToRenderGraph()
         {
-            RenderGraph.AddPass("SSAO_Generate", PassType.Compute, PassCategory.PostRendering, ["DeferredObjectsPass", "DeferredDepthOnlyPass", "SSAO_Clear"], ["G_PositionAttachment", "G_NormalAttachment", "MainDepthAttachment"], ["SSAO_RT"], GenerateSSAO);
+            RenderGraph.AddPass("SSAO_Generate", PassType.Compute, PassCategory.PostRendering, ["DeferredObjectsPass", "DepthPrePass", "SSAO_Clear"], ["G_PositionAttachment", "G_NormalAttachment", "MainDepthAttachment"], ["SSAO_RT"], GenerateSSAO);
             RenderGraph.AddPass("SSAO_Blur", PassType.Compute, PassCategory.PostRendering, ["SSAO_Generate"], ["SSAO_RT"], ["SSAO_BLUR_RT"], BlurSSAO);
-            RenderGraph.AddPass("SSAO_Clear", PassType.Compute, PassCategory.PostRendering, ["DeferredObjectsPass", "DeferredDepthOnlyPass"], [""], ["SSAO_BLUR_RT"], ClearSSAO);
+            RenderGraph.AddPass("SSAO_Clear", PassType.Compute, PassCategory.PostRendering, ["DeferredObjectsPass", "DepthPrePass"], [""], ["SSAO_BLUR_RT"], ClearSSAO);
             RenderGraph.DisablePass("SSAO_Clear");
         }
 
@@ -163,9 +163,9 @@ namespace VECS
 
         public void SetEnabled(bool enabled)
         {
-            if (enabled == SSAO_Enabled) return;
-            SSAO_Enabled = enabled;
-            if (SSAO_Enabled)
+            if (enabled == Enabled) return;
+            Enabled = enabled;
+            if (Enabled)
             {
                 RenderGraph.EnablePass("SSAO_Blur", "SSAO_Generate");
             }

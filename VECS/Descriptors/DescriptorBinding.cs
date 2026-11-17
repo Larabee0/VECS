@@ -72,7 +72,7 @@ namespace VECS
                     ImageBindingArray = descriptorBinding.array.dims_count != 0;
                     break;
                 default:
-                    throw new NotImplementedException(string.Format("Descriptor type not implemented {0}", descriptorBinding.descriptor_type.ToString()));
+                    throw new NotImplementedException($"Descriptor type not implemented {descriptorBinding.descriptor_type}");
             }
 
             VkSetLayoutBinding = new()

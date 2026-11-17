@@ -95,7 +95,7 @@ namespace VECS
 #if DEBUG
                 StackTrace trace = new(true);
 
-                Console.WriteLine(string.Format("Duplicate Asset Add trace\n {0}", trace.ToString()));
+                Console.WriteLine($"Duplicate Asset Add trace\n {trace}");
 #endif
             }
 
@@ -137,7 +137,7 @@ namespace VECS
 #if DEBUG
                 StackTrace trace = new(true);
 
-                Console.WriteLine(string.Format("Duplicate Asset Add trace\n {0}", trace.ToString()));
+                Console.WriteLine($"Duplicate Asset Add trace\n {trace}");
 #endif
             }
             if(!_assetsByName.TryAdd(asset.AssetName, asset))

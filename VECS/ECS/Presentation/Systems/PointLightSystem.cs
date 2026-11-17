@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Numerics;
 using VECS.ECS.Transforms;
 
 namespace VECS.ECS.Presentation
@@ -105,6 +106,8 @@ namespace VECS.ECS.Presentation
                 if (entityManager.GetComponent(entities[i], out LocalToWorld ltw) && entityManager.GetComponent(entities[i], out PointLight pointLight))
                 {
                     hostBuffer[plCount] = new(ltw.Value.Translation,pointLight);
+
+                    
                 }
             }
         }

@@ -59,7 +59,7 @@ namespace VECS
 
         private unsafe void CreateDefault()
         {
-            GraphicsDevice.SetObjectName(VkObjectType.Pipeline, _pipeline.Handle, AssetName + "_v" + _version);
+            GraphicsDevice.SetObjectName(VkObjectType.Pipeline, _pipeline.Handle, $"{AssetName}_v{_version}" );
             _matVariants = [new Material("Default", this,false)];
             _variantsToAdd.TryDequeue(out var material);
 
@@ -103,7 +103,7 @@ namespace VECS
             {
                 return _matVariants[index];
             }
-            return Create(string.Format("VARAINT_{0}", index));
+            return Create($"VARAINT_{index}");
         }
 
         public Material Create(string name)
@@ -135,7 +135,7 @@ namespace VECS
                 if (_uniformBufferSize > 0)
                 {
                     _uniformBuffer.UpdateUniformCount((uint)VariantCount);
-                    _uniformBuffer.SetDebugName(string.Format("{0}_UniformBuffer", AssetName));
+                    _uniformBuffer.SetDebugName($"{AssetName}_UniformBuffer");
                     reassignUniformPtrs = true;
                 }
                 while (_variantsToAdd.TryDequeue(out var variant))
@@ -287,7 +287,7 @@ namespace VECS
             var ptr = GetStorageBuffer(propertyInfo);
             if (ptr != null)
             {
-                Debug.Assert(propertyInfo.BindingInfo.BufferSize == sizeof(T), string.Format("(MaterialV2.GetStorageBuffer) Property {0} with size {1} has mismatched sized wtih target buffer type {2}", propertyInfo.BindingInfo.Name, propertyInfo.BindingInfo.BufferSize, typeof(T).Name));
+                Debug.Assert(propertyInfo.BindingInfo.BufferSize == sizeof(T), $"(MaterialV2.GetStorageBuffer) Property {propertyInfo.BindingInfo.Name} with size {propertyInfo.BindingInfo.BufferSize} has mismatched sized wtih target buffer type {typeof(T).Name}");
                 return new(ptr, (int)DEFAULT_STORAGE_BUFFER_COUNT);
             }
             return null;
@@ -715,7 +715,7 @@ namespace VECS
             _pipelineLayout = GPUPipelineUtil.CreatePipelineLayout(_descriptorSetLayouts, _pushConstantsHandler, shaders);
             _pipeline = GPUPipelineUtil.CreateGraphicsPipeline(_graphicsPipelineConfigInfo, VkPipelineCreateFlags.DescriptorBufferEXT, shaders);
 
-            GraphicsDevice.SetObjectName(VkObjectType.Pipeline, _pipeline.Handle, AssetName+"_v"+ _version);
+            GraphicsDevice.SetObjectName(VkObjectType.Pipeline, _pipeline.Handle, $"{AssetName}_v{_version}");
             for (int i = 0; i < existingDescriptorSets.Length; i++)
             {
                 existingDescriptorSets[i].Dispose();

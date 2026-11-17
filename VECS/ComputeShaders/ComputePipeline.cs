@@ -48,7 +48,7 @@ namespace VECS
             computePipelineInfo.stage.pName = new VkUtf8ReadOnlyString(Encoding.UTF8.GetBytes(shaderModule.EntryPoint));
 
             _pipeline = GPUPipelineUtil.CreateComputePipeline(computePipelineInfo);
-            GraphicsDevice.SetObjectName(VkObjectType.Pipeline, _pipeline.Handle, AssetName + "_v" + _version);
+            GraphicsDevice.SetObjectName(VkObjectType.Pipeline, _pipeline.Handle, $"{AssetName}_v{_version}");
             _computeVariants = [new ComputeVariant("Default", this, false,false)];
             _variantsToAdd.TryDequeue(out var variant);
 
@@ -89,7 +89,7 @@ namespace VECS
             {
                 return _computeVariants[index];
             }
-            return Create(string.Format("VARAINT_{0}", index), allowTmpAllocation);
+            return Create($"VARAINT_{index}", allowTmpAllocation);
         }
 
         public ComputeVariant Create(string name, bool allowTmpAllocation = false)
@@ -115,7 +115,7 @@ namespace VECS
                 if (_uniformBufferSize > 0)
                 {
                     _uniformBuffer.UpdateUniformCount((uint)VariantCount);
-                    _uniformBuffer.SetDebugName(string.Format("{0}_UniformBuffer", AssetName));
+                    _uniformBuffer.SetDebugName("{AssetName}_UniformBuffer");
 
                     reassignUniformPtrs = true;
                 }
@@ -461,7 +461,7 @@ namespace VECS
             computePipelineInfo.layout = _pipelineLayout;
             _pipeline = GPUPipelineUtil.CreateComputePipeline(computePipelineInfo);
 
-            GraphicsDevice.SetObjectName(VkObjectType.Pipeline, _pipeline.Handle, AssetName + "_v" + _version);
+            GraphicsDevice.SetObjectName(VkObjectType.Pipeline, _pipeline.Handle, $"{AssetName}_v{_version}");
             for (int i = 0; i < existingDescriptorSets.Length; i++)
             {
                 existingDescriptorSets[i].Dispose();

@@ -48,7 +48,7 @@ namespace VECS
                 VkImageLayout.ShaderReadOnlyOptimal => VkAccessFlags2.ShaderRead,
                 VkImageLayout.PresentSrcKHR => VkAccessFlags2.TransferRead,
                 VkImageLayout.General => VkAccessFlags2.ShaderRead | VkAccessFlags2.ShaderWrite,
-                _ => throw new InvalidOperationException(string.Format("Unhandled Image transition from image layout {0}", oldLayout.ToString())),// Other source layouts aren't handled (yet)
+                _ => throw new InvalidOperationException($"Unhandled Image transition from image layout {oldLayout}"),// Other source layouts aren't handled (yet)
             };
             switch (newLayout)
             {
@@ -91,7 +91,7 @@ namespace VECS
                     dstAccessMask = VkAccessFlags2.DepthStencilAttachmentRead | VkAccessFlags2.DepthStencilAttachmentWrite;
                     break;
                 default:
-                    throw new InvalidOperationException(string.Format("Unhandled Image transition to image layout {0}", newLayout.ToString()));
+                    throw new InvalidOperationException($"Unhandled Image transition to image layout {newLayout}");
             }
 
             uint queueFamily = GraphicsDevice.PhysicalQueueFamilies.graphicsFamily;
@@ -149,6 +149,12 @@ namespace VECS
         public static void ImageMemoryBarrier(VkCommandBuffer cmdBuffer, VkImageMemoryBarrier2 imageBarrier)
         {
             GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier2(cmdBuffer, VkDependencyFlags.None, null, null, new Span<VkImageMemoryBarrier2>(ref imageBarrier));
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void ImageMemoryBarrier(VkCommandBuffer cmdBuffer, VkImageMemoryBarrier2 imageBarrier, VkDependencyFlags dependencyFlags)
+        {
+            GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier2(cmdBuffer, dependencyFlags, null, null, new Span<VkImageMemoryBarrier2>(ref imageBarrier));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

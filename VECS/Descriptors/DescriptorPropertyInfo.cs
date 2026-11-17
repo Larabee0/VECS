@@ -93,7 +93,6 @@ namespace VECS
                         }
                         return CachedArraySize;
                     default: return 0;
-                        //throw new NotSupportedException(string.Format("SpvOpType {0} is not an expected variable type",Type.ToString()));
                 }
             }
         }
@@ -240,7 +239,7 @@ namespace VECS
                 SpvDim.Dim2D => VkImageViewType.Image2D,
                 SpvDim.Dim3D => VkImageViewType.Image3D,
                 SpvDim.Cube => VkImageViewType.ImageCube,
-                _ => throw new NotImplementedException(string.Format("Image dimention {0} is not implemented for descriptor variables", imageTraits.dim.ToString())),
+                _ => throw new NotImplementedException($"Image dimention {imageTraits.dim} is not implemented for descriptor variables"),
             };
 
             if (imageTraits.arrayed != 0)
@@ -266,18 +265,18 @@ namespace VECS
                     case VkImageViewType.ImageCubeArray:
                         break;
                     default:
-                        throw new NotImplementedException(string.Format("{0} arraying not currently handled!", ImageType.ToString()));
+                        throw new NotImplementedException($"{ImageType} arraying not currently handled!");
                 }
             }
 
             //if (imageTraits.depth != 0)
             //{
-            //    throw new NotImplementedException(string.Format("Image Depth = {0} unhandled", imageTraits.depth));
+            //    throw new NotImplementedException($"Image Depth = {imageTraits.depth} unhandled");
             //}
 
             if (imageTraits.ms != 0)
             {
-                throw new NotImplementedException(string.Format("Image ms = {0} unhandled", imageTraits.ms));
+                throw new NotImplementedException("Image ms = {imageTraits.ms} unhandled");
             }
         }
 

@@ -389,7 +389,7 @@ namespace VECS
         {
             drawMode = drawMode.NormalizeForMeshShading();
             if (drawMode == DrawType.None) return;
-            GraphicsDevice.BeginLabelCmd(commandBuffer, string.Format("Draw {0} Queue", AssetName));
+            GraphicsDevice.BeginLabelCmd(commandBuffer, $"Draw {AssetName} Queue");
             // draw batches/draw calls do not align
             foreach (var drawCall in _drawBatches)
             {
@@ -415,7 +415,7 @@ namespace VECS
         {
             drawMode = drawMode.NormalizeForMeshShading();
             if (drawMode == DrawType.None) return;
-            GraphicsDevice.BeginLabelCmd(commandBuffer, string.Format("Draw {0} Queue", AssetName));
+            GraphicsDevice.BeginLabelCmd(commandBuffer, $"Draw {AssetName} Queue");
             // draw batches/draw calls do not align
             foreach (var drawCall in _drawBatches)
             {
@@ -451,7 +451,7 @@ namespace VECS
                 dstStageMask = VkPipelineStageFlags2.ComputeShader,
             };
 
-            GraphicsDevice.BeginLabelCmd(commandBuffer, string.Format("Cull {0} Queue", AssetName));
+            GraphicsDevice.BeginLabelCmd(commandBuffer, $"Cull {AssetName} Queue");
 
             MemoryBarrierHelper.BufferMemoryBarrier(commandBuffer, barrier, VkPipelineStageFlags2.DrawIndirect, VkPipelineStageFlags2.ComputeShader);
             FustrumCull.Cull(commandBuffer, Presenter.FrameIndex, cullData, (uint)_commandBufferOffset, (uint)_queueCount, indirectCmdBuffer, EngineBuffers.TryGetBuffer(ShaderProperties.BoundsBufferId));
@@ -476,7 +476,7 @@ namespace VECS
             }
             if (batchRange.Y == 0) return false;
 
-            GraphicsDevice.BeginLabelCmd(commandBuffer, string.Format("MeshTask_Cull {0} Queue", AssetName));
+            GraphicsDevice.BeginLabelCmd(commandBuffer, $"MeshTask_Cull {AssetName} Queue");
             VkBufferMemoryBarrier2 barrier = new()
             {
                 buffer = indirectCmdBuffer.ActiveVkBuffer,

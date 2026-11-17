@@ -117,12 +117,12 @@ namespace VECS
 
         private void AddToRenderGraph()
         {
-            RenderGraph.AddPass("DeferredDepthOnlyPass", PassType.Render, PassCategory.PreRendering,
+            RenderGraph.AddPass("DepthPrePass", PassType.Render, PassCategory.PreRendering,
                             [], [],
-                            ["MainDepthAttachment"], DeferredDepthPass);
+                            ["MainDepthAttachment"], DepthPrePass);
 
             RenderGraph.AddPass("DeferredObjectsPass", PassType.Render, PassCategory.Opaque,
-                ["DeferredDepthOnlyPass"],
+                ["DepthPrePass"],
                 ["MainDepthAttachment"],
                 ["G_PositionAttachment", "G_NormalAttachment", "G_AlbedoAttachment", "G_MaskAttachment"], DeferredObjectsPass);
 
@@ -172,6 +172,7 @@ namespace VECS
 
         public void PostCreate()
         {
+            AddPass<DepthReduction>();
             AddPass<OIT>();
             AddPass<SMAA>();
             AddPass<SSAO>();
@@ -266,7 +267,7 @@ namespace VECS
 
         }
 
-        private void DeferredDepthPass(RendererFrameInfo frameInfo)
+        private void DepthPrePass(RendererFrameInfo frameInfo)
         {
             var commandBuffer = frameInfo.CommandBuffer;
             if (_depthOnlyQueue.CommandCount > 0)
@@ -279,20 +280,15 @@ namespace VECS
                 DrawBlob.Cull(_depthOnlyQueue, frameInfo.CommandBuffer, depthBufferCullInfo);
 
                 BeginDepthOnlyRendering(commandBuffer, VkAttachmentLoadOp.Clear);
-
                 DrawBlob.Execute(_depthOnlyQueue, frameInfo.CommandBuffer, DEPTH_ONLY_PUSH_CONSTANT_INDEX, VkCullModeFlags.Back);
 
                 GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
-
-                DepthReduction.ReduceDepth(frameInfo);
             }
             else
             {
                 GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Clear Main Depth Only");
                 DepthAttachment.ClearAttachment(commandBuffer);
                 GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
-
-                DepthReduction.ClearPyramid(frameInfo);
             }
         }
 

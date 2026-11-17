@@ -17,6 +17,7 @@ namespace VECS
         public const int BRDFLUT_DIMENTIONS = 512;
         public const int IRRADIANCE_DIMENTIONS = 512;
         public const int PREFILTERED_CUBE_DIMENTIONS = 512;
+        public bool Enabled { get; private set; } = true;
 
         private Texture2D BRDFLUT_Texture;
         private Cubemap Irradiance_Cubemap;
@@ -70,7 +71,9 @@ namespace VECS
 
         public void SetEnabled(bool enabled)
         {
-            if (enabled)
+            if (enabled == Enabled) return;
+            Enabled = enabled;
+            if (Enabled)
             {
                 RenderGraph.EnablePass("PBR_Genderate_BRDFLUT", "PBR_Generate_Irradiance", "PBR_Generate_Prefiltered_Cubemap");
             }

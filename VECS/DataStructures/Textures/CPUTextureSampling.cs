@@ -43,13 +43,13 @@ namespace VECS
             Colour[] managedColours = new Colour[mipLevelPixelCount];
             if (texture.BufferInstanceSize == sizeof(Colour))
             {
-                Debug.Assert(mipLevelByteCount % sizeof(Colour) == 0, string.Format("Critical Memory error! MipMapLevel size is {0} which is not divisble by size of Colour ({1})", mipLevelByteCount, sizeof(Colour)));
+                Debug.Assert(mipLevelByteCount % sizeof(Colour) == 0, $"Critical Memory error! MipMapLevel size is {mipLevelByteCount} which is not divisble by size of Colour ({sizeof(Colour)})");
                 var span = new Span<Colour>(offsetPtr, mipLevelPixelCount);
                 span.CopyTo(managedColours);
             }
             else if (texture.BufferInstanceSize == sizeof(Vector4))
             {
-                Debug.Assert(mipLevelByteCount % sizeof(Vector4) == 0, string.Format("Critical Memory error! MipMapLevel size is {0} which is not divisble by size of Vector4 (Linear RGB) ({1})", mipLevelByteCount, sizeof(Vector4)));
+                Debug.Assert(mipLevelByteCount % sizeof(Vector4) == 0, $"Critical Memory error! MipMapLevel size is {mipLevelByteCount} which is not divisble by size of Vector4 (Linear RGB) ({sizeof(Vector4)})");
                 var span = new Span<Vector4>(offsetPtr, mipLevelPixelCount);
 
                 for (int i = 0; i < mipLevelPixelCount; i++)
@@ -105,13 +105,13 @@ namespace VECS
             var offsetPtr = IntPtr.Add(new IntPtr(texture._hostBuffer.HostPtr), mipLevelMemoryOffset).ToPointer();
             if (texture.BufferInstanceSize == sizeof(Colour))
             {
-                Debug.Assert(mipLevelByteCount % sizeof(Colour) == 0, string.Format("Critical Memory error! MipMapLevel size is {0} which is not divisble by size of Colour ({1})", mipLevelByteCount, sizeof(Colour)));
+                Debug.Assert(mipLevelByteCount % sizeof(Colour) == 0, $"Critical Memory error! MipMapLevel size is {mipLevelByteCount} which is not divisble by size of Colour ({sizeof(Colour)})");
                 var span = new Span<Colour>(offsetPtr, mipLevelPixelCount);
                 pixels.CopyTo(span);
             }
             else if (texture.BufferInstanceSize == sizeof(Vector4))
             {
-                Debug.Assert(mipLevelByteCount % sizeof(Vector4) == 0, string.Format("Critical Memory error! MipMapLevel size is {0} which is not divisble by size of Vector4 (Linear RGB) ({1})", mipLevelByteCount, sizeof(Vector4)));
+                Debug.Assert(mipLevelByteCount % sizeof(Vector4) == 0, $"Critical Memory error! MipMapLevel size is {mipLevelByteCount} which is not divisble by size of Vector4 (Linear RGB) ({sizeof(Vector4)})");
                 var span = new Span<Vector4>(offsetPtr, mipLevelPixelCount);
 
                 for (int i = 0; i < mipLevelPixelCount && i < pixels.Length; i++)

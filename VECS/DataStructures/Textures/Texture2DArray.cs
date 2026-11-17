@@ -69,6 +69,37 @@ namespace VECS
             AssetDataBase<Texture2DArray>.Add(this);
         }
 
+        public Texture2DArray(string name, int width, int height, int arrayLayers, VkFormat textureFormat, VkSamplerAddressMode addressMode, VkImageUsageFlags usage, int mipMapCount)
+        {
+            Debug.Assert(arrayLayers > 1, "Cannot create texture array with 1 element!");
+            AssetName = name;
+            _imageExtent = new(width, height, arrayLayers);
+            _imageImageViewType = VkImageViewType.Image2DArray;
+            _imageFormat = textureFormat;
+            _useageFlags = usage;
+            WrapModeU = addressMode;
+            WrapModeV = addressMode;
+            WrapModeW = addressMode;
+            AdditionalImageViews = new VkImageView[arrayLayers];
+
+            MipMapCount = (uint)Math.Min(TextureExtensions.CalculateMipMapLevels(width, height), mipMapCount);
+            
+            this.CreateImage(GetImageCreateInfo());
+
+            this.SetImageLayoutAndAspectFromUsage();
+
+            this.CreateImageView(GetImageViewCreateInfo());
+            CreateAdditionalImageViews();
+            if (_useageFlags.HasFlag(VkImageUsageFlags.Sampled))
+            {
+                this.CreateSampler();
+            }
+
+            UpdateDescriptor();
+
+            AssetDataBase<Texture2DArray>.Add(this);
+        }
+
         public Texture2DArray(string name, TextureMetaFile metaFile)
         {
             MetaFile = metaFile;
@@ -132,7 +163,7 @@ namespace VECS
                 createInfo.subresourceRange.baseArrayLayer = i;
                 fixed (VkImageView* pView = &AdditionalImageViews[i])
                     GraphicsDevice.DeviceAPI.vkCreateImageView(createInfo, null, pView);
-                GraphicsDevice.SetObjectName(VkObjectType.ImageView, AdditionalImageViews[i].Handle, string.Format("TEX2D_ARRAY_{0}_{1}", AssetName, i));
+                GraphicsDevice.SetObjectName(VkObjectType.ImageView, AdditionalImageViews[i].Handle, $"TEX2D_ARRAY_{AssetName}_{i}");
             }
         }
 
@@ -153,7 +184,7 @@ namespace VECS
                 }
                 fixed (VkImageView* pView = &ReductiveImageViews[i])
                     GraphicsDevice.DeviceAPI.vkCreateImageView(createInfo, null, pView);
-                GraphicsDevice.SetObjectName(VkObjectType.ImageView, ReductiveImageViews[i].Handle, string.Format("TEX2D_ARRAY_REDUCT_{0}_{1}", AssetName, i));
+                GraphicsDevice.SetObjectName(VkObjectType.ImageView, ReductiveImageViews[i].Handle, $"TEX2D_ARRAY_REDUCT_{AssetName}_{i}");
             }
         }
 

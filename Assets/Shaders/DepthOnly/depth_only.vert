@@ -115,21 +115,21 @@ vec3 GetClippingPlane(vec3 right, vec3 left){
 
 vec4 GetClipDistDir(vec3 positionWorld, mat4 viewProj){
 
-    viewProj[0] = vec4(0.3809524, 0, 0, -0);
-    viewProj[1] = vec4(0, 0.3809524, 0, -0);
-    viewProj[2] = vec4(0, 0, -0.024258217, -0);
-    viewProj[3] = vec4(0, 0, 0, 1);
-    viewProj = transpose(viewProj);
-    const vec3 lightPos = vec3(1.1456438, 2.2912877, 0.9864766);
-    vec3 right =  normalize(viewProj[3] - viewProj[0]).xyz;
-    vec3 left =   normalize(viewProj[3] + viewProj[0]).xyz;
-    vec3 top =    normalize(viewProj[3] + viewProj[1]).xyz;
-    vec3 bottom = normalize(viewProj[3] - viewProj[1]).xyz;
+    //viewProj[0] = vec4(0.3809524, 0, 0, -0);
+    //viewProj[1] = vec4(0, 0.3809524, 0, -0);
+    //viewProj[2] = vec4(0, 0, -0.024258217, -0);
+    //viewProj[3] = vec4(0, 0, 0, 1);
+    //viewProj = transpose(viewProj);
+    const vec3 lightPos = vec3(-7, 1, 1);
+    //vec3 right =  normalize(viewProj[3] - viewProj[0]).xyz;
+    //vec3 left =   normalize(viewProj[3] + viewProj[0]).xyz;
+    //vec3 top =    normalize(viewProj[3] + viewProj[1]).xyz;
+    //vec3 bottom = normalize(viewProj[3] - viewProj[1]).xyz;
 
-    vec3 cp0 = -GetClippingPlane(top, right);
-    vec3 cp1 = -GetClippingPlane(bottom, right);
-    vec3 cp2 = -GetClippingPlane(top, left);
-    vec3 cp3 = -GetClippingPlane(bottom, left);
+    vec3 cp0 = vec3(-1,0,0);
+    vec3 cp1 = vec3(1,0,0);
+    vec3 cp2 = vec3(0,1,0);
+    vec3 cp3 = vec3(0,1,0);
 
     return vec4(
         dot(positionWorld, cp0) + dot(-cp0, lightPos),
@@ -158,7 +158,7 @@ void main()
             1.0
         );
     }
-    //else if(instanceInfo.bufferSelect == 1){
+    //else if(instanceInfo.bufferSelect == 2){
     //    clipDist = GetClipDistDir(positionWorld.xyz,getTransform(instanceInfo.bufferSelect, instanceInfo.matrixStartIndex));
     //}
     else {

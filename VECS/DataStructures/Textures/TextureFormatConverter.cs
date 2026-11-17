@@ -60,7 +60,7 @@ namespace VECS
                 CompressionFormat.Bc6U => VkFormat.Bc6hUfloatBlock,
                 CompressionFormat.Bc6S => VkFormat.Bc6hSfloatBlock,
                 CompressionFormat.Bc7 => VkFormat.Bc7UnormBlock,
-                _ => throw new NotImplementedException(string.Format("Texture format {0} not supported by vulkan!", compressionFormat))
+                _ => throw new NotImplementedException("Texture format {compressionFormat} not supported by vulkan!")
 
             };
         }
@@ -83,7 +83,7 @@ namespace VECS
                 VkFormat.Bc6hUfloatBlock => CompressionFormat.Bc6U,
                 VkFormat.Bc6hSfloatBlock => CompressionFormat.Bc6S,
                 VkFormat.Bc7UnormBlock => CompressionFormat.Bc7,
-                _ => throw new NotImplementedException(string.Format("Texture format {0} not supported by vulkan!", vkFormat))
+                _ => throw new NotImplementedException($"Texture format {vkFormat} not supported by vulkan!")
             };
         }
 

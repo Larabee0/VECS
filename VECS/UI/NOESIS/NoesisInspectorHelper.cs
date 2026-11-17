@@ -175,7 +175,7 @@ namespace VECS.UI
             };
             if(hierarhcy.Target.IsAssignableTo(typeof( IComponent)))
             {
-                expander.Header = string.Format("{0} : IComponent",expander.Header);
+                expander.Header = $"{expander.Header} : IComponent";
             }
 
             StackPanel childContainer = new();
@@ -212,7 +212,7 @@ namespace VECS.UI
                         instance = ConstructBaseType(bindingPath, typeToBuild.FieldType);
                     }
                     instance.IsEnabled = readonlyAttribute;
-                    instance.Tag = string.Format("{0}.{1}",typeToBuild.Name,typeToBuild.FieldType.Name);
+                    instance.Tag = $"{typeToBuild.Name}.{typeToBuild.FieldType.Name}";
                     childContainer.Children.Add(instance);
                     NameFieldInstance(typeToBuild.Name, instance);
                 }

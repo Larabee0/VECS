@@ -48,14 +48,14 @@ namespace VECS
 
             while (ClearShadow.TryDequeue(out var shadowIndex))
             {
-                GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, string.Format("Clear Shadow {0}", shadowIndex));
+                GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, $"Clear Shadow {shadowIndex}");
                 ClearImage(frameInfo, shadowIndex);
                 GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
             }
 
             while (UpdateShadow.TryDequeue(out var shadowIndex))
             {
-                GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, string.Format("Render Shadow {0}", shadowIndex));
+                GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, $"Render Shadow {shadowIndex}");
                 SpotLightShadowPass(frameInfo, shadowIndex, hostBuffer.HostBuffer[shadowIndex]);
                 GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
             }
@@ -64,7 +64,7 @@ namespace VECS
         private static Texture2D CreateShadowMap(int index, int size)
         {
             Texture2D depthImage = new(
-                string.Format("SpotShadowDepthImage_{0}", index),
+                $"SpotShadowDepthImage_{index}",
                 size,
                 size,
                 SHADOW_FORMAT,
@@ -137,7 +137,7 @@ namespace VECS
             SetImageLayoutWrite(frameInfo.CommandBuffer, texture);
 
             GetSpaceMatrix(spotLight, out var near, out var view, out var proj);
-            CullData depthBufferCullInfo = new(SHADOW_INCLUDE_MASK, SHADOW_EXCLUDE_MASK, SHADOW_CULL_MODE, near, proj, view)
+            CullData depthBufferCullInfo = new(SHADOW_INCLUDE_MASK, SHADOW_EXCLUDE_MASK, SHADOW_CULL_MODE, Vector4.One, near, proj, view)
             {
                 ProjectionSelect = SPOT_SHADOWS_PUSH_CONSTANT_INDEX,
                 ProjectionOffset = (ushort)textureIndex,

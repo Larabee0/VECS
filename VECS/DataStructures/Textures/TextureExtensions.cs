@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using VECS.LowLevel;
 using Vortice.Vulkan;
@@ -233,6 +234,11 @@ namespace VECS
             return (uint)Math.Floor(Math.Log2(Math.Max(w, h))) + 1u;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static uint CalculateMipMapLevels(Vector2UInt dimentions)
+        {
+            return CalculateMipMapLevels(dimentions.X, dimentions.Y);
+        }
         #region Image, View & Sampler Creation
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static void CreateSampler(this Texture texture)
@@ -293,7 +299,7 @@ namespace VECS
             }
 
             GraphicsDevice.DeviceAPI.vkCreateImageView(createInfo, null, out texture._imageView).CheckResult( "Create Image View failed!");
-            GraphicsDevice.SetObjectName(VkObjectType.ImageView, texture._imageView.Handle, string.Format("{0}_{1}",texture.GetTextureTypeName(), texture.AssetName));
+            GraphicsDevice.SetObjectName(VkObjectType.ImageView, texture._imageView.Handle, $"{texture.GetTextureTypeName()}_{texture.AssetName}");
         }
 
         public static string GetTextureTypeName(this Texture texture)
@@ -736,7 +742,7 @@ namespace VECS
             }
             else
             {
-                throw new NotImplementedException(string.Format("Copy from buffer not implemented for {0}", texture.GetType().FullName));
+                throw new NotImplementedException($"Copy from buffer not implemented for {texture.GetType().FullName}");
             }
 
             if (changeLayout && imageLayout != VkImageLayout.Undefined)

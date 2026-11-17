@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Numerics;
 using Vortice.Vulkan;
 
 namespace VECS
@@ -26,6 +27,7 @@ namespace VECS
         public readonly LightingInfo LightingInfo;
 
         public readonly VkRect2D OutputRect;
+        public readonly Vector2UInt DepthPyramidSize;
 
         public RendererFrameInfo(
             int mainCamera,
@@ -40,6 +42,7 @@ namespace VECS
             CommandBuffer = commandBuffer;
             CullData = cullData;
             LightingInfo = lightingInfo;
+
         }
 
         public RendererFrameInfo(RendererFrameInfo frameInfo, VkRect2D outputRect)
@@ -51,6 +54,12 @@ namespace VECS
             CullData = frameInfo.CullData;
             LightingInfo = frameInfo.LightingInfo;
             OutputRect = outputRect;
+            DepthPyramidSize = new(DepthReduction.PreviousPow2(outputRect.extent.width), DepthReduction.PreviousPow2(outputRect.extent.height));
+            var tex = EngineTextures.TryGetTexture(ShaderProperties.DepthPyramidId).First;
+            Vector2 scale = (Vector2)DepthPyramidSize / new Vector2(tex.Width, tex.Height);
+            CullData.Pyramid = new Vector4(DepthPyramidSize.X, DepthPyramidSize.Y, scale.X, scale.Y);
+
+
         }
 
         public static bool operator ==(RendererFrameInfo left, RendererFrameInfo right)

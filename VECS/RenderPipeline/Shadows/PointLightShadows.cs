@@ -36,7 +36,91 @@ namespace VECS
 
             RenderGraph.AddPass("PointLightShadows", PassType.Render, PassCategory.FixedMap, [], [], ["PointLightShadowAttachments"], PointLightPass);
 
-            new TetrahedronPointShadows();
+            //new TetrahedronPointShadows();
+        }
+
+        public static void GetextureMatrices(Vector4 coord, float size, Span<Matrix4x4> textures)
+        {
+            // size = y size
+            // cubemap face size = 0.5 * size
+            // texture region size = x= 1.5 * size y = x
+            // coord = center
+
+            // .--------x
+            // |+x +y +z
+            // |-x -y -z
+            // y
+
+            // m11 = face width
+            // m22 = face height
+            // m14 = pos x
+            // m24 = pos y
+
+            // +x
+            textures[0] = Matrix4x4.Transpose(new Matrix4x4()
+            {
+                M11 = size * 0.5f,
+                M22 = size * 0.5f,
+                M33 = 1,
+                M44 = 1,
+                M14 = coord.X - size * 0.5f,
+                M24 = coord.Y - size * 0.5f,
+            });
+            // -x
+            textures[1] = Matrix4x4.Transpose(new()
+            {
+                M11 = size * 0.5f,
+                M22 = size * 0.5f,
+                M33 = 1,
+                M44 = 1,
+                M14 = coord.X - size * 0.5f,
+                M24 = coord.Y + size * 0.5f,
+            });
+            // +y
+            textures[2] = Matrix4x4.Transpose(new()
+            {
+                M11 = size * 0.5f,
+                M22 = size * 0.5f,
+                M33 = 1,
+                M44 = 1,
+                M14 = coord.X,
+                M24 = coord.Y - size * 0.5f,
+            });
+            // -y
+            textures[3] = Matrix4x4.Transpose(new()
+            {
+                M11 = size * 0.5f,
+                M22 = size * 0.5f,
+                M33 = 1,
+                M44 = 1,
+                M14 = coord.X,
+                M24 = coord.Y + size * 0.5f,
+            });
+            // +z
+            textures[4] = Matrix4x4.Transpose(new()
+            {
+                M11 = size * 0.5f,
+                M22 = size * 0.5f,
+                M33 = 1,
+                M44 = 1,
+                M14 = coord.X + size * 0.5f,
+                M24 = coord.Y - size * 0.5f,
+            });
+            // -z
+            textures[5] = Matrix4x4.Transpose(new()
+            {
+                M11 = size * 0.5f,
+                M22 = size * 0.5f,
+                M33 = 1,
+                M44 = 1,
+                M14 = coord.X + size * 0.5f,
+                M24 = coord.Y + size * 0.5f,
+            });
+        }
+
+        public static Vector3 GetClippingPlane(Vector3 right, Vector3 left)
+        {
+            return Vector3.Normalize(Vector3.Cross(left, right));
         }
 
         private void PointLightPass(RendererFrameInfo frameInfo)
@@ -53,14 +137,14 @@ namespace VECS
 
             while (ClearShadow.TryDequeue(out var shadowIndex))
             {
-                GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, string.Format("Clear Shadow {0}", shadowIndex));
+                GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, $"Clear Shadow {shadowIndex}");
                 ClearImage(frameInfo, shadowIndex);
                 GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
             }
 
             while (UpdateShadow.TryDequeue(out var shadowIndex))
             {
-                GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, string.Format("Render Shadow {0}", shadowIndex));
+                GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, $"Render Shadow {shadowIndex}");
                 PointLightShadowPass(frameInfo, shadowIndex, hostBuffer.HostBuffer[shadowIndex]);
                 GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
             }
@@ -68,7 +152,7 @@ namespace VECS
 
         private static Texture2DArray CreateShadowMap(int index, int size)
         {
-            Texture2DArray depthImage = new(string.Format("PointShadowDepthImage_{0}", index),
+            Texture2DArray depthImage = new($"PointShadowDepthImage_{index}",
                 size,
                 size,
                 6,
@@ -122,12 +206,14 @@ namespace VECS
         {
             return faceId switch
             {
-                0 => Matrix4x4.CreateLookAt(position, position + new Vector3(1.0f, 0.0f, 0.0f), new Vector3(0.0f, -1.0f, 0.0f)),
-                1 => Matrix4x4.CreateLookAt(position, position + new Vector3(-1.0f, 0.0f, 0.0f), new Vector3(0.0f, -1.0f, 0.0f)),
-                2 => Matrix4x4.CreateLookAt(position, position + new Vector3(0.0f, 1.0f, 0.0f), new Vector3(0.0f, 0.0f, 1.0f)),
-                3 => Matrix4x4.CreateLookAt(position, position + new Vector3(0.0f, -1.0f, 0.0f), new Vector3(0.0f, 0.0f, -1.0f)),
-                4 => Matrix4x4.CreateLookAt(position, position + new Vector3(0.0f, 0.0f, 1.0f), new Vector3(0.0f, -1.0f, 0.0f)),
-                5 => Matrix4x4.CreateLookAt(position, position + new Vector3(0.0f, 0.0f, -1.0f), new Vector3(0.0f, -1.0f, 0.0f)),
+                0 => Matrix4x4.CreateLookAt(position, position + new Vector3(1.0f, 0.0f, 0.0f), new Vector3(0.0f, -1.0f, 0.0f)),  // +x
+                1 => Matrix4x4.CreateLookAt(position, position + new Vector3(-1.0f, 0.0f, 0.0f), new Vector3(0.0f, -1.0f, 0.0f)), // -x
+
+                2 => Matrix4x4.CreateLookAt(position, position + new Vector3(0.0f, 1.0f, 0.0f), new Vector3(0.0f, 0.0f, 1.0f)),   // +y
+                3 => Matrix4x4.CreateLookAt(position, position + new Vector3(0.0f, -1.0f, 0.0f), new Vector3(0.0f, 0.0f, -1.0f)), // -y
+
+                4 => Matrix4x4.CreateLookAt(position, position + new Vector3(0.0f, 0.0f, 1.0f), new Vector3(0.0f, -1.0f, 0.0f)),  // +z
+                5 => Matrix4x4.CreateLookAt(position, position + new Vector3(0.0f, 0.0f, -1.0f), new Vector3(0.0f, -1.0f, 0.0f)), // -z
                 _ => Matrix4x4.Identity,
             };
         }
@@ -139,7 +225,7 @@ namespace VECS
             FillViewMatrix(EngineBuffers.TryGetBuffer(matsPropertyId), index, pointLight);
 
             SetImageLayoutWrite(frameInfo.CommandBuffer, arrayTex);
-            Matrix4x4 CubeProjectionMatrix = Matrix4x4.CreatePerspectiveFieldOfView(MathF.PI * 0.5f, 1.0f, 0.1f, pointLight.FarPlane);
+            Matrix4x4 cubeProjectionMatrix = Matrix4x4.CreatePerspectiveFieldOfView(MathF.PI * 0.5f, 1.0f, 0.1f, pointLight.FarPlane);
 
 
 
@@ -162,14 +248,14 @@ namespace VECS
 
             if (GraphicsDevice.MeshShading)
             {
-                MeshShadingPass(frameInfo.CommandBuffer, index, pointLight, CubeProjectionMatrix, arrayTex);
+                MeshShadingPass(frameInfo.CommandBuffer, index, pointLight, cubeProjectionMatrix, arrayTex);
 
                 if (DrawBlob.HasDrawItems(Depth_Only_Queue_Name, DrawType.Vertex))
                 {
                     GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Vertex Passes");
                     for (int i = 0; i < 6; i++)
                     {
-                        RenderShadows(frameInfo.CommandBuffer, index, pointLight, arrayTex, CubeProjectionMatrix, i, VkAttachmentLoadOp.Load);
+                        RenderShadows(frameInfo.CommandBuffer, index, pointLight, arrayTex, cubeProjectionMatrix, i, VkAttachmentLoadOp.Load);
                     }
                     GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
                 }
@@ -178,7 +264,7 @@ namespace VECS
             {
                 for (int i = 0; i < 6; i++)
                 {
-                    RenderShadows(frameInfo.CommandBuffer, index, pointLight, arrayTex, CubeProjectionMatrix, i);
+                    RenderShadows(frameInfo.CommandBuffer, index, pointLight, arrayTex, cubeProjectionMatrix, i);
                 }
             }
 
@@ -196,7 +282,7 @@ namespace VECS
                 viewMatrices[i] = GetViewMatrix(i, pointLight.Position.AsVector3());
             }
 
-            CullData depthBufferCullInfo = new(SHADOW_INCLUDE_MASK, SHADOW_EXCLUDE_MASK, SHADOW_CULL_MODE, POINT_SHADOWS_PUSH_CONSTANT_INDEX, (ushort)(index * 6), CubeProjectionMatrix, viewMatrices);
+            CullData depthBufferCullInfo = new(SHADOW_INCLUDE_MASK, SHADOW_EXCLUDE_MASK, SHADOW_CULL_MODE, Vector4.One, POINT_SHADOWS_PUSH_CONSTANT_INDEX,  (ushort)(index * 6), CubeProjectionMatrix, viewMatrices);
 
             bool draw = CullShadow(commandBuffer, depthBufferCullInfo, DrawType.Mesh);
 
@@ -213,18 +299,19 @@ namespace VECS
             GraphicsDevice.EndLabelCmd(commandBuffer);
         }
 
-        private static void RenderShadows(VkCommandBuffer commandBuffer, int index, PointLightUniform pointLight, Texture2DArray arrayTex, Matrix4x4 CubeProjectionMatrix, int i, VkAttachmentLoadOp loadOp = VkAttachmentLoadOp.Clear)
+        private static void RenderShadows(VkCommandBuffer commandBuffer, int index, PointLightUniform pointLight, Texture2DArray arrayTex, Matrix4x4 cubeProjectionMatrix, int i, VkAttachmentLoadOp loadOp = VkAttachmentLoadOp.Clear)
         {
+
             Span<DepthOnlyPushConstants> pushBuffer = [new() { BufferSelect = POINT_SHADOWS_PUSH_CONSTANT_INDEX, MatrixStartIndex = (index * 6) + i }] ;
-            CullData depthBufferCullInfo = new(SHADOW_INCLUDE_MASK, SHADOW_EXCLUDE_MASK, SHADOW_CULL_MODE, 0.1f, CubeProjectionMatrix, GetViewMatrix(i, pointLight.Position.AsVector3()))
+            CullData depthBufferCullInfo = new(SHADOW_INCLUDE_MASK, SHADOW_EXCLUDE_MASK, SHADOW_CULL_MODE, Vector4.One, 0.1f, cubeProjectionMatrix, GetViewMatrix(i, pointLight.Position.AsVector3()))
             {
                 ProjectionSelect = POINT_SHADOWS_PUSH_CONSTANT_INDEX,
                 ProjectionOffset = (ushort)((index * 6) + i),
                 LayerCount = 1
             };
 
-            DebugDrawer.DrawLine(pointLight.Position.AsVector3(), GetViewMatrix(i, pointLight.Position.AsVector3()).Forward(), new Vector4(1f, 0f, 1f, 1f).ToVkColor());
-            bool draw = CullShadow(commandBuffer, depthBufferCullInfo);
+            //DebugDrawer.DrawLine(pointLight.Position.AsVector3(), GetViewMatrix(i, pointLight.Position.AsVector3()).Forward(), new Vector4(1f, 0f, 1f, 1f).ToVkColor());
+            bool draw = CullShadow(commandBuffer, depthBufferCullInfo,DrawType.Vertex);
 
             GraphicsDevice.BeginLabelCmd(commandBuffer, "Depth Pass");
             BeginShadowPass(commandBuffer, arrayTex.AdditionalImageViews[i], (uint)arrayTex.Width, loadOp);

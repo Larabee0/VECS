@@ -261,7 +261,7 @@ namespace VECS
             }
             else
             {
-                throw new InvalidOperationException(string.Format("Cannot override owned storage buffer! Binding {0}", bindPoint));
+                throw new InvalidOperationException($"Cannot override owned storage buffer! Binding {bindPoint}");
             }
         }
 

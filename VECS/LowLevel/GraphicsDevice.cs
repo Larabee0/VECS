@@ -247,10 +247,8 @@ namespace VECS.LowLevel
 
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe void EndSingleTimeMainPipe(VkCommandBuffer commandBuffer)
+        public static void EndSingleTimeMainPipe(VkCommandBuffer commandBuffer)
         {
-            //StackTrace trace = new(true);
-            //Console.WriteLine(string.Format("End Single Time Main Pipe\nTrace\n {0}", trace.ToString()));
             EndSingleTime(commandBuffer, _mainQueue, _commandPoolMain);
         }
 
@@ -287,7 +285,7 @@ namespace VECS.LowLevel
         public static void SetObjectName(VkObjectType objectType, ulong handle, string name)
         {
 #if DEBUG
-            _instanceApi.vkSetDebugUtilsObjectNameEXT(Device, objectType, handle, string.Format("VK_{0}_{1}", objectType.ToString().ToUpper(), name));
+            _instanceApi.vkSetDebugUtilsObjectNameEXT(Device, objectType, handle, $"VK_{objectType.ToString().ToUpper()}_{name}");
 #endif
         }
 

@@ -179,7 +179,7 @@ namespace VECS
                 _renderTargetType = RenderTargetType.Colour;
             }
 
-            _image = new(string.Format("RT_{0}_{2}_{1}", name, Presenter.FrameCount, _renderTargetType.ToString()), width, height, format, usageFlags, samplerMode, 0, false, VkCompareOp.Never, false);
+            _image = new($"RT_{name}_{Presenter.FrameCount}_{_renderTargetType}", width, height, format, usageFlags, samplerMode, 0, false, VkCompareOp.Never, false);
 
             if (_renderTargetType == RenderTargetType.Colour)
             {
@@ -225,7 +225,7 @@ namespace VECS
                 _renderTargetType = RenderTargetType.Colour;
             }
 
-            _image = new(string.Format("RT_{0}_{2}_{1}", name, Presenter.FrameCount, _renderTargetType.ToString()), width, height, format, usageFlags, samplerMode, 0, false, VkCompareOp.Never,VkSamplerMipmapMode.Nearest,VkBorderColor.FloatTransparentBlack,VkFilter.Linear, false);
+            _image = new($"RT_{name}_{Presenter.FrameCount}_{_renderTargetType}", width, height, format, usageFlags, samplerMode, 0, false, VkCompareOp.Never,VkSamplerMipmapMode.Nearest,VkBorderColor.FloatTransparentBlack,VkFilter.Linear, false);
 
             if (_renderTargetType == RenderTargetType.Colour)
             {
@@ -276,6 +276,24 @@ namespace VECS
             TargetDisplay = value.TargetDisplay;
 
 
+        }
+
+        public RenderTarget(Texture2D rt, RenderTargetType targetType,
+            VkImageLayout attachmentInputLayout,
+            VkImageLayout attachmentOutputLayout,
+            VkImageLayout computeInputLayout,
+            VkImageLayout computeOutputLayout,
+            VkClearValue defaultClearValue,
+            int targetDisplay = 0)
+        {
+            _image = rt;
+            _renderTargetType = targetType;
+            AttachmentInputLayout = attachmentInputLayout;
+            AttachmentOutputLayout = attachmentOutputLayout;
+            ComputeInputLayout = computeInputLayout;
+            ComputeOutputLayout = computeOutputLayout;
+            DefaultClearValue = defaultClearValue;
+            TargetDisplay = targetDisplay;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

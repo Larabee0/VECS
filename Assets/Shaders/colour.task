@@ -69,11 +69,6 @@ void main() {
             }
         }
 
-        uint maxLayer = 1;
-        uint projectionSelect = 0;
-        uint baseAmplificationCount = 1;
-        uint baseLayerCount = 1;
-
         payload.projectionCount = 1;
         payload.layerCount = 1;
         payload.layerOffset = int(instanceInfo.cameraIndex);
@@ -90,10 +85,7 @@ void main() {
         Meshlet meshlet = meshletsBuffer.meshlets[meshletIndex];
         MeshTaskCullData cullInfo = meshTaskCullData.values[0];
         bvec4 cullModeInfo = cullingMode(command.layerFlags, cullInfo.includeMask, cullInfo.excludeMask, cullInfo.cullMode);
-        uint projectionSelect = 0;
-
-        uint16_t projectionOffset = uint16_t(instanceInfo.cameraIndex);
-
+        
         if(cullModeInfo.x && cullModeInfo.y) {
             uint projectionCount = payload.projectionCount;
             ObjectBounds bounds = TransformAABB(meshletBoundsBuffer.bounds[meshletIndex], matricesBuffer.matrices[command.localMatrixIndex].modelMatrix);

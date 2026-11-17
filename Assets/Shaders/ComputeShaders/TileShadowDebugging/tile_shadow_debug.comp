@@ -61,12 +61,11 @@ const vec3 _planes[12] = vec3[](
     vec3(0.537134945392608642578125, 0.69999587535858154296875, -0.470629036426544189453125)
 );
 
-const vec3 _faceVectors[4] =
-{
-  vec3(0.0, -0.57735026, -0.81649661),
-  vec3(0.0, -0.57735026, 0.81649661),
-  vec3(-0.81649661, 0.57735026, 0.0),
-  vec3(0.81649661, 0.57735026, 0.0)
+const vec3 _faceVectors[4] = {
+  vec3(0.0, -0.57735026, -0.81649661), // b (red)
+  vec3(0.81649661, 0.57735026, 0.0),    // d (white)
+  vec3(-0.81649661, 0.57735026, 0.0),  // c (blue)
+  vec3(0.0, -0.57735026, 0.81649661)  // a (green)
 };
 const vec2 filterKernel[16] =
 {
@@ -115,10 +114,17 @@ const mat4 biasMat = mat4(
 );
 #define AMBIENT_DIR_SHADOW_FACTOR 0.03
 
-float textureProj(sampler2D shadowTex, vec4 shadowCoord, vec2 offset, float ambientFactor) {
+float textureProj(sampler2D shadowTex, vec4 shadowCoord, vec2 offset, float ambientFactor, float faceDot) {
 	float shadow = 1.0;
-	float bias =  0.0006;
+	float bias =  0.001;// -(abs(log2(shadowCoord.z)) * 0.10);
+    // bias = mix(0.01,-0.1,abs(log2(shadowCoord.z)));
+    // bias = mix(0.001,-0.0017,1.0-shadowCoord.z);
+    
+    faceDot = (faceDot + 0.5) * 0.5;
 
+    //bias = max((abs(log(shadowCoord.z)*0.05)*0.25),(abs(log(abs(faceDot)))*0.001) * 0.5) ;
+    //bias = *0.0001;
+    //bias = mix((abs(log(shadowCoord.z))*0.011),(abs(log(shadowCoord.z))*0.012),1-faceDot);
 	if ( shadowCoord.z > -1.0 && shadowCoord.z < 1.0 ) {
 		float dist = texture(shadowTex, vec2(shadowCoord.st + offset)).r;
 		if (shadowCoord.w > 0 && dist < shadowCoord.z - bias) {
@@ -174,20 +180,25 @@ void main(){
     if ( maximum == dotProducts . x ){
         index = 0;
         outColour = vec4(1,0,0,0);
-        
-        }
-        
+    }    
     else if ( maximum == dotProducts . y ){
         index = 1;
         outColour = vec4(0,1,0,0);}
     else if ( maximum == dotProducts . z ){
         index = 2;
-        outColour = vec4(0,0,1,0);}
+        outColour = vec4(0,0,1,0);
+    }
     else{
         index = 3;
-        outColour = vec4(1,1,1,0);}
+        outColour = vec4(1,1,1,0);
+    }
 
     vec4 projPos = (biasMat * tetraShadowMats.value[index]) * vec4(positionWorld.xyz,1);
+
+    float faceNormalDot = dot(projPos.xyz,_faceVectors[index]);
+    faceNormalDot *= index >= 2 ? -faceNormalDot : faceNormalDot;
+    //float depth = (pow(1 * 7 + 1, projPos.z)-1)/1;
+
     projPos.xyz/=projPos.w;
     //projPos.xyz = (projPos.xyz*0.5)+0.5;
 
@@ -196,21 +207,22 @@ void main(){
 	float dx = scale * 1.0 / float(texDim.x);
 	float dy = scale * 1.0 / float(texDim.y);
     float shadowFactor = 0.0;
-	int count = 0;
-	int range = 1;
+	int count = 1;
+	int range = 0;
 	
 	for (int x = -range; x <= range; x++) {
 		for (int y = -range; y <= range; y++) {
-			shadowFactor += textureProj(tetraPLShadow, projPos, vec2(dx*x, dy*y),AMBIENT_DIR_SHADOW_FACTOR);
+			shadowFactor += textureProj(tetraPLShadow, projPos, vec2(dx*x, dy*y),AMBIENT_DIR_SHADOW_FACTOR, faceNormalDot);
 			count++;
 		}
 	}
+    shadowFactor += textureProj(tetraPLShadow, projPos, vec2(0.0),AMBIENT_DIR_SHADOW_FACTOR, faceNormalDot);
     
     float shadow = shadowFactor / count; //textureProj(tetraPLShadow,projPos,vec2(0.0),AMBIENT_DIR_SHADOW_FACTOR).r;
 
-    if(normals[index] < -0.50){
-        shadow = 0;
-    }
+    //if(normals[index] < -0.10){
+    //    shadow = 0;
+    //}
 
     outColour *= shadow;
     outColour.a = 0.25;
