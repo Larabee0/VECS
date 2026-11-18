@@ -10,7 +10,7 @@ namespace VECS.LowLevel
     public static partial class SwapChain
     {
         
-        private const ulong SEMAPHORE_TIME_OUT = 5000000000; // 5000 ms
+        internal const ulong SEMAPHORE_TIME_OUT = 500000000000; // 5000 ms
 
         public static int SWAP_CHAIN_IMAGE_COUNT { get; internal set; }
         public static uint SWAP_CHAIN_IMAGE_COUNT_UINT => (uint)SWAP_CHAIN_IMAGE_COUNT;
@@ -30,8 +30,8 @@ namespace VECS.LowLevel
         internal static SwapChainData MainSwapChainData => Application.MainWindow.SwapChainData;
 
         internal static VkFence[] _waitPresentBufferFences; /// <see cref="SwapChain.MAX_CONCURRENT_FRAMES"/> 
-        internal static VkSemaphore[] _renderCompleteSemaphores; /// <see cref="SwapChain.SWAP_CHAIN_IMAGE_COUNT"/>>
-        internal static VkSemaphore[] _prePresentCompleteSemahpores; /// <see cref="SwapChain.SWAP_CHAIN_IMAGE_COUNT"/>>
+        internal static VkSemaphore[] _renderCompleteSemaBINARY; /// <see cref="SwapChain.SWAP_CHAIN_IMAGE_COUNT"/>>
+        internal static VkSemaphore[] _prePresentCompleteSemaBINARY; /// <see cref="SwapChain.SWAP_CHAIN_IMAGE_COUNT"/>>
 
         internal static TimelineSemaphore[] _timelineSemaphores;
 
@@ -90,7 +90,7 @@ namespace VECS.LowLevel
 
         }
 
-        private static unsafe void GetDeviceFault()
+        internal static unsafe void GetDeviceFault()
         {
             VkDeviceFaultCountsEXT countsExt = new();
             GraphicsDevice.DeviceAPI.vkGetDeviceFaultInfoEXT(&countsExt, null);
@@ -173,7 +173,7 @@ namespace VECS.LowLevel
             {
                 swapchain = swapChain.SwapChain,
                 timeout = ulong.MaxValue - ushort.MaxValue,
-                semaphore = swapChain.AcquiredImageReadySemaphores[_currentFrame],
+                semaphore = swapChain.AcquiredImageReadySemaBINARY[_currentFrame],
                 fence = swapChain.WaitAcquireFences[_currentFrame],
                 deviceMask = 0 | (1 << /* 1st subdevice index*/0)
             };
@@ -261,8 +261,8 @@ namespace VECS.LowLevel
         {
             for (int i = 0; i < SWAP_CHAIN_IMAGE_COUNT; i++)
             {
-                GraphicsDevice.DeviceAPI.vkDestroySemaphore(_renderCompleteSemaphores[i]);
-                GraphicsDevice.DeviceAPI.vkDestroySemaphore(_prePresentCompleteSemahpores[i]);
+                GraphicsDevice.DeviceAPI.vkDestroySemaphore(_renderCompleteSemaBINARY[i]);
+                GraphicsDevice.DeviceAPI.vkDestroySemaphore(_prePresentCompleteSemaBINARY[i]);
             }
 
             for (int i = 0; i < MAX_CONCURRENT_FRAMES; i++)

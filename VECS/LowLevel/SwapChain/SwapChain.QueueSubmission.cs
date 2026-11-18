@@ -12,12 +12,14 @@ namespace VECS.LowLevel
 
         internal static void StartTimelineWorkers()
         {
-            BasicSubmission.StartSubmitThread();
+            //BasicSubmission.StartSubmitThread();
+            AdvancedSubmission.StartSubmission();
         }
 
         internal static void FinishTimelineWorkers(bool recreate)
         {
-            BasicSubmission.StopSubmitThread();
+            //BasicSubmission.StopSubmitThread();
+            AdvancedSubmission.StopSubmission();
         }
 
         public static unsafe VkCommandBuffer BuildGraphicsCommands(int frameIndex, uint imageCount, uint* imageIndices)

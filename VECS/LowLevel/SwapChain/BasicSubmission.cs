@@ -100,14 +100,14 @@ namespace VECS.LowLevel
                 
 
 
-                acquireCompleteInfo[0].semaphore = SwapChain.MainSwapChainData.AcquiredImageReadySemaphores[submitFrame];
+                acquireCompleteInfo[0].semaphore = SwapChain.MainSwapChainData.AcquiredImageReadySemaBINARY[submitFrame];
 
                 acquireCompleteInfo[1].semaphore = SwapChain._timelineSemaphores[submitFrame].Semaphore;
                 acquireCompleteInfo[1].value = SwapChain.GetTimelineStageValue(SemaphoreStages.ComputeComplete, submitFrame);
 
                 renderingCompleteInfo[0].semaphore = SwapChain._timelineSemaphores[submitFrame].Semaphore;
                 renderingCompleteInfo[0].value = SwapChain.GetTimelineStageValue(SemaphoreStages.RenderComplete, submitFrame);
-                renderingCompleteInfo[1].semaphore = SwapChain._renderCompleteSemaphores[*SwapChain.MainSwapChainData.CurrentImageIndex];
+                renderingCompleteInfo[1].semaphore = SwapChain._renderCompleteSemaBINARY[*SwapChain.MainSwapChainData.CurrentImageIndex];
 
 
                 commandBufferSubmitInfo.commandBuffer = SwapChain.CurrentMainCommandBuffer;
@@ -145,7 +145,7 @@ namespace VECS.LowLevel
             {
                 swapchain = swapChain.SwapChain,
                 timeout = ulong.MaxValue-ushort.MaxValue,
-                semaphore = swapChain.AcquiredImageReadySemaphores[frameIndex],
+                semaphore = swapChain.AcquiredImageReadySemaBINARY[frameIndex],
                 fence = swapChain.WaitAcquireFences[frameIndex],
                 deviceMask = 0 | (1 << /* 1st subdevice index*/0)
             };
@@ -183,7 +183,7 @@ namespace VECS.LowLevel
 
         public static unsafe bool Present(SwapChainData swapChain, int frameIndex, uint imageIndex)
         {
-            VkSemaphore renderComplete = SwapChain._renderCompleteSemaphores[imageIndex];
+            VkSemaphore renderComplete = SwapChain._renderCompleteSemaBINARY[imageIndex];
 
             VkSwapchainKHR* swapchains = stackalloc VkSwapchainKHR[1];
 

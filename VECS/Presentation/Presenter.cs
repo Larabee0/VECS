@@ -425,9 +425,10 @@ namespace VECS
                 //BasicSubmission.WaitForCommandBuffer(SwapChain.MainSwapChainData);
                 
                 _frameToWaitOn = SwapChain.NextFrame;
-                BasicSubmission.SubmitGraphicsQueue();
+                //BasicSubmission.SubmitGraphicsQueue();
+                AdvancedSubmission.TriggerSubmit();
                 PipelineRecreation.PlaybackRecreation();
-                SwapChain.WaitForNextFrame(_frameToWaitOn);
+                //SwapChain.WaitForNextFrame(_frameToaitOn);
 
 
                 PostPresentationUpdate?.Invoke();
