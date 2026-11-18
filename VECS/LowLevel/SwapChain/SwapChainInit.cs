@@ -20,7 +20,6 @@ namespace VECS.LowLevel
 
             CreateSyncObjects();
 
-            CreateTimelineSemaphores();
             return true;
         }
 
@@ -30,9 +29,6 @@ namespace VECS.LowLevel
             SDL3WindowManager.RecreateSwapChains();
 
             CreateSyncObjects();
-
-            CreateTimelineSemaphores();
-
         }
 
         private static void DisposeSwapChainTimelineSemaphores()
@@ -40,43 +36,17 @@ namespace VECS.LowLevel
             for (int i = 0; i < SwapChain.SWAP_CHAIN_IMAGE_COUNT; i++)
             {
                 GraphicsDevice.DeviceAPI.vkDestroySemaphore(SwapChain._renderCompleteSemaBINARY[i]);
-                GraphicsDevice.DeviceAPI.vkDestroySemaphore(SwapChain._prePresentCompleteSemaBINARY[i]);
-            }
-
-            for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
-            {
-                GraphicsDevice.DeviceAPI.vkDestroySemaphore(SwapChain._timelineSemaphores[i].Semaphore);
-                GraphicsDevice.DeviceAPI.vkDestroyFence(SwapChain._waitPresentBufferFences[i]);
             }
         }
 
         private static unsafe void CreateSyncObjects()
         {
-            SwapChain._waitPresentBufferFences = new VkFence[SwapChain.MAX_CONCURRENT_FRAMES];
-
             VkSemaphoreCreateInfo semaphoreInfo = new();
-            VkFenceCreateInfo fenceInfo = new(VkFenceCreateFlags.Signaled);
-            for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
-            {
-                GraphicsDevice.DeviceAPI.vkCreateFence(fenceInfo, null, out SwapChain._waitPresentBufferFences[i]).CheckResult("Failed to create in present fence!");
-            }
             
             SwapChain._renderCompleteSemaBINARY = new VkSemaphore[SwapChain.SWAP_CHAIN_IMAGE_COUNT];
-            SwapChain._prePresentCompleteSemaBINARY = new VkSemaphore[SwapChain.SWAP_CHAIN_IMAGE_COUNT];
             for (int i = 0; i < SwapChain.SWAP_CHAIN_IMAGE_COUNT; i++)
             {
                 GraphicsDevice.DeviceAPI.vkCreateSemaphore(semaphoreInfo, null, out SwapChain._renderCompleteSemaBINARY[i]).CheckResult("Failed to create render semaphore!");
-                GraphicsDevice.DeviceAPI.vkCreateSemaphore(semaphoreInfo, null, out SwapChain._prePresentCompleteSemaBINARY[i]).CheckResult("Failed to create pre-present semaphore!");
-            }
-        }
-
-        private static void CreateTimelineSemaphores()
-        {
-            SwapChain._timelineSemaphores = new TimelineSemaphore[SwapChain.MAX_CONCURRENT_FRAMES];
-            
-            for (int i = 0; i < SwapChain._timelineSemaphores.Length; i++)
-            {
-                SwapChain._timelineSemaphores[i] = new(0);
             }
         }
 

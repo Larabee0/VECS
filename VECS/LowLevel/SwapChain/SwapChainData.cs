@@ -18,8 +18,7 @@ namespace VECS.LowLevel
 
 
         // per surface
-        public unsafe VkSemaphore* AcquiredImageReadySemaBINARY; /// <see cref="SwapChain.MAX_CONCURRENT_FRAMES"/>>
-        public unsafe VkFence* WaitAcquireFences; /// <see cref="SwapChain.MAX_CONCURRENT_FRAMES"/> 
+        public unsafe VkSemaphore* AcquiredImageReadySemaBINARY; /// <see cref="SwapChain.SWAP_CHAIN_IMAGE_COUNT_UINT"/>>
 
         public VkViewport Viewport;
 
@@ -31,7 +30,7 @@ namespace VECS.LowLevel
         public bool IsDisposed;
 
         internal unsafe uint* CurrentImageIndex;
-        internal unsafe int* AcquireSemaphoreIndex;
+        internal unsafe uint* AcquireSemaphoreIndex;
 
 
         public unsafe SwapChainData(VkSwapchainKHR oldSwapChain, VkExtent2D windowExtent, VkSurfaceKHR surface)
@@ -95,7 +94,10 @@ namespace VECS.LowLevel
                 maxDepth = 1
             };
 
+            AcquiredImageReadySemaBINARY = (VkSemaphore*)NativeMemory.Alloc((uint)sizeof(VkSemaphore) * LowLevel.SwapChain.SWAP_CHAIN_IMAGE_COUNT_UINT);
             SwapChainImageViews = (VkImageView*)NativeMemory.Alloc((uint)sizeof(VkImageView) * _imageCount);
+            VkSemaphoreCreateInfo semaphoreInfo = new();
+
             VkImageSubresourceRange subresourceRange = new()
             {
                 aspectMask = VkImageAspectFlags.Color,
@@ -126,27 +128,14 @@ namespace VECS.LowLevel
                 GraphicsDevice.DeviceAPI.vkCreateImageView(viewInfo, null, out SwapChainImageViews[i]).CheckResult("Failed to create texture image view!");
                 GraphicsDevice.SetObjectName(VkObjectType.ImageView, SwapChainImageViews[i], $"SwapChain_{i}");
                 GraphicsDevice.SetObjectName(VkObjectType.Image, SwapChainImages[i], $"SwapChain_{i}");
-            }
 
 
-            AcquiredImageReadySemaBINARY = (VkSemaphore*)NativeMemory.Alloc((uint)sizeof(VkSemaphore) * LowLevel.SwapChain.SWAP_CHAIN_IMAGE_COUNT_UINT);
-            WaitAcquireFences = (VkFence*)NativeMemory.Alloc((uint)sizeof(VkFence) * LowLevel.SwapChain.SWAP_CHAIN_IMAGE_COUNT_UINT);
-
-            VkSemaphoreCreateInfo semaphoreInfo = new();
-            VkFenceCreateInfo fenceInfo = new(VkFenceCreateFlags.Signaled);
-            for (int i = 0; i < LowLevel.SwapChain.SWAP_CHAIN_IMAGE_COUNT_UINT; i++)
-            {
-                GraphicsDevice.DeviceAPI.vkCreateFence(fenceInfo, null, out WaitAcquireFences[i]).CheckResult("Failed to create in acquire fence!");
                 GraphicsDevice.DeviceAPI.vkCreateSemaphore(semaphoreInfo, null, out AcquiredImageReadySemaBINARY[i]).CheckResult("Failed to create present semaphore!");
-                GraphicsDevice.SetObjectName(VkObjectType.Fence, WaitAcquireFences[i], $"WaitAcquire_{i}");
                 GraphicsDevice.SetObjectName(VkObjectType.Semaphore, AcquiredImageReadySemaBINARY[i], $"AcquiredImageReady_{i}");
             }
 
-            GraphicsDevice.DeviceAPI.vkResetFences(LowLevel.SwapChain.MAX_CONCURRENT_FRAMES_UINT, WaitAcquireFences);
-
             CurrentImageIndex = (uint*)NativeMemory.AllocZeroed(sizeof(uint));
-
-            AcquireSemaphoreIndex = (int*)NativeMemory.AllocZeroed(sizeof(int));
+            AcquireSemaphoreIndex = (uint*)NativeMemory.AllocZeroed(sizeof(uint));
         }
 
         public unsafe void Dispose()
@@ -155,26 +144,18 @@ namespace VECS.LowLevel
             GC.SuppressFinalize (this);
             IsDisposed = true;
 
-
-            for (int i = 0; i < LowLevel.SwapChain.SWAP_CHAIN_IMAGE_COUNT_UINT; i++)
-            {
-                GraphicsDevice.DeviceAPI.vkDestroySemaphore(AcquiredImageReadySemaBINARY[i]);
-                GraphicsDevice.DeviceAPI.vkDestroyFence(WaitAcquireFences[i]);
-            }
-
             for (int i = 0; i < _imageCount; i++)
             {
+                GraphicsDevice.DeviceAPI.vkDestroySemaphore(AcquiredImageReadySemaBINARY[i]);
                 GraphicsDevice.DeviceAPI.vkDestroyImageView(SwapChainImageViews[i]);
             }
 
             NativeMemory.Free(AcquiredImageReadySemaBINARY);
-            NativeMemory.Free(WaitAcquireFences);
             NativeMemory.Free(SwapChainImageViews);
             NativeMemory.Free(SwapChainImages);
             NativeMemory.Free(CurrentImageIndex);
             NativeMemory.Free(AcquireSemaphoreIndex);
             AcquiredImageReadySemaBINARY = null;
-            WaitAcquireFences = null;
             SwapChainImageViews = null;
             SwapChainImages = null;
 

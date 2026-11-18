@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Threading;
 using Vortice.Vulkan;
 
@@ -10,7 +9,7 @@ namespace VECS.LowLevel
     public static partial class SwapChain
     {
         
-        internal const ulong SEMAPHORE_TIME_OUT = 500000000000; // 5000 ms
+        internal const ulong SEMAPHORE_TIME_OUT = 60000000000; // 60 000 ms (60 seconds)
 
         public static int SWAP_CHAIN_IMAGE_COUNT { get; internal set; }
         public static uint SWAP_CHAIN_IMAGE_COUNT_UINT => (uint)SWAP_CHAIN_IMAGE_COUNT;
@@ -29,11 +28,7 @@ namespace VECS.LowLevel
         internal static SwapChainData[] SwapChainsForPresent;
         internal static SwapChainData MainSwapChainData => Application.MainWindow.SwapChainData;
 
-        internal static VkFence[] _waitPresentBufferFences; /// <see cref="SwapChain.MAX_CONCURRENT_FRAMES"/> 
         internal static VkSemaphore[] _renderCompleteSemaBINARY; /// <see cref="SwapChain.SWAP_CHAIN_IMAGE_COUNT"/>>
-        internal static VkSemaphore[] _prePresentCompleteSemaBINARY; /// <see cref="SwapChain.SWAP_CHAIN_IMAGE_COUNT"/>>
-
-        internal static TimelineSemaphore[] _timelineSemaphores;
 
         internal static VkExtent2D SwapChainExtent => MainSwapChainData.SwapChainExtent;
 
@@ -47,156 +42,6 @@ namespace VECS.LowLevel
         {
             SwapChainInitialised = true;
             _currentFrame = 0;
-        }
-
-        #region  TimelineSemaphore
-
-        public static ulong GetTimelineStageValue(SemaphoreStages stage, int frameIndex)
-        {
-            return (_timelineSemaphores[frameIndex].SemaphoreValue * (ulong)SemaphoreStages.MAX_STAGES) + (ulong)stage;
-        }
-
-        public static unsafe void SignalTimelineFromHost(SemaphoreStages stage, int frameIndex)
-        {
-            ulong signalValue = GetTimelineStageValue(stage, frameIndex);
-            VkSemaphoreSignalInfo signalInfo = new()
-            {
-                semaphore = _timelineSemaphores[frameIndex].Semaphore,
-                value = signalValue
-            };
-            GraphicsDevice.DeviceAPI.vkSignalSemaphoreKHR(&signalInfo);
-        }
-
-        [MethodImpl(MethodImplOptions.NoOptimization)]
-        public static unsafe void WaitOnTimelineFromHost(SemaphoreStages stage, int frameIndex)
-        {
-            ulong waitValue = GetTimelineStageValue(stage, frameIndex);
-            VkSemaphoreWaitInfo waitInfo = new()
-            {
-                semaphoreCount = 1,
-                pValues = &waitValue
-            };
-            var semaphore = _timelineSemaphores[frameIndex].Semaphore;
-            waitInfo.pSemaphores = &semaphore;
-            try
-            {
-                GraphicsDevice.DeviceAPI.vkWaitSemaphoresKHR(&waitInfo, SEMAPHORE_TIME_OUT).CheckResult("Timeline Semaphore Deadlock detected!");
-            }
-            catch (Exception ex)
-            {
-                GetDeviceFault();
-                throw new Exception("Unrecoverable device error",ex);
-            }
-
-        }
-
-        internal static unsafe void GetDeviceFault()
-        {
-            VkDeviceFaultCountsEXT countsExt = new();
-            GraphicsDevice.DeviceAPI.vkGetDeviceFaultInfoEXT(&countsExt, null);
-            VkDeviceFaultInfoEXT infos = new();
-
-            Span<VkDeviceFaultAddressInfoKHR> addresInfos = stackalloc VkDeviceFaultAddressInfoKHR[(int)countsExt.addressInfoCount];
-            Span<VkDeviceFaultVendorInfoKHR> vendorInfos = stackalloc VkDeviceFaultVendorInfoKHR[(int)countsExt.addressInfoCount];
-            Span<byte> binaryData = stackalloc byte[(int)countsExt.vendorBinarySize];
-
-            fixed(VkDeviceFaultAddressInfoKHR* ptrAddressInfos = addresInfos)
-            {
-                infos.pAddressInfos = ptrAddressInfos;
-            }
-
-            fixed (VkDeviceFaultVendorInfoKHR* ptrVendorInfos = vendorInfos)
-            {
-                infos.pVendorInfos = ptrVendorInfos;
-            }
-
-            fixed (byte* ptrBinaryData = binaryData)
-            {
-                infos.pVendorBinaryData = ptrBinaryData;
-            }
-
-            GraphicsDevice.DeviceAPI.vkGetDeviceFaultInfoEXT(&countsExt, &infos);
-            Console.WriteLine("Description:");
-            Console.WriteLine(new VkUtf8String(infos.description, 256).ToString());
-            Console.WriteLine("Address Info:");
-            for (int i = 0; i < countsExt.addressInfoCount; i++)
-            {
-                var info = infos.pAddressInfos[i];
-                var lower_address = (info.reportedAddress & ~(info.addressPrecision - 1));
-                var upper_address = (info.reportedAddress | (info.addressPrecision - 1));
-                Console.WriteLine("AddrType: {0} | ReportedAddr: {1} | AddPrecision {2} | AddrRange {3}-{4}", info.addressType, info.reportedAddress, info.addressPrecision, lower_address, upper_address);
-            }
-            Console.WriteLine("Vendor Info:");
-            for (int i = 0; i < countsExt.vendorInfoCount; i++)
-            {
-                var vendor = infos.pVendorInfos[i];
-                Console.WriteLine("Description {0}", new VkUtf8String(infos.description, 256).ToString());
-                Console.WriteLine("FaultCode {0} | FaultData {1}",vendor.vendorFaultCode,vendor.vendorFaultData);
-            }
-
-            Debugger.Break();
-        }
-        
-        public static unsafe void SignalNextFrame(int frameIndex)
-        {
-            VkSemaphoreSignalInfo signalInfo = new()
-            {
-                semaphore = _timelineSemaphores[frameIndex].Semaphore,
-                value = GetTimelineStageValue(SemaphoreStages.MAX_STAGES, frameIndex)
-            };
-
-            Interlocked.Increment(ref _timelineSemaphores[frameIndex].SemaphoreValue);
-
-            GraphicsDevice.DeviceAPI.vkSignalSemaphoreKHR(&signalInfo);
-        }
-
-        
-        public static unsafe void WaitForNextFrame(int frameIndex)
-        {
-            ulong waitValue = (_timelineSemaphores[frameIndex].SemaphoreValue +1) * (ulong)SemaphoreStages.MAX_STAGES;
-
-            VkSemaphoreWaitInfo waitInfo = new()
-            {
-                semaphoreCount = 1,
-                pValues = &waitValue
-            };
-
-            var semaphore = _timelineSemaphores[frameIndex].Semaphore;
-            waitInfo.pSemaphores = &semaphore;
-           GraphicsDevice.DeviceAPI.vkWaitSemaphoresKHR(&waitInfo, SEMAPHORE_TIME_OUT).CheckResult("Timeline Semaphore Deadlock detected!");
-        }
-        #endregion
-
-        public static unsafe bool AcquireNextImage(SwapChainData swapChain)
-        {
-            VkAcquireNextImageInfoKHR acquireInfo = new()
-            {
-                swapchain = swapChain.SwapChain,
-                timeout = ulong.MaxValue - ushort.MaxValue,
-                semaphore = swapChain.AcquiredImageReadySemaBINARY[_currentFrame],
-                fence = swapChain.WaitAcquireFences[_currentFrame],
-                deviceMask = 0 | (1 << /* 1st subdevice index*/0)
-            };
-
-            var result = GraphicsDevice.DeviceAPI.vkAcquireNextImage2KHR(&acquireInfo, swapChain.CurrentImageIndex);
-            
-            if (result == VkResult.ErrorOutOfDateKHR)
-            {
-                return false;
-            }
-            else if (result != VkResult.Success && result != VkResult.SuboptimalKHR)
-            {
-                result.CheckResult("Failed to acquire next swap chain image!");
-                return false;
-            }
-
-            return true;
-        }
-
-        public static void WaitAndResetFence(VkFence fence)
-        {
-            GraphicsDevice.DeviceAPI.vkWaitForFences(fence, true, ulong.MaxValue);
-            GraphicsDevice.DeviceAPI.vkResetFences(fence).CheckResult( "Failed to reset fence ");
         }
 
         // should be called from graphics queue
@@ -262,13 +107,6 @@ namespace VECS.LowLevel
             for (int i = 0; i < SWAP_CHAIN_IMAGE_COUNT; i++)
             {
                 GraphicsDevice.DeviceAPI.vkDestroySemaphore(_renderCompleteSemaBINARY[i]);
-                GraphicsDevice.DeviceAPI.vkDestroySemaphore(_prePresentCompleteSemaBINARY[i]);
-            }
-
-            for (int i = 0; i < MAX_CONCURRENT_FRAMES; i++)
-            {
-                GraphicsDevice.DeviceAPI.vkDestroySemaphore(_timelineSemaphores[i].Semaphore);
-                GraphicsDevice.DeviceAPI.vkDestroyFence(_waitPresentBufferFences[i]);
             }
         }
 

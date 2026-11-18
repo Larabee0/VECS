@@ -418,17 +418,11 @@ namespace VECS
 
                 GPUBufferExtensions.PlayerbackDisposeCmds();
                 TextureExtensions.PlayerbackDisposeCmds();
-                // signal workers to submit work
-                //SwapChain.SignalTimelineFromHost(SemaphoreStages.Submit, SwapChain.FrameIndex);
                 // wait for workers to submit
 
-                //BasicSubmission.WaitForCommandBuffer(SwapChain.MainSwapChainData);
-                
                 _frameToWaitOn = SwapChain.NextFrame;
-                //BasicSubmission.SubmitGraphicsQueue();
                 AdvancedSubmission.TriggerSubmit();
                 PipelineRecreation.PlaybackRecreation();
-                //SwapChain.WaitForNextFrame(_frameToaitOn);
 
 
                 PostPresentationUpdate?.Invoke();

@@ -12,13 +12,11 @@ namespace VECS.LowLevel
 
         internal static void StartTimelineWorkers()
         {
-            //BasicSubmission.StartSubmitThread();
             AdvancedSubmission.StartSubmission();
         }
 
         internal static void FinishTimelineWorkers(bool recreate)
         {
-            //BasicSubmission.StopSubmitThread();
             AdvancedSubmission.StopSubmission();
         }
 

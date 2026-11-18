@@ -8,13 +8,12 @@ namespace VECS.LowLevel
         public VkSemaphore Semaphore;
         public ulong SemaphoreValue;
 
-        private bool _disposed;
+        private bool _isDisposed;
 
-        public readonly bool Disposed => _disposed;
+        public readonly bool IsDisposed => _isDisposed;
 
         public readonly ulong CounterValue => GetCounterValue();
-        public readonly ulong CounterValueMod => CounterValue % (ulong)SemaphoreStages.MAX_STAGES;
-        public readonly SemaphoreStages Stage => (SemaphoreStages)CounterValueMod;
+
 
         public readonly unsafe ulong GetCounterValue()
         {
@@ -44,7 +43,7 @@ namespace VECS.LowLevel
             }
             catch (Exception ex)
             {
-                SwapChain.GetDeviceFault();
+                GraphicsDevice.GetDeviceFault();
                 throw new Exception("Unrecoverable device error", ex);
             }
         }
@@ -58,19 +57,27 @@ namespace VECS.LowLevel
                 semaphore = Semaphore,
                 value = signalValue
             };
-            GraphicsDevice.DeviceAPI.vkSignalSemaphoreKHR(&signalInfo);
+            try
+            {
+                GraphicsDevice.DeviceAPI.vkSignalSemaphoreKHR(&signalInfo).CheckResult("Timeline Semaphore Deadlock detected!");
+            }
+            catch (Exception ex)
+            {
+                GraphicsDevice.GetDeviceFault();
+                throw new Exception("Unrecoverable device error", ex);
+            }
         }
 
         public void Dispose()
         {
-            if(_disposed) return;
+            if(_isDisposed) return;
             GraphicsDevice.DeviceAPI.vkDestroySemaphore(Semaphore);
-            _disposed = true;
+            _isDisposed = true;
         }
 
         public TimelineSemaphore()
         {
-
+            _isDisposed = true;
         }
         public unsafe TimelineSemaphore(ulong value)
         {
