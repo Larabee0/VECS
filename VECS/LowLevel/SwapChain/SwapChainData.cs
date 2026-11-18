@@ -31,6 +31,7 @@ namespace VECS.LowLevel
         public bool IsDisposed;
 
         internal unsafe uint* CurrentImageIndex;
+        internal unsafe int* AcquireSemaphoreIndex;
 
 
         public unsafe SwapChainData(VkSwapchainKHR oldSwapChain, VkExtent2D windowExtent, VkSurfaceKHR surface)
@@ -45,6 +46,9 @@ namespace VECS.LowLevel
             {
                 return;
             }
+            var indices = GraphicsDevice.PhysicalQueueFamilies;
+
+            uint queueFamilyIndices = indices.graphicsFamily;
             VkSwapchainCreateInfoKHR createInfo = new()
             {
                 surface = surface,
@@ -53,21 +57,16 @@ namespace VECS.LowLevel
                 imageColorSpace = surfaceFormat.colorSpace,
                 imageExtent = extent,
                 imageArrayLayers = 1,
-                imageUsage = VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferDst
+                imageUsage = VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferDst,
+                imageSharingMode = VkSharingMode.Exclusive,
+                queueFamilyIndexCount = 1,
+                pQueueFamilyIndices = &queueFamilyIndices,
+                preTransform = swapChainSupport.capabilities.currentTransform,
+                compositeAlpha = VkCompositeAlphaFlagsKHR.Opaque,
+                presentMode = presentMode,
+                clipped = true,
+                oldSwapchain = oldSwapChain
             };
-
-            var indices = GraphicsDevice.PhysicalQueueFamilies;
-
-            uint queueFamilyIndices = indices.graphicsFamily;
-
-            createInfo.imageSharingMode = VkSharingMode.Exclusive;
-            createInfo.queueFamilyIndexCount = 1;
-            createInfo.pQueueFamilyIndices = &queueFamilyIndices;
-            createInfo.preTransform = swapChainSupport.capabilities.currentTransform;
-            createInfo.compositeAlpha = VkCompositeAlphaFlagsKHR.Opaque;
-            createInfo.presentMode = presentMode;
-            createInfo.clipped = true;
-            createInfo.oldSwapchain = oldSwapChain;
 
             GraphicsDevice.DeviceAPI.vkCreateSwapchainKHR(createInfo, null, out SwapChain).CheckResult("Failed to create swap chain!");
 
@@ -146,6 +145,8 @@ namespace VECS.LowLevel
             GraphicsDevice.DeviceAPI.vkResetFences(LowLevel.SwapChain.MAX_CONCURRENT_FRAMES_UINT, WaitAcquireFences);
 
             CurrentImageIndex = (uint*)NativeMemory.AllocZeroed(sizeof(uint));
+
+            AcquireSemaphoreIndex = (int*)NativeMemory.AllocZeroed(sizeof(int));
         }
 
         public unsafe void Dispose()
@@ -171,6 +172,7 @@ namespace VECS.LowLevel
             NativeMemory.Free(SwapChainImageViews);
             NativeMemory.Free(SwapChainImages);
             NativeMemory.Free(CurrentImageIndex);
+            NativeMemory.Free(AcquireSemaphoreIndex);
             AcquiredImageReadySemaBINARY = null;
             WaitAcquireFences = null;
             SwapChainImageViews = null;

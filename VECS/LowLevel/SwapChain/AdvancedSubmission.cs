@@ -63,16 +63,18 @@ namespace VECS
             {
                 imageIndex = 0;
             }
+            swapChain.AcquireSemaphoreIndex[0] = imageIndex;
             VkAcquireNextImageInfoKHR acquireInfo = new()
             {
                 swapchain = swapChain.SwapChain,
-                timeout = SwapChain.SEMAPHORE_TIME_OUT,
+                timeout = ulong.MaxValue,
                 semaphore = swapChain.AcquiredImageReadySemaBINARY[imageIndex],
                 deviceMask = 0 | (1 << /* 1st subdevice index*/0)
             };
 
             var result = GraphicsDevice.DeviceAPI.vkAcquireNextImage2KHR(&acquireInfo, swapChain.CurrentImageIndex);
-            Debug.Assert(imageIndex == *swapChain.CurrentImageIndex);
+            //Console.WriteLine("Acquision expected {0} actual {1}", imageIndex, *swapChain.CurrentImageIndex);
+            //Debug.Assert(imageIndex == *swapChain.CurrentImageIndex);
             if (result == VkResult.ErrorOutOfDateKHR)
             {
                 SwapChain.RecreateSwapChain = true;
@@ -109,6 +111,7 @@ namespace VECS
         public static unsafe void SubmitAndSignal(int frameIndex)
         {
             uint imageIndex = *SwapChain.MainSwapChainData.CurrentImageIndex;
+            int acquireSemaphoreIndex = *SwapChain.MainSwapChainData.AcquireSemaphoreIndex;
             int acquire = SwapChain.NextFrame;
 
 
@@ -117,7 +120,7 @@ namespace VECS
             Interlocked.Exchange(ref SwapChain._currentFrame, (CurrentFrame + 1) % SwapChain.MAX_CONCURRENT_FRAMES);
             _submitThreadControlled.Set();
 
-            SubmitGraphicsQueue(frameIndex, imageIndex);
+            SubmitGraphicsQueue(frameIndex, imageIndex, acquireSemaphoreIndex);
             _timelineSemaphore.SignalTimelineFromHost((ulong)TimelineGuide.Start);
             QueuePresent(SwapChain.MainSwapChainData, imageIndex);
             _timelineSemaphore.Wait(_timelineSemaphore.GetTimelineStageValue((ulong)TimelineGuide.End));
@@ -126,7 +129,7 @@ namespace VECS
         }
 
 
-        public static unsafe void SubmitGraphicsQueue(int frameIndex, uint imageIndex)
+        public static unsafe void SubmitGraphicsQueue(int frameIndex, uint imageIndex, int acquireImageSemaphoreIndex)
         {
             VkCommandBufferSubmitInfo commandBufferSubmitInfo = new()
             {
@@ -137,7 +140,7 @@ namespace VECS
             {
                 new VkSemaphoreSubmitInfo() // binary semaphore to indicate image has been acquired from swapchain
                 {
-                    semaphore = SwapChain.MainSwapChainData.AcquiredImageReadySemaBINARY[imageIndex],
+                    semaphore = SwapChain.MainSwapChainData.AcquiredImageReadySemaBINARY[acquireImageSemaphoreIndex],
                     stageMask = VkPipelineStageFlags2.AllCommands
                 },
                 new VkSemaphoreSubmitInfo() // timeline semaphore value to wait for before this submission is executed
