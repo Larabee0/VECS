@@ -61,7 +61,7 @@ namespace VECS
         public static unsafe void AcquireFrame(SwapChainData swapChain, int frameIndex)
         {
             uint imageIndex = _anyFrameAcquired ? (*swapChain.CurrentImageIndex + 1 ) % SwapChain.SWAP_CHAIN_IMAGE_COUNT_UINT : 0;
-            
+            _anyFrameAcquired = true;
             swapChain.AcquireSemaphoreIndex[0] = imageIndex;
             VkAcquireNextImageInfoKHR acquireInfo = new()
             {
