@@ -176,10 +176,13 @@ namespace VECS
                 pWaitSemaphoreInfos = acquireComplete
             };
 
-
-
             GraphicsDevice.DeviceAPI.vkQueueSubmit2KHR(GraphicsDevice.MainQueue, 1, &submitInfo, VkFence.Null).CheckResult("Failed to submit graphics queue!");
 
+            while(AuxiliaryCommandBufferManager._pendingCommandBuffers.TryDequeue(out var auxiliaryCommandBuffer))
+            {
+                auxiliaryCommandBuffer.Submit(renderComplete[1]);
+                AuxiliaryCommandBufferManager._submittedCommandBuffers.Enqueue(auxiliaryCommandBuffer);
+            }
         }
 
         public unsafe static bool QueuePresent(SwapChainData swapChain, uint imageIndex)

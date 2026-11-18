@@ -179,7 +179,7 @@ namespace VECS
             AddPass<UnityPhyBloom>();
             AddPass<Skybox>();
             AddPass<DebugDrawer>();
-            //AddPass<PBR>();
+            AddPass<PBR>();
             _passes.ForEach(p => p.AddToRenderGraph());
 
             ScreenSizeChanged();
