@@ -280,18 +280,19 @@ namespace VECS
         public static readonly int CullDataId = "cullData".GetShaderPropertyId();
 
 
-        private static readonly ComputePipeline _computeShader;
-        private static readonly ComputePipeline _textureSampler;
+        private static ComputePipeline _computeShader;
+        private static ComputePipeline _textureSampler;
 #if DEBUG
-        private static readonly GPUBuffer<float> _textureResult;
+        private static GPUBuffer<float> _textureResult;
 #endif
 
         private static uint _invocation = 0;
 
         public static ComputePipeline Shader => _computeShader;
 
-        static FustrumCull()
+        public  static void Init()
         {
+            if (_computeShader != null) return;
             _computeShader = ComputePipeline.GetOrCreate("fustrum_cull.comp");
 #if DEBUG
             _textureSampler = ComputePipeline.GetOrCreate("textureSampler.comp");

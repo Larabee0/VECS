@@ -16,12 +16,12 @@ namespace VECS
         public const int MAX_CASCADE_COUNT = 4;
         public const float CASCADE_SPLIT_LAMBDA = 0.95f;
 
+        public static bool MULTI_THREADED = false;
+
         public static readonly int matsPropertyId = ShaderProperties.DirShadowMatsId;
 
         private static readonly Matrix4x4[] _viewMatrices = new Matrix4x4[MAX_CASCADE_COUNT * Presenter.MAX_CAMERAS * 20];
         private static readonly Matrix4x4[] _projMatrices = new Matrix4x4[MAX_CASCADE_COUNT * Presenter.MAX_CAMERAS * 20];
-
-        private readonly Texture2D _singleDirShadowRT;
 
         public DirectionalLightShadows() : base(1)
         {
@@ -35,7 +35,6 @@ namespace VECS
                 false),
                 0
             );
-            //_singleDirShadowRT = new Texture2D("SingleDirectionalShadowRT", 4096, 4096, DIRECTIONAL_SHADOW_FORMAT, VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.Sampled, VkSamplerAddressMode.ClampToBorder, false);
             EngineTextures.AddOrUpdateTexture(ShaderProperties.DirShadowImageId, _shadowDepthTextures);
             AssignShadowTextures(ShaderProperties.DirShadowImageId);
 
@@ -52,57 +51,6 @@ namespace VECS
             }
 
             RenderGraph.AddPass("DirectionalLightShadows", PassType.Render, PassCategory.PreRendering, [], [], ["DirectionalShadowAttachments"], ShadowPass);
-        }
-
-        private static Matrix4x4 GetCascadeTextureMatrix(int cascadeIndex)
-        {
-            const float size = 0.5f;
-
-            switch (cascadeIndex)
-            {
-                case 0:
-                    return Matrix4x4.Transpose(new Matrix4x4()
-                    {
-                        M11 = size,
-                        M22 = size,
-                        M33 = 1,
-                        M44 = 1,
-                        M14 = 0,
-                        M24 = 0
-                    });
-                case 1:
-                    return Matrix4x4.Transpose(new Matrix4x4()
-                    {
-                        M11 = size,
-                        M22 = size,
-                        M33 = 1,
-                        M44 = 1,
-                        M14 = size,
-                        M24 = -size
-                    });
-                case 2:
-                    return Matrix4x4.Transpose(new Matrix4x4()
-                    {
-                        M11 = size,
-                        M22 = size,
-                        M33 = 1,
-                        M44 = 1,
-                        M14 = -size,
-                        M24 = size
-                    });
-                case 3:
-                    return Matrix4x4.Transpose(new Matrix4x4()
-                    {
-                        M11 = size,
-                        M22 = size,
-                        M33 = 1,
-                        M44 = 1,
-                        M14 = size,
-                        M24 = size
-                    });
-                default:
-                    return Matrix4x4.Identity;
-            }
         }
 
         private void ShadowPass(RendererFrameInfo frameInfo)
@@ -223,18 +171,22 @@ namespace VECS
                 }
 
                 Vector3 frustumCenter = new(0.0f);
+
                 for (int j = 0; j < 8; j++)
                 {
                     frustumCenter += frustumCorners[j];
                 }
+
                 frustumCenter /= 8.0f;
 
                 float radius = 0.0f;
+
                 for (int j = 0; j < 8; j++)
                 {
                     float distance = (frustumCorners[j] - frustumCenter).Length();
                     radius = MathF.Max(radius, distance);
                 }
+
                 radius = MathF.Ceiling(radius * 16.0f) / 16.0f;
 
                 Vector3 maxExtents = new(radius);
@@ -247,22 +199,8 @@ namespace VECS
                     float diff = height - range;
                     float half = diff * 0.5f;
 
-                    if (minExtents.Z < 0)
-                    {
-                        minExtents.Z -= half;
-                    }
-                    else
-                    {
-                        minExtents.Z += half;
-                    }
-                    if (maxExtents.Z < 0)
-                    {
-                        maxExtents.Z -= half;
-                    }
-                    else
-                    {
-                        maxExtents.Z += half;
-                    }
+                    minExtents.Z = minExtents.Z < 0 ? minExtents.Z - half : minExtents.Z + half;
+                    maxExtents.Z = maxExtents.Z < 0 ? maxExtents.Z - half : maxExtents.Z + half;
                     range = MathF.Abs(maxExtents.Z - minExtents.Z);
                 }
                 Vector3 lightDir = frustumCenter - src.Direction.AsVector3() * -minExtents.Z;
@@ -300,7 +238,7 @@ namespace VECS
             GPUBufferExtensions.WriteFromHostDelayed(mats, Presenter.FrameIndex);
         }
 
-        public unsafe void DirectionalShadowPass(in RendererFrameInfo frameInfo, DirectionalLightShadowUniform dirUniform)
+        public void DirectionalShadowPass(in RendererFrameInfo frameInfo, DirectionalLightShadowUniform dirUniform)
         {
             Texture2DArray arrayTex = (Texture2DArray)_shadowDepthTextures.First;
             arrayTex.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.DepthAttachmentOptimal);
@@ -310,23 +248,12 @@ namespace VECS
 
             if (dirUniform.CascadeCount > 1)
             {
-                var passCount = Math.Min(MAX_CASCADE_COUNT, dirUniform.CascadeCount);
-                /*
-                VkCommandBuffer* secondaries = stackalloc VkCommandBuffer[passCount];
-                Application.ParallelFor(passCount, (i) =>
-                {
-                    secondaries[i] = GraphicsDevice.GetSecondaryCommandBuffer();
-                    GraphicsDevice.BeginSecondaryCommandBuffer(secondaries[i]);
-                    SinglePass(i, cameraOffset, renderScale, secondaries[i], arrayTex);
-                    GraphicsDevice.DeviceAPI.vkEndCommandBuffer(secondaries[i]);
-                });
+                var passCount = Math.Min(2, dirUniform.CascadeCount);
 
-                GraphicsDevice.DeviceAPI.vkCmdExecuteCommands(frameInfo.CommandBuffer, (uint)passCount, secondaries);
-                */
                 if (GraphicsDevice.MeshShading)
                 {
                     // for supporting non-mesh shading depth materials need to add a way to only draw mesh materials in the first pass and only draw vertex ones in the next pass
-                    
+
                     MeshShadingPass(cameraOffset, passCount, renderScale, frameInfo.CommandBuffer, arrayTex);
 
                     if (DrawBlob.HasDrawItems(Depth_Only_Queue_Name, DrawType.Vertex))
@@ -341,9 +268,29 @@ namespace VECS
                 }
                 else
                 {
-                    for (int i = 0; i < passCount; i++)
+                    if (MULTI_THREADED)
                     {
-                        SinglePass(i, cameraOffset, renderScale, frameInfo.CommandBuffer, arrayTex);
+                        unsafe
+                        {
+                            VkCommandBuffer* secondaries = stackalloc VkCommandBuffer[passCount];
+                            
+                            Application.ParallelFor(passCount, (i) =>
+                            {
+                                secondaries[i] = GraphicsDevice.GetSecondaryCommandBuffer();
+                                GraphicsDevice.BeginSecondaryCommandBuffer(secondaries[i]);
+                                SinglePass(i, cameraOffset, renderScale, secondaries[i], arrayTex);
+                                GraphicsDevice.DeviceAPI.vkEndCommandBuffer(secondaries[i]);
+                            });
+
+                            GraphicsDevice.DeviceAPI.vkCmdExecuteCommands(frameInfo.CommandBuffer, (uint)passCount, secondaries);
+                        }
+                    }
+                    else
+                    {
+                        for (int i = 0; i < passCount; i++)
+                        {
+                            SinglePass(i, cameraOffset, renderScale, frameInfo.CommandBuffer, arrayTex);
+                        }
                     }
                 }
             }
@@ -355,18 +302,7 @@ namespace VECS
             arrayTex.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal);
         }
 
-        private unsafe void SingleTextureBeginRendering(VkCommandBuffer commandBuffer, float renderScale, VkAttachmentLoadOp loadOp = VkAttachmentLoadOp.Clear)
-        {
-            GraphicsDevice.BeginLabelCmd(commandBuffer, "Depth Pass");
-            _singleDirShadowRT.SetImageLayoutAuto(commandBuffer, VkImageLayout.DepthStencilAttachmentOptimal);
-
-            VkRenderingAttachmentInfo depth = GetAttchmentInfo(_singleDirShadowRT._imageView, loadOp);
-            VkRenderingInfo renderingInfo = GetRenderingInfo(depth, renderScale, 1, (uint)_singleDirShadowRT.Width);
-            GraphicsDevice.DeviceAPI.vkCmdBeginRendering(commandBuffer, &renderingInfo);
-            SetViewPort(commandBuffer, (uint)(_singleDirShadowRT.Width * renderScale));
-        }
-
-        private unsafe void MeshShadingPass(int cameraOffset, int cascadeCount, float renderScale, VkCommandBuffer commandBuffer, Texture2DArray arrayTex)
+        private void MeshShadingPass(int cameraOffset, int cascadeCount, float renderScale, VkCommandBuffer commandBuffer, Texture2DArray arrayTex)
         {
             CullData depthBufferCullInfo = new(
                 SHADOW_INCLUDE_MASK,
@@ -385,17 +321,21 @@ namespace VECS
             GraphicsDevice.BeginLabelCmd(commandBuffer, "Depth Pass Mesh Shader");
             VkRenderingAttachmentInfo depth = GetAttchmentInfo(arrayTex._imageView, VkAttachmentLoadOp.Clear);
             VkRenderingInfo renderingInfo = GetRenderingInfo(depth, renderScale, (uint)cascadeCount, (uint)arrayTex.Width);
-            GraphicsDevice.DeviceAPI.vkCmdBeginRendering(commandBuffer, &renderingInfo);
+            unsafe
+            {
+                GraphicsDevice.DeviceAPI.vkCmdBeginRendering(commandBuffer, &renderingInfo);
+            }
+
             SetViewPort(commandBuffer, (uint)(arrayTex.Width * renderScale));
-            
+
             Span<DepthOnlyPushConstants> pushBuffer = stackalloc DepthOnlyPushConstants[1];
-            DrawDepthOnly(commandBuffer, pushBuffer, VkCullModeFlags.Front,draw ? DrawType.Mesh : DrawType.None);
+            DrawDepthOnly(commandBuffer, pushBuffer, VkCullModeFlags.Front, draw ? DrawType.Mesh : DrawType.None);
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
             GraphicsDevice.EndLabelCmd(commandBuffer);
 
         }
 
-        private void SinglePass(int cascadeIndex, int cameraOffset, float renderScale, VkCommandBuffer commandBuffer, Texture2DArray arrayTex, VkAttachmentLoadOp loadOp = VkAttachmentLoadOp.Clear)
+        private static void SinglePass(int cascadeIndex, int cameraOffset, float renderScale, VkCommandBuffer commandBuffer, Texture2DArray arrayTex, VkAttachmentLoadOp loadOp = VkAttachmentLoadOp.Clear)
         {
             GraphicsDevice.BeginLabelCmd(commandBuffer, $"Cascade {cascadeIndex}");
 
@@ -415,23 +355,25 @@ namespace VECS
 
             bool draw = CullShadow(commandBuffer, depthBufferCullInfo, DrawType.Vertex);
             BeginRenderingTexArray(cascadeIndex, renderScale, commandBuffer, arrayTex, loadOp);
-            //SingleTextureBeginRendering(commandBuffer, renderScale, loadOp);
 
             Span<DepthOnlyPushConstants> pushBuffer = [new() { BufferSelect = DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, MatrixStartIndex = cameraOffset + cascadeIndex }];
             DrawDepthOnly(commandBuffer, pushBuffer, VkCullModeFlags.Front, draw ? DrawType.Vertex : DrawType.None);
 
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
-            //_singleDirShadowRT.SetImageLayoutAuto(commandBuffer, VkImageLayout.ShaderReadOnlyOptimal);
             GraphicsDevice.EndLabelCmd(commandBuffer);
             GraphicsDevice.EndLabelCmd(commandBuffer);
         }
 
-        private static unsafe void BeginRenderingTexArray(int cascadeIndex, float renderScale, VkCommandBuffer commandBuffer, Texture2DArray arrayTex, VkAttachmentLoadOp loadOp)
+        private static void BeginRenderingTexArray(int cascadeIndex, float renderScale, VkCommandBuffer commandBuffer, Texture2DArray arrayTex, VkAttachmentLoadOp loadOp)
         {
             GraphicsDevice.BeginLabelCmd(commandBuffer, "Depth Pass");
             VkRenderingAttachmentInfo depth = GetAttchmentInfo(arrayTex.AdditionalImageViews[cascadeIndex], loadOp);
             VkRenderingInfo renderingInfo = GetRenderingInfo(depth, renderScale, 1, (uint)arrayTex.Width);
-            GraphicsDevice.DeviceAPI.vkCmdBeginRendering(commandBuffer, &renderingInfo);
+            unsafe
+            {
+                GraphicsDevice.DeviceAPI.vkCmdBeginRendering(commandBuffer, &renderingInfo);
+            }
+
             SetViewPort(commandBuffer, (uint)(arrayTex.Width * renderScale));
         }
     }

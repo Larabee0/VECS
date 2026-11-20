@@ -130,7 +130,7 @@ namespace VECS
 
         public uint ElementCount => _buffer.UInstanceCount32;
 
-        public unsafe RenderBuffer(Type sourceElement)
+        public RenderBuffer(Type sourceElement)
         {
             SourceType = sourceElement;
 
@@ -245,20 +245,27 @@ namespace VECS
             {
                 _renderBuffers[i] = new(renderBufferTypes[i]);
             }
-            ShaderProperties.IgnoreUnFoundShaderProperties.Add("taskCommands".GetShaderPropertyId());
-             _meshTaskCommands = new(1,
-                     VkBufferUsageFlags.TransferDst |
-                     VkBufferUsageFlags.TransferSrc |
-                     VkBufferUsageFlags.IndirectBuffer |
-                     VkBufferUsageFlags.StorageBuffer,
-                     true);
-             _ = new SwapChainBufferAsset("MeshTaskCommands", _meshTaskCommands);
-            EngineBuffers.AddOrUpdateEngineBuffer("taskCommands".GetShaderPropertyId(), _meshTaskCommands);
 
+            if (_meshTaskCommands == null)
+            {
+                ShaderProperties.IgnoreUnFoundShaderProperties.Add("taskCommands".GetShaderPropertyId());
+                _meshTaskCommands = new(1,
+                        VkBufferUsageFlags.TransferDst |
+                        VkBufferUsageFlags.TransferSrc |
+                        VkBufferUsageFlags.IndirectBuffer |
+                        VkBufferUsageFlags.StorageBuffer,
+                        true);
+                _ = new SwapChainBufferAsset("MeshTaskCommands", _meshTaskCommands);
+                EngineBuffers.AddOrUpdateEngineBuffer("taskCommands".GetShaderPropertyId(), _meshTaskCommands);
+            }
             ShaderProperties.IgnoreUnFoundShaderProperties.Add("meshTaskCullData".GetShaderPropertyId());
-            _meshTaskCullLocalData = new(1,400,VkBufferUsageFlags.StorageBuffer,false,false);
-            _ = new SwapChainBufferAsset("MeshTaskLocalCullInfo", _meshTaskCullLocalData);
-            EngineBuffers.AddOrUpdateEngineBuffer("meshTaskCullData".GetShaderPropertyId(), _meshTaskCullLocalData);
+            if (_meshTaskCullLocalData == null)
+            {
+                _meshTaskCullLocalData = new(1, 400, VkBufferUsageFlags.StorageBuffer, false, false);
+                _ = new SwapChainBufferAsset("MeshTaskLocalCullInfo", _meshTaskCullLocalData);
+                EngineBuffers.AddOrUpdateEngineBuffer("meshTaskCullData".GetShaderPropertyId(), _meshTaskCullLocalData);
+            }
+            FustrumCull.Init();
 
             GC.Collect();
         }

@@ -93,7 +93,7 @@ bool IsDepthVisible(uint objectIndex){
 	if(cullOveride >= 2) return true;
 
 	vec4 bmax = bounds.bMax;
-	vec4 size = vec4(getAABBSize(bmin, bmax), 0);
+
 
 	vec2 min_xy;
 	vec2 max_xy;

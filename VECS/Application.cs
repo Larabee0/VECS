@@ -383,7 +383,7 @@ namespace VECS
             });
         }
         
-        public static void ParallelFor(int count, Action<int,int> action)
+        public static void ParallelFor(int count, Action<int, int> action)
         {
             int bepuCounter = -1;
             ThreadDispatcher.DispatchWorkers((workIndex) =>

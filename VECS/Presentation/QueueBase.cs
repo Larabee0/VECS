@@ -161,6 +161,7 @@ namespace VECS
         internal void CountColourIslands()
         {
             _materialIslands.Clear();
+            _drawBatches.Clear();
             int batchOffset = 0;
             int entityIndex;
             int meshHash;
@@ -225,6 +226,7 @@ namespace VECS
         internal void CountDepthIslands()
         {
             _materialIslands.Clear();
+            _drawBatches.Clear();
             int batchOffset = 0;
             int mesh;
             int entityIndex;
