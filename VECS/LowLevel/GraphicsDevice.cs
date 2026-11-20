@@ -143,7 +143,7 @@ namespace VECS.LowLevel
         #region For Extneral use
 
 
-        public static VkCommandBuffer GetSecondaryCommandBuffer()
+        public static VkCommandBuffer GetSecondaryCommandBuffer(int frameIndex)
         {
             var thread = Environment.CurrentManagedThreadId;
 
@@ -153,7 +153,7 @@ namespace VECS.LowLevel
 
             unsafe
             {
-                return secondaryCommandBufferManager.GetNextCommandBuffer(Presenter.FrameIndex);
+                return secondaryCommandBufferManager.GetNextCommandBuffer(frameIndex);
             }
         }
 

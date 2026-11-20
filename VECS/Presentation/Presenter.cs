@@ -429,7 +429,7 @@ namespace VECS
 
                 _isFrameStarted = false;
                 _renderer.PostRender();
-                //Console.WriteLine("Frame {0}", FrameCount);
+                Console.WriteLine("Frame {0}", FrameCount);
                 _frameCount++;
                 _framesSinceSwapChainRecreation++;
             }

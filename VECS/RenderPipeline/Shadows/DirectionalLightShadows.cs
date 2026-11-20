@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Numerics;
 using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 using VECS.ECS;
 using VECS.ECS.Presentation;
 using VECS.ECS.Transforms;
@@ -248,7 +249,7 @@ namespace VECS
 
             if (dirUniform.CascadeCount > 1)
             {
-                var passCount = Math.Min(2, dirUniform.CascadeCount);
+                var passCount = Math.Min(1, dirUniform.CascadeCount);
 
                 if (GraphicsDevice.MeshShading)
                 {
@@ -272,17 +273,32 @@ namespace VECS
                     {
                         unsafe
                         {
-                            VkCommandBuffer* secondaries = stackalloc VkCommandBuffer[passCount];
-                            
-                            Application.ParallelFor(passCount, (i) =>
+                            VkCommandBuffer[] secondaries = new VkCommandBuffer[passCount];
+                            int frameIndex = Presenter.FrameIndex;
+                            for (int i = 0; i < passCount; i++)
                             {
-                                secondaries[i] = GraphicsDevice.GetSecondaryCommandBuffer();
+                                
+                                
+
+                                //GraphicsDevice.DeviceAPI.vkAllocateCommandBuffer(GraphicsDevice.MainCommandPool,VkCommandBufferLevel.Secondary,out  secondaries[i]);
+
+                                GraphicsDevice.GetSecondaryCommandBuffer(frameIndex);
                                 GraphicsDevice.BeginSecondaryCommandBuffer(secondaries[i]);
                                 SinglePass(i, cameraOffset, renderScale, secondaries[i], arrayTex);
                                 GraphicsDevice.DeviceAPI.vkEndCommandBuffer(secondaries[i]);
-                            });
-
-                            GraphicsDevice.DeviceAPI.vkCmdExecuteCommands(frameInfo.CommandBuffer, (uint)passCount, secondaries);
+                                GraphicsDevice.DeviceAPI.vkResetCommandBuffer(secondaries[i], VkCommandBufferResetFlags.ReleaseResources);
+                            }
+                            //Task.Run(() =>
+                            //{
+                            //}).Wait();
+                            //Application.ParallelFor(passCount, (i) =>
+                            //{
+                            //    secondaries[i] = GraphicsDevice.GetSecondaryCommandBuffer(frameIndex);
+                            //    GraphicsDevice.BeginSecondaryCommandBuffer(secondaries[i]);
+                            //    SinglePass(i, cameraOffset, renderScale, secondaries[i], arrayTex);
+                            //    GraphicsDevice.DeviceAPI.vkEndCommandBuffer(secondaries[i]);
+                            //});
+                            //GraphicsDevice.DeviceAPI.vkCmdExecuteCommands(frameInfo.CommandBuffer, secondaries);
                         }
                     }
                     else

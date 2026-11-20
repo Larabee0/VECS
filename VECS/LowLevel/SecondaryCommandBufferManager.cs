@@ -4,15 +4,15 @@ using Vortice.Vulkan;
 
 namespace VECS.LowLevel
 {
-    public unsafe class SecondaryCommandBufferManager : IDisposable
+    public class SecondaryCommandBufferManager : IDisposable
     {
         public VkCommandPool CommandPool;
 
         private int _lastFrameIndex = -1;
         private uint Counter;
-        private uint AllocationCount = 1;
+        //private uint AllocationCount = 1;
 
-        public  VkCommandBuffer* CommandBuffers;
+        public  VkCommandBuffer[][] CommandBuffers;
 
         public bool Allocated = false;
 
@@ -29,7 +29,11 @@ namespace VECS.LowLevel
             };
 
             GraphicsDevice.DeviceAPI.vkCreateCommandPool(commandPoolCreateInfo, out CommandPool);
-            CommandBuffers = (VkCommandBuffer*)NativeMemory.AllocZeroed((uint)sizeof(VkCommandBuffer) * SwapChain.MAX_CONCURRENT_FRAMES_UINT);
+            CommandBuffers = new VkCommandBuffer[ SwapChain.MAX_CONCURRENT_FRAMES][];
+            for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
+            {
+                CommandBuffers[i] = new VkCommandBuffer[1];
+            }
             AllocateCommandBuffers();
         }
 
@@ -38,12 +42,23 @@ namespace VECS.LowLevel
             if (Allocated) return;
             VkCommandBufferAllocateInfo allocation = new()
             {
-                commandBufferCount = AllocationCount * SwapChain.MAX_CONCURRENT_FRAMES_UINT,
+                commandBufferCount = (uint)CommandBuffers.Length,
                 commandPool = CommandPool,
                 level = VkCommandBufferLevel.Secondary,
             };
 
-            GraphicsDevice.DeviceAPI.vkAllocateCommandBuffers(&allocation, CommandBuffers);
+            for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
+            {
+                allocation.commandBufferCount = (uint)CommandBuffers[i].Length;
+                unsafe
+                {
+                    fixed (VkCommandBuffer* pCommandBuffers = CommandBuffers[i])
+                    {
+                        GraphicsDevice.DeviceAPI.vkAllocateCommandBuffers(&allocation, pCommandBuffers);
+                    }
+                }
+            }
+
             Allocated = true;
         }
 
@@ -54,23 +69,27 @@ namespace VECS.LowLevel
                 _lastFrameIndex = frameIndex;
                 ResetCounter();
             }
-            if(Counter >= AllocationCount)
+            if(Counter >= CommandBuffers[frameIndex].Length)
             {
-                AllocationCount += 1;
-                CommandBuffers = (VkCommandBuffer*)NativeMemory.Realloc(CommandBuffers, (uint)sizeof(VkCommandBuffer) * AllocationCount * SwapChain.MAX_CONCURRENT_FRAMES_UINT);
-
+                Array.Resize(ref CommandBuffers[frameIndex], CommandBuffers.Length + 1);
+                
                 VkCommandBufferAllocateInfo allocation = new()
                 {
-                    commandBufferCount = SwapChain.MAX_CONCURRENT_FRAMES_UINT,
+                    commandBufferCount = 1,
                     commandPool = CommandPool,
                     level = VkCommandBufferLevel.Secondary,
                 };
-
-                GraphicsDevice.DeviceAPI.vkAllocateCommandBuffers(&allocation, &CommandBuffers[Counter * SwapChain.MAX_CONCURRENT_FRAMES_UINT]);
+                unsafe
+                {
+                    fixed (VkCommandBuffer* pCommandBuffers = &CommandBuffers[frameIndex][^1])
+                    {
+                        GraphicsDevice.DeviceAPI.vkAllocateCommandBuffers(&allocation, pCommandBuffers);
+                    }
+                }
             }
 
             
-            var cmd = CommandBuffers[Counter * SwapChain.MAX_CONCURRENT_FRAMES_UINT + frameIndex];
+            var cmd = CommandBuffers[frameIndex][Counter];
             Counter++;
             return cmd;
         }
@@ -84,17 +103,29 @@ namespace VECS.LowLevel
         {
             if (!Allocated) return;
             Allocated = false;
-            GraphicsDevice.DeviceAPI.vkFreeCommandBuffers(CommandPool, SwapChain.MAX_CONCURRENT_FRAMES_UINT, CommandBuffers);
+
+            for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
+            {
+                unsafe
+                {
+                    fixed (VkCommandBuffer* pCommandBuffers = CommandBuffers[i])
+                    {
+                        GraphicsDevice.DeviceAPI.vkFreeCommandBuffers(CommandPool, (uint)CommandBuffers[i].Length, pCommandBuffers);
+                    }
+                }
+            }
+
             GraphicsDevice.DeviceAPI.vkResetCommandPool(CommandPool, VkCommandPoolResetFlags.ReleaseResources);
         }
 
         public void Dispose()
         {
             if(_disposed) return;
+            GC.SuppressFinalize(this);
             _disposed = true;
-            //FreeCommandBuffers();
-            NativeMemory.Free(CommandBuffers);
             GraphicsDevice.DeviceAPI.vkDestroyCommandPool(CommandPool);
+
+            GC.ReRegisterForFinalize(this);
         }
     }
 }

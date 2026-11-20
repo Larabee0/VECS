@@ -294,6 +294,14 @@ namespace VECS
         {
             if (_computeShader != null) return;
             _computeShader = ComputePipeline.GetOrCreate("fustrum_cull.comp");
+
+            for (uint i = 0; i < 25; i++)
+            {
+                _computeShader.GetOrCreateVariant(i);
+            }
+
+            _computeShader.PushConstants.EnsureCapacity(25);
+
 #if DEBUG
             _textureSampler = ComputePipeline.GetOrCreate("textureSampler.comp");
             _textureResult = new GPUBuffer<float>(16, VkBufferUsageFlags.StorageBuffer, true, false, false);
@@ -391,7 +399,7 @@ namespace VECS
             invokeVariant.SetStorageBuffer(ShaderProperties.BoundsBufferId, bounds);
             
             invokeVariant.SetTexture(DepthPyramidId, EngineTextures.TryGetTexture(ShaderProperties.DepthPyramidId).First);
-            Pipeline._descriptorReWrite = true;
+            //Pipeline._descriptorReWrite = Interlocked.;
             invokeVariant.Dispatch(commandBuffer, frameIndex, drawCount);
 
             VkBufferMemoryBarrier2 barrier = new()
