@@ -22,9 +22,8 @@ namespace VECS.LowLevel
 
         public static unsafe VkCommandBuffer BuildGraphicsCommands(int frameIndex, uint imageCount, uint* imageIndices)
         {
-            VkCommandBufferBeginInfo beginInfo = new();
             VkCommandBuffer commandBuffer = CurrentMainCommandBuffer;
-            GraphicsDevice.DeviceAPI.vkBeginCommandBuffer(commandBuffer, &beginInfo).CheckResult("Failed to begin recording main command buffer");
+            GraphicsDevice.BeginPrimaryCommandBuffer(commandBuffer);
 
             SetSwapChainImageLayoutTransferDST(commandBuffer, frameIndex, imageCount, imageIndices);
 

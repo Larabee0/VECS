@@ -229,13 +229,13 @@ namespace VECS
 			    // NEGATIVE_X
                 Matrix4x4.CreateRotationY( TransformExtensions.Deg2Rad * -90.0f)* Matrix4x4.CreateRotationX(TransformExtensions.Deg2Rad * 180.0f),
 			    // POSITIVE_Y
-			    Matrix4x4.CreateRotationY(TransformExtensions.Deg2Rad *-90.0f),
+			    Matrix4x4.CreateRotationY(TransformExtensions.Deg2Rad * -90.0f),
 			    // NEGATIVE_Y
-                Matrix4x4.CreateRotationY(TransformExtensions.Deg2Rad *90.0f),
+                Matrix4x4.CreateRotationY(TransformExtensions.Deg2Rad * 90.0f),
 			    // POSITIVE_Z
-			    Matrix4x4.CreateRotationZ(TransformExtensions.Deg2Rad *180.0f),
+			    Matrix4x4.CreateRotationZ(TransformExtensions.Deg2Rad * 180.0f),
 			    // NEGATIVE_Z
-			    Matrix4x4.CreateRotationZ(TransformExtensions.Deg2Rad *180.0f),
+			    Matrix4x4.CreateRotationZ(TransformExtensions.Deg2Rad * 180.0f),
             ];
 
             VkViewport viewport = new(0, 0, IRRADIANCE_DIMENTIONS, IRRADIANCE_DIMENTIONS, 0.0f, 1.0f);
@@ -299,13 +299,13 @@ namespace VECS
 			    // NEGATIVE_X
                 Matrix4x4.CreateRotationY( TransformExtensions.Deg2Rad * -90.0f)* Matrix4x4.CreateRotationX(TransformExtensions.Deg2Rad * 180.0f),
 			    // POSITIVE_Y
-			    Matrix4x4.CreateRotationY(TransformExtensions.Deg2Rad *-90.0f),
+			    Matrix4x4.CreateRotationY(TransformExtensions.Deg2Rad * -90.0f),
 			    // NEGATIVE_Y
-                Matrix4x4.CreateRotationY(TransformExtensions.Deg2Rad *90.0f),
+                Matrix4x4.CreateRotationY(TransformExtensions.Deg2Rad * 90.0f),
 			    // POSITIVE_Z
-			    Matrix4x4.CreateRotationZ(TransformExtensions.Deg2Rad *180.0f),
+			    Matrix4x4.CreateRotationZ(TransformExtensions.Deg2Rad * 180.0f),
 			    // NEGATIVE_Z
-			    Matrix4x4.CreateRotationZ(TransformExtensions.Deg2Rad *180.0f),
+			    Matrix4x4.CreateRotationZ(TransformExtensions.Deg2Rad * 180.0f),
             ];
 
             VkViewport viewport = new(0, 0, PREFILTERED_CUBE_DIMENTIONS, PREFILTERED_CUBE_DIMENTIONS, 0.0f, 1.0f);

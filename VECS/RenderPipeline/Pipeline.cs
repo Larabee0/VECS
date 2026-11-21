@@ -7,6 +7,9 @@ using Vortice.Vulkan;
 
 namespace VECS
 {
+
+
+
     public abstract class Pipeline : DisposableAsset
     {
         public const int MAX_VARIANTS = 1000;
@@ -52,6 +55,8 @@ namespace VECS
 
         public DescriptorSetInfo[] DescriptorSetInfos => _descriptorSetInfos;
         public PushConstantsHandler PushConstants => _pushConstantsHandler;
+
+        protected abstract VkPipelineBindPoint PipelineBindPoint { get; }
 
         public abstract VkPipeline Recreate();
 
@@ -133,6 +138,11 @@ namespace VECS
         }
 
         protected abstract bool AllocNewVariants();
+
+        internal void BindPipeline(VkCommandBuffer commandBuffer)
+        {
+            GraphicsDevice.DeviceAPI.vkCmdBindPipeline(commandBuffer, PipelineBindPoint, _pipeline);
+        }
 
         protected void WriteUniformToDescriptorBuffers(ComputeVariant computeVariant)
         {
@@ -278,6 +288,40 @@ namespace VECS
             }
 
             GC.ReRegisterForFinalize(this);
+        }
+
+
+        protected class PipelineCommandBufferState
+        {
+            private readonly ConcurrentDictionary<nint, int> _lastBoundPipeline = new(Environment.ProcessorCount, Environment.ProcessorCount * 2);
+
+            public void ResetAllStates()
+            {
+                foreach (var item in _lastBoundPipeline)
+                {
+                    _lastBoundPipeline.AddOrUpdate(item.Key, int.MaxValue, (key, valye) => int.MaxValue);
+                }
+            }
+
+            public void ResetCommandBufferState(VkCommandBuffer commandBuffer)
+            {
+                _lastBoundPipeline.AddOrUpdate(commandBuffer.Handle, int.MaxValue, (key, valye) => int.MaxValue);
+            }
+
+            public bool TryRebindPipeline(VkCommandBuffer commandBuffer, Pipeline pipeline)
+            {
+
+                bool init = _lastBoundPipeline.TryGetValue(commandBuffer.Handle, out var currentShaderHash);
+
+                if (!init || pipeline.Hash != currentShaderHash || currentShaderHash == int.MaxValue)
+                {
+                    _lastBoundPipeline.AddOrUpdate(commandBuffer.Handle, pipeline.Hash, (a, b) => pipeline.Hash);
+                    pipeline.BindPipeline(commandBuffer);
+                    return true;
+                }
+
+                return false;
+            }
         }
     }
 }

@@ -57,7 +57,7 @@ namespace VECS.LowLevel
 
         private static VkCommandBuffer[] _mainPipeCommandBuffers;
 
-        private static readonly ConcurrentDictionary<int, SecondaryCommandBufferManager> _secondaryCommandBuffers = new(Environment.ProcessorCount, Environment.ProcessorCount);
+        private static readonly ConcurrentDictionary<int, CommandBufferManager> _threadCommandBuffers = new(Environment.ProcessorCount, Environment.ProcessorCount);
 
 
         public static VkPhysicalDeviceProperties PropertiesVK10 { get; internal set; }
@@ -142,25 +142,50 @@ namespace VECS.LowLevel
 
         #region For Extneral use
 
-
-        public static VkCommandBuffer GetSecondaryCommandBuffer()
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static CommandBufferManager GetThreadCommandBufferManager()
         {
             var thread = Environment.CurrentManagedThreadId;
 
-            SecondaryCommandBufferManager secondaryCommandBufferManager = _secondaryCommandBuffers.GetOrAdd(thread, (key) => new SecondaryCommandBufferManager());
+            CommandBufferManager commandBufferManager = _threadCommandBuffers.GetOrAdd(thread, (key) => new CommandBufferManager());
 
-            secondaryCommandBufferManager.AllocateCommandBuffers();
+            commandBufferManager.AllocateCommandBuffers();
+            return commandBufferManager;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static VkCommandBuffer GetPrimaryCommandBuffer()
+        {
+            var commandBufferManager = GetThreadCommandBufferManager();
+            unsafe
+            {
+                return commandBufferManager.GetNextCommandBuffer(Presenter.FrameIndex,VkCommandBufferLevel.Primary);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static VkCommandBuffer GetSecondaryCommandBuffer()
+        {
+            var commandBufferManager = GetThreadCommandBufferManager();
 
             unsafe
             {
-                return secondaryCommandBufferManager.GetNextCommandBuffer(Presenter.FrameIndex);
+                return commandBufferManager.GetNextCommandBuffer(Presenter.FrameIndex, VkCommandBufferLevel.Secondary);
             }
+        }
+
+        public static void BeginPrimaryCommandBuffer(VkCommandBuffer commandBuffer)
+        {
+            ComputePipeline.ResetPipelineCommandBufferState(commandBuffer);
+            GraphicsPipeline.ClearPipelineCommandBufferState(commandBuffer);
+
+            _deviceApi.vkBeginCommandBuffer(commandBuffer, VkCommandBufferUsageFlags.None);
         }
 
         public unsafe static void BeginSecondaryCommandBuffer(VkCommandBuffer commandBuffer)
         {
-            ComputePipeline.ClearPipelineSecondaryCommandBuffer(commandBuffer);
-            GraphicsPipeline.ClearPipelineSecondaryCommandBuffer(commandBuffer);
+            ComputePipeline.ResetPipelineCommandBufferState(commandBuffer);
+            GraphicsPipeline.ClearPipelineCommandBufferState(commandBuffer);
             VkCommandBufferInheritanceInfo inheritanceInfo = new();
 
 
@@ -176,8 +201,8 @@ namespace VECS.LowLevel
         {
             DeviceAPI.vkCmdExecuteCommands(playbackCmd, commandBuffers);
 
-            ComputePipeline.ClearPipelineSecondaryCommandBuffer(playbackCmd);
-            GraphicsPipeline.ClearPipelineSecondaryCommandBuffer(playbackCmd);
+            ComputePipeline.ResetPipelineCommandBufferState(playbackCmd);
+            GraphicsPipeline.ClearPipelineCommandBufferState(playbackCmd);
         }
 
         internal static unsafe void CreateCommandBuffers()
@@ -213,7 +238,7 @@ namespace VECS.LowLevel
 
                 _mainPipeCommandBuffers = null;
 
-                foreach (var pair in _secondaryCommandBuffers)
+                foreach (var pair in _threadCommandBuffers)
                 {
                     pair.Value.FreeCommandBuffers();
                 }
@@ -402,7 +427,7 @@ namespace VECS.LowLevel
 
             FreeCommandBuffers();
 
-            foreach (var pair in _secondaryCommandBuffers)
+            foreach (var pair in _threadCommandBuffers)
             {
                 pair.Value.Dispose();
             }

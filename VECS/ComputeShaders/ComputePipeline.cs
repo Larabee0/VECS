@@ -16,11 +16,12 @@ namespace VECS
         private readonly ConcurrentQueue<ComputeVariant> _variantsToAdd = new();
         internal ComputeVariant[] _computeVariants;
         public override int VariantCount => _computeVariants.Length;
+        protected override VkPipelineBindPoint PipelineBindPoint => VkPipelineBindPoint.Compute;
 
         private Vector3UInt _localSize = new(1, 1, 1);
         public Vector3UInt LocalSize => _localSize;
 
-        private readonly static ConcurrentDictionary<nint, int> _lastBoundComputePipeline = new(Environment.ProcessorCount, Environment.ProcessorCount * 2);
+        private readonly static PipelineCommandBufferState _lastBoundComputePipeline = new();
 
         public unsafe ComputePipeline(string assetName, string shaderName)
         {
@@ -196,14 +197,7 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Dispatch<T>(VkCommandBuffer commandBuffer, Span<T> pushConstantBuffer, Span<VkDescriptorBufferBindingInfoEXT> bindingInfo, Span<ulong> offsets, Span<uint> indices, uint invokeCountX, uint invokeCountY = 0, uint invokeCountZ = 0) where T : unmanaged
         {
-            var threadID = Environment.CurrentManagedThreadId;
-            bool init = _lastBoundComputePipeline.TryGetValue(commandBuffer.Handle, out var shaderHash);
-
-            if (!init || shaderHash != Hash || shaderHash == int.MaxValue)
-            {
-                GraphicsDevice.DeviceAPI.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Compute, _pipeline);
-                _lastBoundComputePipeline.AddOrUpdate(commandBuffer.Handle, Hash, (a, b) => Hash);
-            }
+            _lastBoundComputePipeline.TryRebindPipeline(commandBuffer, this);
             if (_descriptorSetCount > 0)
             {
                 DescriptorBuffer.BindSets(commandBuffer, bindingInfo);
@@ -231,25 +225,22 @@ namespace VECS
             var workGroupY = (uint)(int)MathF.Ceiling((float)totalInvocations / (float)GraphicsDevice.MaxWorkGroupX);
             var workGroupX = (uint)Math.Min(totalInvocations, GraphicsDevice.MaxWorkGroupX);
 
-            return new(workGroupX,workGroupY);
+            return new(workGroupX, workGroupY);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static void UpdateComputeShaders()
         {
-            foreach (var item in _lastBoundComputePipeline)
-            {
-                _lastBoundComputePipeline[item.Key] = int.MaxValue;
-            }
+            _lastBoundComputePipeline.ResetAllStates();
             var count = AssetDataBase<ComputePipeline>.AssetCount;
             var readingList = AssetDataBase<ComputePipeline>.AllAssetsListForReading;
             readingList.ForEach(m => Update(m));
             _descriptorReWrite = false;
         }
 
-        internal static void ClearPipelineSecondaryCommandBuffer(VkCommandBuffer commandBuffer)
+        internal static void ResetPipelineCommandBufferState(VkCommandBuffer commandBuffer)
         {
-            _lastBoundComputePipeline[commandBuffer.Handle] = int.MaxValue;
+            _lastBoundComputePipeline.ResetCommandBufferState(commandBuffer);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

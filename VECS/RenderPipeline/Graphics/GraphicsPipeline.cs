@@ -26,7 +26,7 @@ namespace VECS
     public partial class GraphicsPipeline : Pipeline
     {
         private PipelineType _pipelineType;
-        private readonly static ConcurrentDictionary<nint, int> _lastBoundGraphicsPipeline = new(Environment.ProcessorCount, Environment.ProcessorCount * 2);
+        private readonly static PipelineCommandBufferState _lastBoundGraphicsPipeline = new();
         private GraphicsPipelineDefinition _definition;
         private GraphicsPipelineConfigInfo _graphicsPipelineConfigInfo;
 
@@ -47,7 +47,7 @@ namespace VECS
         public GraphicsPipelineDefinition Definition => _definition;
 
         public override int VariantCount => _matVariants.Length;
-
+        protected override VkPipelineBindPoint PipelineBindPoint => VkPipelineBindPoint.Graphics;
         public bool Transparent => _oitDescriptorSetIndex != -1;
         public int MeshShaderDescriptorSetIndex => _meshShaderDescriptorSetIndex;
         public Vector3UInt MeshShaderWorkGroupSizes => _meshShaderWorkGroupSizes;
@@ -56,6 +56,7 @@ namespace VECS
         public PipelineType PipelineType => _pipelineType;
 
         public VkCullModeFlags DefaultCullMode => _graphicsPipelineConfigInfo.rasterizationInfo.cullMode;
+
 
         private unsafe void CreateDefault()
         {
@@ -314,15 +315,7 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void BindPipe(VkCommandBuffer commandBuffer)
         {
-            var threadID = Environment.CurrentManagedThreadId;
-            bool init = _lastBoundGraphicsPipeline.TryGetValue(commandBuffer.Handle, out var shaderHash);
-
-            if (!init || shaderHash != Hash || shaderHash == int.MaxValue)
-            {
-                GraphicsDevice.DeviceAPI.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Graphics, _pipeline);
-                _lastBoundGraphicsPipeline.AddOrUpdate(commandBuffer.Handle, Hash, (a, b) => Hash);
-            }
-
+            _lastBoundGraphicsPipeline.TryRebindPipeline(commandBuffer, this);
             GraphicsDevice.DeviceAPI.vkCmdSetCullMode(commandBuffer, DefaultCullMode);
         }
 
@@ -492,10 +485,7 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static void UpdateMaterialsParallel()
         {
-            foreach (var item in _lastBoundGraphicsPipeline)
-            {
-                _lastBoundGraphicsPipeline[item.Key] = int.MaxValue;
-            }
+            _lastBoundGraphicsPipeline.ResetAllStates();
             var count = AssetDataBase<GraphicsPipeline>.AssetCount;
             var readingList = AssetDataBase<GraphicsPipeline>.AllAssetsListForReading;
             Application.ParallelFor(count, (i) =>
@@ -505,18 +495,15 @@ namespace VECS
             _descriptorReWrite = false;
         }
 
-        internal static void ClearPipelineSecondaryCommandBuffer(VkCommandBuffer commandBuffer)
+        internal static void ClearPipelineCommandBufferState(VkCommandBuffer commandBuffer)
         {
-            _lastBoundGraphicsPipeline[commandBuffer.Handle] = int.MaxValue;
+            _lastBoundGraphicsPipeline.ResetCommandBufferState(commandBuffer);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static void UpdateMaterials()
         {
-            foreach (var item in _lastBoundGraphicsPipeline)
-            {
-                _lastBoundGraphicsPipeline[item.Key] = int.MaxValue;
-            }
+            _lastBoundGraphicsPipeline.ResetAllStates();
             var count = AssetDataBase<GraphicsPipeline>.AssetCount;
             var readingList = AssetDataBase<GraphicsPipeline>.AllAssetsListForReading;
             readingList.ForEach(Update);
