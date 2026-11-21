@@ -172,6 +172,14 @@ namespace VECS.LowLevel
             _deviceApi.vkBeginCommandBuffer(commandBuffer, &begininfo);
         }
 
+        public static void ExecuteSecondaryCommandBuffers(VkCommandBuffer playbackCmd, Span<VkCommandBuffer> commandBuffers)
+        {
+            DeviceAPI.vkCmdExecuteCommands(playbackCmd, commandBuffers);
+
+            ComputePipeline.ClearPipelineSecondaryCommandBuffer(playbackCmd);
+            GraphicsPipeline.ClearPipelineSecondaryCommandBuffer(playbackCmd);
+        }
+
         internal static unsafe void CreateCommandBuffers()
         {
             _mainPipeCommandBuffers = new VkCommandBuffer[SwapChain.MAX_CONCURRENT_FRAMES];

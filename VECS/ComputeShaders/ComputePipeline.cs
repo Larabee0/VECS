@@ -188,20 +188,9 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Dispatch(VkCommandBuffer commandBuffer, uint pushConstantIndex, Span<VkDescriptorBufferBindingInfoEXT> bindingInfo, Span<ulong> offsets, Span<uint> indices, uint invokeCountX, uint invokeCountY = 0, uint invokeCountZ = 0)
         {
-            var threadID = Environment.CurrentManagedThreadId;
-            bool init = _lastBoundComputePipeline.TryGetValue(commandBuffer.Handle, out var shaderHash);
-            
-            if(!init || shaderHash != Hash|| shaderHash == int.MaxValue)
-            {
-                GraphicsDevice.DeviceAPI.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Compute, _pipeline);
-                _lastBoundComputePipeline.AddOrUpdate(commandBuffer.Handle, Hash,(a, b) => Hash);
-            }
+            var pushConstantsBuffer = _pushConstantsHandler.GetBufferInstance((int)pushConstantIndex);
 
-            DescriptorBuffer.BindSets(commandBuffer, (uint)_descriptorSetCount, bindingInfo);
-            DescriptorBuffer.SetOffsets(commandBuffer, _pipelineLayout, VkPipelineBindPoint.Compute, offsets, indices);
-
-            _pushConstantsHandler.BindPushConstants(commandBuffer, _pipelineLayout, pushConstantIndex);
-            GraphicsDevice.DeviceAPI.vkCmdDispatch(commandBuffer, invokeCountX.GetComputeShaderGroupCount(_localSize.X), invokeCountY.GetComputeShaderGroupCount(_localSize.Y), invokeCountZ.GetComputeShaderGroupCount(_localSize.Z));
+            Dispatch(commandBuffer, pushConstantsBuffer, bindingInfo, offsets, indices, invokeCountX, invokeCountY, invokeCountZ);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -215,10 +204,11 @@ namespace VECS
                 GraphicsDevice.DeviceAPI.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Compute, _pipeline);
                 _lastBoundComputePipeline.AddOrUpdate(commandBuffer.Handle, Hash, (a, b) => Hash);
             }
-
-            DescriptorBuffer.BindSets(commandBuffer, bindingInfo);
-            DescriptorBuffer.SetOffsets(commandBuffer, _pipelineLayout, VkPipelineBindPoint.Compute, offsets, indices);
-
+            if (_descriptorSetCount > 0)
+            {
+                DescriptorBuffer.BindSets(commandBuffer, bindingInfo);
+                DescriptorBuffer.SetOffsets(commandBuffer, _pipelineLayout, VkPipelineBindPoint.Compute, offsets, indices);
+            }
             _pushConstantsHandler.BindPushConstants(commandBuffer, _pipelineLayout, pushConstantBuffer);
             GraphicsDevice.DeviceAPI.vkCmdDispatch(commandBuffer, invokeCountX.GetComputeShaderGroupCount(_localSize.X), invokeCountY.GetComputeShaderGroupCount(_localSize.Y), invokeCountZ.GetComputeShaderGroupCount(_localSize.Z));
         }

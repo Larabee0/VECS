@@ -71,7 +71,7 @@ namespace VECS.LowLevel
             }
             if(Counter >= CommandBuffers[frameIndex].Length)
             {
-                Array.Resize(ref CommandBuffers[frameIndex], CommandBuffers.Length + 1);
+                Array.Resize(ref CommandBuffers[frameIndex], CommandBuffers[frameIndex].Length + 1);
                 
                 VkCommandBufferAllocateInfo allocation = new()
                 {

@@ -17,7 +17,8 @@ namespace VECS
         public const int MAX_CASCADE_COUNT = 4;
         public const float CASCADE_SPLIT_LAMBDA = 0.95f;
 
-        public static bool MULTI_THREADED = false;
+        private readonly static bool MULTI_THREADED = true;
+        private readonly static bool ALLOW_SECONDARY_CMD_BUFFERS = true;
 
         public static readonly int matsPropertyId = ShaderProperties.DirShadowMatsId;
 
@@ -249,7 +250,7 @@ namespace VECS
 
             if (dirUniform.CascadeCount > 1)
             {
-                var passCount = Math.Min(1, dirUniform.CascadeCount);
+                var passCount = Math.Min(MAX_CASCADE_COUNT, dirUniform.CascadeCount);
 
                 if (GraphicsDevice.MeshShading)
                 {
@@ -269,36 +270,32 @@ namespace VECS
                 }
                 else
                 {
-                    if (MULTI_THREADED)
+                    if (ALLOW_SECONDARY_CMD_BUFFERS)
                     {
                         unsafe
                         {
-                            VkCommandBuffer[] secondaries = new VkCommandBuffer[passCount];
-                            int frameIndex = Presenter.FrameIndex;
-                            for (int i = 0; i < passCount; i++)
-                            {
-                                
-                                
-
-                                //GraphicsDevice.DeviceAPI.vkAllocateCommandBuffer(GraphicsDevice.MainCommandPool,VkCommandBufferLevel.Secondary,out  secondaries[i]);
-
-                                GraphicsDevice.GetSecondaryCommandBuffer(frameIndex);
-                                GraphicsDevice.BeginSecondaryCommandBuffer(secondaries[i]);
-                                SinglePass(i, cameraOffset, renderScale, secondaries[i], arrayTex);
-                                GraphicsDevice.DeviceAPI.vkEndCommandBuffer(secondaries[i]);
-                                GraphicsDevice.DeviceAPI.vkResetCommandBuffer(secondaries[i], VkCommandBufferResetFlags.ReleaseResources);
+                            VkCommandBuffer* secondaries = stackalloc VkCommandBuffer[passCount];
+                            if (!MULTI_THREADED) {
+                                for (int i = 0; i < passCount; i++)
+                                {
+                                    secondaries[i] = GraphicsDevice.GetSecondaryCommandBuffer();
+                                    GraphicsDevice.BeginSecondaryCommandBuffer(secondaries[i]);
+                                    SinglePass(i, cameraOffset, renderScale, secondaries[i], arrayTex);
+                                    GraphicsDevice.DeviceAPI.vkEndCommandBuffer(secondaries[i]);
+                                }
                             }
-                            //Task.Run(() =>
-                            //{
-                            //}).Wait();
-                            //Application.ParallelFor(passCount, (i) =>
-                            //{
-                            //    secondaries[i] = GraphicsDevice.GetSecondaryCommandBuffer(frameIndex);
-                            //    GraphicsDevice.BeginSecondaryCommandBuffer(secondaries[i]);
-                            //    SinglePass(i, cameraOffset, renderScale, secondaries[i], arrayTex);
-                            //    GraphicsDevice.DeviceAPI.vkEndCommandBuffer(secondaries[i]);
-                            //});
-                            //GraphicsDevice.DeviceAPI.vkCmdExecuteCommands(frameInfo.CommandBuffer, secondaries);
+                            else
+                            {
+                                Application.ParallelFor(passCount, (i) =>
+                                {
+                                    secondaries[i] = GraphicsDevice.GetSecondaryCommandBuffer();
+                                    GraphicsDevice.BeginSecondaryCommandBuffer(secondaries[i]);
+                                    SinglePass(i, cameraOffset, renderScale, secondaries[i], arrayTex);
+                                    GraphicsDevice.DeviceAPI.vkEndCommandBuffer(secondaries[i]);
+                                });
+                            }
+                            
+                            GraphicsDevice.ExecuteSecondaryCommandBuffers(frameInfo.CommandBuffer, new(secondaries,passCount));
                         }
                     }
                     else

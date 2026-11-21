@@ -300,8 +300,6 @@ namespace VECS
                 _computeShader.GetOrCreateVariant(i);
             }
 
-            _computeShader.PushConstants.EnsureCapacity(25);
-
 #if DEBUG
             _textureSampler = ComputePipeline.GetOrCreate("textureSampler.comp");
             _textureResult = new GPUBuffer<float>(16, VkBufferUsageFlags.StorageBuffer, true, false, false);
@@ -318,7 +316,6 @@ namespace VECS
 
         public static void Cull(VkCommandBuffer commandBuffer,int frameIndex, CullData cullData, uint drawCount, SwapChainBuffer<VECSDrawIndexIndirectCommand> drawIndirect, SwapChainBuffer bounds)
         {
-            
             var variantIndex = Interlocked.Increment(ref _invocation) - 1;
             /*
 #if DEBUG
@@ -353,7 +350,6 @@ namespace VECS
         }
         public static void Cull(VkCommandBuffer commandBuffer, int frameIndex, CullData cullData, uint indirectOffset, uint drawCount, SwapChainBuffer<VECSDrawIndexIndirectCommand> drawIndirect, SwapChainBuffer bounds)
         {
-
             var variantIndex = Interlocked.Increment(ref _invocation) - 1;
             /*
 #if DEBUG
@@ -400,7 +396,7 @@ namespace VECS
             
             invokeVariant.SetTexture(DepthPyramidId, EngineTextures.TryGetTexture(ShaderProperties.DepthPyramidId).First);
             //Pipeline._descriptorReWrite = Interlocked.;
-            invokeVariant.Dispatch(commandBuffer, frameIndex, drawCount);
+            invokeVariant.Dispatch(commandBuffer,Span<byte>.Empty, frameIndex, drawCount);
 
             VkBufferMemoryBarrier2 barrier = new()
             {

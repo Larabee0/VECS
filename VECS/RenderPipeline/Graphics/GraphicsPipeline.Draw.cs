@@ -68,8 +68,7 @@ namespace VECS
                     continue;
                 }
 
-                DescriptorSetInfo descriptorSetInfo = _descriptorSetInfos[i];
-                DescriptorBuffer buffer = descriptorSetInfo.DescriptorBuffers[frameIndex];
+                var buffer = _descriptorSetInfos[i].DescriptorBuffers[frameIndex];
 
                 bindingInfo[i] = buffer.BindingInfo;
                 offsets[i] = buffer.AlignedSize * variantIndex;
