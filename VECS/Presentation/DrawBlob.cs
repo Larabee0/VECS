@@ -342,7 +342,7 @@ namespace VECS
                 CopyEntityData(entityManager, entities, i);
             }
 #else
-            Application.ParallelFor(_entityCount, (i) =>
+            Application.ParallelForWaitNow(_entityCount, (i) =>
             {
                 CopyEntityData(entityManager, entities, i);
             });
@@ -400,7 +400,7 @@ namespace VECS
                 }
             }
 #else
-            Application.ParallelFor(_entityCount, (i) =>
+            Application.ParallelForWaitNow(_entityCount, (i) =>
             {
                 var frozenData = _materialInfo[i];
 
@@ -420,7 +420,7 @@ namespace VECS
                 
             }
 #else
-            Application.ParallelFor(_queues.Length, (i) =>
+            Application.ParallelForWaitNow(_queues.Length, (i) =>
             {
                 Interlocked.Add(ref batchCount,SortAndBuild( _indirectCmdBuffer.HostBuffer, _meshTaskCommands.HostBuffer, i));
             });

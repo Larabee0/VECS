@@ -535,7 +535,9 @@ namespace VECS
 
             //CopyFromOutputToSwapChainFull(commandBuffer, Display0Src, 0, imageIndex);
             // output textures must be in transfer src for swapchain present.
+            GraphicsDevice.BeginLabelCmd(commandBuffer, "Set outputs transfer src");
             _outputTextures[Display0Src].SetImageLayoutAuto(commandBuffer, VkImageLayout.TransferSrcOptimal);
+            GraphicsDevice.EndLabelCmd(commandBuffer);
 
             // Play back Write Cmds generated during frame from CPU to GPU Buffers
             // this is an optimisation to avoid double writes

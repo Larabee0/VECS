@@ -34,17 +34,17 @@ namespace VECS.Threading
             }
         }
 
-        private Thread _threadScheduler;
+        private readonly Thread _threadScheduler;
 
-        private CancellationTokenSource _schedulerCancel;
+        private readonly CancellationTokenSource _schedulerCancel;
 
-        private ConcurrentQueue<WorkUnit> _tasksToSchedule = new();
-        private ConcurrentDictionary<int, AutoResetEvent> CallbackCache = new();
+        private readonly ConcurrentQueue<WorkUnit> _tasksToSchedule = new();
+        private readonly ConcurrentDictionary<int, AutoResetEvent> _callbackCache = new();
 
-        private AutoResetEvent _trigger = new(false);
+        private readonly AutoResetEvent _trigger = new(false);
 
+        private readonly ThreadDispatcher _threadDispatcher;
         public int ThreadCount => _threadDispatcher.ThreadCount;
-        private ThreadDispatcher _threadDispatcher;
 
         public ThreadScheduler()
         {
@@ -65,11 +65,11 @@ namespace VECS.Threading
             _trigger.Set();
             _threadScheduler.Join();
             _trigger.Dispose();
-            foreach (var item in CallbackCache)
+            foreach (var item in _callbackCache)
             {
                 item.Value.Dispose();
             }
-            CallbackCache.Clear();
+            _callbackCache.Clear();
             _threadDispatcher.Dispose();
             GC.ReRegisterForFinalize(this);
         }
@@ -162,10 +162,10 @@ namespace VECS.Threading
             }
 #endif
 
-            if (!CallbackCache.TryGetValue(threadId, out var waiter))
+            if (!_callbackCache.TryGetValue(threadId, out var waiter))
             {
                 waiter = new(false);
-                CallbackCache.TryAdd(threadId, waiter);
+                _callbackCache.TryAdd(threadId, waiter);
             }
             else
             {
@@ -243,7 +243,9 @@ namespace VECS.Threading
                     Signal = new AutoResetEvent(initialState: false)
                 };
                 _workers[i].Thread.Start((_workers[i].Signal, i + 1));
+#if DEBUG
                 ThreadIds.Add(_workers[i].Thread.ManagedThreadId);
+#endif
             }
 
 #if DEBUG
