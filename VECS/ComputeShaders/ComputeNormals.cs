@@ -60,8 +60,8 @@ namespace VECS
         public static void DispatchSingleTimeCmd(DirectMesh mesh)
         {
             var commandBuffer = GraphicsDevice.BeginSingleTimeMainPipe();
-            GPUBufferExtensions.PlaybackCopyBuffersCmds(commandBuffer);
-            Dispatch(commandBuffer, Presenter.FrameIndex, mesh);
+            GPUBufferExtensions.PlaybackCopyBuffersCmds(commandBuffer.CommandBuffer);
+            Dispatch(commandBuffer.CommandBuffer, Presenter.FrameIndex, mesh);
             GraphicsDevice.EndSingleTimeMainPipe(commandBuffer);
         }
 

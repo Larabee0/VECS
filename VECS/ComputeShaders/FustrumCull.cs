@@ -440,7 +440,7 @@ namespace VECS
                         _textureSampler.PushConstants.SetPushConstantFloat("level", 0, level);
                         var computeCommandBuffer = GraphicsDevice.BeginSingleTimeMainPipe();
 
-                        _textureSampler.Dispatch(computeCommandBuffer, 0, 0, 1);
+                        _textureSampler.Dispatch(computeCommandBuffer.CommandBuffer, 0, 0, 1);
                         GraphicsDevice.EndSingleTimeMainPipe(computeCommandBuffer);
                         _textureResult.ReadToHostBuffer();  
                         var depthValue = 1-_textureResult.HostBuffer[0];

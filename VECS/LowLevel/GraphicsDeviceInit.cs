@@ -282,27 +282,6 @@ namespace VECS.LowLevel
             Console.WriteLine("Selected swapchain frame count: {0}", SwapChain.SWAP_CHAIN_IMAGE_COUNT);
         }
 
-
-        #region Create Command Pool
-        /// <summary>
-        /// Creates the command buffer pool for submitting commands to the logical device
-        /// </summary>
-        /// <exception cref="Exception"></exception>
-        internal static unsafe void CreateCommandPools()
-        {
-            QueueFamilyIndices queueFamilyIndices = PhysicalQueueFamilies;
-
-            VkCommandPoolCreateInfo poolInfo = new()
-            {
-                queueFamilyIndex = queueFamilyIndices.graphicsFamily,
-                flags = VkCommandPoolCreateFlags.ResetCommandBuffer,
-            };
-
-            _deviceApi.vkCreateCommandPool(poolInfo, null, out _commandPoolMain).CheckResult("Failed to create main command pool!");
-        }
-
-        #endregion
-
         #region Create VmaAllocator
         /// <summary>
         /// Create a Vma allocator for the allocation of VkBuffers and VKImages constructed during the application lifetime.

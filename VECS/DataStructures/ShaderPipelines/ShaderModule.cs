@@ -275,9 +275,10 @@ namespace VECS
             var shaderFiles = dir.GetFiles("*.spv", SearchOption.AllDirectories);
             ShaderModule[] shaderModules = new ShaderModule[shaderFiles.Length];
 #if PARALLEL_SHADER_LOADING
-            Parallel.ForEach(shaderFiles, (shaderFile, state, index) =>
+
+            Application.ParallelForWaitNow(shaderModules.Length, (index) =>
             {
-                shaderModules[(int)index] = new ShaderModule(shaderFile.FullName)
+                shaderModules[index] = new ShaderModule(shaderFiles[index].FullName)
                 {
                     Generated = true
                 };

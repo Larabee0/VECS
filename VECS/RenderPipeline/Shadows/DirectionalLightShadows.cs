@@ -286,7 +286,7 @@ namespace VECS
                             }
                             else
                             {
-                                Application.ParallelFor(passCount, (i) =>
+                                Application.ParallelForWaitNow(passCount, (i) =>
                                 {
                                     secondaries[i] = GraphicsDevice.GetSecondaryCommandBuffer();
                                     GraphicsDevice.BeginSecondaryCommandBuffer(secondaries[i]);

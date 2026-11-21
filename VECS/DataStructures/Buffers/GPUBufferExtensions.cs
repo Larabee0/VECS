@@ -556,8 +556,8 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void CopyToSingleTime(this GPUBuffer srcBuffer, ulong srcOffset, GPUBuffer dstBuffer, ulong dstOffset, ulong size)
         {
-            VkCommandBuffer cmd = GraphicsDevice.BeginSingleTimeMainPipe();
-            CopyTo(srcBuffer, cmd, srcOffset, dstBuffer, dstOffset, size);
+            var cmd = GraphicsDevice.BeginSingleTimeMainPipe();
+            CopyTo(srcBuffer, cmd.CommandBuffer, srcOffset, dstBuffer, dstOffset, size);
             GraphicsDevice.EndSingleTimeMainPipe(cmd);
         }
 
@@ -580,7 +580,7 @@ namespace VECS
         public static void FillBufferSingleTimeCmd(this GPUBuffer buffer, uint data, ulong dstOffset = 0, ulong bufferSize = Vulkan.VK_WHOLE_SIZE)
         {
             var cmd = GraphicsDevice.BeginSingleTimeMainPipe();
-            FillBuffer(buffer, cmd, data, dstOffset, bufferSize);
+            FillBuffer(buffer, cmd.CommandBufferManager, data, dstOffset, bufferSize);
             GraphicsDevice.EndSingleTimeMainPipe(cmd);
         }
 

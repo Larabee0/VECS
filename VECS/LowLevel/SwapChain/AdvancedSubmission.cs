@@ -1,20 +1,26 @@
 ﻿using System;
-using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Diagnostics;
-using System.Linq;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 using VECS.LowLevel;
 using Vortice.Vulkan;
 
 namespace VECS
 {
+    public struct CommandBufferSubmitInfo
+    {
+        public ulong RelativeWait;
+        public ulong RelativeSignal;
+        public VkCommandBuffer CommandBuffer;
+    }
+
     public static class AdvancedSubmission
     {
         public enum TimelineGuide : ulong
         {
             Start = 1000,
+            AuxiliaryDispatch = 1980,
+            SwapChainPrepare = 1990,
             End = 1999,
         }
 
@@ -30,8 +36,17 @@ namespace VECS
 
         private static bool _anyFrameAcquired;
 
+        private readonly static ConcurrentQueue<CommandBufferSubmitInfo> _commandBuffersToSubmit = new();
+
+        public static void EnqueueCommandBuffer(VkCommandBuffer commandBuffer, ulong relativeWait, ulong relativeSignal)
+        {
+            Debug.Assert(relativeSignal > relativeWait, "Relative Signal cannot be less than relative wait!");
+            _commandBuffersToSubmit.Enqueue(new() { CommandBuffer = commandBuffer, RelativeWait = relativeWait, RelativeSignal = relativeSignal });
+        }
+
         public static void StartSubmission()
         {
+            _commandBuffersToSubmit.Clear();
             _timelineSemaphore = new(0);
             _submitCancel = new();
             _mainThreadControlled = new(false);
@@ -55,6 +70,7 @@ namespace VECS
             _submitThreadControlled.Dispose();
 
             GraphicsDevice.DeviceAPI.vkQueueWaitIdle(GraphicsDevice._mainQueue);
+            _commandBuffersToSubmit.Clear();
             _timelineSemaphore.Dispose();
         }
 
@@ -87,7 +103,10 @@ namespace VECS
 
         public unsafe static void TriggerSubmit()
         {
-            SwapChain.BuildGraphicsCommands(CurrentFrame, 1, SwapChain.MainSwapChainData.CurrentImageIndex);
+            var commandBuffer = SwapChain.BuildGraphicsCommands(CurrentFrame, 1, SwapChain.MainSwapChainData.CurrentImageIndex);
+
+            EnqueueCommandBuffer(commandBuffer, 0, 990);
+
             _mainThreadControlled.Set();
             _submitThreadControlled.WaitOne();
         }
@@ -113,52 +132,115 @@ namespace VECS
             int nextFrameToAcquire = SwapChain.NextFrame;
 
 
-            // signal main thread to run ECS update
-            AcquireFrame(SwapChain.MainSwapChainData, nextFrameToAcquire);
-            Interlocked.Exchange(ref SwapChain._currentFrame, (CurrentFrame + 1) % SwapChain.MAX_CONCURRENT_FRAMES);
-            _submitThreadControlled.Set();
+            Interlocked.Exchange(ref SwapChain._currentFrame, nextFrameToAcquire);
 
+            // unblock main thread now frame is consdiered "submitted"
+            _submitThreadControlled.Set();
+            // submit the main graphics queue
             SubmitGraphicsQueue(frameIndex, currentImageIndex, currentAcquireSemaphoreIndex);
+
+            // start main queue execution
             _timelineSemaphore.SignalTimelineFromHost((ulong)TimelineGuide.Start);
+
+            while (AuxiliaryCommandBufferManager._pendingCommandBuffers.TryDequeue(out var auxiliaryCommandBuffer))
+            {
+                auxiliaryCommandBuffer.Submit(_timelineSemaphore);
+                AuxiliaryCommandBufferManager._submittedCommandBuffers.Enqueue(auxiliaryCommandBuffer);
+            }
+
+            // preapre swapchains for present by copying the outpu texs to them
+            PrepareSwapChainImages(frameIndex, currentImageIndex, currentAcquireSemaphoreIndex);
+            // queue swapchain present
             QueuePresent(SwapChain.MainSwapChainData, currentImageIndex);
+
+            // get the next frame to present
+            AcquireFrame(SwapChain.MainSwapChainData, nextFrameToAcquire);
+
             _timelineSemaphore.Wait(_timelineSemaphore.GetTimelineStageValue((ulong)TimelineGuide.End));
 
             _timelineSemaphore.SemaphoreValue++;
         }
 
+        private unsafe static void PrepareSwapChainImages(int frameIndex,uint imageIndex, uint acquireImageSemaphoreIndex)
+        {
+            VkCommandBuffer commandBuffer = GraphicsDevice.GetPrimaryCommandBuffer(frameIndex);
+            GraphicsDevice.BeginPrimaryCommandBuffer(commandBuffer);
+            GraphicsDevice.BeginLabelCmd(commandBuffer, "SwapChain Present Prepare");
+
+            SwapChain.SetSwapChainImageLayoutTransferDST(commandBuffer, frameIndex, 1, &imageIndex);
+            Presenter.Instance.CopyFromOutputToSwapChainFull(commandBuffer, Presenter.Display0Src, 0, (int)imageIndex);
+            SwapChain.SetSwapChainLayoutPresent(commandBuffer, frameIndex, 1, &imageIndex);
+
+            GraphicsDevice.EndLabelCmd(commandBuffer);
+            GraphicsDevice.DeviceAPI.vkEndCommandBuffer(commandBuffer);
+
+            VkSubmitInfo2 submitInfo = new()
+            {
+                commandBufferInfoCount = 1,
+
+                waitSemaphoreInfoCount = 2,
+                signalSemaphoreInfoCount = 2
+            };
+
+            VkCommandBufferSubmitInfo commandBufferInfo = new() { commandBuffer = commandBuffer };
+            submitInfo.pCommandBufferInfos = &commandBufferInfo;
+            VkSemaphoreSubmitInfo* semaphoreInfos = stackalloc VkSemaphoreSubmitInfo[]
+            {
+                // wait
+                new()
+                {
+                    semaphore = _timelineSemaphore.Semaphore,
+                    value = _timelineSemaphore.GetTimelineStageValue((ulong)TimelineGuide.SwapChainPrepare),
+                    stageMask = VkPipelineStageFlags2.AllCommands
+                },
+                new()
+                {
+                    semaphore = SwapChain.MainSwapChainData.AcquiredImageReadySemaBINARY[acquireImageSemaphoreIndex],
+                    stageMask = VkPipelineStageFlags2.AllCommands
+                },
+
+                // signal
+                new()
+                {
+                    semaphore  = SwapChain._renderCompleteSemaBINARY[imageIndex],
+                    stageMask = VkPipelineStageFlags2.AllCommands
+                },
+                new()
+                {
+                    semaphore = _timelineSemaphore.Semaphore,
+                    value = _timelineSemaphore.GetTimelineStageValue((ulong)TimelineGuide.End),
+                    stageMask = VkPipelineStageFlags2.AllCommands
+                }
+            };
+            submitInfo.pWaitSemaphoreInfos = semaphoreInfos;
+            submitInfo.pSignalSemaphoreInfos = semaphoreInfos + 2;
+
+            GraphicsDevice.DeviceAPI.vkQueueSubmit2(GraphicsDevice.MainQueue, submitInfo, VkFence.Null);
+        }
+
         public static unsafe void SubmitGraphicsQueue(int frameIndex, uint imageIndex, uint acquireImageSemaphoreIndex)
         {
+            /*
             VkCommandBufferSubmitInfo commandBufferSubmitInfo = new()
             {
                 commandBuffer = GraphicsDevice.MainPipeCommandBuffers[frameIndex]
             };
 
-            VkSemaphoreSubmitInfo* acquireComplete = stackalloc VkSemaphoreSubmitInfo[]
+            VkSemaphoreSubmitInfo* semaphoreSubmitInfos = stackalloc VkSemaphoreSubmitInfo[]
             {
-                new VkSemaphoreSubmitInfo() // binary semaphore to indicate image has been acquired from swapchain
-                {
-                    semaphore = SwapChain.MainSwapChainData.AcquiredImageReadySemaBINARY[acquireImageSemaphoreIndex],
-                    stageMask = VkPipelineStageFlags2.AllCommands
-                },
-                new VkSemaphoreSubmitInfo() // timeline semaphore value to wait for before this submission is executed
+                // wait
+                new() // timeline semaphore value to wait for before this submission is executed
                 {
                     semaphore = _timelineSemaphore.Semaphore,
                     value = _timelineSemaphore.GetTimelineStageValue((ulong)TimelineGuide.Start),
                     stageMask = VkPipelineStageFlags2.AllCommands
                 },
-            };
 
-            VkSemaphoreSubmitInfo* renderComplete = stackalloc VkSemaphoreSubmitInfo[]
-            {
-                new() // binary semaphore to signal queue present
-                {
-                    semaphore  = SwapChain._renderCompleteSemaBINARY[imageIndex],
-                    stageMask = VkPipelineStageFlags2.AllCommands
-                },
+                // signal
                 new() // increment timeline semaphore to indicate render complete stage
                 {
                     semaphore = _timelineSemaphore.Semaphore,
-                    value = _timelineSemaphore.GetTimelineStageValue((ulong)TimelineGuide.End),
+                    value = _timelineSemaphore.GetTimelineStageValue((ulong)TimelineGuide.SwapChainPrepare),
                     stageMask = VkPipelineStageFlags2.AllCommands
                 }
             };
@@ -166,19 +248,54 @@ namespace VECS
             VkSubmitInfo2 submitInfo = new()
             {
                 commandBufferInfoCount = 1,
+                waitSemaphoreInfoCount = 1,
+                signalSemaphoreInfoCount = 1,
                 pCommandBufferInfos = &commandBufferSubmitInfo,
-                signalSemaphoreInfoCount = 2,
-                pSignalSemaphoreInfos = renderComplete,
-                waitSemaphoreInfoCount = 2,
-                pWaitSemaphoreInfos = acquireComplete
+                pWaitSemaphoreInfos = semaphoreSubmitInfos,
+                pSignalSemaphoreInfos = semaphoreSubmitInfos + 1
+            };
+            */
+            int submitCount = _commandBuffersToSubmit.Count;
+            Span<VkSubmitInfo2> submitInfos = stackalloc VkSubmitInfo2[submitCount];
+            Span<VkCommandBufferSubmitInfo> commandBufferSubmitInfos = stackalloc VkCommandBufferSubmitInfo[submitCount];
+            Span<VkSemaphoreSubmitInfo> semaphoreSubmitInfos = stackalloc VkSemaphoreSubmitInfo[submitCount*2];
+            VkSemaphoreSubmitInfo reference = new()
+            {
+                semaphore = _timelineSemaphore.Semaphore,
+
+                stageMask = VkPipelineStageFlags2.AllCommands
             };
 
-            GraphicsDevice.DeviceAPI.vkQueueSubmit2KHR(GraphicsDevice.MainQueue, 1, &submitInfo, VkFence.Null).CheckResult("Failed to submit graphics queue!");
-
-            while(AuxiliaryCommandBufferManager._pendingCommandBuffers.TryDequeue(out var auxiliaryCommandBuffer))
+            int length = 0;
+            while (_commandBuffersToSubmit.TryDequeue(out var submitter))
             {
-                auxiliaryCommandBuffer.Submit(renderComplete[1]);
-                AuxiliaryCommandBufferManager._submittedCommandBuffers.Enqueue(auxiliaryCommandBuffer);
+                submitInfos[length] = new()
+                {
+                    commandBufferInfoCount = 1,
+                    waitSemaphoreInfoCount = 1,
+                    signalSemaphoreInfoCount = 1,
+                };
+                commandBufferSubmitInfos[length] = new() { commandBuffer = submitter.CommandBuffer };
+                semaphoreSubmitInfos[(length * 2) + 0] = reference;
+                semaphoreSubmitInfos[(length * 2) + 0].value = _timelineSemaphore.GetTimelineStageValue((ulong) TimelineGuide.Start + submitter.RelativeWait);
+                semaphoreSubmitInfos[(length * 2) + 1] = reference;
+                semaphoreSubmitInfos[(length * 2) + 1].value = _timelineSemaphore.GetTimelineStageValue((ulong)TimelineGuide.Start + submitter.RelativeSignal);
+                fixed(VkCommandBufferSubmitInfo* pCmdSubmit = commandBufferSubmitInfos)
+                {
+                    submitInfos[length].pCommandBufferInfos = pCmdSubmit + length;
+                }
+                fixed(VkSemaphoreSubmitInfo* pSemaSubmitInfos = semaphoreSubmitInfos)
+                {
+                    submitInfos[length].pWaitSemaphoreInfos = pSemaSubmitInfos + (length * 2);
+                    submitInfos[length].pSignalSemaphoreInfos = pSemaSubmitInfos + 1 + (length * 2);
+                }
+
+                length++;
+            }
+
+            fixed (VkSubmitInfo2* pSubmitInfo = submitInfos)
+            {
+                GraphicsDevice.DeviceAPI.vkQueueSubmit2KHR(GraphicsDevice.MainQueue, (uint)submitCount, pSubmitInfo, VkFence.Null).CheckResult("Failed to submit graphics queue!");
             }
         }
 

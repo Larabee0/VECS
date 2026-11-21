@@ -27,7 +27,7 @@ namespace VECS.ECS.Physics
         /// <summary>
         /// Gets the thread dispatcher available for use by the simulation.
         /// </summary>
-        public static ThreadDispatcher ThreadDispatcher => Application.ThreadDispatcher;
+        public static IThreadDispatcher ThreadDispatcher => Application.ThreadDispatcher;
 
         public PhysicsWorld(World world,PhysicsSettings settings)
         {
@@ -80,7 +80,6 @@ namespace VECS.ECS.Physics
             {
                 disposed = true;
                 Simulation.Dispose();
-                ThreadDispatcher.Dispose();
                 BufferPool.Clear();
             }
         }

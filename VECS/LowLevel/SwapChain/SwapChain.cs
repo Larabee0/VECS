@@ -34,10 +34,6 @@ namespace VECS.LowLevel
 
         internal static float ExtentAspectRatio => (float)SwapChainExtent.width / (float)SwapChainExtent.height;
 
-
-        internal static VkCommandBuffer CurrentMainCommandBuffer => GraphicsDevice.MainPipeCommandBuffers[_currentFrame];
-
-
         internal static void Reset()
         {
             SwapChainInitialised = true;

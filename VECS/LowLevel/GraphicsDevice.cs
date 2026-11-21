@@ -53,10 +53,6 @@ namespace VECS.LowLevel
 
         internal static VkQueue _mainQueue;
 
-        internal static VkCommandPool _commandPoolMain;
-
-        private static VkCommandBuffer[] _mainPipeCommandBuffers;
-
         private static readonly ConcurrentDictionary<int, CommandBufferManager> _threadCommandBuffers = new(Environment.ProcessorCount, Environment.ProcessorCount);
 
 
@@ -77,10 +73,6 @@ namespace VECS.LowLevel
        
 
         public static VkQueue MainQueue => _mainQueue;
-
-        public static VkCommandPool MainCommandPool => _commandPoolMain;
-
-        public static VkCommandBuffer[] MainPipeCommandBuffers => _mainPipeCommandBuffers;
 
         public static VkInstance VkInstance => _instance;
         public static SwapChainSupportDetails SwapChainSupport  { get; internal set; }
@@ -133,7 +125,6 @@ namespace VECS.LowLevel
 
             GraphicsDeviceInit.PickPhysicalDevice();
             GraphicsDeviceInit.CreateLogicalDevice();
-            GraphicsDeviceInit.CreateCommandPools();
             GraphicsDeviceInit.CreateVmaAllocator();
             PreferredFormats.UpdateDepthFormatPreferences();
             Initialised = true;
@@ -156,21 +147,33 @@ namespace VECS.LowLevel
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static VkCommandBuffer GetPrimaryCommandBuffer()
         {
+            return GetPrimaryCommandBuffer(Presenter.FrameIndex);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static VkCommandBuffer GetPrimaryCommandBuffer(int frameIndex)
+        {
             var commandBufferManager = GetThreadCommandBufferManager();
             unsafe
             {
-                return commandBufferManager.GetNextCommandBuffer(Presenter.FrameIndex,VkCommandBufferLevel.Primary);
+                return commandBufferManager.GetNextCommandBuffer(frameIndex, VkCommandBufferLevel.Primary);
             }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static VkCommandBuffer GetSecondaryCommandBuffer()
         {
+            return GetSecondaryCommandBuffer(Presenter.FrameIndex);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static VkCommandBuffer GetSecondaryCommandBuffer(int frameIndex)
+        {
             var commandBufferManager = GetThreadCommandBufferManager();
 
             unsafe
             {
-                return commandBufferManager.GetNextCommandBuffer(Presenter.FrameIndex, VkCommandBufferLevel.Secondary);
+                return commandBufferManager.GetNextCommandBuffer(frameIndex, VkCommandBufferLevel.Secondary);
             }
         }
 
@@ -205,43 +208,11 @@ namespace VECS.LowLevel
             GraphicsPipeline.ClearPipelineCommandBufferState(playbackCmd);
         }
 
-        internal static unsafe void CreateCommandBuffers()
+        internal static void FreeCommandBuffers()
         {
-            _mainPipeCommandBuffers = new VkCommandBuffer[SwapChain.MAX_CONCURRENT_FRAMES];
-
-            VkCommandBufferAllocateInfo allocInfo = new()
+            foreach (var pair in _threadCommandBuffers)
             {
-                level = VkCommandBufferLevel.Primary,
-                commandPool = MainCommandPool,
-                commandBufferCount = SwapChain.MAX_CONCURRENT_FRAMES_UINT
-            };
-
-            fixed (VkCommandBuffer* pCommandBuffers = &_mainPipeCommandBuffers[0])
-            {
-                _deviceApi.vkAllocateCommandBuffers(&allocInfo, pCommandBuffers).CheckResult("Failed to allocate main command buffers");
-            }
-
-            for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
-            {
-                SetObjectName(VkObjectType.CommandBuffer, (ulong)_mainPipeCommandBuffers[i].Handle, $"MainCommandBuffer Frame: {i}");
-            }
-        }
-
-        internal static unsafe void FreeCommandBuffers()
-        {
-            if (_mainPipeCommandBuffers != null)
-            {
-                fixed (VkCommandBuffer* pCommandBuffers = &_mainPipeCommandBuffers[0])
-                {
-                    _deviceApi.vkFreeCommandBuffers(MainCommandPool, (uint)_mainPipeCommandBuffers.Length, pCommandBuffers);
-                }
-
-                _mainPipeCommandBuffers = null;
-
-                foreach (var pair in _threadCommandBuffers)
-                {
-                    pair.Value.FreeCommandBuffers();
-                }
+                pair.Value.FreeCommandBuffers();
             }
         }
 
@@ -274,38 +245,43 @@ namespace VECS.LowLevel
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static VkCommandBuffer BeginSingleTimeMainPipe()
+        public static SingleTimeCommandBuffer BeginSingleTimeMainPipe()
         {
-            return BeginSingleTime(_commandPoolMain);
+            return GetThreadCommandBufferManager().BeginSingleTime();
         }
 
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void EndSingleTimeMainPipe(VkCommandBuffer commandBuffer)
+        public static void EndSingleTimeMainPipe(SingleTimeCommandBuffer commandBufferInfo)
         {
-            EndSingleTime(commandBuffer, _mainQueue, _commandPoolMain);
+            EndSingleTime(commandBufferInfo);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static VkCommandBuffer BeginSingleTime(VkCommandPool commandPool)
+        public static SingleTimeCommandBuffer BeginSingleTime()
         {
-            _deviceApi.vkAllocateCommandBuffer(commandPool, VkCommandBufferLevel.Primary, out VkCommandBuffer commandBuffer).CheckResult("Failed to allocate command buffer!");
-            _deviceApi.vkBeginCommandBuffer(commandBuffer, VkCommandBufferUsageFlags.OneTimeSubmit).CheckResult("Failed to begin command buffer!");
-            return commandBuffer;
+            return GetThreadCommandBufferManager().BeginSingleTime();
         }
 
-        public static unsafe void EndSingleTime(VkCommandBuffer commandBuffer, VkQueue queue, VkCommandPool commandPool)
+        public static unsafe void EndSingleTime(SingleTimeCommandBuffer commandBufferInfo)
         {
-            _deviceApi.vkEndCommandBuffer(commandBuffer);
+            Debug.Assert(commandBufferInfo.CommandBufferManager == Environment.CurrentManagedThreadId);
+            _deviceApi.vkEndCommandBuffer(commandBufferInfo.CommandBuffer);
             VkSubmitInfo submitInfo = new()
             {
                 commandBufferCount = 1,
-                pCommandBuffers = &commandBuffer
+                pCommandBuffers = &commandBufferInfo.CommandBuffer
             };
-            _deviceApi.vkQueueSubmit(queue, submitInfo, VkFence.Null);
-            _deviceApi.vkQueueWaitIdle(queue);
-            _deviceApi.vkFreeCommandBuffers(commandPool, commandBuffer);
+            _deviceApi.vkQueueSubmit(MainQueue, submitInfo, VkFence.Null);
+            _deviceApi.vkQueueWaitIdle(MainQueue);
+            FreeSingleTime(commandBufferInfo);
         }
+
+        public static void FreeSingleTime(SingleTimeCommandBuffer commandBufferInfo)
+        {
+            _threadCommandBuffers[commandBufferInfo.CommandBufferManager].QueueSingleTimeCommandBuffer(commandBufferInfo);
+        }
+
         #endregion
 
         public static void DeviceWaitIdle()
@@ -316,7 +292,7 @@ namespace VECS.LowLevel
         internal static unsafe void GetDeviceFault()
         {
             VkDeviceFaultCountsEXT countsExt = new();
-            GraphicsDevice.DeviceAPI.vkGetDeviceFaultInfoEXT(&countsExt, null);
+            DeviceAPI.vkGetDeviceFaultInfoEXT(&countsExt, null);
             VkDeviceFaultInfoEXT infos = new();
 
             Span<VkDeviceFaultAddressInfoKHR> addresInfos = stackalloc VkDeviceFaultAddressInfoKHR[(int)countsExt.addressInfoCount];
@@ -431,7 +407,6 @@ namespace VECS.LowLevel
             {
                 pair.Value.Dispose();
             }
-            _deviceApi.vkDestroyCommandPool(_commandPoolMain);
             Vma.vmaDestroyAllocator(_allocator);
             _deviceApi.vkDestroyDevice();
 

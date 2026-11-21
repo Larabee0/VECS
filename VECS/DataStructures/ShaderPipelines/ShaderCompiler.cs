@@ -62,7 +62,7 @@ namespace VECS
             
             ShaderModule[] shaderModules = new ShaderModule[shaderFiles.Count];
 #if PARALLEL_SHADER_COMPILER
-            Application.ParallelFor(shaderModules.Length, (i) =>
+            Application.ParallelForWaitNow(shaderModules.Length, (i) =>
             {
                 shaderModules[i] = Compile(shaderFiles[i].FullName);
             });

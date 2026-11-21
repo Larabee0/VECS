@@ -488,7 +488,7 @@ namespace VECS
             _lastBoundGraphicsPipeline.ResetAllStates();
             var count = AssetDataBase<GraphicsPipeline>.AssetCount;
             var readingList = AssetDataBase<GraphicsPipeline>.AllAssetsListForReading;
-            Application.ParallelFor(count, (i) =>
+            Application.ParallelForWaitNow(count, (i) =>
             {
                 Update(readingList[i]);
             });

@@ -521,7 +521,7 @@ namespace VECS
 
         public static void UpdateDynamicData(EntityManager entityManager)
         {
-            Application.ParallelFor(_entityCount, i =>
+            Application.ParallelForWaitNow(_entityCount, i =>
             {
                 Entity entityMat = _entities[i];
 

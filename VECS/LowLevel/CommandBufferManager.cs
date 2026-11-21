@@ -1,18 +1,37 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using Vortice.Vulkan;
 
 namespace VECS.LowLevel
 {
+    public struct SingleTimeCommandBuffer
+    {
+        public VkCommandBuffer CommandBuffer;
+        public readonly int CommandBufferManager;
+
+        public SingleTimeCommandBuffer(VkCommandBuffer commandBuffer, int commandBufferManager)
+        {
+            CommandBuffer = commandBuffer;
+            CommandBufferManager = commandBufferManager;
+        }
+
+
+        public static implicit operator VkCommandBuffer(SingleTimeCommandBuffer singleTimeCommand) => singleTimeCommand.CommandBuffer;
+    }
+
     public class CommandBufferManager : IDisposable
     {
+        private readonly int _ownerTheadId;
         public VkCommandPool CommandPool;
 
         private int _lastFrameIndex = -1;
         private uint PrimaryCounter;
         private uint SecondaryCounter;
-        public VkCommandBuffer[][] PrimaryCommandBuffers;
-        public  VkCommandBuffer[][] SecondaryCommandBuffers;
+        private VkCommandBuffer[][] _primaryCommandBuffers;
+        private  VkCommandBuffer[][] _secondaryCommandBuffers;
+
+        private ConcurrentQueue<VkCommandBuffer> _pendingSingleTimeSubmits = [];
 
         public bool Allocated = false;
 
@@ -22,6 +41,7 @@ namespace VECS.LowLevel
 
         public CommandBufferManager()
         {
+            _ownerTheadId = Environment.CurrentManagedThreadId;
             VkCommandPoolCreateInfo commandPoolCreateInfo = new()
             {
                 queueFamilyIndex = GraphicsDevice.PhysicalQueueFamilies.graphicsFamily,
@@ -29,12 +49,12 @@ namespace VECS.LowLevel
             };
 
             GraphicsDevice.DeviceAPI.vkCreateCommandPool(commandPoolCreateInfo, out CommandPool);
-            PrimaryCommandBuffers = new VkCommandBuffer[ SwapChain.MAX_CONCURRENT_FRAMES][];
-            SecondaryCommandBuffers = new VkCommandBuffer[SwapChain.MAX_CONCURRENT_FRAMES][];
+            _primaryCommandBuffers = new VkCommandBuffer[ SwapChain.MAX_CONCURRENT_FRAMES][];
+            _secondaryCommandBuffers = new VkCommandBuffer[SwapChain.MAX_CONCURRENT_FRAMES][];
             for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
             {
-                PrimaryCommandBuffers[i] = new VkCommandBuffer[1];
-                SecondaryCommandBuffers[i] = new VkCommandBuffer[1];
+                _primaryCommandBuffers[i] = new VkCommandBuffer[1];
+                _secondaryCommandBuffers[i] = new VkCommandBuffer[1];
             }
             AllocateCommandBuffers();
         }
@@ -50,20 +70,20 @@ namespace VECS.LowLevel
 
             for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
             {
-                allocation.commandBufferCount = (uint)SecondaryCommandBuffers[i].Length;
+                allocation.commandBufferCount = (uint)_secondaryCommandBuffers[i].Length;
                 allocation.level = VkCommandBufferLevel.Secondary;
                 unsafe
                 {
-                    fixed (VkCommandBuffer* pCommandBuffers = SecondaryCommandBuffers[i])
+                    fixed (VkCommandBuffer* pCommandBuffers = _secondaryCommandBuffers[i])
                     {
                         GraphicsDevice.DeviceAPI.vkAllocateCommandBuffers(&allocation, pCommandBuffers);
                     }
                 }
-                allocation.commandBufferCount = (uint)PrimaryCommandBuffers[i].Length;
+                allocation.commandBufferCount = (uint)_primaryCommandBuffers[i].Length;
                 allocation.level = VkCommandBufferLevel.Primary;
                 unsafe
                 {
-                    fixed (VkCommandBuffer* pCommandBuffers = PrimaryCommandBuffers[i])
+                    fixed (VkCommandBuffer* pCommandBuffers = _primaryCommandBuffers[i])
                     {
                         GraphicsDevice.DeviceAPI.vkAllocateCommandBuffers(&allocation, pCommandBuffers);
                     }
@@ -77,19 +97,15 @@ namespace VECS.LowLevel
         {
             Array.Resize(ref target, target.Length + 1);
 
-            VkCommandBufferAllocateInfo allocation = new()
-            {
-                commandBufferCount = 1,
-                commandPool = CommandPool,
-                level = commandLevel,
-            };
-            unsafe
-            {
-                fixed (VkCommandBuffer* pCommandBuffers = &target[^1])
-                {
-                    GraphicsDevice.DeviceAPI.vkAllocateCommandBuffers(&allocation, pCommandBuffers);
-                }
-            }
+            GraphicsDevice.DeviceAPI.vkAllocateCommandBuffer(CommandPool, commandLevel, out target[^1]);
+        }
+
+        public SingleTimeCommandBuffer BeginSingleTime()
+        {
+            GraphicsDevice.DeviceAPI.vkAllocateCommandBuffer(CommandPool, VkCommandBufferLevel.Primary, out VkCommandBuffer commandBuffer).CheckResult("Failed to allocate command buffer!");
+            GraphicsDevice.DeviceAPI.vkBeginCommandBuffer(commandBuffer, VkCommandBufferUsageFlags.OneTimeSubmit).CheckResult("Failed to begin command buffer!");
+
+            return new(commandBuffer, _ownerTheadId);
         }
 
         public VkCommandBuffer GetNextCommandBuffer(int frameIndex, VkCommandBufferLevel commandBufferLevel)
@@ -105,12 +121,12 @@ namespace VECS.LowLevel
         public VkCommandBuffer GetNextPrimaryCommandBuffer(int frameIndex)
         {
             TryResetCounter(frameIndex);
-            if (PrimaryCounter >= PrimaryCommandBuffers[frameIndex].Length)
+            if (PrimaryCounter >= _primaryCommandBuffers[frameIndex].Length)
             {
-                AllocateNewCommandBuffer(ref PrimaryCommandBuffers[frameIndex], VkCommandBufferLevel.Primary);
+                AllocateNewCommandBuffer(ref _primaryCommandBuffers[frameIndex], VkCommandBufferLevel.Primary);
             }
 
-            var cmd = PrimaryCommandBuffers[frameIndex][PrimaryCounter];
+            var cmd = _primaryCommandBuffers[frameIndex][PrimaryCounter];
             PrimaryCounter++;
             return cmd;
         }
@@ -118,12 +134,12 @@ namespace VECS.LowLevel
         public VkCommandBuffer GetNextSecondaryCommandBuffer(int frameIndex)
         {
             TryResetCounter(frameIndex);
-            if (SecondaryCounter >= SecondaryCommandBuffers[frameIndex].Length)
+            if (SecondaryCounter >= _secondaryCommandBuffers[frameIndex].Length)
             {
-                AllocateNewCommandBuffer(ref SecondaryCommandBuffers[frameIndex], VkCommandBufferLevel.Secondary);
+                AllocateNewCommandBuffer(ref _secondaryCommandBuffers[frameIndex], VkCommandBufferLevel.Secondary);
             }
 
-            var cmd = SecondaryCommandBuffers[frameIndex][SecondaryCounter];
+            var cmd = _secondaryCommandBuffers[frameIndex][SecondaryCounter];
             SecondaryCounter++;
             return cmd;
         }
@@ -141,6 +157,7 @@ namespace VECS.LowLevel
         {
             PrimaryCounter = 0;
             SecondaryCounter = 0;
+            
         }
 
         public void FreeCommandBuffers()
@@ -152,18 +169,35 @@ namespace VECS.LowLevel
             {
                 unsafe
                 {
-                    fixed (VkCommandBuffer* pCommandBuffers = SecondaryCommandBuffers[i])
+                    fixed (VkCommandBuffer* pCommandBuffers = _secondaryCommandBuffers[i])
                     {
-                        GraphicsDevice.DeviceAPI.vkFreeCommandBuffers(CommandPool, (uint)SecondaryCommandBuffers[i].Length, pCommandBuffers);
+                        GraphicsDevice.DeviceAPI.vkFreeCommandBuffers(CommandPool, (uint)_secondaryCommandBuffers[i].Length, pCommandBuffers);
                     }
-                    fixed (VkCommandBuffer* pCommandBuffers = PrimaryCommandBuffers[i])
+                    fixed (VkCommandBuffer* pCommandBuffers = _primaryCommandBuffers[i])
                     {
-                        GraphicsDevice.DeviceAPI.vkFreeCommandBuffers(CommandPool, (uint)PrimaryCommandBuffers[i].Length, pCommandBuffers);
+                        GraphicsDevice.DeviceAPI.vkFreeCommandBuffers(CommandPool, (uint)_primaryCommandBuffers[i].Length, pCommandBuffers);
                     }
                 }
             }
-
+            FreeSingleTimeCommandBuffers();
             GraphicsDevice.DeviceAPI.vkResetCommandPool(CommandPool, VkCommandPoolResetFlags.ReleaseResources);
+        }
+
+        private unsafe void FreeSingleTimeCommandBuffers()
+        {
+            if (_pendingSingleTimeSubmits.IsEmpty) return;
+            Span<VkCommandBuffer> singleTimes = stackalloc VkCommandBuffer[_pendingSingleTimeSubmits.Count];
+            int i = 0;
+            while(_pendingSingleTimeSubmits.TryDequeue(out var commandBuffer) && i < singleTimes.Length)
+            {
+                singleTimes[i] = commandBuffer;
+                i++;
+            }
+
+            fixed(VkCommandBuffer* pSingleTimes = singleTimes)
+            {
+                GraphicsDevice.DeviceAPI.vkFreeCommandBuffers(CommandPool, (uint)singleTimes.Length, pSingleTimes); ;
+            }
         }
 
         public void Dispose()
@@ -174,6 +208,11 @@ namespace VECS.LowLevel
             GraphicsDevice.DeviceAPI.vkDestroyCommandPool(CommandPool);
 
             GC.ReRegisterForFinalize(this);
+        }
+
+        internal void QueueSingleTimeCommandBuffer(SingleTimeCommandBuffer commandBufferInfo)
+        {
+            _pendingSingleTimeSubmits.Enqueue(commandBufferInfo.CommandBuffer);
         }
     }
 }

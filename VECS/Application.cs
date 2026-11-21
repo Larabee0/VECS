@@ -1,5 +1,4 @@
 ﻿#define VERY_LOW_FRAME_RATES
-using BepuUtilities;
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -7,6 +6,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using VECS.ECS;
 using VECS.LowLevel;
+using VECS.Threading;
 using VECS.UI;
 using Vortice.Vulkan;
 
@@ -45,9 +45,9 @@ namespace VECS
         private readonly Presenter _presenter;
 
         private static World _mainWorld;
-        private static ThreadDispatcher _threadDispatcher;
+        private static ThreadScheduler _threadDispatcher;
 
-        public static ThreadDispatcher ThreadDispatcher => _threadDispatcher;
+        public static ThreadScheduler ThreadDispatcher => _threadDispatcher;
 
         public Action PreOnCreate;
         public Action PostOnCreate;
@@ -74,8 +74,7 @@ namespace VECS
             }
             Console.WriteLine("PersistentDataPath: {0}", PersistentDataPath);
             Instance = this;
-            var targetThreadCount = int.Max(1, Environment.ProcessorCount > 4 ? Environment.ProcessorCount - 2 : Environment.ProcessorCount - 1);
-            _threadDispatcher = new ThreadDispatcher(targetThreadCount);
+            _threadDispatcher = new();
 
             Bootstrap.subAssemblyLoadPoints.ForEach(loadPoint => loadPoint.PreApplicationConstruction());
             SDL3WindowManager.Init();
@@ -370,32 +369,25 @@ namespace VECS
             OnDestroy?.Invoke();
         }
 
-        public static void ParallelFor(int count, Action<int> action)
+        public static void ParallelForWaitNow(int count, Action<int> action)
         {
-            int bepuCounter = -1;
-            ThreadDispatcher.DispatchWorkers((workIndex) =>
-            {
-                int claimedIndex;
-                while ((claimedIndex = Interlocked.Increment(ref bepuCounter)) < count)
-                {
-                    action?.Invoke(claimedIndex);
-                }
-            });
-        }
-        
-        public static void ParallelFor(int count, Action<int, int> action)
-        {
-            int bepuCounter = -1;
-            ThreadDispatcher.DispatchWorkers((workIndex) =>
-            {
-                int claimedIndex;
-                while ((claimedIndex = Interlocked.Increment(ref bepuCounter)) < count)
-                {
-                    action?.Invoke(workIndex,claimedIndex);
-                }
-            });
+            ThreadDispatcher.ParallelForWaitNow(count, action);
         }
 
+        public static void ParallelForWaitLater(int count, Action<int> action)
+        {
+            ThreadDispatcher.ParallelForWaitLater(count, action);
+        }
+
+        public static void ParallelForWaitNow(int count, Action<int, int> action)
+        {
+            ThreadDispatcher.ParallelForWaitNow(count, action);
+        }
+
+        public static void ParallelForWaitLater(int count, Action<int, int> action)
+        {
+            ThreadDispatcher.ParallelForWaitLater(count, action);
+        }
         /// <summary>
         /// Order of dispoal matters here.
         /// </summary>
@@ -426,6 +418,7 @@ namespace VECS
             AuxiliaryCommandBufferManager.CleanUp();
             GraphicsDevice.Dispose();
             SDL3WindowManager.CleanUp();
+            _threadDispatcher.Dispose();
         }
     }
 }

@@ -347,7 +347,7 @@ namespace VECS
 
         }
 
-        public unsafe override void RegenerateMipMaps(VkCommandBuffer cmd)
+        public override void RegenerateMipMaps(VkCommandBuffer cmd)
         {
             this.GenerateMipMaps(cmd);
         }

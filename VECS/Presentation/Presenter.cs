@@ -48,7 +48,7 @@ namespace VECS
         private IMGUI _imgui;
         private static ulong _frameCount;
 
-        private static readonly int Display0Src = "Display_0".GetShaderPropertyId();
+        public static readonly int Display0Src = "Display_0".GetShaderPropertyId();
 
         private static ulong _framesSinceSwapChainRecreation = 0;
 
@@ -132,7 +132,6 @@ namespace VECS
             if (!SwapChain.SwapChainInitialised)
             {
                 SwapChainInit.Init();
-                GraphicsDevice.CreateCommandBuffers();
                 GraphicsDevice.DeviceWaitIdle();
                 _renderer = CreateRenderer();
                 _renderer.PostCreate();
@@ -164,7 +163,6 @@ namespace VECS
                 }
                 _renderer.ScreenSizeChanged();
                 GraphicsDevice.FreeCommandBuffers();
-                GraphicsDevice.CreateCommandBuffers();
                 GraphicsDevice.DeviceWaitIdle();
 
             }
@@ -429,15 +427,14 @@ namespace VECS
 
                 _isFrameStarted = false;
                 _renderer.PostRender();
-                Console.WriteLine("Frame {0}", FrameCount);
+                //Console.WriteLine("Frame {0}", FrameCount);
                 _frameCount++;
                 _framesSinceSwapChainRecreation++;
             }
         }
 
-        private void GraphicsPipe(int imageIndex)
+        private void GraphicsPipe(VkCommandBuffer commandBuffer, int imageIndex)
         {
-            VkCommandBuffer commandBuffer = SwapChain.CurrentMainCommandBuffer;
             GraphicsDevice.BeginLabelCmd(commandBuffer, "Start Frame Buffer Fill Cmds");
             GPUBufferExtensions.PlaybackFillBufferCmds(commandBuffer);
             GraphicsDevice.EndLabelCmd(commandBuffer);
@@ -536,14 +533,13 @@ namespace VECS
             OutputMipmapGen(commandBuffer);
             GraphicsDevice.EndLabelCmd(commandBuffer);
 
-            CopyFromOutputToSwapChainFull(commandBuffer, Display0Src, 0, imageIndex);
+            //CopyFromOutputToSwapChainFull(commandBuffer, Display0Src, 0, imageIndex);
+            // output textures must be in transfer src for swapchain present.
+            _outputTextures[Display0Src].SetImageLayoutAuto(commandBuffer, VkImageLayout.TransferSrcOptimal);
 
             // Play back Write Cmds generated during frame from CPU to GPU Buffers
             // this is an optimisation to avoid double writes
-            GraphicsDevice.BeginLabelCmd(commandBuffer, "End Frame Buffer Writes");
             GPUBufferExtensions.PlaybackWriteBufferCmds();
-            GraphicsDevice.EndLabelCmd(commandBuffer);
-            //SwapChain.MainSwapChainData.SetImageLayout(commandBuffer, imageIndex, VkImageLayout.PresentSrcKHR);
         }
 
         private static void OutputMipmapGen(VkCommandBuffer commandBuffer)
@@ -599,7 +595,7 @@ namespace VECS
 
         }
 
-        private unsafe void CopyFromOutputToSwapChainFull(VkCommandBuffer commandBuffer,int outputId, int swapchainIndex, int imageIndex)
+        public unsafe void CopyFromOutputToSwapChainFull(VkCommandBuffer commandBuffer,int outputId, int swapchainIndex, int imageIndex)
         {
             if (swapchainIndex >= SwapChain.SwapChainsForPresent.Length)
             {
@@ -612,8 +608,8 @@ namespace VECS
                 Debug.Assert(false, $"Missing output Texture: {outputId.GetPropertyIdString()}");
                 return;
             }
-
-            image.SetImageLayoutAuto(commandBuffer, VkImageLayout.TransferSrcOptimal);
+            // we assume any display src texture will be TransferSrcOptimal
+            //image.SetImageLayoutAuto(commandBuffer, VkImageLayout.TransferSrcOptimal);
             var blitCmd = image.GetBlitCmd((int)SwapChain.SwapChainExtent.width, (int)SwapChain.SwapChainExtent.height, VkImageAspectFlags.Color);
             TextureExtensions.BlitGeneric(commandBuffer, VkFilter.Linear, blitCmd, image._vkImage, VkImageLayout.TransferSrcOptimal, SwapChain.SwapChainsForPresent[swapchainIndex].SwapChainImages[imageIndex], VkImageLayout.TransferDstOptimal);
 
@@ -642,6 +638,7 @@ namespace VECS
         {
             GC.SuppressFinalize(this);
 
+            SwapChain.GraphicsCallback -= GraphicsPipe;
             PipelineRecreation.Reset(true);
             DrawBlob.CleanUp();
             EngineBuffers.CleanUp();

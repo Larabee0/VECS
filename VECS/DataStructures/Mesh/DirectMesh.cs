@@ -514,7 +514,7 @@ namespace VECS
         }
 
         #region Reallocation
-        public unsafe void ReallocateSubMesh(int subMeshIndex, DirectSubMeshCreateInfo newBufferSizes)
+        public void ReallocateSubMesh(int subMeshIndex, DirectSubMeshCreateInfo newBufferSizes)
         {
             var currentData = _subMeshInfo[subMeshIndex];
 
@@ -523,8 +523,8 @@ namespace VECS
 
             var cmd = GraphicsDevice.BeginSingleTimeMainPipe();
 
-            ReallocateIndexBuffer(cmd, subMeshIndex, newBufferSizes, currentData);
-            ReallocateVertexBuffers(cmd, subMeshIndex, newBufferSizes, currentData);
+            ReallocateIndexBuffer(cmd.CommandBuffer, subMeshIndex, newBufferSizes, currentData);
+            ReallocateVertexBuffers(cmd.CommandBuffer, subMeshIndex, newBufferSizes, currentData);
 
             GraphicsDevice.EndSingleTimeMainPipe(cmd);
             _indexOffsetBuffer?.EnqueueForDisposal();
@@ -653,11 +653,11 @@ namespace VECS
 
         public unsafe void ReadAllBuffers()
         {
-            VkCommandBuffer singleTime = GraphicsDevice.BeginSingleTimeMainPipe();
-            var command = GenerateReadCommands(singleTime);
+            var singleTime = GraphicsDevice.BeginSingleTimeMainPipe();
+            var command = GenerateReadCommands(singleTime.CommandBuffer);
             GraphicsDevice.EndSingleTimeMainPipe(singleTime);
 
-            Parallel.For(0, command[0].Length, i =>
+            Application.ParallelForWaitNow(command[0].Length, i =>
             {
                 command[0][i].TryAllocHostBuffer(false);
                 command[1][i].ReadFromBuffer(command[0][i].HostPtr);
@@ -687,16 +687,16 @@ namespace VECS
             List<GPUBuffer> mainBuffers = [];
             List<GPUBuffer> tmpReadBuffers = [];
 
-            VkCommandBuffer singleTime = GraphicsDevice.BeginSingleTimeMainPipe();
+            var singleTime = GraphicsDevice.BeginSingleTimeMainPipe();
             for (int i = 0; i < meshes.Length; i++)
             {
-                var commands = meshes[i].GenerateReadCommands(singleTime);
+                var commands = meshes[i].GenerateReadCommands(singleTime.CommandBuffer);
                 mainBuffers.AddRange(commands[0]);
                 tmpReadBuffers.AddRange(commands[1]);
             }
             GraphicsDevice.EndSingleTimeMainPipe(singleTime);
 
-            Parallel.For(0, mainBuffers.Count, i =>
+            Application.ParallelForWaitNow(mainBuffers.Count, i =>
             {
                 mainBuffers[i].TryAllocHostBuffer(false);
                 tmpReadBuffers[i].ReadFromBuffer(mainBuffers[i].HostPtr);

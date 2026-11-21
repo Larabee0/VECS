@@ -82,7 +82,7 @@ namespace VECS.LowLevel
 
     internal class AuxiliaryCommandBuffer
     {
-        private VkCommandBuffer _vkCommandBuffer;
+        private SingleTimeCommandBuffer _commandBufferInfo;
 
         internal TimelineSemaphore _signalSemaphore;
 
@@ -100,35 +100,46 @@ namespace VECS.LowLevel
 
         public VkCommandBuffer Record()
         {
-            _vkCommandBuffer = GraphicsDevice.BeginSingleTimeMainPipe();
-            return  _vkCommandBuffer;
+            _commandBufferInfo = GraphicsDevice.BeginSingleTimeMainPipe();
+            return  _commandBufferInfo.CommandBuffer;
         }
 
         public void End()
         {
-            GraphicsDevice.DeviceAPI.vkEndCommandBuffer(_vkCommandBuffer);
+            GraphicsDevice.DeviceAPI.vkEndCommandBuffer(_commandBufferInfo.CommandBuffer);
         }
 
-        public unsafe void Submit(VkSemaphoreSubmitInfo waitSemaphore)
+        public unsafe void Submit(TimelineSemaphore timelineSemaphore)
         {
             VkCommandBufferSubmitInfo commandBufferSubmitInfo = new()
             {
-                commandBuffer = _vkCommandBuffer,
+                commandBuffer = _commandBufferInfo.CommandBuffer,
             };
-            VkSemaphoreSubmitInfo signalSemaphoreSubmitInfo = new()
+            VkSemaphoreSubmitInfo* signalSemaphoreSubmitInfo = stackalloc VkSemaphoreSubmitInfo[]
             {
-                semaphore = _signalSemaphore.Semaphore,
-                value = _completeValue = _signalSemaphore.SemaphoreValue + 1,
-                stageMask = VkPipelineStageFlags2.AllGraphics
+                // wait
+                new()
+                {
+                    semaphore = timelineSemaphore.Semaphore,
+                    value = timelineSemaphore.GetTimelineStageValue((ulong)AdvancedSubmission.TimelineGuide.AuxiliaryDispatch),
+                    stageMask = VkPipelineStageFlags2.AllCommands
+                },
+                // signal
+                new()
+                {
+                    semaphore = _signalSemaphore.Semaphore,
+                    value = _completeValue = _signalSemaphore.SemaphoreValue + 1,
+                    stageMask = VkPipelineStageFlags2.AllGraphics
+                } 
             };
             VkSubmitInfo2 submitInfo = new()
             {
                 commandBufferInfoCount = 1,
-                pCommandBufferInfos = &commandBufferSubmitInfo,
+                waitSemaphoreInfoCount = 1,
                 signalSemaphoreInfoCount = 1,
-                pSignalSemaphoreInfos = &signalSemaphoreSubmitInfo,
-                waitSemaphoreInfoCount =  1,
-                pWaitSemaphoreInfos = &waitSemaphore
+                pCommandBufferInfos = &commandBufferSubmitInfo,
+                pWaitSemaphoreInfos = signalSemaphoreSubmitInfo,
+                pSignalSemaphoreInfos = signalSemaphoreSubmitInfo + 1,
             };
 
             _signalSemaphore.SemaphoreValue = _completeValue;
@@ -147,7 +158,7 @@ namespace VECS.LowLevel
             Console.WriteLine("Auxiliary Command buffer GPU Time: {0}ms {1} frames", (Time.TimeSinceStartUpAsDouble - _submitTime) * 1000,_frameCount);
             OnComplete?.Invoke();
 
-            GraphicsDevice.DeviceAPI.vkFreeCommandBuffers(GraphicsDevice.MainCommandPool, _vkCommandBuffer);
+            GraphicsDevice.FreeSingleTime(_commandBufferInfo);
 
             return true;
         }

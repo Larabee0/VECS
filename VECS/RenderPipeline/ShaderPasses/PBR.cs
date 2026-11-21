@@ -99,7 +99,7 @@ namespace VECS
                 VkBorderColor.FloatOpaqueWhite,
                 false);
 
-            BRDFLUT_Texture.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.FragmentShader);
+            // BRDFLUT_Texture.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.FragmentShader);
 
             Irradiance_Cubemap = new(
                 "Irradiance",
@@ -109,7 +109,7 @@ namespace VECS
                 IRRADIANCE_USAGE_FLAGS,
                 true);
 
-            Irradiance_Cubemap.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.FragmentShader);
+            // Irradiance_Cubemap.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.FragmentShader);
 
 
             Prefiltered_Cubemap = new(
@@ -120,7 +120,7 @@ namespace VECS
                 PREFILTERED_CUBE_USAGE_FLAGS,
                 true);
 
-            Prefiltered_Cubemap.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.FragmentShader);
+            // Prefiltered_Cubemap.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.FragmentShader);
 
             GraphicsPipelineConfigInfo brdflut_gen_config = GraphicsPipelineConfigInfo.DefaultPipelineConfigInfo([], []);
             brdflut_gen_config.rasterizationInfo.cullMode = VkCullModeFlags.None;
@@ -156,6 +156,9 @@ namespace VECS
 
         public unsafe void Generate_BRDFLUT(RendererFrameInfo frameInfo)
         {
+
+            BRDFLUT_Texture.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal);
+
             var commandBuffer = AuxiliaryCommandBufferManager.Record();
             GraphicsDevice.BeginLabelCmd(commandBuffer,"Generate BRDFLUT");
             BRDFLUT_Texture.SetImageLayoutAuto(commandBuffer, VkImageLayout.ColorAttachmentOptimal);
@@ -199,6 +202,7 @@ namespace VECS
 
         public unsafe void Generate_Irradiance(RendererFrameInfo frameInfo)
         {
+            Irradiance_Cubemap.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal);
             var commandBuffer = AuxiliaryCommandBufferManager.Record();
             GraphicsDevice.BeginLabelCmd(commandBuffer, "Generate Irradiance");
 
@@ -269,6 +273,8 @@ namespace VECS
 
         public unsafe void Generate_Prefiltered_Cubemap(RendererFrameInfo frameInfo)
         {
+            Prefiltered_Cubemap.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal);
+
             var commandBuffer = AuxiliaryCommandBufferManager.Record();
             GraphicsDevice.BeginLabelCmd(commandBuffer, "Generate PrefilteredSkybox");
 

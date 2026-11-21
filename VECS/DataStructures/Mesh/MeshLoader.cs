@@ -230,7 +230,7 @@ namespace VECS
             Scene[] scenes = new Scene[autoLoad.Count];
 
             int meshCount = 0;
-            Parallel.For(0,autoLoad.Count, (i) =>
+            Application.ParallelForWaitNow(autoLoad.Count, (i) =>
             {
                 AssimpContext importer = new();
                 var scene = scenes[i] = importer.ImportFile(autoLoad[i], PostProcessSteps.JoinIdenticalVertices | PostProcessSteps.RemoveRedundantMaterials);
@@ -268,7 +268,7 @@ namespace VECS
                 }
             }
 
-            Parallel.For(0, meshCount, (i) =>
+            Application.ParallelForWaitNow(meshCount, (i) =>
             {
                 var mesh = meshes[i];
                 int[] indices = [.. mesh.GetIndices()];

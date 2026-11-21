@@ -745,16 +745,16 @@ namespace VECS
 
             if (src.CPU_Dellocated)
             {
-                VkCommandBuffer cmd = GraphicsDevice.BeginSingleTimeMainPipe();
+                var cmd = GraphicsDevice.BeginSingleTimeMainPipe();
                 var srcVertexBuffers = src._vertexBuffers;
                 var dstVertexBuffers = dst._vertexBuffers;
                 for (int i = 0; i < src.AllAttributesInOrder.Length; i++)
                 {
                     var attribute = src.AllAttributesInOrder[i];
-                    srcVertexBuffers[attribute].CopyTo(cmd, dstVertexBuffers[attribute]);
+                    srcVertexBuffers[attribute].CopyTo(cmd.CommandBuffer, dstVertexBuffers[attribute]);
                 }
 
-                src.IndexBuffer.CopyTo(cmd, dst.IndexBuffer);
+                src.IndexBuffer.CopyTo(cmd.CommandBuffer, dst.IndexBuffer);
                 GraphicsDevice.EndSingleTimeMainPipe(cmd);
                 dst.ReadAllBuffers();
             }
