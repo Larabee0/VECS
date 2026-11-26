@@ -67,8 +67,12 @@ namespace VECS.UI
         {
             var renderer = Presenter.Instance.Renderer;
             var colourTarget = renderer.MainColourAttachment.Target;
-            var textureSource = new TextureSource(new NoesisTexture(colourTarget, false, true));
-            _gameView.Source = textureSource;
+            if (colourTarget is Texture2D texture2d)
+            {
+                var textureSource = new TextureSource(new NoesisTexture(texture2d, false, true));
+                _gameView.Source = textureSource;
+
+            }
         }
 
         private void ClearInspector(object sender, RoutedEventArgs args)

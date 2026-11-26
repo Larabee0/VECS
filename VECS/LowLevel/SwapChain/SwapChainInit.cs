@@ -47,6 +47,7 @@ namespace VECS.LowLevel
             for (int i = 0; i < SwapChain.SWAP_CHAIN_IMAGE_COUNT; i++)
             {
                 GraphicsDevice.DeviceAPI.vkCreateSemaphore(semaphoreInfo, null, out SwapChain._renderCompleteSemaBINARY[i]).CheckResult("Failed to create render semaphore!");
+                GraphicsDevice.SetObjectName(VkObjectType.Semaphore, SwapChain._renderCompleteSemaBINARY[i].Handle, $"RenderComplete {i}");
             }
         }
 

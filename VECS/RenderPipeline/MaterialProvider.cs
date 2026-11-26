@@ -60,9 +60,9 @@ namespace VECS
             }
             else
             {
-                DepthOnlyHash = provider.DepthOnlyHash;
+                DepthOnlyHash = provider.HasDepthOnly ? provider.DepthOnlyHash : 0;
 
-                ColourHash = provider.ColourHash;
+                ColourHash = provider.HasAnyColour ? provider.ColourHash : 0;
             }
 
 

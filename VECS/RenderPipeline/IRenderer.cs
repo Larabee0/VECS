@@ -92,7 +92,7 @@ namespace VECS
             if (target == null)
             {
                 target = new(name, (int)extent.width, (int)extent.height, format, defaultClearValue, additionalFlags);
-                EngineTextures.AddOrUpdateTexture(shaderPropertyId, (SingleTexture)target.Target);
+                EngineTextures.AddOrUpdateTexture(shaderPropertyId, target.Target);
             }
             else
             {
@@ -106,9 +106,9 @@ namespace VECS
             if(target == null)
             {
                 target = new(defintion, extent);
-                EngineTextures.AddOrUpdateTexture(defintion.ShaderPropertyId, (SingleTexture)target.Target);
+                EngineTextures.AddOrUpdateTexture(defintion.ShaderPropertyId, target.Target);
             }
-            else if(target.Target.Width != (int)extent.width || target.Target.Height != (int)extent.height)
+            else if(target.Target.First.Width != (int)extent.width || target.Target.First.Height != (int)extent.height)
             {
                 target.Resize((int)extent.width, (int)extent.height);
             }

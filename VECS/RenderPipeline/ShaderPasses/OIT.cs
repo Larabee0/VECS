@@ -45,18 +45,40 @@ namespace VECS
             OIT_Composite = GraphicsPipeline.VertexFragmentPipeline("OIT_Composite", "fullscreen.vert", "oit_composite.frag", alphaBlending);
 
             _transparentQueue = new("Transparent");
-
+            DrawBlob.AddQueue(_transparentQueue);
         }
 
         public void AddToRenderGraph()
         {
-            RenderGraph.AddPass("TransparentPass", PassType.Render, PassCategory.Transparent, [
-                "ForwardPass",
-                "DeferredCompositePass",
-                    "SpotLightShadows",
-                    "PointLightShadows",
-                    "DirectionalLightShadows"], ["MainDepthAttachment", "DirectionalShadowAttachment", "PointLightShadowAttachments", "SpotLightShadowAttachments"], ["TransparentHeadIndexImage"], TransparentPass);
-            RenderGraph.AddPass("TransparentComposite", PassType.Render, PassCategory.Transparent, ["TransparentPass"], ["TransparentHeadIndexImage"], [RenderGraph.MainColourAttachment], TransparentComposite);
+            RenderGraph.AddPass(new
+                (
+                    "TransparentPass",
+                    PassType.Render,
+                    PassCategory.Transparent,
+                    [
+                        new RenderPassAttachmentUsageInfo(RenderGraph.MainDepthAttachment, VkImageLayout.DepthAttachmentOptimal, VkImageLayout.Undefined),
+                        new RenderPassAttachmentUsageInfo(RenderGraph.MainColourAttachment, VkImageLayout.ColorAttachmentOptimal, VkImageLayout.Undefined),
+                        new RenderPassAttachmentUsageInfo("DirectionalShadowAttachment", VkImageLayout.ShaderReadOnlyOptimal, VkImageLayout.Undefined),
+                        new RenderPassAttachmentUsageInfo("PointLightShadowAttachments", VkImageLayout.ShaderReadOnlyOptimal, VkImageLayout.Undefined),
+                        new RenderPassAttachmentUsageInfo("SpotLightShadowAttachments", VkImageLayout.ShaderReadOnlyOptimal, VkImageLayout.Undefined),
+                    ],
+                    [
+                        "ForwardPass",
+                        "DeferredCompositePass",
+                        "SpotLightShadows",
+                        "PointLightShadows",
+                        "DirectionalLightShadows",
+                        "Skybox"
+                    ],
+                    TransparentPass,
+                    AnyTransparent
+                )
+            );
+        }
+
+        private bool AnyTransparent(RendererFrameInfo info)
+        {
+            return !_headCleared || _transparentQueue.CommandCount != 0;
         }
 
         public void SetEnabled(bool enabled)
@@ -112,12 +134,12 @@ namespace VECS
         private unsafe void TransparentPass(RendererFrameInfo frameInfo)
         {
             if (_headCleared && _transparentQueue.CommandCount == 0) return;
-            BeginOITTransparentPass(frameInfo, RenderGraph.GetResource("MainDepthAttachment"));
-            GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
+            BeginOITTransparentPass(frameInfo, RenderGraph.GetResource(RenderGraph.MainDepthAttachment));
+            EndOITTransparentPass(frameInfo, frameInfo.CommandBuffer);
+            //GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier(frameInfo.CommandBuffer, VkPipelineStageFlags.ColorAttachmentOutput, VkPipelineStageFlags.FragmentShader, VkDependencyFlags.None, 0, null, 0, null, 0, null);
 
-            GraphicsDevice.DeviceAPI.vkCmdPipelineBarrier(frameInfo.CommandBuffer, VkPipelineStageFlags.ColorAttachmentOutput, VkPipelineStageFlags.FragmentShader, VkDependencyFlags.None, 0, null, 0, null, 0, null);
+            //GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
 
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
         }
 
         public unsafe void BeginOITTransparentPass(RendererFrameInfo frameInfo, RenderTarget depthTraget)
@@ -146,7 +168,28 @@ namespace VECS
                 dstStageMask = VkPipelineStageFlags2.Transfer,
             };
 
-            MemoryBarrierHelper.MemoryBarrier(commandBuffer, barrier);
+            //MemoryBarrierHelper.MemoryBarrier(commandBuffer, barrier);
+            var headBarrier = _headIndex.GetImageLayoutBarrierAuto(VkImageLayout.General);
+
+            headBarrier.srcAccessMask = VkAccessFlags2.TransferWrite;
+            headBarrier.dstAccessMask = VkAccessFlags2.TransferWrite;
+            headBarrier.srcStageMask = VkPipelineStageFlags2.Transfer;
+            headBarrier.dstStageMask = VkPipelineStageFlags2.Transfer | VkPipelineStageFlags2.FragmentShader;
+
+            VkBufferMemoryBarrier2 bufferBarrier = new()
+            {
+                buffer = _geometry.Buffer[0].VkBuffer,
+                srcAccessMask = VkAccessFlags2.TransferWrite,
+                dstAccessMask = VkAccessFlags2.TransferWrite,
+                srcStageMask = VkPipelineStageFlags2.Transfer,
+                dstStageMask = VkPipelineStageFlags2.Transfer | VkPipelineStageFlags2.FragmentShader,
+                size = sizeof(uint),
+            };
+
+            MemoryBarrierHelper.ImageMemoryBarrier(commandBuffer,headBarrier);
+            _headIndex.SetImageLayoutSilent(VkImageLayout.General);
+            MemoryBarrierHelper.BufferMemoryBarrier(commandBuffer, bufferBarrier);
+
             GraphicsDevice.EndLabelCmd(commandBuffer);
 
             GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Transparent Rendering");

@@ -90,19 +90,29 @@ namespace VECS.UI
             Presenter.OnSwapChainRecreation += NewSwapChain;
             Presenter.Instance.PreGraphicsPipe += PreGraphicsPipe;
 
-            RenderGraph.AddPass("NoesisInternal",
-                PassType.Render, PassCategory.UI,
-                ["Bloom_Blur_Horizontal", "PhyBloomMix", "ForwardPass", "DeferredCompositePass", "TransaprentComposite", "SMAA_Output"],
-                [],
-                [],
-                RenderUI);
+            RenderGraph.AddPass(new
+                (
+                    "NoesisInternal",
+                    PassType.Render,
+                    PassCategory.UI,
+                    new List< RenderPassAttachmentUsageInfo>(), 
+                    ["PhysicalBloomPass", "ForwardPass", "DeferredCompositePass", "TransparentPass", "SMAA"],
+                    RenderUI
+                )
+            );
 
-            // RenderGraph.AddPass("NoesisBlit",
-            //     PassType.Render, PassCategory.UI,
-            //     ["NoesisInternal", "Bloom_Blur_Horizontal", "PhyBloomMix", "ForwardPass", "DeferredCompositePass", "TransaprentComposite", "SMAA_Output"],
-            //     ["NoesisAttachments", RenderGraph.MainColourAttachment],
-            //     [RenderGraph.MainColourAttachment],
-            //     OutputUI);
+            // RenderGraph.AddPass(new
+            //     ("NoesisBlit",
+            //     PassType.Render,
+            //     PassCategory.UI,
+            //     [
+            //         new RenderPassAttachmentUsageInfo("NoesisAttachments",VkImageLayout.ShaderReadOnlyOptimal,VkImageLayout.Undefined),
+            //         new RenderPassAttachmentUsageInfo(RenderGraph.MainColourAttachment,VkImageLayout.ColorAttachmentOptimal,VkImageLayout.Undefined),
+            //     ],
+            //     ["NoesisInternal"],
+            //     OutputUI
+            //     )
+            // );
         }
 
         internal void AddView(NoesisViewWrapper view)

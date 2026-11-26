@@ -33,24 +33,28 @@ namespace VECS
                 _meshDepthOnlyAlphaClipping.PushConstants.SetPushConstantInt(Buffer_Select_PushConstantId, SPOT_SHADOWS_PUSH_CONSTANT_INDEX, 1);
             }
 
-            RenderGraph.AddPass("SpotLightShadows", PassType.Render,PassCategory.FixedMap, [], [], ["SpotLightShadowAttachments"], SpotLightPass);
+            RenderGraph.AddResource("SpotLightShadowAttachments", new(_shadowDepthTextures, RenderTargetType.Depth, new(1, 0), -1));
+            RenderGraph.AddPass(new("SpotLightShadows", PassType.Render, PassCategory.FixedMap, [new RenderPassAttachmentUsageInfo("SpotLightShadowAttachments", VkImageLayout.DepthAttachmentOptimal, VkImageLayout.ShaderReadOnlyOptimal)], SpotLightPass, SLUpdate));
         }
 
-        private void SpotLightPass(RendererFrameInfo frameInfo)
+        private bool SLUpdate(RendererFrameInfo frameInfo)
         {
             if (ReassignTextures)
             {
                 AssignShadowTextures(ShaderProperties.SLShadowImageId);
             }
             PreShadowPass(frameInfo);
+            return ClearShadow.Count > 0 || UpdateShadow.Count > 0;
+        }
+
+        private void SpotLightPass(RendererFrameInfo frameInfo)
+        {
             var hostBuffer = (SwapChainBuffer<SpotLightUniform>)EngineBuffers.TryGetBuffer(ShaderProperties.SpotLightsBufferId);
             GPUBufferExtensions.WriteFromHostDelayed(hostBuffer, Presenter.FrameIndex);
 
             while (ClearShadow.TryDequeue(out var shadowIndex))
             {
-                GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, $"Clear Shadow {shadowIndex}");
                 ClearImage(frameInfo, shadowIndex);
-                GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
             }
 
             while (UpdateShadow.TryDequeue(out var shadowIndex))
@@ -73,7 +77,7 @@ namespace VECS
                 false
             );
 
-            depthImage.SetImageLayout(VkImageLayout.DepthStencilAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.EarlyFragmentTests);
+            depthImage.SetImageLayout(VkImageLayout.DepthAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.EarlyFragmentTests);
 
             return depthImage;
         }
@@ -134,8 +138,6 @@ namespace VECS
 
             mats.UnsafeSet(textureIndex, GetSpaceMatrix(spotLight, out var _, out var _, out var _));
 
-            SetImageLayoutWrite(frameInfo.CommandBuffer, texture);
-
             GetSpaceMatrix(spotLight, out var near, out var view, out var proj);
             CullData depthBufferCullInfo = new(SHADOW_INCLUDE_MASK, SHADOW_EXCLUDE_MASK, SHADOW_CULL_MODE, Vector4.One, near, proj, view)
             {
@@ -155,8 +157,6 @@ namespace VECS
 
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
             GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
-
-            SetImageLayoutRead(frameInfo.CommandBuffer, texture);
         }
     }
 }

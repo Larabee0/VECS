@@ -61,9 +61,15 @@ namespace VECS
 
         public void AddToRenderGraph()
         {
-            RenderGraph.AddPass("PBR_Genderate_BRDFLUT", PassType.Render, PassCategory.FixedMap, [], [], Generate_BRDFLUT);
-            RenderGraph.AddPass("PBR_Generate_Irradiance", PassType.Render, PassCategory.FixedMap, [], [], Generate_Irradiance);
-            RenderGraph.AddPass("PBR_Generate_Prefiltered_Cubemap", PassType.Render, PassCategory.FixedMap, [], [], Generate_Prefiltered_Cubemap);
+            RenderGraph.AddPass(new RenderPass(
+                "PBR_Genderate_BRDFLUT", PassType.Render, PassCategory.FixedMap, [], Generate_BRDFLUT)
+            );
+            RenderGraph.AddPass(new RenderPass(
+                "PBR_Generate_Irradiance", PassType.Render, PassCategory.FixedMap, [], Generate_Irradiance)
+            );
+            RenderGraph.AddPass(new RenderPass(
+                "PBR_Generate_Prefiltered_Cubemap", PassType.Render, PassCategory.FixedMap, [], Generate_Prefiltered_Cubemap)
+            );
         }
 
         public void RecreateRenderTargets() { }
@@ -99,7 +105,7 @@ namespace VECS
                 VkBorderColor.FloatOpaqueWhite,
                 false);
 
-            // BRDFLUT_Texture.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.FragmentShader);
+            //BRDFLUT_Texture.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.FragmentShader);
 
             Irradiance_Cubemap = new(
                 "Irradiance",
@@ -157,7 +163,7 @@ namespace VECS
         public unsafe void Generate_BRDFLUT(RendererFrameInfo frameInfo)
         {
 
-            BRDFLUT_Texture.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal);
+            //BRDFLUT_Texture.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal);
 
             var commandBuffer = AuxiliaryCommandBufferManager.Record();
             GraphicsDevice.BeginLabelCmd(commandBuffer,"Generate BRDFLUT");
@@ -197,13 +203,14 @@ namespace VECS
 
             GraphicsDevice.EndLabelCmd(commandBuffer);
             AuxiliaryCommandBufferManager.Submit();
+
             RenderGraph.DisablePass("PBR_Genderate_BRDFLUT");
         }
 
         public unsafe void Generate_Irradiance(RendererFrameInfo frameInfo)
         {
             Irradiance_Cubemap.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal);
-            var commandBuffer = AuxiliaryCommandBufferManager.Record();
+            var commandBuffer = frameInfo.CommandBuffer;// AuxiliaryCommandBufferManager.Record();
             GraphicsDevice.BeginLabelCmd(commandBuffer, "Generate Irradiance");
 
             Irradiance_Cubemap.SetImageLayoutAuto(commandBuffer, VkImageLayout.ColorAttachmentOptimal);
@@ -267,7 +274,7 @@ namespace VECS
 
             Irradiance_Cubemap.RegenerateMipMaps(commandBuffer);
             GraphicsDevice.EndLabelCmd(commandBuffer);
-            AuxiliaryCommandBufferManager.Submit();
+            //AuxiliaryCommandBufferManager.Submit();
             RenderGraph.DisablePass("PBR_Generate_Irradiance");
         }
 
@@ -275,7 +282,7 @@ namespace VECS
         {
             Prefiltered_Cubemap.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal);
 
-            var commandBuffer = AuxiliaryCommandBufferManager.Record();
+            var commandBuffer = frameInfo.CommandBuffer;// AuxiliaryCommandBufferManager.Record();
             GraphicsDevice.BeginLabelCmd(commandBuffer, "Generate PrefilteredSkybox");
 
             Prefiltered_Cubemap.SetImageLayoutAuto(commandBuffer, VkImageLayout.ColorAttachmentOptimal);
@@ -328,7 +335,7 @@ namespace VECS
                 GraphicsDevice.DeviceAPI.vkCmdBeginRendering(commandBuffer, &renderingInfo);
                 GraphicsDevice.DeviceAPI.vkCmdSetViewport(commandBuffer, 0, viewport);
                 GraphicsDevice.DeviceAPI.vkCmdSetScissor(commandBuffer, 0, scissor);
-
+                
                 Prefiltered_Generator.PushConstants.SetPushConstantMatrix4x4("mvp", 0, matrices[i] * persectve);
                 Prefiltered_Generator.BindAll(commandBuffer, 0);
                 Skybox.Cube.SimpleBindAndDraw(commandBuffer);
@@ -339,7 +346,7 @@ namespace VECS
 
             Prefiltered_Cubemap.RegenerateMipMaps(commandBuffer);
             GraphicsDevice.EndLabelCmd(commandBuffer);
-            AuxiliaryCommandBufferManager.Submit();
+            //AuxiliaryCommandBufferManager.Submit();
             RenderGraph.DisablePass("PBR_Generate_Prefiltered_Cubemap");
         }
     }

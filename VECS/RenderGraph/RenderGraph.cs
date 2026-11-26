@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
 using System.Runtime.InteropServices;
 using VECS.LowLevel;
 using Vortice.Vulkan;
@@ -23,7 +25,6 @@ namespace VECS
 
         private static bool Recompile = true;
 
-        private static int ImageMemoryBarrierStackSize;
 
         private static HashSet<string> RemovePasses = [];
         private static HashSet<string> DisabledPasses = [];
@@ -36,6 +37,12 @@ namespace VECS
         {
             Resources.TryGetValue(name, out RenderTarget rt);
             return rt;
+        }
+
+        public static bool TryGetResource(string name, out RenderTarget resource)
+        {
+            resource = GetResource(name);
+            return resource != null;
         }
 
         public static bool GetResourceDefintion(string name, out RenderTargetDefintion rt)
@@ -76,51 +83,13 @@ namespace VECS
 
             return attachment;
         }
-        public static void AddPass(string name, PassType passType, PassCategory category, List<string> inputs, List<string> outputs, Action<RendererFrameInfo> executeFunc)
+        public static bool AlwaysRun(RendererFrameInfo frameInfo)
         {
-            var pass = new RenderPass()
-            {
-                Name = name,
-                PassType = passType,
-                Inputs = inputs,
-                Outputs = outputs,
-                ExecuteFunc = executeFunc,
-                PassCategory = category,
-
-            };
-            Passes.Add(pass);
-            Recompile = true;
+            return true;
         }
 
-        public static void AddPass(string name, PassType passType, PassCategory category, List<string> dependantPasses, List<string> inputs, List<string> outputs, Action<RendererFrameInfo> executeFunc)
+        public static void AddPass(RenderPass pass)
         {
-            var pass = new RenderPass()
-            {
-                Name = name,
-                PassType = passType,
-                Inputs = inputs,
-                Outputs = outputs,
-                ExecuteFunc = executeFunc,
-                PassCategory = category,
-                DependantPasses = dependantPasses
-
-            };
-            Passes.Add(pass);
-            Recompile = true;
-        }
-        public static void AddPass(string name, PassType passType, PassCategory category, int order, List<string> inputs, List<string> outputs, Action<RendererFrameInfo> executeFunc)
-        {
-            var pass = new RenderPass()
-            {
-                Name = name,
-                PassType = passType,
-                Inputs = inputs,
-                Outputs = outputs,
-                ExecuteFunc = executeFunc,
-                PassCategory = category,
-                RelativeOrder = order,
-
-            };
             Passes.Add(pass);
             Recompile = true;
         }
@@ -148,110 +117,194 @@ namespace VECS
 
         }
 
-        public unsafe static void Execute(RendererFrameInfo frameInfo, PassCategory category = PassCategory.All)
+        private static List<RenderPass> localExecutePass = [];
+
+        private static Dictionary<string, int> _attachmentFrequency = [];
+        private static Dictionary<string, VkImageLayout> _imaginaryLayout = [];
+
+        private static void BuildMemoryBarriers()
         {
-            if (Recompile) Compile();
-            VkCommandBuffer commandBuffer = frameInfo.CommandBuffer;
-            VkImageMemoryBarrier2* imageBarriers = stackalloc VkImageMemoryBarrier2[ImageMemoryBarrierStackSize];
-            int imageBarrierCount;
-            ExecutionOrder.ForEach(passIndex =>
+            _attachmentFrequency.Clear();
+            _imaginaryLayout.Clear();
+            localExecutePass.ForEach(pass =>
             {
-                var pass = Passes[passIndex];
-                if ((category & pass.PassCategory) == 0 || DisabledPasses.Contains(pass.Name))
+                pass.Attachments.ForEach(attachment =>
                 {
-                    return;
-                }
-                GraphicsDevice.BeginLabelCmd(commandBuffer, pass.Name);
-
-
-                imageBarrierCount = 0;
-                NativeMemory.Fill(imageBarriers, (uint)(sizeof(VkImageMemoryBarrier2) * ImageMemoryBarrierStackSize), 0);
-                pass.Inputs.ForEach(input =>
-                {
-                    if (!Resources.TryGetValue(input, out var resource)) return;
-
-                    switch (pass.PassType)
+                    if (!_attachmentFrequency.TryAdd(attachment.AttachmentResourceName, 1))
                     {
-                        case PassType.Render:
-                            if (resource.Target.ImageLayout != resource.AttachmentInputLayout)
-                            {
-                                imageBarriers[imageBarrierCount] = resource.Target.GetImageLayoutBarrierAuto(resource.AttachmentInputLayout);
-                                imageBarrierCount++;
-                                resource.Target.SetImageLayoutSilent(resource.AttachmentInputLayout);
-                            }
-                            break;
-                        case PassType.Compute:
-                            if (resource.Target.ImageLayout != resource.ComputeInputLayout)
-                            {
-                                imageBarriers[imageBarrierCount] = resource.Target.GetImageLayoutBarrierAuto(resource.ComputeInputLayout);
-                                imageBarrierCount++;
-                                resource.Target.SetImageLayoutSilent(resource.ComputeInputLayout);
-                            }
-                            break;
+                        _attachmentFrequency[attachment.AttachmentResourceName]++;
                     }
-
+                    _imaginaryLayout.TryAdd(attachment.AttachmentResourceName, VkImageLayout.Undefined);
                 });
-
-                pass.Outputs.ForEach(output =>
-                {
-                    if (!Resources.TryGetValue(output, out var resource)) return;
-                    switch (pass.PassType)
-                    {
-                        case PassType.Render:
-                            if (resource.Target.ImageLayout != resource.AttachmentOutputLayout)
-                            {
-                                imageBarriers[imageBarrierCount] = resource.Target.GetImageLayoutBarrierAuto(resource.AttachmentOutputLayout);
-                                imageBarrierCount++;
-                                resource.Target.SetImageLayoutSilent(resource.AttachmentOutputLayout);
-                            }
-                            break;
-                        case PassType.Compute:
-                            if (resource.Target.ImageLayout != resource.ComputeOutputLayout)
-                            {
-                                imageBarriers[imageBarrierCount] = resource.Target.GetImageLayoutBarrierAuto(resource.ComputeOutputLayout);
-                                imageBarrierCount++;
-                                resource.Target.SetImageLayoutSilent(resource.ComputeOutputLayout);
-                            }
-                            break;
-                    }
-                });
-
-                MemoryBarrierHelper.ImageMemoryBarrier(commandBuffer, new Span<VkImageMemoryBarrier2>(imageBarriers, imageBarrierCount));
-
-                pass.ExecuteFunc(frameInfo);
-
-                imageBarrierCount = 0;
-                NativeMemory.Fill(imageBarriers, (uint)(sizeof(VkImageMemoryBarrier2) * ImageMemoryBarrierStackSize), 0);
-                pass.Outputs.ForEach(output =>
-                {
-                    if (!Resources.TryGetValue(output, out var resource)) return;
-                    switch (pass.PassType)
-                    {
-                        case PassType.Render:
-                            if (resource.Target.ImageLayout != resource.AttachmentInputLayout)
-                            {
-                                imageBarriers[imageBarrierCount] = resource.Target.GetImageLayoutBarrierAuto(resource.AttachmentInputLayout);
-                                imageBarrierCount++;
-                                resource.Target.SetImageLayoutSilent(resource.AttachmentInputLayout);
-                            }
-                            break;
-                        case PassType.Compute:
-                            if (resource.Target.ImageLayout != resource.ComputeInputLayout)
-                            {
-                                imageBarriers[imageBarrierCount] = resource.Target.GetImageLayoutBarrierAuto(resource.ComputeInputLayout);
-                                imageBarrierCount++;
-                                resource.Target.SetImageLayoutSilent(resource.ComputeInputLayout);
-                            }
-                            break;
-                    }
-                });
-
-                MemoryBarrierHelper.ImageMemoryBarrier(commandBuffer, new Span<VkImageMemoryBarrier2>(imageBarriers, imageBarrierCount));
-
-                GraphicsDevice.EndLabelCmd(commandBuffer);
             });
+
+            for (int i = 0; i < localExecutePass.Count; i++)
+            {
+                List<RenderPassAttachmentUsageInfo> attachments = localExecutePass[i].Attachments;
+                localExecutePass[i].ImageMemoryBarrierStackSize = 0;
+                for (int j = 0; j < attachments.Count; j++)
+                {
+                    attachments[j].ClearInOutOps();
+                    if (TryGetResource(attachments[j].AttachmentResourceName, out var resource))
+                    {
+                        localExecutePass[i].ImageMemoryBarrierStackSize += resource.Target.ImageCount;
+                    }
+                    if (_attachmentFrequency[ attachments[j].AttachmentResourceName] == 1)
+                    {
+                        _imaginaryLayout[attachments[j].AttachmentResourceName] = 
+                            attachments[j].InputOp = 
+                                _imaginaryLayout[attachments[j].AttachmentResourceName] == VkImageLayout.Undefined 
+                                    ? attachments[j].InputLayoutExpectations 
+                                    : VkImageLayout.Undefined;
+                        if (attachments[j].OutputLayout != VkImageLayout.Undefined && attachments[j].OutputLayout != attachments[j].InputOp)
+                        {
+                            //_imaginaryLayout[attachments[j].AttachmentResourceName] = attachments[j].OutputOp = attachments[j].OutputLayout;
+                        }
+                    }
+                    else
+                    {
+                        var currentLayout = _imaginaryLayout[attachments[j].AttachmentResourceName];
+                        var inputLayout = attachments[j].InputLayoutExpectations;
+                        var outputLayout = attachments[j].OutputLayout;
+                        outputLayout = outputLayout == VkImageLayout.Undefined ? inputLayout : outputLayout;
+                        if (inputLayout != VkImageLayout.Undefined && currentLayout != inputLayout)
+                        {
+                            currentLayout = attachments[j].InputOp = inputLayout;
+                        }
+
+                        var nextOccurance = GetNextPassWithAttachment(i, attachments[j].AttachmentResourceName);
+                        if (nextOccurance != null)
+                        {
+                            if (nextOccurance.InputLayoutExpectations != outputLayout)
+                            {
+                                outputLayout = nextOccurance.InputLayoutExpectations;
+                            }
+
+                            if (outputLayout != VkImageLayout.Undefined && outputLayout != currentLayout)
+                            {
+                                //currentLayout = attachments[j].OutputOp = outputLayout;
+                            }
+                        }
+
+                        _imaginaryLayout[attachments[j].AttachmentResourceName] = currentLayout;
+                    }
+                    Debug.Assert(_imaginaryLayout[attachments[j].AttachmentResourceName] != VkImageLayout.Undefined, "Render target used in pass has potentially undefined layout");
+                }
+            }
         }
 
+        private static RenderPassAttachmentUsageInfo GetNextPassWithAttachment(int index, string attachment)
+        {
+            for (int i = index + 1; i < localExecutePass.Count; i++)
+            {
+                var nextAttachment = localExecutePass[i].Attachments.FirstOrDefault(a => a.AttachmentResourceName == attachment);
+                if (nextAttachment == null) continue;
+                return nextAttachment;
+            }
+            return null;
+        }
+
+        public static void Execute(RendererFrameInfo frameInfo, ulong semaphoreOffset, PassCategory category = PassCategory.All)
+        {
+            if (Recompile) Compile();
+            _category = category;
+            _frameInfo = frameInfo;
+            _semaphoreOffset = semaphoreOffset;
+            
+            localExecutePass.Clear();
+            for (int i = 0; i < ExecutionOrder.Count; i++)
+            {
+
+                int passIndex = ExecutionOrder[i];
+                var pass = Passes[passIndex];
+                if ((_category & pass.PassCategory) == 0 || DisabledPasses.Contains(pass.Name) || !pass.HasCommands(new(_frameInfo, VkCommandBuffer.Null))) continue;
+
+                localExecutePass.Add(pass);
+            }
+
+            if (localExecutePass.Count == 0) return;
+
+            if(_secondaries.Length < localExecutePass.Count)
+            {
+                Array.Resize(ref _secondaries, localExecutePass.Count);
+            }
+
+            BuildMemoryBarriers();
+
+            for (int i = 0; i < localExecutePass.Count; i++)
+            {
+                ExecuatePass(i);
+            }
+            Span<VkCommandBuffer> commandBuffers = stackalloc VkCommandBuffer[localExecutePass.Count];
+            for (int i = 0; i < localExecutePass.Count; i++)
+            {
+                commandBuffers[i] = _secondaries[i].Item2;
+                //GraphicsDevice.DeviceAPI.vkCmdExecuteCommands(frameInfo.CommandBuffer, _secondaries[i].Item2);
+            }
+
+            //GraphicsDevice.DeviceAPI.vkCmdExecuteCommands(frameInfo.CommandBuffer, commandBuffers);
+
+            Array.Clear(_secondaries);
+        }
+
+        private static PassCategory _category;
+        private static RendererFrameInfo _frameInfo;
+        private static ulong _semaphoreOffset;
+        private static (string,VkCommandBuffer)[] _secondaries = [];
+
+        public static ulong GetMaxPassRelativeSemaphoreValue()
+        {
+            return (ulong)ExecutionOrder.Count;
+        }
+
+        private static void ExecuatePass(int index)
+        {
+            var pass = localExecutePass[index];
+            //if ((_category & pass.PassCategory) == 0 || DisabledPasses.Contains(pass.Name) || !pass.HasCommands(new(_frameInfo, VkCommandBuffer.Null))) return;
+
+            var commandBuffer = _frameInfo.CommandBuffer;// GraphicsDevice.GetSecondaryCommandBuffer();
+            //_secondaries[index] = (pass.Name, commandBuffer);
+            //GraphicsDevice.SetObjectName(VkObjectType.CommandBuffer, commandBuffer.Handle, $"{pass.Name} Cmd Buffer");
+
+            //GraphicsDevice.BeginSecondaryCommandBuffer(commandBuffer);
+            RendererFrameInfo frameInfo = _frameInfo;// new(_frameInfo,commandBuffer);
+            GraphicsDevice.BeginLabelCmd(commandBuffer, pass.Name);
+
+            Span<VkImageMemoryBarrier2> imageBarriers = stackalloc VkImageMemoryBarrier2[pass.ImageMemoryBarrierStackSize];
+
+            int imageBarrierCount = GetMemoryBarriers(pass, imageBarriers, false);
+
+            MemoryBarrierHelper.ImageMemoryBarrier(commandBuffer, imageBarriers[..imageBarrierCount]);
+            
+            pass.ExecuteFunc(frameInfo);
+
+            imageBarriers.Clear();
+
+            imageBarrierCount = GetMemoryBarriers(pass, imageBarriers, true);
+
+            MemoryBarrierHelper.ImageMemoryBarrier(commandBuffer, imageBarriers[..imageBarrierCount]);
+            
+            GraphicsDevice.EndLabelCmd(commandBuffer);
+
+            //GraphicsDevice.DeviceAPI.vkEndCommandBuffer(commandBuffer).CheckResult("Failed to end command buffer!");
+        }
+
+        private static int GetMemoryBarriers(RenderPass pass, Span<VkImageMemoryBarrier2> imageBarriers, bool output)
+        {
+            int imageBarrierCount = 0;
+            for (int i = 0; i < pass.Attachments.Count; i++)
+            {
+                var a = pass.Attachments[i];
+                var layout = output ? a.OutputOp : a.InputOp;
+                if (TryGetResource(a.AttachmentResourceName, out var resource) && layout != VkImageLayout.Undefined)
+                {
+                    imageBarrierCount += resource.Target.GetImageLayoutBarrierAuto(imageBarriers.Slice(imageBarrierCount, resource.Target.ImageCount), layout);
+                    resource.Target.SetImageLayoutSilent(layout);
+                }
+            }
+
+            return imageBarrierCount;
+        }
 
         public static List<int> Compile(List<RenderPass> passes)
         {
@@ -311,6 +364,8 @@ namespace VECS
 
             ExecutionOrder = Compile(Passes);
             Recompile = false;
+            localExecutePass.TrimExcess();
+            localExecutePass.EnsureCapacity(ExecutionOrder.Count);
         }
 
         private static void SortExecution(List<int>[] dependents, bool[] visited, bool[] inStack, List<RenderPass> passes, List<int> executionOrder)
@@ -333,15 +388,13 @@ namespace VECS
                 visited[node] = true;
                 executionOrder.Add(node);
             }
-            ImageMemoryBarrierStackSize = 0;
+
             for (int i = 0; i < passes.Count; i++)
             {
                 if (!visited[i])
                 {
                     Visit(i, executionOrder);
                 }
-
-                ImageMemoryBarrierStackSize = Math.Max(ImageMemoryBarrierStackSize,Math.Max(passes[i].Inputs.Count, passes[i].Outputs.Count));
             }
         }
 

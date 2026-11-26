@@ -406,7 +406,7 @@ namespace VECS
         {
             var dstStage = newLayout.GetStageFlagFromLayout();
             var srcStage = _imageLayout.GetStageFlagFromLayout();
-            SetImageLayout(cmdBuffer,newLayout,srcStage, dstStage);
+            SetImageLayout(cmdBuffer, newLayout, srcStage, dstStage);
         }
 
         public VkImageMemoryBarrier2 GetImageLayoutBarrierAuto(VkImageLayout newLayout)

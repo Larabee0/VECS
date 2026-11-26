@@ -46,9 +46,50 @@ namespace VECS
             _bloomMixer.SetFloat("constants.bloomStrength".GetShaderPropertyId(), 0.07f);
             Application.Instance.OnDestroy += CleanUpViews;
 
-            RenderGraph.AddPass("PhyBloomDownSample", PassType.Compute, PassCategory.PostProcessing,["ForwardPass", "DeferredCompositePass", "TransaprentComposite", "SMAA_Output"], [RenderGraph.MainColourAttachment], ["PhyBloomAttachment"],BloomDownSample);
-            RenderGraph.AddPass("PhyBloomUpSample", PassType.Compute, PassCategory.PostProcessing, ["PhyBloomDownSample"], [RenderGraph.MainColourAttachment], ["PhyBloomAttachment"], BloomUpSample);
-            RenderGraph.AddPass("PhyBloomMix", PassType.Compute, PassCategory.PostProcessing, ["PhyBloomUpSample"], [RenderGraph.MainColourAttachment, "PhyBloomAttachment"], [RenderGraph.MainColourAttachment], BloomMix);
+            RenderGraph.AddPass(new
+                (
+                    "PhyBloomDownSample",
+                    PassType.Compute,
+                    PassCategory.PostProcessing,
+                    [
+                        new RenderPassAttachmentUsageInfo(RenderGraph.MainColourAttachment),
+                        new RenderPassAttachmentUsageInfo("PhyBloomAttachment")
+                    ],
+                    [
+                        "ForwardPass",
+                        "DeferredCompositePass",
+                        "TransparentPass",
+                        "SMAA"
+                    ],
+                    BloomDownSample
+                )
+            );
+            RenderGraph.AddPass(new
+                (
+                    "PhyBloomUpSample",
+                    PassType.Compute,
+                    PassCategory.PostProcessing,
+                    [
+                        new RenderPassAttachmentUsageInfo(RenderGraph.MainColourAttachment),
+                        new RenderPassAttachmentUsageInfo("PhyBloomAttachment")
+                    ],
+                    ["PhyBloomDownSample"],
+                    BloomUpSample
+                )
+            );
+            RenderGraph.AddPass(new
+                (
+                    "PhysicalBloomPass",
+                    PassType.Compute,
+                    PassCategory.PostProcessing,
+                    [
+                        new RenderPassAttachmentUsageInfo(RenderGraph.MainColourAttachment),
+                        new RenderPassAttachmentUsageInfo("PhyBloomAttachment")
+                    ],
+                    ["PhyBloomUpSample"],
+                    BloomMix
+                )
+            );
         }
 
         private void CleanUpViews()

@@ -57,7 +57,23 @@ namespace VECS
 
         public void AddToRenderGraph()
         {
-            RenderGraph.AddPass("Skybox", PassType.Compute, PassCategory.PostRendering, ["ForwardPass", "DeferredCompositePass", "TransaprentComposite"], [RenderGraph.MainColourAttachment], [RenderGraph.MainColourAttachment], RenderSkybox);
+            RenderGraph.AddPass(new
+                (
+                    "Skybox",
+                    PassType.Render,
+                    PassCategory.PostRendering,
+                    [
+                        new RenderPassAttachmentUsageInfo(RenderGraph.MainColourAttachment,VkImageLayout.ColorAttachmentOptimal, VkImageLayout.Undefined),
+                        new RenderPassAttachmentUsageInfo(RenderGraph.MainDepthAttachment,VkImageLayout.DepthAttachmentOptimal, VkImageLayout.Undefined),
+                    ],
+                    [
+                        "ForwardPass",
+                        "DeferredCompositePass",
+                    ],
+                    RenderSkybox,
+                    (f) => !(SkyboxTexture == null || Cube == null || f.TargetCamera == -1)
+                )
+            );
         }
 
 

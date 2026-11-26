@@ -88,25 +88,24 @@ namespace VECS
 
             _shadowDepthTextures.First.SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal, VkPipelineStageFlags2.LateFragmentTests);
 
-            RenderGraph.AddPass("TetrahedronPointShadows", PassType.Render, PassCategory.FixedMap, [], [], ["TetrahedronShadowAttachment"], ShadowPass);
+            RenderGraph.AddPass(new("TetrahedronPointShadows", PassType.Render, PassCategory.FixedMap, [new("TetrahedronShadowAttachment", VkImageLayout.DepthAttachmentOptimal, VkImageLayout.Undefined)], ShadowPass));
+
             _blit = EnginePipes.Blit.Create("TerahedronDebug");
             _tile_debug_visualiser = ComputePipeline.GetOrCreate("tile_shadow_debug.comp").Default();
-            RenderGraph.AddResource(new("Tile_Debug",
-                Presenter.MainColourFormat,
-                new(Screen.Width, Screen.Height),
-                VkImageUsageFlags.Storage | VkImageUsageFlags.Sampled,
-                VkImageLayout.ShaderReadOnlyOptimal,
-                VkImageLayout.ColorAttachmentOptimal,
-                VkImageLayout.General,
-                VkImageLayout.General
-                
-                ));
+            RenderGraph.AddResource(new
+                (
+                    "Tile_Debug",
+                    Presenter.MainColourFormat,
+                    new(Screen.Width, Screen.Height),
+                    VkImageUsageFlags.Storage | VkImageUsageFlags.Sampled
+                )
+            );
             _tileDebug =  RenderGraph.GetOrCreateResource("Tile_Debug", new(Screen.Width, Screen.Height));
-            _tile_debug_visualiser.SetTexture("outImage".GetShaderPropertyId(), _tileDebug.Target);
+            _tile_debug_visualiser.SetTextures("outImage".GetShaderPropertyId(), _tileDebug.Target);
             _tile_debug_visualiser.SetTextures(DeferredRenderer.G_PositionPropertyId, EngineTextures.TryGetTexture(DeferredRenderer.G_PositionPropertyId));
             _blit.SetTexture("inputTexture".GetShaderPropertyId(), _tileDebug.Target);
 
-            RenderGraph.AddPass("Shadow_Tetrahedron_Debug", PassType.Compute, PassCategory.PostRendering, ["DeferredObjectsPass", "ForwardPass"], ["G_PositionAttachment"], ["Tile_Debug"],DebugPass);
+            RenderGraph.AddPass(new("Shadow_Tetrahedron_Debug", PassType.Compute, PassCategory.PostRendering, [new RenderPassAttachmentUsageInfo("G_PositionAttachment"), new("Tile_Debug")], ["DeferredObjectsPass", "ForwardPass"], DebugPass));
 
             _tile_debug_visualiser.SetVector4("faceVectors.faceA".GetShaderPropertyId(), new(Face_A, 1));
             _tile_debug_visualiser.SetVector4("faceVectors.faceB".GetShaderPropertyId(), new(Face_B, 1));

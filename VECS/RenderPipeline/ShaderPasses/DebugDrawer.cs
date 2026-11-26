@@ -83,10 +83,36 @@ namespace VECS
 
         public void AddToRenderGraph()
         {
-            RenderGraph.AddPass("DebugLines", PassType.Render, PassCategory.PostProcessing, ["ForwardPass", "DeferredCompositePass", "TransaprentComposite"], [RenderGraph.MainColourAttachment], [RenderGraph.MainColourAttachment],LinePass);
-            RenderGraph.AddPass("DebugWireCubes", PassType.Render, PassCategory.PostProcessing, ["DebugLines"], [RenderGraph.MainColourAttachment], [RenderGraph.MainColourAttachment], WireCubesPass);
-            RenderGraph.AddPass("DebugWireSpheres", PassType.Render, PassCategory.PostProcessing, ["DebugWireCubes"], [RenderGraph.MainColourAttachment], [RenderGraph.MainColourAttachment], WireSpheresPass);
-            RenderGraph.AddPass("DebugFustrums", PassType.Render, PassCategory.PostProcessing, ["DebugWireSpheres"], [RenderGraph.MainColourAttachment], [RenderGraph.MainColourAttachment], FustrumPass);
+            RenderGraph.AddPass(new
+                (
+                    "DebugPass",
+                    PassType.Render,
+                    PassCategory.PostRendering,
+                    [
+                        new RenderPassAttachmentUsageInfo(RenderGraph.MainColourAttachment, VkImageLayout.ColorAttachmentOptimal, VkImageLayout.Undefined),
+                    ],
+                    [
+                        "ForwardPass",
+                        "DeferredCompositePass",
+                        "TransparentPass"
+                    ],
+                    DebugPass,
+                    AnyDebugItems
+                )
+            );
+        }
+
+        private bool AnyDebugItems(RendererFrameInfo info)
+        {
+            return _lineQueue.Count != 0 || _wireCubes.Count != 0 || _wireSpheres.Count != 0 || _fustrums.Count != 0;
+        }
+
+        private void DebugPass(RendererFrameInfo frameInfo)
+        {
+            LinePass(frameInfo);
+            WireCubesPass(frameInfo);
+            WireSpheresPass(frameInfo);
+            FustrumPass(frameInfo);
         }
 
         public void SetEnabled(bool enabled)

@@ -19,6 +19,11 @@ namespace VECS.LowLevel
         public static VkPresentModeKHR PresentMode => VkPresentModeKHR.Immediate;
 
         internal static int _currentFrame = 0;
+        internal static ulong _currentSemaphoreValue = 0;
+
+        public static ulong SemaphoreValue => _currentSemaphoreValue;
+        public static ulong NextSemaphoreValue => _currentSemaphoreValue + 1;
+
 
         public static int FrameIndex => _currentFrame;
         public static int NextFrame => (_currentFrame + 1) % MAX_CONCURRENT_FRAMES;

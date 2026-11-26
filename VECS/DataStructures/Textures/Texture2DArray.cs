@@ -29,7 +29,7 @@ namespace VECS
             CreateAdditionalImageViews();
             this.CreateSampler();
 
-            SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal);
+
             UpdateDescriptor();
             
             AssetDataBase<Texture2DArray>.Add(this);

@@ -18,8 +18,6 @@ namespace VECS
             this.CreateImage(GetImageCreateInfo());
             this.CreateImageView(GetImageViewCreateInfo());
             this.CreateSampler();
-
-            SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal);
             UpdateDescriptor();
             
             AssetDataBase<Texture3D>.Add(this);
@@ -41,15 +39,6 @@ namespace VECS
             this.CreateImage(GetImageCreateInfo());
 
             this.SetImageLayoutAndAspectFromUsage();
-
-            if (usage.HasFlag(VkImageUsageFlags.DepthStencilAttachment))
-            {
-                SetImageLayout(VkImageLayout.DepthAttachmentStencilReadOnlyOptimal);
-            }
-            else
-            {
-                SetImageLayout(VkImageLayout.ShaderReadOnlyOptimal);
-            }
 
             this.CreateImageView(GetImageViewCreateInfo());
 

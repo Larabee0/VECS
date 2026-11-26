@@ -50,12 +50,8 @@ namespace VECS
             EngineTextures.AddOrUpdateTexture(ShaderProperties.DepthPyramidId, new SingleTexture(_depthPryamid));
 
             RenderGraph.AddResource("DepthPryamidAttachment",
-                new(_depthPryamid,
+                new(new SingleTexture(_depthPryamid),
                 RenderTargetType.Colour,
-                VkImageLayout.ShaderReadOnlyOptimal,
-                VkImageLayout.ColorAttachmentOptimal,
-                VkImageLayout.General,
-                VkImageLayout.ShaderReadOnlyOptimal,
                 new(1, 0, 0, 0),
                 -1)
             );
@@ -71,8 +67,32 @@ namespace VECS
 
         public void AddToRenderGraph()
         {
-            RenderGraph.AddPass("ReduceDepthPyramid", PassType.Compute, PassCategory.PreRendering, ["DepthPrePass"], ["MainDepthAttachment"], ["DepthPryamidAttachment"], ReduceDepth);
-            RenderGraph.AddPass("ClearDepthPyramid", PassType.Render, PassCategory.PreRendering, ["DepthPrePass"], ["MainDepthAttachment"], ["DepthPryamidAttachment"], ClearPyramid);
+            RenderGraph.AddPass(new
+                (
+                    "ReduceDepthPyramid",
+                    PassType.Compute,
+                    PassCategory.PreRendering,
+                    [
+                        new RenderPassAttachmentUsageInfo(RenderGraph.MainDepthAttachment, VkImageLayout.ShaderReadOnlyOptimal, VkImageLayout.Undefined),
+                        new RenderPassAttachmentUsageInfo("DepthPryamidAttachment", VkImageLayout.General,VkImageLayout.ShaderReadOnlyOptimal)
+                    ],
+                    ["DepthPrePass"],
+                    ReduceDepth,
+                    (f)=> f.CullData.CullMode.HasFlag(CullModeFlags.Depth)
+                )
+            );
+            RenderGraph.AddPass(new
+                (
+                    "ClearDepthPyramid",
+                    PassType.Render,
+                    PassCategory.PreRendering,
+                    [
+                        new RenderPassAttachmentUsageInfo("DepthPryamidAttachment", VkImageLayout.General,VkImageLayout.ShaderReadOnlyOptimal)
+                    ], 
+                    ["DepthPrePass"],
+                    ClearPyramid
+                )
+            );
             RenderGraph.DisablePass("ClearDepthPyramid");
         }
 
@@ -151,15 +171,11 @@ namespace VECS
             VkClearColorValue clearDepthStencilValue = new(0, 0, 0, 0);
             VkImageSubresourceRange subresourceRange = _depthPryamid.GetSubresourceRange();
 
-            _depthPryamid.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.General);
-
             GraphicsDevice.DeviceAPI.vkCmdClearColorImage(frameInfo.CommandBuffer, _depthPryamid._vkImage, _depthPryamid.ImageLayout, &clearDepthStencilValue, 1, &subresourceRange);
-
-            _depthPryamid.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.General);
-            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
 
             RenderGraph.DisablePass("ClearDepthPyramid");
             IsDepthPyramidCleared = true;
+            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
         }
 
         private void ReduceDepth(RendererFrameInfo frameInfo)
@@ -231,7 +247,7 @@ namespace VECS
 
                 depthReadBarrier.subresourceRange.baseMipLevel = (uint)i;
 
-                MemoryBarrierHelper.ImageMemoryBarrier(frameInfo.CommandBuffer, depthReadBarrier,VkDependencyFlags.ByRegion);
+                MemoryBarrierHelper.ImageMemoryBarrier(frameInfo.CommandBuffer, depthReadBarrier, VkDependencyFlags.ByRegion);
 
             }
             IsDepthPyramidCleared = false;

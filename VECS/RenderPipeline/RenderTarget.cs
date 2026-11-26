@@ -21,11 +21,6 @@ namespace VECS
         public readonly VkFormat Format;
         public readonly VkExtent2D Extent;
         public readonly VkImageUsageFlags AdditionalUsage;
-        public readonly VkImageLayout InputAttachmentLayout;
-        public readonly VkImageLayout OutputAttachmentLayout;
-
-        public readonly VkImageLayout InputComputeLayout;
-        public readonly VkImageLayout OutputComputeLayout;
 
         public readonly VkClearValue DefaultClearValue;
 
@@ -41,20 +36,12 @@ namespace VECS
             string name,
             VkFormat format,
             VkExtent2D extent,
-            VkImageUsageFlags usage,
-            VkImageLayout inputAttachmentLayout,
-            VkImageLayout outputAttachmentLayout,
-            VkImageLayout inputComputeLayout,
-            VkImageLayout outputComputeLayout
+            VkImageUsageFlags usage
             ) : this(name)
         {
             Format = format;
             Extent = extent;
             AdditionalUsage = usage;
-            InputAttachmentLayout = inputAttachmentLayout;
-            OutputAttachmentLayout = outputAttachmentLayout;
-            InputComputeLayout = inputComputeLayout;
-            OutputComputeLayout = outputComputeLayout;
         }
 
         public RenderTargetDefintion(
@@ -62,11 +49,7 @@ namespace VECS
             VkFormat format,
             VkExtent2D extent,
             VkImageUsageFlags usage,
-            VkImageLayout inputAttachmentLayout,
-            VkImageLayout outputAttachmentLayout,
-            VkImageLayout inputComputeLayout,
-            VkImageLayout outputComputeLayout,
-            VkClearValue defaultClearValue) : this(name, format, extent, usage, inputAttachmentLayout, outputAttachmentLayout, inputComputeLayout, outputComputeLayout)
+            VkClearValue defaultClearValue) : this(name, format, extent, usage)
         {
             DefaultClearValue = defaultClearValue;
         }
@@ -77,11 +60,7 @@ namespace VECS
             VkFormat format,
             VkExtent2D extent,
             VkImageUsageFlags usage,
-            VkImageLayout inputAttachmentLayout,
-            VkImageLayout outputAttachmentLayout,
-            VkImageLayout inputComputeLayout,
-            VkImageLayout outputComputeLayout,
-            VkClearValue defaultClearValue) : this(name, format, extent, usage, inputAttachmentLayout, outputAttachmentLayout, inputComputeLayout, outputComputeLayout, defaultClearValue)
+            VkClearValue defaultClearValue) : this(name, format, extent, usage, defaultClearValue)
         {
             ShaderPropertyId = shaderPropertyId;
         }
@@ -92,12 +71,8 @@ namespace VECS
             VkFormat format,
             VkExtent2D extent,
             VkImageUsageFlags usage,
-            VkImageLayout inputAttachmentLayout,
-            VkImageLayout outputAttachmentLayout,
-            VkImageLayout inputComputeLayout,
-            VkImageLayout outputComputeLayout,
             VkClearValue defaultClearValue,
-            VkSamplerAddressMode addressMode) : this(name,shaderPropertyId, format, extent, usage, inputAttachmentLayout, outputAttachmentLayout, inputComputeLayout, outputComputeLayout, defaultClearValue)
+            VkSamplerAddressMode addressMode) : this(name,shaderPropertyId, format, extent, usage, defaultClearValue)
         {
             SamplerAddressMode = addressMode;
         }
@@ -108,11 +83,7 @@ namespace VECS
             VkFormat format,
             int targetDisplay,
             VkImageUsageFlags usage,
-            VkImageLayout inputAttachmentLayout,
-            VkImageLayout outputAttachmentLayout,
-            VkImageLayout inputComputeLayout,
-            VkImageLayout outputComputeLayout,
-            VkClearValue defaultClearValue) : this(name, shaderPropertyId, format, new VkExtent2D(), usage, inputAttachmentLayout, outputAttachmentLayout, inputComputeLayout, outputComputeLayout, defaultClearValue)
+            VkClearValue defaultClearValue) : this(name, shaderPropertyId, format, new VkExtent2D(), usage, defaultClearValue)
         {
             TargetDisplay = targetDisplay;
         }
@@ -123,11 +94,7 @@ namespace VECS
             VkFormat format,
             int targetDisplay,
             VkImageUsageFlags usage,
-            VkImageLayout inputAttachmentLayout,
-            VkImageLayout outputAttachmentLayout,
-            VkImageLayout inputComputeLayout,
-            VkImageLayout outputComputeLayout,
-            VkClearValue defaultClearValue) : this(name, format, new VkExtent2D(), usage, inputAttachmentLayout, outputAttachmentLayout, inputComputeLayout, outputComputeLayout, defaultClearValue)
+            VkClearValue defaultClearValue) : this(name, format, new VkExtent2D(), usage, defaultClearValue)
         {
             TargetDisplay = targetDisplay;
         }
@@ -137,26 +104,25 @@ namespace VECS
 
     public class RenderTarget
     {
-        private readonly Texture2D _image;
+        private readonly ITextureProvider _image;
         private readonly RenderTargetType _renderTargetType;
-        public readonly VkImageLayout AttachmentInputLayout;
-        public readonly VkImageLayout AttachmentOutputLayout;
-        public readonly VkImageLayout ComputeInputLayout;
-        public readonly VkImageLayout ComputeOutputLayout;
 
         public  VkClearValue DefaultClearValue;
         public readonly int TargetDisplay;
 
-        public Texture2D Target => _image;
-        public VkImageLayout CurrentLayout => _image.ImageLayout;
-        public VkImage VkImage => _image._vkImage;
-        public VkImageView VkImageView => _image._imageView;
+        private bool _cleared;
+        public bool IsCleared => _cleared;
+        public ITextureProvider Target => _image;
+        public VkImageLayout CurrentLayout => _image.First.ImageLayout;
+        public VkImage VkImage => _image.First._vkImage;
+        public VkImageView VkImageView => _image.First._imageView;
 
         public RenderTarget(string name, int width, int height, VkFormat format,  VkSamplerAddressMode samplerMode = VkSamplerAddressMode.ClampToEdge)
         {
             VkImageUsageFlags usageFlags;
-            var hasDepthFormat = GraphicsDevice.DepthStencilFormats.Contains(format);
-            var hasStencilFormat = GraphicsDevice.StencilFormats.Contains(format);
+            bool hasDepthFormat = GraphicsDevice.DepthStencilFormats.Contains(format), hasStencilFormat = hasDepthFormat;
+            hasDepthFormat |= GraphicsDevice.DepthFormats.Contains(format);
+            hasStencilFormat |= GraphicsDevice.StencilFormats.Contains(format);
             if (hasDepthFormat || hasStencilFormat)
             {
                 usageFlags = VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.TransferDst;
@@ -179,7 +145,7 @@ namespace VECS
                 _renderTargetType = RenderTargetType.Colour;
             }
 
-            _image = new($"RT_{name}_{Presenter.FrameCount}_{_renderTargetType}", width, height, format, usageFlags, samplerMode, 0, false, VkCompareOp.Never, false);
+            _image =new SingleTexture( new Texture2D($"RT_{name}_{Presenter.FrameCount}_{_renderTargetType}", width, height, format, usageFlags, samplerMode, 0, false, VkCompareOp.Never, false));
 
             if (_renderTargetType == RenderTargetType.Colour)
             {
@@ -187,7 +153,18 @@ namespace VECS
             }
             else
             {
-                _image.SetImageLayout(VkImageLayout.DepthStencilAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.EarlyFragmentTests);
+                if (GraphicsDevice.DepthStencilFormats.Contains(format))
+                {
+                    _image.SetImageLayout(VkImageLayout.DepthStencilAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.EarlyFragmentTests);
+                }
+                else if (GraphicsDevice.DepthFormats.Contains(format))
+                {
+                    _image.SetImageLayout(VkImageLayout.DepthAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.EarlyFragmentTests);
+                }
+                else
+                {
+                    _image.SetImageLayout(VkImageLayout.StencilAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.EarlyFragmentTests);
+                }
             }
             CreateAdditionalSamplers();
             DefaultClearValue = new()
@@ -201,8 +178,10 @@ namespace VECS
         public RenderTarget(string name, int width, int height, VkFormat format, VkImageUsageFlags additionalFlags, VkSamplerAddressMode samplerMode = VkSamplerAddressMode.ClampToEdge)
         {
             VkImageUsageFlags usageFlags = additionalFlags;
-            var hasDepthFormat = GraphicsDevice.DepthStencilFormats.Contains(format);
-            var hasStencilFormat = GraphicsDevice.StencilFormats.Contains(format);
+
+            bool hasDepthFormat = GraphicsDevice.DepthStencilFormats.Contains(format), hasStencilFormat = hasDepthFormat;
+            hasDepthFormat |= GraphicsDevice.DepthFormats.Contains(format);
+            hasStencilFormat |= GraphicsDevice.StencilFormats.Contains(format);
             if (hasDepthFormat || hasStencilFormat)
             {
                 usageFlags |= VkImageUsageFlags.DepthStencilAttachment | VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.TransferDst;
@@ -225,7 +204,7 @@ namespace VECS
                 _renderTargetType = RenderTargetType.Colour;
             }
 
-            _image = new($"RT_{name}_{Presenter.FrameCount}_{_renderTargetType}", width, height, format, usageFlags, samplerMode, 0, false, VkCompareOp.Never,VkSamplerMipmapMode.Nearest,VkBorderColor.FloatTransparentBlack,VkFilter.Linear, false);
+            _image = new SingleTexture(new Texture2D($"RT_{name}_{Presenter.FrameCount}_{_renderTargetType}", width, height, format, usageFlags, samplerMode, 0, false, VkCompareOp.Never,VkSamplerMipmapMode.Nearest,VkBorderColor.FloatTransparentBlack,VkFilter.Linear, false));
 
             if (_renderTargetType == RenderTargetType.Colour)
             {
@@ -233,7 +212,18 @@ namespace VECS
             }
             else
             {
-                _image.SetImageLayout(VkImageLayout.DepthStencilAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.EarlyFragmentTests);
+                if (GraphicsDevice.DepthStencilFormats.Contains(format))
+                {
+                    _image.SetImageLayout(VkImageLayout.DepthStencilAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.EarlyFragmentTests);
+                }
+                else if (GraphicsDevice.DepthFormats.Contains(format))
+                {
+                    _image.SetImageLayout(VkImageLayout.DepthAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.EarlyFragmentTests);
+                }
+                else
+                {
+                    _image.SetImageLayout(VkImageLayout.StencilAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.EarlyFragmentTests);
+                }
             }
             CreateAdditionalSamplers();
             DefaultClearValue = new()
@@ -258,40 +248,22 @@ namespace VECS
 
         public RenderTarget(RenderTargetDefintion value) : this(value.Name, (int)value.Extent.width,(int)value.Extent.height,value.Format,value.AdditionalUsage)
         {
-            AttachmentInputLayout = value.InputAttachmentLayout;
-            AttachmentOutputLayout = value.OutputAttachmentLayout;
-            ComputeInputLayout = value.InputComputeLayout;
-            ComputeOutputLayout = value.OutputComputeLayout;
             DefaultClearValue = value.DefaultClearValue;
             TargetDisplay = value.TargetDisplay;
         }
         
         public RenderTarget(RenderTargetDefintion value, VkExtent2D extent) : this(value.Name, (int)extent.width, (int)extent.height, value.Format, value.AdditionalUsage)
         {
-            AttachmentInputLayout = value.InputAttachmentLayout;
-            AttachmentOutputLayout = value.OutputAttachmentLayout;
-            ComputeInputLayout = value.InputComputeLayout;
-            ComputeOutputLayout = value.OutputComputeLayout;
             DefaultClearValue = value.DefaultClearValue;
             TargetDisplay = value.TargetDisplay;
-
-
         }
 
-        public RenderTarget(Texture2D rt, RenderTargetType targetType,
-            VkImageLayout attachmentInputLayout,
-            VkImageLayout attachmentOutputLayout,
-            VkImageLayout computeInputLayout,
-            VkImageLayout computeOutputLayout,
+        public RenderTarget(ITextureProvider rt, RenderTargetType targetType,
             VkClearValue defaultClearValue,
             int targetDisplay = 0)
         {
             _image = rt;
             _renderTargetType = targetType;
-            AttachmentInputLayout = attachmentInputLayout;
-            AttachmentOutputLayout = attachmentOutputLayout;
-            ComputeInputLayout = computeInputLayout;
-            ComputeOutputLayout = computeOutputLayout;
             DefaultClearValue = defaultClearValue;
             TargetDisplay = targetDisplay;
         }
@@ -299,7 +271,7 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public VkImageBlit GetBlitCmd(int dstWidth, int dstHeight, VkImageAspectFlags dstAspectMask)
         {
-            return GetBlitCmd(new VkRect2D(0, 0, (uint)Target.Width, (uint)Target.Height),new(0,0, (uint)dstWidth, (uint)dstHeight), 0, dstAspectMask);
+            return GetBlitCmd(new VkRect2D(0, 0, (uint)Target.First.Width, (uint)Target.First.Height),new(0,0, (uint)dstWidth, (uint)dstHeight), 0, dstAspectMask);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -335,11 +307,11 @@ namespace VECS
                     mipLevel = 0
                 }
             };
-            imageBlit.srcOffsets[0].x = Math.Clamp(srcRect.offset.x, 0, Target.Width - 1);
-            imageBlit.srcOffsets[0].y = Math.Clamp(srcRect.offset.y, 0, Target.Height - 1);
+            imageBlit.srcOffsets[0].x = Math.Clamp(srcRect.offset.x, 0, Target.First.Width - 1);
+            imageBlit.srcOffsets[0].y = Math.Clamp(srcRect.offset.y, 0, Target.First.Height - 1);
 
-            imageBlit.srcOffsets[1].x = Math.Clamp((int)srcRect.extent.width, 1, Target.Width);
-            imageBlit.srcOffsets[1].y = Math.Clamp((int)srcRect.extent.height, 1, Target.Height);
+            imageBlit.srcOffsets[1].x = Math.Clamp((int)srcRect.extent.width, 1, Target.First.Width);
+            imageBlit.srcOffsets[1].y = Math.Clamp((int)srcRect.extent.height, 1, Target.First.Height);
             imageBlit.srcOffsets[1].z = 1;
 
             imageBlit.dstOffsets[0].x = dstRect.offset.x;
@@ -379,30 +351,30 @@ namespace VECS
 
                     createInfo.pNext = &createInfoReduction;
                 }
-                _image.CreateSampler(createInfo);
+                _image.First.CreateSampler(createInfo);
             }
 
         }
 
         public void Resize(int width, int height)
         {
-            if (_image.Width == width && _image.Height == height) return;
-            _image.Reinitialise(width, height);
+            if ((_image.First.Width == width && _image.First.Height == height)|| _image.First is not Texture2D texture2D) return;
+            texture2D.Reinitialise(width, height);
 
             if (_renderTargetType == RenderTargetType.Colour)
             {
-                _image.SetImageLayout(VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.ColorAttachmentOutput);
+                texture2D.SetImageLayout(VkImageLayout.ColorAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.ColorAttachmentOutput);
             }
             else
             {
-                _image.SetImageLayout(VkImageLayout.DepthStencilAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.EarlyFragmentTests);
+                texture2D.SetImageLayout(VkImageLayout.DepthStencilAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.EarlyFragmentTests);
             }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public VkRect2D GetFullRenderArea()
         {
-            return new(0, 0, (uint)Target.Width, (uint)Target.Height);
+            return new(0, 0, (uint)Target.First.Width, (uint)Target.First.Height);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -440,23 +412,6 @@ namespace VECS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe void BeginRenderingOnlyAttachment(VkCommandBuffer commandBuffer, VkClearValue clearValue, VkAttachmentLoadOp loadOp = VkAttachmentLoadOp.Clear, VkAttachmentStoreOp storeOp = VkAttachmentStoreOp.Store)
         {
-            
-            switch (_renderTargetType)
-            {
-                case RenderTargetType.Colour when(CurrentLayout != VkImageLayout.ColorAttachmentOptimal):
-                    Target.SetImageLayoutAuto(commandBuffer, VkImageLayout.ColorAttachmentOptimal);
-                    break;
-                case RenderTargetType.Depth when(CurrentLayout != VkImageLayout.DepthAttachmentOptimal):
-                    Target.SetImageLayoutAuto(commandBuffer, VkImageLayout.DepthAttachmentOptimal);
-                    break;
-                case RenderTargetType.Stencil when(CurrentLayout != VkImageLayout.StencilAttachmentOptimal):
-                    Target.SetImageLayoutAuto(commandBuffer, VkImageLayout.StencilAttachmentOptimal);
-                    break;
-                case RenderTargetType.DepthStencil when(CurrentLayout != VkImageLayout.DepthStencilAttachmentOptimal):
-                    Target.SetImageLayoutAuto(commandBuffer, VkImageLayout.DepthStencilAttachmentOptimal);
-                    break;
-            }
-
             var attachmentInfo = GetAttachmentInfo(clearValue, loadOp, storeOp);
             VkRenderingInfo renderingInfo = new()
             {
@@ -501,6 +456,7 @@ namespace VECS
         {
             BeginRenderingOnlyAttachment(commandBuffer, clearValue);
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(commandBuffer);
+            _cleared = true;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -537,6 +493,7 @@ namespace VECS
                     }
                 }
             }
+            _cleared = false;
         }
     }
 }

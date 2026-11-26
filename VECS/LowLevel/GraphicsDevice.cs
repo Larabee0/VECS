@@ -5,7 +5,6 @@ using System.Diagnostics;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Text;
-using System.Threading;
 using Vortice.Vulkan;
 
 namespace VECS.LowLevel
@@ -28,15 +27,20 @@ namespace VECS.LowLevel
         ];
         private readonly static HashSet<VkFormat> _depthStencilFormats =
         [
-            VkFormat.D16Unorm,
-            VkFormat.D32Sfloat,
             VkFormat.D16UnormS8Uint,
             VkFormat.D24UnormS8Uint,
             VkFormat.D32SfloatS8Uint
         ];
 
+        private readonly static HashSet<VkFormat> _depthFormats =
+        [
+            VkFormat.D16Unorm,
+            VkFormat.D32Sfloat,
+        ];
+
         public static HashSet<VkFormat> DepthStencilFormats => _depthStencilFormats;
         public static HashSet<VkFormat> StencilFormats => _stencilFormats;
+        public static HashSet<VkFormat> DepthFormats => _depthFormats;
 
         internal static IWindow _window;
         internal static VkInstance _instance;
@@ -46,8 +50,6 @@ namespace VECS.LowLevel
         internal static VkDevice _device;
 
         internal static VkDeviceApi _deviceApi;
-
-        // private static VkSurfaceKHR _surface;
 
         internal static VmaAllocator _allocator;
 
@@ -343,6 +345,14 @@ namespace VECS.LowLevel
         {
 #if DEBUG
             _instanceApi.vkSetDebugUtilsObjectNameEXT(Device, objectType, handle, $"VK_{objectType.ToString().ToUpper()}_{name}");
+#endif
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void SetObjectName(VkObjectType objectType, nint handle, string name)
+        {
+#if DEBUG
+            _instanceApi.vkSetDebugUtilsObjectNameEXT(Device, objectType, (ulong)handle, $"VK_{objectType.ToString().ToUpper()}_{name}");
 #endif
         }
 

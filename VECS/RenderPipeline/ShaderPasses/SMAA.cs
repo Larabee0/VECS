@@ -89,28 +89,16 @@ namespace VECS
             RenderGraph.AddResource(new("SMAA_Edge_Attachment",
                 VkFormat.R8G8B8A8Unorm, 0,
                 VkImageUsageFlags.None,
-                VkImageLayout.ShaderReadOnlyOptimal,
-                VkImageLayout.ColorAttachmentOptimal,
-                VkImageLayout.General,
-                VkImageLayout.General,
                 new(0, 0, 0, 0)));
 
             RenderGraph.AddResource(new("SMAA_Blend_Attachment",
                 VkFormat.R8G8B8A8Unorm, 0,
                 VkImageUsageFlags.None,
-                VkImageLayout.ShaderReadOnlyOptimal,
-                VkImageLayout.ColorAttachmentOptimal,
-                VkImageLayout.General,
-                VkImageLayout.General,
                 new(0, 0, 0, 0)));
 
             RenderGraph.AddResource(new("SMAA_Colour_Attachment",
                 ActiveRenderer.MainColourFormat, 0,
                 VkImageUsageFlags.None,
-                VkImageLayout.ShaderReadOnlyOptimal,
-                VkImageLayout.TransferDstOptimal,
-                VkImageLayout.General,
-                VkImageLayout.General,
                 new(0, 0, 0, 0)));
             
 
@@ -166,29 +154,38 @@ namespace VECS
 
         public void AddToRenderGraph()
         {
-            RenderGraph.AddPass("SMAA_Edge_Detection", PassType.Render, PassCategory.PostProcessing,
-                ["ForwardPass", "DeferredCompositePass", "TransaprentComposite"],
-                [RenderGraph.MainColourAttachment, "SMAA_Colour_Attachment"],
-                ["SMAA_Edge_Attachment", "SMAA_Colour_Attachment"],
-                EdgeDetectionPass);
 
-            RenderGraph.AddPass("SMAA_Blend_Weight", PassType.Render, PassCategory.PostProcessing,
-                ["SMAA_Edge_Detection"],
-                ["SMAA_Edge_Attachment"],
-                ["SMAA_Blend_Attachment"],
-                BlendWeightCalculation);
+            RenderGraph.AddPass(new
+                (
+                    "SMAA",
+                    PassType.Render,
+                    PassCategory.PostProcessing,
+                    [
+                        new RenderPassAttachmentUsageInfo(RenderGraph.MainColourAttachment, VkImageLayout.TransferSrcOptimal, VkImageLayout.Undefined),
 
-            RenderGraph.AddPass("SMAA_Output", PassType.Render, PassCategory.PostProcessing,
-                ["SMAA_Blend_Weight", "SMAA_Colour_Attachment"],
-                ["SMAA_Blend_Attachment"],
-                [RenderGraph.PostProcessingColourAttachment],
-                OutputBlending);
+                        new RenderPassAttachmentUsageInfo("SMAA_Colour_Attachment", VkImageLayout.TransferDstOptimal, VkImageLayout.ShaderReadOnlyOptimal, true),
+                        new RenderPassAttachmentUsageInfo("SMAA_Edge_Attachment", VkImageLayout.ColorAttachmentOptimal, VkImageLayout.ShaderReadOnlyOptimal, true),
+                        new RenderPassAttachmentUsageInfo("SMAA_Blend_Attachment", VkImageLayout.ColorAttachmentOptimal, VkImageLayout.ShaderReadOnlyOptimal, true),
 
+                        new RenderPassAttachmentUsageInfo(RenderGraph.PostProcessingColourAttachment, VkImageLayout.ColorAttachmentOptimal, VkImageLayout.Undefined),
+                    ],
+                    ["ForwardPass", "DeferredCompositePass", "TransparentPass"],
+                    SMAAPass,
+                    (f) => Enabled
+                )
+            );
         }
 
         public void PrePresent()
         {
 
+        }
+
+        private void SMAAPass(RendererFrameInfo frameInfo)
+        {
+            EdgeDetectionPass(frameInfo);
+            BlendWeightCalculation(frameInfo);
+            OutputBlending(frameInfo);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -242,6 +239,7 @@ namespace VECS
             deferred.StartForwardRendering(frameInfo.CommandBuffer, VkAttachmentLoadOp.Clear,true);
 
             BlitBlendTarget.Bind(frameInfo);
+            Presenter.SetToCurrentCameraViewportScissor(frameInfo.CommandBuffer);
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
 
             deferred.EndForwardRendering(frameInfo);
@@ -252,6 +250,7 @@ namespace VECS
             ActiveRenderer.StartForwardRendering(frameInfo, VkAttachmentLoadOp.Clear);
 
             BlitEdgeTarget.Bind(frameInfo);
+            Presenter.SetToCurrentCameraViewportScissor(frameInfo.CommandBuffer);
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
 
             ActiveRenderer.EndForwardRendering(frameInfo);
@@ -260,37 +259,31 @@ namespace VECS
 
         private void OutputBlending(RendererFrameInfo frameInfo)
         {
-            if (!Enabled)
-            {
-                BlitPostProcessFromMainAttachment(frameInfo);
-            }
-            else
-            {
-                PostProcessingAttachment.BeginRenderingOnlyAttachment(frameInfo.CommandBuffer);
-                NeighbourhoodBlending.Bind(frameInfo);
-                GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
-                GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
-            }
-        }
-
-        private void BlitPostProcessFromMainAttachment(RendererFrameInfo frameInfo)
-        {
-            PostProcessingAttachment.Target.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.TransferDstOptimal);
-            ActiveRenderer.BlitFromMainColour(frameInfo.CommandBuffer, frameInfo.OutputRect, PostProcessingAttachment.VkImage, frameInfo.OutputRect, VkImageAspectFlags.Color);
+            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Output Blend");
+            BlendTarget.Target.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal);
+            PostProcessingAttachment.BeginRenderingOnlyAttachment(frameInfo.CommandBuffer);
+            NeighbourhoodBlending.Bind(frameInfo);
+            Presenter.SetToCurrentCameraViewportScissor(frameInfo.CommandBuffer);
+            GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
+            GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
+            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
         }
 
         private void BlendWeightCalculation(RendererFrameInfo frameInfo)
         {
-            if (!Enabled) return;
+            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Blend Weight Calculation");
+            EdgeTarget.Target.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal);
             BlendTarget.BeginRenderingOnlyAttachment(frameInfo.CommandBuffer);
             BlendWeightCalc.Bind(frameInfo);
+            Presenter.SetToCurrentCameraViewportScissor(frameInfo.CommandBuffer);
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
+            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
         }
 
         private void EdgeDetectionPass(RendererFrameInfo frameInfo)
         {
-            if (!Enabled) return;
+            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, "Edge Detection");
             SetScreenSize(frameInfo.OutputRect.extent.height, frameInfo.OutputRect.extent.width);
 
             ActiveRenderer.BlitFromMainColour(frameInfo.CommandBuffer, frameInfo.OutputRect, ColourSrc.VkImage, frameInfo.OutputRect, VkImageAspectFlags.Color);
@@ -298,8 +291,10 @@ namespace VECS
 
             EdgeTarget.BeginRenderingOnlyAttachment(frameInfo.CommandBuffer);
             EdgeDetection.Bind(frameInfo);
+            Presenter.SetToCurrentCameraViewportScissor(frameInfo.CommandBuffer);
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
+            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
         }
     }
 }

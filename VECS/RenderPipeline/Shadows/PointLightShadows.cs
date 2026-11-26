@@ -34,9 +34,23 @@ namespace VECS
                 _meshDepthOnlyAlphaClipping.PushConstants.SetPushConstantInt(Buffer_Select_PushConstantId, POINT_SHADOWS_PUSH_CONSTANT_INDEX, 1);
             }
 
-            RenderGraph.AddPass("PointLightShadows", PassType.Render, PassCategory.FixedMap, [], [], ["PointLightShadowAttachments"], PointLightPass);
+            RenderGraph.AddResource("PointLightShadowAttachments", new(_shadowDepthTextures, RenderTargetType.Depth, new(1, 0), -1));
+
+            RenderGraph.AddPass(new("PointLightShadows", PassType.Render, PassCategory.FixedMap, [new RenderPassAttachmentUsageInfo("PointLightShadowAttachments", VkImageLayout.DepthAttachmentOptimal, VkImageLayout.ShaderReadOnlyOptimal)], PointLightPass, PLUpdate));
 
             //new TetrahedronPointShadows();
+        }
+
+        private bool PLUpdate(RendererFrameInfo frameInfo)
+        {
+            if (ReassignTextures)
+            {
+                AssignShadowTextures(ShaderProperties.PLShadowImageId);
+            }
+
+            PreShadowPass(frameInfo);
+
+            return ClearShadow.Count > 0 || UpdateShadow.Count > 0;
         }
 
         public static void GetextureMatrices(Vector4 coord, float size, Span<Matrix4x4> textures)
@@ -125,21 +139,12 @@ namespace VECS
 
         private void PointLightPass(RendererFrameInfo frameInfo)
         {
-            if (ReassignTextures)
-            {
-                AssignShadowTextures(ShaderProperties.PLShadowImageId);
-            }
-
-            PreShadowPass(frameInfo);
-
             var hostBuffer = (SwapChainBuffer<PointLightUniform>)EngineBuffers.TryGetBuffer(ShaderProperties.PointLightsBufferId);
             GPUBufferExtensions.WriteFromHostDelayed(hostBuffer, Presenter.FrameIndex);
 
             while (ClearShadow.TryDequeue(out var shadowIndex))
             {
-                GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, $"Clear Shadow {shadowIndex}");
                 ClearImage(frameInfo, shadowIndex);
-                GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
             }
 
             while (UpdateShadow.TryDequeue(out var shadowIndex))
@@ -162,7 +167,7 @@ namespace VECS
                 false
             );
 
-            depthImage.SetImageLayout(VkImageLayout.DepthStencilAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.EarlyFragmentTests);
+            //depthImage.SetImageLayout(VkImageLayout.DepthAttachmentOptimal, VkPipelineStageFlags2.None, VkPipelineStageFlags2.EarlyFragmentTests);
 
             return depthImage;
         }
@@ -224,7 +229,6 @@ namespace VECS
 
             FillViewMatrix(EngineBuffers.TryGetBuffer(matsPropertyId), index, pointLight);
 
-            SetImageLayoutWrite(frameInfo.CommandBuffer, arrayTex);
             Matrix4x4 cubeProjectionMatrix = Matrix4x4.CreatePerspectiveFieldOfView(MathF.PI * 0.5f, 1.0f, 0.1f, pointLight.FarPlane);
 
 
@@ -269,7 +273,6 @@ namespace VECS
             }
 
 #endif
-            SetImageLayoutRead(frameInfo.CommandBuffer, arrayTex);
         }
 
         private unsafe void MeshShadingPass(VkCommandBuffer commandBuffer, int index, PointLightUniform pointLight, Matrix4x4 CubeProjectionMatrix, Texture2DArray arrayTex)

@@ -276,7 +276,7 @@ namespace VECS.UI
             ImGui.SetCurrentContext(_context);
             var io = ImGui.GetIO();
 
-            if(_outputWindow.WindowExtent.width != _outputTarget.Target.Width || _outputWindow.WindowExtent.height != _outputTarget.Target.Height)
+            if(_outputWindow.WindowExtent.width != _outputTarget.Target.First.Width || _outputWindow.WindowExtent.height != _outputTarget.Target.First.Height)
             {
                 io.DisplaySize = new(_outputWindow.WindowExtent.width, _outputWindow.WindowExtent.height);
                 _outputTarget.Resize((int)_outputWindow.WindowExtent.width, (int)_outputWindow.WindowExtent.height);
@@ -378,7 +378,7 @@ namespace VECS.UI
 
             _outputTarget.BeginRenderingOnlyAttachment(frameInfo.CommandBuffer);
 
-            GraphicsDevice.DeviceAPI.vkCmdSetScissor(frameInfo.CommandBuffer, 0, new VkRect2D(new VkOffset2D(0, 0), new VkExtent2D(_outputTarget.Target.Width, _outputTarget.Target.Height)));
+            GraphicsDevice.DeviceAPI.vkCmdSetScissor(frameInfo.CommandBuffer, 0, new VkRect2D(new VkOffset2D(0, 0), new VkExtent2D(_outputTarget.Target.First.Width, _outputTarget.Target.First.Height)));
             GraphicsDevice.DeviceAPI.vkCmdSetViewport(frameInfo.CommandBuffer, 0, 0, io.DisplaySize.X, io.DisplaySize.Y);
             GraphicsDevice.DeviceAPI.vkCmdBindVertexBuffers(frameInfo.CommandBuffer, 0, 1, &vertexBuffer, &offset);
             GraphicsDevice.DeviceAPI.vkCmdBindIndexBuffer(frameInfo.CommandBuffer, _indexBuffer[Presenter.FrameIndex].VkBuffer, 0, VkIndexType.Uint16);
@@ -425,11 +425,11 @@ namespace VECS.UI
 
         public unsafe void OverlayToActiveTarget(RendererFrameInfo frameInfo, RenderTarget renderTarget)
         {
-            _outputTarget.Target.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal);
+            _outputTarget.Target.First.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal);
 
             var targetLayout = renderTarget.CurrentLayout;
 
-            renderTarget.Target.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal);
+            renderTarget.Target.First.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.ColorAttachmentOptimal);
 
             VkRenderingAttachmentInfo colourAttachments = new()
             {
@@ -442,7 +442,7 @@ namespace VECS.UI
 
             VkRenderingInfo renderingInfo = new()
             {
-                renderArea = new(0, 0, (uint)renderTarget.Target.Width, (uint)renderTarget.Target.Height),
+                renderArea = new(0, 0, (uint)renderTarget.Target.First.Width, (uint)renderTarget.Target.First.Height),
                 layerCount = 1,
                 colorAttachmentCount = 1,
                 pColorAttachments = &colourAttachments,
@@ -450,15 +450,15 @@ namespace VECS.UI
             };
             GraphicsDevice.DeviceAPI.vkCmdBeginRendering(frameInfo.CommandBuffer, &renderingInfo);
             
-            GraphicsDevice.DeviceAPI.vkCmdSetViewport(frameInfo.CommandBuffer, 0, renderTarget.Target.Height, renderTarget.Target.Width, -renderTarget.Target.Height);
-            GraphicsDevice.DeviceAPI.vkCmdSetScissor(frameInfo.CommandBuffer, 0, new VkRect2D(new VkOffset2D(0, 0), new VkExtent2D(renderTarget.Target.Width, renderTarget.Target.Height)));
+            GraphicsDevice.DeviceAPI.vkCmdSetViewport(frameInfo.CommandBuffer, 0, renderTarget.Target.First.Height, renderTarget.Target.First.Width, -renderTarget.Target.First.Height);
+            GraphicsDevice.DeviceAPI.vkCmdSetScissor(frameInfo.CommandBuffer, 0, new VkRect2D(new VkOffset2D(0, 0), new VkExtent2D(renderTarget.Target.First.Width, renderTarget.Target.First.Height)));
 
             _blitVariant.BindCareful(frameInfo);
             GraphicsDevice.DeviceAPI.vkCmdDraw(frameInfo.CommandBuffer, 3, 1, 0, 0);
             GraphicsDevice.DeviceAPI.vkCmdEndRendering(frameInfo.CommandBuffer);
 
 
-            renderTarget.Target.SetImageLayoutAuto(frameInfo.CommandBuffer, targetLayout);
+            renderTarget.Target.First.SetImageLayoutAuto(frameInfo.CommandBuffer, targetLayout);
         }
 
         public void BlitToImage(VkCommandBuffer commandBuffer, VkImage dst, int dstWidth, int dstHeight, VkImageAspectFlags dstAspectMask)

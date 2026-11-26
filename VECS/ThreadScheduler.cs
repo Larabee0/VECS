@@ -17,7 +17,6 @@ namespace VECS.Threading
     /// </summary>
     public class ThreadScheduler : BepuUtilities.IThreadDispatcher, IDisposable
     {
-        
         public const int DEFAULT_WAIT_TIMEOUT = 60000; // 60000 Milieseconds == 60 seconds
 
         private class WorkUnit
@@ -197,13 +196,13 @@ namespace VECS.Threading
             public AutoResetEvent Signal;
         }
 
-        private int _threadCount;
+        private readonly int _threadCount;
 
-        private Worker[] _workers;
+        private readonly Worker[] _workers;
 
-        private AutoResetEvent _finished;
+        private readonly AutoResetEvent _finished;
 
-        private BufferPool[] _bufferPools;
+        private readonly BufferPool[] _bufferPools;
 #if DEBUG
         public HashSet<int> ThreadIds = [];
 #endif
@@ -230,7 +229,7 @@ namespace VECS.Threading
         //     Size of memory blocks to allocate for thread pools.
         public ThreadDispatcher(int threadCount, int threadPoolBlockAllocationSize = 16384)
         {
-            this._threadCount = threadCount;
+            _threadCount = threadCount;
             _workers = new Worker[threadCount - 1];
             for (int i = 0; i < _workers.Length; i++)
             {
@@ -297,11 +296,11 @@ namespace VECS.Threading
         {
             if (maximumWorkerCount > 1)
             {
-                this._workerBody = workerBody;
+                _workerBody = workerBody;
                 SignalThreads(maximumWorkerCount);
                 DispatchThread(0);
                 _finished.WaitOne();
-                this._workerBody = null;
+                _workerBody = null;
             }
             else if (maximumWorkerCount == 1)
             {
@@ -314,23 +313,23 @@ namespace VECS.Threading
         //     Waits for all pending work to complete and then disposes all workers.
         public void Dispose()
         {
-            if (!_disposed)
+            if (_disposed) return;
+            GC.SuppressFinalize(this);
+            _disposed = true;
+            SignalThreads(_threadCount);
+            for (int i = 0; i < _bufferPools.Length; i++)
             {
-                _disposed = true;
-                SignalThreads(_threadCount);
-                for (int i = 0; i < _bufferPools.Length; i++)
-                {
-                    _bufferPools[i].Clear();
-                }
-
-                Worker[] array = _workers;
-                for (int j = 0; j < array.Length; j++)
-                {
-                    Worker worker = array[j];
-                    worker.Thread.Join();
-                    worker.Signal.Dispose();
-                }
+                _bufferPools[i].Clear();
             }
+
+            Worker[] array = _workers;
+            for (int j = 0; j < array.Length; j++)
+            {
+                Worker worker = array[j];
+                worker.Thread.Join();
+                worker.Signal.Dispose();
+            }
+            GC.ReRegisterForFinalize(this);
         }
 
         public BufferPool GetThreadMemoryPool(int workerIndex)

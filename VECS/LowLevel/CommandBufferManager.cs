@@ -22,6 +22,7 @@ namespace VECS.LowLevel
 
     public class CommandBufferManager : IDisposable
     {
+        private const int INITIAL_ALLOCATION_COUNT = 1;
         private readonly int _ownerTheadId;
         public VkCommandPool CommandPool;
 
@@ -53,8 +54,8 @@ namespace VECS.LowLevel
             _secondaryCommandBuffers = new VkCommandBuffer[SwapChain.MAX_CONCURRENT_FRAMES][];
             for (int i = 0; i < SwapChain.MAX_CONCURRENT_FRAMES; i++)
             {
-                _primaryCommandBuffers[i] = new VkCommandBuffer[1];
-                _secondaryCommandBuffers[i] = new VkCommandBuffer[1];
+                _primaryCommandBuffers[i] = new VkCommandBuffer[INITIAL_ALLOCATION_COUNT];
+                _secondaryCommandBuffers[i] = new VkCommandBuffer[INITIAL_ALLOCATION_COUNT];
             }
             AllocateCommandBuffers();
         }
@@ -76,7 +77,7 @@ namespace VECS.LowLevel
                 {
                     fixed (VkCommandBuffer* pCommandBuffers = _secondaryCommandBuffers[i])
                     {
-                        GraphicsDevice.DeviceAPI.vkAllocateCommandBuffers(&allocation, pCommandBuffers);
+                        GraphicsDevice.DeviceAPI.vkAllocateCommandBuffers(&allocation, pCommandBuffers).CheckResult("Failed to allocate secondary command buffer");
                     }
                 }
                 allocation.commandBufferCount = (uint)_primaryCommandBuffers[i].Length;
@@ -85,7 +86,7 @@ namespace VECS.LowLevel
                 {
                     fixed (VkCommandBuffer* pCommandBuffers = _primaryCommandBuffers[i])
                     {
-                        GraphicsDevice.DeviceAPI.vkAllocateCommandBuffers(&allocation, pCommandBuffers);
+                        GraphicsDevice.DeviceAPI.vkAllocateCommandBuffers(&allocation, pCommandBuffers).CheckResult("Failed to allocate primary command buffer");
                     }
                 }
             }
@@ -97,7 +98,7 @@ namespace VECS.LowLevel
         {
             Array.Resize(ref target, target.Length + 1);
 
-            GraphicsDevice.DeviceAPI.vkAllocateCommandBuffer(CommandPool, commandLevel, out target[^1]);
+            GraphicsDevice.DeviceAPI.vkAllocateCommandBuffer(CommandPool, commandLevel, out target[^1]).CheckResult("Failed to allocate command buffer");
         }
 
         public SingleTimeCommandBuffer BeginSingleTime()

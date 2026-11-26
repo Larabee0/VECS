@@ -18,7 +18,7 @@ namespace VECS
         public const float CASCADE_SPLIT_LAMBDA = 0.95f;
 
         private readonly static bool MULTI_THREADED = true;
-        private readonly static bool ALLOW_SECONDARY_CMD_BUFFERS = true;
+        private readonly static bool ALLOW_SECONDARY_CMD_BUFFERS = false;
 
         public static readonly int matsPropertyId = ShaderProperties.DirShadowMatsId;
 
@@ -52,10 +52,13 @@ namespace VECS
                 _meshDepthOnlyAlphaClipping.PushConstants.SetPushConstantInt(Buffer_Select_PushConstantId, DIRECTIONAL_SHADOWS_PUSH_CONSTANT_INDEX, 1);
             }
 
-            RenderGraph.AddPass("DirectionalLightShadows", PassType.Render, PassCategory.PreRendering, [], [], ["DirectionalShadowAttachments"], ShadowPass);
+            RenderGraph.AddResource("DirectionalShadowAttachments", new(_shadowDepthTextures, RenderTargetType.Depth, new(1, 0), -1));
+
+            RenderGraph.AddPass(new("DirectionalLightShadows", PassType.Render, PassCategory.PreRendering, [new RenderPassAttachmentUsageInfo("DirectionalShadowAttachments", VkImageLayout.DepthAttachmentOptimal, VkImageLayout.ShaderReadOnlyOptimal)], ShadowPass, AnyShadows));
+
         }
 
-        private void ShadowPass(RendererFrameInfo frameInfo)
+        private bool AnyShadows(RendererFrameInfo frameInfo)
         {
             if (ReassignTextures)
             {
@@ -63,6 +66,11 @@ namespace VECS
             }
 
             PreShadowPass(frameInfo);
+            return true;
+        }
+
+        private void ShadowPass(RendererFrameInfo frameInfo)
+        {
             var hostBuffer = (SwapChainBuffer<DirectionalLightShadowUniform>)EngineBuffers.TryGetBuffer(ShaderProperties.DirectionalLightShadowBufferId);
             GPUBufferExtensions.WriteFromHostDelayed(hostBuffer, Presenter.FrameIndex);
 
@@ -243,7 +251,6 @@ namespace VECS
         public void DirectionalShadowPass(in RendererFrameInfo frameInfo, DirectionalLightShadowUniform dirUniform)
         {
             Texture2DArray arrayTex = (Texture2DArray)_shadowDepthTextures.First;
-            arrayTex.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.DepthAttachmentOptimal);
             var renderScale = Math.Max(1.0f, dirUniform.Scale.X);
 
             int cameraOffset = frameInfo.TargetCamera * MAX_CASCADE_COUNT;
@@ -311,8 +318,6 @@ namespace VECS
             {
                 SinglePass(0, cameraOffset, renderScale, frameInfo.CommandBuffer, arrayTex);
             }
-
-            arrayTex.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal);
         }
 
         private void MeshShadingPass(int cameraOffset, int cascadeCount, float renderScale, VkCommandBuffer commandBuffer, Texture2DArray arrayTex)

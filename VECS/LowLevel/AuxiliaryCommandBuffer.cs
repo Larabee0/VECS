@@ -8,8 +8,6 @@ namespace VECS.LowLevel
 {
     public static class AuxiliaryCommandBufferManager
     {
-
-        internal readonly static ConcurrentQueue<AuxiliaryCommandBuffer> _pendingCommandBuffers = new();
         internal readonly static ConcurrentQueue<AuxiliaryCommandBuffer> _submittedCommandBuffers = new();
 
         private readonly static List<AuxiliaryCommandBuffer> _activeAuxCMDs = [];
@@ -37,10 +35,11 @@ namespace VECS.LowLevel
 
             for (int i = _activeAuxCMDs.Count - 1; i >= 0; i--)
             {
-                if (!_activeAuxCMDs[i].CheckFinished()) continue;
-                var auxCmd = _activeAuxCMDs[i];
-                _activeAuxCMDs.RemoveAt(i);
-                _freeSemaphores.Enqueue(auxCmd._signalSemaphore);
+                if (_activeAuxCMDs[i].CheckFinished(out TimelineSemaphore signalSemaphore))
+                {
+                    _activeAuxCMDs.RemoveAt(i);
+                    _freeSemaphores.Enqueue(signalSemaphore);
+                }
             }
         }
 
@@ -75,7 +74,7 @@ namespace VECS.LowLevel
         public static void Submit()
         {
             _current.End();
-            _pendingCommandBuffers.Enqueue(_current);
+            _current.Submit();
             _current = null;
         }
     }
@@ -101,6 +100,7 @@ namespace VECS.LowLevel
         public VkCommandBuffer Record()
         {
             _commandBufferInfo = GraphicsDevice.BeginSingleTimeMainPipe();
+            GraphicsDevice.SetObjectName(VkObjectType.CommandBuffer, _commandBufferInfo.CommandBuffer.Handle, "Auxiliary Single Time");
             return  _commandBufferInfo.CommandBuffer;
         }
 
@@ -109,47 +109,33 @@ namespace VECS.LowLevel
             GraphicsDevice.DeviceAPI.vkEndCommandBuffer(_commandBufferInfo.CommandBuffer);
         }
 
-        public unsafe void Submit(TimelineSemaphore timelineSemaphore)
+        public void Submit()
         {
-            VkCommandBufferSubmitInfo commandBufferSubmitInfo = new()
+            var timelineSemaphore = AdvancedSubmission.MainTimelineSemaphore;
+            ulong currentValue = Presenter.SemaphoreValue;
+            ;
+            CommandBufferSubmitInfo submitInfo = CommandBufferSubmitInfo.WaitSignal(_commandBufferInfo.CommandBuffer, new()
             {
-                commandBuffer = _commandBufferInfo.CommandBuffer,
-            };
-            VkSemaphoreSubmitInfo* signalSemaphoreSubmitInfo = stackalloc VkSemaphoreSubmitInfo[]
+                semaphore = timelineSemaphore,
+                value = TimelineSemaphore.GetTimelineStageValue((ulong)TimelineGuide.StartQueue + 2, currentValue),
+                stageMask = VkPipelineStageFlags2.AllCommands
+            },
+            new()
             {
-                // wait
-                new()
-                {
-                    semaphore = timelineSemaphore.Semaphore,
-                    value = timelineSemaphore.GetTimelineStageValue((ulong)AdvancedSubmission.TimelineGuide.AuxiliaryDispatch),
-                    stageMask = VkPipelineStageFlags2.AllCommands
-                },
-                // signal
-                new()
-                {
-                    semaphore = _signalSemaphore.Semaphore,
-                    value = _completeValue = _signalSemaphore.SemaphoreValue + 1,
-                    stageMask = VkPipelineStageFlags2.AllGraphics
-                } 
-            };
-            VkSubmitInfo2 submitInfo = new()
-            {
-                commandBufferInfoCount = 1,
-                waitSemaphoreInfoCount = 1,
-                signalSemaphoreInfoCount = 1,
-                pCommandBufferInfos = &commandBufferSubmitInfo,
-                pWaitSemaphoreInfos = signalSemaphoreSubmitInfo,
-                pSignalSemaphoreInfos = signalSemaphoreSubmitInfo + 1,
-            };
+                semaphore = _signalSemaphore.Semaphore,
+                value = _signalSemaphore.SemaphoreValue = _completeValue = _signalSemaphore.SemaphoreValue + 1,
+                stageMask = VkPipelineStageFlags2.AllCommands
+            });
 
-            _signalSemaphore.SemaphoreValue = _completeValue;
-
-            GraphicsDevice.DeviceAPI.vkQueueSubmit2(GraphicsDevice.MainQueue, submitInfo, VkFence.Null);
+            AdvancedSubmission.EnqueueCommandBuffer(submitInfo,"Auxiliary Submit");
             _submitTime = Time.TimeSinceStartUpAsDouble;
+
+            AuxiliaryCommandBufferManager._submittedCommandBuffers.Enqueue(this);
         }
 
-        public bool CheckFinished()
+        public bool CheckFinished(out TimelineSemaphore signalSemaphore)
         {
+            signalSemaphore = _signalSemaphore;
             if (_signalSemaphore.CounterValue < _completeValue)
             {
                 _frameCount++;

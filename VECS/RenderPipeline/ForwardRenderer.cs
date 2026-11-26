@@ -135,13 +135,13 @@ namespace VECS
 
             MemoryBarrierHelper.ImageMemoryBarrier(commandBuffer,
                 DepthAttachment.VkImage,
-                DepthAttachment.Target.GetSubresourceRange(),
+                DepthAttachment.Target.First.GetSubresourceRange(),
                 VkPipelineStageFlags2.EarlyFragmentTests | VkPipelineStageFlags2.LateFragmentTests,
                 VkAccessFlags2.DepthStencilAttachmentRead | VkAccessFlags2.DepthStencilAttachmentWrite,
                 VkPipelineStageFlags2.EarlyFragmentTests | VkPipelineStageFlags2.LateFragmentTests,
                 VkAccessFlags2.DepthStencilAttachmentRead | VkAccessFlags2.DepthStencilAttachmentWrite,
-                VkImageLayout.DepthStencilAttachmentOptimal,
-                VkImageLayout.DepthStencilAttachmentOptimal,
+                VkImageLayout.DepthAttachmentOptimal,
+                VkImageLayout.DepthAttachmentOptimal,
                 graphicsFamily, graphicsFamily
             );
         }

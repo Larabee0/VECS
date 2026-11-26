@@ -25,7 +25,12 @@ namespace VECS.LowLevel
 
         public readonly ulong GetTimelineStageValue(ulong stage)
         {
-            return (SemaphoreValue * 1999u) + stage;
+            return GetTimelineStageValue(stage, SemaphoreValue);
+        }
+
+        public static ulong GetTimelineStageValue(ulong stage, ulong currentValue)
+        {
+            return (currentValue * (ulong)TimelineGuide.MAX) + stage;
         }
 
         public unsafe void Wait(ulong waitValue)
@@ -52,6 +57,25 @@ namespace VECS.LowLevel
         public unsafe void SignalTimelineFromHost(ulong stage)
         {
             ulong signalValue = GetTimelineStageValue(stage);
+            VkSemaphoreSignalInfo signalInfo = new()
+            {
+                semaphore = Semaphore,
+                value = signalValue
+            };
+            try
+            {
+                GraphicsDevice.DeviceAPI.vkSignalSemaphoreKHR(&signalInfo).CheckResult("Timeline Semaphore Deadlock detected!");
+            }
+            catch (Exception ex)
+            {
+                GraphicsDevice.GetDeviceFault();
+                throw new Exception("Unrecoverable device error", ex);
+            }
+        }
+
+        public unsafe void SignalTimelineFromHost(ulong stage, ulong value)
+        {
+            ulong signalValue = GetTimelineStageValue(stage,value);
             VkSemaphoreSignalInfo signalInfo = new()
             {
                 semaphore = Semaphore,

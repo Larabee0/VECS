@@ -241,21 +241,6 @@ namespace VECS
                 importer.Dispose();
             });
 
-            //AssimpContext importer = new();
-            //for(int i = 0; i<autoLoad.Count; i++)
-            //{
-            //    scenes[i] = importer.ImportFile(autoLoad[i], PostProcessSteps.JoinIdenticalVertices | PostProcessSteps.RemoveRedundantMaterials);
-            //}
-            //importer.Dispose();
-
-            // int meshCount = 0;
-            // 
-            // for (int i = 0; i < autoLoad.Count; i++)
-            // {
-            //     if (scenes[i] == null) continue;
-            //     meshCount += scenes[i].MeshCount;
-            // }
-
             Mesh[] meshes = new Mesh[meshCount];
             uint[] indexCounts = new uint[meshCount];
 

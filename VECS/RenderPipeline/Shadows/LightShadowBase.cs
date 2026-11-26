@@ -93,6 +93,7 @@ namespace VECS
         {
             if (_clearImages[textureIndex]) return;
 
+            GraphicsDevice.BeginLabelCmd(frameInfo.CommandBuffer, $"Clear Shadow {textureIndex}");
             _clearImages[textureIndex] = true;
 
             Texture texture = _shadowDepthTextures.GetTexture(textureIndex);
@@ -100,31 +101,10 @@ namespace VECS
             VkClearDepthStencilValue clearValue = new(1, 0);
             VkImageSubresourceRange subresourceRange = texture.GetSubresourceRange();
 
-            var existing = texture.ImageLayout;
             texture.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.TransferDstOptimal);
 
             GraphicsDevice.DeviceAPI.vkCmdClearDepthStencilImage(frameInfo.CommandBuffer, texture._vkImage, VkImageLayout.TransferDstOptimal, &clearValue, 1, &subresourceRange);
-
-            if (existing == VkImageLayout.ShaderReadOnlyOptimal)
-            {
-                texture.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.ShaderReadOnlyOptimal);
-            }
-            else
-            {
-                texture.SetImageLayoutAuto(frameInfo.CommandBuffer, VkImageLayout.DepthAttachmentOptimal);
-            }
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected static void SetImageLayoutRead(VkCommandBuffer commandBuffer, Texture texture)
-        {
-            texture.SetImageLayoutAuto(commandBuffer, VkImageLayout.DepthAttachmentStencilReadOnlyOptimal);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected static void SetImageLayoutWrite(VkCommandBuffer commandBuffer, Texture texture)
-        {
-            texture.SetImageLayoutAuto(commandBuffer, VkImageLayout.DepthStencilAttachmentOptimal);
+            GraphicsDevice.EndLabelCmd(frameInfo.CommandBuffer);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

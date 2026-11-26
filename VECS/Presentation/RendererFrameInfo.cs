@@ -62,6 +62,18 @@ namespace VECS
 
         }
 
+        public RendererFrameInfo(RendererFrameInfo frameInfo, VkCommandBuffer commandBuffer)
+        {
+            TargetCamera = frameInfo.TargetCamera;
+            DeltaTime = frameInfo.DeltaTime;
+
+            CommandBuffer = commandBuffer;
+            CullData = frameInfo.CullData;
+            LightingInfo = frameInfo.LightingInfo;
+            OutputRect = frameInfo.OutputRect;
+            DepthPyramidSize = frameInfo.DepthPyramidSize;
+        }
+
         public static bool operator ==(RendererFrameInfo left, RendererFrameInfo right)
         {
             return left.DeltaTime == right.DeltaTime;

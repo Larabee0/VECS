@@ -24,7 +24,7 @@ namespace VECS
             FOV = 45,
             ClipNear = 0.5f,
             ClipFar = 75f,
-            CullMode = CullModeFlags.Fustrum | CullModeFlags.Distance | CullModeFlags.Depth
+            CullMode = CullModeFlags.Fustrum | CullModeFlags.Distance// | CullModeFlags.Depth
         };
 
         internal static int Main(string[] args)

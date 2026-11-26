@@ -70,8 +70,10 @@ namespace VECS
 
         public IRenderer Renderer =>_renderer;
         public static int FrameIndex => Instance._isFrameStarted ? SwapChain.FrameIndex : 0;
-
         public static int NextFrameIndex => Instance._isFrameStarted ? SwapChain.NextFrame : 0;
+
+        public static ulong SemaphoreValue => Instance._isFrameStarted ? SwapChain.SemaphoreValue : 0;
+        public static ulong NextSemaphoreValue => Instance._isFrameStarted ? SwapChain.NextSemaphoreValue : 0;
 
         public static bool NewSwapChain { get; private set; }
 
@@ -104,16 +106,15 @@ namespace VECS
         {
             Instance = this;
             PipelineRecreation.Reset();
-            RenderGraph.AddResource(new(
-                "Display_0_Ouput_Tex",
-                VkFormat.R8G8B8A8Unorm,
-                0,
-                VkImageUsageFlags.Storage | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.TransferDst,
-                VkImageLayout.ShaderReadOnlyOptimal,
-                VkImageLayout.ColorAttachmentOptimal,
-                VkImageLayout.General,
-                VkImageLayout.General,
-                new(0, 0, 0, 1)));
+            RenderGraph.AddResource(new
+                (
+                    "Display_0_Ouput_Tex",
+                    VkFormat.R8G8B8A8Unorm,
+                    0,
+                    VkImageUsageFlags.Storage | VkImageUsageFlags.TransferSrc | VkImageUsageFlags.TransferDst,
+                    new(0, 0, 0, 1)
+                )
+            );
             RecreateSwapChain();
 
         }
@@ -177,7 +178,7 @@ namespace VECS
         private static void InteralSwapChainRecreate()
         {
             var display0Target = RenderGraph.GetResource("Display_0_Ouput_Tex");
-            _outputTextures[Display0Src] = display0Target.Target;
+            _outputTextures[Display0Src] = display0Target.Target.First;
 
         }
 
@@ -419,7 +420,7 @@ namespace VECS
                 // wait for workers to submit
 
                 _frameToWaitOn = SwapChain.NextFrame;
-                AdvancedSubmission.TriggerSubmit();
+                AdvancedSubmission.TriggerFrameFinished();
                 PipelineRecreation.PlaybackRecreation();
 
 
@@ -433,29 +434,55 @@ namespace VECS
             }
         }
 
-        private void GraphicsPipe(VkCommandBuffer commandBuffer, int imageIndex)
+        private void GraphicsPipe(int imageIndex)
         {
-            GraphicsDevice.BeginLabelCmd(commandBuffer, "Start Frame Buffer Fill Cmds");
-            GPUBufferExtensions.PlaybackFillBufferCmds(commandBuffer);
-            GraphicsDevice.EndLabelCmd(commandBuffer);
+            VkCommandBuffer mainCmdBuffer = GraphicsDevice.GetPrimaryCommandBuffer();
+            GraphicsDevice.SetObjectName(VkObjectType.CommandBuffer, mainCmdBuffer.Handle, "Early-Frame Cmd Buffer");
+            GraphicsDevice.BeginPrimaryCommandBuffer(mainCmdBuffer);
+            GraphicsDevice.BeginLabelCmd(mainCmdBuffer, "Start Frame Buffer Fill Cmds");
+            GPUBufferExtensions.PlaybackFillBufferCmds(mainCmdBuffer);
+            GraphicsDevice.EndLabelCmd(mainCmdBuffer);
 
-            GraphicsDevice.BeginLabelCmd(commandBuffer, "Start Frame Buffer Copy Cmds");
-            GPUBufferExtensions.PlaybackCopyBuffersCmds(commandBuffer);
-            GraphicsDevice.EndLabelCmd(commandBuffer);
+            GraphicsDevice.BeginLabelCmd(mainCmdBuffer, "Start Frame Buffer Copy Cmds");
+            GPUBufferExtensions.PlaybackCopyBuffersCmds(mainCmdBuffer);
+            GraphicsDevice.EndLabelCmd(mainCmdBuffer);
 
-            GraphicsDevice.BeginLabelCmd(commandBuffer, "Start Frame Image Copy Cmds");
-            TextureExtensions.PlaybackCopyCmds(commandBuffer);
-            GraphicsDevice.EndLabelCmd(commandBuffer);
+            GraphicsDevice.BeginLabelCmd(mainCmdBuffer, "Start Frame Image Copy Cmds");
+            TextureExtensions.PlaybackCopyCmds(mainCmdBuffer);
+            GraphicsDevice.EndLabelCmd(mainCmdBuffer);
 
-            GraphicsDevice.BeginLabelCmd(commandBuffer, "Start Frame Mip Map Generation");
-            TextureExtensions.PlaybackMipmapGenCmds(commandBuffer);
-            GraphicsDevice.EndLabelCmd(commandBuffer);
+            GraphicsDevice.BeginLabelCmd(mainCmdBuffer, "Start Frame Mip Map Generation");
+            TextureExtensions.PlaybackMipmapGenCmds(mainCmdBuffer);
+            GraphicsDevice.EndLabelCmd(mainCmdBuffer);
 
-            GraphicsDevice.BeginLabelCmd(commandBuffer, "Start Frame Image Layouts");
-            TextureExtensions.PlaybackSetLayoutCmds(commandBuffer);
-            GraphicsDevice.EndLabelCmd(commandBuffer);
+            GraphicsDevice.BeginLabelCmd(mainCmdBuffer, "Start Frame Image Layouts");
+            TextureExtensions.PlaybackSetLayoutCmds(mainCmdBuffer);
+            GraphicsDevice.EndLabelCmd(mainCmdBuffer);
+            GraphicsDevice.DeviceAPI.vkEndCommandBuffer(mainCmdBuffer);
+
+            CommandBufferSubmitInfo submitInfo = CommandBufferSubmitInfo.WaitSignal
+            (
+                mainCmdBuffer,
+                new()
+                {
+                    semaphore = AdvancedSubmission.MainTimelineSemaphore,
+                    value = TimelineSemaphore.GetTimelineStageValue((ulong)TimelineGuide.StartQueue, SemaphoreValue),
+                    stageMask = VkPipelineStageFlags2.AllCommands
+                },
+                new()
+                {
+                    semaphore = AdvancedSubmission.MainTimelineSemaphore,
+                    value = TimelineSemaphore.GetTimelineStageValue((ulong)TimelineGuide.StartQueue + 1, SemaphoreValue),
+                    stageMask = VkPipelineStageFlags2.AllCommands
+                }
+            );
+
+            AdvancedSubmission.EnqueueCommandBuffer(submitInfo, "Early-Frame Submit");
 
             //SwapChain.MainSwapChainData.SetImageLayout(commandBuffer, imageIndex, VkImageLayout.TransferDstOptimal);
+            mainCmdBuffer = GraphicsDevice.GetPrimaryCommandBuffer();
+            GraphicsDevice.SetObjectName(VkObjectType.CommandBuffer, mainCmdBuffer.Handle, "Main-Frame Cmd Buffer");
+            GraphicsDevice.BeginPrimaryCommandBuffer(mainCmdBuffer);
 
             PreGraphicsPipe?.Invoke(FrameIndex);
 
@@ -474,16 +501,17 @@ namespace VECS
             LightingInfo lightingInfo = GetDefaultWorldLighting(FrameIndex);
             UpdateCamerasDefaultWorld(FrameIndex);
             var mainCameraEntity = GetMainCamera(out int cameraCount, out Camera mainCamera);
-            RendererFrameInfo mainCameraFrameInfo = CreateRendererFrameInfoForCamera(deltaTime, mainCamera.CameraIndex, commandBuffer, mainCamera, lightingInfo);
+            RendererFrameInfo mainCameraFrameInfo = CreateRendererFrameInfoForCamera(deltaTime, mainCamera.CameraIndex, mainCmdBuffer, mainCamera, lightingInfo);
             
-            mainCameraFrameInfo = new(mainCameraFrameInfo, new(0, 0, Application.MainWindow.WindowExtent.width, Application.MainWindow.WindowExtent.height));
+            mainCameraFrameInfo = new(mainCameraFrameInfo, new VkRect2D(0, 0, Application.MainWindow.WindowExtent.width, Application.MainWindow.WindowExtent.height));
             
             RenderCallback?.Invoke(mainCameraFrameInfo);
-
-            GraphicsDevice.BeginLabelCmd(commandBuffer, "Render Graph Fixed Maps");
-            RenderGraph.Execute(mainCameraFrameInfo, PassCategory.FixedMap);
-            GraphicsDevice.EndLabelCmd(commandBuffer);
-
+            ulong semaphoreOffset = 1;
+            GraphicsDevice.BeginLabelCmd(mainCmdBuffer, "Render Graph Fixed Maps");
+            RenderGraph.Execute(mainCameraFrameInfo, semaphoreOffset, PassCategory.FixedMap);
+            ulong maxPassSemaphoreValue = RenderGraph.GetMaxPassRelativeSemaphoreValue();
+            semaphoreOffset += maxPassSemaphoreValue;
+            GraphicsDevice.EndLabelCmd(mainCmdBuffer);
             for (int i = 0; i < cameraCount; i++)
             {
                 if (i == mainCamera.CameraIndex)
@@ -497,47 +525,51 @@ namespace VECS
 
                     EngineBuffers.CameraDataBuffer.HostBuffer[secondaryCamera.CameraIndex].Width = CurrentCameraViewport.width;
                     EngineBuffers.CameraDataBuffer.HostBuffer[secondaryCamera.CameraIndex].Height = CurrentCameraViewport.height;
-                    RendererFrameInfo secondaryCameraFrameInfo = CreateRendererFrameInfoForCamera(deltaTime, secondaryCamera.CameraIndex, commandBuffer, secondaryCamera, lightingInfo);
+                    RendererFrameInfo secondaryCameraFrameInfo = CreateRendererFrameInfoForCamera(deltaTime, secondaryCamera.CameraIndex, mainCmdBuffer, secondaryCamera, lightingInfo);
                     secondaryCameraFrameInfo = new(secondaryCameraFrameInfo, CurrentCameraScissor);
 
-                    GraphicsDevice.BeginLabelCmd(commandBuffer, "Render Graph Secondary Camera");
-                    RenderGraph.Execute(secondaryCameraFrameInfo, PassCategory.SecondaryView);
-                    GraphicsDevice.EndLabelCmd(commandBuffer);
+                    RenderGraph.Execute(secondaryCameraFrameInfo, semaphoreOffset, PassCategory.SecondaryView);
 
-                    CopyFromRendererMainColourToOutputImage(commandBuffer);
+                    CopyFromRendererMainColourToOutputImage(mainCmdBuffer);
+
+                    semaphoreOffset += maxPassSemaphoreValue;
                 }
             }
 
-            GraphicsDevice.BeginLabelCmd(commandBuffer, "Pre-Main Camera Output MipMap Gen");
-            OutputMipmapGen(commandBuffer);
-            GraphicsDevice.EndLabelCmd(commandBuffer);
+            GraphicsDevice.BeginLabelCmd(mainCmdBuffer, "Pre-Main Camera Output MipMap Gen");
+            OutputMipmapGen(mainCmdBuffer);
+            GraphicsDevice.EndLabelCmd(mainCmdBuffer);
+            semaphoreOffset++;
 
             SetCameraViewPort(World.DefaultWorld.EntityManager, mainCameraEntity);
             EngineBuffers.CameraDataBuffer.HostBuffer[mainCamera.CameraIndex].Width = CurrentCameraViewport.width;
             EngineBuffers.CameraDataBuffer.HostBuffer[mainCamera.CameraIndex].Height = CurrentCameraViewport.height;
-            GraphicsDevice.BeginLabelCmd(commandBuffer, "Render Graph Main Camera");
-            RenderGraph.Execute(mainCameraFrameInfo, PassCategory.MainView);
-            CopyFromRendererPostProcessingToOutputImage(commandBuffer, Display0Src);
-
+            GraphicsDevice.BeginLabelCmd(mainCmdBuffer, "Render Graph Main Camera");
+            RenderGraph.Execute(mainCameraFrameInfo, semaphoreOffset, PassCategory.MainView);
+            CopyFromRendererPostProcessingToOutputImage(mainCmdBuffer, Display0Src);
+            GraphicsDevice.EndLabelCmd(mainCmdBuffer);
+            semaphoreOffset += maxPassSemaphoreValue;
+            
             // imgui Overlay
-            GraphicsDevice.BeginLabelCmd(commandBuffer, "IMGUI Pass");
-            _imgui.Draw(mainCameraFrameInfo);
-            GraphicsDevice.EndLabelCmd(commandBuffer);
+            GraphicsDevice.BeginLabelCmd(mainCmdBuffer, "IMGUI Pass");
+            var imguiFrameInfo = new RendererFrameInfo(mainCameraFrameInfo, mainCmdBuffer);
+            _imgui.Draw(imguiFrameInfo);
+            GraphicsDevice.EndLabelCmd(mainCmdBuffer);
 
-            GraphicsDevice.BeginLabelCmd(commandBuffer, "IMGUI Overlay");
-            _imgui.OverlayToActiveTarget(mainCameraFrameInfo, RenderGraph.GetResource("Display_0_Ouput_Tex"));
-            GraphicsDevice.EndLabelCmd(commandBuffer);
-            GraphicsDevice.EndLabelCmd(commandBuffer);
+            GraphicsDevice.BeginLabelCmd(mainCmdBuffer, "IMGUI Overlay");
+            _imgui.OverlayToActiveTarget(imguiFrameInfo, RenderGraph.GetResource("Display_0_Ouput_Tex"));
+            GraphicsDevice.EndLabelCmd(mainCmdBuffer);
 
-            GraphicsDevice.BeginLabelCmd(commandBuffer, "Post Main Camera Output MipMap Gen");
-            OutputMipmapGen(commandBuffer);
-            GraphicsDevice.EndLabelCmd(commandBuffer);
+            GraphicsDevice.BeginLabelCmd(mainCmdBuffer, "Post Main Camera Output MipMap Gen");
+            OutputMipmapGen(mainCmdBuffer);
+            GraphicsDevice.EndLabelCmd(mainCmdBuffer);
 
-            //CopyFromOutputToSwapChainFull(commandBuffer, Display0Src, 0, imageIndex);
             // output textures must be in transfer src for swapchain present.
-            GraphicsDevice.BeginLabelCmd(commandBuffer, "Set outputs transfer src");
-            _outputTextures[Display0Src].SetImageLayoutAuto(commandBuffer, VkImageLayout.TransferSrcOptimal);
-            GraphicsDevice.EndLabelCmd(commandBuffer);
+            GraphicsDevice.BeginLabelCmd(mainCmdBuffer, "Set outputs transfer src");
+            _outputTextures[Display0Src].SetImageLayoutAuto(mainCmdBuffer, VkImageLayout.TransferSrcOptimal);
+            GraphicsDevice.EndLabelCmd(mainCmdBuffer);
+            GraphicsDevice.DeviceAPI.vkEndCommandBuffer(mainCmdBuffer);
+            AdvancedSubmission.SubmitGraphicsQueue(mainCmdBuffer, SemaphoreValue, (ulong)TimelineGuide.StartQueue + 1, (ulong)TimelineGuide.SwapChainPrepare);
 
             // Play back Write Cmds generated during frame from CPU to GPU Buffers
             // this is an optimisation to avoid double writes
@@ -579,9 +611,6 @@ namespace VECS
             }
 
             _outputWrittenThisFrame[CurrentCameraOutput.TargetTexture] = true;
-            
-
-            image.SetImageLayoutAuto(commandBuffer, VkImageLayout.ShaderReadOnlyOptimal);
         }
 
         private void CopyFromRendererPostProcessingToOutputImage(VkCommandBuffer commandBuffer, int outputId)
